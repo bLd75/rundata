@@ -94,8 +94,10 @@ function vigilance(p: PlacePage, data: Cached<mf.Vigilance> | null | undefined, 
   };
 }
 
+const airOf = (p: PlacePage, data: Cached<AirAnswer> | null | undefined) => data?.value.communes?.find((x) => normalize(x.commune) === normalize(p.nom));
+
 function air(p: PlacePage, data: Cached<AirAnswer> | null | undefined): Live | undefined {
-  const c = data?.value.communes?.find((x) => normalize(x.commune) === normalize(p.nom));
+  const c = airOf(p, data);
   if (!c) return undefined;
   return { valeur: aq(c.niveau), detail: `indice ATMO du jour${c.polluants.length ? ` (${esc(c.polluants.join(", "))})` : ""}, d'Atmo Réunion` };
 }
@@ -159,13 +161,12 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const w = weather(l.place, now);
   const bus = buses(p, l.commune, now);
   const mairie = townHall(l.commune, now);
-  const a = air(p, l.air);
   const fiche = l.commune?.value.mairie?.fiche;
 
   const tiles: Tile[] = [
     { icon: "thermo", nom: "Météo", href: `/meteo/${p.slug}`, live: w },
     { icon: "alert", nom: "Vigilance", href: "/vigilance", live: vigilance(p, l.vigilance, now) },
-    { icon: "air", nom: "Air", href: "/air", live: a },
+    { icon: "air", nom: "Air", href: "/air", live: air(p, l.air) },
     ...(coastal(p) ? [{ icon: "wave", nom: "Mer", href: "/mer", live: sea(p, l.mer, l.place) }] : []),
     { icon: "bus", nom: "Bus", href: "/bus", ...bus, wide: true },
     {
@@ -192,7 +193,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const title = `${p.nom} 974 en direct : météo, bus, air, mairie`;
   const facts = [
     s && `${thin(s.mesures.temperature!)} à ${s.heure_mesure.split(" ")[1]}`,
-    l.air && a && `air ${a.valeur.replace(/<[^>]+>/g, "")}`,
+    airOf(p, l.air) && `air ${airOf(p, l.air)!.qualite}`,
     mairie && mairie.valeur !== "Horaires non publiés" && `mairie ${mairie.valeur.toLowerCase()}`,
   ].filter(Boolean);
   const description = fit(
