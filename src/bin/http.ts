@@ -1,6 +1,7 @@
 /**
  * Remote MCP endpoint on Node (see app.ts). The Cloudflare Worker (worker.ts) serves the same thing; this one is
- * for running it at home or in a container. PORT defaults to 8787.
+ * for running it at home or in a container. PORT defaults to 8787; HOST to 127.0.0.1, so it is not reachable from
+ * the network unless asked (HOST=0.0.0.0 in a container).
  */
 import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
 import "./net.js";
@@ -16,9 +17,19 @@ meteofrance.configure({
   token: process.env.METEOFRANCE_TOKEN,
 });
 
+// An MCP request is a few kilobytes of JSON.
+const MAX_BODY = 1024 * 1024;
+
+class TooLarge extends Error {}
+
 async function toRequest(req: IncomingMessage): Promise<Request> {
   const chunks: Buffer[] = [];
-  for await (const c of req) chunks.push(c as Buffer);
+  let size = 0;
+  for await (const c of req) {
+    size += (c as Buffer).length;
+    if (size > MAX_BODY) throw new TooLarge();
+    chunks.push(c as Buffer);
+  }
   const headers = new Headers();
   for (const [k, v] of Object.entries(req.headers)) if (typeof v === "string") headers.set(k, v);
   const body = chunks.length && req.method !== "GET" && req.method !== "HEAD" ? Buffer.concat(chunks) : undefined;
@@ -32,12 +43,17 @@ async function send(res: ServerResponse, r: Response) {
 }
 
 const port = Number(process.env.PORT ?? 8787);
+const host = process.env.HOST || "127.0.0.1";
 createHttpServer(async (req, res) => {
   try {
     await send(res, await handle(await toRequest(req), cache));
   } catch (err) {
+    if (err instanceof TooLarge) {
+      res.writeHead(413, { connection: "close" });
+      return res.end();
+    }
     console.error(err);
     if (!res.headersSent) res.writeHead(500);
     res.end();
   }
-}).listen(port, () => console.error(`reunion-temps-reel ${VERSION} on http://localhost:${port}/mcp`));
+}).listen(port, host, () => console.error(`reunion-temps-reel ${VERSION} on http://${host}:${port}/mcp`));

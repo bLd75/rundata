@@ -21,7 +21,7 @@ const STATIC = "public, max-age=604800";
 
 /** IndexNow (Bing, Yandex, Seznam, Naver): the key that proves rundata.re's submissions are ours. Public by design. */
 export const INDEXNOW_KEY = "9cb4a2d427093776313488cb4d39b24a";
-// Proves to the official MCP registry that rundata.re publishes re.rundata/* (private key: pass reunion-temps-reel/mcp-registry-key).
+// Proves to the official MCP registry that rundata.re publishes re.rundata/*: the public half of the key that signs its publications.
 const MCP_REGISTRY_AUTH = "v=MCPv1; k=ed25519; p=FTzDdb5aS1w9JIe6rHUyRBhGknTv/RhlS1oKdNz1+nE=";
 
 /**
