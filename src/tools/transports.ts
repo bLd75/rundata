@@ -83,10 +83,17 @@ export function nearStops(lon: number, lat: number, reseau?: string): { g: trans
   return (close.length ? close : all).slice(0, 3);
 }
 
-const hm = (s: number) => {
+const clock = (s: number) => {
   const t = ((s % 86400) + 86400) % 86400;
-  return `${s >= 86400 ? "demain " : ""}${Math.floor(t / 3600)}h${String(Math.floor((t % 3600) / 60)).padStart(2, "0")}`;
+  return `${Math.floor(t / 3600)}h${String(Math.floor((t % 3600) / 60)).padStart(2, "0")}`;
 };
+/** « 7h05 », or « demain 5h51 » for a departure after midnight. */
+const hm = (s: number) => `${s >= 86400 ? "demain " : ""}${clock(s)}`;
+/** « à 7h05 », « demain à 5h51 ». */
+const atTime = (s: number) => `${s >= 86400 ? "demain " : ""}à ${clock(s)}`;
+const minutes = (d: Departure) => Math.max(0, Math.round(d.in / 60));
+/** « dans 4 min », « dans 11 h 15 ». */
+const wait = (min: number) => (min < 90 ? `dans ${fr(min)} min` : `dans ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}`);
 
 /** Local day as YYYYMMDD and Monday-first weekday, `back` days before `now`. */
 function day(now: Date, back = 0) {
@@ -158,6 +165,9 @@ const lineName = (r: number) => {
   return { ligne: short || long, nom_ligne: short && long ? long : undefined, reseau: transit.NETWORKS[net]?.nom ?? net };
 };
 
+/** A departure as the tool and the page /bus give it. */
+export const departureRow = (d: Departure) => ({ heure: hm(d.at), dans_min: minutes(d), ...lineName(d.route), direction: d.headsign, arret: d.arret });
+
 export async function transports(asked: string, ligne: string | undefined, now = new Date()) {
   if (!transit.enabled()) {
     return { ...text({ erreur: "Les horaires de bus ne sont disponibles que sur le serveur en ligne (https://rundata.re/mcp)." }), isError: true };
@@ -195,13 +205,13 @@ export async function transports(asked: string, ligne: string | undefined, now =
   const where = stops.map((s) => `${s.nom} (${s.commune}, ${s.reseau})`).join(", ");
   const resume = shown.length
     ? `Prochains départs à ${where}, d'après les horaires publiés : ` +
-      shown.slice(0, 5).map((d) => `${lineName(d.route).ligne} vers ${d.headsign} à ${hm(d.at)} (dans ${fr(Math.max(0, Math.round(d.in / 60)))} min)`).join(" ; ") + "."
+      shown.slice(0, 5).map((d) => `${lineName(d.route).ligne} vers ${d.headsign} ${atTime(d.at)} (${wait(minutes(d))})`).join(" ; ") + "."
     : `Aucun départ prévu dans les prochaines heures à ${where}${ligne ? ` pour la ligne ${ligne}` : ""}, d'après les horaires publiés.`;
   return text({
     resume,
     arrets: stops,
     ...(near.length ? { note: `Arrêts les plus proches de « ${asked} » : préciser le nom de l'arrêt pour un résultat exact.` } : {}),
-    departs: shown.map((d) => ({ heure: hm(d.at), dans_min: Math.max(0, Math.round(d.in / 60)), ...lineName(d.route), direction: d.headsign, arret: d.arret })),
+    departs: shown.map(departureRow),
     horaires: "théoriques, publiés par chaque réseau : retards, suppressions et déviations ne sont pas pris en compte",
     reseaux: [...new Set(groups.map((g) => g.reseau))].map((n) => ({ nom: transit.NETWORKS[n].nom, exploitant: transit.NETWORKS[n].exploitant, horaires_valables_jusqu_au: transit.NETWORKS[n].valide_jusqu_au ?? undefined })),
     sources: credits([transit.SOURCE]),

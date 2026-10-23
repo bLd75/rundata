@@ -1,9 +1,26 @@
 /**
- * The web side of the server: the home page, one page per commune or place, the vigilance and the sea, and what
- * crawlers and link previews ask for (robots.txt, sitemap.xml, the og:image, the favicon). Null for any other path.
+ * The web side of the server: the home page, one page per commune or place, one per domain (vigilance, sea, volcano,
+ * air, electricity, buses, calendar), and what crawlers and link previews ask for (robots.txt, sitemap.xml, the
+ * og:image, the favicon). Null for any other path.
  */
-import type { Cache } from "../cache.js";
-import { alerte, alerteOf, buildHome, buildPlace, buildSea, snapshot, vigilanceNow, type Background } from "./data.js";
+import type { Cache, Cached } from "../cache.js";
+import {
+  alerte,
+  alerteOf,
+  buildAir,
+  buildBus,
+  buildCalendrier,
+  buildElectricite,
+  buildHome,
+  buildPlace,
+  buildSea,
+  buildVolcan,
+  snapshot,
+  vigilanceNow,
+  type Alerte,
+  type Background,
+} from "./data.js";
+import { airPage, busPage, calendrierPage, electricitePage, volcanPage } from "./domains.js";
 import { FAVICON } from "./flag.js";
 import font from "./font.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
@@ -45,8 +62,17 @@ const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)
 let ogBytes: Uint8Array<ArrayBuffer> | undefined;
 let fontBytes: Uint8Array<ArrayBuffer> | undefined;
 
+/** The domain pages: built from a tool's answer, kept like the other pages (web/data.ts). */
+const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) => Promise<any>; page: (origin: string, data: Cached<any> | null, now: Date, alerte?: Alerte) => string }> = {
+  "/volcan": { key: "web:volcan", build: buildVolcan, page: volcanPage },
+  "/air": { key: "web:air", build: buildAir, page: airPage },
+  "/electricite": { key: "web:electricite", build: buildElectricite, page: electricitePage },
+  "/calendrier": { key: "web:calendrier", build: buildCalendrier, page: calendrierPage },
+  "/bus": { key: "web:bus", build: (_cache, now) => buildBus(now), page: busPage },
+};
+
 function sitemap(origin: string): string {
-  const urls = ["/", "/vigilance", "/mer", ...PAGES.map((p) => `/meteo/${p.slug}`), "/confidentialite", "/conditions"];
+  const urls = ["/", "/vigilance", "/mer", ...Object.keys(DOMAINS), ...PAGES.map((p) => `/meteo/${p.slug}`), "/confidentialite", "/conditions"];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map((u) => `<url><loc>${origin}${u}</loc><changefreq>hourly</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
@@ -75,6 +101,14 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       alerte(cache, background, now),
     ]);
     return new Response(seaPage(origin, data, now, a), { headers: htmlFor(data) });
+  }
+  const domain = DOMAINS[path.replace(/(.)\/$/, "$1")];
+  if (domain) {
+    const [data, a] = await Promise.all([
+      snapshot(cache, domain.key, () => domain.build(cache, now), background, now, waitFor(request), isReader(request)),
+      alerte(cache, background, now),
+    ]);
+    return new Response(domain.page(origin, data, now, a), { headers: htmlFor(data) });
   }
   if (path === "/confidentialite" || path === "/conditions") {
     return new Response(legalPage(origin, path.slice(1) as "confidentialite" | "conditions"), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });

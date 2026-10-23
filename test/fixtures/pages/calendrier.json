@@ -1,0 +1,83 @@
+{
+ "resume": "Nous sommes le vendredi 23 octobre 2026 à La Réunion. Prochain jour férié : Toussaint, dimanche 1er novembre 2026 (dans 9 jours). Vacances scolaires en cours (Vacances après 1ère période) : reprise des cours le lundi 26 octobre 2026. À Saint-Denis, lever du soleil à 05:40, coucher à 18:24.",
+ "jours_feries": {
+  "aujourd_hui": null,
+  "prochains": [
+   {
+    "date": "dimanche 1er novembre 2026",
+    "nom": "Toussaint",
+    "dans_jours": 9
+   },
+   {
+    "date": "mercredi 11 novembre 2026",
+    "nom": "11 novembre",
+    "dans_jours": 19
+   },
+   {
+    "date": "dimanche 20 décembre 2026",
+    "nom": "Abolition de l'esclavage",
+    "dans_jours": 58
+   },
+   {
+    "date": "vendredi 25 décembre 2026",
+    "nom": "Jour de Noël",
+    "dans_jours": 63
+   }
+  ],
+  "note": "Le 20 décembre (abolition de l'esclavage, Fèt Kaf) est férié à La Réunion seulement."
+ },
+ "vacances_scolaires": {
+  "en_cours": {
+   "nom": "Vacances après 1ère période",
+   "debut": "samedi 10 octobre 2026",
+   "reprise_des_cours": "lundi 26 octobre 2026",
+   "annee_scolaire": "2026-2027"
+  },
+  "a_venir": [
+   {
+    "nom": "Vacances d'Été austral",
+    "debut": "samedi 19 décembre 2026",
+    "reprise_des_cours": "lundi 1er février 2027",
+    "annee_scolaire": "2026-2027"
+   },
+   {
+    "nom": "Vacances après 3ème période",
+    "debut": "mardi 16 mars 2027",
+    "reprise_des_cours": "mardi 30 mars 2027",
+    "annee_scolaire": "2026-2027"
+   },
+   {
+    "nom": "Vacances après 4ème période",
+    "debut": "mercredi 5 mai 2027",
+    "reprise_des_cours": "mercredi 19 mai 2027",
+    "annee_scolaire": "2026-2027"
+   },
+   {
+    "nom": "Vacances d'Hiver austral",
+    "debut": "samedi 3 juillet 2027",
+    "reprise_des_cours": "pas encore publiée",
+    "annee_scolaire": "2026-2027"
+   }
+  ],
+  "note": "Académie de La Réunion : le calendrier est austral (grandes vacances de décembre à janvier), différent de la métropole."
+ },
+ "soleil": {
+  "lieu": "Saint-Denis",
+  "lever": "05:40",
+  "coucher": "18:24",
+  "duree_du_jour": "12 h 44",
+  "note": "Calculé pour l'horizon dégagé ; dans les cirques et les ravines, le relief cache le soleil plus tôt."
+ },
+ "sources": [
+  {
+   "source": "Jours fériés à La Réunion",
+   "licence": "Licence Ouverte Etalab 2.0",
+   "attribution": "Etalab"
+  },
+  {
+   "source": "Calendrier scolaire de l'académie de La Réunion",
+   "licence": "Licence Ouverte Etalab 2.0",
+   "attribution": "Ministère de l'Éducation nationale"
+  }
+ ]
+}
