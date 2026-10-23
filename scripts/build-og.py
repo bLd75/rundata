@@ -37,7 +37,7 @@ def svg():
 </g>
 <g transform="translate(64 64) scale(4.2)"><rect x="-0.6" y="-0.6" width="61.2" height="41.2" rx="2" fill="#ffffff" opacity=".25"/>{FLAG}</g>
 <g font-family="DejaVu Sans" fill="#ffffff">
-  <text x="64" y="330" font-size="70" font-weight="bold">Météo Réunion</text>
+  <text x="64" y="330" font-size="70" font-weight="bold">La Réunion</text>
   <text x="64" y="420" font-size="78" font-weight="bold" fill="#4cc2b6">974 en direct</text>
   <text x="64" y="488" font-size="40" font-style="italic" font-weight="bold" fill="#ffd400">{slogan}</text>
   <text x="64" y="540" font-size="28" fill="#cfe3e0">Dans Claude, ChatGPT, Le Chat · connecteur MCP gratuit</text>

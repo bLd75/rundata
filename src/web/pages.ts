@@ -1,10 +1,10 @@
 /**
- * The HTML pages: the home page (the connector first, then the island right now) and one page per commune or famous
- * place. Rendered on the server, live values included, so that search engines and link previews see them. The only
- * scripts copy the connector address and filter the list of places; the rest is HTML and CSS.
+ * The HTML pages: the home page (what the connector knows, how to add it, then the weather right now) and one page
+ * per commune or famous place. Rendered on the server, live values included, so that search engines and link previews
+ * see them. The only scripts copy the connector address and filter the list of places; the rest is HTML and CSS.
  *
- * Searches are « météo réunion 974 », « météo cilaos 974 »: « 974 » sorts La Réunion from meetings, so titles and
- * headings carry it.
+ * The weather is one domain among others, but the one people search for: « météo réunion 974 », « météo cilaos 974 ».
+ * « 974 » sorts La Réunion from meetings, so titles and headings carry it.
  */
 import type { Cached } from "../cache.js";
 import { ageMinutes, ageText, localTime, versant } from "../geo.js";
@@ -18,12 +18,12 @@ import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 
-const SITE = "Météo Réunion 974";
+const SITE = "rundata.re";
 // The headings' typeface (scripts/build-font.py). Bump the number when the font changes: browsers keep it a year.
 export const FONT_PATH = "/font/titres-1.woff2";
-// The tagline, in Réunion Creole (« la météo locale en direct »); also on the og:image (scripts/build-og.py).
+// The tagline, in Réunion Creole (« l'île en direct »); also on the og:image (scripts/build-og.py).
 const SLOGAN = `<p class="slogan" lang="${brand.slogan_lang}">🇷🇪 ${esc(brand.slogan)}</p>`;
-const OG_ALT = "Drapeau de La Réunion (Lo Mahavéli) et carte de l'île : météo Réunion 974 en direct";
+const OG_ALT = "Drapeau de La Réunion (Lo Mahavéli) et carte de l'île : La Réunion 974 en direct, dans votre assistant IA";
 
 // Temperatures shown as white on a colour: every stop keeps a contrast of at least 5:1.
 const STOPS: [number, number[]][] = [
@@ -380,7 +380,7 @@ ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head
 <body>
 <header class="top"><div class="wrap">
   <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
-  <nav aria-label="Sections"><ul><li><a href="/#assistant">Brancher mon IA</a></li><li><a href="/#en-ce-moment">En direct</a></li><li><a href="/vigilance">Vigilance</a></li><li><a href="/mer">Mer</a></li><li><a href="/#communes">Communes</a></li></ul></nav>
+  <nav aria-label="Sections"><ul><li><a href="/#assistant">Brancher mon IA</a></li><li><a href="/#outils">Données</a></li><li><a href="/#en-ce-moment">Météo</a></li><li><a href="/vigilance">Vigilance</a></li><li><a href="/mer">Mer</a></li><li><a href="/#communes">Communes</a></li></ul></nav>
 </div></header>
 ${banner(head.alerte, head.path)}
 <div class="band">${band}</div>
@@ -398,7 +398,7 @@ ${body}
   <div>
     <h3>Sources</h3>
     <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Police des titres : Bricolage Grotesque (SIL OFL).</p>
-    <p>Ces mesures sont données telles quelles, sans garantie. Pour un cyclone ou de fortes pluies, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture.</p>
+    <p>Ces données sont fournies telles quelles, sans garantie. Pour un cyclone ou de fortes pluies, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture.</p>
   </div>
 </div></footer>
 <script>${SCRIPT}</script>
@@ -591,7 +591,7 @@ function assistant(origin: string, now: Date): string {
     <h2 id="h-assistant">Branché en 2 minutes, gratuit, sans compte</h2>
     <p>Le connecteur suit le protocole ouvert MCP (Model Context Protocol), compris par la plupart des assistants IA. Aucune donnée personnelle n'est collectée.</p></div>
   <div class="card easy">${askHome(origin, now)}</div>
-  <p class="or">Ou branchez le connecteur une fois pour toutes, pour que votre IA aille chercher les mesures toute seule :</p>
+  <p class="or">Ou branchez le connecteur une fois pour toutes, pour que votre IA aille chercher les données toute seule :</p>
   <ol class="steps">
     <li class="card step"><span class="num">1</span><h3>Copiez l'adresse</h3>${connector(origin, "mcp-url")}</li>
     <li class="card step"><span class="num">2</span><h3>Ajoutez-la à votre assistant</h3>
@@ -612,9 +612,18 @@ function assistant(origin: string, now: Date): string {
         <p class="tab t-local">Claude Desktop, Cursor, VS Code et autres logiciels compatibles MCP : collez l'adresse comme serveur distant (HTTP).</p>
       </div></li>
     <li class="card step"><span class="num">3</span><h3>Posez votre question</h3>
-      <ul class="qs"><li>Il fait quelle température à l'Hermitage ?</li><li>La mer est à combien à Saint-Leu ?</li>
-      <li>Il y a du vent à Saint-Pierre ?</li><li>Il va pleuvoir demain à Saint-Denis ?</li></ul></li>
+      <ul class="qs"><li>Le prochain bus à la gare de Saint-Pierre ?</li><li>Il fait quelle température à l'Hermitage ?</li>
+      <li>Le volcan est en éruption ?</li><li>La mairie de Saint-Paul est ouverte ?</li></ul></li>
   </ol>
+</section>`;
+}
+
+/** What the connector knows, one card per tool. */
+function tools(): string {
+  return `<section id="outils" aria-labelledby="h-outils">
+  <div class="sec-h"><p class="eyebrow">Ce que votre IA saura</p>
+    <h2 id="h-outils">Les données publiques de l'île, en un seul connecteur</h2>
+    <p>Météo, mer, volcan, électricité, air, services publics, bus, terrain : chaque réponse vient d'un organisme public ou d'un projet ouvert, avec son heure et sa source.</p></div>
   <ul class="tools" aria-label="Ce que votre assistant peut consulter">
     <li class="tool">${icon("thermo")}<h3>Mesures en direct</h3><p>Température, humidité, vent et pluie de la station la plus pertinente pour une commune, une plage, un cirque ou un sommet.</p><code>meteo_actuelle</code></li>
     <li class="tool">${icon("cloud")}<h3>Prévisions</h3><p>Heure par heure et jour par jour, toujours présentées comme une prévision, jamais comme une mesure.</p><code>prevision_meteo</code></li>
@@ -691,9 +700,9 @@ export function homePage(origin: string, data: Cached<HomeData> | null, now = ne
   const band = `<div class="wrap intro">
   <div class="pitch">
     <p class="pill">Gratuit · ChatGPT · Claude · Le Chat</p>
-    <h1>Météo Réunion <span class="n974">974</span> en direct, dans votre assistant IA</h1>
+    <h1>La Réunion <span class="n974">974</span> en direct, dans votre assistant IA</h1>
     ${SLOGAN}
-    <p class="lead">Quand vous demandez « il pleut à Salazie ? », votre IA va chercher <b>la vraie mesure des stations de l'île</b>, datée et sourcée, au lieu de répondre de mémoire.</p>
+    <p class="lead">Météo, bus, volcan, vigilance, air, services publics, terrain : quand vous demandez « il pleut à Salazie ? » ou « le prochain bus à Saint-Pierre ? », votre IA va chercher <b>la donnée publique du moment</b>, datée et sourcée, au lieu de répondre de mémoire.</p>
     ${askHome(origin, now)}
     <p class="or">Ou branchez le connecteur une fois pour toutes (<a href="#assistant">comment faire</a>) :</p>
     ${connector(origin, "mcp-url-top")}
@@ -701,10 +710,11 @@ export function homePage(origin: string, data: Cached<HomeData> | null, now = ne
   ${chatDemo(data, now)}
 </div>
 ${ticker(data)}`;
-  const body = `${assistant(origin, now)}
+  const body = `${tools()}
+${assistant(origin, now)}
 <section id="en-ce-moment" aria-labelledby="h-live">
-  <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-live">En ce moment à La Réunion</h2>
-  <p>Ce que votre assistant reçoit : les températures, la pluie et le vent mesurés par les stations de l'île, de Saint-Denis au Maïdo, de Cilaos à Saint-Pierre, et la température de la mer. Toutes les 6 minutes, datés et sourcés.</p></div>
+  <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-live">La météo en ce moment</h2>
+  <p>Un exemple de ce que votre assistant reçoit : les températures, la pluie et le vent mesurés par les stations de l'île, de Saint-Denis au Maïdo, de Cilaos à Saint-Pierre, et la température de la mer. Toutes les 6 minutes, datés et sourcés.</p></div>
   ${homeLive(data, now)}
 </section>
 <section id="communes" aria-labelledby="h-communes">
@@ -714,10 +724,10 @@ ${ticker(data)}`;
 </section>
 ${PRINCIPLES}`;
   return layout(origin, {
-    title: "Météo Réunion 974 en direct, dans votre assistant IA",
+    title: "La Réunion 974 en direct dans votre IA : météo, bus, volcan, air",
     description:
-      `🇷🇪 ${brand.slogan} : la météo Réunion 974 mesurée en direct, dans Claude, ChatGPT ou Le Chat avec un ` +
-      "connecteur MCP gratuit. Stations, pluie, vent, mer.",
+      `🇷🇪 ${brand.slogan} : météo, bus, volcan, vigilance, air, services publics de La Réunion 974, en direct dans ` +
+      "ChatGPT, Claude ou Le Chat. Gratuit, sans compte.",
     path: "/",
     jsonld,
     alerte,

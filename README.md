@@ -1,8 +1,8 @@
 # La Réunion en temps réel — serveur MCP
 
-Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (Claude, ChatGPT, Le Chat…) les **mesures réelles** faites en ce moment à La Réunion. Il répond à des questions comme « quel temps fait-il à Saint-Pierre ? » ou « la mer est à combien à l'Hermitage ? » avec des valeurs datées et sourcées. Pour « il va pleuvoir demain ? », un outil à part donne une prévision de modèle, toujours étiquetée comme telle et jamais mélangée aux mesures.
+Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (Claude, ChatGPT, Le Chat…) les **données publiques de La Réunion en ce moment** : météo mesurée aux stations, vigilance, mer, volcan, électricité, qualité de l'air, services publics, horaires de bus, terrain et risques. Il répond à des questions comme « quel temps fait-il à Saint-Pierre ? », « le prochain bus à la gare de Saint-Pierre ? » ou « le volcan est en éruption ? » avec des valeurs datées et sourcées. Une mesure n'est jamais mélangée à une prévision : pour « il va pleuvoir demain ? », un outil à part donne la prévision d'un modèle, toujours étiquetée comme telle.
 
-> *English: an MCP server giving AI assistants real-time **measured** data for Réunion Island (weather, sea temperature), with timestamps, station distance and microclimate warnings, plus a separate, clearly labelled forecast tool. See [English summary](#english).*
+> *English: an MCP server giving AI assistants the public data of Réunion Island right now (measured weather, warnings, sea, volcano, electricity, air quality, public offices, bus timetables, land and hazards), dated and sourced, with forecasts kept apart and clearly labelled. See [English summary](#english).*
 
 ## Outils
 
@@ -64,7 +64,7 @@ https://github.com/bLd75/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 ## Le site
 
 Les pages sont rendues par le serveur, mesures comprises, pour les moteurs de recherche et les aperçus de liens (`src/web/`) :
-- `/` : la météo de toute l'île en ce moment (carte, stations de la côte aux sommets, mer), les explications et le connecteur ;
+- `/` : ce que sait le connecteur et comment le brancher, puis la météo de toute l'île en ce moment (carte, stations de la côte aux sommets, mer) ;
 - `/vigilance` : la vigilance météo et l'alerte cyclonique, zone par zone ;
 - `/mer` : la température de l'eau au large des plages ;
 - `/meteo/<commune>` : les 24 communes et quelques lieux (volcan, Maïdo, Hell-Bourg…), avec la station la plus pertinente, la mer sur la côte et la prévision, étiquetée ;
@@ -72,7 +72,7 @@ Les pages sont rendues par le serveur, mesures comprises, pour les moteurs de re
 
 ## English
 
-Real-time **measured** data for Réunion Island (French overseas department 974, Indian Ocean):
+Public data for Réunion Island (French overseas department 974, Indian Ocean), live and sourced:
 
 - **Tools:**
   - `meteo_actuelle(lieu)`: current weather at the most representative station.

@@ -85,7 +85,7 @@ describe("home page", () => {
     const edge = new EdgeLike();
     const cold = await serve(isolate(edge), "/");
     expect(cold.r.headers.get("cache-control")).toBe("public, max-age=60");
-    expect(cold.text).toContain("Météo Réunion <span class=\"n974\">974</span> en direct, dans votre assistant IA");
+    expect(cold.text).toContain("La Réunion <span class=\"n974\">974</span> en direct, dans votre assistant IA");
     expect(cold.text).toMatch(/meteo_actuelle\(lieu: "[^"]+"\)<\/p>\s*<p class="bubble ai">\d+(,\d)?\u202f°C, mesurés à \d\d:\d\d/);
     expect(cold.text).toContain("Piton Maïdo");
     expect(cold.text).toMatch(/mesuré à \d\d:\d\d/);
