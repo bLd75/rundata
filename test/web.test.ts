@@ -159,9 +159,21 @@ describe("what crawlers and previews fetch", () => {
     const robots = await (await handle(new Request("https://rundata.re/robots.txt"), isolate())).text();
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 3);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 5);
+    expect(map).toContain("<loc>https://rundata.re/confidentialite</loc>");
     expect(map).toContain("<loc>https://rundata.re/vigilance</loc>");
     expect(map).toContain("<loc>https://rundata.re/meteo/cilaos</loc>");
+  });
+
+  it("serves the privacy policy and the terms, linked from every page's footer", async () => {
+    for (const path of ["/confidentialite", "/conditions"]) {
+      const r = await handle(new Request(`https://rundata.re${path}`), isolate());
+      expect(r.status).toBe(200);
+      const html = await r.text();
+      expect(html).toContain(`<link rel="canonical" href="https://rundata.re${path}">`);
+      expect(html).toContain('href="/confidentialite"');
+      expect(html).toContain("contact@rundata.re");
+    }
   });
 
   it("serves a 1200×630 PNG for link previews, and the flag as favicon", async () => {

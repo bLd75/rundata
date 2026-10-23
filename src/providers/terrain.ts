@@ -200,11 +200,24 @@ export interface Catnat {
 
 const iso = (d: string) => d.split("/").reverse().join("-");
 
+/**
+ * Géorisques restricts its API by country since its attacks of September 2026, and about one call in two from a
+ * Worker fails (HTTP 520 or a reset); the next one usually goes through. Answers are then cached for days.
+ */
+async function georisques<T>(url: string): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await getJson<T>(SOURCES.georisques.id, url, 15_000);
+    } catch (err) {
+      if (attempt >= 3) throw err;
+    }
+  }
+}
+
 /** Natural disaster decrees (CatNat) of a commune, one per event, newest first. */
 export async function catnat(cache: Cache, insee: string): Promise<Cached<Catnat[]>> {
   return cache.get(`catnat:${insee}`, 7 * DAY, async () => {
-    const r = await getJson<{ data: Record<string, string>[] }>(
-      SOURCES.georisques.id, `https://www.georisques.gouv.fr/api/v1/gaspar/catnat?code_insee=${insee}&page_size=200`, 20_000);
+    const r = await georisques<{ data: Record<string, string>[] }>(`https://www.georisques.gouv.fr/api/v1/gaspar/catnat?code_insee=${insee}&page_size=200`);
     const events = new Map<string, Catnat>();
     for (const d of r.data) {
       const id = `${d.code_national_catnat}:${d.date_debut_evt}`;
@@ -227,8 +240,7 @@ export interface Landslide {
 /** Landslides, rockfalls and the like recorded within `radiusM` (BDMvt). */
 export async function landslides(cache: Cache, lon: number, lat: number, radiusM = 500): Promise<Cached<Landslide[]>> {
   return cache.get(`mvt:${key(lon, lat)}:${radiusM}`, 7 * DAY, async () => {
-    const r = await getJson<{ data: Record<string, string | number | null>[] }>(
-      SOURCES.georisques.id, `https://www.georisques.gouv.fr/api/v1/mvt?latlon=${lon},${lat}&rayon=${radiusM}&page_size=100`, 20_000);
+    const r = await georisques<{ data: Record<string, string | number | null>[] }>(`https://www.georisques.gouv.fr/api/v1/mvt?latlon=${lon},${lat}&rayon=${radiusM}&page_size=100`);
     return r.data.map((d) => ({
       type: String(d.type),
       date: d.date_debut ? String(d.date_debut) : undefined,

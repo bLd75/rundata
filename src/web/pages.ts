@@ -391,12 +391,12 @@ ${body}
     <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
     ${SLOGAN}
     <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
-    <p>reunion-temps-reel ${VERSION} · <a href="https://github.com/bLd75/rundata">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes.</p>
+    <p>reunion-temps-reel ${VERSION} · <a href="https://github.com/bLd75/rundata">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises.</p>
   </div>
   <div>
     <h3>Sources</h3>
-    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Police des titres : Bricolage Grotesque (SIL OFL).</p>
+    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Police des titres : Bricolage Grotesque (SIL OFL).</p>
     <p>Ces mesures sont données telles quelles, sans garantie. Pour un cyclone ou de fortes pluies, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture.</p>
   </div>
 </div></footer>
@@ -1130,4 +1130,47 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
   ${connector(origin, "mcp-url")}
 </section>`;
   return layout(origin, { title, description, path: "/mer", jsonld, alerte }, band, body);
+}
+
+const PROSE = `max-width:44rem;display:grid;gap:1rem`;
+
+/** The privacy policy and the terms (with the legal notice): what is kept, what is promised. */
+export function legalPage(origin: string, kind: "confidentialite" | "conditions"): string {
+  const privacy = kind === "confidentialite";
+  const title = privacy ? "Confidentialité" : "Conditions d'utilisation et mentions légales";
+  const body = privacy
+    ? `<section style="${PROSE}">
+  <h2>En bref</h2>
+  <p>rundata.re ne demande ni compte, ni nom, ni adresse électronique. Le site ne pose aucun cookie et ne contient aucun traceur publicitaire. Rien n'est vendu ni partagé à des fins commerciales.</p>
+  <h2>Ce que le site compte</h2>
+  <p>Pour savoir quelles pages et quels outils servent, chaque page vue et chaque question reçue par le connecteur ajoutent une ligne anonyme aux statistiques : la page ou l'outil, le lieu demandé quand c'en est un (une commune, une plage…), le pays déduit par Cloudflare, le site d'où vient le visiteur et son type (un navigateur, ou le nom du robot d'un assistant ou d'un moteur de recherche). Ni adresse IP, ni identifiant, ni cookie. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée. Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
+  <h2>Journaux techniques</h2>
+  <p>Comme tout hébergeur, Cloudflare garde quelques jours les journaux du service (adresse demandée, erreurs, durée). Une copie sans aucune adresse IP est conservée un an au plus, pour comprendre les pannes. Le contenu des questions n'y figure pas.</p>
+  <h2>Quand votre assistant pose une question</h2>
+  <p>Votre assistant (ChatGPT, Claude, Le Chat…) n'envoie au connecteur que les paramètres de l'outil, par exemple « Saint-Paul » ou une adresse, jamais votre conversation. Pour répondre, rundata.re transmet ce paramètre aux services publics qui détiennent la donnée : par exemple, une adresse est envoyée au géocodeur de l'IGN, puis le point trouvé au cadastre, au Géoportail de l'urbanisme, à Géorisques et à l'API DVF du Cerema. Ce que fait votre assistant de la conversation relève de sa propre politique de confidentialité.</p>
+  <h2>Vos droits</h2>
+  <p>Aucune donnée ne permet de vous identifier, il n'y a donc rien à consulter ni à effacer à votre nom. Pour toute question : <b>contact@rundata.re</b>. Vous pouvez aussi saisir la <a href="https://www.cnil.fr/fr/plaintes">CNIL</a>.</p>
+  <p style="color:var(--muted)">Mise à jour : 23 octobre 2026.</p>
+</section>`
+    : `<section style="${PROSE}">
+  <h2>Le service</h2>
+  <p>rundata.re est un service gratuit et non commercial : un site et un connecteur MCP (<code>${esc(origin)}/mcp</code>) qui réunissent les données publiques de La Réunion pour les personnes et leurs assistants IA. Il n'y a ni compte ni abonnement. Son code est libre, sous licence MIT, sur <a href="https://github.com/bLd75/rundata">GitHub</a>.</p>
+  <h2>Pas un service officiel, pas de garantie</h2>
+  <p>Les données viennent d'organismes publics et de projets ouverts, cités dans chaque réponse. Elles sont données telles quelles, sans garantie d'exactitude, de fraîcheur ni de disponibilité. Pour un cyclone, de fortes pluies, une crue ou une éruption, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture. La fiche d'une adresse n'a aucune valeur juridique : le cadastre est un document fiscal, et l'état des risques obligatoire pour une vente ou une location reste à établir.</p>
+  <h2>Usage raisonnable</h2>
+  <p>Le service est fait pour répondre à des questions. Ne l'interrogez pas en masse de façon automatique : il peut limiter ou bloquer un usage qui gêne les autres ou les services publics qu'il interroge.</p>
+  <h2>Réutiliser les données</h2>
+  <p>Chaque donnée garde la licence de sa source : Licence Ouverte Etalab 2.0 pour la plupart, ODbL pour OpenStreetMap, CC BY 4.0 pour Open-Meteo et les séismes de l'IPGP. L'outil <code>sources_donnees</code> les liste avec l'attribution à citer.</p>
+  <h2>Mentions légales</h2>
+  <p>Éditeur : un particulier, joignable à <b>contact@rundata.re</b>. Hébergeur : Cloudflare, Inc., 101 Townsend Street, San Francisco, CA 94107, États-Unis. Le site est soumis au droit français.</p>
+  <p style="color:var(--muted)">Mise à jour : 23 octobre 2026.</p>
+</section>`;
+  return layout(origin, {
+    title: `${title} · rundata.re`,
+    description: privacy
+      ? "Ce que rundata.re garde, et ce qu'il ne garde pas : aucun compte, aucun cookie, des statistiques anonymes."
+      : "Conditions d'utilisation de rundata.re, service gratuit de données publiques de La Réunion, et mentions légales.",
+    path: `/${kind}`,
+    jsonld: [],
+  }, `<div class="wrap intro"><div class="pitch"><h1>${title}</h1></div></div>`, body);
 }
