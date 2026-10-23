@@ -56,8 +56,9 @@ export function findStops(asked: string): { groups: transit.StopGroup[]; near: {
       return [...g.words].filter((x) => !FILLER.has(x) && !town.has(x) && !words.some((w) => x === w || (w.length >= 4 && x.startsWith(w)))).length;
     };
     const scored = pool
-      .map((g) => ({ g, n: words.filter((w) => matches(g, w)).length, extra: extra(g) }))
-      .filter((s) => s.n >= Math.max(1, Math.ceil(words.length / 2)));
+      .map((g) => ({ g, n: words.filter((w) => matches(g, w)).length }))
+      .filter((s) => s.n >= Math.max(1, Math.ceil(words.length / 2)))
+      .map((s) => ({ ...s, extra: extra(s.g) }));
     if (scored.length) {
       const best = Math.max(...scored.map((s) => s.n));
       const top = scored.filter((s) => s.n === best).sort((a, b) => a.extra - b.extra);
