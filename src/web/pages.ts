@@ -18,7 +18,7 @@ import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 
-const SITE = "rundata.re";
+export const SITE = "rundata.re";
 // The headings' typeface (scripts/build-font.py). Bump the number when the font changes: browsers keep it a year.
 export const FONT_PATH = "/font/titres-1.woff2";
 // The tagline, in Réunion Creole (« l'île en direct »); also on the og:image (scripts/build-og.py).
@@ -42,7 +42,7 @@ export function chip(t: number): string {
   return `#${c0.map((c, j) => Math.round(c + (c1[j] - c) * k).toString(16).padStart(2, "0")).join("")}`;
 }
 
-const hm = (iso: string | Date) => localTime(new Date(iso)).split(" ")[1];
+export const hm = (iso: string | Date) => localTime(new Date(iso)).split(" ")[1];
 
 const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-meteo-de-la-reunion-en-direct-pour-vous-et-votre-assistant-ia";
 
@@ -71,7 +71,7 @@ const ICON: Record<string, string> = {
   map: `<path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3Z"/><path d="M9 4v13M15 7v13"/>`,
   bus: `<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v3M16 18v3"/><path d="M8 14.5h.01M16 14.5h.01"/>`,
 };
-const icon = (name: string) =>
+export const icon = (name: string) =>
   `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[name]}</svg>`;
 
 const CSS = `
@@ -79,7 +79,7 @@ const CSS = `
 :root{--bg:#f6f2ea;--surface:#fff;--surface-2:#fbf8f2;--ink:#14202b;--muted:#5a6672;--line:#e6dece;--link:#1d4ea6;
 --accent:#1d4ea6;--accent-ink:#fff;--sun:#ffcf1f;--sun-ink:#1a1500;--lave:#c0321f;--night:#0b1f36;--night-2:#15406b;
 --on-night:#f1f5f9;--on-night-muted:#b4c6d8;--sea:#d5e5eb;--land:#f0e8d6;--coast:#8aaab2;--border:#d8cbad;--hl:#ffe08a;
---warn-bg:#fdeee8;--vg0:#7d8a94;--vg1:#2b8a46;--vg2:#ffd400;--vg3:#f08a00;--vg4:#c8231a;--vg5:#6b2fa8;--shadow:0 1px 2px rgb(20 32 43/.05),0 10px 30px -8px rgb(20 32 43/.12);color-scheme:light}
+--warn-bg:#fdeee8;--vg0:#7d8a94;--vg1:#2b8a46;--vg2:#ffd400;--vg3:#f08a00;--vg4:#c8231a;--vg5:#6b2fa8;--aq0:#7d8a94;--aq1:#50f0e6;--aq2:#50ccaa;--aq3:#f0e641;--aq4:#ff5050;--aq5:#960032;--aq6:#872181;--ren:#2b8a46;--shadow:0 1px 2px rgb(20 32 43/.05),0 10px 30px -8px rgb(20 32 43/.12);color-scheme:light}
 @media (prefers-color-scheme:dark){:root{--bg:#08121d;--surface:#0f1d2c;--surface-2:#0c1926;--ink:#e7eef5;--muted:#9fb1c3;
 --line:#1f3247;--link:#8fb4ff;--accent:#7fa8ff;--accent-ink:#081428;--sun:#ffd84d;--lave:#ff8a6b;--night:#050f1a;
 --night-2:#0f2c4b;--sea:#0d2236;--land:#1a2a36;--coast:#3b6170;--border:#2d4152;--hl:#4a3f17;--warn-bg:#2a1712;
@@ -310,6 +310,28 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .suivi p{max-width:65ch}
 .seas a{color:#fff;font-size:.85rem}
 .big.span{font-size:clamp(2.6rem,7vw,4.2rem)}
+.aq{display:inline-block;font-weight:700;font-size:.9rem;border-radius:8px;padding:.1rem .6rem;background:var(--aq0);color:#fff}
+.aq1{background:var(--aq1);color:#06302d}.aq2{background:var(--aq2);color:#06302d}.aq3{background:var(--aq3);color:#2a2600}
+.aq4{background:var(--aq4);color:#2a0606}.aq5{background:var(--aq5);color:#fff}.aq6{background:var(--aq6);color:#fff}
+.plain{list-style:none;padding:0;display:grid;gap:.45rem}
+.levels{display:grid;gap:1rem}
+.cols{display:block;columns:3 13rem;column-gap:1.5rem}
+.cols li{break-inside:avoid;margin-bottom:.45rem}
+.rows{list-style:none;padding:0;display:grid}
+.rows li{display:grid;grid-template-columns:3.4rem minmax(0,1fr) auto;gap:.6rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--line)}
+.rows li:first-child{border-top:0}
+.rows b{font:800 1.05rem Bricolage,system-ui,sans-serif;overflow-wrap:anywhere}
+.bars{list-style:none;padding:0;display:grid;gap:.7rem}
+.bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.2rem .6rem;font-size:.92rem}
+.band .bars li{color:var(--on-night)}
+.bars i{grid-column:1/-1;display:block;height:.55rem;border-radius:1rem;background:var(--vg0)}
+.bars i.ren{background:var(--ren)}
+.band .mapcard .note{color:var(--on-night-muted)}
+.posts{list-style:none;padding:0;display:grid;gap:1rem}
+@media (min-width:58rem){.posts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.posts p{overflow-wrap:anywhere}
+.warn ul{padding:0}
+.pages{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.3rem .9rem}
 footer.foot{background:var(--night);color:var(--on-night-muted);font-size:.9rem;padding-block:2.5rem 3rem}
 footer.foot .wrap{display:grid;gap:1.5rem}
 @media (min-width:58rem){footer.foot .wrap{grid-template-columns:1fr 1.6fr}}
@@ -345,7 +367,7 @@ document.querySelectorAll(".askbox>[data-l]").forEach((d)=>{d.hidden=d.dataset.l
 try{const l=localStorage.getItem("askl");if(l)askl(l)}catch{}
 document.querySelectorAll("[data-askl]").forEach((b)=>b.addEventListener("click",()=>{askl(b.dataset.askl);try{localStorage.setItem("askl",b.dataset.askl)}catch{}}));`;
 
-function layout(origin: string, head: Head, band: string, body: string): string {
+export function layout(origin: string, head: Head, band: string, body: string): string {
   const url = `${origin}${head.path}`;
   const d = esc(head.description);
   return `<!doctype html>
@@ -394,6 +416,7 @@ ${body}
     <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
     <p>reunion-temps-reel ${VERSION} · <a href="https://github.com/bLd75/rundata">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises.</p>
+    <ul class="pages" aria-label="Pages"><li><a href="/#communes">Météo par commune</a></li><li><a href="/vigilance">Vigilance</a></li><li><a href="/mer">Mer</a></li><li><a href="/volcan">Volcan</a></li><li><a href="/air">Air</a></li><li><a href="/electricite">Électricité</a></li><li><a href="/bus">Bus</a></li><li><a href="/calendrier">Calendrier</a></li></ul>
   </div>
   <div>
     <h3>Sources</h3>
@@ -406,7 +429,7 @@ ${body}
 </html>`;
 }
 
-function credits(list: Credit[]): string {
+export function credits(list: Credit[]): string {
   const seen = new Set<string>();
   return list
     .filter((c) => !seen.has(c.source) && seen.add(c.source))
@@ -462,7 +485,7 @@ const FLAG_FR = `<svg viewBox="0 0 3 2" aria-hidden="true"><path fill="#002654" 
  * holds for every box and is remembered.
  * The links' parameters are not documented by either service.
  */
-function ask(kreol: string, francais: string): string {
+export function ask(kreol: string, francais: string): string {
   const a = (href: string, name: string) => `<a href="${href}" target="_blank" rel="noopener">${name} ${EXTERNAL}</a>`;
   const block = (l: string, title: string, question: string, hidden: boolean) => {
     const q = encodeURIComponent(question);
@@ -483,7 +506,7 @@ function ask(kreol: string, francais: string): string {
  * keep their own copy of a page they have read: a new address makes them read it again rather than answer from
  * a copy taken minutes or hours earlier.
  */
-function fresh(url: string, now: Date): string {
+export function fresh(url: string, now: Date): string {
   const t = new Date(now.getTime() + 4 * 3600_000); // UTC+4, no summer time
   return `${url}?maj=${t.getUTCHours()}h${String(t.getUTCMinutes()).padStart(2, "0")}`;
 }
@@ -628,13 +651,13 @@ function tools(): string {
     <li class="tool">${icon("thermo")}<h3>Mesures en direct</h3><p>Température, humidité, vent et pluie de la station la plus pertinente pour une commune, une plage, un cirque ou un sommet.</p><code>meteo_actuelle</code></li>
     <li class="tool">${icon("cloud")}<h3>Prévisions</h3><p>Heure par heure et jour par jour, toujours présentées comme une prévision, jamais comme une mesure.</p><code>prevision_meteo</code></li>
     <li class="tool">${icon("alert")}<h3>Vigilance et cyclones</h3><p>La vigilance de Météo-France zone par zone et l'alerte cyclonique, signalées d'office dès qu'elles dépassent le vert. <a href="/vigilance">En ce moment</a></p><code>vigilance_meteo</code></li>
-    <li class="tool">${icon("wave")}<h3>Température de la mer</h3><p>Mesurée par satellite au large de chaque plage, avec la date de la mesure.</p><code>temperature_mer</code></li>
-    <li class="tool">${icon("volcano")}<h3>Volcan et séismes</h3><p>Éruption en cours ou non, accès à l'Enclos, derniers séismes localisés par l'observatoire du Piton de la Fournaise.</p><code>volcan_seismes</code></li>
-    <li class="tool">${icon("bolt")}<h3>Électricité</h3><p>D'où vient l'électricité de l'île en ce moment, la part renouvelable et les heures où le réseau est chargé.</p><code>electricite</code></li>
-    <li class="tool">${icon("air")}<h3>Qualité de l'air</h3><p>L'indice ATMO du jour et du lendemain dans chaque commune, avec le polluant en cause.</p><code>qualite_air</code></li>
+    <li class="tool">${icon("wave")}<h3>Température de la mer</h3><p>Mesurée par satellite au large de chaque plage, avec la date de la mesure. <a href="/mer">Plage par plage</a></p><code>temperature_mer</code></li>
+    <li class="tool">${icon("volcano")}<h3>Volcan et séismes</h3><p>Éruption en cours ou non, accès à l'Enclos, derniers séismes localisés par l'observatoire du Piton de la Fournaise. <a href="/volcan">En ce moment</a></p><code>volcan_seismes</code></li>
+    <li class="tool">${icon("bolt")}<h3>Électricité</h3><p>D'où vient l'électricité de l'île en ce moment, la part renouvelable et les heures où le réseau est chargé. <a href="/electricite">En ce moment</a></p><code>electricite</code></li>
+    <li class="tool">${icon("air")}<h3>Qualité de l'air</h3><p>L'indice ATMO du jour et du lendemain dans chaque commune, avec le polluant en cause. <a href="/air">Aujourd'hui</a></p><code>qualite_air</code></li>
     <li class="tool">${icon("building")}<h3>Services publics</h3><p>Adresse, horaires, ouvert ou fermé en ce moment, téléphone : mairies, CAF, préfecture, impôts…</p><code>annuaire_services_publics</code></li>
-    <li class="tool">${icon("calendar")}<h3>Calendrier</h3><p>Vacances scolaires de l'académie, jours fériés (dont le 20 décembre), lever et coucher du soleil.</p><code>calendrier</code></li>
-    <li class="tool">${icon("bus")}<h3>Bus</h3><p>Prochains départs à un arrêt, d'après les horaires de Car Jaune, Citalis, Kar'Ouest, Alternéo, CarSud, Estival et du téléphérique Papang.</p><code>transports</code></li>
+    <li class="tool">${icon("calendar")}<h3>Calendrier</h3><p>Vacances scolaires de l'académie, jours fériés (dont le 20 décembre), lever et coucher du soleil. <a href="/calendrier">Voir</a></p><code>calendrier</code></li>
+    <li class="tool">${icon("bus")}<h3>Bus</h3><p>Prochains départs à un arrêt, d'après les horaires de Car Jaune, Citalis, Kar'Ouest, Alternéo, CarSud, Estival et du téléphérique Papang. <a href="/bus">Les gares</a></p><code>transports</code></li>
     <li class="tool">${icon("map")}<h3>Terrain et risques</h3><p>À une adresse : parcelle, zone du PLU, prix de vente autour, plan de prévention des risques, catastrophes naturelles, mouvements de terrain.</p><code>fiche_terrain</code></li>
     <li class="tool">${icon("book")}<h3>Sources</h3><p>D'où vient chaque donnée, sa fraîcheur et sa licence : l'assistant peut toujours le dire.</p><code>sources_donnees</code></li>
   </ul>
@@ -650,7 +673,7 @@ const PRINCIPLES = `<section aria-labelledby="h-lire">
   </div>
 </section>`;
 
-const ISLAND = {
+export const ISLAND = {
   "@type": "Place",
   name: "La Réunion (974)",
   geo: { "@type": "GeoShape", box: "-21.41 55.19 -20.85 55.86" },

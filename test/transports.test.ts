@@ -91,7 +91,7 @@ describe("transports", () => {
     const r = body(await transports("Hell-Bourg", undefined, new Date("2026-10-23T14:30:00Z")));
     expect(r.departs[0].heure).toBe("demain 5h51");
     expect(r.departs[0].dans_min).toBeGreaterThan(11 * 60);
-    expect(r.resume).toContain("à demain 5h51");
+    expect(r.resume).toMatch(/vers GARE SAINT ANDRE demain à 5h51 \(dans 11 h \d\d\)/);
   });
 
   it("says when it cannot answer outside the Worker", async () => {

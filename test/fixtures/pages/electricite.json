@@ -1,0 +1,97 @@
+{
+ "resume": "Production d'électricité à 18:35 (il y a 6 min) : 406 MW, dont 42,6 % renouvelable. Principales filières : moteurs diesel et fioul 35,2 %, bioénergies (bagasse, biomasse, biogaz) 22,5 %, charbon 21 %, hydraulique 19 %. Météo de l'électricité EDF en ce moment : heures de pointe. Moments à éviter pour les gros usages (recharge de véhicule, chauffe-eau, clim) : vendredi 23/10 de 18h à 22h (heures de pointe) ; lundi 26/10 de 18h à 22h (heures de pointe) ; mardi 27/10 de 18h à 22h (heures de pointe) ; mercredi 28/10 de 18h à 22h (heures de pointe).",
+ "production": {
+  "heure": "23/10 18:35 heure de La Réunion",
+  "age_min": 6,
+  "total_mw": 405.6,
+  "parts": [
+   {
+    "filiere": "moteurs diesel et fioul",
+    "mw": 142.9,
+    "part_pct": 35.2,
+    "renouvelable": false
+   },
+   {
+    "filiere": "bioénergies (bagasse, biomasse, biogaz)",
+    "mw": 91.4,
+    "part_pct": 22.5,
+    "renouvelable": true
+   },
+   {
+    "filiere": "charbon",
+    "mw": 85.1,
+    "part_pct": 21,
+    "renouvelable": false
+   },
+   {
+    "filiere": "hydraulique",
+    "mw": 77,
+    "part_pct": 19,
+    "renouvelable": true
+   },
+   {
+    "filiere": "stockage (batteries)",
+    "mw": 4.9,
+    "part_pct": 1.2,
+    "renouvelable": false
+   },
+   {
+    "filiere": "solaire photovoltaïque",
+    "mw": 3.8,
+    "part_pct": 0.9,
+    "renouvelable": true
+   },
+   {
+    "filiere": "éolien",
+    "mw": 0.8,
+    "part_pct": 0.2,
+    "renouvelable": true
+   }
+  ],
+  "renouvelable_pct": 42.6,
+  "statut": "estimé (télémesures, consolidé chaque mois)"
+ },
+ "meteo_electricite": {
+  "maintenant": {
+   "signal": "Heures de pointe",
+   "couleur": "Bleu",
+   "recharge_conseillee_pct": 50
+  },
+  "periodes_de_tension": [
+   {
+    "quand": "vendredi 23/10 de 18h à 22h",
+    "signal": "heures de pointe",
+    "recharge_conseillee_pct": 50
+   },
+   {
+    "quand": "lundi 26/10 de 18h à 22h",
+    "signal": "heures de pointe",
+    "recharge_conseillee_pct": 50
+   },
+   {
+    "quand": "mardi 27/10 de 18h à 22h",
+    "signal": "heures de pointe",
+    "recharge_conseillee_pct": 50
+   },
+   {
+    "quand": "mercredi 28/10 de 18h à 22h",
+    "signal": "heures de pointe",
+    "recharge_conseillee_pct": 50
+   }
+  ],
+  "jusqu_au": "28/10",
+  "cyclone_en_cours": false,
+  "explication": "Signal horaire d'EDF : « optimal » = réseau à l'aise ; « heures de pointe » (souvent 18h-21h) ; « contraint » et « très contraint » = réseau tendu, décaler les gros usages. La recharge conseillée est la part de la puissance de recharge d'un véhicule électrique."
+ },
+ "avertissements": [
+  "La Réunion n'est pas reliée au réseau européen : toute l'électricité est produite sur l'île, d'où les périodes de tension.",
+  "Les bioénergies incluent la bagasse des sucreries (en campagne sucrière, de juillet à décembre) ; la part renouvelable est celle publiée par filière."
+ ],
+ "sources": [
+  {
+   "source": "Production d'électricité et météo de l'électricité à La Réunion (EDF SEI)",
+   "licence": "Licence Ouverte Etalab 2.0",
+   "attribution": "EDF SEI Réunion"
+  }
+ ]
+}

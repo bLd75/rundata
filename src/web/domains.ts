@@ -1,0 +1,378 @@
+/**
+ * One page per domain of the connector besides the weather: the volcano, the air, the electricity, the calendar and
+ * the buses. Each shows what the tool of the same name answers right now, so that people, search engines and the
+ * assistants reading a page see it, and points to the connector for the rest.
+ */
+import type { Cached } from "../cache.js";
+import { normalize } from "../places/resolve.js";
+import { de, fr } from "../tools/format.js";
+import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, VolcanAnswer } from "./data.js";
+import island from "../places/island.json" with { type: "json" };
+import { esc, islandMap } from "./map.js";
+import { ask, credits, DESCRIPTION_MAX, fresh, hm, icon, ISLAND, layout, SITE } from "./pages.js";
+
+const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
+
+/** `full` when it fits in what search engines show, else `short`. */
+const describe = (full: string, short: string) => (full.length <= DESCRIPTION_MAX ? full : short);
+
+function crumbs(origin: string, name: string, path: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: SITE, item: `${origin}/` },
+      { "@type": "ListItem", position: 2, name, item: `${origin}${path}` },
+    ],
+  };
+}
+
+function webPage(origin: string, path: string, title: string, description: string, data: Cached<unknown> | null) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: title,
+    description,
+    inLanguage: "fr-FR",
+    url: `${origin}${path}`,
+    ...(data ? { dateModified: data.fetchedAt.toISOString() } : {}),
+    about: ISLAND,
+  };
+}
+
+const crumbBar = (label: string) =>
+  `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li aria-current="page">${esc(label)}</li></ol></nav></div>`;
+
+/** What to say while the data of a page is not there yet. */
+const loading = (what: string) => `<p class="lead">${esc(what)} se charge : rechargez la page dans quelques secondes.</p>`;
+
+const sourcesNote = (list: { source: string; licence: string; attribution: string }[], data: Cached<unknown>) =>
+  `<p class="note">Sources : ${credits(list)}. Mis à jour à ${hm(data.fetchedAt)}.</p>`;
+
+const warnings = (list: string[]) =>
+  list.length ? `<div class="card warn">${icon("alert")}<h3>À savoir</h3><ul class="plain">${list.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : "";
+
+/** The connector, at the end of every domain page. */
+const connectorCta = (tool: string, what: string) => `<section aria-labelledby="h-ia">
+  <div class="card cta"><h2 id="h-ia">Votre IA, branchée sur ${esc(what)}</h2>
+  <p>Avec le connecteur, votre assistant lit lui-même ces données (outil <code>${esc(tool)}</code>), et toutes les autres de l'île : météo, mer, volcan, air, électricité, bus, services publics, terrain. Gratuit, sans compte. <a href="/#assistant">Comment le brancher</a>.</p></div>
+</section>`;
+
+// ---------------------------------------------------------------- volcan
+
+const ACCESS: Record<string, string> = { ouvert: "ouvert", partiel: "partiellement ouvert", ferme: "fermé", fermé: "fermé" };
+const md = (m: number | null) => (m == null ? "—" : fr(Math.round(m * 10) / 10));
+const dayOf = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Indian/Reunion" });
+
+export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const e = d?.etat;
+  const q = d?.seismes;
+  const url = fresh(`${origin}/volcan`, now);
+
+  const status = !d
+    ? loading("L'état du volcan")
+    : `<div class="status">` +
+      (e
+        ? `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours"}</p>` +
+          `<p class="lead">Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>.` +
+          (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b>.` : "") +
+          (e.deformation ? ` Déformation du volcan : ${esc(e.deformation)}.` : "") + `</p>` +
+          (e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "")
+        : `<p class="lead">${esc(d.resume)}</p>`) +
+      (q ? `<p class="lead">Séismes sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
+      `</div>`;
+
+  const enclos = e?.acces_enclos
+    ? `<div class="card">${icon("mountain")}<h3>Accès à l'Enclos : ${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</h3>` +
+      (e.acces_enclos.detail ? `<p>${esc(e.acces_enclos.detail)}</p>` : "") +
+      (e.acces_enclos.source ? `<p class="note">${e.acces_enclos.lien ? `<a href="${esc(e.acces_enclos.lien)}">${esc(e.acces_enclos.source)}</a>` : esc(e.acces_enclos.source)}</p>` : "") +
+      `</div>`
+    : "";
+
+  const quakes = q
+    ? `<div class="card">${icon("gauge")}<h3>Séismes localisés par l'observatoire</h3>` +
+      `<p class="facts"><span>Sous le volcan : <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
+      `<span>Ailleurs sur l'île : <b>${q.ailleurs_sur_l_ile["30_jours"]}</b>, magnitude max ${md(q.ailleurs_sur_l_ile.magnitude_max_30j)}</span></p>` +
+      (q.derniers.length
+        ? `<ul class="rows">${q.derniers.map((s) => `<li><b>${esc(md(s.magnitude))}</b><span>${esc(s.lieu)}, ${esc(fr(Math.max(0, s.profondeur_km)))} km de profondeur</span><span class="note">${esc(s.heure.replace(" heure de La Réunion", ""))}</span></li>`).join("")}</ul>`
+        : "") +
+      `<p class="note">${esc(q.note)}</p></div>`
+    : "";
+
+  const posts = d?.publications_ovpf?.length
+    ? `<section aria-labelledby="h-ovpf"><div class="sec-h"><p class="eyebrow">L'observatoire</p><h2 id="h-ovpf">Ce que publie l'OVPF</h2>
+  <p>Les derniers messages de l'Observatoire volcanologique du Piton de la Fournaise (IPGP), repris tels quels.</p></div>
+  <ul class="posts">${d.publications_ovpf.slice(0, 4).map((p) => `<li class="card"><p class="note">${esc(p.date)}</p><p>${esc(p.texte)}</p>${p.lien ? `<p><a href="${esc(p.lien)}">Lire le message →</a></p>` : ""}</li>`).join("")}</ul></section>`
+    : "";
+
+  const title = "Piton de la Fournaise en direct : éruption, Enclos, séismes · 974";
+  const description = d && e
+    ? describe(
+        `🇷🇪 Piton de la Fournaise (La Réunion, 974) : ${e.eruption_en_cours ? "éruption en cours" : "pas d'éruption en cours"}, niveau ORSEC ${e.niveau_orsec}` +
+          `${e.acces_enclos ? `, Enclos ${ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut}` : ""}` +
+          `${q ? `, ${q.sous_le_volcan["7_jours"]} séismes sous le volcan en 7 jours` : ""}.`,
+        "🇷🇪 Piton de la Fournaise (La Réunion, 974) en direct : éruption ou non, accès à l'Enclos, derniers séismes de l'OVPF.",
+      )
+    : "🇷🇪 Piton de la Fournaise (La Réunion, 974) en direct : éruption ou non, accès à l'Enclos, derniers séismes de l'OVPF.";
+
+  const band = `${crumbBar("Volcan")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Volcan en direct</p>
+    <h1>Piton de la Fournaise <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Lo volkan lé an érupsion astèr ? Rogard si ${url} é di amwin si lanklo lé ouvèr.`,
+      `Le Piton de la Fournaise est-il en éruption ? Lis ${url} et dis-moi aussi si l'Enclos est ouvert.`)}
+  </div>
+  <figure class="card mapcard">${islandMap({ pin: FOURNAISE, label: "Carte de La Réunion (974) avec le Piton de la Fournaise" })}</figure>
+</div>`;
+
+  const body = `<section aria-labelledby="h-volcan">
+  <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-volcan">L'Enclos et les séismes</h2></div>
+  ${d ? `<div class="two">${enclos}${quakes}</div>${warnings(d.avertissements)}${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">Les données du volcan se chargent : rechargez la page dans quelques secondes.</p>`}
+</section>
+${posts}
+${connectorCta("volcan_seismes", "le volcan")}`;
+
+  return layout(origin, { title, description, path: "/volcan", jsonld: [crumbs(origin, "Volcan", "/volcan"), webPage(origin, "/volcan", title, description, data)], alerte }, band, body);
+}
+
+// ---------------------------------------------------------------- air
+
+const AQ_NAMES = ["", "bon", "moyen", "dégradé", "mauvais", "très mauvais", "extrêmement mauvais"];
+const aq = (n: number) => `<span class="aq aq${n >= 1 && n <= 6 ? n : 0}">${esc(AQ_NAMES[n] ?? "inconnu")}</span>`;
+// The map's commune names (« L'Étang-Salé ») by their spelling in the ATMO index (« L'Etang-Salé »).
+const MAP_NAME = new Map(island.paths.map((p: { nom: string }) => [normalize(p.nom), p.nom]));
+
+export function airPage(origin: string, data: Cached<AirAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const list = [...(d?.communes ?? [])].sort((a, b) => b.niveau - a.niveau || a.commune.localeCompare(b.commune, "fr"));
+  const worst = list[0]?.niveau;
+  const best = list.length ? list[list.length - 1].niveau : undefined;
+  const url = fresh(`${origin}/air`, now);
+
+  const fills: Record<string, string> = {};
+  for (const c of list) {
+    const name = MAP_NAME.get(normalize(c.commune));
+    if (name && c.niveau >= 1 && c.niveau <= 6) fills[name] = `var(--aq${c.niveau})`;
+  }
+
+  const status = !d
+    ? loading("L'indice de la qualité de l'air")
+    : worst != null
+      ? `<div class="status"><p class="big">${esc(AQ_NAMES[worst] ?? "")}${best != null && best !== worst ? ` à ${esc(AQ_NAMES[best] ?? "")}` : ""}</p>` +
+        `<p class="lead">${esc(d.resume)}</p><p class="note" style="color:var(--on-night-muted)">${esc(d.nature)}.</p></div>`
+      : `<p class="lead">${esc(d.resume)}</p>`;
+
+  const byLevel = [6, 5, 4, 3, 2, 1]
+    .map((n) => ({ n, l: list.filter((c) => c.niveau === n) }))
+    .filter((x) => x.l.length)
+    .map((x) => `<div class="card"><h3>${aq(x.n)} ${x.l.length} commune${x.l.length > 1 ? "s" : ""}</h3><ul class="plain cols">` +
+      x.l.map((c) => `<li>${esc(c.commune)}${c.polluants.length ? ` <span class="note">(${esc(c.polluants.join(", "))})</span>` : ""}</li>`).join("") + `</ul></div>`)
+    .join("");
+
+  const scale = `<ul class="scale">${[1, 2, 3, 4, 5, 6].map((n) => `<li>${aq(n)}<p>Indice ${n} sur 6.</p></li>`).join("")}</ul>`;
+
+  const title = "Qualité de l'air à La Réunion 974 aujourd'hui, commune par commune";
+  const description = d && worst != null
+    ? describe(`🇷🇪 Qualité de l'air à La Réunion (974) aujourd'hui, indice ATMO d'Atmo Réunion : ${d.resume.replace(/^Qualité de l'air aujourd'hui à La Réunion : /, "")}`,
+        "🇷🇪 Qualité de l'air à La Réunion (974) aujourd'hui : l'indice ATMO d'Atmo Réunion dans chaque commune, avec le polluant en cause.")
+    : "🇷🇪 Qualité de l'air à La Réunion (974) aujourd'hui : l'indice ATMO d'Atmo Réunion dans chaque commune, avec le polluant en cause.";
+
+  const band = `${crumbBar("Qualité de l'air")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Indice du jour</p>
+    <h1>Qualité de l'air <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Lèr lé bon La Rényon zordi ? Rogard si ${url} é di amwin pou mon komine.`,
+      `L'air est-il bon aujourd'hui à La Réunion ? Lis ${url} et dis-moi la qualité de l'air dans ma commune.`)}
+  </div>
+  <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) colorée par l'indice de qualité de l'air de chaque commune" })}
+  <figcaption class="note" style="color:var(--on-night-muted)">Couleur de l'indice ATMO du jour dans chaque commune.</figcaption></figure>
+</div>`;
+
+  const body = `<section aria-labelledby="h-communes-air">
+  <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-communes-air">L'indice dans les 24 communes</h2>
+  <p>L'indice ATMO va de 1 (bon) à 6 (extrêmement mauvais). Il est donné par le pire des polluants mesurés et prévus (ozone, dioxyde d'azote, dioxyde de soufre, particules).</p></div>
+  ${d ? `<div class="levels">${byLevel}</div>${warnings(d.avertissements)}${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">L'indice se charge : rechargez la page dans quelques secondes.</p>`}
+</section>
+<section aria-labelledby="h-echelle-air">
+  <div class="sec-h"><p class="eyebrow">Bon à savoir</p><h2 id="h-echelle-air">L'échelle de l'indice</h2></div>
+  <div class="card">${scale}<p class="note">Pendant une éruption, le panache peut dégrader l'air dans le sud et l'ouest de l'île : suivez les consignes de l'ARS et de la préfecture.</p></div>
+</section>
+${connectorCta("qualite_air", "l'air de l'île")}`;
+
+  return layout(origin, { title, description, path: "/air", jsonld: [crumbs(origin, "Qualité de l'air", "/air"), webPage(origin, "/air", title, description, data)], alerte }, band, body);
+}
+
+// ---------------------------------------------------------------- électricité
+
+export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const p = d?.production;
+  const m = d?.meteo_electricite;
+  const url = fresh(`${origin}/electricite`, now);
+
+  const status = !d
+    ? loading("La production d'électricité")
+    : p
+      ? `<div class="now"><span class="big">${fr(Math.round(p.renouvelable_pct))} %</span><p>de l'électricité de l'île vient en ce moment de sources <b>renouvelables</b>, sur <b>${esc(fr(Math.round(p.total_mw)))} MW</b> produits (${esc(p.heure.replace(" heure de La Réunion", ""))}).</p></div>` +
+        (m?.maintenant ? `<p class="lead">Signal d'EDF en ce moment : <b>${esc(m.maintenant.signal.toLowerCase())}</b>.</p>` : "")
+      : `<p class="lead">${esc(d.resume)}</p>`;
+
+  const bars = p
+    ? `<ul class="bars">${p.parts.map((x) => `<li><span>${esc(x.filiere)}</span><b>${esc(fr(x.part_pct))} %</b><i class="${x.renouvelable ? "ren" : ""}" style="width:${Math.max(1, x.part_pct)}%"></i></li>`).join("")}</ul>` +
+      `<p class="note">En vert, les filières renouvelables. ${esc(p.statut[0].toUpperCase() + p.statut.slice(1))}.</p>`
+    : "";
+
+  const tension = m
+    ? `<div class="card">${icon("bolt")}<h3>Quand éviter les gros usages</h3>` +
+      (m.periodes_de_tension.length
+        ? `<ul class="plain">${m.periodes_de_tension.map((t) => `<li><b>${esc(t.quand)}</b> : ${esc(t.signal)}${t.recharge_conseillee_pct != null ? ` (recharge d'un véhicule à ${t.recharge_conseillee_pct} %)` : ""}</li>`).join("")}</ul>`
+        : `<p>Pas de période de tension prévue${m.jusqu_au ? ` d'ici le ${esc(m.jusqu_au)}` : ""}.</p>`) +
+      `<p class="note">${esc(m.explication)}</p></div>`
+    : "";
+
+  const title = "Électricité à La Réunion 974 en direct : production et part renouvelable";
+  const description = p
+    ? describe(`🇷🇪 Électricité à La Réunion (974) à ${p.heure.split(" ")[1]} : ${fr(Math.round(p.total_mw))} MW produits, dont ${fr(Math.round(p.renouvelable_pct))} % renouvelable. Filière par filière, et les heures où le réseau est chargé.`,
+        `🇷🇪 Électricité à La Réunion (974) : ${fr(Math.round(p.renouvelable_pct))} % renouvelable en ce moment. Filière par filière, et les heures où le réseau est chargé.`)
+    : "🇷🇪 Électricité à La Réunion (974) en direct : d'où vient le courant, la part renouvelable et les heures où le réseau est chargé.";
+
+  const band = `${crumbBar("Électricité")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Production en direct</p>
+    <h1>Électricité <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Lo kouran La Rényon i sort koté astèr ? Rogard si ${url} é di amwin la par renouvlab.`,
+      `D'où vient l'électricité de La Réunion en ce moment ? Lis ${url} et dis-moi la part renouvelable.`)}
+  </div>
+  ${p ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Filière par filière</h3>${bars}</figure>` : ""}
+</div>`;
+
+  const body = `<section aria-labelledby="h-reseau">
+  <div class="sec-h"><p class="eyebrow">Le réseau</p><h2 id="h-reseau">Une île qui produit toute son électricité</h2>
+  <p>La Réunion n'est reliée à aucun autre réseau : chaque kilowatt consommé est produit sur l'île, au moment même. Le soir, quand tout le monde rentre, le réseau est le plus chargé.</p></div>
+  ${d ? `<div class="two">${tension}${warnings(d.avertissements)}</div>${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">Les données d'EDF se chargent : rechargez la page dans quelques secondes.</p>`}
+</section>
+${connectorCta("electricite", "l'électricité de l'île")}`;
+
+  return layout(origin, { title, description, path: "/electricite", jsonld: [crumbs(origin, "Électricité", "/electricite"), webPage(origin, "/electricite", title, description, data)], alerte }, band, body);
+}
+
+// ---------------------------------------------------------------- calendrier
+
+export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const v = d?.vacances_scolaires;
+  const f = d?.jours_feries;
+  const next = f?.prochains[0];
+  const url = fresh(`${origin}/calendrier`, now);
+  const today = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Indian/Reunion" });
+
+  const status = !d
+    ? loading("Le calendrier")
+    : `<div class="status"><p class="big">${esc(today)}</p>` +
+      (f?.aujourd_hui ? `<p class="lead">Aujourd'hui est férié : <b>${esc(f.aujourd_hui)}</b>.</p>` : "") +
+      (v?.en_cours ? `<p class="lead">Vacances scolaires en cours, reprise des cours le <b>${esc(v.en_cours.reprise_des_cours)}</b>.</p>` : "") +
+      (next ? `<p class="lead">Prochain jour férié : <b>${esc(next.nom)}</b>, ${esc(next.date)} (dans ${next.dans_jours} jour${next.dans_jours > 1 ? "s" : ""}).</p>` : "") +
+      (d.soleil ? `<p class="lead">À ${esc(d.soleil.lieu)}, lever du soleil à <b>${esc(d.soleil.lever.replace(":", "h"))}</b>, coucher à <b>${esc(d.soleil.coucher.replace(":", "h"))}</b>.</p>` : "") +
+      `</div>`;
+
+  const holidays = f
+    ? `<div class="card">${icon("calendar")}<h3>Jours fériés</h3><ul class="plain">${f.prochains.map((h) => `<li><b>${esc(h.nom)}</b> : ${esc(h.date)} <span class="note">(dans ${h.dans_jours} j)</span></li>`).join("")}</ul><p class="note">${esc(f.note)}</p></div>`
+    : "";
+  const school = v
+    ? `<div class="card">${icon("book")}<h3>Vacances scolaires</h3><ul class="plain">` +
+      [...(v.en_cours ? [{ ...v.en_cours, now: true }] : []), ...v.a_venir.map((x) => ({ ...x, now: false }))]
+        .map((x) => `<li><b>${esc(x.nom)}</b>${x.now ? " (en cours)" : ""} : du ${esc(x.debut)}, reprise le ${esc(x.reprise_des_cours)}</li>`).join("") +
+      `</ul><p class="note">${esc(v.note)}</p></div>`
+    : "";
+  const sun = d?.soleil
+    ? `<div class="card">${icon("mountain")}<h3>Soleil à ${esc(d.soleil.lieu)}</h3><p>Lever ${esc(d.soleil.lever.replace(":", "h"))}, coucher ${esc(d.soleil.coucher.replace(":", "h"))} : ${esc(d.soleil.duree_du_jour)} de jour.</p><p class="note">${esc(d.soleil.note)}</p></div>`
+    : "";
+
+  const title = "Calendrier de La Réunion 974 : vacances scolaires, jours fériés, soleil";
+  const description = next
+    ? describe(`🇷🇪 Calendrier de La Réunion (974) : ${v?.en_cours ? `vacances scolaires jusqu'au ${v.en_cours.reprise_des_cours}, ` : ""}prochain jour férié ${next.nom} (${next.date}). Vacances australes, 20 décembre.`,
+        `🇷🇪 Calendrier de La Réunion (974) : prochain jour férié ${next.nom}, vacances scolaires australes, 20 décembre, lever et coucher du soleil.`)
+    : "🇷🇪 Calendrier de La Réunion (974) : vacances scolaires australes, jours fériés dont le 20 décembre, lever et coucher du soleil.";
+
+  const band = `${crumbBar("Calendrier")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Aujourd'hui à La Réunion</p>
+    <h1>Calendrier <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Kansa lé lo prochin vakans lékol é lo prochin zour férié La Rényon ? Rogard si ${url} é di amwin.`,
+      `Quand sont les prochaines vacances scolaires et le prochain jour férié à La Réunion ? Lis ${url} et dis-le-moi.`)}
+  </div>
+  ${sun ? `<figure class="card mapcard">${islandMap({ peaks: true, label: "Carte de La Réunion (974)" })}</figure>` : ""}
+</div>`;
+
+  const body = `<section aria-labelledby="h-cal">
+  <div class="sec-h"><p class="eyebrow">L'année à La Réunion</p><h2 id="h-cal">Vacances, jours fériés, soleil</h2>
+  <p>L'académie de La Réunion suit un calendrier austral : les grandes vacances tombent en décembre et janvier, pendant l'été de l'hémisphère sud.</p></div>
+  ${d ? `<div class="three">${school}${holidays}${sun}</div>${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
+</section>
+${connectorCta("calendrier", "le calendrier de l'île")}`;
+
+  return layout(origin, { title, description, path: "/calendrier", jsonld: [crumbs(origin, "Calendrier", "/calendrier"), webPage(origin, "/calendrier", title, description, data)], alerte }, band, body);
+}
+
+// ---------------------------------------------------------------- bus
+
+const waitText = (min: number, heure: string) =>
+  heure.startsWith("demain") ? heure : min < 1 ? "maintenant" : min < 90 ? `dans ${fr(min)} min` : `à ${heure}`;
+
+export function busPage(origin: string, data: Cached<BusData> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/bus`, now);
+  const lines = d?.reseaux.reduce((n, r) => n + r.lignes, 0) ?? 0;
+
+  const status = !d
+    ? loading("Les horaires")
+    : `<div class="now"><span class="big">${d.reseaux.length}</span><p>réseaux de bus et le téléphérique de Saint-Denis : <b>${esc(fr(lines))} lignes</b>, de Car Jaune qui fait le tour de l'île aux bus de chaque commune.</p></div>`;
+
+  const networks = d
+    ? `<ul class="plain">${d.reseaux.map((r) => `<li><b>${esc(r.nom)}</b> : ${esc(fr(r.lignes))} ligne${r.lignes > 1 ? "s" : ""} <span class="note">(${esc(r.exploitant)})</span></li>`).join("")}</ul>`
+    : "";
+
+  const gares = d?.gares.length
+    ? `<ul class="zones">${d.gares.map((g) => `<li class="card"><h3>Gare ${esc(de(g.commune))}</h3>` +
+        `<p class="note">${g.arrets.map((a) => `${esc(a.reseau)} : ${esc(a.nom)}`).join(" · ")}</p>` +
+        (g.departs.length
+          ? `<ul class="rows">${g.departs.map((x) => `<li><b>${esc(x.ligne)}</b><span>vers ${esc(x.direction)} <span class="note">(${esc(x.reseau)})</span></span><span class="note">${esc(waitText(x.dans_min, x.heure))}</span></li>`).join("")}</ul>`
+          : `<p>Pas de départ prévu dans les prochaines heures.</p>`) +
+        `</li>`).join("")}</ul>` +
+      `<p class="note">Horaires théoriques publiés par chaque réseau : retards, suppressions et déviations ne sont pas pris en compte. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
+    : `<p class="card">Les prochains départs à n'importe quel arrêt de l'île sont donnés par le connecteur : demandez à votre assistant « le prochain bus à la gare de Saint-Pierre ? ».</p>`;
+
+  const title = "Bus à La Réunion 974 : prochains départs dans les gares routières";
+  const description = "🇷🇪 Bus à La Réunion (974) : prochains départs dans les gares routières, d'après les horaires de Car Jaune, Citalis, Kar'Ouest, Alternéo, CarSud et Estival.";
+
+  const band = `${crumbBar("Bus")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Horaires du jour</p>
+    <h1>Bus et cars <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Kansa i pas lo prochin bis la gar Sin-Pièr ? Rogard si ${url} é di amwin.`,
+      `Quand passe le prochain bus à la gare routière de Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
+  </div>
+  ${d ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Les réseaux</h3>${networks}</figure>` : ""}
+</div>`;
+
+  const body = `<section aria-labelledby="h-gares">
+  <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-gares">Prochains départs dans les gares routières</h2>
+  <p>Toutes les lignes qui partent de chaque gare, tous réseaux confondus, au plus trois départs par ligne et par direction.</p></div>
+  ${gares}
+  ${d ? `<p class="note">Sources : ${credits(d.sources)}.</p>` : ""}
+</section>
+${connectorCta("transports", "les bus de l'île")}`;
+
+  return layout(origin, { title, description, path: "/bus", jsonld: [crumbs(origin, "Bus", "/bus"), webPage(origin, "/bus", title, description, data)], alerte }, band, body);
+}

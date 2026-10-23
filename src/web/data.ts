@@ -8,11 +8,17 @@
  */
 import { left } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
+import * as transit from "../providers/transit.js";
 import * as mf from "../providers/vigilance.js";
+import { qualiteAir } from "../tools/air.js";
+import { calendrier } from "../tools/calendrier.js";
+import { electricite } from "../tools/electricite.js";
 import { BEACHES, seaTour, temperatureMer } from "../tools/mer.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
+import { departureRow, departures, findStops, spread } from "../tools/transports.js";
 import { cyclone, highest, raised } from "../tools/vigilance.js";
+import { volcanSeismes } from "../tools/volcan.js";
 import { type Observation, why } from "../types.js";
 import { coastal, type PlacePage } from "./places.js";
 
@@ -209,6 +215,134 @@ export async function buildPlace(cache: Cache, p: PlacePage, now = new Date()): 
   }
   if (!out.meteo && !out.prevision) throw new Error(`aucune donnée pour ${p.nom}`);
   return out;
+}
+
+/** The answer of a tool, or an error when it has none: the page then keeps its last copy. */
+function needed<T>(r: { content: { text: string }[]; isError?: boolean }, what: string): T {
+  const a = answer<T>(r);
+  if (!a) throw new Error(`aucune donnée pour la page ${what}`);
+  return a;
+}
+
+export interface VolcanAnswer {
+  resume: string;
+  etat?: {
+    eruption_en_cours: boolean;
+    niveau_orsec: string;
+    derniere_eruption_fin?: string;
+    deformation?: string;
+    acces_enclos?: { statut: string; detail?: string; source?: string; lien?: string };
+  };
+  publications_ovpf?: { date: string; texte: string; lien?: string }[];
+  seismes?: {
+    sous_le_volcan: { "30_jours": number; "7_jours": number; magnitude_max_30j: number | null };
+    ailleurs_sur_l_ile: { "30_jours": number; magnitude_max_30j: number | null };
+    derniers: { heure: string; magnitude: number; profondeur_km: number; lieu: string }[];
+    note: string;
+  };
+  avertissements: string[];
+  sources: Credit[];
+}
+
+export const buildVolcan = async (cache: Cache, now = new Date()) => needed<VolcanAnswer>(await volcanSeismes(cache, now), "volcan");
+
+export interface AirAnswer {
+  resume: string;
+  communes?: { commune: string; niveau: number; qualite: string; polluants: string[] }[];
+  nature: string;
+  avertissements: string[];
+  sources: Credit[];
+}
+
+export const buildAir = async (cache: Cache, now = new Date()) => needed<AirAnswer>(await qualiteAir(cache, undefined, now), "air");
+
+export interface ElectriciteAnswer {
+  resume: string;
+  production?: {
+    heure: string;
+    total_mw: number;
+    parts: { filiere: string; mw: number; part_pct: number; renouvelable: boolean }[];
+    renouvelable_pct: number;
+    statut: string;
+  };
+  meteo_electricite?: {
+    maintenant?: { signal: string; recharge_conseillee_pct?: number };
+    periodes_de_tension: { quand: string; signal: string; recharge_conseillee_pct?: number }[];
+    jusqu_au?: string;
+    explication: string;
+  };
+  avertissements: string[];
+  sources: Credit[];
+}
+
+export const buildElectricite = async (cache: Cache, now = new Date()) => needed<ElectriciteAnswer>(await electricite(cache, now), "électricité");
+
+export interface CalendrierAnswer {
+  resume: string;
+  jours_feries?: { aujourd_hui: string | null; prochains: { date: string; nom: string; dans_jours: number }[]; note: string };
+  vacances_scolaires?: {
+    en_cours: { nom: string; debut: string; reprise_des_cours: string } | null;
+    a_venir: { nom: string; debut: string; reprise_des_cours: string }[];
+    note: string;
+  };
+  soleil?: { lieu: string; lever: string; coucher: string; duree_du_jour: string; note: string };
+  sources: Credit[];
+}
+
+/** The tool says « indisponible » for a source that failed; with both down, the page keeps its last copy. */
+export async function buildCalendrier(cache: Cache, now = new Date()): Promise<CalendrierAnswer> {
+  const a = needed<Record<string, unknown>>(await calendrier(cache, undefined, now), "calendrier");
+  const part = <T>(v: unknown) => (typeof v === "object" && v !== null ? (v as T) : undefined);
+  const out = { ...a, jours_feries: part(a.jours_feries), vacances_scolaires: part(a.vacances_scolaires) } as CalendrierAnswer;
+  if (!out.jours_feries && !out.vacances_scolaires) throw new Error("aucune donnée pour la page calendrier");
+  return out;
+}
+
+/** The bus stations shown on the page /bus, as the tool finds them. */
+export const GARES = [
+  "gare routière Saint-Denis",
+  "gare routière Saint-Pierre",
+  "gare routière Saint-Paul",
+  "gare routière du Tampon",
+  "gare routière Saint-André",
+  "gare routière Saint-Benoît",
+  "gare routière Saint-Louis",
+  "gare Saint-Joseph",
+];
+
+export interface GareNow {
+  commune: string;
+  /** The stop's name in each network that serves it. */
+  arrets: { nom: string; reseau: string }[];
+  departs: ReturnType<typeof departureRow>[];
+}
+
+export interface BusData {
+  gares: GareNow[];
+  reseaux: { nom: string; exploitant: string; lignes: number; valide_jusqu_au: string | null }[];
+  sources: Credit[];
+}
+
+/** The networks, always; the next departures at the main bus stations where the timetables are at hand (the Worker). */
+export async function buildBus(now = new Date()): Promise<BusData> {
+  const lines = new Map<string, number>();
+  for (const [net] of transit.ROUTES) lines.set(net, (lines.get(net) ?? 0) + 1);
+  const reseaux = Object.entries(transit.NETWORKS).map(([id, n]) => ({ nom: n.nom, exploitant: n.exploitant, lignes: lines.get(id) ?? 0, valide_jusqu_au: n.valide_jusqu_au }));
+  const gares: GareNow[] = [];
+  if (transit.enabled()) {
+    for (const q of GARES) {
+      const { groups } = findStops(q);
+      if (!groups.length) continue;
+      let list = await departures(groups, now);
+      if (list.length < 3) list = await departures(groups, now, 20 * 3600);
+      gares.push({
+        commune: groups[0].commune,
+        arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })),
+        departs: spread(list, 8).map(departureRow),
+      });
+    }
+  }
+  return { gares, reseaux, sources: [credit(transit.SOURCE)] };
 }
 
 /** The banner of every page while a vigilance is above green: its worst colour and one sentence. */

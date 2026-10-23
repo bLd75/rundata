@@ -1,0 +1,211 @@
+{
+ "resume": "Qualité de l'air aujourd'hui à La Réunion : au pire moyen (2/6) dans toutes les communes.",
+ "communes": [
+  {
+   "commune": "Les Avirons",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Bras-Panon",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Entre-Deux",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "L'Etang-Salé",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Petite-Ile",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "La Plaine-Des-Palmistes",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Le Port",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "La Possession",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Saint-André",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Saint-Benoît",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Saint-Denis",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Saint-Joseph",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Saint-Leu",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Saint-Louis",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Saint-Paul",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Saint-Pierre",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Saint-Philippe",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Sainte-Marie",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Sainte-Rose",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Sainte-Suzanne",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Salazie",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Le Tampon",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Les Trois-Bassins",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  },
+  {
+   "commune": "Cilaos",
+   "niveau": 2,
+   "qualite": "moyen",
+   "polluants": [
+    "ozone"
+   ]
+  }
+ ],
+ "nature": "indice prévu pour la journée par Atmo Réunion (pas une mesure horaire)",
+ "echelle": "1 bon, 2 moyen, 3 dégradé, 4 mauvais, 5 très mauvais, 6 extrêmement mauvais",
+ "avertissements": [
+  "Indice calculé à l'échelle de la commune : près d'une route chargée, d'une usine ou d'un feu, l'air peut être plus mauvais.",
+  "Pendant une éruption du Piton de la Fournaise, le panache (dioxyde de soufre, « vog ») peut dégrader l'air dans le sud et l'ouest selon le vent."
+ ],
+ "consulter": "https://www.atmo-reunion.net",
+ "sources": [
+  {
+   "source": "Indice ATMO de la qualité de l'air par commune (Atmo Réunion, via Atmo France)",
+   "licence": "ODbL",
+   "attribution": "Atmo Réunion / Atmo France"
+  }
+ ]
+}
