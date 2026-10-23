@@ -3,17 +3,21 @@
  * - address search: Géoplateforme geocoder (Base adresse nationale), IGN;
  * - cadastral parcel and zone of the local urban plan (PLU): API Carto, IGN (cadastre, Géoportail de l'urbanisme);
  * - ground altitude: IGN RGE ALTI;
- * - property sales around: DVF open data, Cerema API (published as "preprod", no availability promise).
+ * - property sales around: DVF open data, Cerema API (published as "preprod", no availability promise);
+ * - risk prevention plans (PPR) at the point: public-utility easements of the Géoportail de l'urbanisme, through API Carto;
+ * - natural disaster decrees of the commune and landslides recorded around: Géorisques API v1 (BRGM).
  */
 import type { Cache, Cached } from "../cache.js";
 import { getJson } from "../http.js";
 import type { SourceInfo } from "../types.js";
 
-export const SOURCES: Record<"ban" | "cadastre" | "gpu" | "alti" | "dvf", SourceInfo> = {
+export const SOURCES: Record<"ban" | "cadastre" | "gpu" | "alti" | "dvf" | "ppr" | "georisques", SourceInfo> = {
   ban: { id: "ban_geocodage", nom: "Base adresse nationale (géocodage de la Géoplateforme)", organisme: "IGN, Etalab", licence: "Licence Ouverte Etalab 2.0", attribution: "BAN, IGN", url: "https://geoservices.ign.fr/documentation/services/services-geoplateforme/geocodage" },
   cadastre: { id: "cadastre_apicarto", nom: "Plan cadastral (API Carto)", organisme: "DGFiP, IGN", licence: "Licence Ouverte Etalab 2.0", attribution: "DGFiP, IGN", url: "https://apicarto.ign.fr/api/doc/cadastre" },
   gpu: { id: "gpu_zone_urba", nom: "Zonage des plans locaux d'urbanisme (Géoportail de l'urbanisme)", organisme: "Communes, IGN", licence: "Licence Ouverte Etalab 2.0", attribution: "Géoportail de l'urbanisme", url: "https://www.geoportail-urbanisme.gouv.fr" },
   alti: { id: "ign_altimetrie", nom: "Altitude du sol (RGE ALTI)", organisme: "IGN", licence: "Licence Ouverte Etalab 2.0", attribution: "IGN", url: "https://geoservices.ign.fr/documentation/services/services-geoplateforme/altimetrie" },
+  ppr: { id: "gpu_ppr", nom: "Plans de prévention des risques (servitudes du Géoportail de l'urbanisme)", organisme: "DEAL Réunion, IGN", licence: "Licence Ouverte Etalab 2.0", attribution: "DEAL Réunion, Géoportail de l'urbanisme", url: "https://www.geoportail-urbanisme.gouv.fr" },
+  georisques: { id: "georisques", nom: "Géorisques : arrêtés de catastrophe naturelle, mouvements de terrain recensés (BDMvt)", organisme: "Ministère de la Transition écologique, BRGM", licence: "Licence Ouverte Etalab 2.0", attribution: "Géorisques, BRGM", url: "https://www.georisques.gouv.fr" },
   dvf: { id: "dvf_cerema", nom: "Demandes de valeurs foncières (DVF open data, Cerema)", organisme: "DGFiP, Cerema", licence: "Licence Ouverte Etalab 2.0", attribution: "DGFiP, Cerema (DVF open data)", url: "https://apidf-preprod.cerema.fr" },
 };
 
@@ -124,3 +128,119 @@ export async function sales(cache: Cache, lon: number, lat: number, fromYear: nu
       .filter((s) => s.valeur > 0 && String(s.code) !== "undefined");
   });
 }
+
+/** What a plan's file name says it covers, e.g. PM1_PPR_i_mvt_SAINT_DENIS_gen2_ass. */
+const PPR_RISKS: Record<string, string> = {
+  i: "inondation",
+  mvt: "mouvements de terrain",
+  l: "recul du trait de côte et submersion marine",
+  alea_cotier: "aléa côtier",
+};
+
+export interface Plan {
+  /** « naturels » (PM1) or « technologiques » (PM3). */
+  famille: "naturels" | "technologiques";
+  risques: string[];
+  /** The servitude's own name, for a technological plan (the site it is about). */
+  nom: string;
+  /** The point lies in the plan's regulated zones (red or blue), not only in its perimeter. */
+  zone_reglementee: boolean;
+  /** Latest approval date found in the plan's files, as YYYY-MM-DD. */
+  approuve_le?: string;
+  document: string;
+}
+
+/** Latest valid date among the act files « …_20121017_act.pdf|… » (some carry impossible ones, such as 20221929). */
+export function latestAct(fichier: string): string | undefined {
+  const dates = [...fichier.matchAll(/_(\d{4})(\d{2})(\d{2})_act/g)]
+    .map(([, y, m, d]) => ({ y: +y, m: +m, d: +d }))
+    .filter(({ m, d }) => m >= 1 && m <= 12 && d >= 1 && d <= 31)
+    .map(({ y, m, d }) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`)
+    .sort();
+  return dates.at(-1);
+}
+
+export function planOf(p: Record<string, string | null>): Plan | null {
+  const type = (p.suptype ?? "").toLowerCase();
+  if (type !== "pm1" && type !== "pm3") return null;
+  const name = p.nomass ?? "";
+  const m = /^PM1_PPR_(.+?)_[A-Z][A-Z_]*_gen\d/.exec(name.replace(/_MVT_/, "_mvt_"));
+  const risques = type === "pm1" && m ? Object.entries(PPR_RISKS).filter(([k]) => new RegExp(`(^|_)${k}(_|$)`).test(m[1])).map(([, v]) => v) : [];
+  return {
+    famille: type === "pm1" ? "naturels" : "technologiques",
+    risques,
+    nom: type === "pm3" ? name.replace(/^PM3_\d+_/, "").replace(/_gen.*$/, "").replace(/_/g, " ") : name,
+    zone_reglementee: /zonages? r[ée]glementaires?/i.test(p.typeass ?? ""),
+    approuve_le: latestAct(p.fichier ?? ""),
+    document: p.gpu_doc_id ? `https://www.geoportail-urbanisme.gouv.fr/document/by-id/${p.gpu_doc_id}` : "https://www.geoportail-urbanisme.gouv.fr",
+  };
+}
+
+/** Risk prevention plans whose regulated area holds the point (natural PM1, technological PM3), one per plan. */
+export async function plans(cache: Cache, lon: number, lat: number): Promise<Cached<Plan[]>> {
+  return cache.get(`ppr:${key(lon, lat)}`, 7 * DAY, async () => {
+    const r = await getJson<{ features: { properties: Record<string, string | null> }[] }>(
+      SOURCES.ppr.id, `https://apicarto.ign.fr/api/gpu/assiette-sup-s?geom=${point(lon, lat)}`, 25_000);
+    const seen = new Set<string>();
+    return r.features.flatMap(({ properties }) => {
+      const plan = planOf(properties);
+      if (!plan || seen.has(plan.nom)) return [];
+      seen.add(plan.nom);
+      return [plan];
+    });
+  });
+}
+
+export interface Catnat {
+  risques: string[];
+  debut: string;
+  fin: string;
+  arrete: string;
+}
+
+const iso = (d: string) => d.split("/").reverse().join("-");
+
+/** Natural disaster decrees (CatNat) of a commune, one per event, newest first. */
+export async function catnat(cache: Cache, insee: string): Promise<Cached<Catnat[]>> {
+  return cache.get(`catnat:${insee}`, 7 * DAY, async () => {
+    const r = await getJson<{ data: Record<string, string>[] }>(
+      SOURCES.georisques.id, `https://www.georisques.gouv.fr/api/v1/gaspar/catnat?code_insee=${insee}&page_size=200`, 20_000);
+    const events = new Map<string, Catnat>();
+    for (const d of r.data) {
+      const id = `${d.code_national_catnat}:${d.date_debut_evt}`;
+      const e = events.get(id) ?? { risques: [], debut: iso(d.date_debut_evt), fin: iso(d.date_fin_evt), arrete: iso(d.date_publication_arrete) };
+      if (!e.risques.includes(d.libelle_risque_jo)) e.risques.push(d.libelle_risque_jo);
+      events.set(id, e);
+    }
+    return [...events.values()].sort((a, b) => b.debut.localeCompare(a.debut));
+  });
+}
+
+export interface Landslide {
+  type: string;
+  date?: string;
+  lon: number;
+  lat: number;
+  fiabilite: string;
+}
+
+/** Landslides, rockfalls and the like recorded within `radiusM` (BDMvt). */
+export async function landslides(cache: Cache, lon: number, lat: number, radiusM = 500): Promise<Cached<Landslide[]>> {
+  return cache.get(`mvt:${key(lon, lat)}:${radiusM}`, 7 * DAY, async () => {
+    const r = await getJson<{ data: Record<string, string | number | null>[] }>(
+      SOURCES.georisques.id, `https://www.georisques.gouv.fr/api/v1/mvt?latlon=${lon},${lat}&rayon=${radiusM}&page_size=100`, 20_000);
+    return r.data.map((d) => ({
+      type: String(d.type),
+      date: d.date_debut ? String(d.date_debut) : undefined,
+      lon: Number(d.longitude),
+      lat: Number(d.latitude),
+      fiabilite: String(d.fiabilite ?? ""),
+    }));
+  });
+}
+
+/**
+ * Communes where the radon potential is category 2 (low, but geology may ease its way up); all others are category 1.
+ * Every commune of La Réunion is in seismic zone 2 (low). Both from Géorisques, checked on 23/10/2026.
+ */
+export const RADON_2 = new Set(["97410", "97421", "97424"]);

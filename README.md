@@ -17,7 +17,7 @@ Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (C
 | `qualite_air(lieu?)` | « l'air est pollué à Saint-Louis ? » | Indice ATMO du jour et du lendemain par commune (Atmo Réunion), avec le polluant en cause. |
 | `annuaire_services_publics(quoi, lieu?)` | « horaires de la mairie de Saint-Paul ? », « où est la CAF ? » | Adresse, horaires (ouvert en ce moment ?), téléphone et site des services publics, d'après l'annuaire de service-public.fr. |
 | `calendrier(lieu?)` | « c'est quand les vacances ? », « le 20 décembre est férié ? », « lever du soleil au Maïdo ? » | Vacances de l'académie de La Réunion, jours fériés (dont le 20 décembre), lever et coucher du soleil au lieu. |
-| `fiche_terrain(adresse)` | « cette parcelle est constructible ? », « prix au m² à Boucan ? » | Parcelle cadastrale (section, numéro, surface), zone du PLU (U, AU, A, N) avec le lien vers son règlement, altitude du sol, prix médians des maisons, appartements et terrains vendus autour depuis 5 ans (DVF, agrégés : aucune vente individuelle). |
+| `fiche_terrain(adresse)` | « cette parcelle est constructible ? », « prix au m² à Boucan ? », « cette maison est en zone inondable ? » | Parcelle cadastrale (section, numéro, surface), zone du PLU (U, AU, A, N) avec le lien vers son règlement, altitude du sol, prix médians des maisons, appartements et terrains vendus autour depuis 5 ans (DVF, agrégés : aucune vente individuelle). Risques : le point est-il dans une zone réglementée d'un plan de prévention des risques (inondation, mouvements de terrain, littoral, ou technologique), avec le lien vers le plan ; arrêtés de catastrophe naturelle de la commune ; glissements et éboulements recensés à moins de 500 m ; sismicité et radon. |
 | `sources_donnees()` | « d'où viennent ces chiffres ? » | Sources, licences et attributions. |
 
 `lieu` est du texte libre : une commune, une plage, un quartier, un cirque, un sommet, ou des coordonnées `-21.05, 55.22`. Le répertoire contient environ 1 250 lieux tirés d'OpenStreetMap, avec leur altitude IGN.
@@ -40,6 +40,12 @@ Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (C
 | [pitonlive.com](https://pitonlive.com) (site indépendant) | niveau ORSEC, éruption en cours, accès à l'Enclos d'après les arrêtés préfectoraux | lu toutes les 10 min | non précisée : cité avec son nom et son lien |
 | EDF SEI Réunion, [open data](https://opendata-reunion.edf.fr) | production par filière ; « météo de l'électricité » | toutes les 5 min ; chaque jour | Licence Ouverte Etalab 2.0 |
 | Calendrier scolaire (Éducation nationale) et jours fériés (calendrier.api.gouv.fr) | vacances de l'académie de La Réunion, jours fériés | lu une fois par jour | Licence Ouverte Etalab 2.0 |
+| Indice ATMO d'Atmo Réunion (géoserveur d'Atmo France) | qualité de l'air par commune, polluant en cause | chaque jour, pour le jour et le lendemain | Licence Ouverte Etalab 2.0 |
+| Annuaire de l'administration (service-public.fr, DILA) | adresses, horaires, téléphones des services publics | mis à jour par chaque service | Licence Ouverte Etalab 2.0 |
+| Base adresse nationale et Géoplateforme de l'IGN : géocodage, cadastre (DGFiP), Géoportail de l'urbanisme, altitude RGE ALTI | adresse, parcelle, zone du PLU, altitude du sol | à chaque mise à jour des registres | Licence Ouverte Etalab 2.0 |
+| Plans de prévention des risques (servitudes PM1 et PM3 publiées par la DEAL sur le Géoportail de l'urbanisme) | zones réglementées des PPR inondation, mouvements de terrain, littoral et technologiques | à chaque révision d'un plan | Licence Ouverte Etalab 2.0 |
+| Géorisques (ministère de la Transition écologique, BRGM) | arrêtés de catastrophe naturelle, mouvements de terrain recensés (BDMvt), sismicité, radon | à chaque arrêté ou relevé | Licence Ouverte Etalab 2.0 |
+| Demandes de valeurs foncières (DGFiP), API DVF du Cerema | ventes immobilières, agrégées en médianes | deux fois par an | Licence Ouverte Etalab 2.0 |
 | Prévisions AROME outre-mer, Météo-France (API « AROME », même clé que les observations ; outil `prevision_meteo` seulement) | prévision de modèle, maille de 2,5 km, 48 h | 4 calculs par jour | Licence Ouverte Etalab 2.0 |
 | Prévisions ECMWF IFS HRES, via [Open-Meteo](https://open-meteo.com/) (outil `prevision_meteo` seulement, au-delà de 48 h et en secours) | prévision de modèle, maille de 9 km | nouveau calcul toutes les 6 h | CC BY 4.0 ; API Open-Meteo gratuite pour usage non commercial |
 
@@ -75,7 +81,7 @@ Real-time **measured** data for Réunion Island (French overseas department 974,
   - `calendrier(lieu?)`: school holidays (austral calendar), public holidays including 20 December, sunrise and sunset.
   - `qualite_air(lieu?)`: ATMO air quality index per commune, today and tomorrow.
   - `annuaire_services_publics(quoi, lieu?)`: addresses, opening hours and phone numbers of public offices.
-  - `fiche_terrain(adresse)`: cadastral parcel, zoning (PLU), altitude and median property prices around (aggregated DVF).
+  - `fiche_terrain(adresse)`: cadastral parcel, zoning (PLU), altitude, median property prices around (aggregated DVF), and natural hazards: risk prevention plan at the point, natural disaster decrees, landslides recorded within 500 m.
   - `meteo_actuelle` also reports the rain seen by Météo-France's radar at the place.
   - `temperature_mer(lieu)`: sea surface temperature near a beach.
   - `sources_donnees()`: sources and licences.
