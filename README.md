@@ -55,6 +55,8 @@ Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (C
 
 https://github.com/bLd75/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 
+Chaque pull request fusionnée est mise en ligne sur rundata.re dès que les tests passent (`.github/workflows/deploy.yml`). Quand un réseau de bus publie de nouveaux horaires, ils sont importés dans D1 avant la fusion (`scripts/build-transit.py --d1 rundata-transports`) : sans eux, le déploiement s'arrête avant de mettre en ligne.
+
 ## Utilisation
 
 **Dans votre assistant IA** : ajoutez un connecteur personnalisé avec l'adresse `https://rundata.re/mcp` (Claude.ai, ChatGPT, Le Chat…). Rien à installer, pas de compte.
