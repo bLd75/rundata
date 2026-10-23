@@ -29,7 +29,7 @@ import { ficheLieu } from "./tools/terrain.js";
 
 export const VERSION = "0.1.0";
 
-const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), cadastre, urbanisme et prix immobiliers à une adresse.
+const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
 - Maintenant (« il fait combien ? », « il pleut ? », « la mer est à combien ? ») : meteo_actuelle et temperature_mer renvoient des MESURES datées. Dire l'heure de la mesure, la station et sa distance, et relayer les avertissements (altitude, versant, ancienneté), car le climat change beaucoup sur quelques kilomètres.
 - Plus tard (« demain », « ce soir », « ce week-end ») : prevision_meteo renvoie une PRÉVISION de modèle. Toujours dire à l'utilisateur que c'est une prévision, pas une mesure, et relayer ses avertissements ; ne jamais la présenter comme une observation.
@@ -38,7 +38,7 @@ Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La 
 - Calendrier (« c'est quand les vacances ? », « le 20 décembre est férié ? », « lever du soleil ? ») : calendrier.
 - Qualité de l'air (« l'air est pollué à Saint-Louis ? ») : qualite_air.
 - Services publics (« horaires de la mairie ? », « où est la CAF ? ») : annuaire_services_publics.
-- Terrain à une adresse (« constructible ? », « zone du PLU ? », « prix au m² ? ») : fiche_terrain.
+- Terrain à une adresse (« constructible ? », « zone du PLU ? », « prix au m² ? », « zone inondable ? », « risques à cette adresse ? ») : fiche_terrain.
 - Vigilance et cyclones (« alerte cyclonique ? », « vigilance orange ? », « on peut aller en montagne avec ces pluies ? ») : vigilance_meteo renvoie la vigilance officielle de Météo-France. Quand une réponse contient un champ « vigilance », le dire en premier.
 Réunion Island weather: real-time measurements (meteo_actuelle, temperature_mer) and model forecasts (prevision_meteo), never mixed. Always tell the user when a value is a forecast.`;
 
@@ -253,13 +253,15 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
   server.registerTool(
     "fiche_terrain",
     {
-      title: "Cadastre, urbanisme et prix immobiliers à une adresse de La Réunion",
+      title: "Cadastre, urbanisme, prix immobiliers et risques à une adresse de La Réunion",
       description:
         "Ce que disent les registres officiels d'une adresse ou d'un lieu de La Réunion (974) : parcelle cadastrale (section, numéro, " +
-        "surface), zone du plan local d'urbanisme (U, AU, A, N : constructible ou non), altitude du sol, et prix médians des maisons, " +
-        "appartements et terrains vendus autour depuis 5 ans (DVF). Pour : « cette parcelle est constructible ? », « dans quelle zone du PLU " +
-        "est le 12 rue X à Saint-Paul ? », « prix au m² des maisons à l'Hermitage ? », « surface de la parcelle ? ». " +
-        "/ Cadastral parcel, zoning (PLU), altitude and median property prices at an address in Réunion Island.",
+        "surface), zone du plan local d'urbanisme (U, AU, A, N : constructible ou non), altitude du sol, prix médians des maisons, " +
+        "appartements et terrains vendus autour depuis 5 ans (DVF), et risques : plan de prévention des risques (PPR inondation, " +
+        "mouvements de terrain, littoral) au point, arrêtés de catastrophe naturelle de la commune, glissements et éboulements recensés " +
+        "à moins de 500 m, sismicité, radon. Pour : « cette parcelle est constructible ? », « dans quelle zone du PLU est le 12 rue X " +
+        "à Saint-Paul ? », « prix au m² des maisons à l'Hermitage ? », « cette maison est en zone inondable ? », « quels risques à cette adresse ? ». " +
+        "/ Cadastral parcel, zoning (PLU), altitude, median property prices and natural hazards (risk plans, disasters, landslides) at an address in Réunion Island.",
       inputSchema: {
         adresse: z.string().describe("Adresse (« 7 rue de la Buse, Saint-Paul »), lieu-dit (« Bois de Nèfles ») ou coordonnées « -21.0, 55.27 ». / Address, place or 'lat, lon'."),
       },

@@ -63,6 +63,12 @@ const ICON: Record<string, string> = {
   gauge: `<path d="M4 18a9 9 0 1 1 16 0"/><path d="m12 13 4-4"/>`,
   alert: `<path d="M12 3 2 21h20Z"/><path d="M12 10v5M12 18h.01"/>`,
   search: `<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>`,
+  volcano: `<path d="m3 20 6-10h6l6 10Z"/><path d="M10 6c0-2 1-3 2-3s2 1 2 3"/>`,
+  bolt: `<path d="M13 2 4 14h7l-1 8 9-12h-7Z"/>`,
+  air: `<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8"/>`,
+  building: `<path d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-6h6v6"/>`,
+  calendar: `<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
+  map: `<path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3Z"/><path d="M9 4v13M15 7v13"/>`,
 };
 const icon = (name: string) =>
   `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[name]}</svg>`;
@@ -203,7 +209,7 @@ background:none;color:var(--muted);cursor:pointer}
 .qs li{font-size:.93rem;padding:.4rem .85rem;border-radius:16px 16px 16px 4px;background:var(--surface-2);border:1px solid var(--line)}
 .tools{list-style:none;padding:0;display:grid;gap:1rem}
 @media (min-width:40rem){.tools{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (min-width:66rem){.tools{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media (min-width:66rem){.tools{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .tool{display:grid;gap:.4rem;align-content:start;padding:1.1rem;border-radius:18px;background:var(--surface);border:1px solid var(--line)}
 .tool .ic{color:var(--accent);width:1.7rem;height:1.7rem}
 .tool code{font:700 .82rem ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}
@@ -602,7 +608,7 @@ function assistant(origin: string, now: Date): string {
         <p class="tab t-gemini">Pour l'instant, Google réserve les connecteurs personnalisés de Gemini à certains abonnés Google AI Pro ou Ultra aux États-Unis. Si votre compte y a droit : dans Gemini sur le web, ajoutez une application personnalisée et collez l'adresse du serveur MCP.</p>
         <p class="tab t-meta">Meta AI (WhatsApp, Messenger, Instagram) ne permet pas encore d'ajouter un connecteur. En attendant, envoyez-lui le lien de la page de votre commune, par exemple <b>rundata.re/meteo/saint-denis</b>, ou ouvrez-la directement : elle se met à jour toutes les 5 minutes.</p>
         <p class="tab t-lechat">Dans <a href="https://chat.mistral.ai/">Le Chat</a> de Mistral : <b>Connecteurs → Ajouter un connecteur → MCP personnalisé</b>, puis collez l'adresse.</p>
-        <p class="tab t-local">Claude Desktop, Cursor, VS Code et autres logiciels compatibles MCP : collez l'adresse comme serveur distant, ou lancez <code>npx -y reunion-temps-reel</code>.</p>
+        <p class="tab t-local">Claude Desktop, Cursor, VS Code et autres logiciels compatibles MCP : collez l'adresse comme serveur distant (HTTP).</p>
       </div></li>
     <li class="card step"><span class="num">3</span><h3>Posez votre question</h3>
       <ul class="qs"><li>Il fait quelle température à l'Hermitage ?</li><li>La mer est à combien à Saint-Leu ?</li>
@@ -613,6 +619,12 @@ function assistant(origin: string, now: Date): string {
     <li class="tool">${icon("cloud")}<h3>Prévisions</h3><p>Heure par heure et jour par jour, toujours présentées comme une prévision, jamais comme une mesure.</p><code>prevision_meteo</code></li>
     <li class="tool">${icon("alert")}<h3>Vigilance et cyclones</h3><p>La vigilance de Météo-France zone par zone et l'alerte cyclonique, signalées d'office dès qu'elles dépassent le vert. <a href="/vigilance">En ce moment</a></p><code>vigilance_meteo</code></li>
     <li class="tool">${icon("wave")}<h3>Température de la mer</h3><p>Mesurée par satellite au large de chaque plage, avec la date de la mesure.</p><code>temperature_mer</code></li>
+    <li class="tool">${icon("volcano")}<h3>Volcan et séismes</h3><p>Éruption en cours ou non, accès à l'Enclos, derniers séismes localisés par l'observatoire du Piton de la Fournaise.</p><code>volcan_seismes</code></li>
+    <li class="tool">${icon("bolt")}<h3>Électricité</h3><p>D'où vient l'électricité de l'île en ce moment, la part renouvelable et les heures où le réseau est chargé.</p><code>electricite</code></li>
+    <li class="tool">${icon("air")}<h3>Qualité de l'air</h3><p>L'indice ATMO du jour et du lendemain dans chaque commune, avec le polluant en cause.</p><code>qualite_air</code></li>
+    <li class="tool">${icon("building")}<h3>Services publics</h3><p>Adresse, horaires, ouvert ou fermé en ce moment, téléphone : mairies, CAF, préfecture, impôts…</p><code>annuaire_services_publics</code></li>
+    <li class="tool">${icon("calendar")}<h3>Calendrier</h3><p>Vacances scolaires de l'académie, jours fériés (dont le 20 décembre), lever et coucher du soleil.</p><code>calendrier</code></li>
+    <li class="tool">${icon("map")}<h3>Terrain et risques</h3><p>À une adresse : parcelle, zone du PLU, prix de vente autour, plan de prévention des risques, catastrophes naturelles, mouvements de terrain.</p><code>fiche_terrain</code></li>
     <li class="tool">${icon("book")}<h3>Sources</h3><p>D'où vient chaque donnée, sa fraîcheur et sa licence : l'assistant peut toujours le dire.</p><code>sources_donnees</code></li>
   </ul>
 </section>`;
@@ -664,8 +676,8 @@ export function homePage(origin: string, data: Cached<HomeData> | null, now = ne
       "@type": "SoftwareApplication",
       name: "rundata.re, connecteur MCP La Réunion en temps réel",
       description:
-        "Serveur MCP (Model Context Protocol) gratuit qui donne à Claude, ChatGPT ou Le Chat les mesures météo en direct " +
-        "de La Réunion (974), la température de la mer et les prévisions.",
+        "Serveur MCP (Model Context Protocol) gratuit qui donne à Claude, ChatGPT ou Le Chat les données publiques de La Réunion (974) " +
+        "en temps réel : mesures météo, prévisions, vigilance, mer, volcan, électricité, qualité de l'air, services publics, terrain et risques.",
       url: `${origin}/mcp`,
       applicationCategory: "DeveloperApplication",
       operatingSystem: "Web",
