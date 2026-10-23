@@ -30,7 +30,7 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5",
-    "wrangler": "^4.151.2"
+    "wrangler": "^4.151.3"
   },
   "keywords": [
     "mcp",
