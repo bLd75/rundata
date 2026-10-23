@@ -1,7 +1,7 @@
 import { count } from "./budget.js";
 import { UpstreamError } from "./types.js";
 
-export const USER_AGENT = "reunion-temps-reel/0.1 (open source MCP server, real-time data for Reunion Island)"; // header values must be ASCII
+export const USER_AGENT = "reunion-temps-reel/0.2 (open source MCP server, real-time data for Reunion Island)"; // header values must be ASCII
 
 async function get(source: string, url: string, timeoutMs: number, headers: Record<string, string> = {}): Promise<Response> {
   let res: Response;
