@@ -73,6 +73,10 @@ const INDEX: Entry[] = [
   .filter((e) => e.tokens.length > 0)
   .map((e) => ({ ...e, key: e.tokens.join(" ") }));
 
+// The entries by their exact key: a question that is a name, as most are, needs no comparison with the others.
+const EXACT = new Map<string, Entry[]>();
+for (const e of INDEX) EXACT.set(e.key, [...(EXACT.get(e.key) ?? []), e]);
+
 function levenshtein(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
@@ -99,11 +103,20 @@ function score(q: string[], e: Entry): { score: number; kind: Resolution["corres
   // The question carries extra words around the name ("il fait beau à cilaos aujourd'hui").
   const inQuestion = e.tokens.every((t) => q.includes(t));
   if (inQuestion) return { score: 50 + 5 * e.tokens.length, kind: "partielle" };
-  // Typos: every name token close to some question token.
+  // Typos: every name token close to some question token. Two words whose lengths differ by more than 30 % cannot be
+  // that close (the distance is at least the difference), so they are not compared.
   if (e.tokens.length <= q.length + 1) {
-    const sims = e.tokens.map((t) => Math.max(...q.map((u) => similar(t, u))));
-    const avg = sims.reduce((a, b) => a + b, 0) / sims.length;
-    if (Math.min(...sims) >= 0.7 && avg >= 0.8) return { score: 40 * avg, kind: "approchee" };
+    let sum = 0;
+    for (const t of e.tokens) {
+      let best = 0;
+      for (const u of q) {
+        if (Math.abs(t.length - u.length) <= 0.3 * Math.max(t.length, u.length)) best = Math.max(best, similar(t, u));
+      }
+      if (best < 0.7) return null;
+      sum += best;
+    }
+    const avg = sum / e.tokens.length;
+    if (avg >= 0.8) return { score: 40 * avg, kind: "approchee" };
   }
   return null;
 }
@@ -128,13 +141,20 @@ export function resolvePlace(text: string): Resolution | null {
   const wantsBeach = BEACH_WORDS.test(normalize(text));
   const rank = (p: Place) => (wantsBeach && p.type === "plage" ? -1 : RANK[p.type] ?? 99);
 
+  const order = (x: { score: number; place: Place }, y: { score: number; place: Place }) =>
+    y.score - x.score || rank(x.place) - rank(y.place) || (y.place.population ?? 0) - (x.place.population ?? 0);
+
+  // An exact name scores above any other kind of match, and comes alone.
+  const exact = EXACT.get(q.join(" "));
+  if (exact) {
+    const best = exact.map((e) => ({ score: e.alias ? 101 : 100, place: e.place })).sort(order)[0];
+    return { lieu: best.place, correspondance: "exacte", autres: [] };
+  }
+
   const matches = INDEX.flatMap((e) => {
     const s = score(q, e);
     return s ? [{ ...s, place: e.place }] : [];
-  }).sort(
-    (x, y) =>
-      y.score - x.score || rank(x.place) - rank(y.place) || (y.place.population ?? 0) - (x.place.population ?? 0),
-  );
+  }).sort(order);
   if (matches.length === 0) return null;
 
   const best = matches[0];
