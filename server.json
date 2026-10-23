@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "re.rundata/temps-reel",
   "title": "La Réunion en temps réel",
-  "description": "Météo mesurée en direct à La Réunion (974) : stations, vent, mer, prévisions AROME.",
-  "version": "0.1.0",
+  "description": "Données publiques de La Réunion (974) en direct : météo, vigilance, mer, volcan, air, terrain.",
+  "version": "0.2.0",
   "remotes": [
     {
       "type": "streamable-http",

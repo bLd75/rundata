@@ -27,7 +27,7 @@ import { annuaireTool } from "./tools/annuaire.js";
 import * as terrain from "./providers/terrain.js";
 import { ficheLieu } from "./tools/terrain.js";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 
 const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
