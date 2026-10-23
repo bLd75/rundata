@@ -15,8 +15,12 @@ import {
   ask,
   coldest,
   connector,
+  DATAGOUV_REUSE,
   deg,
+  FACEBOOK,
   fresh,
+  GITHUB,
+  GLAMA,
   hm,
   icon,
   layout,
@@ -218,6 +222,15 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
     { "@context": "https://schema.org", "@type": "WebSite", name: SITE, url: `${origin}/`, inLanguage: "fr-FR" },
     {
       "@context": "https://schema.org",
+      "@type": "Organization",
+      name: SITE,
+      url: `${origin}/`,
+      logo: `${origin}/og.png`,
+      email: "contact@rundata.re",
+      sameAs: [FACEBOOK, GITHUB, DATAGOUV_REUSE, GLAMA],
+    },
+    {
+      "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       name: "rundata.re, connecteur MCP La Réunion en temps réel",
       description:
@@ -253,7 +266,7 @@ ${assistant(origin, now)}
 </section>
 ${PRINCIPLES}`;
   return layout(origin, {
-    title: "La Réunion 974 en direct dans votre IA : météo, bus, volcan, air",
+    title: "La Réunion 974 en direct dans votre IA : météo, mer, bus, vélos",
     description:
       `🇷🇪 ${brand.slogan} : météo, bus, volcan, vigilance, air, services publics de La Réunion 974, en direct dans ` +
       "ChatGPT, Claude ou Le Chat. Gratuit, sans compte.",

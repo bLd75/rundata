@@ -110,7 +110,7 @@ describe("home page", () => {
     expect(page).toContain("https://rundata.re/mcp");
     expect(page).toContain('<link rel="canonical" href="https://rundata.re/">');
     const ld = page.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)![1];
-    expect(JSON.parse(ld).map((x: { "@type": string }) => x["@type"])).toEqual(["WebSite", "SoftwareApplication"]);
+    expect(JSON.parse(ld).map((x: { "@type": string }) => x["@type"])).toEqual(["WebSite", "Organization", "SoftwareApplication"]);
     // Every category: a tile, and a link in the menu.
     for (const name of ["Météo", "Vigilance", "Mer", "Volcan", "Bus", "Air", "Électricité", "Calendrier", "Services publics", "Terrain et risques"]) {
       expect(page).toContain(`${name}</`);
@@ -122,10 +122,11 @@ describe("home page", () => {
 
   it("carries the tags that link previews read", () => {
     const page = homePage("https://rundata.re", null, NOW);
-    for (const tag of ['property="og:image" content="https://rundata.re/og.png"', 'property="og:image:width" content="1200"',
+    for (const tag of ['property="og:image" content="https://rundata.re/og.png?v=', 'property="og:image:width" content="1200"',
       'name="twitter:card" content="summary_large_image"', 'property="og:locale" content="fr_FR"']) expect(page).toContain(tag);
     expect(page.match(/<title>(.*?)<\/title>/)![1].length).toBeLessThanOrEqual(65);
     expect(page).toMatch(/name="description" content="🇷🇪 [^"]*974/);
+    for (const link of ["https://www.facebook.com/1432704299917309", "https://glama.ai/mcp/servers/bLd75/rundata", "https://www.data.gouv.fr/reuses/"]) expect(page).toContain(`href="${link}`);
   });
 
   it("keep every description within what search engines show", () => {

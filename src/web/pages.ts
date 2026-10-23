@@ -16,6 +16,7 @@ import * as mf from "../providers/vigilance.js";
 import { current, cyclone, highest, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, SeaData, StationAnswer, StationNow } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
+import og from "./og.json" with { type: "json" };
 import { WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker } from "./map.js";
@@ -47,7 +48,11 @@ export function chip(t: number): string {
 
 export const hm = (iso: string | Date) => localTime(new Date(iso)).split(" ")[1];
 
-const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-reunion-en-direct-meteo-mer-bus-velos-air-volcan-pour-vous-et-votre-assistant-ia";
+export const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-reunion-en-direct-meteo-mer-bus-velos-air-volcan-pour-vous-et-votre-assistant-ia";
+// Where else rundata.re lives, linked from every footer and named in the home page's structured data.
+export const GITHUB = "https://github.com/bLd75/rundata";
+export const GLAMA = "https://glama.ai/mcp/servers/bLd75/rundata";
+export const FACEBOOK = "https://www.facebook.com/1432704299917309";
 
 // Search engines cut (and Bing flags) a meta description over 160 characters.
 export const DESCRIPTION_MAX = 160;
@@ -413,7 +418,7 @@ export function layout(origin: string, head: Head, band: string, body: string): 
 <meta property="og:title" content="${esc(head.title)}">
 <meta property="og:description" content="${d}">
 <meta property="og:url" content="${esc(url)}">
-<meta property="og:image" content="${esc(origin)}/og.png">
+<meta property="og:image" content="${esc(origin)}/og.png?v=${og.v}">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -421,7 +426,7 @@ export function layout(origin: string, head: Head, band: string, body: string): 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(head.title)}">
 <meta name="twitter:description" content="${d}">
-<meta name="twitter:image" content="${esc(origin)}/og.png">
+<meta name="twitter:image" content="${esc(origin)}/og.png?v=${og.v}">
 <meta name="twitter:image:alt" content="${esc(OG_ALT)}">
 ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head.jsonld.length === 1 ? head.jsonld[0] : head.jsonld).replace(/</g, "\\u003c")}</script>\n` : ""}<style>${CSS}</style>
 </head>
@@ -440,8 +445,8 @@ ${body}
     <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
     ${SLOGAN}
     <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
-    <p>reunion-temps-reel ${VERSION} · <a href="https://github.com/bLd75/rundata">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · contact@rundata.re</p>
-    <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises.</p>
+    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · contact@rundata.re</p>
+    <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP. Suivre rundata.re sur <a href="${FACEBOOK}">Facebook</a>.</p>
     <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li></ul>
   </div>
   <div>

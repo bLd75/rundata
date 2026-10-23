@@ -7,6 +7,7 @@ src/places/island.json) and rasterised by ImageMagick (`convert`, with the DejaV
 Usage: python3 -I scripts/build-og.py
 """
 import base64
+import hashlib
 import json
 import subprocess
 import tempfile
@@ -54,7 +55,9 @@ def main():
                         "-strip", "-colors", "256", "PNG8:" + str(png)], check=True)
         data = png.read_bytes()
         out = ROOT / "src/web/og.json"
-        out.write_text(json.dumps({"png": base64.b64encode(data).decode()}))
+        # The page links the picture by its fingerprint: a new picture is a new address, which Facebook and the others
+        # fetch again instead of showing the one they keep.
+        out.write_text(json.dumps({"v": hashlib.sha256(data).hexdigest()[:8], "png": base64.b64encode(data).decode()}))
         print(out, f"{len(data) // 1024} KB PNG")
 
 
