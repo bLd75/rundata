@@ -7,9 +7,11 @@
  * seconds at most, and is otherwise sent without its live block while the build goes on.
  */
 import { left } from "../budget.js";
+import { localTime } from "../geo.js";
 import type { Cache, Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
 import * as annuaire from "../providers/annuaire.js";
+import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
 import * as mf from "../providers/vigilance.js";
 import { qualiteAir } from "../tools/air.js";
@@ -19,7 +21,7 @@ import { BEACHES, seaTour, temperatureMer } from "../tools/mer.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
 import { named } from "../tools/annuaire.js";
-import { departureRow, departures, findStops, nearStops, spread } from "../tools/transports.js";
+import { alertsFor, applyRealtime, departureRow, departures, findStops, nearStops, realtimeFeeds, spread } from "../tools/transports.js";
 import { cyclone, highest, raised } from "../tools/vigilance.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import { type Observation, why } from "../types.js";
@@ -323,21 +325,44 @@ export interface GareNow {
 export interface BusData {
   gares: GareNow[];
   reseaux: { nom: string; exploitant: string; lignes: number; valide_jusqu_au: string | null }[];
+  /** The networks whose departures come with their real-time feed, and the time of the feed (« 20:56 »). */
+  temps_reel?: { reseau: string; heure: string }[];
+  /** Their traffic alerts in force. */
+  alertes?: { reseau: string; titre: string; detail?: string }[];
   sources: Credit[];
 }
 
-/** The networks, always; the next departures at the main bus stations where the timetables are at hand (the Worker). */
-export async function buildBus(now = new Date()): Promise<BusData> {
+/** The traffic alerts in force on these networks' feeds, each once. */
+function allAlerts(feeds: Map<string, rt.Realtime>, now: Date) {
+  const out: { reseau: string; titre: string; detail?: string }[] = [];
+  for (const [net, f] of feeds) {
+    for (const a of f.alerts) {
+      if (rt.active(a, now.getTime() / 1000) && !out.some((x) => x.titre === a.titre)) out.push({ reseau: transit.NETWORKS[net].nom, titre: a.titre, detail: a.texte });
+    }
+  }
+  return out;
+}
+
+const feedTimes = (feeds: Map<string, rt.Realtime>) =>
+  [...feeds].map(([n, f]) => ({ reseau: transit.NETWORKS[n].nom, heure: localTime(new Date(f.at * 1000)).split(" ")[1] }));
+
+/**
+ * The networks, always; the next departures at the main bus stations where the timetables are at hand (the Worker),
+ * with the real-time feeds when `cache` is given.
+ */
+export async function buildBus(now = new Date(), cache?: Cache): Promise<BusData> {
   const lines = new Map<string, number>();
   for (const [net] of transit.ROUTES) lines.set(net, (lines.get(net) ?? 0) + 1);
   const reseaux = Object.entries(transit.NETWORKS).map(([id, n]) => ({ nom: n.nom, exploitant: n.exploitant, lignes: lines.get(id) ?? 0, valide_jusqu_au: n.valide_jusqu_au }));
   const gares: GareNow[] = [];
+  const feeds = cache && transit.enabled() ? await realtimeFeeds(rt.withRealtime(), cache, now) : new Map<string, rt.Realtime>();
   if (transit.enabled()) {
     for (const q of GARES) {
       const { groups } = findStops(q);
       if (!groups.length) continue;
       let list = await departures(groups, now);
       if (list.length < 3) list = await departures(groups, now, 20 * 3600);
+      list = applyRealtime(list, feeds, now);
       gares.push({
         commune: groups[0].commune,
         arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })),
@@ -345,7 +370,12 @@ export async function buildBus(now = new Date()): Promise<BusData> {
       });
     }
   }
-  return { gares, reseaux, sources: [credit(transit.SOURCE)] };
+  // Only the networks whose departures shown come from their feed.
+  const used = new Set(gares.flatMap((g) => g.departs.filter((d) => d.retard_min !== undefined || d.temps_reel).map((d) => d.reseau)));
+  const times = feedTimes(feeds).filter((t) => used.has(t.reseau));
+  const alertes = allAlerts(feeds, now);
+  const live = { ...(times.length ? { temps_reel: times } : {}), ...(alertes.length ? { alertes } : {}) };
+  return { gares, reseaux, ...live, sources: [credit(transit.SOURCE), ...(times.length || alertes.length ? [credit(rt.SOURCE)] : [])] };
 }
 
 /** What a commune's page adds to its weather: its town hall, and the next buses at its bus station or near its centre. */
@@ -356,6 +386,7 @@ export interface CommuneData {
     gare: boolean;
     arrets: { nom: string; reseau: string }[];
     departs: ReturnType<typeof departureRow>[];
+    alertes?: { reseau: string; lignes?: string[]; titre: string; detail?: string }[];
   };
   sources: Credit[];
 }
@@ -386,7 +417,15 @@ export async function buildCommune(cache: Cache, p: PlacePage, now = new Date())
       if (!groups.length) return undefined;
       let list = await departures(groups, now);
       if (list.length < 3) list = await departures(groups, now, 20 * 3600);
-      return { gare, arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })), departs: spread(list, 6).map(departureRow) };
+      const feeds = await realtimeFeeds(groups.map((g) => g.reseau), cache, now);
+      const shown = spread(applyRealtime(list, feeds, now), 6);
+      const alertes = alertsFor(groups, shown, feeds, now);
+      return {
+        gare,
+        arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })),
+        departs: shown.map(departureRow),
+        ...(alertes.length ? { alertes } : {}),
+      };
     })(),
   ]);
   if (mairie.status === "fulfilled" && mairie.value) {
@@ -396,6 +435,7 @@ export async function buildCommune(cache: Cache, p: PlacePage, now = new Date())
   if (bus.status === "fulfilled" && bus.value) {
     out.bus = bus.value;
     out.sources.push(credit(transit.SOURCE));
+    if (bus.value.departs.some((d) => "retard_min" in d || "temps_reel" in d)) out.sources.push(credit(rt.SOURCE));
   } else if (bus.status === "rejected") console.error(`page ${p.slug} : bus indisponibles`, why(bus.reason));
   if (!out.mairie && !out.bus) throw new Error(`aucune donnée de commune pour ${p.nom}`);
   return out;

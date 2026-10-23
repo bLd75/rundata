@@ -79,7 +79,7 @@ const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) =>
   "/air": { key: "web:air", build: buildAir, page: airPage },
   "/electricite": { key: "web:electricite", build: buildElectricite, page: electricitePage },
   "/calendrier": { key: "web:calendrier", build: buildCalendrier, page: calendrierPage },
-  "/bus": { key: "web:bus", build: (_cache, now) => buildBus(now), page: busPage },
+  "/bus": { key: "web:bus", build: (cache, now) => buildBus(now, cache), page: busPage },
 };
 
 /** How to build each category page's copy, by its cache key: what the home page and the commune pages show as tiles. */

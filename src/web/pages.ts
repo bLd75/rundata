@@ -340,6 +340,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .rows{list-style:none;padding:0;display:grid}
 .rows li{display:grid;grid-template-columns:3.4rem minmax(0,1fr) auto;gap:.6rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--line)}
 .rows li:first-child{border-top:0}
+.rt{font-weight:700;color:var(--link)}
 .rows b{font:800 1.05rem Bricolage,system-ui,sans-serif;overflow-wrap:anywhere}
 .bars{list-style:none;padding:0;display:grid;gap:.7rem}
 .bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.2rem .6rem;font-size:.92rem}

@@ -43,6 +43,8 @@ export interface Network {
   first_stop: number;
   first_route: number;
   first_pattern: number;
+  /** Its real-time feed (GTFS-RT), and the GTFS ids of its stops and lines in their order here, which the feed uses. */
+  temps_reel?: { flux: string; arrets: string[]; lignes: string[] };
 }
 export const NETWORKS: Record<string, Network> = network.networks;
 /** Networks in their numbering order. */

@@ -383,6 +383,24 @@ export function calendrierLive(data: Cached<CalendrierAnswer> | null): Live | un
 const waitText = (min: number, heure: string) =>
   heure.startsWith("demain") ? heure : min < 1 ? "maintenant" : min < 90 ? `dans ${fr(min)} min` : `à ${heure}`;
 
+type Row = BusData["gares"][number]["departs"][number];
+
+/** What the real-time feed says of a departure, HTML: « +5 min », « à l'heure », « 1 min d'avance », « ne passe pas à cet arrêt ». */
+export function liveText(x: Row): string {
+  if (x.temps_reel) return ` <b class="rt">${esc(x.temps_reel)}</b>`;
+  if (x.retard_min === undefined) return "";
+  const m = x.retard_min;
+  return ` <b class="rt" title="Heure annoncée en temps réel par le réseau">${m === 0 ? "à l'heure" : m > 0 ? `+${fr(m)} min` : `${fr(-m)} min d'avance`}</b>`;
+}
+
+/** One departure as a row: line, direction, wait (from the real-time feed when there is one). */
+export const departureLi = (x: Row, wait: string) =>
+  `<li><b>${esc(x.ligne)}</b><span>vers ${esc(x.direction)} <span class="note">(${esc(x.reseau)})</span></span><span class="note">${esc(wait)}${liveText(x)}</span></li>`;
+
+/** The traffic alerts of the networks with a real-time feed. */
+export const alertList = (list: { reseau: string; lignes?: string[]; titre: string; detail?: string }[]) =>
+  `<ul class="plain">${list.map((a) => `<li><b>${esc(a.reseau)}${a.lignes ? `, ligne ${esc(a.lignes.join(", "))}` : ""}</b> : ${esc(a.titre)}${a.detail && a.detail !== a.titre ? `<p class="note">${esc(a.detail)}</p>` : ""}</li>`).join("")}</ul>`;
+
 export function busPage(origin: string, data: Cached<BusData> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = fresh(`${origin}/bus`, now);
@@ -400,10 +418,11 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
     ? `<ul class="zones">${d.gares.map((g) => `<li class="card"><h3>Gare ${esc(de(g.commune))}</h3>` +
         `<p class="note">${g.arrets.map((a) => `${esc(a.reseau)} : ${esc(a.nom)}`).join(" · ")}</p>` +
         (g.departs.length
-          ? `<ul class="rows">${g.departs.map((x) => `<li><b>${esc(x.ligne)}</b><span>vers ${esc(x.direction)} <span class="note">(${esc(x.reseau)})</span></span><span class="note">${esc(waitText(x.dans_min, x.heure))}</span></li>`).join("")}</ul>`
+          ? `<ul class="rows">${g.departs.map((x) => departureLi(x, waitText(x.dans_min, x.heure_annoncee ?? x.heure))).join("")}</ul>`
           : `<p>Pas de départ prévu dans les prochaines heures.</p>`) +
         `</li>`).join("")}</ul>` +
-      `<p class="note">Horaires théoriques publiés par chaque réseau : retards, suppressions et déviations ne sont pas pris en compte. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
+      `<p class="note">${d!.temps_reel?.length ? `${esc(d!.temps_reel.map((t) => t.reseau).join(", "))} : heures annoncées en temps réel par le réseau quand le bus y figure (flux de ${esc(d!.temps_reel[0].heure)}). ` : ""}` +
+      `Sinon, horaires théoriques publiés par chaque réseau, sans les retards ni les déviations. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
     : `<p class="card">Les prochains départs à n'importe quel arrêt de l'île sont donnés par le connecteur : demandez à votre assistant « le prochain bus à la gare de Saint-Pierre ? ».</p>`;
 
   const title = "Bus à La Réunion 974 : prochains départs dans les gares routières";
@@ -427,6 +446,7 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
   ${gares}
   ${d ? `<p class="note">Sources : ${credits(d.sources)}.</p>` : ""}
 </section>
+${d?.alertes?.length ? `<section aria-labelledby="h-trafic"><h2 id="h-trafic">Info trafic</h2><div class="card">${alertList(d.alertes)}<p class="note">Publié par les réseaux dans leur flux temps réel, repris tel quel.</p></div></section>` : ""}
 ${connectorCta("transports", "les bus de l'île")}`;
 
   return layout(origin, { title, description, path: "/bus", jsonld: [crumbs(origin, "Bus", "/bus"), webPage(origin, "/bus", title, description, data)], alerte }, band, body);
@@ -439,7 +459,7 @@ export function busLive(data: Cached<BusData> | null): Live | undefined {
   const x = g.departs[0];
   return {
     // A time rather than « dans 3 min »: the page may be a few minutes old.
-    valeur: esc(x.heure),
+    valeur: esc(x.heure_annoncee ?? x.heure),
     detail: `prochain départ de la gare ${esc(de(g.commune))} : ligne ${esc(x.ligne)} vers ${esc(x.direction)} (${esc(x.reseau)})`,
   };
 }
