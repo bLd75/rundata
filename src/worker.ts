@@ -11,6 +11,7 @@ import { WORKER_FREE_LIMIT, count, counted } from "./budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { visitor, type Hit } from "./metrics.js";
 import * as meteofrance from "./providers/meteofrance.js";
+import * as transit from "./providers/transit.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { why } from "./types.js";
 
@@ -76,6 +77,12 @@ interface Env {
   METEOFRANCE_API_KEY?: string;
   STORE?: KvNamespace;
   USAGE?: AnalyticsDataset;
+  TRANSIT?: D1Database;
+}
+
+/** The part of a D1 binding used here. */
+interface D1Database {
+  prepare(sql: string): { bind(...values: unknown[]): { all<T>(): Promise<{ results: T[] }> } };
 }
 
 /** The part of a Workers Analytics Engine binding used here. */
@@ -111,6 +118,8 @@ let cache: Cache | undefined;
 
 function setup(env: Env): Cache {
   meteofrance.configure({ applicationId: env.METEOFRANCE_APPLICATION_ID, apiKey: env.METEOFRANCE_API_KEY });
+  const d1 = env.TRANSIT;
+  transit.configure(d1 && { all: async <T>(sql: string, ...params: unknown[]) => (await d1.prepare(sql).bind(...params).all<T>()).results });
   // Without the KV binding, the bundles stay in the data center's cache like everything else.
   return (cache ??= new Cache(new TieredStore(new MemoryStore(), new EdgeStore()), Date.now, false, env.STORE && new KvStore(env.STORE)));
 }

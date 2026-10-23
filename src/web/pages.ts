@@ -69,6 +69,7 @@ const ICON: Record<string, string> = {
   building: `<path d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-6h6v6"/>`,
   calendar: `<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
   map: `<path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3Z"/><path d="M9 4v13M15 7v13"/>`,
+  bus: `<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v3M16 18v3"/><path d="M8 14.5h.01M16 14.5h.01"/>`,
 };
 const icon = (name: string) =>
   `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[name]}</svg>`;
@@ -396,7 +397,7 @@ ${body}
   </div>
   <div>
     <h3>Sources</h3>
-    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Police des titres : Bricolage Grotesque (SIL OFL).</p>
+    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Police des titres : Bricolage Grotesque (SIL OFL).</p>
     <p>Ces mesures sont données telles quelles, sans garantie. Pour un cyclone ou de fortes pluies, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture.</p>
   </div>
 </div></footer>
@@ -624,6 +625,7 @@ function assistant(origin: string, now: Date): string {
     <li class="tool">${icon("air")}<h3>Qualité de l'air</h3><p>L'indice ATMO du jour et du lendemain dans chaque commune, avec le polluant en cause.</p><code>qualite_air</code></li>
     <li class="tool">${icon("building")}<h3>Services publics</h3><p>Adresse, horaires, ouvert ou fermé en ce moment, téléphone : mairies, CAF, préfecture, impôts…</p><code>annuaire_services_publics</code></li>
     <li class="tool">${icon("calendar")}<h3>Calendrier</h3><p>Vacances scolaires de l'académie, jours fériés (dont le 20 décembre), lever et coucher du soleil.</p><code>calendrier</code></li>
+    <li class="tool">${icon("bus")}<h3>Bus</h3><p>Prochains départs à un arrêt, d'après les horaires de Car Jaune, Citalis, Kar'Ouest, Alternéo, CarSud, Estival et du téléphérique Papang.</p><code>transports</code></li>
     <li class="tool">${icon("map")}<h3>Terrain et risques</h3><p>À une adresse : parcelle, zone du PLU, prix de vente autour, plan de prévention des risques, catastrophes naturelles, mouvements de terrain.</p><code>fiche_terrain</code></li>
     <li class="tool">${icon("book")}<h3>Sources</h3><p>D'où vient chaque donnée, sa fraîcheur et sa licence : l'assistant peut toujours le dire.</p><code>sources_donnees</code></li>
   </ul>
@@ -677,7 +679,7 @@ export function homePage(origin: string, data: Cached<HomeData> | null, now = ne
       name: "rundata.re, connecteur MCP La Réunion en temps réel",
       description:
         "Serveur MCP (Model Context Protocol) gratuit qui donne à Claude, ChatGPT ou Le Chat les données publiques de La Réunion (974) " +
-        "en temps réel : mesures météo, prévisions, vigilance, mer, volcan, électricité, qualité de l'air, services publics, terrain et risques.",
+        "en temps réel : mesures météo, prévisions, vigilance, mer, volcan, électricité, qualité de l'air, services publics, horaires de bus, terrain et risques.",
       url: `${origin}/mcp`,
       applicationCategory: "DeveloperApplication",
       operatingSystem: "Web",
