@@ -5,16 +5,16 @@ import { findStops, parseQuery, transports } from "../src/tools/transports.js";
 
 // Rows of the D1 database for the stations of Saint-Pierre, the cable car at Bancoul and Hell-Bourg, from the
 // networks' GTFS of 23/10/2026 (scripts/build-transit.py).
-const rows = JSON.parse(readFileSync(new URL("./fixtures/transit/rows.json", import.meta.url), "utf8")) as {
-  passes: { id: number; passes: string }[];
-  patterns: { id: number; route: number; headsign: string; trips: string }[];
-};
+// By feed, as scripts/build-transit.py writes them to the database.
+const rows = JSON.parse(readFileSync(new URL("./fixtures/transit/rows.json", import.meta.url), "utf8")) as Record<
+  string,
+  { passes: { id: number }[]; patterns: { id: number }[] }
+>;
 const fake: transit.TransitDb = {
-  all: async <T>(sql: string, _build: unknown, ids: unknown) => {
-    const wanted = new Set(JSON.parse(String(ids)) as number[]);
-    const table = sql.includes("stop_passes") ? rows.passes : rows.patterns;
-    return table.filter((r) => wanted.has(r.id)) as T[];
-  },
+  all: async <T>(sql: string, keys: unknown) =>
+    (JSON.parse(String(keys)) as [string, number][]).flatMap(([feed, id]) =>
+      (/FROM passes/.test(sql) ? rows[feed]?.passes : rows[feed]?.patterns)?.filter((r) => r.id === id).map((r) => ({ feed, ...r })) ?? [],
+    ) as T[],
 };
 // Friday 23/10/2026, 7h30 in La Réunion.
 const NOW = new Date("2026-10-23T03:30:00Z");

@@ -5,6 +5,7 @@
  */
 import type { Cached } from "../cache.js";
 import { normalize } from "../places/resolve.js";
+import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, VolcanAnswer } from "./data.js";
 import island from "../places/island.json" with { type: "json" };
@@ -288,7 +289,7 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
   const school = v
     ? `<div class="card">${icon("book")}<h3>Vacances scolaires</h3><ul class="plain">` +
       [...(v.en_cours ? [{ ...v.en_cours, now: true }] : []), ...v.a_venir.map((x) => ({ ...x, now: false }))]
-        .map((x) => `<li><b>${esc(x.nom)}</b>${x.now ? " (en cours)" : ""} : du ${esc(x.debut)}, reprise le ${esc(x.reprise_des_cours)}</li>`).join("") +
+        .map((x) => `<li><b>${esc(x.nom)}</b>${x.now ? " (en cours)" : ""} : du ${esc(x.debut)}, ${x.reprise_des_cours === UNPUBLISHED ? "date de reprise pas encore publiée" : `reprise le ${esc(x.reprise_des_cours)}`}</li>`).join("") +
       `</ul><p class="note">${esc(v.note)}</p></div>`
     : "";
   const sun = d?.soleil

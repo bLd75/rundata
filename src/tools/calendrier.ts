@@ -14,6 +14,9 @@ export function longDate(ymd: string): string {
   return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate() === 1 ? "1er" : d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+/** Shown instead of a date when the rectorat has not published the end of a holiday yet. */
+export const UNPUBLISHED = "pas encore publiée";
+
 const today = (now: Date) => new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
 
@@ -56,7 +59,7 @@ export async function calendrier(cache: Cache, lieu: string | undefined, now = n
     const fmt = (b: cal.SchoolBreak) => ({
       nom: b.nom,
       debut: longDate(b.debut),
-      reprise_des_cours: b.reprise ? longDate(b.reprise) : "pas encore publiée",
+      reprise_des_cours: b.reprise ? longDate(b.reprise) : UNPUBLISHED,
       annee_scolaire: b.annee_scolaire,
     });
     scolaire = {
