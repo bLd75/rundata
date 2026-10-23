@@ -86,6 +86,14 @@ describe("transports", () => {
     expect(r.departs.length).toBeGreaterThan(2);
   });
 
+  it("gives the next morning's buses after the last one of the evening", async () => {
+    // Friday 23/10/2026, 18h30: no more buses at Hell-Bourg until Saturday.
+    const r = body(await transports("Hell-Bourg", undefined, new Date("2026-10-23T14:30:00Z")));
+    expect(r.departs[0].heure).toBe("demain 5h51");
+    expect(r.departs[0].dans_min).toBeGreaterThan(11 * 60);
+    expect(r.resume).toContain("à demain 5h51");
+  });
+
   it("says when it cannot answer outside the Worker", async () => {
     transit.configure(undefined);
     const r = await transports("gare routière Saint-Pierre", undefined, NOW);
