@@ -3,10 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cached } from "../src/cache.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import * as transit from "../src/providers/transit.js";
-import { buildBus } from "../src/web/data.js";
+import * as annuaire from "../src/providers/annuaire.js";
+import { communePage } from "../src/web/commune.js";
+import { buildBus, communeStops, type CommuneData } from "../src/web/data.js";
 import { airPage, busPage, calendrierPage, electricitePage, volcanPage } from "../src/web/domains.js";
 import { homePage } from "../src/web/home.js";
 import { DESCRIPTION_MAX } from "../src/web/pages.js";
+import { pageOf } from "../src/web/places.js";
 import { site } from "../src/web/site.js";
 
 const NOW = new Date("2026-10-23T14:40:00Z");
@@ -116,6 +119,47 @@ describe("home page tiles", () => {
     expect(page).toContain("« La mairie de Saint-Paul est ouverte ? »");
     // The sample exchange takes its answer from the data of the moment.
     expect(page).toMatch(/<p class="bubble ai">(Non, pas d'éruption|Ligne |\d+\u202f% de sources)/);
+  });
+});
+
+describe("commune page", () => {
+  const p = pageOf("saint-pierre")!;
+  const mairies = JSON.parse(readFileSync(new URL("./fixtures/annuaire_mairie.json", import.meta.url), "utf8")).results.map(annuaire.office);
+  const live = (commune: CommuneData) => ({
+    place: null,
+    commune: cached(commune),
+    air: cached(answer("qualite_air")),
+    volcan: cached(answer("volcan_seismes")),
+    electricite: cached(answer("electricite")),
+    calendrier: cached(answer("calendrier")),
+  });
+  const tile = (page: string, name: string) => page.match(new RegExp(`<h3>(?:<a href="[^"]+">)?${name}(?:</a>)?</h3>(.*?)</li>`, "s"))![1];
+
+  it("finds the commune's bus station, or the stops near its centre, never Le Port's ferry terminal", () => {
+    expect(communeStops(p).gare).toBe(true);
+    expect(communeStops(p).groups.map((g) => g.reseau).sort()).toEqual(["alterneo", "carjaune", "carsud"]);
+    const port = communeStops(pageOf("le-port")!);
+    expect(port.gare).toBe(false);
+    expect(port.groups.map((g) => g.nom)).not.toContain("Gare Maritime");
+  });
+
+  it("says the air of the commune, its town hall open or closed now, and the departures still to come", () => {
+    const departs: NonNullable<CommuneData["bus"]>["departs"] = [
+      { heure: "18h30", dans_min: -11, ligne: "S1", direction: "Gare du Tampon", reseau: "Car Jaune", arret: "Gare de St-Pierre" },
+      { heure: "18h50", dans_min: 11, ligne: "S2", direction: "St-Joseph", reseau: "Car Jaune", arret: "Gare de St-Pierre" },
+    ];
+    const mairie = { ...mairies[0], horaires: [{ de: "lundi", a: "vendredi", plages: [["08h00", "16h00"]] as [string, string][] }] };
+    const page = communePage(ORIGIN, p, live({ mairie, bus: { gare: true, arrets: [], departs }, sources: [] }), NOW);
+    expect(tile(page, "Air")).toContain(`<span class="aq aq2">moyen</span>`);
+    // 18h40 on a Friday.
+    expect(tile(page, "Mairie")).toContain(`<p class="tv">Fermée</p><p class="td">aujourd'hui 8h-16h`);
+    expect(tile(page, "Bus")).toContain(`<p class="tv">18h50</p>`);
+    expect(tile(page, "Bus")).toContain("dans 10 min"); // built a minute ago
+    expect(tile(page, "Bus")).not.toContain("S1");
+    expect(tile(page, "Volcan")).toContain("Pas d'éruption");
+    expect(tile(page, "Soleil et calendrier")).toMatch(/<p class="tv">\d\dh\d\d – \d\dh\d\d<\/p>/);
+    expect(desc(page).length).toBeLessThanOrEqual(DESCRIPTION_MAX);
+    expect(jsonld(page)[0].itemListElement.map((x: { name: string }) => x.name)).toEqual(["rundata.re", "Communes", "Saint-Pierre"]);
   });
 });
 

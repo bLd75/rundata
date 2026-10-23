@@ -32,6 +32,16 @@ export function openNow(o: annuaire.Office, now: Date): boolean | null {
   });
 }
 
+/** The hours of `now`'s day (local time), as « 7h45-12h et 13h30-16h » ; undefined when it is closed all day. */
+export function hoursOn(o: annuaire.Office, now: Date): string | undefined {
+  const day = new Date(now.getTime() + 4 * 3600_000).getUTCDay();
+  const h = o.horaires.find((x) => {
+    const [d0, d1] = [DAYS.indexOf(x.de), DAYS.indexOf(x.a)];
+    return d0 >= 0 && d1 >= 0 && (d0 <= d1 ? day >= d0 && day <= d1 : day >= d0 || day <= d1);
+  });
+  return h?.plages.length ? h.plages.map(([d, f]) => `${short(d)}-${short(f)}`).join(" et ") : undefined;
+}
+
 /**
  * Keeps the offices whose name holds every word asked (as a whole word, plural or not): the API's full-text search
  * also matches inside words, so « CAF » near Le Tampon finds the gendarmerie of La Plaine-des-Cafres.
