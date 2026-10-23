@@ -8,7 +8,8 @@ import type { Cached } from "../cache.js";
 import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
-import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, VolcanAnswer } from "./data.js";
+import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
+import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap } from "./map.js";
 import { ask, credits, DESCRIPTION_MAX, fresh, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
@@ -461,5 +462,79 @@ export function busLive(data: Cached<BusData> | null): Live | undefined {
     // A time rather than « dans 3 min »: the page may be a few minutes old.
     valeur: esc(x.heure_annoncee ?? x.heure),
     detail: `prochain départ de la gare ${esc(de(g.commune))} : ligne ${esc(x.ligne)} vers ${esc(x.direction)} (${esc(x.reseau)})`,
+  };
+}
+
+// ---------------------------------------------------------------- vélos
+
+/** « 4 vélos · 6 places », « fermée ». */
+export function bikeStock(s: VeloStation): string {
+  if (s.etat === "fermée" || s.etat === "location impossible en ce moment") return esc(s.etat);
+  const parts = [`<b>${s.velos_electriques}</b> vélo${s.velos_electriques > 1 ? "s" : ""}`];
+  if (s.trottinettes) parts.push(`<b>${s.trottinettes}</b> trottinette${s.trottinettes > 1 ? "s" : ""}`);
+  if (s.places_libres != null && !s.etat) parts.push(`${s.places_libres} place${s.places_libres > 1 ? "s" : ""}`);
+  return parts.join(" · ");
+}
+
+export const bikeRow = (s: VeloStation) => `<li><span>${esc(s.nom)}</span><span>${bikeStock(s)}</span></li>`;
+
+export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/velos`, now);
+  const total = d?.communes?.reduce((n, c) => n + c.velos_disponibles, 0) ?? 0;
+
+  const status = !d
+    ? loading("L'état des stations")
+    : `<div class="now"><span class="big">${total}</span><p>vélo${total > 1 ? "s" : ""} à assistance électrique disponible${total > 1 ? "s" : ""} en ce moment dans les <b>${d.stations.length} stations</b> Altervélo de ${esc(BIKE_COMMUNES.join(", ").replace(/, ([^,]+)$/, " et $1"))}.</p></div>`;
+
+  const fills = Object.fromEntries(BIKE_COMMUNES.map((c) => [c, "var(--hl)"]));
+  const byCommune = d
+    ? `<ul class="zones">${BIKE_COMMUNES.map((c) => {
+        const mine = d.stations.filter((s) => s.commune === c).sort((a, b) => b.velos_electriques + (b.trottinettes ?? 0) - (a.velos_electriques + (a.trottinettes ?? 0)) || a.nom.localeCompare(b.nom, "fr"));
+        const n = d.communes?.find((x) => x.commune === c)?.velos_disponibles ?? 0;
+        return `<li class="card"><h3>${esc(c)} <span class="note">${n} vélo${n > 1 ? "s" : ""}, ${mine.length} station${mine.length > 1 ? "s" : ""}</span></h3>` +
+          `<ul class="rows bikes">${mine.map(bikeRow).join("")}</ul></li>`;
+      }).join("")}</ul>` +
+      `<p class="note">${esc(d.donnees)}</p>`
+    : `<p class="card">L'état des stations se charge : rechargez la page dans quelques secondes.</p>`;
+
+  const title = "Vélos Altervélo en direct : stations de Saint-Pierre, Saint-Louis, L'Étang-Salé";
+  const description = d
+    ? describe(`🇷🇪 Vélos électriques Altervélo en libre-service (974) en ce moment : ${total} vélos disponibles, et les places libres de chaque station à Saint-Pierre, Saint-Louis et L'Étang-Salé.`,
+        "🇷🇪 Vélos électriques Altervélo en libre-service (974) : vélos et places libres de chaque station, en direct.")
+    : "🇷🇪 Vélos électriques Altervélo en libre-service (974) : vélos et places libres de chaque station, en direct.";
+
+  const band = `${crumbBar("Vélos")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>En direct</p>
+    <h1>Vélos en libre-service <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Néna in vélo Altervélo i rès dan la stasion IUT ? Rogard si ${url} é di amwin.`,
+      `Reste-t-il des vélos Altervélo à la station IUT de Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
+  </div>
+  <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) : les communes où circulent les vélos Altervélo" })}
+  <figcaption class="note" style="color:var(--on-night-muted)">Les communes desservies par Altervélo.</figcaption></figure>
+</div>`;
+
+  const body = `<section aria-labelledby="h-stations">
+  <div class="sec-h"><p class="eyebrow">Station par station</p><h2 id="h-stations">Vélos et places libres</h2>
+  <p>${d ? esc(d.service) : "Altervélo : vélos à assistance électrique en libre-service de la CIVIS."}</p></div>
+  ${byCommune}
+  ${d && data ? sourcesNote(d.sources, data) : ""}
+</section>
+${connectorCta("velos_libre_service", "les vélos du Sud")}`;
+
+  return layout(origin, { title, description, path: "/velos", jsonld: [crumbs(origin, "Vélos", "/velos"), webPage(origin, "/velos", title, description, data)], alerte }, band, body);
+}
+
+export function velosLive(data: Cached<VelosAnswer> | null): Live | undefined {
+  const d = data?.value;
+  if (!d?.communes) return undefined;
+  const total = d.communes.reduce((n, c) => n + c.velos_disponibles, 0);
+  const best = [...d.stations].sort((a, b) => b.velos_electriques - a.velos_electriques)[0];
+  return {
+    valeur: `${total} vélo${total > 1 ? "s" : ""}`,
+    detail: `disponibles dans ${d.stations.length} stations Altervélo${best?.velos_electriques ? `, dont ${best.velos_electriques} à ${esc(best.nom)} (${esc(best.commune)})` : ""}`,
   };
 }

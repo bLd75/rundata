@@ -29,10 +29,12 @@ import { ficheLieu } from "./tools/terrain.js";
 import * as gtfsrt from "./providers/gtfsrt.js";
 import * as transit from "./providers/transit.js";
 import { transports } from "./tools/transports.js";
+import * as velos from "./providers/velos.js";
+import { velosLibreService } from "./tools/velos.js";
 
-export const VERSION = "0.3.0";
+export const VERSION = "0.4.0";
 
-const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
+const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
 - Maintenant (« il fait combien ? », « il pleut ? », « la mer est à combien ? ») : meteo_actuelle et temperature_mer renvoient des MESURES datées. Dire l'heure de la mesure, la station et sa distance, et relayer les avertissements (altitude, versant, ancienneté), car le climat change beaucoup sur quelques kilomètres.
 - Plus tard (« demain », « ce soir », « ce week-end ») : prevision_meteo renvoie une PRÉVISION de modèle. Toujours dire à l'utilisateur que c'est une prévision, pas une mesure, et relayer ses avertissements ; ne jamais la présenter comme une observation.
@@ -42,6 +44,7 @@ Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La 
 - Qualité de l'air (« l'air est pollué à Saint-Louis ? ») : qualite_air.
 - Services publics (« horaires de la mairie ? », « où est la CAF ? ») : annuaire_services_publics.
 - Bus (« prochain bus à la gare routière de Saint-Pierre ? », « horaires de la ligne 2 à l'arrêt Mairie du Tampon ? ») : transports.
+- Vélos en libre-service (« il reste des vélos à la station IUT ? », « vélo Altervélo près du front de mer de Saint-Pierre ? ») : velos_libre_service (Saint-Pierre, Saint-Louis, L'Étang-Salé).
 - Terrain à une adresse (« constructible ? », « zone du PLU ? », « prix au m² ? », « zone inondable ? », « risques à cette adresse ? ») : fiche_terrain.
 - Vigilance et cyclones (« alerte cyclonique ? », « vigilance orange ? », « on peut aller en montagne avec ces pluies ? ») : vigilance_meteo renvoie la vigilance officielle de Météo-France. Quand une réponse contient un champ « vigilance », le dire en premier.
 Réunion Island weather: real-time measurements (meteo_actuelle, temperature_mer) and model forecasts (prevision_meteo), never mixed. Always tell the user when a value is a forecast.`;
@@ -298,6 +301,26 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
   }
 
   server.registerTool(
+    "velos_libre_service",
+    {
+      title: "Vélos en libre-service à La Réunion",
+      description:
+        "Vélos à assistance électrique en libre-service Altervélo (Saint-Pierre, Saint-Louis, L'Étang-Salé), en direct : pour chaque station, " +
+        "le nombre de vélos à prendre et de places libres pour en rendre un, et les stations les plus proches d'un lieu. Pour : « il reste des vélos " +
+        "à la station IUT ? », « où prendre un vélo près du front de mer de Saint-Pierre ? », « je peux rendre mon vélo au pôle d'échanges de Saint-Louis ? ». " +
+        "/ Live bike-share availability (Altervélo e-bikes, south of Réunion Island): bikes and free docks per station.",
+      inputSchema: {
+        lieu: z
+          .string()
+          .optional()
+          .describe("Nom d'une station (« IUT », « Front de mer »), un lieu ou une commune (« Saint-Pierre », « plage de l'Étang-Salé »). Vide = tout le réseau. / Station, place or town; empty = whole network."),
+      },
+      annotations: { title: "Vélos Altervélo", ...READ_ONLY },
+    },
+    track("velos_libre_service", (args: { lieu?: string }) => velosLibreService(cache, args.lieu)),
+  );
+
+  server.registerTool(
     "sources_donnees",
     {
       title: "Sources des données",
@@ -309,7 +332,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
     },
     track("sources_donnees", async () =>
       text({
-        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
+        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage() },
         version: VERSION,

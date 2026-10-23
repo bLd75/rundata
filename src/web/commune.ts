@@ -13,7 +13,7 @@ import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
 import { current, cyclone, highest, raised } from "../tools/vigilance.js";
 import type { AirAnswer, Alerte, CalendrierAnswer, CommuneData, ElectriciteAnswer, PlaceData, SeaData, VolcanAnswer } from "./data.js";
-import { alertList, aq, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
+import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
 import { esc, islandMap } from "./map.js";
 import { ask, connector, credits, dayMonth, deg, fit, fresh, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
@@ -136,6 +136,17 @@ function buses(p: PlacePage, data: Cached<CommuneData> | null | undefined, now: 
   };
 }
 
+/** The commune's Altervélo stations: how many bikes in all, and those with the most. */
+function bikes(data: Cached<CommuneData> | null | undefined): { live?: Live; more?: string } | undefined {
+  const list = data?.value.velos;
+  if (!list?.length) return undefined;
+  const total = list.filter((s) => !s.etat || s.etat === "dépôt impossible en ce moment").reduce((n, s) => n + s.velos_electriques + (s.trottinettes ?? 0), 0);
+  return {
+    live: { valeur: `${total} vélo${total > 1 ? "s" : ""}`, detail: `électriques en libre-service dans ${list.length} station${list.length > 1 ? "s" : ""} Altervélo, relevé à ${hm(data!.fetchedAt)}` },
+    more: `<ul class="rows bikes">${list.slice(0, 5).map(bikeRow).join("")}</ul>`,
+  };
+}
+
 function townHall(data: Cached<CommuneData> | null | undefined, now: Date): Live | undefined {
   const o = data?.value.mairie;
   if (!o) return undefined;
@@ -162,6 +173,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const url = fresh(`${origin}${hub(p)}`, now);
   const w = weather(l.place, now);
   const bus = buses(p, l.commune, now);
+  const velos = bikes(l.commune);
   const mairie = townHall(l.commune, now);
   const fiche = l.commune?.value.mairie?.fiche;
 
@@ -171,6 +183,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     { icon: "air", nom: "Air", href: "/air", live: air(p, l.air) },
     ...(coastal(p) ? [{ icon: "wave", nom: "Mer", href: "/mer", live: sea(p, l.mer, l.place) }] : []),
     { icon: "bus", nom: "Bus", href: "/bus", ...bus, wide: true },
+    ...(velos ? [{ icon: "bike", nom: "Vélos", href: "/velos", ...velos, wide: true }] : []),
     {
       icon: "building",
       nom: "Mairie",

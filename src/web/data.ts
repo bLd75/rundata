@@ -13,6 +13,7 @@ import { INSEE } from "../places/insee.js";
 import * as annuaire from "../providers/annuaire.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
+import * as velos from "../providers/velos.js";
 import * as mf from "../providers/vigilance.js";
 import { qualiteAir } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
@@ -23,6 +24,7 @@ import { previsionMeteo } from "../tools/prevision.js";
 import { named } from "../tools/annuaire.js";
 import { alertsFor, applyRealtime, departureRow, departures, findStops, nearStops, realtimeFeeds, spread } from "../tools/transports.js";
 import { cyclone, highest, raised } from "../tools/vigilance.js";
+import { COMMUNES as BIKE_COMMUNES, velosLibreService } from "../tools/velos.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import { type Observation, why } from "../types.js";
 import { coastal, type PlacePage } from "./places.js";
@@ -261,6 +263,28 @@ export interface AirAnswer {
 
 export const buildAir = async (cache: Cache, now = new Date()) => needed<AirAnswer>(await qualiteAir(cache, undefined, now), "air");
 
+export interface VeloStation {
+  nom: string;
+  commune: string;
+  distance_m?: number;
+  velos_electriques: number;
+  trottinettes?: number;
+  places_libres?: number;
+  etat?: string;
+  maj: string;
+}
+
+export interface VelosAnswer {
+  resume: string;
+  communes?: { commune: string; stations: number; velos_disponibles: number }[];
+  stations: VeloStation[];
+  service: string;
+  donnees: string;
+  sources: Credit[];
+}
+
+export const buildVelos = async (cache: Cache) => needed<VelosAnswer>(await velosLibreService(cache, undefined), "velos");
+
 export interface ElectriciteAnswer {
   resume: string;
   production?: {
@@ -388,6 +412,8 @@ export interface CommuneData {
     departs: ReturnType<typeof departureRow>[];
     alertes?: { reseau: string; lignes?: string[]; titre: string; detail?: string }[];
   };
+  /** The commune's Altervélo stations, those with bikes first (Saint-Pierre, Saint-Louis, L'Étang-Salé). */
+  velos?: VeloStation[];
   sources: Credit[];
 }
 
@@ -409,7 +435,7 @@ async function townHall(cache: Cache, p: PlacePage): Promise<annuaire.Office | u
 
 export async function buildCommune(cache: Cache, p: PlacePage, now = new Date()): Promise<CommuneData> {
   const out: CommuneData = { sources: [] };
-  const [mairie, bus] = await Promise.allSettled([
+  const [mairie, bus, bikes] = await Promise.allSettled([
     townHall(cache, p),
     (async () => {
       if (!transit.enabled()) return undefined;
@@ -427,6 +453,7 @@ export async function buildCommune(cache: Cache, p: PlacePage, now = new Date())
         ...(alertes.length ? { alertes } : {}),
       };
     })(),
+    BIKE_COMMUNES.includes(p.nom) ? velosLibreService(cache, p.nom, now).then((r) => answer<VelosAnswer>(r)?.stations) : Promise.resolve(undefined),
   ]);
   if (mairie.status === "fulfilled" && mairie.value) {
     out.mairie = mairie.value;
@@ -437,6 +464,10 @@ export async function buildCommune(cache: Cache, p: PlacePage, now = new Date())
     out.sources.push(credit(transit.SOURCE));
     if (bus.value.departs.some((d) => "retard_min" in d || "temps_reel" in d)) out.sources.push(credit(rt.SOURCE));
   } else if (bus.status === "rejected") console.error(`page ${p.slug} : bus indisponibles`, why(bus.reason));
+  if (bikes.status === "fulfilled" && bikes.value?.length) {
+    out.velos = bikes.value;
+    out.sources.push(credit(velos.SOURCE));
+  } else if (bikes.status === "rejected") console.error(`page ${p.slug} : vélos indisponibles`, why(bikes.reason));
   if (!out.mairie && !out.bus) throw new Error(`aucune donnée de commune pour ${p.nom}`);
   return out;
 }

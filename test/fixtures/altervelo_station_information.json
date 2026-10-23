@@ -1,0 +1,145 @@
+{
+ "data": {
+  "stations": [
+   {
+    "capacity": 1,
+    "is_valet_station": false,
+    "is_virtual_station": false,
+    "lat": -21.341732,
+    "lon": 55.477766,
+    "name": [
+     {
+      "language": "fr",
+      "text": "TEST"
+     }
+    ],
+    "rental_uris": {
+     "web": "https://altervelo.ecovelo.mobi/#/station/stn_adYaP7DCN8UipynuaMMVfC"
+    },
+    "station_id": "stn_adYaP7DCN8UipynuaMMVfC"
+   },
+   {
+    "capacity": 24,
+    "is_valet_station": false,
+    "is_virtual_station": false,
+    "lat": -21.344748,
+    "lon": 55.492238,
+    "name": [
+     {
+      "language": "fr",
+      "text": "Stade de Terre Sainte"
+     }
+    ],
+    "rental_uris": {
+     "web": "https://altervelo.ecovelo.mobi/#/station/stn_BPBfnhFT8z8LgjajN8qQgS"
+    },
+    "station_id": "stn_BPBfnhFT8z8LgjajN8qQgS"
+   },
+   {
+    "capacity": 24,
+    "is_valet_station": false,
+    "is_virtual_station": false,
+    "lat": -21.289943,
+    "lon": 55.406598,
+    "name": [
+     {
+      "language": "fr",
+      "text": "Pôle d'échanges de Saint-Louis"
+     }
+    ],
+    "rental_uris": {
+     "web": "https://altervelo.ecovelo.mobi/#/station/stn_KtcHVTfmSGcAcLNqEeJZUp"
+    },
+    "station_id": "stn_KtcHVTfmSGcAcLNqEeJZUp"
+   },
+   {
+    "capacity": 4,
+    "is_valet_station": false,
+    "is_virtual_station": false,
+    "lat": -21.350426,
+    "lon": 55.51177,
+    "name": [
+     {
+      "language": "fr",
+      "text": "ZAC Maxime Rivière"
+     }
+    ],
+    "rental_uris": {
+     "web": "https://altervelo.ecovelo.mobi/#/station/stn_oKX5hRmFWpnubVUgAa8A29"
+    },
+    "station_id": "stn_oKX5hRmFWpnubVUgAa8A29"
+   },
+   {
+    "capacity": 24,
+    "is_valet_station": false,
+    "is_virtual_station": false,
+    "lat": -21.342959,
+    "lon": 55.481414,
+    "name": [
+     {
+      "language": "fr",
+      "text": "Eglise de Terre Sainte"
+     }
+    ],
+    "rental_uris": {
+     "web": "https://altervelo.ecovelo.mobi/#/station/stn_S7NkH4CEUGF75v344a6zTV"
+    },
+    "station_id": "stn_S7NkH4CEUGF75v344a6zTV"
+   },
+   {
+    "capacity": 16,
+    "is_valet_station": false,
+    "is_virtual_station": false,
+    "lat": -21.341835,
+    "lon": 55.490734,
+    "name": [
+     {
+      "language": "fr",
+      "text": "IUT"
+     }
+    ],
+    "rental_uris": {
+     "web": "https://altervelo.ecovelo.mobi/#/station/stn_UGAkWHvH7sBrvGk4RM6Mai"
+    },
+    "station_id": "stn_UGAkWHvH7sBrvGk4RM6Mai"
+   },
+   {
+    "capacity": 12,
+    "is_valet_station": false,
+    "is_virtual_station": false,
+    "lat": -21.262771,
+    "lon": 55.335112,
+    "name": [
+     {
+      "language": "fr",
+      "text": "Camping l'Etang-Salé"
+     }
+    ],
+    "rental_uris": {
+     "web": "https://altervelo.ecovelo.mobi/#/station/stn_W75qhUWfLhWBJ6PCSMSoCb"
+    },
+    "station_id": "stn_W75qhUWfLhWBJ6PCSMSoCb"
+   },
+   {
+    "capacity": 16,
+    "is_valet_station": false,
+    "is_virtual_station": false,
+    "lat": -21.272303,
+    "lon": 55.336383,
+    "name": [
+     {
+      "language": "fr",
+      "text": "Village Roche Carangue"
+     }
+    ],
+    "rental_uris": {
+     "web": "https://altervelo.ecovelo.mobi/#/station/stn_XWQbWaedPsbVdtqTkPNED3"
+    },
+    "station_id": "stn_XWQbWaedPsbVdtqTkPNED3"
+   }
+  ]
+ },
+ "last_updated": "2026-10-23T22:35:28+02:00",
+ "ttl": 0,
+ "version": "3.0"
+}
