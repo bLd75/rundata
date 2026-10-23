@@ -1,12 +1,15 @@
 /**
- * The web side of the server: the home page, one page per commune or place, one per domain (vigilance, sea, volcano,
- * air, electricity, buses, calendar), and what crawlers and link previews ask for (robots.txt, sitemap.xml, the
- * og:image, the favicon). Null for any other path.
+ * The web side of the server: the home page, one page per category (weather, vigilance, sea, volcano, buses, air,
+ * electricity, calendar), one per commune or place for the weather, and what crawlers and link previews ask for
+ * (robots.txt, sitemap.xml, the og:image, the favicon). Null for any other path.
  */
+import { left } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
+import { why } from "../types.js";
 import {
   alerte,
   alerteOf,
+  BANNER_WAIT_MS,
   buildAir,
   buildBus,
   buildCalendrier,
@@ -15,6 +18,7 @@ import {
   buildPlace,
   buildSea,
   buildVolcan,
+  FRESH_SECONDS,
   snapshot,
   vigilanceNow,
   type Alerte,
@@ -22,9 +26,10 @@ import {
 } from "./data.js";
 import { airPage, busPage, calendrierPage, electricitePage, volcanPage } from "./domains.js";
 import { FAVICON } from "./flag.js";
+import { homePage } from "./home.js";
 import font from "./font.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
-import { FONT_PATH, homePage, legalPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
+import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { pageOf, PAGES } from "./places.js";
 
 const HTML = {
@@ -49,6 +54,9 @@ const READERS = /ChatGPT-User|OAI-SearchBot|GPTBot|Claude-User|Claude-SearchBot|
 const READER_WAIT_MS = 25_000;
 // The vigilance page waits longer than a banner for Météo-France: it is the page's whole content.
 const VIGILANCE_WAIT_MS = 8000;
+// The home page's tiles besides the weather and the vigilance, and the subrequests a visit must have left to refresh one.
+const TILES = ["/volcan", "/air", "/electricite", "/calendrier", "/bus"];
+const TILE_MIN_LEFT = 25;
 
 export const isReader = (request: Request) => READERS.test(request.headers.get("user-agent") ?? "");
 
@@ -64,6 +72,7 @@ let fontBytes: Uint8Array<ArrayBuffer> | undefined;
 
 /** The domain pages: built from a tool's answer, kept like the other pages (web/data.ts). */
 const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) => Promise<any>; page: (origin: string, data: Cached<any> | null, now: Date, alerte?: Alerte) => string }> = {
+  "/meteo": { key: "web:meteo", build: buildHome, page: meteoPage },
   "/volcan": { key: "web:volcan", build: buildVolcan, page: volcanPage },
   "/air": { key: "web:air", build: buildAir, page: airPage },
   "/electricite": { key: "web:electricite", build: buildElectricite, page: electricitePage },
@@ -72,7 +81,7 @@ const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) =>
 };
 
 function sitemap(origin: string): string {
-  const urls = ["/", "/vigilance", "/mer", ...Object.keys(DOMAINS), ...PAGES.map((p) => `/meteo/${p.slug}`), "/confidentialite", "/conditions"];
+  const urls = ["/", ...Object.keys(DOMAINS), "/vigilance", "/mer", ...PAGES.map((p) => `/meteo/${p.slug}`), "/confidentialite", "/conditions"];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map((u) => `<url><loc>${origin}${u}</loc><changefreq>hourly</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
@@ -84,11 +93,22 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   const path = url.pathname;
 
   if (path === "/") {
-    const [data, a] = await Promise.all([
-      snapshot(cache, "web:accueil", () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
-      alerte(cache, background, now),
+    // The tiles show each category page's last copy, without building it: building them all at once would not fit in
+    // one invocation. Once the weather is there, one missing or old tile per visit is brought up to date afterwards.
+    const [meteo, vigilance, ...copies] = await Promise.all([
+      snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
+      vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
+      ...TILES.map((p) => cache.peek<any>(DOMAINS[p].key)),
     ]);
-    return new Response(homePage(origin, data, now, a), { headers: htmlFor(data) });
+    const age = (c: Cached<unknown> | undefined) => (c ? now.getTime() - c.fetchedAt.getTime() : Infinity);
+    const due = TILES.map((p, i) => ({ p, age: age(copies[i]) })).sort((a, b) => b.age - a.age)[0];
+    if (meteo && age(meteo) < FRESH_SECONDS * 1000 && due.age >= FRESH_SECONDS * 1000 && left() >= TILE_MIN_LEFT) {
+      const d = DOMAINS[due.p];
+      background(cache.get(d.key, FRESH_SECONDS, () => d.build(cache, now)).catch((err) => console.error(`page ${d.key} : rafraîchissement impossible`, why(err))));
+    }
+    const [volcan, air, electricite, calendrier, bus] = copies.map((c) => c ?? null);
+    const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
+    return new Response(homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus }, now, a), { headers: htmlFor(meteo) });
   }
   if (path === "/vigilance" || path === "/vigilance/") {
     const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS);
@@ -113,7 +133,6 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   if (path === "/confidentialite" || path === "/conditions") {
     return new Response(legalPage(origin, path.slice(1) as "confidentialite" | "conditions"), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
-  if (path === "/meteo" || path === "/meteo/") return Response.redirect(`${origin}/#communes`, 301);
   if (path.startsWith("/meteo/")) {
     const slug = path.slice("/meteo/".length).replace(/\/$/, "");
     const p = pageOf(slug);

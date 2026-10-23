@@ -351,7 +351,7 @@ export interface Alerte {
   texte: string;
 }
 
-const BANNER_WAIT_MS = 1500;
+export const BANNER_WAIT_MS = 1500;
 
 export function alerteOf(v: mf.Vigilance, now: Date): Alerte | undefined {
   const periods = v.zones[mf.ISLAND]?.[mf.CYCLONE];

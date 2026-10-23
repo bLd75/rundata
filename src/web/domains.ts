@@ -1,7 +1,8 @@
 /**
- * One page per domain of the connector besides the weather: the volcano, the air, the electricity, the calendar and
+ * One page per category of the connector besides the weather: the volcano, the air, the electricity, the calendar and
  * the buses. Each shows what the tool of the same name answers right now, so that people, search engines and the
- * assistants reading a page see it, and points to the connector for the rest.
+ * assistants reading a page see it, and points to the connector for the rest. Each also says it in a few words for
+ * its tile on the home page.
  */
 import type { Cached } from "../cache.js";
 import { normalize } from "../places/resolve.js";
@@ -10,7 +11,7 @@ import { de, fr } from "../tools/format.js";
 import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, VolcanAnswer } from "./data.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap } from "./map.js";
-import { ask, credits, DESCRIPTION_MAX, fresh, hm, icon, ISLAND, layout, SITE } from "./pages.js";
+import { ask, credits, DESCRIPTION_MAX, fresh, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
 
@@ -139,6 +140,19 @@ ${connectorCta("volcan_seismes", "le volcan")}`;
   return layout(origin, { title, description, path: "/volcan", jsonld: [crumbs(origin, "Volcan", "/volcan"), webPage(origin, "/volcan", title, description, data)], alerte }, band, body);
 }
 
+export function volcanLive(data: Cached<VolcanAnswer> | null): Live | undefined {
+  const e = data?.value.etat;
+  if (!e) return undefined;
+  const q = data!.value.seismes;
+  return {
+    valeur: e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption",
+    detail: [
+      e.acces_enclos ? `Enclos ${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}` : `ORSEC ${esc(e.niveau_orsec)}`,
+      q ? `${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} sous le volcan en 7 jours` : undefined,
+    ].filter(Boolean).join(" · "),
+  };
+}
+
 // ---------------------------------------------------------------- air
 
 const AQ_NAMES = ["", "bon", "moyen", "dégradé", "mauvais", "très mauvais", "extrêmement mauvais"];
@@ -208,6 +222,18 @@ ${connectorCta("qualite_air", "l'air de l'île")}`;
   return layout(origin, { title, description, path: "/air", jsonld: [crumbs(origin, "Qualité de l'air", "/air"), webPage(origin, "/air", title, description, data)], alerte }, band, body);
 }
 
+export function airLive(data: Cached<AirAnswer> | null): Live | undefined {
+  const list = data?.value.communes ?? [];
+  if (!list.length) return undefined;
+  const worst = Math.max(...list.map((c) => c.niveau));
+  const best = Math.min(...list.map((c) => c.niveau));
+  const polluants = [...new Set(list.filter((c) => c.niveau === worst).flatMap((c) => c.polluants))];
+  return {
+    valeur: best === worst ? aq(worst) : `${aq(best)} à ${aq(worst)}`,
+    detail: `indice ATMO du jour dans les 24 communes${polluants.length ? ` (${esc(polluants.join(", "))})` : ""}`,
+  };
+}
+
 // ---------------------------------------------------------------- électricité
 
 export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> | null, now = new Date(), alerte?: Alerte): string {
@@ -262,6 +288,16 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
 ${connectorCta("electricite", "l'électricité de l'île")}`;
 
   return layout(origin, { title, description, path: "/electricite", jsonld: [crumbs(origin, "Électricité", "/electricite"), webPage(origin, "/electricite", title, description, data)], alerte }, band, body);
+}
+
+export function electriciteLive(data: Cached<ElectriciteAnswer> | null): Live | undefined {
+  const p = data?.value.production;
+  if (!p) return undefined;
+  const signal = data!.value.meteo_electricite?.maintenant?.signal;
+  return {
+    valeur: `${fr(Math.round(p.renouvelable_pct))}\u202f% renouvelable`,
+    detail: `${esc(fr(Math.round(p.total_mw)))} MW produits à ${esc(p.heure.split(" ")[1] ?? p.heure)}${signal ? ` · réseau ${esc(signal.toLowerCase())}` : ""}`,
+  };
 }
 
 // ---------------------------------------------------------------- calendrier
@@ -324,6 +360,24 @@ ${connectorCta("calendrier", "le calendrier de l'île")}`;
   return layout(origin, { title, description, path: "/calendrier", jsonld: [crumbs(origin, "Calendrier", "/calendrier"), webPage(origin, "/calendrier", title, description, data)], alerte }, band, body);
 }
 
+export function calendrierLive(data: Cached<CalendrierAnswer> | null): Live | undefined {
+  const d = data?.value;
+  if (!d) return undefined;
+  const v = d.vacances_scolaires?.en_cours;
+  const f = d.jours_feries;
+  const next = f?.prochains[0];
+  const valeur = f?.aujourd_hui ? `Férié : ${esc(f.aujourd_hui)}` : v ? "Vacances scolaires" : next ? `${esc(next.nom)} dans ${next.dans_jours} j` : undefined;
+  if (!valeur) return undefined;
+  return {
+    valeur,
+    detail: [
+      v ? `reprise le ${esc(v.reprise_des_cours)}` : undefined,
+      (f?.aujourd_hui || v) && next ? `${esc(next.nom)} dans ${next.dans_jours} j` : undefined,
+      d.soleil ? `soleil ${esc(d.soleil.lever.replace(":", "h"))} – ${esc(d.soleil.coucher.replace(":", "h"))}` : undefined,
+    ].filter(Boolean).join(" · "),
+  };
+}
+
 // ---------------------------------------------------------------- bus
 
 const waitText = (min: number, heure: string) =>
@@ -376,4 +430,16 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
 ${connectorCta("transports", "les bus de l'île")}`;
 
   return layout(origin, { title, description, path: "/bus", jsonld: [crumbs(origin, "Bus", "/bus"), webPage(origin, "/bus", title, description, data)], alerte }, band, body);
+}
+
+export function busLive(data: Cached<BusData> | null): Live | undefined {
+  const d = data?.value;
+  const g = d?.gares.find((x) => x.departs.length);
+  if (!d || !g) return undefined;
+  const x = g.departs[0];
+  return {
+    // A time rather than « dans 3 min »: the page may be a few minutes old.
+    valeur: esc(x.heure),
+    detail: `prochain départ de la gare ${esc(de(g.commune))} : ligne ${esc(x.ligne)} vers ${esc(x.direction)} (${esc(x.reseau)})`,
+  };
 }

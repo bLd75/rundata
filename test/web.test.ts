@@ -6,7 +6,8 @@ import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.j
 import { configure } from "../src/providers/mf-auth.js";
 import * as mf from "../src/providers/vigilance.js";
 import { alerteOf, snapshot } from "../src/web/data.js";
-import { DESCRIPTION_MAX, homePage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
+import { homePage } from "../src/web/home.js";
+import { DESCRIPTION_MAX, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
 import { PAGES, pageOf } from "../src/web/places.js";
 import { isReader, site } from "../src/web/site.js";
 import { unzip } from "../src/zip.js";
@@ -90,19 +91,27 @@ describe("home page", () => {
     expect(cold.text).toContain("Piton Maïdo");
     expect(cold.text).toMatch(/mesuré à \d\d:\d\d/);
     expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
-    // Another isolate of the same data center: one read of the page's entry and one of the vigilance, nothing upstream.
+    // Another isolate of the same data center: the weather from the edge, and the oldest of the other tiles brought up
+    // to date afterwards, still within the limit.
     const warm = await serve(isolate(edge), "/");
     expect(warm.text).toContain("Piton Maïdo");
-    expect(warm.used).toBeLessThanOrEqual(2);
+    expect(warm.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
   });
 
   it("still explains everything when no data is there yet", () => {
     const page = homePage("https://rundata.re", null, NOW);
-    expect(page).toContain("se chargent");
+    expect(page).toContain("Se met à jour");
     expect(page).toContain("https://rundata.re/mcp");
     expect(page).toContain('<link rel="canonical" href="https://rundata.re/">');
     const ld = page.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)![1];
-    expect(JSON.parse(ld).map((x: { "@type": string }) => x["@type"])).toEqual(["WebSite", "Dataset", "SoftwareApplication"]);
+    expect(JSON.parse(ld).map((x: { "@type": string }) => x["@type"])).toEqual(["WebSite", "SoftwareApplication"]);
+    // Every category: a tile, and a link in the menu.
+    for (const name of ["Météo", "Vigilance", "Mer", "Volcan", "Bus", "Air", "Électricité", "Calendrier", "Services publics", "Terrain et risques"]) {
+      expect(page).toContain(`${name}</`);
+    }
+    expect(page).toContain('<li><a href="/electricite">Électricité</a></li>');
+    expect(meteoPage("https://rundata.re", null, NOW)).toContain('<a href="/meteo" aria-current="page">Météo</a>');
+    expect(placePage("https://rundata.re", pageOf("cilaos")!, null, NOW)).toContain('<a href="/meteo" aria-current="page">Météo</a>');
   });
 
   it("carries the tags that link previews read", () => {
@@ -115,7 +124,7 @@ describe("home page", () => {
 
   it("keep every description within what search engines show", () => {
     const desc = (html: string) => html.match(/name="description" content="([^"]*)"/)![1].replace(/&#39;|&amp;|&quot;/g, "'");
-    const pages = [homePage("https://rundata.re", null, NOW), seaPage("https://rundata.re", null, NOW),
+    const pages = [homePage("https://rundata.re", null, NOW), seaPage("https://rundata.re", null, NOW), meteoPage("https://rundata.re", null, NOW),
       ...PAGES.map((p) => placePage("https://rundata.re", p, null, NOW))];
     for (const page of pages) expect(desc(page).length, desc(page)).toBeLessThanOrEqual(DESCRIPTION_MAX);
   });
@@ -150,7 +159,9 @@ describe("place pages", () => {
   it("answer an unknown place with a 404 that links to the others", async () => {
     const r = (await site(html("/meteo/paris"), isolate(), () => {}, NOW))!;
     expect(r.status).toBe(404);
-    expect(await r.text()).toContain('href="/meteo/saint-denis"');
+    const text = await r.text();
+    expect(text).toContain('href="/meteo/saint-denis"');
+    expect(text).toContain('<ul class="chips"><li><a href="/meteo">Météo</a></li>');
   });
 });
 
@@ -159,7 +170,8 @@ describe("what crawlers and previews fetch", () => {
     const robots = await (await handle(new Request("https://rundata.re/robots.txt"), isolate())).text();
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 10);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 11);
+    expect(map).toContain("<loc>https://rundata.re/meteo</loc>");
     expect(map).toContain("<loc>https://rundata.re/volcan</loc>");
     expect(map).toContain("<loc>https://rundata.re/confidentialite</loc>");
     expect(map).toContain("<loc>https://rundata.re/vigilance</loc>");
