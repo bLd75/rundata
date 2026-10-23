@@ -8,6 +8,8 @@
  */
 import { left } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
+import { INSEE } from "../places/insee.js";
+import * as annuaire from "../providers/annuaire.js";
 import * as transit from "../providers/transit.js";
 import * as mf from "../providers/vigilance.js";
 import { qualiteAir } from "../tools/air.js";
@@ -16,7 +18,8 @@ import { electricite } from "../tools/electricite.js";
 import { BEACHES, seaTour, temperatureMer } from "../tools/mer.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
-import { departureRow, departures, findStops, spread } from "../tools/transports.js";
+import { named } from "../tools/annuaire.js";
+import { departureRow, departures, findStops, nearStops, spread } from "../tools/transports.js";
 import { cyclone, highest, raised } from "../tools/vigilance.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import { type Observation, why } from "../types.js";
@@ -343,6 +346,59 @@ export async function buildBus(now = new Date()): Promise<BusData> {
     }
   }
   return { gares, reseaux, sources: [credit(transit.SOURCE)] };
+}
+
+/** What a commune's page adds to its weather: its town hall, and the next buses at its bus station or near its centre. */
+export interface CommuneData {
+  mairie?: annuaire.Office;
+  bus?: {
+    /** At the commune's bus station, or at the stops nearest its centre. */
+    gare: boolean;
+    arrets: { nom: string; reseau: string }[];
+    departs: ReturnType<typeof departureRow>[];
+  };
+  sources: Credit[];
+}
+
+/**
+ * The commune's bus station, when « gare <commune> » finds stops by that name (not Le Port's « Gare Maritime »);
+ * otherwise the stops nearest its centre.
+ */
+export function communeStops(p: PlacePage): { gare: boolean; groups: transit.StopGroup[] } {
+  const { groups, near } = findStops(`gare ${p.nom}`);
+  if (!near.length && groups.length && groups.every((g) => /\bgare\b/i.test(g.nom) && !/maritime/i.test(g.nom))) return { gare: true, groups };
+  return { gare: false, groups: nearStops(p.place.lon, p.place.lat).map((x) => x.g) };
+}
+
+/** The town hall itself, not the other offices of the commune that the search for « mairie » also finds. */
+async function townHall(cache: Cache, p: PlacePage): Promise<annuaire.Office | undefined> {
+  const list = (await annuaire.search(cache, "mairie", INSEE[p.nom])).value;
+  return list.find((o) => /^Mairie - /.test(o.nom)) ?? named(list, "mairie")[0];
+}
+
+export async function buildCommune(cache: Cache, p: PlacePage, now = new Date()): Promise<CommuneData> {
+  const out: CommuneData = { sources: [] };
+  const [mairie, bus] = await Promise.allSettled([
+    townHall(cache, p),
+    (async () => {
+      if (!transit.enabled()) return undefined;
+      const { gare, groups } = communeStops(p);
+      if (!groups.length) return undefined;
+      let list = await departures(groups, now);
+      if (list.length < 3) list = await departures(groups, now, 20 * 3600);
+      return { gare, arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })), departs: spread(list, 6).map(departureRow) };
+    })(),
+  ]);
+  if (mairie.status === "fulfilled" && mairie.value) {
+    out.mairie = mairie.value;
+    out.sources.push(credit(annuaire.SOURCE));
+  } else if (mairie.status === "rejected") console.error(`page ${p.slug} : mairie indisponible`, why(mairie.reason));
+  if (bus.status === "fulfilled" && bus.value) {
+    out.bus = bus.value;
+    out.sources.push(credit(transit.SOURCE));
+  } else if (bus.status === "rejected") console.error(`page ${p.slug} : bus indisponibles`, why(bus.reason));
+  if (!out.mairie && !out.bus) throw new Error(`aucune donnée de commune pour ${p.nom}`);
+  return out;
 }
 
 /** The banner of every page while a vigilance is above green: its worst colour and one sentence. */

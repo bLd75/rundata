@@ -1,6 +1,7 @@
 /**
  * The web side of the server: the home page, one page per category (weather, vigilance, sea, volcano, buses, air,
- * electricity, calendar), one per commune or place for the weather, and what crawlers and link previews ask for
+ * electricity, calendar), one per commune with all of them (/communes/<commune>), one per commune or place for the
+ * weather (/meteo/<lieu>), and what crawlers and link previews ask for
  * (robots.txt, sitemap.xml, the og:image, the favicon). Null for any other path.
  */
 import { left } from "../budget.js";
@@ -13,6 +14,7 @@ import {
   buildAir,
   buildBus,
   buildCalendrier,
+  buildCommune,
   buildElectricite,
   buildHome,
   buildPlace,
@@ -24,6 +26,7 @@ import {
   type Alerte,
   type Background,
 } from "./data.js";
+import { COMMUNES, communePage, communesPage } from "./commune.js";
 import { airPage, busPage, calendrierPage, electricitePage, volcanPage } from "./domains.js";
 import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
@@ -54,8 +57,7 @@ const READERS = /ChatGPT-User|OAI-SearchBot|GPTBot|Claude-User|Claude-SearchBot|
 const READER_WAIT_MS = 25_000;
 // The vigilance page waits longer than a banner for Météo-France: it is the page's whole content.
 const VIGILANCE_WAIT_MS = 8000;
-// The home page's tiles besides the weather and the vigilance, and the subrequests a visit must have left to refresh one.
-const TILES = ["/volcan", "/air", "/electricite", "/calendrier", "/bus"];
+// The subrequests a visit must have left to bring one of its tiles' copies up to date.
 const TILE_MIN_LEFT = 25;
 
 export const isReader = (request: Request) => READERS.test(request.headers.get("user-agent") ?? "");
@@ -80,8 +82,31 @@ const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) =>
   "/bus": { key: "web:bus", build: (_cache, now) => buildBus(now), page: busPage },
 };
 
+/** How to build each category page's copy, by its cache key: what the home page and the commune pages show as tiles. */
+const BUILDS: Record<string, (cache: Cache, now: Date) => Promise<unknown>> = {
+  ...Object.fromEntries(Object.values(DOMAINS).map((d) => [d.key, d.build])),
+  "web:mer": buildSea,
+};
+// The home page's tiles besides the weather and the vigilance; a commune page's besides its own.
+const HOME_TILES = ["web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus"];
+const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier"];
+
+/**
+ * The last copy of each of these pages, without building them: building them all would not fit in one invocation.
+ * Once the page's own data is fresh, the oldest copy (or one never built) is brought up to date afterwards.
+ */
+async function tileCopies(cache: Cache, keys: string[], background: Background, own: Cached<unknown> | null, now: Date): Promise<(Cached<any> | null)[]> {
+  const copies = await Promise.all(keys.map((k) => cache.peek<any>(k)));
+  const age = (c: Cached<unknown> | null | undefined) => (c ? now.getTime() - c.fetchedAt.getTime() : Infinity);
+  const due = keys.map((key, i) => ({ key, age: age(copies[i]) })).sort((a, b) => b.age - a.age)[0];
+  if (own && age(own) < FRESH_SECONDS * 1000 && due.age >= FRESH_SECONDS * 1000 && left() >= TILE_MIN_LEFT) {
+    background(cache.get(due.key, FRESH_SECONDS, () => BUILDS[due.key](cache, now)).catch((err) => console.error(`page ${due.key} : rafraîchissement impossible`, why(err))));
+  }
+  return copies.map((c) => c ?? null);
+}
+
 function sitemap(origin: string): string {
-  const urls = ["/", ...Object.keys(DOMAINS), "/vigilance", "/mer", ...PAGES.map((p) => `/meteo/${p.slug}`), "/confidentialite", "/conditions"];
+  const urls = ["/", ...Object.keys(DOMAINS), "/vigilance", "/mer", "/communes", ...COMMUNES.map((p) => `/communes/${p.slug}`), ...PAGES.map((p) => `/meteo/${p.slug}`), "/confidentialite", "/conditions"];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map((u) => `<url><loc>${origin}${u}</loc><changefreq>hourly</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
@@ -93,20 +118,11 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   const path = url.pathname;
 
   if (path === "/") {
-    // The tiles show each category page's last copy, without building it: building them all at once would not fit in
-    // one invocation. Once the weather is there, one missing or old tile per visit is brought up to date afterwards.
-    const [meteo, vigilance, ...copies] = await Promise.all([
+    const [meteo, vigilance] = await Promise.all([
       snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
-      ...TILES.map((p) => cache.peek<any>(DOMAINS[p].key)),
     ]);
-    const age = (c: Cached<unknown> | undefined) => (c ? now.getTime() - c.fetchedAt.getTime() : Infinity);
-    const due = TILES.map((p, i) => ({ p, age: age(copies[i]) })).sort((a, b) => b.age - a.age)[0];
-    if (meteo && age(meteo) < FRESH_SECONDS * 1000 && due.age >= FRESH_SECONDS * 1000 && left() >= TILE_MIN_LEFT) {
-      const d = DOMAINS[due.p];
-      background(cache.get(d.key, FRESH_SECONDS, () => d.build(cache, now)).catch((err) => console.error(`page ${d.key} : rafraîchissement impossible`, why(err))));
-    }
-    const [volcan, air, electricite, calendrier, bus] = copies.map((c) => c ?? null);
+    const [volcan, air, electricite, calendrier, bus] = await tileCopies(cache, HOME_TILES, background, meteo, now);
     const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
     return new Response(homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus }, now, a), { headers: htmlFor(meteo) });
   }
@@ -142,6 +158,21 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       alerte(cache, background, now),
     ]);
     return new Response(placePage(origin, p, data, now, a), { headers: htmlFor(data) });
+  }
+  if (path === "/communes" || path === "/communes/") {
+    return new Response(communesPage(origin, await alerte(cache, background, now)), { headers: HTML });
+  }
+  if (path.startsWith("/communes/")) {
+    const p = pageOf(path.slice("/communes/".length).replace(/\/$/, ""));
+    if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
+    const [place, commune, vigilance] = await Promise.all([
+      snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now), background, now, waitFor(request), isReader(request)),
+      vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
+    ]);
+    const [air, mer, volcan, electricite, calendrier] = await tileCopies(cache, COMMUNE_TILES, background, place, now);
+    const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
+    return new Response(communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier }, now, a), { headers: htmlFor(place) });
   }
   if (path === `/${INDEXNOW_KEY}.txt`) {
     return new Response(INDEXNOW_KEY, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });
