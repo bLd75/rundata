@@ -85,7 +85,7 @@ export function nearStops(lon: number, lat: number, reseau?: string): { g: trans
 
 const hm = (s: number) => {
   const t = ((s % 86400) + 86400) % 86400;
-  return `${Math.floor(t / 3600)}h${String(Math.floor((t % 3600) / 60)).padStart(2, "0")}`;
+  return `${s >= 86400 ? "demain " : ""}${Math.floor(t / 3600)}h${String(Math.floor((t % 3600) / 60)).padStart(2, "0")}`;
 };
 
 /** Local day as YYYYMMDD and Monday-first weekday, `back` days before `now`. */
@@ -104,7 +104,7 @@ export interface Departure {
   arret: string;
 }
 
-/** Departures from these stops in the next `horizon` seconds, by today's and yesterday's services (after midnight). */
+/** Departures from these stops in the next `horizon` seconds, by yesterday's (after midnight), today's and tomorrow's services. */
 export async function departures(groups: transit.StopGroup[], now: Date, horizon = 3 * 3600): Promise<Departure[]> {
   const stopGroup = new Map(groups.flatMap((g) => g.ids.map((id) => [id, g] as const)));
   const pass = await transit.passes([...stopGroup.keys()]);
@@ -113,6 +113,7 @@ export async function departures(groups: transit.StopGroup[], now: Date, horizon
   const secs = local.getUTCHours() * 3600 + local.getUTCMinutes() * 60 + local.getUTCSeconds();
   const today = day(now);
   const yesterday = day(now, 1);
+  const tomorrow = day(now, -1);
   const out: Departure[] = [];
   for (const p of pass) {
     const pat = pats.get(p.pattern);
@@ -120,7 +121,7 @@ export async function departures(groups: transit.StopGroup[], now: Date, horizon
     if (!pat || !g) continue;
     for (const [service, start] of pat.trips) {
       const t = start + p.offset;
-      for (const [d, shift] of [[today, 0], [yesterday, 86400]] as const) {
+      for (const [d, shift] of [[today, 0], [yesterday, 86400], [tomorrow, -86400]] as const) {
         const dt = t - shift - secs;
         if (dt >= -60 && dt <= horizon && transit.serviceRuns(g.reseau, service, d.ymd, d.weekday)) {
           // A terminus named after its bay: « Gare Routière Du Tampon Quai Q » is the bus station.
