@@ -63,16 +63,16 @@ https://github.com/bLd75/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 
 ## Le site
 
-Les pages sont rendues par le serveur, mesures comprises, pour les moteurs de recherche et les aperçus de liens (`src/web/`) :
-- `/` : ce que sait le connecteur et comment le brancher, puis la météo de toute l'île en ce moment (carte, stations de la côte aux sommets, mer) ;
+Les pages sont rendues par le serveur, données comprises, pour les moteurs de recherche et les aperçus de liens (`src/web/`). Le menu, les tuiles de l'accueil, le pied de page et le sitemap viennent d'une seule liste de catégories (`src/web/categories.ts`) :
+- `/` : l'île en ce moment, une tuile par catégorie avec sa donnée du moment, puis comment brancher le connecteur ;
+- `/meteo` : la météo de toute l'île (carte, stations de la côte aux sommets, mer), et `/meteo/<commune>` pour les 24 communes et quelques lieux (volcan, Maïdo, Hell-Bourg…), avec la station la plus pertinente, la mer sur la côte et la prévision, étiquetée ;
 - `/vigilance` : la vigilance météo et l'alerte cyclonique, zone par zone ;
 - `/mer` : la température de l'eau au large des plages ;
 - `/volcan` : éruption ou non, accès à l'Enclos, séismes et messages de l'observatoire ;
+- `/bus` : les réseaux et les prochains départs dans les gares routières ;
 - `/air` : l'indice ATMO du jour dans chaque commune, sur une carte ;
 - `/electricite` : la production d'électricité filière par filière, la part renouvelable et les heures de tension ;
-- `/bus` : les réseaux et les prochains départs dans les gares routières ;
 - `/calendrier` : vacances scolaires, jours fériés, lever et coucher du soleil ;
-- `/meteo/<commune>` : les 24 communes et quelques lieux (volcan, Maïdo, Hell-Bourg…), avec la station la plus pertinente, la mer sur la côte et la prévision, étiquetée ;
 - `/robots.txt`, `/sitemap.xml`, `/og.png` (aperçu Facebook, WhatsApp…), `/favicon.svg`.
 
 ## English

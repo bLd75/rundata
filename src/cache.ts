@@ -116,6 +116,12 @@ export class Cache {
     return this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e));
   }
 
+  /** The entry stored under `key`, however old, without loading it. */
+  async peek<T>(key: string): Promise<Cached<T> | undefined> {
+    const hit = await this.store.get(key);
+    return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false };
+  }
+
   /**
    * The bundle stored under `key`. The copy in memory is merged with the stored one when it is older than
    * `syncSeconds`, so that another isolate's additions arrive; two isolates saving at the same time may lose one's

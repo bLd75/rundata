@@ -1,10 +1,12 @@
 /**
- * The HTML pages: the home page (what the connector knows, how to add it, then the weather right now) and one page
- * per commune or famous place. Rendered on the server, live values included, so that search engines and link previews
- * see them. The only scripts copy the connector address and filter the list of places; the rest is HTML and CSS.
+ * The layout shared by every page (menu of the categories, footer), and the pages of the weather and its neighbours:
+ * the weather of the whole island (/meteo) and of each commune or famous place, the vigilance, the sea. The home page
+ * is in home.ts, the other categories in domains.ts. Rendered on the server, live values included, so that search
+ * engines and link previews see them. The only scripts copy the connector address and filter the list of places; the
+ * rest is HTML and CSS.
  *
- * The weather is one domain among others, but the one people search for: « météo réunion 974 », « météo cilaos 974 ».
- * « 974 » sorts La Réunion from meetings, so titles and headings carry it.
+ * The weather is one category among others, but the one people search for: « météo réunion 974 », « météo cilaos
+ * 974 ». « 974 » sorts La Réunion from meetings, so titles and headings carry it.
  */
 import type { Cached } from "../cache.js";
 import { ageMinutes, ageText, localTime, versant } from "../geo.js";
@@ -14,6 +16,7 @@ import * as mf from "../providers/vigilance.js";
 import { current, cyclone, highest, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, SeaData, StationAnswer, StationNow } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
+import { WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
@@ -22,7 +25,7 @@ export const SITE = "rundata.re";
 // The headings' typeface (scripts/build-font.py). Bump the number when the font changes: browsers keep it a year.
 export const FONT_PATH = "/font/titres-1.woff2";
 // The tagline, in Réunion Creole (« l'île en direct »); also on the og:image (scripts/build-og.py).
-const SLOGAN = `<p class="slogan" lang="${brand.slogan_lang}">🇷🇪 ${esc(brand.slogan)}</p>`;
+export const SLOGAN = `<p class="slogan" lang="${brand.slogan_lang}">🇷🇪 ${esc(brand.slogan)}</p>`;
 const OG_ALT = "Drapeau de La Réunion (Lo Mahavéli) et carte de l'île : La Réunion 974 en direct, dans votre assistant IA";
 
 // Temperatures shown as white on a colour: every stop keeps a contrast of at least 5:1.
@@ -48,10 +51,10 @@ const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-meteo-de-l
 
 // Search engines cut (and Bing flags) a meta description over 160 characters.
 export const DESCRIPTION_MAX = 160;
-const fit = (base: string, tail: string) => ((base + tail).length <= DESCRIPTION_MAX ? base + tail : base);
-const deg = (t: number) => `${fr(Math.round(t * 10) / 10)} °C`;
-const thin = (s: string) => s.replace(/ (°C|km\/h|mm|m|%)/g, "\u202f$1");
-const metres = (m: number) => thin(`${m.toLocaleString("fr-FR")} m`);
+export const fit = (base: string, tail: string) => ((base + tail).length <= DESCRIPTION_MAX ? base + tail : base);
+export const deg = (t: number) => `${fr(Math.round(t * 10) / 10)} °C`;
+export const thin = (s: string) => s.replace(/ (°C|km\/h|mm|m|%)/g, "\u202f$1");
+export const metres = (m: number) => thin(`${m.toLocaleString("fr-FR")} m`);
 
 // Line icons, 24×24, drawn in the text colour.
 const ICON: Record<string, string> = {
@@ -102,14 +105,18 @@ p,ul,ol,table,figure{margin:0}
 
 header.top{position:sticky;top:0;z-index:10;background:rgb(11 31 54/.86);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
 border-bottom:1px solid rgb(255 255 255/.08);color:var(--on-night)}
-header.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:.5rem 1rem;flex-wrap:wrap;padding-block:.7rem}
+header.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:.5rem 1rem;flex-wrap:wrap;padding-block:.6rem}
 .brand{display:flex;align-items:center;gap:.6rem;font:800 1.15rem/1 Bricolage,system-ui,sans-serif;color:inherit;text-decoration:none;letter-spacing:-.01em}
 .flag{width:2.1rem;height:1.4rem;border-radius:4px;flex:none;box-shadow:0 0 0 1px rgb(255 255 255/.25)}
-header.top nav ul{display:flex;gap:.3rem;list-style:none;padding:0;flex-wrap:wrap;font-size:.92rem}
-header.top nav a{color:var(--on-night-muted);text-decoration:none;padding:.35rem .7rem;border-radius:999px}
+header.top nav{min-width:0;flex:1 1 auto;display:flex;justify-content:flex-end}
+header.top nav ul{display:flex;gap:.2rem;list-style:none;padding:0 0 .1rem;margin:0;font-size:.92rem;overflow-x:auto;scrollbar-width:none;min-width:0}
+header.top nav ul::-webkit-scrollbar{display:none}
+header.top nav li{flex:none}
+header.top nav a{display:block;color:var(--on-night-muted);text-decoration:none;padding:.35rem .7rem;border-radius:999px;white-space:nowrap}
 header.top nav a:hover{color:#fff;background:rgb(255 255 255/.1)}
+header.top nav a[aria-current]{color:#fff;background:rgb(255 255 255/.14);font-weight:600}
 header.top nav li:first-child a{background:var(--sun);color:var(--sun-ink);font-weight:700}
-@media (max-width:34rem){header.top nav li:not(:first-child){display:none}}
+@media (max-width:64rem){header.top nav{flex-basis:100%;justify-content:flex-start}}
 
 .band{position:relative;overflow:hidden;color:var(--on-night);
 background:linear-gradient(160deg,var(--night) 0%,var(--night-2) 100%)}
@@ -156,6 +163,7 @@ border:1px dashed var(--line);border-radius:8px;padding:.2rem .55rem}
 .ticker li{display:flex;align-items:center;gap:.45rem;font-size:.92rem;padding:.35rem .85rem;border-radius:999px;background:rgb(255 255 255/.08);
 border:1px solid rgb(255 255 255/.12)}
 .ticker b{font-weight:700;color:#fff}
+.ticker .vg,.ticker .aq{font-size:.82rem;padding:0 .45rem}
 
 main{display:grid;gap:clamp(3.5rem,8vw,6rem);padding-block:clamp(2.5rem,6vw,4.5rem)}
 section{display:grid;gap:1.4rem;min-width:0}
@@ -208,13 +216,25 @@ background:none;color:var(--muted);cursor:pointer}
 .tab code{font:.92em ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:.1rem .4rem;overflow-wrap:anywhere}
 .qs{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.45rem}
 .qs li{font-size:.93rem;padding:.4rem .85rem;border-radius:16px 16px 16px 4px;background:var(--surface-2);border:1px solid var(--line)}
-.tools{list-style:none;padding:0;display:grid;gap:1rem}
-@media (min-width:40rem){.tools{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (min-width:66rem){.tools{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.tool{display:grid;gap:.4rem;align-content:start;padding:1.1rem;border-radius:18px;background:var(--surface);border:1px solid var(--line)}
-.tool .ic{color:var(--accent);width:1.7rem;height:1.7rem}
-.tool code{font:700 .82rem ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}
-.tool p{font-size:.95rem}
+.tiles{list-style:none;padding:0;display:grid;gap:1rem}
+@media (min-width:40rem){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:66rem){.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}.tile.wide{grid-column:span 2}}
+.tile{position:relative;display:grid;grid-template-rows:auto auto auto auto 1fr auto;gap:.35rem;align-content:start;padding:1.1rem;border-radius:18px;
+background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);transition:border-color .15s,transform .15s;min-width:0}
+.tile:has(h3 a):hover{border-color:var(--accent);transform:translateY(-2px)}
+.tile .ic{color:var(--accent);width:1.7rem;height:1.7rem}
+.tile h3 a{color:inherit;text-decoration:none}
+.tile h3 a::after{content:"";position:absolute;inset:0;border-radius:18px}
+.tile h3 a:focus-visible{outline:none}.tile:has(h3 a:focus-visible){outline:2px solid var(--link);outline-offset:2px}
+.tv{font:800 1.45rem/1.15 Bricolage,system-ui,sans-serif;letter-spacing:-.01em;overflow-wrap:anywhere}
+.tv .vg,.tv .aq{font:inherit;font-size:1.05rem;padding:.15rem .6rem;vertical-align:.12em}
+.td{font-size:.9rem;color:var(--muted)}
+.tq{font-size:.95rem;font-style:italic;justify-self:start;padding:.4rem .85rem;border-radius:16px 16px 16px 4px;background:var(--surface-2);border:1px solid var(--line)}
+.ta{font-size:.9rem;padding-top:.2rem;border-top:1px solid var(--line);margin-top:.2rem}
+.tf{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:.3rem .8rem;font-size:.88rem}
+.tf code{font:700 .78rem ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}
+.tf .go{color:var(--link);font-weight:600}
+.tf a{position:relative;z-index:1;font-weight:600}
 
 .facts{display:flex;flex-wrap:wrap;gap:.5rem}
 .facts span{font-size:.92rem;padding:.35rem .85rem;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
@@ -367,6 +387,9 @@ document.querySelectorAll(".askbox>[data-l]").forEach((d)=>{d.hidden=d.dataset.l
 try{const l=localStorage.getItem("askl");if(l)askl(l)}catch{}
 document.querySelectorAll("[data-askl]").forEach((b)=>b.addEventListener("click",()=>{askl(b.dataset.askl);try{localStorage.setItem("askl",b.dataset.askl)}catch{}}));`;
 
+/** Whether a page belongs to a category: /meteo/cilaos is in the weather. */
+const inCategory = (path: string, category: string) => path === category || path.startsWith(`${category}/`);
+
 export function layout(origin: string, head: Head, band: string, body: string): string {
   const url = `${origin}${head.path}`;
   const d = esc(head.description);
@@ -402,7 +425,7 @@ ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head
 <body>
 <header class="top"><div class="wrap">
   <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
-  <nav aria-label="Sections"><ul><li><a href="/#assistant">Brancher mon IA</a></li><li><a href="/#outils">Données</a></li><li><a href="/#en-ce-moment">Météo</a></li><li><a href="/vigilance">Vigilance</a></li><li><a href="/mer">Mer</a></li><li><a href="/#communes">Communes</a></li></ul></nav>
+  <nav aria-label="Catégories"><ul><li><a href="/#assistant">Brancher mon IA</a></li>${WITH_PAGE.map((c) => `<li><a href="${c.path}"${inCategory(head.path, c.path) ? ' aria-current="page"' : ""}>${esc(c.nom)}</a></li>`).join("")}</ul></nav>
 </div></header>
 ${banner(head.alerte, head.path)}
 <div class="band">${band}</div>
@@ -416,7 +439,7 @@ ${body}
     <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
     <p>reunion-temps-reel ${VERSION} · <a href="https://github.com/bLd75/rundata">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises.</p>
-    <ul class="pages" aria-label="Pages"><li><a href="/#communes">Météo par commune</a></li><li><a href="/vigilance">Vigilance</a></li><li><a href="/mer">Mer</a></li><li><a href="/volcan">Volcan</a></li><li><a href="/air">Air</a></li><li><a href="/electricite">Électricité</a></li><li><a href="/bus">Bus</a></li><li><a href="/calendrier">Calendrier</a></li></ul>
+    <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/meteo#communes">Météo par commune</a></li></ul>
   </div>
   <div>
     <h3>Sources</h3>
@@ -441,7 +464,7 @@ function age(iso: string, now: Date): string {
   return `${hm(iso)}, ${ageText(ageMinutes(new Date(iso), now))}`;
 }
 
-function windText(s: StationNow): string | undefined {
+export function windText(s: StationNow): string | undefined {
   if (s.vent == null) return undefined;
   const dir = s.direction != null ? `${compassFr(s.direction)} ` : "";
   return `vent ${dir}${s.vent} km/h${s.rafales != null ? `, rafales ${s.rafales} km/h` : ""}`;
@@ -457,10 +480,10 @@ function rainText(s: StationNow): string | undefined {
   return undefined;
 }
 
-const shortName = (n: string) =>
+export const shortName = (n: string) =>
   n.replace(/ \(aéroport\)$/, "").replace(/^Saint-Denis Gillot$/, "Gillot").replace(/^Gros Piton Sainte-Rose$/, "Sainte-Rose");
-const seaName = (n: string) => n.replace(/^Plage (de |de l'|du )?/, "");
-const dayMonth = (ymd: string) => ymd.split("-").reverse().slice(0, 2).join("/");
+export const seaName = (n: string) => n.replace(/^Plage (de |de l'|du )?/, "");
+export const dayMonth = (ymd: string) => ymd.split("-").reverse().slice(0, 2).join("/");
 
 function stationItem(s: StationNow, now: Date): string {
   const t = s.temperature != null
@@ -472,7 +495,7 @@ function stationItem(s: StationNow, now: Date): string {
     `<p>${esc(thin(details || "température seulement"))} · <span class="when">mesuré à ${age(s.time, now)}${old}</span></p></li>`;
 }
 
-const EXTERNAL = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>`;
+export const EXTERNAL = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>`;
 
 // The two languages of the question, with their flags: Lo Mahavéli for Réunion Creole (no emoji shows it everywhere).
 const FLAG_RCF = `<svg viewBox="0 0 60 40" aria-hidden="true">${FLAG_INNER}</svg>`;
@@ -511,62 +534,21 @@ export function fresh(url: string, now: Date): string {
   return `${url}?maj=${t.getUTCHours()}h${String(t.getUTCMinutes()).padStart(2, "0")}`;
 }
 
-function askHome(origin: string, now: Date): string {
-  const url = fresh(`${origin}/`, now);
-  return ask(`Lé koman lo tan astèr La Rényon ? Rogard bann mézir an dirèk si ${url} é di amwin lèr la mézir.`,
-    `Quel temps fait-il en ce moment à La Réunion ? Lis les mesures en direct sur ${url} et donne-moi l'heure des mesures.`);
-}
-
 /** The connector's address with its copy button; `id` keeps several on one page apart. */
-function connector(origin: string, id: string): string {
+export function connector(origin: string, id: string): string {
   return `<div class="connect"><code id="${id}">${esc(`${origin}/mcp`)}</code><button type="button" data-copy="${id}" aria-label="Copier l'adresse du connecteur">Copier</button></div>`;
 }
 
-const withTemp = (data: Cached<HomeData> | null) => data?.value.stations.filter((x) => x.temperature != null && !x.stale) ?? [];
-const coldest = (l: StationNow[]) => l.reduce((a, b) => (b.temperature! < a.temperature! ? b : a));
-const warmest = (l: StationNow[]) => l.reduce((a, b) => (b.temperature! > a.temperature! ? b : a));
+export const withTemp = (data: Cached<HomeData> | null) => data?.value.stations.filter((x) => x.temperature != null && !x.stale) ?? [];
+export const coldest = (l: StationNow[]) => l.reduce((a, b) => (b.temperature! < a.temperature! ? b : a));
+export const warmest = (l: StationNow[]) => l.reduce((a, b) => (b.temperature! > a.temperature! ? b : a));
 
-/** A sample exchange, answered with a real measurement of the moment: what the connector changes, shown. */
-function chatDemo(data: Cached<HomeData> | null, now: Date): string {
-  const l = withTemp(data);
-  // The coldest station, in the Hauts: the answer a model could not give from memory.
-  const s = l.length ? coldest(l) : undefined;
-  const where = s ? shortName(s.nom) : "Cilaos";
-  const by = s?.source === "meteofrance" ? "la station Météo-France" : s?.source === "metar" ? "la station de l'aéroport" : "la station";
-  const answer = s
-    ? `${thin(deg(s.temperature!))}, mesurés à ${hm(s.time)} (${ageText(ageMinutes(new Date(s.time), now))}) par ${by} ${esc(s.nom)}, ` +
-      `à ${metres(s.altitude_m)} d'altitude.${windText(s) ? ` ${esc(thin(windText(s)!.replace(/^vent/, "Vent")))}.` : ""}`
-    : "Il va chercher la mesure de la station la plus pertinente, avec son heure, son altitude et sa source, au lieu de répondre de mémoire.";
-  return `<figure class="chat" aria-label="Exemple de conversation avec le connecteur">
-    <p class="who"><span class="dot"></span>Exemple, avec la mesure de maintenant</p>
-    <p class="bubble me">Il fait combien à ${esc(where)} en ce moment ?</p>
-    <p class="call">↳ meteo_actuelle(lieu: "${esc(where)}")</p>
-    <p class="bubble ai">${answer}</p>
-  </figure>`;
-}
-
-function ticker(data: Cached<HomeData> | null): string {
-  const l = withTemp(data);
-  if (!data || !l.length) return "";
-  const latest = data.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
-  const lo = coldest(l);
-  const hi = warmest(l);
-  const sea = data.value.mer.find((m) => /Saint-Leu/.test(m.nom)) ?? data.value.mer[0];
-  return `<div class="wrap"><ul class="ticker" aria-label="En direct">
-    <li><span class="dot"></span>En direct · <b>${hm(latest)}</b></li>
-    <li>${esc(shortName(hi.nom))} <b>${thin(deg(hi.temperature!))}</b></li>
-    <li>${esc(shortName(lo.nom))} <b>${thin(deg(lo.temperature!))}</b></li>
-    ${sea ? `<li>Mer à ${esc(seaName(sea.nom))} <b>${thin(deg(sea.valeur))}</b></li>` : ""}
-    <li><a href="#en-ce-moment">Toute l'île →</a></li>
-  </ul></div>`;
-}
-
-function homeLive(data: Cached<HomeData> | null, now: Date): string {
+/** The map and every station, from the coast to the summits. */
+function weatherLive(data: Cached<HomeData> | null, now: Date): string {
   if (!data) {
     return `<p class="card">Les mesures se chargent : rechargez la page dans quelques secondes. Les stations Météo-France publient toutes les 6 minutes.</p>`;
   }
   const d = data.value;
-  const l = withTemp(data);
   const sorted = [...d.stations].sort((a, b) => a.altitude_m - b.altitude_m);
   const latest = d.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
   const markers: Marker[] = d.stations.map((s) =>
@@ -574,31 +556,15 @@ function homeLive(data: Cached<HomeData> | null, now: Date): string {
       ? { lon: s.lon, lat: s.lat, label: `${Math.round(s.temperature)}°`, name: shortName(s.nom), color: chip(s.temperature), round: true }
       : { lon: s.lon, lat: s.lat - 0.022, label: `${s.vent ?? "—"} km/h`, name: s.nom.split(" ").pop()!, color: "#44555a" },
   );
-  let facts = "";
-  if (l.length) {
-    const lo = coldest(l);
-    const hi = warmest(l);
-    facts = `<p class="facts"><span>Dernière mesure à <b>${hm(latest)}</b>, heure de La Réunion</span>` +
-      `<span>Plus chaud : <b>${thin(deg(hi.temperature!))}</b> à ${esc(shortName(hi.nom))} (${metres(hi.altitude_m)})</span>` +
-      `<span>Plus frais : <b>${thin(deg(lo.temperature!))}</b> à ${esc(shortName(lo.nom))} (${metres(lo.altitude_m)})</span></p>`;
-  }
-  const sea = d.mer.length
-    ? `<div class="card"><h3>Température de la mer</h3><ul class="seas">` +
-      d.mer.map((m) => `<li><span>${esc(seaName(m.nom))}</span><b>${thin(deg(m.valeur))}</b></li>`).join("") +
-      `</ul><p class="note">Mesure satellite du ${esc(dayMonth(d.mer.map((m) => m.jour).sort().pop()!))} ` +
-      `(environ 2 jours de retard), moyenne du jour au large de chaque plage : pas la température du lagon ni du bord. <a href="/mer">Toutes les plages →</a></p></div>`
-    : "";
-  return facts +
-    `<div class="live"><figure class="card mapcard">` +
+  return `<div class="live"><figure class="card mapcard">` +
     islandMap({ markers, peaks: true, label: `Carte de La Réunion (974) avec les températures mesurées à ${hm(latest || data.fetchedAt.toISOString())}` }) +
     `<figcaption class="legend">8 °C<i></i>33 °C · températures mesurées sous abri</figcaption></figure>` +
-    `<div class="card"><h3>De la côte aux sommets</h3><ul class="stations">${sorted.map((s) => stationItem(s, now)).join("")}</ul>` +
-    `<p class="note">Sources : ${credits(d.sources)}.${d.indisponibles.length ? ` Momentanément indisponible : ${esc(d.indisponibles.join(", "))}.` : ""}</p></div></div>` +
-    sea;
+    `<div class="card"><h3>Station par station</h3><ul class="stations">${sorted.map((s) => stationItem(s, now)).join("")}</ul>` +
+    `<p class="note">Sources : ${credits(d.sources)}.${d.indisponibles.length ? ` Momentanément indisponible : ${esc(d.indisponibles.join(", "))}.` : ""}</p></div></div>`;
 }
 
 /** Every place page as a chip, with a filter box (the script at the end of the page). */
-function placeLinks(except?: string): string {
+export function placeLinks(except?: string): string {
   const li = (p: PlacePage) => `<li><a href="/meteo/${p.slug}">${esc(p.nom)}</a></li>`;
   const others = PAGES.filter((p) => p.slug !== except);
   return `<label class="search">${icon("search")}<span class="sr">Chercher une commune ou un lieu</span>` +
@@ -608,63 +574,7 @@ function placeLinks(except?: string): string {
     `<p class="note" id="rien" hidden>Pas de page pour ce nom : votre assistant, lui, connaît plus de 2 000 lieux de l'île.</p></div>`;
 }
 
-function assistant(origin: string, now: Date): string {
-  return `<section id="assistant" aria-labelledby="h-assistant">
-  <div class="sec-h"><p class="eyebrow">Comment ça marche</p>
-    <h2 id="h-assistant">Branché en 2 minutes, gratuit, sans compte</h2>
-    <p>Le connecteur suit le protocole ouvert MCP (Model Context Protocol), compris par la plupart des assistants IA. Aucune donnée personnelle n'est collectée.</p></div>
-  <div class="card easy">${askHome(origin, now)}</div>
-  <p class="or">Ou branchez le connecteur une fois pour toutes, pour que votre IA aille chercher les données toute seule :</p>
-  <ol class="steps">
-    <li class="card step"><span class="num">1</span><h3>Copiez l'adresse</h3>${connector(origin, "mcp-url")}</li>
-    <li class="card step"><span class="num">2</span><h3>Ajoutez-la à votre assistant</h3>
-      <div class="tabs">
-        <input type="radio" name="app" id="app-chatgpt" checked><label for="app-chatgpt">ChatGPT</label>
-        <input type="radio" name="app" id="app-claude"><label for="app-claude">Claude</label>
-        <input type="radio" name="app" id="app-gemini"><label for="app-gemini">Gemini</label>
-        <input type="radio" name="app" id="app-meta"><label for="app-meta">Meta AI</label>
-        <input type="radio" name="app" id="app-lechat"><label for="app-lechat">Le Chat</label>
-        <input type="radio" name="app" id="app-local"><label for="app-local">Autres</label>
-        <div class="tab t-chatgpt"><p><b>Sur un ordinateur</b>, sur chatgpt.com (le menu n'est pas dans l'appli) : ouvrez <b>Plugins</b> dans le menu de gauche (ou <a href="https://chatgpt.com/plugins">chatgpt.com/plugins</a>), cliquez sur <b>Ajouter</b> en haut à droite, puis <b>Ajouter un serveur MCP personnalisé</b>.</p>
-        <p>Nom : <b>rundata.re</b>. Connexion : <b>URL du serveur</b>, collez l'adresse. Authentification : remplacez <b>OAuth</b>, proposé par défaut, par <b>aucune authentification</b>. Cochez <b>Je comprends et souhaite continuer</b>, créez le plugin, puis installez-le. Un message rouge sur OAuth peut rester affiché : il n'empêche pas de continuer.</p>
-        <p>Ensuite, dans une conversation (appli comprise), tapez <b>@</b> et choisissez rundata.re. Testé avec l'offre ChatGPT Go. Si le menu Plugins n'apparaît pas sur votre compte, utilisez les boutons « Domann out IA » plus haut.</p></div>
-        <p class="tab t-claude"><b>Gratuit</b> (un connecteur personnalisé inclus). Sur <a href="https://claude.ai/">claude.ai</a> dans un navigateur : <b>Personnaliser → Connecteurs → Ajouter un connecteur personnalisé</b>, nom <b>rundata.re</b>, collez l'adresse, puis <b>Ajouter</b>. Il marche ensuite aussi dans l'appli iPhone et Android.</p>
-        <p class="tab t-gemini">Pour l'instant, Google réserve les connecteurs personnalisés de Gemini à certains abonnés Google AI Pro ou Ultra aux États-Unis. Si votre compte y a droit : dans Gemini sur le web, ajoutez une application personnalisée et collez l'adresse du serveur MCP.</p>
-        <p class="tab t-meta">Meta AI (WhatsApp, Messenger, Instagram) ne permet pas encore d'ajouter un connecteur. En attendant, envoyez-lui le lien de la page de votre commune, par exemple <b>rundata.re/meteo/saint-denis</b>, ou ouvrez-la directement : elle se met à jour toutes les 5 minutes.</p>
-        <p class="tab t-lechat">Dans <a href="https://chat.mistral.ai/">Le Chat</a> de Mistral : <b>Connecteurs → Ajouter un connecteur → MCP personnalisé</b>, puis collez l'adresse.</p>
-        <p class="tab t-local">Claude Desktop, Cursor, VS Code et autres logiciels compatibles MCP : collez l'adresse comme serveur distant (HTTP).</p>
-      </div></li>
-    <li class="card step"><span class="num">3</span><h3>Posez votre question</h3>
-      <ul class="qs"><li>Le prochain bus à la gare de Saint-Pierre ?</li><li>Il fait quelle température à l'Hermitage ?</li>
-      <li>Le volcan est en éruption ?</li><li>La mairie de Saint-Paul est ouverte ?</li></ul></li>
-  </ol>
-</section>`;
-}
-
-/** What the connector knows, one card per tool. */
-function tools(): string {
-  return `<section id="outils" aria-labelledby="h-outils">
-  <div class="sec-h"><p class="eyebrow">Ce que votre IA saura</p>
-    <h2 id="h-outils">Les données publiques de l'île, en un seul connecteur</h2>
-    <p>Météo, mer, volcan, électricité, air, services publics, bus, terrain : chaque réponse vient d'un organisme public ou d'un projet ouvert, avec son heure et sa source.</p></div>
-  <ul class="tools" aria-label="Ce que votre assistant peut consulter">
-    <li class="tool">${icon("thermo")}<h3>Mesures en direct</h3><p>Température, humidité, vent et pluie de la station la plus pertinente pour une commune, une plage, un cirque ou un sommet.</p><code>meteo_actuelle</code></li>
-    <li class="tool">${icon("cloud")}<h3>Prévisions</h3><p>Heure par heure et jour par jour, toujours présentées comme une prévision, jamais comme une mesure.</p><code>prevision_meteo</code></li>
-    <li class="tool">${icon("alert")}<h3>Vigilance et cyclones</h3><p>La vigilance de Météo-France zone par zone et l'alerte cyclonique, signalées d'office dès qu'elles dépassent le vert. <a href="/vigilance">En ce moment</a></p><code>vigilance_meteo</code></li>
-    <li class="tool">${icon("wave")}<h3>Température de la mer</h3><p>Mesurée par satellite au large de chaque plage, avec la date de la mesure. <a href="/mer">Plage par plage</a></p><code>temperature_mer</code></li>
-    <li class="tool">${icon("volcano")}<h3>Volcan et séismes</h3><p>Éruption en cours ou non, accès à l'Enclos, derniers séismes localisés par l'observatoire du Piton de la Fournaise. <a href="/volcan">En ce moment</a></p><code>volcan_seismes</code></li>
-    <li class="tool">${icon("bolt")}<h3>Électricité</h3><p>D'où vient l'électricité de l'île en ce moment, la part renouvelable et les heures où le réseau est chargé. <a href="/electricite">En ce moment</a></p><code>electricite</code></li>
-    <li class="tool">${icon("air")}<h3>Qualité de l'air</h3><p>L'indice ATMO du jour et du lendemain dans chaque commune, avec le polluant en cause. <a href="/air">Aujourd'hui</a></p><code>qualite_air</code></li>
-    <li class="tool">${icon("building")}<h3>Services publics</h3><p>Adresse, horaires, ouvert ou fermé en ce moment, téléphone : mairies, CAF, préfecture, impôts…</p><code>annuaire_services_publics</code></li>
-    <li class="tool">${icon("calendar")}<h3>Calendrier</h3><p>Vacances scolaires de l'académie, jours fériés (dont le 20 décembre), lever et coucher du soleil. <a href="/calendrier">Voir</a></p><code>calendrier</code></li>
-    <li class="tool">${icon("bus")}<h3>Bus</h3><p>Prochains départs à un arrêt, d'après les horaires de Car Jaune, Citalis, Kar'Ouest, Alternéo, CarSud, Estival et du téléphérique Papang. <a href="/bus">Les gares</a></p><code>transports</code></li>
-    <li class="tool">${icon("map")}<h3>Terrain et risques</h3><p>À une adresse : parcelle, zone du PLU, prix de vente autour, plan de prévention des risques, catastrophes naturelles, mouvements de terrain.</p><code>fiche_terrain</code></li>
-    <li class="tool">${icon("book")}<h3>Sources</h3><p>D'où vient chaque donnée, sa fraîcheur et sa licence : l'assistant peut toujours le dire.</p><code>sources_donnees</code></li>
-  </ul>
-</section>`;
-}
-
-const PRINCIPLES = `<section aria-labelledby="h-lire">
+const WEATHER_NOTES = `<section aria-labelledby="h-lire">
   <div class="sec-h"><p class="eyebrow">Bon à savoir</p><h2 id="h-lire">Comment lire ces données</h2></div>
   <div class="three">
     <div class="card">${icon("gauge")}<h3>Une mesure n'est pas une prévision</h3><p>Ce qui est affiché comme mesuré vient d'un capteur, avec son heure. Les prévisions viennent de modèles (AROME de Météo-France, puis le modèle européen) et portent toujours l'étiquette <span class="badge">Prévision</span>.</p></div>
@@ -680,9 +590,86 @@ export const ISLAND = {
   containedInPlace: { "@type": "Country", name: "France" },
 };
 
-export function homePage(origin: string, data: Cached<HomeData> | null, now = new Date(), alerte?: Alerte): string {
+/** What a page shows about a category in a few words, for the tiles of the home page. */
+export interface Live {
+  /** The figure or the state, HTML. */
+  valeur: string;
+  /** Where, when, from whom, HTML. */
+  detail: string;
+}
+
+const range = (lo: number, hi: number) => `${fr(Math.round(lo))} à ${thin(deg(Math.round(hi)))}`;
+
+export function meteoLive(data: Cached<HomeData> | null): Live | undefined {
+  const l = withTemp(data);
+  if (!data || !l.length) return undefined;
+  const lo = coldest(l);
+  const hi = warmest(l);
+  const latest = data.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
+  return {
+    valeur: range(lo.temperature!, hi.temperature!),
+    detail: `${esc(shortName(lo.nom))} (${metres(lo.altitude_m)}) à ${esc(shortName(hi.nom))}, mesuré à ${hm(latest)}`,
+  };
+}
+
+export function merLive(data: Cached<HomeData> | null): Live | undefined {
+  const mer = data?.value.mer ?? [];
+  if (!mer.length) return undefined;
+  const v = mer.map((m) => m.valeur);
+  return {
+    valeur: Math.round(Math.min(...v)) === Math.round(Math.max(...v)) ? thin(deg(Math.round(v[0]))) : range(Math.min(...v), Math.max(...v)),
+    detail: `au large des plages, par satellite le ${esc(dayMonth(mer.map((m) => m.jour).sort().pop()!))}`,
+  };
+}
+
+export function vigilanceLive(data: Cached<mf.Vigilance> | null, now: Date): Live | undefined {
+  const v = data?.value;
+  if (!v) return undefined;
+  const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
+  if (highest(cyc) >= 2) {
+    const c = Math.max(2, current(cyc, now));
+    return { valeur: `<span class="vg vg${Math.min(c, 5)}">Cyclone : ${esc(mf.colour(c))}</span>`, detail: esc(cyclone(v, now)) };
+  }
+  const r = raised(v);
+  if (!r.length) return { valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" };
+  return {
+    valeur: vg(r[0].max),
+    detail: esc(r.slice(0, 2).map((x) => `${x.phenomene.toLowerCase()} (${x.zone.split(" :")[0]})`).join(", ") + (r.length > 2 ? "…" : "")),
+  };
+}
+
+/** The island's weather: every station, from the coast to the summits, the sea, and a page per commune or place. */
+export function meteoPage(origin: string, data: Cached<HomeData> | null, now = new Date(), alerte?: Alerte): string {
+  const live = meteoLive(data);
+  const l = withTemp(data);
+  const url = fresh(`${origin}/meteo`, now);
+  const latest = data?.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
+
+  const status = live
+    ? `<div class="now"><span class="big span">${live.valeur}</span><p>mesurés sous abri par les stations de l'île, de <b>${esc(shortName(coldest(l).nom))}</b> (${metres(coldest(l).altitude_m)}) à <b>${esc(shortName(warmest(l).nom))}</b>. Dernière mesure à <b>${hm(latest!)}</b>.</p></div>`
+    : `<p class="lead">Les mesures se chargent : rechargez la page dans quelques secondes. Les stations Météo-France publient toutes les 6 minutes.</p>`;
+
+  const sea = data?.value.mer.length
+    ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">La mer au large</h3><ul class="bars">` +
+      data.value.mer.map((m) => `<li><span>${esc(seaName(m.nom))}</span><b>${thin(deg(m.valeur))}</b></li>`).join("") +
+      `</ul><p class="note">Par satellite, le ${esc(dayMonth(data.value.mer.map((m) => m.jour).sort().pop()!))}. <a href="/mer">Toutes les plages →</a></p></figure>`
+    : "";
+
+  const title = "Météo La Réunion 974 en direct : température, pluie, vent";
+  const description = live
+    ? fit(`🇷🇪 Météo à La Réunion (974) en direct : de ${thin(deg(coldest(l).temperature!))} à ${shortName(coldest(l).nom)} à ${thin(deg(warmest(l).temperature!))} à ${shortName(warmest(l).nom)}, mesurés à ${hm(latest!)}.`,
+        " Pluie, vent, mer et prévisions par commune.")
+    : "🇷🇪 Météo à La Réunion (974) en direct : température, pluie et vent mesurés par les stations de l'île, mer et prévisions par commune.";
+
   const jsonld = [
-    { "@context": "https://schema.org", "@type": "WebSite", name: SITE, url: `${origin}/`, inLanguage: "fr-FR" },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: SITE, item: `${origin}/` },
+        { "@type": "ListItem", position: 2, name: "Météo", item: `${origin}/meteo` },
+      ],
+    },
     {
       "@context": "https://schema.org",
       "@type": "Dataset",
@@ -690,7 +677,7 @@ export function homePage(origin: string, data: Cached<HomeData> | null, now = ne
       description:
         "Température, humidité, vent et pluie mesurés par les stations de La Réunion toutes les 6 minutes, et température " +
         "de surface de la mer par satellite, réunis et datés, accessibles par un serveur MCP pour assistants IA.",
-      url: `${origin}/`,
+      url: `${origin}/meteo`,
       isAccessibleForFree: true,
       inLanguage: "fr-FR",
       keywords: ["météo", "La Réunion", "974", "temps réel", "stations météo", "température de la mer", "pluie", "vent"],
@@ -705,56 +692,37 @@ export function homePage(origin: string, data: Cached<HomeData> | null, now = ne
       ],
       ...(data ? { dateModified: data.fetchedAt.toISOString() } : {}),
     },
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      name: "rundata.re, connecteur MCP La Réunion en temps réel",
-      description:
-        "Serveur MCP (Model Context Protocol) gratuit qui donne à Claude, ChatGPT ou Le Chat les données publiques de La Réunion (974) " +
-        "en temps réel : mesures météo, prévisions, vigilance, mer, volcan, électricité, qualité de l'air, services publics, horaires de bus, terrain et risques.",
-      url: `${origin}/mcp`,
-      applicationCategory: "DeveloperApplication",
-      operatingSystem: "Web",
-      isAccessibleForFree: true,
-      offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
-      inLanguage: "fr-FR",
-    },
   ];
-  const band = `<div class="wrap intro">
+
+  const band = `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li aria-current="page">Météo</li></ol></nav></div>
+<div class="wrap intro">
   <div class="pitch">
-    <p class="pill">Gratuit · ChatGPT · Claude · Le Chat</p>
-    <h1>La Réunion <span class="n974">974</span> en direct, dans votre assistant IA</h1>
-    ${SLOGAN}
-    <p class="lead">Météo, bus, volcan, vigilance, air, services publics, terrain : quand vous demandez « il pleut à Salazie ? » ou « le prochain bus à Saint-Pierre ? », votre IA va chercher <b>la donnée publique du moment</b>, datée et sourcée, au lieu de répondre de mémoire.</p>
-    ${askHome(origin, now)}
-    <p class="or">Ou branchez le connecteur une fois pour toutes (<a href="#assistant">comment faire</a>) :</p>
-    ${connector(origin, "mcp-url-top")}
+    <p class="pill"><span class="dot"></span>Mesures en direct</p>
+    <h1>Météo à La Réunion <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Lé koman lo tan astèr La Rényon ? Rogard bann mézir an dirèk si ${url} é di amwin lèr la mézir.`,
+      `Quel temps fait-il en ce moment à La Réunion ? Lis les mesures en direct sur ${url} et donne-moi l'heure des mesures.`)}
   </div>
-  ${chatDemo(data, now)}
-</div>
-${ticker(data)}`;
-  const body = `${tools()}
-${assistant(origin, now)}
-<section id="en-ce-moment" aria-labelledby="h-live">
-  <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-live">La météo en ce moment</h2>
-  <p>Un exemple de ce que votre assistant reçoit : les températures, la pluie et le vent mesurés par les stations de l'île, de Saint-Denis au Maïdo, de Cilaos à Saint-Pierre, et la température de la mer. Toutes les 6 minutes, datés et sourcés.</p></div>
-  ${homeLive(data, now)}
+  ${sea}
+</div>`;
+
+  const body = `<section id="en-ce-moment" aria-labelledby="h-live">
+  <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-live">De la côte aux sommets</h2>
+  <p>Les températures, la pluie et le vent mesurés par les stations de l'île, de Saint-Denis au Maïdo, de Cilaos à Saint-Pierre. Toutes les 6 minutes, datés et sourcés.</p></div>
+  ${weatherLive(data, now)}
 </section>
 <section id="communes" aria-labelledby="h-communes">
   <div class="sec-h"><p class="eyebrow">Partout sur l'île</p><h2 id="h-communes">Météo par commune et par lieu</h2>
   <p>La station la plus pertinente, la température de la mer sur la côte et la prévision des prochains jours, pour chaque commune, les cirques, le volcan et les plages.</p></div>
   ${placeLinks()}
 </section>
-${PRINCIPLES}`;
-  return layout(origin, {
-    title: "La Réunion 974 en direct dans votre IA : météo, bus, volcan, air",
-    description:
-      `🇷🇪 ${brand.slogan} : météo, bus, volcan, vigilance, air, services publics de La Réunion 974, en direct dans ` +
-      "ChatGPT, Claude ou Le Chat. Gratuit, sans compte.",
-    path: "/",
-    jsonld,
-    alerte,
-  }, band, body);
+<section class="card cta" aria-labelledby="h-ia">
+  <h2 id="h-ia">Votre IA, branchée sur la météo de l'île</h2>
+  <p>Avec le connecteur, votre assistant va chercher lui-même la mesure de la station la plus pertinente (outils <code>meteo_actuelle</code> et <code>prevision_meteo</code>), avec son heure et sa source. Gratuit, sans compte. <a href="/#assistant">Comment le brancher</a>.</p>
+  ${connector(origin, "mcp-url")}
+</section>
+${WEATHER_NOTES}`;
+  return layout(origin, { title, description, path: "/meteo", jsonld, alerte }, band, body);
 }
 
 const KIND: Record<string, string> = {
@@ -863,7 +831,8 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: SITE, item: `${origin}/` },
-        { "@type": "ListItem", position: 2, name: `Météo ${p.nom}`, item: `${origin}/meteo/${p.slug}` },
+        { "@type": "ListItem", position: 2, name: "Météo", item: `${origin}/meteo` },
+        { "@type": "ListItem", position: 3, name: `Météo ${p.nom}`, item: `${origin}/meteo/${p.slug}` },
       ],
     },
     {
@@ -883,7 +852,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
     },
   ];
 
-  const band = `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li><a href="/#communes">Communes et lieux</a></li><li aria-current="page">${esc(p.nom)}</li></ol></nav></div>
+  const band = `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li><a href="/meteo">Météo</a></li><li aria-current="page">${esc(p.nom)}</li></ol></nav></div>
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Météo en direct</p>
@@ -918,11 +887,12 @@ ${forecast}
 export function notFoundPage(origin: string, path: string): string {
   return layout(origin, {
     title: `Page introuvable · ${SITE}`,
-    description: "🇷🇪 Météo à La Réunion (974) en temps réel.",
+    description: "🇷🇪 La Réunion (974) en temps réel : météo, vigilance, mer, volcan, bus, air, électricité, calendrier.",
     path,
     jsonld: [],
-  }, `<div class="wrap intro"><div class="pitch"><h1>Page introuvable</h1><p class="lead">Cette adresse n'existe pas. La météo de toute l'île est sur <a href="/">la page d'accueil</a>, et celle de chaque commune ci-dessous.</p></div></div>`,
-  `<section aria-labelledby="h-communes"><h2 id="h-communes">Météo par commune et par lieu</h2>${placeLinks()}</section>`);
+  }, `<div class="wrap intro"><div class="pitch"><h1>Page introuvable</h1><p class="lead">Cette adresse n'existe pas. Toute l'île en direct est sur <a href="/">la page d'accueil</a>, et chaque catégorie a sa page ci-dessous.</p></div></div>`,
+  `<section aria-labelledby="h-cat"><h2 id="h-cat">Les catégories</h2><ul class="chips">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}</ul></section>
+<section aria-labelledby="h-communes"><h2 id="h-communes">Météo par commune et par lieu</h2>${placeLinks()}</section>`);
 }
 
 const vg = (c: number) => `<span class="vg vg${c >= 1 && c <= 5 ? c : 0}">${esc(mf.colour(c))}</span>`;
