@@ -47,7 +47,7 @@ export function chip(t: number): string {
 
 export const hm = (iso: string | Date) => localTime(new Date(iso)).split(" ")[1];
 
-const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-meteo-de-la-reunion-en-direct-pour-vous-et-votre-assistant-ia";
+const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-reunion-en-direct-meteo-mer-bus-velos-air-volcan-pour-vous-et-votre-assistant-ia";
 
 // Search engines cut (and Bing flags) a meta description over 160 characters.
 export const DESCRIPTION_MAX = 160;
@@ -446,7 +446,7 @@ ${body}
   </div>
   <div>
     <h3>Sources</h3>
-    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Police des titres : Bricolage Grotesque (SIL OFL).</p>
+    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Police des titres : Bricolage Grotesque (SIL OFL).</p>
     <p>Ces données sont fournies telles quelles, sans garantie. Pour un cyclone ou de fortes pluies, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture.</p>
   </div>
 </div></footer>
