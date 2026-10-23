@@ -1,0 +1,51 @@
+{
+  "name": "reunion-temps-reel",
+  "version": "0.1.0",
+  "description": "Serveur MCP : mesures en temps réel à La Réunion (météo, mer) pour les assistants IA",
+  "mcpName": "re.rundata/temps-reel",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "reunion-temps-reel": "dist/bin/stdio.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev:http": "tsx src/bin/http.ts",
+    "dev:stdio": "tsx src/bin/stdio.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.2"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "reunion",
+    "la-reunion",
+    "974",
+    "meteo",
+    "weather",
+    "sea-temperature",
+    "temps-reel"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bLd75/rundata.git"
+  },
+  "homepage": "https://rundata.re"
+}

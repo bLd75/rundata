@@ -1,0 +1,207 @@
+/**
+ * Upstream cache shared by every user of the server.
+ *
+ * Each source is fetched at most once per `freshSeconds`, whatever the number of questions: one METAR call
+ * serves everyone for five minutes. When the source is down, the last good copy is served with `stale: true`
+ * (its measurement times say how old it is), and failures are remembered for a minute so that an outage
+ * does not turn every question into a new request against a server that is already struggling.
+ */
+
+export interface CacheEntry {
+  value: unknown;
+  fetchedAt: number;
+}
+
+/** Where entries live: process memory on Node; memory in front of the Cloudflare cache in the Worker. */
+export interface CacheStore {
+  /** `freshAfter`: an entry fetched since then will do, so slower stores need not be asked (nor paid for). */
+  get(key: string, freshAfter?: number): Promise<CacheEntry | undefined>;
+  put(key: string, entry: CacheEntry): Promise<void>;
+}
+
+export class MemoryStore implements CacheStore {
+  private entries = new Map<string, CacheEntry>();
+  async get(key: string) {
+    return this.entries.get(key);
+  }
+  async put(key: string, entry: CacheEntry) {
+    this.entries.set(key, entry);
+  }
+}
+
+/**
+ * Several stores, fastest first, written together. A store is only asked when the ones before it have nothing
+ * fresh enough, and the newest entry wins; what a slower store had is copied into the faster ones. In the Worker,
+ * isolate memory answers without I/O while the shared edge cache lets one isolate's fetch serve the others.
+ */
+export class TieredStore implements CacheStore {
+  private stores: CacheStore[];
+  constructor(...stores: CacheStore[]) {
+    this.stores = stores;
+  }
+  async get(key: string, freshAfter?: number) {
+    let newest: CacheEntry | undefined;
+    let from = 0;
+    for (let i = 0; i < this.stores.length; i++) {
+      const e = await this.stores[i].get(key, freshAfter);
+      if (e && (!newest || e.fetchedAt > newest.fetchedAt)) {
+        newest = e;
+        from = i;
+      }
+      if (newest && freshAfter != null && newest.fetchedAt >= freshAfter) break;
+    }
+    if (newest) for (let i = 0; i < from; i++) await this.stores[i].put(key, newest);
+    return newest;
+  }
+  async put(key: string, entry: CacheEntry) {
+    await Promise.all(this.stores.map((s) => s.put(key, entry)));
+  }
+}
+
+export interface Cached<T> {
+  value: T;
+  fetchedAt: Date;
+  /** True when the source failed and this is the last good copy. */
+  stale: boolean;
+}
+
+const FAILURE_BACKOFF_MS = 60_000;
+// Bundles kept in memory per process; older ones (an AROME run replaced by the next) are dropped.
+const MAX_BUNDLES = 8;
+
+/**
+ * Entries kept together as one entry of a store: one read and at most one write per question, however many entries
+ * it uses. In the Worker every read or write of a shared store is a subrequest, and subrequests are limited.
+ */
+export interface Bundle {
+  /** Whether the entry is there, however old. No I/O. */
+  has(key: string): boolean;
+  /** The entry and how long ago it was stored, in ms, however old. No I/O. */
+  peek(key: string): (CacheEntry & { ageMs: number }) | undefined;
+  /** Stores `value` under `key` (written by `save`). */
+  set(key: string, value: unknown): void;
+  /** As `Cache.get`, within the bundle. */
+  get<T>(key: string, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>>;
+  /** Forgets the entries `keep` rejects (not written by itself). */
+  drop(keep: (key: string) => boolean): void;
+  /** Writes the bundle back if something was added. */
+  save(): Promise<void>;
+}
+
+interface BundleState {
+  entries: Record<string, CacheEntry>;
+  syncedAt: number;
+}
+
+export class Cache {
+  private inflight = new Map<string, Promise<Cached<unknown>>>();
+  private failures = new Map<string, { at: number; error: unknown }>();
+  private bundles = new Map<string, BundleState>();
+
+  /**
+   * `dedupe` lets concurrent questions share one upstream request. The Worker turns it off: there, a request
+   * awaiting a fetch started by another request fails if that other request is cancelled first.
+   * `durable` holds the bundles that must outlive the data center's cache (the Worker's KV: written by the
+   * scheduled prefetch in one data center, read by questions in all of them).
+   */
+  constructor(
+    private store: CacheStore = new MemoryStore(),
+    private now: () => number = Date.now,
+    private dedupe = true,
+    private durable: CacheStore = store,
+  ) {}
+
+  async get<T>(key: string, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>> {
+    const hit = await this.store.get(key, this.now() - freshSeconds * 1000);
+    return this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e));
+  }
+
+  /**
+   * The bundle stored under `key`. The copy in memory is merged with the stored one when it is older than
+   * `syncSeconds`, so that another isolate's additions arrive; two isolates saving at the same time may lose one's
+   * additions, which are then fetched again later.
+   */
+  async bundle(key: string, syncSeconds: number, durable = false): Promise<Bundle> {
+    const store = durable ? this.durable : this.store;
+    let state = this.bundles.get(key);
+    if (!state) {
+      state = { entries: {}, syncedAt: -Infinity };
+      this.bundles.set(key, state);
+      if (this.bundles.size > MAX_BUNDLES) this.bundles.delete(this.bundles.keys().next().value!);
+    }
+    if (this.now() - state.syncedAt >= syncSeconds * 1000) {
+      state.syncedAt = this.now();
+      const stored = (await store.get(key))?.value as Record<string, CacheEntry> | undefined;
+      for (const [k, e] of Object.entries(stored ?? {})) {
+        if (!state.entries[k] || e.fetchedAt > state.entries[k].fetchedAt) state.entries[k] = e;
+      }
+    }
+    const s = state;
+    let added = false;
+    return {
+      has: (k) => k in s.entries,
+      peek: (k) => (k in s.entries ? { ...s.entries[k], ageMs: this.now() - s.entries[k].fetchedAt } : undefined),
+      set: (k, value) => {
+        s.entries[k] = { value, fetchedAt: this.now() };
+        added = true;
+      },
+      get: <T>(k: string, freshSeconds: number, load: () => Promise<T>) =>
+        this.serve(`${key}|${k}`, s.entries[k], freshSeconds, load, async (e) => {
+          s.entries[k] = e;
+          added = true;
+        }),
+      drop: (keep) => {
+        for (const k of Object.keys(s.entries)) if (!keep(k)) delete s.entries[k];
+      },
+      save: async () => {
+        if (!added) return;
+        added = false;
+        await store.put(key, { value: s.entries, fetchedAt: this.now() });
+      },
+    };
+  }
+
+  private async serve<T>(
+    key: string,
+    hit: CacheEntry | undefined,
+    freshSeconds: number,
+    load: () => Promise<T>,
+    put: (e: CacheEntry) => Promise<void>,
+  ): Promise<Cached<T>> {
+    if (hit && this.now() - hit.fetchedAt < freshSeconds * 1000) {
+      return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false };
+    }
+    const failed = this.failures.get(key);
+    if (failed && this.now() - failed.at < FAILURE_BACKOFF_MS) {
+      if (hit) return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true };
+      throw failed.error;
+    }
+    let pending = this.dedupe ? this.inflight.get(key) : undefined;
+    if (!pending) {
+      pending = this.refresh(key, hit, load, put);
+      if (this.dedupe) this.inflight.set(key, pending);
+    }
+    return pending as Promise<Cached<T>>;
+  }
+
+  private async refresh<T>(
+    key: string,
+    hit: CacheEntry | undefined,
+    load: () => Promise<T>,
+    put: (e: CacheEntry) => Promise<void>,
+  ): Promise<Cached<T>> {
+    try {
+      const value = await load();
+      const entry = { value, fetchedAt: this.now() };
+      await put(entry);
+      this.failures.delete(key);
+      return { value, fetchedAt: new Date(entry.fetchedAt), stale: false };
+    } catch (error) {
+      this.failures.set(key, { at: this.now(), error });
+      if (hit) return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true };
+      throw error;
+    } finally {
+      this.inflight.delete(key);
+    }
+  }
+}

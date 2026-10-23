@@ -1,0 +1,19 @@
+#EventID|Time|Latitude|Longitude|Depth/km|Author|Catalog|Contributor|ContributorID|MagType|Magnitude|MagAuthor|EventLocationName
+ovpf2026utfcxp|2026-10-21T17:45:52.561618|-21.239116|55.713091|-0.38671875|zacharie.duputel||OVPF|ovpf2026utfcxp|Md|0.1178242011|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026unlhby|2026-10-18T14:25:29.947862|-20.999981|55.488195|11.42578125|zacharie.duputel||OVPF|ovpf2026unlhby|Md|1.335748925|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026ulytxw|2026-10-17T19:03:21.247229|-21.245474|55.716702|-0.193359375|zacharie.duputel||OVPF|ovpf2026ulytxw|Md|1.025771197|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026ugpglb|2026-10-14T20:53:38.950107|-21.246701|55.763730|2.30859375|zacharie.duputel||OVPF|ovpf2026ugpglb|Md|0.4830748975|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026ugoaak|2026-10-14T20:16:24.812465|-21.239339|55.712862|-0.1171875|zacharie.duputel||OVPF|ovpf2026ugoaak|Md|0.5121022899|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026ueolgc|2026-10-13T18:20:35.478504|-21.008904|55.500643|11.98828125|sysop||OVPF|ovpf2026ueolgc|Md|1.322272926|sysop|Mauritius-Reunion Region
+ovpf2026ucxnnm|2026-10-12T20:45:47.286823|-21.160148|55.401830|15.38671875|zacharie.duputel||OVPF|ovpf2026ucxnnm|Md|1.154968923|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026ucasxj|2026-10-12T09:17:44.409816|-21.171525|55.488067|22.6171875|zacharie.duputel||OVPF|ovpf2026ucasxj|Md|1.08210781|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026tzecyw|2026-10-10T19:46:22.613363|-21.250047|55.769044|12.9609375|zacharie.duputel||OVPF|ovpf2026tzecyw|Md|0.5868303349|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026tyluie|2026-10-10T10:33:32.745163|-21.243801|55.700940|6.7265625|zacharie.duputel||OVPF|ovpf2026tyluie|Md|0.4990351665|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026txmfna|2026-10-09T21:41:50.24052|-21.244470|55.706233|6.19921875|zacharie.duputel||OVPF|ovpf2026txmfna|Md|0.4811699977|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026tuaqfg|2026-10-08T00:39:12.154505|-21.240901|55.715403|-0.12890625|zacharie.duputel||OVPF|ovpf2026tuaqfg|Md|0.3777979622|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026tsbryr|2026-10-06T23:02:22.807057|-21.241347|55.711268|-0.36328125|zacharie.duputel||OVPF|ovpf2026tsbryr|Md|0.287242294|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026tjbrfz|2026-10-02T01:21:16.86593|-21.109734|55.513655|8.68359375|zacharie.duputel||OVPF|ovpf2026tjbrfz|Md|0.6650649123|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026tiryge|2026-10-01T20:27:45.63487|-21.237332|55.713077|-0.08203125|zacharie.duputel||OVPF|ovpf2026tiryge|Md|0.3092765533|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026sxyjiu|2026-09-25T23:51:40.531817|-21.246478|55.706478|6.2578125|zacharie.duputel||OVPF|ovpf2026sxyjiu|Md|0.6311832959|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026suenpi|2026-09-23T22:40:25.520459|-21.167733|55.414739|12.17578125|zacharie.duputel||OVPF|ovpf2026suenpi|Md|1.137491199|zacharie.duputel|Mauritius-Reunion Region
+ovpf2026ssbpuh|2026-09-22T19:03:34.200966|-21.220378|55.554334|15.94921875|zacharie.duputel||OVPF|ovpf2026ssbpuh|Md|0.6534714801|zacharie.duputel|Mauritius-Reunion Region
