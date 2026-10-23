@@ -83,4 +83,12 @@ describe("fiche terrain", () => {
     expect(planOf({ suptype: "ac1", nomass: "x", typeass: "", fichier: "" })).toBeNull();
     expect(riskLine([])).toMatch(/^hors des zones/);
   });
+
+  it("tries Géorisques again when a call fails, as about one in two does from a Worker", async () => {
+    let fails = 2;
+    const inner = globalThis.fetch;
+    vi.stubGlobal("fetch", async (url: string) => (String(url).includes("catnat") && fails-- > 0 ? new Response("", { status: 520 }) : inner(url)));
+    const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "7 rue de la Buse, Saint-Paul", NOW));
+    expect(r.risques.catastrophes_naturelles.arretes_dans_la_commune).toBeGreaterThan(5);
+  });
 });
