@@ -73,6 +73,7 @@ const ICON: Record<string, string> = {
   calendar: `<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
   map: `<path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3Z"/><path d="M9 4v13M15 7v13"/>`,
   bus: `<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v3M16 18v3"/><path d="M8 14.5h.01M16 14.5h.01"/>`,
+  bike: `<circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17 9 9h6l3.5 8M9 9l3 8h-6.5M15 9l-1-3h-2.5"/>`,
 };
 export const icon = (name: string) =>
   `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[name]}</svg>`;
@@ -340,6 +341,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .rows{list-style:none;padding:0;display:grid}
 .rows li{display:grid;grid-template-columns:3.4rem minmax(0,1fr) auto;gap:.6rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--line)}
 .rows li:first-child{border-top:0}
+.rows.bikes li{grid-template-columns:minmax(0,1fr) auto}
 .rt{font-weight:700;color:var(--link)}
 .rows b{font:800 1.05rem Bricolage,system-ui,sans-serif;overflow-wrap:anywhere}
 .bars{list-style:none;padding:0;display:grid;gap:.7rem}

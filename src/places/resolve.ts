@@ -4,7 +4,7 @@
  * peaks, viewpoints and freshwater pools from OpenStreetMap, with IGN altitudes.
  */
 import gazetteer from "./gazetteer.json" with { type: "json" };
-import { inReunion } from "../geo.js";
+import { distanceKm, inReunion } from "../geo.js";
 
 export interface Place {
   nom: string;
@@ -170,6 +170,17 @@ export function resolvePlace(text: string): Resolution | null {
     }
   }
   return { lieu: best.place, correspondance: best.kind, autres };
+}
+
+/** The commune of a point: that of the nearest place of the gazetteer (a hamlet, a beach, a cape…). */
+export function communeAt(lon: number, lat: number): string {
+  let best = PLACES[0];
+  let min = Infinity;
+  for (const p of PLACES) {
+    const d = distanceKm(lon, lat, p.lon, p.lat);
+    if (d < min) [best, min] = [p, d];
+  }
+  return best.commune;
 }
 
 export const GAZETTEER_ATTRIBUTION: string = gazetteer.attribution;

@@ -7,8 +7,8 @@ import { ageMinutes, ageText } from "../geo.js";
 import type * as mf from "../providers/vigilance.js";
 import brand from "./brand.json" with { type: "json" };
 import { CATEGORIES, type Category } from "./categories.js";
-import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VolcanAnswer } from "./data.js";
-import { airLive, busLive, calendrierLive, electriciteLive, volcanLive } from "./domains.js";
+import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer } from "./data.js";
+import { airLive, busLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
 import { esc } from "./map.js";
 import {
@@ -43,6 +43,7 @@ export interface HomeLive {
   electricite?: Cached<ElectriciteAnswer> | null;
   calendrier?: Cached<CalendrierAnswer> | null;
   bus?: Cached<BusData> | null;
+  velos?: Cached<VelosAnswer> | null;
 }
 
 function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> {
@@ -52,6 +53,7 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
     mer: merLive(h?.meteo ?? null),
     volcan: volcanLive(h?.volcan ?? null),
     bus: busLive(h?.bus ?? null),
+    velos: velosLive(h?.velos ?? null),
     air: airLive(h?.air ?? null),
     electricite: electriciteLive(h?.electricite ?? null),
     calendrier: calendrierLive(h?.calendrier ?? null),

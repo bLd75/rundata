@@ -22,7 +22,7 @@ describe("HTTP endpoint", () => {
       "calendrier",
       "qualite_air",
       "annuaire_services_publics",
-      "fiche_terrain", "sources_donnees"]);
+      "fiche_terrain", "velos_libre_service", "sources_donnees"]);
   });
 
   it("answers CORS preflight and unknown paths", async () => {

@@ -148,14 +148,20 @@ describe("commune page", () => {
       { heure: "18h30", dans_min: -11, ligne: "S1", direction: "Gare du Tampon", reseau: "Car Jaune", arret: "Gare de St-Pierre" },
       { heure: "18h50", dans_min: 11, ligne: "S2", direction: "St-Joseph", reseau: "Car Jaune", arret: "Gare de St-Pierre" },
     ];
+    const velos = [
+      { nom: "ZAC Maxime Rivière", commune: "Saint-Pierre", velos_electriques: 6, places_libres: 4, maj: "18h38" },
+      { nom: "IUT", commune: "Saint-Pierre", velos_electriques: 0, places_libres: 8, maj: "18h38" },
+    ];
     const mairie = { ...mairies[0], horaires: [{ de: "lundi", a: "vendredi", plages: [["08h00", "16h00"]] as [string, string][] }] };
-    const page = communePage(ORIGIN, p, live({ mairie, bus: { gare: true, arrets: [], departs }, sources: [] }), NOW);
+    const page = communePage(ORIGIN, p, live({ mairie, bus: { gare: true, arrets: [], departs }, velos, sources: [] }), NOW);
     expect(tile(page, "Air")).toContain(`<span class="aq aq2">moyen</span>`);
     // 18h40 on a Friday.
     expect(tile(page, "Mairie")).toContain(`<p class="tv">Fermée</p><p class="td">aujourd'hui 8h-16h`);
     expect(tile(page, "Bus")).toContain(`<p class="tv">18h50</p>`);
     expect(tile(page, "Bus")).toContain("dans 10 min"); // built a minute ago
     expect(tile(page, "Bus")).not.toContain("S1");
+    expect(tile(page, "Vélos")).toContain(`<p class="tv">6 vélos</p>`);
+    expect(tile(page, "Vélos")).toContain("<li><span>ZAC Maxime Rivière</span><span><b>6</b> vélos · 4 places</span>");
     expect(tile(page, "Volcan")).toContain("Pas d'éruption");
     expect(tile(page, "Soleil et calendrier")).toMatch(/<p class="tv">\d\dh\d\d – \d\dh\d\d<\/p>/);
     expect(desc(page).length).toBeLessThanOrEqual(DESCRIPTION_MAX);
@@ -168,7 +174,7 @@ describe("routes", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("serve each domain page, without its live block when the source is down", async () => {
-    for (const path of ["/meteo", "/volcan", "/air", "/electricite", "/calendrier", "/bus", "/volcan/"]) {
+    for (const path of ["/meteo", "/volcan", "/air", "/electricite", "/calendrier", "/bus", "/velos", "/volcan/"]) {
       const cache = new Cache(new MemoryStore(), () => NOW.getTime(), false);
       const r = (await site(new Request(`${ORIGIN}${path}`), cache, () => undefined, NOW))!;
       expect(r.status, path).toBe(200);

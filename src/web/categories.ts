@@ -59,6 +59,14 @@ export const CATEGORIES: Category[] = [
     about: "Les prochains départs à n'importe quel arrêt, d'après les horaires de Car Jaune, Citalis, Kar'Ouest, Alternéo, CarSud, Estival et du téléphérique Papang.",
   },
   {
+    key: "velos",
+    nom: "Vélos",
+    path: "/velos",
+    icon: "bike",
+    tools: ["velos_libre_service"],
+    about: "Les vélos électriques Altervélo et les places libres de chaque station, en direct, à Saint-Pierre, Saint-Louis et L'Étang-Salé.",
+  },
+  {
     key: "air",
     nom: "Air",
     path: "/air",
