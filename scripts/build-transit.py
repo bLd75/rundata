@@ -3,7 +3,8 @@
 
 Two outputs, made from the same build so that their ids agree:
   - src/transit/network.json, bundled with the server: networks, lines, stops (name, place, commune) and service
-    calendars, enough to find a stop and to know which services run on a given day;
+    calendars, enough to find a stop and to know which services run on a given day; for the networks with a real-time
+    feed, its address and the GTFS ids of their stops and lines;
   - dist/transit.sql, for the D1 database: for each stop, the patterns passing there with their time offset, and for
     each pattern, its trips (service, start time). Trips sharing their stops and their running times form one pattern,
     which keeps 880 000 stop times down to about 20 000 rows.
@@ -50,6 +51,14 @@ NETWORKS = [
     ("estival", "Estival", "CIREST (Saint-André, Saint-Benoît, Bras-Panon, Salazie, Plaine-des-Palmistes, Sainte-Rose)", "https://www.data.gouv.fr/api/1/datasets/r/3b659ebb-8c17-46f4-a8ac-78c4129a4a29",
      "https://transport.data.gouv.fr/datasets/jeu-de-donnee-spl-estival-2025"),
 ]
+
+# The networks that publish their buses in real time (GTFS-RT, Licence Ouverte): the server reads the feed, and
+# needs the GTFS ids of their stops and lines, which the feed gives, to match it with the timetables.
+REALTIME = {
+    "carjaune": "https://www.data.gouv.fr/api/1/datasets/r/c0a17be1-e89a-48a3-aca1-d8eb8e89a55e",
+    "alterneo": "https://proxy.transport.data.gouv.fr/resource/alterneo-civis-gtfs-rt-trip-update",
+    "carsud": "https://www.data.gouv.fr/api/1/datasets/r/146fe36f-16c5-44bc-ac1a-06c0fedcc4dd",
+}
 
 
 def fetch(url, cache, name):
@@ -141,7 +150,9 @@ def main():
         feed = table(z, "feed_info.txt")
         ends = [f.get("feed_end_date") for f in feed if f.get("feed_end_date")]
 
+        gtfs_routes, gtfs_stops = [], []
         for r in table(z, "routes.txt"):
+            gtfs_routes.append(r["route_id"])
             route_id[(net, r["route_id"])] = len(routes)
             routes.append([net, (r.get("route_short_name") or "").strip(), (r.get("route_long_name") or "").strip()])
 
@@ -151,6 +162,7 @@ def main():
                 continue  # stations and entrances: only the places where a bus stops
             lon, lat = float(s["stop_lon"]), float(s["stop_lat"])
             local_stop[s["stop_id"]] = len(stops)
+            gtfs_stops.append(s["stop_id"])
             stops.append([net, s["stop_name"].strip(), round(lat, 5), round(lon, 5), commune_of(lon, lat, communes)])
         stop_id.update({(net, k): v for k, v in local_stop.items()})
 
@@ -197,6 +209,8 @@ def main():
                 patterns[pattern_id[key]][2].append([service_index[info["service_id"]], begin, trip if begin == start else f"{trip}@{begin}"])
 
         networks[net] = {"nom": name, "exploitant": operator, "donnees": page, "valide_jusqu_au": max(ends) if ends else None, **first}
+        if net in REALTIME:
+            networks[net]["temps_reel"] = {"flux": REALTIME[net], "arrets": gtfs_stops, "lignes": gtfs_routes}
         print(f"{net}: {len(local_stop)} arrêts, {len(times)} courses", flush=True)
 
     # Named after what was built, not only what was downloaded: a change of this script changes the ids too.

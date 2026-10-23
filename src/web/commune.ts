@@ -13,7 +13,7 @@ import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
 import { current, cyclone, highest, raised } from "../tools/vigilance.js";
 import type { AirAnswer, Alerte, CalendrierAnswer, CommuneData, ElectriciteAnswer, PlaceData, SeaData, VolcanAnswer } from "./data.js";
-import { aq, calendrierLive, electriciteLive, volcanLive } from "./domains.js";
+import { alertList, aq, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
 import { esc, islandMap } from "./map.js";
 import { ask, connector, credits, dayMonth, deg, fit, fresh, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
@@ -128,9 +128,11 @@ function buses(p: PlacePage, data: Cached<CommuneData> | null | undefined, now: 
   const where = b.gare ? `à la gare ${esc(de(p.nom))}` : `près du centre, arrêt ${esc(b.arrets[0].nom)}`;
   if (!left.length) return { live: { valeur: "Pas de départ", detail: `${where} dans les prochaines heures, d'après les horaires publiés` } };
   const wait = (min: number, heure: string) => (heure.startsWith("demain") ? heure : min < 1 ? "maintenant" : min < 90 ? `dans ${fr(min)} min` : `à ${heure}`);
+  const first = left.find(({ x }) => !x.temps_reel) ?? left[0];
   return {
-    live: { valeur: esc(left[0].x.heure), detail: `prochain départ ${where} : ligne ${esc(left[0].x.ligne)} vers ${esc(left[0].x.direction)} (${esc(left[0].x.reseau)})` },
-    more: `<ul class="rows">${left.map(({ x, min }) => `<li><b>${esc(x.ligne)}</b><span>vers ${esc(x.direction)} <span class="note">(${esc(x.reseau)})</span></span><span class="note">${esc(wait(min, x.heure))}</span></li>`).join("")}</ul>`,
+    live: { valeur: esc(first.x.heure_annoncee ?? first.x.heure), detail: `prochain départ ${where} : ligne ${esc(first.x.ligne)} vers ${esc(first.x.direction)} (${esc(first.x.reseau)})` },
+    more: `<ul class="rows">${left.map(({ x, min }) => departureLi(x, wait(min, x.heure_annoncee ?? x.heure))).join("")}</ul>` +
+      (b.alertes?.length ? `<div class="note">Info trafic : ${alertList(b.alertes)}</div>` : ""),
   };
 }
 
