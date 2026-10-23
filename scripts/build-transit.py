@@ -11,7 +11,8 @@ Two outputs, made from the same build so that their ids agree:
 
 In the database, each network's rows carry ids local to that network and a fingerprint of their content (its feed). A
 network whose timetable has not changed keeps its feed, so its rows are already there and are not written again:
-with --d1, the feeds the database holds are left out of dist/transit.sql. dist/transit-prune.sql deletes the feeds no
+with --d1, the feeds the database holds are left out of dist/transit.sql, and the run stops before writing anything
+when the import would take the account over D1's daily write quota. dist/transit-prune.sql deletes the feeds no
 longer in use; run it once the new build is deployed, on another day if the import was a large one.
 
 Usage: python3 -I scripts/build-transit.py [--cache DIR] [--d1 rundata-transports]
@@ -31,6 +32,8 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# Rows D1 lets an account write per day (UTC) on the free plan.
+D1_DAILY_WRITES = 100_000
 UA = {"User-Agent": "reunion-temps-reel/0.2"}
 COMMUNES = "https://geo.api.gouv.fr/departements/974/communes?format=geojson&geometry=contour&fields=nom,code"
 
@@ -126,6 +129,24 @@ def feeds_in(database):
             return set()
         raise SystemExit(f"lecture de {database} impossible :\n{out.stderr or out.stdout}")
     return {r["feed"] for r in json.loads(out.stdout)[0]["results"]}
+
+
+def d1(database, *args):
+    out = subprocess.run(["npx", "wrangler", "d1", *args, "--json"], cwd=ROOT, capture_output=True, text=True)
+    if out.returncode != 0:
+        raise SystemExit(f"lecture de {database} impossible :\n{out.stderr or out.stdout}")
+    return json.loads(out.stdout)
+
+
+def check_quota(database, new_rows):
+    """Refuse an import that would take D1 over its daily write quota: the rows to insert plus those written in the
+    last 24 hours (rolling, so a little more than since midnight UTC, when the quota resets). The prune, which
+    deletes rows (a deletion is a write too), is run on its own and can wait for another day."""
+    used = d1(database, "info", database).get("rows_written_24h") or 0
+    print(f"D1 : {used} lignes écrites sur 24 h, {new_rows} à écrire, soit {used + new_rows} sur {D1_DAILY_WRITES}")
+    if new_rows and used + new_rows > D1_DAILY_WRITES * 0.95:
+        raise SystemExit("import refusé : il dépasserait le quota d'écritures de D1 ; relancer quand les écritures "
+                         "des dernières 24 h seront retombées. Rien n'a été modifié.")
 
 
 def main():
@@ -228,12 +249,16 @@ def main():
         networks[net]["feed"] = feed
         by_net[net] = (feed, own_passes, own_patterns)
 
+    present = feeds_in(args.d1) if args.d1 else set()
+    if args.d1:
+        # Before anything is written: network.json must not name feeds the database will not get.
+        check_quota(args.d1, sum(len(ps) + len(pt) + 1 for f, ps, pt in by_net.values() if f not in present))
+
     out = {"build": build, "networks": networks, "routes": routes, "stops": stops, "services": services}
     path = ROOT / "src" / "transit" / "network.json"
     path.parent.mkdir(exist_ok=True)
     path.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
 
-    present = feeds_in(args.d1) if args.d1 else set()
     # WITHOUT ROWID: the primary key is the table itself, so a row costs one write and not two (row and index).
     lines = [
         "CREATE TABLE IF NOT EXISTS passes (feed TEXT NOT NULL, id INTEGER NOT NULL, passes TEXT NOT NULL, PRIMARY KEY (feed, id)) WITHOUT ROWID;",
