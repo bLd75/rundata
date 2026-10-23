@@ -7,7 +7,7 @@ import { alerte, alerteOf, buildHome, buildPlace, buildSea, snapshot, vigilanceN
 import { FAVICON } from "./flag.js";
 import font from "./font.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
-import { FONT_PATH, homePage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
+import { FONT_PATH, homePage, legalPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { pageOf, PAGES } from "./places.js";
 
 const HTML = {
@@ -46,7 +46,7 @@ let ogBytes: Uint8Array<ArrayBuffer> | undefined;
 let fontBytes: Uint8Array<ArrayBuffer> | undefined;
 
 function sitemap(origin: string): string {
-  const urls = ["/", "/vigilance", "/mer", ...PAGES.map((p) => `/meteo/${p.slug}`)];
+  const urls = ["/", "/vigilance", "/mer", ...PAGES.map((p) => `/meteo/${p.slug}`), "/confidentialite", "/conditions"];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map((u) => `<url><loc>${origin}${u}</loc><changefreq>hourly</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
@@ -75,6 +75,9 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       alerte(cache, background, now),
     ]);
     return new Response(seaPage(origin, data, now, a), { headers: htmlFor(data) });
+  }
+  if (path === "/confidentialite" || path === "/conditions") {
+    return new Response(legalPage(origin, path.slice(1) as "confidentialite" | "conditions"), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
   if (path === "/meteo" || path === "/meteo/") return Response.redirect(`${origin}/#communes`, 301);
   if (path.startsWith("/meteo/")) {
