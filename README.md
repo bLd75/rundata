@@ -55,6 +55,8 @@ Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (C
 
 https://github.com/bLd75/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 
+Chaque pull request fusionnée est mise en ligne sur rundata.re dès que les tests passent (`.github/workflows/deploy.yml`). Quand un réseau de bus publie de nouveaux horaires, ils sont importés dans D1 avant la fusion (`scripts/build-transit.py --d1 rundata-transports`) : sans eux, le déploiement s'arrête avant de mettre en ligne.
+
 ## Utilisation
 
 **Dans votre assistant IA** : ajoutez un connecteur personnalisé avec l'adresse `https://rundata.re/mcp` (Claude.ai, ChatGPT, Le Chat…). Rien à installer, pas de compte.
@@ -68,6 +70,7 @@ https://github.com/bLd75/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 Les pages sont rendues par le serveur, données comprises, pour les moteurs de recherche et les aperçus de liens (`src/web/`). Le menu, les tuiles de l'accueil, le pied de page et le sitemap viennent d'une seule liste de catégories (`src/web/categories.ts`) :
 - `/` : l'île en ce moment, une tuile par catégorie avec sa donnée du moment, puis comment brancher le connecteur ;
 - `/meteo` : la météo de toute l'île (carte, stations de la côte aux sommets, mer), et `/meteo/<commune>` pour les 24 communes et quelques lieux (volcan, Maïdo, Hell-Bourg…), avec la station la plus pertinente, la mer sur la côte et la prévision, étiquetée ;
+- `/communes/<commune>` : tout ce qui concerne une commune en ce moment (météo de sa station, vigilance de sa zone, air, mer sur la côte, prochains bus à sa gare ou près de son centre, mairie ouverte ou fermée, soleil), puis le volcan et l'électricité de toute l'île ; `/communes` les liste par zone ;
 - `/vigilance` : la vigilance météo et l'alerte cyclonique, zone par zone ;
 - `/mer` : la température de l'eau au large des plages ;
 - `/volcan` : éruption ou non, accès à l'Enclos, séismes et messages de l'observatoire ;

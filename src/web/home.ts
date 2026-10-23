@@ -1,6 +1,6 @@
 /**
  * The home page: what rundata.re is, the island right now (one tile per category, from each category page's last
- * copy), how to add the connector to an assistant, and the weather of each commune.
+ * copy), how to add the connector to an assistant, and the page of each commune.
  */
 import type { Cached } from "../cache.js";
 import { ageMinutes, ageText } from "../geo.js";
@@ -245,9 +245,9 @@ ${ticker(live, h)}`;
   const body = `${tiles(live)}
 ${assistant(origin, now)}
 <section id="communes" aria-labelledby="h-communes">
-  <div class="sec-h"><p class="eyebrow">Partout sur l'île</p><h2 id="h-communes">La météo de votre commune</h2>
-  <p>La station la plus pertinente, la mer sur la côte et la prévision des prochains jours, pour chaque commune, les cirques, le volcan et les plages. <a href="/meteo">Toute la météo de l'île →</a></p></div>
-  ${placeLinks()}
+  <div class="sec-h"><p class="eyebrow">Partout sur l'île</p><h2 id="h-communes">Votre commune en direct</h2>
+  <p>Pour chaque commune : la météo de sa station, la vigilance de sa zone, son air, sa mer, les prochains bus, sa mairie ouverte ou non. Les cirques, le volcan et les plages ont leur page météo. <a href="/communes">Toutes les communes →</a></p></div>
+  ${placeLinks(undefined, true)}
 </section>
 ${PRINCIPLES}`;
   return layout(origin, {

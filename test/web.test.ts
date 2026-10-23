@@ -49,6 +49,12 @@ function upstream(url: string): Response {
   if (url.includes("erdMH1sstd1day")) return new Response(fixture("modis.csv"));
   if (url.includes("open-meteo.com/data")) return new Response(fixture("openmeteo_meta.json"));
   if (url.includes("open-meteo")) return new Response(fixture("openmeteo_cilaos.json"));
+  if (url.includes("api-lannuaire")) {
+    // The fixture holds the town halls of the whole island; the API answers for the commune asked.
+    const insee = decodeURIComponent(url).match(/code_insee_commune="(\d+)"/)?.[1];
+    const all = JSON.parse(String(fixture("annuaire_mairie.json")));
+    return Response.json({ ...all, results: all.results.filter((r: { code_insee_commune: string }) => !insee || r.code_insee_commune === insee) });
+  }
   if (url.includes("GetCapabilities")) return new Response(`<x>TEMPERATURE__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND___${RUN}</x>`);
   if (url.includes("GetCoverage")) {
     const tif = url.includes("PRESSURE__GROUND") ? "ps" : url.includes("MEAN_SEA_LEVEL") ? "pmsl" : "t2m";
@@ -165,12 +171,47 @@ describe("place pages", () => {
   });
 });
 
+describe("commune pages", () => {
+  it("give every category for the commune, cold within the limit, warm from a few reads", async () => {
+    const edge = new EdgeLike();
+    const cold = await serve(isolate(edge), "/communes/saint-leu");
+    expect(cold.r.status).toBe(200);
+    expect(cold.text).toContain(`<h1>Saint-Leu <span class="n974">974</span> en direct</h1>`);
+    expect(cold.text).toMatch(/<h3><a href="\/meteo\/saint-leu">Météo<\/a><\/h3><p class="tv">\d+(,\d)?\u202f°C<\/p>/);
+    expect(cold.text).toContain("pour la zone Ouest");
+    expect(cold.text).toMatch(/<h3>Mairie<\/h3><p class="tv">(Ouverte|Fermée)<\/p>/);
+    expect(cold.text).toContain("Mer"); // on the coast
+    expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    const warm = await serve(isolate(edge), "/communes/saint-leu");
+    expect(warm.text).toMatch(/<h3>Mairie<\/h3><p class="tv">(Ouverte|Fermée)<\/p>/);
+    expect(warm.used).toBeLessThanOrEqual(15);
+  });
+
+  it("leave the sea out in the Hauts, and only exist for the 24 communes", async () => {
+    const { text } = await serve(isolate(), "/communes/cilaos");
+    expect(text).not.toContain(`<h3><a href="/mer">Mer</a></h3>`);
+    for (const path of ["/communes/maido", "/communes/paris"]) {
+      expect((await site(html(path), isolate(), () => {}, NOW))!.status).toBe(404);
+    }
+  });
+
+  it("are listed by zone, and linked from the menu, the home page and the weather pages", async () => {
+    const list = (await serve(isolate(), "/communes")).text;
+    expect(list.match(/href="\/communes\/[a-z-]+"/g)).toHaveLength(24);
+    expect(list).toContain(`<a href="/communes" aria-current="page">Communes</a>`);
+    expect(homePage("https://rundata.re", null, NOW)).toContain(`href="/communes/saint-paul"`);
+    expect((await serve(isolate(), "/meteo/saint-paul")).text).toContain(`href="/communes/saint-paul"`);
+  });
+});
+
 describe("what crawlers and previews fetch", () => {
   it("robots.txt points to the sitemap, which lists every page", async () => {
     const robots = await (await handle(new Request("https://rundata.re/robots.txt"), isolate())).text();
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 11);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 12 + 24);
+    expect(map).toContain("<loc>https://rundata.re/communes</loc>");
+    expect(map).toContain("<loc>https://rundata.re/communes/saint-paul</loc>");
     expect(map).toContain("<loc>https://rundata.re/meteo</loc>");
     expect(map).toContain("<loc>https://rundata.re/volcan</loc>");
     expect(map).toContain("<loc>https://rundata.re/confidentialite</loc>");
