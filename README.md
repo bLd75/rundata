@@ -61,6 +61,8 @@ https://github.com/bLd75/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 
 **En local** (Node ≥ 20) : `npm install`, puis `npm run dev:http` (point d'accès `http://127.0.0.1:8787/mcp`, visible de cette machine seulement ; `HOST=0.0.0.0` pour l'ouvrir au réseau, par exemple dans un conteneur) ou `npm run dev:stdio`. `npm test` lance les tests, sans réseau.
 
+**En conteneur** : `docker build -t rundata .` puis `docker run -i --rm rundata` lance le serveur en stdio (variables facultatives `METEOFRANCE_APPLICATION_ID` ou `METEOFRANCE_API_KEY` pour les stations, la vigilance et le radar de Météo-France).
+
 ## Le site
 
 Les pages sont rendues par le serveur, données comprises, pour les moteurs de recherche et les aperçus de liens (`src/web/`). Le menu, les tuiles de l'accueil, le pied de page et le sitemap viennent d'une seule liste de catégories (`src/web/categories.ts`) :
