@@ -1,0 +1,21 @@
+{
+  // Cloudflare Worker serving the MCP endpoint (see src/worker.ts). `npx wrangler dev` runs it locally, no account needed.
+  "name": "reunion-temps-reel",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  // Secret, not in this file: METEOFRANCE_APPLICATION_ID, set with `npx wrangler secret put`. Without it, no Météo-France stations.
+  // Served on rundata.re only: the edge cache does nothing on *.workers.dev, and one public address is enough.
+  "routes": [{ "pattern": "rundata.re", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
+  // Every 5 minutes, fills the bundle of the latest AROME run (src/worker.ts), about 35 grids per run of it.
+  "triggers": { "crons": ["*/5 * * * *"] },
+  // The AROME bundles, shared by every data center. Id from `npx wrangler kv namespace create STORE`.
+  "kv_namespaces": [{ "binding": "STORE", "id": "1f961db9ed58429f9687eb6c438981f4" }],
+  // The bus timetables (src/providers/transit.ts), imported by scripts/build-transit.py.
+  "d1_databases": [{ "binding": "TRANSIT", "database_name": "rundata-transports", "database_id": "5e304e2c-24c6-4dff-a6e7-ab674bb84016" }],
+  // Usage counts (src/metrics.ts): one point per tool call and per page view, no address, no cookie.
+  "analytics_engine_datasets": [{ "binding": "USAGE", "dataset": "rundata_usage" }]
+}
