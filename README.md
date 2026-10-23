@@ -51,7 +51,7 @@ https://github.com/bLd75/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 
 **Dans votre assistant IA** : ajoutez un connecteur personnalisé avec l'adresse `https://rundata.re/mcp` (Claude.ai, ChatGPT, Le Chat…). Rien à installer, pas de compte.
 
-**En local** (Node ≥ 20) : `npm install`, puis `npm run dev:http` (point d'accès `http://localhost:8787/mcp`) ou `npm run dev:stdio`. `npm test` lance les tests, sans réseau.
+**En local** (Node ≥ 20) : `npm install`, puis `npm run dev:http` (point d'accès `http://127.0.0.1:8787/mcp`, visible de cette machine seulement ; `HOST=0.0.0.0` pour l'ouvrir au réseau, par exemple dans un conteneur) ou `npm run dev:stdio`. `npm test` lance les tests, sans réseau.
 
 ## Le site
 

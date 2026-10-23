@@ -385,7 +385,7 @@ ${body}
     <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
     ${SLOGAN}
     <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
-    <p>reunion-temps-reel ${VERSION} · <a href="https://github.com/bLd75/rundata">code libre (MIT)</a> · aucun cookie, aucun traceur.</p>
+    <p>reunion-temps-reel ${VERSION} · <a href="https://github.com/bLd75/rundata">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes.</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises.</p>
   </div>
   <div>
