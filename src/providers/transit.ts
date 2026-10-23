@@ -1,7 +1,9 @@
 /**
  * Bus timetables of La Réunion: the GTFS files of the seven networks (transport.data.gouv.fr, Licence Ouverte),
  * prepared by scripts/build-transit.py. Stops, lines and service calendars are bundled (src/transit/network.json);
- * which patterns pass at a stop and their trips live in the D1 database, under the same build id.
+ * which patterns pass at a stop and their trips live in the D1 database. There, each network's rows have ids local to
+ * the network and are filed under its feed, a fingerprint of their content, so a network that did not change keeps
+ * its rows from one build to the next.
  */
 import { count } from "../budget.js";
 import { normalize } from "../places/resolve.js";
@@ -30,8 +32,24 @@ export function configure(d: TransitDb | undefined) {
 }
 export const enabled = () => db !== undefined;
 
-export const BUILD: string = network.build;
-export const NETWORKS: Record<string, { nom: string; exploitant: string; donnees: string; valide_jusqu_au: string | null }> = network.networks;
+export interface Network {
+  nom: string;
+  exploitant: string;
+  donnees: string;
+  valide_jusqu_au: string | null;
+  /** Its rows in the database. */
+  feed: string;
+  /** Where its stops, lines and patterns start in the island-wide numbering. */
+  first_stop: number;
+  first_route: number;
+  first_pattern: number;
+}
+export const NETWORKS: Record<string, Network> = network.networks;
+/** Networks in their numbering order. */
+const ORDER = Object.values(NETWORKS).sort((a, b) => a.first_stop - b.first_stop);
+/** The network that a stop (or a pattern) of the island-wide numbering belongs to. */
+const owner = (id: number, first: (n: Network) => number) => ORDER.reduce((found, n) => (first(n) <= id ? n : found), ORDER[0]);
+const byFeed = new Map(ORDER.map((n) => [n.feed, n]));
 /** [network, short name, long name] by route index. */
 export const ROUTES = network.routes as unknown as [string, string, string][];
 /** [network, name, lat, lon, commune] by stop index. */
@@ -90,25 +108,38 @@ export interface Pattern {
   trips: [number, number, string][];
 }
 
+/** [feed, local id] pairs, as the database knows them, for a query. */
+const keys = (ids: number[], first: (n: Network) => number) =>
+  JSON.stringify(ids.map((id) => { const n = owner(id, first); return [n.feed, id - first(n)]; }));
+
+const JOIN = "JOIN json_each(?) k ON t.feed = json_extract(k.value, '$[0]') AND t.id = json_extract(k.value, '$[1]')";
+
 /** For each stop, the patterns passing there with their time offset from the trip's start. */
 export async function passes(ids: number[]): Promise<{ stop: number; pattern: number; offset: number }[]> {
   if (!db) throw new Error("horaires indisponibles ici");
   count();
-  const rows = await db.all<{ id: number; passes: string }>(
-    "SELECT id, passes FROM stop_passes WHERE build = ? AND id IN (SELECT value FROM json_each(?))",
-    BUILD,
-    JSON.stringify(ids),
+  const rows = await db.all<{ feed: string; id: number; passes: string }>(
+    `SELECT t.feed, t.id, t.passes FROM passes t ${JOIN}`,
+    keys(ids, (n) => n.first_stop),
   );
-  return rows.flatMap((r) => (JSON.parse(r.passes) as [number, number][]).map(([pattern, offset]) => ({ stop: r.id, pattern, offset })));
+  return rows.flatMap((r) => {
+    const n = byFeed.get(r.feed)!;
+    return (JSON.parse(r.passes) as [number, number][]).map(([pattern, offset]) => ({ stop: n.first_stop + r.id, pattern: n.first_pattern + pattern, offset }));
+  });
 }
 
 export async function patterns(ids: number[]): Promise<Map<number, Pattern>> {
   if (!db) throw new Error("horaires indisponibles ici");
   count();
-  const rows = await db.all<{ id: number; route: number; headsign: string; trips: string }>(
-    "SELECT id, route, headsign, trips FROM pattern WHERE build = ? AND id IN (SELECT value FROM json_each(?))",
-    BUILD,
-    JSON.stringify(ids),
+  const rows = await db.all<{ feed: string; id: number; route: number; headsign: string; trips: string }>(
+    `SELECT t.feed, t.id, t.route, t.headsign, t.trips FROM patterns t ${JOIN}`,
+    keys(ids, (n) => n.first_pattern),
   );
-  return new Map(rows.map((r) => [r.id, { id: r.id, route: r.route, headsign: r.headsign, trips: JSON.parse(r.trips) }]));
+  return new Map(
+    rows.map((r) => {
+      const n = byFeed.get(r.feed)!;
+      const id = n.first_pattern + r.id;
+      return [id, { id, route: n.first_route + r.route, headsign: r.headsign, trips: JSON.parse(r.trips) }];
+    }),
+  );
 }

@@ -17,15 +17,16 @@ const cached = <T>(value: T): Cached<T> => ({ value, fetchedAt: new Date(NOW.get
 const desc = (html: string) => html.match(/name="description" content="([^"]*)"/)![1].replace(/&#39;|&amp;|&quot;/g, "'");
 const jsonld = (html: string) => JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)![1]);
 
-const rows = JSON.parse(readFileSync(new URL("./fixtures/transit/rows.json", import.meta.url), "utf8")) as {
-  passes: { id: number }[];
-  patterns: { id: number }[];
-};
+// By feed, as scripts/build-transit.py writes them to the database.
+const rows = JSON.parse(readFileSync(new URL("./fixtures/transit/rows.json", import.meta.url), "utf8")) as Record<
+  string,
+  { passes: { id: number }[]; patterns: { id: number }[] }
+>;
 const fake: transit.TransitDb = {
-  all: async <T>(sql: string, _build: unknown, ids: unknown) => {
-    const wanted = new Set(JSON.parse(String(ids)) as number[]);
-    return (sql.includes("stop_passes") ? rows.passes : rows.patterns).filter((r) => wanted.has(r.id)) as T[];
-  },
+  all: async <T>(sql: string, keys: unknown) =>
+    (JSON.parse(String(keys)) as [string, number][]).flatMap(([feed, id]) =>
+      (/FROM passes/.test(sql) ? rows[feed]?.passes : rows[feed]?.patterns)?.filter((r) => r.id === id).map((r) => ({ feed, ...r })) ?? [],
+    ) as T[],
 };
 
 describe("domain pages", () => {
@@ -45,6 +46,8 @@ describe("domain pages", () => {
     expect(pages.electricite).toContain(`<span class="big">43 %</span>`);
     expect(pages.electricite).toContain("bioénergies (bagasse, biomasse, biogaz)");
     expect(pages.calendrier).toContain("Prochain jour férié : <b>Toussaint</b>");
+    expect(pages.calendrier).toContain("date de reprise pas encore publiée");
+    expect(pages.calendrier).not.toContain("reprise le pas encore");
     expect(pages.calendrier).toContain("reprise des cours le <b>lundi 26 octobre 2026</b>");
   });
 
