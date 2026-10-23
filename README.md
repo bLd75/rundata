@@ -58,6 +58,8 @@ Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (C
 
 https://github.com/bLd75/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 
+Ailleurs : la fiche de réutilisation sur [data.gouv.fr](https://www.data.gouv.fr/reuses/rundata-re-la-reunion-en-direct-meteo-mer-bus-velos-air-volcan-pour-vous-et-votre-assistant-ia), la fiche du serveur sur [Glama](https://glama.ai/mcp/servers/bLd75/rundata) et la page [Facebook](https://www.facebook.com/1432704299917309).
+
 Chaque pull request fusionnée est mise en ligne sur rundata.re dès que les tests passent (`.github/workflows/deploy.yml`). Quand un réseau de bus publie de nouveaux horaires, ils sont importés dans D1 avant la fusion (`scripts/build-transit.py --d1 rundata-transports`) : sans eux, le déploiement s'arrête avant de mettre en ligne.
 
 ## Utilisation
