@@ -1,0 +1,84 @@
+# La Réunion en temps réel — serveur MCP
+
+Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (Claude, ChatGPT, Le Chat…) les **mesures réelles** faites en ce moment à La Réunion. Il répond à des questions comme « quel temps fait-il à Saint-Pierre ? » ou « la mer est à combien à l'Hermitage ? » avec des valeurs datées et sourcées. Pour « il va pleuvoir demain ? », un outil à part donne une prévision de modèle, toujours étiquetée comme telle et jamais mélangée aux mesures.
+
+> *English: an MCP server giving AI assistants real-time **measured** data for Réunion Island (weather, sea temperature), with timestamps, station distance and microclimate warnings, plus a separate, clearly labelled forecast tool. See [English summary](#english).*
+
+## Outils
+
+| Outil | Pour quelles questions | Ce qu'il renvoie |
+|---|---|---|
+| `meteo_actuelle(lieu)` | « il fait chaud à Saint-Gilles ? », « il pleut à Mafate ? », « du vent à Saint-Pierre ? » | Mesures de la station la plus représentative : température, pluie (6 min et 1 h), humidité, vent, rafales, pression, temps présent. Inclut l'heure, la distance, l'écart d'altitude et le versant. Ajoute la pluie vue par le radar de Météo-France au lieu même et à 3 km autour (image de 5 min, avec la qualité du radar, faible au fond des cirques). |
+| `prevision_meteo(lieu, quand)` | « il va pleuvoir demain à Saint-Denis ? », « quel temps ce week-end à Cilaos ? » | **Prévision** du modèle AROME outre-mer de Météo-France (maille de 2,5 km) pour les 48 premières heures, puis du modèle IFS de l'ECMWF (9 km) jusqu'à 7 jours, par jour et par tranches de 3 h, températures ramenées à l'altitude du lieu ; chaque jour dit quel modèle a donné quelles heures. Chaque réponse porte `nature: "prevision"` et rappelle que ce n'est pas une mesure, que le modèle ne voit pas les microclimats, et que pour un cyclone seule compte la vigilance officielle. `quand` : « demain », « ce soir », « samedi », « ce week-end »… |
+| `vigilance_meteo(lieu?)` | « il y a une alerte cyclonique ? », « vigilance fortes pluies dans l'Est ? » | Vigilance officielle de Météo-France : alerte cyclonique (jaune, orange, rouge…), et par zone fortes pluies / orages, vents forts, vagues-submersion, pour les 24 h du bulletin, avec les textes de suivi. Sans `lieu` : toute l'île ; avec : la zone du lieu. `meteo_actuelle` et `prevision_meteo` signalent d'elles-mêmes toute vigilance au-dessus du vert. |
+| `temperature_mer(lieu)` | « l'eau est à combien à Boucan ? » | Dernière température de l'eau mesurée près du lieu, avec sa date, sa distance et sa nature (bouée ou satellite). |
+| `volcan_seismes()` | « le volcan est en éruption ? », « on peut monter au volcan ? », « il y a eu un séisme ? » | Éruption en cours ou non, niveau ORSEC, dernière éruption, accès à l'Enclos (pitonlive.com, d'après les arrêtés préfectoraux), dernières publications de l'OVPF-IPGP et séismes localisés en 30 jours, sous le volcan et ailleurs. |
+| `electricite()` | « d'où vient l'électricité ? », « quand recharger ma voiture électrique ? » | Production d'EDF toutes les 5 min par filière et part renouvelable ; « météo de l'électricité » d'EDF (heures de pointe, réseau contraint) pour les jours qui viennent. |
+| `qualite_air(lieu?)` | « l'air est pollué à Saint-Louis ? » | Indice ATMO du jour et du lendemain par commune (Atmo Réunion), avec le polluant en cause. |
+| `annuaire_services_publics(quoi, lieu?)` | « horaires de la mairie de Saint-Paul ? », « où est la CAF ? » | Adresse, horaires (ouvert en ce moment ?), téléphone et site des services publics, d'après l'annuaire de service-public.fr. |
+| `calendrier(lieu?)` | « c'est quand les vacances ? », « le 20 décembre est férié ? », « lever du soleil au Maïdo ? » | Vacances de l'académie de La Réunion, jours fériés (dont le 20 décembre), lever et coucher du soleil au lieu. |
+| `fiche_terrain(adresse)` | « cette parcelle est constructible ? », « prix au m² à Boucan ? » | Parcelle cadastrale (section, numéro, surface), zone du PLU (U, AU, A, N) avec le lien vers son règlement, altitude du sol, prix médians des maisons, appartements et terrains vendus autour depuis 5 ans (DVF, agrégés : aucune vente individuelle). |
+| `sources_donnees()` | « d'où viennent ces chiffres ? » | Sources, licences et attributions. |
+
+`lieu` est du texte libre : une commune, une plage, un quartier, un cirque, un sommet, ou des coordonnées `-21.05, 55.22`. Le répertoire contient environ 1 250 lieux tirés d'OpenStreetMap, avec leur altitude IGN.
+
+**Les microclimats.** L'île monte de 0 à 3 000 m en 20 km. L'est est exposé aux alizés (« au vent »), l'ouest est abrité (« sous le vent »). Chaque réponse donne donc la pertinence de la station (`bonne` / `moyenne` / `faible`) et un avertissement quand la station est plus basse, plus loin ou sur l'autre versant. Une station du littoral ne répond jamais en silence pour Cilaos.
+
+## Sources
+
+| Source | Ce qu'elle mesure | Fraîcheur | Licence |
+|---|---|---|---|
+| Stations Météo-France, API Package Observations (clé gratuite, facultative) | ~56 stations, de la côte aux sommets : air, pluie, et pour une partie humidité, vent, pression | toutes les 6 min, publiées 5 à 10 min après | Licence Ouverte Etalab 2.0 |
+| METAR Gillot et Pierrefonds (Météo-France, via NOAA aviationweather.gov) | air, humidité, vent, pression, temps présent | toutes les 30 min, environ 20 min de retard | données OMM, diffusion libre |
+| Balises Pioupiou / [OpenWindMap](https://openwindmap.org) | vent | toutes les 4 min | licence communautaire OpenWindMap, attribution obligatoire |
+| NOAA CoastWatch ACSPO L3S | température de surface de la mer, satellite, carrés de 2 km | quotidienne, environ 2 jours de retard | domaine public |
+| NASA Aqua MODIS (via NOAA PFEG), en secours | idem, carrés de 4 km, de jour | quotidienne, environ 2 jours de retard | domaine public |
+| Vigilance météo et alerte cyclonique, Météo-France (API DPVigilance, même clé) | couleurs par zone et par heure, textes de suivi | à chaque nouveau bulletin, lu toutes les 5 min | Licence Ouverte Etalab 2.0 |
+| Radar Météo-France, lame d'eau de La Réunion à 500 m (API DPRadar, même clé) | pluie estimée par les radars du Colorado et de Piton Villers, avec un indice de qualité | toutes les 5 min | Licence Ouverte Etalab 2.0 |
+| Séismes de l'OVPF-IPGP (service FDSN de l'IPGP) | séismes localisés sous le volcan et sur l'île, magnitude, profondeur | dès qu'un analyste les a localisés | CC BY 4.0 |
+| Publications de l'OVPF-IPGP (son compte Bluesky public) | bulletins mensuels, communiqués, éruptions | à chaque publication | citées avec leur lien |
+| [pitonlive.com](https://pitonlive.com) (site indépendant) | niveau ORSEC, éruption en cours, accès à l'Enclos d'après les arrêtés préfectoraux | lu toutes les 10 min | non précisée : cité avec son nom et son lien |
+| EDF SEI Réunion, [open data](https://opendata-reunion.edf.fr) | production par filière ; « météo de l'électricité » | toutes les 5 min ; chaque jour | Licence Ouverte Etalab 2.0 |
+| Calendrier scolaire (Éducation nationale) et jours fériés (calendrier.api.gouv.fr) | vacances de l'académie de La Réunion, jours fériés | lu une fois par jour | Licence Ouverte Etalab 2.0 |
+| Prévisions AROME outre-mer, Météo-France (API « AROME », même clé que les observations ; outil `prevision_meteo` seulement) | prévision de modèle, maille de 2,5 km, 48 h | 4 calculs par jour | Licence Ouverte Etalab 2.0 |
+| Prévisions ECMWF IFS HRES, via [Open-Meteo](https://open-meteo.com/) (outil `prevision_meteo` seulement, au-delà de 48 h et en secours) | prévision de modèle, maille de 9 km | nouveau calcul toutes les 6 h | CC BY 4.0 ; API Open-Meteo gratuite pour usage non commercial |
+
+## Code source
+
+https://github.com/bLd75/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
+
+## Utilisation
+
+**Dans votre assistant IA** : ajoutez un connecteur personnalisé avec l'adresse `https://rundata.re/mcp` (Claude.ai, ChatGPT, Le Chat…). Rien à installer, pas de compte.
+
+**En local** (Node ≥ 20) : `npm install`, puis `npm run dev:http` (point d'accès `http://localhost:8787/mcp`) ou `npm run dev:stdio`. `npm test` lance les tests, sans réseau.
+
+## Le site
+
+Les pages sont rendues par le serveur, mesures comprises, pour les moteurs de recherche et les aperçus de liens (`src/web/`) :
+- `/` : la météo de toute l'île en ce moment (carte, stations de la côte aux sommets, mer), les explications et le connecteur ;
+- `/vigilance` : la vigilance météo et l'alerte cyclonique, zone par zone ;
+- `/mer` : la température de l'eau au large des plages ;
+- `/meteo/<commune>` : les 24 communes et quelques lieux (volcan, Maïdo, Hell-Bourg…), avec la station la plus pertinente, la mer sur la côte et la prévision, étiquetée ;
+- `/robots.txt`, `/sitemap.xml`, `/og.png` (aperçu Facebook, WhatsApp…), `/favicon.svg`.
+
+## English
+
+Real-time **measured** data for Réunion Island (French overseas department 974, Indian Ocean):
+
+- **Tools:**
+  - `meteo_actuelle(lieu)`: current weather at the most representative station.
+  - `prevision_meteo(lieu, quand)`: model forecast (Météo-France AROME outre-mer 2.5 km for 48 h, then ECMWF IFS 9 km via Open-Meteo up to 7 days), always labelled as a forecast, never mixed with measurements.
+  - `vigilance_meteo(lieu?)`: Météo-France's official weather warnings and cyclone alert, island-wide or for a place's zone.
+  - `volcan_seismes()`: Piton de la Fournaise status (eruption, alert level, access) and recent earthquakes located by the OVPF-IPGP.
+  - `electricite()`: EDF's real-time production mix, renewable share and grid signal for the coming days.
+  - `calendrier(lieu?)`: school holidays (austral calendar), public holidays including 20 December, sunrise and sunset.
+  - `qualite_air(lieu?)`: ATMO air quality index per commune, today and tomorrow.
+  - `annuaire_services_publics(quoi, lieu?)`: addresses, opening hours and phone numbers of public offices.
+  - `fiche_terrain(adresse)`: cadastral parcel, zoning (PLU), altitude and median property prices around (aggregated DVF).
+  - `meteo_actuelle` also reports the rain seen by Météo-France's radar at the place.
+  - `temperature_mer(lieu)`: sea surface temperature near a beach.
+  - `sources_donnees()`: sources and licences.
+- **Places:** free text (town, beach, peak) or `lat, lon`.
+- **Answers:** every answer carries the measurement time, the station distance, the altitude difference, the windward or leeward side, and a relevance flag.
+- **Licences:** code under MIT. Data under each source's licence (see `sources_donnees`). Place names © OpenStreetMap contributors (ODbL), altitudes IGN (Licence Ouverte).

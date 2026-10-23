@@ -1,0 +1,59 @@
+{
+ "doc": "https://developers.pioupiou.fr/api/live/",
+ "license": "https://developers.pioupiou.fr/data-licensing",
+ "attribution": "(c) contributors of the OpenWindMap wind network <https://www.openwindmap.org>",
+ "data": [
+  {
+   "id": 41,
+   "meta": {
+    "name": "Sauveterre"
+   },
+   "location": {
+    "latitude": 43.456769,
+    "longitude": 0.846364,
+    "date": "2026-10-19T10:32:07.000Z",
+    "success": true,
+    "hdop": 1
+   },
+   "measurements": {
+    "date": "2026-10-19T23:47:03.000Z",
+    "pressure": null,
+    "wind_heading": 292.5,
+    "wind_speed_avg": 0,
+    "wind_speed_max": 0,
+    "wind_speed_min": 0
+   },
+   "status": {
+    "date": "2026-10-19T23:47:03.000Z",
+    "snr": 0,
+    "state": "on"
+   }
+  },
+  {
+   "id": 1300,
+   "meta": {
+    "name": "Pôle Aéronautique de Cambaie"
+   },
+   "location": {
+    "latitude": -20.948476,
+    "longitude": 55.285685,
+    "date": "2026-10-18T11:32:07.000Z",
+    "success": true,
+    "hdop": 1
+   },
+   "measurements": {
+    "date": "2026-10-19T23:46:55.000Z",
+    "pressure": null,
+    "wind_heading": 90,
+    "wind_speed_avg": 7,
+    "wind_speed_max": 11.5,
+    "wind_speed_min": 5
+   },
+   "status": {
+    "date": "2026-10-19T23:46:55.000Z",
+    "snr": -1,
+    "state": "on"
+   }
+  }
+ ]
+}
