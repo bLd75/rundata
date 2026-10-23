@@ -425,7 +425,7 @@ ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head
 <body>
 <header class="top"><div class="wrap">
   <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
-  <nav aria-label="Catégories"><ul><li><a href="/#assistant">Brancher mon IA</a></li>${WITH_PAGE.map((c) => `<li><a href="${c.path}"${inCategory(head.path, c.path) ? ' aria-current="page"' : ""}>${esc(c.nom)}</a></li>`).join("")}</ul></nav>
+  <nav aria-label="Catégories"><ul><li><a href="/#assistant">Brancher mon IA</a></li><li><a href="/communes"${inCategory(head.path, "/communes") ? ' aria-current="page"' : ""}>Communes</a></li>${WITH_PAGE.map((c) => `<li><a href="${c.path}"${inCategory(head.path, c.path) ? ' aria-current="page"' : ""}>${esc(c.nom)}</a></li>`).join("")}</ul></nav>
 </div></header>
 ${banner(head.alerte, head.path)}
 <div class="band">${band}</div>
@@ -439,7 +439,7 @@ ${body}
     <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
     <p>reunion-temps-reel ${VERSION} · <a href="https://github.com/bLd75/rundata">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises.</p>
-    <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/meteo#communes">Météo par commune</a></li></ul>
+    <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li></ul>
   </div>
   <div>
     <h3>Sources</h3>
@@ -563,9 +563,12 @@ function weatherLive(data: Cached<HomeData> | null, now: Date): string {
     `<p class="note">Sources : ${credits(d.sources)}.${d.indisponibles.length ? ` Momentanément indisponible : ${esc(d.indisponibles.join(", "))}.` : ""}</p></div></div>`;
 }
 
-/** Every place page as a chip, with a filter box (the script at the end of the page). */
-export function placeLinks(except?: string): string {
-  const li = (p: PlacePage) => `<li><a href="/meteo/${p.slug}">${esc(p.nom)}</a></li>`;
+/**
+ * Every place page as a chip, with a filter box (the script at the end of the page). With `hubs`, the communes lead
+ * to their page of every category rather than their weather.
+ */
+export function placeLinks(except?: string, hubs = false): string {
+  const li = (p: PlacePage) => `<li><a href="/${hubs && p.commune ? "communes" : "meteo"}/${p.slug}">${esc(p.nom)}</a></li>`;
   const others = PAGES.filter((p) => p.slug !== except);
   return `<label class="search">${icon("search")}<span class="sr">Chercher une commune ou un lieu</span>` +
     `<input id="filtre" type="search" placeholder="Saint-Leu, Cilaos, le volcan…" autocomplete="off"></label>` +
@@ -862,6 +865,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
     ${ask(`Lé koman lo tan astèr ${p.nom} ? Rogard la mézir an dirèk si ${fresh(`${origin}/meteo/${p.slug}`, now)} é di amwin lèr la mézir é la stasion.`,
       `Quel temps fait-il en ce moment à ${p.nom} ? Lis la mesure en direct sur ${fresh(`${origin}/meteo/${p.slug}`, now)} et donne-moi l'heure de la mesure et la station.`)}
     <p class="lead">${esc(p.nom)}, ${esc(kind)}${commune}${alt}, ${esc(v.replace(/ \(.*\)$/, ""))} de l'île${v.includes("(") ? ` (${esc(v.replace(/^.*\(|\)$/g, ""))})` : ""}.${where}</p>
+    ${p.commune ? `<p class="or"><a href="/communes/${p.slug}">${esc(p.nom)} en direct : vigilance, air, bus, mairie →</a></p>` : ""}
   </div>
   <figure class="card mapcard">${islandMap({ highlight: p.commune ? p.nom : place.commune, pin: { lon: place.lon, lat: place.lat, name: p.nom }, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
 </div>`;
@@ -895,14 +899,14 @@ export function notFoundPage(origin: string, path: string): string {
 <section aria-labelledby="h-communes"><h2 id="h-communes">Météo par commune et par lieu</h2>${placeLinks()}</section>`);
 }
 
-const vg = (c: number) => `<span class="vg vg${c >= 1 && c <= 5 ? c : 0}">${esc(mf.colour(c))}</span>`;
+export const vg = (c: number) => `<span class="vg vg${c >= 1 && c <= 5 ? c : 0}">${esc(mf.colour(c))}</span>`;
 const zoneShort = (zone: string) => (mf.ZONES[zone] ?? zone).split(" :")[0];
 const LAND = ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"];
 const LAND_PHENOMENA = [12, 1];
 const COAST = 9;
 
 /** The worst colour in force now in a land zone, -1 when nothing is issued there. */
-function zoneNow(v: mf.Vigilance, zone: string, now: Date): number {
+export function zoneNow(v: mf.Vigilance, zone: string, now: Date): number {
   return Math.max(-1, ...LAND_PHENOMENA.map((id) => current(v.zones[zone]?.[id] ?? [], now)));
 }
 
