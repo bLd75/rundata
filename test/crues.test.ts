@@ -33,6 +33,12 @@ describe("Vigicrues Réunion", () => {
     expect(v.rivieres.every((r) => r.couleur === "vert")).toBe(true);
   });
 
+  it("keeps only the text of a bulletin, even with broken tags", () => {
+    const v = parseVigilance([[true, 1, "2026-10-24 06:00:00", "Pluies<br>faibles <b>partout</b>", "<scr<script>ipt>x</script> rien > à <signaler"], ["Rivière des Galets", 0, 0, "ce-1"]]);
+    expect(v.observations).toBe("Pluies faibles partout");
+    expect(v.anticipation).not.toMatch(/[<>]/);
+  });
+
   it("knows a river by its name, and a town is not a river", () => {
     expect(riverAsked("la rivière des Galets est en crue ?").map((s) => s.id).sort()).toEqual(["L05", "L06"]);
     expect(riverAsked("rivière Saint-Denis").map((s) => s.id)).toEqual(["L24"]);

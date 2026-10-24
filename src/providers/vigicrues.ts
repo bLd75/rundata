@@ -67,9 +67,23 @@ export function localToIso(s: string): string {
   return Number.isFinite(t) ? new Date(t).toISOString() : "";
 }
 
-// Text only: the tags out, then any « < » or « > » left by a broken tag, so that nothing can still read as one.
-const plain = (html: unknown) =>
-  String(html ?? "").replace(/<br\s*\/?>/gi, " ").replace(/<[^>]*>/g, "").replace(/[<>]/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+/**
+ * Text only, read one character at a time: everything between « < » and « > » is a tag and dropped, a line break or a
+ * paragraph becomes a space. A broken tag cannot leave anything that still reads as one.
+ */
+function plain(html: unknown): string {
+  let out = "";
+  let tag: string | undefined;
+  for (const ch of String(html ?? "")) {
+    if (ch === "<") tag = "";
+    else if (ch === ">" && tag !== undefined) {
+      if (/^\/?(br|p|div|li)\b/i.test(tag)) out += " ";
+      tag = undefined;
+    } else if (tag !== undefined) tag += ch;
+    else if (ch !== ">") out += ch;
+  }
+  return out.replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+}
 
 const colour = (n: unknown): Colour => COLOURS[typeof n === "number" && n >= 0 && n < COLOURS.length ? n : 0];
 
