@@ -1,0 +1,45 @@
+{
+  "_source": "Noms officiels des clubs : pages « Programme et Résultats du Club » de la FFVB et compétitions de la FFHB ; commune du club d'après son nom ou sa salle. Salles d'après les calendriers de la FFVB.",
+  "volley": [
+    { "sigle": "VBSP", "nom": "Volley-Ball de Saint-Pierre", "commune": "Saint-Pierre", "salle": "gymnase Axel Ablancourt (Ravine des Cabris)" },
+    { "sigle": "TGV", "nom": "Tampon Gecko Volley", "commune": "Le Tampon", "salle": "gymnase du 12e Km", "alias": ["gecko", "tampon gecko"] },
+    { "sigle": "SLPV", "nom": "Saint-Louis Phoenix Volley", "commune": "Saint-Louis", "salle": "gymnase de Roche Maigres", "alias": ["phoenix"] },
+    { "sigle": "MVP", "nom": "Moineau Volley Péi", "commune": "Saint-Joseph", "salle": "gymnase de Vincendo", "alias": ["moineau"] },
+    { "sigle": "VBC PI", "nom": "Volley-Ball Club de Petite-Île", "commune": "Petite-Île", "salle": "gymnase de Petite-Île" },
+    { "sigle": "AVED", "nom": "Association des volleyeurs de l'Entre-Deux", "commune": "Entre-Deux" },
+    { "sigle": "SDOVB", "nom": "Saint-Denis Olympique Volley-Ball", "commune": "Saint-Denis", "salle": "gymnase de Saint-François", "alias": ["sdov", "saint denis olympique"] },
+    { "sigle": "VBC SD", "nom": "Volley-Ball Club de Saint-Denis", "commune": "Saint-Denis", "salle": "gymnase de Domenjod" },
+    { "sigle": "SMVB", "nom": "Sainte-Marie Volley-Ball", "commune": "Sainte-Marie", "salle": "gymnase Flacourt" },
+    { "sigle": "PAC", "nom": "Phare Athlétique Club", "commune": "Sainte-Suzanne", "salle": "gymnase de Bel Air", "alias": ["phare athletique"] },
+    { "sigle": "ALN BP VB", "nom": "Amicale laïque Narassiguin Bras-Panon Volley-Ball", "commune": "Bras-Panon", "salle": "gymnases Isabelle Bègue et Paul Moreau", "alias": ["aln", "narassiguin"] },
+    { "sigle": "USAB", "nom": "US des Aigles Blancs de Saint-Paul", "commune": "Saint-Paul", "salle": "gymnase du centre-ville", "alias": ["aigles blancs"] },
+    { "sigle": "SVB", "nom": "Saline Volley-Ball", "commune": "Saint-Paul", "salle": "complexe sportif de Vue Belle (La Saline)", "alias": ["saline"] },
+    { "sigle": "VB2CO", "nom": "Volley-Ball Club de la Côte Ouest", "commune": "Saint-Paul", "salle": "gymnase de Plateau Caillou", "alias": ["cote ouest", "vbc cote ouest"] },
+    { "sigle": "RCO", "nom": "Racing Club de l'Ouest", "commune": "Saint-Paul", "salle": "gymnase Joseph Win Lime (Bois de Nèfles)", "alias": ["racing"] },
+    { "sigle": "VBC ST LEU", "nom": "Volley-Ball Club de Saint-Leu", "commune": "Saint-Leu", "salle": "gymnase du centre-ville" }
+  ],
+  "handball": [
+    { "nom": "Saint Pierre Handball Club", "commune": "Saint-Pierre" },
+    { "nom": "Union Handball Saint Pierroise", "commune": "Saint-Pierre" },
+    { "nom": "As Mjc Saint Louis", "commune": "Saint-Louis" },
+    { "nom": "Tamponnaise Handball Filles", "commune": "Le Tampon" },
+    { "nom": "Association Sportive Culturelle Etang Sale", "commune": "L'Étang-Salé" },
+    { "nom": "Ass Sportive Et De Loisirs De Piton St Leu", "commune": "Saint-Leu" },
+    { "nom": "Jeunesse Sportive De La Saline", "commune": "Saint-Paul" },
+    { "nom": "Handball Club Possession", "commune": "La Possession" },
+    { "nom": "Le Port Handball", "commune": "Le Port" },
+    { "nom": "As Chateau Morange", "commune": "Saint-Denis" },
+    { "nom": "Club Omnisports De La Montagne", "commune": "Saint-Denis" },
+    { "nom": "Hand Ball Club Est Dionysien", "commune": "Saint-Denis" },
+    { "nom": "Hbf St Denis / Co Montagne D1 Fem", "commune": "Saint-Denis" },
+    { "nom": "Sporting Club De Sainte Marie", "commune": "Sainte-Marie" },
+    { "nom": "Jeunesse Sportive Benedictine Handball", "commune": "Saint-Benoît" },
+    { "nom": "Jeunesse Sportive Sainte Rosienne", "commune": "Sainte-Rose" }
+  ],
+  "zones": {
+    "Nord": ["Saint-Denis", "Sainte-Marie", "Sainte-Suzanne"],
+    "Est": ["Saint-André", "Bras-Panon", "Saint-Benoît", "La Plaine-des-Palmistes", "Sainte-Rose", "Salazie"],
+    "Ouest": ["Le Port", "La Possession", "Saint-Paul", "Les Trois-Bassins", "Saint-Leu"],
+    "Sud": ["Saint-Pierre", "Le Tampon", "Saint-Louis", "Saint-Joseph", "Petite-Île", "Entre-Deux", "L'Étang-Salé", "Les Avirons", "Cilaos", "Saint-Philippe"]
+  }
+}

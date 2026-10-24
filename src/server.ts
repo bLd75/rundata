@@ -53,7 +53,7 @@ import { coupuresEau } from "./tools/coupures.js";
 import * as dae from "./providers/dae.js";
 import { defibrillateurs } from "./tools/dae.js";
 import * as sportSources from "./providers/sport.js";
-import { SPORTS, sportTool, type Quand, type Sport } from "./tools/sport.js";
+import { QUANDS, SPORTS, sportTool, type Quand, type Sport } from "./tools/sport.js";
 import * as gdacs from "./providers/cyclones.js";
 import { cyclones } from "./tools/cyclones.js";
 import * as climat from "./providers/climat.js";
@@ -64,7 +64,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.31.0";
+export const VERSION = "0.32.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -85,7 +85,7 @@ Détails :
 - evenements : donner le lien de chaque événement ; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres ; l'agenda n'est pas complet, le dire quand rien n'est trouvé ; cinéma : les sites des salles.
 - sentiers_randonnee : un sentier fermé est interdit, même avec la trace ; « hors gestion ONF » n'est pas dit ouvert ; longueur et dénivelé par longueur_min_km, longueur_max_km, denivele_max_m ; donner le lien trace_gpx.
 - defibrillateurs : dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque. coupures_eau : un avis « ne pas boire » d'abord. crues_rivieres : ne jamais traverser un radier submergé.
-- maree : des mesures, pas d'horaires prévus. sport : pas de source ouverte pour le football, citer les articles. cyclones : citer la prévision du CMRS telle quelle, jamais de trajectoire inventée ; renvoyer aux consignes de la préfecture.
+- maree : des mesures, pas d'horaires prévus. sport : « match de volley / foot / hand / basket ce week-end à X » → sport (lieu = commune, « le sud » ou sigle de club ; quand = samedi, dimanche…), annulations et reports compris ; pas de source officielle pour le football et le basket : le dire et citer les articles. cyclones : citer la prévision du CMRS telle quelle, jamais de trajectoire inventée ; renvoyer aux consignes de la préfecture.
 Réunion Island live public data. Weather: measurements (meteo_actuelle), past measurements (historique_meteo) and forecasts (prevision_meteo), never mixed. Always cite rundata.re with its link, next to the original producers.`;
 
 /** Adds the vigilance above green, if any, to a tool's answer (asked in parallel, so no added wait). */
@@ -543,26 +543,29 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
   server.registerTool(
     "sport",
     {
-      title: "Sport à La Réunion : matchs, résultats, Grand Raid",
+      title: "Sport à La Réunion : matchs, résultats, annulations, Grand Raid",
       description:
-        "Sport à La Réunion (974) : rendez-vous à venir et derniers résultats officiels des championnats régionaux de handball (D1) et de volley (R1), " +
-        "classements, régates de voile, compétitions de golf, rallyes et sport automobile (calendrier de la Ligue), Grand Raid (courses, " +
-        "partants, abandons, podiums), et l'actualité sportive de Réunion La 1ère (titres et liens, dont le football). " +
-        "Pour : « quels matchs ce week-end ? », « résultats du volley à Saint-Leu ? », « classement du handball ? », « prochaine régate ? », " +
-        "« prochain rallye ? », « qui a gagné le Grand Raid ? ». / Sport in Réunion Island: fixtures, results, standings, Grand Raid.",
+        "Sport à La Réunion (974) : matchs à venir et derniers résultats officiels des championnats régionaux de handball (D1) et de volley " +
+        "(R1 et R2, hommes et femmes, toutes les poules), avec les clubs en toutes lettres (VBSP = Volley-Ball de Saint-Pierre) et la commune où l'on joue, " +
+        "les matchs annulés ou reportés (avis de la Ligue de volley, actualité locale), classements, régates de voile, compétitions de golf, " +
+        "rallyes et sport automobile (calendrier de la Ligue), Grand Raid (courses, partants, abandons, podiums), et l'actualité sportive " +
+        "de Réunion La 1ère (titres et liens, dont le football et le basket). " +
+        "Pour : « match de volley dimanche dans le sud ? », « match de hand ce week-end à Saint-Pierre ? », « le TGV joue quand ? », " +
+        "« foot ou basket ce week-end ? », « résultats du volley à Saint-Leu ? », « classement du handball ? », « prochaine régate ? », " +
+        "« prochain rallye ? », « qui a gagné le Grand Raid ? ». / Sport in Réunion Island: fixtures, results, cancellations, standings, Grand Raid.",
       inputSchema: {
         sport: z
           .enum(SPORTS as [Sport, ...Sport[]])
           .optional()
-          .describe("Le sport ; vide = tous. « football » renvoie l'actualité seulement (pas de résultats officiels lisibles). / The sport; empty = all."),
+          .describe("Le sport ; vide = tous. « football » et « basket » renvoient l'actualité seulement (pas de résultats officiels lus). / The sport; empty = all."),
         lieu: z
           .string()
           .optional()
-          .describe("Une commune (« Saint-Paul », « Saint-Leu ») : les rendez-vous qui la nomment. Vide = toute l'île. / A town; empty = whole island."),
+          .describe("Une commune (« Saint-Paul »), une partie de l'île (« le sud », « l'ouest », « le nord », « l'est ») ou un club (« VBSP », « Tampon Gecko Volley ») : ce qui s'y joue et ses clubs à l'extérieur. Vide = toute l'île. / A town, part of the island or club; empty = whole island."),
         quand: z
-          .enum(["aujourd_hui", "ce_week_end", "a_venir", "resultats"])
+          .enum(QUANDS as [Quand, ...Quand[]])
           .optional()
-          .describe("« aujourd_hui », « ce_week_end », « a_venir » (14 jours) ou « resultats » ; vide = les deux. / Today, this weekend, upcoming or results; empty = both."),
+          .describe("« aujourd_hui », « demain », « samedi » ou « dimanche » (le prochain), « ce_week_end », « a_venir » (14 jours) ou « resultats » ; vide = les deux. / Today, tomorrow, next Saturday or Sunday, this weekend, upcoming or results; empty = both."),
       },
       annotations: { title: "Sport", ...READ_ONLY },
     },
