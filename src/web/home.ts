@@ -120,7 +120,7 @@ function demos(h: HomeLive | null, now: Date): Demo[] {
     out.push({
       question: "Le volcan est en éruption ?",
       call: "volcan_seismes()",
-      answer: `${e.eruption_en_cours ? "Oui, le Piton de la Fournaise est en éruption" : "Non, pas d'éruption en cours au Piton de la Fournaise"} (niveau ORSEC : ${esc(e.niveau_orsec)}).` +
+      answer: `${e.eruption_en_cours ? "Oui, le Piton de la Fournaise est en éruption" : /^Alerte/.test(e.niveau_orsec) ? "Pas encore, mais une éruption est probable ou imminente au Piton de la Fournaise" : "Non, pas d'éruption en cours au Piton de la Fournaise"} (niveau ORSEC : ${esc(e.niveau_orsec)}).` +
         (q ? ` L'observatoire a localisé ${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} sous le volcan en 7 jours.` : ""),
     });
   }

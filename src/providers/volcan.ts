@@ -5,10 +5,16 @@
  * - pitonlive.com, an independent site that keeps the alert level, the eruption under way and the access to the
  *   Enclos (from the prefecture's orders) as JSON. No licence is stated: quoted with its name and link, and
  *   always next to the official sources.
+ * - the prefecture's press releases, which declare each phase of the ORSEC volcano plan (« passage en alerte 1,
+ *   fermeture de l'enclos ») before either of the two above says so: the newest one about the volcano wins over
+ *   pitonlive when it is as recent or more.
  */
 import type { Cache, Cached } from "../cache.js";
-import { getJson } from "../http.js";
+import { getJson, getText } from "../http.js";
 import type { SourceInfo } from "../types.js";
+import { type Info, parsePrefecture, SOURCES as NEWS } from "./actualites.js";
+
+export const PREFECTURE: SourceInfo = NEWS.prefecture;
 
 export const OVPF: SourceInfo = {
   id: "ovpf_bluesky",
@@ -80,4 +86,56 @@ export async function state(cache: Cache): Promise<Cached<PitonState>> {
     // Keep what the tool shows; the full answer carries a daily seismic series and the air quality too.
     return { status: s.status, eruption: s.eruption, last_eruption_ended_at: s.last_eruption_ended_at, days_since_last_eruption: s.days_since_last_eruption, access: s.access, deformation: s.deformation };
   });
+}
+
+/** A phase of the ORSEC volcano plan, as the prefecture's latest press release about the volcano declares it. */
+export interface Phase {
+  niveau: string;
+  eruption: boolean;
+  enclos?: "ferme" | "partiel" | "ouvert";
+  titre: string;
+  lien: string;
+  /** The day of the release, ISO (noon, La Réunion's time: the hour is not given). */
+  publie: string;
+}
+
+const ABOUT_VOLCANO = /fournaise|volcan|enclos|[ée]ruption/i;
+
+/** The phase the newest release about the volcano declares, or undefined when it declares none. */
+export function phaseOf(releases: Info[]): Phase | undefined {
+  const r = releases.filter((x) => ABOUT_VOLCANO.test(x.titre)).sort((a, b) => b.publie.localeCompare(a.publie))[0];
+  if (!r) return undefined;
+  const t = r.titre;
+  const niveau = /alerte\s*2[\s.-]*2/i.test(t)
+    ? "Alerte 2-2"
+    : /alerte\s*2[\s.-]*1/i.test(t)
+      ? "Alerte 2-1"
+      : /alerte\s*2/i.test(t)
+        ? "Alerte 2"
+        : /alerte\s*1/i.test(t)
+          ? "Alerte 1"
+          : /sauvegarde/i.test(t)
+            ? "Sauvegarde"
+            : /vigilance\s+renforc/i.test(t)
+              ? "Vigilance renforcée"
+              : /vigilance/i.test(t)
+                ? "Vigilance"
+                : undefined;
+  if (!niveau) return undefined;
+  const eruption = /^Alerte 2/.test(niveau) || /[ée]ruption en cours|d[ée]but d.[ée]ruption/i.test(t);
+  // In alert the Enclos is closed by order; a release may say otherwise in its own words.
+  const enclos = /r[ée]ouverture partielle|partiellement/i.test(t)
+    ? "partiel"
+    : /r[ée]ouverture|r[ée]ouvert/i.test(t)
+      ? "ouvert"
+      : /fermeture|ferm[ée]/i.test(t) || /^Alerte/.test(niveau)
+        ? "ferme"
+        : undefined;
+  return { niveau, eruption, enclos, titre: t, lien: r.lien, publie: r.publie };
+}
+
+export async function phase(cache: Cache): Promise<Cached<Phase | null>> {
+  return cache.get("volcan:prefecture", 5 * 60, async () =>
+    phaseOf(parsePrefecture(await getText(PREFECTURE.id, PREFECTURE.url, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" }))) ?? null,
+  );
 }
