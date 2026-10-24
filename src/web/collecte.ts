@@ -18,7 +18,9 @@ const titleOf = (c: string) => `Collecte des déchets ${a(c)} : jours par rue ·
 const h1Of = (c: string) => `Quel jour passent les poubelles ${a(c)} ?`;
 const metaOf = (c: string) => `Ordures ménagères, tri et déchets verts ${a(c)} (974) : le jour de collecte de votre rue, d'après le calendrier ${col.YEAR} du TCO. Cherchez votre rue.`;
 const LEAD = `Tapez le nom de votre rue : le jour de passage pour les ordures ménagères, le tri et les déchets verts, d'après les calendriers ${col.YEAR} publiés par le TCO.`;
-const { NOT_FOUND, honesty, communeSlug } = col;
+const { honesty, communeSlug } = col;
+// With the list just below (marketing).
+const NOT_FOUND_HERE = "Rue non trouvée dans les calendriers du TCO. Vérifiez l'orthographe, essayez le nom du quartier, ou cherchez dans la liste ci-dessous.";
 export const communeOf = (slug: string) => col.COMMUNES.find((c) => communeSlug(c) === slug);
 
 // Shows the full line of the streets typed (3 letters at least, 20 at most), hides the groups without a match. In a
@@ -26,6 +28,7 @@ export const communeOf = (slug: string) => col.COMMUNES.find((c) => communeSlug(
 const SCRIPT = `{const q=document.getElementById("rue");if(q){const n=(s)=>s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();const out=document.getElementById("trouve");
 q.addEventListener("input",()=>{const t=n(q.value.trim());const hits=[];document.querySelectorAll(".voies li").forEach((li)=>{const ok=t.length<3||n(li.textContent).includes(t);li.hidden=!ok;if(ok&&t.length>=3)hits.push(li)});
 document.querySelectorAll(".groupe").forEach((g)=>{g.hidden=![...g.querySelectorAll("li")].some((li)=>!li.hidden)});
+document.querySelectorAll(".sans").forEach((s)=>{s.hidden=![...s.querySelectorAll(".groupe")].some((g)=>!g.hidden)});
 out.className=hits.length?"card":"";out.replaceChildren(...hits.slice(0,20).map((li)=>{const p=document.createElement("p");const g=li.closest(".groupe");p.textContent=li.textContent+", "+g.dataset.c+" : "+g.dataset.r;return p}));
 document.getElementById("rien").hidden=t.length<3||hits.length>0})}}`;
 
@@ -38,19 +41,26 @@ function groups(today: number, commune?: string): string {
     g.noms.push(s.nom.replace(/\s*\([^)]*\)$/, ""));
     byCal.set(k, g);
   }
-  return [...byCal.values()]
+  const list = (g: { noms: string[] }) => `<ul class="voies plain">${[...new Set(g.noms)].sort((x, y) => x.localeCompare(y, "fr")).map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`;
+  const all = [...byCal.values()];
+  const dated = all
+    .filter((g) => col.CALENDARS[g.c])
     .map((g) => {
       const cal = col.CALENDARS[g.c];
-      const r = (cal ? col.rhythmOf(cal, today) : col.NO_CALENDAR) ?? "";
-      const feries = (cal ? col.holidays(cal, today) : []).map((h) => (h.reportee ? esc(col.holidayLine(h)) : `Jour férié : vérifiez <a href="${esc(cal!.pdf)}" rel="noopener">le calendrier du TCO (PDF) →</a>`));
-      const said = cal
-        ? `<p><b>${esc(r.charAt(0).toUpperCase() + r.slice(1))}.</b></p>`
-        : `<p><b>${esc(r.charAt(0).toUpperCase() + r.slice(1, r.lastIndexOf("Renseignez")))}</b><a href="${col.TCO_CONTACT}" rel="noopener">Renseignez-vous auprès du TCO →</a></p>`;
-      return `<div class="card groupe" data-c="${esc(g.commune)}" data-r="${esc(cal ? `${r}.` : r)}">${said}${feries.map((f) => `<p>${f}</p>`).join("")}
-<ul class="voies plain">${[...new Set(g.noms)].sort((x, y) => x.localeCompare(y, "fr")).map((n) => `<li>${esc(n)}</li>`).join("")}</ul>
-${cal ? `<p class="note">${commune ? "" : `${esc(g.commune)} · `}<a href="${esc(cal.pdf)}" rel="noopener">calendrier ${esc(cal.code)} du TCO (PDF)</a></p>` : ""}</div>`;
-    })
-    .join("\n");
+      const r = col.rhythmOf(cal, today) ?? "";
+      const feries = col.holidays(cal, today).map((h) => (h.reportee ? esc(col.holidayLine(h)) : `Jour férié : vérifiez <a href="${esc(cal.pdf)}" rel="noopener">le calendrier du TCO (PDF) →</a>`));
+      return `<div class="card groupe" data-c="${esc(g.commune)}" data-r="${esc(`${r}.`)}"><p><b>${esc(r.charAt(0).toUpperCase() + r.slice(1))}.</b></p>${feries.map((f) => `<p>${f}</p>`).join("")}
+${list(g)}
+<p class="note">${commune ? "" : `${esc(g.commune)} · `}<a href="${esc(cal.pdf)}" rel="noopener">calendrier ${esc(cal.code)} du TCO (PDF)</a></p></div>`;
+    });
+  // The streets without a calendar, after the others: the plural above their list, the singular in a street's line.
+  const without = all.filter((g) => !col.CALENDARS[g.c]);
+  const said = esc(col.NO_CALENDAR_LIST.slice(0, col.NO_CALENDAR_LIST.lastIndexOf("Renseignez")));
+  const nc = without.length
+    ? `<div class="sans"><h3>Voies sans calendrier du TCO</h3><p>${said}<a href="${col.TCO_CONTACT}" rel="noopener">Renseignez-vous auprès du TCO →</a></p>
+${without.map((g) => `<div class="card groupe" data-c="${esc(g.commune)}" data-r="${esc(col.NO_CALENDAR)}">${commune ? "" : `<p class="note">${esc(g.commune)}</p>`}${list(g)}</div>`).join("\n")}</div>`
+    : "";
+  return [...dated, nc].join("\n");
 }
 
 export function collectePage(origin: string, now: Date, commune?: string, alerte?: Alerte): string {
@@ -66,7 +76,7 @@ export function collectePage(origin: string, now: Date, commune?: string, alerte
   <p class="lead">${esc(LEAD)}</p>
   <label class="search">Votre rue <input id="rue" type="search" placeholder="Rue, chemin, impasse…" autocomplete="off"></label>
 </div></div>`;
-  const body = `<section aria-label="Votre rue"><div id="trouve" aria-live="polite"></div><p id="rien" hidden>${esc(NOT_FOUND)}</p></section>
+  const body = `<section aria-label="Votre rue"><div id="trouve" aria-live="polite"></div><p id="rien" hidden>${esc(NOT_FOUND_HERE)}</p></section>
 <section aria-labelledby="h-voies">
   <div class="sec-h"><h2 id="h-voies">${commune ? `Les rues ${esc(de(commune))}` : "Toutes les rues de l'Ouest"}</h2>
   <p class="note">${esc(honesty())}</p></div>

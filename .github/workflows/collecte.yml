@@ -1,8 +1,8 @@
 # The days the bins are collected in the West (src/vie/collecte.json, scripts/build-collecte.py): every Monday, the
 # date the TCO last changed its dataset of calendars is compared with the one the bundled file was built from. When it
-# moved, the file is rebuilt from the calendars' PDFs and proposed as a pull request, to be read before it goes online.
-# The job fails when a calendar cannot be read (the script checks every month against the weekdays): the failure is
-# the alert, and the calendars online stay as they were.
+# moved, the file is rebuilt here only to check that the PDFs still read, and the job fails, saying so: the failure is
+# the alert, someone rebuilds the file and proposes it. It fails too when a calendar cannot be read (the script checks
+# every month against the weekdays). Nothing is committed from here; the calendars online stay as they were.
 name: Calendriers de collecte
 
 on:
@@ -11,8 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: collecte
@@ -34,22 +33,15 @@ jobs:
           echo "remote=$remote local=$local"
           echo "changed=$([ "$remote" != "$local" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
           echo "date=$remote" >> "$GITHUB_OUTPUT"
-      - name: Rebuild from the PDFs
+      - name: Do the PDFs still read?
         if: steps.check.outputs.changed == 'yes'
         run: |
           sudo apt-get install -y --no-install-recommends poppler-utils
           python3 -I scripts/build-collecte.py
-      - name: Propose it
+      - name: Say it is to be redone
         if: steps.check.outputs.changed == 'yes'
         env:
-          GH_TOKEN: ${{ github.token }}
           DATE: ${{ steps.check.outputs.date }}
         run: |
-          branch="collecte-$DATE"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$branch"
-          git add src/vie/collecte.json
-          git commit -m "Calendriers de collecte du TCO mis à jour le $DATE"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
-          gh pr create --head "$branch" --title "Calendriers de collecte du TCO mis à jour le $DATE" --body "Le TCO a modifié son jeu « Calendriers de collectes du Territoire de l'Ouest » le $DATE : src/vie/collecte.json reconstruit par scripts/build-collecte.py (chaque mois vérifié contre les jours de la semaine). À relire avant la fusion."
+          echo "::error::Le TCO a modifié ses calendriers le $DATE : lancer scripts/build-collecte.py et proposer la PR."
+          exit 1

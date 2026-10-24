@@ -50,6 +50,8 @@ export const communeSlug = (c: string) => normalize(c.replace(/^Les /, "")).repl
 export const NOT_FOUND = "Rue non trouvée dans les calendriers du TCO. Vérifiez l'orthographe, ou essayez le nom du quartier.";
 // A street the TCO lists without a calendar: nothing is inferred, its contact page is the link of the arrow.
 export const NO_CALENDAR = "le TCO ne publie pas de calendrier de collecte pour cette voie, et nous ne savons pas si elle est collectée au porte-à-porte. Renseignez-vous auprès du TCO →";
+// The same above the list of such streets on a page (marketing).
+export const NO_CALENDAR_LIST = "Le TCO ne publie pas de calendrier de collecte pour ces voies, et nous ne savons pas si elles sont collectées au porte-à-porte. Renseignez-vous auprès du TCO →";
 export const TCO_CONTACT = "https://www.tco.re/contact";
 /** Past the calendars' year, nothing of it is applied to the next. */
 export const notYet = () => `Les calendriers ${YEAR + 1} du TCO ne sont pas encore publiés : nous ne pouvons pas encore donner les jours de collecte.`;

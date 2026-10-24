@@ -9,7 +9,7 @@ Read with `pdftotext -bbox` (poppler-utils). Each page shows six months, its six
 template hides four more under the right-hand panel, which are left out. Every month read is checked against the
 calendar (each row's weekday letter), and the script fails rather than write a calendar it could not read.
 
-Run by .github/workflows/collecte.yml when the dataset's modification date changes.
+Checked by .github/workflows/collecte.yml, which fails when the dataset's modification date changes: run it then by hand.
 Usage: python3 -I scripts/build-collecte.py [--pdf-dir DIR]   (DIR: PDFs already downloaded, named as on tco.re)
 """
 import argparse
