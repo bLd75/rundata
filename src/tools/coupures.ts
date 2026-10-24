@@ -4,7 +4,7 @@ import { resolvePlace } from "../places/resolve.js";
 import * as notices from "../providers/avis-eau.js";
 import { BACK } from "../providers/avis-eau.js";
 import { why } from "../types.js";
-import { a, credits, notFound, placeBlock, text } from "./format.js";
+import { a, credits, enumeration, notFound, placeBlock, text } from "./format.js";
 
 const RECENT_DAYS = 5;
 const QUALITY = /qualit|potab|boire|chlor|conformit|bouilli|embouteill/i;
@@ -57,7 +57,8 @@ export function noticeRow(n: notices.Avis, now: Date, current = n.ne_pas_boire) 
 }
 
 const COMMON = {
-  couverture: "Avis lus pour Saint-Denis, La Possession, Saint-Paul, Les Trois-Bassins, Sainte-Marie, Bras-Panon, Saint-André, La Plaine-des-Palmistes, Saint-Benoît, Sainte-Rose, Salazie (Dionéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie) et pour les communes de runéo quand il en publie. Ailleurs, voir la mairie ou le distributeur.",
+  // Worded by marketing: never « pas de coupure » where the sources say nothing.
+  couverture: `Avis lus pour ${enumeration(lues())} (Dionéo, runéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie)\u00a0: une coupure que ces sources n'annoncent pas n'apparaît pas ici. Ailleurs, voir la mairie ou le distributeur.`,
   a_savoir: "Après une coupure, l'eau peut être trouble ou impropre à la boisson pendant quelques heures : la laisser couler avant de la boire. Quand un avis dit de ne pas boire l'eau, utiliser de l'eau en bouteille ou bouillie au moins 3 minutes pour boire, cuisiner et se brosser les dents.",
 };
 

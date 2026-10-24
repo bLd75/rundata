@@ -13,6 +13,11 @@ export function de(nom: string): string {
   return nom.replace(/^Le /, "du ").replace(/^Les /, "des ").replace(/^(?!du |des )/, "de ");
 }
 
+/** « Saint-Denis, Saint-Paul et Salazie ». */
+export function enumeration(xs: string[]): string {
+  return xs.length > 1 ? `${xs.slice(0, -1).join(", ")} et ${xs.at(-1)}` : xs.join("");
+}
+
 /** « à Saint-Paul », « au Tampon », « aux Avirons », « à L'Étang-Salé ». */
 export function a(nom: string): string {
   return nom.replace(/^Le /, "au ").replace(/^Les /, "aux ").replace(/^(?!au |aux )/, "à ");

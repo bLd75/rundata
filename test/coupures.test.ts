@@ -170,10 +170,14 @@ describe("coupures d'eau", () => {
     });
     const b = body(await coupuresEau(cache(), undefined, NOW));
     expect(b.ne_pas_boire).toEqual(["La Plaine-des-Palmistes", "Saint-Pierre", "Salazie"]);
+    expect(b.couverture).toBe("Avis lus pour Bras-Panon, La Plaine-des-Palmistes, La Possession, Le Port, Les Trois-Bassins, Saint-André, Saint-Benoît, Saint-Denis, Saint-Louis, Saint-Paul, Saint-Pierre, Sainte-Marie, Sainte-Rose, Sainte-Suzanne et Salazie (Dionéo, runéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie)\u00a0: une coupure que ces sources n'annoncent pas n'apparaît pas ici. Ailleurs, voir la mairie ou le distributeur.");
     const value = await buildCoupures(cache(), NOW);
     expect(value.communes_suivies).toEqual(expect.arrayContaining(["Le Port", "Saint-Louis", "Saint-Pierre", "Sainte-Suzanne"]));
     const sp = island.paths.find((p: { nom: string }) => p.nom === "Saint-Pierre")!;
-    expect(coupuresPage("https://rundata.re", { value, fetchedAt: NOW }, NOW)).toContain(`<path d="${sp.d}" style="fill:#f03e3e"/>`);
+    const page = coupuresPage("https://rundata.re", { value, fetchedAt: NOW }, NOW);
+    expect(page).toContain(`<path d="${sp.d}" style="fill:#f03e3e"/>`);
+    // The legend never says « aucun avis » where nothing is read, and tells what the others are.
+    expect(page).toContain(`<span style="color:#a5d8ff">pas d'avis lu en ce moment</span>. Les autres communes : avis non lus, voir la mairie ou le distributeur.`);
   });
 
   it("serves a page per commune, none for an unknown one", async () => {

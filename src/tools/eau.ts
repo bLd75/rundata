@@ -3,12 +3,13 @@ import { distanceKm } from "../geo.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace, type Resolution } from "../places/resolve.js";
 import * as baignades from "../providers/baignades.js";
+import { lues } from "../eau/distributeurs.js";
 import * as requin from "../eau/requin.js";
 import * as potable from "../providers/eaupotable.js";
 import * as notices from "../providers/avis-eau.js";
 import { doNotDrink, noticeRow } from "./coupures.js";
 import { why } from "../types.js";
-import { a, credits, notFound, placeBlock, text } from "./format.js";
+import { a, credits, enumeration, notFound, placeBlock, text } from "./format.js";
 
 export type Sujet = "robinet" | "baignade";
 
@@ -178,11 +179,22 @@ async function baignade(cache: Cache, res: Resolution, now: Date, lieu: string) 
   return { resume: rows.map(bathSentence).join(" "), sites: rows };
 }
 
+const NB = "\u00a0";
+
+/**
+ * The note under the tap water, worded by marketing, with the communes whose notices are read (src/eau/distributeurs.ts):
+ * for the tool, which shows a commune's « ne pas boire » notice itself, and for the /eau page, which shows none
+ * (web/domains.ts, with a link to /coupures-eau after it).
+ */
+export function tapNote(where: "outil" | "page"): string {
+  const taken = where === "outil"
+    ? `Il est repris pour les communes dont nous lisons les avis (${enumeration(lues())})${NB}: dans cette réponse quand une commune est demandée, et par l'outil coupures_eau.`
+    : `Il est repris sur la page des coupures d'eau pour les communes dont nous lisons les avis (${enumeration(lues())}).`;
+  return `Analyses du contrôle sanitaire de l'ARS, publiées un à deux mois après le prélèvement. Un avis temporaire «${NB}ne pas boire l'eau${NB}» (après de fortes pluies, une panne de chloration…) est publié par le distributeur, la mairie ou l'ARS. ${taken} Pour les autres communes, un avis peut être en cours sans apparaître ici${NB}: voir la mairie ou le distributeur.`;
+}
+
 export const COMMON = {
-  eau_du_robinet:
-    "Analyses du contrôle sanitaire de l'ARS, publiées un à deux mois après le prélèvement. Un avis temporaire « ne pas boire l'eau » " +
-    "(après de fortes pluies, une panne de chloration…) passe par le distributeur, la mairie et l'ARS : il est repris ici quand le distributeur publie ses avis en ligne " +
-    "(Saint-Denis, La Possession, les communes de l'Est), voir aussi l'outil coupures_eau.",
+  eau_du_robinet: tapNote("outil"),
   eau_de_baignade:
     "Prélèvement toutes les deux semaines environ ; seuils par prélèvement (germes pour 100 mL) : bonne jusqu'à 100 entérocoques et 100 E. coli, " +
     "mauvaise au-delà de 370 entérocoques ou 1 000 E. coli. Après de fortes pluies, l'eau est souvent polluée pendant un à trois jours (ravines, rejets).",

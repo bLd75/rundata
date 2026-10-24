@@ -4,7 +4,8 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import { parsePage, quality, season } from "../src/providers/baignades.js";
 import { networkName } from "../src/providers/eaupotable.js";
 import { SOURCE } from "../src/eau/requin.js";
-import { qualiteEau, siteNamed, sujetOf } from "../src/tools/eau.js";
+import { COMMON, qualiteEau, tapNote, siteNamed, sujetOf } from "../src/tools/eau.js";
+import { distributeur } from "../src/eau/distributeurs.js";
 
 // Hub'Eau for Saint-Pierre and the ministry's page of the plage de l'Hermitage centre, read on 24/10/2026: the latest
 // analyses date from late August (tap) and mid-September (bathing).
@@ -78,6 +79,16 @@ describe("qualité de l'eau", () => {
     expect(b.eau_du_robinet.reseaux).toHaveLength(13);
     expect(b.eau_du_robinet.reseaux[0]).toMatchObject({ reseau: "Usine Dassy Conde", non_conformes_6_mois: 6 });
     expect(b.resume).toMatch(/^Eau du robinet à Saint-Pierre : 13 réseaux, 75 analyses en 6 mois ; non-conformités sur Usine Dassy Conde \(6\)\./);
+  });
+
+  it("names, under the tap water, every commune whose notices are read, from the table of distributors", () => {
+    for (const c of ["Saint-Denis", "Saint-Pierre", "Saint-Paul", "Sainte-Marie", "Salazie"]) expect(COMMON.eau_du_robinet).toContain(c);
+    expect(distributeur("Le Tampon")?.avis).toBe(false);
+    expect(COMMON.eau_du_robinet).not.toContain("Le Tampon");
+    expect(COMMON.eau_du_robinet).not.toContain("les communes de l'Est");
+    expect(COMMON.eau_du_robinet).toContain("Sainte-Suzanne et Salazie)\u00a0: dans cette réponse quand une commune est demandée, et par l'outil coupures_eau.");
+    expect(tapNote("page")).toContain("Il est repris sur la page des coupures d'eau pour les communes dont nous lisons les avis (Bras-Panon,");
+    expect(tapNote("page")).not.toContain("coupures_eau");
   });
 
   it("tells which water a question is about", () => {
