@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T20:36:00+04:00", texte: "Cyclone : les communiqués de la préfecture s'ajoutent au bulletin de Météo-France, avec la levée de l'alerte et la réouverture des écoles." },
   { date: "2026-10-24T20:22:00+04:00", texte: "Où se baigner ? La règle requin des 300 m et les zones permises (lagons, bassins, filets, ZONEX), sur rundata.re/baignade et dans votre IA." },
   { date: "2026-10-24T20:16:00+04:00", texte: "Quel jour passent les poubelles ? Le jour de collecte de votre rue à Saint-Paul, La Possession, Saint-Leu, Le Port et Trois-Bassins." },
   { date: "2026-10-24T19:43:00+04:00", texte: "Cyclone : les écoles sont-elles fermées ? La règle de la préfecture et l'alerte en cours, sur le site et dans votre IA." },

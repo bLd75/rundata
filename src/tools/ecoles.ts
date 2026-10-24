@@ -4,6 +4,7 @@
  * in marketing's words. Only the alert Météo-France publishes is read: never « ouvertes », never one school.
  */
 import { localTime } from "../geo.js";
+import type { Cyclone } from "../providers/prefecture.js";
 import * as mf from "../providers/vigilance.js";
 import { current } from "./vigilance.js";
 
@@ -64,8 +65,14 @@ export interface EcolesAnswer {
    * when the bulletin shows the change: the prefect decides, Météo-France publishes, and we read the bulletin.
    */
   depuis?: string;
-  /** The bulletin `depuis` names, for its link. */
-  bulletin?: string;
+  /** The link of what `depuis` names in its brackets: Météo-France's bulletin, or the prefecture's release. */
+  lien_depuis?: string;
+  /** The prefecture's newest release about the alert, cited by its title (marketing's words). */
+  communique?: string;
+  /** The prefecture's newest release and Météo-France's bulletin disagree: both said, with their dates, none chosen. */
+  ecart?: string;
+  /** The releases the sentences cite, « « title » → », each with its link. */
+  cites?: { titre: string; lien: string }[];
   /** Crèches and schools closed by the plan right now (orange or beyond, in force). */
   fermees: boolean;
   /** The step, by its code (providers/vigilance.ts), -1 without any. */
@@ -105,10 +112,55 @@ export function ecoles(v: mf.Vigilance, now: Date): EcolesAnswer {
     texte: `${STATES[etat as keyof typeof STATES]}, selon le ${ORSEC.nom}.`,
     selon: ORSEC,
     depuis: shown ? (inForce ? `${name} décidée par la préfecture, en vigueur depuis le ${when(period.debut)} (${BULLETIN}).` : `${name} décidée par la préfecture pour le ${when(period.debut)} (${BULLETIN}).`) : undefined,
-    bulletin: shown ? mf.SOURCE.url : undefined,
+    lien_depuis: shown ? mf.SOURCE.url : undefined,
     fermees: inForce && c >= 3,
     niveau: c,
   };
+}
+
+// A release older than this says nothing of the alert now: last season's « levée » is not today's.
+const RECENT_MS = 7 * 86400_000;
+const dayOf = (iso: string) => `${WEEKDAY.format(new Date(Date.parse(iso) + 4 * 3600_000))} ${localTime(new Date(iso)).split(" ")[0]}`;
+/** « l'alerte rouge », « la fin de l'alerte ». */
+const said = (n: number | "levee") => (n === "levee" ? "la fin de l'alerte" : n === 6 ? "la phase de sauvegarde" : n === 2 ? "la pré-alerte cyclonique" : `l'alerte ${mf.cycloneName(n)}`);
+/** Whether a step closes the schools under the plan (orange to violette, and the phase de sauvegarde). */
+const closing = (n: number | "levee") => typeof n === "number" && n >= 3;
+const cite = (r: { titre: string }) => `« ${r.titre} » →`;
+const LIFTED_UNREAD = "La réouverture des écoles est annoncée par la préfecture et le rectorat (ac-reunion.fr) : elle n'est pas encore lue ici.";
+
+/**
+ * What the prefecture's releases add to the state Météo-France's bulletin gives: the release that confirms it, the end
+ * of the alert, the schools' reopening when a release says it (never from the end alone). The list gives the day a
+ * release was published, not the day decided: « communiqué du … », never « décidée le … »; the title is cited, never
+ * summed up. The bulletin stays the source of the level: when the newest release says otherwise on the schools, both
+ * are said with their dates, and none is chosen.
+ */
+export function withPrefecture(e: EcolesAnswer, c: Cyclone | null | undefined, v: mf.Vigilance, now: Date): EcolesAnswer {
+  const d = c?.decision;
+  if (!d || now.getTime() - Date.parse(d.publie) > RECENT_MS) return e;
+  const of = `du ${dayOf(d.publie)}`;
+  if (d.niveau === "levee" && (e.etat === "aucune" || e.etat === "levee")) {
+    const r = c!.reouverture;
+    return {
+      ...e,
+      etat: "levee",
+      texte: r
+        ? `Alerte levée. Réouverture des écoles annoncée par la préfecture le ${dayOf(r.publie)} : ${cite(r)} Le détail, avec les éventuelles exceptions par commune, est dans le communiqué.`
+        : `Alerte levée, d'après le communiqué de la préfecture ${of} : ${cite(d)} ${LIFTED_UNREAD}`,
+      selon: undefined,
+      cites: [r ?? d],
+    };
+  }
+  if (d.niveau === e.niveau) return { ...e, communique: `${NAMES[d.niveau]}, confirmée par le communiqué de la préfecture ${of} : ${cite(d)}`, cites: [d] };
+  if (closing(d.niveau) !== e.fermees && (d.niveau === "levee" || closing(d.niveau) || e.fermees)) {
+    const bulletin = e.niveau >= 2 ? said(e.niveau) : "aucune alerte cyclonique";
+    return {
+      ...e,
+      ecart: `Le communiqué de la préfecture ${of} annonce ${said(d.niveau)} : ${cite(d)} Le bulletin de Météo-France émis le ${dayOf(v.emise)} à ${localTime(new Date(v.emise)).split(" ")[1]} indique ${bulletin}. Nous montrons les deux : vérifiez sur reunion.gouv.fr.`,
+      cites: [d],
+    };
+  }
+  return { ...e, communique: `Dernier communiqué de la préfecture, ${of} : ${cite(d)}`, cites: [d] };
 }
 
 /** resume_du_jour's line, only while the schools are closed by the plan. */
@@ -119,7 +171,7 @@ export function resumeLine(e: EcolesAnswer): string | undefined {
 }
 
 /** What the tools add: the state, the rule and where the day's announcements come from. */
-export function ecolesBlock(v: mf.Vigilance, now: Date) {
-  const e = ecoles(v, now);
+export function ecolesBlock(v: mf.Vigilance, now: Date, c?: Cyclone | null) {
+  const e = withPrefecture(ecoles(v, now), c, v, now);
   return { ...e, regle: REGLE, source: SOURCE_PHRASE, limite: LIMITE, page: "https://rundata.re/ecoles-cyclone", rectorat: RECTORAT };
 }

@@ -4,7 +4,8 @@
  */
 import type { Cached } from "../cache.js";
 import * as mf from "../providers/vigilance.js";
-import { ecoles, LIMITE, ORSEC, RECTORAT, REGLE } from "../tools/ecoles.js";
+import type { Cyclone } from "../providers/prefecture.js";
+import { ecoles, LIMITE, ORSEC, RECTORAT, REGLE, withPrefecture } from "../tools/ecoles.js";
 import type { Alerte } from "./data.js";
 import { connectorCta, crumbBar, crumbs, webPage } from "./domains.js";
 import { esc } from "./map.js";
@@ -25,21 +26,30 @@ function stateHtml(texte: string, linked: boolean): string {
   return `${esc(texte.slice(0, at))}<a href="${ORSEC.lien}" rel="noopener">${esc(ORSEC.nom)}</a>${esc(texte.slice(at + ORSEC.nom.length))}`;
 }
 
-/** The date's sentence, its « bulletin de Météo-France » linked. */
+/** The date's sentence, what its brackets name linked: « (bulletin de Météo-France) », « (communiqué de la préfecture) ». */
 function bulletinHtml(depuis: string, href: string | undefined): string {
-  const name = "bulletin de Météo-France";
-  const at = depuis.lastIndexOf(name);
-  if (!href || at < 0) return esc(depuis);
-  return `${esc(depuis.slice(0, at))}<a href="${esc(href)}" rel="noopener">${name}</a>${esc(depuis.slice(at + name.length))}`;
+  const m = /\(([^()]+)\)\.$/.exec(depuis);
+  if (!href || !m) return esc(depuis);
+  return `${esc(depuis.slice(0, m.index + 1))}<a href="${esc(href)}" rel="noopener">${esc(m[1])}</a>).`;
 }
 
-export function ecolesPage(origin: string, data: Cached<mf.Vigilance> | null, now = new Date(), alerte?: Alerte): string {
+/** The releases a sentence cites, « « title » → », each linked on its title (marketing). */
+function citesHtml(html: string, cites: { titre: string; lien: string }[] | undefined): string {
+  let out = html;
+  for (const c of cites ?? []) {
+    const quoted = esc(`« ${c.titre} » →`);
+    out = out.replace(quoted, `<a href="${esc(c.lien)}" rel="noopener">${quoted}</a>`);
+  }
+  return out;
+}
+
+export function ecolesPage(origin: string, data: Cached<mf.Vigilance> | null, now = new Date(), alerte?: Alerte, decision?: Cyclone | null): string {
   const path = "/ecoles-cyclone";
-  const e = data ? ecoles(data.value, now) : undefined;
+  const e = data ? withPrefecture(ecoles(data.value, now), decision, data.value, now) : undefined;
   const step = e?.fermees ? (e.niveau === 6 ? "Phase de sauvegarde" : `Alerte ${mf.cycloneName(e.niveau)}`) : undefined;
   const description = step ? metaClosed(step) : META;
   const state = e
-    ? `<div class="status"><p class="lead"><b>${stateHtml(e.texte, Boolean(e.selon))}</b></p>${e.depuis ? `<p class="lead">${bulletinHtml(e.depuis, e.bulletin)}</p>` : ""}</div>`
+    ? `<div class="status"><p class="lead"><b>${citesHtml(stateHtml(e.texte, Boolean(e.selon)), e.cites)}</b></p>${e.depuis ? `<p class="lead">${bulletinHtml(e.depuis, e.lien_depuis)}</p>` : ""}${[e.communique, e.ecart].filter(Boolean).map((x) => `<p class="lead">${citesHtml(esc(x!), e.cites)}</p>`).join("")}</div>`
     : `<div class="status"><p class="lead">${esc(UNREAD)}</p></div>`;
   const band = `${crumbBar("Écoles et cyclone")}
 <div class="wrap intro"><div class="pitch">

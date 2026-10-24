@@ -5,6 +5,7 @@ import * as gdacs from "../providers/cyclones.js";
 import * as mf from "../providers/vigilance.js";
 import { why } from "../types.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
+import * as prefecture from "../providers/prefecture.js";
 import { ecolesBlock } from "./ecoles.js";
 import { cyclone as cycloneAlert } from "./vigilance.js";
 
@@ -98,12 +99,17 @@ export function seasonRow(s: gdacs.Systeme) {
   };
 }
 
+// reunion.gouv.fr can hang for seconds (24/10/2026): the answer does not wait for it longer than this.
+const PREFECTURE_WAIT_MS = 3000;
+
 /** The cyclone alert of the prefecture through Météo-France's vigilance, and what it means for the schools; undefined when it cannot be read. */
 async function alert(cache: Cache, now: Date) {
   if (!mf.enabled()) return undefined;
   try {
-    const v = (await mf.vigilance(cache)).value;
-    return { texte: cycloneAlert(v, now), ecoles: ecolesBlock(v, now) };
+    // The prefecture's last decision beside the bulletin: never more than the bulletin's wait, and none when it fails.
+    const decision = prefecture.cyclone(cache).then((x) => x.value).catch(() => null);
+    const [v, c] = await Promise.all([mf.vigilance(cache).then((x) => x.value), Promise.race([decision, new Promise<null>((r) => setTimeout(() => r(null), PREFECTURE_WAIT_MS))])]);
+    return { texte: cycloneAlert(v, now), ecoles: ecolesBlock(v, now, c) };
   } catch (err) {
     console.error(`source ${mf.SOURCE.id} indisponible:`, why(err));
     return undefined;

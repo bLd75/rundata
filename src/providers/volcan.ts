@@ -11,9 +11,10 @@
  */
 import { later } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
-import { getJson, getText } from "../http.js";
+import { getJson } from "../http.js";
 import { type SourceInfo, UpstreamError } from "../types.js";
-import { type Info, parsePrefecture, SOURCES as NEWS } from "./actualites.js";
+import { type Info, SOURCES as NEWS } from "./actualites.js";
+import * as prefecture from "./prefecture.js";
 
 export const PREFECTURE: SourceInfo = NEWS.prefecture;
 
@@ -197,7 +198,7 @@ async function keepPhase(cache: Cache, p: Phase, now: number) {
 
 async function readPhase(cache: Cache): Promise<Cached<Phase | null>> {
   return cache.get("volcan:prefecture", 5 * 60, async () => {
-    const releases = parsePrefecture(await getText(PREFECTURE.id, PREFECTURE.url, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" }));
+    const releases = (await prefecture.releases(cache)).value;
     // A page without its list (an error page served as 200, a maintenance page) must not replace the last phase read.
     if (!releases.length) throw new UpstreamError(PREFECTURE.id, "liste des communiqués vide");
     const p = phaseOf(releases);
