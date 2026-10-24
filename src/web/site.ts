@@ -207,7 +207,7 @@ const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "w
 async function tileCopies(cache: Cache, keys: string[], background: Background, own: Cached<unknown> | null | undefined, now: Date): Promise<(Cached<any> | null)[]> {
   // One read each, as long as the invocation has subrequests left: a tile past them waits for the next view.
   const budget = left();
-  const copies = await Promise.all(keys.map((k, i) => (i < budget ? cache.peek<any>(k) : Promise.resolve(undefined))));
+  const copies = await Promise.all(keys.map((k, i) => (i < budget ? cache.peek<any>(k, now.getTime() - FRESH_SECONDS * 1000) : Promise.resolve(undefined))));
   const age = (c: Cached<unknown> | null | undefined) => (c ? now.getTime() - c.fetchedAt.getTime() : Infinity);
   const due = keys.map((key, i) => ({ key, age: age(copies[i]), cost: copies[i]?.cost })).sort((a, b) => b.age - a.age)[0];
   // Only when what the tile's build took last time (here, or where its copy was built) is left: otherwise its page or
@@ -337,7 +337,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const [data, a, meteo] = await Promise.all([
       snapshot(cache, DOMAINS["/randonnees"].key, () => buildRandonnees(cache, now), background, now, waitFor(request), isReader(request)),
       alerte(cache, background, now),
-      s.meteo ? cache.peek<PlaceData>(`web:lieu:${s.meteo}`).catch(() => undefined) : undefined,
+      s.meteo ? cache.peek<PlaceData>(`web:lieu:${s.meteo}`, now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined) : undefined,
     ]);
     return page(path, (live) => secteurPage(origin, s, live ? data : null, live ? meteo ?? null : null, now, a), data, background, [rebuild(cache, DOMAINS["/randonnees"].key, () => buildRandonnees(cache, now))]);
   }
@@ -384,7 +384,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       alerte(cache, background, now),
     ]);
     // The state of the hikes around: the hikers' page's last copy, as it is, never built for this page.
-    const hikes = hikesNear(p.place.lon, p.place.lat).length ? await cache.peek<RandonneesAnswer>("web:randonnees").catch(() => undefined) : undefined;
+    const hikes = hikesNear(p.place.lon, p.place.lat).length ? await cache.peek<RandonneesAnswer>("web:randonnees", now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined) : undefined;
     return page(path, (live) => (live ? placePage(origin, p, data, now, a, hikes ?? null) : placePage(origin, p, null, now, a)), data, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now))]);
   }
   if (path === "/communes" || path === "/communes/") {

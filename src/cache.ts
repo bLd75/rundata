@@ -137,13 +137,26 @@ export class Cache {
     return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e), backoffSeconds));
   }
 
+  /**
+   * As `get`, from the entry the caller has just read (`peek`, or an older `get`) instead of reading the stores again:
+   * served if fresh enough, else loaded, the entry being the copy served if the source fails.
+   */
+  async getFrom<T>(key: string, have: Cached<T> | undefined, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>> {
+    const hit = have && { value: have.value, fetchedAt: have.fetchedAt.getTime(), ...(have.cost != null && { cost: have.cost }) };
+    return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e)));
+  }
+
   /** Tells the tool call being answered, if any, what it was served (lectures.ts): its answer says how fresh it is. */
   private noted<T>(key: string, freshSeconds: number, c: Cached<T>): Cached<T> {
     noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds });
     return c;
   }
 
-  /** The entry stored under `key`, however old, without loading it. `freshAfter` spares the tiers behind a recent enough one. */
+  /**
+   * The newest entry stored under `key`, however old, without loading it. `freshAfter` (a time, ms): an entry fetched
+   * since then in a faster store will do, so slower stores (the data center's cache, a subrequest each) are asked only
+   * otherwise.
+   */
   async peek<T>(key: string, freshAfter?: number): Promise<Cached<T> | undefined> {
     const hit = await this.store.get(key, freshAfter);
     return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.cost != null && { cost: hit.cost }) };

@@ -38,6 +38,15 @@ class EdgeLike extends MemoryStore {
   }
 }
 
+/** As EdgeLike, counting the reads of each key. */
+class ReadsByKey extends EdgeLike {
+  reads = new Map<string, number>();
+  async get(key: string) {
+    this.reads.set(key, (this.reads.get(key) ?? 0) + 1);
+    return super.get(key);
+  }
+}
+
 const isolate = (edge = new EdgeLike(), kv = new MemoryStore()) =>
   new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false, kv);
 
@@ -162,6 +171,38 @@ describe("home page", () => {
     const warm = await serve(isolate(edge), "/");
     expect(warm.text).toContain("Piton Maïdo");
     expect(warm.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+  });
+
+  it("reads no tile from the data center's cache on a warm isolate whose copies are fresh", async () => {
+    // Every tile's copy fresh in the data center's cache, as other isolates left them, and the weather's too.
+    const edge = new ReadsByKey();
+    for (const key of ["web:meteo", "web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"]) {
+      await edge.put(key, { value: {}, fetchedAt: NOW.getTime() });
+    }
+    const cache = isolate(edge);
+    // These copies are empty: the page is served without them (site.ts), only the reads matter here.
+    await serve(cache, "/");
+    const tileReads = () => [...edge.reads].filter(([k]) => k.startsWith("web:") && k !== "web:meteo").reduce((a, [, n]) => a + n, 0);
+    expect(tileReads()).toBe(17);
+    // The same isolate a minute later: the tiles from its memory.
+    edge.reads.clear();
+    await serve(cache, "/");
+    expect(tileReads()).toBe(0);
+  });
+
+  it("reads a page's copy from the data center's cache once, also when it is old and refreshed", async () => {
+    const edge = new ReadsByKey();
+    await isolate(edge).get("web:meteo", 3600, async () => ({ vieille: true }));
+    // An hour later in a new isolate: the copy is served, then built again after the response.
+    await edge.put("web:meteo", { value: (await edge.get("web:meteo"))!.value, fetchedAt: NOW.getTime() - 3600_000 });
+    edge.reads.clear();
+    const pending: Promise<unknown>[] = [];
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    await snapshot(isolate(edge), "web:meteo", async () => ({ neuve: true }), (p) => pending.push(p), NOW);
+    await Promise.all(pending);
+    errors.mockRestore();
+    expect(edge.reads.get("web:meteo")).toBe(1);
+    expect((await edge.get("web:meteo"))!.value).toEqual({ neuve: true });
   });
 
   it("still explains everything when no data is there yet", () => {

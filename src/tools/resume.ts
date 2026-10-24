@@ -343,7 +343,7 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
   const budget = left();
   let reads = 0;
   const [peeked, vig] = await Promise.all([
-    Promise.all(parts.map(([name, c]) => (name in held ? Promise.resolve(held[name] ?? undefined) : reads++ < budget ? cache.peek<any>(c.key).catch(() => undefined) : Promise.resolve(undefined)))),
+    Promise.all(parts.map(([name, c]) => (name in held ? Promise.resolve(held[name] ?? undefined) : reads++ < budget ? cache.peek<any>(c.key, now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined) : Promise.resolve(undefined)))),
     vigilance ?? (mf.enabled() ? mf.vigilance(cache).catch((err) => (console.error(`source ${mf.SOURCE.id} indisponible:`, why(err)), null)) : Promise.resolve(null)),
   ]);
   const copies: ResumeCopies = { vigilance: vig };
