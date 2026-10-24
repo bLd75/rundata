@@ -57,6 +57,7 @@ import og from "./og.json" with { type: "json" };
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures } from "./presse.js";
+import { avisPost } from "./avis.js";
 import * as traces from "../providers/traces.js";
 
 const HTML = {
@@ -185,6 +186,8 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   const origin = url.origin;
   const path = url.pathname;
 
+  // The feedback form at the bottom of every page (web/avis.ts).
+  if (path === "/avis") return avisPost(request, now);
   if (path === "/") {
     const [meteo, vigilance] = await Promise.all([
       snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
