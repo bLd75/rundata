@@ -13,7 +13,7 @@ import type { Cached } from "../cache.js";
 import { localTime } from "../geo.js";
 import type * as onf from "../providers/sentiers.js";
 import * as traces from "../providers/traces.js";
-import type * as volcan from "../providers/volcan.js";
+import * as volcan from "../providers/volcan.js";
 
 export const TITRE = "Puis-je monter au volcan ?";
 export const CHAPEAU = "Ce que disent les textes officiels, lieu par lieu.";
@@ -74,7 +74,7 @@ const LEAD = /^[→•▪\-–]\s*/;
 // lava flows from the road, the stops on the RN2.
 const BANS = [/reste interdit jusqu.à nouvel ordre/i, /danger mortel/i, /interdit de s.écarter de la route/i, /arrêts intempestifs sur la RN ?2/i];
 const hour = (d: Date) => localTime(d).split(" ")[1];
-const SAID: Record<string, string> = { ferme: "interdit", fermé: "interdit", partiel: "partiellement ouvert", ouvert: "ouvert" };
+const SAID: Record<string, string> = { ferme: "interdit", fermé: "interdit", ouvert: "ouvert" };
 
 /** A sentence as quoted: its linking words left out (« En conséquence, … »), no full stop inside the quotes. */
 function quote(s: string): string {
@@ -103,7 +103,11 @@ export function acces(niveau: string | undefined, p: volcan.Phase | undefined, p
     lignes.push({ lieu: "Enclos", texte: `Enclos : en phase de sauvegarde, « une réouverture partielle de l'enclos est possible » (${DSO}, p. 22). Ce qui est ouvert est dans le communiqué de la préfecture du ${dayOf(p.jour)}.`, lien: p.lien });
   } else {
     const enclos = said.find((x) => /enclos/i.test(x) && /interdit|ferm|ouvert|accès/i.test(x));
-    lignes.push({ lieu: "Enclos", texte: `Enclos : ${SAID[p.enclos ?? "ferme"] ?? p.enclos}${enclos ? `. ${quote(enclos)}` : ""}`, ...release });
+    // The release's own words on the Enclos when its title has them (marketing), never a status put into words; closed,
+    // « interdit », by order.
+    const mots = p.enclos === "ferme" ? undefined : volcan.enclosWords(p.titre);
+    const etat = mots ? `« ${mots} » selon le communiqué du ${dayOf(p.jour)}` : SAID[p.enclos ?? "ferme"] ?? p.enclos;
+    lignes.push({ lieu: "Enclos", texte: `Enclos : ${etat}${enclos ? `. ${quote(enclos)}` : ""}`, ...release });
     // The sentence that says whether the road is open, before any other naming it (« S'aventurer depuis la RN2… »).
     const rn2 = said.find((x) => /\bRN ?2\b[^.]*\b(reste|est) (ouverte|fermée)/i.test(x)) ?? said.find((x) => /\bRN ?2\b|route nationale 2/i.test(x));
     lignes.push(rn2

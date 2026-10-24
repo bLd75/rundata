@@ -155,6 +155,14 @@ export interface Phase {
 
 const ABOUT_VOLCANO = /fournaise|volcan|enclos|[ée]ruption/i;
 
+// What a release's title says of the Enclos, longest first: quoted as written, never a status mapped to words.
+const ENCLOS_WORDS = /r[ée]?ouverture partielle|partiellement r[ée]?ouvert\p{L}*|partiellement ferm\p{L}*|r[ée]?ouverture|fermeture|interdiction|interdit\p{L}*|r[ée]?ouvert\p{L}*|ferm[ée]\p{L}*/iu;
+
+/** The words of a release's title on the Enclos, as written (« réouverture partielle »), or undefined. */
+export function enclosWords(titre: string): string | undefined {
+  return ENCLOS_WORDS.exec(titre)?.[0];
+}
+
 /** The phase the newest release about the volcano declares, or undefined when it declares none. */
 export function phaseOf(releases: Info[]): Phase | undefined {
   // The newest release that declares a phase: a later one about the volcano may declare none (a visit, a reminder).

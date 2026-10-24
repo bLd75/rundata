@@ -92,8 +92,9 @@ describe("pitonlive higher than the prefecture's release: both said, the release
     expect(v.puis_je_monter?.lignes.some((l) => l.lieu === "Interdiction" || /éruption/i.test(ours(l.texte)))).toBe(false);
     expect(v.sources.map((s) => s.source)).toContain("Communiqués de presse de la préfecture de La Réunion");
     // The Enclos as the release says it, never pitonlive's older word (its access still cites the decree of 7 May).
-    expect(v.etat?.acces_enclos).toMatchObject({ statut: "ferme", source: "Préfecture de La Réunion", lien: LIEN });
-    expect(v.resume).toContain("Accès à l'Enclos : fermé (Préfecture de La Réunion).");
+    expect(v.etat?.acces_enclos).toMatchObject({ statut: "ferme", source: "Préfecture de La Réunion", lien: LIEN, communique: { mots: "fermeture", jour: "2026-10-24", lien: LIEN } });
+    expect(v.resume).toContain("Accès à l'Enclos : « fermeture » selon le communiqué de la préfecture du 24/10.");
+    expect(v.resume).not.toContain("interdit selon le communiqué");
     expect(v.resume).not.toMatch(/partiellement ouvert|2026-627/);
 
     // Of ours, in the level, the release's line and the accesses: no « éruption », no « depuis » of a time, no hour.
