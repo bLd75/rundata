@@ -19,7 +19,6 @@ import {
   DATAGOUV_REUSE,
   deg,
   FACEBOOK,
-  fresh,
   GITHUB,
   GLAMA,
   hm,
@@ -87,8 +86,8 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
   };
 }
 
-function askHome(origin: string, now: Date): string {
-  const url = fresh(`${origin}/`, now);
+function askHome(origin: string): string {
+  const url = `${origin}/`;
   return ask(`Kosa i spas La Rényon astèr ? Rogard si ${url} é di amwin lo tan, lo volkan, lo kouran é lo bis.`,
     `Que se passe-t-il en ce moment à La Réunion ? Lis ${url} et résume-moi la météo, la vigilance, le volcan, l'électricité, l'air et les bus, avec l'heure des données.`);
 }
@@ -235,7 +234,7 @@ function assistant(origin: string, h: HomeLive | null, now: Date): string {
   <div class="sec-h"><p class="eyebrow">Comment ça marche</p>
     <h2 id="h-assistant">Branché en 2 minutes, gratuit, sans compte</h2>
     <p>Le connecteur suit le protocole ouvert MCP (Model Context Protocol), compris par la plupart des assistants IA. Aucune donnée personnelle n'est collectée.</p></div>
-  <div class="duo"><div class="card easy">${askHome(origin, now)}</div>${chatDemo(h, now)}</div>
+  <div class="duo"><div class="card easy">${askHome(origin)}</div>${chatDemo(h, now)}</div>
   <p class="or">Ou branchez le connecteur une fois pour toutes, pour que votre IA aille chercher les données toute seule :</p>
   <ol class="steps">
     <li class="card step"><span class="num">1</span><h3>Copiez l'adresse</h3>${connector(origin, "mcp-url")}</li>
