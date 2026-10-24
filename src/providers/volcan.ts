@@ -119,8 +119,8 @@ export interface Phase {
   enclos?: "ferme" | "partiel" | "ouvert";
   titre: string;
   lien: string;
-  /** The day of the release, ISO (noon, La Réunion's time: the hour is not given). */
-  publie: string;
+  /** The day of the release, La Réunion's, « 2026-10-24 »: the prefecture gives no hour, and none is made up. */
+  jour: string;
   /** The sentences of the release's page, as written (`releaseText`), kept with the phase. */
   phrases?: string[];
 }
@@ -170,8 +170,21 @@ function declared(r: Info): Phase | undefined {
       : /fermeture|ferm[ée]/i.test(t) || /^(Alerte|Sauvegarde)/.test(niveau)
         ? "ferme"
         : undefined;
-  return { niveau, eruption, enclos, titre: t, lien: r.lien, publie: r.publie };
+  return { niveau, eruption, enclos, titre: t, lien: r.lien, jour: localDay(r.publie) };
 }
+
+/** The day of La Réunion of an instant, « 2026-10-24 ». */
+const localDay = (iso: string) => new Date(Date.parse(iso) + 4 * 3600_000).toISOString().slice(0, 10);
+
+/** A phase kept or cached by an earlier version, its day an instant (`publie`, noon of La Réunion), given its `jour`. */
+function withDay(p: Phase & { publie?: string }): Phase {
+  if (p.jour || !p.publie) return p;
+  const { publie, ...rest } = p;
+  return { ...rest, jour: localDay(publie) };
+}
+
+/** The first instant of the release's day: what is more recent than a release is so from its day's start. */
+export const dayStart = (jour: string) => Date.parse(`${jour}T00:00:00+04:00`);
 
 // The last phase the prefecture declared, kept in the durable store (the Worker's KV), whose keys outlive a deploy: a
 // cold cache, a prefecture slow or down, or a release gone from its list of the latest must never leave pitonlive's
@@ -186,7 +199,8 @@ const known = new WeakMap<Cache, { phase: Cached<Phase> | undefined; at: number 
 async function keptPhase(cache: Cache, now: number): Promise<Cached<Phase> | undefined> {
   const k = known.get(cache);
   if (k && now - k.at < KEPT_MEMORY_MS) return k.phase;
-  const phase = await cache.kept<Phase>(LAST_PHASE).catch(() => undefined);
+  const kept = await cache.kept<Phase>(LAST_PHASE).catch(() => undefined);
+  const phase = kept && { ...kept, value: withDay(kept.value) };
   known.set(cache, { phase, at: now });
   return phase;
 }
@@ -279,10 +293,10 @@ async function readPhase(cache: Cache): Promise<Cached<Phase | null>> {
 export async function phase(cache: Cache, now = Date.now()): Promise<Cached<Phase | null>> {
   const read = await readPhase(cache).catch((err: unknown) => ({ err }));
   if ("value" in read && read.value) {
-    const p = read.value;
+    const p = withDay(read.value);
     // After the answer: the answer never waits for the durable store.
     if (!read.stale) later(keepPhase(cache, p, now).catch((err) => console.error("volcan : phase non gardée", err)));
-    return read;
+    return { ...read, value: p };
   }
   const kept = await keptPhase(cache, now);
   if (kept) return kept;
