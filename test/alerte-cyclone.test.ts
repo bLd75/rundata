@@ -17,7 +17,7 @@ const bulletin = (cyclone: [number, string][]) =>
   mf.parse({ update_time: at("2026-10-24T06:00:00"), timelaps: { domain_ids: [{ domain_id: mf.ISLAND, phenomenon_items: [{ phenomenon_id: mf.CYCLONE, timelaps_items: cyclone.map(([color_id, b]) => ({ color_id, begin_time: at(b) })) }] }] } });
 const page = (v: mf.Vigilance, decision?: Cyclone) => alertePage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW, undefined, decision);
 const LEVEE = "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Levee";
-const lifted = (reouverture?: Cyclone["reouverture"]): Cyclone => ({ decision: { niveau: "levee", titre: "Levée de l'alerte cyclonique", lien: LEVEE, publie: "2026-10-24T08:00:00Z" }, reouverture });
+const lifted = (reouverture?: Cyclone["reouverture"]): Cyclone => ({ decision: { niveau: "levee", titre: "Levée de l'alerte cyclonique", lien: LEVEE, jour: "2026-10-24" }, reouverture });
 
 describe("/alerte-cyclone, the plan step by step", () => {
   it("has a section per step, in marketing's order, each line with its page of the plan", () => {
@@ -84,7 +84,7 @@ describe("/alerte-cyclone when the alert is lifted", () => {
 
   it("takes /ecoles-cyclone's sentences when a release of the prefecture says the end, or the reopening", () => {
     expect(page(over, lifted())).toContain(`<b>Alerte levée, d&#39;après le communiqué de la préfecture du samedi 24/10 : <a href="${LEVEE}" rel="noopener">« Levée de l&#39;alerte cyclonique » →</a> La réouverture des écoles`);
-    const reopen = { titre: "Réouverture des établissements scolaires lundi", lien: "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Reouverture", publie: "2026-10-24T08:00:00Z" };
+    const reopen = { titre: "Réouverture des établissements scolaires lundi", lien: "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Reouverture", jour: "2026-10-24" };
     expect(page(over, lifted(reopen))).toContain(`<b>Alerte levée. Réouverture des écoles annoncée par la préfecture le samedi 24/10 : <a href="${reopen.lien}" rel="noopener">« ${reopen.titre} » →</a>`);
   });
 

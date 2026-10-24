@@ -49,11 +49,15 @@ export interface Decision {
   titre: string;
   lien: string;
   /**
-   * The day of the release, ISO (noon, La Réunion's time: the list gives no hour). The day it was published, not
-   * always the day decided: an alert is often announced the day before, « à compter de 5h ». The hour is in the title.
+   * The day of the release, La Réunion's, « 2026-10-24 »: the list gives no hour, and none is made up. The day it was
+   * published, not always the day decided: an alert is often announced the day before, « à compter de 5h ». The hour
+   * is in the title.
    */
-  publie: string;
+  jour: string;
 }
+
+/** The day of La Réunion of an instant, « 2026-10-24 ». */
+const localDay = (iso: string) => new Date(Date.parse(iso) + 4 * 3600_000).toISOString().slice(0, 10);
 
 const ABOUT_CYCLONE = /cyclon|pr[ée][\s-]?alerte|alerte\s+(?:jaune|orange|rouge|violette)|phase\s+de\s+sauvegarde/i;
 // A title that declares a step, not one that speaks of it in passing (« La couleur jaune associée à la pré-alerte
@@ -90,7 +94,7 @@ function declared(r: Info): Decision | undefined {
               ? 2
               : undefined;
   if (niveau === undefined) return undefined;
-  return { niveau, titre: t, lien: r.lien, publie: r.publie };
+  return { niveau, titre: t, lien: r.lien, jour: localDay(r.publie) };
 }
 
 /** The decision of the newest release about the cyclone alert that declares one. */
@@ -107,15 +111,25 @@ const SCHOOLS = /[ée]coles?|[ée]tablissements\s+scolaires|cr[èe]ches?|coll[è
 // « Réouverture des écoles reportée », « maintien de la fermeture »: in doubt, no reopening is read.
 const NOT_YET = /report|maintien|rest(?:ent|e)\s+ferm|pas\s+de\s+r[ée]ouverture|fermeture/i;
 
-/** The newest release that says the schools reopen, published on or after `since` (the end of the alert). */
+/** The newest release that says the schools reopen, published on or after the day `since` (the end of the alert's). */
 export function reopeningOf(list: Info[], since: string): Info | undefined {
-  return list.filter((x) => x.publie >= since && REOPENING.test(x.titre) && SCHOOLS.test(x.titre) && !NOT_YET.test(x.titre)).sort((a, b) => b.publie.localeCompare(a.publie))[0];
+  return list.filter((x) => localDay(x.publie) >= since && REOPENING.test(x.titre) && SCHOOLS.test(x.titre) && !NOT_YET.test(x.titre)).sort((a, b) => b.publie.localeCompare(a.publie))[0];
 }
 
 export interface Cyclone {
   decision: Decision;
   /** The release that says the schools reopen, after an end of alert only. */
-  reouverture?: { titre: string; lien: string; publie: string };
+  reouverture?: { titre: string; lien: string; jour: string };
+}
+
+type Dated = { jour?: string; publie?: string };
+/** A decision kept by an earlier version, its days instants (`publie`, noon of La Réunion), given their `jour`. */
+function withDay(c: Cyclone): Cyclone {
+  const day = <T extends Dated>(x: T): Omit<T, "publie"> & { jour: string } => {
+    const { publie, ...rest } = x;
+    return { ...rest, jour: x.jour ?? localDay(publie!) };
+  };
+  return { decision: day(c.decision as Decision & Dated) as Decision, ...(c.reouverture && { reouverture: day(c.reouverture as Cyclone["reouverture"] & Dated) as Cyclone["reouverture"] }) };
 }
 
 // The last decision read, kept in the durable store whose keys outlive a deploy: a cold cache, a prefecture slow or
@@ -126,8 +140,8 @@ const KEEP_AGAIN_MS = 24 * 3600_000;
 function cycloneOf(list: Info[]): Cyclone | null {
   const decision = decisionOf(list);
   if (!decision) return null;
-  const r = decision.niveau === "levee" ? reopeningOf(list, decision.publie) : undefined;
-  return { decision, reouverture: r ? { titre: r.titre, lien: r.lien, publie: r.publie } : undefined };
+  const r = decision.niveau === "levee" ? reopeningOf(list, decision.jour) : undefined;
+  return { decision, reouverture: r ? { titre: r.titre, lien: r.lien, jour: localDay(r.publie) } : undefined };
 }
 
 /** The newest decision the releases declare; else the last one kept, as old as it is; null when there is none. */
@@ -147,7 +161,7 @@ export async function cyclone(cache: Cache, now = Date.now()): Promise<Cached<Cy
     return read;
   }
   const kept = await cache.kept<Cyclone>(LAST).catch(() => undefined);
-  if (kept) return kept;
+  if (kept) return { ...kept, value: kept.value && withDay(kept.value) };
   if ("err" in read) throw read.err;
   return read;
 }
