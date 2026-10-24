@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- rundata.re s'installe sur votre téléphone : une icône, et les pages déjà ouvertes restent lisibles sans réseau.
 - Au-dessus ou dans les nuages ? La mer de nuages prévue demain matin au Maïdo, au Piton des Neiges, au volcan et dans les Hauts.
 - Route du Littoral basculée ou fermée ? Ce qu'annoncent les médias, avec l'heure de l'article, sur /trafic et dans votre IA.
 - Coupures d'électricité : les avis d'EDF publiés par la mairie de Saint-André s'ajoutent à ceux de Sainte-Marie, Saint-Philippe et Cilaos.

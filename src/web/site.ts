@@ -75,7 +75,8 @@ import { communeRss } from "./rss.js";
 import { FEUX_PATH, feuxPage } from "./feux.js";
 import * as feux from "../providers/feux.js";
 import { readCopies, resume } from "../tools/resume.js";
-import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
+import { FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, vigilancePage } from "./pages.js";
+import { OFFLINE_PATH, serviceWorker, SW_PATH } from "./pwa.js";
 import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures } from "./presse.js";
 import { avisPost } from "./avis.js";
@@ -158,6 +159,7 @@ const rebuild = (cache: Cache, key: string, build: () => Promise<unknown>) => ()
 const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 let ogBytes: Uint8Array<ArrayBuffer> | undefined;
 let fontBytes: Uint8Array<ArrayBuffer> | undefined;
+let swText: string | undefined;
 let reliefBytes: Uint8Array<ArrayBuffer> | undefined;
 
 /** The domain pages: built from a tool's answer, kept like the other pages (web/data.ts). */
@@ -462,6 +464,15 @@ async function pages(request: Request, cache: Cache, background: Background, now
       headers: { "content-type": "font/woff2", "cache-control": "public, max-age=31536000, immutable" },
     });
   }
+  if (path === SW_PATH) {
+    // Checked again at each visit: a new version reaches the phones at once (web/pwa.ts).
+    return new Response((swText ??= serviceWorker([FONT_PATH, RELIEF_PATH, "/favicon.svg", icons["192"]])), {
+      headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache", "x-content-type-options": "nosniff" },
+    });
+  }
+  if (path === OFFLINE_PATH) {
+    return new Response(offlinePage(origin), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
   if (path === "/manifest.webmanifest") {
     return new Response(JSON.stringify(manifest()), { headers: { "content-type": "application/manifest+json; charset=utf-8", "cache-control": "public, max-age=86400" } });
   }
@@ -473,13 +484,14 @@ async function pages(request: Request, cache: Cache, background: Background, now
 
 /**
  * What a phone needs to keep the site on its home screen, like an app: its name, its icons (scripts/build-icons.py)
- * and where it opens, `?ref=pwa` so that the visits from the icon are counted apart (src/metrics.ts).
+ * and where it opens, `?ref=pwa` so that the visits from the icon are counted apart (src/metrics.ts); a long press
+ * on the icon opens the pages most used away from network.
  */
 export function manifest() {
   return {
-    name: "rundata.re",
+    name: "rundata.re · La Réunion en direct",
     short_name: "rundata.re",
-    description: "La Réunion en direct : météo mesurée, vigilance, mer, routes, bus, randonnée, sorties.",
+    description: "Météo mesurée, vigilance, volcan, routes, sentiers : La Réunion en direct, gratuit et sans compte.",
     lang: "fr",
     start_url: "/?ref=pwa",
     scope: "/",
@@ -491,6 +503,11 @@ export function manifest() {
       { src: icons["512"], sizes: "512x512", type: "image/png", purpose: "any maskable" },
       { src: "/favicon.svg", sizes: "any", type: "image/svg+xml" },
     ],
+    shortcuts: [
+      { name: "Météo", url: "/meteo?ref=pwa" },
+      { name: "Vigilance", url: "/vigilance?ref=pwa" },
+      { name: "Randonnées", url: "/randonnees?ref=pwa" },
+    ].map((s) => ({ ...s, icons: [{ src: icons["192"], sizes: "192x192", type: "image/png" }] })),
   };
 }
 

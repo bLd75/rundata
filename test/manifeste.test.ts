@@ -14,7 +14,7 @@ const O = "https://rundata.re";
 describe("on a phone's home screen", () => {
   it("has a manifest that opens the home page counted apart, with the flag's icons", async () => {
     const m = manifest();
-    expect(m).toMatchObject({ name: "rundata.re", start_url: "/?ref=pwa", display: "standalone", lang: "fr" });
+    expect(m).toMatchObject({ name: "rundata.re · La Réunion en direct", short_name: "rundata.re", start_url: "/?ref=pwa", display: "standalone", lang: "fr" });
     for (const i of m.icons.filter((x) => x.type === "image/png")) expect(existsSync(new URL(`../public${i.src}`, import.meta.url))).toBe(true);
     const r = await site(new Request(`${O}/manifest.webmanifest`), new Cache(new MemoryStore(), () => NOW.getTime()), () => {}, NOW);
     expect(r!.headers.get("content-type")).toBe("application/manifest+json; charset=utf-8");
