@@ -7,10 +7,13 @@
   OpenStreetMap data, ODbL: « © les contributeurs d'OpenStreetMap ».
 - The trails of the ONF (the layer of src/providers/sentiers.ts), at full resolution once: their length, climb, descent
   and lowest and highest points. Their lines are not kept: the server reads each from the ONF when asked, with its state.
-Usage: python3 -I scripts/build-traces.py
+Usage: python3 -I scripts/build-traces.py [--cache DIR]
+  --cache DIR keeps every response in DIR and reads it back on the next run: to rebuild without asking the sources again.
 """
+import hashlib
 import json
 import math
+import sys
 import re
 import time
 import unicodedata
@@ -29,17 +32,32 @@ ALTI_MAX = 5000
 # A climb or descent counts once it exceeds this: the ground model's noise is not a climb.
 STEP_M = 10
 SIMPLIFY_M = 5
-# An ONF trail is on a route when most of its points are this close to the route.
+# An ONF trail is on a route when most of it, or a good stretch of it, lies this close to the route: a short trail the
+# route takes whole, a long one it follows for a while. A trail that only crosses the route, or runs beside it farther
+# off, is not on it.
 ON_ROUTE_M = 30
 ON_ROUTE_SHARE = 0.6
+ON_ROUTE_MIN_M = 200
+# The stretches of a route along one of its ONF trails, shorter than this, are crossings: not kept.
+PORTION_MIN_M = 50
+
+
+CACHE = None
 
 
 def fetch(url, data=None, headers=None, timeout=300):
+    if CACHE:
+        key = CACHE / (hashlib.sha256(url.encode() + (data or b"")).hexdigest() + ".json")
+        if key.exists():
+            return json.loads(key.read_text())
     req = urllib.request.Request(url, data=data, headers={**UA, **(headers or {})})
     for attempt in range(4):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
-                return json.load(r)
+                body = json.load(r)
+            if CACHE:
+                key.write_text(json.dumps(body))
+            return body
         except Exception:
             if attempt == 3:
                 raise
@@ -195,20 +213,67 @@ def overlaps(a, b):
     return a[0] <= b[2] and b[0] <= a[2] and a[1] <= b[3] and b[1] <= a[3]
 
 
-def grid(points, cell=0.0005):
-    g = {}
-    for p in points:
-        g.setdefault((int(p[0] / cell), int(p[1] / cell)), []).append(p)
-    return g, cell
+def seg_dist_m(p, a, b):
+    """Distance in m from p to the segment a-b, on a flat projection around p."""
+    k = math.cos(math.radians(p[1]))
+    ax, ay = (a[0] - p[0]) * k, a[1] - p[1]
+    bx, by = (b[0] - p[0]) * k, b[1] - p[1]
+    dx, dy = bx - ax, by - ay
+    t = 0 if dx == dy == 0 else max(0, min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy)))
+    return math.hypot(ax + t * dx, ay + t * dy) * math.pi / 180 * 6371000
 
 
-def near(g, p, m):
-    cells, cell = g
-    cx, cy = int(p[0] / cell), int(p[1] / cell)
-    return any(dist_m(p, q) <= m for dx in (-1, 0, 1) for dy in (-1, 0, 1) for q in cells.get((cx + dx, cy + dy), ()))
+class Lines:
+    """The segments of some lines, by cell of a grid: how close a point is to them, whatever the spacing of their points."""
+
+    def __init__(self, lines, cell=0.0005):
+        self.cell, self.cells = cell, {}
+        for line in lines:
+            for a, b in zip(line, line[1:]):
+                for cx in range(math.floor(min(a[0], b[0]) / cell), math.floor(max(a[0], b[0]) / cell) + 1):
+                    for cy in range(math.floor(min(a[1], b[1]) / cell), math.floor(max(a[1], b[1]) / cell) + 1):
+                        self.cells.setdefault((cx, cy), []).append((a, b))
+
+    def near(self, p, m):
+        # A cell is about 50 m wide: its neighbours hold every segment within ON_ROUTE_M.
+        cx, cy = math.floor(p[0] / self.cell), math.floor(p[1] / self.cell)
+        return any(seg_dist_m(p, a, b) <= m for dx in (-1, 0, 1) for dy in (-1, 0, 1) for a, b in self.cells.get((cx + dx, cy + dy), ()))
+
+
+def along(paths, lines):
+    """How many metres of the paths lie within ON_ROUTE_M of the lines, and their whole length."""
+    on = total = 0.0
+    for seg in paths:
+        close = [lines.near(p, ON_ROUTE_M) for p in seg]
+        for i in range(1, len(seg)):
+            d = dist_m(seg[i - 1], seg[i])
+            total += d
+            if close[i - 1] and close[i]:
+                on += d
+    return on, total
+
+
+def portions(pieces, lines):
+    """The stretches of the route's pieces along the lines, as [piece, first point, last point]; crossings left out."""
+    out = []
+    for k, piece in enumerate(pieces):
+        close = [lines.near(p, ON_ROUTE_M) for p in piece] + [False]
+        start = None
+        for i, c in enumerate(close):
+            if c and start is None:
+                start = i
+            elif not c and start is not None:
+                if i - 1 > start and sum(dist_m(piece[j], piece[j + 1]) for j in range(start, i - 1)) >= PORTION_MIN_M:
+                    out.append([k, start, i - 1])
+                start = None
+    return out
 
 
 def main():
+    global CACHE
+    if "--cache" in sys.argv:
+        CACHE = Path(sys.argv[sys.argv.index("--cache") + 1])
+        CACHE.mkdir(parents=True, exist_ok=True)
     print("ONF…")
     trails = onf_trails()
     names = sorted(trails)
@@ -239,7 +304,7 @@ def main():
     print("OpenStreetMap…")
     query = '[out:json][timeout:180];area["ISO3166-2"="FR-974"]->.a;rel(area.a)["route"="hiking"];out geom;'
     rels = fetch(OVERPASS, urllib.parse.urlencode({"data": query}).encode())["elements"]
-    onf_grids = {n: [p for seg in trails[n]["paths"] for p in seg] for n in names}
+    onf_points = {n: [p for seg in trails[n]["paths"] for p in seg] for n in names}
     randonnees, used = [], set()
     for r in sorted(rels, key=lambda r: r["tags"].get("name", "")):
         t = r["tags"]
@@ -251,14 +316,14 @@ def main():
         if not pieces:
             continue
         full = [p for piece in pieces for p in piece]
-        g = grid(full)
+        route = Lines(pieces)
         box = bbox(full, 0.001)
         on = []
-        for n, pts in onf_grids.items():
+        for n, pts in onf_points.items():
             if not pts or not overlaps(bbox(pts, 0), box):
                 continue
-            sample = pts[::3] or pts
-            if sample and sum(near(g, p, ON_ROUTE_M) for p in sample) / len(sample) >= ON_ROUTE_SHARE:
+            m, total = along(trails[n]["paths"], route)
+            if total and (m / total >= ON_ROUTE_SHARE or m >= ON_ROUTE_MIN_M):
                 on.append(n)
         simple = [simplify(p, SIMPLIFY_M) for p in pieces]
         z = elevations([p for piece in simple for p in piece])
@@ -268,6 +333,7 @@ def main():
             i += len(piece)
         up, down = climb(segs_z)
         alts = [v for v in z if v is not None]
+        stretches = {n: portions(simple, Lines(trails[n]["paths"])) for n in on}
         s = slug(name)
         while s in used:
             s += "-2"
@@ -285,6 +351,8 @@ def main():
             **({"alt_min": min(alts), "alt_max": max(alts)} if alts else {}),
             "boucle": len(pieces) == 1 and dist_m(pieces[0][0], pieces[0][-1]) < 150,
             "sentiers_onf": sorted(on),
+            # Where on the route each ONF trail is: a closure drawn on the route's own line, its start marked in the GPX.
+            "portions": {n: v for n, v in sorted(stretches.items()) if v},
             "lignes": [encode(p) for p in simple],
             "altitudes": segs_z,
         })

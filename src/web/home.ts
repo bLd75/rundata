@@ -8,7 +8,7 @@ import type * as mf from "../providers/vigilance.js";
 import brand from "./brand.json" with { type: "json" };
 import { CATEGORIES, type Category } from "./categories.js";
 import type { AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer } from "./data.js";
-import { airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, sentiersLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
+import { airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import {
@@ -70,7 +70,7 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
     velos: velosLive(h?.velos ?? null),
     bornes: bornesLive(h?.bornes ?? null),
     eau: eauLive(h?.eau ?? null),
-    sentiers: sentiersLive(h?.sentiers ?? null),
+    sentiers: randonneesLive(h?.sentiers ?? null),
     secheresse: secheresseLive(h?.secheresse ?? null),
     coupures: coupuresLive(h?.coupures ?? null),
     sport: sportLive(h?.sport ?? null),

@@ -66,6 +66,8 @@ export function islandMap(opts: {
   fills?: Record<string, string>;
   /** The hero's island: the real relief (IGN altitudes, shaded), a lagoon glow along the coast, the two volcanoes marked. */
   relief?: boolean;
+  /** Drawn over the land, under the markers: lines. */
+  overlay?: string;
   label: string;
 }): string {
   const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
@@ -111,7 +113,74 @@ export function islandMap(opts: {
     `<defs><g id="isl">${paths}</g>${terrain ? `<clipPath id="isl-clip">${paths}</clipPath>` : ""}</defs>` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>` +
     `<use href="#isl" class="coast"/>${land}<use href="#isl" class="borders"/>` +
-    extra + (opts.markers ?? []).map(marker).join("") + `</svg>`;
+    (opts.overlay ?? "") + extra + (opts.markers ?? []).map(marker).join("") + `</svg>`;
+}
+
+// ---------------------------------------------------------------- every hike and trail of the island
+
+/** Douglas-Peucker on projected points: what the island's map can show of a line. */
+function thin(xy: [number, number][], tol: number): [number, number][] {
+  if (xy.length < 3) return xy;
+  const keep = new Uint8Array(xy.length);
+  keep[0] = keep[xy.length - 1] = 1;
+  const stack: [number, number][] = [[0, xy.length - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop()!;
+    const [x1, y1] = xy[a];
+    const [x2, y2] = xy[b];
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    let best = 0;
+    let at = -1;
+    for (let i = a + 1; i < b; i++) {
+      const [x, y] = xy[i];
+      const d = len ? Math.abs((y2 - y1) * (x - x1) - (x2 - x1) * (y - y1)) / len : Math.hypot(x - x1, y - y1);
+      if (d > best) [best, at] = [d, i];
+    }
+    if (at >= 0 && best > tol) {
+      keep[at] = 1;
+      stack.push([a, at], [at, b]);
+    }
+  }
+  return xy.filter((_, i) => keep[i]);
+}
+
+/** A line in the island's coordinates, about a unit (70 m) apart, relative moves: a few bytes a point. */
+export function pathOf(points: [number, number][], tol = 0.6): string {
+  const xy = thin(points.map(([lon, lat]) => exact(lon, lat) as [number, number]), tol).map(([x, y]) => [Math.round(x), Math.round(y)]);
+  const out: string[] = [];
+  let [px, py] = xy[0] ?? [0, 0];
+  for (const [x, y] of xy.slice(1)) {
+    if (x === px && y === py) continue;
+    out.push(`${x - px} ${y - py}`);
+    [px, py] = [x, y];
+  }
+  return out.length ? `M${xy[0][0]} ${xy[0][1]}l${out.join(" ").replace(/ -/g, "-")}` : "";
+}
+
+export interface HikeLine {
+  k: string;
+  genre: "randonnee" | "sentier";
+  etat: string;
+  d: string;
+  href: string;
+  nom: string;
+}
+
+/**
+ * The island in relief with every hike and ONF trail: the trails open or unknown first, the hikes over them, the
+ * closed trails on top so that no closure is hidden. `data-k` ties each line to its entry in the list below the map,
+ * for the filter and for a click on it.
+ */
+export function hikesMap(lines: HikeLine[], label: string): string {
+  const cls = (l: HikeLine) => (l.genre === "randonnee" ? "rte" : `trk ${l.etat === "fermé" ? "ferme" : l.etat || "inconnu"}`);
+  // A link and a name on each of the few hundred lines would weigh more than the lines: the hikes get a name, and the
+  // page's script opens the page of the line clicked, from the list.
+  const draw = (l: HikeLine) => `<path class="${cls(l)}" data-k="${l.k}" d="${l.d}">${l.genre === "randonnee" ? `<title>${esc(l.nom)}</title>` : ""}</path>`;
+  const under = lines.filter((l) => l.genre === "sentier" && l.etat !== "fermé");
+  const routes = lines.filter((l) => l.genre === "randonnee");
+  const closed = lines.filter((l) => l.genre === "sentier" && l.etat === "fermé");
+  const svg = islandMap({ label, overlay: `<g class="lines">${[...under, ...routes, ...closed].map(draw).join("")}</g>` });
+  return svg.replace('<svg class="map terrain"', '<svg id="hmap" class="map terrain hikes"');
 }
 
 // ---------------------------------------------------------------- a trail, close up

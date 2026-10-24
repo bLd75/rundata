@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { decode, gpx, measure, RANDONNEES, routePieces, SENTIERS } from "../src/providers/traces.js";
-import { routesNamed, sentiersRandonnee } from "../src/tools/sentiers.js";
+import { decode, gpx, measure, portionsOf, RANDONNEES, routePieces, SENTIERS } from "../src/providers/traces.js";
+import { routesNamed, secteur, sentiersRandonnee } from "../src/tools/sentiers.js";
 
 // The ONF's map on 24/10/2026 (test/fixtures/onf), one trail of it at full resolution (one point in twenty kept) with
 // its altitudes from the IGN, and the hikes of OpenStreetMap bundled in src/traces/traces.json.
@@ -16,9 +16,19 @@ const BOT = { headers: { "user-agent": "Googlebot" } };
 describe("traces GPS", () => {
   let asked: string[];
   let down: RegExp | undefined;
+  // The ONF trails to show closed, whatever the map of the day says.
+  let shut: RegExp | undefined;
+  const map = () => {
+    const m = JSON.parse(fixture("onf/sentiers.json"));
+    for (const f of m.features) {
+      if (shut?.test(String(f.attributes.WS_NomIti))) Object.assign(f.attributes, { WS_Statut: "Sentier fermé", WS_InfCaus: "Éboulement", WS_InfDate: "Réouverture prévue le 15/11/2026" });
+    }
+    return JSON.stringify(m);
+  };
   beforeEach(() => {
     asked = [];
     down = undefined;
+    shut = undefined;
     vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
       asked.push(url);
       if (down?.test(url)) return new Response("", { status: 503 });
@@ -27,7 +37,7 @@ describe("traces GPS", () => {
         return new Response(fixture("traces/ign_le-bloc-piton-des-neiges.json"));
       }
       if (url.includes("/5/query") && url.includes("WS_NomIti+IN")) return new Response(fixture("traces/onf_le-bloc-piton-des-neiges.json"));
-      if (url.includes("/5/query")) return new Response(fixture("onf/sentiers.json"));
+      if (url.includes("/5/query")) return new Response(map());
       if (url.includes("/4/query")) return new Response(fixture("onf/routes.json"));
       if (url.includes("arcgis")) return new Response(fixture("onf/couche.json"));
       return new Response("", { status: 404 });
@@ -138,6 +148,82 @@ describe("traces GPS", () => {
     expect(trail).toContain("Ouvert d'après l'ONF");
     expect(trail).toContain(`<a href="/randonnees/sentier-du-piton-des-neiges">Sentier du Piton des Neiges</a>`);
     expect((await handle(new Request("https://rundata.re/sentiers/nulle-part.gpx"), cache())).status).toBe(404);
+  });
+
+  it("warns first, everywhere, when a hike crosses a closed trail", async () => {
+    shut = /^Le Bloc - Piton des Neiges$/;
+    const bloc = "Le Bloc - Piton des Neiges";
+    const r2 = RANDONNEES.find((r) => r.slug === "gr-r2")!;
+    expect(r2.sentiers_onf).toContain(bloc);
+
+    // The tool: the closure opens the summary, and has its own field.
+    const b = body(await sentiersRandonnee(cache(), "la trace du GR R2", NOW));
+    expect(b.resume).toMatch(/^ATTENTION : GR R2 emprunte \d+ sentiers? fermés? : .*Le Bloc - Piton des Neiges \(Éboulement\)/);
+    expect(b.avertissement.sentiers_fermes).toContainEqual({
+      sentier: bloc, cause: "Éboulement", reouverture: "Réouverture prévue le 15/11/2026",
+      page: "https://rundata.re/sentiers/le-bloc-piton-des-neiges", randonnees: ["GR R2"],
+    });
+
+    // The GPX: a waypoint where the hike enters the closed trail, before the track.
+    const g = await (await handle(new Request("https://rundata.re/randonnees/gr-r2.gpx"), cache())).text();
+    const start = portionsOf(r2, bloc)[0][0];
+    expect(g).toContain(`<wpt lat="${start.lat}" lon="${start.lon}"><ele>${start.ele}</ele><name>FERMÉ : Le Bloc - Piton des Neiges – Éboulement</name>` +
+      `<desc>Sentier fermé d'après la carte de l'ONF : Éboulement (Réouverture prévue le 15/11/2026). S'y engager est interdit.</desc><sym>Danger Area</sym><type>danger</type></wpt>`);
+    expect(g.indexOf("<wpt")).toBeLessThan(g.indexOf("<trk>"));
+
+    // The hike's page: a red band above the map and the download, the closed stretch drawn on the map.
+    const page = await (await handle(new Request("https://rundata.re/randonnees/gr-r2", BOT), cache())).text();
+    expect(page).toContain("Attention : ");
+    expect(page).toMatch(/<li><a href="\/sentiers\/le-bloc-piton-des-neiges">Le Bloc - Piton des Neiges<\/a> : Éboulement · Réouverture prévue le 15\/11\/2026<\/li>/);
+    expect(page.indexOf("alarm-band")).toBeLessThan(page.indexOf("Télécharger le GPX"));
+    expect(page.indexOf("alarm-band")).toBeLessThan(page.indexOf(`<svg class="map terrain zoom"`));
+    expect(page).toContain(`<path class="trk ferme"`);
+    expect(page).toContain(`<a href="/randonnees">Randonnée</a>`);
+
+    // The hikers' page: the card says it, and the closures are listed above the hikes.
+    const hub = await (await handle(new Request("https://rundata.re/randonnees", BOT), cache())).text();
+    const card = hub.slice(hub.indexOf(`<a href="/randonnees/gr-r2">GR R2</a></h3>`) - 300, hub.indexOf(`href="/randonnees/gr-r2.gpx"`));
+    expect(card).toContain(`class="card hike closed"`);
+    expect(card).toContain(`<a href="/sentiers/le-bloc-piton-des-neiges">Le Bloc - Piton des Neiges</a> : Éboulement`);
+    expect(hub).toMatch(/\d+ itinéraires coupés par une fermeture<\/h3>/);
+
+    // The closures' page: the closed trail with the hikes it cuts.
+    const list = await (await handle(new Request("https://rundata.re/sentiers", BOT), cache())).text();
+    expect(list).toMatch(/Coupe : (<a href="\/randonnees\/[a-z0-9-]+">[^<]+<\/a>, )*<a href="\/randonnees\/gr-r2">GR R2<\/a>/);
+    expect(list).toContain(`<a class="btn sun" href="/randonnees">`);
+  });
+
+  it("finds hikes by length and climb around a place", async () => {
+    const b = body(await sentiersRandonnee(cache(), "Cilaos", NOW, { longueur_min_km: 5, longueur_max_km: 15 }));
+    for (const r of b.autour.randonnees_avec_trace ?? []) expect(r.longueur_km).toBeGreaterThanOrEqual(5);
+    for (const s of b.autour.sentiers_ouverts) expect(s.longueur_km).toBeLessThanOrEqual(15);
+    expect(b.autour.sentiers_ouverts.length).toBeGreaterThan(0);
+    const island = body(await sentiersRandonnee(cache(), undefined, NOW, { denivele_max_m: 300 }));
+    expect(island.randonnees_avec_trace.every((r: { denivele_positif_m: number }) => r.denivele_positif_m <= 300)).toBe(true);
+    expect(island.sentiers_ouverts.every((s: { denivele_positif_m: number }) => s.denivele_positif_m <= 300)).toBe(true);
+  });
+
+  it("puts each trail in its area", () => {
+    expect(secteur(55.424, -21.069).secteur).toBe("Mafate");
+    expect(secteur(55.388, -21.07).secteur).toBe("Ouest");
+    expect(secteur(55.475, -21.13).secteur).toBe("Cilaos");
+    expect(secteur(55.7, -21.23).secteur).toBe("Volcan");
+    expect(secteur(55.45, -20.9).secteur).toBe("Nord");
+  });
+
+  it("shows every hike and trail on the hikers' page, light enough for a phone", async () => {
+    const res = await handle(new Request("https://rundata.re/randonnees", BOT), cache());
+    expect(res.status).toBe(200);
+    const page = await res.text();
+    expect(page).toContain("<h1>Randonnée à La Réunion");
+    expect(page).toContain(`<svg id="hmap" class="map terrain hikes"`);
+    expect(page.match(/<path class="rte"/g)).toHaveLength(RANDONNEES.length);
+    expect(page).toContain(`<form id="rf" class="card filter" hidden`);
+    expect(page.match(/<details class="card sect">/g)!.length).toBeGreaterThanOrEqual(8);
+    // Every hike and trail is in the list, with what the filter reads.
+    expect(page.match(/<li class="card hike/g)).toHaveLength(RANDONNEES.length);
+    expect(page).toMatch(/<li data-k="s\d+" data-km="[\d.]+" data-dp="\d*" data-e="[ofi]" data-b="[01]"><span><a href="\/sentiers\//);
+    expect(page.length).toBeLessThan(300_000);
   });
 
   it("says when the ONF does not answer, rather than a file without its state", async () => {

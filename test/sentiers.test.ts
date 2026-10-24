@@ -41,19 +41,25 @@ describe("sentiers de randonnée", () => {
   it("answers for a trail by its name", async () => {
     const b = body(await sentiersRandonnee(cache(), "le sentier de la Roche Pendue est ouvert ?", NOW));
     expect(b.resume).toMatch(/^Sentier de la Roche Pendue : FERMÉ \(Eboulements et arbres en travers\)\./);
+    expect(b.avertissement.sentiers_fermes).toEqual([expect.objectContaining({ sentier: "Sentier de la Roche Pendue", reouverture: "Réouverture 2026", page: "https://rundata.re/sentiers/sentier-de-la-roche-pendue" })]);
     expect(trailsNamed(parseTrails(JSON.parse(fixture("sentiers.json")).features), "Roche Plate")).toHaveLength(6);
   });
 
   it("takes a cirque as a whole, not the places named after it", async () => {
     const b = body(await sentiersRandonnee(cache(), "sentiers fermés à Mafate", NOW));
-    expect(b.resume).toBe("Dans le cirque de Mafate : 5 sentiers fermés, 84 ouverts, 9 hors gestion ONF (état non connu).");
+    // A hike of the cirque crosses a closed trail: said first.
+    expect(b.resume).toBe("ATTENTION : PR25 emprunte 1 sentier fermé : La Nouvelle - Maison Laclos par PR (Éboulement). Un sentier fermé est interdit : ne pas s'y engager, prendre une variante ouverte ou renoncer. " +
+      "Dans le cirque de Mafate : 5 sentiers fermés, 84 ouverts, 9 hors gestion ONF (état non connu).");
+    expect(b.avertissement.sentiers_fermes).toEqual([expect.objectContaining({ sentier: "La Nouvelle - Maison Laclos par PR", cause: "Éboulement", randonnees: ["PR25"] })]);
     expect(b.sentiers_nommes).toBeUndefined();
     expect(b.autour.sentiers_fermes.map((t: { sentier: string }) => t.sentier)).toContain("Piste DFCI de la Glacière");
   });
 
   it("looks around a place, with the trails named after it", async () => {
     const b = body(await sentiersRandonnee(cache(), "Bélouve", NOW));
-    expect(b.resume).toMatch(/^4 sentiers portent ce nom : 1 fermé \(Sentier de la Tamarinaie de Bélouve\)\. À moins de 4 km de Bélouve : \d+ sentiers fermés/);
+    expect(b.resume).toMatch(/^ATTENTION : Sentier de l'École normale emprunte 1 sentier fermé : Sentier de l'École Normale ; .+\. 4 sentiers portent ce nom : 1 fermé \(Sentier de la Tamarinaie de Bélouve\)\. À moins de 4 km de Bélouve : \d+ sentiers fermés/);
+    // The closed trail asked by its name is in the warning too, with no hike.
+    expect(b.avertissement.sentiers_fermes).toContainEqual(expect.objectContaining({ sentier: "Sentier de la Tamarinaie de Bélouve", randonnees: [] }));
     expect(b.autour.sentiers_fermes[0].distance_km).toBeTypeOf("number");
   });
 });
