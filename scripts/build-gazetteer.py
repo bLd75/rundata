@@ -31,6 +31,7 @@ QUERY = """[out:json][timeout:120][bbox:-21.40,55.20,-20.86,55.84];
   nwr["natural"="water"]["name"~"^[Bb]assin"];
   nwr["tourism"="viewpoint"]["name"];
   nwr["leisure"="marina"]["name"];
+  nwr["aeroway"="aerodrome"]["iata"]["name"];
 );
 out center tags;"""
 
@@ -43,10 +44,11 @@ KINDS = [
     ("waterway", {"waterfall": "bassin"}),
     ("tourism", {"viewpoint": "point_de_vue"}),
     ("leisure", {"marina": "port"}),
+    ("aeroway", {"aerodrome": "aeroport"}),
 ]
 GENERIC = {"plage", "bassin", "cascade", "point de vue", "piton", "pointe"}
 RANK = {"commune": 0, "plage": 1, "localite": 2, "sommet": 3, "quartier": 4, "point_de_vue": 5, "bassin": 6,
-        "port": 7, "baie": 8, "cap": 9, "lieu_dit": 10}
+        "port": 7, "baie": 8, "cap": 9, "lieu_dit": 10, "aeroport": 11}
 
 # Names people use that OSM does not carry, pointing at a place that is in the gazetteer.
 ALIASES = {
@@ -66,6 +68,11 @@ ALIASES = {
     "Saint-Gilles": "Saint-Gilles-les-Bains",
     "Boucan": "Plage de Boucan-Canot",
     "Étang-Salé-les-Bains": "L'Étang-Salé les Bains",
+    "Gillot": "Aéroport de la Réunion Roland-Garros",
+    "Aéroport de Gillot": "Aéroport de la Réunion Roland-Garros",
+    "Aéroport Roland Garros": "Aéroport de la Réunion Roland-Garros",
+    "Roland Garros": "Aéroport de la Réunion Roland-Garros",
+    "Aéroport de Pierrefonds": "Aéroport de Saint-Pierre - Pierrefonds",
 }
 
 
