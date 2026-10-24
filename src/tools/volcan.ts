@@ -32,6 +32,26 @@ async function settle<T>(source: string, p: Promise<{ value: T }>): Promise<T | 
   }
 }
 
+// Worded by marketing, under the counts: the catalogue holds the located events only, far fewer in a seismic crisis.
+export const LOCALISES = "Seuls les séismes localisés par l'OVPF sont comptés ici : ce n'est pas le nombre total de séismes enregistrés.";
+const BAR_DAYS = 30;
+const localDay = (t: number) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
+const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+
+/**
+ * The events located under the summit, per day of La Réunion, the last 30 days up to today, today « en cours »: the
+ * catalogue is read over 30 days back from now, so the oldest day shown is a whole one.
+ */
+export function perDay(volcano: seismes.Seisme[], now: Date) {
+  const counts = new Map<string, number>();
+  for (const s of volcano) counts.set(localDay(Date.parse(s.time)), (counts.get(localDay(Date.parse(s.time))) ?? 0) + 1);
+  const today = localDay(now.getTime());
+  return Array.from({ length: BAR_DAYS }, (_, i) => {
+    const jour = localDay(now.getTime() - (BAR_DAYS - 1 - i) * DAY);
+    return { jour, nombre: counts.get(jour) ?? 0, ...(jour === today && { en_cours: true as const }) };
+  });
+}
+
 /** Counts and the most notable events of the last 30 days, under the volcano and elsewhere. */
 export function quakeSummary(list: seismes.Seisme[], now: Date) {
   const recent = (s: seismes.Seisme, days: number) => now.getTime() - Date.parse(s.time) <= days * DAY;
@@ -47,10 +67,12 @@ export function quakeSummary(list: seismes.Seisme[], now: Date) {
   return {
     sous_le_volcan: { "30_jours": volcano.length, "7_jours": volcano.filter((s) => recent(s, 7)).length, magnitude_max_30j: max(volcano) },
     ailleurs_sur_l_ile: { "30_jours": elsewhere.length, magnitude_max_30j: max(elsewhere) },
+    par_jour_sous_le_volcan: perDay(volcano, now),
     derniers: list.slice(0, 8).map(one),
+    // Nothing of what the counts may announce: only the OVPF's or the prefecture's words say that (marketing).
     note:
       "Séismes localisés par l'OVPF (magnitude de durée Md). La plupart sont trop faibles pour être ressentis " +
-      "(en général pas avant magnitude 2,5 à 3). Une hausse de leur nombre sous le sommet peut précéder une éruption.",
+      `(en général pas avant magnitude 2,5 à 3). ${LOCALISES}`,
   };
 }
 
@@ -182,6 +204,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
       `Séismes localisés par l'OVPF en 30 jours : ${q.sous_le_volcan["30_jours"]} sous le volcan` +
         (q.sous_le_volcan.magnitude_max_30j != null ? ` (magnitude max ${fr(Math.round(q.sous_le_volcan.magnitude_max_30j * 10) / 10)})` : "") +
         `, dont ${q.sous_le_volcan["7_jours"]} ces 7 derniers jours ; ${q.ailleurs_sur_l_ile["30_jours"]} ailleurs sur l'île.`,
+      `Séismes localisés par l'OVPF sous le volcan, par jour (heure de La Réunion) : ${q.par_jour_sous_le_volcan.slice(-7).map((j) => `${day(`${j.jour}T12:00:00+04:00`)} ${j.nombre}${j.en_cours ? " (jour en cours)" : ""}`).join(", ")}.`,
+      LOCALISES,
     );
   }
 
@@ -202,7 +226,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
           ...(imageAfter && { image_ovpf_plus_recente: true }),
           ...((state as { ecart?: Ecart }).ecart && { ecart_pitonlive: (state as { ecart?: Ecart }).ecart }),
           derniere_eruption_fin: state.last_eruption_ended_at ?? undefined,
-          deformation: state.deformation?.available ? `${state.deformation.label} (communiqué du ${day(state.deformation.published_at!)})` : undefined,
+          // In the middle of a sentence, « Déformation du volcan : inflation (…) » (marketing).
+          deformation: state.deformation?.available ? `${lowerFirst(state.deformation.label ?? "")} (communiqué du ${day(state.deformation.published_at!)})` : undefined,
           acces_enclos: !unknown && state.access?.current?.available
             ? {
                 statut: state.access.current.enclos_status,

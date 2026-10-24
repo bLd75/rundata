@@ -5,7 +5,7 @@
  * its tile on the home page.
  */
 import { PREFECTURE } from "../providers/volcan.js";
-import { ENCLOS_SAID, IMAGE_APRES } from "../tools/volcan.js";
+import { ENCLOS_SAID, IMAGE_APRES, LOCALISES } from "../tools/volcan.js";
 import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
@@ -120,7 +120,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
             : a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.niveau_inconnu ? `<p class="lead">Accès à l'Enclos : à vérifier sur ${GOUV}, avant de partir.</p>` : e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "") +
           (e.image_ovpf_plus_recente ? `<p class="lead">${esc(IMAGE_APRES)}</p>` : "")
         : `<p class="lead">${esc(d.resume)}</p>`) +
-      (q ? `<p class="lead">Séismes sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
+      (q ? `<p class="lead">Séismes localisés par l'OVPF sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
       `</div>`;
 
   // During an alert the Enclos is closed by order, whatever another source says (marketing's rule: never « partiel »).
@@ -134,7 +134,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     : "";
 
   const quakes = q
-    ? `<div class="card">${icon("gauge")}<h3>Séismes localisés par l'observatoire</h3>` +
+    ? `<div class="card">${icon("gauge")}<h3>Séismes localisés par l'OVPF</h3>` +
+      quakeDays(q.par_jour_sous_le_volcan, !!e?.image_ovpf_plus_recente) +
       `<p class="facts"><span>Sous le volcan : <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
       `<span>Ailleurs sur l'île : <b>${q.ailleurs_sur_l_ile["30_jours"]}</b>, magnitude max ${md(q.ailleurs_sur_l_ile.magnitude_max_30j)}</span></p>` +
       (q.derniers.length
@@ -156,10 +157,10 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     ? describe(
         `🇷🇪 Piton de la Fournaise (La Réunion, 974) : ${e.eruption_en_cours ? "éruption en cours" : "pas d'éruption en cours"}, niveau ORSEC ${e.niveau_orsec}` +
           `${e.acces_enclos ? `, Enclos ${ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut}` : ""}` +
-          `${q ? `, ${q.sous_le_volcan["7_jours"]} séismes sous le volcan en 7 jours` : ""}.`,
-        "🇷🇪 Piton de la Fournaise (La Réunion, 974) en direct : éruption ou non, accès à l'Enclos, derniers séismes de l'OVPF.",
+          `${q ? `, ${q.sous_le_volcan["7_jours"]} séismes localisés par l'OVPF sous le volcan en 7 jours` : ""}.`,
+        "🇷🇪 Piton de la Fournaise (La Réunion, 974) en direct : éruption ou non, accès à l'Enclos, séismes localisés par l'OVPF.",
       )
-    : "🇷🇪 Piton de la Fournaise (La Réunion, 974) en direct : éruption ou non, accès à l'Enclos, derniers séismes de l'OVPF.";
+    : "🇷🇪 Piton de la Fournaise (La Réunion, 974) en direct : éruption ou non, accès à l'Enclos, séismes localisés par l'OVPF.";
 
   const band = `${crumbBar("Volcan")}
 <div class="wrap intro">
@@ -194,6 +195,32 @@ ${connectorCta("volcan_seismes", "le volcan")}`;
   return layout(origin, { title, description, path: "/volcan", jsonld: [crumbs(origin, "Volcan", "/volcan"), webPage(origin, "/volcan", title, description, data)], alerte }, band, body);
 }
 
+// Below this many a day, the bars keep their scale: one event must not fill the chart (data-run: no scale that
+// magnifies a small number, the axis at 0).
+const DAYS_SCALE_MIN = 10;
+
+/**
+ * The events located under the summit per day, as bars from 0, today marked « en cours » (data-run, marketing); each
+ * bar says its day and count to screen readers, and the line under it today's, yesterday's and the highest.
+ */
+function quakeDays(days: NonNullable<VolcanAnswer["seismes"]>["par_jour_sous_le_volcan"], imageAfter: boolean): string {
+  if (!days?.length) return "";
+  const dd = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
+  const scale = Math.max(DAYS_SCALE_MIN, ...days.map((j) => j.nombre));
+  const bars = days.map((j) =>
+    `<li${j.en_cours ? ` class="now"` : ""} aria-label="${dd(j.jour)}${j.en_cours ? " (en cours)" : ""} : ${j.nombre}"><i style="height:${Math.round((j.nombre / scale) * 100)}%"></i></li>`).join("");
+  const today = days.at(-1)!;
+  const yesterday = days.at(-2);
+  const top = days.reduce((a, j) => (j.nombre > a.nombre ? j : a), days[0]);
+  // « Le plus en un jour »: not to be read as a total over the 30 days (marketing).
+  const facts = `Aujourd'hui (en cours) : <b>${today.nombre}</b>${yesterday ? `, hier : <b>${yesterday.nombre}</b>` : ""}.` +
+    (top.nombre ? ` Le plus en un jour sur 30 jours : <b>${top.nombre}</b>, le ${dd(top.jour)}.` : "");
+  return `<figure class="qdays"><figcaption>Sous le volcan, par jour (heure de La Réunion)</figcaption>` +
+    `<ol>${bars}</ol><p class="axis"><span>${dd(days[0].jour)}</span><span>${dd(today.jour)} (en cours)</span></p></figure>` +
+    `<p>${facts}</p><p class="note">${esc(LOCALISES)}</p>` +
+    (imageAfter ? `<p class="note">${esc(IMAGE_APRES)}</p>` : "");
+}
+
 export function volcanLive(data: Cached<VolcanAnswer> | null): Live | undefined {
   const e = data?.value.etat;
   if (!e) return undefined;
@@ -204,7 +231,7 @@ export function volcanLive(data: Cached<VolcanAnswer> | null): Live | undefined 
     valeur: e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption",
     detail: [
       e.acces_enclos ? `Enclos ${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}` : `ORSEC ${esc(e.niveau_orsec)}`,
-      q ? `${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} sous le volcan en 7 jours` : undefined,
+      q ? `${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} localisé${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} par l'OVPF sous le volcan en 7 jours` : undefined,
     ].filter(Boolean).join(" · "),
   };
 }

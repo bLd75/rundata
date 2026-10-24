@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Volcan : les séismes localisés par l'OVPF sous le Piton de la Fournaise, jour par jour sur 30 jours.
 - Écoles et alerte cyclonique : chaque phrase cite le plan cyclone de la préfecture, avec sa page.
 - Puis-je monter au volcan ? Enclos, RN 2, route du volcan, sentiers : ce que disent les textes officiels, lieu par lieu.
 - Alerte orange, rouge, violette : ce qui ferme et ce qui continue à chaque niveau, d'après le plan cyclone de la préfecture.

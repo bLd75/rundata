@@ -551,6 +551,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .vgpre{background:var(--surface);color:var(--ink);border:1px solid var(--border)}
 .status{display:grid;gap:.6rem;justify-items:start}
 .status .big{font-size:clamp(2rem,6vw,3.2rem);line-height:1}
+.band .status .note{color:var(--on-night-muted)}
 .zones{list-style:none;padding:0;display:grid;gap:1rem}
 @media (min-width:40rem){.zones{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (min-width:66rem){.zones{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -592,6 +593,13 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .rt{font-weight:700;color:var(--link)}
 .rows b{font:800 1.05rem Bricolage,system-ui,sans-serif;overflow-wrap:anywhere}
 .bars{list-style:none;padding:0;display:grid;gap:.7rem}
+.qdays{margin:.6rem 0}
+.qdays figcaption{font-size:.85rem;color:var(--muted)}
+.qdays ol{list-style:none;padding:0;margin:.3rem 0 0;display:grid;grid-template-columns:repeat(30,minmax(0,1fr));gap:2px;align-items:end;height:5rem;border-bottom:1px solid var(--line)}
+.qdays li{height:100%;display:flex;align-items:flex-end}
+.qdays i{display:block;width:100%;background:var(--vg0);border-radius:2px 2px 0 0}
+.qdays li.now i{background:var(--accent);opacity:.6}
+.qdays .axis{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted);margin:.2rem 0 0}
 .bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.2rem .6rem;font-size:.92rem}
 .band .bars li{color:var(--on-night)}
 .bars i{grid-column:1/-1;display:block;height:.55rem;border-radius:1rem;background:var(--vg0)}
