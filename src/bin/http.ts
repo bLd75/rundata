@@ -19,8 +19,10 @@ meteofrance.configure({
   token: process.env.METEOFRANCE_TOKEN,
 });
 
-// The past weather (historique_meteo) from a local copy of the archive: scripts/climat-local.ts.
-if (process.env.CLIMAT_SQLITE) climat.configure(localClimat(process.env.CLIMAT_SQLITE));
+// The past weather (historique_meteo) from a local copy of the archives: scripts/climat-local.ts.
+if (process.env.CLIMAT_SQLITE) {
+  climat.configure(localClimat(process.env.CLIMAT_SQLITE), process.env.CLIMAT_H_SQLITE ? localClimat(process.env.CLIMAT_H_SQLITE) : undefined);
+}
 
 // An MCP request is a few kilobytes of JSON.
 const MAX_BODY = 1024 * 1024;

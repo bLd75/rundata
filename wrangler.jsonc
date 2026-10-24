@@ -19,7 +19,8 @@
   // scripts/build-climat.py, the current year refreshed every morning by .github/workflows/climat.yml.
   "d1_databases": [
     { "binding": "TRANSIT", "database_name": "rundata-transports", "database_id": "5e304e2c-24c6-4dff-a6e7-ab674bb84016" },
-    { "binding": "CLIMAT", "database_name": "rundata-climat", "database_id": "11df4a82-43e5-47aa-af77-6f5bfd9a5f0b" }
+    { "binding": "CLIMAT", "database_name": "rundata-climat", "database_id": "11df4a82-43e5-47aa-af77-6f5bfd9a5f0b" },
+    { "binding": "CLIMAT_H", "database_name": "rundata-climat-h", "database_id": "51deb91a-028e-452c-b61b-09db74fc1730" }
   ],
   // Usage counts (src/metrics.ts): one point per tool call and per page view, no address, no cookie.
   "analytics_engine_datasets": [{ "binding": "USAGE", "dataset": "rundata_usage" }]

@@ -9,7 +9,7 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import type { AgendaAnswer, AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, CyclonesAnswer, DaeAnswer, EauAnswer, ElectriciteAnswer, HistoriqueAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, TraceAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import type { AgendaAnswer, AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, CyclonesAnswer, DaeAnswer, EauAnswer, ElectriciteAnswer, HistoriqueAnswer, HourlyAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, TraceAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap, oceanMap, profile, traceMap } from "./map.js";
@@ -1376,6 +1376,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
   <p>${d ? esc(d.resume) : ""}</p></div>
   ${table}
 </section>
+${d?.heures ? hourlySection(d.heures) : ""}
 <section aria-labelledby="h-archive">
   <div class="sec-h"><p class="eyebrow">Toute l'archive</p><h2 id="h-archive">N'importe quel jour depuis 1900</h2>
   <p>Avec le connecteur, votre IA lit les mesures quotidiennes de chacune des 249 stations Météo-France que l'île a connues, de la première année de chacune jusqu'à hier : « il a plu combien en janvier 2018 à Cilaos ? », « il faisait combien le jour de mes 20 ans au Tampon ? », « record de chaleur à Saint-Denis ? », « il fait plus chaud qu'avant ? ». Les normales sont les moyennes 1991-2020 de chaque station.</p></div>
@@ -1385,6 +1386,21 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
 ${connectorCta("historique_meteo", "l'historique météo")}`;
 
   return layout(origin, { title, description, path: "/historique", jsonld: [crumbs(origin, "Historique météo", "/historique"), webPage(origin, "/historique", title, description, data)], alerte }, band, body);
+}
+
+/** Yesterday and last night at Saint-Denis, hour by hour: one row per hour, newest first. */
+function hourlySection(h: HourlyAnswer): string {
+  const rows = [...h.heure_par_heure.heures].reverse();
+  const used = h.heure_par_heure.stations.map((x) => `${x.station} (${x.mesure.replace(/^heure par heure : /, "")})`).join(" ; ");
+  const cell = (v: number | undefined, unit = "") => (v == null ? "—" : `${fr(v)}${unit}`);
+  return `<section aria-labelledby="h-heures">
+  <div class="sec-h"><p class="eyebrow">Heure par heure</p><h2 id="h-heures">Hier et cette nuit à Saint-Denis</h2>
+  <p>${esc(h.resume.replace(/^.*?Heure par heure \([^)]*\) — /, ""))}</p></div>
+  <details class="card table-wrap"><summary>Les ${rows.length} dernières heures publiées</summary>
+  <table class="drought histo hours"><thead><tr><th>Heure</th><th>Pluie</th><th>Température</th><th>Vent</th><th>Rafale</th><th>Soleil</th></tr></thead><tbody>${rows.map((r) =>
+    `<tr><th scope="row">${esc(r.heure)}</th><td>${cell(r.pluie_mm, " mm")}</td><td>${cell(r.temperature, " °C")}</td><td>${r.vent_kmh == null ? "—" : `${r.vent_kmh} km/h${r.vent_de ? ` ${esc(r.vent_de)}` : ""}`}</td><td>${cell(r.rafale_kmh, " km/h")}</td><td>${r.soleil_min == null ? "—" : `${r.soleil_min} min`}</td></tr>`).join("")}</tbody></table></details>
+  <p class="note">Stations Météo-France : ${esc(used)}. Avec le connecteur, votre IA lit ces heures pour n'importe quelle station depuis 2000 : « à quelle heure a-t-il plu hier à Cilaos ? », « rafale max cette nuit à Saint-Pierre ? ».</p>
+</section>`;
 }
 
 export function historiqueLive(data: Cached<HistoriqueAnswer> | null): Live | undefined {

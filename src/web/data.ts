@@ -616,8 +616,31 @@ export interface HistoriqueAnswer {
   }[];
   a_savoir: string[];
   sources: Credit[];
+  /** Yesterday and last night hour by hour at Saint-Denis, when the hourly archive answers. */
+  heures?: HourlyAnswer;
 }
-export const buildHistorique = async (cache: Cache, now = new Date()) => needed<HistoriqueAnswer>(await historiqueMeteo(cache, undefined, {}, now), "historique");
+
+export interface HourlyAnswer {
+  resume: string;
+  heure_par_heure: {
+    stations: { station: string; mesure: string }[];
+    heures: { heure: string; pluie_mm?: number; temperature?: number; vent_kmh?: number; vent_de?: string; rafale_kmh?: number; soleil_min?: number }[];
+  };
+}
+
+const HOURLY_PLACE = "Saint-Denis";
+
+export async function buildHistorique(cache: Cache, now = new Date()): Promise<HistoriqueAnswer> {
+  const d = needed<HistoriqueAnswer>(await historiqueMeteo(cache, undefined, {}, now), "historique");
+  const day = (t: number) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
+  try {
+    const h = answer<HourlyAnswer>(await historiqueMeteo(cache, HOURLY_PLACE, { du: day(now.getTime() - 86_400_000), au: day(now.getTime()), detail: "heure" }, now));
+    if (h?.heure_par_heure?.heures.length) d.heures = h;
+  } catch (err) {
+    console.error("page historique : heures indisponibles", why(err));
+  }
+  return d;
+}
 
 export async function buildCyclones(cache: Cache, now = new Date()): Promise<CyclonesAnswer> {
   const a = needed<Omit<CyclonesAnswer, "traces">>(await cyclones(cache, undefined, now), "cyclones");
