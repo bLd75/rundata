@@ -6,7 +6,7 @@
  */
 import { PREFECTURE } from "../providers/volcan.js";
 import { ENCLOS_SAID, IMAGE_APRES } from "../tools/volcan.js";
-import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
+import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
 import { normalize } from "../places/resolve.js";
@@ -1242,7 +1242,8 @@ function hautsBlock(hauts: RandonneesAnswer["hauts"]): string {
   const when = hauts[0].titre.replace(/^Mer de nuages /, "");
   const line = (h: NonNullable<RandonneesAnswer["hauts"]>[number]) => {
     const name = h.slug ? `<a href="/meteo/${h.slug}#mer-de-nuages">${esc(h.nom)}</a>` : esc(h.nom);
-    return `<li>${name}${esc(h.resume.slice(h.nom.length))}</li>`;
+    // During a volcano alert, the viewpoint over the Enclos says it is forbidden: « dégagé » must not call anyone down.
+    return `<li>${name}${esc(h.resume.slice(h.nom.length))}${h.enclos && volcanBanner() ? ` ${esc(ENCLOS)}` : ""}</li>`;
   };
   return `<section aria-labelledby="h-hauts"><div class="sec-h"><h2 id="h-hauts">Les Hauts ${esc(when)} : au-dessus ou dans les nuages ?</h2>
   <p>Où sera la mer de nuages entre 6\u00a0h et midi, pour chaque sommet et village des Hauts. Prévision du modèle AROME de Météo-France, pas une mesure : regardez aussi le ciel et la station la plus proche avant de partir.</p></div>

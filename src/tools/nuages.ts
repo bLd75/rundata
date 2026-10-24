@@ -42,7 +42,9 @@ export function etat(h: ForecastHour, altitude: number): { etat: Etat; texte: st
   if (h.nuages_base_m === undefined || h.nuages_pct == null) return null; // not a step of AROME
   const base = h.nuages_base_m;
   const top = h.nuages_sommet_m != null && h.nuages_sommet_m <= HIGH_M ? h.nuages_sommet_m : null;
-  if (h.nuages_pct < CLEAR_PCT || (base != null && base > HIGH_M)) return { etat: "degage", texte: "dégagé" };
+  if (h.nuages_pct < CLEAR_PCT) return { etat: "degage", texte: "dégagé" };
+  // A veil of cirrus: the view stays open, the sunrise less so.
+  if (base != null && base > HIGH_M) return { etat: "degage", texte: "dégagé sous des nuages élevés" };
   if (base == null) return null; // cloudy, yet no layer over the cell: nothing to say of it
   if (top != null && top <= altitude - EDGE_M) {
     return { etat: "dessus", texte: `au-dessus de la mer de nuages (nuages entre ${n(r100(base))} et ${m(r100(top))})` };
@@ -103,8 +105,13 @@ export interface MerDeNuages {
 const span = (de: number, a: number) => `de ${de} h à ${a} h`;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** The cloud sea of `place`'s morning from its forecast, or null below the Hauts or without AROME's layer. */
-export function merDeNuages(f: Forecast, place: Place, now: Date, nom = place.nom, jour?: string): MerDeNuages | null {
+/**
+ * The cloud sea of `place`'s morning from its forecast, or null below the Hauts or without AROME's layer. `nom`: the name
+ * said (the place's own by default); `precision`: words before the altitude, « Pas de Bellecombe (volcan, 2 334 m) »;
+ * `jour`: the day asked (morning()).
+ */
+export function merDeNuages(f: Forecast, place: Place, now: Date, o: { nom?: string; precision?: string; jour?: string } = {}): MerDeNuages | null {
+  const { nom = place.nom, precision, jour } = o;
   const altitude = place.altitude_m;
   if (altitude == null || altitude < HAUTS_MIN_M) return null;
   const mo = morning(now, jour);
@@ -120,12 +127,13 @@ export function merDeNuages(f: Forecast, place: Place, now: Date, nom = place.no
   const parts = fenetres.length === 2 && fenetres[0].texte === fenetres[1].texte
     ? [`${span(fenetres[0].de, fenetres[1].a)}, ${fenetres[0].texte}`]
     : fenetres.map((w) => `${span(w.de, w.a)}, ${w.texte}`);
-  const closes = fenetres.length === 2 && ["degage", "dessus", "bord"].includes(fenetres[0].etat) && ["dans", "sous"].includes(fenetres[1].etat);
+  // Only into the clouds: a summit under them often keeps its view over the cloud sea and the cirques.
+  const closes = fenetres.length === 2 && ["degage", "dessus", "bord"].includes(fenetres[0].etat) && fenetres[1].etat === "dans";
   const tail = `${parts.join(" ; ")}.${closes ? ` ${CLOSING}` : ""}`;
   return {
     titre: `Mer de nuages ${mo.libelle}`,
     ligne: cap(tail),
-    resume: `${nom} (${m(altitude)}), ${mo.libelle} : ${tail}`,
+    resume: `${nom} (${precision ? `${precision}, ` : ""}${m(altitude)}), ${mo.libelle} : ${tail}`,
     fenetres,
     prevision: LABEL,
     mise_en_garde: CAVEAT,

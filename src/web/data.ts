@@ -481,14 +481,15 @@ export interface RandonneesAnswer {
   /** The fires seen by satellite in the 24 hours before the build, for the communes' tiles; missing without FIRMS. */
   feux?: feux.Feux;
   /** The cloud sea of the coming morning over the Hauts, summits and villages; missing without AROME's grids. */
-  hauts?: (MerDeNuages & { nom: string; slug?: string })[];
+  hauts?: (MerDeNuages & { nom: string; slug?: string; enclos?: boolean })[];
 }
 
-// The Hauts whose morning the hikers' page tells, in marketing's order; `slug`, their weather page.
-const HAUTS: { nom: string; lieu: string; slug?: string }[] = [
+// The Hauts whose morning the hikers' page tells, in marketing's order; `slug`, their weather page; `enclos`, the way
+// down into the Enclos, forbidden during a volcano alert.
+const HAUTS: { nom: string; lieu: string; slug?: string; precision?: string; enclos?: boolean }[] = [
   { nom: "Maïdo", lieu: "Maïdo", slug: "maido" },
   { nom: "Piton des Neiges", lieu: "Piton des Neiges" },
-  { nom: "Pas de Bellecombe (volcan)", lieu: "Pas de Bellecombe", slug: "piton-de-la-fournaise" },
+  { nom: "Pas de Bellecombe", precision: "volcan", lieu: "Pas de Bellecombe", slug: "piton-de-la-fournaise", enclos: true },
   { nom: "Plaine des Cafres", lieu: "Plaine des Cafres", slug: "plaine-des-cafres" },
   { nom: "Cilaos", lieu: "Cilaos", slug: "cilaos" },
   { nom: "Hell-Bourg", lieu: "Hell-Bourg", slug: "hell-bourg" },
@@ -503,8 +504,8 @@ async function hautsNow(cache: Cache, now: Date): Promise<RandonneesAnswer["haut
     if (!d) return undefined;
     const out = HAUTS.flatMap((h) => {
       const p = resolvePlace(h.lieu)!.lieu;
-      const mn = nuages.merDeNuages(arome.atPlace(d, p), p, now, h.nom);
-      return mn ? [{ nom: h.nom, slug: h.slug, ...mn }] : [];
+      const mn = nuages.merDeNuages(arome.atPlace(d, p), p, now, { nom: h.nom, precision: h.precision });
+      return mn ? [{ nom: h.nom, slug: h.slug, ...(h.enclos ? { enclos: true } : {}), ...mn }] : [];
     });
     return out.length ? out : undefined;
   } catch (err) {
