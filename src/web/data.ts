@@ -13,6 +13,7 @@ import { INSEE } from "../places/insee.js";
 import * as annuaire from "../providers/annuaire.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
+import * as irve from "../providers/irve.js";
 import * as velos from "../providers/velos.js";
 import * as maregraphes from "../providers/maregraphes.js";
 import * as mf from "../providers/vigilance.js";
@@ -27,6 +28,7 @@ import { named } from "../tools/annuaire.js";
 import { alertsFor, applyRealtime, departureRow, departures, findStops, nearStops, realtimeFeeds, spread } from "../tools/transports.js";
 import { cyclone, highest, raised } from "../tools/vigilance.js";
 import { COMMUNES as BIKE_COMMUNES, velosLibreService } from "../tools/velos.js";
+import { bornesRecharge, count as countPoints, stationRow } from "../tools/bornes.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import { type Observation, why } from "../types.js";
 import { coastal, type PlacePage } from "./places.js";
@@ -290,6 +292,32 @@ export interface VelosAnswer {
 }
 
 export const buildVelos = async (cache: Cache) => needed<VelosAnswer>(await velosLibreService(cache, undefined), "velos");
+
+export type BorneStation = ReturnType<typeof stationRow> & { lon: number; lat: number; libres: number; total: number };
+
+export interface BornesAnswer {
+  resume: string;
+  communes: { commune: string; stations: number; points: number; libres?: number }[];
+  recharge_rapide: ReturnType<typeof stationRow>[];
+  /** Every station of the island, for the page (not in the tool's answer). */
+  stations: BorneStation[];
+  recharge: string;
+  donnees: string;
+  avertissement?: string;
+  sources: Credit[];
+}
+
+/** The tool's overview, plus every station; without the live state the page keeps its last copy. */
+export async function buildBornes(cache: Cache, now = new Date()): Promise<BornesAnswer> {
+  const a = needed<Omit<BornesAnswer, "stations">>(await bornesRecharge(cache, undefined, false, now), "bornes");
+  if (a.communes.every((c) => c.libres == null)) throw new Error("état des bornes indisponible");
+  const live = (await irve.live(cache)).value;
+  const stations = irve.STATIONS.map((s) => {
+    const c = countPoints([s], live);
+    return { ...stationRow(s, live, now, undefined, false), lon: s.lon, lat: s.lat, libres: c.libres, total: c.total };
+  });
+  return { ...a, stations };
+}
 
 export interface ElectriciteAnswer {
   resume: string;

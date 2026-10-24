@@ -67,6 +67,14 @@ export const CATEGORIES: Category[] = [
     about: "Les vélos électriques Altervélo et les places libres de chaque station, en direct, à Saint-Pierre, Saint-Louis et L'Étang-Salé.",
   },
   {
+    key: "bornes",
+    nom: "Recharge",
+    path: "/bornes",
+    icon: "plug",
+    tools: ["bornes_recharge"],
+    about: "Les bornes publiques pour voiture électrique et l'état de chaque point de charge, libre, occupé ou hors service, en direct.",
+  },
+  {
     key: "air",
     nom: "Air",
     path: "/air",
