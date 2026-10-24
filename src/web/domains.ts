@@ -152,11 +152,14 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     // Non-breaking spaces inside the quotes and before the colon: a lone « at the end of a line at 390 px (marketing).
     `<li><b>${esc(historique.date(m.jour))}</b>, ${esc(m.quoi)}\u00a0: «\u00a0${esc(m.dit)}\u00a0» <a href="${esc(m.communique.copie)}">${esc(historique.label(m.communique))} →</a></li>`;
   const episodes = (list: historique.Episode[]) =>
-    `<ul class="posts">${list.map((x) => `<li class="card"><p class="note">Début</p><ul class="plain">${x.debut.map(moment).join("")}</ul><p class="note">Fin</p><ul class="plain">${moment(x.fin)}</ul></li>`).join("")}</ul>`;
+    `<ul class="posts">${list.map((x) => `<li class="card"><p class="note">Début</p><ul class="plain">${x.debut.map(moment).join("")}</ul><p class="note">Fin</p><ul class="plain">${moment(x.fin)}</ul>${x.puis ? then(x.puis) : ""}</li>`).join("")}</ul>`;
+  // « Le même jour, nouvelle alerte 2-2 : « … » (communiqué du 19/02/2019 →). Sa fin n'est pas… » (marketing).
+  const then = (m: historique.Moment) =>
+    `<p>${esc(historique.PUIS)} ${esc(m.quoi)}\u00a0: «\u00a0${esc(m.dit)}\u00a0» (<a href="${esc(m.communique.copie)}">${esc(historique.label(m.communique))} →</a>). ${esc(historique.SANS_FIN)}</p>`;
   // Before the plan of 2021, folded: as many cards again at 390 px, under the levels of the plan then.
   const before = `<section id="alertes-precedentes" aria-labelledby="h-alertes"><div class="sec-h"><h2 id="h-alertes">${esc(historique.TITRE)}</h2><p>${esc(historique.CHAPEAU)}</p></div>
   ${episodes(historique.EPISODES.filter((e) => !historique.avant2021(e)))}
-  <details><summary>${esc(historique.AVANT_TITRE)}</summary><p class="note">${esc(historique.AVANT_2021)}</p>${episodes(historique.EPISODES.filter(historique.avant2021))}</details>
+  <details><summary>${esc(historique.avantTitre(historique.EPISODES.filter(historique.avant2021).length))}</summary><p class="note">${esc(historique.AVANT_2021)}</p>${episodes(historique.EPISODES.filter(historique.avant2021))}</details>
   <p class="note">${esc(historique.NOTE)}</p></section>
 `;
 

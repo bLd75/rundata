@@ -8,7 +8,7 @@
  * are the tests' fixtures (test/fixtures/volcan-historique), each quote checked there. Left out: the alert of April
  * 2023, its page updated after the alert was lifted (no day for its start); the alerts of 18/10/2021, 22/12/2021 and
  * 07/09/2022, no release of their end found. Before 2021, the copies of the old site read from 2016: left out the
- * eruption of 27/04/2018, the alerts of 19/02/2019 (18h30), 07/07/2020, 28/09/2020, 04/12/2020 and 09/04/2021, no
+ * eruption of 27/04/2018, the alerts of 07/07/2020, 28/09/2020, 04/12/2020 and 09/04/2021, no
  * release of their end found; the end of 13/07/2018 and 21/02/2020, no release of their start found.
  */
 import { localTime } from "../geo.js";
@@ -38,6 +38,8 @@ export interface Moment {
 export interface Episode {
   debut: Moment[];
   fin: Moment;
+  /** A new alert the same day as the end, whose end is in no release we read: said, or the reader thinks all stopped. */
+  puis?: Moment;
 }
 
 const copy = (stamp: string, url: string) => `https://web.archive.org/web/${stamp}/${url}`;
@@ -77,6 +79,7 @@ const R = {
   nov2018s: { jour: "2018-11-01", titre: "Activité volcanique au Piton de la Fournaise : passage en phase sauvegarde jeudi 1er novembre 2018", copie: copy("20181103175201", `${AVANT}/activite-volcanique-au-piton-de-la-fournaise-a4497.html`) },
   fev2019a1: { jour: "2019-02-16", titre: "Piton de la Fournaise : passage en alerte 1 - éruption probable à brève échéance", copie: copy("20190222184929", `${AVANT}/piton-de-la-fournaise-passage-en-alerte-1-eruption-a4937.html`) },
   fev2019a22: { jour: "2019-02-18", titre: "Piton de la Fournaise : passage en alerte 2-2, éruption en cours dans l’enclos", copie: copy("20190221071500", `${AVANT}/piton-de-la-fournaise-passage-en-alerte-2-2-a4938.html`) },
+  fev2019a22b: { jour: "2019-02-19", titre: "Piton de la Fournaise : passage en alerte 2-2 éruption en cours dans l’enclos", copie: copy("20190222142555", `${AVANT}/piton-de-la-fournaise-passage-en-alerte-2-2-a4948.html`) },
   fev2019s: { jour: "2019-02-19", titre: "Piton de la Fournaise : passage en phase sauvegarde mardi 19 février 2019", copie: copy("20190222184934", `${AVANT}/piton-de-la-fournaise-passage-en-phase-sauvegarde-a4941.html`) },
   aout2019a22: { jour: "2019-08-11", titre: "Piton de la Fournaise : passage en alerte 2-2 éruption en cours dans l’enclos", copie: copy("20190821141522", `${AVANT}/piton-de-la-fournaise-passage-en-alerte-2-2-a5590.html`) },
   sept2019v: { jour: "2019-09-03", titre: "Piton de la Fournaise : retour en phase de vigilance et accès restreint à partie haute de l’Enclos", copie: copy("20190919172834", `${AVANT}/piton-de-la-fournaise-retour-en-phase-de-vigilance-a5693.html`) },
@@ -141,8 +144,9 @@ export const EPISODES: Episode[] = [
       { jour: "2019-02-16", quoi: "alerte 1", dit: "le préfet a décidé de mettre en œuvre la phase d’alerte 1 […] à compter de ce jour à 16h30", communique: R.fev2019a1 },
       { jour: "2019-02-18", quoi: "alerte 2-2", dit: "le Préfet a décidé la mise en œuvre de la phase d’alerte 2-2 […] ce lundi 18 février à 10h15", communique: R.fev2019a22 },
     ],
-    // The alert 2-2 again the same day at 18h30: no release of its end found.
     fin: { jour: "2019-02-19", quoi: "passage en phase de sauvegarde", dit: "le préfet de La Réunion a décidé le passage en phase de sauvegarde […] à compter de 03h30 le mardi 19 février 2019", communique: R.fev2019s },
+    // No release of its end found (marketing).
+    puis: { jour: "2019-02-19", quoi: "alerte 2-2", dit: "le Préfet a décidé la mise en œuvre de la phase d’alerte 2-2 […] ce mardi 19 février à 18h30", communique: R.fev2019a22b },
   },
   {
     debut: [
@@ -198,7 +202,9 @@ export const CHAPEAU =
   "Voici, depuis 2016, les épisodes dont le début et la fin sont chacun écrits dans un communiqué de la préfecture que nous avons retrouvé. " +
   "Les phrases sont citées telles quelles. Ce n'est pas un historique complet\u00a0: un épisode dont il manque l'un des deux communiqués n'y figure pas.";
 export const NOTE = "Liens vers les copies des communiqués conservées par la Wayback Machine (archive.org).";
-export const AVANT_TITRE = "Avant novembre 2021";
+export const avantTitre = (n: number) => `De 2016 à novembre 2021 (${n}\u00a0épisodes)`;
+export const PUIS = "Le même jour, nouvelle";
+export const SANS_FIN = "Sa fin n'est pas dans les communiqués que nous avons retrouvés.";
 export const AVANT_2021 = "Avant novembre 2021, les niveaux d'alerte étaient ceux du plan précédent : ils sont cités tels que les communiqués les écrivent.";
 
 /** « 19/09/2022 ». */
@@ -214,11 +220,15 @@ const quoi = (m: Moment) => (m.selon ? `${m.quoi} (${m.selon})` : m.quoi);
 export function precedentes() {
   return {
     note: `${CHAPEAU} ${AVANT_2021} ${NOTE}`,
-    episodes: EPISODES.map((e) => ({ debut: e.debut.map(momentText), fin: momentText(e.fin) })),
+    episodes: EPISODES.map((e) => ({
+      debut: e.debut.map(momentText),
+      fin: momentText(e.fin),
+      ...(e.puis && { puis: `${PUIS} ${e.puis.quoi} : « ${e.puis.dit} » (${label(e.puis.communique)} : ${e.puis.communique.copie}). ${SANS_FIN}` }),
+    })),
   };
 }
 
 /** One sentence for the summary: the days and what they were, newest first. */
 export const resumeText = () =>
   `Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis 2016 ; avant novembre 2021, les niveaux du plan précédent) : ${EPISODES.map((e) =>
-    `${e.debut.map((m) => `${date(m.jour)} ${quoi(m)}`).join(", ")} → ${date(e.fin.jour)} ${e.fin.quoi}`).join(" ; ")}.`;
+    `${e.debut.map((m) => `${date(m.jour)} ${quoi(m)}`).join(", ")} → ${date(e.fin.jour)} ${e.fin.quoi}${e.puis ? ` (${PUIS.toLowerCase()} ${e.puis.quoi} : ${SANS_FIN[0].toLowerCase()}${SANS_FIN.slice(1, -1)})` : ""}`).join(" ; ")}.`;
