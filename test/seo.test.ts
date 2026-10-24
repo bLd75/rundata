@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { BUILT, RANDONNEES } from "../src/providers/traces.js";
 import type { AgendaAnswer } from "../src/web/data.js";
-import { agendaEvents, agendaPage, busPage, calendrierPage, coupuresPage, daePage, historiquePage, tracePage, traficPage } from "../src/web/domains.js";
+import { agendaEvents, eventSummary, agendaPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, historiquePage, sportPage, tracePage, traficPage } from "../src/web/domains.js";
 import { homePage } from "../src/web/home.js";
 import { meteoPage, placePage } from "../src/web/pages.js";
 import { pageOf, PAGES } from "../src/web/places.js";
 import { site } from "../src/web/site.js";
+import { BUILT as DAE_BUILT } from "../src/providers/dae.js";
 
 const NOW = new Date("2026-10-24T04:00:00Z");
 const O = "https://rundata.re";
@@ -43,6 +44,8 @@ describe("search engines", () => {
     expect(map).toContain(`<loc>${O}/evenements</loc><lastmod>2026-10-24</lastmod><changefreq>hourly</changefreq>`);
     expect(map).toContain(`<loc>${O}/meteo/cilaos</loc><lastmod>2026-10-24</lastmod>`);
     expect(map).toContain(`<loc>${O}/randonnees/${RANDONNEES[0].slug}</loc><lastmod>${BUILT}</lastmod>`);
+    // A list bundled with the server: the day it was rebuilt, not today.
+    expect(map).toContain(`<loc>${O}/defibrillateurs</loc><lastmod>${DAE_BUILT}</lastmod><changefreq>monthly</changefreq>`);
     expect(map).toMatch(new RegExp(`<loc>${O}/conditions</loc><lastmod>\\d{4}-\\d\\d-\\d\\d</lastmod><changefreq>monthly</changefreq>`));
     // Réunion time: 22:00 UTC is already the next day there.
     const late = await (await site(new Request(`${O}/sitemap.xml`), new Cache(new MemoryStore()), () => {}, new Date("2026-10-24T22:00:00Z")))!.text();
@@ -51,6 +54,8 @@ describe("search engines", () => {
 
   it("see the query first in titles that fit in 60 characters", () => {
     expect(title(agendaPage(O, null, NOW))).toBe("Que faire à La Réunion ? Concerts, fêtes, sorties · 974");
+    expect(title(busPage(O, null, NOW))).toBe("Horaires bus Réunion : prochains départs en gare · 974");
+    expect(title(daePage(O, null, NOW))).toBe("Défibrillateurs Réunion : où trouver un DAE · 974");
     expect(title(traficPage(O, null, NOW))).toBe("Bouchons Réunion : carte Waze et état des routes · 974");
     expect(title(placePage(O, pageOf("cilaos")!, null, NOW))).toBe("Météo Cilaos en direct et prévisions · 974");
     // The sector first (§8), then « état ONF » when the name leaves room.
@@ -75,7 +80,7 @@ describe("events as schema.org Events", () => {
       row({ titre: "Fête de l'ail", quand: "du vendredi 23/10 au dimanche 25/10", date: "2026-10-23", commune: "Petite-Île" }),
       row({ titre: "Kabar", commune: "Saint-Paul", statut: "ANNULÉ" }),
       row({ titre: "Bal", commune: "Le Port", statut: "REPORTÉ" }),
-    ]) as any[];
+    ], O) as any[];
     expect(concert).toEqual({
       "@type": "Event",
       name: "Olivier Ker Ourio",
@@ -85,16 +90,25 @@ describe("events as schema.org Events", () => {
       eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
       location: { "@type": "Place", name: "Cité des Arts, Fanal", address: { "@type": "PostalAddress", addressLocality: "Saint-Denis", addressRegion: "La Réunion", addressCountry: "RE" } },
       url: "https://example.re/concert",
+      // No summary from the source: what and where.
+      description: "Concert à Saint-Denis, Cité des Arts, Fanal.",
+      image: expect.stringMatching(/^https:\/\/rundata\.re\/og\/evenements\.[0-9a-f]{10}\.png$/),
     });
     expect(ail).toMatchObject({ startDate: "2026-10-23", endDate: "2026-10-25", location: { name: "Petite-Île" } });
     expect(off.eventStatus).toBe("https://schema.org/EventCancelled");
     expect(moved.eventStatus).toBe("https://schema.org/EventPostponed");
+    // The source's summary when it gives one, cut at a word; the genre when it does not.
+    expect(eventSummary(row({ commune: "Saint-Paul", genres: ["concert"], lieu: "Kabardock" }))).toBe("Concert à Saint-Paul, Kabardock.");
+    const long = eventSummary(row({ commune: "Saint-Paul", description: `Un concert   de maloya ${"très ".repeat(80)}long.` }));
+    expect(long.startsWith("Un concert de maloya très")).toBe(true);
+    expect(long.length).toBeLessThanOrEqual(301);
+    expect(long.endsWith("très…")).toBe(true);
     // Across the new year; and no end before the start.
-    expect(agendaEvents([row({ quand: "du jeudi 31/12 au vendredi 01/01", date: "2026-12-31", commune: "Saint-Paul" })])[0]).toMatchObject({ endDate: "2027-01-01" });
+    expect(agendaEvents([row({ quand: "du jeudi 31/12 au vendredi 01/01", date: "2026-12-31", commune: "Saint-Paul" })], O)[0]).toMatchObject({ endDate: "2027-01-01" });
   });
 
   it("leave out an event without a commune or a date, and are on the page", () => {
-    expect(agendaEvents([row({}), row({ commune: "Saint-Paul", date: "bientôt" })])).toEqual([]);
+    expect(agendaEvents([row({}), row({ commune: "Saint-Paul", date: "bientôt" })], O)).toEqual([]);
     const d = { resume: "", nombre: 1, evenements: [row({ commune: "Saint-Paul" })], couverture: "", a_savoir: "", sources: [], ce_week_end: [] } as AgendaAnswer;
     const html = agendaPage(O, { value: d, fetchedAt: NOW } as any, NOW);
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)![1]);
@@ -112,6 +126,10 @@ describe("link previews", () => {
     expect(existsSync(new URL(`../public${new URL(hikes).pathname}`, import.meta.url))).toBe(true);
     expect(img(placePage(O, pageOf("cilaos")!, null, NOW))).toMatch(/\/og\/meteo\./);
     expect(img(agendaPage(O, null, NOW))).toMatch(/\/og\/evenements\./);
+    expect(img(daePage(O, null, NOW))).toMatch(/\/og\/defibrillateurs\./);
+    expect(img(calendrierPage(O, null, NOW))).toMatch(/\/og\/calendrier\./);
+    expect(img(cyclonesPage(O, null, NOW))).toMatch(/\/og\/cyclones\./);
+    expect(img(sportPage(O, null, NOW))).toMatch(/\/og\/sport\./);
     expect(img(homePage(O, null, NOW))).toMatch(/\/og\.png\?v=/);
     expect(agendaPage(O, null, NOW)).toMatch(/<meta name="twitter:image" content="https:\/\/rundata\.re\/og\/evenements\.[0-9a-f]{10}\.png">/);
   });

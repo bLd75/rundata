@@ -59,6 +59,7 @@ import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigi
 import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures } from "./presse.js";
 import { avisPost } from "./avis.js";
+import * as dae from "../providers/dae.js";
 import * as traces from "../providers/traces.js";
 import { SECTEURS, secteurOf } from "../traces/secteurs.js";
 import { secteurPage } from "./randonnees.js";
@@ -176,7 +177,8 @@ function sitemap(origin: string, now: Date): string {
   const live = (u: string) => [u, today, "hourly"];
   const fixed = (u: string) => [u, STATIC_CHANGED, "monthly"];
   const trace = (u: string) => [u, traces.BUILT, "daily"];
-  const urls = [...["/", ...Object.keys(DOMAINS), "/vigilance", "/mer"].map(live), fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)),
+  // The defibrillators are a list bundled with the server: their page changes when it is rebuilt.
+  const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/mer"].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions"].map(fixed)];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +

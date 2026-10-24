@@ -6,6 +6,9 @@
 import data from "../dae/dae.json" with { type: "json" };
 import type { SourceInfo } from "../types.js";
 
+/** The day the bundled list was last rebuilt. */
+export const BUILT = data.construit;
+
 export const SOURCE: SourceInfo = {
   id: "geodae",
   nom: "Géo'DAE, base nationale des défibrillateurs",

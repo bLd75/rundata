@@ -67,6 +67,10 @@ RUBRIQUES = [
     ("historique", "Historique 974", "Le temps qu'il a fait depuis 1900", ["/historique"]),
     ("energie", "Énergie 974", "Recharge et électricité en direct", ["/bornes", "/velos", "/electricite"]),
     ("communes", "Communes 974", "Votre commune en direct", ["/communes"]),
+    ("defibrillateurs", "Défibrillateurs 974", "Le plus proche de vous, et ses horaires", ["/defibrillateurs"]),
+    ("calendrier", "Calendrier 974", "Vacances scolaires et jours fériés", ["/calendrier"]),
+    ("cyclones", "Cyclones 974", "Trajectoire et alerte en direct", ["/cyclones"]),
+    ("sport", "Sport 974", "Matchs, résultats, Grand Raid", ["/sport"]),
 ]
 OUT = ROOT / "public/og"
 LEFT = 600  # the text's column, left of the island
