@@ -123,7 +123,20 @@ function score(q: string[], e: Entry): { score: number; kind: Resolution["corres
 
 const COORDS = /^\s*(-?\d{1,2}(?:[.,]\d+)?)\s*[,; ]\s*(-?\d{1,3}(?:[.,]\d+)?)\s*$/;
 
+// The last texts asked and what they gave: a question's place is resolved by its tool, then again by the metrics.
+// Shared answers: callers must not change them.
+const RECENT = new Map<string, Resolution | null>();
+const RECENT_SIZE = 64;
+
 export function resolvePlace(text: string): Resolution | null {
+  if (RECENT.has(text)) return RECENT.get(text)!;
+  const r = resolve(text);
+  RECENT.set(text, r);
+  if (RECENT.size > RECENT_SIZE) RECENT.delete(RECENT.keys().next().value!);
+  return r;
+}
+
+function resolve(text: string): Resolution | null {
   const m = COORDS.exec(text);
   if (m) {
     let [a, b] = [parseFloat(m[1].replace(",", ".")), parseFloat(m[2].replace(",", "."))];

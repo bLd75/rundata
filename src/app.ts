@@ -5,15 +5,16 @@
  */
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { Cache } from "./cache.js";
-import type { Recorder } from "./metrics.js";
+import { stopwatch, type Recorder } from "./metrics.js";
 import { createServer, VERSION } from "./server.js";
+import { watch } from "./usage.js";
 import type { Background } from "./web/data.js";
 import { notFound, site } from "./web/site.js";
 
 // Browser-based clients (MCP Inspector, web chat apps) call the endpoint cross-origin.
 const CORS = {
   "access-control-allow-origin": "*",
-  "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
+  "access-control-allow-methods": "POST, OPTIONS",
   "access-control-allow-headers": "content-type, accept, authorization, mcp-protocol-version, mcp-session-id, last-event-id",
   "access-control-expose-headers": "mcp-session-id, mcp-protocol-version",
   "access-control-max-age": "86400",
@@ -28,17 +29,58 @@ function withCors(r: Response): Response {
 // Crawlers often send « Accept: */* » too: only these get the plain line instead of the page.
 const CLI = /^(curl|wget|httpie|python-requests|python-urllib|go-http-client|node-fetch|undici)/i;
 
+// The transport's own limit, which it does not check on a body it is handed already parsed.
+const MAX_BODY = 4 * 1024 * 1024;
+
+/**
+ * The body of a POST, parsed once for both the metrics and the transport. A body that is not JSON (or too large) goes
+ * to the transport as it came, for its own answer.
+ */
+async function readBody(request: Request): Promise<{ request: Request; body?: unknown }> {
+  const type = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  if (type !== "application/json" || Number(request.headers.get("content-length")) > MAX_BODY) return { request };
+  const text = await request.text();
+  try {
+    if (text.length <= MAX_BODY) return { request, body: JSON.parse(text) };
+  } catch {}
+  return { request: new Request(request.url, { method: "POST", headers: request.headers, body: text }) };
+}
+
+/** No stream to offer (see below): what the transport answers to a method it does not know, with the right Allow. */
+function notAllowed(): Response {
+  return Response.json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }, { status: 405, headers: { allow: "POST, OPTIONS" } });
+}
+
 /**
  * `background`: work to finish after the response (the Worker's waitUntil); in Node it just runs.
- * `record`: told of each tool call and each page served (metrics.ts).
+ * `record`: told of each MCP message and each page served (metrics.ts, usage.ts).
  */
 export async function handle(request: Request, cache: Cache, background: Background = () => {}, record: Recorder = () => {}): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname === "/mcp") {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+    const watching = watch(request, record);
+    // Stateless and answering in JSON, the endpoint has no stream to send anything on: GET (the stream a client
+    // opens for the server's own messages) gets a 405, as the specification allows, rather than a stream that stays
+    // open with nothing on it; DELETE (the end of a session) has no session to end.
+    if (request.method !== "POST") {
+      watching.done(405, "Method not allowed.");
+      return withCors(notAllowed());
+    }
+    // Tool calls are recorded by `watching`, with more than the server knows.
+    const server = createServer(cache, (hit) => {
+      if (hit.kind !== "mcp") record(hit);
+    });
+    // The tools never change while the server runs, and a stateless server could not send the notification anyway.
+    server.server.registerCapabilities({ tools: { listChanged: false } });
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
-    await createServer(cache, record).connect(transport);
-    return withCors(await transport.handleRequest(request));
+    await server.connect(transport);
+    watching.attach(transport);
+    const read = await readBody(request);
+    if ("body" in read) watching.read(read.body);
+    const response = await transport.handleRequest(read.request, "body" in read ? { parsedBody: read.body } : undefined);
+    watching.done(response.status);
+    return withCors(response);
   }
   const accept = request.headers.get("accept") ?? "";
   if (url.pathname === "/" && !accept.includes("text/html") && CLI.test(request.headers.get("user-agent") ?? "")) {
@@ -47,10 +89,11 @@ export async function handle(request: Request, cache: Cache, background: Backgro
       { headers: { "content-type": "text/plain; charset=utf-8" } },
     );
   }
+  const measure = stopwatch();
   const page = await site(request, cache, background);
   if (page) {
     if (page.headers.get("content-type")?.startsWith("text/html")) {
-      record({ kind: "page", name: url.pathname, detail: url.searchParams.has("maj") ? "bouton" : undefined, ok: page.ok });
+      record({ kind: "page", name: url.pathname, detail: url.searchParams.has("maj") ? "bouton" : undefined, ok: page.ok, status: page.status, ...measure() });
     }
     return page;
   }
