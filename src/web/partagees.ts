@@ -8,6 +8,7 @@
 import { costOf, count, left, measured, spent } from "../budget.js";
 import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore } from "../cache.js";
 import * as ensemble from "../providers/ensemble.js";
+import * as ovpfPdf from "../providers/ovpf-pdf.js";
 import { why } from "../types.js";
 import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildCourant, buildElectricite, buildSea, buildTrafic, buildVolcan, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
 import { alerteVolcan } from "./volcan-alerte.js";
@@ -42,7 +43,8 @@ export const SHARED: Shared[] = [
   { key: "web:air", build: buildAir, every: 60, cold: 4 },
   { key: "web:mer", build: buildSea, every: 3 * 60, cold: 15 },
   { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8 },
-  { key: "web:volcan", build: buildVolcan, every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 13 },
+  // The PDF of the OVPF's newest release, read here only (providers/ovpf-pdf.ts): three more when there is a new one.
+  { key: "web:volcan", build: async (cache, now) => (await ovpfPdf.readNewest(cache, now.getTime()), buildVolcan(cache, now)), every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 16 },
   { key: "web:courant", build: buildCourant, every: 2 * 60, cold: 7 },
 ];
 /**
