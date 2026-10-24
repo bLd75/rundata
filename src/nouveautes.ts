@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T17:00:00+04:00", texte: "Une page « Aujourd'hui » par commune : la météo, les routes, l'actu, les coupures et les sorties du jour." },
   { date: "2026-10-24T15:45:00+04:00", texte: "Votre IA résume la journée de votre commune : météo, routes, actu, coupures, sorties, mairie ouverte ou non." },
   { date: "2026-10-24T15:12:00+04:00", texte: "L'accueil affiche l'heure de chaque mesure." },
   { date: "2026-10-24T15:03:00+04:00", texte: "Depuis la météo d'un lieu, les randonnées et la commune du coin sont à un clic." },

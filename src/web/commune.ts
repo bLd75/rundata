@@ -13,6 +13,7 @@ import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
 import { current, cyclone, highest, raised } from "../tools/vigilance.js";
 import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
+import { LINK } from "./aujourdhui.js";
 import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
@@ -261,6 +262,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     <h1>${esc(p.nom)} <span class="n974">974</span> en direct</h1>
     ${SLOGAN}
     ${headline}
+    <p class="hero-cta"><a class="btn glass" href="/aujourdhui/${p.slug}">${esc(LINK(p))}</a></p>
     ${ask(`Kosa i spas ${p.nom} astèr ? Rogard si ${url} é di amwin.`,
       `Que se passe-t-il en ce moment à ${p.nom} ? Lis ${url} et résume-moi la météo, la vigilance, l'air, les prochains bus et si la mairie est ouverte, avec l'heure des données.`)}
   </div>

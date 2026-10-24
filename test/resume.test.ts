@@ -95,14 +95,14 @@ describe("the summary of a day", () => {
   });
 
   it("leaves out what it has no copy of, and says so", () => {
-    const r = resume(SAINT_PAUL, { meteo: COPIES.meteo } as never, NOW, [{ partie: "coupures d'eau", raison: "pas de copie récente", outil: "coupures_eau" }]);
+    const r = resume(SAINT_PAUL, { meteo: COPIES.meteo } as never, NOW, [{ partie: "coupures d'eau", raison: "pas de copie récente", outil: "coupures_eau", page: "https://rundata.re/coupures-eau/saint-paul" }]);
     expect(r.coupures_eau).toBeUndefined();
     expect(r.evenements_du_jour).toBeUndefined();
     expect(r.circulation.mesure_des_bouchons).toBeTruthy();
-    expect(r.non_inclus).toEqual([{ partie: "coupures d'eau", raison: "pas de copie récente", outil: "coupures_eau" }]);
+    expect(r.non_inclus).toEqual([{ partie: "coupures d'eau", raison: "pas de copie récente", outil: "coupures_eau", page: "https://rundata.re/coupures-eau/saint-paul" }]);
     // The sea from the weather page's own reading, when the sea's page has no copy: then it is not said missing.
     const withSea = { meteo: copy({ ...COPIES.meteo.value, mer: { resume: "", sources: [], mesure: { temperature_eau: "24,7 °C", jour_mesure: "2026-10-23", distance_km: 3 } } }) };
-    const r2 = resume(SAINT_PAUL, withSea as never, NOW, [{ partie: "température de la mer", raison: "pas de copie récente", outil: "temperature_mer" }]);
+    const r2 = resume(SAINT_PAUL, withSea as never, NOW, [{ partie: "température de la mer", raison: "pas de copie récente", outil: "temperature_mer", page: "https://rundata.re/mer" }]);
     expect(r2.mer?.temperature_eau).toBe("24,7 °C");
     expect(r2.non_inclus).toBeUndefined();
   });
@@ -174,7 +174,7 @@ describe("reading the copies", () => {
     const { value: v2 } = await counted(WORKER_BUDGET, async () => readCopies(isolate(await edgeWith(["coupures"])), SAINT_PAUL, SAINT_PAUL, NOW));
     expect(v2.copies.coupures).toBeUndefined();
     expect(v2.copies.agenda).toBeTruthy();
-    expect(v2.leftOut.find((x) => x.outil === "coupures_eau")?.raison).toMatch(/^copie de 24\/10 09:00, trop ancienne$/);
+    expect(v2.leftOut.find((x) => x.outil === "coupures_eau")).toEqual({ partie: "coupures d'eau", raison: "copie de 24/10 09:00, trop ancienne", outil: "coupures_eau", page: "https://rundata.re/coupures-eau/saint-paul" });
   });
 
   it("brings the oldest missing copy up to date after the answer, only within the invocation's subrequests", async () => {
