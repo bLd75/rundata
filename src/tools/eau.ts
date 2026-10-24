@@ -4,6 +4,8 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace, type Resolution } from "../places/resolve.js";
 import * as baignades from "../providers/baignades.js";
 import * as potable from "../providers/eaupotable.js";
+import * as notices from "../providers/avis-eau.js";
+import { doNotDrink, noticeRow } from "./coupures.js";
 import { why } from "../types.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 
@@ -81,16 +83,27 @@ function tapSentence(row: ReturnType<typeof networkRow>, where: string): string 
   return `Eau du robinet, réseau ${row.reseau} ${where} : ${last} ; ${bad}.`;
 }
 
+/** A distributor's « ne pas boire » notice in force for the commune, if its feed is read; never fails the answer. */
+async function notice(cache: Cache, commune: string, now: Date) {
+  try {
+    const n = doNotDrink((await notices.avis(cache)).value, commune);
+    return n ? noticeRow(n, now) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function robinet(cache: Cache, res: Resolution, now: Date) {
   const commune = res.lieu.commune;
   const insee = INSEE[commune];
   if (!insee) return { resume: "Commune introuvable pour l'eau du robinet." };
-  const { value } = await potable.commune(cache, insee, now);
+  const [{ value }, avis] = await Promise.all([potable.commune(cache, insee, now), notice(cache, commune, now)]);
+  const warn = avis ? { resume_avis: `EAU À NE PAS BOIRE ${a(commune)} d'après l'avis du distributeur du ${avis.publie_le} : « ${avis.titre} ».`, avis_ne_pas_boire: avis } : {};
   const rows = value.reseaux.map((r) => networkRow(r, value.prelevements));
   const own = res.lieu.type === "commune" ? null : networkFor(value.reseaux, res.lieu.nom, commune);
   if (own) {
     const row = networkRow(own, value.prelevements);
-    return { resume: tapSentence(row, a(res.lieu.nom)), reseau: row, autres_reseaux_de_la_commune: rows.length - 1 };
+    return { resume: [warn.resume_avis, tapSentence(row, a(res.lieu.nom))].filter(Boolean).join(" "), ...warn, reseau: row, autres_reseaux_de_la_commune: rows.length - 1 };
   }
   const ordered = rows.sort((x, y) => y.non_conformes_6_mois - x.non_conformes_6_mois || x.reseau.localeCompare(y.reseau));
   const badNets = ordered.filter((r) => r.non_conformes_6_mois);
@@ -100,7 +113,7 @@ async function robinet(cache: Cache, res: Resolution, now: Date) {
       ? ` ; non-conformités sur ${badNets.map((r) => `${r.reseau} (${r.non_conformes_6_mois})`).join(", ")}.`
       : total ? ", toutes conformes." : ".") +
     (value.reseaux.length > 1 ? " La qualité dépend du réseau qui dessert le quartier : préciser le quartier." : "");
-  return { resume, reseaux: ordered };
+  return { resume: [warn.resume_avis, resume].filter(Boolean).join(" "), ...warn, reseaux: ordered };
 }
 
 export function siteRow(r: baignades.Results, now: Date, from?: { lon: number; lat: number }) {
@@ -167,7 +180,8 @@ async function baignade(cache: Cache, res: Resolution, now: Date, lieu: string) 
 export const COMMON = {
   eau_du_robinet:
     "Analyses du contrôle sanitaire de l'ARS, publiées un à deux mois après le prélèvement. Un avis temporaire « ne pas boire l'eau » " +
-    "(après de fortes pluies, une eau trouble…) passe par la mairie, le distributeur et l'ARS : il n'est pas dans ces données.",
+    "(après de fortes pluies, une panne de chloration…) passe par le distributeur, la mairie et l'ARS : il est repris ici quand le distributeur publie ses avis en ligne " +
+    "(Saint-Denis, La Possession, les communes de l'Est), voir aussi l'outil coupures_eau.",
   eau_de_baignade:
     "Prélèvement toutes les deux semaines environ ; seuils par prélèvement (germes pour 100 mL) : bonne jusqu'à 100 entérocoques et 100 E. coli, " +
     "mauvaise au-delà de 370 entérocoques ou 1 000 E. coli. Après de fortes pluies, l'eau est souvent polluée pendant un à trois jours (ravines, rejets).",

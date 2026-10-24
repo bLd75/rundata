@@ -9,7 +9,7 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, EauAnswer, ElectriciteAnswer, SecheresseAnswer, SentiersAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, EauAnswer, ElectriciteAnswer, SecheresseAnswer, SentiersAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap } from "./map.js";
@@ -867,4 +867,75 @@ export function secheresseLive(data: Cached<SecheresseAnswer> | null): Live | un
   const worst = DROUGHT_ORDER.find((n) => d.communes.some((c) => c.eau_du_robinet === n));
   const hit = d.communes.filter((c) => c.eau_du_robinet && c.eau_du_robinet !== "vigilance").length;
   return { valeur: worst ? `jusqu'à ${worst}` : "vigilance", detail: `${hit} commune${hit > 1 ? "s" : ""} sur 24 en alerte ou plus pour l'eau du robinet` };
+}
+
+// ---------------------------------------------------------------- coupures d'eau
+
+function noticeCard(n: CoupuresAnswer["avis"][number]): string {
+  const cut = n.coupure ? `<p><b>${esc(n.coupure.de ?? "")}${n.coupure.a ? ` → ${esc(n.coupure.a)}` : ""}</b>${n.coupure.etat ? ` <span class="note">(${esc(n.coupure.etat)})</span>` : ""}</p>` : "";
+  return `<li class="card${n.ne_pas_boire ? " warn" : ""}"><h3>${n.ne_pas_boire ? "Ne pas boire l'eau · " : ""}${esc(n.communes.join(", "))} <span class="note">${esc(n.distributeur)}, publié le ${esc(n.publie_le)}</span></h3>` +
+    `<p>${esc(n.titre)}</p>${cut}${n.secteurs ? `<p class="note">Secteurs : ${esc(n.secteurs.join(", "))}</p>` : ""}` +
+    `<p class="note">${esc(n.texte.length > 320 ? `${n.texte.slice(0, 320)}…` : n.texte)} <a href="${esc(n.lien)}" rel="noopener">L'avis complet</a></p></li>`;
+}
+
+export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/coupures-eau`, now);
+  const dry = d?.ne_pas_boire ?? [];
+
+  const fills: Record<string, string> = {};
+  for (const c of d?.communes_suivies ?? []) {
+    const nm = MAP_NAME.get(normalize(c));
+    if (!nm) continue;
+    fills[nm] = dry.includes(c) ? "#f03e3e" : d!.avis.some((n) => n.communes.includes(c)) ? "#4dabf7" : "#a5d8ff";
+  }
+
+  const status = !d
+    ? loading("Les avis des distributeurs")
+    : `<div class="now"><span class="big">${d.avis.length}</span><p>avis de coupure ou de travaux récents ou à venir` +
+      `${dry.length ? ` ; <b>eau à ne pas boire</b> : ${esc(dry.join(", "))}` : ""}.</p></div>`;
+
+  const list = d
+    ? d.avis.length
+      ? `<ul class="zones">${[...d.avis].sort((x, y) => Number(!!y.ne_pas_boire) - Number(!!x.ne_pas_boire)).map(noticeCard).join("")}</ul>`
+      : `<p class="card">Aucun avis de coupure récent ou à venir dans les communes suivies.</p>`
+    : `<p class="card">Les avis se chargent : rechargez la page dans quelques secondes.</p>`;
+
+  const title = "Coupure d'eau à La Réunion aujourd'hui : avis des distributeurs, eau non potable";
+  const short = "🇷🇪 Coupures d'eau à La Réunion (974) : les avis de Dionéo, des Eaux de La Possession et de la CIREST, heures, rues concernées et avis « ne pas boire l'eau ».";
+  const description = d ? describe(`🇷🇪 ${d.resume} Coupures d'eau à La Réunion (974) : heures, rues concernées et avis « ne pas boire l'eau ».`, short) : short;
+
+  const band = `${crumbBar("Coupures d'eau")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Avis des distributeurs</p>
+    <h1>Coupures d'eau <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Néna koupir dolo Sin-Dni ? Rogard si ${url} é di amwin kansa dolo i rovien.`,
+      `Y a-t-il une coupure d'eau à Saint-Denis ? Lis ${url} et dis-moi quand l'eau revient.`)}
+  </div>
+  <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) : les communes dont les avis de coupure d'eau sont suivis" })}
+  <figcaption class="note" style="color:var(--on-night-muted)">Communes suivies : <span style="color:#f03e3e">eau à ne pas boire</span>, <span style="color:#4dabf7">avis en cours</span>, <span style="color:#a5d8ff">aucun avis</span>.</figcaption></figure>
+</div>`;
+
+  const body = `<section aria-labelledby="h-avis">
+  <div class="sec-h"><p class="eyebrow">Récents ou à venir</p><h2 id="h-avis">Les avis</h2>
+  <p>${d ? esc(d.couverture) : ""}</p></div>
+  ${list}
+  ${d ? `<p class="note">${esc(d.a_savoir)}</p>` : ""}
+  ${d && data ? sourcesNote(d.sources, data) : ""}
+</section>
+${connectorCta("coupures_eau", "les coupures d'eau")}`;
+
+  return layout(origin, { title, description, path: "/coupures-eau", jsonld: [crumbs(origin, "Coupures d'eau", "/coupures-eau"), webPage(origin, "/coupures-eau", title, description, data)], alerte }, band, body);
+}
+
+export function coupuresLive(data: Cached<CoupuresAnswer> | null): Live | undefined {
+  const d = data?.value;
+  if (!d) return undefined;
+  const dry = d.ne_pas_boire ?? [];
+  return {
+    valeur: dry.length ? `ne pas boire : ${esc(dry.join(", "))}` : `${d.avis.length} avis`,
+    detail: dry.length ? `${d.avis.length} avis de coupure ou de travaux récents ou à venir` : "de coupure ou de travaux récents ou à venir",
+  };
 }

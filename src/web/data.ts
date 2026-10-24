@@ -37,6 +37,7 @@ import { credits } from "../tools/format.js";
 import * as onf from "../providers/sentiers.js";
 import { sentiersRandonnee } from "../tools/sentiers.js";
 import { restrictionsEau } from "../tools/secheresse.js";
+import { COVERED as CUT_COVERED, coupuresEau, type noticeRow } from "../tools/coupures.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import { type Observation, why } from "../types.js";
 import { coastal, type PlacePage } from "./places.js";
@@ -384,6 +385,21 @@ export async function buildSecheresse(cache: Cache, now = new Date()): Promise<S
     interdits.push({ niveau, communes, restrictions: one.restrictions_eau_du_robinet ?? [] });
   }
   return { ...a, interdits };
+}
+
+export interface CoupuresAnswer {
+  resume: string;
+  ne_pas_boire?: string[];
+  avis: ReturnType<typeof noticeRow>[];
+  couverture: string;
+  a_savoir: string;
+  sources: Credit[];
+  communes_suivies: string[];
+}
+
+export async function buildCoupures(cache: Cache, now = new Date()): Promise<CoupuresAnswer> {
+  const a = needed<Omit<CoupuresAnswer, "communes_suivies">>(await coupuresEau(cache, undefined, now), "coupures");
+  return { ...a, communes_suivies: CUT_COVERED };
 }
 
 export interface ElectriciteAnswer {
