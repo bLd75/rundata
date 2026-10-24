@@ -9,7 +9,7 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, DaeAnswer, EauAnswer, ElectriciteAnswer, SecheresseAnswer, SentiersAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, DaeAnswer, EauAnswer, ElectriciteAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap } from "./map.js";
@@ -989,4 +989,121 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
 ${connectorCta("defibrillateurs", "les défibrillateurs")}`;
 
   return layout(origin, { title, description, path: "/defibrillateurs", jsonld: [crumbs(origin, "Défibrillateurs", "/defibrillateurs"), webPage(origin, "/defibrillateurs", title, description, data)], alerte }, band, body);
+}
+
+// ---------------------------------------------------------------- sport
+
+const SPORT_LISTED = 8;
+const SPORT_ORDER = ["handball", "volley-ball", "voile", "golf", "sport auto"];
+const sportName = (s: string) => (s === "sport auto" ? "Sport automobile" : s.charAt(0).toUpperCase() + s.slice(1));
+
+/** « vendredi 30/10 à 20:30 » → « ven. 30/10, 20:30 » ; « du samedi 24/10 au dimanche 25/10 » → « 24/10 → 25/10 ». */
+const shortWhen = (q: string) =>
+  q.startsWith("du ") ? q.replace(/^du \S+ (\S+) au \S+ (\S+)$/, "$1 → $2") : q.replace(/^(\S{3})\S* /, "$1. ").replace(" à ", ", ");
+
+function sportRow(r: SportAnswer["resultats"] extends (infer T)[] | undefined ? T : never, withScore: boolean): string {
+  const small = [r.competition, withScore ? shortWhen(r.quand) : "", r.lieu, r.detail && !withScore ? r.detail : ""].filter(Boolean).map((x) => esc(x!)).join(" · ");
+  const right = withScore
+    ? `<span class="score">${esc(r.score ?? "")}</span>`
+    : r.etat === "annulée" || r.etat === "reportée" ? `<span class="q-mauvaise">${esc(r.etat)}</span>` : `<span class="q-none">${esc(shortWhen(r.quand))}</span>`;
+  // A match links nowhere of its own: its championship's page is linked once, under the standings.
+  const name = r.lien && !r.competition ? `<a href="${esc(r.lien)}" rel="noopener">${esc(r.epreuve)}</a>` : esc(r.epreuve);
+  return `<li><span>${name}<small>${small}${withScore && r.detail ? ` · ${esc(r.detail)}` : ""}</small></span>${right}</li>`;
+}
+
+function bySport(rows: NonNullable<SportAnswer["a_venir"]>, withScore: boolean): string {
+  const groups = SPORT_ORDER.map((sp) => ({ sp, list: rows.filter((r) => r.sport === sp) })).filter((g) => g.list.length);
+  return `<ul class="zones">${groups.map((g) =>
+    `<li class="card"><h3>${esc(sportName(g.sp))} <span class="note">${g.list.length} ${withScore ? "résultat" : "rendez-vous"}${withScore && g.list.length > 1 ? "s" : ""}</span></h3>` +
+    `<ul class="rows eau">${g.list.slice(0, SPORT_LISTED).map((r) => sportRow(r, withScore)).join("")}` +
+    (g.list.length > SPORT_LISTED ? `<li><span class="note">et ${g.list.length - SPORT_LISTED} autres : demandez-les à votre IA.</span><span></span></li>` : "") +
+    `</ul></li>`).join("")}</ul>`;
+}
+
+export function sportPage(origin: string, data: Cached<SportAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/sport`, now);
+  const upcoming = (d?.a_venir ?? []).filter((r) => r.etat !== "annulée");
+  const soon = upcoming.slice(0, 7);
+
+  const status = !d
+    ? loading("Le calendrier du sport")
+    : `<div class="now"><span class="big">${upcoming.length}</span><p>rendez-vous officiels dans les quinze prochains jours : handball, volley, voile, golf et sport automobile.</p></div>`;
+
+  const next = soon.length
+    ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Les prochains rendez-vous</h3><ul class="plain">${soon.map((r) =>
+        `<li><b>${esc(r.quand)}</b> : ${esc(r.epreuve)} <span class="note" style="color:var(--on-night-muted)">(${esc(r.competition ? `${r.sport}, ${r.competition}` : r.sport)})</span></li>`).join("")}</ul></figure>`
+    : "";
+
+  const standings = d?.classements.length
+    ? `<ul class="zones">${d.classements.map((c) =>
+        `<li class="card"><h3><a href="${esc(c.lien)}" rel="noopener">${esc(c.competition)}</a></h3><ul class="rows eau">${c.lignes.map((l) =>
+          `<li><span>${l.place}. ${esc(l.equipe)}<small>${l.joues} match${l.joues > 1 ? "s" : ""} joué${l.joues > 1 ? "s" : ""}</small></span><span class="score">${l.points} pts</span></li>`).join("")}</ul></li>`).join("")}</ul>`
+    : "";
+
+  const raid = d?.grand_raid
+    ? `<section aria-labelledby="h-raid">
+  <div class="sec-h"><p class="eyebrow">${esc(d.grand_raid.dates)}</p><h2 id="h-raid">${esc(d.grand_raid.edition)}</h2>
+  <p>Les cinq courses, leurs partants, arrivants et abandons, et les podiums publiés par l'organisateur. Pendant la course, le connecteur donne qui est en tête et combien sont encore en course.</p></div>
+  <ul class="zones">${d.grand_raid.courses.map((c) =>
+    `<li class="card"><h3>${esc(c.course)} <span class="note">${esc(c.statut)}</span></h3><p class="note">Départ ${esc(c.depart)}${c.partants ? ` · ${c.partants} partants` : ""}${c.arrives ? `, ${c.arrives} arrivés` : ""}${c.abandons ? `, ${c.abandons} abandons` : ""}${c.en_course ? `, ${c.en_course} en course` : ""}</p>` +
+    (c.podium ? `<ul class="plain">${c.podium.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : "") +
+    (c.podium_femmes ? `<p class="note">Femmes : ${c.podium_femmes.map((p) => esc(p)).join(" ; ")}</p>` : "") + `</li>`).join("")}</ul>
+  <p class="note"><a href="${esc(d.grand_raid.lien)}" rel="noopener">Tous les classements sur Livetrail</a></p>
+</section>`
+    : "";
+
+  const news = d?.actualite?.length
+    ? `<section aria-labelledby="h-actu">
+  <div class="sec-h"><p class="eyebrow">Réunion La 1ère</p><h2 id="h-actu">L'actualité du sport</h2>
+  <p>Les derniers articles de la rédaction sport de Réunion La 1ère, dont les comptes rendus du football régional.</p></div>
+  <ul class="card plain">${d.actualite.map((n) => `<li><a href="${esc(n.lien)}" rel="noopener">${esc(n.titre)}</a> <span class="note">${esc(n.publie_le)}</span></li>`).join("")}</ul>
+</section>`
+    : "";
+
+  const title = "Sport à La Réunion : matchs du week-end, résultats, classements, Grand Raid (974)";
+  const description = "🇷🇪 Sport à La Réunion (974) : matchs à venir et résultats du handball et du volley régionaux, classements, régates, golf, rallyes et podiums du Grand Raid.";
+
+  const band = `${crumbBar("Sport")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Calendriers et résultats officiels</p>
+    <h1>Sport <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Kosa néna konm match sé wikenn la ? Rogard si ${url} é di amwin.`,
+      `Quels matchs et quelles compétitions ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
+  </div>
+  ${next}
+</div>`;
+
+  const body = `<section aria-labelledby="h-venir">
+  <div class="sec-h"><p class="eyebrow">Quinze prochains jours</p><h2 id="h-venir">À venir</h2>
+  <p>Les matchs des championnats régionaux de handball (D1) et de volley (R1), les régates de la Ligue de voile, les compétitions des trois golfs et le calendrier de la Ligue du sport automobile. Heures de La Réunion.</p></div>
+  ${d ? (d.a_venir?.length ? bySport(d.a_venir, false) : `<p class="card">Aucun rendez-vous trouvé dans les quinze prochains jours.</p>`) : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
+</section>
+${d?.resultats?.length ? `<section aria-labelledby="h-res">
+  <div class="sec-h"><p class="eyebrow">Sept derniers jours</p><h2 id="h-res">Derniers résultats</h2></div>
+  ${bySport(d.resultats, true)}
+</section>` : ""}
+${standings ? `<section aria-labelledby="h-class">
+  <div class="sec-h"><p class="eyebrow">Championnats régionaux</p><h2 id="h-class">Classements</h2></div>
+  ${standings}
+</section>` : ""}
+${raid}
+${news}
+<section aria-labelledby="h-src">
+  <div class="sec-h"><h2 id="h-src">Ce qui n'est pas couvert</h2><p>${d ? esc(d.non_couvert) : ""}</p></div>
+  ${d && data ? sourcesNote(d.sources, data) : ""}
+</section>
+${connectorCta("sport", "le sport")}`;
+
+  return layout(origin, { title, description, path: "/sport", jsonld: [crumbs(origin, "Sport", "/sport"), webPage(origin, "/sport", title, description, data)], alerte }, band, body);
+}
+
+export function sportLive(data: Cached<SportAnswer> | null): Live | undefined {
+  const d = data?.value;
+  if (!d) return undefined;
+  const upcoming = (d.a_venir ?? []).filter((r) => r.etat !== "annulée");
+  const first = upcoming[0];
+  return { valeur: `${upcoming.length} rendez-vous`, detail: first ? `d'ici quinze jours ; prochain : ${esc(first.epreuve)}, ${esc(first.quand)}` : "d'ici quinze jours" };
 }

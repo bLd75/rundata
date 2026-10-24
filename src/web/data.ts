@@ -41,6 +41,8 @@ import * as daeSource from "../providers/dae.js";
 import { access as daeAccess, byCommune as daeByCommune, daeRow, URGENCE as DAE_URGENCE } from "../tools/dae.js";
 import { COVERED as CUT_COVERED, coupuresEau, type noticeRow } from "../tools/coupures.js";
 import { volcanSeismes } from "../tools/volcan.js";
+import * as sportSource from "../providers/sport.js";
+import { grandRaidRow, sportTool, type SportRow } from "../tools/sport.js";
 import { type Observation, why } from "../types.js";
 import { coastal, type PlacePage } from "./places.js";
 
@@ -402,6 +404,34 @@ export interface CoupuresAnswer {
 export async function buildCoupures(cache: Cache, now = new Date()): Promise<CoupuresAnswer> {
   const a = needed<Omit<CoupuresAnswer, "communes_suivies">>(await coupuresEau(cache, undefined, now), "coupures");
   return { ...a, communes_suivies: CUT_COVERED };
+}
+
+export interface SportAnswer {
+  resume: string;
+  a_venir?: SportRow[];
+  resultats?: SportRow[];
+  actualite?: { titre: string; publie_le: string; lien: string }[];
+  indisponible?: string[];
+  non_couvert: string;
+  sources: Credit[];
+  classements: { competition: string; lignes: sportSource.Rang[]; lien: string }[];
+  grand_raid?: ReturnType<typeof grandRaidRow>;
+}
+
+/** The tool's answer for the whole island, with the standings and the last Grand Raid, which it gives only when asked. */
+export async function buildSport(cache: Cache, now = new Date()): Promise<SportAnswer> {
+  const a = needed<Omit<SportAnswer, "classements" | "grand_raid">>(await sportTool(cache, undefined, undefined, undefined, now), "sport");
+  const [hb, vb, gr] = await Promise.all([
+    sportSource.championnats(cache, "handball").catch(() => undefined),
+    sportSource.championnats(cache, "volley").catch(() => undefined),
+    sportSource.grandRaid(cache, now).catch(() => undefined),
+  ]);
+  const classements = [...(hb?.value ?? []), ...(vb?.value ?? [])].map((c) => ({
+    competition: `${c.sport === "handball" ? "Handball" : "Volley-ball"}, ${c.nom}`,
+    lignes: c.classement,
+    lien: c.lien,
+  }));
+  return { ...a, classements, grand_raid: gr ? grandRaidRow(gr.value) : undefined };
 }
 
 export interface DaeAnswer {

@@ -48,10 +48,12 @@ import * as avisEau from "./providers/avis-eau.js";
 import { coupuresEau } from "./tools/coupures.js";
 import * as dae from "./providers/dae.js";
 import { defibrillateurs } from "./tools/dae.js";
+import * as sportSources from "./providers/sport.js";
+import { SPORTS, sportTool, type Quand, type Sport } from "./tools/sport.js";
 
-export const VERSION = "0.12.0";
+export const VERSION = "0.13.0";
 
-const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, marée, crues des rivières, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, sentiers de randonnée fermés, cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
+const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, marée, crues des rivières, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, sentiers de randonnée fermés, sport (matchs, régates, rallyes, Grand Raid), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
 - Maintenant (« il fait combien ? », « il pleut ? », « la mer est à combien ? ») : meteo_actuelle et temperature_mer renvoient des MESURES datées. Dire l'heure de la mesure, la station et sa distance, et relayer les avertissements (altitude, versant, ancienneté), car le climat change beaucoup sur quelques kilomètres.
 - Plus tard (« demain », « ce soir », « ce week-end ») : prevision_meteo renvoie une PRÉVISION de modèle. Toujours dire à l'utilisateur que c'est une prévision, pas une mesure, et relayer ses avertissements ; ne jamais la présenter comme une observation.
@@ -70,6 +72,7 @@ Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La 
 - Coupures d'eau (« coupure d'eau à Saint-Denis ? », « l'eau est revenue ? », « on peut boire l'eau à la Plaine-des-Palmistes ? ») : coupures_eau renvoie les avis des distributeurs. Un avis « ne pas boire l'eau » se dit en premier.
 - Urgence cardiaque (« où est le défibrillateur le plus proche ? ») : defibrillateurs ; dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque.
 - Randonnée (« le sentier de la Roche Pendue est ouvert ? », « sentiers fermés à Mafate ? », « on peut monter au Piton des Neiges ? ») : sentiers_randonnee renvoie l'état des sentiers d'après la carte de l'ONF. Relayer la cause d'une fermeture ; un sentier fermé est interdit.
+- Sport (« quels matchs ce week-end ? », « résultats du handball ? », « prochaine régate ? », « classement du Grand Raid ? ») : sport renvoie le calendrier et les résultats officiels (handball, volley, voile, golf, sport automobile, Grand Raid) et l'actualité sportive de Réunion La 1ère. Le football n'a pas de source ouverte : le dire, et citer les articles.
 - Terrain à une adresse (« constructible ? », « zone du PLU ? », « prix au m² ? », « zone inondable ? », « risques à cette adresse ? ») : fiche_terrain.
 - Vigilance et cyclones (« alerte cyclonique ? », « vigilance orange ? », « on peut aller en montagne avec ces pluies ? ») : vigilance_meteo renvoie la vigilance officielle de Météo-France. Quand une réponse contient un champ « vigilance », le dire en premier.
 Réunion Island weather: real-time measurements (meteo_actuelle, temperature_mer) and model forecasts (prevision_meteo), never mixed. Always tell the user when a value is a forecast.`;
@@ -509,6 +512,35 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
   );
 
   server.registerTool(
+    "sport",
+    {
+      title: "Sport à La Réunion : matchs, résultats, Grand Raid",
+      description:
+        "Sport à La Réunion (974) : rendez-vous à venir et derniers résultats officiels des championnats régionaux de handball (D1) et de volley (R1), " +
+        "classements, régates de voile, compétitions de golf, rallyes et sport automobile (calendrier de la Ligue), Grand Raid (courses, " +
+        "partants, abandons, podiums), et l'actualité sportive de Réunion La 1ère (titres et liens, dont le football). " +
+        "Pour : « quels matchs ce week-end ? », « résultats du volley à Saint-Leu ? », « classement du handball ? », « prochaine régate ? », " +
+        "« prochain rallye ? », « qui a gagné le Grand Raid ? ». / Sport in Réunion Island: fixtures, results, standings, Grand Raid.",
+      inputSchema: {
+        sport: z
+          .enum(SPORTS as [Sport, ...Sport[]])
+          .optional()
+          .describe("Le sport ; vide = tous. « football » renvoie l'actualité seulement (pas de résultats officiels lisibles). / The sport; empty = all."),
+        lieu: z
+          .string()
+          .optional()
+          .describe("Une commune (« Saint-Paul », « Saint-Leu ») : les rendez-vous qui la nomment. Vide = toute l'île. / A town; empty = whole island."),
+        quand: z
+          .enum(["aujourd_hui", "ce_week_end", "a_venir", "resultats"])
+          .optional()
+          .describe("« aujourd_hui », « ce_week_end », « a_venir » (14 jours) ou « resultats » ; vide = les deux. / Today, this weekend, upcoming or results; empty = both."),
+      },
+      annotations: { title: "Sport", ...READ_ONLY },
+    },
+    track("sport", (args: { sport?: Sport; lieu?: string; quand?: Quand }) => sportTool(cache, args.sport, args.lieu, args.quand)),
+  );
+
+  server.registerTool(
     "sources_donnees",
     {
       title: "Sources des données",
@@ -520,7 +552,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
     },
     track("sources_donnees", async () =>
       text({
-        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
+        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage() },
         version: VERSION,
