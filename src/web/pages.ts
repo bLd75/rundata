@@ -67,7 +67,41 @@ export const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-reu
 // Where else rundata.re lives, linked from every footer and named in the home page's structured data.
 export const GITHUB = "https://github.com/bLd75/rundata";
 export const GLAMA = "https://glama.ai/mcp/servers/bLd75/rundata";
-export const FACEBOOK = "https://www.facebook.com/1432704299917309";
+
+/** An account of rundata.re: its name, its address, its logo drawn in the text colour. */
+export interface Social {
+  nom: string;
+  /** Empty while the account is not confirmed: the entry then shows nowhere. */
+  url: string;
+  svg: string;
+}
+
+// rundata.re's accounts, linked from every footer, from the line above the feedback form and from /presse, and named
+// in the home page's structured data (sameAs), in this order. Another network: one more entry, its logo a 24×24 SVG.
+export const SOCIAL: Social[] = [
+  {
+    nom: "Facebook",
+    url: "https://www.facebook.com/1432704299917309",
+    svg: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M13.5 22v-8h2.7l.4-3.2h-3.1V8.8c0-.9.3-1.6 1.6-1.6h1.7V4.4c-.3 0-1.3-.1-2.5-.1-2.5 0-4.1 1.5-4.1 4.2v2.3H7.4V14h2.8v8z"/></svg>`,
+  },
+  {
+    nom: "Instagram",
+    url: "https://www.instagram.com/rundata.re/",
+    svg: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>`,
+  },
+];
+
+/** The accounts that have an address. */
+export const followed = (list = SOCIAL) => list.filter((s) => s.url);
+
+/** Visits from the site's own links are counted apart (src/metrics.ts). */
+const fromSite = (url: string) => `${url}${url.includes("?") ? "&" : "?"}ref=site`;
+
+/** « Suivre rundata.re » and each account, with its logo and its name; nothing when none has an address. */
+export function follow(list = SOCIAL): string {
+  const links = followed(list).map((s) => `<a href="${esc(fromSite(s.url))}" rel="noopener" aria-label="rundata.re sur ${esc(s.nom)}">${s.svg}${esc(s.nom)}</a>`);
+  return links.length ? `<p class="social">Suivre rundata.re : ${links.join("")}</p>` : "";
+}
 
 // Search engines cut (and Bing flags) a meta description over 160 characters.
 export const DESCRIPTION_MAX = 160;
@@ -553,6 +587,7 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 @media (min-width:58rem){.posts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .posts p{overflow-wrap:anywhere}
 .warn ul{padding:0}
+.social{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem 1rem}.social a{display:inline-flex;align-items:center;gap:.35rem}.social svg{width:1.1rem;height:1.1rem;flex:none}
 .pages{list-style:none;padding:0;margin-top:1rem;display:flex;flex-wrap:wrap;gap:.4rem}.pages a{display:block;padding:.3rem .75rem;border-radius:999px;background:rgb(255 255 255/.06);border:1px solid rgb(255 255 255/.1);text-decoration:none;font-size:.86rem}
 footer.foot{background:var(--night);color:var(--on-night-muted);font-size:.86rem;line-height:1.55;padding-block:2.5rem 3rem;border-top:1px solid rgb(255 255 255/.06)}
 footer.foot .wrap{display:grid;gap:1.5rem}
@@ -646,13 +681,14 @@ export function hook(path: string): string | undefined {
 
 /**
  * Above the feedback form: send the page on WhatsApp, the island's first channel with Facebook (a plain link, no
- * script of theirs; `?ref=wa` counts the visits it brings, src/metrics.ts), and follow the Facebook Page.
+ * script of theirs; `?ref=wa` counts the visits it brings, src/metrics.ts), and follow rundata.re's accounts.
  */
 function share(origin: string, head: Head): string {
   const text = `${head.title.replace(/ · 974$/, "")} : ${origin}${head.path}?ref=wa`;
+  const accounts = followed();
   return `<aside class="share wrap" aria-label="Partager et suivre"><div class="card">
   <a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp ${EXTERNAL}</a>
-  <p>Une info utile chaque matin : <a href="${FACEBOOK}?ref=site" rel="noopener">suivez rundata.re sur Facebook</a>.</p>
+  ${accounts.length ? `<p>Une info utile chaque matin : suivez rundata.re sur ${accounts.map((s) => `<a href="${esc(fromSite(s.url))}" rel="noopener">${esc(s.nom)}</a>`).join(" ou ")}.</p>` : ""}
 </div></aside>`;
 }
 
@@ -745,7 +781,8 @@ ${avisForm(head.path)}
     <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
     ${head.rss ? `<p><a href="${esc(head.rss.href)}" title="${esc(head.rss.hint)}">${esc(head.rss.link)}</a></p>` : ""}
     <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · contact@rundata.re</p>
-    <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP. Suivre rundata.re sur <a href="${FACEBOOK}">Facebook</a>.</p>
+    <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP.</p>
+    ${follow()}
     <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li></ul>
   </div>
   <div>

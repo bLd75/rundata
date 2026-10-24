@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { hook, placePage } from "../src/web/pages.js";
+import { follow, hook, placePage, SOCIAL, type Social } from "../src/web/pages.js";
+import { homePage } from "../src/web/home.js";
+import { pressePage } from "../src/web/presse.js";
 import { pageOf } from "../src/web/places.js";
 import { manifest, site } from "../src/web/site.js";
 import { sentiersPage } from "../src/web/domains.js";
@@ -45,8 +47,36 @@ describe("sharing and following", () => {
     const html = placePage(O, pageOf("cilaos")!, null, NOW);
     const text = "Météo Cilaos en direct et prévisions : https://rundata.re/meteo/cilaos?ref=wa";
     expect(html).toContain(`<a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp`);
-    expect(html).toMatch(/suivez rundata\.re sur Facebook/);
-    expect(html).toContain("?ref=site");
+    expect(html).toContain(`suivez rundata.re sur <a href="https://www.facebook.com/1432704299917309?ref=site" rel="noopener">Facebook</a> ou <a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener">Instagram</a>.`);
     expect(html.indexOf('class="share wrap"')).toBeLessThan(html.indexOf('id="avis"'));
+  });
+});
+
+describe("rundata.re's accounts", () => {
+  const facebook = SOCIAL.find((s) => s.nom === "Facebook")!;
+
+  it("are in every footer, with their logo, their name and ?ref=site", () => {
+    const html = placePage(O, pageOf("cilaos")!, null, NOW);
+    const foot = html.slice(html.indexOf('<footer class="foot">'));
+    expect(foot).toContain(`<p class="social">Suivre rundata.re : <a href="https://www.facebook.com/1432704299917309?ref=site" rel="noopener" aria-label="rundata.re sur Facebook"><svg`);
+    expect(foot).toContain(`<a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener" aria-label="rundata.re sur Instagram"><svg`);
+    expect(foot).toMatch(/<\/svg>Facebook<\/a><a [^>]+><svg[^]*?<\/svg>Instagram<\/a><\/p>/);
+  });
+
+  it("show nothing for an account without an address", () => {
+    const later: Social = { nom: "Instagram", url: "", svg: "<svg></svg>" };
+    expect(follow([later])).toBe("");
+    expect(follow([facebook, later])).not.toContain("Instagram");
+    expect(follow([facebook, { ...later, url: "https://www.instagram.com/essai" }])).toContain(`<a href="https://www.instagram.com/essai?ref=site" rel="noopener" aria-label="rundata.re sur Instagram"><svg></svg>Instagram</a>`);
+  });
+
+  it("are the home page's sameAs, and listed on /presse", () => {
+    const page = homePage(O, null, NOW);
+    const ld = JSON.parse(page.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)![1]);
+    const org = ld.find((x: { "@type": string }) => x["@type"] === "Organization");
+    expect(org.sameAs.slice(0, 2)).toEqual(["https://www.facebook.com/1432704299917309", "https://www.instagram.com/rundata.re/"]);
+    expect(org.sameAs).toHaveLength(SOCIAL.filter((s) => s.url).length + 3);
+    const presse = pressePage(O, []);
+    expect(presse.slice(0, presse.indexOf("<main")).match(/<p class="social">/g)).toHaveLength(1);
   });
 });
