@@ -79,6 +79,10 @@ export interface Evenement {
   publie_par: string;
   /** When the source says so; « reporté » keeps the dates the source gives (the new ones, when it has them). */
   statut?: Statut;
+  /** When the state comes from the news, not from the organiser (src/providers/agenda-presse.ts): who said it. */
+  selon?: { media: string; lien: string; publie: string };
+  /** The new day the news gives a postponed event, « 2026-12-05 ». */
+  reporte_au?: string;
   /** Where to book, when it is not the event's own page. */
   billetterie?: string;
 }

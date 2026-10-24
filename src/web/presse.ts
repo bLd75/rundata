@@ -67,23 +67,24 @@ export async function pressFigures(cache: Cache): Promise<Figure[]> {
 
 const link = (url: string) => `<a href="${url}">${url.replace(/^https:\/\//, "")}</a>`;
 
-// The press release of 24 October 2026, as sent: its figures are those of that day; the key figures above it are live.
+// The press release dated 24 October 2026, word for word as the communication kit sends it (communique.md); the key figures above it are live.
 const RELEASE = `<p class="eyebrow">Communiqué de presse · La Réunion, le 24 octobre 2026</p>
 <h2 id="h-communique">Toute La Réunion en direct, sur une seule page… et dans votre assistant IA</h2>
-<p><b>rundata.re, un site gratuit, sans compte et sans publicité, rassemble en un seul endroit les données publiques de l'île au moment où on les consulte : la météo mesurée aux stations, la vigilance, le volcan, les bus, les sentiers ouverts ou fermés, la qualité de l'eau, les coupures, les événements du week-end. Et il les met dans ChatGPT, Claude ou Le Chat, qui répondent alors avec de vraies mesures, datées et sourcées.</b></p>
+<p><b>rundata.re, un site gratuit, sans compte et sans publicité, rassemble en un seul endroit les données publiques de l'île au moment où on les consulte : la météo mesurée aux stations, la vigilance, le volcan, les bus, les sentiers ouverts ou fermés, la qualité de l'eau, les coupures, les événements du week-end, les informations des médias de l'île. Et il les met dans ChatGPT, Claude ou Le Chat, qui répondent alors avec de vraies mesures, datées et sourcées.</b></p>
 <p>Il pleut à Cilaos en ce moment ? Le sentier du Piton des Neiges est-il ouvert ? Que faire ce week-end ? Le prochain car jaune passe à quelle heure ? Jusqu'ici, chaque réponse se cherchait sur un site différent : Météo-France, l'ONF, l'ARS, les réseaux de bus, les mairies, l'observatoire du volcan… rundata.re les réunit sur une même page, mise à jour toutes les cinq minutes, commune par commune.</p>
 <h3>Des mesures, pas des modèles</h3>
 <p>À La Réunion, on passe du niveau de la mer à 3 000 m en vingt kilomètres : une application météo nationale qui donne « 28 °C » pour tout un secteur ne dit rien de Cilaos ou du Maïdo. rundata.re affiche ce que mesure la station Météo-France la plus proche et la plus représentative, avec l'heure de la mesure, la distance et l'altitude de la station. La pluie vue par le radar est donnée au lieu même. Les prévisions existent aussi, mais toujours séparées et étiquetées comme telles. Et pour un cyclone, le site renvoie toujours à la vigilance officielle de Météo-France et aux consignes de la préfecture.</p>
 <h3>Ce qu'on y trouve</h3>
 <ul>
-<li><b>Météo</b> : environ 56 stations de la côte aux sommets, toutes les 6 minutes ; radar de pluie ; vigilance et alerte cyclonique ; cyclones actifs de l'océan Indien.</li>
+<li><b>Météo</b> : les stations Météo-France de la côte aux sommets, relevées toutes les 6 minutes ; radar de pluie ; vigilance et alerte cyclonique ; cyclones actifs de l'océan Indien.</li>
 <li><b>Historique</b> : le temps qu'il a fait, jour par jour depuis 1900 et heure par heure depuis 2000, comparé à la normale et aux records. Exemple : le 28 février 2025, pendant le cyclone Garance, la station de Chaudron a mesuré 278,9 mm de pluie dans la journée, dont 92,8 mm entre midi et 13 h, et l'aéroport de Gillot une rafale de 213 km/h.</li>
+<li><b>Actualités</b> : les informations des médias de l'île (Réunion La 1ère, Clicanoo, Imaz Press, Freedom, Parallèle Sud, Témoignages) et les communiqués de la préfecture, relus toutes les 5 minutes et rangés par commune et par sujet : le titre, la première phrase et le lien vers l'article, sur ${link("https://rundata.re/actualites")}. On peut aussi demander à son assistant IA « que se passe-t-il à Saint-Pierre ? ».</li>
 <li><b>Volcan</b> : éruption ou non, accès à l'Enclos, séismes localisés par l'observatoire.</li>
 <li><b>Mer</b> : température de l'eau au large des plages, hauteur de la marée mesurée au Port et à Sainte-Marie.</li>
 <li><b>Se déplacer</b> : prochains départs à n'importe quel arrêt de Car Jaune, Citalis, Kar'Ouest, Alternéo, CarSud, Estival et du téléphérique Papang ; vélos Altervélo disponibles ; état en direct des 411 points de recharge pour voiture électrique.</li>
 <li><b>Randonnée</b> : une page pour les randonneurs, ${link("https://rundata.re/randonnees")} : 41 itinéraires et 351 sentiers de l'ONF sur une carte, colorés selon leur état du jour, à filtrer par distance, dénivelé ou boucle. Chaque sentier a sa trace GPS (GPX) ; quand un itinéraire traverse un tronçon fermé, la page l'annonce en rouge et le fichier GPX porte un repère « FERMÉ » qui s'affiche dans l'application GPS du randonneur.</li>
 <li><b>Eau</b> : qualité de l'eau du robinet réseau par réseau et des 26 plages et bassins contrôlés par l'ARS, coupures et avis « ne pas boire », restrictions sécheresse commune par commune.</li>
-<li><b>Vie pratique</b> : fêtes, concerts, marchés et festivals des prochains jours d'après les agendas des mairies et de l'office de tourisme ; vacances scolaires et jours fériés (dont le 20 décembre) ; horaires des mairies et services publics ; plus de 1 200 défibrillateurs ; qualité de l'air ; d'où vient l'électricité de l'île en ce moment.</li>
+<li><b>Vie pratique</b> : fêtes, concerts, spectacles, marchés et festivals des prochains jours d'après les agendas des mairies, de l'office de tourisme et la programmation des salles ; vacances scolaires et jours fériés (dont le 20 décembre) ; horaires des mairies et services publics ; plus de 1 200 défibrillateurs ; qualité de l'air ; d'où vient l'électricité de l'île en ce moment.</li>
 <li><b>À une adresse</b> : parcelle, zone du PLU, prix de vente médians autour, risques naturels.</li>
 </ul>
 <h3>Dans votre IA, en deux minutes</h3>
@@ -91,7 +92,7 @@ const RELEASE = `<p class="eyebrow">Communiqué de presse · La Réunion, le 24 
 <p>Ce connecteur suit un protocole ouvert, le MCP (Model Context Protocol), que comprennent désormais la plupart des assistants IA : c'est une façon concrète de mettre les données publiques d'un territoire entier à la portée de ces outils.</p>
 <h3>Gratuit, ouvert, fait pour l'île</h3>
 <p>Le site n'a ni publicité ni cookie (les statistiques de visite sont anonymes). Toutes les données viennent d'organismes publics (Météo-France, ONF, ARS, OVPF-IPGP, EDF, Atmo Réunion, réseaux de bus, mairies…) ou de projets ouverts comme OpenStreetMap, et chaque chiffre est cité avec sa source. Le code est libre (licence MIT). rundata.re est un projet indépendant : il n'est rattaché à aucun de ces organismes et ne remplace pas leurs canaux officiels.</p>
-<p>« Réunir tout ce qui se passe sur l'île sur une même appli, c'est le top », résume un des premiers utilisateurs. D'autres rubriques arrivent, dont les concerts et spectacles des salles de l'île.</p>
+<p>« Réunir tout ce qui se passe sur l'île sur une même appli, c'est le top », résume un des premiers utilisateurs.</p>
 <h3>Liens</h3>
 <ul>
 <li>Le site : ${link("https://rundata.re")}</li>
