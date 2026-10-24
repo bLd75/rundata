@@ -171,9 +171,9 @@ const DEADLINE_MS = 5_000;
 const BUNDLE = "agendas";
 const SYNC_SECONDS = 60;
 // The subrequests not to be spent on the agendas: what follows them (the news's copy, the bundle's write, the page's
-// copy) and a margin, so that an invocation that reads them all stays near 40 out of 50. An agenda past them is answered
-// from its last copy, or named, and read by a later question.
-const KEEP_LEFT = 13;
+// copy) and one more, within the invocation's budget (budget.ts). An agenda past them is answered from its last copy,
+// or named, and read by a later question.
+const KEEP_LEFT = 4;
 
 /** An agenda this invocation has no subrequests left for, and of which no copy is kept. */
 class Postponed extends Error {}

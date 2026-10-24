@@ -7,7 +7,7 @@
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
 import { handle } from "./app.js";
-import { WORKER_FREE_LIMIT, count, counted, later } from "./budget.js";
+import { WORKER_BUDGET, WORKER_FREE_LIMIT, count, counted, later } from "./budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { audience, language, point, visitor, type Hit } from "./metrics.js";
 import { VERSION } from "./server.js";
@@ -45,7 +45,7 @@ class EdgeStore implements CacheStore {
       const body = new Response(JSON.stringify(entry), {
         headers: { "content-type": "application/json", "cache-control": `max-age=${KEEP_SECONDS}` },
       });
-      count();
+      count(1, true);
       await (await caches.open("upstream")).put(this.url(key), body);
     } catch {
       // same
@@ -174,11 +174,13 @@ export default {
     const c = setup(env);
     // A page served from its last copy refreshes it after the response (web/data.ts); an agenda too slow for the
     // answer is still stored (tools/agenda.ts).
-    const { value, used, settled } = await counted(WORKER_FREE_LIMIT, () => handle(request, c, later, recorder(env, request)), (p) => ctx.waitUntil(p));
+    const { value, used, settled } = await counted(WORKER_BUDGET, () => handle(request, c, later, recorder(env, request)), (p) => ctx.waitUntil(p));
     const path = new URL(request.url).pathname;
-    // Once the work after the response is done too: it counts against the same limit.
+    // Once the work after the response is done too: it counts against the same budget.
     ctx.waitUntil(settled().then((total) => {
-      if (total) console.log(`sous-requêtes : ${total} (${path})${total > used ? `, dont ${total - used} après la réponse` : ""}`);
+      const after = total.used > used ? `, dont ${total.used - used} après la réponse` : "";
+      const refused = total.refused ? `, ${total.refused} refusées (budget de ${WORKER_BUDGET})` : "";
+      if (total.used) console.log(`sous-requêtes : ${total.used} (${path})${after}${refused}`);
     }));
     return value;
   },

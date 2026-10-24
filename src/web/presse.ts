@@ -49,7 +49,7 @@ const n = (x: number) => x.toLocaleString("fr-FR").replace(/ /g, " ");
  * counts of the day. Nothing is fetched for them.
  */
 export async function pressFigures(cache: Cache): Promise<Figure[]> {
-  const [hikes, agenda] = await Promise.all([cache.peek<RandonneesAnswer>("web:randonnees"), cache.peek<AgendaAnswer>("web:agenda")]);
+  const [hikes, agenda] = await Promise.all([cache.peek<RandonneesAnswer>("web:randonnees").catch(() => undefined), cache.peek<AgendaAnswer>("web:agenda").catch(() => undefined)]);
   const figures: Figure[] = [
     { valeur: toolCount(cache), label: "outils dans le connecteur pour les assistants IA", detail: "météo, volcan, bus, eau, sentiers, terrain…" },
     { valeur: COMMUNES.length, label: "communes, chacune avec sa page" },

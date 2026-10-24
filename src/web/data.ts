@@ -6,7 +6,7 @@
  * cache costs at most one subrequest (the edge read). Only a page never built in this data center waits, a few
  * seconds at most, and is otherwise sent without its live block while the build goes on.
  */
-import { left } from "../budget.js";
+import { left, measured } from "../budget.js";
 import { distanceKm, localTime } from "../geo.js";
 import type { Cache, Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
@@ -1310,7 +1310,9 @@ export async function snapshot<T>(
   waitMs = WAIT_MS,
   reader = false,
 ): Promise<Cached<T> | null> {
-  const any = cache.get(key, KEEP_SECONDS, build);
+  // Each build is measured: a tile is brought up to date only when what it took last time is left (web/site.ts).
+  const run = () => measured(key, build);
+  const any = cache.get(key, KEEP_SECONDS, run);
   let got: Cached<T> | null;
   try {
     got = await within(any, waitMs);
@@ -1323,7 +1325,7 @@ export async function snapshot<T>(
     return null;
   }
   if (now.getTime() - got.fetchedAt.getTime() > FRESH_SECONDS * 1000) {
-    const fresh = cache.get(key, FRESH_SECONDS, build);
+    const fresh = cache.get(key, FRESH_SECONDS, run);
     const logged = fresh.catch((err) => console.error(`page ${key} : rafraîchissement impossible`, why(err)));
     if (reader) {
       const newer = await within(logged, waitMs);

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WORKER_FREE_LIMIT, count, counted, left } from "../src/budget.js";
+import { WORKER_FREE_LIMIT, costOf, count, counted, later, left, measured } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import * as arome from "../src/providers/arome.js";
 import { configure } from "../src/providers/mf-auth.js";
@@ -173,5 +173,80 @@ describe("a run not all out yet, in the Worker", () => {
     const res = body(r.value);
     expect(res.resume).toMatch(/calcul de 22\/10 04:00, et de 21\/10 22:00 pour la suite/);
     expect(res.pas_de_3h.filter((s: { modele: string }) => s.modele.startsWith("AROME")).length).toBe(7);
+  });
+});
+
+describe("the invocation's budget", () => {
+  it("refuses the subrequests past it, as the platform would, and says how many", async () => {
+    const { settled } = await counted(3, async () => {
+      count(2);
+      count();
+      expect(() => count()).toThrow(/Too many subrequests/);
+      expect(left()).toBe(0);
+    });
+    expect(await settled()).toEqual({ used: 3, refused: 1 });
+  });
+
+  it("keeps a tenth of it for writing to the cache what was read", async () => {
+    const { settled } = await counted(40, async () => {
+      count(36);
+      expect(left()).toBe(0);
+      expect(() => count()).toThrow(/Too many subrequests/);
+      count(4, true);
+      expect(() => count(1, true)).toThrow(/Too many subrequests/);
+    });
+    expect(await settled()).toEqual({ used: 40, refused: 2 });
+  });
+
+  it("counts the work after the response against it", async () => {
+    let done: () => void = () => {};
+    const { used, settled } = await counted(5, async () => {
+      count();
+      later(new Promise<void>((r) => (done = r)).then(() => count(2)));
+    });
+    expect(used).toBe(1);
+    done();
+    expect((await settled()).used).toBe(3);
+  });
+
+  it("serves the last copy of what a refused subrequest was for, and does not hold it against the source", async () => {
+    let t = NOW.getTime();
+    const c = new Cache(new MemoryStore(), () => t);
+    await c.get("x", 60, async () => "old");
+    t += 120_000;
+    let asked = 0;
+    const load = async () => {
+      count();
+      asked++;
+      return "new";
+    };
+    const refused = await counted(0, () => c.get("x", 60, load));
+    expect(refused.value).toMatchObject({ value: "old", stale: true });
+    // The next invocation, with subrequests left, asks the source at once.
+    const next = await counted(5, () => c.get("x", 60, load));
+    expect(next.value).toMatchObject({ value: "new", stale: false });
+    expect(asked).toBe(1);
+  });
+
+  it("remembers what a job took, refused subrequests and work handed over included", async () => {
+    const key = `job-${Math.random()}`;
+    expect(costOf(key)).toBeUndefined();
+    let done: () => void = () => {};
+    const { settled } = await counted(4, () =>
+      measured(key, async () => {
+        count(2);
+        later(new Promise<void>((r) => (done = r)).then(() => count(3)));
+      }));
+    expect(costOf(key)).toBe(2);
+    done();
+    await settled();
+    // Two more done after it returned, one of them past the budget.
+    expect(costOf(key)).toBe(5);
+    // A cheaper run does not lower it: the next start waits for the most it may take.
+    await counted(10, () => measured(key, async () => count()));
+    expect(costOf(key)).toBe(5);
+    // Outside a counted invocation nothing is measured.
+    await measured(`${key}-node`, async () => count());
+    expect(costOf(`${key}-node`)).toBeUndefined();
   });
 });
