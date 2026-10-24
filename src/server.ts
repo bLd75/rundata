@@ -71,7 +71,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.93.0";
+export const VERSION = "0.94.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -94,6 +94,7 @@ Détails :
 - defibrillateurs : dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque. coupures_eau : un avis « ne pas boire » d'abord. crues_rivieres : ne jamais traverser un radier submergé.
 - maree : mesures, puis les prochaines marées CALCULÉES par rundata, pas la prédiction du SHOM : le dire, avec la précision donnée. sport : « match de volley / foot / hand / basket ce week-end à X » → sport (lieu = commune, « le sud » ou sigle de club ; quand = samedi, dimanche…), annulations et reports compris ; pas de source officielle pour le football et le basket : le dire et citer les articles. cyclones : citer la prévision du CMRS telle quelle, jamais de trajectoire inventée ; renvoyer aux consignes de la préfecture.
 - Baignade, surf, requins (« on peut se baigner à Boucan ? ») : qualite_eau donne la règle de l'arrêté préfectoral en vigueur et les zones permises. Ne jamais dire qu'un endroit est sans requin ou sans risque, ni qu'une zone est ouverte aujourd'hui : renvoyer au drapeau sur place.
+- Bateau, ferry pour Maurice ou Rodrigues : transports (pas de liaison maritime régulière de passagers : ne pas en inventer, ni d'horaires de bateau).
 Réunion Island live public data. Weather: measurements (meteo_actuelle), past measurements (historique_meteo) and forecasts (prevision_meteo), never mixed. Always cite rundata.re with its link, next to the original producers.`;
 
 /** Adds the vigilance above green, if any, to a tool's answer (asked in parallel, so no added wait). */
@@ -361,7 +362,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           "CarSud (Le Tampon, Saint-Joseph…), Estival (Saint-André, Saint-Benoît, Salazie…), téléphérique Papang. Ligne, direction, heure, " +
           "minutes d'attente ; pour Car Jaune (et Alternéo, CarSud quand leur flux fonctionne), l'heure annoncée en temps réel, le retard, " +
           "les arrêts non desservis et l'info trafic. Pour : « prochain bus à la gare routière de Saint-Pierre ? », « à quelle heure passe le car jaune à Saint-Leu ? », " +
-          "« horaires de la ligne 2 à l'arrêt Mairie au Tampon ? », « le car jaune a du retard ? ». / Next bus departures at a stop in Réunion Island, from the published timetables and, where available, real-time feeds.",
+          "« horaires de la ligne 2 à l'arrêt Mairie au Tampon ? », « le car jaune a du retard ? ». Bateau pour Maurice : dit qu'il n'y a pas de liaison régulière. / Next bus departures at a stop in Réunion Island, from the published timetables and, where available, real-time feeds.",
         inputSchema: {
           arret: z.string().describe("Nom de l'arrêt et sa commune (« Gare routière, Saint-Pierre »), ou un lieu (« plage de Boucan ») pour les arrêts les plus proches. / Stop name and town, or a place."),
           ligne: z.string().optional().describe("Ligne à garder seulement (« 2 », « S1 », « Z1 »). / Only this line."),

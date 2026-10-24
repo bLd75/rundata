@@ -5,6 +5,7 @@ import { normalize, resolvePlace } from "../places/resolve.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
 import { why } from "../types.js";
+import { asksCrossing, T as FERRY } from "./ferries.js";
 import { credits, fr, text } from "./format.js";
 
 // Words of a question that say nothing about which stop: « prochain bus à l'arrêt X pour Y ». « Routière » too:
@@ -263,6 +264,8 @@ export const departureRow = (d: Departure): DepartureRow => ({
 const delayText = (m: number) => (m === 0 ? "à l'heure" : m > 0 ? `${fr(m)} min de retard` : `${fr(-m)} min d'avance`);
 
 export async function transports(asked: string, ligne: string | undefined, now = new Date(), cache?: Cache) {
+  // A boat to Mauritius has no timetable to look for: the answer is that there is none.
+  if (asksCrossing(asked)) return text({ resume: FERRY.outil });
   if (!transit.enabled()) {
     return { ...text({ erreur: "Les horaires de bus ne sont disponibles que sur le serveur en ligne (https://rundata.re/mcp)." }), isError: true };
   }
