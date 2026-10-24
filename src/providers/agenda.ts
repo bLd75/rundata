@@ -20,7 +20,7 @@
  * first sentence of its text, the name of who published it, a link to its page and the hour it was read. Each source
  * is one line of AGENDAS: taking it out stops its reading, its events, its credit and its coverage at once.
  */
-import type { Bundle, Cached } from "../cache.js";
+import type { Bundle, Cache, Cached } from "../cache.js";
 import { getText } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
@@ -106,10 +106,23 @@ export interface Evenement {
 }
 
 /**
+ * A commune's sports programme (« Agenda sportif du 22 au 24 octobre », « Planning des compétitions sportives du 23 au
+ * 25 octobre 2026 »): the matches of all its clubs in one document, not an event. Read with its agenda, it is told by
+ * the sport tool, not by evenements (tools/sport.ts); a sports event with its own title (a rally, a match) stays.
+ */
+export const PROGRAMME_SPORTIF = /^(?:(?:le|la|l['’])\s*)?(?:agenda|planning|programme|calendrier)s?\s+(?:sporti(?:f|ve)s?|des\s+(?:comp[ée]titions|manifestations|rencontres|matchs)\s+sportives?)(?![\p{L}])/iu;
+export const programmeSportif = (e: Pick<Evenement, "titre">) => PROGRAMME_SPORTIF.test(e.titre);
+
+/**
  * Where an agenda keeps its copy: its entry in the bundle of all the agendas (tools/agenda.ts), one read and one write
  * per invocation whatever their number. A `Cache` will do too.
  */
 export type AgendaStore = Pick<Bundle, "get">;
+
+// Every agenda's copy in one entry of the cache: one read and at most one write per invocation, whatever their number
+// (a read and a write each would take two subrequests per agenda). An isolate looks for another's copies once a minute.
+export const BUNDLE = "agendas";
+export const BUNDLE_SYNC_SECONDS = 60;
 
 export interface Agenda {
   id: string;
@@ -764,6 +777,21 @@ export const COVERED: string[] = [...new Set(AGENDAS.flatMap((a) => a.couvre ?? 
 export const SANS_AGENDA: Record<string, string> = {
   "Saint-Pierre": "la page agenda de la mairie de Saint-Pierre est vide et le Kerveguen n'est pas encore lu",
 };
+
+/**
+ * The communes' sports programmes in the agendas' last copy, for the sport tool: one read of the bundle, never a
+ * source read for this. Each once, by its link.
+ */
+export async function programmesSportifs(cache: Pick<Cache, "bundle">): Promise<{ e: Evenement; agenda: Agenda; fetchedAt: Date }[]> {
+  const bundle = await cache.bundle(BUNDLE, BUNDLE_SYNC_SECONDS);
+  const seen = new Set<string>();
+  return AGENDAS.flatMap((agenda) => {
+    const hit = bundle.peek(`agenda:${agenda.id}`);
+    return (hit ? (hit.value as Evenement[]) : [])
+      .filter((e) => programmeSportif(e) && !seen.has(e.lien) && seen.add(e.lien))
+      .map((e) => ({ e, agenda, fetchedAt: new Date(hit!.fetchedAt) }));
+  });
+}
 
 /** The sources of the agendas read, each once. */
 export const SOURCES_LUES: SourceInfo[] = [...new Set(AGENDAS.map((a) => a.source))];

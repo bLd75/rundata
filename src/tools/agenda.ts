@@ -167,10 +167,6 @@ type Got = { agenda: src.Agenda; value?: Cached<src.Evenement[]> };
 // An answer does not wait longer for the slowest of the agendas: one still loading is answered from its last copy, or
 // left out and named, and stored once it lands, after the response.
 const DEADLINE_MS = 5_000;
-// Every agenda's copy in one entry of the cache: one read and at most one write per invocation, whatever their number
-// (a read and a write each would take two subrequests per agenda). An isolate looks for another's copies once a minute.
-const BUNDLE = "agendas";
-const SYNC_SECONDS = 60;
 // The subrequests not to be spent on the agendas: what follows them (the news's copy, the bundle's write, the page's
 // copy) and one more, within the invocation's budget (budget.ts). An agenda past them is answered from its last copy,
 // or named, and read by a later question.
@@ -185,7 +181,7 @@ export function gather(cache: Cache, now: Date, deadlineMs = DEADLINE_MS): Promi
 }
 
 async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]> {
-  const bundle = await cache.bundle(BUNDLE, SYNC_SECONDS);
+  const bundle = await cache.bundle(src.BUNDLE, src.BUNDLE_SYNC_SECONDS);
   const key = (a: src.Agenda) => `agenda:${a.id}`;
   const last = (k: string): Cached<src.Evenement[]> | undefined => {
     const e = bundle.peek(k);
@@ -377,7 +373,8 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
 
   const p = periode(quand, now);
   const what = matcher(quoi);
-  const all = withNews(unique(got.flatMap((g) => g.value ? g.value.value.map((e) => ({ ...e, lu_le: src.toLocal(g.value!.fetchedAt.toISOString()) })) : [])), news?.value.infos, now)
+  // The communes' sports programmes go to the sport tool (src.programmesSportifs).
+  const all = withNews(unique(got.flatMap((g) => g.value ? g.value.value.filter((e) => !src.programmeSportif(e)).map((e) => ({ ...e, lu_le: src.toLocal(g.value!.fetchedAt.toISOString()) })) : [])), news?.value.infos, now)
     .map((e) => ({ e, seances: inPeriod(e, p, now) }))
     .filter((x) => x.seances.length && (!what || what.test(x.e)))
     .sort((x, y) => Number(spanDays(x.seances[0]) > LONG_DAYS) - Number(spanDays(y.seances[0]) > LONG_DAYS) ||

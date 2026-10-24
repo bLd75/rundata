@@ -1779,6 +1779,12 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
   <p>Les matchs des championnats régionaux de handball (D1) et de volley (R1), les régates de la Ligue de voile, les compétitions des trois golfs et le calendrier de la Ligue du sport automobile. Heures de La Réunion.</p></div>
   ${d ? (d.a_venir?.length ? bySport(d.a_venir, false) : `<p class="card">Aucun rendez-vous trouvé dans les quinze prochains jours.</p>`) : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
 </section>
+${d?.programmes_communes?.length ? `<section aria-labelledby="h-prog">
+  <div class="sec-h"><p class="eyebrow">Publiés par les mairies</p><h2 id="h-prog">Programmes sportifs des communes</h2>
+  <p>${esc(d.programmes_a_savoir ?? "")}</p></div>
+  <ul class="zones"><li class="card"><ul class="rows eau">${d.programmes_communes.map((p) =>
+    `<li><span><a href="${esc(p.lien)}" rel="noopener">${esc(p.titre)}</a><small>${esc([p.commune, p.source].filter(Boolean).join(" · "))}</small></span><span class="q-none">${esc(shortWhen(p.dates))}</span></li>`).join("")}</ul></li></ul>
+</section>` : ""}
 ${d?.resultats?.length ? `<section aria-labelledby="h-res">
   <div class="sec-h"><p class="eyebrow">Sept derniers jours</p><h2 id="h-res">Derniers résultats</h2></div>
   ${bySport(d.resultats, true)}
