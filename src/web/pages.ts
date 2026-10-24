@@ -1348,7 +1348,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
     const rest = r.length
       ? `<p class="lead">Vigilances au-dessus du vert : ${r.map((x) => `${vg(x.max)} ${esc(x.phenomene.toLowerCase())} (${esc(x.zone.split(" :")[0])})`).join(", ")}.</p>`
       : `<p class="lead">${vg(1)} Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</p>`;
-    status = `<div class="status">${head}${rest}<p class="lead"><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a></p><p class="note" style="color:var(--on-night-muted)">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p></div>`;
+    status = `<div class="status">${head}${rest}<p class="lead"><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a></p><p class="note" style="color:var(--on-night-muted)">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p></div>`;
   }
 
   const fills: Record<string, string> = {};

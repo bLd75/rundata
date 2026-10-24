@@ -6,7 +6,7 @@ import * as mf from "../providers/vigilance.js";
 import { why } from "../types.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
 import * as prefecture from "../providers/prefecture.js";
-import { ecolesBlock } from "./ecoles.js";
+import { ecolesBlock, quotidienLine } from "./ecoles.js";
 import { cyclone as cycloneAlert } from "./vigilance.js";
 
 const ISLAND = { nom: "La Réunion", lon: 55.536, lat: -21.115 };
@@ -109,7 +109,7 @@ async function alert(cache: Cache, now: Date) {
     // The prefecture's last decision beside the bulletin: never more than the bulletin's wait, and none when it fails.
     const decision = prefecture.cyclone(cache).then((x) => x.value).catch(() => null);
     const [v, c] = await Promise.all([mf.vigilance(cache).then((x) => x.value), Promise.race([decision, new Promise<null>((r) => setTimeout(() => r(null), PREFECTURE_WAIT_MS))])]);
-    return { texte: cycloneAlert(v, now), ecoles: ecolesBlock(v, now, c) };
+    return { texte: cycloneAlert(v, now), ecoles: ecolesBlock(v, now, c), vie_quotidienne: quotidienLine(v, now) };
   } catch (err) {
     console.error(`source ${mf.SOURCE.id} indisponible:`, why(err));
     return undefined;
@@ -176,6 +176,7 @@ export async function cyclones(cache: Cache, lieu: string | undefined, now = new
     lieu: place,
     resume: parts.join(" "),
     alerte_cyclonique: alerte,
+    vie_quotidienne: a?.vie_quotidienne,
     ecoles: a?.ecoles,
     systemes_actifs: rows.length ? rows.map(({ trajectoire: _, ...r }) => r) : undefined,
     saison_en_cours: { nom: season.nom, systemes: thisSeason.map(seasonRow) },

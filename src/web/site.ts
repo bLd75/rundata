@@ -71,6 +71,7 @@ import { bathingPage, PATH as BAIGNADE } from "./baignade.js";
 import { carburantsPage } from "./carburants.js";
 import { collectePage, communeOf } from "./collecte.js";
 import { decheteriesPage } from "./decheteries.js";
+import { alertePage } from "./alerte-cyclone.js";
 import { ecolesPage } from "./ecoles.js";
 import { COMMUNES as COLLECTE_COMMUNES, communeSlug } from "../vie/collecte.js";
 import { TCO_COMMUNES } from "../vie/decheteries.js";
@@ -242,7 +243,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
   const fixed = (u: string) => [u, STATIC_CHANGED, "monthly"];
   const trace = (u: string) => [u, traces.BUILT, "daily"];
   // The defibrillators are a list bundled with the server: their page changes when it is rebuilt.
-  const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
+  const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/alerte-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions", BAIGNADE].map(fixed),
     ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay && fuelDay < today ? fuelDay : today, "daily"],
@@ -287,6 +288,10 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/vigilance" || path === "/vigilance/") {
     const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS);
     return page(path, (live) => (live ? vigilancePage(origin, data, now, data ? alerteOf(data.value, now) : undefined) : vigilancePage(origin, null, now)), data, background);
+  }
+  if (path === "/alerte-cyclone" || path === "/alerte-cyclone/") {
+    const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS);
+    return page(path, (live) => (live ? alertePage(origin, data, now, data ? alerteOf(data.value, now) : undefined) : alertePage(origin, null, now)), data, background);
   }
   if (path === "/ecoles-cyclone" || path === "/ecoles-cyclone/") {
     const [data, decision] = await Promise.all([

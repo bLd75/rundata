@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Alerte orange, rouge, violette : ce qui ferme et ce qui continue à chaque niveau, d'après le plan cyclone de la préfecture.
 - Cyclone : les communiqués de la préfecture s'ajoutent au bulletin de Météo-France, avec la levée de l'alerte et la réouverture des écoles.
 - Où se baigner ? La règle requin des 300 m et les zones permises (lagons, bassins, filets, ZONEX), sur rundata.re/baignade et dans votre IA.
 - Quel jour passent les poubelles ? Le jour de collecte de votre rue à Saint-Paul, La Possession, Saint-Leu, Le Port et Trois-Bassins.
