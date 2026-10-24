@@ -35,6 +35,14 @@ export const CATEGORIES: Category[] = [
     about: "La vigilance de Météo-France zone par zone et l'alerte cyclonique, signalées d'office dès qu'elles dépassent le vert.",
   },
   {
+    key: "cyclones",
+    nom: "Cyclones",
+    path: "/cyclones",
+    icon: "cyclone",
+    tools: ["cyclones"],
+    about: "Les systèmes tropicaux actifs du sud-ouest de l'océan Indien : position, stade, distance de La Réunion, déplacement et prévision du CMRS de Météo-France.",
+  },
+  {
     key: "mer",
     nom: "Mer",
     path: "/mer",

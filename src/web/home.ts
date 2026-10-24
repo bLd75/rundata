@@ -7,8 +7,8 @@ import { ageMinutes, ageText } from "../geo.js";
 import type * as mf from "../providers/vigilance.js";
 import brand from "./brand.json" with { type: "json" };
 import { CATEGORIES, type Category } from "./categories.js";
-import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer } from "./data.js";
-import { airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, sentiersLive, sportLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
+import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer } from "./data.js";
+import { airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, sentiersLive, sportLive, cyclonesLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import {
@@ -55,6 +55,7 @@ export interface HomeLive {
   secheresse?: Cached<SecheresseAnswer> | null;
   coupures?: Cached<CoupuresAnswer> | null;
   sport?: Cached<SportAnswer> | null;
+  cyclones?: Cached<CyclonesAnswer> | null;
 }
 
 function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> {
@@ -71,6 +72,7 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
     secheresse: secheresseLive(h?.secheresse ?? null),
     coupures: coupuresLive(h?.coupures ?? null),
     sport: sportLive(h?.sport ?? null),
+    cyclones: cyclonesLive(h?.cyclones ?? null),
     air: airLive(h?.air ?? null),
     electricite: electriciteLive(h?.electricite ?? null),
     calendrier: calendrierLive(h?.calendrier ?? null),
