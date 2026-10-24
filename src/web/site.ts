@@ -64,6 +64,7 @@ import { nouveautesPage } from "./nouveautes.js";
 import { carburantsPage } from "./carburants.js";
 import * as carburants from "../providers/carburants.js";
 import { aujourdhuiPage } from "./aujourdhui.js";
+import { communeRss } from "./rss.js";
 import { readCopies, resume } from "../tools/resume.js";
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { pageOf, PAGES } from "./places.js";
@@ -83,6 +84,8 @@ const HTML = {
 };
 const STATIC = "public, max-age=604800";
 // A trace downloads as a file; the ONF's state in it is an hour old at most.
+// A feed reader comes back every few minutes at most; the copies behind it change every few minutes too.
+const RSS = { "content-type": "application/rss+xml; charset=utf-8", "cache-control": "public, max-age=300", "access-control-allow-origin": "*", "x-content-type-options": "nosniff" };
 const GPX = { "content-type": "application/gpx+xml; charset=utf-8", "cache-control": "public, max-age=3600", "access-control-allow-origin": "*", "x-content-type-options": "nosniff" };
 
 /**
@@ -156,20 +159,23 @@ const BUILDS: Record<string, (cache: Cache, now: Date) => Promise<unknown>> = {
 // The home page's tiles besides the weather and the vigilance; a commune page's besides its own.
 // The news first: on a day of mobilisation its headlines go above the tiles.
 const HOME_TILES = ["web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
+// A commune's feed: the copies besides the vigilance (web/rss.ts).
+const RSS_TILES = ["web:coupures", "web:randonnees", "web:volcan"];
 const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier", "web:coupures", "web:secheresse", "web:eau", "web:randonnees", "web:agenda"];
 
 /**
  * The last copy of each of these pages, without building them: building them all would not fit in one invocation.
- * Once the page's own data is fresh, the oldest copy (or one never built) is brought up to date afterwards.
+ * Once the page's own data is fresh, the oldest copy (or one never built) is brought up to date afterwards. `own`
+ * undefined: a page without data of its own (a feed), which never holds up a refresh.
  */
-async function tileCopies(cache: Cache, keys: string[], background: Background, own: Cached<unknown> | null, now: Date): Promise<(Cached<any> | null)[]> {
+async function tileCopies(cache: Cache, keys: string[], background: Background, own: Cached<unknown> | null | undefined, now: Date): Promise<(Cached<any> | null)[]> {
   // One read each, as long as the invocation has subrequests left: a tile past them waits for the next view.
   const budget = left();
   const copies = await Promise.all(keys.map((k, i) => (i < budget ? cache.peek<any>(k) : Promise.resolve(undefined))));
   const age = (c: Cached<unknown> | null | undefined) => (c ? now.getTime() - c.fetchedAt.getTime() : Infinity);
   const due = keys.map((key, i) => ({ key, age: age(copies[i]) })).sort((a, b) => b.age - a.age)[0];
   // Only when what the tile's build took last time is left: otherwise its page or a later visit brings it up to date.
-  if (own && age(own) < FRESH_SECONDS * 1000 && due.age >= FRESH_SECONDS * 1000 && left() >= (costOf(due.key) ?? TILE_COST_UNKNOWN)) {
+  if ((own === undefined || (own && age(own) < FRESH_SECONDS * 1000)) && due.age >= FRESH_SECONDS * 1000 && left() >= (costOf(due.key) ?? TILE_COST_UNKNOWN)) {
     background(cache.get(due.key, FRESH_SECONDS, () => measured(due.key, () => BUILDS[due.key](cache, now))).catch((err) => console.error(`page ${due.key} : rafraîchissement impossible`, why(err))));
   }
   return copies.map((c) => c ?? null);
@@ -329,6 +335,19 @@ export async function site(request: Request, cache: Cache, background: Backgroun
     const { copies, leftOut } = await readCopies(cache, p, p, now, background, vigilance, { meteo: place });
     const a = copies.vigilance ? alerteOf(copies.vigilance.value, now) : undefined;
     return new Response(aujourdhuiPage(origin, p, resume(p, copies, now, leftOut), copies.meteo ?? place, a), { headers: htmlFor(place) });
+  }
+  // A commune's alerts as RSS: the copies of the pages, never a build of its own (web/rss.ts).
+  const feed = /^\/communes\/([a-z-]+)\.rss$/.exec(path);
+  if (feed) {
+    const p = pageOf(feed[1]);
+    if (!p?.commune) return new Response("Flux inconnu : voir https://rundata.re/communes", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+    const [vigilance, [coupures, randonnees, volcan]] = await Promise.all([
+      vigilanceNow(cache, background, BANNER_WAIT_MS),
+      tileCopies(cache, RSS_TILES, background, undefined, now),
+    ]);
+    // Without one of its copies, the feed says less than it should: kept a minute only.
+    const whole = vigilance && coupures && randonnees && volcan;
+    return new Response(communeRss(origin, p, { vigilance, coupures, randonnees, volcan }, now), { headers: whole ? RSS : { ...RSS, "cache-control": "public, max-age=60" } });
   }
   if (path.startsWith("/communes/")) {
     const p = pageOf(path.slice("/communes/".length).replace(/\/$/, ""));

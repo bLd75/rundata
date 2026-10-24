@@ -279,6 +279,7 @@ export interface VolcanAnswer {
   etat?: {
     eruption_en_cours: boolean;
     niveau_orsec: string;
+    eruption?: { name?: string; started_at?: string; public_summary?: string };
     derniere_eruption_fin?: string;
     deformation?: string;
     acces_enclos?: { statut: string; detail?: string; source?: string; lien?: string };
