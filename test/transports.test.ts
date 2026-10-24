@@ -94,6 +94,34 @@ describe("transports", () => {
     expect(r.resume).toMatch(/vers GARE SAINT ANDRE demain à 5h51 \(dans 11 h \d\d\)/);
   });
 
+  it("reads only the patterns that may stop at the station in the next hours", async () => {
+    const asked: number[] = [];
+    transit.configure({
+      all: async <T>(sql: string, keys: unknown) => {
+        if (/FROM patterns/.test(sql)) asked.push((JSON.parse(String(keys)) as unknown[]).length);
+        return fake.all<T>(sql, keys);
+      },
+    });
+    const r = body(await transports("gare routière Saint-Pierre", undefined, NOW));
+    const passing = Object.values(rows).reduce((n, f) => n + f.patterns.length, 0);
+    // 578 patterns pass at the station; on a Friday at 7h30, 65 of them may stop there in the next three hours.
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toBeLessThan(passing / 4);
+    expect(r.departs.length).toBeGreaterThan(5);
+  });
+
+  it("tells a pattern that may stop in the hours asked from one that cannot", () => {
+    // The cable car of Bancoul: one pattern a way, a cabin a minute from morning to evening, every day.
+    const p = transit.NETWORKS.papang.first_pattern;
+    const friday = [20261023, 4] as const;
+    expect(transit.mayRun(p, 0, "papang", ...friday, 9 * 3600, 12 * 3600)).toBe(true);
+    // Not at 3 in the morning, nor on a day out of its calendar.
+    expect(transit.mayRun(p, 0, "papang", ...friday, 3 * 3600, 4 * 3600)).toBe(false);
+    expect(transit.mayRun(p, 0, "papang", 20300101, 1, 9 * 3600, 12 * 3600)).toBe(false);
+    // A pattern the bundle does not know is read, as before.
+    expect(transit.mayRun(1e9, 0, "papang", ...friday, 3 * 3600, 4 * 3600)).toBe(true);
+  });
+
   it("says when it cannot answer outside the Worker", async () => {
     transit.configure(undefined);
     const r = await transports("gare routière Saint-Pierre", undefined, NOW);

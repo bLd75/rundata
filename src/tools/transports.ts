@@ -130,13 +130,14 @@ const delayMinutes = (d: Departure) => Math.floor((d.at + (d.retard ?? 0)) / 60)
 /** Departures from these stops in the next `horizon` seconds, by yesterday's (after midnight), today's and tomorrow's services. */
 export async function departures(groups: transit.StopGroup[], now: Date, horizon = 3 * 3600): Promise<Departure[]> {
   const stopGroup = new Map(groups.flatMap((g) => g.ids.map((id) => [id, g] as const)));
-  const pass = await transit.passes([...stopGroup.keys()]);
-  const pats = await transit.patterns([...new Set(pass.map((p) => p.pattern))]);
   const local = new Date(now.getTime() + 4 * 3600_000);
   const secs = local.getUTCHours() * 3600 + local.getUTCMinutes() * 60 + local.getUTCSeconds();
-  const today = day(now);
-  const yesterday = day(now, 1);
-  const tomorrow = day(now, -1);
+  const days = [[day(now), 0], [day(now, 1), 86400], [day(now, -1), -86400]] as const;
+  // Only the patterns that may stop here in these hours are read: a bus station has hundreds, a few run now.
+  const pass = (await transit.passes([...stopGroup.keys()])).filter((p) =>
+    days.some(([d, shift]) => transit.mayRun(p.pattern, p.offset, stopGroup.get(p.stop)!.reseau, d.ymd, d.weekday, secs - 60 + shift, secs + horizon + shift)),
+  );
+  const pats = pass.length ? await transit.patterns([...new Set(pass.map((p) => p.pattern))]) : new Map<number, transit.Pattern>();
   const out: Departure[] = [];
   for (const p of pass) {
     const pat = pats.get(p.pattern);
@@ -144,7 +145,7 @@ export async function departures(groups: transit.StopGroup[], now: Date, horizon
     if (!pat || !g) continue;
     for (const [service, start, trip] of pat.trips) {
       const t = start + p.offset;
-      for (const [d, shift] of [[today, 0], [yesterday, 86400], [tomorrow, -86400]] as const) {
+      for (const [d, shift] of days) {
         const dt = t - shift - secs;
         if (dt >= -60 && dt <= horizon && transit.serviceRuns(g.reseau, service, d.ymd, d.weekday)) {
           // A terminus named after its bay: « Gare Routière Du Tampon Quai Q » is the bus station.

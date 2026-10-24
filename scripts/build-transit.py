@@ -3,8 +3,8 @@
 
 Two outputs, made from the same build so that their ids agree:
   - src/transit/network.json, bundled with the server: networks, lines, stops (name, place, commune) and service
-    calendars, enough to find a stop and to know which services run on a given day; for the networks with a real-time
-    feed, its address and the GTFS ids of their stops and lines;
+    calendars, enough to find a stop and to know which services run on a given day; the hours and services of each
+    pattern; for the networks with a real-time feed, its address and the GTFS ids of their stops and lines;
   - dist/transit.sql, for the D1 database: for each stop, the patterns passing there with their time offset, and for
     each pattern, its trips (service, start time). Trips sharing their stops and their running times form one pattern,
     which keeps 880 000 stop times down to about 20 000 rows.
@@ -280,7 +280,10 @@ def main():
         # Before anything is written: network.json must not name feeds the database will not get.
         check_quota(sum(len(ps) + len(pt) + 1 for f, ps, pt in by_net.values() if f not in present))
 
-    out = {"build": build, "networks": networks, "routes": routes, "stops": stops, "services": services}
+    # For each pattern, the first and last start of its trips and their services: enough for the server to leave out,
+    # before reading them, the patterns with no trip in the hours asked about (D1 counts every row read).
+    spans = [[min(t[1] for t in p[2]), max(t[1] for t in p[2]), *sorted({t[0] for t in p[2]})] for p in patterns]
+    out = {"build": build, "networks": networks, "routes": routes, "stops": stops, "services": services, "patterns": spans}
     path = ROOT / "src" / "transit" / "network.json"
     path.parent.mkdir(exist_ok=True)
     path.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")))

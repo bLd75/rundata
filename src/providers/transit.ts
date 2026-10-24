@@ -58,6 +58,8 @@ export const ROUTES = network.routes as unknown as [string, string, string][];
 const STOPS = network.stops as unknown as [string, string, number, number, string][];
 /** [days Monday first as 7 bits, first day, last day, added days, removed days], days as YYYYMMDD. */
 const SERVICES = network.services as unknown as Record<string, [number, number, number, number[], number[]][]>;
+/** [first start, last start, services…] of each pattern's trips, by pattern index: what it runs, without reading it. */
+const SPANS: number[][] = network.patterns;
 
 /** The stops of a network that share a name in one commune: both sides of the road, usually. */
 export interface StopGroup {
@@ -100,6 +102,17 @@ export function serviceRuns(net: string, service: number, day: number, weekday: 
   if (added.includes(day)) return true;
   // weekday: 0 for Monday; Monday is the highest of the 7 bits.
   return day >= first && day <= last && ((days >> (6 - weekday)) & 1) === 1;
+}
+
+/**
+ * Whether a pattern may stop, `offset` seconds after its start, between `from` and `to` (seconds after the local midnight
+ * of `day`) on a trip of a service running that day; told from its first and last start, before its trips are read.
+ */
+export function mayRun(pattern: number, offset: number, net: string, day: number, weekday: number, from: number, to: number): boolean {
+  const span = SPANS[pattern];
+  if (!span) return true;
+  const [first, last, ...services] = span;
+  return first + offset <= to && last + offset >= from && services.some((s) => serviceRuns(net, s, day, weekday));
 }
 
 export interface Pattern {
