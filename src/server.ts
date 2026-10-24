@@ -30,14 +30,17 @@ import * as gtfsrt from "./providers/gtfsrt.js";
 import * as transit from "./providers/transit.js";
 import { transports } from "./tools/transports.js";
 import * as velos from "./providers/velos.js";
+import * as maregraphes from "./providers/maregraphes.js";
 import { velosLibreService } from "./tools/velos.js";
+import { maree } from "./tools/maree.js";
 
-export const VERSION = "0.4.0";
+export const VERSION = "0.5.0";
 
-const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
+const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, marée, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
 - Maintenant (« il fait combien ? », « il pleut ? », « la mer est à combien ? ») : meteo_actuelle et temperature_mer renvoient des MESURES datées. Dire l'heure de la mesure, la station et sa distance, et relayer les avertissements (altitude, versant, ancienneté), car le climat change beaucoup sur quelques kilomètres.
 - Plus tard (« demain », « ce soir », « ce week-end ») : prevision_meteo renvoie une PRÉVISION de modèle. Toujours dire à l'utilisateur que c'est une prévision, pas une mesure, et relayer ses avertissements ; ne jamais la présenter comme une observation.
+- Marée (« la marée monte ? », « marée haute à quelle heure ? », « niveau de la mer au Port ») : maree renvoie la hauteur d'eau MESURÉE par les marégraphes du Port et de Sainte-Marie et les dernières pleine et basse mer observées ; pas de prévision d'horaires de marée, le dire si on en demande.
 - Volcan et séismes (« le volcan est en éruption ? », « on peut monter au volcan ? », « il y a eu un séisme ? ») : volcan_seismes.
 - Électricité (« d'où vient l'électricité ? », « quand recharger ma voiture ? ») : electricite.
 - Calendrier (« c'est quand les vacances ? », « le 20 décembre est férié ? », « lever du soleil ? ») : calendrier.
@@ -321,6 +324,26 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
   );
 
   server.registerTool(
+    "maree",
+    {
+      title: "Marée à La Réunion",
+      description:
+        "Hauteur de la mer mesurée chaque minute par les marégraphes du SHOM au Port (Pointe des Galets) et à Sainte-Marie : niveau actuel, " +
+        "marée montante ou descendante, heures et hauteurs des dernières pleine et basse mer observées. Mesures seulement, pas de prévision d'horaires. " +
+        "Pour : « la marée monte ? », « c'était quand la marée haute ? », « niveau de la mer au Port ? ». " +
+        "/ Measured sea level and tide state at Réunion Island's two tide gauges (no tide predictions).",
+      inputSchema: {
+        lieu: z
+          .string()
+          .optional()
+          .describe("Un lieu de la côte (« Le Port », « Saint-Gilles », « Sainte-Marie ») pour le marégraphe le plus proche. Vide = les deux. / A coastal place; empty = both gauges."),
+      },
+      annotations: { title: "Marée", ...READ_ONLY },
+    },
+    track("maree", (args: { lieu?: string }) => maree(cache, args.lieu)),
+  );
+
+  server.registerTool(
     "sources_donnees",
     {
       title: "Sources des données",
@@ -332,7 +355,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
     },
     track("sources_donnees", async () =>
       text({
-        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
+        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage() },
         version: VERSION,

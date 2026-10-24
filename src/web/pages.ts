@@ -1082,7 +1082,21 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
       `<p class="note">Sources : ${credits(d.sources)}. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
     : `<p class="card">Les mesures satellite se chargent : rechargez la page dans quelques secondes.</p>`;
 
-  const title = "Température de la mer à La Réunion 974, plage par plage";
+  const tide = d?.maree?.length
+    ? `<section aria-labelledby="h-maree">
+  <div class="sec-h"><p class="eyebrow">Mesurée chaque minute</p><h2 id="h-maree">La marée en ce moment</h2>
+  <p>Hauteur d'eau au-dessus du zéro des cartes marines, aux deux marégraphes du SHOM. Ce sont des mesures : les heures de pleine et de basse mer sont celles déjà passées, pas une prévision.</p></div>
+  <ul class="seas">${d.maree.map((g) => `<li><span>${esc(g.maregraphe)}</span>` +
+      ("hauteur_m" in g && g.hauteur_m != null
+        ? `<b>${esc(thin(`${fr(g.hauteur_m)} m`))}</b><span>${g.tendance === "étale" ? "mer étale" : `marée ${esc(g.tendance!)}`}, mesurée à ${esc(g.heure_mesure!.split(" ")[1])}</span>` +
+          g.derniers_extremes!.slice().reverse().map((e) => `<span>${esc(e.type)} vers ${esc(e.heure)} (${esc(fr(e.hauteur_m))} m)</span>`).join("") +
+          ("avertissement" in g && g.avertissement ? `<span>pas de mesure depuis ${esc(g.age_texte!.replace(/^il y a /, ""))}</span>` : "")
+        : `<b>—</b><span>marégraphe muet pour le moment</span>`) +
+      `</li>`).join("")}</ul>
+</section>`
+    : "";
+
+  const title = "Mer à La Réunion 974 : température plage par plage et marée";
   const description = warm && cool
     ? `🇷🇪 Température de l'eau à La Réunion (974), mesurée par satellite le ${dayMonth(day!)} : de ${deg(cool.valeur!)} à ${seaName(cool.nom)} à ${deg(warm.valeur!)} à ${seaName(warm.nom)}. Plage par plage.`
     : "🇷🇪 Température de l'eau à La Réunion (974), plage par plage : Saint-Gilles, l'Hermitage, Boucan, Saint-Leu, Saint-Pierre…";
@@ -1133,6 +1147,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
   <p>Du nord à l'ouest en passant par l'est et le sud : la dernière mesure satellite à moins de 12 km de chaque plage.</p></div>
   <div class="card">${list}</div>
 </section>
+${tide}
 <section aria-labelledby="h-lire-mer">
   <div class="sec-h"><p class="eyebrow">Bon à savoir</p><h2 id="h-lire-mer">Ce que mesure le satellite</h2></div>
   <div class="three">

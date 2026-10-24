@@ -14,11 +14,13 @@ import * as annuaire from "../providers/annuaire.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
 import * as velos from "../providers/velos.js";
+import * as maregraphes from "../providers/maregraphes.js";
 import * as mf from "../providers/vigilance.js";
 import { qualiteAir } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
 import { electricite } from "../tools/electricite.js";
 import { BEACHES, seaTour, temperatureMer } from "../tools/mer.js";
+import { gaugeRow, gauges } from "../tools/maree.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
 import { named } from "../tools/annuaire.js";
@@ -186,12 +188,15 @@ export interface BeachNow {
 
 export interface SeaData {
   plages: BeachNow[];
+  /** The two tide gauges; missing on a copy made before they were read. */
+  maree?: ReturnType<typeof gaugeRow>[];
   sources: Credit[];
 }
 
 export async function buildSea(cache: Cache, now = new Date()): Promise<SeaData> {
-  const t = await seaTour(cache, now, BEACHES);
+  const [t, tide] = await Promise.all([seaTour(cache, now, BEACHES), gauges(cache, now)]);
   if (!t) throw new Error("aucune mesure satellite de la mer");
+  const read = tide.some((g) => g.reading);
   return {
     plages: t.readings.map(({ p, r }) => ({
       nom: p.nom,
@@ -200,7 +205,8 @@ export async function buildSea(cache: Cache, now = new Date()): Promise<SeaData>
       lat: p.lat,
       ...(r ? { valeur: r.valeur, jour: r.mesure.jour_mesure, distance_km: r.mesure.distance_km } : {}),
     })),
-    sources: t.used.map((g) => credit(g.source)),
+    ...(read ? { maree: tide.map((g) => gaugeRow(g, now)) } : {}),
+    sources: [...t.used.map((g) => credit(g.source)), ...(read ? [credit(maregraphes.SOURCE)] : [])],
   };
 }
 
