@@ -129,6 +129,10 @@ describe("home page", () => {
     expect(cold.text).toMatch(/meteo_actuelle\(lieu: "[^"]+"\)<\/p>\s*<p class="bubble ai">\d+(,\d)?\u202f°C, mesurés à \d\d:\d\d/);
     expect(cold.text).toContain("Piton Maïdo");
     expect(cold.text).toMatch(/mesuré à \d\d:\d\d/);
+    // The badge says when the stations measured, never « en direct » at a time already past; the script counts the age
+    // again in the browser, from the time of the data.
+    expect(cold.text).not.toContain("En direct · <b>");
+    expect(cold.text).toMatch(/<span data-nojs>Mesures de <b>\d\d:\d\d<\/b> à La Réunion<\/span><span data-js hidden><b data-clock>\d\d:\d\d<\/b> à La Réunion · mesuré <span data-age="[\dT:.-]+Z">il y a \d+ (min|h)<\/span>/);
     expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
     // Another isolate of the same data center: the weather from the edge, and the oldest of the other tiles brought up
     // to date afterwards, still within the limit.
