@@ -55,7 +55,7 @@ import { access as daeAccess, byCommune as daeByCommune, daeRow, URGENCE as DAE_
 import { coupuresEau, type noticeRow } from "../tools/coupures.js";
 import { lues } from "../eau/distributeurs.js";
 import { type CourantAnswer, type courantBlock, courantCopy } from "../tools/courant.js";
-import { volcanSeismes } from "../tools/volcan.js";
+import { type Hausse, volcanSeismes } from "../tools/volcan.js";
 import type { Acces } from "../tools/volcan-acces.js";
 import * as sportSource from "../providers/sport.js";
 import { grandRaidRow, sportTool, type SportRow } from "../tools/sport.js";
@@ -301,7 +301,8 @@ export interface VolcanAnswer {
   puis_je_monter?: Acces;
   resume: string;
   etat?: {
-    eruption_en_cours: boolean;
+    /** null: unknown, pitonlive higher than a release that does not say it (`ecart_prefecture`). */
+    eruption_en_cours: boolean | null;
     niveau_orsec: string;
     /** The prefecture's phase could not be read and none was kept: `niveau_orsec` says to check it (tools/volcan.ts). */
     niveau_inconnu?: boolean;
@@ -309,6 +310,8 @@ export interface VolcanAnswer {
     niveau_definition?: string;
     /** pitonlive's lower level, held more than 48 hours after the prefecture's release (tools/volcan.ts `official`). */
     ecart_pitonlive?: { niveau: string; depuis: string };
+    /** pitonlive's level higher than the prefecture's release in alert, which is kept beside it (tools/volcan.ts `Hausse`). */
+    ecart_prefecture?: Hausse;
     /** The OVPF's newest post is an image, newer than what the state comes from: the state may not account for it. */
     image_ovpf_plus_recente?: boolean;
     eruption?: { name?: string; started_at?: string; public_summary?: string };

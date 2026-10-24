@@ -5,7 +5,7 @@
  * its tile on the home page.
  */
 import { PREFECTURE } from "../providers/volcan.js";
-import { ENCLOS_SAID, IMAGE_APRES, LOCALISES } from "../tools/volcan.js";
+import { ENCLOS_SAID, hausseNiveau, IMAGE_APRES, LOCALISES } from "../tools/volcan.js";
 import { type Ligne, libelle, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { alertSections, alerteVolcan, CONSIGNES, releaseDay, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
@@ -105,10 +105,13 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     ? loading("L'état du volcan")
     : `<div class="status">` +
       (e
-        ? (a
+        ? (e.ecart_prefecture
+          // pitonlive higher than the release: both levels, nothing of ours on the eruption (marketing).
+          ? `<p class="lead"><b>${esc(hausseNiveau(e.ecart_prefecture))}</b></p>`
+          : a
           ? `<p class="lead"><b>${esc(volcanLead(a))}</b></p>`
           : e.niveau_inconnu && !e.eruption_en_cours ? "" : `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours"}</p>`) +
-          (e.niveau_inconnu
+          (e.ecart_prefecture ? "<p class=\"lead\">" : e.niveau_inconnu
             // The prefecture's phase not read, none kept: the level is not given (tools/volcan.ts), and why (marketing).
             ? `<p class="lead">Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Nous n'avons pas pu lire le niveau d'alerte de la préfecture : vérifiez-le sur ${GOUV} avant de monter au volcan.`
             : `<p class="lead">Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>${e.ecart_pitonlive && e.communique_prefecture
@@ -204,7 +207,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     `<li>${colons(esc(l.texte))}${l.source ? ` (${l.lien ? `<a href="${esc(l.lien)}">${esc(l.source)} →</a>` : esc(l.source)}).` : l.lien ? ` <a href="${esc(l.lien)}">→</a>` : ""}</li>`;
   const monter = m
     ? `<section id="monter" aria-labelledby="h-monter"><div class="sec-h"><h2 id="h-monter">${esc(m.titre)}</h2><p>${esc(m.chapeau)}</p></div>
-  <div class="card"><ul class="plain">${m.lignes.map(line).join("")}</ul><p class="note">${esc(m.pied)}</p>
+  <div class="card">${m.avant ? `<p><b>${esc(m.avant)}</b></p>` : ""}<ul class="plain">${m.lignes.map(line).join("")}</ul><p class="note">${esc(m.pied)}</p>
   <details><summary>Les niveaux du dispositif</summary><ul class="plain">${NIVEAUX.map((n) => `<li><b>${esc(n.niveau)}</b> : « ${esc(n.libelle)} »</li>`).join("")}</ul><p class="note"><small>${esc(VERSION)}</small></p></details></div></section>
 `
     : "";
