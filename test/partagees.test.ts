@@ -28,6 +28,18 @@ class CountingStore extends MemoryStore {
   }
 }
 
+/** The data center's cache as the Worker counts it (worker.ts): a read is a subrequest, a write one of those kept for writes. */
+class CountedStore extends MemoryStore {
+  async get(key: string) {
+    count();
+    return super.get(key);
+  }
+  async put(key: string, entry: CacheEntry) {
+    count(1, true);
+    return super.put(key, entry);
+  }
+}
+
 const T0 = Date.parse("2026-10-24T00:00:00Z");
 
 describe("the shared copies, read from KV", () => {
@@ -78,7 +90,7 @@ describe("the scheduled refresh of the shared copies", () => {
       return warmShared(cache, kv, new Date(T0), list);
     });
     expect(run.value.written).toEqual([]);
-    expect(run.value.left).toEqual([{ key: "web:essai-lourd", why: "budget : 29 faites, 15 prévues" }]);
+    expect(run.value.left).toEqual([{ key: "web:essai-lourd", why: "budget : 29 faites, 17 prévues" }]);
     expect(run.used).toBeLessThanOrEqual(WORKER_BUDGET);
     // An ordinary event, the grids already there: it fits.
     const quiet = await counted(WORKER_BUDGET, async () => {
@@ -87,6 +99,42 @@ describe("the scheduled refresh of the shared copies", () => {
     });
     expect(quiet.value.written).toEqual(["web:essai-lourd"]);
     expect(quiet.used).toBeLessThanOrEqual(WORKER_BUDGET);
+  });
+
+  it("right after a deploy, warms every copy that fits from their cold costs, not one per event", async () => {
+    const kv = new FakeKv();
+    let now = T0;
+    const cache = new Cache(new TieredStore(new MemoryStore(), new CountedStore()), () => now, false);
+    // Builds that take their cold cost, under keys no isolate has built: the costs are known from the list only.
+    const list: Shared[] = SHARED.map((s) => ({ ...s, key: `${s.key}-deploy`, build: async () => (count(s.cold ?? 25), { at: now }) }));
+    const events: string[][] = [];
+    while (events.length < 10 && kv.data.size < list.length) {
+      // The AROME grids already there, as in most events: none fetched.
+      const run = await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+      expect(run.used).toBeLessThanOrEqual(WORKER_BUDGET);
+      for (const l of run.value.left) expect(l.why).toMatch(/^budget : /);
+      events.push(run.value.written);
+      now += 5 * 60_000;
+    }
+    expect(events[0].length).toBeGreaterThanOrEqual(2);
+    expect(kv.data.size).toBe(list.length);
+    expect(events.length).toBeLessThanOrEqual(4);
+  });
+
+  it("keeps a build's cost with its KV copy, for an isolate that has not built it", async () => {
+    const kv = new FakeKv();
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);
+    const list: Shared[] = [{ key: "web:essai-garde", build: async () => (count(5), {}), every: 30 }];
+    // Its copy, written an hour ago by another isolate, which found it took 5.
+    await kv.put(`copie:${VERSION}:web:essai-garde`, JSON.stringify({ value: {}, fetchedAt: T0 - 3600_000, cost: 5 }));
+    // Taken to cost 25 without it, it would not fit after these.
+    const run = await counted(WORKER_BUDGET, async () => {
+      count(25);
+      return warmShared(cache, kv, new Date(T0), list);
+    });
+    expect(run.value.written).toEqual(["web:essai-garde"]);
+    expect(run.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(JSON.parse(kv.data.get(`copie:${VERSION}:web:essai-garde`)!).cost).toBe(5);
   });
 
   it("stays within the budget when a build costs more than thought, and says it was cut", async () => {
