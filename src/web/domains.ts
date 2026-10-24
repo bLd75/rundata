@@ -9,7 +9,7 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, EauAnswer, ElectriciteAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, EauAnswer, ElectriciteAnswer, SentiersAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap } from "./map.js";
@@ -726,4 +726,69 @@ export function eauLive(data: Cached<EauAnswer> | null): Live | undefined {
     valeur: `${good} site${good > 1 ? "s" : ""} sur ${d.baignades.length}`,
     detail: "plages et bassins en bonne qualité au dernier prélèvement de l'ARS ; l'eau du robinet commune par commune",
   };
+}
+
+// ---------------------------------------------------------------- sentiers de randonnée
+
+export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/sentiers`, now);
+  const closed = d?.points.length ?? 0;
+
+  const status = !d
+    ? loading("L'état des sentiers")
+    : `<div class="now"><span class="big">${closed}</span><p>sentier${closed > 1 ? "s" : ""} fermé${closed > 1 ? "s" : ""} sur <b>${d.suivis}</b> suivis par l'ONF` +
+      `${d.carte_mise_a_jour ? `, d'après sa carte mise à jour le ${esc(d.carte_mise_a_jour.replace(" (ONF)", ""))}` : ""}.</p></div>`;
+
+  const markers = (d?.points ?? []).map((p) => ({ lon: p.lon, lat: p.lat, label: "×", name: `${p.nom} : fermé`, round: true, color: "#c92a2a", quiet: true }));
+
+  const byCommune = d
+    ? `<ul class="zones">${d.fermes_par_commune.map((c) =>
+        `<li class="card"><h3>${esc(c.commune)} <span class="note">${c.sentiers_fermes.length} fermé${c.sentiers_fermes.length > 1 ? "s" : ""}</span></h3><ul class="rows eau">` +
+        c.sentiers_fermes.map((t) => `<li><span>${esc(t.sentier)}<small>${[t.cause, t.precision].filter(Boolean).map((x) => esc(x!)).join(" · ") || "fermé"}</small></span>` +
+          `<span class="q-mauvaise">fermé</span></li>`).join("") + `</ul></li>`).join("")}</ul>`
+    : `<p class="card">L'état des sentiers se charge : rechargez la page dans quelques secondes.</p>`;
+
+  const roads = d?.routes_forestieres_fermees.length
+    ? `<div class="card"><h3>Routes forestières interdites à la circulation</h3><ul class="rows eau">${d.routes_forestieres_fermees.map((r) =>
+        `<li><span>${esc(r.route)}<small>${[r.cause, r.precision].filter(Boolean).map((x) => esc(x!)).join(" · ")}</small></span><span class="q-mauvaise">interdite</span></li>`).join("")}</ul></div>`
+    : "";
+
+  const title = "Sentiers fermés à La Réunion aujourd'hui : la liste de l'ONF, cirque par cirque";
+  const short = "🇷🇪 Sentiers de randonnée fermés à La Réunion (974) : la liste de l'ONF commune par commune, avec la cause de chaque fermeture.";
+  const description = d
+    ? describe(`🇷🇪 Sentiers fermés à La Réunion (974) : ${closed} sentiers fermés sur ${d.suivis} d'après la carte de l'ONF, commune par commune, avec la cause (éboulement, sentier dégradé, travaux).`, short)
+    : short;
+
+  const band = `${crumbBar("Randonnée")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Carte de l'ONF</p>
+    <h1>Sentiers fermés <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Lo santyé Roche Plate lé ouvèr ? Rogard si ${url} é di amwin si mi pé désann Mafate.`,
+      `Le sentier de Roche Plate est-il ouvert ? Lis ${url} et dis-moi si je peux descendre dans Mafate.`)}
+  </div>
+  <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les sentiers de randonnée fermés" })}
+  <figcaption class="note" style="color:var(--on-night-muted)">Chaque croix est un sentier fermé.</figcaption></figure>
+</div>`;
+
+  const body = `<section aria-labelledby="h-fermes">
+  <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-fermes">Les sentiers fermés</h2>
+  <p>Les sentiers gérés par l'ONF fermés par arrêté préfectoral ou par décision de l'ONF, avec la cause et, quand elle est connue, la date de réouverture. Les autres sentiers suivis par l'ONF sont ouverts.</p></div>
+  ${byCommune}
+  ${roads}
+  ${d ? warnings(d.a_savoir) : ""}
+  ${d && data ? sourcesNote(d.sources, data) : ""}
+</section>
+${connectorCta("sentiers_randonnee", "les sentiers de randonnée")}`;
+
+  return layout(origin, { title, description, path: "/sentiers", jsonld: [crumbs(origin, "Randonnée", "/sentiers"), webPage(origin, "/sentiers", title, description, data)], alerte }, band, body);
+}
+
+export function sentiersLive(data: Cached<SentiersAnswer> | null): Live | undefined {
+  const d = data?.value;
+  if (!d) return undefined;
+  const n = d.points.length;
+  return { valeur: `${n} sentier${n > 1 ? "s" : ""} fermé${n > 1 ? "s" : ""}`, detail: `sur ${d.suivis} suivis par l'ONF, avec la cause de chaque fermeture` };
 }
