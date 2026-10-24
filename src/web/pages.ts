@@ -533,6 +533,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .day .range{font:800 1.4rem Bricolage,system-ui,sans-serif}
 .day p{font-size:.9rem;color:var(--muted)}
 .day p.range{color:var(--ink)}
+.day p.why{font-size:.8rem;line-height:1.35}
 
 .alerte.vg{display:block;border-radius:0;padding:0;font-size:.95rem;font-weight:600}
 .alerte .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .8rem;padding-block:.6rem}
@@ -1186,6 +1187,8 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
     : "";
 
   const f = d?.prevision;
+  // Why a day is not sure, in plain sight: a phone shows no title. A sure day says nothing more.
+  const whyNot = (level: string, why?: string) => (level !== "forte" && why ? `<p class="why">${esc(why.charAt(0).toUpperCase() + why.slice(1))}</p>` : "");
   // The tool's own words on the confidence index, said once under the days.
   const confidenceNote = f?.jours?.some((j) => j.confiance) ? f.avertissements?.find((w) => w.startsWith("Confiance :")) : undefined;
   const range = (lo?: string, hi?: string) => (lo && hi ? `${lo.replace(/ °C$/, "°")} / ${hi.replace(/ °C$/, "°")}` : "—");
@@ -1195,7 +1198,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
       f.jours.map((j) => `<li class="card day"><h3>${esc(j.jour)}</h3><p class="range">${esc(range(j.temperature_min, j.temperature_max))}</p>` +
         `<p>${esc(j.ciel_en_journee ?? "—")}</p><p>Pluie : ${esc(thin(j.pluie ?? "—"))}</p><p>Rafales : ${esc(thin(j.rafales_max ?? "—"))}</p>` +
         (j.indice_uv_max ? `<p>UV : ${esc(j.indice_uv_max)}</p>` : "") +
-        (j.confiance ? `<p title="${esc(j.confiance_pourquoi ?? "")}">Confiance : ${esc(j.confiance)}</p>` : "") + `</li>`).join("") +
+        (j.confiance ? `<p>Confiance : ${esc(j.confiance)}</p>` + whyNot(j.confiance, j.confiance_pourquoi) : "") + `</li>`).join("") +
       `</ul>` +
       (confidenceNote ? `<p class="note">${esc(confidenceNote)}</p>` : "") +
       `<p class="note">${esc(f.modele ? `Modèle ${f.modele.nom}, maille de ${fr(f.modele.maille_km)} km${f.modele.run_du_modele ? `, calcul du ${f.modele.run_du_modele}` : ""}. ` : "")}` +
