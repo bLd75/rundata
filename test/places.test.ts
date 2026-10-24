@@ -24,6 +24,23 @@ describe("resolvePlace", () => {
     expect(name(q)).toBe(expected);
   });
 
+  it.each([
+    ["Gillot", "Aéroport de la Réunion Roland-Garros", "Sainte-Marie"],
+    ["aéroport de Gillot", "Aéroport de la Réunion Roland-Garros", "Sainte-Marie"],
+    ["aéroport Roland Garros", "Aéroport de la Réunion Roland-Garros", "Sainte-Marie"],
+    ["l'aéroport Roland-Garros", "Aéroport de la Réunion Roland-Garros", "Sainte-Marie"],
+    ["aéroport de Pierrefonds", "Aéroport de Saint-Pierre - Pierrefonds", "Saint-Pierre"],
+    ["aeroport pierrefonds", "Aéroport de Saint-Pierre - Pierrefonds", "Saint-Pierre"],
+  ])("the airport %s → %s (%s)", (q, expected, commune) => {
+    const r = resolvePlace(q)!;
+    expect(r.lieu.nom).toBe(expected);
+    expect(r.lieu.commune).toBe(commune);
+  });
+
+  it("keeps Pierrefonds the place apart from its airport", () => {
+    expect(name("Pierrefonds")).toBe("Pierrefonds");
+  });
+
   it("tolerates typos", () => {
     expect(name("Cilaoss")).toBe("Cilaos");
     expect(name("Sainte Suzane")).toBe("Sainte-Suzanne");

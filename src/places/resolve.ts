@@ -34,7 +34,7 @@ const BEACH_WORDS = /\b(plage|beach|lagon|baignade|se baigner)\b/;
 // When several places match equally well, the more common meaning wins.
 const RANK: Record<string, number> = {
   commune: 0, localite: 1, plage: 2, quartier: 3, sommet: 4, point_de_vue: 5, bassin: 6, port: 7, baie: 8,
-  cap: 9, lieu_dit: 10,
+  cap: 9, lieu_dit: 10, aeroport: 11,
 };
 
 export function normalize(s: string): string {
