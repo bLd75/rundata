@@ -3,6 +3,7 @@ import { normalize, resolvePlace } from "../places/resolve.js";
 import * as src from "../providers/actualites.js";
 import { why } from "../types.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
+import * as littoral from "./littoral.js";
 
 const DEFAULT_HOURS = 24;
 const MAX_HOURS = 72;
@@ -75,6 +76,12 @@ export function sujetMatcher(sujet: string | undefined): { nom: string; test: (i
 
 export async function actualites(cache: Cache, lieu?: string, sujet?: string, heures?: number, now = new Date()) {
   let res: ReturnType<typeof resolvePlace> = null;
+  // « route du Littoral » asked as a place: the island's news on the roads, and the road's last announcement.
+  const road = !!lieu && littoral.NAMED.test(normalize(lieu));
+  if (road) {
+    lieu = undefined;
+    sujet ??= "route";
+  }
   if (lieu?.trim()) {
     res = resolvePlace(lieu);
     if (!res) return notFound(lieu);
@@ -121,9 +128,11 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
     prefecture.length ? `Dernier communiqué de la préfecture, ${quand(prefecture[0], now)} : « ${prefecture[0].titre} ».` : "",
   ].filter(Boolean).join(" ");
 
+  const roadAsked = road || littoral.ENDS.includes(commune ?? "") || /\b(?:routes?|circulation|trafic|littoral)\b/.test(normalize(sujet ?? ""));
   return text({
     lieu: res && lieu ? placeBlock(lieu, res) : undefined,
     resume,
+    route_du_littoral: roadAsked ? littoral.forTool(littoral.littoral(data, now), now) : undefined,
     periode: `les dernières ${h} heures`,
     infos: mine.filter((i) => !res || !i.direct).slice(0, ARTICLES_MAX).map((i) => infoRow(i, now, commune)),
     en_direct: live.length ? live.map((i) => ({ ...infoRow(i, now, commune), mentionne_le_lieu: res ? names(i) : undefined })) : undefined,

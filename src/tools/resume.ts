@@ -57,6 +57,11 @@ import { aheadRows, type CourantAnswer, shortOf } from "./courant.js";
 import { SITE_URL } from "./citer.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 import { current, cyclone, highest, raised } from "./vigilance.js";
+import type { InfoRow } from "./actualites.js";
+import { ENDS as LITTORAL_ENDS, forSummary, littoral } from "./littoral.js";
+
+// How old an announcement of the route du Littoral may be to be told in a summary.
+const LITTORAL_SUMMARY_HOURS = 12;
 
 /** The copies a summary is cut from, each null or missing when there is none recent enough. */
 export interface ResumeCopies {
@@ -230,6 +235,15 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     .filter((i) => i.communes?.includes(nom) && now.getTime() - Date.parse(i.publie) < NEWS_HOURS * 3600_000);
   const roads = news.filter((i) => i.sujets?.some((s) => ROADS.includes(s)));
   const others = news.filter((i) => !roads.includes(i));
+  // At either end of the route du Littoral, its announcement of the last hours: from the news already read, none older.
+  const asRead = (r: InfoRow) => ({ ...r, heure: r.il_y_a != null });
+  const road = LITTORAL_ENDS.includes(nom) && l.actualites
+    ? forSummary(littoral(
+        { infos: [...l.actualites.value.en_direct, ...l.actualites.value.infos].map(asRead), prefecture: l.actualites.value.prefecture.map((r) => ({ ...r, heure: false })) },
+        now,
+        LITTORAL_SUMMARY_HOURS,
+      ), now)
+    : undefined;
   const avis = l.coupures?.value.avis.filter((n) => n.communes.includes(nom)) ?? [];
   const dist = distributeur(nom);
   const events = (l.agenda?.value.evenements ?? []).filter((r) => r.commune === nom && occurrences(r).some((o) => o.du <= today && today <= o.au));
@@ -283,6 +297,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     circulation: {
       mesure_des_bouchons: NO_JAMS,
       waze: `https://www.waze.com/ul?ll=${commune.place.lat},${commune.place.lon}&zoom=13`,
+      route_du_littoral: road,
       infos_routes: l.actualites ? roads.slice(0, NEWS_MAX).map(newsRow) : undefined,
       routes_ile: l.trafic?.value.medias?.length ? l.trafic.value.medias.slice(0, 3) : undefined,
       bus: l.commune?.value.bus?.alertes?.length ? l.commune.value.bus.alertes : undefined,

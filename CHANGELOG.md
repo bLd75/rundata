@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Route du Littoral basculée ou fermée ? Ce qu'annoncent les médias, avec l'heure de l'article, sur /trafic et dans votre IA.
 - Coupures d'électricité : les avis d'EDF publiés par la mairie de Saint-André s'ajoutent à ceux de Sainte-Marie, Saint-Philippe et Cilaos.
 - Prévision météo : chaque jour dit sa confiance (forte, moyenne ou faible), selon l'accord des 51 scénarios du Centre européen.
 - Coupures d'électricité annoncées par les mairies de Sainte-Marie, Saint-Philippe et Cilaos, sur le site et dans votre IA.

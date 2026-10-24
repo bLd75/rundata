@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T19:26:00+04:00", texte: "Route du Littoral basculée ou fermée ? Ce qu'annoncent les médias, avec l'heure de l'article, sur /trafic et dans votre IA." },
   { date: "2026-10-24T19:23:00+04:00", texte: "Coupures d'électricité : les avis d'EDF publiés par la mairie de Saint-André s'ajoutent à ceux de Sainte-Marie, Saint-Philippe et Cilaos." },
   { date: "2026-10-24T19:05:00+04:00", texte: "Prévision météo : chaque jour dit sa confiance (forte, moyenne ou faible), selon l'accord des 51 scénarios du Centre européen." },
   { date: "2026-10-24T19:00:00+04:00", texte: "Coupures d'électricité annoncées par les mairies de Sainte-Marie, Saint-Philippe et Cilaos, sur le site et dans votre IA." },

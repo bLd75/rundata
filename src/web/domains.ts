@@ -10,6 +10,7 @@ import type { Cached } from "../cache.js";
 import { normalize } from "../places/resolve.js";
 import * as traces from "../providers/traces.js";
 import { SUJETS } from "../providers/actualites.js";
+import * as littoral from "../tools/littoral.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
 import { de, fr } from "../tools/format.js";
@@ -943,6 +944,23 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   ${waze}
 </div>`;
 
+  // The route du Littoral as the media announce it, never as a measure: the card stays when none did, for those who look for it.
+  const lit = d?.littoral;
+  const linked = (s: string) => esc(s).replace("infotrafic.re", `<a href="${INFOTRAFIC}">infotrafic.re</a>`);
+  const said = (a: littoral.Annonce) =>
+    `<b>${esc(littoral.etatText(a))}</b>, selon ${esc(a.media)}, <a href="${esc(a.lien)}" rel="noopener">${littoral.linkWord(a)}</a> publié ${esc(littoral.publieText(a, now))}.`;
+  const littoralBody = lit
+    ? lit.annonces.length > 1
+      ? `<p>${linked(littoral.DISAGREE)}</p><ul class="plain">${lit.annonces.map((a) => `<li>${said(a)}</li>`).join("")}</ul>`
+      : `<p>${esc(littoral.agePrefix(lit))}${said(lit.annonces[0])}</p>`
+    : lit === null
+      ? `<p>${linked(littoral.NONE)}</p>`
+      : "";
+  const littoralCard = `<section aria-labelledby="route-du-littoral">
+  <div class="sec-h"><h2 id="route-du-littoral">Route du Littoral : ce qu'en disent les médias</h2></div>
+  <div class="card">${icon("car")}${littoralBody}${lit === null ? "" : `<p class="note">${linked(lit ? littoral.A_SAVOIR : "L'état officiel, en direct, est sur infotrafic.re.")}</p>`}</div>
+</section>`;
+
   const official = `<section aria-labelledby="h-officiel">
   <div class="sec-h"><p class="eyebrow">Source officielle</p><h2 id="h-officiel">L'état des routes, par la Région</h2></div>
   <a class="card link-card" href="${INFOTRAFIC}"><h3>${icon("car")}infotrafic.re ↗</h3>
@@ -1008,11 +1026,15 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
 
   const title = "Bouchons Réunion : carte Waze et état des routes · 974";
   const short = "🇷🇪 Circulation à La Réunion (974) : carte Waze des bouchons en direct, état officiel des routes sur infotrafic.re, retards des bus et routes forestières fermées.";
-  const nShut = d?.routes_forestieres?.interdites.length;
-  const description = nShut != null
-    ? describe(`🇷🇪 Circulation à La Réunion (974) : les bouchons en direct sur la carte Waze, l'état officiel des routes sur infotrafic.re, les retards des bus et ${nShut} route${nShut > 1 ? "s" : ""} forestière${nShut > 1 ? "s" : ""} fermée${nShut > 1 ? "s" : ""}.`, short)
-    : short;
-  const body = `${official}
+  // An announcement of the last hours leads the description; otherwise, what the page has.
+  const fresh = lit && lit.annonces.length === 1 && lit.age_h < littoral.RECENT_HOURS ? lit.annonces[0] : undefined;
+  const announced = fresh &&
+    `🇷🇪 Route du Littoral : ${littoral.etatShort(fresh)} selon ${fresh.media} (${littoral.publieText(fresh, now).replace(/^aujourd'hui à /, "")}). Bouchons à La Réunion (974) : carte Waze, état officiel sur infotrafic.re.`;
+  const description = announced
+    ? describe(announced, describe(announced.replace(" (974)", ""), short))
+    : "🇷🇪 Circulation à La Réunion (974) : carte Waze des bouchons, route du Littoral selon les médias, état officiel sur infotrafic.re, retards des bus.";
+  const body = `${littoralCard}
+${official}
 ${ours}
 ${why}
 ${connectorCta("transports", "les bus en temps réel")}
