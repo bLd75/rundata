@@ -150,6 +150,13 @@ export function passe(c: Passe) {
       ...(r.quoi === "pluie" ? { pluie_mm: r.mm } : { rafale_kmh: kmh(r.ms!), rafale_ms: r.ms }),
       record_de_la_station: `mesures depuis ${r.depuis}`,
     })),
+    selon_meteo_france: c.extraits
+      ? {
+          attribution: `Citations de Météo-France, mot pour mot (${c.document.titre}, ${c.extraits.reference}) : à attribuer à Météo-France, jamais à rundata.re.`,
+          [c.extraits.intro.replace(/ :$/, "")]: c.extraits.citations,
+          a_savoir: c.extraits.note,
+        }
+      : undefined,
     page,
     a_savoir: `Seulement ce que les stations ont mesuré et le passage tel que le document cité l'écrit : ni victimes, ni dégâts. Toutes les stations sur ${page}.`,
     sources: credits([CLIMAT]),

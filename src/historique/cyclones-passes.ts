@@ -32,6 +32,10 @@ export interface Passe {
   rafales?: string;
   /** The gust the instruments could not exceed then (m/s), and the document's words for it, said beside a record at that value. */
   limite?: { ms: number; citation: string };
+  /** What the document says beyond the daily measures (Gamède's world records): a line of ours, the quotations, the reference with the copy's date (a record holds only at its date), and what the daily files can and cannot show of it. */
+  extraits?: { titre: string; intro: string; citations: string[]; reference: string; note: string };
+  /** A meta of its own, worded by marketing, instead of the template. */
+  meta?: string;
 }
 
 const ARCHIVE = "Météo-France, site « Pluies extrêmes à La Réunion », copie archivée : le site est suspendu depuis juillet 2024";
@@ -81,6 +85,32 @@ export const PASSES: Passe[] = [
     alerte: "« 38h d'alerte rouge à La Réunion »",
   },
   {
+    slug: "gamede-2007",
+    nom: "Gamède",
+    annee: 2007,
+    date: "du 24 au 27 février 2007",
+    mois: "février 2007",
+    passage:
+      "Du 24 au 27 février 2007, deux passages : « Un peu avant l'aube du 25, GAMEDE transite au plus près de La Réunion, à un peu moins de 230 km au nord-nord-ouest » ; puis « un second passage au plus près de La Réunion à 250 km à l'ouest dans la soirée du 27 ».",
+    document: {
+      titre: "2007 Gamede",
+      auteur: ARCHIVE,
+      url: "https://web.archive.org/web/20240518073707/http://pluiesextremes.meteo.fr/lareunion/2007-Gamede.html",
+    },
+    meta: "🇷🇪 Cyclone Gamède (février 2007) à La Réunion (974) : pluie et vent mesurés, records de station, records mondiaux de pluie en 72 et 96 h selon Météo-France.",
+    extraits: {
+      titre: "Records mondiaux, selon Météo-France",
+      intro: "Cumuls de pluie de Gamède, selon la page de Météo-France :",
+      reference: "Météo-France, site « Pluies extrêmes à La Réunion », copie archivée du 18/05/2024 : le site est suspendu depuis juillet 2024",
+      citations: [
+        "« en 72 heures : 3930 mm au Cratère Commerson et 3271 mm à Hell-Bourg, dépassant ainsi le précédent record mondial de 3240 mm qui avait été mesuré à Grand-Ilet avec le passage de HYACINTHE en 1980. »",
+        "« en 96 heures : 4936 mm au Cratère Commerson et 3637 mm à Hell-Bourg. Là encore, on dépasse largement le précédent record mondial qui était de 3551 mm au Cratère Commerson avec HYACINTHE. »",
+      ],
+      note:
+        "Ces cumuls portent sur 72 et 96 heures consécutives, à n'importe quelle heure. Les données quotidiennes de Météo-France comptent la pluie de 10 h à 10 h : sur les 4 jours du tableau, elles donnent 4 869,1 mm à Commerson et 3 633,3 mm à Hell-Bourg, et ne permettent pas de retrouver les cumuls sur 72 et 96 heures.",
+    },
+  },
+  {
     slug: "dina-2002",
     nom: "Dina",
     annee: 2002,
@@ -92,6 +122,20 @@ export const PASSES: Passe[] = [
       titre: "Cyclone Dina à la Réunion les 22 et 23 janvier 2002 : caractérisation, conséquences et retour d'expérience (29 janvier 2003)",
       auteur: "Inspection générale de l'environnement et Conseil général des ponts et chaussées",
       url: "https://www.vie-publique.fr/files/rapport/pdf/034000505.pdf",
+    },
+  },
+  {
+    slug: "colina-1993",
+    nom: "Colina",
+    annee: 1993,
+    date: "19 janvier 1993",
+    mois: "janvier 1993",
+    passage:
+      "« Le 19 janvier 1993, COLINA, cyclone tropical de petit diamètre et de moyenne intensité, traverse l'île par le nord. » « L'œil du cyclone, d'un diamètre d'environ 50 km, pénètre vers 18h30 locales sur la côte nord de l'île », « le centre de COLINA ressortant en mer vers 19h15 au niveau des côtes sud-ouest de l'île ».",
+    document: {
+      titre: "1993 Colina",
+      auteur: ARCHIVE,
+      url: "https://web.archive.org/web/20240420212000/http://pluiesextremes.meteo.fr/lareunion/1993-Colina.html",
     },
   },
   {
@@ -109,6 +153,20 @@ export const PASSES: Passe[] = [
     },
     rafales: "« Les stations de Saint-Pierre et de la Plaine-des-Cafres relèvent des rafales de 216 km/h qui sont la limite mesurable avec les instruments de l'époque. »",
     limite: { ms: 60, citation: "la limite mesurable avec les instruments de l'époque" },
+  },
+  {
+    slug: "clotilda-1987",
+    nom: "Clotilda",
+    annee: 1987,
+    date: "du 9 au 15 février 1987",
+    mois: "février 1987",
+    passage:
+      "« Ce cyclone s'est formé entre Madagascar et La Réunion et a suivi une trajectoire atypique vers l'est pour venir traverser lentement l'île entre le 13 et le 14 février 1987. »",
+    document: {
+      titre: "1987 Clotilda",
+      auteur: ARCHIVE,
+      url: "https://web.archive.org/web/20240204152006/http://pluiesextremes.meteo.fr/lareunion/1987-Clotilda.html",
+    },
   },
   {
     slug: "hyacinthe-1980",
@@ -184,7 +242,8 @@ export function passeOf(asked: string): Passe | undefined {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "");
-  const named = PASSES.filter((p) => new RegExp(`\\b${p.nom.toLowerCase()}\\b`).test(q));
+  // « Gamède » and « gamede » alike.
+  const named = PASSES.filter((p) => new RegExp(`\\b${p.nom.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")}\\b`).test(q));
   return named.find((p) => q.includes(String(p.annee))) ?? named[0];
 }
 
