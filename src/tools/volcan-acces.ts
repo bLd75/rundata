@@ -35,6 +35,9 @@ export const NIVEAUX: { niveau: string; libelle: string }[] = [
 ];
 export const VERSION = "Version de 2021, la dernière que nous ayons lue.";
 
+/** The plan's words for `niveau` (« éruption probable ou imminente »), undefined for a level it does not name. */
+export const libelle = (niveau: string | undefined) => NIVEAUX.find((x) => x.niveau.toLowerCase() === niveau?.toLowerCase())?.libelle;
+
 /** « Alerte 1 : « éruption probable ou imminente » (dispositif ORSEC Volcan, arrêté n° 2242 du 08/11/2021, p. 22). » */
 export function definition(niveau: string): string | undefined {
   const n = NIVEAUX.find((x) => x.niveau.toLowerCase() === niveau.toLowerCase());

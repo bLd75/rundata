@@ -9,6 +9,7 @@ import type { Cache } from "../cache.js";
 import type { ActualitesAnswer, VolcanAnswer } from "./data.js";
 import { esc } from "./map.js";
 import { NON_ANNONCEE } from "../tools/volcan.js";
+import { libelle } from "../tools/volcan-acces.js";
 
 export interface VolcanAlerte {
   /** « Alerte 1 », « Alerte 2-1 »… as the plan names it; undefined when only the eruption is known. */
@@ -75,6 +76,10 @@ async function read(cache: Cache, now: Date): Promise<VolcanAlerte | undefined> 
 const day = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Indian/Reunion" });
 const since = (a: VolcanAlerte) => (a.communique ? ` depuis le ${day(a.communique.publie)}` : "");
 const level = (a: VolcanAlerte) => a.niveau!.toLowerCase();
+// The level's words in the plan, true for any alert 1, never a release's of the day nor ours (marketing): « éruption
+// probable ou imminente ». Only what the level names: back in vigilance, no « éruption probable ».
+const plan = (a: VolcanAlerte) => libelle(a.niveau) ?? "";
+const planSaid = (a: VolcanAlerte) => (plan(a) ? ` : « ${plan(a)} », selon le dispositif ORSEC Volcan` : "");
 
 export const ENCLOS = "Accès à l'Enclos interdit.";
 export const CONSIGNES = "Accès à l'Enclos interdit. Seules comptent les consignes de la préfecture et de l'OVPF.";
@@ -82,7 +87,7 @@ export const CONSIGNES = "Accès à l'Enclos interdit. Seules comptent les consi
 export function bannerText(a: VolcanAlerte): string {
   return a.eruption
     ? `🌋 Éruption en cours au Piton de la Fournaise${a.niveau ? ` (${level(a)} du préfet${since(a)})` : ""}. ${ENCLOS}`
-    : `🌋 Piton de la Fournaise : ${level(a)} du préfet${since(a)}, éruption probable à très brève échéance. ${ENCLOS}`;
+    : `🌋 Piton de la Fournaise : ${level(a)} du préfet${since(a)}${plan(a) ? `, « ${plan(a)} » selon le dispositif ORSEC Volcan` : ""}. ${ENCLOS}`;
 }
 
 export function bannerHtml(a: VolcanAlerte | undefined, path: string): string {
@@ -95,12 +100,12 @@ export const volcanTitle = (a: VolcanAlerte) =>
   a.eruption ? "Éruption du Piton de la Fournaise en direct · 974" : `Piton de la Fournaise : ${level(a)}, éruption probable · 974`;
 
 export const volcanH1 = (a: VolcanAlerte) =>
-  a.eruption ? "Éruption en cours au Piton de la Fournaise" : `Piton de la Fournaise : ${level(a)}, éruption probable à très brève échéance`;
+  a.eruption ? "Éruption en cours au Piton de la Fournaise" : `Piton de la Fournaise : ${level(a)}${plan(a) ? `, ${plan(a)}` : ""}`;
 
 export const volcanMeta = (a: VolcanAlerte) =>
   a.eruption
     ? `Éruption en cours (OVPF, préfecture)${a.niveau ? `, ${level(a)}` : ""}. ${ENCLOS} Communiqués, séismes et consignes en direct · 974`
-    : `${a.niveau}${since(a)} (préfecture) : éruption probable à très brève échéance. ${ENCLOS} Communiqués de l'OVPF en direct · 974`;
+    : `${a.niveau}${since(a)} (préfecture)${planSaid(a)}. ${ENCLOS} Communiqués de l'OVPF en direct · 974`;
 
 export const volcanLead = (a: VolcanAlerte) =>
   a.eruption
@@ -112,7 +117,7 @@ export const volcanLead = (a: VolcanAlerte) =>
 export function homeCard(a: VolcanAlerte): string {
   const [h, lead] = a.eruption
     ? ["Éruption en cours au Piton de la Fournaise", `${ENCLOS} Les communiqués officiels en direct →`]
-    : [`Piton de la Fournaise : ${level(a)}`, `Éruption probable à très brève échéance, selon la préfecture. ${ENCLOS}`];
+    : [`Piton de la Fournaise : ${level(a)}`, `${a.niveau}${planSaid(a)}. ${ENCLOS}`];
   return `<div class="wrap volcan-une"><a class="card" href="/volcan"><h2>🌋 ${esc(h)}</h2><p class="lead">${esc(lead)}</p></a></div>`;
 }
 
@@ -120,7 +125,8 @@ export function homeCard(a: VolcanAlerte): string {
 export function tileLive(a: VolcanAlerte): { valeur: string; detail: string } {
   return a.eruption
     ? { valeur: "Éruption en cours", detail: [a.niveau ? esc(level(a)) : "", "Enclos interdit"].filter(Boolean).join(" · ") }
-    : { valeur: esc(a.niveau!), detail: "éruption probable à très brève échéance · Enclos interdit" };
+    // No quotes, for room (marketing).
+    : { valeur: esc(a.niveau!), detail: [esc(plan(a)), "Enclos interdit"].filter(Boolean).join(" · ") };
 }
 
 // --- /volcan during an alert -----------------------------------------------------------------------------------------

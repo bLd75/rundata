@@ -6,7 +6,7 @@
  */
 import { PREFECTURE } from "../providers/volcan.js";
 import { ENCLOS_SAID, IMAGE_APRES, LOCALISES } from "../tools/volcan.js";
-import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
+import { type Ligne, libelle, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
@@ -151,7 +151,9 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   <ul class="posts">${d.publications_ovpf.slice(0, 4).map((p) => `<li class="card"><p class="note">${esc(p.date)}</p><p>${esc(p.texte)}</p>${p.lien ? `<p><a href="${esc(p.lien)}">Lire le message →</a></p>` : ""}</li>`).join("")}</ul></section>`
     : "";
 
-  const title = a ? volcanTitle(a) : "Piton de la Fournaise en direct : éruption, Enclos, séismes · 974";
+  // In vigilance as the prefecture or pitonlive gives it (never an unread level), the level and the plan's words (marketing).
+  const vigilance = !a && e && !e.niveau_inconnu && e.niveau_orsec === "Vigilance" ? libelle("Vigilance") : undefined;
+  const title = a ? volcanTitle(a) : vigilance ? "Piton de la Fournaise : Vigilance volcanique · 974" : "Piton de la Fournaise en direct : éruption, Enclos, séismes · 974";
   const description = a
     ? volcanMeta(a)
     : d && e
@@ -167,7 +169,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Volcan en direct</p>
-    <h1>${a ? esc(volcanH1(a)) : `Piton de la Fournaise <span class="n974">974</span>`}</h1>
+    <h1>${a ? esc(volcanH1(a)) : vigilance ? esc(`Piton de la Fournaise : Vigilance, ${vigilance}`) : `Piton de la Fournaise <span class="n974">974</span>`}</h1>
     ${status}
     ${ask(`Lo volkan lé an érupsion astèr ? Rogard si ${url} é di amwin si lanklo lé ouvèr.`,
       `Le Piton de la Fournaise est-il en éruption ? Lis ${url} et dis-moi aussi si l'Enclos est ouvert.`)}
