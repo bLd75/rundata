@@ -56,11 +56,12 @@ describe("the located earthquakes per day under the volcano", () => {
     expect(html).toContain(`<p class="note">Seuls les séismes localisés par l&#39;OVPF sont comptés ici : ce n&#39;est pas le nombre total de séismes enregistrés.</p>`);
     expect(html).toContain("Séismes localisés par l'OVPF sous le volcan : <b>");
     expect(html).not.toMatch(/séismes sous le volcan/i);
+    expect(html).toContain("Déformation du volcan : inflation (communiqué du 24/09).");
     // At most 10 a day, the scale stays at 10: one event is a tenth of the chart.
     const one = { ...r, seismes: { ...r.seismes, par_jour_sous_le_volcan: perDay([quake("2026-10-22T10:00:00.000Z")], NOW) } };
     const small = volcanPage("https://rundata.re", { value: one, fetchedAt: NOW, stale: false }, NOW);
     expect(small).toContain(`<li aria-label="22/10 : 1"><i style="height:10%"></i></li>`);
-    expect(small).toContain(`<p>Aujourd'hui (en cours) : <b>0</b>, hier : <b>1</b>, le plus sur 30 jours : <b>1</b> le 22/10.</p>`);
+    expect(small).toContain(`<p>Aujourd'hui (en cours) : <b>0</b>, hier : <b>1</b>. Le plus en un jour sur 30 jours : <b>1</b>, le 22/10.</p>`);
     // Above 10, the highest day fills it.
     const many = { ...r, seismes: { ...r.seismes, par_jour_sous_le_volcan: perDay(Array.from({ length: 40 }, () => quake("2026-10-22T10:00:00.000Z")), NOW) } };
     expect(volcanPage("https://rundata.re", { value: many, fetchedAt: NOW, stale: false }, NOW)).toContain(`<li aria-label="22/10 : 40"><i style="height:100%"></i></li>`);

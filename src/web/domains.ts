@@ -212,14 +212,12 @@ function quakeDays(days: NonNullable<VolcanAnswer["seismes"]>["par_jour_sous_le_
   const today = days.at(-1)!;
   const yesterday = days.at(-2);
   const top = days.reduce((a, j) => (j.nombre > a.nombre ? j : a), days[0]);
-  const facts = [
-    `aujourd'hui (en cours) : <b>${today.nombre}</b>`,
-    ...(yesterday ? [`hier : <b>${yesterday.nombre}</b>`] : []),
-    ...(top.nombre ? [`le plus sur 30 jours : <b>${top.nombre}</b> le ${dd(top.jour)}`] : []),
-  ];
+  // « Le plus en un jour »: not to be read as a total over the 30 days (marketing).
+  const facts = `Aujourd'hui (en cours) : <b>${today.nombre}</b>${yesterday ? `, hier : <b>${yesterday.nombre}</b>` : ""}.` +
+    (top.nombre ? ` Le plus en un jour sur 30 jours : <b>${top.nombre}</b>, le ${dd(top.jour)}.` : "");
   return `<figure class="qdays"><figcaption>Sous le volcan, par jour (heure de La Réunion)</figcaption>` +
     `<ol>${bars}</ol><p class="axis"><span>${dd(days[0].jour)}</span><span>${dd(today.jour)} (en cours)</span></p></figure>` +
-    `<p>${cap(facts.join(", "))}.</p><p class="note">${esc(LOCALISES)}</p>` +
+    `<p>${facts}</p><p class="note">${esc(LOCALISES)}</p>` +
     (imageAfter ? `<p class="note">${esc(IMAGE_APRES)}</p>` : "");
 }
 

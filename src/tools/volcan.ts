@@ -36,6 +36,7 @@ async function settle<T>(source: string, p: Promise<{ value: T }>): Promise<T | 
 export const LOCALISES = "Seuls les séismes localisés par l'OVPF sont comptés ici : ce n'est pas le nombre total de séismes enregistrés.";
 const BAR_DAYS = 30;
 const localDay = (t: number) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
+const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 /**
  * The events located under the summit, per day of La Réunion, the last 30 days up to today, today « en cours »: the
@@ -225,7 +226,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
           ...(imageAfter && { image_ovpf_plus_recente: true }),
           ...((state as { ecart?: Ecart }).ecart && { ecart_pitonlive: (state as { ecart?: Ecart }).ecart }),
           derniere_eruption_fin: state.last_eruption_ended_at ?? undefined,
-          deformation: state.deformation?.available ? `${state.deformation.label} (communiqué du ${day(state.deformation.published_at!)})` : undefined,
+          // In the middle of a sentence, « Déformation du volcan : inflation (…) » (marketing).
+          deformation: state.deformation?.available ? `${lowerFirst(state.deformation.label ?? "")} (communiqué du ${day(state.deformation.published_at!)})` : undefined,
           acces_enclos: !unknown && state.access?.current?.available
             ? {
                 statut: state.access.current.enclos_status,
