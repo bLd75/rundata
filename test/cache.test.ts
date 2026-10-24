@@ -86,3 +86,45 @@ describe("TieredStore", () => {
     expect(await edge.get("j")).toBeDefined();
   });
 });
+
+describe("peek with a freshness", () => {
+  /** A slower store that counts how often it is asked. */
+  class Slow extends MemoryStore {
+    asked = 0;
+    async get(key: string) {
+      this.asked++;
+      return super.get(key);
+    }
+  }
+
+  it("is answered from memory when its copy is that fresh, and asks the slower store otherwise", async () => {
+    const c = clock();
+    const slow = new Slow();
+    const cache = new Cache(new TieredStore(new MemoryStore(), slow), c.now);
+    await cache.get("k", 300, async () => 1);
+    slow.asked = 0;
+    expect((await cache.peek("k", c.now() - 300_000))!.value).toBe(1);
+    expect(slow.asked).toBe(0);
+    // Without a freshness, as before: every store, for the newest copy.
+    await cache.peek("k");
+    expect(slow.asked).toBe(1);
+    // Older than asked: the slower store too, which may have a newer one.
+    c.advance(301);
+    await slow.put("k", { value: 2, fetchedAt: c.now() });
+    expect((await cache.peek("k", c.now() - 300_000))!.value).toBe(2);
+  });
+
+  it("then lets getFrom refresh that copy without reading the stores again", async () => {
+    const c = clock();
+    const slow = new Slow();
+    const cache = new Cache(new TieredStore(new MemoryStore(), slow), c.now);
+    await cache.get("k", 300, async () => 1);
+    c.advance(400);
+    const seen = await cache.peek<number>("k", c.now() - 300_000);
+    slow.asked = 0;
+    expect((await cache.getFrom("k", seen, 3600, async () => 2)).value).toBe(1);
+    expect((await cache.getFrom("k", seen, 300, async () => 2)).value).toBe(2);
+    expect(slow.asked).toBe(0);
+  });
+});
+

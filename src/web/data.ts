@@ -1154,7 +1154,7 @@ export function roadNews(news: actuSource.Fil | undefined, now: Date): NonNullab
  * When there is none (a new version, a data center that never read it) or it is old, it is read again afterwards.
  */
 export async function roadNewsNow(cache: Cache, background: Background, now = new Date()): Promise<actuSource.Fil | undefined> {
-  const got = await cache.peek<actuSource.Fil>("actualites:fil").catch(() => undefined);
+  const got = await cache.peek<actuSource.Fil>("actualites:fil", now.getTime() - ROAD_NEWS_STALE_SECONDS * 1000).catch(() => undefined);
   const old = !got || now.getTime() - got.fetchedAt.getTime() > ROAD_NEWS_STALE_SECONDS * 1000;
   if (old && now.getTime() - roadNewsAsked > ROAD_NEWS_RETRY_MS && left() >= ROAD_NEWS_MIN_LEFT) {
     roadNewsAsked = now.getTime();
@@ -1179,7 +1179,7 @@ export async function buildTrafic(cache: Cache, now = new Date()): Promise<Trafi
   const [bus, carte, volcan, fuel] = await Promise.all([
     cache.get("web:bus", FRESH_SECONDS, () => buildBus(now, cache)).then((c) => c.value).catch((err) => (console.error("trafic : bus indisponibles", why(err)), null)),
     onf.carte(cache).then((c) => c.value).catch((err) => (console.error("trafic : routes forestières indisponibles", why(err)), null)),
-    cache.peek<VolcanAnswer>("web:volcan").catch(() => null),
+    cache.peek<VolcanAnswer>("web:volcan", now.getTime() - FRESH_SECONDS * 1000).catch(() => null),
     carburants.prix(cache, now).then((c) => c.value).catch((err) => (console.error("trafic : prix des carburants indisponibles", why(err)), null)),
   ]);
   const live = bus?.gares.flatMap((g) => g.departs.filter((d) => d.retard_min !== undefined).map((d) => ({ gare: g.commune, d }))) ?? [];
@@ -1369,7 +1369,10 @@ export async function snapshot<T>(
 ): Promise<Cached<T> | null> {
   // Each build is measured: a tile is brought up to date only when what it took last time is left (web/site.ts).
   const run = () => measured(key, build);
-  const any = cache.get(key, KEEP_SECONDS, run);
+  // One read of the stores: a copy fresh in memory, else the newest there is (the data center's cache, KV behind it
+  // for the shared copies); its refresh below starts from it rather than reading them again.
+  const seen = await cache.peek<T>(key, now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined);
+  const any = cache.getFrom(key, seen, KEEP_SECONDS, run);
   let got: Cached<T> | null;
   try {
     got = await within(any, waitMs);
@@ -1382,7 +1385,7 @@ export async function snapshot<T>(
     return null;
   }
   if (now.getTime() - got.fetchedAt.getTime() > FRESH_SECONDS * 1000) {
-    const fresh = cache.get(key, FRESH_SECONDS, run);
+    const fresh = cache.getFrom(key, got, FRESH_SECONDS, run);
     const logged = fresh.catch((err) => console.error(`page ${key} : rafraîchissement impossible`, why(err)));
     if (reader) {
       const newer = await within(logged, waitMs);
