@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { counted } from "../src/budget.js";
 import { Cache } from "../src/cache.js";
-import { audience, category, feedReader, language, point, teamVisit, visitor, type Hit } from "../src/metrics.js";
+import { audience, category, device, feedReader, language, point, teamVisit, visitor, type Hit } from "../src/metrics.js";
 import { answer, asked, understood } from "../src/usage.js";
 
 const post = (body: unknown, headers: Record<string, string> = {}) =>
@@ -144,6 +144,29 @@ describe("Page views and the data point", () => {
     expect(audience(new Headers({ "user-agent": phone, ...human }))).toBe("humain");
     const p = point({ kind: "page", name: "/meteo", ok: true }, { who: "interne", country: "RE", from: "", audience: "interne", language: "fr" });
     expect([p.blobs[3], p.blobs[8]]).toEqual(["interne", "interne"]);
+  });
+
+  it("writes the device of a person's page view: phone, tablet or computer", () => {
+    const of = (ua: string, hints: Record<string, string> = {}) => device(new Headers({ "user-agent": ua, ...hints }));
+    const iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+    const pixel = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Mobile Safari/537.36";
+    const galaxyTab = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36";
+    const ipad = "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+    const windows = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36";
+    expect(of(iphone)).toBe("mobile");
+    expect(of(pixel, { "sec-ch-ua-mobile": "?1" })).toBe("mobile");
+    expect(of(galaxyTab, { "sec-ch-ua-mobile": "?0" })).toBe("tablette");
+    expect(of(ipad)).toBe("tablette");
+    expect(of(windows, { "sec-ch-ua-mobile": "?0" })).toBe("ordinateur");
+    // Chrome's reduced User-Agent on a phone still says « Mobile »; the hint alone is enough.
+    expect(of(windows, { "sec-ch-ua-mobile": "?1" })).toBe("mobile");
+    // Robots and assistants have no device, even dressed as a phone.
+    expect(of("Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Mobile Safari/537.36 (compatible; Googlebot/2.1)")).toBe("");
+    expect(of(`${iphone} rundata-interne`)).toBe("");
+    const visit = { who: "navigateur", country: "RE", from: "", audience: "humain", language: "fr", device: "mobile" };
+    expect(point({ kind: "page", name: "/meteo", ok: true }, visit).blobs[11]).toBe("mobile");
+    expect(point({ kind: "flux", name: "/communes/le-port.rss", ok: true }, visit).blobs[11]).toBe("");
+    expect(point({ kind: "mcp", name: "meteo_actuelle", ok: false, message: "lieu manquant" }, visit).blobs[11]).toBe("lieu manquant");
   });
 
   it("keeps the first six columns where older queries read them", () => {

@@ -148,6 +148,20 @@ export function teamVisit(headers: Headers, url: URL): boolean {
   return /rundata-interne/i.test(headers.get("user-agent") ?? "") || headers.get("rundata-equipe") === "1" || url.searchParams.get("interne") === "1";
 }
 
+/**
+ * The device of a person's page view: « mobile », « tablette » or « ordinateur », from the Sec-CH-UA-Mobile hint that
+ * Chromium browsers send (?1 on a phone), then the User-Agent (iPad, Android without « Mobile »: a tablet). Empty for
+ * robots and assistants. An iPad or an Android tablet asking for the desktop site says it is a computer, and is counted so.
+ */
+export function device(headers: Headers): string {
+  const ua = headers.get("user-agent") ?? "";
+  if (visitor(ua) !== "navigateur") return "";
+  if (headers.get("sec-ch-ua-mobile") === "?1") return "mobile";
+  if (/iPad|Tablet|Kindle|Silk\/|PlayBook|Android(?!.*Mobile)/i.test(ua)) return "tablette";
+  if (/Mobi|iPhone|iPod|Android/i.test(ua)) return "mobile";
+  return "ordinateur";
+}
+
 /** The visitor's first language (« fr », « en »), from Accept-Language; empty without one. */
 export function language(acceptLanguage: string | null): string {
   return /^\s*([a-z]{2,3})\b/i.exec(acceptLanguage ?? "")?.[1].toLowerCase() ?? "";
@@ -177,6 +191,8 @@ export interface Visit {
   language: string;
   /** For pages: « app » when asked by the installed app's service worker (web/pwa.ts), else empty. */
   mode?: string;
+  /** For pages: device(). */
+  device?: string;
 }
 
 /**
@@ -200,7 +216,7 @@ export interface Visit {
  * | blob9   | client version (initialize)                | audience: humain, assistant, robot…, interne |
  * | blob10  | protocol version                           | HTTP status                            |
  * | blob11  | outcome: ok, erreur, lieu inconnu, rpc …, http … | « app » in the installed app, else empty |
- * | blob12  | protocol error message                     | —                                      |
+ * | blob12  | protocol error message                     | device: mobile, tablette, ordinateur; empty for a robot |
  * | blob13  | argument names                             | —                                      |
  * | blob14  | place: résolu, inconnu, coordonnées        | —                                      |
  * | blob15  | commune of the place                       | —                                      |
@@ -221,7 +237,7 @@ export function point(hit: Hit, v: Visit): { indexes: string[]; blobs: string[];
     page ? v.language : hit.client ?? "",
     page ? v.audience : hit.clientVersion ?? "",
     page ? String(hit.status ?? "") : hit.protocol ?? "",
-    hit.kind === "page" ? v.mode ?? "" : hit.outcome ?? "", hit.message ?? "", hit.args ?? "", hit.place ?? "", hit.commune ?? "",
+    hit.kind === "page" ? v.mode ?? "" : hit.outcome ?? "", hit.kind === "page" ? v.device ?? "" : hit.message ?? "", hit.args ?? "", hit.place ?? "", hit.commune ?? "",
   ];
   const doubles = [hit.ok ? 1 : 0, hit.ms ?? 0, hit.subrequests ?? 0, hit.cacheHits ?? 0, hit.cacheLoads ?? 0, hit.kind === "flux" ? hit.subscribers ?? 1 : hit.size ?? 0];
   return { indexes: [hit.kind], blobs, doubles };
