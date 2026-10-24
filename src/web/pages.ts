@@ -312,10 +312,11 @@ text-decoration:none;color:#fff;background:rgb(255 255 255/.09);border:1px solid
 .facts-live b{font:800 .98rem/1.2 Bricolage,system-ui,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .facts-live b .vg,.facts-live b .aq{font-size:.8rem;padding:0 .45rem}
 .hero-map{position:relative;display:grid;gap:.6rem;min-width:0;width:100%;max-width:30rem;justify-self:center}
+@media (min-width:66rem){.hero-map{max-width:36rem}}
 .hero-map .map{filter:drop-shadow(0 30px 40px rgb(0 0 0/.35))}
 .map.relief .halo{fill:#4fd1c5;opacity:.55}
 .map.relief .coast{fill:none;stroke:#7ee8e0;stroke-width:6;stroke-linejoin:round;opacity:.9}
-.map.relief .borders{fill:none;stroke:rgb(255 255 255/.16);stroke-width:1.3}
+.map.relief .ground{fill:#5f9e6a}
 .map.relief .pk path{fill:#fff;opacity:.85}
 .map.relief .pk text{fill:#fff;font-size:22px;font-weight:600;opacity:.8;paint-order:stroke;stroke:rgb(0 0 0/.35);stroke-width:5px}
 .map.relief .mk circle{stroke:#fff;stroke-width:5}
@@ -562,7 +563,7 @@ ${body}
   </div>
   <div>
     <h3>Sources</h3>
-    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Police des titres : Bricolage Grotesque (SIL OFL).</p>
+    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Relief : IGN, RGE ALTI. Police des titres : Bricolage Grotesque (SIL OFL).</p>
     <p>Ces données sont fournies telles quelles, sans garantie. Pour un cyclone ou de fortes pluies, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture.</p>
   </div>
 </div></footer>

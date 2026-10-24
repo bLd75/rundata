@@ -246,6 +246,18 @@ describe("what crawlers and previews fetch", () => {
     expect(await icon.text()).toContain("#e3262d");
   });
 
+  it("lays the island's relief under the hero map, a WebP kept for good", async () => {
+    const page = homePage("https://rundata.re", null);
+    const path = page.match(/<image href="(\/relief-[0-9a-f]{8}\.webp)"/)?.[1];
+    expect(path).toBeDefined();
+    const r = await handle(new Request(`https://rundata.re${path}`), isolate());
+    const webp = new Uint8Array(await r.arrayBuffer());
+    expect(r.headers.get("content-type")).toBe("image/webp");
+    expect(r.headers.get("cache-control")).toContain("immutable");
+    expect(new TextDecoder().decode(webp.slice(8, 12))).toBe("WEBP");
+    expect(webp.length).toBeLessThan(250_000);
+  });
+
   it("gives command-line clients one line and crawlers the page", async () => {
     vi.stubGlobal("fetch", async () => {
       throw new Error("offline");
