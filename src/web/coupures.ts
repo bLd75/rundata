@@ -128,7 +128,7 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
     <p class="pill"><span class="dot"></span>Avis des distributeurs</p>
     <h1>Coupures d'eau ${esc(where)}</h1>
     ${status}
-    ${ask(`Néna koupir dolo ${p.nom} ? Rogard si ${url} é di amwin kansa dolo i rovien.`,
+    ${ask(`Dolo la koupé ${p.nom} ? Kansa i rovien ? Gèt si ${url} é di amwin.`,
       `Y a-t-il une coupure d'eau ${where} ? Lis ${url} et dis-moi quand l'eau revient.`)}
   </div>
   <figure class="card mapcard">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>

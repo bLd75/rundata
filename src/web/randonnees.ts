@@ -106,7 +106,7 @@ export function secteurPage(origin: string, s: Secteur, data: Cached<RandonneesA
     <h1>Randonnée ${esc(s.dans)}</h1>
     <p class="lead">${esc(s.quoi.replace(/^\p{L}/u, (c) => c.toUpperCase()))}.</p>
     ${status}
-    ${ask(`Mi rod inn rando ${s.slug === "littoral" ? "lo long la mèr" : `koté ${s.nom}`}, lé ouvèr ? Rogard si ${url} é di amwin.`,
+    ${ask(`Mi rod inn rando ${s.slug === "littoral" ? "lo long la mèr" : `koté ${s.nom}`}, lé ouvèr ? Gèt si ${url} é di amwin.`,
       `Quelles randonnées faire ${s.dans} en ce moment, et sont-elles ouvertes ? Lis ${url} et propose-m'en une avec sa trace GPS.`)}
   </div>
   ${map}

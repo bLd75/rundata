@@ -103,6 +103,15 @@ describe("the volcano put forward during an alert", () => {
     expect(page.replace(/<details>[\s\S]*?<\/details>/, "")).not.toMatch(/éruption probable/);
   });
 
+  it("asks in Creole whether the volcano erupted, and during the eruption whether the lava still flows", async () => {
+    const page = async (title?: string) => volcanPage("https://rundata.re", { value: await answer(title), fetchedAt: NOW, stale: false }, NOW);
+    const after = " Gèt si https://rundata.re/volcan é di amwin si lanklo lé ouvèr.";
+    expect(await page()).toContain(`Volkan la pété ?${after}`);
+    expect(await page(ALERT_1)).toContain(`Volkan la pété ?${after}`);
+    expect(await page(ALERT_2)).toContain(`La lav i koul ankor ?${after}`);
+    expect(await page(ALERT_2)).not.toContain("Volkan la pété");
+  });
+
   it("keeps the normal page once the alert is over", async () => {
     const page = volcanPage("https://rundata.re", { value: await answer(), fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain("<title>Piton de la Fournaise en direct : éruption, Enclos, séismes · 974</title>");

@@ -190,7 +190,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     <p class="pill"><span class="dot"></span>Volcan en direct</p>
     <h1>${a ? esc(volcanH1(a)) : vigilance ? esc(`Piton de la Fournaise : vigilance, ${vigilance}`) : `Piton de la Fournaise <span class="n974">974</span>`}</h1>
     ${status}
-    ${ask(`Lo volkan lé an érupsion astèr ? Rogard si ${url} é di amwin si lanklo lé ouvèr.`,
+    ${ask(`${a?.niveau && /^Alerte 2/i.test(a.niveau) ? "La lav i koul ankor ?" : "Volkan la pété ?"} Gèt si ${url} é di amwin si lanklo lé ouvèr.`,
       `Le Piton de la Fournaise est-il en éruption ? Lis ${url} et dis-moi aussi si l'Enclos est ouvert.`)}
   </div>
   <figure class="card mapcard">${islandMap({ pin: FOURNAISE, label: "Carte de La Réunion (974) avec le Piton de la Fournaise" })}</figure>
@@ -308,7 +308,7 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
     <p class="pill"><span class="dot"></span>Indice du jour</p>
     <h1>Qualité de l'air <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Lèr lé bon La Rényon zordi ? Rogard si ${url} é di amwin pou mon komine.`,
+    ${ask(`Lèr lé bon La Rényon zordi ? Gèt si ${url} é di amwin pou mon komine.`,
       `L'air est-il bon aujourd'hui à La Réunion ? Lis ${url} et dis-moi la qualité de l'air dans ma commune.`)}
   </div>
   <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) colorée par l'indice de qualité de l'air de chaque commune" })}
@@ -404,7 +404,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
     <p class="pill"><span class="dot"></span>Production en direct</p>
     <h1>Électricité <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Lo kouran La Rényon i sort koté astèr ? Rogard si ${url} é di amwin la par renouvlab.`,
+    ${ask(`Lo kouran La Rényon i sort koté astèr ? Gèt si ${url} é di amwin la par renouvlab.`,
       `D'où vient l'électricité de La Réunion en ce moment ? Lis ${url} et dis-moi la part renouvelable.`)}
   </div>
   ${p ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Filière par filière</h3>${bars}</figure>` : ""}
@@ -498,7 +498,7 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
     <p class="pill"><span class="dot"></span>Aujourd'hui à La Réunion</p>
     <h1>Vacances scolaires et jours fériés à La Réunion</h1>
     ${status}
-    ${ask(`Kansa lé lo prochin vakans lékol é lo prochin zour férié La Rényon ? Rogard si ${url} é di amwin.`,
+    ${ask(`Kansa lé lo prochin vakans lékol é lo prochin zour férié La Rényon ? Gèt si ${url} é di amwin.`,
       `Quand sont les prochaines vacances scolaires et le prochain jour férié à La Réunion ? Lis ${url} et dis-le-moi.`)}
   </div>
   ${sun ? `<figure class="card mapcard">${islandMap({ peaks: true, label: "Carte de La Réunion (974)" })}</figure>` : ""}
@@ -589,7 +589,7 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
     <p class="pill"><span class="dot"></span>Horaires du jour</p>
     <h1>Bus et cars <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Kansa i pas lo prochin bis la gar Sin-Pièr ? Rogard si ${url} é di amwin.`,
+    ${ask(`Kansa i pas lo prochin bis la gar Sin-Pyèr ? Gèt si ${url} é di amwin.`,
       `Quand passe le prochain bus à la gare routière de Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
   </div>
   ${d ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Les réseaux</h3>${networks}</figure>` : ""}
@@ -665,7 +665,7 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
     <p class="pill"><span class="dot"></span>En direct</p>
     <h1>Vélos en libre-service <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Néna in vélo Altervélo i rès dan la stasion IUT ? Rogard si ${url} é di amwin.`,
+    ${ask(`Néna in vélo Altervélo i rès dan la stasion IUT ? Gèt si ${url} é di amwin.`,
       `Reste-t-il des vélos Altervélo à la station IUT de Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) : les communes où circulent les vélos Altervélo" })}
@@ -745,7 +745,7 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
     <p class="pill"><span class="dot"></span>En direct</p>
     <h1>Bornes de recharge <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Ousa mi pé roshar mon loto élèktrik vitman koté Sin-Pyèr ? Rogard si ${url} é di amwin.`,
+    ${ask(`Ousa mi pé roshar mon loto élèktrik vitman koté Sin-Pyèr ? Gèt si ${url} é di amwin.`,
       `Où recharger rapidement ma voiture électrique à Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les points de charge libres, commune par commune" })}
@@ -844,7 +844,7 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
     <p class="pill"><span class="dot"></span>Analyses de l'ARS</p>
     <h1>Qualité de l'eau <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Dlo lé bon pou bengn La Rényon ? Rogard si ${url} é di amwin pou la plaj l'Ermitaz é pou dlo robinè Sin-Pyèr.`,
+    ${ask(`Dlo lé bon pou bengn La Rényon ? Gèt si ${url} é di amwin pou la plaj l'Ermitaz é pou dlo robinè Sin-Pyèr.`,
       `L'eau est-elle bonne pour se baigner à La Réunion ? Lis ${url} et dis-moi pour la plage de l'Hermitage et l'eau du robinet à Saint-Pierre.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : la qualité de l'eau au dernier prélèvement de chaque plage et bassin contrôlé" })}
@@ -955,7 +955,7 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
     <h1>Sentiers fermés <span class="n974">974</span></h1>
     ${status}
     <p class="hero-cta"><a class="btn sun" href="/randonnees">${icon("mountain")}Randonnées et traces GPS</a></p>
-    ${ask(`Lo santyé Roche Plate lé ouvèr ? Rogard si ${url} é di amwin si mi pé désann Mafate.`,
+    ${ask(`Lo santyé Roche Plate lé ouvèr ? Gèt si ${url} é di amwin si mi pé désann Mafate.`,
       `Le sentier de Roche Plate est-il ouvert ? Lis ${url} et dis-moi si je peux descendre dans Mafate.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les sentiers de randonnée fermés" })}
@@ -1020,7 +1020,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
     <p class="lead">Les bouchons en direct sont sur la carte de Waze, l'état officiel des routes nationales sur <a href="${INFOTRAFIC}">infotrafic.re</a>, le site de la Région. rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant.</p>
     <p class="lead">La route du Littoral est basculée ou fermée ? L'état officiel est sur <a href="${INFOTRAFIC}">infotrafic.re</a>.</p>
     <p class="hero-cta"><a class="btn sun" href="${INFOTRAFIC}">${icon("car")}État des routes (Région)</a><a class="btn glass" href="${esc(wazeLink(first))}">${icon("map")}Ouvrir Waze</a></p>
-    ${ask(`Lé bouché si la kat-voi astèr ? Rogard si ${url} é di amwin sak ou koné, é ousa mi pé rogard lo trafik.`,
+    ${ask(`Lé bouché si la kat-voi astèr ? Gèt si ${url} é di amwin sak ou koné, é ousa mi pé rogard lo trafik.`,
       `Ça bouchonne sur la quatre-voies en ce moment ? Lis ${url} : dis-moi ce que tu sais (bus, routes forestières, vigilance) et où regarder le trafic en direct.`)}
   </div>
   ${waze}
@@ -1234,7 +1234,7 @@ export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | 
     <h1>Randonnée à La Réunion <span class="n974">974</span></h1>
     ${status}
     <p class="hero-cta"><a class="btn sun" href="#itineraires">${icon("mountain")}Choisir une rando</a><a class="btn glass" href="/sentiers">${icon("alert")}Sentiers fermés${d ? ` (${d.fermes})` : ""}</a></p>
-    ${ask(`Mi rod inn rando 10 km dan Silaos, lé ouvèr ? Rogard si ${url} é di amwin.`,
+    ${ask(`Mi rod inn rando 10 km dan Silaos, lé ouvèr ? Gèt si ${url} é di amwin.`,
       `Je cherche une randonnée d'environ 10 km à Cilaos, ouverte en ce moment : lis ${url} et propose-m'en une avec sa trace GPS.`)}
   </div>
   ${map}
@@ -1513,7 +1513,7 @@ export function secheressePage(origin: string, data: Cached<SecheresseAnswer> | 
     <p class="pill"><span class="dot"></span>Arrêté en vigueur</p>
     <h1>Sécheresse <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Mi gingn arouz mon zardin Sin-Zozèf ? Rogard si ${url} é di amwin sak lé défandi.`,
+    ${ask(`Mi gingn arouz mon zardin Sin-Zozèf ? Gèt si ${url} é di amwin sak lé défandi.`,
       `Ai-je le droit d'arroser mon jardin à Saint-Joseph ? Lis ${url} et dis-moi ce qui est interdit.`)}
   </div>
   <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) colorée par le niveau de restriction de l'eau du robinet de chaque commune" })}
@@ -1594,7 +1594,7 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
     <p class="pill"><span class="dot"></span>Avis des distributeurs</p>
     <h1>Coupures d'eau <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Néna koupir dolo Sin-Dni ? Rogard si ${url} é di amwin kansa dolo i rovien.`,
+    ${ask(`Dolo la koupé Sin-Dni ? Kansa i rovien ? Gèt si ${url} é di amwin.`,
       `Y a-t-il une coupure d'eau à Saint-Denis ? Lis ${url} et dis-moi quand l'eau revient.`)}
   </div>
   <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) : les communes dont les avis de coupure d'eau sont suivis" })}
@@ -1661,7 +1661,7 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
     <h1>Défibrillateurs <span class="n974">974</span></h1>
     ${status}
     ${d ? `<p class="lead"><b>${esc(d.urgence)}</b></p>` : ""}
-    ${ask(`Ousa néna in défibrilatèr pli prés la plaj l'Ermitaz ? Rogard si ${url} é di amwin.`,
+    ${ask(`Ousa néna in défibrilatèr pli prés la plaj l'Ermitaz ? Gèt si ${url} é di amwin.`,
       `Où est le défibrillateur le plus proche de la plage de l'Hermitage ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : le nombre de défibrillateurs par commune" })}
@@ -1758,7 +1758,7 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
     <p class="pill"><span class="dot"></span>Calendriers et résultats officiels</p>
     <h1>Sport <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Kosa néna konm match sé wikenn la ? Rogard si ${url} é di amwin.`,
+    ${ask(`Kosa néna konm match sé wikenn la ? Gèt si ${url} é di amwin.`,
       `Quels matchs et quelles compétitions ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
   </div>
   ${next}
@@ -1851,7 +1851,7 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
     ${status}
     ${d?.alerte_cyclonique ? `<p class="lead"><b>${esc(d.alerte_cyclonique)}</b></p>` : ""}
     ${d && (d.ecoles?.niveau ?? -1) <= 2 ? `<p class="lead"><a href="/kit-cyclone">Se préparer : le kit d'urgence du plan →</a></p>` : ""}
-    ${ask(`Néna in siklone pa loin La Rényon ? Rogard si ${url} é di amwin ousa li lé.`,
+    ${ask(`Néna in siklone pa loin La Rényon ? Gèt si ${url} é di amwin ousa li lé.`,
       `Y a-t-il un cyclone près de La Réunion ? Lis ${url} et dis-moi où il est et où il va.`)}
   </div>
   ${map}
@@ -1959,7 +1959,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
     <p class="pill"><span class="dot"></span>Mesures jusqu'à hier</p>
     <h1>Historique météo <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Lapli la tonm konbien sé dernié zour Sin-Bénoi, é lé normal ? Rogard si ${url} é di amwin.`,
+    ${ask(`La pli i tonb Sin-Bénoi ? Lé normal ? Gèt si ${url} é di amwin konbien la tonbé sé dernié zour.`,
       `Il a plu combien ces derniers jours à Saint-Benoît, et c'est normal ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : la pluie des 30 derniers jours à six stations, en pourcentage de la normale" })}
@@ -2145,7 +2145,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
     <p class="pill"><span class="dot"></span>Salles de spectacle, mairies et tourisme</p>
     <h1>Événements <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Kosa néna pou fé sé wikenn la ? Rogard si ${url} é di amwin.`,
+    ${ask(`Kosa néna pou fé sé wikenn la ? Gèt si ${url} é di amwin.`,
       `Que faire ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
   </div>
   ${weekend}
@@ -2266,7 +2266,7 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
     <p class="pill"><span class="dot"></span>Les médias de l'île, relus toutes les 5 minutes</p>
     <h1>Actualités <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Kosa i spas Sin-Pyèr astèr ? Néna baraz ? Rogard si ${url} é di amwin.`,
+    ${ask(`Kosa i spas Sin-Pyèr astèr ? Néna baraz ? Gèt si ${url} é di amwin.`,
       `Que se passe-t-il à Saint-Pierre en ce moment, y a-t-il des blocages ? Lis ${url} et dis-le-moi.`)}
   </div>
   ${side}

@@ -306,7 +306,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     ${SLOGAN}
     ${headline}
     <p class="hero-cta"><a class="btn glass" href="/aujourdhui/${p.slug}">${esc(LINK(p))}</a></p>
-    ${ask(`Kosa i spas ${p.nom} astèr ? Rogard si ${url} é di amwin.`,
+    ${ask(`Kosa i spas ${p.nom} astèr ? Gèt si ${url} é di amwin.`,
       `Que se passe-t-il en ce moment à ${p.nom} ? Lis ${url} et résume-moi la météo, la vigilance, l'air, les prochains bus et si la mairie est ouverte, avec l'heure des données.`)}
   </div>
   <figure class="card mapcard">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>

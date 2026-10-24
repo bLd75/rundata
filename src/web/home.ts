@@ -91,7 +91,7 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
 
 function askHome(origin: string): string {
   const url = `${origin}/`;
-  return ask(`Kosa i spas La Rényon astèr ? Rogard si ${url} é di amwin lo tan, lo volkan, lo kouran é lo bis.`,
+  return ask(`Kwélafé La Rényon astèr ? Gèt si ${url} é di amwin lo tan, lo volkan, lo kouran é lo bis.`,
     `Que se passe-t-il en ce moment à La Réunion ? Lis ${url} et résume-moi la météo, la vigilance, le volcan, l'électricité, l'air et les bus, avec l'heure des données.`);
 }
 
