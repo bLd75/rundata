@@ -99,7 +99,7 @@ export async function carburantsAnswer(cache: Cache, now = new Date()) {
       ...(p.depuis.slice(0, 7) < local.slice(0, 7) ? [`Les prix maximum ${of(carburants.monthOf(local))} ne sont pas encore lus : ce sont ceux ${of(carburants.monthOf(p.depuis))}, qui ont pu changer le 1er du mois.`] : []),
       ...(got.stale ? ["Copie de secours : la source n'a pas répondu."] : []),
     ],
-    a_savoir: "Le préfet fixe chaque mois les prix maximums des carburants et de la bouteille de gaz, applicables le 1er du mois. Il n'y a pas de prix par station à La Réunion : les départements d'outre-mer ne sont pas dans le relevé national des prix par station.",
+    a_savoir: "Le préfet fixe chaque mois les prix maximum des carburants et de la bouteille de gaz, applicables le 1er du mois. Il n'y a pas de prix par station à La Réunion : les départements d'outre-mer ne sont pas dans le relevé national des prix par station.",
     sources: credits([carburants.SOURCE]),
   });
 }

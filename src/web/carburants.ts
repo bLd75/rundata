@@ -56,15 +56,15 @@ export function carburantsPage(origin: string, data: Cached<carburants.Prix> | n
   // Before the 1st, the columns say which prices apply when.
   const head = (day: string, prev: boolean) => (s?.avenir ? (prev ? `Jusqu'au ${firstOf(eve(p!.depuis))}` : `Au ${firstOf(day)}`) : firstOf(day));
   const table = p
-    ? `<section aria-labelledby="h-prix"><div class="sec-h"><h2 id="h-prix">Tous les prix maximum du mois</h2></div>
+    ? `<section aria-labelledby="h-prix"><div class="sec-h"><h2 id="h-prix">Tous les prix maximum</h2></div>
   <div class="card table-wrap"><table class="drought"><thead><tr><th scope="col">Produit</th><th scope="col">${say(head(p.depuis, false))}</th>${p.precedent_depuis ? `<th scope="col">${say(head(p.precedent_depuis, true))}</th>` : ""}<th scope="col">Écart</th></tr></thead><tbody>
   ${p.produits.map((x) => `<tr><th scope="row">${esc(carburants.label(x.produit))}${x.unite ? ` <span class="note">(${esc(x.unite)})</span>` : ""}${x.note ? `<br><span class="note">${esc(x.note)}</span>` : ""}</th><td><b>${esc(eur(x.prix_eur))}</b></td>${p.precedent_depuis ? `<td>${x.precedent_eur != null ? esc(eur(x.precedent_eur)) : ""}</td>` : ""}<td>${esc(signed(x))}</td></tr>`).join("\n  ")}
   </tbody></table></div>
   <p class="note">D'après <a href="${esc(p.lien)}" rel="noopener">le communiqué de la préfecture</a> : « ${esc(p.titre)} ».</p></section>`
     : "";
 
-  const why = `<section aria-labelledby="h-savoir"><div class="card">${icon("car")}<h3 id="h-savoir">Des prix maximums, les mêmes partout</h3>
-  <p>À La Réunion, le préfet fixe chaque mois les prix maximums des carburants et de la bouteille de gaz, d'après les cours internationaux, le taux de change et le fret. Ils s'appliquent le 1er du mois dans toutes les stations de l'île ; une station peut vendre moins cher, pas plus.</p>
+  const why = `<section aria-labelledby="h-savoir"><div class="card">${icon("car")}<h3 id="h-savoir">Des prix maximum, les mêmes partout</h3>
+  <p>À La Réunion, le préfet fixe chaque mois les prix maximum des carburants et de la bouteille de gaz, d'après les cours internationaux, le taux de change et le fret. Ils s'appliquent le 1er du mois dans toutes les stations de l'île ; une station peut vendre moins cher, pas plus.</p>
   <p>Il n'y a pas de relevé des prix par station : les départements d'outre-mer ne sont pas dans le relevé national. <a href="/trafic">La circulation et l'état des routes →</a></p></div></section>`;
 
   const body = `${table}

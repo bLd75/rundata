@@ -10,7 +10,7 @@ import type { SourceInfo } from "../types.js";
 
 export const SOURCE: SourceInfo = {
   id: "prefecture_carburants",
-  nom: "Prix maximums des carburants (arrêté préfectoral mensuel)",
+  nom: "Prix maximum des carburants (arrêté préfectoral mensuel)",
   organisme: "Préfecture de La Réunion",
   licence: "Licence Ouverte (informations publiques de l'État)",
   attribution: "Préfecture de La Réunion",
