@@ -735,7 +735,7 @@ ${avisForm(head.path)}
     <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
     ${SLOGAN}
     <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
-    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/presse">presse</a> · contact@rundata.re</p>
+    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP. Suivre rundata.re sur <a href="${FACEBOOK}">Facebook</a>.</p>
     <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li></ul>
   </div>

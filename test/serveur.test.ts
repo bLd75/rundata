@@ -90,6 +90,7 @@ describe("the serveur block", () => {
     expect(r.nouveautes).toHaveLength(10);
     expect(r.nouveautes[0].texte).toBe(NOUVEAUTES[0].texte);
     expect(r.nouveautes[0].date).toMatch(/^\d\d\/\d\d \d\d:\d\d$/);
+    expect(r.toutes_les_nouveautes).toBe("https://rundata.re/nouveautes");
   });
 });
 
