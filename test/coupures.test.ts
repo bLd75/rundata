@@ -9,6 +9,7 @@ import { coupuresPage } from "../src/web/domains.js";
 import island from "../src/places/island.json" with { type: "json" };
 import { pageOf } from "../src/web/places.js";
 import { site } from "../src/web/site.js";
+import { mapLinks } from "./cartes.js";
 
 // The distributors' notices on 24/10/2026 in the morning: a cut announced in Saint-Denis for Monday night, the water
 // of La Plaine-des-Palmistes and of Grand Ilet (Salazie) not to be drunk, Saint-Benoît back to normal since the 15th.
@@ -263,6 +264,11 @@ describe("coupures d'eau", () => {
     const sp = island.paths.find((p: { nom: string }) => p.nom === "Saint-Pierre")!;
     const page = coupuresPage("https://rundata.re", { value, fetchedAt: NOW }, NOW);
     expect(page).toContain(`<path d="${sp.d}" style="fill:#f03e3e"/>`);
+    // Each followed commune leads to its own page of notices.
+    const links = mapLinks(page);
+    expect(links).toHaveLength(value.communes_suivies.length);
+    expect(links.filter((l) => !pageOf(l.href.replace("/coupures-eau/", "")))).toEqual([]);
+    expect(links.find((l) => l.href === "/coupures-eau/saint-pierre")?.label).toBe("Saint-Pierre : eau à ne pas boire, voir le détail");
     // The legend never says « aucun avis » where nothing is read, and tells what the others are.
     expect(page).toContain(`<span style="color:#a5d8ff">pas d'avis lu en ce moment</span>. Les autres communes : avis non lus, voir la mairie ou le distributeur.`);
   });

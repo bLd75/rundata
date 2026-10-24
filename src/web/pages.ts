@@ -904,6 +904,8 @@ export const dayMonth = (ymd: string) => ymd.split("-").reverse().slice(0, 2).jo
 
 /** The row of a station on /meteo, where its marker on the maps leads. */
 export const stationId = (nom: string) => `st-${slugify(nom)}`;
+/** The row or card of a place on a page, where the map's marker or commune leads: « c-saint-pierre ». */
+export const anchorId = (prefix: string, nom: string) => `${prefix}-${slugify(nom)}`;
 
 function stationItem(s: StationNow, now: Date): string {
   const t = s.temperature != null
@@ -1529,7 +1531,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
   const cool = seen.length ? seen.reduce((a, b) => (b.valeur! < a.valeur! ? b : a)) : undefined;
   const url = `${origin}/mer`;
   // Not every beach of the west coast: their markers would sit on one another.
-  const markers: Marker[] = seen.filter((b) => !CROWDED.has(b.nom)).map((b) => ({ lon: b.lon, lat: b.lat, label: `${Math.round(b.valeur!)}°`, name: seaName(b.nom), color: chip(b.valeur!), round: true }));
+  const markers: Marker[] = seen.filter((b) => !CROWDED.has(b.nom)).map((b) => ({ lon: b.lon, lat: b.lat, label: `${Math.round(b.valeur!)}°`, say: `eau à ${Math.round(b.valeur!)} °C`, name: seaName(b.nom), color: chip(b.valeur!), round: true, href: `#${anchorId("p", b.nom)}` }));
 
   const status = warm && cool
     ? `<div class="now"><span class="big span">${esc(fr(Math.round(cool.valeur! * 10) / 10))} à ${esc(thin(deg(warm.valeur!)))}</span>` +
@@ -1538,7 +1540,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
     : `<p class="lead">Les mesures satellite se chargent : rechargez la page dans quelques secondes.</p>`;
 
   const list = d
-    ? `<ul class="seas">${d.plages.map((b) => `<li><span>${esc(seaName(b.nom))}</span>` +
+    ? `<ul class="seas">${d.plages.map((b) => `<li class="tgt" id="${anchorId("p", b.nom)}"><span>${esc(seaName(b.nom))}</span>` +
         (b.valeur != null
           ? `<b>${esc(thin(deg(b.valeur)))}</b><span>le ${esc(dayMonth(b.jour!))}, à ${esc(fr(b.distance_km!))} km</span>`
           : `<b>—</b><span>pas de mesure (nuages)</span>`) +

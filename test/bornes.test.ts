@@ -6,6 +6,7 @@ import { bornesRecharge } from "../src/tools/bornes.js";
 import { bornesPage } from "../src/web/domains.js";
 import { buildBornes } from "../src/web/data.js";
 import { DESCRIPTION_MAX } from "../src/web/pages.js";
+import { deadAnchors, doubleIds, mapLinks } from "./cartes.js";
 
 // The 407 rows of La Réunion in the national live file of 24/10/2026 at 00:37 UTC, and four rows of mainland France.
 const CSV = readFileSync(new URL("./fixtures/irve_dynamique.csv", import.meta.url), "utf8");
@@ -65,6 +66,10 @@ describe("bornes de recharge", () => {
     expect(page).toContain('<span class="big">268</span>');
     expect(page).toContain("Recharge rapide");
     expect(page).toMatch(/<h3>Sainte-Marie <span class="note">45 libres sur 103, 18 stations<\/span><\/h3>/);
+    // Each commune's marker leads to its card.
+    expect(mapLinks(page).find((l) => l.label.startsWith("Sainte-Marie :"))).toEqual({ kind: "mk", href: "#c-sainte-marie", label: "Sainte-Marie : 45 points de charge libres sur 103, voir le détail" });
+    expect(deadAnchors(page)).toEqual([]);
+    expect(doubleIds(page)).toEqual([]);
     const description = page.match(/<meta name="description" content="([^"]+)"/)?.[1] ?? "";
     expect(description.length).toBeLessThanOrEqual(DESCRIPTION_MAX);
   });
