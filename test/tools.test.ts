@@ -54,13 +54,14 @@ describe("meteo_actuelle", () => {
 });
 
 describe("temperature_mer", () => {
+  // Offline: what the cache does not hold (the swell's forecast) must not wait on the network; a test may stub its own.
+  beforeEach(() =>
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("offline");
+    }));
   afterEach(() => vi.unstubAllGlobals());
 
   it("gives the satellite reading with its date and its caveats", async () => {
-    // Offline: what the cache does not hold (the swell's forecast) must not wait on the network.
-    vi.stubGlobal("fetch", async () => {
-      throw new Error("offline");
-    });
     const r = body(await temperatureMer(await offlineCache(), "Hermitage", NOW));
     expect(r.mesure).toMatchObject({ nature: "mesure_satellite", jour_mesure: "2026-10-16", age_jours: 2 });
     expect(r.avertissements.join(" ")).toMatch(/2 jours de retard/);
