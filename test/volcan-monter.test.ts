@@ -76,8 +76,8 @@ describe("« Puis-je monter au volcan ? »", () => {
     expect(blind.lignes.map(lineText)).toEqual([
       `Enclos : interdit (communiqué de la préfecture du 24/10 : ${LIEN}).`,
       "Le dernier communiqué ne dit rien de la RN 2 : vérifiez sur reunion.gouv.fr.",
-      "Route du volcan (route forestière depuis Bourg-Murat) : le communiqué n'en dit rien : vérifiez sur reunion.gouv.fr.",
-      "Pas de Bellecombe et points de vue : le communiqué n'en dit rien : vérifiez sur reunion.gouv.fr.",
+      "Route du volcan (route forestière depuis Bourg-Murat) : le communiqué n'en dit rien. Vérifiez sur reunion.gouv.fr.",
+      "Pas de Bellecombe et points de vue : le communiqué n'en dit rien. Vérifiez sur reunion.gouv.fr.",
     ]);
   });
 
@@ -96,7 +96,7 @@ describe("« Puis-je monter au volcan ? »", () => {
     expect(lineText(acces(undefined, undefined, undefined, undefined).lignes[0])).toBe("Nous n'avons pas pu lire le dernier communiqué de la préfecture : vérifiez sur reunion.gouv.fr avant de monter au volcan.");
   });
 
-  it("quotes in an eruption the bans the release shown writes, exactly, with its day, and nothing of ours", () => {
+  it("quotes in an eruption the bans the release shown writes, exactly, as the same release, and nothing of ours", () => {
     // The prefecture's reminder of 25/07/2023, during the eruption of July (alert 2-1).
     const page = fixture("actualites/prefecture-eruption-rappel-2023-07-25.html");
     const lien = "https://www.reunion.gouv.fr/Actualites/Urgences/Eruption-le-prefet-rappelle-qu-il-est-interdit-et-dangereux-de-tenter-d-acceder-aux-coulees-de-lave";
@@ -107,8 +107,8 @@ describe("« Puis-je monter au volcan ? »", () => {
       `Enclos : interdit. « L'accès du public à l’ensemble de l'enclos du piton de la Fournaise (partie haute, partie basse, grandes pentes), que ce soit depuis le sentier du Pas de Bellecombe, depuis les anciennes coulées de lave aux abords de la RN2 ou depuis tout autre sentier, reste interdit jusqu’à nouvel ordre » (communiqué de la préfecture du 25/07 : ${lien}).`,
       // The sentence that says whether the road is open, its list's arrow left out.
       `RN 2 (Grand Brûlé) : « A ce stade, la RN 2 reste ouverte à la circulation, mais il est interdit de s’écarter de la route et d’accéder aux coulées de la lave depuis la route » (même communiqué : ${lien}).`,
-      `« S’aventurer depuis la RN2 sur les pentes du volcan exposerait à un danger mortel. » (communiqué du 25/07/2023 : ${lien}).`,
-      `« Il est également demandé d’éviter les arrêts intempestifs sur la RN2 et ses abords risquant de produire des accidents ou des problématiques de circulation. » (communiqué du 25/07/2023 : ${lien}).`,
+      `« S’aventurer depuis la RN2 sur les pentes du volcan exposerait à un danger mortel. » (même communiqué : ${lien}).`,
+      `« Il est également demandé d’éviter les arrêts intempestifs sur la RN2 et ses abords risquant de produire des accidents ou des problématiques de circulation. » (même communiqué : ${lien}).`,
     ]);
     // Each ban as the release writes it, its spelling kept (« RN2 »).
     for (const l of lines.filter((x) => x.lieu === "Interdiction")) expect(said).toContain(l.texte.slice(2, -2));
@@ -155,7 +155,8 @@ describe("« Puis-je monter au volcan ? » in the answer and on /volcan", () => 
 
     const html = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
     expect(html).toContain(`<h2 id="h-monter">Puis-je monter au volcan ?</h2><p>Ce que disent les textes officiels, lieu par lieu.</p>`);
-    expect(html).toContain(`<li>RN 2 (Grand Brûlé) : « La RN 2 reste ouverte à la circulation » (<a href="${LIEN}">même communiqué →</a>).</li>`);
+    // A non-breaking space before our colon, none put inside the quote.
+    expect(html).toContain(`<li>RN 2 (Grand Brûlé)\u00a0: « La RN 2 reste ouverte à la circulation » (<a href="${LIEN}">même communiqué →</a>).</li>`);
     expect(html).toContain("<summary>Les niveaux du dispositif</summary>");
     expect(html).toContain("<small>Version de 2021, la dernière que nous ayons lue.</small>");
     expect(html.indexOf('id="h-monter"')).toBeLessThan(html.indexOf('id="h-volcan"'));

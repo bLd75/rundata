@@ -19,6 +19,7 @@ export const TITRE = "Puis-je monter au volcan ?";
 export const CHAPEAU = "Ce que disent les textes officiels, lieu par lieu.";
 export const PIED = "Les interdictions peuvent changer à tout moment : seuls font foi les communiqués de la préfecture.";
 const VERIFIER = "vérifiez sur reunion.gouv.fr";
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const DSO = "dispositif ORSEC Volcan";
 const DSO_FULL = "dispositif ORSEC Volcan, arrêté n° 2242 du 08/11/2021";
@@ -63,7 +64,6 @@ export interface Acces {
 const ENCLOS_TRAILS = /enclos|dolomieu|kapor|rivals|caubet|formica/i;
 const ROAD = /Route Forestière du Volcan \(RF0?5\)/i;
 const day = (iso: string) => localTime(new Date(iso)).split(" ")[0];
-const fullDay = (iso: string) => `${day(iso)}/${new Date(Date.parse(iso) + 4 * 3600_000).getUTCFullYear()}`;
 // A list's mark before a sentence (« → A ce stade, … »): not the release's words.
 const LEAD = /^[→•▪\-–]\s*/;
 // In an eruption, the bans a release may write, in this order (marketing): the Enclos, the slopes from the RN2, the
@@ -113,7 +113,8 @@ export function acces(niveau: string | undefined, p: volcan.Phase | undefined, p
         const s = said.find((x) => re.test(x) && !used.has(x));
         if (!s) continue;
         used.add(s);
-        lignes.push({ lieu: "Interdiction", texte: `« ${s.replace(LEAD, "")} »`, source: `communiqué du ${fullDay(p.publie)}`, lien: p.lien });
+        // Always the release of the lines above: « même communiqué », not a second text (marketing).
+        lignes.push({ lieu: "Interdiction", texte: `« ${s.replace(LEAD, "")} »`, ...same });
       }
     }
   }
@@ -125,7 +126,7 @@ export function acces(niveau: string | undefined, p: volcan.Phase | undefined, p
   const read = carte && `carte lue à ${hour(carte.fetchedAt)}`;
   lignes.push(
     !roads.length
-      ? { lieu: "Route du volcan", texte: `${base} : ${VERIFIER}.` }
+      ? { lieu: "Route du volcan", texte: `${base}. ${cap(VERIFIER)}.` }
       : roads.some((r) => /interdit/i.test(r.circulation))
         ? { lieu: "Route du volcan", texte: `${base}. Fermée selon l'ONF (${read}).` }
         : { lieu: "Route du volcan", texte: `${base}, et l'ONF ne la signale pas fermée (${read}).` },
@@ -142,7 +143,7 @@ export function acces(niveau: string | undefined, p: volcan.Phase | undefined, p
       ? { lieu: "Pas de Bellecombe", texte: `Pas de Bellecombe et points de vue : ${quote(views[0])}`, ...same }
       : enclos && /Bellecombe/i.test(enclos)
         ? { lieu: "Pas de Bellecombe", texte: "Pas de Bellecombe et points de vue : le communiqué ne les nomme que comme départ du sentier de l'Enclos, qui est interdit." }
-        : { lieu: "Pas de Bellecombe", texte: `Pas de Bellecombe et points de vue : le communiqué n'en dit rien : ${VERIFIER}.` });
+        : { lieu: "Pas de Bellecombe", texte: `Pas de Bellecombe et points de vue : le communiqué n'en dit rien. ${cap(VERIFIER)}.` });
   }
 
   // The ONF's trails of the volcano's sector, the Enclos' own left to its line.
