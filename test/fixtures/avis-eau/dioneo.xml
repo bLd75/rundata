@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Dionéo</title>
+        <link>https://dioneo.re</link>
+        <description>Les FlashInfos de Dionéo</description>
+        <language>fr</language>
+        <atom:link href="https://dioneo.re/rss/flash-infos" rel="self" type="application/rss+xml"/>
+
+                                <item>
+                <title>Travaux sur le réseau / RD49</title>
+                <link>https://dioneo.re/flash-info/travaux-sur-le-reseau-rd49</link>
+                <guid isPermaLink="false">588b8317d55fbd56d17cf533a9cc63e6-152143</guid>
+                <category>Dionéo / Travaux</category>
+                <description>Communiqué N° 152143 : Travaux sur le réseau / RD49
+Diffusion :
+dans la presse le : 25 octobre 2026
+à la radio le : &amp;nbsp;26 octobre 2026
+Dionéo informe ses clients de SAINT DENIS, qu&#039;en raison de travaux sur le réseau, l&#039;alimentation en eau sera interrompue à partir de 21:00 le 26/10/2026 pour les secteurs suivants :
+ROUTE DE BOIS DE NEFLES
+&amp;nbsp;Des perturbations dans la distribution de l&#039;eau sont à prévoir dans les impasses et voies adjacentes.
+La remise en eau est prévue à partir de 05:00 le 27/10/2026, sauf incident.
+
+Dionéo remercie ses clients pour leur compréhension.</description>
+                <pubDate>Fri, 23 Oct 2026 14:00:19 +0400</pubDate>
+            </item>
+            </channel>
+</rss>

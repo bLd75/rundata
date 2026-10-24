@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Eaux de La Possession</title>
+        <link>https://www.eauxdelapossession.re</link>
+        <description>Les FlashInfos de Eaux de La Possession</description>
+        <language>fr</language>
+        <atom:link href="https://www.eauxdelapossession.re/rss/flash-infos" rel="self" type="application/rss+xml"/>
+
+                                <item>
+                <title>Lavage de réservoir - Sainte Thérèse</title>
+                <link>https://www.eauxdelapossession.re/flash-info/lavage-de-reservoir-sainte-therese-2</link>
+                <guid isPermaLink="false">3b3c11d421af600a1e2b9b60b8efd2a0-300391</guid>
+                <category>Eaux de La Possession / Travaux</category>
+                <description>Communiqué N° 300391 : Lavage de réservoir - Sainte Thérèse
+Diffusion :
+dans la presse le : 27/10/2026
+à la radio le : 28/10/2026
+
+Eaux de La Possession informe ses clients LA POSSESSION, qu&#039;en raison du lavage et de la désinfection du réservoir &quot;Sainte Thérèse&quot;, l&#039;alimentation en eau sera perturbée le 28/10/2026 à partir de 08:00 pour les secteurs suivants :
+RESERVOIR STE THERESE
+CHEMIN LEGROS
+CHEMIN LEOPOLD CAVANE
+LOTISSEMENT LA COLLINE
+RUE JEAN JACQUES ROUSSEAU
+
+Des perturbations dans la distribution de l&#039;eau sont à prévoir dans les impasses et voies adjacentes.
+
+La remise en eau est prévue à partir de 20:00 le 28/10/2026, sauf incident.
+
+Lorsque l&#039;eau revient au robinet après une coupure, elle peut être impropre à la consommation durant quelques heures. Il est nécessaire, durant cette période, de ne pas utiliser l&#039;eau pour la boisson ou la préparation des aliments ; privilégier les usages non alimentaires (toilette, WC, ménage...).
+
+Eaux de La Possession remercie ses clients pour leur compréhension.</description>
+                <pubDate>Fri, 09 Jan 2026 13:57:01 +0400</pubDate>
+            </item>
+            </channel>
+</rss>

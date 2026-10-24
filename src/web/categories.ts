@@ -75,6 +75,14 @@ export const CATEGORIES: Category[] = [
     about: "Les bornes publiques pour voiture électrique et l'état de chaque point de charge, libre, occupé ou hors service, en direct.",
   },
   {
+    key: "coupures",
+    nom: "Coupures d'eau",
+    path: "/coupures-eau",
+    icon: "drop",
+    tools: ["coupures_eau"],
+    about: "Les avis des distributeurs d'eau : coupures pour travaux, heures et rues concernées, et avis « ne pas boire l'eau ».",
+  },
+  {
     key: "secheresse",
     nom: "Sécheresse",
     path: "/secheresse",
