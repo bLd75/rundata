@@ -153,7 +153,9 @@ export function passe(c: Passe) {
     selon_meteo_france: c.extraits
       ? {
           attribution: `Citations de Météo-France, mot pour mot (${c.document.titre}, ${c.extraits.reference}) : à attribuer à Météo-France, jamais à rundata.re.`,
-          [c.extraits.intro.replace(/ :$/, "")]: c.extraits.citations,
+          // Fixed keys, for a model to read: the sentence that introduces the quotes, then the quotes.
+          intro: c.extraits.intro,
+          citations: c.extraits.citations,
           a_savoir: c.extraits.note,
         }
       : undefined,
