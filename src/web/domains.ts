@@ -9,7 +9,7 @@ import type { Cached } from "../cache.js";
 import { normalize } from "../places/resolve.js";
 import * as traces from "../providers/traces.js";
 import { SUJETS } from "../providers/actualites.js";
-import { UNPUBLISHED } from "../tools/calendrier.js";
+import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
 import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
@@ -343,17 +343,38 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
 
   // The school year people look up: from July, the one that starts in August.
   const [y, m] = new Date(now.getTime() + 4 * 3600_000).toISOString().split("-").map(Number);
-  const title = `Vacances scolaires Réunion ${m >= 7 ? `${y}-${y + 1}` : `${y - 1}-${y}`}, jours fériés · 974`;
-  const description = next
-    ? describe(`🇷🇪 Calendrier de La Réunion (974) : ${v?.en_cours ? `vacances scolaires jusqu'au ${v.en_cours.reprise_des_cours}, ` : ""}prochain jour férié ${next.nom} (${next.date}). Vacances australes, 20 décembre.`,
-        `🇷🇪 Calendrier de La Réunion (974) : prochain jour férié ${next.nom}, vacances scolaires australes, 20 décembre, lever et coucher du soleil.`)
-    : "🇷🇪 Calendrier de La Réunion (974) : vacances scolaires australes, jours fériés dont le 20 décembre, lever et coucher du soleil.";
+  const year = m >= 7 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+  const title = `Vacances scolaires Réunion ${year}, jours fériés · 974`;
+  // The next break: its first day and its last (the day before classes resume).
+  const day = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
+  const coming = d?.annees_scolaires?.flatMap((a) => a.vacances).find((b) => b.reprise && b.reprise > day);
+  const short = (ymd: string) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" }).replace(/^1 /, "1er ");
+  const lastDay = (ymd: string) => new Date(Date.parse(`${ymd}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  const span = coming ? `${coming.debut <= day ? "vacances en cours" : "prochaines vacances"} du ${short(coming.debut)} au ${short(lastDay(coming.reprise!))}` : "";
+  const description = coming
+    ? describe(`🇷🇪 Vacances scolaires ${year} à La Réunion (974), calendrier austral : ${span}. Jours fériés dont le 20 décembre.`,
+        `🇷🇪 Vacances scolaires ${year} à La Réunion (974) : ${span}. Jours fériés dont le 20 décembre.`)
+    : next
+      ? describe(`🇷🇪 Vacances scolaires ${year} à La Réunion (974), calendrier austral ; prochain jour férié ${next.nom} (${next.date}). Le 20 décembre, lever et coucher du soleil.`,
+          `🇷🇪 Vacances scolaires ${year} à La Réunion (974), jours fériés dont le 20 décembre, lever et coucher du soleil.`)
+      : `🇷🇪 Vacances scolaires ${year} à La Réunion (974), calendrier austral : jours fériés dont le 20 décembre, lever et coucher du soleil.`;
+
+  // Every break of the school year, and of the next once the rectorat has published it.
+  const years = (d?.annees_scolaires ?? []).map((a, i) => `<section aria-labelledby="h-vac-${i}">
+  <div class="sec-h">${i ? "" : `<p class="eyebrow">Calendrier austral</p>`}<h2 id="h-vac-${i}">Vacances scolaires ${esc(a.annee)} (académie de La Réunion)</h2></div>
+  <div class="card table-wrap"><table class="drought"><thead><tr><th>Vacances</th><th>Début</th><th>Reprise des cours</th></tr></thead><tbody>${a.vacances.map((b) => {
+    const now_ = b.debut <= day && !!b.reprise && day < b.reprise;
+    const past = !!b.reprise && b.reprise <= day;
+    return `<tr${past ? ` class="past"` : ""}><th scope="row">${esc(b.nom.replace(/^\p{L}/u, (c) => c.toUpperCase()))}${now_ ? ` <span class="badge m">en cours</span>` : ""}</th><td>${esc(longDate(b.debut))}</td><td>${b.reprise ? esc(longDate(b.reprise)) : "pas encore publiée"}</td></tr>`;
+  }).join("")}</tbody></table></div>
+  ${i ? "" : `<p class="note">Dates de l'académie de La Réunion, publiées par le ministère de l'Éducation nationale.</p>`}
+</section>`).join("\n");
 
   const band = `${crumbBar("Calendrier")}
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Aujourd'hui à La Réunion</p>
-    <h1>Calendrier <span class="n974">974</span></h1>
+    <h1>Vacances scolaires et jours fériés à La Réunion</h1>
     ${status}
     ${ask(`Kansa lé lo prochin vakans lékol é lo prochin zour férié La Rényon ? Rogard si ${url} é di amwin.`,
       `Quand sont les prochaines vacances scolaires et le prochain jour férié à La Réunion ? Lis ${url} et dis-le-moi.`)}
@@ -361,7 +382,8 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
   ${sun ? `<figure class="card mapcard">${islandMap({ peaks: true, label: "Carte de La Réunion (974)" })}</figure>` : ""}
 </div>`;
 
-  const body = `<section aria-labelledby="h-cal">
+  const body = `${years}
+<section aria-labelledby="h-cal">
   <div class="sec-h"><p class="eyebrow">L'année à La Réunion</p><h2 id="h-cal">Vacances, jours fériés, soleil</h2>
   <p>L'académie de La Réunion suit un calendrier austral : les grandes vacances tombent en décembre et janvier, pendant l'été de l'hémisphère sud.</p></div>
   ${d ? `<div class="three">${school}${holidays}${sun}</div>${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
