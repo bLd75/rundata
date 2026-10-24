@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0" xml:base="https://entredeux.re/">
+  <channel>
+    <title>Agenda</title>
+    <link>https://entredeux.re/</link>
+    <description/>
+    <language>fr</language>
+    
+    <item>
+  <title>Mille et une vies, l'histoire d'une âme</title>
+  <link>https://entredeux.re/mille-et-une-vies-lhistoire-dune-ame</link>
+  <description>&lt;span&gt;Mille et une vies, l'histoire d'une âme&lt;/span&gt;
+
+  &lt;div class="field field--name-body field--type-text-with-summary field--label-visually_hidden"&gt;
+    &lt;div class="field--label sr-only"&gt;Texte de l'article&lt;/div&gt;
+              &lt;div class="field--item"&gt;&lt;p&gt;« 𝓜𝓲𝓵𝓵𝓮 𝓮𝓽 𝓾𝓷𝓮 𝓿𝓲𝓮𝓼, 𝓵’𝓱𝓲𝓼𝓽𝓸𝓲𝓻𝓮 𝓭’𝓾𝓷𝓮 â𝓶𝓮 »&lt;/p&gt;
+&lt;p&gt;L’association Bellydance et bien-être vous présente, ce samedi 10 octobre à 20h au Lanbrokin, « Mille et une vies, l'histoire d'une âme », un spectacle de danses orientales, folklores du bassin méditerranéen et fusions.&lt;/p&gt;
+&lt;p&gt;Il retrace le voyage d'une âme en quête d'expérience humaine. Chaque tableau chorégraphique y explore ses questionnements, vie après vie. Une traversée poétique où se mêlent rêveries et découverte de soi.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="💃🏼" height="16" referrerpolicy="origin-when-cross-origin" src="https://static.xx.fbcdn.net/images/emoji.php/v9/t83/1/16/1f483_1f3fc.png" width="16" /&gt;&lt;img alt="🕺🏼" height="16" referrerpolicy="origin-when-cross-origin" src="https://static.xx.fbcdn.net/images/emoji.php/v9/t53/1/16/1f57a_1f3fc.png" width="16" /&gt;&lt;img alt="👯" height="16" referrerpolicy="origin-when-cross-origin" src="https://static.xx.fbcdn.net/images/emoji.php/v9/t3c/1/16/1f46f.png" width="16" /&gt; Avec 19 danseurs, dont quatre enfants&lt;/p&gt;
+&lt;p&gt;&lt;img alt="⏰" height="16" referrerpolicy="origin-when-cross-origin" src="https://static.xx.fbcdn.net/images/emoji.php/v9/t34/1/16/23f0.png" width="16" /&gt; Durée du spectacle : environ 1h30&lt;/p&gt;
+&lt;p&gt;&lt;img alt="💶" height="16" referrerpolicy="origin-when-cross-origin" src="https://static.xx.fbcdn.net/images/emoji.php/v9/t60/1/16/1f4b6.png" width="16" /&gt; : 20 € adulte&lt;/p&gt;
+&lt;p&gt;&lt;img alt="💶" height="16" referrerpolicy="origin-when-cross-origin" src="https://static.xx.fbcdn.net/images/emoji.php/v9/t60/1/16/1f4b6.png" width="16" /&gt; : 15 € enfant de moins de 12 ans&lt;/p&gt;
+&lt;/div&gt;
+          &lt;/div&gt;
+&lt;span&gt;&lt;span&gt;communicationED&lt;/span&gt;&lt;/span&gt;
+&lt;span&gt;mer 07/10/2026 - 17:33&lt;/span&gt;
+
+  &lt;div class="field field--name-field-avis field--type-voting-api-field field--label-above"&gt;
+    &lt;div class="field--label"&gt;Votre avis compte pour nous!&lt;/div&gt;
+              &lt;div class="field--item"&gt;&lt;drupal-render-placeholder callback="voting_api.lazy_loader:buildForm" arguments="0=fivestar&amp;1=node&amp;2=article&amp;3=544&amp;4=vote&amp;5=field_avis&amp;6=a%3A5%3A%7Bs%3A5%3A%22style%22%3Bs%3A15%3A%22bootstrap-stars%22%3Bs%3A13%3A%22show_own_vote%22%3Bs%3A1%3A%221%22%3Bs%3A8%3A%22readonly%22%3Bi%3A0%3Bs%3A12%3A%22show_results%22%3Bi%3A0%3Bs%3A6%3A%22values%22%3Ba%3A0%3A%7B%7D%7D" token="FL0Jt9JkJQfBm8pXC4mWNjJ3JGP8-hVC-TonURVUsHs"&gt;&lt;/drupal-render-placeholder&gt;&lt;/div&gt;
+          &lt;/div&gt;
+&lt;span class="a2a_kit a2a_kit_size_32 addtoany_list" data-a2a-url="https://entredeux.re/mille-et-une-vies-lhistoire-dune-ame" data-a2a-title="Mille et une vies, l'histoire d'une âme"&gt;&lt;a class="a2a_dd addtoany_share" href="https://www.addtoany.com/share#url=https%3A%2F%2Fentredeux.re%2Fmille-et-une-vies-lhistoire-dune-ame&amp;title=Mille%20et%20une%20vies%2C%20l%27histoire%20d%27une%20%C3%A2me"&gt;&lt;/a&gt;&lt;a class="a2a_button_facebook"&gt;&lt;/a&gt;&lt;a class="a2a_button_twitter"&gt;&lt;/a&gt;&lt;a class="a2a_button_email"&gt;&lt;/a&gt;&lt;/span&gt;</description>
+  <pubDate>Wed, 07 Oct 2026 13:33:51 +0000</pubDate>
+    <dc:creator>communicationED</dc:creator>
+    <guid isPermaLink="false">544 at https://entredeux.re</guid>
+    </item>
+
+  </channel>
+</rss>

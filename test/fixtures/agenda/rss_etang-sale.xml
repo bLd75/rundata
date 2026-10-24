@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- generator="Joomla! - Open Source Content Management" -->
+<?xml-stylesheet href="/media/com_icagenda/icicons/style.css" type="text/css"?>
+<?xml-stylesheet href="/media/com_icagenda/css/icagenda.css" type="text/css"?>
+<?xml-stylesheet href="/media/com_icagenda/css/icagenda-front.css" type="text/css"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>L'agenda des manifestations</title>
+		<description><![CDATA[Site officiel de la ville de l’Étang-Salé]]></description>
+		<link>https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations</link>
+		<lastBuildDate>Sat, 24 Oct 2026 13:52:20 +0400</lastBuildDate>
+		<generator>Joomla! - Open Source Content Management</generator>
+		<atom:link rel="self" type="application/rss+xml" href="https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations?format=feed&amp;type=rss"/>
+		<language>fr-fr</language>
+		<item>
+			<title>Planning des compétitions sportives du 23 au 25 octobre 2026 </title>
+			<link>https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations/757-planning-des-competitions-sportives-du-23-au-25-octobre-2026</link>
+			<guid isPermaLink="true">https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations/757-planning-des-competitions-sportives-du-23-au-25-octobre-2026</guid>
+			<description><![CDATA[23&nbsp;Octobre&nbsp;2026 16:03<br /><img src="https://www.letangsale.fr/images/icagenda/thumbs/themes/ic_medium_w300h300q100_planning-des-competitions-du-23-au-25-octobre.png" alt="" style="margin: 5px; float: left;">]]></description>
+			<category>Sports - Loisirs</category>
+			<pubDate>Fri, 23 Oct 2026 16:03:00 +0400</pubDate>
+			<enclosure url="https://www.letangsale.fr/images/icagenda/thumbs/themes/ic_medium_w300h300q100_planning-des-competitions-du-23-au-25-octobre.png" length="15310" type="image/png"/>
+		</item>
+		<item>
+			<title>Marche Solidaire contre la polio </title>
+			<link>https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations/754-marche-contre-la-polio-2026</link>
+			<guid isPermaLink="true">https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations/754-marche-contre-la-polio-2026</guid>
+			<description><![CDATA[24&nbsp;Octobre&nbsp;2026 09:20<br /><img src="https://www.letangsale.fr/images/icagenda/thumbs/themes/ic_medium_w300h300q100_marche-polio-2026-a4-1.jpg" alt="" style="margin: 5px; float: left;"><p>EVENEMENT</p>
+<p>Rendez-vous demain, samedi 24 octobre pour la marche solidaire contre la polio !</p>
+<p>À l’occasion de la mobilisation pour l'éradication de la poliomyélite, le Rotary Club de l'Étang-Salé et les Rotary Clubs de l'Île de La Réunion vous donnent rendez-vous pour une journée placée sous le signe du partage, du sport et de la solidarité !</p>
+<p>100 % des fonds récoltés seront directement reversés à la Fondation Rotary pour soutenir l'éradication de la poliomyélite à travers le monde.</p>
+<p>&nbsp;Date : Samedi 24 Octobre 2026</p>
+<p>Lieu : Forêt de l'Étang-Salé — Accueil, animations et départ depuis Croc Parc (Restaurant Maï Taï)</p>
+<p>2 parcours sur sentiers balisés :</p>
+<ul>
+<li>10 km — Départ à 8h15</li>
+</ul>
+<ul>
+<li>5 km — Départ à 8h30</li>
+</ul>
+<p>Dress Code : Rouge, jaune et blanc !</p>
+<p>Comment participer ?</p>
+<ul>
+<li>Inscrivez-vous en ligne en scannant le QR code sur l'affiche.</li>
+</ul>
+<ul>
+<li>Inscription sur place possible à partir de 7h30 (selon les places disponibles).</li>
+</ul>
+<p>Venez nombreux en famille ou entre amis pour partager ce moment et soutenir une noble cause !</p>]]></description>
+			<category>Famille - Solidarité</category>
+			<pubDate>Sat, 24 Oct 2026 09:20:00 +0400</pubDate>
+			<enclosure url="https://www.letangsale.fr/images/icagenda/thumbs/themes/ic_medium_w300h300q100_marche-polio-2026-a4-1.jpg" length="77919" type="image/jpeg"/>
+		</item>
+	</channel>
+</rss>

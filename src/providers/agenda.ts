@@ -6,11 +6,17 @@
  * - the CINOR (Saint-Denis, Sainte-Marie, Sainte-Suzanne) and the tourist office of the North publish on OpenAgenda;
  * - the agenda of reunion.fr, the island's tourist board, lists the big fêtes and festivals: its page carries the
  *   list as data (`itemsData`), dates and commune included;
- * - Le Tampon, Saint-Louis and Saint-André publish an RSS feed of their agenda whose dates are in the text (« Du 5 au
- *   10 octobre 2026 », « 19 et 20 désanm »);
+ * - Le Tampon, Saint-Louis, Saint-André, L'Étang-Salé and L'Entre-Deux publish an RSS feed of their agenda whose dates
+ *   are in the text (« Du 5 au 10 octobre 2026 », « 19 et 20 désanm »);
+ * - La Possession publishes its agenda (IntraMuros) as an RSS feed with each date as data;
+ * - Petite-Île shows its agenda as a page, « Du 28 octobre au 31 octobre », « Le 14 octobre de 10h00 à 11h00 »;
  * - the concert halls and theatres publish their programme on their own site (src/providers/salles.ts), Le Séchoir
  *   (Saint-Leu) with The Events Calendar.
- * Nineteen requests in all, each source cached on its own: one that fails leaves the others answering.
+ * Each source cached on its own: one that fails leaves the others answering.
+ *
+ * The agendas of the mairies are public information (CRPA, art. L321-1): each event keeps its facts only, at most the
+ * first sentence of its text, the name of who published it, a link to its page and the hour it was read. Each source
+ * is one line of AGENDAS: taking it out stops its reading, its events, its credit and its coverage at once.
  */
 import type { Bundle, Cached } from "../cache.js";
 import { getText } from "../http.js";
@@ -19,17 +25,17 @@ import { normalize, resolvePlace } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
 import { communesIn, strip } from "./avis-eau.js";
 import { monthOf, statusOf, type Statut } from "./agenda-mots.js";
-import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS } from "./salles.js";
+import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
 
 export { communesIn, monthOf, statusOf, type Statut };
 
 export const SOURCES = {
   mairies: {
     id: "agenda_mairies",
-    nom: "Agendas des mairies de Saint-Paul, du Port, des Trois-Bassins, du Tampon et de Saint-Louis",
+    nom: "Agendas des mairies de Saint-Paul, du Port, des Trois-Bassins, du Tampon, de Saint-Louis et de Saint-André",
     organisme: "Communes de La Réunion",
     licence: "Information publique (agendas municipaux)",
-    attribution: "Villes de Saint-Paul, Le Port, Les Trois-Bassins, Le Tampon et Saint-Louis",
+    attribution: "Villes de Saint-Paul, Le Port, Les Trois-Bassins, Le Tampon, Saint-Louis et Saint-André",
     url: "https://www.mairie-saintpaul.re/evenements/",
   },
   openagenda: {
@@ -50,11 +56,17 @@ export const SOURCES = {
   },
 } satisfies Record<string, SourceInfo>;
 
+/** A commune's agenda as its own source: credited only while its line is in AGENDAS. */
+function mairie(id: string, nom: string, url: string): SourceInfo {
+  return { id: `agenda_${id}`, nom: `Agenda de la ${nom}`, organisme: nom, licence: "Information publique (agenda municipal)", attribution: nom, url };
+}
+
 // The sites are asked who is reading: some answer an unnamed robot with an error page.
 const HEADERS = { "User-Agent": "rundata.re (contact@rundata.re)" };
 const FRESH_SECONDS = 3600;
 const AHEAD_DAYS = 45;
 const TEXT_MAX = 300;
+const LEAD_MAX = 200;
 
 /** One occurrence, in local time: « 2026-10-24T14:00 », or « 2026-10-24 » when the source gives no hour. */
 export interface Seance {
@@ -85,6 +97,8 @@ export interface Evenement {
   reporte_au?: string;
   /** Where to book, when it is not the event's own page. */
   billetterie?: string;
+  /** When rundata.re read it, in local time: set by the tool from the agenda's copy, not by the source. */
+  lu_le?: string;
 }
 
 /**
@@ -99,6 +113,8 @@ export interface Agenda {
   source: SourceInfo;
   /** The commune of a mairie's agenda, for an event that names no other. */
   commune?: string;
+  /** The communes whose agenda this is, when not only `commune` (an intercommunality's): what COVERED is made of. */
+  couvre?: string[];
   /** The fetches one reading makes, when more than one: an invocation reads the agendas its subrequests allow. */
   requetes?: number;
   /** One `cache.get("agenda:<id>", …)`, nothing else of the cache. */
@@ -109,7 +125,9 @@ const localDay = (now: Date) => new Date(now.getTime() + 4 * 3600_000).toISOStri
 const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
 /** Any ISO time with its offset → La Réunion's: « 2026-10-28T09:00:00+04:00 » → « 2026-10-28T09:00 ». */
 export const toLocal = (iso: string) => new Date(Date.parse(iso) + 4 * 3600_000).toISOString().slice(0, 16);
-const short = (s: string) => (s.length > TEXT_MAX ? `${s.slice(0, TEXT_MAX - 1).replace(/\s+\S*$/, "")}…` : s);
+const short = (s: string, max = TEXT_MAX) => (s.length > max ? `${s.slice(0, max - 1).replace(/\s+\S*$/, "")}…` : s);
+/** The first sentence of a text, short: all a reused agenda gives of it besides the facts. */
+export const lead = (s: string) => short((/^.+?[.!?…](?=\s|$|\p{Lu})/u.exec(s)?.[0] ?? s).trim(), LEAD_MAX);
 // NFKC: the posts copied from social networks write in « mathematical » letters (𝗩𝗔𝗖𝗔𝗡𝗖𝗘𝗦, 𝟮𝟰 𝗼𝗰𝘁𝗼𝗯𝗿𝗲).
 const clean = (html: string) => strip(html).normalize("NFKC").replace(/\s+/g, " ").trim();
 
@@ -232,11 +250,12 @@ export function parseOpenAgenda(body: { events: OaEvent[] }, nom: string): Evene
   });
 }
 
-function openAgenda(id: string, nom: string, uid: number): Agenda {
+function openAgenda(id: string, nom: string, uid: number, couvre: string[]): Agenda {
   return {
     id,
     nom,
     source: SOURCES.openagenda,
+    couvre,
     load: (cache) =>
       cache.get(`agenda:${id}`, FRESH_SECONDS, async () => {
         // The public export of the agenda's page, without a key (the v2 API needs one).
@@ -384,13 +403,19 @@ export function datesIn(text: string, published: Date): Seance[] {
   return days;
 }
 
+const STAMP = /^\d{1,2}\s\p{L}+\s20\d\d\s\d\d:\d\d\s*/u;
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const tag = (item: string, t: string) => new RegExp(`<${t}>([\\s\\S]*?)</${t}>`).exec(item)?.[1]?.replace(/^<!\[CDATA\[|\]\]>$/g, "").trim() ?? "";
 
-export function parseRss(xml: string, nom: string, commune: string): Evenement[] {
+export function parseRss(xml: string, nom: string, commune: string, first = false): Evenement[] {
   return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].flatMap(([, item]) => {
     const titre = clean(tag(item, "title"));
     // WordPress closes each excerpt with « L'article X est apparu en premier sur Le Tampon. »
-    const texte = clean(tag(item, "description")).replace(/\s*\[…\]\s*L.article .*$/u, " […]").trim();
+    const full = clean(tag(item, "description")).replace(/\s*\[…\]\s*L.article .*$/u, " […]").trim();
+    // A commune's own feed: without what comes before its text, the hour of its posting (iCagenda, « 24 Octobre 2026
+    // 09:20 »), a label (« EVENEMENT », Drupal's « Texte de l'article ») or the title again.
+    const texte = first ? full.replace(STAMP, "").replace(/^(?:[ÉE]V[ÉE]NEMENT\s+)?/iu, "").replace(new RegExp(`^${escapeRe(titre)}\\s*(?:Texte de l'article\\s*)?`, "u"), "") : full;
     const published = new Date(tag(item, "pubDate"));
     const seances = datesIn(titre, published).length ? datesIn(`${titre} ${texte}`, published) : datesIn(texte, published);
     if (!seances.length) return [];
@@ -403,22 +428,133 @@ export function parseRss(xml: string, nom: string, commune: string): Evenement[]
       seances,
       commune,
       categories: [],
-      description: short(texte),
+      description: (first ? lead(texte) : short(texte)) || undefined,
       lien,
       publie_par: nom,
     }];
   });
 }
 
-function rss(id: string, nom: string, url: string, commune: string): Agenda {
+/** `source`: a commune's own (mairie()), whose events keep only the first sentence of their text. */
+function rss(id: string, nom: string, url: string, commune: string, source?: SourceInfo): Agenda {
+  const from = source ?? SOURCES.mairies;
   return {
     id,
     nom,
-    source: SOURCES.mairies,
+    source: from,
     commune,
-    load: (cache) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => parseRss(await getText(SOURCES.mairies.id, url, TIMEOUT_MS, HEADERS), nom, commune)),
+    load: (cache) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => parseRss(await getText(from.id, url, TIMEOUT_MS, HEADERS), nom, commune, !!source)),
   };
 }
+
+// ---------------------------------------------------------------- IntraMuros (La Possession)
+
+/**
+ * The RSS of an agenda kept on IntraMuros, each date as data: `ev:startdate`, `ev:enddate`, and `xCal:rdate` for an
+ * event on some days of a span (« Parentali'thé », one Wednesday a month). Midnight to 23:59:59 is a day without hours.
+ */
+export function parseIntraMuros(xml: string, nom: string, commune: string): Evenement[] {
+  return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].flatMap(([, item]) => {
+    const start = tag(item, "ev:startdate");
+    const end = tag(item, "ev:enddate") || start;
+    if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(start)) return [];
+    const allDay = start.slice(11, 16) === "00:00" && end.slice(11, 16) === "23:59";
+    const days = tag(item, "xCal:rdate").split(",").map((d) => d.trim()).filter((d) => /^\d{4}-\d\d-\d\d$/.test(d));
+    const span = (d: string) => (allDay ? { debut: d } : { debut: `${d}T${start.slice(11, 16)}`, fin: `${d}T${end.slice(11, 16)}` });
+    const seances = days.length ? days.map(span)
+      : allDay ? [{ debut: start.slice(0, 10), fin: end.slice(0, 10) !== start.slice(0, 10) ? end.slice(0, 10) : undefined }]
+      : [{ debut: start.slice(0, 16), fin: end.slice(0, 16) }];
+    const titre = clean(tag(item, "title"));
+    const where = clean(tag(item, "ev:location"));
+    const [lat, lon] = tag(item, "georss:point").split(/\s+/).map(Number);
+    const category = clean(tag(item, "category"));
+    const lien = clean(tag(item, "link"));
+    const statut = statusOf(titre);
+    return [{
+      ...(statut ? { statut } : {}),
+      id: lien,
+      titre,
+      seances,
+      // « La Possession », or the title again (« Agenda sportif du 22 au 24 octobre »), is no place.
+      lieu: where && where !== titre && normalize(where) !== normalize(commune) ? where : undefined,
+      commune: communeOf(where) ?? commune,
+      lon: Number.isFinite(lon) ? lon : undefined,
+      lat: Number.isFinite(lat) ? lat : undefined,
+      categories: category ? [category] : [],
+      lien,
+      publie_par: nom,
+    }];
+  });
+}
+
+function intraMuros(id: string, nom: string, url: string, commune: string, source: SourceInfo): Agenda {
+  return {
+    id,
+    nom,
+    source,
+    commune,
+    load: (cache) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => parseIntraMuros(await getText(source.id, url, TIMEOUT_MS, HEADERS), nom, commune)),
+  };
+}
+
+// ---------------------------------------------------------------- Petite-Île
+
+/**
+ * Petite-Île's agenda page: for each event its link, its title, « access_time » and the days (« Du 28 octobre au 31
+ * octobre », « Le 14 octobre de 10h00 à 11h00 », without the year), « location_on » and the place, then the start of
+ * its text. The page lists the past ones too, after the coming ones.
+ */
+export function parsePetiteIle(html: string, now: Date, nom = "Ville de Petite-Île"): Evenement[] {
+  // The list only, from its first row to the footer: the menus around it are four fifths of the page.
+  const from = html.indexOf("views-row");
+  const to = html.indexOf("<footer", from);
+  const t = tokens(html.slice(Math.max(0, from), to > 0 ? to : undefined));
+  const out: Evenement[] = [];
+  for (let i = 1; i + 1 < t.length; i++) {
+    if (t[i].t !== "access_time") continue;
+    const titre = t[i - 1].t && clean(t[i - 1].t!);
+    // The list gives the hours in UTC as if they were local (« de 05h00 à 08h00 » for « De 9h à 12h » on the event's
+    // own page, whose <time> says 05:00:00Z): they are put back to La Réunion's.
+    const seances = (t[i + 1].t ? datesIn(t[i + 1].t!, now) : []).map((x) => (x.debut.length > 10 ? { debut: toLocal(`${x.debut}:00Z`), fin: x.fin && toLocal(`${x.fin}:00Z`) } : x));
+    let k = i - 2;
+    while (k >= 0 && !t[k].href) k--;
+    const href = t[k]?.href;
+    if (!titre || !seances.length || !href?.includes("/agenda/")) continue;
+    let j = i + 2;
+    const lieu = t[j]?.t === "location_on" && t[j + 1]?.t ? clean(t[(j += 2) - 1].t!) : undefined;
+    const texte = t[j]?.t ? clean(t[j].t!) : "";
+    const lien = new URL(href, "https://www.petite-ile.re/").toString();
+    const statut = statusOf(titre, texte);
+    out.push({
+      ...(statut ? { statut } : {}),
+      id: lien,
+      titre,
+      seances,
+      lieu: lieu && !/^commune(?: de |$)/i.test(lieu) ? lieu : undefined,
+      commune: "Petite-Île",
+      categories: [],
+      description: texte ? lead(texte.replace(/\.\.\.$/, "…")) : undefined,
+      lien,
+      publie_par: nom,
+    });
+  }
+  return out;
+}
+
+const ETANG_SALE = mairie("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations");
+const ENTRE_DEUX = mairie("entre_deux", "Mairie de l'Entre-Deux", "https://entredeux.re/agenda");
+const LA_POSSESSION = mairie("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda");
+const PETITE_ILE = mairie("petite_ile", "Ville de Petite-Île", "https://www.petite-ile.re/actualites/agenda/");
+
+const petiteIle: Agenda = {
+  id: "petite_ile",
+  nom: "Ville de Petite-Île",
+  source: PETITE_ILE,
+  commune: "Petite-Île",
+  load: (cache, now) => cache.get("agenda:petite_ile", FRESH_SECONDS, async () => parsePetiteIle(await getText(PETITE_ILE.id, PETITE_ILE.url, TIMEOUT_MS, HEADERS), now)),
+};
+
+const NORD = ["Saint-Denis", "Sainte-Marie", "Sainte-Suzanne"];
 
 export const AGENDAS: Agenda[] = [
   tribe("saint_paul", "Mairie de Saint-Paul", "https://www.mairie-saintpaul.re", "Saint-Paul"),
@@ -428,8 +564,12 @@ export const AGENDAS: Agenda[] = [
   rss("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda/evenements?format=feed&type=rss", "Saint-Louis"),
   rss("saint_andre", "Ville de Saint-André", "https://www.saint-andre.re/category/agenda/feed/", "Saint-André"),
   tribe("sechoir", "Le Séchoir", "https://www.lesechoir.com", "Saint-Leu", SALLES_SOURCE, "Le Séchoir"),
-  openAgenda("cinor", "CINOR", 50316469),
-  openAgenda("oti_nord", "Office de tourisme du Nord", 32570974),
+  rss("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations?format=feed&type=rss", "L'Étang-Salé", ETANG_SALE),
+  rss("entre_deux", "Mairie de l'Entre-Deux", "https://entredeux.re/taxonomy/term/3/feed", "Entre-Deux", ENTRE_DEUX),
+  intraMuros("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda/rss", "La Possession", LA_POSSESSION),
+  petiteIle,
+  openAgenda("cinor", "CINOR", 50316469, NORD),
+  openAgenda("oti_nord", "Office de tourisme du Nord", 32570974, NORD),
   reunionFr,
   ...SALLES,
 ];
@@ -438,4 +578,12 @@ export const AGENDAS: Agenda[] = [
  * The communes whose own agenda is read (the CINOR's for the North), or that have a hall whose programme is, besides
  * reunion.fr for the whole island.
  */
-export const COVERED = ["Saint-Paul", "Le Port", "Les Trois-Bassins", "Le Tampon", "Saint-Louis", "Saint-André", "Saint-Denis", "Sainte-Marie", "Sainte-Suzanne", "Saint-Leu", "Saint-Benoît"];
+export const COVERED: string[] = [...new Set(AGENDAS.flatMap((a) => a.couvre ?? (a.commune ? [a.commune] : [])))];
+
+/** Why a commune without any agenda read has none, when there is more to say than that. */
+export const SANS_AGENDA: Record<string, string> = {
+  "Saint-Pierre": "la page agenda de la mairie de Saint-Pierre est vide et le Kerveguen n'est pas encore lu",
+};
+
+/** The sources of the agendas read, each once. */
+export const SOURCES_LUES: SourceInfo[] = [...new Set(AGENDAS.map((a) => a.source))];
