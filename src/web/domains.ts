@@ -170,8 +170,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     ? `<div class="card">${icon("mountain")}<h3>${esc(ENCLOS)}</h3><p>${esc(CONSIGNES)}</p></div>`
     : e?.acces_enclos
     ? `<div class="card">${icon("mountain")}<h3>${esc(enclosTitle(e.acces_enclos))}</h3>` +
-      // pitonlive's own summary, kept whole, said as its words (marketing).
-      (e.acces_enclos.detail ? `<p>Résumé de pitonlive.com : ${esc(e.acces_enclos.detail)}</p>` : "") +
+      // pitonlive's own summary, kept whole, in quotes: its words, not ours (marketing).
+      (e.acces_enclos.detail ? `<p>Résumé de pitonlive.com : « ${esc(e.acces_enclos.detail)} »</p>` : "") +
       (e.acces_enclos.source ? `<p class="note">${sourceLink(e.acces_enclos)}</p>` : "") +
       `</div>`
     : "";
@@ -1150,7 +1150,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   <p class="note">Les routes du volcan, du Maïdo et de Bébour-Bélouve, et toutes celles que l'ONF interdit à la circulation${rf.mise_a_jour ? `, d'après sa carte mise à jour le ${esc(dayOf(rf.mise_a_jour))}` : ""}. <a href="/sentiers">Sentiers fermés</a>.</p></div>`;
 
   const enclos = d?.enclos
-    ? `<div class="card">${icon("volcano")}<h3>Volcan : accès à l'Enclos</h3><p>${d.enclos.communique ? releaseSaid(d.enclos.communique) : `<b>${esc(enclosWord(d.enclos.statut))}</b> selon pitonlive.com${d.enclos.detail ? ` : ${esc(d.enclos.detail)}` : ""}`}</p><p class="note"><a href="/volcan">Le volcan en direct</a>.</p></div>`
+    ? `<div class="card">${icon("volcano")}<h3>Volcan : accès à l'Enclos</h3><p>${d.enclos.communique ? releaseSaid(d.enclos.communique) : `<b>${esc(enclosWord(d.enclos.statut))}</b> selon pitonlive.com${d.enclos.detail ? ` : « ${esc(d.enclos.detail)} »` : ""}`}</p><p class="note"><a href="/volcan">Le volcan en direct</a>.</p></div>`
     : "";
 
   // What the media report on the roads and the blockades in the last hours, their headlines linked: first, as on a day of blockades it matters most.
