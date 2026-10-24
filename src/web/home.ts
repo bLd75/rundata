@@ -7,8 +7,8 @@ import { ageMinutes, ageText } from "../geo.js";
 import type * as mf from "../providers/vigilance.js";
 import brand from "./brand.json" with { type: "json" };
 import { CATEGORIES, type Category } from "./categories.js";
-import type { AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
-import { airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
+import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
+import { actualitesLive, airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import {
@@ -59,6 +59,7 @@ export interface HomeLive {
   cyclones?: Cached<CyclonesAnswer> | null;
   historique?: Cached<HistoriqueAnswer> | null;
   agenda?: Cached<AgendaAnswer> | null;
+  actualites?: Cached<ActualitesAnswer> | null;
 }
 
 function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> {
@@ -79,6 +80,7 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
     cyclones: cyclonesLive(h?.cyclones ?? null),
     historique: historiqueLive(h?.historique ?? null),
     agenda: agendaLive(h?.agenda ?? null),
+    actualites: actualitesLive(h?.actualites ?? null),
     air: airLive(h?.air ?? null),
     electricite: electriciteLive(h?.electricite ?? null),
     calendrier: calendrierLive(h?.calendrier ?? null),
@@ -202,11 +204,28 @@ function tile(c: Category, l: Live | undefined, odd = false): string {
 const PAGED = CATEGORIES.filter((c) => c.path).length;
 const LAST_PAGE = CATEGORIES.map((c) => !!c.path).lastIndexOf(true);
 
-function tiles(live: Record<string, Live | undefined>): string {
+const NOW_MAX = 4;
+const NOW_HOURS = 6;
+
+/** On a day of mobilisation, of a cyclone or an eruption: the newest headlines, above the tiles. */
+function happening(h: HomeLive | null, now: Date): string {
+  const d = h?.actualites?.value;
+  if (!d?.chaud) return "";
+  const since = new Date(now.getTime() - NOW_HOURS * 3600_000).toISOString();
+  const rows = [...d.en_direct, ...d.infos.filter((r) => r.sujets?.includes("mobilisation") || r.sujets?.includes("route"))]
+    .filter((r) => r.publie >= since).sort((x, y) => (x.publie < y.publie ? 1 : x.publie > y.publie ? -1 : 0)).slice(0, NOW_MAX);
+  if (!rows.length) return "";
+  return `<div class="card warn now-news"><h3>${icon("news")} En ce moment sur l'île</h3><ul class="plain">${rows.map((r) =>
+    `<li><b>${hm(r.publie)}</b> <a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a> <span class="note">${esc(r.media)}${r.communes?.length ? ` · ${esc(r.communes.join(", "))}` : ""}</span></li>`).join("")}</ul>` +
+    `<p class="note"><a href="/actualites">Toute l'actualité, commune par commune →</a></p></div>`;
+}
+
+function tiles(live: Record<string, Live | undefined>, news = ""): string {
   return `<section id="en-ce-moment" aria-labelledby="h-ile">
   <div class="sec-h"><p class="eyebrow">En direct</p>
     <h2 id="h-ile">L'île en ce moment</h2>
     <p>Une page par sujet, mise à jour toutes les 5 minutes. Chaque donnée vient d'un organisme public ou d'un projet ouvert, avec son heure et sa source.</p></div>
+  ${news}
   <ul class="tiles" aria-label="Catégories">${CATEGORIES.map((c, i) => tile(c, live[c.key], i === LAST_PAGE && PAGED % 2 === 1)).join("")}</ul>
 </section>`;
 }
@@ -293,7 +312,7 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
   </div>
   ${heroMap(h)}
 </div></div>`;
-  const body = `${tiles(live)}
+  const body = `${tiles(live, happening(h, now))}
 ${assistant(origin, h, now)}
 <section id="communes" aria-labelledby="h-communes">
   <div class="sec-h"><p class="eyebrow">Partout sur l'île</p><h2 id="h-communes">Votre commune en direct</h2>

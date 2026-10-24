@@ -48,6 +48,8 @@ import * as gdacs from "../providers/cyclones.js";
 import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
 import { historiqueMeteo } from "../tools/historique.js";
 import { agenda, type EventRow } from "../tools/agenda.js";
+import * as actuSource from "../providers/actualites.js";
+import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, type InfoRow } from "../tools/actualites.js";
 import { type Observation, why } from "../types.js";
 import * as traces from "../providers/traces.js";
 import { coastal, type PlacePage } from "./places.js";
@@ -866,6 +868,41 @@ export async function buildAgenda(cache: Cache, now = new Date()): Promise<Agend
   const a = needed<Omit<AgendaAnswer, "ce_week_end">>(await agenda(cache, undefined, undefined, undefined, now, PAGE_EVENTS), "agenda");
   const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", undefined, now));
   return { ...a, ce_week_end: weekend?.evenements ?? [] };
+}
+
+export interface ActualitesAnswer {
+  /** The last 24 hours, newest first, the live entries apart. */
+  infos: InfoRow[];
+  en_direct: InfoRow[];
+  prefecture: InfoRow[];
+  /** Whether people are in the streets or roads blocked: a live blog, or news of it in the last hours. */
+  chaud: boolean;
+  indisponible: string[];
+  couverture: string;
+  a_savoir: string;
+  sources: Credit[];
+}
+
+const NEWS_HOURS = 24;
+const NEWS_LISTED = 40;
+const HOT_HOURS = 6;
+
+/** The island's news of the last day, as the page lists it. */
+export async function buildActualites(cache: Cache, now = new Date()): Promise<ActualitesAnswer> {
+  const f = (await actuSource.fil(cache, now)).value;
+  const since = new Date(now.getTime() - NEWS_HOURS * 3600_000).toISOString();
+  const recent = new Date(now.getTime() - HOT_HOURS * 3600_000).toISOString();
+  const day = f.infos.filter((i) => i.publie >= since);
+  return {
+    infos: day.filter((i) => !i.direct).slice(0, NEWS_LISTED).map((i) => infoRow(i, now)),
+    en_direct: day.filter((i) => i.direct).slice(0, 12).map((i) => infoRow(i, now)),
+    prefecture: f.prefecture.slice(0, 4).map((i) => infoRow(i, now)),
+    chaud: day.some((i) => i.publie >= recent && (i.direct || i.sujets.includes("mobilisation"))),
+    indisponible: f.indisponible,
+    couverture: ACTU_COUVERTURE,
+    a_savoir: ACTU_A_SAVOIR,
+    sources: credits([actuSource.SOURCES.medias, actuSource.SOURCES.prefecture]),
+  };
 }
 
 export interface DaeAnswer {

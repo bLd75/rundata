@@ -35,6 +35,14 @@ export const CATEGORIES: Category[] = [
     about: "La vigilance de Météo-France zone par zone et l'alerte cyclonique, signalées d'office dès qu'elles dépassent le vert.",
   },
   {
+    key: "actualites",
+    nom: "Actualités",
+    path: "/actualites",
+    icon: "news",
+    tools: ["actualites"],
+    about: "Ce qui se passe en ce moment sur l'île : les titres des médias locaux et leurs directs (manifestations, blocages, routes, faits divers) commune par commune, et les communiqués de la préfecture.",
+  },
+  {
     key: "historique",
     nom: "Historique météo",
     path: "/historique",
