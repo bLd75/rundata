@@ -208,6 +208,38 @@ describe("the service worker", () => {
   });
 });
 
+describe("a phone of the team", () => {
+  it("marks every page once its page says so, and stops when it says no more", async () => {
+    const w = worker();
+    const team = () => w.asked.at(-1)!.headers.get("rundata-equipe");
+    await w.navigate("/meteo");
+    expect(team()).toBeNull();
+    await w.message("interne", "onglet");
+    await w.navigate("/meteo");
+    expect(team()).toBe("1");
+    expect(w.asked.at(-1)!.headers.get("rundata-mode")).toBeNull();
+    // Kept where the worker finds it again after being stopped.
+    expect(await (await w.caches.open("etat")).match("/etat/interne")).toBeDefined();
+    await w.message("externe", "onglet");
+    await w.navigate("/meteo");
+    expect(team()).toBeNull();
+    expect(await (await w.caches.open("etat")).match("/etat/interne")).toBeUndefined();
+  });
+
+  it("is marked by /?interne=1 and unmarked by /?interne=0, from the page, with a line to say so", () => {
+    const html = placePage(O, pageOf("cilaos")!, null, NOW);
+    expect(html).toContain(`const mark=new URLSearchParams(location.search).get("interne")`);
+    expect(html).toContain(`localStorage.setItem("rundata-interne","1")`);
+    expect(html).toContain(`localStorage.removeItem("rundata-interne")`);
+    expect(html).toContain("Cet appareil est marqué comme celui de l'équipe\u00a0: ses visites ne sont plus comptées.");
+    expect(html).toContain(`w?.postMessage(team?"interne":"externe")`);
+  });
+
+  it("says so on the privacy page", () => {
+    expect(legalPage(O, "confidentialite")).toContain("Les visites de l'équipe. Pour que les statistiques ne comptent pas ceux qui font le site, leurs appareils portent un repère, gardé dans le navigateur de la même façon (sans cookie). Leurs pages vues sont notées « interne » et laissées hors des chiffres.");
+  });
+});
+
 describe("the site's part", () => {
   const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
 

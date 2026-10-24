@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { counted } from "../src/budget.js";
 import { Cache } from "../src/cache.js";
-import { audience, category, feedReader, language, point, type Hit } from "../src/metrics.js";
+import { audience, category, feedReader, language, point, teamVisit, visitor, type Hit } from "../src/metrics.js";
 import { answer, asked, understood } from "../src/usage.js";
 
 const post = (body: unknown, headers: Record<string, string> = {}) =>
@@ -125,6 +125,25 @@ describe("Page views and the data point", () => {
     expect(category("/")).toBe("accueil");
     expect(category("/meteo/cilaos")).toBe("meteo/*");
     expect(category("/vigilance/")).toBe("vigilance");
+  });
+
+  it("writes the team's visits « interne »: its scripts, its marked phones and the address that marks them", () => {
+    const phone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+    const human = { "accept-language": "fr-FR", "sec-fetch-mode": "navigate" };
+    const page = new URL("https://rundata.re/meteo");
+    // A capture script dressed as an iPhone, with the team's word added.
+    expect(visitor(`${phone} rundata-interne`)).toBe("interne");
+    expect(audience(new Headers({ "user-agent": `${phone} rundata-interne`, ...human }))).toBe("interne");
+    expect(teamVisit(new Headers({ "user-agent": `${phone} rundata-interne` }), page)).toBe(true);
+    // The user's phone: its service worker's header, or the address that marks it.
+    expect(teamVisit(new Headers({ "user-agent": phone, "rundata-equipe": "1", ...human }), page)).toBe(true);
+    expect(teamVisit(new Headers({ "user-agent": phone, ...human }), new URL("https://rundata.re/?interne=1"))).toBe(true);
+    // Anyone else, unmarking included, stays a visitor like before.
+    expect(teamVisit(new Headers({ "user-agent": phone, ...human }), page)).toBe(false);
+    expect(teamVisit(new Headers({ "user-agent": phone, "rundata-equipe": "0" }), new URL("https://rundata.re/?interne=0"))).toBe(false);
+    expect(audience(new Headers({ "user-agent": phone, ...human }))).toBe("humain");
+    const p = point({ kind: "page", name: "/meteo", ok: true }, { who: "interne", country: "RE", from: "", audience: "interne", language: "fr" });
+    expect([p.blobs[3], p.blobs[8]]).toEqual(["interne", "interne"]);
   });
 
   it("keeps the first six columns where older queries read them", () => {
