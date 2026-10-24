@@ -1435,7 +1435,7 @@ function agendaRow(r: AgendaRow): string {
 
 export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/agenda`, now);
+  const url = fresh(`${origin}/evenements`, now);
   const today = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
 
   const days = new Map<string, AgendaRow[]>();
@@ -1462,15 +1462,15 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
           `<ul class="rows eau">${rows.map(agendaRow).join("")}</ul></li>`).join("")}</ul>${d.autres ? `<p class="note">${esc(d.autres)} Demandez-les à votre IA.</p>` : ""}`
       : `<p class="card">Aucun événement trouvé dans les agendas lus pour les deux semaines qui viennent.</p>`;
 
-  const title = "Agenda de La Réunion : que faire ce week-end ? Fêtes, concerts, marchés (974)";
+  const title = "Événements à La Réunion : que faire ce week-end ? Fêtes, concerts, marchés (974)";
   const short = "🇷🇪 Que faire à La Réunion (974) ce week-end et dans les deux semaines : fêtes, concerts, marchés, festivals et animations des mairies, avec les heures, le lieu et le lien.";
   const description = d ? describe(`🇷🇪 ${d.resume} Fêtes, concerts, marchés, festivals et animations des mairies, avec les heures, le lieu et le lien.`, short) : short;
 
-  const band = `${crumbBar("Agenda")}
+  const band = `${crumbBar("Événements")}
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Agendas des mairies et du tourisme</p>
-    <h1>Agenda <span class="n974">974</span></h1>
+    <h1>Événements <span class="n974">974</span></h1>
     ${status}
     ${ask(`Kosa néna pou fé sé wikenn la ? Rogard si ${url} é di amwin.`,
       `Que faire ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
@@ -1488,9 +1488,9 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
 </section>
-${connectorCta("agenda", "l'agenda de l'île")}`;
+${connectorCta("evenements", "les événements de l'île")}`;
 
-  return layout(origin, { title, description, path: "/agenda", jsonld: [crumbs(origin, "Agenda", "/agenda"), webPage(origin, "/agenda", title, description, data)], alerte }, band, body);
+  return layout(origin, { title, description, path: "/evenements", jsonld: [crumbs(origin, "Événements", "/evenements"), webPage(origin, "/evenements", title, description, data)], alerte }, band, body);
 }
 
 export function agendaLive(data: Cached<AgendaAnswer> | null): Live | undefined {

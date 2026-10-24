@@ -132,10 +132,10 @@ export const CATEGORIES: Category[] = [
   },
   {
     key: "agenda",
-    nom: "Agenda",
-    path: "/agenda",
+    nom: "Événements",
+    path: "/evenements",
     icon: "music",
-    tools: ["agenda"],
+    tools: ["evenements"],
     about: "Les fêtes, concerts, marchés, festivals et animations des prochains jours, d'après les agendas des mairies, du Nord et de reunion.fr.",
   },
   {
