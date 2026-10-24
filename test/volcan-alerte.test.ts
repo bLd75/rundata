@@ -9,8 +9,9 @@ import { volcanLive, volcanPage } from "../src/web/domains.js";
 import { SHARED } from "../src/web/partagees.js";
 import { site } from "../src/web/site.js";
 import { demos, homePage, type HomeLive } from "../src/web/home.js";
-import { meteoPage } from "../src/web/pages.js";
-import { alerteVolcan, bannerText, homeCard, mediaHeadlines, withVolcan } from "../src/web/volcan-alerte.js";
+import { NIVEAUX } from "../src/tools/volcan-acces.js";
+import { DESCRIPTION_MAX, meteoPage } from "../src/web/pages.js";
+import { alertSections, alerteVolcan, bannerText, homeCard, mediaHeadlines, tileLive, type VolcanAlerte, volcanMeta, withVolcan } from "../src/web/volcan-alerte.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
 // The prefecture's release of the 24th, after pitonlive's last status (still « Vigilance », Enclos partly open).
@@ -67,7 +68,7 @@ describe("the volcano put forward during an alert", () => {
     const page = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain("<title>Piton de la Fournaise : alerte 1, éruption probable · 974</title>");
     expect(page).toContain("<h1>Piton de la Fournaise : alerte 1, éruption probable ou imminente</h1>");
-    expect(page).toContain(`<meta name="description" content="Alerte 1 (préfecture, communiqué du 24\u00a0octobre) : « éruption probable ou imminente », selon le dispositif ORSEC Volcan. Accès à l&#39;Enclos interdit. Communiqués de l&#39;OVPF en direct · 974">`);
+    expect(page).toContain(`<meta name="description" content="Alerte\u00a01 du préfet (communiqué du 24\u00a0octobre) : « éruption probable ou imminente ». Accès à l&#39;Enclos interdit. Communiqués de l&#39;OVPF en direct · 974">`);
     // The plan's words only, never a release's of the day nor ours.
     expect(page).not.toContain("très brève");
     expect(page).toContain("<b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus. Seuls l&#39;OVPF et la préfecture l&#39;annonceront : leurs communiqués s&#39;affichent ici dès leur publication.</b>");
@@ -159,6 +160,43 @@ describe("the volcano put forward during an alert", () => {
       expect(other).toContain('class="alerte volcan"');
       expect(other).toContain('<a href="/volcan">Suivre en direct\u00a0→</a>');
       expect(other).not.toContain('class="wrap volcan-une"');
+    }
+  });
+
+  it("describes /volcan within DESCRIPTION_MAX at every level and every month, the plan's words whole or not at all", () => {
+    const communique = (jour: string) => ({ titre: ALERT_1, lien: "https://www.reunion.gouv.fr/x", jour });
+    const hausse = { pitonlive: "Alerte 2-3", prefecture: "alerte 1", jour_pitonlive: "2026-09-24", jour_prefecture: "2026-09-24", enclos_interdit: true };
+    for (const { niveau, libelle } of NIVEAUX.filter((n) => n.niveau.startsWith("Alerte"))) {
+      for (let m = 1; m <= 12; m++) {
+        const jour = `2026-${String(m).padStart(2, "0")}-24`;
+        for (const a of [
+          { niveau, eruption: false, communique: communique(jour) },
+          { niveau, eruption: true, communique: communique(jour) },
+          { niveau, eruption: false },
+          { niveau, eruption: false, communique: communique(jour), hausse: { ...hausse, jour_prefecture: jour } },
+        ] as VolcanAlerte[]) {
+          const meta = volcanMeta(a);
+          expect(meta.length, meta).toBeLessThanOrEqual(DESCRIPTION_MAX);
+          if (!a.eruption && !a.hausse && a.communique) expect(meta.includes(`« ${libelle} »`) || !meta.includes("« "), meta).toBe(true);
+        }
+      }
+    }
+    // The longest month: the plan's words kept for alert 1; too long for alert 2-1, then left out whole.
+    const sept = communique("2026-09-24");
+    expect(volcanMeta({ niveau: "Alerte 1", eruption: false, communique: sept })).toBe("Alerte\u00a01 du préfet (communiqué du 24\u00a0septembre) : « éruption probable ou imminente ». Accès à l'Enclos interdit. Communiqués de l'OVPF en direct · 974");
+    expect(volcanMeta({ niveau: "Alerte 2-1", eruption: false, communique: sept })).toBe("Alerte\u00a02-1 du préfet (communiqué du 24\u00a0septembre). Accès à l'Enclos interdit. Communiqués de l'OVPF en direct · 974");
+  });
+
+  it("never says « du préfet » nor the Enclos forbidden when no release of the prefecture is read, the level pitonlive's", () => {
+    for (const eruption of [false, true]) {
+      const a: VolcanAlerte = { niveau: "Alerte 1", eruption };
+      expect(bannerText(a)).toBe("🌋 Volcan : « Alerte\u00a01 » selon pitonlive.com, niveau officiel à vérifier sur reunion.gouv.fr.");
+      expect(volcanMeta(a)).toBe("Piton de la Fournaise : « Alerte\u00a01 » selon pitonlive.com. Niveau officiel : préfecture, reunion.gouv.fr. Communiqués de l'OVPF en direct · 974");
+      expect(homeCard(a)).toContain("<h2>🌋 Piton de la Fournaise : « Alerte\u00a01 » selon pitonlive.com</h2><p class=\"lead\">Le niveau officiel est celui des communiqués de la préfecture : vérifiez sur reunion.gouv.fr avant de monter. <b>Suivre en direct\u00a0→</b></p>");
+      expect(tileLive(a)).toEqual({ valeur: "« Alerte\u00a01 »", detail: "selon pitonlive.com" });
+      const top = alertSections(a, undefined);
+      expect(top).toContain("<p class=\"card warn\"><b>Niveau « Alerte\u00a01 » selon pitonlive.com. Le niveau officiel et l&#39;accès à l&#39;Enclos sont dans les communiqués de la préfecture : vérifiez sur reunion.gouv.fr avant de monter.</b></p>");
+      for (const text of [bannerText(a), volcanMeta(a), homeCard(a), JSON.stringify(tileLive(a)), top]) expect(text).not.toMatch(/préfet\b|Enclos interdit/);
     }
   });
 
