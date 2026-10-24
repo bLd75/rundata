@@ -92,7 +92,9 @@ describe("home page", () => {
     const edge = new EdgeLike();
     const cold = await serve(isolate(edge), "/");
     expect(cold.r.headers.get("cache-control")).toBe("public, max-age=60");
-    expect(cold.text).toContain("La Réunion <span class=\"n974\">974</span> en direct, dans votre assistant IA");
+    expect(cold.text).toContain("<h1>La Réunion <span class=\"n974\">974</span> en direct</h1>");
+    // The hero's island carries the temperatures measured now.
+    expect(cold.text).toMatch(/<figure class="hero-map"><svg class="map relief"[^]*?<g class="mk"><title>[^<]+<\/title><circle/);
     expect(cold.text).toMatch(/meteo_actuelle\(lieu: "[^"]+"\)<\/p>\s*<p class="bubble ai">\d+(,\d)?\u202f°C, mesurés à \d\d:\d\d/);
     expect(cold.text).toContain("Piton Maïdo");
     expect(cold.text).toMatch(/mesuré à \d\d:\d\d/);
@@ -116,8 +118,10 @@ describe("home page", () => {
       expect(page).toContain(`${name}</`);
     }
     expect(page).toContain('<li><a href="/electricite">Électricité</a></li>');
-    expect(meteoPage("https://rundata.re", null, NOW)).toContain('<a href="/meteo" aria-current="page">Météo</a>');
-    expect(placePage("https://rundata.re", pageOf("cilaos")!, null, NOW)).toContain('<a href="/meteo" aria-current="page">Météo</a>');
+    // The menu: every category, with its icon, the current one marked.
+    expect(meteoPage("https://rundata.re", null, NOW)).toMatch(/<a class="k-meteo" href="\/meteo" aria-current="page"><span class="kb"><svg[^]*?<\/svg><\/span>Météo<\/a>/);
+    expect(placePage("https://rundata.re", pageOf("cilaos")!, null, NOW)).toMatch(/<a class="k-meteo" href="\/meteo" aria-current="page">/);
+    expect(page).toMatch(/<a class="k-velos" href="\/velos"><span class="kb">/);
   });
 
   it("carries the tags that link previews read", () => {
@@ -199,7 +203,7 @@ describe("commune pages", () => {
   it("are listed by zone, and linked from the menu, the home page and the weather pages", async () => {
     const list = (await serve(isolate(), "/communes")).text;
     expect(list.match(/href="\/communes\/[a-z-]+"/g)).toHaveLength(24);
-    expect(list).toContain(`<a href="/communes" aria-current="page">Communes</a>`);
+    expect(list).toContain(`<a class="k-communes" href="/communes" aria-current="page">`);
     expect(homePage("https://rundata.re", null, NOW)).toContain(`href="/communes/saint-paul"`);
     expect((await serve(isolate(), "/meteo/saint-paul")).text).toContain(`href="/communes/saint-paul"`);
   });
@@ -240,6 +244,18 @@ describe("what crawlers and previews fetch", () => {
     expect([view.getUint32(16), view.getUint32(20)]).toEqual([1200, 630]);
     const icon = await handle(new Request("https://rundata.re/favicon.svg"), isolate());
     expect(await icon.text()).toContain("#e3262d");
+  });
+
+  it("lays the island's relief under the hero map, a WebP kept for good", async () => {
+    const page = homePage("https://rundata.re", null);
+    const path = page.match(/<image href="(\/relief-[0-9a-f]{8}\.webp)"/)?.[1];
+    expect(path).toBeDefined();
+    const r = await handle(new Request(`https://rundata.re${path}`), isolate());
+    const webp = new Uint8Array(await r.arrayBuffer());
+    expect(r.headers.get("content-type")).toBe("image/webp");
+    expect(r.headers.get("cache-control")).toContain("immutable");
+    expect(new TextDecoder().decode(webp.slice(8, 12))).toBe("WEBP");
+    expect(webp.length).toBeLessThan(250_000);
   });
 
   it("gives command-line clients one line and crawlers the page", async () => {

@@ -31,6 +31,7 @@ import { COMMUNES, communePage, communesPage } from "./commune.js";
 import { airPage, busPage, calendrierPage, electricitePage, velosPage, volcanPage } from "./domains.js";
 import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
+import { RELIEF_PATH, reliefImage } from "./map.js";
 import font from "./font.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
@@ -72,6 +73,7 @@ const htmlFor = (data: unknown) => (data ? HTML : { ...HTML, "cache-control": "n
 const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 let ogBytes: Uint8Array<ArrayBuffer> | undefined;
 let fontBytes: Uint8Array<ArrayBuffer> | undefined;
+let reliefBytes: Uint8Array<ArrayBuffer> | undefined;
 
 /** The domain pages: built from a tool's answer, kept like the other pages (web/data.ts). */
 const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) => Promise<any>; page: (origin: string, data: Cached<any> | null, now: Date, alerte?: Alerte) => string }> = {
@@ -192,6 +194,11 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   }
   if (path === "/og.png") {
     return new Response((ogBytes ??= bytes(og.png)), { headers: { "content-type": "image/png", "cache-control": STATIC } });
+  }
+  if (path === RELIEF_PATH) {
+    return new Response((reliefBytes ??= bytes(reliefImage())), {
+      headers: { "content-type": "image/webp", "cache-control": "public, max-age=31536000, immutable" },
+    });
   }
   if (path === FONT_PATH) {
     // Its address changes with its content (see pages.ts), so browsers may keep it for good.
