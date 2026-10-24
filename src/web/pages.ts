@@ -17,6 +17,8 @@ import { current, cyclone, highest, raised, spans } from "../tools/vigilance.js"
 import type { Alerte, Credit, HomeData, PlaceData, SeaData, StationAnswer, StationNow } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
+import * as traces from "../providers/traces.js";
+import icons from "./icons.json" with { type: "json" };
 import rubriques from "./og-rubriques.json" with { type: "json" };
 import { WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
@@ -183,6 +185,10 @@ padding:.3rem .8rem;border-radius:999px;background:rgb(255 255 255/.1);border:1p
 .slogan{font:italic 700 clamp(1.15rem,3vw,1.5rem)/1.3 Bricolage,system-ui,sans-serif;color:var(--sun)}
 .lead{font-size:1.14rem;color:var(--on-night-muted);max-width:36rem}
 .lead b{color:var(--on-night)}
+.share{padding-bottom:1.2rem}.share .card{display:flex;flex-wrap:wrap;gap:.6rem 1.2rem;align-items:center;max-width:44rem}.share p{margin:0}
+.sh{display:inline-flex;align-items:center;gap:.4rem;font-weight:700;text-decoration:none;border-radius:999px;padding:.55rem 1rem}.sh svg{width:1rem;height:1rem}
+.sh.wa{background:#25d366;color:#06281a}
+.hook{font-size:1.08rem;font-weight:600;color:var(--on-night);max-width:36rem;margin-top:-.4rem}
 .works{font-size:.92rem;color:var(--on-night-muted)}
 .works b{color:var(--on-night);font-weight:600}
 
@@ -577,6 +583,63 @@ a.href=h.replace(encodeURIComponent(u),encodeURIComponent(u+"?maj="+t.getUTCHour
 /** Whether a page belongs to a category: /meteo/cilaos is in the weather. */
 const inCategory = (path: string, category: string) => path === category || path.startsWith(`${category}/`);
 
+/**
+ * One sentence under each page's title that says what it is good for before its data (« Avant de partir : les
+ * sentiers fermés ce matin par l'ONF, et pourquoi. »): the page's own, else its category's, the longest match first.
+ */
+const HOOKS: [string, string][] = [
+  ["/", "Le temps, la mer, les routes et les sorties de l'île en ce moment, pour vous et votre IA."],
+  ["/meteo", "Le temps qu'il fait vraiment, mesuré par la station la plus proche, et la prévision à part."],
+  ["/vigilance", "Avant de sortir : la vigilance officielle de Météo-France, zone par zone."],
+  ["/mer", "Avant la plage : la température de l'eau au large de chaque plage."],
+  ["/volcan", "Éruption ou pas, Enclos ouvert ou fermé : l'état du volcan avant de monter."],
+  ["/bus", "Votre prochain bus, à l'heure annoncée par le réseau, sans appli à installer."],
+  ["/trafic", "Avant de prendre la route : la carte des bouchons et ce que signalent les médias."],
+  ["/actualites", "Ce qui se passe sur l'île en ce moment, commune par commune."],
+  ["/air", "Sport dehors ou pas : la qualité de l'air dans votre commune aujourd'hui."],
+  ["/electricite", "Quand recharger la voiture ou lancer la machine : l'électricité de l'île en ce moment."],
+  ["/calendrier", "Pour prévoir la semaine : les prochaines vacances scolaires et les jours fériés."],
+  ["/velos", "Un vélo à prendre ou une place pour le rendre, avant de vous déplacer."],
+  ["/bornes", "Une borne libre près de vous, avant de faire le détour."],
+  ["/eau", "Baignade ou robinet : la dernière analyse de l'ARS près de chez vous."],
+  ["/randonnees", "Choisir une rando ouverte aujourd'hui, avec sa trace GPS et son dénivelé."],
+  ["/sentiers", "Avant de partir : les sentiers fermés ce matin par l'ONF, et pourquoi."],
+  ["/secheresse", "Arrosage, lavage, piscine : ce qui est interdit dans votre commune en ce moment."],
+  ["/coupures-eau", "Coupure d'eau ou eau à ne pas boire : les avis en cours des distributeurs."],
+  ["/defibrillateurs", "En cas d'arrêt cardiaque : le défibrillateur le plus proche, et s'il est accessible."],
+  ["/sport", "Les matchs du week-end et les derniers résultats de l'île."],
+  ["/evenements", "Ce week-end : concerts, fêtes et marchés, commune par commune."],
+  ["/cyclones", "Un cyclone approche ? Sa trajectoire et sa distance de l'île, d'après Météo-France."],
+  ["/historique", "Normal pour la saison ? Le temps qu'il a fait, comparé à la normale."],
+  ["/communes", "Tout ce qui compte aujourd'hui dans votre commune, sur une seule page."],
+];
+// A trail's or a hike's own page: one trace, not the list of the day's closures.
+const TRACE_HOOK = "La trace à télécharger et l'état du sentier ce matin, avant de partir.";
+
+export function hook(path: string): string | undefined {
+  const trace = /^\/(sentiers|randonnees)\/([a-z0-9-]+)$/.exec(path);
+  if (trace && (trace[1] === "sentiers" ? traces.sentier(trace[2]) : traces.randonnee(trace[2]))) return TRACE_HOOK;
+  return HOOKS.filter(([p]) => (p === "/" ? path === "/" : inCategory(path, p))).sort((x, y) => y[0].length - x[0].length)[0]?.[1];
+}
+
+/**
+ * Above the feedback form: send the page on WhatsApp, the island's first channel with Facebook (a plain link, no
+ * script of theirs; `?ref=wa` counts the visits it brings, src/metrics.ts), and follow the Facebook Page.
+ */
+function share(origin: string, head: Head): string {
+  const text = `${head.title.replace(/ · 974$/, "")} : ${origin}${head.path}?ref=wa`;
+  return `<aside class="share wrap" aria-label="Partager et suivre"><div class="card">
+  <a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp ${EXTERNAL}</a>
+  <p>Une info utile chaque matin : <a href="${FACEBOOK}?ref=site" rel="noopener">suivez rundata.re sur Facebook</a>.</p>
+</div></aside>`;
+}
+
+/** The hook goes right under the page's title. */
+const withHook = (band: string, path: string) => {
+  const h = hook(path);
+  return h ? band.replace("</h1>", `</h1>\n    <p class="hook">${esc(h)}</p>`) : band;
+};
+
 // The menu: every category with a page, then the communes; the first few also sit in the bar on wide screens.
 const MENU = [...WITH_PAGE.map((c) => ({ key: c.key, nom: c.nom, path: c.path, icon: c.icon })), { key: "communes", nom: "Communes", path: "/communes", icon: "pin" }];
 const QUICK = ["meteo", "mer", "bus", "volcan", "vigilance", "communes"];
@@ -621,6 +684,9 @@ export function layout(origin: string, head: Head, band: string, body: string): 
 <meta name="description" content="${d}">
 <link rel="canonical" href="${esc(url)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="${icons["180"]}">
+<meta name="apple-mobile-web-app-title" content="rundata.re">
 <link rel="preload" href="${FONT_PATH}" as="font" type="font/woff2" crossorigin>
 <meta name="theme-color" content="#0b1f36">
 <meta property="og:type" content="website">
@@ -644,10 +710,11 @@ ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head
 <body>
 ${header(head.path, origin)}
 ${banner(head.alerte, head.path)}
-<div class="band">${band}</div>
+<div class="band">${withHook(band, head.path)}</div>
 <main class="wrap">
 ${body}
 </main>
+${share(origin, head)}
 ${avisForm(head.path)}
 <footer class="foot"><div class="wrap">
   <div>

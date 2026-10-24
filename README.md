@@ -126,7 +126,9 @@ Les pages sont rendues par le serveur, données comprises, pour les moteurs de r
 - `/evenements` : les événements des deux semaines qui viennent, jour par jour, filtrables par genre ; `/evenements/ce-week-end` : ceux du week-end (du vendredi 17 h au dimanche soir, avec un jour férié qui y est collé ; à partir du lundi, le week-end qui vient) ; `/evenements/concerts` : les concerts, ceux du soir à part. Les deux sont tirées de la copie de `/evenements`, sans rien lire de plus ;
 - `/presse` : l'espace presse, lié depuis le pied de page : le communiqué, des chiffres clés comptés dans les données du site au moment de l'affichage (outils, stations, arrêts, bornes, défibrillateurs, sentiers…) et les visuels à télécharger, libres avec la mention rundata.re. Les visuels sont des fichiers statiques servis par Cloudflare à côté du Worker (`public/presse/`, construits par `scripts/build-presse.py`), pas dans son paquet ;
 - en bas de chaque page, un formulaire « Un avis, une donnée qui manque ? » (`src/web/avis.ts`) : un formulaire HTML simple, sans script, envoyé à `POST /avis`, qui renvoie à la page avec un merci. Les avis du site et de l'outil `donner_avis` vont dans la table `avis` de D1 (`scripts/avis.sql`), sans adresse IP, effacés au bout de 12 mois ;
-- `/robots.txt`, `/sitemap.xml`, `/og.png` (aperçu Facebook, WhatsApp…), `/favicon.svg`.
+- `/robots.txt`, `/sitemap.xml`, `/og.png` (aperçu Facebook, WhatsApp…), `/favicon.svg`, `/manifest.webmanifest` (le site gardé sur l'écran d'accueil d'un téléphone, ouvert sur `/?ref=pwa` ; icônes `public/icons/`, `scripts/build-icons.py`).
+
+Sous le titre de chaque page, une phrase dit à quoi elle sert ; au bas de chaque page, au-dessus du formulaire d'avis, un lien « Partager sur WhatsApp » (`?ref=wa`) et l'appel à suivre la Page Facebook (`?ref=site`).
 
 ## English
 
