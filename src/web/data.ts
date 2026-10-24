@@ -11,6 +11,7 @@ import { distanceKm, localTime } from "../geo.js";
 import type { Cache, Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
 import { normalize } from "../places/resolve.js";
+import * as cal from "../providers/calendrier.js";
 import * as annuaire from "../providers/annuaire.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
@@ -961,6 +962,8 @@ export interface CalendrierAnswer {
     note: string;
   };
   soleil?: { lieu: string; lever: string; coucher: string; duree_du_jour: string; note: string };
+  /** The school year under way (from July, the one that starts in August) and the next once published, every break of each. */
+  annees_scolaires?: { annee: string; vacances: { nom: string; debut: string; reprise: string | null }[] }[];
   sources: Credit[];
 }
 
@@ -970,6 +973,15 @@ export async function buildCalendrier(cache: Cache, now = new Date()): Promise<C
   const part = <T>(v: unknown) => (typeof v === "object" && v !== null ? (v as T) : undefined);
   const out = { ...a, jours_feries: part(a.jours_feries), vacances_scolaires: part(a.vacances_scolaires) } as CalendrierAnswer;
   if (!out.jours_feries && !out.vacances_scolaires) throw new Error("aucune donnée pour la page calendrier");
+  // The same list the tool has just read, from the cache.
+  const all = out.vacances_scolaires ? (await cal.schoolBreaks(cache).catch(() => undefined))?.value : undefined;
+  if (all) {
+    const [y, m] = new Date(now.getTime() + 4 * 3600_000).toISOString().split("-").map(Number);
+    const first = m >= 7 ? y : y - 1;
+    out.annees_scolaires = [`${first}-${first + 1}`, `${first + 1}-${first + 2}`]
+      .map((annee) => ({ annee, vacances: all.filter((b) => b.annee_scolaire === annee).map(({ nom, debut, reprise }) => ({ nom, debut, reprise })) }))
+      .filter((x) => x.vacances.length);
+  }
   return out;
 }
 
