@@ -21,7 +21,7 @@ import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
 import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
-import { firstOf, priceLine } from "../tools/carburants.js";
+import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
 import rubriques from "./og-rubriques.json" with { type: "json" };
@@ -1026,10 +1026,11 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   <p class="note">Routes, barrages et manifestations dans les titres des six dernières heures, et les communiqués du jour de la préfecture : lire l'article pour le détail. <a href="/actualites">Toutes les actualités</a>.</p></div>`
     : "";
 
-  const c = d?.carburants;
-  const fuel = c
-    ? `<div class="card">${icon("car")}<h3>Prix des carburants</h3><p>Prix maximums depuis le ${esc(firstOf(c.depuis))}, fixés par le préfet : ` +
-      `${c.produits.filter((x) => /^(supercarburant|gazole|gaz)$/i.test(x.produit)).map((x) => esc(priceLine(x))).join(" ; ")}.</p>` +
+  // Before the 1st, the new order announced and the month in force below, as on /carburants.
+  const s = d?.carburants && fuelSay(d.carburants, now);
+  const fuel = s && (s.annonce || s.lignes)
+    ? `<div class="card">${icon("car")}<h3>Prix des carburants</h3>` +
+      (s.annonce ? `<p>${esc(keep(s.annonce))}.</p>${s.jusquau ? `<p>${esc(keep(s.jusquau))}.</p>` : ""}` : `<p>${esc(keep(`${s.depuis}, fixés par le préfet : ${s.lignes}`))}.</p>`) +
       `<p class="note">Les mêmes dans toute l'île : une station peut vendre moins cher. <a href="/carburants">Tous les prix du mois →</a></p></div>`
     : "";
   const ours = `<section aria-labelledby="h-nous">

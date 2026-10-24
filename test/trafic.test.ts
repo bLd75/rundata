@@ -44,7 +44,7 @@ describe("circulation", () => {
     expect(page).toContain("rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant.");
     expect(page).toContain(`href="https://www.infotrafic.re/"`);
     // The month's maximum fuel prices, beside the roads.
-    expect(page).toContain("<h3>Prix des carburants</h3><p>Prix maximums depuis le 1er octobre 2026, fixés par le préfet : supercarburant 2,00 €/litre (+0,17 €) ; gazole 1,80 €/litre (+0,12 €) ; gaz 20,81 € la bouteille de 12,5 kg (+0,21 €), 18 € avec aides locales.</p>");
+    expect(page.replaceAll("\u00a0", " ")).toContain("<h3>Prix des carburants</h3><p>Prix maximum depuis le 1er octobre 2026, fixés par le préfet : sans plomb 2,00 €/litre (+0,17 €) ; gazole 1,80 €/litre (+0,12 €) ; gaz 20,81 € la bouteille de 12,5 kg (+0,21 €), 18 € avec aides locales.</p>");
     // Waze's map, which brings cookies, is not in the page: only on a click.
     expect(page).not.toContain("<iframe");
     expect(page).toContain(`<button type="button" id="wz-go"`);

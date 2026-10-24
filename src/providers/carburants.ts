@@ -10,7 +10,7 @@ import type { SourceInfo } from "../types.js";
 
 export const SOURCE: SourceInfo = {
   id: "prefecture_carburants",
-  nom: "Prix maximums des carburants (arrêté préfectoral mensuel)",
+  nom: "Prix maximum des carburants (arrêté préfectoral mensuel)",
   organisme: "Préfecture de La Réunion",
   licence: "Licence Ouverte (informations publiques de l'État)",
   attribution: "Préfecture de La Réunion",
@@ -35,8 +35,16 @@ export interface Prix {
   produits: Produit[];
   titre: string;
   lien: string;
+  /** The day the release's page gives (« Mis à jour le 31/10/2025 »), « 2025-10-31 ». */
+  publie?: string;
   /** ISO time it was read. */
   lu: string;
+}
+
+/** The prices of one month: since its first day, product by product. */
+export interface Mois {
+  depuis: string;
+  produits: Produit[];
 }
 
 const ORIGIN = "https://www.reunion.gouv.fr";
@@ -91,8 +99,31 @@ export function parseRelease(html: string, lien: string, now = new Date()): Prix
   });
   if (!produits.some((p) => /supercarburant/i.test(p.produit)) || !produits.some((p) => /^gazole$/i.test(p.produit))) return undefined;
   const h1 = /<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html);
-  return { depuis, precedent_depuis: headerDay(head[1]), produits, titre: h1 ? plain(h1[1]) : "Prix des carburants", lien, lu: now.toISOString() };
+  const day = /Mis à jour le(?:&nbsp;|\s)*<\/span>\s*<span>(\d{2})\/(\d{2})\/(\d{4})<\/span>/.exec(html);
+  return {
+    depuis, precedent_depuis: headerDay(head[1]), produits, titre: h1 ? plain(h1[1]) : "Prix des carburants", lien,
+    publie: day ? `${day[3]}-${day[2]}-${day[1]}` : undefined, lu: now.toISOString(),
+  };
 }
+
+/** « 2026-10-24 », the day in Réunion (UTC+4). */
+export const localDay = (now: Date) => new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
+
+/**
+ * The prices in force on `now`'s day, and those an order sets for a 1st still to come. An order is published a day
+ * or two before the 1st: until then its prices are announced, and the month in force is its previous column. Nothing
+ * is in force when the order gives no previous column.
+ */
+export function phases(p: Prix, now: Date): { vigueur?: Mois; avenir?: Mois } {
+  if (p.depuis <= localDay(now)) return { vigueur: { depuis: p.depuis, produits: p.produits } };
+  const before = p.precedent_depuis && p.precedent_depuis <= localDay(now)
+    ? p.produits.filter((x) => x.precedent_eur != null).map(({ produit, unite, precedent_eur }) => ({ produit, unite, prix_eur: precedent_eur! }))
+    : [];
+  return { ...(before.length ? { vigueur: { depuis: p.precedent_depuis!, produits: before } } : {}), avenir: { depuis: p.depuis, produits: p.produits } };
+}
+
+/** The product as people say it: the order's « Supercarburant » is « sans plomb » (the sea professionals' keeps its name). */
+export const label = (produit: string) => (/^supercarburant$/i.test(produit) ? "Sans plomb" : produit);
 
 /** « octobre 2026 ». */
 export const monthOf = (day: string) => `${MONTH_NAMES[Number(day.slice(5, 7)) - 1]} ${day.slice(0, 4)}`;
@@ -118,12 +149,19 @@ export function configure(read: (() => Promise<Prix | null>) | undefined) {
 
 // The order changes once a month; a few hours is plenty, and the stored copy is served while the store does not answer.
 const FRESH_SECONDS = 6 * 3600;
+// While the new order may be in the store and the copy does not have it (from the 28th, or the copy is an older
+// month's): asked again every quarter of an hour, as the workflow reads the prefecture more often then.
+const EARLY_SECONDS = 15 * 60;
 
 export async function prix(cache: Cache, now = new Date()): Promise<Cached<Prix>> {
-  return cache.get("carburants:prix", FRESH_SECONDS, async () => {
+  const load = async () => {
     // The stored copy; the prefecture itself before the workflow has stored one (a new store, an expired copy).
     const v = (reader ? await reader() : null) ?? await gather(now, 2);
     if (!v?.produits?.length) throw new Error("prix des carburants absents");
     return v;
-  });
+  };
+  const got = await cache.get("carburants:prix", FRESH_SECONDS, load);
+  const today = localDay(now);
+  const behind = got.value.depuis.slice(0, 7) < today.slice(0, 7) || (Number(today.slice(8, 10)) >= 28 && got.value.depuis <= today);
+  return behind && now.getTime() - got.fetchedAt.getTime() > EARLY_SECONDS * 1000 ? cache.get("carburants:prix", EARLY_SECONDS, load) : got;
 }
