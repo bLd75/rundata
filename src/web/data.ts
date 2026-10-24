@@ -47,6 +47,7 @@ import { restrictionsEau } from "../tools/secheresse.js";
 import * as daeSource from "../providers/dae.js";
 import { access as daeAccess, byCommune as daeByCommune, daeRow, URGENCE as DAE_URGENCE } from "../tools/dae.js";
 import { COVERED as CUT_COVERED, coupuresEau, type noticeRow } from "../tools/coupures.js";
+import { type CourantAnswer, type courantBlock, courantCopy } from "../tools/courant.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import * as sportSource from "../providers/sport.js";
 import { grandRaidRow, sportTool, type SportRow } from "../tools/sport.js";
@@ -776,6 +777,10 @@ export async function buildCoupures(cache: Cache, now = new Date()): Promise<Cou
   return { ...a, communes_suivies: CUT_COVERED };
 }
 
+export type { CourantAnswer };
+/** The power cuts relayed by the mairies: only the scheduled event builds it, into KV (web/partagees.ts). */
+export const buildCourant = (): Promise<CourantAnswer> => courantCopy();
+
 export interface SportAnswer {
   resume: string;
   a_venir?: SportRow[];
@@ -964,6 +969,8 @@ export async function buildDae(): Promise<DaeAnswer> {
 
 export interface ElectriciteAnswer {
   resume: string;
+  /** The power cuts the mairies relay, as the copy web:courant had them when this copy was built. */
+  coupures_annoncees?: ReturnType<typeof courantBlock>;
   production?: {
     heure: string;
     total_mw: number;

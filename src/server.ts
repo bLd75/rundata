@@ -69,7 +69,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.69.0";
+export const VERSION = "0.70.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -258,11 +258,14 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "« météo de l'électricité » d'EDF pour les jours qui viennent (heures de pointe, réseau contraint, recharge conseillée " +
         "d'un véhicule électrique). Pour : « d'où vient l'électricité ? », « quelle part de renouvelable ? », " +
         "« quand recharger ma voiture électrique ? », « risque de délestage ? ». " +
-        "/ Réunion Island electricity right now: production mix, renewable share, and EDF's grid signal for the coming days.",
-      inputSchema: {},
+        "Coupures de courant : les avis d'EDF que relaient les mairies (Sainte-Marie, Saint-Philippe, Cilaos, Saint-André, Sainte-Suzanne), " +
+        "jours, heures et secteurs, avec le lien de l'avis ; ailleurs, la mairie ne les publie pas et l'outil le dit. " +
+        "Pour : « coupure de courant à Sainte-Marie ? », « coupure EDF prévue à Cilaos ? ». " +
+        "/ Réunion Island electricity right now: production mix, renewable share, EDF's grid signal, and the power cuts some town halls relay.",
+      inputSchema: { lieu },
       annotations: { title: "Électricité à La Réunion", ...READ_ONLY },
     },
-    track("electricite", () => electricite(cache)),
+    track("electricite", (args) => electricite(cache, new Date(), args.lieu)),
   );
 
   server.registerTool(
