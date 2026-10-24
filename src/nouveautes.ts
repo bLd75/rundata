@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T16:50:00+04:00", texte: "Les alertes de votre commune en flux RSS : vigilance, coupures d'eau, sentiers fermés, volcan. Sans compte." },
   { date: "2026-10-24T16:35:00+04:00", texte: "Prochaines marées au Port et à Sainte-Marie : un calcul à 20 min près environ, pas la prévision officielle du SHOM." },
   { date: "2026-10-24T16:22:00+04:00", texte: "Prix maximum des carburants et de la bouteille de gaz, fixés chaque mois par le préfet, avec l'écart au mois dernier." },
   { date: "2026-10-24T16:00:30+04:00", texte: "Houle prévue près de chaque plage : hauteur, période et direction des vagues sur 4 jours, sur le site et dans votre IA." },

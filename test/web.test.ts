@@ -431,3 +431,53 @@ describe("vigilance and sea pages", () => {
     expect(saintLeu.text).toMatch(/houle prévue : \d+(,\d)?\u202fm/);
   });
 });
+
+describe("a commune's RSS feed", () => {
+  /** The feed as a reader gets it: the subrequests of the response alone, then the work left for after it. */
+  async function feed(cache: Cache, path: string) {
+    const pending: Promise<unknown>[] = [];
+    const { value, used } = await counted(WORKER_BUDGET, () => site(html(path), cache, (p) => pending.push(p), NOW));
+    const text = await value!.text();
+    await Promise.all(pending);
+    return { r: value!, text, used };
+  }
+  const answer = (value: unknown) => async () => value;
+
+  it("is read from the pages' copies, never built for the feed, and kept a few minutes", async () => {
+    const edge = new EdgeLike();
+    // Cold: the vigilance as every page has it; the other copies are not there yet, so it is kept a minute only.
+    const cold = await feed(isolate(edge), "/communes/saint-paul.rss");
+    expect(cold.r.status).toBe(200);
+    expect(cold.r.headers.get("content-type")).toBe("application/rss+xml; charset=utf-8");
+    expect(cold.r.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(cold.text).toContain("<title>Saint-Paul : alertes · rundata.re</title>");
+    expect(cold.text).not.toMatch(/Sentier fermé|Piton de la Fournaise/);
+
+    // The pages' copies there (another isolate of the data center): read, and nothing else is fetched.
+    const cache = isolate(edge);
+    await cache.get("web:coupures", 300, answer({ resume: "", avis: [], couverture: "", a_savoir: "", sources: [], communes_suivies: [] }));
+    await cache.get("web:randonnees", 300, answer({ randonnees: [], secteurs: [{ secteur: "Ouest", communes: ["Saint-Paul"], sentiers: [{ k: "s1", nom: "Sentier du Maïdo", commune: "Saint-Paul", km: 3, etat: "fermé", cause: "Éboulis", boucle: false, randonnees: [] }] }], lignes: [], fermes: 1, suivis: 1, sources: [] }));
+    await cache.get("web:volcan", 300, answer({ resume: "", etat: { eruption_en_cours: false, niveau_orsec: "Alerte 1" }, avertissements: [], sources: [] }));
+    vi.stubGlobal("fetch", async (url: string) => {
+      throw new Error(`the feed fetched ${url}`);
+    });
+    const warm = await feed(cache, "/communes/saint-paul.rss");
+    expect(warm.r.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(warm.text).toContain("<title>Sentier fermé : Sentier du Maïdo</title>");
+    expect(warm.text).toContain("<title>Piton de la Fournaise : Alerte 1</title>");
+    expect(warm.used).toBeLessThanOrEqual(4);
+  });
+
+  it("is announced on the commune's page and linked in its footer", async () => {
+    const { text } = await serve(isolate(), "/communes/le-port");
+    expect(text).toContain('<link rel="alternate" type="application/rss+xml" title="Le Port : alertes · rundata.re" href="/communes/le-port.rss">');
+    expect(text).toContain('<a href="/communes/le-port.rss" title="À ajouter dans une application de lecture de flux (Feedly, NetNewsWire…)">🔔 Les alertes du Port par RSS</a>');
+    // Only there.
+    expect((await serve(isolate(), "/mer")).text).not.toContain("application/rss+xml");
+  });
+
+  it("has none for a place that is not a commune", async () => {
+    expect((await feed(isolate(), "/communes/maido.rss")).r.status).toBe(404);
+    expect((await feed(isolate(), "/communes/paris.rss")).r.status).toBe(404);
+  });
+});

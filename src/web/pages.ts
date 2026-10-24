@@ -571,6 +571,8 @@ interface Head {
   jsonld: object[];
   /** Météo-France's vigilance above green, on every page. */
   alerte?: Alerte;
+  /** The page's RSS feed (a commune's alerts): announced in the head, linked in the footer. */
+  rss?: { href: string; title: string; link: string; hint: string };
 }
 
 function banner(a: Alerte | undefined, path: string): string {
@@ -703,7 +705,7 @@ export function layout(origin: string, head: Head, band: string, body: string): 
 <link rel="canonical" href="${esc(url)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="${icons["180"]}">
+${head.rss ? `<link rel="alternate" type="application/rss+xml" title="${esc(head.rss.title)}" href="${esc(head.rss.href)}">\n` : ""}<link rel="apple-touch-icon" href="${icons["180"]}">
 <meta name="apple-mobile-web-app-title" content="rundata.re">
 <link rel="preload" href="${FONT_PATH}" as="font" type="font/woff2" crossorigin>
 <meta name="theme-color" content="#0b1f36">
@@ -739,6 +741,7 @@ ${avisForm(head.path)}
     <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
     ${SLOGAN}
     <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
+    ${head.rss ? `<p><a href="${esc(head.rss.href)}" title="${esc(head.rss.hint)}">${esc(head.rss.link)}</a></p>` : ""}
     <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP. Suivre rundata.re sur <a href="${FACEBOOK}">Facebook</a>.</p>
     <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li></ul>

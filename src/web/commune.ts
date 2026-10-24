@@ -21,6 +21,7 @@ import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, v
 import { esc, islandMap } from "./map.js";
 import { ask, connector, credits, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
+import { RSS_HINT, rssLink, rssPath, rssTitle } from "./rss.js";
 
 /** What a commune's page is made of, each part null or missing when there is no copy yet. */
 export interface CommuneLive {
@@ -300,7 +301,8 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   <h2 id="h-autres">Les autres communes</h2>
   <ul class="chips">${COMMUNES.filter((x) => x.slug !== p.slug).map((x) => `<li><a href="${hub(x)}">${esc(x.nom)}</a></li>`).join("")}</ul>
 </section>`;
-  return layout(origin, { title, description, path: hub(p), jsonld, alerte }, band, body);
+  const rss = { href: rssPath(p), title: rssTitle(p), link: rssLink(p), hint: RSS_HINT };
+  return layout(origin, { title, description, path: hub(p), jsonld, alerte, rss }, band, body);
 }
 
 /** The 24 communes, by vigilance zone: the island's own way of splitting itself (Nord, Est, Sud, Ouest). */
