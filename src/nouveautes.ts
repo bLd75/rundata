@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T23:30:00+04:00", texte: "Coupures d'eau à Saint-Leu : les avis publiés par la commune s'affichent. Petite-Île, Cilaos, L'Étang-Salé : un lien vers la mairie." },
   { date: "2026-10-24T22:56:00+04:00", texte: "Questions en créole pour votre IA, plus proches de la façon dont on parle ici : « Volkan la pété\u00a0? », « Kwélafé La Rényon astèr\u00a0? »…" },
   { date: "2026-10-24T22:24:00+04:00", texte: "Coupures d'eau : les avis de La Créole à Saint-Paul et aux Trois-Bassins, et de CISE Réunion à Sainte-Marie." },
   { date: "2026-10-24T22:17:00+04:00", texte: "Volcan : les alertes précédentes remontent à 2016, avec 12 épisodes de plus cités dans les communiqués de la préfecture." },

@@ -9,7 +9,10 @@
  * - La Créole (Saint-Paul, Les Trois-Bassins) shows its notices on one HTML page, dated to the day, with no feed.
  * - The mairie of Sainte-Marie posts CISE Réunion's notices among its news: in text, or as an image or a PDF, of which
  *   only the link is kept.
- * Other distributors (Sudeau, CISE in Les Avirons, Saint-Leu, Petite-Île, Cilaos) are not read here.
+ * - The commune of Saint-Leu posts Derichebourg Aqua OI's notices among its news: a short extract is kept, with the
+ *   facts (hours, streets) and the link; a post that is only an image gives its link.
+ * Other distributors (Sudeau, CISE in Les Avirons, Petite-Île, Cilaos) are not read here: some mairies get a link only
+ * (src/eau/distributeurs.ts).
  */
 import type { Cache, Cached } from "../cache.js";
 import { getJson, getText, httpUrl } from "../http.js";
@@ -19,10 +22,10 @@ import type { SourceInfo } from "../types.js";
 
 export const SOURCE: SourceInfo = {
   id: "avis_eau",
-  nom: "Avis des distributeurs d'eau : coupures, travaux, eau non potable (Dionéo, runéo, Eaux de La Possession, La Créole, CIREST, ville de Sainte-Marie)",
+  nom: "Avis des distributeurs d'eau : coupures, travaux, eau non potable (Dionéo, runéo, Eaux de La Possession, La Créole, CIREST, ville de Sainte-Marie, commune de Saint-Leu)",
   organisme: "Distributeurs d'eau et intercommunalités de La Réunion",
   licence: "Information publique (avis aux abonnés)",
-  attribution: "Dionéo, runéo, Eaux de La Possession, La Créole, CIREST / CISE Réunion, ville de Sainte-Marie / CISE Réunion",
+  attribution: "Dionéo, runéo, Eaux de La Possession, La Créole, CIREST / CISE Réunion, ville de Sainte-Marie / CISE Réunion, commune de Saint-Leu / Derichebourg Aqua OI",
   url: "https://www.cirest.fr/categorie/communique/communique-eau/",
 };
 
@@ -37,6 +40,11 @@ const CIREST_COMMUNES: Record<number, string> = {
 };
 export const CREOLE = { url: "https://lacreole.re/flash-infos", communes: ["Saint-Paul", "Les Trois-Bassins"] };
 const SAINTE_MARIE = "https://www.ville-saintemarie.re/wp-json/wp/v2/posts?search=CISE&per_page=20&_fields=date,title,link,content";
+// The commune's legal notice (saintleu.re/mentions-legales) allows reuse « à des fins d'information, non commerciales »:
+// rundata.re is free, informative, without advertising, so a short extract is quoted with its source and link. To be
+// reviewed if the site changes in nature.
+const SAINT_LEU = "https://www.saintleu.re/wp-json/wp/v2/posts?search=eau&per_page=20&_fields=date,title,link,content";
+const EXTRACT_MAX = 250;
 const FRESH_SECONDS = 15 * 60;
 const TEXT_MAX = 700;
 
@@ -52,6 +60,8 @@ export interface Avis {
   precision?: string;
   /** A notice posted as an image or a PDF: nothing is read from it, only its link is given. */
   forme?: "image" | "PDF";
+  /** The text is a quoted extract cut short (Saint-Leu): what follows, the streets often, is only in the notice. */
+  extrait_coupe?: boolean;
   /** Local times « 2026-10-26T21:00 », when the notice gives them. */
   debut?: string;
   fin?: string;
@@ -243,6 +253,41 @@ export function parseSainteMarie(posts: Omit<Post, "categories">[]): Avis[] {
   });
 }
 
+// A Saint-Leu post about the water network, not one that only names water (« Fête des Artichauts … »).
+const SAINT_LEU_WATER = /coupure d.eau|distribution d.eau|réseau d.eau|perturbations? d.eau|manques? d.eau|eau potable/i;
+const CUT_WORDS = /interruption|coupure|perturbation|manques? d.eau/i;
+
+/**
+ * The sentence that says the cut (when, where), quoted, never the whole notice. Worded with marketing: it stops right
+ * after a colon (« sur les secteurs suivants : […] »), never in the middle of a list of streets, else at the end of a
+ * word; a cut extract ends with « […] ».
+ */
+export function extract(texte: string): { texte: string; coupe: boolean } {
+  const flat = texte.replace(/\s+/g, " ").trim();
+  const sentences = flat.split(/(?<=[.!?])\s+(?=[A-ZÀ-Ý])/);
+  const one = sentences.find((x) => CUT_WORDS.test(x)) ?? sentences[0] ?? "";
+  const colon = one.indexOf(":");
+  if (colon >= 0 && colon < one.length - 1 && colon < EXTRACT_MAX) return { texte: `${one.slice(0, colon + 1)} […]`, coupe: true };
+  if (one.length <= EXTRACT_MAX) return { texte: one, coupe: false };
+  return { texte: `${one.slice(0, EXTRACT_MAX).replace(/\s+\S*$/, "")} […]`, coupe: true };
+}
+
+/** The commune of Saint-Leu's posts about the water network: a short extract with its facts, or the link of an image. */
+export function parseSaintLeu(posts: Omit<Post, "categories">[]): Avis[] {
+  return posts.flatMap((p): Avis[] => {
+    const titre = strip(p.title.rendered).replace(/^[^\p{L}\d]+/u, "").trim();
+    if (!SAINT_LEU_WATER.test(titre)) return [];
+    const html = p.content.rendered;
+    const texte = lines(html);
+    const base = { distributeur: "Derichebourg Aqua OI, par la commune de Saint-Leu", titre, communes: ["Saint-Leu"], publie: new Date(`${p.date}+04:00`).toISOString(), lien: httpUrl(p.link) };
+    // A post that is a picture: its title and link only.
+    if (texte.replace(/\s+/g, " ").length < 120) return [{ ...base, forme: "image", secteurs: [], ne_pas_boire: false, texte: "" }];
+    // No list of streets: the posts mix streets and long lines (« RD13, Quartier Bras Mouton et rues adjacentes jusque … »), and a list cut short would mislead.
+    const quoted = extract(texte);
+    return [{ ...base, ...parseNotice(texte), secteurs: [], ne_pas_boire: drinkSaid(titre, texte), texte: quoted.texte, ...(quoted.coupe ? { extrait_coupe: true } : {}) }];
+  });
+}
+
 /** Every notice of the feeds; a feed that fails is left out, unless all do. */
 export async function avis(cache: Cache): Promise<Cached<Avis[]>> {
   return cache.get("avis-eau", FRESH_SECONDS, async () => {
@@ -251,6 +296,7 @@ export async function avis(cache: Cache): Promise<Cached<Avis[]>> {
       getJson<Post[]>(SOURCE.id, CIREST, 12_000).then(parseCirest),
       getText(SOURCE.id, CREOLE.url, 12_000).then(parseCreole),
       getJson<Post[]>(SOURCE.id, SAINTE_MARIE, 12_000).then(parseSainteMarie),
+      getJson<Post[]>(SOURCE.id, SAINT_LEU, 12_000).then(parseSaintLeu),
     ]);
     if (parts.every((p) => p.status === "rejected")) throw (parts[0] as PromiseRejectedResult).reason;
     return parts.flatMap((p) => (p.status === "fulfilled" ? p.value : [])).sort((a, b) => b.publie.localeCompare(a.publie));

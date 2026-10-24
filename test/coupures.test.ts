@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { communesIn, parseCreole, parseNotice, parseSainteMarie, textOf } from "../src/providers/avis-eau.js";
+import { communesIn, extract, parseCreole, parseNotice, parseSaintLeu, parseSainteMarie, textOf } from "../src/providers/avis-eau.js";
 import { coupuresEau } from "../src/tools/coupures.js";
 import { coupuresCommunePage, waterLive } from "../src/web/coupures.js";
 import { buildCoupures } from "../src/web/data.js";
@@ -22,7 +22,7 @@ describe("coupures d'eau", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", async (url: string) => {
       const file = url.includes("dioneo") ? "dioneo.xml" : url.includes("runeo") ? "runeo.xml" : url.includes("possession") ? "possession.xml"
-        : url.includes("lacreole") ? "lacreole.html" : url.includes("saintemarie") ? "saintemarie.json" : "cirest.json";
+        : url.includes("lacreole") ? "lacreole.html" : url.includes("saintemarie") ? "saintemarie.json" : url.includes("saintleu") ? "saintleu.json" : "cirest.json";
       return new Response(fixture(file));
     });
   });
@@ -165,12 +165,12 @@ describe("coupures d'eau", () => {
     vi.stubGlobal("fetch", async (url: string) => {
       if (url.includes("runeo")) return new Response(fixture("runeo.xml").replace("</channel>", `${item}</channel>`));
       const file = url.includes("dioneo") ? "dioneo.xml" : url.includes("possession") ? "possession.xml"
-        : url.includes("lacreole") ? "lacreole.html" : url.includes("saintemarie") ? "saintemarie.json" : "cirest.json";
+        : url.includes("lacreole") ? "lacreole.html" : url.includes("saintemarie") ? "saintemarie.json" : url.includes("saintleu") ? "saintleu.json" : "cirest.json";
       return new Response(fixture(file));
     });
     const b = body(await coupuresEau(cache(), undefined, NOW));
     expect(b.ne_pas_boire).toEqual(["La Plaine-des-Palmistes", "Saint-Pierre", "Salazie"]);
-    expect(b.couverture).toBe("Avis lus pour Bras-Panon, La Plaine-des-Palmistes, La Possession, Le Port, Les Trois-Bassins, Saint-André, Saint-Benoît, Saint-Denis, Saint-Louis, Saint-Paul, Saint-Pierre, Sainte-Marie, Sainte-Rose, Sainte-Suzanne et Salazie (Dionéo, runéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie)\u00a0: une coupure que ces sources n'annoncent pas n'apparaît pas ici. Ailleurs, voir la mairie ou le distributeur.");
+    expect(b.couverture).toBe("Avis lus pour Bras-Panon, La Plaine-des-Palmistes, La Possession, Le Port, Les Trois-Bassins, Saint-André, Saint-Benoît, Saint-Denis, Saint-Leu, Saint-Louis, Saint-Paul, Saint-Pierre, Sainte-Marie, Sainte-Rose, Sainte-Suzanne et Salazie (Dionéo, runéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie, Derichebourg Aqua OI par la commune de Saint-Leu)\u00a0: une coupure que ces sources n'annoncent pas n'apparaît pas ici. Ailleurs, voir la mairie ou le distributeur.");
     const value = await buildCoupures(cache(), NOW);
     expect(value.communes_suivies).toEqual(expect.arrayContaining(["Le Port", "Saint-Louis", "Saint-Pierre", "Sainte-Suzanne"]));
     const sp = island.paths.find((p: { nom: string }) => p.nom === "Saint-Pierre")!;
@@ -178,6 +178,57 @@ describe("coupures d'eau", () => {
     expect(page).toContain(`<path d="${sp.d}" style="fill:#f03e3e"/>`);
     // The legend never says « aucun avis » where nothing is read, and tells what the others are.
     expect(page).toContain(`<span style="color:#a5d8ff">pas d'avis lu en ce moment</span>. Les autres communes : avis non lus, voir la mairie ou le distributeur.`);
+  });
+
+  it("keeps Saint-Leu's posts about the water network, as a short extract with its link, an image as a link only", () => {
+    const list = parseSaintLeu(JSON.parse(fixture("saintleu.json")));
+    expect(list.map((n) => n.titre)).toEqual([
+      "Coupure d’eau Pointe des Châteaux",
+      "Coupure d’eau mercredi 26 août",
+      "Travaux sur le réseau d’eau aux Colimaçons et à Bras Mouton les 9 et 10 juillet 2026",
+      "Lavage de réservoir : perturbations d’eau ce mercredi 24 juin 2026 au Plate",
+      "Travaux de maintenance : la distribution d’eau interrompue mercredi 24 juin 2026 sur plusieurs secteurs",
+      "Travaux de maintenance : la distribution d’eau interrompue ce mercredi sur plusieurs secteurs",
+    ]);
+    expect(list[0]).toMatchObject({ forme: "image", texte: "", communes: ["Saint-Leu"], lien: "https://www.saintleu.re/actualite/coupure-deau-pointe-des-chateaux.php" });
+    expect(list[2]).toMatchObject({ distributeur: "Derichebourg Aqua OI, par la commune de Saint-Leu", publie: "2026-07-08T10:30:23.000Z", secteurs: [], ne_pas_boire: false });
+    // The sentence that says the cut, cut short: never the whole notice.
+    // Stopped right after the colon, never in the middle of the streets: those are in the notice, its link says so.
+    expect(list[2]).toMatchObject({ texte: "Cette intervention nécessite l’interruption de la distribution en eau, le jeudi 09 juillet et vendredi 10 juillet 2026 de 08h à 18h, sur les secteurs suivants : […]", extrait_coupe: true });
+    for (const n of list) expect(n.texte.length).toBeLessThanOrEqual(254);
+    // A sentence whose colon comes too late is cut at a word, before 250 characters.
+    expect(list[3].texte).toMatch(/ \[…\]$/);
+    expect(extract("Une phrase sans deux-points. Suite " + "mot ".repeat(80))).toEqual({ texte: "Une phrase sans deux-points.", coupe: false });
+    expect(extract("Coupure " + "longue ".repeat(60)).texte).toMatch(/^Coupure (?:longue ){30,}\[…\]$/);
+  });
+
+  it("gives Saint-Leu's notices on its page, and for Petite-Île, Cilaos and L'Étang-Salé only a link to the mairie", async () => {
+    const at = new Date("2026-08-22T04:00:00Z");
+    const c = new Cache(new MemoryStore(), () => at.getTime());
+    const coupures = { value: await buildCoupures(c, at), fetchedAt: at };
+    const page = (slug: string) => coupuresCommunePage("https://rundata.re", pageOf(slug)!, { coupures }, at);
+    const sl = page("saint-leu");
+    expect(sl).toContain("Coupure d’eau mercredi 26 août");
+    expect(sl).toContain(`<a href="https://www.saintleu.re/actualite/coupure-deau-mercredi-26-aout.php" rel="noopener">Les secteurs concernés dans l'avis complet →</a>`);
+    expect(sl).toContain("les avis de coupure publiés sur <a href=\"https://www.saintleu.re/?s=eau\" rel=\"noopener\">le site de la commune de Saint-Leu</a>");
+    expect(coupures.value.communes_suivies).toContain("Saint-Leu");
+    expect(page("cilaos")).toContain(`<a href="https://ville-cilaos.fr/?s=coupure+d%27eau" rel="noopener">Les avis de coupure d&#39;eau sur le site de la ville de Cilaos →</a>`);
+    expect(page("petite-ile")).toContain(`<a href="https://www.petite-ile.re/actualites/news" rel="noopener">Les avis « Coupure d&#39;eau » sur le site de la ville de <span style="white-space:nowrap">Petite-Île</span> →</a>`);
+    const es = page("l-etang-sale");
+    expect(es).toContain("Le distributeur de la commune n'est pas connu ici : voir la mairie. <a href=\"https://www.letangsale.fr/\" rel=\"noopener\">Le site de la mairie de L&#39;<span style=\"white-space:nowrap\">Étang-Salé</span> →</a>");
+    expect(es).not.toContain("Coupure d’eau");
+    expect(waterLive(pageOf("cilaos")!, { coupures })).toMatchObject({ valeur: "Coupures non publiées" });
+    // No notice of Saint-Leu at the time: said of the commune that publishes them, not of its distributor.
+    const later = new Date("2026-10-24T04:00:00Z");
+    const now = { value: await buildCoupures(cache(), later), fetchedAt: later };
+    expect(coupuresCommunePage("https://rundata.re", pageOf("saint-leu")!, { coupures: now }, later)).toMatch(/Aucun avis de coupure publié par la commune de Saint-Leu à \d\d:\d\d\./);
+  });
+
+  it("gives, for a commune whose mairie is only linked to, where its notices are", async () => {
+    const b = body(await coupuresEau(cache(), "Cilaos", NOW));
+    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Cilaos : voir la mairie ou le distributeur d'eau.");
+    expect(b.mairie).toEqual({ libelle: "Les avis de coupure d'eau sur le site de la ville de Cilaos", lien: "https://ville-cilaos.fr/?s=coupure+d%27eau" });
+    expect(body(await coupuresEau(cache(), "Saint-Leu", NOW)).mairie).toBeUndefined();
   });
 
   it("serves a page per commune, none for an unknown one", async () => {

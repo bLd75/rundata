@@ -4,12 +4,12 @@
  * commune's own page. Cut from the copies of /coupures-eau, /secheresse and /eau: nothing more is fetched.
  */
 import type { Cached } from "../cache.js";
-import { CIREST, distributeur, MAIRIE_SAINTE_MARIE, SOURCE as DISTRIBUTEURS } from "../eau/distributeurs.js";
+import { CIREST, distributeur, LIENS, MAIRIE_SAINT_LEU, MAIRIE_SAINTE_MARIE, SOURCE as DISTRIBUTEURS } from "../eau/distributeurs.js";
 import { CREOLE } from "../providers/avis-eau.js";
 import { a } from "../tools/format.js";
 import type { Alerte, CoupuresAnswer, EauAnswer, SecheresseAnswer } from "./data.js";
 import { cycloneWater } from "./eau-cyclone.js";
-import { connectorCta, describe, droughtBadge, loading, noticeCard, sourcesNote, tapCard, webPage } from "./domains.js";
+import { connectorCta, describe, droughtBadge, loading, nobreak, noticeCard, sourcesNote, tapCard, webPage } from "./domains.js";
 import { esc, islandMap } from "./map.js";
 import { ask, hm, icon, layout, type Live, SITE } from "./pages.js";
 import { PAGES, type PlacePage } from "./places.js";
@@ -61,14 +61,19 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
   const at = w.coupures ? hm(w.coupures.fetchedAt) : "";
   const by = [...new Set(x.avis.map((n) => n.distributeur))].join(", ") || dist?.nom || "le distributeur";
   const where = a(p.nom);
+  // Who publishes the notices read (the CIREST, a mairie), else the distributor; a mairie only linked to (LIENS).
+  const publisher = dist?.par ?? dist?.nom;
+  const lien = LIENS[p.nom];
+  const lienA = lien ? ` <a href="${esc(lien.site)}" rel="noopener">${nobreak(lien.libelle)} →</a>` : "";
 
   const status = !d
     ? loading("Les avis des distributeurs")
     : x.avis.length
       ? `<div class="now"><span class="big">${x.avis.length}</span><p>avis de coupure ou de travaux récents ou à venir ${esc(where)}${x.dry ? ` ; <b>eau à ne pas boire</b> dans les secteurs de l'avis` : ""}.</p></div>`
       : dist?.avis
-        ? `<p class="lead">Aucun avis de coupure publié par ${esc(dist.nom)} ${esc(where)} à ${esc(at)}.</p>`
-        : `<p class="lead">${esc(dist?.nom ?? "Le distributeur")} ne publie pas ses avis de coupure dans un flux que rundata.re peut lire : voir ses avis aux abonnés ou la mairie.</p>`;
+        // Worded with marketing: who publishes the notices read, without the commune when that name already says it.
+        ? `<p class="lead">Aucun avis de coupure publié par ${esc(publisher!)}${publisher!.includes(p.nom) ? "" : ` ${esc(where)}`} à ${esc(at)}.</p>`
+        : `<p class="lead">${esc(dist?.nom ?? "Le distributeur")} ne publie pas ses avis de coupure dans un flux que rundata.re peut lire : voir ses avis aux abonnés ou la mairie.${lienA}</p>`;
 
   const list = !d
     ? `<p class="card">Les avis se chargent : rechargez la page dans quelques secondes.</p>`
@@ -84,11 +89,13 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
             ? `<p>Les avis de la commune, publiés par la CIREST, sont relus au moins toutes les 30 minutes : <a href="${esc(dist.site)}" rel="noopener">les avis de la CIREST</a>.</p>`
             : dist.site === MAIRIE_SAINTE_MARIE
             ? `<p>Nous lisons, au moins toutes les 30 minutes, les communiqués de CISE Réunion publiés sur <a href="${esc(dist.site)}" rel="noopener">le site de la ville de Sainte-Marie</a> : ils s'affichent en haut de cette page. Un communiqué publié en image ou en PDF n'est pas lu : nous donnons seulement son lien.</p>`
+            : dist.site === MAIRIE_SAINT_LEU
+            ? `<p>Nous lisons, au moins toutes les 30 minutes, les avis de coupure publiés sur <a href="${esc(dist.site)}" rel="noopener">le site de la commune de Saint-Leu</a> : ils s'affichent en haut de cette page, avec un court extrait et le lien vers l'avis complet. Un avis publié en image n'est pas lu : nous donnons seulement son lien.</p>`
             : dist.site === CREOLE.url
             ? `<p>Nous lisons, au moins toutes les 30 minutes, les avis de <a href="${esc(dist.site)}" rel="noopener">la page « flash infos » de La Créole</a> : ils s'affichent en haut de cette page.</p>`
             : `<p>Ses avis sont relus au moins toutes les 30 minutes : <a href="${esc(dist.site!)}" rel="noopener">le site de ${esc(dist.nom)}</a>.</p>`
-          : `<p>Il ne publie pas ses avis de coupure dans un flux lisible : ils sont sur ses avis aux abonnés et auprès de la mairie.</p>`)
-      : `<p>Le distributeur de la commune n'est pas connu ici : voir la mairie.</p>`) +
+          : `<p>Il ne publie pas ses avis de coupure dans un flux lisible : ils sont sur ses avis aux abonnés et auprès de la mairie.${lienA}</p>`)
+      : `<p>Le distributeur de la commune n'est pas connu ici : voir la mairie.${lienA}</p>`) +
     `<p class="note">Son numéro d'urgence (fuite, coupure non annoncée) est sur la facture d'eau. <a href="/communes/${p.slug}">${esc(p.nom)} en direct : la mairie, ses horaires et son téléphone →</a></p></div>`;
 
   const drought = x.secheresse

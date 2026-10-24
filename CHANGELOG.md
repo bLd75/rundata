@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Coupures d'eau à Saint-Leu : les avis publiés par la commune s'affichent. Petite-Île, Cilaos, L'Étang-Salé : un lien vers la mairie.
 - Questions en créole pour votre IA, plus proches de la façon dont on parle ici : « Volkan la pété ? », « Kwélafé La Rényon astèr ? »…
 - Coupures d'eau : les avis de La Créole à Saint-Paul et aux Trois-Bassins, et de CISE Réunion à Sainte-Marie.
 - Volcan : les alertes précédentes remontent à 2016, avec 12 épisodes de plus cités dans les communiqués de la préfecture.
