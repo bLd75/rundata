@@ -189,7 +189,8 @@ describe("place pages", () => {
     expect(cold.text).not.toContain("Température de la mer à Cilaos");
     expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
     const warm = await serve(isolate(edge), "/meteo/cilaos");
-    expect(warm.used).toBeLessThanOrEqual(2);
+    // Its copy, the vigilance, and the hikers' page's copy for the state of the hikes around.
+    expect(warm.used).toBeLessThanOrEqual(3);
   });
 
   it("give the sea temperature on the coast", async () => {
@@ -220,7 +221,8 @@ describe("commune pages", () => {
     expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
     const warm = await serve(isolate(edge), "/communes/saint-leu");
     expect(warm.text).toMatch(/<h3>Mairie<\/h3><p class="tv">(Ouverte|Fermée)<\/p>/);
-    expect(warm.used).toBeLessThanOrEqual(15);
+    // One read per tile's copy, the hikes and the outings included.
+    expect(warm.used).toBeLessThanOrEqual(17);
   });
 
   it("leave the sea out in the Hauts, and only exist for the 24 communes", async () => {

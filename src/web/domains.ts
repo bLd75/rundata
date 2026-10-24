@@ -18,6 +18,7 @@ import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../trace
 import island from "../places/island.json" with { type: "json" };
 import rubriques from "./og-rubriques.json" with { type: "json" };
 import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
+import { forecastLinks, weatherForTrace } from "./liens.js";
 import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
@@ -867,8 +868,9 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Bouchons : Waze · état des routes : la Région</p>
-    <h1>Circulation à La Réunion <span class="n974">974</span></h1>
+    <h1>Bouchons et circulation à La Réunion <span class="n974">974</span></h1>
     <p class="lead">Les bouchons en direct sont sur la carte de Waze, l'état officiel des routes nationales sur <a href="${INFOTRAFIC}">infotrafic.re</a>, le site de la Région. rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant.</p>
+    <p class="lead">La route du Littoral est basculée ou fermée ? L'état officiel est sur <a href="${INFOTRAFIC}">infotrafic.re</a>.</p>
     <p class="hero-cta"><a class="btn sun" href="${INFOTRAFIC}">${icon("car")}État des routes (Région)</a><a class="btn glass" href="${esc(wazeLink(first))}">${icon("map")}Ouvrir Waze</a></p>
     ${ask(`Lé bouché si la kat-voi astèr ? Rogard si ${url} é di amwin sak ou koné, é ousa mi pé rogard lo trafik.`,
       `Ça bouchonne sur la quatre-voies en ce moment ? Lis ${url} : dis-moi ce que tu sais (bus, routes forestières, vigilance) et où regarder le trafic en direct.`)}
@@ -1255,7 +1257,8 @@ ${stateBlock}
 <section aria-labelledby="h-savoir">
   <div class="sec-h"><h2 id="h-savoir">Avant de partir</h2>
   <p>La trace GPX s'ouvre dans les applications de randonnée et les montres GPS. ${kind === "sentier" ? "C'est le sentier tel que l'ONF le trace sur sa carte, à pleine résolution." : "C'est l'itinéraire complet tel que les contributeurs d'OpenStreetMap l'ont relevé ; il peut emprunter des sentiers fermés : voir leur état ci-dessus."} Altitudes, dénivelés et profil : modèle de terrain de l'IGN (RGE ALTI).</p>
-  ${others}</div>
+  ${others}
+  ${weatherForTrace((d?.lignes ?? []).flatMap((l) => l.points))}</div>
   ${warnings([
     "Un sentier fermé l'est par arrêté préfectoral ou décision de l'ONF : s'y engager est interdit et dangereux, même avec une trace.",
     "Vérifier la vigilance météo avant de partir : par fortes pluies, les ravines montent vite et la préfecture ferme d'autres sentiers.",

@@ -5,6 +5,7 @@
 import type { Cached } from "../cache.js";
 import type { AgendaAnswer, Alerte } from "./data.js";
 import { agendaEvents, agendaRow, agendaTabs, connectorCta, describe, GENRE_SCRIPT, GENRES, loading, longDay, sourcesNote, warnings, webPage } from "./domains.js";
+import { forecastLinks } from "./liens.js";
 import { esc } from "./map.js";
 import { ask, DESCRIPTION_MAX, layout, SITE } from "./pages.js";
 
@@ -134,13 +135,13 @@ function trail(origin: string, name: string, path: string) {
 }
 
 /** The genre filter and the days, as on /evenements. */
-function dayList(days: Map<string, string[]>, rows: Row[], heading: (day: string) => string): string {
+function dayList(days: Map<string, string[]>, rows: Row[], heading: (day: string) => string, after: (day: string) => string = () => ""): string {
   const present = new Set(rows.flatMap((r) => r.genres));
   const filter = present.size > 1
     ? `<form id="ef" class="card filter" hidden role="search" aria-label="Filtrer les événements par genre"><label>Genre <select name="g"><option value="">tous</option>${GENRES.filter(([g]) => present.has(g)).map(([g, nom]) => `<option value="${esc(g)}">${esc(nom)}</option>`).join("")}</select></label><p class="note" id="ef-n" aria-live="polite"></p></form>`
     : "";
   return `${filter}<div id="jours"><ul class="zones">${[...days].sort(([x], [y]) => x.localeCompare(y)).map(([day, items]) =>
-    `<li class="card"><h3>${esc(heading(day))} <span class="note">${items.length} événement${items.length > 1 ? "s" : ""}</span></h3><ul class="rows eau">${items.join("")}</ul></li>`).join("")}</ul></div><script>${GENRE_SCRIPT}</script>`;
+    `<li class="card"><h3>${esc(heading(day))} <span class="note">${items.length} événement${items.length > 1 ? "s" : ""}</span></h3><ul class="rows eau">${items.join("")}</ul>${after(day)}</li>`).join("")}</ul></div><script>${GENRE_SCRIPT}</script>`;
 }
 
 /** The events of a page as schema.org `Event`s (domains.ts `agendaEvents`), when there are any. */
@@ -163,17 +164,20 @@ export function weekendPage(origin: string, data: Cached<AgendaAnswer> | null, n
   const listed: Row[] = [];
   // As search engines get them: each event once, at its date that weekend.
   const dated: Row[] = [];
-  const sorted: { day: string; long: boolean; time: string; html: string }[] = [];
+  const sorted: { day: string; long: boolean; time: string; html: string; commune?: string }[] = [];
   for (const r of d?.evenements ?? []) {
     const here = inWeekend(r, w, now);
     if (!here.length) continue;
     listed.push(r);
     dated.push({ ...r, date: here[0].date, quand: here[0].quand });
-    for (const o of here) sorted.push({ day: o.day, long: o.long, time: o.quand, html: agendaRow({ ...r, quand: o.quand }) });
+    for (const o of here) sorted.push({ day: o.day, long: o.long, time: o.quand, html: agendaRow({ ...r, quand: o.quand }), commune: r.commune });
   }
   // The shows of a day by their hour, the fêtes of several days after them.
   sorted.sort((x, y) => Number(x.long) - Number(y.long) || (/\d\d:\d\d/.exec(x.time)?.[0] ?? "").localeCompare(/\d\d:\d\d/.exec(y.time)?.[0] ?? ""));
   for (const s of sorted) days.set(s.day, [...(days.get(s.day) ?? []), s.html]);
+  // The weather of the communes where something happens, day by day.
+  const where = new Map<string, (string | undefined)[]>();
+  for (const s of sorted) where.set(s.day, [...(where.get(s.day) ?? []), s.commune]);
   const n = listed.length;
   const of = (g: string) => listed.filter((r) => r.genres.includes(g)).length;
 
@@ -191,7 +195,7 @@ export function weekendPage(origin: string, data: Cached<AgendaAnswer> | null, n
   const list = !d
     ? `<p class="card">L'agenda se charge : rechargez la page dans quelques secondes.</p>`
     : n
-      ? dayList(days, listed, (day) => `${upper(dayName(day))}${day === w.du && w.vendredi ? " soir" : ""}${w.feries.has(day) ? ` (${w.feries.get(day)}, férié)` : ""}`)
+      ? dayList(days, listed, (day) => `${upper(dayName(day))}${day === w.du && w.vendredi ? " soir" : ""}${w.feries.has(day) ? ` (${w.feries.get(day)}, férié)` : ""}`, (day) => forecastLinks(where.get(day) ?? []))
       : `<p class="card">Aucun événement trouvé dans les agendas lus pour ce week-end. Voir <a href="/evenements">les deux semaines qui viennent</a>.</p>`;
 
   const title = "Que faire ce week-end à La Réunion ? · 974";

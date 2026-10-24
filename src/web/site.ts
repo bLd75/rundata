@@ -46,11 +46,13 @@ import {
   type Alerte,
   type Background,
   type PlaceData,
+  type RandonneesAnswer,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
 import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
 import { concertsPage, weekendPage } from "./evenements.js";
 import { coupuresCommunePage } from "./coupures.js";
+import { hikesNear } from "./liens.js";
 import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
@@ -148,7 +150,7 @@ const BUILDS: Record<string, (cache: Cache, now: Date) => Promise<unknown>> = {
 // The home page's tiles besides the weather and the vigilance; a commune page's besides its own.
 // The news first: on a day of mobilisation its headlines go above the tiles.
 const HOME_TILES = ["web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
-const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier", "web:coupures", "web:secheresse", "web:eau"];
+const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier", "web:coupures", "web:secheresse", "web:eau", "web:randonnees", "web:agenda"];
 
 /**
  * The last copy of each of these pages, without building them: building them all would not fit in one invocation.
@@ -293,7 +295,9 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request)),
       alerte(cache, background, now),
     ]);
-    return new Response(placePage(origin, p, data, now, a), { headers: htmlFor(data) });
+    // The state of the hikes around: the hikers' page's last copy, as it is, never built for this page.
+    const hikes = hikesNear(p.place.lon, p.place.lat).length ? await cache.peek<RandonneesAnswer>("web:randonnees").catch(() => undefined) : undefined;
+    return new Response(placePage(origin, p, data, now, a, hikes ?? null), { headers: htmlFor(data) });
   }
   if (path === "/communes" || path === "/communes/") {
     return new Response(communesPage(origin, await alerte(cache, background, now)), { headers: HTML });
@@ -306,9 +310,9 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       snapshot(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now), background, now, waitFor(request), isReader(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
     ]);
-    const [air, mer, volcan, electricite, calendrier, coupures, secheresse, eau] = await tileCopies(cache, COMMUNE_TILES, background, place, now);
+    const [air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda] = await tileCopies(cache, COMMUNE_TILES, background, place, now);
     const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
-    return new Response(communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau }, now, a), { headers: htmlFor(place) });
+    return new Response(communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda }, now, a), { headers: htmlFor(place) });
   }
   if (path === `/${INDEXNOW_KEY}.txt`) {
     return new Response(INDEXNOW_KEY, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });

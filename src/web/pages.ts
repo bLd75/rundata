@@ -14,11 +14,12 @@ import { VERSION } from "../server.js";
 import { fr } from "../tools/format.js";
 import * as mf from "../providers/vigilance.js";
 import { current, cyclone, highest, raised, spans } from "../tools/vigilance.js";
-import type { Alerte, Credit, HomeData, PlaceData, SeaData, StationAnswer, StationNow } from "./data.js";
+import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, StationAnswer, StationNow } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import * as traces from "../providers/traces.js";
 import icons from "./icons.json" with { type: "json" };
+import { hikesAround } from "./liens.js";
 import rubriques from "./og-rubriques.json" with { type: "json" };
 import { WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
@@ -1052,7 +1053,7 @@ function stationCard(s: StationAnswer): string {
     `</div>`;
 }
 
-export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> | null, now = new Date(), alerte?: Alerte): string {
+export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> | null, now = new Date(), alerte?: Alerte, hikes?: Cached<RandonneesAnswer> | null): string {
   const place = p.place;
   const d = data?.value;
   const stations = (d?.meteo?.stations ?? []).filter(
@@ -1159,6 +1160,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
 </section>
 ${sea}
 ${forecast}
+${hikesAround(p, hikes)}
 <section aria-labelledby="h-ailleurs">
   <h2 id="h-ailleurs">Météo ailleurs à La Réunion</h2>
   ${placeLinks(p.slug)}
