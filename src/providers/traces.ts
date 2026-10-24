@@ -62,6 +62,8 @@ export interface Randonnee {
   boucle: boolean;
   /** The ONF trails it follows, by name. */
   sentiers_onf: string[];
+  /** Where it follows each of them: [piece, first point, last point] of its own lines. */
+  portions?: Record<string, [number, number, number][]>;
   /** Polylines (Google's encoding, 5 decimals), one per piece of the route. */
   lignes: string[];
   altitudes: (number | null)[][];
@@ -78,7 +80,7 @@ export interface SentierStats {
   alt_max?: number;
 }
 
-export const RANDONNEES = data.randonnees as Randonnee[];
+export const RANDONNEES = data.randonnees as unknown as Randonnee[];
 /** By the trail's name as src/providers/sentiers.ts gives it. */
 export const SENTIERS = data.sentiers as Record<string, SentierStats>;
 export const BUILT = data.construit;
@@ -115,6 +117,11 @@ export function decode(s: string): [number, number][] {
 /** A route's pieces with the altitude of each point. */
 export function routePieces(r: Randonnee): Point[][] {
   return r.lignes.map((l, k) => decode(l).map(([lon, lat], j) => ({ lon, lat, ele: r.altitudes[k]?.[j] ?? undefined })));
+}
+
+/** The stretches of a route along one of its ONF trails, as points of the route's own lines: where a closure is. */
+export function portionsOf(r: Randonnee, nom: string, pieces = routePieces(r)): Point[][] {
+  return (r.portions?.[nom] ?? []).map(([k, a, b]) => pieces[k]?.slice(a, b + 1) ?? []).filter((p) => p.length > 1);
 }
 
 /** Length in km and, when the points have altitudes, climb and descent in m. */
@@ -227,7 +234,16 @@ export async function traceOnf(cache: Cache, t: { nom: string } & SentierStats):
 const xml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const coord = (n: number) => n.toFixed(6).replace(/\.?0+$/, "");
 
-/** A GPX 1.1 file: one track, one segment per piece, the source and its licence in the metadata. */
+/** A point of the file shown by GPS apps with its name: where a closed trail starts. */
+export interface Waypoint {
+  lon: number;
+  lat: number;
+  ele?: number;
+  nom: string;
+  description?: string;
+}
+
+/** A GPX 1.1 file: one track, one segment per piece, the source and its licence in the metadata, the waypoints first. */
 export function gpx(opts: {
   nom: string;
   description: string;
@@ -235,6 +251,7 @@ export function gpx(opts: {
   auteur: string;
   licence?: string;
   pieces: Point[][];
+  waypoints?: Waypoint[];
   now: Date;
 }): string {
   const all = opts.pieces.flat();
@@ -243,6 +260,9 @@ export function gpx(opts: {
   const bounds = all.length
     ? `<bounds minlat="${coord(Math.min(...lats))}" minlon="${coord(Math.min(...lons))}" maxlat="${coord(Math.max(...lats))}" maxlon="${coord(Math.max(...lons))}"/>`
     : "";
+  const wpt = (w: Waypoint) =>
+    `<wpt lat="${coord(w.lat)}" lon="${coord(w.lon)}">${w.ele != null ? `<ele>${w.ele}</ele>` : ""}<name>${xml(w.nom)}</name>` +
+    `${w.description ? `<desc>${xml(w.description)}</desc>` : ""}<sym>Danger Area</sym><type>danger</type></wpt>\n`;
   const seg = (p: Point[]) =>
     `<trkseg>\n${p.map((x) => `<trkpt lat="${coord(x.lat)}" lon="${coord(x.lon)}">${x.ele != null ? `<ele>${x.ele}</ele>` : ""}</trkpt>`).join("\n")}\n</trkseg>`;
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -251,7 +271,7 @@ export function gpx(opts: {
     `<author><name>rundata.re</name><link href="https://rundata.re"><text>rundata.re</text></link></author>` +
     `<copyright author="${xml(opts.auteur)}">${opts.licence ? `<license>${xml(opts.licence)}</license>` : ""}</copyright>` +
     `<link href="${xml(opts.page)}"><text>${xml(opts.nom)} sur rundata.re</text></link><time>${opts.now.toISOString().slice(0, 19)}Z</time>${bounds}</metadata>
-<trk><name>${xml(opts.nom)}</name><desc>${xml(opts.description)}</desc><type>hiking</type>
+${(opts.waypoints ?? []).map(wpt).join("")}<trk><name>${xml(opts.nom)}</name><desc>${xml(opts.description)}</desc><type>hiking</type>
 ${opts.pieces.filter((p) => p.length > 1).map(seg).join("\n")}
 </trk>
 </gpx>

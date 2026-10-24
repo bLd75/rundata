@@ -117,10 +117,10 @@ export const CATEGORIES: Category[] = [
   {
     key: "sentiers",
     nom: "Randonnée",
-    path: "/sentiers",
+    path: "/randonnees",
     icon: "mountain",
     tools: ["sentiers_randonnee"],
-    about: "Les sentiers de randonnée et routes forestières ouverts ou fermés, d'après la carte de l'ONF, avec la cause de chaque fermeture, et la trace GPS de chaque sentier et randonnée.",
+    about: "Les randonnées de l'île avec leur trace GPS (GPX), leur distance et leur dénivelé, et les sentiers ouverts ou fermés d'après la carte de l'ONF, avec la cause de chaque fermeture.",
   },
   {
     key: "sport",

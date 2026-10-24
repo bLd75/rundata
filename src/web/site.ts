@@ -22,6 +22,7 @@ import {
   buildBornes,
   buildEau,
   buildSentiers,
+  buildRandonnees,
   buildSecheresse,
   buildCoupures,
   buildSport,
@@ -42,7 +43,7 @@ import {
   type Background,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
-import { agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, secheressePage, sentiersPage, sportPage, tracePage, velosPage, volcanPage } from "./domains.js";
+import { agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, velosPage, volcanPage } from "./domains.js";
 import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
@@ -103,6 +104,7 @@ const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) =>
   "/velos": { key: "web:velos", build: buildVelos, page: velosPage },
   "/bornes": { key: "web:bornes", build: buildBornes, page: bornesPage },
   "/eau": { key: "web:eau", build: buildEau, page: eauPage },
+  "/randonnees": { key: "web:randonnees", build: buildRandonnees, page: randonneesPage },
   "/sentiers": { key: "web:sentiers", build: buildSentiers, page: sentiersPage },
   "/secheresse": { key: "web:secheresse", build: buildSecheresse, page: secheressePage },
   "/coupures-eau": { key: "web:coupures", build: buildCoupures, page: coupuresPage },

@@ -9,10 +9,10 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import type { AgendaAnswer, AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, CyclonesAnswer, DaeAnswer, EauAnswer, ElectriciteAnswer, HistoriqueAnswer, HourlyAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, TraceAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import { type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
-import { esc, islandMap, oceanMap, profile, traceMap } from "./map.js";
+import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
 import { ask, credits, DESCRIPTION_MAX, fresh, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
@@ -748,7 +748,8 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
   const byCommune = d
     ? `<ul class="zones">${d.fermes_par_commune.map((c) =>
         `<li class="card"><h3>${esc(c.commune)} <span class="note">${c.sentiers_fermes.length} fermé${c.sentiers_fermes.length > 1 ? "s" : ""}</span></h3><ul class="rows eau">` +
-        c.sentiers_fermes.map((t) => `<li><span>${t.page ? `<a href="${esc(t.page.replace(/^https:\/\/rundata\.re/, ""))}">${esc(t.sentier)}</a>` : esc(t.sentier)}<small>${[t.cause, t.precision].filter(Boolean).map((x) => esc(x!)).join(" · ") || "fermé"}</small></span>` +
+        c.sentiers_fermes.map((t) => `<li><span>${t.page ? `<a href="${esc(t.page.replace(/^https:\/\/rundata\.re/, ""))}">${esc(t.sentier)}</a>` : esc(t.sentier)}<small>${[t.cause, t.precision].filter(Boolean).map((x) => esc(x!)).join(" · ") || "fermé"}</small>` +
+          (t.randonnees?.length ? `<small class="cuts">Coupe : ${t.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}</small>` : "") + `</span>` +
           `<span class="q-mauvaise">fermé</span></li>`).join("") + `</ul></li>`).join("")}</ul>`
     : `<p class="card">L'état des sentiers se charge : rechargez la page dans quelques secondes.</p>`;
 
@@ -757,15 +758,10 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
         `<li><span>${esc(r.route)}<small>${[r.cause, r.precision].filter(Boolean).map((x) => esc(x!)).join(" · ")}</small></span><span class="q-mauvaise">interdite</span></li>`).join("")}</ul></div>`
     : "";
 
-  const hikes = d?.randonnees.length
-    ? `<section aria-labelledby="h-traces">
-  <div class="sec-h"><p class="eyebrow">GPX à télécharger</p><h2 id="h-traces">Randonnées : traces GPS</h2>
-  <p>Les itinéraires complets relevés par les contributeurs d'OpenStreetMap, avec leur longueur, leur dénivelé (altitudes de l'IGN) et l'état du moment des sentiers de l'ONF qu'ils empruntent. Chaque sentier de l'ONF a aussi sa trace, sur sa page.</p></div>
-  <div class="card"><ul class="rows eau">${d.randonnees.map((r) =>
-    `<li><span><a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a><small>${kmFr(r.km)} km · +${meters(r.dplus)} m${r.boucle ? " · boucle" : ""}</small></span><a class="note" href="/randonnees/${esc(r.slug)}.gpx" download>GPX</a></li>`).join("")}</ul></div>
-  <p class="note">Itinéraires © les contributeurs d'OpenStreetMap (ODbL) ; altitudes IGN, RGE ALTI.</p>
-</section>`
-    : "";
+  const hikes = `<section aria-labelledby="h-traces">
+  <div class="card cta"><h2 id="h-traces">Choisir une randonnée</h2>
+  <p>Les ${d?.randonnees.length ?? ""} itinéraires complets (GR R1, R2, R3, sommets, boucles) et les sentiers de l'ONF, avec leur trace GPS, leur distance, leur dénivelé et l'état du jour, sur une carte de l'île et filtrables : <a href="/randonnees">la page randonnée</a>.</p></div>
+</section>`;
 
   const title = "Sentiers fermés à La Réunion aujourd'hui : la liste de l'ONF, cirque par cirque";
   const short = "🇷🇪 Sentiers de randonnée fermés à La Réunion (974) : la liste de l'ONF commune par commune, avec la cause de chaque fermeture.";
@@ -773,12 +769,13 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
     ? describe(`🇷🇪 Sentiers fermés à La Réunion (974) : ${closed} sentiers fermés sur ${d.suivis} d'après la carte de l'ONF, commune par commune, avec la cause (éboulement, sentier dégradé, travaux).`, short)
     : short;
 
-  const band = `${crumbBar("Randonnée")}
+  const band = `${hikeCrumbBar("Sentiers fermés")}
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Carte de l'ONF</p>
     <h1>Sentiers fermés <span class="n974">974</span></h1>
     ${status}
+    <p class="hero-cta"><a class="btn sun" href="/randonnees">${icon("mountain")}Randonnées et traces GPS</a></p>
     ${ask(`Lo santyé Roche Plate lé ouvèr ? Rogard si ${url} é di amwin si mi pé désann Mafate.`,
       `Le sentier de Roche Plate est-il ouvert ? Lis ${url} et dis-moi si je peux descendre dans Mafate.`)}
   </div>
@@ -797,14 +794,185 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
 ${hikes}
 ${connectorCta("sentiers_randonnee", "les sentiers de randonnée")}`;
 
-  return layout(origin, { title, description, path: "/sentiers", jsonld: [crumbs(origin, "Randonnée", "/sentiers"), webPage(origin, "/sentiers", title, description, data)], alerte }, band, body);
+  return layout(origin, { title, description, path: "/sentiers", jsonld: [hikeCrumbs(origin, "Sentiers fermés", "/sentiers"), webPage(origin, "/sentiers", title, description, data)], alerte }, band, body);
 }
 
-export function sentiersLive(data: Cached<SentiersAnswer> | null): Live | undefined {
+// ---------------------------------------------------------------- randonnée: the hikers' page
+
+/** Breadcrumbs under the hikers' page: rundata.re › Randonnée › `name`. */
+function hikeCrumbs(origin: string, name: string, path: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: SITE, item: `${origin}/` },
+      { "@type": "ListItem", position: 2, name: "Randonnée", item: `${origin}/randonnees` },
+      { "@type": "ListItem", position: 3, name, item: `${origin}${path}` },
+    ],
+  };
+}
+const hikeCrumbBar = (label: string) =>
+  `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li><a href="/randonnees">Randonnée</a></li><li aria-current="page">${esc(label)}</li></ol></nav></div>`;
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n > 1 ? many : one}`;
+const why_ = (x: { cause?: string; precision?: string }) => [x.cause, x.precision].filter(Boolean).map((v) => esc(v!)).join(" · ");
+
+/** A closed ONF trail, linked to its page, with why and until when. */
+const closedLi = (x: { sentier: string; slug?: string; page?: string; cause?: string; precision?: string }) => {
+  const href = x.page ?? (x.slug ? `/sentiers/${x.slug}` : undefined);
+  return `<li>${href ? `<a href="${esc(href)}">${esc(x.sentier)}</a>` : esc(x.sentier)}${why_(x) ? ` : ${why_(x)}` : ""}</li>`;
+};
+
+/** What the filter reads on a hike or a trail. */
+const dataOf = (x: { k: string; km: number; dplus?: number; boucle: boolean }, etat: "o" | "f" | "i") =>
+  `data-k="${x.k}" data-km="${x.km}" data-dp="${x.dplus ?? ""}" data-e="${etat}" data-b="${x.boucle ? 1 : 0}"`;
+
+function hikeCard(h: HikeCard): string {
+  const etat = h.fermes.length ? "f" : h.onf > h.inconnus.length ? "o" : "i";
+  const state = h.fermes.length
+    ? `<div class="shut"><p><b>${icon("alert")}${plural(h.fermes.length, "tronçon fermé", "tronçons fermés")}</b></p><ul>${h.fermes.map(closedLi).join("")}</ul></div>`
+    : etat === "o"
+      ? `<p class="okay">Tronçons suivis par l'ONF ouverts</p>`
+      : `<p class="note">État non suivi par l'ONF : se renseigner avant de partir.</p>`;
+  // Never counted as open: said apart.
+  const unknown = etat !== "i" && h.inconnus.length ? `<p class="note">${plural(h.inconnus.length, "tronçon hors gestion ONF", "tronçons hors gestion ONF")} : état non connu.</p>` : "";
+  const facts = [`${kmFr(h.km)} km`, `+${meters(h.dplus)} m`, h.alt_max != null ? `jusqu'à ${meters(h.alt_max)} m` : "", h.boucle ? "boucle" : "", h.secteur].filter(Boolean).join(" · ");
+  return `<li class="card hike${h.fermes.length ? " closed" : ""}" ${dataOf(h, etat)}>
+<h3><a href="/randonnees/${esc(h.slug)}">${esc(h.nom)}</a></h3><p class="note">${esc(facts)}</p>${state}${unknown}
+<p class="links"><a href="/randonnees/${esc(h.slug)}">Carte et profil</a><a href="/randonnees/${esc(h.slug)}.gpx" download>GPX</a></p></li>`;
+}
+
+function trailLi(t: TrailItem): string {
+  const e = t.etat === "fermé" ? "f" : t.etat === "ouvert" ? "o" : "i";
+  const cls = e === "f" ? "q-mauvaise" : e === "o" ? "q-bonne" : "q-none";
+  const label = e === "f" ? (t.partiel ? "fermé en partie" : "fermé") : e === "o" ? "ouvert" : "état inconnu";
+  const small = [`${t.commune ? `${esc(t.commune)} · ` : ""}${kmFr(t.km)} km${t.dplus != null ? ` · +${meters(t.dplus)} m` : ""}${t.boucle ? " · boucle" : ""}`, why_(t)].filter(Boolean).join(" · ");
+  const on = t.randonnees.length ? `<small>Sur : ${t.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}</small>` : "";
+  return `<li ${dataOf(t, e)}><span>${t.slug ? `<a href="/sentiers/${esc(t.slug)}">${esc(t.nom)}</a>` : esc(t.nom)}<small>${small}</small>${on}</span><span class="${cls}">${label}</span></li>`;
+}
+
+// The filter: shown once the script runs; without it, everything is listed.
+const FILTER = `<form id="rf" class="card filter" hidden role="search" aria-label="Filtrer les randonnées et les sentiers">
+<label class="q">Chercher <input name="q" type="search" placeholder="Mafate, Piton des Neiges, GR R2…" autocomplete="off"></label>
+<label>Distance <select name="km"><option value="0-1e9">toutes</option><option value="0-5">moins de 5 km</option><option value="5-10">5 à 10 km</option><option value="10-20">10 à 20 km</option><option value="20-1e9">plus de 20 km</option></select></label>
+<label>Dénivelé positif <select name="dp"><option value="0-1e9">tous</option><option value="0-300">moins de 300 m</option><option value="300-800">300 à 800 m</option><option value="800-1500">800 à 1 500 m</option><option value="1500-1e9">plus de 1 500 m</option></select></label>
+<label>Parcours <select name="bo"><option value="">tous</option><option value="1">en boucle</option><option value="0">aller simple</option></select></label>
+<label class="chk"><input name="ouv" type="checkbox"> Ouverts seulement</label>
+<p class="note" id="rf-n" aria-live="polite"></p></form>`;
+
+const FILTER_SCRIPT = `(()=>{const f=document.getElementById("rf");if(!f)return;f.hidden=false;
+const items=[...document.querySelectorAll("li[data-k]")],lines={},row={};
+const norm=(s)=>s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+for(const e of items){row[e.dataset.k]=e;e.dataset.q=norm(e.textContent)+" "+norm(e.closest("details")?.querySelector("summary")?.textContent||"")}
+document.querySelectorAll("#hmap [data-k]").forEach((p)=>(lines[p.dataset.k]??=[]).push(p));
+document.getElementById("hmap").addEventListener("click",(ev)=>{const k=ev.target.dataset?.k,a=k&&row[k]?.querySelector("a");if(a)location.href=a.href});
+const range=(v)=>v.split("-").map(Number);
+const run=()=>{const q=norm(f.q.value).split(" ").filter(Boolean),[a,b]=range(f.km.value),[c,d]=range(f.dp.value),dpAll=f.dp.value==="0-1e9",open=f.ouv.checked,bo=f.bo.value;
+const active=q.length||f.km.value!=="0-1e9"||!dpAll||open||bo!=="";let nr=0,ns=0;
+for(const e of items){const x=e.dataset,km=+x.km,dp=x.dp===""?NaN:+x.dp;
+const ok=q.every((t)=>x.q.includes(t))&&km>=a&&km<b&&(dpAll||(dp>=c&&dp<d))&&(!open||x.e==="o")&&(bo===""||x.b===bo);
+e.hidden=!ok;for(const p of lines[x.k]||[])p.style.display=ok?"":"none";if(ok)x.k[0]==="r"?nr++:ns++}
+document.querySelectorAll("details.sect").forEach((s)=>{const n=s.querySelectorAll("li[data-k]:not([hidden])").length;s.hidden=!n;s.querySelector(".cnt").textContent=n;if(active)s.open=n>0&&n<=40});
+document.getElementById("rf-n").textContent=active?nr+" itinéraire"+(nr>1?"s":"")+" et "+ns+" sentier"+(ns>1?"s":"")+" correspondent.":"";};
+f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefault());})();`;
+
+export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/randonnees`, now);
+  const nRoutes = d?.randonnees.length ?? 0;
+  const cut = d?.randonnees.filter((h) => h.fermes.length) ?? [];
+
+  const status = !d
+    ? loading("La carte des randonnées")
+    : `<div class="now"><span class="big">${nRoutes}</span><p>itinéraires et <b>${d.suivis}</b> sentiers de l'ONF avec leur trace GPS, leur distance et leur dénivelé. ` +
+      `Aujourd'hui, <b>${plural(d.fermes, "sentier fermé", "sentiers fermés")}</b>${cut.length ? `, sur ${plural(cut.length, "itinéraire")}` : ""}.</p></div>`;
+
+  const map = d
+    ? `<figure class="card mapcard">${hikesMap(d.lignes, "Carte de La Réunion (974) : les itinéraires de randonnée et les sentiers de l'ONF, ouverts ou fermés")}
+  <figcaption class="note legend"><span><i class="sw rte"></i>itinéraire avec trace</span><span><i class="sw ouvert"></i>sentier ouvert</span><span><i class="sw ferme"></i>fermé</span><span><i class="sw inconnu"></i>hors gestion ONF</span></figcaption></figure>`
+    : "";
+
+  const band = `${crumbBar("Randonnée")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Traces GPS · état ONF du jour</p>
+    <h1>Randonnée à La Réunion <span class="n974">974</span></h1>
+    ${status}
+    <p class="hero-cta"><a class="btn sun" href="#itineraires">${icon("mountain")}Choisir une rando</a><a class="btn glass" href="/sentiers">${icon("alert")}Sentiers fermés${d ? ` (${d.fermes})` : ""}</a></p>
+    ${ask(`Mi rod inn rando 10 km dan Silaos, lé ouvèr ? Rogard si ${url} é di amwin.`,
+      `Je cherche une randonnée d'environ 10 km à Cilaos, ouverte en ce moment : lis ${url} et propose-m'en une avec sa trace GPS.`)}
+  </div>
+  ${map}
+</div>`;
+
+  const closures = cut.length
+    ? `<div class="card warn alarm">${icon("alert")}<h3>${plural(cut.length, "itinéraire coupé", "itinéraires coupés")} par une fermeture</h3>
+  <ul class="plain">${cut.map((h) => `<li><a href="/randonnees/${esc(h.slug)}">${esc(h.nom)}</a> : ${h.fermes.map((f) => (f.slug ? `<a href="/sentiers/${esc(f.slug)}">${esc(f.sentier)}</a>` : esc(f.sentier)) + (f.cause ? ` (${esc(f.cause)})` : "")).join(", ")}</li>`).join("")}</ul>
+  <p class="note">Un sentier fermé est interdit, même avec la trace : prendre une variante ouverte ou choisir une autre randonnée. <a href="/sentiers">Tous les sentiers fermés</a>.</p></div>`
+    : "";
+
+  const routes = d
+    ? `<section aria-labelledby="h-itineraires" id="itineraires">
+  <div class="sec-h"><p class="eyebrow">GPX à télécharger</p><h2 id="h-itineraires">Les itinéraires avec trace GPS</h2>
+  <p>Les randonnées complètes relevées par les contributeurs d'OpenStreetMap : GR R1, R2, R3, sommets, boucles. Distance et dénivelé d'après les altitudes de l'IGN ; l'état vient de la carte de l'ONF, sentier par sentier.</p></div>
+  ${FILTER}
+  ${closures}
+  <ul class="zones hikes">${d.randonnees.map(hikeCard).join("")}</ul>
+</section>`
+    : `<p class="card">Les randonnées se chargent : rechargez la page dans quelques secondes.</p>`;
+
+  const trails = d
+    ? `<section aria-labelledby="h-secteurs">
+  <div class="sec-h"><p class="eyebrow">Secteur par secteur</p><h2 id="h-secteurs">Les ${d.suivis} sentiers de l'ONF</h2>
+  <p>Chaque sentier a sa page avec sa carte, son profil et sa trace GPS. Les secteurs sont approximatifs : un sentier est rangé là où passe son milieu.</p></div>
+  ${d.secteurs.map((z) => {
+    const shut = z.sentiers.filter((t) => t.etat === "fermé").length;
+    return `<details class="card sect"><summary><h3>${esc(z.secteur)}</h3><span class="note"><span class="cnt">${z.sentiers.length}</span> sentiers${shut ? ` · <b class="q-mauvaise">${shut} fermé${shut > 1 ? "s" : ""}</b>` : ""} · ${esc(z.communes.join(", "))}</span></summary>
+  <ul class="rows eau">${z.sentiers.map(trailLi).join("")}</ul></details>`;
+  }).join("\n  ")}
+</section>`
+    : "";
+
+  const safety = `<section aria-labelledby="h-partir">
+  <div class="sec-h"><h2 id="h-partir">Avant de partir</h2></div>
+  <div class="card warn">${icon("alert")}<ul class="plain">
+    <li><b>Un sentier fermé est interdit.</b> Il l'est par arrêté préfectoral ou par l'ONF (éboulement, passage effondré, travaux) : s'y engager est dangereux et verbalisable, même avec une trace GPS. <a href="/sentiers">La liste du jour</a>.</li>
+    <li><b>La météo d'abord.</b> Regarder la <a href="/vigilance">vigilance de Météo-France</a> et la <a href="/meteo">prévision</a> la veille et le matin. Par fortes pluies ou orages, ne pas partir : les ravines montent en quelques minutes et la préfecture ferme d'autres sentiers.</li>
+    <li><b>Partir tôt.</b> Les nuages montent dans les Hauts en fin de matinée et il pleut souvent l'après-midi ; la nuit tombe entre 17 h 45 et 19 h selon la saison (<a href="/calendrier">lever et coucher du soleil</a>).</li>
+    <li><b>De l'eau, assez.</b> Au moins deux litres par personne, davantage en été et sur les longues montées. Ne pas boire l'eau des ravines sans la traiter.</li>
+    <li><b>Hors gestion ONF</b> veut dire état non connu, pas ouvert : se renseigner auprès de la commune ou du Parc national.</li>
+    <li>Dire à quelqu'un où l'on va et quand on rentre : le téléphone ne passe pas partout dans les cirques. Au volcan, voir aussi <a href="/volcan">l'état du Piton de la Fournaise</a>. Urgence : 112.</li>
+  </ul></div>
+  ${d && data ? sourcesNote(d.sources, data) : ""}
+</section>`;
+
+  const title = "Randonnée à La Réunion : traces GPS (GPX), dénivelé, sentiers ouverts ou fermés";
+  const short = "🇷🇪 Randonnée à La Réunion (974) : itinéraires et sentiers de l'ONF avec trace GPS (GPX), distance, dénivelé et état du jour.";
+  const description = d
+    ? describe(`🇷🇪 Randonnée à La Réunion (974) : ${nRoutes} itinéraires (GR R1, R2, R3, Piton des Neiges…) et ${d.suivis} sentiers de l'ONF avec trace GPS (GPX), distance, dénivelé et état du jour : ${d.fermes} fermés.`, short)
+    : short;
+  const list = d
+    ? [{
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        name: "Itinéraires de randonnée avec trace GPS à La Réunion",
+        itemListElement: d.randonnees.map((h, i) => ({ "@type": "ListItem", position: i + 1, name: h.nom, url: `${origin}/randonnees/${h.slug}` })),
+      }]
+    : [];
+
+  const body = `${routes}
+${trails}
+${safety}
+${connectorCta("sentiers_randonnee", "la randonnée")}
+<script>${FILTER_SCRIPT}</script>`;
+  return layout(origin, { title, description, path: "/randonnees", jsonld: [crumbs(origin, "Randonnée", "/randonnees"), webPage(origin, "/randonnees", title, description, data), ...list], alerte }, band, body);
+}
+
+export function randonneesLive(data: Cached<SentiersAnswer> | null): Live | undefined {
   const d = data?.value;
   if (!d) return undefined;
   const n = d.points.length;
-  return { valeur: `${n} sentier${n > 1 ? "s" : ""} fermé${n > 1 ? "s" : ""}`, detail: `sur ${d.suivis} suivis par l'ONF, avec la cause de chaque fermeture` };
+  return { valeur: `${n} sentier${n > 1 ? "s" : ""} fermé${n > 1 ? "s" : ""}`, detail: `sur ${d.suivis} suivis par l'ONF ; traces GPS, distance et dénivelé de ${d.randonnees.length} randonnées et de chaque sentier` };
 }
 
 // ---------------------------------------------------------------- a trail's or a hike's page, with its GPS trace
@@ -822,11 +990,22 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
     : loading("La trace");
 
   const state = d ? `<p class="lead">${d.ferme ? "<b>" : ""}${esc(d.etat)}${d.ferme ? "</b>" : ""}</p>` : "";
+  // A hike crossing a closed trail says so before anything else: above the map and the download.
+  const alarm = d?.fermes.length
+    ? `<div class="alarm-band" role="alert">${icon("alert")}<div><p><b>Attention : ${plural(d.fermes.length, "tronçon fermé", "tronçons fermés")} sur cet itinéraire.</b> S'y engager est interdit, même avec la trace : prendre une variante ouverte ou renoncer.</p>
+  <ul>${d.fermes.map((f) => closedLi(f)).join("")}</ul></div></div>`
+    : "";
+  const unknown = d?.inconnus.length
+    ? `<p class="note soft">${plural(d.inconnus.length, "tronçon", "tronçons")} hors gestion ONF, état non connu (ni ouvert ni fermé ici) : ${d.inconnus.map((x) => (x.page ? `<a href="${esc(x.page)}">${esc(x.sentier)}</a>` : esc(x.sentier))).join(", ")}. Se renseigner auprès de la commune ou du Parc national.</p>`
+    : "";
+  const partOf = d?.randonnees.length
+    ? `<p class="part-of">Fait partie de : ${d.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}</p>`
+    : "";
   const download = `<p class="hero-cta"><a class="btn sun" href="${esc(gpx)}" download>${icon("pin")}Télécharger le GPX</a></p>`;
 
   const map = d?.lignes.length
     ? `<figure class="card mapcard">${traceMap({ lines: d.lignes, label: `Carte : la trace de ${nom}` })}
-  <figcaption class="note" style="color:var(--on-night-muted)">${kind === "sentier" ? "En jaune ouvert, en rouge pointillé fermé, en gris hors gestion ONF. " : ""}Le rond blanc marque le départ de la trace.</figcaption></figure>`
+  <figcaption class="note" style="color:var(--on-night-muted)">${kind === "sentier" ? "En jaune ouvert, en rouge pointillé fermé, en gris hors gestion ONF. " : d.fermes.length ? "En rouge pointillé, les tronçons fermés. " : ""}Le rond blanc marque le départ de la trace.</figcaption></figure>`
     : "";
 
   const profileBlock = d?.profil.length
@@ -848,7 +1027,7 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
     : "";
 
   const others = d?.randonnees.length
-    ? `<p class="note">Ce sentier fait partie de : ${d.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}.</p>`
+    ? `<p class="note">${d.ferme ? "Ce sentier fermé coupe" : "Ce sentier fait partie de"} : ${d.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}.</p>`
     : "";
 
   const title = `${nom} : trace GPS (GPX), dénivelé et état du sentier (La Réunion)`;
@@ -856,24 +1035,18 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
   const description = d
     ? describe(`🇷🇪 ${nom} (La Réunion) : ${kmFr(d.km)} km${d.dplus != null ? `, ${d.dplus} m de dénivelé positif` : ""}. ${d.etat}. Trace GPS à télécharger (GPX) et profil.`, short)
     : short;
-  const jsonld = [{
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: SITE, item: `${origin}/` },
-      { "@type": "ListItem", position: 2, name: "Randonnée", item: `${origin}/sentiers` },
-      { "@type": "ListItem", position: 3, name: nom, item: `${origin}${path}` },
-    ],
-  }, webPage(origin, path, title, description, data)];
+  const jsonld = [hikeCrumbs(origin, nom, path), webPage(origin, path, title, description, data)];
 
-  const band = `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li><a href="/sentiers">Randonnée</a></li><li aria-current="page">${esc(nom)}</li></ol></nav></div>
+  const band = `${hikeCrumbBar(nom)}
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Trace GPS · ${esc(what)}</p>
     <h1>${esc(nom)}</h1>
-    ${state}
+    ${alarm || state}
+    ${partOf}
     ${facts}
     ${download}
+    ${unknown}
   </div>
   ${map}
 </div>`;
