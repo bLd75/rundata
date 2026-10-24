@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { communesIn, parseNotice } from "../src/providers/avis-eau.js";
+import { communesIn, parseNotice, textOf } from "../src/providers/avis-eau.js";
 import { coupuresEau } from "../src/tools/coupures.js";
 
 // The distributors' notices on 24/10/2026 in the morning: a cut announced in Saint-Denis for Monday night, the water
@@ -25,6 +25,11 @@ describe("coupures d'eau", () => {
     expect(n).toEqual({ debut: "2026-10-26T21:00", fin: "2026-10-27T05:00", secteurs: ["ROUTE DE BOIS DE NEFLES"] });
     expect(communesIn("clients de SAINT DENIS")).toEqual(["Saint-Denis"]);
     expect(communesIn("abonnés de La Plaine-des-Palmistes")).toEqual(["La Plaine-des-Palmistes"]);
+  });
+
+  it("keeps only the text of a notice, even with broken tags", () => {
+    expect(textOf("Coupure<br>rue <b>Jean</b>")).toBe("Coupure\nrue Jean");
+    expect(textOf("<scr<script>ipt>x</script> rien > à <signaler")).not.toMatch(/[<>]/);
   });
 
   it("says first where the water is not to be drunk, and not where it is again", async () => {

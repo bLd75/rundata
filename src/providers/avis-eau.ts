@@ -52,10 +52,31 @@ export interface Avis {
 }
 
 const ENTITIES: Record<string, string> = { amp: "&", quot: '"', "#039": "'", "#39": "'", nbsp: " ", lt: "<", gt: ">", rsquo: "’", hellip: "…", ndash: "–" };
-const decode = (s: string) => s.replace(/&(#?\w+);/g, (m, e: string) => ENTITIES[e] ?? (e.startsWith("#") ? String.fromCodePoint(Number(e.slice(1))) : m));
+const entity = (keep: Record<string, string>) => (s: string) =>
+  s.replace(/&(#?\w+);/g, (m, e: string) => keep[e] ?? (/^#\d+$/.test(e) && e !== "#60" && e !== "#62" ? String.fromCodePoint(Number(e.slice(1))) : m));
+/** The XML layer of a feed: its HTML comes out with its tags. */
+const decode = entity(ENTITIES);
+/** Once the tags are out: the entities of the text, but never a « < » or « > » that would make a tag again. */
+const { lt: _lt, gt: _gt, ...TEXT_ENTITIES } = ENTITIES;
+const decodeText = entity(TEXT_ENTITIES);
+
+/** The text of some HTML, the tags dropped character by character (a pattern would leave « <scr<script>ipt> » halves). */
+export function textOf(html: string): string {
+  let out = "";
+  let tag: string | undefined;
+  for (const ch of html) {
+    if (ch === "<") tag = "";
+    else if (ch === ">" && tag !== undefined) {
+      if (/^\/?(br|p|div|li)\b/i.test(tag)) out += "\n";
+      tag = undefined;
+    } else if (tag !== undefined) tag += ch;
+    else if (ch !== ">") out += ch;
+  }
+  return out;
+}
+
 // Without the tags, nor the emoji the posts start their lines with (« ⚠️ CONSIGNES »), which most fonts lack.
-const strip = (html: string) =>
-  decode(decode(html.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<[^>]*>/g, ""))).replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u25AA\u25AB]\s?/gu, "");
+const strip = (html: string) => decodeText(textOf(decode(html))).replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u25AA\u25AB]\s?/gu, "");
 
 const NAMES = Object.keys(INSEE).sort((a, b) => b.length - a.length);
 /** The communes a text names: « SAINT DENIS », « La Plaine-des-Palmistes ». */
