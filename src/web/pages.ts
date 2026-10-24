@@ -794,7 +794,7 @@ ${avisForm(head.path)}
   </div>
   <div>
     <h3>Sources</h3>
-    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Cyclones : CMRS de La Réunion (Météo-France), via GDACS ; côtes Natural Earth (domaine public). Historique : données climatologiques quotidiennes de Météo-France depuis 1900. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Randonnée : ONF La Réunion ; itinéraires et traces © contributeurs OpenStreetMap (ODbL). Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Relief : IGN, RGE ALTI. Police des titres : Bricolage Grotesque (SIL OFL).</p>
+    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS et ensemble ENS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Cyclones : CMRS de La Réunion (Météo-France), via GDACS ; côtes Natural Earth (domaine public). Historique : données climatologiques quotidiennes de Météo-France depuis 1900. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Randonnée : ONF La Réunion ; itinéraires et traces © contributeurs OpenStreetMap (ODbL). Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Relief : IGN, RGE ALTI. Police des titres : Bricolage Grotesque (SIL OFL).</p>
     <p>Ces données sont fournies telles quelles, sans garantie. Pour un cyclone ou de fortes pluies, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture.</p>
   </div>
 </div></footer>
@@ -1166,14 +1166,18 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
     : "";
 
   const f = d?.prevision;
+  // The tool's own words on the confidence index, said once under the days.
+  const confidenceNote = f?.jours?.some((j) => j.confiance) ? f.avertissements?.find((w) => w.startsWith("Confiance :")) : undefined;
   const range = (lo?: string, hi?: string) => (lo && hi ? `${lo.replace(/ °C$/, "°")} / ${hi.replace(/ °C$/, "°")}` : "—");
   const forecast = f?.jours?.length
     ? `<section aria-labelledby="h-prev"><div class="hb"><h2 id="h-prev">Prévision météo ${esc(p.nom)}</h2><span class="badge">Prévision, pas une mesure</span></div>` +
       `<ul class="days">` +
       f.jours.map((j) => `<li class="card day"><h3>${esc(j.jour)}</h3><p class="range">${esc(range(j.temperature_min, j.temperature_max))}</p>` +
         `<p>${esc(j.ciel_en_journee ?? "—")}</p><p>Pluie : ${esc(thin(j.pluie ?? "—"))}</p><p>Rafales : ${esc(thin(j.rafales_max ?? "—"))}</p>` +
-        (j.indice_uv_max ? `<p>UV : ${esc(j.indice_uv_max)}</p>` : "") + `</li>`).join("") +
+        (j.indice_uv_max ? `<p>UV : ${esc(j.indice_uv_max)}</p>` : "") +
+        (j.confiance ? `<p title="${esc(j.confiance_pourquoi ?? "")}">Confiance : ${esc(j.confiance)}</p>` : "") + `</li>`).join("") +
       `</ul>` +
+      (confidenceNote ? `<p class="note">${esc(confidenceNote)}</p>` : "") +
       `<p class="note">${esc(f.modele ? `Modèle ${f.modele.nom}, maille de ${fr(f.modele.maille_km)} km${f.modele.run_du_modele ? `, calcul du ${f.modele.run_du_modele}` : ""}. ` : "")}` +
       `Un modèle ne voit pas tous les microclimats de l'île. Cyclone, fortes pluies : seule compte la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a>. ` +
       `Source : ${credits(f.sources)}.</p></section>`

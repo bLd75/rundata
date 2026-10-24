@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { resolvePlace } from "../src/places/resolve.js";
 import * as arome from "../src/providers/arome.js";
+import * as ensemble from "../src/providers/ensemble.js";
 import { configure } from "../src/providers/mf-auth.js";
 import * as openmeteo from "../src/providers/openmeteo.js";
 import * as uv from "../src/providers/uv.js";
@@ -13,6 +14,7 @@ import { previsionMeteo } from "../src/tools/prevision.js";
 // (12:00 in Réunion), and the run's first hour for the terrain height.
 const tif = (f: string) => readFileSync(new URL(`./fixtures/arome/${f}.tif`, import.meta.url));
 const json = (f: string) => JSON.parse(readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8"));
+const ensIle = () => ensemble.parse(json("openmeteo_ens_ile.json"), json("openmeteo_ens_meta.json").last_run_initialisation_time * 1000);
 const RUN = new Date("2026-10-21T18:00:00Z");
 const STEP = new Date("2026-10-22T08:00:00Z");
 const NOW = new Date("2026-10-22T06:00:00Z");
@@ -36,6 +38,7 @@ async function offlineCache(listAgeMs = 0) {
   await store.put(openmeteo.cacheKey(resolvePlace("Cilaos")!.lieu), { value: json("openmeteo_cilaos.json"), fetchedAt: at });
   await store.put("openmeteo:meta", { value: json("openmeteo_meta.json"), fetchedAt: at });
   await store.put("uv:ile", { value: uv.parse(json("cams_uv.json")), fetchedAt: at });
+  await store.put(ensemble.KEY, { value: ensIle(), fetchedAt: at });
   return new Cache(store, () => at);
 }
 
@@ -183,6 +186,7 @@ describe("a run listed before all its hours are out", () => {
     await store.put(openmeteo.cacheKey(resolvePlace("Cilaos")!.lieu), { value: json("openmeteo_cilaos.json"), fetchedAt: START });
     await store.put("openmeteo:meta", { value: json("openmeteo_meta.json"), fetchedAt: START });
     await store.put("uv:ile", { value: uv.parse(json("cams_uv.json")), fetchedAt: START });
+    await store.put(ensemble.KEY, { value: ensIle(), fetchedAt: START });
     return new Cache(store, () => clock.now);
   }
 

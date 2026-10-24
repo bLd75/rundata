@@ -20,7 +20,7 @@ import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
 import { prefetchForecasts } from "./tools/prevision.js";
-import { SharedFallback, warmShared } from "./web/partagees.js";
+import { SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
 import { why } from "./types.js";
 
 // How long the edge keeps an entry. Much longer than any freshness window: an old copy is what gets served,
@@ -188,13 +188,16 @@ export default {
   async scheduled(_controller: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
     const c = setup(env);
     const kv = env.STORE;
-    // The AROME grids first; then, with what is left of the invocation, the shared page copies that are due.
+    // The AROME grids first; then, with what is left of the invocation, the shared page copies that are due, and the
+    // forecast's ensemble with what they left.
     ctx.waitUntil(
       // The same budget as a page: past it a subrequest is refused here, before the platform's own limit.
       counted(WORKER_BUDGET, async () => {
         const arome = await prefetchForecasts(c).catch((err) => (console.error("préchargement AROME impossible", why(err)), null));
         const aromeUsed = spent();
-        const copies = kv ? await warmShared(c, kv) : { written: [], left: [] };
+        const first = kv ? await warmShared(c, kv) : { written: [], left: [] };
+        const after = kv ? await warmShared(c, kv, new Date(), SHARED_AFTER) : { written: [], left: [] };
+        const copies = { written: [...first.written, ...after.written], left: [...first.left, ...after.left] };
         return { arome, aromeUsed, copies };
       })
         .then(({ value, used }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +

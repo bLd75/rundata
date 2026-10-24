@@ -1,7 +1,9 @@
+import { left } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { compass, localTime } from "../geo.js";
 import { normalize, resolvePlace, type Place } from "../places/resolve.js";
 import * as arome from "../providers/arome.js";
+import * as ensemble from "../providers/ensemble.js";
 import * as openmeteo from "../providers/openmeteo.js";
 import * as uv from "../providers/uv.js";
 import { type Forecast, type ForecastDay, type ForecastHour, why } from "../types.js";
@@ -20,6 +22,7 @@ export function coverage(): string {
 }
 
 const REUNION_OFFSET_MS = 4 * 3600 * 1000; // UTC+4 all year
+const ENS_MIN_LEFT = 2;
 
 /** "2026-10-23" in Réunion time. */
 export function localDate(d: Date): string {
@@ -194,6 +197,8 @@ interface Got {
   results: PromiseSettledResult<Cached<Forecast>>[];
   /** The UV index of the island, a forecast of its own (CAMS); missing when it does not answer. */
   uv: Cached<uv.UvCell[]> | null;
+  /** How much the ensemble's scenarios agree, day by day; missing when it does not answer. */
+  ens: ensemble.Ensemble | null;
   /** Why AROME is missing from answers it should be in. */
   aromeDown?: string;
   /** AROME is wanted and up, but none of its grids is stored yet and the invocation had no room to download them. */
@@ -217,6 +222,13 @@ async function forecasts(cache: Cache, places: Place[], starts: Date[], now: Dat
     return null;
   });
   const [a, ecmwf, uvi] = await Promise.all([aromeP, Promise.allSettled(places.map((p) => openmeteo.forecast(cache, p))), uvP]);
+  // The ensemble's copy last, one read, and only when the forecast leaves room for it and for the rest of a page.
+  const ens = left() >= ENS_MIN_LEFT
+    ? await ensemble.island(cache, now).catch((err) => {
+        console.error(`source ${ensemble.SOURCE.id} indisponible:`, why(err));
+        return null;
+      })
+    : null;
   const data = a instanceof Error ? null : a;
   const results = places.map((p, i): PromiseSettledResult<Cached<Forecast>> => {
     const e = ecmwf[i].status === "fulfilled" ? ecmwf[i].value : null;
@@ -224,7 +236,7 @@ async function forecasts(cache: Cache, places: Place[], starts: Date[], now: Dat
     if (!f) return ecmwf[i] as PromiseRejectedResult;
     return { status: "fulfilled", value: { value: f, fetchedAt: e?.fetchedAt ?? now, stale: e?.stale ?? false } };
   });
-  return { results, uv: uvi, aromeDown: a instanceof Error ? a.message : undefined, aromeLater: wanted.length > 0 && a === null && arome.enabled() };
+  return { results, uv: uvi, ens, aromeDown: a instanceof Error ? a.message : undefined, aromeLater: wanted.length > 0 && a === null && arome.enabled() };
 }
 
 /**
@@ -263,8 +275,16 @@ function uvAt(u: Cached<uv.UvCell[]> | null, place: Place): UvOf {
   return (date) => cell?.max[date];
 }
 
-function dayBlock(f: Forecast, d: ForecastDay, uvOf?: UvOf) {
+/** The confidence of a day over a place, from the ensemble. */
+type ConfOf = (date: string) => ensemble.Confidence | undefined;
+
+function confAt(e: ensemble.Ensemble | null, place: Place, now: Date): ConfOf {
+  return ensemble.confidenceAt(e, place.lon, place.lat, now);
+}
+
+function dayBlock(f: Forecast, d: ForecastDay, uvOf?: UvOf, confOf?: ConfOf) {
   const u = uvOf?.(d.date);
+  const c = confOf?.(d.date);
   return {
     jour: dayLabel(d.date),
     ciel_en_journee: daySky(f, d.date),
@@ -273,16 +293,19 @@ function dayBlock(f: Forecast, d: ForecastDay, uvOf?: UvOf) {
     pluie: rain(d.pluie_mm),
     rafales_max: d.rafales_max_kmh == null ? undefined : `${Math.round(d.rafales_max_kmh)} km/h`,
     indice_uv_max: u == null ? undefined : uvText(u),
+    confiance: c?.niveau,
+    confiance_pourquoi: c?.pourquoi,
     modeles: d.modeles,
   };
 }
 
-function daySentence(f: Forecast, d: ForecastDay, uvOf?: UvOf): string {
+function daySentence(f: Forecast, d: ForecastDay, uvOf?: UvOf, confOf?: ConfOf): string {
   const parts = [daySky(f, d.date), d.tmin != null && d.tmax != null ? `${fr(d.tmin)} à ${fr(d.tmax)} °C` : undefined, rain(d.pluie_mm)];
   if (d.rafales_max_kmh != null) parts.push(`rafales jusqu'à ${Math.round(d.rafales_max_kmh)} km/h`);
   const u = uvOf?.(d.date);
   if (u != null) parts.push(`UV ${uvText(u)}`);
-  return parts.filter(Boolean).join(", ");
+  const c = confOf?.(d.date);
+  return parts.filter(Boolean).join(", ") + (c ? ` (confiance ${c.niveau})` : "");
 }
 
 /** Rain or storm if any; fog only when it lasts the three hours (models put it on many Hauts nights). */
@@ -401,9 +424,19 @@ function modelBlock(c: Cached<Forecast>) {
   };
 }
 
-function sourcesOf(f?: Forecast, u?: Cached<uv.UvCell[]> | null) {
+function sourcesOf(f?: Forecast, u?: Cached<uv.UvCell[]> | null, e?: ensemble.Ensemble | null) {
   if (!f) return credits(arome.enabled() ? [arome.SOURCE, openmeteo.SOURCE] : [openmeteo.SOURCE]);
-  return credits([f.source, ...(f.relais ?? []).map((r) => r.source), ...(u ? [uv.SOURCE] : [])]);
+  return credits([f.source, ...(f.relais ?? []).map((r) => r.source), ...(u ? [uv.SOURCE] : []), ...(e ? [ensemble.SOURCE] : [])]);
+}
+
+/** Said whenever the answer gives a confidence. */
+function ensWarnings(e: ensemble.Ensemble | null): string[] {
+  if (!e) return [];
+  return [
+    `Confiance : accord entre les ${ensemble.MODEL.membres} scénarios de l'ensemble du Centre européen (ECMWF ENS, calcul du ${localTime(new Date(e.runAt))}), sur un carré d'environ ${ensemble.MODEL.maille_km} km ; ses écarts vont du 1er au 9e décile des scénarios. Ce n'est pas la probabilité que la ` +
+      "prévision soit juste à cet endroit, et ce n'est pas le modèle de la prévision affichée (AROME ou IFS). Une confiance faible veut " +
+      "dire que les scénarios divergent : revoir la prévision plus près du jour.",
+  ];
 }
 
 /** Said whenever the answer gives a UV index. */
@@ -437,29 +470,30 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
   if (!lieu?.trim()) {
     const places = TOUR.map((n) => resolvePlace(n)!.lieu);
     const wanted = period.defaut ? [today, addDays(today, 1)] : [...new Set(period.slots.map((s) => s.jour))];
-    const { results, uv: u, aromeDown, aromeLater } = await forecasts(cache, places, stepStarts(wanted, now), now);
+    const { results, uv: u, ens, aromeDown, aromeLater } = await forecasts(cache, places, stepStarts(wanted, now), now);
     const ok = places.flatMap((p, i) => (results[i].status === "fulfilled" ? [{ p, c: (results[i] as PromiseFulfilledResult<Cached<Forecast>>).value }] : []));
     if (!ok.length) return unavailable();
     const lieux = ok.map(({ p, c }) => ({
       lieu: p.nom,
       altitude_m: p.altitude_m ?? undefined,
-      jours: c.value.days.filter((d) => wanted.includes(d.date)).map((d) => dayBlock(c.value, d, uvAt(u, p))),
+      jours: c.value.days.filter((d) => wanted.includes(d.date)).map((d) => dayBlock(c.value, d, uvAt(u, p), confAt(ens, p, now))),
     }));
     const shown = lieux.some((l) => l.jours.some((j) => j.indice_uv_max)) ? u : null;
-    const avertissements = [...warnings(ok[0].c.value), ...uvWarnings(shown)];
+    const ensShown = lieux.some((l) => l.jours.some((j) => j.confiance)) ? ens : null;
+    const avertissements = [...warnings(ok[0].c.value), ...uvWarnings(shown), ...ensWarnings(ensShown)];
     if (aromeDown) avertissements.push(aromeDownWarning);
     return text({
       nature: "prevision",
       resume:
         `${header(ok[0].c.value, aromeLater)}, tour de l'île — ` +
         ok.map(({ p, c }) => `${p.nom} : ` + c.value.days.filter((d) => wanted.includes(d.date))
-          .map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} ${daySentence(c.value, d, uvAt(u, p))}`).join(" ; ")).join(" | "),
+          .map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} ${daySentence(c.value, d, uvAt(u, p), confAt(ens, p, now))}`).join(" ; ")).join(" | "),
       periode: period.defaut ? "aujourd'hui et demain" : period.libelle,
       lieux,
       modele: modelBlock(ok[0].c),
       avertissements,
       couverture: coverage(),
-      sources: sourcesOf(ok[0].c.value, shown),
+      sources: sourcesOf(ok[0].c.value, shown, ensShown),
     });
   }
 
@@ -469,8 +503,9 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
   const starts = period.defaut
     ? stepStarts([today, addDays(today, 1), addDays(today, 2)], now)
     : stepStarts([...new Set(period.slots.map((s) => s.jour))], now, (jour, h) => period.slots.some((s) => s.jour === jour && h >= s.de && h < s.a));
-  const { results, uv: u, aromeDown, aromeLater } = await forecasts(cache, [r.lieu], starts, now);
+  const { results, uv: u, ens, aromeDown, aromeLater } = await forecasts(cache, [r.lieu], starts, now);
   const uvOf = uvAt(u, r.lieu);
+  const confOf = confAt(ens, r.lieu, now);
   if (results[0].status === "rejected") {
     console.error("prévision indisponible:", why(results[0].reason));
     return unavailable();
@@ -491,9 +526,9 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     const horizon = now.getTime() + 24 * HOUR;
     pas = steps(f, (h) => h.time.getTime() < horizon, now);
     const days = f.days.filter((d) => d.date >= today);
-    jours = days.map((d) => dayBlock(f, d, uvOf));
+    jours = days.map((d) => dayBlock(f, d, uvOf, confOf));
     resume = `${HEADER} pour ${r.lieu.nom} — ` +
-      days.map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} : ${daySentence(f, d, uvOf)}`).join(" ; ") + ".";
+      days.map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} : ${daySentence(f, d, uvOf, confOf)}`).join(" ; ") + ".";
   } else {
     const inRange = period.slots.filter((s) => s.jour <= last);
     if (!inRange.length) {
@@ -508,7 +543,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
       });
     }
     const days = f.days.filter((d) => inRange.some((s) => s.jour === d.date));
-    jours = days.map((d) => dayBlock(f, d, uvOf));
+    jours = days.map((d) => dayBlock(f, d, uvOf, confOf));
     pas = steps(f, (h) => inRange.some((s) => s.jour === localDate(h.time) && localHour(h.time) >= s.de && localHour(h.time) < s.a), now);
     const partial = inRange.some((s) => s.de > 0 || s.a < 24);
     resume = partial && pas.length
@@ -516,14 +551,15 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
         pas.map((s) => `${s.heures.split(" ").pop()} ${[s.ciel, s.temperature, s.pluie].filter(Boolean).join(", ")}`).join(" ; ") + "."
       : days.length === 1
         ? `${HEADER} pour ${r.lieu.nom}, ${period.libelle === dayLabel(days[0].date) ? period.libelle : `${period.libelle} (${dayLabel(days[0].date)})`} : ` +
-          `${daySentence(f, days[0], uvOf)}.`
+          `${daySentence(f, days[0], uvOf, confOf)}.`
         : `${HEADER} pour ${r.lieu.nom}, ${period.libelle} — ` +
-          days.map((d) => `${dayLabel(d.date)} : ${daySentence(f, d, uvOf)}`).join(" ; ") + ".";
+          days.map((d) => `${dayLabel(d.date)} : ${daySentence(f, d, uvOf, confOf)}`).join(" ; ") + ".";
     if (inRange.length < period.slots.length) avertissements.push(`Le modèle ne va que jusqu'au ${dayLabel(last)}.`);
   }
 
   const shown = jours.some((j) => j.indice_uv_max) ? u : null;
-  avertissements.push(...uvWarnings(shown));
+  const ensShown = jours.some((j) => j.confiance) ? ens : null;
+  avertissements.push(...uvWarnings(shown), ...ensWarnings(ensShown));
   return text({
     nature: "prevision",
     lieu: placeBlock(lieu, r),
@@ -534,6 +570,6 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     modele: modelBlock(c),
     avertissements,
     couverture: coverage(),
-    sources: sourcesOf(f, shown),
+    sources: sourcesOf(f, shown, ensShown),
   });
 }

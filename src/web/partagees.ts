@@ -7,6 +7,7 @@
  */
 import { costOf, count, left, measured, spent } from "../budget.js";
 import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore } from "../cache.js";
+import * as ensemble from "../providers/ensemble.js";
 import { why } from "../types.js";
 import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildCourant, buildElectricite, buildSea, buildTrafic, buildVolcan, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
 import { alerteVolcan } from "./volcan-alerte.js";
@@ -44,7 +45,15 @@ export const SHARED: Shared[] = [
   { key: "web:volcan", build: buildVolcan, every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 13 },
   { key: "web:courant", build: buildCourant, every: 2 * 60, cold: 6 },
 ];
-const KEYS = new Set(SHARED.map((s) => s.key));
+/**
+ * Warmed after SHARED, with what it left, so that they never go short for these: the confidence of the forecast
+ * days (prevision_meteo, weather pages), read by questions and never fetched by them. Eight more writes a day.
+ */
+export const SHARED_AFTER: Shared[] = [
+  // Its run time and the ensemble, plus one.
+  { key: ensemble.KEY, build: () => ensemble.build(), every: 3 * 60, cold: 3 },
+];
+const KEYS = new Set([...SHARED, ...SHARED_AFTER].map((s) => s.key));
 // The calendar's copy, the least often refreshed, outlives its next refresh by far.
 const KV_TTL_SECONDS = 24 * 3600;
 // A build whose cost is known nowhere is taken to cost this much (web/site.ts does the same).
