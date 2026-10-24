@@ -26,6 +26,10 @@ import {
   buildCoupures,
   buildSport,
   buildAgenda,
+  buildRoute,
+  buildTrail,
+  routeGpx,
+  trailGpx,
   buildCyclones,
   buildHistorique,
   buildDae,
@@ -38,7 +42,7 @@ import {
   type Background,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
-import { agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, secheressePage, sentiersPage, sportPage, velosPage, volcanPage } from "./domains.js";
+import { agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, secheressePage, sentiersPage, sportPage, tracePage, velosPage, volcanPage } from "./domains.js";
 import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
@@ -46,6 +50,7 @@ import font from "./font.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { pageOf, PAGES } from "./places.js";
+import * as traces from "../providers/traces.js";
 
 const HTML = {
   "content-type": "text/html; charset=utf-8",
@@ -55,6 +60,8 @@ const HTML = {
   "referrer-policy": "strict-origin-when-cross-origin",
 };
 const STATIC = "public, max-age=604800";
+// A trace downloads as a file; the ONF's state in it is an hour old at most.
+const GPX = { "content-type": "application/gpx+xml; charset=utf-8", "cache-control": "public, max-age=3600", "access-control-allow-origin": "*", "x-content-type-options": "nosniff" };
 
 /** IndexNow (Bing, Yandex, Seznam, Naver): the key that proves rundata.re's submissions are ours. Public by design. */
 export const INDEXNOW_KEY = "9cb4a2d427093776313488cb4d39b24a";
@@ -130,7 +137,8 @@ async function tileCopies(cache: Cache, keys: string[], background: Background, 
 }
 
 function sitemap(origin: string): string {
-  const urls = ["/", ...Object.keys(DOMAINS), "/vigilance", "/mer", "/communes", ...COMMUNES.map((p) => `/communes/${p.slug}`), ...PAGES.map((p) => `/meteo/${p.slug}`), "/confidentialite", "/conditions"];
+  const urls = ["/", ...Object.keys(DOMAINS), "/vigilance", "/mer", "/communes", ...COMMUNES.map((p) => `/communes/${p.slug}`), ...PAGES.map((p) => `/meteo/${p.slug}`),
+    ...traces.RANDONNEES.map((r) => `/randonnees/${r.slug}`), ...Object.values(traces.SENTIERS).map((t) => `/sentiers/${t.slug}`), "/confidentialite", "/conditions"];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map((u) => `<url><loc>${origin}${u}</loc><changefreq>hourly</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
@@ -169,6 +177,26 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       alerte(cache, background, now),
     ]);
     return new Response(domain.page(origin, data, now, a), { headers: htmlFor(data) });
+  }
+  const trace = /^\/(sentiers|randonnees)\/([a-z0-9-]+)(\.gpx)?\/?$/.exec(path);
+  if (trace) {
+    const [, dir, slug, file] = trace;
+    const t = dir === "sentiers" ? traces.sentier(slug) : undefined;
+    const r = dir === "randonnees" ? traces.randonnee(slug) : undefined;
+    if (!t && !r) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
+    if (file) {
+      try {
+        const body = t ? await trailGpx(cache, origin, t, now) : await routeGpx(cache, origin, r!, now);
+        return new Response(body, { headers: { ...GPX, "content-disposition": `attachment; filename="${slug}.gpx"` } });
+      } catch {
+        return new Response("Trace indisponible pour le moment : la carte de l'ONF ne répond pas. Réessayer dans quelques minutes.", { status: 503, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "retry-after": "300" } });
+      }
+    }
+    const [data, a] = await Promise.all([
+      snapshot(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)), background, now, waitFor(request), isReader(request)),
+      alerte(cache, background, now),
+    ]);
+    return new Response(tracePage(origin, t ? "sentier" : "randonnee", slug, t?.nom ?? r!.nom, data, now, a), { headers: htmlFor(data) });
   }
   if (path === "/confidentialite" || path === "/conditions") {
     return new Response(legalPage(origin, path.slice(1) as "confidentialite" | "conditions"), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });

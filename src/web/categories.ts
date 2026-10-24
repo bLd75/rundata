@@ -120,7 +120,7 @@ export const CATEGORIES: Category[] = [
     path: "/sentiers",
     icon: "mountain",
     tools: ["sentiers_randonnee"],
-    about: "Les sentiers de randonnée et routes forestières ouverts ou fermés, d'après la carte de l'ONF, avec la cause de chaque fermeture.",
+    about: "Les sentiers de randonnée et routes forestières ouverts ou fermés, d'après la carte de l'ONF, avec la cause de chaque fermeture, et la trace GPS de chaque sentier et randonnée.",
   },
   {
     key: "sport",
