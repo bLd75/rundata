@@ -48,21 +48,42 @@ export interface Post {
   date: string;
   texte: string;
   lien: string;
+  /** A release given as an image only, without text nor alternative text: `texte` says so, the link leads to it. */
+  image?: true;
 }
+
+/** What is said of a post given as an image only: neither read from the image nor copied. */
+export const IMAGE_SEULE = "Communiqué en image (sans texte)";
 
 interface FeedJson {
-  feed: { reason?: unknown; post: { uri: string; author: { handle: string }; record: { text: string; createdAt: string } } }[];
+  feed: {
+    reason?: unknown;
+    post: { uri: string; author: { handle: string }; record: { text: string; createdAt: string }; embed?: { $type?: string; images?: { alt?: string }[]; media?: { $type?: string } } };
+  }[];
 }
 
-/** The observatory's own posts about the volcano's activity, newest first. */
+// An image, a gallery of them, or a quote with images: the post's own media.
+const IMAGES = /^app\.bsky\.embed\.(images|gallery)#view$/;
+const imagesOf = (e: FeedJson["feed"][number]["post"]["embed"]) => !!e && (IMAGES.test(e.$type ?? "") || IMAGES.test(e.media?.$type ?? ""));
+
+/**
+ * The observatory's own posts about the volcano's activity, newest first. Its releases are often an image alone, with
+ * no text (« Arrêt crise sismique… Alerte 1 », 24/10): kept as such, since nothing tells them from the others.
+ */
 export function activityPosts(feed: FeedJson): Post[] {
   return feed.feed
-    .filter((f) => !f.reason && ACTIVITY.test(f.post.record.text) && !NOISE.test(f.post.record.text))
-    .map(({ post }) => ({
-      date: post.record.createdAt,
-      texte: post.record.text.replace(/\s+/g, " ").trim(),
-      lien: `https://bsky.app/profile/${post.author.handle}/post/${post.uri.split("/").pop()}`,
-    }))
+    .filter((f) => !f.reason)
+    .flatMap(({ post }): Post[] => {
+      const lien = `https://bsky.app/profile/${post.author.handle}/post/${post.uri.split("/").pop()}`;
+      const text = post.record.text.replace(/\s+/g, " ").trim();
+      if (!text) {
+        // An image alone: its alternative text, when there is one, is the observatory's words.
+        const alt = (post.embed?.images ?? []).map((i) => i.alt?.trim()).filter(Boolean).join(" ");
+        if (alt) return ACTIVITY.test(alt) && !NOISE.test(alt) ? [{ date: post.record.createdAt, texte: alt.replace(/\s+/g, " "), lien }] : [];
+        return imagesOf(post.embed) ? [{ date: post.record.createdAt, texte: IMAGE_SEULE, lien, image: true }] : [];
+      }
+      return ACTIVITY.test(text) && !NOISE.test(text) ? [{ date: post.record.createdAt, texte: text, lien }] : [];
+    })
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
