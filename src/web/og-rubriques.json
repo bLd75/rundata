@@ -87,5 +87,33 @@
   ],
   "png": "/og/communes.290f848031.png",
   "alt": "Drapeau de La Réunion et relief de l'île : Communes 974, votre commune en direct"
+ },
+ {
+  "pages": [
+   "/defibrillateurs"
+  ],
+  "png": "/og/defibrillateurs.122df8da30.png",
+  "alt": "Drapeau de La Réunion et relief de l'île : Défibrillateurs 974, le plus proche de vous, et ses horaires"
+ },
+ {
+  "pages": [
+   "/calendrier"
+  ],
+  "png": "/og/calendrier.dbf5faaf8c.png",
+  "alt": "Drapeau de La Réunion et relief de l'île : Calendrier 974, vacances scolaires et jours fériés"
+ },
+ {
+  "pages": [
+   "/cyclones"
+  ],
+  "png": "/og/cyclones.1a40f45b10.png",
+  "alt": "Drapeau de La Réunion et relief de l'île : Cyclones 974, trajectoire et alerte en direct"
+ },
+ {
+  "pages": [
+   "/sport"
+  ],
+  "png": "/og/sport.93130ca2f9.png",
+  "alt": "Drapeau de La Réunion et relief de l'île : Sport 974, matchs, résultats, Grand Raid"
  }
 ]

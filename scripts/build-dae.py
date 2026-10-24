@@ -12,6 +12,7 @@ import csv
 import io
 import math
 import json
+from datetime import date
 import re
 import urllib.request
 from pathlib import Path
@@ -117,6 +118,7 @@ def main():
     target = ROOT / "src/dae/dae.json"
     target.parent.mkdir(exist_ok=True)
     target.write_text(json.dumps({
+        "construit": date.today().isoformat(),
         "attribution": "Géo'DAE, base nationale des défibrillateurs (ministère chargé de la santé), Licence Ouverte 2.0",
         "defibrillateurs": out,
     }, ensure_ascii=False, separators=(",", ":")) + "\n")

@@ -144,8 +144,8 @@ function dayList(days: Map<string, string[]>, rows: Row[], heading: (day: string
 }
 
 /** The events of a page as schema.org `Event`s (domains.ts `agendaEvents`), when there are any. */
-const graph = (rows: Row[]) => {
-  const events = agendaEvents(rows);
+const graph = (rows: Row[], origin: string) => {
+  const events = agendaEvents(rows, origin);
   return events.length ? [{ "@context": "https://schema.org", "@graph": events }] : [];
 };
 
@@ -224,7 +224,7 @@ export function weekendPage(origin: string, data: Cached<AgendaAnswer> | null, n
 </section>
 ${connectorCta("evenements", "les événements de l'île")}`;
 
-  return layout(origin, { title, description, path, jsonld: [jsonld, webPage(origin, path, title, description, data), ...graph(dated)], alerte }, band, body);
+  return layout(origin, { title, description, path, jsonld: [jsonld, webPage(origin, path, title, description, data), ...graph(dated, origin)], alerte }, band, body);
 }
 
 export function concertsPage(origin: string, data: Cached<AgendaAnswer> | null, now = new Date(), alerte?: Alerte): string {
@@ -290,5 +290,5 @@ export function concertsPage(origin: string, data: Cached<AgendaAnswer> | null, 
 </section>
 ${connectorCta("evenements", "les concerts et les sorties de l'île")}`;
 
-  return layout(origin, { title, description, path, jsonld: [jsonld, webPage(origin, path, title, description, data), ...graph(rows)], alerte }, band, body);
+  return layout(origin, { title, description, path, jsonld: [jsonld, webPage(origin, path, title, description, data), ...graph(rows, origin)], alerte }, band, body);
 }

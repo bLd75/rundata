@@ -16,6 +16,7 @@ import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, typ
 import { FAST_KW } from "../tools/bornes.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
+import rubriques from "./og-rubriques.json" with { type: "json" };
 import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
 import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 
@@ -435,7 +436,7 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
       `Sinon, horaires théoriques publiés par chaque réseau, sans les retards ni les déviations. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
     : `<p class="card">Les prochains départs à n'importe quel arrêt de l'île sont donnés par le connecteur : demandez à votre assistant « le prochain bus à la gare de Saint-Pierre ? ».</p>`;
 
-  const title = "Bus Réunion : prochains départs dans les gares · 974";
+  const title = "Horaires bus Réunion : prochains départs en gare · 974";
   const description = "🇷🇪 Bus à La Réunion (974) : prochains départs dans les gares routières, d'après les horaires de Car Jaune, Citalis, Kar'Ouest, Alternéo, CarSud et Estival.";
 
   const band = `${crumbBar("Bus")}
@@ -1415,7 +1416,7 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
         `</ul></li>`).join("")}</ul>`
     : "";
 
-  const title = "Défibrillateurs Réunion : le plus proche de vous · 974";
+  const title = "Défibrillateurs Réunion : où trouver un DAE · 974";
   const description = "🇷🇪 Défibrillateurs (DAE) à La Réunion (974) : plus de 1 200 appareils dans les 24 communes, d'après la base nationale Géo'DAE, et le plus proche d'un lieu avec votre IA.";
 
   const band = `${crumbBar("Défibrillateurs")}
@@ -1802,11 +1803,30 @@ function agendaEnd(r: AgendaRow): string | undefined {
 
 const STATUS: Record<string, string> = { "ANNULÉ": "EventCancelled", "REPORTÉ": "EventPostponed" };
 
+// What an event is, said in its schema.org description when its source gives no summary.
+const KIND: Record<string, string> = {
+  concert: "Concert", théâtre: "Théâtre", danse: "Spectacle de danse", humour: "Spectacle d'humour", cirque: "Cirque, conte ou magie",
+  soirée: "Soirée", festival: "Fête ou festival", marché: "Marché", cinéma: "Cinéma", enfants: "Sortie pour les enfants",
+  exposition: "Exposition ou visite", sport: "Rendez-vous sportif", atelier: "Atelier ou rencontre",
+};
+const SUMMARY_MAX = 300;
+// The events' picture: the one of the events pages' link previews.
+const EVENTS_IMAGE = rubriques.find((r) => r.pages.includes("/evenements"))?.png;
+
+/** The source's summary, cut at a word within SUMMARY_MAX; else what, where: « Concert à Saint-Paul, TÉAT Plein Air. » */
+export function eventSummary(r: AgendaRow): string {
+  const text = r.description?.replace(/\s+/g, " ").trim();
+  if (text && text.length > 20) return text.length <= SUMMARY_MAX ? text : `${text.slice(0, SUMMARY_MAX).replace(/\s+\S*$/, "")}…`;
+  const kind = r.genres.map((g) => KIND[g]).find(Boolean) ?? "Événement";
+  return `${kind} à ${r.commune}${r.lieu && r.lieu !== r.commune ? `, ${r.lieu}` : ""}.`;
+}
+
 /**
  * The events as schema.org `Event`s, which search engines show in their own box. Only those with a commune and a
- * date: a place and a start are what they require. Nothing the source does not give (no price, no picture).
+ * date: a place and a start are what they require. Nothing the source does not give (no price); the picture is the
+ * events pages' own.
  */
-export function agendaEvents(rows: AgendaRow[]): object[] {
+export function agendaEvents(rows: AgendaRow[], origin: string): object[] {
   const iso = (local: string) => (local.length > 10 ? `${local}:00+04:00` : local);
   return rows.filter((r) => r.commune && /^\d{4}-\d\d-\d\d(T\d\d:\d\d)?$/.test(r.date)).map((r) => {
     const end = agendaEnd(r);
@@ -1823,6 +1843,8 @@ export function agendaEvents(rows: AgendaRow[]): object[] {
         address: { "@type": "PostalAddress", addressLocality: r.commune, addressRegion: "La Réunion", addressCountry: "RE" },
       },
       url: r.lien,
+      description: eventSummary(r),
+      ...(EVENTS_IMAGE ? { image: `${origin}${EVENTS_IMAGE}` } : {}),
     };
   });
 }
@@ -1898,7 +1920,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
 </section>
 ${connectorCta("evenements", "les événements de l'île")}`;
 
-  const events = agendaEvents(d?.evenements ?? []);
+  const events = agendaEvents(d?.evenements ?? [], origin);
   const jsonld = [crumbs(origin, "Événements", "/evenements"), webPage(origin, "/evenements", title, description, data), ...(events.length ? [{ "@context": "https://schema.org", "@graph": events }] : [])];
   return layout(origin, { title, description, path: "/evenements", jsonld, alerte }, band, body);
 }
