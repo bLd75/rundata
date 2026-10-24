@@ -1,15 +1,23 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import type { Cyclone } from "../src/providers/prefecture.js";
 import * as mf from "../src/providers/vigilance.js";
 import { quotidienLine } from "../src/tools/ecoles.js";
+import { cyclone } from "../src/tools/vigilance.js";
+import { alerteOf } from "../src/web/data.js";
+import { vigilancePage } from "../src/web/pages.js";
+import { pageOf } from "../src/web/places.js";
+import { rssItems } from "../src/web/rss.js";
 import { alertePage, FAQ, PDF, STEPS, TITLE } from "../src/web/alerte-cyclone.js";
+import { cited, DSO, onPages, quotes } from "./dso.js";
 
 // Saturday 24 October 2026, 14:00 at La Réunion.
 const NOW = new Date("2026-10-24T10:00:00Z");
 const at = (local: string) => new Date(`${local}+04:00`).toISOString().replace(".000", "");
 const bulletin = (cyclone: [number, string][]) =>
   mf.parse({ update_time: at("2026-10-24T06:00:00"), timelaps: { domain_ids: [{ domain_id: mf.ISLAND, phenomenon_items: [{ phenomenon_id: mf.CYCLONE, timelaps_items: cyclone.map(([color_id, b]) => ({ color_id, begin_time: at(b) })) }] }] } });
-const page = (v: mf.Vigilance) => alertePage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
+const page = (v: mf.Vigilance, decision?: Cyclone) => alertePage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW, undefined, decision);
+const LEVEE = "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Levee";
+const lifted = (reouverture?: Cyclone["reouverture"]): Cyclone => ({ decision: { niveau: "levee", titre: "Levée de l'alerte cyclonique", lien: LEVEE, publie: "2026-10-24T08:00:00Z" }, reouverture });
 
 describe("/alerte-cyclone, the plan step by step", () => {
   it("has a section per step, in marketing's order, each line with its page of the plan", () => {
@@ -38,33 +46,15 @@ describe("/alerte-cyclone, the plan step by step", () => {
   });
 });
 
-// The plan's pages, copied from the PDF (tables included): every quotation must be found, word for word, on the
-// page(s) given next to it. Case, accents and punctuation aside: the tables set the text out in cells and lines, and
-// the headings in capitals without accents (« JE ME TIENS INFORME DES CONSIGNES »).
-const DSO = new Map(
-  readFileSync(new URL("./fixtures/cyclones/dso-2026-182.txt", import.meta.url), "utf8")
-    .split(/^=== p\. /m)
-    .slice(1)
-    .map((block) => [Number(block.slice(0, block.indexOf("\n"))), block.slice(block.indexOf("\n") + 1)] as const),
-);
-const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’]/g, "'").replace(/[,.;:]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
-const onPages = (quote: string, pages: number[]) => norm(pages.map((p) => DSO.get(p) ?? "").join(" ")).includes(norm(quote));
-const quotes = (s: string) => [...s.matchAll(/« ([^«»]+) »/g)].map((m) => m[1]);
-
 describe("/alerte-cyclone and the tool quote the plan, page by page", () => {
   it("gives a line per step, each made of quotations of the plan found on the pages it gives", () => {
     const codes: [number, string][] = [[7, "pré-alerte"], [8, "alerte orange"], [9, "alerte rouge"], [10, "alerte violette"], [6, "phase de sauvegarde"]];
     for (const [code, step] of codes) {
       const line = quotidienLine(bulletin([[code, "2026-10-24T06:00:00"]]), NOW);
       expect(line, step).toMatch(new RegExp(`^En ${step}, selon le dispositif ORSEC Cyclones : .* Détail : rundata\\.re/alerte-cyclone\\.$`));
-      // Each « (p. N) » or « (p. N-M) » closes the quotations written since the previous one.
-      const parts = [...line!.matchAll(/(.*?)\(p\. (\d+)(?:-(\d+))?\)/g)];
-      expect(parts.length, step).toBeGreaterThan(0);
-      for (const [, text, from, to] of parts) {
-        const pages = Array.from({ length: Number(to ?? from) - Number(from) + 1 }, (_, i) => Number(from) + i);
-        expect(quotes(text).length, `${step}: ${text}`).toBeGreaterThan(0);
-        for (const q of quotes(text)) expect(onPages(q, pages), `${step}, p. ${pages.join("-")} : « ${q} »`).toBe(true);
-      }
+      const said = cited(line!);
+      expect(said.length, step).toBeGreaterThan(0);
+      for (const { quote, pages } of said) expect(onPages(quote, pages), `${step}, p. ${pages.join("-")} : « ${quote} »`).toBe(true);
     }
     // No line says what the plan does not: the four deductions marketing struck out.
     const all = codes.map(([code]) => quotidienLine(bulletin([[code, "2026-10-24T06:00:00"]]), NOW)).join(" ");
@@ -78,5 +68,55 @@ describe("/alerte-cyclone and the tool quote the plan, page by page", () => {
       for (const q of said) if (l.pages.every((p) => DSO.has(p))) expect(onPages(q, l.pages), `p. ${l.pages.join("-")} : « ${q} »`).toBe(true);
     }
     for (const s of STEPS) if (s.devise) expect(onPages(s.devise, [17, 18]), s.devise).toBe(true);
+  });
+});
+
+describe("/alerte-cyclone when the alert is lifted", () => {
+  // The phase de sauvegarde from 06:00 to 12:00, then nothing: lifted, as the bulletin says it.
+  const over = mf.parse({
+    update_time: at("2026-10-24T06:00:00"),
+    timelaps: { domain_ids: [{ domain_id: mf.ISLAND, phenomenon_items: [{ phenomenon_id: mf.CYCLONE, timelaps_items: [{ color_id: 6, begin_time: at("2026-10-24T06:00:00"), end_time: at("2026-10-24T12:00:00") }, { color_id: -1, begin_time: at("2026-10-24T12:00:00") }] }] }] },
+  });
+
+  it("says it from the bulletin, linked to the end of the alert, without a release of the prefecture", () => {
+    expect(page(over)).toContain('<b>Alerte levée (bulletin de Météo-France).</b> <a href="#fin">Ce que prévoit la fin d&#39;alerte ↓</a>');
+  });
+
+  it("takes /ecoles-cyclone's sentences when a release of the prefecture says the end, or the reopening", () => {
+    expect(page(over, lifted())).toContain(`<b>Alerte levée, d&#39;après le communiqué de la préfecture du samedi 24/10 : <a href="${LEVEE}" rel="noopener">« Levée de l&#39;alerte cyclonique » →</a> La réouverture des écoles`);
+    const reopen = { titre: "Réouverture des établissements scolaires lundi", lien: "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Reouverture", publie: "2026-10-24T08:00:00Z" };
+    expect(page(over, lifted(reopen))).toContain(`<b>Alerte levée. Réouverture des écoles annoncée par la préfecture le samedi 24/10 : <a href="${reopen.lien}" rel="noopener">« ${reopen.titre} » →</a>`);
+  });
+
+  it("shows the phase de sauvegarde, not the end, while the bulletin gives it", () => {
+    const html = page(bulletin([[6, "2026-10-24T06:00:00"]]), lifted());
+    expect(html).toContain('Phase de sauvegarde en vigueur à La Réunion (bulletin de Météo-France).</b> <a href="#sauvegarde">Ce que prévoit ce niveau ↓</a>');
+    expect(html).not.toContain("Alerte levée");
+  });
+});
+
+describe("the pré-alerte has no colour", () => {
+  // The prefecture dropped its yellow (release of 26/11/2024), Météo-France's documentation keeps it: none is said.
+  const COLOUR = /pr[ée]-alerte[^.]{0,40}jaune|jaune[^.]{0,40}pr[ée]-alerte/i;
+  const pre = bulletin([[7, "2026-10-24T06:00:00"]]);
+
+  it("in the tools, the RSS feeds and on /vigilance, /alerte-cyclone", () => {
+    expect(cyclone(pre, NOW)).toBe("ALERTE CYCLONIQUE pré-alerte, « je m'informe » : menace potentielle dans les jours à venir.");
+    const [item] = rssItems(pageOf("cilaos")!, { vigilance: { value: pre, fetchedAt: NOW, stale: false } }, NOW);
+    expect(item.title).toBe("Pré-alerte cyclonique à La Réunion");
+    expect(`${item.title} ${item.description}`).not.toMatch(/jaune/i);
+    const vigilance = vigilancePage("https://rundata.re", { value: pre, fetchedAt: NOW, stale: false }, NOW);
+    expect(vigilance).toContain(`<span class="vg vgpre">pré-alerte</span><p>Pré-alerte cyclonique, « je m'informe »`);
+    for (const html of [vigilance, page(pre)]) expect(html).not.toMatch(COLOUR);
+  });
+
+  it("nor a yellow ground: the badge and the banner are neutral, as its box in the plan's table (p. 9)", () => {
+    const a = alerteOf(pre, NOW);
+    expect(a).toMatchObject({ couleur: 2, neutre: true });
+    const html = vigilancePage("https://rundata.re", { value: pre, fetchedAt: NOW, stale: false }, NOW, a);
+    expect(html).toContain('<div class="alerte vg vgpre" role="status">');
+    expect(html).not.toMatch(/class="[^"]*\bvg2\b[^"]*">(?:⚠ )?[^<]*pr[ée]-alerte/i);
+    // An orange alert keeps its colour; a yellow vigilance for rain too.
+    expect(alerteOf(bulletin([[8, "2026-10-24T06:00:00"]]), NOW)?.neutre).toBeUndefined();
   });
 });

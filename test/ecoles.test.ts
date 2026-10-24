@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import * as mf from "../src/providers/vigilance.js";
-import { ecoles, ecolesBlock, resumeLine } from "../src/tools/ecoles.js";
+import type { Cyclone } from "../src/providers/prefecture.js";
+import { ecoles, ecolesBlock, REGLE, resumeLine, withPrefecture } from "../src/tools/ecoles.js";
 import { cyclone, cycloneLevel } from "../src/tools/vigilance.js";
 import { ecolesPage } from "../src/web/ecoles.js";
+import { alertePage } from "../src/web/alerte-cyclone.js";
 import { alerteOf } from "../src/web/data.js";
+import { cited, onPages } from "./dso.js";
 
 // Saturday 24 October 2026, 14:00 at La Réunion.
 const NOW = new Date("2026-10-24T10:00:00Z");
@@ -28,7 +31,7 @@ describe("the cyclone alert's codes", () => {
     const v = map([[7, "2026-10-24T06:00:00", "2026-10-24T19:00:00"], [8, "2026-10-24T19:00:00", "2026-10-25T06:00:00"]], [[2, "2026-10-24T06:00:00"]]);
     expect(v.zones[mf.ISLAND][mf.CYCLONE].map((p) => p.couleur)).toEqual([2, 3]);
     expect(v.zones["VIGI974-12"][12][0].couleur).toBe(2);
-    expect(cyclone(v, NOW)).toBe("ALERTE CYCLONIQUE pré-alerte (jaune), « je m'informe » : menace potentielle dans les jours à venir.");
+    expect(cyclone(v, NOW)).toBe("ALERTE CYCLONIQUE pré-alerte, « je m'informe » : menace potentielle dans les jours à venir.");
     expect(cyclone(map([[10, "2026-10-24T06:00:00"]]), NOW)).toContain("ALERTE CYCLONIQUE violette");
     expect(cyclone(map([[6, "2026-10-24T06:00:00"]]), NOW)).toContain("ALERTE CYCLONIQUE phase de sauvegarde");
   });
@@ -48,7 +51,7 @@ describe("the schools and the cyclone alert", () => {
     expect(ecoles(map([]), NOW)).toMatchObject({ etat: "aucune", texte: "Pas d'alerte cyclonique en cours à La Réunion.", fermees: false });
     const pre = ecoles(map([[7, "2026-10-24T06:00:00"]]), NOW);
     expect(pre).toMatchObject({ etat: "pre_alerte", fermees: false });
-    expect(pre.texte).toBe(`Pré-alerte cyclonique : le dispositif ne prévoit pas de fermeture à ce stade. C'est l'alerte orange qui ferme les crèches et les établissements scolaires de toute l'île${SELON}`);
+    expect(pre.texte).toBe(`Pré-alerte cyclonique : « Je m'informe et j'anticipe » (p. 17). C'est en alerte orange que « Tous les établissements scolaires et les crèches ferment » (p. 17)${SELON}`);
     // The first period of the bulletin: Météo-France does not say when it began.
     expect(pre.depuis).toBeUndefined();
     expect(ecoles(map([[9, "2026-10-24T06:00:00"]]), NOW).texte).toBe(`Alerte rouge : crèches, écoles, collèges, lycées et universités fermés${SELON}`);
@@ -56,7 +59,8 @@ describe("the schools and the cyclone alert", () => {
     expect(ecoles(map([[6, "2026-10-24T06:00:00"]]), NOW)).toMatchObject({
       etat: "sauvegarde",
       fermees: true,
-      texte: `Phase de sauvegarde : les établissements restent fermés pendant le passage du cyclone ; la réouverture sera décidée quand les conditions d'accueil le permettront${SELON}`,
+      texte: `Phase de sauvegarde : les crèches, les écoles, les collèges, les lycées et les universités « restent fermés », et leur « réouverture est décidée quand les conditions d'accueil sont satisfaisantes » (p. 19-20)${SELON}`,
+      reouverture: "La réouverture est annoncée par la préfecture et le rectorat (ac-reunion.fr).",
     });
   });
 
@@ -95,7 +99,7 @@ describe("the schools and the cyclone alert", () => {
     expect(calm).toContain("<h1>Cyclone : les écoles sont-elles fermées ?</h1>");
     expect(calm).toContain("Pas d&#39;alerte cyclonique en cours à La Réunion.");
     expect(calm).toContain("Ce que prévoit le plan ORSEC Cyclones</h2>");
-    expect(calm).toContain("Alerte orange cyclonique : crèches, écoles, collèges et lycées fermés dans toute l&#39;île. La règle du plan ORSEC");
+    expect(calm).toContain("Alerte orange cyclonique : crèches, écoles, collèges et lycées fermés pour l&#39;ensemble du département. La règle du plan ORSEC");
     const orange = page(map([[8, "2026-10-24T06:00:00"]]));
     expect(orange).toContain('selon le <a href="https://www.reunion.gouv.fr/Actions-de-l-Etat/');
     expect(orange).toContain("🌀 Alerte orange à La Réunion (974) : crèches, écoles, collèges et lycées fermés, selon le plan ORSEC Cyclones de la préfecture.");
@@ -103,5 +107,39 @@ describe("the schools and the cyclone alert", () => {
     expect(since).toContain('en vigueur depuis le samedi 24/10 à 13:00 (<a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">bulletin de Météo-France</a>).');
     // On its own page, the banner does not link to it.
     expect(orange).not.toContain('<a href="/ecoles-cyclone">Écoles fermées →</a>');
+  });
+});
+
+describe("the schools' sentences quote the plan, page by page", () => {
+  const STATES = [[], [[7, "2026-10-24T06:00:00"]], [[8, "2026-10-24T06:00:00"]], [[7, "2026-10-24T06:00:00", "2026-10-24T13:00:00"], [8, "2026-10-24T13:00:00"]], [[9, "2026-10-24T06:00:00"]], [[10, "2026-10-24T06:00:00"]], [[6, "2026-10-24T06:00:00"]], [[6, "2026-10-24T06:00:00", "2026-10-24T12:00:00"], [-1, "2026-10-24T12:00:00"]]] as [number, string, string?][][];
+
+  it("finds every quotation of the rule and of the states on the pages they give", () => {
+    const sentences = [...REGLE, ...STATES.flatMap((s) => [ecoles(map(s), NOW).texte, ecoles(map(s), NOW).reouverture ?? ""])];
+    for (const line of sentences) for (const { quote, pages } of cited(line)) expect(onPages(quote, pages), `p. ${pages.join("-")} : « ${quote} »`).toBe(true);
+    // The three sentences marketing rewrote quote the plan; the others say it in short, without quotation marks.
+    for (const line of [REGLE[2], ecoles(map(STATES[1]), NOW).texte, ecoles(map(STATES[6]), NOW).texte]) expect(cited(line).length, line).toBeGreaterThan(0);
+  });
+
+  it("says nothing the plan does not, on /ecoles-cyclone and /alerte-cyclone, in every state", () => {
+    const at24 = (v: mf.Vigilance) => ({ value: v, fetchedAt: NOW, stale: false });
+    for (const s of STATES) {
+      const v = map(s);
+      for (const out of [ecolesPage("https://rundata.re", at24(v), NOW), alertePage("https://rundata.re", at24(v), NOW), JSON.stringify(ecolesBlock(v, NOW))])
+        expect(out).not.toMatch(/pendant le passage du cyclone|pas de fermeture/);
+    }
+  });
+
+  it("in the phase de sauvegarde, gives the prefecture's release on the reopening instead of who announces it", () => {
+    const v = map([[6, "2026-10-24T06:00:00"]]);
+    const reopen = { titre: "Réouverture des établissements scolaires lundi", lien: "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Reouverture", publie: "2026-10-24T08:00:00Z" };
+    const c: Cyclone = { decision: { niveau: "levee", titre: "Levée de l'alerte cyclonique", lien: "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Levee", publie: "2026-10-24T08:00:00Z" }, reouverture: reopen };
+    const e = withPrefecture(ecoles(v, NOW), c, v, NOW);
+    expect(e.reouverture).toBe(`Réouverture des écoles annoncée par la préfecture le samedi 24/10 : « ${reopen.titre} » → Le détail, avec les éventuelles exceptions par commune, est dans le communiqué.`);
+    // The bulletin still gives the phase de sauvegarde: the end of the alert is said beside it, not instead.
+    expect(e).toMatchObject({ etat: "sauvegarde", fermees: true });
+    expect(e.cites?.map((x) => x.lien)).toEqual([reopen.lien, c.decision.lien]);
+    const html = ecolesPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW, undefined, c);
+    expect(html).toContain(`<p class="lead">Réouverture des écoles annoncée par la préfecture le samedi 24/10 : <a href="${reopen.lien}" rel="noopener">« ${reopen.titre} » →</a>`);
+    expect(html).not.toContain("La réouverture est annoncée par la préfecture et le rectorat");
   });
 });

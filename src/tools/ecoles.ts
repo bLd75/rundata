@@ -17,9 +17,9 @@ export const RECTORAT = "https://www.ac-reunion.fr";
 
 /** The plan's rule, said under the state on the page and in the tool. */
 export const REGLE = [
-  "Alerte orange (danger dans les 24 h) : crèches, écoles, collèges et lycées fermés dans tout le département. Annoncée avant l'ouverture : pas de ramassage scolaire, les établissements n'ouvrent pas. Pendant les cours : les élèves rentrent chez eux selon le plan d'évacuation.",
+  "Alerte orange (danger dans les 24 h) : crèches, écoles, collèges et lycées ferment, « pour l'ensemble du département » (p. 9). Annoncée avant l'ouverture : pas de ramassage scolaire, les établissements n'ouvrent pas. Pendant les cours : les élèves rentrent chez eux selon le plan d'évacuation.",
   "Alerte rouge ou violette : tout reste fermé. Universités et enseignement supérieur : fermés dès l'annonce de l'alerte rouge (préavis de 3 h).",
-  "Phase de sauvegarde : fermés pendant le passage du cyclone ; la réouverture est décidée quand les conditions d'accueil sont réunies.",
+  "Phase de sauvegarde : « Lors du passage en phase de sauvegarde, ils restent fermés. » « La réouverture est décidée quand les conditions d'accueil sont satisfaisantes » (p. 19-20).",
   "Accueils de loisirs pour mineurs : pendant les périodes scolaires, ils suivent les écoles.",
 ];
 export const SOURCE_PHRASE = `D'après le dispositif ORSEC Cyclones de la préfecture (arrêté 2026-182, page mise à jour le ${ORSEC.mis_a_jour}). Les annonces du jour viennent de la préfecture et du rectorat (ac-reunion.fr).`;
@@ -28,14 +28,16 @@ export const LIMITE = "Cette page ne parle que des cyclones. Une fermeture pour 
 export type Etat = "aucune" | "pre_alerte" | "orange_avant_ouverture" | "orange_en_journee" | "rouge" | "violette" | "sauvegarde" | "levee";
 
 const STATES: Record<Exclude<Etat, "aucune" | "levee">, string> = {
-  pre_alerte: "Pré-alerte cyclonique : le dispositif ne prévoit pas de fermeture à ce stade. C'est l'alerte orange qui ferme les crèches et les établissements scolaires de toute l'île",
+  pre_alerte: "Pré-alerte cyclonique : « Je m'informe et j'anticipe » (p. 17). C'est en alerte orange que « Tous les établissements scolaires et les crèches ferment » (p. 17)",
   orange_avant_ouverture: "Alerte orange annoncée avant l'ouverture des écoles : pas de ramassage scolaire, et les crèches, écoles, collèges et lycées n'ouvrent pas",
-  orange_en_journee: "Alerte orange : crèches, écoles, collèges et lycées fermés dans toute l'île ; les élèves déjà en classe, internes compris, rentrent chez eux selon le plan d'évacuation de leur établissement",
+  orange_en_journee: "Alerte orange : crèches, écoles, collèges et lycées ferment, « pour l'ensemble du département » (p. 9) ; les élèves déjà en classe, internes compris, rentrent chez eux selon le plan d'évacuation de leur établissement",
   rouge: "Alerte rouge : crèches, écoles, collèges, lycées et universités fermés",
   violette: "Alerte violette : crèches, écoles, collèges, lycées et universités fermés",
-  sauvegarde: "Phase de sauvegarde : les établissements restent fermés pendant le passage du cyclone ; la réouverture sera décidée quand les conditions d'accueil le permettront",
+  sauvegarde: "Phase de sauvegarde : les crèches, les écoles, les collèges, les lycées et les universités « restent fermés », et leur « réouverture est décidée quand les conditions d'accueil sont satisfaisantes » (p. 19-20)",
 };
 const NONE = "Pas d'alerte cyclonique en cours à La Réunion.";
+// Under the phase de sauvegarde's sentence, until a release of the prefecture says the reopening (marketing).
+const REOPENING = "La réouverture est annoncée par la préfecture et le rectorat (ac-reunion.fr).";
 const LIFTED = "Alerte levée. La réouverture des écoles est annoncée par la préfecture et le rectorat (ac-reunion.fr) : elle n'est pas encore lue ici.";
 // Where the alert is read, said after its date (marketing): « (communiqué de la préfecture) » the day it is read there.
 const BULLETIN = "bulletin de Météo-France";
@@ -67,6 +69,8 @@ export interface EcolesAnswer {
   depuis?: string;
   /** The link of what `depuis` names in its brackets: Météo-France's bulletin, or the prefecture's release. */
   lien_depuis?: string;
+  /** In the phase de sauvegarde, who announces the reopening, or the prefecture's release that does. */
+  reouverture?: string;
   /** The prefecture's newest release about the alert, cited by its title (marketing's words). */
   communique?: string;
   /** The prefecture's newest release and Météo-France's bulletin disagree: both said, with their dates, none chosen. */
@@ -113,6 +117,7 @@ export function ecoles(v: mf.Vigilance, now: Date): EcolesAnswer {
     selon: ORSEC,
     depuis: shown ? (inForce ? `${name} décidée par la préfecture, en vigueur depuis le ${when(period.debut)} (${BULLETIN}).` : `${name} décidée par la préfecture pour le ${when(period.debut)} (${BULLETIN}).`) : undefined,
     lien_depuis: shown ? mf.SOURCE.url : undefined,
+    reouverture: etat === "sauvegarde" ? REOPENING : undefined,
     fermees: inForce && c >= 3,
     niveau: c,
   };
@@ -126,6 +131,8 @@ const said = (n: number | "levee") => (n === "levee" ? "la fin de l'alerte" : n 
 /** Whether a step closes the schools under the plan (orange to violette, and the phase de sauvegarde). */
 const closing = (n: number | "levee") => typeof n === "number" && n >= 3;
 const cite = (r: { titre: string }) => `« ${r.titre} » →`;
+const reopened = (r: { titre: string; publie: string }) =>
+  `Réouverture des écoles annoncée par la préfecture le ${dayOf(r.publie)} : ${cite(r)} Le détail, avec les éventuelles exceptions par commune, est dans le communiqué.`;
 const LIFTED_UNREAD = "La réouverture des écoles est annoncée par la préfecture et le rectorat (ac-reunion.fr) : elle n'est pas encore lue ici.";
 
 /**
@@ -136,31 +143,34 @@ const LIFTED_UNREAD = "La réouverture des écoles est annoncée par la préfect
  * are said with their dates, and none is chosen.
  */
 export function withPrefecture(e: EcolesAnswer, c: Cyclone | null | undefined, v: mf.Vigilance, now: Date): EcolesAnswer {
+  const r = c?.reouverture;
+  // The phase de sauvegarde in the bulletin, and a release that says the reopening: its sentence instead of REOPENING.
+  if (e.etat === "sauvegarde" && r && now.getTime() - Date.parse(r.publie) <= RECENT_MS) e = { ...e, reouverture: reopened(r), cites: [r] };
   const d = c?.decision;
   if (!d || now.getTime() - Date.parse(d.publie) > RECENT_MS) return e;
   const of = `du ${dayOf(d.publie)}`;
   if (d.niveau === "levee" && (e.etat === "aucune" || e.etat === "levee")) {
-    const r = c!.reouverture;
     return {
       ...e,
       etat: "levee",
       texte: r
-        ? `Alerte levée. Réouverture des écoles annoncée par la préfecture le ${dayOf(r.publie)} : ${cite(r)} Le détail, avec les éventuelles exceptions par commune, est dans le communiqué.`
+        ? `Alerte levée. ${reopened(r)}`
         : `Alerte levée, d'après le communiqué de la préfecture ${of} : ${cite(d)} ${LIFTED_UNREAD}`,
       selon: undefined,
       cites: [r ?? d],
     };
   }
-  if (d.niveau === e.niveau) return { ...e, communique: `${NAMES[d.niveau]}, confirmée par le communiqué de la préfecture ${of} : ${cite(d)}`, cites: [d] };
+  const cites = [...(e.cites ?? []), d];
+  if (d.niveau === e.niveau) return { ...e, communique: `${NAMES[d.niveau]}, confirmée par le communiqué de la préfecture ${of} : ${cite(d)}`, cites };
   if (closing(d.niveau) !== e.fermees && (d.niveau === "levee" || closing(d.niveau) || e.fermees)) {
     const bulletin = e.niveau >= 2 ? said(e.niveau) : "aucune alerte cyclonique";
     return {
       ...e,
       ecart: `Le communiqué de la préfecture ${of} annonce ${said(d.niveau)} : ${cite(d)} Le bulletin de Météo-France émis le ${dayOf(v.emise)} à ${localTime(new Date(v.emise)).split(" ")[1]} indique ${bulletin}. Nous montrons les deux : vérifiez sur reunion.gouv.fr.`,
-      cites: [d],
+      cites,
     };
   }
-  return { ...e, communique: `Dernier communiqué de la préfecture, ${of} : ${cite(d)}`, cites: [d] };
+  return { ...e, communique: `Dernier communiqué de la préfecture, ${of} : ${cite(d)}`, cites };
 }
 
 /** resume_du_jour's line, only while the schools are closed by the plan. */

@@ -4,10 +4,12 @@
  * Only the plan's words: where it says nothing (the buses, the shops), nothing is filled in. Worded by marketing.
  */
 import type { Cached } from "../cache.js";
+import type { Cyclone } from "../providers/prefecture.js";
 import * as mf from "../providers/vigilance.js";
-import { ecoles, ORSEC } from "../tools/ecoles.js";
+import { ecoles, ORSEC, withPrefecture } from "../tools/ecoles.js";
 import type { Alerte } from "./data.js";
 import { crumbBar, crumbs, webPage } from "./domains.js";
+import { citesHtml } from "./ecoles.js";
 import { esc } from "./map.js";
 import { layout } from "./pages.js";
 
@@ -147,20 +149,28 @@ function lineHtml(l: Line): string {
   return `<li>${l.sujet ? `<b>${esc(l.sujet)}</b> : ` : ""}${text}${pagesHtml(l.pages)}${l.lien ? ` <a href="${l.lien.href}">${esc(l.lien.label)}</a>` : ""}</li>`;
 }
 
-/** The step in force, or announced, as /ecoles-cyclone reads Météo-France's bulletin; the sentence and its anchor. */
-function stateOf(v: mf.Vigilance | undefined, now: Date): { texte: string; ancre?: string } | undefined {
+type State = { texte: string; ancre?: string; label?: string; cites?: { titre: string; lien: string }[] };
+const THIS_STEP = "Ce que prévoit ce niveau ↓";
+
+/**
+ * The step in force, or announced, as /ecoles-cyclone reads it; the sentence and its anchor. The end of the alert in
+ * #133's sentences when a release of the prefecture says it; the phase de sauvegarde, not the end, while the bulletin
+ * gives it (marketing).
+ */
+function stateOf(v: mf.Vigilance | undefined, now: Date, decision?: Cyclone | null): State | undefined {
   if (!v) return undefined;
-  const e = ecoles(v, now);
-  if (e.niveau < 2) return { texte: e.etat === "levee" ? "Alerte levée (bulletin de Météo-France)." : NONE };
+  const e = withPrefecture(ecoles(v, now), decision, v, now);
+  if (e.etat === "levee") return { texte: e.cites ? e.texte : "Alerte levée (bulletin de Météo-France).", ancre: "fin", label: "Ce que prévoit la fin d'alerte ↓", cites: e.cites };
+  if (e.niveau < 2) return { texte: NONE };
   const step = STEPS.find((s) => s.code === e.niveau);
-  return { texte: e.depuis ?? `${step?.titre ?? mf.cycloneName(e.niveau)} en vigueur à La Réunion (bulletin de Météo-France).`, ancre: step?.id };
+  return { texte: e.depuis ?? `${step?.titre ?? mf.cycloneName(e.niveau)} en vigueur à La Réunion (bulletin de Météo-France).`, ancre: step?.id, label: THIS_STEP };
 }
 
-export function alertePage(origin: string, data: Cached<mf.Vigilance> | null, now = new Date(), alerte?: Alerte): string {
+export function alertePage(origin: string, data: Cached<mf.Vigilance> | null, now = new Date(), alerte?: Alerte, decision?: Cyclone | null): string {
   const path = "/alerte-cyclone";
-  const s = stateOf(data?.value, now);
+  const s = stateOf(data?.value, now, decision);
   const state = s
-    ? `<div class="status"><p class="lead"><b>${esc(s.texte)}</b>${s.ancre ? ` <a href="#${s.ancre}">Ce que prévoit ce niveau ↓</a>` : ""}</p></div>`
+    ? `<div class="status"><p class="lead"><b>${citesHtml(esc(s.texte), s.cites)}</b>${s.ancre ? ` <a href="#${s.ancre}">${esc(s.label!)}</a>` : ""}</p></div>`
     : `<div class="status"><p class="lead">L'alerte en vigueur n'a pas pu être lue à l'instant : voir la préfecture (reunion.gouv.fr) et Météo-France.</p></div>`;
   const band = `${crumbBar("Alerte cyclonique")}
 <div class="wrap intro"><div class="pitch">

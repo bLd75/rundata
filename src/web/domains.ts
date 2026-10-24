@@ -999,7 +999,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
 </section>`;
 
   const vigilance = `<div class="card">${icon("alert")}<h3>Vigilance météo</h3>
-  ${alerte ? `<p><span class="vg vg${alerte.couleur}">${esc(alerte.texte)}</span></p><p>Par fortes pluies, des routes et des radiers ferment : la préfecture et la Région l'annoncent.</p>` : "<p>Pas de vigilance au-dessus du vert signalée en ce moment.</p>"}
+  ${alerte ? `<p><span class="vg ${alerte.neutre ? "vgpre" : `vg${alerte.couleur}`}">${esc(alerte.texte)}</span></p><p>Par fortes pluies, des routes et des radiers ferment : la préfecture et la Région l'annoncent.</p>` : "<p>Pas de vigilance au-dessus du vert signalée en ce moment.</p>"}
   <p><a href="/vigilance">La vigilance zone par zone</a> · <a href="/meteo">la météo</a></p></div>`;
 
   const b = d?.bus;

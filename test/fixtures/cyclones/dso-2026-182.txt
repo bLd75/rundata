@@ -1,4 +1,12 @@
 Extraits du dispositif ORSEC Cyclones de la préfecture de La Réunion (arrêté 2026-182), recopiés des pages du PDF, tableaux compris, cellule par cellule. Chaque page commence par une ligne « === p. N ».
+=== p. 9
+1.2 TABLEAU DE SYNTHESE ET ENCHAINEMENT DES ALERTES
+Pré-alerte cyclonique : Menace potentielle dans les jours à venir. 72h environ avant arrivée du météore. Information Anticipation.
+Alerte orange cyclonique : Danger dans les 24 h – Fermeture des crèches et établissements scolaires pour l'ensemble du département. 24h environ avant arrivée du météore. Organisation de la protection.
+Alerte rouge cyclonique : Les conditions climatiques rendent la voie publique dangereuse et la circulation routière difficile - Confinement de la population, à l'exception des services concourant à la gestion de crise (secours, sécurité, collectivités…). Préavis 3h minimum avant déclenchement. Protection : confinement.
+Alerte violette cyclonique : Présence de vents cyclonique supérieurs à 200 km/h en rafales - Confinement généralisé. Préavis 3h avant déclenchement. Danger exceptionnel : Confinement total.
+Alerte rouge cyclonique : Une éventuelle alerte violette sera toujours suivie d'un retour en alerte rouge. Poursuite de la protection (confinement).
+Phase de sauvegarde cyclonique : La menace cyclonique est écartée mais il reste des dangers. Retour progressif à la normale.
 === p. 17
 3.2 EN PREALERTE, EN ALERTE ORANGE, EN ALERTE ROUGE ET EN ALERTE VIOLETTE
 Pré-alerte cyclonique : Je m'informe et j'anticipe. Suivez les prévisions météorologiques et les bulletins d'information. N'entreprenez pas de longues randonnées en montagne, ni de sorties en mer de plus de 24h. Vérifiez vos réserves (conserves, eau, piles pour radio et lampes, médicaments,…) au sein de votre kit d'urgence*. Faire le plein de son véhicule. Assurez-vous de connaître l'adresse et le téléphone du centre d'hébergement le plus proche de votre domicile.

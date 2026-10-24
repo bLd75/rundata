@@ -92,6 +92,9 @@ describe("cyclones", () => {
     expect(r.saison_precedente.systemes.find((s: { nom: string }) => s.nom === "Gezani").stade_max).toBe("cyclone tropical intense");
     expect(r.consulter.meteo_france).toBe("https://meteofrance.re/fr/cyclone");
     expect(r.phases_alerte).toContain("alerte violette");
+    // No colour for the pré-alerte: the prefecture dropped its yellow (release of 26/11/2024).
+    expect(r.phases_alerte).toContain("la pré-alerte cyclonique (menace dans les jours à venir, s'informer)");
+    expect(r.phases_alerte).not.toMatch(/jaune/);
     // A full first page that stops in October 2025: the second one reaches July 2025.
     expect(calls.filter((u) => u.includes("pagenumber=2"))).toHaveLength(1);
     expect(calls.some((u) => u.includes("getepisodedata"))).toBe(false);
