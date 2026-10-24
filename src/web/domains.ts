@@ -5,6 +5,7 @@
  * its tile on the home page.
  */
 import { PREFECTURE } from "../providers/volcan.js";
+import { ENCLOS_SAID } from "../tools/volcan.js";
 import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
@@ -105,11 +106,14 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
             // The prefecture's phase not read, none kept: the level is not given (tools/volcan.ts), and why (marketing).
             ? `<p class="lead">Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Nous n'avons pas pu lire le niveau d'alerte de la préfecture : vérifiez-le sur ${GOUV} avant de monter au volcan.`
             : `<p class="lead">Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>${e.ecart_pitonlive && e.communique_prefecture
-              ? ` selon le dernier communiqué de la préfecture (${esc(dayOf(e.communique_prefecture.publie))}) ; pitonlive.com indique ${esc(e.ecart_pitonlive.niveau)} depuis le ${esc(dayOf(e.ecart_pitonlive.depuis))} : vérifiez sur ${GOUV}`
+              ? ` selon le dernier communiqué de la préfecture que nous avons lu (${esc(dayOf(e.communique_prefecture.publie))}). pitonlive.com indique « ${esc(e.ecart_pitonlive.niveau)} » depuis le ${esc(dayOf(e.ecart_pitonlive.depuis))} : vérifiez le niveau en vigueur sur ${GOUV}`
               : ""}.`) +
           (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b>.` : "") +
           (e.deformation ? ` Déformation du volcan : ${esc(e.deformation)}.` : "") + `</p>` +
-          (a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.niveau_inconnu ? `<p class="lead">Accès à l'Enclos : à vérifier sur ${GOUV}, avant de partir.</p>` : e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "")
+          (e.ecart_pitonlive && e.communique_prefecture && e.acces_enclos
+            // pitonlive lower for long: the Enclos as the prefecture's release said it, and where it comes from (marketing).
+            ? `<p class="lead">Accès à l'Enclos <b>${esc(ENCLOS_SAID[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b> selon le communiqué du ${esc(dayOf(e.communique_prefecture.publie))} : vérifiez sur ${GOUV} avant de partir.</p>`
+            : a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.niveau_inconnu ? `<p class="lead">Accès à l'Enclos : à vérifier sur ${GOUV}, avant de partir.</p>` : e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "")
         : `<p class="lead">${esc(d.resume)}</p>`) +
       (q ? `<p class="lead">Séismes sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
       `</div>`;
