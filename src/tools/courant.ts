@@ -6,7 +6,7 @@
 import type { Cached } from "../cache.js";
 import { localTime } from "../geo.js";
 import * as cc from "../providers/coupures-courant.js";
-import { credits, de } from "./format.js";
+import { a as at, credits, de } from "./format.js";
 
 export interface CourantAnswer {
   avis: cc.AvisCourant[];
@@ -76,10 +76,21 @@ function slotText(s: cc.Creneau, now: Date): string {
   return `${when}${s.secteurs.length ? `, secteurs ${s.secteurs.join(", ")}` : ""}`;
 }
 
+/** A notice of nothing to come, older than a month or of another year: said by its date only. */
+const stale = (a: cc.AvisCourant, now: Date) =>
+  !ahead(a, now) && (now.getTime() - Date.parse(a.publie) > RECENT_DAYS * 86400_000 || localDay(new Date(a.publie)).slice(0, 4) !== localDay(now).slice(0, 4));
+
 /** What one notice says, in marketing's words. `first`: the commune's latest notice, its « dernier avis ». */
 export function sentence(a: cc.AvisCourant, now: Date, first = true): string {
-  if (!ahead(a, now) && (now.getTime() - Date.parse(a.publie) > RECENT_DAYS * 86400_000 || localDay(new Date(a.publie)).slice(0, 4) !== localDay(now).slice(0, 4))) {
+  if (stale(a, now)) {
     return `Pas d'avis récent de ${mairie(a.commune)} : le dernier date du ${ddmm(a.publie, now)}. Nous ne savons pas si une coupure est prévue.`;
+  }
+  // A PDF letter of EDF: its day when its name gives it, never its hours nor its streets, which are in the letter only.
+  if (a.pdf) {
+    const day = a.creneaux[0]?.jour;
+    return day
+      ? `Coupure d'électricité annoncée par EDF ${at(a.commune)} le ${dayFr(day, now)} : heures et secteurs dans l'avis publié par la mairie`
+      : `Avis de coupure d'EDF publié par ${mairie(a.commune)} le ${ddmm(a.publie, now)} : la date, les heures et les secteurs sont dans l'avis`;
   }
   const by = `${mairie(a.commune)} le ${ddmm(a.publie, now)}`;
   const head = `${first ? "Dernier avis" : "Avis"} de coupure d'électricité publié par ${by}`;
@@ -106,6 +117,8 @@ export interface CourantRow {
   lien: string;
   creneaux?: cc.Creneau[];
   secteurs?: string[];
+  /** The notice is EDF's letter as a PDF: `texte` ends where the link, an arrow, takes over. */
+  pdf?: true;
 }
 
 const row = (a: cc.AvisCourant, now: Date, first: boolean): CourantRow => ({
@@ -117,6 +130,7 @@ const row = (a: cc.AvisCourant, now: Date, first: boolean): CourantRow => ({
   lien: a.lien,
   creneaux: a.creneaux.length ? a.creneaux : undefined,
   secteurs: a.secteurs.length ? a.secteurs : undefined,
+  pdf: a.pdf && !stale(a, now) ? true : undefined,
 });
 
 /** A commune's notices to say: those of today or later, else its latest one; none when its mairie relays none. */
@@ -133,10 +147,11 @@ export function aheadRows(c: CourantAnswer, commune: string, now: Date): Courant
 }
 
 /** « coupure d'électricité programmée le lundi 26/10 de 09:00 à 15:00 », for the summary's one line. */
-export function shortOf(a: Pick<CourantRow, "nature" | "creneaux">, now: Date): string {
+export function shortOf(a: Pick<CourantRow, "nature" | "creneaux" | "pdf">, now: Date): string {
   if (a.nature === "en cours") return "coupure d'électricité en cours selon la mairie";
   const next = (a.creneaux ?? []).find((s) => ends(s) >= localDay(now));
   if (!next) return "coupure d'électricité annoncée par la mairie";
+  if (a.pdf) return `coupure d'électricité annoncée par EDF le ${dayFr(next.jour, now)}, heures et secteurs dans l'avis de la mairie`;
   const when = next.au ? `du ${dayFr(next.jour, now)} au ${dayFr(next.au, now)}` : `le ${dayFr(next.jour, now)}${next.de && next.a ? ` de ${next.de} à ${next.a}` : ""}`;
   return `coupure d'électricité programmée ${when}`;
 }

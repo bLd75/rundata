@@ -501,6 +501,8 @@ text-decoration:none;font-size:.95rem;transition:border-color .15s,transform .15
 .three .card{align-content:start}
 .three .ic{color:var(--accent);width:1.8rem;height:1.8rem}
 .warn .ic{color:var(--lave)}
+/* A link inside a sentence, its target at least 44 px tall for a finger (padding of an inline box leaves the lines where they are). */
+.tap{padding-block:.8rem}
 .badge{display:inline-block;font:700 .72rem system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;
 border-radius:6px;padding:.2rem .5rem;background:var(--warn-bg);color:var(--lave);vertical-align:middle}
 .badge.m{background:var(--surface);color:var(--accent);border:1px solid var(--line)}

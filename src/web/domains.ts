@@ -11,6 +11,7 @@ import { normalize } from "../places/resolve.js";
 import * as traces from "../providers/traces.js";
 import { SUJETS } from "../providers/actualites.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
+import type { CourantRow } from "../tools/courant.js";
 import { de, fr } from "../tools/format.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
@@ -261,6 +262,17 @@ export function airLive(data: Cached<AirAnswer> | null): Live | undefined {
 
 // ---------------------------------------------------------------- électricité
 
+/**
+ * One notice of power cut, its link after it. A PDF letter's sentence ends on its link (marketing's words): « l'avis
+ * publié par la mairie (PDF) → », « dans l'avis (PDF) → », a target tall enough for a finger.
+ */
+export function courantItem(x: Pick<CourantRow, "texte" | "lien" | "nature" | "pdf">): string {
+  const li = x.nature === "en cours" ? '<li class="warn">' : "<li>";
+  const end = x.pdf ? /(l'avis publié par la mairie|dans l'avis)$/.exec(x.texte) : null;
+  if (!end) return `${li}${esc(x.texte)} <a href="${esc(x.lien)}" rel="noopener">l'avis →</a></li>`;
+  return `${li}${esc(x.texte.slice(0, end.index))}<a class="tap" href="${esc(x.lien)}" rel="noopener">${esc(end[1])} (PDF) →</a></li>`;
+}
+
 export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const p = d?.production;
@@ -294,7 +306,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
   <div class="sec-h"><h2 id="h-coupures">Coupures d'électricité annoncées par les mairies</h2>
   ${c.a_savoir ? `<p>${esc(c.a_savoir)}</p>` : ""}${c.depannage ? `<p><b>${esc(c.depannage)}</b></p>` : ""}</div>
   ${c.avis?.length
-    ? `<div class="card"><ul class="plain">${c.avis.map((x) => `<li${x.nature === "en cours" ? ' class="warn"' : ""}>${esc(x.texte)} <a href="${esc(x.lien)}" rel="noopener">l'avis →</a></li>`).join("")}</ul></div>`
+    ? `<div class="card"><ul class="plain">${c.avis.map(courantItem).join("")}</ul></div>`
     : `<p class="card">${esc(c.indisponible ?? "Aucun avis relayé par les mairies suivies.")}</p>`}
 </section>`
     : "";
