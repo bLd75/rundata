@@ -5,7 +5,7 @@
  * KV, which every data center reads; it is the only writer. A page or the tool reads KV only when its data center's
  * cache has no copy, and copies what it read there.
  */
-import { costOf, count, left, measured, spent } from "../budget.js";
+import { costOf, count, left, measured, spent, unmeasured } from "../budget.js";
 import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore } from "../cache.js";
 import * as ensemble from "../providers/ensemble.js";
 import * as ovpfPdf from "../providers/ovpf-pdf.js";
@@ -43,8 +43,13 @@ export const SHARED: Shared[] = [
   { key: "web:air", build: buildAir, every: 60, cold: 4 },
   { key: "web:mer", build: buildSea, every: 3 * 60, cold: 15 },
   { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8 },
-  // The PDF of the OVPF's newest release, read here only (providers/ovpf-pdf.ts): three more when there is a new one.
-  { key: "web:volcan", build: async (cache, now) => (await ovpfPdf.readNewest(cache, now.getTime()), buildVolcan(cache, now)), every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 16 },
+  // The PDF of the OVPF's newest release, read here only (providers/ovpf-pdf.ts), once the copy is built and outside its
+  // cost: three more, with what is left, when there is a new one or a failed one to ask again.
+  { key: "web:volcan", build: async (cache, now) => {
+    const v = await buildVolcan(cache, now);
+    await unmeasured(() => ovpfPdf.readNewest(cache, now.getTime()));
+    return v;
+  }, every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 13 },
   { key: "web:courant", build: buildCourant, every: 2 * 60, cold: 7 },
 ];
 /**

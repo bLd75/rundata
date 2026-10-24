@@ -121,6 +121,14 @@ export async function measured<T>(key: string, fn: () => Promise<T>): Promise<T>
   }
 }
 
+/**
+ * Runs `fn` outside the job it is called from: its subrequests count for the invocation, not for the job's cost
+ * (`costOf`). For work a build does only with what is left, and not every time, such as a PDF read once.
+ */
+export function unmeasured<T>(fn: () => Promise<T>): Promise<T> {
+  return jobs.exit(fn);
+}
+
 /** The most subrequests the job `key` has taken in this isolate, if it has run here. */
 export function costOf(key: string): number | undefined {
   return costs.get(key);
