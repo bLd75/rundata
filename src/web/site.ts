@@ -120,7 +120,8 @@ const MCP_REGISTRY_AUTH = "v=MCPv1; k=ed25519; p=FTzDdb5aS1w9JIe6rHUyRBhGknTv/Rh
  * The fetchers of AI assistants and search engines. A person gets a page without its live block rather than wait
  * more than a few seconds; these read the page once and answer from it, so they wait for the measurements.
  */
-const READERS = /ChatGPT-User|OAI-SearchBot|GPTBot|Claude-User|Claude-SearchBot|ClaudeBot|Perplexity|MistralAI|meta-external|facebookexternalhit|Googlebot|Google-Extended|bingbot|Applebot|DuckAssistBot/i;
+// rundata-check: the daily check of the sources (bin/check-sources.ts), which must see the data, not the cache.
+const READERS = /rundata-check\/|ChatGPT-User|OAI-SearchBot|GPTBot|Claude-User|Claude-SearchBot|ClaudeBot|Perplexity|MistralAI|meta-external|facebookexternalhit|Googlebot|Google-Extended|bingbot|Applebot|DuckAssistBot/i;
 const READER_WAIT_MS = 25_000;
 // The vigilance page waits longer than a banner for Météo-France: it is the page's whole content.
 const VIGILANCE_WAIT_MS = 8000;

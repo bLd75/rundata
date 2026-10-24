@@ -28,6 +28,8 @@ function withCors(r: Response): Response {
   return new Response(r.body, { status: r.status, statusText: r.statusText, headers });
 }
 
+const CHECKER = /^rundata-check\//;
+
 // Crawlers often send « Accept: */* » too: only these get the plain line instead of the page.
 const CLI = /^(curl|wget|httpie|python-requests|python-urllib|go-http-client|node-fetch|undici)/i;
 
@@ -69,6 +71,8 @@ export function failed(path: string, err: unknown): Response {
  */
 export async function handle(request: Request, cache: Cache, background: Background = () => {}, record: Recorder = () => {}): Promise<Response> {
   const url = new URL(request.url);
+  // The daily check of the sources (bin/check-sources.ts) is not a visitor: not counted.
+  if (CHECKER.test(request.headers.get("user-agent") ?? "")) record = () => {};
   if (url.pathname === "/mcp") {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     const watching = watch(request, record);
