@@ -34,6 +34,8 @@ import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
 import { named } from "../tools/annuaire.js";
 import { alertsFor, applyRealtime, departureRow, departures, findStops, nearStops, realtimeFeeds, spread } from "../tools/transports.js";
+import * as prefecture from "../providers/prefecture.js";
+import type { Cyclone } from "../providers/prefecture.js";
 import { ecoles, type ecolesBlock } from "../tools/ecoles.js";
 import { cyclone, cycloneLevel, highest, raised } from "../tools/vigilance.js";
 import { COMMUNES as BIKE_COMMUNES, velosLibreService } from "../tools/velos.js";
@@ -1396,6 +1398,19 @@ export async function vigilanceNow(cache: Cache, background: Background, waitMs:
     return got;
   } catch (err) {
     console.error(`source ${mf.SOURCE.id} indisponible:`, why(err));
+    return null;
+  }
+}
+
+/** The prefecture's last decision on the cyclone alert, waited for at most `waitMs` like the vigilance; null without one. */
+export async function cycloneDecisionNow(cache: Cache, background: Background, waitMs: number): Promise<Cyclone | null> {
+  const work = prefecture.cyclone(cache);
+  try {
+    const got = await within(work, waitMs);
+    if (!got) background(work.catch(() => undefined));
+    return got?.value ?? null;
+  } catch (err) {
+    console.error(`source ${prefecture.SOURCE.id} indisponible:`, why(err));
     return null;
   }
 }
