@@ -8,9 +8,10 @@ import { lineText } from "../src/tools/volcan-acces.js";
 import { official } from "../src/tools/volcan.js";
 import { buildVolcan } from "../src/web/data.js";
 import { volcanLive, volcanPage } from "../src/web/domains.js";
-import { DESCRIPTION_MAX } from "../src/web/pages.js";
+import { homePage, type HomeLive } from "../src/web/home.js";
+import { DESCRIPTION_MAX, meteoPage } from "../src/web/pages.js";
 import { typo } from "../src/web/typo.js";
-import { alerteVolcan, bannerText, homeCard, volcanH1, volcanMeta, volcanTitle } from "../src/web/volcan-alerte.js";
+import { alerteVolcan, bannerText, homeCard, volcanH1, volcanMeta, volcanTitle, withVolcan } from "../src/web/volcan-alerte.js";
 
 // The prefecture's release of 24/10/2026, alert 1 (its page as captured, and its card in the list), and pitonlive at
 // « Alerte 2-1 » the same day: the release is kept beside pitonlive's level, in marketing's words.
@@ -52,6 +53,17 @@ const NIVEAU = "« Alerte 2-1 » selon pitonlive.com (24/10). Le dernier communi
 const AVANT = "Les lignes ci-dessous citent le communiqué de la préfecture du 24/10, au niveau « alerte 1 ». pitonlive.com indique un niveau plus haut, « Alerte 2-1 » : vérifiez les accès sur reunion.gouv.fr avant de partir.";
 
 describe("pitonlive higher than the prefecture's release: both said, the release kept", () => {
+  it("puts both levels in the home page's card alone, with the way to /volcan, and the banner on the other pages", async () => {
+    const v = await answer(piton("Alerte 2-1", "2026-10-24T13:00:00Z"));
+    const a = alerteVolcan(v)!;
+    const copy = { value: v, fetchedAt: NOW, stale: false };
+    const home = withVolcan(a, () => homePage("https://rundata.re", { volcan: copy } as unknown as HomeLive, NOW));
+    expect(home).not.toContain('class="alerte volcan"');
+    expect(home).toContain("« Alerte 2-1 » selon pitonlive.com, « alerte 1 » selon le communiqué de la préfecture du 24/10. Accès à l&#39;Enclos interdit selon ce communiqué : vérifiez sur reunion.gouv.fr. <b>Suivre en direct\u00a0→</b>");
+    expect(withVolcan(a, () => volcanPage("https://rundata.re", copy, NOW))).not.toContain('class="alerte volcan"');
+    expect(withVolcan(a, () => meteoPage("https://rundata.re", null, NOW))).toContain("« Alerte 2-1 » selon pitonlive.com, « alerte 1 » selon le communiqué");
+  });
+
   it("keeps the release beside a higher level only when it is an alert", () => {
     const s = official(piton("Alerte 2-1", "2026-10-24T13:00:00Z"), ALERT_1);
     expect(s).toMatchObject({ prefecture: ALERT_1, hausse: true, status: { alert_level_display: "Alerte 2-1", is_erupting: false } });

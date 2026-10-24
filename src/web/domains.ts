@@ -220,7 +220,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
 ${before}${posts}
 ${connectorCta("volcan_seismes", "le volcan")}`;
 
-  return layout(origin, { title, description, path: "/volcan", jsonld: [crumbs(origin, "Volcan", "/volcan"), webPage(origin, "/volcan", title, description, data)], alerte }, band, body);
+  // Its heading and the official blocks say all the banner would: no banner here.
+  return layout(origin, { title, description, path: "/volcan", jsonld: [crumbs(origin, "Volcan", "/volcan"), webPage(origin, "/volcan", title, description, data)], alerte, volcan: !!a }, band, body);
 }
 
 // Below this many a day, the bars keep their scale: one event must not fill the chart (data-run: no scale that

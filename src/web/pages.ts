@@ -635,6 +635,8 @@ interface Head {
   rss?: { href: string; title: string; link: string; hint: string };
   /** The offline page, kept on phones until the service worker changes: no banner of the moment, nothing to send. */
   shell?: boolean;
+  /** The page shows the volcano's alert itself (the home page's card, /volcan's heading): no volcano banner above it. */
+  volcan?: boolean;
 }
 
 function banner(a: Alerte | undefined, path: string): string {
@@ -801,7 +803,7 @@ ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head
 <body>
 ${header(head.path, origin)}
 ${head.shell ? "" : `${banner(head.alerte, head.path)}
-${bannerHtml(volcanBanner(), head.path)}`}
+${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
 <div class="band">${withHook(band, head.path)}</div>
 <main class="wrap">
 ${body}

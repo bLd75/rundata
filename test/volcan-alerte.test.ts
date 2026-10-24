@@ -8,8 +8,9 @@ import { type ActualitesAnswer, buildVolcan, type VolcanAnswer } from "../src/we
 import { volcanLive, volcanPage } from "../src/web/domains.js";
 import { SHARED } from "../src/web/partagees.js";
 import { site } from "../src/web/site.js";
-import { demos } from "../src/web/home.js";
-import { alerteVolcan, bannerText, homeCard, mediaHeadlines } from "../src/web/volcan-alerte.js";
+import { demos, homePage, type HomeLive } from "../src/web/home.js";
+import { meteoPage } from "../src/web/pages.js";
+import { alerteVolcan, bannerText, homeCard, mediaHeadlines, withVolcan } from "../src/web/volcan-alerte.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
 // The prefecture's release of the 24th, after pitonlive's last status (still « Vigilance », Enclos partly open).
@@ -44,14 +45,14 @@ describe("the volcano put forward during an alert", () => {
     const a = alerteVolcan(await answer(ALERT_1))!;
     expect(a).toMatchObject({ niveau: "Alerte 1", eruption: false, communique: { titre: ALERT_1 } });
     expect(bannerText(a)).toBe(
-      "🌋 Piton de la Fournaise : alerte 1 du préfet depuis le 24 octobre, « éruption probable ou imminente » (dispositif ORSEC Volcan). Accès à l'Enclos interdit.",
+      "🌋 Piton de la Fournaise : alerte 1 du préfet (communiqué du 24\u00a0octobre), « éruption probable ou imminente » (dispositif ORSEC Volcan). Accès à l'Enclos interdit.",
     );
   });
 
   it("takes alert 2 for the eruption under way, with the sub-level as written", async () => {
     const a = alerteVolcan(await answer(ALERT_2))!;
     expect(a.eruption).toBe(true);
-    expect(bannerText(a)).toBe("🌋 Éruption en cours au Piton de la Fournaise (alerte 2-1 du préfet depuis le 24 octobre). Accès à l'Enclos interdit.");
+    expect(bannerText(a)).toBe("🌋 Éruption en cours au Piton de la Fournaise (alerte 2-1 du préfet, communiqué du 24\u00a0octobre). Accès à l'Enclos interdit.");
   });
 
   it("tells the AI the same: the prefecture's words, and the eruption dated by its release only", async () => {
@@ -66,7 +67,7 @@ describe("the volcano put forward during an alert", () => {
     const page = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain("<title>Piton de la Fournaise : alerte 1, éruption probable · 974</title>");
     expect(page).toContain("<h1>Piton de la Fournaise : alerte 1, éruption probable ou imminente</h1>");
-    expect(page).toContain(`<meta name="description" content="Alerte 1 depuis le 24 octobre (préfecture) : « éruption probable ou imminente », selon le dispositif ORSEC Volcan. Accès à l&#39;Enclos interdit. Communiqués de l&#39;OVPF en direct · 974">`);
+    expect(page).toContain(`<meta name="description" content="Alerte 1 (préfecture, communiqué du 24\u00a0octobre) : « éruption probable ou imminente », selon le dispositif ORSEC Volcan. Accès à l&#39;Enclos interdit. Communiqués de l&#39;OVPF en direct · 974">`);
     // The plan's words only, never a release's of the day nor ours.
     expect(page).not.toContain("très brève");
     expect(page).toContain("<b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus. Seuls l&#39;OVPF et la préfecture l&#39;annonceront : leurs communiqués s&#39;affichent ici dès leur publication.</b>");
@@ -81,7 +82,7 @@ describe("the volcano put forward during an alert", () => {
 
   it("says the level in the plan's words on the home page too, never « pas encore »", async () => {
     const v = await answer(ALERT_1);
-    expect(homeCard(alerteVolcan(v)!)).toContain("<h2>🌋 Piton de la Fournaise : alerte 1</h2><p class=\"lead\">Alerte 1 : « éruption probable ou imminente », selon le dispositif ORSEC Volcan. Accès à l&#39;Enclos interdit.</p>");
+    expect(homeCard(alerteVolcan(v)!)).toContain("<h2>🌋 Piton de la Fournaise : alerte\u00a01</h2><p class=\"lead\">Alerte\u00a01 du préfet (communiqué du 24\u00a0octobre) : « éruption probable ou imminente », selon le dispositif ORSEC Volcan. Accès à l&#39;Enclos interdit. <b>Suivre en direct\u00a0→</b></p>");
     const demo = demos({ volcan: { value: v, fetchedAt: NOW, stale: false } } as unknown as Parameters<typeof demos>[0], NOW).find((d) => d.call === "volcan_seismes()")!;
     expect(demo.answer).toMatch(/^L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus\. Le volcan est en alerte 1 : « éruption probable ou imminente » \(dispositif ORSEC Volcan\)\./);
     expect(demo.answer).not.toContain("Pas encore");
@@ -133,7 +134,32 @@ describe("the volcano put forward during an alert", () => {
     const later = new Date(NOW.getTime() + 61_000);
     const html = await (await site(new Request("https://rundata.re/communes"), cache, () => {}, later))!.text();
     expect(html).toContain("🌋 Piton de la Fournaise\u00a0: alerte 1 du préfet");
-    expect(html).toContain('<a href="/volcan">Suivre en direct →</a>');
+    expect(html).toContain('<a href="/volcan">Suivre en direct\u00a0→</a>');
+  });
+
+  it("shows one volcano block per page: the card alone on the home page, the heading alone on /volcan, the banner elsewhere", async () => {
+    const O = "https://rundata.re";
+    for (const [titre, card] of [
+      [ALERT_1, "Alerte\u00a01 du préfet (communiqué du 24\u00a0octobre) : « éruption probable ou imminente », selon le dispositif ORSEC Volcan. Accès à l&#39;Enclos interdit. <b>Suivre en direct\u00a0→</b>"],
+      [ALERT_2, "Alerte\u00a02-1 du préfet (communiqué du 24\u00a0octobre). Accès à l&#39;Enclos interdit. <b>Suivre en direct\u00a0→</b>"],
+    ]) {
+      const v = await answer(titre);
+      const a = alerteVolcan(v)!;
+      const copy = { value: v, fetchedAt: NOW, stale: false };
+      const home = withVolcan(a, () => homePage(O, { volcan: copy } as unknown as HomeLive, NOW));
+      expect(home).not.toContain('class="alerte volcan"');
+      expect(home).toContain(`<div class="wrap volcan-une"><a class="card" href="/volcan">`);
+      expect(home).toContain(card);
+      // The home page's copy missing: the card from the banner's read, still alone.
+      const bare = withVolcan(a, () => homePage(O, null, NOW));
+      expect(bare).not.toContain('class="alerte volcan"');
+      expect(bare).toContain(card);
+      expect(withVolcan(a, () => volcanPage(O, copy, NOW))).not.toContain('class="alerte volcan"');
+      const other = withVolcan(a, () => meteoPage(O, null, NOW));
+      expect(other).toContain('class="alerte volcan"');
+      expect(other).toContain('<a href="/volcan">Suivre en direct\u00a0→</a>');
+      expect(other).not.toContain('class="wrap volcan-une"');
+    }
   });
 
   it("refreshes the shared copy every 5 minutes during an alert, every 30 otherwise", async () => {
