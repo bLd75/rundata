@@ -124,6 +124,11 @@ export function costOf(key: string): number | undefined {
   return costs.get(key);
 }
 
+/** Subrequests the invocation has made so far; none outside a counted invocation. */
+export function spent(): number {
+  return current.getStore()?.used ?? 0;
+}
+
 /** Subrequests the invocation may still make, besides the writes to the cache. */
 export function left(): number {
   const t = current.getStore();
