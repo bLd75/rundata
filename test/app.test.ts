@@ -49,10 +49,11 @@ describe("HTTP endpoint", () => {
     });
     await handle(new Request("https://rundata.re/meteo/cilaos?maj=12h55", { headers: { accept: "text/html" } }), new Cache(), () => {}, (h) => hits.push(h));
     await handle(new Request("https://rundata.re/favicon.svg"), new Cache(), () => {}, (h) => hits.push(h));
-    expect(hits).toEqual([
-      { kind: "mcp", name: "sources_donnees", detail: undefined, ok: true },
-      { kind: "page", name: "/meteo/cilaos", detail: "bouton", ok: true },
+    expect(hits).toMatchObject([
+      { kind: "mcp", name: "sources_donnees", ok: true, method: "tools/call", outcome: "ok", args: "" },
+      { kind: "page", name: "/meteo/cilaos", detail: "bouton", ok: true, status: 200 },
     ]);
+    expect(hits).toHaveLength(2);
     expect(visitor("openai-mcp/1.0.0")).toBe("ChatGPT (connecteur)");
     expect(visitor("Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot")).toBe("ChatGPT");
     expect(visitor("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1")).toBe("navigateur");

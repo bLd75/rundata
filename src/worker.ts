@@ -9,7 +9,7 @@
 import { handle } from "./app.js";
 import { WORKER_FREE_LIMIT, count, counted, later } from "./budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
-import { visitor, type Hit } from "./metrics.js";
+import { audience, language, point, visitor, type Hit } from "./metrics.js";
 import { VERSION } from "./server.js";
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
@@ -99,30 +99,45 @@ interface AnalyticsDataset {
 }
 
 /**
- * One point per tool call or page view (metrics.ts). Columns, for the SQL API: index1 and blob1 = kind (mcp, page),
- * blob2 = tool or path, blob3 = place asked or « bouton », blob4 = visitor, blob5 = country, blob6 = referring site, or « ref:<canal> » for a link carrying ?ref=;
- * double1 = 1 if answered without error.
+ * One point per MCP message or page view (metrics.ts: `point` lists the columns, for the SQL API), and one log line
+ * per MCP message, with the same fields.
  */
 function recorder(env: Env, request: Request) {
   const usage = env.USAGE;
-  if (!usage) return undefined;
-  const who = visitor(request.headers.get("user-agent") ?? "");
+  const headers = request.headers;
+  const who = visitor(headers.get("user-agent") ?? "");
   const country = String((request as { cf?: { country?: unknown } }).cf?.country ?? "");
   let from = "";
   try {
-    const ref = new URL(request.headers.get("referer") ?? "");
+    const ref = new URL(headers.get("referer") ?? "");
     if (ref.host !== new URL(request.url).host) from = ref.host;
   } catch {}
   // A link shared by the campaign carries its channel (« ?ref=fb », « ?ref=presse-zinfos »): it wins over the referer.
   const tag = new URL(request.url).searchParams.get("ref")?.replace(/[^\w.-]/g, "").slice(0, 40);
   if (tag) from = `ref:${tag}`;
   return (hit: Hit) => {
+    if (hit.kind !== "page") console.log(logLine(hit, who, country));
+    if (!usage) return;
     try {
-      usage.writeDataPoint({ indexes: [hit.kind], blobs: [hit.kind, hit.name, hit.detail ?? "", who, country, from], doubles: [hit.ok ? 1 : 0] });
+      const page = hit.kind === "page";
+      usage.writeDataPoint(point(hit, { who, country, from, audience: page ? audience(headers) : "", language: page ? language(headers.get("accept-language")) : "" }));
     } catch (err) {
       console.error("analytics : écriture impossible", why(err));
     }
   };
+}
+
+/** The log line of an MCP message: an object, whose fields the Workers logs keep apart. */
+function logLine(hit: Hit, visitor: string, country: string) {
+  const line: Record<string, unknown> = {
+    message: `mcp ${hit.method || hit.name}${hit.kind === "mcp" ? ` ${hit.name}` : ""} : ${hit.outcome}`,
+    method: hit.method, tool: hit.kind === "mcp" ? hit.name : undefined, client: hit.client, client_version: hit.clientVersion,
+    protocol: hit.protocol, outcome: hit.outcome, error: hit.message, args: hit.args, place: hit.detail, place_status: hit.place,
+    commune: hit.commune, ms: hit.ms, subrequests: hit.subrequests, cache_hits: hit.cacheHits, cache_loads: hit.cacheLoads,
+    size: hit.size, visitor, country,
+  };
+  for (const k of Object.keys(line)) if (line[k] === undefined || line[k] === "") delete line[k];
+  return line;
 }
 
 let cache: Cache | undefined;

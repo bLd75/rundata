@@ -7,6 +7,7 @@
  * stays down for days) so that an outage does not turn every question into a new request against a server that is
  * already struggling.
  */
+import { cacheTally } from "./metrics.js";
 
 export interface CacheEntry {
   value: unknown;
@@ -180,8 +181,10 @@ export class Cache {
     backoffSeconds = FAILURE_BACKOFF_SECONDS,
   ): Promise<Cached<T>> {
     if (hit && this.now() - hit.fetchedAt < freshSeconds * 1000) {
+      cacheTally().hits++;
       return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false };
     }
+    cacheTally().loads++;
     const failed = this.failures.get(key);
     if (failed && this.now() - failed.at < backoffSeconds * 1000) {
       if (hit) return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true };
