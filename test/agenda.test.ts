@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WORKER_FREE_LIMIT, count, counted, left } from "../src/budget.js";
+import { WORKER_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { AGENDAS, COVERED, OTI_EST, SOURCES_LUES, communeOf, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseTribe } from "../src/providers/agenda.js";
 import { agenda, gather, periode } from "../src/tools/agenda.js";
@@ -264,36 +264,36 @@ describe("agenda", () => {
 
     it("reads every agenda on a cold call, well under the limit, then nearly nothing", async () => {
       const c = isolate();
-      const cold = await counted(WORKER_FREE_LIMIT, () => agenda(c, undefined, undefined, undefined, NOW));
+      const cold = await counted(WORKER_BUDGET, () => agenda(c, undefined, undefined, undefined, NOW));
       expect(body(cold.value).indisponible).toBeUndefined();
       expect(cold.used).toBeLessThanOrEqual(40);
-      const warm = await counted(WORKER_FREE_LIMIT, () => agenda(c, undefined, undefined, undefined, NOW));
+      const warm = await counted(WORKER_BUDGET, () => agenda(c, undefined, undefined, undefined, NOW));
       expect(body(warm.value).nombre).toBe(body(cold.value).nombre);
       expect(warm.used).toBeLessThanOrEqual(2);
     });
 
     it("leaves for later the agendas it has no subrequests for, names them, and the next calls read them", async () => {
       const c = isolate();
-      const first = await counted(WORKER_FREE_LIMIT, async () => {
-        count(30); // what the invocation did before
+      const first = await counted(WORKER_BUDGET, async () => {
+        count(20); // what the invocation did before
         return agenda(c, undefined, undefined, undefined, NOW);
       });
-      expect(first.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+      expect(first.used).toBeLessThanOrEqual(WORKER_BUDGET);
       const named = body(first.value).indisponible as string[];
       expect(named.length).toBeGreaterThan(0);
       expect(body(first.value).resume).toContain(`non lu${named.length > 1 ? "s" : ""} cette fois : ${named.join(", ")}`);
       expect(body(first.value).nombre).toBeGreaterThan(0);
       let rest = named;
       for (let i = 0; i < 5 && rest?.length; i++) {
-        const next = await counted(WORKER_FREE_LIMIT, async () => {
-          count(30);
+        const next = await counted(WORKER_BUDGET, async () => {
+          count(20);
           return agenda(c, undefined, undefined, undefined, NOW);
         });
-        expect(next.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+        expect(next.used).toBeLessThanOrEqual(WORKER_BUDGET);
         rest = body(next.value).indisponible;
       }
       expect(rest).toBeUndefined();
-      expect(body((await counted(WORKER_FREE_LIMIT, () => agenda(c, undefined, undefined, undefined, NOW))).value).resume).not.toContain("non lu");
+      expect(body((await counted(WORKER_BUDGET, () => agenda(c, undefined, undefined, undefined, NOW))).value).resume).not.toContain("non lu");
     });
 
     it("keeps reading a slow agenda after the response, and stores it for the next question", async () => {
@@ -304,13 +304,13 @@ describe("agenda", () => {
       });
       const edge = new EdgeLike();
       const kept: Promise<unknown>[] = [];
-      const { value, settled } = await counted(WORKER_FREE_LIMIT, () => gather(isolate(edge), NOW, 100), (p) => kept.push(p));
+      const { value, settled } = await counted(WORKER_BUDGET, () => gather(isolate(edge), NOW, 100), (p) => kept.push(p));
       expect(value.find((g) => g.agenda.id === "kabardock")?.value).toBeUndefined();
       expect(kept).toHaveLength(1);
       await settled();
       // Another isolate of the data center, the Kabardock now down: its copy is there, fresh.
       vi.stubGlobal("fetch", async () => new Response("", { status: 503 }));
-      const other = await counted(WORKER_FREE_LIMIT, () => gather(isolate(edge), NOW, 100));
+      const other = await counted(WORKER_BUDGET, () => gather(isolate(edge), NOW, 100));
       const kabardock = other.value.find((g) => g.agenda.id === "kabardock")?.value;
       expect(kabardock?.stale).toBe(false);
       expect(kabardock?.value.length).toBeGreaterThan(0);

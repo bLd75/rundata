@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { failed, handle } from "../src/app.js";
-import { WORKER_BUDGET, WORKER_FREE_LIMIT, count, counted, later, left } from "../src/budget.js";
+import { WORKER_BUDGET, count, counted, later, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
 import * as mf from "../src/providers/vigilance.js";
 import * as feux from "../src/providers/feux.js";
-import { alerteOf, snapshot } from "../src/web/data.js";
+import { alerteOf, buildPlace, snapshot } from "../src/web/data.js";
 import { homePage } from "../src/web/home.js";
 import { VERSION } from "../src/server.js";
 import { DESCRIPTION_MAX, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
@@ -95,7 +95,7 @@ afterEach(() => {
 /** A page as a Worker serves it: counted, background work awaited within the same invocation. */
 async function serve(cache: Cache, path: string) {
   const pending: Promise<unknown>[] = [];
-  const { value, used } = await counted(WORKER_FREE_LIMIT, async () => {
+  const { value, used } = await counted(WORKER_BUDGET, async () => {
     const r = (await site(html(path), cache, (p) => pending.push(p), NOW))!;
     await Promise.all(pending);
     return r;
@@ -165,12 +165,12 @@ describe("home page", () => {
     // again in the browser, from the time of the data.
     expect(cold.text).not.toContain("En direct · <b>");
     expect(cold.text).toMatch(/<span data-nojs>Mesures de <b>\d\d:\d\d<\/b> à La Réunion<\/span><span data-js hidden><b data-clock>\d\d:\d\d<\/b> à La Réunion · mesuré <span data-age="[\dT:.-]+Z">il y a \d+ (min|h)<\/span>/);
-    expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    expect(cold.used).toBeLessThanOrEqual(WORKER_BUDGET);
     // Another isolate of the same data center: the weather from the edge, and the oldest of the other tiles brought up
     // to date afterwards, still within the limit.
     const warm = await serve(isolate(edge), "/");
     expect(warm.text).toContain("Piton Maïdo");
-    expect(warm.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    expect(warm.used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
   it("reads no tile from the data center's cache on a warm isolate whose copies are fresh", async () => {
@@ -248,17 +248,24 @@ describe("place pages", () => {
     expect(new Set(PAGES.map((p) => p.slug)).size).toBe(PAGES.length);
   });
 
-  it("show the measurement and a labelled forecast, cold within the limit, warm from one read", async () => {
+  it("show the measurement cold within the budget, the labelled forecast from the next build, warm from one read", async () => {
     const edge = new EdgeLike();
     const cold = await serve(isolate(edge), "/meteo/cilaos");
     expect(cold.text).toContain("<h1>Météo à Cilaos <span class=\"n974\">974</span></h1>");
     expect(cold.text).toContain("Mesuré en ce moment près de Cilaos");
-    expect(cold.text).toContain("Prévision, pas une mesure");
-    // The UV index of each day, from its own forecast (CAMS), credited with the others.
-    expect(cold.text).toMatch(/<p>UV : \d+ \((faible|modéré|élevé|très élevé|extrême)\)<\/p>/);
-    expect(cold.text).toContain("Indice UV prévu par le service Copernicus");
     expect(cold.text).not.toContain("Température de la mer à Cilaos");
-    expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    expect(cold.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    // Cold, the stations take most of the budget: the forecast is left out rather than risk it (FORECAST_MIN_LEFT
+    // in web/data.ts). The data center's next build of the page, its stations stored, has it.
+    expect(cold.text).not.toContain("Prévision, pas une mesure");
+    const next = await counted(WORKER_BUDGET, () => buildPlace(isolate(edge), pageOf("cilaos")!, NOW));
+    expect(next.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    const built = placePage("https://rundata.re", pageOf("cilaos")!, { value: next.value, fetchedAt: NOW, stale: false }, NOW);
+    expect(built).toContain("Mesuré en ce moment près de Cilaos");
+    expect(built).toContain("Prévision, pas une mesure");
+    // The UV index of each day, from its own forecast (CAMS), credited with the others.
+    expect(built).toMatch(/<p>UV : \d+ \((faible|modéré|élevé|très élevé|extrême)\)<\/p>/);
+    expect(built).toContain("Indice UV prévu par le service Copernicus");
     const warm = await serve(isolate(edge), "/meteo/cilaos");
     // Its copy, the vigilance, the hikers' page's copy for the state of the hikes around, and the volcano's banner.
     expect(warm.used).toBeLessThanOrEqual(4);
@@ -267,7 +274,7 @@ describe("place pages", () => {
   it("give the sea temperature on the coast", async () => {
     const { text, used } = await serve(isolate(), "/meteo/saint-leu");
     expect(text).toContain("Température de la mer à Saint-Leu");
-    expect(used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
   it("answer an unknown place with a 404 that links to the others", async () => {
@@ -289,7 +296,7 @@ describe("commune pages", () => {
     expect(cold.text).toContain("pour la zone Ouest");
     expect(cold.text).toMatch(/<h3>Mairie<\/h3><p class="tv">(Ouverte|Fermée)<\/p>/);
     expect(cold.text).toContain("Mer"); // on the coast
-    expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    expect(cold.used).toBeLessThanOrEqual(WORKER_BUDGET);
     const warm = await serve(isolate(edge), "/communes/saint-leu");
     expect(warm.text).toMatch(/<h3>Mairie<\/h3><p class="tv">(Ouverte|Fermée)<\/p>/);
     // One read per tile's copy, the hikes and the outings included, and the volcano's banner.
@@ -308,7 +315,7 @@ describe("commune pages", () => {
     expect(cold.text).toMatch(/mesurés à \d\d:\d\d par la station/);
     expect(cold.text).toContain("rundata.re ne mesure pas les bouchons");
     expect(cold.text).toMatch(/Pas de copie récente pour : .*<a href="\/coupures-eau\/saint-leu">coupures d&#39;eau<\/a>/);
-    expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    expect(cold.used).toBeLessThanOrEqual(WORKER_BUDGET);
     // Another isolate: a read for each copy and the vigilance, and the oldest copy missing brought up to date when it fits.
     const warm = await serve(isolate(edge), "/aujourdhui/saint-leu");
     expect(warm.used).toBeLessThanOrEqual(20);
@@ -457,7 +464,7 @@ describe("vigilance and sea pages", () => {
     expect(text).toContain("Sud-Est");
     expect(text).toContain("Ce que dit Météo-France");
     expect(text).not.toContain('class="alerte');
-    expect(used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
   it("puts a banner on every page while something is above green", async () => {
@@ -487,7 +494,7 @@ describe("vigilance and sea pages", () => {
     expect(swell).toContain("Prévision, pas une mesure");
     expect(swell.match(/<li>/g)).toHaveLength(14);
     expect(swell).toMatch(/<b>\d+(,\d)?\u202fm<\/b><span>(du |de l')[a-z-]+, période \d+ s, vers \d+h<\/span><span>jusqu'à \d+(,\d)?\u202fm /);
-    expect(used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
     // A coastal commune's tile says it too, from the same copy.
     const saintLeu = await serve(cache, "/communes/saint-leu");
     expect(saintLeu.text).toMatch(/houle prévue : \d+(,\d)?\u202fm/);
