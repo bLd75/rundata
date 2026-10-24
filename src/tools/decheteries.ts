@@ -55,6 +55,7 @@ export async function decheteriesAnswer(cache: Cache, quoi: string, lieu: string
   return text({
     ...(res ? { lieu: placeBlock(lieu!, res) } : {}),
     resume,
+    page: "https://rundata.re/decheteries",
     decheteries: near.map((s) => ({
       nom: s.nom,
       commune: s.commune,

@@ -15,9 +15,11 @@ const m = (h: number) => `${fr(h)} m`;
 /** « Pointe des Galets (Le Port) », « Sainte-Marie ». */
 const label = (g: mg.Gauge) => (g.nom === g.commune ? g.nom : `${g.nom} (${g.commune})`);
 
-// The next tides: those of a day and a bit (four, sometimes three), the heights corrected by the gap between the
-// gauge and the computation over the last hours, as scripts/build-maree.py checked them.
-const NEXT_HOURS = 26;
+// The next tides: two days of them (eight, sometimes seven), so that « la marée basse demain » has its answer and the
+// model has nothing to extrapolate; the heights corrected by the gap between the gauge and the computation over the
+// last hours, as scripts/build-maree.py checked them.
+const NEXT_HOURS = 48;
+const SHOM = "https://maree.shom.fr";
 const OFFSET_HOURS = 6;
 
 export interface GaugeNow {
@@ -91,11 +93,12 @@ export function nextTides(g: GaugeNow, now: Date) {
   const from = now.getTime() / 1000;
   // From seven hours back, for the turn before the first one, which gives its range.
   const all = calc.nextTurns(c, from - 7 * 3600, NEXT_HOURS + 7);
-  const turns = all.filter((e) => e.t >= from).slice(0, 4);
+  const turns = all.filter((e) => e.t >= from).slice(0, 8);
   const offset = g.offset ?? 0;
   return {
     nature: "calcul",
     avertissement: `${calc.LABEL} ; ${precision(c)}.`,
+    horizon: `calculé jusqu'au ${localTime(new Date((from + NEXT_HOURS * 3600) * 1000))} heure de La Réunion ; au-delà, les prédictions officielles du SHOM : ${SHOM}`,
     ...(checked(c) ? { controle: checked(c) } : {}),
     ...(g.offset != null
       ? { recalage: `hauteurs recalées de ${offset >= 0 ? "+" : ""}${fr(Math.round(offset * 100))} cm sur le niveau mesuré des ${OFFSET_HOURS} dernières heures` }

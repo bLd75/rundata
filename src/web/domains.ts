@@ -374,7 +374,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
   const status = !d
     ? loading("La production d'électricité")
     : p
-      ? `<div class="now"><span class="big">${fr(Math.round(p.renouvelable_pct))} %</span><p>de l'électricité de l'île vient en ce moment de sources <b>renouvelables</b>, sur <b>${esc(fr(Math.round(p.total_mw)))} MW</b> produits (${esc(p.heure.replace(" heure de La Réunion", ""))}).</p></div>` +
+      ? `<div class="now"><span class="big">${fr(Math.round(p.renouvelable_pct))} %</span><p>de l'électricité de l'île vient en ce moment de sources <b>renouvelables</b>, sur <b>${esc(fr(Math.round(p.total_mw)))} MW</b> produits (${esc(p.heure_mesure.replace(" heure de La Réunion", ""))}).</p></div>` +
         (m?.maintenant ? `<p class="lead">Signal d'EDF en ce moment : <b>${esc(m.maintenant.signal.toLowerCase())}</b>.</p>` : "")
       : `<p class="lead">${esc(d.resume)}</p>`;
 
@@ -405,7 +405,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
 
   const title = "Électricité Réunion en direct : part renouvelable · 974";
   const description = p
-    ? describe(`🇷🇪 Électricité à La Réunion (974) à ${p.heure.split(" ")[1]} : ${fr(Math.round(p.total_mw))} MW produits, dont ${fr(Math.round(p.renouvelable_pct))} % renouvelable. Filière par filière, et les heures où le réseau est chargé.`,
+    ? describe(`🇷🇪 Électricité à La Réunion (974) à ${p.heure_mesure.split(" ")[1]} : ${fr(Math.round(p.total_mw))} MW produits, dont ${fr(Math.round(p.renouvelable_pct))} % renouvelable. Filière par filière, et les heures où le réseau est chargé.`,
         `🇷🇪 Électricité à La Réunion (974) : ${fr(Math.round(p.renouvelable_pct))} % renouvelable en ce moment. Filière par filière, et les heures où le réseau est chargé.`)
     : "🇷🇪 Électricité à La Réunion (974) en direct : d'où vient le courant, la part renouvelable et les heures où le réseau est chargé.";
 
@@ -438,7 +438,7 @@ export function electriciteLive(data: Cached<ElectriciteAnswer> | null): Live | 
   const signal = data!.value.meteo_electricite?.maintenant?.signal;
   return {
     valeur: `${fr(Math.round(p.renouvelable_pct))}\u202f% renouvelable`,
-    detail: `${esc(fr(Math.round(p.total_mw)))} MW produits à ${esc(p.heure.split(" ")[1] ?? p.heure)}${signal ? ` · réseau ${esc(signal.toLowerCase())}` : ""}`,
+    detail: `${esc(fr(Math.round(p.total_mw)))} MW produits à ${esc(p.heure_mesure.split(" ")[1] ?? p.heure_mesure)}${signal ? ` · réseau ${esc(signal.toLowerCase())}` : ""}`,
   };
 }
 

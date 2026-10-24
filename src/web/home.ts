@@ -151,7 +151,7 @@ export function demos(h: HomeLive | null, now: Date): Demo[] {
     out.push({
       question: "L'électricité vient d'où en ce moment ?",
       call: "electricite()",
-      answer: `${Math.round(p.renouvelable_pct)}\u202f% de sources renouvelables, sur ${Math.round(p.total_mw)} MW produits à ${esc(p.heure.split(" ")[1] ?? p.heure)}. ` +
+      answer: `${Math.round(p.renouvelable_pct)}\u202f% de sources renouvelables, sur ${Math.round(p.total_mw)} MW produits à ${esc(p.heure_mesure.split(" ")[1] ?? p.heure_mesure)}. ` +
         `En tête : ${top.map((x) => `${esc(x.filiere.split(" (")[0])} (${Math.round(x.part_pct)}\u202f%)`).join(" et ")}, d'après EDF.`,
     });
   }

@@ -1,7 +1,7 @@
 {
  "resume": "Production d'électricité à 18:35 (il y a 6 min) : 406 MW, dont 42,6 % renouvelable. Principales filières : moteurs diesel et fioul 35,2 %, bioénergies (bagasse, biomasse, biogaz) 22,5 %, charbon 21 %, hydraulique 19 %. Météo de l'électricité EDF en ce moment : heures de pointe. Moments à éviter pour les gros usages (recharge de véhicule, chauffe-eau, clim) : vendredi 23/10 de 18h à 22h (heures de pointe) ; lundi 26/10 de 18h à 22h (heures de pointe) ; mardi 27/10 de 18h à 22h (heures de pointe) ; mercredi 28/10 de 18h à 22h (heures de pointe).",
  "production": {
-  "heure": "23/10 18:35 heure de La Réunion",
+  "heure_mesure": "23/10 18:35 heure de La Réunion",
   "age_min": 6,
   "total_mw": 405.6,
   "parts": [

@@ -32,7 +32,7 @@ const COPIES = {
   }),
   mer: copy({ plages: [{ nom: "Boucan Canot", commune: "Saint-Paul", lon: 55.2, lat: -21.0, valeur: 24.6, jour: "2026-10-23" }, { nom: "Hermitage", commune: "Saint-Paul", lon: 55.2, lat: -21.1, valeur: 25.4, jour: "2026-10-23" }, { nom: "Grande Anse", commune: "Petite-Île", lon: 55.5, lat: -21.4, valeur: 23, jour: "2026-10-23" }], sources: SOURCE("NOAA") }),
   air: copy({ resume: "", nature: "", avertissements: [], sources: SOURCE("Atmo Réunion"), communes: [{ commune: "Saint-Paul", niveau: 2, qualite: "moyen", polluants: ["PM10"] }] }),
-  electricite: copy({ resume: "", avertissements: [], sources: SOURCE("EDF"), production: { heure: "13:50", total_mw: 420, parts: [], renouvelable_pct: 38, statut: "" } }),
+  electricite: copy({ resume: "", avertissements: [], sources: SOURCE("EDF"), production: { heure_mesure: "13:50", total_mw: 420, parts: [], renouvelable_pct: 38, statut: "" } }),
   actualites: copy({
     infos: [
       info("Barrage filtrant au rond-point de Savanna", ["Saint-Paul"], ["route", "mobilisation"]),

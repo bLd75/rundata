@@ -1042,7 +1042,7 @@ export interface ElectriciteAnswer {
   /** The power cuts the mairies relay, as the copy web:courant had them when this copy was built. */
   coupures_annoncees?: ReturnType<typeof courantBlock>;
   production?: {
-    heure: string;
+    heure_mesure: string;
     total_mw: number;
     parts: { filiere: string; mw: number; part_pct: number; renouvelable: boolean }[];
     renouvelable_pct: number;

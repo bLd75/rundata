@@ -4,7 +4,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { counted } from "../src/budget.js";
 import { Cache } from "../src/cache.js";
 import * as climat from "../src/providers/climat.js";
-import { historiqueMeteo, parseDate, period } from "../src/tools/historique.js";
+import { historiqueMeteo, nothing, parseDate, period } from "../src/tools/historique.js";
 
 // Real rows of the archive (scripts/build-climat.py): eight stations, the years 2006, 2025 and 2026 up to 23 October.
 const NOW = new Date("2026-10-24T08:00:00Z");
@@ -166,5 +166,19 @@ describe("station names", () => {
     expect(climat.stationName("x", "PLAINE DES CAFRES")).toBe("Plaine des Cafres");
     expect(climat.stationName("x", "ST-LEU")).toBe("Saint-Leu");
     expect(climat.stationName("x", "ILET A VIDOT")).toBe("Ilet à Vidot");
+  });
+});
+
+describe("nothing measured", () => {
+  const now = new Date("2026-10-25T02:27:00+04:00");
+  it("says that yesterday is not published yet, never that no station measured", () => {
+    expect(nothing("Saint-Denis", { du: "2026-10-24", au: "2026-10-24" }, now)).toBe(
+      "Les mesures du 24/10/2026 ne sont pas encore publiées : Météo-France publie chaque jour le matin, le plus souvent avant 10 h (heure de La Réunion). Réessayer plus tard ; pour maintenant, meteo_actuelle.",
+    );
+    expect(nothing("Saint-Denis", { du: "2026-10-22", au: "2026-10-24" }, now)).toMatch(/^Les mesures du 22\/10\/2026 au 24\/10\/2026 ne sont pas encore publiées/);
+  });
+  it("says that no station measured over an older or longer period", () => {
+    expect(nothing("Mafate", { du: "2026-10-01", au: "2026-10-20" }, now)).toBe("Aucune station ne mesurait à Mafate ou près de là sur cette période.");
+    expect(nothing("Mafate", { du: "2026-09-25", au: "2026-10-24" }, now)).toMatch(/^Aucune station/);
   });
 });

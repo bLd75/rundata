@@ -91,7 +91,7 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
       `Production d'électricité à ${localTime(t).split(" ")[1]} (${ageText(age)}) : ${fr(Math.round(m.total))} MW, dont ${fr(b.renouvelable_pct)} % renouvelable. ` +
         `Principales filières : ${b.parts.slice(0, 4).map((p) => `${p.filiere} ${fr(p.part_pct)} %`).join(", ")}.`,
     );
-    production = { heure: `${localTime(t)} heure de La Réunion`, age_min: age, total_mw: Math.round(m.total * 10) / 10, ...b, statut: m.statut === "Estimé" ? "estimé (télémesures, consolidé chaque mois)" : m.statut };
+    production = { heure_mesure: `${localTime(t)} heure de La Réunion`, age_min: age, total_mw: Math.round(m.total * 10) / 10, ...b, statut: m.statut === "Estimé" ? "estimé (télémesures, consolidé chaque mois)" : m.statut };
   }
   let signal;
   if (hours) {
