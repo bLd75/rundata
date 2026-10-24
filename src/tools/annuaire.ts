@@ -8,6 +8,7 @@ import { carburantsAnswer, FUEL } from "./carburants.js";
 import { credits, de, fr, notFound, text } from "./format.js";
 import { COLLECTION, collecteAnswer } from "./collecte.js";
 import { decheteriesAnswer, WASTE } from "./decheteries.js";
+import { CHILDREN, enfantsAnswer } from "./enfants.js";
 import { MARKET, marchesAnswer } from "./marches.js";
 import { EMERGENCY, PHARMACY, pharmaciesAnswer, urgencesAnswer } from "./sante.js";
 
@@ -60,13 +61,15 @@ export function named(list: annuaire.Office[], quoi: string): annuaire.Office[] 
 }
 
 export async function annuaireTool(cache: Cache, quoi: string, lieu: string | undefined, now = new Date()) {
-  // Practical life, asked the same way: the pharmacies, the emergencies, the markets, the déchèteries, the fuel prices.
+  // Practical life, asked the same way: the pharmacies, the emergencies, the markets, the déchèteries, the fuel prices,
+  // where to go with children.
   if (PHARMACY.test(quoi)) return pharmaciesAnswer(lieu);
   if (EMERGENCY.test(quoi)) return urgencesAnswer(lieu);
   if (MARKET.test(quoi)) return marchesAnswer(lieu);
   if (COLLECTION.test(quoi)) return collecteAnswer(lieu, now);
   if (WASTE.test(quoi)) return decheteriesAnswer(cache, quoi, lieu, now);
   if (FUEL.test(quoi)) return carburantsAnswer(cache, now);
+  if (CHILDREN.test(quoi)) return enfantsAnswer(quoi, lieu, now);
   const res = lieu?.trim() ? resolvePlace(lieu) : null;
   if (lieu?.trim() && !res) return notFound(lieu);
   const code = res ? INSEE[res.lieu.commune] : undefined;

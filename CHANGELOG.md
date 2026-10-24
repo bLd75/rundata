@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Nouvelle page Enfants : aires de jeux, parcs, piscines, médiathèques et activités du week-end, de 0 à 17 ans, commune par commune.
 - ChatGPT : des outils de rundata.re manquent ? Le tutoriel dit comment actualiser la liste dans les paramètres.
 - Bus : votre IA donne les arrêts d'une ligne commune par commune, ses premiers et derniers départs, et si elle s'arrête près de chez vous.
 - Volley-ball : les tournois en plein air de la Ligue réunionnaise, avec leur date et le lien de la Ligue.

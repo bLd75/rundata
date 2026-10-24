@@ -94,6 +94,8 @@ export interface Evenement {
    * search only, never shown nor returned. Only the first sentence of a source's text is kept (extrait()).
    */
   themes?: string[];
+  /** The children's ages its text gives, in its words (« de 6 mois à 6 ans », « dès 10 ans »): never guessed. */
+  age?: string;
   lien: string;
   /** Who publishes it: « Mairie de Saint-Paul », « reunion.fr ». */
   publie_par: string;

@@ -10,6 +10,7 @@ import { normalize } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import * as mf from "../providers/vigilance.js";
 import * as sante from "../sante/etablissements.js";
+import * as enfants from "../vie/enfants.js";
 import * as dech from "../vie/decheteries.js";
 import { anchorOf } from "./decheteries.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
@@ -22,7 +23,7 @@ import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
 import { esc, islandMap } from "./map.js";
-import { ask, connector, credits, cycloneVg, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
+import { anchorId, ask, connector, credits, cycloneVg, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { RSS_HINT, rssLink, rssPath, rssTitle } from "./rss.js";
@@ -196,6 +197,14 @@ function pharmacies(p: PlacePage): Live {
   };
 }
 
+/** The places to go with children (vie/enfants.ts): how many, and of which kinds. */
+function children(p: PlacePage): Live | undefined {
+  const list = enfants.inCommune(p.nom);
+  if (!list.length) return undefined;
+  const kinds = enfants.TYPES.map((t) => [t.court, list.filter((l) => l.type === t.type).length] as const).filter(([, n]) => n);
+  return { valeur: `${list.length} lieu${list.length > 1 ? "x" : ""}`, detail: kinds.slice(0, 4).map(([court, n]) => `${court} ${n}`).join(", ") };
+}
+
 function townHall(data: Cached<CommuneData> | null | undefined, now: Date): Live | undefined {
   const o = data?.value.mairie;
   if (!o) return undefined;
@@ -246,6 +255,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     { icon: "heart", nom: "Pharmacies", live: pharmacies(p), foot: `<a href="${sante.GARDE.site}" rel="noopener">Pharmacie de garde : 3237.fr</a>` },
     ...(hikes ? [{ icon: "mountain", nom: "Randonnée", href: hikes.href, live: hikes.live, foot: hikes.foot }] : []),
     { icon: "music", nom: "Sorties", href: "/evenements", live: communeEvents(p, l.agenda) },
+    ...(children(p) ? [{ icon: "kids", nom: "Enfants", href: `/enfants#${anchorId("c", p.nom)}`, live: children(p) }] : []),
     { icon: "calendar", nom: "Soleil et calendrier", href: "/calendrier", live: sunTimes(p, l.calendrier, now) },
     { icon: "map", nom: "Terrain et risques", question: `Mon adresse à ${p.nom} est-elle en zone inondable ?`, foot: `<a href="/#assistant">Demandez à votre IA →</a>`, wide: true },
   ];
