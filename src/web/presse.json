@@ -1,0 +1,74 @@
+{
+ "randonnees-ordi": {
+  "hd": "/presse/rundata-randonnees-ordi.3c3b6175ae.jpg",
+  "largeur": 1600,
+  "hauteur": 1113,
+  "octets": 209086,
+  "vignette": "/presse/rundata-randonnees-ordi.00207200fb.webp",
+  "vignette_largeur": 800,
+  "vignette_hauteur": 557
+ },
+ "accueil-ordi": {
+  "hd": "/presse/rundata-accueil-ordi.ee6a0c809d.jpg",
+  "largeur": 1600,
+  "hauteur": 1000,
+  "octets": 196150,
+  "vignette": "/presse/rundata-accueil-ordi.9261cfc723.webp",
+  "vignette_largeur": 800,
+  "vignette_hauteur": 500
+ },
+ "piton-des-neiges-ordi": {
+  "hd": "/presse/rundata-piton-des-neiges-ordi.9833f8676e.jpg",
+  "largeur": 1600,
+  "hauteur": 781,
+  "octets": 118280,
+  "vignette": "/presse/rundata-piton-des-neiges-ordi.3f165c1fe9.webp",
+  "vignette_largeur": 800,
+  "vignette_hauteur": 391
+ },
+ "accueil": {
+  "hd": "/presse/rundata-accueil.bca79d0c35.jpg",
+  "largeur": 780,
+  "hauteur": 1300,
+  "octets": 109115,
+  "vignette": "/presse/rundata-accueil.265166c377.webp",
+  "vignette_largeur": 400,
+  "vignette_hauteur": 667
+ },
+ "cilaos": {
+  "hd": "/presse/rundata-cilaos.06f3fc0f6e.jpg",
+  "largeur": 780,
+  "hauteur": 1300,
+  "octets": 108923,
+  "vignette": "/presse/rundata-cilaos.487445f868.webp",
+  "vignette_largeur": 400,
+  "vignette_hauteur": 667
+ },
+ "randonnees": {
+  "hd": "/presse/rundata-randonnees.7f0fed962e.jpg",
+  "largeur": 780,
+  "hauteur": 1300,
+  "octets": 98379,
+  "vignette": "/presse/rundata-randonnees.9ed9c757c1.webp",
+  "vignette_largeur": 400,
+  "vignette_hauteur": 667
+ },
+ "evenements": {
+  "hd": "/presse/rundata-evenements.69f4c1cf30.jpg",
+  "largeur": 780,
+  "hauteur": 1300,
+  "octets": 102218,
+  "vignette": "/presse/rundata-evenements.b6a23deb69.webp",
+  "vignette_largeur": 400,
+  "vignette_hauteur": 667
+ },
+ "historique": {
+  "hd": "/presse/rundata-historique.f381ad950f.jpg",
+  "largeur": 780,
+  "hauteur": 1300,
+  "octets": 112103,
+  "vignette": "/presse/rundata-historique.98874c471b.webp",
+  "vignette_largeur": 400,
+  "vignette_hauteur": 667
+ }
+}

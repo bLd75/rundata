@@ -113,6 +113,7 @@ Les pages sont rendues par le serveur, données comprises, pour les moteurs de r
 - `/calendrier` : vacances scolaires, jours fériés, lever et coucher du soleil ;
 - `/randonnees` : la page des randonneurs, avec tous les itinéraires et sentiers sur une carte de l'île selon leur état, leurs distances et dénivelés, un filtre (recherche, distance, dénivelé, ouverts seulement, boucle) et les itinéraires coupés par une fermeture ; `/sentiers` : les sentiers fermés du jour, commune par commune ;
 - `/sentiers/<sentier>` et `/randonnees/<randonnée>` : un sentier de l'ONF ou un itinéraire de randonnée, sa trace sur la carte, son profil, son état d'après l'ONF (les tronçons fermés d'un itinéraire en tête de page) et son fichier GPX (la même adresse suivie de `.gpx`, avec un point « FERMÉ » au début de chaque tronçon fermé) ;
+- `/presse` : l'espace presse, lié depuis le pied de page : le communiqué, des chiffres clés comptés dans les données du site au moment de l'affichage (outils, stations, arrêts, bornes, défibrillateurs, sentiers…) et les visuels à télécharger, libres avec la mention rundata.re. Les visuels sont des fichiers statiques servis par Cloudflare à côté du Worker (`public/presse/`, construits par `scripts/build-presse.py`), pas dans son paquet ;
 - `/robots.txt`, `/sitemap.xml`, `/og.png` (aperçu Facebook, WhatsApp…), `/favicon.svg`.
 
 ## English
@@ -148,5 +149,6 @@ Public data for Réunion Island (French overseas department 974, Indian Ocean), 
   - `sources_donnees()`: sources and licences.
 - **Places:** free text (town, beach, peak) or `lat, lon`.
 - **Traffic:** no live traffic measurement in Réunion is open for reuse, so there is no traffic tool. The `/trafic` page loads Waze's live map only on request (it sets cookies) and links to the Région's infotrafic.re, next to what is open: bus delays and detours, closed forest roads, weather warnings.
+- **Press:** `/presse` has the press release, key figures counted live from the site's data, and screenshots free to use with the credit « rundata.re ».
 - **Answers:** every answer carries the measurement time, the station distance, the altitude difference, the windward or leeward side, and a relevance flag.
 - **Licences:** code under MIT. Data under each source's licence (see `sources_donnees`). Place names © OpenStreetMap contributors (ODbL), altitudes IGN (Licence Ouverte).

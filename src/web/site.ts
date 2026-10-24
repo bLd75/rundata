@@ -52,6 +52,7 @@ import font from "./font.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { pageOf, PAGES } from "./places.js";
+import { pressePage, pressFigures } from "./presse.js";
 import * as traces from "../providers/traces.js";
 
 const HTML = {
@@ -142,7 +143,7 @@ async function tileCopies(cache: Cache, keys: string[], background: Background, 
 
 function sitemap(origin: string): string {
   const urls = ["/", ...Object.keys(DOMAINS), "/vigilance", "/mer", "/communes", ...COMMUNES.map((p) => `/communes/${p.slug}`), ...PAGES.map((p) => `/meteo/${p.slug}`),
-    ...traces.RANDONNEES.map((r) => `/randonnees/${r.slug}`), ...Object.values(traces.SENTIERS).map((t) => `/sentiers/${t.slug}`), "/confidentialite", "/conditions"];
+    ...traces.RANDONNEES.map((r) => `/randonnees/${r.slug}`), ...Object.values(traces.SENTIERS).map((t) => `/sentiers/${t.slug}`), "/presse", "/confidentialite", "/conditions"];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map((u) => `<url><loc>${origin}${u}</loc><changefreq>hourly</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
@@ -203,6 +204,10 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       alerte(cache, background, now),
     ]);
     return new Response(tracePage(origin, t ? "sentier" : "randonnee", slug, t?.nom ?? r!.nom, data, now, a), { headers: htmlFor(data) });
+  }
+  if (path === "/presse" || path === "/presse/") {
+    // Its live counts are read from copies already here: a few minutes in browsers is enough.
+    return new Response(pressePage(origin, await pressFigures(cache)), { headers: { ...HTML, "cache-control": "public, max-age=300" } });
   }
   if (path === "/confidentialite" || path === "/conditions") {
     return new Response(legalPage(origin, path.slice(1) as "confidentialite" | "conditions"), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });

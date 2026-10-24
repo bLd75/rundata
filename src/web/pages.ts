@@ -384,6 +384,13 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .wz-views a[aria-current]{background:var(--sun);color:var(--sun-ink);border-color:var(--sun)}.wz-open{color:var(--on-night);font-weight:700}
 .link-card{display:block;text-decoration:none;color:inherit}.link-card h3{display:flex;gap:.5rem;align-items:center;color:var(--link)}.link-card:hover{border-color:var(--accent)}
 .two>.card>.ic{width:1.6rem;height:1.6rem;color:var(--accent)}.two .card h4{margin-top:.5rem}
+.figs{list-style:none;padding:0;margin:0;display:grid;gap:.8rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))}
+.figs li{display:flex;gap:.8rem;align-items:baseline}.figs .fig{white-space:nowrap;font:800 2rem/1 Bricolage,system-ui,sans-serif;letter-spacing:-.03em;color:var(--accent)}
+.figs small{display:block;color:var(--muted);font-size:.82rem;margin-top:.2rem}
+.release{max-width:46rem;gap:.9rem}.release ul{padding-left:1.2rem;display:grid;gap:.5rem}.release h3{margin-top:.6rem}.release a{overflow-wrap:anywhere}
+.vis-grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,20rem),1fr))}.vis-grid.phones{grid-template-columns:repeat(auto-fill,minmax(10rem,1fr))}
+.vis{margin:0;align-content:start}.vis img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line)}.vis img.flag{width:40%;margin:auto;border:0}
+.vis figcaption{display:grid;gap:.35rem;font-size:.92rem}.shot img{display:block;width:100%;height:auto;border-radius:14px}.vis .dl{font-weight:800}
 .profile{width:100%;height:auto;display:block}.profile .fill{fill:color-mix(in srgb,var(--accent) 22%,transparent)}.profile .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round}
 .profile .grid{stroke:var(--border);stroke-width:1}.profile .ax{fill:var(--muted);font:12px system-ui,sans-serif}
 .facts{display:flex;flex-wrap:wrap;gap:.6rem 1.6rem;margin:.6rem 0 1.2rem}.facts dt{font-size:.82rem;color:var(--on-night-muted)}.facts dd{margin:0;font:800 1.45rem/1.15 system-ui,sans-serif;color:var(--on-night)}
@@ -629,7 +636,7 @@ ${body}
     <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
     ${SLOGAN}
     <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
-    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · contact@rundata.re</p>
+    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/presse">presse</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP. Suivre rundata.re sur <a href="${FACEBOOK}">Facebook</a>.</p>
     <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li></ul>
   </div>
