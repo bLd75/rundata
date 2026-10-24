@@ -6,7 +6,8 @@
  *   finishers, retirements, still racing) and the published podiums. Nothing nominative beyond the podiums.
  * - Handball: the regional D1, men and women, from the FFHB's competition pages (the matches of the next and of the
  *   last round, the standings).
- * - Volleyball: the regional R1, men and women, from the FFVB's results pages (every match of the season, the sets).
+ * - Volleyball: every pool of the league (R1 and R2, men and women), from the FFVB's results pages (every match of the
+ *   season, the sets). Cancellations are not there: see sport-avis.ts.
  * - Sailing: the regattas of the league from the FFVoile's API (calendar, results published or not).
  * - Golf: the club competitions of the three courses from ffgolf's search.
  * - Motor sport: the calendar of the Ligue du sport automobile de La Réunion (rallies, karting, acceleration).
@@ -45,6 +46,14 @@ export const SOURCES = {
     licence: "Information publique (résultats officiels)",
     attribution: "FFVB, Ligue réunionnaise de volley-ball",
     url: "https://www.ffvbbeach.org/ffvbapp/resu/vbspo_calendrier.php?saison=2026/2027&codent=LIRE",
+  },
+  lrvb: {
+    id: "lrvb",
+    nom: "Volley-ball : avis de la Ligue réunionnaise (annulations, reports)",
+    organisme: "Ligue réunionnaise de volley-ball (LRVB)",
+    licence: "Information publique (avis officiels de la Ligue, cités avec leur lien)",
+    attribution: "LRVB",
+    url: "https://lrvb.re/",
   },
   ffvoile: {
     id: "ffvoile",
@@ -96,6 +105,11 @@ const ENTITIES: Record<string, string> = { amp: "&", quot: '"', "#039": "'", "#3
 const decode = (s: string) =>
   s.replace(/&(#?\w+);/g, (m, e: string) => ENTITIES[e] ?? (/^#\d+$/.test(e) && e !== "#60" && e !== "#62" ? String.fromCodePoint(Number(e.slice(1))) : m));
 const clean = (html: string) => decode(textOf(html)).replace(/\s+/g, " ").trim();
+/** A table cell of the FFVB: plain text, or a few tags around it. */
+const cell = (html: string) => {
+  const t = html.includes("<") ? textOf(html) : html;
+  return (t.includes("&") ? decode(t) : t).replace(/\s+/g, " ").trim();
+};
 
 // ---------------------------------------------------------------- Grand Raid
 
@@ -220,6 +234,8 @@ export interface Match {
   /** Volley: the sets, « 25:20, 25:22, 25:21 ». */
   detail?: string;
   salle?: string;
+  /** Volley: the FFVB's pool code, « R2F ». */
+  poule?: string;
 }
 
 export interface Rang {
@@ -283,18 +299,28 @@ async function handballOne(c: (typeof HANDBALL)[number]): Promise<Championnat> {
 }
 
 const VB_BASE = "https://www.ffvbbeach.org/ffvbapp/resu/vbspo_calendrier.php?saison=2026/2027&codent=LIRE&poule=";
+// Every pool the league publishes (its index page, vbspo_home.php): five pages a reading.
 export const VOLLEY = [
   { nom: "R1 masculine", poule: "R1M" },
   { nom: "R1 féminine", poule: "R1F" },
+  { nom: "R2 féminine", poule: "R2F" },
+  { nom: "R2 masculine, poule A", poule: "2MA" },
+  { nom: "R2 masculine, poule B", poule: "2MB" },
 ];
+// A team that has no match that round.
+const BYE = /^x+$/i;
 
 /** A results page of the FFVB: one row per match (code, date, hour, teams, sets won, sets), then the standings. */
-export function parseVolley(html: string): Pick<Championnat, "matchs" | "classement"> {
+export function parseVolley(html: string, poule?: string): Pick<Championnat, "matchs" | "classement"> {
   const matchs: Match[] = [];
   const classement: Rang[] = [];
   for (const [, row] of html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
-    const cells = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((c) => clean(c[1]));
+    // Most rows are layout: only a match (« R2FA012 ») or a rank (« 1. ») is read further.
+    const first = /^\s*<td[^>]*>\s*([^<]*?)\s*<\/td>/i.exec(row)?.[1];
+    if (!first || !(/^[A-Z0-9]{3,}\d{3}$/.test(first) || /^\d+\.$/.test(first))) continue;
+    const cells = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((c) => cell(c[1]));
     if (/^[A-Z0-9]{3,}\d{3}$/.test(cells[0] ?? "") && /^\d\d\/\d\d\/\d\d$/.test(cells[1] ?? "")) {
+      if (BYE.test(cells[3]) || BYE.test(cells[5])) continue;
       const [d, m, y] = cells[1].split("/");
       const played = /^\d$/.test(cells[6] ?? "") && /^\d$/.test(cells[7] ?? "");
       matchs.push({
@@ -304,6 +330,7 @@ export function parseVolley(html: string): Pick<Championnat, "matchs" | "classem
         score: played ? `${cells[6]}-${cells[7]}` : undefined,
         detail: played && cells[8] ? cells[8] : undefined,
         salle: !played && cells[7] ? cells[7] : undefined,
+        poule,
       });
     } else if (/^\d+\.$/.test(cells[0] ?? "") && cells[1] && /^\d+$/.test(cells[2] ?? "")) {
       classement.push({ place: parseInt(cells[0]), equipe: cells[1], points: Number(cells[2]), joues: Number(cells[3]) });
@@ -316,11 +343,12 @@ async function volleyOne(c: (typeof VOLLEY)[number]): Promise<Championnat> {
   const url = VB_BASE + c.poule;
   // The FFVB's pages are in ISO-8859-1.
   const html = new TextDecoder("latin1").decode(await getBytes(SOURCES.ffvb.id, url, 15_000));
-  return { sport: "volley", nom: c.nom, ...parseVolley(html), lien: url };
+  return { sport: "volley", nom: c.nom, ...parseVolley(html, c.poule), lien: url };
 }
 
 export async function championnats(cache: Cache, which: "handball" | "volley"): Promise<Cached<Championnat[]>> {
-  return cache.get(`sport:${which}`, 3 * 3600, async () => {
+  // Volley: an hour, for a match moved or called off at the last minute.
+  return cache.get(`sport:${which}`, which === "volley" ? 3600 : 3 * 3600, async () => {
     const parts = await Promise.allSettled(which === "handball" ? HANDBALL.map(handballOne) : VOLLEY.map(volleyOne));
     if (parts.every((p) => p.status === "rejected")) throw (parts[0] as PromiseRejectedResult).reason;
     return parts.flatMap((p) => (p.status === "fulfilled" ? [p.value] : []));
