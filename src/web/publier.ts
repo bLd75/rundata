@@ -7,7 +7,8 @@ import type { Alerte } from "./data.js";
 import { crumbBar, crumbs, webPage } from "./domains.js";
 import { esc } from "./map.js";
 import { layout } from "./pages.js";
-import { GUIDE, INTRO } from "./publier-texte.js";
+import brand from "./brand.json" with { type: "json" };
+import { GUIDE, INTRO, KREOL } from "./publier-texte.js";
 
 export const PATH = "/publier";
 export const TITLE = "Publier son agenda et ses données en open data · guide gratuit · La Réunion 974";
@@ -156,6 +157,7 @@ export function publierPage(origin: string, alerte?: Alerte): string {
 <div class="wrap intro solo"><div class="pitch">
   <p class="pill"><span class="dot"></span>Guide gratuit</p>
   <h1>${esc(H1)}</h1>
+  <p class="slogan" lang="${brand.slogan_lang}">${esc(KREOL)}</p>
   <p class="lead">${inline(INTRO[0])}</p>
   <p>${inline(INTRO[1])}</p>
 </div></div>`;

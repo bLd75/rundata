@@ -1,8 +1,9 @@
 /**
  * The text of /publier, the guide « Publier son agenda et ses données », written by marketing (25/10/2026), in the
  * Markdown web/publier.ts reads. `{{etat:…}}` and `{{court:…}}` are the labels of what rundata.re reads, kept with the
- * code there. Not shown: the Creole line, until the user has approved it.
+ * code there. KREOL is marketing's Creole line, approved by the user (25/10/2026).
  */
+export const KREOL = "Ou organiz in kabar, in fèt, in marsé ? Mèt ali dann lagenda, tout domoun i trouv !";
 export const INTRO: string[] = ["Vous êtes une mairie, une association, un office de tourisme, une salle de spectacle, un commerce ou un organisateur ? Ce guide vous montre comment publier vos événements, et plus largement vos données, sous forme de **flux ouvert** : une adresse web que n'importe quel site ou application peut lire, tout seul, à chaque mise à jour. Vous saisissez une fois, et vos dates se diffusent partout.", "Les tutoriels vont du plus simple (10 minutes, gratuit, sans connaissance technique) au plus avancé. Choisissez celui qui vous ressemble : un seul suffit."];
 
 export const GUIDE = [

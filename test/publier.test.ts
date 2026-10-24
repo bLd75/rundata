@@ -13,6 +13,7 @@ describe("the guide for those who publish (/publier)", () => {
     const page = html();
     expect(page).toContain(`<title>${TITLE}</title>`);
     expect(page).toContain("<h1>Publiez votre agenda et vos données : le guide</h1>");
+    expect(page.match(/<p class="slogan" lang="rcf">Ou organiz in kabar, in fèt, in marsé \? Mèt ali dann lagenda, tout domoun i trouv !<\/p>/g)).toHaveLength(1);
     expect(META.length).toBeLessThanOrEqual(DESCRIPTION_MAX);
     expect(META).toBe("Mairies, associations, organisateurs : publiez votre agenda en flux ouvert, gratuitement, avec nos tutos pas à pas. Google, assistants IA, rundata.re.");
   });
@@ -42,7 +43,7 @@ describe("the guide for those who publish (/publier)", () => {
     expect(render("2. Deux possibilités :\n   - **la première** ;\n   - la seconde.")).toBe('<ol start="2"><li>Deux possibilités :<ul><li><strong>la première</strong> ;</li><li>la seconde.</li></ul></li></ol>');
     expect(render("```html\n<script>\n```")).toBe("<pre><code>&lt;script&gt;</code></pre>");
     expect(render("> **Titre.**\n> Texte.")).toBe('<div class="card callout"><p><strong>Titre.</strong></p>\n<p>Texte.</p></div>');
-    // The Creole line waits for the user's approval.
+    // The Creole line is in the intro only, once.
     expect(GUIDE).not.toContain("lagenda");
   });
 
