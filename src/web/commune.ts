@@ -15,7 +15,7 @@ import { current, cyclone, highest, raised } from "../tools/vigilance.js";
 import type { AirAnswer, Alerte, CalendrierAnswer, CommuneData, ElectriciteAnswer, PlaceData, SeaData, VolcanAnswer } from "./data.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
 import { esc, islandMap } from "./map.js";
-import { ask, connector, credits, dayMonth, deg, fit, fresh, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
+import { ask, connector, credits, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
 
 /** What a commune's page is made of, each part null or missing when there is no copy yet. */
@@ -170,7 +170,7 @@ function sunTimes(p: PlacePage, calendrier: Cached<CalendrierAnswer> | null | un
 
 export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = new Date(), alerte?: Alerte): string {
   const place = p.place;
-  const url = fresh(`${origin}${hub(p)}`, now);
+  const url = `${origin}${hub(p)}`;
   const w = weather(l.place, now);
   const bus = buses(p, l.commune, now);
   const velos = bikes(l.commune);

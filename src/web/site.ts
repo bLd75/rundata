@@ -69,6 +69,13 @@ const STATIC = "public, max-age=604800";
 // A trace downloads as a file; the ONF's state in it is an hour old at most.
 const GPX = { "content-type": "application/gpx+xml; charset=utf-8", "cache-control": "public, max-age=3600", "access-control-allow-origin": "*", "x-content-type-options": "nosniff" };
 
+/**
+ * The search engines skip the addresses with `?maj=` (pages/ask): copies of a page made for the assistants, which
+ * would spend the few pages a day a search engine reads on a new site. The assistants' fetchers still read them.
+ */
+const ROBOTS = (origin: string) =>
+  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nAllow: /\n\nUser-agent: *\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
+
 /** IndexNow (Bing, Yandex, Seznam, Naver): the key that proves rundata.re's submissions are ours. Public by design. */
 export const INDEXNOW_KEY = "9cb4a2d427093776313488cb4d39b24a";
 // Proves to the official MCP registry that rundata.re publishes re.rundata/*: the public half of the key that signs its publications.
@@ -148,11 +155,23 @@ async function tileCopies(cache: Cache, keys: string[], background: Background, 
   return copies.map((c) => c ?? null);
 }
 
-function sitemap(origin: string): string {
-  const urls = ["/", ...Object.keys(DOMAINS), "/vigilance", "/mer", "/communes", ...COMMUNES.map((p) => `/communes/${p.slug}`), ...PAGES.map((p) => `/meteo/${p.slug}`),
-    ...traces.RANDONNEES.map((r) => `/randonnees/${r.slug}`), ...Object.values(traces.SENTIERS).map((t) => `/sentiers/${t.slug}`), "/presse", "/confidentialite", "/conditions"];
+// The day the list of communes, the press page and the legal pages last changed: their <lastmod>.
+const STATIC_CHANGED = "2026-10-24";
+
+/**
+ * Every page with its <lastmod>: today (Réunion time) for the live ones, the day the traces were built for the
+ * hikes and trails (their ONF state aside), and STATIC_CHANGED for the pages without live data.
+ */
+function sitemap(origin: string, now: Date): string {
+  const today = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
+  const live = (u: string) => [u, today, "hourly"];
+  const fixed = (u: string) => [u, STATIC_CHANGED, "monthly"];
+  const trace = (u: string) => [u, traces.BUILT, "daily"];
+  const urls = [...["/", ...Object.keys(DOMAINS), "/vigilance", "/mer"].map(live), fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)),
+    ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
+    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions"].map(fixed)];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-    urls.map((u) => `<url><loc>${origin}${u}</loc><changefreq>hourly</changefreq></url>`).join("\n") +
+    urls.map(([u, day, freq]) => `<url><loc>${origin}${u}</loc><lastmod>${day}</lastmod><changefreq>${freq}</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
 }
 
@@ -260,12 +279,12 @@ export async function site(request: Request, cache: Cache, background: Backgroun
     return new Response(MCP_REGISTRY_AUTH, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });
   }
   if (path === "/robots.txt") {
-    return new Response(`User-agent: *\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`, {
+    return new Response(ROBOTS(origin), {
       headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=86400" },
     });
   }
   if (path === "/sitemap.xml") {
-    return new Response(sitemap(origin), { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    return new Response(sitemap(origin, now), { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
   }
   if (path === "/og.png") {
     return new Response((ogBytes ??= bytes(og.png)), { headers: { "content-type": "image/png", "cache-control": STATIC } });

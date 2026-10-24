@@ -15,7 +15,7 @@ import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, typ
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
-import { ask, credits, DESCRIPTION_MAX, fresh, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
+import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
 
@@ -74,7 +74,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   const d = data?.value;
   const e = d?.etat;
   const q = d?.seismes;
-  const url = fresh(`${origin}/volcan`, now);
+  const url = `${origin}/volcan`;
 
   const status = !d
     ? loading("L'état du volcan")
@@ -169,7 +169,7 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
   const list = [...(d?.communes ?? [])].sort((a, b) => b.niveau - a.niveau || a.commune.localeCompare(b.commune, "fr"));
   const worst = list[0]?.niveau;
   const best = list.length ? list[list.length - 1].niveau : undefined;
-  const url = fresh(`${origin}/air`, now);
+  const url = `${origin}/air`;
 
   const fills: Record<string, string> = {};
   for (const c of list) {
@@ -193,7 +193,7 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
 
   const scale = `<ul class="scale">${[1, 2, 3, 4, 5, 6].map((n) => `<li>${aq(n)}<p>Indice ${n} sur 6.</p></li>`).join("")}</ul>`;
 
-  const title = "Qualité de l'air à La Réunion 974 aujourd'hui, commune par commune";
+  const title = "Qualité de l'air Réunion aujourd'hui, par commune · 974";
   const description = d && worst != null
     ? describe(`🇷🇪 Qualité de l'air à La Réunion (974) aujourd'hui, indice ATMO d'Atmo Réunion : ${d.resume.replace(/^Qualité de l'air aujourd'hui à La Réunion : /, "")}`,
         "🇷🇪 Qualité de l'air à La Réunion (974) aujourd'hui : l'indice ATMO d'Atmo Réunion dans chaque commune, avec le polluant en cause.")
@@ -244,7 +244,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
   const d = data?.value;
   const p = d?.production;
   const m = d?.meteo_electricite;
-  const url = fresh(`${origin}/electricite`, now);
+  const url = `${origin}/electricite`;
 
   const status = !d
     ? loading("La production d'électricité")
@@ -266,7 +266,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
       `<p class="note">${esc(m.explication)}</p></div>`
     : "";
 
-  const title = "Électricité à La Réunion 974 en direct : production et part renouvelable";
+  const title = "Électricité Réunion en direct : part renouvelable · 974";
   const description = p
     ? describe(`🇷🇪 Électricité à La Réunion (974) à ${p.heure.split(" ")[1]} : ${fr(Math.round(p.total_mw))} MW produits, dont ${fr(Math.round(p.renouvelable_pct))} % renouvelable. Filière par filière, et les heures où le réseau est chargé.`,
         `🇷🇪 Électricité à La Réunion (974) : ${fr(Math.round(p.renouvelable_pct))} % renouvelable en ce moment. Filière par filière, et les heures où le réseau est chargé.`)
@@ -311,7 +311,7 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
   const v = d?.vacances_scolaires;
   const f = d?.jours_feries;
   const next = f?.prochains[0];
-  const url = fresh(`${origin}/calendrier`, now);
+  const url = `${origin}/calendrier`;
   const today = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Indian/Reunion" });
 
   const status = !d
@@ -336,7 +336,9 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
     ? `<div class="card">${icon("mountain")}<h3>Soleil à ${esc(d.soleil.lieu)}</h3><p>Lever ${esc(d.soleil.lever.replace(":", "h"))}, coucher ${esc(d.soleil.coucher.replace(":", "h"))} : ${esc(d.soleil.duree_du_jour)} de jour.</p><p class="note">${esc(d.soleil.note)}</p></div>`
     : "";
 
-  const title = "Calendrier de La Réunion 974 : vacances scolaires, jours fériés, soleil";
+  // The school year people look up: from July, the one that starts in August.
+  const [y, m] = new Date(now.getTime() + 4 * 3600_000).toISOString().split("-").map(Number);
+  const title = `Vacances scolaires Réunion ${m >= 7 ? `${y}-${y + 1}` : `${y - 1}-${y}`}, jours fériés · 974`;
   const description = next
     ? describe(`🇷🇪 Calendrier de La Réunion (974) : ${v?.en_cours ? `vacances scolaires jusqu'au ${v.en_cours.reprise_des_cours}, ` : ""}prochain jour férié ${next.nom} (${next.date}). Vacances australes, 20 décembre.`,
         `🇷🇪 Calendrier de La Réunion (974) : prochain jour férié ${next.nom}, vacances scolaires australes, 20 décembre, lever et coucher du soleil.`)
@@ -407,7 +409,7 @@ export const alertList = (list: { reseau: string; lignes?: string[]; titre: stri
 
 export function busPage(origin: string, data: Cached<BusData> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/bus`, now);
+  const url = `${origin}/bus`;
   const lines = d?.reseaux.reduce((n, r) => n + r.lignes, 0) ?? 0;
 
   const status = !d
@@ -429,7 +431,7 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
       `Sinon, horaires théoriques publiés par chaque réseau, sans les retards ni les déviations. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
     : `<p class="card">Les prochains départs à n'importe quel arrêt de l'île sont donnés par le connecteur : demandez à votre assistant « le prochain bus à la gare de Saint-Pierre ? ».</p>`;
 
-  const title = "Bus à La Réunion 974 : prochains départs dans les gares routières";
+  const title = "Bus Réunion : prochains départs dans les gares · 974";
   const description = "🇷🇪 Bus à La Réunion (974) : prochains départs dans les gares routières, d'après les horaires de Car Jaune, Citalis, Kar'Ouest, Alternéo, CarSud et Estival.";
 
   const band = `${crumbBar("Bus")}
@@ -483,7 +485,7 @@ export const bikeRow = (s: VeloStation) => `<li><span>${esc(s.nom)}</span><span>
 
 export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/velos`, now);
+  const url = `${origin}/velos`;
   const total = d?.communes?.reduce((n, c) => n + c.velos_disponibles, 0) ?? 0;
 
   const status = !d
@@ -501,7 +503,7 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
       `<p class="note">${esc(d.donnees)}</p>`
     : `<p class="card">L'état des stations se charge : rechargez la page dans quelques secondes.</p>`;
 
-  const title = "Vélos Altervélo en direct : stations de Saint-Pierre, Saint-Louis, L'Étang-Salé";
+  const title = "Vélos Altervélo en direct : stations libres · 974";
   const description = d
     ? describe(`🇷🇪 Vélos électriques Altervélo en libre-service (974) en ce moment : ${total} vélos disponibles, et les places libres de chaque station à Saint-Pierre, Saint-Louis et L'Étang-Salé.`,
         "🇷🇪 Vélos électriques Altervélo en libre-service (974) : vélos et places libres de chaque station, en direct.")
@@ -553,7 +555,7 @@ export function borneRow(s: BorneStation): string {
 
 export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/bornes`, now);
+  const url = `${origin}/bornes`;
   const libres = d?.stations.reduce((n, s) => n + s.libres, 0) ?? 0;
   const total = d?.stations.reduce((n, s) => n + s.total, 0) ?? 0;
 
@@ -581,7 +583,7 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
       `<p class="note">${esc(d.donnees)}${d.avertissement ? ` ${esc(d.avertissement)}` : ""}</p>`
     : `<p class="card">L'état des bornes se charge : rechargez la page dans quelques secondes.</p>`;
 
-  const title = "Bornes de recharge à La Réunion en direct : points libres, recharge rapide";
+  const title = "Bornes de recharge Réunion : points libres en direct · 974";
   const short = "🇷🇪 Bornes de recharge pour voiture électrique à La Réunion (974) : points libres, occupés ou hors service, en direct, station par station.";
   const description = d
     ? describe(`🇷🇪 Bornes de recharge à La Réunion (974) en ce moment : ${libres} points libres sur ${total}, la recharge rapide et chaque station, commune par commune.`, short)
@@ -654,7 +656,7 @@ function tapCard(c: EauAnswer["communes"][number]): string {
 
 export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/eau`, now);
+  const url = `${origin}/eau`;
   const good = d?.baignades.filter((s) => s.qualite_dernier_prelevement === "bonne").length ?? 0;
   const notGood = d?.baignades.filter((s) => s.qualite_dernier_prelevement && s.qualite_dernier_prelevement !== "bonne") ?? [];
   const lastSample = d?.baignades.map((s) => s.dernier_prelevement.split("/").reverse().join("-")).sort().pop();
@@ -680,7 +682,7 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
       }).join("")}</ul>`
     : `<p class="card">La qualité de l'eau se charge : rechargez la page dans quelques secondes.</p>`;
 
-  const title = "Qualité de l'eau à La Réunion : plages, bassins et eau du robinet (974)";
+  const title = "Qualité de l'eau Réunion : baignade et robinet · 974";
   const short = "🇷🇪 Qualité de l'eau à La Réunion (974) : les plages et bassins contrôlés par l'ARS et l'eau du robinet de chaque commune, réseau par réseau.";
   const description = d
     ? describe(`🇷🇪 Qualité de l'eau à La Réunion (974) : ${good} plages et bassins sur ${d.baignades.length} en bonne qualité au dernier prélèvement de l'ARS, et l'eau du robinet des 24 communes, réseau par réseau.`, short)
@@ -737,7 +739,7 @@ const meters = (n: number) => n.toLocaleString("fr-FR").replace(/\u202f|\u00a0/g
 
 export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/sentiers`, now);
+  const url = `${origin}/sentiers`;
   const closed = d?.points.length ?? 0;
 
   const status = !d
@@ -765,7 +767,7 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
   <p>Les ${d?.randonnees.length ?? ""} itinéraires complets (GR R1, R2, R3, sommets, boucles) et les sentiers de l'ONF, avec leur trace GPS, leur distance, leur dénivelé et l'état du jour, sur une carte de l'île et filtrables : <a href="/randonnees">la page randonnée</a>.</p></div>
 </section>`;
 
-  const title = "Sentiers fermés à La Réunion aujourd'hui : la liste de l'ONF, cirque par cirque";
+  const title = "Sentiers fermés Réunion aujourd'hui : liste ONF · 974";
   const short = "🇷🇪 Sentiers de randonnée fermés à La Réunion (974) : la liste de l'ONF commune par commune, avec la cause de chaque fermeture.";
   const description = d
     ? describe(`🇷🇪 Sentiers fermés à La Réunion (974) : ${closed} sentiers fermés sur ${d.suivis} d'après la carte de l'ONF, commune par commune, avec la cause (éboulement, sentier dégradé, travaux).`, short)
@@ -822,7 +824,7 @@ document.querySelectorAll(".wz-views a").forEach((a)=>a.addEventListener("click"
 
 export function traficPage(origin: string, data: Cached<TraficAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/trafic`, now);
+  const url = `${origin}/trafic`;
   const first = WAZE_VIEWS[0];
 
   const views = `<nav class="wz-views" aria-label="Vues de la carte Waze">${WAZE_VIEWS.map((v, i) =>
@@ -903,7 +905,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   const why = `<section aria-labelledby="h-pourquoi"><div class="card warn">${icon("alert")}<h3 id="h-pourquoi">Pourquoi pas les bouchons ici</h3>
   <p>rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant, et aucune autre source ouverte ne mesure le trafic à La Réunion. Waze et Google ne permettent pas de reprendre leurs données. D'où la carte de Waze, chargée à votre demande, et le lien vers infotrafic.re.</p></div></section>`;
 
-  const title = "Circulation à La Réunion : bouchons en direct (Waze), état des routes, routes forestières";
+  const title = "Bouchons Réunion : carte Waze et état des routes · 974";
   const short = "🇷🇪 Circulation à La Réunion (974) : carte Waze des bouchons en direct, état officiel des routes sur infotrafic.re, retards des bus et routes forestières fermées.";
   const nShut = d?.routes_forestieres?.interdites.length;
   const description = nShut != null
@@ -1005,7 +1007,7 @@ f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefaul
 
 export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/randonnees`, now);
+  const url = `${origin}/randonnees`;
   const nRoutes = d?.randonnees.length ?? 0;
   const cut = d?.randonnees.filter((h) => h.fermes.length) ?? [];
 
@@ -1073,7 +1075,7 @@ export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | 
   ${d && data ? sourcesNote(d.sources, data) : ""}
 </section>`;
 
-  const title = "Randonnée à La Réunion : traces GPS (GPX), dénivelé, sentiers ouverts ou fermés";
+  const title = "Randonnée Réunion : traces GPS et sentiers ouverts · 974";
   const short = "🇷🇪 Randonnée à La Réunion (974) : itinéraires et sentiers de l'ONF avec trace GPS (GPX), distance, dénivelé et état du jour.";
   const description = d
     ? describe(`🇷🇪 Randonnée à La Réunion (974) : ${nRoutes} itinéraires (GR R1, R2, R3, Piton des Neiges…) et ${d.suivis} sentiers de l'ONF avec trace GPS (GPX), distance, dénivelé et état du jour : ${d.fermes} fermés.`, short)
@@ -1157,7 +1159,8 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
     ? `<p class="note">${d.ferme ? "Ce sentier fermé coupe" : "Ce sentier fait partie de"} : ${d.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}.</p>`
     : "";
 
-  const title = `${nom} : trace GPS (GPX), dénivelé et état du sentier (La Réunion)`;
+  // Within the 60 characters a search engine shows when the name allows it.
+  const title = nom.length <= 40 ? `${nom} : trace GPX, état ONF · 974` : `${nom} : trace GPX · 974`;
   const short = `🇷🇪 ${nom} (La Réunion, 974) : trace GPS à télécharger (GPX), longueur, dénivelé, profil et état du sentier d'après l'ONF.`;
   const description = d
     ? describe(`🇷🇪 ${nom} (La Réunion) : ${kmFr(d.km)} km${d.dplus != null ? `, ${d.dplus} m de dénivelé positif` : ""}. ${d.etat}. Trace GPS à télécharger (GPX) et profil.`, short)
@@ -1204,7 +1207,7 @@ const droughtBadge = (n?: string) => (n ? `<span class="lvl" style="--c:${DROUGH
 
 export function secheressePage(origin: string, data: Cached<SecheresseAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/secheresse`, now);
+  const url = `${origin}/secheresse`;
   const hit = d?.communes.filter((c) => c.eau_du_robinet && c.eau_du_robinet !== "vigilance") ?? [];
 
   const fills: Record<string, string> = {};
@@ -1229,7 +1232,7 @@ export function secheressePage(origin: string, data: Cached<SecheresseAnswer> | 
     (x.restrictions.length ? x.restrictions.map((r) => `<li><span>${esc(r.usage)}<small>${esc(r.restriction)}</small></span><span></span></li>`).join("") : `<li><span>Économiser l'eau : pas d'interdiction pour un particulier.</span><span></span></li>`) +
     `</ul></li>`).join("");
 
-  const title = "Sécheresse à La Réunion : restrictions d'eau par commune (arrêté en vigueur)";
+  const title = "Restrictions d'eau Réunion : sécheresse par commune · 974";
   const short = "🇷🇪 Restrictions d'eau à La Réunion (974) : le niveau de sécheresse de chaque commune et ce qui est interdit (arrosage, lavage, piscine), d'après l'arrêté préfectoral.";
   const description = d ? describe(`🇷🇪 ${d.resume}`, short) : short;
 
@@ -1283,7 +1286,7 @@ function noticeCard(n: CoupuresAnswer["avis"][number]): string {
 
 export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/coupures-eau`, now);
+  const url = `${origin}/coupures-eau`;
   const dry = d?.ne_pas_boire ?? [];
 
   const fills: Record<string, string> = {};
@@ -1304,7 +1307,7 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
       : `<p class="card">Aucun avis de coupure récent ou à venir dans les communes suivies.</p>`
     : `<p class="card">Les avis se chargent : rechargez la page dans quelques secondes.</p>`;
 
-  const title = "Coupure d'eau à La Réunion aujourd'hui : avis des distributeurs, eau non potable";
+  const title = "Coupure d'eau Réunion aujourd'hui : avis en cours · 974";
   const short = "🇷🇪 Coupures d'eau à La Réunion (974) : les avis de Dionéo, des Eaux de La Possession et de la CIREST, heures, rues concernées et avis « ne pas boire l'eau ».";
   const description = d ? describe(`🇷🇪 ${d.resume} Coupures d'eau à La Réunion (974) : heures, rues concernées et avis « ne pas boire l'eau ».`, short) : short;
 
@@ -1350,7 +1353,7 @@ const shortAccess = (a: string) =>
 
 export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/defibrillateurs`, now);
+  const url = `${origin}/defibrillateurs`;
   const markers = (d?.communes ?? []).map((c) => ({ lon: c.lon, lat: c.lat, label: String(c.nombre), name: `${c.commune} : ${c.nombre} défibrillateurs`, round: true, color: "#2b8a3e", quiet: true }));
 
   const status = !d
@@ -1366,7 +1369,7 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
         `</ul></li>`).join("")}</ul>`
     : "";
 
-  const title = "Défibrillateurs à La Réunion : où trouver le plus proche (974)";
+  const title = "Défibrillateurs Réunion : le plus proche de vous · 974";
   const description = "🇷🇪 Défibrillateurs (DAE) à La Réunion (974) : plus de 1 200 appareils dans les 24 communes, d'après la base nationale Géo'DAE, et le plus proche d'un lieu avec votre IA.";
 
   const band = `${crumbBar("Défibrillateurs")}
@@ -1425,7 +1428,7 @@ function bySport(rows: NonNullable<SportAnswer["a_venir"]>, withScore: boolean):
 
 export function sportPage(origin: string, data: Cached<SportAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/sport`, now);
+  const url = `${origin}/sport`;
   const upcoming = (d?.a_venir ?? []).filter((r) => r.etat !== "annulée");
   const soon = upcoming.slice(0, 7);
 
@@ -1464,7 +1467,7 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
 </section>`
     : "";
 
-  const title = "Sport à La Réunion : matchs du week-end, résultats, classements, Grand Raid (974)";
+  const title = "Sport Réunion : matchs, résultats, Grand Raid · 974";
   const description = "🇷🇪 Sport à La Réunion (974) : matchs à venir et résultats du handball et du volley régionaux, classements, régates, golf, rallyes et podiums du Grand Raid.";
 
   const band = `${crumbBar("Sport")}
@@ -1541,7 +1544,7 @@ function seasonTable(s: CyclonesAnswer["saison_en_cours"]): string {
 
 export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/cyclones`, now);
+  const url = `${origin}/cyclones`;
   const active = d?.systemes_actifs ?? [];
 
   const status = !d
@@ -1554,7 +1557,7 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
   <figcaption class="note" style="color:var(--on-night-muted)">${active.length ? "Trajectoire observée (trait plein) et prévue par le CMRS de La Réunion (pointillés)." : tracks.length ? `Aucun système actif. Trajectoire du dernier système, ${esc(tracks[0].name)}.` : "Aucun système actif."} Cercles à 500 et 1 000 km de l'île.</figcaption></figure>`
     : "";
 
-  const title = "Cyclone à La Réunion en ce moment : trajectoire, distance, alerte (974)";
+  const title = "Cyclone Réunion en ce moment : trajectoire, alerte · 974";
   const short = "🇷🇪 Cyclones autour de La Réunion (974) : systèmes tropicaux actifs, trajectoire et prévision du CMRS de Météo-France, distance de l'île, alerte cyclonique et saisons passées.";
   const description = d ? describe(`🇷🇪 ${d.resume}`, short) : short;
 
@@ -1629,7 +1632,7 @@ const vsNormal = (v?: number, n?: number, unit = " °C") =>
 
 export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/historique`, now);
+  const url = `${origin}/historique`;
   const rows = d?.stations ?? [];
   const below = rows.filter((r) => (pct(r.pluie?.rapport_a_la_normale) ?? 100) < 80).length;
   const withNormal = rows.filter((r) => r.pluie?.rapport_a_la_normale).length;
@@ -1654,7 +1657,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
       }).join("")}</tbody></table></div>`
     : "";
 
-  const title = "Historique météo à La Réunion : pluie, températures, soleil depuis 1900";
+  const title = "Historique météo Réunion : relevés depuis 1900 · 974";
   const short = "🇷🇪 Le temps qu'il a fait à La Réunion (974) : pluie, températures et soleil mesurés par Météo-France jour par jour depuis 1900, comparés à la normale.";
   const description = d ? describe(`🇷🇪 ${d.resume}`, short) : short;
 
@@ -1740,6 +1743,44 @@ function agendaRow(r: AgendaRow): string {
   return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}<a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a>${news}<small>${small}${book}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
 }
 
+/** A row's end, local, from its hours: « samedi 24/10 de 09:00 à 16:00 », « du vendredi 23/10 au dimanche 01/11 ». */
+function agendaEnd(r: AgendaRow): string | undefined {
+  const span = /de \d\d:\d\d à (\d\d:\d\d)$/.exec(r.quand);
+  if (span && r.date.length > 10) return `${r.date.slice(0, 10)}T${span[1]}`;
+  const until = /^du .* au \S+ (\d\d)\/(\d\d)(?: à (\d\d:\d\d))?$/.exec(r.quand);
+  if (!until) return undefined;
+  const [, dd, mm, time] = until;
+  const y = Number(r.date.slice(0, 4)) + (`${mm}-${dd}` < r.date.slice(5, 10) ? 1 : 0);
+  return `${y}-${mm}-${dd}${time && r.date.length > 10 ? `T${time}` : ""}`;
+}
+
+const STATUS: Record<string, string> = { "ANNULÉ": "EventCancelled", "REPORTÉ": "EventPostponed" };
+
+/**
+ * The events as schema.org `Event`s, which search engines show in their own box. Only those with a commune and a
+ * date: a place and a start are what they require. Nothing the source does not give (no price, no picture).
+ */
+export function agendaEvents(rows: AgendaRow[]): object[] {
+  const iso = (local: string) => (local.length > 10 ? `${local}:00+04:00` : local);
+  return rows.filter((r) => r.commune && /^\d{4}-\d\d-\d\d(T\d\d:\d\d)?$/.test(r.date)).map((r) => {
+    const end = agendaEnd(r);
+    return {
+      "@type": "Event",
+      name: r.titre,
+      startDate: iso(r.date),
+      ...(end && end > r.date ? { endDate: iso(end) } : {}),
+      eventStatus: `https://schema.org/${STATUS[r.statut ?? ""] ?? "EventScheduled"}`,
+      eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+      location: {
+        "@type": "Place",
+        name: r.lieu ?? r.commune,
+        address: { "@type": "PostalAddress", addressLocality: r.commune, addressRegion: "La Réunion", addressCountry: "RE" },
+      },
+      url: r.lien,
+    };
+  });
+}
+
 // The kinds a visitor can keep, in the order of the select; only those in the list are offered.
 const GENRES: [string, string][] = [["concert", "Concerts"], ["théâtre", "Théâtre"], ["danse", "Danse"], ["humour", "Humour"], ["cirque", "Cirque, contes, magie"], ["soirée", "Soirées et clubbing"], ["festival", "Fêtes et festivals"], ["marché", "Marchés"], ["cinéma", "Cinéma"], ["enfants", "Pour les enfants"], ["exposition", "Expositions et visites"], ["sport", "Sport"], ["atelier", "Ateliers et rencontres"]];
 const GENRE_SCRIPT = `(()=>{const f=document.getElementById("ef");if(!f)return;f.hidden=false;
@@ -1750,7 +1791,7 @@ f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefaul
 
 export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/evenements`, now);
+  const url = `${origin}/evenements`;
   const today = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
 
   const days = new Map<string, AgendaRow[]>();
@@ -1781,7 +1822,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
           `<ul class="rows eau">${rows.map(agendaRow).join("")}</ul></li>`).join("")}</ul></div>${d.autres ? `<p class="note">${esc(d.autres)} Demandez-les à votre IA.</p>` : ""}<script>${GENRE_SCRIPT}</script>`
       : `<p class="card">Aucun événement trouvé dans les agendas lus pour les deux semaines qui viennent.</p>`;
 
-  const title = "Événements à La Réunion : concerts, spectacles, fêtes, que faire ce week-end ? (974)";
+  const title = "Que faire à La Réunion ? Concerts, fêtes, sorties · 974";
   const short = "🇷🇪 Que faire à La Réunion (974) : concerts, théâtre, danse, festivals, fêtes et marchés des deux semaines, programmes des salles et des mairies.";
   const description = d ? describe(`🇷🇪 ${d.resume} Concerts, spectacles, fêtes, festivals et marchés, avec les heures, le lieu et le lien.`, short) : short;
 
@@ -1810,7 +1851,9 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
 </section>
 ${connectorCta("evenements", "les événements de l'île")}`;
 
-  return layout(origin, { title, description, path: "/evenements", jsonld: [crumbs(origin, "Événements", "/evenements"), webPage(origin, "/evenements", title, description, data)], alerte }, band, body);
+  const events = agendaEvents(d?.evenements ?? []);
+  const jsonld = [crumbs(origin, "Événements", "/evenements"), webPage(origin, "/evenements", title, description, data), ...(events.length ? [{ "@context": "https://schema.org", "@graph": events }] : [])];
+  return layout(origin, { title, description, path: "/evenements", jsonld, alerte }, band, body);
 }
 
 export function agendaLive(data: Cached<AgendaAnswer> | null): Live | undefined {
@@ -1852,7 +1895,7 @@ f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefaul
 
 export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
-  const url = fresh(`${origin}/actualites`, now);
+  const url = `${origin}/actualites`;
   const communes = [...new Set((d?.infos ?? []).flatMap((r) => r.communes ?? []))].sort((x, y) => x.localeCompare(y, "fr"));
 
   const status = !d
@@ -1889,7 +1932,7 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
 </section>`
     : "";
 
-  const title = "Actualités de La Réunion en direct : manifestations, routes, faits divers (974)";
+  const title = "Actualités Réunion en direct, commune par commune · 974";
   const short = "🇷🇪 Ce qui se passe en ce moment à La Réunion (974) : les titres des médias de l'île, leurs directs et les communiqués de la préfecture, commune par commune, mis à jour toutes les 5 minutes.";
   const description = d && d.infos[0] ? describe(`🇷🇪 À La Réunion, ${newsTime(d.infos[0])} : ${d.infos[0].titre}. Les titres des médias de l'île et leurs directs, commune par commune.`, short) : short;
 

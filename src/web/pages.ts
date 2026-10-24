@@ -17,6 +17,7 @@ import { current, cyclone, highest, raised, spans } from "../tools/vigilance.js"
 import type { Alerte, Credit, HomeData, PlaceData, SeaData, StationAnswer, StationNow } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
+import rubriques from "./og-rubriques.json" with { type: "json" };
 import { WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker } from "./map.js";
@@ -447,6 +448,7 @@ text-decoration:none;font-size:.95rem;transition:border-color .15s,transform .15
 .badge{display:inline-block;font:700 .72rem system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;
 border-radius:6px;padding:.2rem .5rem;background:var(--warn-bg);color:var(--lave);vertical-align:middle}
 .badge.m{background:var(--surface);color:var(--accent);border:1px solid var(--line)}
+.hb{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .6rem}
 
 .crumbs{font-size:.88rem;color:var(--on-night-muted);padding-top:1.4rem}
 .crumbs ol{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.3rem}
@@ -565,7 +567,9 @@ document.querySelectorAll(".places h3").forEach((h)=>{h.hidden=![...h.nextElemen
 const askl=(l)=>{document.querySelectorAll("[data-askl]").forEach((b)=>b.setAttribute("aria-pressed",b.dataset.askl===l));
 document.querySelectorAll(".askbox>[data-l]").forEach((d)=>{d.hidden=d.dataset.l!==l})};
 try{const l=localStorage.getItem("askl");if(l)askl(l)}catch{}
-document.querySelectorAll("[data-askl]").forEach((b)=>b.addEventListener("click",()=>{askl(b.dataset.askl);try{localStorage.setItem("askl",b.dataset.askl)}catch{}}));`;
+document.querySelectorAll("[data-askl]").forEach((b)=>b.addEventListener("click",()=>{askl(b.dataset.askl);try{localStorage.setItem("askl",b.dataset.askl)}catch{}}));
+document.querySelectorAll("a[data-maj]").forEach((a)=>{const h=a.getAttribute("href"),u=a.dataset.maj;const set=()=>{const t=new Date(Date.now()+144e5);
+a.href=h.replace(encodeURIComponent(u),encodeURIComponent(u+"?maj="+t.getUTCHours()+"h"+String(t.getUTCMinutes()).padStart(2,"0")))};["click","auxclick","contextmenu"].forEach((e)=>a.addEventListener(e,set))});`;
 
 /** Whether a page belongs to a category: /meteo/cilaos is in the weather. */
 const inCategory = (path: string, category: string) => path === category || path.startsWith(`${category}/`);
@@ -595,9 +599,16 @@ function header(path: string, origin: string): string {
 </div></header>`;
 }
 
+/** The picture of the page's section in link previews (scripts/build-og.py, served from public/og/), else the site's. */
+function ogImage(origin: string, path: string): { src: string; alt: string } {
+  const r = rubriques.find((x) => x.pages.some((p) => inCategory(path, p)));
+  return r ? { src: `${origin}${r.png}`, alt: r.alt } : { src: `${origin}/og.png?v=${og.v}`, alt: OG_ALT };
+}
+
 export function layout(origin: string, head: Head, band: string, body: string): string {
   const url = `${origin}${head.path}`;
   const d = esc(head.description);
+  const image = ogImage(origin, head.path);
   return `<!doctype html>
 <html lang="fr">
 <head>
@@ -615,16 +626,16 @@ export function layout(origin: string, head: Head, band: string, body: string): 
 <meta property="og:title" content="${esc(head.title)}">
 <meta property="og:description" content="${d}">
 <meta property="og:url" content="${esc(url)}">
-<meta property="og:image" content="${esc(origin)}/og.png?v=${og.v}">
+<meta property="og:image" content="${esc(image.src)}">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="${esc(OG_ALT)}">
+<meta property="og:image:alt" content="${esc(image.alt)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(head.title)}">
 <meta name="twitter:description" content="${d}">
-<meta name="twitter:image" content="${esc(origin)}/og.png?v=${og.v}">
-<meta name="twitter:image:alt" content="${esc(OG_ALT)}">
+<meta name="twitter:image" content="${esc(image.src)}">
+<meta name="twitter:image:alt" content="${esc(image.alt)}">
 ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head.jsonld.length === 1 ? head.jsonld[0] : head.jsonld).replace(/</g, "\\u003c")}</script>\n` : ""}<style>${CSS}</style>
 </head>
 <body>
@@ -708,14 +719,20 @@ const FLAG_FR = `<svg viewBox="0 0 3 2" aria-hidden="true"><path fill="#002654" 
  * question already typed, asking it to read the page. The way in for people on a free plan, or who will not add a
  * connector. A switch picks Creole (the default) or French, which the assistants answer more surely; the choice
  * holds for every box and is remembered.
+ * On the click, the page's address in the question gets the time (`?maj=12h47`, Réunion time; the pages ignore it):
+ * the assistants keep their own copy of a page they have read, and a new address makes them read it again rather
+ * than answer from a copy taken minutes or hours earlier. Added by the script, not in the HTML, so that search
+ * engines do not follow the copies; without the script, the plain address.
  * The links' parameters are not documented by either service.
  */
 export function ask(kreol: string, francais: string): string {
-  const a = (href: string, name: string) => `<a href="${href}" target="_blank" rel="noopener">${name} ${EXTERNAL}</a>`;
+  const a = (href: string, name: string, page?: string) =>
+    `<a href="${href}" target="_blank" rel="nofollow noopener"${page ? ` data-maj="${esc(page)}"` : ""}>${name} ${EXTERNAL}</a>`;
   const block = (l: string, title: string, question: string, hidden: boolean) => {
     const q = encodeURIComponent(question);
+    const page = /https?:\/\/\S+/.exec(question)?.[0];
     return `<div data-l="${l}" lang="${l}"${hidden ? " hidden" : ""}><p class="askt">${title}</p>` +
-      `<p class="ask">${a(`https://chatgpt.com/?hints=search&amp;q=${q}`, "ChatGPT")}${a(`https://claude.ai/new?q=${q}`, "Claude")}</p>` +
+      `<p class="ask">${a(`https://chatgpt.com/?hints=search&amp;q=${q}`, "ChatGPT", page)}${a(`https://claude.ai/new?q=${q}`, "Claude", page)}</p>` +
       `<p class="askq">« ${esc(question)} »</p></div>`;
   };
   const b = (l: string, flag: string, name: string, on: boolean) =>
@@ -724,16 +741,6 @@ export function ask(kreol: string, francais: string): string {
     `${b(brand.slogan_lang, FLAG_RCF, "Kréol", true)}${b("fr", FLAG_FR, "Français", false)}</div>` +
     block(brand.slogan_lang, "Domann out IA", kreol, false) + block("fr", "Demandez à votre IA", francais, true) +
     `<p class="askn">Rien à installer : la question est déjà écrite. ChatGPT marche même sans compte ; Claude demande de se connecter (compte gratuit).</p></div>`;
-}
-
-/**
- * The page's address with the time of the question (`?maj=12h47`, Réunion time; the pages ignore it). The assistants
- * keep their own copy of a page they have read: a new address makes them read it again rather than answer from
- * a copy taken minutes or hours earlier.
- */
-export function fresh(url: string, now: Date): string {
-  const t = new Date(now.getTime() + 4 * 3600_000); // UTC+4, no summer time
-  return `${url}?maj=${t.getUTCHours()}h${String(t.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 /** The connector's address with its copy button; `id` keeps several on one page apart. */
@@ -847,7 +854,7 @@ export function vigilanceLive(data: Cached<mf.Vigilance> | null, now: Date): Liv
 export function meteoPage(origin: string, data: Cached<HomeData> | null, now = new Date(), alerte?: Alerte): string {
   const live = meteoLive(data);
   const l = withTemp(data);
-  const url = fresh(`${origin}/meteo`, now);
+  const url = `${origin}/meteo`;
   const latest = data?.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
 
   const status = live
@@ -860,7 +867,7 @@ export function meteoPage(origin: string, data: Cached<HomeData> | null, now = n
       `</ul><p class="note">Par satellite, le ${esc(dayMonth(data.value.mer.map((m) => m.jour).sort().pop()!))}. <a href="/mer">Toutes les plages →</a></p></figure>`
     : "";
 
-  const title = "Météo La Réunion 974 en direct : température, pluie, vent";
+  const title = "Météo Réunion 974 en direct : stations et prévisions";
   const description = live
     ? fit(`🇷🇪 Météo à La Réunion (974) en direct : de ${thin(deg(coldest(l).temperature!))} à ${shortName(coldest(l).nom)} à ${thin(deg(warmest(l).temperature!))} à ${shortName(warmest(l).nom)}, mesurés à ${hm(latest!)}.`,
         " Pluie, vent, mer et prévisions par commune.")
@@ -986,9 +993,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
   const alt = place.altitude_m != null ? `, à ${place.altitude_m.toLocaleString("fr-FR")} m d'altitude` : "";
   const commune = place.commune && place.commune !== p.nom ? ` (commune de ${esc(place.commune)})` : "";
   const v = versant(place.lon, place.lat);
-  const title = `Météo ${p.nom} 974 en direct : température, pluie, vent`.length <= 65
-    ? `Météo ${p.nom} 974 en direct : température, pluie, vent`
-    : `Météo ${p.nom} 974 en direct`;
+  const title = `Météo ${p.nom} en direct et prévisions · 974`.length <= 60 ? `Météo ${p.nom} en direct et prévisions · 974` : `Météo ${p.nom} en direct · 974`;
   const description = fit(
     first
       ? `🇷🇪 Météo à ${p.nom} (La Réunion, 974) en direct : ${first.mesures.temperature} mesurés à ${first.station} à ` +
@@ -1020,7 +1025,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
   const f = d?.prevision;
   const range = (lo?: string, hi?: string) => (lo && hi ? `${lo.replace(/ °C$/, "°")} / ${hi.replace(/ °C$/, "°")}` : "—");
   const forecast = f?.jours?.length
-    ? `<section aria-labelledby="h-prev"><h2 id="h-prev">Prévision météo ${esc(p.nom)} <span class="badge">Prévision, pas une mesure</span></h2>` +
+    ? `<section aria-labelledby="h-prev"><div class="hb"><h2 id="h-prev">Prévision météo ${esc(p.nom)}</h2><span class="badge">Prévision, pas une mesure</span></div>` +
       `<ul class="days">` +
       f.jours.map((j) => `<li class="card day"><h3>${esc(j.jour)}</h3><p class="range">${esc(range(j.temperature_min, j.temperature_max))}</p>` +
         `<p>${esc(j.ciel_en_journee ?? "—")}</p><p>Pluie : ${esc(thin(j.pluie ?? "—"))}</p><p>Rafales : ${esc(thin(j.rafales_max ?? "—"))}</p></li>`).join("") +
@@ -1064,8 +1069,8 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
     <h1>Météo à ${esc(p.nom)} <span class="n974">974</span></h1>
     ${SLOGAN}
     ${headline}
-    ${ask(`Lé koman lo tan astèr ${p.nom} ? Rogard la mézir an dirèk si ${fresh(`${origin}/meteo/${p.slug}`, now)} é di amwin lèr la mézir é la stasion.`,
-      `Quel temps fait-il en ce moment à ${p.nom} ? Lis la mesure en direct sur ${fresh(`${origin}/meteo/${p.slug}`, now)} et donne-moi l'heure de la mesure et la station.`)}
+    ${ask(`Lé koman lo tan astèr ${p.nom} ? Rogard la mézir an dirèk si ${origin}/meteo/${p.slug} é di amwin lèr la mézir é la stasion.`,
+      `Quel temps fait-il en ce moment à ${p.nom} ? Lis la mesure en direct sur ${origin}/meteo/${p.slug} et donne-moi l'heure de la mesure et la station.`)}
     <p class="lead">${esc(p.nom)}, ${esc(kind)}${commune}${alt}, ${esc(v.replace(/ \(.*\)$/, ""))} de l'île${v.includes("(") ? ` (${esc(v.replace(/^.*\(|\)$/g, ""))})` : ""}.${where}</p>
     ${p.commune ? `<p class="or"><a href="/communes/${p.slug}">${esc(p.nom)} en direct : vigilance, air, bus, mairie →</a></p>` : ""}
   </div>
@@ -1073,7 +1078,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
 </div>`;
 
   const body = `<section aria-labelledby="h-now">
-  <h2 id="h-now">Mesuré en ce moment près de ${esc(p.nom)} <span class="badge m">Mesure</span></h2>
+  <div class="hb"><h2 id="h-now">Mesuré en ce moment près de ${esc(p.nom)}</h2><span class="badge m">Mesure</span></div>
   ${measured}
 </section>
 <section class="card cta" aria-labelledby="h-ia">
@@ -1134,7 +1139,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
   const cyc = v?.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   const cycNow = current(cyc, now);
   const r = v ? raised(v) : [];
-  const url = fresh(`${origin}/vigilance`, now);
+  const url = `${origin}/vigilance`;
 
   let status: string;
   if (!v) {
@@ -1257,7 +1262,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
   const day = seen.map((b) => b.jour!).sort().pop();
   const warm = seen.length ? seen.reduce((a, b) => (b.valeur! > a.valeur! ? b : a)) : undefined;
   const cool = seen.length ? seen.reduce((a, b) => (b.valeur! < a.valeur! ? b : a)) : undefined;
-  const url = fresh(`${origin}/mer`, now);
+  const url = `${origin}/mer`;
   // Not every beach of the west coast: their markers would sit on one another.
   const markers: Marker[] = seen.filter((b) => !CROWDED.has(b.nom)).map((b) => ({ lon: b.lon, lat: b.lat, label: `${Math.round(b.valeur!)}°`, name: seaName(b.nom), color: chip(b.valeur!), round: true }));
 
