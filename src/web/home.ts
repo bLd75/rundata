@@ -20,6 +20,7 @@ import {
   connector,
   DATAGOUV_REUSE,
   deg,
+  follow,
   followed,
   GITHUB,
   GLAMA,
@@ -177,14 +178,13 @@ export function sky(now: Date): "nuit" | "aube" | "jour" | "soir" {
 }
 
 /**
- * Four figures of the moment under the title, two by two: the vigilance and the volcano while in force, then the
- * events, the hikes, the weather, the sea.
+ * The figures of the moment under the title, two by two: the vigilance and the volcano while in force, then the
+ * events, the hikes, the weather.
  */
 function facts(live: Record<string, Live | undefined>, u: Urgent): string {
-  const shown = [...urgentKeys(u), ...FIRST, "mer"]
+  const shown = [...urgentKeys(u), ...FIRST]
     .map((k) => ({ c: CATEGORIES.find((c) => c.key === k)!, l: live[k] }))
-    .filter((x) => x.l)
-    .slice(0, 4);
+    .filter((x) => x.l);
   if (!shown.length) return "";
   return `<ul class="facts-live" aria-label="En ce moment">${shown
     .map((x) => `<li class="k-${x.c.key}"><a href="${x.c.path}">${icon(x.c.icon)}<span>${esc(x.c.nom)}</span><b>${x.l!.valeur}</b></a></li>`)
@@ -316,7 +316,7 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
       name: "rundata.re, connecteur MCP La Réunion en temps réel",
       description:
         "Serveur MCP (Model Context Protocol) gratuit qui donne à Claude, ChatGPT ou Le Chat les données publiques de La Réunion (974) " +
-        "en temps réel : mesures météo, prévisions, vigilance, mer, volcan, électricité, qualité de l'air, services publics, horaires de bus, terrain et risques.",
+        "en temps réel : sorties et événements, randonnée, mesures météo, prévisions, vigilance, routes, volcan, mer, électricité, qualité de l'air, services publics, horaires de bus, terrain et risques.",
       url: `${origin}/mcp`,
       applicationCategory: "DeveloperApplication",
       operatingSystem: "Web",
@@ -335,8 +335,9 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
     ${livePill(at, now)}
     <h1>La Réunion <span class="n974">974</span> en direct</h1>
     ${SLOGAN}
-    <p class="lead">Météo, mer, volcan, bus, vélos, air : la donnée publique du moment, datée et sourcée, pour vous et pour <b>votre assistant IA</b>.</p>
+    <p class="lead">Sorties, randos, météo, routes : la donnée publique du moment, datée et sourcée, pour vous et pour <b>votre assistant IA</b>.</p>
     <p class="hero-cta"><a class="btn sun" href="#assistant">${icon("spark")}Brancher mon IA</a><a class="btn glass" href="#en-ce-moment">Voir l'île</a></p>
+    ${follow(undefined, "social hero-follow")}
     ${facts(live, u)}
   </div>
   ${heroMap(h)}
@@ -345,14 +346,14 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
 ${assistant(origin, h, now)}
 <section id="communes" aria-labelledby="h-communes">
   <div class="sec-h"><p class="eyebrow">Partout sur l'île</p><h2 id="h-communes">Votre commune en direct</h2>
-  <p>Pour chaque commune : la météo de sa station, la vigilance de sa zone, son air, sa mer, les prochains bus, sa mairie ouverte ou non. Les cirques, le volcan et les plages ont leur page météo. <a href="/communes">Toutes les communes →</a></p></div>
+  <p>Pour chaque commune : ses prochaines sorties, ses sentiers, la météo de sa station et sa mairie ouverte ou non ; la mer, les bus et le reste sont sur sa page. Les cirques, le volcan et les plages ont leur page météo. <a href="/communes">Toutes les communes →</a></p></div>
   ${placeLinks(undefined, true)}
 </section>
 ${PRINCIPLES}`;
   return layout(origin, {
     title: "La Réunion 974 en direct : météo, routes, rando, sorties",
     description:
-      `🇷🇪 ${brand.slogan} : météo, bus, volcan, vigilance, air, services publics de La Réunion 974, en direct dans ` +
+      `🇷🇪 ${brand.slogan}\u00a0: sorties, randos, météo et routes de La Réunion 974, en direct dans ` +
       "ChatGPT, Claude ou Le Chat. Gratuit, sans compte.",
     path: "/",
     jsonld,

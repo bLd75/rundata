@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { WITH_PAGE } from "../src/web/categories.js";
 import type { Alerte } from "../src/web/data.js";
 import { homePage, type HomeLive } from "../src/web/home.js";
-import { meteoPage } from "../src/web/pages.js";
+import { meteoPage, SOCIAL } from "../src/web/pages.js";
 import { type VolcanAlerte, withVolcan } from "../src/web/volcan-alerte.js";
 
 const O = "https://rundata.re";
@@ -50,10 +50,11 @@ describe("the order of the pages", () => {
     expect(tiles(homePage(O, null, NOW, VIGILANCE))[0]).toBe("vigilance");
   });
 
-  it("puts the events and the hikes in « En ce moment », the volcano only in alert", () => {
+  it("puts the events and the hikes in « En ce moment », the volcano only in alert, never the sea", () => {
     const quiet = { value: JSON.parse(readFileSync(new URL("./fixtures/pages/volcan_seismes.json", import.meta.url), "utf8")), fetchedAt: NOW, stale: false };
     const live = {
-      meteo: null,
+      // The sea measured, no station's temperature: the sea is still not in the boxes.
+      meteo: { value: { stations: [], mer: [{ nom: "Plage de Saint-Leu", valeur: 25.2, jour: "2026-10-21", distance_km: 3 }], sources: [], indisponibles: [] }, fetchedAt: NOW, stale: false },
       volcan: quiet,
       agenda: { value: { nombre: 42, ce_week_end: [] }, fetchedAt: NOW, stale: false },
       sentiers: { value: { points: [], suivis: 120, randonnees: [] }, fetchedAt: NOW, stale: false },
@@ -64,5 +65,19 @@ describe("the order of the pages", () => {
     // A volcano in alert in the copy of /volcan: first.
     const etat = { ...quiet.value.etat, niveau_orsec: "Alerte 1" };
     expect(facts(homePage(O, { ...live, volcan: { ...quiet, value: { ...quiet.value, etat } } } as HomeLive, NOW))).toEqual(["volcan", "agenda", "sentiers"]);
+  });
+
+  it("links rundata.re's accounts from the bar, the menu and the home page's hero, counted as visits from the site", () => {
+    const page = meteoPage(O, null, NOW);
+    const header = page.match(/<header class="top">(.*?)<\/header>/s)![1];
+    const top = header.match(/<nav class="follow-top"[^>]*>(.*?)<\/nav>/s)![1];
+    const sheet = header.match(/<nav class="sheet"[^>]*>(.*?)<\/nav>/s)![1];
+    const hero = homePage(O, null, NOW).match(/<p class="social hero-follow">(.*?)<\/p>/s)![1];
+    for (const s of SOCIAL) {
+      const link = `<a href="${s.url}?ref=site" rel="noopener" aria-label="rundata.re sur ${s.nom}">`;
+      expect(top).toContain(`${link}${s.svg}</a>`);
+      expect(sheet).toContain(`${link}${s.svg}${s.nom}</a>`);
+      expect(hero).toContain(`${link}${s.svg}${s.nom}</a>`);
+    }
   });
 });
