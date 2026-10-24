@@ -1,4 +1,10 @@
-# La Réunion en temps réel — serveur MCP
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/rundata-logo-nuit.svg"><img src="docs/rundata-logo-sable.svg" alt="rundata.re" width="420"></picture></p>
+
+# rundata.re · La Réunion 974 en direct
+
+Sorties, randos, météo mesurée, routes : les données publiques de La Réunion en direct, datées et sourcées.
+
+Sur rundata.re et dans votre assistant IA (ChatGPT, Claude, Le Chat). Gratuit, sans compte.
 
 Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (Claude, ChatGPT, Le Chat…) les **données publiques de La Réunion en ce moment** : météo mesurée aux stations, vigilance, mer, volcan, électricité, qualité de l'air, services publics, horaires de bus, terrain et risques. Il répond à des questions comme « quel temps fait-il à Saint-Pierre ? », « le prochain bus à la gare de Saint-Pierre ? » ou « le volcan est en éruption ? » avec des valeurs datées et sourcées. Une mesure n'est jamais mélangée à une prévision : pour « il va pleuvoir demain ? », un outil à part donne la prévision d'un modèle, toujours étiquetée comme telle.
 
@@ -159,7 +165,7 @@ Les pages sont rendues par le serveur, données comprises, pour les moteurs de r
 - `/nouveautes` : ce que le site et le connecteur savent faire de plus, jour après jour, en une phrase par changement, liée depuis le pied de page et donnée par `sources_donnees` ; la même liste que CHANGELOG.md ;
 - `/presse` : l'espace presse, lié depuis le pied de page : le communiqué, des chiffres clés comptés dans les données du site au moment de l'affichage (outils, stations, arrêts, bornes, défibrillateurs, sentiers…) et les visuels à télécharger, libres avec la mention rundata.re. Les visuels sont des fichiers statiques servis par Cloudflare à côté du Worker (`public/presse/`, construits par `scripts/build-presse.py`), pas dans son paquet ;
 - en bas de chaque page, un formulaire « Un avis, une donnée qui manque ? » (`src/web/avis.ts`) : un formulaire HTML simple, sans script, envoyé à `POST /avis`, qui renvoie à la page avec un merci. Les avis du site et de l'outil `donner_avis` vont dans la table `avis` de D1 (`scripts/avis.sql`), sans adresse IP, effacés au bout de 12 mois ;
-- `/robots.txt`, `/sitemap.xml`, `/og.png` (aperçu Facebook, WhatsApp…), `/favicon.svg`, `/manifest.webmanifest` (le site gardé sur l'écran d'accueil d'un téléphone, ouvert sur `/?ref=pwa`, avec les raccourcis Météo, Vigilance et Randonnées ; icônes `public/icons/`, `scripts/build-icons.py`), `/sw.js` (le service worker : réseau d'abord, et sans réseau la dernière copie de chaque page ouverte, sous un bandeau qui en donne la date ; rien de `/mcp`, de `?maj=`, des flux ni des traces), `/hors-ligne` (la page d'une adresse jamais ouverte sans réseau, avec les pages gardées sur le téléphone).
+- `/robots.txt`, `/sitemap.xml`, `/og.png` (aperçu Facebook, WhatsApp…, `scripts/build-og.py`), `/favicon.svg` et `/favicon.ico` (le symbole de rundata.re, le « Point chaud », en SVG et en PNG de 48 px), `/manifest.webmanifest` (le site gardé sur l'écran d'accueil d'un téléphone, ouvert sur `/?ref=pwa`, avec les raccourcis Météo, Vigilance et Randonnées ; icônes `public/icons/`, symbole et logos `public/logo/`, repris du kit de la marque par `scripts/build-icons.py`), `/sw.js` (le service worker : réseau d'abord, et sans réseau la dernière copie de chaque page ouverte, sous un bandeau qui en donne la date ; rien de `/mcp`, de `?maj=`, des flux ni des traces), `/hors-ligne` (la page d'une adresse jamais ouverte sans réseau, avec les pages gardées sur le téléphone).
 
 Sous le titre de chaque page, une phrase dit à quoi elle sert ; au bas de chaque page, au-dessus du formulaire d'avis, un lien « Partager sur WhatsApp » (`?ref=wa`) et l'appel à suivre la Page Facebook (`?ref=site`).
 

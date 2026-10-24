@@ -6,25 +6,59 @@ import { homePage } from "../src/web/home.js";
 import { pressePage } from "../src/web/presse.js";
 import { pageOf } from "../src/web/places.js";
 import { manifest, site } from "../src/web/site.js";
+import { LOGO_PETIT_SVG } from "../src/web/logo.js";
 import { sentiersPage } from "../src/web/domains.js";
 
 const NOW = new Date("2026-10-24T04:00:00Z");
 const O = "https://rundata.re";
 
 describe("on a phone's home screen", () => {
-  it("has a manifest that opens the home page counted apart, with the flag's icons", async () => {
+  it("has a manifest that opens the home page counted apart, with the symbol's icons", async () => {
     const m = manifest();
-    expect(m).toMatchObject({ name: "rundata.re · La Réunion en direct", short_name: "rundata.re", start_url: "/?ref=pwa", display: "standalone", lang: "fr" });
-    for (const i of m.icons.filter((x) => x.type === "image/png")) expect(existsSync(new URL(`../public${i.src}`, import.meta.url))).toBe(true);
+    expect(m).toMatchObject({ name: "rundata.re · La Réunion 974 en direct", short_name: "rundata.re", start_url: "/?ref=pwa", display: "standalone", lang: "fr" });
+    // Every icon a file beside the Worker, the symbol's, and one at 512 for the phones that cut their own shape.
+    for (const i of m.icons) {
+      expect(i.src).toMatch(/^\/(icons|logo)\/logo[\w-]*\.[0-9a-f]{10}\.(png|svg)$/);
+      expect(existsSync(new URL(`../public${i.src}`, import.meta.url))).toBe(true);
+    }
+    expect(m.icons).toContainEqual(expect.objectContaining({ sizes: "512x512", type: "image/png", purpose: "maskable" }));
+    expect(m.icons.filter((i) => i.purpose === "any").map((i) => i.sizes)).toEqual(["192x192", "512x512", "any"]);
     const r = await site(new Request(`${O}/manifest.webmanifest`), new Cache(new MemoryStore(), () => NOW.getTime()), () => {}, NOW);
     expect(r!.headers.get("content-type")).toBe("application/manifest+json; charset=utf-8");
     expect(JSON.parse(await r!.text()).start_url).toBe("/?ref=pwa");
   });
 
-  it("is linked from every page, with the icon iOS asks for", () => {
+  it("is linked from every page, with the icon iOS asks for and a PNG for the favicon services", () => {
     const html = placePage(O, pageOf("cilaos")!, null, NOW);
     expect(html).toContain(`<link rel="manifest" href="/manifest.webmanifest">`);
-    expect(html).toMatch(/<link rel="apple-touch-icon" href="\/icons\/flag-180\.[0-9a-f]{10}\.png">/);
+    expect(html).toMatch(/<link rel="apple-touch-icon" href="\/icons\/logo-180\.[0-9a-f]{10}\.png">/);
+    expect(html).toMatch(/<link rel="icon" href="\/icons\/logo-192\.[0-9a-f]{10}\.png" type="image\/png" sizes="192x192">/);
+  });
+
+  it("serves the small symbol as /favicon.svg and a real PNG as /favicon.ico", async () => {
+    const cache = new Cache(new MemoryStore(), () => NOW.getTime());
+    const svg = await site(new Request(`${O}/favicon.svg`), cache, () => {}, NOW);
+    expect(svg!.headers.get("content-type")).toBe("image/svg+xml");
+    expect(await svg!.text()).toBe(LOGO_PETIT_SVG);
+    const ico = await site(new Request(`${O}/favicon.ico`), cache, () => {}, NOW);
+    expect(ico!.headers.get("content-type")).toBe("image/png");
+    const png = new Uint8Array(await ico!.arrayBuffer());
+    expect([...png.slice(1, 4)].map((c) => String.fromCharCode(c)).join("")).toBe("PNG");
+    // 48 px wide and high (the IHDR chunk).
+    expect(new DataView(png.buffer).getUint32(16)).toBe(48);
+    expect(new DataView(png.buffer).getUint32(20)).toBe(48);
+  });
+
+  it("puts the symbol in the header and the footer, never the flag", () => {
+    const html = placePage(O, pageOf("cilaos")!, null, NOW);
+    const top = html.slice(html.indexOf(`<header class="top">`), html.indexOf("</header>"));
+    const foot = html.slice(html.indexOf(`<footer class="foot">`));
+    for (const part of [top, foot]) {
+      expect(part).toContain(`<a class="brand" href="/"><svg class="logo" viewBox="0 0 48 48" role="img" aria-label="rundata.re"><title>rundata.re</title><rect width="48" height="48" rx="11" fill="#2563d8"/>`);
+      expect(part).not.toContain("Lo Mahavéli");
+      expect(part).not.toContain('viewBox="0 0 60 40"');
+    }
+    expect(foot).toContain("<p>La Réunion 974 en direct, pour vous et votre assistant IA.</p>");
   });
 });
 

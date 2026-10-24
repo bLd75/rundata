@@ -59,7 +59,7 @@ import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPag
 import { concertsPage, weekendPage } from "./evenements.js";
 import { coupuresCommunePage } from "./coupures.js";
 import { cloudSeaTold, hikesNear, summitOf } from "./liens.js";
-import { FAVICON } from "./flag.js";
+import { LOGO_PETIT_SVG } from "./logo.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
 import font from "./font.json" with { type: "json" };
@@ -169,6 +169,7 @@ const rebuild = (cache: Cache, key: string, build: () => Promise<unknown>) => ()
 
 const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 let ogBytes: Uint8Array<ArrayBuffer> | undefined;
+let icoBytes: Uint8Array<ArrayBuffer> | undefined;
 let fontBytes: Uint8Array<ArrayBuffer> | undefined;
 let swText: string | undefined;
 let reliefBytes: Uint8Array<ArrayBuffer> | undefined;
@@ -530,8 +531,13 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/manifest.webmanifest") {
     return new Response(JSON.stringify(manifest()), { headers: { "content-type": "application/manifest+json; charset=utf-8", "cache-control": "public, max-age=86400" } });
   }
-  if (path === "/favicon.svg" || path === "/favicon.ico") {
-    return new Response(FAVICON, { headers: { "content-type": "image/svg+xml", "cache-control": STATIC } });
+  if (path === "/favicon.svg") {
+    // The small symbol: a tab shows it at 16 px.
+    return new Response(LOGO_PETIT_SVG, { headers: { "content-type": "image/svg+xml", "cache-control": STATIC } });
+  }
+  if (path === "/favicon.ico") {
+    // A PNG, 48 px: the favicon services (Google's, which claude.ai asks for a connector's icon) read it better than SVG.
+    return new Response((icoBytes ??= bytes(icons.ico)), { headers: { "content-type": "image/png", "cache-control": STATIC } });
   }
   return null;
 }
@@ -543,7 +549,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
  */
 export function manifest() {
   return {
-    name: "rundata.re · La Réunion en direct",
+    name: "rundata.re · La Réunion 974 en direct",
     short_name: "rundata.re",
     description: "Météo mesurée, vigilance, volcan, routes, sentiers : La Réunion en direct, gratuit et sans compte.",
     lang: "fr",
@@ -553,9 +559,11 @@ export function manifest() {
     background_color: "#0b1f36",
     theme_color: "#0b1f36",
     icons: [
-      { src: icons["192"], sizes: "192x192", type: "image/png", purpose: "any maskable" },
-      { src: icons["512"], sizes: "512x512", type: "image/png", purpose: "any maskable" },
-      { src: "/favicon.svg", sizes: "any", type: "image/svg+xml" },
+      { src: icons["192"], sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: icons["512"], sizes: "512x512", type: "image/png", purpose: "any" },
+      // Full square, the symbol inside the safe zone: the phone cuts its own corners or circle.
+      { src: icons["512-maskable"], sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: icons["symbole-svg"], sizes: "any", type: "image/svg+xml", purpose: "any" },
     ],
     shortcuts: [
       { name: "Météo", url: "/meteo?ref=pwa" },

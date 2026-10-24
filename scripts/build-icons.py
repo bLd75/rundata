@@ -1,45 +1,55 @@
 #!/usr/bin/env python3
-"""Build the icons of the site kept on a phone's home screen (src/web/site.ts serves /manifest.webmanifest): the flag
-Lo Mahavéli on a full square, as the favicon (src/web/flag.ts), in PNG at the sizes Android and iOS ask for. The phone
-draws its own rounded corners or circle; the summit of the volcano, where the rays meet, stays in the middle.
-Those go to public/icons/, served by Cloudflare beside the Worker, named after their content; src/web/icons.json says
-which is which. Rasterised by ImageMagick (`convert`).
-Usage: python3 -I scripts/build-icons.py
+"""Take the symbol of rundata.re, the « Point chaud », from the brand kit (src/web/logo.ts), into the site's files.
+
+The kit renders every size itself (Chrome at the exact size), so the files are taken as they are, never redrawn:
+- the icons of the site kept on a phone's home screen (src/web/site.ts serves /manifest.webmanifest): the tile at
+  180 (iOS, apple-touch-icon), 192 and 512, and the full-square version at 512 (« maskable », the phone draws its own
+  rounded corners or circle), in public/icons/;
+- the symbol and the two lockups for the press page and the MCP server's icons, in public/logo/;
+- the 48 px PNG that /favicon.ico serves (the favicon services read a PNG better than an SVG), in src/web/icons.json.
+public/ is served by Cloudflare beside the Worker, each file named after its content; src/web/icons.json says which
+is which.
+Usage: python3 -I scripts/build-icons.py DIR
+  DIR is the kit's logo folder, the one that holds png/ and svg/.
 """
+import base64
 import hashlib
 import json
-import subprocess
-import tempfile
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "public/icons"
-RAYS = "M0 18.5v3L60 18.5v3zM30 20 0 2.5V0H2.5zM30 20 57.5 0H60V2.5zM30 20 28.5 0h3z"
-# 180 for iOS (apple-touch-icon), 192 and 512 for Android and the others.
-SIZES = [180, 192, 512]
-
-
-def svg(size):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 60 60">'
-            '<rect width="60" height="60" fill="#2563d8"/><g transform="translate(-15 0) scale(1.5)">'
-            f'<path d="M30 20L60 40H0Z" fill="#e3262d"/><path d="{RAYS}" fill="#ffd400"/></g></svg>')
+# Key in icons.json, file in the kit, folder in public/.
+FILES = [
+    ("180", "png/point-chaud-180.png", "icons"),
+    ("192", "png/point-chaud-192.png", "icons"),
+    ("512", "png/point-chaud-512.png", "icons"),
+    ("512-maskable", "png/point-chaud-512-maskable.png", "icons"),
+    ("symbole-svg", "svg/point-chaud.svg", "logo"),
+    ("symbole-1024", "png/point-chaud-1024.png", "logo"),
+    ("lockup-nuit", "svg/point-chaud-lockup-nuit.svg", "logo"),
+    ("lockup-sable", "svg/point-chaud-lockup-sable.svg", "logo"),
+]
 
 
 def main():
-    OUT.mkdir(parents=True, exist_ok=True)
-    for old in OUT.iterdir():
-        old.unlink()
+    if len(sys.argv) != 2:
+        sys.exit(__doc__)
+    kit = Path(sys.argv[1])
+    for folder in {f for _, _, f in FILES}:
+        out = ROOT / "public" / folder
+        out.mkdir(parents=True, exist_ok=True)
+        for old in out.iterdir():
+            old.unlink()
     manifest = {}
-    with tempfile.TemporaryDirectory() as tmp:
-        for size in SIZES:
-            src, png = Path(tmp) / f"{size}.svg", Path(tmp) / f"{size}.png"
-            src.write_text(svg(size))
-            subprocess.run(["convert", "-background", "none", str(src), "-strip", "PNG32:" + str(png)], check=True)
-            data = png.read_bytes()
-            name = f"flag-{size}.{hashlib.sha256(data).hexdigest()[:10]}.png"
-            (OUT / name).write_bytes(data)
-            manifest[str(size)] = f"/icons/{name}"
-            print(OUT / name, f"{len(data) // 1024} KB PNG")
+    for key, src, folder in FILES:
+        data = (kit / src).read_bytes()
+        stem, ext = Path(src).name.rsplit(".", 1)
+        name = f"{stem.replace('point-chaud', 'logo')}.{hashlib.sha256(data).hexdigest()[:10]}.{ext}"
+        (ROOT / "public" / folder / name).write_bytes(data)
+        manifest[key] = f"/{folder}/{name}"
+        print(ROOT / "public" / folder / name, f"{len(data) // 1024} KB")
+    manifest["ico"] = base64.b64encode((kit / "png/point-chaud-48.png").read_bytes()).decode()
     (ROOT / "src/web/icons.json").write_text(json.dumps(manifest, indent=1) + "\n")
 
 

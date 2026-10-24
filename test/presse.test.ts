@@ -4,6 +4,7 @@ import { handle } from "../src/app.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { DAES } from "../src/providers/dae.js";
 import { IDS } from "../src/providers/irve.js";
+import icons from "../src/web/icons.json" with { type: "json" };
 import visuals from "../src/web/presse.json" with { type: "json" };
 
 const NOW = new Date("2026-10-24T04:00:00Z");
@@ -61,7 +62,12 @@ describe("press page", () => {
       }
     }
     expect(readFileSync(new URL("../public/_headers", import.meta.url), "utf8")).toContain("/presse/*\n  Cache-Control: public, max-age=31536000, immutable");
-    expect(html).toContain(`download="rundata-drapeau.svg"`);
+    // The symbol of the brand, never the flag, in SVG and PNG 1024, and its two lockups: files beside the Worker.
+    expect(html).not.toContain("drapeau");
+    for (const [key, name] of [["symbole-svg", "rundata-symbole.svg"], ["symbole-1024", "rundata-symbole-1024.png"], ["lockup-nuit", "rundata-logo-fond-sombre.svg"], ["lockup-sable", "rundata-logo-fond-clair.svg"]] as const) {
+      expect(html).toContain(`href="${icons[key]}" download="${name}"`);
+      expect(existsSync(new URL(`../public${icons[key]}`, import.meta.url))).toBe(true);
+    }
   });
 
   it("is linked from every footer and listed in the sitemap, not on the home page's tiles", async () => {
