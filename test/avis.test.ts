@@ -201,6 +201,17 @@ describe("the site's feedback form", () => {
     expect(rows).toHaveLength(0);
   });
 
+  it("answers a link or a robot opening it with 405, not with a failed feedback", async () => {
+    for (const method of ["GET", "HEAD"]) {
+      const r = await handle(new Request("https://rundata.re/avis", { method, headers: { accept: "text/html" } }), new Cache());
+      expect(r.status).toBe(405);
+      expect(r.headers.get("allow")).toBe("POST");
+      expect(r.headers.get("location")).toBeNull();
+      expect(r.headers.get("cache-control")).toBe("no-store");
+    }
+    expect(rows).toHaveLength(0);
+  });
+
   it("refuses a message too long, empty, or posted from another site, and never redirects elsewhere", async () => {
     expect((await post({ message: "x".repeat(avis.MESSAGE_MAX + 1), page: "/bus" })).headers.get("location")).toBe("https://rundata.re/bus#avis-erreur");
     expect((await post({ message: " ", page: "/bus" })).headers.get("location")).toBe("https://rundata.re/bus#avis-erreur");

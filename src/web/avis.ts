@@ -56,7 +56,13 @@ export async function avisPost(request: Request, now = new Date()): Promise<Resp
   const url = new URL(request.url);
   const back = (page: string, outcome: "merci" | "limite" | "erreur") =>
     new Response(null, { status: 303, headers: { location: `${url.origin}${page}#avis-${outcome}`, "cache-control": "no-store" } });
-  if (request.method !== "POST") return back("/", "erreur");
+  // A link or a robot opening /avis: not a failed feedback, a method this address does not take.
+  if (request.method !== "POST") {
+    return new Response("Le formulaire d'avis est en bas de chaque page de https://rundata.re/ ; cette adresse ne reçoit que ses envois.", {
+      status: 405,
+      headers: { allow: "POST", "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
   const from = request.headers.get("origin");
   if (from && from !== url.origin) return new Response("Formulaire d'un autre site refusé.", { status: 403, headers: { "content-type": "text/plain; charset=utf-8" } });
   if (Number(request.headers.get("content-length") ?? 0) > BODY_MAX) return back("/", "erreur");
