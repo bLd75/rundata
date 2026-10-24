@@ -33,7 +33,7 @@ describe("circulation", () => {
     const res = await handle(new Request("https://rundata.re/trafic", BOT), cache());
     expect(res.status).toBe(200);
     const page = await res.text();
-    expect(page).toContain("<h1>Circulation à La Réunion");
+    expect(page).toContain("<h1>Bouchons et circulation à La Réunion");
     expect(page).toContain("rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant.");
     expect(page).toContain(`href="https://www.infotrafic.re/"`);
     // Waze's map, which brings cookies, is not in the page: only on a click.

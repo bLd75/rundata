@@ -12,8 +12,9 @@ import * as mf from "../providers/vigilance.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
 import { current, cyclone, highest, raised } from "../tools/vigilance.js";
-import type { AirAnswer, Alerte, CalendrierAnswer, CommuneData, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
+import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
 import { waterLive } from "./coupures.js";
+import { communeEvents, communeHikes } from "./liens.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
 import { esc, islandMap } from "./map.js";
 import { ask, connector, credits, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
@@ -32,6 +33,8 @@ export interface CommuneLive {
   coupures?: Cached<CoupuresAnswer> | null;
   secheresse?: Cached<SecheresseAnswer> | null;
   eau?: Cached<EauAnswer> | null;
+  randonnees?: Cached<RandonneesAnswer> | null;
+  agenda?: Cached<AgendaAnswer> | null;
 }
 
 export const COMMUNES = PAGES.filter((p) => p.commune);
@@ -180,6 +183,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const velos = bikes(l.commune);
   const mairie = townHall(l.commune, now);
   const fiche = l.commune?.value.mairie?.fiche;
+  const hikes = communeHikes(p, l.randonnees);
 
   const tiles: Tile[] = [
     { icon: "thermo", nom: "Météo", href: `/meteo/${p.slug}`, live: w },
@@ -196,6 +200,8 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
       question: `La mairie ${de(p.nom)} est ouverte ?`,
       foot: fiche ? `<a href="${esc(fiche)}" rel="noopener">Fiche service-public.fr</a>` : `<a href="/#assistant">Demandez à votre IA →</a>`,
     },
+    ...(hikes ? [{ icon: "mountain", nom: "Randonnée", href: hikes.href, live: hikes.live }] : []),
+    { icon: "music", nom: "Sorties", href: "/evenements", live: communeEvents(p, l.agenda) },
     { icon: "calendar", nom: "Soleil et calendrier", href: "/calendrier", live: sunTimes(p, l.calendrier, now) },
     { icon: "map", nom: "Terrain et risques", question: `Mon adresse à ${p.nom} est-elle en zone inondable ?`, foot: `<a href="/#assistant">Demandez à votre IA →</a>`, wide: true },
   ];
