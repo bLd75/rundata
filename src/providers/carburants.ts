@@ -45,8 +45,9 @@ const HEADERS = { "User-Agent": "rundata.re (contact@rundata.re)" };
 const MONTHS = ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"];
 const MONTH_NAMES = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 
+// « &amp; » last, so that a « &amp;#39; » of the page stays the text « &#39; ».
 const plain = (s: string) =>
-  s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&rsquo;/g, "'").replace(/\s+/g, " ").trim();
+  s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&#39;|&rsquo;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 const euros = (s: string) => {
   const m = /(\d+),(\d{2})\s*€/.exec(s);
   return m ? Number(`${m[1]}.${m[2]}`) : undefined;
