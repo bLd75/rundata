@@ -314,7 +314,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     actualites: l.actualites ? others.slice(0, 3).map(newsRow) : undefined,
     coupures_eau: l.coupures
       ? {
-          avis: avis.map((n) => ({ titre: n.titre, coupure: n.coupure, secteurs: n.secteurs, ne_pas_boire: n.ne_pas_boire, lien: n.lien })),
+          avis: avis.map((n) => ({ titre: n.titre, coupure: n.coupure, secteurs: n.secteurs, secteurs_complets: n.secteurs_complets, ne_pas_boire: n.ne_pas_boire, lien: n.lien })),
           distributeur: dist?.nom,
           note: avis.length || dist?.avis ? undefined : `Le distributeur ${a(nom)} ne publie pas ses avis dans un flux lisible : voir la mairie.`,
         }

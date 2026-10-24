@@ -4,6 +4,10 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 <!-- Généré à partir de src/nouveautes.ts par `npm run changelog` : modifier la liste là-bas. -->
 
+## Dimanche 25 octobre 2026
+
+- Coupures d'eau : la liste des rues s'affiche quand l'avis la donne en entier, avec l'heure de remise en eau quand il l'annonce.
+
 ## Samedi 24 octobre 2026
 
 - Coupures d'eau à Saint-Leu : les avis publiés par la commune s'affichent. Petite-Île, Cilaos, L'Étang-Salé : un lien vers la mairie.
