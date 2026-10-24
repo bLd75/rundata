@@ -33,6 +33,7 @@ import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
 import { INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
+import { bathingBlock } from "./baignade.js";
 
 export const SITE = "rundata.re";
 // The headings' typeface (scripts/build-font.py). Bump the number when the font changes: browsers keep it a year.
@@ -1267,6 +1268,7 @@ ${cloudSea}
   ${connector(origin, "mcp-url")}
 </section>
 ${sea}
+${coastal(p) ? bathingBlock(now, { nom: p.nom, lon: p.place.lon, lat: p.place.lat, commune: p.commune ? p.nom : undefined }) : ""}
 ${forecast}
 ${hikesAround(p, hikes)}
 <section aria-labelledby="h-ailleurs">
@@ -1565,6 +1567,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
 </section>
 ${swell}
 ${tide}
+${bathingBlock(now)}
 <section aria-labelledby="h-lire-mer">
   <div class="sec-h"><p class="eyebrow">Bon à savoir</p><h2 id="h-lire-mer">Ce que mesure le satellite</h2></div>
   <div class="three">

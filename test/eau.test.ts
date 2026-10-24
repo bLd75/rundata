@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { parsePage, quality, season } from "../src/providers/baignades.js";
 import { networkName } from "../src/providers/eaupotable.js";
+import { SOURCE } from "../src/eau/requin.js";
 import { qualiteEau, siteNamed, sujetOf } from "../src/tools/eau.js";
 
 // Hub'Eau for Saint-Pierre and the ministry's page of the plage de l'Hermitage centre, read on 24/10/2026: the latest
@@ -54,7 +55,9 @@ describe("qualité de l'eau", () => {
     expect(b.eau_du_robinet).toBeUndefined();
     expect(b.baignade.sites[0]).toMatchObject({ site: "Plage de l'Hermitage centre", dernier_prelevement: "15/09/2026", qualite_dernier_prelevement: "bonne" });
     expect(b.baignade.sites[0].derniers_prelevements[1]).toEqual({ date: "08/09/2026", qualite: "moyenne", enterocoques_100ml: "290", e_coli_100ml: "130" });
-    expect(b.a_savoir.baignade_en_mer).toMatch(/lagon/);
+    expect(b.risque_requin.regle).toMatch(/^À La Réunion, la baignade et les activités de vague .* Arrêté préfectoral n° 180 du 13\/02\/2026/);
+    expect(b.risque_requin.zones).toContain("Lagon de l'Hermitage : lagon, baignade permise dans les conditions fixées par la commune (arrêté préfectoral n° 180, art. 2).");
+    expect(b.sources.map((s: { source: string }) => s.source)).toContain(SOURCE.nom);
     expect(asked.filter((u) => u.includes("baignades")).map((u) => new URL(u).searchParams.get("annee"))).toEqual(["2027", "2026"]);
   });
 

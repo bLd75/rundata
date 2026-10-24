@@ -3,6 +3,7 @@ import { distanceKm } from "../geo.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace, type Resolution } from "../places/resolve.js";
 import * as baignades from "../providers/baignades.js";
+import * as requin from "../eau/requin.js";
 import * as potable from "../providers/eaupotable.js";
 import * as notices from "../providers/avis-eau.js";
 import { doNotDrink, noticeRow } from "./coupures.js";
@@ -185,8 +186,6 @@ export const COMMON = {
   eau_de_baignade:
     "Prélèvement toutes les deux semaines environ ; seuils par prélèvement (germes pour 100 mL) : bonne jusqu'à 100 entérocoques et 100 E. coli, " +
     "mauvaise au-delà de 370 entérocoques ou 1 000 E. coli. Après de fortes pluies, l'eau est souvent polluée pendant un à trois jours (ravines, rejets).",
-  baignade_en_mer:
-    "À La Réunion, la baignade en mer n'est autorisée que dans le lagon et les zones aménagées et surveillées (arrêté préfectoral, risque requin).",
 };
 
 export async function qualiteEau(cache: Cache, lieu: string | undefined, sujet?: Sujet, now = new Date()) {
@@ -196,7 +195,8 @@ export async function qualiteEau(cache: Cache, lieu: string | undefined, sujet?:
       resume: "Préciser une commune, un quartier, une plage ou un bassin : la qualité de l'eau du robinet dépend du réseau, celle de la baignade du site.",
       sites_de_baignade_controles: baignades.SITES.map((s) => `${s.nom} (${s.commune})`),
       ...COMMON,
-      sources,
+      risque_requin: requin.requinBlock(now),
+      sources: credits([potable.SOURCE, baignades.SOURCE, requin.SOURCE]),
     });
   }
   const res = resolvePlace(lieu);
@@ -227,6 +227,8 @@ export async function qualiteEau(cache: Cache, lieu: string | undefined, sujet?:
       isError: true,
     };
   }
+  // The shark rule goes with a bathing answer, even when the ARS results did not come.
+  const sea = wanted.includes("baignade") && (!!parts.baignade || failed.includes("baignade"));
   return text({
     lieu: placeBlock(lieu, res),
     resume: summary.join(" "),
@@ -234,9 +236,10 @@ export async function qualiteEau(cache: Cache, lieu: string | undefined, sujet?:
     indisponible: failed.length ? failed.map((f) => (f === "robinet" ? "eau du robinet" : "eau de baignade")) : undefined,
     a_savoir: {
       ...(wanted.includes("robinet") ? { eau_du_robinet: COMMON.eau_du_robinet } : {}),
-      ...(wanted.includes("baignade") ? { eau_de_baignade: COMMON.eau_de_baignade, baignade_en_mer: COMMON.baignade_en_mer } : {}),
+      ...(wanted.includes("baignade") ? { eau_de_baignade: COMMON.eau_de_baignade } : {}),
     },
+    ...(sea ? { risque_requin: requin.requinBlock(now, res.lieu) } : {}),
     consulter: wanted.map((w) => (w === "robinet" ? "https://www.reunion.ars.sante.fr" : baignades.SOURCE.url)),
-    sources,
+    sources: sea ? credits([potable.SOURCE, baignades.SOURCE, requin.SOURCE]) : sources,
   });
 }

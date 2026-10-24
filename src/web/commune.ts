@@ -24,6 +24,8 @@ import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, v
 import { esc, islandMap } from "./map.js";
 import { ask, connector, credits, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
+import { T as REQUIN } from "../eau/requin.js";
+import { LINK as BAIGNADE_LINK } from "./baignade.js";
 import { RSS_HINT, rssLink, rssPath, rssTitle } from "./rss.js";
 
 /** What a commune's page is made of, each part null or missing when there is no copy yet. */
@@ -317,6 +319,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   <p>Chaque catégorie a sa page pour toute l'île ; ici, ce qui concerne ${esc(p.nom)}. Données mises à jour toutes les 5 minutes, avec leur heure et leur source.</p></div>
   <ul class="tiles" aria-label="Catégories">${tiles.map(tile).join("")}</ul>
   ${sources.length ? `<p class="note">Sources : ${credits(sources)}. Bus : horaires théoriques publiés par les réseaux, sans les retards. Mairie : horaires publiés sur service-public.fr, sans les fermetures exceptionnelles.</p>` : ""}
+  ${coastal(p) ? `<p class="or">${esc(REQUIN.h2)} : ${BAIGNADE_LINK}</p>` : ""}
 </section>
 <section aria-labelledby="h-ile">
   <h2 id="h-ile">Et pour toute l'île</h2>
