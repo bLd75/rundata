@@ -23,6 +23,7 @@ import csv
 import hashlib
 import io
 import json
+import os
 import subprocess
 import tempfile
 import time
@@ -131,22 +132,47 @@ def feeds_in(database):
     return {r["feed"] for r in json.loads(out.stdout)[0]["results"]}
 
 
-def d1(database, *args):
-    out = subprocess.run(["npx", "wrangler", "d1", *args, "--json"], cwd=ROOT, capture_output=True, text=True)
+def wrangler(*args):
+    out = subprocess.run(["npx", "wrangler", *args, "--json"], cwd=ROOT, capture_output=True, text=True)
     if out.returncode != 0:
-        raise SystemExit(f"lecture de {database} impossible :\n{out.stderr or out.stdout}")
+        raise SystemExit(f"wrangler {' '.join(args)} a échoué :\n{out.stderr or out.stdout}")
     return json.loads(out.stdout)
 
 
-def check_quota(database, new_rows):
-    """Refuse an import that would take D1 over its daily write quota: the rows to insert plus those written in the
-    last 24 hours (rolling, so a little more than since midnight UTC, when the quota resets). The prune, which
-    deletes rows (a deletion is a write too), is run on its own and can wait for another day."""
-    used = d1(database, "info", database).get("rows_written_24h") or 0
-    print(f"D1 : {used} lignes écrites sur 24 h, {new_rows} à écrire, soit {used + new_rows} sur {D1_DAILY_WRITES}")
+def rows_written_today():
+    """The rows written in D1 since midnight UTC, by every database of the account together: the quota is the account's,
+    and the daily climate job (rundata-climat, rundata-climat-h) counts in it as much as this database. Read from
+    Cloudflare's analytics with wrangler's login; `wrangler d1 info` is no help here, as it counts one database, and
+    gave 0 for rundata-climat-h on 24 October 2026, the day 20 209 rows were written in it."""
+    accounts = wrangler("whoami")["accounts"]
+    account = os.environ.get("CLOUDFLARE_ACCOUNT_ID") or (accounts[0]["id"] if len(accounts) == 1 else None)
+    if not account:
+        raise SystemExit("plusieurs comptes Cloudflare : indiquer le bon dans CLOUDFLARE_ACCOUNT_ID")
+    query = """query($a: String!, $d: Date!) { viewer { accounts(filter: {accountTag: $a}) {
+      d1AnalyticsAdaptiveGroups(limit: 100, filter: {date: $d}) { sum { rowsWritten } } } } }"""
+    day = time.strftime("%Y-%m-%d", time.gmtime())
+    req = urllib.request.Request("https://api.cloudflare.com/client/v4/graphql",
+                                 data=json.dumps({"query": query, "variables": {"a": account, "d": day}}).encode(),
+                                 headers={"Authorization": f"Bearer {wrangler('auth', 'token')['token']}", "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        res = json.load(r)
+    if res.get("errors") or not res.get("data"):
+        raise SystemExit(f"analytique D1 illisible : {res.get('errors')}")
+    return sum(g["sum"]["rowsWritten"] for a in res["data"]["viewer"]["accounts"] for g in a["d1AnalyticsAdaptiveGroups"])
+
+
+def check_quota(new_rows):
+    """Refuse an import that would take D1 over its daily write quota: the rows to insert plus those the account has
+    written since midnight UTC, when the quota resets. `new_rows` counts one write per row, which is what these tables
+    cost, having no rowid and no other index: 16 430 rows for the whole timetable, 16 436 written on a local copy, 16 440
+    counted by Cloudflare for the import of 23 October 2026 (a table with a rowid would cost one write more per row, for
+    its primary key, and so would each index). The prune, which deletes rows (a deletion is a write too), is run on its
+    own and can wait for another day."""
+    used = rows_written_today()
+    print(f"D1 : {used} lignes écrites aujourd'hui (UTC) par tout le compte, {new_rows} à écrire, soit {used + new_rows} sur {D1_DAILY_WRITES}")
     if new_rows and used + new_rows > D1_DAILY_WRITES * 0.95:
-        raise SystemExit("import refusé : il dépasserait le quota d'écritures de D1 ; relancer quand les écritures "
-                         "des dernières 24 h seront retombées. Rien n'a été modifié.")
+        raise SystemExit("import refusé : il dépasserait le quota d'écritures de D1 ; relancer après minuit UTC "
+                         "(4 h à La Réunion), quand le quota repart à zéro. Rien n'a été modifié.")
 
 
 def main():
@@ -252,7 +278,7 @@ def main():
     present = feeds_in(args.d1) if args.d1 else set()
     if args.d1:
         # Before anything is written: network.json must not name feeds the database will not get.
-        check_quota(args.d1, sum(len(ps) + len(pt) + 1 for f, ps, pt in by_net.values() if f not in present))
+        check_quota(sum(len(ps) + len(pt) + 1 for f, ps, pt in by_net.values() if f not in present))
 
     out = {"build": build, "networks": networks, "routes": routes, "stops": stops, "services": services}
     path = ROOT / "src" / "transit" / "network.json"

@@ -22,7 +22,8 @@ Usage:
   python3 -I scripts/build-climat-h.py --dir <folder of the H_974_*.csv.gz> --out dist/climat-h.sql   # everything, once
   python3 -I scripts/build-climat-h.py --recent --out climat-h-jour.sql                             # the current month
 `--recent` reads the current period's file (found through data.gouv.fr) and writes the current month, and the month
-before during the first days of a month, as INSERT OR REPLACE: what the daily job (.github/workflows/climat.yml) imports.
+before during the first days of a month: what the daily job (.github/workflows/climat.yml) imports. A row whose content
+has not changed is left as it is, as D1 counts every row written, even one written again the same.
 """
 import argparse
 import calendar
@@ -47,6 +48,9 @@ MIN_RECENT = 40
 SCHEMA = """CREATE TABLE IF NOT EXISTS postes (poste TEXT PRIMARY KEY, nom TEXT NOT NULL, lat REAL NOT NULL, lon REAL NOT NULL, alt INTEGER, debut INTEGER NOT NULL, fin INTEGER NOT NULL, params TEXT NOT NULL) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS heures (poste TEXT NOT NULL, mois INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (poste, mois)) WITHOUT ROWID;
 """
+# The end of the upsert of a station: nothing written when nothing changes.
+UNCHANGED = ("WHERE (nom, lat, lon, alt) IS NOT (excluded.nom, excluded.lat, excluded.lon, excluded.alt) "
+             "OR excluded.debut < debut OR excluded.fin > fin")
 
 
 def opened(url):
@@ -130,12 +134,12 @@ def main():
         back = now - dt.timedelta(days=BACK_DAYS)
         months = {now.year * 100 + now.month, back.year * 100 + back.month}
         sources = [opened(latest_url())]
-        verb = "INSERT OR REPLACE"
     else:
         if not args.dir:
             raise SystemExit("--dir ou --recent")
         sources = (open(p, "rb") for p in sorted(Path(args.dir).glob("H_974_*.csv.gz")))
-        verb = "INSERT"
+    # The day's job writes again only the rows that changed: those of the stations that measured something new.
+    changed = " ON CONFLICT (poste, mois) DO UPDATE SET data = excluded.data WHERE data IS NOT excluded.data" if args.recent else ""
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     # station → name, lat, lon, alt, latest time, first month, last month, parameters
     seen = {}
@@ -146,7 +150,7 @@ def main():
         for raw in sources:
             for st, data, meta in stations(raw, months):
                 for m in sorted(data):
-                    s = f"{verb} INTO heures VALUES ({sql(st)},{m},{sql(month_json(m, data[m]))});"
+                    s = f"INSERT INTO heures VALUES ({sql(st)},{m},{sql(month_json(m, data[m]))}){changed};"
                     if len(s.encode()) > MAX_STATEMENT:
                         raise SystemExit(f"ligne trop grande pour D1 : {st} {m} ({len(s)} octets)")
                     out.write(s + "\n")
@@ -164,7 +168,7 @@ def main():
             out.write(
                 f"INSERT INTO postes VALUES ({sql(st)},{sql(name)},{lat},{lon},{alt},{first},{last},{sql(','.join(sorted(params)))}) "
                 f"ON CONFLICT (poste) DO UPDATE SET nom=excluded.nom, lat=excluded.lat, lon=excluded.lon, alt=excluded.alt, "
-                f"debut=MIN(debut, excluded.debut), fin=MAX(fin, excluded.fin);\n"
+                f"debut=MIN(debut, excluded.debut), fin=MAX(fin, excluded.fin) {UNCHANGED};\n"
             )
     if args.recent and len(seen) < MIN_RECENT:
         Path(args.out).unlink()
