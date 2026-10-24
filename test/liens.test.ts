@@ -28,6 +28,18 @@ describe("links between the weather, the hikes and the communes", () => {
     expect(tracePage(O, "sentier", "x", "Sentier", d, NOW)).toContain(`<a href="/meteo/piton-de-la-fournaise">météo Piton de la Fournaise</a>`);
   });
 
+  it("link a summit's trail to the cloud sea of the morning there, and no other trail", () => {
+    const page = (points: [number, number][]) => tracePage(O, "sentier", "x", "Sentier", { value: { nom: "x", slug: "x", genre: "sentier", km: 1, etat: "Ouvert", ferme: false, troncons: [], lignes: [{ etat: "ouvert", points }], profil: [], randonnees: [], fermes: [], inconnus: [], sources: [] }, fetchedAt: NOW } as any, NOW);
+    // Le Bloc → Piton des Neiges: the summit at its end; its morning is told on /randonnees.
+    expect(page([[55.48328, -21.12347], [55.48, -21.09914]])).toContain(`<a href="/randonnees#mer-de-nuages">La mer de nuages prévue au Piton des Neiges</a>, d'après le modèle AROME de Météo-France : une prévision, pas une mesure.`);
+    expect(page([[55.38607, -21.07203], [55.38718, -21.06905]])).toContain(`<a href="/meteo/maido#mer-de-nuages">La mer de nuages prévue au Maïdo</a>`);
+    // The Grand Bénare has no page: the Maïdo's, said as its neighbour's.
+    expect(page([[55.39915, -21.16335], [55.42217, -21.11613]])).toContain(`<a href="/meteo/maido#mer-de-nuages">La mer de nuages prévue au Maïdo voisin</a>`);
+    expect(page([[55.68916, -21.22227], [55.6919, -21.22206]])).toContain(`<a href="/meteo/piton-de-la-fournaise#mer-de-nuages">La mer de nuages prévue au Pas de Bellecombe</a>`);
+    // Caverne Dufour, 2 km below the Piton des Neiges: not a summit.
+    expect(page([[55.5709, -21.16109], [55.49538, -21.11113]])).not.toContain("mer-de-nuages");
+  });
+
   it("give a commune's outings and the forecast of the communes of each weekend day", () => {
     const rows = [{ titre: "Kabar", date: "2026-10-31T19:00", quand: "samedi 31/10 à 19:00", genres: ["concert"], commune: "Saint-Paul", lien: "https://example.re" }];
     const agenda = { value: { resume: "", nombre: 1, evenements: rows, couverture: "", a_savoir: "", sources: [], ce_week_end: [] } as unknown as AgendaAnswer, fetchedAt: NOW };

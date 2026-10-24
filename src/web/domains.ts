@@ -26,7 +26,7 @@ import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../trace
 import island from "../places/island.json" with { type: "json" };
 import rubriques from "./og-rubriques.json" with { type: "json" };
 import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
-import { forecastLinks, weatherForTrace } from "./liens.js";
+import { cloudSeaForTrace, forecastLinks, weatherForTrace } from "./liens.js";
 import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
@@ -1245,7 +1245,7 @@ function hautsBlock(hauts: RandonneesAnswer["hauts"]): string {
     // During a volcano alert, the viewpoint over the Enclos says it is forbidden: « dégagé » must not call anyone down.
     return `<li>${name}${esc(h.resume.slice(h.nom.length))}${h.enclos && volcanBanner() ? ` ${esc(ENCLOS)}` : ""}</li>`;
   };
-  return `<section aria-labelledby="h-hauts"><div class="sec-h"><h2 id="h-hauts">Les Hauts ${esc(when)} : au-dessus ou dans les nuages ?</h2>
+  return `<section id="mer-de-nuages" aria-labelledby="h-hauts"><div class="sec-h"><h2 id="h-hauts">Les Hauts ${esc(when)} : au-dessus ou dans les nuages ?</h2>
   <p>Où sera la mer de nuages entre 6\u00a0h et midi, pour chaque sommet et village des Hauts. Prévision du modèle AROME de Météo-France, pas une mesure : regardez aussi le ciel et la station la plus proche avant de partir.</p></div>
   <div class="card"><ul class="plain">${hauts.map(line).join("")}</ul><p class="note">${esc(cap(hauts[0].prevision))}. ${esc(hauts[0].mise_en_garde)}</p></div></section>
 `;
@@ -1382,7 +1382,8 @@ ${stateBlock}
   <div class="sec-h"><h2 id="h-savoir">Avant de partir</h2>
   <p>La trace GPX s'ouvre dans les applications de randonnée et les montres GPS. ${kind === "sentier" ? "C'est le sentier tel que l'ONF le trace sur sa carte, à pleine résolution." : "C'est l'itinéraire complet tel que les contributeurs d'OpenStreetMap l'ont relevé ; il peut emprunter des sentiers fermés : voir leur état ci-dessus."} Altitudes, dénivelés et profil : modèle de terrain de l'IGN (RGE ALTI).</p>
   ${others}
-  ${weatherForTrace((d?.lignes ?? []).flatMap((l) => l.points))}</div>
+  ${weatherForTrace((d?.lignes ?? []).flatMap((l) => l.points))}
+  ${cloudSeaForTrace((d?.lignes ?? []).flatMap((l) => l.points))}</div>
   ${warnings([
     "Un sentier fermé l'est par arrêté préfectoral ou décision de l'ONF : s'y engager est interdit et dangereux, même avec une trace.",
     "Vérifier la vigilance météo avant de partir : par fortes pluies, les ravines montent vite et la préfecture ferme d'autres sentiers.",
