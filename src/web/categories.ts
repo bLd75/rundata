@@ -131,6 +131,14 @@ export const CATEGORIES: Category[] = [
     about: "Les matchs à venir et les derniers résultats du handball et du volley régionaux, les classements, les régates, le golf, les rallyes et le Grand Raid.",
   },
   {
+    key: "agenda",
+    nom: "Agenda",
+    path: "/agenda",
+    icon: "music",
+    tools: ["agenda"],
+    about: "Les fêtes, concerts, marchés, festivals et animations des prochains jours, d'après les agendas des mairies, du Nord et de reunion.fr.",
+  },
+  {
     key: "eau",
     nom: "Eau",
     path: "/eau",

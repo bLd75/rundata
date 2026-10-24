@@ -9,7 +9,7 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, CyclonesAnswer, DaeAnswer, EauAnswer, ElectriciteAnswer, HistoriqueAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import type { AgendaAnswer, AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, CyclonesAnswer, DaeAnswer, EauAnswer, ElectriciteAnswer, HistoriqueAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap, oceanMap } from "./map.js";
@@ -1289,4 +1289,97 @@ export function historiqueLive(data: Cached<HistoriqueAnswer> | null): Live | un
   const r = d?.stations.find((x) => x.pluie?.rapport_a_la_normale) ;
   if (!d || !r?.pluie) return undefined;
   return { valeur: `${r.pluie.rapport_a_la_normale} de la normale`, detail: `pluie des 30 derniers jours à ${esc(r.station)} (${fr(r.pluie.total_mm)} mm)` };
+}
+
+// ---------------------------------------------------------------- agenda
+
+const AGENDA_WEEKEND = 7;
+type AgendaRow = AgendaAnswer["ce_week_end"][number];
+const longDay = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+
+/** The hours of a row within its day: « 14:00 – 18:00 », « 19:30 », « jusqu'au dimanche 25/10 ». */
+export function agendaHours(q: string): string {
+  const span = /de (\d\d:\d\d) à (\d\d:\d\d)$/.exec(q);
+  if (span) return `${span[1]} – ${span[2]}`;
+  const at = /^\S+ \S+ à (\d\d:\d\d)$/.exec(q);
+  if (at) return at[1];
+  const until = /^du .* au (\S+ \S+)(?: à \S+)?$/.exec(q);
+  return until ? `jusqu'au ${until[1]}` : "";
+}
+
+function agendaRow(r: AgendaRow): string {
+  const lieu = r.lieu && r.lieu.length > 80 ? `${r.lieu.slice(0, 79)}…` : r.lieu;
+  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.publie_par]
+    .filter(Boolean).map((x) => esc(x!)).join(" · ");
+  return `<li><span><a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a><small>${small}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
+}
+
+export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/agenda`, now);
+  const today = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
+
+  const days = new Map<string, AgendaRow[]>();
+  for (const r of d?.evenements ?? []) {
+    const day = r.date.slice(0, 10) < today ? today : r.date.slice(0, 10);
+    days.set(day, [...(days.get(day) ?? []), r]);
+  }
+
+  const status = !d
+    ? loading("L'agenda")
+    : `<div class="now"><span class="big">${d.nombre}</span><p>événement${d.nombre > 1 ? "s" : ""} dans les deux semaines qui viennent : fêtes, concerts, marchés, festivals et animations des mairies.</p></div>`;
+
+  const weekend = d?.ce_week_end.length
+    ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Ce week-end</h3><ul class="plain">${d.ce_week_end.slice(0, AGENDA_WEEKEND).map((r) =>
+        `<li><b>${esc(r.quand)}</b> : ${esc(r.titre)}${r.commune ? ` <span class="note" style="color:var(--on-night-muted)">(${esc(r.commune)})</span>` : ""}</li>`).join("")}</ul>` +
+      (d.ce_week_end.length > AGENDA_WEEKEND ? `<p class="note" style="color:var(--on-night-muted)">et ${d.ce_week_end.length - AGENDA_WEEKEND} autres.</p>` : "") + `</figure>`
+    : "";
+
+  const list = !d
+    ? `<p class="card">L'agenda se charge : rechargez la page dans quelques secondes.</p>`
+    : days.size
+      ? `<ul class="zones">${[...days].sort(([x], [y]) => x.localeCompare(y)).map(([day, rows]) =>
+          `<li class="card"><h3>${esc(longDay(day).replace(/^\p{L}/u, (c) => c.toUpperCase()))} <span class="note">${rows.length} événement${rows.length > 1 ? "s" : ""}</span></h3>` +
+          `<ul class="rows eau">${rows.map(agendaRow).join("")}</ul></li>`).join("")}</ul>${d.autres ? `<p class="note">${esc(d.autres)} Demandez-les à votre IA.</p>` : ""}`
+      : `<p class="card">Aucun événement trouvé dans les agendas lus pour les deux semaines qui viennent.</p>`;
+
+  const title = "Agenda de La Réunion : que faire ce week-end ? Fêtes, concerts, marchés (974)";
+  const short = "🇷🇪 Que faire à La Réunion (974) ce week-end et dans les deux semaines : fêtes, concerts, marchés, festivals et animations des mairies, avec les heures, le lieu et le lien.";
+  const description = d ? describe(`🇷🇪 ${d.resume} Fêtes, concerts, marchés, festivals et animations des mairies, avec les heures, le lieu et le lien.`, short) : short;
+
+  const band = `${crumbBar("Agenda")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Agendas des mairies et du tourisme</p>
+    <h1>Agenda <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Kosa néna pou fé sé wikenn la ? Rogard si ${url} é di amwin.`,
+      `Que faire ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
+  </div>
+  ${weekend}
+</div>`;
+
+  const body = `<section aria-labelledby="h-jours">
+  <div class="sec-h"><p class="eyebrow">Deux semaines</p><h2 id="h-jours">Jour par jour</h2>
+  <p>Chaque événement renvoie à la page de celui qui le publie. Heures de La Réunion ; un événement de plusieurs jours est rangé au jour où il commence, ou à aujourd'hui s'il a déjà commencé.</p></div>
+  ${list}
+  ${d?.indisponible?.length ? warnings([`Agendas qui ne répondent pas en ce moment : ${d.indisponible.join(", ")}.`]) : ""}
+</section>
+<section aria-labelledby="h-couv">
+  <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p></div>
+  ${d && data ? sourcesNote(d.sources, data) : ""}
+</section>
+${connectorCta("agenda", "l'agenda de l'île")}`;
+
+  return layout(origin, { title, description, path: "/agenda", jsonld: [crumbs(origin, "Agenda", "/agenda"), webPage(origin, "/agenda", title, description, data)], alerte }, band, body);
+}
+
+export function agendaLive(data: Cached<AgendaAnswer> | null): Live | undefined {
+  const d = data?.value;
+  if (!d) return undefined;
+  const first = d.ce_week_end[0];
+  return {
+    valeur: `${d.nombre} événement${d.nombre > 1 ? "s" : ""}`,
+    detail: first ? `d'ici quinze jours ; ce week-end : ${esc(first.titre)}${first.commune ? ` (${esc(first.commune)})` : ""}` : "d'ici quinze jours",
+  };
 }

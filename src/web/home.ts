@@ -7,8 +7,8 @@ import { ageMinutes, ageText } from "../geo.js";
 import type * as mf from "../providers/vigilance.js";
 import brand from "./brand.json" with { type: "json" };
 import { CATEGORIES, type Category } from "./categories.js";
-import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer } from "./data.js";
-import { airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, sentiersLive, sportLive, cyclonesLive, historiqueLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
+import type { AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer } from "./data.js";
+import { airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, sentiersLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import {
@@ -57,6 +57,7 @@ export interface HomeLive {
   sport?: Cached<SportAnswer> | null;
   cyclones?: Cached<CyclonesAnswer> | null;
   historique?: Cached<HistoriqueAnswer> | null;
+  agenda?: Cached<AgendaAnswer> | null;
 }
 
 function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> {
@@ -75,6 +76,7 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
     sport: sportLive(h?.sport ?? null),
     cyclones: cyclonesLive(h?.cyclones ?? null),
     historique: historiqueLive(h?.historique ?? null),
+    agenda: agendaLive(h?.agenda ?? null),
     air: airLive(h?.air ?? null),
     electricite: electriciteLive(h?.electricite ?? null),
     calendrier: calendrierLive(h?.calendrier ?? null),

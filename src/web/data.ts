@@ -46,6 +46,7 @@ import { grandRaidRow, sportTool, type SportRow } from "../tools/sport.js";
 import * as gdacs from "../providers/cyclones.js";
 import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
 import { historiqueMeteo } from "../tools/historique.js";
+import { agenda, type EventRow } from "../tools/agenda.js";
 import { type Observation, why } from "../types.js";
 import { coastal, type PlacePage } from "./places.js";
 
@@ -489,6 +490,25 @@ export async function buildCyclones(cache: Cache, now = new Date()): Promise<Cyc
     }
   }
   return { ...a, traces };
+}
+
+export interface AgendaAnswer {
+  resume: string;
+  nombre: number;
+  evenements?: EventRow[];
+  autres?: string;
+  indisponible?: string[];
+  couverture: string;
+  a_savoir: string;
+  sources: Credit[];
+  ce_week_end: EventRow[];
+}
+
+/** The next two weeks for the whole island, and this weekend's apart: the same agendas, read once. */
+export async function buildAgenda(cache: Cache, now = new Date()): Promise<AgendaAnswer> {
+  const a = needed<Omit<AgendaAnswer, "ce_week_end">>(await agenda(cache, undefined, undefined, undefined, now), "agenda");
+  const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", undefined, now));
+  return { ...a, ce_week_end: weekend?.evenements ?? [] };
 }
 
 export interface DaeAnswer {
