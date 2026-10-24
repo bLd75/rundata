@@ -33,6 +33,7 @@ import {
   since,
   placeLinks,
   shortName,
+  stationId,
   SITE,
   SLOGAN,
   thin,
@@ -200,7 +201,8 @@ function livePill(at: string | undefined, now: Date): string {
 function heroMap(h: HomeLive | null): string {
   const l = withTemp(h?.meteo ?? null);
   const at = h?.meteo?.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
-  const markers: Marker[] = l.map((s) => ({ lon: s.lon, lat: s.lat, label: `${Math.round(s.temperature!)}°`, name: shortName(s.nom), color: chip(s.temperature!), round: true }));
+  // Each temperature leads to its station's row on the weather page.
+  const markers: Marker[] = l.map((s) => ({ lon: s.lon, lat: s.lat, label: `${Math.round(s.temperature!)}°`, say: `${Math.round(s.temperature!)} °C`, name: shortName(s.nom), color: chip(s.temperature!), round: true, href: `/meteo#${stationId(s.nom)}` }));
   return `<figure class="hero-map">${islandMap({ markers, relief: true, label: `Carte de La Réunion (974)${at ? ` avec les températures mesurées à ${hm(at)}` : ""}` })}` +
     `<figcaption>${at ? `<span class="dot"></span>Températures mesurées à ${hm(at)} · <a href="/meteo">toutes les stations →</a>` : "Les stations publient toutes les 6 minutes."}</figcaption></figure>`;
 }

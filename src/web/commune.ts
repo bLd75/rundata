@@ -360,7 +360,7 @@ export function communesPage(origin: string, alerte?: Alerte): string {
     ${SLOGAN}
     <p class="lead">Une page par commune, avec tout ce qui la concerne en ce moment : la météo de sa station, la vigilance de sa zone, la qualité de son air, la mer sur la côte, les prochains bus, sa mairie ouverte ou non, le lever et le coucher du soleil.</p>
   </div>
-  <figure class="card mapcard">${islandMap({ label: "Carte des 24 communes de La Réunion (974)" })}</figure>
+  <figure class="card mapcard">${islandMap({ links: Object.fromEntries(COMMUNES.map((c) => [c.nom, { href: hub(c) }])), label: "Carte des 24 communes de La Réunion (974)" })}</figure>
 </div>`;
   const body = `<section aria-labelledby="h-communes"><h2 id="h-communes">Choisissez votre commune</h2>
   <ul class="zones">${zones.map((z) => {

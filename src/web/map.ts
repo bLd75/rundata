@@ -33,7 +33,20 @@ export interface Marker {
   round?: boolean;
   /** Its name in the tooltip only: for a crowded map where only a few markers need saying. */
   quiet?: boolean;
+  /** Where a tap on it leads: the row of the page that details it, or the place's page. */
+  href?: string;
+  /** The value as said aloud, when `label` is a short form (« 24 °C » for « 24° »). */
+  say?: string;
 }
+
+/** A commune of the map that leads somewhere: the card of its zone, its page. `say` is what the map shows of it. */
+export interface ZoneLink {
+  href: string;
+  say?: string;
+}
+
+/** Wide enough for a finger on a phone, where the map is a third of its size: about 44 px across. */
+const HIT = 66;
 
 const PEAKS = [
   { name: "Piton des Neiges", alt: "3 070 m", lon: 55.4783, lat: -21.0989 },
@@ -45,11 +58,28 @@ function marker(m: Marker): string {
   const fill = m.color ?? "var(--ink)";
   const w = Math.max(64, m.label.length * 19 + 24);
   const shape = m.round
-    ? `<circle cx="${x}" cy="${y}" r="34" fill="${fill}"/>`
-    : `<rect x="${x - w / 2}" y="${y - 24}" width="${w}" height="48" rx="24" fill="${fill}"/>`;
-  return `<g class="mk"><title>${esc(m.name)}</title>${shape}` +
+    ? `<circle class="sh" cx="${x}" cy="${y}" r="34" fill="${fill}"/>`
+    : `<rect class="sh" x="${x - w / 2}" y="${y - 24}" width="${w}" height="48" rx="24" fill="${fill}"/>`;
+  const inner = `<title>${esc(m.name)}</title>${shape}` +
     `<text x="${x}" y="${y + 11}" class="mv">${esc(m.label)}</text>` +
-    (m.quiet ? "" : `<text x="${x}" y="${y + 66}" class="mn">${esc(m.name)}</text>`) + "</g>";
+    (m.quiet ? "" : `<text x="${x}" y="${y + 66}" class="mn">${esc(m.name)}</text>`);
+  if (!m.href) return `<g class="mk">${inner}</g>`;
+  // The hit area under the marker, painted but invisible, so that a tap a little beside it still counts.
+  return `<a class="mk" href="${esc(m.href)}" aria-label="${esc(`${m.name} : ${m.say ?? m.label}, voir le détail`)}">` +
+    `<circle class="hit" cx="${x}" cy="${y}" r="${HIT}" style="fill:transparent;stroke:none"/>${inner}</a>`;
+}
+
+/** Each linked commune as a link over its shape, invisible until hovered or focused. */
+function zoneLinks(links: Record<string, ZoneLink>): string {
+  const out = island.paths
+    .filter((p) => links[p.nom])
+    .map((p) => {
+      const l = links[p.nom];
+      const said = l.say ? `${p.nom} : ${l.say}, voir le détail` : `${p.nom}, voir sa page`;
+      return `<a class="zn" href="${esc(l.href)}" aria-label="${esc(said)}"><title>${esc(p.nom)}</title><path d="${p.d}"/></a>`;
+    })
+    .join("");
+  return out ? `<g class="zones">${out}</g>` : "";
 }
 
 /**
@@ -57,6 +87,8 @@ function marker(m: Marker): string {
  * `peaks`: the two summits, for orientation on the island-wide map. `fills`: a colour per commune (the vigilance map).
  * Without `fills`, the land is the island's relief (the same image as the hero's), under the sea and coast of the
  * page's theme; with them, it stays flat so that the colours read.
+ * `links` and the markers' `href` make the map a way into the page: with any of them, the map is a group of links
+ * rather than an image, and works without the script.
  */
 export function islandMap(opts: {
   markers?: Marker[];
@@ -64,6 +96,8 @@ export function islandMap(opts: {
   pin?: { lon: number; lat: number; name: string };
   peaks?: boolean;
   fills?: Record<string, string>;
+  /** A link per commune, over its shape. */
+  links?: Record<string, ZoneLink>;
   /** The hero's island: the real relief (IGN altitudes, shaded), a lagoon glow along the coast, the two volcanoes marked. */
   relief?: boolean;
   /** Drawn over the land, under the markers: lines. */
@@ -76,6 +110,10 @@ export function islandMap(opts: {
     .filter((p) => opts.fills?.[p.nom])
     .map((p) => `<path d="${p.d}" style="fill:${opts.fills![p.nom]}"/>`)
     .join("");
+  // An image hides what it holds from screen readers: a map with links is a group, so that each link is reached.
+  const linked = !!opts.links || (opts.markers ?? []).some((m) => m.href);
+  const role = linked ? `role="group"` : `role="img"`;
+  const zones = opts.links ? zoneLinks(opts.links) : "";
   let extra = "";
   if (hl) extra += `<path class="hl" d="${hl.d}"/>`;
   if (opts.peaks) {
@@ -99,21 +137,21 @@ export function islandMap(opts: {
       // The name above the summit: the stations around it carry their temperature just below.
       return `<g class="pk"><path d="M${x - 16} ${y + 12}L${x} ${y - 16}L${x + 16} ${y + 12}Z"/><text x="${x}" y="${y - 28}">${esc(p.name)}</text></g>`;
     }).join("");
-    return `<svg class="map relief" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label)}">` +
+    return `<svg class="map relief" viewBox="0 0 ${W} ${H}" ${role} aria-label="${esc(opts.label)}">` +
       `<defs><g id="isl">${paths}</g>${defs}</defs>` +
       `<use href="#isl" class="halo" filter="url(#glow)"/><use href="#isl" class="coast"/><use href="#isl" class="ground"/>` +
       `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
-      peaks + (opts.markers ?? []).map(marker).join("") + `</svg>`;
+      zones + peaks + (opts.markers ?? []).map(marker).join("") + `</svg>`;
   }
   const terrain = !fills;
   const land = terrain
     ? `<use href="#isl" class="land"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>`
     : `<use href="#isl" class="land"/>${fills}`;
-  return `<svg class="map${terrain ? " terrain" : ""}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label)}">` +
+  return `<svg class="map${terrain ? " terrain" : ""}" viewBox="0 0 ${W} ${H}" ${role} aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g>${terrain ? `<clipPath id="isl-clip">${paths}</clipPath>` : ""}</defs>` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>` +
     `<use href="#isl" class="coast"/>${land}<use href="#isl" class="borders"/>` +
-    (opts.overlay ?? "") + extra + (opts.markers ?? []).map(marker).join("") + `</svg>`;
+    (opts.overlay ?? "") + zones + extra + (opts.markers ?? []).map(marker).join("") + `</svg>`;
 }
 
 // ---------------------------------------------------------------- every hike and trail of the island
