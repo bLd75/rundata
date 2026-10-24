@@ -24,9 +24,11 @@ export interface Communique {
 export interface Moment {
   /** The day of the event, as the release writes it, ISO. */
   jour: string;
-  /** What it is, in the release's words: « alerte 1 », « éruption débutée »… */
+  /** What it is, in the release's words, never what we deduce: « alerte 1 », « éruption débutée »… */
   quoi: string;
-  /** The release's words, quoted as written. */
+  /** Said after `quoi` where no link tells it, to the AI: the release that dates it, when not its own day's. */
+  selon?: string;
+  /** The release's words, quoted as written; « […] » where a passage is left out. */
   dit: string;
   communique: Communique;
 }
@@ -57,23 +59,23 @@ const R = {
 export const EPISODES: Episode[] = [
   {
     // The start of the eruption, not of an alert: no level read for that day, the release of 13/02 not found (data-run).
-    debut: [{ jour: "2026-02-13", quoi: "éruption débutée (selon le communiqué du 07/05/2026)", dit: "Suite à la fin de l'éruption volcanique débutée le 13 février 2026", communique: R.mai2026 }],
+    debut: [{ jour: "2026-02-13", quoi: "éruption débutée", selon: "selon le communiqué du 07/05/2026", dit: "Suite à la fin de l'éruption volcanique débutée le 13 février 2026", communique: R.mai2026 }],
     fin: { jour: "2026-05-07", quoi: "retour en phase de vigilance", dit: "Retour en phase de vigilance à partir de 15h", communique: R.mai2026 },
   },
   {
     debut: [{ jour: "2026-01-18", quoi: "alerte 2-1", dit: "Déclenchement du passage en alerte 2.1", communique: R.janv2026a21 }],
-    fin: { jour: "2026-01-27", quoi: "passage en phase de vigilance", dit: "Les réouvertures de sentiers autorisées seront effectives à compter du mardi 27 janvier 2026 18h00", communique: R.janv2026v2 },
+    fin: { jour: "2026-01-27", quoi: "réouverture des sentiers", dit: "Les réouvertures de sentiers autorisées seront effectives à compter du mardi 27 janvier 2026 18h00", communique: R.janv2026v2 },
   },
   {
     debut: [{ jour: "2026-01-01", quoi: "alerte 1", dit: "Piton de la Fournaise : passage en alerte 1 - fermeture de l’enclos", communique: R.janv2026a1 }],
-    fin: { jour: "2026-01-02", quoi: "retour en phase de vigilance", dit: "le préfet de La Réunion décide de revenir en phase de vigilance du dispositif spécifique ORSEC du volcan du Piton de la Fournaise à compter de ce vendredi 2 janvier 2026 midi", communique: R.janv2026v },
+    fin: { jour: "2026-01-02", quoi: "retour en phase de vigilance", dit: "le préfet de La Réunion décide de revenir en phase de vigilance […] à compter de ce vendredi 2 janvier 2026 midi", communique: R.janv2026v },
   },
   {
     debut: [
       { jour: "2023-07-02", quoi: "alerte 1", dit: "Piton de la Fournaise : passage en alerte 1, fermeture de l’enclos", communique: R.juil2023a1 },
       { jour: "2023-07-02", quoi: "alerte 2-1", dit: "Dans la matinée du 2 juillet, le préfet a déclenché la phase d’alerte 2-1", communique: R.juil2023rappel },
     ],
-    fin: { jour: "2023-08-31", quoi: "retour en phase de vigilance", dit: "l’enclos est désormais accessible au public à compter de ce jeudi 31 août 2023", communique: R.aout2023 },
+    fin: { jour: "2023-08-31", quoi: "Enclos accessible au public", dit: "l’enclos est désormais accessible au public à compter de ce jeudi 31 août 2023", communique: R.aout2023 },
   },
   {
     debut: [
@@ -88,8 +90,8 @@ export const EPISODES: Episode[] = [
 // Worded by marketing.
 export const TITRE = "Les alertes précédentes";
 export const CHAPEAU =
-  "Depuis le plan ORSEC de novembre 2021, les épisodes dont le début et la fin sont chacun écrits dans un communiqué de la préfecture que nous avons retrouvé, cités tels quels. " +
-  "Ce n'est pas un historique complet : un épisode dont il manque l'un des deux communiqués n'y figure pas.";
+  "Voici, depuis le plan ORSEC de novembre 2021, les épisodes dont le début et la fin sont chacun écrits dans un communiqué de la préfecture que nous avons retrouvé. " +
+  "Les phrases sont citées telles quelles. Ce n'est pas un historique complet\u00a0: un épisode dont il manque l'un des deux communiqués n'y figure pas.";
 export const NOTE = "Liens vers les copies des communiqués conservées par la Wayback Machine (archive.org).";
 
 /** « 19/09/2022 ». */
@@ -98,7 +100,8 @@ export const date = (iso: string) => localTime(new Date(`${iso}T12:00:00+04:00`)
 export const label = (c: Communique) => (c.mis_a_jour ? `communiqué mis à jour le ${date(c.jour)}` : `communiqué du ${date(c.jour)}`);
 
 /** A moment as the AI reads it: « 19/09/2022, alerte 1 : « … » (communiqué du 19/09/2022 : <copie>) ». */
-export const momentText = (m: Moment) => `${date(m.jour)}, ${m.quoi} : « ${m.dit} » (${label(m.communique)} : ${m.communique.copie})`;
+export const momentText = (m: Moment) => `${date(m.jour)}, ${quoi(m)} : « ${m.dit} » (${label(m.communique)} : ${m.communique.copie})`;
+const quoi = (m: Moment) => (m.selon ? `${m.quoi} (${m.selon})` : m.quoi);
 
 /** For volcan_seismes: the episodes, and what the list is. */
 export function precedentes() {
@@ -111,4 +114,4 @@ export function precedentes() {
 /** One sentence for the summary: the days and what they were, newest first. */
 export const resumeText = () =>
   `Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis novembre 2021) : ${EPISODES.map((e) =>
-    `${e.debut.map((m) => `${date(m.jour)} ${m.quoi}`).join(", ")} → ${date(e.fin.jour)} ${e.fin.quoi}`).join(" ; ")}.`;
+    `${e.debut.map((m) => `${date(m.jour)} ${quoi(m)}`).join(", ")} → ${date(e.fin.jour)} ${e.fin.quoi}`).join(" ; ")}.`;

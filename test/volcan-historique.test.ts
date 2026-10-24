@@ -32,11 +32,18 @@ describe("the alerts before this one", () => {
   it("quotes each release as written, on the day its page gives", () => {
     for (const m of moments) {
       const t = page(m.communique);
-      expect(t, m.communique.copie).toContain(m.dit);
+      // A passage left out is marked « […] »: the parts, in their order.
+      const parts = m.dit.split(" […] ");
+      let at = 0;
+      for (const part of parts) {
+        const i = t.indexOf(part, at);
+        expect(i, `${m.communique.copie} : ${part}`).toBeGreaterThanOrEqual(0);
+        at = i + part.length;
+      }
       expect(t, m.communique.copie).toContain(m.communique.mis_a_jour ? `Mis à jour le ${dd(m.communique.jour)}` : dd(m.communique.jour));
       // The day of the event: the release's own, or written in the words quoted.
       const d = new Date(`${m.jour}T12:00:00Z`);
-      if (m.jour !== m.communique.jour) expect(m.dit, m.jour).toMatch(new RegExp(`\\b${d.getUTCDate()}(er)? ${MOIS[d.getUTCMonth()]}( ${d.getUTCFullYear()})?`));
+      if (m.jour !== m.communique.jour) expect(m.dit.replace(" […] ", " "), m.jour).toMatch(new RegExp(`\\b${d.getUTCDate()}(er)? ${MOIS[d.getUTCMonth()]}( ${d.getUTCFullYear()})?`));
     }
   });
 
@@ -52,14 +59,17 @@ describe("the alerts before this one", () => {
 
   it("dates the eruption of February 2026 by the release of its end, and reads no level for that day", () => {
     const feb = EPISODES[0];
-    expect(feb.debut).toEqual([expect.objectContaining({ jour: "2026-02-13", quoi: "éruption débutée (selon le communiqué du 07/05/2026)", dit: "Suite à la fin de l'éruption volcanique débutée le 13 février 2026" })]);
+    expect(feb.debut).toEqual([expect.objectContaining({ jour: "2026-02-13", quoi: "éruption débutée", selon: "selon le communiqué du 07/05/2026", dit: "Suite à la fin de l'éruption volcanique débutée le 13 février 2026" })]);
     expect(feb.debut[0].communique.copie).toBe(feb.fin.communique.copie);
     expect(feb.debut[0].quoi).not.toMatch(/alerte/i);
     expect(page(feb.fin.communique)).toContain("Suite à la fin de l'éruption volcanique débutée le 13 février 2026 et aux reconnaissances opérées les 30 avril et 6 mai 2026");
   });
 
-  it("writes the end of October 2022 as the release does: the eruption stopped, the Enclos still closed", () => {
+  it("labels each end with what its release writes, never what we deduce", () => {
     expect(EPISODES.at(-1)!.fin).toMatchObject({ jour: "2022-10-05", quoi: "éruption arrêtée", dit: "Éruption arrêtée mais enclos toujours fermé" });
+    expect(EPISODES[1].fin).toMatchObject({ jour: "2026-01-27", quoi: "réouverture des sentiers" });
+    expect(EPISODES[3].fin).toMatchObject({ jour: "2023-08-31", quoi: "Enclos accessible au public" });
+    expect(EPISODES[2].fin.dit).toBe("le préfet de La Réunion décide de revenir en phase de vigilance […] à compter de ce vendredi 2 janvier 2026 midi");
   });
 
   it("tells the AI and the page what the list is, with the copies' links", async () => {
@@ -68,13 +78,16 @@ describe("the alerts before this one", () => {
     expect(p.episodes[0].debut[0]).toBe("13/02/2026, éruption débutée (selon le communiqué du 07/05/2026) : « Suite à la fin de l'éruption volcanique débutée le 13 février 2026 » (communiqué du 07/05/2026 : https://web.archive.org/web/20260507190343/https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-reouverture-partielle-de-l-enclos)");
     expect(resumeText()).toBe(
       "Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis novembre 2021) : " +
-        "13/02/2026 éruption débutée (selon le communiqué du 07/05/2026) → 07/05/2026 retour en phase de vigilance ; 18/01/2026 alerte 2-1 → 27/01/2026 passage en phase de vigilance ; " +
-        "01/01/2026 alerte 1 → 02/01/2026 retour en phase de vigilance ; 02/07/2023 alerte 1, 02/07/2023 alerte 2-1 → 31/08/2023 retour en phase de vigilance ; " +
+        "13/02/2026 éruption débutée (selon le communiqué du 07/05/2026) → 07/05/2026 retour en phase de vigilance ; 18/01/2026 alerte 2-1 → 27/01/2026 réouverture des sentiers ; " +
+        "01/01/2026 alerte 1 → 02/01/2026 retour en phase de vigilance ; 02/07/2023 alerte 1, 02/07/2023 alerte 2-1 → 31/08/2023 Enclos accessible au public ; " +
         "19/09/2022 alerte 1, 19/09/2022 alerte 2-1 → 05/10/2022 éruption arrêtée.",
     );
     const html = volcanPage("https://rundata.re", { value: { resume: "", sources: [], avertissements: [] } as unknown as VolcanAnswer, fetchedAt: NOW, stale: false }, NOW);
     expect(html).toContain(`<h2 id="h-alertes">Les alertes précédentes</h2><p>${CHAPEAU.replace(/'/g, "&#39;")}</p>`);
-    expect(html).toContain(`<li><b>05/10/2022</b>, éruption arrêtée : « Éruption arrêtée mais enclos toujours fermé » <a href="https://web.archive.org/web/20221005174746/https://www.reunion.gouv.fr/piton-de-la-fournaise-eruption-arretee-mais-enclos-a9951.html">communiqué du 05/10/2022 →</a></li>`);
+    expect(html).toContain(`<li><b>05/10/2022</b>, éruption arrêtée\u00a0: «\u00a0Éruption arrêtée mais enclos toujours fermé\u00a0» <a href="https://web.archive.org/web/20221005174746/https://www.reunion.gouv.fr/piton-de-la-fournaise-eruption-arretee-mais-enclos-a9951.html">communiqué du 05/10/2022 →</a></li>`);
     expect(html).toContain("communiqué mis à jour le 06/09/2023 →");
+    // On the card, the link tells which release dates the eruption of February: no « selon » twice.
+    expect(html).toContain(`<li><b>13/02/2026</b>, éruption débutée\u00a0: «\u00a0Suite à la fin`);
+    expect(html).not.toContain("selon le communiqué du 07/05/2026");
   });
 });

@@ -148,7 +148,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
 
   // The alerts before this one, from the releases (tools/volcan-historique.ts): the same list whatever the copy says.
   const moment = (m: historique.Moment) =>
-    `<li><b>${esc(historique.date(m.jour))}</b>, ${esc(m.quoi)} : « ${esc(m.dit)} » <a href="${esc(m.communique.copie)}">${esc(historique.label(m.communique))} →</a></li>`;
+    // Non-breaking spaces inside the quotes and before the colon: a lone « at the end of a line at 390 px (marketing).
+    `<li><b>${esc(historique.date(m.jour))}</b>, ${esc(m.quoi)}\u00a0: «\u00a0${esc(m.dit)}\u00a0» <a href="${esc(m.communique.copie)}">${esc(historique.label(m.communique))} →</a></li>`;
   const before = `<section id="alertes-precedentes" aria-labelledby="h-alertes"><div class="sec-h"><h2 id="h-alertes">${esc(historique.TITRE)}</h2><p>${esc(historique.CHAPEAU)}</p></div>
   <ul class="posts">${historique.EPISODES.map((x) => `<li class="card"><p class="note">Début</p><ul class="plain">${x.debut.map(moment).join("")}</ul><p class="note">Fin</p><ul class="plain">${moment(x.fin)}</ul></li>`).join("")}</ul>
   <p class="note">${esc(historique.NOTE)}</p></section>
