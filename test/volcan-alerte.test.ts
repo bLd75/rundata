@@ -53,6 +53,11 @@ describe("the volcano put forward during an alert", () => {
     expect(bannerText(a)).toBe("🌋 Éruption en cours au Piton de la Fournaise (alerte 2-1 du préfet depuis le 24 octobre). Accès à l'Enclos interdit.");
   });
 
+  it("tells the AI the same: the prefecture's words, and the eruption dated by its release only", async () => {
+    expect((await answer(ALERT_1)).resume).toContain("Alerte 1 au Piton de la Fournaise : éruption probable à très brève échéance");
+    expect((await answer(ALERT_2)).resume).toMatch(/^ÉRUPTION EN COURS au Piton de la Fournaise, annoncée par la préfecture le \S+\./);
+  });
+
   it("dresses /volcan for the alert: title, heading, the Enclos forbidden, never « partiellement »", async () => {
     const v = await answer(ALERT_1);
     const page = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);

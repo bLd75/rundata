@@ -87,14 +87,15 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   const parts: string[] = [];
   if (state) {
     const s = state.status;
+    const p = (state as { prefecture?: volcan.Phase }).prefecture;
     parts.push(
       s.is_erupting
-        ? `ÉRUPTION EN COURS au Piton de la Fournaise${state.eruption?.started_at ? ` depuis le ${day(state.eruption.started_at)}` : ""}.`
+        // The day only from an official text: pitonlive's start time is not one (the page says none either).
+        ? `ÉRUPTION EN COURS au Piton de la Fournaise${p?.eruption ? `, annoncée par la préfecture le ${day(p.publie)}` : ""}.`
         : /^Alerte/.test(s.alert_level_display)
-          ? `${s.alert_level_display} au Piton de la Fournaise : éruption probable ou imminente, pas encore commencée selon les dernières informations.`
+          ? `${s.alert_level_display} au Piton de la Fournaise : éruption probable à très brève échéance, pas encore commencée selon les dernières informations.`
           : "Pas d'éruption en cours au Piton de la Fournaise.",
     );
-    const p = (state as { prefecture?: volcan.Phase }).prefecture;
     if (p) parts.push(`Communiqué de la préfecture du ${day(p.publie)} : « ${p.titre} » (${p.lien}).`);
     parts.push(`Niveau du dispositif ORSEC volcan : ${s.alert_level_display}.`);
     if (!s.is_erupting && state.last_eruption_ended_at) {
