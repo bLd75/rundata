@@ -1807,7 +1807,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   const weekend = d?.ce_week_end.length
     ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Ce week-end</h3><ul class="plain">${d.ce_week_end.slice(0, AGENDA_WEEKEND).map((r) =>
         `<li><b>${esc(r.quand)}</b> : ${r.statut && r.statut !== "complet" ? `<b>${esc(r.statut)}</b> ` : ""}${esc(r.titre)}${r.commune ? ` <span class="note" style="color:var(--on-night-muted)">(${esc(r.commune)})</span>` : ""}</li>`).join("")}</ul>` +
-      (d.ce_week_end.length > AGENDA_WEEKEND ? `<p class="note" style="color:var(--on-night-muted)">et ${d.ce_week_end.length - AGENDA_WEEKEND} autres.</p>` : "") + `</figure>`
+      `<p class="note"><a href="/evenements/ce-week-end" style="color:var(--on-night)">${d.ce_week_end.length > AGENDA_WEEKEND ? `Et ${d.ce_week_end.length - AGENDA_WEEKEND} autres : tout` : "Tout"} le week-end →</a></p></figure>`
     : "";
 
   const present = new Set((d?.evenements ?? []).flatMap((r) => r.genres));
@@ -1841,6 +1841,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   const body = `<section aria-labelledby="h-jours">
   <div class="sec-h"><p class="eyebrow">Deux semaines</p><h2 id="h-jours">Jour par jour</h2>
   <p>Chaque événement renvoie à la page de celui qui le publie. Heures de La Réunion ; un événement de plusieurs jours est rangé au jour où il commence, ou à aujourd'hui s'il a déjà commencé. Un événement annulé ou reporté reste affiché, avec son statut.</p></div>
+  ${agendaTabs("/evenements")}
   ${list}
   ${d?.indisponible?.length ? warnings([`Agendas non lus cette fois (en panne, trop lents, ou laissés à la visite suivante) : ${d.indisponible.join(", ")}. La liste peut être incomplète.`]) : ""}
 </section>
@@ -1865,6 +1866,16 @@ export function agendaLive(data: Cached<AgendaAnswer> | null): Live | undefined 
     detail: first ? `d'ici quinze jours ; ce week-end : ${esc(first.titre)}${first.commune ? ` (${esc(first.commune)})` : ""}` : "d'ici quinze jours",
   };
 }
+
+/** The links between the events page and its parts, above their lists. */
+export function agendaTabs(path: string): string {
+  const tabs: [string, string][] = [["/evenements", "Tout l'agenda"], ["/evenements/ce-week-end", "Ce week-end"], ["/evenements/concerts", "Concerts"]];
+  return `<nav class="tabs" aria-label="Parties de l'agenda">${tabs.map(([p, n]) =>
+    `<a href="${p}"${p === path ? ` aria-current="page"` : ""}>${esc(n)}</a>`).join("")}</nav>`;
+}
+
+// What the pages built from a part of a domain's data (evenements.ts) share with the domain's own page.
+export { agendaRow, connectorCta, crumbBar, describe, GENRE_SCRIPT, GENRES, loading, longDay, sourcesNote, warnings, webPage };
 
 // ---------------------------------------------------------------- actualités
 
