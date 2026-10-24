@@ -19,7 +19,8 @@ Usage:
   python3 -I scripts/build-climat.py --dir <folder of the .csv.gz> --out dist/climat.sql           # everything, once
   python3 -I scripts/build-climat.py --recent --out climat-jour.sql                                 # the current year
 `--recent` reads the current period's files (found through data.gouv.fr) and writes the rows of the current year, and
-of the year before in January, as INSERT OR REPLACE: what the daily job (.github/workflows/climat.yml) imports.
+of the year before in January: what the daily job (.github/workflows/climat.yml) imports. A row whose content has not
+changed is left as it is, as D1 counts every row written, even one written again the same.
 """
 import argparse
 import csv
@@ -43,6 +44,9 @@ SCHEMA = """CREATE TABLE IF NOT EXISTS postes (poste TEXT PRIMARY KEY, nom TEXT 
 CREATE TABLE IF NOT EXISTS jours (poste TEXT NOT NULL, annee INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (poste, annee)) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS records (poste TEXT PRIMARY KEY, jusqu_a INTEGER NOT NULL, data TEXT NOT NULL) WITHOUT ROWID;
 """
+# The end of the upsert of a station: nothing written when nothing changes.
+UNCHANGED = ("WHERE (nom, lat, lon, alt) IS NOT (excluded.nom, excluded.lat, excluded.lon, excluded.alt) "
+             "OR excluded.debut < debut OR excluded.fin > fin")
 
 
 def opened(url):
@@ -150,13 +154,13 @@ def main():
         years = {today.year} | ({today.year - 1} if today.month == 1 else set())
         sources = [(part, opened(url)) for part, url in latest_urls().items()]
         data, meta = read(sources, years)
-        verb = "INSERT OR REPLACE"
     else:
         if not args.dir:
             raise SystemExit("--dir ou --recent")
         data, meta = read(files(args.dir))
-        verb = "INSERT"
         statements.append(SCHEMA)
+    # The day's job writes again only the rows that changed: those of the stations that measured something new.
+    changed = " ON CONFLICT (poste, annee) DO UPDATE SET data = excluded.data WHERE data IS NOT excluded.data" if args.recent else ""
     for st in sorted(data):
         if st not in meta:
             continue
@@ -167,10 +171,10 @@ def main():
         statements.append(
             f"INSERT INTO postes VALUES ({sql(st)},{sql(name)},{lat},{lon},{alt},{ys[0]},{ys[-1]},{sql(','.join(params))}) "
             f"ON CONFLICT (poste) DO UPDATE SET nom=excluded.nom, lat=excluded.lat, lon=excluded.lon, alt=excluded.alt, "
-            f"debut=MIN(debut, excluded.debut), fin=MAX(fin, excluded.fin);"
+            f"debut=MIN(debut, excluded.debut), fin=MAX(fin, excluded.fin) {UNCHANGED};"
         )
         for y in ys:
-            s = f"{verb} INTO jours VALUES ({sql(st)},{y},{sql(year_json(y, data[st][y]))});"
+            s = f"INSERT INTO jours VALUES ({sql(st)},{y},{sql(year_json(y, data[st][y]))}){changed};"
             if len(s.encode()) > MAX_STATEMENT:
                 raise SystemExit(f"ligne trop grande pour D1 : {st} {y} ({len(s)} octets)")
             statements.append(s)

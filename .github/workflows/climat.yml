@@ -1,8 +1,9 @@
 # The past weather (historique_meteo): every morning, once Météo-France has published the day before, the current year
-# of every station of La Réunion (scripts/build-climat.py --recent) is rewritten in the D1 database rundata-climat,
-# some 70 rows, and the current month of the hourly measurements (scripts/build-climat-h.py --recent) in
-# rundata-climat-h, some 70 rows more (twice that in the first days of a month). The years before were imported once,
-# by hand, with the same scripts.
+# of every station of La Réunion (scripts/build-climat.py --recent) goes to the D1 database rundata-climat, one row per
+# station, and the current month of the hourly measurements (scripts/build-climat-h.py --recent) to rundata-climat-h,
+# one row per station too. Only the rows that changed are written, those of the stations that measured the day before:
+# some 65 and 60 rows, 0 when the job runs again the same day (D1 allows 100 000 a day for the whole account). The
+# years before were imported once, by hand, with the same scripts: 8 504 and 20 209 rows, on 24 October 2026.
 name: Historique météo
 
 on:
