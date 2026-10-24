@@ -52,6 +52,33 @@ export interface Post {
   lien: string;
   /** A release given as an image only, without text nor alternative text: `texte` says so, the link leads to it. */
   image?: true;
+  /** The PDF of the observatory's release that the post links to, as published (ovpf-pdf.ts); never guessed. */
+  pdf?: string;
+}
+
+// A release of the OVPF on the IPGP's site, « …/2026/Communiques/OVPF_20260924_09h00_communique_….pdf »: not the
+// monthly bulletins, nor Mayotte's.
+const RELEASE_PDF = /^https:\/\/www\.ipgp\.fr\/volcanoweb\/reunion\/Bulletins-Communiques\/\d{4}\/Communiques\/OVPF_\d{8}_[^/]*\.pdf$/i;
+
+/** The link of the release's PDF among the post's links, without what was added to it for tracking (?fbclid=…). */
+function releasePdf(facets: Facet[] | undefined): string | undefined {
+  for (const f of facets ?? []) {
+    for (const x of f.features ?? []) {
+      if (x.$type !== "app.bsky.richtext.facet#link" || !x.uri) continue;
+      try {
+        const u = new URL(x.uri);
+        const bare = `${u.origin}${u.pathname}`;
+        if (RELEASE_PDF.test(bare)) return bare;
+      } catch {
+        // not a link
+      }
+    }
+  }
+  return undefined;
+}
+
+interface Facet {
+  features?: { $type?: string; uri?: string }[];
 }
 
 /** What is said of a post given as an image only: neither read from the image nor copied. */
@@ -60,7 +87,7 @@ export const IMAGE_SEULE = "Communiqué en image (sans texte)";
 interface FeedJson {
   feed: {
     reason?: unknown;
-    post: { uri: string; author: { handle: string }; record: { text: string; createdAt: string }; embed?: { $type?: string; images?: { alt?: string }[]; media?: { $type?: string } } };
+    post: { uri: string; author: { handle: string }; record: { text: string; createdAt: string; facets?: Facet[] }; embed?: { $type?: string; images?: { alt?: string }[]; media?: { $type?: string } } };
   }[];
 }
 
@@ -84,7 +111,8 @@ export function activityPosts(feed: FeedJson): Post[] {
         if (alt) return ACTIVITY.test(alt) && !NOISE.test(alt) ? [{ date: post.record.createdAt, texte: alt.replace(/\s+/g, " "), lien }] : [];
         return imagesOf(post.embed) ? [{ date: post.record.createdAt, texte: IMAGE_SEULE, lien, image: true }] : [];
       }
-      return ACTIVITY.test(text) && !NOISE.test(text) ? [{ date: post.record.createdAt, texte: text, lien }] : [];
+      const pdf = releasePdf(post.record.facets);
+      return ACTIVITY.test(text) && !NOISE.test(text) ? [{ date: post.record.createdAt, texte: text, lien, ...(pdf && { pdf }) }] : [];
     })
     .sort((a, b) => b.date.localeCompare(a.date));
 }

@@ -311,7 +311,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
         }
       : "indisponible",
     alertes_precedentes: historique.precedentes(),
-    publications_ovpf: posts ? posts.slice(0, 3).map((p) => ({ ...p, date: `${localTime(new Date(p.date))} heure de La Réunion` })) : "indisponible",
+    // The release's PDF stays out of the answer until what it is read for is shown (ovpf-pdf.ts, SHOW).
+    publications_ovpf: posts ? posts.slice(0, 3).map(({ pdf: _, ...p }) => ({ ...p, date: `${localTime(new Date(p.date))} heure de La Réunion` })) : "indisponible",
     seismes: q ?? "indisponible",
     avertissements: [OFFICIAL],
     consulter: ["https://www.ipgp.fr/observation/observatoires/ovpf/", "https://www.reunion.gouv.fr", volcan.OVPF.url],
