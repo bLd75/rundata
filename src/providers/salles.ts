@@ -10,11 +10,10 @@
  * - Théâtre Luc Donat (Le Tampon), CDNOI (Saint-Denis), Léspas (Saint-Paul): their season, with the hours.
  * The TÉAT, Luc Donat and the CDNOI pages are in ISO-8859-1.
  */
-import type { Cache } from "../cache.js";
 import { getBytes, getText, postBytes } from "../http.js";
 import { normalize } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
-import type { Agenda, Evenement, Seance } from "./agenda.js";
+import type { Agenda, AgendaStore, Evenement, Seance } from "./agenda.js";
 import { monthOf, statusOf } from "./agenda-mots.js";
 import { communesIn } from "./avis-eau.js";
 
@@ -221,7 +220,9 @@ const teat: Agenda = {
   id: "teat",
   nom: "TÉAT Champ Fleuri et Plein Air",
   source: SOURCE,
-  load: (cache: Cache, now: Date) =>
+  // Both stages' programmes, then the pages of the shows on both.
+  requetes: 2 + TEAT_PAGES,
+  load: (cache: AgendaStore, now: Date) =>
     cache.get("agenda:teat", FRESH_SECONDS, async () => {
       const lists = await Promise.all(TEAT_VENUES.map(async (v) =>
         parseTeat(latin1(await postBytes(SOURCE.id, "https://www.teat.re/programmation/", v.form, TIMEOUT_MS, HEADERS)), v, now)));
@@ -303,6 +304,7 @@ const citeDesArts: Agenda = {
   nom: "Cité des Arts",
   source: SOURCE,
   commune: "Saint-Denis",
+  requetes: 2,
   load: (cache) =>
     cache.get("agenda:cite_des_arts", FRESH_SECONDS, async () => {
       const pages = await Promise.all(["", "?debut_programmation=6"].map((q) => getText(SOURCE.id, `https://www.citedesarts.re/Programmation${q}`, TIMEOUT_MS, HEADERS)));

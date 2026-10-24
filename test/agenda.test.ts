@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Cache, MemoryStore } from "../src/cache.js";
+import { WORKER_FREE_LIMIT, count, counted, left } from "../src/budget.js";
+import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { communeOf, datesIn, parseReunionFr, parseTribe } from "../src/providers/agenda.js";
 import { agenda, gather, periode } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
@@ -156,6 +157,75 @@ describe("agenda", () => {
     expect(kept.find((g) => g.agenda.id === "kabardock")?.value?.stale).toBe(true);
     expect(none.find((g) => g.agenda.id === "bisik")?.value).toBeUndefined();
     expect(none.find((g) => g.agenda.id === "cinor")?.value?.value.length).toBeGreaterThan(0);
+  });
+
+  describe("within a Worker invocation's subrequests", () => {
+    // Every fetch and every read or write of the data center's cache counts; past 50 the invocation fails.
+    class EdgeLike extends MemoryStore {
+      async get(key: string) {
+        count();
+        if (left() < 0) throw new Error("Too many subrequests by single Worker invocation");
+        return super.get(key);
+      }
+      async put(key: string, entry: CacheEntry) {
+        count();
+        if (left() < 0) throw new Error("Too many subrequests by single Worker invocation");
+        return super.put(key, entry);
+      }
+    }
+    const isolate = (edge = new EdgeLike()) => new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false);
+
+    it("reads every agenda on a cold call, well under the limit, then nearly nothing", async () => {
+      const c = isolate();
+      const cold = await counted(WORKER_FREE_LIMIT, () => agenda(c, undefined, undefined, undefined, NOW));
+      expect(body(cold.value).indisponible).toBeUndefined();
+      expect(cold.used).toBeLessThanOrEqual(40);
+      const warm = await counted(WORKER_FREE_LIMIT, () => agenda(c, undefined, undefined, undefined, NOW));
+      expect(body(warm.value).nombre).toBe(body(cold.value).nombre);
+      expect(warm.used).toBeLessThanOrEqual(2);
+    });
+
+    it("leaves for later the agendas it has no subrequests for, names them, and the next calls read them", async () => {
+      const c = isolate();
+      const first = await counted(WORKER_FREE_LIMIT, async () => {
+        count(30); // what the invocation did before
+        return agenda(c, undefined, undefined, undefined, NOW);
+      });
+      expect(first.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+      const named = body(first.value).indisponible as string[];
+      expect(named.length).toBeGreaterThan(0);
+      expect(body(first.value).nombre).toBeGreaterThan(0);
+      let rest = named;
+      for (let i = 0; i < 5 && rest?.length; i++) {
+        const next = await counted(WORKER_FREE_LIMIT, async () => {
+          count(30);
+          return agenda(c, undefined, undefined, undefined, NOW);
+        });
+        expect(next.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+        rest = body(next.value).indisponible;
+      }
+      expect(rest).toBeUndefined();
+    });
+
+    it("keeps reading a slow agenda after the response, and stores it for the next question", async () => {
+      vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+        if (url.includes("kabardock")) await new Promise((r) => setTimeout(r, 300));
+        const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+        return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+      });
+      const edge = new EdgeLike();
+      const kept: Promise<unknown>[] = [];
+      const { value, settled } = await counted(WORKER_FREE_LIMIT, () => gather(isolate(edge), NOW, 100), (p) => kept.push(p));
+      expect(value.find((g) => g.agenda.id === "kabardock")?.value).toBeUndefined();
+      expect(kept).toHaveLength(1);
+      await settled();
+      // Another isolate of the data center, the Kabardock now down: its copy is there, fresh.
+      vi.stubGlobal("fetch", async () => new Response("", { status: 503 }));
+      const other = await counted(WORKER_FREE_LIMIT, () => gather(isolate(edge), NOW, 100));
+      const kabardock = other.value.find((g) => g.agenda.id === "kabardock")?.value;
+      expect(kabardock?.stale).toBe(false);
+      expect(kabardock?.value.length).toBeGreaterThan(0);
+    });
   });
 
   it("shows the hours of a row within its day", () => {
