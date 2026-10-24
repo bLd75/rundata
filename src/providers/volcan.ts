@@ -11,8 +11,9 @@
  */
 import { later } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
-import { getJson } from "../http.js";
+import { getJson, getText } from "../http.js";
 import { type SourceInfo, UpstreamError } from "../types.js";
+import { decodeText, textOf } from "./avis-eau.js";
 import { type Info, SOURCES as NEWS } from "./actualites.js";
 import * as prefecture from "./prefecture.js";
 
@@ -212,13 +213,12 @@ export function releaseSentences(html: string): string[] {
   if (start < 0) return [];
   const rest = html.slice(start);
   const end = rest.search(/<nav class="fr-sidemenu|<div class="fr-col-12 fr-col-md-4"|Partager la page|En compl[ée]ment/i);
-  const body = (end < 0 ? rest : rest.slice(0, end)).replace(/^<h1[\s\S]*?<\/h1>/i, "");
-  const text = body
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
-    .replace(/<\/(p|div|li|h[1-6])>|<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;|&#160;/g, " ")
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#0?39;|&rsquo;/g, "’");
+  let body = end < 0 ? rest : rest.slice(0, end);
+  const h1 = body.search(/<\/h1>/i);
+  body = h1 < 0 ? body : body.slice(h1 + 5);
+  // The tags dropped character by character and the entities decoded once, « &amp; » never read twice (avis-eau.ts);
+  // a script or a style, had the page one there, dropped whole before.
+  const text = decodeText(textOf(dropBlocks(body)));
   return text
     .split("\n")
     .map((l) => l.replace(/\s+/g, " ").trim())
@@ -227,6 +227,19 @@ export function releaseSentences(html: string): string[] {
     .flatMap((l) => l.split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ«])/))
     .map((x) => x.trim())
     .filter(Boolean);
+}
+
+/** `html` without its <script> and <style> blocks, found by position rather than by a pattern. */
+function dropBlocks(html: string): string {
+  let out = html;
+  for (const name of ["script", "style"]) {
+    for (let at = out.toLowerCase().indexOf(`<${name}`); at >= 0; at = out.toLowerCase().indexOf(`<${name}`, at)) {
+      const close = out.toLowerCase().indexOf(`</${name}`, at);
+      const stop = close < 0 ? -1 : out.indexOf(">", close);
+      out = out.slice(0, at) + (stop < 0 ? "" : out.slice(stop + 1));
+    }
+  }
+  return out;
 }
 
 /** The sentences of the release `p`, read from its page every half hour; those kept with the phase if it does not answer. */

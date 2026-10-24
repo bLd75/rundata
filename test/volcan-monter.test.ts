@@ -48,6 +48,11 @@ describe("« Puis-je monter au volcan ? »", () => {
     expect(s.some((x) => /Mis à jour|Partager|Plan du site/.test(x))).toBe(false);
   });
 
+  it("never makes a tag again: the tags dropped one character at a time, the entities decoded once, scripts left out", () => {
+    const page = `<h1>Titre</h1><p>Accès &amp;lt;script&amp;gt; à l&#039;enclos &lt;b&gt; interdit.</p><script>var a = "<p>x</p>";</script><p>La <scr<i>ipt>RN 2 reste ouverte.<br>Fin</p><style>p{}</style><p>Suite</p><script>sans fin <p>Perdu</p>`;
+    expect(releaseSentences(page)).toEqual(["Accès &lt;script&gt; à l'enclos &lt;b&gt; interdit.", "La iptRN 2 reste ouverte.", "Fin", "Suite"]);
+  });
+
   it("says each place as the texts do in alert 1, never « ouverte » by deduction", () => {
     const m = acces("Alerte 1", ALERT_1, releaseSentences(PAGE), carte());
     expect(m.lignes.map(lineText)).toEqual([

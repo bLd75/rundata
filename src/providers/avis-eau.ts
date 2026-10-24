@@ -59,7 +59,7 @@ const entity = (keep: Record<string, string>) => (s: string) =>
 const decode = entity(ENTITIES);
 /** Once the tags are out: the entities of the text, but never a « < » or « > » that would make a tag again. */
 const { lt: _lt, gt: _gt, ...TEXT_ENTITIES } = ENTITIES;
-const decodeText = entity(TEXT_ENTITIES);
+export const decodeText = entity(TEXT_ENTITIES);
 
 /** The text of some HTML, the tags dropped character by character (a pattern would leave « <scr<script>ipt> » halves). */
 export function textOf(html: string): string {
