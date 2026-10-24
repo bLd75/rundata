@@ -47,14 +47,31 @@ export function quakeSummary(list: seismes.Seisme[], now: Date) {
   };
 }
 
+// The ORSEC levels, lowest first: a level is compared by its first match (« Alerte 2-1 » is an alert 2).
+const LEVELS = [/vigilance/i, /vigilance\s+renforc/i, /alerte\s*1/i, /alerte\s*2/i, /sauvegarde/i];
+const rank = (niveau: string) => LEVELS.reduce((r, re, i) => (re.test(niveau) ? i : r), -1);
+// A lower level of pitonlive, published after the prefecture's release and held longer than this, is said beside it.
+const APART_MS = 48 * 3600_000;
+
+/** pitonlive's lower level, said beside the prefecture's when it has held for long (`official`). */
+export interface Ecart {
+  niveau: string;
+  depuis: string;
+}
+
 /**
- * pitonlive's state, with the phase the prefecture declared when its release is as recent as pitonlive's status or
- * more: the prefecture declares each phase first, pitonlive follows within hours.
+ * pitonlive's state, with the phase the prefecture declared. The prefecture declares each phase first, pitonlive
+ * follows within hours: pitonlive wins only with a status published after the release and a level as high or higher.
+ * Never lower on pitonlive's word alone: the level comes down with the prefecture's release (« fin de l'alerte »,
+ * « retour en vigilance »). A lower level of pitonlive held more than 48 hours is said beside it (`ecart`), and logged.
  */
-export function official(s: volcan.PitonState, p: volcan.Phase): volcan.PitonState & { prefecture?: volcan.Phase } {
+export function official(s: volcan.PitonState, p: volcan.Phase, now = new Date()): volcan.PitonState & { prefecture?: volcan.Phase; ecart?: Ecart } {
   const known = s.status.published_at ? Date.parse(s.status.published_at) : 0;
   // The release has a day, not an hour: it wins from its day on.
-  if (Date.parse(p.publie) - 12 * 3600_000 < known) return s;
+  const newer = Date.parse(p.publie) - 12 * 3600_000 < known;
+  if (newer && rank(s.status.alert_level_display) >= rank(p.niveau)) return s;
+  const ecart = newer && now.getTime() - known > APART_MS ? { niveau: s.status.alert_level_display, depuis: s.status.published_at! } : undefined;
+  if (ecart) console.error(`volcan : la préfecture dit ${p.niveau} (${p.publie}), pitonlive ${ecart.niveau} depuis ${ecart.depuis}`);
   const enclos = p.enclos ?? s.access?.current?.enclos_status;
   return {
     ...s,
@@ -63,6 +80,7 @@ export function official(s: volcan.PitonState, p: volcan.Phase): volcan.PitonSta
       ? { current: { available: true, global_status: enclos, enclos_status: enclos, summary: p.titre, source_name: "Préfecture de La Réunion", source_url: p.lien } }
       : s.access,
     prefecture: p,
+    ...(ecart && { ecart }),
   };
 }
 
@@ -79,7 +97,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     settle(seismes.SOURCE.id, seismes.seismes(cache, now)),
     settle(volcan.PREFECTURE.id, volcan.phase(cache)),
   ]);
-  const state = piton && phase ? official(piton, phase) : piton;
+  const state = piton && phase ? official(piton, phase, now) : piton;
   // No phase of the prefecture, read or kept (providers/volcan.ts): pitonlive's level is said only when it is an alert.
   // It follows the prefecture by hours or days, and must never say « Vigilance » while the prefecture is in alert.
   const unknown = !!state && !phase && !/^(Alerte|Sauvegarde)/i.test(state.status.alert_level_display);
@@ -105,7 +123,14 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
             : "Pas d'éruption en cours au Piton de la Fournaise.",
     );
     if (p) parts.push(`Communiqué de la préfecture du ${day(p.publie)} : « ${p.titre} » (${p.lien}).`);
-    parts.push(`Niveau du dispositif ORSEC volcan : ${unknown ? NIVEAU_INCONNU : s.alert_level_display}.`);
+    const ecart = (state as { ecart?: Ecart }).ecart;
+    parts.push(
+      `Niveau du dispositif ORSEC volcan : ${unknown
+        ? `non lu par rundata.re, ${NIVEAU_INCONNU}`
+        : ecart
+          ? `${s.alert_level_display} selon le dernier communiqué de la préfecture (${day(p!.publie)}) ; pitonlive.com indique ${ecart.niveau} depuis le ${day(ecart.depuis)} : vérifiez sur reunion.gouv.fr`
+          : s.alert_level_display}.`,
+    );
     if (!s.is_erupting && state.last_eruption_ended_at) {
       parts.push(`Dernière éruption terminée le ${day(state.last_eruption_ended_at)} (il y a ${state.days_since_last_eruption} jours).`);
     }
@@ -134,6 +159,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
           eruption: state.eruption ?? undefined,
           niveau_orsec: unknown ? NIVEAU_INCONNU : state.status.alert_level_display,
           ...(unknown && { niveau_inconnu: true }),
+          ...((state as { ecart?: Ecart }).ecart && { ecart_pitonlive: (state as { ecart?: Ecart }).ecart }),
           derniere_eruption_fin: state.last_eruption_ended_at ?? undefined,
           deformation: state.deformation?.available ? `${state.deformation.label} (communiqué du ${day(state.deformation.published_at!)})` : undefined,
           acces_enclos: !unknown && state.access?.current?.available

@@ -5,6 +5,7 @@ import type { Info } from "../src/providers/actualites.js";
 import { parse } from "../src/providers/seismes.js";
 import { activityPosts, phase, phaseOf } from "../src/providers/volcan.js";
 import { buildVolcan } from "../src/web/data.js";
+import { volcanPage } from "../src/web/domains.js";
 import { site } from "../src/web/site.js";
 
 // 24/10/2026: the prefecture in alert 1 since the morning, pitonlive still at « Vigilance » (its status of the 19th).
@@ -70,12 +71,28 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     const v = await buildVolcan(cache, NOW);
     expect(v.etat).toMatchObject({ niveau_orsec: "à vérifier sur reunion.gouv.fr", niveau_inconnu: true });
     expect(v.etat?.acces_enclos).toBeUndefined();
-    expect(v.resume).toContain("Niveau du dispositif ORSEC volcan : à vérifier sur reunion.gouv.fr.");
+    expect(v.resume).toContain("Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Niveau du dispositif ORSEC volcan : non lu par rundata.re, à vérifier sur reunion.gouv.fr.");
     expect(v.resume).toContain("Accès à l'Enclos : à vérifier sur reunion.gouv.fr, avant de partir.");
     expect(v.resume).not.toContain("Vigilance");
     const html = await page(cold(new MemoryStore()).cache);
-    expect(html).toContain("Niveau du dispositif ORSEC volcan : <b>à vérifier sur reunion.gouv.fr</b>");
+    expect(html).toContain(`Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Nous n'avons pas pu lire le niveau d'alerte de la préfecture : vérifiez-le sur <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse">reunion.gouv.fr</a> avant de monter au volcan.`);
+    expect(html).toContain(`Accès à l'Enclos : à vérifier sur <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse">reunion.gouv.fr</a>, avant de partir.`);
     expect(html).not.toMatch(/ORSEC[^<]*<b>Vigilance/);
     expect(html).not.toContain("partiellement ouvert");
+  });
+
+  it("says pitonlive's lower level beside the prefecture's alert after 48 hours, on the page and to the AI", async () => {
+    const durable = new MemoryStore();
+    const { store, cache } = cold(durable);
+    // The prefecture's alert 1 of the 17th; pitonlive at « Vigilance » since the 19th; now the 24th.
+    const alert = phaseOf([{ titre: "Piton de la Fournaise : passage en alerte 1", lien: "https://www.reunion.gouv.fr/x", publie: new Date("2026-10-17T12:00:00+04:00").toISOString() } as unknown as Info])!;
+    void store.put("volcan:prefecture", { value: alert, fetchedAt: NOW.getTime() });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const v = await buildVolcan(cache, NOW);
+    expect(v.etat?.niveau_orsec).toBe("Alerte 1");
+    expect(v.resume).toContain("Niveau du dispositif ORSEC volcan : Alerte 1 selon le dernier communiqué de la préfecture (17/10) ; pitonlive.com indique Vigilance depuis le 19/10 : vérifiez sur reunion.gouv.fr.");
+    const html = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
+    expect(html).toContain(`Niveau du dispositif ORSEC volcan : <b>Alerte 1</b> selon le dernier communiqué de la préfecture (17 octobre 2026) ; pitonlive.com indique Vigilance depuis le 19 octobre 2026 : vérifiez sur <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse">reunion.gouv.fr</a>.`);
+    vi.restoreAllMocks();
   });
 });
