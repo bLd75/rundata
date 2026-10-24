@@ -94,8 +94,10 @@ describe("out of an alert, whether it erupts only with its source", () => {
       detail: expect.stringMatching(/^selon pitonlive\.com · Enclos « partiel » · \d+ séismes? localisés? par l'OVPF sous le volcan en 7 jours$/),
       source: "selon pitonlive.com",
     });
-    // In the hero of the home page, its source on a line of its own under it, never cut with it.
-    expect(homePage(O, { volcan: { value: v, fetchedAt: NOW, stale: false } } as unknown as HomeLive, NOW)).toContain("<b>Pas d'éruption</b><small>selon pitonlive.com</small>");
+    // On the home page, out of an alert the volcano is a tile, not in the hero: its source opens the line under it.
+    const home = homePage(O, { volcan: { value: v, fetchedAt: NOW, stale: false } } as unknown as HomeLive, NOW);
+    expect(home).toContain(`<p class="tv">Pas d'éruption</p><p class="td">selon pitonlive.com · Enclos « partiel » · `);
+    expect(home).not.toContain("<b>Pas d'éruption</b>");
     // No source named: pitonlive alone.
     const bare = { ...v, etat: { ...v.etat!, acces_enclos: { ...v.etat!.acces_enclos!, source: undefined, lien: undefined, statut: "ferme" } } };
     expect(volcanPage(O, { value: bare, fetchedAt: NOW, stale: false }, NOW)).toContain("Enclos : <b>« fermé »</b> selon pitonlive.com.</p>");
