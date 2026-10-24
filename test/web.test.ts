@@ -52,7 +52,7 @@ function upstream(url: string): Response {
   if (url.includes("erdMH1sstd1day")) return new Response(fixture("modis.csv"));
   if (url.includes("marine-api.open-meteo")) return new Response(fixture("openmeteo_houle.json"));
   if (url.includes("firms.modaps")) return new Response(fixture("firms_viirs_noaa20.csv"));
-  if (url.includes("arcgis.com")) return new Response(fixture(`onf/${url.includes("/5/query") ? "sentiers" : url.includes("/4/query") ? "routes" : "couche"}.json`));
+  if (new URL(url).hostname.endsWith(".arcgis.com")) return new Response(fixture(`onf/${url.includes("/5/query") ? "sentiers" : url.includes("/4/query") ? "routes" : "couche"}.json`));
   if (url.includes("air-quality-api.open-meteo")) return new Response(fixture("cams_uv.json"));
   if (url.includes("open-meteo.com/data")) return new Response(fixture("openmeteo_meta.json"));
   if (url.includes("open-meteo")) return new Response(fixture("openmeteo_cilaos.json"));
