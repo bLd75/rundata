@@ -3,7 +3,7 @@ import { count, counted, measured, WORKER_BUDGET } from "../src/budget.js";
 import { Cache, CACHE_FORMAT, type CacheEntry, MemoryStore, TieredStore } from "../src/cache.js";
 import { VERSION } from "../src/server.js";
 import { FRESH_SECONDS } from "../src/web/data.js";
-import { type Kv, kvKey, SHARED, SharedFallback, type Shared, warmShared } from "../src/web/partagees.js";
+import { type Kv, kvKey, SHARED, SHARED_AFTER, SharedFallback, type Shared, warmShared } from "../src/web/partagees.js";
 
 /** A KV namespace in memory, counting its reads, its listings and its writes by key. */
 class FakeKv implements Kv {
@@ -121,6 +121,27 @@ describe("the shared copies' keys", () => {
 });
 
 describe("the scheduled refresh of the shared copies", () => {
+  it("warms the forecast's ensemble only with what the page copies left", async () => {
+    const kv = new FakeKv();
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);
+    const pages: Shared[] = SHARED.map((s) => ({ ...s, key: `${s.key}-apres`, build: async () => (count(s.cold ?? 25), {}) }));
+    const after: Shared[] = SHARED_AFTER.map((s) => ({ ...s, key: `${s.key}-apres`, build: async () => (count(s.cold ?? 25), {}) }));
+    const run = await counted(WORKER_BUDGET, async () => {
+      const first = await warmShared(cache, kv, new Date(T0), pages);
+      return { first, after: await warmShared(cache, kv, new Date(T0), after) };
+    });
+    expect(run.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    // Right after a deploy the page copies take the invocation: the ensemble waits, and never makes one of them wait.
+    expect(run.value.after.written).toEqual([]);
+    expect(run.value.after.left[0].why).toMatch(/^budget : /);
+    // An event with the page copies fresh: it fits.
+    const quiet = await counted(WORKER_BUDGET, async () => {
+      await warmShared(cache, kv, new Date(T0), []);
+      return warmShared(cache, kv, new Date(T0), after);
+    });
+    expect(quiet.value.written).toEqual([`${SHARED_AFTER[0].key}-apres`]);
+  });
+
   it("writes each to KV no more often than its rate, over a day of events every 5 minutes", async () => {
     const kv = new FakeKv();
     let now = T0;

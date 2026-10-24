@@ -158,6 +158,8 @@ export interface PrevisionAnswer {
     pluie?: string;
     rafales_max?: string;
     indice_uv_max?: string;
+    confiance?: string;
+    confiance_pourquoi?: string;
   }[];
   modele?: { nom: string; maille_km: number; run_du_modele?: string };
   avertissements?: string[];
