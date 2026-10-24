@@ -304,7 +304,6 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS);
     return page(path, (live) => (live ? vigilancePage(origin, data, now, data ? alerteOf(data.value, now) : undefined) : vigilancePage(origin, null, now)), data, background);
   }
-  // The plan's list, nothing read but the vigilance's banner.
   // The guide for those who publish, written once: nothing read but the vigilance's banner.
   if (path === "/publier" || path === "/publier/") {
     const a = await alerte(cache, background, now);
@@ -313,6 +312,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/publier/modele-agenda.csv") {
     return new Response(MODELE_CSV, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="modele-agenda.csv"', "cache-control": STATIC, "access-control-allow-origin": "*", "x-content-type-options": "nosniff" } });
   }
+  // The plan's list, nothing read but the vigilance's banner.
   if (path === "/kit-cyclone" || path === "/kit-cyclone/") {
     const a = await alerte(cache, background, now);
     return new Response(kitPage(origin, a), { headers: HTML });

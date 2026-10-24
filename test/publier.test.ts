@@ -27,11 +27,11 @@ describe("the guide for those who publish (/publier)", () => {
     expect(page).toContain('<a href="#google-agenda">1 · Agenda Google public</a>');
   });
 
-  it("says what rundata.re reads, from the code: iCalendar only « bientôt » until its reader is live", () => {
+  it("says what rundata.re reads, from the code: iCalendar read since its reader is live", () => {
     const page = html();
-    expect(ETATS.ics).toBe("bientot");
-    expect(page.match(/Bientôt lu par rundata\.re/g)).toHaveLength(2);
-    expect(page.match(/Déjà lu par rundata\.re/g)).toHaveLength(3);
+    expect(ETATS.ics).toBe("lu");
+    expect(page).not.toContain("Bientôt lu");
+    expect(page.match(/Déjà lu par rundata\.re/g)).toHaveLength(5);
     expect(page.match(/>Sur demande : écrivez-nous</g)).toHaveLength(3);
     expect(page).toContain(`<a class="etat demande" href="${MAILTO}">`);
     expect(MAILTO).toBe("mailto:contact@rundata.re?subject=Flux%20%C3%A0%20r%C3%A9f%C3%A9rencer");
