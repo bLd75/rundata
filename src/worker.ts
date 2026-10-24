@@ -97,7 +97,7 @@ interface AnalyticsDataset {
 
 /**
  * One point per tool call or page view (metrics.ts). Columns, for the SQL API: index1 and blob1 = kind (mcp, page),
- * blob2 = tool or path, blob3 = place asked or « bouton », blob4 = visitor, blob5 = country, blob6 = referring site;
+ * blob2 = tool or path, blob3 = place asked or « bouton », blob4 = visitor, blob5 = country, blob6 = referring site, or « ref:<canal> » for a link carrying ?ref=;
  * double1 = 1 if answered without error.
  */
 function recorder(env: Env, request: Request) {
@@ -110,6 +110,9 @@ function recorder(env: Env, request: Request) {
     const ref = new URL(request.headers.get("referer") ?? "");
     if (ref.host !== new URL(request.url).host) from = ref.host;
   } catch {}
+  // A link shared by the campaign carries its channel (« ?ref=fb », « ?ref=presse-zinfos »): it wins over the referer.
+  const tag = new URL(request.url).searchParams.get("ref")?.replace(/[^\w.-]/g, "").slice(0, 40);
+  if (tag) from = `ref:${tag}`;
   return (hit: Hit) => {
     try {
       usage.writeDataPoint({ indexes: [hit.kind], blobs: [hit.kind, hit.name, hit.detail ?? "", who, country, from], doubles: [hit.ok ? 1 : 0] });
