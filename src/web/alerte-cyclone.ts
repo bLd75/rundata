@@ -22,7 +22,7 @@ export const PDF = "https://www.reunion.gouv.fr/contenu/telechargement/51165/386
 const NONE = "Pas d'alerte cyclonique en cours à La Réunion.";
 
 /** A quotation of the plan, or a line about it, and the page(s) it is on. */
-type Line = { sujet: string; texte: string; pages: number[]; cite?: boolean; lien?: { href: string; label: string } };
+export type Line = { sujet: string; texte: string; pages: number[]; cite?: boolean; lien?: { href: string; label: string } };
 interface Step {
   id: string;
   titre: string;
@@ -31,7 +31,9 @@ interface Step {
   lignes: Line[];
 }
 
-const q = (sujet: string, texte: string, ...pages: number[]): Line => ({ sujet, texte, pages, cite: true });
+// In the pré-alerte, the step's line and the state point to /kit-cyclone (marketing).
+const KIT = "Le kit d'urgence du plan →";
+export const q = (sujet: string, texte: string, ...pages: number[]): Line => ({ sujet, texte, pages, cite: true });
 
 /** The plan, step by step, as marketing laid it out; each quotation as the PDF writes it. */
 export const STEPS: Step[] = [
@@ -41,7 +43,7 @@ export const STEPS: Step[] = [
     devise: "Je m'informe et j'anticipe",
     code: 2,
     lignes: [
-      q("Ce que fait la population", "Suivez les prévisions météorologiques et les bulletins d'information.", 17),
+      { ...q("Ce que fait la population", "Suivez les prévisions météorologiques et les bulletins d'information.", 17), lien: { href: "/kit-cyclone", label: KIT } },
       q("Entreprises et services", "La plupart des mesures à appliquer en pré-alerte cyclonique relève de la même logique que celles qui s'appliquent à la population", 18),
       { sujet: "Écoles et crèches", texte: "c'est en alerte orange que « Tous les établissements scolaires et les crèches ferment »", pages: [17] },
     ],
@@ -144,7 +146,7 @@ export const FAQ: { q: string; a: Line[] }[] = [
 
 const pagesHtml = (pages: number[]) =>
   pages.length ? ` <span class="note">(<a href="${PDF}#page=${pages[0]}" rel="noopener">p. ${pages.join("-")}</a>)</span>` : "";
-function lineHtml(l: Line): string {
+export function lineHtml(l: Line): string {
   const text = l.cite ? `« ${esc(l.texte)} »` : esc(l.texte);
   return `<li>${l.sujet ? `<b>${esc(l.sujet)}</b> : ` : ""}${text}${pagesHtml(l.pages)}${l.lien ? ` <a href="${l.lien.href}">${esc(l.lien.label)}</a>` : ""}</li>`;
 }
@@ -170,7 +172,7 @@ export function alertePage(origin: string, data: Cached<mf.Vigilance> | null, no
   const path = "/alerte-cyclone";
   const s = stateOf(data?.value, now, decision);
   const state = s
-    ? `<div class="status"><p class="lead"><b>${citesHtml(esc(s.texte), s.cites)}</b>${s.ancre ? ` <a href="#${s.ancre}">${esc(s.label!)}</a>` : ""}</p></div>`
+    ? `<div class="status"><p class="lead"><b>${citesHtml(esc(s.texte), s.cites)}</b>${s.ancre ? ` <a href="#${s.ancre}">${esc(s.label!)}</a>` : ""}${s.ancre === "pre-alerte" ? ` · <a href="/kit-cyclone">${esc(KIT)}</a>` : ""}</p></div>`
     : `<div class="status"><p class="lead">L'alerte en vigueur n'a pas pu être lue à l'instant : voir la préfecture (reunion.gouv.fr) et Météo-France.</p></div>`;
   const band = `${crumbBar("Alerte cyclonique")}
 <div class="wrap intro"><div class="pitch">

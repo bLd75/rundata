@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T21:31:00+04:00", texte: "Kit cyclone : ce que le plan de la préfecture demande de préparer avant la saison, page par page." },
   { date: "2026-10-24T21:30:00+04:00", texte: "Volcan : les séismes localisés par l'OVPF sous le Piton de la Fournaise, jour par jour sur 30 jours." },
   { date: "2026-10-24T21:10:00+04:00", texte: "Écoles et alerte cyclonique : chaque phrase cite le plan cyclone de la préfecture, avec sa page." },
   { date: "2026-10-24T20:51:00+04:00", texte: "Puis-je monter au volcan ? Enclos, RN 2, route du volcan, sentiers : ce que disent les textes officiels, lieu par lieu." },
