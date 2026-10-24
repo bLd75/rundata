@@ -54,7 +54,9 @@ describe("the volcano put forward during an alert", () => {
   });
 
   it("tells the AI the same: the prefecture's words, and the eruption dated by its release only", async () => {
-    expect((await answer(ALERT_1)).resume).toContain("Alerte 1 au Piton de la Fournaise : éruption probable à très brève échéance");
+    expect((await answer(ALERT_1)).resume).toContain("Alerte 1 au Piton de la Fournaise : éruption probable à très brève échéance. L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus.");
+    // Never that it has not begun, on our word: the OVPF's newest post may be an image we do not read.
+    expect((await answer(ALERT_1)).resume).not.toMatch(/pas (encore )?commencé/);
     expect((await answer(ALERT_2)).resume).toMatch(/^ÉRUPTION EN COURS au Piton de la Fournaise, annoncée par la préfecture le \S+\./);
   });
 
@@ -63,6 +65,8 @@ describe("the volcano put forward during an alert", () => {
     const page = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain("<title>Piton de la Fournaise : alerte 1, éruption probable · 974</title>");
     expect(page).toContain("<h1>Piton de la Fournaise : alerte 1, éruption probable à très brève échéance</h1>");
+    expect(page).toContain("<b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus. Seuls l&#39;OVPF et la préfecture l&#39;annonceront : leurs communiqués s&#39;affichent ici dès leur publication.</b>");
+    expect(page).not.toMatch(/pas (encore )?commencé/);
     expect(page).toContain("Accès à l&#39;Enclos interdit. Seules comptent les consignes de la préfecture et de l&#39;OVPF.");
     expect(page).toContain("Le communiqué de la préfecture");
     expect(page).toContain('href="https://x.com/obsfournaise"');

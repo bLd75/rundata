@@ -16,6 +16,8 @@ const OFFICIAL =
 const NIVEAU_INCONNU = "à vérifier sur reunion.gouv.fr";
 
 const day = (iso: string) => localTime(new Date(iso)).split(" ")[0];
+// Worded by marketing: what the texts read say, never that the eruption has not begun.
+export const NON_ANNONCEE = "L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus.";
 export const IMAGE_APRES = "La dernière publication de l'OVPF est une image que nous ne lisons pas : l'état ci-dessus peut ne pas en tenir compte.";
 // « Accès à l'Enclos interdit selon le communiqué du … ».
 export const ENCLOS_SAID: Record<string, string> = { ferme: "interdit", fermé: "interdit", partiel: "partiellement ouvert", ouvert: "ouvert" };
@@ -137,7 +139,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
         // The day only from an official text: pitonlive's start time is not one (the page says none either).
         ? `ÉRUPTION EN COURS au Piton de la Fournaise${p?.eruption ? `, annoncée par la préfecture le ${day(p.publie)}` : ""}.`
         : /^Alerte/.test(s.alert_level_display)
-          ? `${s.alert_level_display} au Piton de la Fournaise : éruption probable à très brève échéance, pas encore commencée selon les dernières informations.`
+          ? `${s.alert_level_display} au Piton de la Fournaise : éruption probable à très brève échéance. ${NON_ANNONCEE}`
           : unknown
             ? "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com."
             : "Pas d'éruption en cours au Piton de la Fournaise.",
