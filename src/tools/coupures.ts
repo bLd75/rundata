@@ -1,5 +1,5 @@
 import type { Cache } from "../cache.js";
-import { distributeur, lues } from "../eau/distributeurs.js";
+import { distributeur, LIENS, lues } from "../eau/distributeurs.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as notices from "../providers/avis-eau.js";
 import { BACK } from "../providers/avis-eau.js";
@@ -51,6 +51,7 @@ export function noticeRow(n: notices.Avis, now: Date, current = n.ne_pas_boire) 
     secteurs: n.secteurs.length ? n.secteurs : undefined,
     ne_pas_boire: (n.ne_pas_boire && current) || undefined,
     forme: n.forme,
+    extrait_coupe: n.extrait_coupe,
     texte: n.texte,
     lien: n.lien,
   };
@@ -58,7 +59,7 @@ export function noticeRow(n: notices.Avis, now: Date, current = n.ne_pas_boire) 
 
 const COMMON = {
   // Worded by marketing: never « pas de coupure » where the sources say nothing.
-  couverture: `Avis lus pour ${enumeration(lues())} (Dionéo, runéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie)\u00a0: une coupure que ces sources n'annoncent pas n'apparaît pas ici. Ailleurs, voir la mairie ou le distributeur.`,
+  couverture: `Avis lus pour ${enumeration(lues())} (Dionéo, runéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie, Derichebourg Aqua OI par la commune de Saint-Leu)\u00a0: une coupure que ces sources n'annoncent pas n'apparaît pas ici. Ailleurs, voir la mairie ou le distributeur.`,
   a_savoir: "Après une coupure, l'eau peut être trouble ou impropre à la boisson pendant quelques heures : la laisser couler avant de la boire. Quand un avis dit de ne pas boire l'eau, utiliser de l'eau en bouteille ou bouillie au moins 3 minutes pour boire, cuisiner et se brosser les dents.",
 };
 
@@ -101,6 +102,8 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
     lieu: placeBlock(lieu, res),
     resume,
     ne_pas_boire: dry ? noticeRow(dry, now) : undefined,
+    // A mairie only linked to (src/eau/distributeurs.ts): where its notices are, nothing taken from them.
+    mairie: !covered && LIENS[commune] ? { libelle: LIENS[commune].libelle, lien: LIENS[commune].site } : undefined,
     avis: mine.map((n) => noticeRow(n, now, n === dry)),
     ...common,
   });

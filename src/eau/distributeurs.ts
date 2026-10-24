@@ -27,10 +27,28 @@ const FEEDS: Record<string, string> = {
 };
 // The CIREST publishes the notices of its six communes, whoever distributes their water.
 export const CIREST = { communes: ["Bras-Panon", "Saint-André", "La Plaine-des-Palmistes", "Saint-Benoît", "Sainte-Rose", "Salazie"], site: "https://www.cirest.fr/categorie/communique/communique-eau/" };
-// A mairie that posts its distributor's notices, read for that commune only.
+// A mairie that posts its distributor's notices, read for that commune only (src/providers/avis-eau.ts).
 export const MAIRIE_SAINTE_MARIE = "https://www.ville-saintemarie.re/?s=CISE";
+export const MAIRIE_SAINT_LEU = "https://www.saintleu.re/?s=eau";
 const MAIRIES: Record<string, { par: string; site: string }> = {
   "Sainte-Marie": { par: "la ville de Sainte-Marie", site: MAIRIE_SAINTE_MARIE },
+  "Saint-Leu": { par: "la commune de Saint-Leu", site: MAIRIE_SAINT_LEU },
+};
+/**
+ * A mairie whose notices are not read, only linked to: where to look, for the commune's page. Nothing is taken from them.
+ * - Petite-Île (petite-ile.re/mentions-legales): « Les reproductions, les transmissions, les modifications, les
+ *   réutilisations dudit site et de ses œuvres ne sont autorisées que dans le respect des dispositions de l'article L122-5
+ *   du code de la propriété intellectuelle. » and « La mise en place de liens hypertexte pour tous les sites Internet
+ *   devra faire l'objet d'une autorisation préalable de la Mairie. » Its « Coupure d'eau » news are linked to, as its
+ *   agenda already is (src/providers/agenda.ts); the mairie may be asked for more.
+ * - Cilaos (ville-cilaos.fr/mentions-legales): viewing only, copying needs express authorisation.
+ * - L'Étang-Salé (letangsale.fr): no notice of cuts found on its site, whose legal notice excludes use « d'information »;
+ *   its distributor is not identified (the ARS names none).
+ */
+export const LIENS: Record<string, { par: string; site: string; libelle: string }> = {
+  "Petite-Île": { par: "la ville de Petite-Île", site: "https://www.petite-ile.re/actualites/news", libelle: "Les avis « Coupure d'eau » sur le site de la ville de Petite-Île" },
+  Cilaos: { par: "la ville de Cilaos", site: "https://ville-cilaos.fr/?s=coupure+d%27eau", libelle: "Les avis de coupure d'eau sur le site de la ville de Cilaos" },
+  "L'Étang-Salé": { par: "la mairie de L'Étang-Salé", site: "https://www.letangsale.fr/", libelle: "Le site de la mairie de L'Étang-Salé" },
 };
 export const BUILT = data.construit;
 export const SOURCE = data.source;
