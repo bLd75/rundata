@@ -52,6 +52,8 @@ function marker(m: Marker): string {
 /**
  * `highlight`: the commune whose page this is. `pin`: the place asked about, drawn as a dot with its name.
  * `peaks`: the two summits, for orientation on the island-wide map. `fills`: a colour per commune (the vigilance map).
+ * Without `fills`, the land is the island's relief (the same image as the hero's), under the sea and coast of the
+ * page's theme; with them, it stays flat so that the colours read.
  */
 export function islandMap(opts: {
   markers?: Marker[];
@@ -98,9 +100,13 @@ export function islandMap(opts: {
       `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
       peaks + (opts.markers ?? []).map(marker).join("") + `</svg>`;
   }
-  return `<svg class="map" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label)}">` +
-    `<defs><g id="isl">${paths}</g></defs>` +
+  const terrain = !fills;
+  const land = terrain
+    ? `<use href="#isl" class="land"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>`
+    : `<use href="#isl" class="land"/>${fills}`;
+  return `<svg class="map${terrain ? " terrain" : ""}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label)}">` +
+    `<defs><g id="isl">${paths}</g>${terrain ? `<clipPath id="isl-clip">${paths}</clipPath>` : ""}</defs>` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>` +
-    `<use href="#isl" class="coast"/><use href="#isl" class="land"/>${fills}<use href="#isl" class="borders"/>` +
+    `<use href="#isl" class="coast"/>${land}<use href="#isl" class="borders"/>` +
     extra + (opts.markers ?? []).map(marker).join("") + `</svg>`;
 }
