@@ -26,7 +26,7 @@ import { nextText, tidesAt, tidesNear } from "../tools/maree.js";
 import icons from "./icons.json" with { type: "json" };
 import { hikesAround } from "./liens.js";
 import rubriques from "./og-rubriques.json" with { type: "json" };
-import { WITH_PAGE } from "./categories.js";
+import { byUse, FIRST, type Urgent, urgentKeys, WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker, type ZoneLink } from "./map.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
@@ -379,7 +379,7 @@ background:rgb(255 255 255/.12);border:1px solid rgb(255 255 255/.2);-webkit-bac
 text-decoration:none;color:#fff;background:rgb(255 255 255/.09);border:1px solid rgb(255 255 255/.14);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .facts-live .ic{grid-row:span 2;color:var(--k);width:1.4rem;height:1.4rem}
 .facts-live a>span{font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:rgb(255 255 255/.7)}
-.facts-live b{font:800 .98rem/1.2 Bricolage,system-ui,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.facts-live b{font:800 .98rem/1.2 Bricolage,system-ui,sans-serif;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .facts-live b .vg,.facts-live b .aq{font-size:.8rem;padding:0 .45rem}
 .hero-map{position:relative;display:grid;gap:.6rem;min-width:0;width:100%;max-width:30rem;justify-self:center}
 @media (min-width:66rem){.hero-map{max-width:36rem}}
@@ -742,14 +742,18 @@ const withHook = (band: string, path: string) => {
 
 // The menu: every category with a page, then the communes; the first few also sit in the bar on wide screens.
 const MENU = [...WITH_PAGE.map((c) => ({ key: c.key, nom: c.nom, path: c.path, icon: c.icon })), { key: "communes", nom: "Communes", path: "/communes", icon: "pin" }];
-const QUICK = ["meteo", "mer", "bus", "volcan", "vigilance", "communes"];
 
-/** The bar on every page: the brand, the main categories on wide screens, the assistant button and the menu of everything. */
-function header(path: string, origin: string): string {
+/**
+ * The bar on every page: the brand, the main categories on wide screens, the assistant button and the menu of
+ * everything. The vigilance and the volcano lead the bar while in force and leave it when quiet; the sea and the buses
+ * are in the menu only. The traffic joins the bar once it has data of its own (a measure of the jams, not the media).
+ */
+function header(path: string, origin: string, u: Urgent): string {
   const current = (p: string) => (inCategory(path, p) ? ' aria-current="page"' : "");
-  const quick = MENU.filter((m) => QUICK.includes(m.key))
+  const menu = byUse(MENU, u);
+  const quick = [...urgentKeys(u), ...FIRST, "communes"].map((k) => menu.find((m) => m.key === k)!)
     .map((m) => `<a class="k-${m.key}" href="${m.path}"${current(m.path)}>${icon(m.icon)}${esc(m.nom)}</a>`).join("");
-  const grid = MENU.map((m) => `<li><a class="k-${m.key}" href="${m.path}"${current(m.path)}><span class="kb">${icon(m.icon)}</span>${esc(m.nom)}</a></li>`).join("");
+  const grid = menu.map((m) => `<li><a class="k-${m.key}" href="${m.path}"${current(m.path)}><span class="kb">${icon(m.icon)}</span>${esc(m.nom)}</a></li>`).join("");
   return `<header class="top"><div class="wrap bar">
   <a class="brand" href="/">${flag()}<span>rundata<span class="tld">.re</span></span></a>
   <nav class="quick" aria-label="Principales catégories">${quick}</nav>
@@ -770,6 +774,9 @@ function ogImage(origin: string, path: string): { src: string; alt: string } {
   const r = rubriques.find((x) => x.pages.some((p) => inCategory(path, p)));
   return r ? { src: `${origin}${r.png}`, alt: r.alt } : { src: `${origin}/og.png?v=${og.v}`, alt: OG_ALT };
 }
+
+/** What the page's banners say is in force, or its own alert block: the offline page, kept for days, says nothing. */
+const urgent = (head: Head): Urgent => (head.shell ? {} : { vigilance: !!head.alerte, volcan: !!head.volcan || !!volcanBanner() });
 
 export function layout(origin: string, head: Head, band: string, body: string): string {
   const url = `${origin}${head.path}`;
@@ -808,7 +815,7 @@ ${head.rss ? `<link rel="alternate" type="application/rss+xml" title="${esc(head
 ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head.jsonld.length === 1 ? head.jsonld[0] : head.jsonld).replace(/</g, "\\u003c")}</script>\n` : ""}<style>${CSS}</style>
 </head>
 <body>
-${header(head.path, origin)}
+${header(head.path, origin, urgent(head))}
 ${head.shell ? "" : `${banner(head.alerte, head.path)}
 ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
 <div class="band">${withHook(band, head.path)}</div>

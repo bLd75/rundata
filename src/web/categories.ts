@@ -206,3 +206,29 @@ export const CATEGORIES: Category[] = [
 
 /** The categories with a page, in the menu's order. */
 export const WITH_PAGE = CATEGORIES.filter((c): c is Category & { path: string } => c.path !== undefined);
+
+/** What is in force now and goes first everywhere: Météo-France's vigilance above green, the volcano in alert or erupting. */
+export interface Urgent {
+  vigilance?: boolean;
+  volcan?: boolean;
+}
+
+// What serves the most people goes first: the events, the hikes, the weather; the sea and the buses after the rest.
+export const FIRST = ["agenda", "sentiers", "meteo"];
+const LAST = ["mer", "bus"];
+
+/** The vigilance and the volcano while in force, in that order, as keys. */
+export const urgentKeys = (u: Urgent) => [u.vigilance && "vigilance", u.volcan && "volcan"].filter((k): k is string => !!k);
+
+/**
+ * `list` in the order of use: the vigilance and the volcano first while in force, then FIRST, the others as listed
+ * (the vigilance and the volcano among them when quiet), the sea and the buses last.
+ */
+export function byUse<T extends { key: string }>(list: T[], u: Urgent): T[] {
+  const rank = (key: string) => {
+    const top = [...urgentKeys(u), ...FIRST].indexOf(key);
+    return top >= 0 ? top - 100 : LAST.includes(key) ? 100 + LAST.indexOf(key) : 0;
+  };
+  // The sort is stable: the others keep their order.
+  return [...list].sort((a, b) => rank(a.key) - rank(b.key));
+}

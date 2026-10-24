@@ -6,7 +6,7 @@ import { alerteVolcan, homeCard, volcanBanner } from "./volcan-alerte.js";
 import type { Cached } from "../cache.js";
 import type * as mf from "../providers/vigilance.js";
 import brand from "./brand.json" with { type: "json" };
-import { CATEGORIES, type Category } from "./categories.js";
+import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from "./categories.js";
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
 import { actualitesLive, airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
@@ -176,11 +176,15 @@ export function sky(now: Date): "nuit" | "aube" | "jour" | "soir" {
   return h < 5 || h >= 19 ? "nuit" : h < 7 ? "aube" : h < 17 ? "jour" : "soir";
 }
 
-/** Three figures of the moment under the title: the weather, the vigilance, the volcano. */
-function facts(live: Record<string, Live | undefined>): string {
-  const shown = ["meteo", "vigilance", "volcan", "mer"]
+/**
+ * Four figures of the moment under the title, two by two: the vigilance and the volcano while in force, then the
+ * events, the hikes, the weather, the sea.
+ */
+function facts(live: Record<string, Live | undefined>, u: Urgent): string {
+  const shown = [...urgentKeys(u), ...FIRST, "mer"]
     .map((k) => ({ c: CATEGORIES.find((c) => c.key === k)!, l: live[k] }))
-    .filter((x) => x.l);
+    .filter((x) => x.l)
+    .slice(0, 4);
   if (!shown.length) return "";
   return `<ul class="facts-live" aria-label="En ce moment">${shown
     .map((x) => `<li class="k-${x.c.key}"><a href="${x.c.path}">${icon(x.c.icon)}<span>${esc(x.c.nom)}</span><b>${x.l!.valeur}</b></a></li>`)
@@ -222,7 +226,6 @@ function tile(c: Category, l: Live | undefined, odd = false): string {
 
 // On a phone the tiles go two by two: an odd one out at the end of those with a page takes the whole row.
 const PAGED = CATEGORIES.filter((c) => c.path).length;
-const LAST_PAGE = CATEGORIES.map((c) => !!c.path).lastIndexOf(true);
 
 const NOW_MAX = 4;
 const NOW_HOURS = 6;
@@ -240,13 +243,15 @@ function happening(h: HomeLive | null, now: Date): string {
     `<p class="note"><a href="/actualites">Toute l'actualité, commune par commune →</a></p></div>`;
 }
 
-function tiles(live: Record<string, Live | undefined>, news = ""): string {
+function tiles(live: Record<string, Live | undefined>, u: Urgent, news = ""): string {
+  // In the order of the menu; those without a page after them all.
+  const all = [...byUse(CATEGORIES.filter((c) => c.path), u), ...CATEGORIES.filter((c) => !c.path)];
   return `<section id="en-ce-moment" aria-labelledby="h-ile">
   <div class="sec-h"><p class="eyebrow">En direct</p>
     <h2 id="h-ile">L'île en ce moment</h2>
     <p>Une page par sujet, mise à jour toutes les 5 minutes. Chaque donnée vient d'un organisme public ou d'un projet ouvert, avec son heure et sa source.</p></div>
   ${news}
-  <ul class="tiles" aria-label="Catégories">${CATEGORIES.map((c, i) => tile(c, live[c.key], i === LAST_PAGE && PAGED % 2 === 1)).join("")}</ul>
+  <ul class="tiles" aria-label="Catégories">${all.map((c, i) => tile(c, live[c.key], i === PAGED - 1 && PAGED % 2 === 1)).join("")}</ul>
 </section>`;
 }
 
@@ -324,6 +329,7 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
   // An alert at the volcano goes first, above the weather, in place of the banner of the other pages; the banner's own
   // read when the home page's copy of /volcan is missing.
   const fire = alerteVolcan(h?.volcan?.value) ?? volcanBanner();
+  const u = { vigilance: !!alerte, volcan: !!fire };
   const band = `${fire ? homeCard(fire) : ""}<div class="hero sky-${sky(now)}"><div class="wrap hero-in">
   <div class="hero-txt">
     ${livePill(at, now)}
@@ -331,11 +337,11 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
     ${SLOGAN}
     <p class="lead">Météo, mer, volcan, bus, vélos, air : la donnée publique du moment, datée et sourcée, pour vous et pour <b>votre assistant IA</b>.</p>
     <p class="hero-cta"><a class="btn sun" href="#assistant">${icon("spark")}Brancher mon IA</a><a class="btn glass" href="#en-ce-moment">Voir l'île</a></p>
-    ${facts(live)}
+    ${facts(live, u)}
   </div>
   ${heroMap(h)}
 </div></div>`;
-  const body = `${tiles(live, happening(h, now))}
+  const body = `${tiles(live, u, happening(h, now))}
 ${assistant(origin, h, now)}
 <section id="communes" aria-labelledby="h-communes">
   <div class="sec-h"><p class="eyebrow">Partout sur l'île</p><h2 id="h-communes">Votre commune en direct</h2>
