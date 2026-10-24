@@ -72,8 +72,15 @@ describe("circulation", () => {
         info("Fête de la Saint-Louis : le programme", 1, ["culture"]),
         info("Accident sur la quatre-voies à Sainte-Marie", 2, ["route"], { media: "Clicanoo", lien: "https://www.clicanoo.re/a" }),
         info("Route du Littoral basculée cette nuit", 8, ["route"]),
+        // Tagged from their text, not about the roads.
+        info("Rentrez vos poubelles !", 1.5, ["mobilisation", "securite"], { direct: true }),
+        info("Le CROS salue le report des rassemblements sportifs", 2.5, ["mobilisation", "sport"]),
       ],
-      prefecture: [],
+      prefecture: [
+        info("Violences urbaines : bilan de la nuit", 3, ["mobilisation"], { media: "Préfecture de La Réunion", lien: "https://www.reunion.gouv.fr/a", heure: false }),
+        info("Fête de la science : le programme", 3, ["culture"], { media: "Préfecture de La Réunion", lien: "https://www.reunion.gouv.fr/b", heure: false }),
+        info("Interdiction de manifester à Saint-Pierre", 30, ["mobilisation"], { media: "Préfecture de La Réunion", lien: "https://www.reunion.gouv.fr/c", heure: false }),
+      ],
       indisponible: [],
     });
     const feeds = /imazpress|clicanoo|la1ere|freedom|parallelesud|temoignages|reunion\.gouv/;
@@ -87,13 +94,17 @@ describe("circulation", () => {
     it("tells the headlines from the news already read, newest first, without reading the feeds", async () => {
       const c = cache();
       await c.get<Fil>("actualites:fil", 300, async () => fil());
-      expect(withRoadNews(await buildTrafic(c, NOW), fil(), NOW).medias).toEqual([
+      const d = withRoadNews(await buildTrafic(c, NOW), fil(), NOW);
+      // The préfecture's communiqué of the day first, then the media's headlines on the roads.
+      expect(d.medias).toEqual([
+        { titre: "Violences urbaines : bilan de la nuit", lien: "https://www.reunion.gouv.fr/a", source: "Préfecture de La Réunion", heure: "aujourd'hui" },
         { titre: "Barrage levé au rond-point des Casernes", lien: "https://imazpress.com/0.5", source: "Imaz Press, en direct", heure: "aujourd'hui à 07:30" },
         { titre: "Accident sur la quatre-voies à Sainte-Marie", lien: "https://www.clicanoo.re/a", source: "Clicanoo", heure: "aujourd'hui à 06:00" },
       ]);
+      expect(d.sources.map((s) => s.source)).toEqual(expect.arrayContaining(["Communiqués de presse de la préfecture de La Réunion"]));
       const page = await (await handle(new Request("https://rundata.re/trafic", BOT), c)).text();
-      expect(page).toContain(`<h3>Signalé par les médias</h3><ul class="plain"><li><a href="https://imazpress.com/0.5" rel="noopener">Barrage levé au rond-point des Casernes</a> <span class="note">Imaz Press, en direct, aujourd&#39;hui à 07:30</span>`);
-      expect(page).not.toContain("Route du Littoral basculée");
+      expect(page).toContain(`<h3>Signalé par les médias</h3><ul class="plain"><li><a href="https://www.reunion.gouv.fr/a" rel="noopener">Violences urbaines : bilan de la nuit</a> <span class="note">Préfecture de La Réunion, aujourd&#39;hui</span></li><li><a href="https://imazpress.com/0.5" rel="noopener">Barrage levé au rond-point des Casernes</a> <span class="note">Imaz Press, en direct, aujourd&#39;hui à 07:30</span>`);
+      for (const no of ["Route du Littoral basculée", "Rentrez vos poubelles", "rassemblements sportifs", "Fête de la science", "Interdiction de manifester"]) expect(page).not.toContain(no);
       // The news is fresh: its feeds are not asked again for this page.
       expect(asked.some((u) => feeds.test(u))).toBe(false);
     });
@@ -121,7 +132,7 @@ describe("circulation", () => {
       const fresh = cache();
       await fresh.get<Fil>("actualites:fil", 300, async () => fil());
       const none: Promise<unknown>[] = [];
-      expect((await roadNewsNow(fresh, (p) => none.push(p), new Date(NOW.getTime() + 5 * 60_000)))?.infos).toHaveLength(4);
+      expect((await roadNewsNow(fresh, (p) => none.push(p), new Date(NOW.getTime() + 5 * 60_000)))?.infos).toHaveLength(6);
       expect(none).toHaveLength(0);
     });
   });
