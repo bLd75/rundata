@@ -184,7 +184,7 @@ export function weekendPage(origin: string, data: Cached<AgendaAnswer> | null, n
     <p class="pill"><span class="dot"></span>Du vendredi soir au dimanche</p>
     <h1>Ce week-end à La Réunion</h1>
     ${status}
-    ${ask(`Kosa néna pou fé sé wikenn la ? Rogard si ${url} é di amwin.`, `Que faire ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
+    ${ask(`Kosa néna pou fé sé wikenn la ? Gèt si ${url} é di amwin.`, `Que faire ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
   </div>
   ${brief}
 </div>`;
@@ -250,7 +250,7 @@ export function concertsPage(origin: string, data: Cached<AgendaAnswer> | null, 
     <p class="pill"><span class="dot"></span>Salles de concert, mairies et festivals</p>
     <h1>Concerts à La Réunion</h1>
     ${status}
-    ${ask(`Kel konsèr néna sé swar é sé wikenn la ? Rogard si ${url} é di amwin.`, `Quels concerts ce soir et ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
+    ${ask(`Kel konsèr néna sé swar é sé wikenn la ? Gèt si ${url} é di amwin.`, `Quels concerts ce soir et ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
   </div>
   ${side}
 </div>`;

@@ -207,7 +207,7 @@ describe("the fires' page", () => {
     expect(html).toContain(`<h2 id="h-sentiers">Les sentiers fermés par l'ONF</h2>`);
     expect(html).toContain('<h2 id="h-vigilance">La vigilance Météo-France</h2>');
     expect(html).toContain("Votre IA, branchée sur les feux");
-    expect(html).toContain("Néna difé dann bwa La Rényon astèr\u00a0?");
+    expect(html).toContain("Na difé dann bwa\u00a0? Maïdo i brul\u00a0? Gèt si https://rundata.re/feux é di amwin ousa lé, é si néna santyé fèrmé.");
     expect(html).toContain("#e8590c");
     expect(await (await page("/sitemap.xml"))!.text()).toContain("<loc>https://rundata.re/feux</loc>");
     // The satellites not answering: said, not kept.

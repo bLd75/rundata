@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Questions en créole pour votre IA, plus proches de la façon dont on parle ici : « Volkan la pété ? », « Kwélafé La Rényon astèr ? »…
 - Coupures d'eau : les avis de La Créole à Saint-Paul et aux Trois-Bassins, et de CISE Réunion à Sainte-Marie.
 - Volcan : les alertes précédentes remontent à 2016, avec 12 épisodes de plus cités dans les communiqués de la préfecture.
 - Cyclones passés : Belal (2024), Firinga (1989) et Hyacinthe (1980), la pluie mesurée station par station, avec les récits de Météo-France.

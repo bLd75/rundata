@@ -130,7 +130,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
   <h1>${esc(H1(p))}</h1>
   <p class="hook">${esc(HOOK(p))}</p>
   ${r.resume.includes(" ; ") ? `<p class="lead">${esc(r.resume.split(" ; ").slice(1).join(" ; ").replace(/^\p{L}/u, (x) => x.toUpperCase()))}</p>` : ""}
-  ${ask(`Kosa i éspas ${p.nom} jordi ? Rogard ${url} é di amwin.`, `Que se passe-t-il ${aCommune(p.nom)} aujourd'hui ? Lis ${url} et résume-moi la journée.`)}
+  ${ask(`Kosa i spas ${p.nom} jordi ? Gèt si ${url} é di amwin.`, `Que se passe-t-il ${aCommune(p.nom)} aujourd'hui ? Lis ${url} et résume-moi la journée.`)}
 </div></div>`;
   const body = `<section aria-labelledby="h-temps"><div class="sec-h"><h2 id="h-temps">Le temps</h2></div>
   <div class="two">${weather}${vigil}</div>

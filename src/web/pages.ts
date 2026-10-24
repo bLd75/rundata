@@ -1077,7 +1077,7 @@ export function meteoPage(origin: string, data: Cached<HomeData> | null, now = n
     <p class="pill"><span class="dot"></span>Mesures en direct</p>
     <h1>Météo à La Réunion <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Lé koman lo tan astèr La Rényon ? Rogard bann mézir an dirèk si ${url} é di amwin lèr la mézir.`,
+    ${ask(`I fé koman lo tan La Rényon astèr ? Gèt bann mézir an dirèk si ${url} é di amwin lèr la mézir.`,
       `Quel temps fait-il en ce moment à La Réunion ? Lis les mesures en direct sur ${url} et donne-moi l'heure des mesures.`)}
   </div>
   ${sea}
@@ -1262,7 +1262,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
     <h1>Météo à ${esc(p.nom)} <span class="n974">974</span></h1>
     ${SLOGAN}
     ${headline}
-    ${ask(`Lé koman lo tan astèr ${p.nom} ? Rogard la mézir an dirèk si ${origin}/meteo/${p.slug} é di amwin lèr la mézir é la stasion.`,
+    ${ask(`I fé koman lo tan ${p.nom} astèr ? Gèt la mézir an dirèk si ${origin}/meteo/${p.slug} é di amwin lèr la mézir é la stasion.`,
       `Quel temps fait-il en ce moment à ${p.nom} ? Lis la mesure en direct sur ${origin}/meteo/${p.slug} et donne-moi l'heure de la mesure et la station.`)}
     <p class="lead">${esc(p.nom)}, ${esc(kind)}${commune}${alt}, ${esc(v.replace(/ \(.*\)$/, ""))} de l'île${v.includes("(") ? ` (${esc(v.replace(/^.*\(|\)$/g, ""))})` : ""}.${where}</p>
     ${p.commune ? `<p class="or"><a href="/communes/${p.slug}">${esc(p.nom)} en direct : vigilance, air, bus, mairie →</a></p>` : ""}
@@ -1438,7 +1438,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
     <p class="pill"><span class="dot"></span>Vigilance Météo-France en direct</p>
     <h1>Vigilance et alerte cyclonique <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Néna in alèrt siklonik oubien in vijilans La Rényon astèr ? Rogard si ${url} é di amwin sak Météo-France i di.`,
+    ${ask(`Siklone i ariv ? Na lékol domin ? Gèt si ${url} é di amwin sak Météo-France é la préfektir i di.`,
       `Y a-t-il une alerte cyclonique ou une vigilance météo en cours à La Réunion ? Lis ${url} et dis-moi ce que dit Météo-France, zone par zone.`)}
   </div>
   <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) colorée par la vigilance en cours dans chaque zone" })}
@@ -1572,7 +1572,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
     <p class="pill"><span class="dot"></span>Mesure satellite</p>
     <h1>Température de la mer et houle <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Lé a konbien degré la mèr La Rényon ? Rogard si ${url} é di amwin pou chak plaj.`,
+    ${ask(`Dolo la mèr lé sho ? Gèt si ${url} é di amwin pou chak plaj.`,
       `Quelle est la température de l'eau à La Réunion ? Lis ${url} et donne-moi la température plage par plage, avec la date de la mesure.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) avec la température de la mer au large de chaque plage" })}</figure>
