@@ -9,8 +9,11 @@
 import { left, perInvocation } from "./budget.js";
 
 export interface Hit {
-  /** « mcp »: a tools/call; « rpc »: any other MCP message (initialize, tools/list…) or a refused request; « page ». */
-  kind: "mcp" | "rpc" | "page";
+  /**
+   * « mcp »: a tools/call; « rpc »: any other MCP message (initialize, tools/list…) or a refused request; « page »;
+   * « flux »: a commune's RSS feed fetched by a reader (web/rss.ts), kept apart from the page views.
+   */
+  kind: "mcp" | "rpc" | "page" | "flux";
   /** The tool; the JSON-RPC method (or the HTTP method of a request without one); the page's path. */
   name: string;
   /**
@@ -36,8 +39,12 @@ export interface Hit {
   place?: string;
   /** Tool: the commune of the place understood. */
   commune?: string;
-  /** Page: the HTTP status. */
+  /** Page, feed: the HTTP status. */
   status?: number;
+  /** Feed: the reader, from its User-Agent (feedReader). */
+  reader?: string;
+  /** Feed: how many subscribers the reader says it fetches for; 1 when it does not say. */
+  subscribers?: number;
   /** Milliseconds from the request to this answer (wall time: waiting on sources included). */
   ms?: number;
   /** Subrequests made while it ran (for several messages in one request, they overlap). */
@@ -74,6 +81,36 @@ export function visitor(userAgent: string): string {
   if (/bot|crawler|spider/i.test(userAgent)) return "autre robot";
   if (userAgent.startsWith("Mozilla/")) return "navigateur";
   return userAgent.split(/[\s/;(]/)[0].slice(0, 40) || "inconnu";
+}
+
+// The feed readers, online services first: those tell how many of their users follow the feed.
+const FEED_READERS: [RegExp, string][] = [
+  [/feedly/i, "Feedly"],
+  [/inoreader/i, "Inoreader"],
+  [/newsblur/i, "NewsBlur"],
+  [/theoldreader/i, "The Old Reader"],
+  [/feedbin/i, "Feedbin"],
+  [/bazqux/i, "BazQux"],
+  [/feedspot/i, "Feedspot"],
+  [/netnewswire/i, "NetNewsWire"],
+  [/reeder/i, "Reeder"],
+  [/miniflux/i, "Miniflux"],
+  [/freshrss/i, "FreshRSS"],
+  [/tiny ?tiny ?rss|tt-rss/i, "Tiny Tiny RSS"],
+  [/newsboat/i, "Newsboat"],
+  [/thunderbird/i, "Thunderbird"],
+  [/akregator/i, "Akregator"],
+  [/\bfeeder\b/i, "Feeder"],
+];
+
+/**
+ * The reader fetching a feed, and how many subscribers it says it fetches for (« 12 subscribers » from Feedly,
+ * Inoreader, NewsBlur…): 1 when it says nothing, as an app on someone's phone. Another User-Agent: visitor().
+ */
+export function feedReader(userAgent: string): { name: string; subscribers: number } {
+  const name = FEED_READERS.find(([re]) => re.test(userAgent))?.[1] ?? visitor(userAgent);
+  const n = /(\d+)\s*(?:subscribers?|readers?|abonnés?)\b/i.exec(userAgent);
+  return { name, subscribers: n ? Math.max(1, Number(n[1])) : 1 };
 }
 
 // Fetches made for a person by an assistant, as opposed to its crawler.
@@ -126,13 +163,16 @@ export interface Visit {
  * The Analytics Engine data point of a hit (dataset rundata_usage). Columns 1 to 6 and double1 keep their first meaning,
  * so older queries still work.
  *
+ * A feed (« flux ») is written as a page, but for blob1, blob4 (the reader) and double6 (its subscribers). Readers per
+ * feed per day: for each feed and reader, the day's largest double6; then their sum.
+ *
  * | column  | mcp, rpc                                   | page                                   |
  * |---------|--------------------------------------------|----------------------------------------|
  * | index1  | kind                                       | kind                                   |
- * | blob1   | kind: mcp (tools/call) or rpc (the rest)   | page                                   |
+ * | blob1   | kind: mcp (tools/call) or rpc (the rest)   | page, or flux                          |
  * | blob2   | tool, or JSON-RPC method, or HTTP method   | path                                   |
  * | blob3   | place understood, or text not understood   | « bouton » (opened from a question)    |
- * | blob4   | visitor, from the User-Agent               | visitor                                |
+ * | blob4   | visitor, from the User-Agent               | visitor; for a feed, its reader        |
  * | blob5   | country                                    | country                                |
  * | blob6   | referring site or « ref:<canal> »          | same                                   |
  * | blob7   | JSON-RPC method                            | category: accueil, meteo/*…            |
@@ -149,21 +189,21 @@ export interface Visit {
  * | double3 | subrequests                                | subrequests                            |
  * | double4 | cache entries served fresh                 | same                                   |
  * | double5 | cache entries loaded from the source       | same                                   |
- * | double6 | characters of the tool's answer            | —                                      |
+ * | double6 | characters of the tool's answer            | feed: its reader's subscribers, else 1 |
  *
  * Analytics Engine keeps points three months.
  */
 export function point(hit: Hit, v: Visit): { indexes: string[]; blobs: string[]; doubles: number[] } {
-  const page = hit.kind === "page";
+  const page = hit.kind === "page" || hit.kind === "flux";
   const blobs = [
-    hit.kind, hit.name, hit.detail ?? "", v.who, v.country, v.from,
+    hit.kind, hit.name, hit.detail ?? "", hit.reader ?? v.who, v.country, v.from,
     page ? category(hit.name) : hit.method ?? "",
     page ? v.language : hit.client ?? "",
     page ? v.audience : hit.clientVersion ?? "",
     page ? String(hit.status ?? "") : hit.protocol ?? "",
     hit.outcome ?? "", hit.message ?? "", hit.args ?? "", hit.place ?? "", hit.commune ?? "",
   ];
-  const doubles = [hit.ok ? 1 : 0, hit.ms ?? 0, hit.subrequests ?? 0, hit.cacheHits ?? 0, hit.cacheLoads ?? 0, hit.size ?? 0];
+  const doubles = [hit.ok ? 1 : 0, hit.ms ?? 0, hit.subrequests ?? 0, hit.cacheHits ?? 0, hit.cacheLoads ?? 0, hit.kind === "flux" ? hit.subscribers ?? 1 : hit.size ?? 0];
   return { indexes: [hit.kind], blobs, doubles };
 }
 

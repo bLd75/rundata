@@ -5,7 +5,7 @@
  */
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { Cache } from "./cache.js";
-import { stopwatch, type Recorder } from "./metrics.js";
+import { feedReader, stopwatch, type Recorder } from "./metrics.js";
 import { createServer, VERSION } from "./server.js";
 import { watch } from "./usage.js";
 import type { Background } from "./web/data.js";
@@ -92,8 +92,13 @@ export async function handle(request: Request, cache: Cache, background: Backgro
   const measure = stopwatch();
   const page = await site(request, cache, background);
   if (page) {
-    if (page.headers.get("content-type")?.startsWith("text/html")) {
+    const type = page.headers.get("content-type") ?? "";
+    if (type.startsWith("text/html")) {
       record({ kind: "page", name: url.pathname, detail: url.searchParams.has("maj") ? "bouton" : undefined, ok: page.ok, status: page.status, ...measure() });
+    } else if (type.startsWith("application/rss+xml")) {
+      // A reader polls all day: counted apart from the page views, with how many it reads for.
+      const r = feedReader(request.headers.get("user-agent") ?? "");
+      record({ kind: "flux", name: url.pathname, ok: page.ok, status: page.status, reader: r.name, subscribers: r.subscribers, ...measure() });
     }
     return page;
   }

@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { counted } from "../src/budget.js";
 import { Cache } from "../src/cache.js";
-import { audience, category, language, point, type Hit } from "../src/metrics.js";
+import { audience, category, feedReader, language, point, type Hit } from "../src/metrics.js";
 import { answer, asked, understood } from "../src/usage.js";
 
 const post = (body: unknown, headers: Record<string, string> = {}) =>
@@ -126,5 +126,45 @@ describe("Page views and the data point", () => {
     expect(p.doubles).toEqual([1, 120, 3, 2, 1, 900]);
     const page = point({ kind: "page", name: "/meteo/cilaos", ok: true, status: 200, ms: 30 }, { ...visit, audience: "humain", language: "fr" });
     expect(page.blobs.slice(6, 10)).toEqual(["meteo/*", "fr", "humain", "200"]);
+  });
+});
+
+describe("Feeds, as recorded", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("names the reader and reads how many subscribers it fetches for", () => {
+    expect(feedReader("Feedly/1.0 (+http://www.feedly.com/fetcher.html; 12 subscribers; like FeedFetcher-Google)")).toEqual({ name: "Feedly", subscribers: 12 });
+    expect(feedReader("Mozilla/5.0 (compatible; inoreader.com; 3 subscribers)")).toEqual({ name: "Inoreader", subscribers: 3 });
+    expect(feedReader("NewsBlur Feed Fetcher - 1 subscriber - https://www.newsblur.com/site/123/x")).toEqual({ name: "NewsBlur", subscribers: 1 });
+    expect(feedReader("Feedbin feed-id:1373711 - 5 subscribers")).toEqual({ name: "Feedbin", subscribers: 5 });
+    // An app on someone's phone or computer: one reader.
+    expect(feedReader("NetNewsWire (RSS Reader; https://netnewswire.com/)")).toEqual({ name: "NetNewsWire", subscribers: 1 });
+    expect(feedReader("Mozilla/5.0 (compatible; Miniflux/2.2.1; +https://miniflux.app)")).toEqual({ name: "Miniflux", subscribers: 1 });
+    expect(feedReader("Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0").name).toBe("navigateur");
+    expect(feedReader("curl/8.5.0").name).toBe("curl");
+  });
+
+  it("writes a feed apart from the page views: its reader in blob4, its subscribers in double6", () => {
+    const visit = { who: "Feedly/1.0", country: "US", from: "", audience: "", language: "" };
+    const p = point({ kind: "flux", name: "/communes/saint-paul.rss", ok: true, status: 200, reader: "Feedly", subscribers: 12, ms: 8, subrequests: 4 }, visit);
+    expect(p.indexes).toEqual(["flux"]);
+    expect(p.blobs.slice(0, 6)).toEqual(["flux", "/communes/saint-paul.rss", "", "Feedly", "US", ""]);
+    expect(p.blobs.slice(6, 10)).toEqual(["communes/*", "", "", "200"]);
+    expect(p.doubles).toEqual([1, 8, 4, 0, 0, 12]);
+    expect(point({ kind: "flux", name: "/communes/le-port.rss", ok: true }, visit).doubles[5]).toBe(1);
+  });
+
+  it("records the RSS route as a feed, never as a page", async () => {
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("offline");
+    });
+    const ua = { "user-agent": "Mozilla/5.0 (compatible; inoreader.com; 3 subscribers)" };
+    const { hits, response } = await hitsOf(new Request("https://rundata.re/communes/saint-paul.rss", { headers: ua }));
+    expect(response.headers.get("content-type")).toBe("application/rss+xml; charset=utf-8");
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ kind: "flux", name: "/communes/saint-paul.rss", ok: true, status: 200, reader: "Inoreader", subscribers: 3 });
+    // The page of the commune stays a page.
+    const page = await hitsOf(new Request("https://rundata.re/communes/saint-paul", { headers: { ...ua, accept: "text/html" } }));
+    expect(page.hits.map((h) => h.kind)).toEqual(["page"]);
   });
 });

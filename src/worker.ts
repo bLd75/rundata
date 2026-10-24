@@ -122,7 +122,7 @@ function recorder(env: Env, request: Request) {
   const tag = new URL(request.url).searchParams.get("ref")?.replace(/[^\w.-]/g, "").slice(0, 40);
   if (tag) from = `ref:${tag}`;
   return (hit: Hit) => {
-    if (hit.kind !== "page") console.log(logLine(hit, who, country));
+    if (hit.kind === "mcp" || hit.kind === "rpc") console.log(logLine(hit, who, country));
     if (!usage) return;
     try {
       const page = hit.kind === "page";
