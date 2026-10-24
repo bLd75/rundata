@@ -57,7 +57,7 @@ import { COMMUNES, communePage, communesPage } from "./commune.js";
 import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
 import { concertsPage, weekendPage } from "./evenements.js";
 import { coupuresCommunePage } from "./coupures.js";
-import { hikesNear } from "./liens.js";
+import { cloudSeaTold, hikesNear, summitOf } from "./liens.js";
 import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
@@ -367,7 +367,11 @@ async function pages(request: Request, cache: Cache, background: Background, now
       snapshot(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)), background, now, waitFor(request), isReader(request)),
       alerte(cache, background, now),
     ]);
-    return page(path, (live) => tracePage(origin, t ? "sentier" : "randonnee", slug, t?.nom ?? r!.nom, live ? data : null, now, a), data, background, [rebuild(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)))]);
+    // A summit's trail links to the morning's cloud sea there, only while the page it leads to tells it: its last copy,
+    // as it is, never built for this page.
+    const summit = summitOf((data?.value.lignes ?? []).flatMap((l) => l.points));
+    const told = summit && cloudSeaTold(summit, await cache.peek<PlaceData & RandonneesAnswer>(summit.copy, now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined));
+    return page(path, (live) => tracePage(origin, t ? "sentier" : "randonnee", slug, t?.nom ?? r!.nom, live ? data : null, now, a, told ? summit : undefined), data, background, [rebuild(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)))]);
   }
   if (path === "/presse" || path === "/presse/") {
     // Its live counts are read from copies already here: a few minutes in browsers is enough.

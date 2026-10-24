@@ -68,20 +68,45 @@ export function weatherForTrace(points: [number, number][]): string {
 }
 
 // The summits whose cloud sea of the morning is told (tools/nuages.ts): on a place's page, or on /randonnees for the
-// Piton des Neiges, which has none. The Grand Bénare's is the Maïdo's, its neighbour on the same rampart.
-const SUMMITS: { lon: number; lat: number; nom: string; href: string }[] = [
-  { lon: 55.38757, lat: -21.06885, nom: "au Maïdo", href: "/meteo/maido#mer-de-nuages" },
-  { lon: 55.42217, lat: -21.11613, nom: "au Maïdo voisin", href: "/meteo/maido#mer-de-nuages" },
-  { lon: 55.48003, lat: -21.09945, nom: "au Piton des Neiges", href: "/randonnees#mer-de-nuages" },
-  { lon: 55.68916, lat: -21.22227, nom: "au Pas de Bellecombe", href: "/meteo/piton-de-la-fournaise#mer-de-nuages" },
+// Piton des Neiges, which has none. Most climbs to the Grand Bénare start at the Maïdo: its line is the Maïdo's, with
+// the height between the two (2 898 m, the Maïdo's 2 197 m). Worded by marketing.
+export interface Summit {
+  lon: number;
+  lat: number;
+  lieu: string;
+  href: string;
+  /** The copy the link leads to, which tells it: a place's page or the hikers' page. */
+  copy: string;
+  /** The line of /randonnees that tells it, when that is where the link leads. */
+  haut?: string;
+  apres?: string;
+}
+const SUMMITS: Summit[] = [
+  { lon: 55.38757, lat: -21.06885, lieu: "au Maïdo", href: "/meteo/maido#mer-de-nuages", copy: "web:lieu:maido" },
+  {
+    lon: 55.42217, lat: -21.11613, lieu: "au Maïdo", href: "/meteo/maido#mer-de-nuages", copy: "web:lieu:maido",
+    apres: "Le sommet du Grand Bénare est environ 700\u00a0m plus haut que le Maïdo.",
+  },
+  { lon: 55.48003, lat: -21.09945, lieu: "au Piton des Neiges", href: "/randonnees#mer-de-nuages", copy: "web:randonnees", haut: "Piton des Neiges" },
+  { lon: 55.68916, lat: -21.22227, lieu: "au Pas de Bellecombe", href: "/meteo/piton-de-la-fournaise#mer-de-nuages", copy: "web:lieu:piton-de-la-fournaise" },
 ];
 // A trail within this of a summit reaches it: the summit at one end, or on the way.
 const SUMMIT_KM = 0.5;
 
-/** On a trail's or a hike's page that reaches a summit, the link to the morning's cloud sea there. */
-export function cloudSeaForTrace(points: [number, number][]): string {
-  const s = SUMMITS.find((x) => points.some(([lon, lat]) => distanceKm(lon, lat, x.lon, x.lat) <= SUMMIT_KM));
-  return s ? `<p class="note">Au-dessus ou dans les nuages ? <a href="${s.href}">La mer de nuages prévue ${esc(s.nom)}</a>, d'après le modèle AROME de Météo-France : une prévision, pas une mesure.</p>` : "";
+/** The summit a trail or a hike reaches, if any. */
+export function summitOf(points: [number, number][]): Summit | undefined {
+  return SUMMITS.find((x) => points.some(([lon, lat]) => distanceKm(lon, lat, x.lon, x.lat) <= SUMMIT_KM));
+}
+
+/** Whether the copy of the page the link leads to tells the morning's cloud sea: else the link would lead nowhere. */
+export function cloudSeaTold(s: Summit, copy: Cached<{ prevision?: { mer_de_nuages?: unknown }; hauts?: { nom: string }[] }> | null | undefined): boolean {
+  const v = copy?.value;
+  return s.haut ? !!v?.hauts?.some((h) => h.nom === s.haut) : !!v?.prevision?.mer_de_nuages;
+}
+
+/** On a summit's trail's or hike's page, the link to the morning's cloud sea there. */
+export function cloudSeaLink(s: Summit | undefined): string {
+  return s ? `<p class="note">Au-dessus ou dans les nuages ? <a href="${s.href}">Mer de nuages ${esc(s.lieu)} : la prévision</a> du modèle AROME de Météo-France, pas une mesure.${s.apres ? ` ${esc(s.apres)}` : ""}</p>` : "";
 }
 
 /** The weather pages of the communes where something happens on a day: « Prévision : Saint-Paul, Le Port ». */

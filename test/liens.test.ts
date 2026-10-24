@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AgendaAnswer } from "../src/web/data.js";
 import { tracePage, traficPage } from "../src/web/domains.js";
 import { weekendPage } from "../src/web/evenements.js";
-import { communeEvents, forecastLinks, hikesNear, weatherNear } from "../src/web/liens.js";
+import { cloudSeaTold, communeEvents, forecastLinks, hikesNear, summitOf, weatherNear } from "../src/web/liens.js";
 import { placePage } from "../src/web/pages.js";
 import { pageOf } from "../src/web/places.js";
 
@@ -28,16 +28,28 @@ describe("links between the weather, the hikes and the communes", () => {
     expect(tracePage(O, "sentier", "x", "Sentier", d, NOW)).toContain(`<a href="/meteo/piton-de-la-fournaise">météo Piton de la Fournaise</a>`);
   });
 
-  it("link a summit's trail to the cloud sea of the morning there, and no other trail", () => {
-    const page = (points: [number, number][]) => tracePage(O, "sentier", "x", "Sentier", { value: { nom: "x", slug: "x", genre: "sentier", km: 1, etat: "Ouvert", ferme: false, troncons: [], lignes: [{ etat: "ouvert", points }], profil: [], randonnees: [], fermes: [], inconnus: [], sources: [] }, fetchedAt: NOW } as any, NOW);
+  it("link a summit's trail to the cloud sea of the morning there, only while that page tells it", () => {
+    const at = (points: [number, number][]) => summitOf(points);
+    const page = (points: [number, number][]) => tracePage(O, "sentier", "x", "Sentier", { value: { nom: "x", slug: "x", genre: "sentier", km: 1, etat: "Ouvert", ferme: false, troncons: [], lignes: [{ etat: "ouvert", points }], profil: [], randonnees: [], fermes: [], inconnus: [], sources: [] }, fetchedAt: NOW } as any, NOW, undefined, at(points));
     // Le Bloc → Piton des Neiges: the summit at its end; its morning is told on /randonnees.
-    expect(page([[55.48328, -21.12347], [55.48, -21.09914]])).toContain(`<a href="/randonnees#mer-de-nuages">La mer de nuages prévue au Piton des Neiges</a>, d'après le modèle AROME de Météo-France : une prévision, pas une mesure.`);
-    expect(page([[55.38607, -21.07203], [55.38718, -21.06905]])).toContain(`<a href="/meteo/maido#mer-de-nuages">La mer de nuages prévue au Maïdo</a>`);
-    // The Grand Bénare has no page: the Maïdo's, said as its neighbour's.
-    expect(page([[55.39915, -21.16335], [55.42217, -21.11613]])).toContain(`<a href="/meteo/maido#mer-de-nuages">La mer de nuages prévue au Maïdo voisin</a>`);
-    expect(page([[55.68916, -21.22227], [55.6919, -21.22206]])).toContain(`<a href="/meteo/piton-de-la-fournaise#mer-de-nuages">La mer de nuages prévue au Pas de Bellecombe</a>`);
+    const neiges: [number, number][] = [[55.48328, -21.12347], [55.48, -21.09914]];
+    expect(page(neiges)).toContain(`<p class="note">Au-dessus ou dans les nuages ? <a href="/randonnees#mer-de-nuages">Mer de nuages au Piton des Neiges : la prévision</a> du modèle AROME de Météo-France, pas une mesure.</p>`);
+    expect(page([[55.38607, -21.07203], [55.38718, -21.06905]])).toContain(`<a href="/meteo/maido#mer-de-nuages">Mer de nuages au Maïdo : la prévision</a> du modèle AROME de Météo-France, pas une mesure.</p>`);
+    // The Grand Bénare has no page: the Maïdo's, with the height between them.
+    expect(page([[55.39915, -21.16335], [55.42217, -21.11613]])).toContain(`<a href="/meteo/maido#mer-de-nuages">Mer de nuages au Maïdo : la prévision</a> du modèle AROME de Météo-France, pas une mesure. Le sommet du Grand Bénare est environ 700\u00a0m plus haut que le Maïdo.</p>`);
+    expect(page([[55.68916, -21.22227], [55.6919, -21.22206]])).toContain(`<a href="/meteo/piton-de-la-fournaise#mer-de-nuages">Mer de nuages au Pas de Bellecombe : la prévision</a>`);
     // Caverne Dufour, 2 km below the Piton des Neiges: not a summit.
-    expect(page([[55.5709, -21.16109], [55.49538, -21.11113]])).not.toContain("mer-de-nuages");
+    expect(at([[55.5709, -21.16109], [55.49538, -21.11113]])).toBeUndefined();
+    // The link only while the page it leads to tells the cloud sea: else it would lead nowhere.
+    const copy = (value: object) => ({ value, fetchedAt: NOW }) as any;
+    expect(cloudSeaTold(at(neiges)!, copy({ hauts: [{ nom: "Maïdo" }, { nom: "Piton des Neiges" }] }))).toBe(true);
+    expect(cloudSeaTold(at(neiges)!, copy({ hauts: [{ nom: "Maïdo" }] }))).toBe(false);
+    expect(cloudSeaTold(at(neiges)!, copy({}))).toBe(false);
+    expect(cloudSeaTold(at(neiges)!, undefined)).toBe(false);
+    const maido = at([[55.38757, -21.06885]])!;
+    expect(cloudSeaTold(maido, copy({ prevision: { mer_de_nuages: { titre: "Mer de nuages demain matin" } } }))).toBe(true);
+    expect(cloudSeaTold(maido, copy({ prevision: {} }))).toBe(false);
+    expect(tracePage(O, "sentier", "x", "Sentier", null, NOW)).not.toContain("mer-de-nuages");
   });
 
   it("give a commune's outings and the forecast of the communes of each weekend day", () => {
