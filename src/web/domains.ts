@@ -89,7 +89,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     ? loading("L'état du volcan")
     : `<div class="status">` +
       (e
-        ? `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours"}</p>` +
+        ? `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : /^Alerte/.test(e.niveau_orsec) ? "Éruption probable ou imminente" : "Pas d'éruption en cours"}</p>` +
           `<p class="lead">Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>.` +
           (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b>.` : "") +
           (e.deformation ? ` Déformation du volcan : ${esc(e.deformation)}.` : "") + `</p>` +
@@ -124,7 +124,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   const title = "Piton de la Fournaise en direct : éruption, Enclos, séismes · 974";
   const description = d && e
     ? describe(
-        `🇷🇪 Piton de la Fournaise (La Réunion, 974) : ${e.eruption_en_cours ? "éruption en cours" : "pas d'éruption en cours"}, niveau ORSEC ${e.niveau_orsec}` +
+        `🇷🇪 Piton de la Fournaise (La Réunion, 974) : ${e.eruption_en_cours ? "éruption en cours" : /^Alerte/.test(e.niveau_orsec) ? "éruption probable ou imminente" : "pas d'éruption en cours"}, niveau ORSEC ${e.niveau_orsec}` +
           `${e.acces_enclos ? `, Enclos ${ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut}` : ""}` +
           `${q ? `, ${q.sous_le_volcan["7_jours"]} séismes sous le volcan en 7 jours` : ""}.`,
         "🇷🇪 Piton de la Fournaise (La Réunion, 974) en direct : éruption ou non, accès à l'Enclos, derniers séismes de l'OVPF.",

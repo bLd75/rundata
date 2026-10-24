@@ -44,13 +44,34 @@ export function quakeSummary(list: seismes.Seisme[], now: Date) {
   };
 }
 
+/**
+ * pitonlive's state, with the phase the prefecture declared when its release is as recent as pitonlive's status or
+ * more: the prefecture declares each phase first, pitonlive follows within hours.
+ */
+export function official(s: volcan.PitonState, p: volcan.Phase): volcan.PitonState & { prefecture?: volcan.Phase } {
+  const known = s.status.published_at ? Date.parse(s.status.published_at) : 0;
+  // The release has a day, not an hour: it wins from its day on.
+  if (Date.parse(p.publie) - 12 * 3600_000 < known) return s;
+  const enclos = p.enclos ?? s.access?.current?.enclos_status;
+  return {
+    ...s,
+    status: { ...s.status, alert_level_display: p.niveau, alert_level: p.niveau.toLowerCase(), is_erupting: p.eruption || s.status.is_erupting },
+    access: enclos
+      ? { current: { available: true, global_status: enclos, enclos_status: enclos, summary: p.titre, source_name: "Préfecture de La Réunion", source_url: p.lien } }
+      : s.access,
+    prefecture: p,
+  };
+}
+
 export async function volcanSeismes(cache: Cache, now = new Date()) {
-  const [state, posts, quakes] = await Promise.all([
+  const [piton, posts, quakes, phase] = await Promise.all([
     settle(volcan.PITONLIVE.id, volcan.state(cache)),
     settle(volcan.OVPF.id, volcan.posts(cache)),
     settle(seismes.SOURCE.id, seismes.seismes(cache, now)),
+    settle(volcan.PREFECTURE.id, volcan.phase(cache)),
   ]);
-  if (!state && !posts && !quakes) {
+  const state = piton && phase ? official(piton, phase) : piton;
+  if (!state && !posts && !quakes && !phase) {
     return {
       ...text({ erreur: "Les sources sur le volcan ne répondent pas pour le moment.", consulter: [seismes.SOURCE.url, volcan.OVPF.url] }),
       isError: true,
@@ -63,8 +84,12 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     parts.push(
       s.is_erupting
         ? `ÉRUPTION EN COURS au Piton de la Fournaise${state.eruption?.started_at ? ` depuis le ${day(state.eruption.started_at)}` : ""}.`
-        : "Pas d'éruption en cours au Piton de la Fournaise.",
+        : /^Alerte/.test(s.alert_level_display)
+          ? `${s.alert_level_display} au Piton de la Fournaise : éruption probable ou imminente, pas encore commencée selon les dernières informations.`
+          : "Pas d'éruption en cours au Piton de la Fournaise.",
     );
+    const p = (state as { prefecture?: volcan.Phase }).prefecture;
+    if (p) parts.push(`Communiqué de la préfecture du ${day(p.publie)} : « ${p.titre} » (${p.lien}).`);
     parts.push(`Niveau du dispositif ORSEC volcan : ${s.alert_level_display}.`);
     if (!s.is_erupting && state.last_eruption_ended_at) {
       parts.push(`Dernière éruption terminée le ${day(state.last_eruption_ended_at)} (il y a ${state.days_since_last_eruption} jours).`);
@@ -83,7 +108,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     );
   }
 
-  const sources = [...(state ? [volcan.PITONLIVE] : []), ...(posts ? [volcan.OVPF] : []), ...(quakes ? [seismes.SOURCE] : [])];
+  const sources = [...(phase ? [volcan.PREFECTURE] : []), ...(state ? [volcan.PITONLIVE] : []), ...(posts ? [volcan.OVPF] : []), ...(quakes ? [seismes.SOURCE] : [])];
   return text({
     resume: parts.join(" "),
     etat: state
@@ -101,7 +126,9 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
                 lien: state.access.current.source_url,
               }
             : undefined,
-          source: "pitonlive.com (site indépendant, à recouper avec les sources officielles)",
+          source: (state as { prefecture?: volcan.Phase }).prefecture
+            ? "préfecture de La Réunion (communiqué), complété par pitonlive.com"
+            : "pitonlive.com (site indépendant, à recouper avec les sources officielles)",
         }
       : "indisponible",
     publications_ovpf: posts ? posts.slice(0, 3).map((p) => ({ ...p, date: `${localTime(new Date(p.date))} heure de La Réunion` })) : "indisponible",

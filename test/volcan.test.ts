@@ -16,6 +16,7 @@ function cacheWith() {
   void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
   void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
   void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
+  void store.put("volcan:prefecture", { value: null, fetchedAt: t });
   return new Cache(store, () => t);
 }
 
