@@ -21,6 +21,7 @@ import rubriques from "./og-rubriques.json" with { type: "json" };
 import { WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker } from "./map.js";
+import { AVIS_CSS, avisForm } from "./avis.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 
 export const SITE = "rundata.re";
@@ -543,7 +544,7 @@ footer.foot .brand{color:var(--on-night);margin-bottom:.8rem}
 footer.foot p+p{margin-top:.6rem}
 footer.foot h3{color:var(--on-night);font-size:1rem;margin-bottom:.4rem}
 footer.foot .slogan{font-size:1rem}
-`.replace(/\n/g, "");
+`.replace(/\n/g, "") + AVIS_CSS;
 
 interface Head {
   title: string;
@@ -647,6 +648,7 @@ ${banner(head.alerte, head.path)}
 <main class="wrap">
 ${body}
 </main>
+${avisForm(head.path)}
 <footer class="foot"><div class="wrap">
   <div>
     <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
@@ -1379,10 +1381,12 @@ export function legalPage(origin: string, kind: "confidentialite" | "conditions"
   <p>Pour savoir quelles pages et quels outils servent, et les améliorer, chaque page vue et chaque message reçu par le connecteur ajoutent une ligne anonyme aux statistiques : la page et sa rubrique, ou l'outil appelé avec le nom des paramètres donnés (pas leur valeur) ; le lieu demandé quand c'en est un, tel que le site l'a compris (une commune, une plage…), ou le texte demandé, coupé à 60 caractères, quand il ne l'a pas compris, pour apprendre à le comprendre ; le nom et la version de l'application de l'assistant (par exemple « claude-ai ») ; si la réponse a réussi, son temps et sa taille ; le pays déduit par Cloudflare, la langue du navigateur, le site d'où vient le visiteur et son type (une personne, un assistant, ou le nom du robot d'un assistant ou d'un moteur de recherche). Ni adresse IP, ni identifiant, ni cookie. Des coordonnées ne sont jamais gardées, seulement leur commune. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée, pas plus que les autres paramètres (un arrêt de bus, un sujet…). Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
   <h2>Journaux techniques</h2>
   <p>Comme tout hébergeur, Cloudflare garde quelques jours les journaux du service (adresse demandée, erreurs, durée). Pour chaque message du connecteur, ils reprennent les éléments des statistiques ci-dessus, sans rien de plus. Une copie sans aucune adresse IP est conservée un an au plus, pour comprendre les pannes. Votre conversation n'y figure jamais.</p>
+  <h2 id="avis-donnees">Les avis que vous laissez</h2>
+  <p>Le formulaire en bas de chaque page et l'outil <code>donner_avis</code> du connecteur (que votre assistant peut appeler pour signaler une donnée qui manque ou une erreur) enregistrent : la date, le type d'avis, le message, l'outil et le lieu concernés, la page du formulaire, et le nom de l'assistant quand il se présente (Claude, ChatGPT…). Ils servent à corriger et à compléter les données, et à rien d'autre. Ni compte, ni adresse IP : pour refuser les envois en masse, une empreinte chiffrée de l'adresse, qui change chaque jour et ne permet pas de la retrouver, est gardée un jour puis effacée. Les numéros de téléphone et adresses électroniques écrits dans un message sont retirés avant l'enregistrement. Les avis sont conservés 12 mois, chez Cloudflare (base D1), puis effacés automatiquement. Ils ne sont ni publiés ni partagés. Pour qu'un avis soit effacé plus tôt, écrire à <b>contact@rundata.re</b> en le citant.</p>
   <h2>Quand votre assistant pose une question</h2>
   <p>Votre assistant (ChatGPT, Claude, Le Chat…) n'envoie au connecteur que les paramètres de l'outil, par exemple « Saint-Paul » ou une adresse, jamais votre conversation. Pour répondre, rundata.re transmet ce paramètre aux services publics qui détiennent la donnée : par exemple, une adresse est envoyée au géocodeur de l'IGN, puis le point trouvé au cadastre, au Géoportail de l'urbanisme, à Géorisques et à l'API DVF du Cerema. Ce que fait votre assistant de la conversation relève de sa propre politique de confidentialité.</p>
   <h2>Vos droits</h2>
-  <p>Aucune donnée ne permet de vous identifier, il n'y a donc rien à consulter ni à effacer à votre nom. Pour toute question : <b>contact@rundata.re</b>. Vous pouvez aussi saisir la <a href="https://www.cnil.fr/fr/plaintes">CNIL</a>.</p>
+  <p>Aucune donnée ne permet de vous identifier, il n'y a donc rien à consulter ni à effacer à votre nom (sauf ce que vous auriez écrit vous-même dans un avis). Pour toute question : <b>contact@rundata.re</b>. Vous pouvez aussi saisir la <a href="https://www.cnil.fr/fr/plaintes">CNIL</a>.</p>
   <p style="color:var(--muted)">Mise à jour : 24 octobre 2026.</p>
 </section>`
     : `<section style="${PROSE}">

@@ -16,6 +16,7 @@ import * as eauIle from "./eau/ile.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
+import * as avis from "./avis.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { why } from "./types.js";
 
@@ -86,11 +87,14 @@ interface Env {
   TRANSIT?: D1Database;
   CLIMAT?: D1Database;
   CLIMAT_H?: D1Database;
+  AVIS?: D1Database;
+  /** Optional: the salt of the feedback senders' fingerprints (src/avis.ts). */
+  AVIS_SEL?: string;
 }
 
 /** The part of a D1 binding used here. */
 interface D1Database {
-  prepare(sql: string): { bind(...values: unknown[]): { all<T>(): Promise<{ results: T[] }> } };
+  prepare(sql: string): { bind(...values: unknown[]): { all<T>(): Promise<{ results: T[] }>; run(): Promise<{ meta: { changes: number } }> } };
 }
 
 /** The part of a Workers Analytics Engine binding used here. */
@@ -165,6 +169,9 @@ function setup(env: Env): Cache {
     climatDb && { all: async <T>(sql: string, ...params: unknown[]) => (await climatDb.prepare(sql).bind(...params).all<T>()).results },
     hourlyDb && { all: async <T>(sql: string, ...params: unknown[]) => (await hourlyDb.prepare(sql).bind(...params).all<T>()).results },
   );
+  // The feedback of the tool donner_avis and of the site's form: one row each (scripts/avis.sql).
+  const avisDb = env.AVIS;
+  avis.configure(avisDb && (async (sql: string, ...params: unknown[]) => (await avisDb.prepare(sql).bind(...params).run()).meta.changes), env.AVIS_SEL);
   // Without the KV binding, the bundles stay in the data center's cache like everything else.
   return (cache ??= new Cache(new TieredStore(new MemoryStore(), new EdgeStore()), Date.now, false, env.STORE && new KvStore(env.STORE)));
 }

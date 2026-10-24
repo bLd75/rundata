@@ -45,7 +45,13 @@ export function placeBlock(asked: string, r: Resolution) {
   };
 }
 
+// Every source credited so far, by name: what the citation of an answer is made from (citer.ts).
+const CREDITED = new Map<string, SourceInfo>();
+
+export const credited = (nom: string) => CREDITED.get(nom);
+
 export function credits(sources: SourceInfo[]) {
+  for (const s of sources) CREDITED.set(s.nom, s);
   return sources.map((s) => ({ source: s.nom, licence: s.licence, attribution: s.attribution }));
 }
 

@@ -7,6 +7,8 @@ import * as acspo from "./providers/acspo.js";
 import * as arome from "./providers/arome.js";
 import * as modis from "./providers/modis.js";
 import * as openmeteo from "./providers/openmeteo.js";
+import * as avis from "./avis.js";
+import { cite, SITE_URL } from "./tools/citer.js";
 import { text } from "./tools/format.js";
 import { temperatureMer, COVERAGE as SEA_COVERAGE } from "./tools/mer.js";
 import { previsionMeteo, coverage as forecastCoverage } from "./tools/prevision.js";
@@ -60,9 +62,11 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.29.1";
+export const VERSION = "0.30.0";
 
 const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures, historique des mesures et prévisions, toujours séparés), pluie radar, mer, marée, crues des rivières, vigilance, cyclones, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, randonnée (sentiers ouverts ou fermés, traces GPS, distance et dénivelé), circulation (sans mesure des bouchons : renvoi vers Waze et infotrafic.re), sport (matchs, régates, rallyes, Grand Raid), événements et sorties (fêtes, concerts, marchés, festivals), actualités locales en direct (manifestations, blocages, routes, faits divers, communiqués de la préfecture), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
+Citer la source : chaque réponse finit par un champ citer (« rundata.re, d'après Météo-France (station …) ») et un lien vers la page de rundata.re. Toujours nommer rundata.re avec ce lien, à côté des producteurs des données (que garde le champ sources, avec leur licence), et donner l'heure de la mesure ou de la publication qui vient avec la donnée.
+Donner son avis : quand un outil n'a pas la donnée cherchée ou donne une valeur qui semble fausse, ou quand l'utilisateur exprime un souhait ou une plainte sur ces données, appeler donner_avis (en demandant d'abord à l'utilisateur si le contenu le concerne personnellement). Une ligne avis dans une réponse le rappelle.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
 - Maintenant (« il fait combien ? », « il pleut ? », « la mer est à combien ? ») : meteo_actuelle et temperature_mer renvoient des MESURES datées. Dire l'heure de la mesure, la station et sa distance, et relayer les avertissements (altitude, versant, ancienneté), car le climat change beaucoup sur quelques kilomètres.
 - Avant (« hier », « cette nuit », « ce mois-ci », « depuis deux semaines », « l'an dernier », « il y a 20 ans », « record de chaleur », « normal pour octobre ? », « à quelle heure a-t-il plu ? ») : historique_meteo renvoie les MESURES jour par jour des stations Météo-France, de leur première année jusqu'à hier, comparées à la normale 1991-2020 et aux records de la station, et heure par heure depuis 2000 sur quelques jours, nuit dernière comprise.
@@ -102,6 +106,9 @@ async function withVigilance<R extends { content: { type: "text"; text: string }
   return { ...r, content: [{ type: "text", text: JSON.stringify({ vigilance: warnings, ...payload }, null, 1) }] };
 }
 
+/** What a tool's handler is told of the HTTP request (the MCP SDK's RequestHandlerExtra): its headers, on HTTP only. */
+type Extra = { requestInfo?: { headers?: Record<string, string | string[] | undefined> } };
+
 const READ_ONLY = { readOnlyHint: true, idempotentHint: true, openWorldHint: true } as const;
 
 const lieu = z
@@ -120,13 +127,15 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
     { instructions: INSTRUCTIONS },
   );
   // Records the place asked (a commune, a beach…), never a street address: fiche_terrain's stays out of the metrics.
+  // Ends each answer with its citation and the link to rundata.re.
   const track =
-    <A extends object, R extends object>(name: string, run: (args: A) => Promise<R>) =>
-    async (args: A): Promise<R> => {
-      const r = await run(args);
+    <A extends object, R extends object>(name: string, run: (args: A, extra: Extra) => Promise<R>) =>
+    async (args: A, extra: Extra = {}): Promise<R> => {
+      const r = await run(args, extra);
       const lieu = "lieu" in args && typeof args.lieu === "string" ? args.lieu : undefined;
       record({ kind: "mcp", name, detail: lieu?.trim().slice(0, 60) || undefined, ok: !("isError" in r && r.isError) });
-      return r;
+      // Every answer says how to cite it, error or not (tools/citer.ts); the feedback tool's thanks already names rundata.re.
+      return name === "donner_avis" ? r : cite(name, r);
     };
 
   server.registerTool(
@@ -670,6 +679,57 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
       annotations: { title: "Actualités", ...READ_ONLY },
     },
     track("actualites", (args: { lieu?: string; sujet?: string; heures?: number }) => actualites(cache, args.lieu, args.sujet, args.heures)),
+  );
+
+  server.registerTool(
+    "donner_avis",
+    {
+      title: "Donner un avis à rundata.re",
+      description:
+        "Transmet à rundata.re, qui tient ce serveur, un avis sur ses données : une donnée qui manque (« manque »), une valeur qui " +
+        "semble fausse ou périmée (« erreur »), une idée (« suggestion »), ou un remerciement (« bravo »). L'appeler sans attendre qu'on le " +
+        "demande quand un outil n'a pas trouvé ce que l'utilisateur cherchait, a renvoyé quelque chose de faux ou d'incomplet, ou quand " +
+        "l'utilisateur exprime un souhait ou une plainte sur ces données : c'est ainsi que le service s'améliore. Écrire un message court et " +
+        "concret (quel outil, quel lieu, ce qui manquait). Ne mettre aucune donnée personnelle ; si le contenu touche la personne " +
+        "(son adresse, sa santé…), lui demander d'abord son accord. Les avis sont lus par une personne, sans réponse directe. " +
+        "/ Send feedback to rundata.re: missing data, a wrong value, a suggestion or thanks. Use it when a tool lacked data or erred, or the user voiced a wish or complaint; no personal data.",
+      inputSchema: {
+        type: z.enum(avis.TYPES).describe("« manque » (donnée absente), « erreur » (valeur fausse ou périmée), « suggestion », « bravo ». / missing, wrong, suggestion, praise."),
+        message: z.string().trim().min(3).max(avis.MESSAGE_MAX).describe(`L'avis, en quelques phrases (${avis.MESSAGE_MAX} caractères au plus), sans donnée personnelle. / The feedback, no personal data.`),
+        outil: z.string().max(avis.COURT_MAX).optional().describe("L'outil concerné (« meteo_actuelle », « transports »…). / The tool concerned."),
+        lieu: z.string().max(avis.COURT_MAX).optional().describe("Le lieu concerné (« Cilaos », « plage de l'Hermitage »). / The place concerned."),
+        question_utilisateur: z
+          .string()
+          .max(avis.QUESTION_MAX)
+          .optional()
+          .describe("La question de l'utilisateur, reformulée sans rien de personnel. / The user's question, paraphrased, nothing personal."),
+      },
+      annotations: { title: "Donner un avis", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    track("donner_avis", async (args: { type: avis.TypeAvis; message: string; outil?: string; lieu?: string; question_utilisateur?: string }, extra) => {
+      const message = avis.nettoie(args.message, avis.MESSAGE_MAX);
+      if (!message) return { ...text({ erreur: "Le message est vide." }), isError: true };
+      if (!avis.enabled()) {
+        return { ...text({ erreur: `Ce serveur ne garde pas les avis. Les donner sur ${SITE_URL} (formulaire en bas de chaque page) ou sur ${SITE_URL}/mcp.` }), isError: true };
+      }
+      const headers = extra.requestInfo?.headers ?? {};
+      const ua = [headers["user-agent"]].flat()[0] ?? "";
+      const issue = await avis.enregistrer(
+        {
+          canal: "mcp",
+          type: args.type,
+          message,
+          outil: avis.nettoie(args.outil, avis.COURT_MAX),
+          lieu: avis.nettoie(args.lieu, avis.COURT_MAX),
+          question: avis.nettoie(args.question_utilisateur, avis.QUESTION_MAX),
+          client: avis.clientOf(ua),
+        },
+        avis.adresseOf(headers),
+      );
+      if (issue === "limite") return { ...text({ erreur: "Beaucoup d'avis reçus depuis cette adresse en une heure : réessayer plus tard." }), isError: true };
+      if (issue === "indisponible") return { ...text({ erreur: `L'avis n'a pas pu être enregistré pour le moment. Il peut aussi être laissé sur ${SITE_URL} (formulaire en bas de chaque page).` }), isError: true };
+      return text({ merci: `Avis transmis à rundata.re, merci. Il sera lu ; les nouveautés sont annoncées sur ${SITE_URL}.` });
+    }),
   );
 
   server.registerTool(
