@@ -76,7 +76,7 @@ export function textOf(html: string): string {
 }
 
 // Without the tags, nor the emoji the posts start their lines with (« ⚠️ CONSIGNES »), which most fonts lack.
-const strip = (html: string) => decodeText(textOf(decode(html))).replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u25AA\u25AB]\s?/gu, "");
+export const strip = (html: string) => decodeText(textOf(decode(html))).replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u25AA\u25AB]\s?/gu, "");
 
 const NAMES = Object.keys(INSEE).sort((a, b) => b.length - a.length);
 /** The communes a text names: « SAINT DENIS », « La Plaine-des-Palmistes ». */
