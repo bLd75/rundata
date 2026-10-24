@@ -13,6 +13,11 @@ export function de(nom: string): string {
   return nom.replace(/^Le /, "du ").replace(/^Les /, "des ").replace(/^(?!du |des )/, "de ");
 }
 
+/** « à Saint-Paul », « au Tampon », « aux Avirons », « à L'Étang-Salé ». */
+export function a(nom: string): string {
+  return nom.replace(/^Le /, "au ").replace(/^Les /, "aux ").replace(/^(?!au |aux )/, "à ");
+}
+
 export function show(r: Reading): string {
   if (r.variable === "vent_direction" && typeof r.valeur === "number") return `${compass(r.valeur)} (${r.valeur}°)`;
   const v = typeof r.valeur === "number" ? fr(r.valeur) : r.valeur;

@@ -9,7 +9,8 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, ElectriciteAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap } from "./map.js";
 import { ask, credits, DESCRIPTION_MAX, fresh, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
@@ -536,5 +537,90 @@ export function velosLive(data: Cached<VelosAnswer> | null): Live | undefined {
   return {
     valeur: `${total} vélo${total > 1 ? "s" : ""}`,
     detail: `disponibles dans ${d.stations.length} stations Altervélo${best?.velos_electriques ? `, dont ${best.velos_electriques} à ${esc(best.nom)} (${esc(best.commune)})` : ""}`,
+  };
+}
+
+// ---------------------------------------------------------------- bornes de recharge
+
+/** A station in a list: where it is, its power and plugs, how many points are free. */
+export function borneRow(s: BorneStation): string {
+  const free = s.libres ? `<b>${s.libres}</b> libre${s.libres > 1 ? "s" : ""} sur ${s.total}` : `aucun libre sur ${s.total}`;
+  return `<li><span>${esc(s.station)}<small>${fr(s.puissance_max_kw)} kW · ${esc(s.prises.join(", "))}${s.horaires && s.horaires !== "24 h/24, 7 j/7" ? ` · ${esc(s.horaires)}` : ""}</small></span>` +
+    `<span class="${s.libres ? "free" : "busy"}">${free}</span></li>`;
+}
+
+export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/bornes`, now);
+  const libres = d?.stations.reduce((n, s) => n + s.libres, 0) ?? 0;
+  const total = d?.stations.reduce((n, s) => n + s.total, 0) ?? 0;
+
+  const status = !d
+    ? loading("L'état des bornes")
+    : `<div class="now"><span class="big">${libres}</span><p>point${libres > 1 ? "s" : ""} de charge libre${libres > 1 ? "s" : ""} en ce moment, sur <b>${total}</b> dans les ${d.stations.length} stations publiques de l'île.</p></div>`;
+
+  // One marker per commune, where its stations are: how many points are free there.
+  const markers = (d?.communes ?? []).map((c) => {
+    const mine = d!.stations.filter((s) => s.commune === c.commune);
+    const lon = mine.reduce((n, s) => n + s.lon, 0) / mine.length;
+    const lat = mine.reduce((n, s) => n + s.lat, 0) / mine.length;
+    const free = mine.reduce((n, s) => n + s.libres, 0);
+    return { lon, lat, label: String(free), name: `${c.commune} : ${free} libre${free > 1 ? "s" : ""} sur ${c.points}`, round: true, color: free ? "#2b8a3e" : "#868e96" };
+  });
+
+  const fast = d ? d.stations.filter((s) => s.puissance_max_kw >= FAST_KW).sort((a, b) => b.libres - a.libres || b.puissance_max_kw - a.puissance_max_kw) : [];
+  const byCommune = d
+    ? `<ul class="zones">${d.communes.map((c) => {
+        const mine = d.stations.filter((s) => s.commune === c.commune).sort((a, b) => b.libres - a.libres || b.puissance_max_kw - a.puissance_max_kw);
+        const free = mine.reduce((n, s) => n + s.libres, 0);
+        return `<li class="card"><h3>${esc(c.commune)} <span class="note">${free} libre${free > 1 ? "s" : ""} sur ${c.points}, ${c.stations} station${c.stations > 1 ? "s" : ""}</span></h3>` +
+          `<ul class="rows bornes">${mine.map(borneRow).join("")}</ul></li>`;
+      }).join("")}</ul>` +
+      `<p class="note">${esc(d.donnees)}${d.avertissement ? ` ${esc(d.avertissement)}` : ""}</p>`
+    : `<p class="card">L'état des bornes se charge : rechargez la page dans quelques secondes.</p>`;
+
+  const title = "Bornes de recharge à La Réunion en direct : points libres, recharge rapide";
+  const short = "🇷🇪 Bornes de recharge pour voiture électrique à La Réunion (974) : points libres, occupés ou hors service, en direct, station par station.";
+  const description = d
+    ? describe(`🇷🇪 Bornes de recharge à La Réunion (974) en ce moment : ${libres} points libres sur ${total}, la recharge rapide et chaque station, commune par commune.`, short)
+    : short;
+
+  const band = `${crumbBar("Recharge")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>En direct</p>
+    <h1>Bornes de recharge <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Ousa mi pé roshar mon loto élèktrik vitman koté Sin-Pyèr ? Rogard si ${url} é di amwin.`,
+      `Où recharger rapidement ma voiture électrique à Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
+  </div>
+  <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les points de charge libres, commune par commune" })}
+  <figcaption class="note" style="color:var(--on-night-muted)">Points de charge libres en ce moment, par commune.</figcaption></figure>
+</div>`;
+
+  const body = `<section aria-labelledby="h-rapide">
+  <div class="sec-h"><p class="eyebrow">${fr(FAST_KW)} kW et plus</p><h2 id="h-rapide">Recharge rapide</h2>
+  <p>Les stations où l'on recharge en une demi-heure à une heure, avec une prise Combo CCS ou CHAdeMO.</p></div>
+  ${d ? `<div class="card"><ul class="rows bornes">${fast.map((s) => borneRow({ ...s, station: `${s.station}${s.station.endsWith(s.commune) ? "" : ` (${s.commune})`}` })).join("")}</ul></div>` : ""}
+</section>
+<section aria-labelledby="h-stations">
+  <div class="sec-h"><p class="eyebrow">Station par station</p><h2 id="h-stations">Commune par commune</h2>
+  <p>${d ? esc(d.recharge) : "Les bornes publiques de l'île et l'état de chacun de leurs points."}</p></div>
+  ${byCommune}
+  ${d && data ? sourcesNote(d.sources, data) : ""}
+</section>
+${connectorCta("bornes_recharge", "les bornes de recharge")}`;
+
+  return layout(origin, { title, description, path: "/bornes", jsonld: [crumbs(origin, "Recharge", "/bornes"), webPage(origin, "/bornes", title, description, data)], alerte }, band, body);
+}
+
+export function bornesLive(data: Cached<BornesAnswer> | null): Live | undefined {
+  const d = data?.value;
+  if (!d?.stations.length) return undefined;
+  const libres = d.stations.reduce((n, s) => n + s.libres, 0);
+  const fast = d.stations.filter((s) => s.puissance_max_kw >= FAST_KW && s.libres > 0).length;
+  return {
+    valeur: `${libres} point${libres > 1 ? "s" : ""} libre${libres > 1 ? "s" : ""}`,
+    detail: `sur ${d.stations.reduce((n, s) => n + s.total, 0)}, dans ${d.stations.length} stations ; recharge rapide libre dans ${fast} station${fast > 1 ? "s" : ""}`,
   };
 }
