@@ -93,6 +93,7 @@ import * as dae from "../providers/dae.js";
 import * as traces from "../providers/traces.js";
 import { SECTEURS, secteurOf } from "../traces/secteurs.js";
 import { secteurPage } from "./randonnees.js";
+import { typo, typoPage } from "./typo.js";
 
 const HTML = {
   "content-type": "text/html; charset=utf-8",
@@ -258,10 +259,10 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
     `\n</urlset>\n`;
 }
 
-/** The site's pages, each with the volcano's banner while the volcano is in alert (web/volcan-alerte.ts). */
+/** The site's pages, each with the volcano's banner while the volcano is in alert (web/volcan-alerte.ts), in French typography (web/typo.ts). */
 export async function site(request: Request, cache: Cache, background: Background, now = new Date()): Promise<Response | null> {
   const volcan = await volcanNow(cache, now);
-  return withVolcan(volcan, () => pages(request, cache, background, now));
+  return typoPage(await withVolcan(volcan, () => pages(request, cache, background, now)));
 }
 
 async function pages(request: Request, cache: Cache, background: Background, now: Date): Promise<Response | null> {
@@ -566,5 +567,5 @@ export function manifest() {
 
 /** Any other address a browser asks for: a page that leads back to the communes. */
 export function notFound(request: Request): Response {
-  return new Response(notFoundPage(new URL(request.url).origin, new URL(request.url).pathname), { status: 404, headers: HTML });
+  return new Response(typo(notFoundPage(new URL(request.url).origin, new URL(request.url).pathname)), { status: 404, headers: HTML });
 }

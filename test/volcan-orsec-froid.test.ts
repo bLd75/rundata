@@ -53,7 +53,7 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     expect(v.etat?.niveau_orsec).toBe("Alerte 1");
     expect(v.resume).not.toContain("Vigilance");
     const html = await page(cold(durable).cache);
-    expect(html).toContain("Niveau du dispositif ORSEC volcan : <b>Alerte 1</b>");
+    expect(html).toContain("Niveau du dispositif ORSEC volcan\u00a0: <b>Alerte 1</b>");
     expect(html).not.toMatch(/ORSEC[^<]*<b>Vigilance/);
   });
 
@@ -75,8 +75,8 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     expect(v.resume).toContain("Accès à l'Enclos : à vérifier sur reunion.gouv.fr, avant de partir.");
     expect(v.resume).not.toContain("Vigilance");
     const html = await page(cold(new MemoryStore()).cache);
-    expect(html).toContain(`Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Nous n'avons pas pu lire le niveau d'alerte de la préfecture : vérifiez-le sur <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse">reunion.gouv.fr</a> avant de monter au volcan.`);
-    expect(html).toContain(`Accès à l'Enclos : à vérifier sur <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse">reunion.gouv.fr</a>, avant de partir.`);
+    expect(html).toContain(`Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Nous n'avons pas pu lire le niveau d'alerte de la préfecture\u00a0: vérifiez-le sur <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse">reunion.gouv.fr</a> avant de monter au volcan.`);
+    expect(html).toContain(`Accès à l'Enclos\u00a0: à vérifier sur <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse">reunion.gouv.fr</a>, avant de partir.`);
     expect(html).not.toMatch(/ORSEC[^<]*<b>Vigilance/);
     expect(html).not.toContain("partiellement ouvert");
   });

@@ -41,7 +41,7 @@ describe("circulation", () => {
     expect(res.status).toBe(200);
     const page = await res.text();
     expect(page).toContain("<h1>Bouchons et circulation à La Réunion");
-    expect(page).toContain("rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant.");
+    expect(page).toContain("rundata.re n'a pas la mesure des bouchons\u00a0: la Région ne la rend pas réutilisable pour l'instant.");
     expect(page).toContain(`href="https://www.infotrafic.re/"`);
     // The month's maximum fuel prices, beside the roads.
     expect(page.replaceAll("\u00a0", " ")).toContain("<h3>Prix des carburants</h3><p>Prix maximum depuis le 1er octobre 2026, fixés par le préfet : sans plomb 2,00 €/litre (+0,17 €) ; gazole 1,80 €/litre (+0,12 €) ; gaz 20,81 € la bouteille de 12,5 kg (+0,21 €), 18 € avec aides locales.</p>");
@@ -112,7 +112,7 @@ describe("circulation", () => {
       ]);
       expect(d.sources.map((s) => s.source)).toEqual(expect.arrayContaining(["Communiqués de presse de la préfecture de La Réunion"]));
       const page = await (await handle(new Request("https://rundata.re/trafic", BOT), c)).text();
-      expect(page).toContain(`<h3>Signalé par les médias</h3><ul class="plain"><li><a href="https://www.reunion.gouv.fr/a" rel="noopener">Violences urbaines : bilan de la nuit</a> <span class="note">Préfecture de La Réunion, aujourd&#39;hui</span></li><li><a href="https://imazpress.com/0.5" rel="noopener">Barrage levé au rond-point des Casernes</a> <span class="note">Imaz Press, en direct, aujourd&#39;hui à 07:30</span>`);
+      expect(page).toContain(`<h3>Signalé par les médias</h3><ul class="plain"><li><a href="https://www.reunion.gouv.fr/a" rel="noopener">Violences urbaines\u00a0: bilan de la nuit</a> <span class="note">Préfecture de La Réunion, aujourd&#39;hui</span></li><li><a href="https://imazpress.com/0.5" rel="noopener">Barrage levé au rond-point des Casernes</a> <span class="note">Imaz Press, en direct, aujourd&#39;hui à 07:30</span>`);
       for (const no of ["Route du Littoral basculée", "Rentrez vos poubelles", "rassemblements sportifs", "Fête de la science", "Interdiction de manifester"]) expect(page).not.toContain(no);
       // The news is fresh: its feeds are not asked again for this page.
       expect(asked.some((u) => feeds.test(u))).toBe(false);

@@ -222,7 +222,7 @@ describe("the site's part", () => {
     expect(html).toContain(`<meta name="robots" content="noindex">`);
     expect(html).toContain("<h1>Pas de réseau</h1>");
     expect(html).toContain("Pages gardées sur ce téléphone");
-    expect(html).toContain("Aucune page gardée pour l'instant : celles que vous ouvrez avec du réseau le seront.");
+    expect(html).toContain("Aucune page gardée pour l'instant\u00a0: celles que vous ouvrez avec du réseau le seront.");
   });
 
   it("does not count the offline page the service worker fetches for its shell, only one opened as a page", async () => {
