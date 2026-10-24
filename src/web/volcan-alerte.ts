@@ -8,6 +8,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { Cache } from "../cache.js";
 import type { ActualitesAnswer, VolcanAnswer } from "./data.js";
 import { esc } from "./map.js";
+import { NON_ANNONCEE } from "../tools/volcan.js";
 
 export interface VolcanAlerte {
   /** « Alerte 1 », « Alerte 2-1 »… as the plan names it; undefined when only the eruption is known. */
@@ -104,7 +105,8 @@ export const volcanMeta = (a: VolcanAlerte) =>
 export const volcanLead = (a: VolcanAlerte) =>
   a.eruption
     ? "Où, quelle intensité, quelles routes : ce que publient l'OVPF et la préfecture, dans l'ordre, avec l'heure. Respectez les consignes et les fermetures de routes."
-    : "L'éruption n'a pas commencé. Seuls l'OVPF et la préfecture l'annonceront : leurs communiqués s'affichent ici dès leur publication.";
+    // Never « n'a pas commencé » on our word: the OVPF's newest post may be an image we do not read (marketing).
+    : `${NON_ANNONCEE} Seuls l'OVPF et la préfecture l'annonceront : leurs communiqués s'affichent ici dès leur publication.`;
 
 /** The home page's first card, above the weather. */
 export function homeCard(a: VolcanAlerte): string {
