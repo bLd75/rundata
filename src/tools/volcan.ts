@@ -225,9 +225,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
         ? `ÉRUPTION EN COURS au Piton de la Fournaise${p?.eruption ? `, annoncée par la préfecture le ${dayOf(p.jour)}` : ""}.`
         : /^Alerte/.test(s.alert_level_display)
           ? `${s.alert_level_display} au Piton de la Fournaise${libelle(s.alert_level_display) ? ` : « ${libelle(s.alert_level_display)} » (dispositif ORSEC Volcan)` : ""}. ${NON_ANNONCEE}`
-          : unknown
-            ? "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com."
-            : "Pas d'éruption en cours au Piton de la Fournaise.",
+          // Never on our word: its source with it, the level read or not (data-run).
+          : "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com.",
     );
     if (p) parts.push(`Communiqué de la préfecture du ${dayOf(p.jour)} : « ${p.titre} » (${p.lien}).`);
     const ecart = (state as { ecart?: Ecart }).ecart;

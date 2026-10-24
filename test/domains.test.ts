@@ -44,7 +44,7 @@ describe("domain pages", () => {
 
   it("show what the tool answers right now", () => {
     expect(pages.volcan).toContain("Pas d'éruption en cours");
-    expect(pages.volcan).toContain("Accès à l'Enclos : <b>partiellement ouvert</b>");
+    expect(pages.volcan).toContain("Enclos : <b>« partiel »</b> selon pitonlive.com");
     expect(pages.air).toMatch(/<p class="big">moyen<\/p>/);
     expect(pages.air).toContain("var(--aq2)"); // the map, coloured by commune
     // Each coloured commune leads to its line in the list.
@@ -114,7 +114,7 @@ describe("home page tiles", () => {
     const page = homePage(ORIGIN, live, NOW);
     const tile = (name: string) => page.match(new RegExp(`<h3><a href="/[a-z]+">${name}</a></h3>(.*?)</li>`))![1];
     expect(tile("Volcan")).toContain(`<p class="tv">Pas d'éruption</p>`);
-    expect(tile("Volcan")).toContain("Enclos partiellement ouvert");
+    expect(tile("Volcan")).toContain("selon pitonlive.com · Enclos « partiel »");
     expect(tile("Air")).toContain(`<span class="aq aq2">moyen</span>`);
     expect(tile("Électricité")).toContain(`<p class="tv">43\u202f% renouvelable</p>`);
     expect(tile("Calendrier")).toContain(`<p class="tv">Vacances scolaires</p>`);

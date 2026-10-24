@@ -399,6 +399,7 @@ text-decoration:none;color:#fff;background:rgb(255 255 255/.09);border:1px solid
 .facts-live li:last-child:nth-child(odd){grid-column:1/-1}
 .facts-live b{font:800 .98rem/1.2 Bricolage,system-ui,sans-serif;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .facts-live b .vg,.facts-live b .aq{font-size:.8rem;padding:0 .45rem}
+.facts-live small{grid-column:2;font-size:.74rem;line-height:1.25;color:rgb(255 255 255/.7)}
 .hero-map{position:relative;display:grid;gap:.6rem;min-width:0;width:100%;max-width:30rem;justify-self:center}
 @media (min-width:66rem){.hero-map{max-width:36rem}}
 .hero-map .map{filter:drop-shadow(0 30px 40px rgb(0 0 0/.35))}
@@ -1021,6 +1022,8 @@ export interface Live {
   valeur: string;
   /** Where, when, from whom, HTML. */
   detail: string;
+  /** Whose word the value is, said under it where the value is shown without its detail (the home page's hero). */
+  source?: string;
 }
 
 const range = (lo: number, hi: number) => `${fr(Math.round(lo))} à ${thin(deg(Math.round(hi)))}`;

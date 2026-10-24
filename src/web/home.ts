@@ -132,7 +132,7 @@ export function demos(h: HomeLive | null, now: Date): Demo[] {
         ? esc(hausseNiveau(e.ecart_prefecture))
         : !e.eruption_en_cours && /^Alerte/.test(e.niveau_orsec)
         ? `${esc(NON_ANNONCEE)} Le volcan est en ${esc(e.niveau_orsec.toLowerCase())}${libelle(e.niveau_orsec) ? ` : « ${esc(libelle(e.niveau_orsec)!)} » (dispositif ORSEC Volcan)` : ""}.`
-        : `${e.eruption_en_cours ? "Oui, le Piton de la Fournaise est en éruption" : "Non, pas d'éruption en cours au Piton de la Fournaise"} (niveau ORSEC : ${esc(e.niveau_orsec)}).`) +
+        : `${e.eruption_en_cours ? "Oui, le Piton de la Fournaise est en éruption" : "Non, pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com"} (niveau ORSEC : ${esc(e.niveau_orsec)}).`) +
         (q ? ` L'observatoire a localisé ${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} sous le volcan en 7 jours.` : ""),
     });
   }
@@ -188,7 +188,7 @@ function facts(live: Record<string, Live | undefined>, u: Urgent): string {
     .filter((x) => x.l);
   if (!shown.length) return "";
   return `<ul class="facts-live" aria-label="En ce moment">${shown
-    .map((x) => `<li class="k-${x.c.key}"><a href="${x.c.path}">${icon(x.c.icon)}<span>${esc(x.c.nom)}</span><b>${x.l!.valeur}</b></a></li>`)
+    .map((x) => `<li class="k-${x.c.key}"><a href="${x.c.path}">${icon(x.c.icon)}<span>${esc(x.c.nom)}</span><b>${x.l!.valeur}</b>${x.l!.source ? `<small>${x.l!.source}</small>` : ""}</a></li>`)
     .join("")}</ul>`;
 }
 
