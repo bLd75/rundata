@@ -92,9 +92,22 @@ describe("subrequests of a cold question in the Worker", () => {
     // one step of five grids: none is downloaded. The prefetch below fills them, after which questions are on AROME.
     const { value, used } = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(), "Cilaos", "demain", NOW));
     expect(value.isError).toBeFalsy();
-    expect(body(value).resume).toMatch(/^PRÉVISION \(modèle IFS HRES du Centre européen \(ECMWF\), maille de 9 km, pas une mesure\)/);
+    // It says why: AROME is up, its grids not loaded yet.
+    expect(body(value).resume).toMatch(/^PRÉVISION \(prévision AROME pas encore chargée, modèle IFS HRES du Centre européen \(ECMWF\), maille de 9 km, pas une mesure\)/);
     expect(coverages.length).toBe(0);
     expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
+    // The tour of the island says it too.
+    const tour = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(), undefined, undefined, NOW));
+    expect(body(tour.value).resume).toMatch(/^PRÉVISION \(prévision AROME pas encore chargée, modèle IFS/);
+  });
+
+  it("does not say AROME is coming when it is not plugged in, nor beyond its 48 hours", async () => {
+    configure({});
+    const off = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(), "Cilaos", "demain", NOW));
+    expect(body(off.value).resume).toMatch(/^PRÉVISION \(modèle IFS HRES/);
+    configure({ applicationId: "test" });
+    const far = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(), "Cilaos", "dans 5 jours", NOW));
+    expect(body(far.value).resume).not.toContain("AROME pas encore chargée");
   });
 
   it("forecasts from AROME cold under the platform's own limit, not the budget: the grids' code, as many as allowed", async () => {
