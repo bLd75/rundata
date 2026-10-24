@@ -111,18 +111,25 @@ function air(p: PlacePage, data: Cached<AirAnswer> | null | undefined): Live | u
 }
 
 function sea(p: PlacePage, mer: Cached<SeaData> | null | undefined, place: Cached<PlaceData> | null): Live | undefined {
-  const beaches = mer?.value.plages.filter((b) => b.commune === p.nom && b.valeur != null) ?? [];
+  const mine = mer?.value.plages.filter((b) => b.commune === p.nom) ?? [];
+  const beaches = mine.filter((b) => b.valeur != null);
+  // The waves are a forecast: said after the measurement, and called so.
+  const waves = mine.map((b) => b.houle?.hauteur_m).filter((h): h is number => h != null);
+  const placeWaves = place?.value.mer?.etat_de_la_mer?.maintenant.hauteur;
+  const swell = waves.length ? `${fr(Math.max(...waves))} m` : placeWaves;
+  const prevue = swell ? ` · houle prévue : ${esc(thin(swell))}` : "";
   if (beaches.length) {
     const v = beaches.map((b) => b.valeur!);
     const lo = Math.round(Math.min(...v));
     const hi = Math.round(Math.max(...v));
     return {
       valeur: lo === hi ? thin(deg(lo)) : `${lo} à ${thin(deg(hi))}`,
-      detail: `au large ${beaches.length > 1 ? "des plages" : "de la plage"} ${esc(beaches.map((b) => seaName(b.nom)).join(", "))}, par satellite le ${esc(dayMonth(beaches.map((b) => b.jour!).sort().pop()!))}`,
+      detail: `au large ${beaches.length > 1 ? "des plages" : "de la plage"} ${esc(beaches.map((b) => seaName(b.nom)).join(", "))}, par satellite le ${esc(dayMonth(beaches.map((b) => b.jour!).sort().pop()!))}${prevue}`,
     };
   }
   const m = place?.value.mer?.mesure;
-  return m ? { valeur: esc(thin(m.temperature_eau)), detail: `au large, par satellite le ${esc(dayMonth(m.jour_mesure))}` } : undefined;
+  if (m) return { valeur: esc(thin(m.temperature_eau)), detail: `au large, par satellite le ${esc(dayMonth(m.jour_mesure))}${prevue}` };
+  return swell ? { valeur: esc(thin(swell)), detail: "houle prévue au large (prévision d'un modèle, pas une mesure)" } : undefined;
 }
 
 /** The departures still to come: the copy is up to a few minutes old, its waits are counted again from now. */

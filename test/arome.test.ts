@@ -5,6 +5,7 @@ import { resolvePlace } from "../src/places/resolve.js";
 import * as arome from "../src/providers/arome.js";
 import { configure } from "../src/providers/mf-auth.js";
 import * as openmeteo from "../src/providers/openmeteo.js";
+import * as uv from "../src/providers/uv.js";
 import { readTiff } from "../src/tiff.js";
 import { previsionMeteo } from "../src/tools/prevision.js";
 
@@ -34,6 +35,7 @@ async function offlineCache(listAgeMs = 0) {
   await store.put(arome.bundleKey(RUN), { value: bundle, fetchedAt: at });
   await store.put(openmeteo.cacheKey(resolvePlace("Cilaos")!.lieu), { value: json("openmeteo_cilaos.json"), fetchedAt: at });
   await store.put("openmeteo:meta", { value: json("openmeteo_meta.json"), fetchedAt: at });
+  await store.put("uv:ile", { value: uv.parse(json("cams_uv.json")), fetchedAt: at });
   return new Cache(store, () => at);
 }
 
@@ -104,7 +106,10 @@ describe("prevision_meteo with AROME", () => {
     expect(w).toMatch(/vigilance officielle/);
     expect(w).toMatch(/relief du modèle est à 1\d{3} m : les températures sont ramenées à l'altitude de Cilaos \(1209 m\)/);
     expect(r.jours[0].modeles).toMatch(/AROME outre-mer de Météo-France de 12h à 15h/);
-    expect(r.sources.map((s: { source: string }) => s.source)).toEqual([arome.SOURCE.nom, openmeteo.SOURCE.nom]);
+    // The UV index comes from its own forecast, credited and explained apart.
+    expect(r.jours[0].indice_uv_max).toMatch(/^\d+ \((faible|modéré|élevé|très élevé|extrême)\)$/);
+    expect(w).toMatch(/Indice UV : PRÉVISION du service européen Copernicus/);
+    expect(r.sources.map((s: { source: string }) => s.source)).toEqual([arome.SOURCE.nom, openmeteo.SOURCE.nom, uv.SOURCE.nom]);
   });
 
   it("downloads at most the budget of grids for one question, nearest steps first", async () => {
@@ -177,6 +182,7 @@ describe("a run listed before all its hours are out", () => {
     const store = new MemoryStore();
     await store.put(openmeteo.cacheKey(resolvePlace("Cilaos")!.lieu), { value: json("openmeteo_cilaos.json"), fetchedAt: START });
     await store.put("openmeteo:meta", { value: json("openmeteo_meta.json"), fetchedAt: START });
+    await store.put("uv:ile", { value: uv.parse(json("cams_uv.json")), fetchedAt: START });
     return new Cache(store, () => clock.now);
   }
 

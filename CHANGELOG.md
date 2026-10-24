@@ -6,6 +6,8 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Houle prévue près de chaque plage : hauteur, période et direction des vagues sur 4 jours, sur le site et dans votre IA.
+- Indice UV prévu jour par jour, dans la prévision météo du site et de votre IA.
 - Une page « Aujourd'hui » par commune : la météo, les routes, l'actu, les coupures et les sorties du jour.
 - Votre IA résume la journée de votre commune : météo, routes, actu, coupures, sorties, mairie ouverte ou non.
 - L'accueil affiche l'heure de chaque mesure.

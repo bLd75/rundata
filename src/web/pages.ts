@@ -1103,8 +1103,8 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
   const sea = coastal(p) && d?.mer
     ? `<section aria-labelledby="h-mer"><h2 id="h-mer">Température de la mer à ${esc(p.nom)}</h2>` +
       `<div class="card">${d.mer.mesure ? `<ul class="seas"><li><span>Au large, le ${esc(dayMonth(d.mer.mesure.jour_mesure))}</span><b>${esc(thin(d.mer.mesure.temperature_eau))}</b></li></ul>` : ""}` +
-      `<p>${esc(thin(d.mer.resume))}</p><p class="note">Mesure satellite au large (environ 2 jours de retard), ` +
-      `pas la température du lagon ni du bord. Source : ${credits(d.mer.sources)}.</p></div></section>`
+      `<p>${esc(thin(d.mer.resume))}</p><p class="note">Température : mesure satellite au large (environ 2 jours de retard), ` +
+      `pas celle du lagon ni du bord.${d.mer.etat_de_la_mer ? " Vagues : prévision d'un modèle, au large, pas une mesure." : ""} Source : ${credits(d.mer.sources)}.</p></div></section>`
     : "";
 
   const f = d?.prevision;
@@ -1113,7 +1113,8 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
     ? `<section aria-labelledby="h-prev"><div class="hb"><h2 id="h-prev">Prévision météo ${esc(p.nom)}</h2><span class="badge">Prévision, pas une mesure</span></div>` +
       `<ul class="days">` +
       f.jours.map((j) => `<li class="card day"><h3>${esc(j.jour)}</h3><p class="range">${esc(range(j.temperature_min, j.temperature_max))}</p>` +
-        `<p>${esc(j.ciel_en_journee ?? "—")}</p><p>Pluie : ${esc(thin(j.pluie ?? "—"))}</p><p>Rafales : ${esc(thin(j.rafales_max ?? "—"))}</p></li>`).join("") +
+        `<p>${esc(j.ciel_en_journee ?? "—")}</p><p>Pluie : ${esc(thin(j.pluie ?? "—"))}</p><p>Rafales : ${esc(thin(j.rafales_max ?? "—"))}</p>` +
+        (j.indice_uv_max ? `<p>UV : ${esc(j.indice_uv_max)}</p>` : "") + `</li>`).join("") +
       `</ul>` +
       `<p class="note">${esc(f.modele ? `Modèle ${f.modele.nom}, maille de ${fr(f.modele.maille_km)} km${f.modele.run_du_modele ? `, calcul du ${f.modele.run_du_modele}` : ""}. ` : "")}` +
       `Un modèle ne voit pas tous les microclimats de l'île. Cyclone, fortes pluies : seule compte la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a>. ` +
@@ -1367,6 +1368,18 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
       `<p class="note">Sources : ${credits(d.sources)}. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
     : `<p class="card">Les mesures satellite se chargent : rechargez la page dans quelques secondes.</p>`;
 
+  const waves = d?.plages.filter((b) => b.houle) ?? [];
+  const top = waves.length ? waves.reduce((a, b) => (b.houle!.hauteur_m > a.houle!.hauteur_m ? b : a)) : undefined;
+  const swell = waves.length
+    ? `<section aria-labelledby="h-houle">
+  <div class="sec-h"><p class="eyebrow">Prévision, pas une mesure</p><h2 id="h-houle">La houle prévue près de chaque plage</h2>
+  <p>Hauteur, direction et période des vagues au large, pour les 3 heures en cours, puis la plus haute des 4 jours, d'après le modèle de vagues du Centre européen (ECMWF, maille de 9 km). Dans le lagon et derrière le récif, les vagues sont bien plus petites. Pour la sécurité : <a href="/vigilance">la vigilance vagues-submersion</a>, les drapeaux et les maîtres-nageurs.</p></div>
+  <div class="card"><ul class="seas">${waves.map((b) => `<li><span>${esc(seaName(b.nom))}</span>` +
+      `<b>${esc(thin(`${fr(b.houle!.hauteur_m)} m`))}</b><span>${esc(b.houle!.maintenant.replace(/^\S+ m /, ""))}, vers ${esc(b.houle!.heure)}</span>` +
+      `<span>jusqu'à ${esc(thin(b.houle!.max))} ${esc(b.houle!.max_jour)}</span></li>`).join("")}</ul></div>
+</section>`
+    : "";
+
   const tide = d?.maree?.length
     ? `<section aria-labelledby="h-maree">
   <div class="sec-h"><p class="eyebrow">Mesurée chaque minute</p><h2 id="h-maree">La marée en ce moment</h2>
@@ -1381,10 +1394,10 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
 </section>`
     : "";
 
-  const title = "Mer à La Réunion 974 : température plage par plage et marée";
+  const title = "Mer Réunion : houle, température de l'eau et marée · 974";
   const description = warm && cool
-    ? `🇷🇪 Température de l'eau à La Réunion (974), mesurée par satellite le ${dayMonth(day!)} : de ${deg(cool.valeur!)} à ${seaName(cool.nom)} à ${deg(warm.valeur!)} à ${seaName(warm.nom)}. Plage par plage.`
-    : "🇷🇪 Température de l'eau à La Réunion (974), plage par plage : Saint-Gilles, l'Hermitage, Boucan, Saint-Leu, Saint-Pierre…";
+    ? `🇷🇪 La mer à La Réunion (974) plage par plage : l'eau de ${deg(cool.valeur!)} à ${deg(warm.valeur!)}, mesurée par satellite le ${dayMonth(day!)}${top ? `, et la houle prévue, jusqu'à ${top.houle!.max}` : ""}.`
+    : "🇷🇪 La mer à La Réunion (974), plage par plage : la température mesurée par satellite, la houle prévue. Saint-Gilles, Saint-Leu, Saint-Pierre…";
 
   const jsonld = [
     {
@@ -1419,7 +1432,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Mesure satellite</p>
-    <h1>Température de la mer <span class="n974">974</span></h1>
+    <h1>Température de la mer et houle <span class="n974">974</span></h1>
     ${status}
     ${ask(`Lé a konbien degré la mèr La Rényon ? Rogard si ${url} é di amwin pou chak plaj.`,
       `Quelle est la température de l'eau à La Réunion ? Lis ${url} et donne-moi la température plage par plage, avec la date de la mesure.`)}
@@ -1432,18 +1445,19 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
   <p>Du nord à l'ouest en passant par l'est et le sud : la dernière mesure satellite à moins de 12 km de chaque plage.</p></div>
   <div class="card">${list}</div>
 </section>
+${swell}
 ${tide}
 <section aria-labelledby="h-lire-mer">
   <div class="sec-h"><p class="eyebrow">Bon à savoir</p><h2 id="h-lire-mer">Ce que mesure le satellite</h2></div>
   <div class="three">
     <div class="card">${icon("wave")}<h3>La surface, au large</h3><p>Le satellite mesure la toute première couche d'eau, en moyenne sur des carrés de 2 à 4 km. Le lagon et le bord de plage, peu profonds, sont souvent plus chauds en journée.</p></div>
     <div class="card">${icon("cloud")}<h3>Pas à travers les nuages</h3><p>Un ciel couvert cache la mer : la mesure retenue est alors celle d'un jour précédent, ou d'un carré un peu plus loin. La date et la distance sont toujours données.</p></div>
-    <div class="card">${icon("gauge")}<h3>Environ 2 jours de retard</h3><p>Les produits satellite de la NOAA et de la NASA sont publiés avec un à deux jours de décalage. Pour la houle et la vigilance vagues-submersion, voyez <a href="/vigilance">la vigilance</a>.</p></div>
+    <div class="card">${icon("gauge")}<h3>Environ 2 jours de retard</h3><p>Les produits satellite de la NOAA et de la NASA sont publiés avec un à deux jours de décalage. La houle, elle, est une prévision ; pour la vigilance vagues-submersion, voyez <a href="/vigilance">la vigilance</a>.</p></div>
   </div>
 </section>
 <section class="card cta" aria-labelledby="h-ia">
-  <h2 id="h-ia">Demandez à votre IA : « la mer est à combien à Saint-Leu ? »</h2>
-  <p>Avec le connecteur, votre assistant va chercher lui-même la mesure la plus proche de la plage, avec sa date (outil <code>temperature_mer</code>). Gratuit, sans compte. <a href="/#assistant">Comment le brancher</a>.</p>
+  <h2 id="h-ia">Demandez à votre IA : « la mer est à combien à Saint-Leu ? », « la houle demain à Saint-Pierre ? »</h2>
+  <p>Avec le connecteur, votre assistant va chercher lui-même la mesure la plus proche de la plage, avec sa date, et la houle prévue, étiquetée comme une prévision (outil <code>temperature_mer</code>). Gratuit, sans compte. <a href="/#assistant">Comment le brancher</a>.</p>
   ${connector(origin, "mcp-url")}
 </section>`;
   return layout(origin, { title, description, path: "/mer", jsonld, alerte }, band, body);

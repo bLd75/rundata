@@ -53,6 +53,8 @@ const SHORT: Record<string, string> = {
   metar: "Météo-France",
   pioupiou: "OpenWindMap",
   openmeteo: "Open-Meteo (modèle IFS de l'ECMWF)",
+  openmeteo_houle: "Open-Meteo (modèle de vagues WAM de l'ECMWF)",
+  cams_uv: "Copernicus (CAMS), via Open-Meteo",
   refmar: "SHOM (REFMAR)",
   gdacs_cyclones: "CMRS de La Réunion (Météo-France), via GDACS",
   acspo: "NOAA CoastWatch",

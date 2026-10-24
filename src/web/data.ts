@@ -10,7 +10,7 @@ import { left, measured } from "../budget.js";
 import { distanceKm, localTime } from "../geo.js";
 import type { Cache, Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
-import { normalize } from "../places/resolve.js";
+import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import * as annuaire from "../providers/annuaire.js";
 import * as rt from "../providers/gtfsrt.js";
@@ -22,7 +22,8 @@ import * as mf from "../providers/vigilance.js";
 import { qualiteAir } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
 import { electricite } from "../tools/electricite.js";
-import { BEACHES, seaTour, temperatureMer } from "../tools/mer.js";
+import * as houle from "../providers/houle.js";
+import { BEACHES, seaTour, temperatureMer, waveLine, wavesNow } from "../tools/mer.js";
 import { gaugeRow, gauges } from "../tools/maree.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
@@ -133,6 +134,7 @@ export interface MeteoAnswer {
 export interface MerAnswer {
   resume: string;
   mesure?: { temperature_eau: string; jour_mesure: string; distance_km: number };
+  etat_de_la_mer?: { maintenant: { heures: string; hauteur: string; periode?: string; venant?: string }; jours: { jour: string; hauteur_max: string }[] };
   sources: Credit[];
 }
 
@@ -145,6 +147,7 @@ export interface PrevisionAnswer {
     temperature_max?: string;
     pluie?: string;
     rafales_max?: string;
+    indice_uv_max?: string;
   }[];
   modele?: { nom: string; maille_km: number; run_du_modele?: string };
   avertissements?: string[];
@@ -209,6 +212,8 @@ export interface BeachNow {
   valeur?: number;
   jour?: string;
   distance_km?: number;
+  /** The waves FORECAST near the beach; missing on a copy made before they were read. */
+  houle?: { hauteur_m: number; maintenant: string; heure: string; max: string; max_jour: string };
 }
 
 export interface SeaData {
@@ -219,19 +224,25 @@ export interface SeaData {
 }
 
 export async function buildSea(cache: Cache, now = new Date()): Promise<SeaData> {
-  const [t, tide] = await Promise.all([seaTour(cache, now, BEACHES), gauges(cache, now)]);
-  if (!t) throw new Error("aucune mesure satellite de la mer");
+  const [t, tide, w] = await Promise.all([seaTour(cache, now, BEACHES), gauges(cache, now), wavesNow(cache)]);
+  if (!t && !w) throw new Error("ni mesure satellite de la mer, ni prévision des vagues");
   const read = tide.some((g) => g.reading);
   return {
-    plages: t.readings.map(({ p, r }) => ({
-      nom: p.nom,
-      commune: p.commune,
-      lon: p.lon,
-      lat: p.lat,
-      ...(r ? { valeur: r.valeur, jour: r.mesure.jour_mesure, distance_km: r.mesure.distance_km } : {}),
-    })),
+    plages: BEACHES.map((n, i) => {
+      const p = resolvePlace(n)!.lieu;
+      const r = t?.readings[i].r;
+      const l = w ? waveLine(w.value, p.lon, p.lat, now) : null;
+      return {
+        nom: p.nom,
+        commune: p.commune,
+        lon: p.lon,
+        lat: p.lat,
+        ...(r ? { valeur: r.valeur, jour: r.mesure.jour_mesure, distance_km: r.mesure.distance_km } : {}),
+        ...(l ? { houle: { hauteur_m: l.hauteur_m, maintenant: l.maintenant, heure: l.heure, max: l.max, max_jour: l.max_jour } } : {}),
+      };
+    }),
     ...(read ? { maree: tide.map((g) => gaugeRow(g, now)) } : {}),
-    sources: [...t.used.map((g) => credit(g.source)), ...(read ? [credit(maregraphes.SOURCE)] : [])],
+    sources: [...(t?.used.map((g) => credit(g.source)) ?? []), ...(w ? [credit(houle.SOURCE)] : []), ...(read ? [credit(maregraphes.SOURCE)] : [])],
   };
 }
 

@@ -46,6 +46,8 @@ function upstream(url: string): Response {
   if (url.includes("pioupiou")) return Response.json({ data: JSON.parse(String(fixture("pioupiou_all.json"))).data[0] });
   if (url.includes("noaacwLEOACSPO")) return new Response(fixture("acspo.csv"));
   if (url.includes("erdMH1sstd1day")) return new Response(fixture("modis.csv"));
+  if (url.includes("marine-api.open-meteo")) return new Response(fixture("openmeteo_houle.json"));
+  if (url.includes("air-quality-api.open-meteo")) return new Response(fixture("cams_uv.json"));
   if (url.includes("open-meteo.com/data")) return new Response(fixture("openmeteo_meta.json"));
   if (url.includes("open-meteo")) return new Response(fixture("openmeteo_cilaos.json"));
   if (url.includes("GetCapabilities")) return new Response(`<x>TEMPERATURE__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND___${RUN}</x>`);
