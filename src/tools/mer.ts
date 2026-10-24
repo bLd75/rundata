@@ -3,6 +3,7 @@ import { localTime } from "../geo.js";
 import { resolvePlace, type Place } from "../places/resolve.js";
 import * as acspo from "../providers/acspo.js";
 import * as modis from "../providers/modis.js";
+import { left } from "../budget.js";
 import { type SourceInfo, why } from "../types.js";
 import { credits, fr, notFound, placeBlock, text } from "./format.js";
 
@@ -31,6 +32,8 @@ const CAVEATS = [
     "c'est la température au large du lieu, pas au bord de la plage ni dans le lagon, qui peuvent différer.",
 ];
 
+const PRODUCT_SUBREQUESTS = 3;
+
 interface Grid {
   source: SourceInfo;
   cached: Cached<acspo.SstDay[]>;
@@ -40,6 +43,9 @@ interface Grid {
 async function grids(cache: Cache): Promise<Grid[]> {
   const out: Grid[] = [];
   for (const p of PRODUCTS) {
+    // A product not in memory costs a cache read, the download and the cache write: without them, the page keeps
+    // what it has rather than fail on the limit.
+    if (left() < PRODUCT_SUBREQUESTS) break;
     try {
       out.push({ source: p.source, cached: await p.grid(cache) });
     } catch (err) {

@@ -22,6 +22,9 @@ const FRESH_SECONDS = 3 * 3600; // the product is daily; a few checks a day are 
 // ERDDAP answers in a few seconds; a stuck server must not hold a page refresh, which Cloudflare cuts after 30 s
 // (and MODIS may still have to be asked after this).
 const TIMEOUT_MS = 12_000;
+// CoastWatch's ERDDAP has been down for days at a time: once it fails, MODIS answers for half an hour before it is
+// asked again, instead of each page waiting for it and then lacking the subrequests MODIS needs.
+const BACKOFF_SECONDS = 30 * 60;
 const box = `[last-${DAYS - 1}:last][(${BBOX.latMax}):(${BBOX.latMin})][(${BBOX.lonMin}):(${BBOX.lonMax})]`;
 const URL =
   "https://coastwatch.noaa.gov/erddap/griddap/noaacwLEOACSPOSSTL3SnrtCDaily.csv?" +
@@ -88,5 +91,5 @@ export function nearest(days: SstDay[], lon: number, lat: number, maxKm = 12): S
 }
 
 export async function grid(cache: Cache) {
-  return cache.get("acspo", FRESH_SECONDS, async () => parseCsv(await getText(SOURCE.id, URL, TIMEOUT_MS)));
+  return cache.get("acspo", FRESH_SECONDS, async () => parseCsv(await getText(SOURCE.id, URL, TIMEOUT_MS)), BACKOFF_SECONDS);
 }
