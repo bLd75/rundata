@@ -1,0 +1,187 @@
+{
+ "attribution": "Ministère chargé de la santé, ARS La Réunion : contrôle sanitaire des eaux de baignade",
+ "sites": [
+  {
+   "id": "974000691",
+   "nom": "Plage Grande Anse",
+   "commune": "Petite-Île",
+   "lon": 55.54869,
+   "lat": -21.37031
+  },
+  {
+   "id": "974000692",
+   "nom": "Plage de Manapany",
+   "commune": "Saint-Joseph",
+   "lon": 55.58817,
+   "lat": -21.37363
+  },
+  {
+   "id": "974000694",
+   "nom": "Plage de la Ravine Blanche",
+   "commune": "Saint-Pierre",
+   "lon": 55.46029,
+   "lat": -21.34213
+  },
+  {
+   "id": "974000695",
+   "nom": "Plage de la Gendarmerie",
+   "commune": "Saint-Pierre",
+   "lon": 55.46576,
+   "lat": -21.34354
+  },
+  {
+   "id": "974000696",
+   "nom": "Plage du centre-ville de Saint-Pierre",
+   "commune": "Saint-Pierre",
+   "lon": 55.47405,
+   "lat": -21.34474
+  },
+  {
+   "id": "974000697",
+   "nom": "Plage de Terre Sainte",
+   "commune": "Saint-Pierre",
+   "lon": 55.48135,
+   "lat": -21.34812
+  },
+  {
+   "id": "974000698",
+   "nom": "Plage de Grand Bois",
+   "commune": "Saint-Pierre",
+   "lon": 55.52622,
+   "lat": -21.36147
+  },
+  {
+   "id": "974000699",
+   "nom": "Bassin du Baril",
+   "commune": "Saint-Philippe",
+   "lon": 55.73276,
+   "lat": -21.36991
+  },
+  {
+   "id": "974000702",
+   "nom": "Plage de L'Étang-Salé-les-Bains",
+   "commune": "L'Étang-Salé",
+   "lon": 55.33145,
+   "lat": -21.26373
+  },
+  {
+   "id": "974000704",
+   "nom": "Plage du centre-ville de Saint-Leu",
+   "commune": "Saint-Leu",
+   "lon": 55.28595,
+   "lat": -21.17126
+  },
+  {
+   "id": "974000705",
+   "nom": "Plage de Boucan Canot",
+   "commune": "Saint-Paul",
+   "lon": 55.22555,
+   "lat": -21.0285
+  },
+  {
+   "id": "974000707",
+   "nom": "Plage des Roches Noires",
+   "commune": "Saint-Paul",
+   "lon": 55.2234,
+   "lat": -21.05345
+  },
+  {
+   "id": "974000708",
+   "nom": "Plage de l'Hermitage village",
+   "commune": "Saint-Paul",
+   "lon": 55.22075,
+   "lat": -21.06735
+  },
+  {
+   "id": "974000709",
+   "nom": "Plage de l'Hermitage centre",
+   "commune": "Saint-Paul",
+   "lon": 55.22559,
+   "lat": -21.0842
+  },
+  {
+   "id": "974000710",
+   "nom": "Plage de La Saline-les-Bains",
+   "commune": "Saint-Paul",
+   "lon": 55.23583,
+   "lat": -21.0961
+  },
+  {
+   "id": "974000711",
+   "nom": "Plage de Trou d'Eau",
+   "commune": "Saint-Paul",
+   "lon": 55.24301,
+   "lat": -21.10138
+  },
+  {
+   "id": "974000726",
+   "nom": "Bassin Balance Langevin",
+   "commune": "Saint-Joseph",
+   "lon": 55.64595,
+   "lat": -21.3806
+  },
+  {
+   "id": "974000727",
+   "nom": "Bassin Dinan",
+   "commune": "Saint-Joseph",
+   "lon": 55.64846,
+   "lat": -21.3691
+  },
+  {
+   "id": "974001294",
+   "nom": "Plage de l'Ermitage sud embouchure",
+   "commune": "Saint-Paul",
+   "lon": 55.22707,
+   "lat": -21.0854
+  },
+  {
+   "id": "974001554",
+   "nom": "Bassin de la Passerelle",
+   "commune": "Saint-Joseph",
+   "lon": 55.64392,
+   "lat": -21.33925
+  },
+  {
+   "id": "974001602",
+   "nom": "Plage de la Pointe Trois Roches",
+   "commune": "Saint-Paul",
+   "lon": 55.25158,
+   "lat": -21.10892
+  },
+  {
+   "id": "974001606",
+   "nom": "Bassin Bleu",
+   "commune": "Saint-Benoît",
+   "lon": 55.74784,
+   "lat": -21.08386
+  },
+  {
+   "id": "974001608",
+   "nom": "Bassin de l'Îlet Bethléem",
+   "commune": "Saint-Benoît",
+   "lon": 55.6823,
+   "lat": -21.03996
+  },
+  {
+   "id": "974001611",
+   "nom": "Plage Citerne Quarante Six",
+   "commune": "Saint-Leu",
+   "lon": 55.28688,
+   "lat": -21.17838
+  },
+  {
+   "id": "974001616",
+   "nom": "Plage Baie de Saint-Paul",
+   "commune": "Saint-Paul",
+   "lon": 55.26964,
+   "lat": -21.00739
+  },
+  {
+   "id": "974001617",
+   "nom": "Bassin aval de la rivière des Marsouins",
+   "commune": "Saint-Benoît",
+   "lon": 55.70883,
+   "lat": -21.04521
+  }
+ ]
+}

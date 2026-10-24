@@ -29,6 +29,11 @@ import { alertsFor, applyRealtime, departureRow, departures, findStops, nearStop
 import { cyclone, highest, raised } from "../tools/vigilance.js";
 import { COMMUNES as BIKE_COMMUNES, velosLibreService } from "../tools/velos.js";
 import { bornesRecharge, count as countPoints, stationRow } from "../tools/bornes.js";
+import { ile, type Ile } from "../eau/ile.js";
+import * as baignadesSource from "../providers/baignades.js";
+import * as eauPotableSource from "../providers/eaupotable.js";
+import { COMMON as EAU_COMMON } from "../tools/eau.js";
+import { credits } from "../tools/format.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import { type Observation, why } from "../types.js";
 import { coastal, type PlacePage } from "./places.js";
@@ -317,6 +322,14 @@ export async function buildBornes(cache: Cache, now = new Date()): Promise<Borne
     return { ...stationRow(s, live, now, undefined, false), lon: s.lon, lat: s.lat, libres: c.libres, total: c.total };
   });
   return { ...a, stations };
+}
+
+export type EauAnswer = Ile & { a_savoir: typeof EAU_COMMON; sources: Credit[] };
+
+/** The bathing sites and the tap water of every commune, gathered by the workflow (src/eau/ile.ts). */
+export async function buildEau(cache: Cache, now = new Date()): Promise<EauAnswer> {
+  const { value } = await ile(cache, now);
+  return { ...value, a_savoir: EAU_COMMON, sources: credits([eauPotableSource.SOURCE, baignadesSource.SOURCE]) };
 }
 
 export interface ElectriciteAnswer {

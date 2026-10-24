@@ -11,6 +11,7 @@ import { WORKER_FREE_LIMIT, count, counted } from "./budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { visitor, type Hit } from "./metrics.js";
 import * as irve from "./providers/irve.js";
+import * as eauIle from "./eau/ile.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as transit from "./providers/transit.js";
 import { prefetchForecasts } from "./tools/prevision.js";
@@ -125,6 +126,11 @@ function setup(env: Env): Cache {
   irve.configure(kv && (async () => {
     count();
     return (await kv.get("irve:etat", "json")) as irve.Live | null;
+  }));
+  // Gathered site by site and commune by commune by .github/workflows/eau.yml (src/eau/ile.ts).
+  eauIle.configure(kv && (async () => {
+    count();
+    return (await kv.get("eau:ile", "json")) as eauIle.Ile | null;
   }));
   transit.configure(d1 && { all: async <T>(sql: string, ...params: unknown[]) => (await d1.prepare(sql).bind(...params).all<T>()).results });
   // Without the KV binding, the bundles stay in the data center's cache like everything else.

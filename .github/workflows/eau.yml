@@ -1,0 +1,38 @@
+# The water of the whole island for the /eau page: four times a day, every bathing site the ARS checks and the tap
+# water of each commune (scripts/eau-ile.ts) are written to the Worker's KV store, where src/eau/ile.ts reads them.
+# That is some 75 requests, more than the Worker may make for one page.
+name: Qualité de l'eau
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eau
+  cancel-in-progress: true
+
+jobs:
+  ile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Every bathing site and every commune
+        run: npx tsx scripts/eau-ile.ts eau-ile.json
+      - name: Into the KV store, kept 3 days at most
+        run: npx wrangler kv key put eau:ile --path eau-ile.json --binding STORE --remote --ttl 259200

@@ -1,0 +1,1680 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		
+		<meta http-equiv="x-ua-compatible" content="IE=EmulateIE9" />     
+	
+		<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+		<title>Minist&egrave;re charg&eacute; de la sant&eacute; - Qualit&eacute; des eaux de baignade</title>
+		<link href="css/styleDyn.css" rel="stylesheet" type="text/css" />
+		<link href="css/dynStyle.css" rel="stylesheet" type="text/css" />
+		<link href="css/infobulle.css" rel="stylesheet" type="text/css" />
+		<script src="js/script.js" type="text/javascript"></script>
+		<script src="js/recherche.js" type="text/javascript"></script>
+		
+		<link rel="stylesheet" type="text/css" href="https://serverapi.arcgisonline.com/jsapi/arcgis/3.0/js/dojo/dijit/themes/claro/claro.css">
+        <link rel="stylesheet" type='text/css' href='https://serverapi.arcgisonline.com/jsapi/arcgis/2.3/js/esri/dijit/css/Popup.css'/>
+        
+        
+		<script type="text/javascript">var djConfig = {parseOnLoad: true};</script>
+        <script type="text/javascript" src="https://serverapi.arcgisonline.com/jsapi/arcgis/?v=2.8"></script>
+	
+		<script type="text/javascript">
+			dojo.require("dijit.layout.BorderContainer");
+			dojo.require("dijit.layout.ContentPane");
+			dojo.require("dijit.layout.AccordionContainer");
+			dojo.require("esri.map");
+			dojo.require("esri.layers.wms");
+			dojo.require("esri.layers.FeatureLayer");
+			dojo.require("esri.layers.agstiled");
+	  		dojo.require("dojo.data.ItemFileReadStore");
+			dojo.require("esri.tasks.find");
+			dojo.require("esri.tasks.query");
+			dojo.require("esri.toolbars.navigation");
+			dojo.require("dijit.form.Button");
+			dojo.require("dijit.Toolbar");
+			dojo.require("esri.dijit.Popup");
+			dojo.require("esri.dijit.Scalebar");
+
+			var map;
+			var Year;
+			
+					Year = 2027;
+			
+			
+			//Variables sur les annÃ©es
+			var CurrentYear = 2027
+			
+			
+			var findTask, findParams;
+
+			var FondCarte = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer";
+			var Territoire = "reu";
+			var UrlGisBaignades = "https://sigmas.social.gouv.fr/server/rest/services/baignades/" + Territoire + "_vue_baignade/MapServer";
+			var UrlGisBaignadesQuery= "https://sigmas.social.gouv.fr/server/rest/services/baignades/" + Territoire + "_vue_baignade/MapServer/5";
+			var UrlGisBaignadesQuerySC= "https://sigmas.social.gouv.fr/server/rest/services/baignades/" + Territoire + "_vue_baignade/MapServer/6";
+			var UrlGisDept = "https://sigmas.social.gouv.fr/server/rest/services/baignades/" + Territoire + "_departement/MapServer/0";
+
+			var basemap, LayerZoomPointBaignade, LayerZoomPointBaignadeSansClasst, LayerCommunes, PtsBaignades;
+			var ToleranceClic = 20;
+			var ToleranceZoomSearch = 0;
+			if (Territoire == "fra") {
+				ToleranceZoomSearch = 1000;
+			} else {
+				ToleranceZoomSearch = 2000;
+			}
+			xpoint = 0;
+			ypoint = 0;
+			features = null;
+			
+			function initLayers() {
+				LayerDept = new esri.layers.FeatureLayer(UrlGisDept,{
+					mode: esri.layers.FeatureLayer.MODE_ONDEMAND,
+					outFields: ["*"],
+					opacity:0
+				});
+				LayerZoomPointBaignade = new esri.layers.FeatureLayer(UrlGisBaignadesQuery,{
+					mode: esri.layers.FeatureLayer.MODE_ONDEMAND,
+					outFields: ["*"],
+					opacity:0
+				});
+				LayerZoomPointBaignadeSansClasst = new esri.layers.FeatureLayer(UrlGisBaignadesQuerySC,{
+					mode: esri.layers.FeatureLayer.MODE_ONDEMAND,
+					outFields: ["*"],
+					opacity:0
+				});
+				
+				var queryPtBaignade = new esri.tasks.Query();
+				queryPtBaignade.where = "isite='000709' and dptddass='974'";
+				//var features;
+				LayerZoomPointBaignade.selectFeatures(queryPtBaignade,esri.layers.FeatureLayer.SELECTION_NEW,function(features){
+					xpoint = features[0].geometry.x;
+					ypoint = features[0].geometry.y;
+					
+					SetMapCenter (xpoint, ypoint);
+				});
+				
+				if (xpoint == 0 && ypoint == 0) {
+					LayerZoomPointBaignadeSansClasst.selectFeatures(queryPtBaignade,esri.layers.FeatureLayer.SELECTION_NEW,function(features){
+						xpoint = features[0].geometry.x;
+						ypoint = features[0].geometry.y;
+						
+						SetMapCenter (xpoint, ypoint);
+					});
+				}
+				
+				var layerLoadCount = 0;
+				
+				//When layer have loaded, run init				
+				if (LayerDept.loaded) {
+					layerLoadCount += 1;
+					if (layerLoadCount === 1) {
+						init(LayerDept);
+					}
+				} else {
+					dojo.connect(LayerDept, "onLoad", function(service) {
+						layerLoadCount += 1;
+						if (layerLoadCount === 1) {
+							init(LayerDept);
+						}
+					});
+				}
+			}
+			
+			function init(MyServiceExtent) {
+				var ExtentDev = MyServiceExtent.fullExtent;
+				var initExtent = new esri.geometry.Extent({"xmin":ExtentDev.xmin,"ymin":ExtentDev.ymin,"xmax":ExtentDev.xmax,"ymax":ExtentDev.ymax,"spatialReference":{"wkid":102100}});
+				var popup= new esri.dijit.Popup(null,dojo.create("div"));
+				
+				map = new esri.Map("map",{extent:initExtent, infoWindow:popup, logo:false});
+				dojo.connect(map, "onLoad", function() {
+					map.disableDoubleClickZoom();
+					map.disableScrollWheelZoom();
+					map.disableKeyboardNavigation()
+					map.disableScrollWheelZoom();
+					map.hideZoomSlider();
+				});
+				
+				basemap = new esri.layers.ArcGISTiledMapServiceLayer(FondCarte);
+				PtsBaignades = new esri.layers.ArcGISDynamicMapServiceLayer(UrlGisBaignades);
+				
+				SetLayerDef(Year);
+				map.addLayer(basemap);
+				map.addLayer(PtsBaignades);
+				
+				dojo.connect(map, "onClick", IdentPointBaignades);
+								
+				var resizeTimer;
+				dojo.connect(map, 'onLoad', function(theMap) {
+					dojo.connect(dijit.byId('map'), 'resize', function() {
+						clearTimeout(resizeTimer);
+						resizeTimer = setTimeout(function() {
+							map.resize();
+							map.reposition();
+						}, 500);
+					});
+				});
+				
+				queryTask = new esri.tasks.QueryTask(UrlGisBaignadesQuery);
+
+				query = new esri.tasks.Query();
+				query.returnGeometry = true;
+				query.outFields = ["lsite", "lcom", "class_nat", "dptddass", "objectid", "isite"];
+				
+				dojo.connect(map, 'onLoad', function(theMap) {
+					var scalebar = new esri.dijit.Scalebar({
+						map: map,
+						scalebarUnit:'metric'
+					});
+					//resize the map when the browser resizes
+					dojo.connect(dijit.byId('map'), 'resize', map, map.resize);
+				});
+			}
+			dojo.addOnLoad(initLayers);
+			
+			function SetMapCenter (x, y) {
+				var newExtent = new esri.geometry.Extent({"xmin":x-ToleranceZoomSearch,"ymin":y-ToleranceZoomSearch,"xmax":x+ToleranceZoomSearch,"ymax":y+ToleranceZoomSearch,"spatialReference":{"wkid":map.spatialReference.wkid}});
+				
+				map.setExtent(newExtent);
+			}
+			
+			function SetLayerDef (YearAff) {
+				var layerDefinitions = [];
+				layerDefinitions[0] = "annee=" + YearAff;
+				layerDefinitions[1] = "annee=" + YearAff;
+				layerDefinitions[3] = "annee=" + YearAff;
+				layerDefinitions[5] = "annee=" + YearAff;
+				PtsBaignades.setLayerDefinitions(layerDefinitions);
+			}
+
+			
+			function IdentPointBaignades (evt) {
+				map.infoWindow.hide();
+				var ZoomLevel = esri.geometry.getScale(map.extent, map.width, map.spatialReference.wkid);
+				if (ZoomLevel <= 100000) {
+					var centerPoint = new esri.geometry.Point (evt.mapPoint.x,evt.mapPoint.y,evt.mapPoint.spatialReference);
+					var mapWidth = map.extent.getWidth();
+					var pixelWidth = mapWidth/map.width;
+					var tolerance = ToleranceClic * pixelWidth;
+					
+					ExecIdentPointBaignades (evt, centerPoint, tolerance, Year, 0);
+				}
+			}
+			
+			function calculClassement(Annee, ClasstAnneeEnCours){
+				var calcul = ClasstAnneeEnCours ;
+				if(Annee>2012)
+				{
+					switch(ClasstAnneeEnCours){
+						case "1":
+							calcul = "Excellent";
+					        break;
+					    case "2":
+					    	calcul = "Bon";
+					        break;
+					    case "3":
+					    	calcul = "Suffisant";
+					        break;
+					    case "4":
+					    	calcul = "Insuffisant";
+					        break;
+					    case "5":
+					    	calcul = "Insuffisamment de prélèvements";
+					        break;
+					    case "6":
+					    	calcul = "Pas de classement en raison de changements ou classement pas encore possible";
+					        break;
+					    case "11":
+					    	calcul = "Site non classé";
+					        break;
+					    case "I":
+					    	calcul = "Interdiction";
+					        break;
+					    default:
+					        calcul = ClasstAnneeEnCours;
+					   		 break;
+					}
+				}
+				return calcul;
+			}
+			 
+			function ExecIdentPointBaignades (evt, centerPoint, tolerance, AnneeRecherche, RechercheAnneesAnterieures) {
+				var queryExtent = new esri.geometry.Extent (1,1,tolerance,tolerance,evt.mapPoint.spatialReference);
+				query.geometry = queryExtent.centerAt(centerPoint);
+				query.where = "annee=" + AnneeRecherche;
+				
+				if ( CurrentYear == AnneeRecherche){
+					AnneeRechercheActuel = 'Dernier classement validé';
+				}
+				else {
+					AnneeRechercheActuel = 'Classement '+ AnneeRecherche;
+				}
+				queryTask.execute(query, function(fset) {
+					if (fset.features.length > 0) {
+						var BackCoordJs = "";
+						
+						
+						var attr = fset.features[0].attributes;
+						var title = attr.lsite;
+						var extentEnCours = map.extent;
+						var ClasstAnneeEnCours = attr.class_nat.toString();
+						if (RechercheAnneesAnterieures == 0) {
+							LienRetour = "consultSite.do?dptddass=" + attr.dptddass + "&annee=" + Year + "&plv=no&idCarte=";
+							LienRetour += Territoire + "&site=" + (attr.dptddass+attr.isite);
+							if(BackCoordJs != "") {
+								LienRetour += BackCoordJs;
+							}
+							
+							var content = 'Commune : ' + attr.lcom + '<br />' + AnneeRechercheActuel +' : ' + calculClassement(Year,ClasstAnneeEnCours) + '<br><br>';
+							content += '<a href="' + LienRetour + '">D&eacute;tail du site de baignade</a>';
+						} else {
+							LienRetour = "consultSite.do?dptddass=" + attr.dptddass + "&annee=" + Year + "&plv=no&idCarte=";
+							LienRetour += Territoire + "&site=" + (attr.dptddass+attr.isite);
+							if(BackCoordJs != "") {
+								LienRetour += BackCoordJs;
+							}
+							
+							var content = 'Commune : ' + attr.lcom + '<br />Classement ' + Year + ' : Non class&eacute;<br><br>';
+							content += '<a href="' + LienRetour + '">D&eacute;tail du site de baignade</a>';
+						}
+						
+						map.infoWindow.setTitle(title);
+						map.infoWindow.setContent(content);
+						map.infoWindow.show(evt.screenPoint,map.getInfoWindowAnchor(evt.screenPoint));
+					} else {
+						// ERREUR
+						query.where = "annee=" + (AnneeRecherche-1);
+						queryTask.execute(query, function(fset1) {
+							if (fset1.features.length > 0) {
+								afficherInfoSansClassement(evt, fset1.features);
+							} else {
+								query.where = "annee=" + (AnneeRecherche-2);
+								queryTask.execute(query, function(fset2) {
+									if (fset2.features.length > 0) {
+										afficherInfoSansClassement(evt, fset2.features);
+									} else {
+										query.where = "annee=" + (AnneeRecherche-3);
+										queryTask.execute(query, function(fset3) {
+											if (fset3.features.length > 0) {
+												afficherInfoSansClassement(evt, fset3.features);
+											} else {
+												// Il n'y a pas de classement pour ce site ou point 
+												map.infoWindow.setTitle('');
+												map.infoWindow.setContent('DonnÃ©es indisponibles');
+												map.infoWindow.show(evt.screenPoint,map.getInfoWindowAnchor(evt.screenPoint));
+											}
+										});
+									}
+								});
+							}
+						});
+					}
+				});
+			}
+
+			function afficherInfoSansClassement(evt, features) {
+				var attr = features[0].attributes;
+				var title = attr.lsite;
+				var extentEnCours = map.extent;
+				var ClasstAnneeEnCours = null;
+
+				var content = 'Commune : ' + attr.lcom +'<br /> '/*+ classementAnnee */ + '<br />';
+				content += '<a href="consultSite.do?dptddass=' + attr.dptddass + '&plv=no&idCarte=' + Territoire + '&annee=' + Year;
+				content += '&xmin=' + extentEnCours.xmin + '&ymin=' + extentEnCours.ymin + '&xmax=' + extentEnCours.xmax + '&ymax=' + extentEnCours.ymax;
+				content += '&site=' + (attr.dptddass+attr.isite)+ '">D&eacute;tail du site de baignade</a>';
+				
+				map.infoWindow.setTitle(title);
+				map.infoWindow.setContent(content);
+				map.infoWindow.show(evt.screenPoint,map.getInfoWindowAnchor(evt.screenPoint));
+			}
+		</script>
+		<!-- Matomo -->
+		<script type="text/javascript">
+			  var _paq = window._paq = window._paq || [];
+			  /* tracker methods like "setCustomDimension" should be called before "trackPageView" */
+			  _paq.push(['trackPageView']);
+			  _paq.push(['enableLinkTracking']);
+			  (function() {
+			    var u="https://matomo.fabrique.social.gouv.fr/";
+			    _paq.push(['setTrackerUrl', u+'piwik.php']);
+			    _paq.push(['setSiteId', '41']);
+			    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+			    g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
+			  })();
+		</script>
+		<!-- End Matomo Code -->
+	</head>
+
+	<body
+			onload="MM_preloadImages('images/fr/onglet/actualites_clic.gif','images/fr/onglet/qualite_clic.gif','images/fr/onglet/conseils_clic.gif','images/fr/onglet/control_clic.gif','images/fr/onglet/eau_et_sante_clic.gif','images/fr/retour_sante_over.gif','images/fr/boutons/main_over.gif','images/fr/boutons/main_clic.gif','images/fr/accueil_over.gif','images/fr/boutons/OK_over.gif','images/fr/boutons/OK_clic.gif','images/fr/boutons/retour_over.gif','images/fr/boutons/retour_clic.gif','images/fr/boutons/info_site_over.gif','images/fr/boutons/info_site_clic.gif')">
+		<span style="position: absolute; visibility: hidden;">L'accessibilit&eacute; de cette page n'est pas garantie</span>
+		<center>
+			<table class="conteneur" border="0" cellspacing="0" cellpadding="0">
+				<tr>
+					<td>
+						<table border="0" cellpadding="0" cellspacing="0" width="987">
+							<tr>
+								<td height="26" width="102"><a href="https://www.sante.gouv.fr"
+									target="_blank"><img
+									src="images/fr/retour_sante.gif"
+									alt="Retour au site sant&eacute;" name="ret_sante"
+									width="102" height="26" border="0" id="ret_sante"
+									onmouseover="MM_swapImage('ret_sante','','images/fr/retour_sante_over.gif',1)"
+									onmouseout="MM_swapImgRestore()" /></a></td>
+								<td height="26" width="102"><a href="index.html"><img
+									src="images/fr/accueil.gif"
+									alt="Retour &agrave; la page d'accueil"
+									name="ret_accueil" width="102" height="26" border="0"
+									id="ret_accueil"
+									onmouseover="MM_swapImage('ret_accueil','','images/fr/accueil_over.gif',1)"
+									onmouseout="MM_swapImgRestore()" /></a></td>
+								<td height="26" width="607">
+									<div id="nav_haut"><a
+										href="editorial/fr/plan.html">Plan du site</a> | <a
+										href="editorial/fr/legales.html"
+										target="_blank">Mentions l&eacute;gales</a> | <a
+										href="editorial/fr/contacts.html"
+										target="_blank">Contacts</a> | <a
+										href="editorial/fr/liens.html"
+										target="_blank">Liens</a></div>
+								</td>
+								<td height="26" width="176">
+									<div id="moteur">
+								
+										<form action="http://rechercher.sante.gouv.fr/rechercher-inter/recherche_baignade_fr.jsp" method="get"
+											onsubmit="majform_fr()"
+											name="searchForm" target="contenu" id="searchForm"><input
+											name="Action" value="search" type="hidden" /> <input
+											name="ResultMaxDocs" value="200" type="hidden" /> <input
+											name="origine" value="baignade-fr"
+											type="hidden" /> <label for="QueryText" style="display: none">Vos mots cl&eacute;s  </label><input id="QueryText" name="QueryText"
+											value="Vos mots cl&eacute;s " size="20"
+											type="text" /> <input name="image" type="image"
+											src="images/fr/ok.jpg" alt="OK"
+											align="top" border="0" /></form>
+									</div>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<table width="987" border="0" cellspacing="0" cellpadding="0" id="bandeau_fond_null">
+							<tr>
+								<td height="107" align="left">
+									<div id="bandeau"><a href="index.html"><img
+										src="images/fr/transparent.gif"
+										alt="Accueil du site baignade.sante.gouv.fr" border="0"
+										height="99" width="103" /></a></div>
+								</td>
+							</tr>
+							<tr>
+								<td valign="bottom" align="center">
+									<table width="985" border="0" cellspacing="0" cellpadding="0">
+										<tr>
+											<td width="197">
+												<div align="center">
+													<a name="a" id="a"></a>
+													<a href="editorial/fr/actualites/actualites.html"
+															onmouseout="MM_swapImgRestore()"
+															onmouseover="MM_swapImage('actualites','','images/fr/onglet/actualites_clic.gif',1)">
+														<img src="images/fr/onglet/actualites.gif"
+															alt="Actualit&eacute;s" name="actualites"
+															width="140" height="27" border="0" id="actualites" />
+													</a>
+												</div>
+											</td>
+											<td width="197">
+												<div align="center">
+													<a href="homeMap.do#a"
+															onmouseout="MM_swapImgRestore()"
+															onmouseover="MM_swapImage('qualite','','images/fr/onglet/qualite_clic.gif',1)">
+														<img src="images/fr/onglet/qualite_clic.gif"
+															alt="Qualit&eacute; des eaux de baignade" width="140"
+															height="27" border="0" id="qualite" />
+													</a>
+												</div>
+											</td>
+											<td width="197">
+												<div align="center">
+													<a href="editorial/fr/controle/organisation.html"
+															onmouseout="MM_swapImgRestore()"
+															onmouseover="MM_swapImage('control','','images/fr/onglet/control_clic.gif',1)">
+														<img src="images/fr/onglet/control.gif"
+															alt="Organisation du contr&ocirc;le sanitaire" width="140"
+															height="27" border="0" id="control" />
+													</a>
+												</div>
+											</td>
+											<td width="197">
+												<div align="center">
+													<a href="editorial/fr/conseils/conseils.html"
+															onmouseout="MM_swapImgRestore()"
+															onmouseover="MM_swapImage('conseils','','images/fr/onglet/conseils_clic.gif',1)">
+														<img src="images/fr/onglet/conseils.gif"
+															alt="Conseils et recommandations" width="140"
+															height="27" border="0" id="conseils" />
+														</a>
+													</div>
+											</td>
+											<td width="197">
+												<div align="center">
+													<a href="editorial/fr/sante/introduction.html"
+															onmouseout="MM_swapImgRestore()"
+															onmouseover="MM_swapImage('eauEtSante','','images/fr/onglet/eau_et_sante_clic.gif',1)">
+														<img src="images/fr/onglet/eau_et_sante.gif"
+															alt="Eau &amp; Sant&eacute;" width="140"
+															height="27" border="0" id="eauEtSante" />
+													</a>
+												</div>
+											</td>
+										</tr>
+									</table>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				
+				<!--
+					***************************************************************************** 
+					***********************************DEBUT CONTENU*****************************
+					***************************************************************************** 
+				-->
+				
+				<tr>
+					<td>
+						<div align="center">
+							<table width="981" border="0" cellspacing="0" cellpadding="0">
+								<tr>
+									<td height="5">
+										<img src="images/fr/transparent.gif" width="1" height="5" alt="" />
+									</td>
+								</tr>
+								<tr>
+									<td width="981" align="left" height="31">
+										<div class="titre_qualite">Qualit&eacute; des eaux de baignade
+										&gt;  PLAGE DE L'HERMITAGE CENTRE                                            
+										</div>
+									</td>
+								</tr>
+								<tr>
+									<td width="100%" class="bordure_qualite">
+					
+										<table width="100%" border="0" cellspacing="0" align="center">
+											<tr>
+												<td height="8">
+													<img src="images/fr/transparent.gif" height="8" alt="" />
+												</td>
+											</tr>
+											<tr align="center">
+												<td width="100%" valign="top">
+													<table width="958" border="0" cellspacing="0" cellpadding="0">
+														<tr>
+															<td class="cadre_dotted_complet" colspan="3">
+																<form action="consultSite.do" method="get">
+																	<input type="hidden" name="dptddass" value="974" /> 
+																	
+																	<input type="hidden" name="site" value="974000709" />
+																	<inputtype="hidden" name="plv" value="no" />
+																	<table border="0" cellpadding="0" cellspacing="0" valign="middle" width="100%">
+																		<tr>
+																			<td colspan="5" height="15">
+																				<img src="images/fr/transparent.gif"width="5" height="5" alt="" />
+																			</td>
+																		</tr>
+																		<tr valign="middle">
+																			<td width="5">
+																				<img src="images/fr/transparent.gif" width="5" alt="" />
+																			</td>
+									
+																			<!--
+																				***************************************************************************** 
+																				************************************THEMATIQUE*******************************
+																				***************************************************************************** 
+																			-->
+									
+																			<td width="12%" valign="middle" align="left" class="txt_normal">
+																				Ann&eacute;e
+																					: <select name="annee" class="liste_annee">
+																					
+																					
+																						<option value="2027"
+																							
+																								selected="selected" 
+																							>2027</option>
+																					
+																					
+																						<option value="2026"
+																							>2026</option>
+																					
+																					
+																						<option value="2025"
+																							>2025</option>
+																					
+																					
+																						<option value="2024"
+																							>2024</option>
+																					
+																					
+																						<option value="2023"
+																							>2023</option>
+																					
+																					</select>
+																			</td>
+																			<td width="1">
+																				<img src="images/fr/transparent.gif" width="1" alt="" />
+																			</td>
+																			<td align="left" width="8%">
+																				<div align="left"><input name="image" type="image"
+																					src="images/fr/boutons/OK.gif"
+																					alt="OK" align="top" border="0" />
+																				</div>
+																			</td>
+									
+																			<!--
+																				***************************************************************************** 
+																				*******************************COMMUNES/DEPARTEMENT**************************
+																				***************************************************************************** 
+																			-->
+									
+																			<td align="center" width="75%" valign="middle" class="titre_depeche">
+																			
+																				
+																					PLAGE DE L'HERMITAGE CENTRE                                            
+																					<a style="cursor:pointer;" onclick="document.getElementById('idListRegroupement').style.display='block'"> 
+																					
+																					<span id="idListRegroupement" class="infobulleListRegroupement" style="z-index:100;position:absolute;left: 900px;top: 270px;display:none; width: 400px;text-align: justify;">
+																						Site faisant partie du regroupement PLAGE DE L'HERMITAGE CENTRE                                           
+																						comportant les sites suivants depuis le  <br /><br />
+																					
+																						
+																						<br /><br />
+																						
+																						Un regroupement entre plusieurs sites de baignade est possible si ceux-ci sont contigus, si la qualité de leur eau de baignade est similaire depuis au moins quatre ans et si l'étude de vulnérabilité réalisée avant l'ouverture au public de ces mêmes sites de baignade présente des facteurs de risque communs ou une absence. Ces critères sont déterminés selon les dispositions de la Directive européenne 2006/7/CE.
+																						
+																					</span>
+																					<script type="text/javascript">document.getElementById('idListRegroupement').onmouseout = function () {
+																						this.style.display='none';
+																					}</script>
+																				</a>
+																				<br />
+																				D&eacute;partement :  REUNION  &nbsp;&nbsp;/&nbsp;&nbsp; Commune :
+																				 SAINT-PAUL 
+																			
+																			
+																			</td>
+																		</tr>
+																	</table>
+																</form>
+															</td>
+														</tr>
+														<tr>
+															<td colspan="3" height="15">
+																<img src="images/fr/transparent.gif"width="1" height="15" alt="" />
+															</td>
+														</tr>
+															
+														<tr>
+															<td width="402" align="center" valign="top">
+																<table border="0" cellpadding="0" cellspacing="0" class="cadre_dotted_complet">
+																	<tr>
+																		<td width="100%">
+																		
+																			<!--
+																				***************************************************************************** 
+																				**************************************CARTE**********************************
+																				***************************************************************************** 
+																			-->
+																			<table width="400" border="0" cellpadding="0" cellspacing="0">
+																				<tr>
+																					<td colspan="3" height="5"><img
+																						src="images/fr/transparent.gif"
+																						width="1" height="5" alt="" /></td>
+																				</tr>
+																				<tr>
+																					<td width="5"><img
+																						src="images/fr/transparent.gif"
+																						width="5" height="205" alt="" /></td>
+																					<td width="400" height="222">
+																					
+																						<div id="content" dojotype="dijit.layout.BorderContainer" design="headline" gutters="true" 
+																								style="width: 390; height: 222; margin: 0; z-index:1;">
+																							<div id="map" dojotype="dijit.layout.ContentPane" region="center" style="overflow:hidden;"></div>
+																						</div>
+																						
+																					</td>
+																					<td width="5"><img
+																						src="images/fr/transparent.gif"
+																						width="5" height="205" alt="" /></td>
+																				</tr>
+																				<tr>
+																					<td colspan="3" height="5"><img
+																						src="images/fr/transparent.gif"
+																						width="1" height="5" alt="" /></td>
+																				</tr>
+																				<tr>
+																					<td>
+																						<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																					</td>
+																					<td align="right">
+																						
+																						
+																						<a href="navigMap.do?idCarte=reu&keep=yes&annee=2027"
+																								onmouseout="MM_swapImgRestore()"
+																								onmouseover="MM_swapImage('ret','','images/fr/boutons/retour_over.gif',1)">
+																							<img src="images/fr/boutons/retour.gif"
+																								width="70" height="28" border="0" alt=Retour name="ret" id="ret" /> 
+																						</a>
+																					</td>
+																					<td>
+																						<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																					</td>
+																				</tr>
+																				<tr>
+																					<td colspan="3" height="5">
+																						<img src="images/fr/transparent.gif" width="1" height="5" alt="" />
+																					</td>
+																				</tr>
+																			</table>
+																		</td>
+																	</tr>
+																</table>
+															</td>
+															
+															<td>
+																<img src="images/fr/transparent.gif" width="10" height="1" alt="" />
+															</td>
+															<td width="552" valign="top">
+																<table width="100%" border="0" cellpadding="0" cellspacing="0">
+																	
+																	<!--
+																		***************************************************************************** 
+																		**************************************DATES**********************************
+																		***************************************************************************** 
+																	-->
+																	<tr>
+																		<td width="100%" height="26">
+																			<table width="100%" height="26" border="0" cellpadding="0" cellspacing="0" class="cadre_dotted_complet">
+																				<tr>
+																					<!-- DEBUT ET FIN DE SAISON -->
+																					<td width="50%" align="left">
+																						<img src="images/fr/transparent.gif" idth="5" height="5" 
+																							alt="" /> D&eacute;but de la saison : &nbsp;  01/10/2025 
+																					</td>
+																					<td width="50%" align="right">
+																						Fin de la saison : &nbsp;  30/09/2026  <img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																					</td>
+																				</tr>
+																			</table>
+																		</td>
+																	</tr>
+																	<tr>
+																		<td height="10">
+																			<imgsrc="images/fr/transparent.gif"
+																			width="1" height="10" alt="" />
+																		</td>
+																	</tr>
+								
+																	<!--
+																		***************************************************************************** 
+																		**********************************INTERDICTIONS******************************
+																		***************************************************************************** 
+																	-->
+																	
+																	
+																	
+																	<!--
+																		***************************************************************************** 
+																		************************************POLLUTIONS*******************************
+																		***************************************************************************** 
+																	-->
+																	
+
+																	
+																	<!--
+																		***************************************************************************** 
+																		************************************ANOMALIES********************************
+																		***************************************************************************** 
+																	-->
+																	
+																	
+																	
+																	
+																	<!--
+																		***************************************************************************** 
+																		***********************************PICTOGRAMMES******************************
+																		***************************************************************************** 
+																	-->
+																	<tr>
+																		<td width="100%" height="36">
+																			<table width="100%" height="36" border="0" cellpadding="0" cellspacing="0" class="cadre_dotted_complet">
+																				<tr>
+																					<td width="5">
+																						<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																					</td>
+																					<td width="100%" align="center">
+																						<table height="36" border="0" cellpadding="0" cellspacing="0">
+																							<tr>
+																								<td width="5">
+																									<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																								</td>
+																								
+																								<td width="30" align="center" valign="middle">
+																									<img src="images/fr/picto/jumelle_ok.gif" alt="Site surveill&eacute;" 
+																										title="Site surveill&eacute;" width="30" height="30" />
+																								</td>
+																								<td width="5">
+																									<td width="5">
+																										<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																									</td>
+																								
+																								<td width="30" align="center" valign="middle">
+																									<img src="images/fr/picto/parasol_ko.gif" alt="Site non am&eacute;nag&eacute;"
+																										title="Site non am&eacute;nag&eacute;" width="30" height="30" />
+																								</td>
+																								<td width="5">
+																									<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																								</td>
+																								
+																								<td width="30" align="center" valign="middle">
+																									<img src="images/fr/picto/chien_ko.gif" alt="Site interdit aux animaux"
+																										title="Site interdit aux animaux" width="30" height="30" />
+																								</td>
+																								<td width="5">
+																									<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																								</td>
+																								
+																								<td width="30" align="center" valign="middle">
+																									<img src="images/fr/picto/douche_ok.gif" alt="Site &eacute;quip&eacute; de douches"
+																										title="Site &eacute;quip&eacute; de douches" width="30" height="30" />
+																								</td>
+																								<td width="5">
+																									<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																								</td>
+																								
+																								<td width="30" align="center" valign="middle">
+																									<img src="images/fr/picto/robinet_ok.gif" alt="Site avec point d'eau potable"
+																										title="Site avec point d'eau potable" width="30" height="30" />
+																								</td>
+																								<td width="5">
+																									<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																								</td>
+																								
+																								<td width="30" align="center" valign="middle">
+																									<img src="images/fr/picto/pmr_ko.gif" alt="Site non accessible aux personnes &agrave; mobilit&eacute; r&eacute;duite"
+																										title="Site non accessible aux personnes &agrave; mobilit&eacute; r&eacute;duite" width="30" height="30" />
+																								</td>
+																								<td width="5">
+																									<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																								</td>
+																								
+																								<td width="30" align="center" valign="middle">
+																									<img src="images/fr/picto/wc_ok.gif" alt="Site &eacute;quip&eacute; de toilettes"
+																										title="Site &eacute;quip&eacute; de toilettes" width="30" height="30" />
+																								</td>
+																								<td width="5">
+																									<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																								</td>
+																								
+																								<td width="30" align="center" valign="middle">
+																									<img src="images/fr/picto/secour_ok.gif" alt="Site disposant de postes de secours"
+																										title="Site disposant de postes de secours" width="30" height="30" />
+																								</td>
+																								<td width="5">
+																									<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																								</td>
+																								
+																							</tr>
+																						</table>
+																					</td>
+																					<td width="5">
+																						<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																					</td>
+																				</tr>
+																			</table>
+																		</td>
+																	</tr>
+																	<tr>
+																		<td height="10">
+																			<img src="images/fr/transparent.gif" width="1" height="10" alt="" />
+																		</td>
+																	</tr>
+								
+																	
+								
+																	<!--
+																		***************************************************************************** 
+																		*************************CLASSEMENT DE L'ANNEE CHOISIE***********************
+																		***************************************************************************** 
+																	-->
+																	
+																	<tr>
+																		<td width="100%" height="30">
+																			<table width="100%" height="30" border="0" cellpadding="0" cellspacing="0" class="cadre_dotted_complet">
+																				<tr>
+																					<td width="5">
+																						<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																					</td>
+																					<td width="100%" height="30" align="center" valign="middle" class="titre_depeche">
+																			
+																						
+																						Classement de l'ann&eacute;e 2027 :
+																						 site non class&eacute; 
+																					</td>
+																					<td width="5">
+																						<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																					</td>
+																				</tr>
+																			</table>
+																		</td>
+																	</tr>
+																	<tr>
+																		<td height="10">
+																			<img src="images/fr/transparent.gif" width="1" height="10" alt="" />
+																		</td>
+																	</tr>
+																	
+																	<!--
+																		*******LEGENDE*****
+																	-->
+																	<tr>
+																		<td width="100%" height="100%">
+																			<table width="100%" height="100%" border="0" cellpadding="0"
+																					cellspacing="0" class="cadre_dotted_complet">
+																				<tr>
+																					<td width="5" height="5">
+																						<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																					</td>
+																					<td height="135" width="100%">
+																						<table width="100%" height="135" border="0" cellspacing="0" cellpadding="0" class="txt_normal">
+																							<tr>
+																								<td colspan="2" align="left" valign="middle" height="23"width="100%">L&eacute;gende:</td>
+																							</tr>
+																							
+																		<!--*******LEGENDE AVANT LA DIRECTIVE EUROPEENNE 2006/7/CE*****-->
+																																									
+																							<tr>
+																								<td align="left" valign="middle" height="20">
+																									<div align="center"><img
+																										src="images/PictoLegend/site_bleu.gif"
+																										alt="Excellent"
+																										width="10" height="10" /></div>
+																								</td>
+																								<td align="left">Site dont l'eau est d'excellente qualit&eacute</td>
+																							</tr>
+																							<tr>
+																								<td align="left" valign="middle" height="20">
+																									<div align="center"><img
+																										src="images/PictoLegend/site_vert.gif"
+																										alt="Bon"
+																										width="10" height="10" /></div>
+																								</td>
+																								<td align="left">Site dont l'eau est de bonne qualit&eacute</td>
+																							</tr>
+																							<tr>
+																								<td align="left" valign="middle" height="20">
+																									<div align="center"><img
+																										src="images/PictoLegend/site_orange.gif"
+																										alt="Suffisant"
+																										width="10" height="10" /></div>
+																								</td>
+																								<td align="left">Site dont l'eau est de qualit&eacute suffisante</td>
+																							</tr>
+																							<tr>
+																								<td align="left" valign="middle" height="20">
+																									<div align="center"><img
+																										src="images/PictoLegend/site_rouge.gif"
+																										alt="Insuffisant"
+																										width="10" height="10" /></div>
+																								</td>
+																								<td align="left">Site dont l'eau est de qualit&eacute insuffisante</td>
+																							</tr>
+																							<tr>
+																								<td width="5%" align="left" valign="middle" height="20">
+																									<div align="center"><img
+																										src="images/PictoLegend/site_insuffisant_plv.gif"
+																										alt="Insuffisamment de prélèvements" width="10"
+																										height="10" /></div>
+																								</td>
+																								<td width="95%" align="left">Site n'ayant pas suffisamment de pr&eacutel&egrave;vements cette saison pour être class&eacute</td>
+																							</tr>
+																							<tr>
+																								<td width="5%" align="left" valign="middle" height="20">
+																									<div align="center"><img
+																										src="images/PictoLegend/site_non_classe.gif"
+																										alt="Site non classé" width="10"
+																										height="10" /></div>
+																								</td>
+																								<td width="95%" align="left">Site non classé</td>
+																							</tr>
+																							<tr>
+																								<td width="5%" align="left" valign="middle" height="20">
+																									<div align="center"><img
+																										src="images/PictoLegend/site_interdiction.gif"
+																										alt="Interdiction" width="10"
+																										height="10" /></div>
+																								</td>
+																								<td width="95%" align="left">Site connaissant une interdiction temporaire de baignades</td>
+																							</tr>
+																		
+																						</table>
+																					</td>
+																					<td width="5"><img src="images/fr/transparent.gif" width="5" height="5" alt="" /></td>
+																				</tr>
+																			</table>
+																		</td>
+																	</tr>
+																	
+																	<!--
+																		***************************************************************************** 
+																		************************************PROFILS**********************************
+																		***************************************************************************** 
+																	-->
+																	
+																	<tr>
+																		<td width="100%" height="30">
+																			<table width="100%" height="30" border="0" cellpadding="0" cellspacing="0" class="cadre_dotted_complet">
+																				
+																				<tr>
+																					<td class="pdf_image_profil" >
+																						<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+																					</td>
+																					<td class="titre_profil">
+																						Document de synthèse du profil: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+																					</td>
+																					<td class="lien_profil" >
+																						<a href="synthese.do?idSite=974000709&codeDept=974">
+																							<img border="0" src="images/fr/PDF_petit.png" alt="Profil" /></a>
+																						</a>
+																					</td>
+																					<td >
+																						<img src="images/fr/transparent.gif" width="1" height="5" alt="" />
+																					</td>
+																				</tr>
+																				
+																			</table>
+																		</td>
+																	</tr>
+																	<tr>
+																		<td class="pdf_image">
+																			<img src="images/fr/transparent.gif" width="1" height="10" alt="" />
+																		</td>
+																	</tr>
+
+																	<tr>
+																		<td class="pdf_image">
+																			<img src="images/fr/transparent.gif" width="1" height="10" alt="" />
+																		</td>
+																	</tr>
+																
+																
+																<!-- 
+																	***** FERMETURE DU TABLEAU DE DROITE ( DATES, PICTO, ALERTES, CLASSEMENT, PROFIL) *****
+																 -->
+																</table>
+															</td>
+														</tr>
+														<tr>
+															<td colspan="4" height="15">
+																<img src="images/fr/transparent.gif" width="1" height="15" alt="" /> <a name="d" id="d"></a>
+															</td>
+														</tr>
+														
+														<!--
+															***************************************************************************** 
+															***************************DETAIL TOUS PRELEVEMENTS**************************
+															***************************************************************************** 
+														-->
+														
+														
+														<tr>
+															<td colspan="3">
+																<table width="958" height="100%" border="0" cellspacing="0" cellpadding="0">
+																	<tr>
+																		<td width="958" height="100%">
+																		 <a name="details" id="details"></a> 
+																			<table width="100%" height="100%" border="0" cellpadding="0" cellspacing="0">
+																				<tr>
+																					<td class="titre_sous" height="31" width="100%"
+																							style="background-image:url(images/fr/titre_prelevement.gif);" >
+																						D&eacute;tails des pr&eacute;l&egrave;vements de l'ann&eacute;e 2027
+																					</td>
+																				</tr>
+																				<tr>
+																					<td>
+																						<table width="100%" height="100%" border="0" cellpadding="0" cellspacing="0">
+																							
+																							<!--  ENTETE -->
+																							<tr>
+																								<th width="22%" class="cellule_titre" scope="Date">
+																									 Param&egrave;tres obligatoires 
+																								</th>
+																						
+																								<th width="10%" class="cellule_titre" scope="Qualite">15/09/2026</th>
+																						
+																		 						<th width="15%" class="cellule_titre" scope="Details">Valeur limite bon/moyen</th>
+																		 						<th width="13%" class="cellule_titre" scope="Details">Valeur limite moyen/mauvais</th>
+																						
+																						
+																								
+				
+																						
+																								<th class="cellule_titre" scope="Details">&nbsp;</th>
+																						
+				
+																							</tr>
+																							<tr>
+																								<td class="cellule_paire">Ent&eacute;rocoques intestinaux (/100mL)</td>
+																						
+																								<!-- ENTEROCOQUES -->
+																								<td class="cellule_paire_resultat">15</td>
+																						
+																							
+																							    
+																								<td class="cellule_paire">100</td>
+																							    <td class="cellule_paire">370</td>
+																							
+																								<td class="cellule_paire">&nbsp;</td>
+																						
+																							</tr>
+																							<!-- ESCHERICHIA COLI -->
+																							<tr>
+																								<td class="cellule_impaire">Escherichia coli (E.coli) (/100mL)</td>
+																						
+																							<td class="cellule_impaire_resultat"><15</td>
+																							    
+																							    <td class="cellule_impaire">100</td>
+																							    <td class="cellule_impaire">1000</td>
+																						
+																							<td class="cellule_impaire">&nbsp;</td>
+																						
+																						</tr>
+																						
+																						<tr>
+																							<!-- AUTRES PARAMETRES -->
+																							<th class="cellule_titre" scope="Date">Autres Param&egrave;tres</th>
+																						
+																							<!--  RAPPEL DATE DE PRELEVEMENT -->
+																							<th width="10%" class="cellule_titre" scope="Qualite">
+																								15/09/2026
+																							</th>
+																						
+																							<th class="cellule_titre" scope="Details"></th>
+																						
+																					    		<th class="cellule_titre" scope="Details"></th>
+																					    	
+																						</tr>
+				
+																					
+																						<!-- COLIFORMES TOTAUX -->
+																						<tr>
+																							<td class="cellule_impaire">Bact&eacute;ries coliformes (/100mL)</td>
+																					
+																							<td width="10%" class="cellule_impaire_resultat">&nbsp;</td>
+																						
+																						<td class="cellule_impaire" style="font-style: normal">-</td>
+																						<td class="cellule_impaire" style="font-style: normal">-</td>
+																					
+																							<td class="cellule_impaire">&nbsp;</td>
+																					
+				
+																						</tr>
+																						<!-- HUILES MINERALES -->
+																						<tr>
+																							<td class="cellule_paire">Huiles min&eacute;rales</td>
+																					
+																							<td class="cellule_paire_resultat">
+																						 Absence 
+																							</td>
+																						
+																					    		<td class="cellule_paire">-</td>
+																					    	
+																							<td class="cellule_paire">-</td>
+					
+																						
+																						<td class="cellule_paire">&nbsp;</td>
+																						
+																						</tr>
+																						
+																						<!-- PHENOL -->
+																						<tr>
+																							<td class="cellule_impaire">Ph&eacute;nols</td>
+																					
+																							<td class="cellule_impaire_resultat">
+																						 Absence 
+																							</td>
+																						
+																					    		<td class="cellule_impaire">-</td>
+																					    	
+																							<td class="cellule_impaire">-</td>
+					
+																						
+																						<td class="cellule_impaire">&nbsp;</td>
+																						
+																						</tr>
+																						<!-- SUBSTANCE TENSIO-ACTIVES -->
+																						<tr>
+																							<td class="cellule_paire">Subst. tensio-actives /Mousse</td>
+																					
+																							<td class="cellule_paire_resultat">
+																						 Absence 
+																							</td>
+																						
+																					    		<td class="cellule_paire">-</td>
+																					    	
+																							<td class="cellule_paire">-</td>
+					
+																						
+																						<td class="cellule_paire">&nbsp;</td>
+																						
+																						</tr>
+																						
+																						<!-- CHANGEMENT ANORMALE DE COLORATION -->
+																						<tr>
+																							<td class="cellule_impaire">Chang. anormal de coloration</td>
+																					
+																							<td class="cellule_impaire_resultat">
+																						 &nbsp; 
+																							</td>
+																						
+																					    		<td class="cellule_impaire">-</td>
+																					    	
+																							<td class="cellule_impaire">-</td>
+					
+																						
+																						<td class="cellule_impaire">&nbsp;</td>
+																						
+																						</tr>
+																						<!-- TRANSPARENCE SECCHI -->
+																						<tr>
+																							<td class="cellule_paire">Transparence Secchi</td>
+																					
+																							<td class="cellule_paire_resultat">
+																						 >1 
+																							</td>
+																						
+																							<td class="cellule_paire">-</td>
+																							<td class="cellule_paire">-</td>
+																						
+																						<td class="cellule_paire">&nbsp;</td>
+																						
+																						</tr>
+																						
+																						
+																						
+																						<!-- CYANOBACTERIE -->
+																					<!--0085389: FICHE SITE> Supprimer la ligne "CyanobactÃ©ries" du tableau des rÃ©sultats-->
+																						
+																						<!-- OSTREOPSYS -->
+																						<tr>
+																							<td class="cellule_paire">Ostreopsis spp.</td>
+																					
+																						<td class="cellule_paire_resultat"> 
+																								
+																						 				&nbsp;
+																						 			
+																						 			</td>
+																					
+																							<td class="cellule_paire">-</td>
+																							<td class="cellule_paire">-</td>
+																					
+																							<td class="cellule_paire">&nbsp;</td>
+																					
+																						</tr>
+																						
+																						
+																						
+																						
+																					</table>
+																				</td>
+																			</tr>
+																		</table>
+																	</td>
+																</tr>
+															</table>
+															</td>
+														</tr>
+														<tr>
+															<td colspan="3">
+															 	<table width="100%" height="100%" border="0" cellspacing="0" cellpadding="1">
+																	 <tr id="noteInfo">
+																	 	<td>
+																	 		A partir de la saison baln&eacute;aire 2010, les param&egrave;tres obligatoires &agrave; analyser sont modifi&eacute;s.  
+																	 		<a href="#" class="infobulleMedium">
+																		 		Pour en savoir plus 
+																		 		<span>
+																		 			A partir de la saison baln&eacute;aire 2010, les param&egrave;tres obligatoires &agrave; analyser sont les 2 param&egrave;tres microbiologiques suivants : Escherichia coli et ent&eacute;rocoques intestinaux. Les autres param&egrave;tres, qui &eacute;taient suivis en application de la directive 76/160/CEE, comme les coliformes totaux ou les param&egrave;tres physicochimiques, deviennent facultatifs.
+																				</span> 
+																			</a>
+																		</td>
+																	</tr>
+																</table>
+															</td>
+														</tr>
+														<tr>
+															<td colspan="3" height="15"><img src="images/fr/transparent.gif" width="1" height="15" alt="" /></td>
+														</tr>
+				
+														
+				
+				
+														<tr>
+															<td colspan="3">
+																<table width="958" height="100%" border="0" cellspacing="0" cellpadding="0">
+																	<tr>
+																		<td width="957" height="100%" class="cadre_dotted_complet">
+																			<table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0" class="txt_normal">
+																				<tr>
+																				
+																			
+																					<td>
+																
+																			
+																					<a href="consultSite.do?isite=974000709&dptddass=974&annee=2027&site=974000709&plv=no" class="lienBleu">[ Masquer les détails ]</a>
+																				</td>
+																			</tr>
+																		</table>
+																	</td>
+																</tr>
+															</table>		
+														</td>
+													</tr>
+													<tr>
+														<td colspan="3" height="15"><img src="images/fr/transparent.gif" width="1" height="15" alt="" /></td>
+													</tr>
+													
+													
+
+														<!--
+															***************************************************************************** 
+															*****************************DETAIL 1 PRELEVEMENT****************************
+															***************************************************************************** 
+														-->
+
+														
+							
+														<!--
+															***************************************************************************** 
+															*************************LISTES DE TOUS PRELEVEMENTS*************************
+															***************************************************************************** 
+														-->
+														
+														
+														
+														<tr>
+															<td colspan="3">
+																<table width="958" border="0" cellpadding="0" cellspacing="0">
+																	<tr>
+																		<td class="titre_sous"
+																			style="background-image:url(images/fr/titre_prelevement.gif);"
+																			height="31" width="100%">R&eacute;sultats des prélèvements de l'ann&eacute;e 2027</td>
+																	</tr>
+																	<tr>
+																		<td height="50" width="100%" valign="top">
+																			<table width="100%" height="40" border="0" cellpadding="0" cellspacing="0">
+																				
+																				<tr>
+																					
+																					<td height="40" width="10%" class="cadre_dotted fondBon">
+																						<strong> 15/09/2026 </strong> <br />
+																					
+																								        Bon
+																								       
+																						<a href="consultSite.do?isite=974000709&dptddass=974&annee=2027&site=974000709&plv=97400072704#d">
+																							<img src="images/fr/boutons/fleche_ronde.gif"
+																								alt="acc&egrave;s aux d&eacute;tails" width="15" height="15" border="0" /> 
+																						</a>
+																					</td>
+																					
+																					<td width="10%" class="cadre_dotted_complet">&nbsp;</td>
+																					
+																					<td width="10%" class="cadre_dotted_complet">&nbsp;</td>
+																					
+																					<td width="10%" class="cadre_dotted_complet">&nbsp;</td>
+																					
+																					<td width="10%" class="cadre_dotted_complet">&nbsp;</td>
+																					
+																					<td width="10%" class="cadre_dotted_complet">&nbsp;</td>
+																					
+																					<td width="10%" class="cadre_dotted_complet">&nbsp;</td>
+																					
+																					<td width="10%" class="cadre_dotted_complet">&nbsp;</td>
+																					
+																					<td width="10%" class="cadre_dotted_complet">&nbsp;</td>
+																					
+																					<td width="10%" class="cadre_dotted_complet">&nbsp;</td>
+																					
+																				</tr>
+																				
+																				<tr>
+																					<td colspan="6" height="20">&nbsp;</td>
+																					<td colspan="4" class="cadre_dotted_complet">
+																						<div align="center">
+																						
+																							Bon r&eacute;sultat
+																							<img src="images/fr/bleu_25pc.gif"
+																								alt="Bon r&eacute;sultat" width="10"
+																								height="10" border="1" /> &nbsp;-&nbsp; R&eacute;sultat moyen <img
+																								src="images/fr/vert_25pc.gif"
+																								alt="R&eacute;sultat moyen" width="10"
+																								height="10" border="1" /> &nbsp;-&nbsp; Mauvais r&eacute;sultat <img
+																								src="images/fr/rouge_25pc.gif"
+																								alt="Mauvais r&eacute;sultat" width="10"
+																								height="10" border="1" />
+																								
+																						</div>
+																					</td>
+																				</tr>
+																			</table>
+																		</td>
+																	</tr>
+																</table>
+															</td>
+														</tr>
+														<tr>
+															<td height="15" colspan="3">
+																<img src="images/fr/transparent.gif" height="15" alt="" />
+															</td>
+														</tr>
+							
+														
+							
+
+														<!--
+															***************************************************************************** 
+															*************************CLASSEMENTS 4 DERNIERES ANNEES**********************
+															***************************************************************************** 
+														-->
+														
+														<tr>
+															<td colspan="3" height="111">
+																<table width="958" border="0" cellpadding="0" cellspacing="0">
+																	<tr>
+																		<td class="titre_sous"
+																				style="background-image:url(images/fr/titre_prelevement.gif);"
+																				height="31" width="100%">
+																			Historique des classements  
+																		</td>
+																	</tr>
+																	<tr>
+																		<td>
+																			<table width="100%" border="0" cellspacing="0" cellpadding="0" height="80">
+																				<tr>
+																					
+																					<td width="12%" class="cellule_titre">
+																						2023
+																					</td>
+																					
+																					<td width="12%" class="cellule_titre">
+																						2024
+																					</td>
+																					
+																					<td width="12%" class="cellule_titre">
+																						2025
+																					</td>
+																					
+																					<td width="12%" class="cellule_titre">
+																						2026
+																					</td>
+																					
+																					<td rowspan="2" width="52%" class="cadre_dotted_complet">
+																					
+																					
+																					<!-- LÃ©gende des classemeent avant l'application de la directive europÃ©enne 2006/7/CE -->
+																					
+																						<!-- LÃ©gende des classement en application de la directive europÃ©enne 2006/7/CE -->
+																						
+																						<table width="100%" border="0" cellspacing="0" cellpadding="0" height="80" class="txt_normal">
+																							<tr>
+																								<td width="4%">
+																									<img src="images/fr/transparent.gif"
+																									width="5" height="1" alt="" />
+																								</td>
+																								<td colspan="5" style="text-decoration:underline">Classement selon la directive 2006/7/CE en vigueur à partir de la saison 2013</td>
+																							</tr>
+																							<tr><td colspan="6">&nbsp;</td></tr>
+																							
+																							<tr>
+																								<td width="4%">
+																									<img src="images/fr/transparent.gif"
+																									width="5" height="1" alt="" />
+																								</td>
+																								<td width="16%">
+																									<table class="txt_normal">
+																										<tr>
+																											<td width="10%"><img src="images/ClassementLegend/classe1.gif" alt="Excellent" width="20" height="20" /></td>
+																											<td width="90%">Excellent</td>
+																										</tr>
+																									</table>
+																								</td>
+																								<td width="4%">
+																									<img src="images/fr/transparent.gif"
+																										width="5" height="1" alt="" />
+																								</td>
+																								<td width="25%">
+																									<table class="txt_normal">
+																										<tr>
+																											<td width="10%"><img src="images/ClassementLegend/classe2.gif" alt="Bon" width="20" height="20" /></td>
+																											<td width="90%">Bon</td>
+																										</tr>
+																									</table>
+																								</td>
+																								<td width="4%">
+																									<img src="images/fr/transparent.gif"
+																										width="5" height="1" alt="" />
+																								</td>
+																								<td width="47%">
+																									<table class="txt_normal">
+																										<tr>
+																											<td width="10%"><img src="images/ClassementLegend/classe3.gif" alt="Suffisant" width="20" height="20" /></td>
+																											<td width="90%">Suffisant</td>
+																										</tr>
+																									</table>
+																								</td>
+																							</tr>
+																							<tr>
+																								<td width="4%">
+																									<img src="images/fr/transparent.gif"
+																										width="5" height="1" alt="" />
+																								</td>
+																								<td>
+																									<table class="txt_normal">
+																										<tr>
+																											<td width="10%"><img src="images/ClassementLegend/classe4.gif" alt="Insuffisant" width="20" height="20" /></td>
+																											<td width="90%">Insuffisant</td>
+																										</tr>
+																									</table>
+																								</td>
+																								
+																								<td width="4%">
+																									<img src="images/fr/transparent.gif"
+																										width="5" height="1" alt="" />
+																								</td>
+																								<td>
+																									<table class="txt_normal">
+																										<tr>
+																											<td width="10%"><img src="images/ClassementLegend/classe5.gif" alt="Insuffisamment de prélèvements" width="20" height="20" /></td>
+																											<td width="90%">Insuffisamment de prélèvements</td>
+																										</tr>
+																									</table>
+																								</td>
+																								<td width="4%">
+																									<img src="images/fr/transparent.gif"
+																										width="5" height="1" alt="" />
+																								</td>
+																								<td>
+																									<table class="txt_normal">
+																										<tr>
+																											<td width="10%"><img src="images/ClassementLegend/classe6.gif" alt="Site non classé" width="20" height="20" /></td>
+																											<td width="90%">Site non classé</td>
+																										</tr>
+																									</table>
+																								</td>
+																							</tr>
+																							<tr>
+																								<td width="4%">
+																									<img src="images/fr/transparent.gif"
+																										width="5" height="1" alt="" />
+																								</td>
+																								<td>
+																									<table class="txt_normal">
+																										<tr>
+																											<td width="10%"><img src="images/ClassementLegend/nonClasse.gif" alt="Non class&eacute;" width="20" height="20" /></td>
+																											<td width="90%">Non suivi</td>
+																										</tr>
+																									</table>
+																								</td>
+																								<td>&nbsp;</td>
+																								<td>&nbsp;</td>
+																								<td>&nbsp;</td>
+																								<td>&nbsp;</td>
+																							</tr>
+																						</table>
+																					
+																					
+																					</td>
+																				</tr>
+																				<tr>
+									
+																				
+																					<td  class="cadre_dotted_complet_classement">
+																						 <img src="images/ClassementLegend/classe1.gif"
+																								alt="1" width="50" height="50" /> 
+																						
+																					</td>
+									
+																				
+																					<td  class="cadre_dotted_complet_classement">
+																						 <img src="images/ClassementLegend/classe1.gif"
+																								alt="1" width="50" height="50" /> 
+																						
+																					</td>
+									
+																				
+																					<td  class="cadre_dotted_complet_classement">
+																						 <img src="images/ClassementLegend/classe1.gif"
+																								alt="1" width="50" height="50" /> 
+																						
+																					</td>
+									
+																				
+																					<td  class="cadre_dotted_complet_classement">
+																						 <img src="images/ClassementLegend/nonClasse.gif"
+																								alt="Non class&eacute;" width="50"
+																								height="50" /> 
+																						
+																					</td>
+									
+																				
+																				</tr>
+																			</table>
+																		</td>
+																	</tr>
+																</table>
+															</td>
+														</tr>
+														
+														<tr>
+															<td colspan=3>
+																<table width="100%" height="100%" border="0" cellspacing="0" cellpadding="1">
+																	
+																		
+																	<tr id="noteInfo">
+																		<td>
+																			A partir de la saison balnéaire 2013, le mode de calcul du classement est modifié en application de la directive européenne 2006/7/CE. 
+																			<a href="#" class="infobulleBig">
+																				Pour en savoir plus
+																				<span>
+																					A partir de la saison balnéaire 2013, le classement est établi en fonction des résultats d'analyses des 4 dernières saisons des 2 paramètres microbiologiques Escherichia coli et entérocoques intestinaux, en comparant les résultats aux valeurs fixés par la directive européenne 2006/7/CE.
+																				</span>
+																			</a>
+																		</td>
+															
+																	</tr>
+																</table>
+															</td>
+														</tr>
+														<tr>
+															<td colspan="3" height="15">
+																<img src="images/fr/transparent.gif" height="15" alt="" />
+															</td>
+														</tr>
+							
+														<!--
+															***************************************************************************** 
+															*******************************LIEN IMPRESSION*******************************
+															***************************************************************************** 
+														-->
+							
+														<tr>
+															<td height="25" colspan="3">
+																<table width="958" height="25" border="0" cellpadding="0" cellspacing="0">
+																	<tr>
+																		<td height="17" width="958" class="cadre_dotted_complet" style="text-align: center;">
+																			
+																			
+																			
+																			
+																			<a href="consultSite.do?impression=yes&modeDetailImp=2&site=974000709&plv=all&annee=2027&isite=974000709&dptddass=974" class="lienBleu" target="impression">[ Imprimer la page ]</a>
+																		</td>
+																	</tr>
+																</table>
+															</td>
+														</tr>
+														<tr>
+															<td height="8" colspan="3"><img
+																src="images/fr/transparent.gif"
+																height="8" alt="" /></td>
+														</tr>
+							
+													</table>
+												</td>
+											</tr>
+						
+											
+										</table>
+									</td>
+								</tr>
+								<tr>
+									<td height="5">
+										<img src="images/fr/transparent.gif" width="5" height="5" alt="" />
+									</td>
+								</tr>
+							</table>
+						</div>
+					</td>
+				</tr>
+			</table>
+		</center>
+		<script type="text/javascript">
+			MM_swapImage('inf','','images/fr/boutons/info_site_clic.gif',1);
+			bsite=1;
+		</script>
+	</body>
+</html>
