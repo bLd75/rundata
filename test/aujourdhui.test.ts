@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resume } from "../src/tools/resume.js";
-import { aCommune, aujourdhuiPage, descriptionOf, H1, LINK, titleOf } from "../src/web/aujourdhui.js";
+import { aCommune, aujourdhuiPage, descriptionOf, H1, HOOK, LINK, titleOf } from "../src/web/aujourdhui.js";
 import { pageOf, PAGES } from "../src/web/places.js";
 
 const NOW = new Date("2026-10-24T11:10:00Z");
@@ -18,6 +18,7 @@ describe("the page of a commune's day", () => {
     for (const p of COMMUNES) {
       expect(titleOf(p).length, titleOf(p)).toBeLessThanOrEqual(60);
       expect(H1(p)).not.toMatch(/à Les? /);
+      expect(HOOK(p).length, HOOK(p)).toBeLessThanOrEqual(144);
     }
     expect(titleOf(pageOf("saint-paul")!)).toBe("Saint-Paul aujourd'hui : météo, routes, sorties · 974");
     expect(titleOf(pageOf("la-plaine-des-palmistes")!)).toBe("La Plaine-des-Palmistes aujourd'hui : météo, sorties · 974");
@@ -40,5 +41,20 @@ describe("the page of a commune's day", () => {
     expect(html).toContain("Fête 0");
     expect(html).toContain('<a href="/electricite">électricité</a>');
     expect(html).not.toMatch(/conforme/);
+  });
+
+  it("gives the practical side of the day: the market, the skips of the TCO, the fuel, the duty pharmacy", () => {
+    const p = pageOf("saint-paul")!;
+    const dechets = copy({ sources: [], etats: [{ lien: "https://www.tco.re/annuaire-tco/centre-de-proprete-de-plateau-caillou", maj: "2026-10-24T14:30:00+04:00", accepte: { dechets_verts: true } }] });
+    const html = aujourdhuiPage("https://rundata.re", p, resume(p, { ...full(p.nom), dechets } as never, NOW), null);
+    expect(html).toContain('<h2 id="h-pratique">Vie pratique</h2>');
+    expect(html).toMatch(/Marché aujourd'hui : <a href="https:\/\/www\.openstreetmap\.org\/[^"]+" rel="noopener"><b>Marché forain de Saint-Paul<\/b><\/a> <span class="note">de 8 h à 12 h/);
+    expect(html).toContain("<b>déchets verts acceptés dans 1 sur 1</b>");
+    expect(html).toContain('<a href="/decheteries#saint-paul">les bennes →</a>');
+    expect(html).toContain('Pharmacie de garde (nuits, dimanches, jours fériés) : <a href="https://www.3237.fr/" rel="noopener"><b>3237.fr</b></a>, ou le 32 37 (payant)');
+    // Without the prices of the month, no fuel line; elsewhere than the TCO, no skips.
+    expect(html).not.toContain("Carburants :");
+    const tampon = pageOf("le-tampon")!;
+    expect(aujourdhuiPage("https://rundata.re", tampon, resume(tampon, full(tampon.nom) as never, NOW), null)).not.toContain("Déchèteries :");
   });
 });

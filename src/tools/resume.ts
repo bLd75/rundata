@@ -1,7 +1,8 @@
 /**
  * « Résumé du jour » for a place (resume_du_jour): the weather measured now and forecast for today, the vigilance, the
  * sea, the electricity, the roads and the news of the commune, its water cuts and its events of the day, its town hall
- * and its sun, in one call. Cut from the copies the site's pages keep (web/site.ts): only read, never built while the
+ * and its sun, its market of the day, the state of its déchèteries (TCO), the month's fuel prices and where to find the
+ * duty pharmacy, in one call. Cut from the copies the site's pages keep (web/site.ts): only read, never built while the
  * call waits, so a call costs a dozen reads at most. A part without a recent copy is left out and named in
  * `non_inclus`, with the tool that answers it; the oldest of them is brought up to date after the answer when what
  * its build took last time is left of the invocation's subrequests.
@@ -13,6 +14,9 @@ import { localTime } from "../geo.js";
 import { noteLecture } from "../lectures.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
+import * as sante from "../sante/etablissements.js";
+import * as dech from "../vie/decheteries.js";
+import * as marches from "../vie/marches.js";
 import * as mf from "../providers/vigilance.js";
 import { why } from "../types.js";
 import {
@@ -26,6 +30,7 @@ import {
   buildCalendrier,
   buildCommune,
   buildCoupures,
+  buildDechets,
   buildElectricite,
   buildPlace,
   buildSea,
@@ -34,15 +39,18 @@ import {
   type CommuneData,
   type CoupuresAnswer,
   type Credit,
+  type DechetsAnswer,
   type ElectriciteAnswer,
   FRESH_SECONDS,
   type PlaceData,
   type SeaData,
   type TraficAnswer,
 } from "../web/data.js";
+import { anchorOf } from "../web/decheteries.js";
 import { coastal, PAGES, type PlacePage } from "../web/places.js";
 import { occurrences } from "./agenda.js";
 import { hoursOn, openNow } from "./annuaire.js";
+import { priceLine } from "./carburants.js";
 import { SITE_URL } from "./citer.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 import { current, cyclone, highest, raised } from "./vigilance.js";
@@ -60,6 +68,7 @@ export interface ResumeCopies {
   coupures?: Cached<CoupuresAnswer> | null;
   agenda?: Cached<AgendaAnswer> | null;
   calendrier?: Cached<CalendrierAnswer> | null;
+  dechets?: Cached<DechetsAnswer> | null;
 }
 type Part = Exclude<keyof ResumeCopies, "vigilance">;
 /** A part left out of the summary, why, and the tool that answers it. */
@@ -97,10 +106,14 @@ function copiesOf(commune: PlacePage, place: PlacePage): Record<Part, Copy | und
     mer: coastal(commune) ? { key: "web:mer", build: buildSea, max: 36 * H, nom: SEA, outil: "temperature_mer", page: "/mer" } : undefined,
     electricite: { key: "web:electricite", build: buildElectricite, max: H, nom: "électricité", outil: "electricite", page: "/electricite" },
     actualites: { key: "web:actualites", build: buildActualites, max: 2 * H, nom: "actualités de la commune", outil: "actualites", page: "/actualites" },
-    trafic: { key: "web:trafic", build: buildTrafic, max: 2 * H, nom: "routes et circulation", outil: "actualites (sujet routes)", page: "/trafic" },
+    trafic: { key: "web:trafic", build: buildTrafic, max: 2 * H, nom: "routes, circulation et prix des carburants", outil: "actualites (sujet routes) et annuaire_services_publics (carburants)", page: "/trafic" },
     coupures: { key: "web:coupures", build: buildCoupures, max: 3 * H, nom: "coupures d'eau", outil: "coupures_eau", page: `/coupures-eau/${commune.slug}` },
     agenda: { key: "web:agenda", build: buildAgenda, max: 24 * H, sameDay: true, nom: "événements du jour", outil: "evenements", page: "/evenements" },
     calendrier: { key: "web:calendrier", build: buildCalendrier, max: 24 * H, sameDay: true, nom: "jour férié et vacances", outil: "calendrier", page: "/calendrier" },
+    // Only the TCO publishes the state of its skips: the other communes have no such part.
+    dechets: dech.TCO_COMMUNES.includes(commune.nom)
+      ? { key: "web:dechets", build: buildDechets, max: 3 * H, nom: "état des déchèteries", outil: "annuaire_services_publics", page: `/decheteries#${anchorOf(commune.nom)}` }
+      : undefined,
   };
 }
 
@@ -116,6 +129,19 @@ const EVENTS_MAX = 10;
 const WAVES = 9;
 // A build whose cost is not known yet in this isolate is taken to cost this much (web/site.ts does the same).
 const COST_UNKNOWN = 25;
+
+const MARKETS_NOT_ALL = "D'après OpenStreetMap : tous les marchés n'y sont pas, et les jours peuvent avoir changé.";
+const NO_DUTY = "rundata.re ne sait pas quelle pharmacie est de garde : seuls 3237.fr et le 32 37 le disent.";
+const FUEL_NOTE = "Prix maximums fixés chaque mois par le préfet, les mêmes dans toute l'île : une station peut vendre moins cher.";
+
+/** « sans plomb 2,00 €/L, gazole 1,80 €/L », as marketing words the prices everywhere. */
+function fuelShort(p: { produits: { produit: string; prix_eur: number }[] }): string {
+  const litre = (re: RegExp, nom: string) => {
+    const x = p.produits.find((y) => re.test(y.produit));
+    return x ? `${nom} ${x.prix_eur.toFixed(2).replace(".", ",")} €/L` : "";
+  };
+  return [litre(/^supercarburant$/i, "sans plomb"), litre(/^gazole$/i, "gazole")].filter(Boolean).join(", ");
+}
 
 const NO_JAMS = "rundata.re ne mesure pas les bouchons : voir la carte Waze en direct, l'état des routes nationales sur infotrafic.re (Région Réunion) et https://rundata.re/trafic.";
 
@@ -208,6 +234,14 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
   // Without the sea's page, the weather page's own reading of the sea, when it has one: then the sea is not left out.
   const mer = coastal(commune) ? sea(commune, l.mer?.value, l.meteo?.value) : undefined;
   const out = mer ? leftOut.filter((x) => x.partie !== SEA) : leftOut;
+  const markets = marches.heldOn(nom, now);
+  // The prices of another month are not this month's.
+  const fuel = l.trafic?.value.carburants;
+  const prices = fuel && fuel.depuis.slice(0, 7) === today.slice(0, 7) ? fuel : undefined;
+  // A site's state older than its staff's last round says nothing of now (vie/decheteries.ts).
+  const sites = l.dechets && dech.TCO_COMMUNES.includes(nom) ? dech.sitesNow(l.dechets.value.etats, now).filter((s) => s.commune === nom) : undefined;
+  const fresh = sites?.filter((s) => s.a_jour) ?? [];
+  const green = fresh.filter((s) => s.accepte.includes("déchets verts")).length;
 
   const t = meteo?.mesure?.mesures.temperature;
   const f = meteo?.prevision?.aujourd_hui;
@@ -219,6 +253,10 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     l.coupures ? (avis.length ? `${avis.length} avis de coupure d'eau` : dist?.avis ? "pas de coupure d'eau annoncée" : "") : "",
     l.agenda ? `${events.length} événement${events.length > 1 ? "s" : ""} aujourd'hui` : "",
     roads.length ? `${roads.length} info${roads.length > 1 ? "s" : ""} sur les routes ou des blocages` : "",
+    markets.length ? `marché aujourd'hui : ${markets.map((m) => `${m.nom} ${m.horaires_aujourd_hui}`).join(", ")}` : "",
+    prices && fuelShort(prices) ? `carburants (prix maximum) : ${fuelShort(prices)}` : "",
+    fresh.length ? `déchets verts acceptés dans ${green} déchèterie${green > 1 ? "s" : ""} sur ${fresh.length}` : "",
+    "pharmacie de garde : 3237.fr",
   ].filter(Boolean).join(" ; ") + ".";
 
   return {
@@ -257,11 +295,28 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     mairie: mairie
       ? { ouverte: open, horaires_aujourd_hui: hoursOn(mairie, now) ?? (open === null ? undefined : "fermée aujourd'hui"), adresse: mairie.adresse, telephone: mairie.telephone }
       : undefined,
+    marches_du_jour: markets.length
+      ? { liste: markets.map((m) => ({ nom: m.nom, horaires_aujourd_hui: m.horaires_aujourd_hui, adresse: m.adresse ?? undefined, carte: m.osm })), avertissement: MARKETS_NOT_ALL }
+      : undefined,
+    decheteries: sites
+      ? {
+          sites: sites.map((s) => ({
+            nom: s.nom,
+            mis_a_jour: s.mis_a_jour,
+            etat: s.a_jour ? "à jour" : s.mis_a_jour ? `dernière mise à jour à ${s.mis_a_jour}, à vérifier sur place` : "pas de mise à jour",
+            accepte: s.a_jour ? s.accepte : undefined,
+            benne_pleine: s.a_jour ? s.refuse : undefined,
+          })),
+          page: `${SITE_URL}/decheteries#${anchorOf(nom)}`,
+        }
+      : undefined,
+    carburants: prices ? { prix_maximum: fuelShort(prices) || undefined, prix_maximums: prices.produits.map(priceLine), depuis: prices.depuis, a_savoir: FUEL_NOTE, lien: prices.lien } : undefined,
+    pharmacie_de_garde: { site: sante.GARDE.site, telephone: sante.GARDE.telephone, quand: sante.GARDE.quand, a_savoir: NO_DUTY },
     non_inclus: out.length ? out : undefined,
     sources: sourcesOf([
       l.meteo?.value.meteo?.sources, l.meteo?.value.prevision?.sources, l.vigilance ? credits([mf.SOURCE]) : undefined, l.air?.value.sources, l.mer?.value.sources,
       l.electricite?.value.sources, l.actualites?.value.sources, l.trafic?.value.sources, l.coupures?.value.sources, l.agenda?.value.sources, l.calendrier?.value.sources,
-      l.commune?.value.sources,
+      l.commune?.value.sources, l.dechets?.value.sources, markets.length ? credits([marches.OSM]) : undefined, credits([sante.ARS_GARDE]),
     ]),
   };
 }

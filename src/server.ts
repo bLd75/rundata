@@ -69,7 +69,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.59.0";
+export const VERSION = "0.60.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -549,9 +549,10 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       description:
         "Tout ce qui compte aujourd'hui dans une commune de La Réunion (974), en un appel : météo MESURÉE maintenant et PRÉVISION du jour, " +
         "vigilance de sa zone, mer, qualité de l'air, électricité, routes et blocages signalés par les médias, actualités de la commune, " +
-        "coupures d'eau, événements du jour, jour férié ou vacances, soleil, mairie ouverte ou non. Un lieu (plage, quartier, sommet) est rapporté à sa commune. " +
+        "coupures d'eau, événements du jour, jour férié ou vacances, soleil, mairie ouverte ou non, marché du jour, bennes des déchèteries (Ouest), " +
+        "prix maximums des carburants du mois, où trouver la pharmacie de garde (3237.fr). Un lieu (plage, quartier, sommet) est rapporté à sa commune. " +
         "Ce qui manque est listé dans non_inclus avec l'outil à appeler. Pour : « quoi de neuf à Saint-Paul aujourd'hui ? », « ma journée au Tampon ». " +
-        "/ Today in one Réunion Island commune: weather, warnings, sea, air, power, roads, news, water cuts, events.",
+        "/ Today in one Réunion Island commune: weather, warnings, sea, air, power, roads, news, water cuts, events, market, waste centres, fuel prices, duty pharmacy.",
       inputSchema: {
         lieu: z.string().describe("Commune ou lieu de La Réunion (« Saint-Paul », « Boucan Canot », « Cilaos »), rapporté à sa commune. / Commune or place in Réunion."),
       },

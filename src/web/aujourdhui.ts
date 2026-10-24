@@ -24,7 +24,7 @@ export const titleOf = (p: PlacePage) =>
   [`${p.nom} aujourd'hui : météo, routes, sorties · 974`, `${p.nom} aujourd'hui : météo, sorties · 974`].find((t) => t.length <= TITLE_MAX)!;
 export const H1 = (p: PlacePage) => `Aujourd'hui ${aCommune(p.nom)}`;
 export const LINK = (p: PlacePage) => `Aujourd'hui ${aCommune(p.nom)} : le résumé de la journée →`;
-const HOOK = (p: PlacePage) => `Ce qui compte aujourd'hui ${aCommune(p.nom)}, sur une page : la mesure, les routes, l'actu, les coupures et les sorties.`;
+export const HOOK = (p: PlacePage) => `Ce qui compte aujourd'hui ${aCommune(p.nom)}, sur une page : la mesure, les routes, l'actu, les coupures, les sorties et la vie pratique.`;
 
 /** « Aujourd'hui à Saint-Paul (974) : 24,5 °C mesurés à 15:10, 12 sorties, 1 coupure d'eau. Routes, actu… », each figure only when there is one. */
 export function descriptionOf(p: PlacePage, r: Resume): string {
@@ -100,6 +100,17 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
           : `<p>Rien d'annoncé aujourd'hui ${esc(aCommune(p.nom))} dans les agendas lus.</p>`,
         "/evenements")
     : "";
+  const d = r.decheteries;
+  const dFresh = d?.sites.filter((x) => x.accepte) ?? [];
+  const dGreen = dFresh.filter((x) => x.accepte!.includes("déchets verts")).length;
+  const practical = [
+    ...(r.marches_du_jour?.liste ?? []).map((x) => `<li>Marché aujourd'hui : <a href="${esc(x.carte)}" rel="noopener"><b>${esc(x.nom)}</b></a> <span class="note">${esc(x.horaires_aujourd_hui)}${x.adresse ? `, ${esc(x.adresse)}` : ""}</span></li>`),
+    d
+      ? `<li>Déchèteries : <b>${dFresh.length ? `déchets verts acceptés dans ${dGreen} sur ${dFresh.length}` : "état des bennes à vérifier sur place"}</b> <span class="note">d'après les agents du TCO</span> · <a href="${esc(d.page.replace(/^https:\/\/rundata\.re/, ""))}">les bennes →</a></li>`
+      : "",
+    r.carburants?.prix_maximum ? `<li>Carburants (prix maximum du mois) : <b>${esc(r.carburants.prix_maximum)}</b> · <a href="/carburants">les prix →</a></li>` : "",
+    `<li>Pharmacie de garde (nuits, dimanches, jours fériés) : <a href="${esc(r.pharmacie_de_garde.site)}" rel="noopener"><b>3237.fr</b></a>, ou le 32 37 (payant)</li>`,
+  ].filter(Boolean).join("");
   const missing = r.non_inclus?.length
     ? `<p class="note">Pas de copie récente pour : ${r.non_inclus.map((x) => `<a href="${esc(x.page.replace(/^https:\/\/rundata\.re/, ""))}">${esc(x.partie)}</a>`).join(", ")}. Ces pages les donnent à jour.</p>`
     : "";
@@ -129,6 +140,9 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
 ${cuts || events ? `<section aria-labelledby="h-eau-sorties"><div class="sec-h"><h2 id="h-eau-sorties">L'eau et les sorties</h2></div>
   <div class="two">${cuts}${events}</div>
 </section>` : ""}
+<section aria-labelledby="h-pratique"><div class="sec-h"><h2 id="h-pratique">Vie pratique</h2></div>
+  <div class="card"><ul class="plain">${practical}</ul></div>
+</section>
 <section>${missing}
   <p class="note"><a href="/communes/${p.slug}">${esc(p.nom)} en direct : les bus, la mairie, toutes les rubriques →</a></p>
   ${r.sources.length ? `<p class="note">Sources : ${credits(r.sources)}.</p>` : ""}
