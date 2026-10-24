@@ -8,6 +8,7 @@ import * as openmeteo from "../providers/openmeteo.js";
 import * as uv from "../providers/uv.js";
 import { type Forecast, type ForecastDay, type ForecastHour, why } from "../types.js";
 import { credits, fr, notFound, placeBlock, text } from "./format.js";
+import * as nuages from "./nuages.js";
 
 const TOUR = ["Saint-Denis", "Saint-Pierre", "Saint-Gilles-les-Bains", "Saint-Benoît", "Cilaos", "Plaine des Cafres"];
 const HOUR = 3600_000;
@@ -499,10 +500,16 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
 
   const r = resolvePlace(lieu);
   if (!r) return notFound(lieu);
-  // The steps AROME is asked for: those the answer shows first.
-  const starts = period.defaut
+  // The steps AROME is asked for: those the answer shows first, and in the Hauts the morning of the cloud sea.
+  const hauts = (r.lieu.altitude_m ?? 0) >= nuages.HAUTS_MIN_M;
+  const shown = period.defaut
     ? stepStarts([today, addDays(today, 1), addDays(today, 2)], now)
     : stepStarts([...new Set(period.slots.map((s) => s.jour))], now, (jour, h) => period.slots.some((s) => s.jour === jour && h >= s.de && h < s.a));
+  // The cloud sea of the day asked (today's or tomorrow's morning), or of the coming morning by default.
+  const cloudDay = period.defaut ? undefined : [...period.slots.map((s) => s.jour)].sort()[0];
+  const starts = hauts
+    ? [...new Map([...shown, ...nuages.morningStarts(now, cloudDay)].map((t) => [t.getTime(), t])).values()].sort((a, b) => a.getTime() - b.getTime())
+    : shown;
   const { results, uv: u, ens, aromeDown, aromeLater } = await forecasts(cache, [r.lieu], starts, now);
   const uvOf = uvAt(u, r.lieu);
   const confOf = confAt(ens, r.lieu, now);
@@ -538,7 +545,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
         lieu: placeBlock(lieu, r),
         resume: `Pas de prévision pour ${period.libelle} : le modèle ${furthest.nom} ne va que jusqu'au ${dayLabel(last)}.`,
         modele: modelBlock(c),
-        avertissements,
+        avertissements: hauts ? [...avertissements, nuages.BEYOND] : avertissements,
         sources: sourcesOf(f),
       });
     }
@@ -555,21 +562,25 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
         : `${HEADER} pour ${r.lieu.nom}, ${period.libelle} — ` +
           days.map((d) => `${dayLabel(d.date)} : ${daySentence(f, d, uvOf, confOf)}`).join(" ; ") + ".";
     if (inRange.length < period.slots.length) avertissements.push(`Le modèle ne va que jusqu'au ${dayLabel(last)}.`);
+    if (hauts && inRange.some((s) => s.jour > addDays(today, 2))) avertissements.push(nuages.BEYOND);
   }
+  const mer = hauts ? nuages.merDeNuages(f, r.lieu, now, r.lieu.nom, cloudDay) : null;
 
-  const shown = jours.some((j) => j.indice_uv_max) ? u : null;
+  const uvShown = jours.some((j) => j.indice_uv_max) ? u : null;
   const ensShown = jours.some((j) => j.confiance) ? ens : null;
-  avertissements.push(...uvWarnings(shown), ...ensWarnings(ensShown));
+  avertissements.push(...uvWarnings(uvShown), ...ensWarnings(ensShown));
   return text({
     nature: "prevision",
     lieu: placeBlock(lieu, r),
     periode: period.libelle,
-    resume,
+    // The cloud sea after the days, labelled: a forecast of the model's cell.
+    resume: mer ? `${resume} Mer de nuages, ${nuages.LABEL} : ${mer.resume}` : resume,
     jours,
     pas_de_3h: pas,
+    ...(mer ? { mer_de_nuages: mer } : {}),
     modele: modelBlock(c),
     avertissements,
     couverture: coverage(),
-    sources: sourcesOf(f, shown, ensShown),
+    sources: sourcesOf(f, uvShown, ensShown),
   });
 }

@@ -125,7 +125,9 @@ describe("prevision_meteo with AROME", () => {
       return new Response(grid);
     });
     const r = body(await previsionMeteo(await offlineCache(), "Cilaos", undefined, NOW));
-    expect(urls.length).toBe(arome.MAX_NEW_GRIDS);
+    // Whole steps only: five grids each, seven for the morning's with their cloud layer.
+    expect(urls.length).toBeLessThanOrEqual(arome.MAX_NEW_GRIDS);
+    expect(urls.length).toBeGreaterThan(arome.MAX_NEW_GRIDS - 7);
     // The step under way (9h) and the next ones; 12h was cached already.
     expect(urls.some((u) => u.includes("time(2026-10-22T05:00:00Z)"))).toBe(true);
     expect(r.pas_de_3h[0]).toMatchObject({ heures: "jeudi 22/10 9h–12h", modele: "AROME outre-mer de Météo-France" });
@@ -196,11 +198,12 @@ describe("a run listed before all its hours are out", () => {
     const r = body(await previsionMeteo(await cacheAt(clock), "Cilaos", "demain", new Date(START)));
     expect(r.resume).toMatch(/^PRÉVISION \(modèle AROME outre-mer de Météo-France, maille de 2,5 km, calcul de 22\/10 04:00, et de 21\/10 22:00 pour la suite/);
     expect(r.modele.calculs_suivants).toEqual([{ run_du_modele: "21/10 22:00", a_partir_de: "23/10 06:00" }]);
-    // Midnight to 6h from the newest run, then the run before up to its 48 h (22h in Réunion), then ECMWF.
+    // Midnight to 6h from the newest run, then the run before, then ECMWF. Cold, the question's 40 grids reach 18h:
+    // the morning's steps take two more each for the cloud layer (the prefetch fills the rest, up to 22h).
     const models = r.pas_de_3h.map((s: { heures: string; modele: string }) => s.modele);
     expect(models).toHaveLength(8);
-    expect(models.slice(0, 7).every((m: string) => m.startsWith("AROME"))).toBe(true);
-    expect(models[7]).toMatch(/^IFS/);
+    expect(models.slice(0, 6).every((m: string) => m.startsWith("AROME"))).toBe(true);
+    expect(models.slice(6).every((m: string) => /^IFS/.test(m))).toBe(true);
     expect(r.avertissements.join(" ")).toMatch(/calcul d'AROME de 22\/10 04:00 n'est pas encore entièrement publié .* à partir de 23\/10 06:00, les valeurs viennent du calcul de 21\/10 22:00/);
     expect(asked.some((a) => a.run === BEFORE)).toBe(true);
   });
@@ -218,7 +221,8 @@ describe("a run listed before all its hours are out", () => {
     clock.now = START + 10 * 60_000;
     const before = asked.length;
     await previsionMeteo(c, "Cilaos", "demain", new Date(clock.now));
-    expect(asked.length).toBe(before); // all in the bundles, and the missing hours not tried again
+    expect(late()).toBe(first); // the missing hours not tried again
+    expect(asked.length - before).toBeLessThanOrEqual(7); // at most the step the first question had no room for
 
     clock.now = START + 30 * 60_000;
     await previsionMeteo(c, "Cilaos", "demain", new Date(clock.now));

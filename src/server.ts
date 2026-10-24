@@ -70,7 +70,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.80.0";
+export const VERSION = "0.81.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -175,6 +175,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "ciel, températures min et max ramenées à l'altitude du lieu, pluie, vent et rafales, par jour et par tranches de 3 h, indice UV du jour, et la confiance de chaque jour (forte, moyenne ou faible : accord des 51 scénarios de l'ensemble ECMWF, pas une probabilité). " +
         "Pour toute question sur le temps à venir : « il va pleuvoir demain à Saint-Denis ? », « quel temps ce week-end à Cilaos ? », " +
         "« il fera beau cet après-midi à l'Hermitage ? », « prévisions pour la Plaine des Cafres samedi ». " +
+        "Dans les Hauts (au-dessus de 800 m) : la mer de nuages du matin, de 6 h à 9 h et de 9 h à 12 h (bloc mer_de_nuages), " +
+        "pour « est-ce dégagé au Maïdo demain matin ? », « on sera au-dessus des nuages au Piton des Neiges ? ». " +
         "Chaque réponse est étiquetée « prévision » avec ses limites (le modèle ne voit pas les microclimats de l'île) ; " +
         "pour un cyclone, renvoie à la vigilance officielle de Météo-France. Pour le temps qu'il fait maintenant, utiliser meteo_actuelle. " +
         "/ Weather FORECAST (numerical model, not a measurement) for a place in Réunion Island, up to 7 days: " +

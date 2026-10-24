@@ -175,6 +175,27 @@ describe("scheduled AROME prefetch", () => {
   });
 });
 
+describe("the cloud layer of the mornings in the AROME prefetch", () => {
+  it("fills a run with it, within each event's budget, long before the next run", async () => {
+    const kv = new Namespace();
+    let events = 0;
+    for (;;) {
+      events++;
+      // As the scheduled event runs it: its own isolate, the KV shared, the page budget.
+      const { value, used } = await counted(WORKER_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
+      expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
+      if (!value?.later) break;
+      expect(events).toBeLessThan(72); // the events between two runs, every 5 minutes for 6 hours
+    }
+    // Complete within half an hour of the run being listed.
+    expect(events).toBeLessThanOrEqual(6);
+    const layer = coverages.map(decodeURIComponent).filter((u) => /PRESSURE__(BASE_CLOUD|LEVEL_OF_CLOUD_TOP)/.test(u));
+    // The morning steps only (6–9 h and 9–12 h in La Réunion, read at 7 h and 10 h): 03:00 and 06:00 UTC.
+    expect(layer.length).toBeGreaterThanOrEqual(4);
+    expect(layer.every((u) => /time\(\d{4}-\d\d-\d\dT0[36]:00:00Z\)/.test(u))).toBe(true);
+  });
+});
+
 describe("packed grids", () => {
   it("keep values to the hundredth, and the missing ones", () => {
     const g = { x0: 55.2, y0: -20.85, dx: 0.025, dy: 0.025, width: 2, height: 2, values: [23.45, null, -1.5, 812.37] };

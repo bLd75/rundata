@@ -79,6 +79,9 @@ export interface ForecastHour {
   /** Strongest gust of the stretch. */
   rafales_kmh: number | null;
   vent_dir: number | null;
+  /** The cloud layer over the place's cell (AROME only): null for no cloud, or no top above the base. */
+  nuages_base_m?: number | null;
+  nuages_sommet_m?: number | null;
   /** The model it comes from, when an answer mixes two. */
   modele?: ForecastModel;
 }

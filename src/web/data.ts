@@ -6,6 +6,9 @@
  * cache costs at most one subrequest (the edge read). Only a page never built in this data center waits, a few
  * seconds at most, and is otherwise sent without its live block while the build goes on.
  */
+import * as nuages from "../tools/nuages.js";
+import type { MerDeNuages } from "../tools/nuages.js";
+import * as arome from "../providers/arome.js";
 import { left, measured } from "../budget.js";
 import { distanceKm, localTime } from "../geo.js";
 import type { Cache, Cached } from "../cache.js";
@@ -163,6 +166,8 @@ export interface PrevisionAnswer {
     confiance_pourquoi?: string;
   }[];
   modele?: { nom: string; maille_km: number; run_du_modele?: string };
+  /** In the Hauts: the cloud sea of the coming morning (tools/nuages.ts). */
+  mer_de_nuages?: MerDeNuages;
   avertissements?: string[];
   sources: Credit[];
 }
@@ -468,6 +473,37 @@ export interface RandonneesAnswer {
   sources: Credit[];
   /** The fires seen by satellite in the 24 hours before the build, for the communes' tiles; missing without FIRMS. */
   feux?: feux.Feux;
+  /** The cloud sea of the coming morning over the Hauts, summits and villages; missing without AROME's grids. */
+  hauts?: (MerDeNuages & { nom: string; slug?: string })[];
+}
+
+// The Hauts whose morning the hikers' page tells, in marketing's order; `slug`, their weather page.
+const HAUTS: { nom: string; lieu: string; slug?: string }[] = [
+  { nom: "Maïdo", lieu: "Maïdo", slug: "maido" },
+  { nom: "Piton des Neiges", lieu: "Piton des Neiges" },
+  { nom: "Pas de Bellecombe (volcan)", lieu: "Pas de Bellecombe", slug: "piton-de-la-fournaise" },
+  { nom: "Plaine des Cafres", lieu: "Plaine des Cafres", slug: "plaine-des-cafres" },
+  { nom: "Cilaos", lieu: "Cilaos", slug: "cilaos" },
+  { nom: "Hell-Bourg", lieu: "Hell-Bourg", slug: "hell-bourg" },
+];
+// Kept for the rest of the page's build while the AROME grids are read (they are prefetched: a few reads).
+const HAUTS_RESERVE = 8;
+
+/** The cloud sea of the coming morning at each of the Hauts, from the AROME grids; undefined when they are not there. */
+async function hautsNow(cache: Cache, now: Date): Promise<RandonneesAnswer["hauts"]> {
+  try {
+    const d = await arome.prepare(cache, nuages.morningStarts(now), HAUTS_RESERVE);
+    if (!d) return undefined;
+    const out = HAUTS.flatMap((h) => {
+      const p = resolvePlace(h.lieu)!.lieu;
+      const mn = nuages.merDeNuages(arome.atPlace(d, p), p, now, h.nom);
+      return mn ? [{ nom: h.nom, slug: h.slug, ...mn }] : [];
+    });
+    return out.length ? out : undefined;
+  } catch (err) {
+    console.error(`source ${arome.SOURCE.id} indisponible (mer de nuages) :`, why(err));
+    return undefined;
+  }
 }
 
 const LOOP_M = 150;
@@ -475,7 +511,7 @@ const CROSSING_KM = 40;
 
 /** Every hike with its trace and every ONF trail, with their state now and where they are; and the island's map of them. */
 export async function buildRandonnees(cache: Cache, now = new Date()): Promise<RandonneesAnswer> {
-  const [carte, fires] = await Promise.all([onf.carte(cache).then((c) => c.value), feux.feuxNow(cache, now)]);
+  const [carte, fires, hauts] = await Promise.all([onf.carte(cache).then((c) => c.value), feux.feuxNow(cache, now), hautsNow(cache, now)]);
   const byName = new Map<string, onf.Sentier[]>();
   for (const s of carte.sentiers) byName.set(s.nom, [...(byName.get(s.nom) ?? []), s]);
 
@@ -541,6 +577,7 @@ export async function buildRandonnees(cache: Cache, now = new Date()): Promise<R
     }),
   ].filter((l) => l.d);
   return {
+    ...(hauts ? { hauts } : {}),
     randonnees,
     secteurs,
     lignes,
