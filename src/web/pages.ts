@@ -27,6 +27,7 @@ import rubriques from "./og-rubriques.json" with { type: "json" };
 import { WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker } from "./map.js";
+import { bannerHtml, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 
@@ -532,6 +533,11 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .alerte.vg{display:block;border-radius:0;padding:0;font-size:.95rem;font-weight:600}
 .alerte .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .8rem;padding-block:.6rem}
 .alerte a{color:inherit;font-weight:800}
+.alerte.volcan{display:block;background:#8c2410;color:#fff;font-size:.95rem;font-weight:600}
+.volcan-une{padding-block:1rem}
+.volcan-une .card{display:block;background:#8c2410;color:#fff;text-decoration:none}
+.volcan-une h2{color:#fff;margin-bottom:.3rem}
+.volcan-une .lead{color:#fff}
 .vg{display:inline-block;font-weight:700;font-size:.9rem;border-radius:8px;padding:.1rem .6rem;color:#fff;background:var(--vg0)}
 .vg1{background:var(--vg1);color:#fff}.vg2{background:var(--vg2);color:#1a1500}.vg3{background:var(--vg3);color:#1a0d00}
 .vg4{background:var(--vg4);color:#fff}.vg5{background:var(--vg5);color:#fff}
@@ -768,6 +774,7 @@ ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head
 <body>
 ${header(head.path, origin)}
 ${banner(head.alerte, head.path)}
+${bannerHtml(volcanBanner(), head.path)}
 <div class="band">${withHook(band, head.path)}</div>
 <main class="wrap">
 ${body}

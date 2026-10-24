@@ -4,6 +4,7 @@
  * weather (/meteo/<lieu>), and what crawlers and link previews ask for
  * (robots.txt, sitemap.xml, the og:image, the favicon). Null for any other path.
  */
+import { alerteVolcan, volcanNow, withVolcan } from "./volcan-alerte.js";
 import { costOf, left, measured } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { why } from "../types.js";
@@ -44,6 +45,7 @@ import {
   FRESH_SECONDS,
   snapshot,
   vigilanceNow,
+  type ActualitesAnswer,
   type Alerte,
   type Background,
   type PlaceData,
@@ -214,7 +216,13 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
     `\n</urlset>\n`;
 }
 
+/** The site's pages, each with the volcano's banner while the volcano is in alert (web/volcan-alerte.ts). */
 export async function site(request: Request, cache: Cache, background: Background, now = new Date()): Promise<Response | null> {
+  const volcan = await volcanNow(cache, now);
+  return withVolcan(volcan, () => pages(request, cache, background, now));
+}
+
+async function pages(request: Request, cache: Cache, background: Background, now: Date): Promise<Response | null> {
   const url = new URL(request.url);
   const origin = url.origin;
   const path = url.pathname;
@@ -276,6 +284,15 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   }
   // The events page was first published as /agenda.
   if (path === "/agenda" || path === "/agenda/") return Response.redirect(`${origin}/evenements`, 301);
+  if (path === "/volcan" || path === "/volcan/") {
+    const [data, a] = await Promise.all([
+      snapshot(cache, "web:volcan", () => buildVolcan(cache, now), background, now, waitFor(request), isReader(request)),
+      alerte(cache, background, now),
+    ]);
+    // During an alert, what the media say of it: their copy as it is, never built for this page.
+    const news = data && alerteVolcan(data.value) ? await cache.peek<ActualitesAnswer>("web:actualites").catch(() => undefined) : undefined;
+    return new Response(volcanPage(origin, data, now, a, news?.value), { headers: htmlFor(data) });
+  }
   const domain = DOMAINS[path.replace(/(.)\/$/, "$1")];
   if (domain) {
     const [data, a] = await Promise.all([

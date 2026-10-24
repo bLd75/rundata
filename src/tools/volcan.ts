@@ -63,6 +63,12 @@ export function official(s: volcan.PitonState, p: volcan.Phase): volcan.PitonSta
   };
 }
 
+/** The prefecture's release whose phase won over pitonlive's, as the answer gives it. */
+function prefecture(state: volcan.PitonState & { prefecture?: volcan.Phase }) {
+  const p = state.prefecture;
+  return p ? { niveau: p.niveau, titre: p.titre, lien: p.lien, publie: p.publie } : undefined;
+}
+
 export async function volcanSeismes(cache: Cache, now = new Date()) {
   const [piton, posts, quakes, phase] = await Promise.all([
     settle(volcan.PITONLIVE.id, volcan.state(cache)),
@@ -126,6 +132,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
                 lien: state.access.current.source_url,
               }
             : undefined,
+          communique_prefecture: prefecture(state),
           source: (state as { prefecture?: volcan.Phase }).prefecture
             ? "préfecture de La Réunion (communiqué), complété par pitonlive.com"
             : "pitonlive.com (site indépendant, à recouper avec les sources officielles)",

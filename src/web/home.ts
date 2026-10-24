@@ -2,6 +2,7 @@
  * The home page: what rundata.re is, the island right now (one tile per category, from each category page's last
  * copy), how to add the connector to an assistant, and the page of each commune.
  */
+import { alerteVolcan, homeCard } from "./volcan-alerte.js";
 import type { Cached } from "../cache.js";
 import type * as mf from "../providers/vigilance.js";
 import brand from "./brand.json" with { type: "json" };
@@ -310,7 +311,9 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
     },
   ];
   const at = h?.meteo?.value.stations.reduce((m, st) => (st.time > m ? st.time : m), "");
-  const band = `<div class="hero sky-${sky(now)}"><div class="wrap hero-in">
+  // An alert at the volcano goes first, above the weather.
+  const fire = alerteVolcan(h?.volcan?.value);
+  const band = `${fire ? homeCard(fire) : ""}<div class="hero sky-${sky(now)}"><div class="wrap hero-in">
   <div class="hero-txt">
     ${livePill(at, now)}
     <h1>La Réunion <span class="n974">974</span> en direct</h1>

@@ -129,9 +129,9 @@ export class Cache {
     return c;
   }
 
-  /** The entry stored under `key`, however old, without loading it. */
-  async peek<T>(key: string): Promise<Cached<T> | undefined> {
-    const hit = await this.store.get(key);
+  /** The entry stored under `key`, however old, without loading it. `freshAfter` spares the tiers behind a recent enough one. */
+  async peek<T>(key: string, freshAfter?: number): Promise<Cached<T> | undefined> {
+    const hit = await this.store.get(key, freshAfter);
     return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false };
   }
 

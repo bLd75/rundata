@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T18:11:00+04:00", texte: "En cas d'alerte au Piton de la Fournaise, un bandeau sur tout le site et les annonces officielles en direct." },
   { date: "2026-10-24T18:10:00+04:00", texte: "Le résumé du jour ajoute le marché, l'essence, la pharmacie de garde et, dans l'Ouest, la déchèterie." },
   { date: "2026-10-24T17:48:00+04:00", texte: "Déchèteries de l'Ouest (TCO) : quelles bennes acceptent encore encombrants, déchets verts ou gravats, en direct." },
   { date: "2026-10-24T17:16:00+04:00", texte: "Votre IA connaît une partie des marchés de l'île (OpenStreetMap, liste incomplète). Il manque le vôtre ? Dites-le-nous." },

@@ -32,8 +32,7 @@ class EdgeLike extends MemoryStore {
     return super.get(key);
   }
   async put(key: string, entry: CacheEntry) {
-    count();
-    overLimit();
+    count(1, true); // as the Worker's store (worker.ts): a write may use the part of the budget kept for writes
     return super.put(key, entry);
   }
 }
@@ -219,8 +218,8 @@ describe("place pages", () => {
     expect(cold.text).not.toContain("Température de la mer à Cilaos");
     expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
     const warm = await serve(isolate(edge), "/meteo/cilaos");
-    // Its copy, the vigilance, and the hikers' page's copy for the state of the hikes around.
-    expect(warm.used).toBeLessThanOrEqual(3);
+    // Its copy, the vigilance, the hikers' page's copy for the state of the hikes around, and the volcano's banner.
+    expect(warm.used).toBeLessThanOrEqual(4);
   });
 
   it("give the sea temperature on the coast", async () => {
@@ -251,8 +250,8 @@ describe("commune pages", () => {
     expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
     const warm = await serve(isolate(edge), "/communes/saint-leu");
     expect(warm.text).toMatch(/<h3>Mairie<\/h3><p class="tv">(Ouverte|Fermée)<\/p>/);
-    // One read per tile's copy, the hikes and the outings included.
-    expect(warm.used).toBeLessThanOrEqual(17);
+    // One read per tile's copy, the hikes and the outings included, and the volcano's banner.
+    expect(warm.used).toBeLessThanOrEqual(18);
   });
 
   it("have their day on a page of its own, cold within the limit, warm from a few reads", async () => {
