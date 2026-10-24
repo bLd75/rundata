@@ -52,7 +52,7 @@ export function decheteriesPage(origin: string, data: Cached<DechetsAnswer> | nu
   <div class="sec-h"><h2 id="h-${anchorOf(c)}">${esc(c)}</h2></div>
   <div class="two">${sites.filter((s) => s.commune === c).map(siteCard).join("")}</div>
 </section>`).join("\n");
-  const others = `<section><p class="note">Seul le TCO (Ouest) publie ces données. Pour les autres communes, voir ${dech.OTHERS.map((o) => `<a href="${o.site}" rel="noopener">${esc(o.nom)}</a>`).join(", ").replace(/, ([^,]*)$/, " ou $1")}.</p>
+  const others = `<section><p><a href="/collecte">Les jours de collecte de votre rue →</a></p><p class="note">Seul le TCO (Ouest) publie ces données. Pour les autres communes, voir ${dech.OTHERS.map((o) => `<a href="${o.site}" rel="noopener">${esc(o.nom)}</a>`).join(", ").replace(/, ([^,]*)$/, " ou $1")}.</p>
   ${data ? sourcesNote(data.value.sources, data) : ""}</section>`;
   const body = `${blocks}
 ${others}

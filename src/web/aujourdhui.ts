@@ -110,6 +110,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
       ? `<li>Déchèteries : <b>${dFresh.length ? `déchets verts acceptés dans ${dGreen} sur ${dFresh.length}` : "état des bennes à vérifier sur place"}</b> <span class="note">d'après les agents du TCO</span> · <a href="${esc(d.page.replace(/^https:\/\/rundata\.re/, ""))}">les bennes →</a></li>`
       : "",
     r.carburants?.prix_maximum ? `<li>Carburants (prix maximum du mois) : <b>${esc(r.carburants.prix_maximum)}</b> · <a href="/carburants">les prix →</a></li>` : "",
+    r.collecte_dechets ? `<li>Collecte des déchets : le jour de votre rue sur <a href="${esc(r.collecte_dechets.page.replace(/^https:\/\/rundata\.re/, ""))}">rundata.re${esc(r.collecte_dechets.page.replace(/^https:\/\/rundata\.re/, ""))}</a>.</li>` : "",
     `<li>Pharmacie de garde (nuits, dimanches, jours fériés) : <a href="${esc(r.pharmacie_de_garde.site)}" rel="noopener"><b>3237.fr</b></a>, ou le 32 37 (payant)</li>`,
   ].filter(Boolean).join("");
   const missing = r.non_inclus?.length

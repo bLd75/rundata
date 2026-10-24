@@ -16,6 +16,7 @@ import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import * as cc from "../providers/coupures-courant.js";
 import * as sante from "../sante/etablissements.js";
+import * as col from "../vie/collecte.js";
 import * as dech from "../vie/decheteries.js";
 import * as marches from "../vie/marches.js";
 import * as mf from "../providers/vigilance.js";
@@ -272,6 +273,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
 
   const t = meteo?.mesure?.mesures.temperature;
   const f = meteo?.prevision?.aujourd_hui;
+  const bins = col.COMMUNES.includes(nom);
   const resumeText = [
     `${nom}, ${DAY_FR.format(now)}`,
     t ? `${t} mesurés à ${meteo!.mesure!.heure_mesure.split(" ")[1] ?? meteo!.mesure!.heure_mesure} (station ${meteo!.mesure!.station})` : "",
@@ -285,6 +287,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     markets.length ? `marché aujourd'hui : ${markets.map((m) => `${m.nom} ${m.horaires_aujourd_hui}`).join(", ")}` : "",
     prices && fuelShort(prices) ? `carburants (prix maximum) : ${fuelShort(prices)}` : "",
     fresh.length ? `déchets verts acceptés dans ${green} déchèterie${green > 1 ? "s" : ""} sur ${fresh.length}` : "",
+    bins ? `collecte des déchets : le jour de votre rue sur rundata.re/collecte/${col.communeSlug(nom)}` : "",
     "pharmacie de garde : 3237.fr",
   ].filter(Boolean).join(" ; ") + ".";
 
@@ -341,6 +344,8 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
           page: `${SITE_URL}/decheteries#${anchorOf(nom)}`,
         }
       : undefined,
+    // The days change from a street to the next: the commune's page, never « collecte aujourd'hui » (marketing).
+    collecte_dechets: bins ? { texte: `Collecte des déchets : le jour de votre rue sur rundata.re/collecte/${col.communeSlug(nom)}.`, page: `${SITE_URL}/collecte/${col.communeSlug(nom)}` } : undefined,
     carburants: prices ? { prix_maximum: fuelShort(prices) || undefined, prix_maximums: prices.produits.map(priceLine), depuis: prices.depuis, a_savoir: FUEL_NOTE, lien: prices.lien } : undefined,
     pharmacie_de_garde: { site: sante.GARDE.site, telephone: sante.GARDE.telephone, quand: sante.GARDE.quand, a_savoir: NO_DUTY },
     non_inclus: out.length ? out : undefined,

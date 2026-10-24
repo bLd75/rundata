@@ -1,0 +1,55 @@
+# The days the bins are collected in the West (src/vie/collecte.json, scripts/build-collecte.py): every Monday, the
+# date the TCO last changed its dataset of calendars is compared with the one the bundled file was built from. When it
+# moved, the file is rebuilt from the calendars' PDFs and proposed as a pull request, to be read before it goes online.
+# The job fails when a calendar cannot be read (the script checks every month against the weekdays): the failure is
+# the alert, and the calendars online stay as they were.
+name: Calendriers de collecte
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: collecte
+  cancel-in-progress: true
+
+jobs:
+  calendriers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Has the TCO changed its calendars?
+        id: check
+        run: |
+          remote=$(curl -sf "https://data.tco.re/api/explore/v2.1/catalog/datasets/calendriers-de-collectes-du-territoire-de-louest-gru" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("metas",{}).get("default",d)["modified"][:10])')
+          local=$(python3 -c 'import json; print(json.load(open("src/vie/collecte.json"))["mis_a_jour"])')
+          echo "remote=$remote local=$local"
+          echo "changed=$([ "$remote" != "$local" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+          echo "date=$remote" >> "$GITHUB_OUTPUT"
+      - name: Rebuild from the PDFs
+        if: steps.check.outputs.changed == 'yes'
+        run: |
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          python3 -I scripts/build-collecte.py
+      - name: Propose it
+        if: steps.check.outputs.changed == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DATE: ${{ steps.check.outputs.date }}
+        run: |
+          branch="collecte-$DATE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add src/vie/collecte.json
+          git commit -m "Calendriers de collecte du TCO mis à jour le $DATE"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
+          gh pr create --head "$branch" --title "Calendriers de collecte du TCO mis à jour le $DATE" --body "Le TCO a modifié son jeu « Calendriers de collectes du Territoire de l'Ouest » le $DATE : src/vie/collecte.json reconstruit par scripts/build-collecte.py (chaque mois vérifié contre les jours de la semaine). À relire avant la fusion."
