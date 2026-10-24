@@ -12,7 +12,8 @@ import * as mf from "../providers/vigilance.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
 import { current, cyclone, highest, raised } from "../tools/vigilance.js";
-import type { AirAnswer, Alerte, CalendrierAnswer, CommuneData, ElectriciteAnswer, PlaceData, SeaData, VolcanAnswer } from "./data.js";
+import type { AirAnswer, Alerte, CalendrierAnswer, CommuneData, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
+import { waterLive } from "./coupures.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
 import { esc, islandMap } from "./map.js";
 import { ask, connector, credits, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
@@ -28,6 +29,9 @@ export interface CommuneLive {
   volcan?: Cached<VolcanAnswer> | null;
   electricite?: Cached<ElectriciteAnswer> | null;
   calendrier?: Cached<CalendrierAnswer> | null;
+  coupures?: Cached<CoupuresAnswer> | null;
+  secheresse?: Cached<SecheresseAnswer> | null;
+  eau?: Cached<EauAnswer> | null;
 }
 
 export const COMMUNES = PAGES.filter((p) => p.commune);
@@ -182,6 +186,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     { icon: "alert", nom: "Vigilance", href: "/vigilance", live: vigilance(p, l.vigilance, now) },
     { icon: "air", nom: "Air", href: "/air", live: air(p, l.air) },
     ...(coastal(p) ? [{ icon: "wave", nom: "Mer", href: "/mer", live: sea(p, l.mer, l.place) }] : []),
+    { icon: "drop", nom: "Eau", href: `/coupures-eau/${p.slug}`, live: waterLive(p, { coupures: l.coupures ?? null, secheresse: l.secheresse, eau: l.eau }) },
     { icon: "bus", nom: "Bus", href: "/bus", ...bus, wide: true },
     ...(velos ? [{ icon: "bike", nom: "Vélos", href: "/velos", ...velos, wide: true }] : []),
     {

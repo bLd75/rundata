@@ -1,0 +1,30 @@
+{
+ "construit": "2026-10-24",
+ "source": "ARS La Réunion, contrôle sanitaire des eaux distribuées (Hub'Eau), Licence Ouverte 2.0",
+ "communes": {
+  "Les Avirons": "CISE REUNION",
+  "Bras-Panon": "RUNEO",
+  "Entre-Deux": "SUDEAU",
+  "L'Étang-Salé": "RUNEO",
+  "Petite-Île": "STÉ PUBLIQUE LOCALE SOURCES ET EAUX",
+  "La Plaine-des-Palmistes": "O2LEST",
+  "Le Port": "RUNEO",
+  "La Possession": "EAUX DE LA POSSESSION",
+  "Saint-André": "O2LEST",
+  "Saint-Benoît": "CISE REUNION",
+  "Saint-Denis": "DIONEO",
+  "Saint-Joseph": "SUDEAU",
+  "Saint-Leu": "DERICHEBOURG AQUA OI",
+  "Saint-Louis": "RUNEO",
+  "Saint-Paul": "LA CREOLE",
+  "Saint-Pierre": "RUNEO",
+  "Saint-Philippe": "SUDEAU",
+  "Sainte-Marie": "CISE REUNION",
+  "Sainte-Rose": "O2LEST",
+  "Sainte-Suzanne": "RUNEO",
+  "Salazie": "O2LEST",
+  "Le Tampon": "SUDEAU",
+  "Les Trois-Bassins": "LA CREOLE",
+  "Cilaos": "RECIL"
+ }
+}

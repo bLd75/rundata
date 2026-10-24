@@ -1,4 +1,5 @@
 import type { Cache } from "../cache.js";
+import { distributeur } from "../eau/distributeurs.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as notices from "../providers/avis-eau.js";
 import { BACK } from "../providers/avis-eau.js";
@@ -86,7 +87,8 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
   const commune = res.lieu.commune;
   const mine = live.filter((n) => n.communes.includes(commune));
   const dry = doNotDrink(all, commune);
-  const covered = COVERED.includes(commune) || all.some((n) => n.communes.includes(commune));
+  // Its distributor's notices are read (src/eau/distributeurs.ts), or some notice names it.
+  const covered = COVERED.includes(commune) || !!distributeur(commune)?.avis || all.some((n) => n.communes.includes(commune));
   const resume = [
     dry ? `EAU À NE PAS BOIRE ${a(commune)} (secteurs dans l'avis), d'après l'avis du ${published(dry)} : « ${dry.titre} ».` : "",
     mine.length
