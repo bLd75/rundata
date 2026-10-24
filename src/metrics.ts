@@ -157,6 +157,8 @@ export interface Visit {
   /** For pages: audience() and language(). */
   audience: string;
   language: string;
+  /** For pages: « app » when asked by the installed app's service worker (web/pwa.ts), else empty. */
+  mode?: string;
 }
 
 /**
@@ -179,7 +181,7 @@ export interface Visit {
  * | blob8   | client name (initialize)                   | language: fr, en…                      |
  * | blob9   | client version (initialize)                | audience: humain, assistant, robot…    |
  * | blob10  | protocol version                           | HTTP status                            |
- * | blob11  | outcome: ok, erreur, lieu inconnu, rpc …, http … | —                                |
+ * | blob11  | outcome: ok, erreur, lieu inconnu, rpc …, http … | « app » in the installed app, else empty |
  * | blob12  | protocol error message                     | —                                      |
  * | blob13  | argument names                             | —                                      |
  * | blob14  | place: résolu, inconnu, coordonnées        | —                                      |
@@ -201,7 +203,7 @@ export function point(hit: Hit, v: Visit): { indexes: string[]; blobs: string[];
     page ? v.language : hit.client ?? "",
     page ? v.audience : hit.clientVersion ?? "",
     page ? String(hit.status ?? "") : hit.protocol ?? "",
-    hit.outcome ?? "", hit.message ?? "", hit.args ?? "", hit.place ?? "", hit.commune ?? "",
+    hit.kind === "page" ? v.mode ?? "" : hit.outcome ?? "", hit.message ?? "", hit.args ?? "", hit.place ?? "", hit.commune ?? "",
   ];
   const doubles = [hit.ok ? 1 : 0, hit.ms ?? 0, hit.subrequests ?? 0, hit.cacheHits ?? 0, hit.cacheLoads ?? 0, hit.kind === "flux" ? hit.subscribers ?? 1 : hit.size ?? 0];
   return { indexes: [hit.kind], blobs, doubles };

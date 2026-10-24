@@ -11,6 +11,7 @@ import { why } from "./types.js";
 import { watch } from "./usage.js";
 import type { Background } from "./web/data.js";
 import { notFound, site } from "./web/site.js";
+import { OFFLINE_PATH } from "./web/pwa.js";
 
 // Browser-based clients (MCP Inspector, web chat apps) call the endpoint cross-origin.
 const CORS = {
@@ -104,7 +105,9 @@ export async function handle(request: Request, cache: Cache, background: Backgro
   const page = await site(request, cache, background);
   if (page) {
     const type = page.headers.get("content-type") ?? "";
-    if (type.startsWith("text/html")) {
+    // The offline page fetched by the service worker for its shell (web/pwa.ts), in every new browser: not a view.
+    const shell = url.pathname === OFFLINE_PATH && (request.headers.get("sec-fetch-dest") ?? "document") !== "document";
+    if (type.startsWith("text/html") && !shell) {
       record({ kind: "page", name: url.pathname, detail: url.searchParams.has("maj") ? "bouton" : undefined, ok: page.ok, status: page.status, ...measure() });
     } else if (type.startsWith("application/rss+xml")) {
       // A reader polls all day: counted apart from the page views, with how many it reads for.

@@ -30,6 +30,7 @@ import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import { bannerHtml, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
+import { INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 
 export const SITE = "rundata.re";
@@ -606,7 +607,7 @@ footer.foot .brand{color:var(--on-night);margin-bottom:.8rem}
 footer.foot p+p{margin-top:.6rem}
 footer.foot h3{color:var(--on-night);font-size:1rem;margin-bottom:.4rem}
 footer.foot .slogan{font-size:1rem}
-`.replace(/\n/g, "") + AVIS_CSS;
+`.replace(/\n/g, "") + AVIS_CSS + PWA_CSS;
 
 interface Head {
   title: string;
@@ -619,6 +620,8 @@ interface Head {
   noindex?: boolean;
   /** The page's RSS feed (a commune's alerts): announced in the head, linked in the footer. */
   rss?: { href: string; title: string; link: string; hint: string };
+  /** The offline page, kept on phones until the service worker changes: no banner of the moment, nothing to send. */
+  shell?: boolean;
 }
 
 function banner(a: Alerte | undefined, path: string): string {
@@ -644,7 +647,8 @@ const tick=()=>{const n=Date.now();document.querySelectorAll("[data-clock]").for
 document.querySelectorAll("[data-age]").forEach((e)=>{const m=Math.max(0,Math.round((n-Date.parse(e.dataset.age))/6e4));
 e.textContent="il y a "+(m<90?m+" min":m<2880?Math.round(m/60)+" h":Math.round(m/1440)+" jours")})};
 document.querySelectorAll("[data-js]").forEach((e)=>{e.hidden=false});document.querySelectorAll("[data-nojs]").forEach((e)=>{e.hidden=true});
-tick();setInterval(tick,3e4);`;
+tick();setInterval(tick,3e4);
+${PWA_SCRIPT}`;
 
 /** Whether a page belongs to a category: /meteo/cilaos is in the weather. */
 const inCategory = (path: string, category: string) => path === category || path.startsWith(`${category}/`);
@@ -690,7 +694,8 @@ export function hook(path: string): string | undefined {
 
 /**
  * Above the feedback form: send the page on WhatsApp, the island's first channel with Facebook (a plain link, no
- * script of theirs; `?ref=wa` counts the visits it brings, src/metrics.ts), and follow rundata.re's accounts.
+ * script of theirs; `?ref=wa` counts the visits it brings, src/metrics.ts), follow rundata.re's accounts, and put the
+ * site on the home screen (web/pwa.ts).
  */
 function share(origin: string, head: Head): string {
   const text = `${head.title.replace(/ · 974$/, "")} : ${origin}${head.path}?ref=wa`;
@@ -698,7 +703,9 @@ function share(origin: string, head: Head): string {
   return `<aside class="share wrap" aria-label="Partager et suivre"><div class="card">
   <a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp ${EXTERNAL}</a>
   ${accounts.length ? `<p>Une info utile chaque matin : suivez rundata.re sur ${accounts.map((s) => `<a href="${esc(fromSite(s.url))}" rel="noopener">${esc(s.nom)}</a>`).join(" ou ")}.</p>` : ""}
-</div></aside>`;
+</div>
+${INSTALL}
+</aside>`;
 }
 
 /** The hook goes right under the page's title. */
@@ -776,14 +783,14 @@ ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head
 </head>
 <body>
 ${header(head.path, origin)}
-${banner(head.alerte, head.path)}
-${bannerHtml(volcanBanner(), head.path)}
+${head.shell ? "" : `${banner(head.alerte, head.path)}
+${bannerHtml(volcanBanner(), head.path)}`}
 <div class="band">${withHook(band, head.path)}</div>
 <main class="wrap">
 ${body}
 </main>
-${share(origin, head)}
-${avisForm(head.path)}
+${head.shell ? "" : `${share(origin, head)}
+${avisForm(head.path)}`}
 <footer class="foot"><div class="wrap">
   <div>
     <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
@@ -1269,6 +1276,20 @@ export function notFoundPage(origin: string, path: string): string {
 <section aria-labelledby="h-communes"><h2 id="h-communes">Météo par commune et par lieu</h2>${placeLinks()}</section>`);
 }
 
+/** What a phone shows for a page it never opened, without network (web/pwa.ts): the pages it kept, with their date. */
+export function offlinePage(origin: string): string {
+  return layout(origin, {
+    title: `Hors ligne · ${SITE}`,
+    description: "Pas de réseau : les pages de rundata.re gardées sur ce téléphone.",
+    path: OFFLINE_PATH,
+    jsonld: [],
+    noindex: true,
+    shell: true,
+  }, `<div class="wrap intro"><div class="pitch"><h1>Pas de réseau</h1><p class="lead">Cette page n'a pas encore été ouverte sur ce téléphone, il n'en existe pas de copie. Réessayez quand le réseau revient.</p><p><button type="button" class="again" id="again">Réessayer</button></p></div></div>`,
+  `<section aria-labelledby="h-gardees"><h2 id="h-gardees">Pages gardées sur ce téléphone</h2><ul class="gardees" id="gardees"></ul><p id="rien-garde" hidden>Aucune page gardée pour l'instant : celles que vous ouvrez avec du réseau le seront.</p></section>
+<script>${OFFLINE_SCRIPT}</script>`);
+}
+
 export const vg = (c: number) => `<span class="vg vg${c >= 1 && c <= 5 ? c : 0}">${esc(mf.colour(c))}</span>`;
 const zoneShort = (zone: string) => (mf.ZONES[zone] ?? zone).split(" :")[0];
 const LAND = ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"];
@@ -1560,7 +1581,8 @@ export function legalPage(origin: string, kind: "confidentialite" | "conditions"
   <h2>En bref</h2>
   <p>rundata.re ne demande ni compte, ni nom, ni adresse électronique. Le site ne pose aucun cookie et ne contient aucun traceur publicitaire. Rien n'est vendu ni partagé à des fins commerciales.</p>
   <h2>Ce que le site compte</h2>
-  <p>Pour savoir quelles pages et quels outils servent, et les améliorer, chaque page vue et chaque message reçu par le connecteur ajoutent une ligne anonyme aux statistiques : la page et sa rubrique, ou l'outil appelé avec le nom des paramètres donnés (pas leur valeur) ; le lieu demandé quand c'en est un, tel que le site l'a compris (une commune, une plage…), ou le texte demandé, coupé à 60 caractères, quand il ne l'a pas compris, pour apprendre à le comprendre ; le nom et la version de l'application de l'assistant (par exemple « claude-ai ») ; si la réponse a réussi, son temps et sa taille ; le pays déduit par Cloudflare, la langue du navigateur, le site d'où vient le visiteur et son type (une personne, un assistant, ou le nom du robot d'un assistant ou d'un moteur de recherche). Chaque lecture d'un flux RSS de commune ajoute aussi une ligne, à part : le flux, le nom de l'application qui le lit (Feedly, Inoreader…) et le nombre d'abonnés qu'elle annonce, sans rien sur les abonnés eux-mêmes. Ni adresse IP, ni identifiant, ni cookie. Des coordonnées ne sont jamais gardées, seulement leur commune. Depuis le 24 octobre 2026, un texte non compris qui ressemble à une adresse (un numéro suivi d'une rue, d'un chemin, d'une impasse, d'un lotissement…) n'est plus gardé tel qu'écrit, ni dans les statistiques ni dans le journal : seulement le mot « adresse ». Un nom de rue sans numéro peut encore être gardé, coupé à 60 caractères, comme tout lieu non compris. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée, pas plus que les autres paramètres (un arrêt de bus, un sujet…). Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
+  <p>Pour savoir quelles pages et quels outils servent, et les améliorer, chaque page vue et chaque message reçu par le connecteur ajoutent une ligne anonyme aux statistiques : la page et sa rubrique, ou l'outil appelé avec le nom des paramètres donnés (pas leur valeur) ; le lieu demandé quand c'en est un, tel que le site l'a compris (une commune, une plage…), ou le texte demandé, coupé à 60 caractères, quand il ne l'a pas compris, pour apprendre à le comprendre ; le nom et la version de l'application de l'assistant (par exemple « claude-ai ») ; si la réponse a réussi, son temps et sa taille ; le pays déduit par Cloudflare, la langue du navigateur, si la page est ouverte depuis l'application installée sur l'écran d'accueil, le site d'où vient le visiteur et son type (une personne, un assistant, ou le nom du robot d'un assistant ou d'un moteur de recherche). Chaque lecture d'un flux RSS de commune ajoute aussi une ligne, à part : le flux, le nom de l'application qui le lit (Feedly, Inoreader…) et le nombre d'abonnés qu'elle annonce, sans rien sur les abonnés eux-mêmes. Ni adresse IP, ni identifiant, ni cookie. Des coordonnées ne sont jamais gardées, seulement leur commune. Depuis le 24 octobre 2026, un texte non compris qui ressemble à une adresse (un numéro suivi d'une rue, d'un chemin, d'une impasse, d'un lotissement…) n'est plus gardé tel qu'écrit, ni dans les statistiques ni dans le journal : seulement le mot « adresse ». Un nom de rue sans numéro peut encore être gardé, coupé à 60 caractères, comme tout lieu non compris. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée, pas plus que les autres paramètres (un arrêt de bus, un sujet…). Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
+  <p>Installation et lecture hors ligne : elles n'utilisent aucun cookie. Pour afficher les pages sans réseau, le site garde sur votre téléphone une copie des pages que vous ouvrez (le cache du navigateur, géré par un « service worker »). Votre choix « Plus tard » est gardé de la même façon. Ces données restent sur le téléphone et ne sont envoyées à personne. Elles s'effacent depuis les réglages du navigateur (données du site rundata.re).</p>
   <h2>Journaux techniques</h2>
   <p>Comme tout hébergeur, Cloudflare garde quelques jours les journaux du service (adresse demandée, erreurs, durée). Pour chaque message du connecteur, ils reprennent les éléments des statistiques ci-dessus, sans rien de plus. Une copie sans aucune adresse IP est conservée un an au plus, pour comprendre les pannes. Votre conversation n'y figure jamais.</p>
   <h2 id="avis-donnees">Les avis que vous laissez</h2>

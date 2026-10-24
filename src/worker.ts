@@ -109,7 +109,7 @@ function recorder(env: Env, request: Request) {
     if (!usage) return;
     try {
       const page = hit.kind === "page";
-      usage.writeDataPoint(point(hit, { who, country, from, audience: page ? audience(headers) : "", language: page ? language(headers.get("accept-language")) : "" }));
+      usage.writeDataPoint(point(hit, { who, country, from, audience: page ? audience(headers) : "", language: page ? language(headers.get("accept-language")) : "", mode: page && headers.get("rundata-mode") === "app" ? "app" : "" }));
     } catch (err) {
       console.error("analytics : écriture impossible", why(err));
     }
