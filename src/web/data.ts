@@ -297,6 +297,8 @@ export interface VolcanAnswer {
   etat?: {
     eruption_en_cours: boolean;
     niveau_orsec: string;
+    /** The prefecture's phase could not be read and none was kept: `niveau_orsec` says to check it (tools/volcan.ts). */
+    niveau_inconnu?: boolean;
     eruption?: { name?: string; started_at?: string; public_summary?: string };
     derniere_eruption_fin?: string;
     deformation?: string;

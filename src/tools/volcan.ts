@@ -10,6 +10,9 @@ const OFFICIAL =
   "En cas d'éruption ou d'alerte, seules comptent les consignes de la préfecture (reunion.gouv.fr) et de l'OVPF-IPGP. " +
   "L'accès à l'Enclos est réglementé par arrêté préfectoral : le vérifier avant de partir.";
 
+// Worded by marketing: what is said when the prefecture's phase could not be read, and none was kept.
+const NIVEAU_INCONNU = "à vérifier sur reunion.gouv.fr";
+
 const day = (iso: string) => localTime(new Date(iso)).split(" ")[0];
 const ACCESS: Record<string, string> = { ouvert: "ouvert", partiel: "partiellement ouvert", ferme: "fermé", fermé: "fermé" };
 
@@ -77,6 +80,9 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     settle(volcan.PREFECTURE.id, volcan.phase(cache)),
   ]);
   const state = piton && phase ? official(piton, phase) : piton;
+  // No phase of the prefecture, read or kept (providers/volcan.ts): pitonlive's level is said only when it is an alert.
+  // It follows the prefecture by hours or days, and must never say « Vigilance » while the prefecture is in alert.
+  const unknown = !!state && !phase && !/^(Alerte|Sauvegarde)/i.test(state.status.alert_level_display);
   if (!state && !posts && !quakes && !phase) {
     return {
       ...text({ erreur: "Les sources sur le volcan ne répondent pas pour le moment.", consulter: [seismes.SOURCE.url, volcan.OVPF.url] }),
@@ -94,14 +100,17 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
         ? `ÉRUPTION EN COURS au Piton de la Fournaise${p?.eruption ? `, annoncée par la préfecture le ${day(p.publie)}` : ""}.`
         : /^Alerte/.test(s.alert_level_display)
           ? `${s.alert_level_display} au Piton de la Fournaise : éruption probable à très brève échéance, pas encore commencée selon les dernières informations.`
-          : "Pas d'éruption en cours au Piton de la Fournaise.",
+          : unknown
+            ? "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com."
+            : "Pas d'éruption en cours au Piton de la Fournaise.",
     );
     if (p) parts.push(`Communiqué de la préfecture du ${day(p.publie)} : « ${p.titre} » (${p.lien}).`);
-    parts.push(`Niveau du dispositif ORSEC volcan : ${s.alert_level_display}.`);
+    parts.push(`Niveau du dispositif ORSEC volcan : ${unknown ? NIVEAU_INCONNU : s.alert_level_display}.`);
     if (!s.is_erupting && state.last_eruption_ended_at) {
       parts.push(`Dernière éruption terminée le ${day(state.last_eruption_ended_at)} (il y a ${state.days_since_last_eruption} jours).`);
     }
-    const a = state.access?.current;
+    const a = unknown ? undefined : state.access?.current;
+    if (unknown) parts.push(`Accès à l'Enclos : ${NIVEAU_INCONNU}, avant de partir.`);
     if (a?.available) parts.push(`Accès à l'Enclos : ${ACCESS[a.enclos_status] ?? a.enclos_status}${a.source_name ? ` (${a.source_name})` : ""}.`);
   }
   const last = posts?.[0];
@@ -115,17 +124,19 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     );
   }
 
-  const sources = [...(phase ? [volcan.PREFECTURE] : []), ...(state ? [volcan.PITONLIVE] : []), ...(posts ? [volcan.OVPF] : []), ...(quakes ? [seismes.SOURCE] : [])];
+  // The prefecture is credited when its phase is the one given: a phase kept from May loses to pitonlive's of October.
+  const sources = [...(phase && (!state || (state as { prefecture?: volcan.Phase }).prefecture) ? [volcan.PREFECTURE] : []), ...(state ? [volcan.PITONLIVE] : []), ...(posts ? [volcan.OVPF] : []), ...(quakes ? [seismes.SOURCE] : [])];
   return text({
     resume: parts.join(" "),
     etat: state
       ? {
           eruption_en_cours: state.status.is_erupting,
           eruption: state.eruption ?? undefined,
-          niveau_orsec: state.status.alert_level_display,
+          niveau_orsec: unknown ? NIVEAU_INCONNU : state.status.alert_level_display,
+          ...(unknown && { niveau_inconnu: true }),
           derniere_eruption_fin: state.last_eruption_ended_at ?? undefined,
           deformation: state.deformation?.available ? `${state.deformation.label} (communiqué du ${day(state.deformation.published_at!)})` : undefined,
-          acces_enclos: state.access?.current?.available
+          acces_enclos: !unknown && state.access?.current?.available
             ? {
                 statut: state.access.current.enclos_status,
                 detail: state.access.current.summary,

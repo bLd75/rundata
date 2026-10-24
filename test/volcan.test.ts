@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { parse, where } from "../src/providers/seismes.js";
-import { activityPosts } from "../src/providers/volcan.js";
+import type { Info } from "../src/providers/actualites.js";
+import { activityPosts, phaseOf } from "../src/providers/volcan.js";
 import { quakeSummary, volcanSeismes } from "../src/tools/volcan.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
@@ -17,6 +18,9 @@ function cacheWith() {
   void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
   void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
   void store.put("volcan:prefecture", { value: null, fetchedAt: t });
+  // The last phase the prefecture declared, kept: back to vigilance in May, before pitonlive's status of October.
+  const may = { titre: "Piton de la Fournaise : retour en vigilance, réouverture partielle de l'enclos", lien: "https://www.reunion.gouv.fr/x", publie: "2026-05-07T08:00:00.000Z" } as Info;
+  void store.put("volcan:prefecture:derniere-phase", { value: phaseOf([may]), fetchedAt: t });
   return new Cache(store, () => t);
 }
 

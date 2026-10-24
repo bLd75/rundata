@@ -9,6 +9,7 @@
  *   fermeture de l'enclos ») before either of the two above says so: the newest one about the volcano wins over
  *   pitonlive when it is as recent or more.
  */
+import { later } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { getJson, getText } from "../http.js";
 import { type SourceInfo, UpstreamError } from "../types.js";
@@ -141,7 +142,33 @@ function declared(r: Info): Phase | undefined {
   return { niveau, eruption, enclos, titre: t, lien: r.lien, publie: r.publie };
 }
 
-export async function phase(cache: Cache): Promise<Cached<Phase | null>> {
+// The last phase the prefecture declared, kept in the durable store (the Worker's KV), whose keys outlive a deploy: a
+// cold cache, a prefecture slow or down, or a release gone from its list of the latest must never leave pitonlive's
+// level alone, which follows the prefecture by hours or days.
+const LAST_PHASE = "volcan:prefecture:derniere-phase";
+// The durable store forgets its keys after a few days (kv.ts): the phase is kept again once a day.
+const KEEP_AGAIN_MS = 24 * 3600_000;
+// What this isolate's cache knows of the kept phase, read at most this often (a subrequest each).
+const KEPT_MEMORY_MS = 5 * 60_000;
+const known = new WeakMap<Cache, { phase: Cached<Phase> | undefined; at: number }>();
+
+async function keptPhase(cache: Cache, now: number): Promise<Cached<Phase> | undefined> {
+  const k = known.get(cache);
+  if (k && now - k.at < KEPT_MEMORY_MS) return k.phase;
+  const phase = await cache.kept<Phase>(LAST_PHASE).catch(() => undefined);
+  known.set(cache, { phase, at: now });
+  return phase;
+}
+
+/** Keeps `p` when it is not what is kept, or what is kept is old. */
+async function keepPhase(cache: Cache, p: Phase, now: number) {
+  const k = await keptPhase(cache, now);
+  if (k && JSON.stringify(k.value) === JSON.stringify(p) && now - k.fetchedAt.getTime() < KEEP_AGAIN_MS) return;
+  await cache.keep(LAST_PHASE, p);
+  known.set(cache, { phase: { value: p, fetchedAt: new Date(now), stale: true }, at: now });
+}
+
+async function readPhase(cache: Cache): Promise<Cached<Phase | null>> {
   return cache.get("volcan:prefecture", 5 * 60, async () => {
     const releases = parsePrefecture(await getText(PREFECTURE.id, PREFECTURE.url, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" }));
     // A page without its list (an error page served as 200, a maintenance page) must not replace the last phase read.
@@ -150,4 +177,22 @@ export async function phase(cache: Cache): Promise<Cached<Phase | null>> {
     if (!p) console.log(`volcan : aucune phase ORSEC dans les ${releases.length} communiqués de la préfecture`);
     return p ?? null;
   });
+}
+
+/**
+ * The phase of the newest release that declares one; else the last phase kept, as old as it is (tools/volcan.ts
+ * `official` lets a newer status of pitonlive win over it). Throws only when neither is there.
+ */
+export async function phase(cache: Cache, now = Date.now()): Promise<Cached<Phase | null>> {
+  const read = await readPhase(cache).catch((err: unknown) => ({ err }));
+  if ("value" in read && read.value) {
+    const p = read.value;
+    // After the answer: the answer never waits for the durable store.
+    if (!read.stale) later(keepPhase(cache, p, now).catch((err) => console.error("volcan : phase non gardée", err)));
+    return read;
+  }
+  const kept = await keptPhase(cache, now);
+  if (kept) return kept;
+  if ("err" in read) throw read.err;
+  return read;
 }
