@@ -110,7 +110,7 @@ const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) =>
   "/sport": { key: "web:sport", build: buildSport, page: sportPage },
   "/cyclones": { key: "web:cyclones", build: buildCyclones, page: cyclonesPage },
   "/historique": { key: "web:historique", build: buildHistorique, page: historiquePage },
-  "/agenda": { key: "web:agenda", build: buildAgenda, page: agendaPage },
+  "/evenements": { key: "web:agenda", build: buildAgenda, page: agendaPage },
 };
 
 /** How to build each category page's copy, by its cache key: what the home page and the commune pages show as tiles. */
@@ -170,6 +170,8 @@ export async function site(request: Request, cache: Cache, background: Backgroun
     ]);
     return new Response(seaPage(origin, data, now, a), { headers: htmlFor(data) });
   }
+  // The events page was first published as /agenda.
+  if (path === "/agenda" || path === "/agenda/") return Response.redirect(`${origin}/evenements`, 301);
   const domain = DOMAINS[path.replace(/(.)\/$/, "$1")];
   if (domain) {
     const [data, a] = await Promise.all([
