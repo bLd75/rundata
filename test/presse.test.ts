@@ -20,10 +20,10 @@ describe("press page", () => {
     const html = await page();
     expect(html).toContain("<h1>rundata.re, pour la presse</h1>");
     expect(html).toContain("Toute La Réunion en direct, sur une seule page… et dans votre assistant IA");
-    expect(html).toContain(`Contact presse : <a href="mailto:contact@rundata.re">contact@rundata.re</a>`);
+    expect(html).toContain(`Contact presse\u00a0: <a href="mailto:contact@rundata.re">contact@rundata.re</a>`);
     expect(html).toContain("<p>L'équipe rundata.re</p>");
     // As the communication kit sends it: the news in, no figure of stations in the text, nothing announced that has shipped.
-    expect(html).toContain("<li><b>Actualités</b> : les informations des médias de l'île");
+    expect(html).toContain("<li><b>Actualités</b>\u00a0: les informations des médias de l'île");
     expect(html).toContain("les stations Météo-France de la côte aux sommets, relevées toutes les 6 minutes");
     expect(html).not.toContain("D'autres rubriques arrivent");
     expect(html).toContain(`<link rel="canonical" href="https://rundata.re/presse">`);

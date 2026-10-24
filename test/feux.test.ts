@@ -187,7 +187,7 @@ describe("the fires' page", () => {
     const html = await (await page("/feux"))!.text();
     expect(html).toContain('<meta name="robots" content="noindex">');
     expect(html).toContain("La détection des feux par satellite n&#39;est pas encore active sur rundata.re.");
-    expect(html).toContain("<b>Vous voyez un feu ? Appelez le 18 ou le 112.</b>");
+    expect(html).toContain("<b>Vous voyez un feu\u00a0? Appelez le 18 ou le 112.</b>");
     expect(html).not.toMatch(/Aucun feu|0 feu/);
     expect(asked).toEqual([]);
     expect(await (await page("/sitemap.xml"))!.text()).not.toContain("/feux");
@@ -198,7 +198,7 @@ describe("the fires' page", () => {
     const r = (await page("/feux"))!;
     const html = await r.text();
     expect(r.headers.get("cache-control")).toBe("public, max-age=60");
-    expect(html).toContain("<title>Feux de forêt Réunion : détections satellite 24 h · 974</title>");
+    expect(html).toContain("<title>Feux de forêt Réunion\u00a0: détections satellite 24 h · 974</title>");
     expect(html).toContain("<h1>Feux de végétation à La Réunion, vus par satellite</h1>");
     expect(html).not.toContain("noindex");
     expect(html).toContain('<meta name="description" content="2 feux vus par satellite en 24 h à La Réunion (974), le dernier à 06:30 près de');
@@ -207,7 +207,7 @@ describe("the fires' page", () => {
     expect(html).toContain(`<h2 id="h-sentiers">Les sentiers fermés par l'ONF</h2>`);
     expect(html).toContain('<h2 id="h-vigilance">La vigilance Météo-France</h2>');
     expect(html).toContain("Votre IA, branchée sur les feux");
-    expect(html).toContain("Néna difé dann bwa La Rényon astèr ?");
+    expect(html).toContain("Néna difé dann bwa La Rényon astèr\u00a0?");
     expect(html).toContain("#e8590c");
     expect(await (await page("/sitemap.xml"))!.text()).toContain("<loc>https://rundata.re/feux</loc>");
     // The satellites not answering: said, not kept.
@@ -216,8 +216,8 @@ describe("the fires' page", () => {
     const down = (await page("/feux"))!;
     expect(down.headers.get("cache-control")).toBe("no-store");
     const downHtml = await down.text();
-    expect(downHtml).toContain("Le service de la NASA ne répond pas pour le moment : rechargez la page dans quelques minutes.");
-    expect(downHtml).toContain("<b>Vous voyez un feu ? Appelez le 18 ou le 112.</b>");
+    expect(downHtml).toContain("Le service de la NASA ne répond pas pour le moment\u00a0: rechargez la page dans quelques minutes.");
+    expect(downHtml).toContain("<b>Vous voyez un feu\u00a0? Appelez le 18 ou le 112.</b>");
   });
 
   it("is linked from /sentiers and from a commune's tile when there is a fire", () => {

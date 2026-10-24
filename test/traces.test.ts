@@ -174,8 +174,8 @@ describe("traces GPS", () => {
 
     // The hike's page: a red band above the map and the download, the closed stretch drawn on the map.
     const page = await (await handle(new Request("https://rundata.re/randonnees/gr-r2", BOT), cache())).text();
-    expect(page).toContain("Attention : ");
-    expect(page).toMatch(/<li><a href="\/sentiers\/le-bloc-piton-des-neiges">Le Bloc - Piton des Neiges<\/a> : Éboulement · Réouverture prévue le 15\/11\/2026<\/li>/);
+    expect(page).toContain("Attention\u00a0: ");
+    expect(page).toMatch(/<li><a href="\/sentiers\/le-bloc-piton-des-neiges">Le Bloc - Piton des Neiges<\/a>\u00a0: Éboulement · Réouverture prévue le 15\/11\/2026<\/li>/);
     expect(page.indexOf("alarm-band")).toBeLessThan(page.indexOf("Télécharger le GPX"));
     expect(page.indexOf("alarm-band")).toBeLessThan(page.indexOf(`<svg class="map terrain zoom"`));
     expect(page).toContain(`<path class="trk ferme"`);
@@ -185,12 +185,12 @@ describe("traces GPS", () => {
     const hub = await (await handle(new Request("https://rundata.re/randonnees", BOT), cache())).text();
     const card = hub.slice(hub.indexOf(`<a href="/randonnees/gr-r2">GR R2</a></h3>`) - 300, hub.indexOf(`href="/randonnees/gr-r2.gpx"`));
     expect(card).toContain(`class="card hike closed"`);
-    expect(card).toContain(`<a href="/sentiers/le-bloc-piton-des-neiges">Le Bloc - Piton des Neiges</a> : Éboulement`);
+    expect(card).toContain(`<a href="/sentiers/le-bloc-piton-des-neiges">Le Bloc - Piton des Neiges</a>\u00a0: Éboulement`);
     expect(hub).toMatch(/\d+ itinéraires coupés par une fermeture<\/h3>/);
 
     // The closures' page: the closed trail with the hikes it cuts.
     const list = await (await handle(new Request("https://rundata.re/sentiers", BOT), cache())).text();
-    expect(list).toMatch(/Coupe : (<a href="\/randonnees\/[a-z0-9-]+">[^<]+<\/a>, )*<a href="\/randonnees\/gr-r2">GR R2<\/a>/);
+    expect(list).toMatch(/Coupe\u00a0: (<a href="\/randonnees\/[a-z0-9-]+">[^<]+<\/a>, )*<a href="\/randonnees\/gr-r2">GR R2<\/a>/);
     expect(list).toContain(`<a class="btn sun" href="/randonnees">`);
   });
 
@@ -250,12 +250,12 @@ describe("traces GPS", () => {
     const res = await handle(new Request("https://rundata.re/randonnees/mafate", BOT), cache());
     expect(res.status).toBe(200);
     const page = await res.text();
-    expect(page).toContain("<title>Randonnée Mafate : traces GPS et sentiers ouverts · 974</title>");
+    expect(page).toContain("<title>Randonnée Mafate\u00a0: traces GPS et sentiers ouverts · 974</title>");
     expect(page).toContain("<h1>Randonnée à Mafate</h1>");
     expect(page).toContain(`<li><a href="/randonnees">Randonnée</a></li><li aria-current="page">Mafate</li>`);
     // The map of the day has 4 closed there; the one closed here is among them, with why.
     expect(page).toContain(`id="h-fermes">5 sentiers fermés à Mafate</h2>`);
-    expect(page).toContain(`<li><a href="/sentiers/aurere-ilet-a-malheur">Aurère - Îlet à Malheur</a> : Éboulement · Réouverture prévue le 15/11/2026</li>`);
+    expect(page).toContain(`<li><a href="/sentiers/aurere-ilet-a-malheur">Aurère - Îlet à Malheur</a>\u00a0: Éboulement · Réouverture prévue le 15/11/2026</li>`);
     expect(page).toContain(`href="/randonnees/gr-r3"`);
     expect(page).toContain("ravitaillés par hélicoptère");
     expect(page).toContain(`<a href="/randonnees/mafate" aria-current="page">Mafate</a>`);
@@ -266,7 +266,7 @@ describe("traces GPS", () => {
 
   it("says a trail's sector in its title, its trail and its first sentence", async () => {
     const page = await (await handle(new Request("https://rundata.re/sentiers/aurere-ilet-a-malheur", BOT), cache())).text();
-    expect(page).toContain("<title>Aurère - Îlet à Malheur (Mafate) : trace GPX, état ONF · 974</title>");
+    expect(page).toContain("<title>Aurère - Îlet à Malheur (Mafate)\u00a0: trace GPX, état ONF · 974</title>");
     expect(page).toContain(`<li><a href="/randonnees/mafate">Mafate</a></li><li aria-current="page">Aurère - Îlet à Malheur</li>`);
     expect(page).toMatch(/<p class="lead part-of">Sentier de l'ONF à Mafate, sur le <a href="\/randonnees\/gr-r2">GR R2<\/a> et le <a href="\/randonnees\/gr-r3">GR R3<\/a>\./);
   });

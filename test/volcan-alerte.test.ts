@@ -127,7 +127,7 @@ describe("the volcano put forward during an alert", () => {
     // A minute later: the banner is read again.
     const later = new Date(NOW.getTime() + 61_000);
     const html = await (await site(new Request("https://rundata.re/communes"), cache, () => {}, later))!.text();
-    expect(html).toContain("🌋 Piton de la Fournaise : alerte 1 du préfet");
+    expect(html).toContain("🌋 Piton de la Fournaise\u00a0: alerte 1 du préfet");
     expect(html).toContain('<a href="/volcan">Suivre en direct →</a>');
   });
 

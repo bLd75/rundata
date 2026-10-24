@@ -315,13 +315,13 @@ describe("commune pages", () => {
     // The weather is built at once; the rest only read, and named with its page while it has no copy.
     expect(cold.text).toMatch(/mesurés à \d\d:\d\d par la station/);
     expect(cold.text).toContain("rundata.re ne mesure pas les bouchons");
-    expect(cold.text).toMatch(/Pas de copie récente pour : .*<a href="\/coupures-eau\/saint-leu">coupures d&#39;eau<\/a>/);
+    expect(cold.text).toMatch(/Pas de copie récente pour\u00a0: .*<a href="\/coupures-eau\/saint-leu">coupures d&#39;eau<\/a>/);
     expect(cold.used).toBeLessThanOrEqual(WORKER_BUDGET);
     // Another isolate: a read for each copy and the vigilance, and the oldest copy missing brought up to date when it fits.
     const warm = await serve(isolate(edge), "/aujourdhui/saint-leu");
     expect(warm.used).toBeLessThanOrEqual(20);
     expect((await serve(isolate(), "/aujourdhui/maido")).r.status).toBe(404);
-    expect((await serve(isolate(edge), "/communes/saint-leu")).text).toContain('<a class="btn glass" href="/aujourdhui/saint-leu">Aujourd&#39;hui à Saint-Leu : le résumé de la journée →</a>');
+    expect((await serve(isolate(edge), "/communes/saint-leu")).text).toContain('<a class="btn glass" href="/aujourdhui/saint-leu">Aujourd&#39;hui à Saint-Leu\u00a0: le résumé de la journée →</a>');
   });
 
   it("leave the sea out in the Hauts, and only exist for the 24 communes", async () => {
@@ -516,7 +516,7 @@ describe("vigilance and sea pages", () => {
     const cache = isolate();
     const { text, used } = await serve(cache, "/mer");
     expect(text).toContain("Température de la mer et houle <span class=\"n974\">974</span>");
-    expect(text).toMatch(/<title>Mer Réunion : houle, température de l(&#39;|')eau et marée · 974<\/title>/);
+    expect(text).toMatch(/<title>Mer Réunion\u00a0: houle, température de l(&#39;|')eau et marée · 974<\/title>/);
     expect(text).toContain("Boucan-Canot");
     expect(text).toContain('href="/meteo/saint-paul"');
     expect(text).toMatch(/\d+,\d °C/);
@@ -528,7 +528,7 @@ describe("vigilance and sea pages", () => {
     expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
     // A coastal commune's tile says it too, from the same copy.
     const saintLeu = await serve(cache, "/communes/saint-leu");
-    expect(saintLeu.text).toMatch(/houle prévue : \d+(,\d)?\u202fm/);
+    expect(saintLeu.text).toMatch(/houle prévue\u00a0: \d+(,\d)?\u202fm/);
   });
 });
 
