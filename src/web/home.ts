@@ -10,7 +10,7 @@ import { CATEGORIES, type Category } from "./categories.js";
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
 import { actualitesLive, airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
-import { NON_ANNONCEE } from "../tools/volcan.js";
+import { hausseNiveau, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import {
@@ -124,7 +124,10 @@ export function demos(h: HomeLive | null, now: Date): Demo[] {
       question: "Le volcan est en éruption ?",
       call: "volcan_seismes()",
       // In alert, never « pas encore » on our word: what the texts read say, then the level in the plan's words (marketing).
-      answer: (!e.eruption_en_cours && /^Alerte/.test(e.niveau_orsec)
+      answer: (e.ecart_prefecture
+        // pitonlive higher than the release: both levels, in marketing's words.
+        ? esc(hausseNiveau(e.ecart_prefecture))
+        : !e.eruption_en_cours && /^Alerte/.test(e.niveau_orsec)
         ? `${esc(NON_ANNONCEE)} Le volcan est en ${esc(e.niveau_orsec.toLowerCase())}${libelle(e.niveau_orsec) ? ` : « ${esc(libelle(e.niveau_orsec)!)} » (dispositif ORSEC Volcan)` : ""}.`
         : `${e.eruption_en_cours ? "Oui, le Piton de la Fournaise est en éruption" : "Non, pas d'éruption en cours au Piton de la Fournaise"} (niveau ORSEC : ${esc(e.niveau_orsec)}).`) +
         (q ? ` L'observatoire a localisé ${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} sous le volcan en 7 jours.` : ""),

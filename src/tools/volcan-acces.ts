@@ -56,6 +56,8 @@ export interface Ligne {
 export interface Acces {
   titre: string;
   chapeau: string;
+  /** A sentence read before the lines: pitonlive higher than the release they quote (tools/volcan.ts, marketing). */
+  avant?: string;
   lignes: Ligne[];
   pied: string;
 }
