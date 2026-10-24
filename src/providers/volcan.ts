@@ -138,7 +138,9 @@ function declared(r: Info): Phase | undefined {
   // The end of the alert names it (« fin de l'alerte 1 ») and is a return to vigilance: read first.
   const niveau = /\b(fin|lev[ée]e)\s+(de\s+l['’]\s*|d['’]\s*)alerte/i.test(t)
     ? "Vigilance"
-    : /alerte\s*2[\s.-]*2/i.test(t)
+    : /alerte\s*2[\s.-]*3/i.test(t)
+      ? "Alerte 2-3"
+      : /alerte\s*2[\s.-]*2/i.test(t)
     ? "Alerte 2-2"
     : /alerte\s*2[\s.-]*1/i.test(t)
       ? "Alerte 2-1"
@@ -160,7 +162,8 @@ function declared(r: Info): Phase | undefined {
     ? "partiel"
     : /r[ée]?ouvert/i.test(t)
       ? "ouvert"
-      : /fermeture|ferm[ée]/i.test(t) || /^Alerte/.test(niveau)
+      // Sauvegarde too: the eruption over, the Enclos stays closed until an order reopens it (DSO 2021, p. 27).
+      : /fermeture|ferm[ée]/i.test(t) || /^(Alerte|Sauvegarde)/.test(niveau)
         ? "ferme"
         : undefined;
   return { niveau, eruption, enclos, titre: t, lien: r.lien, publie: r.publie };

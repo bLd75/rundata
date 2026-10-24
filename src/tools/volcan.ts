@@ -50,8 +50,10 @@ export function quakeSummary(list: seismes.Seisme[], now: Date) {
   };
 }
 
-// The ORSEC levels, lowest first: a level is compared by its first match (« Alerte 2-1 » is an alert 2).
-const LEVELS = [/vigilance/i, /vigilance\s+renforc/i, /alerte\s*1/i, /alerte\s*2/i, /sauvegarde/i];
+// The ORSEC levels, lowest first: a level is compared by its last match (« Alerte 2-1 » is an alert 2). Sauvegarde is
+// the phase after an eruption, the Enclos still closed (DSO ORSEC « Volcan Piton de la Fournaise », 2021, p. 22 and 27):
+// below the alerts, above vigilance.
+const LEVELS = [/vigilance/i, /vigilance\s+renforc/i, /sauvegarde/i, /alerte\s*1/i, /alerte\s*2/i];
 const rank = (niveau: string) => LEVELS.reduce((r, re, i) => (re.test(niveau) ? i : r), -1);
 // A lower level of pitonlive, published after the prefecture's release and held longer than this, is said beside it.
 const APART_MS = 48 * 3600_000;
@@ -103,7 +105,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   const state = piton && phase ? official(piton, phase, now) : piton;
   // No phase of the prefecture, read or kept (providers/volcan.ts): pitonlive's level is said only when it is an alert.
   // It follows the prefecture by hours or days, and must never say « Vigilance » while the prefecture is in alert.
-  const unknown = !!state && !phase && !/^(Alerte|Sauvegarde)/i.test(state.status.alert_level_display);
+  // Sauvegarde is below the alerts (an eruption over): not said on pitonlive's word either.
+  const unknown = !!state && !phase && !/^Alerte/i.test(state.status.alert_level_display);
   if (!state && !posts && !quakes && !phase) {
     return {
       ...text({ erreur: "Les sources sur le volcan ne répondent pas pour le moment.", consulter: [seismes.SOURCE.url, volcan.OVPF.url] }),
