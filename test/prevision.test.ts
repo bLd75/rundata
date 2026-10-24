@@ -149,6 +149,22 @@ describe("confidence of the forecast days (ECMWF ensemble)", () => {
     for (const c of e.cells) for (const d of c.days) expect(ensemble.confidence(d).pourquoi).not.toMatch(/%/);
   });
 
+  it("shortens the reason for a day's card: the same gaps, maximum, rain, gusts, then the heavy rain, each number held to its unit", () => {
+    const e = ens();
+    const nb = (s: string) => s.replace(/ (°C|mm|km\/h)/g, "\u00a0$1");
+    expect(ensemble.cardReason(ensemble.confidence(e.cells[0].days[6]).pourquoi)).toBe(nb("Écarts entre scénarios : 3,3 °C sur le maximum, 33 mm de pluie, 31 km/h de rafales. 7 scénarios sur 51 à 20 mm ou plus."));
+    expect(ensemble.cardReason("les scénarios divergent sur le carré de 25 km : 11 mm d'écart sur la pluie")).toBe(nb("Écarts entre scénarios : 11 mm de pluie."));
+    expect(ensemble.cardReason("les scénarios divergent sur le carré de 25 km : 4 scénarios sur 51 donnent 20 mm de pluie ou plus")).toBe(nb("4 scénarios sur 51 à 20 mm de pluie ou plus."));
+    expect(ensemble.cardReason("les scénarios s'accordent (1,2 °C d'écart sur le maximum, pluie et vent sans grand écart)")).toBeUndefined();
+    // Every day of the run that is not sure has its short reason, with as many gaps as its full one.
+    for (const c of e.cells) for (const d of c.days) {
+      const { niveau, pourquoi } = ensemble.confidence(d);
+      const short = ensemble.cardReason(pourquoi);
+      if (niveau === "forte") expect(short).toBeUndefined();
+      else expect(short!.split(/, |\. /).length).toBe(pourquoi.split(" : ")[1].split(", ").length);
+    }
+  });
+
   it("gives each day covered its confidence, with the warning, the run and the credit", async () => {
     const r = body(await previsionMeteo(await withEnsemble(), "Cilaos", undefined, NOW));
     const byDay = Object.fromEntries(r.jours.map((j: { jour: string; confiance?: string }) => [j.jour, j.confiance]));
@@ -212,9 +228,9 @@ describe("confidence of the forecast days (ECMWF ensemble)", () => {
       sources: [],
     };
     const html = placePage("https://rundata.re", pageOf("cilaos")!, { value: { prevision }, fetchedAt: NOW, stale: false }, NOW);
-    // A phone shows no title: the reason is under the day, and a sure day says nothing more.
-    expect(html).toContain(`<p>Confiance : moyenne</p><p class="why">Les scénarios divergent sur le carré de 25 km : 12 mm d&#39;écart sur la pluie</p>`);
-    expect(html).toContain(`<p>Confiance : forte</p></li>`);
+    // A phone shows no title: the reason is under the day, short, and a sure day says nothing more.
+    expect(html).toContain(`<p>Confiance : <b>moyenne</b></p><p class="why">Écarts entre scénarios : 12\u00a0mm de pluie.</p>`);
+    expect(html).toContain(`<p>Confiance : <b>forte</b></p></li>`);
     expect(html).not.toContain("s&#39;accordent (1,2");
     expect(html).not.toContain(`title="les scénarios`);
     expect(html).toContain(`<p class="note">Confiance : accord entre les 51 scénarios`);

@@ -211,6 +211,27 @@ export function confidence(d: EnsDay): Confidence {
   return { niveau: LEVELS[worst], pourquoi };
 }
 
+/**
+ * The reason of a day that is not sure, shortened for its card on the site, where the note under the days says what
+ * the scenarios are: « Écarts entre scénarios : 3,3 °C sur le maximum, 33 mm de pluie, 31 km/h de rafales. 7 scénarios
+ * sur 51 à 20 mm ou plus. » Read from `pourquoi` as `confidence` writes it, each number held to its unit; undefined
+ * for a day whose scenarios agree.
+ */
+export function cardReason(pourquoi: string): string | undefined {
+  const [head, list] = pourquoi.split(" : ");
+  if (!head.startsWith("les scénarios divergent") || !list) return undefined;
+  const parts = list.split(", ");
+  const gaps = parts.flatMap((p) => {
+    const m = /^(.+) d'écart sur (le maximum|la pluie|les rafales)$/.exec(p);
+    return m ? [`${m[1]} ${m[2] === "le maximum" ? "sur le maximum" : m[2] === "la pluie" ? "de pluie" : "de rafales"}`] : [];
+  });
+  const heavy = parts.map((p) => /^(\d+) scénarios sur (\d+) donnent (\d+) mm de pluie ou plus$/.exec(p)).find((m) => m);
+  const text = gaps.length
+    ? `Écarts entre scénarios : ${gaps.join(", ")}.${heavy ? ` ${heavy[1]} scénarios sur ${heavy[2]} à ${heavy[3]} mm ou plus.` : ""}`
+    : heavy ? `${heavy[1]} scénarios sur ${heavy[2]} à ${heavy[3]} mm de pluie ou plus.` : undefined;
+  return text?.replace(/(\d) (°C|mm|km\/h)/g, "$1\u00a0$2");
+}
+
 /** The confidence of each day over a place, none when the run is too old. */
 export function confidenceAt(e: Ensemble | null, lon: number, lat: number, now: Date): ((date: string) => Confidence | undefined) {
   if (!e || now.getTime() - e.runAt > MAX_RUN_AGE_H * 3600_000) return () => undefined;
