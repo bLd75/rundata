@@ -36,17 +36,21 @@ const PROPOSALS_MAX = 15;
  * Mafate has no commune of its own (La Possession and Saint-Paul share it): a box inside their rims, leaving out the
  * Maïdo and Grand Bord side and Dos d'Âne. Approximate, from the middle of each trail.
  */
+/**
+ * The sectors of the hikes, in the order of the pages (src/traces/secteurs.ts). A trail's or a route's is computed when
+ * the traces are built (scripts/build-traces.py); for a point, `secteur` tells it from its commune, as near as it can.
+ */
 export const SECTEURS: { nom: string; communes?: string[] }[] = [
   { nom: "Mafate" },
   { nom: "Cilaos", communes: ["Cilaos"] },
   { nom: "Salazie", communes: ["Salazie"] },
   { nom: "Volcan" },
-  { nom: "Nord", communes: ["Saint-Denis", "Sainte-Marie", "Sainte-Suzanne"] },
-  { nom: "Est", communes: ["Saint-André", "Bras-Panon", "Saint-Benoît", "Sainte-Rose"] },
-  { nom: "Plaines", communes: ["La Plaine-des-Palmistes", "Le Tampon"] },
-  { nom: "Sud sauvage", communes: ["Saint-Joseph", "Saint-Philippe"] },
-  { nom: "Sud", communes: ["Saint-Pierre", "Petite-Île", "Entre-Deux", "Saint-Louis", "L'Étang-Salé"] },
-  { nom: "Ouest", communes: ["Saint-Paul", "La Possession", "Le Port", "Les Trois-Bassins", "Saint-Leu", "Les Avirons"] },
+  { nom: "Hauts de l'Ouest", communes: ["Saint-Paul", "Le Port", "Les Trois-Bassins", "Saint-Leu", "Les Avirons", "L'Étang-Salé"] },
+  { nom: "Nord", communes: ["Saint-Denis", "Sainte-Marie", "Sainte-Suzanne", "La Possession"] },
+  { nom: "Est", communes: ["Saint-André", "Bras-Panon", "Saint-Benoît", "La Plaine-des-Palmistes"] },
+  { nom: "Sud", communes: ["Saint-Pierre", "Petite-Île", "Le Tampon", "Entre-Deux", "Saint-Louis", "Saint-Joseph"] },
+  { nom: "Sud sauvage", communes: ["Sainte-Rose", "Saint-Philippe"] },
+  { nom: "Littoral" },
 ];
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, km: 9 };
 
@@ -55,8 +59,11 @@ export function secteur(lon: number, lat: number): { secteur: string; commune: s
   const mafate = (commune === "La Possession" || commune === "Saint-Paul") && lon >= 55.39 && lat >= -21.105 && lat <= -20.995 && !(lon < 55.4 && lat < -21.075);
   if (mafate) return { secteur: "Mafate", commune };
   if (commune !== "Cilaos" && commune !== "Salazie" && distanceKm(lon, lat, FOURNAISE.lon, FOURNAISE.lat) <= FOURNAISE.km) return { secteur: "Volcan", commune };
-  return { secteur: SECTEURS.find((x) => x.communes?.includes(commune))?.nom ?? "Ouest", commune };
+  return { secteur: SECTEURS.find((x) => x.communes?.includes(commune))?.nom ?? "Hauts de l'Ouest", commune };
 }
+
+/** An ONF trail's sector: the one computed with the traces, else the one of a point of it. */
+export const trailSecteur = (nom: string, at?: [number, number]) => traces.SENTIERS[nom]?.secteur ?? (at ? secteur(...at).secteur : undefined);
 
 const unique = (l: string[]) => [...new Set(l)];
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -246,7 +253,7 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
       ...(warn ? { avertissement: { message: warn.message, sentiers_fermes: warn.sentiers_fermes } } : {}),
       resume: `${warn ? `${warn.message} ` : ""}${routes.length} itinéraire${routes.length > 1 ? "s" : ""} complet${routes.length > 1 ? "s" : ""} et ${open.length} sentier${open.length > 1 ? "s" : ""} ouvert${open.length > 1 ? "s" : ""} de l'ONF correspondent (listes limitées à ${PROPOSALS_MAX}). Préciser un lieu (cirque, commune, sommet) pour choisir.`,
       randonnees_avec_trace: routes.map((r) => routeBrief(r, carte)),
-      sentiers_ouverts: open.map(({ nom, t }) => ({ sentier: nom, longueur_km: t.km, denivele_positif_m: t.dplus, secteur: (() => { const s = carte.sentiers.find((x) => x.nom === nom && x.points.length); return s ? secteur(...mid(s)).secteur : undefined; })(), trace_gpx: `${SITE_URL}/sentiers/${t.slug}.gpx`, page: `${SITE_URL}/sentiers/${t.slug}` })),
+      sentiers_ouverts: open.map(({ nom, t }) => ({ sentier: nom, longueur_km: t.km, denivele_positif_m: t.dplus, secteur: (() => { const s = carte.sentiers.find((x) => x.nom === nom && x.points.length); return trailSecteur(nom, s && mid(s)); })(), trace_gpx: `${SITE_URL}/sentiers/${t.slug}.gpx`, page: `${SITE_URL}/sentiers/${t.slug}` })),
       ...common,
     });
   }

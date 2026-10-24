@@ -7,6 +7,9 @@
   OpenStreetMap data, ODbL: « © les contributeurs d'OpenStreetMap ».
 - The trails of the ONF (the layer of src/providers/sentiers.ts), at full resolution once: their length, climb, descent
   and lowest and highest points. Their lines are not kept: the server reads each from the ONF when asked, with its state.
+- The sector of each (Mafate, Cilaos, Volcan, Sud sauvage…): where the most of its length lies, from the cirque of Mafate
+  in OpenStreetMap, the communes of geo.api.gouv.fr (Cilaos, Salazie, then the others by part of the island) and the
+  altitudes (the volcano's heights, the coast). A route across several sectors has none of its own, but lists them.
 Usage: python3 -I scripts/build-traces.py [--cache DIR]
   --cache DIR keeps every response in DIR and reads it back on the next run: to rebuild without asking the sources again.
 """
@@ -27,6 +30,7 @@ OUT = ROOT / "src" / "traces" / "traces.json"
 UA = {"User-Agent": "rundata.re (contact@rundata.re)"}
 ONF = "https://services1.arcgis.com/Y4HgaQpzkE7kenlE/arcgis/rest/services/Sentiers_La_Reunion_public/FeatureServer/5/query"
 OVERPASS = "https://overpass-api.de/api/interpreter"
+COMMUNES = "https://geo.api.gouv.fr/departements/974/communes?format=geojson&geometry=contour&fields=nom"
 ALTI = "https://data.geopf.fr/altimetrie/1.0/calcul/alti/rest/elevation.json"
 ALTI_MAX = 5000
 # A climb or descent counts once it exceeds this: the ground model's noise is not a climb.
@@ -40,6 +44,27 @@ ON_ROUTE_SHARE = 0.6
 ON_ROUTE_MIN_M = 200
 # The stretches of a route along one of its ONF trails, shorter than this, are crossings: not kept.
 PORTION_MIN_M = 50
+
+
+# The sectors of the hikes, by part of the island: the communes not named here are in the cirques (whole communes) or
+# split by the rules of sector_at.
+SECTOR_OF_COMMUNE = {
+    "Saint-Denis": "Nord", "Sainte-Marie": "Nord", "Sainte-Suzanne": "Nord", "La Possession": "Nord",
+    "Saint-André": "Est", "Bras-Panon": "Est", "Saint-Benoît": "Est", "La Plaine-des-Palmistes": "Est",
+    "Saint-Pierre": "Sud", "Petite-Île": "Sud", "Le Tampon": "Sud", "Entre-Deux": "Sud", "Saint-Louis": "Sud", "Saint-Joseph": "Sud",
+    "Saint-Paul": "Hauts de l'Ouest", "Le Port": "Hauts de l'Ouest", "Les Trois-Bassins": "Hauts de l'Ouest", "Saint-Leu": "Hauts de l'Ouest",
+    "Les Avirons": "Hauts de l'Ouest", "L'Étang-Salé": "Hauts de l'Ouest",
+    "Sainte-Rose": "Sud sauvage", "Saint-Philippe": "Sud sauvage",
+}
+# The volcano: its massif above this, east of the Plaine des Cafres and south of the Plaine des Palmistes (Plaine des
+# Cafres, Nez de Bœuf, Plaine des Sables, Pas de Bellecombe, the Enclos).
+VOLCAN_M, VOLCAN_LON, VOLCAN_LAT = 1400, 55.55, -21.16
+# Saint-Joseph east of its town (Langevin, Vincendo, Grand Coude) is the Sud sauvage.
+SUD_SAUVAGE_LON = 55.625
+# Below this, along the coast: the coastal paths (out of the Sud sauvage, which has its own).
+LITTORAL_M = 100
+# A route has a sector when this share of its length lies in it; it is listed in each sector with at least the other.
+SECTOR_SHARE, CROSSED_SHARE = 0.5, 0.15
 
 
 CACHE = None
@@ -269,6 +294,83 @@ def portions(pieces, lines):
     return out
 
 
+def rings_of(geometry):
+    """The polygons of a GeoJSON geometry, each as its rings of (lon, lat)."""
+    polys = geometry["coordinates"] if geometry["type"] == "MultiPolygon" else [geometry["coordinates"]]
+    return [[[tuple(p) for p in ring] for ring in poly] for poly in polys]
+
+
+def inside(p, polys):
+    """Whether p is in one of the polygons (even-odd over each one's rings, its holes too)."""
+    x, y = p
+    for poly in polys:
+        n = 0
+        for ring in poly:
+            for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]):
+                if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
+                    n += 1
+        if n % 2:
+            return True
+    return False
+
+
+class Shapes:
+    """The cirque of Mafate (OpenStreetMap) and the 24 communes (geo.api.gouv.fr): where a point is, by cell of about 50 m."""
+
+    CELL = 0.0005
+
+    def __init__(self):
+        query = '[out:json][timeout:60];area["ISO3166-2"="FR-974"]->.a;rel(area.a)["name"="Cirque de Mafate"];out geom;'
+        rel = fetch(OVERPASS, urllib.parse.urlencode({"data": query}).encode())["elements"][0]
+        outer = chain([[(g["lon"], g["lat"]) for g in m["geometry"]] for m in rel["members"] if m["type"] == "way" and m.get("role") == "outer"])
+        self.mafate = [("Mafate", [[ring]]) for ring in outer]
+        self.communes = [(f["properties"]["nom"], rings_of(f["geometry"])) for f in fetch(COMMUNES)["features"]]
+        self.boxes = {id(polys): bbox([p for poly in polys for p in poly[0]], 0) for _, polys in self.mafate + self.communes}
+        self.cells = {}
+
+    def find(self, p, shapes):
+        return next((n for n, polys in shapes if overlaps(self.boxes[id(polys)], (p[0], p[1], p[0], p[1])) and inside(p, polys)), None)
+
+    def at(self, p):
+        """(in Mafate, commune) at p."""
+        k = (math.floor(p[0] / self.CELL), math.floor(p[1] / self.CELL))
+        if k not in self.cells:
+            c = ((k[0] + 0.5) * self.CELL, (k[1] + 0.5) * self.CELL)
+            self.cells[k] = (self.find(c, self.mafate) is not None, self.find(c, self.communes))
+        return self.cells[k]
+
+
+def sector_at(p, z, shapes):
+    """The sector of a point, its altitude in m when known."""
+    mafate, commune = shapes.at(p)
+    if mafate:
+        return "Mafate"
+    if commune in ("Cilaos", "Salazie"):
+        return commune
+    if z is not None and z >= VOLCAN_M and p[0] >= VOLCAN_LON and p[1] <= VOLCAN_LAT:
+        return "Volcan"
+    if commune in ("Sainte-Rose", "Saint-Philippe") or (commune == "Saint-Joseph" and p[0] >= SUD_SAUVAGE_LON):
+        return "Sud sauvage"
+    if z is not None and z < LITTORAL_M:
+        return "Littoral"
+    return SECTOR_OF_COMMUNE.get(commune)
+
+
+def sectors(segments, segments_z, shapes):
+    """The sectors a line runs through, with their share of its length, the largest first."""
+    by, total = {}, 0.0
+    for seg, z in zip(segments, segments_z):
+        for i in range(1, len(seg)):
+            d = dist_m(seg[i - 1], seg[i])
+            total += d
+            mid = ((seg[i - 1][0] + seg[i][0]) / 2, (seg[i - 1][1] + seg[i][1]) / 2)
+            zs = [v for v in (z[i - 1], z[i]) if v is not None]
+            k = sector_at(mid, sum(zs) / len(zs) if zs else None, shapes)
+            if k:
+                by[k] = by.get(k, 0) + d
+    return sorted(((k, v / total) for k, v in by.items()), key=lambda kv: -kv[1]) if total else []
+
+
 def main():
     global CACHE
     if "--cache" in sys.argv:
@@ -280,6 +382,8 @@ def main():
     flat = [p for n in names for seg in trails[n]["paths"] for p in seg]
     print(f"{len(names)} sentiers, {len(flat)} points : altitudes IGN…")
     zs = elevations(flat)
+    print("Secteurs : Mafate (OpenStreetMap), communes (geo.api.gouv.fr)…")
+    shapes = Shapes()
     sentiers, used, i = {}, set(), 0
     for n in names:
         segs_z = []
@@ -292,9 +396,11 @@ def main():
         used.add(s)
         up, down = climb(segs_z)
         alts = [z for seg in segs_z for z in seg if z is not None]
+        where = sectors(trails[n]["paths"], segs_z, shapes)
         sentiers[n] = {
             "slug": s,
             "onf": sorted(trails[n]["onf"]),
+            **({"secteur": where[0][0]} if where else {}),
             "km": round(length_km(trails[n]["paths"]), 1),
             "dplus": up,
             "dmoins": down,
@@ -333,6 +439,7 @@ def main():
             i += len(piece)
         up, down = climb(segs_z)
         alts = [v for v in z if v is not None]
+        where = sectors(simple, segs_z, shapes)
         stretches = {n: portions(simple, Lines(trails[n]["paths"])) for n in on}
         s = slug(name)
         while s in used:
@@ -350,13 +457,16 @@ def main():
             "dmoins": down,
             **({"alt_min": min(alts), "alt_max": max(alts)} if alts else {}),
             "boucle": len(pieces) == 1 and dist_m(pieces[0][0], pieces[0][-1]) < 150,
+            **({"secteur": where[0][0]} if where and where[0][1] >= SECTOR_SHARE else {}),
+            "secteurs": [k for k, v in where if v >= CROSSED_SHARE] or [k for k, _ in where[:1]],
             "sentiers_onf": sorted(on),
             # Where on the route each ONF trail is: a closure drawn on the route's own line, its start marked in the GPX.
             "portions": {n: v for n, v in sorted(stretches.items()) if v},
             "lignes": [encode(p) for p in simple],
             "altitudes": segs_z,
         })
-        print(f"  {nom}: {len(pieces)} morceau(x), {sum(map(len, simple))} points, {randonnees[-1]['km']} km, D+ {up} m, {len(on)} sentiers ONF")
+        print(f"  {nom}: {len(pieces)} morceau(x), {sum(map(len, simple))} points, {randonnees[-1]['km']} km, D+ {up} m, {len(on)} sentiers ONF, "
+              + ", ".join(f"{k} {v:.0%}" for k, v in where))
         time.sleep(0.5)
 
     OUT.parent.mkdir(exist_ok=True)

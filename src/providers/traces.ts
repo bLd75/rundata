@@ -60,6 +60,10 @@ export interface Randonnee {
   alt_min?: number;
   alt_max?: number;
   boucle: boolean;
+  /** Its sector (src/traces/secteurs.ts) when at least half of it lies there; a crossing of the island has none. */
+  secteur?: string;
+  /** The sectors it runs through, the main one first. */
+  secteurs?: string[];
   /** The ONF trails it follows, by name. */
   sentiers_onf: string[];
   /** Where it follows each of them: [piece, first point, last point] of its own lines. */
@@ -73,6 +77,8 @@ export interface SentierStats {
   slug: string;
   /** Its names in the ONF's layer (« X » and « X (hors gestion ONF) » are one trail). */
   onf: string[];
+  /** Its sector (src/traces/secteurs.ts): where the most of it lies. */
+  secteur?: string;
   km: number;
   dplus: number;
   dmoins: number;
