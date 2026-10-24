@@ -82,7 +82,7 @@ const warnings = (list: string[]) =>
 /** The connector, at the end of every domain page. */
 const connectorCta = (tool: string, what: string) => `<section aria-labelledby="h-ia">
   <div class="card cta"><h2 id="h-ia">Votre IA, branchée sur ${esc(what)}</h2>
-  <p>Avec le connecteur, votre assistant lit lui-même ces données (outil <code>${esc(tool)}</code>), et toutes les autres de l'île : météo, mer, volcan, air, électricité, bus, services publics, terrain. Gratuit, sans compte. <a href="/#assistant">Comment le brancher</a>.</p></div>
+  <p>Avec le connecteur, votre assistant lit lui-même ces données (outil <code>${esc(tool)}</code>), et toutes les autres de l'île : sorties, randos, météo, routes, volcan, air, électricité, bus, services publics, terrain. Gratuit, sans compte. <a href="/#assistant">Comment le brancher</a>.</p></div>
 </section>`;
 
 // ---------------------------------------------------------------- volcan

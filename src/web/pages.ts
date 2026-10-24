@@ -26,7 +26,7 @@ import { nextText, tidesAt, tidesNear } from "../tools/maree.js";
 import icons from "./icons.json" with { type: "json" };
 import { hikesAround } from "./liens.js";
 import rubriques from "./og-rubriques.json" with { type: "json" };
-import { WITH_PAGE } from "./categories.js";
+import { byUse, FIRST, type Urgent, urgentKeys, WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker, type ZoneLink } from "./map.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
@@ -82,7 +82,8 @@ export interface Social {
   svg: string;
 }
 
-// rundata.re's accounts, linked from every footer, from the line above the feedback form and from /presse, and named
+// rundata.re's accounts, linked from the bar of every page (the menu on phones), from the home page's hero, from every
+// footer, from the line above the feedback form and from /presse, and named
 // in the home page's structured data (sameAs), in this order. Another network: one more entry, its logo a 24×24 SVG.
 export const SOCIAL: Social[] = [
   {
@@ -103,10 +104,14 @@ export const followed = (list = SOCIAL) => list.filter((s) => s.url);
 /** Visits from the site's own links are counted apart (src/metrics.ts). */
 const fromSite = (url: string) => `${url}${url.includes("?") ? "&" : "?"}ref=site`;
 
+/** Each account as a link, its logo and its name; the logo alone in the bar, where its label names it. */
+const accountLinks = (list = SOCIAL, logoOnly = false) =>
+  followed(list).map((s) => `<a href="${esc(fromSite(s.url))}" rel="noopener" aria-label="rundata.re sur ${esc(s.nom)}">${s.svg}${logoOnly ? "" : esc(s.nom)}</a>`);
+
 /** « Suivre rundata.re » and each account, with its logo and its name; nothing when none has an address. */
-export function follow(list = SOCIAL): string {
-  const links = followed(list).map((s) => `<a href="${esc(fromSite(s.url))}" rel="noopener" aria-label="rundata.re sur ${esc(s.nom)}">${s.svg}${esc(s.nom)}</a>`);
-  return links.length ? `<p class="social">Suivre rundata.re : ${links.join("")}</p>` : "";
+export function follow(list = SOCIAL, cls = "social"): string {
+  const links = accountLinks(list);
+  return links.length ? `<p class="${cls}">Suivre rundata.re : ${links.join("")}</p>` : "";
 }
 
 // Search engines cut (and Bing flags) a meta description over 160 characters.
@@ -191,9 +196,11 @@ border-bottom:1px solid rgb(255 255 255/.07);color:var(--on-night)}
 .brand .tld{color:var(--sun)}
 .flag{width:2.1rem;height:1.4rem;border-radius:5px;flex:none;box-shadow:0 0 0 1px rgb(255 255 255/.25),0 4px 12px -4px rgb(0 0 0/.6)}
 .quick{display:none}
-@media (min-width:62rem){.quick{display:flex;gap:.15rem}.quick a{display:flex;align-items:center;gap:.4rem;color:var(--on-night-muted);text-decoration:none;
-padding:.45rem .75rem;border-radius:12px;font-size:.93rem;font-weight:600}.quick a .ic{width:1.1rem;height:1.1rem;color:var(--k)}
+@media (min-width:62rem){.quick{display:flex;gap:.15rem}.quick a{display:flex;align-items:center;gap:.35rem;color:var(--on-night-muted);text-decoration:none;
+padding:.45rem .55rem;border-radius:12px;font-size:.93rem;font-weight:600}.quick a .ic{width:1.1rem;height:1.1rem;color:var(--k)}
 .quick a:hover{color:#fff;background:rgb(255 255 255/.08)}.quick a[aria-current]{color:#fff;background:rgb(255 255 255/.12)}}
+@media (min-width:62rem){.quick:has(>:nth-child(5)) .ic{display:none}}
+@media (min-width:75rem){.quick:has(>:nth-child(5)) .ic{display:block}.quick:has(>:nth-child(6)) .ic{display:none}}
 .cta-ia{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem .95rem;border-radius:14px;background:var(--sun);color:var(--sun-ink);
 font:800 .95rem/1 system-ui,sans-serif;text-decoration:none;box-shadow:0 6px 18px -6px rgb(255 207 31/.55);white-space:nowrap}
 .cta-ia .ic{width:1.05rem;height:1.05rem}
@@ -210,6 +217,11 @@ border-bottom:1px solid rgb(255 255 255/.08);box-shadow:0 30px 60px -20px rgb(0 
 @keyframes drop{from{opacity:0;transform:translateY(-8px)}}
 .sheet .wrap{padding-block:1rem 1.4rem;display:grid;gap:.9rem}
 .sheet-h{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--on-night-muted)}
+.follow-top{display:none}
+@media (min-width:75rem){.follow-top{display:flex;gap:.1rem}.follow-top a{display:grid;place-items:center;width:2.4rem;height:2.4rem;border-radius:12px;color:var(--on-night-muted)}
+.follow-top a:hover{color:#fff;background:rgb(255 255 255/.08)}.follow-top svg{width:24px;height:24px}}
+.follow-top a:focus-visible,.social a:focus-visible{outline:2px solid var(--sun);outline-offset:2px;border-radius:6px}
+.sheet .social{gap:.5rem 1.4rem}.sheet .social a{color:var(--on-night);font-weight:600;text-decoration:none}.sheet .social svg{width:24px;height:24px}
 .grid{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(6.4rem,1fr));gap:.6rem}
 .grid a{display:grid;justify-items:center;gap:.45rem;padding:.85rem .4rem .75rem;border-radius:18px;text-decoration:none;color:var(--on-night);
 font-size:.88rem;font-weight:600;background:#0d2135;border:1px solid rgb(255 255 255/.07);transition:background .15s,transform .15s}
@@ -333,6 +345,8 @@ background:radial-gradient(closest-side,color-mix(in srgb,var(--k) 22%,transpare
 .tile:has(h3 a):hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--k) 60%,transparent);box-shadow:0 18px 40px -18px color-mix(in srgb,var(--k) 55%,transparent)}
 .th{display:flex;align-items:center;gap:.55rem;margin-bottom:.35rem}
 .th h3{font-size:.95rem;font-weight:700;flex:1;min-width:0}
+.th{flex-wrap:wrap}.th h3{order:1;flex:1 0 100%}.th .go{margin-left:auto}
+@media (min-width:46rem){.th{flex-wrap:nowrap}.th h3{order:0;flex:1}.th .go{margin-left:0}}
 .th .kb{width:2.3rem;height:2.3rem;border-radius:12px}
 .th .go{color:var(--k);font-weight:800}
 .tile h3 a{color:inherit;text-decoration:none}
@@ -369,6 +383,7 @@ radial-gradient(1px 1px at 6% 42%,#fff,transparent),radial-gradient(1.2px 1.2px 
 .live-pill{display:inline-flex;align-items:center;gap:.5rem;font-size:.85rem;padding:.35rem .85rem;border-radius:999px;
 background:rgb(255 255 255/.12);border:1px solid rgb(255 255 255/.2);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .hero-cta{display:flex;flex-wrap:wrap;gap:.6rem;width:100%;max-width:30rem}.hero-cta .btn{flex:1 1 auto;justify-content:center}
+.hero-follow{font-size:.9rem;color:rgb(255 255 255/.78)}.hero-follow a{color:#fff}
 .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.85rem 1.25rem;border-radius:16px;font:800 1rem/1 system-ui,sans-serif;text-decoration:none;transition:transform .15s,box-shadow .15s}
 .btn .ic{width:1.15rem;height:1.15rem}
 .btn:hover{transform:translateY(-2px)}
@@ -379,7 +394,8 @@ background:rgb(255 255 255/.12);border:1px solid rgb(255 255 255/.2);-webkit-bac
 text-decoration:none;color:#fff;background:rgb(255 255 255/.09);border:1px solid rgb(255 255 255/.14);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .facts-live .ic{grid-row:span 2;color:var(--k);width:1.4rem;height:1.4rem}
 .facts-live a>span{font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:rgb(255 255 255/.7)}
-.facts-live b{font:800 .98rem/1.2 Bricolage,system-ui,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.facts-live li:last-child:nth-child(odd){grid-column:1/-1}
+.facts-live b{font:800 .98rem/1.2 Bricolage,system-ui,sans-serif;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .facts-live b .vg,.facts-live b .aq{font-size:.8rem;padding:0 .45rem}
 .hero-map{position:relative;display:grid;gap:.6rem;min-width:0;width:100%;max-width:30rem;justify-self:center}
 @media (min-width:66rem){.hero-map{max-width:36rem}}
@@ -681,7 +697,7 @@ const inCategory = (path: string, category: string) => path === category || path
  * sentiers fermés ce matin par l'ONF, et pourquoi. »): the page's own, else its category's, the longest match first.
  */
 const HOOKS: [string, string][] = [
-  ["/", "Le temps, la mer, les routes et les sorties de l'île en ce moment, pour vous et votre IA."],
+  ["/", "Les sorties, les randos, le temps et les routes de l'île en ce moment, pour vous et votre IA."],
   ["/meteo", "Le temps qu'il fait vraiment, mesuré par la station la plus proche, et la prévision à part."],
   ["/vigilance", "Avant de sortir : la vigilance officielle de Météo-France, zone par zone."],
   ["/mer", "Avant la plage : la température de l'eau au large de chaque plage."],
@@ -742,22 +758,33 @@ const withHook = (band: string, path: string) => {
 
 // The menu: every category with a page, then the communes; the first few also sit in the bar on wide screens.
 const MENU = [...WITH_PAGE.map((c) => ({ key: c.key, nom: c.nom, path: c.path, icon: c.icon })), { key: "communes", nom: "Communes", path: "/communes", icon: "pin" }];
-const QUICK = ["meteo", "mer", "bus", "volcan", "vigilance", "communes"];
 
-/** The bar on every page: the brand, the main categories on wide screens, the assistant button and the menu of everything. */
-function header(path: string, origin: string): string {
+/**
+ * The bar on every page: the brand, the main categories on wide screens, the assistant button and the menu of
+ * everything. The vigilance and the volcano lead the bar while in force and leave it when quiet; the sea and the buses
+ * are in the menu only. The traffic joins the bar once it has data of its own (a measure of the jams, not the media).
+ * Five or six links in the bar: their names without their icons, and the accounts in the menu below 75rem, so that the
+ * bar never scrolls.
+ */
+function header(path: string, origin: string, u: Urgent): string {
   const current = (p: string) => (inCategory(path, p) ? ' aria-current="page"' : "");
-  const quick = MENU.filter((m) => QUICK.includes(m.key))
+  const menu = byUse(MENU, u);
+  const quick = [...urgentKeys(u), ...FIRST, "communes"].map((k) => menu.find((m) => m.key === k)!)
     .map((m) => `<a class="k-${m.key}" href="${m.path}"${current(m.path)}>${icon(m.icon)}${esc(m.nom)}</a>`).join("");
-  const grid = MENU.map((m) => `<li><a class="k-${m.key}" href="${m.path}"${current(m.path)}><span class="kb">${icon(m.icon)}</span>${esc(m.nom)}</a></li>`).join("");
+  const grid = menu.map((m) => `<li><a class="k-${m.key}" href="${m.path}"${current(m.path)}><span class="kb">${icon(m.icon)}</span>${esc(m.nom)}</a></li>`).join("");
+  // The accounts in the bar on wide screens; on a phone, in the menu, so that the bar keeps to the brand and two buttons.
+  const top = accountLinks(SOCIAL, true);
+  const sheet = accountLinks();
   return `<header class="top"><div class="wrap bar">
   <a class="brand" href="/">${flag()}<span>rundata<span class="tld">.re</span></span></a>
   <nav class="quick" aria-label="Principales catégories">${quick}</nav>
+  ${top.length ? `<nav class="follow-top" aria-label="Suivre rundata.re">${top.join("")}</nav>` : ""}
   <a class="cta-ia" href="/#assistant">${icon("spark")}<span>Mon IA</span></a>
   <details class="menu"><summary aria-label="Toutes les catégories"><span class="g">${icon("grid")}</span><span class="x">${icon("close")}</span></summary>
     <nav class="sheet" aria-label="Catégories"><div class="wrap">
       <p class="sheet-h">Toute l'île en direct</p>
       <ul class="grid">${grid}</ul>
+      ${sheet.length ? `<p class="sheet-h">Suivre rundata.re</p>\n      <p class="social sheet-follow">${sheet.join("")}</p>` : ""}
       <p class="sheet-h">Le connecteur pour votre IA</p>
       ${connector(origin, "mcp-url-menu")}
     </div></nav>
@@ -770,6 +797,9 @@ function ogImage(origin: string, path: string): { src: string; alt: string } {
   const r = rubriques.find((x) => x.pages.some((p) => inCategory(path, p)));
   return r ? { src: `${origin}${r.png}`, alt: r.alt } : { src: `${origin}/og.png?v=${og.v}`, alt: OG_ALT };
 }
+
+/** What the page's banners say is in force, or its own alert block: the offline page, kept for days, says nothing. */
+const urgent = (head: Head): Urgent => (head.shell ? {} : { vigilance: !!head.alerte, volcan: !!head.volcan || !!volcanBanner() });
 
 export function layout(origin: string, head: Head, band: string, body: string): string {
   const url = `${origin}${head.path}`;
@@ -808,7 +838,7 @@ ${head.rss ? `<link rel="alternate" type="application/rss+xml" title="${esc(head
 ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head.jsonld.length === 1 ? head.jsonld[0] : head.jsonld).replace(/</g, "\\u003c")}</script>\n` : ""}<style>${CSS}</style>
 </head>
 <body>
-${header(head.path, origin)}
+${header(head.path, origin, urgent(head))}
 ${head.shell ? "" : `${banner(head.alerte, head.path)}
 ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
 <div class="band">${withHook(band, head.path)}</div>
@@ -1306,7 +1336,7 @@ ${hikesAround(p, hikes)}
 export function notFoundPage(origin: string, path: string): string {
   return layout(origin, {
     title: `Page introuvable · ${SITE}`,
-    description: "🇷🇪 La Réunion (974) en temps réel : météo, vigilance, mer, volcan, bus, air, électricité, calendrier.",
+    description: "🇷🇪 La Réunion (974) en temps réel\u00a0: sorties, randos, météo, routes, vigilance, volcan, air, électricité, calendrier.",
     path,
     jsonld: [],
   }, `<div class="wrap intro"><div class="pitch"><h1>Page introuvable</h1><p class="lead">Cette adresse n'existe pas. Toute l'île en direct est sur <a href="/">la page d'accueil</a>, et chaque catégorie a sa page ci-dessous.</p></div></div>`,
