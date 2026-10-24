@@ -71,7 +71,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.111.0";
+export const VERSION = "0.112.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -542,7 +542,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Coupures d'eau et eau non potable à La Réunion",
       description:
         "Avis des distributeurs d'eau de La Réunion (974) : coupures pour travaux ou lavage de réservoir (heures, rues concernées), pannes, " +
-        "et avis « ne pas boire l'eau » quand l'eau n'est plus potable. Saint-Denis (Dionéo), La Possession, les communes de l'Est " +
+        "et avis « ne pas boire l'eau » quand l'eau n'est plus potable. Saint-Denis (Dionéo), La Possession, Saint-Paul et Les Trois-Bassins (La Créole), " +
+        "Sainte-Marie (communiqués de CISE Réunion publiés par la ville), les communes de l'Est " +
         "(Saint-André, Bras-Panon, Saint-Benoît, La Plaine-des-Palmistes, Sainte-Rose, Salazie) et runéo. " +
         "Pour : « coupure d'eau à Saint-Denis ? », « l'eau est potable à la Plaine-des-Palmistes ? », « quand revient l'eau ? ». " +
         "Sans lieu : tous les avis récents. / Water cuts and do-not-drink notices from Réunion Island's water distributors.",

@@ -5,7 +5,7 @@
  * notices are not read. Up the page in the cyclone season, at its foot the rest of the year. Nothing more is fetched.
  * Worded by marketing.
  */
-import { BUILT, CIREST, distributeur, plusieurs } from "../eau/distributeurs.js";
+import { BUILT, distributeur, MAIRIE_SAINTE_MARIE, plusieurs } from "../eau/distributeurs.js";
 import { a } from "../tools/format.js";
 import { PDF } from "./alerte-cyclone.js";
 import { esc } from "./map.js";
@@ -33,7 +33,11 @@ export function coverageLine(commune: string): string {
   }
   if (!d.avis) return `Nous ne lisons pas les avis de ${d.nom}, qui distribue l'eau ${where} : renseignez-vous auprès de ${d.nom} ou de la mairie.`;
   // The shared copy of the notices is rebuilt every 30 minutes at least (web/partagees.ts), more often when read.
-  const by = d.site === CIREST.site ? "la CIREST" : d.nom;
+  // Said as on the commune's card (web/coupures.ts): the ville's posts, some only an image whose advice is not read.
+  if (d.site === MAIRIE_SAINTE_MARIE)
+    return "Nous lisons les communiqués de CISE Réunion publiés par la ville de Sainte-Marie, au moins toutes les 30 minutes\u00a0: ils s'affichent en haut de cette page. Un communiqué publié en image ou en PDF n'est pas lu\u00a0: nous donnons seulement son lien.";
+  // The CIREST when it publishes the notices, else the distributor.
+  const by = d.par ?? d.nom;
   return `Nous lisons les avis publiés par ${by} pour ${commune}, au moins toutes les 30 minutes : ils s'affichent en haut de cette page.`;
 }
 

@@ -7,7 +7,7 @@ import { why } from "../types.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 
 /** The communes whose distributor publishes its notices in a feed read here. */
-export const COVERED = ["Saint-Denis", "La Possession", "Bras-Panon", "Saint-André", "La Plaine-des-Palmistes", "Saint-Benoît", "Sainte-Rose", "Salazie"];
+export const COVERED = ["Saint-Denis", "La Possession", "Saint-Paul", "Les Trois-Bassins", "Sainte-Marie", "Bras-Panon", "Saint-André", "La Plaine-des-Palmistes", "Saint-Benoît", "Sainte-Rose", "Salazie"];
 const RECENT_DAYS = 5;
 const QUALITY = /qualit|potab|boire|chlor|conformit|bouilli|embouteill/i;
 
@@ -20,7 +20,8 @@ function when(local?: string): string | undefined {
 }
 const published = (n: notices.Avis) => {
   const l = new Date(new Date(n.publie).getTime() + 4 * 3600_000).toISOString();
-  return `${l.slice(8, 10)}/${l.slice(5, 7)}/${l.slice(0, 4)} à ${l.slice(11, 16)}`;
+  // A source dated to the day only gets no hour.
+  return `${l.slice(8, 10)}/${l.slice(5, 7)}/${l.slice(0, 4)}${n.jour ? "" : ` à ${l.slice(11, 16)}`}`;
 };
 const nowLocal = (now: Date) => new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 16);
 
@@ -45,18 +46,20 @@ export function noticeRow(n: notices.Avis, now: Date, current = n.ne_pas_boire) 
   return {
     titre: n.titre,
     communes: n.communes,
+    precision: n.precision,
     distributeur: n.distributeur,
     publie_le: published(n),
     coupure: n.debut ? { de: when(n.debut), a: when(n.fin), etat: state } : undefined,
     secteurs: n.secteurs.length ? n.secteurs : undefined,
     ne_pas_boire: (n.ne_pas_boire && current) || undefined,
+    forme: n.forme,
     texte: n.texte,
     lien: n.lien,
   };
 }
 
 const COMMON = {
-  couverture: `Avis lus pour ${COVERED.join(", ")} (Dionéo, Eaux de La Possession, CISE Réunion par la CIREST) et pour les communes de runéo quand il en publie. Ailleurs, voir la mairie ou le distributeur.`,
+  couverture: `Avis lus pour ${COVERED.join(", ")} (Dionéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie) et pour les communes de runéo quand il en publie. Ailleurs, voir la mairie ou le distributeur.`,
   a_savoir: "Après une coupure, l'eau peut être trouble ou impropre à la boisson pendant quelques heures : la laisser couler avant de la boire. Quand un avis dit de ne pas boire l'eau, utiliser de l'eau en bouteille ou bouillie au moins 3 minutes pour boire, cuisiner et se brosser les dents.",
 };
 
