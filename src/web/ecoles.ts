@@ -9,7 +9,7 @@ import { ecoles, LIMITE, ORSEC, RECTORAT, REGLE, withPrefecture } from "../tools
 import type { Alerte } from "./data.js";
 import { connectorCta, crumbBar, crumbs, webPage } from "./domains.js";
 import { esc } from "./map.js";
-import { layout } from "./pages.js";
+import { ask, layout } from "./pages.js";
 
 // The texts of the page, worded by marketing.
 export const TITLE = "École fermée ? Cyclone et alerte orange Réunion · 974";
@@ -57,6 +57,8 @@ export function ecolesPage(origin: string, data: Cached<mf.Vigilance> | null, no
   <h1>${esc(H1)}</h1>
   <p class="lead">${esc(LEAD)}</p>
   ${state}
+  ${ask(`Na lékol domin ? Gèt si ${origin}${path} é di amwin sak la préfektir i di.`,
+    `${H1} Lis ${origin}${path} et dis-moi ce que dit la préfecture.`)}
 </div></div>`;
   const body = `<section aria-labelledby="h-regle">
   <div class="sec-h"><h2 id="h-regle">Ce que prévoit le plan ORSEC Cyclones</h2></div>

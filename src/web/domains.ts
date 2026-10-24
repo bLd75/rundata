@@ -190,7 +190,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     <p class="pill"><span class="dot"></span>Volcan en direct</p>
     <h1>${a ? esc(volcanH1(a)) : vigilance ? esc(`Piton de la Fournaise : vigilance, ${vigilance}`) : `Piton de la Fournaise <span class="n974">974</span>`}</h1>
     ${status}
-    ${ask(`${a?.niveau && /^Alerte 2/i.test(a.niveau) ? "La lav i koul ankor ?" : "Volkan la pété ?"} Gèt si ${url} é di amwin si lanklo lé ouvèr.`,
+    ${ask(`Volkan la pété ? Gèt si ${url} é di amwin si lanklo lé ouvèr.`,
       `Le Piton de la Fournaise est-il en éruption ? Lis ${url} et dis-moi aussi si l'Enclos est ouvert.`)}
   </div>
   <figure class="card mapcard">${islandMap({ pin: FOURNAISE, label: "Carte de La Réunion (974) avec le Piton de la Fournaise" })}</figure>
@@ -404,7 +404,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
     <p class="pill"><span class="dot"></span>Production en direct</p>
     <h1>Électricité <span class="n974">974</span></h1>
     ${status}
-    ${ask(`Lo kouran La Rényon i sort koté astèr ? Gèt si ${url} é di amwin la par renouvlab.`,
+    ${ask(`Kouran la koupé dann mon kartié ? Gèt si ${url} é di amwin, é d'ousa i sort lo kouran astèr.`,
       `D'où vient l'électricité de La Réunion en ce moment ? Lis ${url} et dis-moi la part renouvelable.`)}
   </div>
   ${p ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Filière par filière</h3>${bars}</figure>` : ""}
@@ -1020,7 +1020,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
     <p class="lead">Les bouchons en direct sont sur la carte de Waze, l'état officiel des routes nationales sur <a href="${INFOTRAFIC}">infotrafic.re</a>, le site de la Région. rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant.</p>
     <p class="lead">La route du Littoral est basculée ou fermée ? L'état officiel est sur <a href="${INFOTRAFIC}">infotrafic.re</a>.</p>
     <p class="hero-cta"><a class="btn sun" href="${INFOTRAFIC}">${icon("car")}État des routes (Région)</a><a class="btn glass" href="${esc(wazeLink(first))}">${icon("map")}Ouvrir Waze</a></p>
-    ${ask(`Lé bouché si la kat-voi astèr ? Gèt si ${url} é di amwin sak ou koné, é ousa mi pé rogard lo trafik.`,
+    ${ask(`Lé bouché si la kat-voi astèr ? Gèt si ${url} é di amwin sak ou koné, é ousa mi pé gèt lo trafik.`,
       `Ça bouchonne sur la quatre-voies en ce moment ? Lis ${url} : dis-moi ce que tu sais (bus, routes forestières, vigilance) et où regarder le trafic en direct.`)}
   </div>
   ${waze}
