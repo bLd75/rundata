@@ -7,6 +7,13 @@ Alerte rouge cyclonique : Les conditions climatiques rendent la voie publique da
 Alerte violette cyclonique : Présence de vents cyclonique supérieurs à 200 km/h en rafales - Confinement généralisé. Préavis 3h avant déclenchement. Danger exceptionnel : Confinement total.
 Alerte rouge cyclonique : Une éventuelle alerte violette sera toujours suivie d'un retour en alerte rouge. Poursuite de la protection (confinement).
 Phase de sauvegarde cyclonique : La menace cyclonique est écartée mais il reste des dangers. Retour progressif à la normale.
+=== p. 16
+Pour chaque niveau d'alerte, la population doit se conformer aux consignes officielles figurant ci-dessous ainsi qu'en annexe. A titre de prévention, et afin de développer la culture du risque, la population doit également tenir compte des consignes et règles de sécurité applicables avant, au début et tout au long de la saison cyclonique figurant en annexe.
+3 LES CONDUITES A TENIR A TITRE INDIVIDUEL
+3.1 EN DEBUT DE SAISON CYCLONIQUE : JE ME PREPARE
+Chaque habitant est invité à se préparer.
+Cette préparation concerne l'ensemble des actions qui ne pourront pas être faites dans les 72h (pré-alerte cyclonique) qui précéderont le passage du cyclone ou qui seront compliqués à réaliser (contraintes d'emploi du temps, rupture de stocks dans les commerces, etc.).
+Il convient notamment de préparer son kit d'urgence.
 === p. 17
 3.2 EN PREALERTE, EN ALERTE ORANGE, EN ALERTE ROUGE ET EN ALERTE VIOLETTE
 Pré-alerte cyclonique : Je m'informe et j'anticipe. Suivez les prévisions météorologiques et les bulletins d'information. N'entreprenez pas de longues randonnées en montagne, ni de sorties en mer de plus de 24h. Vérifiez vos réserves (conserves, eau, piles pour radio et lampes, médicaments,…) au sein de votre kit d'urgence*. Faire le plein de son véhicule. Assurez-vous de connaître l'adresse et le téléphone du centre d'hébergement le plus proche de votre domicile.
@@ -38,6 +45,7 @@ Activités professionnelles / Vie économique (services publics et entreprises).
 que les lieux d'hébergement touristiques (hôtels, centres de vacances, etc.).
 === p. 24
 Centres d'accueil et d'hébergement. Alerte orange cyclonique : Les communes disposant de centres d'accueil et d'hébergement prennent les dispositions pour que ces centres soient prêts à fonctionner pour permettre d'abriter la population dont l'habitat n'est pas sécurisant ou risque de subir de forts dégâts ou encore ne disposant plus de son habitat et n'ayant pas de solution alternative. Installés durant l'alerte orange, ils doivent être en service dès le préavis (3 h) de l'alerte rouge. Alerte rouge cyclonique, alerte violette cyclonique : Ils restent ouverts. Sauvegarde : Ils continuent à fonctionner tant que les personnes accueillis n'ont pas la capacité de rejoindre leur domicile et que des dispositifs alternatifs n'ont pas pu leur être proposés. La fermeture est décidée par le maire.
+5.3.1 Les patients à haut risque vital (PHRV) ou patients sensibles. En pré-alerte cyclonique, les prestataires de soins à domicile et centre de dialyse : Prennent contact individuellement avec les patients dont ils ont la charge ; Organisent les séances de dialyse en anticipation au besoin ; Encouragent les patients qui ne seraient pas en sécurité à leur domicile en cas d'alerte rouge (isolement, zones identifiées pour connaître de fréquentes coupures d'électricité…) à rejoindre des lieux sécurisés. S'assurent que les patients oxygéno-dépendants à domicile pourront disposer d'une autonomie en oxygène d'au moins 36 heures.
 === p. 32
 7.1 LA PHASE DE SAUVEGARDE
 Phase à part entière du plan ORSEC, la « phase de sauvegarde » est la phase qui suit immédiatement la fin de l'alerte rouge. Elle correspond à la persistance de facteurs de risques pour les populations, qui justifient le maintien de messages de prudence à l'attention des populations.

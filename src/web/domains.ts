@@ -1818,6 +1818,7 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
     <h1>Cyclones <span class="n974">974</span></h1>
     ${status}
     ${d?.alerte_cyclonique ? `<p class="lead"><b>${esc(d.alerte_cyclonique)}</b></p>` : ""}
+    ${d && (d.ecoles?.niveau ?? -1) <= 2 ? `<p class="lead"><a href="/kit-cyclone">Se préparer : le kit d'urgence du plan →</a></p>` : ""}
     ${ask(`Néna in siklone pa loin La Rényon ? Rogard si ${url} é di amwin ousa li lé.`,
       `Y a-t-il un cyclone près de La Réunion ? Lis ${url} et dis-moi où il est et où il va.`)}
   </div>
