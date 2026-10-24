@@ -4,7 +4,7 @@ import { handle } from "../src/app.js";
 import * as avis from "../src/avis.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import type { Hit } from "../src/metrics.js";
-import { parseCsv } from "../src/providers/acspo.js";
+import { parseAscii, parseCsv } from "../src/providers/acspo.js";
 import { inReunionBeacons } from "../src/providers/pioupiou.js";
 import { AVIS_HINT, cite } from "../src/tools/citer.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
@@ -23,7 +23,7 @@ async function offlineCache() {
   await store.put("metar", { value: JSON.parse(fixture("metar.json")), fetchedAt: at });
   await store.put("pioupiou:all", { value: beacons, fetchedAt: at });
   await store.put("pioupiou:live", { value: live, fetchedAt: at });
-  await store.put("acspo", { value: parseCsv(fixture("acspo.csv")), fetchedAt: at });
+  await store.put("acspo", { value: [parseAscii(fixture("acspo.ascii"), "2026-10-16")], fetchedAt: at });
   await store.put("modis", { value: parseCsv(fixture("modis.csv"), "sstMasked"), fetchedAt: at });
   return new Cache(store, () => at);
 }

@@ -1,7 +1,7 @@
 /**
- * Sea surface temperature measured by satellite: NOAA ACSPO L3S-LEO, daily, 0.02° (~2 km), via ERDDAP.
- * Real radiometer readings gridded per day, not an interpolated analysis: cloudy pixels are simply missing.
- * Latency is about two days. Only pixels with GHRSST quality level 5 ("best") are kept.
+ * Sea surface temperature measured by satellite: NOAA ACSPO L3S-LEO, daily, 0.02° (~2 km), from the THREDDS server of
+ * NOAA STAR over OPeNDAP. Real radiometer readings gridded per day, not an interpolated analysis: cloudy pixels are simply
+ * missing. A day is published the next morning (UTC). Only pixels with GHRSST quality level 5 ("best") are kept.
  */
 import type { Cache } from "../cache.js";
 import { BBOX, distanceKm } from "../geo.js";
@@ -14,21 +14,37 @@ export const SOURCE: SourceInfo = {
   organisme: "NOAA CoastWatch / NESDIS STAR",
   licence: "Domaine public (NOAA)",
   attribution: "NOAA CoastWatch, ACSPO L3S-LEO SST",
-  url: "https://coastwatch.noaa.gov/erddap/griddap/noaacwLEOACSPOSSTL3SnrtCDaily.html",
+  url: "https://coastwatch.noaa.gov/cwn/products/acspo-global-002o-gridded-super-collated-sst-and-thermal-fronts-low-earth-orbiting.html",
 };
 
 const DAYS = 4;
+/** One file per day: the downloads, plus the cache read and write. */
+export const COST = DAYS + 2;
 const FRESH_SECONDS = 3 * 3600; // the product is daily; a few checks a day are enough
-// ERDDAP answers in a few seconds; a stuck server must not hold a page refresh, which Cloudflare cuts after 30 s
+// A day's subset comes in a few seconds; a stuck server must not hold a page refresh, which Cloudflare cuts after 30 s
 // (and MODIS may still have to be asked after this).
 const TIMEOUT_MS = 12_000;
-// CoastWatch's ERDDAP has been down for days at a time: once it fails, MODIS answers for half an hour before it is
-// asked again, instead of each page waiting for it and then lacking the subrequests MODIS needs.
+// CoastWatch's servers have been down for days at a time: once they fail, MODIS answers for half an hour before they are
+// asked again, instead of each page waiting for them and then lacking the subrequests MODIS needs.
 const BACKOFF_SECONDS = 30 * 60;
-const box = `[last-${DAYS - 1}:last][(${BBOX.latMax}):(${BBOX.latMin})][(${BBOX.lonMin}):(${BBOX.lonMax})]`;
-const URL =
-  "https://coastwatch.noaa.gov/erddap/griddap/noaacwLEOACSPOSSTL3SnrtCDaily.csv?" +
-  encodeURI(`sea_surface_temperature${box},quality_level${box}`).replace(/\[/g, "%5B").replace(/\]/g, "%5D");
+
+// The daily files of the global 0.02° grid: rows from 89.99° N southwards, columns from 179.99° W eastwards. The ERDDAP
+// dataset that served them as one table (noaacwLEOACSPOSSTL3SnrtCDaily) is gone from CoastWatch since October 2026.
+const BASE = "https://coastwatch.noaa.gov/thredds/dodsC/gridLEODYNRTL3SWW00";
+const FILE = "120000-STAR-L3S_GHRSST-SSTsubskin-LEO_Daily-ACSPO_V2.81-v02.0-fv01.0.nc";
+const row = (lat: number) => (89.99 - lat) / 0.02;
+const col = (lon: number) => (lon + 179.99) / 0.02;
+const box =
+  `[0][${Math.floor(row(BBOX.latMax))}:${Math.ceil(row(BBOX.latMin))}]` +
+  `[${Math.floor(col(BBOX.lonMin))}:${Math.ceil(col(BBOX.lonMax))}]`;
+const QUERY = `sea_surface_temperature${box},quality_level${box}`.replace(/\[/g, "%5B").replace(/\]/g, "%5D");
+
+/** The OPeNDAP text subset of the island for the day `date` (YYYY-MM-DD). */
+export function dayUrl(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  const doy = Math.round((d.getTime() - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86_400_000) + 1;
+  return `${BASE}/${d.getUTCFullYear()}/${String(doy).padStart(3, "0")}/${date.replace(/-/g, "")}${FILE}.ascii?${QUERY}`;
+}
 
 /** One day of valid pixels: [lon, lat, °C]. JSON-friendly so that any cache store can keep it. */
 export interface SstDay {
@@ -53,6 +69,36 @@ export function parseCsv(csv: string, variable = "sea_surface_temperature"): Sst
     days.get(date)!.pixels.push([parseFloat(f[ilon]), parseFloat(f[ilat]), sst]);
   }
   return [...days.values()].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** The lines of one part of an OPeNDAP ASCII answer (`name` then its values, up to a blank line). */
+function part(text: string, name: string): string[] {
+  const lines = text.split("\n");
+  const start = lines.findIndex((l) => l.startsWith(`${name}[`));
+  if (start < 0) throw new Error(`réponse OPeNDAP sans ${name}`);
+  const end = lines.findIndex((l, i) => i > start && l.trim() === "");
+  return lines.slice(start + 1, end < 0 ? undefined : end);
+}
+
+const numbers = (lines: string[]) => lines.join(",").split(",").filter((v) => v.trim() !== "").map(Number);
+
+/**
+ * OPeNDAP ASCII (each grid's rows « [0][i], v, v… », then its lat and lon maps) to the day's valid pixels. The
+ * temperature is stored in hundredths of a degree above 0 °C (scale 0.01, offset 273.15 K), -32768 where there is none.
+ */
+export function parseAscii(text: string, date: string): SstDay {
+  const rows = (v: string) => part(text, `${v}.${v}`).map((l) => numbers([l]).slice(1));
+  const sst = rows("sea_surface_temperature");
+  const ql = rows("quality_level");
+  const lats = numbers(part(text, "sea_surface_temperature.lat"));
+  const lons = numbers(part(text, "sea_surface_temperature.lon"));
+  const pixels: [number, number, number][] = [];
+  sst.forEach((r, i) =>
+    r.forEach((v, j) => {
+      if (v !== -32768 && ql[i]?.[j] === 5) pixels.push([lons[j], lats[i], v / 100]);
+    }),
+  );
+  return { date, pixels };
 }
 
 export interface SstReading {
@@ -90,6 +136,21 @@ export function nearest(days: SstDay[], lon: number, lat: number, maxKm = 12): S
   return null;
 }
 
-export async function grid(cache: Cache) {
-  return cache.get("acspo", FRESH_SECONDS, async () => parseCsv(await getText(SOURCE.id, URL, TIMEOUT_MS)), BACKOFF_SECONDS);
+/** The last DAYS days before `now` (UTC) that the server has, newest first; fails only if none of them comes. */
+export async function grid(cache: Cache, now = new Date()) {
+  return cache.get(
+    "acspo",
+    FRESH_SECONDS,
+    async () => {
+      const dates = Array.from({ length: DAYS }, (_, k) =>
+        new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1 - k)).toISOString().slice(0, 10),
+      );
+      // The day before is missing until the morning (UTC) it is published: the others answer for it.
+      const got = await Promise.allSettled(dates.map(async (d) => parseAscii(await getText(SOURCE.id, dayUrl(d), TIMEOUT_MS), d)));
+      const days = got.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+      if (!days.length) throw (got[0] as PromiseRejectedResult).reason;
+      return days.filter((d) => d.pixels.length);
+    },
+    BACKOFF_SECONDS,
+  );
 }

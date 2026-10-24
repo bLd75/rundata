@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { humidity, parseMetar, presentWeather, type MetarJson } from "../src/providers/metar.js";
 import { inReunionBeacons, parse as parsePioupiou, type PioupiouJson } from "../src/providers/pioupiou.js";
-import { nearest, parseCsv } from "../src/providers/acspo.js";
+import { dayUrl, nearest, parseAscii } from "../src/providers/acspo.js";
 import { observation as mfObservation, parseCsv as mfParse } from "../src/providers/meteofrance.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
@@ -58,11 +58,18 @@ describe("pioupiou", () => {
 });
 
 describe("acspo", () => {
-  const days = parseCsv(fixture("acspo.csv"));
+  const days = [parseAscii(fixture("acspo.ascii"), "2026-10-23")];
 
-  it("parses pixels by day", () => {
-    expect(days[0].date).toBe("2026-10-16");
+  it("keeps the best-quality pixels of the day, in °C", () => {
     expect(days[0].pixels.length).toBeGreaterThan(10);
+    expect(days[0].pixels[0]).toEqual([55.15, -20.79, 25.15]);
+  });
+
+  it("asks the island's box of the day's file", () => {
+    const url = dayUrl("2026-10-23");
+    expect(url).toContain("/2026/296/20261023120000-STAR-L3S_GHRSST-SSTsubskin-LEO_Daily-ACSPO_V2.81");
+    expect(url).toContain("sea_surface_temperature%5B0%5D%5B5539:5572%5D%5B11757:11795%5D");
+    expect(dayUrl("2026-01-01")).toContain("/2026/001/20260101");
   });
 
   it("finds the nearest clear water", () => {

@@ -2,7 +2,7 @@ import { counted } from "../src/budget.js";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { parseCsv } from "../src/providers/acspo.js";
+import { parseAscii, parseCsv } from "../src/providers/acspo.js";
 import * as meteofrance from "../src/providers/meteofrance.js";
 import { inReunionBeacons } from "../src/providers/pioupiou.js";
 import { temperatureMer } from "../src/tools/mer.js";
@@ -20,7 +20,7 @@ async function offlineCache({ acspoCached = true } = {}) {
   await store.put("metar", { value: JSON.parse(fixture("metar.json")), fetchedAt: at });
   await store.put("pioupiou:all", { value: beacons, fetchedAt: at });
   await store.put("pioupiou:live", { value: live, fetchedAt: at });
-  if (acspoCached) await store.put("acspo", { value: parseCsv(fixture("acspo.csv")), fetchedAt: at });
+  if (acspoCached) await store.put("acspo", { value: [parseAscii(fixture("acspo.ascii"), "2026-10-16")], fetchedAt: at });
   await store.put("modis", { value: parseCsv(fixture("modis.csv"), "sstMasked"), fetchedAt: at });
   return new Cache(store, () => at);
 }
