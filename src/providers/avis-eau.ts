@@ -9,7 +9,7 @@
  * Other distributors (La Créole, CISE in the south, Saint-Leu) have no feed today.
  */
 import type { Cache, Cached } from "../cache.js";
-import { getJson, getText } from "../http.js";
+import { getJson, getText, httpUrl } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
@@ -48,7 +48,8 @@ export interface Avis {
   /** The water should not be drunk (« ne pas boire », « eau embouteillée ou bouillie »). */
   ne_pas_boire: boolean;
   texte: string;
-  lien: string;
+  /** Absent when the feed gives no http(s) link. */
+  lien?: string;
 }
 
 const ENTITIES: Record<string, string> = { amp: "&", quot: '"', "#039": "'", "#39": "'", nbsp: " ", lt: "<", gt: ">", rsquo: "’", hellip: "…", ndash: "–" };
@@ -113,7 +114,7 @@ export function parseRss(xml: string, feed: (typeof FEEDS)[number]): Avis[] {
       ...parseNotice(texte),
       ne_pas_boire: DRINK.test(texte) && !BACK.test(texte) && !/peut être impropre à la consommation durant quelques heures/i.test(texte),
       texte: texte.replace(/^Communiqué N°[^\n]*\n/, "").replace(/^Diffusion :\n(?:(?:dans la presse|à la radio)[^\n]*\n)*/, "").replace(/\n+/g, " ").slice(0, TEXT_MAX),
-      lien: tag("link"),
+      lien: httpUrl(tag("link")),
     };
   });
 }
@@ -134,7 +135,7 @@ export function parseCirest(posts: Post[]): Avis[] {
       ...parseNotice(texte),
       ne_pas_boire: DRINK.test(texte) && !BACK.test(texte),
       texte: texte.slice(0, TEXT_MAX),
-      lien: p.link,
+      lien: httpUrl(p.link),
     };
   });
 }

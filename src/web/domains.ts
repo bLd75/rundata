@@ -1412,7 +1412,7 @@ function noticeCard(n: CoupuresAnswer["avis"][number]): string {
   const cut = n.coupure ? `<p><b>${esc(n.coupure.de ?? "")}${n.coupure.a ? ` → ${esc(n.coupure.a)}` : ""}</b>${n.coupure.etat ? ` <span class="note">(${esc(n.coupure.etat)})</span>` : ""}</p>` : "";
   return `<li class="card${n.ne_pas_boire ? " warn" : ""}"><h3>${n.ne_pas_boire ? "Ne pas boire l'eau · " : ""}${esc(n.communes.join(", "))} <span class="note">${esc(n.distributeur)}, publié le ${esc(n.publie_le)}</span></h3>` +
     `<p>${esc(n.titre)}</p>${cut}${n.secteurs ? `<p class="note">Secteurs : ${esc(n.secteurs.join(", "))}</p>` : ""}` +
-    `<p class="note">${esc(n.texte.length > 320 ? `${n.texte.slice(0, 320)}…` : n.texte)} <a href="${esc(n.lien)}" rel="noopener">L'avis complet</a></p></li>`;
+    `<p class="note">${esc(n.texte.length > 320 ? `${n.texte.slice(0, 320)}…` : n.texte)}${n.lien ? ` <a href="${esc(n.lien)}" rel="noopener">L'avis complet</a>` : ""}</p></li>`;
 }
 
 export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null, now = new Date(), alerte?: Alerte): string {
@@ -1874,7 +1874,7 @@ function agendaRow(r: AgendaRow): string {
   const news = r.statut_d_apres
     ? `<small class="said">${esc(r.statut!.toLowerCase())}${r.reporte_au ? ` au ${esc(r.reporte_au)}` : ""} d'après <a href="${esc(r.statut_d_apres.lien)}" rel="noopener">${esc(r.statut_d_apres.media)}</a></small>`
     : "";
-  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}<a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a>${news}<small>${small}${book}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
+  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${book}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
 }
 
 /** A row's end, local, from its hours: « samedi 24/10 de 09:00 à 16:00 », « du vendredi 23/10 au dimanche 01/11 ». */
@@ -1929,7 +1929,7 @@ export function agendaEvents(rows: AgendaRow[], origin: string): object[] {
         name: r.lieu ?? r.commune,
         address: { "@type": "PostalAddress", addressLocality: r.commune, addressRegion: "La Réunion", addressCountry: "RE" },
       },
-      url: r.lien,
+      ...(r.lien ? { url: r.lien } : {}),
       description: eventSummary(r),
       ...(EVENTS_IMAGE ? { image: `${origin}${EVENTS_IMAGE}` } : {}),
     };

@@ -1,5 +1,6 @@
 import { later, left, perInvocation } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
+import { httpUrl } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
@@ -296,9 +297,10 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     /** « d'après Imaz Press » when the news says it and the organiser's page does not yet. */
     statut_d_apres: e.selon ? { media: e.selon.media, lien: e.selon.lien } : undefined,
     reporte_au: e.reporte_au ? dayText(e.reporte_au) : undefined,
-    billetterie: e.billetterie,
+    billetterie: httpUrl(e.billetterie),
     description: e.description,
-    lien: e.lien,
+    /** Absent when the source gives no http(s) link. */
+    lien: httpUrl(e.lien),
     publie_par: e.publie_par,
     /** When rundata.re read the agenda this comes from. */
     lu_le: e.lu_le ? dayText(e.lu_le) : undefined,

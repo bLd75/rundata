@@ -113,10 +113,10 @@ function waterItems(p: PlacePage, c: CoupuresAnswer): Item[] {
         n.ne_pas_boire ? "Ne pas boire l'eau du robinet." : "",
         n.coupure ? `Coupure ${n.coupure.a ? `du ${n.coupure.de} au ${n.coupure.a}` : `à partir du ${n.coupure.de}`}.` : "",
         n.secteurs ? `Secteurs : ${n.secteurs.join(", ")}.` : "",
-        `Avis de ${n.distributeur} : ${n.lien}`,
+        n.lien ? `Avis de ${n.distributeur} : ${n.lien}` : `Avis de ${n.distributeur}.`,
       ].filter(Boolean).join(" "),
       path: `/coupures-eau/${p.slug}`,
-      guid: `eau/${n.lien}/${n.titre}`,
+      guid: `eau/${n.lien ?? n.publie_le}/${n.titre}`,
       date: published(n.publie_le),
     }));
 }
