@@ -75,6 +75,14 @@ export const CATEGORIES: Category[] = [
     about: "Les prochains départs à n'importe quel arrêt, d'après les horaires de Car Jaune, Citalis, Kar'Ouest, Alternéo, CarSud, Estival et du téléphérique Papang.",
   },
   {
+    key: "trafic",
+    nom: "Circulation",
+    path: "/trafic",
+    icon: "car",
+    tools: ["transports", "sentiers_randonnee"],
+    about: "Les bouchons en direct sur la carte de Waze, l'état officiel des routes sur infotrafic.re, et ce que rundata.re lit : retards et déviations des bus, routes forestières fermées, vigilance.",
+  },
+  {
     key: "velos",
     nom: "Vélos",
     path: "/velos",

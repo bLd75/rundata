@@ -22,6 +22,7 @@ import {
   buildBornes,
   buildEau,
   buildSentiers,
+  buildTrafic,
   buildRandonnees,
   buildSecheresse,
   buildCoupures,
@@ -43,7 +44,7 @@ import {
   type Background,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
-import { agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, velosPage, volcanPage } from "./domains.js";
+import { agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
 import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
@@ -101,6 +102,7 @@ const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) =>
   "/electricite": { key: "web:electricite", build: buildElectricite, page: electricitePage },
   "/calendrier": { key: "web:calendrier", build: buildCalendrier, page: calendrierPage },
   "/bus": { key: "web:bus", build: (cache, now) => buildBus(now, cache), page: busPage },
+  "/trafic": { key: "web:trafic", build: buildTrafic, page: traficPage },
   "/velos": { key: "web:velos", build: buildVelos, page: velosPage },
   "/bornes": { key: "web:bornes", build: buildBornes, page: bornesPage },
   "/eau": { key: "web:eau", build: buildEau, page: eauPage },
@@ -121,7 +123,7 @@ const BUILDS: Record<string, (cache: Cache, now: Date) => Promise<unknown>> = {
   "web:mer": buildSea,
 };
 // The home page's tiles besides the weather and the vigilance; a commune page's besides its own.
-const HOME_TILES = ["web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
+const HOME_TILES = ["web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
 const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier"];
 
 /**
@@ -156,9 +158,9 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
     ]);
-    const [volcan, air, electricite, calendrier, bus, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda] = await tileCopies(cache, HOME_TILES, background, meteo, now);
+    const [volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda] = await tileCopies(cache, HOME_TILES, background, meteo, now);
     const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
-    return new Response(homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda }, now, a), { headers: htmlFor(meteo) });
+    return new Response(homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda }, now, a), { headers: htmlFor(meteo) });
   }
   if (path === "/vigilance" || path === "/vigilance/") {
     const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS);

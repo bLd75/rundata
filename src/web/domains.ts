@@ -9,7 +9,7 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import { type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
+import { LATE_MIN, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
@@ -795,6 +795,130 @@ ${hikes}
 ${connectorCta("sentiers_randonnee", "les sentiers de randonnée")}`;
 
   return layout(origin, { title, description, path: "/sentiers", jsonld: [hikeCrumbs(origin, "Sentiers fermés", "/sentiers"), webPage(origin, "/sentiers", title, description, data)], alerte }, band, body);
+}
+
+// ---------------------------------------------------------------- circulation
+
+const WAZE_EMBED = "https://embed.waze.com/fr/iframe";
+/** The views of the live map: the island, then the axes where the traffic jams are. */
+const WAZE_VIEWS = [
+  { nom: "Toute l'île", lat: -21.115, lon: 55.536, zoom: 10 },
+  { nom: "Nord · Saint-Denis", lat: -20.895, lon: 55.475, zoom: 13 },
+  { nom: "Ouest · route du Littoral", lat: -20.915, lon: 55.39, zoom: 13 },
+  { nom: "Sud · Saint-Pierre", lat: -21.325, lon: 55.475, zoom: 13 },
+  { nom: "Est · Saint-André, Saint-Benoît", lat: -20.985, lon: 55.66, zoom: 12 },
+];
+const wazeLink = (v: (typeof WAZE_VIEWS)[number]) => `https://www.waze.com/ul?ll=${v.lat},${v.lon}&zoom=${v.zoom}`;
+const INFOTRAFIC = "https://www.infotrafic.re/";
+
+// The live map is Waze's page: loaded on a click only, as it brings Google's cookies and the site promises none.
+const WAZE_SCRIPT = `(()=>{const box=document.getElementById("wz-box"),go=document.getElementById("wz-go"),open=document.getElementById("wz-open");if(!box||!go)return;
+let cur=document.querySelector(".wz-views a[aria-current]");const src=(a)=>"${WAZE_EMBED}?zoom="+a.dataset.z+"&lat="+a.dataset.lat+"&lon="+a.dataset.lon;
+const frame=()=>box.querySelector("iframe");
+go.addEventListener("click",()=>{const f=document.createElement("iframe");f.title="Carte Waze en direct : "+cur.textContent;f.src=src(cur);f.allowFullscreen=true;f.referrerPolicy="strict-origin-when-cross-origin";box.replaceChildren(f);box.classList.add("on")});
+document.querySelectorAll(".wz-views a").forEach((a)=>a.addEventListener("click",(e)=>{e.preventDefault();cur.removeAttribute("aria-current");a.setAttribute("aria-current","true");cur=a;open.href=a.href;if(frame())frame().src=src(a)}));})();`;
+
+export function traficPage(origin: string, data: Cached<TraficAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/trafic`, now);
+  const first = WAZE_VIEWS[0];
+
+  const views = `<nav class="wz-views" aria-label="Vues de la carte Waze">${WAZE_VIEWS.map((v, i) =>
+    `<a href="${esc(wazeLink(v))}" data-lat="${v.lat}" data-lon="${v.lon}" data-z="${v.zoom}"${i ? "" : ' aria-current="true"'}>${esc(v.nom)}</a>`).join("")}</nav>`;
+  const waze = `<figure class="card mapcard wz">
+  <div id="wz-box" class="wz-box">${islandMap({ label: "Carte de La Réunion : la carte Waze en direct s'affiche ici à la demande", peaks: true })}
+  <div class="wz-cover"><button type="button" id="wz-go" class="btn sun">${icon("map")}Afficher la carte Waze en direct</button></div></div>
+  <figcaption class="note">La carte de Waze, chargée seulement si vous le demandez : Google et Waze y déposent des cookies, rundata.re aucun. ${views}
+  <a id="wz-open" class="wz-open" href="${esc(wazeLink(first))}">Ouvrir dans Waze ↗</a></figcaption></figure>`;
+
+  const band = `${crumbBar("Circulation")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Bouchons : Waze · état des routes : la Région</p>
+    <h1>Circulation à La Réunion <span class="n974">974</span></h1>
+    <p class="lead">Les bouchons en direct sont sur la carte de Waze, l'état officiel des routes nationales sur <a href="${INFOTRAFIC}">infotrafic.re</a>, le site de la Région. rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant.</p>
+    <p class="hero-cta"><a class="btn sun" href="${INFOTRAFIC}">${icon("car")}État des routes (Région)</a><a class="btn glass" href="${esc(wazeLink(first))}">${icon("map")}Ouvrir Waze</a></p>
+    ${ask(`Lé bouché si la kat-voi astèr ? Rogard si ${url} é di amwin sak ou koné, é ousa mi pé rogard lo trafik.`,
+      `Ça bouchonne sur la quatre-voies en ce moment ? Lis ${url} : dis-moi ce que tu sais (bus, routes forestières, vigilance) et où regarder le trafic en direct.`)}
+  </div>
+  ${waze}
+</div>`;
+
+  const official = `<section aria-labelledby="h-officiel">
+  <div class="sec-h"><p class="eyebrow">Source officielle</p><h2 id="h-officiel">L'état des routes, par la Région</h2></div>
+  <a class="card link-card" href="${INFOTRAFIC}"><h3>${icon("car")}infotrafic.re ↗</h3>
+  <p>Le Centre régional de gestion du trafic (CRGT) de la Région Réunion y publie l'état des routes nationales : vitesses entre les panneaux à messages variables, accidents, travaux, routes fermées, radiers, basculement de la route du Littoral, et ses caméras. C'est la référence ; rundata.re n'en reprend rien.</p></a>
+</section>`;
+
+  const vigilance = `<div class="card">${icon("alert")}<h3>Vigilance météo</h3>
+  ${alerte ? `<p><span class="vg vg${alerte.couleur}">${esc(alerte.texte)}</span></p><p>Par fortes pluies, des routes et des radiers ferment : la préfecture et la Région l'annoncent.</p>` : "<p>Pas de vigilance au-dessus du vert signalée en ce moment.</p>"}
+  <p><a href="/vigilance">La vigilance zone par zone</a> · <a href="/meteo">la météo</a></p></div>`;
+
+  const b = d?.bus;
+  const busCard = !d
+    ? `<div class="card">${loading("Les retards des bus")}</div>`
+    : !b
+      ? `<div class="card">${icon("bus")}<h3>Retards des bus</h3><p class="note">Le temps réel des bus ne répond pas pour le moment.</p></div>`
+      : `<div class="card">${icon("bus")}<h3>Retards des bus au départ des gares</h3>
+  <p class="note">Retards des bus, pas une mesure des bouchons : un car en retard l'est souvent depuis sa course précédente.</p>
+  ${b.retards.length
+    ? `<ul class="rows eau">${b.retards.slice(0, 12).map((r) => `<li><span>${esc(r.reseau)} ${esc(r.ligne)} vers ${esc(r.direction)}<small>gare ${esc(de(r.gare))}, départ prévu à ${esc(r.heure)}</small></span><span class="score">${r.retard_min} min</span></li>`).join("")}</ul>`
+    : `<p>${b.suivis ? `Aucun des ${b.suivis} départs suivis en temps réel n'a plus de ${LATE_MIN} min de retard.` : "Pas de départ suivi en temps réel en ce moment."}</p>`}
+  ${b.alertes.length ? `<h4>Déviations et avis des réseaux</h4>${alertList(b.alertes)}` : ""}
+  ${b.temps_reel.length ? `<p class="note">Flux temps réel : ${b.temps_reel.map((t) => `${esc(t.reseau)} à ${esc(t.heure)}`).join(", ")}. <a href="/bus">Les prochains départs</a>.</p>` : `<p class="note"><a href="/bus">Les prochains départs</a>.</p>`}</div>`;
+
+  const rf = d?.routes_forestieres;
+  const roadsCard = !d
+    ? ""
+    : !rf
+      ? `<div class="card">${icon("mountain")}<h3>Routes forestières</h3><p class="note">La carte de l'ONF ne répond pas pour le moment.</p></div>`
+      : `<div class="card">${icon("mountain")}<h3>Routes forestières (ONF)</h3>
+  <ul class="rows eau">${[...rf.principales, ...rf.interdites.filter((x) => !rf.principales.some((p) => p.route === x.route)).map((x) => ({ ...x, circulation: "Circulation interdite" }))].map((r) => {
+    const shut = /interdit/i.test(r.circulation);
+    const hours = /de \d+ ?h à \d+ ?h/i.exec(r.circulation)?.[0];
+    const small = [r.cause, r.precision].filter(Boolean).map((x) => esc(x!)).join(" · ") || (hours ? `circulation ${esc(hours)}${r.circulation.includes(";") ? " sur une partie" : ""}` : "");
+    return `<li><span>${esc(r.route)}${small ? `<small>${small}</small>` : ""}</span><span class="${shut ? "q-mauvaise" : "q-bonne"}">${shut ? "interdite" : "ouverte"}</span></li>`;
+  }).join("")}</ul>
+  <p class="note">Les routes du volcan, du Maïdo et de Bébour-Bélouve, et toutes celles que l'ONF interdit à la circulation${rf.mise_a_jour ? `, d'après sa carte mise à jour le ${esc(dayOf(rf.mise_a_jour))}` : ""}. <a href="/sentiers">Sentiers fermés</a>.</p></div>`;
+
+  const enclos = d?.enclos
+    ? `<div class="card">${icon("volcano")}<h3>Volcan : accès à l'Enclos</h3><p><b>${esc(ACCESS[d.enclos.statut] ?? d.enclos.statut)}</b>${d.enclos.detail ? ` : ${esc(d.enclos.detail)}` : ""}</p><p class="note"><a href="/volcan">Le volcan en direct</a>.</p></div>`
+    : "";
+
+  // The media's reports on the roads (blockades, closures), once a source for them exists: the slot is here.
+  const medias = d?.medias?.length
+    ? `<div class="card">${icon("book")}<h3>Signalé par les médias</h3><ul class="plain">${d.medias.map((m) => `<li><a href="${esc(m.lien)}">${esc(m.titre)}</a> <span class="note">${esc(m.source)}${m.heure ? `, ${esc(m.heure)}` : ""}</span></li>`).join("")}</ul></div>`
+    : "";
+
+  const ours = `<section aria-labelledby="h-nous">
+  <div class="sec-h"><p class="eyebrow">Données ouvertes, en direct</p><h2 id="h-nous">Ce que rundata.re lit</h2>
+  <p>Pas les bouchons : autour d'eux. La vigilance, les retards et déviations des bus, les routes forestières, le volcan.</p></div>
+  <div class="two">${vigilance}${busCard}${roadsCard}${enclos}${medias}</div>
+  ${d && data && d.sources.length ? sourcesNote(d.sources, data) : ""}
+</section>`;
+
+  const why = `<section aria-labelledby="h-pourquoi"><div class="card warn">${icon("alert")}<h3 id="h-pourquoi">Pourquoi pas les bouchons ici</h3>
+  <p>rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant, et aucune autre source ouverte ne mesure le trafic à La Réunion. Waze et Google ne permettent pas de reprendre leurs données. D'où la carte de Waze, chargée à votre demande, et le lien vers infotrafic.re.</p></div></section>`;
+
+  const title = "Circulation à La Réunion : bouchons en direct (Waze), état des routes, routes forestières";
+  const short = "🇷🇪 Circulation à La Réunion (974) : carte Waze des bouchons en direct, état officiel des routes sur infotrafic.re, retards des bus et routes forestières fermées.";
+  const nShut = d?.routes_forestieres?.interdites.length;
+  const description = nShut != null
+    ? describe(`🇷🇪 Circulation à La Réunion (974) : les bouchons en direct sur la carte Waze, l'état officiel des routes sur infotrafic.re, les retards des bus et ${nShut} route${nShut > 1 ? "s" : ""} forestière${nShut > 1 ? "s" : ""} fermée${nShut > 1 ? "s" : ""}.`, short)
+    : short;
+  const body = `${official}
+${ours}
+${why}
+${connectorCta("transports", "les bus en temps réel")}
+<script>${WAZE_SCRIPT}</script>`;
+  return layout(origin, { title, description, path: "/trafic", jsonld: [crumbs(origin, "Circulation", "/trafic"), webPage(origin, "/trafic", title, description, data)], alerte }, band, body);
+}
+
+export function traficLive(data: Cached<TraficAnswer> | null): Live | undefined {
+  const d = data?.value;
+  if (!d) return undefined;
+  const n = d.routes_forestieres?.interdites.length ?? 0;
+  return { valeur: "Waze en direct", detail: `et l'état des routes sur infotrafic.re ; ${n} route${n > 1 ? "s" : ""} forestière${n > 1 ? "s" : ""} fermée${n > 1 ? "s" : ""}` };
 }
 
 // ---------------------------------------------------------------- randonnée: the hikers' page

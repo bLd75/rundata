@@ -1006,6 +1006,75 @@ export async function buildBus(now = new Date(), cache?: Cache): Promise<BusData
   return { gares, reseaux, ...live, sources: [credit(transit.SOURCE), ...(times.length || alertes.length ? [credit(rt.SOURCE)] : [])] };
 }
 
+// ---------------------------------------------------------------- circulation: what we have, without traffic data
+
+/** The forest roads people drive to: the volcano, the Maïdo, Bébour-Bélouve. */
+const MAIN_ROADS = /\((RF05|RF08|RF02)\)/;
+// A delay under this is the timetable's slack, not the road.
+export const LATE_MIN = 3;
+
+export interface TraficAnswer {
+  /** The buses late on leaving the main bus stations, and the networks' notices (detours): what the feeds say. */
+  bus: {
+    retards: { gare: string; reseau: string; ligne: string; direction: string; heure: string; retard_min: number }[];
+    /** How many departures with a real-time time were looked at. */
+    suivis: number;
+    temps_reel: { reseau: string; heure: string }[];
+    alertes: { reseau: string; titre: string; detail?: string }[];
+  } | null;
+  /** The ONF's forest roads: those closed to traffic, and the state of the main ones. */
+  routes_forestieres: {
+    interdites: { route: string; cause?: string; precision?: string }[];
+    principales: { route: string; circulation: string; cause?: string; precision?: string }[];
+    mise_a_jour?: string;
+  } | null;
+  /** The Enclos of the volcano, from the volcano's page when it has been built. */
+  enclos?: { statut: string; detail?: string; source?: string; lien?: string };
+  /** The slot for what the media report on the roads (blockades, closures), once a source for it exists. */
+  medias?: { titre: string; lien: string; source: string; heure?: string }[];
+  sources: Credit[];
+}
+
+/**
+ * Around the traffic, which no open source measures: the buses' delays and detours (the bus page's data), the forest
+ * roads of the ONF, the Enclos. Each part on its own: one source down leaves the others.
+ */
+export async function buildTrafic(cache: Cache, now = new Date()): Promise<TraficAnswer> {
+  const [bus, carte, volcan] = await Promise.all([
+    cache.get("web:bus", FRESH_SECONDS, () => buildBus(now, cache)).then((c) => c.value).catch((err) => (console.error("trafic : bus indisponibles", why(err)), null)),
+    onf.carte(cache).then((c) => c.value).catch((err) => (console.error("trafic : routes forestières indisponibles", why(err)), null)),
+    cache.peek<VolcanAnswer>("web:volcan").catch(() => null),
+  ]);
+  const live = bus?.gares.flatMap((g) => g.departs.filter((d) => d.retard_min !== undefined).map((d) => ({ gare: g.commune, d }))) ?? [];
+  const roads = carte?.routes ?? [];
+  return {
+    bus: bus
+      ? {
+          retards: live.filter(({ d }) => d.retard_min! >= LATE_MIN)
+            .sort((a, b) => b.d.retard_min! - a.d.retard_min!)
+            .map(({ gare, d }) => ({ gare, reseau: d.reseau, ligne: d.ligne, direction: d.direction, heure: d.heure, retard_min: d.retard_min! })),
+          suivis: live.length,
+          temps_reel: bus.temps_reel ?? [],
+          alertes: bus.alertes ?? [],
+        }
+      : null,
+    routes_forestieres: carte
+      ? {
+          interdites: roads.filter((r) => /interdit/i.test(r.circulation)).map((r) => ({ route: r.nom, cause: r.cause, precision: r.info })),
+          // One line per road: the ONF's map cuts some in sections with their own hours.
+          principales: [...new Set(roads.filter((r) => MAIN_ROADS.test(r.nom)).map((r) => r.nom))].map((nom) => {
+            const parts = roads.filter((r) => r.nom === nom);
+            const shut = parts.find((r) => /interdit/i.test(r.circulation));
+            return { route: nom, circulation: shut?.circulation ?? [...new Set(parts.map((r) => r.circulation))].join(" ; "), cause: shut?.cause, precision: shut?.info };
+          }),
+          mise_a_jour: carte.mise_a_jour,
+        }
+      : null,
+    ...(volcan?.value.etat?.acces_enclos ? { enclos: volcan.value.etat.acces_enclos } : {}),
+    sources: [...(bus ? bus.sources : []), ...(carte ? credits([onf.SOURCE]) : [])],
+  };
+}
+
 /** What a commune's page adds to its weather: its town hall, and the next buses at its bus station or near its centre. */
 export interface CommuneData {
   mairie?: annuaire.Office;

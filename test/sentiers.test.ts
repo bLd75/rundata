@@ -4,7 +4,7 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import { parseRoads, parseTrails } from "../src/providers/sentiers.js";
 import { sentiersRandonnee, trailsNamed } from "../src/tools/sentiers.js";
 
-// The ONF's map of the trails on 24/10/2026, last edited on 20/10: 56 trails closed out of 389.
+// The ONF's map of the trails on 24/10/2026, last edited on 20/10: 56 trails closed out of 351 (389 pieces).
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/onf/${f}`, import.meta.url), "utf8");
 const NOW = new Date("2026-10-24T04:00:00Z");
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
@@ -32,7 +32,7 @@ describe("sentiers de randonnée", () => {
 
   it("lists the closed trails of the island by commune", async () => {
     const b = body(await sentiersRandonnee(cache(), undefined, NOW));
-    expect(b.resume).toBe("56 sentiers fermés sur 389 suivis par l'ONF à La Réunion, et 4 routes forestières interdites à la circulation.");
+    expect(b.resume).toBe("56 sentiers fermés sur 351 suivis par l'ONF à La Réunion, et 4 routes forestières interdites à la circulation.");
     expect(b.carte_mise_a_jour).toBe("20/10/2026 (ONF)");
     expect(b.fermes_par_commune[0]).toMatchObject({ commune: "Sainte-Rose" });
     expect(b.fermes_par_commune.reduce((n: number, c: { sentiers_fermes: unknown[] }) => n + c.sentiers_fermes.length, 0)).toBe(56);
