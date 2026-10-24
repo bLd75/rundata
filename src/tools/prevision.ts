@@ -434,9 +434,9 @@ function sourcesOf(f?: Forecast, u?: Cached<uv.UvCell[]> | null, e?: ensemble.En
 function ensWarnings(e: ensemble.Ensemble | null): string[] {
   if (!e) return [];
   return [
-    `Confiance : accord entre les ${ensemble.MODEL.membres} scénarios de l'ensemble du Centre européen (ECMWF ENS, calcul du ${localTime(new Date(e.runAt))}), sur un carré d'environ ${ensemble.MODEL.maille_km} km ; ses écarts vont du 1er au 9e décile des scénarios. Ce n'est pas la probabilité que la ` +
-      "prévision soit juste à cet endroit, et ce n'est pas le modèle de la prévision affichée (AROME ou IFS). Une confiance faible veut " +
-      "dire que les scénarios divergent : revoir la prévision plus près du jour.",
+    `Confiance : elle dit si les ${ensemble.MODEL.membres} scénarios du Centre européen de prévision (ECMWF) s'accordent, sur un carré d'environ ${ensemble.MODEL.maille_km} km ` +
+      `(calcul du ${localTime(new Date(e.runAt)).replace(" ", " à ")}). Ce n'est pas la probabilité que la prévision soit juste, et ces scénarios ne viennent pas du ` +
+      "modèle de la prévision affichée. Confiance faible : les scénarios divergent, revoyez la prévision plus près du jour.",
   ];
 }
 

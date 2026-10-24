@@ -157,9 +157,7 @@ describe("confidence of the forecast days (ECMWF ensemble)", () => {
     expect(r.jours.find((j: { jour: string }) => j.jour === "samedi 24/10").confiance_pourquoi).toMatch(/^les scénarios/);
     expect(r.resume).toMatch(/\(confiance (forte|moyenne|faible)\)/);
     const w = r.avertissements.find((x: string) => x.startsWith("Confiance :"));
-    expect(w).toContain("accord entre les 51 scénarios");
-    expect(w).toContain("calcul du 23/10 22:00");
-    expect(w).toContain("Ce n'est pas la probabilité que la prévision soit juste à cet endroit");
+    expect(w).toBe("Confiance : elle dit si les 51 scénarios du Centre européen de prévision (ECMWF) s'accordent, sur un carré d'environ 25 km (calcul du 23/10 à 22:00). Ce n'est pas la probabilité que la prévision soit juste, et ces scénarios ne viennent pas du modèle de la prévision affichée. Confiance faible : les scénarios divergent, revoyez la prévision plus près du jour.");
     expect(r.sources.map((s: { source: string }) => s.source)).toContain(ensemble.SOURCE.nom);
   });
 
@@ -203,15 +201,22 @@ describe("confidence of the forecast days (ECMWF ensemble)", () => {
     expect(tries).toBe(2); // the run time and the ensemble, once each
   });
 
-  it("shows on the weather page, one line a day and the warning under the days", () => {
+  it("shows on the weather page, one line a day, why a day is not sure in plain sight, and the warning under the days", () => {
     const prevision = {
       resume: "",
-      jours: [{ jour: "samedi 24/10", temperature_min: "18 °C", temperature_max: "25 °C", confiance: "moyenne", confiance_pourquoi: "les scénarios divergent : pluie de 0 à 12 mm" }],
+      jours: [
+        { jour: "samedi 24/10", temperature_min: "18 °C", temperature_max: "25 °C", confiance: "moyenne", confiance_pourquoi: "les scénarios divergent sur le carré de 25 km : 12 mm d'écart sur la pluie" },
+        { jour: "dimanche 25/10", temperature_min: "18 °C", temperature_max: "26 °C", confiance: "forte", confiance_pourquoi: "les scénarios s'accordent (1,2 °C d'écart sur le maximum, pluie et vent sans grand écart)" },
+      ],
       avertissements: ["Confiance : accord entre les 51 scénarios de l'ensemble du Centre européen."],
       sources: [],
     };
     const html = placePage("https://rundata.re", pageOf("cilaos")!, { value: { prevision }, fetchedAt: NOW, stale: false }, NOW);
-    expect(html).toContain(`<p title="les scénarios divergent : pluie de 0 à 12 mm">Confiance : moyenne</p>`);
+    // A phone shows no title: the reason is under the day, and a sure day says nothing more.
+    expect(html).toContain(`<p>Confiance : moyenne</p><p class="why">Les scénarios divergent sur le carré de 25 km : 12 mm d&#39;écart sur la pluie</p>`);
+    expect(html).toContain(`<p>Confiance : forte</p></li>`);
+    expect(html).not.toContain("s&#39;accordent (1,2");
+    expect(html).not.toContain(`title="les scénarios`);
     expect(html).toContain(`<p class="note">Confiance : accord entre les 51 scénarios`);
   });
 });
