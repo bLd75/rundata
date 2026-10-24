@@ -11,6 +11,7 @@ import * as cal from "../providers/calendrier.js";
 import * as mf from "../providers/vigilance.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
+import { tidesNear } from "../tools/maree.js";
 import { current, cyclone, highest, raised } from "../tools/vigilance.js";
 import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
 import { LINK } from "./aujourdhui.js";
@@ -110,8 +111,11 @@ function air(p: PlacePage, data: Cached<AirAnswer> | null | undefined): Live | u
   return { valeur: aq(c.niveau), detail: `indice ATMO du jour${c.polluants.length ? ` (${esc(c.polluants.join(", "))})` : ""}, d'Atmo Réunion` };
 }
 
-function sea(p: PlacePage, mer: Cached<SeaData> | null | undefined, place: Cached<PlaceData> | null): Live | undefined {
+function sea(p: PlacePage, mer: Cached<SeaData> | null | undefined, place: Cached<PlaceData> | null, now: Date): Live | undefined {
   const mine = mer?.value.plages.filter((b) => b.commune === p.nom) ?? [];
+  // The next tide, computed at the view (no request): a computation of rundata, never the SHOM's prediction.
+  const t = tidesNear(p.place.lon, p.place.lat, now, mer?.value.maree ?? [], mer?.fetchedAt)?.next.liste[0];
+  const tide = t ? ` · ${esc(t.type)} ${esc(t.heure)} (marée calculée, pas le SHOM)` : "";
   const beaches = mine.filter((b) => b.valeur != null);
   // The waves are a forecast: said after the measurement, and called so.
   const waves = mine.map((b) => b.houle?.hauteur_m).filter((h): h is number => h != null);
@@ -124,12 +128,12 @@ function sea(p: PlacePage, mer: Cached<SeaData> | null | undefined, place: Cache
     const hi = Math.round(Math.max(...v));
     return {
       valeur: lo === hi ? thin(deg(lo)) : `${lo} à ${thin(deg(hi))}`,
-      detail: `au large ${beaches.length > 1 ? "des plages" : "de la plage"} ${esc(beaches.map((b) => seaName(b.nom)).join(", "))}, par satellite le ${esc(dayMonth(beaches.map((b) => b.jour!).sort().pop()!))}${prevue}`,
+      detail: `au large ${beaches.length > 1 ? "des plages" : "de la plage"} ${esc(beaches.map((b) => seaName(b.nom)).join(", "))}, par satellite le ${esc(dayMonth(beaches.map((b) => b.jour!).sort().pop()!))}${prevue}${tide}`,
     };
   }
   const m = place?.value.mer?.mesure;
-  if (m) return { valeur: esc(thin(m.temperature_eau)), detail: `au large, par satellite le ${esc(dayMonth(m.jour_mesure))}${prevue}` };
-  return swell ? { valeur: esc(thin(swell)), detail: "houle prévue au large (prévision d'un modèle, pas une mesure)" } : undefined;
+  if (m) return { valeur: esc(thin(m.temperature_eau)), detail: `au large, par satellite le ${esc(dayMonth(m.jour_mesure))}${prevue}${tide}` };
+  return swell ? { valeur: esc(thin(swell)), detail: `houle prévue au large (prévision d'un modèle, pas une mesure)${tide}` } : undefined;
 }
 
 /** The departures still to come: the copy is up to a few minutes old, its waits are counted again from now. */
@@ -197,7 +201,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     { icon: "thermo", nom: "Météo", href: `/meteo/${p.slug}`, live: w },
     { icon: "alert", nom: "Vigilance", href: "/vigilance", live: vigilance(p, l.vigilance, now) },
     { icon: "air", nom: "Air", href: "/air", live: air(p, l.air) },
-    ...(coastal(p) ? [{ icon: "wave", nom: "Mer", href: "/mer", live: sea(p, l.mer, l.place) }] : []),
+    ...(coastal(p) ? [{ icon: "wave", nom: "Mer", href: "/mer", live: sea(p, l.mer, l.place, now) }] : []),
     { icon: "drop", nom: "Eau", href: `/coupures-eau/${p.slug}`, live: waterLive(p, { coupures: l.coupures ?? null, secheresse: l.secheresse, eau: l.eau }) },
     { icon: "bus", nom: "Bus", href: "/bus", ...bus, wide: true },
     ...(velos ? [{ icon: "bike", nom: "Vélos", href: "/velos", ...velos, wide: true }] : []),

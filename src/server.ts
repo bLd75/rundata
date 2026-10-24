@@ -68,7 +68,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.49.0";
+export const VERSION = "0.50.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -89,7 +89,7 @@ Détails :
 - evenements : donner le lien de chaque événement ; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres ; l'agenda n'est pas complet, le dire quand rien n'est trouvé ; cinéma : les sites des salles.
 - sentiers_randonnee : un sentier fermé est interdit, même avec la trace ; « hors gestion ONF » n'est pas dit ouvert ; longueur et dénivelé par longueur_min_km, longueur_max_km, denivele_max_m ; donner le lien trace_gpx.
 - defibrillateurs : dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque. coupures_eau : un avis « ne pas boire » d'abord. crues_rivieres : ne jamais traverser un radier submergé.
-- maree : des mesures, pas d'horaires prévus. sport : « match de volley / foot / hand / basket ce week-end à X » → sport (lieu = commune, « le sud » ou sigle de club ; quand = samedi, dimanche…), annulations et reports compris ; pas de source officielle pour le football et le basket : le dire et citer les articles. cyclones : citer la prévision du CMRS telle quelle, jamais de trajectoire inventée ; renvoyer aux consignes de la préfecture.
+- maree : mesures, puis les prochaines marées CALCULÉES par rundata, pas la prédiction du SHOM : le dire, avec la précision donnée. sport : « match de volley / foot / hand / basket ce week-end à X » → sport (lieu = commune, « le sud » ou sigle de club ; quand = samedi, dimanche…), annulations et reports compris ; pas de source officielle pour le football et le basket : le dire et citer les articles. cyclones : citer la prévision du CMRS telle quelle, jamais de trajectoire inventée ; renvoyer aux consignes de la préfecture.
 Réunion Island live public data. Weather: measurements (meteo_actuelle), past measurements (historique_meteo) and forecasts (prevision_meteo), never mixed. Always cite rundata.re with its link, next to the original producers.`;
 
 /** Adds the vigilance above green, if any, to a tool's answer (asked in parallel, so no added wait). */
@@ -383,9 +383,10 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Marée à La Réunion",
       description:
         "Hauteur de la mer mesurée chaque minute par les marégraphes du SHOM au Port (Pointe des Galets) et à Sainte-Marie : niveau actuel, " +
-        "marée montante ou descendante, heures et hauteurs des dernières pleine et basse mer observées. Mesures seulement, pas de prévision d'horaires. " +
-        "Pour : « la marée monte ? », « c'était quand la marée haute ? », « niveau de la mer au Port ? ». " +
-        "/ Measured sea level and tide state at Réunion Island's two tide gauges (no tide predictions).",
+        "marée montante ou descendante, dernières pleine et basse mer observées ; puis les prochaines pleines et basses mers, CALCULÉES par rundata " +
+        "d'après les mesures (pas la prédiction officielle du SHOM), à environ 15 à 20 min et 5 cm près. " +
+        "Pour : « la marée monte ? », « c'est quand la marée basse demain ? », « niveau de la mer au Port ? ». " +
+        "/ Measured sea level and tide state at Réunion Island's two tide gauges, and the next tides computed from the measurements (not the SHOM's prediction).",
       inputSchema: {
         lieu: z
           .string()

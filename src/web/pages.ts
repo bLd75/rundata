@@ -18,6 +18,9 @@ import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, St
 import brand from "./brand.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import * as traces from "../providers/traces.js";
+import { GAUGES } from "../providers/maregraphes.js";
+import { CITATION as TIDE_CITATION, LABEL as TIDE_LABEL } from "../maree/calcul.js";
+import { nextText, tidesAt, tidesNear } from "../tools/maree.js";
 import icons from "./icons.json" with { type: "json" };
 import { hikesAround } from "./liens.js";
 import rubriques from "./og-rubriques.json" with { type: "json" };
@@ -70,7 +73,8 @@ export const FACEBOOK = "https://www.facebook.com/1432704299917309";
 export const DESCRIPTION_MAX = 160;
 export const fit = (base: string, tail: string) => ((base + tail).length <= DESCRIPTION_MAX ? base + tail : base);
 export const deg = (t: number) => `${fr(Math.round(t * 10) / 10)} °C`;
-export const thin = (s: string) => s.replace(/ (°C|km\/h|mm|m|%)/g, "\u202f$1");
+// The unit alone, not the start of a word (« basse mer », « 15 min »).
+export const thin = (s: string) => s.replace(/ (°C|km\/h|mm|m|%)(?!\p{L})/gu, "\u202f$1");
 export const metres = (m: number) => thin(`${m.toLocaleString("fr-FR")} m`);
 
 // Line icons, 24×24, drawn in the text colour.
@@ -1100,11 +1104,16 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
         `<p class="note">Mis à jour à ${hm(data.fetchedAt)} (${since(data.fetchedAt, now)}). Sources : ${credits(d!.meteo!.sources)}.</p>`
       : `<p class="card">Aucune mesure disponible pour le moment.</p>`;
 
+  // The next tides at the nearest gauge, computed at the view: no request, whatever the copy's age.
+  const tides = coastal(p) ? tidesNear(p.place.lon, p.place.lat, now) : undefined;
+  const tideLine = tides
+    ? `<p>Marée à ${esc(tides.nom)}, ${esc(TIDE_LABEL)}, à environ ${tides.minutes} min près : ${esc(thin(nextText(tides.next)))}.</p>`
+    : "";
   const sea = coastal(p) && d?.mer
     ? `<section aria-labelledby="h-mer"><h2 id="h-mer">Température de la mer à ${esc(p.nom)}</h2>` +
       `<div class="card">${d.mer.mesure ? `<ul class="seas"><li><span>Au large, le ${esc(dayMonth(d.mer.mesure.jour_mesure))}</span><b>${esc(thin(d.mer.mesure.temperature_eau))}</b></li></ul>` : ""}` +
-      `<p>${esc(thin(d.mer.resume))}</p><p class="note">Température : mesure satellite au large (environ 2 jours de retard), ` +
-      `pas celle du lagon ni du bord.${d.mer.etat_de_la_mer ? " Vagues : prévision d'un modèle, au large, pas une mesure." : ""} Source : ${credits(d.mer.sources)}.</p></div></section>`
+      `<p>${esc(thin(d.mer.resume))}</p>${tideLine}<p class="note">Température : mesure satellite au large (environ 2 jours de retard), ` +
+      `pas celle du lagon ni du bord.${d.mer.etat_de_la_mer ? " Vagues : prévision d'un modèle, au large, pas une mesure." : ""}${tides ? ` Marée : calculée d'après les mesures des marégraphes, hauteurs à environ 5 cm près, <a href="/mer">détail sur la page mer</a>.` : ""} Source : ${credits(d.mer.sources)}${tides ? `, ${esc(TIDE_CITATION)}` : ""}.</p></div></section>`
     : "";
 
   const f = d?.prevision;
@@ -1380,17 +1389,27 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
 </section>`
     : "";
 
-  const tide = d?.maree?.length
+  // The next tides: computed at the view, from the constants of the package, whatever the copy's age.
+  const computed = GAUGES.map((g) => tidesAt(g, now, d?.maree ?? [], data?.fetchedAt)).filter((x) => !!x);
+  const coming = computed.length
+    ? `<h3>Les prochaines marées : un calcul, pas la prédiction du SHOM</h3>
+  <ul class="seas">${computed.map((x) => `<li><span>${esc(x.nom)}</span>` +
+      x.next.liste.map((e, i) => (i === 0 ? `<b>${esc(e.type)} ${esc(e.heure)}</b><span>${esc(thin(`${fr(e.hauteur_m)} m`))}${"note" in e ? ", marée faible : heure plus incertaine" : ""}</span>` : `<span>${esc(e.type)} ${esc(e.heure)} (${esc(thin(`${fr(e.hauteur_m)} m`))})</span>`)).join("") +
+      `</li>`).join("")}</ul>
+  <p class="note">${esc(TIDE_LABEL.replace(/^c/, "C"))} : analyse harmonique de plusieurs années de mesures de ces deux marégraphes ; heures à environ ${computed.map((x) => `${x.minutes} min près ${x.gauge.commune === "Le Port" ? "au Port" : `à ${x.gauge.commune}`}`).join(", ")}, hauteurs à environ 5 cm près ; pas de coefficient. La marée est faible à La Réunion (20 à 80 cm) : utile pour le lagon, la pêche à pied ou la mise à l'eau, pas pour la navigation. ${esc(TIDE_CITATION)}</p>`
+    : "";
+  const tide = d?.maree?.length || coming
     ? `<section aria-labelledby="h-maree">
-  <div class="sec-h"><p class="eyebrow">Mesurée chaque minute</p><h2 id="h-maree">La marée en ce moment</h2>
-  <p>Hauteur d'eau au-dessus du zéro des cartes marines, aux deux marégraphes du SHOM. Ce sont des mesures : les heures de pleine et de basse mer sont celles déjà passées, pas une prévision.</p></div>
-  <ul class="seas">${d.maree.map((g) => `<li><span>${esc(g.maregraphe)}</span>` +
+  <div class="sec-h"><p class="eyebrow">Mesurée chaque minute, puis calculée</p><h2 id="h-maree">La marée en ce moment</h2>
+  <p>Hauteur d'eau au-dessus du zéro des cartes marines, aux deux marégraphes du SHOM. Les dernières pleine et basse mer sont mesurées ; les prochaines, plus bas, sont calculées par rundata.</p></div>
+  <ul class="seas">${(d?.maree ?? []).map((g) => `<li><span>${esc(g.maregraphe)}</span>` +
       ("hauteur_m" in g && g.hauteur_m != null
         ? `<b>${esc(thin(`${fr(g.hauteur_m)} m`))}</b><span>${g.tendance === "étale" ? "mer étale" : `marée ${esc(g.tendance!)}`}, mesurée à ${esc(g.heure_mesure!.split(" ")[1])}</span>` +
           g.derniers_extremes!.slice().reverse().map((e) => `<span>${esc(e.type)} vers ${esc(e.heure)} (${esc(fr(e.hauteur_m))} m)</span>`).join("") +
           ("avertissement" in g && g.avertissement ? `<span>pas de mesure depuis ${esc(g.age_texte!.replace(/^il y a /, ""))}</span>` : "")
         : `<b>—</b><span>marégraphe muet pour le moment</span>`) +
       `</li>`).join("")}</ul>
+  ${coming}
 </section>`
     : "";
 
