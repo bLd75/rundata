@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Sport : les programmes sportifs publiés par les communes s'affichent, avec leur lien, et ne figurent plus dans les événements.
 - Coupures d'eau : la liste des rues s'affiche quand l'avis la donne en entier, avec l'heure de remise en eau quand il l'annonce.
 
 ## Samedi 24 octobre 2026
