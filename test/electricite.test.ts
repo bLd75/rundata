@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { breakdown, constraints, electricite } from "../src/tools/electricite.js";
 
@@ -11,6 +11,10 @@ const hours = () => fixture("edf_signal.json").results;
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 
 describe("electricity", () => {
+  // The mairies' notices of power cuts are not read here (test/courant.test.ts).
+  beforeEach(() => vi.stubGlobal("fetch", async () => new Response("", { status: 404 })));
+  afterEach(() => vi.unstubAllGlobals());
+
   it("shares out the production and adds up the renewables", () => {
     const b = breakdown(mix());
     expect(b.parts[0].filiere).toBe("moteurs diesel et fioul");

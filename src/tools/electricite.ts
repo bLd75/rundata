@@ -1,8 +1,12 @@
+import { left } from "../budget.js";
 import type { Cache } from "../cache.js";
 import { ageMinutes, ageText, localTime } from "../geo.js";
+import { resolvePlace } from "../places/resolve.js";
+import * as cc from "../providers/coupures-courant.js";
 import * as edf from "../providers/edf.js";
 import { why } from "../types.js";
-import { credits, fr, text } from "./format.js";
+import { type CourantAnswer, courantBlock, courantCopy } from "./courant.js";
+import { credits, fr, notFound, placeBlock, text } from "./format.js";
 
 const SOURCES: [keyof edf.Mix, string, boolean][] = [
   ["photovoltaique", "solaire photovoltaïque", true],
@@ -59,9 +63,22 @@ async function settle<T>(p: Promise<{ value: T }>): Promise<T | null> {
   }
 }
 
-export async function electricite(cache: Cache, now = new Date()) {
-  const [m, hours] = await Promise.all([settle(edf.mix(cache)), settle(edf.signal(cache, now))]);
-  if (!m && !hours) {
+/**
+ * The power cuts the mairies relay, from the copy the scheduled event keeps (web/partagees.ts): read, never fetched
+ * while a call of the Worker waits. Outside the Worker (the local server, the tests), built when there is no copy.
+ */
+async function cuts(cache: Cache) {
+  const copy = await cache.peek<CourantAnswer>("web:courant").catch(() => undefined);
+  if (copy || left() !== Infinity) return copy;
+  return cache.get("web:courant", 3600, () => courantCopy()).catch((err) => (console.error(`source ${cc.SOURCE.id} indisponible:`, why(err)), undefined));
+}
+
+export async function electricite(cache: Cache, now = new Date(), lieu?: string) {
+  const res = lieu?.trim() ? resolvePlace(lieu) : null;
+  if (lieu?.trim() && !res) return notFound(lieu);
+  const [m, hours, courant] = await Promise.all([settle(edf.mix(cache)), settle(edf.signal(cache, now)), cuts(cache)]);
+  const coupures = courantBlock(courant, res?.lieu.commune, now);
+  if (!m && !hours && !courant) {
     return { ...text({ erreur: "EDF ne répond pas pour le moment.", consulter: edf.SOURCE.url }), isError: true };
   }
   const parts: string[] = [];
@@ -98,14 +115,17 @@ export async function electricite(cache: Cache, now = new Date()) {
         "réseau tendu, décaler les gros usages. La recharge conseillée est la part de la puissance de recharge d'un véhicule électrique.",
     };
   }
+  if (res) parts.unshift(coupures.avis?.length ? coupures.avis[0].texte : coupures.note ?? "");
   return text({
-    resume: parts.join(" "),
+    ...(res ? { lieu: placeBlock(lieu!, res) } : {}),
+    resume: parts.filter(Boolean).join(" "),
     production,
     meteo_electricite: signal,
+    coupures_annoncees: coupures,
     avertissements: [
       "La Réunion n'est pas reliée au réseau européen : toute l'électricité est produite sur l'île, d'où les périodes de tension.",
       "Les bioénergies incluent la bagasse des sucreries (en campagne sucrière, de juillet à décembre) ; la part renouvelable est celle publiée par filière.",
     ],
-    sources: credits([edf.SOURCE]),
+    sources: courant ? [...credits([edf.SOURCE]), ...courant.value.sources] : credits([edf.SOURCE]),
   });
 }

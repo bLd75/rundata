@@ -167,7 +167,8 @@ describe("the scheduled refresh of the shared copies", () => {
     }
     expect(events[0].length).toBeGreaterThanOrEqual(2);
     expect(kv.data.size).toBe(list.length);
-    expect(events.length).toBeLessThanOrEqual(4);
+    // Nine copies in five events at most: 25 minutes after a deploy, every copy is in KV.
+    expect(events.length).toBeLessThanOrEqual(5);
   });
 
   it("keeps a build's cost with its KV copy, for an isolate that has not built it", async () => {

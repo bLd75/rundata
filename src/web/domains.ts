@@ -287,6 +287,18 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
       `<p class="note">${esc(m.explication)}</p></div>`
     : "";
 
+  // The cuts the mairies relay, in marketing's words (tools/courant.ts); never « pas de coupure ».
+  const c = d?.coupures_annoncees;
+  const cuts = c
+    ? `<section id="coupures" aria-labelledby="h-coupures">
+  <div class="sec-h"><h2 id="h-coupures">Coupures d'électricité annoncées par les mairies</h2>
+  ${c.a_savoir ? `<p>${esc(c.a_savoir)}</p>` : ""}${c.depannage ? `<p><b>${esc(c.depannage)}</b></p>` : ""}</div>
+  ${c.avis?.length
+    ? `<div class="card"><ul class="plain">${c.avis.map((x) => `<li${x.nature === "en cours" ? ' class="warn"' : ""}>${esc(x.texte)} <a href="${esc(x.lien)}" rel="noopener">l'avis →</a></li>`).join("")}</ul></div>`
+    : `<p class="card">${esc(c.indisponible ?? "Aucun avis relayé par les mairies suivies.")}</p>`}
+</section>`
+    : "";
+
   const title = "Électricité Réunion en direct : part renouvelable · 974";
   const description = p
     ? describe(`🇷🇪 Électricité à La Réunion (974) à ${p.heure.split(" ")[1]} : ${fr(Math.round(p.total_mw))} MW produits, dont ${fr(Math.round(p.renouvelable_pct))} % renouvelable. Filière par filière, et les heures où le réseau est chargé.`,
@@ -310,6 +322,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
   <p>La Réunion n'est reliée à aucun autre réseau : chaque kilowatt consommé est produit sur l'île, au moment même. Le soir, quand tout le monde rentre, le réseau est le plus chargé.</p></div>
   ${d ? `<div class="two">${tension}${warnings(d.avertissements)}</div>${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">Les données d'EDF se chargent : rechargez la page dans quelques secondes.</p>`}
 </section>
+${cuts}
 ${connectorCta("electricite", "l'électricité de l'île")}`;
 
   return layout(origin, { title, description, path: "/electricite", jsonld: [crumbs(origin, "Électricité", "/electricite"), webPage(origin, "/electricite", title, description, data)], alerte }, band, body);

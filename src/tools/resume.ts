@@ -14,6 +14,7 @@ import { localTime } from "../geo.js";
 import { noteLecture } from "../lectures.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
+import * as cc from "../providers/coupures-courant.js";
 import * as sante from "../sante/etablissements.js";
 import * as dech from "../vie/decheteries.js";
 import * as marches from "../vie/marches.js";
@@ -30,6 +31,7 @@ import {
   buildCalendrier,
   buildCommune,
   buildCoupures,
+  buildCourant,
   buildDechets,
   buildElectricite,
   buildPlace,
@@ -51,6 +53,7 @@ import { coastal, PAGES, type PlacePage } from "../web/places.js";
 import { occurrences } from "./agenda.js";
 import { hoursOn, openNow } from "./annuaire.js";
 import { priceLine } from "./carburants.js";
+import { aheadRows, type CourantAnswer, shortOf } from "./courant.js";
 import { SITE_URL } from "./citer.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 import { current, cyclone, highest, raised } from "./vigilance.js";
@@ -69,6 +72,7 @@ export interface ResumeCopies {
   agenda?: Cached<AgendaAnswer> | null;
   calendrier?: Cached<CalendrierAnswer> | null;
   dechets?: Cached<DechetsAnswer> | null;
+  courant?: Cached<CourantAnswer> | null;
 }
 type Part = Exclude<keyof ResumeCopies, "vigilance">;
 /** A part left out of the summary, why, and the tool that answers it. */
@@ -113,6 +117,10 @@ function copiesOf(commune: PlacePage, place: PlacePage): Record<Part, Copy | und
     // Only the TCO publishes the state of its skips: the other communes have no such part.
     dechets: dech.TCO_COMMUNES.includes(commune.nom)
       ? { key: "web:dechets", build: buildDechets, max: 3 * H, nom: "état des déchèteries", outil: "annuaire_services_publics", page: `/decheteries#${anchorOf(commune.nom)}` }
+      : undefined,
+    // Only the mairies that relay EDF's notices: elsewhere nothing is said, rather than the same « we do not know » each day.
+    courant: cc.MAIRIES.some((m) => m.commune === commune.nom)
+      ? { key: "web:courant", build: () => buildCourant(), max: 6 * H, nom: "coupures d'électricité relayées par la mairie", outil: "electricite", page: "/electricite#coupures" }
       : undefined,
   };
 }
@@ -243,6 +251,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
   const sites = l.dechets && dech.TCO_COMMUNES.includes(nom) ? dech.sitesNow(l.dechets.value.etats, now).filter((s) => s.commune === nom) : undefined;
   const fresh = sites?.filter((s) => s.a_jour) ?? [];
   const green = fresh.filter((s) => s.accepte.includes("déchets verts")).length;
+  const power = l.courant && cc.MAIRIES.some((m) => m.commune === nom) ? aheadRows(l.courant.value, nom, now) : [];
 
   const t = meteo?.mesure?.mesures.temperature;
   const f = meteo?.prevision?.aujourd_hui;
@@ -254,6 +263,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     l.coupures ? (avis.length ? `${avis.length} avis de coupure d'eau` : dist?.avis ? "pas de coupure d'eau annoncée" : "") : "",
     l.agenda ? `${events.length} événement${events.length > 1 ? "s" : ""} aujourd'hui` : "",
     roads.length ? `${roads.length} info${roads.length > 1 ? "s" : ""} sur les routes ou des blocages` : "",
+    power.length ? shortOf(power[0], now) : "",
     markets.length ? `marché aujourd'hui : ${markets.map((m) => `${m.nom} ${m.horaires_aujourd_hui}`).join(", ")}` : "",
     prices && fuelShort(prices) ? `carburants (prix maximum) : ${fuelShort(prices)}` : "",
     fresh.length ? `déchets verts acceptés dans ${green} déchèterie${green > 1 ? "s" : ""} sur ${fresh.length}` : "",
@@ -296,6 +306,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     mairie: mairie
       ? { ouverte: open, horaires_aujourd_hui: hoursOn(mairie, now) ?? (open === null ? undefined : "fermée aujourd'hui"), adresse: mairie.adresse, telephone: mairie.telephone }
       : undefined,
+    coupures_electricite: power.length ? { avis: power } : undefined,
     marches_du_jour: markets.length
       ? { liste: markets.map((m) => ({ nom: m.nom, horaires_aujourd_hui: m.horaires_aujourd_hui, adresse: m.adresse ?? undefined, carte: m.osm })), avertissement: MARKETS_NOT_ALL }
       : undefined,
@@ -317,7 +328,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     sources: sourcesOf([
       l.meteo?.value.meteo?.sources, l.meteo?.value.prevision?.sources, l.vigilance ? credits([mf.SOURCE]) : undefined, l.air?.value.sources, l.mer?.value.sources,
       l.electricite?.value.sources, l.actualites?.value.sources, l.trafic?.value.sources, l.coupures?.value.sources, l.agenda?.value.sources, l.calendrier?.value.sources,
-      l.commune?.value.sources, l.dechets?.value.sources, markets.length ? credits([marches.OSM]) : undefined, credits([sante.ARS_GARDE]),
+      l.commune?.value.sources, l.dechets?.value.sources, power.length ? l.courant!.value.sources : undefined, markets.length ? credits([marches.OSM]) : undefined, credits([sante.ARS_GARDE]),
     ]),
   };
 }
