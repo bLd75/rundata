@@ -17,6 +17,8 @@ const OFFICIAL =
 const NIVEAU_INCONNU = "à vérifier sur reunion.gouv.fr";
 
 const day = (iso: string) => localTime(new Date(iso)).split(" ")[0];
+/** « 24/10 », of a day « 2026-10-24 ». */
+const dayOf = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
 // Worded by marketing: what the texts read say, never that the eruption has not begun.
 export const NON_ANNONCEE = "L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus.";
 export const IMAGE_APRES = "La dernière publication de l'OVPF est une image que nous ne lisons pas : l'état ci-dessus peut ne pas en tenir compte.";
@@ -95,17 +97,22 @@ export interface Ecart {
 
 /**
  * pitonlive's state, with the phase the prefecture declared. The prefecture declares each phase first, pitonlive
- * follows within hours: pitonlive wins only with a status published after the release and a level as high or higher.
+ * follows within hours: pitonlive wins only with a status published a later day than the release and a level as high
+ * or higher, or the release's own day and a higher level.
  * Never lower on pitonlive's word alone: the level comes down with the prefecture's release (« fin de l'alerte »,
  * « retour en vigilance »). A lower level of pitonlive held more than 48 hours is said beside it (`ecart`), and logged.
  */
 export function official(s: volcan.PitonState, p: volcan.Phase, now = new Date()): volcan.PitonState & { prefecture?: volcan.Phase; ecart?: Ecart } {
   const known = s.status.published_at ? Date.parse(s.status.published_at) : 0;
-  // The release has a day, not an hour: it wins from its day on.
-  const newer = Date.parse(p.publie) - 12 * 3600_000 < known;
-  if (newer && rank(s.status.alert_level_display) >= rank(p.niveau)) return s;
+  // The release has a day, not an hour: pitonlive is newer from the next day on. On the release's own day it wins only
+  // higher: staying below during an eruption is the dangerous error, rising too early is not. An end of alert published
+  // that day after a higher pitonlive is thus said the next day, or once pitonlive comes down.
+  const newer = known > 0 && localDay(known) > p.jour;
+  const sameDay = known > 0 && localDay(known) === p.jour;
+  const up = rank(s.status.alert_level_display) - rank(p.niveau);
+  if ((newer && up >= 0) || (sameDay && up > 0)) return s;
   const ecart = newer && now.getTime() - known > APART_MS ? { niveau: s.status.alert_level_display, depuis: s.status.published_at! } : undefined;
-  if (ecart) console.error(`volcan : la préfecture dit ${p.niveau} (${p.publie}), pitonlive ${ecart.niveau} depuis ${ecart.depuis}`);
+  if (ecart) console.error(`volcan : la préfecture dit ${p.niveau} (${p.jour}), pitonlive ${ecart.niveau} depuis ${ecart.depuis}`);
   const enclos = p.enclos ?? s.access?.current?.enclos_status;
   return {
     ...s,
@@ -121,7 +128,7 @@ export function official(s: volcan.PitonState, p: volcan.Phase, now = new Date()
 /** The prefecture's release whose phase won over pitonlive's, as the answer gives it. */
 function prefecture(state: volcan.PitonState & { prefecture?: volcan.Phase }) {
   const p = state.prefecture;
-  return p ? { niveau: p.niveau, titre: p.titre, lien: p.lien, publie: p.publie } : undefined;
+  return p ? { niveau: p.niveau, titre: p.titre, lien: p.lien, jour: p.jour } : undefined;
 }
 
 export async function volcanSeismes(cache: Cache, now = new Date()) {
@@ -160,20 +167,20 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     parts.push(
       s.is_erupting
         // The day only from an official text: pitonlive's start time is not one (the page says none either).
-        ? `ÉRUPTION EN COURS au Piton de la Fournaise${p?.eruption ? `, annoncée par la préfecture le ${day(p.publie)}` : ""}.`
+        ? `ÉRUPTION EN COURS au Piton de la Fournaise${p?.eruption ? `, annoncée par la préfecture le ${dayOf(p.jour)}` : ""}.`
         : /^Alerte/.test(s.alert_level_display)
           ? `${s.alert_level_display} au Piton de la Fournaise${libelle(s.alert_level_display) ? ` : « ${libelle(s.alert_level_display)} » (dispositif ORSEC Volcan)` : ""}. ${NON_ANNONCEE}`
           : unknown
             ? "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com."
             : "Pas d'éruption en cours au Piton de la Fournaise.",
     );
-    if (p) parts.push(`Communiqué de la préfecture du ${day(p.publie)} : « ${p.titre} » (${p.lien}).`);
+    if (p) parts.push(`Communiqué de la préfecture du ${dayOf(p.jour)} : « ${p.titre} » (${p.lien}).`);
     const ecart = (state as { ecart?: Ecart }).ecart;
     parts.push(
       `Niveau du dispositif ORSEC volcan : ${unknown
         ? `non lu par rundata.re, ${NIVEAU_INCONNU}`
         : ecart
-          ? `${s.alert_level_display} selon le dernier communiqué de la préfecture que nous avons lu (${day(p!.publie)}). pitonlive.com indique « ${ecart.niveau} » depuis le ${day(ecart.depuis)} : vérifiez le niveau en vigueur sur reunion.gouv.fr`
+          ? `${s.alert_level_display} selon le dernier communiqué de la préfecture que nous avons lu (${dayOf(p!.jour)}). pitonlive.com indique « ${ecart.niveau} » depuis le ${day(ecart.depuis)} : vérifiez le niveau en vigueur sur reunion.gouv.fr`
           : s.alert_level_display}.`,
     );
     if (defini) parts.push(`Définition : ${defini}`);
@@ -184,14 +191,15 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     const a = unknown ? undefined : state.access?.current;
     if (unknown) parts.push(`Accès à l'Enclos : ${NIVEAU_INCONNU}, avant de partir.`);
     // pitonlive lower for long: the Enclos as the prefecture's release said it, and where it comes from (marketing).
-    if (ecart && a?.available) parts.push(`Accès à l'Enclos ${ENCLOS_SAID[a.enclos_status] ?? a.enclos_status} selon le communiqué du ${day(p!.publie)} : vérifiez sur reunion.gouv.fr avant de partir.`);
+    if (ecart && a?.available) parts.push(`Accès à l'Enclos ${ENCLOS_SAID[a.enclos_status] ?? a.enclos_status} selon le communiqué du ${dayOf(p!.jour)} : vérifiez sur reunion.gouv.fr avant de partir.`);
     else if (a?.available) parts.push(`Accès à l'Enclos : ${ACCESS[a.enclos_status] ?? a.enclos_status}${a.source_name ? ` (${a.source_name})` : ""}.`);
   }
   const last = posts?.[0];
   // The observatory's newest post an image we do not read, newer than what the state comes from: it may announce what
   // the state does not say (an eruption, its end). Said, and nothing drawn from it (marketing).
   const p0 = (state as { prefecture?: volcan.Phase } | null)?.prefecture;
-  const told = Math.max(state?.status.published_at ? Date.parse(state.status.published_at) : 0, p0 ? Date.parse(p0.publie) : 0);
+  // The release counts from its day's start: a post of the same day, before or after it, is said.
+  const told = Math.max(state?.status.published_at ? Date.parse(state.status.published_at) : 0, p0 ? volcan.dayStart(p0.jour) : 0);
   const imageAfter = !!state && !!last?.image && Date.parse(last.date) > told;
   if (last) {
     parts.push(last.image

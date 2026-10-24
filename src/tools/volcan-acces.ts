@@ -63,6 +63,8 @@ export interface Acces {
 // The trails of the Enclos itself (the plan's upper part), told by the Enclos' line: not « hors Enclos ».
 const ENCLOS_TRAILS = /enclos|dolomieu|kapor|rivals|caubet|formica/i;
 const ROAD = /Route Forestière du Volcan \(RF0?5\)/i;
+/** « 24/10 », of a day « 2026-10-24 ». */
+const dayOf = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
 const day = (iso: string) => localTime(new Date(iso)).split(" ")[0];
 // A list's mark before a sentence (« → A ce stade, … »): not the release's words.
 const LEAD = /^[→•▪\-–]\s*/;
@@ -85,7 +87,7 @@ function quote(s: string): string {
 export function acces(niveau: string | undefined, p: volcan.Phase | undefined, phrases: string[] | undefined, carte: Cached<onf.Carte> | undefined): Acces {
   const lignes: Ligne[] = [];
   const said = phrases ?? [];
-  const release = p && { source: `communiqué de la préfecture du ${day(p.publie)}`, lien: p.lien };
+  const release = p && { source: `communiqué de la préfecture du ${dayOf(p.jour)}`, lien: p.lien };
   const same = p && { source: "même communiqué", lien: p.lien };
 
   if (!niveau) {
@@ -96,7 +98,7 @@ export function acces(niveau: string | undefined, p: volcan.Phase | undefined, p
     // The level is pitonlive's, newer than the last release read: that release does not tell this level's rules.
     lignes.push({ lieu: "Enclos", texte: `Le dernier communiqué de la préfecture que nous avons lu est antérieur au niveau affiché : ${VERIFIER} avant de monter au volcan.` });
   } else if (/^Sauvegarde/i.test(niveau)) {
-    lignes.push({ lieu: "Enclos", texte: `Enclos : en phase de sauvegarde, « une réouverture partielle de l'enclos est possible » (${DSO}, p. 22). Ce qui est ouvert est dans le communiqué de la préfecture du ${day(p.publie)}.`, lien: p.lien });
+    lignes.push({ lieu: "Enclos", texte: `Enclos : en phase de sauvegarde, « une réouverture partielle de l'enclos est possible » (${DSO}, p. 22). Ce qui est ouvert est dans le communiqué de la préfecture du ${dayOf(p.jour)}.`, lien: p.lien });
   } else {
     const enclos = said.find((x) => /enclos/i.test(x) && /interdit|ferm|ouvert|accès/i.test(x));
     lignes.push({ lieu: "Enclos", texte: `Enclos : ${SAID[p.enclos ?? "ferme"] ?? p.enclos}${enclos ? `. ${quote(enclos)}` : ""}`, ...release });

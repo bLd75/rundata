@@ -15,9 +15,12 @@ export interface VolcanAlerte {
   /** « Alerte 1 », « Alerte 2-1 »… as the plan names it; undefined when only the eruption is known. */
   niveau?: string;
   eruption: boolean;
-  /** The prefecture's release that declared the level. `publie`: its day, ISO. */
-  communique?: { titre: string; lien: string; publie: string };
+  /** The prefecture's release that declared the level. `jour`: its day, « 2026-10-24 ». */
+  communique?: { titre: string; lien: string; jour: string };
 }
+
+/** The day of the prefecture's release in a copy of /volcan, « 2026-10-24 », that copy made by this version or an earlier one. */
+export const releaseDay = (c: { jour?: string; publie?: string }) => c.jour ?? new Date(Date.parse(c.publie ?? "") + 4 * 3600_000).toISOString().slice(0, 10);
 
 /** The alert or the eruption the copy of /volcan tells of, or undefined when the volcano is quiet. */
 export function alerteVolcan(v: VolcanAnswer | undefined): VolcanAlerte | undefined {
@@ -30,7 +33,7 @@ export function alerteVolcan(v: VolcanAnswer | undefined): VolcanAlerte | undefi
     niveau,
     // Alerte 2 is the eruption under way, in the plan's own terms.
     eruption: e.eruption_en_cours || /^Alerte 2/i.test(niveau ?? ""),
-    communique: c && { titre: c.titre, lien: c.lien, publie: c.publie },
+    communique: c && { titre: c.titre, lien: c.lien, jour: releaseDay(c) },
   };
 }
 
@@ -73,8 +76,9 @@ async function read(cache: Cache, now: Date): Promise<VolcanAlerte | undefined> 
 
 // --- The words, marketing's ---------------------------------------------------------------------------------------
 
-const day = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Indian/Reunion" });
-const since = (a: VolcanAlerte) => (a.communique ? ` depuis le ${day(a.communique.publie)}` : "");
+// « 24 octobre », of a day « 2026-10-24 ».
+const day = (jour: string) => new Date(`${jour}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" });
+const since = (a: VolcanAlerte) => (a.communique ? ` depuis le ${day(a.communique.jour)}` : "");
 const level = (a: VolcanAlerte) => a.niveau!.toLowerCase();
 // The level's words in the plan, true for any alert 1, never a release's of the day nor ours (marketing): « éruption
 // probable ou imminente ». Only what the level names: back in vigilance, no « éruption probable ».
@@ -151,7 +155,7 @@ export function mediaHeadlines(news: ActualitesAnswer | undefined, max = 8) {
 /** The blocks at the top of /volcan: the prefecture's release, the safety line, the OVPF, the media. */
 export function alertSections(a: VolcanAlerte, news: ActualitesAnswer | undefined): string {
   const release = a.communique
-    ? `<div class="card"><h3>Le communiqué de la préfecture</h3><p class="note">publié le ${esc(day(a.communique.publie))}</p>` +
+    ? `<div class="card"><h3>Le communiqué de la préfecture</h3><p class="note">publié le ${esc(day(a.communique.jour))}</p>` +
       `<p><a href="${esc(a.communique.lien)}">${esc(a.communique.titre)}</a></p></div>`
     : "";
   const ovpf = `<div class="card"><h3>Les annonces de l'Observatoire volcanologique (OVPF)</h3><ul class="plain">` +

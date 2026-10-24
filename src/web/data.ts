@@ -314,8 +314,11 @@ export interface VolcanAnswer {
     derniere_eruption_fin?: string;
     deformation?: string;
     acces_enclos?: { statut: string; detail?: string; source?: string; lien?: string };
-    /** The prefecture's release, when its phase is the one given. `publie`: the day, ISO (the hour is not given). */
-    communique_prefecture?: { niveau: string; titre: string; lien: string; publie: string };
+    /**
+     * The prefecture's release, when its phase is the one given. `jour`: its day, « 2026-10-24 » (the hour is not
+     * given); a copy made by an earlier version has `publie` instead, noon of that day (`releaseDay`, volcan-alerte.ts).
+     */
+    communique_prefecture?: { niveau: string; titre: string; lien: string; jour: string; publie?: string };
   };
   /** The episodes whose start and end a release writes (tools/volcan-historique.ts), as the AI reads them. */
   alertes_precedentes?: { note: string; episodes: { debut: string[]; fin: string }[] };
