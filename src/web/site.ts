@@ -245,7 +245,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
   const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions", BAIGNADE].map(fixed),
-    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay ?? today, "daily"],
+    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay && fuelDay < today ? fuelDay : today, "daily"],
     // The fires' page only once FIRMS's key is there: before, it says the detection is not active.
     ...(feux.enabled() ? [live(FEUX_PATH)] : [])];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
@@ -473,7 +473,8 @@ async function pages(request: Request, cache: Cache, background: Background, now
     });
   }
   if (path === "/sitemap.xml") {
-    // The fuel page changes with the prefect's order: its date, from the stored copy when there is one.
+    // The fuel page changes with the prefect's order: its date, from the stored copy when there is one. An order read
+    // before its 1st changes the page the day it is read, not on its 1st: never a day ahead of today.
     const fuel = await cache.peek<carburants.Prix>("carburants:prix").catch(() => undefined);
     return new Response(sitemap(origin, now, fuel?.value.depuis), { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
   }

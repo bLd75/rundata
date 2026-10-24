@@ -115,7 +115,7 @@ describe("the summary of a day", () => {
     expect(r.resume).toContain("déchets verts acceptés dans 1 déchèterie sur 2");
     // The month's maximum prices, the same everywhere.
     expect(r.resume).toContain("carburants (prix maximum) : sans plomb 2,00 €/L, gazole 1,80 €/L ;");
-    expect(r.carburants).toMatchObject({ depuis: "2026-10-01", prix_maximum: "sans plomb 2,00 €/L, gazole 1,80 €/L", prix_maximums: ["supercarburant 2,00 €/litre (+0,17 €)", "gazole 1,80 €/litre (stable)"] });
+    expect(r.carburants).toMatchObject({ depuis: "2026-10-01", prix_maximum: "sans plomb 2,00 €/L, gazole 1,80 €/L", prix_maximums: ["sans plomb 2,00 €/litre (+0,17 €)", "gazole 1,80 €/litre (stable)"] });
     // Each source once; the tap water is not a day's news (qualite_eau).
     expect(new Set(r.sources.map((s) => s.source)).size).toBe(r.sources.length);
     expect(JSON.stringify(r)).not.toMatch(/conforme/);

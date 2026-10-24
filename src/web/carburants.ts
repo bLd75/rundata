@@ -1,10 +1,11 @@
 /**
  * The month's maximum fuel prices (/carburants), set by the prefect's order: the same in every station of the island.
- * Read from the stored copy of the order (providers/carburants.ts): nothing else is fetched.
+ * Read from the stored copy of the order (providers/carburants.ts): nothing else is fetched. Before its 1st, a new
+ * order is announced above the month in force, and the page turns by itself at 0 h (it is rendered per request).
  */
 import type { Cached } from "../cache.js";
 import * as carburants from "../providers/carburants.js";
-import { firstOf, priceLine } from "../tools/carburants.js";
+import { eve, firstOf, fuelSay, keep } from "../tools/carburants.js";
 import { connectorCta, crumbBar, crumbs, loading, webPage } from "./domains.js";
 import type { Alerte } from "./data.js";
 import { esc } from "./map.js";
@@ -14,6 +15,8 @@ const eur = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
 const signed = (p: carburants.Produit) =>
   p.precedent_eur == null ? "" : p.prix_eur === p.precedent_eur ? "stable" : `${p.prix_eur > p.precedent_eur ? "+" : "−"}${eur(Math.abs(p.prix_eur - p.precedent_eur))}`;
 const find = (p: carburants.Prix, re: RegExp) => p.produits.find((x) => re.test(x.produit));
+
+const say = (s: string) => esc(keep(s));
 
 // The texts of the page, worded by marketing.
 export const TITLE = "Prix carburants Réunion : essence, gazole, gaz · 974";
@@ -32,25 +35,30 @@ export function descriptionOf(p: carburants.Prix | undefined): string {
 
 export function carburantsPage(origin: string, data: Cached<carburants.Prix> | null, now = new Date(), alerte?: Alerte): string {
   const p = data?.value;
+  const s = p && fuelSay(p, now);
   // Early in a month, before the new order is published or read: the order in force, said as such.
-  const month = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 7);
-  const pending = p && p.depuis.slice(0, 7) < month ? `<p class="note">Les prix de ${esc(carburants.monthOf(`${month}-01`))} ne sont pas encore publiés ou pas encore lus : voici ceux en vigueur depuis le ${esc(firstOf(p.depuis))}.</p>` : "";
+  const pending = s?.attente ? `<p class="note">${say(s.attente)}</p>` : "";
   const path = "/carburants";
   const description = descriptionOf(p);
-  const h1 = p ? `Prix des carburants à La Réunion, ${carburants.monthOf(p.depuis)}` : "Prix des carburants à La Réunion";
-  const main = p?.produits.filter((x) => /^(supercarburant|gazole|gaz)$/i.test(x.produit)) ?? [];
+  // The month in force: before the 1st, not the announced one.
+  const h1 = s?.vigueur ? `Prix des carburants à La Réunion, ${carburants.monthOf(s.vigueur.depuis)}` : "Prix des carburants à La Réunion";
+  const lead = !s ? loading("Les prix du mois")
+    : s.annonce ? `<p class="lead">${say(s.annonce)}.</p>${s.jusquau ? `<p class="lead">${say(s.jusquau)}.</p>` : ""}`
+    : `<p class="lead">${say(`${s.depuis} : ${s.lignes}`)}.</p>${pending}`;
 
   const band = `${crumbBar("Prix des carburants")}
 <div class="wrap intro"><div class="pitch">
   <p class="pill"><span class="dot"></span>Arrêté du préfet</p>
   <h1>${esc(h1)}</h1>
-  ${p ? `<p class="lead">Prix maximums depuis le ${esc(firstOf(p.depuis))} : ${main.map((x) => esc(priceLine(x))).join(" ; ")}.</p>${pending}` : loading("Les prix du mois")}
+  ${lead}
 </div></div>`;
 
+  // Before the 1st, the columns say which prices apply when.
+  const head = (day: string, prev: boolean) => (s?.avenir ? (prev ? `Jusqu'au ${firstOf(eve(p!.depuis))}` : `Au ${firstOf(day)}`) : firstOf(day));
   const table = p
-    ? `<section aria-labelledby="h-prix"><div class="sec-h"><h2 id="h-prix">Tous les prix maximums du mois</h2></div>
-  <div class="card table-wrap"><table class="drought"><thead><tr><th scope="col">Produit</th><th scope="col">${esc(firstOf(p.depuis))}</th>${p.precedent_depuis ? `<th scope="col">${esc(firstOf(p.precedent_depuis))}</th>` : ""}<th scope="col">Écart</th></tr></thead><tbody>
-  ${p.produits.map((x) => `<tr><th scope="row">${esc(x.produit)}${x.unite ? ` <span class="note">(${esc(x.unite)})</span>` : ""}${x.note ? `<br><span class="note">${esc(x.note)}</span>` : ""}</th><td><b>${esc(eur(x.prix_eur))}</b></td>${p.precedent_depuis ? `<td>${x.precedent_eur != null ? esc(eur(x.precedent_eur)) : ""}</td>` : ""}<td>${esc(signed(x))}</td></tr>`).join("\n  ")}
+    ? `<section aria-labelledby="h-prix"><div class="sec-h"><h2 id="h-prix">Tous les prix maximum du mois</h2></div>
+  <div class="card table-wrap"><table class="drought"><thead><tr><th scope="col">Produit</th><th scope="col">${say(head(p.depuis, false))}</th>${p.precedent_depuis ? `<th scope="col">${say(head(p.precedent_depuis, true))}</th>` : ""}<th scope="col">Écart</th></tr></thead><tbody>
+  ${p.produits.map((x) => `<tr><th scope="row">${esc(carburants.label(x.produit))}${x.unite ? ` <span class="note">(${esc(x.unite)})</span>` : ""}${x.note ? `<br><span class="note">${esc(x.note)}</span>` : ""}</th><td><b>${esc(eur(x.prix_eur))}</b></td>${p.precedent_depuis ? `<td>${x.precedent_eur != null ? esc(eur(x.precedent_eur)) : ""}</td>` : ""}<td>${esc(signed(x))}</td></tr>`).join("\n  ")}
   </tbody></table></div>
   <p class="note">D'après <a href="${esc(p.lien)}" rel="noopener">le communiqué de la préfecture</a> : « ${esc(p.titre)} ».</p></section>`
     : "";

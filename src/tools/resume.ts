@@ -14,6 +14,7 @@ import { localTime } from "../geo.js";
 import { noteLecture } from "../lectures.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
+import { phases } from "../providers/carburants.js";
 import * as cc from "../providers/coupures-courant.js";
 import * as sante from "../sante/etablissements.js";
 import * as col from "../vie/collecte.js";
@@ -148,7 +149,7 @@ const COST_UNKNOWN = 25;
 
 const MARKETS_NOT_ALL = "D'après OpenStreetMap : tous les marchés n'y sont pas, et les jours peuvent avoir changé.";
 const NO_DUTY = "rundata.re ne sait pas quelle pharmacie est de garde : seuls 3237.fr et le 32 37 le disent.";
-const FUEL_NOTE = "Prix maximums fixés chaque mois par le préfet, les mêmes dans toute l'île : une station peut vendre moins cher.";
+const FUEL_NOTE = "Prix maximum fixés chaque mois par le préfet, les mêmes dans toute l'île : une station peut vendre moins cher.";
 
 /** « sans plomb 2,00 €/L, gazole 1,80 €/L », as marketing words the prices everywhere. */
 function fuelShort(p: { produits: { produit: string; prix_eur: number }[] }): string {
@@ -262,9 +263,10 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
   const mer = coastal(commune) ? sea(commune, l.mer?.value, l.meteo?.value) : undefined;
   const out = mer ? leftOut.filter((x) => x.partie !== SEA) : leftOut;
   const markets = marches.heldOn(nom, now);
-  // The prices of another month are not this month's.
+  // The prices of another month are not this month's; an order read before its 1st is not in force yet.
   const fuel = l.trafic?.value.carburants;
-  const prices = fuel && fuel.depuis.slice(0, 7) === today.slice(0, 7) ? fuel : undefined;
+  const inForce = fuel && phases(fuel, now).vigueur;
+  const prices = inForce && inForce.depuis.slice(0, 7) === today.slice(0, 7) ? inForce : undefined;
   // A site's state older than its staff's last round says nothing of now (vie/decheteries.ts).
   const sites = l.dechets && dech.TCO_COMMUNES.includes(nom) ? dech.sitesNow(l.dechets.value.etats, now).filter((s) => s.commune === nom) : undefined;
   const fresh = sites?.filter((s) => s.a_jour) ?? [];
@@ -346,7 +348,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
       : undefined,
     // The days change from a street to the next: the commune's page, never « collecte aujourd'hui » (marketing).
     collecte_dechets: bins ? { texte: `Collecte des déchets : le jour de votre rue sur rundata.re/collecte/${col.communeSlug(nom)}.`, page: `${SITE_URL}/collecte/${col.communeSlug(nom)}` } : undefined,
-    carburants: prices ? { prix_maximum: fuelShort(prices) || undefined, prix_maximums: prices.produits.map(priceLine), depuis: prices.depuis, a_savoir: FUEL_NOTE, lien: prices.lien } : undefined,
+    carburants: prices ? { prix_maximum: fuelShort(prices) || undefined, prix_maximums: prices.produits.map(priceLine), depuis: prices.depuis, a_savoir: FUEL_NOTE, lien: fuel!.lien } : undefined,
     pharmacie_de_garde: { site: sante.GARDE.site, telephone: sante.GARDE.telephone, quand: sante.GARDE.quand, a_savoir: NO_DUTY },
     non_inclus: out.length ? out : undefined,
     sources: sourcesOf([

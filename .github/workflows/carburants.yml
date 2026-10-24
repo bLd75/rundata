@@ -7,6 +7,9 @@ name: Prix des carburants
 on:
   schedule:
     - cron: "41 3 * * *"
+    # Around the 1st, the new order is published on the month's last day (between 08:00 and 20:00 in Réunion, so
+    # far): read again at 13:41, 19:41 and 23:41, Réunion time, from the 28th to the 2nd.
+    - cron: "41 9,15,19 28-31,1,2 * *"
   workflow_dispatch:
 
 permissions:
