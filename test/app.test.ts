@@ -30,6 +30,25 @@ describe("HTTP endpoint", () => {
     expect((await handle(new Request("http://x/nope"), new Cache())).status).toBe(404);
   });
 
+  it("sends a shortcut to the home page with its ref, before any page and without counting it", async () => {
+    const hits: Hit[] = [];
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("no subrequest");
+    });
+    for (const [short, ref] of [["ig", "insta"], ["fb", "fb"]]) {
+      for (const path of [`/${short}`, `/${short}/`, `/${short.toUpperCase()}`, `/${short}?x=1`]) {
+        const r = await handle(new Request(`https://rundata.re${path}`, { headers: { accept: "text/html" } }), new Cache(), () => {}, (h) => hits.push(h));
+        expect(r.status).toBe(302);
+        expect(r.headers.get("location")).toBe(`/?ref=${ref}`);
+      }
+    }
+    expect(hits).toHaveLength(0);
+    expect((await handle(new Request("https://rundata.re/ig/x", { headers: { accept: "text/html" } }), new Cache())).status).toBe(404);
+    const sitemap = await (await handle(new Request("https://rundata.re/sitemap.xml"), new Cache())).text();
+    expect(sitemap).toContain("<loc>https://rundata.re/</loc>");
+    expect(sitemap).not.toMatch(/\/(ig|fb)</i);
+  });
+
   afterEach(() => vi.unstubAllGlobals());
 
   it("shows browsers a page with the connector address", async () => {

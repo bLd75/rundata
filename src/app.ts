@@ -30,6 +30,12 @@ function withCors(r: Response): Response {
 
 const CHECKER = /^rundata-check\//;
 
+/**
+ * Short addresses for the links shared on a channel (Instagram's bio sends no referer): each sends the visitor to the
+ * home page with its « ?ref= », which the page view records (worker.ts). Not pages: in no sitemap.
+ */
+const SHORTCUTS: Record<string, string> = { "/ig": "insta", "/fb": "fb" };
+
 // Crawlers often send « Accept: */* » too: only these get the plain line instead of the page.
 const CLI = /^(curl|wget|httpie|python-requests|python-urllib|go-http-client|node-fetch|undici)/i;
 
@@ -71,6 +77,9 @@ export function failed(path: string, err: unknown): Response {
  */
 export async function handle(request: Request, cache: Cache, background: Background = () => {}, record: Recorder = () => {}): Promise<Response> {
   const url = new URL(request.url);
+  // « /ig », « /ig/ » and « /IG » alike: typed by hand as often as clicked.
+  const shortcut = SHORTCUTS[url.pathname.replace(/(.)\/$/, "$1").toLowerCase()];
+  if (shortcut) return new Response(null, { status: 302, headers: { location: `/?ref=${shortcut}` } });
   // The daily check of the sources (bin/check-sources.ts) is not a visitor: not counted.
   if (CHECKER.test(request.headers.get("user-agent") ?? "")) record = () => {};
   if (url.pathname === "/mcp") {
