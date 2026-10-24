@@ -14,7 +14,7 @@ import { getBytes, getText, postBytes } from "../http.js";
 import { normalize } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
 import type { Agenda, AgendaStore, Evenement, Seance } from "./agenda.js";
-import { lead, monthOf, statusOf } from "./agenda-mots.js";
+import { extrait, monthOf, statusOf } from "./agenda-mots.js";
 import { communesIn } from "./avis-eau.js";
 
 export const SOURCE: SourceInfo = {
@@ -424,7 +424,7 @@ export function parseBisik(html: string): Evenement[] {
       commune: hall(lieu ?? "") ?? hall(desc) ?? communesIn(desc)[0] ?? "Saint-Benoît",
       categories: [...new Set(categories.filter((c) => c !== "Événement"))],
       prix: /Tarif[^€]{0,60}€(?:\s*\/[^€]{0,30}€)?/.exec(desc)?.[0].trim(),
-      description: lead(desc) || undefined,
+      ...extrait(desc),
       billetterie: billets,
       lien: lien ?? "https://bisik.re/agenda/",
     }, "Bisik"));

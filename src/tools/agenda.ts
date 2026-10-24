@@ -5,6 +5,7 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
 import * as src from "../providers/agenda.js";
+import { THEMES, W } from "../providers/agenda-mots.js";
 import { withNews } from "../providers/agenda-presse.js";
 import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
@@ -91,30 +92,6 @@ export function when(s: src.Seance): string {
   return `du ${at(s.debut)} au ${at(end)}`;
 }
 
-/**
- * What `quoi` can ask, and the words of an event that answer it; the same themes are the genres a row is labelled with.
- * Accents matter on the event side: « marche » is a walk. « Spectacles » takes in théâtre, danse, humour and cirque.
- */
-// A word starts where letters do (« conte » is not in « post_content »); `END` closes those whose longer forms mean
-// something else (« pièce », « contemporain »).
-const W = (alts: string) => new RegExp(`(?<![\\p{L}\\p{N}_])(?:${alts})`, "iu");
-const END = "(?![\\p{L}])";
-
-export const THEMES: { nom: string; genre: string; demande: RegExp; texte: RegExp }[] = [
-  { nom: "concerts et musique", genre: "concert", demande: /concert|musique|music|maloya|sega|seggae|kabar|jazz|rock|metal|reggae|rap|hip hop|electro|classique|recital|chanson|zouk/, texte: W(`concerts?${END}|musique|musical|maloya|s[ée]ga${END}|seggae|kabar|jazz|rock${END}|m[ée]tal${END}|reggae|dancehall|dub${END}|rap${END}|hip.hop|[ée]lectro|blues|soul${END}|funk|zouk|chansons?${END}|r[ée]cital|piano|orchestre|symphon|chant(?:eur|euse|s)?${END}|chorale|bal${END}|live${END}|plato zartis|sono mondiale`) },
-  { nom: "théâtre", genre: "théâtre", demande: /theatre|piece|comedie|spectacle/, texte: W(`th[ée][âa]tre|com[ée]die|lecture${END}`) },
-  { nom: "danse", genre: "danse", demande: /danse|ballet|choregraph|battle|spectacle/, texte: W(`danses?${END}|ballet|chor[ée]graph|battle`) },
-  { nom: "humour", genre: "humour", demande: /humour|humoriste|stand ?up|comedy|one man|one woman|rire|spectacle/, texte: W(`humour|humoriste|stand.?up|comedy|one.(?:wo)?man|seul.en.sc[èe]ne`) },
-  { nom: "cirque, contes et magie", genre: "cirque", demande: /cirque|conte|magie|marionnette|spectacle/, texte: W(`cirque|circassien|contes?${END}|conteu(?:r|se)s?${END}|magie|magicien|marionnette|clown`) },
-  { nom: "soirées et clubbing", genre: "soirée", demande: /soiree|club|clubbing|\bdj\b|danser|boite|nightlife|fete ce soir/, texte: W(`clubbing|dj${END}|dj.set|club${END}|kizomba|salsa|bachata|sbk${END}|soir[ée]e (?:dansante|zouk|salsa|kizomba|clubbing|[ée]lectro|dj|sbk|ann[ée]es)|nuit du (?:zouk|s[ée]ga|maloya)|bal poussi[èe]re`) },
-  { nom: "marchés", genre: "marché", demande: /marche|forain|brocante|vide grenier|braderie|foire|producteur/, texte: W(`march[ée]s? (?:de nuit|forain|artisanal|paysan|nocturne|cr[ée]ole|de no[ëe]l)|marchés?${END}|forains?${END}|brocante|vide.grenier|braderie|foire${END}|producteurs`) },
-  { nom: "fêtes et festivals", genre: "festival", demande: /fete|fet\b|festival|kermesse|carnaval|feu d artifice|kabar/, texte: W(`f[êe]tes?${END}|f[èe]t${END}|festival|kermesse|carnaval|feu d.artifice|som[èe]n${END}|semaine cr[ée]ole|zourn[ée]|kabar|temps fort`) },
-  { nom: "cinéma", genre: "cinéma", demande: /cinema|film|projection|cine\b|documentaire/, texte: W(`cin[ée]ma|projections?${END}|films?${END}|documentaire|court.m[ée]trage`) },
-  { nom: "sport", genre: "sport", demande: /sport|course|trail|randonnee|tournoi|match|velo|dragon|rallye/, texte: W(`sports?${END}|sporti(?:f|ve)|courses?${END}|trail${END}|randonn[ée]e|tournoi|match${END}|v[ée]lo|koupe|dragon boat|nage${END}|natation|surf${END}|rallye`) },
-  { nom: "pour les enfants", genre: "enfants", demande: /enfant|marmaille|famille|kids|jeune public|ado/, texte: W(`enfants?${END}|marmailles?${END}|famil|jeune public|escape game|ludique|jeux${END}|frissons|kids${END}`) },
-  { nom: "expositions et visites", genre: "exposition", demande: /expo|musee|patrimoine|visite|galerie/, texte: W(`expo|mus[ée]e|patrimoine|visites?${END}|galerie`) },
-  { nom: "ateliers et rencontres", genre: "atelier", demande: /atelier|conference|forum|salon|formation|permanence|rencontre|reunion publique|concertation/, texte: W(`ateliers?${END}|conf[ée]rences?${END}|forum${END}|salon${END}|formation|permanences?${END}|rencontres?${END}|congr[èe]s|r[ée]unions? publiques?|concertation|enqu[êe]te publique|consultation|stage${END}|webinaire|s[ée]minaire`) },
-];
 // A workshop, a meeting or a talk is not a show, whatever it is about (« Atelier théâtre », « PROJET TRAIN : Atelier »).
 const SHOWS = new Set(["concert", "théâtre", "danse", "humour", "cirque", "soirée"]);
 
@@ -129,17 +106,22 @@ const body = (e: src.Evenement) => `${about(e)} ${e.lieu ?? ""}`.toLowerCase();
 const head = (e: src.Evenement) => `${e.titre} ${e.categories.join(" ")}`.toLowerCase();
 
 const kindsOf = (text: string) => THEMES.filter((t) => t.texte.test(text)).map((t) => t.genre);
+/** The genres of its title, categories and first sentence, and those the rest of its text named (`themes`), in THEMES' order. */
+const aboutKinds = (e: src.Evenement) => {
+  const found = new Set([...kindsOf(about(e)), ...(e.themes ?? [])]);
+  return THEMES.map((t) => t.genre).filter((g) => found.has(g));
+};
 /** Without the shows' genres when the title or the source's category say workshop, meeting or talk. */
 const unlessWorkshop = (e: src.Evenement, list: string[]) => (kindsOf(head(e)).includes("atelier") ? list.filter((g) => !SHOWS.has(g)) : list);
 
 /** The genres of an event, for the page's filter: from its title and categories, else its description. */
 export function genres(e: src.Evenement): string[] {
   const own = kindsOf(head(e));
-  return unlessWorkshop(e, own.length ? own : kindsOf(about(e)).slice(0, 2));
+  return unlessWorkshop(e, own.length ? own : aboutKinds(e).slice(0, 2));
 }
 
 /** Every genre an event may answer to, its description included. */
-const kinds = (e: src.Evenement) => new Set(unlessWorkshop(e, kindsOf(about(e))));
+const kinds = (e: src.Evenement) => new Set(unlessWorkshop(e, aboutKinds(e)));
 
 export function matcher(quoi: string | undefined): { nom?: string; test: (e: src.Evenement) => boolean } | null {
   const q = normalize(quoi ?? "");
