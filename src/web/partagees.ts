@@ -35,13 +35,14 @@ export interface Shared {
 // The cold costs: each build measured alone with `wrangler dev` from an empty cache, plus one, and the traffic's from
 // the event's logs, a little dearer than in `wrangler dev` (24 October 2026). The volcano's: its four sources, each a
 // read, a fetch and a write, plus one. The power cuts': one fetch per mairie and one for Saint-André's PDF letters, plus one.
+// The sea's: three more since ACSPO is read one file a day.
 export const SHARED: Shared[] = [
   { key: "web:actualites", build: buildActualites, every: 30, cold: 12 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 27 },
   { key: "web:electricite", build: buildElectricite, every: 30, cold: 7 },
   { key: "web:coupures", build: buildCoupures, every: 30, cold: 7 },
   { key: "web:air", build: buildAir, every: 60, cold: 4 },
-  { key: "web:mer", build: buildSea, every: 3 * 60, cold: 15 },
+  { key: "web:mer", build: buildSea, every: 3 * 60, cold: 18 },
   { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8 },
   // The PDF of the OVPF's newest release, read here only (providers/ovpf-pdf.ts), once the copy is built and outside its
   // cost: three more, with what is left, when there is a new one or a failed one to ask again.

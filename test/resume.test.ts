@@ -190,7 +190,7 @@ beforeEach(() => {
     if (u.includes("DPVigilance")) return new Response(fixture("vigilance_om.zip"));
     if (u.includes("aviationweather")) return new Response(fixture("metar.json"));
     if (u.endsWith("/live/all")) return new Response(fixture("pioupiou_all.json"));
-    if (u.includes("noaacwLEOACSPO")) return new Response(fixture("acspo.csv"));
+    if (u.includes("/thredds/dodsC/gridLEODYNRTL3SWW00/")) return new Response(fixture("acspo.ascii"));
     if (u.includes("erdMH1sstd1day")) return new Response(fixture("modis.csv"));
     if (u.includes("open-meteo.com/data")) return new Response(fixture("openmeteo_meta.json"));
     if (u.includes("open-meteo")) return new Response(fixture("openmeteo_cilaos.json"));
