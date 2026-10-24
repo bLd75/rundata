@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
-import { WORKER_FREE_LIMIT, count, counted, left } from "../src/budget.js";
+import { WORKER_BUDGET, WORKER_FREE_LIMIT, count, counted, later, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
 import * as mf from "../src/providers/vigilance.js";
@@ -87,6 +87,35 @@ async function serve(cache: Cache, path: string) {
   });
   return { r: value, text: await value.text(), used };
 }
+
+describe("the budget of subrequests", () => {
+  /** As the Worker serves it: the work after the response awaited, its subrequests counted against `budget`. */
+  async function within(cache: Cache, path: string, budget: number) {
+    const { value, settled } = await counted(budget, () => handle(html(path), cache, later));
+    const total = await settled();
+    return { status: value.status, text: await value.text(), ...total };
+  }
+  const PATHS = ["/", "/meteo", "/vigilance", "/mer", "/communes", "/communes/saint-paul", "/communes/petite-ile", `/meteo/${PAGES[0].slug}`, "/evenements", "/trafic", "/actualites", "/sport", "/bus", "/randonnees", "/presse"];
+
+  it("never goes past it, the work after the response included, and every page still answers", async () => {
+    for (const budget of [0, 6, 18]) {
+      const cache = isolate();
+      for (const path of PATHS) {
+        const r = await within(cache, path, budget);
+        expect(r.status, `${path} with ${budget}`).toBeLessThan(500);
+        expect(r.text, `${path} with ${budget}`).toContain("</html>");
+        expect(r.used, `${path} with ${budget}`).toBeLessThanOrEqual(budget);
+      }
+    }
+  });
+
+  it("serves a commune's page cold, with its forecast, within it", async () => {
+    const r = await within(isolate(), "/communes/saint-paul", WORKER_BUDGET);
+    expect(r.status).toBe(200);
+    expect(r.used + r.refused).toBeGreaterThan(0);
+    expect(r.used).toBeLessThanOrEqual(WORKER_BUDGET);
+  });
+});
 
 describe("home page", () => {
   it("renders the live block from the stations, within the Worker's subrequests, and then from cache", async () => {

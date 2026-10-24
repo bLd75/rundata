@@ -4,7 +4,7 @@
  * weather (/meteo/<lieu>), and what crawlers and link previews ask for
  * (robots.txt, sitemap.xml, the og:image, the favicon). Null for any other path.
  */
-import { left } from "../budget.js";
+import { costOf, left, measured } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { why } from "../types.js";
 import {
@@ -90,8 +90,8 @@ const READERS = /ChatGPT-User|OAI-SearchBot|GPTBot|Claude-User|Claude-SearchBot|
 const READER_WAIT_MS = 25_000;
 // The vigilance page waits longer than a banner for Météo-France: it is the page's whole content.
 const VIGILANCE_WAIT_MS = 8000;
-// The subrequests a visit must have left to bring one of its tiles' copies up to date.
-const TILE_MIN_LEFT = 25;
+// The subrequests a tile's build is assumed to take before it has been measured in this isolate (budget.ts).
+const TILE_COST_UNKNOWN = 25;
 
 export const isReader = (request: Request) => READERS.test(request.headers.get("user-agent") ?? "");
 
@@ -153,8 +153,9 @@ async function tileCopies(cache: Cache, keys: string[], background: Background, 
   const copies = await Promise.all(keys.map((k, i) => (i < budget ? cache.peek<any>(k) : Promise.resolve(undefined))));
   const age = (c: Cached<unknown> | null | undefined) => (c ? now.getTime() - c.fetchedAt.getTime() : Infinity);
   const due = keys.map((key, i) => ({ key, age: age(copies[i]) })).sort((a, b) => b.age - a.age)[0];
-  if (own && age(own) < FRESH_SECONDS * 1000 && due.age >= FRESH_SECONDS * 1000 && left() >= TILE_MIN_LEFT) {
-    background(cache.get(due.key, FRESH_SECONDS, () => BUILDS[due.key](cache, now)).catch((err) => console.error(`page ${due.key} : rafraîchissement impossible`, why(err))));
+  // Only when what the tile's build took last time is left: otherwise its page or a later visit brings it up to date.
+  if (own && age(own) < FRESH_SECONDS * 1000 && due.age >= FRESH_SECONDS * 1000 && left() >= (costOf(due.key) ?? TILE_COST_UNKNOWN)) {
+    background(cache.get(due.key, FRESH_SECONDS, () => measured(due.key, () => BUILDS[due.key](cache, now))).catch((err) => console.error(`page ${due.key} : rafraîchissement impossible`, why(err))));
   }
   return copies.map((c) => c ?? null);
 }
