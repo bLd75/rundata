@@ -96,6 +96,9 @@ function rainText(o: Observation): string | undefined {
   return undefined;
 }
 
+// What people ask about the weather; a station bringing only the sky or the pressure is no reason to look further.
+const ASKED = new Set(["temperature", "humidite", "vent_moyen", "rafales", "pluie_6min", "pluie_1h"]);
+
 /** True for a second station at the same spot (an airport is both a Météo-France station and a METAR). */
 function sameSpot(a: Observation, b: Observation): boolean {
   return a !== b && distanceKm(a.station.lon, a.station.lat, b.station.lon, b.station.lat) < 1;
@@ -158,21 +161,23 @@ export async function meteoActuelle(cache: Cache, lieu: string | undefined, now 
     .map(({ o, stale }) => ({ o, stale, f: fit(r.lieu, o.station) }))
     .sort((a, b) => a.f.score - b.f.score);
 
-  // Best station first, then only stations that add a variable the first ones lack (temperature next to a
-  // wind-only beacon), however far: their warnings say how much to trust them.
+  // Best station first. Second, the best one that brings what people ask about and the first lacks (a temperature
+  // next to a wind-only beacon), else simply the next best: on a summit, another summit station, not an airport
+  // that only adds the sky. Last, one more for any variable still missing, however far: its warnings say how much
+  // to trust it, and it is listed but not summed up.
   const chosen: typeof ranked = [];
   const covered = new Set<string>();
-  for (const x of ranked) {
-    const adds = x.o.readings.some((rd) => !covered.has(rd.variable));
-    if (chosen.length === 0 || adds) {
-      chosen.push(x);
-      x.o.readings.forEach((rd) => covered.add(rd.variable));
-    }
-    if (chosen.length >= 3) break;
-  }
+  const take = (x: (typeof ranked)[number] | undefined) => {
+    if (!x) return;
+    chosen.push(x);
+    x.o.readings.forEach((rd) => covered.add(rd.variable));
+  };
+  const elsewhere = (x: (typeof ranked)[number]) => !chosen.includes(x) && !chosen.some((y) => sameSpot(x.o, y.o));
+  take(ranked[0]);
+  take(ranked.find((x) => elsewhere(x) && x.o.readings.some((rd) => ASKED.has(rd.variable) && !covered.has(rd.variable))) ?? ranked.find(elsewhere));
+  take(ranked.find((x) => !chosen.includes(x) && x.o.readings.some((rd) => !covered.has(rd.variable))));
 
-  // The two best stations, so that a wind-only beacon never hides the nearest temperature; not twice the same spot.
-  const shown = chosen.filter((x, i) => !chosen.slice(0, i).some((y) => sameSpot(x.o, y.o))).slice(0, 2);
+  const shown = chosen.slice(0, 2);
   // Named, since the warning often concerns the second station only.
   const warnings = [...new Set(shown.filter((x) => x.f.pertinence !== "bonne" && x.f.avertissements[0])
     .map((x) => `${x.o.station.nom} : ${x.f.avertissements[0].replace(/^La station est/, "station")}`))];

@@ -122,6 +122,14 @@ describe("meteo_actuelle with the Météo-France stations", () => {
     expect(r.couverture).toMatch(/56 stations Météo-France/);
   });
 
+  it("answers for a summit from the highest stations, not from the coast", async () => {
+    const r = body(await meteoActuelle(await mfCache(), "Piton des Neiges", MF_NOW));
+    const [first, second] = r.stations as { station: string; altitude_m: number }[];
+    expect(first.altitude_m).toBeGreaterThan(1500);
+    expect(second.altitude_m).toBeGreaterThan(1500);
+    expect(r.resume).not.toMatch(/Gillot/);
+  });
+
   it("tours the island with a fixed selection, without the airport twice", async () => {
     const r = body(await meteoActuelle(await mfCache(), undefined, MF_NOW));
     expect(r.stations).toHaveLength(10);
