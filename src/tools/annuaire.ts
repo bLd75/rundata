@@ -6,6 +6,7 @@ import * as annuaire from "../providers/annuaire.js";
 import { why } from "../types.js";
 import { carburantsAnswer, FUEL } from "./carburants.js";
 import { credits, de, fr, notFound, text } from "./format.js";
+import { EMERGENCY, PHARMACY, pharmaciesAnswer, urgencesAnswer } from "./sante.js";
 
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 
@@ -56,7 +57,9 @@ export function named(list: annuaire.Office[], quoi: string): annuaire.Office[] 
 }
 
 export async function annuaireTool(cache: Cache, quoi: string, lieu: string | undefined, now = new Date()) {
-  // Practical life, asked the same way: the fuel prices of the month.
+  // Practical life, asked the same way: the pharmacies, the emergencies, the fuel prices of the month.
+  if (PHARMACY.test(quoi)) return pharmaciesAnswer(lieu);
+  if (EMERGENCY.test(quoi)) return urgencesAnswer(lieu);
   if (FUEL.test(quoi)) return carburantsAnswer(cache, now);
   const res = lieu?.trim() ? resolvePlace(lieu) : null;
   if (lieu?.trim() && !res) return notFound(lieu);

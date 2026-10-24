@@ -69,7 +69,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.54.0";
+export const VERSION = "0.55.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -299,16 +299,18 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
   server.registerTool(
     "annuaire_services_publics",
     {
-      title: "Services publics et vie pratique à La Réunion : adresses, horaires, prix des carburants",
+      title: "Services publics et vie pratique à La Réunion : adresses, horaires, carburants, pharmacies",
       description:
         "Adresse, horaires d'ouverture (et si c'est ouvert en ce moment), téléphone et site des services publics de La Réunion (974) : " +
         "mairies et mairies annexes, préfecture et sous-préfectures, CAF, CPAM, France Travail, impôts, tribunaux, France services… " +
         "d'après l'annuaire officiel de service-public.fr. Aussi les prix maximums des carburants et de la bouteille de gaz du mois, " +
-        "fixés par le préfet (quoi = « carburant », « essence », « gazole », « gaz »). Pour : « horaires de la mairie de Saint-Paul ? », " +
+        "fixés par le préfet (quoi = « carburant », « essence », « gazole », « gaz »), les pharmacies et les hôpitaux les plus proches d'après FINESS " +
+        "(quoi = « pharmacie », « urgences », « hôpital ») : la pharmacie de garde n'est connue que de 3237.fr et du 32 37, l'urgence passe par le 15. " +
+        "Pour : « horaires de la mairie de Saint-Paul ? », « pharmacie près de Boucan Canot ? », " +
         "« où est la CAF la plus proche du Tampon ? », « numéro de la sous-préfecture de Saint-Pierre ? », « prix de l'essence ce mois-ci ? ». " +
-        "/ Public offices in Réunion Island (addresses, hours, phones), and this month's maximum fuel prices.",
+        "/ Public offices in Réunion Island (addresses, hours, phones), this month's maximum fuel prices, pharmacies and hospitals.",
       inputSchema: {
-        quoi: z.string().describe("Le service cherché, en quelques mots : « mairie », « CAF », « préfecture », « impôts », « France Travail », « tribunal »…, ou « carburant » pour les prix du mois. / The office sought, or 'carburant' for fuel prices."),
+        quoi: z.string().describe("Le service cherché, en quelques mots : « mairie », « CAF », « préfecture », « impôts », « France Travail », « tribunal »…, ou « carburant » pour les prix du mois, « pharmacie », « urgences ». / The office sought, or 'carburant', 'pharmacie', 'urgences'."),
         lieu,
       },
       annotations: { title: "Services publics à La Réunion", ...READ_ONLY },

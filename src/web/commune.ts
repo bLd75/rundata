@@ -9,6 +9,7 @@ import { localTime } from "../geo.js";
 import { normalize } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import * as mf from "../providers/vigilance.js";
+import * as sante from "../sante/etablissements.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
 import { tidesNear } from "../tools/maree.js";
@@ -167,6 +168,15 @@ function bikes(data: Cached<CommuneData> | null | undefined): { live?: Live; mor
   };
 }
 
+/** The commune's pharmacies, from FINESS; the duty one only from 3237.fr or the 32 37. */
+function pharmacies(p: PlacePage): Live {
+  const n = sante.inCommune(p.nom, ["pharmacie"]).length;
+  return {
+    valeur: n ? `${n} pharmacie${n > 1 ? "s" : ""}` : "Pas de pharmacie",
+    detail: `${n ? "dans la commune" : "recensée dans la commune"} ; de garde la nuit, le dimanche et les jours fériés : 3237.fr ou le 32 37 (payant)`,
+  };
+}
+
 function townHall(data: Cached<CommuneData> | null | undefined, now: Date): Live | undefined {
   const o = data?.value.mairie;
   if (!o) return undefined;
@@ -213,6 +223,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
       question: `La mairie ${de(p.nom)} est ouverte ?`,
       foot: fiche ? `<a href="${esc(fiche)}" rel="noopener">Fiche service-public.fr</a>` : `<a href="/#assistant">Demandez à votre IA →</a>`,
     },
+    { icon: "heart", nom: "Pharmacies", live: pharmacies(p), foot: `<a href="${sante.GARDE.site}" rel="noopener">Pharmacie de garde : 3237.fr</a>` },
     ...(hikes ? [{ icon: "mountain", nom: "Randonnée", href: hikes.href, live: hikes.live, foot: hikes.foot }] : []),
     { icon: "music", nom: "Sorties", href: "/evenements", live: communeEvents(p, l.agenda) },
     { icon: "calendar", nom: "Soleil et calendrier", href: "/calendrier", live: sunTimes(p, l.calendrier, now) },
