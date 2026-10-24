@@ -97,8 +97,9 @@ export function expectedDays(post: volcan.Post): string[] {
   return [...new Set(days)];
 }
 
-// The addresses read or found unreadable in this isolate: KV is not asked again for them.
-const settled = new Set<string>();
+// The addresses this isolate knows the state of, with when to ask again: never for one read or found unreadable,
+// RETRY_MS after a failure. KV is not asked for them until then.
+const settled = new Map<string, number>();
 
 /**
  * Reads the PDF of the newest post that links to one, unless it is read already: for the scheduled refresh of /volcan
@@ -107,12 +108,13 @@ const settled = new Set<string>();
 export async function readNewest(cache: Cache, now = Date.now()): Promise<void> {
   try {
     const post = (await volcan.posts(cache)).value.find((p) => p.pdf);
-    if (!post || settled.has(post.pdf!)) return;
+    if (!post || (settled.get(post.pdf!) ?? 0) > now) return;
     if (left() < COST) return;
     const url = post.pdf!;
     const had = await cache.kept<Lecture>(KEY(url));
-    if (had && (!("echec" in had.value) || now - had.fetchedAt.getTime() < RETRY_MS)) {
-      if (!("echec" in had.value)) settled.add(url);
+    const again = had && ("echec" in had.value ? had.fetchedAt.getTime() + RETRY_MS : Infinity);
+    if (again && again > now) {
+      settled.set(url, again);
       return;
     }
     let lecture: Lecture;
@@ -132,7 +134,7 @@ export async function readNewest(cache: Cache, now = Date.now()): Promise<void> 
     } else if ("ecart" in lecture) console.error(`volcan : PDF de l'OVPF non reconnu (${url}) : ${lecture.ecart}`);
     else console.error(`volcan : PDF de l'OVPF non lu (${url}) : ${lecture.echec}`);
     await cache.keep(KEY(url), lecture);
-    if (!("echec" in lecture)) settled.add(url);
+    settled.set(url, "echec" in lecture ? now + RETRY_MS : Infinity);
   } catch (e) {
     console.error(`volcan : lecture du PDF de l'OVPF abandonnée : ${e instanceof Error ? e.message : String(e)}`);
   }

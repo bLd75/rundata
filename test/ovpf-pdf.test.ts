@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { costOf, counted, measured, unmeasured } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { type Line, pdfLines } from "../src/pdf.js";
 import { expectedDays, type Lecture, readNewest, readRelease, SHOW } from "../src/providers/ovpf-pdf.js";
@@ -135,7 +136,7 @@ describe("the release's PDF of the newest post, read in the scheduled refresh on
     const store = new MemoryStore();
     const durable = new MemoryStore();
     const url = PDF_URL.replace("08h30", "09h30");
-    // Each run with the posts as just read, in a new isolate.
+    // Each run with the posts as just read, in a new Cache; the isolate's memory of the failure stays.
     const run = async (at: number) => {
       await store.put("volcan:ovpf", { value: [post(url)], fetchedAt: at });
       await readNewest(new Cache(store, () => at, true, durable), at);
@@ -156,6 +157,48 @@ describe("the release's PDF of the newest post, read in the scheduled refresh on
     expect(err).toHaveBeenCalledWith(`volcan : PDF de l'OVPF non reconnu (${url}) : pdf : pas un PDF`);
     await run(t + 14 * 3600_000);
     expect(html).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks KV nothing more for a PDF that failed, in the isolate that knows it, until the next try", async () => {
+    const t = Date.parse("2026-04-21T06:00:00Z");
+    const store = new MemoryStore();
+    const durable = new MemoryStore();
+    const reads = (url: string) => get.mock.calls.filter(([k]) => k === `volcan:pdf:${url}`).length;
+    const get = vi.spyOn(durable, "get");
+    const run = async (url: string, at: number) => {
+      await store.put("volcan:ovpf", { value: [post(url)], fetchedAt: at });
+      await readNewest(new Cache(store, () => at, true, durable), at);
+    };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetch = vi.fn(async () => new Response("", { status: 522 }));
+    vi.stubGlobal("fetch", fetch);
+    // Failed here: the second build of /volcan, five minutes later, reads nothing.
+    const failed = PDF_URL.replace("08h30", "10h30");
+    await run(failed, t);
+    expect(reads(failed)).toBe(1);
+    await run(failed, t + 5 * 60_000);
+    expect(reads(failed)).toBe(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    // Failed in another isolate, as KV keeps it: read once, then not again.
+    const elsewhere = PDF_URL.replace("08h30", "11h30");
+    await durable.put(`volcan:pdf:${elsewhere}`, { value: { echec: "ovpf_pdf: HTTP 522" }, fetchedAt: t });
+    await run(elsewhere, t + 60_000);
+    await run(elsewhere, t + 6 * 60_000);
+    expect(reads(elsewhere)).toBe(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("is not part of the cost of the build that reads it", async () => {
+    const t = Date.parse("2026-04-21T06:00:00Z");
+    const url = PDF_URL.replace("08h30", "12h30");
+    const store = new MemoryStore();
+    void store.put("volcan:ovpf", { value: [post(url)], fetchedAt: t });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(bytes())));
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const cache = new Cache(store, () => t, true, new MemoryStore());
+    const { used } = await counted(40, () => measured("test:pdf", () => unmeasured(() => readNewest(cache, t))));
+    expect(used).toBeGreaterThanOrEqual(1);
+    expect(costOf("test:pdf")).toBe(0);
   });
 
   it("is never asked by a question, and leaves the answer as it was", async () => {
