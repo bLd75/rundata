@@ -107,6 +107,14 @@ export const CATEGORIES: Category[] = [
     about: "Les sentiers de randonnée et routes forestières ouverts ou fermés, d'après la carte de l'ONF, avec la cause de chaque fermeture.",
   },
   {
+    key: "sport",
+    nom: "Sport",
+    path: "/sport",
+    icon: "trophy",
+    tools: ["sport"],
+    about: "Les matchs à venir et les derniers résultats du handball et du volley régionaux, les classements, les régates, le golf, les rallyes et le Grand Raid.",
+  },
+  {
     key: "eau",
     nom: "Eau",
     path: "/eau",
