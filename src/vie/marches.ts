@@ -36,3 +36,36 @@ export const inCommune = (commune: string) => MARCHES().filter((m) => m.commune 
 export function nearest(lon: number, lat: number, max = 5) {
   return MARCHES().map((m) => ({ ...m, km: distanceKm(lon, lat, m.lon, m.lat) })).sort((a, b) => a.km - b.km).slice(0, max);
 }
+
+const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+/** « 06:00 » → « 6 h », « 18:30 » → « 18 h 30 ». */
+const hour = (t: string) => {
+  const [h, m] = t.split(":");
+  return `${Number(h)} h${m && m !== "00" ? ` ${m}` : ""}`;
+};
+
+/**
+ * The hours of a market on the day of `now` at La Réunion, from its OpenStreetMap rules (« Fr 08:00-18:00;Sa
+ * 08:00-12:00 », « Mo-Sa 07:00-17:00 »): « de 8 h à 18 h », or undefined when it is not held that day or its days are
+ * not given in that form.
+ */
+export function hoursOn(m: Marche, now: Date): string | undefined {
+  const today = new Date(now.getTime() + 4 * 3600_000).getUTCDay();
+  for (const rule of (m.horaires_osm ?? "").split(";")) {
+    const r = /^\s*([A-Za-z,-]+)\s+([\d:,\s-]+)$/.exec(rule);
+    if (!r) continue;
+    const held = r[1].split(",").some((d) => {
+      const [from, to = from] = d.split("-").map((x) => DAYS.indexOf(x));
+      return from >= 0 && to >= 0 && (from <= to ? from <= today && today <= to : today >= from || today <= to);
+    });
+    if (held) return r[2].split(",").map((span) => span.trim().split("-").map(hour)).map(([de, a]) => `de ${de} à ${a}`).join(" et ");
+  }
+  return undefined;
+}
+
+/** The commune's markets held on the day of `now`, with their hours that day. */
+export const heldOn = (commune: string, now: Date) =>
+  inCommune(commune).flatMap((m) => {
+    const h = hoursOn(m, now);
+    return h ? [{ ...m, horaires_aujourd_hui: h }] : [];
+  });

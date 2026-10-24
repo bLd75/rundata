@@ -42,7 +42,19 @@ const COPIES = {
     ],
     en_direct: [], prefecture: [], chaud: true, indisponible: [], couverture: "", a_savoir: "", sources: SOURCE("Médias"),
   }),
-  trafic: copy({ bus: null, routes_forestieres: null, medias: [{ titre: "Bouchons sur la route des Tamarins", lien: "https://example.org/t", source: "Clicanoo" }], sources: SOURCE("Région") }),
+  trafic: copy({
+    bus: null, routes_forestieres: null, medias: [{ titre: "Bouchons sur la route des Tamarins", lien: "https://example.org/t", source: "Clicanoo" }], sources: SOURCE("Région"),
+    carburants: { depuis: "2026-10-01", titre: "", lien: "https://example.org/prix", lu: "", produits: [{ produit: "Supercarburant", unite: "litre", prix_eur: 2, precedent_eur: 1.83 }, { produit: "Gazole", unite: "litre", prix_eur: 1.8, precedent_eur: 1.8 }] },
+  }),
+  dechets: copy({
+    sources: SOURCE("TCO"),
+    etats: [
+      // Filled in at 13:00, and at 06:30: more than 6 h ago, not the state now.
+      { lien: "https://www.tco.re/annuaire-tco/centre-de-proprete-de-plateau-caillou", maj: "2026-10-24T13:00:00+04:00", accepte: { dechets_verts: true, encombrants: false } },
+      { lien: "https://www.tco.re/annuaire-tco/centre-de-proprete-du-guillaume-a-saint-paul", maj: "2026-10-24T11:00:00+04:00", accepte: { dechets_verts: false, encombrants: true } },
+      { lien: "https://www.tco.re/annuaire-tco/centre-de-proprete-de-letang-saint-paul", maj: "2026-10-24T06:30:00+04:00", accepte: { dechets_verts: true } },
+    ],
+  }),
   coupures: copy({ resume: "", avis: [{ titre: "Coupure rue de la Gare", communes: ["Saint-Paul"], distributeur: "runéo", lien: "https://example.org/c", secteurs: ["Centre-ville"] }, { titre: "Coupure à Saint-Denis", communes: ["Saint-Denis"], distributeur: "Dionéo", lien: "https://example.org/d" }], couverture: "", a_savoir: "", sources: SOURCE("runéo"), communes_suivies: [] }),
   agenda: copy({
     resume: "", nombre: 3, couverture: "", a_savoir: "", sources: SOURCE("Agendas"), ce_week_end: [],
@@ -89,6 +101,21 @@ describe("the summary of a day", () => {
     expect(r.soleil.lever).toMatch(/^0[5-6]:\d\d$/);
     expect(r.resume).toMatch(/^Saint-Paul, samedi 24 octobre ; 27,4 °C mesurés à 13:54 \(station Saint-Paul\) ; prévision du jour 21 °C à 29 °C, ensoleillé ;/);
     expect(r.resume).toContain("2 événements aujourd'hui");
+    // Saturday: the forain of Saint-Paul, from its OpenStreetMap days; the duty pharmacy never guessed.
+    expect(r.marches_du_jour!.liste).toEqual([expect.objectContaining({ nom: "Marché forain de Saint-Paul", horaires_aujourd_hui: "de 8 h à 12 h" })]);
+    expect(r.resume).toContain("marché aujourd'hui : Marché forain de Saint-Paul de 8 h à 12 h");
+    expect(r.resume).toMatch(/pharmacie de garde : 3237\.fr\.$/);
+    expect(r.pharmacie_de_garde).toMatchObject({ site: "https://www.3237.fr/", a_savoir: expect.stringMatching(/ne sait pas quelle pharmacie est de garde/) });
+    // The skips: only the sites filled in less than 6 h ago say what they take.
+    const sites = Object.fromEntries(r.decheteries!.sites.map((x) => [x.nom, x]));
+    expect(sites["Déchèterie de Plateau Caillou"]).toMatchObject({ etat: "à jour", accepte: ["déchets verts"], benne_pleine: ["encombrants"] });
+    expect(sites["Déchèterie de l'Étang"]).toEqual({ nom: "Déchèterie de l'Étang", mis_a_jour: "24/10 06:30", etat: "dernière mise à jour à 24/10 06:30, à vérifier sur place" });
+    expect(sites["Déchèterie de Carrosse-Roquefeuil"].etat).toBe("pas de mise à jour");
+    expect(r.decheteries!.page).toBe("https://rundata.re/decheteries#saint-paul");
+    expect(r.resume).toContain("déchets verts acceptés dans 1 déchèterie sur 2");
+    // The month's maximum prices, the same everywhere.
+    expect(r.resume).toContain("carburants (prix maximum) : sans plomb 2,00 €/L, gazole 1,80 €/L ;");
+    expect(r.carburants).toMatchObject({ depuis: "2026-10-01", prix_maximum: "sans plomb 2,00 €/L, gazole 1,80 €/L", prix_maximums: ["supercarburant 2,00 €/litre (+0,17 €)", "gazole 1,80 €/litre (stable)"] });
     // Each source once; the tap water is not a day's news (qualite_eau).
     expect(new Set(r.sources.map((s) => s.source)).size).toBe(r.sources.length);
     expect(JSON.stringify(r)).not.toMatch(/conforme/);
@@ -105,6 +132,19 @@ describe("the summary of a day", () => {
     const r2 = resume(SAINT_PAUL, withSea as never, NOW, [{ partie: "température de la mer", raison: "pas de copie récente", outil: "temperature_mer", page: "https://rundata.re/mer" }]);
     expect(r2.mer?.temperature_eau).toBe("24,7 °C");
     expect(r2.non_inclus).toBeUndefined();
+  });
+
+  it("says neither last month's fuel prices, nor a market on its day off, nor skips outside the TCO", () => {
+    const old = copy({ ...COPIES.trafic.value, carburants: { ...COPIES.trafic.value.carburants, depuis: "2026-09-01" } });
+    const sunday = new Date("2026-10-25T04:00:00Z");
+    const r = resume(SAINT_PAUL, { trafic: old, dechets: COPIES.dechets } as never, sunday);
+    expect(r.carburants).toBeUndefined();
+    expect(r.marches_du_jour).toBeUndefined();
+    // A day later, every site's state is of another day.
+    expect(r.decheteries!.sites.every((x) => x.accepte === undefined && x.benne_pleine === undefined)).toBe(true);
+    expect(r.resume).not.toMatch(/déchets verts acceptés/);
+    const tampon = pageOf("le-tampon")!;
+    expect(resume(tampon, COPIES as never, NOW).decheteries).toBeUndefined();
   });
 
   it("in the evening, gives tomorrow's forecast too", () => {
@@ -127,7 +167,7 @@ class EdgeLike extends MemoryStore {
 
 const KEYS: Record<string, string> = {
   meteo: "web:lieu:saint-paul", commune: "web:commune:saint-paul", air: "web:air", mer: "web:mer", electricite: "web:electricite", actualites: "web:actualites",
-  trafic: "web:trafic", coupures: "web:coupures", agenda: "web:agenda", calendrier: "web:calendrier",
+  trafic: "web:trafic", coupures: "web:coupures", agenda: "web:agenda", calendrier: "web:calendrier", dechets: "web:dechets",
 };
 
 /** An edge holding the copies, `old` of them read hours ago, `missing` never built. */
