@@ -7,7 +7,7 @@
  * seconds at most, and is otherwise sent without its live block while the build goes on.
  */
 import { left } from "../budget.js";
-import { localTime } from "../geo.js";
+import { distanceKm, localTime } from "../geo.js";
 import type { Cache, Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
 import * as annuaire from "../providers/annuaire.js";
@@ -35,7 +35,7 @@ import * as eauPotableSource from "../providers/eaupotable.js";
 import { COMMON as EAU_COMMON } from "../tools/eau.js";
 import { credits } from "../tools/format.js";
 import * as onf from "../providers/sentiers.js";
-import { sentiersRandonnee } from "../tools/sentiers.js";
+import { routeRow, sentiersRandonnee } from "../tools/sentiers.js";
 import { restrictionsEau } from "../tools/secheresse.js";
 import * as daeSource from "../providers/dae.js";
 import { access as daeAccess, byCommune as daeByCommune, daeRow, URGENCE as DAE_URGENCE } from "../tools/dae.js";
@@ -48,6 +48,7 @@ import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
 import { historiqueMeteo } from "../tools/historique.js";
 import { agenda, type EventRow } from "../tools/agenda.js";
 import { type Observation, why } from "../types.js";
+import * as traces from "../providers/traces.js";
 import { coastal, type PlacePage } from "./places.js";
 
 export const FRESH_SECONDS = 5 * 60; // the stations publish every 6 minutes
@@ -346,7 +347,7 @@ export async function buildEau(cache: Cache, now = new Date()): Promise<EauAnswe
 
 export interface SentiersAnswer {
   resume: string;
-  fermes_par_commune: { commune: string; sentiers_fermes: { sentier: string; cause?: string; precision?: string; longueur_km?: number }[] }[];
+  fermes_par_commune: { commune: string; sentiers_fermes: { sentier: string; cause?: string; precision?: string; longueur_km?: number; page?: string }[] }[];
   routes_forestieres_fermees: { route: string; circulation: string; cause?: string; precision?: string }[];
   carte_mise_a_jour?: string;
   a_savoir: string[];
@@ -355,11 +356,13 @@ export interface SentiersAnswer {
   points: { nom: string; lon: number; lat: number }[];
   /** How many trails the ONF follows, open or not. */
   suivis: number;
+  /** The hikes with a GPS trace, from the bundle. */
+  randonnees: { nom: string; slug: string; km: number; dplus: number; boucle: boolean }[];
 }
 
 /** The tool's overview of the island, plus where each closed trail is. */
 export async function buildSentiers(cache: Cache, now = new Date()): Promise<SentiersAnswer> {
-  const a = needed<Omit<SentiersAnswer, "points" | "suivis">>(await sentiersRandonnee(cache, undefined, now), "sentiers");
+  const a = needed<Omit<SentiersAnswer, "points" | "suivis" | "randonnees">>(await sentiersRandonnee(cache, undefined, now), "sentiers");
   const carte = (await onf.carte(cache)).value;
   const points = carte.sentiers
     .filter((t) => t.statut === "fermé" && t.points.length)
@@ -367,7 +370,150 @@ export async function buildSentiers(cache: Cache, now = new Date()): Promise<Sen
       const [lon, lat] = t.points[Math.floor(t.points.length / 2)];
       return { nom: t.nom, lon, lat };
     });
-  return { ...a, points, suivis: carte.sentiers.length };
+  const randonnees = [...traces.RANDONNEES]
+    .sort((x, y) => x.nom.localeCompare(y.nom, "fr"))
+    .map((r) => ({ nom: r.nom, slug: r.slug, km: r.km, dplus: r.dplus, boucle: r.boucle }));
+  return { ...a, points, suivis: carte.sentiers.length, randonnees };
+}
+
+// ---------------------------------------------------------------- a trail's or a hike's page
+
+const PROFILE_MAX = 400;
+
+/** The altitude every so often along the pieces, end to end, for the profile: a few hundred points at most. */
+export function profileOf(pieces: traces.Point[][]): { km: number; ele: number }[] {
+  const out: { km: number; ele: number }[] = [];
+  let km = 0;
+  for (const p of pieces) {
+    for (let i = 0; i < p.length; i++) {
+      if (i) km += distanceKm(p[i - 1].lon, p[i - 1].lat, p[i].lon, p[i].lat);
+      if (p[i].ele != null) out.push({ km: Math.round(km * 1000) / 1000, ele: p[i].ele! });
+    }
+  }
+  const every = Math.ceil(out.length / PROFILE_MAX);
+  return out.filter((_, i) => i % every === 0 || i === out.length - 1);
+}
+
+const ETAT_CLASS: Record<string, string> = { ouvert: "ouvert", fermé: "ferme" };
+const lineOf = (points: traces.Point[], etat: string) => ({ etat: ETAT_CLASS[etat] ?? "inconnu", points: points.map((x) => [x.lon, x.lat] as [number, number]) });
+
+export interface TraceAnswer {
+  nom: string;
+  slug: string;
+  /** « sentier » for an ONF trail, « randonnee » for a hike of OpenStreetMap. */
+  genre: "sentier" | "randonnee";
+  km: number;
+  dplus?: number;
+  dmoins?: number;
+  alt_min?: number;
+  alt_max?: number;
+  boucle?: boolean;
+  /** The state, in a sentence. */
+  etat: string;
+  ferme: boolean;
+  troncons: { sentier?: string; etat: string; cause?: string; precision?: string; page?: string }[];
+  lignes: ReturnType<typeof lineOf>[];
+  profil: { km: number; ele: number }[];
+  /** The other trace: the hikes an ONF trail is part of, or nothing. */
+  randonnees: { nom: string; slug: string }[];
+  sources: Credit[];
+}
+
+/** An ONF trail: its line and state read from the ONF, its altitudes from the IGN. */
+export async function buildTrail(cache: Cache, t: { nom: string } & traces.SentierStats): Promise<TraceAnswer> {
+  const tr = (await traces.traceOnf(cache, t)).value;
+  const pieces = tr.troncons.map((x) => x.points);
+  const m = traces.measure(pieces);
+  const shut = tr.troncons.filter((x) => x.statut === "fermé");
+  const open = tr.troncons.some((x) => x.statut === "ouvert");
+  const states = [...new Map(tr.troncons.map((x) => [`${x.statut}|${x.cause ?? ""}`, { etat: x.statut, cause: x.cause, precision: x.info }])).values()];
+  return {
+    nom: t.nom,
+    slug: t.slug,
+    genre: "sentier",
+    km: t.km || m.km,
+    dplus: t.dplus ?? m.dplus,
+    dmoins: t.dmoins ?? m.dmoins,
+    alt_min: t.alt_min ?? m.alt_min,
+    alt_max: t.alt_max ?? m.alt_max,
+    etat: shut.length
+      ? `Fermé${shut[0].cause ? ` : ${shut[0].cause}` : ""}${shut[0].info ? ` (${shut[0].info})` : ""}${open ? ", en partie" : ""}`
+      : open ? "Ouvert d'après l'ONF" : "Hors gestion ONF : état non connu",
+    ferme: shut.length > 0,
+    troncons: states,
+    lignes: tr.troncons.map((x) => lineOf(x.points, x.statut)),
+    profil: profileOf(pieces),
+    randonnees: traces.RANDONNEES.filter((r) => r.sentiers_onf.includes(t.nom)).map((r) => ({ nom: r.nom, slug: r.slug })),
+    sources: credits([onf.SOURCE, traces.SOURCES.ign]),
+  };
+}
+
+/** A hike of OpenStreetMap, from the bundle; the state of the ONF trails it follows, live. */
+export async function buildRoute(cache: Cache, r: traces.Randonnee): Promise<TraceAnswer> {
+  const carte = await onf.carte(cache).then((c) => c.value).catch(() => null);
+  const row = carte ? routeRow(r, carte) : null;
+  const pieces = traces.routePieces(r);
+  const slugOf = (nom: string) => traces.SENTIERS[nom]?.slug;
+  return {
+    nom: r.nom,
+    slug: r.slug,
+    genre: "randonnee",
+    km: r.km,
+    dplus: r.dplus,
+    dmoins: r.dmoins,
+    alt_min: r.alt_min,
+    alt_max: r.alt_max,
+    boucle: r.boucle,
+    etat: row ? row.etat.charAt(0).toUpperCase() + row.etat.slice(1) : "État des sentiers de l'ONF indisponible pour le moment",
+    ferme: !!row?.troncons_onf?.some((x) => x.etat === "fermé"),
+    troncons: (row?.troncons_onf ?? r.sentiers_onf.map((sentier) => ({ sentier, etat: "inconnu" as const }))).map((x) => ({ ...x, page: slugOf(x.sentier) && `/sentiers/${slugOf(x.sentier)}` })),
+    // A hike is one colour: its pieces' states are in the list below, by ONF trail.
+    lignes: pieces.map((p) => ({ etat: "", points: p.map((x) => [x.lon, x.lat] as [number, number]) })),
+    profil: profileOf(pieces),
+    randonnees: [],
+    sources: credits([traces.SOURCES.osm, onf.SOURCE, traces.SOURCES.ign]),
+  };
+}
+
+const stamp = (now: Date) => {
+  const l = new Date(now.getTime() + 4 * 3600_000).toISOString();
+  return `${l.slice(8, 10)}/${l.slice(5, 7)}/${l.slice(0, 4)} à ${l.slice(11, 16)}`;
+};
+const figures = (x: { km: number; dplus?: number; dmoins?: number }) =>
+  `${String(x.km).replace(".", ",")} km${x.dplus != null ? `, dénivelé +${x.dplus} m / -${x.dmoins ?? 0} m` : ""}`;
+
+/** An ONF trail's GPX: its state when downloaded in the description, the ONF as author. */
+export async function trailGpx(cache: Cache, origin: string, t: { nom: string } & traces.SentierStats, now = new Date()): Promise<string> {
+  const tr = (await traces.traceOnf(cache, t)).value;
+  const shut = tr.troncons.filter((x) => x.statut === "fermé");
+  const etat = shut.length
+    ? `FERMÉ${shut[0].cause ? ` (${shut[0].cause})` : ""}${shut[0].info ? `, ${shut[0].info}` : ""}`
+    : tr.troncons.some((x) => x.statut === "ouvert") ? "ouvert" : "hors gestion ONF, état non connu";
+  return traces.gpx({
+    nom: t.nom,
+    description: `${t.nom}, sentier de l'ONF à La Réunion : ${figures(t)}. État d'après la carte de l'ONF le ${stamp(now)} : ${etat}. ` +
+      "Trace : ONF La Réunion. Altitudes : IGN, RGE ALTI (Licence Ouverte). Un sentier fermé est interdit ; vérifier son état et la vigilance météo avant de partir.",
+    page: `${origin}/sentiers/${t.slug}`,
+    auteur: "ONF La Réunion",
+    pieces: tr.troncons.map((x) => x.points),
+    now,
+  });
+}
+
+/** A hike's GPX, from the bundle: OpenStreetMap as author (ODbL), the ONF trails' state when downloaded. */
+export async function routeGpx(cache: Cache, origin: string, r: traces.Randonnee, now = new Date()): Promise<string> {
+  const carte = await onf.carte(cache).then((c) => c.value).catch(() => null);
+  const etat = carte ? routeRow(r, carte).etat : "état des sentiers de l'ONF indisponible au téléchargement";
+  return traces.gpx({
+    nom: r.nom,
+    description: `${r.nom}, itinéraire de randonnée à La Réunion : ${figures(r)}${r.boucle ? ", en boucle" : ""}. Sentiers de l'ONF le ${stamp(now)} : ${etat}. ` +
+      "Itinéraire © les contributeurs d'OpenStreetMap (ODbL). Altitudes : IGN, RGE ALTI (Licence Ouverte). Un sentier fermé est interdit ; vérifier son état et la vigilance météo avant de partir.",
+    page: `${origin}/randonnees/${r.slug}`,
+    auteur: "© les contributeurs d'OpenStreetMap",
+    licence: "https://opendatacommons.org/licenses/odbl/1-0/",
+    pieces: traces.routePieces(r),
+    now,
+  });
 }
 
 export interface SecheresseAnswer {

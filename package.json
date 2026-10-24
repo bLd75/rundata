@@ -1,6 +1,6 @@
 {
   "name": "reunion-temps-reel",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "Serveur MCP : mesures en temps réel à La Réunion (météo, mer) pour les assistants IA",
   "mcpName": "re.rundata/temps-reel",
   "type": "module",

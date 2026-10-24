@@ -114,6 +114,76 @@ export function islandMap(opts: {
     extra + (opts.markers ?? []).map(marker).join("") + `</svg>`;
 }
 
+// ---------------------------------------------------------------- a trail, close up
+
+/** Unrounded, for a line drawn a few kilometres wide. */
+const exact = (lon: number, lat: number) => [((lon - LON0) / (LON1 - LON0)) * W, ((LAT1 - lat) / (LAT1 - LAT0)) * H].map((v) => Math.round(v * 100) / 100);
+
+export interface TraceLine {
+  points: [number, number][];
+  /** « ouvert », « ferme », « inconnu »: its colour. */
+  etat: string;
+}
+
+/**
+ * The island cropped around a trail: the relief and the coast as on the island's map, the trail drawn over it coloured
+ * by its state, its start marked. The crop keeps the map's proportions and at least `minKm` across.
+ */
+export function traceMap(opts: { lines: TraceLine[]; label: string; minKm?: number }): string {
+  const pts = opts.lines.flatMap((l) => l.points.map(([lon, lat]) => exact(lon, lat)));
+  if (!pts.length) return "";
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const unitKm = ((LON1 - LON0) * 111.32 * Math.cos((((LAT0 + LAT1) / 2) * Math.PI) / 180)) / W;
+  const min = (opts.minKm ?? 3) / unitKm;
+  let w = Math.max(Math.max(...xs) - Math.min(...xs), min) * 1.25;
+  let h = Math.max(Math.max(...ys) - Math.min(...ys), min) * 1.25;
+  // The figure is 4:3, like the island's.
+  if (w / h < 4 / 3) w = (h * 4) / 3;
+  else h = (w * 3) / 4;
+  const x0 = (Math.min(...xs) + Math.max(...xs)) / 2 - w / 2;
+  const y0 = (Math.min(...ys) + Math.max(...ys)) / 2 - h / 2;
+  const r = w / 90;
+  const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
+  const d = (l: TraceLine) => l.points.map(([lon, lat], i) => `${i ? "L" : "M"}${exact(lon, lat).join(" ")}`).join("");
+  const [sx, sy] = exact(...opts.lines[0].points[0]);
+  const box = [x0, y0, w, h].map((v) => Math.round(v * 100) / 100).join(" ");
+  return `<svg class="map terrain zoom" viewBox="${box}" role="img" aria-label="${esc(opts.label)}">` +
+    `<defs><g id="isl">${paths}</g><clipPath id="isl-clip">${paths}</clipPath></defs>` +
+    `<rect class="sea" x="${x0 - w}" y="${y0 - h}" width="${w * 3}" height="${h * 3}"/>` +
+    `<use href="#isl" class="coast"/><use href="#isl" class="land"/>` +
+    `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
+    opts.lines.map((l) => `<path class="trk-halo" d="${d(l)}"/><path class="trk ${esc(l.etat)}" d="${d(l)}"/>`).join("") +
+    `<circle class="trk-start" cx="${sx}" cy="${sy}" r="${Math.round(r * 100) / 100}"/></svg>`;
+}
+
+/** The altitude along the trail: an area, the axes in km and m. */
+export function profile(points: { km: number; ele: number }[], label: string): string {
+  if (points.length < 2) return "";
+  const PW = 640;
+  const PH = 200;
+  const pad = { l: 46, r: 12, t: 24, b: 26 };
+  const km = points[points.length - 1].km || 1;
+  const lo = Math.min(...points.map((p) => p.ele));
+  const hi = Math.max(...points.map((p) => p.ele));
+  const step = [50, 100, 200, 250, 500, 1000].find((s) => (hi - lo) / s <= 5) ?? 1000;
+  const zLo = Math.floor(lo / step) * step;
+  const zHi = Math.max(Math.ceil(hi / step) * step, zLo + step);
+  const x = (k: number) => pad.l + (k / km) * (PW - pad.l - pad.r);
+  const y = (z: number) => pad.t + (1 - (z - zLo) / (zHi - zLo)) * (PH - pad.t - pad.b);
+  const f = (n: number) => Math.round(n * 10) / 10;
+  const line = points.map((p, i) => `${i ? "L" : "M"}${f(x(p.km))} ${f(y(p.ele))}`).join("");
+  const area = `${line}L${f(x(km))} ${PH - pad.b}L${pad.l} ${PH - pad.b}Z`;
+  const kmStep = [0.5, 1, 2, 5, 10, 20, 50].find((s) => km / s <= 8) ?? 50;
+  const ticksY = Array.from({ length: Math.round((zHi - zLo) / step) + 1 }, (_, i) => zLo + i * step);
+  const ticksX = Array.from({ length: Math.floor(km / kmStep) + 1 }, (_, i) => i * kmStep);
+  return `<svg class="profile" viewBox="0 0 ${PW} ${PH}" role="img" aria-label="${esc(label)}">` +
+    ticksY.map((z) => `<line class="grid" x1="${pad.l}" x2="${PW - pad.r}" y1="${f(y(z))}" y2="${f(y(z))}"/><text class="ax" x="${pad.l - 6}" y="${f(y(z)) + 4}" text-anchor="end">${z}</text>`).join("") +
+    ticksX.map((k) => `<text class="ax" x="${f(x(k))}" y="${PH - 8}" text-anchor="middle">${String(k).replace(".", ",")}</text>`).join("") +
+    `<path class="fill" d="${area}"/><path class="line" d="${line}"/>` +
+    `<text class="ax" x="${PW - pad.r}" y="${PH - 8}" text-anchor="end">km</text><text class="ax" x="${pad.l - 6}" y="12" text-anchor="end">m</text></svg>`;
+}
+
 // ---------------------------------------------------------------- the ocean around, for the cyclones
 
 /** Small islands drawn as dots: too small for the coastline at this scale. */

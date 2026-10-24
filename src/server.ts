@@ -56,8 +56,9 @@ import * as climat from "./providers/climat.js";
 import { historiqueMeteo } from "./tools/historique.js";
 import * as agendaSources from "./providers/agenda.js";
 import { agenda } from "./tools/agenda.js";
+import * as traceSources from "./providers/traces.js";
 
-export const VERSION = "0.16.0";
+export const VERSION = "0.17.0";
 
 const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures, historique des mesures et prévisions, toujours séparés), pluie radar, mer, marée, crues des rivières, vigilance, cyclones, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, sentiers de randonnée fermés, sport (matchs, régates, rallyes, Grand Raid), agenda des sorties (fêtes, concerts, marchés, festivals), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
@@ -78,7 +79,7 @@ Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La 
 - Sécheresse (« restrictions d'eau à Saint-Joseph ? », « j'ai le droit d'arroser ? », « je peux remplir ma piscine ? ») : restrictions_eau renvoie le niveau de l'arrêté préfectoral et ce qui est interdit.
 - Coupures d'eau (« coupure d'eau à Saint-Denis ? », « l'eau est revenue ? », « on peut boire l'eau à la Plaine-des-Palmistes ? ») : coupures_eau renvoie les avis des distributeurs. Un avis « ne pas boire l'eau » se dit en premier.
 - Urgence cardiaque (« où est le défibrillateur le plus proche ? ») : defibrillateurs ; dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque.
-- Randonnée (« le sentier de la Roche Pendue est ouvert ? », « sentiers fermés à Mafate ? », « on peut monter au Piton des Neiges ? ») : sentiers_randonnee renvoie l'état des sentiers d'après la carte de l'ONF. Relayer la cause d'une fermeture ; un sentier fermé est interdit.
+- Randonnée (« le sentier de la Roche Pendue est ouvert ? », « sentiers fermés à Mafate ? », « on peut monter au Piton des Neiges ? ») : sentiers_randonnee renvoie l'état des sentiers d'après la carte de l'ONF. Relayer la cause d'une fermeture ; un sentier fermé est interdit. Pour une trace GPS (« la trace du Piton des Neiges », « GPX du GR R2 ») : donner le lien trace_gpx, la longueur et le dénivelé, et dire si un tronçon de l'itinéraire est fermé.
 - Sport (« quels matchs ce week-end ? », « résultats du handball ? », « prochaine régate ? », « classement du Grand Raid ? ») : sport renvoie le calendrier et les résultats officiels (handball, volley, voile, golf, sport automobile, Grand Raid) et l'actualité sportive de Réunion La 1ère. Le football n'a pas de source ouverte : le dire, et citer les articles.
 - Sorties (« que faire ce week-end à Saint-Paul ? », « un concert ce soir ? », « marché forain demain ? », « c'est quand la fête de l'ail ? ») : agenda renvoie les événements publiés par les mairies, l'intercommunalité du Nord et reunion.fr, avec la date, l'heure, le lieu, le prix quand il est donné et le lien. Donner le lien de chaque événement cité ; l'agenda n'est pas complet (beaucoup de communes ne publient rien de lisible) : le dire quand rien n'est trouvé.
 - Terrain à une adresse (« constructible ? », « zone du PLU ? », « prix au m² ? », « zone inondable ? », « risques à cette adresse ? ») : fiche_terrain.
@@ -449,18 +450,21 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
   server.registerTool(
     "sentiers_randonnee",
     {
-      title: "Sentiers de randonnée ouverts ou fermés à La Réunion",
+      title: "Sentiers de randonnée à La Réunion : ouverts ou fermés, traces GPS",
       description:
         "Sentiers de randonnée et routes forestières de La Réunion (974) ouverts ou fermés, d'après la carte de l'ONF tenue à jour avec les arrêtés " +
         "préfectoraux : cause de la fermeture (éboulement, sentier dégradé, travaux, coulée), date de réouverture prévue. Par nom de sentier, " +
         "autour d'un lieu (Maïdo, Piton des Neiges, Bélouve, Roche Plate…), dans un cirque (Mafate, Cilaos, Salazie) ou une commune ; sans lieu, " +
-        "tous les sentiers fermés de l'île. Pour : « sentiers fermés à Mafate ? », « le sentier de la Roche Pendue est ouvert ? », " +
-        "« on peut randonner à Bélouve ? ». / Open and closed hiking trails and forest roads in Réunion Island (ONF).",
+        "tous les sentiers fermés de l'île. Chaque sentier et chaque randonnée a sa trace GPS (lien GPX), sa longueur et son dénivelé " +
+        "(altitudes de l'IGN) ; les itinéraires complets d'OpenStreetMap (GR R1, R2, R3, Piton des Neiges, Roche Écrite, Dolomieu…) sont " +
+        "donnés avec l'état des sentiers de l'ONF qu'ils empruntent. Pour : « sentiers fermés à Mafate ? », « le sentier de la Roche Pendue est ouvert ? », " +
+        "« on peut randonner à Bélouve ? », « la trace GPS du Piton des Neiges ? », « dénivelé du GR R2 ? ». " +
+        "/ Open and closed hiking trails and forest roads in Réunion Island (ONF), with GPX traces, length and elevation gain.",
       inputSchema: {
         lieu: z
           .string()
           .optional()
-          .describe("Un sentier (« sentier de la Roche Pendue »), un lieu (« Maïdo »), un cirque (« Mafate ») ou une commune ; vide = toute l'île. / A trail, place, cirque or town; empty = whole island."),
+          .describe("Un sentier ou une randonnée (« sentier de la Roche Pendue », « Piton des Neiges », « GR R2 »), un lieu (« Maïdo »), un cirque (« Mafate ») ou une commune ; vide = toute l'île. / A trail or hike, place, cirque or town; empty = whole island."),
       },
       annotations: { title: "Sentiers de randonnée", ...READ_ONLY },
     },
@@ -634,7 +638,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
     },
     track("sources_donnees", async () =>
       text({
-        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...Object.values(agendaSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
+        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...Object.values(agendaSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage() },
         version: VERSION,
