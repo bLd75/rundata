@@ -28,6 +28,7 @@ import rubriques from "./og-rubriques.json" with { type: "json" };
 import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
 import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
+import { T as FERRY } from "../tools/ferries.js";
 import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
@@ -537,7 +538,8 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
   ${d ? `<p class="note">Sources : ${credits(d.sources)}.</p>` : ""}
 </section>
 ${d?.alertes?.length ? `<section aria-labelledby="h-trafic"><h2 id="h-trafic">Info trafic</h2><div class="card">${alertList(d.alertes)}<p class="note">Publié par les réseaux dans leur flux temps réel, repris tel quel.</p></div></section>` : ""}
-${connectorCta("transports", "les bus de l'île")}`;
+${connectorCta("transports", "les bus de l'île")}
+<section aria-labelledby="h-bateau"><h3 id="h-bateau">${esc(FERRY.h3)}</h3><p>${esc(FERRY.page)}</p><p class="note">${esc(FERRY.verifie)}</p></section>`;
 
   return layout(origin, { title, description, path: "/bus", jsonld: [crumbs(origin, "Bus", "/bus"), webPage(origin, "/bus", title, description, data)], alerte }, band, body);
 }
