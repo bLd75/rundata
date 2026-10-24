@@ -66,6 +66,7 @@ import icons from "./icons.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import { NOUVEAUTES } from "../nouveautes.js";
 import { nouveautesPage } from "./nouveautes.js";
+import { bathingPage, PATH as BAIGNADE } from "./baignade.js";
 import { carburantsPage } from "./carburants.js";
 import { collectePage, communeOf } from "./collecte.js";
 import { decheteriesPage } from "./decheteries.js";
@@ -242,7 +243,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
   // The defibrillators are a list bundled with the server: their page changes when it is rebuilt.
   const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
-    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions"].map(fixed),
+    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions", BAIGNADE].map(fixed),
     ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay ?? today, "daily"],
     // The fires' page only once FIRMS's key is there: before, it says the detection is not active.
     ...(feux.enabled() ? [live(FEUX_PATH)] : [])];
@@ -393,6 +394,9 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/nouveautes" || path === "/nouveautes/") {
     return new Response(nouveautesPage(origin), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
+  if (path === BAIGNADE || path === `${BAIGNADE}/`) {
+    return new Response(bathingPage(origin, now), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
   if (path === "/confidentialite" || path === "/conditions") {
     return new Response(legalPage(origin, path.slice(1) as "confidentialite" | "conditions"), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });

@@ -4,6 +4,7 @@ import { resolvePlace, type Place } from "../places/resolve.js";
 import * as acspo from "../providers/acspo.js";
 import * as houle from "../providers/houle.js";
 import * as modis from "../providers/modis.js";
+import * as requin from "../eau/requin.js";
 import { left } from "../budget.js";
 import { type SourceInfo, why } from "../types.js";
 import { credits, fr, notFound, placeBlock, text } from "./format.js";
@@ -249,8 +250,9 @@ export async function temperatureMer(cache: Cache, lieu: string | undefined, now
       ].join(" "),
       points,
       avertissements: [...(t ? CAVEATS : []), ...(t?.used.flatMap(staleWarning) ?? []), ...(w ? WAVE_WARNINGS : [])],
+      risque_requin: requin.requinBlock(now),
       couverture: COVERAGE,
-      sources: credits([...(t?.used.map((g) => g.source) ?? []), ...(w ? [houle.SOURCE] : [])]),
+      sources: credits([...(t?.used.map((g) => g.source) ?? []), ...(w ? [houle.SOURCE] : []), requin.SOURCE]),
       mis_a_jour: t?.used.length ? localTime(t.used[0].cached.fetchedAt) : undefined,
     });
   }
@@ -291,8 +293,10 @@ export async function temperatureMer(cache: Cache, lieu: string | undefined, now
           ],
         }
       : {}),
+    // On the coast only: a place far from the sea gets no waves and no measure near it.
+    ...(m || v ? { risque_requin: requin.requinBlock(now, r.lieu) } : {}),
     couverture: COVERAGE,
-    sources: credits([...(m ? [m.grid.source] : gs.map((g) => g.source)), ...(v ? [houle.SOURCE] : [])]),
+    sources: credits([...(m ? [m.grid.source] : gs.map((g) => g.source)), ...(v ? [houle.SOURCE] : []), ...(m || v ? [requin.SOURCE] : [])]),
   });
 }
 
