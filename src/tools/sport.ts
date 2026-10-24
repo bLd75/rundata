@@ -1,6 +1,7 @@
 import type { Cache, Cached } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
+import { programmesSportifs } from "../providers/agenda.js";
 import * as src from "../providers/sport.js";
 import * as avis from "../providers/sport-avis.js";
 import { type Club, clubOf, clubsNamed, type ClubSport, zoneOf } from "../sport/clubs.js";
@@ -218,12 +219,14 @@ export interface SportData {
   avis?: Got<avis.Avis[]>;
   /** The news as last read for `actualites`, not read again for this. */
   presse?: Cached<Fil>;
+  /** The communes' sports programmes, in the agendas as last read for `evenements`. */
+  programmes?: Awaited<ReturnType<typeof programmesSportifs>>;
 }
 
 /** What `sport` needs, read in parallel; a source that fails is left out and named. */
 export async function gather(cache: Cache, sport: Sport | undefined, now: Date): Promise<SportData> {
   const want = (s: Sport) => !sport || sport === s;
-  const [grandRaid, handball, volley, voile, golfs, auto, actualite, notices, presse] = await Promise.all([
+  const [grandRaid, handball, volley, voile, golfs, auto, actualite, notices, presse, programmes] = await Promise.all([
     want("grand_raid") ? attempt(src.SOURCES.livetrail, () => src.grandRaid(cache, now)) : undefined,
     want("handball") ? attempt(src.SOURCES.ffhb, () => src.championnats(cache, "handball")) : undefined,
     want("volley") ? attempt(src.SOURCES.ffvb, () => src.championnats(cache, "volley")) : undefined,
@@ -233,6 +236,8 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date):
     attempt(src.SOURCES.la1ere, () => src.actualite(cache)),
     want("volley") ? attempt(avis.SOURCE, () => avis.avisLigue(cache, now)) : undefined,
     want("volley") || want("handball") ? cache.peek<Fil>("actualites:fil").catch(() => undefined) : undefined,
+    // Of every sport: read only when none is asked.
+    !sport ? programmesSportifs(cache).catch((err) => (console.error("programmes sportifs : copie des agendas illisible", why(err)), undefined)) : undefined,
   ]);
   return {
     grandRaid,
@@ -241,6 +246,7 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date):
     actualite,
     avis: notices,
     presse,
+    programmes,
   };
 }
 
@@ -271,6 +277,10 @@ export function grandRaidRow(g: src.GrandRaid) {
     lien: g.lien,
   };
 }
+
+const PROGRAMMES =
+  "Programme sportif de la commune : le document publié par la mairie avec les compétitions de ses clubs. rundata.re ne lit pas ce document, il en donne seulement le lien : " +
+  "les matchs, les heures et les lieux sont dans le document.";
 
 const COMMON = {
   non_couvert:
@@ -352,6 +362,26 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     ? data.championnats.flatMap((g) => (g.value?.value ?? []).map((c) => ({ competition: `${NAMES[c.sport]}, ${c.nom}`, classement: c.classement.map((r) => `${r.place}. ${r.equipe} ${r.points} pts (${r.joues} j)`), lien: c.lien })))
     : undefined;
 
+  // The programmes of the communes asked, or of the whole island; never those of a club, nor past ones.
+  const programmes = q === "resultats" || (w && w.kind !== "communes") ? [] : (data.programmes ?? [])
+    .flatMap(({ e, agenda, fetchedAt }) => {
+      const s = e.seances.find((x) => x.debut.slice(0, 10) <= au && (x.fin ?? x.debut).slice(0, 10) >= (du > today ? du : today));
+      const commune = e.commune ?? agenda.commune;
+      if (!s || (w?.kind === "communes" && !w.communes.includes(commune ?? ""))) return [];
+      return [{
+        type: "programme sportif de la commune",
+        commune,
+        titre: e.titre,
+        dates: s.fin && s.fin !== s.debut ? `du ${quand(s.debut)} au ${quand(s.fin)}` : quand(s.debut),
+        lien: e.lien,
+        source: e.publie_par,
+        lu_le: quand(localClock(fetchedAt)),
+        date: s.debut,
+        agenda,
+      }];
+    })
+    .sort((x, y) => x.date.localeCompare(y.date) || (x.commune ?? "").localeCompare(y.commune ?? "", "fr"));
+
   const gr = data.grandRaid?.value?.value;
   const showRaid = gr && (sport === "grand_raid" || (!sport && !w && grandRaidNow(gr, now)));
 
@@ -385,6 +415,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
       : [
           q === "resultats" ? "" : upcomingText,
           results.length ? `${results.length} résultat${results.length > 1 ? "s" : ""} depuis le ${quand(du)}` : q === "resultats" ? `Aucun résultat de ${what}${place} depuis le ${quand(du)}` : "",
+          programmes.length ? `${programmes.length} programme${programmes.length > 1 ? "s" : ""} sportif${programmes.length > 1 ? "s" : ""} de commune (${programmes.map((p) => p.commune).join(", ")}), en lien seulement` : "",
         ].filter(Boolean).join(". ") + ".";
 
   // The notices behind the matches called off, once each.
@@ -399,7 +430,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
       lien: n.lien,
     }));
 
-  const used = got.filter((g) => g.value).map((g) => g.source);
+  const used = [...new Set([...got.filter((g) => g.value).map((g) => g.source), ...programmes.map((p) => p.agenda.source)])];
   const matches = !sport || sport === "volley" || sport === "handball";
   return text({
     lieu: w?.kind === "communes" && w.res && lieu ? placeBlock(lieu, w.res) : w && lieu ? { demande: lieu, trouve: w.label.trim(), communes: w.kind === "communes" ? w.communes : undefined } : undefined,
@@ -409,6 +440,8 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     resultats: results.length ? results.map(strip) : undefined,
     avis: cited.length ? cited : undefined,
     a_verifier: check.length ? check : undefined,
+    programmes_communes: programmes.length ? programmes.map(({ date: _d, agenda: _a, ...p }) => p) : undefined,
+    programmes_a_savoir: programmes.length ? PROGRAMMES : undefined,
     classements: standings,
     grand_raid: showRaid ? grandRaidRow(gr) : undefined,
     actualite: news.length ? news : undefined,

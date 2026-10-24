@@ -599,7 +599,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Sport à La Réunion (974) : matchs à venir et derniers résultats officiels des championnats régionaux de handball (D1) et de volley " +
         "(R1 et R2, hommes et femmes, toutes les poules), avec les clubs en toutes lettres (VBSP = Volley-Ball de Saint-Pierre) et la commune où l'on joue, " +
         "les matchs annulés ou reportés (avis de la Ligue de volley, actualité locale), classements, régates de voile, compétitions de golf, " +
-        "rallyes et sport automobile (calendrier de la Ligue), Grand Raid (courses, partants, abandons, podiums), et l'actualité sportive " +
+        "rallyes et sport automobile (calendrier de la Ligue), Grand Raid (courses, partants, abandons, podiums), les programmes sportifs publiés par les communes " +
+        "(le lien du document de la mairie, sans son contenu), et l'actualité sportive " +
         "de Réunion La 1ère (titres et liens, dont le football et le basket). " +
         "Pour : « match de volley dimanche dans le sud ? », « match de hand ce week-end à Saint-Pierre ? », « le TGV joue quand ? », " +
         "« foot ou basket ce week-end ? », « résultats du volley à Saint-Leu ? », « classement du handball ? », « prochaine régate ? », " +

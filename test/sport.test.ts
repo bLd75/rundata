@@ -6,6 +6,7 @@ import { frenchDays, parisDay, parseGolf, parseLsar, parseNews, parseVolley } fr
 import { avisIn, avisPresse, daysIn, parseLrvb } from "../src/providers/sport-avis.js";
 import { clubOf, clubsNamed, zoneOf } from "../src/sport/clubs.js";
 import { sportTool, window } from "../src/tools/sport.js";
+import { sportPage } from "../src/web/domains.js";
 
 // The sources on Saturday 24/10/2026 in the morning: the Grand Raid over since the 18th, the 6th round of handball on
 // the 30th (the 5th played on the 9th to 11th), volley R1 played on Friday night and again tonight, a rally this
@@ -21,6 +22,26 @@ const latin1 = (f: string) => new TextDecoder("latin1").decode(fixture(f));
 async function withNews(infos: Info[]) {
   const store = new MemoryStore();
   await store.put("actualites:fil", { value: { infos, prefecture: [], indisponible: [] }, fetchedAt: NOW.getTime() });
+  return new Cache(store, () => NOW.getTime());
+}
+/** A cache holding the agendas' copy as `evenements` leaves it, with the sports programmes of three communes and an event. */
+function withAgendas() {
+  const store = new MemoryStore();
+  const at = NOW.getTime() - 3600_000;
+  const evt = (id: string, titre: string, debut: string, fin: string, commune: string, publie_par: string, lien: string) =>
+    ({ id, titre, seances: [{ debut, fin }], commune, categories: [], lien, publie_par });
+  void store.put("agendas", {
+    value: {
+      "agenda:la_possession": { value: [evt("p:1", "Agenda sportif du 22 au 24 octobre", "2026-10-22", "2026-10-24", "La Possession", "Ville de La Possession", "https://www.lapossession.re/agenda/890500")], fetchedAt: at },
+      "agenda:etang_sale": { value: [evt("e:1", "Planning des compétitions sportives du 23 au 25 octobre 2026", "2026-10-23", "2026-10-25", "L'Étang-Salé", "Ville de L'Étang-Salé", "https://www.letangsale.fr/planning")], fetchedAt: at },
+      "agenda:saint_benoit": { value: [
+        evt("b:1", "Agenda sportif", "2026-10-23", "2026-10-25", "Saint-Benoît", "Ville de Saint-Benoît", "https://www.saint-benoit.re/evenements/articles/9592-agenda-sportif"),
+        evt("b:2", "Agenda sportif", "2026-10-16", "2026-10-18", "Saint-Benoît", "Ville de Saint-Benoît", "https://www.saint-benoit.re/evenements/articles/9500-agenda-sportif"),
+      ], fetchedAt: at },
+      "agenda:bras_panon": { value: [evt("r:1", "1er Rally National Grand Est", "2026-10-24", "2026-10-25", "Bras-Panon", "Ville de Bras-Panon", "https://www.braspanon.re/rally")], fetchedAt: at },
+    },
+    fetchedAt: at,
+  });
   return new Cache(store, () => NOW.getTime());
 }
 const info = (titre: string, publie: string, extra: Partial<Info> = {}): Info =>
@@ -194,6 +215,28 @@ describe("sport", () => {
     expect(b.grand_raid.courses[0].podium[0]).toBe("1. Hugo DECK (FR) 22 h 54 min");
     expect(b.indisponible).toBeUndefined();
     expect(b.a_venir.find((r: { epreuve: string; quand: string }) => r.epreuve === "VB2CO – SVB" && r.quand === "samedi 24/10 à 20:00")).toMatchObject({ etat: "annulée" });
+  });
+
+  it("links to the communes' sports programmes from the agendas' copy, without reading them", async () => {
+    const b = body(await sportTool(withAgendas(), undefined, undefined, undefined, NOW));
+    expect(b.programmes_communes).toEqual([
+      { type: "programme sportif de la commune", commune: "La Possession", titre: "Agenda sportif du 22 au 24 octobre", dates: "du jeudi 22/10 au samedi 24/10", lien: "https://www.lapossession.re/agenda/890500", source: "Ville de La Possession", lu_le: "samedi 24/10 à 07:00" },
+      { type: "programme sportif de la commune", commune: "L'Étang-Salé", titre: "Planning des compétitions sportives du 23 au 25 octobre 2026", dates: "du vendredi 23/10 au dimanche 25/10", lien: "https://www.letangsale.fr/planning", source: "Ville de L'Étang-Salé", lu_le: "samedi 24/10 à 07:00" },
+      { type: "programme sportif de la commune", commune: "Saint-Benoît", titre: "Agenda sportif", dates: "du vendredi 23/10 au dimanche 25/10", lien: "https://www.saint-benoit.re/evenements/articles/9592-agenda-sportif", source: "Ville de Saint-Benoît", lu_le: "samedi 24/10 à 07:00" },
+    ]);
+    expect(b.programmes_a_savoir).toMatch(/ne lit pas ce document, il en donne seulement le lien/);
+    expect(b.resume).toContain("3 programmes sportifs de commune (La Possession, L'Étang-Salé, Saint-Benoît), en lien seulement");
+    expect(b.sources.map((s: { source: string }) => s.source)).toEqual(expect.arrayContaining(["Agenda de la Ville de La Possession", "Agenda de la Ville de L'Étang-Salé", "Agenda de la Ville de Saint-Benoît"]));
+    const page = sportPage("https://rundata.re", { value: { ...b, classements: [] }, fetchedAt: NOW, stale: false }, NOW);
+    expect(page).toContain("Programmes sportifs des communes");
+    expect(page).toContain(`<a href="https://www.saint-benoit.re/evenements/articles/9592-agenda-sportif" rel="noopener">Agenda sportif</a><small>Saint-Benoît · Ville de Saint-Benoît</small></span><span class="q-none">23/10 → 25/10</span>`);
+    // A commune's own; none for one sport, a club, or the results.
+    expect(body(await sportTool(withAgendas(), undefined, "Saint-Benoît", "ce_week_end", NOW)).programmes_communes.map((p: { commune: string }) => p.commune)).toEqual(["Saint-Benoît"]);
+    expect(body(await sportTool(withAgendas(), "volley", undefined, undefined, NOW)).programmes_communes).toBeUndefined();
+    expect(body(await sportTool(withAgendas(), undefined, "VBSP", "a_venir", NOW)).programmes_communes).toBeUndefined();
+    expect(body(await sportTool(withAgendas(), undefined, undefined, "resultats", NOW)).programmes_communes).toBeUndefined();
+    // Without the agendas' copy, nothing is read for them.
+    expect(body(await sportTool(cache(), undefined, undefined, undefined, NOW)).programmes_communes).toBeUndefined();
   });
 
   it("gives the last handball round and the standings", async () => {

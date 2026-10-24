@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKER_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { AGENDAS, COVERED, OTI_EST, SOURCES_LUES, communeOf, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseTribe } from "../src/providers/agenda.js";
+import { AGENDAS, COVERED, OTI_EST, SOURCES_LUES, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseTribe } from "../src/providers/agenda.js";
 import { agenda, gather, periode } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
 
@@ -179,7 +179,8 @@ describe("agenda", () => {
     const c = cache();
     const b = body(await agenda(c, undefined, undefined, undefined, NOW));
     expect(b.resume).toBe("40 événements à La Réunion dans les deux semaines qui viennent (du samedi 24/10 au samedi 07/11).".replace("40", String(b.nombre)));
-    expect(b.nombre).toBe(104);
+    // Without the sports programmes of La Possession, L'Étang-Salé and Saint-Benoît: the sport tool's.
+    expect(b.nombre).toBe(101);
     expect(b.evenements).toHaveLength(40);
     expect(b.evenements.filter((e: { titre: string }) => e.titre === "Visite guidée de la Maison Carrère")).toHaveLength(1);
     // Published by reunion.fr and by Petite-Île, told once: the commune's, which gives the place.
@@ -194,6 +195,26 @@ describe("agenda", () => {
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
     // Twenty-seven agendas (two pages for Bras-Panon), and the pages of the four shows on both TÉAT stages.
     expect(asked).toHaveLength(31);
+  });
+
+  it("leaves the communes' sports programmes to the sport tool, not the sports events", async () => {
+    for (const t of ["Agenda sportif", "Agenda sportif du 22 au 24 octobre", "Planning des compétitions sportives du 23 au 25 octobre 2026", "Programme sportif du week-end", "Le calendrier sportif de novembre", "Planning des rencontres sportives"]) {
+      expect(programmeSportif({ titre: t }), t).toBe(true);
+    }
+    for (const t of ["1er Rally National Grand Est", "Grand Raid 2026", "Match de gala : Saint-Pierre – Le Tampon", "Agenda culturel", "Sportifs à l'honneur", "Planning des vacances", "Programme sport-santé"]) {
+      expect(programmeSportif({ titre: t }), t).toBe(false);
+    }
+    const c = cache();
+    const all = body(await agenda(c, undefined, undefined, undefined, NOW, 300));
+    const titles = all.evenements.map((e: { titre: string }) => e.titre);
+    expect(titles.filter((t: string) => programmeSportif({ titre: t }))).toEqual([]);
+    expect(titles).toContain("1er Rally National Grand Est");
+    // Read with their agendas, kept in their copy for the sport tool.
+    expect((await programmesSportifs(c)).map(({ e, agenda }) => [agenda.id, e.titre, e.seances])).toEqual([
+      ["etang_sale", "Planning des compétitions sportives du 23 au 25 octobre 2026", [{ debut: "2026-10-23", fin: "2026-10-25" }]],
+      ["la_possession", "Agenda sportif du 22 au 24 octobre", [{ debut: "2026-10-22", fin: "2026-10-24" }]],
+      ["saint_benoit", "Agenda sportif", [{ debut: "2026-10-23", fin: "2026-10-25" }]],
+    ]);
   });
 
   it("answers tonight, with the hours", async () => {
