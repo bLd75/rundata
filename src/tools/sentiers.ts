@@ -253,7 +253,8 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
 
   if (!lieu?.trim()) {
     return text({
-      resume: `${closed.length} sentiers fermés sur ${carte.sentiers.length} suivis par l'ONF à La Réunion` +
+      // By name, as the pages count them: the ONF's map cuts some trails in several pieces.
+      resume: `${unique(closed.map((s) => s.nom)).length} sentiers fermés sur ${unique(carte.sentiers.map((s) => s.nom)).length} suivis par l'ONF à La Réunion` +
         (roadsClosed.length ? `, et ${roadsClosed.length} route${roadsClosed.length > 1 ? "s" : ""} forestière${roadsClosed.length > 1 ? "s" : ""} interdite${roadsClosed.length > 1 ? "s" : ""} à la circulation` : "") + ".",
       fermes_par_commune: closedByCommune(carte.sentiers),
       routes_forestieres_fermees: roadsClosed.map(roadRow),

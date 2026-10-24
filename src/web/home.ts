@@ -7,8 +7,8 @@ import { ageMinutes, ageText } from "../geo.js";
 import type * as mf from "../providers/vigilance.js";
 import brand from "./brand.json" with { type: "json" };
 import { CATEGORIES, type Category } from "./categories.js";
-import type { AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer } from "./data.js";
-import { airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
+import type { AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
+import { airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import {
@@ -48,6 +48,7 @@ export interface HomeLive {
   electricite?: Cached<ElectriciteAnswer> | null;
   calendrier?: Cached<CalendrierAnswer> | null;
   bus?: Cached<BusData> | null;
+  trafic?: Cached<TraficAnswer> | null;
   velos?: Cached<VelosAnswer> | null;
   bornes?: Cached<BornesAnswer> | null;
   eau?: Cached<EauAnswer> | null;
@@ -67,6 +68,7 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
     mer: merLive(h?.meteo ?? null),
     volcan: volcanLive(h?.volcan ?? null),
     bus: busLive(h?.bus ?? null),
+    trafic: traficLive(h?.trafic ?? null),
     velos: velosLive(h?.velos ?? null),
     bornes: bornesLive(h?.bornes ?? null),
     eau: eauLive(h?.eau ?? null),

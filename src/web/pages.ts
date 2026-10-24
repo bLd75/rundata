@@ -77,6 +77,7 @@ const ICON: Record<string, string> = {
   building: `<path d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-6h6v6"/>`,
   calendar: `<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
   map: `<path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3Z"/><path d="M9 4v13M15 7v13"/>`,
+  car: `<path d="M3 13l2.2-5.5A2 2 0 0 1 7.1 6h9.8a2 2 0 0 1 1.9 1.5L21 13v4H3Z"/><path d="M3 13h18"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>`,
   bus: `<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v3M16 18v3"/><path d="M8 14.5h.01M16 14.5h.01"/>`,
   grid: `<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>`,
   close: `<path d="M6 6l12 12M18 6 6 18"/>`,
@@ -376,6 +377,13 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .band .soft{color:var(--on-night-muted)}.band .soft a{color:var(--on-night)}
 .part-of{color:var(--on-night-muted)}.part-of a{color:var(--on-night);font-weight:700}
 .rows small.cuts{color:var(--lave)}
+.wz-box{position:relative}.wz-cover{position:absolute;inset:0;display:grid;place-items:center;padding:1rem}.wz-cover .btn{text-align:center}
+.wz-box.on iframe{display:block;width:100%;height:clamp(22rem,65vh,34rem);border:0;border-radius:18px;background:var(--surface)}
+.wz figcaption{color:var(--on-night-muted)}.wz-views{display:flex;flex-wrap:wrap;gap:.4rem;margin:.7rem 0}
+.wz-views a{padding:.3rem .75rem;border-radius:999px;border:1px solid rgb(255 255 255/.22);color:var(--on-night);text-decoration:none;font-size:.85rem}
+.wz-views a[aria-current]{background:var(--sun);color:var(--sun-ink);border-color:var(--sun)}.wz-open{color:var(--on-night);font-weight:700}
+.link-card{display:block;text-decoration:none;color:inherit}.link-card h3{display:flex;gap:.5rem;align-items:center;color:var(--link)}.link-card:hover{border-color:var(--accent)}
+.two>.card>.ic{width:1.6rem;height:1.6rem;color:var(--accent)}.two .card h4{margin-top:.5rem}
 .profile{width:100%;height:auto;display:block}.profile .fill{fill:color-mix(in srgb,var(--accent) 22%,transparent)}.profile .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round}
 .profile .grid{stroke:var(--border);stroke-width:1}.profile .ax{fill:var(--muted);font:12px system-ui,sans-serif}
 .facts{display:flex;flex-wrap:wrap;gap:.6rem 1.6rem;margin:.6rem 0 1.2rem}.facts dt{font-size:.82rem;color:var(--on-night-muted)}.facts dd{margin:0;font:800 1.45rem/1.15 system-ui,sans-serif;color:var(--on-night)}
