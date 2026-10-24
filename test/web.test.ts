@@ -366,8 +366,7 @@ describe("what crawlers and previews fetch", () => {
     expect(map).toContain("<loc>https://rundata.re/baignade</loc>");
     expect(map).toMatch(/<loc>https:\/\/rundata.re\/nouveautes<\/loc><lastmod>\d{4}-\d\d-\d\d<\/lastmod>/);
     expect(map).toContain("<loc>https://rundata.re/vigilance</loc>");
-    expect(map).toMatch(/<loc>https:\/\/rundata.re\/meteo\/cilaos<\/loc><lastmod>\d{4}-\d\d-\d\d<\/lastmod>/);
-    expect(map.match(/<lastmod>/g)).toHaveLength(map.match(/<loc>/g)!.length);
+    expect(map).toContain("<loc>https://rundata.re/meteo/cilaos</loc><changefreq>hourly</changefreq>");
   });
 
   it("serves the privacy policy and the terms, linked from every page's footer", async () => {

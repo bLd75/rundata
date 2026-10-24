@@ -120,7 +120,7 @@ function dayList(days: Map<string, string[]>, rows: Row[], heading: (day: string
 
 /** The events of a page as schema.org `Event`s (domains.ts `agendaEvents`), when there are any. */
 const graph = (rows: Row[], origin: string) => {
-  const events = agendaEvents(rows, origin);
+  const events = agendaEvents(rows);
   return events.length ? [{ "@context": "https://schema.org", "@graph": events }] : [];
 };
 

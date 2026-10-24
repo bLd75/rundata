@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { BUILT, RANDONNEES } from "../src/providers/traces.js";
+import { RANDONNEES } from "../src/providers/traces.js";
 import type { AgendaAnswer } from "../src/web/data.js";
 import { agendaEvents, eventSummary, agendaPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, historiquePage, sportPage, tracePage, traficPage } from "../src/web/domains.js";
 import { homePage } from "../src/web/home.js";
@@ -37,19 +37,17 @@ describe("search engines", () => {
     expect(placePage(O, pageOf("cilaos")!, null, NOW)).toContain(`data-maj="${O}/meteo/cilaos"`);
   });
 
-  it("date every page of the sitemap: today for the live ones", async () => {
+  it("date a page of the sitemap only with the day its content really changed", async () => {
     const map = await get("/sitemap.xml");
-    const urls = map.match(/<url>.*?<\/url>/g)!;
-    expect(urls.every((u) => /<lastmod>\d{4}-\d\d-\d\d<\/lastmod>/.test(u))).toBe(true);
-    expect(map).toContain(`<loc>${O}/evenements</loc><lastmod>2026-10-24</lastmod><changefreq>hourly</changefreq>`);
-    expect(map).toContain(`<loc>${O}/meteo/cilaos</loc><lastmod>2026-10-24</lastmod>`);
-    expect(map).toContain(`<loc>${O}/randonnees/${RANDONNEES[0].slug}</loc><lastmod>${BUILT}</lastmod>`);
-    // A list bundled with the server: the day it was rebuilt, not today.
+    // A live page changes all day, a trail when the ONF changes its state: no day would be exact.
+    expect(map).toContain(`<loc>${O}/evenements</loc><changefreq>hourly</changefreq>`);
+    expect(map).toContain(`<loc>${O}/meteo/cilaos</loc><changefreq>hourly</changefreq>`);
+    expect(map).toContain(`<loc>${O}/randonnees/${RANDONNEES[0].slug}</loc><changefreq>daily</changefreq>`);
+    expect(map).toContain(`<loc>${O}/conditions</loc><changefreq>monthly</changefreq>`);
+    // A list bundled with the server: the day it was rebuilt; the latest change for /nouveautes.
     expect(map).toContain(`<loc>${O}/defibrillateurs</loc><lastmod>${DAE_BUILT}</lastmod><changefreq>monthly</changefreq>`);
-    expect(map).toMatch(new RegExp(`<loc>${O}/conditions</loc><lastmod>\\d{4}-\\d\\d-\\d\\d</lastmod><changefreq>monthly</changefreq>`));
-    // Réunion time: 22:00 UTC is already the next day there.
-    const late = await (await site(new Request(`${O}/sitemap.xml`), new Cache(new MemoryStore()), () => {}, new Date("2026-10-24T22:00:00Z")))!.text();
-    expect(late).toContain(`<loc>${O}/</loc><lastmod>2026-10-25</lastmod>`);
+    expect(map).toMatch(new RegExp(`<loc>${O}/nouveautes</loc><lastmod>\\d{4}-\\d\\d-\\d\\d</lastmod>`));
+    expect(map.match(/<lastmod>/g)).toHaveLength(2);
   });
 
   it("see the query first in titles that fit in 60 characters", () => {
@@ -80,7 +78,7 @@ describe("events as schema.org Events", () => {
       row({ titre: "Fête de l'ail", quand: "du vendredi 23/10 au dimanche 25/10", date: "2026-10-23", commune: "Petite-Île" }),
       row({ titre: "Kabar", commune: "Saint-Paul", statut: "ANNULÉ" }),
       row({ titre: "Bal", commune: "Le Port", statut: "REPORTÉ" }),
-    ], O) as any[];
+    ]) as any[];
     expect(concert).toEqual({
       "@type": "Event",
       name: "Olivier Ker Ourio",
@@ -92,7 +90,6 @@ describe("events as schema.org Events", () => {
       url: "https://example.re/concert",
       // No summary from the source: what and where.
       description: "Concert à Saint-Denis, Cité des Arts, Fanal.",
-      image: expect.stringMatching(/^https:\/\/rundata\.re\/og\/evenements\.[0-9a-f]{10}\.png$/),
     });
     expect(ail).toMatchObject({ startDate: "2026-10-23", endDate: "2026-10-25", location: { name: "Petite-Île" } });
     expect(off.eventStatus).toBe("https://schema.org/EventCancelled");
@@ -104,11 +101,22 @@ describe("events as schema.org Events", () => {
     expect(long.length).toBeLessThanOrEqual(301);
     expect(long.endsWith("très…")).toBe(true);
     // Across the new year; and no end before the start.
-    expect(agendaEvents([row({ quand: "du jeudi 31/12 au vendredi 01/01", date: "2026-12-31", commune: "Saint-Paul" })], O)[0]).toMatchObject({ endDate: "2027-01-01" });
+    expect(agendaEvents([row({ quand: "du jeudi 31/12 au vendredi 01/01", date: "2026-12-31", commune: "Saint-Paul" })])[0]).toMatchObject({ endDate: "2027-01-01" });
+  });
+
+  it("name the organizer only when the event comes from the venue's own programme, never the town hall relaying it", () => {
+    const [hall, mairie] = agendaEvents([
+      row({ commune: "Le Port", lieu: "Kabardock", publie_par: "Kabardock" }),
+      row({ commune: "Le Port", lieu: "Kabardock", publie_par: "Agenda de la mairie du Port" }),
+    ]) as any[];
+    expect(hall.organizer).toEqual({ "@type": "Organization", name: "Kabardock" });
+    expect(mairie).not.toHaveProperty("organizer");
+    // No picture of rundata.re's own in place of the event's.
+    expect(hall).not.toHaveProperty("image");
   });
 
   it("leave out an event without a commune or a date, and are on the page", () => {
-    expect(agendaEvents([row({}), row({ commune: "Saint-Paul", date: "bientôt" })], O)).toEqual([]);
+    expect(agendaEvents([row({}), row({ commune: "Saint-Paul", date: "bientôt" })])).toEqual([]);
     const d = { resume: "", nombre: 1, evenements: [row({ commune: "Saint-Paul" })], couverture: "", a_savoir: "", sources: [], ce_week_end: [] } as AgendaAnswer;
     const html = agendaPage(O, { value: d, fetchedAt: NOW } as any, NOW);
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)![1]);
