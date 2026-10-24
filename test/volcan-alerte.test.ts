@@ -8,7 +8,8 @@ import { type ActualitesAnswer, buildVolcan, type VolcanAnswer } from "../src/we
 import { volcanLive, volcanPage } from "../src/web/domains.js";
 import { SHARED } from "../src/web/partagees.js";
 import { site } from "../src/web/site.js";
-import { alerteVolcan, bannerText, mediaHeadlines } from "../src/web/volcan-alerte.js";
+import { demos } from "../src/web/home.js";
+import { alerteVolcan, bannerText, homeCard, mediaHeadlines } from "../src/web/volcan-alerte.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
 // The prefecture's release of the 24th, after pitonlive's last status (still « Vigilance », Enclos partly open).
@@ -43,7 +44,7 @@ describe("the volcano put forward during an alert", () => {
     const a = alerteVolcan(await answer(ALERT_1))!;
     expect(a).toMatchObject({ niveau: "Alerte 1", eruption: false, communique: { titre: ALERT_1 } });
     expect(bannerText(a)).toBe(
-      "🌋 Piton de la Fournaise : alerte 1 du préfet depuis le 24 octobre, éruption probable à très brève échéance. Accès à l'Enclos interdit.",
+      "🌋 Piton de la Fournaise : alerte 1 du préfet depuis le 24 octobre, « éruption probable ou imminente » (dispositif ORSEC Volcan). Accès à l'Enclos interdit.",
     );
   });
 
@@ -54,7 +55,7 @@ describe("the volcano put forward during an alert", () => {
   });
 
   it("tells the AI the same: the prefecture's words, and the eruption dated by its release only", async () => {
-    expect((await answer(ALERT_1)).resume).toContain("Alerte 1 au Piton de la Fournaise : éruption probable à très brève échéance. L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus.");
+    expect((await answer(ALERT_1)).resume).toContain("Alerte 1 au Piton de la Fournaise : « éruption probable ou imminente » (dispositif ORSEC Volcan). L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus.");
     // Never that it has not begun, on our word: the OVPF's newest post may be an image we do not read.
     expect((await answer(ALERT_1)).resume).not.toMatch(/pas (encore )?commencé/);
     expect((await answer(ALERT_2)).resume).toMatch(/^ÉRUPTION EN COURS au Piton de la Fournaise, annoncée par la préfecture le \S+\./);
@@ -64,7 +65,10 @@ describe("the volcano put forward during an alert", () => {
     const v = await answer(ALERT_1);
     const page = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain("<title>Piton de la Fournaise : alerte 1, éruption probable · 974</title>");
-    expect(page).toContain("<h1>Piton de la Fournaise : alerte 1, éruption probable à très brève échéance</h1>");
+    expect(page).toContain("<h1>Piton de la Fournaise : alerte 1, éruption probable ou imminente</h1>");
+    expect(page).toContain(`<meta name="description" content="Alerte 1 depuis le 24 octobre (préfecture) : « éruption probable ou imminente », selon le dispositif ORSEC Volcan. Accès à l&#39;Enclos interdit. Communiqués de l&#39;OVPF en direct · 974">`);
+    // The plan's words only, never a release's of the day nor ours.
+    expect(page).not.toContain("très brève");
     expect(page).toContain("<b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus. Seuls l&#39;OVPF et la préfecture l&#39;annonceront : leurs communiqués s&#39;affichent ici dès leur publication.</b>");
     expect(page).not.toMatch(/pas (encore )?commencé/);
     expect(page).toContain("Accès à l&#39;Enclos interdit. Seules comptent les consignes de la préfecture et de l&#39;OVPF.");
@@ -72,7 +76,31 @@ describe("the volcano put forward during an alert", () => {
     expect(page).toContain('href="https://x.com/obsfournaise"');
     expect(page).toContain("Pas encore d'article des médias de l'île sur cette alerte.");
     expect(page).not.toContain("partiellement");
-    expect(volcanLive({ value: v, fetchedAt: NOW, stale: false })).toEqual({ valeur: "Alerte 1", detail: "éruption probable à très brève échéance · Enclos interdit" });
+    expect(volcanLive({ value: v, fetchedAt: NOW, stale: false })).toEqual({ valeur: "Alerte 1", detail: "éruption probable ou imminente · Enclos interdit" });
+  });
+
+  it("says the level in the plan's words on the home page too, never « pas encore »", async () => {
+    const v = await answer(ALERT_1);
+    expect(homeCard(alerteVolcan(v)!)).toContain("<h2>🌋 Piton de la Fournaise : alerte 1</h2><p class=\"lead\">Alerte 1 : « éruption probable ou imminente », selon le dispositif ORSEC Volcan. Accès à l&#39;Enclos interdit.</p>");
+    const demo = demos({ volcan: { value: v, fetchedAt: NOW, stale: false } } as unknown as Parameters<typeof demos>[0], NOW).find((d) => d.call === "volcan_seismes()")!;
+    expect(demo.answer).toMatch(/^L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus\. Le volcan est en alerte 1 : « éruption probable ou imminente » \(dispositif ORSEC Volcan\)\./);
+    expect(demo.answer).not.toContain("Pas encore");
+  });
+
+  it("names vigilance and its words when the prefecture's phase says it, and nothing of an eruption", async () => {
+    const may = phaseOf([{ titre: "Piton de la Fournaise : retour en vigilance, réouverture partielle de l'enclos", lien: "https://www.reunion.gouv.fr/x", publie: "2026-10-20T08:00:00.000Z" } as unknown as Info])!;
+    const store = new MemoryStore();
+    const t = NOW.getTime();
+    void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
+    void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
+    void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
+    void store.put("volcan:prefecture", { value: may, fetchedAt: t });
+    const v = await buildVolcan(new Cache(store, () => t), NOW);
+    const page = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
+    expect(page).toContain("<title>Piton de la Fournaise : Vigilance volcanique · 974</title>");
+    expect(page).toContain("<h1>Piton de la Fournaise : vigilance, activité persistante et continue sous le massif</h1>");
+    // Only in the folded list of the plan's levels.
+    expect(page.replace(/<details>[\s\S]*?<\/details>/, "")).not.toMatch(/éruption probable/);
   });
 
   it("keeps the normal page once the alert is over", async () => {

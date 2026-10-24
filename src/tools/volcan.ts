@@ -5,7 +5,7 @@ import type * as onf from "../providers/sentiers.js";
 import * as volcan from "../providers/volcan.js";
 import { why } from "../types.js";
 import { credits, fr, text } from "./format.js";
-import { acces, definition, lineText } from "./volcan-acces.js";
+import { acces, definition, libelle, lineText } from "./volcan-acces.js";
 
 const DAY = 86_400_000;
 const OFFICIAL =
@@ -161,7 +161,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
         // The day only from an official text: pitonlive's start time is not one (the page says none either).
         ? `ÉRUPTION EN COURS au Piton de la Fournaise${p?.eruption ? `, annoncée par la préfecture le ${day(p.publie)}` : ""}.`
         : /^Alerte/.test(s.alert_level_display)
-          ? `${s.alert_level_display} au Piton de la Fournaise : éruption probable à très brève échéance. ${NON_ANNONCEE}`
+          ? `${s.alert_level_display} au Piton de la Fournaise${libelle(s.alert_level_display) ? ` : « ${libelle(s.alert_level_display)} » (dispositif ORSEC Volcan)` : ""}. ${NON_ANNONCEE}`
           : unknown
             ? "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com."
             : "Pas d'éruption en cours au Piton de la Fournaise.",
