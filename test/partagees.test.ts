@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { count, counted, measured, spent, WORKER_BUDGET, WORKER_FREE_LIMIT } from "../src/budget.js";
+import { count, counted, measured, WORKER_BUDGET } from "../src/budget.js";
 import { Cache, type CacheEntry, MemoryStore, TieredStore } from "../src/cache.js";
 import { VERSION } from "../src/server.js";
 import { type Kv, SHARED, SharedFallback, type Shared, warmShared } from "../src/web/partagees.js";
@@ -58,7 +58,7 @@ describe("the scheduled refresh of the shared copies", () => {
     // The real list's keys and rates, with builds of a known small cost.
     const list: Shared[] = SHARED.map((s) => ({ ...s, build: async () => (count(2), { at: now }) }));
     for (let i = 0; i < 288; i++, now += 5 * 60_000) {
-      await counted(WORKER_FREE_LIMIT, () => warmShared(cache, kv, new Date(now), list));
+      await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(now), list));
     }
     const perDay = (every: number) => (24 * 60) / every + 1;
     for (const s of SHARED) expect(kv.writes.get(`copie:${VERSION}:${s.key}`), s.key).toBeLessThanOrEqual(perDay(s.every));
@@ -67,25 +67,52 @@ describe("the scheduled refresh of the shared copies", () => {
     expect(total).toBeGreaterThanOrEqual(220);
   });
 
-  it("leaves a build that would not fit after a full AROME prefetch to a later event", async () => {
+  it("leaves a build that would not fit after a full AROME prefetch to a later event, and says why", async () => {
     const kv = new FakeKv();
     const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);
     const list: Shared[] = [{ key: "web:essai-lourd", build: async () => (count(15), {}), every: 30 }];
     // What the build takes, learnt once.
-    await counted(WORKER_FREE_LIMIT, () => measured("web:essai-lourd", () => list[0].build(cache, new Date(T0))));
-    const run = await counted(WORKER_FREE_LIMIT, async () => {
+    await counted(WORKER_BUDGET, () => measured("web:essai-lourd", () => list[0].build(cache, new Date(T0))));
+    const run = await counted(WORKER_BUDGET, async () => {
       count(28); // the AROME grids of a new run
-      const written = await warmShared(cache, kv, new Date(T0), list);
-      return { written, spent: spent() };
+      return warmShared(cache, kv, new Date(T0), list);
     });
     expect(run.value.written).toEqual([]);
-    expect(run.value.spent).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(run.value.left).toEqual([{ key: "web:essai-lourd", why: "budget : 29 faites, 15 prévues" }]);
+    expect(run.used).toBeLessThanOrEqual(WORKER_BUDGET);
     // An ordinary event, the grids already there: it fits.
-    const quiet = await counted(WORKER_FREE_LIMIT, async () => {
+    const quiet = await counted(WORKER_BUDGET, async () => {
       count(2);
       return warmShared(cache, kv, new Date(T0), list);
     });
-    expect(quiet.value).toEqual(["web:essai-lourd"]);
+    expect(quiet.value.written).toEqual(["web:essai-lourd"]);
     expect(quiet.used).toBeLessThanOrEqual(WORKER_BUDGET);
+  });
+
+  it("stays within the budget when a build costs more than thought, and says it was cut", async () => {
+    const kv = new FakeKv();
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);
+    // Never run in this isolate: taken to cost 25, it takes 40.
+    const list: Shared[] = [{ key: "web:essai-imprevu", build: async () => { for (let i = 0; i < 40; i++) count(); return {}; }, every: 30 }];
+    const run = await counted(WORKER_BUDGET, async () => {
+      count(2);
+      return warmShared(cache, kv, new Date(T0), list);
+    });
+    const settled = await run.settled();
+    expect(run.value.written).toEqual([]);
+    expect(run.value.left[0].key).toBe("web:essai-imprevu");
+    expect(run.value.left[0].why).toMatch(/^erreur : .*Too many subrequests/);
+    expect(settled.used).toBeLessThanOrEqual(WORKER_BUDGET);
+  });
+
+  it("says when the source failed and only the last copy was there", async () => {
+    const kv = new FakeKv();
+    let now = T0;
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => now, false);
+    await cache.get("web:essai-panne", 60, async () => ({ n: 1 }));
+    now += 3600_000;
+    const list: Shared[] = [{ key: "web:essai-panne", build: async () => { throw new Error("source muette"); }, every: 30 }];
+    const run = await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    expect(run.value).toEqual({ written: [], left: [{ key: "web:essai-panne", why: "copie de secours" }] });
   });
 });
