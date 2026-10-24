@@ -6,7 +6,7 @@ import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.j
 import { configure } from "../src/providers/mf-auth.js";
 import * as mf from "../src/providers/vigilance.js";
 import * as feux from "../src/providers/feux.js";
-import { alerteOf, buildPlace, snapshot } from "../src/web/data.js";
+import { alerteOf, buildPlace, snapshot, withoutForecast } from "../src/web/data.js";
 import { homePage } from "../src/web/home.js";
 import { VERSION } from "../src/server.js";
 import { DESCRIPTION_MAX, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
@@ -409,6 +409,34 @@ describe("what crawlers and previews fetch", () => {
 });
 
 describe("page data", () => {
+  it("builds a place's copy again a minute on when it lacks its forecast, not after five", async () => {
+    let t = NOW.getTime();
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => t, false);
+    let builds = 0;
+    // Cold, the forecast did not fit; every later build has it.
+    const build = async () => (builds++ ? { meteo: {}, prevision: { jours: [] } } : { meteo: {} });
+    const view = async () => {
+      const pending: Promise<unknown>[] = [];
+      const got = await snapshot(cache, "web:lieu:essai", build, (p) => pending.push(p), new Date(t), undefined, false, withoutForecast);
+      await Promise.all(pending);
+      return got;
+    };
+    expect((await view())!.value).not.toHaveProperty("prevision");
+    // Thirty seconds on: as it is.
+    t += 30_000;
+    await view();
+    expect(builds).toBe(1);
+    // A minute and a half on: built again after the response, and the next view has the forecast.
+    t += 60_000;
+    await view();
+    expect(builds).toBe(2);
+    expect((await view())!.value).toHaveProperty("prevision");
+    // Complete, it waits the usual five minutes.
+    t += 90_000;
+    await view();
+    expect(builds).toBe(2);
+  });
+
   it("is sent without its live block when it takes too long, and finished in the background", async () => {
     const c = new Cache(new MemoryStore(), () => NOW.getTime());
     const later: Promise<unknown>[] = [];

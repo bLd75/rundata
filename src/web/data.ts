@@ -65,6 +65,12 @@ const KEEP_SECONDS = 24 * 3600;
 const WAIT_MS = 4000;
 // Below this many subrequests left, a place page is built without its forecast rather than risk the limit.
 const FORECAST_MIN_LEFT = 10;
+// A copy that lacks part of what it should show (`incomplete` of snapshot) is built again from this age, not after
+// FRESH_SECONDS: by then what it lacked has usually come within reach (the stations stored, a source back).
+const INCOMPLETE_RETRY_SECONDS = 60;
+
+/** A place page's copy built without its forecast (FORECAST_MIN_LEFT): due at the next view, a minute on. */
+export const withoutForecast = (d: PlaceData) => !d?.prevision;
 
 export type Background = (work: Promise<unknown>) => void;
 
@@ -1357,6 +1363,8 @@ async function within<T>(work: Promise<T>, ms: number): Promise<T | null> {
  *
  * `reader`: the fetcher of an AI assistant, which reads the page once and answers from it. It waits up to `waitMs`
  * for an old copy to be refreshed instead of getting it as it is.
+ *
+ * `incomplete`: whether a copy lacks part of what it should show; such a copy is due after INCOMPLETE_RETRY_SECONDS.
  */
 export async function snapshot<T>(
   cache: Cache,
@@ -1366,6 +1374,7 @@ export async function snapshot<T>(
   now = new Date(),
   waitMs = WAIT_MS,
   reader = false,
+  incomplete?: (value: T) => boolean,
 ): Promise<Cached<T> | null> {
   // Each build is measured: a tile is brought up to date only when what it took last time is left (web/site.ts).
   const run = () => measured(key, build);
@@ -1384,8 +1393,9 @@ export async function snapshot<T>(
     background(any.catch(() => undefined));
     return null;
   }
-  if (now.getTime() - got.fetchedAt.getTime() > FRESH_SECONDS * 1000) {
-    const fresh = cache.getFrom(key, got, FRESH_SECONDS, run);
+  const freshFor = incomplete?.(got.value) ? INCOMPLETE_RETRY_SECONDS : FRESH_SECONDS;
+  if (now.getTime() - got.fetchedAt.getTime() > freshFor * 1000) {
+    const fresh = cache.getFrom(key, got, freshFor, run);
     const logged = fresh.catch((err) => console.error(`page ${key} : rafraîchissement impossible`, why(err)));
     if (reader) {
       const newer = await within(logged, waitMs);

@@ -196,6 +196,8 @@ interface Got {
   uv: Cached<uv.UvCell[]> | null;
   /** Why AROME is missing from answers it should be in. */
   aromeDown?: string;
+  /** AROME is wanted and up, but none of its grids is stored yet and the invocation had no room to download them. */
+  aromeLater?: boolean;
 }
 
 async function forecasts(cache: Cache, places: Place[], starts: Date[], now: Date): Promise<Got> {
@@ -222,7 +224,7 @@ async function forecasts(cache: Cache, places: Place[], starts: Date[], now: Dat
     if (!f) return ecmwf[i] as PromiseRejectedResult;
     return { status: "fulfilled", value: { value: f, fetchedAt: e?.fetchedAt ?? now, stale: e?.stale ?? false } };
   });
-  return { results, uv: uvi, aromeDown: a instanceof Error ? a.message : undefined };
+  return { results, uv: uvi, aromeDown: a instanceof Error ? a.message : undefined, aromeLater: wanted.length > 0 && a === null && arome.enabled() };
 }
 
 /**
@@ -370,8 +372,9 @@ function warnings(f: Forecast, place?: Place): string[] {
   return out;
 }
 
-function header(f: Forecast): string {
-  if (f.model !== arome.MODEL) return `PRÉVISION (modèle ${f.model.nom}, maille de ${km(f.model)} km, pas une mesure)`;
+/** `later`: AROME not loaded yet (Got.aromeLater), said in the header of the model that stands in for it. */
+function header(f: Forecast, later = false): string {
+  if (f.model !== arome.MODEL) return `PRÉVISION (${later ? "prévision AROME pas encore chargée, " : ""}modèle ${f.model.nom}, maille de ${km(f.model)} km, pas une mesure)`;
   const suite = (f.suite ?? []).map((x) => `, et de ${localTime(x.runAt)} pour la suite`).join("");
   const run = f.runAt ? `, calcul de ${localTime(f.runAt)}${suite}` : "";
   const relais = f.relais?.length ? `, relayé ensuite par ${f.relais.map((r) => `${r.model.nom}, maille de ${km(r.model)} km`).join(", ")}` : "";
@@ -434,7 +437,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
   if (!lieu?.trim()) {
     const places = TOUR.map((n) => resolvePlace(n)!.lieu);
     const wanted = period.defaut ? [today, addDays(today, 1)] : [...new Set(period.slots.map((s) => s.jour))];
-    const { results, uv: u, aromeDown } = await forecasts(cache, places, stepStarts(wanted, now), now);
+    const { results, uv: u, aromeDown, aromeLater } = await forecasts(cache, places, stepStarts(wanted, now), now);
     const ok = places.flatMap((p, i) => (results[i].status === "fulfilled" ? [{ p, c: (results[i] as PromiseFulfilledResult<Cached<Forecast>>).value }] : []));
     if (!ok.length) return unavailable();
     const lieux = ok.map(({ p, c }) => ({
@@ -448,7 +451,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     return text({
       nature: "prevision",
       resume:
-        `${header(ok[0].c.value)}, tour de l'île — ` +
+        `${header(ok[0].c.value, aromeLater)}, tour de l'île — ` +
         ok.map(({ p, c }) => `${p.nom} : ` + c.value.days.filter((d) => wanted.includes(d.date))
           .map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} ${daySentence(c.value, d, uvAt(u, p))}`).join(" ; ")).join(" | "),
       periode: period.defaut ? "aujourd'hui et demain" : period.libelle,
@@ -466,7 +469,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
   const starts = period.defaut
     ? stepStarts([today, addDays(today, 1), addDays(today, 2)], now)
     : stepStarts([...new Set(period.slots.map((s) => s.jour))], now, (jour, h) => period.slots.some((s) => s.jour === jour && h >= s.de && h < s.a));
-  const { results, uv: u, aromeDown } = await forecasts(cache, [r.lieu], starts, now);
+  const { results, uv: u, aromeDown, aromeLater } = await forecasts(cache, [r.lieu], starts, now);
   const uvOf = uvAt(u, r.lieu);
   if (results[0].status === "rejected") {
     console.error("prévision indisponible:", why(results[0].reason));
@@ -474,7 +477,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
   }
   const c = results[0].value;
   const f = c.value;
-  const HEADER = header(f);
+  const HEADER = header(f, aromeLater);
   const last = f.days[f.days.length - 1]?.date;
   const avertissements = warnings(f, r.lieu);
   if (aromeDown) avertissements.push(aromeDownWarning);
