@@ -57,12 +57,12 @@ describe("the prefecture's releases on the cyclone alert", () => {
 
   it("knows the schools reopen only from a release that says so, after the end of the alert", () => {
     const list = [release("Réouverture des établissements scolaires lundi", "2026-10-25"), release("Levée de l'alerte cyclonique", "2026-10-24")];
-    expect(pref.reopeningOf(list, list[1].publie)?.titre).toBe("Réouverture des établissements scolaires lundi");
-    expect(pref.reopeningOf([list[1]], list[1].publie)).toBeUndefined();
-    expect(pref.reopeningOf([release("Réouverture des écoles", "2026-10-20")], list[1].publie)).toBeUndefined();
+    expect(pref.reopeningOf(list, "2026-10-24")?.titre).toBe("Réouverture des établissements scolaires lundi");
+    expect(pref.reopeningOf([list[1]], "2026-10-24")).toBeUndefined();
+    expect(pref.reopeningOf([release("Réouverture des écoles", "2026-10-20")], "2026-10-24")).toBeUndefined();
     // « Reportée », « maintien », « restent fermés »: in doubt, no reopening read.
     for (const t of ["Réouverture des écoles reportée", "Maintien de la fermeture des écoles, pas de réouverture lundi", "Les établissements scolaires restent fermés, réouverture mardi"]) {
-      expect(pref.reopeningOf([release(t, "2026-10-25")], list[1].publie), t).toBeUndefined();
+      expect(pref.reopeningOf([release(t, "2026-10-25")], "2026-10-24"), t).toBeUndefined();
     }
   });
 });
@@ -116,7 +116,7 @@ describe("reading the prefecture, which can fail", () => {
 describe("the schools' state with the prefecture's releases", () => {
   const cyc = (titre: string, day = "2026-10-24", reopen?: Info) => {
     const d = pref.decisionOf([release(titre, day)])!;
-    return { decision: d, reouverture: reopen && { titre: reopen.titre, lien: reopen.lien, publie: reopen.publie } };
+    return { decision: d, reouverture: reopen && { titre: reopen.titre, lien: reopen.lien, jour: reopen.publie.slice(0, 10) } };
   };
 
   it("cites the release that confirms the bulletin's step, by its day of publication, never as the day decided", () => {
@@ -137,7 +137,7 @@ describe("the schools' state with the prefecture's releases", () => {
     const reopen = release("Réouverture des établissements scolaires lundi 26 octobre", "2026-10-24");
     const open = withPrefecture(ecoles(v, NOW), cyc("Levée de l'alerte cyclonique", "2026-10-24", reopen), v, NOW);
     expect(open.texte).toBe("Alerte levée. Réouverture des écoles annoncée par la préfecture le samedi 24/10 : « Réouverture des établissements scolaires lundi 26 octobre » → Le détail, avec les éventuelles exceptions par commune, est dans le communiqué.");
-    expect(open.cites).toEqual([{ titre: reopen.titre, lien: reopen.lien, publie: reopen.publie }]);
+    expect(open.cites).toEqual([{ titre: reopen.titre, lien: reopen.lien, jour: "2026-10-24" }]);
   });
 
   it("says both when the release and the bulletin disagree, and chooses neither", () => {
@@ -158,5 +158,46 @@ describe("the schools' state with the prefecture's releases", () => {
   it("leaves last season's releases out", () => {
     const v = bulletin([]);
     expect(withPrefecture(ecoles(v, NOW), cyc("Levée de l'alerte cyclonique", "2026-03-01"), v, NOW)).toEqual(ecoles(v, NOW));
+  });
+});
+
+describe("the day of the prefecture's cyclone release, never an hour made up", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the day alone, and says it so", () => {
+    const d = pref.decisionOf([release("Alerte orange cyclonique à compter de 5h", "2026-10-24")])!;
+    expect(d).toEqual({ niveau: 3, titre: "Alerte orange cyclonique à compter de 5h", lien: d.lien, jour: "2026-10-24" });
+    const v = bulletin([[8, "2026-10-24T06:00:00"]]);
+    const e = withPrefecture(ecoles(v, NOW), { decision: d }, v, NOW);
+    expect(JSON.stringify(e)).not.toMatch(/2026-10-24T|12:00/);
+  });
+
+  it("counts a release's week from its day's start", () => {
+    const v = bulletin([]);
+    const d = pref.decisionOf([release("Levée de l'alerte cyclonique", "2026-10-17")])!;
+    // 10:00 on the 24th: seven days and ten hours after the 17th began, the release is past.
+    expect(withPrefecture(ecoles(v, new Date("2026-10-24T06:00:00Z")), { decision: d }, v, new Date("2026-10-24T06:00:00Z")).etat).not.toBe("levee");
+    expect(withPrefecture(ecoles(v, new Date("2026-10-23T20:00:00Z")), { decision: d }, v, new Date("2026-10-23T20:00:00Z")).etat).toBe("levee");
+  });
+
+  it("reads the day of a decision kept by an earlier version", async () => {
+    const durable = new MemoryStore();
+    const old = {
+      decision: { niveau: "levee", titre: "Levée de l'alerte cyclonique", lien: "https://www.reunion.gouv.fr/x/levee", publie: "2026-10-24T08:00:00.000Z" },
+      reouverture: { titre: "Réouverture des écoles lundi", lien: "https://www.reunion.gouv.fr/x/ecoles", publie: "2026-10-24T08:00:00.000Z" },
+    };
+    void durable.put("cyclone:prefecture:derniere-decision", { value: old, fetchedAt: NOW.getTime() - 3600_000 });
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("timeout");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const c = (await pref.cyclone(new Cache(new MemoryStore(), () => NOW.getTime(), true, durable), NOW.getTime())).value;
+    expect(c).toEqual({
+      decision: { niveau: "levee", titre: "Levée de l'alerte cyclonique", lien: "https://www.reunion.gouv.fr/x/levee", jour: "2026-10-24" },
+      reouverture: { titre: "Réouverture des écoles lundi", lien: "https://www.reunion.gouv.fr/x/ecoles", jour: "2026-10-24" },
+    });
   });
 });

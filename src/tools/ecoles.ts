@@ -125,14 +125,17 @@ export function ecoles(v: mf.Vigilance, now: Date): EcolesAnswer {
 
 // A release older than this says nothing of the alert now: last season's « levée » is not today's.
 const RECENT_MS = 7 * 86400_000;
-const dayOf = (iso: string) => `${WEEKDAY.format(new Date(Date.parse(iso) + 4 * 3600_000))} ${localTime(new Date(iso)).split(" ")[0]}`;
+/** « samedi 24/10 », of a day « 2026-10-24 ». */
+const dayOf = (jour: string) => `${WEEKDAY.format(new Date(`${jour}T12:00:00Z`))} ${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
+/** How old a release is: from its day's start, the hour not given. */
+const age = (now: Date, jour: string) => now.getTime() - Date.parse(`${jour}T00:00:00+04:00`);
 /** « l'alerte rouge », « la fin de l'alerte ». */
 const said = (n: number | "levee") => (n === "levee" ? "la fin de l'alerte" : n === 6 ? "la phase de sauvegarde" : n === 2 ? "la pré-alerte cyclonique" : `l'alerte ${mf.cycloneName(n)}`);
 /** Whether a step closes the schools under the plan (orange to violette, and the phase de sauvegarde). */
 const closing = (n: number | "levee") => typeof n === "number" && n >= 3;
 const cite = (r: { titre: string }) => `« ${r.titre} » →`;
-const reopened = (r: { titre: string; publie: string }) =>
-  `Réouverture des écoles annoncée par la préfecture le ${dayOf(r.publie)} : ${cite(r)} Le détail, avec les éventuelles exceptions par commune, est dans le communiqué.`;
+const reopened = (r: { titre: string; jour: string }) =>
+  `Réouverture des écoles annoncée par la préfecture le ${dayOf(r.jour)} : ${cite(r)} Le détail, avec les éventuelles exceptions par commune, est dans le communiqué.`;
 const LIFTED_UNREAD = "La réouverture des écoles est annoncée par la préfecture et le rectorat (ac-reunion.fr) : elle n'est pas encore lue ici.";
 
 /**
@@ -145,10 +148,10 @@ const LIFTED_UNREAD = "La réouverture des écoles est annoncée par la préfect
 export function withPrefecture(e: EcolesAnswer, c: Cyclone | null | undefined, v: mf.Vigilance, now: Date): EcolesAnswer {
   const r = c?.reouverture;
   // The phase de sauvegarde in the bulletin, and a release that says the reopening: its sentence instead of REOPENING.
-  if (e.etat === "sauvegarde" && r && now.getTime() - Date.parse(r.publie) <= RECENT_MS) e = { ...e, reouverture: reopened(r), cites: [r] };
+  if (e.etat === "sauvegarde" && r && age(now, r.jour) <= RECENT_MS) e = { ...e, reouverture: reopened(r), cites: [r] };
   const d = c?.decision;
-  if (!d || now.getTime() - Date.parse(d.publie) > RECENT_MS) return e;
-  const of = `du ${dayOf(d.publie)}`;
+  if (!d || age(now, d.jour) > RECENT_MS) return e;
+  const of = `du ${dayOf(d.jour)}`;
   if (d.niveau === "levee" && (e.etat === "aucune" || e.etat === "levee")) {
     return {
       ...e,
@@ -166,7 +169,7 @@ export function withPrefecture(e: EcolesAnswer, c: Cyclone | null | undefined, v
     const bulletin = e.niveau >= 2 ? said(e.niveau) : "aucune alerte cyclonique";
     return {
       ...e,
-      ecart: `Le communiqué de la préfecture ${of} annonce ${said(d.niveau)} : ${cite(d)} Le bulletin de Météo-France émis le ${dayOf(v.emise)} à ${localTime(new Date(v.emise)).split(" ")[1]} indique ${bulletin}. Nous montrons les deux : vérifiez sur reunion.gouv.fr.`,
+      ecart: `Le communiqué de la préfecture ${of} annonce ${said(d.niveau)} : ${cite(d)} Le bulletin de Météo-France émis le ${dayOf(localDay(new Date(v.emise)))} à ${localTime(new Date(v.emise)).split(" ")[1]} indique ${bulletin}. Nous montrons les deux : vérifiez sur reunion.gouv.fr.`,
       cites,
     };
   }

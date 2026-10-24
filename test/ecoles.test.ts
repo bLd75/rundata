@@ -131,8 +131,8 @@ describe("the schools' sentences quote the plan, page by page", () => {
 
   it("in the phase de sauvegarde, gives the prefecture's release on the reopening instead of who announces it", () => {
     const v = map([[6, "2026-10-24T06:00:00"]]);
-    const reopen = { titre: "Réouverture des établissements scolaires lundi", lien: "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Reouverture", publie: "2026-10-24T08:00:00Z" };
-    const c: Cyclone = { decision: { niveau: "levee", titre: "Levée de l'alerte cyclonique", lien: "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Levee", publie: "2026-10-24T08:00:00Z" }, reouverture: reopen };
+    const reopen = { titre: "Réouverture des établissements scolaires lundi", lien: "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Reouverture", jour: "2026-10-24" };
+    const c: Cyclone = { decision: { niveau: "levee", titre: "Levée de l'alerte cyclonique", lien: "https://www.reunion.gouv.fr/Actualites/Cyclone-Test/Levee", jour: "2026-10-24" }, reouverture: reopen };
     const e = withPrefecture(ecoles(v, NOW), c, v, NOW);
     expect(e.reouverture).toBe(`Réouverture des écoles annoncée par la préfecture le samedi 24/10 : « ${reopen.titre} » → Le détail, avec les éventuelles exceptions par commune, est dans le communiqué.`);
     // The bulletin still gives the phase de sauvegarde: the end of the alert is said beside it, not instead.
