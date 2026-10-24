@@ -9,6 +9,9 @@
   // Served on rundata.re only: the edge cache does nothing on *.workers.dev, and one public address is enough.
   "routes": [{ "pattern": "rundata.re", "custom_domain": true }],
   "workers_dev": false,
+  // The press page's visuals (public/presse/, built by scripts/build-presse.py): served by Cloudflare before the Worker
+  // runs and not in its bundle. Their names change with their content, so public/_headers lets browsers keep them.
+  "assets": { "directory": "./public" },
   "preview_urls": false,
   // Every 5 minutes, fills the bundle of the latest AROME run (src/worker.ts), about 35 grids per run of it.
   "triggers": { "crons": ["*/5 * * * *"] },

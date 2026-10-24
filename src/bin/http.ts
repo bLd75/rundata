@@ -3,6 +3,7 @@
  * for running it at home or in a container. PORT defaults to 8787; HOST to 127.0.0.1, so it is not reachable from
  * the network unless asked (HOST=0.0.0.0 in a container).
  */
+import { readFile } from "node:fs/promises";
 import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
 import "./net.js";
 import { handle } from "../app.js";
@@ -49,11 +50,26 @@ async function send(res: ServerResponse, r: Response) {
   res.end();
 }
 
+// The static files Cloudflare serves beside the Worker (wrangler.jsonc, "assets"): the press page's visuals.
+const PUBLIC = new URL("../../public/", import.meta.url);
+const TYPES: Record<string, string> = { jpg: "image/jpeg", webp: "image/webp", png: "image/png" };
+
+async function asset(req: IncomingMessage): Promise<Response | null> {
+  const m = /^\/presse\/([\w-]+\.[0-9a-f]+\.(jpg|webp|png))$/.exec(req.url ?? "");
+  if (!m || (req.method !== "GET" && req.method !== "HEAD")) return null;
+  try {
+    const body = await readFile(new URL(`presse/${m[1]}`, PUBLIC));
+    return new Response(req.method === "HEAD" ? null : body, { headers: { "content-type": TYPES[m[2]], "cache-control": "public, max-age=31536000, immutable" } });
+  } catch {
+    return null;
+  }
+}
+
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST || "127.0.0.1";
 createHttpServer(async (req, res) => {
   try {
-    await send(res, await handle(await toRequest(req), cache));
+    await send(res, (await asset(req)) ?? (await handle(await toRequest(req), cache)));
   } catch (err) {
     if (err instanceof TooLarge) {
       res.writeHead(413, { connection: "close" });
