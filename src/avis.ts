@@ -67,13 +67,23 @@ export function adresseOf(headers: Headers | Record<string, string | string[] | 
   return get("cf-connecting-ip") || get("x-forwarded-for").split(",")[0].trim();
 }
 
+// « 0X XX XX XX XX » in its usual spellings, or after +33 / +262 (00 for +), « (0) » allowed; any other country's
+// number written with its « + » (« +44 20 7946 0958 »), not with dots, which coordinates have (« +55.2212345 »).
+// Never inside a longer number.
+const PHONE = /(?<![\d.,])(?:(?:(?:\+|00)\s?(?:33|262)\s?(?:\(0\)\s?)?[1-9]|0[1-9])(?:[\s.-]?\d\d){4}|\+[1-9]\d{0,2}(?:[\s-]?\d){6,13})(?![\d])/g;
+
 /** The client, from its User-Agent (metrics.ts); undefined for a browser or an unknown one. */
 export function clientOf(userAgent: string): string | undefined {
   const v = visitor(userAgent);
   return v === "navigateur" || v === "inconnu" ? undefined : v;
 }
 
-/** Control characters out, spaces folded, phone numbers and e-mail addresses blanked, cut to `max`. */
+/**
+ * Control characters out, spaces folded, phone numbers and e-mail addresses blanked, cut to `max`. The numbers are the
+ * French and Réunion ones (« 0692 12 34 56 », « +262 692 12 34 56 », « 0033 6… ») and the others written with their
+ * « + », whole: a run of digits that is part of a longer number, such as GPS coordinates (« -21.0512345 55.2212345 »),
+ * is what the feedback is about, and stays.
+ */
 export function nettoie(s: string | undefined, max: number): string | undefined {
   if (s == null) return undefined;
   const t = s
@@ -81,7 +91,7 @@ export function nettoie(s: string | undefined, max: number): string | undefined 
     .replace(/[^\S\n]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, "[courriel retiré]")
-    .replace(/(?:\+|00)?(?:\d[\s.-]?){9,14}\d/g, "[numéro retiré]")
+    .replace(PHONE, "[numéro retiré]")
     .trim()
     .slice(0, max);
   return t || undefined;

@@ -110,6 +110,22 @@ describe("donner_avis", () => {
     expect(JSON.stringify(rows[0])).not.toContain("203.0.113.7");
   });
 
+  it("blanks the French and Réunion phone numbers, and keeps GPS coordinates and other numbers", () => {
+    for (const phone of ["0692 12 34 56", "0692123456", "02.62.12.34.56", "02-62-12-34-56", "+262 692 12 34 56", "+262692123456", "00262 692 12 34 56", "+33 6 12 34 56 78", "+33 (0)6 12 34 56 78", "+44 20 7946 0958", "+1-202-555-0143"]) {
+      expect(avis.nettoie(`Appeler le ${phone} svp`, 200)).toBe("Appeler le [numéro retiré] svp");
+    }
+    for (const kept of [
+      "Position fausse, le point est à -21.0512345 55.2212345",
+      "Le point est à -21,0692123 ; 55,0262123",
+      "Coordonnées -21.2085, +55.5714 (WGS84) ou +55.2212345",
+      "Station à 21.0692123456 S",
+      "Code postal 97411, ligne 0692 du réseau",
+      "Relevé 123456789012 du compteur",
+    ]) {
+      expect(avis.nettoie(kept, 200)).toBe(kept);
+    }
+  });
+
   it("is counted in the usage like any other tool, without its message", async () => {
     const hits: Hit[] = [];
     await (await handle(mcp("donner_avis", { type: "suggestion", message: "Ajouter la houle" }), new Cache(), () => {}, (h) => hits.push(h))).json();
