@@ -67,8 +67,9 @@ export function localToIso(s: string): string {
   return Number.isFinite(t) ? new Date(t).toISOString() : "";
 }
 
+// Text only: the tags out, then any « < » or « > » left by a broken tag, so that nothing can still read as one.
 const plain = (html: unknown) =>
-  String(html ?? "").replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+  String(html ?? "").replace(/<br\s*\/?>/gi, " ").replace(/<[^>]*>/g, "").replace(/[<>]/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 
 const colour = (n: unknown): Colour => COLOURS[typeof n === "number" && n >= 0 && n < COLOURS.length ? n : 0];
 
