@@ -1,13 +1,11 @@
 import type { Cache } from "../cache.js";
-import { distributeur } from "../eau/distributeurs.js";
+import { distributeur, lues } from "../eau/distributeurs.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as notices from "../providers/avis-eau.js";
 import { BACK } from "../providers/avis-eau.js";
 import { why } from "../types.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 
-/** The communes whose distributor publishes its notices in a feed read here. */
-export const COVERED = ["Saint-Denis", "La Possession", "Saint-Paul", "Les Trois-Bassins", "Sainte-Marie", "Bras-Panon", "Saint-André", "La Plaine-des-Palmistes", "Saint-Benoît", "Sainte-Rose", "Salazie"];
 const RECENT_DAYS = 5;
 const QUALITY = /qualit|potab|boire|chlor|conformit|bouilli|embouteill/i;
 
@@ -59,7 +57,7 @@ export function noticeRow(n: notices.Avis, now: Date, current = n.ne_pas_boire) 
 }
 
 const COMMON = {
-  couverture: `Avis lus pour ${COVERED.join(", ")} (Dionéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie) et pour les communes de runéo quand il en publie. Ailleurs, voir la mairie ou le distributeur.`,
+  couverture: "Avis lus pour Saint-Denis, La Possession, Saint-Paul, Les Trois-Bassins, Sainte-Marie, Bras-Panon, Saint-André, La Plaine-des-Palmistes, Saint-Benoît, Sainte-Rose, Salazie (Dionéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie) et pour les communes de runéo quand il en publie. Ailleurs, voir la mairie ou le distributeur.",
   a_savoir: "Après une coupure, l'eau peut être trouble ou impropre à la boisson pendant quelques heures : la laisser couler avant de la boire. Quand un avis dit de ne pas boire l'eau, utiliser de l'eau en bouteille ou bouillie au moins 3 minutes pour boire, cuisiner et se brosser les dents.",
 };
 
@@ -75,7 +73,7 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
   const common = { ...COMMON, sources: credits([notices.SOURCE]) };
 
   if (!lieu?.trim()) {
-    const dry = COVERED.map((c) => doNotDrink(all, c) && c).filter(Boolean) as string[];
+    const dry = lues().map((c) => doNotDrink(all, c) && c).filter(Boolean) as string[];
     return text({
       resume: (dry.length ? `Eau à ne pas boire en ce moment : ${dry.join(", ")}. ` : "") +
         (live.length ? `${live.length} avis des distributeurs d'eau récents ou à venir.` : "Aucun avis de coupure récent ou à venir."),
@@ -91,7 +89,7 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
   const mine = live.filter((n) => n.communes.includes(commune));
   const dry = doNotDrink(all, commune);
   // Its distributor's notices are read (src/eau/distributeurs.ts), or some notice names it.
-  const covered = COVERED.includes(commune) || !!distributeur(commune)?.avis || all.some((n) => n.communes.includes(commune));
+  const covered = !!distributeur(commune)?.avis || all.some((n) => n.communes.includes(commune));
   const resume = [
     dry ? `EAU À NE PAS BOIRE ${a(commune)} (secteurs dans l'avis), d'après l'avis du ${published(dry)} : « ${dry.titre} ».` : "",
     mine.length

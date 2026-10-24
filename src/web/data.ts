@@ -52,7 +52,8 @@ import { pathOf } from "./map.js";
 import { restrictionsEau } from "../tools/secheresse.js";
 import * as daeSource from "../providers/dae.js";
 import { access as daeAccess, byCommune as daeByCommune, daeRow, URGENCE as DAE_URGENCE } from "../tools/dae.js";
-import { COVERED as CUT_COVERED, coupuresEau, type noticeRow } from "../tools/coupures.js";
+import { coupuresEau, type noticeRow } from "../tools/coupures.js";
+import { lues } from "../eau/distributeurs.js";
 import { type CourantAnswer, type courantBlock, courantCopy } from "../tools/courant.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import type { Acces } from "../tools/volcan-acces.js";
@@ -836,7 +837,7 @@ export interface CoupuresAnswer {
 
 export async function buildCoupures(cache: Cache, now = new Date()): Promise<CoupuresAnswer> {
   const a = needed<Omit<CoupuresAnswer, "communes_suivies">>(await coupuresEau(cache, undefined, now), "coupures");
-  return { ...a, communes_suivies: CUT_COVERED };
+  return { ...a, communes_suivies: lues() };
 }
 
 export type { CourantAnswer };

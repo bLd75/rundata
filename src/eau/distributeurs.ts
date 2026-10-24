@@ -49,3 +49,8 @@ export function distributeur(commune: string): Distributeur | undefined {
   if (!feed && !east && mairie) return { nom: NAMES[raw] ?? raw, site: mairie.site, avis: true, par: mairie.par };
   return { nom: NAMES[raw] ?? raw, site: feed ?? (east ? CIREST.site : undefined), avis: !!feed || east, ...(east && !feed ? { par: "la CIREST" } : {}) };
 }
+
+/** The communes whose notices of cuts are read, in alphabetical order: what « avis lus » says on every page. */
+export function lues(): string[] {
+  return Object.keys(data.communes).filter((c) => distributeur(c)?.avis).sort((x, y) => x.localeCompare(y, "fr"));
+}
