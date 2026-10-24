@@ -19,7 +19,7 @@ export class KvStore implements CacheStore {
   constructor(private kv: KvBinding) {}
   async get(key: string) {
     try {
-      count();
+      count(1, "read");
       return ((await this.kv.get(key, "json")) ?? undefined) as CacheEntry | undefined;
     } catch {
       return undefined;

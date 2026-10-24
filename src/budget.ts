@@ -3,10 +3,11 @@
  * Cache API and KV calls alike) and fails the next ones, so every upstream or store call is counted here.
  *
  * The rule, for every page and tool: an invocation makes at most WORKER_BUDGET subrequests, the work after its response
- * included, well under the platform's limit; a tenth of it is kept for writing to the cache what was read, which is
- * what saves the next visits from reading it again. Past it a subrequest is refused here, as the platform would refuse it:
- * the cache then serves the last copy of what it was for (a refusal is not held against the source), and the Worker's
- * log says how many were refused. Work that may wait (a tile brought up to date after the response, an agenda, the
+ * included, well under the platform's limit. A tenth of it is kept for the cache: for writing to it what was read, which
+ * is what saves the next visits from reading it again, and half of that tenth for reading a copy already stored too, so
+ * that a question late in its budget is still served the copy one read away rather than an error. Past it a subrequest
+ * is refused here, as the platform would refuse it: a refused read of the cache is a copy not found, a refused load is
+ * not held against the source (the copy in memory, if any, is served), and the Worker's log says how many were refused. Work that may wait (a tile brought up to date after the response, an agenda, the
  * AROME grids) is sized from `left()` and the cost of its last run (`costOf`), and is left to a later visit otherwise.
  * Outside a counted invocation (Node, tests) nothing is limited.
  */
@@ -82,17 +83,18 @@ export function later(work: Promise<unknown>) {
   t.keep?.(work);
 }
 
-/** The part of the budget only writes to the cache may use. */
+/** The part of the budget kept for the cache: writes may use all of it, reads of a stored copy half of it. */
 const kept = (t: Tally) => Math.floor(t.limit / 10);
 
 /**
- * To call right before each subrequest (`write`: a copy written to the cache): throws `OutOfBudget` instead when the
- * invocation has none left for it.
+ * To call right before each subrequest (`kind`: true for a copy written to the cache, "read" for a copy read from it):
+ * throws `OutOfBudget` instead when the invocation has none left for it.
  */
-export function count(n = 1, write = false) {
+export function count(n = 1, kind: boolean | "read" = false) {
   const t = current.getStore();
   if (!t) return;
-  const refused = t.used + n > t.limit - (write ? 0 : kept(t));
+  const room = kind === true ? t.limit : kind === "read" ? t.limit - Math.ceil(kept(t) / 2) : t.limit - kept(t);
+  const refused = t.used + n > room;
   if (refused) t.refused += n;
   else t.used += n;
   for (let j = jobs.getStore(); j; j = j.parent) {
