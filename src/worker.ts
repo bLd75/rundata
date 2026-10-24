@@ -10,7 +10,7 @@ import { failed, handle } from "./app.js";
 import { WORKER_BUDGET, count, counted, later, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
-import { audience, language, point, visitor, type Hit } from "./metrics.js";
+import { audience, language, point, TEAM, teamVisit, visitor, type Hit } from "./metrics.js";
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
@@ -94,7 +94,9 @@ interface AnalyticsDataset {
 function recorder(env: Env, request: Request) {
   const usage = env.USAGE;
   const headers = request.headers;
-  const who = visitor(headers.get("user-agent") ?? "");
+  // The team's visits are written « interne », whatever their User-Agent says (metrics.ts, teamVisit).
+  const team = teamVisit(headers, new URL(request.url));
+  const who = team ? TEAM : visitor(headers.get("user-agent") ?? "");
   const country = String((request as { cf?: { country?: unknown } }).cf?.country ?? "");
   let from = "";
   try {
@@ -109,7 +111,7 @@ function recorder(env: Env, request: Request) {
     if (!usage) return;
     try {
       const page = hit.kind === "page";
-      usage.writeDataPoint(point(hit, { who, country, from, audience: page ? audience(headers) : "", language: page ? language(headers.get("accept-language")) : "", mode: page && headers.get("rundata-mode") === "app" ? "app" : "" }));
+      usage.writeDataPoint(point(hit, { who, country, from, audience: page ? (team ? TEAM : audience(headers)) : "", language: page ? language(headers.get("accept-language")) : "", mode: page && headers.get("rundata-mode") === "app" ? "app" : "" }));
     } catch (err) {
       console.error("analytics : écriture impossible", why(err));
     }

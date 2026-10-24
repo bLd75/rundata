@@ -15,6 +15,11 @@
  * In the installed app it marks each page it asks for with `rundata-mode: app`, and nothing else: the page view is
  * then counted as one in the app (metrics.ts, blob11). The page tells it which windows are the app's
  * (`display-mode: standalone`); the first page opened from the icon has `?ref=pwa`.
+ *
+ * On a phone of the team, it also marks each page with `rundata-equipe: 1`, so that the team's visits stay out of the
+ * figures (metrics.ts, teamVisit). The phone is marked by opening `/?interne=1` (unmarked by `/?interne=0`): the page
+ * keeps the mark in localStorage and tells the worker, which keeps it in Cache Storage. No cookie, nothing sent but
+ * this header.
  */
 
 export const SW_PATH = "/sw.js";
@@ -60,7 +65,12 @@ self.addEventListener("activate",(e)=>{e.waitUntil(caches.keys().then((ks)=>Prom
 // The windows of the installed app, by client id: kept in Cache Storage, since the worker is stopped between pages.
 let app=null;
 const appIds=async()=>{if(!app){const r=await (await caches.open(STATE)).match("/etat/app");app=new Set(r?await r.json():[])}return app};
-self.addEventListener("message",(e)=>{if(e.data!=="app"||!e.source)return;e.waitUntil((async()=>{const ids=await appIds();if(ids.has(e.source.id))return;
+// A phone of the team (its page says so at each visit): kept the same way.
+let team=null;
+const inTeam=async()=>{if(team===null)team=!!(await (await caches.open(STATE)).match("/etat/interne"));return team};
+const setTeam=async(on)=>{team=on;const c=await caches.open(STATE);if(on)await c.put("/etat/interne",new Response("1"));else await c.delete("/etat/interne")};
+self.addEventListener("message",(e)=>{if(e.data==="interne"||e.data==="externe")return e.waitUntil(setTeam(e.data==="interne"));
+if(e.data!=="app"||!e.source)return;e.waitUntil((async()=>{const ids=await appIds();if(ids.has(e.source.id))return;
 const open=new Set((await self.clients.matchAll({type:"window",includeUncontrolled:true})).map((c)=>c.id));for(const id of ids)if(!open.has(id))ids.delete(id);
 ids.add(e.source.id);await (await caches.open(STATE)).put("/etat/app",new Response(JSON.stringify([...ids])))})())});
 const inApp=async(u)=>{if(u.searchParams.get("ref")==="pwa")return true;const ids=await appIds();if(!ids.size)return false;
@@ -79,7 +89,8 @@ return new Response(html.replace(/<body[^>]*>/,(b)=>b+"\\n"+band),{headers:{"con
 async function offline(){const r=await caches.match(OFFLINE,{cacheName:SHELL_CACHE});
 return r||new Response("Pas de réseau. Réessayez quand le réseau revient.",{status:503,headers:{"content-type":"text/plain; charset=utf-8"}})}
 async function page(e,u){const key=keyOf(u);let req=e.request;
-if(await inApp(u).catch(()=>false)){const h=new Headers(req.headers);h.set("rundata-mode","app");req=new Request(req,{headers:h})}
+const mode=await inApp(u).catch(()=>false),mine=await inTeam().catch(()=>false);
+if(mode||mine){const h=new Headers(req.headers);if(mode)h.set("rundata-mode","app");if(mine)h.set("rundata-equipe","1");req=new Request(req,{headers:h})}
 let kept;const got=fetch(req).then((res)=>{if(keepable(res)&&u.pathname!==OFFLINE)kept=keep(key,res.clone());return res});
 e.waitUntil(got.then(()=>kept).catch(()=>{}));
 const copy=()=>caches.open(PAGES).then((c)=>c.match(key));
@@ -92,10 +103,17 @@ if(SHELL.includes(u.pathname))e.respondWith(caches.match(u.pathname,{cacheName:S
 `;
 }
 
-/** The page's part: registers the worker, tells it the app's windows, and offers to install the site. */
+/**
+ * The page's part: registers the worker, tells it the app's windows and a phone of the team (`?interne=1` marks it,
+ * `?interne=0` unmarks it, with a line to say so), and offers to install the site.
+ */
 export const PWA_SCRIPT = `const app=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const mark=new URLSearchParams(location.search).get("interne");let team=false;
+try{if(mark==="1")localStorage.setItem("rundata-interne","1");else if(mark==="0")localStorage.removeItem("rundata-interne");team=localStorage.getItem("rundata-interne")==="1"}catch{}
+if(mark==="1"||mark==="0"){const p=document.createElement("div");p.className="horsligne";p.setAttribute("role","status");
+p.textContent=team?"Cet appareil est marqué comme celui de l'équipe\u00a0: ses visites ne sont plus comptées.":"Cet appareil est de nouveau compté dans les visites.";document.body.prepend(p)}
 if("serviceWorker"in navigator){navigator.serviceWorker.register(${JSON.stringify(SW_PATH)}).catch(()=>{});
-if(app)navigator.serviceWorker.ready.then((r)=>{(navigator.serviceWorker.controller||r.active)?.postMessage("app")}).catch(()=>{})}
+if(app||team||mark==="0")navigator.serviceWorker.ready.then((r)=>{const w=navigator.serviceWorker.controller||r.active;if(app)w?.postMessage("app");if(team||mark==="0")w?.postMessage(team?"interne":"externe")}).catch(()=>{})}
 const inst=document.getElementById("inst");
 if(inst&&!app){let later=0;try{later=Number(localStorage.getItem("inst-plus-tard"))||0}catch{}
 if(Date.now()-later>30*864e5){let ask=null;const ua=navigator.userAgent;

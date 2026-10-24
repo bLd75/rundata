@@ -75,8 +75,15 @@ const AGENTS: [RegExp, string][] = [
   [/DuckAssistBot|DuckDuckBot/i, "DuckDuckGo"],
 ];
 
-/** The kind of visitor, from its User-Agent: a named fetcher, « navigateur », or the first word of an unknown one. */
+/** The visitor and the audience of the team's own visits, which the figures leave out (teamVisit). */
+export const TEAM = "interne";
+
+/**
+ * The kind of visitor, from its User-Agent: « interne » for the team's scripts (« rundata-interne » in their
+ * User-Agent), a named fetcher, « navigateur », or the first word of an unknown one.
+ */
 export function visitor(userAgent: string): string {
+  if (/rundata-interne/i.test(userAgent)) return TEAM;
   for (const [re, name] of AGENTS) if (re.test(userAgent)) return name;
   if (/bot|crawler|spider/i.test(userAgent)) return "autre robot";
   if (userAgent.startsWith("Mozilla/")) return "navigateur";
@@ -124,10 +131,21 @@ const ASSISTANTS = new Set(["ChatGPT", "ChatGPT (connecteur)", "Claude", "Perple
 export function audience(headers: Headers): string {
   const ua = headers.get("user-agent") ?? "";
   const who = visitor(ua);
+  if (who === TEAM) return TEAM;
   if (ASSISTANTS.has(who)) return "assistant";
   if (who !== "navigateur") return "robot";
   if (/Headless|Lighthouse|PageSpeed|PTST|Chrome-Lighthouse/i.test(ua)) return "robot";
   return headers.has("accept-language") && headers.has("sec-fetch-mode") ? "humain" : "robot probable";
+}
+
+/**
+ * A visit of the team, left out of the figures (written « interne » in blob4 and, for a page, in blob9): a script
+ * with « rundata-interne » in its User-Agent, a page asked by the service worker of a phone marked as the team's
+ * (header `rundata-equipe: 1`, web/pwa.ts), or the address that marks it (`?interne=1`). Nothing is kept to know it
+ * again: the mark stays on the phone.
+ */
+export function teamVisit(headers: Headers, url: URL): boolean {
+  return /rundata-interne/i.test(headers.get("user-agent") ?? "") || headers.get("rundata-equipe") === "1" || url.searchParams.get("interne") === "1";
 }
 
 /** The visitor's first language (« fr », « en »), from Accept-Language; empty without one. */
@@ -174,12 +192,12 @@ export interface Visit {
  * | blob1   | kind: mcp (tools/call) or rpc (the rest)   | page, or flux                          |
  * | blob2   | tool, or JSON-RPC method, or HTTP method   | path                                   |
  * | blob3   | place understood, or text not understood   | « bouton » (opened from a question)    |
- * | blob4   | visitor, from the User-Agent               | visitor; for a feed, its reader        |
+ * | blob4   | visitor, from the User-Agent; « interne » for the team (teamVisit) | visitor; for a feed, its reader |
  * | blob5   | country                                    | country                                |
  * | blob6   | referring site or « ref:<canal> »          | same                                   |
  * | blob7   | JSON-RPC method                            | category: accueil, meteo/*…            |
  * | blob8   | client name (initialize)                   | language: fr, en…                      |
- * | blob9   | client version (initialize)                | audience: humain, assistant, robot…    |
+ * | blob9   | client version (initialize)                | audience: humain, assistant, robot…, interne |
  * | blob10  | protocol version                           | HTTP status                            |
  * | blob11  | outcome: ok, erreur, lieu inconnu, rpc …, http … | « app » in the installed app, else empty |
  * | blob12  | protocol error message                     | —                                      |
