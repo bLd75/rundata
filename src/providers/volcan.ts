@@ -120,6 +120,8 @@ export interface Phase {
   lien: string;
   /** The day of the release, ISO (noon, La Réunion's time: the hour is not given). */
   publie: string;
+  /** The sentences of the release's page, as written (`releaseText`), kept with the phase. */
+  phrases?: string[];
 }
 
 const ABOUT_VOLCANO = /fournaise|volcan|enclos|[ée]ruption/i;
@@ -191,9 +193,59 @@ async function keptPhase(cache: Cache, now: number): Promise<Cached<Phase> | und
 /** Keeps `p` when it is not what is kept, or what is kept is old. */
 async function keepPhase(cache: Cache, p: Phase, now: number) {
   const k = await keptPhase(cache, now);
-  if (k && JSON.stringify(k.value) === JSON.stringify(p) && now - k.fetchedAt.getTime() < KEEP_AGAIN_MS) return;
-  await cache.keep(LAST_PHASE, p);
-  known.set(cache, { phase: { value: p, fetchedAt: new Date(now), stale: true }, at: now });
+  // The release's sentences kept go on with it while it is the same release.
+  const merged: Phase = { ...p, ...(!p.phrases && k?.value.lien === p.lien && k.value.phrases && { phrases: k.value.phrases }) };
+  if (k && JSON.stringify(k.value) === JSON.stringify(merged) && now - k.fetchedAt.getTime() < KEEP_AGAIN_MS) return;
+  await cache.keep(LAST_PHASE, merged);
+  known.set(cache, { phase: { value: merged, fetchedAt: new Date(now), stale: true }, at: now });
+}
+
+// The release's page is read again at most this often: it may be updated (« Mis à jour le »), the phase staying.
+const RELEASE_SECONDS = 30 * 60;
+
+/**
+ * The sentences of a release's page, its body only (the lead and the paragraphs under the title, before the side
+ * menu), as written: the words split by markup (« sp</b><b>é</b><b>cifique ») joined again.
+ */
+export function releaseSentences(html: string): string[] {
+  const start = html.search(/<h1[\s>]/i);
+  if (start < 0) return [];
+  const rest = html.slice(start);
+  const end = rest.search(/<nav class="fr-sidemenu|<div class="fr-col-12 fr-col-md-4"|Partager la page|En compl[ée]ment/i);
+  const body = (end < 0 ? rest : rest.slice(0, end)).replace(/^<h1[\s\S]*?<\/h1>/i, "");
+  const text = body
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
+    .replace(/<\/(p|div|li|h[1-6])>|<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;|&#160;/g, " ")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#0?39;|&rsquo;/g, "’");
+  return text
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .filter((l) => l && !/^Mis à jour le/i.test(l) && !/^\d{2}\/\d{2}\/\d{4}$/.test(l))
+    // A sentence ends at a full stop followed by a capital: « … interdit jusqu'à nouvel ordre. La RN 2 … ».
+    .flatMap((l) => l.split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ«])/))
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+/** The sentences of the release `p`, read from its page every half hour; those kept with the phase if it does not answer. */
+export async function releaseText(cache: Cache, p: Phase, now = Date.now()): Promise<string[] | undefined> {
+  try {
+    const c = await cache.get(`volcan:communique:${p.lien}`, RELEASE_SECONDS, async () => {
+      const phrases = releaseSentences(await getText(PREFECTURE.id, p.lien, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" }));
+      if (!phrases.length) throw new UpstreamError(PREFECTURE.id, "communiqué sans texte");
+      // What is read, to check it on the real pages (the extraction is built on one capture).
+      console.log(`volcan : communiqué lu (${p.lien}) : ${phrases.length} phrases : ${phrases.map((x) => `« ${x} »`).join(" ")}`);
+      return phrases;
+    });
+    if (!c.stale) later(keepPhase(cache, { ...p, phrases: c.value }, now).catch((err) => console.error("volcan : communiqué non gardé", err)));
+    return c.value;
+  } catch {
+    if (p.phrases) return p.phrases;
+    const k = await keptPhase(cache, now);
+    return k?.value.lien === p.lien ? k.value.phrases : undefined;
+  }
 }
 
 async function readPhase(cache: Cache): Promise<Cached<Phase | null>> {

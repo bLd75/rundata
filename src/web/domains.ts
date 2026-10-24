@@ -6,6 +6,7 @@
  */
 import { PREFECTURE } from "../providers/volcan.js";
 import { ENCLOS_SAID, IMAGE_APRES } from "../tools/volcan.js";
+import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
@@ -110,6 +111,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
             : `<p class="lead">Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>${e.ecart_pitonlive && e.communique_prefecture
               ? ` selon le dernier communiqué de la préfecture que nous avons lu (${esc(dayOf(e.communique_prefecture.publie))}). pitonlive.com indique « ${esc(e.ecart_pitonlive.niveau)} » depuis le ${esc(dayOf(e.ecart_pitonlive.depuis))} : vérifiez le niveau en vigueur sur ${GOUV}`
               : ""}.`) +
+          (e.niveau_definition ? ` <span class="note">${esc(e.niveau_definition)}</span>` : "") +
           (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b>.` : "") +
           (e.deformation ? ` Déformation du volcan : ${esc(e.deformation)}.` : "") + `</p>` +
           (e.ecart_pitonlive && e.communique_prefecture && e.acces_enclos
@@ -171,7 +173,18 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   <figure class="card mapcard">${islandMap({ pin: FOURNAISE, label: "Carte de La Réunion (974) avec le Piton de la Fournaise" })}</figure>
 </div>`;
 
-  const body = `${a ? alertSections(a, news) : ""}<section aria-labelledby="h-volcan">
+  // « Puis-je monter au volcan ? », first: the official texts place by place, and the levels of the plan (marketing).
+  const m = d?.puis_je_monter;
+  const line = (l: Ligne) =>
+    `<li>${esc(l.texte)}${l.source ? ` (${l.lien ? `<a href="${esc(l.lien)}">${esc(l.source)} →</a>` : esc(l.source)}).` : l.lien ? ` <a href="${esc(l.lien)}">→</a>` : ""}</li>`;
+  const monter = m
+    ? `<section id="monter" aria-labelledby="h-monter"><div class="sec-h"><h2 id="h-monter">${esc(m.titre)}</h2><p>${esc(m.chapeau)}</p></div>
+  <div class="card"><ul class="plain">${m.lignes.map(line).join("")}</ul><p class="note">${esc(m.pied)}</p>
+  <details><summary>Les niveaux du dispositif</summary><ul class="plain">${NIVEAUX.map((n) => `<li><b>${esc(n.niveau)}</b> : « ${esc(n.libelle)} »</li>`).join("")}</ul><p class="note"><small>${esc(VERSION)}</small></p></details></div></section>
+`
+    : "";
+
+  const body = `${monter}${a ? alertSections(a, news) : ""}<section aria-labelledby="h-volcan">
   <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-volcan">L'Enclos et les séismes</h2></div>
   ${d ? `<div class="two">${enclos}${quakes}</div>${warnings(d.avertissements)}${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">Les données du volcan se chargent : rechargez la page dans quelques secondes.</p>`}
 </section>
@@ -1248,7 +1261,9 @@ function hautsBlock(hauts: RandonneesAnswer["hauts"]): string {
   const line = (h: NonNullable<RandonneesAnswer["hauts"]>[number]) => {
     const name = h.slug ? `<a href="/meteo/${h.slug}#mer-de-nuages">${esc(h.nom)}</a>` : esc(h.nom);
     // During a volcano alert, the viewpoint over the Enclos says it is forbidden: « dégagé » must not call anyone down.
-    return `<li>${name}${esc(h.resume.slice(h.nom.length))}${h.enclos && volcanBanner() ? ` ${esc(ENCLOS)}` : ""}</li>`;
+    // And always where the texts say what is open there: /volcan#monter.
+    const enclos = h.enclos ? `${volcanBanner() ? ` ${esc(ENCLOS)}` : ""} <a href="/volcan#monter">${esc(TITRE)} →</a>` : "";
+    return `<li>${name}${esc(h.resume.slice(h.nom.length))}${enclos}</li>`;
   };
   return `<section id="mer-de-nuages" aria-labelledby="h-hauts"><div class="sec-h"><h2 id="h-hauts">Les Hauts ${esc(when)} : au-dessus ou dans les nuages ?</h2>
   <p>Où sera la mer de nuages entre 6\u00a0h et midi, pour chaque sommet et village des Hauts. Prévision du modèle AROME de Météo-France, pas une mesure : regardez aussi le ciel et la station la plus proche avant de partir.</p></div>
@@ -1366,13 +1381,15 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
     ? sector ? `Sentier de l'ONF ${esc(sector.dans)}${on.length ? `, sur ${on.length > 1 ? `${on.slice(0, -1).join(", ")} et ${on.at(-1)}` : on[0]}` : ""}.` : ""
     : sector ? `Itinéraire de randonnée ${esc(sector.dans)}.` : crossed.length > 1 ? `Itinéraire de randonnée qui passe ${crossed.slice(0, -1).map((x) => esc(x.dans)).join(", ")} et ${esc(crossed.at(-1)!.dans)}.` : "";
   const leadHtml = lead ? `<p class="lead part-of">${lead}${sector ? ` <a href="/randonnees/${sector.slug}">Randonnée ${esc(sector.dans)} →</a>` : ""}</p>` : "";
+  // A trail of the volcano: what the official texts say of going up, place by place (/volcan).
+  const monter = sector?.slug === "volcan" ? `<p class="note"><a href="/volcan#monter">Puis-je monter au volcan ? Ce que disent les textes officiels, lieu par lieu →</a></p>` : "";
 
   const band = `${trail.bar}
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Trace GPS · ${esc(what)}</p>
     <h1>${esc(nom)}</h1>
-    ${leadHtml}
+    ${leadHtml}${monter}
     ${alarm || state}
     ${kind === "sentier" && sector ? "" : partOf}
     ${facts}
