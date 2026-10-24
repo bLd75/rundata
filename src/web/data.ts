@@ -36,7 +36,7 @@ import * as eauPotableSource from "../providers/eaupotable.js";
 import { COMMON as EAU_COMMON } from "../tools/eau.js";
 import { credits } from "../tools/format.js";
 import * as onf from "../providers/sentiers.js";
-import { routeRow, secteur, SECTEURS, sentiersRandonnee } from "../tools/sentiers.js";
+import { routeRow, secteur, SECTEURS, sentiersRandonnee, trailSecteur } from "../tools/sentiers.js";
 import { pathOf } from "./map.js";
 import { restrictionsEau } from "../tools/secheresse.js";
 import * as daeSource from "../providers/dae.js";
@@ -459,8 +459,8 @@ export async function buildRandonnees(cache: Cache): Promise<RandonneesAnswer> {
       dmoins: r.dmoins,
       alt_max: r.alt_max,
       boucle: r.boucle,
-      // A crossing of the island has no one area.
-      secteur: r.km >= CROSSING_KM ? "plusieurs secteurs" : middle ? secteur(...middle).secteur : "",
+      // Computed with the traces; a crossing of the island has no one sector.
+      secteur: r.secteur ?? (r.secteurs && r.secteurs.length > 1 ? "plusieurs secteurs" : r.km >= CROSSING_KM ? "plusieurs secteurs" : middle ? secteur(...middle).secteur : ""),
       fermes: (row.troncons_onf ?? []).filter((t) => t.etat === "fermé").map((t) => ({ sentier: t.sentier, slug: traces.SENTIERS[t.sentier]?.slug, cause: t.cause, precision: t.precision })),
       inconnus: (row.troncons_onf ?? []).filter((t) => t.etat !== "fermé" && t.etat !== "ouvert").map((t) => t.sentier),
       onf: r.sentiers_onf.length,
@@ -473,7 +473,8 @@ export async function buildRandonnees(cache: Cache): Promise<RandonneesAnswer> {
     const shut = parts.find((x) => x.statut === "fermé");
     const open = parts.some((x) => x.statut === "ouvert");
     const at = parts.find((x) => x.points.length);
-    const where = at ? secteur(...at.points[Math.floor(at.points.length / 2)]) : { secteur: "Ouest", commune: "" };
+    const mid = at?.points[Math.floor(at.points.length / 2)];
+    const where = { secteur: trailSecteur(nom, mid) ?? "Hauts de l'Ouest", commune: mid ? secteur(...mid).commune : "" };
     const stats = traces.SENTIERS[nom];
     const one = parts.length === 1 && parts[0].points.length > 2 ? parts[0].points : undefined;
     return {

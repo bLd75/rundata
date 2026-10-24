@@ -53,7 +53,9 @@ describe("search engines", () => {
     expect(title(agendaPage(O, null, NOW))).toBe("Que faire à La Réunion ? Concerts, fêtes, sorties · 974");
     expect(title(traficPage(O, null, NOW))).toBe("Bouchons Réunion : carte Waze et état des routes · 974");
     expect(title(placePage(O, pageOf("cilaos")!, null, NOW))).toBe("Météo Cilaos en direct et prévisions · 974");
-    expect(title(tracePage(O, "randonnee", "sentier-du-piton-des-neiges", "Sentier du Piton des Neiges", null, NOW))).toBe("Sentier du Piton des Neiges : trace GPX, état ONF · 974");
+    // The sector first (§8), then « état ONF » when the name leaves room.
+    expect(title(tracePage(O, "randonnee", "sentier-du-piton-des-neiges", "Sentier du Piton des Neiges", null, NOW))).toBe("Sentier du Piton des Neiges (Cilaos) : trace GPX · 974");
+    expect(title(tracePage(O, "randonnee", "pr25", "PR25", null, NOW))).toBe("PR25 (Mafate) : trace GPX, état ONF · 974");
     expect(title(tracePage(O, "sentier", "x", "Sentier panoramique de Bois Rouge (ancien sentier Bassin Bleu)", null, NOW))).toBe("Sentier panoramique de Bois Rouge (ancien sentier Bassin Bleu) : trace GPX · 974");
     // The school year: from July, the one that starts in August.
     expect(title(calendrierPage(O, null, new Date("2027-03-01T04:00:00Z")))).toContain("2026-2027");

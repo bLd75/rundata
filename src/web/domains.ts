@@ -7,17 +7,21 @@
 import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
 import { normalize } from "../places/resolve.js";
+import * as traces from "../providers/traces.js";
 import { SUJETS } from "../providers/actualites.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
 import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
+import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
 import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
+// What a search engine shows of a title.
+const TITLE_MAX = 60;
 
 /** `full` when it fits in what search engines show, else `short`. */
 const describe = (full: string, short: string) => (full.length <= DESCRIPTION_MAX ? full : short);
@@ -789,7 +793,8 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
 
   const body = `<section aria-labelledby="h-fermes">
   <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-fermes">Les sentiers fermés</h2>
-  <p>Les sentiers gérés par l'ONF fermés par arrêté préfectoral ou par décision de l'ONF, avec la cause et, quand elle est connue, la date de réouverture. Les autres sentiers suivis par l'ONF sont ouverts.</p></div>
+  <p>Les sentiers gérés par l'ONF fermés par arrêté préfectoral ou par décision de l'ONF, avec la cause et, quand elle est connue, la date de réouverture. Les autres sentiers suivis par l'ONF sont ouverts.</p>
+  <p>Par secteur, avec les itinéraires, les accès et la météo :</p>${sectorLinks()}</div>
   ${byCommune}
   ${roads}
   ${d ? warnings(d.a_savoir) : ""}
@@ -1044,6 +1049,8 @@ export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | 
     ? `<section aria-labelledby="h-itineraires" id="itineraires">
   <div class="sec-h"><p class="eyebrow">GPX à télécharger</p><h2 id="h-itineraires">Les itinéraires avec trace GPS</h2>
   <p>Les randonnées complètes relevées par les contributeurs d'OpenStreetMap : GR R1, R2, R3, sommets, boucles. Distance et dénivelé d'après les altitudes de l'IGN ; l'état vient de la carte de l'ONF, sentier par sentier.</p></div>
+  <p class="note">Par secteur :</p>
+  ${sectorLinks()}
   ${FILTER}
   ${closures}
   <ul class="zones hikes">${d.randonnees.map(hikeCard).join("")}</ul>
@@ -1053,11 +1060,11 @@ export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | 
   const trails = d
     ? `<section aria-labelledby="h-secteurs">
   <div class="sec-h"><p class="eyebrow">Secteur par secteur</p><h2 id="h-secteurs">Les ${d.suivis} sentiers de l'ONF</h2>
-  <p>Chaque sentier a sa page avec sa carte, son profil et sa trace GPS. Les secteurs sont approximatifs : un sentier est rangé là où passe son milieu.</p></div>
+  <p>Chaque sentier a sa page avec sa carte, son profil et sa trace GPS. Un sentier est rangé dans le secteur où passe la plus grande partie de son tracé.</p></div>
   ${d.secteurs.map((z) => {
     const shut = z.sentiers.filter((t) => t.etat === "fermé").length;
     return `<details class="card sect"><summary><h3>${esc(z.secteur)}</h3><span class="note"><span class="cnt">${z.sentiers.length}</span> sentiers${shut ? ` · <b class="q-mauvaise">${shut} fermé${shut > 1 ? "s" : ""}</b>` : ""} · ${esc(z.communes.join(", "))}</span></summary>
-  <ul class="rows eau">${z.sentiers.map(trailLi).join("")}</ul></details>`;
+  <ul class="rows eau">${z.sentiers.map(trailLi).join("")}</ul>${secteurNamed(z.secteur) ? `<p class="note"><a href="/randonnees/${secteurNamed(z.secteur)!.slug}">Randonnée ${esc(secteurNamed(z.secteur)!.dans)} : itinéraires, accès et météo →</a></p>` : ""}</details>`;
   }).join("\n  ")}
 </section>`
     : "";
@@ -1103,6 +1110,28 @@ export function randonneesLive(data: Cached<SentiersAnswer> | null): Live | unde
   const n = d.points.length;
   return { valeur: `${n} sentier${n > 1 ? "s" : ""} fermé${n > 1 ? "s" : ""}`, detail: `sur ${d.suivis} suivis par l'ONF ; traces GPS, distance et dénivelé de ${d.randonnees.length} randonnées et de chaque sentier` };
 }
+
+/** The sectors of the hikes as links, the page's own marked: on /randonnees, /sentiers and each sector's page. */
+export function sectorLinks(current?: string): string {
+  return `<nav class="parts" aria-label="Randonnée par secteur">${SECTEURS_RANDO.map((s) =>
+    `<a href="/randonnees/${s.slug}"${s.slug === current ? ` aria-current="page"` : ""}>${esc(s.nom)}</a>`).join("")}</nav>`;
+}
+
+/** The trail of a page under a sector: rundata.re › Randonnée › Sector (› name), as links and for search engines. */
+export function sectorTrail(origin: string, s: Secteur, leaf?: { name: string; path: string }) {
+  const items: [string, string][] = [[SITE, "/"], ["Randonnée", "/randonnees"], [s.nom, `/randonnees/${s.slug}`], ...(leaf ? [[leaf.name, leaf.path] as [string, string]] : [])];
+  const bar = `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol>${items.map(([n, p], i) =>
+    i < items.length - 1 ? `<li><a href="${p}">${esc(n)}</a></li>` : `<li aria-current="page">${esc(n)}</li>`).join("")}</ol></nav></div>`;
+  const jsonld = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map(([n, p], i) => ({ "@type": "ListItem", position: i + 1, name: n, item: `${origin}${p}` })),
+  };
+  return { bar, jsonld };
+}
+
+// What the sectors' pages (randonnees.ts) share with the hikers' page.
+export { closedLi, hikeCard, plural, trailLi };
 
 // ---------------------------------------------------------------- a trail's or a hike's page, with its GPS trace
 
@@ -1159,21 +1188,38 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
     ? `<p class="note">${d.ferme ? "Ce sentier fermé coupe" : "Ce sentier fait partie de"} : ${d.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}.</p>`
     : "";
 
-  // Within the 60 characters a search engine shows when the name allows it.
-  const title = nom.length <= 40 ? `${nom} : trace GPX, état ONF · 974` : `${nom} : trace GPX · 974`;
+  // The sector the most of it lies in (computed with the traces); a route across several names them.
+  const route = kind === "randonnee" ? traces.randonnee(slug) : undefined;
+  const sector = secteurNamed(kind === "sentier" ? traces.sentier(slug)?.secteur : route?.secteur);
+  const named = sector && !normalize(nom).includes(normalize(sector.nom)) ? ` (${sector.nom})` : "";
+  // Within the 60 characters a search engine shows: the sector, then « état ONF », give way to a long name.
+  const title = [`${nom}${named} : trace GPX, état ONF · 974`, `${nom}${named} : trace GPX · 974`, `${nom} : trace GPX, état ONF · 974`, `${nom} : trace GPX · 974`]
+    .find((t) => t.length <= TITLE_MAX) ?? `${nom} : trace GPX · 974`;
   const short = `🇷🇪 ${nom} (La Réunion, 974) : trace GPS à télécharger (GPX), longueur, dénivelé, profil et état du sentier d'après l'ONF.`;
+  const where = sector ? `${sector.nom}, La Réunion` : "La Réunion";
   const description = d
-    ? describe(`🇷🇪 ${nom} (La Réunion) : ${kmFr(d.km)} km${d.dplus != null ? `, ${d.dplus} m de dénivelé positif` : ""}. ${d.etat}. Trace GPS à télécharger (GPX) et profil.`, short)
+    ? describe(`🇷🇪 ${nom} (${where}) : ${kmFr(d.km)} km${d.dplus != null ? `, ${d.dplus} m de dénivelé positif` : ""}. ${d.etat}. Trace GPS à télécharger (GPX) et profil.`,
+        describe(`🇷🇪 ${nom} (La Réunion) : ${kmFr(d.km)} km${d.dplus != null ? `, ${d.dplus} m de dénivelé positif` : ""}. ${d.etat}. Trace GPS à télécharger (GPX) et profil.`, short))
     : short;
-  const jsonld = [hikeCrumbs(origin, nom, path), webPage(origin, path, title, description, data)];
+  const trail = sector ? sectorTrail(origin, sector, { name: nom, path }) : { bar: hikeCrumbBar(nom), jsonld: hikeCrumbs(origin, nom, path) };
+  const jsonld = [trail.jsonld, webPage(origin, path, title, description, data)];
 
-  const band = `${hikeCrumbBar(nom)}
+  // Where it is, in one sentence: « Sentier de l'ONF à Mafate, sur le GR R2 et le GR R3. », the routes linked.
+  const on = (d?.randonnees ?? []).map((r) => `${/^[GP]R\b/.test(r.nom) ? "le " : ""}<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`);
+  const crossed = (route?.secteurs ?? []).map((n) => secteurNamed(n)).filter((x): x is NonNullable<typeof x> => !!x);
+  const lead = kind === "sentier"
+    ? sector ? `Sentier de l'ONF ${esc(sector.dans)}${on.length ? `, sur ${on.length > 1 ? `${on.slice(0, -1).join(", ")} et ${on.at(-1)}` : on[0]}` : ""}.` : ""
+    : sector ? `Itinéraire de randonnée ${esc(sector.dans)}.` : crossed.length > 1 ? `Itinéraire de randonnée qui passe ${crossed.slice(0, -1).map((x) => esc(x.dans)).join(", ")} et ${esc(crossed.at(-1)!.dans)}.` : "";
+  const leadHtml = lead ? `<p class="lead part-of">${lead}${sector ? ` <a href="/randonnees/${sector.slug}">Randonnée ${esc(sector.dans)} →</a>` : ""}</p>` : "";
+
+  const band = `${trail.bar}
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Trace GPS · ${esc(what)}</p>
     <h1>${esc(nom)}</h1>
+    ${leadHtml}
     ${alarm || state}
-    ${partOf}
+    ${kind === "sentier" && sector ? "" : partOf}
     ${facts}
     ${download}
     ${unknown}
@@ -1870,7 +1916,7 @@ export function agendaLive(data: Cached<AgendaAnswer> | null): Live | undefined 
 /** The links between the events page and its parts, above their lists. */
 export function agendaTabs(path: string): string {
   const tabs: [string, string][] = [["/evenements", "Tout l'agenda"], ["/evenements/ce-week-end", "Ce week-end"], ["/evenements/concerts", "Concerts"]];
-  return `<nav class="tabs" aria-label="Parties de l'agenda">${tabs.map(([p, n]) =>
+  return `<nav class="parts" aria-label="Parties de l'agenda">${tabs.map(([p, n]) =>
     `<a href="${p}"${p === path ? ` aria-current="page"` : ""}>${esc(n)}</a>`).join("")}</nav>`;
 }
 

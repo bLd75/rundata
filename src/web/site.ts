@@ -45,6 +45,7 @@ import {
   vigilanceNow,
   type Alerte,
   type Background,
+  type PlaceData,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
 import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
@@ -59,6 +60,8 @@ import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures } from "./presse.js";
 import { avisPost } from "./avis.js";
 import * as traces from "../providers/traces.js";
+import { SECTEURS, secteurOf } from "../traces/secteurs.js";
+import { secteurPage } from "./randonnees.js";
 
 const HTML = {
   "content-type": "text/html; charset=utf-8",
@@ -174,7 +177,7 @@ function sitemap(origin: string, now: Date): string {
   const fixed = (u: string) => [u, STATIC_CHANGED, "monthly"];
   const trace = (u: string) => [u, traces.BUILT, "daily"];
   const urls = [...["/", ...Object.keys(DOMAINS), "/vigilance", "/mer"].map(live), fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)),
-    ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
+    ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions"].map(fixed)];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map(([u, day, freq]) => `<url><loc>${origin}${u}</loc><lastmod>${day}</lastmod><changefreq>${freq}</changefreq></url>`).join("\n") +
@@ -227,6 +230,17 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       alerte(cache, background, now),
     ]);
     return new Response(domain.page(origin, data, now, a), { headers: htmlFor(data) });
+  }
+  const sector = /^\/randonnees\/([a-z-]+)\/?$/.exec(path);
+  const s = sector ? secteurOf(sector[1]) : undefined;
+  if (s) {
+    // The hikers' page's copy, and the weather page's as it is: a sector's page builds nothing of its own.
+    const [data, a, meteo] = await Promise.all([
+      snapshot(cache, DOMAINS["/randonnees"].key, () => buildRandonnees(cache), background, now, waitFor(request), isReader(request)),
+      alerte(cache, background, now),
+      s.meteo ? cache.peek<PlaceData>(`web:lieu:${s.meteo}`).catch(() => undefined) : undefined,
+    ]);
+    return new Response(secteurPage(origin, s, data, meteo ?? null, now, a), { headers: htmlFor(data) });
   }
   const trace = /^\/(sentiers|randonnees)\/([a-z0-9-]+)(\.gpx)?\/?$/.exec(path);
   if (trace) {

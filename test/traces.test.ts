@@ -4,6 +4,7 @@ import { handle } from "../src/app.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { decode, gpx, measure, portionsOf, RANDONNEES, routePieces, SENTIERS } from "../src/providers/traces.js";
 import { routesNamed, secteur, sentiersRandonnee } from "../src/tools/sentiers.js";
+import { SECTEURS as SECTEURS_RANDO } from "../src/traces/secteurs.js";
 
 // The ONF's map on 24/10/2026 (test/fixtures/onf), one trail of it at full resolution (one point in twenty kept) with
 // its altitudes from the IGN, and the hikes of OpenStreetMap bundled in src/traces/traces.json.
@@ -205,7 +206,7 @@ describe("traces GPS", () => {
 
   it("puts each trail in its area", () => {
     expect(secteur(55.424, -21.069).secteur).toBe("Mafate");
-    expect(secteur(55.388, -21.07).secteur).toBe("Ouest");
+    expect(secteur(55.388, -21.07).secteur).toBe("Hauts de l'Ouest");
     expect(secteur(55.475, -21.13).secteur).toBe("Cilaos");
     expect(secteur(55.7, -21.23).secteur).toBe("Volcan");
     expect(secteur(55.45, -20.9).secteur).toBe("Nord");
@@ -230,5 +231,43 @@ describe("traces GPS", () => {
     down = /arcgis/;
     const res = await handle(new Request("https://rundata.re/sentiers/le-bloc-piton-des-neiges.gpx"), cache());
     expect(res.status).toBe(503);
+  });
+
+  it("gives every trail and every route its sector, computed with the traces", () => {
+    const names = new Set(SECTEURS_RANDO.map((x) => x.nom));
+    for (const t of Object.values(SENTIERS)) expect(names.has(t.secteur!)).toBe(true);
+    expect(SENTIERS["Aurère - Îlet à Malheur"].secteur).toBe("Mafate");
+    expect(SENTIERS["Le Bloc - Piton des Neiges"].secteur).toBe("Cilaos");
+    // A crossing of the island has no sector of its own, but the ones it runs through.
+    const r2 = RANDONNEES.find((r) => r.slug === "gr-r2")!;
+    expect(r2.secteur).toBeUndefined();
+    expect(r2.secteurs).toEqual(expect.arrayContaining(["Mafate", "Volcan"]));
+    expect(RANDONNEES.find((r) => r.slug === "gr-r3")!.secteur).toBe("Mafate");
+  });
+
+  it("has a page per sector, its closed trails first, linked from the hikers' page", async () => {
+    shut = /^Aurère - Îlet à Malheur$/;
+    const res = await handle(new Request("https://rundata.re/randonnees/mafate", BOT), cache());
+    expect(res.status).toBe(200);
+    const page = await res.text();
+    expect(page).toContain("<title>Randonnée Mafate : traces GPS et sentiers ouverts · 974</title>");
+    expect(page).toContain("<h1>Randonnée à Mafate</h1>");
+    expect(page).toContain(`<li><a href="/randonnees">Randonnée</a></li><li aria-current="page">Mafate</li>`);
+    // The map of the day has 4 closed there; the one closed here is among them, with why.
+    expect(page).toContain(`id="h-fermes">5 sentiers fermés à Mafate</h2>`);
+    expect(page).toContain(`<li><a href="/sentiers/aurere-ilet-a-malheur">Aurère - Îlet à Malheur</a> : Éboulement · Réouverture prévue le 15/11/2026</li>`);
+    expect(page).toContain(`href="/randonnees/gr-r3"`);
+    expect(page).toContain("ravitaillés par hélicoptère");
+    expect(page).toContain(`<a href="/randonnees/mafate" aria-current="page">Mafate</a>`);
+    expect((await handle(new Request("https://rundata.re/randonnees/nulle-part", BOT), cache())).status).toBe(404);
+    const hub = await (await handle(new Request("https://rundata.re/randonnees", BOT), cache())).text();
+    expect(hub).toContain(`<a href="/randonnees/sud-sauvage">Sud sauvage</a>`);
+  });
+
+  it("says a trail's sector in its title, its trail and its first sentence", async () => {
+    const page = await (await handle(new Request("https://rundata.re/sentiers/aurere-ilet-a-malheur", BOT), cache())).text();
+    expect(page).toContain("<title>Aurère - Îlet à Malheur (Mafate) : trace GPX, état ONF · 974</title>");
+    expect(page).toContain(`<li><a href="/randonnees/mafate">Mafate</a></li><li aria-current="page">Aurère - Îlet à Malheur</li>`);
+    expect(page).toMatch(/<p class="lead part-of">Sentier de l'ONF à Mafate, sur le <a href="\/randonnees\/gr-r2">GR R2<\/a> et le <a href="\/randonnees\/gr-r3">GR R3<\/a>\./);
   });
 });
