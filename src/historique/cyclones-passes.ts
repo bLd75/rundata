@@ -28,7 +28,13 @@ export interface Passe {
   document: Document;
   /** The alert, only as an official document that was read says it. */
   alerte?: string;
+  /** What the document says of the gusts' measure, quoted. */
+  rafales?: string;
+  /** The gust the instruments could not exceed then (m/s), and the document's words for it, said beside a record at that value. */
+  limite?: { ms: number; citation: string };
 }
+
+const ARCHIVE = "Météo-France, site « Pluies extrêmes à La Réunion », copie archivée : le site est suspendu depuis juillet 2024";
 
 export const PASSES: Passe[] = [
   {
@@ -43,6 +49,20 @@ export const PASSES: Passe[] = [
       titre: "Saison cyclonique 2024-2025 dans le Sud-Ouest de l'océan Indien – Retour sur Garance à La Réunion",
       auteur: "Météo-France, Direction interrégionale pour l'océan Indien",
       url: "https://www.reunion.developpement-durable.gouv.fr/IMG/pdf/1a_meteo_france_bilan_saison_cyclonique.pdf",
+    },
+  },
+  {
+    slug: "belal-2024",
+    nom: "Belal",
+    annee: 2024,
+    date: "15 janvier 2024",
+    mois: "janvier 2024",
+    passage:
+      "Le 15 janvier 2024 : « Le mur Sud de l'œil touche la côte Nord aux alentours de 10h » ; « L'œil finit par franchement rentrer sur terre au niveau de la commune de Saint-Benoît […] à la mi-journée. Il ressort peu de temps après, en début d'après-midi, au large du Grand-Brulé (communes de Sainte-Rose/Saint-Philippe). »",
+    document: {
+      titre: "Le cyclone tropical BELAL",
+      auteur: "Météo-France La Réunion",
+      url: "https://meteofrance.re/fr/actualites/le-cyclone-tropical-belal",
     },
   },
   {
@@ -72,6 +92,36 @@ export const PASSES: Passe[] = [
       titre: "Cyclone Dina à la Réunion les 22 et 23 janvier 2002 : caractérisation, conséquences et retour d'expérience (29 janvier 2003)",
       auteur: "Inspection générale de l'environnement et Conseil général des ponts et chaussées",
       url: "https://www.vie-publique.fr/files/rapport/pdf/034000505.pdf",
+    },
+  },
+  {
+    slug: "firinga-1989",
+    nom: "Firinga",
+    annee: 1989,
+    date: "29 janvier 1989",
+    mois: "janvier 1989",
+    passage:
+      "« L'œil de ce cyclone tropical traverse La Réunion en milieu de journée du 29 janvier 1989. Ce sont les régions du Sud qui sont les plus touchées puisque soumises, un court laps de temps, aux vents d'est paroxysmiques du mur de l'œil. »",
+    document: {
+      titre: "1989 Firinga",
+      auteur: ARCHIVE,
+      url: "https://web.archive.org/web/20240115035551/http://pluiesextremes.meteo.fr/lareunion/1989-Firinga.html",
+    },
+    rafales: "« Les stations de Saint-Pierre et de la Plaine-des-Cafres relèvent des rafales de 216 km/h qui sont la limite mesurable avec les instruments de l'époque. »",
+    limite: { ms: 60, citation: "la limite mesurable avec les instruments de l'époque" },
+  },
+  {
+    slug: "hyacinthe-1980",
+    nom: "Hyacinthe",
+    annee: 1980,
+    date: "du 15 au 28 janvier 1980",
+    mois: "janvier 1980",
+    passage:
+      "Du 15 au 28 janvier 1980, « deux boucles et trois passages au plus près de La Réunion » : le 18 janvier « à 100 km dans le nord du département », dans la nuit du 24 au 25 « à 125 km au sud-ouest de la Pointe des Galets », le 27 « à 60 km au sud de Saint-Pierre ».",
+    document: {
+      titre: "1980 Hyacinthe",
+      auteur: ARCHIVE,
+      url: "https://web.archive.org/web/20240204152000/http://pluiesextremes.meteo.fr/lareunion/1980-Hyacinthe.html",
     },
   },
 ];

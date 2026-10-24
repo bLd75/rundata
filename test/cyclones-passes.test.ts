@@ -28,7 +28,7 @@ describe("past cyclones", () => {
       ["Le Baril", "rafale", 1989],
     ]);
     expect(records(passe("batsirai-2022"))).toEqual([]);
-    expect(metaOf(passe("garance-2025"))).toBe("🇷🇪 Cyclone Garance (février 2025) à La Réunion (974) : pluie et rafales mesurées station par station par Météo-France, et les records battus.");
+    expect(metaOf(passe("garance-2025"))).toBe("🇷🇪 Cyclone Garance (février 2025) à La Réunion (974) : pluie et rafales mesurées station par station par Météo-France, et les records de station.");
     expect(metaOf(passe("batsirai-2022"))).not.toContain("records");
   });
 
@@ -36,7 +36,8 @@ describe("past cyclones", () => {
     expect(passeOf("cyclone Dina")?.slug).toBe("dina-2002");
     expect(passeOf("Garance 2025")?.slug).toBe("garance-2025");
     expect(passeOf("batsirai-2022")?.slug).toBe("batsirai-2022");
-    expect(passeOf("Firinga")).toBeUndefined();
+    expect(passeOf("Firinga")?.slug).toBe("firinga-1989");
+    expect(passeOf("Gamède")).toBeUndefined();
     expect(passeOf("Dinamo")).toBeUndefined();
   });
 
@@ -48,7 +49,7 @@ describe("past cyclones", () => {
     expect(html).toContain('href="https://www.reunion.developpement-durable.gouv.fr/IMG/pdf/1a_meteo_france_bilan_saison_cyclonique.pdf"');
     expect(html).toContain("Pluie du jour : cumul mesuré de 10 h ce jour-là à 10 h le lendemain (heure de La Réunion), comme le compte Météo-France.");
     expect(html).toContain("<summary>Les 54 autres stations</summary>");
-    expect(html).toContain("<b>Gros Piton Sainte-Rose</b> : 234 km/h (64,9 m/s) le 28/02/2025");
+    expect(html).toContain("<b>Gros Piton Sainte-Rose</b> : 234\u00a0km/h (64,9\u00a0m/s) le 28/02/2025");
     expect(html).toContain('<a href="/cyclones">');
     expect(html).toContain('<a href="/alerte-cyclone">');
     expect(html).not.toMatch(/victime|mort|dégât|sinistr|foyers/i);
@@ -57,12 +58,38 @@ describe("past cyclones", () => {
     expect(passePage("https://rundata.re", passe("batsirai-2022"))).toContain("« 38h d&#39;alerte rouge à La Réunion »");
   });
 
+  it("gives a long episode each station's wettest day, and says how few measured the wind", () => {
+    const h = passe("hyacinthe-1980");
+    expect(titleOf(h)).toBe("Cyclone Hyacinthe 1980 : pluie mesurée · Réunion 974");
+    expect(metaOf(h)).toBe("🇷🇪 Cyclone Hyacinthe (janvier 1980) à La Réunion (974) : pluie mesurée station par station par Météo-France, et les records de station.");
+    expect(mesures(h).jours).toHaveLength(12);
+    const html = passePage("https://rundata.re", h);
+    expect(html).toContain("<h1>Cyclone Hyacinthe, du 15 au 28 janvier 1980</h1>");
+    expect(html).toContain("135 stations, de la plus arrosée à la moins arrosée, du 16/01/1980 au 27/01/1980. Rafales : seulement 3 stations les mesuraient en 1980.");
+    expect(html).toContain('<th scope="col">Jour le plus pluvieux</th>');
+    expect(html).toContain("<tr><th scope=\"row\">Commerson<small>2\u202f310\u00a0m</small></th><td><b>6\u202f051</b></td><td>1\u202f029<small>25/01</small></td><td>—</td></tr>");
+    // Firinga: the gusts at the instruments' limit, as Météo-France says it.
+    const firinga = passePage("https://rundata.re", passe("firinga-1989"));
+    expect(firinga).toContain("des rafales de 216\u00a0km/h qui sont la limite mesurable avec les instruments de l&#39;époque. » (<a href=\"https://web.archive.org/web/20240115035551/http://pluiesextremes.meteo.fr/lareunion/1989-Firinga.html\" rel=\"noopener\">1989 Firinga</a>, Météo-France, site « Pluies extrêmes à La Réunion », copie archivée : le site est suspendu depuis juillet 2024)</p>");
+    // And beside the record that is only that limit.
+    expect(firinga).toContain("<b>Saint-Pierre</b> : rafale de 216\u00a0km/h (60\u00a0m/s) le 29/01/1989, record de la station (mesures depuis 1952). 216\u00a0km/h était « la limite mesurable avec les instruments de l&#39;époque » (<a href=");
+    expect(firinga).not.toContain("2024))");
+    // Belal: 60.2 m/s at the Maïdo, the 217 km/h of Météo-France's account.
+    expect(passePage("https://rundata.re", passe("belal-2024"))).toContain("<b>Piton Maïdo</b> : 217\u00a0km/h (60,2\u00a0m/s) le 15/01/2024");
+    expect(titleOf(passe("firinga-1989"))).toBe("Cyclone Firinga 1989 : pluie et vent mesurés · Réunion 974");
+    // Belal: the misspelt place of the source is cut, the number and its unit never.
+    const belal = passePage("https://rundata.re", passe("belal-2024"));
+    expect(belal).not.toContain("Saint-Anne");
+    expect(belal).toContain("au niveau de la commune de Saint-Benoît […] à la mi-journée.");
+    expect(passePage("https://rundata.re", passe("batsirai-2022"))).toContain("un peu plus de 190\u00a0km au NNO");
+  });
+
   it("is served, in the sitemap and listed on /cyclones", async () => {
     const cache = new Cache();
     const r = await handle(new Request("https://rundata.re/cyclones/dina-2002", { headers: { accept: "text/html" } }), cache);
     expect(r.status).toBe(200);
     expect(await r.text()).toContain("<h1>Cyclone Dina, 22 et 23 janvier 2002</h1>");
-    expect((await handle(new Request("https://rundata.re/cyclones/hyacinthe-1980", { headers: { accept: "text/html" } }), cache)).status).toBe(404);
+    expect((await handle(new Request("https://rundata.re/cyclones/gamede-2007", { headers: { accept: "text/html" } }), cache)).status).toBe(404);
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), cache)).text();
     for (const p of PASSES) expect(map).toContain(`<loc>https://rundata.re/cyclones/${p.slug}</loc>`);
     expect(cyclonesPage("https://rundata.re", null, NOW)).toContain('<li><a href="/cyclones/garance-2025">Cyclone Garance, 28 février 2025</a></li>');

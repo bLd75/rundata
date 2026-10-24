@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Cyclones passés : Belal (2024), Firinga (1989) et Hyacinthe (1980), la pluie mesurée station par station, avec les récits de Météo-France.
 - Coupures d'eau : la consigne du plan cyclone sur l'eau du robinet, et pour chaque commune, si nous lisons les avis de son distributeur.
 - Volcan : les alertes précédentes depuis novembre 2021, début et fin cités dans les communiqués de la préfecture (liste partielle).
 - Cyclones passés : la pluie et les rafales mesurées station par station pendant Garance, Batsirai et Dina.
