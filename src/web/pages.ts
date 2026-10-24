@@ -53,6 +53,13 @@ export function chip(t: number): string {
 
 export const hm = (iso: string | Date) => localTime(new Date(iso)).split(" ")[1];
 
+/**
+ * « il y a 5 min », kept true in a copy of the page served minutes after it was built: the script of the layout
+ * counts it again from the time of the data, in the browser.
+ */
+export const since = (iso: string | Date, now: Date) =>
+  `<span data-age="${new Date(iso).toISOString()}">${ageText(ageMinutes(new Date(iso), now))}</span>`;
+
 export const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-reunion-en-direct-meteo-mer-bus-velos-air-volcan-pour-vous-et-votre-assistant-ia";
 // Where else rundata.re lives, linked from every footer and named in the home page's structured data.
 export const GITHUB = "https://github.com/bLd75/rundata";
@@ -579,7 +586,13 @@ document.querySelectorAll(".askbox>[data-l]").forEach((d)=>{d.hidden=d.dataset.l
 try{const l=localStorage.getItem("askl");if(l)askl(l)}catch{}
 document.querySelectorAll("[data-askl]").forEach((b)=>b.addEventListener("click",()=>{askl(b.dataset.askl);try{localStorage.setItem("askl",b.dataset.askl)}catch{}}));
 document.querySelectorAll("a[data-maj]").forEach((a)=>{const h=a.getAttribute("href"),u=a.dataset.maj;const set=()=>{const t=new Date(Date.now()+144e5);
-a.href=h.replace(encodeURIComponent(u),encodeURIComponent(u+"?maj="+t.getUTCHours()+"h"+String(t.getUTCMinutes()).padStart(2,"0")))};["click","auxclick","contextmenu"].forEach((e)=>a.addEventListener(e,set))});`;
+a.href=h.replace(encodeURIComponent(u),encodeURIComponent(u+"?maj="+t.getUTCHours()+"h"+String(t.getUTCMinutes()).padStart(2,"0")))};["click","auxclick","contextmenu"].forEach((e)=>a.addEventListener(e,set))});
+const hhmm=(t)=>{const d=new Date(t+144e5);return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0")};
+const tick=()=>{const n=Date.now();document.querySelectorAll("[data-clock]").forEach((e)=>{e.textContent=hhmm(n)});
+document.querySelectorAll("[data-age]").forEach((e)=>{const m=Math.max(0,Math.round((n-Date.parse(e.dataset.age))/6e4));
+e.textContent="il y a "+(m<90?m+" min":m<2880?Math.round(m/60)+" h":Math.round(m/1440)+" jours")})};
+document.querySelectorAll("[data-js]").forEach((e)=>{e.hidden=false});document.querySelectorAll("[data-nojs]").forEach((e)=>{e.hidden=true});
+tick();setInterval(tick,3e4);`;
 
 /** Whether a page belongs to a category: /meteo/cilaos is in the weather. */
 const inCategory = (path: string, category: string) => path === category || path.startsWith(`${category}/`);
@@ -746,7 +759,7 @@ export function credits(list: Credit[]): string {
 }
 
 function age(iso: string, now: Date): string {
-  return `${hm(iso)}, ${ageText(ageMinutes(new Date(iso), now))}`;
+  return `${hm(iso)}, ${since(iso, now)}`;
 }
 
 export function windText(s: StationNow): string | undefined {
@@ -1084,7 +1097,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
     ? `<p class="card">Les mesures se chargent : rechargez la page dans quelques secondes.</p>`
     : stations.length
       ? `<div class="two">${stations.map(stationCard).join("")}</div>` +
-        `<p class="note">Mis à jour à ${hm(data.fetchedAt)} (${ageText(ageMinutes(data.fetchedAt, now))}). Sources : ${credits(d!.meteo!.sources)}.</p>`
+        `<p class="note">Mis à jour à ${hm(data.fetchedAt)} (${since(data.fetchedAt, now)}). Sources : ${credits(d!.meteo!.sources)}.</p>`
       : `<p class="card">Aucune mesure disponible pour le moment.</p>`;
 
   const sea = coastal(p) && d?.mer

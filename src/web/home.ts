@@ -3,7 +3,6 @@
  * copy), how to add the connector to an assistant, and the page of each commune.
  */
 import type { Cached } from "../cache.js";
-import { ageMinutes, ageText } from "../geo.js";
 import type * as mf from "../providers/vigilance.js";
 import brand from "./brand.json" with { type: "json" };
 import { CATEGORIES, type Category } from "./categories.js";
@@ -28,6 +27,7 @@ import {
   merLive,
   meteoLive,
   metres,
+  since,
   placeLinks,
   shortName,
   SITE,
@@ -110,7 +110,7 @@ function demos(h: HomeLive | null, now: Date): Demo[] {
     out.push({
       question: `Il fait combien à ${esc(where)} en ce moment ?`,
       call: `meteo_actuelle(lieu: "${esc(where)}")`,
-      answer: `${thin(deg(s.temperature!))}, mesurés à ${hm(s.time)} (${ageText(ageMinutes(new Date(s.time), now))}) par ${by} ${esc(s.nom)}, ` +
+      answer: `${thin(deg(s.temperature!))}, mesurés à ${hm(s.time)} (${since(s.time, now)}) par ${by} ${esc(s.nom)}, ` +
         `à ${metres(s.altitude_m)} d'altitude.${windText(s) ? ` ${esc(thin(windText(s)!.replace(/^vent/, "Vent")))}.` : ""}`,
     });
   }
@@ -178,6 +178,16 @@ function facts(live: Record<string, Live | undefined>): string {
 }
 
 /** The island with the temperatures measured now, as on the weather page. */
+/**
+ * The hero's badge says when the stations measured, never « en direct » at a time that may be past: the page is a copy
+ * up to a few minutes old. With the script, the time at La Réunion now and the age of the measures, counted again.
+ */
+function livePill(at: string | undefined, now: Date): string {
+  if (!at) return `<p class="live-pill"><span class="dot"></span>La Réunion en direct</p>`;
+  return `<p class="live-pill"><span class="dot"></span><span data-nojs>Mesures de <b>${hm(at)}</b> à La Réunion</span>` +
+    `<span data-js hidden><b data-clock>${hm(now)}</b> à La Réunion · mesuré ${since(at, now)}</span></p>`;
+}
+
 function heroMap(h: HomeLive | null): string {
   const l = withTemp(h?.meteo ?? null);
   const at = h?.meteo?.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
@@ -302,7 +312,7 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
   const at = h?.meteo?.value.stations.reduce((m, st) => (st.time > m ? st.time : m), "");
   const band = `<div class="hero sky-${sky(now)}"><div class="wrap hero-in">
   <div class="hero-txt">
-    <p class="live-pill"><span class="dot"></span>En direct${at ? ` · <b>${hm(at)}</b>` : ""} à La Réunion</p>
+    ${livePill(at, now)}
     <h1>La Réunion <span class="n974">974</span> en direct</h1>
     ${SLOGAN}
     <p class="lead">Météo, mer, volcan, bus, vélos, air : la donnée publique du moment, datée et sourcée, pour vous et pour <b>votre assistant IA</b>.</p>
