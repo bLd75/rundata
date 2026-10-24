@@ -22,7 +22,7 @@ import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
 import { esc, islandMap } from "./map.js";
-import { ask, connector, credits, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
+import { ask, connector, credits, cycloneVg, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { RSS_HINT, rssLink, rssPath, rssTitle } from "./rss.js";
@@ -96,7 +96,7 @@ function vigilance(p: PlacePage, data: Cached<mf.Vigilance> | null | undefined, 
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   if (highest(cyc) >= 2) {
     const c = Math.max(2, cycloneLevel(cyc, now));
-    return { valeur: `<span class="vg vg${c <= 5 ? c : 0}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) };
+    return { valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) };
   }
   const zone = mf.ZONE_OF_COMMUNE[p.nom];
   const name = (mf.ZONES[zone] ?? "").split(" :")[0];

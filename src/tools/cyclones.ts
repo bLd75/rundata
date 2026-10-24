@@ -42,7 +42,7 @@ const COMMON = {
     "elles peuvent avoir quelques heures de retard. Vents moyens sur 10 minutes, comme dans les bulletins de Météo-France ; les rafales sont plus fortes. " +
     "Pour savoir quoi faire, seules comptent l'alerte cyclonique de la préfecture et les bulletins de Météo-France.",
   phases_alerte:
-    "À La Réunion, la préfecture déclenche : la vigilance cyclonique jaune (menace dans les jours à venir, s'informer), l'alerte orange (danger dans les 24 heures, se préparer), " +
+    "À La Réunion, la préfecture déclenche : la pré-alerte cyclonique (menace dans les jours à venir, s'informer), l'alerte orange (danger dans les 24 heures, se préparer), " +
     "l'alerte rouge (danger imminent, se confiner), l'alerte violette (confinement strict, même les secours ne circulent plus), puis la phase de sauvegarde (après le passage, rester prudent).",
   saison: "La saison cyclonique va de novembre à avril ; des systèmes se forment parfois hors saison.",
 };

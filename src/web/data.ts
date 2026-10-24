@@ -1378,13 +1378,18 @@ export interface Alerte {
   texte: string;
   /** Crèches and schools closed by the cyclone alert in force: the banner links to /ecoles-cyclone. */
   ecoles?: boolean;
+  /** The cyclone pré-alerte: a banner without colour (pages.ts cycloneVg). */
+  neutre?: boolean;
 }
 
 export const BANNER_WAIT_MS = 1500;
 
 export function alerteOf(v: mf.Vigilance, now: Date): Alerte | undefined {
   const periods = v.zones[mf.ISLAND]?.[mf.CYCLONE];
-  if (periods && highest(periods) >= 2) return { couleur: cycloneLevel(periods, now), texte: `Météo-France : ${cyclone(v, now)}`, ecoles: ecoles(v, now).fermees || undefined };
+  if (periods && highest(periods) >= 2) {
+    const c = cycloneLevel(periods, now);
+    return { couleur: c, texte: `Météo-France : ${cyclone(v, now)}`, ecoles: ecoles(v, now).fermees || undefined, neutre: c === 2 || undefined };
+  }
   const r = raised(v);
   if (!r.length) return undefined;
   const list = r.slice(0, 3).map((x) => `${x.couleur_max} ${x.phenomene.toLowerCase()} (${x.zone.split(" :")[0]})`);

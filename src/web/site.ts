@@ -291,8 +291,11 @@ async function pages(request: Request, cache: Cache, background: Background, now
     return page(path, (live) => (live ? vigilancePage(origin, data, now, data ? alerteOf(data.value, now) : undefined) : vigilancePage(origin, null, now)), data, background);
   }
   if (path === "/alerte-cyclone" || path === "/alerte-cyclone/") {
-    const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS);
-    return page(path, (live) => (live ? alertePage(origin, data, now, data ? alerteOf(data.value, now) : undefined) : alertePage(origin, null, now)), data, background);
+    const [data, decision] = await Promise.all([
+      vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
+      cycloneDecisionNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
+    ]);
+    return page(path, (live) => (live ? alertePage(origin, data, now, data ? alerteOf(data.value, now) : undefined, decision) : alertePage(origin, null, now)), data, background);
   }
   if (path === "/ecoles-cyclone" || path === "/ecoles-cyclone/") {
     const [data, decision] = await Promise.all([

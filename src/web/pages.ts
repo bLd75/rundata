@@ -548,6 +548,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .vg{display:inline-block;font-weight:700;font-size:.9rem;border-radius:8px;padding:.1rem .6rem;color:#fff;background:var(--vg0)}
 .vg1{background:var(--vg1);color:#fff}.vg2{background:var(--vg2);color:#1a1500}.vg3{background:var(--vg3);color:#1a0d00}
 .vg4{background:var(--vg4);color:#fff}.vg5{background:var(--vg5);color:#fff}
+.vgpre{background:var(--surface);color:var(--ink);border:1px solid var(--border)}
 .status{display:grid;gap:.6rem;justify-items:start}
 .status .big{font-size:clamp(2rem,6vw,3.2rem);line-height:1}
 .zones{list-style:none;padding:0;display:grid;gap:1rem}
@@ -631,7 +632,7 @@ function banner(a: Alerte | undefined, path: string): string {
   if (!a) return "";
   const more = path === "/vigilance" ? "" : ` <a href="/vigilance">Voir la vigilance zone par zone →</a>`;
   const schools = a.ecoles && path !== "/ecoles-cyclone" ? ` <a href="/ecoles-cyclone">Écoles fermées →</a>` : "";
-  return `<div class="alerte vg vg${a.couleur}" role="status"><div class="wrap"><span>⚠ ${esc(a.texte)}</span>${schools}${more}</div></div>`;
+  return `<div class="alerte vg ${a.neutre ? "vgpre" : `vg${a.couleur}`}" role="status"><div class="wrap"><span>⚠ ${esc(a.texte)}</span>${schools}${more}</div></div>`;
 }
 
 const SCRIPT = `const menu=document.querySelector("details.menu");if(menu)document.addEventListener("click",(e)=>{if(menu.open&&!menu.contains(e.target))menu.open=false});
@@ -992,7 +993,7 @@ export function vigilanceLive(data: Cached<mf.Vigilance> | null, now: Date): Liv
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   if (highest(cyc) >= 2) {
     const c = Math.max(2, cycloneLevel(cyc, now));
-    return { valeur: `<span class="vg vg${c <= 5 ? c : 0}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) };
+    return { valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) };
   }
   const r = raised(v);
   if (!r.length) return { valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" };
@@ -1303,6 +1304,11 @@ export function offlinePage(origin: string): string {
 <script>${OFFLINE_SCRIPT}</script>`);
 }
 
+/**
+ * The class of a cyclone alert's badge: no colour for the pré-alerte, whose box is white in the plan's table (DSO
+ * p. 9) and whose yellow the prefecture dropped (marketing).
+ */
+export const cycloneVg = (c: number) => (c === 2 ? "vgpre" : `vg${c >= 1 && c <= 5 ? c : 0}`);
 export const vg = (c: number) => `<span class="vg vg${c >= 1 && c <= 5 ? c : 0}">${esc(mf.colour(c))}</span>`;
 const zoneShort = (zone: string) => (mf.ZONES[zone] ?? zone).split(" :")[0];
 const LAND = ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"];
@@ -1323,7 +1329,7 @@ const SCALE = `<ul class="scale">
 </ul>`;
 
 const CYCLONE_SCALE = `<ul class="scale">
-  <li><span class="vg vg2">jaune</span><p>Vigilance cyclonique, « je m'informe » : un cyclone menace l'île dans les jours à venir.</p></li>
+  <li><span class="vg vgpre">pré-alerte</span><p>Pré-alerte cyclonique, « je m'informe » : un cyclone menace l'île dans les jours à venir.</p></li>
   <li><span class="vg vg3">orange</span><p>Alerte orange, « je me prépare » : danger dans les 24 heures. Les écoles ferment, on fait ses réserves et on met à l'abri ce qui peut s'envoler.</p></li>
   <li><span class="vg vg4">rouge</span><p>Alerte rouge, « je me confine » : danger imminent. Interdiction de circuler, sauf services autorisés.</p></li>
   <li><span class="vg vg5">violette</span><p>Alerte violette : confinement strict, plus personne ne circule, secours compris.</p></li>

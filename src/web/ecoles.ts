@@ -15,7 +15,7 @@ import { layout } from "./pages.js";
 export const TITLE = "École fermée ? Cyclone et alerte orange Réunion · 974";
 const H1 = "Cyclone : les écoles sont-elles fermées ?";
 const LEAD = "Ce que prévoit le plan ORSEC Cyclones de la préfecture pour les crèches, les écoles, les collèges, les lycées et les universités, et l'alerte en vigueur à La Réunion en ce moment.";
-const META = "Alerte orange cyclonique : crèches, écoles, collèges et lycées fermés dans toute l'île. La règle du plan ORSEC de la préfecture et l'alerte en cours à La Réunion (974).";
+const META = "Alerte orange cyclonique : crèches, écoles, collèges et lycées fermés pour l'ensemble du département. La règle du plan ORSEC de la préfecture et l'alerte en cours à La Réunion (974).";
 const metaClosed = (step: string) => `🌀 ${step} à La Réunion (974) : crèches, écoles, collèges et lycées fermés, selon le plan ORSEC Cyclones de la préfecture.`;
 const UNREAD = "L'alerte en vigueur n'a pas pu être lue à l'instant : voir la préfecture (reunion.gouv.fr) et Météo-France.";
 
@@ -34,7 +34,7 @@ function bulletinHtml(depuis: string, href: string | undefined): string {
 }
 
 /** The releases a sentence cites, « « title » → », each linked on its title (marketing). */
-function citesHtml(html: string, cites: { titre: string; lien: string }[] | undefined): string {
+export function citesHtml(html: string, cites: { titre: string; lien: string }[] | undefined): string {
   let out = html;
   for (const c of cites ?? []) {
     const quoted = esc(`« ${c.titre} » →`);
@@ -49,7 +49,7 @@ export function ecolesPage(origin: string, data: Cached<mf.Vigilance> | null, no
   const step = e?.fermees ? (e.niveau === 6 ? "Phase de sauvegarde" : `Alerte ${mf.cycloneName(e.niveau)}`) : undefined;
   const description = step ? metaClosed(step) : META;
   const state = e
-    ? `<div class="status"><p class="lead"><b>${citesHtml(stateHtml(e.texte, Boolean(e.selon)), e.cites)}</b></p>${e.depuis ? `<p class="lead">${bulletinHtml(e.depuis, e.lien_depuis)}</p>` : ""}${[e.communique, e.ecart].filter(Boolean).map((x) => `<p class="lead">${citesHtml(esc(x!), e.cites)}</p>`).join("")}</div>`
+    ? `<div class="status"><p class="lead"><b>${citesHtml(stateHtml(e.texte, Boolean(e.selon)), e.cites)}</b></p>${e.reouverture ? `<p class="lead">${citesHtml(esc(e.reouverture), e.cites)}</p>` : ""}${e.depuis ? `<p class="lead">${bulletinHtml(e.depuis, e.lien_depuis)}</p>` : ""}${[e.communique, e.ecart].filter(Boolean).map((x) => `<p class="lead">${citesHtml(esc(x!), e.cites)}</p>`).join("")}</div>`
     : `<div class="status"><p class="lead">${esc(UNREAD)}</p></div>`;
   const band = `${crumbBar("Écoles et cyclone")}
 <div class="wrap intro"><div class="pitch">

@@ -12,9 +12,10 @@ const OFFICIAL =
   "de la préfecture (reunion.gouv.fr) et la radio.";
 
 // What each colour of the cyclone alert asks of people (vigilance.meteofrance.fr).
-// The codes are those of providers/vigilance.ts, a higher one a worse alert, the phase de sauvegarde last.
+// The codes are those of providers/vigilance.ts, a higher one a worse alert, the phase de sauvegarde last. No colour
+// for the pré-alerte: the prefecture dropped its yellow (release of 26/11/2024), Météo-France's documentation keeps it.
 export const CYCLONE_STEPS: Record<number, string> = {
-  2: "pré-alerte (jaune), « je m'informe » : menace potentielle dans les jours à venir",
+  2: "pré-alerte, « je m'informe » : menace potentielle dans les jours à venir",
   3: "orange, « je me prépare » : danger dans les 24 heures",
   4: "rouge, « je me confine » : danger imminent",
   5: "violette, « je me confine strictement » : même les secours ne circulent plus",
