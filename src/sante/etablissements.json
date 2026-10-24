@@ -1,0 +1,2557 @@
+{
+"construit": "2026-10-24",
+"extraction": "2026-05-12",
+"source": "FINESS (ministère de la Santé), Licence Ouverte 2.0",
+"etablissements": [
+{
+"finess": "970466751",
+"type": "clinique",
+"nom": "Clinique Avicenne le Port",
+"adresse": "4B boulevard de Verdun",
+"commune": "Le Port",
+"telephone": "02 62 42 41 60",
+"lon": 55.2958,
+"lat": -20.93921
+},
+{
+"finess": "970462081",
+"type": "clinique",
+"nom": "Clinique les Orchidees",
+"adresse": "30 avenue Lenine",
+"commune": "Le Port",
+"telephone": "02 62 42 80 00",
+"lon": 55.30056,
+"lat": -20.94279
+},
+{
+"finess": "970462073",
+"type": "clinique",
+"nom": "Clinique Durieux",
+"adresse": "100 rue de France, ZAC Paul Badre",
+"commune": "Le Tampon",
+"telephone": "02 62 59 61 61",
+"lon": 55.50791,
+"lat": -21.27457
+},
+{
+"finess": "970404844",
+"type": "clinique",
+"nom": "Clinique Saint Vincent",
+"adresse": "8 rue de Paris",
+"commune": "Saint-Denis",
+"telephone": "02 62 40 60 80",
+"lon": 55.44896,
+"lat": -20.88014
+},
+{
+"finess": "970462107",
+"type": "clinique",
+"nom": "Clinique Sainte-Clotilde",
+"adresse": "127 route du Bois de Nefles",
+"commune": "Saint-Denis",
+"telephone": "02 62 48 20 20",
+"lon": 55.47694,
+"lat": -20.90244
+},
+{
+"finess": "970400099",
+"type": "hopital",
+"nom": "CHU Site Sud (Cilaos)",
+"adresse": "rue Fleurs Jaunes, Les Mares",
+"commune": "Cilaos",
+"telephone": "02 62 31 70 50",
+"lon": 55.47932,
+"lat": -21.13368
+},
+{
+"finess": "970400073",
+"type": "hopital",
+"nom": "GHER (Saint-Benoit)",
+"adresse": "30 route RN 3",
+"commune": "Saint-Benoît",
+"telephone": "02 62 98 80 00",
+"lon": 55.71137,
+"lat": -21.0586
+},
+{
+"finess": "970400024",
+"type": "hopital",
+"nom": "CHU Site Felix Guyon (Saint Denis)",
+"adresse": "allée des Topazes",
+"commune": "Saint-Denis",
+"telephone": "02 62 90 50 50",
+"lon": 55.44408,
+"lat": -20.89879
+},
+{
+"finess": "970400180",
+"type": "hopital",
+"nom": "CHU Site Sud (Saint Joseph)",
+"adresse": "2 impasse Mere Theresa",
+"commune": "Saint-Joseph",
+"telephone": "02 62 56 49 65",
+"lon": 55.61911,
+"lat": -21.37958
+},
+{
+"finess": "970400081",
+"type": "hopital",
+"nom": "CHU Site Sud (Saint Louis)",
+"adresse": "avenue Principale",
+"commune": "Saint-Louis",
+"telephone": "02 62 91 20 30",
+"lon": 55.40901,
+"lat": -21.28729
+},
+{
+"finess": "970400065",
+"type": "hopital",
+"nom": "Centre Hospitalier Ouest Reunion",
+"adresse": "5 impasse Plaine Chabrier, Le Grand Pourpier Sud",
+"commune": "Saint-Paul",
+"telephone": "02 62 45 30 30",
+"lon": 55.29992,
+"lat": -20.97678
+},
+{
+"finess": "970400057",
+"type": "hopital",
+"nom": "CHU Site Sud (Saint Pierre)",
+"adresse": "avenue Francois Mitterrand",
+"commune": "Saint-Pierre",
+"telephone": "02 62 35 90 00",
+"lon": 55.48503,
+"lat": -21.34486
+},
+{
+"finess": "970406757",
+"type": "pharmacie",
+"nom": "Pharmacie Panonnaise",
+"adresse": "21 route Nationale 2",
+"commune": "Bras-Panon",
+"telephone": null,
+"lon": 55.68091,
+"lat": -20.99719
+},
+{
+"finess": "970464228",
+"type": "pharmacie",
+"nom": "Pharmacie Vanilla",
+"adresse": "15 route Nationale",
+"commune": "Bras-Panon",
+"telephone": "02 62 51 66 67",
+"lon": 55.68269,
+"lat": -20.99802
+},
+{
+"finess": "970465316",
+"type": "pharmacie",
+"nom": "Pharmacie de Bras Panon",
+"adresse": "70 route Nationale 2",
+"commune": "Bras-Panon",
+"telephone": "02 62 51 52 53",
+"lon": 55.6777,
+"lat": -20.99547
+},
+{
+"finess": "970464897",
+"type": "pharmacie",
+"nom": "Pharmacie de la Riviere du Mat",
+"adresse": "6 rue Azema, Riviere du Mat les Hauts",
+"commune": "Bras-Panon",
+"telephone": "02 62 46 09 63",
+"lon": 55.6429,
+"lat": -20.98169
+},
+{
+"finess": "970464020",
+"type": "pharmacie",
+"nom": "Pharmacie des Thermes de Cilaos",
+"adresse": "45 rue du Père Boiteau",
+"commune": "Cilaos",
+"telephone": null,
+"lon": 55.471,
+"lat": -21.1345
+},
+{
+"finess": "970465068",
+"type": "pharmacie",
+"nom": "Pharmacie Drugstore de l'Entre Deux",
+"adresse": "2 rue du Commerce",
+"commune": "Entre-Deux",
+"telephone": null,
+"lon": 55.47069,
+"lat": -21.24883
+},
+{
+"finess": "970405080",
+"type": "pharmacie",
+"nom": "Pharmacie des Letchis",
+"adresse": "115 route des Canots",
+"commune": "L'Étang-Salé",
+"telephone": "02 62 91 41 78",
+"lon": 55.36408,
+"lat": -21.25306
+},
+{
+"finess": "970464509",
+"type": "pharmacie",
+"nom": "Pharmacie du Sable Noir",
+"adresse": "38 avenue Octave Benard",
+"commune": "L'Étang-Salé",
+"telephone": "02 62 26 63 32",
+"lon": 55.33479,
+"lat": -21.26765
+},
+{
+"finess": "970464277",
+"type": "pharmacie",
+"nom": "Pharmacie du Tamarinier",
+"adresse": "121 avenue Raymond Barre",
+"commune": "L'Étang-Salé",
+"telephone": null,
+"lon": 55.36363,
+"lat": -21.26405
+},
+{
+"finess": "970464814",
+"type": "pharmacie",
+"nom": "Pharmacie le Phenix",
+"adresse": "85 avenue Raymond Barre",
+"commune": "L'Étang-Salé",
+"telephone": "02 62 26 32 75",
+"lon": 55.36602,
+"lat": -21.26519
+},
+{
+"finess": "970463956",
+"type": "pharmacie",
+"nom": "Pharmacie des Palmistes",
+"adresse": "2 rue du Commerce",
+"commune": "La Plaine-des-Palmistes",
+"telephone": "02 62 51 33 82",
+"lon": 55.6271,
+"lat": -21.13437
+},
+{
+"finess": "970464715",
+"type": "pharmacie",
+"nom": "Metais Rifleu",
+"adresse": "16 rue Louise Michel, Riviere des Galets",
+"commune": "La Possession",
+"telephone": "02 62 42 11 12",
+"lon": 55.32092,
+"lat": -20.96174
+},
+{
+"finess": "970465597",
+"type": "pharmacie",
+"nom": "Pharmacie Saint Laurent",
+"adresse": "73 rue Romain Rolland",
+"commune": "La Possession",
+"telephone": "02 62 44 70 52",
+"lon": 55.33093,
+"lat": -20.95121
+},
+{
+"finess": "970464699",
+"type": "pharmacie",
+"nom": "Pharmacie Sainte-Therese",
+"adresse": "30 rue Karl Marx",
+"commune": "La Possession",
+"telephone": "02 62 44 81 37",
+"lon": 55.33933,
+"lat": -20.95459
+},
+{
+"finess": "970407284",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Eglise",
+"adresse": "12 rue Letoullec",
+"commune": "La Possession",
+"telephone": null,
+"lon": 55.34245,
+"lat": -20.95239
+},
+{
+"finess": "970404331",
+"type": "pharmacie",
+"nom": "Pharmacie de la Corniche",
+"adresse": "62B rue Raymond Mondon",
+"commune": "La Possession",
+"telephone": "02 62 22 16 22",
+"lon": 55.34253,
+"lat": -20.92383
+},
+{
+"finess": "970464780",
+"type": "pharmacie",
+"nom": "Pharmacie de la Possession",
+"adresse": "32 rue Emmanuel Texer",
+"commune": "La Possession",
+"telephone": "02 62 22 20 55",
+"lon": 55.33481,
+"lat": -20.92698
+},
+{
+"finess": "970405551",
+"type": "pharmacie",
+"nom": "Pharmacie des Manguiers",
+"adresse": "11 rue Salvador Allende",
+"commune": "La Possession",
+"telephone": null,
+"lon": 55.33017,
+"lat": -20.94572
+},
+{
+"finess": "970465407",
+"type": "pharmacie",
+"nom": "Pharmacie du Dos d'Ane",
+"adresse": "51 rue Jacques Duclos",
+"commune": "La Possession",
+"telephone": "02 62 32 03 57",
+"lon": 55.37784,
+"lat": -20.98245
+},
+{
+"finess": "970405957",
+"type": "pharmacie",
+"nom": "Pharmacie du Moulin Joli",
+"adresse": "16 avenue de la Palestine",
+"commune": "La Possession",
+"telephone": null,
+"lon": 55.3239,
+"lat": -20.9603
+},
+{
+"finess": "970465282",
+"type": "pharmacie",
+"nom": "Synanceiae",
+"adresse": "39 rue Sarda Garriga",
+"commune": "La Possession",
+"telephone": "02 62 22 29 50",
+"lon": 55.33436,
+"lat": -20.93216
+},
+{
+"finess": "970464293",
+"type": "pharmacie",
+"nom": "Grande Pharmacie du Port",
+"adresse": "36 avenue Salvador Allende",
+"commune": "Le Port",
+"telephone": "02 62 42 11 96",
+"lon": 55.30302,
+"lat": -20.93925
+},
+{
+"finess": "970464152",
+"type": "pharmacie",
+"nom": "Pharmacie Carambole",
+"adresse": "4 rue Simon Pernic",
+"commune": "Le Port",
+"telephone": null,
+"lon": 55.30483,
+"lat": -20.94821
+},
+{
+"finess": "970465969",
+"type": "pharmacie",
+"nom": "Pharmacie Centrale",
+"adresse": "7 avenue Rico Carpaye",
+"commune": "Le Port",
+"telephone": "02 62 43 00 52",
+"lon": 55.29835,
+"lat": -20.94564
+},
+{
+"finess": "970464442",
+"type": "pharmacie",
+"nom": "Pharmacie Jeanne d'Arc",
+"adresse": "56 rue du General de Gaulle",
+"commune": "Le Port",
+"telephone": "02 62 42 15 23",
+"lon": 55.29514,
+"lat": -20.9402
+},
+{
+"finess": "970464129",
+"type": "pharmacie",
+"nom": "Pharmacie Titan",
+"adresse": "2 avenue Pasteur",
+"commune": "Le Port",
+"telephone": "02 62 42 10 25",
+"lon": 55.29266,
+"lat": -20.94557
+},
+{
+"finess": "970465506",
+"type": "pharmacie",
+"nom": "Pharmacie Vally",
+"adresse": "12 rue Karl Marx, Riviere des Galets",
+"commune": "Le Port",
+"telephone": "02 62 42 15 35",
+"lon": 55.32038,
+"lat": -20.96132
+},
+{
+"finess": "970465175",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Ancre",
+"adresse": "26 rue Francois de Mahy",
+"commune": "Le Port",
+"telephone": "02 62 42 03 50",
+"lon": 55.29135,
+"lat": -20.93792
+},
+{
+"finess": "970464889",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Oasis",
+"adresse": "1 boulevard de Verdun",
+"commune": "Le Port",
+"telephone": "02 62 42 27 98",
+"lon": 55.29657,
+"lat": -20.93887
+},
+{
+"finess": "970465977",
+"type": "pharmacie",
+"nom": "Pharmacie de la Rocade",
+"adresse": "boulevard de Brest",
+"commune": "Le Port",
+"telephone": "02 62 42 23 44",
+"lon": 55.29588,
+"lat": -20.93449
+},
+{
+"finess": "970464657",
+"type": "pharmacie",
+"nom": "Pharmacie des Mascareignes",
+"adresse": "86 avenue Rico Carpaye",
+"commune": "Le Port",
+"telephone": "02 62 42 17 78",
+"lon": 55.29939,
+"lat": -20.9483
+},
+{
+"finess": "970464491",
+"type": "pharmacie",
+"nom": "Pharmacie du Sacre Coeur",
+"adresse": "route du Sacre Coeur",
+"commune": "Le Port",
+"telephone": "02 62 42 11 48",
+"lon": 55.3195,
+"lat": -20.95872
+},
+{
+"finess": "970464475",
+"type": "pharmacie",
+"nom": "Pharmapointe",
+"adresse": "4 rue Alsace Lorraine",
+"commune": "Le Port",
+"telephone": "02 62 42 02 37",
+"lon": 55.29612,
+"lat": -20.93693
+},
+{
+"finess": "970465159",
+"type": "pharmacie",
+"nom": "Grande Pharmacie de la Plaine",
+"adresse": "106 rue Jean Defos du Rau, La Plaine-des-Cafres",
+"commune": "Le Tampon",
+"telephone": null,
+"lon": 55.55307,
+"lat": -21.22144
+},
+{
+"finess": "970403788",
+"type": "pharmacie",
+"nom": "Pharmacie Balustre",
+"adresse": "80 chemin Jean Baptiste Huet, Lieu Dit le Petit Tampon",
+"commune": "Le Tampon",
+"telephone": null,
+"lon": 55.53674,
+"lat": -21.28274
+},
+{
+"finess": "970405536",
+"type": "pharmacie",
+"nom": "Pharmacie CHU Yan Fui",
+"adresse": "183 chemin Chalet",
+"commune": "Le Tampon",
+"telephone": "02 62 57 69 82",
+"lon": 55.53424,
+"lat": -21.2564
+},
+{
+"finess": "970464566",
+"type": "pharmacie",
+"nom": "Pharmacie Centrale Tampon",
+"adresse": "190 rue Hubert Delisle",
+"commune": "Le Tampon",
+"telephone": "02 62 27 00 90",
+"lon": 55.51772,
+"lat": -21.28109
+},
+{
+"finess": "970404174",
+"type": "pharmacie",
+"nom": "Pharmacie Creole",
+"adresse": "429 rue Hubert Delisle",
+"commune": "Le Tampon",
+"telephone": "02 62 57 77 05",
+"lon": 55.50759,
+"lat": -21.26353
+},
+{
+"finess": "970464186",
+"type": "pharmacie",
+"nom": "Pharmacie Pk17",
+"adresse": "157 rue des Poinsetias",
+"commune": "Le Tampon",
+"telephone": null,
+"lon": 55.52764,
+"lat": -21.24188
+},
+{
+"finess": "970404265",
+"type": "pharmacie",
+"nom": "Pharmacie Reunionnaise",
+"adresse": "avenue de l Europe",
+"commune": "Le Tampon",
+"telephone": "02 62 59 72 35",
+"lon": 55.50605,
+"lat": -21.27496
+},
+{
+"finess": "970464764",
+"type": "pharmacie",
+"nom": "Pharmacie Rozes",
+"adresse": "16 rue Hubert Delisle",
+"commune": "Le Tampon",
+"telephone": null,
+"lon": 55.52297,
+"lat": -21.28734
+},
+{
+"finess": "970464038",
+"type": "pharmacie",
+"nom": "Pharmacie de la Croisee",
+"adresse": "59 rue Marius et Ary Leblond",
+"commune": "Le Tampon",
+"telephone": "02 62 27 02 15",
+"lon": 55.52049,
+"lat": -21.28322
+},
+{
+"finess": "970464046",
+"type": "pharmacie",
+"nom": "Pharmacie de la Mairie",
+"adresse": "259 rue Hubert Delisle",
+"commune": "Le Tampon",
+"telephone": "02 62 27 01 91",
+"lon": 55.51469,
+"lat": -21.27845
+},
+{
+"finess": "970464954",
+"type": "pharmacie",
+"nom": "Pharmacie des 400",
+"adresse": "24 rue des Flamboyants",
+"commune": "Le Tampon",
+"telephone": null,
+"lon": 55.50884,
+"lat": -21.28608
+},
+{
+"finess": "970465332",
+"type": "pharmacie",
+"nom": "Pharmacie des 600",
+"adresse": "161 rue Hubert Delisle",
+"commune": "Le Tampon",
+"telephone": "02 62 27 04 55",
+"lon": 55.51851,
+"lat": -21.28196
+},
+{
+"finess": "970465050",
+"type": "pharmacie",
+"nom": "Pharmacie des Trois Mares",
+"adresse": "34 rue Charles Baudelaire",
+"commune": "Le Tampon",
+"telephone": "02 62 27 21 72",
+"lon": 55.50381,
+"lat": -21.26051
+},
+{
+"finess": "970465324",
+"type": "pharmacie",
+"nom": "Pharmacie du 14 Eme Km",
+"adresse": "216 rue Georges Pompidou",
+"commune": "Le Tampon",
+"telephone": "02 62 27 04 73",
+"lon": 55.5212,
+"lat": -21.25183
+},
+{
+"finess": "970464459",
+"type": "pharmacie",
+"nom": "Pharmacie du Bois Court",
+"adresse": "5 rue Raphael Douyere, La Plaine-des-Cafres",
+"commune": "Le Tampon",
+"telephone": "02 62 27 58 91",
+"lon": 55.55291,
+"lat": -21.21916
+},
+{
+"finess": "970465373",
+"type": "pharmacie",
+"nom": "Pharmacie du Bras de Pontho",
+"adresse": "5 impasse Francois Mauriac",
+"commune": "Le Tampon",
+"telephone": "02 62 27 32 70",
+"lon": 55.5153,
+"lat": -21.2782
+},
+{
+"finess": "970464582",
+"type": "pharmacie",
+"nom": "Pharmacie du Xi Eme",
+"adresse": "251 rue Marius et Ary Leblond",
+"commune": "Le Tampon",
+"telephone": null,
+"lon": 55.52461,
+"lat": -21.27243
+},
+{
+"finess": "970464111",
+"type": "pharmacie",
+"nom": "Pharmacie les Ambavilles",
+"adresse": "236 rue Hubert Delisle",
+"commune": "Le Tampon",
+"telephone": "02 62 27 04 24",
+"lon": 55.51573,
+"lat": -21.27932
+},
+{
+"finess": "970465688",
+"type": "pharmacie",
+"nom": "Phie Pont d'Yves",
+"adresse": "235 chemin Neuf Pont d Yves",
+"commune": "Le Tampon",
+"telephone": "02 62 27 23 97",
+"lon": 55.50511,
+"lat": -21.23597
+},
+{
+"finess": "970407797",
+"type": "pharmacie",
+"nom": "Le Ruisseau",
+"adresse": "chemin Merlo",
+"commune": "Les Avirons",
+"telephone": "02 62 38 16 37",
+"lon": 55.32751,
+"lat": -21.23698
+},
+{
+"finess": "970465670",
+"type": "pharmacie",
+"nom": "Pharmacie de la Foret",
+"adresse": "3 rue des Merles",
+"commune": "Les Avirons",
+"telephone": "02 62 38 31 41",
+"lon": 55.35708,
+"lat": -21.20906
+},
+{
+"finess": "970465340",
+"type": "pharmacie",
+"nom": "Pharmacie des Avirons",
+"adresse": "60 rue du General de Gaulle",
+"commune": "Les Avirons",
+"telephone": "02 62 38 02 76",
+"lon": 55.33241,
+"lat": -21.2422
+},
+{
+"finess": "970465613",
+"type": "pharmacie",
+"nom": "Pharmacie Cheung Toi Cheung",
+"adresse": "7 rue du General de Gaulle",
+"commune": "Les Trois-Bassins",
+"telephone": null,
+"lon": 55.29531,
+"lat": -21.1061
+},
+{
+"finess": "970465944",
+"type": "pharmacie",
+"nom": "Pharmacie des Chocas",
+"adresse": "3 rue Francois de Mahy",
+"commune": "Les Trois-Bassins",
+"telephone": "02 62 24 80 70",
+"lon": 55.29486,
+"lat": -21.10503
+},
+{
+"finess": "970405502",
+"type": "pharmacie",
+"nom": "Pharmacie Ravine du Pont",
+"adresse": "33 rue Paul Demange",
+"commune": "Petite-Île",
+"telephone": "02 62 56 01 90",
+"lon": 55.56033,
+"lat": -21.34155
+},
+{
+"finess": "970464673",
+"type": "pharmacie",
+"nom": "Pharmacie de Petite Ile",
+"adresse": "3 rue Joseph Suacot",
+"commune": "Petite-Île",
+"telephone": "02 62 56 80 54",
+"lon": 55.56465,
+"lat": -21.35438
+},
+{
+"finess": "970464178",
+"type": "pharmacie",
+"nom": "Pharmacie du Centre",
+"adresse": "295 rue Labourdonnais",
+"commune": "Petite-Île",
+"telephone": "02 62 56 82 60",
+"lon": 55.56483,
+"lat": -21.35344
+},
+{
+"finess": "970465951",
+"type": "pharmacie",
+"nom": "Pharmacie du Piton des Goyaves",
+"adresse": "126 rue des Platanes, Piton des Goyaves",
+"commune": "Petite-Île",
+"telephone": "02 62 38 90 78",
+"lon": 55.55475,
+"lat": -21.3228
+},
+{
+"finess": "970464319",
+"type": "pharmacie",
+"nom": "La Pharmacie du Centre Saint-Andre",
+"adresse": "228 avenue de Bourbon",
+"commune": "Saint-André",
+"telephone": null,
+"lon": 55.64907,
+"lat": -20.96277
+},
+{
+"finess": "970465464",
+"type": "pharmacie",
+"nom": "Pharmacie Akhoun Timol",
+"adresse": "2606 chemin Patelin, Riviere du Mat les Bas",
+"commune": "Saint-André",
+"telephone": "02 62 46 68 10",
+"lon": 55.6884,
+"lat": -20.97273
+},
+{
+"finess": "970465548",
+"type": "pharmacie",
+"nom": "Pharmacie Azur",
+"adresse": "404 avenue de l Ile de France",
+"commune": "Saint-André",
+"telephone": "02 62 46 03 13",
+"lon": 55.64984,
+"lat": -20.9569
+},
+{
+"finess": "970403895",
+"type": "pharmacie",
+"nom": "Pharmacie Bastide",
+"adresse": "826 chemin Ravine Creuse",
+"commune": "Saint-André",
+"telephone": "02 62 58 06 22",
+"lon": 55.66534,
+"lat": -20.967
+},
+{
+"finess": "970465902",
+"type": "pharmacie",
+"nom": "Pharmacie Checkouri",
+"adresse": "62 avenue de la Republique",
+"commune": "Saint-André",
+"telephone": "02 62 46 27 56",
+"lon": 55.65045,
+"lat": -20.96094
+},
+{
+"finess": "970407094",
+"type": "pharmacie",
+"nom": "Pharmacie Fleur de Canne",
+"adresse": "750 rue de la Gare",
+"commune": "Saint-André",
+"telephone": "02 62 48 19 31",
+"lon": 55.65606,
+"lat": -20.96126
+},
+{
+"finess": "970406666",
+"type": "pharmacie",
+"nom": "Pharmacie Petit Bazar",
+"adresse": "1631 avenue Ile de France",
+"commune": "Saint-André",
+"telephone": null,
+"lon": 55.64852,
+"lat": -20.95034
+},
+{
+"finess": "970402699",
+"type": "pharmacie",
+"nom": "Pharmacie Shakti",
+"adresse": "1019 chemin du Centre",
+"commune": "Saint-André",
+"telephone": null,
+"lon": 55.65446,
+"lat": -20.94607
+},
+{
+"finess": "970464392",
+"type": "pharmacie",
+"nom": "Pharmacie de Cambuston",
+"adresse": "427 rue de Cambuston",
+"commune": "Saint-André",
+"telephone": "02 62 46 92 12",
+"lon": 55.64775,
+"lat": -20.93261
+},
+{
+"finess": "970403994",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Espoir",
+"adresse": "14 chemin Agenor",
+"commune": "Saint-André",
+"telephone": "02 62 58 12 13",
+"lon": 55.68209,
+"lat": -20.94492
+},
+{
+"finess": "970463980",
+"type": "pharmacie",
+"nom": "Pharmacie de la Cressonniere",
+"adresse": "257 rue de la Cressonniere",
+"commune": "Saint-André",
+"telephone": "02 62 46 24 15",
+"lon": 55.65763,
+"lat": -20.96867
+},
+{
+"finess": "970464806",
+"type": "pharmacie",
+"nom": "Pharmacie de la Gare",
+"adresse": "315 rue de la Gare",
+"commune": "Saint-André",
+"telephone": "02 62 46 26 96",
+"lon": 55.65288,
+"lat": -20.95885
+},
+{
+"finess": "970464665",
+"type": "pharmacie",
+"nom": "Pharmacie de la Mairie",
+"adresse": "193 avenue Ile de France",
+"commune": "Saint-André",
+"telephone": "02 62 46 00 05",
+"lon": 55.64979,
+"lat": -20.95891
+},
+{
+"finess": "970464079",
+"type": "pharmacie",
+"nom": "Pharmacie du Colosse",
+"adresse": "5 rue du Lavoir",
+"commune": "Saint-André",
+"telephone": "02 62 58 20 33",
+"lon": 55.64831,
+"lat": -20.93231
+},
+{
+"finess": "970403911",
+"type": "pharmacie",
+"nom": "Pharmacie du Lycee",
+"adresse": "261 rue du Lycee",
+"commune": "Saint-André",
+"telephone": "02 62 46 04 78",
+"lon": 55.65363,
+"lat": -20.9639
+},
+{
+"finess": "970465217",
+"type": "pharmacie",
+"nom": "Pharmacie Beaulieu",
+"adresse": "6 chemin des Goyaves",
+"commune": "Saint-Benoît",
+"telephone": "02 62 50 10 49",
+"lon": 55.70455,
+"lat": -21.03533
+},
+{
+"finess": "970464145",
+"type": "pharmacie",
+"nom": "Pharmacie Pichane",
+"adresse": "57 rue Amiral Bouvet",
+"commune": "Saint-Benoît",
+"telephone": "02 62 50 22 69",
+"lon": 55.71851,
+"lat": -21.03629
+},
+{
+"finess": "970463808",
+"type": "pharmacie",
+"nom": "Pharmacie Riviere des Roches",
+"adresse": "267 route Nationale 2",
+"commune": "Saint-Benoît",
+"telephone": "02 62 50 16 67",
+"lon": 55.69956,
+"lat": -21.01157
+},
+{
+"finess": "970465043",
+"type": "pharmacie",
+"nom": "Pharmacie de Bras Canot",
+"adresse": "1 route du Cratere, Bras Canot",
+"commune": "Saint-Benoît",
+"telephone": "02 62 50 30 72",
+"lon": 55.7032,
+"lat": -21.04945
+},
+{
+"finess": "970464376",
+"type": "pharmacie",
+"nom": "Pharmacie de Bras Fusil",
+"adresse": "37 avenue J. Monnet",
+"commune": "Saint-Benoît",
+"telephone": "02 62 50 42 39",
+"lon": 55.71217,
+"lat": -21.05101
+},
+{
+"finess": "970465472",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Est",
+"adresse": "51 avenue Jean Jaures",
+"commune": "Saint-Benoît",
+"telephone": "02 62 50 15 91",
+"lon": 55.72047,
+"lat": -21.04056
+},
+{
+"finess": "970465704",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Orchidee",
+"adresse": "16 rue Louis Brunet",
+"commune": "Saint-Benoît",
+"telephone": null,
+"lon": 55.71312,
+"lat": -21.03493
+},
+{
+"finess": "970464830",
+"type": "pharmacie",
+"nom": "Pharmacie de la Baleine",
+"adresse": "144 route Nationale 2, Sainte-Anne",
+"commune": "Saint-Benoît",
+"telephone": "02 62 51 04 56",
+"lon": 55.74463,
+"lat": -21.08001
+},
+{
+"finess": "970403945",
+"type": "pharmacie",
+"nom": "Pharmacie du Bassin Bleu",
+"adresse": "227 rue N 2 Petit Saint-Pierre, Sainte-Anne",
+"commune": "Saint-Benoît",
+"telephone": "02 62 51 03 33",
+"lon": 55.74779,
+"lat": -21.08881
+},
+{
+"finess": "970465761",
+"type": "pharmacie",
+"nom": "Pharmacie du Centre",
+"adresse": "36 rue Georges Pompidou",
+"commune": "Saint-Benoît",
+"telephone": "02 62 50 17 60",
+"lon": 55.71206,
+"lat": -21.03241
+},
+{
+"finess": "970465621",
+"type": "pharmacie",
+"nom": "Pharmacie du Marche",
+"adresse": "4 rue Georges Pompidou",
+"commune": "Saint-Benoît",
+"telephone": "02 62 50 10 03",
+"lon": 55.71404,
+"lat": -21.03448
+},
+{
+"finess": "970465662",
+"type": "pharmacie",
+"nom": "Grande Pharmacie de Trinite",
+"adresse": "10 avenue Jean Paul II, Montgaillard",
+"commune": "Saint-Denis",
+"telephone": "02 62 30 38 88",
+"lon": 55.46837,
+"lat": -20.89501
+},
+{
+"finess": "970465712",
+"type": "pharmacie",
+"nom": "La Pharmacie Dionysienne",
+"adresse": "120 rue Jean Chatel",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 18 57",
+"lon": 55.45095,
+"lat": -20.88172
+},
+{
+"finess": "970464970",
+"type": "pharmacie",
+"nom": "Pastel",
+"adresse": "76 rue Jean Chatel",
+"commune": "Saint-Denis",
+"telephone": "02 62 20 05 23",
+"lon": 55.45005,
+"lat": -20.87912
+},
+{
+"finess": "970464202",
+"type": "pharmacie",
+"nom": "Pharmacie Bellepierre",
+"adresse": "41 allée des Topazes",
+"commune": "Saint-Denis",
+"telephone": "02 62 98 07 83",
+"lon": 55.44491,
+"lat": -20.8919
+},
+{
+"finess": "970464590",
+"type": "pharmacie",
+"nom": "Pharmacie Bourbon",
+"adresse": "116 rue Marechal Leclerc",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 16 68",
+"lon": 55.4542,
+"lat": -20.87902
+},
+{
+"finess": "970464095",
+"type": "pharmacie",
+"nom": "Pharmacie Hinzelin et Peluchonneau",
+"adresse": "1 rue Monseigneur Mondon",
+"commune": "Saint-Denis",
+"telephone": null,
+"lon": 55.46086,
+"lat": -20.89257
+},
+{
+"finess": "970464517",
+"type": "pharmacie",
+"nom": "Pharmacie Hirdjee",
+"adresse": "155 route des Ananas, Sainte-Clotilde Bois de Nefles",
+"commune": "Saint-Denis",
+"telephone": "02 62 29 87 26",
+"lon": 55.47594,
+"lat": -20.91729
+},
+{
+"finess": "970464723",
+"type": "pharmacie",
+"nom": "Pharmacie Ho Mouye",
+"adresse": "318 rue du Marechal Leclerc",
+"commune": "Saint-Denis",
+"telephone": "02 62 20 02 90",
+"lon": 55.46352,
+"lat": -20.88349
+},
+{
+"finess": "970464053",
+"type": "pharmacie",
+"nom": "Pharmacie Lafayette Marechal Leclerc",
+"adresse": "107 rue Jules Auber",
+"commune": "Saint-Denis",
+"telephone": null,
+"lon": 55.45282,
+"lat": -20.87853
+},
+{
+"finess": "970465100",
+"type": "pharmacie",
+"nom": "Pharmacie Massiau",
+"adresse": "2 rue Saint Joseph Ouvrier",
+"commune": "Saint-Denis",
+"telephone": "02 62 30 33 39",
+"lon": 55.45757,
+"lat": -20.8958
+},
+{
+"finess": "970464939",
+"type": "pharmacie",
+"nom": "Pharmacie Maveli",
+"adresse": "18 avenue Leconte de Lisle, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 28 11 85",
+"lon": 55.4813,
+"lat": -20.89189
+},
+{
+"finess": "970464863",
+"type": "pharmacie",
+"nom": "Pharmacie Moderne",
+"adresse": "41 rue Marechal Leclerc",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 09 22",
+"lon": 55.44984,
+"lat": -20.88002
+},
+{
+"finess": "970464822",
+"type": "pharmacie",
+"nom": "Pharmacie Sainte Clotilde",
+"adresse": "78 avenue de Lattre de Tassigny, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 29 99 44",
+"lon": 55.4786,
+"lat": -20.89051
+},
+{
+"finess": "970463915",
+"type": "pharmacie",
+"nom": "Pharmacie Vauban",
+"adresse": "2 boulevard Doret",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 26 48",
+"lon": 55.46106,
+"lat": -20.88902
+},
+{
+"finess": "970463782",
+"type": "pharmacie",
+"nom": "Pharmacie Vi-Fane",
+"adresse": "118 rue du General de Gaulle",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 22 65",
+"lon": 55.45869,
+"lat": -20.88528
+},
+{
+"finess": "970464525",
+"type": "pharmacie",
+"nom": "Pharmacie de Champ Fleuri",
+"adresse": "2 avenue de Lattre de Tassigny, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 48 10",
+"lon": 55.46869,
+"lat": -20.88604
+},
+{
+"finess": "970464756",
+"type": "pharmacie",
+"nom": "Pharmacie de Chateau Morange",
+"adresse": "13 rue des Camelias",
+"commune": "Saint-Denis",
+"telephone": "02 62 30 23 39",
+"lon": 55.46272,
+"lat": -20.89306
+},
+{
+"finess": "970465084",
+"type": "pharmacie",
+"nom": "Pharmacie de Domenjod",
+"adresse": "2B rue Boyer de la Giroday, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": null,
+"lon": 55.5032,
+"lat": -20.90748
+},
+{
+"finess": "970404455",
+"type": "pharmacie",
+"nom": "Pharmacie de Montgaillard",
+"adresse": "1 Rocade de l'Oasis",
+"commune": "Saint-Denis",
+"telephone": "02 62 30 01 02",
+"lon": 55.4673,
+"lat": -20.8988
+},
+{
+"finess": "970465035",
+"type": "pharmacie",
+"nom": "Pharmacie de Paris",
+"adresse": "47 rue Labourdonnais",
+"commune": "Saint-Denis",
+"telephone": null,
+"lon": 55.45062,
+"lat": -20.87585
+},
+{
+"finess": "970465530",
+"type": "pharmacie",
+"nom": "Pharmacie de Saint Bernard",
+"adresse": "146 chemin du Pere Raimbault, La Montagne",
+"commune": "Saint-Denis",
+"telephone": "02 62 23 79 95",
+"lon": 55.40104,
+"lat": -20.90806
+},
+{
+"finess": "970464251",
+"type": "pharmacie",
+"nom": "Pharmacie de Saint-Francois",
+"adresse": "122 route de Saint Francois",
+"commune": "Saint-Denis",
+"telephone": "02 62 30 00 44",
+"lon": 55.45927,
+"lat": -20.91577
+},
+{
+"finess": "970464947",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Horizon",
+"adresse": "2 rue des Corsaires, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 28 27 47",
+"lon": 55.48288,
+"lat": -20.909
+},
+{
+"finess": "970465696",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Hotel de Ville",
+"adresse": "9 rue de la Compagnie",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 19 65",
+"lon": 55.44914,
+"lat": -20.87823
+},
+{
+"finess": "970464194",
+"type": "pharmacie",
+"nom": "Pharmacie de la Bretagne",
+"adresse": "160 route Gabriel Mace, Sainte-Clotilde la Bretagne",
+"commune": "Saint-Denis",
+"telephone": null,
+"lon": 55.49423,
+"lat": -20.91848
+},
+{
+"finess": "970463873",
+"type": "pharmacie",
+"nom": "Pharmacie de la Cite",
+"adresse": "6 rue Roger Payet, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 28 05 05",
+"lon": 55.48816,
+"lat": -20.89323
+},
+{
+"finess": "970464962",
+"type": "pharmacie",
+"nom": "Pharmacie de la Clinique",
+"adresse": "150 route du Bois de Nefles, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 28 59 60",
+"lon": 55.47688,
+"lat": -20.90235
+},
+{
+"finess": "970465431",
+"type": "pharmacie",
+"nom": "Pharmacie de la Montagne",
+"adresse": "25 route des Palmiers, La Montagne",
+"commune": "Saint-Denis",
+"telephone": "02 62 23 62 93",
+"lon": 55.42466,
+"lat": -20.88924
+},
+{
+"finess": "970463964",
+"type": "pharmacie",
+"nom": "Pharmacie de la Poste Saint-Denis",
+"adresse": "89 rue Juliette Dodu",
+"commune": "Saint-Denis",
+"telephone": "02 62 20 07 52",
+"lon": 55.45175,
+"lat": -20.87975
+},
+{
+"finess": "970464236",
+"type": "pharmacie",
+"nom": "Pharmacie de la Providence",
+"adresse": "1 boulevard de la Providence",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 88 04",
+"lon": 55.45298,
+"lat": -20.89073
+},
+{
+"finess": "970463774",
+"type": "pharmacie",
+"nom": "Pharmacie de la Source",
+"adresse": "26B rue de la Source",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 22 04",
+"lon": 55.4483,
+"lat": -20.88956
+},
+{
+"finess": "970465001",
+"type": "pharmacie",
+"nom": "Pharmacie des Goyaves",
+"adresse": "1C rue des Goyaves, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 28 18 24",
+"lon": 55.48432,
+"lat": -20.89364
+},
+{
+"finess": "970465027",
+"type": "pharmacie",
+"nom": "Pharmacie des Isles",
+"adresse": "19 rue de la Republique",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 20 31",
+"lon": 55.44633,
+"lat": -20.879
+},
+{
+"finess": "970465183",
+"type": "pharmacie",
+"nom": "Pharmacie du Bosquet",
+"adresse": "4B rue du Bosquet, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": null,
+"lon": 55.48387,
+"lat": -20.90571
+},
+{
+"finess": "970463790",
+"type": "pharmacie",
+"nom": "Pharmacie du Boulevard Sud",
+"adresse": "boulevard Jean Jaures, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 33 00",
+"lon": 55.47515,
+"lat": -20.89708
+},
+{
+"finess": "970464616",
+"type": "pharmacie",
+"nom": "Pharmacie du Chaudron",
+"adresse": "28 avenue Joseph Bedier, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 28 03 65",
+"lon": 55.487,
+"lat": -20.89275
+},
+{
+"finess": "970463816",
+"type": "pharmacie",
+"nom": "Pharmacie du Jardin de l'Etat",
+"adresse": "42 rue de Paris",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 28 55",
+"lon": 55.45082,
+"lat": -20.88555
+},
+{
+"finess": "970464061",
+"type": "pharmacie",
+"nom": "Pharmacie du Moufia",
+"adresse": "43 route du Moufia, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 28 13 42",
+"lon": 55.49202,
+"lat": -20.89979
+},
+{
+"finess": "970464632",
+"type": "pharmacie",
+"nom": "Pharmacie du Petit Marche",
+"adresse": "35 boulevard Jawaharlal Nehru",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 31 28",
+"lon": 55.45721,
+"lat": -20.88129
+},
+{
+"finess": "970464244",
+"type": "pharmacie",
+"nom": "Pharmacie du Ruisseau Blanc",
+"adresse": "73B chemin du Ruisseau Blanc, La Montagne",
+"commune": "Saint-Denis",
+"telephone": "02 62 23 76 08",
+"lon": 55.41246,
+"lat": -20.89486
+},
+{
+"finess": "970465019",
+"type": "pharmacie",
+"nom": "Pharmacie le Paille en Queue Nord",
+"adresse": "112 rue Monthyon",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 19 40",
+"lon": 55.4581,
+"lat": -20.88701
+},
+{
+"finess": "970465415",
+"type": "pharmacie",
+"nom": "Pharmacie les Calebassiers",
+"adresse": "86B avenue Leconte de Lisle, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 28 06 82",
+"lon": 55.48956,
+"lat": -20.89571
+},
+{
+"finess": "970465423",
+"type": "pharmacie",
+"nom": "Pharmacie les Lataniers",
+"adresse": "127 rue Monthyon",
+"commune": "Saint-Denis",
+"telephone": null,
+"lon": 55.46276,
+"lat": -20.88715
+},
+{
+"finess": "970464368",
+"type": "pharmacie",
+"nom": "Pharmasun",
+"adresse": "75 place du Karting, Sainte-Clotilde",
+"commune": "Saint-Denis",
+"telephone": "02 62 21 35 46",
+"lon": 55.49773,
+"lat": -20.89461
+},
+{
+"finess": "970404315",
+"type": "pharmacie",
+"nom": "L.s.m",
+"adresse": "342 route de Jean Petit",
+"commune": "Saint-Joseph",
+"telephone": "02 62 56 02 40",
+"lon": 55.62979,
+"lat": -21.33938
+},
+{
+"finess": "970464343",
+"type": "pharmacie",
+"nom": "Mapharm",
+"adresse": "176 rue Marcel Pagnol",
+"commune": "Saint-Joseph",
+"telephone": "02 62 37 20 26",
+"lon": 55.67273,
+"lat": -21.37136
+},
+{
+"finess": "970465233",
+"type": "pharmacie",
+"nom": "Pharmacie Berrin",
+"adresse": "101 rue Leconte Delisle",
+"commune": "Saint-Joseph",
+"telephone": null,
+"lon": 55.62018,
+"lat": -21.3731
+},
+{
+"finess": "970464087",
+"type": "pharmacie",
+"nom": "Pharmacie Chane Mui Jean-Marc",
+"adresse": "270 rue Raphael Babet",
+"commune": "Saint-Joseph",
+"telephone": "02 62 56 60 40",
+"lon": 55.62119,
+"lat": -21.37915
+},
+{
+"finess": "970464533",
+"type": "pharmacie",
+"nom": "Pharmacie Grand Sud",
+"adresse": "ZAC les Grègues II, Les Terrasses",
+"commune": "Saint-Joseph",
+"telephone": "02 62 56 54 44",
+"lon": 55.61927,
+"lat": -21.37857
+},
+{
+"finess": "970465134",
+"type": "pharmacie",
+"nom": "Pharmacie Michel",
+"adresse": "236 rue Raphael Babet",
+"commune": "Saint-Joseph",
+"telephone": "02 62 56 53 09",
+"lon": 55.61955,
+"lat": -21.37902
+},
+{
+"finess": "970464418",
+"type": "pharmacie",
+"nom": "Pharmacie Morel",
+"adresse": "1 rue de la Chapelle",
+"commune": "Saint-Joseph",
+"telephone": "02 62 37 52 04",
+"lon": 55.60235,
+"lat": -21.34673
+},
+{
+"finess": "970465753",
+"type": "pharmacie",
+"nom": "Pharmacie Nativel Francois",
+"adresse": "4 rue du General Lambert",
+"commune": "Saint-Joseph",
+"telephone": "02 62 56 55 25",
+"lon": 55.61924,
+"lat": -21.37828
+},
+{
+"finess": "970463857",
+"type": "pharmacie",
+"nom": "Pharmacie de Langevin",
+"adresse": "24 rue Charles Baudelaire, Langevin",
+"commune": "Saint-Joseph",
+"telephone": "02 62 56 25 18",
+"lon": 55.64766,
+"lat": -21.38179
+},
+{
+"finess": "970464301",
+"type": "pharmacie",
+"nom": "Pharmacie du Butor",
+"adresse": "111 rue Raphael Babet",
+"commune": "Saint-Joseph",
+"telephone": "02 62 56 28 11",
+"lon": 55.61259,
+"lat": -21.38085
+},
+{
+"finess": "970464541",
+"type": "pharmacie",
+"nom": "Sopharm",
+"adresse": "27 rue Maury",
+"commune": "Saint-Joseph",
+"telephone": "02 62 56 01 18",
+"lon": 55.61737,
+"lat": -21.37734
+},
+{
+"finess": "970465985",
+"type": "pharmacie",
+"nom": "Pharmacie Laleu",
+"adresse": "163 rue du General Lambert",
+"commune": "Saint-Leu",
+"telephone": "02 62 34 83 94",
+"lon": 55.28811,
+"lat": -21.17071
+},
+{
+"finess": "970464921",
+"type": "pharmacie",
+"nom": "Pharmacie Lecler",
+"adresse": "107 rue General Lambert",
+"commune": "Saint-Leu",
+"telephone": "02 62 34 81 42",
+"lon": 55.28766,
+"lat": -21.16645
+},
+{
+"finess": "970403598",
+"type": "pharmacie",
+"nom": "Pharmacie Pointe des Chateaux",
+"adresse": "2 rue des Cocotiers",
+"commune": "Saint-Leu",
+"telephone": null,
+"lon": 55.27755,
+"lat": -21.14887
+},
+{
+"finess": "970464913",
+"type": "pharmacie",
+"nom": "Pharmacie de Stella",
+"adresse": "Angle CD 11 CD 25, Le Piton-Saint-Leu",
+"commune": "Saint-Leu",
+"telephone": "02 62 34 19 19",
+"lon": 55.28691,
+"lat": -21.16622
+},
+{
+"finess": "970464772",
+"type": "pharmacie",
+"nom": "Pharmacie de la Chaloupe",
+"adresse": "199 rue Alexandre Begue, La Chaloupe",
+"commune": "Saint-Leu",
+"telephone": "02 62 54 81 01",
+"lon": 55.31897,
+"lat": -21.14912
+},
+{
+"finess": "970463840",
+"type": "pharmacie",
+"nom": "Pharmacie de la Croix du Sud",
+"adresse": "39 rue Adrien Lagourgue, Le Piton-Saint-Leu",
+"commune": "Saint-Leu",
+"telephone": "02 62 34 30 89",
+"lon": 55.31179,
+"lat": -21.21781
+},
+{
+"finess": "970465126",
+"type": "pharmacie",
+"nom": "Pharmacie du Piton",
+"adresse": "19 rue Adrien Lagourgue, Le Piton-Saint-Leu",
+"commune": "Saint-Leu",
+"telephone": "02 62 34 33 77",
+"lon": 55.31039,
+"lat": -21.21744
+},
+{
+"finess": "970465894",
+"type": "pharmacie",
+"nom": "Pharmacie du Plate",
+"adresse": "262 route Hubert Delisle, Le Piton-Saint-Leu",
+"commune": "Saint-Leu",
+"telephone": "02 62 54 00 03",
+"lon": 55.33295,
+"lat": -21.20524
+},
+{
+"finess": "970404471",
+"type": "pharmacie",
+"nom": "Pharmacie du Portail",
+"adresse": "1 rue des Baies Roses, Le Piton-Saint-Leu",
+"commune": "Saint-Leu",
+"telephone": "02 62 34 14 14",
+"lon": 55.30415,
+"lat": -21.21605
+},
+{
+"finess": "970464483",
+"type": "pharmacie",
+"nom": "Pharmacie du Soleil Lamblin",
+"adresse": "154 chemin Departemental 13, L'Etang",
+"commune": "Saint-Leu",
+"telephone": "02 62 34 43 17",
+"lon": 55.28691,
+"lat": -21.16622
+},
+{
+"finess": "970404943",
+"type": "pharmacie",
+"nom": "La Pharmacie Verte 974",
+"adresse": "72B rue Leonus Benard",
+"commune": "Saint-Louis",
+"telephone": "02 62 91 97 20",
+"lon": 55.41484,
+"lat": -21.28715
+},
+{
+"finess": "970465498",
+"type": "pharmacie",
+"nom": "Pharmacie Bel Air",
+"adresse": "16 rue Saint-Vincent de Paul, Zone Industrielle de Bel Air",
+"commune": "Saint-Louis",
+"telephone": null,
+"lon": 55.40309,
+"lat": -21.29304
+},
+{
+"finess": "970464160",
+"type": "pharmacie",
+"nom": "Pharmacie Chan Ou Teung",
+"adresse": "77 avenue Principale",
+"commune": "Saint-Louis",
+"telephone": "02 62 26 12 93",
+"lon": 55.40654,
+"lat": -21.28494
+},
+{
+"finess": "970465928",
+"type": "pharmacie",
+"nom": "Pharmacie Heo Hsien Kai-Ah Tiock",
+"adresse": "11 avenue Pasteur",
+"commune": "Saint-Louis",
+"telephone": "02 62 26 19 51",
+"lon": 55.40283,
+"lat": -21.28031
+},
+{
+"finess": "970464707",
+"type": "pharmacie",
+"nom": "Pharmacie Hoareau",
+"adresse": "46 rue Georges Paulin, La Riviere",
+"commune": "Saint-Louis",
+"telephone": "02 62 39 00 98",
+"lon": 55.437,
+"lat": -21.26651
+},
+{
+"finess": "970463766",
+"type": "pharmacie",
+"nom": "Pharmacie Marino",
+"adresse": "20 rue Leconte de Lisle",
+"commune": "Saint-Louis",
+"telephone": "02 62 26 81 11",
+"lon": 55.41273,
+"lat": -21.28009
+},
+{
+"finess": "970464988",
+"type": "pharmacie",
+"nom": "Pharmacie Place de l'Eglise",
+"adresse": "13 rue de l'Eglise",
+"commune": "Saint-Louis",
+"telephone": null,
+"lon": 55.40853,
+"lat": -21.28747
+},
+{
+"finess": "970404026",
+"type": "pharmacie",
+"nom": "Pharmacie Plateau des Goyaves",
+"adresse": "3 rue des Jamblons",
+"commune": "Saint-Louis",
+"telephone": "02 62 91 35 64",
+"lon": 55.41851,
+"lat": -21.27871
+},
+{
+"finess": "970465647",
+"type": "pharmacie",
+"nom": "Pharmacie Sainte Louisienne",
+"adresse": "120 avenue Principale",
+"commune": "Saint-Louis",
+"telephone": "02 62 26 10 80",
+"lon": 55.40901,
+"lat": -21.28729
+},
+{
+"finess": "970465381",
+"type": "pharmacie",
+"nom": "Pharmacie des Makes",
+"adresse": "89 rue Voltaire, Les Makes",
+"commune": "Saint-Louis",
+"telephone": null,
+"lon": 55.40336,
+"lat": -21.21055
+},
+{
+"finess": "970464434",
+"type": "pharmacie",
+"nom": "Pharmacie du Centre - la Riviere",
+"adresse": "105 rue Monseig. de Beaumont, La Riviere",
+"commune": "Saint-Louis",
+"telephone": "02 62 39 01 37",
+"lon": 55.43633,
+"lat": -21.26356
+},
+{
+"finess": "970464798",
+"type": "pharmacie",
+"nom": "Pharmacie du Ouaki",
+"adresse": "265 route de Cilaos, La Riviere",
+"commune": "Saint-Louis",
+"telephone": "02 62 39 02 13",
+"lon": 55.44841,
+"lat": -21.26948
+},
+{
+"finess": "970465191",
+"type": "pharmacie",
+"nom": "Pharmacie du Pont Neuf",
+"adresse": "86 rue Lambert",
+"commune": "Saint-Louis",
+"telephone": null,
+"lon": 55.40891,
+"lat": -21.28585
+},
+{
+"finess": "970464210",
+"type": "pharmacie",
+"nom": "Pharmacie du Rosaire",
+"adresse": "13 rue Pente Nicole, La Riviere",
+"commune": "Saint-Louis",
+"telephone": "02 62 39 01 62",
+"lon": 55.43755,
+"lat": -21.26351
+},
+{
+"finess": "970463899",
+"type": "pharmacie",
+"nom": "Pharmacie Bedier",
+"adresse": "201 rue Jean Albany, La Saline",
+"commune": "Saint-Paul",
+"telephone": "02 62 33 55 01",
+"lon": 55.27094,
+"lat": -21.08112
+},
+{
+"finess": "970406963",
+"type": "pharmacie",
+"nom": "Pharmacie Bosviel",
+"adresse": "11 avenue de la Grande Ourse, Saint-Gilles les Bains",
+"commune": "Saint-Paul",
+"telephone": null,
+"lon": 55.22924,
+"lat": -21.06019
+},
+{
+"finess": "970465225",
+"type": "pharmacie",
+"nom": "Pharmacie Finet",
+"adresse": "48 rue Joseph Hubert, Saint-Gilles les Hauts",
+"commune": "Saint-Paul",
+"telephone": "02 62 22 70 13",
+"lon": 55.26719,
+"lat": -21.04969
+},
+{
+"finess": "970464350",
+"type": "pharmacie",
+"nom": "Pharmacie Maurice et Blanco",
+"adresse": "52 rue du Commerce",
+"commune": "Saint-Paul",
+"telephone": null,
+"lon": 55.27275,
+"lat": -21.00971
+},
+{
+"finess": "970466009",
+"type": "pharmacie",
+"nom": "Pharmacie Nouvelle",
+"adresse": "1 chemin des Fleurs",
+"commune": "Saint-Paul",
+"telephone": null,
+"lon": 55.29631,
+"lat": -21.03713
+},
+{
+"finess": "970402798",
+"type": "pharmacie",
+"nom": "Pharmacie Pillet",
+"adresse": "6 route de Fatima, Saint-Gilles les Hauts",
+"commune": "Saint-Paul",
+"telephone": null,
+"lon": 55.28585,
+"lat": -21.04607
+},
+{
+"finess": "970465266",
+"type": "pharmacie",
+"nom": "Pharmacie Plante",
+"adresse": "61 chemin des Combavas, Bois-de-Nefles Saint-Paul la Pla",
+"commune": "Saint-Paul",
+"telephone": "02 62 44 00 33",
+"lon": 55.3263,
+"lat": -20.9837
+},
+{
+"finess": "970465142",
+"type": "pharmacie",
+"nom": "Pharmacie Principale",
+"adresse": "16 rue Marius et Ary Leblond",
+"commune": "Saint-Paul",
+"telephone": "02 62 22 51 19",
+"lon": 55.2711,
+"lat": -21.00899
+},
+{
+"finess": "970404422",
+"type": "pharmacie",
+"nom": "Pharmacie Tour des Roches",
+"adresse": "21 rue Charles Guillochet, Grande Fontaine",
+"commune": "Saint-Paul",
+"telephone": "02 62 45 15 39",
+"lon": 55.26961,
+"lat": -21.00974
+},
+{
+"finess": "970464558",
+"type": "pharmacie",
+"nom": "Pharmacie de Bellemene",
+"adresse": "130 rue Montrouge, Bellemene",
+"commune": "Saint-Paul",
+"telephone": "02 62 22 72 08",
+"lon": 55.2926,
+"lat": -21.02301
+},
+{
+"finess": "970404596",
+"type": "pharmacie",
+"nom": "Pharmacie de Boucan",
+"adresse": "19B place des Coquillages, Saint-Gilles les Bains",
+"commune": "Saint-Paul",
+"telephone": "02 62 33 22 33",
+"lon": 55.22739,
+"lat": -21.02945
+},
+{
+"finess": "970465290",
+"type": "pharmacie",
+"nom": "Pharmacie de Plateau Caillou",
+"adresse": "42 avenue Paul Julius Benard",
+"commune": "Saint-Paul",
+"telephone": "02 62 22 95 69",
+"lon": 55.26599,
+"lat": -21.02406
+},
+{
+"finess": "970465399",
+"type": "pharmacie",
+"nom": "Pharmacie de Saint-Gilles-les-Bains",
+"adresse": "67 rue du General de Gaulle, Saint-Gilles les Bains",
+"commune": "Saint-Paul",
+"telephone": "02 62 24 42 30",
+"lon": 55.22516,
+"lat": -21.05078
+},
+{
+"finess": "970465639",
+"type": "pharmacie",
+"nom": "Pharmacie de Savanna",
+"adresse": "38 route de Savanna",
+"commune": "Saint-Paul",
+"telephone": "02 62 44 18 62",
+"lon": 55.29703,
+"lat": -20.98667
+},
+{
+"finess": "970465720",
+"type": "pharmacie",
+"nom": "Pharmacie de Tan Rouge",
+"adresse": "44 chemin de la Bretelle, Saint-Gilles les Hauts Tan Rouge",
+"commune": "Saint-Paul",
+"telephone": "02 62 32 71 07",
+"lon": 55.29797,
+"lat": -21.06522
+},
+{
+"finess": "970405056",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Eperon",
+"adresse": "3 rue Terrain l'Avion, L'Eperon",
+"commune": "Saint-Paul",
+"telephone": null,
+"lon": 55.2517,
+"lat": -21.04271
+},
+{
+"finess": "970463865",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Etang",
+"adresse": "408 rue Saint Louis",
+"commune": "Saint-Paul",
+"telephone": "02 62 22 60 05",
+"lon": 55.28513,
+"lat": -20.99441
+},
+{
+"finess": "970464400",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Ocean",
+"adresse": "105 rue du General de Gaulle, Saint-Gilles les Bains",
+"commune": "Saint-Paul",
+"telephone": "02 62 24 45 49",
+"lon": 55.2264,
+"lat": -21.05161
+},
+{
+"finess": "970465258",
+"type": "pharmacie",
+"nom": "Pharmacie de la Gare",
+"adresse": "155 chaussée Royale",
+"commune": "Saint-Paul",
+"telephone": "02 62 22 56 78",
+"lon": 55.27546,
+"lat": -21.00971
+},
+{
+"finess": "970465514",
+"type": "pharmacie",
+"nom": "Pharmacie de la Plaine",
+"adresse": "28T Chemin des Combavas, Bois-de-Nefles Saint-Paul",
+"commune": "Saint-Paul",
+"telephone": "02 62 44 35 04",
+"lon": 55.32658,
+"lat": -20.98259
+},
+{
+"finess": "970463923",
+"type": "pharmacie",
+"nom": "Pharmacie de la Renaissance",
+"adresse": "92 rue Raphael Barquisseau",
+"commune": "Saint-Paul",
+"telephone": "02 62 22 82 62",
+"lon": 55.26869,
+"lat": -21.03427
+},
+{
+"finess": "970464624",
+"type": "pharmacie",
+"nom": "Pharmacie de la Saline",
+"adresse": "254 rue Jean Albany, La Saline",
+"commune": "Saint-Paul",
+"telephone": "02 62 33 51 37",
+"lon": 55.27013,
+"lat": -21.08238
+},
+{
+"finess": "970464384",
+"type": "pharmacie",
+"nom": "Pharmacie des Alizes",
+"adresse": "86T rue Joseph Hubert, Saint-Gilles les Hauts",
+"commune": "Saint-Paul",
+"telephone": "02 62 22 80 01",
+"lon": 55.2669,
+"lat": -21.05017
+},
+{
+"finess": "970404042",
+"type": "pharmacie",
+"nom": "Pharmacie des Filaos",
+"adresse": "résidence du Lagon, Saint-Gilles les Bains l'Hermita",
+"commune": "Saint-Paul",
+"telephone": "02 62 24 41 41",
+"lon": 55.22173,
+"lat": -21.07338
+},
+{
+"finess": "970406997",
+"type": "pharmacie",
+"nom": "Pharmacie des Jacarandas",
+"adresse": "28 rue Roland Garros, Bois-de-Nefles Saint-Paul",
+"commune": "Saint-Paul",
+"telephone": null,
+"lon": 55.28295,
+"lat": -20.9981
+},
+{
+"finess": "970465449",
+"type": "pharmacie",
+"nom": "Pharmacie des Poinsettias",
+"adresse": "39B rue de l Eglise, Bois-de-Nefles Saint-Paul",
+"commune": "Saint-Paul",
+"telephone": "02 62 44 00 44",
+"lon": 55.32734,
+"lat": -20.99971
+},
+{
+"finess": "970464996",
+"type": "pharmacie",
+"nom": "Pharmacie du Lagon",
+"adresse": "1 rue Macabit, Saint-Gilles les Bains la Saline",
+"commune": "Saint-Paul",
+"telephone": null,
+"lon": 55.23621,
+"lat": -21.09251
+},
+{
+"finess": "970464335",
+"type": "pharmacie",
+"nom": "Pharmacie du Maido",
+"adresse": "87 rue Louise et Jouan, Le Guillaume",
+"commune": "Saint-Paul",
+"telephone": "02 62 32 51 03",
+"lon": 55.29895,
+"lat": -21.03746
+},
+{
+"finess": "970464871",
+"type": "pharmacie",
+"nom": "Pharmacie du Marche",
+"adresse": "72 rue Marius et Ary Leblond",
+"commune": "Saint-Paul",
+"telephone": "02 62 22 52 52",
+"lon": 55.27284,
+"lat": -21.00776
+},
+{
+"finess": "970464681",
+"type": "pharmacie",
+"nom": "Pharmacie les Grevilleas",
+"adresse": "1 chemin l Eveque, La Saline",
+"commune": "Saint-Paul",
+"telephone": null,
+"lon": 55.27213,
+"lat": -21.08347
+},
+{
+"finess": "970404190",
+"type": "pharmacie",
+"nom": "Pharmacie du Sud Sauvage",
+"adresse": "80 Route Nationale",
+"commune": "Saint-Philippe",
+"telephone": "02 62 37 00 01",
+"lon": 55.71605,
+"lat": -21.37159
+},
+{
+"finess": "970465092",
+"type": "pharmacie",
+"nom": "Pharmacie du Vacoa",
+"adresse": "24 rue Leconte de Lisle",
+"commune": "Saint-Philippe",
+"telephone": "02 62 37 00 58",
+"lon": 55.76203,
+"lat": -21.36133
+},
+{
+"finess": "970464608",
+"type": "pharmacie",
+"nom": "Pharma 2 A",
+"adresse": "109B rue Archambaud",
+"commune": "Saint-Pierre",
+"telephone": null,
+"lon": 55.48135,
+"lat": -21.32852
+},
+{
+"finess": "970465555",
+"type": "pharmacie",
+"nom": "Pharmacie Chon-Sen",
+"adresse": "1 CD 3, Mont Vert les Hauts",
+"commune": "Saint-Pierre",
+"telephone": "02 62 38 91 18",
+"lon": 55.47784,
+"lat": -21.3418
+},
+{
+"finess": "970465936",
+"type": "pharmacie",
+"nom": "Pharmacie Ligne Paradis",
+"adresse": "99 route Ligne Paradis",
+"commune": "Saint-Pierre",
+"telephone": "02 62 35 55 11",
+"lon": 55.47302,
+"lat": -21.31176
+},
+{
+"finess": "970465571",
+"type": "pharmacie",
+"nom": "Pharmacie Patel",
+"adresse": "45 rue Marius et Ary Leblond",
+"commune": "Saint-Pierre",
+"telephone": "02 62 25 12 11",
+"lon": 55.47468,
+"lat": -21.33773
+},
+{
+"finess": "970463832",
+"type": "pharmacie",
+"nom": "Pharmacie Payet",
+"adresse": "12B chemin Antoine Aragot",
+"commune": "Saint-Pierre",
+"telephone": "02 62 25 61 16",
+"lon": 55.47451,
+"lat": -21.32857
+},
+{
+"finess": "970464103",
+"type": "pharmacie",
+"nom": "Pharmacie Principale",
+"adresse": "48 rue du Pere Maitre, Ravine-des-Cabris",
+"commune": "Saint-Pierre",
+"telephone": "02 62 49 51 04",
+"lon": 55.46842,
+"lat": -21.28542
+},
+{
+"finess": "970465076",
+"type": "pharmacie",
+"nom": "Pharmacie Ylang Ylang",
+"adresse": "149B avenue Francois Mitterrand",
+"commune": "Saint-Pierre",
+"telephone": null,
+"lon": 55.48943,
+"lat": -21.34691
+},
+{
+"finess": "970464855",
+"type": "pharmacie",
+"nom": "Pharmacie ZAC Bank",
+"adresse": "126B rue Luc Lorion",
+"commune": "Saint-Pierre",
+"telephone": "02 62 25 03 78",
+"lon": 55.47108,
+"lat": -21.33428
+},
+{
+"finess": "970465563",
+"type": "pharmacie",
+"nom": "Pharmacie d'Abord",
+"adresse": "86 avenue Pdt Mitterrand",
+"commune": "Saint-Pierre",
+"telephone": "02 62 25 22 17",
+"lon": 55.48404,
+"lat": -21.34459
+},
+{
+"finess": "970464285",
+"type": "pharmacie",
+"nom": "Pharmacie de Bois d'Olives",
+"adresse": "1 allée des Bois Noirs, Ravine des Cabris",
+"commune": "Saint-Pierre",
+"telephone": "02 62 49 89 90",
+"lon": 55.44993,
+"lat": -21.29559
+},
+{
+"finess": "970464640",
+"type": "pharmacie",
+"nom": "Pharmacie de Terre Sainte",
+"adresse": "43 avenue President Mitterand, Terre Sainte",
+"commune": "Saint-Pierre",
+"telephone": "02 62 25 22 88",
+"lon": 55.48154,
+"lat": -21.34295
+},
+{
+"finess": "970465456",
+"type": "pharmacie",
+"nom": "Pharmacie de la Cayenne",
+"adresse": "rue du Pere Favron",
+"commune": "Saint-Pierre",
+"telephone": "02 62 25 16 69",
+"lon": 55.46393,
+"lat": -21.33687
+},
+{
+"finess": "970464749",
+"type": "pharmacie",
+"nom": "Pharmacie de la Ravine des Cabris",
+"adresse": "2 chemin Moulin A Cafe, Ravine-des-Cabris",
+"commune": "Saint-Pierre",
+"telephone": "02 62 49 50 44",
+"lon": 55.47067,
+"lat": -21.28614
+},
+{
+"finess": "970463949",
+"type": "pharmacie",
+"nom": "Pharmacie des Bambous",
+"adresse": "2 rue Albert Hoarau, Ravine-des-Cabris",
+"commune": "Saint-Pierre",
+"telephone": null,
+"lon": 55.49353,
+"lat": -21.30338
+},
+{
+"finess": "970465357",
+"type": "pharmacie",
+"nom": "Pharmacie des Bons Enfants - Patel",
+"adresse": "82 rue des Bons Enfants",
+"commune": "Saint-Pierre",
+"telephone": "02 62 25 00 83",
+"lon": 55.47421,
+"lat": -21.33983
+},
+{
+"finess": "970465274",
+"type": "pharmacie",
+"nom": "Pharmacie des Grands Bois",
+"adresse": "228 avenue du Général de Gaulle, Grand Bois",
+"commune": "Saint-Pierre",
+"telephone": "02 62 31 00 85",
+"lon": 55.52254,
+"lat": -21.35835
+},
+{
+"finess": "970464574",
+"type": "pharmacie",
+"nom": "Pharmacie des Grands Filaos",
+"adresse": "7 avenue Luc Donat",
+"commune": "Saint-Pierre",
+"telephone": "02 62 35 33 03",
+"lon": 55.45864,
+"lat": -21.33767
+},
+{
+"finess": "970465308",
+"type": "pharmacie",
+"nom": "Pharmacie du Front de Mer",
+"adresse": "60 boulevard Hubert Delisle",
+"commune": "Saint-Pierre",
+"telephone": "02 62 25 17 92",
+"lon": 55.46586,
+"lat": -21.34261
+},
+{
+"finess": "970465480",
+"type": "pharmacie",
+"nom": "Pharmacie du Lavoir",
+"adresse": "113 rue Marius Ary Leblond",
+"commune": "Saint-Pierre",
+"telephone": "02 62 25 11 45",
+"lon": 55.47057,
+"lat": -21.33655
+},
+{
+"finess": "970404091",
+"type": "pharmacie",
+"nom": "Pharmacie du Moulin",
+"adresse": "12 chemin Recherchant, Ravine-des-Cabris",
+"commune": "Saint-Pierre",
+"telephone": "02 62 49 85 44",
+"lon": 55.47558,
+"lat": -21.28322
+},
+{
+"finess": "970464426",
+"type": "pharmacie",
+"nom": "Pharmacie du Sud",
+"adresse": "8B rue des Bons Enfants",
+"commune": "Saint-Pierre",
+"telephone": "02 62 25 00 84",
+"lon": 55.47829,
+"lat": -21.34102
+},
+{
+"finess": "970404075",
+"type": "pharmacie",
+"nom": "Pharmacie du Vetyver",
+"adresse": "24 C. D. 29",
+"commune": "Saint-Pierre",
+"telephone": "02 62 31 20 17",
+"lon": 55.51029,
+"lat": -21.34901
+},
+{
+"finess": "970463881",
+"type": "pharmacie",
+"nom": "Gm Pharma",
+"adresse": "22 rue 2 Fontaines Riv. des Pluies",
+"commune": "Sainte-Marie",
+"telephone": "02 62 53 64 46",
+"lon": 55.54929,
+"lat": -20.89693
+},
+{
+"finess": "970465746",
+"type": "pharmacie",
+"nom": "Jd Pharma",
+"adresse": "32 rue Michel Ange, Gillot Est, Rond Point Duparc",
+"commune": "Sainte-Marie",
+"telephone": null,
+"lon": 55.51726,
+"lat": -20.89971
+},
+{
+"finess": "970464905",
+"type": "pharmacie",
+"nom": "Lp Pharma",
+"adresse": "174 rue Roger Payet, La Riviere des Pluies",
+"commune": "Sainte-Marie",
+"telephone": "02 62 53 53 50",
+"lon": 55.50987,
+"lat": -20.9161
+},
+{
+"finess": "970465241",
+"type": "pharmacie",
+"nom": "Pharmacie Apostoloff",
+"adresse": "303 avenue du Beau Pays",
+"commune": "Sainte-Marie",
+"telephone": "02 62 53 60 82",
+"lon": 55.52829,
+"lat": -20.92024
+},
+{
+"finess": "970404794",
+"type": "pharmacie",
+"nom": "Pharmacie Fontaine",
+"adresse": "17 avenue du Domaine Azur",
+"commune": "Sainte-Marie",
+"telephone": "02 62 97 63 71",
+"lon": 55.56803,
+"lat": -20.89579
+},
+{
+"finess": "970464137",
+"type": "pharmacie",
+"nom": "Pharmacie Nguyen",
+"adresse": "138 rue Louis Lagourgue",
+"commune": "Sainte-Marie",
+"telephone": "02 62 53 68 64",
+"lon": 55.52143,
+"lat": -20.90787
+},
+{
+"finess": "970464731",
+"type": "pharmacie",
+"nom": "Pharmacie Nouvelle de la Republique",
+"adresse": "40 rue de la Republique",
+"commune": "Sainte-Marie",
+"telephone": "02 62 53 42 75",
+"lon": 55.55079,
+"lat": -20.89695
+},
+{
+"finess": "970406609",
+"type": "pharmacie",
+"nom": "Pharmacie Nouvelle de la Vanille",
+"adresse": "120 rue Manes",
+"commune": "Sainte-Marie",
+"telephone": null,
+"lon": 55.56774,
+"lat": -20.90938
+},
+{
+"finess": "970464467",
+"type": "pharmacie",
+"nom": "Pharmacie Thazard",
+"adresse": "127 rue Roger Payet, La Riviere des Pluies",
+"commune": "Sainte-Marie",
+"telephone": "02 62 53 54 19",
+"lon": 55.51028,
+"lat": -20.9153
+},
+{
+"finess": "970465738",
+"type": "pharmacie",
+"nom": "Pharmacie de Sainte Marie",
+"adresse": "30 rue de la Republique",
+"commune": "Sainte-Marie",
+"telephone": "02 62 53 40 16",
+"lon": 55.55024,
+"lat": -20.89721
+},
+{
+"finess": "970404125",
+"type": "pharmacie",
+"nom": "Pharmacie de la Reserve",
+"adresse": "14 rue Général de Gaulle",
+"commune": "Sainte-Marie",
+"telephone": null,
+"lon": 55.5618,
+"lat": -20.89792
+},
+{
+"finess": "970465522",
+"type": "pharmacie",
+"nom": "Pharmacie de Sainte Rose",
+"adresse": "168 A, Route Nationale 2",
+"commune": "Sainte-Rose",
+"telephone": "02 62 47 20 72",
+"lon": 55.79158,
+"lat": -21.12796
+},
+{
+"finess": "970464012",
+"type": "pharmacie",
+"nom": "Pharmacie des Laves de Piton",
+"adresse": "451 Route Nationale 2",
+"commune": "Sainte-Rose",
+"telephone": "02 62 47 22 19",
+"lon": 55.82403,
+"lat": -21.16026
+},
+{
+"finess": "970465605",
+"type": "pharmacie",
+"nom": "La Pharmacie de la Cascade",
+"adresse": "122 avenue Pierre Mendes France",
+"commune": "Sainte-Suzanne",
+"telephone": "02 62 52 30 19",
+"lon": 55.60765,
+"lat": -20.90669
+},
+{
+"finess": "970405874",
+"type": "pharmacie",
+"nom": "Pharmacie Grand Est",
+"adresse": "avenue Mahatma Gandhi",
+"commune": "Sainte-Suzanne",
+"telephone": null,
+"lon": 55.63614,
+"lat": -20.92886
+},
+{
+"finess": "970463972",
+"type": "pharmacie",
+"nom": "Pharmacie Nouvelle de Sainte-Suzanne",
+"adresse": "47 avenue Pierre Mendes France",
+"commune": "Sainte-Suzanne",
+"telephone": "02 62 52 31 47",
+"lon": 55.60589,
+"lat": -20.905
+},
+{
+"finess": "970404927",
+"type": "pharmacie",
+"nom": "Pharmacie Quartier Francais",
+"adresse": "20 rpt des Metiers",
+"commune": "Sainte-Suzanne",
+"telephone": "02 62 58 45 29",
+"lon": 55.63704,
+"lat": -20.9308
+},
+{
+"finess": "970404141",
+"type": "pharmacie",
+"nom": "Pharmacie de Bagatelle",
+"adresse": "14 chemin Panon",
+"commune": "Sainte-Suzanne",
+"telephone": "02 62 48 50 09",
+"lon": 55.58287,
+"lat": -20.92896
+},
+{
+"finess": "970464327",
+"type": "pharmacie",
+"nom": "Pharmacie de l'Ocean Indien",
+"adresse": "133 avenue Mahatma Gandhi",
+"commune": "Sainte-Suzanne",
+"telephone": "02 62 46 25 75",
+"lon": 55.64152,
+"lat": -20.93217
+},
+{
+"finess": "970463907",
+"type": "pharmacie",
+"nom": "Pharmacie des Deux Rives",
+"adresse": "2 rue Guy Nassau",
+"commune": "Sainte-Suzanne",
+"telephone": null,
+"lon": 55.62549,
+"lat": -20.95183
+},
+{
+"finess": "970464848",
+"type": "pharmacie",
+"nom": "Pharmacie du Phare",
+"adresse": "9 avenue Pierre Mendes France",
+"commune": "Sainte-Suzanne",
+"telephone": "02 62 52 31 69",
+"lon": 55.60078,
+"lat": -20.90312
+},
+{
+"finess": "970463998",
+"type": "pharmacie",
+"nom": "Pharmacie Sagapharm",
+"adresse": "144 rue Georges Pompidou",
+"commune": "Salazie",
+"telephone": "02 62 47 50 82",
+"lon": 55.53937,
+"lat": -21.02673
+},
+{
+"finess": "970465118",
+"type": "pharmacie",
+"nom": "Pharmacie de Hell Bourg",
+"adresse": "63 rue du General de Gaulle, Hell Bourg",
+"commune": "Salazie",
+"telephone": "02 62 47 80 31",
+"lon": 55.51969,
+"lat": -21.06529
+}
+]
+}
