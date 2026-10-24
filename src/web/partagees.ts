@@ -75,16 +75,19 @@ async function kvGet(kv: Kv, key: string): Promise<KvEntry | undefined> {
 }
 
 /**
- * The data center's cache, and KV behind it for the shared copies only: asked when the cache has none, and what it
- * had is put in the cache, so that the data center's next isolates find it there. Never written to KV.
+ * The data center's cache, and KV behind it for the shared copies only: asked when the cache has none, or only one
+ * older than FRESH_SECONDS (a data center that served the page once, then slept), at the cost of one read instead of
+ * a build. The newer of the two is served, and KV's is put in the cache, so that the data center's next isolates find
+ * it there. Never written to KV.
  */
 export class SharedFallback implements CacheStore {
-  constructor(private edge: CacheStore, private kv: Kv) {}
+  constructor(private edge: CacheStore, private kv: Kv, private now: () => number = Date.now) {}
   async get(key: string, freshAfter?: number) {
     const e = await this.edge.get(key, freshAfter);
-    if (e || !KEYS.has(key)) return e;
+    if (!KEYS.has(key) || (e && this.now() - e.fetchedAt <= FRESH_SECONDS * 1000)) return e;
     const shared = await kvGet(this.kv, key);
-    if (shared) await this.edge.put(key, shared);
+    if (!shared || (e && shared.fetchedAt <= e.fetchedAt)) return e;
+    await this.edge.put(key, shared);
     return shared;
   }
   put(key: string, entry: CacheEntry) {

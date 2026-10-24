@@ -116,7 +116,7 @@ const READERS = /ChatGPT-User|OAI-SearchBot|GPTBot|Claude-User|Claude-SearchBot|
 const READER_WAIT_MS = 25_000;
 // The vigilance page waits longer than a banner for Météo-France: it is the page's whole content.
 const VIGILANCE_WAIT_MS = 8000;
-// The subrequests a tile's build is assumed to take before it has been measured in this isolate (budget.ts).
+// The subrequests a tile's build is assumed to take when it was measured neither in this isolate nor with its copy.
 const TILE_COST_UNKNOWN = 25;
 
 export const isReader = (request: Request) => READERS.test(request.headers.get("user-agent") ?? "");
@@ -209,9 +209,10 @@ async function tileCopies(cache: Cache, keys: string[], background: Background, 
   const budget = left();
   const copies = await Promise.all(keys.map((k, i) => (i < budget ? cache.peek<any>(k) : Promise.resolve(undefined))));
   const age = (c: Cached<unknown> | null | undefined) => (c ? now.getTime() - c.fetchedAt.getTime() : Infinity);
-  const due = keys.map((key, i) => ({ key, age: age(copies[i]) })).sort((a, b) => b.age - a.age)[0];
-  // Only when what the tile's build took last time is left: otherwise its page or a later visit brings it up to date.
-  if ((own === undefined || (own && age(own) < FRESH_SECONDS * 1000)) && due.age >= FRESH_SECONDS * 1000 && left() >= (costOf(due.key) ?? TILE_COST_UNKNOWN)) {
+  const due = keys.map((key, i) => ({ key, age: age(copies[i]), cost: copies[i]?.cost })).sort((a, b) => b.age - a.age)[0];
+  // Only when what the tile's build took last time (here, or where its copy was built) is left: otherwise its page or
+  // a later visit brings it up to date.
+  if ((own === undefined || (own && age(own) < FRESH_SECONDS * 1000)) && due.age >= FRESH_SECONDS * 1000 && left() >= (costOf(due.key) ?? due.cost ?? TILE_COST_UNKNOWN)) {
     background(cache.get(due.key, FRESH_SECONDS, () => measured(due.key, () => BUILDS[due.key](cache, now))).catch((err) => console.error(`page ${due.key} : rafraîchissement impossible`, why(err))));
   }
   return copies.map((c) => c ?? null);
