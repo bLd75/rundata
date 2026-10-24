@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache, MemoryStore } from "../src/cache.js";
+import type { Fil, Info } from "../src/providers/actualites.js";
 import { buildTrafic } from "../src/web/data.js";
 import { traficPage } from "../src/web/domains.js";
 
@@ -13,9 +14,12 @@ const BOT = { headers: { "user-agent": "Googlebot", accept: "text/html" } };
 
 describe("circulation", () => {
   let down: RegExp | undefined;
+  let asked: string[] = [];
   beforeEach(() => {
     down = undefined;
+    asked = [];
     vi.stubGlobal("fetch", async (url: string) => {
+      asked.push(url);
       if (down?.test(url)) return new Response("", { status: 503 });
       if (url.includes("/5/query")) return new Response(fixture("sentiers.json"));
       if (url.includes("/4/query")) return new Response(fixture("routes.json"));
@@ -59,9 +63,30 @@ describe("circulation", () => {
     expect(traficPage("https://rundata.re", { value: d, fetchedAt: NOW }, NOW)).toContain("La carte de l'ONF ne répond pas pour le moment.");
   });
 
-  it("has a place for what the media report on the roads", async () => {
-    const d = { ...(await buildTrafic(cache(), NOW)), medias: [{ titre: "Barrage levé à Saint-Louis", lien: "https://example.org/a", source: "Média" }] };
-    expect(traficPage("https://rundata.re", { value: d, fetchedAt: NOW }, NOW)).toContain(`<h3>Signalé par les médias</h3><ul class="plain"><li><a href="https://example.org/a">Barrage levé à Saint-Louis</a>`);
+  it("tells what the media report on the roads, from the news already read, newest first", async () => {
+    const c = cache();
+    const at = (h: number) => new Date(NOW.getTime() - h * 3600_000).toISOString();
+    const info = (titre: string, h: number, sujets: string[], extra: Partial<Info> = {}): Info => ({ titre, media: "Imaz Press", lien: `https://imazpress.com/${h}`, publie: at(h), heure: true, communes: [], lieux: [], sujets, ...extra });
+    await c.get<Fil>("actualites:fil", 300, async () => ({
+      infos: [
+        info("Barrage levé au rond-point des Casernes", 0.5, ["mobilisation", "route"], { direct: true }),
+        info("Fête de la Saint-Louis : le programme", 1, ["culture"]),
+        info("Accident sur la quatre-voies à Sainte-Marie", 2, ["route"], { media: "Clicanoo", lien: "https://www.clicanoo.re/a" }),
+        info("Route du Littoral basculée cette nuit", 8, ["route"]),
+      ],
+      prefecture: [],
+      indisponible: [],
+    }));
+    const d = await buildTrafic(c, NOW);
+    expect(d.medias).toEqual([
+      { titre: "Barrage levé au rond-point des Casernes", lien: "https://imazpress.com/0.5", source: "Imaz Press, en direct", heure: "aujourd'hui à 07:30" },
+      { titre: "Accident sur la quatre-voies à Sainte-Marie", lien: "https://www.clicanoo.re/a", source: "Clicanoo", heure: "aujourd'hui à 06:00" },
+    ]);
+    const page = traficPage("https://rundata.re", { value: d, fetchedAt: NOW }, NOW);
+    expect(page).toContain(`<h3>Signalé par les médias</h3><ul class="plain"><li><a href="https://imazpress.com/0.5" rel="noopener">Barrage levé au rond-point des Casernes</a> <span class="note">Imaz Press, en direct, aujourd&#39;hui à 07:30</span>`);
+    expect(page).not.toContain("Route du Littoral basculée");
+    // The news is not read again for this page: its feeds are not asked.
+    expect(asked.some((u) => /imazpress|clicanoo|la1ere|freedom|parallelesud|temoignages|reunion\.gouv/.test(u))).toBe(false);
   });
 
   it("is on the home page and in the menu", async () => {

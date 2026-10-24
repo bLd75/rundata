@@ -1,6 +1,9 @@
+import { perInvocation } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
+import type { Fil } from "../providers/actualites.js";
 import * as src from "../providers/agenda.js";
+import { withNews } from "../providers/agenda-presse.js";
 import { titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, notFound, placeBlock, text } from "./format.js";
@@ -241,6 +244,9 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     categories: e.categories.length ? e.categories : undefined,
     genres: genres(e),
     statut: e.statut === "annulé" ? "ANNULÉ" : e.statut === "reporté" ? "REPORTÉ" : e.statut === "complet" ? "complet" : undefined,
+    /** « d'après Imaz Press » when the news says it and the organiser's page does not yet. */
+    statut_d_apres: e.selon ? { media: e.selon.media, lien: e.selon.lien } : undefined,
+    reporte_au: e.reporte_au ? dayText(e.reporte_au) : undefined,
     billetterie: e.billetterie,
     description: e.description,
     lien: e.lien,
@@ -272,6 +278,9 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   }
   const commune = res?.lieu.commune;
   const got = await gather(cache, now);
+  // The news already read (the page /actualites, the tool actualites), for the cancellations it reports: never fetched
+  // for this, read once per invocation (the page asks twice), and after the agendas, so as not to take one's subrequest.
+  const news = await perInvocation("agenda:actualites", () => cache.peek<Fil>("actualites:fil").catch(() => undefined));
   const failed = got.filter((g) => !g.value).map((g) => g.agenda.nom);
   if (got.every((g) => !g.value)) {
     return { ...text({ erreur: "Les agendas ne répondent pas pour le moment.", indisponible: failed }), isError: true };
@@ -279,7 +288,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
 
   const p = periode(quand, now);
   const what = matcher(quoi);
-  const all = unique(got.flatMap((g) => g.value?.value ?? []))
+  const all = withNews(unique(got.flatMap((g) => g.value?.value ?? [])), news?.value.infos, now)
     .map((e) => ({ e, seances: inPeriod(e, p, now) }))
     .filter((x) => x.seances.length && (!what || what.test(x.e)))
     .sort((x, y) => Number(spanDays(x.seances[0]) > LONG_DAYS) - Number(spanDays(y.seances[0]) > LONG_DAYS) ||
@@ -294,7 +303,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const off = mine.filter((x) => x.e.statut === "annulé" || x.e.statut === "reporté");
   const resume = [
     n ? `${n} événement${n > 1 ? "s" : ""}${kind} ${where} ${periodText}` : `Aucun événement${kind} trouvé ${where} ${periodText}`,
-    off.length ? `ATTENTION : ${off.map((x) => `« ${x.e.titre} » ${x.e.statut}`).slice(0, 4).join(", ")}` : "",
+    off.length ? `ATTENTION : ${off.map((x) => `« ${x.e.titre} » ${x.e.statut}${x.e.reporte_au ? ` au ${dayText(x.e.reporte_au)}` : ""}${x.e.selon ? ` (d'après ${x.e.selon.media})` : ""}`).slice(0, 4).join(", ")}` : "",
     commune && !covered ? `ni la mairie ${de(commune)} ni une salle de la commune ne publient d'agenda lisible : seuls les grands événements de reunion.fr y figurent` : "",
     commune && !n && all.length ? `${all.length} ailleurs sur l'île` : "",
   ].filter(Boolean).join(" ; ") + ".";

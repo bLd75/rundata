@@ -49,7 +49,7 @@ import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
 import { historiqueMeteo } from "../tools/historique.js";
 import { agenda, type EventRow } from "../tools/agenda.js";
 import * as actuSource from "../providers/actualites.js";
-import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, type InfoRow } from "../tools/actualites.js";
+import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, quand as newsTime, type InfoRow } from "../tools/actualites.js";
 import { type Observation, why } from "../types.js";
 import * as traces from "../providers/traces.js";
 import { coastal, type PlacePage } from "./places.js";
@@ -1070,7 +1070,7 @@ export interface TraficAnswer {
   } | null;
   /** The Enclos of the volcano, from the volcano's page when it has been built. */
   enclos?: { statut: string; detail?: string; source?: string; lien?: string };
-  /** The slot for what the media report on the roads (blockades, closures), once a source for it exists. */
+  /** What the media report on the roads and the blockades in the last hours, newest first. */
   medias?: { titre: string; lien: string; source: string; heure?: string }[];
   sources: Credit[];
 }
@@ -1079,12 +1079,24 @@ export interface TraficAnswer {
  * Around the traffic, which no open source measures: the buses' delays and detours (the bus page's data), the forest
  * roads of the ONF, the Enclos. Each part on its own: one source down leaves the others.
  */
+// The news of the roads on /trafic: the subjects, how far back, how many.
+const ROAD_NEWS = ["route", "mobilisation"];
+const ROAD_NEWS_HOURS = 6;
+const ROAD_NEWS_MAX = 6;
+
 export async function buildTrafic(cache: Cache, now = new Date()): Promise<TraficAnswer> {
-  const [bus, carte, volcan] = await Promise.all([
+  const [bus, carte, volcan, news] = await Promise.all([
     cache.get("web:bus", FRESH_SECONDS, () => buildBus(now, cache)).then((c) => c.value).catch((err) => (console.error("trafic : bus indisponibles", why(err)), null)),
     onf.carte(cache).then((c) => c.value).catch((err) => (console.error("trafic : routes forestières indisponibles", why(err)), null)),
     cache.peek<VolcanAnswer>("web:volcan").catch(() => null),
+    // The news as last read for /actualites or the tool: reading every feed again would cost this page its time.
+    cache.peek<actuSource.Fil>("actualites:fil").catch(() => undefined),
   ]);
+  const since = new Date(now.getTime() - ROAD_NEWS_HOURS * 3600_000).toISOString();
+  const roadNews = (news?.value.infos ?? [])
+    .filter((i) => i.publie >= since && i.sujets.some((s) => ROAD_NEWS.includes(s)))
+    .slice(0, ROAD_NEWS_MAX)
+    .map((i) => ({ titre: i.titre, lien: i.lien, source: `${i.media}${i.direct ? ", en direct" : ""}`, heure: newsTime(i, now) }));
   const live = bus?.gares.flatMap((g) => g.departs.filter((d) => d.retard_min !== undefined).map((d) => ({ gare: g.commune, d }))) ?? [];
   const roads = carte?.routes ?? [];
   return {
@@ -1111,7 +1123,8 @@ export async function buildTrafic(cache: Cache, now = new Date()): Promise<Trafi
         }
       : null,
     ...(volcan?.value.etat?.acces_enclos ? { enclos: volcan.value.etat.acces_enclos } : {}),
-    sources: [...(bus ? bus.sources : []), ...(carte ? credits([onf.SOURCE]) : [])],
+    ...(roadNews.length ? { medias: roadNews } : {}),
+    sources: [...(bus ? bus.sources : []), ...(carte ? credits([onf.SOURCE]) : []), ...(roadNews.length ? credits([actuSource.SOURCES.medias]) : [])],
   };
 }
 

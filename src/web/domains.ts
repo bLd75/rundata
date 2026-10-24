@@ -887,15 +887,16 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
     ? `<div class="card">${icon("volcano")}<h3>Volcan : accès à l'Enclos</h3><p><b>${esc(ACCESS[d.enclos.statut] ?? d.enclos.statut)}</b>${d.enclos.detail ? ` : ${esc(d.enclos.detail)}` : ""}</p><p class="note"><a href="/volcan">Le volcan en direct</a>.</p></div>`
     : "";
 
-  // The media's reports on the roads (blockades, closures), once a source for them exists: the slot is here.
+  // What the media report on the roads and the blockades in the last hours, their headlines linked: first, as on a day of blockades it matters most.
   const medias = d?.medias?.length
-    ? `<div class="card">${icon("book")}<h3>Signalé par les médias</h3><ul class="plain">${d.medias.map((m) => `<li><a href="${esc(m.lien)}">${esc(m.titre)}</a> <span class="note">${esc(m.source)}${m.heure ? `, ${esc(m.heure)}` : ""}</span></li>`).join("")}</ul></div>`
+    ? `<div class="card">${icon("book")}<h3>Signalé par les médias</h3><ul class="plain">${d.medias.map((m) => `<li><a href="${esc(m.lien)}" rel="noopener">${esc(m.titre)}</a> <span class="note">${esc(m.source)}${m.heure ? `, ${esc(m.heure)}` : ""}</span></li>`).join("")}</ul>
+  <p class="note">Routes, barrages et manifestations dans les titres des six dernières heures : lire l'article pour le détail. <a href="/actualites">Toutes les actualités</a>.</p></div>`
     : "";
 
   const ours = `<section aria-labelledby="h-nous">
   <div class="sec-h"><p class="eyebrow">Données ouvertes, en direct</p><h2 id="h-nous">Ce que rundata.re lit</h2>
-  <p>Pas les bouchons : autour d'eux. La vigilance, les retards et déviations des bus, les routes forestières, le volcan.</p></div>
-  <div class="two">${vigilance}${busCard}${roadsCard}${enclos}${medias}</div>
+  <p>Pas les bouchons : autour d'eux. La vigilance, les retards et déviations des bus, les routes forestières, le volcan, et ce que les médias signalent sur les routes.</p></div>
+  <div class="two">${medias}${vigilance}${busCard}${roadsCard}${enclos}</div>
   ${d && data && d.sources.length ? sourcesNote(d.sources, data) : ""}
 </section>`;
 
@@ -1732,7 +1733,11 @@ function agendaRow(r: AgendaRow): string {
   // Cancelled or postponed stays listed, said first: people look for it.
   const badge = r.statut ? `<span class="badge${r.statut === "complet" ? " m" : ""}">${esc(r.statut)}</span> ` : "";
   const book = r.billetterie && r.billetterie !== r.lien ? ` · <a href="${esc(r.billetterie)}" rel="noopener">billets</a>` : "";
-  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}<a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a><small>${small}${book}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
+  // Said by the news before the organiser's page: who said it, to check.
+  const news = r.statut_d_apres
+    ? `<small class="said">${esc(r.statut!.toLowerCase())}${r.reporte_au ? ` au ${esc(r.reporte_au)}` : ""} d'après <a href="${esc(r.statut_d_apres.lien)}" rel="noopener">${esc(r.statut_d_apres.media)}</a></small>`
+    : "";
+  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}<a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a>${news}<small>${small}${book}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
 }
 
 // The kinds a visitor can keep, in the order of the select; only those in the list are offered.

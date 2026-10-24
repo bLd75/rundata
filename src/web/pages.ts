@@ -509,6 +509,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .rows.bornes .busy{color:var(--muted)}
 .rows.eau li{grid-template-columns:minmax(0,1fr) auto}
 .rows.eau small{display:block;color:var(--muted);font-size:.82rem}
+.rows small.said{color:var(--lave);font-weight:700}
 .rows.eau .score{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .rows.eau .q-bonne{color:#2b8a3e;font-weight:700}.rows.eau .q-moyenne{color:#e8590c;font-weight:700}.rows.eau .q-mauvaise{color:var(--lave);font-weight:700}.rows.eau .q-none{color:var(--muted)}
 .lvl{display:inline-block;padding:.1rem .55rem;border-radius:1rem;font:700 .8rem system-ui,sans-serif;background:var(--c);color:#14202b}
