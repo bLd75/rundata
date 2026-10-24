@@ -6,16 +6,22 @@
  * - the CINOR (Saint-Denis, Sainte-Marie, Sainte-Suzanne) and the tourist office of the North publish on OpenAgenda;
  * - the agenda of reunion.fr, the island's tourist board, lists the big fêtes and festivals: its page carries the
  *   list as data (`itemsData`), dates and commune included;
- * - Le Tampon and Saint-Louis publish an RSS feed of their agenda whose dates are in the text (« Du 5 au 10 octobre
- *   2026 », « 19 et 20 désanm »).
- * Eight requests in all, each source cached on its own: one that fails leaves the others answering.
+ * - Le Tampon, Saint-Louis and Saint-André publish an RSS feed of their agenda whose dates are in the text (« Du 5 au
+ *   10 octobre 2026 », « 19 et 20 désanm »);
+ * - the concert halls and theatres publish their programme on their own site (src/providers/salles.ts), Le Séchoir
+ *   (Saint-Leu) with The Events Calendar.
+ * Nineteen requests in all, each source cached on its own: one that fails leaves the others answering.
  */
 import type { Cache, Cached } from "../cache.js";
 import { getText } from "../http.js";
 import { INSEE } from "../places/insee.js";
-import { normalize } from "../places/resolve.js";
+import { normalize, resolvePlace } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
 import { communesIn, strip } from "./avis-eau.js";
+import { monthOf, statusOf, type Statut } from "./agenda-mots.js";
+import { SALLES, SOURCE as SALLES_SOURCE } from "./salles.js";
+
+export { communesIn, monthOf, statusOf, type Statut };
 
 export const SOURCES = {
   mairies: {
@@ -71,6 +77,10 @@ export interface Evenement {
   lien: string;
   /** Who publishes it: « Mairie de Saint-Paul », « reunion.fr ». */
   publie_par: string;
+  /** When the source says so; « reporté » keeps the dates the source gives (the new ones, when it has them). */
+  statut?: Statut;
+  /** Where to book, when it is not the event's own page. */
+  billetterie?: string;
 }
 
 export interface Agenda {
@@ -87,7 +97,8 @@ const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00
 /** Any ISO time with its offset → La Réunion's: « 2026-10-28T09:00:00+04:00 » → « 2026-10-28T09:00 ». */
 export const toLocal = (iso: string) => new Date(Date.parse(iso) + 4 * 3600_000).toISOString().slice(0, 16);
 const short = (s: string) => (s.length > TEXT_MAX ? `${s.slice(0, TEXT_MAX - 1).replace(/\s+\S*$/, "")}…` : s);
-const clean = (html: string) => strip(html).replace(/\s+/g, " ").trim();
+// NFKC: the posts copied from social networks write in « mathematical » letters (𝗩𝗔𝗖𝗔𝗡𝗖𝗘𝗦, 𝟮𝟰 𝗼𝗰𝘁𝗼𝗯𝗿𝗲).
+const clean = (html: string) => strip(html).normalize("NFKC").replace(/\s+/g, " ").trim();
 
 const BARE = new Map(Object.keys(INSEE).map((n) => [normalize(n).replace(/^(le|la|les|l) /, ""), n]));
 /** The commune a field names: « TROIS BASSINS », « St Paul », « 97400 Saint-Denis ». */
@@ -118,18 +129,27 @@ interface TribeEvent {
  */
 const tribeTime = (s: string, allDay: boolean) => (allDay ? s.slice(0, 10) : s.slice(0, 16).replace(" ", "T"));
 
-export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune: string): Evenement[] {
-  return body.events.map((e) => {
+/** A venue's events away from home are titled after the place: « DKLO > TAN ROUGE ». */
+function awayAt(title: string): string | undefined {
+  const at = /(?:>|&gt;)\s*([^<>]+)$/.exec(title)?.[1];
+  return at ? resolvePlace(at)?.lieu.commune : undefined;
+}
+
+export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune: string, home?: string): Evenement[] {
+  // A venue's school performances (« Scolaires ») are not open to the public.
+  return body.events.filter((e) => !e.categories.some((c) => /^scolaires?$/i.test(c.name.trim()))).map((e) => {
     const venue = Array.isArray(e.venue) ? {} : (e.venue as { venue?: string; address?: string; city?: string });
     const debut = tribeTime(e.start_date, e.all_day);
     const fin = tribeTime(e.end_date, e.all_day);
     const description = clean(e.description);
+    const statut = statusOf(clean(e.title), description);
     return {
+      ...(statut ? { statut } : {}),
       id: `${nom}:${e.id}`,
       titre: clean(e.title),
       seances: [{ debut, fin: fin !== debut ? fin : undefined }],
-      lieu: [venue.venue, venue.address].map((x) => x && clean(x)).filter(Boolean).join(", ") || undefined,
-      commune: communeOf(venue.city) ?? commune,
+      lieu: [venue.venue, venue.address].map((x) => x && clean(x)).filter(Boolean).join(", ") || home,
+      commune: communeOf(venue.city) ?? awayAt(e.title) ?? commune,
       prix: clean(e.cost ?? "") || undefined,
       categories: e.categories.map((c) => clean(c.name)),
       description: description ? short(description) : undefined,
@@ -139,17 +159,17 @@ export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune:
   });
 }
 
-function tribe(id: string, nom: string, site: string, commune: string): Agenda {
+function tribe(id: string, nom: string, site: string, commune: string, source: SourceInfo = SOURCES.mairies, home?: string): Agenda {
   return {
     id,
     nom,
-    source: SOURCES.mairies,
+    source,
     commune,
     load: (cache, now) =>
       cache.get(`agenda:${id}`, FRESH_SECONDS, async () => {
         const day = localDay(now);
         const url = `${site}/wp-json/tribe/events/v1/events?start_date=${day}&end_date=${addDays(day, AHEAD_DAYS)}&per_page=50`;
-        return parseTribe(JSON.parse(await getText(SOURCES.mairies.id, url, 15_000, HEADERS)), nom, commune);
+        return parseTribe(JSON.parse(await getText(source.id, url, 15_000, HEADERS)), nom, commune, home);
       }),
   };
 }
@@ -173,10 +193,14 @@ const fr = (m: Record<string, string> | null | undefined) => (m ? m.fr ?? Object
 // The « conditions » field holds a price, a booking, or any other note: only the first two are a price.
 const PRICE = /€|eur\b|gratuit|tarif|entr[ée]e|libre|inscri|r[ée]serv|payant/i;
 
+const OA_STATUS: Record<number, Statut> = { 4: "reporté", 5: "complet", 6: "annulé" };
+
 export function parseOpenAgenda(body: { events: OaEvent[] }, nom: string): Evenement[] {
-  return body.events.filter((e) => e.status !== 6).map((e) => {
+  return body.events.map((e) => {
     const l = e.location ?? {};
+    const statut = (e.status && OA_STATUS[e.status]) || statusOf(clean(fr(e.title) ?? ""));
     return {
+      ...(statut ? { statut } : {}),
       id: `openagenda:${e.uid}`,
       titre: clean(fr(e.title) ?? ""),
       seances: e.timings.map((t) => ({ debut: toLocal(t.begin), fin: toLocal(t.end) })),
@@ -277,12 +301,6 @@ const reunionFr: Agenda = {
 
 // ---------------------------------------------------------------- RSS with the dates in the text
 
-const MONTHS: [RegExp, number][] = [
-  [/^janv(?:ier)?$|^janvie$/, 1], [/^f[eé]v(?:rier)?$|^fevrie$/, 2], [/^mars$/, 3], [/^avr(?:il)?$/, 4], [/^mai$|^m[eé]$/, 5],
-  [/^juin$|^zuin$/, 6], [/^juil(?:let)?$|^zuiy[eé]$/, 7], [/^ao[uû]t$|^out$/, 8], [/^sept(?:embre)?$|^sektanm$|^septanm$/, 9],
-  [/^oct(?:obre)?$|^oktob$/, 10], [/^nov(?:embre)?$|^novanm$/, 11], [/^d[eé]c(?:embre)?$|^d[eé]sanm$/, 12],
-];
-const monthOf = (w: string) => MONTHS.find(([re]) => re.test(w))?.[1];
 const MONTH = "(janv(?:ier)?|janvi[eé]|f[eé]v(?:rier)?|f[eé]vri[eé]|mars|avr(?:il)?|mai|juin|zuin|juil(?:let)?|zuiy[eé]|ao[uû]t|sept(?:embre)?|sektanm|septanm|oct(?:obre)?|oktob|nov(?:embre)?|novanm|d[eé]c(?:embre)?|d[eé]sanm)\\.?";
 const DAY = "(\\d{1,2})(?:er)?";
 const WEEKDAY = "(?:(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\\s+)?";
@@ -362,7 +380,9 @@ export function parseRss(xml: string, nom: string, commune: string): Evenement[]
     const seances = datesIn(titre, published).length ? datesIn(`${titre} ${texte}`, published) : datesIn(texte, published);
     if (!seances.length) return [];
     const lien = clean(tag(item, "link"));
+    const statut = statusOf(titre, texte);
     return [{
+      ...(statut ? { statut } : {}),
       id: lien,
       titre: titre.replace(new RegExp(`^${DAY}[^:]{0,40}:\\s*`, "u"), ""),
       seances,
@@ -391,10 +411,16 @@ export const AGENDAS: Agenda[] = [
   tribe("trois_bassins", "Mairie des Trois-Bassins", "https://trois-bassins.re", "Les Trois-Bassins"),
   rss("le_tampon", "Ville du Tampon", "https://letampon.fr/agenda/feed/", "Le Tampon"),
   rss("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda/evenements?format=feed&type=rss", "Saint-Louis"),
+  rss("saint_andre", "Ville de Saint-André", "https://www.saint-andre.re/category/agenda/feed/", "Saint-André"),
+  tribe("sechoir", "Le Séchoir", "https://www.lesechoir.com", "Saint-Leu", SALLES_SOURCE, "Le Séchoir"),
   openAgenda("cinor", "CINOR", 50316469),
   openAgenda("oti_nord", "Office de tourisme du Nord", 32570974),
   reunionFr,
+  ...SALLES,
 ];
 
-/** The communes whose own agenda is read (the CINOR's for the North), besides reunion.fr for the whole island. */
-export const COVERED = ["Saint-Paul", "Le Port", "Les Trois-Bassins", "Le Tampon", "Saint-Louis", "Saint-Denis", "Sainte-Marie", "Sainte-Suzanne"];
+/**
+ * The communes whose own agenda is read (the CINOR's for the North), or that have a hall whose programme is, besides
+ * reunion.fr for the whole island.
+ */
+export const COVERED = ["Saint-Paul", "Le Port", "Les Trois-Bassins", "Le Tampon", "Saint-Louis", "Saint-André", "Saint-Denis", "Sainte-Marie", "Sainte-Suzanne", "Saint-Leu", "Saint-Benoît"];

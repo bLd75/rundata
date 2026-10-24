@@ -1,6 +1,7 @@
 import type { Cache, Cached } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as src from "../providers/agenda.js";
+import { titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, notFound, placeBlock, text } from "./format.js";
 import { quand as dayText } from "./sport.js";
@@ -85,26 +86,48 @@ export function when(s: src.Seance): string {
   return `du ${at(s.debut)} au ${at(end)}`;
 }
 
-/** What `quoi` can ask, and the words of an event that answer it. Accents matter on the event side: « marche » is a walk. */
-const THEMES: { nom: string; demande: RegExp; texte: RegExp }[] = [
-  { nom: "concerts et musique", demande: /concert|musique|music|maloya|sega|kabar|\bdj\b|chant|live|soiree/, texte: /concert|musique|musical|maloya|s[ée]ga|kabar|\bdj\b|orchestre|chant|chorale|\bbal\b|live|plato zartis|artiste/ },
-  { nom: "marchés", demande: /marche|forain|brocante|vide grenier|braderie|foire|producteur/, texte: /marché|march[eé]s? (?:de nuit|forain|artisanal|paysan|nocturne|cr[ée]ole|de no[ëe]l)|forain|brocante|vide.grenier|braderie|foire|producteurs/ },
-  { nom: "fêtes et festivals", demande: /fete|fet\b|festival|kermesse|carnaval|feu d artifice|kabar/, texte: /f[êe]te|f[èe]t\b|festival|kermesse|carnaval|feu d.artifice|som[èe]n|semaine cr[ée]ole|zourn[ée]|kabar/ },
-  { nom: "spectacles", demande: /spectacle|theatre|danse|cirque|conte|humour|cinema|film/, texte: /spectacle|th[ée][âa]tre|danse|cirque|conte|humour|cin[ée]ma|projection|film/ },
-  { nom: "sport", demande: /sport|course|trail|randonnee|tournoi|match|velo|dragon/, texte: /sport|course|trail|randonn[ée]e|tournoi|match|v[ée]lo|koupe|dragon boat|nage|surf/ },
-  { nom: "pour les enfants", demande: /enfant|marmaille|famille|kids|jeune public|ado/, texte: /enfant|marmaille|famil|jeune public|escape game|ludique|jeux|frissons|kids/ },
-  { nom: "expositions et visites", demande: /expo|musee|patrimoine|visite|galerie/, texte: /expo|mus[ée]e|patrimoine|visite|galerie/ },
-  { nom: "ateliers et rencontres", demande: /atelier|conference|forum|salon|formation|permanence|rencontre/, texte: /atelier|conf[ée]rence|forum|salon|formation|permanence|rencontre|congr[èe]s/ },
+/**
+ * What `quoi` can ask, and the words of an event that answer it; the same themes are the genres a row is labelled with.
+ * Accents matter on the event side: « marche » is a walk. « Spectacles » takes in théâtre, danse, humour and cirque.
+ */
+export const THEMES: { nom: string; genre: string; demande: RegExp; texte: RegExp }[] = [
+  { nom: "concerts et musique", genre: "concert", demande: /concert|musique|music|maloya|sega|seggae|kabar|jazz|rock|metal|reggae|rap|hip hop|electro|classique|recital|chanson|zouk/, texte: /concert|musique|musical|maloya|s[ée]ga|kabar|jazz|rock|m[ée]tal|reggae|dancehall|dub\b|\brap\b|hip.hop|[ée]lectro|blues|soul\b|funk|zouk|chanson|r[ée]cital|piano|orchestre|symphon|\bchant(?:eur|euse|s)?\b|chorale|\bbal\b|\blive\b|plato zartis|sono mondiale/ },
+  { nom: "théâtre", genre: "théâtre", demande: /theatre|piece|comedie|spectacle/, texte: /th[ée][âa]tre|com[ée]die|pi[èe]ce|lecture/ },
+  { nom: "danse", genre: "danse", demande: /danse|ballet|choregraph|battle|spectacle/, texte: /danse|ballet|chor[ée]graph|battle/ },
+  { nom: "humour", genre: "humour", demande: /humour|humoriste|stand ?up|comedy|one man|one woman|rire|spectacle/, texte: /humour|humoriste|stand.?up|comedy|one.(?:wo)?man|seul.en.sc[èe]ne/ },
+  { nom: "cirque, contes et magie", genre: "cirque", demande: /cirque|conte|magie|marionnette|spectacle/, texte: /cirque|circassien|conte|magie|marionnette|clown/ },
+  { nom: "soirées et clubbing", genre: "soirée", demande: /soiree|club|clubbing|\bdj\b|danser|boite|nightlife|fete ce soir/, texte: /clubbing|\bdj\b|dj.set|\bclub\b|kizomba|salsa|bachata|\bsbk\b|soir[ée]e (?:dansante|zouk|salsa|kizomba|clubbing|[ée]lectro|dj|sbk|ann[ée]es)|nuit du (?:zouk|s[ée]ga|maloya)|bal poussi[èe]re/ },
+  { nom: "marchés", genre: "marché", demande: /marche|forain|brocante|vide grenier|braderie|foire|producteur/, texte: /marché|march[eé]s? (?:de nuit|forain|artisanal|paysan|nocturne|cr[ée]ole|de no[ëe]l)|forain|brocante|vide.grenier|braderie|foire|producteurs/ },
+  { nom: "fêtes et festivals", genre: "festival", demande: /fete|fet\b|festival|kermesse|carnaval|feu d artifice|kabar/, texte: /f[êe]te|f[èe]t\b|festival|kermesse|carnaval|feu d.artifice|som[èe]n|semaine cr[ée]ole|zourn[ée]|kabar|temps fort/ },
+  { nom: "cinéma", genre: "cinéma", demande: /cinema|film|projection|cine\b|documentaire/, texte: /cin[ée]ma|projection|\bfilm|documentaire|court.m[ée]trage/ },
+  { nom: "sport", genre: "sport", demande: /sport|course|trail|randonnee|tournoi|match|velo|dragon|rallye/, texte: /sport|course|trail|randonn[ée]e|tournoi|match|v[ée]lo|koupe|dragon boat|nage|surf|rallye/ },
+  { nom: "pour les enfants", genre: "enfants", demande: /enfant|marmaille|famille|kids|jeune public|ado/, texte: /enfant|marmaille|famil|jeune public|escape game|ludique|jeux|frissons|kids/ },
+  { nom: "expositions et visites", genre: "exposition", demande: /expo|musee|patrimoine|visite|galerie/, texte: /expo|mus[ée]e|patrimoine|visite|galerie/ },
+  { nom: "ateliers et rencontres", genre: "atelier", demande: /atelier|conference|forum|salon|formation|permanence|rencontre/, texte: /atelier|conf[ée]rence|forum|salon|formation|permanence|rencontre|congr[èe]s/ },
 ];
 const STOP = new Set(["des", "les", "une", "pour", "avec", "quoi", "faire", "sortir", "evenement", "evenements", "sortie", "sorties", "agenda"]);
 
 /** How `quoi` is understood: themes, or else words that must all be in the event. */
+// The venue's name is left out of the genre: a concert at the « Théâtre Luc Donat » is not a play.
+const about = (e: src.Evenement) => `${e.titre} ${e.categories.join(" ")} ${e.description ?? ""}`.toLowerCase();
+const body = (e: src.Evenement) => `${about(e)} ${e.lieu ?? ""}`.toLowerCase();
+// What the title and the source's own category say comes first: « Concert » at Bisik is a concert even if the text
+// mentions a dance contest.
+const head = (e: src.Evenement) => `${e.titre} ${e.categories.join(" ")}`.toLowerCase();
+
+/** The genres of an event, for the page's filter: from its title and categories, else its description. */
+export function genres(e: src.Evenement): string[] {
+  const own = THEMES.filter((t) => t.texte.test(head(e))).map((t) => t.genre);
+  return own.length ? own : THEMES.filter((t) => t.texte.test(about(e))).map((t) => t.genre).slice(0, 2);
+}
+
 export function matcher(quoi: string | undefined): { nom?: string; test: (e: src.Evenement) => boolean } | null {
   const q = normalize(quoi ?? "");
   if (!q) return null;
-  const themes = THEMES.filter((t) => t.demande.test(q));
-  const body = (e: src.Evenement) => `${e.titre} ${e.categories.join(" ")} ${e.description ?? ""} ${e.lieu ?? ""}`.toLowerCase();
-  if (themes.length) return { nom: themes.map((t) => t.nom).join(", "), test: (e) => themes.some((t) => t.texte.test(body(e))) };
+  // « spectacle » asks every kind of show; a precise word (« théâtre », « danse ») only its own.
+  const themes = THEMES.filter((t) => t.demande.test(q) && (!/spectacle/.test(q) || t.demande.source.includes("spectacle")));
+  const show = /spectacle/.test(q);
+  if (themes.length) return { nom: show && themes.length > 1 ? "spectacles" : themes.map((t) => t.nom).join(", "), test: (e) => themes.some((t) => t.texte.test(about(e))) || (show && /spectacle/.test(about(e))) };
   const words = q.split(" ").filter((w) => w.length >= 3 && !STOP.has(w));
   if (!words.length) return null;
   return { nom: `« ${quoi!.trim()} »`, test: (e) => words.every((w) => normalize(body(e)).includes(w)) };
@@ -124,19 +147,32 @@ export async function gather(cache: Cache, now: Date): Promise<Got[]> {
   }));
 }
 
-/** The same event published twice (by the CINOR and the tourist office, or by a mairie and reunion.fr) is told once. */
+/**
+ * The same event published twice (by the CINOR and the tourist office, a mairie and reunion.fr, a hall and the town)
+ * is told once: same first words of the title (« CÉDRIC "ANALYSE" & SES INVITÉS », « Cédric « Analyse » et ses
+ * invités ») on the same day, in the same commune when both say it.
+ */
 export function unique(list: src.Evenement[]): src.Evenement[] {
   const out: src.Evenement[] = [];
   const seen = new Map<string, src.Evenement>();
-  const key = (e: src.Evenement) => `${normalize(e.titre).slice(0, 40)}|${e.seances[0]?.debut.slice(0, 10)}`;
+  const key = (e: src.Evenement) => `${titleKey(e.titre)}|${e.seances[0]?.debut.slice(0, 10)}`;
   const timed = (e: src.Evenement) => e.seances.some((s) => s.debut.length > 10);
+  const better = (x: src.Evenement, y: src.Evenement) => Number(timed(x)) - Number(timed(y)) || Number(!!x.lieu) - Number(!!y.lieu);
   for (const e of list) {
     const same = seen.get(e.id) ?? seen.get(key(e));
-    if (same && (timed(same) || !timed(e))) continue;
-    // The copy with hours is the better one.
-    if (same) out[out.indexOf(same)] = e;
+    if (same && same.commune && e.commune && same.commune !== e.commune && same.id !== e.id) {
+      out.push(e);
+      seen.set(e.id, e);
+      continue;
+    }
+    if (same && better(e, same) <= 0) {
+      // Kept: the better copy, with what the other one knows of its state.
+      if (e.statut && !same.statut) out[out.indexOf(same)] = { ...same, statut: e.statut };
+      continue;
+    }
+    if (same) out[out.indexOf(same)] = { ...e, statut: e.statut ?? same.statut };
     else out.push(e);
-    for (const k of [e.id, key(e), ...(same ? [same.id, key(same)] : [])]) seen.set(k, e);
+    for (const k of [e.id, key(e), ...(same ? [same.id, key(same)] : [])]) seen.set(k, out.find((x) => x.id === e.id) ?? e);
   }
   return out;
 }
@@ -167,6 +203,9 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     commune: e.commune,
     prix: e.prix,
     categories: e.categories.length ? e.categories : undefined,
+    genres: genres(e),
+    statut: e.statut === "annulé" ? "ANNULÉ" : e.statut === "reporté" ? "REPORTÉ" : e.statut === "complet" ? "complet" : undefined,
+    billetterie: e.billetterie,
     description: e.description,
     lien: e.lien,
     publie_par: e.publie_par,
@@ -175,12 +214,21 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
 export type EventRow = ReturnType<typeof eventRow>;
 
 export const COUVERTURE =
-  "Agendas lus : mairies de Saint-Paul, du Port, des Trois-Bassins, du Tampon et de Saint-Louis ; CINOR et office de tourisme du Nord " +
-  "(Saint-Denis, Sainte-Marie, Sainte-Suzanne) ; agenda de reunion.fr pour les grandes fêtes et festivals de toute l'île. Les autres communes " +
-  "ne publient pas d'agenda lisible : un événement absent ici peut quand même avoir lieu (voir le site ou la page Facebook de la mairie).";
-const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publiés par l'organisateur : vérifier sur la page de l'événement avant de se déplacer (annulation, météo, places).";
+  "Agendas lus : mairies de Saint-Paul, du Port, des Trois-Bassins, du Tampon, de Saint-Louis et de Saint-André ; CINOR et office de tourisme " +
+  "du Nord (Saint-Denis, Sainte-Marie, Sainte-Suzanne) ; agenda de reunion.fr pour les grandes fêtes et festivals de toute l'île. " +
+  "Programmes des salles : TÉAT Champ Fleuri et TÉAT Plein Air, Cité des Arts (Palaxa, Fanal, Château Morange), CDNOI, Kabardock, " +
+  "Le Séchoir, Léspas, Bisik, Théâtre Luc Donat. Pas encore lus : le Kerveguen (Saint-Pierre), les bars et les clubs, les billetteries " +
+  "privées. Un événement absent ici peut quand même avoir lieu (voir le site ou la page Facebook de la salle ou de la mairie).";
+/** The cinemas' showtimes are on their own sites, not here. */
+export const CINEMAS = [
+  { nom: "Ciné Cambaie (Saint-Paul), Ciné Grand Sud (Saint-Pierre), Ciné Lacaze (Saint-Denis), Le Plaza (Saint-Louis)", lien: "https://cine-reunion.com/" },
+  { nom: "Cinepalmes (Sainte-Marie)", lien: "https://iccreunion.com/" },
+  { nom: "Moulin à Café (Saint-Pierre, Ravine des Cabris)", lien: "https://www.saintpierre.re/culture/arts-visuels-et-cinema/cinema-moulin-cafe" },
+];
+const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publiés par l'organisateur : vérifier sur la page de l'événement avant de se déplacer (annulation, météo, places). Un événement annulé ou reporté reste dans la liste avec son statut ; « complet » : plus de places en vente. Une salle sans heure (TÉAT) donne l'heure sur la page du spectacle.";
 
-export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?: string, now = new Date()) {
+/** `listed`: how many events at most (the page lists them all). */
+export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?: string, now = new Date(), listed = LISTED) {
   let res: ReturnType<typeof resolvePlace> = null;
   if (lieu?.trim()) {
     res = resolvePlace(lieu);
@@ -207,9 +255,11 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const kind = what?.nom ? ` (${what.nom})` : "";
   const n = mine.length;
   const covered = !commune || src.COVERED.includes(commune);
+  const off = mine.filter((x) => x.e.statut === "annulé" || x.e.statut === "reporté");
   const resume = [
     n ? `${n} événement${n > 1 ? "s" : ""}${kind} ${where} ${periodText}` : `Aucun événement${kind} trouvé ${where} ${periodText}`,
-    commune && !covered ? `la mairie ${de(commune)} ne publie pas d'agenda lisible : seuls les grands événements de reunion.fr y figurent` : "",
+    off.length ? `ATTENTION : ${off.map((x) => `« ${x.e.titre} » ${x.e.statut}`).slice(0, 4).join(", ")}` : "",
+    commune && !covered ? `ni la mairie ${de(commune)} ni une salle de la commune ne publient d'agenda lisible : seuls les grands événements de reunion.fr y figurent` : "",
     commune && !n && all.length ? `${all.length} ailleurs sur l'île` : "",
   ].filter(Boolean).join(" ; ") + ".";
 
@@ -220,9 +270,10 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     periode: { du: dayText(p.du), au: dayText(p.au), soir: p.soir || undefined },
     nombre: n,
     quand_non_compris: p.incompris ? `« ${quand} » n'a pas été compris : les deux semaines qui viennent sont données. Dire « aujourd_hui », « ce_soir », « demain », « ce_week_end », « cette_semaine », un jour (« samedi ») ou une date (« 2026-10-31 »).` : undefined,
-    evenements: n ? mine.slice(0, LISTED).map((x) => eventRow(x.e, x.seances)) : undefined,
-    autres: n > LISTED ? `${n - LISTED} autres événements : préciser le lieu, le jour ou le genre (quoi).` : undefined,
+    evenements: n ? mine.slice(0, listed).map((x) => eventRow(x.e, x.seances)) : undefined,
+    autres: n > listed ? `${n - listed} autres événements : préciser le lieu, le jour ou le genre (quoi).` : undefined,
     ailleurs_sur_l_ile: commune && !n && all.length ? all.slice(0, ELSEWHERE_MAX).map((x) => eventRow(x.e, x.seances)) : undefined,
+    cinemas: what?.nom?.includes("cinéma") || /cin[ée]|film/i.test(quoi ?? "") ? { seances: "Les séances des cinémas sont sur leurs sites :", salles: CINEMAS } : undefined,
     indisponible: failed.length ? failed : undefined,
     couverture: COUVERTURE,
     a_savoir: A_SAVOIR,

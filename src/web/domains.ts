@@ -4,6 +4,7 @@
  * assistants reading a page see it, and points to the connector for the rest. Each also says it in a few words for
  * its tile on the home page.
  */
+import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
 import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
@@ -1727,8 +1728,19 @@ function agendaRow(r: AgendaRow): string {
   const lieu = r.lieu && r.lieu.length > 80 ? `${r.lieu.slice(0, 79)}…` : r.lieu;
   const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.publie_par]
     .filter(Boolean).map((x) => esc(x!)).join(" · ");
-  return `<li><span><a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a><small>${small}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
+  // Cancelled or postponed stays listed, said first: people look for it.
+  const badge = r.statut ? `<span class="badge${r.statut === "complet" ? " m" : ""}">${esc(r.statut)}</span> ` : "";
+  const book = r.billetterie && r.billetterie !== r.lien ? ` · <a href="${esc(r.billetterie)}" rel="noopener">billets</a>` : "";
+  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}<a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a><small>${small}${book}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
 }
+
+// The kinds a visitor can keep, in the order of the select; only those in the list are offered.
+const GENRES: [string, string][] = [["concert", "Concerts"], ["théâtre", "Théâtre"], ["danse", "Danse"], ["humour", "Humour"], ["cirque", "Cirque, contes, magie"], ["soirée", "Soirées et clubbing"], ["festival", "Fêtes et festivals"], ["marché", "Marchés"], ["cinéma", "Cinéma"], ["enfants", "Pour les enfants"], ["exposition", "Expositions et visites"], ["sport", "Sport"], ["atelier", "Ateliers et rencontres"]];
+const GENRE_SCRIPT = `(()=>{const f=document.getElementById("ef");if(!f)return;f.hidden=false;
+const run=()=>{const g=f.g.value;let n=0;document.querySelectorAll("#jours li[data-g]").forEach((li)=>{const ok=!g||li.dataset.g.split(" ").includes(g);li.hidden=!ok;if(ok)n++});
+document.querySelectorAll("#jours>ul>li.card").forEach((c)=>{c.hidden=!c.querySelector("li[data-g]:not([hidden])")});
+document.getElementById("ef-n").textContent=g?n+" événement"+(n>1?"s":""):"";};
+f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefault());})();`;
 
 export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
@@ -1743,30 +1755,34 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
 
   const status = !d
     ? loading("L'agenda")
-    : `<div class="now"><span class="big">${d.nombre}</span><p>événement${d.nombre > 1 ? "s" : ""} dans les deux semaines qui viennent : fêtes, concerts, marchés, festivals et animations des mairies.</p></div>`;
+    : `<div class="now"><span class="big">${d.nombre}</span><p>événement${d.nombre > 1 ? "s" : ""} dans les deux semaines qui viennent : concerts, spectacles, fêtes, festivals, marchés et animations des mairies.</p></div>`;
 
   const weekend = d?.ce_week_end.length
     ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Ce week-end</h3><ul class="plain">${d.ce_week_end.slice(0, AGENDA_WEEKEND).map((r) =>
-        `<li><b>${esc(r.quand)}</b> : ${esc(r.titre)}${r.commune ? ` <span class="note" style="color:var(--on-night-muted)">(${esc(r.commune)})</span>` : ""}</li>`).join("")}</ul>` +
+        `<li><b>${esc(r.quand)}</b> : ${r.statut && r.statut !== "complet" ? `<b>${esc(r.statut)}</b> ` : ""}${esc(r.titre)}${r.commune ? ` <span class="note" style="color:var(--on-night-muted)">(${esc(r.commune)})</span>` : ""}</li>`).join("")}</ul>` +
       (d.ce_week_end.length > AGENDA_WEEKEND ? `<p class="note" style="color:var(--on-night-muted)">et ${d.ce_week_end.length - AGENDA_WEEKEND} autres.</p>` : "") + `</figure>`
     : "";
 
+  const present = new Set((d?.evenements ?? []).flatMap((r) => r.genres));
+  const filter = present.size > 1
+    ? `<form id="ef" class="card filter" hidden role="search" aria-label="Filtrer les événements par genre"><label>Genre <select name="g"><option value="">tous</option>${GENRES.filter(([g]) => present.has(g)).map(([g, nom]) => `<option value="${esc(g)}">${esc(nom)}</option>`).join("")}</select></label><p class="note" id="ef-n" aria-live="polite"></p></form>`
+    : "";
   const list = !d
     ? `<p class="card">L'agenda se charge : rechargez la page dans quelques secondes.</p>`
     : days.size
-      ? `<ul class="zones">${[...days].sort(([x], [y]) => x.localeCompare(y)).map(([day, rows]) =>
+      ? `${filter}<div id="jours"><ul class="zones">${[...days].sort(([x], [y]) => x.localeCompare(y)).map(([day, rows]) =>
           `<li class="card"><h3>${esc(longDay(day).replace(/^\p{L}/u, (c) => c.toUpperCase()))} <span class="note">${rows.length} événement${rows.length > 1 ? "s" : ""}</span></h3>` +
-          `<ul class="rows eau">${rows.map(agendaRow).join("")}</ul></li>`).join("")}</ul>${d.autres ? `<p class="note">${esc(d.autres)} Demandez-les à votre IA.</p>` : ""}`
+          `<ul class="rows eau">${rows.map(agendaRow).join("")}</ul></li>`).join("")}</ul></div>${d.autres ? `<p class="note">${esc(d.autres)} Demandez-les à votre IA.</p>` : ""}<script>${GENRE_SCRIPT}</script>`
       : `<p class="card">Aucun événement trouvé dans les agendas lus pour les deux semaines qui viennent.</p>`;
 
-  const title = "Événements à La Réunion : que faire ce week-end ? Fêtes, concerts, marchés (974)";
-  const short = "🇷🇪 Que faire à La Réunion (974) ce week-end et dans les deux semaines : fêtes, concerts, marchés, festivals et animations des mairies, avec les heures, le lieu et le lien.";
-  const description = d ? describe(`🇷🇪 ${d.resume} Fêtes, concerts, marchés, festivals et animations des mairies, avec les heures, le lieu et le lien.`, short) : short;
+  const title = "Événements à La Réunion : concerts, spectacles, fêtes, que faire ce week-end ? (974)";
+  const short = "🇷🇪 Que faire à La Réunion (974) : concerts, théâtre, danse, festivals, fêtes et marchés des deux semaines, programmes des salles et des mairies.";
+  const description = d ? describe(`🇷🇪 ${d.resume} Concerts, spectacles, fêtes, festivals et marchés, avec les heures, le lieu et le lien.`, short) : short;
 
   const band = `${crumbBar("Événements")}
 <div class="wrap intro">
   <div class="pitch">
-    <p class="pill"><span class="dot"></span>Agendas des mairies et du tourisme</p>
+    <p class="pill"><span class="dot"></span>Salles de spectacle, mairies et tourisme</p>
     <h1>Événements <span class="n974">974</span></h1>
     ${status}
     ${ask(`Kosa néna pou fé sé wikenn la ? Rogard si ${url} é di amwin.`,
@@ -1777,12 +1793,13 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
 
   const body = `<section aria-labelledby="h-jours">
   <div class="sec-h"><p class="eyebrow">Deux semaines</p><h2 id="h-jours">Jour par jour</h2>
-  <p>Chaque événement renvoie à la page de celui qui le publie. Heures de La Réunion ; un événement de plusieurs jours est rangé au jour où il commence, ou à aujourd'hui s'il a déjà commencé.</p></div>
+  <p>Chaque événement renvoie à la page de celui qui le publie. Heures de La Réunion ; un événement de plusieurs jours est rangé au jour où il commence, ou à aujourd'hui s'il a déjà commencé. Un événement annulé ou reporté reste affiché, avec son statut.</p></div>
   ${list}
   ${d?.indisponible?.length ? warnings([`Agendas qui ne répondent pas en ce moment : ${d.indisponible.join(", ")}.`]) : ""}
 </section>
 <section aria-labelledby="h-couv">
-  <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p></div>
+  <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p>
+  <p>Les séances de cinéma sont sur les sites des salles : ${CINEMAS.map((c) => `<a href="${esc(c.lien)}" rel="noopener">${esc(c.nom)}</a>`).join(", ")}.</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
 </section>
 ${connectorCta("evenements", "les événements de l'île")}`;

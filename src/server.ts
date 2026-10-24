@@ -55,10 +55,11 @@ import { cyclones } from "./tools/cyclones.js";
 import * as climat from "./providers/climat.js";
 import { historiqueMeteo } from "./tools/historique.js";
 import * as agendaSources from "./providers/agenda.js";
+import * as sallesSource from "./providers/salles.js";
 import { agenda } from "./tools/agenda.js";
 import * as traceSources from "./providers/traces.js";
 
-export const VERSION = "0.20.0";
+export const VERSION = "0.21.0";
 
 const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures, historique des mesures et prévisions, toujours séparés), pluie radar, mer, marée, crues des rivières, vigilance, cyclones, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, randonnée (sentiers ouverts ou fermés, traces GPS, distance et dénivelé), circulation (sans mesure des bouchons : renvoi vers Waze et infotrafic.re), sport (matchs, régates, rallyes, Grand Raid), événements et sorties (fêtes, concerts, marchés, festivals), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
@@ -82,7 +83,7 @@ Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La 
 - Urgence cardiaque (« où est le défibrillateur le plus proche ? ») : defibrillateurs ; dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque.
 - Randonnée (« le sentier de la Roche Pendue est ouvert ? », « sentiers fermés à Mafate ? », « on peut monter au Piton des Neiges ? », « une rando de 10 km à Cilaos ? ») : sentiers_randonnee renvoie l'état des sentiers d'après la carte de l'ONF, les traces GPS (GPX), la longueur et le dénivelé ; pour une longueur ou un dénivelé, passer longueur_min_km, longueur_max_km ou denivele_max_m. Si la réponse a un champ avertissement, le dire EN PREMIER : quels sentiers sont fermés, la cause, la réouverture prévue, et qu'un sentier fermé est interdit (ne pas s'y engager, même avec la trace). Pour une trace GPS (« la trace du Piton des Neiges », « GPX du GR R2 ») : donner le lien trace_gpx, la longueur et le dénivelé. Un tronçon « hors gestion ONF » n'est pas dit ouvert : son état n'est pas connu.
 - Sport (« quels matchs ce week-end ? », « résultats du handball ? », « prochaine régate ? », « classement du Grand Raid ? ») : sport renvoie le calendrier et les résultats officiels (handball, volley, voile, golf, sport automobile, Grand Raid) et l'actualité sportive de Réunion La 1ère. Le football n'a pas de source ouverte : le dire, et citer les articles.
-- Sorties (« que faire ce week-end à Saint-Paul ? », « un concert ce soir ? », « marché forain demain ? », « c'est quand la fête de l'ail ? ») : evenements renvoie les événements publiés par les mairies, l'intercommunalité du Nord et reunion.fr, avec la date, l'heure, le lieu, le prix quand il est donné et le lien. Donner le lien de chaque événement cité ; l'agenda n'est pas complet (beaucoup de communes ne publient rien de lisible) : le dire quand rien n'est trouvé.
+- Sorties (« que faire ce week-end à Saint-Paul ? », « un concert ce soir ? », « un spectacle samedi ? », « marché forain demain ? », « c'est quand la fête de l'ail ? ») : evenements renvoie les événements publiés par les salles de spectacle et de concert, les mairies, l'intercommunalité du Nord et reunion.fr, avec la date, l'heure, la salle, le genre, le prix quand il est donné et le lien. Donner le lien de chaque événement cité ; dire d'abord un statut ANNULÉ ou REPORTÉ. L'agenda n'est pas complet (le Kerveguen, les bars, beaucoup de communes ne publient rien de lisible) : le dire quand rien n'est trouvé. Pour le cinéma, renvoyer aux sites des salles donnés dans la réponse.
 - Terrain à une adresse (« constructible ? », « zone du PLU ? », « prix au m² ? », « zone inondable ? », « risques à cette adresse ? ») : fiche_terrain.
 - Vigilance et cyclones (« alerte cyclonique ? », « vigilance orange ? », « on peut aller en montagne avec ces pluies ? ») : vigilance_meteo renvoie la vigilance officielle de Météo-France. Quand une réponse contient un champ « vigilance », le dire en premier.
 - Cyclones (« il y a un cyclone ? », « où est la tempête ? », « elle va passer près de La Réunion ? », « c'était quoi le dernier cyclone ? ») : cyclones renvoie les systèmes tropicaux actifs du sud-ouest de l'océan Indien (position, stade, distance, déplacement, prévision du CMRS de La Réunion) et l'alerte cyclonique. Ne jamais inventer de trajectoire : citer la prévision du CMRS telle quelle, et renvoyer aux consignes de la préfecture.
@@ -610,14 +611,16 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
   server.registerTool(
     "evenements",
     {
-      title: "Événements à La Réunion : fêtes, concerts, marchés, festivals",
+      title: "Événements à La Réunion : concerts, spectacles, fêtes, festivals, marchés",
       description:
-        "Événements à venir à La Réunion (974) : fêtes, festivals, concerts, marchés, spectacles, animations municipales, " +
-        "d'après les agendas des mairies de Saint-Paul, du Port, des Trois-Bassins, du Tampon et de Saint-Louis, de la CINOR et de l'office " +
-        "de tourisme du Nord (OpenAgenda) et de reunion.fr. Chaque événement : titre, date et heures (heure de La Réunion), lieu, commune, " +
-        "prix quand il est donné, lien vers sa page. " +
-        "Pour : « que faire ce week-end à Saint-Paul ? », « concerts ce soir ? », « marché forain demain ? », « c'est quand la fête de l'ail ? ». " +
-        "/ Upcoming events in Réunion Island (fêtes, concerts, markets, festivals) from town halls, OpenAgenda and the tourist board.",
+        "Événements à venir à La Réunion (974) : concerts, théâtre, danse, humour, cirque, soirées, fêtes, festivals, marchés, cinéma en " +
+        "plein air, animations municipales. D'après les programmes des salles (TÉAT Champ Fleuri et Plein Air, Cité des Arts et Palaxa, " +
+        "CDNOI, Kabardock, Le Séchoir, Léspas, Bisik, Théâtre Luc Donat), les agendas des mairies (Saint-Paul, Le Port, Trois-Bassins, " +
+        "Le Tampon, Saint-Louis, Saint-André), de la CINOR et de l'office de tourisme du Nord (OpenAgenda) et reunion.fr. Chaque événement : " +
+        "titre, date et heures (heure de La Réunion), salle, commune, genre, prix et lien de billetterie quand ils sont donnés, statut " +
+        "(ANNULÉ, REPORTÉ, complet). " +
+        "Pour : « que faire ce week-end à Saint-Paul ? », « concert ce soir ? », « spectacle à Saint-Denis samedi ? », « marché forain demain ? », « c'est quand la fête de l'ail ? ». " +
+        "/ Upcoming events in Réunion Island (concerts, shows, theatre, festivals, markets) from venues, town halls, OpenAgenda and the tourist board.",
       inputSchema: {
         lieu: z
           .string()
@@ -630,7 +633,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
         quoi: z
           .string()
           .optional()
-          .describe("Le genre (« concert », « marché », « fête », « spectacle », « enfants », « sport », « exposition ») ou des mots du titre (« ail », « dragon boat ») ; vide = tout. / Kind or words of the title; empty = all."),
+          .describe("Le genre (« concert », « spectacle », « théâtre », « danse », « humour », « soirée », « festival », « marché », « cinéma », « enfants », « sport », « exposition ») ou des mots du titre ou de la salle (« ail », « dragon boat », « Kabardock ») ; vide = tout. / Kind, or words of the title or venue; empty = all."),
       },
       annotations: { title: "Événements", ...READ_ONLY },
     },
@@ -649,7 +652,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
     },
     track("sources_donnees", async () =>
       text({
-        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...Object.values(agendaSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
+        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...Object.values(agendaSources.SOURCES), sallesSource.SOURCE, ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage() },
         version: VERSION,
