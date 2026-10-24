@@ -236,7 +236,7 @@ describe("a phone of the team", () => {
   });
 
   it("says so on the privacy page", () => {
-    expect(legalPage(O, "confidentialite")).toContain("Leurs pages vues sont alors notées « interne » et laissées hors des chiffres.");
+    expect(legalPage(O, "confidentialite")).toContain("Les visites de l'équipe. Pour que les statistiques ne comptent pas ceux qui font le site, leurs appareils portent un repère, gardé dans le navigateur de la même façon (sans cookie). Leurs pages vues sont notées « interne » et laissées hors des chiffres.");
   });
 });
 
