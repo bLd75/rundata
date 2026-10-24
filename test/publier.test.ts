@@ -31,7 +31,9 @@ describe("the guide for those who publish (/publier)", () => {
     const page = html();
     expect(ETATS.ics).toBe("lu");
     expect(page).not.toContain("Bientôt lu");
-    expect(page.match(/Déjà lu par rundata\.re/g)).toHaveLength(5);
+    // Tutorials 1 to 5, in the table and under their title, never « rundata.re : Déjà lu par rundata.re ».
+    expect(page.match(/<span class="etat lu">Déjà lu<\/span>/g)).toHaveLength(10);
+    expect(page).not.toContain("lu par rundata.re");
     expect(page.match(/>Sur demande : écrivez-nous</g)).toHaveLength(3);
     expect(page).toContain(`<a class="etat demande" href="${MAILTO}">`);
     expect(MAILTO).toBe("mailto:contact@rundata.re?subject=Flux%20%C3%A0%20r%C3%A9f%C3%A9rencer");

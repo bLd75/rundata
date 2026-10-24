@@ -24,8 +24,9 @@ EXEMPLE à supprimer : Marché nocturne,2026-11-14,18:00,2026-11-14,23:00,Front 
 /** What rundata.re does with each kind of feed: `ics` is the iCalendar reader (providers/agenda.ts, ics()). */
 export const ETATS: Record<string, "lu" | "bientot" | "demande"> = { lu: "lu", ics: "lu", demande: "demande" };
 const LABEL = {
-  lu: ["Déjà lu", "Déjà lu par rundata.re"],
-  bientot: ["Bientôt lu", "Bientôt lu par rundata.re"],
+  // After « rundata.re : » in the tutorials, as in the table: the name is not said twice.
+  lu: ["Déjà lu", "Déjà lu"],
+  bientot: ["Bientôt lu", "Bientôt lu"],
   demande: ["Sur demande", "Sur demande : écrivez-nous"],
 } as const;
 
