@@ -9,6 +9,7 @@
 import { failed, handle } from "./app.js";
 import { WORKER_BUDGET, count, counted, later, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
+import { KvStore } from "./kv.js";
 import { audience, language, point, visitor, type Hit } from "./metrics.js";
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
@@ -25,8 +26,6 @@ import { why } from "./types.js";
 // How long the edge keeps an entry. Much longer than any freshness window: an old copy is what gets served,
 // marked as such, while a source is down.
 const KEEP_SECONDS = 7 * 24 * 3600;
-// An AROME run's bundle is of no use once a few newer runs exist.
-const KV_KEEP_SECONDS = 3 * 24 * 3600;
 
 class EdgeStore implements CacheStore {
   // Per shape of the entries (cache.ts): a deploy keeps the data center's cache unless it changes that shape.
@@ -60,24 +59,6 @@ interface KvNamespace {
   get(key: string, type: "json"): Promise<unknown>;
   put(key: string, value: string, options?: { expirationTtl?: number; metadata?: unknown }): Promise<void>;
   list(options: { prefix: string; cursor?: string }): Promise<{ keys: { name: string; metadata?: unknown }[]; list_complete: boolean; cursor?: string }>;
-}
-
-class KvStore implements CacheStore {
-  constructor(private kv: KvNamespace) {}
-  async get(key: string) {
-    try {
-      return ((await this.kv.get(key, "json")) ?? undefined) as CacheEntry | undefined;
-    } catch {
-      return undefined;
-    }
-  }
-  async put(key: string, entry: CacheEntry) {
-    try {
-      await this.kv.put(key, JSON.stringify(entry), { expirationTtl: KV_KEEP_SECONDS });
-    } catch (err) {
-      console.error("KV : écriture impossible", why(err)); // free plan: 1 000 writes a day
-    }
-  }
 }
 
 /** The Worker's bindings and secrets. */

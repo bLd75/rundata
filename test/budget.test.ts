@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKER_BUDGET, WORKER_FREE_LIMIT, costOf, count, counted, later, left, measured } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
+import { KvStore, type KvBinding } from "../src/kv.js";
 import * as arome from "../src/providers/arome.js";
 import { configure } from "../src/providers/mf-auth.js";
 import { temperatureMer } from "../src/tools/mer.js";
@@ -31,9 +32,25 @@ class EdgeLike extends MemoryStore {
   }
 }
 
-/** A Worker isolate: memory, the data center's cache, and the KV shared with the others. */
-const isolate = (kv = new MemoryStore()) =>
-  new Cache(new TieredStore(new MemoryStore(), new EdgeLike()), () => NOW.getTime(), false, kv);
+/** The KV namespace shared by every data center, with what was asked of it. */
+class Namespace implements KvBinding {
+  values = new Map<string, string>();
+  reads = 0;
+  writes = 0;
+  async get(key: string) {
+    this.reads++;
+    const v = this.values.get(key);
+    return v === undefined ? null : JSON.parse(v);
+  }
+  async put(key: string, value: string) {
+    this.writes++;
+    this.values.set(key, value);
+  }
+}
+
+/** A Worker isolate: memory, the data center's cache, and the KV shared with the others, read as the Worker does. */
+const isolate = (kv: KvBinding = new Namespace()) =>
+  new Cache(new TieredStore(new MemoryStore(), new EdgeLike()), () => NOW.getTime(), false, new KvStore(kv));
 
 let coverages: string[];
 
@@ -128,19 +145,28 @@ describe("subrequests of a cold question in the Worker", () => {
 
 describe("scheduled AROME prefetch", () => {
   it("fills the run in a few invocations, after which a question in another data center downloads no grid", async () => {
-    const kv = new MemoryStore();
+    const kv = new Namespace();
     let runs = 0;
     for (;;) {
       runs++;
+      const before = { reads: kv.reads, writes: kv.writes, grids: coverages.length };
       const { value, used } = await counted(WORKER_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
       expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
+      // Each read and write of KV is a subrequest, counted with the grids.
+      expect(kv.reads - before.reads + kv.writes - before.writes).toBeGreaterThan(0);
+      expect(used).toBeGreaterThanOrEqual(kv.reads - before.reads + kv.writes - before.writes + coverages.length - before.grids);
       if (!value?.later) break;
       expect(runs).toBeLessThan(5);
     }
     const prefetched = coverages.length;
     expect(prefetched).toBeGreaterThan(60); // 14 steps of 5 fields left in the run, and the terrain
+    const reads = kv.reads;
     const r = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(kv), "Cilaos", "demain", NOW));
     expect(coverages.length).toBe(prefetched);
+    // The question in another data center reads the bundle from KV: counted too, within the budget.
+    expect(kv.reads).toBeGreaterThan(reads);
+    expect(r.used).toBeGreaterThanOrEqual(kv.reads - reads);
+    expect(r.used).toBeLessThanOrEqual(WORKER_BUDGET);
     expect(body(r.value).pas_de_3h.filter((s: { modele: string }) => s.modele.startsWith("AROME")).length).toBeGreaterThan(5);
   });
 });
@@ -186,7 +212,7 @@ describe("a run not all out yet, in the Worker", () => {
   });
 
   it("is filled by the prefetch from both runs, after which a question downloads nothing", async () => {
-    const kv = new MemoryStore();
+    const kv = new Namespace();
     for (let runs = 1; ; runs++) {
       const { value, used } = await counted(WORKER_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
       expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
