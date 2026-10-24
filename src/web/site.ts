@@ -23,6 +23,8 @@ import {
   buildEau,
   buildSentiers,
   buildTrafic,
+  roadNewsNow,
+  withRoadNews,
   buildRandonnees,
   buildSecheresse,
   buildCoupures,
@@ -179,6 +181,15 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       alerte(cache, background, now),
     ]);
     return new Response(seaPage(origin, data, now, a), { headers: htmlFor(data) });
+  }
+  // The traffic page's copy lasts minutes; the media's headlines on the roads are those of the view.
+  if (path === "/trafic" || path === "/trafic/") {
+    const [data, a, news] = await Promise.all([
+      snapshot(cache, "web:trafic", () => buildTrafic(cache, now), background, now, waitFor(request), isReader(request)),
+      alerte(cache, background, now),
+      roadNewsNow(cache, background, now),
+    ]);
+    return new Response(traficPage(origin, data && { ...data, value: withRoadNews(data.value, news, now) }, now, a), { headers: htmlFor(data) });
   }
   // The events page was first published as /agenda.
   if (path === "/agenda" || path === "/agenda/") return Response.redirect(`${origin}/evenements`, 301);

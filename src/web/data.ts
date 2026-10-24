@@ -1083,20 +1083,52 @@ export interface TraficAnswer {
 const ROAD_NEWS = ["route", "mobilisation"];
 const ROAD_NEWS_HOURS = 6;
 const ROAD_NEWS_MAX = 6;
+// The news older than this is read again after the response, for the next view: on a day of blockades, /trafic should
+// not wait for someone to open /actualites. Not more often than once a minute per isolate, and only with the
+// subrequests it takes (the feeds, the préfecture, the live pages, the store).
+const ROAD_NEWS_STALE_SECONDS = 15 * 60;
+const ROAD_NEWS_RETRY_MS = 60_000;
+const ROAD_NEWS_MIN_LEFT = 14;
+let roadNewsAsked = -Infinity;
 
-export async function buildTrafic(cache: Cache, now = new Date()): Promise<TraficAnswer> {
-  const [bus, carte, volcan, news] = await Promise.all([
-    cache.get("web:bus", FRESH_SECONDS, () => buildBus(now, cache)).then((c) => c.value).catch((err) => (console.error("trafic : bus indisponibles", why(err)), null)),
-    onf.carte(cache).then((c) => c.value).catch((err) => (console.error("trafic : routes forestières indisponibles", why(err)), null)),
-    cache.peek<VolcanAnswer>("web:volcan").catch(() => null),
-    // The news as last read for /actualites or the tool: reading every feed again would cost this page its time.
-    cache.peek<actuSource.Fil>("actualites:fil").catch(() => undefined),
-  ]);
+/** The headlines of the last hours on the roads, the blockades and the protests, newest first. */
+export function roadNews(news: actuSource.Fil | undefined, now: Date): NonNullable<TraficAnswer["medias"]> {
   const since = new Date(now.getTime() - ROAD_NEWS_HOURS * 3600_000).toISOString();
-  const roadNews = (news?.value.infos ?? [])
+  return (news?.infos ?? [])
     .filter((i) => i.publie >= since && i.sujets.some((s) => ROAD_NEWS.includes(s)))
     .slice(0, ROAD_NEWS_MAX)
     .map((i) => ({ titre: i.titre, lien: i.lien, source: `${i.media}${i.direct ? ", en direct" : ""}`, heure: newsTime(i, now) }));
+}
+
+/**
+ * The news as last read (for /actualites, the tool, the home page's tile), without reading the feeds for this view.
+ * When there is none (a new version, a data center that never read it) or it is old, it is read again afterwards.
+ */
+export async function roadNewsNow(cache: Cache, background: Background, now = new Date()): Promise<actuSource.Fil | undefined> {
+  const got = await cache.peek<actuSource.Fil>("actualites:fil").catch(() => undefined);
+  const old = !got || now.getTime() - got.fetchedAt.getTime() > ROAD_NEWS_STALE_SECONDS * 1000;
+  if (old && now.getTime() - roadNewsAsked > ROAD_NEWS_RETRY_MS && left() >= ROAD_NEWS_MIN_LEFT) {
+    roadNewsAsked = now.getTime();
+    background(actuSource.fil(cache, now).catch((err) => console.error("trafic : actualités indisponibles", why(err))));
+  }
+  return got?.value;
+}
+
+/** The page's data with the headlines of now: the page's copy lasts minutes, a blockade should not wait for it. */
+export function withRoadNews(d: TraficAnswer, news: actuSource.Fil | undefined, now: Date): TraficAnswer {
+  const medias = roadNews(news, now);
+  const credit = credits([actuSource.SOURCES.medias]);
+  const sources = d.sources.filter((s) => s.source !== credit[0].source);
+  const { medias: _, ...rest } = d;
+  return { ...rest, ...(medias.length ? { medias } : {}), sources: medias.length ? [...sources, ...credit] : sources };
+}
+
+export async function buildTrafic(cache: Cache, now = new Date()): Promise<TraficAnswer> {
+  const [bus, carte, volcan] = await Promise.all([
+    cache.get("web:bus", FRESH_SECONDS, () => buildBus(now, cache)).then((c) => c.value).catch((err) => (console.error("trafic : bus indisponibles", why(err)), null)),
+    onf.carte(cache).then((c) => c.value).catch((err) => (console.error("trafic : routes forestières indisponibles", why(err)), null)),
+    cache.peek<VolcanAnswer>("web:volcan").catch(() => null),
+  ]);
   const live = bus?.gares.flatMap((g) => g.departs.filter((d) => d.retard_min !== undefined).map((d) => ({ gare: g.commune, d }))) ?? [];
   const roads = carte?.routes ?? [];
   return {
@@ -1123,8 +1155,8 @@ export async function buildTrafic(cache: Cache, now = new Date()): Promise<Trafi
         }
       : null,
     ...(volcan?.value.etat?.acces_enclos ? { enclos: volcan.value.etat.acces_enclos } : {}),
-    ...(roadNews.length ? { medias: roadNews } : {}),
-    sources: [...(bus ? bus.sources : []), ...(carte ? credits([onf.SOURCE]) : []), ...(roadNews.length ? credits([actuSource.SOURCES.medias]) : [])],
+    // The media's headlines are added when the page is served (withRoadNews), not kept in its copy.
+    sources: [...(bus ? bus.sources : []), ...(carte ? credits([onf.SOURCE]) : [])],
   };
 }
 

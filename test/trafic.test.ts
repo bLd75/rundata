@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import type { Fil, Info } from "../src/providers/actualites.js";
-import { buildTrafic } from "../src/web/data.js";
+import { buildTrafic, roadNewsNow, withRoadNews } from "../src/web/data.js";
 import { traficPage } from "../src/web/domains.js";
 
 // The ONF's map of 24/10/2026 (test/fixtures/onf): 4 forest roads closed. The buses' timetables live in D1, absent here.
@@ -63,11 +63,10 @@ describe("circulation", () => {
     expect(traficPage("https://rundata.re", { value: d, fetchedAt: NOW }, NOW)).toContain("La carte de l'ONF ne répond pas pour le moment.");
   });
 
-  it("tells what the media report on the roads, from the news already read, newest first", async () => {
-    const c = cache();
+  describe("what the media report on the roads", () => {
     const at = (h: number) => new Date(NOW.getTime() - h * 3600_000).toISOString();
     const info = (titre: string, h: number, sujets: string[], extra: Partial<Info> = {}): Info => ({ titre, media: "Imaz Press", lien: `https://imazpress.com/${h}`, publie: at(h), heure: true, communes: [], lieux: [], sujets, ...extra });
-    await c.get<Fil>("actualites:fil", 300, async () => ({
+    const fil = (): Fil => ({
       infos: [
         info("Barrage levé au rond-point des Casernes", 0.5, ["mobilisation", "route"], { direct: true }),
         info("Fête de la Saint-Louis : le programme", 1, ["culture"]),
@@ -76,17 +75,55 @@ describe("circulation", () => {
       ],
       prefecture: [],
       indisponible: [],
-    }));
-    const d = await buildTrafic(c, NOW);
-    expect(d.medias).toEqual([
-      { titre: "Barrage levé au rond-point des Casernes", lien: "https://imazpress.com/0.5", source: "Imaz Press, en direct", heure: "aujourd'hui à 07:30" },
-      { titre: "Accident sur la quatre-voies à Sainte-Marie", lien: "https://www.clicanoo.re/a", source: "Clicanoo", heure: "aujourd'hui à 06:00" },
-    ]);
-    const page = traficPage("https://rundata.re", { value: d, fetchedAt: NOW }, NOW);
-    expect(page).toContain(`<h3>Signalé par les médias</h3><ul class="plain"><li><a href="https://imazpress.com/0.5" rel="noopener">Barrage levé au rond-point des Casernes</a> <span class="note">Imaz Press, en direct, aujourd&#39;hui à 07:30</span>`);
-    expect(page).not.toContain("Route du Littoral basculée");
-    // The news is not read again for this page: its feeds are not asked.
-    expect(asked.some((u) => /imazpress|clicanoo|la1ere|freedom|parallelesud|temoignages|reunion\.gouv/.test(u))).toBe(false);
+    });
+    const feeds = /imazpress|clicanoo|la1ere|freedom|parallelesud|temoignages|reunion\.gouv/;
+    // The page is served at NOW, whatever the day the tests run.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(NOW);
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it("tells the headlines from the news already read, newest first, without reading the feeds", async () => {
+      const c = cache();
+      await c.get<Fil>("actualites:fil", 300, async () => fil());
+      expect(withRoadNews(await buildTrafic(c, NOW), fil(), NOW).medias).toEqual([
+        { titre: "Barrage levé au rond-point des Casernes", lien: "https://imazpress.com/0.5", source: "Imaz Press, en direct", heure: "aujourd'hui à 07:30" },
+        { titre: "Accident sur la quatre-voies à Sainte-Marie", lien: "https://www.clicanoo.re/a", source: "Clicanoo", heure: "aujourd'hui à 06:00" },
+      ]);
+      const page = await (await handle(new Request("https://rundata.re/trafic", BOT), c)).text();
+      expect(page).toContain(`<h3>Signalé par les médias</h3><ul class="plain"><li><a href="https://imazpress.com/0.5" rel="noopener">Barrage levé au rond-point des Casernes</a> <span class="note">Imaz Press, en direct, aujourd&#39;hui à 07:30</span>`);
+      expect(page).not.toContain("Route du Littoral basculée");
+      // The news is fresh: its feeds are not asked again for this page.
+      expect(asked.some((u) => feeds.test(u))).toBe(false);
+    });
+
+    it("shows headlines that arrive after the page's copy was built", async () => {
+      // The copy of /trafic built before anyone read the news (a new version), then the news read for /actualites.
+      const c = cache();
+      const first = await (await handle(new Request("https://rundata.re/trafic", BOT), c)).text();
+      expect(first).not.toContain("Signalé par les médias");
+      await c.get<Fil>("actualites:fil", 300, async () => fil());
+      const next = await (await handle(new Request("https://rundata.re/trafic", BOT), c)).text();
+      expect(next).toContain("Barrage levé au rond-point des Casernes");
+      expect(next).toContain("Accident sur la quatre-voies à Sainte-Marie");
+    });
+
+    it("reads the news after the response when there is none, or when it is old", async () => {
+      const c = cache();
+      const later: Promise<unknown>[] = [];
+      // A day on: the views of the tests above have asked for it already (once a minute at most).
+      expect(await roadNewsNow(c, (p) => later.push(p), new Date(NOW.getTime() + 86400_000))).toBeUndefined();
+      expect(later).toHaveLength(1);
+      await Promise.all(later);
+      expect(asked.some((u) => feeds.test(u))).toBe(true);
+      // Fresh news: nothing read.
+      const fresh = cache();
+      await fresh.get<Fil>("actualites:fil", 300, async () => fil());
+      const none: Promise<unknown>[] = [];
+      expect((await roadNewsNow(fresh, (p) => none.push(p), new Date(NOW.getTime() + 5 * 60_000)))?.infos).toHaveLength(4);
+      expect(none).toHaveLength(0);
+    });
   });
 
   it("is on the home page and in the menu", async () => {
