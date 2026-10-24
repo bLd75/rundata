@@ -1,0 +1,110 @@
+{
+"construit": "2026-10-24",
+"source": "Territoire de l'Ouest (TCO), Licence Ouverte",
+"sites": [
+{
+"nom": "Déchèterie de Dos d'Âne",
+"adresse": "Allée Pente Ti Bois, Dos d'Ane",
+"commune": "La Possession",
+"lon": 55.37787,
+"lat": -20.98275,
+"lien": "https://www.tco.re/annuaire-tco/decheterie-de-dos-dane"
+},
+{
+"nom": "Déchèterie de Saint-Laurent",
+"adresse": "Rue du Stade",
+"commune": "La Possession",
+"lon": 55.33501,
+"lat": -20.95652,
+"lien": "https://www.tco.re/annuaire-tco/centre-de-proprete-de-saint-laurent-a-la-possession"
+},
+{
+"nom": "Déchèterie de la Marine",
+"adresse": "Boulevard de la Marine",
+"commune": "Le Port",
+"lon": 55.28391,
+"lat": -20.94927,
+"lien": "https://www.tco.re/annuaire-tco/decheterie-de-la-marine-au-port"
+},
+{
+"nom": "Déchèterie de la Zone Artisanale du Port",
+"adresse": "1-2 Rue Leonus Corre",
+"commune": "Le Port",
+"lon": 55.31131,
+"lat": -20.93789,
+"lien": "https://www.tco.re/annuaire-tco/decheterie-de-la-zone-artisanale-au-port"
+},
+{
+"nom": "Déchèterie les Capucines",
+"adresse": "111-113 Chemin des Barrières",
+"commune": "Les Trois-Bassins",
+"lon": 55.29638,
+"lat": -21.1009,
+"lien": "https://www.tco.re/annuaire-tco/decheterie-les-capucines-a-trois-bassins"
+},
+{
+"nom": "Déchèterie Thénor",
+"adresse": "Chemin Georges Thenor, Piton Saint-Leu",
+"commune": "Saint-Leu",
+"lon": 55.29067,
+"lat": -21.19139,
+"lien": "https://www.tco.re/annuaire-tco/decheterie-thenor-a-saint-leu"
+},
+{
+"nom": "Déchèterie de La Chaloupe",
+"adresse": "48-60 Chemin Vaudeville",
+"commune": "Saint-Leu",
+"lon": 55.31934,
+"lat": -21.14659,
+"lien": "https://www.tco.re/annuaire-tco/decheterie-de-la-chaloupe-saint-leu"
+},
+{
+"nom": "Déchèterie de la Pointe des Châteaux",
+"adresse": "",
+"commune": "Saint-Leu",
+"lon": 55.27619,
+"lat": -21.13995,
+"lien": "https://www.tco.re/annuaire-tco/decheterie-de-la-pointe-des-chateaux"
+},
+{
+"nom": "Déchèterie de Carrosse-Roquefeuil",
+"adresse": "25-50 Rue des Espadons, Saint-Gilles les Bains",
+"commune": "Saint-Paul",
+"lon": 55.23197,
+"lat": -21.05869,
+"lien": "https://www.tco.re/annuaire-tco/centre-de-proprete-de-carrosse-roquefeuil-a-saint-gilles-les-bains"
+},
+{
+"nom": "Déchèterie de Plateau Caillou",
+"adresse": "Avenue des Bengalis, Plateau-Caillou",
+"commune": "Saint-Paul",
+"lon": 55.2708,
+"lat": -21.02992,
+"lien": "https://www.tco.re/annuaire-tco/centre-de-proprete-de-plateau-caillou"
+},
+{
+"nom": "Déchèterie de l'Hermitage les Bains",
+"adresse": "16 Avenue des Mascareignes, L'Ermitage-Les-Bains",
+"commune": "Saint-Paul",
+"lon": 55.22422,
+"lat": -21.07029,
+"lien": "https://www.tco.re/annuaire-tco/centre-de-proprete-de-lhermitage-les-bains"
+},
+{
+"nom": "Déchèterie de l'Étang",
+"adresse": "54-56 Rue de la Croix",
+"commune": "Saint-Paul",
+"lon": 55.28711,
+"lat": -20.99115,
+"lien": "https://www.tco.re/annuaire-tco/centre-de-proprete-de-letang-saint-paul"
+},
+{
+"nom": "Déchèterie du Guillaume",
+"adresse": "114 Chemin de la Glaciere",
+"commune": "Saint-Paul",
+"lon": 55.29788,
+"lat": -21.0357,
+"lien": "https://www.tco.re/annuaire-tco/centre-de-proprete-du-guillaume-a-saint-paul"
+}
+]
+}

@@ -45,7 +45,7 @@ export const OUTILS: Outil[] = [
   { nom: "electricite", ligne: "électricité, part renouvelable", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "calendrier", ligne: "vacances, jours fériés, soleil", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "qualite_air", ligne: "qualité de l'air", depuis: "2026-10-23T16:09:00+04:00" },
-  { nom: "annuaire_services_publics", ligne: "vie pratique : mairies, carburants, pharmacies", depuis: "2026-10-23T16:09:00+04:00" },
+  { nom: "annuaire_services_publics", ligne: "vie pratique : mairies, santé, carburants, déchets", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "fiche_terrain", ligne: "cadastre, PLU, prix, risques", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "sources_donnees", ligne: "sources, licences, outils, nouveautés", depuis: "2026-10-23T16:09:00+04:00" },
 ];
@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T17:48:00+04:00", texte: "Déchèteries de l'Ouest (TCO) : quelles bennes acceptent encore encombrants, déchets verts ou gravats, en direct." },
   { date: "2026-10-24T17:16:00+04:00", texte: "Votre IA connaît une partie des marchés de l'île (OpenStreetMap, liste incomplète). Il manque le vôtre ? Dites-le-nous." },
   { date: "2026-10-24T17:12:00+04:00", texte: "Pharmacies et urgences de chaque commune ; pour la pharmacie de garde, le site 3237.fr ou le 32 37." },
   { date: "2026-10-24T16:50:00+04:00", texte: "Les alertes de votre commune en flux RSS : vigilance, coupures d'eau, sentiers fermés, volcan. Sans compte." },

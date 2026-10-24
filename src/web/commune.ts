@@ -10,11 +10,13 @@ import { normalize } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import * as mf from "../providers/vigilance.js";
 import * as sante from "../sante/etablissements.js";
+import * as dech from "../vie/decheteries.js";
+import { anchorOf } from "./decheteries.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
 import { tidesNear } from "../tools/maree.js";
 import { current, cyclone, highest, raised } from "../tools/vigilance.js";
-import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
+import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, DechetsAnswer, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
 import { LINK } from "./aujourdhui.js";
 import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
@@ -39,6 +41,8 @@ export interface CommuneLive {
   eau?: Cached<EauAnswer> | null;
   randonnees?: Cached<RandonneesAnswer> | null;
   agenda?: Cached<AgendaAnswer> | null;
+  /** The West's communes only (the TCO publishes its déchèteries). */
+  dechets?: Cached<DechetsAnswer> | null;
 }
 
 export const COMMUNES = PAGES.filter((p) => p.commune);
@@ -168,6 +172,20 @@ function bikes(data: Cached<CommuneData> | null | undefined): { live?: Live; mor
   };
 }
 
+/** The commune's déchèteries: how many take the green waste and the bulky items now, else that they are to be checked. */
+function wasteLive(p: PlacePage, data: Cached<DechetsAnswer> | null | undefined, now: Date): Live | undefined {
+  if (!data) return undefined;
+  const here = dech.sitesNow(data.value.etats, now).filter((s) => s.commune === p.nom);
+  const fresh = here.filter((s) => s.a_jour);
+  const taking = (kind: string) => fresh.filter((s) => s.accepte.includes(kind)).length;
+  return {
+    valeur: `${here.length} déchèterie${here.length > 1 ? "s" : ""}`,
+    detail: fresh.length
+      ? `d'après les agents : déchets verts acceptés dans ${taking("déchets verts")} sur ${fresh.length}, encombrants dans ${taking("encombrants")} sur ${fresh.length}`
+      : "état des bennes à vérifier sur place",
+  };
+}
+
 /** The commune's pharmacies, from FINESS; the duty one only from 3237.fr or the 32 37. */
 function pharmacies(p: PlacePage): Live {
   const n = sante.inCommune(p.nom, ["pharmacie"]).length;
@@ -223,6 +241,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
       question: `La mairie ${de(p.nom)} est ouverte ?`,
       foot: fiche ? `<a href="${esc(fiche)}" rel="noopener">Fiche service-public.fr</a>` : `<a href="/#assistant">Demandez à votre IA →</a>`,
     },
+    ...(dech.TCO_COMMUNES.includes(p.nom) ? [{ icon: "pin", nom: "Déchèteries", href: `/decheteries#${anchorOf(p.nom)}`, live: wasteLive(p, l.dechets, now) }] : []),
     { icon: "heart", nom: "Pharmacies", live: pharmacies(p), foot: `<a href="${sante.GARDE.site}" rel="noopener">Pharmacie de garde : 3237.fr</a>` },
     ...(hikes ? [{ icon: "mountain", nom: "Randonnée", href: hikes.href, live: hikes.live, foot: hikes.foot }] : []),
     { icon: "music", nom: "Sorties", href: "/evenements", live: communeEvents(p, l.agenda) },

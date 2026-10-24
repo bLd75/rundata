@@ -14,6 +14,7 @@ import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import * as annuaire from "../providers/annuaire.js";
 import * as carburants from "../providers/carburants.js";
+import * as tco from "../providers/tco.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
 import * as irve from "../providers/irve.js";
@@ -1209,6 +1210,16 @@ export async function buildTrafic(cache: Cache, now = new Date()): Promise<Trafi
     // The media's headlines are added when the page is served (withRoadNews), not kept in its copy.
     sources: [...(bus ? bus.sources : []), ...(carte ? credits([onf.SOURCE]) : []), ...(fuel ? credits([carburants.SOURCE]) : [])],
   };
+}
+
+/** The West's déchèteries: what each skip took when the staff last said so; the page reads it against the time. */
+export interface DechetsAnswer {
+  etats: tco.Etat[];
+  sources: Credit[];
+}
+
+export async function buildDechets(cache: Cache): Promise<DechetsAnswer> {
+  return { etats: (await tco.meteo(cache)).value, sources: credits([tco.SOURCE]) };
 }
 
 /** What a commune's page adds to its weather: its town hall, and the next buses at its bus station or near its centre. */

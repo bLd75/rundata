@@ -17,6 +17,7 @@ import {
   buildCommune,
   buildElectricite,
   buildHome,
+  buildDechets,
   buildPlace,
   buildSea,
   buildBornes,
@@ -62,6 +63,8 @@ import og from "./og.json" with { type: "json" };
 import { NOUVEAUTES } from "../nouveautes.js";
 import { nouveautesPage } from "./nouveautes.js";
 import { carburantsPage } from "./carburants.js";
+import { decheteriesPage } from "./decheteries.js";
+import { TCO_COMMUNES } from "../vie/decheteries.js";
 import * as carburants from "../providers/carburants.js";
 import { aujourdhuiPage } from "./aujourdhui.js";
 import { communeRss } from "./rss.js";
@@ -144,6 +147,7 @@ const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) =>
   "/coupures-eau": { key: "web:coupures", build: buildCoupures, page: coupuresPage },
   "/defibrillateurs": { key: "web:dae", build: buildDae, page: daePage },
   "/sport": { key: "web:sport", build: buildSport, page: sportPage },
+  "/decheteries": { key: "web:dechets", build: (cache) => buildDechets(cache), page: decheteriesPage },
   "/cyclones": { key: "web:cyclones", build: buildCyclones, page: cyclonesPage },
   "/historique": { key: "web:historique", build: buildHistorique, page: historiquePage },
   "/evenements": { key: "web:agenda", build: buildAgenda, page: agendaPage },
@@ -372,9 +376,11 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       snapshot(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now), background, now, waitFor(request), isReader(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
     ]);
-    const [air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda] = await tileCopies(cache, COMMUNE_TILES, background, place, now);
+    // The West's communes have their déchèteries' tile too (the TCO publishes them).
+    const tiles = TCO_COMMUNES.includes(p.nom) ? [...COMMUNE_TILES, "web:dechets"] : COMMUNE_TILES;
+    const [air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets] = await tileCopies(cache, tiles, background, place, now);
     const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
-    return new Response(communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda }, now, a), { headers: htmlFor(place) });
+    return new Response(communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets }, now, a), { headers: htmlFor(place) });
   }
   if (path === `/${INDEXNOW_KEY}.txt`) {
     return new Response(INDEXNOW_KEY, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });
