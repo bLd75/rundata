@@ -139,7 +139,7 @@ function trailItems(p: PlacePage, r: RandonneesAnswer): Item[] {
 
 function volcanoItems(v: VolcanAnswer): Item[] {
   const e = v.etat;
-  if (!e || (!e.eruption_en_cours && e.niveau_orsec === "Vigilance")) return [];
+  if (!e || (!e.eruption_en_cours && (e.niveau_orsec === "Vigilance" || e.niveau_inconnu))) return [];
   const start = e.eruption_en_cours ? e.eruption?.started_at : undefined;
   return [{
     title: e.eruption_en_cours ? `Éruption en cours au Piton de la Fournaise (${e.niveau_orsec})` : `Piton de la Fournaise : ${e.niveau_orsec}`,

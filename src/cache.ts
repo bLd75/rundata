@@ -162,6 +162,17 @@ export class Cache {
     return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.cost != null && { cost: hit.cost }) };
   }
 
+  /** The value kept under `key` in the durable store (the Worker's KV), however old: what must outlive a deploy. */
+  async kept<T>(key: string): Promise<Cached<T> | undefined> {
+    const hit = await this.durable.get(key);
+    return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true };
+  }
+
+  /** Keeps `value` under `key` in the durable store. */
+  async keep(key: string, value: unknown): Promise<void> {
+    await this.durable.put(key, { value, fetchedAt: this.now() });
+  }
+
   /**
    * The bundle stored under `key`. The copy in memory is merged with the stored one when it is older than
    * `syncSeconds`, so that another isolate's additions arrive; two isolates saving at the same time may lose one's
