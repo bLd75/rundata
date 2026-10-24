@@ -85,7 +85,13 @@ async function read(cache: Cache, now: Date): Promise<VolcanAlerte | undefined> 
 
 // « 24 octobre », of a day « 2026-10-24 ».
 const day = (jour: string) => new Date(`${jour}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" });
-const since = (a: VolcanAlerte) => (a.communique ? ` depuis le ${day(a.communique.jour)}` : "");
+// The release dated, never « depuis le … »: we know what the last release read says, not that the alert still holds;
+// the day and its month never apart (marketing).
+const dated = (a: VolcanAlerte) => (a.communique ? `communiqué du ${day(a.communique.jour).replace(" ", "\u00a0")}` : "");
+const released = (a: VolcanAlerte) => (a.communique ? ` (${dated(a)})` : "");
+// « Alerte 1 », the level never apart from its word, and the arrow never alone on its line (marketing).
+const nb = (s: string) => s.replace(/^(alerte) /i, "$1\u00a0");
+const FOLLOW = "Suivre en direct\u00a0→";
 const level = (a: VolcanAlerte) => a.niveau!.toLowerCase();
 // The level's words in the plan, true for any alert 1, never a release's of the day nor ours (marketing): « éruption
 // probable ou imminente ». Only what the level names: back in vigilance, no « éruption probable ».
@@ -105,13 +111,13 @@ const hausseBanner = (h: Hausse) =>
 export function bannerText(a: VolcanAlerte): string {
   if (a.hausse) return `🌋 ${hausseBanner(a.hausse)}`;
   return a.eruption
-    ? `🌋 Éruption en cours au Piton de la Fournaise${a.niveau ? ` (${level(a)} du préfet${since(a)})` : ""}. ${ENCLOS}`
-    : `🌋 Piton de la Fournaise : ${level(a)} du préfet${since(a)}${plan(a) ? `, « ${plan(a)} » (dispositif ORSEC Volcan)` : ""}. ${ENCLOS}`;
+    ? `🌋 Éruption en cours au Piton de la Fournaise${a.niveau ? ` (${level(a)} du préfet${a.communique ? `, ${dated(a)}` : ""})` : ""}. ${ENCLOS}`
+    : `🌋 Piton de la Fournaise : ${level(a)} du préfet${released(a)}${plan(a) ? `, « ${plan(a)} » (dispositif ORSEC Volcan)` : ""}. ${ENCLOS}`;
 }
 
 export function bannerHtml(a: VolcanAlerte | undefined, path: string): string {
   if (!a) return "";
-  const more = path === "/volcan" ? "" : ` <a href="/volcan">Suivre en direct →</a>`;
+  const more = path === "/volcan" ? "" : ` <a href="/volcan">${FOLLOW}</a>`;
   return `<div class="alerte volcan" role="status"><div class="wrap"><span>${esc(bannerText(a))}</span>${more}</div></div>`;
 }
 
@@ -134,7 +140,7 @@ export const volcanH1 = (a: VolcanAlerte) =>
 export const volcanMeta = (a: VolcanAlerte) =>
   a.hausse ? hausseMeta(a.hausse) : a.eruption
     ? `Éruption en cours (OVPF, préfecture)${a.niveau ? `, ${level(a)}` : ""}. ${ENCLOS} Communiqués, séismes et consignes en direct · 974`
-    : `${a.niveau}${since(a)} (préfecture)${planSaid(a)}. ${ENCLOS} Communiqués de l'OVPF en direct · 974`;
+    : `${a.niveau} (préfecture${a.communique ? `, ${dated(a)}` : ""})${planSaid(a)}. ${ENCLOS} Communiqués de l'OVPF en direct · 974`;
 
 export const volcanLead = (a: VolcanAlerte) =>
   a.eruption
@@ -142,12 +148,15 @@ export const volcanLead = (a: VolcanAlerte) =>
     // Never « n'a pas commencé » on our word: the OVPF's newest post may be an image we do not read (marketing).
     : `${NON_ANNONCEE} Seuls l'OVPF et la préfecture l'annonceront : leurs communiqués s'affichent ici dès leur publication.`;
 
-/** The home page's first card, above the weather. */
+/**
+ * The home page's first card, above the weather, the only volcano block there: what the banner of the other pages says
+ * besides, the release's day and the way to /volcan, is in it.
+ */
 export function homeCard(a: VolcanAlerte): string {
   const [h, lead] = a.hausse ? [haussePitonlive(a.hausse), hausseBanner(a.hausse)] : a.eruption
-    ? ["Éruption en cours au Piton de la Fournaise", `${ENCLOS} Les communiqués officiels en direct →`]
-    : [`Piton de la Fournaise : ${level(a)}`, `${a.niveau}${planSaid(a)}. ${ENCLOS}`];
-  return `<div class="wrap volcan-une"><a class="card" href="/volcan"><h2>🌋 ${esc(h)}</h2><p class="lead">${esc(lead)}</p></a></div>`;
+    ? ["Éruption en cours au Piton de la Fournaise", `${a.niveau ? `${nb(a.niveau)} du préfet${released(a)}. ` : ""}${ENCLOS}`]
+    : [`Piton de la Fournaise : ${nb(level(a))}`, `${nb(a.niveau!)} du préfet${released(a)}${planSaid(a)}. ${ENCLOS}`];
+  return `<div class="wrap volcan-une"><a class="card" href="/volcan"><h2>🌋 ${esc(h)}</h2><p class="lead">${esc(lead)} <b>${FOLLOW}</b></p></a></div>`;
 }
 
 /** The home tile's figure and line during an alert. */
