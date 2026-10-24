@@ -21,13 +21,15 @@ export async function courantCopy(): Promise<CourantAnswer> {
   return { ...(await cc.coupures()), sources: credits([cc.SOURCE]) };
 }
 
-/** EDF's number for a breakdown, once read on one of EDF's own pages; undefined until then. */
-export const EDF_DEPANNAGE: string | undefined = undefined;
+/** EDF's number for a breakdown (free), as https://reunion.edf.fr/particulier/contacter-edf-a-la-reunion gives it (24/10/2026). */
+export const EDF_DEPANNAGE: string | undefined = "0800 333 974";
 // A mairie whose last notice is older than this is not said to relay them « aujourd'hui ».
 const LIVE_DAYS = 90;
 // A cut said to be happening now is said so for this long after its notice.
 const NOW_HOURS = 24;
 const SLOTS_MAX = 4;
+// A notice older than this, or of another year, is not shown with its details: only its date.
+const RECENT_DAYS = 30;
 
 const WEEKDAY = new Intl.DateTimeFormat("fr-FR", { weekday: "long", timeZone: "UTC" });
 const localDay = (d: Date) => new Date(d.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
@@ -58,7 +60,7 @@ export function honesty(c: CourantAnswer, now: Date): string {
 }
 
 export const none = (commune: string) => `${capital(mairie(commune))} ne publie pas les avis d'EDF dans un format lisible : nous ne savons pas si une coupure est prévue.`;
-export const panne = () => (EDF_DEPANNAGE ? `Panne chez vous ? Appelez EDF au ${EDF_DEPANNAGE}.` : undefined);
+export const panne = () => (EDF_DEPANNAGE ? `Panne chez vous ? Le service dépannage d'EDF Réunion répond au ${EDF_DEPANNAGE} (numéro vert).` : undefined);
 
 const ends = (s: cc.Creneau) => s.au ?? s.jour;
 /** Whether a notice says something of today or later: a cut to come, or one happening now. */
@@ -76,6 +78,9 @@ function slotText(s: cc.Creneau, now: Date): string {
 
 /** What one notice says, in marketing's words. `first`: the commune's latest notice, its « dernier avis ». */
 export function sentence(a: cc.AvisCourant, now: Date, first = true): string {
+  if (!ahead(a, now) && (now.getTime() - Date.parse(a.publie) > RECENT_DAYS * 86400_000 || localDay(new Date(a.publie)).slice(0, 4) !== localDay(now).slice(0, 4))) {
+    return `Pas d'avis récent de ${mairie(a.commune)} : le dernier date du ${ddmm(a.publie, now)}. Nous ne savons pas si une coupure est prévue.`;
+  }
   const by = `${mairie(a.commune)} le ${ddmm(a.publie, now)}`;
   const head = `${first ? "Dernier avis" : "Avis"} de coupure d'électricité publié par ${by}`;
   if (a.nature === "en cours") {

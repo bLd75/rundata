@@ -53,7 +53,7 @@ import { coastal, PAGES, type PlacePage } from "../web/places.js";
 import { occurrences } from "./agenda.js";
 import { hoursOn, openNow } from "./annuaire.js";
 import { priceLine } from "./carburants.js";
-import { aheadRows, type CourantAnswer, panne, shortOf } from "./courant.js";
+import { aheadRows, type CourantAnswer, shortOf } from "./courant.js";
 import { SITE_URL } from "./citer.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 import { current, cyclone, highest, raised } from "./vigilance.js";
@@ -306,7 +306,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     mairie: mairie
       ? { ouverte: open, horaires_aujourd_hui: hoursOn(mairie, now) ?? (open === null ? undefined : "fermée aujourd'hui"), adresse: mairie.adresse, telephone: mairie.telephone }
       : undefined,
-    coupures_electricite: power.length ? { avis: power, depannage: panne() } : undefined,
+    coupures_electricite: power.length ? { avis: power } : undefined,
     marches_du_jour: markets.length
       ? { liste: markets.map((m) => ({ nom: m.nom, horaires_aujourd_hui: m.horaires_aujourd_hui, adresse: m.adresse ?? undefined, carte: m.osm })), avertissement: MARKETS_NOT_ALL }
       : undefined,

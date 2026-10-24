@@ -81,7 +81,9 @@ describe("the power cuts the mairies relay", () => {
     expect(sentence(ci, NOW)).toContain("coupure programmée du lundi 26/10 au vendredi 30/10, secteurs L’Îlet à Cordes, Mare Sèche.");
     // A notice of another year says its year.
     const old = parsePosts([post("2025-04-30T11:48:00", "Coupure d&rsquo;électricité à Sainte Suzanne", "<p>Coupure d'électricité programmée le mercredi 14 mai 2025, entre 9h30 à 13h30.</p>")], "Sainte-Suzanne")[0];
-    expect(sentence(old, NOW)).toBe("Dernier avis de coupure d'électricité publié par la mairie de Sainte-Suzanne le 30/04/2025 : coupure programmée le mercredi 14/05/2025 de 09:30 à 13:30.");
+    expect(sentence(old, NOW)).toBe("Pas d'avis récent de la mairie de Sainte-Suzanne : le dernier date du 30/04/2025. Nous ne savons pas si une coupure est prévue.");
+    // Past 30 days, the same: no details of a cut long gone.
+    expect(sentence(sm, new Date("2026-11-25T10:00:00Z"))).toBe("Pas d'avis récent de la mairie de Sainte-Marie : le dernier date du 21/10. Nous ne savons pas si une coupure est prévue.");
     expect(none("Le Port")).toBe("La mairie du Port ne publie pas les avis d'EDF dans un format lisible : nous ne savons pas si une coupure est prévue.");
     // The communes of the honesty line: those whose mairie relayed a notice lately, not Saint-André's of long ago.
     expect(honesty(copy, NOW)).toBe("EDF ne publie pas ses avis de coupure dans un format que nous pouvons lire. Nous reprenons ceux que relaient les mairies : aujourd'hui Sainte-Marie, Saint-Philippe et Cilaos.");
@@ -95,6 +97,7 @@ describe("the power cuts the mairies relay", () => {
     const c = { value: copy, fetchedAt: NOW, stale: false };
     const sm = resume(pageOf("sainte-marie")!, { courant: c } as never, NOW);
     expect(sm.coupures_electricite!.avis).toHaveLength(1);
+    expect(JSON.stringify(sm)).not.toMatch(/0800/);
     expect(sm.resume).toContain("coupure d'électricité programmée le lundi 26/10 de 09:00 à 15:00");
     expect(resume(pageOf("sainte-marie")!, { courant: c } as never, new Date("2026-10-28T10:00:00Z")).coupures_electricite).toBeUndefined();
     const port = resume(pageOf("le-port")!, { courant: c } as never, NOW);
@@ -111,6 +114,7 @@ describe("the power cuts the mairies relay", () => {
     expect(html).toContain('<section id="coupures" aria-labelledby="h-coupures">');
     expect(html).toContain("Coupures d'électricité annoncées par les mairies</h2>");
     expect(html).toContain("aujourd&#39;hui Sainte-Marie, Saint-Philippe et Cilaos.");
+    expect(html).toContain("<p><b>Panne chez vous ? Le service dépannage d&#39;EDF Réunion répond au 0800 333 974 (numéro vert).</b></p>");
     expect(html).toMatch(/Dernier avis de coupure d&#39;électricité publié par la mairie de Sainte-Marie le 21\/10 : .*<a href="https:\/\/example\.org\/[^"]+" rel="noopener">l'avis →<\/a>/);
   });
 });
