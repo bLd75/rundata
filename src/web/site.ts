@@ -55,6 +55,7 @@ import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
 import font from "./font.json" with { type: "json" };
+import icons from "./icons.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { pageOf, PAGES } from "./places.js";
@@ -337,10 +338,36 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       headers: { "content-type": "font/woff2", "cache-control": "public, max-age=31536000, immutable" },
     });
   }
+  if (path === "/manifest.webmanifest") {
+    return new Response(JSON.stringify(manifest()), { headers: { "content-type": "application/manifest+json; charset=utf-8", "cache-control": "public, max-age=86400" } });
+  }
   if (path === "/favicon.svg" || path === "/favicon.ico") {
     return new Response(FAVICON, { headers: { "content-type": "image/svg+xml", "cache-control": STATIC } });
   }
   return null;
+}
+
+/**
+ * What a phone needs to keep the site on its home screen, like an app: its name, its icons (scripts/build-icons.py)
+ * and where it opens, `?ref=pwa` so that the visits from the icon are counted apart (src/metrics.ts).
+ */
+export function manifest() {
+  return {
+    name: "rundata.re",
+    short_name: "rundata.re",
+    description: "La Réunion en direct : météo mesurée, vigilance, mer, routes, bus, randonnée, sorties.",
+    lang: "fr",
+    start_url: "/?ref=pwa",
+    scope: "/",
+    display: "standalone",
+    background_color: "#0b1f36",
+    theme_color: "#0b1f36",
+    icons: [
+      { src: icons["192"], sizes: "192x192", type: "image/png", purpose: "any maskable" },
+      { src: icons["512"], sizes: "512x512", type: "image/png", purpose: "any maskable" },
+      { src: "/favicon.svg", sizes: "any", type: "image/svg+xml" },
+    ],
+  };
 }
 
 /** Any other address a browser asks for: a page that leads back to the communes. */

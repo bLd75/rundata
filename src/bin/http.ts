@@ -50,15 +50,16 @@ async function send(res: ServerResponse, r: Response) {
   res.end();
 }
 
-// The static files Cloudflare serves beside the Worker (wrangler.jsonc, "assets"): the press page's visuals.
+// The static files Cloudflare serves beside the Worker (wrangler.jsonc, "assets"): the press page's visuals, the
+// pictures of the link previews and the home-screen icons.
 const PUBLIC = new URL("../../public/", import.meta.url);
 const TYPES: Record<string, string> = { jpg: "image/jpeg", webp: "image/webp", png: "image/png" };
 
 async function asset(req: IncomingMessage): Promise<Response | null> {
-  const m = /^\/presse\/([\w-]+\.[0-9a-f]+\.(jpg|webp|png))$/.exec(req.url ?? "");
+  const m = /^\/((?:presse|og|icons)\/[\w-]+\.[0-9a-f]+\.(jpg|webp|png))$/.exec(req.url ?? "");
   if (!m || (req.method !== "GET" && req.method !== "HEAD")) return null;
   try {
-    const body = await readFile(new URL(`presse/${m[1]}`, PUBLIC));
+    const body = await readFile(new URL(m[1], PUBLIC));
     return new Response(req.method === "HEAD" ? null : body, { headers: { "content-type": TYPES[m[2]], "cache-control": "public, max-age=31536000, immutable" } });
   } catch {
     return null;
