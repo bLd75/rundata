@@ -58,12 +58,12 @@ import * as agendaSources from "./providers/agenda.js";
 import { agenda } from "./tools/agenda.js";
 import * as traceSources from "./providers/traces.js";
 
-export const VERSION = "0.17.0";
+export const VERSION = "0.18.0";
 
 const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures, historique des mesures et prévisions, toujours séparés), pluie radar, mer, marée, crues des rivières, vigilance, cyclones, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, sentiers de randonnée fermés, sport (matchs, régates, rallyes, Grand Raid), agenda des sorties (fêtes, concerts, marchés, festivals), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
 - Maintenant (« il fait combien ? », « il pleut ? », « la mer est à combien ? ») : meteo_actuelle et temperature_mer renvoient des MESURES datées. Dire l'heure de la mesure, la station et sa distance, et relayer les avertissements (altitude, versant, ancienneté), car le climat change beaucoup sur quelques kilomètres.
-- Avant (« hier », « ce mois-ci », « depuis deux semaines », « l'an dernier », « il y a 20 ans », « record de chaleur », « normal pour octobre ? ») : historique_meteo renvoie les MESURES jour par jour des stations Météo-France, de leur première année jusqu'à hier, comparées à la normale 1991-2020 et aux records de la station.
+- Avant (« hier », « cette nuit », « ce mois-ci », « depuis deux semaines », « l'an dernier », « il y a 20 ans », « record de chaleur », « normal pour octobre ? », « à quelle heure a-t-il plu ? ») : historique_meteo renvoie les MESURES jour par jour des stations Météo-France, de leur première année jusqu'à hier, comparées à la normale 1991-2020 et aux records de la station, et heure par heure depuis 2000 sur quelques jours, nuit dernière comprise.
 - Plus tard (« demain », « ce soir », « ce week-end ») : prevision_meteo renvoie une PRÉVISION de modèle. Toujours dire à l'utilisateur que c'est une prévision, pas une mesure, et relayer ses avertissements ; ne jamais la présenter comme une observation.
 - Marée (« la marée monte ? », « marée haute à quelle heure ? », « niveau de la mer au Port ») : maree renvoie la hauteur d'eau MESURÉE par les marégraphes du Port et de Sainte-Marie et les dernières pleine et basse mer observées ; pas de prévision d'horaires de marée, le dire si on en demande.
 - Crues et rivières (« la rivière des Galets est en crue ? », « vigilance crues ? », « niveau de la ravine Saint-Gilles ? ») : crues_rivieres renvoie la vigilance crues de Vigicrues Réunion et la hauteur et le débit mesurés aux stations des rivières. Relayer les consignes (jamais traverser un radier submergé).
@@ -578,22 +578,26 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
         "Météo MESURÉE les jours passés à La Réunion (974), par les stations Météo-France, de leur première année (1900 pour les plus anciennes) jusqu'à hier : " +
         "pluie, températures minimales et maximales, ensoleillement (heures de soleil, jours gris), rafales, jour par jour sur deux mois au plus, " +
         "par mois ou par année au-delà, comparés à la normale 1991-2020 de la station, avec ses records (chaleur, froid, pluie en un jour, rafale). " +
+        "Sur 3 jours ou moins (7 avec detail « heure »), depuis 2000, aussi HEURE PAR HEURE, nuit dernière comprise : à quelle heure il a plu, quand le soleil s'est caché, rafale max et à quelle heure. " +
         "Pour toute question sur le temps qu'il a fait : « il a beaucoup plu ce mois-ci à Saint-Benoît ? », « il fait gris tous les jours depuis deux semaines au Tampon ? », " +
-        "« quelle température hier à Cilaos ? », « il a fait combien le 24 octobre 2006 ? », « record de chaleur à Saint-Denis ? », « c'est normal ce temps pour octobre ? ». " +
+        "« quelle température hier à Cilaos ? », « il a fait combien le 24 octobre 2006 ? », « record de chaleur à Saint-Denis ? », « c'est normal ce temps pour octobre ? », " +
+        "« à quelle heure a-t-il plu hier à Cilaos ? », « rafale max cette nuit à Sainte-Marie ? », « le soleil s'est caché à quelle heure ? ». " +
         "Pour maintenant, utiliser meteo_actuelle ; pour les jours à venir, prevision_meteo. " +
         "/ Past MEASURED weather in Réunion Island (Météo-France stations, daily, back to their first year, up to yesterday): rain, min/max temperature, " +
-        "sunshine, gusts, against the 1991-2020 normal and the station's records.",
+        "sunshine, gusts, against the 1991-2020 normal and the station's records; hour by hour since 2000 for periods of a few days, last night included.",
       inputSchema: {
         lieu,
         jours: z.number().int().min(1).max(3650).optional()
           .describe("Les N derniers jours jusqu'à hier (30 par défaut). / The last N days up to yesterday (default 30)."),
         du: z.string().optional()
           .describe("Début : « 2026-10-01 », « 01/10/2026 », « 2026-10 » (un mois), « 2006 » (une année). Seul, c'est ce jour, ce mois ou cette année. / Start date, month or year."),
-        au: z.string().optional().describe("Fin, même format. / End, same format."),
+        au: z.string().optional().describe("Fin, même format. Pour « cette nuit » ou « ce matin », la date d'aujourd'hui. / End, same format; today's date for last night or this morning."),
+        detail: z.enum(["jour", "heure"]).optional()
+          .describe("« heure » : heure par heure jusqu'à 7 jours (sinon automatique sur 3 jours ou moins) ; « jour » : sans le détail horaire. / 'heure' forces hourly detail up to 7 days; 'jour' leaves it out."),
       },
       annotations: { title: "Historique météo", ...READ_ONLY },
     },
-    track("historique_meteo", (args: { lieu?: string; jours?: number; du?: string; au?: string }) => historiqueMeteo(cache, args.lieu, { jours: args.jours, du: args.du, au: args.au })),
+    track("historique_meteo", (args: { lieu?: string; jours?: number; du?: string; au?: string; detail?: "jour" | "heure" }) => historiqueMeteo(cache, args.lieu, { jours: args.jours, du: args.du, au: args.au, detail: args.detail })),
   );
 
   server.registerTool(
@@ -638,7 +642,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
     },
     track("sources_donnees", async () =>
       text({
-        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...Object.values(agendaSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
+        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...Object.values(agendaSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage() },
         version: VERSION,

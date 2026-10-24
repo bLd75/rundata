@@ -7,11 +7,16 @@
  * Each kind of measurement comes from the best station that has it over the period (the same choice as meteo_actuelle:
  * distance, altitude, side of the island), since a rain gauge is often closer than a full station and only about
  * fifteen stations measure sunshine.
+ *
+ * For a few days (and back to 2000), the answer also goes hour by hour, from the hourly archive: « à quelle heure a-t-il
+ * plu hier ? », « le soleil s'est caché à quelle heure ? », « rafale max cette nuit ? ». The hourly file of the current
+ * period is published every morning with the night that just ended, so today's first hours are there too.
  */
 import type { Cache } from "../cache.js";
 import { type Place, resolvePlace } from "../places/resolve.js";
 import * as climat from "../providers/climat.js";
-import { type Field, type Poste, type Year } from "../providers/climat.js";
+import { type Field, type HourField, type Month, type Poste, type PosteHoraire, type Year } from "../providers/climat.js";
+import { compass } from "../geo.js";
 import type { Station } from "../types.js";
 import { why } from "../types.js";
 import { a, credits, fr, notFound, placeBlock, text } from "./format.js";
@@ -30,6 +35,15 @@ const GREY_SIGMA = 30;
 const SUNNY_SIGMA = 70;
 const CANDIDATES = 8;
 const LONG_CANDIDATES = 2;
+/** Hour by hour on its own up to this many days, on demand up to HOURLY_MAX. */
+const HOURLY_AUTO = 3;
+const HOURLY_MAX = 7;
+const HOURLY_FROM = "2000-01-01";
+const HOURLY_CANDIDATES = 3;
+/** A rain gauge counts by 0.2 mm: one tip is rain. */
+const RAIN_HOUR_MM = 0.2;
+/** An hour with at least this many minutes of sunshine is sunny. */
+const SUNNY_HOUR_MIN = 30;
 
 // The island without a place: one station per climate (north coast, west, south, east, the Hauts, the cirques).
 const TOUR = [
@@ -68,15 +82,19 @@ export function parseDate(s: string, end: boolean, today: string): string | null
   return null;
 }
 
-/** The period asked: `jours` days up to yesterday, or from `du` to `au` (either alone means one day, month or year). */
-export function period(now: Date, jours?: number, du?: string, au?: string): Period | { erreur: string } {
+/**
+ * The period asked: `jours` days up to yesterday, or from `du` to `au` (either alone means one day, month or year).
+ * `today`: the hours of today may be asked (the hourly archive has the night that just ended), not only up to yesterday.
+ */
+export function period(now: Date, jours?: number, du?: string, au?: string, today = false): Period | { erreur: string } {
   const yesterday = iso(now.getTime() + 4 * 3600_000 - DAY_MS);
+  const last = today ? iso(now.getTime() + 4 * 3600_000) : yesterday;
   if (du || au) {
-    const from = parseDate(du ?? au!, false, yesterday);
-    const to = parseDate(au ?? du!, true, yesterday);
+    const from = parseDate(du ?? au!, false, last);
+    const to = parseDate(au ?? du!, true, last);
     if (!from || !to) return { erreur: "Date non comprise : écrire « 2026-10-01 », « 01/10/2026 », « 2026-10 » (un mois) ou « 2006 » (une année)." };
     const p = from <= to ? { du: from, au: to } : { du: to, au: from };
-    if (p.au > yesterday) p.au = yesterday;
+    if (p.au > last) p.au = last;
     if (p.du > p.au) return { erreur: `Pas encore de mesure publiée pour cette date : le dernier jour publié est hier (${frDate(yesterday)}). Pour aujourd'hui, voir meteo_actuelle.` };
     if (+p.au.slice(0, 4) - +p.du.slice(0, 4) >= YEARS_MAX) return { erreur: `Période trop longue : ${YEARS_MAX} ans au plus par question.` };
     return p;
@@ -300,6 +318,7 @@ const COMMON = {
     "Mesures quotidiennes des stations Météo-France, publiées chaque matin avec la veille : le dernier jour disponible est hier. Pour aujourd'hui, voir meteo_actuelle ; pour les jours à venir, prevision_meteo.",
     "La pluie d'un jour est celle tombée de 10 h ce jour-là à 10 h le lendemain (heure de La Réunion), comme Météo-France la compte.",
     `Normales : moyennes 1991-2020 de la station, calculées sur les mesures de Météo-France (au moins 10 années).`,
+    `Heure par heure (depuis 2000) : donné pour ${HOURLY_AUTO} jours ou moins, et jusqu'à ${HOURLY_MAX} jours avec detail « heure » ; publié chaque matin avec la nuit qui vient de finir, si bien que les premières heures d'aujourd'hui y sont.`,
   ],
 };
 
@@ -329,16 +348,152 @@ function oneDay(where: string, d: string, s: Record<string, unknown>, names: { r
   return `${where}, le ${frDate(d)} : ${parts.join(" ; ") || "aucune mesure publiée"}.`;
 }
 
+interface HourSeries {
+  poste: PosteHoraire;
+  ms: Map<number, Month>;
+}
+
+const asHourStation = (p: PosteHoraire): Station => ({ source: "mf_climatologie_horaire", id: p.poste, nom: p.nom, lon: p.lon, lat: p.lat, altitude_m: p.alt, variables: p.params });
+const asPoste = (p: PosteHoraire): Poste => ({ ...p, debut: Math.floor(p.debut / 100), fin: Math.floor(p.fin / 100), params: [] });
+const ym = (d: string) => +d.slice(0, 4) * 100 + +d.slice(5, 7);
+const at = (s: HourSeries | undefined, f: HourField, h: Hour) => (s ? climat.valueAt(s.ms, f, h.day, h.hour) : null);
+
+interface Hour {
+  day: string;
+  hour: number;
+}
+
+/** Every hour of the period, up to the current one when it ends today. */
+function hours(p: Period, now: Date): Hour[] {
+  const local = new Date(now.getTime() + 4 * 3600_000).toISOString();
+  const out: Hour[] = [];
+  for (const day of days(p)) {
+    for (let hour = 0; hour < 24; hour++) {
+      if (day > local.slice(0, 10) || (day === local.slice(0, 10) && hour > +local.slice(11, 13))) break;
+      out.push({ day, hour });
+    }
+  }
+  return out;
+}
+
+/** « 13 h », « entre 13 h et 17 h »: each value is the one of the hour ending at its time. */
+function spans(hs: number[]): string[] {
+  const out: string[] = [];
+  let start = -1;
+  hs.forEach((h, i) => {
+    if (start < 0) start = h;
+    if (hs[i + 1] !== h + 1) {
+      out.push(`entre ${start === 0 ? "23 h (la veille)" : `${start - 1} h`} et ${h} h`);
+      start = -1;
+    }
+  });
+  return out;
+}
+
+/** What one day was like hour by hour, in a sentence and as figures. */
+function dayFacts(day: string, hs: Hour[], rain?: HourSeries, temp?: HourSeries, sun?: HourSeries, wind?: HourSeries) {
+  const mine = hs.filter((h) => h.day === day);
+  const rr = mine.map((h) => [h.hour, at(rain, "RR1", h)] as const).filter(([, v]) => v != null) as [number, number][];
+  const wet = rr.filter(([, v]) => v >= RAIN_HOUR_MM);
+  const t = mine.map((h) => [h.hour, at(temp, "T", h)] as const).filter(([, v]) => v != null) as [number, number][];
+  const ins = mine.map((h) => [h.hour, at(sun, "INS", h)] as const).filter(([, v]) => v != null) as [number, number][];
+  const sunny = ins.filter(([, v]) => v >= SUNNY_HOUR_MIN).map(([h]) => h);
+  const gusts = mine.map((h) => [h.hour, at(wind, "FXI", h)] as const).filter(([, v]) => v != null) as [number, number][];
+  const max = <T extends [number, number]>(xs: T[], lower = false) => xs.reduce<T | null>((b, x) => (!b || (lower ? x[1] < b[1] : x[1] > b[1]) ? x : b), null);
+  const wettest = max(wet);
+  const hot = max(t);
+  const cold = max(t, true);
+  const gust = max(gusts);
+  const total = round1(rr.reduce((s, [, v]) => s + v, 0));
+  const parts: string[] = [];
+  const most = wettest && wet.length > 1 ? `, dont ${fr(wettest[1])} mm en une heure, entre ${wettest[0] === 0 ? "23 h (la veille)" : `${wettest[0] - 1} h`} et ${wettest[0]} h` : "";
+  if (rr.length) parts.push(wet.length ? `pluie ${spans(wet.map(([h]) => h)).join(", ")} (${fr(total)} mm${most})` : "pas de pluie");
+  if (ins.length) {
+    const daylight = ins.filter(([h]) => h >= 7 && h <= 18);
+    parts.push(sunny.length ? `soleil ${spans(sunny).join(", ")}` : daylight.length ? "pas une heure de vrai soleil" : "");
+  }
+  if (hot && cold) parts.push(`${fr(cold[1])} °C à ${cold[0]} h, ${fr(hot[1])} °C à ${hot[0]} h`);
+  if (gust) parts.push(`rafale max ${Math.round(gust[1] * 3.6)} km/h vers ${gust[0]} h`);
+  return {
+    texte: `${frDate(day).slice(0, 5)} : ${parts.filter(Boolean).join(" ; ") || "aucune mesure"}`,
+    chiffres: {
+      date: frDate(day),
+      pluie_mm: rr.length ? total : undefined,
+      heures_de_pluie: rr.length ? wet.map(([h, v]) => `${h} h : ${fr(v)} mm`) : undefined,
+      heures_ensoleillees: ins.length ? sunny.length : undefined,
+      tmin: cold ? { valeur: cold[1], heure: `${cold[0]} h` } : undefined,
+      tmax: hot ? { valeur: hot[1], heure: `${hot[0]} h` } : undefined,
+      rafale_max_kmh: gust ? { valeur: Math.round(gust[1] * 3.6), heure: `${gust[0]} h` } : undefined,
+    },
+  };
+}
+
+/** The period hour by hour at the best stations of the hourly archive near the place. */
+async function hourly(cache: Cache, place: Place, p: Period, now: Date) {
+  const m0 = ym(p.du);
+  const m1 = ym(p.au);
+  const all = (await climat.postesHoraires(cache)).value.filter((x) => x.debut <= m1 && x.fin >= m0);
+  const ranked = all.map((x) => ({ x, f: fit(place, asHourStation(x)) })).sort((u, v) => u.f.score - v.f.score);
+  const pick = (f: HourField) => ranked.filter((r) => r.x.params.includes(f)).slice(0, HOURLY_CANDIDATES).map((r) => r.x);
+  const wanted = [...new Set([...pick("RR1"), ...pick("T"), ...pick("INS").slice(0, 2), ...pick("FXI").slice(0, 2)])];
+  const read = await climat.months(wanted.map((x) => x.poste), m0, m1);
+  const hs = hours(p, now);
+  const series = (x: PosteHoraire): HourSeries => ({ poste: x, ms: read.get(x.poste) ?? new Map() });
+  const covered = (s: HourSeries, f: HourField) => hs.filter((h) => at(s, f, h) != null).length / Math.max(hs.length, 1);
+  const best = (f: HourField) => pick(f).map(series).find((s) => covered(s, f) >= COVERAGE);
+  const temp = best("T");
+  const rain = best("RR1");
+  const sun = best("INS");
+  // The gusts of the temperature station when it has them, so that both read the same place.
+  const wind = temp && covered(temp, "FXI") >= COVERAGE ? temp : best("FXI");
+  if (!rain && !temp && !sun) return undefined;
+  const lignes = hs.map((h) => {
+    const ff = at(wind, "FF", h);
+    const dd = at(wind, "DD", h);
+    const fxi = at(wind, "FXI", h);
+    const row = {
+      heure: `${frDate(h.day).slice(0, 5)} ${h.hour} h`,
+      pluie_mm: at(rain, "RR1", h) ?? undefined,
+      temperature: at(temp, "T", h) ?? undefined,
+      humidite_pct: at(temp, "U", h) ?? undefined,
+      vent_kmh: ff != null ? Math.round(ff * 3.6) : undefined,
+      vent_de: dd != null && ff ? compass(dd) : undefined,
+      rafale_kmh: fxi != null ? Math.round(fxi * 3.6) : undefined,
+      soleil_min: at(sun, "INS", h) ?? undefined,
+    };
+    return Object.values(row).filter((v) => v !== undefined).length > 1 ? row : null;
+  }).filter((r) => r !== null);
+  const facts = [...days(p)].map((d) => dayFacts(d, hs, rain, temp, sun, wind));
+  const used = new Map<PosteHoraire, string[]>();
+  for (const [s, what] of [[rain, "pluie"], [temp, "température, humidité"], [wind, "vent et rafales"], [sun, "ensoleillement"]] as [HourSeries | undefined, string][]) {
+    if (s) used.set(s.poste, [...(used.get(s.poste) ?? []), what]);
+  }
+  // Today's hours stop at the last one published (the file comes out in the morning).
+  const lastHour = [...hs].reverse().find((h) => [rain, temp, sun].some((x) => x && (at(x, "RR1", h) ?? at(x, "T", h) ?? at(x, "INS", h)) != null));
+  const today = iso(now.getTime() + 4 * 3600_000);
+  return {
+    texte: facts.map((f) => f.texte).join(". ") + (p.au === today && lastHour ? ` (aujourd'hui, publié jusqu'à ${lastHour.hour} h)` : ""),
+    bloc: {
+      definition: "Heure de La Réunion. Chaque valeur est celle de l'heure qui se termine à l'heure indiquée : la pluie de « 15 h » est tombée entre 14 h et 15 h, le soleil de « 15 h » est en minutes sur cette heure-là, la rafale est la plus forte de l'heure. La température est celle relevée à l'heure pile : le maximum et le minimum de la journée, mesurés en continu, peuvent la dépasser un peu.",
+      jusqu_a: hs.length ? `${frDate(hs[hs.length - 1].day)} ${hs[hs.length - 1].hour} h` : undefined,
+      stations: [...used].map(([x, what]) => stationBlock(place, asPoste(x), `heure par heure : ${what.join(", ")}`)),
+      par_jour: facts.map((f) => f.chiffres),
+      heures: lignes,
+    },
+  };
+}
+
 export async function historiqueMeteo(
   cache: Cache,
   lieu: string | undefined,
-  opts: { jours?: number; du?: string; au?: string } = {},
+  opts: { jours?: number; du?: string; au?: string; detail?: "jour" | "heure" } = {},
   now = new Date(),
 ) {
   if (!climat.enabled()) {
     return { ...text({ erreur: "L'historique météo n'est disponible que sur le serveur en ligne (https://rundata.re/mcp).", consulter: climat.SOURCE.url }), isError: true };
   }
-  const p = period(now, opts.jours, opts.du, opts.au);
+  const canHour = climat.hourlyEnabled() && opts.detail !== "jour";
+  const p = period(now, opts.jours, opts.du, opts.au, canHour && !!(opts.du || opts.au));
   if ("erreur" in p) return { ...text(p), isError: true };
   const y0 = +p.du.slice(0, 4);
   const y1 = +p.au.slice(0, 4);
@@ -403,14 +558,26 @@ export async function historiqueMeteo(
   }
   const warn = [rain, temp, sun].filter((x): x is Series => !!x).map((x) => ({ x, f: fit(place, asStation(x.poste)) }))
     .filter(({ f }) => f.pertinence === "faible").map(({ x, f }) => `${x.poste.nom} : ${f.avertissements[0] ?? "station éloignée"}`);
+  let hh: Awaited<ReturnType<typeof hourly>>;
+  if (canHour && p.du >= HOURLY_FROM && n <= (opts.detail === "heure" ? HOURLY_MAX : HOURLY_AUTO)) {
+    try {
+      hh = await hourly(cache, place, p, now);
+    } catch (err) {
+      console.error(`source ${climat.SOURCE_HORAIRE.id} indisponible:`, why(err));
+    }
+  }
+  const daily = rain || temp ? sentence(`${place.nom}`, p, s, names) : "";
   return text({
     lieu: placeBlock(lieu, res),
-    resume: sentence(`${place.nom}`, p, s, names) + (warn.length ? ` Attention : ${[...new Set(warn)].join(" ")}` : "") +
-      (!rain && !temp ? ` Aucune station ne mesurait ${a(place.nom)} ou près de là sur cette période.` : ""),
+    resume: [daily, hh ? `Heure par heure (${place.nom}) — ${hh.texte}.` : ""].filter(Boolean).join(" ") +
+      (warn.length ? ` Attention : ${[...new Set(warn)].join(" ")}` : "") +
+      (!rain && !temp && !hh ? ` Aucune station ne mesurait ${a(place.nom)} ou près de là sur cette période.` : ""),
     stations: stationsUsed(place, [[rain, "pluie"], [temp, "températures et rafales"], [sun, "ensoleillement"]]),
     ...s,
     ...shape(rain, temp, sun),
+    heure_par_heure: hh?.bloc,
     records: recs,
     ...common,
+    ...(hh ? { sources: credits([climat.SOURCE, climat.SOURCE_HORAIRE]) } : {}),
   });
 }

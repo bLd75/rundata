@@ -1,6 +1,8 @@
 # The past weather (historique_meteo): every morning, once Météo-France has published the day before, the current year
 # of every station of La Réunion (scripts/build-climat.py --recent) is rewritten in the D1 database rundata-climat,
-# some 70 rows. The years before were imported once, by hand, with the same script.
+# some 70 rows, and the current month of the hourly measurements (scripts/build-climat-h.py --recent) in
+# rundata-climat-h, some 70 rows more (twice that in the first days of a month). The years before were imported once,
+# by hand, with the same scripts.
 name: Historique météo
 
 on:
@@ -36,3 +38,7 @@ jobs:
         run: python3 -I scripts/build-climat.py --recent --out climat-jour.sql
       - name: Into D1
         run: npx wrangler d1 execute rundata-climat --remote --file climat-jour.sql -y
+      - name: The current month, hour by hour
+        run: python3 -I scripts/build-climat-h.py --recent --out climat-h-jour.sql
+      - name: Into D1, hourly
+        run: npx wrangler d1 execute rundata-climat-h --remote --file climat-h-jour.sql -y

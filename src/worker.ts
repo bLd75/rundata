@@ -82,6 +82,7 @@ interface Env {
   USAGE?: AnalyticsDataset;
   TRANSIT?: D1Database;
   CLIMAT?: D1Database;
+  CLIMAT_H?: D1Database;
 }
 
 /** The part of a D1 binding used here. */
@@ -136,8 +137,13 @@ function setup(env: Env): Cache {
   }));
   transit.configure(d1 && { all: async <T>(sql: string, ...params: unknown[]) => (await d1.prepare(sql).bind(...params).all<T>()).results });
   const climatDb = env.CLIMAT;
-  // The daily measurements since 1900, imported by scripts/build-climat.py, the current year by .github/workflows/climat.yml.
-  climat.configure(climatDb && { all: async <T>(sql: string, ...params: unknown[]) => (await climatDb.prepare(sql).bind(...params).all<T>()).results });
+  const hourlyDb = env.CLIMAT_H;
+  // The daily measurements since 1900 and the hourly ones since 2000, imported by scripts/build-climat.py and
+  // scripts/build-climat-h.py, the current year and month by .github/workflows/climat.yml.
+  climat.configure(
+    climatDb && { all: async <T>(sql: string, ...params: unknown[]) => (await climatDb.prepare(sql).bind(...params).all<T>()).results },
+    hourlyDb && { all: async <T>(sql: string, ...params: unknown[]) => (await hourlyDb.prepare(sql).bind(...params).all<T>()).results },
+  );
   // Without the KV binding, the bundles stay in the data center's cache like everything else.
   return (cache ??= new Cache(new TieredStore(new MemoryStore(), new EdgeStore()), Date.now, false, env.STORE && new KvStore(env.STORE)));
 }

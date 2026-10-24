@@ -97,6 +97,69 @@ describe("historique_meteo", () => {
   });
 });
 
+describe("historique_meteo, hour by hour", () => {
+  // Real rows of the hourly archive (scripts/build-climat-h.py): Cilaos, Gillot and Plaine des Palmistes, October 2026 up to the 24th at 8 h.
+  let hdb: DatabaseSync;
+  beforeAll(() => {
+    hdb = new DatabaseSync(":memory:");
+    hdb.exec(readFileSync(new URL("./fixtures/historique/climat-h.sql", import.meta.url), "utf8"));
+  });
+  const both = () => {
+    let queries = 0;
+    const of = (d: DatabaseSync) => ({
+      all: async <T>(sql: string, ...params: unknown[]) => {
+        queries++;
+        return d.prepare(sql).all(...(params as (string | number)[])) as T[];
+      },
+    });
+    climat.configure(of(db), of(hdb));
+    return () => queries;
+  };
+
+  it("says yesterday hour by hour: when the sun shone, the coldest and warmest hours, the strongest gust", async () => {
+    both();
+    const a = json(await historiqueMeteo(new Cache(), "Cilaos", { du: "2026-10-23" }, NOW));
+    expect(a.resume).toContain("Heure par heure (Cilaos) — 23/10 : pas de pluie ; soleil entre 8 h et 14 h ; 10,8 °C à 5 h, 25,8 °C à 12 h ; rafale max 27 km/h vers 13 h");
+    expect(a.heure_par_heure.heures).toHaveLength(24);
+    expect(a.heure_par_heure.heures[12]).toMatchObject({ heure: "23/10 12 h", temperature: 25.8, soleil_min: 56, vent_de: "SO" });
+    expect(a.heure_par_heure.par_jour[0]).toMatchObject({ pluie_mm: 0, heures_ensoleillees: 6, tmax: { valeur: 25.8, heure: "12 h" } });
+    expect(a.sources.map((x: { source: string }) => x.source).join()).toMatch(/horaires/);
+  });
+
+  it("names the rainy hours, each value being the hour that ends then", async () => {
+    both();
+    const a = json(await historiqueMeteo(new Cache(), "Plaine des Palmistes", { du: "2026-10-21" }, NOW));
+    expect(a.resume).toContain("pluie entre 1 h et 2 h, entre 12 h et 15 h, entre 16 h et 18 h, entre 21 h et 22 h (4,4 mm, dont 1,8 mm en une heure, entre 14 h et 15 h)");
+    expect(a.heure_par_heure.par_jour[0].heures_de_pluie).toContain("15 h : 1,8 mm");
+  });
+
+  it("gives last night, today up to the last hour published", async () => {
+    both();
+    const a = json(await historiqueMeteo(new Cache(), "Sainte-Marie", { du: "2026-10-24" }, NOW));
+    expect(a.erreur).toBeUndefined();
+    expect(a.heure_par_heure.stations[0].station).toBe("Saint-Denis Gillot (aéroport)");
+    expect(a.heure_par_heure.heures.at(-1).heure).toBe("24/10 8 h");
+    expect(a.resume).toMatch(/aujourd'hui, publié jusqu'à 8 h/);
+  });
+
+  it("leaves the hours out over a longer period, or when asked by day", async () => {
+    both();
+    const long = json(await historiqueMeteo(new Cache(), "Cilaos", { jours: 14 }, NOW));
+    expect(long.heure_par_heure).toBeUndefined();
+    const forced = json(await historiqueMeteo(new Cache(), "Cilaos", { du: "2026-10-17", au: "2026-10-23", detail: "heure" }, NOW));
+    expect(forced.heure_par_heure.heures).toHaveLength(7 * 24);
+    const daily = json(await historiqueMeteo(new Cache(), "Cilaos", { du: "2026-10-23", detail: "jour" }, NOW));
+    expect(daily.heure_par_heure).toBeUndefined();
+  });
+
+  it("stays within a few queries", async () => {
+    const queries = both();
+    await counted(50, async () => historiqueMeteo(new Cache(), "Cilaos", { du: "2026-10-22", au: "2026-10-23" }, NOW));
+    // Daily: stations, years, records and the year after them; hourly: stations, months.
+    expect(queries()).toBe(6);
+  });
+});
+
 describe("station names", () => {
   it("are written as people write them", () => {
     expect(climat.stationName("97418110", "GILLOT-AEROPORT")).toBe("Saint-Denis Gillot (aéroport)");
