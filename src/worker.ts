@@ -58,7 +58,8 @@ class EdgeStore implements CacheStore {
 /** The part of a KV namespace binding used here. */
 interface KvNamespace {
   get(key: string, type: "json"): Promise<unknown>;
-  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  put(key: string, value: string, options?: { expirationTtl?: number; metadata?: unknown }): Promise<void>;
+  list(options: { prefix: string; cursor?: string }): Promise<{ keys: { name: string; metadata?: unknown }[]; list_complete: boolean; cursor?: string }>;
 }
 
 class KvStore implements CacheStore {

@@ -5,19 +5,30 @@ import { VERSION } from "../src/server.js";
 import { FRESH_SECONDS } from "../src/web/data.js";
 import { type Kv, kvKey, SHARED, SharedFallback, type Shared, warmShared } from "../src/web/partagees.js";
 
-/** A KV namespace in memory, counting its writes by key. */
+/** A KV namespace in memory, counting its reads, its listings and its writes by key. */
 class FakeKv implements Kv {
   data = new Map<string, string>();
+  metadata = new Map<string, unknown>();
   writes = new Map<string, number>();
   reads = 0;
+  lists = 0;
+  down = false;
   async get(key: string) {
     this.reads++;
     const v = this.data.get(key);
     return v ? JSON.parse(v) : null;
   }
-  async put(key: string, value: string) {
+  async put(key: string, value: string, options?: { metadata?: unknown }) {
     this.data.set(key, value);
+    if (options?.metadata !== undefined) this.metadata.set(key, options.metadata);
+    else this.metadata.delete(key);
     this.writes.set(key, (this.writes.get(key) ?? 0) + 1);
+  }
+  async list({ prefix }: { prefix: string }) {
+    this.lists++;
+    if (this.down) throw new Error("KV muet");
+    const keys = [...this.data.keys()].filter((k) => k.startsWith(prefix)).map((name) => ({ name, metadata: this.metadata.get(name) }));
+    return { keys, list_complete: true };
   }
 }
 
@@ -185,6 +196,49 @@ describe("the scheduled refresh of the shared copies", () => {
     expect(run.value.written).toEqual(["web:essai-garde"]);
     expect(run.used).toBeLessThanOrEqual(WORKER_BUDGET);
     expect(JSON.parse(kv.data.get(kvKey("web:essai-garde"))!).cost).toBe(5);
+  });
+
+  it("takes every copy's age and cost from one listing of KV, not a read each", async () => {
+    const kv = new FakeKv();
+    let now = T0;
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => now, false);
+    const list: Shared[] = SHARED.map((s) => ({ ...s, key: `${s.key}-liste`, cold: 2, build: async () => (count(2), { at: now }) }));
+    await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    expect(kv.data.size).toBe(list.length);
+    // Each copy written with what the event needs as its key's metadata.
+    expect(kv.metadata.get(kvKey("web:air-liste"))).toEqual({ fetchedAt: T0, cost: 2, every: 60 });
+    kv.reads = 0;
+    kv.lists = 0;
+    now += 5 * 60_000;
+    const run = await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    expect(run.value).toEqual({ written: [], left: [] });
+    expect(kv.lists).toBe(1);
+    expect(kv.reads).toBe(0);
+    // One subrequest for the ages, whatever the number of copies.
+    expect(run.used).toBe(1);
+    // A copy another isolate wrote a minute ago: known from the listing alone, its cost too.
+    const other: Shared = { key: "web:essai-autre-isolat", build: async () => (count(2), {}), every: 30 };
+    await kv.put(kvKey(other.key), JSON.stringify({ value: {}, fetchedAt: now - 60_000, cost: 9 }), { metadata: { fetchedAt: now - 60_000, cost: 9, every: 30 } });
+    kv.reads = 0;
+    const again = await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(now), [...list, other]));
+    expect(again.value).toEqual({ written: [], left: [] });
+    expect(kv.reads).toBe(0);
+  });
+
+  it("reads a copy whole when its key has no metadata yet, or when KV does not list", async () => {
+    const kv = new FakeKv();
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);
+    // Written by the code before the metadata, ten minutes ago: not due, known only by reading it.
+    const list: Shared[] = [{ key: "web:essai-ancienne", build: async () => (count(2), {}), every: 30 }];
+    await kv.put(kvKey("web:essai-ancienne"), JSON.stringify({ value: {}, fetchedAt: T0 - 10 * 60_000 }));
+    const run = await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(T0), list));
+    expect(run.value).toEqual({ written: [], left: [] });
+    expect(kv.reads).toBe(1);
+    // KV's listing fails: each copy is read, as before the listing.
+    kv.down = true;
+    kv.reads = 0;
+    await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(T0), list));
+    expect(kv.reads).toBe(1);
   });
 
   it("stays within the budget when a build costs more than thought, and says it was cut", async () => {
