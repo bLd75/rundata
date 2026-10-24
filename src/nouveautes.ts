@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T20:51:00+04:00", texte: "Puis-je monter au volcan ? Enclos, RN 2, route du volcan, sentiers : ce que disent les textes officiels, lieu par lieu." },
   { date: "2026-10-24T20:45:00+04:00", texte: "Alerte orange, rouge, violette : ce qui ferme et ce qui continue à chaque niveau, d'après le plan cyclone de la préfecture." },
   { date: "2026-10-24T20:36:00+04:00", texte: "Cyclone : les communiqués de la préfecture s'ajoutent au bulletin de Météo-France, avec la levée de l'alerte et la réouverture des écoles." },
   { date: "2026-10-24T20:22:00+04:00", texte: "Où se baigner ? La règle requin des 300 m et les zones permises (lagons, bassins, filets, ZONEX), sur rundata.re/baignade et dans votre IA." },
