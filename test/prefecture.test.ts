@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Info } from "../src/providers/actualites.js";
 import * as pref from "../src/providers/prefecture.js";
 import * as mf from "../src/providers/vigilance.js";
+import { counted, WORKER_BUDGET } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { ecoles, withPrefecture } from "../src/tools/ecoles.js";
 import { ecolesPage } from "../src/web/ecoles.js";
@@ -31,6 +32,21 @@ describe("the prefecture's releases on the cyclone alert", () => {
     expect(pref.decisionOf([release("Levée de l'alerte cyclonique : « Nou té bien paré »", "2026-10-24")])).toMatchObject({ niveau: "levee" });
   });
 
+  it("reads the titles of cyclone Garance as the prefecture gave them (February 2025), and not a release about a step", () => {
+    const garance: [string, string, number | "levee" | null][] = [
+      ["Alerte orange cyclonique : « Je m’organise pour être bien protégé »", "2025-02-25", 3],
+      ["Alerte rouge cyclonique : « Je me confine pour ne courir aucun risque »", "2025-02-27", 4],
+      ["Alerte violette cyclonique : « Je reste confiné »", "2025-02-28", 5],
+      ["Cyclone Garance : passage en phase de sauvegarde", "2025-02-28", 6],
+      ["Phase de sauvegarde : point de situation à 19h", "2025-03-03", 6],
+      ["28 février : Point de situation à 11h", "2025-02-28", null],
+      ["Les centres d'hébergement", "2025-02-27", null],
+      // It speaks of the pré-alerte, it does not declare one.
+      ["La couleur jaune associée à la pré-alerte cyclonique disparait pour mieux informer la population", "2024-11-26", null],
+    ];
+    for (const [t, d, n] of garance) expect(pref.decisionOf([release(t, d)])?.niveau ?? null, t).toBe(n);
+  });
+
   it("declares nothing from the volcano's alerts, a rain vigilance or a release without a step", () => {
     expect(pref.decisionOf([release("Piton de la Fournaise : passage en alerte 1", "2026-10-24")])).toBeUndefined();
     expect(pref.decisionOf([release("Vigilance orange fortes pluies et orages", "2026-10-24")])).toBeUndefined();
@@ -54,7 +70,7 @@ describe("the prefecture's releases on the cyclone alert", () => {
 describe("reading the prefecture, which can fail", () => {
   afterEach(() => vi.unstubAllGlobals());
   const page = (titles: [string, string][]) =>
-    `<ul>${titles.map(([t, d]) => `<li><a class="fr-card__link" href="/Actualites/x">${t}</a><p>Publié le ${d}</p></li>`).join("")}</ul>`;
+    `<ul>${titles.map(([t, d], i) => `<li><a class="fr-card__link" href="/Actualites/x-${encodeURIComponent(t).length}-${i}">${t}</a><p>Publié le ${d}</p></li>`).join("")}</ul>`;
 
   it("keeps the last decision, and falls back on it while the prefecture fails", async () => {
     const durable = new MemoryStore();
@@ -66,6 +82,29 @@ describe("reading the prefecture, which can fail", () => {
     vi.stubGlobal("fetch", async () => { throw new TypeError("fetch failed"); });
     const down = await pref.cyclone(new Cache(new MemoryStore(), () => NOW.getTime(), true, durable), NOW.getTime());
     expect(down).toMatchObject({ stale: true, value: { decision: { niveau: 3 } } });
+  });
+
+  it("reads the cyclone's own section when the menu links it, one subrequest more, and goes on without it when it fails", async () => {
+    const menu = '<nav><a href="/Actualites/Communiques-de-presse">Communiqués</a><a href="/Actualites/Cyclone-Test">Cyclone Test</a></nav>';
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      asked.push(String(url));
+      return new Response(String(url).includes("Cyclone-Test")
+        ? page([["Alerte rouge cyclonique : « Je me confine pour ne courir aucun risque »", "24/10/2026"]])
+        : menu + page([["Alerte orange cyclonique : « Je m’organise pour être bien protégé »", "23/10/2026"]]));
+    });
+    const run = await counted(WORKER_BUDGET, () => pref.cyclone(new Cache(new MemoryStore(), () => NOW.getTime()), NOW.getTime()));
+    expect(run.value.value?.decision).toMatchObject({ niveau: 4 });
+    expect(asked).toEqual(["https://www.reunion.gouv.fr/Actualites/Communiques-de-presse", "https://www.reunion.gouv.fr/Actualites/Cyclone-Test"]);
+    expect(run.used).toBe(2);
+    // Without a section in the menu: the press releases only, one subrequest.
+    vi.stubGlobal("fetch", async () => new Response(page([["Alerte orange cyclonique", "23/10/2026"]])));
+    expect((await counted(WORKER_BUDGET, () => pref.releases(new Cache(new MemoryStore(), () => NOW.getTime())))).used).toBe(1);
+    // The section fails: the press releases stand.
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", async (url: string) => (String(url).includes("Cyclone-Test") ? new Response("", { status: 503 }) : new Response(menu + page([["Alerte orange cyclonique", "23/10/2026"]]))));
+    expect((await pref.cyclone(new Cache(new MemoryStore(), () => NOW.getTime()), NOW.getTime())).value?.decision).toMatchObject({ niveau: 3 });
+    logged.mockRestore();
   });
 
   it("takes an empty list for a failure, not for the end of the alert", async () => {

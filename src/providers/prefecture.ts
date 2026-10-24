@@ -12,12 +12,33 @@ import { type Info, parsePrefecture, SOURCES } from "./actualites.js";
 
 export const SOURCE = SOURCES.prefecture;
 
-/** The list of the latest releases, newest first; throws on a page without its list (an error page served as 200). */
+const ORIGIN = "https://www.reunion.gouv.fr";
+const HEADERS = { "User-Agent": "rundata.re (contact@rundata.re)" };
+// During a cyclone the prefecture opens a section of its own (« /Actualites/Cyclone-Garance », February 2025), where
+// the red alert, the violet one and the phase de sauvegarde appeared, not in the press releases; its menu links it.
+const SECTION = /href="(?:https:\/\/www\.reunion\.gouv\.fr)?(\/Actualites\/Cyclone-[A-Za-z0-9-]+)"/;
+
+/** The section of the cyclone the page's menu links to, if any: « /Actualites/Cyclone-Garance ». */
+export function sectionOf(html: string): string | undefined {
+  return SECTION.exec(html)?.[1];
+}
+
+/**
+ * The latest releases, newest first: the press releases, and those of the cyclone's section when the menu has one
+ * (one subrequest more, then). Throws on a page without its list (an error page served as 200); a section that fails
+ * leaves the press releases alone.
+ */
 export async function releases(cache: Cache): Promise<Cached<Info[]>> {
   return cache.get("prefecture:communiques", 5 * 60, async () => {
-    const list = parsePrefecture(await getText(SOURCE.id, SOURCE.url, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" }));
+    const html = await getText(SOURCE.id, SOURCE.url, 12_000, HEADERS);
+    const list = parsePrefecture(html);
     if (!list.length) throw new UpstreamError(SOURCE.id, "liste des communiqués vide");
-    return list.sort((a, b) => b.publie.localeCompare(a.publie));
+    const section = sectionOf(html);
+    const more = section
+      ? await getText(SOURCE.id, `${ORIGIN}${section}`, 12_000, HEADERS).then((h) => parsePrefecture(h)).catch((err) => (console.error(`préfecture : rubrique ${section} non lue`, err), []))
+      : [];
+    const seen = new Set<string>();
+    return [...list, ...more].filter((r) => !seen.has(r.lien) && seen.add(r.lien)).sort((a, b) => b.publie.localeCompare(a.publie));
   });
 }
 
@@ -35,10 +56,24 @@ export interface Decision {
 }
 
 const ABOUT_CYCLONE = /cyclon|pr[ée][\s-]?alerte|alerte\s+(?:jaune|orange|rouge|violette)|phase\s+de\s+sauvegarde/i;
+// A title that declares a step, not one that speaks of it in passing (« La couleur jaune associée à la pré-alerte
+// cyclonique disparait… », 26/11/2024): the step at its start, after a name or a colon (« Alerte rouge cyclonique : »,
+// « Belal Alerte orange cyclonique », « Cyclone Garance : passage en phase de sauvegarde »), or a verb of decision.
+const DECLARES = new RegExp(
+  [
+    "^(?:[^:«]*:\\s*|\\p{Lu}[\\p{L}-]+\\s+)?(?:pr[ée][\\s-]?alerte(?:\\s+jaune)?|alerte\\s+(?:orange|rouge|violette))\\s+cyclonique",
+    "^(?:[^:«]*:\\s*)?phase\\s+de\\s+sauvegarde",
+    "passage\\s+en\\s+(?:pr[ée][\\s-]?alerte|alerte|phase\\s+de\\s+sauvegarde)",
+    "d[ée]clenchement|activation",
+    "\\b(?:fin|lev[ée]e)\\s+(?:de\\s+l['’]\\s*|d['’]\\s*)alerte",
+  ].join("|"),
+  "iu",
+);
 const ABOUT_VOLCANO = /fournaise|volcan|enclos|[ée]ruption/i;
 
 function declared(r: Info): Decision | undefined {
   const t = r.titre;
+  if (!DECLARES.test(t)) return undefined;
   // The way out of the red alert goes through the phase de sauvegarde, often in the same title as the red's end
   // (« levée de l'alerte rouge, passage en phase de sauvegarde »): the sauvegarde first, then the end of the alert.
   const niveau = /sauvegarde/i.test(t)
