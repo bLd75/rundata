@@ -15,6 +15,7 @@ import { isReader, site } from "../src/web/site.js";
 import { unzip } from "../src/zip.js";
 import { RANDONNEES, SENTIERS } from "../src/providers/traces.js";
 import { SECTEURS as SECTEURS_RANDO } from "../src/traces/secteurs.js";
+import { PASSES } from "../src/historique/cyclones-passes.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url));
 const NOW = new Date("2026-10-22T06:00:00Z");
@@ -347,8 +348,8 @@ describe("what crawlers and previews fetch", () => {
     const robots = await (await handle(new Request("https://rundata.re/robots.txt"), isolate())).text();
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
-    // The pages, the 24 communes, their water and their day, and a page per hike and per ONF trail with its GPS trace.
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 42 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length);
+    // The pages, the 24 communes, their water and their day, a page per hike and per ONF trail with its GPS trace, and per past cyclone.
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 42 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length);
     expect(map).toContain("<loc>https://rundata.re/randonnees/sentier-du-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/sentiers/le-bloc-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/communes</loc>");

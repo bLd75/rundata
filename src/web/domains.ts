@@ -31,6 +31,7 @@ import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./lie
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
 import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
+import { PASSES } from "../historique/cyclones-passes.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
 // What a search engine shows of a title.
@@ -1851,6 +1852,11 @@ ${d?.saison_precedente ? `<section aria-labelledby="h-saison-prec">
   <p>Les systèmes du bassin et le stade atteint au plus fort, d'après le vent moyen sur 10 minutes.</p></div>
   ${seasonTable(d.saison_precedente)}
 </section>` : ""}
+<section aria-labelledby="h-passes">
+  <div class="sec-h"><p class="eyebrow">Mesures Météo-France</p><h2 id="h-passes">Cyclones passés</h2>
+  <p>La pluie et les rafales mesurées station par station pendant leur passage, et les records battus.</p></div>
+  <div class="card"><ul class="plain">${PASSES.map((p) => `<li><a href="/cyclones/${p.slug}">Cyclone ${esc(p.nom)}, ${esc(p.date)}</a></li>`).join("")}</ul></div>
+</section>
 ${d ? `<section aria-labelledby="h-src"><div class="sec-h"><h2 id="h-src">D'où viennent ces données</h2><p>${esc(d.a_savoir)}</p></div>${data ? sourcesNote(d.sources, data) : ""}</section>` : ""}
 ${connectorCta("cyclones", "les cyclones")}`;
 

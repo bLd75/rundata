@@ -8,6 +8,8 @@ import { credits, notFound, placeBlock, text } from "./format.js";
 import * as prefecture from "../providers/prefecture.js";
 import { ecolesBlock, quotidienLine } from "./ecoles.js";
 import { cyclone as cycloneAlert } from "./vigilance.js";
+import { jourFr, kmh, mesures, PASSES, passeOf, rafale, RAIN_NOTE, records, total, type Passe } from "../historique/cyclones-passes.js";
+import { SOURCE as CLIMAT } from "../providers/climat.js";
 
 const ISLAND = { nom: "La Réunion", lon: 55.536, lat: -21.115 };
 
@@ -116,7 +118,49 @@ async function alert(cache: Cache, now: Date) {
   }
 }
 
-export async function cyclones(cache: Cache, lieu: string | undefined, now = new Date()) {
+/** The past cyclones with a page, for the tool's description. */
+export const PASSES_LIST = PASSES.map((p) => `${p.nom} ${p.annee}`).join(", ");
+
+/** A past cyclone: its passage as the named document writes it, and what Météo-France's stations measured. */
+export function passe(c: Passe) {
+  const { jours, stations } = mesures(c);
+  const gusts = stations
+    .map((s) => ({ s, g: rafale(s, jours) }))
+    .filter((x): x is { s: (typeof stations)[number]; g: { ms: number; jour: string } } => !!x.g)
+    .sort((a, b) => b.g.ms - a.g.ms);
+  const page = `https://rundata.re/cyclones/${c.slug}`;
+  return text({
+    cyclone: `${c.nom} (${c.annee})`,
+    passage: c.passage,
+    passage_d_apres: { document: c.document.titre, auteur: c.document.auteur, lien: c.document.url },
+    alerte_cyclonique: c.alerte ? `${c.alerte}, d'après le même document` : undefined,
+    jours: jours.map(jourFr),
+    pluie_du_jour: RAIN_NOTE,
+    stations_les_plus_arrosees: stations.slice(0, 15).map((s) => ({
+      station: s.station,
+      altitude_m: s.alt,
+      pluie_mm: Object.fromEntries(jours.map((d, i) => [jourFr(d), s.rr?.[i] ?? null])),
+      total_mm: total(s.rr),
+    })),
+    rafales_les_plus_fortes: gusts.slice(0, 10).map(({ s, g }) => ({ station: s.station, jour: jourFr(g.jour), rafale_kmh: kmh(g.ms), rafale_ms: g.ms })),
+    stations: { avec_pluie: stations.filter((s) => s.rr).length, avec_rafale: gusts.length },
+    records_battus: records(c).map((r) => ({
+      station: r.station,
+      jour: jourFr(r.jour),
+      ...(r.quoi === "pluie" ? { pluie_mm: r.mm } : { rafale_kmh: kmh(r.ms!), rafale_ms: r.ms }),
+      record_de_la_station: `mesures depuis ${r.depuis}`,
+    })),
+    page,
+    a_savoir: `Seulement ce que les stations ont mesuré et le passage tel que le document cité l'écrit : ni victimes, ni dégâts. Toutes les stations sur ${page}.`,
+    sources: credits([CLIMAT]),
+  });
+}
+
+export async function cyclones(cache: Cache, lieu: string | undefined, now = new Date(), nom?: string) {
+  if (nom?.trim()) {
+    const c = passeOf(nom);
+    if (c) return passe(c);
+  }
   let from = ISLAND;
   let place;
   if (lieu?.trim()) {
@@ -181,6 +225,9 @@ export async function cyclones(cache: Cache, lieu: string | undefined, now = new
     systemes_actifs: rows.length ? rows.map(({ trajectoire: _, ...r }) => r) : undefined,
     saison_en_cours: { nom: season.nom, systemes: thisSeason.map(seasonRow) },
     saison_precedente: rows.length ? undefined : { nom: previous, systemes: lastSeason.map(seasonRow) },
+    cyclone_passe: nom?.trim()
+      ? `Pas de mesures sur rundata.re pour « ${nom.trim()} » ; cyclones passés disponibles : ${PASSES_LIST}.`
+      : undefined,
     ...COMMON,
     consulter: OFFICIAL,
     sources: credits([gdacs.SOURCE, ...(alerte ? [mf.SOURCE] : [])]),
