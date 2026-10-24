@@ -1,0 +1,657 @@
+{
+ "stations": [
+  {
+   "id": "L24",
+   "nom": "Saint-Denis - Amont",
+   "riviere": "rivière Saint-Denis",
+   "bassin": "bv01",
+   "secteur": "NORD",
+   "code_hydro": "4032000401",
+   "commune": "Saint-Denis",
+   "lon": 55.43336,
+   "lat": -20.90803,
+   "crues": [
+    {
+     "nom": "Cyclone Hyacinthe (janvier 1980) / Dépression Clotilda (février 1987)",
+     "hauteur_m": 3.1,
+     "debit_m3s": 370
+    },
+    {
+     "nom": "Dumazile (mars 2018)",
+     "hauteur_m": 2.8,
+     "debit_m3s": 220
+    },
+    {
+     "nom": "Cyclone Dumile (janvier 2013) / Cyclone Felleng (février 2013)",
+     "hauteur_m": 1.5,
+     "debit_m3s": 43
+    }
+   ]
+  },
+  {
+   "id": "L07",
+   "nom": "Butor - Bowling",
+   "riviere": "ravine du Butor",
+   "bassin": "bv02",
+   "secteur": "NORD",
+   "code_hydro": "4032000201",
+   "commune": "Saint-Denis",
+   "lon": 55.46466,
+   "lat": -20.88804,
+   "crues": [
+    {
+     "nom": "Fortes pluies (février 1998)",
+     "hauteur_m": 1.9,
+     "debit_m3s": 225
+    },
+    {
+     "nom": "Cyclone Gamède (février 2007)",
+     "hauteur_m": 1.6,
+     "debit_m3s": 166
+    },
+    {
+     "nom": "Tempête modérée Haliba (mars 2015)",
+     "hauteur_m": 1.2,
+     "debit_m3s": 110
+    },
+    {
+     "nom": "Cyclone Dumile (janvier 2013)",
+     "hauteur_m": 0.3,
+     "debit_m3s": 13
+    }
+   ]
+  },
+  {
+   "id": "L13",
+   "nom": "Durand - Vélodrome",
+   "riviere": "ravine Patates-à-Durand",
+   "bassin": "bv03",
+   "secteur": "NORD",
+   "code_hydro": "4032000101",
+   "commune": "Saint-Denis",
+   "lon": 55.47289,
+   "lat": -20.89335,
+   "crues": [
+    {
+     "nom": "Cyclone Bejisa (janvier 2014)",
+     "hauteur_m": 0.6,
+     "debit_m3s": 70
+    },
+    {
+     "nom": "Cyclone Dumile (janvier 2013)",
+     "hauteur_m": 0.2,
+     "debit_m3s": 12
+    }
+   ]
+  },
+  {
+   "id": "L10",
+   "nom": "Pluies - Domenjod",
+   "riviere": "rivière des Pluies",
+   "bassin": "bv05",
+   "secteur": "NORD",
+   "code_hydro": "4031000101",
+   "commune": "Saint-Denis",
+   "lon": 55.50964,
+   "lat": -20.91642,
+   "crues": [
+    {
+     "nom": "Cyclone Hyacinthe (janvier 1980)",
+     "hauteur_m": 5,
+     "debit_m3s": 1100
+    },
+    {
+     "nom": "Cyclone Gamède (février 2007)",
+     "hauteur_m": 2,
+     "debit_m3s": 360
+    },
+    {
+     "nom": "Cyclone Bejisa (janvier 2014)",
+     "hauteur_m": 0.8,
+     "debit_m3s": 210
+    }
+   ]
+  },
+  {
+   "id": "L25",
+   "nom": "Sainte-Suzanne - Bras Laurent",
+   "riviere": "rivière Sainte-Suzanne",
+   "bassin": "bv07",
+   "secteur": "NORD",
+   "code_hydro": "4030000601",
+   "commune": "Sainte-Suzanne",
+   "lon": 55.5686,
+   "lat": -20.97514,
+   "crues": [
+    {
+     "nom": "Cyclone Bejisa (janvier 2014)",
+     "hauteur_m": 5.8,
+     "debit_m3s": 105
+    },
+    {
+     "nom": "Cyclone Felleng (février 2013)",
+     "hauteur_m": 5.1,
+     "debit_m3s": 85
+    },
+    {
+     "nom": "Forte tempête Fakir (avril 2018)",
+     "hauteur_m": 4.2,
+     "debit_m3s": 55.4
+    }
+   ]
+  },
+  {
+   "id": "L31",
+   "nom": "Sainte-Suzanne - Bassin Ravine Creuse",
+   "riviere": "rivière Sainte-Suzanne",
+   "bassin": "bv07",
+   "secteur": "NORD",
+   "code_hydro": "4030000501",
+   "commune": "Sainte-Suzanne",
+   "lon": 55.57818,
+   "lat": -20.96081,
+   "crues": [
+    {
+     "nom": "Forte tempête Fakir (avril 2018)",
+     "hauteur_m": 3.7,
+     "debit_m3s": null
+    }
+   ]
+  },
+  {
+   "id": "L18",
+   "nom": "Sainte-Suzanne - Niagara",
+   "riviere": "rivière Sainte-Suzanne",
+   "bassin": "bv07",
+   "secteur": "NORD",
+   "code_hydro": "4030000401",
+   "commune": "Sainte-Suzanne",
+   "lon": 55.60241,
+   "lat": -20.92146,
+   "crues": [
+    {
+     "nom": "Tempête modérée Haliba (mars 2015)",
+     "hauteur_m": 2.7,
+     "debit_m3s": 216
+    },
+    {
+     "nom": "Forte tempête Fakir (avril 2018)",
+     "hauteur_m": 2.4,
+     "debit_m3s": 150
+    },
+    {
+     "nom": "Cyclone Dumile (janvier 2013)",
+     "hauteur_m": 2,
+     "debit_m3s": 109
+    }
+   ]
+  },
+  {
+   "id": "L26",
+   "nom": "Grande Saint-Jean - Grand Bras",
+   "riviere": "rivière Saint-Jean",
+   "bassin": "bv08",
+   "secteur": "EST",
+   "code_hydro": "4030000201",
+   "commune": "Saint-André",
+   "lon": 55.60567,
+   "lat": -20.96905,
+   "crues": [
+    {
+     "nom": "Forte tempête Fakir (avril 2018)",
+     "hauteur_m": 2.1,
+     "debit_m3s": 45
+    },
+    {
+     "nom": "Tempête modérée Haliba (mars 2015)",
+     "hauteur_m": 1.7,
+     "debit_m3s": 27
+    }
+   ]
+  },
+  {
+   "id": "L38",
+   "nom": "Grande Saint Jean - Pichon",
+   "riviere": "rivière Saint-Jean",
+   "bassin": "bv08",
+   "secteur": "EST",
+   "code_hydro": "4030000901",
+   "commune": "Saint-André",
+   "lon": 55.638,
+   "lat": -20.94841,
+   "crues": []
+  },
+  {
+   "id": "L15",
+   "nom": "Grande Saint-Jean - RN2002",
+   "riviere": "rivière Saint-Jean",
+   "bassin": "bv08",
+   "secteur": "EST",
+   "code_hydro": "4030000101",
+   "commune": "Sainte-Suzanne",
+   "lon": 55.64192,
+   "lat": -20.93235,
+   "crues": [
+    {
+     "nom": "Forte tempête Fakir (avril 2018)",
+     "hauteur_m": 4.8,
+     "debit_m3s": null
+    },
+    {
+     "nom": "Tempête modérée Haliba (mars 2015)",
+     "hauteur_m": 3.6,
+     "debit_m3s": 235
+    },
+    {
+     "nom": "Cyclone Bejisa (janvier 2014)",
+     "hauteur_m": 2.6,
+     "debit_m3s": 120
+    }
+   ]
+  },
+  {
+   "id": "L19",
+   "nom": "Petite Saint Jean - Délice",
+   "riviere": "rivière Saint-Jean",
+   "bassin": "bv08",
+   "secteur": "EST",
+   "code_hydro": "4030000301",
+   "commune": "Sainte-Suzanne",
+   "lon": 55.63383,
+   "lat": -20.9362,
+   "crues": [
+    {
+     "nom": "Forte tempête Fakir (avril 2018)",
+     "hauteur_m": 2.8,
+     "debit_m3s": 155
+    },
+    {
+     "nom": "Tempête modérée Haliba (mars 2015)",
+     "hauteur_m": 2.4,
+     "debit_m3s": 84
+    },
+    {
+     "nom": "Cyclone Bejisa (janvier 2014)",
+     "hauteur_m": 1.7,
+     "debit_m3s": 39
+    }
+   ]
+  },
+  {
+   "id": "L22",
+   "nom": "Mât - Escalier",
+   "riviere": "rivière du Mât",
+   "bassin": "bv09",
+   "secteur": "EST",
+   "code_hydro": "4020000101",
+   "commune": "Salazie",
+   "lon": 55.57949,
+   "lat": -20.99892,
+   "crues": [
+    {
+     "nom": "Cyclone Firinga (janvier 1989)",
+     "hauteur_m": 5.5,
+     "debit_m3s": 450
+    },
+    {
+     "nom": "Cyclone Bejisa (janvier 2014)",
+     "hauteur_m": 3.4,
+     "debit_m3s": 240
+    },
+    {
+     "nom": "Forte tempête Fakir (avril 2018)",
+     "hauteur_m": 1.8,
+     "debit_m3s": null
+    }
+   ]
+  },
+  {
+   "id": "L20",
+   "nom": "Roches - Bassin La Paix",
+   "riviere": "rivière des Roches",
+   "bassin": "bv10",
+   "secteur": "EST",
+   "code_hydro": "4013000201",
+   "commune": "Saint-Benoît",
+   "lon": 55.67056,
+   "lat": -21.02369,
+   "crues": [
+    {
+     "nom": "Forte tempête Fakir (avril 2018)",
+     "hauteur_m": 10.7,
+     "debit_m3s": 610
+    },
+    {
+     "nom": "Cyclone Dumile (janvier 2013)",
+     "hauteur_m": 8.5,
+     "debit_m3s": 340
+    }
+   ]
+  },
+  {
+   "id": "L32",
+   "nom": "Bras Panon - Libéria",
+   "riviere": "rivière des Roches",
+   "bassin": "bv10",
+   "secteur": "EST",
+   "code_hydro": "4013000501",
+   "commune": "Bras-Panon",
+   "lon": 55.6752,
+   "lat": -21.00352,
+   "crues": []
+  },
+  {
+   "id": "L35",
+   "nom": "Bras Panon - Paniandy",
+   "riviere": "rivière des Roches",
+   "bassin": "bv10",
+   "secteur": "EST",
+   "code_hydro": "4013000401",
+   "commune": "Bras-Panon",
+   "lon": 55.66307,
+   "lat": -20.99679,
+   "crues": []
+  },
+  {
+   "id": "L23",
+   "nom": "Marsouins - Bethléem",
+   "riviere": "rivière des Marsouins",
+   "bassin": "bv11",
+   "secteur": "EST",
+   "code_hydro": "4012000101",
+   "commune": "Saint-Benoît",
+   "lon": 55.67971,
+   "lat": -21.04147,
+   "crues": [
+    {
+     "nom": "Belal",
+     "hauteur_m": 4.25,
+     "debit_m3s": 1340
+    },
+    {
+     "nom": "Forte tempête Fakir (avril 2018)",
+     "hauteur_m": 3.6,
+     "debit_m3s": 492
+    }
+   ]
+  },
+  {
+   "id": "L09",
+   "nom": "Marsouins - Pompidou",
+   "riviere": "rivière des Marsouins",
+   "bassin": "bv11",
+   "secteur": "EST",
+   "code_hydro": "4012000201",
+   "commune": "Saint-Benoît",
+   "lon": 55.71449,
+   "lat": -21.03503,
+   "crues": [
+    {
+     "nom": "Cyclone Gamède (février 2007)",
+     "hauteur_m": 4.8,
+     "debit_m3s": 1300
+    },
+    {
+     "nom": "Belal",
+     "hauteur_m": 4.7,
+     "debit_m3s": 1530
+    },
+    {
+     "nom": "Forte tempête Fakir (avril 2018)",
+     "hauteur_m": 4.3,
+     "debit_m3s": 1006
+    },
+    {
+     "nom": "Cyclone Dumile (janvier 2013)",
+     "hauteur_m": 3.3,
+     "debit_m3s": 600
+    }
+   ]
+  },
+  {
+   "id": "L03",
+   "nom": "Langevin - Passerelle",
+   "riviere": "rivière Langevin",
+   "bassin": "bv17",
+   "secteur": "SUD",
+   "code_hydro": "4001000201",
+   "commune": "Saint-Joseph",
+   "lon": 55.64339,
+   "lat": -21.33902,
+   "crues": [
+    {
+     "nom": "Cyclone Hyacinthe",
+     "hauteur_m": 3.6,
+     "debit_m3s": 500
+    },
+    {
+     "nom": "Cyclone Dumile (janvier 2013)",
+     "hauteur_m": 1.9,
+     "debit_m3s": 200
+    },
+    {
+     "nom": "Cyclone Bejisa (janvier 2014)",
+     "hauteur_m": 1.4,
+     "debit_m3s": 120
+    },
+    {
+     "nom": "Cyclone Felleng (février 2013)",
+     "hauteur_m": 1,
+     "debit_m3s": 70
+    }
+   ]
+  },
+  {
+   "id": "L36",
+   "nom": "Remparts - Canal Payet (SIC)",
+   "riviere": "rivière des Remparts",
+   "bassin": "bv18",
+   "secteur": "SUD",
+   "code_hydro": "4000000102",
+   "commune": "Saint-Joseph",
+   "lon": 55.61565,
+   "lat": -21.37525,
+   "crues": []
+  },
+  {
+   "id": "L37",
+   "nom": "D'Abord - Mon Caprice",
+   "riviere": "rivière d'Abord",
+   "bassin": "bv19",
+   "secteur": "SUD",
+   "code_hydro": "4062000801",
+   "commune": "Saint-Pierre",
+   "lon": 55.50073,
+   "lat": -21.3089,
+   "crues": []
+  },
+  {
+   "id": "L34",
+   "nom": "Blanche - Plaine des Cafres",
+   "riviere": "ravine Blanche",
+   "bassin": "bv20",
+   "secteur": "SUD",
+   "code_hydro": "4062000501",
+   "commune": "Le Tampon",
+   "lon": 55.59325,
+   "lat": -21.21501,
+   "crues": []
+  },
+  {
+   "id": "L28",
+   "nom": "Blanche - RN3",
+   "riviere": "ravine Blanche",
+   "bassin": "bv20",
+   "secteur": "SUD",
+   "code_hydro": "4062000701",
+   "commune": "Le Tampon",
+   "lon": 55.52488,
+   "lat": -21.26598,
+   "crues": []
+  },
+  {
+   "id": "L12",
+   "nom": "Blanche - Abattoir",
+   "riviere": "ravine Blanche",
+   "bassin": "bv20",
+   "secteur": "SUD",
+   "code_hydro": "4062000301",
+   "commune": "Saint-Pierre",
+   "lon": 55.45879,
+   "lat": -21.33339,
+   "crues": [
+    {
+     "nom": "Cyclone Hollanda (février 1994)",
+     "hauteur_m": 1.5,
+     "debit_m3s": 180
+    },
+    {
+     "nom": "Cyclone Felleng (février 2013)",
+     "hauteur_m": 0.2,
+     "debit_m3s": 14
+    }
+   ]
+  },
+  {
+   "id": "L30",
+   "nom": "Cabris - RN3",
+   "riviere": "ravine des Cabris",
+   "bassin": "bv21",
+   "secteur": "SUD",
+   "code_hydro": "4062000201",
+   "commune": "Saint-Pierre",
+   "lon": 55.52192,
+   "lat": -21.25405,
+   "crues": []
+  },
+  {
+   "id": "L11",
+   "nom": "Saint-Gilles - RN1a",
+   "riviere": "ravine Saint-Gilles",
+   "bassin": "bv25",
+   "secteur": "OUEST",
+   "code_hydro": "4051000101",
+   "commune": "Saint-Paul",
+   "lon": 55.22963,
+   "lat": -21.05233,
+   "crues": [
+    {
+     "nom": "Cyclone Firinga (janvier 1989) / Cyclone Hollanda (février 1994)",
+     "hauteur_m": 2.3,
+     "debit_m3s": 125
+    },
+    {
+     "nom": "Tempête modérée Haliba (mars 2015)",
+     "hauteur_m": 1.7,
+     "debit_m3s": 85
+    },
+    {
+     "nom": "Cyclone Dumile (janvier 2013)",
+     "hauteur_m": 1.3,
+     "debit_m3s": 55
+    },
+    {
+     "nom": "Cyclone Felleng (février 2013)",
+     "hauteur_m": 0.7,
+     "debit_m3s": 26
+    }
+   ]
+  },
+  {
+   "id": "L27",
+   "nom": "Bernica - Tan Rouge",
+   "riviere": "étang de Saint-Paul",
+   "bassin": "bv26",
+   "secteur": "OUEST",
+   "code_hydro": "4050000201",
+   "commune": "Saint-Paul",
+   "lon": 55.3096,
+   "lat": -21.05836,
+   "crues": []
+  },
+  {
+   "id": "L14",
+   "nom": "Saint-Paul - Royale",
+   "riviere": "étang de Saint-Paul",
+   "bassin": "bv26",
+   "secteur": "OUEST",
+   "code_hydro": "4050000101",
+   "commune": "Saint-Paul",
+   "lon": 55.28871,
+   "lat": -20.98996,
+   "crues": [
+    {
+     "nom": "Cyclone intense Dina (janvier 2002)",
+     "hauteur_m": 3,
+     "debit_m3s": null
+    },
+    {
+     "nom": "Cyclone Bejisa (janvier 2014)",
+     "hauteur_m": 2.6,
+     "debit_m3s": null
+    },
+    {
+     "nom": "Cyclone Gamede (février 2007)",
+     "hauteur_m": 2.1,
+     "debit_m3s": null
+    }
+   ]
+  },
+  {
+   "id": "L06",
+   "nom": "Galets - Barrage",
+   "riviere": "rivière des Galets",
+   "bassin": "bv27",
+   "secteur": "OUEST",
+   "code_hydro": "4040000101",
+   "commune": "Saint-Paul",
+   "lon": 55.40395,
+   "lat": -21.02099,
+   "crues": [
+    {
+     "nom": "Dépression Clotilda (février 1987)",
+     "hauteur_m": 5.5,
+     "debit_m3s": 850
+    },
+    {
+     "nom": "Cyclone Bejisa (janvier 2014)",
+     "hauteur_m": 3.7,
+     "debit_m3s": 440
+    },
+    {
+     "nom": "Tempête modérée Haliba (mars 2015)",
+     "hauteur_m": 2.2,
+     "debit_m3s": 170
+    }
+   ]
+  },
+  {
+   "id": "L05",
+   "nom": "Bras Ste-Suzanne - Barrage",
+   "riviere": "rivière des Galets",
+   "bassin": "bv27",
+   "secteur": "OUEST",
+   "code_hydro": "4041000101",
+   "commune": "La Possession",
+   "lon": 55.40612,
+   "lat": -20.99286,
+   "crues": [
+    {
+     "nom": "Cyclone Bejisa (janvier 2014)",
+     "hauteur_m": 3.5,
+     "debit_m3s": 173
+    },
+    {
+     "nom": "Cyclone Gamède (février 2007)",
+     "hauteur_m": 3,
+     "debit_m3s": 127
+    },
+    {
+     "nom": "Tempête modérée Haliba (mars 2015)",
+     "hauteur_m": 2.5,
+     "debit_m3s": 90
+    }
+   ]
+  }
+ ]
+}

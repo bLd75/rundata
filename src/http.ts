@@ -3,11 +3,15 @@ import { UpstreamError } from "./types.js";
 
 export const USER_AGENT = "reunion-temps-reel/0.2 (open source MCP server, real-time data for Reunion Island)"; // header values must be ASCII
 
-async function get(source: string, url: string, timeoutMs: number, headers: Record<string, string> = {}): Promise<Response> {
+async function get(source: string, url: string, timeoutMs: number, headers: Record<string, string> = {}, body?: URLSearchParams): Promise<Response> {
   let res: Response;
   count();
   try {
-    res = await fetch(url, { headers: { "User-Agent": USER_AGENT, ...headers }, signal: AbortSignal.timeout(timeoutMs) });
+    res = await fetch(url, {
+      ...(body ? { method: "POST", body } : {}),
+      headers: { "User-Agent": USER_AGENT, ...headers },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
   } catch (err) {
     throw new UpstreamError(source, err instanceof Error ? err.message : String(err));
   }
@@ -35,4 +39,9 @@ export async function getBytes(
   headers?: Record<string, string>,
 ): Promise<ArrayBuffer> {
   return (await get(source, url, timeoutMs, headers)).arrayBuffer();
+}
+
+/** A form posted as a web page's own script would, for the sites whose data has no other door (Vigicrues Réunion). */
+export async function postForm<T>(source: string, url: string, fields: Record<string, string>, timeoutMs = 15_000): Promise<T> {
+  return (await get(source, url, timeoutMs, {}, new URLSearchParams(fields))).json() as Promise<T>;
 }
