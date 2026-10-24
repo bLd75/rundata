@@ -11,7 +11,7 @@
  */
 import type { Cache, Cached } from "../cache.js";
 import { getJson, getText } from "../http.js";
-import type { SourceInfo } from "../types.js";
+import { type SourceInfo, UpstreamError } from "../types.js";
 import { type Info, parsePrefecture, SOURCES as NEWS } from "./actualites.js";
 
 export const PREFECTURE: SourceInfo = NEWS.prefecture;
@@ -103,8 +103,15 @@ const ABOUT_VOLCANO = /fournaise|volcan|enclos|[ée]ruption/i;
 
 /** The phase the newest release about the volcano declares, or undefined when it declares none. */
 export function phaseOf(releases: Info[]): Phase | undefined {
-  const r = releases.filter((x) => ABOUT_VOLCANO.test(x.titre)).sort((a, b) => b.publie.localeCompare(a.publie))[0];
-  if (!r) return undefined;
+  // The newest release that declares a phase: a later one about the volcano may declare none (a visit, a reminder).
+  for (const r of releases.filter((x) => ABOUT_VOLCANO.test(x.titre)).sort((a, b) => b.publie.localeCompare(a.publie))) {
+    const p = declared(r);
+    if (p) return p;
+  }
+  return undefined;
+}
+
+function declared(r: Info): Phase | undefined {
   const t = r.titre;
   const niveau = /alerte\s*2[\s.-]*2/i.test(t)
     ? "Alerte 2-2"
@@ -135,7 +142,12 @@ export function phaseOf(releases: Info[]): Phase | undefined {
 }
 
 export async function phase(cache: Cache): Promise<Cached<Phase | null>> {
-  return cache.get("volcan:prefecture", 5 * 60, async () =>
-    phaseOf(parsePrefecture(await getText(PREFECTURE.id, PREFECTURE.url, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" }))) ?? null,
-  );
+  return cache.get("volcan:prefecture", 5 * 60, async () => {
+    const releases = parsePrefecture(await getText(PREFECTURE.id, PREFECTURE.url, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" }));
+    // A page without its list (an error page served as 200, a maintenance page) must not replace the last phase read.
+    if (!releases.length) throw new UpstreamError(PREFECTURE.id, "liste des communiqués vide");
+    const p = phaseOf(releases);
+    if (!p) console.log(`volcan : aucune phase ORSEC dans les ${releases.length} communiqués de la préfecture`);
+    return p ?? null;
+  });
 }
