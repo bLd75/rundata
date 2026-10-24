@@ -12,7 +12,7 @@
  * Everything is read in one go every few minutes and kept as one entry, so a question costs at most a dozen requests.
  */
 import type { Cache, Cached } from "../cache.js";
-import { getText } from "../http.js";
+import { getText, httpUrl } from "../http.js";
 import gazetteer from "../places/gazetteer.json" with { type: "json" };
 import { normalize } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
@@ -314,7 +314,9 @@ function extracts(body: string, found: ReturnType<typeof hits>): Info["extraits"
 }
 
 /** An item; `body` is the text the source gives with it, read for its places and subjects, of which only the first sentence and the sentences naming a place are kept. */
-function info(media: string, titre: string, lien: string, publie: Date, whole = "", opts: { heure?: boolean; direct?: boolean } = {}): Info | null {
+function info(media: string, titre: string, raw: string, publie: Date, whole = "", opts: { heure?: boolean; direct?: boolean } = {}): Info | null {
+  // An item is its link: one that is not an http(s) address is not kept.
+  const lien = httpUrl(raw);
   if (!titre || !lien || Number.isNaN(publie.getTime())) return null;
   const body = whole.length > BODY_MAX ? whole.slice(0, whole.lastIndexOf(" ", BODY_MAX)) : whole;
   const found = hits(`${titre} ${body}`);

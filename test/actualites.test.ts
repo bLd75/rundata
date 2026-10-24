@@ -80,7 +80,7 @@ describe("actualités", () => {
     expect(gathering.communes).toEqual(expect.arrayContaining(["Saint-Pierre", "Sainte-Marie", "Le Port", "Sainte-Suzanne"]));
     expect(gathering.extraits!.find((e) => e.communes.includes("Saint-Pierre"))!.texte).toMatch(/Canabady à Saint-Pierre/);
     // After the change of time in Paris (25/10, UTC+1), the same stamp is an hour later in UTC.
-    const winter = parseImazLive(fixture("imaz_live.html"), "x", new Date("2026-10-26T09:05:00Z"));
+    const winter = parseImazLive(fixture("imaz_live.html"), "https://imazpress.com/live", new Date("2026-10-26T09:05:00Z"));
     expect(winter[0].publie).toBe("2026-10-26T08:33:00.000Z");
   });
 

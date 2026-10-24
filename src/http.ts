@@ -1,6 +1,18 @@
 import { count } from "./budget.js";
 import { UpstreamError } from "./types.js";
 
+/** A link read from a source, kept only as an absolute http(s) address: `javascript:`, `data:`, a relative link or « //hote » give no link. */
+export function httpUrl(raw: string | undefined): string | undefined {
+  const s = raw?.trim();
+  if (!s || !/^https?:\/\/[^/]/i.test(s)) return undefined;
+  try {
+    new URL(s);
+    return s;
+  } catch {
+    return undefined;
+  }
+}
+
 export const USER_AGENT = "reunion-temps-reel/0.2 (open source MCP server, real-time data for Reunion Island)"; // header values must be ASCII
 
 async function get(source: string, url: string, timeoutMs: number, headers: Record<string, string> = {}, body?: URLSearchParams | string): Promise<Response> {
