@@ -83,6 +83,14 @@ export const CATEGORIES: Category[] = [
     about: "Les avis des distributeurs d'eau : coupures pour travaux, heures et rues concernées, et avis « ne pas boire l'eau ».",
   },
   {
+    key: "dae",
+    nom: "Défibrillateurs",
+    path: "/defibrillateurs",
+    icon: "heart",
+    tools: ["defibrillateurs"],
+    about: "Les défibrillateurs les plus proches d'un lieu, avec leur adresse, leur emplacement et s'ils sont accessibles à toute heure.",
+  },
+  {
     key: "secheresse",
     nom: "Sécheresse",
     path: "/secheresse",
