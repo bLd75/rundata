@@ -50,6 +50,7 @@ import {
   type Background,
   type PlaceData,
   type RandonneesAnswer,
+  type VolcanAnswer,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
 import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
@@ -125,6 +126,33 @@ const waitFor = (request: Request) => (isReader(request) ? READER_WAIT_MS : unde
 
 /** A page without its live block is not kept: the next load should have it. */
 const htmlFor = (data: unknown) => (data ? HTML : { ...HTML, "cache-control": "no-store" });
+
+/**
+ * A page from its copies, `render(true)`. A copy the code can no longer read (CACHE_FORMAT not raised, cache.ts) makes
+ * the render throw: the page is then rendered without its live block, `render(false)`, never kept, and its own copies
+ * are built again after the response (`again`), so that the next view has them.
+ */
+function page(path: string, render: (live: boolean) => string, data: unknown, background: Background, again: (() => Promise<unknown>)[] = []): Response {
+  try {
+    return new Response(render(true), { headers: htmlFor(data) });
+  } catch (err) {
+    console.error(`page ${path} : rendu impossible avec ses copies, rendue sans elles`, why(err));
+    for (const build of again) background(build().catch((e) => console.error(`page ${path} : reconstruction impossible`, why(e))));
+    return new Response(render(false), { headers: htmlFor(null) });
+  }
+}
+
+/** Whether the volcano's copy says it is in alert; a copy that cannot be read is left to `page` to rebuild. */
+const inAlert = (v: VolcanAnswer) => {
+  try {
+    return alerteVolcan(v);
+  } catch {
+    return false;
+  }
+};
+
+/** The copy under `key` built again, whatever its age: the one there broke a page. */
+const rebuild = (cache: Cache, key: string, build: () => Promise<unknown>) => () => cache.get(key, 0, () => measured(key, build));
 
 const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 let ogBytes: Uint8Array<ArrayBuffer> | undefined;
@@ -235,20 +263,20 @@ async function pages(request: Request, cache: Cache, background: Background, now
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
     ]);
     const [actualites, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda] = await tileCopies(cache, HOME_TILES, background, meteo, now);
-    const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
-    return new Response(homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, actualites }, now, a), { headers: htmlFor(meteo) });
+    return page(path, (live) => (live
+      ? homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, actualites }, now, vigilance ? alerteOf(vigilance.value, now) : undefined)
+      : homePage(origin, null, now)), meteo, background, [rebuild(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now))]);
   }
   if (path === "/vigilance" || path === "/vigilance/") {
     const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS);
-    const a = data ? alerteOf(data.value, now) : undefined;
-    return new Response(vigilancePage(origin, data, now, a), { headers: htmlFor(data) });
+    return page(path, (live) => (live ? vigilancePage(origin, data, now, data ? alerteOf(data.value, now) : undefined) : vigilancePage(origin, null, now)), data, background);
   }
   if (path === "/mer" || path === "/mer/") {
     const [data, a] = await Promise.all([
       snapshot(cache, "web:mer", () => buildSea(cache, now), background, now, waitFor(request), isReader(request)),
       alerte(cache, background, now),
     ]);
-    return new Response(seaPage(origin, data, now, a), { headers: htmlFor(data) });
+    return page(path, (live) => seaPage(origin, live ? data : null, now, a), data, background, [rebuild(cache, "web:mer", () => buildSea(cache, now))]);
   }
   // The traffic page's copy lasts minutes; the media's headlines on the roads are those of the view.
   if (path === "/trafic" || path === "/trafic/") {
@@ -257,7 +285,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       alerte(cache, background, now),
       roadNewsNow(cache, background, now),
     ]);
-    return new Response(traficPage(origin, data && { ...data, value: withRoadNews(data.value, news, now) }, now, a), { headers: htmlFor(data) });
+    return page(path, (live) => traficPage(origin, live && data ? { ...data, value: withRoadNews(data.value, news, now) } : null, now, a), data, background, [rebuild(cache, "web:trafic", () => buildTrafic(cache, now))]);
   }
   // A commune's water: the copy of /coupures-eau, and the last ones of /secheresse and /eau as they are.
   const water = /^\/coupures-eau\/([a-z-]+)\/?$/.exec(path);
@@ -269,7 +297,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       alerte(cache, background, now),
     ]);
     const [secheresse, eau] = await tileCopies(cache, ["web:secheresse", "web:eau"], background, coupures, now);
-    return new Response(coupuresCommunePage(origin, p, { coupures, secheresse, eau }, now, a), { headers: htmlFor(coupures) });
+    return page(path, (live) => coupuresCommunePage(origin, p, live ? { coupures, secheresse, eau } : { coupures: null, secheresse: null, eau: null }, now, a), coupures, background, [rebuild(cache, "web:coupures", () => buildCoupures(cache, now))]);
   }
   // The fires seen by satellite, with the last copy of /sentiers and the vigilance; never a build of the trails' page.
   if (path === FEUX_PATH || path === `${FEUX_PATH}/`) {
@@ -290,8 +318,8 @@ async function pages(request: Request, cache: Cache, background: Background, now
       alerte(cache, background, now),
     ]);
     // During an alert, what the media say of it: their copy as it is, never built for this page.
-    const news = data && alerteVolcan(data.value) ? await cache.peek<ActualitesAnswer>("web:actualites").catch(() => undefined) : undefined;
-    return new Response(volcanPage(origin, data, now, a, news?.value), { headers: htmlFor(data) });
+    const news = data && inAlert(data.value) ? await cache.peek<ActualitesAnswer>("web:actualites").catch(() => undefined) : undefined;
+    return page(path, (live) => (live ? volcanPage(origin, data, now, a, news?.value) : volcanPage(origin, null, now, a)), data, background, [rebuild(cache, "web:volcan", () => buildVolcan(cache, now))]);
   }
   const domain = DOMAINS[path.replace(/(.)\/$/, "$1")];
   if (domain) {
@@ -299,7 +327,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       snapshot(cache, domain.key, () => domain.build(cache, now), background, now, waitFor(request), isReader(request)),
       alerte(cache, background, now),
     ]);
-    return new Response(domain.page(origin, data, now, a), { headers: htmlFor(data) });
+    return page(path, (live) => domain.page(origin, live ? data : null, now, a), data, background, [rebuild(cache, domain.key, () => domain.build(cache, now))]);
   }
   const sector = /^\/randonnees\/([a-z-]+)\/?$/.exec(path);
   const s = sector ? secteurOf(sector[1]) : undefined;
@@ -310,7 +338,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       alerte(cache, background, now),
       s.meteo ? cache.peek<PlaceData>(`web:lieu:${s.meteo}`).catch(() => undefined) : undefined,
     ]);
-    return new Response(secteurPage(origin, s, data, meteo ?? null, now, a), { headers: htmlFor(data) });
+    return page(path, (live) => secteurPage(origin, s, live ? data : null, live ? meteo ?? null : null, now, a), data, background, [rebuild(cache, DOMAINS["/randonnees"].key, () => buildRandonnees(cache, now))]);
   }
   const trace = /^\/(sentiers|randonnees)\/([a-z0-9-]+)(\.gpx)?\/?$/.exec(path);
   if (trace) {
@@ -330,7 +358,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       snapshot(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)), background, now, waitFor(request), isReader(request)),
       alerte(cache, background, now),
     ]);
-    return new Response(tracePage(origin, t ? "sentier" : "randonnee", slug, t?.nom ?? r!.nom, data, now, a), { headers: htmlFor(data) });
+    return page(path, (live) => tracePage(origin, t ? "sentier" : "randonnee", slug, t?.nom ?? r!.nom, live ? data : null, now, a), data, background, [rebuild(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)))]);
   }
   if (path === "/presse" || path === "/presse/") {
     // Its live counts are read from copies already here: a few minutes in browsers is enough.
@@ -338,7 +366,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/carburants" || path === "/carburants/") {
     const [data, a] = await Promise.all([carburants.prix(cache, now).catch(() => null), alerte(cache, background, now)]);
-    return new Response(carburantsPage(origin, data, now, a), { headers: htmlFor(data) });
+    return page(path, (live) => carburantsPage(origin, live ? data : null, now, a), data, background);
   }
   if (path === "/nouveautes" || path === "/nouveautes/") {
     return new Response(nouveautesPage(origin), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
@@ -356,7 +384,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     ]);
     // The state of the hikes around: the hikers' page's last copy, as it is, never built for this page.
     const hikes = hikesNear(p.place.lon, p.place.lat).length ? await cache.peek<RandonneesAnswer>("web:randonnees").catch(() => undefined) : undefined;
-    return new Response(placePage(origin, p, data, now, a, hikes ?? null), { headers: htmlFor(data) });
+    return page(path, (live) => (live ? placePage(origin, p, data, now, a, hikes ?? null) : placePage(origin, p, null, now, a)), data, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now))]);
   }
   if (path === "/communes" || path === "/communes/") {
     return new Response(communesPage(origin, await alerte(cache, background, now)), { headers: HTML });
@@ -369,8 +397,9 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const place = await snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request));
     // The weather's copy as the snapshot gave it: not read again (the read could be one subrequest too many).
     const { copies, leftOut } = await readCopies(cache, p, p, now, background, vigilance, { meteo: place });
-    const a = copies.vigilance ? alerteOf(copies.vigilance.value, now) : undefined;
-    return new Response(aujourdhuiPage(origin, p, resume(p, copies, now, leftOut), copies.meteo ?? place, a), { headers: htmlFor(place) });
+    return page(path, (live) => (live
+      ? aujourdhuiPage(origin, p, resume(p, copies, now, leftOut), copies.meteo ?? place, copies.vigilance ? alerteOf(copies.vigilance.value, now) : undefined)
+      : aujourdhuiPage(origin, p, resume(p, {}, now, leftOut), null)), place, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now))]);
   }
   // A commune's alerts as RSS: the copies of the pages, never a build of its own (web/rss.ts).
   const feed = /^\/communes\/([a-z-]+)\.rss$/.exec(path);
@@ -396,8 +425,10 @@ async function pages(request: Request, cache: Cache, background: Background, now
     // The West's communes have their déchèteries' tile too (the TCO publishes them).
     const tiles = TCO_COMMUNES.includes(p.nom) ? [...COMMUNE_TILES, "web:dechets"] : COMMUNE_TILES;
     const [air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets] = await tileCopies(cache, tiles, background, place, now);
-    const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
-    return new Response(communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets }, now, a), { headers: htmlFor(place) });
+    return page(path, (live) => (live
+      ? communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets }, now, vigilance ? alerteOf(vigilance.value, now) : undefined)
+      : communePage(origin, p, { place: null, commune: null, vigilance: null, air: null, mer: null, volcan: null, electricite: null, calendrier: null, coupures: null, secheresse: null, eau: null, randonnees: null, agenda: null, dechets: null }, now)),
+    place, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now)), rebuild(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now))]);
   }
   if (path === `/${INDEXNOW_KEY}.txt`) {
     return new Response(INDEXNOW_KEY, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });

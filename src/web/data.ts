@@ -1331,7 +1331,13 @@ export async function vigilanceNow(cache: Cache, background: Background, waitMs:
 /** The banner for a page: never throws, never holds a page more than a second and a half. */
 export async function alerte(cache: Cache, background: Background, now = new Date()): Promise<Alerte | undefined> {
   const v = await vigilanceNow(cache, background, BANNER_WAIT_MS);
-  return v ? alerteOf(v.value, now) : undefined;
+  try {
+    return v ? alerteOf(v.value, now) : undefined;
+  } catch (err) {
+    // A copy the code can no longer read must not cost every page its answer (web/site.ts).
+    console.error("vigilance : bandeau impossible", why(err));
+    return undefined;
+  }
 }
 
 /** `work`, or null if it takes longer than `ms`. */

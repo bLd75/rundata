@@ -6,11 +6,10 @@
  * (on *.workers.dev its calls do nothing). The AROME grids, filled every few minutes by the scheduled event,
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
-import { handle } from "./app.js";
+import { failed, handle } from "./app.js";
 import { WORKER_BUDGET, count, counted, later, spent } from "./budget.js";
-import { Cache, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
+import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { audience, language, point, visitor, type Hit } from "./metrics.js";
-import { VERSION } from "./server.js";
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
@@ -30,10 +29,9 @@ const KEEP_SECONDS = 7 * 24 * 3600;
 const KV_KEEP_SECONDS = 3 * 24 * 3600;
 
 class EdgeStore implements CacheStore {
-  // Per version: a copy written by the previous code (a page's data, a source's answer) may lack what the new code
-  // reads, and the page would fail until the copy expires. A deploy starts afresh; the KV bundles are not affected.
+  // Per shape of the entries (cache.ts): a deploy keeps the data center's cache unless it changes that shape.
   private url(key: string) {
-    return `https://cache.reunion-temps-reel.internal/upstream/${VERSION}/${encodeURIComponent(key)}`;
+    return `https://cache.reunion-temps-reel.internal/upstream/format-${CACHE_FORMAT}/${encodeURIComponent(key)}`;
   }
   async get(key: string) {
     try {
@@ -194,8 +192,8 @@ export default {
     const c = setup(env);
     // A page served from its last copy refreshes it after the response (web/data.ts); an agenda too slow for the
     // answer is still stored (tools/agenda.ts).
-    const { value, used, settled } = await counted(WORKER_BUDGET, () => handle(request, c, later, recorder(env, request)), (p) => ctx.waitUntil(p));
     const path = new URL(request.url).pathname;
+    const { value, used, settled } = await counted(WORKER_BUDGET, () => handle(request, c, later, recorder(env, request)).catch((err) => failed(path, err)), (p) => ctx.waitUntil(p));
     // Once the work after the response is done too: it counts against the same budget.
     ctx.waitUntil(settled().then((total) => {
       const after = total.used > used ? `, dont ${total.used - used} après la réponse` : "";
