@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Votre IA résume la journée de votre commune : météo, routes, actu, coupures, sorties, mairie ouverte ou non.
 - L'accueil affiche l'heure de chaque mesure.
 - Depuis la météo d'un lieu, les randonnées et la commune du coin sont à un clic.
 - Un bouton pour partager une page sur WhatsApp.

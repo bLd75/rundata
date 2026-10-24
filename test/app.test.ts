@@ -22,7 +22,7 @@ describe("HTTP endpoint", () => {
       "calendrier",
       "qualite_air",
       "annuaire_services_publics",
-      "fiche_terrain", "velos_libre_service", "maree", "crues_rivieres", "bornes_recharge", "qualite_eau", "sentiers_randonnee", "restrictions_eau", "coupures_eau", "defibrillateurs", "sport", "cyclones", "historique_meteo", "evenements", "actualites", "donner_avis", "sources_donnees"]);
+      "fiche_terrain", "velos_libre_service", "maree", "crues_rivieres", "bornes_recharge", "qualite_eau", "sentiers_randonnee", "restrictions_eau", "coupures_eau", "resume_du_jour", "defibrillateurs", "sport", "cyclones", "historique_meteo", "evenements", "actualites", "donner_avis", "sources_donnees"]);
   });
 
   it("answers CORS preflight and unknown paths", async () => {

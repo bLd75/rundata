@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Cache } from "./cache.js";
 import type { Recorder } from "./metrics.js";
+import type { Background } from "./web/data.js";
 import { GAZETTEER_ATTRIBUTION } from "./places/resolve.js";
 import * as acspo from "./providers/acspo.js";
 import * as arome from "./providers/arome.js";
@@ -11,6 +12,7 @@ import * as avis from "./avis.js";
 import { withLectures } from "./lectures.js";
 import { catalogue, INDEX, serveur } from "./nouveautes.js";
 import { cite, SITE_URL } from "./tools/citer.js";
+import { resumeDuJour } from "./tools/resume.js";
 import { text } from "./tools/format.js";
 import { temperatureMer, COVERAGE as SEA_COVERAGE } from "./tools/mer.js";
 import { previsionMeteo, coverage as forecastCoverage } from "./tools/prevision.js";
@@ -64,7 +66,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.41.0";
+export const VERSION = "0.42.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -113,8 +115,11 @@ const lieu = z
       "Vide = tour de l'île. / Place in Réunion, free text or 'lat, lon'; empty = whole island.",
   );
 
-/** `record`: told of each tool call (metrics.ts). */
-export function createServer(cache: Cache, record: Recorder = () => {}): McpServer {
+/**
+ * `record`: told of each tool call (metrics.ts). `background`: work to finish after the answer (the Worker's
+ * waitUntil), for resume_du_jour to bring a page copy up to date; without it (stdio, tests) nothing is left to run.
+ */
+export function createServer(cache: Cache, record: Recorder = () => {}, background?: Background): McpServer {
   const server = new McpServer(
     { name: "reunion-temps-reel", title: "La Réunion en temps réel", version: VERSION },
     { instructions: INSTRUCTIONS },
@@ -523,6 +528,24 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
       annotations: { title: "Coupures d'eau", ...READ_ONLY },
     },
     track("coupures_eau", (args: { lieu?: string }) => coupuresEau(cache, args.lieu)),
+  );
+
+  server.registerTool(
+    "resume_du_jour",
+    {
+      title: "Résumé du jour pour une commune de La Réunion",
+      description:
+        "Tout ce qui compte aujourd'hui dans une commune de La Réunion (974), en un appel : météo MESURÉE maintenant et PRÉVISION du jour, " +
+        "vigilance de sa zone, mer, qualité de l'air, électricité, routes et blocages signalés par les médias, actualités de la commune, " +
+        "coupures d'eau, événements du jour, jour férié ou vacances, soleil, mairie ouverte ou non. Un lieu (plage, quartier, sommet) est rapporté à sa commune. " +
+        "Ce qui manque est listé dans non_inclus avec l'outil à appeler. Pour : « quoi de neuf à Saint-Paul aujourd'hui ? », « ma journée au Tampon ». " +
+        "/ Today in one Réunion Island commune: weather, warnings, sea, air, power, roads, news, water cuts, events.",
+      inputSchema: {
+        lieu: z.string().describe("Commune ou lieu de La Réunion (« Saint-Paul », « Boucan Canot », « Cilaos »), rapporté à sa commune. / Commune or place in Réunion."),
+      },
+      annotations: { title: "Résumé du jour", ...READ_ONLY },
+    },
+    track("resume_du_jour", (args: { lieu: string }) => resumeDuJour(cache, args.lieu, new Date(), background)),
   );
 
   server.registerTool(

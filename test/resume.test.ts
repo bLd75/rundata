@@ -1,0 +1,223 @@
+import { readFileSync } from "node:fs";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { count, counted, measured, WORKER_BUDGET } from "../src/budget.js";
+import { Cache, type CacheEntry, MemoryStore, TieredStore } from "../src/cache.js";
+import { configure } from "../src/providers/mf-auth.js";
+import { readCopies, resume, resumeDuJour } from "../src/tools/resume.js";
+import { buildAir, buildPlace } from "../src/web/data.js";
+import { pageOf } from "../src/web/places.js";
+
+const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url));
+// Saturday 24 October 2026, 14:00 at La Réunion.
+const NOW = new Date("2026-10-24T10:00:00Z");
+const SAINT_PAUL = pageOf("saint-paul")!;
+const ago = (min: number) => new Date(NOW.getTime() - min * 60_000);
+const copy = <T>(value: T, min = 2) => ({ value, fetchedAt: ago(min), stale: false });
+const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
+
+const info = (titre: string, communes: string[], sujets: string[], min = 30) => ({
+  quand: "14:00", publie: ago(min).toISOString(), media: "Imaz Press", titre, communes, sujets, lien: `https://example.org/${encodeURIComponent(titre)}`,
+});
+const event = (titre: string, commune: string, date: string, quand: string) => ({ titre, commune, date, quand, lieu: "Kabardock", lien: "https://example.org/e" });
+const SOURCE = (source: string) => [{ source, licence: "Licence Ouverte 2.0", attribution: source }];
+
+/** The copies of the pages, as the site keeps them. */
+const COPIES = {
+  meteo: copy({
+    meteo: { resume: "", sources: SOURCE("Météo-France"), stations: [
+      { station: "Le Port", source: "meteofrance", altitude_m: 9, heure_mesure: "24/10 13:54", age_min: 6, distance_km: 6.1, pertinence: "faible", mesures: { temperature: "29,0 °C" }, avertissements: [] },
+      { station: "Saint-Paul", source: "meteofrance", altitude_m: 30, heure_mesure: "24/10 13:54", age_min: 6, distance_km: 1.2, mesures: { temperature: "27,4 °C", pluie_1h: "0 mm" }, avertissements: [] },
+    ] },
+    prevision: { resume: "", sources: SOURCE("Open-Meteo"), jours: [{ jour: "Samedi 24/10", ciel_en_journee: "ensoleillé", temperature_min: "21 °C", temperature_max: "29 °C" }, { jour: "Dimanche 25/10" }] },
+  }),
+  mer: copy({ plages: [{ nom: "Boucan Canot", commune: "Saint-Paul", lon: 55.2, lat: -21.0, valeur: 24.6, jour: "2026-10-23" }, { nom: "Hermitage", commune: "Saint-Paul", lon: 55.2, lat: -21.1, valeur: 25.4, jour: "2026-10-23" }, { nom: "Grande Anse", commune: "Petite-Île", lon: 55.5, lat: -21.4, valeur: 23, jour: "2026-10-23" }], sources: SOURCE("NOAA") }),
+  air: copy({ resume: "", nature: "", avertissements: [], sources: SOURCE("Atmo Réunion"), communes: [{ commune: "Saint-Paul", niveau: 2, qualite: "moyen", polluants: ["PM10"] }] }),
+  electricite: copy({ resume: "", avertissements: [], sources: SOURCE("EDF"), production: { heure: "13:50", total_mw: 420, parts: [], renouvelable_pct: 38, statut: "" } }),
+  actualites: copy({
+    infos: [
+      info("Barrage filtrant au rond-point de Savanna", ["Saint-Paul"], ["route", "mobilisation"]),
+      info("Le marché forain déplacé", ["Saint-Paul"], ["vie locale"], 90),
+      info("Hier soir à Saint-Paul", ["Saint-Paul"], ["faits divers"], 20 * 60),
+      info("Route du Littoral basculée", ["La Possession"], ["route"]),
+    ],
+    en_direct: [], prefecture: [], chaud: true, indisponible: [], couverture: "", a_savoir: "", sources: SOURCE("Médias"),
+  }),
+  trafic: copy({ bus: null, routes_forestieres: null, medias: [{ titre: "Bouchons sur la route des Tamarins", lien: "https://example.org/t", source: "Clicanoo" }], sources: SOURCE("Région") }),
+  coupures: copy({ resume: "", avis: [{ titre: "Coupure rue de la Gare", communes: ["Saint-Paul"], distributeur: "runéo", lien: "https://example.org/c", secteurs: ["Centre-ville"] }, { titre: "Coupure à Saint-Denis", communes: ["Saint-Denis"], distributeur: "Dionéo", lien: "https://example.org/d" }], couverture: "", a_savoir: "", sources: SOURCE("runéo"), communes_suivies: [] }),
+  agenda: copy({
+    resume: "", nombre: 3, couverture: "", a_savoir: "", sources: SOURCE("Agendas"), ce_week_end: [],
+    evenements: [
+      event("Concert au Kabardock", "Saint-Paul", "2026-10-24T20:00", "samedi 24/10 à 20:00"),
+      event("Festival sur trois jours", "Saint-Paul", "2026-10-23T18:00", "du vendredi 23/10 à 18:00 au dimanche 25/10"),
+      event("Marché de nuit", "Saint-Paul", "2026-10-30T18:00", "vendredi 30/10 à 18:00"),
+      event("Fête au Tampon", "Le Tampon", "2026-10-24T10:00", "samedi 24/10 à 10:00"),
+    ],
+  }),
+  commune: copy({
+    sources: SOURCE("Annuaire de l'administration"),
+    mairie: { nom: "Mairie de Saint-Paul", insee: "97415", adresse: "1 place du Général de Gaulle", lon: null, lat: null, fiche: "", telephone: "0262 45 90 00", horaires: [{ de: "lundi", a: "vendredi", plages: [["07h30", "12h00"], ["13h00", "16h00"]] }] },
+    bus: { gare: true, arrets: [], departs: [], alertes: [{ reseau: "Kar'Ouest", titre: "Ligne 1 déviée" }] },
+  }),
+  calendrier: copy({ resume: "", sources: SOURCE("Éducation nationale"), jours_feries: { aujourd_hui: null, prochains: [], note: "" }, vacances_scolaires: { en_cours: { nom: "Vacances de la Toussaint", debut: "", reprise_des_cours: "" }, a_venir: [], note: "" } }),
+} as const;
+
+describe("the summary of a day", () => {
+  it("says the commune's day from the copies, and nothing of the other communes", () => {
+    const r = resume(SAINT_PAUL, COPIES as never, NOW);
+    expect(r.commune).toBe("Saint-Paul");
+    // The station that stands for the place, not the far one; the forecast said to be one.
+    expect(r.meteo?.mesure?.station).toBe("Saint-Paul");
+    expect(r.meteo?.prevision?.avertissement).toMatch(/PRÉVISION/);
+    expect(r.meteo?.prevision?.demain).toBeUndefined();
+    expect(r.mer).toMatchObject({ temperature_eau: "25 °C", au_large_de: ["Boucan Canot", "Hermitage"] });
+    expect(r.air).toMatchObject({ indice_atmo: 2, qualite: "moyen" });
+    expect(r.electricite).toMatchObject({ renouvelable_pct: 38 });
+    // The roads: never a measure of the traffic jams; the news of the commune's roads, the island's apart.
+    expect(r.circulation.mesure_des_bouchons).toMatch(/ne mesure pas les bouchons/);
+    expect(r.circulation.waze).toMatch(/^https:\/\/www\.waze\.com\/ul\?ll=/);
+    expect(r.circulation.infos_routes!.map((i) => i.titre)).toEqual(["Barrage filtrant au rond-point de Savanna"]);
+    expect(r.circulation.routes_ile![0].titre).toBe("Bouchons sur la route des Tamarins");
+    // The other news of the commune, of the last hours only.
+    expect(r.actualites!.map((i) => i.titre)).toEqual(["Le marché forain déplacé"]);
+    expect(r.coupures_eau!.avis.map((n) => n.titre)).toEqual(["Coupure rue de la Gare"]);
+    // Today's events of the commune, those over several days included.
+    expect(r.evenements_du_jour!.liste.map((e) => e.titre)).toEqual(["Concert au Kabardock", "Festival sur trois jours"]);
+    // Saturday: the town hall is closed all day; the buses' notices of the commune.
+    expect(r.mairie).toMatchObject({ ouverte: false, horaires_aujourd_hui: "fermée aujourd'hui", telephone: "0262 45 90 00" });
+    expect(r.circulation.bus).toEqual([{ reseau: "Kar'Ouest", titre: "Ligne 1 déviée" }]);
+    expect(r.calendrier).toEqual({ jour_ferie: undefined, vacances_scolaires: "Vacances de la Toussaint" });
+    expect(r.soleil.lever).toMatch(/^0[5-6]:\d\d$/);
+    expect(r.resume).toMatch(/^Saint-Paul, samedi 24 octobre ; 27,4 °C mesurés à 13:54 \(station Saint-Paul\) ; prévision du jour 21 °C à 29 °C, ensoleillé ;/);
+    expect(r.resume).toContain("2 événements aujourd'hui");
+    // Each source once; the tap water is not a day's news (qualite_eau).
+    expect(new Set(r.sources.map((s) => s.source)).size).toBe(r.sources.length);
+    expect(JSON.stringify(r)).not.toMatch(/conforme/);
+  });
+
+  it("leaves out what it has no copy of, and says so", () => {
+    const r = resume(SAINT_PAUL, { meteo: COPIES.meteo } as never, NOW, [{ partie: "coupures d'eau", raison: "pas de copie récente", outil: "coupures_eau" }]);
+    expect(r.coupures_eau).toBeUndefined();
+    expect(r.evenements_du_jour).toBeUndefined();
+    expect(r.circulation.mesure_des_bouchons).toBeTruthy();
+    expect(r.non_inclus).toEqual([{ partie: "coupures d'eau", raison: "pas de copie récente", outil: "coupures_eau" }]);
+    // The sea from the weather page's own reading, when the sea's page has no copy: then it is not said missing.
+    const withSea = { meteo: copy({ ...COPIES.meteo.value, mer: { resume: "", sources: [], mesure: { temperature_eau: "24,7 °C", jour_mesure: "2026-10-23", distance_km: 3 } } }) };
+    const r2 = resume(SAINT_PAUL, withSea as never, NOW, [{ partie: "température de la mer", raison: "pas de copie récente", outil: "temperature_mer" }]);
+    expect(r2.mer?.temperature_eau).toBe("24,7 °C");
+    expect(r2.non_inclus).toBeUndefined();
+  });
+
+  it("in the evening, gives tomorrow's forecast too", () => {
+    const r = resume(SAINT_PAUL, { meteo: COPIES.meteo } as never, new Date("2026-10-24T14:30:00Z"));
+    expect(r.meteo?.prevision?.demain?.jour).toBe("Dimanche 25/10");
+  });
+});
+
+/** The data center's cache: each read or write is a subrequest. */
+class EdgeLike extends MemoryStore {
+  async get(key: string) {
+    count();
+    return super.get(key);
+  }
+  async put(key: string, entry: CacheEntry) {
+    count();
+    return super.put(key, entry);
+  }
+}
+
+const KEYS: Record<string, string> = {
+  meteo: "web:lieu:saint-paul", commune: "web:commune:saint-paul", air: "web:air", mer: "web:mer", electricite: "web:electricite", actualites: "web:actualites",
+  trafic: "web:trafic", coupures: "web:coupures", agenda: "web:agenda", calendrier: "web:calendrier",
+};
+
+/** An edge holding the copies, `old` of them read hours ago, `missing` never built. */
+async function edgeWith(old: string[] = [], missing: string[] = []) {
+  const edge = new EdgeLike();
+  for (const [part, c] of Object.entries(COPIES)) {
+    if (missing.includes(part)) continue;
+    await edge.put(KEYS[part], { value: c.value, fetchedAt: (old.includes(part) ? ago(5 * 60) : c.fetchedAt).getTime() });
+  }
+  return edge;
+}
+const isolate = (edge: EdgeLike) => new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false, new MemoryStore());
+
+beforeEach(() => {
+  configure({ applicationId: "test" });
+  vi.stubGlobal("fetch", async (url: string) => {
+    const u = String(url);
+    if (u.includes("/token")) return Response.json({ access_token: "t", expires_in: 3600 });
+    if (u.includes("DPPaquetObs")) return new Response(fixture("meteofrance_6min.csv"));
+    if (u.includes("DPVigilance")) return new Response(fixture("vigilance_om.zip"));
+    if (u.includes("aviationweather")) return new Response(fixture("metar.json"));
+    if (u.endsWith("/live/all")) return new Response(fixture("pioupiou_all.json"));
+    if (u.includes("noaacwLEOACSPO")) return new Response(fixture("acspo.csv"));
+    if (u.includes("erdMH1sstd1day")) return new Response(fixture("modis.csv"));
+    if (u.includes("open-meteo.com/data")) return new Response(fixture("openmeteo_meta.json"));
+    if (u.includes("open-meteo")) return new Response(fixture("openmeteo_cilaos.json"));
+    if (u.includes("GetCapabilities")) return new Response("<x></x>");
+    return new Response("", { status: 404 });
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  configure({});
+});
+
+describe("reading the copies", () => {
+  it("keeps the recent ones, names the others with the tool to call, and reads nothing else", async () => {
+    const { value } = await counted(WORKER_BUDGET, () => readCopies(isolate(new EdgeLike()), SAINT_PAUL, SAINT_PAUL, NOW));
+    // Nothing at all: every part named, nothing refreshed without a way to finish after the answer.
+    expect(value.leftOut.map((x) => x.outil)).toEqual(expect.arrayContaining(["meteo_actuelle et prevision_meteo", "coupures_eau", "evenements", "actualites"]));
+    expect(value.refreshed).toBeUndefined();
+
+    const { value: v2 } = await counted(WORKER_BUDGET, async () => readCopies(isolate(await edgeWith(["coupures"])), SAINT_PAUL, SAINT_PAUL, NOW));
+    expect(v2.copies.coupures).toBeUndefined();
+    expect(v2.copies.agenda).toBeTruthy();
+    expect(v2.leftOut.find((x) => x.outil === "coupures_eau")?.raison).toMatch(/^copie de 24\/10 09:00, trop ancienne$/);
+  });
+
+  it("brings the oldest missing copy up to date after the answer, only within the invocation's subrequests", async () => {
+    // What each build takes, learnt as the site would (budget.ts keeps the most of it per isolate): the weather page's
+    // is more than what is left after the reads, the air's is not.
+    await counted(WORKER_BUDGET, () => measured(KEYS.meteo, () => buildPlace(isolate(new EdgeLike()), SAINT_PAUL, NOW)));
+    await counted(WORKER_BUDGET, () => measured(KEYS.air, () => buildAir(isolate(new EdgeLike()), NOW)).catch(() => undefined));
+    const once = async (missing: string) => {
+      const pending: Promise<unknown>[] = [];
+      const edge = await edgeWith([], [missing]);
+      const run = await counted(WORKER_BUDGET, async () => {
+        const r = await readCopies(isolate(edge), SAINT_PAUL, SAINT_PAUL, NOW, (p) => pending.push(p));
+        await Promise.all(pending);
+        return r;
+      });
+      return { refreshed: run.value.refreshed, ...(await run.settled()) };
+    };
+    const air = await once("air");
+    expect(air.refreshed).toBe(KEYS.air);
+    expect(air.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(air.refused).toBe(0);
+    // Too costly to fit: left to the commune page, which brings it up to date on its own.
+    const meteo = await once("meteo");
+    expect(meteo.refreshed).toBeUndefined();
+    expect(meteo.used).toBeLessThanOrEqual(WORKER_BUDGET);
+  });
+
+  it("answers through the tool within the budget, naming the commune of the place asked", async () => {
+    const pending: Promise<unknown>[] = [];
+    const run = await counted(WORKER_BUDGET, async () => {
+      const r = await resumeDuJour(isolate(await edgeWith()), "Boucan Canot", NOW, (p) => pending.push(p));
+      await Promise.all(pending);
+      return r;
+    });
+    const r = body(run.value);
+    expect(r.lieu.commune).toBe("Saint-Paul");
+    expect(r.commune).toBe("Saint-Paul");
+    expect(r.coupures_eau.avis).toHaveLength(1);
+    expect((await run.settled()).used).toBeLessThanOrEqual(WORKER_BUDGET);
+  });
+
+  it("says when the place is not found", async () => {
+    const r = await resumeDuJour(new Cache(), "Xyzzyville du Nord", NOW);
+    expect(body(r).erreur).toMatch(/introuvable/);
+  });
+});

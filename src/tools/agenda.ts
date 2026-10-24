@@ -306,6 +306,35 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
 }
 export type EventRow = ReturnType<typeof eventRow>;
 
+interface Occurrence {
+  du: string;
+  au: string;
+  /** « 19:30 » when the source gives it. */
+  debut?: string;
+  fin?: string;
+  /** As the agenda writes it: « samedi 24/10 de 14:00 à 18:00 ». */
+  quand: string;
+}
+
+/**
+ * The dates of a row as the agenda writes them (tools/agenda.ts `when`): its first one, and the others it lists.
+ * « samedi 24/10 à 19:30 », « samedi 24/10 de 14:00 à 18:00 », « du vendredi 23/10 à 19:00 au dimanche 25/10 ».
+ */
+export function occurrences(r: Pick<EventRow, "date" | "quand" | "autres_dates">): Occurrence[] {
+  const year = Number(r.date.slice(0, 4));
+  const first = r.date.slice(5, 10);
+  const day = (dd: string, mm: string) => `${year + (`${mm}-${dd}` < first ? 1 : 0)}-${mm}-${dd}`;
+  const DAY = String.raw`\S+ (\d\d)\/(\d\d)`;
+  const read = (q: string): Occurrence | undefined => {
+    let m = new RegExp(`^du ${DAY}(?: à (\\d\\d:\\d\\d))? au ${DAY}(?: à (\\d\\d:\\d\\d))?$`).exec(q);
+    if (m) return { du: day(m[1], m[2]), debut: m[3], au: day(m[4], m[5]), fin: m[6], quand: q };
+    m = new RegExp(`^${DAY}(?: à (\\d\\d:\\d\\d)| de (\\d\\d:\\d\\d) à (\\d\\d:\\d\\d))?$`).exec(q);
+    if (m) return { du: day(m[1], m[2]), au: day(m[1], m[2]), debut: m[3] ?? m[4], fin: m[5], quand: q };
+    return undefined;
+  };
+  return [r.quand, ...(r.autres_dates ?? [])].map(read).filter((o): o is Occurrence => !!o);
+}
+
 // Told from the agendas read: a source taken out of AGENDAS leaves this text too.
 const halls = src.AGENDAS.filter((x) => x.source === SALLES_SOURCE);
 const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== "reunion_fr");
