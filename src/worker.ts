@@ -7,7 +7,7 @@
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
 import { handle } from "./app.js";
-import { WORKER_FREE_LIMIT, count, counted } from "./budget.js";
+import { WORKER_FREE_LIMIT, count, counted, later } from "./budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { visitor, type Hit } from "./metrics.js";
 import { VERSION } from "./server.js";
@@ -157,9 +157,14 @@ function setup(env: Env): Cache {
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
     const c = setup(env);
-    // A page served from its last copy refreshes it after the response (web/data.ts).
-    const { value, used } = await counted(WORKER_FREE_LIMIT, () => handle(request, c, (p) => ctx.waitUntil(p), recorder(env, request)));
-    if (used) console.log(`sous-requêtes : ${used} (${new URL(request.url).pathname})`);
+    // A page served from its last copy refreshes it after the response (web/data.ts); an agenda too slow for the
+    // answer is still stored (tools/agenda.ts).
+    const { value, used, settled } = await counted(WORKER_FREE_LIMIT, () => handle(request, c, later, recorder(env, request)), (p) => ctx.waitUntil(p));
+    const path = new URL(request.url).pathname;
+    // Once the work after the response is done too: it counts against the same limit.
+    ctx.waitUntil(settled().then((total) => {
+      if (total) console.log(`sous-requêtes : ${total} (${path})${total > used ? `, dont ${total - used} après la réponse` : ""}`);
+    }));
     return value;
   },
 

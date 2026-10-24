@@ -1,4 +1,4 @@
-import { perInvocation } from "../budget.js";
+import { later, left, perInvocation } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
@@ -163,27 +163,75 @@ export function matcher(quoi: string | undefined): { nom?: string; test: (e: src
 type Got = { agenda: src.Agenda; value?: Cached<src.Evenement[]> };
 
 // An answer does not wait longer for the slowest of the agendas: one still loading is answered from its last copy, or
-// left out and named.
+// left out and named, and stored once it lands, after the response.
 const DEADLINE_MS = 5_000;
+// Every agenda's copy in one entry of the cache: one read and at most one write per invocation, whatever their number
+// (a read and a write each would take two subrequests per agenda). An isolate looks for another's copies once a minute.
+const BUNDLE = "agendas";
+const SYNC_SECONDS = 60;
+// The subrequests not to be spent on the agendas: what follows them (the news's copy, the bundle's write, the page's
+// copy) and a margin, so that an invocation that reads them all stays near 40 out of 50. An agenda past them is answered
+// from its last copy, or named, and read by a later question.
+const KEEP_LEFT = 13;
 
-/** Every agenda, read in parallel; one that fails or is too slow is left out and named. */
-export async function gather(cache: Cache, now: Date, deadlineMs = DEADLINE_MS): Promise<Got[]> {
-  return Promise.all(src.AGENDAS.map(async (agenda) => {
+/** An agenda this invocation has no subrequests left for, and of which no copy is kept. */
+class Postponed extends Error {}
+
+/** Every agenda, read in parallel, once per invocation; one that fails, is too slow or is left for later is named. */
+export function gather(cache: Cache, now: Date, deadlineMs = DEADLINE_MS): Promise<Got[]> {
+  return perInvocation("agenda:gather", () => read(cache, now, deadlineMs));
+}
+
+async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]> {
+  const bundle = await cache.bundle(BUNDLE, SYNC_SECONDS);
+  const key = (a: src.Agenda) => `agenda:${a.id}`;
+  const last = (k: string): Cached<src.Evenement[]> | undefined => {
+    const e = bundle.peek(k);
+    return e && { value: e.value as src.Evenement[], fetchedAt: new Date(e.fetchedAt), stale: true };
+  };
+  let allowed = left() - KEEP_LEFT;
+  // The subrequests go first to the agendas without a copy, then to the oldest.
+  const age = (a: src.Agenda) => bundle.peek(key(a))?.ageMs ?? Infinity;
+  const order = [...src.AGENDAS].sort((x, y) => age(y) - age(x));
+  const store = (a: src.Agenda): src.AgendaStore => ({
+    get: <T>(k: string, freshSeconds: number, load: () => Promise<T>) => {
+      const hit = bundle.peek(k);
+      if (hit && hit.ageMs < freshSeconds * 1000) return bundle.get(k, freshSeconds, load);
+      if ((a.requetes ?? 1) <= allowed) {
+        allowed -= a.requetes ?? 1;
+        return bundle.get(k, freshSeconds, load);
+      }
+      const old = last(k);
+      return old ? Promise.resolve(old as Cached<T>) : Promise.reject(new Postponed(a.nom));
+    },
+  });
+  const pending: Promise<unknown>[] = [];
+  const got = await Promise.all(order.map(async (agenda): Promise<Got> => {
+    const loading = agenda.load(store(agenda), now);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const late = new Promise<"late">((resolve) => (timer = setTimeout(() => resolve("late"), deadlineMs)));
     try {
-      const got = await Promise.race([agenda.load(cache, now), late]);
+      const got = await Promise.race([loading, late]);
       if (got !== "late") return { agenda, value: got };
-      const last = await cache.peek<src.Evenement[]>(`agenda:${agenda.id}`);
-      console.error(`source ${agenda.source.id} (${agenda.id}) trop lente${last ? " : dernière copie" : ""}`);
-      return last ? { agenda, value: { ...last, stale: true } } : { agenda };
+      // Still stored once it lands: the next question has it.
+      pending.push(loading.catch((err) => console.error(`source ${agenda.source.id} (${agenda.id}) indisponible:`, why(err))));
+      const old = last(key(agenda));
+      console.error(`source ${agenda.source.id} (${agenda.id}) trop lente${old ? " : dernière copie" : ""}`);
+      return { agenda, value: old };
     } catch (err) {
-      console.error(`source ${agenda.source.id} (${agenda.id}) indisponible:`, why(err));
+      if (err instanceof Postponed) console.error(`source ${agenda.source.id} (${agenda.id}) remise à plus tard : plus assez de sous-requêtes`);
+      else console.error(`source ${agenda.source.id} (${agenda.id}) indisponible:`, why(err));
       return { agenda };
     } finally {
       clearTimeout(timer);
     }
   }));
+  // An agenda no longer read is not kept.
+  bundle.drop((k) => src.AGENDAS.some((a) => key(a) === k));
+  const save = () => bundle.save().catch((err) => console.error("agendas : copie impossible", why(err)));
+  if (pending.length) later(Promise.allSettled(pending).then(save));
+  else await save();
+  return src.AGENDAS.map((a) => got.find((g) => g.agenda === a)!);
 }
 
 /**

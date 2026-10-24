@@ -12,7 +12,7 @@
  *   (Saint-Leu) with The Events Calendar.
  * Nineteen requests in all, each source cached on its own: one that fails leaves the others answering.
  */
-import type { Cache, Cached } from "../cache.js";
+import type { Bundle, Cached } from "../cache.js";
 import { getText } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
@@ -87,13 +87,22 @@ export interface Evenement {
   billetterie?: string;
 }
 
+/**
+ * Where an agenda keeps its copy: its entry in the bundle of all the agendas (tools/agenda.ts), one read and one write
+ * per invocation whatever their number. A `Cache` will do too.
+ */
+export type AgendaStore = Pick<Bundle, "get">;
+
 export interface Agenda {
   id: string;
   nom: string;
   source: SourceInfo;
   /** The commune of a mairie's agenda, for an event that names no other. */
   commune?: string;
-  load: (cache: Cache, now: Date) => Promise<Cached<Evenement[]>>;
+  /** The fetches one reading makes, when more than one: an invocation reads the agendas its subrequests allow. */
+  requetes?: number;
+  /** One `cache.get("agenda:<id>", …)`, nothing else of the cache. */
+  load: (cache: AgendaStore, now: Date) => Promise<Cached<Evenement[]>>;
 }
 
 const localDay = (now: Date) => new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
