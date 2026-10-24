@@ -270,7 +270,7 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   if (s) {
     // The hikers' page's copy, and the weather page's as it is: a sector's page builds nothing of its own.
     const [data, a, meteo] = await Promise.all([
-      snapshot(cache, DOMAINS["/randonnees"].key, () => buildRandonnees(cache), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, DOMAINS["/randonnees"].key, () => buildRandonnees(cache, now), background, now, waitFor(request), isReader(request)),
       alerte(cache, background, now),
       s.meteo ? cache.peek<PlaceData>(`web:lieu:${s.meteo}`).catch(() => undefined) : undefined,
     ]);

@@ -1,12 +1,16 @@
 import type { Cache } from "../cache.js";
 import { distanceKm } from "../geo.js";
 import { communeAt, normalize, resolvePlace } from "../places/resolve.js";
+import * as feux from "../providers/feux.js";
 import * as onf from "../providers/sentiers.js";
 import * as traces from "../providers/traces.js";
 import { why } from "../types.js";
+import * as fire from "./feux.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 
 const NEAR_KM = 4;
+// A fire this close to the place asked is said first.
+const FIRE_KM = 10;
 const NAMED_MAX = 8;
 const ROUTES_MAX = 10;
 /** Where the traces and the trails' pages are served. */
@@ -224,6 +228,8 @@ const COMMON = {
 
 export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, now = new Date(), filtre?: Filtre) {
   let carte: onf.Carte;
+  // The fires seen by satellite, beside the trails: nothing without FIRMS's key (providers/feux.ts).
+  const seen = feux.feuxNow(cache, now);
   try {
     carte = (await onf.carte(cache)).value;
   } catch (err) {
@@ -232,13 +238,16 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
   }
   const closed = carte.sentiers.filter((s) => s.statut === "fermé");
   const roadsClosed = carte.routes.filter((r) => /interdit/i.test(r.circulation));
+  const fires = await seen;
   const common = {
+    feux_detectes: fires ? fire.block(fires, now) : undefined,
     carte_mise_a_jour: carte.mise_a_jour ? `${day(carte.mise_a_jour)} (ONF)` : undefined,
     ...COMMON,
     consulter: onf.SOURCE.url,
-    sources: credits([onf.SOURCE]),
+    sources: credits(fires ? [onf.SOURCE, feux.SOURCE] : [onf.SOURCE]),
   };
-  void now;
+  // Said after the trails on the island: a list of the closures is what was asked.
+  const fireSentence = fires?.detections.length ? ` ${fire.vigilanceLine(fires, now)!.replace(" Détails avec sentiers_randonnee.", "")}` : "";
 
   if (!lieu?.trim() && filtering(filtre)) {
     // A hike of a given length or climb anywhere: the full routes first, then the ONF trails, open ones only.
@@ -262,7 +271,7 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
     return text({
       // By name, as the pages count them: the ONF's map cuts some trails in several pieces.
       resume: `${unique(closed.map((s) => s.nom)).length} sentiers fermés sur ${unique(carte.sentiers.map((s) => s.nom)).length} suivis par l'ONF à La Réunion` +
-        (roadsClosed.length ? `, et ${roadsClosed.length} route${roadsClosed.length > 1 ? "s" : ""} forestière${roadsClosed.length > 1 ? "s" : ""} interdite${roadsClosed.length > 1 ? "s" : ""} à la circulation` : "") + ".",
+        (roadsClosed.length ? `, et ${roadsClosed.length} route${roadsClosed.length > 1 ? "s" : ""} forestière${roadsClosed.length > 1 ? "s" : ""} interdite${roadsClosed.length > 1 ? "s" : ""} à la circulation` : "") + "." + fireSentence,
       fermes_par_commune: closedByCommune(carte.sentiers),
       routes_forestieres_fermees: roadsClosed.map(roadRow),
       ...common,
@@ -304,6 +313,9 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
   const center = zone ? cirque ?? (res ? { lon: res.lieu.lon, lat: res.lieu.lat, km: res.lieu.type === "commune" ? 6 : NEAR_KM } : null) : null;
   const around = center && !hikes.length ? routesNear(center.lon, center.lat, center.km).filter((r) => fits(filtre, r.km, r.dplus)).slice(0, ROUTES_MAX) : [];
   const warn = warning([...hikes, ...around].map((r) => routeRow(r, carte)), named);
+  // A fire seen near the place goes first, before the closures.
+  const nearby = center && fires ? fires.detections.filter((d) => distanceKm(center.lon, center.lat, d.lon, d.lat) <= center.km + FIRE_KM) : [];
+  if (nearby.length) parts.push(`Feu de végétation détecté par satellite près de ${nearby[0].lieu}, ${fire.when(nearby[0].t, now)}${nearby.length > 1 ? ` (${nearby.length} détections dans le secteur)` : ""} : ${feux.LABEL}. ${fire.URGENCE}`);
   if (warn?.routes) parts.push(warn.message);
   for (const h of hikes.slice(0, 3)) {
     const row = routeRow(h, carte);
@@ -351,5 +363,6 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
     sentiers_nommes: named.length ? named.map((s) => trailRow(s)) : undefined,
     ...(zoneOut ? { autour: zoneOut } : {}),
     ...common,
+    feux_detectes: fires ? fire.block(fires, now, center ?? undefined) : undefined,
   });
 }

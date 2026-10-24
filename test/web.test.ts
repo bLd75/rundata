@@ -5,6 +5,7 @@ import { WORKER_BUDGET, WORKER_FREE_LIMIT, count, counted, later, left } from ".
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
 import * as mf from "../src/providers/vigilance.js";
+import * as feux from "../src/providers/feux.js";
 import { alerteOf, snapshot } from "../src/web/data.js";
 import { homePage } from "../src/web/home.js";
 import { DESCRIPTION_MAX, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
@@ -50,6 +51,8 @@ function upstream(url: string): Response {
   if (url.includes("noaacwLEOACSPO")) return new Response(fixture("acspo.csv"));
   if (url.includes("erdMH1sstd1day")) return new Response(fixture("modis.csv"));
   if (url.includes("marine-api.open-meteo")) return new Response(fixture("openmeteo_houle.json"));
+  if (url.includes("firms.modaps")) return new Response(fixture("firms_viirs_noaa20.csv"));
+  if (new URL(url).hostname.endsWith(".arcgis.com")) return new Response(fixture(`onf/${url.includes("/5/query") ? "sentiers" : url.includes("/4/query") ? "routes" : "couche"}.json`));
   if (url.includes("air-quality-api.open-meteo")) return new Response(fixture("cams_uv.json"));
   if (url.includes("open-meteo.com/data")) return new Response(fixture("openmeteo_meta.json"));
   if (url.includes("open-meteo")) return new Response(fixture("openmeteo_cilaos.json"));
@@ -109,6 +112,24 @@ describe("the budget of subrequests", () => {
         expect(r.text, `${path} with ${budget}`).toContain("</html>");
         expect(r.used, `${path} with ${budget}`).toBeLessThanOrEqual(budget);
       }
+    }
+  });
+
+  it("stays within it with the fires seen by satellite, cold, on the pages that build them", async () => {
+    feux.configure("key");
+    try {
+      for (const budget of [0, 6, 18, WORKER_BUDGET]) {
+        const cache = isolate();
+        for (const path of ["/sentiers", "/randonnees", "/communes/saint-paul", "/vigilance"]) {
+          const r = await within(cache, path, budget);
+          expect(r.status, `${path} with ${budget}`).toBeLessThan(500);
+          expect(r.used, `${path} with ${budget}`).toBeLessThanOrEqual(budget);
+        }
+      }
+      const r = await within(isolate(), "/sentiers", WORKER_BUDGET);
+      expect(r.text).toContain('<h2 id="h-feux">Feux de végétation vus par satellite</h2>');
+    } finally {
+      feux.configure(undefined);
     }
   });
 

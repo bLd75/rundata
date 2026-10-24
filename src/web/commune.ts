@@ -196,7 +196,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const velos = bikes(l.commune);
   const mairie = townHall(l.commune, now);
   const fiche = l.commune?.value.mairie?.fiche;
-  const hikes = communeHikes(p, l.randonnees);
+  const hikes = communeHikes(p, l.randonnees, now);
 
   const tiles: Tile[] = [
     { icon: "thermo", nom: "Météo", href: `/meteo/${p.slug}`, live: w },

@@ -39,6 +39,7 @@ import * as eauPotableSource from "../providers/eaupotable.js";
 import { COMMON as EAU_COMMON } from "../tools/eau.js";
 import { credits } from "../tools/format.js";
 import * as onf from "../providers/sentiers.js";
+import * as feux from "../providers/feux.js";
 import { routeRow, secteur, SECTEURS, sentiersRandonnee, trailSecteur } from "../tools/sentiers.js";
 import { pathOf } from "./map.js";
 import { restrictionsEau } from "../tools/secheresse.js";
@@ -376,11 +377,15 @@ export interface SentiersAnswer {
   suivis: number;
   /** The hikes with a GPS trace, from the bundle. */
   randonnees: { nom: string; slug: string; km: number; dplus: number; boucle: boolean }[];
+  /** The fires seen by satellite in the 24 hours before the build; missing without FIRMS (providers/feux.ts). */
+  feux?: feux.Feux;
 }
 
 /** The tool's overview of the island, plus where each closed trail is. */
 export async function buildSentiers(cache: Cache, now = new Date()): Promise<SentiersAnswer> {
-  const a = needed<Omit<SentiersAnswer, "points" | "suivis" | "randonnees">>(await sentiersRandonnee(cache, undefined, now), "sentiers");
+  const a = needed<Omit<SentiersAnswer, "points" | "suivis" | "randonnees" | "feux">>(await sentiersRandonnee(cache, undefined, now), "sentiers");
+  // The answer's fires again (once per invocation), as points for the map.
+  const fires = await feux.feuxNow(cache, now);
   const carte = (await onf.carte(cache)).value;
   const points = carte.sentiers
     .filter((t) => t.statut === "fermé" && t.points.length)
@@ -393,7 +398,7 @@ export async function buildSentiers(cache: Cache, now = new Date()): Promise<Sen
     .map((r) => ({ nom: r.nom, slug: r.slug, km: r.km, dplus: r.dplus, boucle: r.boucle }));
   // Each closed trail with the hikes it cuts.
   const fermes_par_commune = a.fermes_par_commune.map((c) => ({ ...c, sentiers_fermes: c.sentiers_fermes.map((t) => ({ ...t, randonnees: hikesThrough(t.sentier) })) }));
-  return { ...a, fermes_par_commune, points, suivis: new Set(carte.sentiers.map((t) => t.nom)).size, randonnees };
+  return { ...a, fermes_par_commune, points, suivis: new Set(carte.sentiers.map((t) => t.nom)).size, randonnees, ...(fires ? { feux: { detections: fires.detections, satellites: fires.satellites } } : {}) };
 }
 
 /** The hikes that follow an ONF trail, by its name. */
@@ -448,14 +453,16 @@ export interface RandonneesAnswer {
   suivis: number;
   carte_mise_a_jour?: string;
   sources: Credit[];
+  /** The fires seen by satellite in the 24 hours before the build, for the communes' tiles; missing without FIRMS. */
+  feux?: feux.Feux;
 }
 
 const LOOP_M = 150;
 const CROSSING_KM = 40;
 
 /** Every hike with its trace and every ONF trail, with their state now and where they are; and the island's map of them. */
-export async function buildRandonnees(cache: Cache): Promise<RandonneesAnswer> {
-  const carte = (await onf.carte(cache)).value;
+export async function buildRandonnees(cache: Cache, now = new Date()): Promise<RandonneesAnswer> {
+  const [carte, fires] = await Promise.all([onf.carte(cache).then((c) => c.value), feux.feuxNow(cache, now)]);
   const byName = new Map<string, onf.Sentier[]>();
   for (const s of carte.sentiers) byName.set(s.nom, [...(byName.get(s.nom) ?? []), s]);
 
@@ -527,7 +534,8 @@ export async function buildRandonnees(cache: Cache): Promise<RandonneesAnswer> {
     fermes: items.filter((t) => t.etat === "fermé").length,
     suivis: items.length,
     carte_mise_a_jour: carte.mise_a_jour,
-    sources: credits([traces.SOURCES.osm, onf.SOURCE, traces.SOURCES.ign]),
+    sources: credits([traces.SOURCES.osm, onf.SOURCE, traces.SOURCES.ign, ...(fires ? [feux.SOURCE] : [])]),
+    ...(fires ? { feux: { detections: fires.detections, satellites: fires.satellites } } : {}),
   };
 }
 

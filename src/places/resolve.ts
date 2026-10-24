@@ -185,15 +185,18 @@ function resolve(text: string): Resolution | null {
   return { lieu: best.place, correspondance: best.kind, autres };
 }
 
-/** The commune of a point: that of the nearest place of the gazetteer (a hamlet, a beach, a cape…). */
-export function communeAt(lon: number, lat: number): string {
+/** The nearest place of the gazetteer to a point (a hamlet, a beach, a cape…). */
+export function placeAt(lon: number, lat: number): Place {
   let best = PLACES[0];
   let min = Infinity;
   for (const p of PLACES) {
     const d = distanceKm(lon, lat, p.lon, p.lat);
     if (d < min) [best, min] = [p, d];
   }
-  return best.commune;
+  return best;
 }
+
+/** The commune of a point: that of the nearest place of the gazetteer. */
+export const communeAt = (lon: number, lat: number): string => placeAt(lon, lat).commune;
 
 export const GAZETTEER_ATTRIBUTION: string = gazetteer.attribution;
