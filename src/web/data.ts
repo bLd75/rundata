@@ -321,6 +321,8 @@ export interface VolcanAnswer {
   seismes?: {
     sous_le_volcan: { "30_jours": number; "7_jours": number; magnitude_max_30j: number | null };
     ailleurs_sur_l_ile: { "30_jours": number; magnitude_max_30j: number | null };
+    /** Day of La Réunion « 2026-10-24 », oldest first; today `en_cours`. */
+    par_jour_sous_le_volcan?: { jour: string; nombre: number; en_cours?: true }[];
     derniers: { heure: string; magnitude: number; profondeur_km: number; lieu: string }[];
     note: string;
   };

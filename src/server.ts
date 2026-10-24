@@ -244,8 +244,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       description:
         "État du volcan du Piton de la Fournaise et séismes à La Réunion (974) : éruption en cours ou non, niveau du " +
         "dispositif ORSEC (vigilance, alerte 1, alerte 2…), date de la dernière éruption, accès à l'Enclos Fouqué, " +
-        "dernières publications de l'Observatoire volcanologique (OVPF-IPGP) et séismes localisés ces 30 derniers jours, " +
-        "sous le volcan et ailleurs sur l'île. Pour : « le volcan est en éruption ? », « on peut monter au volcan ? », " +
+        "dernières publications de l'Observatoire volcanologique (OVPF-IPGP) et séismes localisés par l'OVPF ces 30 derniers jours, " +
+        "sous le volcan (aussi par jour) et ailleurs sur l'île. Pour : « le volcan est en éruption ? », « on peut monter au volcan ? », " +
         "« l'Enclos est ouvert ? », « il y a eu un séisme ? », « le Piton de la Fournaise se réveille ? ». " +
         "/ Piton de la Fournaise volcano status (eruption, alert level, access) and recent earthquakes in Réunion Island.",
       inputSchema: {},
