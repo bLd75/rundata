@@ -7,7 +7,7 @@
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
 import { handle } from "./app.js";
-import { WORKER_BUDGET, WORKER_FREE_LIMIT, count, counted, later } from "./budget.js";
+import { WORKER_BUDGET, WORKER_FREE_LIMIT, count, counted, later, spent } from "./budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { audience, language, point, visitor, type Hit } from "./metrics.js";
 import { VERSION } from "./server.js";
@@ -18,6 +18,7 @@ import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
 import { prefetchForecasts } from "./tools/prevision.js";
+import { SharedFallback, warmShared } from "./web/partagees.js";
 import { why } from "./types.js";
 
 // How long the edge keeps an entry. Much longer than any freshness window: an old copy is what gets served,
@@ -173,7 +174,9 @@ function setup(env: Env): Cache {
   const avisDb = env.AVIS;
   avis.configure(avisDb && (async (sql: string, ...params: unknown[]) => (await avisDb.prepare(sql).bind(...params).run()).meta.changes), env.AVIS_SEL);
   // Without the KV binding, the bundles stay in the data center's cache like everything else.
-  return (cache ??= new Cache(new TieredStore(new MemoryStore(), new EdgeStore()), Date.now, false, env.STORE && new KvStore(env.STORE)));
+  // The page copies shared by every data center are read from KV when the data center's cache has none (web/partagees.ts).
+  const edge = env.STORE ? new SharedFallback(new EdgeStore(), env.STORE) : new EdgeStore();
+  return (cache ??= new Cache(new TieredStore(new MemoryStore(), edge), Date.now, false, env.STORE && new KvStore(env.STORE)));
 }
 
 export default {
@@ -194,10 +197,18 @@ export default {
 
   async scheduled(_controller: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
     const c = setup(env);
+    const kv = env.STORE;
+    // The AROME grids first; then, with what is left of the invocation, the shared page copies that are due.
     ctx.waitUntil(
-      counted(WORKER_FREE_LIMIT, () => prefetchForecasts(c))
-        .then(({ value, used }) => console.log(`préchargement AROME : ${JSON.stringify(value)}, sous-requêtes : ${used}`))
-        .catch((err) => console.error("préchargement AROME impossible", why(err))),
+      counted(WORKER_FREE_LIMIT, async () => {
+        const arome = await prefetchForecasts(c).catch((err) => (console.error("préchargement AROME impossible", why(err)), null));
+        const aromeUsed = spent();
+        const copies = kv ? await warmShared(c, kv) : [];
+        return { arome, aromeUsed, copies };
+      })
+        .then(({ value, used }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +
+          (value.copies.length ? ` ; copies partagées : ${value.copies.join(", ")}, sous-requêtes en tout : ${used}` : "")))
+        .catch((err) => console.error("préchargement impossible", why(err))),
     );
   },
 };
