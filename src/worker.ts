@@ -13,6 +13,7 @@ import { audience, language, point, visitor, type Hit } from "./metrics.js";
 import { VERSION } from "./server.js";
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
+import * as carburants from "./providers/carburants.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
@@ -160,6 +161,11 @@ function setup(env: Env): Cache {
   eauIle.configure(kv && (async () => {
     count();
     return (await kv.get("eau:ile", "json")) as eauIle.Ile | null;
+  }));
+  // Read once a day from the prefecture by .github/workflows/carburants.yml (src/providers/carburants.ts).
+  carburants.configure(kv && (async () => {
+    count();
+    return (await kv.get("carburants:prix", "json")) as carburants.Prix | null;
   }));
   transit.configure(d1 && { all: async <T>(sql: string, ...params: unknown[]) => (await d1.prepare(sql).bind(...params).all<T>()).results });
   const climatDb = env.CLIMAT;

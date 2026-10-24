@@ -61,6 +61,8 @@ import icons from "./icons.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import { NOUVEAUTES } from "../nouveautes.js";
 import { nouveautesPage } from "./nouveautes.js";
+import { carburantsPage } from "./carburants.js";
+import * as carburants from "../providers/carburants.js";
 import { aujourdhuiPage } from "./aujourdhui.js";
 import { readCopies, resume } from "../tools/resume.js";
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
@@ -183,7 +185,7 @@ const localDay = (d: string | Date) => new Date(new Date(d).getTime() + 4 * 3600
  * hikes and trails (their ONF state aside), the day of the latest change for /nouveautes, and STATIC_CHANGED for the
  * pages without live data.
  */
-function sitemap(origin: string, now: Date): string {
+function sitemap(origin: string, now: Date, fuelDay?: string): string {
   const today = localDay(now);
   const live = (u: string) => [u, today, "hourly"];
   const fixed = (u: string) => [u, STATIC_CHANGED, "monthly"];
@@ -192,7 +194,7 @@ function sitemap(origin: string, now: Date): string {
   const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/mer"].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions"].map(fixed),
-    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"]];
+    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay ?? today, "daily"]];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map(([u, day, freq]) => `<url><loc>${origin}${u}</loc><lastmod>${day}</lastmod><changefreq>${freq}</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
@@ -292,6 +294,10 @@ export async function site(request: Request, cache: Cache, background: Backgroun
     // Its live counts are read from copies already here: a few minutes in browsers is enough.
     return new Response(pressePage(origin, await pressFigures(cache)), { headers: { ...HTML, "cache-control": "public, max-age=300" } });
   }
+  if (path === "/carburants" || path === "/carburants/") {
+    const [data, a] = await Promise.all([carburants.prix(cache, now).catch(() => null), alerte(cache, background, now)]);
+    return new Response(carburantsPage(origin, data, now, a), { headers: htmlFor(data) });
+  }
   if (path === "/nouveautes" || path === "/nouveautes/") {
     return new Response(nouveautesPage(origin), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
@@ -348,7 +354,9 @@ export async function site(request: Request, cache: Cache, background: Backgroun
     });
   }
   if (path === "/sitemap.xml") {
-    return new Response(sitemap(origin, now), { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    // The fuel page changes with the prefect's order: its date, from the stored copy when there is one.
+    const fuel = await cache.peek<carburants.Prix>("carburants:prix").catch(() => undefined);
+    return new Response(sitemap(origin, now, fuel?.value.depuis), { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
   }
   if (path === "/og.png") {
     return new Response((ogBytes ??= bytes(og.png)), { headers: { "content-type": "image/png", "cache-control": STATIC } });

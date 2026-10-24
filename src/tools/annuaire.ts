@@ -4,6 +4,7 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as annuaire from "../providers/annuaire.js";
 import { why } from "../types.js";
+import { carburantsAnswer, FUEL } from "./carburants.js";
 import { credits, de, fr, notFound, text } from "./format.js";
 
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
@@ -55,6 +56,8 @@ export function named(list: annuaire.Office[], quoi: string): annuaire.Office[] 
 }
 
 export async function annuaireTool(cache: Cache, quoi: string, lieu: string | undefined, now = new Date()) {
+  // Practical life, asked the same way: the fuel prices of the month.
+  if (FUEL.test(quoi)) return carburantsAnswer(cache, now);
   const res = lieu?.trim() ? resolvePlace(lieu) : null;
   if (lieu?.trim() && !res) return notFound(lieu);
   const code = res ? INSEE[res.lieu.commune] : undefined;
