@@ -14,7 +14,8 @@ import { alerteVolcan } from "./volcan-alerte.js";
 /** The part of a KV namespace binding used here. */
 export interface Kv {
   get(key: string, type: "json"): Promise<unknown>;
-  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  put(key: string, value: string, options?: { expirationTtl?: number; metadata?: unknown }): Promise<void>;
+  list(options: { prefix: string; cursor?: string }): Promise<{ keys: { name: string; metadata?: unknown }[]; list_complete: boolean; cursor?: string }>;
 }
 
 export interface Shared {
@@ -55,6 +56,16 @@ const LOOKUP = 2;
 type KvEntry = CacheEntry & { cost?: number };
 
 /**
+ * What the scheduled event needs of a copy, written as the KV key's metadata: when it was built, what its build took,
+ * and how often it is refreshed given its value (`Shared.every`). One listing of the keys gives it for every copy.
+ */
+interface KvMeta {
+  fetchedAt: number;
+  cost?: number;
+  every?: number;
+}
+
+/**
  * What a build is expected to take: the most of what it took in this isolate, what it took when its KV copy was
  * written, and its cold cost. After a deploy, every isolate is new and KV has no copy of the version: the cold cost.
  */
@@ -64,7 +75,28 @@ function expected(s: Shared, kept?: number): number {
 }
 
 /** Per shape of the entries, as the data center's cache (cache.ts): a deploy that keeps it keeps the copies. */
-export const kvKey = (key: string) => `copie:format-${CACHE_FORMAT}:${key}`;
+const KV_PREFIX = `copie:format-${CACHE_FORMAT}:`;
+export const kvKey = (key: string) => `${KV_PREFIX}${key}`;
+
+/**
+ * The metadata of every shared copy in KV, by KV key, in one subrequest (a page of a listing holds 1 000 keys); a key
+ * written before the metadata has none. Undefined when KV does not answer: the copies are then read one by one.
+ */
+async function kvList(kv: Kv): Promise<Map<string, KvMeta | undefined> | undefined> {
+  try {
+    const found = new Map<string, KvMeta | undefined>();
+    let cursor: string | undefined;
+    do {
+      count();
+      const page = await kv.list({ prefix: KV_PREFIX, cursor });
+      for (const k of page.keys) found.set(k.name, typeof (k.metadata as KvMeta)?.fetchedAt === "number" ? (k.metadata as KvMeta) : undefined);
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+    return found;
+  } catch {
+    return undefined;
+  }
+}
 
 async function kvGet(kv: Kv, key: string): Promise<KvEntry | undefined> {
   try {
@@ -108,15 +140,24 @@ export interface Warmed {
  * build that would not fit, after a full AROME prefetch, waits for a later event. The event runs under the same
  * budget as a page (worker.ts), so a build that costs more than it was thought to is cut there, not past it.
  */
-// What this isolate last wrote to KV, per key: its next events take the copy's age from here rather than read it back,
-// since each read is a subrequest and a dear build (the traffic's) fits an event only with few of them. Another
-// isolate's newer write is then seen late, which costs at most an early refresh.
-const wrote = new Map<string, KvEntry>();
+// What this isolate last wrote to KV, per key: a listing may not show a write of the last minute yet (KV is
+// eventually consistent), and this isolate knows its own.
+const wrote = new Map<string, KvMeta>();
+
+/** How often `s` is refreshed, given its copy's value. */
+const everyOf = (s: Shared, value: unknown) => (typeof s.every === "number" ? s.every : s.every(value));
 
 export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = SHARED): Promise<Warmed> {
-  const ages = await Promise.all(list.map(async (s) => {
-    const e = wrote.get(kvKey(s.key)) ?? (await kvGet(kv, s.key));
-    return { s, at: e?.fetchedAt, kept: e?.cost, every: typeof s.every === "number" ? s.every : s.every(e?.value) };
+  // The ages and costs of all the copies from one listing; a copy read whole only when the listing has no metadata for
+  // it (written before it was kept there), or when KV did not list.
+  const listed = await kvList(kv);
+  const ages = await Promise.all(list.map(async (s): Promise<{ s: Shared; at?: number; kept?: number; every: number }> => {
+    const k = kvKey(s.key);
+    const meta = wrote.get(k) ?? listed?.get(k);
+    if (meta) return { s, at: meta.fetchedAt, kept: meta.cost, every: meta.every ?? everyOf(s, undefined) };
+    if (listed && !listed.has(k)) return { s, every: everyOf(s, undefined) };
+    const e = await kvGet(kv, s.key);
+    return { s, at: e?.fetchedAt, kept: e?.cost, every: everyOf(s, e?.value) };
   }));
   const due = ages
     .map(({ s, at, kept, every }) => ({ s, at, kept, over: at == null ? Infinity : now.getTime() - at - every * 60_000 }))
@@ -145,8 +186,9 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
       }
       count(1, true);
       const entry: KvEntry = { value: got.value, fetchedAt: got.fetchedAt.getTime(), cost: costOf(s.key) ?? kept };
-      await kv.put(kvKey(s.key), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS });
-      wrote.set(kvKey(s.key), entry);
+      const meta: KvMeta = { fetchedAt: entry.fetchedAt, cost: entry.cost, every: everyOf(s, got.value) };
+      await kv.put(kvKey(s.key), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS, metadata: meta });
+      wrote.set(kvKey(s.key), meta);
       out.written.push(s.key);
     } catch (err) {
       out.left.push({ key: s.key, why: `erreur : ${why(err).slice(0, 80)}` });
