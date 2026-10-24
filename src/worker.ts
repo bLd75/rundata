@@ -10,6 +10,7 @@ import { handle } from "./app.js";
 import { WORKER_FREE_LIMIT, count, counted } from "./budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { visitor, type Hit } from "./metrics.js";
+import { VERSION } from "./server.js";
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as meteofrance from "./providers/meteofrance.js";
@@ -25,8 +26,10 @@ const KEEP_SECONDS = 7 * 24 * 3600;
 const KV_KEEP_SECONDS = 3 * 24 * 3600;
 
 class EdgeStore implements CacheStore {
+  // Per version: a copy written by the previous code (a page's data, a source's answer) may lack what the new code
+  // reads, and the page would fail until the copy expires. A deploy starts afresh; the KV bundles are not affected.
   private url(key: string) {
-    return `https://cache.reunion-temps-reel.internal/upstream/${encodeURIComponent(key)}`;
+    return `https://cache.reunion-temps-reel.internal/upstream/${VERSION}/${encodeURIComponent(key)}`;
   }
   async get(key: string) {
     try {
