@@ -48,11 +48,11 @@ RUBRIQUES = [
     ("historique", "Historique 974", "Le temps qu'il a fait|depuis 1900", ["/historique"]),
     ("energie", "Énergie 974", "Recharge et électricité|en direct", ["/bornes", "/velos", "/electricite"]),
     ("communes", "Communes 974", "Votre commune en direct", ["/communes"]),
-    ("defibrillateurs", "Défibrillateurs 974", "Le plus proche de vous,|et ses horaires", ["/defibrillateurs"]),
+    ("defibrillateurs", "Défibrillateurs 974", "Le plus proche de vous|et ses horaires", ["/defibrillateurs"]),
     ("calendrier", "Calendrier 974", "Vacances scolaires|et jours fériés", ["/calendrier"]),
     ("cyclones", "Cyclones 974", "Trajectoire et alerte|en direct", ["/cyclones"]),
     ("sport", "Sport 974", "Matchs, résultats,|Grand Raid", ["/sport"]),
-    ("carburants", "Carburants 974", "Les prix maximums du mois", ["/carburants"]),
+    ("carburants", "Carburants 974", "Les prix maximum du mois", ["/carburants"]),
 ]
 # The volcano's third line, the kit's; the others have two levels.
 INFO = {"volcan": "Niveau d'alerte, accès à l'Enclos, séismes"}

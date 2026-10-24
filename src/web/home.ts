@@ -6,6 +6,7 @@ import { alerteVolcan, homeCard, volcanBanner } from "./volcan-alerte.js";
 import type { Cached } from "../cache.js";
 import type * as mf from "../providers/vigilance.js";
 import brand from "./brand.json" with { type: "json" };
+import icons from "./icons.json" with { type: "json" };
 import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from "./categories.js";
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
 import { actualitesLive, airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
@@ -306,7 +307,8 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
       "@type": "Organization",
       name: SITE,
       url: `${origin}/`,
-      logo: `${origin}/og.png`,
+      // Square, at least 112 px and readable on white, as Google asks of a logo: the symbol's tile, not the share picture.
+      logo: `${origin}${icons["512"]}`,
       email: "contact@rundata.re",
       sameAs: [...followed().map((s) => s.url), GITHUB, DATAGOUV_REUSE, GLAMA],
     },

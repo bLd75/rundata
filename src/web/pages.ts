@@ -41,7 +41,7 @@ export const SITE = "rundata.re";
 // The headings' typeface (scripts/build-font.py). Bump the number when the font changes: browsers keep it a year.
 export const FONT_PATH = "/font/titres-1.woff2";
 // The tagline, in Réunion Creole (« l'île en direct »); also on the og:image (scripts/build-og.py).
-export const SLOGAN = `<p class="slogan" lang="${brand.slogan_lang}">🇷🇪 ${esc(brand.slogan)}</p>`;
+export const SLOGAN = `<p class="slogan" lang="${brand.slogan_lang}">${esc(brand.slogan)}</p>`;
 const OG_ALT = "Symbole rundata.re et relief de l'île : La Réunion 974 en direct, Lo péï an dirèk";
 
 // Temperatures shown as white on a colour: every stop keeps a contrast of at least 5:1.
@@ -643,7 +643,7 @@ footer.foot a{color:var(--on-night)}
 footer.foot .brand{color:var(--on-night);margin-bottom:.8rem}
 footer.foot p+p{margin-top:.6rem}
 footer.foot h3{color:var(--on-night);font-size:1rem;margin-bottom:.4rem}
-footer.foot .slogan{font-size:1rem}
+footer.foot .slogan{font-size:1rem;padding-left:calc(1.55rem + .6rem)}
 `.replace(/\n/g, "") + AVIS_CSS + PWA_CSS;
 
 interface Head {

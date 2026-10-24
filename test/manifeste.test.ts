@@ -110,6 +110,7 @@ describe("rundata.re's accounts", () => {
     const org = ld.find((x: { "@type": string }) => x["@type"] === "Organization");
     expect(org.sameAs.slice(0, 2)).toEqual(["https://www.facebook.com/1432704299917309", "https://www.instagram.com/rundata.re/"]);
     expect(org.sameAs).toHaveLength(SOCIAL.filter((s) => s.url).length + 3);
+    expect(org.logo).toMatch(/^https:\/\/[^/]+\/icons\/logo-512\.[0-9a-f]{10}\.png$/);
     const presse = pressePage(O, []);
     expect(presse.slice(0, presse.indexOf("<main")).match(/<p class="social">/g)).toHaveLength(1);
   });
