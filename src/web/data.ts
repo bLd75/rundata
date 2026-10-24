@@ -13,6 +13,7 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import * as annuaire from "../providers/annuaire.js";
+import * as carburants from "../providers/carburants.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
 import * as irve from "../providers/irve.js";
@@ -1095,6 +1096,8 @@ export interface TraficAnswer {
   } | null;
   /** The Enclos of the volcano, from the volcano's page when it has been built. */
   enclos?: { statut: string; detail?: string; source?: string; lien?: string };
+  /** The month's maximum fuel prices, set by the prefect. */
+  carburants?: carburants.Prix;
   /** What the media report on the roads and the blockades in the last hours, newest first. */
   medias?: { titre: string; lien: string; source: string; heure?: string }[];
   sources: Credit[];
@@ -1161,10 +1164,11 @@ export function withRoadNews(d: TraficAnswer, news: actuSource.Fil | undefined, 
 }
 
 export async function buildTrafic(cache: Cache, now = new Date()): Promise<TraficAnswer> {
-  const [bus, carte, volcan] = await Promise.all([
+  const [bus, carte, volcan, fuel] = await Promise.all([
     cache.get("web:bus", FRESH_SECONDS, () => buildBus(now, cache)).then((c) => c.value).catch((err) => (console.error("trafic : bus indisponibles", why(err)), null)),
     onf.carte(cache).then((c) => c.value).catch((err) => (console.error("trafic : routes forestières indisponibles", why(err)), null)),
     cache.peek<VolcanAnswer>("web:volcan").catch(() => null),
+    carburants.prix(cache, now).then((c) => c.value).catch((err) => (console.error("trafic : prix des carburants indisponibles", why(err)), null)),
   ]);
   const live = bus?.gares.flatMap((g) => g.departs.filter((d) => d.retard_min !== undefined).map((d) => ({ gare: g.commune, d }))) ?? [];
   const roads = carte?.routes ?? [];
@@ -1192,8 +1196,9 @@ export async function buildTrafic(cache: Cache, now = new Date()): Promise<Trafi
         }
       : null,
     ...(volcan?.value.etat?.acces_enclos ? { enclos: volcan.value.etat.acces_enclos } : {}),
+    ...(fuel ? { carburants: fuel } : {}),
     // The media's headlines are added when the page is served (withRoadNews), not kept in its copy.
-    sources: [...(bus ? bus.sources : []), ...(carte ? credits([onf.SOURCE]) : [])],
+    sources: [...(bus ? bus.sources : []), ...(carte ? credits([onf.SOURCE]) : []), ...(fuel ? credits([carburants.SOURCE]) : [])],
   };
 }
 

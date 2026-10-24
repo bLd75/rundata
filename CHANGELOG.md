@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Prix maximum des carburants et de la bouteille de gaz, fixés chaque mois par le préfet, avec l'écart au mois dernier.
 - Houle prévue près de chaque plage : hauteur, période et direction des vagues sur 4 jours, sur le site et dans votre IA.
 - Indice UV prévu jour par jour, dans la prévision météo du site et de votre IA.
 - Une page « Aujourd'hui » par commune : la météo, les routes, l'actu, les coupures et les sorties du jour.

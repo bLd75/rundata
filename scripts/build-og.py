@@ -71,6 +71,7 @@ RUBRIQUES = [
     ("calendrier", "Calendrier 974", "Vacances scolaires et jours fériés", ["/calendrier"]),
     ("cyclones", "Cyclones 974", "Trajectoire et alerte en direct", ["/cyclones"]),
     ("sport", "Sport 974", "Matchs, résultats, Grand Raid", ["/sport"]),
+    ("carburants", "Carburants 974", "Les prix maximums du mois", ["/carburants"]),
 ]
 OUT = ROOT / "public/og"
 LEFT = 600  # the text's column, left of the island

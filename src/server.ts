@@ -68,7 +68,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.47.0";
+export const VERSION = "0.48.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -297,15 +297,16 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
   server.registerTool(
     "annuaire_services_publics",
     {
-      title: "Services publics à La Réunion : adresses et horaires",
+      title: "Services publics et vie pratique à La Réunion : adresses, horaires, prix des carburants",
       description:
         "Adresse, horaires d'ouverture (et si c'est ouvert en ce moment), téléphone et site des services publics de La Réunion (974) : " +
         "mairies et mairies annexes, préfecture et sous-préfectures, CAF, CPAM, France Travail, impôts, tribunaux, France services… " +
-        "d'après l'annuaire officiel de service-public.fr. Pour : « horaires de la mairie de Saint-Paul ? », « où est la CAF la plus proche " +
-        "du Tampon ? », « numéro de la sous-préfecture de Saint-Pierre ? », « le centre des impôts est ouvert ? ». " +
-        "/ Addresses, opening hours and phone numbers of public offices in Réunion Island.",
+        "d'après l'annuaire officiel de service-public.fr. Aussi les prix maximums des carburants et de la bouteille de gaz du mois, " +
+        "fixés par le préfet (quoi = « carburant », « essence », « gazole », « gaz »). Pour : « horaires de la mairie de Saint-Paul ? », " +
+        "« où est la CAF la plus proche du Tampon ? », « numéro de la sous-préfecture de Saint-Pierre ? », « prix de l'essence ce mois-ci ? ». " +
+        "/ Public offices in Réunion Island (addresses, hours, phones), and this month's maximum fuel prices.",
       inputSchema: {
-        quoi: z.string().describe("Le service cherché, en quelques mots : « mairie », « CAF », « préfecture », « impôts », « France Travail », « tribunal »… / The office sought."),
+        quoi: z.string().describe("Le service cherché, en quelques mots : « mairie », « CAF », « préfecture », « impôts », « France Travail », « tribunal »…, ou « carburant » pour les prix du mois. / The office sought, or 'carburant' for fuel prices."),
         lieu,
       },
       annotations: { title: "Services publics à La Réunion", ...READ_ONLY },

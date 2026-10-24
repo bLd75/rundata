@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache, MemoryStore } from "../src/cache.js";
+import * as carburants from "../src/providers/carburants.js";
 import type { Fil, Info } from "../src/providers/actualites.js";
 import { buildTrafic, roadNewsNow, withRoadNews } from "../src/web/data.js";
 import { traficPage } from "../src/web/domains.js";
@@ -18,6 +19,9 @@ describe("circulation", () => {
   beforeEach(() => {
     down = undefined;
     asked = [];
+    // The month's fuel prices, as the workflow stores them.
+    const prix = carburants.parseRelease(readFileSync(new URL("./fixtures/carburants_octobre.html", import.meta.url), "utf8"), "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Prix-des-carburants-en-octobre");
+    carburants.configure(async () => prix ?? null);
     vi.stubGlobal("fetch", async (url: string) => {
       asked.push(url);
       if (down?.test(url)) return new Response("", { status: 503 });
@@ -27,7 +31,10 @@ describe("circulation", () => {
       return new Response("", { status: 404 });
     });
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    carburants.configure(undefined);
+  });
 
   it("says plainly it has no traffic data, and points to Waze and to the Région", async () => {
     const res = await handle(new Request("https://rundata.re/trafic", BOT), cache());
@@ -36,6 +43,8 @@ describe("circulation", () => {
     expect(page).toContain("<h1>Bouchons et circulation à La Réunion");
     expect(page).toContain("rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant.");
     expect(page).toContain(`href="https://www.infotrafic.re/"`);
+    // The month's maximum fuel prices, beside the roads.
+    expect(page).toContain("<h3>Prix des carburants</h3><p>Prix maximums depuis le 1er octobre 2026, fixés par le préfet : supercarburant 2,00 €/litre (+0,17 €) ; gazole 1,80 €/litre (+0,12 €) ; gaz 20,81 € la bouteille de 12,5 kg (+0,21 €), 18 € avec aides locales.</p>");
     // Waze's map, which brings cookies, is not in the page: only on a click.
     expect(page).not.toContain("<iframe");
     expect(page).toContain(`<button type="button" id="wz-go"`);

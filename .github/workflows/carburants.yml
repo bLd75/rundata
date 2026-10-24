@@ -1,0 +1,39 @@
+# The month's maximum fuel prices, set by the prefect's order and published as a press release of the prefecture
+# (scripts/carburants.ts), written every day to the Worker's KV store, where src/providers/carburants.ts reads them.
+# The job fails when no release can be read, or when the month's prices are still missing after its second day: the
+# failure is the alert, and the last prices stay in the store meanwhile.
+name: Prix des carburants
+
+on:
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: carburants
+  cancel-in-progress: true
+
+jobs:
+  prix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: The newest order of the prefecture
+        run: npx tsx scripts/carburants.ts carburants.json
+      - name: Into the KV store, kept 90 days at most
+        run: npx wrangler kv key put carburants:prix --path carburants.json --binding STORE --remote --ttl 7776000

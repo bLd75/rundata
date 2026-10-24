@@ -1,0 +1,128 @@
+/**
+ * The maximum prices of fuel at La Réunion, set each month by the prefect's order and published as a press release
+ * of the prefecture (Licence Ouverte): the same in every station of the island, which may sell for less. The DOM are
+ * not in the national feed of station prices. Read once a day by .github/workflows/carburants.yml
+ * (scripts/carburants.ts) into the Worker's KV store, where the Worker reads them; elsewhere, from the prefecture.
+ */
+import type { Cache, Cached } from "../cache.js";
+import { getText } from "../http.js";
+import type { SourceInfo } from "../types.js";
+
+export const SOURCE: SourceInfo = {
+  id: "prefecture_carburants",
+  nom: "Prix maximums des carburants (arrêté préfectoral mensuel)",
+  organisme: "Préfecture de La Réunion",
+  licence: "Licence Ouverte (informations publiques de l'État)",
+  attribution: "Préfecture de La Réunion",
+  url: "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse",
+};
+
+export interface Produit {
+  /** As the order names it: « Supercarburant », « Gazole », « Gaz (bouteille de 12,5 kg) ». */
+  produit: string;
+  unite: string;
+  prix_eur: number;
+  precedent_eur?: number;
+  /** What the order says beside it: « 18 € avec aides de la Région ». */
+  note?: string;
+}
+
+export interface Prix {
+  /** The first day the prices apply, « 2026-10-01 ». */
+  depuis: string;
+  /** The previous month's first day, when the table gives it. */
+  precedent_depuis?: string;
+  produits: Produit[];
+  titre: string;
+  lien: string;
+  /** ISO time it was read. */
+  lu: string;
+}
+
+const ORIGIN = "https://www.reunion.gouv.fr";
+const LIST = `${ORIGIN}/Actualites/Communiques-de-presse`;
+const HEADERS = { "User-Agent": "rundata.re (contact@rundata.re)" };
+const MONTHS = ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"];
+const MONTH_NAMES = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+
+const plain = (s: string) =>
+  s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&rsquo;/g, "'").replace(/\s+/g, " ").trim();
+const euros = (s: string) => {
+  const m = /(\d+),(\d{2})\s*€/.exec(s);
+  return m ? Number(`${m[1]}.${m[2]}`) : undefined;
+};
+
+/** « 01/10/2026 », « 1-oct.-26 », « 1-août-26 » → « 2026-10-01 ». */
+export function headerDay(s: string): string | undefined {
+  let m = /(\d{1,2})\/(\d{2})\/(\d{4})/.exec(s);
+  if (m) return `${m[3]}-${m[2]}-${m[1].padStart(2, "0")}`;
+  m = /(\d{1,2})-([a-zéû]+)\.?-(\d{2})/i.exec(s);
+  if (!m) return undefined;
+  const month = MONTHS.findIndex((x) => m![2].toLowerCase().startsWith(x));
+  return month < 0 ? undefined : `20${m[3]}-${String(month + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+}
+
+/** The links to the monthly releases on a page of the list of press releases, newest first. */
+export function releases(html: string): string[] {
+  return [...new Set([...html.matchAll(/href="([^"]*Communiques-de-presse\/Prix-des-carburants[^"]*)"/gi)].map((m) => new URL(m[1], ORIGIN).toString()))];
+}
+
+/** The table of a release: the product, the previous month's price, this month's (the second and third columns). */
+export function parseRelease(html: string, lien: string, now = new Date()): Prix | undefined {
+  const at = html.indexOf("<table");
+  if (at < 0) return undefined;
+  const rows = [...html.slice(at, html.indexOf("</table>", at)).matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)]
+    .map((r) => [...r[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/g)].map((c) => plain(c[1])));
+  const head = rows.find((r) => r.some((c) => headerDay(c)));
+  if (!head || head.length < 3) return undefined;
+  const depuis = headerDay(head[2]);
+  if (!depuis) return undefined;
+  const produits = rows.filter((r) => r !== head && euros(r[2] ?? "") != null).map((r): Produit => {
+    const unit = /\(([^)]*)\)\s*$/.exec(r[0]);
+    const note = r.slice(3).map((c) => /\(([^)]*aide[^)]*)\)/i.exec(c)?.[1]).find(Boolean);
+    return {
+      produit: (unit ? r[0].slice(0, unit.index) : r[0]).trim(),
+      unite: (unit?.[1] ?? "").replace("12,5kg", "12,5 kg"),
+      prix_eur: euros(r[2])!,
+      precedent_eur: euros(r[1]),
+      note: note?.replace(/(\d)€/, "$1 €"),
+    };
+  });
+  if (!produits.some((p) => /supercarburant/i.test(p.produit)) || !produits.some((p) => /^gazole$/i.test(p.produit))) return undefined;
+  const h1 = /<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html);
+  return { depuis, precedent_depuis: headerDay(head[1]), produits, titre: h1 ? plain(h1[1]) : "Prix des carburants", lien, lu: now.toISOString() };
+}
+
+/** « octobre 2026 ». */
+export const monthOf = (day: string) => `${MONTH_NAMES[Number(day.slice(5, 7)) - 1]} ${day.slice(0, 4)}`;
+
+/** The newest release with a table of prices, from the first pages of the list. */
+export async function gather(now = new Date(), pages = 4): Promise<Prix | undefined> {
+  for (let i = 0; i < pages; i++) {
+    const list = await getText(SOURCE.id, i ? `${LIST}/(offset)/${i * 10}` : LIST, 20_000, HEADERS);
+    for (const lien of releases(list)) {
+      const p = parseRelease(await getText(SOURCE.id, lien, 20_000, HEADERS), lien, now);
+      if (p) return p;
+    }
+  }
+  return undefined;
+}
+
+let reader: (() => Promise<Prix | null>) | undefined;
+
+/** In the Worker: read the prices from the KV store, where the workflow writes them. */
+export function configure(read: (() => Promise<Prix | null>) | undefined) {
+  reader = read;
+}
+
+// The order changes once a month; a few hours is plenty, and the stored copy is served while the store does not answer.
+const FRESH_SECONDS = 6 * 3600;
+
+export async function prix(cache: Cache, now = new Date()): Promise<Cached<Prix>> {
+  return cache.get("carburants:prix", FRESH_SECONDS, async () => {
+    // The stored copy; the prefecture itself before the workflow has stored one (a new store, an expired copy).
+    const v = (reader ? await reader() : null) ?? await gather(now, 2);
+    if (!v?.produits?.length) throw new Error("prix des carburants absents");
+    return v;
+  });
+}

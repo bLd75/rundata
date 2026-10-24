@@ -14,6 +14,7 @@ import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
 import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
+import { firstOf, priceLine } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
 import rubriques from "./og-rubriques.json" with { type: "json" };
@@ -925,10 +926,16 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   <p class="note">Routes, barrages et manifestations dans les titres des six dernières heures, et les communiqués du jour de la préfecture : lire l'article pour le détail. <a href="/actualites">Toutes les actualités</a>.</p></div>`
     : "";
 
+  const c = d?.carburants;
+  const fuel = c
+    ? `<div class="card">${icon("car")}<h3>Prix des carburants</h3><p>Prix maximums depuis le ${esc(firstOf(c.depuis))}, fixés par le préfet : ` +
+      `${c.produits.filter((x) => /^(supercarburant|gazole|gaz)$/i.test(x.produit)).map((x) => esc(priceLine(x))).join(" ; ")}.</p>` +
+      `<p class="note">Les mêmes dans toute l'île : une station peut vendre moins cher. <a href="/carburants">Tous les prix du mois →</a></p></div>`
+    : "";
   const ours = `<section aria-labelledby="h-nous">
   <div class="sec-h"><p class="eyebrow">Données ouvertes, en direct</p><h2 id="h-nous">Ce que rundata.re lit</h2>
   <p>Pas les bouchons : autour d'eux. La vigilance, les retards et déviations des bus, les routes forestières, le volcan, et ce que les médias signalent sur les routes.</p></div>
-  <div class="two">${medias}${vigilance}${busCard}${roadsCard}${enclos}</div>
+  <div class="two">${medias}${vigilance}${busCard}${roadsCard}${enclos}${fuel}</div>
   ${d && data && d.sources.length ? sourcesNote(d.sources, data) : ""}
 </section>`;
 
@@ -1971,7 +1978,7 @@ export function agendaTabs(path: string): string {
 }
 
 // What the pages built from a part of a domain's data (evenements.ts) share with the domain's own page.
-export { agendaRow, connectorCta, crumbBar, describe, GENRE_SCRIPT, GENRES, loading, longDay, sourcesNote, warnings, webPage };
+export { agendaRow, connectorCta, crumbBar, crumbs, describe, GENRE_SCRIPT, GENRES, loading, longDay, sourcesNote, warnings, webPage };
 
 // ---------------------------------------------------------------- actualités
 
