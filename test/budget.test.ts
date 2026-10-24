@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WORKER_FREE_LIMIT, costOf, count, counted, later, left, measured } from "../src/budget.js";
+import { WORKER_BUDGET, WORKER_FREE_LIMIT, costOf, count, counted, later, left, measured } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import * as arome from "../src/providers/arome.js";
 import { configure } from "../src/providers/mf-auth.js";
@@ -79,15 +79,26 @@ describe("subrequests of a cold question in the Worker", () => {
     ["meteo_actuelle, Cilaos", (c: Cache) => meteoActuelle(c, "Cilaos", NOW), 30],
     ["meteo_actuelle, tour of the island", (c: Cache) => meteoActuelle(c, undefined, NOW), 25],
     ["temperature_mer, Saint-Leu", (c: Cache) => temperatureMer(c, "Saint-Leu", NOW), 10],
-    ["prevision_meteo, Cilaos demain", (c: Cache) => previsionMeteo(c, "Cilaos", "demain", NOW), WORKER_FREE_LIMIT],
-    ["prevision_meteo, tour of the island", (c: Cache) => previsionMeteo(c, undefined, undefined, NOW), WORKER_FREE_LIMIT],
+    ["prevision_meteo, Cilaos demain", (c: Cache) => previsionMeteo(c, "Cilaos", "demain", NOW), WORKER_BUDGET],
+    ["prevision_meteo, tour of the island", (c: Cache) => previsionMeteo(c, undefined, undefined, NOW), WORKER_BUDGET],
   ])("%s stays within the limit", async (_, ask, most) => {
-    const { value, used } = await counted(WORKER_FREE_LIMIT, () => ask(isolate()));
+    const { value, used } = await counted(WORKER_BUDGET, () => ask(isolate()));
     expect(value.isError).toBeFalsy();
     expect(used).toBeLessThanOrEqual(most);
   });
 
-  it("forecasts from AROME cold, with as many grids as the invocation allows", async () => {
+  it("forecasts cold from the ECMWF model, labelled, when no AROME grid is stored yet: the grids are the scheduled event's", async () => {
+    // Under the budget, the stations' share and the reserve for the ECMWF and the UV leave too few subrequests for
+    // one step of five grids: none is downloaded. The prefetch below fills them, after which questions are on AROME.
+    const { value, used } = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(), "Cilaos", "demain", NOW));
+    expect(value.isError).toBeFalsy();
+    expect(body(value).resume).toMatch(/^PRÉVISION \(modèle IFS HRES du Centre européen \(ECMWF\), maille de 9 km, pas une mesure\)/);
+    expect(coverages.length).toBe(0);
+    expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
+  });
+
+  it("forecasts from AROME cold under the platform's own limit, not the budget: the grids' code, as many as allowed", async () => {
+    // The only case measured at WORKER_FREE_LIMIT: what an invocation could fetch if the budget were the platform's.
     const { value, used } = await counted(WORKER_FREE_LIMIT, () => previsionMeteo(isolate(), "Cilaos", "demain", NOW));
     expect(body(value).resume).toMatch(/^PRÉVISION \(modèle AROME/);
     expect(coverages.length).toBeGreaterThan(10);
@@ -96,8 +107,8 @@ describe("subrequests of a cold question in the Worker", () => {
 
   it("asks nothing again of a warm isolate", async () => {
     const c = isolate();
-    await counted(WORKER_FREE_LIMIT, () => meteoActuelle(c, "Cilaos", NOW));
-    const { used } = await counted(WORKER_FREE_LIMIT, () => meteoActuelle(c, "Saint-Pierre", NOW));
+    await counted(WORKER_BUDGET, () => meteoActuelle(c, "Cilaos", NOW));
+    const { used } = await counted(WORKER_BUDGET, () => meteoActuelle(c, "Saint-Pierre", NOW));
     expect(used).toBe(0);
   });
 });
@@ -108,14 +119,14 @@ describe("scheduled AROME prefetch", () => {
     let runs = 0;
     for (;;) {
       runs++;
-      const { value, used } = await counted(WORKER_FREE_LIMIT, () => prefetchForecasts(isolate(kv), NOW));
-      expect(used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+      const { value, used } = await counted(WORKER_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
+      expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
       if (!value?.later) break;
       expect(runs).toBeLessThan(5);
     }
     const prefetched = coverages.length;
     expect(prefetched).toBeGreaterThan(60); // 14 steps of 5 fields left in the run, and the terrain
-    const r = await counted(WORKER_FREE_LIMIT, () => previsionMeteo(isolate(kv), "Cilaos", "demain", NOW));
+    const r = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(kv), "Cilaos", "demain", NOW));
     expect(coverages.length).toBe(prefetched);
     expect(body(r.value).pas_de_3h.filter((s: { modele: string }) => s.modele.startsWith("AROME")).length).toBeGreaterThan(5);
   });
@@ -156,21 +167,21 @@ describe("a run not all out yet, in the Worker", () => {
     ["Cilaos demain", (c: Cache) => previsionMeteo(c, "Cilaos", "demain", NOW)],
     ["tour of the island", (c: Cache) => previsionMeteo(c, undefined, undefined, NOW)],
   ])("%s cold stays within the limit", async (_, ask) => {
-    const { value, used } = await counted(WORKER_FREE_LIMIT, () => ask(isolate()));
+    const { value, used } = await counted(WORKER_BUDGET, () => ask(isolate()));
     expect(value.isError).toBeFalsy();
-    expect(used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
   it("is filled by the prefetch from both runs, after which a question downloads nothing", async () => {
     const kv = new MemoryStore();
     for (let runs = 1; ; runs++) {
-      const { value, used } = await counted(WORKER_FREE_LIMIT, () => prefetchForecasts(isolate(kv), NOW));
-      expect(used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+      const { value, used } = await counted(WORKER_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
+      expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
       if (!value?.later) break;
       expect(runs).toBeLessThan(6);
     }
     const prefetched = coverages.length;
-    const r = await counted(WORKER_FREE_LIMIT, () => previsionMeteo(isolate(kv), "Cilaos", "demain", NOW));
+    const r = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(kv), "Cilaos", "demain", NOW));
     expect(coverages.length).toBe(prefetched);
     const res = body(r.value);
     expect(res.resume).toMatch(/calcul de 22\/10 04:00, et de 21\/10 22:00 pour la suite/);
