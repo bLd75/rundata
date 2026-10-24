@@ -90,9 +90,14 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     vi.spyOn(console, "error").mockImplementation(() => {});
     const v = await buildVolcan(cache, NOW);
     expect(v.etat?.niveau_orsec).toBe("Alerte 1");
-    expect(v.resume).toContain("Niveau du dispositif ORSEC volcan : Alerte 1 selon le dernier communiqué de la préfecture (17/10) ; pitonlive.com indique Vigilance depuis le 19/10 : vérifiez sur reunion.gouv.fr.");
+    expect(v.resume).toContain("Niveau du dispositif ORSEC volcan : Alerte 1 selon le dernier communiqué de la préfecture que nous avons lu (17/10). pitonlive.com indique « Vigilance » depuis le 19/10 : vérifiez le niveau en vigueur sur reunion.gouv.fr.");
+    // The Enclos as the release said it (closed in alert), and where it comes from: never pitonlive's « partiellement ».
+    expect(v.resume).toContain("Accès à l'Enclos interdit selon le communiqué du 17/10 : vérifiez sur reunion.gouv.fr avant de partir.");
+    expect(v.resume).not.toContain("partiellement");
     const html = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
-    expect(html).toContain(`Niveau du dispositif ORSEC volcan : <b>Alerte 1</b> selon le dernier communiqué de la préfecture (17 octobre 2026) ; pitonlive.com indique Vigilance depuis le 19 octobre 2026 : vérifiez sur <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse">reunion.gouv.fr</a>.`);
+    const gouv = `<a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse">reunion.gouv.fr</a>`;
+    expect(html).toContain(`Niveau du dispositif ORSEC volcan : <b>Alerte 1</b> selon le dernier communiqué de la préfecture que nous avons lu (17 octobre 2026). pitonlive.com indique « Vigilance » depuis le 19 octobre 2026 : vérifiez le niveau en vigueur sur ${gouv}.`);
+    expect(html).toContain(`Accès à l'Enclos <b>interdit</b> selon le communiqué du 17 octobre 2026 : vérifiez sur ${gouv} avant de partir.`);
     vi.restoreAllMocks();
   });
 });
