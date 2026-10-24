@@ -11,6 +11,8 @@ export interface Distributeur {
   site?: string;
   /** Whether its notices of cuts for this commune are read (its feed, or the CIREST's for the east). */
   avis: boolean;
+  /** Who publishes the notices read, when not the distributor: « la CIREST », « la ville de Sainte-Marie ». */
+  par?: string;
 }
 
 // The ARS's names, as people write them.
@@ -20,9 +22,16 @@ const NAMES: Record<string, string> = {
   "LA CREOLE": "La Créole", RECIL: "RECIL", "MAIRIE DE L'ÉTANG-SALÉ": "la mairie de L'Étang-Salé",
 };
 // The distributors with a feed of notices, read for every commune they serve.
-const FEEDS: Record<string, string> = { DIONEO: "https://dioneo.re/", RUNEO: "https://www.runeo.re/", "EAUX DE LA POSSESSION": "https://www.eauxdelapossession.re/" };
+const FEEDS: Record<string, string> = {
+  DIONEO: "https://dioneo.re/", RUNEO: "https://www.runeo.re/", "EAUX DE LA POSSESSION": "https://www.eauxdelapossession.re/", "LA CREOLE": "https://lacreole.re/flash-infos",
+};
 // The CIREST publishes the notices of its six communes, whoever distributes their water.
 export const CIREST = { communes: ["Bras-Panon", "Saint-André", "La Plaine-des-Palmistes", "Saint-Benoît", "Sainte-Rose", "Salazie"], site: "https://www.cirest.fr/categorie/communique/communique-eau/" };
+// A mairie that posts its distributor's notices, read for that commune only.
+export const MAIRIE_SAINTE_MARIE = "https://www.ville-saintemarie.re/?s=CISE";
+const MAIRIES: Record<string, { par: string; site: string }> = {
+  "Sainte-Marie": { par: "la ville de Sainte-Marie", site: MAIRIE_SAINTE_MARIE },
+};
 export const BUILT = data.construit;
 export const SOURCE = data.source;
 
@@ -36,5 +45,7 @@ export function distributeur(commune: string): Distributeur | undefined {
   if (!raw) return undefined;
   const feed = FEEDS[raw];
   const east = CIREST.communes.includes(commune);
-  return { nom: NAMES[raw] ?? raw, site: feed ?? (east ? CIREST.site : undefined), avis: !!feed || east };
+  const mairie = MAIRIES[commune];
+  if (!feed && !east && mairie) return { nom: NAMES[raw] ?? raw, site: mairie.site, avis: true, par: mairie.par };
+  return { nom: NAMES[raw] ?? raw, site: feed ?? (east ? CIREST.site : undefined), avis: !!feed || east, ...(east && !feed ? { par: "la CIREST" } : {}) };
 }

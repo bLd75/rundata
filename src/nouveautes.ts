@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T22:24:00+04:00", texte: "Coupures d'eau : les avis de La Créole à Saint-Paul et aux Trois-Bassins, et de CISE Réunion à Sainte-Marie." },
   { date: "2026-10-24T22:17:00+04:00", texte: "Volcan : les alertes précédentes remontent à 2016, avec 12 épisodes de plus cités dans les communiqués de la préfecture." },
   { date: "2026-10-24T22:08:00+04:00", texte: "Cyclones passés : Belal (2024), Firinga (1989) et Hyacinthe (1980), la pluie mesurée station par station, avec les récits de Météo-France." },
   { date: "2026-10-24T22:03:00+04:00", texte: "Coupures d'eau : la consigne du plan cyclone sur l'eau du robinet, et pour chaque commune, si nous lisons les avis de son distributeur." },

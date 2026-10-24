@@ -4,7 +4,8 @@
  * commune's own page. Cut from the copies of /coupures-eau, /secheresse and /eau: nothing more is fetched.
  */
 import type { Cached } from "../cache.js";
-import { CIREST, distributeur, SOURCE as DISTRIBUTEURS } from "../eau/distributeurs.js";
+import { CIREST, distributeur, MAIRIE_SAINTE_MARIE, SOURCE as DISTRIBUTEURS } from "../eau/distributeurs.js";
+import { CREOLE } from "../providers/avis-eau.js";
 import { a } from "../tools/format.js";
 import type { Alerte, CoupuresAnswer, EauAnswer, SecheresseAnswer } from "./data.js";
 import { cycloneWater } from "./eau-cyclone.js";
@@ -81,6 +82,10 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
         (dist.avis
           ? dist.site === CIREST.site
             ? `<p>Les avis de la commune, publiés par la CIREST, sont relus au moins toutes les 30 minutes : <a href="${esc(dist.site)}" rel="noopener">les avis de la CIREST</a>.</p>`
+            : dist.site === MAIRIE_SAINTE_MARIE
+            ? `<p>Nous lisons, au moins toutes les 30 minutes, les communiqués de CISE Réunion publiés sur <a href="${esc(dist.site)}" rel="noopener">le site de la ville de Sainte-Marie</a> : ils s'affichent en haut de cette page. Un communiqué publié en image ou en PDF n'est pas lu : nous donnons seulement son lien.</p>`
+            : dist.site === CREOLE.url
+            ? `<p>Nous lisons, au moins toutes les 30 minutes, les avis de <a href="${esc(dist.site)}" rel="noopener">la page « flash infos » de La Créole</a> : ils s'affichent en haut de cette page.</p>`
             : `<p>Ses avis sont relus au moins toutes les 30 minutes : <a href="${esc(dist.site!)}" rel="noopener">le site de ${esc(dist.nom)}</a>.</p>`
           : `<p>Il ne publie pas ses avis de coupure dans un flux lisible : ils sont sur ses avis aux abonnés et auprès de la mairie.</p>`)
       : `<p>Le distributeur de la commune n'est pas connu ici : voir la mairie.</p>`) +

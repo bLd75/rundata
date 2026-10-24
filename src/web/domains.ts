@@ -1549,9 +1549,13 @@ export function secheresseLive(data: Cached<SecheresseAnswer> | null): Live | un
 // ---------------------------------------------------------------- coupures d'eau
 
 function noticeCard(n: CoupuresAnswer["avis"][number]): string {
-  const cut = n.coupure ? `<p><b>${esc(n.coupure.de ?? "")}${n.coupure.a ? ` → ${esc(n.coupure.a)}` : ""}</b>${n.coupure.etat ? ` <span class="note">(${esc(n.coupure.etat)})</span>` : ""}</p>` : "";
+  // An image or a PDF: nothing is read from it, the link only.
+  if (n.forme) return `<li class="card"><h3>${esc(n.communes.join(", "))} <span class="note">${esc(n.distributeur)}, publié le ${esc(n.publie_le)}</span></h3>` +
+    `<p>${n.lien ? `<a href="${esc(n.lien)}" rel="noopener">${esc(n.titre)} →</a>` : esc(n.titre)}</p></li>`;
+  // Only the start written (La Créole): said as a start, not as the hour of the cut.
+  const cut = n.coupure ? `<p><b>${n.coupure.a ? `${esc(n.coupure.de ?? "")} → ${esc(n.coupure.a)}` : `À partir du ${esc(n.coupure.de ?? "")}`}</b>${n.coupure.etat ? ` <span class="note">(${esc(n.coupure.etat)})</span>` : ""}</p>` : "";
   return `<li class="card${n.ne_pas_boire ? " warn" : ""}"><h3>${n.ne_pas_boire ? "Ne pas boire l'eau · " : ""}${esc(n.communes.join(", "))} <span class="note">${esc(n.distributeur)}, publié le ${esc(n.publie_le)}</span></h3>` +
-    `<p>${esc(n.titre)}</p>${cut}${n.secteurs ? `<p class="note">Secteurs : ${esc(n.secteurs.join(", "))}</p>` : ""}` +
+    `<p>${esc(n.titre)}</p>${n.precision ? `<p class="note">${esc(n.precision)}</p>` : ""}${cut}${n.secteurs ? `<p class="note">Secteurs : ${esc(n.secteurs.join(", "))}</p>` : ""}` +
     `<p class="note">${esc(n.texte.length > 320 ? `${n.texte.slice(0, 320)}…` : n.texte)}${n.lien ? ` <a href="${esc(n.lien)}" rel="noopener">L'avis complet</a>` : ""}</p></li>`;
 }
 
@@ -1581,7 +1585,7 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
   // Up the page in the cyclone season, at its foot the rest of the year.
   const cyclone = cycloneWater(now);
   const title = "Coupure d'eau Réunion aujourd'hui : avis en cours · 974";
-  const short = "🇷🇪 Coupures d'eau à La Réunion (974) : les avis de Dionéo, des Eaux de La Possession et de la CIREST, heures, rues concernées et avis « ne pas boire l'eau ».";
+  const short = "🇷🇪 Coupures d'eau à La Réunion (974) : les avis de Dionéo, runéo, La Créole, la CIREST, CISE Réunion et des Eaux de La Possession, heures et rues concernées.";
   const description = d ? describe(`🇷🇪 ${d.resume} Coupures d'eau à La Réunion (974) : heures, rues concernées et avis « ne pas boire l'eau ».`, short) : short;
 
   const band = `${crumbBar("Coupures d'eau")}
