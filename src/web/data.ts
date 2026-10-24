@@ -34,6 +34,8 @@ import * as baignadesSource from "../providers/baignades.js";
 import * as eauPotableSource from "../providers/eaupotable.js";
 import { COMMON as EAU_COMMON } from "../tools/eau.js";
 import { credits } from "../tools/format.js";
+import * as onf from "../providers/sentiers.js";
+import { sentiersRandonnee } from "../tools/sentiers.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import { type Observation, why } from "../types.js";
 import { coastal, type PlacePage } from "./places.js";
@@ -330,6 +332,32 @@ export type EauAnswer = Ile & { a_savoir: typeof EAU_COMMON; sources: Credit[] }
 export async function buildEau(cache: Cache, now = new Date()): Promise<EauAnswer> {
   const { value } = await ile(cache, now);
   return { ...value, a_savoir: EAU_COMMON, sources: credits([eauPotableSource.SOURCE, baignadesSource.SOURCE]) };
+}
+
+export interface SentiersAnswer {
+  resume: string;
+  fermes_par_commune: { commune: string; sentiers_fermes: { sentier: string; cause?: string; precision?: string; longueur_km?: number }[] }[];
+  routes_forestieres_fermees: { route: string; circulation: string; cause?: string; precision?: string }[];
+  carte_mise_a_jour?: string;
+  a_savoir: string[];
+  sources: Credit[];
+  /** The middle of each closed trail, for the map (not in the tool's answer). */
+  points: { nom: string; lon: number; lat: number }[];
+  /** How many trails the ONF follows, open or not. */
+  suivis: number;
+}
+
+/** The tool's overview of the island, plus where each closed trail is. */
+export async function buildSentiers(cache: Cache, now = new Date()): Promise<SentiersAnswer> {
+  const a = needed<Omit<SentiersAnswer, "points" | "suivis">>(await sentiersRandonnee(cache, undefined, now), "sentiers");
+  const carte = (await onf.carte(cache)).value;
+  const points = carte.sentiers
+    .filter((t) => t.statut === "fermé" && t.points.length)
+    .map((t) => {
+      const [lon, lat] = t.points[Math.floor(t.points.length / 2)];
+      return { nom: t.nom, lon, lat };
+    });
+  return { ...a, points, suivis: carte.sentiers.length };
 }
 
 export interface ElectriciteAnswer {

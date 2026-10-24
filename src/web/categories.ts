@@ -75,6 +75,14 @@ export const CATEGORIES: Category[] = [
     about: "Les bornes publiques pour voiture électrique et l'état de chaque point de charge, libre, occupé ou hors service, en direct.",
   },
   {
+    key: "sentiers",
+    nom: "Randonnée",
+    path: "/sentiers",
+    icon: "mountain",
+    tools: ["sentiers_randonnee"],
+    about: "Les sentiers de randonnée et routes forestières ouverts ou fermés, d'après la carte de l'ONF, avec la cause de chaque fermeture.",
+  },
+  {
     key: "eau",
     nom: "Eau",
     path: "/eau",
