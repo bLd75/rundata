@@ -70,7 +70,7 @@ export async function handle(request: Request, cache: Cache, background: Backgro
     // Tool calls are recorded by `watching`, with more than the server knows.
     const server = createServer(cache, (hit) => {
       if (hit.kind !== "mcp") record(hit);
-    });
+    }, background);
     // The tools never change while the server runs, and a stateless server could not send the notification anyway.
     server.server.registerCapabilities({ tools: { listChanged: false } });
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });

@@ -5,11 +5,14 @@
 import type { Cached } from "../cache.js";
 import type { AgendaAnswer, Alerte } from "./data.js";
 import { agendaEvents, agendaRow, agendaTabs, connectorCta, describe, GENRE_SCRIPT, GENRES, loading, longDay, sourcesNote, warnings, webPage } from "./domains.js";
+import { occurrences } from "../tools/agenda.js";
 import { forecastLinks } from "./liens.js";
 import { esc } from "./map.js";
 import { ask, DESCRIPTION_MAX, layout, SITE } from "./pages.js";
 
 type Row = NonNullable<AgendaAnswer["evenements"]>[number];
+
+export { occurrences };
 
 const localDay = (now: Date) => new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
 const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
@@ -57,35 +60,6 @@ export function weekend(now: Date): Weekend {
   const du = friday, au = off.has(monday) ? monday : addDays(friday, 2);
   const feries = new Map([...off].filter(([d]) => d >= du && d <= au));
   return { du, au, vendredi: off.has(friday) ? undefined : "17:00", feries };
-}
-
-interface Occurrence {
-  du: string;
-  au: string;
-  /** « 19:30 » when the source gives it. */
-  debut?: string;
-  fin?: string;
-  /** As the agenda writes it: « samedi 24/10 de 14:00 à 18:00 ». */
-  quand: string;
-}
-
-/**
- * The dates of a row as the agenda writes them (tools/agenda.ts `when`): its first one, and the others it lists.
- * « samedi 24/10 à 19:30 », « samedi 24/10 de 14:00 à 18:00 », « du vendredi 23/10 à 19:00 au dimanche 25/10 ».
- */
-export function occurrences(r: Row): Occurrence[] {
-  const year = Number(r.date.slice(0, 4));
-  const first = r.date.slice(5, 10);
-  const day = (dd: string, mm: string) => `${year + (`${mm}-${dd}` < first ? 1 : 0)}-${mm}-${dd}`;
-  const DAY = String.raw`\S+ (\d\d)\/(\d\d)`;
-  const read = (q: string): Occurrence | undefined => {
-    let m = new RegExp(`^du ${DAY}(?: à (\\d\\d:\\d\\d))? au ${DAY}(?: à (\\d\\d:\\d\\d))?$`).exec(q);
-    if (m) return { du: day(m[1], m[2]), debut: m[3], au: day(m[4], m[5]), fin: m[6], quand: q };
-    m = new RegExp(`^${DAY}(?: à (\\d\\d:\\d\\d)| de (\\d\\d:\\d\\d) à (\\d\\d:\\d\\d))?$`).exec(q);
-    if (m) return { du: day(m[1], m[2]), au: day(m[1], m[2]), debut: m[3] ?? m[4], fin: m[5], quand: q };
-    return undefined;
-  };
-  return [r.quand, ...(r.autres_dates ?? [])].map(read).filter((o): o is Occurrence => !!o);
 }
 
 /** The day of the weekend each occurrence of a row is listed on, with its hours; nothing when it is not that weekend. */
