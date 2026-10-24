@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { withLectures } from "../src/lectures.js";
@@ -34,7 +34,20 @@ async function weatherCache(at: number, now = at) {
   return new Cache(store, () => now);
 }
 
+// No test here goes on the network: every call to fetch fails at once and is noted, and the tests that expect none check it.
+let fetched: string[] = [];
+beforeEach(() => {
+  fetched = [];
+  vi.stubGlobal("fetch", async (url: unknown) => {
+    fetched.push(String(url));
+    throw new Error("offline (test)");
+  });
+});
+afterEach(() => vi.unstubAllGlobals());
+
 describe("the server's instructions", () => {
+  afterEach(() => expect(fetched).toEqual([]));
+
   it("start with the index of the tools and the rules, and are shorter", async () => {
     const r = await rpcResult("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     const text: string = r.instructions;
@@ -56,6 +69,8 @@ describe("the server's instructions", () => {
 });
 
 describe("the serveur block", () => {
+  afterEach(() => expect(fetched).toEqual([]));
+
   it("names the newest tools in every answer, for a client whose list is old", async () => {
     const s = serveur(VERSION, 27, NOW);
     expect(Object.keys(s.outils_recents!)).toEqual(expect.arrayContaining(["sport", "historique_meteo", "actualites", "donner_avis"]));
@@ -79,24 +94,21 @@ describe("the serveur block", () => {
 });
 
 describe("fraicheur", () => {
-  afterEach(() => vi.unstubAllGlobals());
-
   it("says when the station measured, when rundata.re read it, and how old it is", async () => {
-    const at = FIX.getTime() - 3 * 60_000;
+    // Read a minute ago: fresh for every source meteo_actuelle asks (the beacons' live copy lasts two minutes).
+    const at = FIX.getTime() - 60_000;
     const cache = await weatherCache(at, FIX.getTime());
     const { value, lectures } = await withLectures(() => meteoActuelle(cache, "Saint-Pierre", FIX));
     const p = body(cite("meteo_actuelle", value, { lectures, now: FIX }));
     const f = p.fraicheur;
     expect(f.donnee_du).toBe(p.stations[0].heure_mesure);
     expect(f.age).toBe(p.stations[0].age_texte);
-    expect(f.lue_a).toBe("18/10 23:17");
+    expect(f.lue_a).toBe("18/10 23:19");
     expect(f.copie_de_secours).toBeUndefined();
+    expect(fetched).toEqual([]);
   });
 
   it("says when a source did not answer and its last copy was served", async () => {
-    vi.stubGlobal("fetch", async () => {
-      throw new Error("offline");
-    });
     const at = FIX.getTime() - 3 * 3600_000;
     const cache = await weatherCache(at, FIX.getTime());
     const { value, lectures } = await withLectures(() => meteoActuelle(cache, "Saint-Pierre", FIX));
@@ -106,9 +118,6 @@ describe("fraicheur", () => {
   });
 
   it("is in the answer of every tool, next to the citation, errors included", async () => {
-    vi.stubGlobal("fetch", async () => {
-      throw new Error("offline");
-    });
     const tools: { name: string; inputSchema: { required?: string[] } }[] = (await rpcResult("tools/list")).tools;
     const args: Record<string, Record<string, unknown>> = {
       annuaire_services_publics: { quoi: "mairie", lieu: "Saint-Paul" },
