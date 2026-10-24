@@ -36,7 +36,9 @@ const STATES: Record<Exclude<Etat, "aucune" | "levee">, string> = {
 };
 const NONE = "Pas d'alerte cyclonique en cours à La Réunion.";
 const LIFTED = "Alerte levée. La réouverture des écoles est annoncée par la préfecture et le rectorat (ac-reunion.fr) : elle n'est pas encore lue ici.";
-// The step's name in « … déclenchée par la préfecture le … ».
+// Where the alert is read, said after its date (marketing): « (communiqué de la préfecture) » the day it is read there.
+const BULLETIN = "bulletin de Météo-France";
+// The step's name in « … décidée par la préfecture … ».
 const NAMES: Record<number, string> = { 2: "Pré-alerte cyclonique", 3: "Alerte orange", 4: "Alerte rouge", 5: "Alerte violette", 6: "Phase de sauvegarde" };
 const BY_CODE: Record<number, Etat> = { 2: "pre_alerte", 4: "rouge", 5: "violette", 6: "sauvegarde" };
 
@@ -57,8 +59,13 @@ export interface EcolesAnswer {
   /** Marketing's sentence for the state, its source in `selon` (all but « levée »). */
   texte: string;
   selon?: { nom: string; lien: string };
-  /** « Alerte orange déclenchée par la préfecture le samedi 24/10 à 19:00. », when the bulletin shows the change. */
+  /**
+   * « Alerte orange décidée par la préfecture, en vigueur depuis le samedi 24/10 à 19:00 (bulletin de Météo-France). »,
+   * when the bulletin shows the change: the prefect decides, Météo-France publishes, and we read the bulletin.
+   */
   depuis?: string;
+  /** The bulletin `depuis` names, for its link. */
+  bulletin?: string;
   /** Crèches and schools closed by the plan right now (orange or beyond, in force). */
   fermees: boolean;
   /** The step, by its code (providers/vigilance.ts), -1 without any. */
@@ -97,7 +104,8 @@ export function ecoles(v: mf.Vigilance, now: Date): EcolesAnswer {
     etat,
     texte: `${STATES[etat as keyof typeof STATES]}, selon le ${ORSEC.nom}.`,
     selon: ORSEC,
-    depuis: shown ? (inForce ? `${name} déclenchée par la préfecture le ${when(period.debut)}.` : `${name} annoncée par la préfecture pour le ${when(period.debut)}.`) : undefined,
+    depuis: shown ? (inForce ? `${name} décidée par la préfecture, en vigueur depuis le ${when(period.debut)} (${BULLETIN}).` : `${name} décidée par la préfecture pour le ${when(period.debut)} (${BULLETIN}).`) : undefined,
+    bulletin: shown ? mf.SOURCE.url : undefined,
     fermees: inForce && c >= 3,
     niveau: c,
   };

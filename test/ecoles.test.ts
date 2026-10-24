@@ -63,11 +63,11 @@ describe("the schools and the cyclone alert", () => {
   it("tells an orange alert announced before the schools open from one that starts during the day", () => {
     // Announced for 19:00: the schools will not open tomorrow; not closed yet.
     const evening = ecoles(map([[7, "2026-10-24T06:00:00", "2026-10-24T19:00:00"], [8, "2026-10-24T19:00:00"]]), NOW);
-    expect(evening).toMatchObject({ etat: "orange_avant_ouverture", fermees: false, depuis: "Alerte orange annoncée par la préfecture pour le samedi 24/10 à 19:00." });
+    expect(evening).toMatchObject({ etat: "orange_avant_ouverture", fermees: false, depuis: "Alerte orange décidée par la préfecture pour le samedi 24/10 à 19:00 (bulletin de Météo-France)." });
     expect(evening.texte).toBe(`Alerte orange annoncée avant l'ouverture des écoles : pas de ramassage scolaire, et les crèches, écoles, collèges et lycées n'ouvrent pas${SELON}`);
     // Started at 13:00, during the day: the pupils go home.
     const day = ecoles(map([[7, "2026-10-24T06:00:00", "2026-10-24T13:00:00"], [8, "2026-10-24T13:00:00"]]), NOW);
-    expect(day).toMatchObject({ etat: "orange_en_journee", fermees: true, depuis: "Alerte orange déclenchée par la préfecture le samedi 24/10 à 13:00." });
+    expect(day).toMatchObject({ etat: "orange_en_journee", fermees: true, depuis: "Alerte orange décidée par la préfecture, en vigueur depuis le samedi 24/10 à 13:00 (bulletin de Météo-France)." });
     expect(day.texte).toContain("les élèves déjà en classe, internes compris, rentrent chez eux selon le plan d'évacuation de leur établissement");
     // The next morning, the same alert: the schools did not open.
     expect(ecoles(map([[7, "2026-10-24T06:00:00", "2026-10-24T13:00:00"], [8, "2026-10-24T13:00:00"]]), new Date("2026-10-25T04:00:00Z")).etat).toBe("orange_avant_ouverture");
@@ -99,6 +99,8 @@ describe("the schools and the cyclone alert", () => {
     const orange = page(map([[8, "2026-10-24T06:00:00"]]));
     expect(orange).toContain('selon le <a href="https://www.reunion.gouv.fr/Actions-de-l-Etat/');
     expect(orange).toContain("🌀 Alerte orange à La Réunion (974) : crèches, écoles, collèges et lycées fermés, selon le plan ORSEC Cyclones de la préfecture.");
+    const since = page(map([[7, "2026-10-24T06:00:00", "2026-10-24T13:00:00"], [8, "2026-10-24T13:00:00"]]));
+    expect(since).toContain('en vigueur depuis le samedi 24/10 à 13:00 (<a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">bulletin de Météo-France</a>).');
     // On its own page, the banner does not link to it.
     expect(orange).not.toContain('<a href="/ecoles-cyclone">Écoles fermées →</a>');
   });
