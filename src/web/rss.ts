@@ -10,7 +10,7 @@
 import type { Cached } from "../cache.js";
 import { localTime } from "../geo.js";
 import * as mf from "../providers/vigilance.js";
-import { cyclone, highest, raised, spans } from "../tools/vigilance.js";
+import { cyclone, cycloneHead, cycloneLevel, highest, raised, spans } from "../tools/vigilance.js";
 import { deCommune } from "./aujourdhui.js";
 import type { CoupuresAnswer, RandonneesAnswer, VolcanAnswer } from "./data.js";
 import { esc } from "./map.js";
@@ -59,11 +59,12 @@ function vigilanceItems(p: PlacePage, v: mf.Vigilance, now: Date): Item[] {
   const issued = `Bulletin de Météo-France du ${localTime(new Date(v.emise))}.`;
   const cyc = episode(v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? []);
   if (cyc) {
+    const c = cycloneLevel(v.zones[mf.ISLAND]?.[mf.CYCLONE], now);
     items.push({
-      title: `Alerte cyclonique ${mf.colour(cyc.max)} à La Réunion`,
+      title: `${cycloneHead(c)} à La Réunion`,
       description: `${cyclone(v, now)} ${issued}`,
       path: "/vigilance",
-      guid: `cyclone/${cyc.max}/${localDay(cyc.debut)}`,
+      guid: `cyclone/${c}/${localDay(cyc.debut)}`,
       date: since(v, cyc.debut),
     });
   }

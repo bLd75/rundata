@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T19:43:00+04:00", texte: "Cyclone : les écoles sont-elles fermées ? La règle de la préfecture et l'alerte en cours, sur le site et dans votre IA." },
   { date: "2026-10-24T19:35:00+04:00", texte: "rundata.re s'installe sur votre téléphone : une icône, et les pages déjà ouvertes restent lisibles sans réseau." },
   { date: "2026-10-24T19:30:00+04:00", texte: "Au-dessus ou dans les nuages ? La mer de nuages prévue demain matin au Maïdo, au Piton des Neiges, au volcan et dans les Hauts." },
   { date: "2026-10-24T19:26:00+04:00", texte: "Route du Littoral basculée ou fermée ? Ce qu'annoncent les médias, avec l'heure de l'article, sur /trafic et dans votre IA." },

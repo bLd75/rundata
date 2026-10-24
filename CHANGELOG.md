@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Cyclone : les écoles sont-elles fermées ? La règle de la préfecture et l'alerte en cours, sur le site et dans votre IA.
 - rundata.re s'installe sur votre téléphone : une icône, et les pages déjà ouvertes restent lisibles sans réseau.
 - Au-dessus ou dans les nuages ? La mer de nuages prévue demain matin au Maïdo, au Piton des Neiges, au volcan et dans les Hauts.
 - Route du Littoral basculée ou fermée ? Ce qu'annoncent les médias, avec l'heure de l'article, sur /trafic et dans votre IA.

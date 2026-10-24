@@ -12,10 +12,13 @@ const OFFICIAL =
   "de la préfecture (reunion.gouv.fr) et la radio.";
 
 // What each colour of the cyclone alert asks of people (vigilance.meteofrance.fr).
+// The codes are those of providers/vigilance.ts, a higher one a worse alert, the phase de sauvegarde last.
 export const CYCLONE_STEPS: Record<number, string> = {
-  2: "jaune, « je m'informe » : menace potentielle dans les jours à venir",
+  2: "pré-alerte (jaune), « je m'informe » : menace potentielle dans les jours à venir",
   3: "orange, « je me prépare » : danger dans les 24 heures",
   4: "rouge, « je me confine » : danger imminent",
+  5: "violette, « je me confine strictement » : même les secours ne circulent plus",
+  6: "phase de sauvegarde : le cyclone s'éloigne, le danger demeure",
 };
 
 const hm = (iso: string) => localTime(new Date(iso)).split(" ")[1];
@@ -33,10 +36,25 @@ export function highest(periods: mf.Period[]): number {
 }
 
 /** The periods above green, as « orange de 14h00 à 20h00 ». */
-export function spans(periods: mf.Period[]): string[] {
+export function spans(periods: mf.Period[], name = mf.colour): string[] {
   return periods
     .filter((p) => p.couleur >= 2)
-    .map((p) => `${mf.colour(p.couleur)} ${p.fin ? `du ${day(p.debut)} au ${day(p.fin)}` : `à partir du ${day(p.debut)}`}`);
+    .map((p) => `${name(p.couleur)} ${p.fin ? `du ${day(p.debut)} au ${day(p.fin)}` : `à partir du ${day(p.debut)}`}`);
+}
+
+/** « Alerte cyclonique orange », « Pré-alerte cyclonique », « Phase de sauvegarde cyclonique ». */
+export const cycloneHead = (c: number) => (c === 2 ? "Pré-alerte cyclonique" : c === 6 ? "Phase de sauvegarde cyclonique" : `Alerte cyclonique ${mf.cycloneName(c)}`);
+
+/**
+ * The cyclone alert to show: the one in force, else the next one announced; -1 when there is none. Not the highest
+ * code: the phase de sauvegarde (6) comes after a red alert, it is not worse.
+ */
+export function cycloneLevel(periods: mf.Period[] | undefined, now: Date): number {
+  if (!periods) return -1;
+  const c = current(periods, now);
+  if (c >= 2) return c;
+  const t = now.toISOString();
+  return periods.find((p) => p.couleur >= 2 && p.debut > t)?.couleur ?? -1;
 }
 
 export function cyclone(v: mf.Vigilance, now: Date): string {
@@ -44,7 +62,7 @@ export function cyclone(v: mf.Vigilance, now: Date): string {
   if (!periods || highest(periods) < 2) return "Pas d'alerte cyclonique en cours.";
   const c = current(periods, now);
   const step = CYCLONE_STEPS[c] ?? mf.colour(c);
-  return c >= 2 ? `ALERTE CYCLONIQUE ${step}.` : `Alerte cyclonique prévue : ${spans(periods).join(", ")}.`;
+  return c >= 2 ? `ALERTE CYCLONIQUE ${step}.` : `Alerte cyclonique prévue : ${spans(periods, mf.cycloneName).join(", ")}.`;
 }
 
 /** Every zone with a phenomenon above green in the next 24 h, worst first. */

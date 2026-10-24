@@ -53,6 +53,7 @@ import { coastal, PAGES, type PlacePage } from "../web/places.js";
 import { occurrences } from "./agenda.js";
 import { hoursOn, openNow } from "./annuaire.js";
 import { priceLine } from "./carburants.js";
+import { ecoles, resumeLine } from "./ecoles.js";
 import { aheadRows, type CourantAnswer, shortOf } from "./courant.js";
 import { SITE_URL } from "./citer.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
@@ -198,6 +199,8 @@ function vigilance(p: PlacePage, v: mf.Vigilance, now: Date) {
     maintenant: up.length ? up.map((x) => `${mf.colour(x.c)} ${x.phenomene.toLowerCase()}`).join(", ") : "pas de vigilance particulière",
     vagues_submersion: waves ? `${waves.couleur_max} sur le littoral` : undefined,
     alerte_cyclonique: highest(cyc) >= 2 ? cyclone(v, now) : undefined,
+    /** The schools closed by the cyclone alert in force, in marketing's words (tools/ecoles.ts). */
+    ecoles: resumeLine(ecoles(v, now)),
     emise: localTime(new Date(v.emise)),
   };
 }
@@ -274,6 +277,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     t ? `${t} mesurés à ${meteo!.mesure!.heure_mesure.split(" ")[1] ?? meteo!.mesure!.heure_mesure} (station ${meteo!.mesure!.station})` : "",
     f?.temperature_min && f.temperature_max ? `prévision du jour ${f.temperature_min} à ${f.temperature_max}${f.ciel_en_journee ? `, ${f.ciel_en_journee}` : ""}` : "",
     v ? `vigilance : ${v.maintenant}${v.alerte_cyclonique ? `, ${v.alerte_cyclonique}` : ""}` : "",
+    v?.ecoles ? v.ecoles.replace(/\.$/, "") : "",
     l.coupures ? (avis.length ? `${avis.length} avis de coupure d'eau` : dist?.avis ? "pas de coupure d'eau annoncée" : "") : "",
     l.agenda ? `${events.length} événement${events.length > 1 ? "s" : ""} aujourd'hui` : "",
     roads.length ? `${roads.length} info${roads.length > 1 ? "s" : ""} sur les routes ou des blocages` : "",

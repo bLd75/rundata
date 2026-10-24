@@ -15,7 +15,7 @@ import { anchorOf } from "./decheteries.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
 import { tidesNear } from "../tools/maree.js";
-import { current, cyclone, highest, raised } from "../tools/vigilance.js";
+import { current, cyclone, cycloneLevel, highest, raised } from "../tools/vigilance.js";
 import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, DechetsAnswer, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
 import { LINK } from "./aujourdhui.js";
 import { waterLive } from "./coupures.js";
@@ -94,8 +94,8 @@ function vigilance(p: PlacePage, data: Cached<mf.Vigilance> | null | undefined, 
   if (!v) return undefined;
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   if (highest(cyc) >= 2) {
-    const c = Math.max(2, current(cyc, now));
-    return { valeur: `<span class="vg vg${Math.min(c, 5)}">Cyclone : ${esc(mf.colour(c))}</span>`, detail: esc(cyclone(v, now)) };
+    const c = Math.max(2, cycloneLevel(cyc, now));
+    return { valeur: `<span class="vg vg${c <= 5 ? c : 0}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) };
   }
   const zone = mf.ZONE_OF_COMMUNE[p.nom];
   const name = (mf.ZONES[zone] ?? "").split(" :")[0];
