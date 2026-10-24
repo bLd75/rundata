@@ -2,11 +2,11 @@ import type { Cache } from "../cache.js";
 import { localTime } from "../geo.js";
 import * as seismes from "../providers/seismes.js";
 import type * as onf from "../providers/sentiers.js";
+import * as historique from "./volcan-historique.js";
 import * as volcan from "../providers/volcan.js";
 import { why } from "../types.js";
 import { credits, fr, text } from "./format.js";
 import { acces, definition, libelle, lineText } from "./volcan-acces.js";
-import * as historique from "./volcan-historique.js";
 
 const DAY = 86_400_000;
 const OFFICIAL =
