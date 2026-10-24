@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "re.rundata/temps-reel",
   "title": "La Réunion en temps réel",
-  "description": "Données publiques de La Réunion (974) en direct : météo, vigilance, mer, volcan, air, terrain.",
+  "description": "La Réunion (974) en direct : météo, rando, bus, eau, événements, volcan, cyclones, air, terrain.",
   "version": "0.20.0",
   "remotes": [
     {

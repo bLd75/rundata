@@ -1,7 +1,7 @@
 {
   "name": "reunion-temps-reel",
   "version": "0.20.0",
-  "description": "Serveur MCP : mesures en temps réel à La Réunion (météo, mer) pour les assistants IA",
+  "description": "Serveur MCP : toute La Réunion (974) en direct pour les assistants IA : météo mesurée et historique, randonnée et traces GPS, bus, eau, événements, volcan, cyclones, air, terrain",
   "mcpName": "re.rundata/temps-reel",
   "type": "module",
   "license": "MIT",
