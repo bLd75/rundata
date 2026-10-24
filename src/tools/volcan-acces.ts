@@ -63,12 +63,18 @@ export interface Acces {
 const ENCLOS_TRAILS = /enclos|dolomieu|kapor|rivals|caubet|formica/i;
 const ROAD = /Route Forestière du Volcan \(RF0?5\)/i;
 const day = (iso: string) => localTime(new Date(iso)).split(" ")[0];
+const fullDay = (iso: string) => `${day(iso)}/${new Date(Date.parse(iso) + 4 * 3600_000).getUTCFullYear()}`;
+// A list's mark before a sentence (« → A ce stade, … »): not the release's words.
+const LEAD = /^[→•▪\-–]\s*/;
+// In an eruption, the bans a release may write, in this order (marketing): the Enclos, the slopes from the RN2, the
+// lava flows from the road, the stops on the RN2.
+const BANS = [/reste interdit jusqu.à nouvel ordre/i, /danger mortel/i, /interdit de s.écarter de la route/i, /arrêts intempestifs sur la RN ?2/i];
 const hour = (d: Date) => localTime(d).split(" ")[1];
 const SAID: Record<string, string> = { ferme: "interdit", fermé: "interdit", partiel: "partiellement ouvert", ouvert: "ouvert" };
 
 /** A sentence as quoted: its linking words left out (« En conséquence, … »), no full stop inside the quotes. */
 function quote(s: string): string {
-  const t = s.replace(/^(en conséquence|par conséquent|dans ces conditions|ainsi|par ailleurs|de plus)\s*,\s*/i, "").replace(/[.\s]+$/, "");
+  const t = s.replace(LEAD, "").replace(/^(en conséquence|par conséquent|dans ces conditions|ainsi|par ailleurs|de plus)\s*,\s*/i, "").replace(/[.\s]+$/, "");
   return `« ${t.charAt(0).toUpperCase()}${t.slice(1)} »`;
 }
 
@@ -94,10 +100,22 @@ export function acces(niveau: string | undefined, p: volcan.Phase | undefined, p
   } else {
     const enclos = said.find((x) => /enclos/i.test(x) && /interdit|ferm|ouvert|accès/i.test(x));
     lignes.push({ lieu: "Enclos", texte: `Enclos : ${SAID[p.enclos ?? "ferme"] ?? p.enclos}${enclos ? `. ${quote(enclos)}` : ""}`, ...release });
-    const rn2 = said.find((x) => /\bRN ?2\b|route nationale 2/i.test(x));
+    // The sentence that says whether the road is open, before any other naming it (« S'aventurer depuis la RN2… »).
+    const rn2 = said.find((x) => /\bRN ?2\b[^.]*\b(reste|est) (ouverte|fermée)/i.test(x)) ?? said.find((x) => /\bRN ?2\b|route nationale 2/i.test(x));
     lignes.push(rn2
       ? { lieu: "RN 2", texte: `RN 2 (Grand Brûlé) : ${quote(rn2)}`, ...same }
       : { lieu: "RN 2", texte: `Le dernier communiqué ne dit rien de la RN 2 : ${VERIFIER}.` });
+    // In an eruption, the bans of the release shown, quoted exactly with its day, nothing of ours around them; never a
+    // former release's (marketing). A sentence already quoted above is not said twice.
+    if (/^Alerte 2/i.test(niveau)) {
+      const used = new Set([enclos, rn2]);
+      for (const re of BANS) {
+        const s = said.find((x) => re.test(x) && !used.has(x));
+        if (!s) continue;
+        used.add(s);
+        lignes.push({ lieu: "Interdiction", texte: `« ${s.replace(LEAD, "")} »`, source: `communiqué du ${fullDay(p.publie)}`, lien: p.lien });
+      }
+    }
   }
 
   // The forest road from Bourg-Murat: the release's words if it names it, and the ONF's map; never « ouverte ».

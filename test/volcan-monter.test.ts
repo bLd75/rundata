@@ -96,6 +96,28 @@ describe("« Puis-je monter au volcan ? »", () => {
     expect(lineText(acces(undefined, undefined, undefined, undefined).lignes[0])).toBe("Nous n'avons pas pu lire le dernier communiqué de la préfecture : vérifiez sur reunion.gouv.fr avant de monter au volcan.");
   });
 
+  it("quotes in an eruption the bans the release shown writes, exactly, with its day, and nothing of ours", () => {
+    // The prefecture's reminder of 25/07/2023, during the eruption of July (alert 2-1).
+    const page = fixture("actualites/prefecture-eruption-rappel-2023-07-25.html");
+    const lien = "https://www.reunion.gouv.fr/Actualites/Urgences/Eruption-le-prefet-rappelle-qu-il-est-interdit-et-dangereux-de-tenter-d-acceder-aux-coulees-de-lave";
+    const juillet = phaseOf([{ titre: "Piton de la Fournaise : passage en alerte 2-1", lien, publie: "2023-07-25T08:00:00+04:00" } as unknown as Info])!;
+    const said = releaseSentences(page);
+    const lines = acces("Alerte 2-1", juillet, said, undefined).lignes;
+    expect(lines.map(lineText).slice(0, 4)).toEqual([
+      `Enclos : interdit. « L'accès du public à l’ensemble de l'enclos du piton de la Fournaise (partie haute, partie basse, grandes pentes), que ce soit depuis le sentier du Pas de Bellecombe, depuis les anciennes coulées de lave aux abords de la RN2 ou depuis tout autre sentier, reste interdit jusqu’à nouvel ordre » (communiqué de la préfecture du 25/07 : ${lien}).`,
+      // The sentence that says whether the road is open, its list's arrow left out.
+      `RN 2 (Grand Brûlé) : « A ce stade, la RN 2 reste ouverte à la circulation, mais il est interdit de s’écarter de la route et d’accéder aux coulées de la lave depuis la route » (même communiqué : ${lien}).`,
+      `« S’aventurer depuis la RN2 sur les pentes du volcan exposerait à un danger mortel. » (communiqué du 25/07/2023 : ${lien}).`,
+      `« Il est également demandé d’éviter les arrêts intempestifs sur la RN2 et ses abords risquant de produire des accidents ou des problématiques de circulation. » (communiqué du 25/07/2023 : ${lien}).`,
+    ]);
+    // Each ban as the release writes it, its spelling kept (« RN2 »).
+    for (const l of lines.filter((x) => x.lieu === "Interdiction")) expect(said).toContain(l.texte.slice(2, -2));
+    expect(lines.map(lineText).join(" ")).not.toMatch(/prudent|restez|soyez/i);
+    // Not in alert 1, nor when the release shown writes none of them (24/10/2026: the Enclos only, already quoted).
+    expect(acces("Alerte 1", juillet, said, undefined).lignes.some((x) => x.lieu === "Interdiction")).toBe(false);
+    expect(acces("Alerte 2-1", ALERT_1, releaseSentences(PAGE), undefined).lignes.some((x) => x.lieu === "Interdiction")).toBe(false);
+  });
+
   it("defines the level with the plan's words and page", () => {
     expect(definition("Alerte 1")).toBe("Alerte 1 : « éruption probable ou imminente » (dispositif ORSEC Volcan, arrêté n° 2242 du 08/11/2021, p. 22).");
     expect(definition("Vigilance renforcée")).toBeUndefined();
