@@ -1,10 +1,11 @@
 import { later, left, perInvocation } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
+import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
 import * as src from "../providers/agenda.js";
 import { withNews } from "../providers/agenda-presse.js";
-import { titleKey } from "../providers/salles.js";
+import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, notFound, placeBlock, text } from "./format.js";
 import { quand as dayText } from "./sport.js";
@@ -299,16 +300,25 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     description: e.description,
     lien: e.lien,
     publie_par: e.publie_par,
+    /** When rundata.re read the agenda this comes from. */
+    lu_le: e.lu_le ? dayText(e.lu_le) : undefined,
   };
 }
 export type EventRow = ReturnType<typeof eventRow>;
 
+// Told from the agendas read: a source taken out of AGENDAS leaves this text too.
+const halls = src.AGENDAS.filter((x) => x.source === SALLES_SOURCE);
+const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== "reunion_fr");
+const without = Object.keys(INSEE).filter((c) => !src.COVERED.includes(c));
+/** The communes whose mairie's agenda is read, for the tool's description. */
+export const MAIRIES_LUES = towns.filter((x) => x.commune && !x.couvre).map((x) => x.commune).join(", ");
 export const COUVERTURE =
-  "Agendas lus : mairies de Saint-Paul, du Port, des Trois-Bassins, du Tampon, de Saint-Louis et de Saint-André ; CINOR et office de tourisme " +
-  "du Nord (Saint-Denis, Sainte-Marie, Sainte-Suzanne) ; agenda de reunion.fr pour les grandes fêtes et festivals de toute l'île. " +
-  "Programmes des salles : TÉAT Champ Fleuri et TÉAT Plein Air, Cité des Arts (Palaxa, Fanal, Château Morange), CDNOI, Kabardock, " +
-  "Le Séchoir, Léspas, Bisik, Théâtre Luc Donat. Pas encore lus : le Kerveguen (Saint-Pierre), les bars et les clubs, les billetteries " +
-  "privées. Un événement absent ici peut quand même avoir lieu (voir le site ou la page Facebook de la salle ou de la mairie).";
+  `Agendas lus : ${towns.map((x) => (x.couvre ? `${x.nom} (${x.couvre.join(", ")})` : x.nom)).join(", ")} ; agenda de reunion.fr pour les grandes fêtes ` +
+  `et festivals de toute l'île. Programmes des salles : ${halls.map((x) => x.nom).join(", ")}. ` +
+  `Sans agenda lu (seuls les grands événements de reunion.fr) : ${without.join(", ")}` +
+  `${Object.entries(src.SANS_AGENDA).filter(([c]) => without.includes(c)).map(([, why]) => ` ; ${why}`).join("")}. ` +
+  "Pas encore lus : les bars et les clubs, les billetteries privées. Un événement absent ici peut quand même avoir lieu (voir le site ou la " +
+  "page Facebook de la salle ou de la mairie). Chaque événement dit qui le publie, renvoie à sa page et dit quand rundata.re l'a lu.";
 /** The cinemas' showtimes are on their own sites, not here. */
 export const CINEMAS = [
   { nom: "Ciné Cambaie (Saint-Paul), Ciné Grand Sud (Saint-Pierre), Ciné Lacaze (Saint-Denis), Le Plaza (Saint-Louis)", lien: "https://cine-reunion.com/" },
@@ -336,7 +346,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
 
   const p = periode(quand, now);
   const what = matcher(quoi);
-  const all = withNews(unique(got.flatMap((g) => g.value?.value ?? [])), news?.value.infos, now)
+  const all = withNews(unique(got.flatMap((g) => g.value ? g.value.value.map((e) => ({ ...e, lu_le: src.toLocal(g.value!.fetchedAt.toISOString()) })) : [])), news?.value.infos, now)
     .map((e) => ({ e, seances: inPeriod(e, p, now) }))
     .filter((x) => x.seances.length && (!what || what.test(x.e)))
     .sort((x, y) => Number(spanDays(x.seances[0]) > LONG_DAYS) - Number(spanDays(y.seances[0]) > LONG_DAYS) ||
@@ -352,7 +362,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const resume = [
     n ? `${n} événement${n > 1 ? "s" : ""}${kind} ${where} ${periodText}` : `Aucun événement${kind} trouvé ${where} ${periodText}`,
     off.length ? `ATTENTION : ${off.map((x) => `« ${x.e.titre} » ${x.e.statut}${x.e.reporte_au ? ` au ${dayText(x.e.reporte_au)}` : ""}${x.e.selon ? ` (d'après ${x.e.selon.media})` : ""}`).slice(0, 4).join(", ")}` : "",
-    commune && !covered ? `ni la mairie ${de(commune)} ni une salle de la commune ne publient d'agenda lisible : seuls les grands événements de reunion.fr y figurent` : "",
+    commune && !covered ? `${src.SANS_AGENDA[commune] ?? `ni la mairie ${de(commune)} ni une salle de la commune ne publient d'agenda lisible`} : seuls les grands événements de reunion.fr y figurent` : "",
     commune && !n && all.length ? `${all.length} ailleurs sur l'île` : "",
     // Said in the summary, not only in `indisponible`: a partial list must not be read as the whole of it.
     failed.length ? `${failed.length} agenda${failed.length > 1 ? "s" : ""} non lu${failed.length > 1 ? "s" : ""} cette fois : ${failed.join(", ")} (liste peut-être incomplète, à redemander dans une minute)` : "",

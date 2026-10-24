@@ -219,6 +219,7 @@ function decode(buf: ArrayBuffer): string {
 const teat: Agenda = {
   id: "teat",
   nom: "TÉAT Champ Fleuri et Plein Air",
+  couvre: ["Saint-Denis", "Saint-Paul"],
   source: SOURCE,
   // Both stages' programmes, then the pages of the shows on both.
   requetes: 2 + TEAT_PAGES,
@@ -589,5 +590,8 @@ const lespas: Agenda = {
 
 export const SALLES: Agenda[] = [teat, citeDesArts, kabardock, bisik, lucDonat, cdnoi, lespas];
 
-/** The words of a title, to tell the same show published by two sources (« CÉDRIC "ANALYSE" & SES INVITÉS »). */
-export const titleKey = (s: string) => normalize(s).split(" ").filter((w) => w.length > 2 && !["les", "des", "avec", "feat", "et"].includes(w)).slice(0, 3).join(" ");
+/**
+ * The words of a title, to tell the same show published by two sources (« CÉDRIC "ANALYSE" & SES INVITÉS »), its year
+ * left out (« Fête de l'ail 2026 » is reunion.fr's « Fête de l'ail »).
+ */
+export const titleKey = (s: string) => normalize(s).split(" ").filter((w) => w.length > 2 && !["les", "des", "avec", "feat", "et"].includes(w) && !/^20\d\d$/.test(w)).slice(0, 3).join(" ");

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKER_FREE_LIMIT, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { communeOf, datesIn, parseReunionFr, parseTribe } from "../src/providers/agenda.js";
+import { AGENDAS, COVERED, SOURCES_LUES, communeOf, datesIn, lead, parseIntraMuros, parsePetiteIle, parseReunionFr, parseRss, parseTribe } from "../src/providers/agenda.js";
 import { agenda, gather, periode } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
 
@@ -33,6 +33,10 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("trois-bassins")) return "tribe_trois-bassins.json";
   if (url.includes("letampon")) return "rss_le-tampon.xml";
   if (url.includes("saintlouis")) return "rss_saint-louis.xml";
+  if (url.includes("lapossession")) return "rss_la-possession.xml";
+  if (url.includes("entredeux")) return "rss_entre-deux.xml";
+  if (url.includes("letangsale")) return "rss_etang-sale.xml";
+  if (url.includes("petite-ile")) return "petite-ile.html";
   if (url.includes("50316469")) return "openagenda_cinor.json";
   if (url.includes("32570974")) return "openagenda_otnord.json";
   if (url.includes("reunion.fr")) return "irt_agenda.html";
@@ -82,6 +86,54 @@ describe("agenda", () => {
     expect(() => parseReunionFr("<html></html>")).toThrow();
   });
 
+  it("reads La Possession's agenda, each date as data", () => {
+    const list = parseIntraMuros(fixture("rss_la-possession.xml"), "Ville de La Possession", "La Possession");
+    expect(list).toHaveLength(16);
+    // Some days of a span, with their hours.
+    expect(list.find((e) => e.titre === "Parentali'thé - Les ateliers du samedi")!.seances.slice(0, 2)).toEqual([
+      { debut: "2026-08-29T09:30", fin: "2026-08-29T11:00" }, { debut: "2026-09-12T09:30", fin: "2026-09-12T11:00" },
+    ]);
+    expect(list.find((e) => e.titre === "Journée d'Accès au droit")).toMatchObject({ seances: [{ debut: "2026-10-24T08:30", fin: "2026-10-24T12:30" }], lieu: undefined, commune: "La Possession" });
+    // Midnight to 23:59:59: days without hours.
+    expect(list.find((e) => e.titre === "Les Folies culturelles du mois d'octobre")).toMatchObject({ seances: [{ debut: "2026-10-07", fin: "2026-10-28" }], lieu: "Médiathèque Héva", categories: ["Animation"], lien: "https://www.lapossession.re/agenda/890434" });
+    expect(list.find((e) => e.titre === "Agenda sportif du 22 au 24 octobre")!.lieu).toBeUndefined();
+    // The facts only: the feed's text is the dates again.
+    expect(list.every((e) => !e.description && e.publie_par === "Ville de La Possession")).toBe(true);
+  });
+
+  it("reads Petite-Île's agenda page, its hours put back from UTC", () => {
+    const list = parsePetiteIle(fixture("petite-ile.html"), NOW);
+    expect(list.find((e) => e.titre === "Semaine créole")).toMatchObject({ seances: [{ debut: "2026-10-28", fin: "2026-10-31" }], lieu: undefined, commune: "Petite-Île", description: "SEMAINE CRÉOLE À PETITE-ÎLE : ANOU TRANSMÈT NOUT LANG !", lien: "https://www.petite-ile.re/actualites/agenda/semaine-creole" });
+    // « de 05h00 à 08h00 » on the list, « De 9h à 12h » on the event's page.
+    expect(list.find((e) => e.titre.startsWith("OCTOBRE ROSE"))!.seances).toEqual([{ debut: "2026-10-03T09:00", fin: "2026-10-03T12:00" }]);
+    expect(list.find((e) => e.titre === "Spectacle - La vie d’Oursin")).toMatchObject({ seances: [{ debut: "2026-10-14T14:00", fin: "2026-10-14T15:00" }], lieu: "Bibliothèque du Centre-Ville" });
+    expect(list.find((e) => e.titre.startsWith("Bibliobus"))!.lieu).toBeUndefined();
+    expect(list.every((e) => !e.description || e.description.length <= 200)).toBe(true);
+  });
+
+  it("reads the feeds of L'Étang-Salé and L'Entre-Deux, the first sentence of their text only", () => {
+    const etang = parseRss(fixture("rss_etang-sale.xml"), "Ville de L'Étang-Salé", "L'Étang-Salé", true);
+    expect(etang.map((e) => [e.titre, e.seances, e.description])).toEqual([
+      ["Planning des compétitions sportives du 23 au 25 octobre 2026", [{ debut: "2026-10-23", fin: "2026-10-25" }], undefined],
+      // Without the hour of its posting (« 24 Octobre 2026 09:20 ») nor its label (« EVENEMENT »).
+      ["Marche Solidaire contre la polio", [{ debut: "2026-10-24" }], "Rendez-vous demain, samedi 24 octobre pour la marche solidaire contre la polio !"],
+    ]);
+    const [show] = parseRss(fixture("rss_entre-deux.xml"), "Mairie de l'Entre-Deux", "Entre-Deux", true);
+    expect(show).toMatchObject({ titre: "Mille et une vies, l'histoire d'une âme", seances: [{ debut: "2026-10-10" }], commune: "Entre-Deux" });
+    expect(show.description).toMatch(/^« Mille et une vies, l’histoire d’une âme » L’association Bellydance/);
+    expect(show.description!.length).toBeLessThanOrEqual(200);
+    expect(lead("Du 23 au 25 octobre l’ail est en fête au Domaine du Relais !Ouverture de la fête foraine dès le vendredi.")).toBe("Du 23 au 25 octobre l’ail est en fête au Domaine du Relais !");
+  });
+
+  it("takes each source from one line of the agendas: its reading, its credit and its coverage", () => {
+    const possession = AGENDAS.find((a) => a.id === "la_possession")!;
+    expect(COVERED).toContain("La Possession");
+    expect(SOURCES_LUES).toContain(possession.source);
+    expect(COVERED).not.toContain("Saint-Pierre");
+    expect(COVERED.every((c) => AGENDAS.some((a) => a.commune === c || a.couvre?.includes(c)))).toBe(true);
+    expect(new Set(AGENDAS.map((a) => a.id)).size).toBe(AGENDAS.length);
+  });
+
   it("understands when", () => {
     expect(periode("ce_week_end", NOW)).toMatchObject({ du: "2026-10-24", au: "2026-10-25", nom: "ce week-end" });
     expect(periode("ce week-end", new Date("2026-10-21T04:00:00Z"))).toMatchObject({ du: "2026-10-23", au: "2026-10-25" });
@@ -97,18 +149,21 @@ describe("agenda", () => {
     const c = cache();
     const b = body(await agenda(c, undefined, undefined, undefined, NOW));
     expect(b.resume).toBe("40 événements à La Réunion dans les deux semaines qui viennent (du samedi 24/10 au samedi 07/11).".replace("40", String(b.nombre)));
-    expect(b.nombre).toBe(56);
+    expect(b.nombre).toBe(76);
     expect(b.evenements).toHaveLength(40);
     expect(b.evenements.filter((e: { titre: string }) => e.titre === "Visite guidée de la Maison Carrère")).toHaveLength(1);
-    expect(b.evenements[1]).toMatchObject({ titre: "Fête de l'ail", quand: "du vendredi 23/10 au dimanche 25/10", commune: "Petite-Île", publie_par: "reunion.fr" });
+    // Published by reunion.fr and by Petite-Île, told once: the commune's, which gives the place.
+    expect(b.evenements.find((e: { titre: string }) => /^Fête de l'ail/.test(e.titre))).toMatchObject({ titre: "Fête de l'ail 2026", quand: "du vendredi 23/10 au dimanche 25/10", lieu: "Domaine du Relais", commune: "Petite-Île", publie_par: "Ville de Petite-Île", lu_le: "samedi 24/10 à 08:00" });
+    expect(b.evenements.filter((e: { titre: string }) => /^Fête de l'ail/.test(e.titre))).toHaveLength(1);
     const all = body(await agenda(c, undefined, undefined, undefined, NOW, 300));
     expect(new Set(all.evenements.map((e: { publie_par: string }) => e.publie_par))).toEqual(new Set(["reunion.fr", "Ville du Tampon", "Ville du Port", "Mairie des Trois-Bassins", "CINOR", "Mairie de Saint-Paul", "Ville de Saint-André",
-      "Le Séchoir", "TÉAT La Réunion", "Cité des Arts", "Kabardock", "Bisik", "Théâtre Luc Donat", "CDNOI", "Léspas"]));
+      "Le Séchoir", "TÉAT La Réunion", "Cité des Arts", "Kabardock", "Bisik", "Théâtre Luc Donat", "CDNOI", "Léspas", "Ville de La Possession", "Ville de L'Étang-Salé",
+      "Ville de Petite-Île"]));
     // Last year's posts of Saint-Louis are past; nothing of theirs.
     expect(b.evenements.some((e: { publie_par: string }) => e.publie_par === "Ville de Saint-Louis")).toBe(false);
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
-    // Nineteen agendas, and the pages of the four shows on both TÉAT stages.
-    expect(asked).toHaveLength(23);
+    // Twenty-three agendas, and the pages of the four shows on both TÉAT stages.
+    expect(asked).toHaveLength(27);
   });
 
   it("answers tonight, with the hours", async () => {
@@ -128,7 +183,7 @@ describe("agenda", () => {
 
   it("says when a commune publishes no agenda, and what there is elsewhere", async () => {
     const b = body(await agenda(cache(), "Saint-Pierre", "ce_week_end", undefined, NOW));
-    expect(b.resume).toMatch(/^Aucun événement trouvé à Saint-Pierre ce week-end .*ni la mairie de Saint-Pierre ni une salle de la commune ne publient d'agenda lisible.* ailleurs sur l'île\.$/);
+    expect(b.resume).toMatch(/^Aucun événement trouvé à Saint-Pierre ce week-end .*la page agenda de la mairie de Saint-Pierre est vide et le Kerveguen n'est pas encore lu : seuls les grands événements de reunion.fr y figurent.* ailleurs sur l'île\.$/);
     expect(b.ailleurs_sur_l_ile.length).toBeGreaterThan(0);
   });
 
