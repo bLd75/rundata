@@ -90,21 +90,29 @@ export function when(s: src.Seance): string {
  * What `quoi` can ask, and the words of an event that answer it; the same themes are the genres a row is labelled with.
  * Accents matter on the event side: « marche » is a walk. « Spectacles » takes in théâtre, danse, humour and cirque.
  */
+// A word starts where letters do (« conte » is not in « post_content »); `END` closes those whose longer forms mean
+// something else (« pièce », « contemporain »).
+const W = (alts: string) => new RegExp(`(?<![\\p{L}\\p{N}_])(?:${alts})`, "iu");
+const END = "(?![\\p{L}])";
+
 export const THEMES: { nom: string; genre: string; demande: RegExp; texte: RegExp }[] = [
-  { nom: "concerts et musique", genre: "concert", demande: /concert|musique|music|maloya|sega|seggae|kabar|jazz|rock|metal|reggae|rap|hip hop|electro|classique|recital|chanson|zouk/, texte: /concert|musique|musical|maloya|s[ée]ga|kabar|jazz|rock|m[ée]tal|reggae|dancehall|dub\b|\brap\b|hip.hop|[ée]lectro|blues|soul\b|funk|zouk|chanson|r[ée]cital|piano|orchestre|symphon|\bchant(?:eur|euse|s)?\b|chorale|\bbal\b|\blive\b|plato zartis|sono mondiale/ },
-  { nom: "théâtre", genre: "théâtre", demande: /theatre|piece|comedie|spectacle/, texte: /th[ée][âa]tre|com[ée]die|pi[èe]ce|lecture/ },
-  { nom: "danse", genre: "danse", demande: /danse|ballet|choregraph|battle|spectacle/, texte: /danse|ballet|chor[ée]graph|battle/ },
-  { nom: "humour", genre: "humour", demande: /humour|humoriste|stand ?up|comedy|one man|one woman|rire|spectacle/, texte: /humour|humoriste|stand.?up|comedy|one.(?:wo)?man|seul.en.sc[èe]ne/ },
-  { nom: "cirque, contes et magie", genre: "cirque", demande: /cirque|conte|magie|marionnette|spectacle/, texte: /cirque|circassien|conte|magie|marionnette|clown/ },
-  { nom: "soirées et clubbing", genre: "soirée", demande: /soiree|club|clubbing|\bdj\b|danser|boite|nightlife|fete ce soir/, texte: /clubbing|\bdj\b|dj.set|\bclub\b|kizomba|salsa|bachata|\bsbk\b|soir[ée]e (?:dansante|zouk|salsa|kizomba|clubbing|[ée]lectro|dj|sbk|ann[ée]es)|nuit du (?:zouk|s[ée]ga|maloya)|bal poussi[èe]re/ },
-  { nom: "marchés", genre: "marché", demande: /marche|forain|brocante|vide grenier|braderie|foire|producteur/, texte: /marché|march[eé]s? (?:de nuit|forain|artisanal|paysan|nocturne|cr[ée]ole|de no[ëe]l)|forain|brocante|vide.grenier|braderie|foire|producteurs/ },
-  { nom: "fêtes et festivals", genre: "festival", demande: /fete|fet\b|festival|kermesse|carnaval|feu d artifice|kabar/, texte: /f[êe]te|f[èe]t\b|festival|kermesse|carnaval|feu d.artifice|som[èe]n|semaine cr[ée]ole|zourn[ée]|kabar|temps fort/ },
-  { nom: "cinéma", genre: "cinéma", demande: /cinema|film|projection|cine\b|documentaire/, texte: /cin[ée]ma|projection|\bfilm|documentaire|court.m[ée]trage/ },
-  { nom: "sport", genre: "sport", demande: /sport|course|trail|randonnee|tournoi|match|velo|dragon|rallye/, texte: /sport|course|trail|randonn[ée]e|tournoi|match|v[ée]lo|koupe|dragon boat|nage|surf|rallye/ },
-  { nom: "pour les enfants", genre: "enfants", demande: /enfant|marmaille|famille|kids|jeune public|ado/, texte: /enfant|marmaille|famil|jeune public|escape game|ludique|jeux|frissons|kids/ },
-  { nom: "expositions et visites", genre: "exposition", demande: /expo|musee|patrimoine|visite|galerie/, texte: /expo|mus[ée]e|patrimoine|visite|galerie/ },
-  { nom: "ateliers et rencontres", genre: "atelier", demande: /atelier|conference|forum|salon|formation|permanence|rencontre/, texte: /atelier|conf[ée]rence|forum|salon|formation|permanence|rencontre|congr[èe]s/ },
+  { nom: "concerts et musique", genre: "concert", demande: /concert|musique|music|maloya|sega|seggae|kabar|jazz|rock|metal|reggae|rap|hip hop|electro|classique|recital|chanson|zouk/, texte: W(`concerts?${END}|musique|musical|maloya|s[ée]ga${END}|seggae|kabar|jazz|rock${END}|m[ée]tal${END}|reggae|dancehall|dub${END}|rap${END}|hip.hop|[ée]lectro|blues|soul${END}|funk|zouk|chansons?${END}|r[ée]cital|piano|orchestre|symphon|chant(?:eur|euse|s)?${END}|chorale|bal${END}|live${END}|plato zartis|sono mondiale`) },
+  { nom: "théâtre", genre: "théâtre", demande: /theatre|piece|comedie|spectacle/, texte: W(`th[ée][âa]tre|com[ée]die|lecture${END}`) },
+  { nom: "danse", genre: "danse", demande: /danse|ballet|choregraph|battle|spectacle/, texte: W(`danses?${END}|ballet|chor[ée]graph|battle`) },
+  { nom: "humour", genre: "humour", demande: /humour|humoriste|stand ?up|comedy|one man|one woman|rire|spectacle/, texte: W(`humour|humoriste|stand.?up|comedy|one.(?:wo)?man|seul.en.sc[èe]ne`) },
+  { nom: "cirque, contes et magie", genre: "cirque", demande: /cirque|conte|magie|marionnette|spectacle/, texte: W(`cirque|circassien|contes?${END}|conteu(?:r|se)s?${END}|magie|magicien|marionnette|clown`) },
+  { nom: "soirées et clubbing", genre: "soirée", demande: /soiree|club|clubbing|\bdj\b|danser|boite|nightlife|fete ce soir/, texte: W(`clubbing|dj${END}|dj.set|club${END}|kizomba|salsa|bachata|sbk${END}|soir[ée]e (?:dansante|zouk|salsa|kizomba|clubbing|[ée]lectro|dj|sbk|ann[ée]es)|nuit du (?:zouk|s[ée]ga|maloya)|bal poussi[èe]re`) },
+  { nom: "marchés", genre: "marché", demande: /marche|forain|brocante|vide grenier|braderie|foire|producteur/, texte: W(`march[ée]s? (?:de nuit|forain|artisanal|paysan|nocturne|cr[ée]ole|de no[ëe]l)|marchés?${END}|forains?${END}|brocante|vide.grenier|braderie|foire${END}|producteurs`) },
+  { nom: "fêtes et festivals", genre: "festival", demande: /fete|fet\b|festival|kermesse|carnaval|feu d artifice|kabar/, texte: W(`f[êe]tes?${END}|f[èe]t${END}|festival|kermesse|carnaval|feu d.artifice|som[èe]n${END}|semaine cr[ée]ole|zourn[ée]|kabar|temps fort`) },
+  { nom: "cinéma", genre: "cinéma", demande: /cinema|film|projection|cine\b|documentaire/, texte: W(`cin[ée]ma|projections?${END}|films?${END}|documentaire|court.m[ée]trage`) },
+  { nom: "sport", genre: "sport", demande: /sport|course|trail|randonnee|tournoi|match|velo|dragon|rallye/, texte: W(`sports?${END}|sporti(?:f|ve)|courses?${END}|trail${END}|randonn[ée]e|tournoi|match${END}|v[ée]lo|koupe|dragon boat|nage${END}|natation|surf${END}|rallye`) },
+  { nom: "pour les enfants", genre: "enfants", demande: /enfant|marmaille|famille|kids|jeune public|ado/, texte: W(`enfants?${END}|marmailles?${END}|famil|jeune public|escape game|ludique|jeux${END}|frissons|kids${END}`) },
+  { nom: "expositions et visites", genre: "exposition", demande: /expo|musee|patrimoine|visite|galerie/, texte: W(`expo|mus[ée]e|patrimoine|visites?${END}|galerie`) },
+  { nom: "ateliers et rencontres", genre: "atelier", demande: /atelier|conference|forum|salon|formation|permanence|rencontre|reunion publique|concertation/, texte: W(`ateliers?${END}|conf[ée]rences?${END}|forum${END}|salon${END}|formation|permanences?${END}|rencontres?${END}|congr[èe]s|r[ée]unions? publiques?|concertation|enqu[êe]te publique|consultation|stage${END}|webinaire|s[ée]minaire`) },
 ];
+// A workshop, a meeting or a talk is not a show, whatever it is about (« Atelier théâtre », « PROJET TRAIN : Atelier »).
+const SHOWS = new Set(["concert", "théâtre", "danse", "humour", "cirque", "soirée"]);
+
 const STOP = new Set(["des", "les", "une", "pour", "avec", "quoi", "faire", "sortir", "evenement", "evenements", "sortie", "sorties", "agenda"]);
 
 /** How `quoi` is understood: themes, or else words that must all be in the event. */
@@ -115,11 +123,18 @@ const body = (e: src.Evenement) => `${about(e)} ${e.lieu ?? ""}`.toLowerCase();
 // mentions a dance contest.
 const head = (e: src.Evenement) => `${e.titre} ${e.categories.join(" ")}`.toLowerCase();
 
+const kindsOf = (text: string) => THEMES.filter((t) => t.texte.test(text)).map((t) => t.genre);
+/** Without the shows' genres when the title or the source's category say workshop, meeting or talk. */
+const unlessWorkshop = (e: src.Evenement, list: string[]) => (kindsOf(head(e)).includes("atelier") ? list.filter((g) => !SHOWS.has(g)) : list);
+
 /** The genres of an event, for the page's filter: from its title and categories, else its description. */
 export function genres(e: src.Evenement): string[] {
-  const own = THEMES.filter((t) => t.texte.test(head(e))).map((t) => t.genre);
-  return own.length ? own : THEMES.filter((t) => t.texte.test(about(e))).map((t) => t.genre).slice(0, 2);
+  const own = kindsOf(head(e));
+  return unlessWorkshop(e, own.length ? own : kindsOf(about(e)).slice(0, 2));
 }
+
+/** Every genre an event may answer to, its description included. */
+const kinds = (e: src.Evenement) => new Set(unlessWorkshop(e, kindsOf(about(e))));
 
 export function matcher(quoi: string | undefined): { nom?: string; test: (e: src.Evenement) => boolean } | null {
   const q = normalize(quoi ?? "");
@@ -127,7 +142,16 @@ export function matcher(quoi: string | undefined): { nom?: string; test: (e: src
   // « spectacle » asks every kind of show; a precise word (« théâtre », « danse ») only its own.
   const themes = THEMES.filter((t) => t.demande.test(q) && (!/spectacle/.test(q) || t.demande.source.includes("spectacle")));
   const show = /spectacle/.test(q);
-  if (themes.length) return { nom: show && themes.length > 1 ? "spectacles" : themes.map((t) => t.nom).join(", "), test: (e) => themes.some((t) => t.texte.test(about(e))) || (show && /spectacle/.test(about(e))) };
+  const asked = new Set(themes.map((t) => t.genre));
+  if (themes.length) {
+    return {
+      nom: show && themes.length > 1 ? "spectacles" : themes.map((t) => t.nom).join(", "),
+      test: (e) => {
+        const k = kinds(e);
+        return [...k].some((g) => asked.has(g)) || (show && !k.has("atelier") && W("spectacles?").test(about(e)));
+      },
+    };
+  }
   const words = q.split(" ").filter((w) => w.length >= 3 && !STOP.has(w));
   if (!words.length) return null;
   return { nom: `« ${quoi!.trim()} »`, test: (e) => words.every((w) => normalize(body(e)).includes(w)) };
@@ -135,14 +159,26 @@ export function matcher(quoi: string | undefined): { nom?: string; test: (e: src
 
 type Got = { agenda: src.Agenda; value?: Cached<src.Evenement[]> };
 
-/** Every agenda, read in parallel; one that fails is left out and named. */
-export async function gather(cache: Cache, now: Date): Promise<Got[]> {
+// An answer does not wait longer for the slowest of the agendas: one still loading is answered from its last copy, or
+// left out and named.
+const DEADLINE_MS = 5_000;
+
+/** Every agenda, read in parallel; one that fails or is too slow is left out and named. */
+export async function gather(cache: Cache, now: Date, deadlineMs = DEADLINE_MS): Promise<Got[]> {
   return Promise.all(src.AGENDAS.map(async (agenda) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<"late">((resolve) => (timer = setTimeout(() => resolve("late"), deadlineMs)));
     try {
-      return { agenda, value: await agenda.load(cache, now) };
+      const got = await Promise.race([agenda.load(cache, now), late]);
+      if (got !== "late") return { agenda, value: got };
+      const last = await cache.peek<src.Evenement[]>(`agenda:${agenda.id}`);
+      console.error(`source ${agenda.source.id} (${agenda.id}) trop lente${last ? " : dernière copie" : ""}`);
+      return last ? { agenda, value: { ...last, stale: true } } : { agenda };
     } catch (err) {
       console.error(`source ${agenda.source.id} (${agenda.id}) indisponible:`, why(err));
       return { agenda };
+    } finally {
+      clearTimeout(timer);
     }
   }));
 }

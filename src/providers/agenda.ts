@@ -19,7 +19,7 @@ import { normalize, resolvePlace } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
 import { communesIn, strip } from "./avis-eau.js";
 import { monthOf, statusOf, type Statut } from "./agenda-mots.js";
-import { SALLES, SOURCE as SALLES_SOURCE } from "./salles.js";
+import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS } from "./salles.js";
 
 export { communesIn, monthOf, statusOf, type Statut };
 
@@ -141,7 +141,9 @@ export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune:
     const venue = Array.isArray(e.venue) ? {} : (e.venue as { venue?: string; address?: string; city?: string });
     const debut = tribeTime(e.start_date, e.all_day);
     const fin = tribeTime(e.end_date, e.all_day);
-    const description = clean(e.description);
+    // Without the page builder's shortcodes some sites leave in the text (« [et_pb_section …] »), the last one often
+    // cut short by the source.
+    const description = clean(e.description).replace(/\[\/?[a-z][\w-]*(?:\s[^\]]*)?(?:\]|$)/g, " ").replace(/\s+/g, " ").trim();
     const statut = statusOf(clean(e.title), description);
     return {
       ...(statut ? { statut } : {}),
@@ -169,7 +171,7 @@ function tribe(id: string, nom: string, site: string, commune: string, source: S
       cache.get(`agenda:${id}`, FRESH_SECONDS, async () => {
         const day = localDay(now);
         const url = `${site}/wp-json/tribe/events/v1/events?start_date=${day}&end_date=${addDays(day, AHEAD_DAYS)}&per_page=50`;
-        return parseTribe(JSON.parse(await getText(source.id, url, 15_000, HEADERS)), nom, commune, home);
+        return parseTribe(JSON.parse(await getText(source.id, url, TIMEOUT_MS, HEADERS)), nom, commune, home);
       }),
   };
 }
@@ -226,7 +228,7 @@ function openAgenda(id: string, nom: string, uid: number): Agenda {
       cache.get(`agenda:${id}`, FRESH_SECONDS, async () => {
         // The public export of the agenda's page, without a key (the v2 API needs one).
         const url = `https://openagenda.com/agendas/${uid}/events.v2.json?relative%5B%5D=current&relative%5B%5D=upcoming&size=100`;
-        return parseOpenAgenda(JSON.parse(await getText(SOURCES.openagenda.id, url, 15_000, HEADERS)), nom);
+        return parseOpenAgenda(JSON.parse(await getText(SOURCES.openagenda.id, url, TIMEOUT_MS, HEADERS)), nom);
       }),
   };
 }
@@ -296,7 +298,7 @@ const reunionFr: Agenda = {
   id: "reunion_fr",
   nom: "reunion.fr",
   source: SOURCES.reunionfr,
-  load: (cache) => cache.get("agenda:reunion_fr", FRESH_SECONDS, async () => parseReunionFr(await getText(SOURCES.reunionfr.id, SOURCES.reunionfr.url, 20_000, HEADERS))),
+  load: (cache) => cache.get("agenda:reunion_fr", FRESH_SECONDS, async () => parseReunionFr(await getText(SOURCES.reunionfr.id, SOURCES.reunionfr.url, TIMEOUT_MS, HEADERS))),
 };
 
 // ---------------------------------------------------------------- RSS with the dates in the text
@@ -401,7 +403,7 @@ function rss(id: string, nom: string, url: string, commune: string): Agenda {
     nom,
     source: SOURCES.mairies,
     commune,
-    load: (cache) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => parseRss(await getText(SOURCES.mairies.id, url, 15_000, HEADERS), nom, commune)),
+    load: (cache) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => parseRss(await getText(SOURCES.mairies.id, url, TIMEOUT_MS, HEADERS), nom, commune)),
   };
 }
 

@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { statusOf } from "../src/providers/agenda-mots.js";
 import { parseOpenAgenda, type Evenement } from "../src/providers/agenda.js";
-import { latin1, mergeTeat, parseBisik, parseCdnoi, parseCiteDesArts, parseKabardock, parseLespas, parseLucDonat, parseTeat, TEAT_VENUES, tokens } from "../src/providers/salles.js";
+import { latin1, mergeTeat, parseBisik, parseCdnoi, parseCiteDesArts, parseKabardock, parseLespas, parseLucDonat, parseTeat, parseTeatDates, TEAT_VENUES, tokens } from "../src/providers/salles.js";
+import { parseTribe } from "../src/providers/agenda.js";
 import { genres, matcher, unique } from "../src/tools/agenda.js";
 
 // The halls' pages on Saturday 24/10/2026, without their scripts and images.
@@ -28,6 +29,25 @@ describe("halls' programmes", () => {
     expect(list.find((e) => e.titre === "Nawell Madani")).toMatchObject({ lieu: "TÉAT Champ Fleuri (Saint-Denis) ou TÉAT Plein Air (Saint-Paul)", commune: undefined });
     // Announced in October for May: next year.
     expect(list.find((e) => e.titre.startsWith("Edgar Yves"))?.seances[0].debut).toBe("2027-05-06");
+  });
+
+  it("puts each performance of a show on both TÉAT stages on its own stage, from the show's page", () => {
+    const lists = TEAT_VENUES.map((v, i) => parseTeat(iso88591(i ? "teat_plein-air.html" : "teat_champ-fleuri.html"), v, NOW));
+    const noah = lists[0].find((e) => e.titre === "Yannick Noah")!;
+    const booder = lists[0].find((e) => e.titre.startsWith("Booder"))!;
+    // teat.re: « 28 octobre 2026 | 20h00 | TÉAT Champ Fleuri »; the ticket office: « Représentation du 27 octobre - TEAT Champ Fleuri ».
+    const dates = new Map([[noah.lien, parseTeatDates(iso88591("teat_yannick-noah.html"), NOW)], [booder.lien, parseTeatDates(iso88591("seetickets_booder.html"), NOW)]]);
+    const list = mergeTeat(lists, dates);
+    expect(list.filter((e) => e.titre === "Yannick Noah").map((e) => [e.lieu, e.commune, e.seances])).toEqual([
+      ["TÉAT Champ Fleuri", "Saint-Denis", [{ debut: "2026-10-28T20:00" }]],
+      ["TÉAT Plein Air", "Saint-Paul", [{ debut: "2026-10-31T20:00" }]],
+    ]);
+    expect(list.filter((e) => e.titre.startsWith("Booder")).map((e) => [e.lieu, e.seances])).toEqual([
+      ["TÉAT Champ Fleuri", [{ debut: "2026-10-27" }]],
+      ["TÉAT Plein Air", [{ debut: "2026-10-28" }]],
+    ]);
+    // Without its page, a show is told with both stages.
+    expect(list.find((e) => e.titre === "Nawell Madani")?.commune).toBeUndefined();
   });
 
   it("reads the Cité des Arts, its halls and a typo in a span", () => {
@@ -98,6 +118,21 @@ describe("events' state and kind", () => {
     expect(matcher("théâtre")!.test(ev("Yannick Noah", "2026-10-29", { lieu: "Théâtre Luc Donat" }))).toBe(false);
     expect(matcher("spectacle")!.test(ev("Booder", "2026-10-27", { categories: ["Humour"] }))).toBe(true);
     expect(matcher("spectacle")!.test(ev("Calogero", "2026-10-24", { categories: ["Musique"] }))).toBe(false);
+  });
+
+  it("does not take a workshop or a meeting for a show, nor a word inside another", () => {
+    // Les Trois-Bassins, 28/10: a public workshop of the train project, its description full of page-builder codes.
+    const train = parseTribe(JSON.parse(utf8("tribe_trois-bassins.json")), "Mairie des Trois-Bassins", "Les Trois-Bassins").find((e) => e.titre.includes("Atelier grand public"))!;
+    expect(train.description ?? "").not.toMatch(/et_pb_|post_content/);
+    expect(genres(train)).toEqual(["atelier"]);
+    expect(matcher("spectacle")!.test(train)).toBe(false);
+    expect(matcher("spectacle")!.test(ev("Atelier théâtre pour ados", "2026-11-04"))).toBe(false);
+    expect(matcher("atelier")!.test(ev("Atelier théâtre pour ados", "2026-11-04"))).toBe(true);
+    expect(genres(ev("Réunion publique : concertation sur le PLU", "2026-11-04"))).toEqual(["atelier"]);
+    expect(genres(ev("x", "2026-11-04", { description: "[et_pb_section theme_builder_area=post_content]" }))).toEqual([]);
+    expect(genres(ev("Hystera", "2026-11-06", { categories: ["Danse contemporaine"] }))).toEqual(["danse"]);
+    expect(genres(ev("Permanence", "2026-11-06", { description: "Munissez-vous d'une pièce d'identité." }))).toEqual(["atelier"]);
+    expect(matcher("conte")!.test(ev("Kriké kraké : contes de La Réunion", "2026-11-06"))).toBe(true);
   });
 
   it("tells the same show once, whatever its spelling, and keeps what the other copy knows", () => {
