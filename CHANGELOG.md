@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Quel jour passent les poubelles ? Le jour de collecte de votre rue à Saint-Paul, La Possession, Saint-Leu, Le Port et Trois-Bassins.
 - Cyclone : les écoles sont-elles fermées ? La règle de la préfecture et l'alerte en cours, sur le site et dans votre IA.
 - rundata.re s'installe sur votre téléphone : une icône, et les pages déjà ouvertes restent lisibles sans réseau.
 - Au-dessus ou dans les nuages ? La mer de nuages prévue demain matin au Maïdo, au Piton des Neiges, au volcan et dans les Hauts.

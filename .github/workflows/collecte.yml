@@ -1,0 +1,47 @@
+# The days the bins are collected in the West (src/vie/collecte.json, scripts/build-collecte.py): every Monday, the
+# date the TCO last changed its dataset of calendars is compared with the one the bundled file was built from. When it
+# moved, the file is rebuilt here only to check that the PDFs still read, and the job fails, saying so: the failure is
+# the alert, someone rebuilds the file and proposes it. It fails too when a calendar cannot be read (the script checks
+# every month against the weekdays). Nothing is committed from here; the calendars online stay as they were.
+name: Calendriers de collecte
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collecte
+  cancel-in-progress: true
+
+jobs:
+  calendriers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Has the TCO changed its calendars?
+        id: check
+        run: |
+          remote=$(curl -sf "https://data.tco.re/api/explore/v2.1/catalog/datasets/calendriers-de-collectes-du-territoire-de-louest-gru" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("metas",{}).get("default",d)["modified"][:10])')
+          local=$(python3 -c 'import json; print(json.load(open("src/vie/collecte.json"))["mis_a_jour"])')
+          echo "remote=$remote local=$local"
+          echo "changed=$([ "$remote" != "$local" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+          echo "date=$remote" >> "$GITHUB_OUTPUT"
+      - name: Do the PDFs still read?
+        if: steps.check.outputs.changed == 'yes'
+        run: |
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          python3 -I scripts/build-collecte.py
+      - name: Say it is to be redone
+        if: steps.check.outputs.changed == 'yes'
+        env:
+          DATE: ${{ steps.check.outputs.date }}
+        run: |
+          echo "::error::Le TCO a modifié ses calendriers le $DATE : lancer scripts/build-collecte.py et proposer la PR."
+          exit 1

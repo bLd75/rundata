@@ -425,7 +425,7 @@ text-decoration:none;color:#fff;background:rgb(255 255 255/.09);border:1px solid
 .filter label{display:grid;gap:.25rem;font-size:.85rem;color:var(--muted);flex:1 1 9rem;min-width:0}.filter .q{flex:2 1 14rem}
 .filter input[type=search],.filter select{font:inherit;font-size:1rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:.55rem .7rem;width:100%;min-width:0}
 .filter .chk{display:flex;align-items:center;gap:.45rem;color:var(--ink);font-size:.95rem;flex:0 1 auto;padding-bottom:.6rem}.filter p{flex-basis:100%;margin:0}
-form.filter[hidden],li[data-k][hidden],details.sect[hidden]{display:none}
+form.filter[hidden],li[data-k][hidden],details.sect[hidden],.groupe[hidden],.voies li[hidden],.sans[hidden]{display:none}
 .now-news{margin:0 0 1.2rem}.now-news h3{display:flex;align-items:center;gap:.4rem}.now-news li b{font-variant-numeric:tabular-nums}
 .hike{gap:.5rem}.hike.closed{border:2px solid var(--lave)}.hike .okay{font-size:.88rem;color:#2b8a3e}
 .hike .shut{border-left:3px solid var(--lave);padding-left:.6rem;font-size:.9rem}.hike .shut b{color:var(--lave);display:flex;gap:.35rem;align-items:center}

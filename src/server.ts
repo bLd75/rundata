@@ -70,7 +70,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.91.0";
+export const VERSION = "0.92.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -313,9 +313,10 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "fixés par le préfet (quoi = « carburant », « essence », « gazole », « gaz »), les pharmacies et les hôpitaux les plus proches d'après FINESS " +
         "(quoi = « pharmacie », « urgences », « hôpital ») : la pharmacie de garde n'est connue que de 3237.fr et du 32 37, l'urgence passe par le 15 ; " +
         "les marchés forains et couverts d'après OpenStreetMap (quoi = « marché »), et les déchèteries de l'Ouest (TCO) avec les bennes pleines " +
-        "en direct (quoi = « déchèterie », « encombrants », « déchets verts »). " +
+        "en direct (quoi = « déchèterie », « encombrants », « déchets verts »), et le jour de collecte des déchets rue par rue dans l'Ouest " +
+        "(quoi = « collecte », « poubelles », lieu = la rue et la commune : « rue Labourdonnais, Saint-Paul »), d'après les calendriers du TCO. " +
         "Pour : « horaires de la mairie de Saint-Paul ? », « pharmacie près de Boucan Canot ? », « marché forain à Sainte-Marie ? », " +
-        "« où est la CAF la plus proche du Tampon ? », « numéro de la sous-préfecture de Saint-Pierre ? », « prix de l'essence ce mois-ci ? ». " +
+        "« où est la CAF la plus proche du Tampon ? », « numéro de la sous-préfecture de Saint-Pierre ? », « prix de l'essence ce mois-ci ? », « quel jour passent les poubelles rue Labourdonnais à Saint-Paul ? ». " +
         "/ Public offices in Réunion Island (addresses, hours, phones), this month's maximum fuel prices, pharmacies and hospitals.",
       inputSchema: {
         quoi: z.string().describe("Le service cherché, en quelques mots : « mairie », « CAF », « préfecture », « impôts », « France Travail », « tribunal »…, ou « carburant » pour les prix du mois, « pharmacie », « urgences ». / The office sought, or 'carburant', 'pharmacie', 'urgences'."),
