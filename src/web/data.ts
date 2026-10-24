@@ -36,6 +36,7 @@ import { COMMON as EAU_COMMON } from "../tools/eau.js";
 import { credits } from "../tools/format.js";
 import * as onf from "../providers/sentiers.js";
 import { sentiersRandonnee } from "../tools/sentiers.js";
+import { restrictionsEau } from "../tools/secheresse.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import { type Observation, why } from "../types.js";
 import { coastal, type PlacePage } from "./places.js";
@@ -358,6 +359,31 @@ export async function buildSentiers(cache: Cache, now = new Date()): Promise<Sen
       return { nom: t.nom, lon, lat };
     });
   return { ...a, points, suivis: carte.sentiers.length };
+}
+
+export interface SecheresseAnswer {
+  resume: string;
+  communes: { commune: string; eau_du_robinet?: string; rivieres_et_sources?: string; nappes?: string }[];
+  arrete_du?: string;
+  echelle: string;
+  a_savoir: string;
+  sources: Credit[];
+  /** What a private person may not do at each level of the tap water, from one commune at that level. */
+  interdits: { niveau: string; communes: string[]; restrictions: { usage: string; restriction: string }[] }[];
+}
+
+/** The island's overview, plus what each level forbids to a private person. */
+export async function buildSecheresse(cache: Cache, now = new Date()): Promise<SecheresseAnswer> {
+  void now;
+  const a = needed<Omit<SecheresseAnswer, "interdits">>(await restrictionsEau(cache, undefined), "sécheresse");
+  const levels = [...new Set(a.communes.map((c) => c.eau_du_robinet).filter((x): x is string => !!x))];
+  const interdits = [];
+  for (const niveau of levels) {
+    const communes = a.communes.filter((c) => c.eau_du_robinet === niveau).map((c) => c.commune);
+    const one = needed<{ restrictions_eau_du_robinet?: { usage: string; restriction: string }[] }>(await restrictionsEau(cache, communes[0]), "sécheresse");
+    interdits.push({ niveau, communes, restrictions: one.restrictions_eau_du_robinet ?? [] });
+  }
+  return { ...a, interdits };
 }
 
 export interface ElectriciteAnswer {

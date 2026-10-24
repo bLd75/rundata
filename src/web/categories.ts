@@ -75,6 +75,14 @@ export const CATEGORIES: Category[] = [
     about: "Les bornes publiques pour voiture électrique et l'état de chaque point de charge, libre, occupé ou hors service, en direct.",
   },
   {
+    key: "secheresse",
+    nom: "Sécheresse",
+    path: "/secheresse",
+    icon: "sun",
+    tools: ["restrictions_eau"],
+    about: "Les restrictions d'eau de l'arrêté préfectoral en vigueur, commune par commune, et ce qui est interdit : arrosage, lavage, piscine.",
+  },
+  {
     key: "sentiers",
     nom: "Randonnée",
     path: "/sentiers",

@@ -9,7 +9,7 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, EauAnswer, ElectriciteAnswer, SentiersAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, EauAnswer, ElectriciteAnswer, SecheresseAnswer, SentiersAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap } from "./map.js";
@@ -791,4 +791,80 @@ export function sentiersLive(data: Cached<SentiersAnswer> | null): Live | undefi
   if (!d) return undefined;
   const n = d.points.length;
   return { valeur: `${n} sentier${n > 1 ? "s" : ""} fermé${n > 1 ? "s" : ""}`, detail: `sur ${d.suivis} suivis par l'ONF, avec la cause de chaque fermeture` };
+}
+
+// ---------------------------------------------------------------- sécheresse
+
+const DROUGHT_COLOR: Record<string, string> = { vigilance: "#ffd43b", alerte: "#ff922b", "alerte renforcée": "#f03e3e", crise: "#862e9c" };
+const DROUGHT_ORDER = ["crise", "alerte renforcée", "alerte", "vigilance"];
+const droughtBadge = (n?: string) => (n ? `<span class="lvl" style="--c:${DROUGHT_COLOR[n] ?? "#868e96"}">${esc(n)}</span>` : `<span class="note">aucune</span>`);
+
+export function secheressePage(origin: string, data: Cached<SecheresseAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/secheresse`, now);
+  const hit = d?.communes.filter((c) => c.eau_du_robinet && c.eau_du_robinet !== "vigilance") ?? [];
+
+  const fills: Record<string, string> = {};
+  for (const c of d?.communes ?? []) {
+    const nm = MAP_NAME.get(normalize(c.commune));
+    if (nm && c.eau_du_robinet) fills[nm] = DROUGHT_COLOR[c.eau_du_robinet] ?? "";
+  }
+
+  const status = !d
+    ? loading("Les restrictions d'eau")
+    : d.communes.length
+      ? `<div class="now"><span class="big">${hit.length}</span><p>commune${hit.length > 1 ? "s" : ""} sur 24 en alerte ou plus pour l'eau du robinet${d.arrete_du ? `, d'après l'arrêté préfectoral en vigueur depuis le ${esc(d.arrete_du)}` : ""}.</p></div>`
+      : `<p class="lead">${esc(d.resume)}</p>`;
+
+  const table = d?.communes.length
+    ? `<div class="card table-wrap"><table class="drought"><thead><tr><th>Commune</th><th>Eau du robinet</th><th>Rivières et sources</th><th>Nappes</th></tr></thead><tbody>${d.communes.map((c) =>
+        `<tr><th scope="row">${esc(c.commune)}</th><td>${droughtBadge(c.eau_du_robinet)}</td><td>${droughtBadge(c.rivieres_et_sources)}</td><td>${droughtBadge(c.nappes)}</td></tr>`).join("")}</tbody></table></div>`
+    : "";
+
+  const rules = (d?.interdits ?? []).sort((x, y) => DROUGHT_ORDER.indexOf(x.niveau) - DROUGHT_ORDER.indexOf(y.niveau)).map((x) =>
+    `<li class="card"><h3>${droughtBadge(x.niveau)} <span class="note">${esc(x.communes.join(", "))}</span></h3><ul class="rows eau">` +
+    (x.restrictions.length ? x.restrictions.map((r) => `<li><span>${esc(r.usage)}<small>${esc(r.restriction)}</small></span><span></span></li>`).join("") : `<li><span>Économiser l'eau : pas d'interdiction pour un particulier.</span><span></span></li>`) +
+    `</ul></li>`).join("");
+
+  const title = "Sécheresse à La Réunion : restrictions d'eau par commune (arrêté en vigueur)";
+  const short = "🇷🇪 Restrictions d'eau à La Réunion (974) : le niveau de sécheresse de chaque commune et ce qui est interdit (arrosage, lavage, piscine), d'après l'arrêté préfectoral.";
+  const description = d ? describe(`🇷🇪 ${d.resume}`, short) : short;
+
+  const band = `${crumbBar("Sécheresse")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Arrêté en vigueur</p>
+    <h1>Sécheresse <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Mi gingn arouz mon zardin Sin-Zozèf ? Rogard si ${url} é di amwin sak lé défandi.`,
+      `Ai-je le droit d'arroser mon jardin à Saint-Joseph ? Lis ${url} et dis-moi ce qui est interdit.`)}
+  </div>
+  <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) colorée par le niveau de restriction de l'eau du robinet de chaque commune" })}
+  <figcaption class="note" style="color:var(--on-night-muted)">Eau du robinet : <span style="color:#ffd43b">vigilance</span>, <span style="color:#ff922b">alerte</span>, <span style="color:#f03e3e">alerte renforcée</span>, <span style="color:#d0a4e0">crise</span>.</figcaption></figure>
+</div>`;
+
+  const body = `<section aria-labelledby="h-communes-eau">
+  <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-communes-eau">Les niveaux de restriction</h2>
+  <p>${d ? esc(d.resume) : ""} ${d ? esc(d.echelle) : ""}</p></div>
+  ${table || (d ? "" : `<p class="card">Les restrictions se chargent : rechargez la page dans quelques secondes.</p>`)}
+</section>
+${rules ? `<section aria-labelledby="h-interdits">
+  <div class="sec-h"><p class="eyebrow">Pour un particulier</p><h2 id="h-interdits">Ce qui est interdit</h2>
+  <p>Les usages de l'eau du robinet limités à chaque niveau. Les agriculteurs, entreprises et collectivités ont leurs propres règles : demandez à votre IA avec le connecteur.</p></div>
+  <ul class="zones">${rules}</ul>
+  ${d ? `<p class="note">${esc(d.a_savoir)}</p>` : ""}
+  ${d && data ? sourcesNote(d.sources, data) : ""}
+</section>` : ""}
+${connectorCta("restrictions_eau", "les restrictions d'eau")}`;
+
+  return layout(origin, { title, description, path: "/secheresse", jsonld: [crumbs(origin, "Sécheresse", "/secheresse"), webPage(origin, "/secheresse", title, description, data)], alerte }, band, body);
+}
+
+export function secheresseLive(data: Cached<SecheresseAnswer> | null): Live | undefined {
+  const d = data?.value;
+  if (!d) return undefined;
+  if (!d.communes.length) return { valeur: "aucune restriction", detail: "d'après VigiEau" };
+  const worst = DROUGHT_ORDER.find((n) => d.communes.some((c) => c.eau_du_robinet === n));
+  const hit = d.communes.filter((c) => c.eau_du_robinet && c.eau_du_robinet !== "vigilance").length;
+  return { valeur: worst ? `jusqu'à ${worst}` : "vigilance", detail: `${hit} commune${hit > 1 ? "s" : ""} sur 24 en alerte ou plus pour l'eau du robinet` };
 }

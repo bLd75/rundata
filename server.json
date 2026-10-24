@@ -3,7 +3,7 @@
   "name": "re.rundata/temps-reel",
   "title": "La Réunion en temps réel",
   "description": "Données publiques de La Réunion (974) en direct : météo, vigilance, mer, volcan, air, terrain.",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "remotes": [
     {
       "type": "streamable-http",
