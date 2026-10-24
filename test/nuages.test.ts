@@ -11,6 +11,7 @@ import type { Forecast, ForecastHour } from "../src/types.js";
 import { randonneesPage } from "../src/web/domains.js";
 import { placePage } from "../src/web/pages.js";
 import { pageOf } from "../src/web/places.js";
+import { withVolcan } from "../src/web/volcan-alerte.js";
 
 const tif = (f: string) => readFileSync(new URL(`./fixtures/arome/${f}.tif`, import.meta.url));
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
@@ -49,7 +50,7 @@ describe("where a place stands against the cloud sea", () => {
     const ifs = { ...hour(SIX, 80, null, null) };
     delete ifs.nuages_base_m;
     expect(etat(ifs, 2190)).toBeNull();
-    expect(etat(hour(SIX, 60, 12000, 13000), 2190)?.etat).toBe("degage");
+    expect(etat(hour(SIX, 60, 12000, 13000), 2190)).toEqual({ etat: "degage", texte: "dégagé sous des nuages élevés" });
     // A top of deep clouds is not the cloud sea's: inside, from the base up.
     expect(etat(hour(SIX, 80, 2000, 13000), 2190)?.texte).toBe("dans les nuages (à partir de 2 000 m)");
   });
@@ -69,6 +70,17 @@ describe("where a place stands against the cloud sea", () => {
         "de 9 h à 12 h, dans les nuages (entre 1 400 et 2 300 m). La vue se ferme dans la matinée, selon le modèle.",
     );
     expect(mn).toMatchObject({ prevision: LABEL, mise_en_garde: CAVEAT });
+  });
+
+  it("says the view closes only into the clouds, not under them", () => {
+    const under = merDeNuages(forecast([hour(SIX, 10, null, null), hour(NINE, 90, 2400, 2900)]), MAIDO, EVENING)!;
+    expect(under.ligne).toBe("De 6\u00a0h à 9\u00a0h, dégagé ; de 9\u00a0h à 12\u00a0h, sous les nuages (à partir de 2\u202f400\u00a0m).");
+  });
+
+  it("puts the place's words before its altitude, in one pair of brackets", () => {
+    const p = resolvePlace("Pas de Bellecombe")!.lieu;
+    const mn = merDeNuages(forecast([hour(SIX, 10, null, null), hour(NINE, 10, null, null)]), p, EVENING, { nom: "Pas de Bellecombe", precision: "volcan" })!;
+    expect(mn.resume).toMatch(/^Pas de Bellecombe \(volcan, 2\u202f\d{3}\u00a0m\), demain matin : de 6\u00a0h à 12\u00a0h, dégagé\.$/);
   });
 
   it("merges two windows of the same state", () => {
@@ -165,12 +177,24 @@ describe("the cloud sea on the site", () => {
   });
 
   it("lists the Hauts on /randonnees, each name linked to its weather page", () => {
-    const hauts = [{ nom: "Maïdo", slug: "maido", ...mn }, { nom: "Piton des Neiges", ...merDeNuages(forecast([hour(SIX, 80, 1200, 1800), hour(NINE, 90, 1400, 2300)]), resolvePlace("Piton des Neiges")!.lieu, EVENING, "Piton des Neiges")! }];
+    const hauts = [{ nom: "Maïdo", slug: "maido", ...mn }, { nom: "Piton des Neiges", ...merDeNuages(forecast([hour(SIX, 80, 1200, 1800), hour(NINE, 90, 1400, 2300)]), resolvePlace("Piton des Neiges")!.lieu, EVENING)! }];
     const data = { value: { randonnees: [], secteurs: [], lignes: [], fermes: 0, suivis: 0, sources: [], hauts }, fetchedAt: EVENING, stale: false };
     const html = randonneesPage("https://rundata.re", data, EVENING);
     expect(html).toContain("Les Hauts demain matin : au-dessus ou dans les nuages ?");
     expect(html).toContain('<li><a href="/meteo/maido#mer-de-nuages">Maïdo</a> (2');
     expect(html).toContain("<li>Piton des Neiges (3");
     expect(html).toContain("Prévision, pas une mesure. Le modèle voit l&#39;île par carrés de 2,5 km");
+  });
+
+  it("says the Enclos is forbidden at the Pas de Bellecombe during a volcano alert, there only", () => {
+    const p = resolvePlace("Pas de Bellecombe")!.lieu;
+    const clear = merDeNuages(forecast([hour(SIX, 10, null, null), hour(NINE, 10, null, null)]), p, EVENING, { nom: "Pas de Bellecombe", precision: "volcan" })!;
+    const hauts = [{ nom: "Maïdo", slug: "maido", ...mn }, { nom: "Pas de Bellecombe", slug: "piton-de-la-fournaise", enclos: true, ...clear }];
+    const data = { value: { randonnees: [], secteurs: [], lignes: [], fermes: 0, suivis: 0, sources: [], hauts }, fetchedAt: EVENING, stale: false };
+    const quiet = randonneesPage("https://rundata.re", data, EVENING);
+    expect(quiet).not.toContain("Enclos interdit");
+    const alert = withVolcan({ niveau: "Alerte 1", eruption: false }, () => randonneesPage("https://rundata.re", data, EVENING));
+    expect(alert).toContain("de 6\u00a0h à 12\u00a0h, dégagé. Accès à l&#39;Enclos interdit.</li>");
+    expect(alert.match(/Enclos interdit\.<\/li>/g)).toHaveLength(1);
   });
 });

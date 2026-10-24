@@ -29,7 +29,7 @@ import rubriques from "./og-rubriques.json" with { type: "json" };
 import { WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
 import { esc, islandMap, type Marker } from "./map.js";
-import { bannerHtml, volcanBanner } from "./volcan-alerte.js";
+import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
 import { INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
@@ -1171,8 +1171,10 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
   const near = stations.find((s) => s.mesures.humidite);
   const wet = near && data ? { nom: near.station, humidite: parseInt(near.mesures.humidite!, 10), mesure: new Date(data.fetchedAt.getTime() - near.age_min * 60_000) } : undefined;
   const mn = d?.prevision?.mer_de_nuages && softened(d.prevision.mer_de_nuages, now, wet);
+  // The volcano's page during an alert: the Enclos below the viewpoint is forbidden, whatever the sky.
+  const enclos = p.slug === "piton-de-la-fournaise" && volcanBanner() ? ` ${ENCLOS}` : "";
   const cloudSea = mn
-    ? `<section id="mer-de-nuages" class="card" aria-labelledby="h-nuages"><h3 id="h-nuages">${esc(mn.titre)}</h3><p>${esc(mn.ligne)}</p>` +
+    ? `<section id="mer-de-nuages" class="card" aria-labelledby="h-nuages"><h3 id="h-nuages">${esc(mn.titre)}</h3><p>${esc(mn.ligne + enclos)}</p>` +
       `<p class="note">${esc(mn.prevision.charAt(0).toUpperCase() + mn.prevision.slice(1))}. ${esc(mn.mise_en_garde)}</p></section>`
     : "";
 

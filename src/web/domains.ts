@@ -6,7 +6,7 @@
  */
 import { PREFECTURE } from "../providers/volcan.js";
 import { ENCLOS_SAID, IMAGE_APRES } from "../tools/volcan.js";
-import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
+import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
 import { normalize } from "../places/resolve.js";
@@ -26,7 +26,7 @@ import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../trace
 import island from "../places/island.json" with { type: "json" };
 import rubriques from "./og-rubriques.json" with { type: "json" };
 import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
-import { forecastLinks, weatherForTrace } from "./liens.js";
+import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./liens.js";
 import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
@@ -1242,9 +1242,10 @@ function hautsBlock(hauts: RandonneesAnswer["hauts"]): string {
   const when = hauts[0].titre.replace(/^Mer de nuages /, "");
   const line = (h: NonNullable<RandonneesAnswer["hauts"]>[number]) => {
     const name = h.slug ? `<a href="/meteo/${h.slug}#mer-de-nuages">${esc(h.nom)}</a>` : esc(h.nom);
-    return `<li>${name}${esc(h.resume.slice(h.nom.length))}</li>`;
+    // During a volcano alert, the viewpoint over the Enclos says it is forbidden: « dégagé » must not call anyone down.
+    return `<li>${name}${esc(h.resume.slice(h.nom.length))}${h.enclos && volcanBanner() ? ` ${esc(ENCLOS)}` : ""}</li>`;
   };
-  return `<section aria-labelledby="h-hauts"><div class="sec-h"><h2 id="h-hauts">Les Hauts ${esc(when)} : au-dessus ou dans les nuages ?</h2>
+  return `<section id="mer-de-nuages" aria-labelledby="h-hauts"><div class="sec-h"><h2 id="h-hauts">Les Hauts ${esc(when)} : au-dessus ou dans les nuages ?</h2>
   <p>Où sera la mer de nuages entre 6\u00a0h et midi, pour chaque sommet et village des Hauts. Prévision du modèle AROME de Météo-France, pas une mesure : regardez aussi le ciel et la station la plus proche avant de partir.</p></div>
   <div class="card"><ul class="plain">${hauts.map(line).join("")}</ul><p class="note">${esc(cap(hauts[0].prevision))}. ${esc(hauts[0].mise_en_garde)}</p></div></section>
 `;
@@ -1283,7 +1284,8 @@ export { closedLi, hikeCard, plural, trailLi };
 
 // ---------------------------------------------------------------- a trail's or a hike's page, with its GPS trace
 
-export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: string, nom: string, data: Cached<TraceAnswer> | null, now = new Date(), alerte?: Alerte): string {
+/** `summit`: the summit the trace reaches, when the page its link leads to tells the morning's cloud sea (site.ts). */
+export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: string, nom: string, data: Cached<TraceAnswer> | null, now = new Date(), alerte?: Alerte, summit?: Summit): string {
   const d = data?.value;
   const path = `/${kind === "sentier" ? "sentiers" : "randonnees"}/${slug}`;
   const gpx = `${path}.gpx`;
@@ -1381,7 +1383,8 @@ ${stateBlock}
   <div class="sec-h"><h2 id="h-savoir">Avant de partir</h2>
   <p>La trace GPX s'ouvre dans les applications de randonnée et les montres GPS. ${kind === "sentier" ? "C'est le sentier tel que l'ONF le trace sur sa carte, à pleine résolution." : "C'est l'itinéraire complet tel que les contributeurs d'OpenStreetMap l'ont relevé ; il peut emprunter des sentiers fermés : voir leur état ci-dessus."} Altitudes, dénivelés et profil : modèle de terrain de l'IGN (RGE ALTI).</p>
   ${others}
-  ${weatherForTrace((d?.lignes ?? []).flatMap((l) => l.points))}</div>
+  ${weatherForTrace((d?.lignes ?? []).flatMap((l) => l.points))}
+  ${cloudSeaLink(summit)}</div>
   ${warnings([
     "Un sentier fermé l'est par arrêté préfectoral ou décision de l'ONF : s'y engager est interdit et dangereux, même avec une trace.",
     "Vérifier la vigilance météo avant de partir : par fortes pluies, les ravines montent vite et la préfecture ferme d'autres sentiers.",

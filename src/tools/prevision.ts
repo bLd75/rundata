@@ -564,7 +564,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     if (inRange.length < period.slots.length) avertissements.push(`Le modèle ne va que jusqu'au ${dayLabel(last)}.`);
     if (hauts && inRange.some((s) => s.jour > addDays(today, 2))) avertissements.push(nuages.BEYOND);
   }
-  const mer = hauts ? nuages.merDeNuages(f, r.lieu, now, r.lieu.nom, cloudDay) : null;
+  const mer = hauts ? nuages.merDeNuages(f, r.lieu, now, { jour: cloudDay }) : null;
 
   const uvShown = jours.some((j) => j.indice_uv_max) ? u : null;
   const ensShown = jours.some((j) => j.confiance) ? ens : null;
