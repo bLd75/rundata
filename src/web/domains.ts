@@ -264,13 +264,13 @@ export function airLive(data: Cached<AirAnswer> | null): Live | undefined {
 
 /**
  * One notice of power cut, its link after it. A PDF letter's sentence ends on its link (marketing's words): « l'avis
- * publié par la mairie → », « dans l'avis → », a target tall enough for a finger.
+ * publié par la mairie (PDF) → », « dans l'avis (PDF) → », a target tall enough for a finger.
  */
 export function courantItem(x: Pick<CourantRow, "texte" | "lien" | "nature" | "pdf">): string {
   const li = x.nature === "en cours" ? '<li class="warn">' : "<li>";
   const end = x.pdf ? /(l'avis publié par la mairie|dans l'avis)$/.exec(x.texte) : null;
   if (!end) return `${li}${esc(x.texte)} <a href="${esc(x.lien)}" rel="noopener">l'avis →</a></li>`;
-  return `${li}${esc(x.texte.slice(0, end.index))}<a class="tap" href="${esc(x.lien)}" rel="noopener">${esc(end[1])} →</a></li>`;
+  return `${li}${esc(x.texte.slice(0, end.index))}<a class="tap" href="${esc(x.lien)}" rel="noopener">${esc(end[1])} (PDF) →</a></li>`;
 }
 
 export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> | null, now = new Date(), alerte?: Alerte): string {
