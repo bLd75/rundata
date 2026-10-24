@@ -55,6 +55,8 @@ export function islandMap(opts: {
   pin?: { lon: number; lat: number; name: string };
   peaks?: boolean;
   fills?: Record<string, string>;
+  /** The hero's island: relief shading from the summits, a lagoon glow along the coast, the two volcanoes marked. */
+  relief?: boolean;
   label: string;
 }): string {
   const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
@@ -76,6 +78,26 @@ export function islandMap(opts: {
     const [x, y] = project(opts.pin.lon, opts.pin.lat);
     extra += `<g class="pin"><circle cx="${x}" cy="${y}" r="16"/><circle cx="${x}" cy="${y}" r="34" class="halo"/>` +
       `<text x="${x}" y="${y - 50}">${esc(opts.pin.name)}</text></g>`;
+  }
+  if (opts.relief) {
+    // Lit from the Piton des Neiges: bare heights, green slopes, darker lowlands; the coast glows like a lagoon.
+    const [cx, cy] = project(PEAKS[0].lon, PEAKS[0].lat);
+    const [vx, vy] = project(PEAKS[1].lon, PEAKS[1].lat);
+    const defs = `<radialGradient id="relief" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Math.round(W * 0.62)}">` +
+      `<stop offset="0" stop-color="#e9dcb8"/><stop offset=".12" stop-color="#a8c98e"/><stop offset=".38" stop-color="#4f9a6e"/>` +
+      `<stop offset=".75" stop-color="#2a6f5c"/><stop offset="1" stop-color="#1d5a52"/></radialGradient>` +
+      `<radialGradient id="lava" gradientUnits="userSpaceOnUse" cx="${vx}" cy="${vy}" r="${Math.round(W * 0.16)}">` +
+      `<stop offset="0" stop-color="#c2553a" stop-opacity=".75"/><stop offset="1" stop-color="#c2553a" stop-opacity="0"/></radialGradient>` +
+      `<filter id="glow" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="14"/></filter>`;
+    const peaks = PEAKS.map((p) => {
+      const [x, y] = project(p.lon, p.lat);
+      return `<g class="pk"><path d="M${x - 16} ${y + 12}L${x} ${y - 16}L${x + 16} ${y + 12}Z"/><text x="${x}" y="${y + 44}">${esc(p.name)}</text></g>`;
+    }).join("");
+    return `<svg class="map relief" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label)}">` +
+      `<defs><g id="isl">${paths}</g>${defs}</defs>` +
+      `<use href="#isl" class="halo" filter="url(#glow)"/><use href="#isl" class="coast"/>` +
+      `<use href="#isl" fill="url(#relief)"/><use href="#isl" fill="url(#lava)"/><use href="#isl" class="borders"/>` +
+      peaks + (opts.markers ?? []).map(marker).join("") + `</svg>`;
   }
   return `<svg class="map" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g></defs>` +

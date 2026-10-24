@@ -10,9 +10,10 @@ import { CATEGORIES, type Category } from "./categories.js";
 import type { AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer } from "./data.js";
 import { airLive, busLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
-import { esc } from "./map.js";
+import { esc, islandMap, type Marker } from "./map.js";
 import {
   ask,
+  chip,
   coldest,
   connector,
   DATAGOUV_REUSE,
@@ -138,48 +139,64 @@ function chatDemo(h: HomeLive | null, now: Date): string {
   </figure>`;
 }
 
-function ticker(live: Record<string, Live | undefined>, h: HomeLive | null): string {
-  const shown = ["meteo", "vigilance", "volcan", "electricite", "air"]
+/** The time of day in La Réunion (UTC+4), for the sky of the hero. */
+export function sky(now: Date): "nuit" | "aube" | "jour" | "soir" {
+  const h = (now.getUTCHours() + 4) % 24;
+  return h < 5 || h >= 19 ? "nuit" : h < 7 ? "aube" : h < 17 ? "jour" : "soir";
+}
+
+/** Three figures of the moment under the title: the weather, the vigilance, the volcano. */
+function facts(live: Record<string, Live | undefined>): string {
+  const shown = ["meteo", "vigilance", "volcan", "mer"]
     .map((k) => ({ c: CATEGORIES.find((c) => c.key === k)!, l: live[k] }))
     .filter((x) => x.l);
   if (!shown.length) return "";
-  const at = h?.meteo?.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
-  return `<div class="wrap"><ul class="ticker" aria-label="En direct">
-    <li><span class="dot"></span>En direct${at ? ` · <b>${hm(at)}</b>` : ""}</li>
-    ${shown.map((x) => `<li>${esc(x.c.nom)} <b>${x.l!.valeur}</b></li>`).join("\n    ")}
-    <li><a href="#en-ce-moment">Toute l'île →</a></li>
-  </ul></div>`;
+  return `<ul class="facts-live" aria-label="En ce moment">${shown
+    .map((x) => `<li class="k-${x.c.key}"><a href="${x.c.path}">${icon(x.c.icon)}<span>${esc(x.c.nom)}</span><b>${x.l!.valeur}</b></a></li>`)
+    .join("")}</ul>`;
 }
 
-function tile(c: Category, l: Live | undefined): string {
-  const head = c.path
-    ? `<h3><a href="${c.path}">${esc(c.nom)}</a></h3>`
-    : `<h3>${esc(c.nom)}</h3>`;
+/** The island with the temperatures measured now, as on the weather page. */
+function heroMap(h: HomeLive | null): string {
+  const l = withTemp(h?.meteo ?? null);
+  const at = h?.meteo?.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
+  const markers: Marker[] = l.map((s) => ({ lon: s.lon, lat: s.lat, label: `${Math.round(s.temperature!)}°`, name: shortName(s.nom), color: chip(s.temperature!), round: true }));
+  return `<figure class="hero-map">${islandMap({ markers, relief: true, label: `Carte de La Réunion (974)${at ? ` avec les températures mesurées à ${hm(at)}` : ""}` })}` +
+    `<figcaption>${at ? `<span class="dot"></span>Températures mesurées à ${hm(at)} · <a href="/meteo">toutes les stations →</a>` : "Les stations publient toutes les 6 minutes."}</figcaption></figure>`;
+}
+
+function tile(c: Category, l: Live | undefined, odd = false): string {
+  const name = c.path ? `<h3><a href="${c.path}">${esc(c.nom)}</a></h3>` : `<h3>${esc(c.nom)}</h3>`;
   const now = l
     ? `<p class="tv">${l.valeur}</p><p class="td">${l.detail}</p>`
     : c.exemple
       ? `<p class="tq">« ${esc(c.exemple)} »</p>`
       : `<p class="td">Se met à jour : rechargez la page dans quelques secondes.</p>`;
-  const more = c.path ? `<span class="go" aria-hidden="true">Voir →</span>` : `<a href="#assistant">Demandez à votre IA →</a>`;
-  return `<li class="tile${c.path ? "" : " wide"}">${icon(c.icon)}${head}${now}<p class="ta">${esc(c.about)}</p>` +
-    `<p class="tf"><span>${c.tools.map((t) => `<code>${t}</code>`).join(" ")}</span>${more}</p></li>`;
+  const more = c.path ? `<span class="go" aria-hidden="true">→</span>` : "";
+  const foot = c.path ? "" : `<a class="tl" href="#assistant">Demandez à votre IA →</a>`;
+  return `<li class="tile k-${c.key}${c.path ? "" : " wide"}${odd ? " odd" : ""}"><div class="th"><span class="kb">${icon(c.icon)}</span>${name}${more}</div>${now}` +
+    `<p class="ta">${esc(c.about)}</p><p class="tf">${c.tools.map((t) => `<code>${t}</code>`).join(" ")}</p>${foot}</li>`;
 }
+
+// On a phone the tiles go two by two: an odd one out at the end of those with a page takes the whole row.
+const PAGED = CATEGORIES.filter((c) => c.path).length;
+const LAST_PAGE = CATEGORIES.map((c) => !!c.path).lastIndexOf(true);
 
 function tiles(live: Record<string, Live | undefined>): string {
   return `<section id="en-ce-moment" aria-labelledby="h-ile">
   <div class="sec-h"><p class="eyebrow">En direct</p>
     <h2 id="h-ile">L'île en ce moment</h2>
-    <p>Une page par catégorie, mise à jour toutes les 5 minutes, et un connecteur qui donne tout cela à votre IA. Chaque donnée vient d'un organisme public ou d'un projet ouvert, avec son heure et sa source.</p></div>
-  <ul class="tiles" aria-label="Catégories">${CATEGORIES.map((c) => tile(c, live[c.key])).join("")}</ul>
+    <p>Une page par sujet, mise à jour toutes les 5 minutes. Chaque donnée vient d'un organisme public ou d'un projet ouvert, avec son heure et sa source.</p></div>
+  <ul class="tiles" aria-label="Catégories">${CATEGORIES.map((c, i) => tile(c, live[c.key], i === LAST_PAGE && PAGED % 2 === 1)).join("")}</ul>
 </section>`;
 }
 
-function assistant(origin: string, now: Date): string {
+function assistant(origin: string, h: HomeLive | null, now: Date): string {
   return `<section id="assistant" aria-labelledby="h-assistant">
   <div class="sec-h"><p class="eyebrow">Comment ça marche</p>
     <h2 id="h-assistant">Branché en 2 minutes, gratuit, sans compte</h2>
     <p>Le connecteur suit le protocole ouvert MCP (Model Context Protocol), compris par la plupart des assistants IA. Aucune donnée personnelle n'est collectée.</p></div>
-  <div class="card easy">${askHome(origin, now)}</div>
+  <div class="duo"><div class="card easy">${askHome(origin, now)}</div>${chatDemo(h, now)}</div>
   <p class="or">Ou branchez le connecteur une fois pour toutes, pour que votre IA aille chercher les données toute seule :</p>
   <ol class="steps">
     <li class="card step"><span class="num">1</span><h3>Copiez l'adresse</h3>${connector(origin, "mcp-url")}</li>
@@ -244,21 +261,20 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
       inLanguage: "fr-FR",
     },
   ];
-  const band = `<div class="wrap intro">
-  <div class="pitch">
-    <p class="pill">Gratuit · ChatGPT · Claude · Le Chat</p>
-    <h1>La Réunion <span class="n974">974</span> en direct, dans votre assistant IA</h1>
+  const at = h?.meteo?.value.stations.reduce((m, st) => (st.time > m ? st.time : m), "");
+  const band = `<div class="hero sky-${sky(now)}"><div class="wrap hero-in">
+  <div class="hero-txt">
+    <p class="live-pill"><span class="dot"></span>En direct${at ? ` · <b>${hm(at)}</b>` : ""} à La Réunion</p>
+    <h1>La Réunion <span class="n974">974</span> en direct</h1>
     ${SLOGAN}
-    <p class="lead">Météo, vigilance, mer, volcan, bus, air, électricité, services publics, terrain : quand vous demandez « le volcan est en éruption ? » ou « le prochain bus à Saint-Pierre ? », votre IA va chercher <b>la donnée publique du moment</b>, datée et sourcée, au lieu de répondre de mémoire.</p>
-    ${askHome(origin, now)}
-    <p class="or">Ou branchez le connecteur une fois pour toutes (<a href="#assistant">comment faire</a>) :</p>
-    ${connector(origin, "mcp-url-top")}
+    <p class="lead">Météo, mer, volcan, bus, vélos, air : la donnée publique du moment, datée et sourcée, pour vous et pour <b>votre assistant IA</b>.</p>
+    <p class="hero-cta"><a class="btn sun" href="#assistant">${icon("spark")}Brancher mon IA</a><a class="btn glass" href="#en-ce-moment">Voir l'île</a></p>
+    ${facts(live)}
   </div>
-  ${chatDemo(h, now)}
-</div>
-${ticker(live, h)}`;
+  ${heroMap(h)}
+</div></div>`;
   const body = `${tiles(live)}
-${assistant(origin, now)}
+${assistant(origin, h, now)}
 <section id="communes" aria-labelledby="h-communes">
   <div class="sec-h"><p class="eyebrow">Partout sur l'île</p><h2 id="h-communes">Votre commune en direct</h2>
   <p>Pour chaque commune : la météo de sa station, la vigilance de sa zone, son air, sa mer, les prochains bus, sa mairie ouverte ou non. Les cirques, le volcan et les plages ont leur page météo. <a href="/communes">Toutes les communes →</a></p></div>
