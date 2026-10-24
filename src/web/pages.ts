@@ -8,6 +8,7 @@
  * The weather is one category among others, but the one people search for: « météo réunion 974 », « météo cilaos
  * 974 ». « 974 » sorts La Réunion from meetings, so titles and headings carry it.
  */
+import { softened } from "../tools/nuages.js";
 import type { Cached } from "../cache.js";
 import { ageMinutes, ageText, localTime, versant } from "../geo.js";
 import { VERSION } from "../server.js";
@@ -1155,6 +1156,16 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
         `<p class="note">Mis à jour à ${hm(data.fetchedAt)} (${since(data.fetchedAt, now)}). Sources : ${credits(d!.meteo!.sources)}.</p>`
       : `<p class="card">Aucune mesure disponible pour le moment.</p>`;
 
+  // In the Hauts, the coming morning's cloud sea, high on the page: « dégagé au Maïdo demain matin ? ». Said less firmly
+  // while the nearest station measures the air saturated now.
+  const near = stations.find((s) => s.mesures.humidite);
+  const wet = near && data ? { nom: near.station, humidite: parseInt(near.mesures.humidite!, 10), mesure: new Date(data.fetchedAt.getTime() - near.age_min * 60_000) } : undefined;
+  const mn = d?.prevision?.mer_de_nuages && softened(d.prevision.mer_de_nuages, now, wet);
+  const cloudSea = mn
+    ? `<section id="mer-de-nuages" class="card" aria-labelledby="h-nuages"><h3 id="h-nuages">${esc(mn.titre)}</h3><p>${esc(mn.ligne)}</p>` +
+      `<p class="note">${esc(mn.prevision.charAt(0).toUpperCase() + mn.prevision.slice(1))}. ${esc(mn.mise_en_garde)}</p></section>`
+    : "";
+
   // The next tides at the nearest gauge, computed at the view: no request, whatever the copy's age.
   const tides = coastal(p) ? tidesNear(p.place.lon, p.place.lat, now) : undefined;
   const tideLine = tides
@@ -1231,6 +1242,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
   <div class="hb"><h2 id="h-now">Mesuré en ce moment près de ${esc(p.nom)}</h2><span class="badge m">Mesure</span></div>
   ${measured}
 </section>
+${cloudSea}
 <section class="card cta" aria-labelledby="h-ia">
   <h2 id="h-ia">Votre IA, branchée sur la météo de ${esc(p.nom)}</h2>
   <p>Branchez le connecteur une fois sur ChatGPT, Claude ou Le Chat : à chaque « il pleut à ${esc(p.nom)} ? », il ira chercher lui-même la mesure, avec son heure et sa source. Gratuit, sans compte. <a href="/#assistant">Comment le brancher</a>.</p>

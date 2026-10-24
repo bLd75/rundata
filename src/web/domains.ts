@@ -1214,13 +1214,29 @@ export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | 
       }]
     : [];
 
-  const body = `${routes}
+  const body = `${hautsBlock(d?.hauts)}${routes}
 ${trails}
 ${safety}
 ${connectorCta("sentiers_randonnee", "la randonnée")}
 <script>${FILTER_SCRIPT}</script>`;
   return layout(origin, { title, description, path: "/randonnees", jsonld: [crumbs(origin, "Randonnée", "/randonnees"), webPage(origin, "/randonnees", title, description, data), ...list], alerte }, band, body);
 }
+
+/** Where the cloud sea will be in the coming morning, for each summit and village of the Hauts (tools/nuages.ts). */
+function hautsBlock(hauts: RandonneesAnswer["hauts"]): string {
+  if (!hauts?.length) return "";
+  const when = hauts[0].titre.replace(/^Mer de nuages /, "");
+  const line = (h: NonNullable<RandonneesAnswer["hauts"]>[number]) => {
+    const name = h.slug ? `<a href="/meteo/${h.slug}#mer-de-nuages">${esc(h.nom)}</a>` : esc(h.nom);
+    return `<li>${name}${esc(h.resume.slice(h.nom.length))}</li>`;
+  };
+  return `<section aria-labelledby="h-hauts"><div class="sec-h"><h2 id="h-hauts">Les Hauts ${esc(when)} : au-dessus ou dans les nuages ?</h2>
+  <p>Où sera la mer de nuages entre 6\u00a0h et midi, pour chaque sommet et village des Hauts. Prévision du modèle AROME de Météo-France, pas une mesure : regardez aussi le ciel et la station la plus proche avant de partir.</p></div>
+  <div class="card"><ul class="plain">${hauts.map(line).join("")}</ul><p class="note">${esc(cap(hauts[0].prevision))}. ${esc(hauts[0].mise_en_garde)}</p></div></section>
+`;
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function randonneesLive(data: Cached<SentiersAnswer> | null): Live | undefined {
   const d = data?.value;

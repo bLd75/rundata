@@ -15,6 +15,9 @@
  *
  * No terrain height is published: it is worked out once from surface and sea-level pressure, and temperatures
  * are brought from the model's (smoothed) terrain to the place's altitude, 0.65 °C per 100 m.
+ *
+ * The cloud base and top are published as pressures (Pa, 0 where the cell has no cloud): they give the altitude of the
+ * cloud sea of the Hauts, read at the place's own cell (an average of a cloudy cell and a clear one means nothing).
  */
 import { left } from "../budget.js";
 import type { Bundle, Cache } from "../cache.js";
@@ -77,7 +80,7 @@ const LAPSE = 0.0065; // °C per metre
 // Lightning flash density over the 3 hours above which the step says "orage". Not calibrated yet.
 const STORM_DENSITY = 0.05;
 
-type FieldName = "temperature" | "nuages" | "rafales" | "pluie" | "foudre";
+type FieldName = "temperature" | "nuages" | "rafales" | "pluie" | "foudre" | "base" | "sommet";
 
 // `at`: hours after the start of the step the field is read at. Accumulations (_PT3H) end at the step's end;
 // gusts are the maximum of the hour before `at`.
@@ -87,8 +90,15 @@ const FIELDS: Record<FieldName, { id: string; suffix?: string; height?: number; 
   rafales: { id: "WIND_SPEED_GUST__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", height: 10, at: 2 },
   pluie: { id: "TOTAL_PRECIPITATION__GROUND_OR_WATER_SURFACE", suffix: "_PT3H", at: 3 },
   foudre: { id: "LIGHTNING_STRIKE_DENSITY__GROUND_OR_WATER_SURFACE", suffix: "_PT3H", at: 3 },
+  base: { id: "PRESSURE__BASE_CLOUD", at: 1 },
+  sommet: { id: "PRESSURE__LEVEL_OF_CLOUD_TOP", at: 1 },
 };
 const NAMES = Object.keys(FIELDS) as FieldName[];
+const CORE = NAMES.filter((f) => f !== "base" && f !== "sommet");
+// The cloud layer only for the steps of the morning, 6–9 h and 9–12 h in La Réunion: those the cloud sea is told of
+// (tools/nuages.ts). Two steps a day of two grids more, rather than two more grids for every step.
+const LAYER_HOURS = new Set([6, 9]);
+const fieldsOf = (start: Date): FieldName[] => (LAYER_HOURS.has((start.getUTCHours() + 4) % 24) ? NAMES : CORE);
 
 export interface Grid {
   x0: number;
@@ -299,7 +309,7 @@ export async function prepare(cache: Cache, starts: Date[], reserve = 0, listing
   let frontier = known && known.ageMs < PENDING_RETRY_MS ? Date.parse(known.value as string) : Infinity;
   let found = frontier; // first hour of the newest run found missing in this invocation
   const published = (run: Date, t: Date) => run !== newest || t.getTime() + STEP_H * HOUR < frontier;
-  const missing = (b: Bundle, t: Date) => NAMES.filter((f) => !b.has(gridKey(f, fieldTime(f, t)))).length;
+  const missing = (b: Bundle, t: Date) => fieldsOf(t).filter((f) => !b.has(gridKey(f, fieldTime(f, t)))).length;
 
   const fetchGrid = async (run: Date, b: Bundle, f: FieldName, t: Date): Promise<Grid | null> => {
     const time = fieldTime(f, t).getTime();
@@ -316,7 +326,8 @@ export async function prepare(cache: Cache, starts: Date[], reserve = 0, listing
 
   const got = new Map<number, AromeData["steps"][number]>();
   let downloads = 0;
-  const allowed = () => Math.min(MAX_NEW_GRIDS - downloads, left() - reserve - SPARE - (hasRelief ? 0 : 3));
+  // Never below none: a step whose grids are all in the bundle costs nothing, whatever is left.
+  const allowed = () => Math.max(0, Math.min(MAX_NEW_GRIDS - downloads, left() - reserve - SPARE - (hasRelief ? 0 : 3)));
   let budget = allowed();
   let reliefValue: Grid | undefined;
   try {
@@ -330,19 +341,20 @@ export async function prepare(cache: Cache, starts: Date[], reserve = 0, listing
         chosen.push({ start: t, ...pick });
       }
       if (!chosen.length && !got.size && !hasRelief) return null; // no step this time: not even the terrain is worth fetching
-      const tasks = chosen.flatMap((c) => NAMES.map((f) => () => fetchGrid(c.run, c.b, f, c.start)));
+      const tasks = chosen.flatMap((c) => fieldsOf(c.start).map((f) => () => fetchGrid(c.run, c.b, f, c.start)));
       const [results, r] = await Promise.all([pool(tasks, CONCURRENCY), reliefValue ?? reliefGrid(reliefFrom.b, s, reliefFrom.run, nb)]);
       reliefValue = r;
       const carried = !nb.has(RELIEF) && reliefFrom.b.peek(RELIEF);
       if (carried) nb.set(RELIEF, carried.value); // so that it is there when this run is the one before
       const failed = results.find((x) => x.status === "rejected");
       if (failed) console.error(`source ${SOURCE.id} : grille indisponible`, why((failed as PromiseRejectedResult).reason));
-      chosen.forEach((c, i) => {
-        const grids = {} as Record<FieldName, Grid | null>;
-        NAMES.forEach((f, k) => {
-          const x = results[i * NAMES.length + k];
+      let next = 0;
+      chosen.forEach((c) => {
+        const grids = Object.fromEntries(NAMES.map((f) => [f, null])) as Record<FieldName, Grid | null>;
+        for (const f of fieldsOf(c.start)) {
+          const x = results[next++];
           grids[f] = x.status === "fulfilled" ? x.value : null;
-        });
+        }
         // A step of the newest run cut by a missing hour is left to the run before.
         if (c.run === newest && c.start.getTime() + STEP_H * HOUR >= found) return;
         got.set(c.start.getTime(), { start: c.start, run: c.run, grids });
@@ -393,8 +405,30 @@ export function weatherCode(rainMm: number | null, cloudPct: number | null, ligh
 
 const r1 = (x: number | null) => (x == null ? null : Math.round(x * 10) / 10);
 
+// The standard atmosphere's height of a pressure, from a sea level at 1017 hPa and 25 °C, La Réunion's usual: within
+// a few tens of metres of the hypsometric height up to 3 000 m, finer than the 100 m the altitudes are given to.
+const SEA_LEVEL_PA = 101_700;
+const SEA_LEVEL_K = 298.15;
+
+/** The altitude (m) of a pressure (Pa) in the cloud fields, or null for 0, the cell without cloud. */
+export function cloudAltitude(pa: number | null): number | null {
+  if (pa == null || pa <= 0) return null;
+  return Math.round((SEA_LEVEL_K / LAPSE) * (1 - Math.pow(pa / SEA_LEVEL_PA, (287.05 * LAPSE) / 9.80665)));
+}
+
+/** The cloud base and top over a cell, in metres; the top only when it is above the base (the fields disagree at times). */
+export function cloudLayer(base: number | null, top: number | null): { base: number | null; top: number | null } {
+  const b = cloudAltitude(base);
+  const t = cloudAltitude(top);
+  return { base: b, top: b != null && t != null && t > b ? t : null };
+}
+
 export function atPlace(d: AromeData, place: Place): Forecast {
   const z = at(d.relief, place.lon, place.lat);
+  const g = d.relief;
+  const i = Math.round((place.lon - g.x0) / g.dx);
+  const j = Math.round((g.y0 - place.lat) / g.dy);
+  const cell = (grid: Grid | null) => (grid && i >= 0 && j >= 0 && i < grid.width && j < grid.height ? grid.values[j * grid.width + i] : null);
   const altitude = place.altitude_m ?? (z == null ? null : Math.round(z));
   const suite: NonNullable<Forecast["suite"]> = [];
   d.steps.forEach((st, i) => {
@@ -413,6 +447,7 @@ export function atPlace(d: AromeData, place: Place): Forecast {
     const nuages = read("nuages");
     const gust = read("rafales");
     const rain = pluie == null ? null : Math.max(0, r1(pluie)!);
+    const layer = cloudLayer(cell(grids.base), cell(grids.sommet));
     return {
       time: start,
       duree_h: STEP_H,
@@ -423,12 +458,10 @@ export function atPlace(d: AromeData, place: Place): Forecast {
       vent_kmh: null,
       rafales_kmh: gust == null ? null : Math.round(gust * 3.6),
       vent_dir: null,
+      ...(grids.base ? { nuages_base_m: layer.base, nuages_sommet_m: layer.top } : {}),
       modele: MODEL,
     };
   });
-  const g = d.relief;
-  const i = Math.round((place.lon - g.x0) / g.dx);
-  const j = Math.round((g.y0 - place.lat) / g.dy);
   return {
     model: MODEL,
     source: SOURCE,
