@@ -15,7 +15,7 @@ import { COMMUNES } from "./commune.js";
 import type { AgendaAnswer, RandonneesAnswer } from "./data.js";
 import { esc } from "./map.js";
 import og from "./og.json" with { type: "json" };
-import { icon, layout, SITE } from "./pages.js";
+import { follow, icon, layout, SITE } from "./pages.js";
 import visuals from "./presse.json" with { type: "json" };
 
 const CONTACT = "contact@rundata.re";
@@ -127,6 +127,7 @@ export function pressePage(origin: string, figures: Figure[]): string {
     <h1>rundata.re, pour la presse</h1>
     <p class="lead">Le communiqué, les chiffres clés comptés en direct et des visuels à télécharger, libres d'utilisation avec la mention rundata.re. Une question, une interview : <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>
     <p class="hero-cta"><a class="btn sun" href="#visuels">${icon("map")}Les visuels</a><a class="btn glass" href="mailto:${CONTACT}">Contact presse</a></p>
+    ${follow()}
   </div>
   <figure class="card mapcard shot"><a href="${lead.hd}"><img src="${lead.vignette}" width="${lead.vignette_largeur}" height="${lead.vignette_hauteur}" alt="${esc(CAPTIONS["randonnees-ordi"])}"></a></figure>
 </div>`;

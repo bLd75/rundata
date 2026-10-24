@@ -17,7 +17,7 @@ import {
   connector,
   DATAGOUV_REUSE,
   deg,
-  FACEBOOK,
+  followed,
   GITHUB,
   GLAMA,
   hm,
@@ -292,7 +292,7 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
       url: `${origin}/`,
       logo: `${origin}/og.png`,
       email: "contact@rundata.re",
-      sameAs: [FACEBOOK, GITHUB, DATAGOUV_REUSE, GLAMA],
+      sameAs: [...followed().map((s) => s.url), GITHUB, DATAGOUV_REUSE, GLAMA],
     },
     {
       "@context": "https://schema.org",
