@@ -54,7 +54,7 @@ export function enfantsAnswer(quoi: string, lieu: string | undefined, now = new 
   if (!res) {
     const communes = [...new Set(pool.map((l) => l.commune))].sort((x, y) => x.localeCompare(y, "fr"));
     return text({
-      resume: `${what[0].toUpperCase()}${what.slice(1)} dans les sources : ${pool.length}, dans ${communes.length} communes${kind ? "" : ` (${enfants.TYPES.map((t) => `${t.court} ${pool.filter((l) => l.type === t.type).length}`).join(", ")})`}. Donner une commune pour sa liste.`,
+      resume: `${what[0].toUpperCase()}${what.slice(1)} dans les sources : ${pool.length}, dans ${communes.length} communes${kind ? "" : ` (${enfants.TYPES.map((t) => enfants.counted(t.type, pool.filter((l) => l.type === t.type).length)).join(", ")})`}. Donner une commune pour sa liste.`,
       par_commune: Object.fromEntries(communes.map((c) => [c, pool.filter((l) => l.commune === c).length])),
       page: "https://rundata.re/enfants",
       avertissements: warnings,
@@ -65,11 +65,11 @@ export function enfantsAnswer(quoi: string, lieu: string | undefined, now = new 
   const here = pool.filter((l) => l.commune === commune);
   const near = here.length ? here : enfants.nearest(res.lieu.lon, res.lieu.lat, pool, 5);
   const rows = (here.length ? here.map((l) => ({ ...l, km: undefined })) : near).map(row(now));
-  const byKind = enfants.TYPES.map((t) => [t.court, here.filter((l) => l.type === t.type).length] as const).filter(([, n]) => n);
+  const byKind = enfants.TYPES.map((t) => [t.type, here.filter((l) => l.type === t.type).length] as const).filter(([, n]) => n);
   return text({
     lieu: placeBlock(lieu!, res),
     resume: here.length
-      ? `${here.length} ${what} ${a(commune)} d'après les cartes ouvertes${kind ? "" : ` : ${byKind.map(([court, n]) => `${court} ${n}`).join(", ")}`}.`
+      ? `${here.length} ${what} ${a(commune)} d'après les cartes ouvertes${kind ? "" : ` : ${byKind.map(([k, n]) => enfants.counted(k, n)).join(", ")}`}.`
       : `Aucun lieu de ce type ${a(commune)} dans les sources. Les plus proches : ${near.slice(0, 3).map((l) => `${enfants.nameOf(l)}, ${a(l.commune)}, à ${fr(Math.round(((l as { km?: number }).km ?? 0) * 10) / 10)} km`).join(" ; ")}.`,
     lieux: rows,
     page: `https://rundata.re/enfants#c-${slugify(commune)}`,

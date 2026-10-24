@@ -19,6 +19,8 @@ export const LEAD = typo("Aires de jeux, parcs, piscines, médiathèques, zoos, 
 export const DESCRIPTION = "Où emmener les enfants à La Réunion : aires de jeux, parcs, piscines, médiathèques, zoos, skateparks, commune par commune, et les activités du week-end.";
 const MISSING = typo("<b>Ce que vous ne trouverez pas ici.</b> Les accueils de loisirs (centres aérés), les crèches et les relais petite enfance sont publiés par la CAF sur monenfant.fr, dont nous ne pouvons pas reprendre les données. Pour trouver un mode de garde ou un accueil de loisirs : <a href=\"https://monenfant.fr\" rel=\"noopener\">monenfant.fr</a>. Les activités privées qui ne figurent sur aucune carte ouverte manquent aussi. Un lieu oublié ? <a href=\"#avis\">Dites-le-nous</a>, ou ajoutez-le sur <a href=\"https://www.openstreetmap.org/\" rel=\"noopener\">OpenStreetMap</a> : il apparaîtra ici.");
 const CREDITS = typo("Lieux : © les contributeurs d'OpenStreetMap (ODbL) ; recensement des équipements sportifs (Data ES, ministère des Sports) et Basilic (ministère de la Culture), sous Licence Ouverte. Activités : les agendas des communes, des salles et de reunion.fr, chacun cité sur sa ligne.");
+// The link is to the events page: the site has no /sorties.
+const EMPTY = typo("Les agendas que nous lisons n'annoncent pas d'activité pour les enfants dans les deux semaines qui viennent. Ils ne disent pas tout : voyez aussi les <a href=\"/evenements\">sorties</a>.");
 /** The agenda's kind, first in the filter and on the page. */
 const ACTIVITIES = "Activités et spectacles";
 
@@ -37,7 +39,7 @@ function eventLi(r: Row): string {
 function placeLi(l: enfants.Lieu, now: Date): string {
   const a = enfants.ageOf(l);
   const today = enfants.hoursToday(l, now);
-  const small = [l.detail, l.adresse, today ? `aujourd'hui ${today.replace(/(\d) h/g, "$1\u00a0h")}` : undefined].filter(Boolean).map((x) => esc(x!)).join(" · ");
+  const small = [l.detail, l.adresse, today ? `aujourd'hui ${today}` : undefined].filter(Boolean).map((x) => esc(x!)).join(" · ");
   const name = esc(enfants.nameOf(l));
   const link = l.site ?? l.lien;
   return `<li data-b="${a.bands.join(" ")}" data-t="${l.type}"><span>${link ? `<a href="${esc(link)}" rel="noopener">${name}</a>` : name}${small ? `<small>${small}</small>` : ""}</span>${badge(a)}</li>`;
@@ -52,6 +54,7 @@ const f=document.getElementById("kf");if(!f)return;f.hidden=false;
 const run=()=>{const b=f.b.value,t=f.t.value;let n=0;document.querySelectorAll("#enf li[data-b]").forEach((li)=>{const ok=(!b||li.dataset.b.split(" ").includes(b))&&(!t||li.dataset.t===t);li.hidden=!ok;if(ok)n++});
 document.querySelectorAll("#enf [data-k]").forEach((g)=>{g.hidden=!g.querySelector("li[data-b]:not([hidden])")});
 document.querySelectorAll("#enf details").forEach((d)=>{d.open=!!(b||t)});
+document.querySelectorAll("#enf .note[data-n]").forEach((e)=>{const all=+e.dataset.n,k=e.closest("[data-k]").querySelectorAll("li[data-b]:not([hidden])").length,w=(x)=>x+" "+(x>1?e.dataset.p:e.dataset.s);e.textContent=b||t?w(k)+" sur "+all:w(all)});
 document.getElementById("kf-n").textContent=b||t?n+" résultat"+(n>1?"s":""):"";};
 f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefault());})();`;
 
@@ -60,6 +63,8 @@ export function enfantsPage(origin: string, data: Cached<EnfantsAnswer> | null, 
   const path = "/enfants";
   const communes = [...new Set(enfants.LIEUX.map((l) => l.commune))].sort((x, y) => x.localeCompare(y, "fr"));
   const count = (n: number, one: string, many = `${one}s`) => `${n} ${n > 1 ? many : one}`;
+  // The count of a card, which a filter turns into « 1 lieu sur 15 ».
+  const note = (n: number, one: string, many: string) => `<span class="note" data-n="${n}" data-s="${one}" data-p="${many}">${count(n, one, many)}</span>`;
 
   const markers = communes.map((c) => {
     const list = enfants.inCommune(c);
@@ -70,21 +75,21 @@ export function enfantsPage(origin: string, data: Cached<EnfantsAnswer> | null, 
   const weekend = new Set((d?.ce_week_end ?? []).map((r) => `${r.titre}|${r.date}`));
   const later = (d?.evenements ?? []).filter((r) => !weekend.has(`${r.titre}|${r.date}`));
   const card = (title: string, rows: Row[]) =>
-    rows.length ? `<li class="card" data-k><h3>${esc(title)} <span class="note">${count(rows.length, "activité")}</span></h3><ul class="rows eau">${rows.map(eventLi).join("")}</ul></li>` : "";
+    rows.length ? `<li class="card" data-k><h3>${esc(title)} ${note(rows.length, "activité", "activités")}</h3><ul class="rows eau">${rows.map(eventLi).join("")}</ul></li>` : "";
   const activities = !d
     ? loading("L'agenda des enfants")
     : d.ce_week_end.length || later.length
       ? `<ul class="zones top">${card("Ce week-end", d.ce_week_end)}${card("Dans les deux semaines qui viennent", later)}</ul>`
-      : `<p class="card">Aucune activité pour les enfants trouvée dans les agendas lus pour les deux semaines qui viennent : ces agendas ne disent pas tout.</p>`;
+      : `<p class="card">${EMPTY}</p>`;
 
   const places = `<ul class="zones top">${communes.map((c) => {
     const list = enfants.inCommune(c);
     // Folded: 24 communes, hundreds of places. The map, a link to the commune or a filter opens it.
-    return `<li class="card tgt" id="${anchorId("c", c)}" data-k><details><summary><h3>${esc(c)} <span class="note">${count(list.length, "lieu", "lieux")}</span></h3></summary>` +
+    return `<li class="card tgt" id="${anchorId("c", c)}" data-k><details><summary><h3>${esc(c)} ${note(list.length, "lieu", "lieux")}</h3></summary><div class="kinds">` +
       enfants.TYPES.map((t) => {
         const of = list.filter((l) => l.type === t.type);
         return of.length ? `<div class="kind" data-k><h4>${esc(t.nom)}</h4><ul class="rows eau">${of.map((l) => placeLi(l, now)).join("")}</ul></div>` : "";
-      }).join("") + `</details></li>`;
+      }).join("") + `</div></details></li>`;
   }).join("")}</ul>`;
 
   const filter = `<form id="kf" class="card filter" hidden role="search" aria-label="Filtrer par âge et par type">` +
@@ -113,6 +118,7 @@ ${filter}
   <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-lieux">Où aller avec les enfants</h2></div>
   ${places}
   <div class="card"><p>${MISSING}</p></div>
+  <p class="note">${esc(enfants.HOURS_NOTE)}</p>
   <p class="note">${esc(enfants.INDICATIF_NOTE)}</p>
   <p class="note">${esc(CREDITS)}</p>
 </section>

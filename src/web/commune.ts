@@ -201,8 +201,9 @@ function pharmacies(p: PlacePage): Live {
 function children(p: PlacePage): Live | undefined {
   const list = enfants.inCommune(p.nom);
   if (!list.length) return undefined;
-  const kinds = enfants.TYPES.map((t) => [t.court, list.filter((l) => l.type === t.type).length] as const).filter(([, n]) => n);
-  return { valeur: `${list.length} lieu${list.length > 1 ? "x" : ""}`, detail: kinds.slice(0, 4).map(([court, n]) => `${court} ${n}`).join(", ") };
+  // The three kinds it has most of, the number first: « 4 aires de jeux · 2 parcs et jardins · 1 piscine · … ».
+  const kinds = enfants.TYPES.map((t) => [t.type, list.filter((l) => l.type === t.type).length] as const).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
+  return { valeur: `${list.length} lieu${list.length > 1 ? "x" : ""}`, detail: kinds.slice(0, 3).map(([k, n]) => enfants.counted(k, n)).join(" · ") + (kinds.length > 3 ? " · …" : "") };
 }
 
 function townHall(data: Cached<CommuneData> | null | undefined, now: Date): Live | undefined {

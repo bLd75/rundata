@@ -91,20 +91,23 @@ const ALL: Band[] = BANDS.map((b) => b.key);
  * The page's types, in its order (the agenda's « Activités et spectacles » comes first, on the page), and the bands a
  * kind of place is indicated for when no source gives its ages.
  */
-export const TYPES: { type: Kind; nom: string; court: string; indicatif: Band[] }[] = [
-  { type: "aire_de_jeux", nom: "Aires de jeux", court: "aires de jeux", indicatif: ["3-6", "6-12"] },
-  { type: "parc", nom: "Parcs et jardins", court: "parcs et jardins", indicatif: ALL },
-  { type: "piscine", nom: "Piscines", court: "piscines", indicatif: ALL },
-  { type: "mediatheque", nom: "Médiathèques et bibliothèques", court: "médiathèques", indicatif: ALL },
-  { type: "animaux", nom: typo("Animaux : zoos, parcs animaliers, aquarium"), court: "zoos et aquarium", indicatif: ALL },
-  { type: "loisirs", nom: "Parcs de loisirs et parcs aquatiques", court: "parcs de loisirs", indicatif: ALL },
-  { type: "salle_jeux", nom: "Salles de jeux et trampoline", court: "salles de jeux", indicatif: ["6-12", "12-17"] },
-  { type: "sport", nom: typo("Sport en accès libre : skateparks, city-stades"), court: "skateparks et city-stades", indicatif: ["6-12", "12-17"] },
-  { type: "escalade", nom: "Escalade", court: "escalade", indicatif: ["6-12", "12-17"] },
-  { type: "musee", nom: "Musées", court: "musées", indicatif: ALL },
-  { type: "ludotheque", nom: "Ludothèques", court: "ludothèques", indicatif: ALL },
+/** `un` and `court`: a count's words, one and several (« 1 piscine », « 4 aires de jeux »). */
+export const TYPES: { type: Kind; nom: string; un: string; court: string; indicatif: Band[] }[] = [
+  { type: "aire_de_jeux", nom: "Aires de jeux", un: "aire de jeux", court: "aires de jeux", indicatif: ["3-6", "6-12"] },
+  { type: "parc", nom: "Parcs et jardins", un: "parc ou jardin", court: "parcs et jardins", indicatif: ALL },
+  { type: "piscine", nom: "Piscines", un: "piscine", court: "piscines", indicatif: ALL },
+  { type: "mediatheque", nom: "Médiathèques et bibliothèques", un: "médiathèque ou bibliothèque", court: "médiathèques et bibliothèques", indicatif: ALL },
+  { type: "animaux", nom: typo("Animaux : zoos, parcs animaliers, aquarium"), un: "zoo ou aquarium", court: "zoos et aquariums", indicatif: ALL },
+  { type: "loisirs", nom: "Parcs de loisirs et parcs aquatiques", un: "parc de loisirs", court: "parcs de loisirs", indicatif: ALL },
+  { type: "salle_jeux", nom: "Salles de jeux et trampoline", un: "salle de jeux", court: "salles de jeux", indicatif: ["6-12", "12-17"] },
+  { type: "sport", nom: typo("Sport en accès libre : skateparks, city-stades"), un: "skatepark ou city-stade", court: "skateparks et city-stades", indicatif: ["6-12", "12-17"] },
+  { type: "escalade", nom: "Escalade", un: "site d'escalade", court: "sites d'escalade", indicatif: ["6-12", "12-17"] },
+  { type: "musee", nom: "Musées", un: "musée", court: "musées", indicatif: ALL },
+  { type: "ludotheque", nom: "Ludothèques", un: "ludothèque", court: "ludothèques", indicatif: ALL },
 ];
 export const typeOf = (k: Kind) => TYPES.find((t) => t.type === k)!;
+/** « 1 piscine », « 4 aires de jeux ». */
+export const counted = (k: Kind, n: number) => `${n} ${n > 1 ? typeOf(k).court : typeOf(k).un}`;
 
 /** The name of an unnamed playground: « Aire de jeux, Bérive », or « Aire de jeux » without a district. */
 export const nameOf = (l: Lieu) => l.nom || `Aire de jeux${l.quartier ? `, ${l.quartier}` : ""}`;
@@ -161,8 +164,16 @@ export function nearest(lon: number, lat: number, list = LIEUX, max = 5) {
   return list.map((l) => ({ ...l, km: distanceKm(lon, lat, l.lon, l.lat) })).sort((a, b) => a.km - b.km).slice(0, max);
 }
 
-/** The hours of the day of `now` OpenStreetMap gives (« de 9 h à 17 h »), or undefined. */
-export const hoursToday = (l: Lieu, now: Date) => (l.horaires_osm ? hoursOn({ horaires_osm: l.horaires_osm }, now) : undefined);
+/**
+ * The hours of the day of `now` OpenStreetMap gives, as the agenda writes them: « 9:00 – 18:00 », « 9:00 – 12:00 et
+ * 13:30 – 17:00 », a range never broken across lines. Undefined when it gives none for that day.
+ */
+export function hoursToday(l: Lieu, now: Date): string | undefined {
+  const said = l.horaires_osm ? hoursOn({ horaires_osm: l.horaires_osm }, now) : undefined;
+  const time = (h: string, m?: string) => `${h}:${m ?? "00"}`;
+  return said?.replace(/de (\d+) h(?: (\d\d))? à (\d+) h(?: (\d\d))?/g, (_, h1, m1, h2, m2) => `${time(h1, m1)}${NBSP}–${NBSP}${time(h2, m2)}`);
+}
+export const HOURS_NOTE = typo("Les horaires viennent d'OpenStreetMap : vérifiez auprès du lieu avant de vous déplacer, surtout un jour férié.");
 
 /** The sources of a list of places, each once, in OpenStreetMap, Data ES, Basilic order. */
 export const sourcesOf = (list: Lieu[]) =>

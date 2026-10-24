@@ -3,8 +3,10 @@ import { ageIn, ageRange, extrait, themesIn } from "../src/providers/agenda-mots
 import { INSEE } from "../src/places/insee.js";
 import { CHILDREN, enfantsAnswer, kindAsked } from "../src/tools/enfants.js";
 import * as enfants from "../src/vie/enfants.js";
+import { communePage } from "../src/web/commune.js";
 import { enfantsPage, LEAD, TITLE } from "../src/web/enfants.js";
 import { esc } from "../src/web/map.js";
+import { pageOf } from "../src/web/places.js";
 import { deadAnchors, doubleIds, mapLinks } from "./cartes.js";
 
 const O = "https://rundata.re";
@@ -75,6 +77,22 @@ describe("the places to go with children", () => {
     expect(enfants.agesSaid({ min: 1 })).toBe(`dès 1${NBSP}an`);
   });
 
+  it("say a place's hours as the agenda does, a range never broken", () => {
+    const at = (h: string) => enfants.hoursToday({ horaires_osm: h } as enfants.Lieu, NOW);
+    // NOW is a Saturday in La Réunion.
+    expect(at("Tu-Fr 10:00-17:00; Sa 10:00-12:00,13:30-17:00")).toBe(`10:00${NBSP}–${NBSP}12:00 et 13:30${NBSP}–${NBSP}17:00`);
+    expect(at("Mo-Su 09:00-18:00")).toBe(`9:00${NBSP}–${NBSP}18:00`);
+    expect(at("Mo-Fr 09:00-18:00")).toBeUndefined();
+  });
+
+  it("count a kind in marketing's words, one and several", () => {
+    expect(enfants.counted("aire_de_jeux", 1)).toBe("1 aire de jeux");
+    expect(enfants.counted("parc", 1)).toBe("1 parc ou jardin");
+    expect(enfants.counted("parc", 2)).toBe("2 parcs et jardins");
+    expect(enfants.counted("animaux", 3)).toBe("3 zoos et aquariums");
+    expect(enfants.counted("escalade", 1)).toBe("1 site d'escalade");
+  });
+
   it("put an age in each band it overlaps, and an event without one in none of its own", () => {
     expect(enfants.bandsOf({ min: 0.5, max: 6 })).toEqual(["0-3", "3-6"]);
     expect(enfants.bandsOf({ min: 10 })).toEqual(["6-12", "12-17"]);
@@ -93,7 +111,7 @@ describe("annuaire_services_publics, asked about children", () => {
 
   it("lists a commune's places by kind, with their ages and where the list falls short", () => {
     const b = body(enfantsAnswer("enfants", "Saint-Leu", NOW));
-    expect(b.resume).toMatch(/^\d+ lieux pour les enfants à Saint-Leu d'après les cartes ouvertes : aires de jeux \d+/);
+    expect(b.resume).toMatch(/^\d+ lieux pour les enfants à Saint-Leu d'après les cartes ouvertes : \d+ aires de jeux, \d+ parcs et jardins, 1 piscine/);
     expect(b.lieux.every((l: { commune: string }) => l.commune === "Saint-Leu")).toBe(true);
     expect(b.lieux.find((l: { type: string }) => l.type === "Aires de jeux")).toMatchObject({ age_d_apres_la_source: false });
     expect(b.page).toBe(`${O}/enfants#c-saint-leu`);
@@ -157,6 +175,27 @@ describe("the children's page", () => {
     expect(doubleIds(html)).toEqual([]);
     expect(html).toContain('<li class="card tgt" id="c-saint-leu" data-k><details><summary><h3>Saint-Leu');
     expect(html).toMatch(/<span class="age i n">3–12 ans · indicatif<\/span>/);
+  });
+
+  it("counts a commune's places, which a filter turns into « 1 lieu sur 15 », and says where the hours come from", () => {
+    expect(html).toMatch(/<h3>Saint-Leu <span class="note" data-n="21" data-s="lieu" data-p="lieux">21 lieux<\/span><\/h3><\/summary><div class="kinds">/);
+    expect(html).toContain('data-n="1" data-s="activité" data-p="activités">1 activité</span>');
+    expect(html).toContain('" sur "+all');
+    expect(flat(html)).toContain(esc("Les horaires viennent d'OpenStreetMap : vérifiez auprès du lieu avant de vous déplacer, surtout un jour férié."));
+    expect(html.indexOf("Les horaires viennent")).toBeGreaterThan(html.indexOf("Ce que vous ne trouverez pas ici"));
+  });
+
+  it("says, when the agenda has nothing for children, that it does not say everything", () => {
+    const none = enfantsPage(O, { value: { ce_week_end: [], evenements: [] }, fetchedAt: NOW } as any, NOW);
+    expect(flat(none)).toContain("Les agendas que nous lisons n'annoncent pas d'activité pour les enfants dans les deux semaines qui viennent. Ils ne disent pas tout : voyez aussi les ");
+    expect(none).toContain('<a href="/evenements">sorties</a>');
+    expect(none).not.toMatch(/Aucune activité/);
+  });
+
+  it("is on the commune's page: the number first, its three biggest kinds", () => {
+    const leu = communePage(O, pageOf("saint-leu")!, { place: null }, NOW);
+    expect(leu).toContain('href="/enfants#c-saint-leu"');
+    expect(leu).toContain("6 skateparks et city-stades · 4 aires de jeux · 4 musées · …");
   });
 
   it("keeps its places when the agenda is not there", () => {

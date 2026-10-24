@@ -612,6 +612,8 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .rows .age{font-weight:700;font-size:.85rem;text-align:right;max-width:8.5rem}.rows .age.i{font-weight:400;color:var(--muted)}
 .kind h4{margin:.9rem 0 .1rem;font:700 .95rem system-ui,sans-serif;color:var(--muted)}
 .zones.top{align-items:start}#enf [hidden]{display:none!important}
+@media (max-width:600px){#kf label{flex-basis:100%}}
+@media (min-width:900px){.zones.top>li:has(details[open]){grid-column:1/-1}.zones.top details[open]>.kinds{columns:3 16rem;column-gap:2rem}.kinds .kind{break-inside:avoid}}
 .card>details>summary{cursor:pointer;list-style:none}.card>details>summary::-webkit-details-marker{display:none}
 .card>details>summary h3{display:inline}.card>details>summary::after{content:" ▸";color:var(--muted)}.card>details[open]>summary::after{content:" ▾"}
 .rows.eau .score{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
