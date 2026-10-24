@@ -4,6 +4,7 @@
  * older than its source should allow, says a source did not answer, or gives the volcano's ORSEC level as unknown.
  * Nothing here asks a source directly: what is checked is what a visitor gets.
  */
+import { decodeText, textOf } from "../providers/avis-eau.js";
 
 /** Who the check is, for the Worker: served like a crawler that waits for the data, and not counted in the usage. */
 export const AGENT = "rundata-check/1 (+github actions)";
@@ -222,9 +223,9 @@ export function checkPage(c: PageCheck, status: number, cacheControl: string, ht
   if (status !== 200) return [{ point, motif: `HTTP ${status}` }];
   // A page without its live block is never kept (web/site.ts): « no-store ».
   if (/no-store/.test(cacheControl)) return [{ point, motif: "servie sans son bloc en direct" }];
-  const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, "");
   const out: Probleme[] = [];
-  const down = DOWN.exec(text.replace(/<[^>]+>/g, " "));
+  // The page's text, its tags dropped character by character (avis-eau.ts): a pattern over HTML misses some tags.
+  const down = DOWN.exec(decodeText(textOf(html)));
   if (down) out.push({ point, motif: `dit « ${down[0]} »` });
   if (c.max) out.push(...fresh(point, "donnée", /"dateModified":"([^"]+)"/.exec(html)?.[1], c.max, now));
   return [...out, ...(c.check?.(html, now) ?? [])];
