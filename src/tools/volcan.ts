@@ -6,6 +6,7 @@ import * as volcan from "../providers/volcan.js";
 import { why } from "../types.js";
 import { credits, fr, text } from "./format.js";
 import { acces, definition, libelle, lineText } from "./volcan-acces.js";
+import * as historique from "./volcan-historique.js";
 
 const DAY = 86_400_000;
 const OFFICIAL =
@@ -208,6 +209,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
       LOCALISES,
     );
   }
+  // How the last alerts went: only those whose start and end a release writes (volcan-historique.ts).
+  parts.push(historique.resumeText());
 
   // The prefecture is credited when its phase is the one given: a phase kept from May loses to pitonlive's of October.
   const sources = [...(phase && (!state || (state as { prefecture?: volcan.Phase }).prefecture) ? [volcan.PREFECTURE] : []), ...(state ? [volcan.PITONLIVE] : []), ...(posts ? [volcan.OVPF] : []), ...(quakes ? [seismes.SOURCE] : [])];
@@ -242,6 +245,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
             : "pitonlive.com (site indépendant, à recouper avec les sources officielles)",
         }
       : "indisponible",
+    alertes_precedentes: historique.precedentes(),
     publications_ovpf: posts ? posts.slice(0, 3).map((p) => ({ ...p, date: `${localTime(new Date(p.date))} heure de La Réunion` })) : "indisponible",
     seismes: q ?? "indisponible",
     avertissements: [OFFICIAL],

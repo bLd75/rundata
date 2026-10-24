@@ -7,6 +7,7 @@
 import { PREFECTURE } from "../providers/volcan.js";
 import { ENCLOS_SAID, IMAGE_APRES, LOCALISES } from "../tools/volcan.js";
 import { type Ligne, libelle, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
+import * as historique from "../tools/volcan-historique.js";
 import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
@@ -145,6 +146,14 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
       `<p class="note">${esc(q.note)}</p></div>`
     : "";
 
+  // The alerts before this one, from the releases (tools/volcan-historique.ts): the same list whatever the copy says.
+  const moment = (m: historique.Moment) =>
+    `<li><b>${esc(historique.date(m.jour))}</b>, ${esc(m.quoi)} : « ${esc(m.dit)} » <a href="${esc(m.communique.copie)}">${esc(historique.label(m.communique))} →</a></li>`;
+  const before = `<section id="alertes-precedentes" aria-labelledby="h-alertes"><div class="sec-h"><h2 id="h-alertes">${esc(historique.TITRE)}</h2><p>${esc(historique.CHAPEAU)}</p></div>
+  <ul class="posts">${historique.EPISODES.map((x) => `<li class="card"><p class="note">Début</p><ul class="plain">${x.debut.map(moment).join("")}</ul><p class="note">Fin</p><ul class="plain">${moment(x.fin)}</ul></li>`).join("")}</ul>
+  <p class="note">${esc(historique.NOTE)}</p></section>
+`;
+
   const posts = d?.publications_ovpf?.length
     ? `<section aria-labelledby="h-ovpf"><div class="sec-h"><p class="eyebrow">L'observatoire</p><h2 id="h-ovpf">Ce que publie l'OVPF</h2>
   <p>Les derniers messages de l'Observatoire volcanologique du Piton de la Fournaise (IPGP), repris tels quels.</p></div>
@@ -193,7 +202,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-volcan">L'Enclos et les séismes</h2></div>
   ${d ? `<div class="two">${enclos}${quakes}</div>${warnings(d.avertissements)}${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">Les données du volcan se chargent : rechargez la page dans quelques secondes.</p>`}
 </section>
-${posts}
+${before}${posts}
 ${connectorCta("volcan_seismes", "le volcan")}`;
 
   return layout(origin, { title, description, path: "/volcan", jsonld: [crumbs(origin, "Volcan", "/volcan"), webPage(origin, "/volcan", title, description, data)], alerte }, band, body);
