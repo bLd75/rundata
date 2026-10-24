@@ -229,6 +229,9 @@ describe("home page", () => {
     for (const tag of ['property="og:image" content="https://rundata.re/og.png?v=', 'property="og:image:width" content="1200"',
       'name="twitter:card" content="summary_large_image"', 'property="og:locale" content="fr_FR"']) expect(page).toContain(tag);
     expect(page.match(/<title>(.*?)<\/title>/)![1].length).toBeLessThanOrEqual(65);
+    // The title names what people look for; the AI stays in the h1 and the description.
+    expect(page).toContain("<title>La Réunion 974 en direct : météo, routes, rando, sorties</title>");
+    expect(page).toContain('property="og:title" content="La Réunion 974 en direct : météo, routes, rando, sorties"');
     expect(page).toMatch(/name="description" content="🇷🇪 [^"]*974/);
     for (const link of ["https://www.facebook.com/1432704299917309", "https://glama.ai/mcp/servers/bLd75/rundata", "https://www.data.gouv.fr/reuses/"]) expect(page).toContain(`href="${link}`);
   });

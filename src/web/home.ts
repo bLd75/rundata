@@ -342,7 +342,7 @@ ${assistant(origin, h, now)}
 </section>
 ${PRINCIPLES}`;
   return layout(origin, {
-    title: "La Réunion 974 en direct dans votre IA : météo, mer, bus, vélos",
+    title: "La Réunion 974 en direct : météo, routes, rando, sorties",
     description:
       `🇷🇪 ${brand.slogan} : météo, bus, volcan, vigilance, air, services publics de La Réunion 974, en direct dans ` +
       "ChatGPT, Claude ou Le Chat. Gratuit, sans compte.",
