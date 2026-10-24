@@ -24,6 +24,7 @@ import {
   buildSentiers,
   buildSecheresse,
   buildCoupures,
+  buildDae,
   buildVelos,
   buildVolcan,
   FRESH_SECONDS,
@@ -33,7 +34,7 @@ import {
   type Background,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
-import { airPage, bornesPage, busPage, calendrierPage, coupuresPage, eauPage, electricitePage, secheressePage, sentiersPage, velosPage, volcanPage } from "./domains.js";
+import { airPage, bornesPage, busPage, calendrierPage, coupuresPage, daePage, eauPage, electricitePage, secheressePage, sentiersPage, velosPage, volcanPage } from "./domains.js";
 import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
@@ -94,6 +95,7 @@ const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) =>
   "/sentiers": { key: "web:sentiers", build: buildSentiers, page: sentiersPage },
   "/secheresse": { key: "web:secheresse", build: buildSecheresse, page: secheressePage },
   "/coupures-eau": { key: "web:coupures", build: buildCoupures, page: coupuresPage },
+  "/defibrillateurs": { key: "web:dae", build: buildDae, page: daePage },
 };
 
 /** How to build each category page's copy, by its cache key: what the home page and the commune pages show as tiles. */

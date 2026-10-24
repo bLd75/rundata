@@ -9,7 +9,7 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, EauAnswer, ElectriciteAnswer, SecheresseAnswer, SentiersAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, DaeAnswer, EauAnswer, ElectriciteAnswer, SecheresseAnswer, SentiersAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap } from "./map.js";
@@ -938,4 +938,55 @@ export function coupuresLive(data: Cached<CoupuresAnswer> | null): Live | undefi
     valeur: dry.length ? `ne pas boire : ${esc(dry.join(", "))}` : `${d.avis.length} avis`,
     detail: dry.length ? `${d.avis.length} avis de coupure ou de travaux récents ou à venir` : "de coupure ou de travaux récents ou à venir",
   };
+}
+
+// ---------------------------------------------------------------- défibrillateurs
+
+const shortAccess = (a: string) =>
+  a.includes("extérieur") ? "dehors, 24 h/24" : a.includes("24 h") ? "24 h/24" : a.includes("accès libre") ? "horaires du lieu" : "accès réservé";
+
+export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/defibrillateurs`, now);
+  const markers = (d?.communes ?? []).map((c) => ({ lon: c.lon, lat: c.lat, label: String(c.nombre), name: `${c.commune} : ${c.nombre} défibrillateurs`, round: true, color: "#2b8a3e", quiet: true }));
+
+  const status = !d
+    ? loading("La liste des défibrillateurs")
+    : `<div class="now"><span class="big">${d.total}</span><p>défibrillateurs déclarés en service dans les 24 communes de l'île.</p></div>`;
+
+  const list = d
+    ? `<ul class="zones">${d.communes.map((c) =>
+        `<li class="card"><h3>${esc(c.commune)} <span class="note">${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}${c.toute_heure ? `, dont ${c.toute_heure} accessible${c.toute_heure > 1 ? "s" : ""} à toute heure` : ""}</span></h3><ul class="rows eau">` +
+        c.liste.map((x) => `<li><span>${esc(x.lieu)}<small>${[x.adresse, x.emplacement, x.etage ? `étage ${x.etage}` : ""].filter(Boolean).map((v) => esc(v!)).join(" · ")}</small></span>` +
+          `<span class="${x.acces.includes("toute heure") || x.acces.includes("24 h") ? "q-bonne" : "q-none"}">${esc(shortAccess(x.acces))}</span></li>`).join("") +
+        (c.nombre > c.liste.length ? `<li><span class="note">et ${c.nombre - c.liste.length} autres : demandez le plus proche à votre IA.</span><span></span></li>` : "") +
+        `</ul></li>`).join("")}</ul>`
+    : "";
+
+  const title = "Défibrillateurs à La Réunion : où trouver le plus proche (974)";
+  const description = "🇷🇪 Défibrillateurs (DAE) à La Réunion (974) : plus de 1 200 appareils dans les 24 communes, d'après la base nationale Géo'DAE, et le plus proche d'un lieu avec votre IA.";
+
+  const band = `${crumbBar("Défibrillateurs")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Base nationale Géo'DAE</p>
+    <h1>Défibrillateurs <span class="n974">974</span></h1>
+    ${status}
+    ${d ? `<p class="lead"><b>${esc(d.urgence)}</b></p>` : ""}
+    ${ask(`Ousa néna in défibrilatèr pli prés la plaj l'Ermitaz ? Rogard si ${url} é di amwin.`,
+      `Où est le défibrillateur le plus proche de la plage de l'Hermitage ? Lis ${url} et dis-le-moi.`)}
+  </div>
+  <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : le nombre de défibrillateurs par commune" })}
+  <figcaption class="note" style="color:var(--on-night-muted)">Nombre de défibrillateurs par commune.</figcaption></figure>
+</div>`;
+
+  const body = `<section aria-labelledby="h-dae">
+  <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-dae">Où sont les défibrillateurs</h2>
+  <p>Ceux qu'on peut atteindre à toute heure d'abord (à l'extérieur ou ouverts 24 h/24), puis ceux en accès libre aux heures d'ouverture du lieu. La liste est déclarée par les exploitants : un appareil peut avoir été déplacé.</p></div>
+  ${list}
+  <p class="note">Source : Géo'DAE, base nationale des défibrillateurs (ministère chargé de la santé), Licence Ouverte 2.0.</p>
+</section>
+${connectorCta("defibrillateurs", "les défibrillateurs")}`;
+
+  return layout(origin, { title, description, path: "/defibrillateurs", jsonld: [crumbs(origin, "Défibrillateurs", "/defibrillateurs"), webPage(origin, "/defibrillateurs", title, description, data)], alerte }, band, body);
 }

@@ -46,10 +46,12 @@ import * as vigieau from "./providers/vigieau.js";
 import { restrictionsEau } from "./tools/secheresse.js";
 import * as avisEau from "./providers/avis-eau.js";
 import { coupuresEau } from "./tools/coupures.js";
+import * as dae from "./providers/dae.js";
+import { defibrillateurs } from "./tools/dae.js";
 
-export const VERSION = "0.11.0";
+export const VERSION = "0.12.0";
 
-const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, marée, crues des rivières, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, sentiers de randonnée fermés, cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
+const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, marée, crues des rivières, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, sentiers de randonnée fermés, cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
 - Maintenant (« il fait combien ? », « il pleut ? », « la mer est à combien ? ») : meteo_actuelle et temperature_mer renvoient des MESURES datées. Dire l'heure de la mesure, la station et sa distance, et relayer les avertissements (altitude, versant, ancienneté), car le climat change beaucoup sur quelques kilomètres.
 - Plus tard (« demain », « ce soir », « ce week-end ») : prevision_meteo renvoie une PRÉVISION de modèle. Toujours dire à l'utilisateur que c'est une prévision, pas une mesure, et relayer ses avertissements ; ne jamais la présenter comme une observation.
@@ -66,6 +68,7 @@ Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La 
 - Qualité de l'eau (« l'eau du robinet est potable à Cilaos ? », « on peut se baigner à l'Hermitage ? », « l'eau du bassin Bleu est propre ? ») : qualite_eau renvoie les analyses de l'ARS, datées.
 - Sécheresse (« restrictions d'eau à Saint-Joseph ? », « j'ai le droit d'arroser ? », « je peux remplir ma piscine ? ») : restrictions_eau renvoie le niveau de l'arrêté préfectoral et ce qui est interdit.
 - Coupures d'eau (« coupure d'eau à Saint-Denis ? », « l'eau est revenue ? », « on peut boire l'eau à la Plaine-des-Palmistes ? ») : coupures_eau renvoie les avis des distributeurs. Un avis « ne pas boire l'eau » se dit en premier.
+- Urgence cardiaque (« où est le défibrillateur le plus proche ? ») : defibrillateurs ; dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque.
 - Randonnée (« le sentier de la Roche Pendue est ouvert ? », « sentiers fermés à Mafate ? », « on peut monter au Piton des Neiges ? ») : sentiers_randonnee renvoie l'état des sentiers d'après la carte de l'ONF. Relayer la cause d'une fermeture ; un sentier fermé est interdit.
 - Terrain à une adresse (« constructible ? », « zone du PLU ? », « prix au m² ? », « zone inondable ? », « risques à cette adresse ? ») : fiche_terrain.
 - Vigilance et cyclones (« alerte cyclonique ? », « vigilance orange ? », « on peut aller en montagne avec ces pluies ? ») : vigilance_meteo renvoie la vigilance officielle de Météo-France. Quand une réponse contient un champ « vigilance », le dire en premier.
@@ -491,6 +494,21 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
   );
 
   server.registerTool(
+    "defibrillateurs",
+    {
+      title: "Défibrillateurs à La Réunion",
+      description:
+        "Défibrillateurs (DAE) les plus proches d'un lieu de La Réunion (974), d'après la base nationale Géo'DAE : adresse, distance et temps à pied, " +
+        "emplacement exact, accessible à toute heure ou aux heures d'ouverture. Plus de 1 200 appareils dans les 24 communes. " +
+        "Pour : « où est le défibrillateur le plus proche de la plage de l'Hermitage ? », « défibrillateur à Cilaos ? ». " +
+        "Rappelle d'appeler le 15 ou le 112. / Nearest public defibrillators (AED) in Réunion Island.",
+      inputSchema: { lieu },
+      annotations: { title: "Défibrillateurs", ...READ_ONLY },
+    },
+    track("defibrillateurs", async (args: { lieu?: string }) => defibrillateurs(args.lieu)),
+  );
+
+  server.registerTool(
     "sources_donnees",
     {
       title: "Sources des données",
@@ -502,7 +520,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
     },
     track("sources_donnees", async () =>
       text({
-        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
+        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage() },
         version: VERSION,

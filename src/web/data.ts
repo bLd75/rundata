@@ -37,6 +37,8 @@ import { credits } from "../tools/format.js";
 import * as onf from "../providers/sentiers.js";
 import { sentiersRandonnee } from "../tools/sentiers.js";
 import { restrictionsEau } from "../tools/secheresse.js";
+import * as daeSource from "../providers/dae.js";
+import { access as daeAccess, byCommune as daeByCommune, daeRow, URGENCE as DAE_URGENCE } from "../tools/dae.js";
 import { COVERED as CUT_COVERED, coupuresEau, type noticeRow } from "../tools/coupures.js";
 import { volcanSeismes } from "../tools/volcan.js";
 import { type Observation, why } from "../types.js";
@@ -400,6 +402,30 @@ export interface CoupuresAnswer {
 export async function buildCoupures(cache: Cache, now = new Date()): Promise<CoupuresAnswer> {
   const a = needed<Omit<CoupuresAnswer, "communes_suivies">>(await coupuresEau(cache, undefined, now), "coupures");
   return { ...a, communes_suivies: CUT_COVERED };
+}
+
+export interface DaeAnswer {
+  total: number;
+  communes: { commune: string; lon: number; lat: number; nombre: number; toute_heure: number; liste: ReturnType<typeof daeRow>[] }[];
+  urgence: string;
+}
+
+const DAE_LISTED = 12;
+
+/** Static (the list is bundled): by commune, those reachable at any hour first. */
+export async function buildDae(): Promise<DaeAnswer> {
+  return {
+    total: daeSource.DAES.length,
+    communes: daeByCommune().map(({ commune, list }) => ({
+      commune,
+      lon: list.reduce((n, d) => n + d.lon, 0) / list.length,
+      lat: list.reduce((n, d) => n + d.lat, 0) / list.length,
+      nombre: list.length,
+      toute_heure: list.filter((d) => daeAccess(d).includes("toute heure") || daeAccess(d).includes("24 h")).length,
+      liste: list.slice(0, DAE_LISTED).map((d) => daeRow(d)),
+    })),
+    urgence: DAE_URGENCE,
+  };
 }
 
 export interface ElectriciteAnswer {

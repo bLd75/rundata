@@ -85,6 +85,7 @@ const ICON: Record<string, string> = {
   bike: `<circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17 9 9h6l3.5 8M9 9l3 8h-6.5M15 9l-1-3h-2.5"/>`,
   plug: `<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0Z"/><path d="M12 17v4"/>`,
   sun: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
+  heart: `<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/><path d="M8 12h2l1-2 2 4 1-2h2"/>`,
   drop: `<path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11Z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/>`,
 };
 export const icon = (name: string) =>
@@ -116,7 +117,7 @@ p,ul,ol,table,figure{margin:0}
 .ic{width:1.4em;height:1.4em;flex:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-.k-meteo{--k:#ff9f43}.k-vigilance{--k:#ffc927}.k-mer{--k:#22b8cf}.k-volcan{--k:#ff6b4a}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-secheresse{--k:#ff922b}.k-sentiers{--k:#69db7c}
+.k-meteo{--k:#ff9f43}.k-vigilance{--k:#ffc927}.k-mer{--k:#22b8cf}.k-volcan{--k:#ff6b4a}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-secheresse{--k:#ff922b}.k-coupures{--k:#74c0fc}.k-dae{--k:#ff6b6b}.k-sentiers{--k:#69db7c}
 .k-air{--k:#38d9a9}.k-electricite{--k:#fab005}.k-calendrier{--k:#b197fc}.k-communes{--k:#f783ac}.k-services{--k:#74c0fc}.k-terrain{--k:#d8a65a}
 .kb{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:14px;flex:none;color:var(--k);
 background:color-mix(in srgb,var(--k) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k) 30%,transparent)}
