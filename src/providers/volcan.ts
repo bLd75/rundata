@@ -114,7 +114,10 @@ export function phaseOf(releases: Info[]): Phase | undefined {
 
 function declared(r: Info): Phase | undefined {
   const t = r.titre;
-  const niveau = /alerte\s*2[\s.-]*2/i.test(t)
+  // The end of the alert names it (« fin de l'alerte 1 ») and is a return to vigilance: read first.
+  const niveau = /\b(fin|lev[ée]e)\s+(de\s+l['’]\s*|d['’]\s*)alerte/i.test(t)
+    ? "Vigilance"
+    : /alerte\s*2[\s.-]*2/i.test(t)
     ? "Alerte 2-2"
     : /alerte\s*2[\s.-]*1/i.test(t)
       ? "Alerte 2-1"
@@ -132,9 +135,9 @@ function declared(r: Info): Phase | undefined {
   if (!niveau) return undefined;
   const eruption = /^Alerte 2/.test(niveau) || /[ée]ruption en cours|d[ée]but d.[ée]ruption/i.test(t);
   // In alert the Enclos is closed by order; a release may say otherwise in its own words.
-  const enclos = /r[ée]ouverture partielle|partiellement/i.test(t)
+  const enclos = /r[ée]?ouverture partielle|partiellement/i.test(t)
     ? "partiel"
-    : /r[ée]ouverture|r[ée]ouvert/i.test(t)
+    : /r[ée]?ouvert/i.test(t)
       ? "ouvert"
       : /fermeture|ferm[ée]/i.test(t) || /^Alerte/.test(niveau)
         ? "ferme"

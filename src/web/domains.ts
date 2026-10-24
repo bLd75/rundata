@@ -4,6 +4,7 @@
  * assistants reading a page see it, and points to the connector for the rest. Each also says it in a few words for
  * its tile on the home page.
  */
+import { PREFECTURE } from "../providers/volcan.js";
 import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
@@ -82,6 +83,9 @@ const ACCESS: Record<string, string> = { ouvert: "ouvert", partiel: "partielleme
 const md = (m: number | null) => (m == null ? "—" : fr(Math.round(m * 10) / 10));
 const dayOf = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Indian/Reunion" });
 
+// Where the prefecture publishes each phase of the ORSEC volcano plan.
+const GOUV = `<a href="${PREFECTURE.url}">reunion.gouv.fr</a>`;
+
 /** `news`: the news copy, read during an alert only, for what the media say of it. */
 export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, now = new Date(), alerte?: Alerte, news?: ActualitesAnswer): string {
   const d = data?.value;
@@ -96,11 +100,16 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
       (e
         ? (a
           ? `<p class="lead"><b>${esc(volcanLead(a))}</b></p>`
-          : `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours"}</p>`) +
-          `<p class="lead">Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>.` +
+          : e.niveau_inconnu && !e.eruption_en_cours ? "" : `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours"}</p>`) +
+          (e.niveau_inconnu
+            // The prefecture's phase not read, none kept: the level is not given (tools/volcan.ts), and why (marketing).
+            ? `<p class="lead">Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Nous n'avons pas pu lire le niveau d'alerte de la préfecture : vérifiez-le sur ${GOUV} avant de monter au volcan.`
+            : `<p class="lead">Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>${e.ecart_pitonlive && e.communique_prefecture
+              ? ` selon le dernier communiqué de la préfecture (${esc(dayOf(e.communique_prefecture.publie))}) ; pitonlive.com indique ${esc(e.ecart_pitonlive.niveau)} depuis le ${esc(dayOf(e.ecart_pitonlive.depuis))} : vérifiez sur ${GOUV}`
+              : ""}.`) +
           (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b>.` : "") +
           (e.deformation ? ` Déformation du volcan : ${esc(e.deformation)}.` : "") + `</p>` +
-          (a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "")
+          (a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.niveau_inconnu ? `<p class="lead">Accès à l'Enclos : à vérifier sur ${GOUV}, avant de partir.</p>` : e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "")
         : `<p class="lead">${esc(d.resume)}</p>`) +
       (q ? `<p class="lead">Séismes sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
       `</div>`;
