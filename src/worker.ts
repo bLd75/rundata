@@ -14,6 +14,7 @@ import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as transit from "./providers/transit.js";
+import * as climat from "./providers/climat.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { why } from "./types.js";
 
@@ -80,6 +81,7 @@ interface Env {
   STORE?: KvNamespace;
   USAGE?: AnalyticsDataset;
   TRANSIT?: D1Database;
+  CLIMAT?: D1Database;
 }
 
 /** The part of a D1 binding used here. */
@@ -133,6 +135,9 @@ function setup(env: Env): Cache {
     return (await kv.get("eau:ile", "json")) as eauIle.Ile | null;
   }));
   transit.configure(d1 && { all: async <T>(sql: string, ...params: unknown[]) => (await d1.prepare(sql).bind(...params).all<T>()).results });
+  const climatDb = env.CLIMAT;
+  // The daily measurements since 1900, imported by scripts/build-climat.py, the current year by .github/workflows/climat.yml.
+  climat.configure(climatDb && { all: async <T>(sql: string, ...params: unknown[]) => (await climatDb.prepare(sql).bind(...params).all<T>()).results });
   // Without the KV binding, the bundles stay in the data center's cache like everything else.
   return (cache ??= new Cache(new TieredStore(new MemoryStore(), new EdgeStore()), Date.now, false, env.STORE && new KvStore(env.STORE)));
 }

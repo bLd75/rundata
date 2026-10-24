@@ -1,0 +1,416 @@
+/**
+ * historique_meteo: the weather that was, measured by the Météo-France stations of the island, day by day back to the
+ * station's first year, against the 1991-2020 normal and the station's records. « Il a beaucoup plu ce mois-ci ? »,
+ * « il fait gris tous les jours depuis deux semaines ? », « quelle température hier à Cilaos ? », « record de chaleur
+ * à Gillot ? », « il y a 20 ans ce jour-là ? ».
+ *
+ * Each kind of measurement comes from the best station that has it over the period (the same choice as meteo_actuelle:
+ * distance, altitude, side of the island), since a rain gauge is often closer than a full station and only about
+ * fifteen stations measure sunshine.
+ */
+import type { Cache } from "../cache.js";
+import { type Place, resolvePlace } from "../places/resolve.js";
+import * as climat from "../providers/climat.js";
+import { type Field, type Poste, type Year } from "../providers/climat.js";
+import type { Station } from "../types.js";
+import { why } from "../types.js";
+import { a, credits, fr, notFound, placeBlock, text } from "./format.js";
+import { fit } from "./representativeness.js";
+
+/** Up to this many days, one row per day; up to 2 years one per month; beyond, one per year. */
+const DAILY_MAX = 62;
+const MONTHLY_MAX = 731;
+/** The longest period one answer reads: every year read is a row of every station tried, to parse within the Worker's CPU time. */
+const YEARS_MAX = 10;
+const DEFAULT_DAYS = 30;
+/** A station speaks for a period when it measured at least this share of its days. */
+const COVERAGE = 0.6;
+/** Below this share of the possible sunshine, a day is grey. */
+const GREY_SIGMA = 30;
+const SUNNY_SIGMA = 70;
+const CANDIDATES = 8;
+const LONG_CANDIDATES = 2;
+
+// The island without a place: one station per climate (north coast, west, south, east, the Hauts, the cirques).
+const TOUR = [
+  ["97418110", "nord (Saint-Denis)"],
+  ["97415590", "ouest (côte sous le vent)"],
+  ["97416463", "sud (Saint-Pierre)"],
+  ["97410238", "est (au vent)"],
+  ["97422440", "Hauts (Plaine des Cafres)"],
+  ["97424410", "cirque de Cilaos"],
+] as const;
+
+const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const DAY_MS = 86_400_000;
+const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+const frDate = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+
+export interface Period {
+  du: string;
+  au: string;
+}
+
+/** « 2026-10-01 », « 01/10/2026 », « 01/10 », « 2026-10 » (a month), « 2006 » (a year); null when not a date. */
+export function parseDate(s: string, end: boolean, today: string): string | null {
+  const t = s.trim();
+  let m: RegExpExecArray | null;
+  if ((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t))) return t;
+  if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t))) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  if ((m = /^(\d{1,2})\/(\d{1,2})$/.exec(t))) {
+    const d = `${today.slice(0, 4)}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+    return d > today ? `${+today.slice(0, 4) - 1}${d.slice(4)}` : d;
+  }
+  if ((m = /^(\d{4})-(\d{2})$/.exec(t))) return end ? `${t}-${String(daysIn(+m[1], +m[2])).padStart(2, "0")}` : `${t}-01`;
+  if ((m = /^(\d{4})$/.exec(t))) return end ? `${t}-12-31` : `${t}-01-01`;
+  return null;
+}
+
+/** The period asked: `jours` days up to yesterday, or from `du` to `au` (either alone means one day, month or year). */
+export function period(now: Date, jours?: number, du?: string, au?: string): Period | { erreur: string } {
+  const yesterday = iso(now.getTime() + 4 * 3600_000 - DAY_MS);
+  if (du || au) {
+    const from = parseDate(du ?? au!, false, yesterday);
+    const to = parseDate(au ?? du!, true, yesterday);
+    if (!from || !to) return { erreur: "Date non comprise : écrire « 2026-10-01 », « 01/10/2026 », « 2026-10 » (un mois) ou « 2006 » (une année)." };
+    const p = from <= to ? { du: from, au: to } : { du: to, au: from };
+    if (p.au > yesterday) p.au = yesterday;
+    if (p.du > p.au) return { erreur: `Pas encore de mesure publiée pour cette date : le dernier jour publié est hier (${frDate(yesterday)}). Pour aujourd'hui, voir meteo_actuelle.` };
+    if (+p.au.slice(0, 4) - +p.du.slice(0, 4) >= YEARS_MAX) return { erreur: `Période trop longue : ${YEARS_MAX} ans au plus par question.` };
+    return p;
+  }
+  const n = Math.min(Math.max(Math.round(jours ?? DEFAULT_DAYS), 1), YEARS_MAX * 365);
+  return { du: iso(Date.parse(yesterday) - (n - 1) * DAY_MS), au: yesterday };
+}
+
+function* days(p: Period): Generator<string> {
+  for (let t = Date.parse(p.du); t <= Date.parse(p.au); t += DAY_MS) yield iso(t);
+}
+
+const asStation = (p: Poste): Station => ({ source: "mf_climatologie", id: p.poste, nom: p.nom, lon: p.lon, lat: p.lat, altitude_m: p.alt, variables: p.params });
+
+/** Daylight from sunrise to sunset, in minutes: what SIGMA divides the sunshine by, for the stations without it. */
+function daylight(lat: number, doy: number): number {
+  const decl = 23.44 * Math.sin(((2 * Math.PI) / 365) * (doy - 81));
+  const r = Math.PI / 180;
+  const x = -Math.tan(lat * r) * Math.tan(decl * r);
+  return ((2 * Math.acos(Math.max(-1, Math.min(1, x)))) / r / 15) * 60;
+}
+
+interface Series {
+  poste: Poste;
+  ys: Map<number, Year>;
+}
+
+const value = (s: Series | undefined, f: Field, d: string) => (s ? climat.valueOn(s.ys, f, d) : null);
+const share = (s: Series, f: Field, p: Period) => {
+  let n = 0;
+  let got = 0;
+  for (const d of days(p)) {
+    n++;
+    if (climat.valueOn(s.ys, f, d) != null) got++;
+  }
+  return got / n;
+};
+
+function sigmaOn(s: Series, d: string): number | null {
+  const sg = climat.valueOn(s.ys, "SIGMA", d);
+  if (sg != null) return sg;
+  const inst = climat.valueOn(s.ys, "INST", d);
+  return inst == null ? null : Math.min(100, Math.round((100 * inst) / daylight(s.poste.lat, climat.dayOfYear(d))));
+}
+
+/** The normal of the period: rain prorated day by day from the monthly normal, temperatures and sunshine averaged. */
+function normalOver(n: climat.Normales | undefined, p: Period) {
+  if (!n) return {};
+  let rr = 0;
+  let rrOk = true;
+  const tx: number[] = [];
+  const tn: number[] = [];
+  const inst: number[] = [];
+  for (const d of days(p)) {
+    const m = +d.slice(5, 7) - 1;
+    const r = n.rr?.[m];
+    if (r == null) rrOk = false;
+    else rr += r / daysIn(+d.slice(0, 4), m + 1);
+    if (n.tx?.[m] != null) tx.push(n.tx[m]!);
+    if (n.tn?.[m] != null) tn.push(n.tn[m]!);
+    if (n.inst?.[m] != null) inst.push(n.inst[m]!);
+  }
+  const mean = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : undefined);
+  return { rr: rrOk && n.rr ? Math.round(rr) : undefined, tx: mean(tx), tn: mean(tn), instH: mean(inst) && mean(inst)! / 60 };
+}
+
+function stationBlock(place: Place | null, p: Poste, what: string) {
+  const f = place ? fit(place, asStation(p)) : undefined;
+  return {
+    mesure: what,
+    station: p.nom,
+    altitude_m: p.alt,
+    mesures_depuis: p.debut,
+    ...(f ? { distance_km: f.distance_km, direction: f.direction, ecart_altitude_m: f.ecart_altitude_m, pertinence: f.pertinence, avertissements: f.avertissements.length ? f.avertissements : undefined } : {}),
+  };
+}
+
+/** Each station used once, with everything taken from it. */
+function stationsUsed(place: Place, uses: [Series | undefined, string][]) {
+  const by = new Map<Poste, string[]>();
+  for (const [s, what] of uses) if (s) by.set(s.poste, [...(by.get(s.poste) ?? []), what]);
+  return [...by].map(([p, what]) => stationBlock(place, p, what.join(", ")));
+}
+
+/** Sums and means of a period at the chosen stations. */
+function summary(p: Period, rain?: Series, temp?: Series, sun?: Series) {
+  const out: Record<string, unknown> = {};
+  const ds = [...days(p)];
+  if (rain) {
+    const vals = ds.map((d) => [d, value(rain, "RR", d)] as const).filter(([, v]) => v != null) as [string, number][];
+    const total = round1(vals.reduce((s, [, v]) => s + v, 0));
+    const wettest = vals.reduce<[string, number] | null>((b, x) => (!b || x[1] > b[1] ? x : b), null);
+    const norm = normalOver(climat.normalesOf(rain.poste.poste), p);
+    out.pluie = {
+      total_mm: total,
+      jours_de_pluie: vals.filter(([, v]) => v >= 1).length,
+      jours_mesures: vals.length,
+      jours_periode: ds.length,
+      normale_mm: norm.rr,
+      rapport_a_la_normale: norm.rr ? `${Math.round((100 * total) / Math.max(norm.rr, 0.1))} %` : undefined,
+      jour_le_plus_pluvieux: wettest && wettest[1] > 0 ? { date: frDate(wettest[0]), mm: wettest[1] } : undefined,
+    };
+  }
+  if (temp) {
+    const tx = ds.map((d) => [d, value(temp, "TX", d)] as const).filter(([, v]) => v != null) as [string, number][];
+    const tn = ds.map((d) => [d, value(temp, "TN", d)] as const).filter(([, v]) => v != null) as [string, number][];
+    const mean = (xs: [string, number][]) => round1(xs.reduce((s, [, v]) => s + v, 0) / xs.length);
+    const norm = normalOver(climat.normalesOf(temp.poste.poste), p);
+    const hot = tx.reduce<[string, number] | null>((b, x) => (!b || x[1] > b[1] ? x : b), null);
+    const cold = tn.reduce<[string, number] | null>((b, x) => (!b || x[1] < b[1] ? x : b), null);
+    out.temperatures = {
+      maximales_moyenne: tx.length ? mean(tx) : undefined,
+      maximales_normale: norm.tx != null ? round1(norm.tx) : undefined,
+      minimales_moyenne: tn.length ? mean(tn) : undefined,
+      minimales_normale: norm.tn != null ? round1(norm.tn) : undefined,
+      jour_le_plus_chaud: hot ? { date: frDate(hot[0]), tx: hot[1] } : undefined,
+      nuit_la_plus_fraiche: cold ? { date: frDate(cold[0]), tn: cold[1] } : undefined,
+    };
+  }
+  if (sun) {
+    const inst = ds.map((d) => value(sun, "INST", d)).filter((v): v is number => v != null);
+    const sig = ds.map((d) => sigmaOn(sun, d)).filter((v): v is number => v != null);
+    const norm = normalOver(climat.normalesOf(sun.poste.poste), p);
+    out.ensoleillement = {
+      heures_par_jour: inst.length ? round1(inst.reduce((s, v) => s + v, 0) / inst.length / 60) : undefined,
+      normale_heures_par_jour: norm.instH != null ? round1(norm.instH) : undefined,
+      jours_gris: sig.filter((v) => v < GREY_SIGMA).length,
+      jours_ensoleilles: sig.filter((v) => v >= SUNNY_SIGMA).length,
+      jours_mesures: sig.length,
+      definition: `Jour gris : moins de ${GREY_SIGMA} % du soleil possible ce jour-là ; ensoleillé : ${SUNNY_SIGMA} % ou plus.`,
+    };
+  }
+  return out;
+}
+
+function dailyRows(p: Period, rain?: Series, temp?: Series, sun?: Series) {
+  return [...days(p)].map((d) => {
+    const fxi = value(temp, "FXI", d);
+    const inst = value(sun, "INST", d);
+    return {
+      date: frDate(d),
+      pluie_mm: value(rain, "RR", d) ?? undefined,
+      tmin: value(temp, "TN", d) ?? undefined,
+      tmax: value(temp, "TX", d) ?? undefined,
+      soleil_h: inst != null ? round1(inst / 60) : undefined,
+      soleil_pct: sun ? (sigmaOn(sun, d) ?? undefined) : undefined,
+      rafale_max_kmh: fxi != null ? Math.round(fxi * 3.6) : undefined,
+    };
+  });
+}
+
+/** One row per month (or per year), each against its normal. */
+function groupedRows(p: Period, by: "mois" | "annee", rain?: Series, temp?: Series, sun?: Series) {
+  const groups = new Map<string, Period>();
+  for (const d of days(p)) {
+    const k = by === "mois" ? d.slice(0, 7) : d.slice(0, 4);
+    const g = groups.get(k);
+    if (g) g.au = d;
+    else groups.set(k, { du: d, au: d });
+  }
+  return [...groups].map(([k, g]) => {
+    const s = summary(g, rain, temp, sun) as { pluie?: { total_mm: number; jours_de_pluie: number; normale_mm?: number; jours_mesures: number }; temperatures?: { maximales_moyenne?: number; maximales_normale?: number; minimales_moyenne?: number }; ensoleillement?: { heures_par_jour?: number; normale_heures_par_jour?: number } };
+    return {
+      [by]: by === "mois" ? `${MONTHS[+k.slice(5, 7) - 1]} ${k.slice(0, 4)}` : k,
+      pluie_mm: s.pluie?.jours_mesures ? s.pluie.total_mm : undefined,
+      pluie_normale_mm: s.pluie?.normale_mm,
+      jours_de_pluie: s.pluie?.jours_mesures ? s.pluie.jours_de_pluie : undefined,
+      tmax_moyenne: s.temperatures?.maximales_moyenne,
+      tmax_normale: s.temperatures?.maximales_normale,
+      tmin_moyenne: s.temperatures?.minimales_moyenne,
+      soleil_h_par_jour: s.ensoleillement?.heures_par_jour,
+      soleil_normale_h: s.ensoleillement?.normale_heures_par_jour,
+    };
+  });
+}
+
+/** The station's records, with the years after the stored ones. */
+async function recordsOf(s: Series, months: number[], now: Date) {
+  const r = await climat.records(s.poste.poste);
+  if (!r) return undefined;
+  const thisYear = +iso(now.getTime() + 4 * 3600_000).slice(0, 4);
+  const extra = r.jusqu_a < thisYear ? (await climat.years([s.poste.poste], r.jusqu_a + 1, thisYear)).get(s.poste.poste) : undefined;
+  const best = (f: Field, cur: climat.Extreme | undefined | null, beats: (a: number, b: number) => boolean, month?: number) => {
+    let b = cur ?? undefined;
+    for (const [y, yr] of extra ?? []) {
+      (yr[f] ?? []).forEach((v, i) => {
+        if (v == null) return;
+        const d = iso(Date.UTC(y, 0, 1) + i * DAY_MS);
+        if (month != null && +d.slice(5, 7) - 1 !== month) return;
+        if (!b || beats(v, b[0])) b = [v, d];
+      });
+    }
+    return b && { valeur: b[0], date: frDate(b[1]) };
+  };
+  const hi = (x: number, y: number) => x > y;
+  const lo = (x: number, y: number) => x < y;
+  return {
+    station: s.poste.nom,
+    depuis: s.poste.debut,
+    temperature_max: best("TX", r.tx, hi),
+    temperature_min: best("TN", r.tn, lo),
+    pluie_en_un_jour_mm: best("RR", r.rr, hi),
+    rafale_max_kmh: (() => {
+      const x = best("FXI", r.fxi, hi);
+      return x && { valeur: Math.round(x.valeur * 3.6), date: x.date };
+    })(),
+    par_mois: months.length <= 3
+      ? months.map((m) => ({
+          mois: MONTHS[m],
+          temperature_max: best("TX", r.mois.tx?.[m], hi, m),
+          temperature_min: best("TN", r.mois.tn?.[m], lo, m),
+          pluie_en_un_jour_mm: best("RR", r.mois.rr?.[m], hi, m),
+        }))
+      : undefined,
+  };
+}
+
+const COMMON = {
+  nature: "mesure",
+  a_savoir: [
+    "Mesures quotidiennes des stations Météo-France, publiées chaque matin avec la veille : le dernier jour disponible est hier. Pour aujourd'hui, voir meteo_actuelle ; pour les jours à venir, prevision_meteo.",
+    "La pluie d'un jour est celle tombée de 10 h ce jour-là à 10 h le lendemain (heure de La Réunion), comme Météo-France la compte.",
+    `Normales : moyennes 1991-2020 de la station, calculées sur les mesures de Météo-France (au moins 10 années).`,
+  ],
+};
+
+function sentence(where: string, p: Period, s: Record<string, unknown>, names: { rain?: string; temp?: string; sun?: string }): string {
+  if (p.du === p.au) return oneDay(where, p.du, s, names);
+  const parts: string[] = [];
+  const pl = s.pluie as { total_mm: number; jours_de_pluie: number; normale_mm?: number; jours_mesures: number } | undefined;
+  if (pl?.jours_mesures) parts.push(`${fr(pl.total_mm)} mm de pluie à ${names.rain} (${pl.jours_de_pluie} jour${pl.jours_de_pluie > 1 ? "s" : ""} de pluie${pl.normale_mm != null ? `, normale ≈ ${pl.normale_mm} mm` : ""})`);
+  const t = s.temperatures as { maximales_moyenne?: number; maximales_normale?: number; minimales_moyenne?: number } | undefined;
+  if (t?.maximales_moyenne != null) parts.push(`maximales ${fr(t.maximales_moyenne)} °C en moyenne${t.maximales_normale != null ? ` (normale ${fr(t.maximales_normale)} °C)` : ""}, minimales ${fr(t.minimales_moyenne ?? NaN)} °C à ${names.temp}`);
+  const e = s.ensoleillement as { heures_par_jour?: number; normale_heures_par_jour?: number; jours_gris: number; jours_mesures: number } | undefined;
+  if (e?.jours_mesures) parts.push(`soleil ${e.heures_par_jour != null ? `${fr(e.heures_par_jour)} h par jour` : ""}${e.normale_heures_par_jour != null ? ` (normale ${fr(e.normale_heures_par_jour)} h)` : ""}, ${e.jours_gris} jour${e.jours_gris > 1 ? "s" : ""} gris sur ${e.jours_mesures} à ${names.sun}`);
+  const span = p.du === p.au ? `le ${frDate(p.du)}` : `du ${frDate(p.du)} au ${frDate(p.au)}`;
+  return `${where}, ${span} : ${parts.join(" ; ") || "aucune mesure publiée"}.`;
+}
+
+function oneDay(where: string, d: string, s: Record<string, unknown>, names: { rain?: string; temp?: string; sun?: string }): string {
+  const parts: string[] = [];
+  const pl = s.pluie as { total_mm: number; jours_mesures: number; normale_mm?: number } | undefined;
+  if (pl?.jours_mesures) parts.push(`${fr(pl.total_mm)} mm de pluie à ${names.rain}`);
+  const t = s.temperatures as { maximales_moyenne?: number; minimales_moyenne?: number; maximales_normale?: number } | undefined;
+  if (t?.maximales_moyenne != null || t?.minimales_moyenne != null) {
+    parts.push(`minimale ${t.minimales_moyenne != null ? `${fr(t.minimales_moyenne)} °C` : "non mesurée"}, maximale ${t.maximales_moyenne != null ? `${fr(t.maximales_moyenne)} °C` : "non mesurée"}${t.maximales_normale != null ? ` (normale du mois ${fr(t.maximales_normale)} °C)` : ""} à ${names.temp}`);
+  }
+  const e = s.ensoleillement as { heures_par_jour?: number; jours_mesures: number } | undefined;
+  if (e?.jours_mesures && e.heures_par_jour != null) parts.push(`${fr(e.heures_par_jour)} h de soleil à ${names.sun}`);
+  return `${where}, le ${frDate(d)} : ${parts.join(" ; ") || "aucune mesure publiée"}.`;
+}
+
+export async function historiqueMeteo(
+  cache: Cache,
+  lieu: string | undefined,
+  opts: { jours?: number; du?: string; au?: string } = {},
+  now = new Date(),
+) {
+  if (!climat.enabled()) {
+    return { ...text({ erreur: "L'historique météo n'est disponible que sur le serveur en ligne (https://rundata.re/mcp).", consulter: climat.SOURCE.url }), isError: true };
+  }
+  const p = period(now, opts.jours, opts.du, opts.au);
+  if ("erreur" in p) return { ...text(p), isError: true };
+  const y0 = +p.du.slice(0, 4);
+  const y1 = +p.au.slice(0, 4);
+  const n = Math.round((Date.parse(p.au) - Date.parse(p.du)) / DAY_MS) + 1;
+  const months = [...new Set([...days(p)].map((d) => +d.slice(5, 7) - 1))];
+  const shape = (rain?: Series, temp?: Series, sun?: Series) =>
+    n <= DAILY_MAX ? { jours: dailyRows(p, rain, temp, sun) } : n <= MONTHLY_MAX ? { mois: groupedRows(p, "mois", rain, temp, sun) } : { annees: groupedRows(p, "annee", rain, temp, sun) };
+
+  let all: Poste[];
+  try {
+    all = (await climat.postes(cache)).value;
+  } catch (err) {
+    console.error(`source ${climat.SOURCE.id} indisponible:`, why(err));
+    return { ...text({ erreur: "L'archive des mesures ne répond pas pour le moment.", consulter: climat.SOURCE.url }), isError: true };
+  }
+  const covers = (x: Poste) => x.debut <= y1 && x.fin >= y0;
+  const common = { ...COMMON, periode: { du: frDate(p.du), au: frDate(p.au), jours: n }, sources: credits([climat.SOURCE]) };
+
+  if (!lieu?.trim()) {
+    const tour = TOUR.map(([id, zone]) => ({ zone, poste: all.find((x) => x.poste === id) })).filter((t) => t.poste && covers(t.poste)) as { zone: string; poste: Poste }[];
+    const read = await climat.years(tour.map((t) => t.poste.poste), y0, y1);
+    const rows = tour.map((t) => {
+      const s = { poste: t.poste, ys: read.get(t.poste.poste) ?? new Map() };
+      const has = (f: Field) => share(s, f, p) >= COVERAGE;
+      return { zone: t.zone, station: t.poste.nom, altitude_m: t.poste.alt, lon: t.poste.lon, lat: t.poste.lat, ...summary(p, has("RR") ? s : undefined, has("TX") ? s : undefined, has("INST") ? s : undefined) };
+    });
+    const resume = rows.map((r) => {
+      const pl = (r as { pluie?: { total_mm: number; normale_mm?: number } }).pluie;
+      const t = (r as { temperatures?: { maximales_moyenne?: number } }).temperatures;
+      return `${r.station} : ${pl ? `${fr(pl.total_mm)} mm${pl.normale_mm != null ? ` (normale ${pl.normale_mm})` : ""}` : "pluie non mesurée"}${t?.maximales_moyenne != null ? `, max ${fr(t.maximales_moyenne)} °C` : ""}`;
+    }).join(" ; ");
+    return text({ resume: `La Réunion du ${frDate(p.du)} au ${frDate(p.au)} — ${resume}.`, stations: rows, ...common });
+  }
+
+  const res = resolvePlace(lieu);
+  if (!res) return notFound(lieu);
+  const place = res.lieu;
+  const ranked = all.filter(covers).map((x) => ({ x, f: fit(place, asStation(x)) })).sort((u, v) => u.f.score - v.f.score);
+  const take = y1 - y0 >= 2 ? LONG_CANDIDATES : CANDIDATES;
+  const pick = (f: Field) => ranked.filter((r) => r.x.params.includes(f)).slice(0, take).map((r) => r.x);
+  const wanted = [...new Set([...pick("RR"), ...pick("TX"), ...pick("INST").slice(0, take === LONG_CANDIDATES ? 1 : 2)])];
+  let read: Map<string, Map<number, Year>>;
+  try {
+    read = await climat.years(wanted.map((x) => x.poste), y0, y1);
+  } catch (err) {
+    console.error(`source ${climat.SOURCE.id} indisponible:`, why(err));
+    return { ...text({ erreur: "L'archive des mesures ne répond pas pour le moment.", consulter: climat.SOURCE.url }), isError: true };
+  }
+  const series = (x: Poste): Series => ({ poste: x, ys: read.get(x.poste) ?? new Map() });
+  const best = (f: Field) => pick(f).map(series).find((s) => share(s, f, p) >= COVERAGE);
+  const rain = best("RR");
+  const temp = best("TX");
+  const sun = best("INST");
+
+  const s = summary(p, rain, temp, sun);
+  const names = { rain: rain?.poste.nom, temp: temp?.poste.nom, sun: sun?.poste.nom };
+  let recs;
+  try {
+    recs = temp ? await recordsOf(temp, months, now) : undefined;
+  } catch (err) {
+    console.error("records indisponibles", why(err));
+  }
+  const warn = [rain, temp, sun].filter((x): x is Series => !!x).map((x) => ({ x, f: fit(place, asStation(x.poste)) }))
+    .filter(({ f }) => f.pertinence === "faible").map(({ x, f }) => `${x.poste.nom} : ${f.avertissements[0] ?? "station éloignée"}`);
+  return text({
+    lieu: placeBlock(lieu, res),
+    resume: sentence(`${place.nom}`, p, s, names) + (warn.length ? ` Attention : ${[...new Set(warn)].join(" ")}` : "") +
+      (!rain && !temp ? ` Aucune station ne mesurait ${a(place.nom)} ou près de là sur cette période.` : ""),
+    stations: stationsUsed(place, [[rain, "pluie"], [temp, "températures et rafales"], [sun, "ensoleillement"]]),
+    ...s,
+    ...shape(rain, temp, sun),
+    records: recs,
+    ...common,
+  });
+}

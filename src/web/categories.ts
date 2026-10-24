@@ -35,6 +35,14 @@ export const CATEGORIES: Category[] = [
     about: "La vigilance de Météo-France zone par zone et l'alerte cyclonique, signalées d'office dès qu'elles dépassent le vert.",
   },
   {
+    key: "historique",
+    nom: "Historique météo",
+    path: "/historique",
+    icon: "history",
+    tools: ["historique_meteo"],
+    about: "Le temps qu'il a fait, mesuré par les stations Météo-France jour par jour depuis 1900 : pluie, températures, soleil, comparés à la normale 1991-2020 et aux records.",
+  },
+  {
     key: "cyclones",
     nom: "Cyclones",
     path: "/cyclones",

@@ -15,7 +15,12 @@
   // The AROME bundles, shared by every data center. Id from `npx wrangler kv namespace create STORE`.
   "kv_namespaces": [{ "binding": "STORE", "id": "1f961db9ed58429f9687eb6c438981f4" }],
   // The bus timetables (src/providers/transit.ts), imported by scripts/build-transit.py.
-  "d1_databases": [{ "binding": "TRANSIT", "database_name": "rundata-transports", "database_id": "5e304e2c-24c6-4dff-a6e7-ab674bb84016" }],
+  // And the daily measurements of every Météo-France station since 1900 (src/providers/climat.ts), imported by
+  // scripts/build-climat.py, the current year refreshed every morning by .github/workflows/climat.yml.
+  "d1_databases": [
+    { "binding": "TRANSIT", "database_name": "rundata-transports", "database_id": "5e304e2c-24c6-4dff-a6e7-ab674bb84016" },
+    { "binding": "CLIMAT", "database_name": "rundata-climat", "database_id": "11df4a82-43e5-47aa-af77-6f5bfd9a5f0b" }
+  ],
   // Usage counts (src/metrics.ts): one point per tool call and per page view, no address, no cookie.
   "analytics_engine_datasets": [{ "binding": "USAGE", "dataset": "rundata_usage" }]
 }
