@@ -24,6 +24,9 @@ describe("the prefecture's phase of the ORSEC volcano plan", () => {
   it("reads a partial reopening", () => {
     expect(phaseOf([release("Piton de la Fournaise : retour en phase de vigilance, réouverture partielle de l'enclos", "2026-05-07")])).toMatchObject({ niveau: "Vigilance", enclos: "partiel" });
   });
+  it("skips a newer release about the volcano that declares no phase", () => {
+    expect(phaseOf([release("Piton de la Fournaise : passage en alerte 1, fermeture de l’enclos", "2026-10-24"), release("Piton de la Fournaise : point de situation", "2026-10-25")])).toMatchObject({ niveau: "Alerte 1" });
+  });
   it("declares nothing from a release that names no phase", () => {
     expect(phaseOf([release("Fournaise : conférence à la Cité du Volcan", "2026-10-24")])).toBeUndefined();
   });
