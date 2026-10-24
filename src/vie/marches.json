@@ -1,0 +1,276 @@
+{
+"construit": "2026-10-24",
+"source": "© les contributeurs d'OpenStreetMap, ODbL",
+"marches": [
+{
+"nom": "Halle François Mitterrand",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.62041,
+"lat": -21.37828,
+"osm": "https://www.openstreetmap.org/relation/3134908"
+},
+{
+"nom": "Marché Solidari'Terre",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": "Rue Verger Emery",
+"lon": 55.5513,
+"lat": -21.36457,
+"osm": "https://www.openstreetmap.org/node/4599834738"
+},
+{
+"nom": "Marché couvert de Saint-Pierre",
+"horaires": "du lundi au samedi de 7 h à 17 h",
+"horaires_osm": "Mo-Sa 07:00-17:00",
+"note": null,
+"adresse": "Rue Victor le Vigoureux",
+"lon": 55.47366,
+"lat": -21.34083,
+"osm": "https://www.openstreetmap.org/way/67648500"
+},
+{
+"nom": "Marché Forain de Saint-Pierre (Samedi Matin)",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.45882,
+"lat": -21.33922,
+"osm": "https://www.openstreetmap.org/node/4608283177"
+},
+{
+"nom": "Marché Couvert du Tampon",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.51303,
+"lat": -21.28001,
+"osm": "https://www.openstreetmap.org/way/147814864"
+},
+{
+"nom": "Marché Forain",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.51609,
+"lat": -21.27717,
+"osm": "https://www.openstreetmap.org/node/460480863"
+},
+{
+"nom": "Marché du Belvédère de Bois-Court",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.53694,
+"lat": -21.19095,
+"osm": "https://www.openstreetmap.org/way/377719761"
+},
+{
+"nom": "Marché artisanal",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.28796,
+"lat": -21.16951,
+"osm": "https://www.openstreetmap.org/node/5403992921"
+},
+{
+"nom": "Marche Couvert",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.46959,
+"lat": -21.1356,
+"osm": "https://www.openstreetmap.org/way/67024036"
+},
+{
+"nom": "Marché forain",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.62688,
+"lat": -21.13408,
+"osm": "https://www.openstreetmap.org/way/428769930"
+},
+{
+"nom": "Marché",
+"horaires": null,
+"horaires_osm": null,
+"note": "uniquememnt le samedi entre 5h et 12h",
+"adresse": null,
+"lon": 55.71547,
+"lat": -21.03541,
+"osm": "https://www.openstreetmap.org/node/2847824855"
+},
+{
+"nom": "Marché couvert",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.71422,
+"lat": -21.03394,
+"osm": "https://www.openstreetmap.org/way/104756384"
+},
+{
+"nom": "Marché le Mercredi",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.26572,
+"lat": -21.02353,
+"osm": "https://www.openstreetmap.org/node/7211726249"
+},
+{
+"nom": "Marché Artisanal",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": "59 Rue Marius et Ary LeBlond",
+"lon": 55.27242,
+"lat": -21.0077,
+"osm": "https://www.openstreetmap.org/relation/1172395"
+},
+{
+"nom": "Marché forain de Saint-Paul",
+"horaires": "le vendredi de 8 h à 18 h ; le samedi de 8 h à 12 h",
+"horaires_osm": "Fr 08:00-18:00;Sa 08:00-12:00",
+"note": null,
+"adresse": "Quai Gilbert",
+"lon": 55.27144,
+"lat": -21.00678,
+"osm": "https://www.openstreetmap.org/way/90418084"
+},
+{
+"nom": "Marché",
+"horaires": "le vendredi de 0 h à 12 h",
+"horaires_osm": "Fr 0:00-12:00",
+"note": null,
+"adresse": null,
+"lon": 55.65215,
+"lat": -20.96238,
+"osm": "https://www.openstreetmap.org/node/5482625028"
+},
+{
+"nom": "Vieux marché",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.64944,
+"lat": -20.9615,
+"osm": "https://www.openstreetmap.org/node/7882992246"
+},
+{
+"nom": "Marché Forain Rivière des Galets",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.3116,
+"lat": -20.95915,
+"osm": "https://www.openstreetmap.org/node/13891112229"
+},
+{
+"nom": "Marché forain de l'Oasis",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.29884,
+"lat": -20.94152,
+"osm": "https://www.openstreetmap.org/node/4003792392"
+},
+{
+"nom": "Marché couvert",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.29185,
+"lat": -20.93841,
+"osm": "https://www.openstreetmap.org/way/65399368"
+},
+{
+"nom": "Marché forain place des cheminots",
+"horaires": null,
+"horaires_osm": null,
+"note": null,
+"adresse": null,
+"lon": 55.29171,
+"lat": -20.93459,
+"osm": "https://www.openstreetmap.org/node/4011305767"
+},
+{
+"nom": "Marché forain de Beauséjour",
+"horaires": "le mercredi de 6 h à 12 h",
+"horaires_osm": "We 06:00-12:00",
+"note": null,
+"adresse": "Rue du Marché",
+"lon": 55.52828,
+"lat": -20.92079,
+"osm": "https://www.openstreetmap.org/node/12855972430"
+},
+{
+"nom": "Marché forain de Sainte-Suzanne",
+"horaires": "le mardi de 6 h à 12 h",
+"horaires_osm": "Tu 06:00-12:00",
+"note": null,
+"adresse": null,
+"lon": 55.60997,
+"lat": -20.90963,
+"osm": "https://www.openstreetmap.org/node/12855972431"
+},
+{
+"nom": "Marché forain de Sainte Marie",
+"horaires": "le samedi de 6 h à 12 h",
+"horaires_osm": "Sa 06:00-12:00",
+"note": null,
+"adresse": null,
+"lon": 55.54956,
+"lat": -20.89622,
+"osm": "https://www.openstreetmap.org/node/12855674692"
+},
+{
+"nom": "Marché Forain du Chaudron",
+"horaires": "le mercredi de 6 h à 13 h ; le dimanche de 6 h à 13 h",
+"horaires_osm": "We 06:00-13:00; Su 06:00-13:00",
+"note": null,
+"adresse": null,
+"lon": 55.48757,
+"lat": -20.89131,
+"osm": "https://www.openstreetmap.org/node/4640121992"
+},
+{
+"nom": "Marché artisanal",
+"horaires": "du lundi au samedi de 9 h à 18 h",
+"horaires_osm": "Mo-Sa 09:00-18:00",
+"note": null,
+"adresse": "83 Rue Léopold Rambaud",
+"lon": 55.47868,
+"lat": -20.88577,
+"osm": "https://www.openstreetmap.org/node/12857131545"
+},
+{
+"nom": "Le Petit Marché",
+"horaires": "du lundi au samedi de 6 h à 18 h 30 ; le dimanche de 6 h à 12 h",
+"horaires_osm": "Mo-Sa 06:00-18:30; Su 06:00-12:00",
+"note": null,
+"adresse": null,
+"lon": 55.45685,
+"lat": -20.88036,
+"osm": "https://www.openstreetmap.org/node/11428408602"
+}
+]
+}

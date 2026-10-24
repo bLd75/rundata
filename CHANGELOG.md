@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 24 octobre 2026
 
+- Votre IA connaît une partie des marchés de l'île (OpenStreetMap, liste incomplète). Il manque le vôtre ? Dites-le-nous.
 - Pharmacies et urgences de chaque commune ; pour la pharmacie de garde, le site 3237.fr ou le 32 37.
 - Les alertes de votre commune en flux RSS : vigilance, coupures d'eau, sentiers fermés, volcan. Sans compte.
 - Prochaines marées au Port et à Sainte-Marie : un calcul à 20 min près environ, pas la prévision officielle du SHOM.
