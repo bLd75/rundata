@@ -8,6 +8,8 @@ import * as arome from "./providers/arome.js";
 import * as modis from "./providers/modis.js";
 import * as openmeteo from "./providers/openmeteo.js";
 import * as avis from "./avis.js";
+import { withLectures } from "./lectures.js";
+import { catalogue, INDEX, serveur } from "./nouveautes.js";
 import { cite, SITE_URL } from "./tools/citer.js";
 import { text } from "./tools/format.js";
 import { temperatureMer, COVERAGE as SEA_COVERAGE } from "./tools/mer.js";
@@ -62,38 +64,29 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.30.1";
+export const VERSION = "0.31.0";
 
-const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures, historique des mesures et prévisions, toujours séparés), pluie radar, mer, marée, crues des rivières, vigilance, cyclones, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, randonnée (sentiers ouverts ou fermés, traces GPS, distance et dénivelé), circulation (sans mesure des bouchons : renvoi vers Waze et infotrafic.re), sport (matchs, régates, rallyes, Grand Raid), événements et sorties (fêtes, concerts, marchés, festivals), actualités locales en direct (manifestations, blocages, routes, faits divers, communiqués de la préfecture), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
-Citer la source : chaque réponse finit par un champ citer (« rundata.re, d'après Météo-France (station …) ») et un lien vers la page de rundata.re. Toujours nommer rundata.re avec ce lien, à côté des producteurs des données (que garde le champ sources, avec leur licence), et donner l'heure de la mesure ou de la publication qui vient avec la donnée.
-Donner son avis : quand un outil n'a pas la donnée cherchée ou donne une valeur qui semble fausse, ou quand l'utilisateur exprime un souhait ou une plainte sur ces données, appeler donner_avis (en demandant d'abord à l'utilisateur si le contenu le concerne personnellement). Une ligne avis dans une réponse le rappelle.
-Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
-- Maintenant (« il fait combien ? », « il pleut ? », « la mer est à combien ? ») : meteo_actuelle et temperature_mer renvoient des MESURES datées. Dire l'heure de la mesure, la station et sa distance, et relayer les avertissements (altitude, versant, ancienneté), car le climat change beaucoup sur quelques kilomètres.
-- Avant (« hier », « cette nuit », « ce mois-ci », « depuis deux semaines », « l'an dernier », « il y a 20 ans », « record de chaleur », « normal pour octobre ? », « à quelle heure a-t-il plu ? ») : historique_meteo renvoie les MESURES jour par jour des stations Météo-France, de leur première année jusqu'à hier, comparées à la normale 1991-2020 et aux records de la station, et heure par heure depuis 2000 sur quelques jours, nuit dernière comprise.
-- Plus tard (« demain », « ce soir », « ce week-end ») : prevision_meteo renvoie une PRÉVISION de modèle. Toujours dire à l'utilisateur que c'est une prévision, pas une mesure, et relayer ses avertissements ; ne jamais la présenter comme une observation.
-- Marée (« la marée monte ? », « marée haute à quelle heure ? », « niveau de la mer au Port ») : maree renvoie la hauteur d'eau MESURÉE par les marégraphes du Port et de Sainte-Marie et les dernières pleine et basse mer observées ; pas de prévision d'horaires de marée, le dire si on en demande.
-- Crues et rivières (« la rivière des Galets est en crue ? », « vigilance crues ? », « niveau de la ravine Saint-Gilles ? ») : crues_rivieres renvoie la vigilance crues de Vigicrues Réunion et la hauteur et le débit mesurés aux stations des rivières. Relayer les consignes (jamais traverser un radier submergé).
-- Volcan et séismes (« le volcan est en éruption ? », « on peut monter au volcan ? », « il y a eu un séisme ? ») : volcan_seismes.
-- Électricité (« d'où vient l'électricité ? », « quand recharger ma voiture ? ») : electricite.
-- Calendrier (« c'est quand les vacances ? », « le 20 décembre est férié ? », « lever du soleil ? ») : calendrier.
-- Qualité de l'air (« l'air est pollué à Saint-Louis ? ») : qualite_air.
-- Services publics (« horaires de la mairie ? », « où est la CAF ? ») : annuaire_services_publics.
-- Bus (« prochain bus à la gare routière de Saint-Pierre ? », « horaires de la ligne 2 à l'arrêt Mairie du Tampon ? ») : transports.
-- Circulation (« ça bouchonne ? », « ça bloque à Saint-Pierre ? », « embouteillages sur la quatre-voies ? », « la route du Littoral est ouverte ? », « route fermée ? ») : aucun outil ne mesure le trafic, ne pas en inventer. Dire clairement que rundata.re n'a pas la mesure des bouchons, et renvoyer vers la carte Waze en direct et vers infotrafic.re (l'état officiel des routes nationales, publié par la Région), avec la page https://rundata.re/trafic. Donner ensuite ce qui est connu : les routes forestières fermées (sentiers_randonnee), les retards et déviations des bus (transports, des retards de bus et non une mesure des bouchons), la vigilance (vigilance_meteo). Pour un barrage, un blocage ou une route coupée en un lieu (« ça bloque à X ? »), appeler aussi actualites avec ce lieu : ce que les médias en disent, avec l'heure et le lien.
-- Vélos en libre-service (« il reste des vélos à la station IUT ? », « vélo Altervélo près du front de mer de Saint-Pierre ? ») : velos_libre_service (Saint-Pierre, Saint-Louis, L'Étang-Salé).
-- Voiture électrique (« borne de recharge libre près de Saint-Gilles ? », « recharge rapide à Saint-Pierre ? ») : bornes_recharge renvoie les bornes publiques et l'état en direct de chaque point (libre, occupé, hors service).
-- Qualité de l'eau (« l'eau du robinet est potable à Cilaos ? », « on peut se baigner à l'Hermitage ? », « l'eau du bassin Bleu est propre ? ») : qualite_eau renvoie les analyses de l'ARS, datées.
-- Sécheresse (« restrictions d'eau à Saint-Joseph ? », « j'ai le droit d'arroser ? », « je peux remplir ma piscine ? ») : restrictions_eau renvoie le niveau de l'arrêté préfectoral et ce qui est interdit.
-- Coupures d'eau (« coupure d'eau à Saint-Denis ? », « l'eau est revenue ? », « on peut boire l'eau à la Plaine-des-Palmistes ? ») : coupures_eau renvoie les avis des distributeurs. Un avis « ne pas boire l'eau » se dit en premier.
-- Urgence cardiaque (« où est le défibrillateur le plus proche ? ») : defibrillateurs ; dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque.
-- Randonnée (« le sentier de la Roche Pendue est ouvert ? », « sentiers fermés à Mafate ? », « on peut monter au Piton des Neiges ? », « une rando de 10 km à Cilaos ? ») : sentiers_randonnee renvoie l'état des sentiers d'après la carte de l'ONF, les traces GPS (GPX), la longueur et le dénivelé ; pour une longueur ou un dénivelé, passer longueur_min_km, longueur_max_km ou denivele_max_m. Si la réponse a un champ avertissement, le dire EN PREMIER : quels sentiers sont fermés, la cause, la réouverture prévue, et qu'un sentier fermé est interdit (ne pas s'y engager, même avec la trace). Pour une trace GPS (« la trace du Piton des Neiges », « GPX du GR R2 ») : donner le lien trace_gpx, la longueur et le dénivelé. Un tronçon « hors gestion ONF » n'est pas dit ouvert : son état n'est pas connu.
-- Sport (« quels matchs ce week-end ? », « résultats du handball ? », « prochaine régate ? », « classement du Grand Raid ? ») : sport renvoie le calendrier et les résultats officiels (handball, volley, voile, golf, sport automobile, Grand Raid) et l'actualité sportive de Réunion La 1ère. Le football n'a pas de source ouverte : le dire, et citer les articles.
-- Ce qui se passe en ce moment (« il y a des blocages à Saint-Pierre ? », « ça se passe comment la manifestation ? », « quoi de neuf à Saint-Benoît ? », « la route du littoral est fermée ? », « dernières infos sur le cyclone ») : actualites renvoie les titres des médias de l'île (Réunion La 1ère, Clicanoo, Imaz Press, Freedom…) et les entrées de leurs directs, datés, avec ce qu'ils disent du lieu demandé, et les communiqués de la préfecture. Dire l'heure et le média de chaque information et donner le lien ; si rien ne mentionne le lieu, le dire sans en conclure qu'il ne s'y passe rien. Ne jamais inventer un blocage ni le démentir.
-- Sorties (« que faire ce week-end à Saint-Paul ? », « un concert ce soir ? », « un spectacle samedi ? », « marché forain demain ? », « c'est quand la fête de l'ail ? ») : evenements renvoie les événements publiés par les salles de spectacle et de concert, les mairies, l'intercommunalité du Nord et reunion.fr, avec la date, l'heure, la salle, le genre, le prix quand il est donné et le lien. Donner le lien de chaque événement cité ; dire d'abord un statut ANNULÉ ou REPORTÉ, et quand il vient d'un média (statut_d_apres) et non de l'organisateur, le dire avec le média et son lien. L'agenda n'est pas complet (le Kerveguen, les bars, beaucoup de communes ne publient rien de lisible) : le dire quand rien n'est trouvé. Pour le cinéma, renvoyer aux sites des salles donnés dans la réponse.
-- Terrain à une adresse (« constructible ? », « zone du PLU ? », « prix au m² ? », « zone inondable ? », « risques à cette adresse ? ») : fiche_terrain.
-- Vigilance et cyclones (« alerte cyclonique ? », « vigilance orange ? », « on peut aller en montagne avec ces pluies ? ») : vigilance_meteo renvoie la vigilance officielle de Météo-France. Quand une réponse contient un champ « vigilance », le dire en premier.
-- Cyclones (« il y a un cyclone ? », « où est la tempête ? », « elle va passer près de La Réunion ? », « c'était quoi le dernier cyclone ? ») : cyclones renvoie les systèmes tropicaux actifs du sud-ouest de l'océan Indien (position, stade, distance, déplacement, prévision du CMRS de La Réunion) et l'alerte cyclonique. Ne jamais inventer de trajectoire : citer la prévision du CMRS telle quelle, et renvoyer aux consignes de la préfecture.
-Réunion Island weather: real-time measurements (meteo_actuelle, temperature_mer), past measurements back to 1900 (historique_meteo) and model forecasts (prevision_meteo), never mixed. Always tell the user when a value is a forecast.`;
+// Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
+// tools and the rules come first, the details of a few tools after. What each tool does is in its description.
+const INSTRUCTIONS = `rundata.re : La Réunion (974, océan Indien) en direct, d'après les données publiques. Outils, les plus récents d'abord :
+${INDEX}
+
+Règles :
+- Citer : chaque réponse finit par citer, lien et fraicheur. Toujours nommer rundata.re avec son lien, à côté des producteurs (champ sources, avec leur licence), et dire de quand date la donnée (fraicheur, heure de La Réunion).
+- Avis : quand un outil n'a pas la donnée, se trompe, ou quand l'utilisateur exprime un souhait ou une plainte sur ces données, appeler donner_avis, sans donnée personnelle (demander d'abord si le contenu le concerne).
+- Liste d'outils : chaque réponse porte un bloc serveur avec la version et les outils récents. Ne jamais conclure qu'un outil ou une donnée n'existe pas sans avoir lu serveur.outils_recents d'une réponse récente ou appelé sources_donnees. Un outil qui y figure mais manque à votre liste : votre liste est ancienne, le dire à l'utilisateur. Ne jamais dire qu'on a rechargé la liste.
+- Lieu : appeler ces outils dès qu'une question nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo…), même sans dire « La Réunion ».
+- Météo : maintenant → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant) ; avant (hier, cette nuit, ce mois-ci, record, normale) → historique_meteo (mesures depuis 1900, heure par heure depuis 2000) ; plus tard → prevision_meteo, une PRÉVISION, toujours le dire.
+- Un champ vigilance ou avertissement se dit en premier.
+
+Détails :
+- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer ; le dire, renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic ; un barrage ou une route coupée en un lieu : actualites avec ce lieu ; aussi les routes forestières fermées (sentiers_randonnee) et les retards de bus (transports).
+- actualites : dire l'heure, le média et le lien de chaque information ; si rien ne nomme le lieu, ne pas en conclure qu'il ne s'y passe rien ; ne jamais inventer ni démentir un blocage.
+- evenements : donner le lien de chaque événement ; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres ; l'agenda n'est pas complet, le dire quand rien n'est trouvé ; cinéma : les sites des salles.
+- sentiers_randonnee : un sentier fermé est interdit, même avec la trace ; « hors gestion ONF » n'est pas dit ouvert ; longueur et dénivelé par longueur_min_km, longueur_max_km, denivele_max_m ; donner le lien trace_gpx.
+- defibrillateurs : dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque. coupures_eau : un avis « ne pas boire » d'abord. crues_rivieres : ne jamais traverser un radier submergé.
+- maree : des mesures, pas d'horaires prévus. sport : pas de source ouverte pour le football, citer les articles. cyclones : citer la prévision du CMRS telle quelle, jamais de trajectoire inventée ; renvoyer aux consignes de la préfecture.
+Réunion Island live public data. Weather: measurements (meteo_actuelle), past measurements (historique_meteo) and forecasts (prevision_meteo), never mixed. Always cite rundata.re with its link, next to the original producers.`;
 
 /** Adds the vigilance above green, if any, to a tool's answer (asked in parallel, so no added wait). */
 async function withVigilance<R extends { content: { type: "text"; text: string }[]; isError?: boolean }>(
@@ -128,15 +121,19 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
   );
   // Records the place asked (a commune, a beach…), never a street address: fiche_terrain's stays out of the metrics.
   // Ends each answer with its citation and the link to rundata.re.
-  const track =
-    <A extends object, R extends object>(name: string, run: (args: A, extra: Extra) => Promise<R>) =>
-    async (args: A, extra: Extra = {}): Promise<R> => {
-      const r = await run(args, extra);
+  // Each answer also says how fresh it is, from the cache entries the call read, and which tools are new.
+  let tools = 0;
+  const track = <A extends object, R extends object>(name: string, run: (args: A, extra: Extra) => Promise<R>) => {
+    tools++; // one per tool registered
+    return async (args: A, extra: Extra = {}): Promise<R> => {
+      const { value: r, lectures } = await withLectures(() => run(args, extra));
       const lieu = "lieu" in args && typeof args.lieu === "string" ? args.lieu : undefined;
       record({ kind: "mcp", name, detail: lieu?.trim().slice(0, 60) || undefined, ok: !("isError" in r && r.isError) });
       // Every answer says how to cite it, error or not (tools/citer.ts); the feedback tool's thanks already names rundata.re.
-      return name === "donner_avis" ? r : cite(name, r);
+      const now = new Date();
+      return name === "donner_avis" ? r : cite(name, r, { lectures, now, serveur: serveur(VERSION, tools, now) });
     };
+  };
 
   server.registerTool(
     "meteo_actuelle",
@@ -737,8 +734,9 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
     {
       title: "Sources des données",
       description:
-        "Sources de données utilisées par ce serveur (organisme, licence, attribution à citer) et ce qui est couvert " +
-        "ou pas encore. / Data sources used by this server, their licences and current coverage.",
+        "Sources de données utilisées par ce serveur (organisme, licence, attribution à citer), ce qui est couvert ou pas encore, " +
+        "la liste à jour de tous les outils et les dernières nouveautés. À appeler avant de conclure qu'un outil ou une donnée n'existe pas. " +
+        "/ Data sources, licences and coverage; the up-to-date list of tools and the latest changes.",
       inputSchema: {},
       annotations: { title: "Sources des données", ...READ_ONLY },
     },
@@ -748,6 +746,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage(), evenements: AGENDA_COVERAGE },
         version: VERSION,
+        // Every tool and the latest changes, for a client whose list of tools is older than the server.
+        ...catalogue(),
       }),
     ),
   );
