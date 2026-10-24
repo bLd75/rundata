@@ -385,6 +385,8 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .wz figcaption{color:var(--on-night-muted)}.wz-views{display:flex;flex-wrap:wrap;gap:.4rem;margin:.7rem 0}
 .wz-views a{padding:.3rem .75rem;border-radius:999px;border:1px solid rgb(255 255 255/.22);color:var(--on-night);text-decoration:none;font-size:.85rem}
 .wz-views a[aria-current]{background:var(--sun);color:var(--sun-ink);border-color:var(--sun)}.wz-open{color:var(--on-night);font-weight:700}
+.tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem}.tabs a{padding:.35rem .85rem;border-radius:999px;border:1px solid var(--line);color:var(--link);text-decoration:none;font-size:.9rem;background:var(--surface)}
+.tabs a[aria-current]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .link-card{display:block;text-decoration:none;color:inherit}.link-card h3{display:flex;gap:.5rem;align-items:center;color:var(--link)}.link-card:hover{border-color:var(--accent)}
 .two>.card>.ic{width:1.6rem;height:1.6rem;color:var(--accent)}.two .card h4{margin-top:.5rem}
 .figs{list-style:none;padding:0;margin:0;display:grid;gap:.8rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))}
