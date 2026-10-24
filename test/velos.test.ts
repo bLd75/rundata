@@ -5,6 +5,7 @@ import { merge, parseInfo } from "../src/providers/velos.js";
 import { velosLibreService } from "../src/tools/velos.js";
 import { velosPage } from "../src/web/domains.js";
 import { DESCRIPTION_MAX } from "../src/web/pages.js";
+import { deadAnchors, doubleIds, mapLinks } from "./cartes.js";
 
 // Eight Altervélo stations on the night of 23 to 24/10/2026 (the operator's test station among them); one is set not
 // renting, and one given a scooter, to cover both.
@@ -65,6 +66,10 @@ describe("Altervélo", () => {
     const value = body(await velosLibreService(cache(), undefined, NOW));
     const html = velosPage("https://rundata.re", { value, fetchedAt: NOW, stale: false }, NOW);
     expect(html).toContain(`<span class="big">19</span>`);
+    // Each commune served leads to its stations.
+    expect(mapLinks(html).map((l) => l.href)).toEqual(["#c-l-etang-sale", "#c-saint-louis", "#c-saint-pierre"]);
+    expect(deadAnchors(html)).toEqual([]);
+    expect(doubleIds(html)).toEqual([]);
     expect(html).toContain("<li><span>ZAC Maxime Rivière</span><span><b>6</b> vélos · <b>1</b> trottinette · 4 places</span></li>");
     expect(html).toContain("<li><span>Stade de Terre Sainte</span><span>location impossible en ce moment</span></li>");
     const desc = html.match(/name="description" content="([^"]*)"/)![1];

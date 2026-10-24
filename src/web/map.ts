@@ -37,6 +37,8 @@ export interface Marker {
   href?: string;
   /** The value as said aloud, when `label` is a short form (« 24 °C » for « 24° »). */
   say?: string;
+  /** The place as said aloud, when `name` already holds the value (« Saint-Pierre » for « Saint-Pierre : 3 libres »). */
+  place?: string;
 }
 
 /** A commune of the map that leads somewhere: the card of its zone, its page. `say` is what the map shows of it. */
@@ -48,12 +50,27 @@ export interface ZoneLink {
 /** Wide enough for a finger on a phone, where the map is a third of its size: about 44 px across. */
 const HIT = 66;
 
+/**
+ * Each linked marker's hit radius: at most half the way to the nearest other one, so that no two overlap and a tap
+ * between them goes to the closer; never under the marker's own size.
+ */
+function hitRadii(markers: Marker[]): number[] {
+  const at = markers.map((m) => project(m.lon, m.lat));
+  return at.map(([x, y], i) => {
+    let r = HIT;
+    at.forEach(([x2, y2], j) => {
+      if (j !== i && markers[j].href) r = Math.min(r, Math.hypot(x2 - x, y2 - y) / 2);
+    });
+    return Math.max(34, Math.floor(r));
+  });
+}
+
 const PEAKS = [
   { name: "Piton des Neiges", alt: "3 070 m", lon: 55.4783, lat: -21.0989 },
   { name: "Piton de la Fournaise", alt: "2 632 m", lon: 55.7083, lat: -21.2444 },
 ];
 
-function marker(m: Marker): string {
+function marker(m: Marker, hit = HIT): string {
   const [x, y] = project(m.lon, m.lat);
   const fill = m.color ?? "var(--ink)";
   const w = Math.max(64, m.label.length * 19 + 24);
@@ -65,8 +82,8 @@ function marker(m: Marker): string {
     (m.quiet ? "" : `<text x="${x}" y="${y + 66}" class="mn">${esc(m.name)}</text>`);
   if (!m.href) return `<g class="mk">${inner}</g>`;
   // The hit area under the marker, painted but invisible, so that a tap a little beside it still counts.
-  return `<a class="mk" href="${esc(m.href)}" aria-label="${esc(`${m.name} : ${m.say ?? m.label}, voir le détail`)}">` +
-    `<circle class="hit" cx="${x}" cy="${y}" r="${HIT}" style="fill:transparent;stroke:none"/>${inner}</a>`;
+  return `<a class="mk" href="${esc(m.href)}" aria-label="${esc(`${m.place ?? m.name} : ${m.say ?? m.label}, voir le détail`)}">` +
+    `<circle class="hit" cx="${x}" cy="${y}" r="${hit}" style="fill:transparent;stroke:none"/>${inner}</a>`;
 }
 
 /** Each linked commune as a link over its shape, invisible until hovered or focused. */
@@ -114,6 +131,8 @@ export function islandMap(opts: {
   const linked = !!opts.links || (opts.markers ?? []).some((m) => m.href);
   const role = linked ? `role="group"` : `role="img"`;
   const zones = opts.links ? zoneLinks(opts.links) : "";
+  const radii = hitRadii(opts.markers ?? []);
+  const markers = (opts.markers ?? []).map((m, i) => marker(m, radii[i])).join("");
   let extra = "";
   if (hl) extra += `<path class="hl" d="${hl.d}"/>`;
   if (opts.peaks) {
@@ -141,7 +160,7 @@ export function islandMap(opts: {
       `<defs><g id="isl">${paths}</g>${defs}</defs>` +
       `<use href="#isl" class="halo" filter="url(#glow)"/><use href="#isl" class="coast"/><use href="#isl" class="ground"/>` +
       `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
-      zones + peaks + (opts.markers ?? []).map(marker).join("") + `</svg>`;
+      zones + peaks + markers + `</svg>`;
   }
   const terrain = !fills;
   const land = terrain
@@ -151,7 +170,7 @@ export function islandMap(opts: {
     `<defs><g id="isl">${paths}</g>${terrain ? `<clipPath id="isl-clip">${paths}</clipPath>` : ""}</defs>` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>` +
     `<use href="#isl" class="coast"/>${land}<use href="#isl" class="borders"/>` +
-    (opts.overlay ?? "") + zones + extra + (opts.markers ?? []).map(marker).join("") + `</svg>`;
+    (opts.overlay ?? "") + zones + extra + markers + `</svg>`;
 }
 
 // ---------------------------------------------------------------- every hike and trail of the island

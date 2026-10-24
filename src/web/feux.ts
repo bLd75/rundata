@@ -11,7 +11,7 @@ import { listLine, QUIET, URGENCE, when } from "../tools/feux.js";
 import { credits as creditOf } from "../tools/format.js";
 import { cyclone, raised } from "../tools/vigilance.js";
 import type { Alerte, SentiersAnswer } from "./data.js";
-import { connectorCta, crumbBar, crumbs, fireMarkers, sourcesNote, webPage } from "./domains.js";
+import { closedMarkers, connectorCta, crumbBar, crumbs, fireId, fireMarkers, sourcesNote, webPage } from "./domains.js";
 import { esc, islandMap } from "./map.js";
 import { ask, credits, DESCRIPTION_MAX, hm, layout } from "./pages.js";
 
@@ -52,7 +52,7 @@ function firesList(fires: feux.Feux | null, now: Date): string {
   if (!feux.enabled()) return `<p>${esc(OFF)}</p>`;
   if (!fires) return `<p>${esc(DOWN)}</p>`;
   if (!fires.detections.length) return `<p>${esc(QUIET)}</p>`;
-  return `<ul class="rows eau">${fires.detections.map((d) => `<li><span>${esc(listLine(d, now))}<small>${esc(d.commune)} · satellite ${esc(d.satellite)}</small></span><span class="q-mauvaise">feu</span></li>`).join("")}</ul>`;
+  return `<ul class="rows eau">${fires.detections.map((d, i) => `<li class="tgt" id="${fireId(i)}"><span>${esc(listLine(d, now))}<small>${esc(d.commune)} · satellite ${esc(d.satellite)}</small></span><span class="q-mauvaise">feu</span></li>`).join("")}</ul>`;
 }
 
 function trails(s: Cached<SentiersAnswer> | null | undefined): string {
@@ -77,7 +77,7 @@ export function feuxPage(origin: string, l: FeuxLive, now = new Date(), alerte?:
   const on = feux.enabled();
   const description = on ? feuxDescription(l.fires, now) : BLIND_META;
   const markers = [
-    ...(l.sentiers?.value.points ?? []).map((p) => ({ lon: p.lon, lat: p.lat, label: "×", name: `${p.nom} : fermé`, round: true, color: "#c92a2a", quiet: true })),
+    ...closedMarkers(l.sentiers?.value, "/sentiers"),
     ...fireMarkers(l.fires ?? undefined, now),
   ];
 

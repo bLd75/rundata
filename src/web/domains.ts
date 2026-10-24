@@ -27,11 +27,12 @@ import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
 import rubriques from "./og-rubriques.json" with { type: "json" };
-import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
+import { esc, hikesMap, islandMap, type Marker, oceanMap, profile, traceMap, type ZoneLink } from "./map.js";
 import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
-import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
+import { anchorId, ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
+import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
 import { tapNote } from "../tools/eau.js";
@@ -280,9 +281,14 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
   const url = `${origin}/air`;
 
   const fills: Record<string, string> = {};
+  // Each commune leads to its line in the list below, under its level.
+  const links: Record<string, ZoneLink> = {};
   for (const c of list) {
     const name = MAP_NAME.get(normalize(c.commune));
-    if (name && c.niveau >= 1 && c.niveau <= 6) fills[name] = `var(--aq${c.niveau})`;
+    if (name && c.niveau >= 1 && c.niveau <= 6) {
+      fills[name] = `var(--aq${c.niveau})`;
+      links[name] = { href: `#${anchorId("c", name)}`, say: `indice ${c.niveau} sur 6, ${AQ_NAMES[c.niveau] ?? ""}`.replace(/, $/, "") };
+    }
   }
 
   const status = !d
@@ -296,7 +302,7 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
     .map((n) => ({ n, l: list.filter((c) => c.niveau === n) }))
     .filter((x) => x.l.length)
     .map((x) => `<div class="card"><h3>${aq(x.n)} ${x.l.length} commune${x.l.length > 1 ? "s" : ""}</h3><ul class="plain cols">` +
-      x.l.map((c) => `<li>${esc(c.commune)}${c.polluants.length ? ` <span class="note">(${esc(c.polluants.join(", "))})</span>` : ""}</li>`).join("") + `</ul></div>`)
+      x.l.map((c) => `<li class="tgt" id="${anchorId("c", MAP_NAME.get(normalize(c.commune)) ?? c.commune)}">${esc(c.commune)}${c.polluants.length ? ` <span class="note">(${esc(c.polluants.join(", "))})</span>` : ""}</li>`).join("") + `</ul></div>`)
     .join("");
 
   const scale = `<ul class="scale">${[1, 2, 3, 4, 5, 6].map((n) => `<li>${aq(n)}<p>Indice ${n} sur 6.</p></li>`).join("")}</ul>`;
@@ -316,7 +322,7 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
     ${ask(`Lèr lé bon La Rényon zordi ? Gèt si ${url} é di amwin pou mon komine.`,
       `L'air est-il bon aujourd'hui à La Réunion ? Lis ${url} et dis-moi la qualité de l'air dans ma commune.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) colorée par l'indice de qualité de l'air de chaque commune" })}
+  <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) colorée par l'indice de qualité de l'air de chaque commune" })}
   <figcaption class="note" style="color:var(--on-night-muted)">Couleur de l'indice ATMO du jour dans chaque commune.</figcaption></figure>
 </div>`;
 
@@ -648,11 +654,18 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
     : `<div class="now"><span class="big">${total}</span><p>vélo${total > 1 ? "s" : ""} à assistance électrique disponible${total > 1 ? "s" : ""} en ce moment dans les <b>${d.stations.length} stations</b> Altervélo de ${esc(BIKE_COMMUNES.join(", ").replace(/, ([^,]+)$/, " et $1"))}.</p></div>`;
 
   const fills = Object.fromEntries(BIKE_COMMUNES.map((c) => [c, "var(--hl)"]));
+  // Each commune served leads to its stations below.
+  const links: Record<string, ZoneLink> = d
+    ? Object.fromEntries(BIKE_COMMUNES.map((c) => {
+        const n = d.communes?.find((x) => x.commune === c)?.velos_disponibles ?? 0;
+        return [c, { href: `#${anchorId("c", c)}`, say: `${n} vélo${n > 1 ? "s" : ""} disponible${n > 1 ? "s" : ""}` }];
+      }))
+    : {};
   const byCommune = d
     ? `<ul class="zones">${BIKE_COMMUNES.map((c) => {
         const mine = d.stations.filter((s) => s.commune === c).sort((a, b) => b.velos_electriques + (b.trottinettes ?? 0) - (a.velos_electriques + (a.trottinettes ?? 0)) || a.nom.localeCompare(b.nom, "fr"));
         const n = d.communes?.find((x) => x.commune === c)?.velos_disponibles ?? 0;
-        return `<li class="card"><h3>${esc(c)} <span class="note">${n} vélo${n > 1 ? "s" : ""}, ${mine.length} station${mine.length > 1 ? "s" : ""}</span></h3>` +
+        return `<li class="card tgt" id="${anchorId("c", c)}"><h3>${esc(c)} <span class="note">${n} vélo${n > 1 ? "s" : ""}, ${mine.length} station${mine.length > 1 ? "s" : ""}</span></h3>` +
           `<ul class="rows bikes">${mine.map(bikeRow).join("")}</ul></li>`;
       }).join("")}</ul>` +
       `<p class="note">${esc(d.donnees)}</p>`
@@ -673,7 +686,7 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
     ${ask(`Néna in vélo Altervélo i rès dan la stasion IUT ? Gèt si ${url} é di amwin.`,
       `Reste-t-il des vélos Altervélo à la station IUT de Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) : les communes où circulent les vélos Altervélo" })}
+  <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) : les communes où circulent les vélos Altervélo" })}
   <figcaption class="note" style="color:var(--on-night-muted)">Les communes desservies par Altervélo.</figcaption></figure>
 </div>`;
 
@@ -724,7 +737,8 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
     const lon = mine.reduce((n, s) => n + s.lon, 0) / mine.length;
     const lat = mine.reduce((n, s) => n + s.lat, 0) / mine.length;
     const free = mine.reduce((n, s) => n + s.libres, 0);
-    return { lon, lat, label: String(free), name: `${c.commune} : ${free} libre${free > 1 ? "s" : ""} sur ${c.points}`, round: true, color: free ? "#2b8a3e" : "#868e96" };
+    return { lon, lat, label: String(free), name: `${c.commune} : ${free} libre${free > 1 ? "s" : ""} sur ${c.points}`, round: true, color: free ? "#2b8a3e" : "#868e96",
+      place: c.commune, say: `${free} point${free > 1 ? "s" : ""} de charge libre${free > 1 ? "s" : ""} sur ${c.points}`, href: `#${anchorId("c", c.commune)}` };
   });
 
   const fast = d ? d.stations.filter((s) => s.puissance_max_kw >= FAST_KW).sort((a, b) => b.libres - a.libres || b.puissance_max_kw - a.puissance_max_kw) : [];
@@ -732,7 +746,7 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
     ? `<ul class="zones">${d.communes.map((c) => {
         const mine = d.stations.filter((s) => s.commune === c.commune).sort((a, b) => b.libres - a.libres || b.puissance_max_kw - a.puissance_max_kw);
         const free = mine.reduce((n, s) => n + s.libres, 0);
-        return `<li class="card"><h3>${esc(c.commune)} <span class="note">${free} libre${free > 1 ? "s" : ""} sur ${c.points}, ${c.stations} station${c.stations > 1 ? "s" : ""}</span></h3>` +
+        return `<li class="card tgt" id="${anchorId("c", c.commune)}"><h3>${esc(c.commune)} <span class="note">${free} libre${free > 1 ? "s" : ""} sur ${c.points}, ${c.stations} station${c.stations > 1 ? "s" : ""}</span></h3>` +
           `<ul class="rows bornes">${mine.map(borneRow).join("")}</ul></li>`;
       }).join("")}</ul>` +
       `<p class="note">${esc(d.donnees)}${d.avertissement ? ` ${esc(d.avertissement)}` : ""}</p>`
@@ -793,7 +807,7 @@ const dayFr = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 function siteLine(s: EauAnswer["baignades"][number]): string {
   const last = s.derniers_prelevements[0];
   const q = s.qualite_dernier_prelevement;
-  return `<li><span>${esc(s.site)}<small>dernier prélèvement le ${esc(s.dernier_prelevement)}` +
+  return `<li class="tgt" id="${anchorId("b", s.site)}"><span>${esc(s.site)}<small>dernier prélèvement le ${esc(s.dernier_prelevement)}` +
     (last ? ` · ${esc(last.enterocoques_100ml)} entérocoques et ${esc(last.e_coli_100ml)} E. coli pour 100 mL` : "") +
     (s.mauvais_sur_12_mois ? ` · ${s.mauvais_sur_12_mois} mauvais résultat${s.mauvais_sur_12_mois > 1 ? "s" : ""} sur 12 mois` : "") + `</small></span>` +
     `<span class="q-${q ?? "none"}">${q ? esc(q) : "pas de résultat"}</span></li>`;
@@ -827,7 +841,8 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
   const markers = [...(d?.baignades ?? [])].sort((a, b) => rank(a.qualite_dernier_prelevement) - rank(b.qualite_dernier_prelevement)).map((s) => {
     const q = s.qualite_dernier_prelevement ?? "";
     // Only the sites to watch carry their name: 26 names along the coast would cover each other.
-    return { lon: s.lon, lat: s.lat, label: WATER_MARK[q] ?? "?", name: q === "bonne" ? `${s.site} : bonne` : s.site, round: true, color: WATER_COLOR[q] ?? "#868e96", quiet: q === "bonne" };
+    return { lon: s.lon, lat: s.lat, label: WATER_MARK[q] ?? "?", name: q === "bonne" ? `${s.site} : bonne` : s.site, round: true, color: WATER_COLOR[q] ?? "#868e96", quiet: q === "bonne",
+      place: s.site, say: q ? `qualité ${q} au dernier prélèvement` : "pas de résultat", href: `#${anchorId("b", s.site)}` };
   });
 
   const sites = d
@@ -894,14 +909,25 @@ const kmFr = (n: number) => String(n).replace(".", ",");
 const meters = (n: number) => n.toLocaleString("fr-FR").replace(/\u202f|\u00a0/g, " ");
 
 /** The fires seen by satellite, on the island's map: orange, apart from the closed trails. */
-export const fireMarkers = (f: feux.Feux | undefined, now: Date) =>
-  (f?.detections ?? []).map((d) => ({ lon: d.lon, lat: d.lat, label: "!", name: `${fire.listLine(d, now)} (${feux.LABEL})`, round: true, color: "#e8590c" }));
+export const fireMarkers = (f: feux.Feux | undefined, now: Date): Marker[] =>
+  (f?.detections ?? []).map((d, i) => ({ lon: d.lon, lat: d.lat, label: "!", name: `${fire.listLine(d, now)} (${feux.LABEL})`, round: true, color: "#e8590c",
+    place: "Feu vu par satellite", say: fire.listLine(d, now), href: `#${fireId(i)}` }));
+
+/** A fire's line in the list of the page, where its marker leads: the list and the markers follow the same order. */
+export const fireId = (i: number) => `f-${i + 1}`;
+
+/** The closed trails on the map, each to its line among the closed trails (`page`: of /sentiers, from another page). */
+export const closedMarkers = (s: SentiersAnswer | undefined, page = ""): Marker[] => {
+  const listed = new Set((s?.fermes_par_commune ?? []).flatMap((c) => c.sentiers_fermes.map((t) => t.sentier)));
+  return (s?.points ?? []).map((p) => ({ lon: p.lon, lat: p.lat, label: "×", name: `${p.nom} : fermé`, round: true, color: "#c92a2a", quiet: true,
+    ...(listed.has(p.nom) ? { place: p.nom, say: "sentier fermé", href: `${page}#${anchorId("t", p.nom)}` } : {}) }));
+};
 
 /** The section of the fires seen by satellite (worded by marketing): the emergency numbers always, a quiet day said as such. */
 export function firesSection(f: feux.Feux | undefined, now: Date): string {
   if (!f) return "";
   const list = f.detections.length
-    ? `<ul class="rows eau">${f.detections.map((d) => `<li><span>${esc(fire.listLine(d, now))}<small>${esc(d.commune)} · satellite ${esc(d.satellite)}</small></span><span class="q-mauvaise">feu</span></li>`).join("")}</ul>`
+    ? `<ul class="rows eau">${f.detections.map((d, i) => `<li class="tgt" id="${fireId(i)}"><span>${esc(fire.listLine(d, now))}<small>${esc(d.commune)} · satellite ${esc(d.satellite)}</small></span><span class="q-mauvaise">feu</span></li>`).join("")}</ul>`
     : `<p>${esc(fire.QUIET)}</p>`;
   return `<section aria-labelledby="h-feux">
   <div class="sec-h"><p class="eyebrow">NASA FIRMS</p><h2 id="h-feux">Feux de végétation vus par satellite</h2>
@@ -922,14 +948,17 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
     : `<div class="now"><span class="big">${closed}</span><p>sentier${closed > 1 ? "s" : ""} fermé${closed > 1 ? "s" : ""} sur <b>${d.suivis}</b> suivis par l'ONF` +
       `${d.carte_mise_a_jour ? `, d'après sa carte mise à jour le ${esc(d.carte_mise_a_jour.replace(" (ONF)", ""))}` : ""}.</p></div>`;
 
-  const markers = [...(d?.points ?? []).map((p) => ({ lon: p.lon, lat: p.lat, label: "×", name: `${p.nom} : fermé`, round: true, color: "#c92a2a", quiet: true })), ...fireMarkers(d?.feux, now)];
+  const markers = [...closedMarkers(d), ...fireMarkers(d?.feux, now)];
+  // A trail across two communes is listed under each: the map leads to the first.
+  const named = new Set<string>();
+  const rowId = (sentier: string) => (named.has(sentier) ? "" : (named.add(sentier), ` class="tgt" id="${anchorId("t", sentier)}"`));
   const fires = firesSection(d?.feux, now);
   const burning = !!d?.feux?.detections.length;
 
   const byCommune = d
     ? `<ul class="zones">${d.fermes_par_commune.map((c) =>
         `<li class="card"><h3>${esc(c.commune)} <span class="note">${c.sentiers_fermes.length} fermé${c.sentiers_fermes.length > 1 ? "s" : ""}</span></h3><ul class="rows eau">` +
-        c.sentiers_fermes.map((t) => `<li><span>${t.page ? `<a href="${esc(t.page.replace(/^https:\/\/rundata\.re/, ""))}">${esc(t.sentier)}</a>` : esc(t.sentier)}<small>${[t.cause, t.precision].filter(Boolean).map((x) => esc(x!)).join(" · ") || "fermé"}</small>` +
+        c.sentiers_fermes.map((t) => `<li${rowId(t.sentier)}><span>${t.page ? `<a href="${esc(t.page.replace(/^https:\/\/rundata\.re/, ""))}">${esc(t.sentier)}</a>` : esc(t.sentier)}<small>${[t.cause, t.precision].filter(Boolean).map((x) => esc(x!)).join(" · ") || "fermé"}</small>` +
           (t.randonnees?.length ? `<small class="cuts">Coupe : ${t.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}</small>` : "") + `</span>` +
           `<span class="q-mauvaise">fermé</span></li>`).join("") + `</ul></li>`).join("")}</ul>`
     : `<p class="card">L'état des sentiers se charge : rechargez la page dans quelques secondes.</p>`;
@@ -1487,9 +1516,12 @@ export function secheressePage(origin: string, data: Cached<SecheresseAnswer> | 
   const hit = d?.communes.filter((c) => c.eau_du_robinet && c.eau_du_robinet !== "vigilance") ?? [];
 
   const fills: Record<string, string> = {};
+  // Each commune leads to its row of the table.
+  const links: Record<string, ZoneLink> = {};
   for (const c of d?.communes ?? []) {
     const nm = MAP_NAME.get(normalize(c.commune));
     if (nm && c.eau_du_robinet) fills[nm] = DROUGHT_COLOR[c.eau_du_robinet] ?? "";
+    if (nm) links[nm] = { href: `#${anchorId("c", nm)}`, say: `eau du robinet : ${c.eau_du_robinet ?? "aucune restriction"}` };
   }
 
   const status = !d
@@ -1500,7 +1532,7 @@ export function secheressePage(origin: string, data: Cached<SecheresseAnswer> | 
 
   const table = d?.communes.length
     ? `<div class="card table-wrap"><table class="drought"><thead><tr><th>Commune</th><th>Eau du robinet</th><th>Rivières et sources</th><th>Nappes</th></tr></thead><tbody>${d.communes.map((c) =>
-        `<tr><th scope="row">${esc(c.commune)}</th><td>${droughtBadge(c.eau_du_robinet)}</td><td>${droughtBadge(c.rivieres_et_sources)}</td><td>${droughtBadge(c.nappes)}</td></tr>`).join("")}</tbody></table></div>`
+        `<tr><th scope="row" class="tgt" id="${anchorId("c", MAP_NAME.get(normalize(c.commune)) ?? c.commune)}">${esc(c.commune)}</th><td>${droughtBadge(c.eau_du_robinet)}</td><td>${droughtBadge(c.rivieres_et_sources)}</td><td>${droughtBadge(c.nappes)}</td></tr>`).join("")}</tbody></table></div>`
     : "";
 
   const rules = (d?.interdits ?? []).sort((x, y) => DROUGHT_ORDER.indexOf(x.niveau) - DROUGHT_ORDER.indexOf(y.niveau)).map((x) =>
@@ -1521,7 +1553,7 @@ export function secheressePage(origin: string, data: Cached<SecheresseAnswer> | 
     ${ask(`Mi gingn arouz mon zardin Sin-Zozèf ? Gèt si ${url} é di amwin sak lé défandi.`,
       `Ai-je le droit d'arroser mon jardin à Saint-Joseph ? Lis ${url} et dis-moi ce qui est interdit.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) colorée par le niveau de restriction de l'eau du robinet de chaque commune" })}
+  <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) colorée par le niveau de restriction de l'eau du robinet de chaque commune" })}
   <figcaption class="note" style="color:var(--on-night-muted)">Eau du robinet : <span style="color:#ffd43b">vigilance</span>, <span style="color:#ff922b">alerte</span>, <span style="color:#f03e3e">alerte renforcée</span>, <span style="color:#d0a4e0">crise</span>.</figcaption></figure>
 </div>`;
 
@@ -1575,10 +1607,14 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
   const dry = d?.ne_pas_boire ?? [];
 
   const fills: Record<string, string> = {};
+  const links: Record<string, ZoneLink> = {};
   for (const c of d?.communes_suivies ?? []) {
     const nm = MAP_NAME.get(normalize(c));
     if (!nm) continue;
     fills[nm] = dry.includes(c) ? "#f03e3e" : d!.avis.some((n) => n.communes.includes(c)) ? "#4dabf7" : "#a5d8ff";
+    // Each followed commune leads to its own page of notices.
+    const p = pageOf(slugify(nm));
+    if (p) links[nm] = { href: `/coupures-eau/${p.slug}`, say: dry.includes(c) ? "eau à ne pas boire" : d!.avis.some((n) => n.communes.includes(c)) ? "avis en cours" : "pas d'avis lu en ce moment" };
   }
 
   const status = !d
@@ -1607,7 +1643,7 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
     ${ask(`Dolo la koupé Sin-Dni ? Kansa i rovien ? Gèt si ${url} é di amwin.`,
       `Y a-t-il une coupure d'eau à Saint-Denis ? Lis ${url} et dis-moi quand l'eau revient.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) : les communes dont les avis de coupure d'eau sont suivis" })}
+  <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) : les communes dont les avis de coupure d'eau sont suivis" })}
   <figcaption class="note" style="color:var(--on-night-muted)">Communes dont nous lisons les avis : <span style="color:#f03e3e">eau à ne pas boire</span>, <span style="color:#4dabf7">avis en cours</span>, <span style="color:#a5d8ff">pas d'avis lu en ce moment</span>. Les autres communes : avis non lus, voir la mairie ou le distributeur.</figcaption></figure>
 </div>`;
 
@@ -1646,7 +1682,8 @@ const shortAccess = (a: string) =>
 export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/defibrillateurs`;
-  const markers = (d?.communes ?? []).map((c) => ({ lon: c.lon, lat: c.lat, label: String(c.nombre), name: `${c.commune} : ${c.nombre} défibrillateurs`, round: true, color: "#2b8a3e", quiet: true }));
+  const markers = (d?.communes ?? []).map((c) => ({ lon: c.lon, lat: c.lat, label: String(c.nombre), name: `${c.commune} : ${c.nombre} défibrillateurs`, round: true, color: "#2b8a3e", quiet: true,
+    place: c.commune, say: `${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}`, href: `#${anchorId("c", c.commune)}` }));
 
   const status = !d
     ? loading("La liste des défibrillateurs")
@@ -1654,7 +1691,7 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
 
   const list = d
     ? `<ul class="zones">${d.communes.map((c) =>
-        `<li class="card"><h3>${esc(c.commune)} <span class="note">${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}${c.toute_heure ? `, dont ${c.toute_heure} accessible${c.toute_heure > 1 ? "s" : ""} à toute heure` : ""}</span></h3><ul class="rows eau">` +
+        `<li class="card tgt" id="${anchorId("c", c.commune)}"><h3>${esc(c.commune)} <span class="note">${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}${c.toute_heure ? `, dont ${c.toute_heure} accessible${c.toute_heure > 1 ? "s" : ""} à toute heure` : ""}</span></h3><ul class="rows eau">` +
         c.liste.map((x) => `<li><span>${esc(x.lieu)}<small>${[x.adresse, x.emplacement, x.etage ? `étage ${x.etage}` : ""].filter(Boolean).map((v) => esc(v!)).join(" · ")}</small></span>` +
           `<span class="${x.acces.includes("toute heure") || x.acces.includes("24 h") ? "q-bonne" : "q-none"}">${esc(shortAccess(x.acces))}</span></li>`).join("") +
         (c.nombre > c.liste.length ? `<li><span class="note">et ${c.nombre - c.liste.length} autres : demandez le plus proche à votre IA.</span><span></span></li>` : "") +
@@ -1947,7 +1984,8 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
 
   const markers = rows.flatMap((r) => {
     const x = pct(r.pluie?.rapport_a_la_normale);
-    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: x < 50 ? "#ff922b" : x > 150 ? "#4dabf7" : "#69db7c" }];
+    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: x < 50 ? "#ff922b" : x > 150 ? "#4dabf7" : "#69db7c",
+      say: `${x} % de la pluie normale en 30 jours`, href: `#${anchorId("s", r.station)}` }];
   });
 
   const status = !d
@@ -1957,7 +1995,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
   const table = rows.length
     ? `<div class="card table-wrap"><table class="drought histo"><thead><tr><th>Station</th><th>Pluie, 30 jours</th><th>Maximales</th><th>Minimales</th><th>Soleil</th></tr></thead><tbody>${rows.map((r) => {
         const e = r.ensoleillement;
-        return `<tr><th scope="row">${esc(r.station)}<small class="note">${esc(r.zone)}, ${r.altitude_m} m</small></th>` +
+        return `<tr><th scope="row" class="tgt" id="${anchorId("s", r.station)}">${esc(r.station)}<small class="note">${esc(r.zone)}, ${r.altitude_m} m</small></th>` +
           `<td>${r.pluie ? rainBar(r.pluie.total_mm, r.pluie.normale_mm) : "—"}</td>` +
           `<td>${vsNormal(r.temperatures?.maximales_moyenne, r.temperatures?.maximales_normale)}</td>` +
           `<td>${vsNormal(r.temperatures?.minimales_moyenne, r.temperatures?.minimales_normale)}</td>` +

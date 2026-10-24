@@ -13,6 +13,7 @@ import { feuxDescription, feuxPage } from "../src/web/feux.js";
 import { site } from "../src/web/site.js";
 import { communeHikes } from "../src/web/liens.js";
 import { pageOf } from "../src/web/places.js";
+import { deadAnchors, doubleIds, mapLinks } from "./cartes.js";
 
 // Three VIIRS lists in FIRMS's column format: NOAA-20 saw two hot pixels above Saint-Paul (06:30 and 01:50, Réunion
 // time), NOAA-21 one two days old, Suomi NPP nothing.
@@ -146,6 +147,29 @@ describe("fires on the site", () => {
     expect(html.indexOf('id="h-feux"')).toBeLessThan(html.indexOf('id="h-fermes"'));
     expect(html).toContain("chaque point orange un feu détecté par satellite (faux positifs possibles)");
     expect(html).toContain("#e8590c");
+  });
+
+  it("lead from the map to their line, and each closed trail to its line on /sentiers", () => {
+    const trail = { nom: "Sentier de la Glacière", lon: 55.42, lat: -21.05 };
+    const s = sentiers(seen);
+    s.value.points = [trail];
+    // Across two communes, listed under each: one anchor, on the first.
+    s.value.fermes_par_commune = [
+      { commune: "Saint-Paul", sentiers_fermes: [{ sentier: trail.nom, cause: "éboulement" }] },
+      { commune: "La Possession", sentiers_fermes: [{ sentier: trail.nom }] },
+    ] as SentiersAnswer["fermes_par_commune"];
+    const html = sentiersPage("https://rundata.re", s, NOW);
+    expect(mapLinks(html).map((l) => l.href)).toEqual(["#t-sentier-de-la-glaciere", "#f-1", "#f-2"]);
+    expect(mapLinks(html)[0].label).toBe("Sentier de la Glacière : sentier fermé, voir le détail");
+    expect(mapLinks(html)[1].label).toMatch(/^Feu vu par satellite : Feu détecté près de Le Maïdo, à 06:30 · confiance forte[^"]*, voir le détail$/);
+    expect(deadAnchors(html)).toEqual([]);
+    expect(doubleIds(html)).toEqual([]);
+
+    feux.configure("key");
+    const page = feuxPage("https://rundata.re", { fires: { ...seen, fetchedAt: NOW }, sentiers: s }, NOW);
+    expect(mapLinks(page).map((l) => l.href)).toEqual(["/sentiers#t-sentier-de-la-glaciere", "#f-1", "#f-2"]);
+    expect(deadAnchors(page)).toEqual([]);
+    expect(doubleIds(page)).toEqual([]);
   });
 
   it("say a quiet day after the closed trails, and nothing at all without the key", () => {

@@ -11,6 +11,7 @@ import { homePage } from "../src/web/home.js";
 import { DESCRIPTION_MAX } from "../src/web/pages.js";
 import { pageOf } from "../src/web/places.js";
 import { site } from "../src/web/site.js";
+import { deadAnchors, doubleIds, mapLinks } from "./cartes.js";
 
 const NOW = new Date("2026-10-23T14:40:00Z");
 const ORIGIN = "https://rundata.re";
@@ -46,6 +47,11 @@ describe("domain pages", () => {
     expect(pages.volcan).toContain("Accès à l'Enclos : <b>partiellement ouvert</b>");
     expect(pages.air).toMatch(/<p class="big">moyen<\/p>/);
     expect(pages.air).toContain("var(--aq2)"); // the map, coloured by commune
+    // Each coloured commune leads to its line in the list.
+    expect(mapLinks(pages.air).length).toBeGreaterThan(20);
+    expect(mapLinks(pages.air)[0].label).toMatch(/^[^:]+ : indice \d sur 6, \p{L}[^,]*, voir le détail$/u);
+    expect(deadAnchors(pages.air)).toEqual([]);
+    expect(doubleIds(pages.air)).toEqual([]);
     expect(pages.air).toContain("L&#39;Etang-Salé");
     expect(pages.electricite).toContain(`<span class="big">43 %</span>`);
     expect(pages.electricite).toContain("bioénergies (bagasse, biomasse, biogaz)");

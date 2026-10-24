@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { parse } from "../src/providers/vigieau.js";
 import { restrictionsEau } from "../src/tools/secheresse.js";
+import { buildSecheresse } from "../src/web/data.js";
+import { secheressePage } from "../src/web/domains.js";
+import { deadAnchors, doubleIds, mapLinks } from "./cartes.js";
 
 // VigiEau on 24/10/2026: the drought order of 10/10/2026, Saint-Joseph in crisis.
 const raw = readFileSync(new URL("./fixtures/vigieau/zones_974.json", import.meta.url), "utf8");
@@ -25,6 +28,14 @@ describe("restrictions d'eau", () => {
     expect(b.resume).toBe("Sécheresse à La Réunion (arrêté en vigueur depuis le 10/10/2026). Eau du robinet : crise à Saint-Joseph ; alerte renforcée dans 5 communes ; alerte dans 14 communes ; vigilance aux Trois-Bassins, à Saint-Leu, à Saint-Louis et à Sainte-Rose.");
     expect(b.communes[0]).toEqual({ commune: "Saint-Joseph", eau_du_robinet: "crise", rivieres_et_sources: "alerte renforcée", nappes: "crise" });
     expect(b.communes).toHaveLength(24);
+  });
+
+  it("leads from each commune of the map to its row of the table", async () => {
+    const page = secheressePage("https://rundata.re", { value: await buildSecheresse(cache()), fetchedAt: new Date(), stale: false });
+    expect(mapLinks(page)).toHaveLength(24);
+    expect(mapLinks(page).find((l) => l.href === "#c-saint-joseph")?.label).toBe("Saint-Joseph : eau du robinet : crise, voir le détail");
+    expect(deadAnchors(page)).toEqual([]);
+    expect(doubleIds(page)).toEqual([]);
   });
 
   it("says what a private person may not do in a commune", async () => {
