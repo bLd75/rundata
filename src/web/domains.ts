@@ -1872,7 +1872,7 @@ ${d?.saison_precedente ? `<section aria-labelledby="h-saison-prec">
 </section>` : ""}
 <section aria-labelledby="h-passes">
   <div class="sec-h"><p class="eyebrow">Mesures Météo-France</p><h2 id="h-passes">Cyclones passés</h2>
-  <p>La pluie et les rafales mesurées station par station pendant leur passage, et les records battus.</p></div>
+  <p>La pluie et les rafales mesurées station par station pendant leur passage, et les records de station.</p></div>
   <div class="card"><ul class="plain">${PASSES.map((p) => `<li><a href="/cyclones/${p.slug}">Cyclone ${esc(p.nom)}, ${esc(p.date)}</a></li>`).join("")}</ul></div>
 </section>
 ${d ? `<section aria-labelledby="h-src"><div class="sec-h"><h2 id="h-src">D'où viennent ces données</h2><p>${esc(d.a_savoir)}</p></div>${data ? sourcesNote(d.sources, data) : ""}</section>` : ""}
