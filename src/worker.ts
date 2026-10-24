@@ -15,6 +15,7 @@ import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
 import * as meteofrance from "./providers/meteofrance.js";
+import * as feux from "./providers/feux.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
@@ -84,6 +85,8 @@ class KvStore implements CacheStore {
 interface Env {
   METEOFRANCE_APPLICATION_ID?: string;
   METEOFRANCE_API_KEY?: string;
+  /** Optional: NASA FIRMS's MAP_KEY, for the fires seen by satellite (src/providers/feux.ts). */
+  FIRMS_MAP_KEY?: string;
   STORE?: KvNamespace;
   USAGE?: AnalyticsDataset;
   TRANSIT?: D1Database;
@@ -150,6 +153,7 @@ let cache: Cache | undefined;
 
 function setup(env: Env): Cache {
   meteofrance.configure({ applicationId: env.METEOFRANCE_APPLICATION_ID, apiKey: env.METEOFRANCE_API_KEY });
+  feux.configure(env.FIRMS_MAP_KEY);
   const d1 = env.TRANSIT;
   const kv = env.STORE;
   // Filtered from the national file by .github/workflows/irve.yml (src/providers/irve.ts).

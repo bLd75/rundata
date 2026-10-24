@@ -1,8 +1,10 @@
 import type { Cache } from "../cache.js";
 import { localTime } from "../geo.js";
 import { resolvePlace } from "../places/resolve.js";
+import * as feux from "../providers/feux.js";
 import * as mf from "../providers/vigilance.js";
 import { why } from "../types.js";
+import { vigilanceLine } from "./feux.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
 
 const OFFICIAL =
@@ -93,6 +95,8 @@ function unavailable(reason: string) {
 export async function vigilanceMeteo(cache: Cache, lieu: string | undefined, now = new Date()) {
   if (!mf.enabled()) return unavailable("La vigilance Météo-France n'est pas branchée sur ce serveur (clé absente).");
   let cached;
+  // The fires seen by satellite: one line, only when there is one (providers/feux.ts).
+  const seen = feux.feuxNow(cache, now);
   try {
     cached = await mf.vigilance(cache);
   } catch (err) {
@@ -101,13 +105,16 @@ export async function vigilanceMeteo(cache: Cache, lieu: string | undefined, now
   }
   const v = cached.value;
   const r = raised(v);
+  const fires = await seen;
+  const fireLine = fires ? vigilanceLine(fires, now) : undefined;
   const common = {
     emise: `${day(v.emise)} heure de La Réunion`,
     alerte_cyclonique: cyclone(v, now),
+    feux_detectes: fireLine,
     suivi_meteo_france: v.suivi.length ? v.suivi : undefined,
     avertissements: [OFFICIAL, ...(cached.stale ? ["Météo-France momentanément injoignable : dernière vigilance connue."] : [])],
     consulter: mf.SOURCE.url,
-    sources: credits([mf.SOURCE]),
+    sources: credits(fireLine ? [mf.SOURCE, feux.SOURCE] : [mf.SOURCE]),
   };
 
   if (!lieu?.trim()) {

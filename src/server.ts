@@ -10,6 +10,7 @@ import * as modis from "./providers/modis.js";
 import * as houle from "./providers/houle.js";
 import * as openmeteo from "./providers/openmeteo.js";
 import * as uv from "./providers/uv.js";
+import * as feux from "./providers/feux.js";
 import * as avis from "./avis.js";
 import { withLectures } from "./lectures.js";
 import { catalogue, INDEX, serveur } from "./nouveautes.js";
@@ -68,7 +69,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.52.0";
+export const VERSION = "0.53.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -87,7 +88,7 @@ Détails :
 - Circulation : aucun outil ne mesure les bouchons, ne pas en inventer ; le dire, renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic ; un barrage ou une route coupée en un lieu : actualites avec ce lieu ; aussi les routes forestières fermées (sentiers_randonnee) et les retards de bus (transports).
 - actualites : dire l'heure, le média et le lien de chaque information ; si rien ne nomme le lieu, ne pas en conclure qu'il ne s'y passe rien ; ne jamais inventer ni démentir un blocage.
 - evenements : donner le lien de chaque événement ; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres ; l'agenda n'est pas complet, le dire quand rien n'est trouvé ; cinéma : les sites des salles.
-- sentiers_randonnee : un sentier fermé est interdit, même avec la trace ; « hors gestion ONF » n'est pas dit ouvert ; longueur et dénivelé par longueur_min_km, longueur_max_km, denivele_max_m ; donner le lien trace_gpx.
+- sentiers_randonnee : un sentier fermé est interdit, même avec la trace ; « hors gestion ONF » n'est pas dit ouvert ; longueur et dénivelé par longueur_min_km, longueur_max_km, denivele_max_m ; donner le lien trace_gpx. feux_detectes (avec vigilance_meteo) : détection satellite, faux positifs possibles ; un jour sans détection ne prouve pas qu'il n'y a pas de feu ; toujours donner « Vous voyez un feu ? Appelez le 18 ou le 112. ».
 - defibrillateurs : dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque. coupures_eau : un avis « ne pas boire » d'abord. crues_rivieres : ne jamais traverser un radier submergé.
 - maree : mesures, puis les prochaines marées CALCULÉES par rundata, pas la prédiction du SHOM : le dire, avec la précision donnée. sport : « match de volley / foot / hand / basket ce week-end à X » → sport (lieu = commune, « le sud » ou sigle de club ; quand = samedi, dimanche…), annulations et reports compris ; pas de source officielle pour le football et le basket : le dire et citer les articles. cyclones : citer la prévision du CMRS telle quelle, jamais de trajectoire inventée ; renvoyer aux consignes de la préfecture.
 Réunion Island live public data. Weather: measurements (meteo_actuelle), past measurements (historique_meteo) and forecasts (prevision_meteo), never mixed. Always cite rundata.re with its link, next to the original producers.`;
@@ -221,6 +222,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           "Pour : « y a-t-il une alerte cyclonique ? », « on est en vigilance orange ? », « vigilance fortes pluies à Saint-Benoît ? », " +
           "« la mer est dangereuse ? », « on peut randonner à Mafate demain avec la pluie ? ». " +
           "Avec un lieu : la zone de vigilance de sa commune ; sans lieu : toute l'île. " +
+          (feux.enabled() ? "Une ligne feux_detectes quand un feu de végétation a été détecté par satellite ces dernières 24 h (faux positifs possibles). " : "") +
           "/ Official Météo-France weather warnings and cyclone alert for Réunion Island, by zone, for the next 24 h.",
         inputSchema: { lieu },
         annotations: { title: "Vigilance météo à La Réunion", ...READ_ONLY },
@@ -481,6 +483,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "« on peut randonner à Bélouve ? », « la trace GPS du Piton des Neiges ? », « dénivelé du GR R2 ? », « une rando de 10 km à Cilaos ? » " +
         "(longueur_min_km, longueur_max_km, denivele_max_m filtrent les itinéraires et sentiers proposés). Dès qu'un sentier de l'ONF d'un " +
         "itinéraire est fermé, la réponse porte un champ avertissement, à donner en premier. " +
+        (feux.enabled() ? "Avec les feux de végétation détectés par satellite (NASA FIRMS) ces dernières 24 h, dans feux_detectes : faux positifs possibles. " : "") +
         "/ Hiking in Réunion Island: open and closed trails (ONF), GPX traces, distance and elevation gain, hikes by length; closure warnings.",
       inputSchema: {
         lieu: z
@@ -773,7 +776,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
     },
     track("sources_donnees", async () =>
       text({
-        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE],
+        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ...(feux.enabled() ? [feux.SOURCE] : [])],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage(), evenements: AGENDA_COVERAGE },
         version: VERSION,

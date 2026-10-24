@@ -11,6 +11,8 @@ import * as traces from "../providers/traces.js";
 import { SUJETS } from "../providers/actualites.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
+import * as fire from "../tools/feux.js";
+import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
 import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
@@ -766,6 +768,24 @@ export function eauLive(data: Cached<EauAnswer> | null): Live | undefined {
 const kmFr = (n: number) => String(n).replace(".", ",");
 const meters = (n: number) => n.toLocaleString("fr-FR").replace(/\u202f|\u00a0/g, " ");
 
+/** The fires seen by satellite, on the island's map: orange, apart from the closed trails. */
+export const fireMarkers = (f: feux.Feux | undefined, now: Date) =>
+  (f?.detections ?? []).map((d) => ({ lon: d.lon, lat: d.lat, label: "!", name: `${fire.listLine(d, now)} (${feux.LABEL})`, round: true, color: "#e8590c" }));
+
+/** The section of the fires seen by satellite (worded by marketing): the emergency numbers always, a quiet day said as such. */
+export function firesSection(f: feux.Feux | undefined, now: Date): string {
+  if (!f) return "";
+  const list = f.detections.length
+    ? `<ul class="rows eau">${f.detections.map((d) => `<li><span>${esc(fire.listLine(d, now))}<small>${esc(d.commune)} · satellite ${esc(d.satellite)}</small></span><span class="q-mauvaise">feu</span></li>`).join("")}</ul>`
+    : `<p>${esc(fire.QUIET)}</p>`;
+  return `<section aria-labelledby="h-feux">
+  <div class="sec-h"><p class="eyebrow">NASA FIRMS</p><h2 id="h-feux">Feux de végétation vus par satellite</h2>
+  <p>${esc(fire.INTRO)}</p>
+  <p><b>${esc(fire.URGENCE)}</b></p></div>
+  <div class="card">${list}</div>
+</section>`;
+}
+
 export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/sentiers`;
@@ -776,7 +796,9 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
     : `<div class="now"><span class="big">${closed}</span><p>sentier${closed > 1 ? "s" : ""} fermé${closed > 1 ? "s" : ""} sur <b>${d.suivis}</b> suivis par l'ONF` +
       `${d.carte_mise_a_jour ? `, d'après sa carte mise à jour le ${esc(d.carte_mise_a_jour.replace(" (ONF)", ""))}` : ""}.</p></div>`;
 
-  const markers = (d?.points ?? []).map((p) => ({ lon: p.lon, lat: p.lat, label: "×", name: `${p.nom} : fermé`, round: true, color: "#c92a2a", quiet: true }));
+  const markers = [...(d?.points ?? []).map((p) => ({ lon: p.lon, lat: p.lat, label: "×", name: `${p.nom} : fermé`, round: true, color: "#c92a2a", quiet: true })), ...fireMarkers(d?.feux, now)];
+  const fires = firesSection(d?.feux, now);
+  const burning = !!d?.feux?.detections.length;
 
   const byCommune = d
     ? `<ul class="zones">${d.fermes_par_commune.map((c) =>
@@ -798,9 +820,12 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
 
   const title = "Sentiers fermés Réunion aujourd'hui : liste ONF · 974";
   const short = "🇷🇪 Sentiers de randonnée fermés à La Réunion (974) : la liste de l'ONF commune par commune, avec la cause de chaque fermeture.";
-  const description = d
+  const base = d
     ? describe(`🇷🇪 Sentiers fermés à La Réunion (974) : ${closed} sentiers fermés sur ${d.suivis} d'après la carte de l'ONF, commune par commune, avec la cause (éboulement, sentier dégradé, travaux).`, short)
     : short;
+  // The fires, when there is room for them (marketing): else the description stays as it was.
+  const withFires = `${base.replace(/\.$/, "")}, et les feux de végétation détectés par satellite.`;
+  const description = d?.feux && withFires.length <= DESCRIPTION_MAX ? withFires : base;
 
   const band = `${hikeCrumbBar("Sentiers fermés")}
 <div class="wrap intro">
@@ -813,10 +838,10 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
       `Le sentier de Roche Plate est-il ouvert ? Lis ${url} et dis-moi si je peux descendre dans Mafate.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les sentiers de randonnée fermés" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Chaque croix est un sentier fermé.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">Chaque croix est un sentier fermé${burning ? ", chaque point orange un feu détecté par satellite (faux positifs possibles)" : ""}.</figcaption></figure>
 </div>`;
 
-  const body = `<section aria-labelledby="h-fermes">
+  const body = `${burning ? fires : ""}<section aria-labelledby="h-fermes">
   <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-fermes">Les sentiers fermés</h2>
   <p>Les sentiers gérés par l'ONF fermés par arrêté préfectoral ou par décision de l'ONF, avec la cause et, quand elle est connue, la date de réouverture. Les autres sentiers suivis par l'ONF sont ouverts.</p>
   <p>Par secteur, avec les itinéraires, les accès et la météo :</p>${sectorLinks()}</div>
@@ -825,6 +850,7 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
   ${d ? warnings(d.a_savoir) : ""}
   ${d && data ? sourcesNote(d.sources, data) : ""}
 </section>
+${burning ? "" : fires}
 ${hikes}
 ${connectorCta("sentiers_randonnee", "les sentiers de randonnée")}`;
 
