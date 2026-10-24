@@ -9,6 +9,8 @@
  */
 import { cacheTally } from "./metrics.js";
 
+import { noteLecture } from "./lectures.js";
+
 export interface CacheEntry {
   value: unknown;
   fetchedAt: number;
@@ -118,7 +120,13 @@ export class Cache {
   /** `backoffSeconds`: how long a failure is remembered (in this process) before the source is asked again. */
   async get<T>(key: string, freshSeconds: number, load: () => Promise<T>, backoffSeconds = FAILURE_BACKOFF_SECONDS): Promise<Cached<T>> {
     const hit = await this.store.get(key, this.now() - freshSeconds * 1000);
-    return this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e), backoffSeconds);
+    return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e), backoffSeconds));
+  }
+
+  /** Tells the tool call being answered, if any, what it was served (lectures.ts): its answer says how fresh it is. */
+  private noted<T>(key: string, freshSeconds: number, c: Cached<T>): Cached<T> {
+    noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds });
+    return c;
   }
 
   /** The entry stored under `key`, however old, without loading it. */
@@ -156,11 +164,11 @@ export class Cache {
         s.entries[k] = { value, fetchedAt: this.now() };
         added = true;
       },
-      get: <T>(k: string, freshSeconds: number, load: () => Promise<T>) =>
-        this.serve(`${key}|${k}`, s.entries[k], freshSeconds, load, async (e) => {
+      get: async <T>(k: string, freshSeconds: number, load: () => Promise<T>) =>
+        this.noted(`${key}|${k}`, freshSeconds, await this.serve(`${key}|${k}`, s.entries[k], freshSeconds, load, async (e) => {
           s.entries[k] = e;
           added = true;
-        }),
+        })),
       drop: (keep) => {
         for (const k of Object.keys(s.entries)) if (!keep(k)) delete s.entries[k];
       },

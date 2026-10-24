@@ -4,12 +4,17 @@
  *   the sources the answer credits. rundata.re is added to the producers, never put in their place: their licences
  *   ask that they be named, and `sources` keeps their full attribution;
  * - `lien`: the rundata.re page that shows the same thing (the place's weather, the category, the commune);
- * - `avis`, only when the answer found nothing or did not understand: a pointer to the tool donner_avis.
+ * - `fraicheur`: when the data dates from, when rundata.re read it, its age, and a last copy served in place of a
+ *   source that did not answer (fraicheur.ts);
+ * - `avis`, only when the answer found nothing or did not understand: a pointer to the tool donner_avis;
+ * - `serveur`: the version and the newest tools, for a client whose list of tools is old (nouveautes.ts).
  * The fields are spliced into the JSON text as it is, a few dozen tokens in all.
  */
+import type { Lecture } from "../lectures.js";
 import type { SourceInfo } from "../types.js";
 import { pageOf, slugify } from "../web/places.js";
 import { credited } from "./format.js";
+import { fraicheur } from "./fraicheur.js";
 
 export const SITE_URL = "https://rundata.re";
 export const AVIS_HINT = "Une donnée manque ou semble fausse, ou l'utilisateur a un souhait ? Le dire à rundata.re avec l'outil donner_avis.";
@@ -106,8 +111,18 @@ function wanting(p: Payload, isError: boolean): boolean {
   return Object.keys(p).some((k) => k.endsWith("_non_compris") && p[k]);
 }
 
-/** The answer with `citer`, `lien` and, when it found nothing, `avis` at the end. Left as is if it is not JSON. */
-export function cite<R extends object>(tool: string, r: R): R {
+/** What the server adds besides the citation (server.ts): the entries the call read, and the `serveur` block. */
+export interface Around {
+  lectures?: Lecture[];
+  now?: Date;
+  serveur?: object;
+}
+
+/**
+ * The answer with `citer`, `lien`, `fraicheur`, `avis` when it found nothing, and `serveur` at the end. Left as is if
+ * it is not JSON.
+ */
+export function cite<R extends object>(tool: string, r: R, around: Around = {}): R {
   const content = (r as { content?: { type: string; text: string }[] }).content;
   const t = content?.[0]?.type === "text" ? content[0].text : undefined;
   if (!t || !t.endsWith("}")) return r;
@@ -119,8 +134,9 @@ export function cite<R extends object>(tool: string, r: R): R {
   }
   if (!p || typeof p !== "object" || Array.isArray(p)) return r;
   const isError = "isError" in r && !!r.isError;
-  const extra: Payload = { citer: citation(p), lien: lien(tool, p) };
+  const extra: Payload = { citer: citation(p), lien: lien(tool, p), fraicheur: fraicheur(p, around.lectures ?? [], around.now ?? new Date()) };
   if (wanting(p, isError)) extra.avis = AVIS_HINT;
+  if (around.serveur) extra.serveur = around.serveur;
   const fields = Object.entries(extra).map(([k, v]) => ` ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(",\n");
   const text = /\n}$/.test(t) ? `${t.slice(0, -2)},\n${fields}\n}` : JSON.stringify({ ...p, ...extra }, null, 1);
   return { ...r, content: [{ ...content![0], text }, ...content!.slice(1)] };
