@@ -214,7 +214,7 @@ describe("what crawlers and previews fetch", () => {
     const robots = await (await handle(new Request("https://rundata.re/robots.txt"), isolate())).text();
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 16 + 24);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 17 + 24);
     expect(map).toContain("<loc>https://rundata.re/communes</loc>");
     expect(map).toContain("<loc>https://rundata.re/communes/saint-paul</loc>");
     expect(map).toContain("<loc>https://rundata.re/meteo</loc>");
