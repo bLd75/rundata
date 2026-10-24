@@ -22,32 +22,50 @@ export interface Shared {
   build: (cache: Cache, now: Date) => Promise<unknown>;
   /** How often its copy in KV is refreshed, in minutes: each refresh is one KV write. */
   every: number;
+  /** The subrequests its build takes from a cold cache, as measured: what an isolate that has not built it yet expects. */
+  cold?: number;
 }
 
 // About 230 KV writes a day in all: 48 a day for each of the four every 30 minutes, 24 for the air, 8 for the sea,
 // 4 for the calendar. The events stay out: their build takes most of an invocation (they will come in a bundle).
+// The cold costs: each build measured alone with `wrangler dev` from an empty cache, plus one, and the traffic's from
+// the event's logs, a little dearer than in `wrangler dev` (24 October 2026).
 export const SHARED: Shared[] = [
-  { key: "web:actualites", build: buildActualites, every: 30 },
-  { key: "web:trafic", build: buildTrafic, every: 30 },
-  { key: "web:electricite", build: buildElectricite, every: 30 },
-  { key: "web:coupures", build: buildCoupures, every: 30 },
-  { key: "web:air", build: buildAir, every: 60 },
-  { key: "web:mer", build: buildSea, every: 3 * 60 },
-  { key: "web:calendrier", build: buildCalendrier, every: 6 * 60 },
+  { key: "web:actualites", build: buildActualites, every: 30, cold: 12 },
+  { key: "web:trafic", build: buildTrafic, every: 30, cold: 27 },
+  { key: "web:electricite", build: buildElectricite, every: 30, cold: 7 },
+  { key: "web:coupures", build: buildCoupures, every: 30, cold: 7 },
+  { key: "web:air", build: buildAir, every: 60, cold: 4 },
+  { key: "web:mer", build: buildSea, every: 3 * 60, cold: 15 },
+  { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8 },
 ];
 const KEYS = new Set(SHARED.map((s) => s.key));
 // The calendar's copy, the least often refreshed, outlives its next refresh by far.
 const KV_TTL_SECONDS = 24 * 3600;
-// A build whose cost is not known yet in this isolate is taken to cost this much (web/site.ts does the same).
+// A build whose cost is known nowhere is taken to cost this much (web/site.ts does the same).
 const COST_UNKNOWN = 25;
+// Besides the build: the data center's cache, then KV, asked for the copy before it is built (SharedFallback).
+const LOOKUP = 2;
+
+/** A copy in KV, with what its build took (`cost`), for the isolates that have not built it yet. */
+type KvEntry = CacheEntry & { cost?: number };
+
+/**
+ * What a build is expected to take: the most of what it took in this isolate, what it took when its KV copy was
+ * written, and its cold cost. After a deploy, every isolate is new and KV has no copy of the version: the cold cost.
+ */
+function expected(s: Shared, kept?: number): number {
+  const known = [costOf(s.key), kept, s.cold].filter((n): n is number => n != null);
+  return known.length ? Math.max(...known) : COST_UNKNOWN;
+}
 
 /** Per version, as the data center's cache: a copy of the previous code's data may lack what the new code reads. */
 const kvKey = (key: string) => `copie:${VERSION}:${key}`;
 
-async function kvGet(kv: Kv, key: string): Promise<CacheEntry | undefined> {
+async function kvGet(kv: Kv, key: string): Promise<KvEntry | undefined> {
   try {
     count();
-    return ((await kv.get(kvKey(key), "json")) ?? undefined) as CacheEntry | undefined;
+    return ((await kv.get(kvKey(key), "json")) ?? undefined) as KvEntry | undefined;
   } catch {
     return undefined; // a store problem must never cost an answer
   }
@@ -84,15 +102,19 @@ export interface Warmed {
  * budget as a page (worker.ts), so a build that costs more than it was thought to is cut there, not past it.
  */
 export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = SHARED): Promise<Warmed> {
-  const ages = await Promise.all(list.map(async (s) => ({ s, at: (await kvGet(kv, s.key))?.fetchedAt })));
+  const ages = await Promise.all(list.map(async (s) => {
+    const e = await kvGet(kv, s.key);
+    return { s, at: e?.fetchedAt, kept: e?.cost };
+  }));
   const due = ages
-    .map(({ s, at }) => ({ s, at, over: at == null ? Infinity : now.getTime() - at - s.every * 60_000 }))
+    .map(({ s, at, kept }) => ({ s, at, kept, over: at == null ? Infinity : now.getTime() - at - s.every * 60_000 }))
     .filter((x) => x.over >= 0)
     .sort((a, b) => b.over - a.over);
   const out: Warmed = { written: [], left: [] };
-  for (const { s, at } of due) {
-    // The build's reads, within what is left besides the writes; the write to KV goes in the part kept for writes.
-    const cost = costOf(s.key) ?? COST_UNKNOWN;
+  for (const { s, at, kept } of due) {
+    // The copy looked up, then built, within what is left besides the writes; the writes (the data center's cache,
+    // KV) go in the part kept for them.
+    const cost = LOOKUP + expected(s, kept);
     if (cost > left()) {
       out.left.push({ key: s.key, why: `budget : ${spent()} faites, ${cost} prévues` });
       continue;
@@ -109,7 +131,8 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
         continue;
       }
       count(1, true);
-      await kv.put(kvKey(s.key), JSON.stringify({ value: got.value, fetchedAt: got.fetchedAt.getTime() }), { expirationTtl: KV_TTL_SECONDS });
+      const entry: KvEntry = { value: got.value, fetchedAt: got.fetchedAt.getTime(), cost: costOf(s.key) ?? kept };
+      await kv.put(kvKey(s.key), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS });
       out.written.push(s.key);
     } catch (err) {
       out.left.push({ key: s.key, why: `erreur : ${why(err).slice(0, 80)}` });
