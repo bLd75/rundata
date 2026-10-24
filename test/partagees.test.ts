@@ -120,7 +120,8 @@ describe("the scheduled refresh of the shared copies", () => {
     }
     expect(events[0].length).toBeGreaterThanOrEqual(2);
     expect(kv.data.size).toBe(list.length);
-    expect(events.length).toBeLessThanOrEqual(4);
+    // All eight within 25 minutes: about 110 subrequests of builds and lookups, in events of 36 less their KV reads.
+    expect(events.length).toBeLessThanOrEqual(5);
   });
 
   it("keeps a build's cost with its KV copy, for an isolate that has not built it", async () => {

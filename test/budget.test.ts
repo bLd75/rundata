@@ -44,7 +44,7 @@ function upstream(url: string): Response {
   if (url.includes("aviationweather")) return new Response(fixture("metar.json"));
   if (url.endsWith("/live/all")) return new Response(fixture("pioupiou_all.json"));
   if (url.includes("pioupiou")) return Response.json({ data: JSON.parse(String(fixture("pioupiou_all.json"))).data[0] });
-  if (url.includes("noaacwLEOACSPO")) return new Response(fixture("acspo.csv"));
+  if (url.includes("/thredds/dodsC/gridLEODYNRTL3SWW00/")) return new Response(fixture("acspo.ascii"));
   if (url.includes("erdMH1sstd1day")) return new Response(fixture("modis.csv"));
   if (url.includes("marine-api.open-meteo")) return new Response(fixture("openmeteo_houle.json"));
   if (url.includes("air-quality-api.open-meteo")) return new Response(fixture("cams_uv.json"));

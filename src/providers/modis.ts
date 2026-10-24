@@ -21,6 +21,8 @@ export const SOURCE: SourceInfo = {
 
 const DAYS = 7; // one satellite, daytime only: more days to find a clear pixel
 const FRESH_SECONDS = 3 * 3600;
+/** One request: the download, plus the cache read and write. */
+export const COST = 3;
 const TIMEOUT_MS = 15_000; // a few seconds normally; asked after ACSPO, within a page refresh cut at 30 s
 const box = `[last-${DAYS - 1}:last][(${BBOX.latMax}):(${BBOX.latMin})][(${BBOX.lonMin}):(${BBOX.lonMax})]`;
 const URL =
