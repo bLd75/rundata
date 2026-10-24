@@ -5,7 +5,7 @@
  * KV, which every data center reads; it is the only writer. A page or the tool reads KV only when its data center's
  * cache has no copy, and copies what it read there.
  */
-import { costOf, count, measured, spent, WORKER_BUDGET } from "../budget.js";
+import { costOf, count, left, measured, spent } from "../budget.js";
 import type { Cache, CacheEntry, CacheStore } from "../cache.js";
 import { VERSION } from "../server.js";
 import { why } from "../types.js";
@@ -71,30 +71,49 @@ export class SharedFallback implements CacheStore {
   }
 }
 
+/** What a scheduled event did with the shared copies: those written to KV, and those due but left, with why. */
+export interface Warmed {
+  written: string[];
+  left: { key: string; why: string }[];
+}
+
 /**
  * The scheduled event's part: each shared copy whose KV copy is due, the most overdue first, built (or taken from
- * the data center's cache when fresh there) and written to KV, while the whole invocation stays within
- * WORKER_BUDGET; a build that would not fit, after a full AROME prefetch, waits for a later event.
+ * the data center's cache when fresh there) and written to KV, while the whole invocation stays within its budget; a
+ * build that would not fit, after a full AROME prefetch, waits for a later event. The event runs under the same
+ * budget as a page (worker.ts), so a build that costs more than it was thought to is cut there, not past it.
  */
-export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = SHARED): Promise<string[]> {
+export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = SHARED): Promise<Warmed> {
   const ages = await Promise.all(list.map(async (s) => ({ s, at: (await kvGet(kv, s.key))?.fetchedAt })));
   const due = ages
     .map(({ s, at }) => ({ s, at, over: at == null ? Infinity : now.getTime() - at - s.every * 60_000 }))
     .filter((x) => x.over >= 0)
     .sort((a, b) => b.over - a.over);
-  const written: string[] = [];
+  const out: Warmed = { written: [], left: [] };
   for (const { s, at } of due) {
-    // The build, and the write to KV after it.
-    if (spent() + (costOf(s.key) ?? COST_UNKNOWN) + 1 > WORKER_BUDGET) continue;
+    // The build's reads, within what is left besides the writes; the write to KV goes in the part kept for writes.
+    const cost = costOf(s.key) ?? COST_UNKNOWN;
+    if (cost > left()) {
+      out.left.push({ key: s.key, why: `budget : ${spent()} faites, ${cost} prévues` });
+      continue;
+    }
     try {
       const got = await cache.get(s.key, FRESH_SECONDS, () => measured(s.key, () => s.build(cache, now)));
-      if (got.stale || (at != null && got.fetchedAt.getTime() <= at)) continue;
+      // The source failed and the cache served its last copy: not worth spreading.
+      if (got.stale) {
+        out.left.push({ key: s.key, why: "copie de secours" });
+        continue;
+      }
+      if (at != null && got.fetchedAt.getTime() <= at) {
+        out.left.push({ key: s.key, why: "pas plus récente que celle de KV" });
+        continue;
+      }
       count(1, true);
       await kv.put(kvKey(s.key), JSON.stringify({ value: got.value, fetchedAt: got.fetchedAt.getTime() }), { expirationTtl: KV_TTL_SECONDS });
-      written.push(s.key);
+      out.written.push(s.key);
     } catch (err) {
-      console.error(`copie partagée ${s.key} : rafraîchissement impossible`, why(err));
+      out.left.push({ key: s.key, why: `erreur : ${why(err).slice(0, 80)}` });
     }
   }
-  return written;
+  return out;
 }

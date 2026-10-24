@@ -7,7 +7,7 @@
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
 import { handle } from "./app.js";
-import { WORKER_BUDGET, WORKER_FREE_LIMIT, count, counted, later, spent } from "./budget.js";
+import { WORKER_BUDGET, count, counted, later, spent } from "./budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { audience, language, point, visitor, type Hit } from "./metrics.js";
 import { VERSION } from "./server.js";
@@ -206,14 +206,17 @@ export default {
     const kv = env.STORE;
     // The AROME grids first; then, with what is left of the invocation, the shared page copies that are due.
     ctx.waitUntil(
-      counted(WORKER_FREE_LIMIT, async () => {
+      // The same budget as a page: past it a subrequest is refused here, before the platform's own limit.
+      counted(WORKER_BUDGET, async () => {
         const arome = await prefetchForecasts(c).catch((err) => (console.error("préchargement AROME impossible", why(err)), null));
         const aromeUsed = spent();
-        const copies = kv ? await warmShared(c, kv) : [];
+        const copies = kv ? await warmShared(c, kv) : { written: [], left: [] };
         return { arome, aromeUsed, copies };
       })
         .then(({ value, used }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +
-          (value.copies.length ? ` ; copies partagées : ${value.copies.join(", ")}, sous-requêtes en tout : ${used}` : "")))
+          (value.copies.written.length ? ` ; copies partagées : ${value.copies.written.join(", ")}` : "") +
+          (value.copies.left.length ? ` ; reportées : ${value.copies.left.map((x) => `${x.key} (${x.why})`).join(", ")}` : "") +
+          (value.copies.written.length || value.copies.left.length ? `, sous-requêtes en tout : ${used}` : "")))
         .catch((err) => console.error("préchargement impossible", why(err))),
     );
   },
