@@ -28,6 +28,7 @@ import {
   buildCoupures,
   buildSport,
   buildAgenda,
+  buildActualites,
   buildRoute,
   buildTrail,
   routeGpx,
@@ -44,7 +45,7 @@ import {
   type Background,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
-import { agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
+import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
 import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
@@ -116,6 +117,7 @@ const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) =>
   "/cyclones": { key: "web:cyclones", build: buildCyclones, page: cyclonesPage },
   "/historique": { key: "web:historique", build: buildHistorique, page: historiquePage },
   "/evenements": { key: "web:agenda", build: buildAgenda, page: agendaPage },
+  "/actualites": { key: "web:actualites", build: buildActualites, page: actualitesPage },
 };
 
 /** How to build each category page's copy, by its cache key: what the home page and the commune pages show as tiles. */
@@ -124,7 +126,8 @@ const BUILDS: Record<string, (cache: Cache, now: Date) => Promise<unknown>> = {
   "web:mer": buildSea,
 };
 // The home page's tiles besides the weather and the vigilance; a commune page's besides its own.
-const HOME_TILES = ["web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
+// The news first: on a day of mobilisation its headlines go above the tiles.
+const HOME_TILES = ["web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
 const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier"];
 
 /**
@@ -132,7 +135,9 @@ const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "w
  * Once the page's own data is fresh, the oldest copy (or one never built) is brought up to date afterwards.
  */
 async function tileCopies(cache: Cache, keys: string[], background: Background, own: Cached<unknown> | null, now: Date): Promise<(Cached<any> | null)[]> {
-  const copies = await Promise.all(keys.map((k) => cache.peek<any>(k)));
+  // One read each, as long as the invocation has subrequests left: a tile past them waits for the next view.
+  const budget = left();
+  const copies = await Promise.all(keys.map((k, i) => (i < budget ? cache.peek<any>(k) : Promise.resolve(undefined))));
   const age = (c: Cached<unknown> | null | undefined) => (c ? now.getTime() - c.fetchedAt.getTime() : Infinity);
   const due = keys.map((key, i) => ({ key, age: age(copies[i]) })).sort((a, b) => b.age - a.age)[0];
   if (own && age(own) < FRESH_SECONDS * 1000 && due.age >= FRESH_SECONDS * 1000 && left() >= TILE_MIN_LEFT) {
@@ -159,9 +164,9 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
     ]);
-    const [volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda] = await tileCopies(cache, HOME_TILES, background, meteo, now);
+    const [actualites, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda] = await tileCopies(cache, HOME_TILES, background, meteo, now);
     const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
-    return new Response(homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda }, now, a), { headers: htmlFor(meteo) });
+    return new Response(homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, actualites }, now, a), { headers: htmlFor(meteo) });
   }
   if (path === "/vigilance" || path === "/vigilance/") {
     const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS);

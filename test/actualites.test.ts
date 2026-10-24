@@ -1,0 +1,140 @@
+import { readFileSync } from "node:fs";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Cache, MemoryStore } from "../src/cache.js";
+import { firstSentence, merge, parseImazLive, parseNewsSitemap, parsePrefecture, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
+import { actualites, quand } from "../src/tools/actualites.js";
+import { actualitesPage } from "../src/web/domains.js";
+import { buildActualites } from "../src/web/data.js";
+
+// Saturday 24/10/2026 at 12:05 in La Réunion, the morning of a day of mobilisation (gilets jaunes, « vie chère »): Imaz
+// Press runs a live blog, the prefecture has published its report of the night.
+const fixture = (f: string) => readFileSync(new URL(`./fixtures/actualites/${f}`, import.meta.url), "utf8");
+const NOW = new Date("2026-10-24T08:05:00Z");
+const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
+const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
+
+function file(url: string): string | undefined {
+  if (url.includes("googlenews")) return "la1ere_googlenews.xml";
+  if (url.includes("la1ere") && url.includes("/rss")) return "la1ere_societe.xml";
+  if (url.includes("clicanoo")) return "clicanoo.xml";
+  if (url.includes("imazpress.com/sitemap-news")) return "imaz_news.xml";
+  if (url.includes("imazpress.com/selection-de-la-redaction")) return "imaz_live.html";
+  if (url.includes("freedom")) return "freedom.xml";
+  if (url.includes("parallelesud")) return "parallelesud.xml";
+  if (url.includes("temoignages")) return "temoignages.xml";
+  if (url.includes("reunion.gouv.fr")) return "prefecture.html";
+}
+
+describe("actualités", () => {
+  let down: RegExp | undefined;
+  let asked: string[];
+  beforeEach(() => {
+    down = undefined;
+    asked = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      asked.push(`${new Headers(init?.headers).get("User-Agent")} ${url}`);
+      const f = file(url);
+      return f && !down?.test(url) ? new Response(fixture(f)) : new Response("", { status: 503 });
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("finds the communes a text names, by their places too, and not the common words that look like them", () => {
+    expect(placesIn("Barrage filtrant à St-Pierre, au rond-point de Canabady et à la Ravine des Cabris")).toEqual({
+      communes: ["Saint-Pierre"],
+      lieux: ["Cité Canabady", "La Ravine des Cabris"],
+    });
+    expect(placesIn("Le Port reste calme ; à Gillot, les vols sont maintenus").communes).toEqual(["Le Port", "Sainte-Marie"]);
+    expect(placesIn("Tollé à La Rivière : une micro-crèche incendiée").communes).toEqual(["Saint-Louis"]);
+    // Not Le Port, not La Rivière des Galets as La Rivière, not Saint-Pierre-et-Miquelon, not La Source.
+    expect(placesIn("le port de commerce, la rivière des Galets en crue, Saint-Pierre-et-Miquelon, à la source").communes).toEqual([]);
+    expect(placesIn("SAINT-PAUL : la mairie communique").communes).toEqual(["Saint-Paul"]);
+  });
+
+  it("reads the feeds: titles, times with their offset, first sentences, and leaves out a radio's games", () => {
+    const freedom = parseRss(fixture("freedom.xml"), "Freedom", /jeux|podcast|actus radio/i);
+    expect(freedom.some((i) => /Freedo Quotidien/.test(i.titre))).toBe(false);
+    const police = freedom.find((i) => i.titre.startsWith("Manifestations à la Réunion : la police nationale"))!;
+    expect(police.publie).toBe("2026-10-24T06:24:56.000Z");
+    expect(police.sujets).toContain("mobilisation");
+    expect(police.resume!.length).toBeLessThanOrEqual(220);
+
+    const imaz = parseNewsSitemap(fixture("imaz_news.xml"), "Imaz Press", /\/france-monde\//);
+    // Imaz Press encodes its titles twice; its France-monde section is left out.
+    expect(imaz.find((i) => i.lien.endsWith("plaine-des-palmistes-cise-eau-qualite"))!.titre).toBe("Plaine des Palmistes : la Cise alerte sur la qualité de l'eau, plusieurs citernes installées");
+    expect(imaz.some((i) => i.lien.includes("/france-monde/"))).toBe(false);
+
+    const pref = parsePrefecture(fixture("prefecture.html"));
+    expect(pref[0]).toMatchObject({ titre: "Violences urbaines : bilan de la nuit", heure: false, lien: "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Violences-urbaines-bilan-de-la-nuit" });
+    expect(quand(pref[0], NOW)).toBe("aujourd'hui");
+    expect(firstSentence("Dès 6 heures, une convergence des mouvements appelle à la mobilisation. Puis la suite.")).toBe("Dès 6 heures, une convergence des mouvements appelle à la mobilisation.");
+  });
+
+  it("reads a live blog, its Paris times turned into La Réunion's, and what each entry says of each commune", () => {
+    const live = parseImazLive(fixture("imaz_live.html"), "https://imazpress.com/live", NOW);
+    // Stamped 09:33 in Paris: 11:33 in La Réunion, « À 11 heures, une vingtaine de personnes rassemblées ».
+    expect(live[0]).toMatchObject({ publie: "2026-10-24T07:33:00.000Z", direct: true, communes: ["Saint-Denis"] });
+    expect(quand(live[0], NOW)).toBe("aujourd'hui à 11:33");
+    expect(live.some((i) => /^Bonjour/.test(i.titre))).toBe(false);
+    const gathering = live.find((i) => i.titre.startsWith("Plusieurs rassemblements annoncés"))!;
+    expect(gathering.communes).toEqual(expect.arrayContaining(["Saint-Pierre", "Sainte-Marie", "Le Port", "Sainte-Suzanne"]));
+    expect(gathering.extraits!.find((e) => e.communes.includes("Saint-Pierre"))!.texte).toMatch(/Canabady à Saint-Pierre/);
+    // After the change of time in Paris (25/10, UTC+1), the same stamp is an hour later in UTC.
+    const winter = parseImazLive(fixture("imaz_live.html"), "x", new Date("2026-10-26T09:05:00Z"));
+    expect(winter[0].publie).toBe("2026-10-26T08:33:00.000Z");
+  });
+
+  it("tells one story once, with the other media that told it", () => {
+    const at = (h: number) => new Date(Date.UTC(2026, 9, 24, h)).toISOString();
+    const base = { heure: true, communes: [], lieux: [], sujets: [] };
+    const list: Info[] = [
+      { ...base, titre: "Violences urbaines : 400 policiers et gendarmes mobilisés la nuit dernière", media: "Imaz Press", lien: "a", publie: at(5) },
+      { ...base, titre: "Violences urbaines : plus de 400 policiers et gendarmes mobilisés cette nuit", media: "Freedom", lien: "b", publie: at(4) },
+      { ...base, titre: "Octobre rose au CHU Nord", media: "Freedom", lien: "c", publie: at(6) },
+    ];
+    const out = merge(list);
+    expect(out.map((i) => i.lien)).toEqual(["c", "b"]);
+    expect(out[1].aussi).toEqual([{ media: "Imaz Press", lien: "a" }]);
+  });
+
+  it("answers for a commune with what the media say of it, and the live blog of the island", async () => {
+    const b = body(await actualites(cache(), "Saint-Pierre", undefined, undefined, NOW));
+    expect(b.resume).toMatch(/^\d+ informations des dernières 24 h mentionnent Saint-Pierre\./);
+    expect(b.resume).toMatch(/À Saint-Pierre, le Festival Mizik O Marmay est annulé/);
+    expect(b.resume).toMatch(/En direct sur l'île, aujourd'hui à 11:33 \(Imaz Press, en direct\)/);
+    const canabady = b.en_direct.find((r: { titre: string }) => r.titre.startsWith("Plusieurs rassemblements annoncés"));
+    expect(canabady.mentionne_le_lieu).toBe(true);
+    expect(canabady.ce_qui_est_dit_du_lieu[0]).toMatch(/zone Canabady à Saint-Pierre/);
+    expect(b.prefecture[0].titre).toBe("Violences urbaines : bilan de la nuit");
+    // Every medium is read with the site's name; one request each, and the live blog.
+    expect(asked.every((a) => a.startsWith("rundata.re (contact@rundata.re) "))).toBe(true);
+    expect(asked.length).toBeLessThanOrEqual(11);
+  });
+
+  it("says when nothing names a place, without saying nothing happens there", async () => {
+    const b = body(await actualites(cache(), "Cilaos", undefined, undefined, NOW));
+    expect(b.resume).toMatch(/^Aucune information des médias lus ne mentionne Cilaos depuis hier à 12:05\./);
+    expect(b.infos).toEqual([]);
+    expect(b.a_savoir).toMatch(/ne prouve pas qu'il ne s'y passe rien/);
+  });
+
+  it("filters by subject, and answers without the media that fail", async () => {
+    down = /clicanoo|freedom/;
+    const b = body(await actualites(cache(), undefined, "blocages", undefined, NOW));
+    expect(b.resume).toMatch(/^\d+ informations \(manifestations et blocages\) des médias de La Réunion depuis 24 h/);
+    expect(b.infos.every((r: { sujets?: string[] }) => r.sujets?.includes("mobilisation"))).toBe(true);
+    expect(b.indisponible).toEqual(["Clicanoo", "Freedom"]);
+    down = /./;
+    expect((await actualites(cache(), undefined, undefined, undefined, NOW)).isError).toBe(true);
+  });
+
+  it("makes a page of it, with the live blog first", async () => {
+    const data = await buildActualites(cache(), NOW);
+    expect(data.chaud).toBe(true);
+    const html = actualitesPage("https://rundata.re", { value: data, fetchedAt: NOW, stale: false }, NOW);
+    expect(html).toContain("<h1>Actualités <span class=\"n974\">974</span></h1>");
+    expect(html).toContain("Le direct d'Imaz Press");
+    expect(html).toContain('id="nf"');
+    expect(html).toContain("Communiqués de la préfecture");
+  });
+});

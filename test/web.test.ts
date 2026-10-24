@@ -216,7 +216,7 @@ describe("what crawlers and previews fetch", () => {
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
     // The pages, the 24 communes, and a page per hike and per ONF trail with its GPS trace.
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 26 + 24 + RANDONNEES.length + Object.keys(SENTIERS).length);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 27 + 24 + RANDONNEES.length + Object.keys(SENTIERS).length);
     expect(map).toContain("<loc>https://rundata.re/randonnees/sentier-du-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/sentiers/le-bloc-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/communes</loc>");
