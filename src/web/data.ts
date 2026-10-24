@@ -10,6 +10,7 @@ import { left } from "../budget.js";
 import { distanceKm, localTime } from "../geo.js";
 import type { Cache, Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
+import { normalize } from "../places/resolve.js";
 import * as annuaire from "../providers/annuaire.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
@@ -1083,6 +1084,14 @@ export interface TraficAnswer {
 const ROAD_NEWS = ["route", "mobilisation"];
 const ROAD_NEWS_HOURS = 6;
 const ROAD_NEWS_MAX = 6;
+// A headline is told here when its title is about the roads or the street, not only its text: the subjects come from
+// the summary too, and a live entry on the night's fires (« Rentrez vos poubelles ! ») or on postponed matches is no
+// news of the roads. A gathering is, but not a sporting one.
+const ROAD_TITLE = /\b(?:barrages?|blocages?|bloqu\w*|filtrants?|manifestation\w*|manifestant\w*|rassembl\w*(?! sporti)|cortege|operation escargot|routes?|inforoutes?|circulation|trafic|bouchons?|embouteillage\w*|accidents?|rn ?\d+|quatre voies|littoral|basculement|radiers?|deviation\w*|chaussee|deplacements?|rond point|bus)\b/;
+// The préfecture's communiqués on the protests and the roads (bilans, bans, closures): dated by the day only, kept a
+// day, two at most, above the media's.
+const PREFECTURE_HOURS = 24;
+const PREFECTURE_MAX = 2;
 // The news older than this is read again after the response, for the next view: on a day of blockades, /trafic should
 // not wait for someone to open /actualites. Not more often than once a minute per isolate, and only with the
 // subrequests it takes (the feeds, the préfecture, the live pages, the store).
@@ -1093,11 +1102,12 @@ let roadNewsAsked = -Infinity;
 
 /** The headlines of the last hours on the roads, the blockades and the protests, newest first. */
 export function roadNews(news: actuSource.Fil | undefined, now: Date): NonNullable<TraficAnswer["medias"]> {
-  const since = new Date(now.getTime() - ROAD_NEWS_HOURS * 3600_000).toISOString();
-  return (news?.infos ?? [])
-    .filter((i) => i.publie >= since && i.sujets.some((s) => ROAD_NEWS.includes(s)))
-    .slice(0, ROAD_NEWS_MAX)
-    .map((i) => ({ titre: i.titre, lien: i.lien, source: `${i.media}${i.direct ? ", en direct" : ""}`, heure: newsTime(i, now) }));
+  const after = (h: number) => new Date(now.getTime() - h * 3600_000).toISOString();
+  const onRoads = (i: actuSource.Info) => i.sujets.some((s) => ROAD_NEWS.includes(s));
+  const row = (i: actuSource.Info) => ({ titre: i.titre, lien: i.lien, source: `${i.media}${i.direct ? ", en direct" : ""}`, heure: newsTime(i, now) });
+  const prefecture = (news?.prefecture ?? []).filter((i) => i.publie >= after(PREFECTURE_HOURS) && onRoads(i)).slice(0, PREFECTURE_MAX);
+  const medias = (news?.infos ?? []).filter((i) => i.publie >= after(ROAD_NEWS_HOURS) && onRoads(i) && ROAD_TITLE.test(normalize(i.titre))).slice(0, ROAD_NEWS_MAX);
+  return [...prefecture, ...medias].map(row);
 }
 
 /**
@@ -1117,10 +1127,13 @@ export async function roadNewsNow(cache: Cache, background: Background, now = ne
 /** The page's data with the headlines of now: the page's copy lasts minutes, a blockade should not wait for it. */
 export function withRoadNews(d: TraficAnswer, news: actuSource.Fil | undefined, now: Date): TraficAnswer {
   const medias = roadNews(news, now);
-  const credit = credits([actuSource.SOURCES.medias]);
-  const sources = d.sources.filter((s) => s.source !== credit[0].source);
+  const credit = credits([
+    ...(medias.some((m) => m.source !== actuSource.SOURCES.prefecture.organisme) ? [actuSource.SOURCES.medias] : []),
+    ...(medias.some((m) => m.source === actuSource.SOURCES.prefecture.organisme) ? [actuSource.SOURCES.prefecture] : []),
+  ]);
+  const ours = new Set(credits([actuSource.SOURCES.medias, actuSource.SOURCES.prefecture]).map((c) => c.source));
   const { medias: _, ...rest } = d;
-  return { ...rest, ...(medias.length ? { medias } : {}), sources: medias.length ? [...sources, ...credit] : sources };
+  return { ...rest, ...(medias.length ? { medias } : {}), sources: [...d.sources.filter((s) => !ours.has(s.source)), ...credit] };
 }
 
 export async function buildTrafic(cache: Cache, now = new Date()): Promise<TraficAnswer> {

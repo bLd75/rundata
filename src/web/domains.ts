@@ -890,7 +890,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   // What the media report on the roads and the blockades in the last hours, their headlines linked: first, as on a day of blockades it matters most.
   const medias = d?.medias?.length
     ? `<div class="card">${icon("book")}<h3>Signalé par les médias</h3><ul class="plain">${d.medias.map((m) => `<li><a href="${esc(m.lien)}" rel="noopener">${esc(m.titre)}</a> <span class="note">${esc(m.source)}${m.heure ? `, ${esc(m.heure)}` : ""}</span></li>`).join("")}</ul>
-  <p class="note">Routes, barrages et manifestations dans les titres des six dernières heures : lire l'article pour le détail. <a href="/actualites">Toutes les actualités</a>.</p></div>`
+  <p class="note">Routes, barrages et manifestations dans les titres des six dernières heures, et les communiqués du jour de la préfecture : lire l'article pour le détail. <a href="/actualites">Toutes les actualités</a>.</p></div>`
     : "";
 
   const ours = `<section aria-labelledby="h-nous">

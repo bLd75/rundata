@@ -110,7 +110,7 @@ Les pages sont rendues par le serveur, données comprises, pour les moteurs de r
 - `/volcan` : éruption ou non, accès à l'Enclos, séismes et messages de l'observatoire ;
 - `/bus` : les réseaux et les prochains départs dans les gares routières ;
 - `/actualites` : ce qui se passe sur l'île depuis 24 h, d'après les médias locaux : le direct du jour quand un média en tient un, toutes les informations avec leur heure, leur média et les communes qu'elles nomment, un filtre par commune et par sujet, les communiqués de la préfecture ; les jours de mobilisation, les derniers titres passent aussi en tête de l'accueil ;
-- `/trafic` : la circulation, sans donnée de trafic reprise : la carte Waze en direct (chargée seulement au clic, car elle dépose des cookies), un lien vers infotrafic.re (état officiel des routes, Région Réunion), les retards et déviations des bus, les routes forestières fermées, l'accès à l'Enclos, la vigilance, et les titres des médias des six dernières heures sur les routes et les barrages (lus dans la copie des actualités, sans relire les médias) ;
+- `/trafic` : la circulation, sans donnée de trafic reprise : la carte Waze en direct (chargée seulement au clic, car elle dépose des cookies), un lien vers infotrafic.re (état officiel des routes, Région Réunion), les retards et déviations des bus, les routes forestières fermées, l'accès à l'Enclos, la vigilance, et ce que disent les médias des routes et des barrages dans leurs titres des six dernières heures, avec les communiqués du jour de la préfecture (d'après la dernière lecture des actualités, refaite après la réponse quand elle date) ;
 - `/air` : l'indice ATMO du jour dans chaque commune, sur une carte ;
 - `/electricite` : la production d'électricité filière par filière, la part renouvelable et les heures de tension ;
 - `/calendrier` : vacances scolaires, jours fériés, lever et coucher du soleil ;
@@ -152,7 +152,7 @@ Public data for Réunion Island (French overseas department 974, Indian Ocean), 
   - `temperature_mer(lieu)`: sea surface temperature near a beach.
   - `sources_donnees()`: sources and licences.
 - **Places:** free text (town, beach, peak) or `lat, lon`.
-- **Traffic:** no live traffic measurement in Réunion is open for reuse, so there is no traffic tool. The `/trafic` page loads Waze's live map only on request (it sets cookies) and links to the Région's infotrafic.re, next to what is open: bus delays and detours, closed forest roads, weather warnings, and the local media's headlines of the last six hours about roads and blockades.
+- **Traffic:** no live traffic measurement in Réunion is open for reuse, so there is no traffic tool. The `/trafic` page loads Waze's live map only on request (it sets cookies) and links to the Région's infotrafic.re, next to what is open: bus delays and detours, closed forest roads, weather warnings, the local media's headlines of the last six hours about roads and blockades, and the prefecture's press releases of the day on them.
 - **Press:** `/presse` has the press release, key figures counted live from the site's data, and screenshots free to use with the credit « rundata.re ».
 - **Answers:** every answer carries the measurement time, the station distance, the altitude difference, the windward or leeward side, and a relevance flag.
 - **Licences:** code under MIT. Data under each source's licence (see `sources_donnees`). Place names © OpenStreetMap contributors (ODbL), altitudes IGN (Licence Ouverte).
