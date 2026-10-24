@@ -301,7 +301,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     mer,
     air: airHere ? { indice_atmo: airHere.niveau, qualite: airHere.qualite, polluants: airHere.polluants.length ? airHere.polluants : undefined } : undefined,
     electricite: prod
-      ? { heure: prod.heure, renouvelable_pct: prod.renouvelable_pct, total_mw: prod.total_mw, signal: l.electricite!.value.meteo_electricite?.maintenant?.signal }
+      ? { heure: prod.heure_mesure, renouvelable_pct: prod.renouvelable_pct, total_mw: prod.total_mw, signal: l.electricite!.value.meteo_electricite?.maintenant?.signal }
       : undefined,
     circulation: {
       mesure_des_bouchons: NO_JAMS,

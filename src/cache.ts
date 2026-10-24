@@ -19,7 +19,7 @@ import { noteLecture } from "./lectures.js";
  * Any other deploy keeps them, so that the data centers stay warm. A copy that still breaks a page is caught there
  * (web/site.ts) and built again.
  */
-export const CACHE_FORMAT = "1";
+export const CACHE_FORMAT = "2";
 
 export interface CacheEntry {
   value: unknown;

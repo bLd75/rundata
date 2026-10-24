@@ -50,7 +50,7 @@ describe("citation", () => {
     expect(r.citer).toMatch(/^rundata\.re, d'après [^(]+ \((station|balise) [^)]+\)/);
     expect(r.lien).toBe("https://rundata.re/meteo/saint-paul?ref=mcp");
     expect(r.sources.length).toBeGreaterThan(0); // the producers' attribution stays
-    expect(r.avis).toBeUndefined();
+    expect(r.signaler).toBeUndefined();
   });
 
   it("cites the satellite of the sea temperature and links the sea page", async () => {
@@ -72,14 +72,36 @@ describe("citation", () => {
     const r = await call("defibrillateurs", { lieu: "Tombouctou" });
     expect(r.isError).toBe(true);
     const p = JSON.parse(r.text);
-    expect(p).toMatchObject({ citer: "rundata.re", lien: "https://rundata.re/defibrillateurs?ref=mcp", avis: AVIS_HINT });
+    expect(p).toMatchObject({ citer: "rundata.re", lien: "https://rundata.re/defibrillateurs?ref=mcp", signaler: AVIS_HINT });
   });
 
   it("points to donner_avis only when nothing was found", () => {
     const empty = { content: [{ type: "text" as const, text: JSON.stringify({ resume: "Aucun arrêt de bus trouvé pour « X »." }, null, 1) }] };
-    expect(body(cite("transports", empty)).avis).toBe(AVIS_HINT);
+    expect(body(cite("transports", empty)).signaler).toBe(AVIS_HINT);
     const none = { content: [{ type: "text" as const, text: JSON.stringify({ resume: "Aucune restriction d'eau en vigueur à La Réunion." }, null, 1) }] };
-    expect(body(cite("restrictions_eau", none)).avis).toBeUndefined();
+    expect(body(cite("restrictions_eau", none)).signaler).toBeUndefined();
+    // « Aucun » at the start says that nothing was found, whatever the verb; nothing in force or going on is an answer.
+    const notYet = { content: [{ type: "text" as const, text: JSON.stringify({ resume: "Aucune borne publique connue à La Réunion." }, null, 1) }] };
+    expect(body(cite("bornes_recharge", notYet)).signaler).toBe(AVIS_HINT);
+    const quiet = { content: [{ type: "text" as const, text: JSON.stringify({ resume: "Rivières au vert. Aucune rivière suivie n'est en hausse sur la dernière demi-heure." }, null, 1) }] };
+    expect(body(cite("crues_rivieres", quiet)).signaler).toBeUndefined();
+    // Without a résumé, the first list of the answer, empty.
+    const list = { content: [{ type: "text" as const, text: JSON.stringify({ lieu: { trouve: "Cilaos" }, defibrillateurs: [], sources: [] }, null, 1) }] };
+    expect(body(cite("defibrillateurs", list)).signaler).toBe(AVIS_HINT);
+    // The hint has its own name: an answer's `avis` (the water distributors' notices) is never overwritten.
+    const notices = { content: [{ type: "text" as const, text: JSON.stringify({ resume: "Aucun avis de coupure récent.", avis: [] }, null, 1) }] };
+    const n = body(cite("coupures_eau", notices));
+    expect(n.avis).toEqual([]);
+    expect(n.signaler).toBe(AVIS_HINT);
+  });
+
+  it("links the page the answer names, before the tool's page", () => {
+    const passe = { content: [{ type: "text" as const, text: JSON.stringify({ cyclone: "Gamède", page: "https://rundata.re/cyclones/gamede-2007" }, null, 1) }] };
+    expect(body(cite("cyclones", passe)).lien).toBe("https://rundata.re/cyclones/gamede-2007?ref=mcp");
+    const bins = { content: [{ type: "text" as const, text: JSON.stringify({ resume: "…", page: "https://rundata.re/collecte/saint-paul#rue" }, null, 1) }] };
+    expect(body(cite("annuaire_services_publics", bins)).lien).toBe("https://rundata.re/collecte/saint-paul?ref=mcp#rue");
+    const elsewhere = { content: [{ type: "text" as const, text: JSON.stringify({ page: "https://www.shom.fr" }, null, 1) }] };
+    expect(body(cite("maree", elsewhere)).lien).toBe("https://rundata.re/mer?ref=mcp");
   });
 });
 

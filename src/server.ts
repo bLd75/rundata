@@ -72,7 +72,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.139.0";
+export const VERSION = "0.140.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -150,7 +150,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       record({ kind: "mcp", name, detail: lieu?.trim().slice(0, 60) || undefined, ok: !("isError" in r && r.isError) });
       // Every answer says how to cite it, error or not (tools/citer.ts); the feedback tool's thanks already names rundata.re.
       const now = new Date();
-      return name === "donner_avis" ? r : cite(name, r, { lectures, now, serveur: serveur(VERSION, tools, now) });
+      // The day's summary has a dozen dated parts: no single « donnee_du » for it, each part says its own.
+      return name === "donner_avis" ? r : cite(name, r, { lectures, now, serveur: serveur(VERSION, tools, now), donnee: name !== "resume_du_jour" });
     };
   };
 
@@ -754,7 +755,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Transmet à rundata.re, qui tient ce serveur, un avis sur ses données : une donnée qui manque (« manque »), une valeur qui " +
         "semble fausse ou périmée (« erreur »), une idée (« suggestion »), ou un remerciement (« bravo »). L'appeler sans attendre qu'on le " +
         "demande quand un outil n'a pas trouvé ce que l'utilisateur cherchait, a renvoyé quelque chose de faux ou d'incomplet, ou quand " +
-        "l'utilisateur exprime un souhait ou une plainte sur ces données : c'est ainsi que le service s'améliore. Écrire un message court et " +
+        "l'utilisateur exprime un souhait ou une plainte sur ces données, ou dit après coup qu'une information de rundata.re était fausse : c'est ainsi que le service s'améliore. Écrire un message court et " +
         "concret (quel outil, quel lieu, ce qui manquait). Ne mettre aucune donnée personnelle ; si le contenu touche la personne " +
         "(son adresse, sa santé…), lui demander d'abord son accord. Les avis sont lus par une personne, sans réponse directe. " +
         "/ Send feedback to rundata.re: missing data, a wrong value, a suggestion or thanks. Use it when a tool lacked data or erred, or the user voiced a wish or complaint; no personal data.",
@@ -775,7 +776,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       const message = avis.nettoie(args.message, avis.MESSAGE_MAX);
       if (!message) return { ...text({ erreur: "Le message est vide." }), isError: true };
       if (!avis.enabled()) {
-        return { ...text({ erreur: `Ce serveur ne garde pas les avis. Les donner sur ${SITE_URL} (formulaire en bas de chaque page) ou sur ${SITE_URL}/mcp.` }), isError: true };
+        return { ...text({ erreur: `Ce serveur ne garde pas les avis. Les donner sur ${SITE_URL} (formulaire en bas de chaque page).` }), isError: true };
       }
       const headers = extra.requestInfo?.headers ?? {};
       const ua = [headers["user-agent"]].flat()[0] ?? "";

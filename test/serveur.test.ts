@@ -8,6 +8,7 @@ import { inReunionBeacons } from "../src/providers/pioupiou.js";
 import { existsSync } from "node:fs";
 import { SERVER_ICONS, VERSION } from "../src/server.js";
 import { cite } from "../src/tools/citer.js";
+import { dataDate, fraicheur, instantOf } from "../src/tools/fraicheur.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
@@ -145,9 +146,52 @@ describe("fraicheur", () => {
     for (const t of tools.filter((t) => t.name !== "donner_avis")) {
       const r = await rpcResult("tools/call", { name: t.name, arguments: args[t.name] ?? { lieu: "Saint-Paul" } });
       const p = JSON.parse(r.content[0].text);
-      const keys = Object.keys(p).filter((k) => k !== "avis");
+      const keys = Object.keys(p).filter((k) => k !== "signaler");
       expect(keys.slice(-4), t.name).toEqual(["citer", "lien", "fraicheur", "serveur"]);
       expect(p.fraicheur.lue_a, t.name).toMatch(/^\d\d\/\d\d \d\d:\d\d$/);
+      expect(p.fraicheur.fuseau, t.name).toBe("heure de La Réunion (UTC+4)");
+      // Never read before the data it dates: a date the answer gives is at or before the read.
+      const du = p.fraicheur.donnee_du && instantOf(p.fraicheur.donnee_du, new Date());
+      if (du != null) expect(du, `${t.name} ${p.fraicheur.donnee_du} lue ${p.fraicheur.lue_a}`).toBeLessThanOrEqual(instantOf(p.fraicheur.lue_a, new Date())! + 60_000);
+      if (t.name === "resume_du_jour") expect(p.fraicheur.donnee_du).toBeUndefined();
     }
   }, 60_000);
+
+  it("dates the data the answer is about, block by block, the notices last", () => {
+    // The production's time before the mairies' power cuts (electricite), whatever the order breadth first would give.
+    const elec = { resume: "…", production: { heure_mesure: "25/10 02:19 heure de La Réunion", total_mw: 258 }, coupures_annoncees: { avis: [{ publie_le: "14/10 14:38" }] } };
+    expect(dataDate(elec)?.du).toBe("25/10 02:19 heure de La Réunion");
+    // A measurement before a forecast, in the answer's order.
+    const sea = { lieu: {}, mesure: { satellite: { heure_mesure: "22/10 12:00" } }, etat_de_la_mer: { mis_a_jour: "25/10 02:18" } };
+    expect(dataDate(sea)?.du).toBe("22/10 12:00");
+    // The notices are the data when nothing else is dated (the water cuts).
+    const cuts = { resume: "…", ne_pas_boire: ["Salazie"], avis: [{ publie_le: "23/10/2026 à 21:49" }] };
+    expect(dataDate(cuts)?.du).toBe("23/10/2026 à 21:49");
+    expect(dataDate({ resume: "rien de daté", stations: [] })).toBeUndefined();
+  });
+
+  it("reads the dates an answer writes, Réunion time", () => {
+    const now = new Date("2026-10-25T02:30:00+04:00");
+    expect(instantOf("25/10 02:12", now)).toBe(Date.parse("2026-10-25T02:12:00+04:00"));
+    expect(instantOf("23/10/2026 à 21:49", now)).toBe(Date.parse("2026-10-23T21:49:00+04:00"));
+    expect(instantOf("vendredi 23/10 à 10:00", now)).toBe(Date.parse("2026-10-23T10:00:00+04:00"));
+    expect(instantOf("18/08/2026", now)).toBe(Date.parse("2026-08-18T00:00:00+04:00"));
+    // Without a year, a date well after today is last year's.
+    expect(instantOf("28/12 10:00", new Date("2027-01-03T10:00:00+04:00"))).toBe(Date.parse("2026-12-28T10:00:00+04:00"));
+    expect(instantOf("à l'instant", now)).toBeUndefined();
+  });
+
+  it("never says it read the data before the data's own time", () => {
+    const now = new Date("2026-10-25T02:19:00+04:00");
+    const lectures = [
+      { key: "radar", fetchedAt: Date.parse("2026-10-25T01:46:00+04:00"), stale: false, freshSeconds: 600 },
+      { key: "stations", fetchedAt: Date.parse("2026-10-25T02:18:00+04:00"), stale: false, freshSeconds: 120 },
+    ];
+    const f = fraicheur({ stations: [{ heure_mesure: "25/10 02:12", age_texte: "il y a 7 min" }] }, lectures, now);
+    expect(f).toMatchObject({ donnee_du: "25/10 02:12", lue_a: "25/10 02:18", age: "il y a 7 min", fuseau: "heure de La Réunion (UTC+4)" });
+    // The oldest read stays when it is not before the data.
+    expect(fraicheur({ stations: [{ heure_mesure: "25/10 01:40" }] }, lectures, now).lue_a).toBe("25/10 01:46");
+    // No single date for an answer made of many dated parts.
+    expect(fraicheur({ vigilance: { emise: "24/10 15:25" } }, lectures, now, { donnee: false }).donnee_du).toBeUndefined();
+  });
 });

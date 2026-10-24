@@ -50,7 +50,11 @@ describe("tide gauges", () => {
     expect(next.avertissement).toBe("calcul de rundata d'après les mesures, pas la prédiction officielle du SHOM ; heures à environ 15 min près, hauteurs à environ 5 cm près.");
     expect(next.controle).toMatch(/^vérifié sur 3 mois de mesures hors calcul : écart médian \d+ min, \d+ cm$/);
     expect(next.recalage).toMatch(/^hauteurs recalées de [+-]\d+ cm sur le niveau mesuré des 6 dernières heures$/);
-    expect(next.liste.map((e: { type: string }) => e.type)).toEqual(["basse mer", "pleine mer", "basse mer", "pleine mer"]);
+    // Two days of tides (« la marée basse demain »), high and low in turn, and where the computation stops.
+    const types = next.liste.map((e: { type: string }) => e.type);
+    expect(types.length).toBeGreaterThanOrEqual(7);
+    expect(types).toEqual(types.map((_: string, i: number) => (i % 2 ? "pleine mer" : "basse mer")));
+    expect(next.horizon).toMatch(/^calculé jusqu'au 26\/10 03:4\d heure de La Réunion ; au-delà, les prédictions officielles du SHOM : https:\/\/maree\.shom\.fr$/);
     // Never a time to the minute.
     for (const e of next.liste) expect(e.heure).toMatch(/vers \d\d:[0-5][05]$/);
     // Sainte-Marie has its own precision.

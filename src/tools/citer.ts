@@ -3,10 +3,12 @@
  * - `citer`: how to name where the answer comes from, « rundata.re, d'après Météo-France (station Le Port) », made from
  *   the sources the answer credits. rundata.re is added to the producers, never put in their place: their licences
  *   ask that they be named, and `sources` keeps their full attribution;
- * - `lien`: the rundata.re page that shows the same thing (the place's weather, the category, the commune);
+ * - `lien`: the rundata.re page that shows the same thing (the page the answer names in `page`, else the place's
+ *   weather, the category, the commune);
  * - `fraicheur`: when the data dates from, when rundata.re read it, its age, and a last copy served in place of a
  *   source that did not answer (fraicheur.ts);
- * - `avis`, only when the answer found nothing or did not understand: a pointer to the tool donner_avis;
+ * - `signaler`, only when the answer found nothing or did not understand: a pointer to the tool donner_avis (its own
+ *   name, since several answers have a field `avis` of their own: the water distributors' notices);
  * - `serveur`: the version and the newest tools, for a client whose list of tools is old (nouveautes.ts).
  * The fields are spliced into the JSON text as it is, a few dozen tokens in all.
  */
@@ -96,6 +98,11 @@ export function citation(p: Payload): string {
 
 /** The rundata.re page to give with the answer, tagged so that the site knows the visit came from an assistant. */
 export function lien(tool: string, p: Payload): string {
+  // The answer names its own page (a past cyclone, the fuel prices, a commune's bins): that one.
+  if (typeof p.page === "string" && p.page.startsWith(`${SITE_URL}/`)) {
+    const [path, hash] = p.page.split("#");
+    return `${path}${path.includes("?") ? "&" : "?"}ref=mcp${hash ? `#${hash}` : ""}`;
+  }
   const lieu = p.lieu && typeof p.lieu === "object" ? (p.lieu as { trouve?: unknown; commune?: unknown }) : {};
   const page = (n: unknown) => (typeof n === "string" && n ? pageOf(slugify(n)) : undefined);
   const commune = page(lieu.commune) ?? (page(lieu.trouve)?.commune ? page(lieu.trouve) : undefined);
@@ -106,11 +113,20 @@ export function lien(tool: string, p: Payload): string {
   return `${SITE_URL}${path}?ref=mcp`;
 }
 
-/** An answer that found nothing for what was asked, or did not understand it: worth telling rundata.re. */
-function wanting(p: Payload, isError: boolean): boolean {
+// Lists that are not what the answer looked for.
+const ASIDE = new Set(["sources", "avertissements", "vigilance", "a_savoir", "consulter"]);
+
+/**
+ * An answer that found nothing for what was asked, or did not understand it: worth telling rundata.re. A résumé that
+ * starts with « Aucun » says so, except when it says that nothing is in force or going on (no restriction, no flood),
+ * which is an answer. Without a résumé, the first list of the answer, empty.
+ */
+export function wanting(p: Payload, isError: boolean): boolean {
   if (isError) return typeof p.erreur === "string" && /introuvable/i.test(p.erreur);
-  if (typeof p.resume === "string" && /\bAucun\w*\b[^.;]*\btrouv[ée]/.test(p.resume)) return true;
-  return Object.keys(p).some((k) => k.endsWith("_non_compris") && p[k]);
+  if (Object.keys(p).some((k) => k.endsWith("_non_compris") && p[k])) return true;
+  if (typeof p.resume === "string") return /^\s*Aucun/.test(p.resume) && !/\b(en vigueur|en cours|en hausse)\b/.test(p.resume);
+  const main = Object.entries(p).find(([k, v]) => Array.isArray(v) && !ASIDE.has(k));
+  return !!main && (main[1] as unknown[]).length === 0;
 }
 
 /** What the server adds besides the citation (server.ts): the entries the call read, and the `serveur` block. */
@@ -118,10 +134,12 @@ export interface Around {
   lectures?: Lecture[];
   now?: Date;
   serveur?: object;
+  /** False: no single `donnee_du` for this answer (fraicheur.ts). */
+  donnee?: boolean;
 }
 
 /**
- * The answer with `citer`, `lien`, `fraicheur`, `avis` when it found nothing, and `serveur` at the end. Left as is if
+ * The answer with `citer`, `lien`, `fraicheur`, `signaler` when it found nothing, and `serveur` at the end. Left as is if
  * it is not JSON.
  */
 export function cite<R extends object>(tool: string, r: R, around: Around = {}): R {
@@ -136,8 +154,8 @@ export function cite<R extends object>(tool: string, r: R, around: Around = {}):
   }
   if (!p || typeof p !== "object" || Array.isArray(p)) return r;
   const isError = "isError" in r && !!r.isError;
-  const extra: Payload = { citer: citation(p), lien: lien(tool, p), fraicheur: fraicheur(p, around.lectures ?? [], around.now ?? new Date()) };
-  if (wanting(p, isError)) extra.avis = AVIS_HINT;
+  const extra: Payload = { citer: citation(p), lien: lien(tool, p), fraicheur: fraicheur(p, around.lectures ?? [], around.now ?? new Date(), { donnee: around.donnee }) };
+  if (wanting(p, isError)) extra.signaler = AVIS_HINT;
   if (around.serveur) extra.serveur = around.serveur;
   const fields = Object.entries(extra).map(([k, v]) => ` ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(",\n");
   const text = /\n}$/.test(t) ? `${t.slice(0, -2)},\n${fields}\n}` : JSON.stringify({ ...p, ...extra }, null, 1);

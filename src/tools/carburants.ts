@@ -91,6 +91,7 @@ export async function carburantsAnswer(cache: Cache, now = new Date()) {
     m.produits.map((x) => ({ produit: carburants.label(x.produit), prix: priced(x), mois_precedent: x.precedent_eur != null ? eur(x.precedent_eur) : undefined, evolution: diff(x), note: x.note }));
   return text({
     resume,
+    page: "https://rundata.re/carburants",
     en_vigueur_depuis: s.vigueur && firstOf(s.vigueur.depuis),
     prix_maximums: s.vigueur && rows(s.vigueur),
     a_venir: s.avenir && { applicables_le: firstOf(s.avenir.depuis), prix_maximums: rows(s.avenir) },

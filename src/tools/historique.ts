@@ -312,10 +312,22 @@ async function recordsOf(s: Series, months: number[], now: Date) {
   };
 }
 
+// Nothing measured over the period asked. Up to a few days back it is most often the morning's publication not yet
+// in: Météo-France publishes a day's measurements the next morning, and rundata loads them then. Said as such, never
+// as « no station », which is false for a town with a station and would send the model to donner_avis for nothing.
+const RECENT_DAYS = 3;
+export function nothing(where: string, p: Period, now: Date): string {
+  const yesterday = iso(now.getTime() + 4 * 3600_000 - DAY_MS);
+  const recent = p.au >= yesterday && Math.round((Date.parse(p.au) - Date.parse(p.du)) / DAY_MS) < RECENT_DAYS;
+  return recent
+    ? `Les mesures du ${frDate(p.du)}${p.du !== p.au ? ` au ${frDate(p.au)}` : ""} ne sont pas encore publiées : Météo-France publie chaque jour le matin, le plus souvent avant 10 h (heure de La Réunion). Réessayer plus tard ; pour maintenant, meteo_actuelle.`
+    : `Aucune station ne mesurait ${a(where)} ou près de là sur cette période.`;
+}
+
 const COMMON = {
   nature: "mesure",
   a_savoir: [
-    "Mesures quotidiennes des stations Météo-France, publiées chaque matin avec la veille : le dernier jour disponible est hier. Pour aujourd'hui, voir meteo_actuelle ; pour les jours à venir, prevision_meteo.",
+    "Mesures quotidiennes des stations Météo-France, publiées chaque matin avec la veille, le plus souvent avant 10 h (heure de La Réunion) : le dernier jour disponible est hier une fois publié, avant-hier sinon. Pour aujourd'hui, voir meteo_actuelle ; pour les jours à venir, prevision_meteo.",
     "La pluie d'un jour est celle tombée de 10 h ce jour-là à 10 h le lendemain (heure de La Réunion), comme Météo-France la compte.",
     `Normales : moyennes 1991-2020 de la station, calculées sur les mesures de Météo-France (au moins 10 années).`,
     `Heure par heure (depuis 2000) : donné pour ${HOURLY_AUTO} jours ou moins, et jusqu'à ${HOURLY_MAX} jours avec detail « heure » ; publié chaque matin avec la nuit qui vient de finir, si bien que les premières heures d'aujourd'hui y sont.`,
@@ -580,7 +592,7 @@ export async function historiqueMeteo(
     lieu: placeBlock(lieu, res),
     resume: [daily, hh ? `Heure par heure (station ${hh.ou}) — ${hh.texte}.` : ""].filter(Boolean).join(" ") +
       (warn.length ? ` Attention : ${[...new Set(warn)].join(" ")}` : "") +
-      (!rain && !temp && !hh ? ` Aucune station ne mesurait ${a(place.nom)} ou près de là sur cette période.` : ""),
+      (!rain && !temp && !hh ? ` ${nothing(place.nom, p, now)}` : ""),
     stations: stationsUsed(place, [[rain, "pluie"], [temp, "températures et rafales"], [sun, "ensoleillement"]]),
     ...s,
     ...shape(rain, temp, sun),
