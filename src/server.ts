@@ -69,7 +69,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.56.0";
+export const VERSION = "0.57.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -306,7 +306,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "d'après l'annuaire officiel de service-public.fr. Aussi les prix maximums des carburants et de la bouteille de gaz du mois, " +
         "fixés par le préfet (quoi = « carburant », « essence », « gazole », « gaz »), les pharmacies et les hôpitaux les plus proches d'après FINESS " +
         "(quoi = « pharmacie », « urgences », « hôpital ») : la pharmacie de garde n'est connue que de 3237.fr et du 32 37, l'urgence passe par le 15 ; " +
-        "et les marchés forains et couverts d'après OpenStreetMap (quoi = « marché »). " +
+        "les marchés forains et couverts d'après OpenStreetMap (quoi = « marché »), et les déchèteries de l'Ouest (TCO) avec les bennes pleines " +
+        "en direct (quoi = « déchèterie », « encombrants », « déchets verts »). " +
         "Pour : « horaires de la mairie de Saint-Paul ? », « pharmacie près de Boucan Canot ? », « marché forain à Sainte-Marie ? », " +
         "« où est la CAF la plus proche du Tampon ? », « numéro de la sous-préfecture de Saint-Pierre ? », « prix de l'essence ce mois-ci ? ». " +
         "/ Public offices in Réunion Island (addresses, hours, phones), this month's maximum fuel prices, pharmacies and hospitals.",
