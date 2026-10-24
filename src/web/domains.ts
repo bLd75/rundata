@@ -9,7 +9,7 @@ import { normalize } from "../places/resolve.js";
 import { UNPUBLISHED } from "../tools/calendrier.js";
 import { de, fr } from "../tools/format.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, CyclonesAnswer, DaeAnswer, EauAnswer, ElectriciteAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
+import type { AirAnswer, Alerte, BorneStation, BornesAnswer, BusData, CalendrierAnswer, CoupuresAnswer, CyclonesAnswer, DaeAnswer, EauAnswer, ElectriciteAnswer, HistoriqueAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, VeloStation, VelosAnswer, VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, islandMap, oceanMap } from "./map.js";
@@ -1208,4 +1208,85 @@ export function cyclonesLive(data: Cached<CyclonesAnswer> | null): Live | undefi
   }
   const last = d.saison_en_cours.systemes[0] ?? d.saison_precedente?.systemes[0];
   return { valeur: "aucun système actif", detail: `saison ${esc(d.saison_en_cours.nom)}${last ? ` ; dernier : ${esc(capital(last.nom))} (${esc(last.du)} – ${esc(last.au)})` : ""}` };
+}
+
+// ---------------------------------------------------------------- historique météo
+
+const pct = (x?: string) => (x ? Number.parseInt(x, 10) : undefined);
+/** A bar of the rain against the normal: 100 % is the normal. */
+function rainBar(total: number, normal?: number): string {
+  if (normal == null || normal <= 0) return `<b>${fr(total)} mm</b>`;
+  const ratio = total / normal;
+  const w = Math.min(ratio, 2) * 50;
+  const c = ratio < 0.5 ? "#ff922b" : ratio > 1.5 ? "#4dabf7" : "#69db7c";
+  return `<b>${fr(total)} mm</b><small class="note">normale ${normal} mm</small><span class="ratio" role="img" aria-label="${Math.round(ratio * 100)} % de la normale"><i style="width:${w}%;background:${c}"></i><s></s></span>`;
+}
+const vsNormal = (v?: number, n?: number, unit = " °C") =>
+  v == null ? "—" : `<b>${fr(v)}${unit}</b>${n != null ? `<small class="note">normale ${fr(n)}${unit}</small>` : ""}`;
+
+export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const d = data?.value;
+  const url = fresh(`${origin}/historique`, now);
+  const rows = d?.stations ?? [];
+  const below = rows.filter((r) => (pct(r.pluie?.rapport_a_la_normale) ?? 100) < 80).length;
+  const withNormal = rows.filter((r) => r.pluie?.rapport_a_la_normale).length;
+
+  const markers = rows.flatMap((r) => {
+    const x = pct(r.pluie?.rapport_a_la_normale);
+    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: x < 50 ? "#ff922b" : x > 150 ? "#4dabf7" : "#69db7c" }];
+  });
+
+  const status = !d
+    ? loading("L'historique des mesures")
+    : `<div class="now"><span class="big">${below}<small>/${withNormal}</small></span><p>stations de référence ont reçu nettement moins de pluie que la normale du ${esc(d.periode.du)} au ${esc(d.periode.au)} (moins de 80 % de leur moyenne 1991-2020).</p></div>`;
+
+  const table = rows.length
+    ? `<div class="card table-wrap"><table class="drought histo"><thead><tr><th>Station</th><th>Pluie, 30 jours</th><th>Maximales</th><th>Minimales</th><th>Soleil</th></tr></thead><tbody>${rows.map((r) => {
+        const e = r.ensoleillement;
+        return `<tr><th scope="row">${esc(r.station)}<small class="note">${esc(r.zone)}, ${r.altitude_m} m</small></th>` +
+          `<td>${r.pluie ? rainBar(r.pluie.total_mm, r.pluie.normale_mm) : "—"}</td>` +
+          `<td>${vsNormal(r.temperatures?.maximales_moyenne, r.temperatures?.maximales_normale)}</td>` +
+          `<td>${vsNormal(r.temperatures?.minimales_moyenne, r.temperatures?.minimales_normale)}</td>` +
+          `<td>${e?.jours_mesures ? `${vsNormal(e.heures_par_jour, e.normale_heures_par_jour, " h/j")}<small class="note">${e.jours_gris} jour${e.jours_gris > 1 ? "s" : ""} gris</small>` : "—"}</td></tr>`;
+      }).join("")}</tbody></table></div>`
+    : "";
+
+  const title = "Historique météo à La Réunion : pluie, températures, soleil depuis 1900";
+  const short = "🇷🇪 Le temps qu'il a fait à La Réunion (974) : pluie, températures et soleil mesurés par Météo-France jour par jour depuis 1900, comparés à la normale.";
+  const description = d ? describe(`🇷🇪 ${d.resume}`, short) : short;
+
+  const band = `${crumbBar("Historique météo")}
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>Mesures jusqu'à hier</p>
+    <h1>Historique météo <span class="n974">974</span></h1>
+    ${status}
+    ${ask(`Lapli la tonm konbien sé dernié zour Sin-Bénoi, é lé normal ? Rogard si ${url} é di amwin.`,
+      `Il a plu combien ces derniers jours à Saint-Benoît, et c'est normal ? Lis ${url} et dis-le-moi.`)}
+  </div>
+  <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : la pluie des 30 derniers jours à six stations, en pourcentage de la normale" })}
+  <figcaption class="note" style="color:var(--on-night-muted)">Pluie des 30 derniers jours, en % de la normale 1991-2020 : <span style="color:#ff922b">moins de 50 %</span>, <span style="color:#69db7c">proche</span>, <span style="color:#4dabf7">plus de 150 %</span>.</figcaption></figure>
+</div>`;
+
+  const body = `<section aria-labelledby="h-trente">
+  <div class="sec-h"><p class="eyebrow">Six climats, six stations</p><h2 id="h-trente">Les 30 derniers jours</h2>
+  <p>${d ? esc(d.resume) : ""}</p></div>
+  ${table}
+</section>
+<section aria-labelledby="h-archive">
+  <div class="sec-h"><p class="eyebrow">Toute l'archive</p><h2 id="h-archive">N'importe quel jour depuis 1900</h2>
+  <p>Avec le connecteur, votre IA lit les mesures quotidiennes de chacune des 249 stations Météo-France que l'île a connues, de la première année de chacune jusqu'à hier : « il a plu combien en janvier 2018 à Cilaos ? », « il faisait combien le jour de mes 20 ans au Tampon ? », « record de chaleur à Saint-Denis ? », « il fait plus chaud qu'avant ? ». Les normales sont les moyennes 1991-2020 de chaque station.</p></div>
+  ${d ? `<ul class="plain note">${d.a_savoir.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+  ${d && data ? sourcesNote(d.sources, data) : ""}
+</section>
+${connectorCta("historique_meteo", "l'historique météo")}`;
+
+  return layout(origin, { title, description, path: "/historique", jsonld: [crumbs(origin, "Historique météo", "/historique"), webPage(origin, "/historique", title, description, data)], alerte }, band, body);
+}
+
+export function historiqueLive(data: Cached<HistoriqueAnswer> | null): Live | undefined {
+  const d = data?.value;
+  const r = d?.stations.find((x) => x.pluie?.rapport_a_la_normale) ;
+  if (!d || !r?.pluie) return undefined;
+  return { valeur: `${r.pluie.rapport_a_la_normale} de la normale`, detail: `pluie des 30 derniers jours à ${esc(r.station)} (${fr(r.pluie.total_mm)} mm)` };
 }

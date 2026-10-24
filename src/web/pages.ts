@@ -86,6 +86,7 @@ const ICON: Record<string, string> = {
   plug: `<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0Z"/><path d="M12 17v4"/>`,
   sun: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
   heart: `<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/><path d="M8 12h2l1-2 2 4 1-2h2"/>`,
+  history: `<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/>`,
   drop: `<path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11Z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/>`,
   cyclone: `<path d="M12 12m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0"/><path d="M14.5 12c0-4 3-7 7-7.5M9.5 12c0 4-3 7-7 7.5M12 9.5C8 9.5 5 6.5 4.5 2.5M12 14.5c4 0 7 3 7.5 7"/>`,
   trophy: `<path d="M8 4h8v5a4 4 0 0 1-8 0Z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 21h8M10 17h4"/>`,
@@ -119,7 +120,7 @@ p,ul,ol,table,figure{margin:0}
 .ic{width:1.4em;height:1.4em;flex:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-.k-meteo{--k:#ff9f43}.k-vigilance{--k:#ffc927}.k-mer{--k:#22b8cf}.k-volcan{--k:#ff6b4a}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-secheresse{--k:#ff922b}.k-coupures{--k:#74c0fc}.k-dae{--k:#ff6b6b}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-cyclones{--k:#9775fa}
+.k-meteo{--k:#ff9f43}.k-vigilance{--k:#ffc927}.k-mer{--k:#22b8cf}.k-volcan{--k:#ff6b4a}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-secheresse{--k:#ff922b}.k-coupures{--k:#74c0fc}.k-dae{--k:#ff6b6b}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-cyclones{--k:#9775fa}.k-historique{--k:#e599f7}
 .k-air{--k:#38d9a9}.k-electricite{--k:#fab005}.k-calendrier{--k:#b197fc}.k-communes{--k:#f783ac}.k-services{--k:#74c0fc}.k-terrain{--k:#d8a65a}
 .kb{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:14px;flex:none;color:var(--k);
 background:color-mix(in srgb,var(--k) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k) 30%,transparent)}
@@ -467,6 +468,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .lvl{display:inline-block;padding:.1rem .55rem;border-radius:1rem;font:700 .8rem system-ui,sans-serif;background:var(--c);color:#14202b}
 .table-wrap{overflow-x:auto}
 table.drought{width:100%;border-collapse:collapse;font-size:.92rem}
+table.histo small{display:block}.ratio{display:block;position:relative;height:.45rem;margin-top:.3rem;border-radius:.3rem;background:var(--line);max-width:9rem}.ratio i{position:absolute;inset:0 auto 0 0;border-radius:.3rem}.ratio s{position:absolute;left:50%;top:-.15rem;bottom:-.15rem;width:2px;background:var(--ink);opacity:.5}
 table.drought th,table.drought td{text-align:left;padding:.45rem .5rem;border-top:1px solid var(--line)}
 table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .rt{font-weight:700;color:var(--link)}
@@ -596,7 +598,7 @@ ${body}
   </div>
   <div>
     <h3>Sources</h3>
-    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Cyclones : CMRS de La Réunion (Météo-France), via GDACS ; côtes Natural Earth (domaine public). Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Relief : IGN, RGE ALTI. Police des titres : Bricolage Grotesque (SIL OFL).</p>
+    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Cyclones : CMRS de La Réunion (Météo-France), via GDACS ; côtes Natural Earth (domaine public). Historique : données climatologiques quotidiennes de Météo-France depuis 1900. Volcan : OVPF-IPGP (CC BY 4.0), <a href="https://pitonlive.com">pitonlive.com</a>. Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Relief : IGN, RGE ALTI. Police des titres : Bricolage Grotesque (SIL OFL).</p>
     <p>Ces données sont fournies telles quelles, sans garantie. Pour un cyclone ou de fortes pluies, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture.</p>
   </div>
 </div></footer>

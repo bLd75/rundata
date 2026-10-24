@@ -7,7 +7,9 @@ import { createServer as createHttpServer, type IncomingMessage, type ServerResp
 import "./net.js";
 import { handle } from "../app.js";
 import { Cache } from "../cache.js";
+import * as climat from "../providers/climat.js";
 import * as meteofrance from "../providers/meteofrance.js";
+import { localClimat } from "./climat-local.js";
 import { VERSION } from "../server.js";
 
 const cache = new Cache(); // shared by all requests: that is the point
@@ -16,6 +18,9 @@ meteofrance.configure({
   apiKey: process.env.METEOFRANCE_API_KEY,
   token: process.env.METEOFRANCE_TOKEN,
 });
+
+// The past weather (historique_meteo) from a local copy of the archive: scripts/climat-local.ts.
+if (process.env.CLIMAT_SQLITE) climat.configure(localClimat(process.env.CLIMAT_SQLITE));
 
 // An MCP request is a few kilobytes of JSON.
 const MAX_BODY = 1024 * 1024;

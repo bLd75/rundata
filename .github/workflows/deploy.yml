@@ -1,6 +1,6 @@
 # Deploys the Worker (rundata.re) once CI has passed on a commit of main, that is after each merged pull request.
-# Stops before deploying when the bus timetables this version reads are not in D1 yet (scripts/transit-ready.mjs):
-# they are imported by hand first. One deployment at a time, in the order of the commits.
+# Stops before deploying when the bus timetables this version reads are not in D1 yet (scripts/transit-ready.mjs), or the
+# climate archive (scripts/climat-ready.mjs): they are imported by hand first. One deployment at a time, in the order of the commits.
 name: Deploy
 
 on:
@@ -40,6 +40,8 @@ jobs:
       - run: npm ci
       - name: Bus timetables of this version already in D1
         run: npx wrangler d1 execute rundata-transports --remote --json --command "SELECT feed FROM feeds" | node scripts/transit-ready.mjs
+      - name: Climate archive already in D1
+        run: npx wrangler d1 execute rundata-climat --remote --json --command "SELECT COUNT(*) AS n FROM postes" | node scripts/climat-ready.mjs
       - name: Deploy
         run: npx wrangler deploy
       - name: The site answers

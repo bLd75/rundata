@@ -45,6 +45,7 @@ import * as sportSource from "../providers/sport.js";
 import { grandRaidRow, sportTool, type SportRow } from "../tools/sport.js";
 import * as gdacs from "../providers/cyclones.js";
 import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
+import { historiqueMeteo } from "../tools/historique.js";
 import { type Observation, why } from "../types.js";
 import { coastal, type PlacePage } from "./places.js";
 
@@ -452,6 +453,25 @@ export interface CyclonesAnswer {
 }
 
 /** The tool's answer for the island, with the tracks it leaves out of its text. */
+/** The last 30 days at six stations, one per climate of the island, against their normal. */
+export interface HistoriqueAnswer {
+  resume: string;
+  periode: { du: string; au: string; jours: number };
+  stations: {
+    zone: string;
+    station: string;
+    altitude_m: number;
+    lon: number;
+    lat: number;
+    pluie?: { total_mm: number; jours_de_pluie: number; normale_mm?: number; rapport_a_la_normale?: string; jour_le_plus_pluvieux?: { date: string; mm: number } };
+    temperatures?: { maximales_moyenne?: number; maximales_normale?: number; minimales_moyenne?: number; minimales_normale?: number; jour_le_plus_chaud?: { date: string; tx: number } };
+    ensoleillement?: { heures_par_jour?: number; normale_heures_par_jour?: number; jours_gris: number; jours_ensoleilles: number; jours_mesures: number };
+  }[];
+  a_savoir: string[];
+  sources: Credit[];
+}
+export const buildHistorique = async (cache: Cache, now = new Date()) => needed<HistoriqueAnswer>(await historiqueMeteo(cache, undefined, {}, now), "historique");
+
 export async function buildCyclones(cache: Cache, now = new Date()): Promise<CyclonesAnswer> {
   const a = needed<Omit<CyclonesAnswer, "traces">>(await cyclones(cache, undefined, now), "cyclones");
   const list = (await gdacs.systemes(cache, now)).value.filter((s) => s.debut <= now.toISOString());
