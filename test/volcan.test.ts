@@ -81,10 +81,20 @@ describe("volcano", () => {
 
     // The same in the answer and on /volcan: its day, the words, the link; nothing read from the image.
     const r = body(await volcanSeismes(cacheWith(posts), NOW));
-    expect(r.resume).toContain("Dernière publication de l'OVPF (24/10) : un communiqué en image, sans texte, à lire sur https://bsky.app/profile/ovpf.bsky.social/post/arret.");
+    expect(r.resume).toContain("Dernière publication de l'OVPF (24/10, 19:46) : un communiqué en image, que rundata.re ne peut pas lire, à lire sur https://bsky.app/profile/ovpf.bsky.social/post/arret.");
+    // Newer than pitonlive's status of the 19th: the state may not account for it, and nothing is drawn from it.
+    expect(r.resume).toContain("La dernière publication de l'OVPF est une image que nous ne lisons pas : l'état ci-dessus peut ne pas en tenir compte.");
+    expect(r.etat).toMatchObject({ image_ovpf_plus_recente: true, eruption_en_cours: false, niveau_orsec: "Vigilance" });
     expect(r.publications_ovpf[0]).toMatchObject({ texte: "Communiqué en image (sans texte)", image: true, lien: "https://bsky.app/profile/ovpf.bsky.social/post/arret" });
     const html = volcanPage("https://rundata.re", { value: r, fetchedAt: NOW, stale: false }, NOW);
     expect(html).toContain(`<p>Communiqué en image (sans texte)</p><p><a href="https://bsky.app/profile/ovpf.bsky.social/post/arret">Lire le message →</a></p>`);
+    expect(html).toContain(`<p class="lead">La dernière publication de l&#39;OVPF est une image que nous ne lisons pas : l&#39;état ci-dessus peut ne pas en tenir compte.</p>`);
+
+    // An image older than what the state comes from: nothing more said.
+    const older = body(await volcanSeismes(cacheWith(activityPosts({ feed: [post("ancienne", "2026-10-15T08:00:00.000Z", "", image())] })), NOW));
+    expect(older.resume).toContain("un communiqué en image, que rundata.re ne peut pas lire");
+    expect(older.resume).not.toContain("peut ne pas en tenir compte");
+    expect(older.etat.image_ovpf_plus_recente).toBeUndefined();
   });
 
   it("sums it all up", async () => {

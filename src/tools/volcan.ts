@@ -14,6 +14,7 @@ const OFFICIAL =
 const NIVEAU_INCONNU = "à vérifier sur reunion.gouv.fr";
 
 const day = (iso: string) => localTime(new Date(iso)).split(" ")[0];
+export const IMAGE_APRES = "La dernière publication de l'OVPF est une image que nous ne lisons pas : l'état ci-dessus peut ne pas en tenir compte.";
 // « Accès à l'Enclos interdit selon le communiqué du … ».
 export const ENCLOS_SAID: Record<string, string> = { ferme: "interdit", fermé: "interdit", partiel: "partiellement ouvert", ouvert: "ouvert" };
 const ACCESS: Record<string, string> = { ouvert: "ouvert", partiel: "partiellement ouvert", ferme: "fermé", fermé: "fermé" };
@@ -143,10 +144,16 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     else if (a?.available) parts.push(`Accès à l'Enclos : ${ACCESS[a.enclos_status] ?? a.enclos_status}${a.source_name ? ` (${a.source_name})` : ""}.`);
   }
   const last = posts?.[0];
+  // The observatory's newest post an image we do not read, newer than what the state comes from: it may announce what
+  // the state does not say (an eruption, its end). Said, and nothing drawn from it (marketing).
+  const p0 = (state as { prefecture?: volcan.Phase } | null)?.prefecture;
+  const told = Math.max(state?.status.published_at ? Date.parse(state.status.published_at) : 0, p0 ? Date.parse(p0.publie) : 0);
+  const imageAfter = !!state && !!last?.image && Date.parse(last.date) > told;
   if (last) {
     parts.push(last.image
-      ? `Dernière publication de l'OVPF (${day(last.date)}) : un communiqué en image, sans texte, à lire sur ${last.lien}.`
+      ? `Dernière publication de l'OVPF (${localTime(new Date(last.date)).replace(" ", ", ")}) : un communiqué en image, que rundata.re ne peut pas lire, à lire sur ${last.lien}.`
       : `Dernière publication de l'OVPF sur l'activité (${day(last.date)}) : « ${last.texte.slice(0, 220)}${last.texte.length > 220 ? "…" : ""} »`);
+    if (imageAfter) parts.push(IMAGE_APRES);
   }
   const q = quakes ? quakeSummary(quakes, now) : null;
   if (q) {
@@ -167,6 +174,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
           eruption: state.eruption ?? undefined,
           niveau_orsec: unknown ? NIVEAU_INCONNU : state.status.alert_level_display,
           ...(unknown && { niveau_inconnu: true }),
+          ...(imageAfter && { image_ovpf_plus_recente: true }),
           ...((state as { ecart?: Ecart }).ecart && { ecart_pitonlive: (state as { ecart?: Ecart }).ecart }),
           derniere_eruption_fin: state.last_eruption_ended_at ?? undefined,
           deformation: state.deformation?.available ? `${state.deformation.label} (communiqué du ${day(state.deformation.published_at!)})` : undefined,

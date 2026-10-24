@@ -5,7 +5,7 @@
  * its tile on the home page.
  */
 import { PREFECTURE } from "../providers/volcan.js";
-import { ENCLOS_SAID } from "../tools/volcan.js";
+import { ENCLOS_SAID, IMAGE_APRES } from "../tools/volcan.js";
 import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
@@ -113,7 +113,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
           (e.ecart_pitonlive && e.communique_prefecture && e.acces_enclos
             // pitonlive lower for long: the Enclos as the prefecture's release said it, and where it comes from (marketing).
             ? `<p class="lead">Accès à l'Enclos <b>${esc(ENCLOS_SAID[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b> selon le communiqué du ${esc(dayOf(e.communique_prefecture.publie))} : vérifiez sur ${GOUV} avant de partir.</p>`
-            : a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.niveau_inconnu ? `<p class="lead">Accès à l'Enclos : à vérifier sur ${GOUV}, avant de partir.</p>` : e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "")
+            : a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.niveau_inconnu ? `<p class="lead">Accès à l'Enclos : à vérifier sur ${GOUV}, avant de partir.</p>` : e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "") +
+          (e.image_ovpf_plus_recente ? `<p class="lead">${esc(IMAGE_APRES)}</p>` : "")
         : `<p class="lead">${esc(d.resume)}</p>`) +
       (q ? `<p class="lead">Séismes sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
       `</div>`;
