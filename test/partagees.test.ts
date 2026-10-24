@@ -73,10 +73,12 @@ describe("the scheduled refresh of the shared copies", () => {
       await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(now), list));
     }
     const perDay = (every: number) => (24 * 60) / every + 1;
-    for (const s of SHARED) expect(kv.writes.get(`copie:${VERSION}:${s.key}`), s.key).toBeLessThanOrEqual(perDay(s.every));
+    // The volcano's copy goes every 5 minutes during an alert: its quickest rate bounds it.
+    for (const s of SHARED) expect(kv.writes.get(`copie:${VERSION}:${s.key}`), s.key).toBeLessThanOrEqual(perDay(typeof s.every === "number" ? s.every : 5));
     const total = [...kv.writes.values()].reduce((a, b) => a + b, 0);
-    expect(total).toBeLessThanOrEqual(240);
-    expect(total).toBeGreaterThanOrEqual(220);
+    // The volcano's copy, quiet here, every 30 minutes like four others (about 280 a day, partagees.ts).
+    expect(total).toBeLessThanOrEqual(290);
+    expect(total).toBeGreaterThanOrEqual(265);
   });
 
   it("leaves a build that would not fit after a full AROME prefetch to a later event, and says why", async () => {

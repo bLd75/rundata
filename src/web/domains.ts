@@ -4,6 +4,7 @@
  * assistants reading a page see it, and points to the connector for the rest. Each also says it in a few words for
  * its tile on the home page.
  */
+import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import type { Cached } from "../cache.js";
 import { normalize } from "../places/resolve.js";
@@ -79,8 +80,10 @@ const ACCESS: Record<string, string> = { ouvert: "ouvert", partiel: "partielleme
 const md = (m: number | null) => (m == null ? "—" : fr(Math.round(m * 10) / 10));
 const dayOf = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Indian/Reunion" });
 
-export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, now = new Date(), alerte?: Alerte): string {
+/** `news`: the news copy, read during an alert only, for what the media say of it. */
+export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, now = new Date(), alerte?: Alerte, news?: ActualitesAnswer): string {
   const d = data?.value;
+  const a = alerteVolcan(d);
   const e = d?.etat;
   const q = d?.seismes;
   const url = `${origin}/volcan`;
@@ -89,16 +92,21 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     ? loading("L'état du volcan")
     : `<div class="status">` +
       (e
-        ? `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : /^Alerte/.test(e.niveau_orsec) ? "Éruption probable ou imminente" : "Pas d'éruption en cours"}</p>` +
+        ? (a
+          ? `<p class="lead"><b>${esc(volcanLead(a))}</b></p>`
+          : `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours"}</p>`) +
           `<p class="lead">Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>.` +
           (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b>.` : "") +
           (e.deformation ? ` Déformation du volcan : ${esc(e.deformation)}.` : "") + `</p>` +
-          (e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "")
+          (a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "")
         : `<p class="lead">${esc(d.resume)}</p>`) +
       (q ? `<p class="lead">Séismes sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
       `</div>`;
 
-  const enclos = e?.acces_enclos
+  // During an alert the Enclos is closed by order, whatever another source says (marketing's rule: never « partiel »).
+  const enclos = a
+    ? `<div class="card">${icon("mountain")}<h3>${esc(ENCLOS)}</h3><p>${esc(CONSIGNES)}</p></div>`
+    : e?.acces_enclos
     ? `<div class="card">${icon("mountain")}<h3>Accès à l'Enclos : ${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</h3>` +
       (e.acces_enclos.detail ? `<p>${esc(e.acces_enclos.detail)}</p>` : "") +
       (e.acces_enclos.source ? `<p class="note">${e.acces_enclos.lien ? `<a href="${esc(e.acces_enclos.lien)}">${esc(e.acces_enclos.source)}</a>` : esc(e.acces_enclos.source)}</p>` : "") +
@@ -121,10 +129,12 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   <ul class="posts">${d.publications_ovpf.slice(0, 4).map((p) => `<li class="card"><p class="note">${esc(p.date)}</p><p>${esc(p.texte)}</p>${p.lien ? `<p><a href="${esc(p.lien)}">Lire le message →</a></p>` : ""}</li>`).join("")}</ul></section>`
     : "";
 
-  const title = "Piton de la Fournaise en direct : éruption, Enclos, séismes · 974";
-  const description = d && e
+  const title = a ? volcanTitle(a) : "Piton de la Fournaise en direct : éruption, Enclos, séismes · 974";
+  const description = a
+    ? volcanMeta(a)
+    : d && e
     ? describe(
-        `🇷🇪 Piton de la Fournaise (La Réunion, 974) : ${e.eruption_en_cours ? "éruption en cours" : /^Alerte/.test(e.niveau_orsec) ? "éruption probable ou imminente" : "pas d'éruption en cours"}, niveau ORSEC ${e.niveau_orsec}` +
+        `🇷🇪 Piton de la Fournaise (La Réunion, 974) : ${e.eruption_en_cours ? "éruption en cours" : "pas d'éruption en cours"}, niveau ORSEC ${e.niveau_orsec}` +
           `${e.acces_enclos ? `, Enclos ${ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut}` : ""}` +
           `${q ? `, ${q.sous_le_volcan["7_jours"]} séismes sous le volcan en 7 jours` : ""}.`,
         "🇷🇪 Piton de la Fournaise (La Réunion, 974) en direct : éruption ou non, accès à l'Enclos, derniers séismes de l'OVPF.",
@@ -135,7 +145,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Volcan en direct</p>
-    <h1>Piton de la Fournaise <span class="n974">974</span></h1>
+    <h1>${a ? esc(volcanH1(a)) : `Piton de la Fournaise <span class="n974">974</span>`}</h1>
     ${status}
     ${ask(`Lo volkan lé an érupsion astèr ? Rogard si ${url} é di amwin si lanklo lé ouvèr.`,
       `Le Piton de la Fournaise est-il en éruption ? Lis ${url} et dis-moi aussi si l'Enclos est ouvert.`)}
@@ -143,7 +153,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   <figure class="card mapcard">${islandMap({ pin: FOURNAISE, label: "Carte de La Réunion (974) avec le Piton de la Fournaise" })}</figure>
 </div>`;
 
-  const body = `<section aria-labelledby="h-volcan">
+  const body = `${a ? alertSections(a, news) : ""}<section aria-labelledby="h-volcan">
   <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-volcan">L'Enclos et les séismes</h2></div>
   ${d ? `<div class="two">${enclos}${quakes}</div>${warnings(d.avertissements)}${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">Les données du volcan se chargent : rechargez la page dans quelques secondes.</p>`}
 </section>
@@ -156,6 +166,8 @@ ${connectorCta("volcan_seismes", "le volcan")}`;
 export function volcanLive(data: Cached<VolcanAnswer> | null): Live | undefined {
   const e = data?.value.etat;
   if (!e) return undefined;
+  const a = alerteVolcan(data!.value);
+  if (a) return tileLive(a);
   const q = data!.value.seismes;
   return {
     valeur: e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption",

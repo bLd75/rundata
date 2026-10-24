@@ -285,6 +285,8 @@ export interface VolcanAnswer {
     derniere_eruption_fin?: string;
     deformation?: string;
     acces_enclos?: { statut: string; detail?: string; source?: string; lien?: string };
+    /** The prefecture's release, when its phase is the one given. `publie`: the day, ISO (the hour is not given). */
+    communique_prefecture?: { niveau: string; titre: string; lien: string; publie: string };
   };
   publications_ovpf?: { date: string; texte: string; lien?: string }[];
   seismes?: {

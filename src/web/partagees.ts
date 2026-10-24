@@ -9,7 +9,8 @@ import { costOf, count, left, measured, spent } from "../budget.js";
 import type { Cache, CacheEntry, CacheStore } from "../cache.js";
 import { VERSION } from "../server.js";
 import { why } from "../types.js";
-import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildElectricite, buildSea, buildTrafic, FRESH_SECONDS } from "./data.js";
+import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildElectricite, buildSea, buildTrafic, buildVolcan, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
+import { alerteVolcan } from "./volcan-alerte.js";
 
 /** The part of a KV namespace binding used here. */
 export interface Kv {
@@ -20,16 +21,18 @@ export interface Kv {
 export interface Shared {
   key: string;
   build: (cache: Cache, now: Date) => Promise<unknown>;
-  /** How often its copy in KV is refreshed, in minutes: each refresh is one KV write. */
-  every: number;
+  /** How often its copy in KV is refreshed, in minutes: each refresh is one KV write. Given the last copy, if it depends on it. */
+  every: number | ((last: unknown) => number);
   /** The subrequests its build takes from a cold cache, as measured: what an isolate that has not built it yet expects. */
   cold?: number;
 }
 
-// About 230 KV writes a day in all: 48 a day for each of the four every 30 minutes, 24 for the air, 8 for the sea,
-// 4 for the calendar. The events stay out: their build takes most of an invocation (they will come in a bundle).
+// About 280 KV writes a day in all: 48 a day for each of the five every 30 minutes, 24 for the air, 8 for the sea,
+// 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
+// of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
 // The cold costs: each build measured alone with `wrangler dev` from an empty cache, plus one, and the traffic's from
-// the event's logs, a little dearer than in `wrangler dev` (24 October 2026).
+// the event's logs, a little dearer than in `wrangler dev` (24 October 2026). The volcano's: its four sources, each a
+// read, a fetch and a write, plus one.
 export const SHARED: Shared[] = [
   { key: "web:actualites", build: buildActualites, every: 30, cold: 12 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 27 },
@@ -38,6 +41,7 @@ export const SHARED: Shared[] = [
   { key: "web:air", build: buildAir, every: 60, cold: 4 },
   { key: "web:mer", build: buildSea, every: 3 * 60, cold: 15 },
   { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8 },
+  { key: "web:volcan", build: buildVolcan, every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 13 },
 ];
 const KEYS = new Set(SHARED.map((s) => s.key));
 // The calendar's copy, the least often refreshed, outlives its next refresh by far.
@@ -101,15 +105,21 @@ export interface Warmed {
  * build that would not fit, after a full AROME prefetch, waits for a later event. The event runs under the same
  * budget as a page (worker.ts), so a build that costs more than it was thought to is cut there, not past it.
  */
+// What this isolate last wrote to KV, per key: its next events take the copy's age from here rather than read it back,
+// since each read is a subrequest and a dear build (the traffic's) fits an event only with few of them. Another
+// isolate's newer write is then seen late, which costs at most an early refresh.
+const wrote = new Map<string, KvEntry>();
+
 export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = SHARED): Promise<Warmed> {
   const ages = await Promise.all(list.map(async (s) => {
-    const e = await kvGet(kv, s.key);
-    return { s, at: e?.fetchedAt, kept: e?.cost };
+    const e = wrote.get(kvKey(s.key)) ?? (await kvGet(kv, s.key));
+    return { s, at: e?.fetchedAt, kept: e?.cost, every: typeof s.every === "number" ? s.every : s.every(e?.value) };
   }));
   const due = ages
-    .map(({ s, at, kept }) => ({ s, at, kept, over: at == null ? Infinity : now.getTime() - at - s.every * 60_000 }))
+    .map(({ s, at, kept, every }) => ({ s, at, kept, over: at == null ? Infinity : now.getTime() - at - every * 60_000 }))
     .filter((x) => x.over >= 0)
-    .sort((a, b) => b.over - a.over);
+    // Not by subtraction: the copies never written are all overdue by Infinity, and Infinity - Infinity is NaN.
+    .sort((a, b) => (a.over === b.over ? 0 : a.over < b.over ? 1 : -1));
   const out: Warmed = { written: [], left: [] };
   for (const { s, at, kept } of due) {
     // The copy looked up, then built, within what is left besides the writes; the writes (the data center's cache,
@@ -133,6 +143,7 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
       count(1, true);
       const entry: KvEntry = { value: got.value, fetchedAt: got.fetchedAt.getTime(), cost: costOf(s.key) ?? kept };
       await kv.put(kvKey(s.key), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS });
+      wrote.set(kvKey(s.key), entry);
       out.written.push(s.key);
     } catch (err) {
       out.left.push({ key: s.key, why: `erreur : ${why(err).slice(0, 80)}` });
