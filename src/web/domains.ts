@@ -151,7 +151,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   <ul class="posts">${d.publications_ovpf.slice(0, 4).map((p) => `<li class="card"><p class="note">${esc(p.date)}</p><p>${esc(p.texte)}</p>${p.lien ? `<p><a href="${esc(p.lien)}">Lire le message →</a></p>` : ""}</li>`).join("")}</ul></section>`
     : "";
 
-  // In vigilance as the prefecture or pitonlive gives it (never an unread level), the level and the plan's words (marketing).
+  // In vigilance as the prefecture or pitonlive gives it (never an unread level), the level and the plan's words; the
+  // level in lower case within a sentence, « Vigilance volcanique » opening the title after its colon (marketing).
   const vigilance = !a && e && !e.niveau_inconnu && e.niveau_orsec === "Vigilance" ? libelle("Vigilance") : undefined;
   const title = a ? volcanTitle(a) : vigilance ? "Piton de la Fournaise : Vigilance volcanique · 974" : "Piton de la Fournaise en direct : éruption, Enclos, séismes · 974";
   const description = a
@@ -169,7 +170,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Volcan en direct</p>
-    <h1>${a ? esc(volcanH1(a)) : vigilance ? esc(`Piton de la Fournaise : Vigilance, ${vigilance}`) : `Piton de la Fournaise <span class="n974">974</span>`}</h1>
+    <h1>${a ? esc(volcanH1(a)) : vigilance ? esc(`Piton de la Fournaise : vigilance, ${vigilance}`) : `Piton de la Fournaise <span class="n974">974</span>`}</h1>
     ${status}
     ${ask(`Lo volkan lé an érupsion astèr ? Rogard si ${url} é di amwin si lanklo lé ouvèr.`,
       `Le Piton de la Fournaise est-il en éruption ? Lis ${url} et dis-moi aussi si l'Enclos est ouvert.`)}

@@ -44,7 +44,7 @@ describe("the volcano put forward during an alert", () => {
     const a = alerteVolcan(await answer(ALERT_1))!;
     expect(a).toMatchObject({ niveau: "Alerte 1", eruption: false, communique: { titre: ALERT_1 } });
     expect(bannerText(a)).toBe(
-      "🌋 Piton de la Fournaise : alerte 1 du préfet depuis le 24 octobre, « éruption probable ou imminente » selon le dispositif ORSEC Volcan. Accès à l'Enclos interdit.",
+      "🌋 Piton de la Fournaise : alerte 1 du préfet depuis le 24 octobre, « éruption probable ou imminente » (dispositif ORSEC Volcan). Accès à l'Enclos interdit.",
     );
   });
 
@@ -83,7 +83,7 @@ describe("the volcano put forward during an alert", () => {
     const v = await answer(ALERT_1);
     expect(homeCard(alerteVolcan(v)!)).toContain("<h2>🌋 Piton de la Fournaise : alerte 1</h2><p class=\"lead\">Alerte 1 : « éruption probable ou imminente », selon le dispositif ORSEC Volcan. Accès à l&#39;Enclos interdit.</p>");
     const demo = demos({ volcan: { value: v, fetchedAt: NOW, stale: false } } as unknown as Parameters<typeof demos>[0], NOW).find((d) => d.call === "volcan_seismes()")!;
-    expect(demo.answer).toMatch(/^L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus\. Le volcan est en Alerte 1 : « éruption probable ou imminente » \(dispositif ORSEC Volcan\)\./);
+    expect(demo.answer).toMatch(/^L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus\. Le volcan est en alerte 1 : « éruption probable ou imminente » \(dispositif ORSEC Volcan\)\./);
     expect(demo.answer).not.toContain("Pas encore");
   });
 
@@ -98,7 +98,7 @@ describe("the volcano put forward during an alert", () => {
     const v = await buildVolcan(new Cache(store, () => t), NOW);
     const page = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain("<title>Piton de la Fournaise : Vigilance volcanique · 974</title>");
-    expect(page).toContain("<h1>Piton de la Fournaise : Vigilance, activité persistante et continue sous le massif</h1>");
+    expect(page).toContain("<h1>Piton de la Fournaise : vigilance, activité persistante et continue sous le massif</h1>");
     // Only in the folded list of the plan's levels.
     expect(page.replace(/<details>[\s\S]*?<\/details>/, "")).not.toMatch(/éruption probable/);
   });

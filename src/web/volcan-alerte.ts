@@ -87,7 +87,7 @@ export const CONSIGNES = "Accès à l'Enclos interdit. Seules comptent les consi
 export function bannerText(a: VolcanAlerte): string {
   return a.eruption
     ? `🌋 Éruption en cours au Piton de la Fournaise${a.niveau ? ` (${level(a)} du préfet${since(a)})` : ""}. ${ENCLOS}`
-    : `🌋 Piton de la Fournaise : ${level(a)} du préfet${since(a)}${plan(a) ? `, « ${plan(a)} » selon le dispositif ORSEC Volcan` : ""}. ${ENCLOS}`;
+    : `🌋 Piton de la Fournaise : ${level(a)} du préfet${since(a)}${plan(a) ? `, « ${plan(a)} » (dispositif ORSEC Volcan)` : ""}. ${ENCLOS}`;
 }
 
 export function bannerHtml(a: VolcanAlerte | undefined, path: string): string {
