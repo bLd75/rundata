@@ -12,7 +12,18 @@ const NOW = new Date("2026-10-24T04:00:00Z");
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
 
-function file(url: string): string | undefined {
+const bytes = (f: string) => readFileSync(new URL(`./fixtures/agenda/${f}`, import.meta.url));
+
+function file(url: string, form?: string): string | undefined {
+  if (url.includes("teat.re")) return form?.includes("Plein") ? "teat_plein-air.html" : "teat_champ-fleuri.html";
+  if (url.includes("citedesarts")) return url.includes("debut_programmation") ? "citedesarts_2.html" : "citedesarts_1.html";
+  if (url.includes("kabardock")) return "kabardock.html";
+  if (url.includes("bisik")) return "bisik.html";
+  if (url.includes("theatrelucdonat")) return "luc-donat.html";
+  if (url.includes("cdnoi")) return "cdnoi.html";
+  if (url.includes("lespas")) return "lespas.html";
+  if (url.includes("lesechoir")) return "sechoir.json";
+  if (url.includes("saint-andre")) return "rss_saint-andre.xml";
   if (url.includes("mairie-saintpaul")) return "tribe_saint-paul.json";
   if (url.includes("ville-port")) return "tribe_le-port.json";
   if (url.includes("trois-bassins")) return "tribe_trois-bassins.json";
@@ -31,8 +42,8 @@ describe("agenda", () => {
     asked = [];
     vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
       asked.push(new Headers(init?.headers).get("User-Agent") ?? "");
-      const f = file(url);
-      return f && !down?.test(url) ? new Response(fixture(f)) : new Response("", { status: 503 });
+      const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+      return f && !down?.test(url) ? new Response(bytes(f)) : new Response("", { status: 503 });
     });
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -79,21 +90,28 @@ describe("agenda", () => {
   });
 
   it("gives the island's next two weeks, the same event once, from every agenda", async () => {
-    const b = body(await agenda(cache(), undefined, undefined, undefined, NOW));
-    expect(b.resume).toBe("24 événements à La Réunion dans les deux semaines qui viennent (du samedi 24/10 au samedi 07/11).");
+    const c = cache();
+    const b = body(await agenda(c, undefined, undefined, undefined, NOW));
+    expect(b.resume).toBe("40 événements à La Réunion dans les deux semaines qui viennent (du samedi 24/10 au samedi 07/11).".replace("40", String(b.nombre)));
+    expect(b.nombre).toBe(54);
+    expect(b.evenements).toHaveLength(40);
     expect(b.evenements.filter((e: { titre: string }) => e.titre === "Visite guidée de la Maison Carrère")).toHaveLength(1);
     expect(b.evenements[1]).toMatchObject({ titre: "Fête de l'ail", quand: "du vendredi 23/10 au dimanche 25/10", commune: "Petite-Île", publie_par: "reunion.fr" });
-    expect(new Set(b.evenements.map((e: { publie_par: string }) => e.publie_par))).toEqual(new Set(["reunion.fr", "Ville du Tampon", "Ville du Port", "Mairie des Trois-Bassins", "CINOR", "Mairie de Saint-Paul"]));
+    const all = body(await agenda(c, undefined, undefined, undefined, NOW, 300));
+    expect(new Set(all.evenements.map((e: { publie_par: string }) => e.publie_par))).toEqual(new Set(["reunion.fr", "Ville du Tampon", "Ville du Port", "Mairie des Trois-Bassins", "CINOR", "Mairie de Saint-Paul", "Ville de Saint-André",
+      "Le Séchoir", "TÉAT La Réunion", "Cité des Arts", "Kabardock", "Bisik", "Théâtre Luc Donat", "CDNOI", "Léspas"]));
     // Last year's posts of Saint-Louis are past; nothing of theirs.
     expect(b.evenements.some((e: { publie_par: string }) => e.publie_par === "Ville de Saint-Louis")).toBe(false);
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
-    expect(asked).toHaveLength(8);
+    expect(asked).toHaveLength(19);
   });
 
   it("answers tonight, with the hours", async () => {
     const b = body(await agenda(cache(), undefined, "ce_soir", "concert", NOW));
-    expect(b.resume).toBe("1 événement (concerts et musique) à La Réunion ce soir.");
-    expect(b.evenements[0]).toMatchObject({ titre: "Somèn kréol – Plato Zartis", quand: "samedi 24/10 de 18:00 à 23:00", commune: "Les Trois-Bassins" });
+    expect(b.resume).toBe("4 événements (concerts et musique) à La Réunion ce soir.");
+    expect(b.evenements.map((e: { titre: string }) => e.titre)).toEqual(["CALOGERO", "Olivier Ker Ourio", "DKLO TAN ROUGE", "Somèn kréol – Plato Zartis"]);
+    expect(b.evenements[0]).toMatchObject({ lieu: "TÉAT Plein Air", commune: "Saint-Paul", genres: ["concert"], publie_par: "TÉAT La Réunion" });
+    expect(b.evenements[3]).toMatchObject({ quand: "samedi 24/10 de 18:00 à 23:00", commune: "Les Trois-Bassins" });
   });
 
   it("answers for a commune, with what its agenda gives", async () => {
@@ -105,7 +123,7 @@ describe("agenda", () => {
 
   it("says when a commune publishes no agenda, and what there is elsewhere", async () => {
     const b = body(await agenda(cache(), "Saint-Pierre", "ce_week_end", undefined, NOW));
-    expect(b.resume).toMatch(/^Aucun événement trouvé à Saint-Pierre ce week-end .*la mairie de Saint-Pierre ne publie pas d'agenda lisible.* ailleurs sur l'île\.$/);
+    expect(b.resume).toMatch(/^Aucun événement trouvé à Saint-Pierre ce week-end .*ni la mairie de Saint-Pierre ni une salle de la commune ne publient d'agenda lisible.* ailleurs sur l'île\.$/);
     expect(b.ailleurs_sur_l_ile.length).toBeGreaterThan(0);
   });
 

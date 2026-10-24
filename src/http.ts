@@ -46,6 +46,11 @@ export async function postForm<T>(source: string, url: string, fields: Record<st
   return (await get(source, url, timeoutMs, {}, new URLSearchParams(fields))).json() as Promise<T>;
 }
 
+/** A form posted as is, for a page whose form expects its own encoding (the TÉAT's, in ISO-8859-1); its bytes. */
+export async function postBytes(source: string, url: string, body: string, timeoutMs = 15_000, headers: Record<string, string> = {}): Promise<ArrayBuffer> {
+  return (await get(source, url, timeoutMs, { "Content-Type": "application/x-www-form-urlencoded", ...headers }, body)).arrayBuffer();
+}
+
 /** A JSON body posted, for a service that takes more than a URL holds (the IGN's altitudes of a whole trail). */
 export async function postJson<T>(source: string, url: string, body: unknown, timeoutMs = 15_000): Promise<T> {
   return (await get(source, url, timeoutMs, { "Content-Type": "application/json" }, JSON.stringify(body))).json() as Promise<T>;

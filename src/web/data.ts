@@ -858,9 +858,12 @@ export interface AgendaAnswer {
   ce_week_end: EventRow[];
 }
 
+// The page lists every event of the two weeks, the connector at most 40 an answer.
+const PAGE_EVENTS = 300;
+
 /** The next two weeks for the whole island, and this weekend's apart: the same agendas, read once. */
 export async function buildAgenda(cache: Cache, now = new Date()): Promise<AgendaAnswer> {
-  const a = needed<Omit<AgendaAnswer, "ce_week_end">>(await agenda(cache, undefined, undefined, undefined, now), "agenda");
+  const a = needed<Omit<AgendaAnswer, "ce_week_end">>(await agenda(cache, undefined, undefined, undefined, now, PAGE_EVENTS), "agenda");
   const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", undefined, now));
   return { ...a, ce_week_end: weekend?.evenements ?? [] };
 }
