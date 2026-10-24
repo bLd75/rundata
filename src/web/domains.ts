@@ -170,7 +170,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     ? `<div class="card">${icon("mountain")}<h3>${esc(ENCLOS)}</h3><p>${esc(CONSIGNES)}</p></div>`
     : e?.acces_enclos
     ? `<div class="card">${icon("mountain")}<h3>${esc(enclosTitle(e.acces_enclos))}</h3>` +
-      (e.acces_enclos.detail ? `<p>${esc(e.acces_enclos.detail)}</p>` : "") +
+      // pitonlive's own summary, kept whole, said as its words (marketing).
+      (e.acces_enclos.detail ? `<p>Résumé de pitonlive.com : ${esc(e.acces_enclos.detail)}</p>` : "") +
       (e.acces_enclos.source ? `<p class="note">${sourceLink(e.acces_enclos)}</p>` : "") +
       `</div>`
     : "";

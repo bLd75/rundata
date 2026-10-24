@@ -88,6 +88,8 @@ describe("out of an alert, whether it erupts only with its source", () => {
     const source = `(source : <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-reouverture-partielle-de-l-enclos">Préfecture de La Réunion, arrêté n° 2026-627 du 7 mai 2026</a>)`;
     expect(page).toContain(`Enclos : <b>« partiel »</b> selon pitonlive.com ${source}.`);
     expect(page).toContain("<h3>Enclos : « partiel » selon pitonlive.com</h3>");
+    // Under it, pitonlive's summary whole, said as its words.
+    expect(page).toContain("<p>Résumé de pitonlive.com : Réouverture PARTIELLE de l&#39;enclos (retour en phase de vigilance ORSEC depuis le 7 mai 2026).");
     expect(page).not.toContain("partiellement ouvert");
     expect(volcanLive({ value: v, fetchedAt: NOW, stale: false })).toEqual({
       valeur: "Pas d'éruption",
