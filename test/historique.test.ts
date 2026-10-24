@@ -119,7 +119,7 @@ describe("historique_meteo, hour by hour", () => {
   it("says yesterday hour by hour: when the sun shone, the coldest and warmest hours, the strongest gust", async () => {
     both();
     const a = json(await historiqueMeteo(new Cache(), "Cilaos", { du: "2026-10-23" }, NOW));
-    expect(a.resume).toContain("Heure par heure (Cilaos) — 23/10 : pas de pluie ; soleil entre 8 h et 14 h ; 10,8 °C à 5 h, 25,8 °C à 12 h ; rafale max 27 km/h vers 13 h");
+    expect(a.resume).toContain("Heure par heure (station Cilaos) — 23/10 : pas de pluie ; soleil entre 8 h et 14 h ; 10,8 °C à 5 h, 25,8 °C à 12 h ; rafale max 27 km/h vers 13 h");
     expect(a.heure_par_heure.heures).toHaveLength(24);
     expect(a.heure_par_heure.heures[12]).toMatchObject({ heure: "23/10 12 h", temperature: 25.8, soleil_min: 56, vent_de: "SO" });
     expect(a.heure_par_heure.par_jour[0]).toMatchObject({ pluie_mm: 0, heures_ensoleillees: 6, tmax: { valeur: 25.8, heure: "12 h" } });
