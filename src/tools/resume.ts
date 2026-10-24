@@ -127,7 +127,8 @@ const NEWS_HOURS = 12;
 const NEWS_MAX = 4;
 const EVENTS_MAX = 10;
 const WAVES = 9;
-// A build whose cost is not known yet in this isolate is taken to cost this much (web/site.ts does the same).
+// A build whose cost was measured neither in this isolate nor with its copy is taken to cost this much (web/site.ts
+// does the same).
 const COST_UNKNOWN = 25;
 
 const MARKETS_NOT_ALL = "D'après OpenStreetMap : tous les marchés n'y sont pas, et les jours peuvent avoir changé.";
@@ -347,7 +348,7 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
   ]);
   const copies: ResumeCopies = { vigilance: vig };
   const leftOut: LeftOut[] = [];
-  const due: { c: Copy; age: number }[] = [];
+  const due: { c: Copy; age: number; cost?: number }[] = [];
   parts.forEach(([name, c], i) => {
     const copy = peeked[i];
     if (usable(c, copy, now)) {
@@ -357,11 +358,11 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
       return;
     }
     leftOut.push({ partie: c.nom, raison: copy ? `copie de ${localTime(copy.fetchedAt)}, trop ancienne` : "pas de copie récente", outil: c.outil, page: `${SITE_URL}${c.page}` });
-    if (!(name in held)) due.push({ c, age: copy ? now.getTime() - copy.fetchedAt.getTime() : Infinity });
+    if (!(name in held)) due.push({ c, age: copy ? now.getTime() - copy.fetchedAt.getTime() : Infinity, cost: copy?.cost });
   });
   if (!vig) leftOut.push({ partie: "vigilance", raison: mf.enabled() ? "Météo-France ne répond pas" : "vigilance non branchée", outil: "vigilance_meteo", page: `${SITE_URL}/vigilance` });
   const oldest = due.sort((x, y) => y.age - x.age)[0];
-  const refresh = !!background && !!oldest && left() >= (costOf(oldest.c.key) ?? COST_UNKNOWN);
+  const refresh = !!background && !!oldest && left() >= (costOf(oldest.c.key) ?? oldest.cost ?? COST_UNKNOWN);
   if (refresh) {
     background(cache.get(oldest.c.key, FRESH_SECONDS, () => measured(oldest.c.key, () => oldest.c.build(cache, now))).catch((err) => console.error(`page ${oldest.c.key} : rafraîchissement impossible`, why(err))));
   }

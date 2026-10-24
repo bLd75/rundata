@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { count, counted, measured, WORKER_BUDGET } from "../src/budget.js";
 import { Cache, CACHE_FORMAT, type CacheEntry, MemoryStore, TieredStore } from "../src/cache.js";
 import { VERSION } from "../src/server.js";
+import { FRESH_SECONDS } from "../src/web/data.js";
 import { type Kv, kvKey, SHARED, SharedFallback, type Shared, warmShared } from "../src/web/partagees.js";
 
 /** A KV namespace in memory, counting its writes by key. */
@@ -43,22 +44,61 @@ class CountedStore extends MemoryStore {
 const T0 = Date.parse("2026-10-24T00:00:00Z");
 
 describe("the shared copies, read from KV", () => {
-  it("only when the data center's cache has none, and only for the shared copies", async () => {
+  it("when the data center's cache has none, and only for the shared copies", async () => {
     const kv = new FakeKv();
     const edge = new CountingStore();
-    const store = new SharedFallback(edge, kv);
+    const store = new SharedFallback(edge, kv, () => T0);
     const entry: CacheEntry = { value: { n: 1 }, fetchedAt: T0 };
     await kv.put(kvKey("web:air"), JSON.stringify(entry));
     // A miss here: KV's copy, put in the data center's cache for the next isolates.
     expect(await store.get("web:air")).toEqual(entry);
     expect(kv.reads).toBe(1);
     expect(await edge.get("web:air")).toEqual(entry);
-    // Now the cache has it: KV is not asked.
+    // Now the cache has it, fresh: KV is not asked.
     expect(await store.get("web:air")).toEqual(entry);
     expect(kv.reads).toBe(1);
     // A copy that is not shared: never asked of KV.
     expect(await store.get("web:lieu:saint-paul")).toBeUndefined();
     expect(kv.reads).toBe(1);
+  });
+
+  it("when the data center's copy is older than a page's freshness, and serves the newer of the two", async () => {
+    const kv = new FakeKv();
+    const edge = new CountingStore();
+    let now = T0;
+    const store = new SharedFallback(edge, kv, () => now);
+    // The data center served the page three hours ago, then slept; the scheduled event wrote KV's a minute ago.
+    const old: CacheEntry = { value: { n: 1 }, fetchedAt: T0 - 3 * 3600_000 };
+    const recent: CacheEntry = { value: { n: 2 }, fetchedAt: T0 - 60_000 };
+    await edge.put("web:actualites", old);
+    await kv.put(kvKey("web:actualites"), JSON.stringify(recent));
+    expect(await store.get("web:actualites")).toEqual(recent);
+    expect(kv.reads).toBe(1);
+    // Put in the data center's cache: its next isolates read it there, without KV.
+    expect(await edge.get("web:actualites")).toEqual(recent);
+    expect(await store.get("web:actualites")).toEqual(recent);
+    expect(kv.reads).toBe(1);
+    // Later, both old, the data center's the newer: it is the one served, and nothing is written.
+    now += 3600_000;
+    const edgeNewer: CacheEntry = { value: { n: 3 }, fetchedAt: now - 10 * 60_000 };
+    await edge.put("web:actualites", edgeNewer);
+    const puts = kv.writes.get(kvKey("web:actualites"));
+    expect(await store.get("web:actualites")).toEqual(edgeNewer);
+    expect(kv.reads).toBe(2);
+    expect(kv.writes.get(kvKey("web:actualites"))).toBe(puts);
+  });
+
+  it("so that a page whose data center's copy is old is not built again when KV's is fresh", async () => {
+    const kv = new FakeKv();
+    const edge = new CountingStore();
+    const cache = new Cache(new TieredStore(new MemoryStore(), new SharedFallback(edge, kv, () => T0)), () => T0, false);
+    await edge.put("web:actualites", { value: { n: 1 }, fetchedAt: T0 - 3 * 3600_000 });
+    await kv.put(kvKey("web:actualites"), JSON.stringify({ value: { n: 2 }, fetchedAt: T0 - 60_000 }));
+    let builds = 0;
+    const got = await cache.get("web:actualites", FRESH_SECONDS, async () => (builds++, { n: 9 }));
+    expect(got.value).toEqual({ n: 2 });
+    expect(builds).toBe(0);
+    expect((await cache.peek("web:actualites"))!.value).toEqual({ n: 2 });
   });
 });
 

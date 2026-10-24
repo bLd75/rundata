@@ -7,6 +7,7 @@
  * stays down for days) so that an outage does not turn every question into a new request against a server that is
  * already struggling.
  */
+import { costOf } from "./budget.js";
 import { cacheTally } from "./metrics.js";
 
 import { noteLecture } from "./lectures.js";
@@ -23,6 +24,8 @@ export const CACHE_FORMAT = "1";
 export interface CacheEntry {
   value: unknown;
   fetchedAt: number;
+  /** For a page's copy: the subrequests its build took (budget.ts), for the isolates that have not built it yet. */
+  cost?: number;
 }
 
 /** Where entries live: process memory on Node; memory in front of the Cloudflare cache in the Worker. */
@@ -76,6 +79,8 @@ export interface Cached<T> {
   fetchedAt: Date;
   /** True when the source failed and this is the last good copy. */
   stale: boolean;
+  /** What its build took, when it was measured (`peek` only). */
+  cost?: number;
 }
 
 const FAILURE_BACKOFF_SECONDS = 60;
@@ -141,7 +146,7 @@ export class Cache {
   /** The entry stored under `key`, however old, without loading it. `freshAfter` spares the tiers behind a recent enough one. */
   async peek<T>(key: string, freshAfter?: number): Promise<Cached<T> | undefined> {
     const hit = await this.store.get(key, freshAfter);
-    return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false };
+    return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.cost != null && { cost: hit.cost }) };
   }
 
   /**
@@ -223,7 +228,9 @@ export class Cache {
   ): Promise<Cached<T>> {
     try {
       const value = await load();
-      const entry = { value, fetchedAt: this.now() };
+      // A page's build is measured under its key (budget.ts `measured`): what it took goes with its copy.
+      const cost = costOf(key);
+      const entry: CacheEntry = cost == null ? { value, fetchedAt: this.now() } : { value, fetchedAt: this.now(), cost };
       await put(entry);
       this.failures.delete(key);
       return { value, fetchedAt: new Date(entry.fetchedAt), stale: false };
