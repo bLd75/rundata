@@ -49,12 +49,14 @@ export function configure(db: Run | undefined, secret?: string) {
 
 export const enabled = () => !!run;
 
-// Without a secret, a salt drawn once per instance: the fingerprints can never be traced back to an address.
-const ownSalt = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+// Without a secret, a salt drawn once per instance: the fingerprints can never be traced back to an address. Drawn at
+// first use, since a Worker may not draw random values while its module loads.
+let ownSalt: string | undefined;
+const salt = () => (ownSalt ??= Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join(""));
 
 /** A short hash of the sender's address and the day: the same within a day, meaningless without the salt. */
 export async function empreinte(adresse: string, now: Date): Promise<string> {
-  const data = new TextEncoder().encode(`${sel ?? ownSalt}|${now.toISOString().slice(0, 10)}|${adresse}`);
+  const data = new TextEncoder().encode(`${sel ?? salt()}|${now.toISOString().slice(0, 10)}|${adresse}`);
   const h = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
   return Array.from(h.slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
 }
