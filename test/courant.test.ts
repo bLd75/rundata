@@ -208,10 +208,12 @@ describe("Saint-André's PDF letters of EDF", () => {
     expect(r.resume).toContain("coupure d'électricité annoncée par EDF le lundi 02/11, heures et secteurs dans l'avis de la mairie");
     // The letter without a day is not in the summary.
     expect(resume(pageOf("saint-andre")!, { courant: { ...cached, value: { ...copy, avis: [avis[1]] } } } as never, NOW).coupures_electricite).toBeUndefined();
-    const arrow = `dans l&#39;avis publié par la mairie <a href="${MEDIA[0].source_url}" rel="noopener" aria-label="l'avis de la mairie (PDF)">→</a></li>`;
+    const arrow = `le lundi 02/11 : heures et secteurs dans <a class="tap" href="${MEDIA[0].source_url}" rel="noopener">l&#39;avis publié par la mairie →</a></li>`;
     const block = courantBlock(cached, "Saint-André", NOW);
     expect(electricitePage("https://rundata.re", { value: { resume: "", avertissements: [], sources: [], coupures_annoncees: block } as never, fetchedAt: NOW, stale: false }, NOW)).toContain(arrow);
     expect(aujourdhuiPage("https://rundata.re", pageOf("saint-andre")!, r, null)).toContain(arrow);
+    const undated = courantBlock({ ...cached, value: { ...copy, avis: [avis[1]] } }, "Saint-André", NOW).avis;
+    expect(courantItem(undated[0])).toBe(`<li>Avis de coupure d&#39;EDF publié par la mairie de Saint-André le 20/10 : la date, les heures et les secteurs sont <a class="tap" href="${MEDIA[1].source_url}" rel="noopener">dans l&#39;avis →</a></li>`);
     // A letter said by its date only keeps the link of the other notices.
     const gone = courantBlock({ ...cached, value: { ...copy, avis: [avis[2]] } }, "Saint-André", NOW).avis;
     expect(courantItem(gone[0])).toBe(`<li>${sentence(avis[2], NOW).replace(/'/g, "&#39;")} <a href="${MEDIA[3].source_url}" rel="noopener">l'avis →</a></li>`);

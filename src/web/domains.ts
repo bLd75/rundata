@@ -262,9 +262,16 @@ export function airLive(data: Cached<AirAnswer> | null): Live | undefined {
 
 // ---------------------------------------------------------------- électricité
 
-/** One notice of power cut, its link after it; a PDF letter's sentence ends on its arrow, the link (marketing's words). */
-export const courantItem = (x: Pick<CourantRow, "texte" | "lien" | "nature" | "pdf">) =>
-  `<li${x.nature === "en cours" ? ' class="warn"' : ""}>${esc(x.texte)} ${x.pdf ? `<a href="${esc(x.lien)}" rel="noopener" aria-label="l'avis de la mairie (PDF)">→</a>` : `<a href="${esc(x.lien)}" rel="noopener">l'avis →</a>`}</li>`;
+/**
+ * One notice of power cut, its link after it. A PDF letter's sentence ends on its link (marketing's words): « l'avis
+ * publié par la mairie → », « dans l'avis → », a target tall enough for a finger.
+ */
+export function courantItem(x: Pick<CourantRow, "texte" | "lien" | "nature" | "pdf">): string {
+  const li = x.nature === "en cours" ? '<li class="warn">' : "<li>";
+  const end = x.pdf ? /(l'avis publié par la mairie|dans l'avis)$/.exec(x.texte) : null;
+  if (!end) return `${li}${esc(x.texte)} <a href="${esc(x.lien)}" rel="noopener">l'avis →</a></li>`;
+  return `${li}${esc(x.texte.slice(0, end.index))}<a class="tap" href="${esc(x.lien)}" rel="noopener">${esc(end[1])} →</a></li>`;
+}
 
 export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
