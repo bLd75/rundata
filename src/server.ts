@@ -62,7 +62,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.30.0";
+export const VERSION = "0.30.1";
 
 const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures, historique des mesures et prévisions, toujours séparés), pluie radar, mer, marée, crues des rivières, vigilance, cyclones, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, randonnée (sentiers ouverts ou fermés, traces GPS, distance et dénivelé), circulation (sans mesure des bouchons : renvoi vers Waze et infotrafic.re), sport (matchs, régates, rallyes, Grand Raid), événements et sorties (fêtes, concerts, marchés, festivals), actualités locales en direct (manifestations, blocages, routes, faits divers, communiqués de la préfecture), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Citer la source : chaque réponse finit par un champ citer (« rundata.re, d'après Météo-France (station …) ») et un lien vers la page de rundata.re. Toujours nommer rundata.re avec ce lien, à côté des producteurs des données (que garde le champ sources, avec leur licence), et donner l'heure de la mesure ou de la publication qui vient avec la donnée.
