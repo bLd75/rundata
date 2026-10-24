@@ -29,6 +29,7 @@ const gustCount = (p: Passe) => {
 
 export const titleOf = (p: Passe) => `Cyclone ${p.nom} ${p.annee} : ${gustCount(p) < RAIN_ONLY ? "pluie mesurée" : "pluie et vent mesurés"} · Réunion 974`;
 export const metaOf = (p: Passe) =>
+  p.meta ??
   `🇷🇪 Cyclone ${p.nom} (${p.mois}) à La Réunion (974) : ${gustCount(p) < RAIN_ONLY ? "pluie mesurée" : "pluie et rafales mesurées"} station par station par Météo-France${records(p).length ? ", et les records de station" : ""}.`;
 
 /** 1385 → « 1 385 », 52.3 → « 52,3 ». */
@@ -123,11 +124,21 @@ export function passePage(origin: string, p: Passe, alerte?: Alerte): string {
     .join("")}</ul></div>
 </section>`
     : "";
+  // What the document says beyond the daily measures, quoted, with what the daily files cannot show of it.
+  const extraits = p.extraits
+    ? `<section aria-labelledby="h-extraits">
+  <div class="sec-h"><h2 id="h-extraits">${esc(p.extraits.titre)}</h2></div>
+  <div class="card"><p>${esc(p.extraits.intro)}</p>
+  <ul class="plain">${p.extraits.citations.map((c) => `<li>${nb(esc(c))}</li>`).join("")}</ul>
+  <p class="note">(${link}, ${esc(p.extraits.reference)})</p>
+  <p class="note">${nb(esc(p.extraits.note))}</p></div>
+</section>`
+    : "";
   const alert = p.alerte
     ? `<section aria-labelledby="h-alerte"><div class="card"><h2 id="h-alerte">Alerte cyclonique</h2><p>${nb(esc(p.alerte))} <span class="note">(${doc})</span></p></div></section>`
     : "";
   const foot = `<section><p class="note">Mesures : <a href="${esc(SOURCE.url)}" rel="noopener">données climatologiques de base quotidiennes</a> de Météo-France (${esc(SOURCE.licence)}). Passage : ${doc}.</p>
 <p><a href="/cyclones">Les cyclones du bassin en ce moment →</a> · <a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a></p></section>`;
-  const body = `${measured}\n${gustList}\n${recs}\n${alert}\n${foot}`;
+  const body = `${measured}\n${gustList}\n${recs}\n${extraits}\n${alert}\n${foot}`;
   return layout(origin, { title, description: meta, path, jsonld: [crumbs(origin, `Cyclone ${p.nom}`, path), webPage(origin, path, title, meta, null)], alerte }, band, body);
 }

@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Cyclones passés : Gamède (2007), Colina (1993) et Clotilda (1987), dont les records mondiaux de pluie de Gamède cités par Météo-France.
 - Sport : les programmes sportifs publiés par les communes s'affichent, avec leur lien, et ne figurent plus dans les événements.
 - Coupures d'eau : la liste des rues s'affiche quand l'avis la donne en entier, avec l'heure de remise en eau quand il l'annonce.
 

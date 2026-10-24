@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache } from "../src/cache.js";
-import { kmh, mesures, PASSES, passeOf, RAIN_NOTE, records } from "../src/historique/cyclones-passes.js";
+import { kmh, mesures, PASSES, passeOf, RAIN_NOTE, records, total } from "../src/historique/cyclones-passes.js";
 import { cyclones } from "../src/tools/cyclones.js";
 import { metaOf, passePage, titleOf } from "../src/web/cyclones-passes.js";
+import { DESCRIPTION_MAX } from "../src/web/pages.js";
 import { cyclonesPage } from "../src/web/domains.js";
 
 const NOW = new Date("2026-10-24T10:00:00Z");
@@ -37,7 +38,9 @@ describe("past cyclones", () => {
     expect(passeOf("Garance 2025")?.slug).toBe("garance-2025");
     expect(passeOf("batsirai-2022")?.slug).toBe("batsirai-2022");
     expect(passeOf("Firinga")?.slug).toBe("firinga-1989");
-    expect(passeOf("Gamède")).toBeUndefined();
+    expect(passeOf("Gamède")?.slug).toBe("gamede-2007");
+    expect(passeOf("gamede")?.slug).toBe("gamede-2007");
+    expect(passeOf("Bejisa")).toBeUndefined();
     expect(passeOf("Dinamo")).toBeUndefined();
   });
 
@@ -84,12 +87,43 @@ describe("past cyclones", () => {
     expect(passePage("https://rundata.re", passe("batsirai-2022"))).toContain("un peu plus de 190\u00a0km au NNO");
   });
 
+  it("quotes Gamède's world records from Météo-France's page, and says what the daily files cannot show", () => {
+    const g = passe("gamede-2007");
+    const html = passePage("https://rundata.re", g);
+    expect(html).toContain("<h1>Cyclone Gamède, du 24 au 27 février 2007</h1>");
+    expect(html).toContain("<h2 id=\"h-extraits\">Records mondiaux, selon Météo-France</h2>");
+    expect(html).toContain("<p>Cumuls de pluie de Gamède, selon la page de Météo-France :</p>");
+    expect(html).toContain("rel=\"noopener\">2007 Gamede</a>, Météo-France, site « Pluies extrêmes à La Réunion », copie archivée du 18/05/2024 : le site est suspendu depuis juillet 2024)</p>");
+    expect(metaOf(g)).toBe("🇷🇪 Cyclone Gamède (février 2007) à La Réunion (974) : pluie et vent mesurés, records de station, records mondiaux de pluie en 72 et 96 h selon Météo-France.");
+    for (const p of PASSES) expect(metaOf(p).length, p.slug).toBeLessThanOrEqual(DESCRIPTION_MAX);
+    expect(html).toContain("« en 72 heures : 3930\u00a0mm au Cratère Commerson et 3271\u00a0mm à Hell-Bourg, dépassant ainsi le précédent record mondial de 3240\u00a0mm");
+    // « record mondial » only inside Météo-France's words.
+    expect(html.replace(/« [^»]*»/g, "")).not.toMatch(/record mondial/);
+    // The note's daily sums are the ones the files give.
+    const { stations } = mesures(g);
+    const sum = (name: string) => total(stations.find((s) => s.station === name)!.rr);
+    expect(sum("Commerson")).toBe(4869.1);
+    expect(sum("Hell-Bourg")).toBe(3633.3);
+    expect(g.extraits!.note).toContain("4 869,1 mm à Commerson et 3 633,3 mm à Hell-Bourg");
+  });
+
+  it("finds in the daily files what Météo-France's pages say of Clotilda and Colina", () => {
+    // Clotilda: the three-day totals of the 11th to the 13th the page gives (Plaine-des-Palmistes 2 507 mm, Bébour 2 465 mm).
+    const c = mesures(passe("clotilda-1987"));
+    const three = (name: string) => c.stations.find((s) => s.station === name)!.rr!.slice(2, 5).reduce((a, x) => a! + x!, 0);
+    expect(three("Plaine des Palmistes")).toBe(2507);
+    expect(three("Bebour")).toBe(2465);
+    expect(titleOf(passe("clotilda-1987"))).toBe("Cyclone Clotilda 1987 : pluie mesurée · Réunion 974");
+    // Colina: 205 km/h at the Plaine-des-Palmistes.
+    expect(passePage("https://rundata.re", passe("colina-1993"))).toContain("<b>Plaine des Palmistes</b> : 205\u00a0km/h (57\u00a0m/s) le 19/01/1993");
+  });
+
   it("is served, in the sitemap and listed on /cyclones", async () => {
     const cache = new Cache();
     const r = await handle(new Request("https://rundata.re/cyclones/dina-2002", { headers: { accept: "text/html" } }), cache);
     expect(r.status).toBe(200);
     expect(await r.text()).toContain("<h1>Cyclone Dina, 22 et 23 janvier 2002</h1>");
-    expect((await handle(new Request("https://rundata.re/cyclones/gamede-2007", { headers: { accept: "text/html" } }), cache)).status).toBe(404);
+    expect((await handle(new Request("https://rundata.re/cyclones/bejisa-2014", { headers: { accept: "text/html" } }), cache)).status).toBe(404);
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), cache)).text();
     for (const p of PASSES) expect(map).toContain(`<loc>https://rundata.re/cyclones/${p.slug}</loc>`);
     expect(cyclonesPage("https://rundata.re", null, NOW)).toContain('<li><a href="/cyclones/garance-2025">Cyclone Garance, 28 février 2025</a></li>');

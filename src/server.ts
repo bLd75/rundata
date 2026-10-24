@@ -71,7 +71,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.130.0";
+export const VERSION = "0.131.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -640,7 +640,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         nom: z
           .string()
           .optional()
-          .describe(`Un cyclone passé (« Garance », « Dina 2002 ») : la pluie et les rafales mesurées station par station pendant son passage, les records de station et sa page. Disponibles : ${PASSES_LIST}. / A past cyclone: rain and gusts measured.`),
+          .describe(`Un cyclone passé (« Garance », « Dina 2002 ») : la pluie et les rafales mesurées station par station pendant son passage, les records de station et sa page ; le champ selon_meteo_france cite Météo-France mot pour mot (records mondiaux de Gamède) : à attribuer à Météo-France, jamais à rundata.re. Disponibles : ${PASSES_LIST}. / A past cyclone: rain and gusts measured.`),
       },
       annotations: { title: "Cyclones", ...READ_ONLY },
     },

@@ -9,7 +9,7 @@ when it is the highest of the station's whole series (the same record as the his
 the station's series starts.
 
 The windows are the days the sources of src/historique/cyclones-passes.ts name, and the day before (its rain runs to 10 h
-of the first day); for Hyacinthe and Firinga, the days of the episode on Météo-France's « Pluies extrêmes » page.
+of the first day); for the cyclones read on that site (Hyacinthe, Clotilda, Firinga, Colina, Gamède), the days of the episode on Météo-France's « Pluies extrêmes » page.
 
 Usage: python3 -I scripts/build-cyclones-passes.py --dir <folder of the .csv.gz> --out src/historique/cyclones-passes.json
 """
@@ -24,8 +24,11 @@ from pathlib import Path
 
 CYCLONES = {
     "hyacinthe-1980": [f"1980-01-{d}" for d in range(16, 28)],
+    "clotilda-1987": [f"1987-02-{d:02d}" for d in range(9, 16)],
     "firinga-1989": ["1989-01-28", "1989-01-29", "1989-01-30"],
+    "colina-1993": ["1993-01-19", "1993-01-20"],
     "dina-2002": ["2002-01-21", "2002-01-22", "2002-01-23"],
+    "gamede-2007": ["2007-02-24", "2007-02-25", "2007-02-26", "2007-02-27"],
     "batsirai-2022": ["2022-02-01", "2022-02-02", "2022-02-03", "2022-02-04"],
     "belal-2024": ["2024-01-13", "2024-01-14", "2024-01-15"],
     "garance-2025": ["2025-02-27", "2025-02-28"],
