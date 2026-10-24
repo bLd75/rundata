@@ -3,8 +3,9 @@
  *
  * Each source is fetched at most once per `freshSeconds`, whatever the number of questions: one METAR call
  * serves everyone for five minutes. When the source is down, the last good copy is served with `stale: true`
- * (its measurement times say how old it is), and failures are remembered for a minute so that an outage
- * does not turn every question into a new request against a server that is already struggling.
+ * (its measurement times say how old it is), and failures are remembered for a minute (longer for a source that
+ * stays down for days) so that an outage does not turn every question into a new request against a server that is
+ * already struggling.
  */
 
 export interface CacheEntry {
@@ -65,7 +66,9 @@ export interface Cached<T> {
   stale: boolean;
 }
 
-const FAILURE_BACKOFF_MS = 60_000;
+const FAILURE_BACKOFF_SECONDS = 60;
+// The invocation ran out of subrequests: not the source's fault, so not remembered against it.
+const OUT_OF_BUDGET = /Too many subrequests/;
 // Bundles kept in memory per process; older ones (an AROME run replaced by the next) are dropped.
 const MAX_BUNDLES = 8;
 
@@ -111,9 +114,10 @@ export class Cache {
     private durable: CacheStore = store,
   ) {}
 
-  async get<T>(key: string, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>> {
+  /** `backoffSeconds`: how long a failure is remembered (in this process) before the source is asked again. */
+  async get<T>(key: string, freshSeconds: number, load: () => Promise<T>, backoffSeconds = FAILURE_BACKOFF_SECONDS): Promise<Cached<T>> {
     const hit = await this.store.get(key, this.now() - freshSeconds * 1000);
-    return this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e));
+    return this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e), backoffSeconds);
   }
 
   /** The entry stored under `key`, however old, without loading it. */
@@ -173,12 +177,13 @@ export class Cache {
     freshSeconds: number,
     load: () => Promise<T>,
     put: (e: CacheEntry) => Promise<void>,
+    backoffSeconds = FAILURE_BACKOFF_SECONDS,
   ): Promise<Cached<T>> {
     if (hit && this.now() - hit.fetchedAt < freshSeconds * 1000) {
       return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false };
     }
     const failed = this.failures.get(key);
-    if (failed && this.now() - failed.at < FAILURE_BACKOFF_MS) {
+    if (failed && this.now() - failed.at < backoffSeconds * 1000) {
       if (hit) return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true };
       throw failed.error;
     }
@@ -203,7 +208,7 @@ export class Cache {
       this.failures.delete(key);
       return { value, fetchedAt: new Date(entry.fetchedAt), stale: false };
     } catch (error) {
-      this.failures.set(key, { at: this.now(), error });
+      if (!OUT_OF_BUDGET.test(String((error as Error)?.message ?? error))) this.failures.set(key, { at: this.now(), error });
       if (hit) return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true };
       throw error;
     } finally {

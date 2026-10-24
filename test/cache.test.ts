@@ -35,6 +35,30 @@ describe("Cache", () => {
     expect(calls).toBe(1); // second question within the back-off did not hit the source
   });
 
+  it("remembers a failure as long as the source asks, but not one of the invocation's budget", async () => {
+    const c = clock();
+    const cache = new Cache(undefined, c.now);
+    let calls = 0;
+    const down = async () => {
+      calls++;
+      throw new Error("HTTP 502");
+    };
+    await expect(cache.get("slow", 60, down, 1800)).rejects.toThrow("502");
+    c.advance(1799);
+    await expect(cache.get("slow", 60, down, 1800)).rejects.toThrow("502");
+    expect(calls).toBe(1);
+    c.advance(2);
+    await expect(cache.get("slow", 60, down, 1800)).rejects.toThrow("502");
+    expect(calls).toBe(2);
+
+    const limit = async () => {
+      calls++;
+      throw new Error("Too many subrequests by single Worker invocation");
+    };
+    await expect(cache.get("other", 60, limit, 1800)).rejects.toThrow("Too many");
+    expect((await cache.get("other", 60, async () => "ok", 1800)).value).toBe("ok");
+  });
+
   it("throws when the source fails and nothing is cached", async () => {
     const cache = new Cache();
     await expect(cache.get("k", 60, async () => Promise.reject(new Error("down")))).rejects.toThrow("down");
