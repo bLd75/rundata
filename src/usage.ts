@@ -54,12 +54,17 @@ export function asked(body: unknown): Asked[] {
 // Coordinates, even outside the island, are never kept as written: they could be someone's home.
 const COORDINATES = /^\s*-?\d{1,3}(?:[.,]\d+)?\s*[,; ]\s*-?\d{1,3}/;
 
+// Nor a postal address: a number followed by a kind of street (« 12 rue des Lilas », « 4 bis chemin Bœuf Mort »,
+// « 7, lot. Les Hibiscus ») is kept as « adresse ».
+const ADDRESS = /(?:^|[^\p{L}\d])\d{1,4}\s*(?:bis|ter|[a-d])?\s*,?\s*(?:rue|ruelle|chemin|ch|all[ée]e|impasse|imp|avenue|av|boulevard|bd|route|rte|lot|lotissement|villa|r[ée]sidence|r[ée]s|cit[ée]|place|square|quai|sentier|voie|passage|lieu[- ]dit|hameau)(?![\p{L}])/iu;
+
 /** The place asked, as the gazetteer understands it: its name and commune, or the text asked if it does not. */
 export function understood(lieu: string): Pick<Hit, "detail" | "place" | "commune"> {
   const r = resolvePlace(lieu);
   if (r?.correspondance === "coordonnees") return { detail: "coordonnées", place: "coordonnées", commune: communeAt(r.lieu.lon, r.lieu.lat) };
   if (r) return { detail: r.lieu.nom, place: "résolu", commune: r.lieu.commune };
   if (COORDINATES.test(lieu)) return { detail: "coordonnées hors de l'île", place: "inconnu" };
+  if (ADDRESS.test(lieu)) return { detail: "adresse", place: "inconnu" };
   return { detail: lieu.trim().slice(0, 60), place: "inconnu" };
 }
 
