@@ -34,7 +34,7 @@ export const OUTILS: Outil[] = [
   { nom: "qualite_eau", ligne: "eau du robinet, baignade", depuis: "2026-10-24T09:24:00+04:00" },
   { nom: "bornes_recharge", ligne: "bornes de recharge en direct", depuis: "2026-10-24T06:53:00+04:00" },
   { nom: "crues_rivieres", ligne: "crues, niveau des rivières", depuis: "2026-10-24T04:32:00+04:00" },
-  { nom: "maree", ligne: "marée mesurée", depuis: "2026-10-24T04:27:00+04:00" },
+  { nom: "maree", ligne: "marée mesurée, prochaines marées calculées", depuis: "2026-10-24T04:27:00+04:00" },
   { nom: "velos_libre_service", ligne: "vélos Altervélo (Sud)", depuis: "2026-10-24T00:49:00+04:00" },
   { nom: "transports", ligne: "prochains bus, retards", depuis: "2026-10-23T18:13:00+04:00" },
   { nom: "meteo_actuelle", ligne: "météo MESURÉE maintenant", depuis: "2026-10-23T16:09:00+04:00" },
@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T16:35:00+04:00", texte: "Prochaines marées au Port et à Sainte-Marie : un calcul à 20 min près environ, pas la prévision officielle du SHOM." },
   { date: "2026-10-24T16:22:00+04:00", texte: "Prix maximum des carburants et de la bouteille de gaz, fixés chaque mois par le préfet, avec l'écart au mois dernier." },
   { date: "2026-10-24T16:00:30+04:00", texte: "Houle prévue près de chaque plage : hauteur, période et direction des vagues sur 4 jours, sur le site et dans votre IA." },
   { date: "2026-10-24T16:00:00+04:00", texte: "Indice UV prévu jour par jour, dans la prévision météo du site et de votre IA." },
