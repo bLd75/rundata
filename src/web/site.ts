@@ -59,6 +59,8 @@ import { RELIEF_PATH, reliefImage } from "./map.js";
 import font from "./font.json" with { type: "json" };
 import icons from "./icons.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
+import { NOUVEAUTES } from "../nouveautes.js";
+import { nouveautesPage } from "./nouveautes.js";
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures } from "./presse.js";
@@ -172,19 +174,23 @@ async function tileCopies(cache: Cache, keys: string[], background: Background, 
 // The day the list of communes, the press page and the legal pages last changed: their <lastmod>.
 const STATIC_CHANGED = "2026-10-24";
 
+const localDay = (d: string | Date) => new Date(new Date(d).getTime() + 4 * 3600_000).toISOString().slice(0, 10);
+
 /**
  * Every page with its <lastmod>: today (Réunion time) for the live ones, the day the traces were built for the
- * hikes and trails (their ONF state aside), and STATIC_CHANGED for the pages without live data.
+ * hikes and trails (their ONF state aside), the day of the latest change for /nouveautes, and STATIC_CHANGED for the
+ * pages without live data.
  */
 function sitemap(origin: string, now: Date): string {
-  const today = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
+  const today = localDay(now);
   const live = (u: string) => [u, today, "hourly"];
   const fixed = (u: string) => [u, STATIC_CHANGED, "monthly"];
   const trace = (u: string) => [u, traces.BUILT, "daily"];
   // The defibrillators are a list bundled with the server: their page changes when it is rebuilt.
   const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/mer"].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
-    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions"].map(fixed)];
+    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions"].map(fixed),
+    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"]];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map(([u, day, freq]) => `<url><loc>${origin}${u}</loc><lastmod>${day}</lastmod><changefreq>${freq}</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
@@ -283,6 +289,9 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   if (path === "/presse" || path === "/presse/") {
     // Its live counts are read from copies already here: a few minutes in browsers is enough.
     return new Response(pressePage(origin, await pressFigures(cache)), { headers: { ...HTML, "cache-control": "public, max-age=300" } });
+  }
+  if (path === "/nouveautes" || path === "/nouveautes/") {
+    return new Response(nouveautesPage(origin), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
   if (path === "/confidentialite" || path === "/conditions") {
     return new Response(legalPage(origin, path.slice(1) as "confidentialite" | "conditions"), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
