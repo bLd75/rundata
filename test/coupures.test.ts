@@ -5,6 +5,8 @@ import { communesIn, parseCreole, parseNotice, parseSainteMarie, textOf } from "
 import { coupuresEau } from "../src/tools/coupures.js";
 import { coupuresCommunePage, waterLive } from "../src/web/coupures.js";
 import { buildCoupures } from "../src/web/data.js";
+import { coupuresPage } from "../src/web/domains.js";
+import island from "../src/places/island.json" with { type: "json" };
 import { pageOf } from "../src/web/places.js";
 import { site } from "../src/web/site.js";
 
@@ -154,6 +156,24 @@ describe("coupures d'eau", () => {
     expect(sm).toContain("Nous lisons, au moins toutes les 30 minutes, les communiqués de CISE Réunion publiés sur <a");
     expect(sm).toContain("Un communiqué publié en image ou en PDF n'est pas lu : nous donnons seulement son lien.");
     expect(sm).not.toContain("FERMETURE");
+  });
+
+  it("follows runéo's communes like the others, from the table of distributors: a « ne pas boire » there is said for the island and on the map", async () => {
+    // Before, a hand-written list left runéo's communes out: Saint-Pierre's notice was only given when Saint-Pierre was asked.
+    const item = `<item><title>Qualité de l'eau à Saint-Pierre</title><link>https://www.runeo.re/flash-infos/test</link><pubDate>Fri, 23 Oct 2026 10:00:00 +0400</pubDate>` +
+      `<description>Suite à une pollution, ne pas boire l'eau du robinet à Saint-Pierre, secteur de Ravine des Cabris.</description></item>`;
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (url.includes("runeo")) return new Response(fixture("runeo.xml").replace("</channel>", `${item}</channel>`));
+      const file = url.includes("dioneo") ? "dioneo.xml" : url.includes("possession") ? "possession.xml"
+        : url.includes("lacreole") ? "lacreole.html" : url.includes("saintemarie") ? "saintemarie.json" : "cirest.json";
+      return new Response(fixture(file));
+    });
+    const b = body(await coupuresEau(cache(), undefined, NOW));
+    expect(b.ne_pas_boire).toEqual(["La Plaine-des-Palmistes", "Saint-Pierre", "Salazie"]);
+    const value = await buildCoupures(cache(), NOW);
+    expect(value.communes_suivies).toEqual(expect.arrayContaining(["Le Port", "Saint-Louis", "Saint-Pierre", "Sainte-Suzanne"]));
+    const sp = island.paths.find((p: { nom: string }) => p.nom === "Saint-Pierre")!;
+    expect(coupuresPage("https://rundata.re", { value, fetchedAt: NOW }, NOW)).toContain(`<path d="${sp.d}" style="fill:#f03e3e"/>`);
   });
 
   it("serves a page per commune, none for an unknown one", async () => {
