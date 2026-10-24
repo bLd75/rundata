@@ -6,7 +6,7 @@
 import type { Cached } from "../cache.js";
 import type { Resume } from "../tools/resume.js";
 import type { Alerte } from "./data.js";
-import { connectorCta, webPage } from "./domains.js";
+import { connectorCta, courantItem, webPage } from "./domains.js";
 import { esc } from "./map.js";
 import { a, de } from "../tools/format.js";
 import { ask, credits, icon, layout, SITE, thin } from "./pages.js";
@@ -104,7 +104,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
   const dFresh = d?.sites.filter((x) => x.accepte) ?? [];
   const dGreen = dFresh.filter((x) => x.accepte!.includes("déchets verts")).length;
   const practical = [
-    ...(r.coupures_electricite?.avis ?? []).map((x) => `<li${x.nature === "en cours" ? ' class="warn"' : ""}>${esc(x.texte)} <a href="${esc(x.lien)}" rel="noopener">l'avis →</a></li>`),
+    ...(r.coupures_electricite?.avis ?? []).map(courantItem),
     ...(r.marches_du_jour?.liste ?? []).map((x) => `<li>Marché aujourd'hui : <a href="${esc(x.carte)}" rel="noopener"><b>${esc(x.nom)}</b></a> <span class="note">${esc(x.horaires_aujourd_hui)}${x.adresse ? `, ${esc(x.adresse)}` : ""}</span></li>`),
     d
       ? `<li>Déchèteries : <b>${dFresh.length ? `déchets verts acceptés dans ${dGreen} sur ${dFresh.length}` : "état des bennes à vérifier sur place"}</b> <span class="note">d'après les agents du TCO</span> · <a href="${esc(d.page.replace(/^https:\/\/rundata\.re/, ""))}">les bennes →</a></li>`

@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { counted, WORKER_BUDGET } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { parsePosts, slotsOf } from "../src/providers/coupures-courant.js";
-import { ahead, type CourantAnswer, courantBlock, honesty, none, sentence } from "../src/tools/courant.js";
+import { coupures, namedDay, parseMedia, parsePosts, slotsOf } from "../src/providers/coupures-courant.js";
+import { ahead, type CourantAnswer, courantBlock, honesty, none, sentence, shortOf } from "../src/tools/courant.js";
 import { electricite } from "../src/tools/electricite.js";
 import { resume } from "../src/tools/resume.js";
 import { aujourdhuiPage } from "../src/web/aujourdhui.js";
-import { electricitePage } from "../src/web/domains.js";
+import { courantItem, electricitePage } from "../src/web/domains.js";
 import { SHARED } from "../src/web/partagees.js";
 import { pageOf } from "../src/web/places.js";
 
@@ -149,5 +149,94 @@ describe("the tool electricite and the cuts", () => {
     const run = await counted(WORKER_BUDGET, () => electricite(new Cache(store, () => NOW.getTime()), NOW, "Sainte-Marie"));
     expect(body(run.value).coupures_annoncees.indisponible).toMatch(/pas encore été lus/);
     expect(requested.filter((u) => u.includes("wp-json"))).toEqual([]);
+  });
+});
+
+describe("Saint-André's PDF letters of EDF", () => {
+  // Names written for the tests in the shapes the mairie gives its files; no letter is read.
+  const up = (folder: string, name: string) => `https://www.saint-andre.re/wp-content/uploads/${folder}/${name}.pdf`;
+  const media = (date: string, url: string, mime_type = "application/pdf") => ({ date, source_url: url, mime_type });
+  const MEDIA = [
+    media("2026-10-22T09:00:00", up("2026/10", "CA00000001-EDF-Coupure-de-courant-le-2-Novembre-2026")),
+    media("2026-10-20T13:00:00", up("2026/10", "EDF-REUNION-OCT")),
+    media("2026-10-19T08:00:00", up("2026/10", "affiche_edf"), "image/jpeg"),
+    media("2026-07-06T09:30:00", up("2026/07", "CA00000002-EDF-Coupure-de-courant-le-20-Juillet-2026")),
+  ];
+
+  it("reads the day of cut in the file's name only, its year from the upload folder", () => {
+    const at = new Date("2026-04-01T06:00:00Z");
+    expect(namedDay(up("2026/07", "CA00000002-EDF-Coupure-de-courant-le-20-Juillet-2026"), at)).toBe("2026-07-20");
+    expect(namedDay(up("2026/04", "edf21avril"), at)).toBe("2026-04-21");
+    expect(namedDay(up("2026/03", "edf_16avril"), at)).toBe("2026-04-16");
+    // A letter of December about January: the next year.
+    expect(namedDay(up("2026/12", "edf5janvier"), at)).toBe("2027-01-05");
+    expect(namedDay(up("2024/08", "EDF-COUPURES-DELECTRICITE-LE-20-08-2024-CHEMIN"), at)).toBe("2024-08-20");
+    expect(namedDay(up("2024/06", "EDF-COUPURES-DE-COURANT-POUR-TRAVAUX-24062024"), at)).toBe("2024-06-24");
+    for (const name of ["EDF-REUNION-MAI", "EDF-REUNION-1", "EDF-REUNIONjui", "CA26008704-EDF-Coupure-dElectricite-pour-Travaux-Mer"]) expect(namedDay(up("2026/09", name), at)).toBeUndefined();
+  });
+
+  const avis = parseMedia(MEDIA, "Saint-André");
+
+  it("keeps the PDFs, the day of cut when named, else the day it was put online", () => {
+    expect(avis).toHaveLength(3);
+    expect(avis[0]).toMatchObject({ commune: "Saint-André", nature: "programmée", creneaux: [{ jour: "2026-11-02", secteurs: [] }], pdf: true, lien: MEDIA[0].source_url });
+    expect(avis[1]).toMatchObject({ nature: "information", creneaux: [], publie: "2026-10-20T09:00:00.000Z" });
+  });
+
+  it("says each letter in marketing's words, the upload never as the day of cut", () => {
+    expect(sentence(avis[0], NOW)).toBe("Coupure d'électricité annoncée par EDF à Saint-André le lundi 02/11 : heures et secteurs dans l'avis publié par la mairie");
+    expect(sentence(avis[1], NOW)).toBe("Avis de coupure d'EDF publié par la mairie de Saint-André le 20/10 : la date, les heures et les secteurs sont dans l'avis");
+    // A letter of July, its cut long gone: its upload's day only.
+    expect(sentence(avis[2], NOW)).toBe("Pas d'avis récent de la mairie de Saint-André : le dernier date du 06/07. Nous ne savons pas si une coupure est prévue.");
+    const old = parseMedia([media("2026-09-04T09:34:00", up("2026/09", "EDF-REUNION"))], "Saint-André")[0];
+    expect(sentence(old, NOW)).toBe("Pas d'avis récent de la mairie de Saint-André : le dernier date du 04/09. Nous ne savons pas si une coupure est prévue.");
+    expect(shortOf({ ...avis[0], creneaux: avis[0].creneaux }, NOW)).toBe("coupure d'électricité annoncée par EDF le lundi 02/11, heures et secteurs dans l'avis de la mairie");
+  });
+
+  const copy: CourantAnswer = {
+    avis: [...parsePosts(POSTS["ville-saintemarie.re"], "Sainte-Marie"), ...parsePosts(POSTS["saintphilippe.re"], "Saint-Philippe"), ...parsePosts(POSTS["ville-cilaos.fr"], "Cilaos"), ...avis],
+    lues: ["Sainte-Marie", "Saint-Philippe", "Cilaos", "Saint-André", "Sainte-Suzanne"],
+    indisponibles: [],
+    sources: [],
+  };
+  const cached = { value: copy, fetchedAt: NOW, stale: false };
+
+  it("adds Saint-André to the honesty line, the summary and the pages, the arrow its link", () => {
+    expect(honesty(copy, NOW)).toMatch(/aujourd'hui Sainte-Marie, Saint-Philippe, Cilaos et Saint-André\.$/);
+    const r = resume(pageOf("saint-andre")!, { courant: cached } as never, NOW);
+    expect(r.coupures_electricite!.avis.map((x) => x.texte)).toEqual([sentence(avis[0], NOW)]);
+    expect(r.resume).toContain("coupure d'électricité annoncée par EDF le lundi 02/11, heures et secteurs dans l'avis de la mairie");
+    // The letter without a day is not in the summary.
+    expect(resume(pageOf("saint-andre")!, { courant: { ...cached, value: { ...copy, avis: [avis[1]] } } } as never, NOW).coupures_electricite).toBeUndefined();
+    const arrow = `dans l&#39;avis publié par la mairie <a href="${MEDIA[0].source_url}" rel="noopener" aria-label="l'avis de la mairie (PDF)">→</a></li>`;
+    const block = courantBlock(cached, "Saint-André", NOW);
+    expect(electricitePage("https://rundata.re", { value: { resume: "", avertissements: [], sources: [], coupures_annoncees: block } as never, fetchedAt: NOW, stale: false }, NOW)).toContain(arrow);
+    expect(aujourdhuiPage("https://rundata.re", pageOf("saint-andre")!, r, null)).toContain(arrow);
+    // A letter said by its date only keeps the link of the other notices.
+    const gone = courantBlock({ ...cached, value: { ...copy, avis: [avis[2]] } }, "Saint-André", NOW).avis;
+    expect(courantItem(gone[0])).toBe(`<li>${sentence(avis[2], NOW).replace(/'/g, "&#39;")} <a href="${MEDIA[3].source_url}" rel="noopener">l'avis →</a></li>`);
+  });
+
+  it("reads the mairie's list of media beside its posts, and names it unavailable when the list fails", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      const u = String(url);
+      asked.push(u);
+      if (u.includes("saint-andre.re/wp-json/wp/v2/media")) return Response.json(MEDIA);
+      const site = Object.keys(POSTS).find((x) => u.includes(x));
+      return Response.json(site ? POSTS[site] : []);
+    });
+    try {
+      const all = await coupures();
+      expect(asked.filter((u) => u.includes("saint-andre.re"))).toHaveLength(2);
+      expect(asked.find((u) => u.includes("/media?"))).toContain("mime_type=application/pdf");
+      expect(all.lues).toContain("Saint-André");
+      expect(all.avis.filter((a) => a.commune === "Saint-André")).toHaveLength(3);
+      vi.stubGlobal("fetch", async (url: string) => (String(url).includes("/media?") ? new Response("", { status: 503 }) : Response.json([])));
+      const half = await coupures();
+      expect(half.indisponibles).toEqual(["Saint-André"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

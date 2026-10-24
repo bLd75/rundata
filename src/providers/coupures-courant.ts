@@ -8,12 +8,15 @@ import { getJson } from "../http.js";
 import type { SourceInfo } from "../types.js";
 import { strip } from "./avis-eau.js";
 
-/** The mairies that relay EDF's notices through an open API, checked on 24/10/2026. */
-export const MAIRIES = [
+/**
+ * The mairies that relay EDF's notices through an open API, checked on 24/10/2026. `pdf`: the mairie puts EDF's
+ * letters online as PDF files, listed by its media API; none is read, only the day their name gives.
+ */
+export const MAIRIES: { commune: string; site: string; pdf?: true }[] = [
   { commune: "Sainte-Marie", site: "https://www.ville-saintemarie.re" },
   { commune: "Saint-Philippe", site: "https://saintphilippe.re" },
   { commune: "Cilaos", site: "https://ville-cilaos.fr" },
-  { commune: "Saint-André", site: "https://www.saint-andre.re" },
+  { commune: "Saint-André", site: "https://www.saint-andre.re", pdf: true },
   { commune: "Sainte-Suzanne", site: "https://ville-saintesuzanne.re" },
 ];
 
@@ -54,9 +57,12 @@ export interface AvisCourant {
   creneaux: Creneau[];
   /** The streets of a cut happening now, which has no day of its own. */
   secteurs: string[];
+  /** EDF's letter as a PDF the mairie put online: its day, when its name gives one, and nothing else. */
+  pdf?: true;
 }
 
 interface Post { date: string; title: { rendered: string }; link: string; content: { rendered: string } }
+interface Media { date: string; source_url: string; mime_type: string }
 
 // What a relayed notice of EDF's says in its title, and that it is about a cut, not a drone survey or a fallen pole.
 const ABOUT = /coupure|courant|[ée]lectri|\bEDF\b/i;
@@ -138,6 +144,56 @@ export function slotsOf(text: string, published: Date): Creneau[] {
   return slots;
 }
 
+// The day in a PDF's name: « …-le-20-Juillet-2026.pdf », « edf21avril.pdf », « edf_16avril.pdf », « …-LE-20-08-2024-… », « …-24062024.pdf ».
+const NAMED_DAY = new RegExp(`(?<!\\d)(\\d{1,2})(?:er)?[-_ ]?${MONTH}(?![a-z])(?:[-_ ]?(\\d{4}))?`, "iu");
+const NUMBERED_DAY = /(?<!\d)(\d{2})[-_.]?(\d{2})[-_.]?(20\d{2})(?!\d)/;
+
+/**
+ * The day of cut a PDF's name gives, checked by hand on Saint-André's five named letters (24/10/2026): it is the
+ * cut's, not the letter's. Without a year, the year of the upload folder (/uploads/2026/07/), or the next one when the
+ * month named comes before the upload's.
+ */
+export function namedDay(url: string, uploaded: Date): string | undefined {
+  const file = url.split("/").pop() ?? "";
+  let name = file;
+  try {
+    name = decodeURIComponent(file);
+  } catch {
+    // A name badly encoded is read as it is.
+  }
+  name = name.replace(/\.pdf$/i, "");
+  const folder = /\/uploads\/(\d{4})\/(\d{2})\//.exec(url);
+  const [upYear, upMonth] = folder ? [Number(folder[1]), Number(folder[2])] : [uploaded.getUTCFullYear(), uploaded.getUTCMonth() + 1];
+  const n = NUMBERED_DAY.exec(name);
+  if (n && Number(n[1]) >= 1 && Number(n[1]) <= 31 && Number(n[2]) >= 1 && Number(n[2]) <= 12) return `${n[3]}-${n[2]}-${n[1]}`;
+  const m = NAMED_DAY.exec(name);
+  if (!m || Number(m[1]) < 1 || Number(m[1]) > 31) return undefined;
+  const mo = monthOf(m[2]);
+  const y = m[3] ? Number(m[3]) : mo < upMonth ? upYear + 1 : upYear;
+  return `${y}-${two(mo)}-${two(m[1])}`;
+}
+
+/** A mairie's PDF letters of EDF, newest first: the day of cut when the name gives it, else the upload only. */
+export function parseMedia(media: Media[], commune: string): AvisCourant[] {
+  return media
+    .filter((m) => m.mime_type === "application/pdf")
+    .map((m) => {
+      // WordPress gives the local time without its offset.
+      const publie = new Date(`${m.date}+04:00`);
+      const jour = WITH_FACTS ? namedDay(m.source_url, publie) : undefined;
+      return {
+        commune,
+        titre: "Avis de coupure d'EDF (PDF)",
+        publie: publie.toISOString(),
+        lien: m.source_url,
+        nature: jour ? "programmée" : "information",
+        creneaux: jour ? [{ jour, secteurs: [] }] : [],
+        secteurs: [],
+        pdf: true,
+      } satisfies AvisCourant;
+    });
+}
+
 /** The notices of power cuts among a mairie's posts, newest first, with their facts. */
 export function parsePosts(posts: Post[], commune: string): AvisCourant[] {
   return posts
@@ -168,7 +224,14 @@ export function parsePosts(posts: Post[], commune: string): AvisCourant[] {
  */
 export async function coupures(): Promise<{ avis: AvisCourant[]; lues: string[]; indisponibles: string[] }> {
   const parts = await Promise.allSettled(
-    MAIRIES.map(async (m) => parsePosts(await getJson<Post[]>(SOURCE.id, `${m.site}/wp-json/wp/v2/posts?search=%C3%A9lectri&per_page=10&_fields=date,title,link,content`, 12_000), m.commune)),
+    MAIRIES.map(async (m) => {
+      // A mairie of PDF letters is read in full or not at all: half of it would hide a cut.
+      const [posts, media] = await Promise.all([
+        getJson<Post[]>(SOURCE.id, `${m.site}/wp-json/wp/v2/posts?search=%C3%A9lectri&per_page=10&_fields=date,title,link,content`, 12_000),
+        m.pdf ? getJson<Media[]>(SOURCE.id, `${m.site}/wp-json/wp/v2/media?search=edf&mime_type=application/pdf&per_page=10&_fields=date,source_url,mime_type`, 12_000) : [],
+      ]);
+      return [...parsePosts(posts, m.commune), ...parseMedia(media, m.commune)].sort((x, y) => y.publie.localeCompare(x.publie)).slice(0, PER_COMMUNE);
+    }),
   );
   if (parts.every((p) => p.status === "rejected")) throw (parts[0] as PromiseRejectedResult).reason;
   return {

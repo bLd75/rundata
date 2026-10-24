@@ -11,6 +11,7 @@ import { normalize } from "../places/resolve.js";
 import * as traces from "../providers/traces.js";
 import { SUJETS } from "../providers/actualites.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
+import type { CourantRow } from "../tools/courant.js";
 import { de, fr } from "../tools/format.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
@@ -261,6 +262,10 @@ export function airLive(data: Cached<AirAnswer> | null): Live | undefined {
 
 // ---------------------------------------------------------------- électricité
 
+/** One notice of power cut, its link after it; a PDF letter's sentence ends on its arrow, the link (marketing's words). */
+export const courantItem = (x: Pick<CourantRow, "texte" | "lien" | "nature" | "pdf">) =>
+  `<li${x.nature === "en cours" ? ' class="warn"' : ""}>${esc(x.texte)} ${x.pdf ? `<a href="${esc(x.lien)}" rel="noopener" aria-label="l'avis de la mairie (PDF)">→</a>` : `<a href="${esc(x.lien)}" rel="noopener">l'avis →</a>`}</li>`;
+
 export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const p = d?.production;
@@ -294,7 +299,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
   <div class="sec-h"><h2 id="h-coupures">Coupures d'électricité annoncées par les mairies</h2>
   ${c.a_savoir ? `<p>${esc(c.a_savoir)}</p>` : ""}${c.depannage ? `<p><b>${esc(c.depannage)}</b></p>` : ""}</div>
   ${c.avis?.length
-    ? `<div class="card"><ul class="plain">${c.avis.map((x) => `<li${x.nature === "en cours" ? ' class="warn"' : ""}>${esc(x.texte)} <a href="${esc(x.lien)}" rel="noopener">l'avis →</a></li>`).join("")}</ul></div>`
+    ? `<div class="card"><ul class="plain">${c.avis.map(courantItem).join("")}</ul></div>`
     : `<p class="card">${esc(c.indisponible ?? "Aucun avis relayé par les mairies suivies.")}</p>`}
 </section>`
     : "";
