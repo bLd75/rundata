@@ -571,6 +571,8 @@ interface Head {
   jsonld: object[];
   /** Météo-France's vigilance above green, on every page. */
   alerte?: Alerte;
+  /** Kept out of the search engines: a page whose data is not served yet (/feux without its key). */
+  noindex?: boolean;
   /** The page's RSS feed (a commune's alerts): announced in the head, linked in the footer. */
   rss?: { href: string; title: string; link: string; hint: string };
 }
@@ -702,7 +704,7 @@ export function layout(origin: string, head: Head, band: string, body: string): 
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(head.title)}</title>
 <meta name="description" content="${d}">
-<link rel="canonical" href="${esc(url)}">
+${head.noindex ? `<meta name="robots" content="noindex">\n` : ""}<link rel="canonical" href="${esc(url)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.webmanifest">
 ${head.rss ? `<link rel="alternate" type="application/rss+xml" title="${esc(head.rss.title)}" href="${esc(head.rss.href)}">\n` : ""}<link rel="apple-touch-icon" href="${icons["180"]}">

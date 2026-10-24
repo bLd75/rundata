@@ -783,6 +783,7 @@ export function firesSection(f: feux.Feux | undefined, now: Date): string {
   <p>${esc(fire.INTRO)}</p>
   <p><b>${esc(fire.URGENCE)}</b></p></div>
   <div class="card">${list}</div>
+  <p class="note"><a href="/feux">La carte des feux des dernières 24 h →</a></p>
 </section>`;
 }
 
