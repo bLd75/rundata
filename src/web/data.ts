@@ -308,7 +308,7 @@ export interface VolcanAnswer {
     /** The prefecture's release, when its phase is the one given. `publie`: the day, ISO (the hour is not given). */
     communique_prefecture?: { niveau: string; titre: string; lien: string; publie: string };
   };
-  publications_ovpf?: { date: string; texte: string; lien?: string }[];
+  publications_ovpf?: { date: string; texte: string; lien?: string; image?: boolean }[];
   seismes?: {
     sous_le_volcan: { "30_jours": number; "7_jours": number; magnitude_max_30j: number | null };
     ailleurs_sur_l_ile: { "30_jours": number; magnitude_max_30j: number | null };

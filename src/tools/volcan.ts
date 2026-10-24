@@ -139,7 +139,11 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     if (a?.available) parts.push(`Accès à l'Enclos : ${ACCESS[a.enclos_status] ?? a.enclos_status}${a.source_name ? ` (${a.source_name})` : ""}.`);
   }
   const last = posts?.[0];
-  if (last) parts.push(`Dernière publication de l'OVPF sur l'activité (${day(last.date)}) : « ${last.texte.slice(0, 220)}${last.texte.length > 220 ? "…" : ""} »`);
+  if (last) {
+    parts.push(last.image
+      ? `Dernière publication de l'OVPF (${day(last.date)}) : un communiqué en image, sans texte, à lire sur ${last.lien}.`
+      : `Dernière publication de l'OVPF sur l'activité (${day(last.date)}) : « ${last.texte.slice(0, 220)}${last.texte.length > 220 ? "…" : ""} »`);
+  }
   const q = quakes ? quakeSummary(quakes, now) : null;
   if (q) {
     parts.push(

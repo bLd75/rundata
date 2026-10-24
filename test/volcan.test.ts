@@ -5,17 +5,18 @@ import { parse, where } from "../src/providers/seismes.js";
 import type { Info } from "../src/providers/actualites.js";
 import { activityPosts, phaseOf } from "../src/providers/volcan.js";
 import { quakeSummary, volcanSeismes } from "../src/tools/volcan.js";
+import { volcanPage } from "../src/web/domains.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
 // Samples of 23/10/2026 around 03:00 heure de La Réunion: no eruption, Enclos partly open, inflation since September.
 const NOW = new Date("2026-10-22T23:20:00Z");
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 
-function cacheWith() {
+function cacheWith(posts = activityPosts(JSON.parse(fixture("ovpf_bluesky.json")))) {
   const store = new MemoryStore();
   const t = NOW.getTime();
   void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
-  void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
+  void store.put("volcan:ovpf", { value: posts, fetchedAt: t });
   void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
   void store.put("volcan:prefecture", { value: null, fetchedAt: t });
   // The last phase the prefecture declared, kept: back to vigilance in May, before pitonlive's status of October.
@@ -51,6 +52,39 @@ describe("volcano", () => {
     expect(posts[0].texte).toMatch(/^Bulletin mensuel OVPF-IPGP – Septembre 2026/);
     expect(posts.some((p) => /Offre d.emploi|Conférence/.test(p.texte))).toBe(false);
     expect(posts[0].lien).toMatch(/^https:\/\/bsky\.app\/profile\/ovpf\.bsky\.social\/post\//);
+  });
+
+  it("keeps a release given as an image alone, said as such, never a repost", async () => {
+    const post = (rkey: string, createdAt: string, text: string, embed?: object, reason?: object) => ({
+      ...(reason && { reason }),
+      post: { uri: `at://did:plc:x/app.bsky.feed.post/${rkey}`, author: { handle: "ovpf.bsky.social" }, record: { text, createdAt }, ...(embed && { embed }) },
+    });
+    const image = (alt = "") => ({ $type: "app.bsky.embed.images#view", images: [{ alt, thumb: "https://cdn.bsky.app/x.jpg", fullsize: "https://cdn.bsky.app/y.jpg" }] });
+    const feed = {
+      feed: [
+        // 24/10 at 19:46: « Arrêt crise sismique… Niveau d'alerte : Alerte 1 », as an image, no text nor alternative text.
+        post("arret", "2026-10-24T15:46:00.000Z", "", image()),
+        // A repost from another observatory, an image alone too: not the OVPF's.
+        post("revosima", "2026-10-24T16:00:00.000Z", "", image(), { $type: "app.bsky.feed.defs#reasonRepost" }),
+        // An image whose alternative text says what it is: its words, filtered as a text.
+        post("alt", "2026-10-23T10:00:00.000Z", "", image("Communiqué OVPF : crise sismique en cours")),
+        post("fete", "2026-10-22T10:00:00.000Z", "", image("Fête de la science à la Cité du Volcan")),
+        // A link alone, no image: nothing to show.
+        post("lien", "2026-10-21T10:00:00.000Z", "", { $type: "app.bsky.embed.external#view" }),
+        post("bulletin", "2026-10-05T10:00:00.000Z", "Bulletin mensuel OVPF-IPGP – Septembre 2026", image()),
+      ],
+    };
+    const posts = activityPosts(feed);
+    expect(posts.map((p) => p.lien.split("/").pop())).toEqual(["arret", "alt", "bulletin"]);
+    expect(posts[0]).toEqual({ date: "2026-10-24T15:46:00.000Z", texte: "Communiqué en image (sans texte)", lien: "https://bsky.app/profile/ovpf.bsky.social/post/arret", image: true });
+    expect(posts[1].texte).toBe("Communiqué OVPF : crise sismique en cours");
+
+    // The same in the answer and on /volcan: its day, the words, the link; nothing read from the image.
+    const r = body(await volcanSeismes(cacheWith(posts), NOW));
+    expect(r.resume).toContain("Dernière publication de l'OVPF (24/10) : un communiqué en image, sans texte, à lire sur https://bsky.app/profile/ovpf.bsky.social/post/arret.");
+    expect(r.publications_ovpf[0]).toMatchObject({ texte: "Communiqué en image (sans texte)", image: true, lien: "https://bsky.app/profile/ovpf.bsky.social/post/arret" });
+    const html = volcanPage("https://rundata.re", { value: r, fetchedAt: NOW, stale: false }, NOW);
+    expect(html).toContain(`<p>Communiqué en image (sans texte)</p><p><a href="https://bsky.app/profile/ovpf.bsky.social/post/arret">Lire le message →</a></p>`);
   });
 
   it("sums it all up", async () => {
