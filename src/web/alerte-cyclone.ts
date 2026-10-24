@@ -41,7 +41,7 @@ export const STEPS: Step[] = [
     lignes: [
       q("Ce que fait la population", "Suivez les prévisions météorologiques et les bulletins d'information.", 17),
       q("Entreprises et services", "La plupart des mesures à appliquer en pré-alerte cyclonique relève de la même logique que celles qui s'appliquent à la population", 18),
-      { sujet: "Écoles et crèches", texte: "le dispositif ne prévoit pas de fermeture à ce stade : c'est l'alerte orange qui les ferme", pages: [17, 19] },
+      { sujet: "Écoles et crèches", texte: "c'est en alerte orange que « Tous les établissements scolaires et les crèches ferment »", pages: [17] },
     ],
   },
   {
@@ -68,7 +68,7 @@ export const STEPS: Step[] = [
     lignes: [
       q(
         "Travail et entreprises",
-        "Ces activités cessent. Tous les établissements recevant du public ferment. Les personnels disposent du préavis de 3 h avant l'alerte rouge pour regagner leur domicile. Exceptions : les activités nécessaires à la continuité des fonctions essentielles (gestion de crise, établissement de santé, énergie, communication, etc.) ainsi que les lieux d'hébergement touristiques (hôtels, centres de vacances, etc.).",
+        "Les activités cessent. Tous les établissements recevant du public ferment. Les personnels disposent du préavis de 3 h avant l'alerte rouge pour regagner leur domicile. Exceptions : les activités nécessaires à la continuité des fonctions essentielles (gestion de crise, établissement de santé, énergie, communication, etc.) ainsi que les lieux d'hébergement touristiques (hôtels, centres de vacances, etc.).",
         20,
         21,
       ),
@@ -121,7 +121,7 @@ export const STEPS: Step[] = [
   },
 ];
 
-const FAQ: { q: string; a: Line[] }[] = [
+export const FAQ: { q: string; a: Line[] }[] = [
   { q: "Doit-on aller travailler en alerte orange ?", a: [STEPS[1].lignes[0], STEPS[1].lignes[1]] },
   {
     q: "Les bus roulent-ils pendant une alerte cyclonique ?",
