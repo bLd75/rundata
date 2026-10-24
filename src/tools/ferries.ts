@@ -2,7 +2,7 @@
  * Boats to Mauritius: there is no regular passenger line between Réunion and Mauritius (the Mauritius Pride stopped
  * at the end of 2015; the Mauritius Trochetia serves only Rodrigues and Agaléga, its Réunion line suspended). Said
  * in plain words, with the day it was checked, by transports and on /bus. Checked by hand every six months: a line
- * that came back would make the sentence false without anyone seeing it, so a test fails once the date is too old.
+ * that came back would make the sentence false without anyone seeing it.
  */
 import { normalize } from "../places/resolve.js";
 

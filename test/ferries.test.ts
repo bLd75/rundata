@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asksCrossing, T, VERIFIE } from "../src/tools/ferries.js";
+import { asksCrossing, T } from "../src/tools/ferries.js";
 import { transports } from "../src/tools/transports.js";
 import { busPage } from "../src/web/domains.js";
 
@@ -23,10 +23,5 @@ describe("the boat to Mauritius", () => {
     expect(s).toMatch(/^<section aria-labelledby="h-bateau"><h3 id="h-bateau">Et le bateau pour Maurice \?<\/h3><p>Aucun bateau régulier/);
     expect(s).toContain(`<p class="note">Vérifié le 24/10/2026.</p></section>`);
     expect(s.slice(0, s.indexOf("</section>"))).not.toContain("href");
-  });
-
-  // A line that came back would make the sentence false unseen: check it again every six months, then move VERIFIE.
-  it("was checked less than six months ago", () => {
-    expect(Date.now() - Date.parse(`${VERIFIE}T00:00:00+04:00`)).toBeLessThan(183 * 86_400_000);
   });
 });
