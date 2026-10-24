@@ -1,9 +1,11 @@
 import type { Cache } from "../cache.js";
 import { localTime } from "../geo.js";
 import * as seismes from "../providers/seismes.js";
+import type * as onf from "../providers/sentiers.js";
 import * as volcan from "../providers/volcan.js";
 import { why } from "../types.js";
 import { credits, fr, text } from "./format.js";
+import { acces, definition, lineText } from "./volcan-acces.js";
 
 const DAY = 86_400_000;
 const OFFICIAL =
@@ -52,7 +54,9 @@ export function quakeSummary(list: seismes.Seisme[], now: Date) {
 
 // The ORSEC levels, lowest first: a level is compared by its last match (« Alerte 2-1 » is an alert 2). Sauvegarde is
 // the phase after an eruption, the Enclos still closed (DSO ORSEC « Volcan Piton de la Fournaise », 2021, p. 22 and 27):
-// below the alerts, above vigilance.
+// below the alerts, above vigilance. The plan as read on 24/10/2026 in its Wayback Machine copy of 05/04/2025, the
+// prefecture refusing our machines (https://web.archive.org/web/20250405151006/https://www.reunion.gouv.fr/contenu/telechargement/31585/227969/file/dso_volcan_2021.pdf):
+// to check again for a newer version once it answers (volcan-acces.ts).
 const LEVELS = [/vigilance/i, /vigilance\s+renforc/i, /sauvegarde/i, /alerte\s*1/i, /alerte\s*2/i];
 const rank = (niveau: string) => LEVELS.reduce((r, re, i) => (re.test(niveau) ? i : r), -1);
 // A lower level of pitonlive, published after the prefecture's release and held longer than this, is said beside it.
@@ -102,6 +106,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     settle(seismes.SOURCE.id, seismes.seismes(cache, now)),
     settle(volcan.PREFECTURE.id, volcan.phase(cache)),
   ]);
+  // The ONF's map as another page last read it, never built here (a read).
+  const carte = await cache.peek<onf.Carte>("onf:sentiers").catch(() => undefined);
   const state = piton && phase ? official(piton, phase, now) : piton;
   // No phase of the prefecture, read or kept (providers/volcan.ts): pitonlive's level is said only when it is an alert.
   // It follows the prefecture by hours or days, and must never say « Vigilance » while the prefecture is in alert.
@@ -114,7 +120,15 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     };
   }
 
+  // « Puis-je monter au volcan ? »: the release whose phase is the one given, quoted from its page (volcan-acces.ts).
+  const given = (state as { prefecture?: volcan.Phase } | null)?.prefecture;
+  const phrases = given ? await volcan.releaseText(cache, given, now.getTime()) : undefined;
+  const niveau = state && !unknown ? state.status.alert_level_display : undefined;
+  const monter = acces(niveau, given, phrases, carte);
+  const defini = niveau ? definition(niveau) : undefined;
+
   const parts: string[] = [];
+  let monterAt = 0;
   if (state) {
     const s = state.status;
     const p = (state as { prefecture?: volcan.Phase }).prefecture;
@@ -137,6 +151,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
           ? `${s.alert_level_display} selon le dernier communiqué de la préfecture que nous avons lu (${day(p!.publie)}). pitonlive.com indique « ${ecart.niveau} » depuis le ${day(ecart.depuis)} : vérifiez le niveau en vigueur sur reunion.gouv.fr`
           : s.alert_level_display}.`,
     );
+    if (defini) parts.push(`Définition : ${defini}`);
+    monterAt = parts.length;
     if (!s.is_erupting && state.last_eruption_ended_at) {
       parts.push(`Dernière éruption terminée le ${day(state.last_eruption_ended_at)} (il y a ${state.days_since_last_eruption} jours).`);
     }
@@ -169,13 +185,17 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
 
   // The prefecture is credited when its phase is the one given: a phase kept from May loses to pitonlive's of October.
   const sources = [...(phase && (!state || (state as { prefecture?: volcan.Phase }).prefecture) ? [volcan.PREFECTURE] : []), ...(state ? [volcan.PITONLIVE] : []), ...(posts ? [volcan.OVPF] : []), ...(quakes ? [seismes.SOURCE] : [])];
+  // Right after whether it erupts and the level: the question of the hikers, first in the answer's fields too.
+  parts.splice(monterAt, 0, `${monter.titre} ${monter.lignes.map(lineText).join(" ")} ${monter.pied}`);
   return text({
+    puis_je_monter: monter,
     resume: parts.join(" "),
     etat: state
       ? {
           eruption_en_cours: state.status.is_erupting,
           eruption: state.eruption ?? undefined,
           niveau_orsec: unknown ? NIVEAU_INCONNU : state.status.alert_level_display,
+          ...(defini && { niveau_definition: defini }),
           ...(unknown && { niveau_inconnu: true }),
           ...(imageAfter && { image_ovpf_plus_recente: true }),
           ...((state as { ecart?: Ecart }).ecart && { ecart_pitonlive: (state as { ecart?: Ecart }).ecart }),

@@ -55,6 +55,7 @@ import { access as daeAccess, byCommune as daeByCommune, daeRow, URGENCE as DAE_
 import { COVERED as CUT_COVERED, coupuresEau, type noticeRow } from "../tools/coupures.js";
 import { type CourantAnswer, type courantBlock, courantCopy } from "../tools/courant.js";
 import { volcanSeismes } from "../tools/volcan.js";
+import type { Acces } from "../tools/volcan-acces.js";
 import * as sportSource from "../providers/sport.js";
 import { grandRaidRow, sportTool, type SportRow } from "../tools/sport.js";
 import * as gdacs from "../providers/cyclones.js";
@@ -295,12 +296,16 @@ function needed<T>(r: { content: { text: string }[]; isError?: boolean }, what: 
 }
 
 export interface VolcanAnswer {
+  /** « Puis-je monter au volcan ? »: the official texts, place by place (tools/volcan-acces.ts). */
+  puis_je_monter?: Acces;
   resume: string;
   etat?: {
     eruption_en_cours: boolean;
     niveau_orsec: string;
     /** The prefecture's phase could not be read and none was kept: `niveau_orsec` says to check it (tools/volcan.ts). */
     niveau_inconnu?: boolean;
+    /** The level in force as the ORSEC plan defines it, with its page. */
+    niveau_definition?: string;
     /** pitonlive's lower level, held more than 48 hours after the prefecture's release (tools/volcan.ts `official`). */
     ecart_pitonlive?: { niveau: string; depuis: string };
     /** The OVPF's newest post is an image, newer than what the state comes from: the state may not account for it. */

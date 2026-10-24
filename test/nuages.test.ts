@@ -193,8 +193,12 @@ describe("the cloud sea on the site", () => {
     const data = { value: { randonnees: [], secteurs: [], lignes: [], fermes: 0, suivis: 0, sources: [], hauts }, fetchedAt: EVENING, stale: false };
     const quiet = randonneesPage("https://rundata.re", data, EVENING);
     expect(quiet).not.toContain("Enclos interdit");
+    // What the texts say there, linked from the viewpoint's line alone, alert or not.
+    const monter = `<a href="/volcan#monter">Puis-je monter au volcan ? →</a></li>`;
+    expect(quiet).toContain(`de 6\u00a0h à 12\u00a0h, dégagé. ${monter}`);
     const alert = withVolcan({ niveau: "Alerte 1", eruption: false }, () => randonneesPage("https://rundata.re", data, EVENING));
-    expect(alert).toContain("de 6\u00a0h à 12\u00a0h, dégagé. Accès à l&#39;Enclos interdit.</li>");
-    expect(alert.match(/Enclos interdit\.<\/li>/g)).toHaveLength(1);
+    expect(alert).toContain(`de 6\u00a0h à 12\u00a0h, dégagé. Accès à l&#39;Enclos interdit. ${monter}`);
+    expect(alert.match(/Enclos interdit\.(?: <a [^>]*>[^<]*<\/a>)?<\/li>/g)).toHaveLength(1);
+    expect(alert.match(/\/volcan#monter/g)).toHaveLength(1);
   });
 });
