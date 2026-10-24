@@ -49,6 +49,16 @@ describe("MCP messages, as recorded", () => {
     expect(understood("48.8566, 2.3522")).toEqual({ detail: "coordonnées hors de l'île", place: "inconnu" });
   });
 
+  it("keeps a postal address it does not understand as « adresse », never as written", () => {
+    for (const lieu of ["12 rue des Zzyzx", "4 bis chemin Qwrt Zzyzx", "7, lot. Les Zzyzx", "Zzyzx, 15 allée des Qwrt", "103 Rés. Zzyzx", "2 impasse Qwrt", "21 av. Zzyzx", "8 lieu-dit Qwrt"]) {
+      expect(understood(lieu)).toEqual({ detail: "adresse", place: "inconnu" });
+    }
+    // A place without a house number is not an address, and stays as asked, to learn to understand it.
+    for (const lieu of ["Zzyzx Qwrt", "rue Zzyzx", "Zzyzx 2", "Qwrt 974 Zzyzx", "Zzyzx des 3 Qwrt"]) {
+      expect(understood(lieu)).toEqual({ detail: lieu, place: "inconnu" });
+    }
+  });
+
   it("reads the outcome of an answer", () => {
     expect(answer({ jsonrpc: "2.0", id: 1, result: { content: [{ type: "text", text: "abc" }] } })).toEqual({ outcome: "ok", size: 3 });
     expect(answer({ jsonrpc: "2.0", id: 1, result: { isError: true, content: [{ type: "text", text: "introuvable" }] } })).toEqual({ outcome: "erreur", size: 11 });
