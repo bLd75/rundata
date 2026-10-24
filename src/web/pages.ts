@@ -28,7 +28,7 @@ import { hikesAround } from "./liens.js";
 import rubriques from "./og-rubriques.json" with { type: "json" };
 import { WITH_PAGE } from "./categories.js";
 import { FLAG_INNER, flag } from "./flag.js";
-import { esc, islandMap, type Marker } from "./map.js";
+import { esc, islandMap, type Marker, type ZoneLink } from "./map.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
 import { INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
@@ -466,6 +466,13 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .map .pin circle{fill:var(--lave)}.map .pin .halo{fill:none;stroke:var(--lave);stroke-width:5;opacity:.45}
 .map .pin text{fill:var(--ink);font-weight:700;font-size:34px;paint-order:stroke;stroke:var(--land);stroke-width:9px}
 @media (max-width:40rem){.map .mn,.map .pk{display:none}}
+.map a:focus-visible{outline:none}.map .pk,.map .pin,.map .hl{pointer-events:none}
+.map a.mk:hover .sh,.map a.mk:focus-visible .sh{stroke:var(--sun);stroke-width:9}
+.map .zn path{fill:transparent;stroke:none}.map .zn:hover path{fill:rgb(255 255 255/.14);stroke:var(--sun);stroke-width:4}
+.map .zn:focus-visible path{fill:rgb(255 255 255/.2);stroke:var(--sun);stroke-width:8}
+.tgt{scroll-margin-top:5.5rem}.tgt:target{animation:tgt 2.4s ease-out}
+@keyframes tgt{from,40%{box-shadow:0 0 0 3px var(--accent)}to{box-shadow:0 0 0 3px transparent}}
+@media (prefers-reduced-motion:reduce){.tgt:target{animation:none;box-shadow:0 0 0 3px var(--accent)}}
 .map.ocean .land{fill:var(--land)}.map.ocean .shore{fill:none;stroke:var(--coast);stroke-width:2;stroke-linejoin:round}
 .map.ocean .grat{stroke:var(--coast);stroke-width:1;opacity:.35}.map.ocean .gl{fill:var(--muted);font-size:18px;text-anchor:start}
 .map.ocean .ring{fill:none;stroke:var(--lave);stroke-width:2;stroke-dasharray:6 8;opacity:.6}.map.ocean .rl{fill:var(--lave);font-size:18px;opacity:.8}
@@ -865,13 +872,16 @@ export const shortName = (n: string) =>
 export const seaName = (n: string) => n.replace(/^Plage (de |de l'|du )?/, "");
 export const dayMonth = (ymd: string) => ymd.split("-").reverse().slice(0, 2).join("/");
 
+/** The row of a station on /meteo, where its marker on the maps leads. */
+export const stationId = (nom: string) => `st-${slugify(nom)}`;
+
 function stationItem(s: StationNow, now: Date): string {
   const t = s.temperature != null
     ? `<span class="t" style="background:${chip(s.temperature)}">${thin(deg(s.temperature))}</span>`
     : `<span class="t na">${s.vent != null ? thin(`${s.vent} km/h`) : "—"}</span>`;
   const details = [s.humidite != null ? `humidité ${s.humidite} %` : undefined, windText(s), rainText(s)].filter(Boolean).join(" · ");
   const old = s.stale || ageMinutes(new Date(s.time), now) > 90 ? " (mesure ancienne)" : "";
-  return `<li class="st">${t}<h4>${esc(s.nom)} <small>${metres(s.altitude_m)}</small></h4>` +
+  return `<li class="st tgt" id="${stationId(s.nom)}">${t}<h4>${esc(s.nom)} <small>${metres(s.altitude_m)}</small></h4>` +
     `<p>${esc(thin(details || "température seulement"))} · <span class="when">mesuré à ${age(s.time, now)}${old}</span></p></li>`;
 }
 
@@ -929,8 +939,8 @@ function weatherLive(data: Cached<HomeData> | null, now: Date): string {
   const latest = d.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
   const markers: Marker[] = d.stations.map((s) =>
     s.temperature != null
-      ? { lon: s.lon, lat: s.lat, label: `${Math.round(s.temperature)}°`, name: shortName(s.nom), color: chip(s.temperature), round: true }
-      : { lon: s.lon, lat: s.lat - 0.022, label: `${s.vent ?? "—"} km/h`, name: s.nom.split(" ").pop()!, color: "#44555a" },
+      ? { lon: s.lon, lat: s.lat, label: `${Math.round(s.temperature)}°`, say: `${Math.round(s.temperature)} °C`, name: shortName(s.nom), color: chip(s.temperature), round: true, href: `#${stationId(s.nom)}` }
+      : { lon: s.lon, lat: s.lat - 0.022, label: `${s.vent ?? "—"} km/h`, say: s.vent != null ? `vent ${s.vent} km/h` : "pas de mesure", name: s.nom.split(" ").pop()!, color: "#44555a", href: `#${stationId(s.nom)}` },
   );
   return `<div class="live"><figure class="card mapcard">` +
     islandMap({ markers, peaks: true, label: `Carte de La Réunion (974) avec les températures mesurées à ${hm(latest || data.fetchedAt.toISOString())}` }) +
@@ -1325,6 +1335,11 @@ export function offlinePage(origin: string): string {
 export const cycloneVg = (c: number) => (c === 2 ? "vgpre" : `vg${c >= 1 && c <= 5 ? c : 0}`);
 export const vg = (c: number) => `<span class="vg vg${c >= 1 && c <= 5 ? c : 0}">${esc(mf.colour(c))}</span>`;
 const zoneShort = (zone: string) => (mf.ZONES[zone] ?? zone).split(" :")[0];
+/** « vigilance verte »: the colours as Météo-France names them, agreed with the word. */
+const FEMININE: Record<string, string> = { vert: "verte", violet: "violette", gris: "grise" };
+const feminine = (colour: string) => FEMININE[colour] ?? colour;
+/** The card of a land zone on /vigilance: « z-sud-est ». */
+const zoneId = (zone: string) => `z-${slugify(zoneShort(zone))}`;
 const LAND = ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"];
 const LAND_PHENOMENA = [12, 1];
 const COAST = 9;
@@ -1372,10 +1387,13 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
   }
 
   const fills: Record<string, string> = {};
+  // Each commune leads to the card of its zone below, which says what is in force there and what is coming.
+  const links: Record<string, ZoneLink> = {};
   if (v) {
     for (const [commune, zone] of Object.entries(mf.ZONE_OF_COMMUNE)) {
       const c = zoneNow(v, zone, now);
       if (c >= 1) fills[commune] = `var(--vg${c})`;
+      links[commune] = { href: `#${zoneId(zone)}`, say: `${c >= 1 ? `vigilance ${feminine(mf.colour(c))}` : "rien d'émis"}, zone ${zoneShort(zone)}` };
     }
   }
 
@@ -1388,7 +1406,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
           return `<li><b>${esc(mf.PHENOMENA[id])}</b> : ${c >= 1 ? vg(c) : "rien d'émis"}` +
             (later.length ? `<p>${esc(later.join(", "))}</p>` : "") + `</li>`;
         }).join("");
-        return `<li class="card"><h3>${esc(zoneShort(zone))}</h3><p class="note">${esc((mf.ZONES[zone] ?? "").split(" : ")[1] ?? "")}</p><ul>${items}</ul></li>`;
+        return `<li class="card tgt" id="${zoneId(zone)}"><h3>${esc(zoneShort(zone))}</h3><p class="note">${esc((mf.ZONES[zone] ?? "").split(" : ")[1] ?? "")}</p><ul>${items}</ul></li>`;
       }).join("")}</ul>`
     : "";
 
@@ -1443,7 +1461,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
     ${ask(`Siklone i ariv ? Na lékol domin ? Gèt si ${url} é di amwin sak Météo-France é la préfektir i di.`,
       `Y a-t-il une alerte cyclonique ou une vigilance météo en cours à La Réunion ? Lis ${url} et dis-moi ce que dit Météo-France, zone par zone.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ fills, label: "Carte de La Réunion (974) colorée par la vigilance en cours dans chaque zone" })}
+  <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) colorée par la vigilance en cours dans chaque zone" })}
   <figcaption class="note" style="color:var(--on-night-muted)">Couleur en cours dans chaque zone, fortes pluies / orages et vents forts confondus.</figcaption></figure>
 </div>`;
 

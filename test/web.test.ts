@@ -8,6 +8,7 @@ import * as mf from "../src/providers/vigilance.js";
 import * as feux from "../src/providers/feux.js";
 import { alerteOf, buildPlace, snapshot, withoutForecast } from "../src/web/data.js";
 import { homePage } from "../src/web/home.js";
+import { communesPage } from "../src/web/commune.js";
 import { VERSION } from "../src/server.js";
 import { DESCRIPTION_MAX, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
 import { PAGES, pageOf } from "../src/web/places.js";
@@ -158,7 +159,8 @@ describe("home page", () => {
     expect(cold.r.headers.get("cache-control")).toBe("public, max-age=60");
     expect(cold.text).toContain("<h1>La Réunion <span class=\"n974\">974</span> en direct</h1>");
     // The hero's island carries the temperatures measured now.
-    expect(cold.text).toMatch(/<figure class="hero-map"><svg class="map relief"[^]*?<g class="mk"><title>[^<]+<\/title><circle/);
+    // Each temperature leads to its station's row on the weather page.
+    expect(cold.text).toMatch(/<figure class="hero-map"><svg class="map relief" viewBox="[^"]+" role="group"[^]*?<a class="mk" href="\/meteo#st-[a-z0-9-]+" aria-label="[^"]+ : \d+ °C, voir le détail"><circle class="hit"[^>]+\/><title>[^<]+<\/title><circle class="sh"/);
     expect(cold.text).toMatch(/meteo_actuelle\(lieu: "[^"]+"\)<\/p>\s*<p class="bubble ai">\d+(,\d)?\u202f°C, mesurés à \d\d:\d\d/);
     expect(cold.text).toContain("Piton Maïdo");
     expect(cold.text).toMatch(/mesuré à \d\d:\d\d/);
@@ -337,7 +339,7 @@ describe("commune pages", () => {
 
   it("are listed by zone, and linked from the menu, the home page and the weather pages", async () => {
     const list = (await serve(isolate(), "/communes")).text;
-    expect(list.match(/href="\/communes\/[a-z-]+"/g)).toHaveLength(24);
+    expect(list.match(/<li><a href="\/communes\/[a-z-]+"/g)).toHaveLength(24);
     expect(list).toContain(`<a class="k-communes" href="/communes" aria-current="page">`);
     expect(homePage("https://rundata.re", null, NOW)).toContain(`href="/communes/saint-paul"`);
     expect((await serve(isolate(), "/meteo/saint-paul")).text).toContain(`href="/communes/saint-paul"`);
@@ -623,5 +625,59 @@ describe("a copy the code can no longer read", () => {
     expect(await r.text()).toContain("Page indisponible pour un instant");
     expect(errors).toHaveBeenCalledWith(`erreur : /communes/saint-paul (version ${VERSION})`, expect.stringContaining("champ absent"));
     errors.mockRestore();
+  });
+});
+
+describe("the maps lead to what they show", () => {
+  const anchors = (page: string, prefix: string) =>
+    [...(page.match(/<svg class="map[^]*?<\/svg>/g) ?? []).join("").matchAll(/<a class="(?:mk|zn)" href="([^"]+)" aria-label="([^"]+)"/g)]
+      .filter(([, href]) => href.startsWith(prefix))
+      .map(([, href, label]) => ({ href, label }));
+  const ids = (page: string) => new Set([...page.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
+
+  it("takes each station of the weather map and of the home page's island to its row on /meteo, which exists", async () => {
+    const cache = isolate();
+    const meteo = (await serve(cache, "/meteo")).text;
+    const here = anchors(meteo, "#");
+    // One marker per station, each to its row.
+    expect(here).toHaveLength(meteo.match(/<li class="st tgt"/g)!.length);
+    expect(here.length).toBeGreaterThan(5);
+    const rows = ids(meteo);
+    expect(here.filter((a) => !rows.has(a.href.slice(1)))).toEqual([]);
+    expect(here.every((a) => /^[^:]+ : (\d+ °C|vent \d+ km\/h|pas de mesure), voir le détail$/.test(a.label))).toBe(true);
+    // The rows can be reached under the sticky header, and say so for a moment when reached.
+    expect(meteo).toMatch(/<li class="st tgt" id="st-[a-z0-9-]+">/);
+
+    const home = (await serve(cache, "/")).text;
+    const there = anchors(home, "/meteo#");
+    expect(there.length).toBeGreaterThan(5);
+    expect(there.filter((a) => !rows.has(a.href.slice("/meteo#".length)))).toEqual([]);
+  });
+
+  it("takes each commune of the vigilance map to the card of its zone, and each of /communes to its page", async () => {
+    const zip = fixture("vigilance_om.zip");
+    const files = await unzip(zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength) as ArrayBuffer, (n) => n.endsWith("_FMEE_.txt"));
+    const v = mf.parse(JSON.parse(files.get("CDPV95_FMEE_.txt")!), JSON.parse(files.get("CDPV96_FMEE_.txt")!));
+    const page = vigilancePage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
+    const zones = anchors(page, "#");
+    expect(zones).toHaveLength(24);
+    const cards = ids(page);
+    expect(zones.filter((a) => !cards.has(a.href.slice(1)))).toEqual([]);
+    expect(new Set(zones.map((a) => a.href))).toEqual(new Set(["#z-nord", "#z-est", "#z-sud-est", "#z-sud", "#z-ouest"]));
+    expect(zones.find((a) => a.label.startsWith("Saint-Pierre :"))?.label).toMatch(/^Saint-Pierre : (vigilance \p{L}+|rien d'émis), zone Sud, voir le détail$/u);
+    expect(page).toMatch(/<svg class="map" viewBox="[^"]+" role="group"/);
+
+    const communes = communesPage("https://rundata.re");
+    const links = anchors(communes, "/communes/");
+    expect(links).toHaveLength(24);
+    const slugs = new Set(PAGES.filter((p) => p.commune).map((p) => `/communes/${p.slug}`));
+    expect(links.filter((a) => !slugs.has(a.href))).toEqual([]);
+    expect(links.find((a) => a.href === "/communes/saint-pierre")?.label).toBe("Saint-Pierre, voir sa page");
+  });
+
+  it("keeps a map without links an image", () => {
+    const place = placePage("https://rundata.re", pageOf("cilaos")!, null, NOW);
+    expect(place).toMatch(/<svg class="map terrain" viewBox="[^"]+" role="img"/);
+    expect(place).not.toMatch(/<svg class="map[^]*?<a class="(mk|zn)"[^]*?<\/svg>/);
   });
 });
