@@ -61,6 +61,18 @@ describe("the prefecture's phase of the ORSEC volcano plan", () => {
     logged.mockRestore();
   });
 
+  it("puts Sauvegarde below the alerts, as the plan does: the eruption over, the Enclos still closed", () => {
+    const at = (alert_level_display: string, published_at = "2026-10-26T08:00:00Z") => ({ ...piton, status: { ...piton.status, alert_level: alert_level_display.toLowerCase(), alert_level_display, published_at } });
+    const eruption = phaseOf([release("Piton de la Fournaise : passage en alerte 2-1, éruption en cours dans l'enclos", "2026-10-25")])!;
+    // pitonlive's newer « Sauvegarde » does not end the prefecture's alert 2.
+    expect(official(at("Sauvegarde"), eruption, new Date("2026-10-26T09:00:00Z")).status.alert_level_display).toBe("Alerte 2-1");
+    // A newer alert of pitonlive wins over the prefecture's Sauvegarde.
+    const over = phaseOf([release("Piton de la Fournaise : fin de l'éruption, passage en phase de sauvegarde", "2026-10-25")])!;
+    expect(over).toMatchObject({ niveau: "Sauvegarde", enclos: "ferme" });
+    expect(official(at("Alerte 1"), over, new Date("2026-10-26T09:00:00Z")).status.alert_level_display).toBe("Alerte 1");
+    expect(phaseOf([release("Piton de la Fournaise : passage en alerte 2-3, éruption hors enclos", "2026-10-25")])).toMatchObject({ niveau: "Alerte 2-3", eruption: true });
+  });
+
   it("reads the end of an alert as a return to vigilance, never as the alert it names", () => {
     expect(phaseOf([release("Piton de la Fournaise : fin de l'alerte 1", "2026-10-30")])).toMatchObject({ niveau: "Vigilance" });
     expect(phaseOf([release("Piton de la Fournaise : fin d’alerte, l'enclos rouvert", "2026-10-30")])).toMatchObject({ niveau: "Vigilance", enclos: "ouvert" });
