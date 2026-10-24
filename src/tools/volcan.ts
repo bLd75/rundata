@@ -257,7 +257,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     if (defini) parts.push(`Définition : ${defini}`);
     monterAt = parts.length;
     if (!s.is_erupting && state.last_eruption_ended_at) {
-      parts.push(`Dernière éruption terminée le ${day(state.last_eruption_ended_at)} (il y a ${state.days_since_last_eruption} jours).`);
+      parts.push(`Dernière éruption terminée le ${day(state.last_eruption_ended_at)} selon pitonlive.com (il y a ${state.days_since_last_eruption} jours).`);
     }
     const a = unknown ? undefined : state.access?.current;
     if (unknown) parts.push(`Accès à l'Enclos : ${NIVEAU_INCONNU}, avant de partir.`);
@@ -314,8 +314,11 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
           ...((state as { ecart?: Ecart }).ecart && { ecart_pitonlive: (state as { ecart?: Ecart }).ecart }),
           ...(hausse && { ecart_prefecture: hausse }),
           derniere_eruption_fin: state.last_eruption_ended_at ?? undefined,
-          // In the middle of a sentence, « Déformation du volcan : inflation (…) » (marketing).
-          deformation: state.deformation?.available ? `${lowerFirst(state.deformation.label ?? "")} (communiqué du ${day(state.deformation.published_at!)})` : undefined,
+          // In the middle of a sentence, « Déformation du volcan : inflation (…) », the observatory's release as pitonlive
+          // relays it (marketing).
+          deformation: state.deformation?.available
+            ? `${lowerFirst(state.deformation.label ?? "")} (communiqué${/^OVPF/i.test(state.deformation.source_name ?? "") ? " de l'OVPF" : ""} du ${day(state.deformation.published_at!)}, selon pitonlive.com)`
+            : undefined,
           acces_enclos: !unknown && state.access?.current?.available
             ? {
                 statut: state.access.current.enclos_status,

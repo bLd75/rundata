@@ -100,7 +100,7 @@ describe("volcano", () => {
   it("sums it all up", async () => {
     const r = body(await volcanSeismes(cacheWith(), NOW));
     expect(r.resume).toContain("Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Niveau du dispositif ORSEC volcan : Vigilance.");
-    expect(r.resume).toContain("Dernière éruption terminée le 12/04 (il y a 193 jours).");
+    expect(r.resume).toContain("Dernière éruption terminée le 12/04 selon pitonlive.com (il y a 193 jours).");
     expect(r.resume).toContain("Accès à l'Enclos : « partiel » selon pitonlive.com (source : Préfecture de La Réunion, arrêté n°\u00a02026-627 du 7 mai 2026).");
     expect(r.resume).toContain("11 sous le volcan (magnitude max 1)");
     expect(r.sources.map((s: { source: string }) => s.source)).toHaveLength(3);

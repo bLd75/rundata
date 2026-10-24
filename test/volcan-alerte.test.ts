@@ -193,7 +193,7 @@ describe("the volcano put forward during an alert", () => {
       expect(bannerText(a)).toBe("🌋 Volcan : « Alerte\u00a01 » selon pitonlive.com, niveau officiel à vérifier sur reunion.gouv.fr.");
       expect(volcanMeta(a)).toBe("Piton de la Fournaise : « Alerte\u00a01 » selon pitonlive.com. Niveau officiel : préfecture, reunion.gouv.fr. Communiqués de l'OVPF en direct · 974");
       expect(homeCard(a)).toContain("<h2>🌋 Piton de la Fournaise : « Alerte\u00a01 » selon pitonlive.com</h2><p class=\"lead\">Le niveau officiel est celui des communiqués de la préfecture : vérifiez sur reunion.gouv.fr avant de monter. <b>Suivre en direct\u00a0→</b></p>");
-      expect(tileLive(a)).toEqual({ valeur: "« Alerte\u00a01 »", detail: "selon pitonlive.com" });
+      expect(tileLive(a)).toEqual({ valeur: "« Alerte\u00a01 »", detail: "selon pitonlive.com", source: "selon pitonlive.com" });
       const top = alertSections(a, undefined);
       expect(top).toContain("<p class=\"card warn\"><b>Niveau « Alerte\u00a01 » selon pitonlive.com. Le niveau officiel et l&#39;accès à l&#39;Enclos sont dans les communiqués de la préfecture : vérifiez sur reunion.gouv.fr avant de monter.</b></p>");
       for (const text of [bannerText(a), volcanMeta(a), homeCard(a), JSON.stringify(tileLive(a)), top]) expect(text).not.toMatch(/préfet\b|Enclos interdit/);

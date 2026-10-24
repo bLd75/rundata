@@ -59,6 +59,8 @@ describe("pitonlive higher than the prefecture's release: both said, the release
     const copy = { value: v, fetchedAt: NOW, stale: false };
     const home = withVolcan(a, () => homePage("https://rundata.re", { volcan: copy } as unknown as HomeLive, NOW));
     expect(home).not.toContain('class="alerte volcan"');
+    // The hero's Volcan box: pitonlive's level with its source under it.
+    expect(home).toContain("<b>« Alerte 2-1 »</b><small>selon pitonlive.com</small>");
     expect(home).toContain("« Alerte 2-1 » selon pitonlive.com, « alerte 1 » selon le communiqué de la préfecture du 24/10. Accès à l&#39;Enclos interdit selon ce communiqué : vérifiez sur reunion.gouv.fr. <b>Suivre en direct\u00a0→</b>");
     expect(withVolcan(a, () => volcanPage("https://rundata.re", copy, NOW))).not.toContain('class="alerte volcan"');
     expect(withVolcan(a, () => meteoPage("https://rundata.re", null, NOW))).toContain("« Alerte 2-1 » selon pitonlive.com, « alerte 1 » selon le communiqué");
@@ -112,7 +114,7 @@ describe("pitonlive higher than the prefecture's release: both said, the release
     // What is seen first says the higher level, quoted with its source; the release's right after it.
     expect(volcanH1(a)).toBe("Piton de la Fournaise : « Alerte 2-1 » selon pitonlive.com");
     expect(volcanTitle(a)).toBe("Piton de la Fournaise : « Alerte 2-1 » selon pitonlive.com · 974");
-    expect(volcanLive({ value: v, fetchedAt: NOW, stale: false })).toEqual({ valeur: "« Alerte 2-1 »", detail: "selon pitonlive.com · préfecture : alerte 1" });
+    expect(volcanLive({ value: v, fetchedAt: NOW, stale: false })).toEqual({ valeur: "« Alerte 2-1 »", detail: "selon pitonlive.com · préfecture : alerte 1", source: "selon pitonlive.com" });
     expect(homeCard(a)).toContain("<h2>🌋 Piton de la Fournaise : « Alerte 2-1 » selon pitonlive.com</h2><p class=\"lead\">« Alerte 2-1 » selon pitonlive.com, « alerte 1 » selon le communiqué");
     expect(volcanMeta(a)).toBe("« Alerte 2-1 » selon pitonlive.com, « alerte 1 » selon la préfecture (24/10). Enclos interdit selon son communiqué : vérifiez sur reunion.gouv.fr · 974");
     // Longer levels: the Enclos goes, the description stays within its length.

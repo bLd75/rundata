@@ -125,7 +125,7 @@ export interface PitonState {
   access?: {
     current?: { available: boolean; global_status: string; enclos_status: string; summary?: string; source_name?: string; source_url?: string; source_timestamp?: string };
   };
-  deformation?: { available: boolean; label?: string; published_at?: string };
+  deformation?: { available: boolean; label?: string; published_at?: string; source_name?: string };
 }
 
 export async function posts(cache: Cache): Promise<Cached<Post[]>> {
