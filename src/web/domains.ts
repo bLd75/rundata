@@ -27,8 +27,7 @@ import island from "../places/island.json" with { type: "json" };
 import rubriques from "./og-rubriques.json" with { type: "json" };
 import { esc, hikesMap, islandMap, oceanMap, profile, traceMap } from "./map.js";
 import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./liens.js";
-import { T as REQUIN } from "../eau/requin.js";
-import { LINK as BAIGNADE_LINK } from "./baignade.js";
+import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
@@ -791,7 +790,7 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
   <p>${esc(EAU_TEXT.baignade)}</p></div>
   ${sites}
   ${d ? `<p class="note">${esc(d.a_savoir.eau_de_baignade)}</p>` : ""}
-  <p class="note">${esc(REQUIN.h2)} : ${BAIGNADE_LINK}</p>
+  <p class="note">${BAIGNADE_LINE}</p>
 </section>
 <section aria-labelledby="h-robinet">
   <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-robinet">L'eau du robinet</h2>

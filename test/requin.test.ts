@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { inForce, requinBlock, T, ZONES, zonesNear } from "../src/eau/requin.js";
-import { bathingPage } from "../src/web/baignade.js";
+import { bathingPage, LINE } from "../src/web/baignade.js";
 import { placePage, seaPage } from "../src/web/pages.js";
 import { coastal, PAGES, pageOf } from "../src/web/places.js";
 
@@ -42,7 +42,7 @@ describe("the shark rule and the zones where bathing is allowed", () => {
     expect(lines).toContain("Bassin de Grand-Anse : baignade interdite par arrêté municipal depuis 2014.");
     expect(b.drapeaux).toBe(T.drapeaux);
     expect(requinBlock(AFTER, { nom: "Sainte-Clotilde", lon: 55.4853, lat: -20.8848 }).zones).toBe("Aucune zone du Centre Sécurité Requin près de Sainte-Clotilde.");
-    expect(text(bathingPage(O, AFTER))).not.toMatch(/n° 180 du 13\/02\/2026, en vigueur/);
+    expect(text(bathingPage(O, AFTER))).not.toMatch(/n°\s180 du 13\/02\/2026, en vigueur/);
   });
 
   it("put the block on /mer and on every coastal place's page, never on the Hauts", () => {
@@ -51,6 +51,7 @@ describe("the shark rule and the zones where bathing is allowed", () => {
     expect(sea).toContain(`<a href="/baignade">Toutes les zones et la règle →</a>`);
     expect(text(placePage(O, pageOf("l-hermitage")!, null, NOW))).toContain("Lagon de l'Hermitage : lagon, baignade permise");
     expect(placePage(O, pageOf("cilaos")!, null, NOW)).not.toContain("h-requin");
+    expect(LINE).toBe(`Baignade et requins : <a href="/baignade">toutes les zones et la règle →</a>`);
     for (const p of PAGES) expect(placePage(O, p, null, NOW).includes(`id="h-requin"`), p.slug).toBe(coastal(p));
   });
 
@@ -67,6 +68,13 @@ describe("the shark rule and the zones where bathing is allowed", () => {
     expect(html).toContain("<title>Baignade et requins à La Réunion : où se baigner · 974</title>");
     expect(html).toContain(`<meta name="description" content="Requins : baignade et surf interdits à moins de 300 m du rivage, sauf lagons, bassins, filets et ZONEX surveillés. Zones, drapeaux et arrêté en vigueur.">`);
     expect(html).toContain("<h1>Où se baigner à La Réunion ?</h1>");
+    expect(html).toContain("<p>Le Centre Sécurité Requin ne cite pas de zone dans les autres communes.</p>");
+    expect(html).toContain(`<a href="/eau">Qualité de l'eau : les contrôles de l'ARS, plage par plage et bassin par bassin →</a>`);
+    // Not cut at the end of a line.
+    expect(html).toContain("Arrêté préfectoral n°\u00a0180 du 13/02/2026");
+    expect(html).toContain("bande des 300\u00a0m de tout le littoral");
+    expect(html).toContain("art.\u00a02)");
+    expect(html.slice(html.indexOf("<body"))).not.toMatch(/n° 180|300 m |art\. 2/);
     const heads = [...html.slice(html.indexOf('id="h-zones"'), html.indexOf('id="h-drapeaux"')).matchAll(/<h3>([^<]+)<\/h3>/g)].map((m) => m[1].replace("&#39;", "'"));
     expect(heads.slice(0, 3)).toEqual(["Saint-Paul", "Saint-Leu", "L'Étang-Salé"]);
     // Every zone under a commune of the page.

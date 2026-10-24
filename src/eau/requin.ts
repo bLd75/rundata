@@ -73,6 +73,7 @@ export const T = {
   ouverture: "Nous ne savons pas si une zone est ouverte aujourd'hui : regardez le drapeau sur place.",
   drapeaux: "Pas de drapeau : zone non surveillée, baignade interdite. Flamme requin hissée : baignade interdite sur la zone.",
   source: "Zones d'après le Centre Sécurité Requin.",
+  autres: "Le Centre Sécurité Requin ne cite pas de zone dans les autres communes.",
   echu:
     "L'arrêté préfectoral n° 180 sur la baignade et les activités de vague a pris fin le 15/02/2027. " +
     "Nous n'avons pas encore lu celui qui le remplace : vérifiez la règle en vigueur sur reunion.gouv.fr.",
