@@ -199,6 +199,7 @@ export function weekendPage(origin: string, data: Cached<AgendaAnswer> | null, n
 <section aria-labelledby="h-couv">
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
+  <p><a href="/publier">Votre agenda n'est pas lu ? Le guide pour le publier →</a></p>
 </section>
 ${connectorCta("evenements", "les événements de l'île")}`;
 
@@ -265,6 +266,7 @@ export function concertsPage(origin: string, data: Cached<AgendaAnswer> | null, 
 <section aria-labelledby="h-couv">
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p>${n ? halls : ""}</div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
+  <p><a href="/publier">Votre agenda n'est pas lu ? Le guide pour le publier →</a></p>
 </section>
 ${connectorCta("evenements", "les concerts et les sorties de l'île")}`;
 

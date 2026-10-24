@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-25T02:40:00+04:00", texte: "Mairies, associations, organisateurs\u00a0: un guide gratuit pour publier votre agenda en flux ouvert, 8 tutos, du plus simple au plus avancé." },
   { date: "2026-10-25T02:08:00+04:00", texte: "Cyclones passés : Gamède (2007), Colina (1993) et Clotilda (1987), dont les records mondiaux de pluie de Gamède cités par Météo-France." },
   { date: "2026-10-25T01:34:00+04:00", texte: "Sport : les programmes sportifs publiés par les communes s'affichent, avec leur lien, et ne figurent plus dans les événements." },
   { date: "2026-10-25T00:00:00+04:00", texte: "Coupures d'eau : la liste des rues s'affiche quand l'avis la donne en entier, avec l'heure de remise en eau quand il l'annonce." },
