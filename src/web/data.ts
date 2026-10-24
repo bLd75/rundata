@@ -57,6 +57,7 @@ import { historiqueMeteo } from "../tools/historique.js";
 import { agenda, type EventRow } from "../tools/agenda.js";
 import * as actuSource from "../providers/actualites.js";
 import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, quand as newsTime, type InfoRow } from "../tools/actualites.js";
+import { littoral, type Littoral } from "../tools/littoral.js";
 import { type Observation, why } from "../types.js";
 import * as traces from "../providers/traces.js";
 import { coastal, type PlacePage } from "./places.js";
@@ -1127,6 +1128,8 @@ export interface TraficAnswer {
   carburants?: carburants.Prix;
   /** What the media report on the roads and the blockades in the last hours, newest first. */
   medias?: { titre: string; lien: string; source: string; heure?: string }[];
+  /** The route du Littoral as last announced by the media or the prefecture (tools/littoral.ts); null when the news was read and none did, absent when it was not read. */
+  littoral?: Littoral | null;
   sources: Credit[];
 }
 
@@ -1181,13 +1184,19 @@ export async function roadNewsNow(cache: Cache, background: Background, now = ne
 /** The page's data with the headlines of now: the page's copy lasts minutes, a blockade should not wait for it. */
 export function withRoadNews(d: TraficAnswer, news: actuSource.Fil | undefined, now: Date): TraficAnswer {
   const medias = roadNews(news, now);
+  const road = news && littoral(news, now);
   const credit = credits([
-    ...(medias.some((m) => m.source !== actuSource.SOURCES.prefecture.organisme) ? [actuSource.SOURCES.medias] : []),
-    ...(medias.some((m) => m.source === actuSource.SOURCES.prefecture.organisme) ? [actuSource.SOURCES.prefecture] : []),
+    ...(medias.some((m) => m.source !== actuSource.SOURCES.prefecture.organisme) || road?.annonces.some((a) => !a.prefecture) ? [actuSource.SOURCES.medias] : []),
+    ...(medias.some((m) => m.source === actuSource.SOURCES.prefecture.organisme) || road?.annonces.some((a) => a.prefecture) ? [actuSource.SOURCES.prefecture] : []),
   ]);
   const ours = new Set(credits([actuSource.SOURCES.medias, actuSource.SOURCES.prefecture]).map((c) => c.source));
-  const { medias: _, ...rest } = d;
-  return { ...rest, ...(medias.length ? { medias } : {}), sources: [...d.sources.filter((s) => !ours.has(s.source)), ...credit] };
+  const { medias: _, littoral: __, ...rest } = d;
+  return {
+    ...rest,
+    ...(medias.length ? { medias } : {}),
+    ...(news ? { littoral: road ?? null } : {}),
+    sources: [...d.sources.filter((s) => !ours.has(s.source)), ...credit],
+  };
 }
 
 export async function buildTrafic(cache: Cache, now = new Date()): Promise<TraficAnswer> {
