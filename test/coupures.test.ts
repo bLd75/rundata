@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { communesIn, parseNotice, textOf } from "../src/providers/avis-eau.js";
 import { coupuresEau } from "../src/tools/coupures.js";
+import { coupuresCommunePage, waterLive } from "../src/web/coupures.js";
+import { buildCoupures } from "../src/web/data.js";
+import { pageOf } from "../src/web/places.js";
+import { site } from "../src/web/site.js";
 
 // The distributors' notices on 24/10/2026 in the morning: a cut announced in Saint-Denis for Monday night, the water
 // of La Plaine-des-Palmistes and of Grand Ilet (Salazie) not to be drunk, Saint-Benoît back to normal since the 15th.
@@ -52,7 +56,40 @@ describe("coupures d'eau", () => {
   });
 
   it("says when a commune's distributor publishes nothing read here", async () => {
-    const b = body(await coupuresEau(cache(), "Saint-Pierre", NOW));
-    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Saint-Pierre : voir la mairie ou le distributeur d'eau.");
+    const b = body(await coupuresEau(cache(), "Saint-Paul", NOW));
+    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Saint-Paul : voir la mairie ou le distributeur d'eau.");
+    // runéo's feed is read: no notice for Saint-Pierre is no cut announced.
+    expect(body(await coupuresEau(cache(), "Saint-Pierre", NOW)).resume).toBe("Aucun avis de coupure récent ou à venir à Saint-Pierre.");
+  });
+
+  it("gives each commune its page: its notices, or none at the time of the copy, and who distributes its water", async () => {
+    const coupures = { value: await buildCoupures(cache(), NOW), fetchedAt: NOW };
+    const page = (slug: string) => coupuresCommunePage("https://rundata.re", pageOf(slug)!, { coupures }, NOW);
+    const sd = page("saint-denis");
+    expect(sd).toContain("<title>Coupure d&#39;eau Saint-Denis aujourd&#39;hui : avis en cours · 974</title>");
+    expect(sd).toContain("<h1>Coupures d'eau à Saint-Denis</h1>");
+    expect(sd).toContain("ROUTE DE BOIS DE NEFLES");
+    expect(sd).toContain("<b>Dionéo</b> distribue l'eau à Saint-Denis");
+    expect(sd).toContain(`<li><a href="/coupures-eau">Coupures d'eau</a></li><li aria-current="page">Saint-Denis</li>`);
+    const pdp = page("la-plaine-des-palmistes");
+    expect(pdp).toContain("<b>eau à ne pas boire</b>");
+    expect(pdp).toMatch(/<meta name="description" content="🇷🇪 La Plaine-des-Palmistes \(974\) : eau à ne pas boire ; \d+ avis de /);
+    expect(pdp).toContain("les avis de la CIREST");
+    // runéo's feed is read, and has nothing for Saint-Pierre: said with the time of the copy.
+    expect(page("saint-pierre")).toContain("Aucun avis de coupure publié par runéo à Saint-Pierre à 08:00.");
+    expect(page("saint-pierre")).toContain(`content="🇷🇪 Aucune coupure d&#39;eau annoncée par runéo à Saint-Pierre (974) à 08:00.`);
+    // La Créole publishes no feed: the page says so rather than « no cut ».
+    const sp = page("saint-paul");
+    expect(sp).toContain("La Créole ne publie pas ses avis de coupure dans un flux");
+    expect(sp).not.toContain("Aucune coupure d&#39;eau annoncée");
+    expect(page("le-port")).toContain("<h1>Coupures d'eau au Port</h1>");
+    expect(waterLive(pageOf("salazie")!, { coupures })).toMatchObject({ valeur: "Eau à ne pas boire" });
+    expect(waterLive(pageOf("saint-paul")!, { coupures })).toMatchObject({ valeur: "Coupures non publiées" });
+  });
+
+  it("serves a page per commune, none for an unknown one", async () => {
+    const res = await site(new Request("https://rundata.re/coupures-eau/saint-denis", { headers: { "user-agent": "Googlebot" } }), cache(), () => {}, NOW);
+    expect(res!.status).toBe(200);
+    expect((await site(new Request("https://rundata.re/coupures-eau/nulle-part"), cache(), () => {}, NOW))!.status).toBe(404);
   });
 });

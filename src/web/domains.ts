@@ -1383,6 +1383,9 @@ ${connectorCta("coupures_eau", "les coupures d'eau")}`;
   return layout(origin, { title, description, path: "/coupures-eau", jsonld: [crumbs(origin, "Coupures d'eau", "/coupures-eau"), webPage(origin, "/coupures-eau", title, description, data)], alerte }, band, body);
 }
 
+// What the communes' water pages (coupures.ts) share with the island's.
+export { droughtBadge, noticeCard, tapCard };
+
 export function coupuresLive(data: Cached<CoupuresAnswer> | null): Live | undefined {
   const d = data?.value;
   if (!d) return undefined;

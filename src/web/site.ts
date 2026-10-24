@@ -50,6 +50,7 @@ import {
 import { COMMUNES, communePage, communesPage } from "./commune.js";
 import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
 import { concertsPage, weekendPage } from "./evenements.js";
+import { coupuresCommunePage } from "./coupures.js";
 import { FAVICON } from "./flag.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
@@ -146,7 +147,7 @@ const BUILDS: Record<string, (cache: Cache, now: Date) => Promise<unknown>> = {
 // The home page's tiles besides the weather and the vigilance; a commune page's besides its own.
 // The news first: on a day of mobilisation its headlines go above the tiles.
 const HOME_TILES = ["web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
-const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier"];
+const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier", "web:coupures", "web:secheresse", "web:eau"];
 
 /**
  * The last copy of each of these pages, without building them: building them all would not fit in one invocation.
@@ -178,7 +179,7 @@ function sitemap(origin: string, now: Date): string {
   const fixed = (u: string) => [u, STATIC_CHANGED, "monthly"];
   const trace = (u: string) => [u, traces.BUILT, "daily"];
   // The defibrillators are a list bundled with the server: their page changes when it is rebuilt.
-  const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/mer"].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)),
+  const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/mer"].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions"].map(fixed)];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
@@ -222,6 +223,18 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       roadNewsNow(cache, background, now),
     ]);
     return new Response(traficPage(origin, data && { ...data, value: withRoadNews(data.value, news, now) }, now, a), { headers: htmlFor(data) });
+  }
+  // A commune's water: the copy of /coupures-eau, and the last ones of /secheresse and /eau as they are.
+  const water = /^\/coupures-eau\/([a-z-]+)\/?$/.exec(path);
+  if (water) {
+    const p = pageOf(water[1]);
+    if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
+    const [coupures, a] = await Promise.all([
+      snapshot(cache, "web:coupures", () => buildCoupures(cache, now), background, now, waitFor(request), isReader(request)),
+      alerte(cache, background, now),
+    ]);
+    const [secheresse, eau] = await tileCopies(cache, ["web:secheresse", "web:eau"], background, coupures, now);
+    return new Response(coupuresCommunePage(origin, p, { coupures, secheresse, eau }, now, a), { headers: htmlFor(coupures) });
   }
   // The events page was first published as /agenda.
   if (path === "/agenda" || path === "/agenda/") return Response.redirect(`${origin}/evenements`, 301);
@@ -292,9 +305,9 @@ export async function site(request: Request, cache: Cache, background: Backgroun
       snapshot(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now), background, now, waitFor(request), isReader(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
     ]);
-    const [air, mer, volcan, electricite, calendrier] = await tileCopies(cache, COMMUNE_TILES, background, place, now);
+    const [air, mer, volcan, electricite, calendrier, coupures, secheresse, eau] = await tileCopies(cache, COMMUNE_TILES, background, place, now);
     const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
-    return new Response(communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier }, now, a), { headers: htmlFor(place) });
+    return new Response(communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau }, now, a), { headers: htmlFor(place) });
   }
   if (path === `/${INDEXNOW_KEY}.txt`) {
     return new Response(INDEXNOW_KEY, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });
