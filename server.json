@@ -3,7 +3,7 @@
   "name": "re.rundata/temps-reel",
   "title": "La Réunion en temps réel",
   "description": "La Réunion (974) en direct : actualités, météo, rando, bus, eau, événements, volcan, cyclones, air.",
-  "version": "0.72.0",
+  "version": "0.73.0",
   "remotes": [
     {
       "type": "streamable-http",
