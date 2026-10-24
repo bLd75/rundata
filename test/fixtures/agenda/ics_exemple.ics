@@ -1,0 +1,88 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//IDN nextcloud.com//Calendar app 4.7.0//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:Indian/Reunion
+BEGIN:STANDARD
+TZOFFSETFROM:+0400
+TZOFFSETTO:+0400
+TZNAME:+04
+DTSTART:19700101T000000
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:marche-forain@asso.example
+DTSTART;TZID=Indian/Reunion:20260905T063000
+DTEND;TZID=Indian/Reunion:20260905T120000
+RRULE:FREQ=WEEKLY;BYDAY=SA
+EXDATE;TZID=Indian/Reunion:20261031T063000
+SUMMARY:Marché forain
+LOCATION:Place de la Mairie\, 97480 Saint-Joseph
+DESCRIPTION:Fruits\, légumes et artisanat local. Venez nombreux !\nParking
+  gratuit.
+URL:https://asso.example/marche
+CATEGORIES:Marché,Artisanat
+GEO:-21.3778;55.6192
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Rappel
+TRIGGER:-PT1H
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:marche-forain@asso.example
+RECURRENCE-ID;TZID=Indian/Reunion:20261107T063000
+DTSTART;TZID=Indian/Reunion:20261108T063000
+DTEND;TZID=Indian/Reunion:20261108T120000
+SUMMARY:Marché forain (dimanche exceptionnellement)
+LOCATION:Place de la Mairie\, 97480 Saint-Joseph
+END:VEVENT
+BEGIN:VEVENT
+UID:kabar@asso.example
+DTSTART:20261003T140000Z
+DTEND:20261003T170000Z
+RRULE:FREQ=MONTHLY;BYDAY=1SA;COUNT=3
+SUMMARY:Kabar du premier samedi
+LOCATION:Case Martin Valliamé\, La Rivière\, Saint-Louis
+END:VEVENT
+BEGIN:VEVENT
+UID:fete-goyavier@asso.example
+DTSTART;VALUE=DATE:20261113
+DTEND;VALUE=DATE:20261116
+SUMMARY:Fête du goyavier
+LOCATION:Plaine-des-Palmistes
+DESCRIPTION:Trois journées autour du goyavier : march�
+ �\, concours de confitures et bal la soirée du samedi. Programme complet sur le site.
+END:VEVENT
+BEGIN:VEVENT
+UID:loto@asso.example
+DTSTART;TZID=Indian/Reunion:20261121T190000
+DTEND;TZID=Indian/Reunion:20261121T230000
+STATUS:CANCELLED
+SUMMARY:Loto de l'association
+LOCATION:Salle polyvalente\, Saint-Joseph
+END:VEVENT
+BEGIN:VEVENT
+UID:bureau@asso.example
+CLASS:PRIVATE
+DTSTART;TZID=Indian/Reunion:20261026T180000
+SUMMARY:Réunion du bureau
+END:VEVENT
+BEGIN:VEVENT
+UID:busy@asso.example
+DTSTART:20261027T100000Z
+DTEND:20261027T110000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:ag@asso.example
+DTSTART;TZID=Indian/Reunion:20261128T090000
+RRULE:FREQ=MONTHLY;BYDAY=SA;BYSETPOS=-1
+SUMMARY:Assemblée générale
+END:VEVENT
+BEGIN:VEVENT
+UID:old@asso.example
+DTSTART;VALUE=DATE:20260814
+SUMMARY:Fête de l'été
+END:VEVENT
+END:VCALENDAR

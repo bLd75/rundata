@@ -1,0 +1,94 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Ville de Saint-Paul - ECPv5.4.0//NONSGML v1.0//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Ville de Saint-Paul
+X-ORIGINAL-URL:https://www.mairie-saintpaul.re
+X-WR-CALDESC:évènements pour Ville de Saint-Paul
+BEGIN:VTIMEZONE
+TZID:Europe/Paris
+BEGIN:DAYLIGHT
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+TZNAME:CEST
+DTSTART:20260329T010000
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+TZNAME:CET
+DTSTART:20261025T010000
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;TZID=Europe/Paris:20261128T080000
+DTEND;TZID=Europe/Paris:20261128T150000
+DTSTAMP:20261024T235132
+CREATED:20261021T052226Z
+LAST-MODIFIED:20261021T052226Z
+UID:118943-1795852800-1795878000@www.mairie-saintpaul.re
+SUMMARY:La Koupe Kartié - Saint-Paul Centre
+DESCRIPTION:
+URL:https://www.mairie-saintpaul.re/evenement/la-koupe-kartie-saint-paul-centre/
+LOCATION:Stade Willy Aubras\, 31 rue Jules Thirel\, Saint-Paul
+CATEGORIES:Animations,Jeunesse,Proximitié,Sport
+ATTACH;FMTTYPE=image/jpeg:https://www.mairie-saintpaul.re/wp-content/uploads/2026/10/2026-KoupeKartie-1080x1350-28nov-scaled.jpg
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID=Europe/Paris:20261114T080000
+DTEND;TZID=Europe/Paris:20261114T150000
+DTSTAMP:20261024T235132
+CREATED:20261021T051952Z
+LAST-MODIFIED:20261021T051952Z
+UID:118939-1794643200-1794668400@www.mairie-saintpaul.re
+SUMMARY:La Koupe Kartié - Plateau Caillou
+DESCRIPTION:
+URL:https://www.mairie-saintpaul.re/evenement/la-koupe-kartie-plateau-caillou/
+LOCATION:Complexe sportif de Plateau Caillou\, Saint-Paul\, Réunion
+CATEGORIES:Animations,Jeunesse,Proximitié,Sport
+ATTACH;FMTTYPE=image/jpeg:https://www.mairie-saintpaul.re/wp-content/uploads/2026/10/2026-KoupeKartie-1080x1350-14nov-scaled.jpg
+GEO:-21.02965;55.2697
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID=Europe/Paris:20261031T080000
+DTEND;TZID=Europe/Paris:20261031T160000
+DTSTAMP:20261024T235132
+CREATED:20260930T070847Z
+LAST-MODIFIED:20260930T073530Z
+UID:118294-1793433600-1793462400@www.mairie-saintpaul.re
+SUMMARY:La Koupe Kartié - Saint-Gilles-les-Bains
+DESCRIPTION:
+URL:https://www.mairie-saintpaul.re/evenement/la-koupe-kartie-saint-gilles-les-bains/
+LOCATION:Complexe Saline-les-Bains
+CATEGORIES:Jeunesse,Proximitié,Solidarité,Sport
+ATTACH;FMTTYPE=image/jpeg:https://www.mairie-saintpaul.re/wp-content/uploads/2026/09/2026-KoupeKartie-1080x1350-31oct-scaled.jpg
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID=Europe/Paris:20261028T083000
+DTEND;TZID=Europe/Paris:20261028T150000
+DTSTAMP:20261024T235132
+CREATED:20261019T062135Z
+LAST-MODIFIED:20261019T062136Z
+UID:118924-1793176200-1793199600@www.mairie-saintpaul.re
+SUMMARY:Journée Portes Ouvertes France Services Tan Rouge
+DESCRIPTION:
+URL:https://www.mairie-saintpaul.re/evenement/journee-portes-ouvertes-france-services-tan-rouge/
+LOCATION:France services Tan Rouge\, 4 chemin de la mairie\, Saint-Paul\, France
+CATEGORIES:Proximitié
+ATTACH;FMTTYPE=image/jpeg:https://www.mairie-saintpaul.re/wp-content/uploads/2026/10/JPO-Tan-Rouge.jpg
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID=Europe/Paris:20261027T080000
+DTEND;TZID=Europe/Paris:20261027T120000
+DTSTAMP:20261024T235132
+CREATED:20261023T061047Z
+LAST-MODIFIED:20261023T061048Z
+UID:118988-1793088000-1793102400@www.mairie-saintpaul.re
+SUMMARY:Matinées agricole
+DESCRIPTION:
+URL:https://www.mairie-saintpaul.re/evenement/matinees-agricole/
+CATEGORIES:Animations
+ATTACH;FMTTYPE=image/png:https://www.mairie-saintpaul.re/wp-content/uploads/2026/10/MATINEES-EMPLOI-AGRICOLE.png
+END:VEVENT
+END:VCALENDAR

@@ -21,7 +21,7 @@
  * is one line of AGENDAS: taking it out stops its reading, its events, its credit and its coverage at once.
  */
 import type { Bundle, Cache, Cached } from "../cache.js";
-import { getText } from "../http.js";
+import { getBytes, getText, httpUrl } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
@@ -511,6 +511,240 @@ function intraMuros(id: string, nom: string, url: string, commune: string, sourc
     source,
     commune,
     load: (cache) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => parseIntraMuros(await getText(source.id, url, TIMEOUT_MS, HEADERS), nom, commune)),
+  };
+}
+
+// ---------------------------------------------------------------- iCalendar (.ics)
+
+/**
+ * An agenda published as an iCalendar file (RFC 5545): the « adresse publique au format iCal » of a Google calendar,
+ * Outlook's published calendar, Nextcloud's public link, The Events Calendar's `?ical=1`. Each VEVENT gives:
+ * - DTSTART and DTEND: a day (VALUE=DATE, an all-day event whose DTEND is the day after the last), a UTC time (« Z »,
+ *   said in La Réunion's hour) or a time with a TZID or none, kept as typed: a mairie's site set to Paris time still
+ *   types its events in La Réunion's hour (Saint-Paul's `TZID=Europe/Paris`, like its The Events Calendar above);
+ * - SUMMARY, LOCATION, URL, CATEGORIES, GEO, and the first sentence of DESCRIPTION (of its first line); STATUS:CANCELLED
+ *   is « annulé »;
+ * - RRULE: the occurrences in the days read, for FREQ DAILY, WEEKLY (BYDAY), MONTHLY (BYMONTHDAY, or BYDAY with its
+ *   rank, « 1SA », « -1FR ») and YEARLY (DTSTART's day), with INTERVAL, COUNT and UNTIL; EXDATE takes days out, and
+ *   a VEVENT with a RECURRENCE-ID replaces the day it names. Any other part of a rule (BYSETPOS, BYWEEKNO, BYYEARDAY,
+ *   BYMONTH, BYHOUR, an hourly rule…) is not expanded: the event keeps its first date only.
+ * Not read: DURATION, VTODO and VJOURNAL, and a private event (CLASS other than PUBLIC) or one without a SUMMARY, like
+ * the « Occupé » of a calendar that shows only its busy hours.
+ */
+const ICS_MAX_SEANCES = 60;
+
+/** The lines of the file, unfolded before decoding: a fold may cut a character in two (« é » is two bytes). */
+function icsLines(data: ArrayBuffer | string): string[] {
+  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : new Uint8Array(data);
+  const out: number[] = [];
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    // CRLF or LF followed by a space or a tab: the line goes on.
+    if (b === 13 && bytes[i + 1] === 10 && (bytes[i + 2] === 32 || bytes[i + 2] === 9)) { i += 2; continue; }
+    if (b === 10 && (bytes[i + 1] === 32 || bytes[i + 1] === 9)) { i += 1; continue; }
+    out.push(b);
+  }
+  return new TextDecoder().decode(new Uint8Array(out)).split(/\r?\n/).filter((l) => l.trim());
+}
+
+interface IcsProp {
+  params: Record<string, string>;
+  value: string;
+}
+
+/** « DTSTART;TZID="Indian/Reunion":20261031T080000 »: the name, its parameters (a quoted one may hold « : »), the value. */
+function icsProp(line: string): [string, IcsProp] | undefined {
+  let i = 0;
+  let quoted = false;
+  for (; i < line.length; i++) {
+    if (line[i] === '"') quoted = !quoted;
+    else if (line[i] === ":" && !quoted) break;
+  }
+  if (i === line.length) return undefined;
+  const [name, ...parts] = line.slice(0, i).split(/;(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+  const params = Object.fromEntries(parts.map((p) => {
+    const at = p.indexOf("=");
+    return [p.slice(0, at).toUpperCase(), p.slice(at + 1).replace(/^"|"$/g, "")];
+  }));
+  return [name.toUpperCase(), { params, value: line.slice(i + 1) }];
+}
+
+/** A TEXT value: « \, » « \; » « \\ » and « \n » for a new line. */
+const icsText = (s: string) => s.replace(/\\([\;,nN])/g, (_, c: string) => (c === "n" || c === "N" ? "\n" : c));
+/** A list of TEXT values (CATEGORIES): split on the commas not escaped. */
+const icsList = (s: string) => s.split(/(?<!\\),/).map((x) => clean(icsText(x))).filter(Boolean);
+
+/** A day, and its hour when it has one, in La Réunion: « 20261031T040000Z » → 2026-10-31 08:00. */
+interface IcsTime {
+  day: string;
+  hm?: string;
+}
+
+function icsTime(p: IcsProp | undefined): IcsTime | undefined {
+  const m = p && /^(\d{4})(\d\d)(\d\d)(?:T(\d\d)(\d\d)\d\d(Z)?)?$/.exec(p.value.trim());
+  if (!m) return undefined;
+  const day = `${m[1]}-${m[2]}-${m[3]}`;
+  if (!m[4] || p!.params.VALUE === "DATE") return { day };
+  if (!m[6]) return { day, hm: `${m[4]}:${m[5]}` };
+  const local = toLocal(`${day}T${m[4]}:${m[5]}:00Z`);
+  return { day: local.slice(0, 10), hm: local.slice(11, 16) };
+}
+
+const minutes = (t: IcsTime) => Date.parse(`${t.day}T${t.hm ?? "00:00"}:00Z`) / 60_000;
+const fromMinutes = (n: number) => new Date(n * 60_000).toISOString().slice(0, 16);
+const WEEKDAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+const weekday = (day: string) => new Date(`${day}T00:00:00Z`).getUTCDay();
+
+/**
+ * The days a VEVENT's RRULE gives up to `last`, its first included, at the hour `hm` of its DTSTART; undefined when a
+ * part of the rule is not read.
+ */
+function icsDays(start: string, hm: string | undefined, rrule: string, last: string): string[] | undefined {
+  const r = Object.fromEntries(rrule.split(";").map((kv) => kv.split("=") as [string, string]).map(([k, v]) => [k.toUpperCase(), v]));
+  const known = new Set(["FREQ", "INTERVAL", "COUNT", "UNTIL", "BYDAY", "BYMONTHDAY", "WKST"]);
+  if (Object.keys(r).some((k) => !known.has(k))) return undefined;
+  const interval = Math.max(1, Number(r.INTERVAL) || 1);
+  const count = r.COUNT ? Number(r.COUNT) : Infinity;
+  // UNTIL is an instant: « 20261026T235959Z » is the 27th at 3:59 here, and an occurrence at 19:00 that day is after it.
+  const until = r.UNTIL ? icsTime({ params: {}, value: r.UNTIL }) : undefined;
+  const end = until && until.day < last ? until.day : last;
+  const before = (day: string) => !until || `${day}T${hm ?? "00:00"}` <= `${until.day}T${until.hm ?? "23:59"}`;
+  const byday = r.BYDAY?.split(",").map((d) => /^([+-]?\d{1,2})?(SU|MO|TU|WE|TH|FR|SA)$/.exec(d.trim()));
+  if (byday?.some((d) => !d)) return undefined;
+  const bymonthday = r.BYMONTHDAY?.split(",").map(Number);
+  const [y0, m0, d0] = start.split("-").map(Number);
+  const days: string[] = [];
+  const take = (day: string) => {
+    if (day >= start && day <= end && before(day) && days.length < count) days.push(day);
+  };
+  // Each period of the rule (a day, a week, a month, a year), from the first, while its days can still be read.
+  for (let n = 0; days.length < count && n < 20_000; n += interval) {
+    if (r.FREQ === "DAILY") {
+      const day = addDays(start, n);
+      if (day > end) break;
+      if (!byday || byday.some((d) => WEEKDAYS.indexOf(d![2]) === weekday(day))) take(day);
+    } else if (r.FREQ === "WEEKLY") {
+      // The week of DTSTART, from its Monday.
+      const monday = addDays(addDays(start, -((weekday(start) + 6) % 7)), 7 * n);
+      if (monday > end) break;
+      const wanted = byday ? byday.map((d) => WEEKDAYS.indexOf(d![2])) : [weekday(start)];
+      for (let k = 0; k < 7; k++) if (wanted.includes(weekday(addDays(monday, k)))) take(addDays(monday, k));
+    } else if (r.FREQ === "MONTHLY" || r.FREQ === "YEARLY") {
+      if (r.FREQ === "YEARLY" && (byday || bymonthday)) return undefined;
+      const months = r.FREQ === "MONTHLY" ? n : 12 * n;
+      const y = y0 + Math.floor((m0 - 1 + months) / 12);
+      const m = ((m0 - 1 + months) % 12) + 1;
+      if (iso(y, m, 1) > end) break;
+      const size = lastDay(y, m);
+      const found: number[] = [];
+      if (byday) {
+        for (const d of byday) {
+          const all = Array.from({ length: size }, (_, i) => i + 1).filter((x) => weekday(iso(y, m, x)) === WEEKDAYS.indexOf(d![2]));
+          const rank = d![1] ? Number(d![1]) : 0;
+          found.push(...(rank === 0 ? all : [all.at(rank > 0 ? rank - 1 : rank)].filter((x): x is number => x !== undefined)));
+        }
+      } else {
+        // A day the month lacks (the 31st, February the 29th) is skipped, as the RFC says.
+        found.push(...(bymonthday ?? [d0]).map((x) => (x < 0 ? size + 1 + x : x)).filter((x) => x >= 1 && x <= size));
+      }
+      for (const x of [...new Set(found)].sort((a, b) => a - b)) take(iso(y, m, x));
+    } else return undefined;
+  }
+  return days;
+}
+
+/**
+ * `commune`: the agenda's, for an event whose place names none. `now`: only the occurrences from today to AHEAD_DAYS
+ * ahead are kept, as the other readers ask their sources for, and an event with none is left out.
+ */
+export function parseIcs(data: ArrayBuffer | string, nom: string, page: string, now: Date, commune?: string): Evenement[] {
+  const vevents: Map<string, IcsProp[]>[] = [];
+  let current: Map<string, IcsProp[]> | undefined;
+  let depth = 0;
+  for (const line of icsLines(data)) {
+    const prop = icsProp(line);
+    if (!prop) continue;
+    const [name, p] = prop;
+    if (name === "BEGIN" && p.value.toUpperCase() === "VEVENT") { current = new Map(); depth = 0; continue; }
+    if (!current) continue;
+    // A VALARM inside the event has its own DESCRIPTION.
+    if (name === "BEGIN") { depth++; continue; }
+    if (name === "END" && depth) { depth--; continue; }
+    if (name === "END") { vevents.push(current); current = undefined; continue; }
+    if (!depth) current.set(name, [...(current.get(name) ?? []), p]);
+  }
+  const today = localDay(now);
+  const last = addDays(today, AHEAD_DAYS);
+  const one = (v: Map<string, IcsProp[]>, name: string) => v.get(name)?.[0];
+  // The days a VEVENT with a RECURRENCE-ID replaces, by UID.
+  const replaced = new Map<string, Set<string>>();
+  for (const v of vevents) {
+    const uid = one(v, "UID")?.value;
+    const day = icsTime(one(v, "RECURRENCE-ID"))?.day;
+    if (uid && day) replaced.set(uid, (replaced.get(uid) ?? new Set()).add(day));
+  }
+  return vevents.flatMap((v) => {
+    const summary = one(v, "SUMMARY");
+    const klass = one(v, "CLASS")?.value.toUpperCase();
+    const start = icsTime(one(v, "DTSTART"));
+    if (!summary || !start || (klass && klass !== "PUBLIC")) return [];
+    const uid = one(v, "UID")?.value ?? `${start.day}:${summary.value}`;
+    const recurrence = icsTime(one(v, "RECURRENCE-ID"))?.day;
+    const endTime = icsTime(one(v, "DTEND"));
+    // An all-day event ends the day before its DTEND; a timed one, at its DTEND.
+    const length = endTime ? minutes(endTime) - minutes(start) - (start.hm ? 0 : 24 * 60) : undefined;
+    const rule = one(v, "RRULE")?.value;
+    const skip = new Set([
+      ...(replaced.get(uid) ?? []),
+      ...(v.get("EXDATE") ?? []).flatMap((x) => x.value.split(",").map((value) => icsTime({ params: x.params, value })?.day)),
+    ]);
+    const days = (!recurrence && rule && icsDays(start.day, start.hm, rule, last)) || [start.day];
+    const seances = days
+      .filter((day) => recurrence || !skip.has(day))
+      .map((day): Seance => {
+        const debut = start.hm ? `${day}T${start.hm}` : day;
+        if (length === undefined || length <= 0) return { debut };
+        const fin = fromMinutes(minutes({ day, hm: start.hm }) + length);
+        return { debut, fin: start.hm ? fin : fin.slice(0, 10) };
+      })
+      .filter((s) => (s.fin ?? s.debut).slice(0, 10) >= today && s.debut.slice(0, 10) <= last)
+      .slice(0, ICS_MAX_SEANCES);
+    if (!seances.length) return [];
+    const titre = clean(icsText(summary.value));
+    // Its first line: a line break ends a sentence that has no full stop (« Journée d'observance\nPour masquer… »).
+    const texte = clean(icsText(one(v, "DESCRIPTION")?.value ?? "").split("\n").find((l) => l.trim()) ?? "");
+    const lieu = clean(icsText(one(v, "LOCATION")?.value ?? "")) || undefined;
+    const [lat, lon] = (one(v, "GEO")?.value ?? "").split(";").map(Number);
+    const statut = one(v, "STATUS")?.value.toUpperCase() === "CANCELLED" ? "annulé" : statusOf(titre, texte);
+    return [{
+      ...(statut ? { statut } : {}),
+      id: `${nom}:${uid}${recurrence ? `:${recurrence}` : ""}`,
+      titre,
+      seances,
+      lieu,
+      commune: communeOf(lieu) ?? commune,
+      lon: Number.isFinite(lon) && one(v, "GEO") ? lon : undefined,
+      lat: Number.isFinite(lat) && one(v, "GEO") ? lat : undefined,
+      categories: (v.get("CATEGORIES") ?? []).flatMap((c) => icsList(c.value)).slice(0, 5),
+      description: texte ? lead(texte) : undefined,
+      lien: httpUrl(one(v, "URL")?.value.trim()) ?? page,
+      publie_par: nom,
+    }];
+  });
+}
+
+/**
+ * An agenda read from its iCalendar address. `page`: where a person sees the agenda, the link of an event that gives
+ * none. A « webcal:// » address (Apple, Outlook) is read over https.
+ */
+export function ics(id: string, nom: string, url: string, page: string, source: SourceInfo, commune?: string): Agenda {
+  const address = url.replace(/^webcals?:\/\//i, "https://");
+  return {
+    id,
+    nom,
+    source,
+    commune,
+    load: (cache, now) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => parseIcs(await getBytes(source.id, address, TIMEOUT_MS, HEADERS), nom, page, now, commune)),
   };
 }
 
