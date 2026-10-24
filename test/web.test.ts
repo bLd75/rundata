@@ -49,6 +49,8 @@ function upstream(url: string): Response {
   if (url.includes("pioupiou")) return Response.json({ data: JSON.parse(String(fixture("pioupiou_all.json"))).data[0] });
   if (url.includes("noaacwLEOACSPO")) return new Response(fixture("acspo.csv"));
   if (url.includes("erdMH1sstd1day")) return new Response(fixture("modis.csv"));
+  if (url.includes("marine-api.open-meteo")) return new Response(fixture("openmeteo_houle.json"));
+  if (url.includes("air-quality-api.open-meteo")) return new Response(fixture("cams_uv.json"));
   if (url.includes("open-meteo.com/data")) return new Response(fixture("openmeteo_meta.json"));
   if (url.includes("open-meteo")) return new Response(fixture("openmeteo_cilaos.json"));
   if (url.includes("api-lannuaire")) {
@@ -96,7 +98,7 @@ describe("the budget of subrequests", () => {
     const total = await settled();
     return { status: value.status, text: await value.text(), ...total };
   }
-  const PATHS = ["/", "/meteo", "/vigilance", "/mer", "/communes", "/communes/saint-paul", "/communes/petite-ile", `/meteo/${PAGES[0].slug}`, "/evenements", "/trafic", "/actualites", "/sport", "/bus", "/randonnees", "/presse"];
+  const PATHS = ["/", "/meteo", "/vigilance", "/mer", "/aujourdhui/saint-leu", "/communes", "/communes/saint-paul", "/communes/petite-ile", `/meteo/${PAGES[0].slug}`, "/evenements", "/trafic", "/actualites", "/sport", "/bus", "/randonnees", "/presse"];
 
   it("never goes past it, the work after the response included, and every page still answers", async () => {
     for (const budget of [0, 6, 18]) {
@@ -190,6 +192,9 @@ describe("place pages", () => {
     expect(cold.text).toContain("<h1>Météo à Cilaos <span class=\"n974\">974</span></h1>");
     expect(cold.text).toContain("Mesuré en ce moment près de Cilaos");
     expect(cold.text).toContain("Prévision, pas une mesure");
+    // The UV index of each day, from its own forecast (CAMS), credited with the others.
+    expect(cold.text).toMatch(/<p>UV : \d+ \((faible|modéré|élevé|très élevé|extrême)\)<\/p>/);
+    expect(cold.text).toContain("Indice UV prévu par le service Copernicus");
     expect(cold.text).not.toContain("Température de la mer à Cilaos");
     expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
     const warm = await serve(isolate(edge), "/meteo/cilaos");
@@ -232,6 +237,7 @@ describe("commune pages", () => {
   it("have their day on a page of its own, cold within the limit, warm from a few reads", async () => {
     const edge = new EdgeLike();
     const cold = await serve(isolate(edge), "/aujourdhui/saint-leu");
+    console.log("DEBUG used", cold.used, (cold.text.match(/<section[^>]*>[^]{0,300}/g) ?? []).slice(0, 3).join("\n---\n"));
     expect(cold.r.status).toBe(200);
     expect(cold.text).toContain("<h1>Aujourd&#39;hui à Saint-Leu</h1>");
     expect(cold.text).toContain('<link rel="canonical" href="https://rundata.re/aujourdhui/saint-leu">');
@@ -406,12 +412,22 @@ describe("vigilance and sea pages", () => {
     expect(alerteOf(v, NOW)?.texte).toBe("Vigilance Météo-France : jaune fortes pluies / orages (Est).");
   });
 
-  it("gives the sea temperature beach by beach", async () => {
-    const { text, used } = await serve(isolate(), "/mer");
-    expect(text).toContain("Température de la mer <span class=\"n974\">974</span>");
+  it("gives the sea temperature beach by beach, and the swell forecast apart", async () => {
+    const cache = isolate();
+    const { text, used } = await serve(cache, "/mer");
+    expect(text).toContain("Température de la mer et houle <span class=\"n974\">974</span>");
+    expect(text).toMatch(/<title>Mer Réunion : houle, température de l(&#39;|')eau et marée · 974<\/title>/);
     expect(text).toContain("Boucan-Canot");
     expect(text).toContain('href="/meteo/saint-paul"');
     expect(text).toMatch(/\d+,\d °C/);
+    // The swell: its own section, labelled a forecast, one line per beach.
+    const swell = text.match(/<section aria-labelledby="h-houle">[^]*?<\/section>/)![0];
+    expect(swell).toContain("Prévision, pas une mesure");
+    expect(swell.match(/<li>/g)).toHaveLength(14);
+    expect(swell).toMatch(/<b>\d+(,\d)?\u202fm<\/b><span>(du |de l')[a-z-]+, période \d+ s, vers \d+h<\/span><span>jusqu'à \d+(,\d)?\u202fm /);
     expect(used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    // A coastal commune's tile says it too, from the same copy.
+    const saintLeu = await serve(cache, "/communes/saint-leu");
+    expect(saintLeu.text).toMatch(/houle prévue : \d+(,\d)?\u202fm/);
   });
 });

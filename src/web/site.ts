@@ -319,7 +319,8 @@ export async function site(request: Request, cache: Cache, background: Backgroun
     // The weather is built when it has no copy, as on the commune's page; the rest only read (tools/resume.ts).
     const vigilance = vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS);
     const place = await snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request));
-    const { copies, leftOut } = await readCopies(cache, p, p, now, background, vigilance);
+    // The weather's copy as the snapshot gave it: not read again (the read could be one subrequest too many).
+    const { copies, leftOut } = await readCopies(cache, p, p, now, background, vigilance, { meteo: place });
     const a = copies.vigilance ? alerteOf(copies.vigilance.value, now) : undefined;
     return new Response(aujourdhuiPage(origin, p, resume(p, copies, now, leftOut), copies.meteo ?? place, a), { headers: htmlFor(place) });
   }

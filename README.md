@@ -9,9 +9,9 @@ Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (C
 | Outil | Pour quelles questions | Ce qu'il renvoie |
 |---|---|---|
 | `meteo_actuelle(lieu)` | « il fait chaud à Saint-Gilles ? », « il pleut à Mafate ? », « du vent à Saint-Pierre ? » | Mesures de la station la plus représentative : température, pluie (6 min et 1 h), humidité, vent, rafales, pression, temps présent. Inclut l'heure, la distance, l'écart d'altitude et le versant. Ajoute la pluie vue par le radar de Météo-France au lieu même et à 3 km autour (image de 5 min, avec la qualité du radar, faible au fond des cirques). |
-| `prevision_meteo(lieu, quand)` | « il va pleuvoir demain à Saint-Denis ? », « quel temps ce week-end à Cilaos ? » | **Prévision** du modèle AROME outre-mer de Météo-France (maille de 2,5 km) pour les 48 premières heures, puis du modèle IFS de l'ECMWF (9 km) jusqu'à 7 jours, par jour et par tranches de 3 h, températures ramenées à l'altitude du lieu ; chaque jour dit quel modèle a donné quelles heures. Chaque réponse porte `nature: "prevision"` et rappelle que ce n'est pas une mesure, que le modèle ne voit pas les microclimats, et que pour un cyclone seule compte la vigilance officielle. `quand` : « demain », « ce soir », « samedi », « ce week-end »… |
+| `prevision_meteo(lieu, quand)` | « il va pleuvoir demain à Saint-Denis ? », « quel temps ce week-end à Cilaos ? » | **Prévision** du modèle AROME outre-mer de Météo-France (maille de 2,5 km) pour les 48 premières heures, puis du modèle IFS de l'ECMWF (9 km) jusqu'à 7 jours, par jour et par tranches de 3 h, températures ramenées à l'altitude du lieu ; chaque jour dit quel modèle a donné quelles heures. Indice UV prévu de chaque jour (CAMS, Copernicus), sur l'échelle de l'OMS. Chaque réponse porte `nature: "prevision"` et rappelle que ce n'est pas une mesure, que le modèle ne voit pas les microclimats, et que pour un cyclone seule compte la vigilance officielle. `quand` : « demain », « ce soir », « samedi », « ce week-end »… |
 | `vigilance_meteo(lieu?)` | « il y a une alerte cyclonique ? », « vigilance fortes pluies dans l'Est ? » | Vigilance officielle de Météo-France : alerte cyclonique (jaune, orange, rouge…), et par zone fortes pluies / orages, vents forts, vagues-submersion, pour les 24 h du bulletin, avec les textes de suivi. Sans `lieu` : toute l'île ; avec : la zone du lieu. `meteo_actuelle` et `prevision_meteo` signalent d'elles-mêmes toute vigilance au-dessus du vert. |
-| `temperature_mer(lieu)` | « l'eau est à combien à Boucan ? » | Dernière température de l'eau mesurée près du lieu, avec sa date, sa distance et sa nature (bouée ou satellite). |
+| `temperature_mer(lieu)` | « l'eau est à combien à Boucan ? », « la houle à Saint-Leu ? » | Dernière température de l'eau mesurée près du lieu, avec sa date, sa distance et sa nature (bouée ou satellite) ; à part, dans `etat_de_la_mer`, la **prévision** des vagues du modèle WAM de l'ECMWF (9 km, 4 jours) : hauteur, période et direction maintenant, par tranches de 3 h et le maximum de chaque jour, toujours étiquetée comme une prévision. |
 | `volcan_seismes()` | « le volcan est en éruption ? », « on peut monter au volcan ? », « il y a eu un séisme ? » | Éruption en cours ou non, niveau ORSEC, dernière éruption, accès à l'Enclos (pitonlive.com, d'après les arrêtés préfectoraux), dernières publications de l'OVPF-IPGP et séismes localisés en 30 jours, sous le volcan et ailleurs. |
 | `electricite()` | « d'où vient l'électricité ? », « quand recharger ma voiture électrique ? » | Production d'EDF toutes les 5 min par filière et part renouvelable ; « météo de l'électricité » d'EDF (heures de pointe, réseau contraint) pour les jours qui viennent. |
 | `qualite_air(lieu?)` | « l'air est pollué à Saint-Louis ? » | Indice ATMO du jour et du lendemain par commune (Atmo Réunion), avec le polluant en cause. |
@@ -88,6 +88,8 @@ Ce serveur [MCP](https://modelcontextprotocol.io) donne à votre assistant IA (C
 | Demandes de valeurs foncières (DGFiP), API DVF du Cerema | ventes immobilières, agrégées en médianes | deux fois par an | Licence Ouverte Etalab 2.0 |
 | Prévisions AROME outre-mer, Météo-France (API « AROME », même clé que les observations ; outil `prevision_meteo` seulement) | prévision de modèle, maille de 2,5 km, 48 h | 4 calculs par jour | Licence Ouverte Etalab 2.0 |
 | Prévisions ECMWF IFS HRES, via [Open-Meteo](https://open-meteo.com/) (outil `prevision_meteo` seulement, au-delà de 48 h et en secours) | prévision de modèle, maille de 9 km | nouveau calcul toutes les 6 h | CC BY 4.0 ; API Open-Meteo gratuite pour usage non commercial |
+| Prévision des vagues ECMWF WAM, via l'[API marine d'Open-Meteo](https://open-meteo.com/en/docs/marine-weather-api) (outil `temperature_mer`, page `/mer`) | hauteur, période de pic et direction des vagues, 4 jours, toutes les plages en une requête | nouveau calcul toutes les 6 h, lu toutes les 30 min | CC BY 4.0 ; API Open-Meteo gratuite pour usage non commercial |
+| Indice UV du service Copernicus de surveillance de l'atmosphère (CAMS global), via l'[API qualité de l'air d'Open-Meteo](https://open-meteo.com/en/docs/air-quality-api) (outil `prevision_meteo`) | indice UV prévu, nuages compris, maille de 45 km, 5 jours, toute l'île en une requête | 2 calculs par jour, lu toutes les heures | licence Copernicus (citer CAMS) et CC BY 4.0 ; API Open-Meteo gratuite pour usage non commercial |
 
 ## Code source
 
@@ -140,7 +142,7 @@ Public data for Réunion Island (French overseas department 974, Indian Ocean), 
 
 - **Tools:**
   - `meteo_actuelle(lieu)`: current weather at the most representative station.
-  - `prevision_meteo(lieu, quand)`: model forecast (Météo-France AROME outre-mer 2.5 km for 48 h, then ECMWF IFS 9 km via Open-Meteo up to 7 days), always labelled as a forecast, never mixed with measurements.
+  - `prevision_meteo(lieu, quand)`: model forecast (Météo-France AROME outre-mer 2.5 km for 48 h, then ECMWF IFS 9 km via Open-Meteo up to 7 days), with each day's forecast UV index (Copernicus CAMS), always labelled as a forecast, never mixed with measurements.
   - `vigilance_meteo(lieu?)`: Météo-France's official weather warnings and cyclone alert, island-wide or for a place's zone.
   - `volcan_seismes()`: Piton de la Fournaise status (eruption, alert level, access) and recent earthquakes located by the OVPF-IPGP.
   - `electricite()`: EDF's real-time production mix, renewable share and grid signal for the coming days.
@@ -165,7 +167,7 @@ Public data for Réunion Island (French overseas department 974, Indian Ocean), 
   - `actualites(lieu?, sujet?, heures?)`: what is happening on the island now, from the local media's headlines and live blogs (time, outlet, first sentence, communes named, what each says of the place asked about, link) and the prefecture's press releases, by place and subject.
   - `fiche_terrain(adresse)`: cadastral parcel, zoning (PLU), altitude, median property prices around (aggregated DVF), and natural hazards: risk prevention plan at the point, natural disaster decrees, landslides recorded within 500 m.
   - `meteo_actuelle` also reports the rain seen by Météo-France's radar at the place.
-  - `temperature_mer(lieu)`: sea surface temperature near a beach.
+  - `temperature_mer(lieu)`: measured sea surface temperature near a beach, and apart from it the wave forecast of the ECMWF WAM model (height, period, direction, 4 days, via Open-Meteo), always labelled as a forecast.
   - `donner_avis(type, message, …)`: feedback to rundata.re (missing data, wrong value, suggestion, praise); assistants are invited to send it when a tool came up short.
   - `sources_donnees()`: sources and licences.
 - **Places:** free text (town, beach, peak) or `lat, lon`.

@@ -38,8 +38,8 @@ export const OUTILS: Outil[] = [
   { nom: "velos_libre_service", ligne: "vélos Altervélo (Sud)", depuis: "2026-10-24T00:49:00+04:00" },
   { nom: "transports", ligne: "prochains bus, retards", depuis: "2026-10-23T18:13:00+04:00" },
   { nom: "meteo_actuelle", ligne: "météo MESURÉE maintenant", depuis: "2026-10-23T16:09:00+04:00" },
-  { nom: "prevision_meteo", ligne: "PRÉVISION, 7 jours", depuis: "2026-10-23T16:09:00+04:00" },
-  { nom: "temperature_mer", ligne: "température de la mer", depuis: "2026-10-23T16:09:00+04:00" },
+  { nom: "prevision_meteo", ligne: "PRÉVISION, 7 jours, indice UV", depuis: "2026-10-23T16:09:00+04:00" },
+  { nom: "temperature_mer", ligne: "température de la mer, houle prévue", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "vigilance_meteo", ligne: "vigilance, alerte cyclonique", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "volcan_seismes", ligne: "Piton de la Fournaise, séismes", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "electricite", ligne: "électricité, part renouvelable", depuis: "2026-10-23T16:09:00+04:00" },
@@ -53,6 +53,8 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T16:00:30+04:00", texte: "Houle prévue près de chaque plage : hauteur, période et direction des vagues sur 4 jours, sur le site et dans votre IA." },
+  { date: "2026-10-24T16:00:00+04:00", texte: "Indice UV prévu jour par jour, dans la prévision météo du site et de votre IA." },
   { date: "2026-10-24T15:55:00+04:00", texte: "Une page « Aujourd'hui » par commune : la météo, les routes, l'actu, les coupures et les sorties du jour." },
   { date: "2026-10-24T15:45:00+04:00", texte: "Votre IA résume la journée de votre commune : météo, routes, actu, coupures, sorties, mairie ouverte ou non." },
   { date: "2026-10-24T15:12:00+04:00", texte: "L'accueil affiche l'heure de chaque mesure." },

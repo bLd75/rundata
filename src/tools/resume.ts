@@ -278,14 +278,16 @@ export function placeOf(lieu: string): { commune: PlacePage; place: PlacePage; r
 /**
  * Reads the copies of the commune's summary, keeps those recent enough, names the others, and brings the oldest of
  * those up to date after the answer when `background` is given and what its build took is left. `vigilance`: the
- * vigilance as the caller has it already (a page waits for it only a moment), else it is read here.
+ * vigilance as the caller has it already (a page waits for it only a moment), else it is read here. `held`: the
+ * copies the caller has already (a page builds its weather), neither read again nor refreshed here.
  */
-export async function readCopies(cache: Cache, commune: PlacePage, place: PlacePage, now: Date, background?: Background, vigilance?: Promise<Cached<mf.Vigilance> | null>) {
+export async function readCopies(cache: Cache, commune: PlacePage, place: PlacePage, now: Date, background?: Background, vigilance?: Promise<Cached<mf.Vigilance> | null>, held: Partial<Record<Part, Cached<any> | null>> = {}) {
   const parts = Object.entries(copiesOf(commune, place)).filter((e): e is [Part, Copy] => !!e[1]);
   // One read each, as long as the invocation has subrequests left.
   const budget = left();
+  let reads = 0;
   const [peeked, vig] = await Promise.all([
-    Promise.all(parts.map(([, c], i) => (i < budget ? cache.peek<any>(c.key).catch(() => undefined) : Promise.resolve(undefined)))),
+    Promise.all(parts.map(([name, c]) => (name in held ? Promise.resolve(held[name] ?? undefined) : reads++ < budget ? cache.peek<any>(c.key).catch(() => undefined) : Promise.resolve(undefined)))),
     vigilance ?? (mf.enabled() ? mf.vigilance(cache).catch((err) => (console.error(`source ${mf.SOURCE.id} indisponible:`, why(err)), null)) : Promise.resolve(null)),
   ]);
   const copies: ResumeCopies = { vigilance: vig };
@@ -300,7 +302,7 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
       return;
     }
     leftOut.push({ partie: c.nom, raison: copy ? `copie de ${localTime(copy.fetchedAt)}, trop ancienne` : "pas de copie récente", outil: c.outil, page: `${SITE_URL}${c.page}` });
-    due.push({ c, age: copy ? now.getTime() - copy.fetchedAt.getTime() : Infinity });
+    if (!(name in held)) due.push({ c, age: copy ? now.getTime() - copy.fetchedAt.getTime() : Infinity });
   });
   if (!vig) leftOut.push({ partie: "vigilance", raison: mf.enabled() ? "Météo-France ne répond pas" : "vigilance non branchée", outil: "vigilance_meteo", page: `${SITE_URL}/vigilance` });
   const oldest = due.sort((x, y) => y.age - x.age)[0];

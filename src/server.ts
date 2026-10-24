@@ -7,7 +7,9 @@ import { GAZETTEER_ATTRIBUTION } from "./places/resolve.js";
 import * as acspo from "./providers/acspo.js";
 import * as arome from "./providers/arome.js";
 import * as modis from "./providers/modis.js";
+import * as houle from "./providers/houle.js";
 import * as openmeteo from "./providers/openmeteo.js";
+import * as uv from "./providers/uv.js";
 import * as avis from "./avis.js";
 import { withLectures } from "./lectures.js";
 import { catalogue, INDEX, serveur } from "./nouveautes.js";
@@ -66,7 +68,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.46.0";
+export const VERSION = "0.47.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -78,7 +80,7 @@ Règles :
 - Avis : quand un outil n'a pas la donnée, se trompe, ou quand l'utilisateur exprime un souhait ou une plainte sur ces données, appeler donner_avis, sans donnée personnelle (demander d'abord si le contenu le concerne).
 - Liste d'outils : chaque réponse porte un bloc serveur avec la version et les outils récents. Ne jamais conclure qu'un outil ou une donnée n'existe pas sans avoir lu serveur.outils_recents d'une réponse récente ou appelé sources_donnees. Un outil qui y figure mais manque à votre liste : votre liste est ancienne, le dire à l'utilisateur. Ne jamais dire qu'on a rechargé la liste.
 - Lieu : appeler ces outils dès qu'une question nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo…), même sans dire « La Réunion ».
-- Météo : maintenant → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant) ; avant (hier, cette nuit, ce mois-ci, record, normale) → historique_meteo (mesures depuis 1900, heure par heure depuis 2000) ; plus tard → prevision_meteo, une PRÉVISION, toujours le dire.
+- Météo : maintenant → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant) ; avant (hier, cette nuit, ce mois-ci, record, normale) → historique_meteo (mesures depuis 1900, heure par heure depuis 2000) ; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV. Houle, vagues, surf → temperature_mer, etat_de_la_mer : une PRÉVISION, à dire.
 - Un champ vigilance ou avertissement se dit en premier.
 
 Détails :
@@ -168,7 +170,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Prévision météo à La Réunion",
       description:
         "PRÉVISION météo (modèle numérique, pas une mesure) pour un lieu de La Réunion (974), de ce soir à 7 jours : " +
-        "ciel, températures min et max ramenées à l'altitude du lieu, pluie, vent et rafales, par jour et par tranches de 3 h. " +
+        "ciel, températures min et max ramenées à l'altitude du lieu, pluie, vent et rafales, par jour et par tranches de 3 h, indice UV du jour. " +
         "Pour toute question sur le temps à venir : « il va pleuvoir demain à Saint-Denis ? », « quel temps ce week-end à Cilaos ? », " +
         "« il fera beau cet après-midi à l'Hermitage ? », « prévisions pour la Plaine des Cafres samedi ». " +
         "Chaque réponse est étiquetée « prévision » avec ses limites (le modèle ne voit pas les microclimats de l'île) ; " +
@@ -194,16 +196,17 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
   server.registerTool(
     "temperature_mer",
     {
-      title: "Température de la mer à La Réunion",
+      title: "Température de la mer et houle à La Réunion",
       description:
-        "Température de l'eau de mer MESURÉE à La Réunion (974), près d'une plage ou d'un lieu côtier : " +
-        "« la mer est à combien à Saint-Leu ? », « température de l'eau à l'Hermitage », « l'eau est bonne à Boucan ? ». " +
-        "Renvoie la dernière mesure disponible en disant d'où elle vient (bouée ou satellite), sa date et sa distance. " +
-        "/ Measured sea water temperature near a beach or coastal place in Réunion Island, with source, date and distance.",
+        "La mer à La Réunion (974), près d'une plage ou d'un lieu côtier. Température de l'eau MESURÉE (satellite) : " +
+        "« la mer est à combien à Saint-Leu ? », « l'eau est bonne à Boucan ? » ; houle et vagues PRÉVUES (modèle, 4 jours) : " +
+        "« la houle à Saint-Leu ? », « ça surfe à Saint-Pierre demain ? », « la mer est grosse à Saint-Gilles ? ». " +
+        "La mesure (avec sa date et sa distance) et la prévision des vagues (hauteur, période, direction) sont dans deux blocs séparés. " +
+        "/ Sea in Réunion Island: measured water temperature, and forecast waves (height, period, direction), kept apart.",
       inputSchema: { lieu },
-      annotations: { title: "Température de la mer à La Réunion", ...READ_ONLY },
+      annotations: { title: "Température de la mer et houle à La Réunion", ...READ_ONLY },
     },
-    track("temperature_mer", (args) => temperatureMer(cache, args.lieu)),
+    track("temperature_mer", (args) => withVigilance(cache, temperatureMer(cache, args.lieu))),
   );
 
   if (vigilance.enabled()) {
@@ -768,7 +771,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
     },
     track("sources_donnees", async () =>
       text({
-        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
+        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage(), evenements: AGENDA_COVERAGE },
         version: VERSION,
