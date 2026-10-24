@@ -62,7 +62,7 @@ import { defibrillateurs } from "./tools/dae.js";
 import * as sportSources from "./providers/sport.js";
 import { QUANDS, SPORTS, sportTool, type Quand, type Sport } from "./tools/sport.js";
 import * as gdacs from "./providers/cyclones.js";
-import { cyclones } from "./tools/cyclones.js";
+import { cyclones, PASSES_LIST } from "./tools/cyclones.js";
 import * as climat from "./providers/climat.js";
 import { historiqueMeteo } from "./tools/historique.js";
 import * as agendaSources from "./providers/agenda.js";
@@ -71,7 +71,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.104.0";
+export const VERSION = "0.105.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -627,12 +627,18 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "stade (dépression, tempête tropicale modérée ou forte, cyclone tropical, intense), vent moyen, pression, position, distance et direction " +
         "depuis La Réunion ou un lieu, déplacement, prévision officielle et passage au plus près ; alerte cyclonique de la préfecture, et ce qu'elle veut dire pour les crèches, écoles, collèges, lycées et universités selon le dispositif ORSEC Cyclones (jamais une école en particulier). " +
         "Hors saison : le dit, avec le dernier système et ceux de la saison. " +
-        "Pour : « il y a un cyclone en ce moment ? », « où est la tempête ? », « elle va passer près de Saint-Philippe ? », « le dernier cyclone ? », « école fermée demain avec le cyclone ? ». " +
+        "Pour : « il y a un cyclone en ce moment ? », « où est la tempête ? », « elle va passer près de Saint-Philippe ? », « le dernier cyclone ? », « école fermée demain avec le cyclone ? », « combien de pluie pendant Garance ? » (nom). " +
         "/ Active tropical cyclones near Réunion Island (RSMC La Réunion advisories via GDACS), distance, movement, official forecast.",
-      inputSchema: { lieu },
+      inputSchema: {
+        lieu,
+        nom: z
+          .string()
+          .optional()
+          .describe(`Un cyclone passé (« Garance », « Dina 2002 ») : la pluie et les rafales mesurées station par station pendant son passage, les records battus et sa page. Disponibles : ${PASSES_LIST}. / A past cyclone: rain and gusts measured.`),
+      },
       annotations: { title: "Cyclones", ...READ_ONLY },
     },
-    track("cyclones", (args: { lieu?: string }) => cyclones(cache, args.lieu)),
+    track("cyclones", (args: { lieu?: string; nom?: string }) => cyclones(cache, args.lieu, undefined, args.nom)),
   );
 
   server.registerTool(

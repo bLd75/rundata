@@ -34,6 +34,7 @@ import { AVIS_CSS, avisForm } from "./avis.js";
 import { INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 import { bathingBlock } from "./baignade.js";
+import { PASSES } from "../historique/cyclones-passes.js";
 
 export const SITE = "rundata.re";
 // The headings' typeface (scripts/build-font.py). Bump the number when the font changes: browsers keep it a year.
@@ -586,7 +587,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .rows.eau .q-bonne{color:#2b8a3e;font-weight:700}.rows.eau .q-moyenne{color:#e8590c;font-weight:700}.rows.eau .q-mauvaise{color:var(--lave);font-weight:700}.rows.eau .q-none{color:var(--muted)}
 .lvl{display:inline-block;padding:.1rem .55rem;border-radius:1rem;font:700 .8rem system-ui,sans-serif;background:var(--c);color:#14202b}
 .table-wrap{overflow-x:auto}
-table.drought{width:100%;border-collapse:collapse;font-size:.92rem}table.drought tr.past{color:var(--muted)}
+table.drought{width:100%;border-collapse:collapse;font-size:.92rem}table.passe caption{text-align:left;color:var(--muted);font-size:.85rem;padding:0 .35rem .4rem}table.passe{font-size:.82rem}table.passe th,table.passe td{padding:.4rem .25rem}table.passe td{white-space:nowrap;font-variant-numeric:tabular-nums}table.drought tr.past{color:var(--muted)}
 table.histo small{display:block}table.hours td,table.hours th{white-space:nowrap}details.table-wrap>summary{cursor:pointer;font-weight:600;padding:.2rem 0 .6rem}.ratio{display:block;position:relative;height:.45rem;margin-top:.3rem;border-radius:.3rem;background:var(--line);max-width:9rem}.ratio i{position:absolute;inset:0 auto 0 0;border-radius:.3rem}.ratio s{position:absolute;left:50%;top:-.15rem;bottom:-.15rem;width:2px;background:var(--ink);opacity:.5}
 table.drought th,table.drought td{text-align:left;padding:.45rem .5rem;border-top:1px solid var(--line)}
 table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
@@ -698,10 +699,13 @@ const HOOKS: [string, string][] = [
 ];
 // A trail's or a hike's own page: one trace, not the list of the day's closures.
 const TRACE_HOOK = "La trace à télécharger et l'état du sentier ce matin, avant de partir.";
+// A past cyclone's page: measures, not the tracking of the moment.
+const PASSE_HOOK = "Ce que les stations de Météo-France ont mesuré pendant son passage.";
 
 export function hook(path: string): string | undefined {
   const trace = /^\/(sentiers|randonnees)\/([a-z0-9-]+)$/.exec(path);
   if (trace && (trace[1] === "sentiers" ? traces.sentier(trace[2]) : traces.randonnee(trace[2]))) return TRACE_HOOK;
+  if (PASSES.some((p) => path === `/cyclones/${p.slug}`)) return PASSE_HOOK;
   return HOOKS.filter(([p]) => (p === "/" ? path === "/" : inCategory(path, p))).sort((x, y) => y[0].length - x[0].length)[0]?.[1];
 }
 
