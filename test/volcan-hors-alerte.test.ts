@@ -29,9 +29,27 @@ async function answer(phase: unknown = null): Promise<VolcanAnswer> {
   return buildVolcan(new Cache(store, () => t), NOW);
 }
 
-/** What a reader sees of some HTML: the tags out, the entities read. */
-const seen = (html: string) =>
-  html.replace(/<style>[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/g, "").replace(/<[^>]+>/g, "").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/ /g, " ");
+/** What a reader sees of some HTML: its style and script blocks cut out, every tag out, the entities read. */
+function seen(html: string): string {
+  const low = html.toLowerCase();
+  let text = "";
+  for (let at = 0; at < html.length; ) {
+    const next = (["style", "script"] as const)
+      .map((name) => ({ name, start: low.indexOf(`<${name}`, at) }))
+      .filter((b) => b.start >= 0)
+      .sort((a, b) => a.start - b.start)[0];
+    text += html.slice(at, next?.start ?? html.length);
+    if (!next) break;
+    const end = low.indexOf(`</${next.name}`, next.start);
+    at = end < 0 ? html.length : low.indexOf(">", end) + 1 || html.length;
+  }
+  // Until nothing changes: a tag left by taking out another is taken out too.
+  for (let before = ""; before !== text; ) {
+    before = text;
+    text = text.replace(/<[^>]*>/g, "");
+  }
+  return text.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/ /g, " ");
+}
 
 /** Each « pas d'éruption » in `text`, with what follows it up to the end of its sentence or its tile. */
 const claims = (text: string) => [...text.matchAll(/pas d['’]éruption(?:[^.]|\.(?=\S))*/gi)].map((m) => m[0]);
