@@ -34,7 +34,8 @@ import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
 import { named } from "../tools/annuaire.js";
 import { alertsFor, applyRealtime, departureRow, departures, findStops, nearStops, realtimeFeeds, spread } from "../tools/transports.js";
-import { cyclone, highest, raised } from "../tools/vigilance.js";
+import { ecoles, type ecolesBlock } from "../tools/ecoles.js";
+import { cyclone, cycloneLevel, highest, raised } from "../tools/vigilance.js";
 import { COMMUNES as BIKE_COMMUNES, velosLibreService } from "../tools/velos.js";
 import { bornesRecharge, count as countPoints, stationRow } from "../tools/bornes.js";
 import { ile, type Ile } from "../eau/ile.js";
@@ -852,6 +853,7 @@ export async function buildSport(cache: Cache, now = new Date()): Promise<SportA
 export interface CyclonesAnswer {
   resume: string;
   alerte_cyclonique?: string;
+  ecoles?: ReturnType<typeof ecolesBlock>;
   systemes_actifs?: Omit<ReturnType<typeof activeRow>, "trajectoire">[];
   saison_en_cours: { nom: string; systemes: ReturnType<typeof seasonRow>[] };
   saison_precedente?: { nom: string; systemes: ReturnType<typeof seasonRow>[] };
@@ -1359,13 +1361,15 @@ export async function buildCommune(cache: Cache, p: PlacePage, now = new Date())
 export interface Alerte {
   couleur: number;
   texte: string;
+  /** Crèches and schools closed by the cyclone alert in force: the banner links to /ecoles-cyclone. */
+  ecoles?: boolean;
 }
 
 export const BANNER_WAIT_MS = 1500;
 
 export function alerteOf(v: mf.Vigilance, now: Date): Alerte | undefined {
   const periods = v.zones[mf.ISLAND]?.[mf.CYCLONE];
-  if (periods && highest(periods) >= 2) return { couleur: highest(periods), texte: `Météo-France : ${cyclone(v, now)}` };
+  if (periods && highest(periods) >= 2) return { couleur: cycloneLevel(periods, now), texte: `Météo-France : ${cyclone(v, now)}`, ecoles: ecoles(v, now).fermees || undefined };
   const r = raised(v);
   if (!r.length) return undefined;
   const list = r.slice(0, 3).map((x) => `${x.couleur_max} ${x.phenomene.toLowerCase()} (${x.zone.split(" :")[0]})`);

@@ -1771,6 +1771,7 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
     <li><a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Vigilance et alerte cyclonique en cours (Météo-France)</a></li>
     <li><a href="https://www.reunion.gouv.fr" rel="noopener">Consignes de la préfecture de La Réunion</a></li>
     <li><a href="${esc(origin)}/vigilance">La vigilance du moment sur rundata.re</a></li>
+    <li><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ?</a></li>
   </ul></div>
 </section>
 ${d ? `<section aria-labelledby="h-saison">

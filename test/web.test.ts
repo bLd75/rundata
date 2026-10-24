@@ -348,7 +348,7 @@ describe("what crawlers and previews fetch", () => {
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
     // The pages, the 24 communes, their water and their day, and a page per hike and per ONF trail with its GPS trace.
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 32 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 33 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length);
     expect(map).toContain("<loc>https://rundata.re/randonnees/sentier-du-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/sentiers/le-bloc-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/communes</loc>");
@@ -499,8 +499,9 @@ describe("vigilance and sea pages", () => {
     const v = structuredClone(await vigilanceSample());
     v.zones[mf.ISLAND][mf.CYCLONE] = [{ couleur: 3, debut: "2026-10-22T00:00:00Z" }];
     const a = alerteOf(v, NOW)!;
-    expect(a).toEqual({ couleur: 3, texte: expect.stringContaining("ALERTE CYCLONIQUE orange") });
+    expect(a).toEqual({ couleur: 3, texte: expect.stringContaining("ALERTE CYCLONIQUE orange"), ecoles: true });
     expect(homePage("https://rundata.re", null, NOW, a)).toContain('<div class="alerte vg vg3" role="status">');
+    expect(homePage("https://rundata.re", null, NOW, a)).toContain('<a href="/ecoles-cyclone">Écoles fermées →</a>');
     const page = vigilancePage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW, a);
     expect(page).toContain("Alerte cyclonique orange");
     expect(page).not.toContain("Voir la vigilance zone par zone");

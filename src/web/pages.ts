@@ -14,7 +14,7 @@ import { ageMinutes, ageText, localTime, versant } from "../geo.js";
 import { VERSION } from "../server.js";
 import { fr } from "../tools/format.js";
 import * as mf from "../providers/vigilance.js";
-import { current, cyclone, highest, raised, spans } from "../tools/vigilance.js";
+import { current, cyclone, cycloneHead, cycloneLevel, highest, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, StationAnswer, StationNow } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
@@ -628,7 +628,8 @@ interface Head {
 function banner(a: Alerte | undefined, path: string): string {
   if (!a) return "";
   const more = path === "/vigilance" ? "" : ` <a href="/vigilance">Voir la vigilance zone par zone →</a>`;
-  return `<div class="alerte vg vg${a.couleur}" role="status"><div class="wrap"><span>⚠ ${esc(a.texte)}</span>${more}</div></div>`;
+  const schools = a.ecoles && path !== "/ecoles-cyclone" ? ` <a href="/ecoles-cyclone">Écoles fermées →</a>` : "";
+  return `<div class="alerte vg vg${a.couleur}" role="status"><div class="wrap"><span>⚠ ${esc(a.texte)}</span>${schools}${more}</div></div>`;
 }
 
 const SCRIPT = `const menu=document.querySelector("details.menu");if(menu)document.addEventListener("click",(e)=>{if(menu.open&&!menu.contains(e.target))menu.open=false});
@@ -988,8 +989,8 @@ export function vigilanceLive(data: Cached<mf.Vigilance> | null, now: Date): Liv
   if (!v) return undefined;
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   if (highest(cyc) >= 2) {
-    const c = Math.max(2, current(cyc, now));
-    return { valeur: `<span class="vg vg${Math.min(c, 5)}">Cyclone : ${esc(mf.colour(c))}</span>`, detail: esc(cyclone(v, now)) };
+    const c = Math.max(2, cycloneLevel(cyc, now));
+    return { valeur: `<span class="vg vg${c <= 5 ? c : 0}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) };
   }
   const r = raised(v);
   if (!r.length) return { valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" };
@@ -1333,12 +1334,12 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
     status = `<p class="lead">La vigilance de Météo-France n'a pas pu être lue à l'instant. Consultez <a href="${mf.SOURCE.url}">vigilance.meteofrance.fr</a> ou rechargez la page.</p>`;
   } else {
     const head = highest(cyc) >= 2
-      ? `<p class="big">${cycNow >= 2 ? `Alerte cyclonique ${esc(mf.colour(cycNow))}` : "Alerte cyclonique prévue"}</p><p class="lead">${esc(cyclone(v, now))}</p>`
+      ? `<p class="big">${cycNow >= 2 ? esc(cycloneHead(cycNow)) : "Alerte cyclonique prévue"}</p><p class="lead">${esc(cyclone(v, now))}</p>`
       : `<p class="big">Pas d'alerte cyclonique</p>`;
     const rest = r.length
       ? `<p class="lead">Vigilances au-dessus du vert : ${r.map((x) => `${vg(x.max)} ${esc(x.phenomene.toLowerCase())} (${esc(x.zone.split(" :")[0])})`).join(", ")}.</p>`
       : `<p class="lead">${vg(1)} Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</p>`;
-    status = `<div class="status">${head}${rest}<p class="note" style="color:var(--on-night-muted)">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p></div>`;
+    status = `<div class="status">${head}${rest}<p class="lead"><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a></p><p class="note" style="color:var(--on-night-muted)">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p></div>`;
   }
 
   const fills: Record<string, string> = {};

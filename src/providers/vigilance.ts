@@ -3,7 +3,9 @@
  * (`vigilanceom/flux/dernier`, same key as the stations). The flow is one zip for all the overseas territories,
  * refreshed every minute; La Réunion is in two files: CDPV95_FMEE_ (colour per zone, phenomenon and hour, for 24 h)
  * and CDPV96_FMEE_ (the follow-up texts). Codes not in the API's own documentation come from the public page
- * vigilance.meteofrance.fr/fr/la-reunion (zone names, phenomena), checked on 2026-10-22.
+ * vigilance.meteofrance.fr/fr/la-reunion (zone names, phenomena), checked on 2026-10-22. The cyclone alert has codes
+ * of its own (7 to 10, and 6 for the phase de sauvegarde), from Météo-France's « Descriptif des informations Vigilance
+ * Outre-Mer et Alertes cycloniques » (v5, 10/04/2025, p. 7), read on 2026-10-24.
  */
 import type { Cache, Cached } from "../cache.js";
 import { getBytes } from "../http.js";
@@ -68,7 +70,17 @@ export const ZONE_OF_COMMUNE: Record<string, string> = Object.fromEntries(
 );
 
 // -1: no vigilance issued for this zone and phenomenon (outside a cyclone alert, or a coast without a warning).
-export const COLOURS: Record<number, string> = { 1: "vert", 2: "jaune", 3: "orange", 4: "rouge" };
+export const COLOURS: Record<number, string> = { 1: "vert", 2: "jaune", 3: "orange", 4: "rouge", 5: "violet", 6: "gris" };
+
+/**
+ * The cyclone alert's codes, brought to the scale of the other phenomena so that a higher code is a worse alert:
+ * pré-alerte (7) → 2, orange (8) → 3, rouge (9) → 4, violette (10) → 5; the phase de sauvegarde (6) stays 6.
+ */
+const CYCLONE_CODES: Record<number, number> = { 7: 2, 8: 3, 9: 4, 10: 5, 6: 6 };
+
+/** The cyclone alert's step, by its code on that scale: « orange », « phase de sauvegarde ». */
+export const CYCLONE_NAMES: Record<number, string> = { 2: "pré-alerte", 3: "orange", 4: "rouge", 5: "violette", 6: "phase de sauvegarde" };
+export const cycloneName = (c: number) => CYCLONE_NAMES[c] ?? colour(c);
 
 export function colour(id: number): string {
   return COLOURS[id] ?? `code ${id} (non reconnu : voir le site de Météo-France)`;
@@ -114,8 +126,9 @@ export function parse(map: MapJson, texts?: TextsJson): Vigilance {
       const periods: Period[] = [];
       for (const t of p.timelaps_items) {
         const last = periods[periods.length - 1];
-        if (last && last.couleur === t.color_id && last.fin === t.begin_time) last.fin = t.end_time;
-        else periods.push({ couleur: t.color_id, debut: t.begin_time, fin: t.end_time });
+        const couleur = p.phenomenon_id === CYCLONE ? (CYCLONE_CODES[t.color_id] ?? t.color_id) : t.color_id;
+        if (last && last.couleur === couleur && last.fin === t.begin_time) last.fin = t.end_time;
+        else periods.push({ couleur, debut: t.begin_time, fin: t.end_time });
       }
       if (periods.every((x) => x.couleur < 1)) continue;
       (zones[d.domain_id] ??= {})[p.phenomenon_id] = periods;

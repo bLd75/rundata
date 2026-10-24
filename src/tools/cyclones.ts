@@ -5,6 +5,7 @@ import * as gdacs from "../providers/cyclones.js";
 import * as mf from "../providers/vigilance.js";
 import { why } from "../types.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
+import { ecolesBlock } from "./ecoles.js";
 import { cyclone as cycloneAlert } from "./vigilance.js";
 
 const ISLAND = { nom: "La Réunion", lon: 55.536, lat: -21.115 };
@@ -97,11 +98,12 @@ export function seasonRow(s: gdacs.Systeme) {
   };
 }
 
-/** The cyclone alert of the prefecture through Météo-France's vigilance; undefined when it cannot be read. */
-async function alert(cache: Cache, now: Date): Promise<string | undefined> {
+/** The cyclone alert of the prefecture through Météo-France's vigilance, and what it means for the schools; undefined when it cannot be read. */
+async function alert(cache: Cache, now: Date) {
   if (!mf.enabled()) return undefined;
   try {
-    return cycloneAlert((await mf.vigilance(cache)).value, now);
+    const v = (await mf.vigilance(cache)).value;
+    return { texte: cycloneAlert(v, now), ecoles: ecolesBlock(v, now) };
   } catch (err) {
     console.error(`source ${mf.SOURCE.id} indisponible:`, why(err));
     return undefined;
@@ -123,14 +125,15 @@ export async function cyclones(cache: Cache, lieu: string | undefined, now = new
     list = (await gdacs.systemes(cache, now)).value.filter((s) => s.debut <= now.toISOString());
   } catch (err) {
     console.error(`source ${gdacs.SOURCE.id} indisponible:`, why(err));
-    const alerte = await alert(cache, now);
+    const a = await alert(cache, now);
     return {
-      ...text({ erreur: "Le suivi des systèmes tropicaux (GDACS) ne répond pas pour le moment.", alerte_cyclonique: alerte, consulter: OFFICIAL, sources: credits([gdacs.SOURCE]) }),
+      ...text({ erreur: "Le suivi des systèmes tropicaux (GDACS) ne répond pas pour le moment.", alerte_cyclonique: a?.texte, ecoles: a?.ecoles, consulter: OFFICIAL, sources: credits([gdacs.SOURCE]) }),
       isError: true,
     };
   }
 
-  const [active, alerte] = await Promise.all([gdacs.actifs(cache, list, now), alert(cache, now)]);
+  const [active, a] = await Promise.all([gdacs.actifs(cache, list, now), alert(cache, now)]);
+  const alerte = a?.texte;
   const rows = active.map((a) => activeRow(a.systeme, a.trajectoire, from)).sort((x, y) => x.distance_km - y.distance_km);
   const season = gdacs.seasonOf(now);
   const previous = `${Number(season.nom.slice(0, 4)) - 1}-${season.nom.slice(0, 4)}`;
@@ -167,6 +170,7 @@ export async function cyclones(cache: Cache, lieu: string | undefined, now = new
     lieu: place,
     resume: parts.join(" "),
     alerte_cyclonique: alerte,
+    ecoles: a?.ecoles,
     systemes_actifs: rows.length ? rows.map(({ trajectoire: _, ...r }) => r) : undefined,
     saison_en_cours: { nom: season.nom, systemes: thisSeason.map(seasonRow) },
     saison_precedente: rows.length ? undefined : { nom: previous, systemes: lastSeason.map(seasonRow) },
