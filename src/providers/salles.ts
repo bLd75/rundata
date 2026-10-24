@@ -2,7 +2,8 @@
  * The programmes of the island's concert halls and theatres, read from their own sites: none publishes a feed, so
  * each page is read as its visitors see it, one request each (two for the TÉAT and the Cité des Arts).
  * - TÉAT Champ Fleuri (Saint-Denis) and TÉAT Plein Air (Saint-Gilles), the Département's theatres: the programme
- *   filtered by venue, with the days of each show (the hours are on its page);
+ *   filtered by venue, with the days of each show (the hours are on its page); a show on both stages is listed by both
+ *   with all its days, so its own page (or its page at the theatres' ticket office) tells which day is where;
  * - Cité des Arts (Saint-Denis: Palaxa, Fanal, Banyan, Château Morange): its programme, first two pages;
  * - Kabardock (Le Port): the « Agenda » of its home page;
  * - Bisik (Saint-Benoît, and the halls of the East where it plays): its agenda, with the hours;
@@ -28,7 +29,10 @@ export const SOURCE: SourceInfo = {
 
 const HEADERS = { "User-Agent": "rundata.re (contact@rundata.re)" };
 // A season is published months ahead and changes little: a few hours is plenty.
-const FRESH_SECONDS = 3 * 3600;
+const FRESH_SECONDS = 6 * 3600;
+// A hall's site that takes longer is left out of this answer (its last copy is served when there is one): the
+// question should not wait for the slowest of nineteen sites.
+export const TIMEOUT_MS = 6_000;
 
 // ---------------------------------------------------------------- reading a page
 
@@ -123,7 +127,8 @@ export const TEAT_VENUES = [
 
 /** The programme of one TÉAT: « 22 oct 23 oct Musique [link] CALOGERO », the days without their year nor hours. */
 export function parseTeat(html: string, venue: (typeof TEAT_VENUES)[number], now: Date): Evenement[] {
-  const t = tokens(html);
+  // From the list itself: the menus and the search form above it are a third of the page.
+  const t = tokens(html.slice(Math.max(0, html.indexOf("prog-list"))));
   const today = localDay(now);
   const out: Evenement[] = [];
   let days: string[] = [];
@@ -151,15 +156,65 @@ export function parseTeat(html: string, venue: (typeof TEAT_VENUES)[number], now
   return out;
 }
 
-/** The two theatres' programmes: a show on both stages is told once, with both. */
-export function mergeTeat(lists: Evenement[][]): Evenement[] {
-  const byLink = new Map<string, Evenement>();
-  for (const e of lists.flat()) {
-    const same = byLink.get(e.lien);
-    if (!same) byLink.set(e.lien, e);
-    else if (same.lieu !== e.lieu) byLink.set(e.lien, { ...same, lieu: `${same.lieu} (${same.commune}) ou ${e.lieu} (${e.commune})`, commune: undefined });
+/** Which stage each performance is on: day → venue and hour, as a show's page says it. */
+export type TeatDates = Map<string, { venue: (typeof TEAT_VENUES)[number]; hour?: string }>;
+
+/**
+ * The performances of a show from its page: « 28 octobre 2026 | 20h00 | TÉAT Champ Fleuri » on teat.re,
+ * « Représentation du 27 octobre - TEAT Champ Fleuri » at the ticket office.
+ */
+export function parseTeatDates(html: string, now: Date): TeatDates {
+  // teat.re's page: from its « Les dates » on.
+  const t = tokens(html.slice(Math.max(0, html.indexOf("Les dates")))).filter((x) => x.t).map((x) => x.t!);
+  const today = localDay(now);
+  const out: TeatDates = new Map();
+  for (let i = 0; i < t.length; i++) {
+    const v = /T[ÉE]AT\s+(Champ\s+Fleuri|Plein\s+Air)\s*$/i.exec(t[i]);
+    if (!v) continue;
+    const venue = TEAT_VENUES.find((x) => normalize(x.lieu).endsWith(normalize(v[1])))!;
+    // The day and the hour: in the same text, or in the two before.
+    const near = t.slice(Math.max(0, i - 2), i + 1).join(" | ");
+    const d = [...near.matchAll(/(\d{1,2})(?:er)?\s+(\p{L}+)(?:\s+(20\d\d))?/gu)].map((m) => ({ m, month: monthOf(m[2].toLowerCase()) })).filter((x) => x.month).pop();
+    if (!d) continue;
+    const day = d.m[3] ? iso(Number(d.m[3]), d.month!, Number(d.m[1])) : dayOf(Number(d.m[1]), d.month!, today);
+    const h = /(\d{1,2})h(\d\d)/.exec(near.slice(d.m.index));
+    out.set(day, { venue, ...(h ? { hour: hm(h[1], h[2]) } : {}) });
   }
-  return [...byLink.values()];
+  return out;
+}
+
+/**
+ * The two theatres' programmes. A show listed by both: split by stage when its page says which day is where
+ * (`dates`, by link), else told once with both stages.
+ */
+export function mergeTeat(lists: Evenement[][], dates: Map<string, TeatDates> = new Map()): Evenement[] {
+  const byLink = new Map<string, Evenement[]>();
+  for (const e of lists.flat()) byLink.set(e.lien, [...(byLink.get(e.lien) ?? []), e]);
+  return [...byLink.values()].flatMap((same) => {
+    const [e] = same;
+    if (same.every((x) => x.lieu === e.lieu)) return [e];
+    const where = dates.get(e.lien);
+    if (where?.size) {
+      return TEAT_VENUES.flatMap((v): Evenement[] => {
+        const seances = e.seances.filter((s) => where.get(s.debut)?.venue === v).map((s) => ({ debut: `${s.debut}${where.get(s.debut)?.hour ? `T${where.get(s.debut)!.hour}` : ""}` }));
+        return seances.length ? [{ ...e, id: `${e.id}|${v.lieu}`, seances, lieu: v.lieu, commune: v.commune }] : [];
+      });
+    }
+    return [{ ...e, lieu: `${TEAT_VENUES[0].lieu} (${TEAT_VENUES[0].commune}) ou ${TEAT_VENUES[1].lieu} (${TEAT_VENUES[1].commune})`, commune: undefined }];
+  });
+}
+
+// The pages of the shows on both stages read at most, the soonest first: each is one more request.
+const TEAT_PAGES = 4;
+const TEAT_AHEAD_DAYS = 45;
+
+/** A page in ISO-8859-1 or UTF-8, whichever it is. */
+function decode(buf: ArrayBuffer): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    return latin1(buf);
+  }
 }
 
 const teat: Agenda = {
@@ -167,9 +222,22 @@ const teat: Agenda = {
   nom: "TÉAT Champ Fleuri et Plein Air",
   source: SOURCE,
   load: (cache: Cache, now: Date) =>
-    cache.get("agenda:teat", FRESH_SECONDS, async () =>
-      mergeTeat(await Promise.all(TEAT_VENUES.map(async (v) =>
-        parseTeat(latin1(await postBytes(SOURCE.id, "https://www.teat.re/programmation/", v.form, 20_000, { ...HEADERS, "Content-Type": "application/x-www-form-urlencoded" })), v, now))))),
+    cache.get("agenda:teat", FRESH_SECONDS, async () => {
+      const lists = await Promise.all(TEAT_VENUES.map(async (v) =>
+        parseTeat(latin1(await postBytes(SOURCE.id, "https://www.teat.re/programmation/", v.form, TIMEOUT_MS, HEADERS)), v, now)));
+      const soon = new Date(now.getTime() + TEAT_AHEAD_DAYS * 86400_000).toISOString().slice(0, 10);
+      const both = lists[0].filter((e) => lists[1].some((x) => x.lien === e.lien) && e.seances[0].debut <= soon)
+        .sort((x, y) => x.seances[0].debut.localeCompare(y.seances[0].debut)).slice(0, TEAT_PAGES);
+      const dates = new Map<string, TeatDates>();
+      await Promise.all(both.map(async (e) => {
+        try {
+          dates.set(e.lien, parseTeatDates(decode(await getBytes(SOURCE.id, e.lien, TIMEOUT_MS, HEADERS)), now));
+        } catch {
+          // Without its page, the show is told with both stages.
+        }
+      }));
+      return mergeTeat(lists, dates);
+    }),
 };
 
 // ---------------------------------------------------------------- Cité des Arts
@@ -237,7 +305,7 @@ const citeDesArts: Agenda = {
   commune: "Saint-Denis",
   load: (cache) =>
     cache.get("agenda:cite_des_arts", FRESH_SECONDS, async () => {
-      const pages = await Promise.all(["", "?debut_programmation=6"].map((q) => getText(SOURCE.id, `https://www.citedesarts.re/Programmation${q}`, 15_000, HEADERS)));
+      const pages = await Promise.all(["", "?debut_programmation=6"].map((q) => getText(SOURCE.id, `https://www.citedesarts.re/Programmation${q}`, TIMEOUT_MS, HEADERS)));
       return pages.flatMap(parseCiteDesArts);
     }),
 };
@@ -253,7 +321,8 @@ export function parseKabardock(html: string, now: Date): Evenement[] {
   const blocks = html.split(/data-url="/).slice(1);
   // The slider at the top: « [link] TEDDY BAPTISTE 4TET … | Jazz / La Réunion, France | Vendredi 23 octobre - 20h ».
   const hours = new Map<string, string>();
-  const top = tokens(html.slice(0, html.indexOf('data-url="')));
+  const slider = html.indexOf("swiper-slide");
+  const top = tokens(html.slice(Math.max(0, slider), html.indexOf('data-url="')));
   top.forEach((x, i) => {
     if (!x.href?.includes("/spectacle/")) return;
     const at = top.slice(i + 1, i + 5).map((y) => y.t && /\d{1,2}\s+\p{L}+\s*[-–]\s*(\d{1,2})h(\d\d)?/u.exec(y.t)).find(Boolean);
@@ -299,7 +368,7 @@ const kabardock: Agenda = {
   nom: "Kabardock",
   source: SOURCE,
   commune: "Le Port",
-  load: (cache, now) => cache.get("agenda:kabardock", FRESH_SECONDS, async () => parseKabardock(await getText(SOURCE.id, "https://kabardock.com/", 15_000, HEADERS), now)),
+  load: (cache, now) => cache.get("agenda:kabardock", FRESH_SECONDS, async () => parseKabardock(await getText(SOURCE.id, "https://kabardock.com/", TIMEOUT_MS, HEADERS), now)),
 };
 
 // ---------------------------------------------------------------- Bisik
@@ -366,7 +435,7 @@ const bisik: Agenda = {
   nom: "Bisik",
   source: SOURCE,
   commune: "Saint-Benoît",
-  load: (cache) => cache.get("agenda:bisik", FRESH_SECONDS, async () => parseBisik(await getText(SOURCE.id, "https://bisik.re/agenda/", 15_000, HEADERS))),
+  load: (cache) => cache.get("agenda:bisik", FRESH_SECONDS, async () => parseBisik(await getText(SOURCE.id, "https://bisik.re/agenda/", TIMEOUT_MS, HEADERS))),
 };
 
 // ---------------------------------------------------------------- Théâtre Luc Donat
@@ -413,7 +482,7 @@ const lucDonat: Agenda = {
   nom: "Théâtre Luc Donat",
   source: SOURCE,
   commune: "Le Tampon",
-  load: (cache, now) => cache.get("agenda:luc_donat", FRESH_SECONDS, async () => parseLucDonat(latin1(await getBytes(SOURCE.id, "https://www.theatrelucdonat.re/tld_agenda", 15_000, HEADERS)), now)),
+  load: (cache, now) => cache.get("agenda:luc_donat", FRESH_SECONDS, async () => parseLucDonat(latin1(await getBytes(SOURCE.id, "https://www.theatrelucdonat.re/tld_agenda", TIMEOUT_MS, HEADERS)), now)),
 };
 
 // ---------------------------------------------------------------- CDNOI
@@ -460,7 +529,7 @@ const cdnoi: Agenda = {
   nom: "CDNOI",
   source: SOURCE,
   commune: "Saint-Denis",
-  load: (cache, now) => cache.get("agenda:cdnoi", FRESH_SECONDS, async () => parseCdnoi(latin1(await getBytes(SOURCE.id, "https://www.cdnoi.re/programmation/", 15_000, HEADERS)), now)),
+  load: (cache, now) => cache.get("agenda:cdnoi", FRESH_SECONDS, async () => parseCdnoi(latin1(await getBytes(SOURCE.id, "https://www.cdnoi.re/programmation/", TIMEOUT_MS, HEADERS)), now)),
 };
 
 // ---------------------------------------------------------------- Léspas
@@ -513,7 +582,7 @@ const lespas: Agenda = {
   nom: "Léspas",
   source: SOURCE,
   commune: "Saint-Paul",
-  load: (cache, now) => cache.get("agenda:lespas", FRESH_SECONDS, async () => parseLespas(await getText(SOURCE.id, "https://lespas.re/category/la-saison/", 15_000, HEADERS), now)),
+  load: (cache, now) => cache.get("agenda:lespas", FRESH_SECONDS, async () => parseLespas(await getText(SOURCE.id, "https://lespas.re/category/la-saison/", TIMEOUT_MS, HEADERS), now)),
 };
 
 export const SALLES: Agenda[] = [teat, citeDesArts, kabardock, bisik, lucDonat, cdnoi, lespas];

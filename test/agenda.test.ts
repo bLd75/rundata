@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { communeOf, datesIn, parseReunionFr, parseTribe } from "../src/providers/agenda.js";
-import { agenda, periode } from "../src/tools/agenda.js";
+import { agenda, gather, periode } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
 
 // The agendas on Saturday 24/10/2026 in the morning: the Fête de l'ail at Petite-Île (23 to 25), a concert tonight at
@@ -15,7 +15,10 @@ const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
 const bytes = (f: string) => readFileSync(new URL(`./fixtures/agenda/${f}`, import.meta.url));
 
 function file(url: string, form?: string): string | undefined {
-  if (url.includes("teat.re")) return form?.includes("Plein") ? "teat_plein-air.html" : "teat_champ-fleuri.html";
+  // The pages of two of the shows on both TÉAT stages; the others do not answer.
+  if (url.includes("yannick-noah")) return "teat_yannick-noah.html";
+  if (url.includes("seetickets.fr/booder")) return "seetickets_booder.html";
+  if (url.endsWith("teat.re/programmation/")) return form?.includes("Plein") ? "teat_plein-air.html" : "teat_champ-fleuri.html";
   if (url.includes("citedesarts")) return url.includes("debut_programmation") ? "citedesarts_2.html" : "citedesarts_1.html";
   if (url.includes("kabardock")) return "kabardock.html";
   if (url.includes("bisik")) return "bisik.html";
@@ -93,7 +96,7 @@ describe("agenda", () => {
     const c = cache();
     const b = body(await agenda(c, undefined, undefined, undefined, NOW));
     expect(b.resume).toBe("40 événements à La Réunion dans les deux semaines qui viennent (du samedi 24/10 au samedi 07/11).".replace("40", String(b.nombre)));
-    expect(b.nombre).toBe(54);
+    expect(b.nombre).toBe(56);
     expect(b.evenements).toHaveLength(40);
     expect(b.evenements.filter((e: { titre: string }) => e.titre === "Visite guidée de la Maison Carrère")).toHaveLength(1);
     expect(b.evenements[1]).toMatchObject({ titre: "Fête de l'ail", quand: "du vendredi 23/10 au dimanche 25/10", commune: "Petite-Île", publie_par: "reunion.fr" });
@@ -103,7 +106,8 @@ describe("agenda", () => {
     // Last year's posts of Saint-Louis are past; nothing of theirs.
     expect(b.evenements.some((e: { publie_par: string }) => e.publie_par === "Ville de Saint-Louis")).toBe(false);
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
-    expect(asked).toHaveLength(19);
+    // Nineteen agendas, and the pages of the four shows on both TÉAT stages.
+    expect(asked).toHaveLength(23);
   });
 
   it("answers tonight, with the hours", async () => {
@@ -134,6 +138,24 @@ describe("agenda", () => {
     expect(b.evenements.length).toBeGreaterThan(0);
     down = /./;
     expect((await agenda(cache(), undefined, undefined, undefined, NOW)).isError).toBe(true);
+  });
+
+  it("does not wait for a slow agenda: its last copy, or nothing", async () => {
+    let t = NOW.getTime();
+    const c = new Cache(new MemoryStore(), () => t);
+    await gather(c, NOW);
+    // Seven hours later every copy is old; the Kabardock answers late, the Bisik not at all and had no copy kept.
+    t += 7 * 3600_000;
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url.includes("kabardock") || url.includes("bisik")) await new Promise((r) => setTimeout(r, 300));
+      const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+      return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+    });
+    const fresh = new Cache(new MemoryStore(), () => t);
+    const [kept, none] = await Promise.all([gather(c, new Date(t), 100), gather(fresh, new Date(t), 100)]);
+    expect(kept.find((g) => g.agenda.id === "kabardock")?.value?.stale).toBe(true);
+    expect(none.find((g) => g.agenda.id === "bisik")?.value).toBeUndefined();
+    expect(none.find((g) => g.agenda.id === "cinor")?.value?.value.length).toBeGreaterThan(0);
   });
 
   it("shows the hours of a row within its day", () => {
