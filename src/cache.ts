@@ -11,6 +11,15 @@ import { cacheTally } from "./metrics.js";
 
 import { noteLecture } from "./lectures.js";
 
+/**
+ * The shape of what the stores keep (a source's answer, a page's copy), in the keys of the data center's cache and of
+ * the shared copies in KV (worker.ts, web/partagees.ts). Raised only by a change that makes the new code unable to read
+ * an entry the old code wrote (a field renamed, removed, or newly required): a deploy then starts from empty stores.
+ * Any other deploy keeps them, so that the data centers stay warm. A copy that still breaks a page is caught there
+ * (web/site.ts) and built again.
+ */
+export const CACHE_FORMAT = "1";
+
 export interface CacheEntry {
   value: unknown;
   fetchedAt: number;

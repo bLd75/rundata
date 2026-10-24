@@ -7,6 +7,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import type { Cache } from "./cache.js";
 import { feedReader, stopwatch, type Recorder } from "./metrics.js";
 import { createServer, VERSION } from "./server.js";
+import { why } from "./types.js";
 import { watch } from "./usage.js";
 import type { Background } from "./web/data.js";
 import { notFound, site } from "./web/site.js";
@@ -49,6 +50,16 @@ async function readBody(request: Request): Promise<{ request: Request; body?: un
 /** No stream to offer (see below): what the transport answers to a method it does not know, with the right Allow. */
 function notAllowed(): Response {
   return Response.json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }, { status: 405, headers: { allow: "POST, OPTIONS" } });
+}
+
+/**
+ * What a request that threw gets, rather than Cloudflare's error page: a short page, never kept, and a line in the
+ * Worker's log with the path and the version.
+ */
+export function failed(path: string, err: unknown): Response {
+  console.error(`erreur : ${path} (version ${VERSION})`, why(err));
+  const body = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Page indisponible · rundata.re</title></head><body style="font-family:system-ui,sans-serif;max-width:36rem;margin:3rem auto;padding:0 1rem;line-height:1.5"><h1>Page indisponible pour un instant</h1><p>Une erreur est survenue en la préparant. Réessayer dans une minute, ou repartir de <a href="/">l'accueil de rundata.re</a>.</p></body></html>`;
+  return new Response(body, { status: 500, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
 /**

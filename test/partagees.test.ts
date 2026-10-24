@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { count, counted, measured, WORKER_BUDGET } from "../src/budget.js";
-import { Cache, type CacheEntry, MemoryStore, TieredStore } from "../src/cache.js";
+import { Cache, CACHE_FORMAT, type CacheEntry, MemoryStore, TieredStore } from "../src/cache.js";
 import { VERSION } from "../src/server.js";
-import { type Kv, SHARED, SharedFallback, type Shared, warmShared } from "../src/web/partagees.js";
+import { type Kv, kvKey, SHARED, SharedFallback, type Shared, warmShared } from "../src/web/partagees.js";
 
 /** A KV namespace in memory, counting its writes by key. */
 class FakeKv implements Kv {
@@ -48,7 +48,7 @@ describe("the shared copies, read from KV", () => {
     const edge = new CountingStore();
     const store = new SharedFallback(edge, kv);
     const entry: CacheEntry = { value: { n: 1 }, fetchedAt: T0 };
-    await kv.put(`copie:${VERSION}:web:air`, JSON.stringify(entry));
+    await kv.put(kvKey("web:air"), JSON.stringify(entry));
     // A miss here: KV's copy, put in the data center's cache for the next isolates.
     expect(await store.get("web:air")).toEqual(entry);
     expect(kv.reads).toBe(1);
@@ -59,6 +59,13 @@ describe("the shared copies, read from KV", () => {
     // A copy that is not shared: never asked of KV.
     expect(await store.get("web:lieu:saint-paul")).toBeUndefined();
     expect(kv.reads).toBe(1);
+  });
+});
+
+describe("the shared copies' keys", () => {
+  it("follow the shape of the entries, not the version: a deploy keeps them", () => {
+    expect(kvKey("web:air")).toBe(`copie:format-${CACHE_FORMAT}:web:air`);
+    expect(kvKey("web:air")).not.toContain(VERSION);
   });
 });
 
@@ -74,7 +81,7 @@ describe("the scheduled refresh of the shared copies", () => {
     }
     const perDay = (every: number) => (24 * 60) / every + 1;
     // The volcano's copy goes every 5 minutes during an alert: its quickest rate bounds it.
-    for (const s of SHARED) expect(kv.writes.get(`copie:${VERSION}:${s.key}`), s.key).toBeLessThanOrEqual(perDay(typeof s.every === "number" ? s.every : 5));
+    for (const s of SHARED) expect(kv.writes.get(kvKey(s.key)), s.key).toBeLessThanOrEqual(perDay(typeof s.every === "number" ? s.every : 5));
     const total = [...kv.writes.values()].reduce((a, b) => a + b, 0);
     // The volcano's copy, quiet here, every 30 minutes like four others (about 280 a day, partagees.ts).
     expect(total).toBeLessThanOrEqual(290);
@@ -128,7 +135,7 @@ describe("the scheduled refresh of the shared copies", () => {
     const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);
     const list: Shared[] = [{ key: "web:essai-garde", build: async () => (count(5), {}), every: 30 }];
     // Its copy, written an hour ago by another isolate, which found it took 5.
-    await kv.put(`copie:${VERSION}:web:essai-garde`, JSON.stringify({ value: {}, fetchedAt: T0 - 3600_000, cost: 5 }));
+    await kv.put(kvKey("web:essai-garde"), JSON.stringify({ value: {}, fetchedAt: T0 - 3600_000, cost: 5 }));
     // Taken to cost 25 without it, it would not fit after these.
     const run = await counted(WORKER_BUDGET, async () => {
       count(25);
@@ -136,7 +143,7 @@ describe("the scheduled refresh of the shared copies", () => {
     });
     expect(run.value.written).toEqual(["web:essai-garde"]);
     expect(run.used).toBeLessThanOrEqual(WORKER_BUDGET);
-    expect(JSON.parse(kv.data.get(`copie:${VERSION}:web:essai-garde`)!).cost).toBe(5);
+    expect(JSON.parse(kv.data.get(kvKey("web:essai-garde"))!).cost).toBe(5);
   });
 
   it("stays within the budget when a build costs more than thought, and says it was cut", async () => {

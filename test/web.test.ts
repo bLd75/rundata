@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { handle } from "../src/app.js";
+import { failed, handle } from "../src/app.js";
 import { WORKER_BUDGET, WORKER_FREE_LIMIT, count, counted, later, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
@@ -8,6 +8,7 @@ import * as mf from "../src/providers/vigilance.js";
 import * as feux from "../src/providers/feux.js";
 import { alerteOf, snapshot } from "../src/web/data.js";
 import { homePage } from "../src/web/home.js";
+import { VERSION } from "../src/server.js";
 import { DESCRIPTION_MAX, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
 import { PAGES, pageOf } from "../src/web/places.js";
 import { isReader, site } from "../src/web/site.js";
@@ -499,5 +500,46 @@ describe("a commune's RSS feed", () => {
   it("has none for a place that is not a commune", async () => {
     expect((await feed(isolate(), "/communes/maido.rss")).r.status).toBe(404);
     expect((await feed(isolate(), "/communes/paris.rss")).r.status).toBe(404);
+  });
+});
+
+describe("a copy the code can no longer read", () => {
+  it("leaves the page without its live block, not kept, and builds the copy again after the response", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cache = isolate();
+    // A copy written by older code, fresh: the page would otherwise serve it as it is.
+    await cache.get("web:mer", 3600, async () => ({ ancienne: true }));
+    const { r, text } = await serve(cache, "/mer");
+    expect(r.status).toBe(200);
+    expect(r.headers.get("cache-control")).toBe("no-store");
+    expect(text).toContain("</html>");
+    expect(errors.mock.calls.some((c) => String(c[0]).startsWith("page /mer : rendu impossible"))).toBe(true);
+    // Built again after the response: the next view has a copy it can read, and is kept again.
+    expect((await cache.peek<object>("web:mer"))!.value).not.toHaveProperty("ancienne");
+    const next = await serve(cache, "/mer");
+    expect(next.r.headers.get("cache-control")).toBe("public, max-age=60");
+    errors.mockRestore();
+  });
+
+  it("does the same on a page of many copies, the home page", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cache = isolate();
+    await cache.get("web:meteo", 3600, async () => ({ ancienne: true }));
+    const { r, text } = await serve(cache, "/");
+    expect(r.status).toBe(200);
+    expect(r.headers.get("cache-control")).toBe("no-store");
+    expect(text).toContain("</html>");
+    expect(errors.mock.calls.some((c) => String(c[0]).startsWith("page / : rendu impossible"))).toBe(true);
+    errors.mockRestore();
+  });
+
+  it("turns anything else that throws into a short page, never kept, and a line in the log", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = failed("/communes/saint-paul", new Error("champ absent"));
+    expect(r.status).toBe(500);
+    expect(r.headers.get("cache-control")).toBe("no-store");
+    expect(await r.text()).toContain("Page indisponible pour un instant");
+    expect(errors).toHaveBeenCalledWith(`erreur : /communes/saint-paul (version ${VERSION})`, expect.stringContaining("champ absent"));
+    errors.mockRestore();
   });
 });

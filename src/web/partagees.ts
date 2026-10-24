@@ -6,8 +6,7 @@
  * cache has no copy, and copies what it read there.
  */
 import { costOf, count, left, measured, spent } from "../budget.js";
-import type { Cache, CacheEntry, CacheStore } from "../cache.js";
-import { VERSION } from "../server.js";
+import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore } from "../cache.js";
 import { why } from "../types.js";
 import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildElectricite, buildSea, buildTrafic, buildVolcan, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
 import { alerteVolcan } from "./volcan-alerte.js";
@@ -63,8 +62,8 @@ function expected(s: Shared, kept?: number): number {
   return known.length ? Math.max(...known) : COST_UNKNOWN;
 }
 
-/** Per version, as the data center's cache: a copy of the previous code's data may lack what the new code reads. */
-const kvKey = (key: string) => `copie:${VERSION}:${key}`;
+/** Per shape of the entries, as the data center's cache (cache.ts): a deploy that keeps it keeps the copies. */
+export const kvKey = (key: string) => `copie:format-${CACHE_FORMAT}:${key}`;
 
 async function kvGet(kv: Kv, key: string): Promise<KvEntry | undefined> {
   try {
