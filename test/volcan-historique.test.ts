@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { decodeText, textOf } from "../src/providers/avis-eau.js";
-import { CHAPEAU, type Communique, EPISODES, precedentes, resumeText } from "../src/tools/volcan-historique.js";
+import { AVANT_2021, avant2021, CHAPEAU, type Communique, EPISODES, PLAN_2021, precedentes, resumeText } from "../src/tools/volcan-historique.js";
 import { volcanPage } from "../src/web/domains.js";
 import type { VolcanAnswer } from "../src/web/data.js";
 
@@ -18,6 +18,36 @@ const FIXTURES: Record<string, string> = {
   "Piton-de-la-Fournaise-eruption-dans-l-enclos": "2026-01-18-alerte-2-1.html",
   "Acces-a-l-enclos-avec-restrictions": "2026-01-27-vigilance.html",
   "Piton-de-la-Fournaise-reouverture-partielle-de-l-enclos": "2026-05-07-vigilance.html",
+  // The site before 2022: the breadcrumb with its title, and the article.
+  "piton-de-la-fournaise-eruption-en-cours-dans-l-a1635.html": "2016-05-26-alerte-2-2.html",
+  "activite-volcanique-au-piton-de-la-fournaise-phase-a1641.html": "2016-05-27-sauvegarde.html",
+  "piton-de-la-fournaise-passage-en-alerte-1-eruption-a1971.html": "2016-09-11-alerte-1.html",
+  "piton-de-la-fournaise-passage-en-alerte-2-2-a1972.html": "2016-09-11-alerte-2-2.html",
+  "activite-volcanique-au-piton-de-la-fournaise-a2013.html": "2016-09-18-sauvegarde.html",
+  "piton-de-la-fournaise-passage-en-alerte-1-eruption-a2515.html": "2017-01-31-alerte-1.html",
+  "piton-de-la-fournaise-alerte-2-2-eruption-en-cours-a2516.html": "2017-01-31-alerte-2-2.html",
+  "activite-volcanique-au-piton-de-la-fournaise-a2625.html": "2017-02-28-sauvegarde.html",
+  "piton-de-la-fournaise-passage-en-alerte-1-eruption-a2834.html": "2017-05-17-alerte-1.html",
+  "piton-de-la-fournaise-passage-en-alerte-2-2-a2837.html": "2017-05-17-alerte-2-2.html",
+  "piton-de-la-fournaise-retour-en-vigilance-a2886.html": "2017-06-01-vigilance.html",
+  "piton-de-la-fournaise-passage-en-alerte-2-2-a2994.html": "2017-07-14-alerte-2-2.html",
+  "activite-volcanique-au-piton-de-la-fournaise-a3090.html": "2017-08-28-sauvegarde.html",
+  "piton-de-la-fournaise-passage-en-alerte-1-eruption-a3747.html": "2018-04-04-alerte-1.html",
+  "activite-volcanique-au-piton-de-la-fournaise-a3801.html": "2018-04-13-vigilance.html",
+  "piton-de-la-fournaise-passage-en-alerte-1-eruption-a4333.html": "2018-09-15-alerte-1.html",
+  "piton-de-la-fournaise-passage-en-alerte-2-2-a4334.html": "2018-09-15-alerte-2-2.html",
+  "activite-volcanique-au-piton-de-la-fournaise-a4497.html": "2018-11-01-sauvegarde.html",
+  "piton-de-la-fournaise-passage-en-alerte-1-eruption-a4937.html": "2019-02-16-alerte-1.html",
+  "piton-de-la-fournaise-passage-en-alerte-2-2-a4938.html": "2019-02-18-alerte-2-2.html",
+  "piton-de-la-fournaise-passage-en-phase-sauvegarde-a4941.html": "2019-02-19-sauvegarde.html",
+  "piton-de-la-fournaise-passage-en-alerte-2-2-a5590.html": "2019-08-11-alerte-2-2.html",
+  "piton-de-la-fournaise-retour-en-phase-de-vigilance-a5693.html": "2019-09-03-vigilance.html",
+  "piton-de-la-fournaise-passage-en-alerte-1-eruption-a5881.html": "2019-10-21-alerte-1.html",
+  "piton-de-la-fournaise-retour-en-phase-de-vigilance-a5902.html": "2019-10-22-vigilance.html",
+  "piton-de-la-fournaise-passage-en-alerte-2-2-a5903.html": "2019-10-25-alerte-2-2.html",
+  "activite-volcanique-au-piton-de-la-fournaise-a5915.html": "2019-10-28-sauvegarde.html",
+  "piton-de-la-fournaise-passage-en-alerte-2-2-a6476.html": "2020-04-02-alerte-2-2.html",
+  "activite-volcanique-au-piton-de-la-fournaise-a6487.html": "2020-04-06-sauvegarde.html",
 };
 const page = (c: Communique) => {
   const f = FIXTURES[c.copie.split("/").pop()!];
@@ -47,12 +77,16 @@ describe("the alerts before this one", () => {
     }
   });
 
-  it("keeps the episodes since the plan of 08/11/2021, each with a start and an end, newest first", () => {
-    expect(EPISODES).toHaveLength(5);
+  it("keeps the episodes since 2016, each with a start and an end, newest first", () => {
+    expect(EPISODES).toHaveLength(17);
+    expect(EPISODES.filter((e) => !avant2021(e))).toHaveLength(5);
+    expect(EPISODES.at(-1)!.debut[0].jour).toBe("2016-05-26");
     for (const e of EPISODES) {
       expect(e.debut.length).toBeGreaterThan(0);
-      expect(e.debut[0].jour >= "2021-11-08").toBe(true);
+      expect(e.debut[0].jour >= "2016-01-01").toBe(true);
       expect(e.fin.jour >= e.debut.at(-1)!.jour).toBe(true);
+      // No episode across the change of plan.
+      expect(e.debut[0].jour < PLAN_2021).toBe(e.fin.jour < PLAN_2021);
     }
     expect(EPISODES.map((e) => e.debut[0].jour)).toEqual([...EPISODES.map((e) => e.debut[0].jour)].sort().reverse());
   });
@@ -65,8 +99,23 @@ describe("the alerts before this one", () => {
     expect(page(feb.fin.communique)).toContain("Suite à la fin de l'éruption volcanique débutée le 13 février 2026 et aux reconnaissances opérées les 30 avril et 6 mai 2026");
   });
 
+  it("names the levels before 2021 as the releases of then write them, and the end as the first release out of the alert", () => {
+    const older = EPISODES.filter(avant2021);
+    expect(new Set(older.flatMap((e) => e.debut.map((m) => m.quoi)))).toEqual(new Set(["alerte 1", "alerte 2-2", "éruption débutée"]));
+    expect(new Set(older.map((e) => e.fin.quoi))).toEqual(new Set(["passage en phase de sauvegarde", "retour en phase de vigilance", "retour en phase de vigilance volcanique"]));
+    // Each level is in the words quoted, but not the plan's name in « », never nested in our quotes.
+    for (const m of older.flatMap((e) => [...e.debut, e.fin])) {
+      if (m.quoi !== "éruption débutée") expect(m.dit.toLowerCase(), m.communique.copie).toContain(m.quoi.replace(/^(passage en|retour en) /, ""));
+      expect(m.dit).not.toMatch(/[«»]/);
+    }
+    // April 2018: the start of the eruption, by the release of the next day; its alert 1 lowers the level, not a start.
+    const apr = EPISODES.find((e) => e.debut[0].jour === "2018-04-03")!;
+    expect(apr.debut).toEqual([expect.objectContaining({ quoi: "éruption débutée", selon: "selon le communiqué du 04/04/2018" })]);
+    expect(page(apr.debut[0].communique)).toContain("le préfet de la Réunion a décidé de passer en alerte 1");
+  });
+
   it("labels each end with what its release writes, never what we deduce", () => {
-    expect(EPISODES.at(-1)!.fin).toMatchObject({ jour: "2022-10-05", quoi: "éruption arrêtée", dit: "Éruption arrêtée mais enclos toujours fermé" });
+    expect(EPISODES[4].fin).toMatchObject({ jour: "2022-10-05", quoi: "éruption arrêtée", dit: "Éruption arrêtée mais enclos toujours fermé" });
     expect(EPISODES[1].fin).toMatchObject({ jour: "2026-01-27", quoi: "réouverture des sentiers" });
     expect(EPISODES[3].fin).toMatchObject({ jour: "2023-08-31", quoi: "Enclos accessible au public" });
     expect(EPISODES[2].fin.dit).toBe("le préfet de La Réunion décide de revenir en phase de vigilance […] à compter de ce vendredi 2 janvier 2026 midi");
@@ -75,12 +124,19 @@ describe("the alerts before this one", () => {
   it("tells the AI and the page what the list is, with the copies' links", async () => {
     const p = precedentes();
     expect(p.note).toContain("Ce n'est pas un historique complet");
+    expect(p.note).toContain(AVANT_2021);
     expect(p.episodes[0].debut[0]).toBe("13/02/2026, éruption débutée (selon le communiqué du 07/05/2026) : « Suite à la fin de l'éruption volcanique débutée le 13 février 2026 » (communiqué du 07/05/2026 : https://web.archive.org/web/20260507190343/https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-reouverture-partielle-de-l-enclos)");
     expect(resumeText()).toBe(
-      "Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis novembre 2021) : " +
+      "Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis 2016 ; avant novembre 2021, les niveaux du plan précédent) : " +
         "13/02/2026 éruption débutée (selon le communiqué du 07/05/2026) → 07/05/2026 retour en phase de vigilance ; 18/01/2026 alerte 2-1 → 27/01/2026 réouverture des sentiers ; " +
         "01/01/2026 alerte 1 → 02/01/2026 retour en phase de vigilance ; 02/07/2023 alerte 1, 02/07/2023 alerte 2-1 → 31/08/2023 Enclos accessible au public ; " +
-        "19/09/2022 alerte 1, 19/09/2022 alerte 2-1 → 05/10/2022 éruption arrêtée.",
+        "19/09/2022 alerte 1, 19/09/2022 alerte 2-1 → 05/10/2022 éruption arrêtée ; " +
+        "02/04/2020 alerte 2-2 → 06/04/2020 passage en phase de sauvegarde ; 25/10/2019 alerte 2-2 → 28/10/2019 passage en phase de sauvegarde ; " +
+        "21/10/2019 alerte 1 → 23/10/2019 retour en phase de vigilance ; 11/08/2019 alerte 2-2 → 04/09/2019 retour en phase de vigilance ; " +
+        "16/02/2019 alerte 1, 18/02/2019 alerte 2-2 → 19/02/2019 passage en phase de sauvegarde ; 15/09/2018 alerte 1, 15/09/2018 alerte 2-2 → 01/11/2018 passage en phase de sauvegarde ; " +
+        "03/04/2018 éruption débutée (selon le communiqué du 04/04/2018) → 14/04/2018 retour en phase de vigilance volcanique ; 14/07/2017 alerte 2-2 → 28/08/2017 passage en phase de sauvegarde ; " +
+        "17/05/2017 alerte 1, 17/05/2017 alerte 2-2 → 02/06/2017 retour en phase de vigilance ; 31/01/2017 alerte 1, 31/01/2017 alerte 2-2 → 28/02/2017 passage en phase de sauvegarde ; " +
+        "11/09/2016 alerte 1, 11/09/2016 alerte 2-2 → 18/09/2016 passage en phase de sauvegarde ; 26/05/2016 alerte 2-2 → 27/05/2016 passage en phase de sauvegarde.",
     );
     const html = volcanPage("https://rundata.re", { value: { resume: "", sources: [], avertissements: [] } as unknown as VolcanAnswer, fetchedAt: NOW, stale: false }, NOW);
     expect(html).toContain(`<h2 id="h-alertes">Les alertes précédentes</h2><p>${CHAPEAU.replace(/'/g, "&#39;")}</p>`);
@@ -89,5 +145,12 @@ describe("the alerts before this one", () => {
     // On the card, the link tells which release dates the eruption of February: no « selon » twice.
     expect(html).toContain(`<li><b>13/02/2026</b>, éruption débutée\u00a0: «\u00a0Suite à la fin`);
     expect(html).not.toContain("selon le communiqué du 07/05/2026");
+    // Before 2021, folded under the note, after the five since the plan.
+    const section = html.slice(html.indexOf(`<section id="alertes-precedentes"`), html.indexOf("</section>", html.indexOf(`<section id="alertes-precedentes"`)));
+    const [recent, older] = section.split("<details>");
+    expect(recent.match(/<li class="card">/g)).toHaveLength(5);
+    expect(older).toMatch(/^<summary>Avant novembre 2021<\/summary><p class="note">Avant novembre 2021, les niveaux d&#39;alerte étaient ceux du plan précédent\u00a0: ils sont cités tels que les communiqués les écrivent.<\/p><ul class="posts">/);
+    expect(older.match(/<li class="card">/g)).toHaveLength(12);
+    expect(older).toContain(`<li><b>26/05/2016</b>, alerte 2-2\u00a0: «\u00a0le préfet de la Réunion a déclenché ce jour (jeudi 26 mai 2016) à 8h30 l’alerte 2-2\u00a0» <a href="https://web.archive.org/web/20160530083219/http://www.reunion.gouv.fr/piton-de-la-fournaise-eruption-en-cours-dans-l-a1635.html">communiqué du 26/05/2016 →</a></li>`);
   });
 });
