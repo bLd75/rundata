@@ -215,7 +215,7 @@ describe("the site's part", () => {
     const sw = await site(new Request(`${O}/sw.js`), cache(), () => {}, NOW);
     expect(sw!.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
     expect(sw!.headers.get("cache-control")).toBe("no-cache");
-    expect(await sw!.text()).toMatch(/const SHELL=\["\/hors-ligne","\/font\/titres-1\.woff2","\/relief-\w+\.webp","\/favicon\.svg","\/icons\/flag-192\.[0-9a-f]{10}\.png"\]/);
+    expect(await sw!.text()).toMatch(/const SHELL=\["\/hors-ligne","\/font\/titres-1\.woff2","\/relief-\w+\.webp","\/favicon\.svg","\/icons\/logo-192\.[0-9a-f]{10}\.png"\]/);
     const off = await site(new Request(`${O}/hors-ligne`), cache(), () => {}, NOW);
     const html = await off!.text();
     expect(html).toContain("<title>Hors ligne · rundata.re</title>");
@@ -262,7 +262,7 @@ describe("the site's part", () => {
 
   it("opens the pages most used away from network on a long press of the icon", () => {
     expect(manifest().shortcuts.map((s) => [s.name, s.url])).toEqual([["Météo", "/meteo?ref=pwa"], ["Vigilance", "/vigilance?ref=pwa"], ["Randonnées", "/randonnees?ref=pwa"]]);
-    expect(manifest().name).toBe("rundata.re · La Réunion en direct");
+    expect(manifest().name).toBe("rundata.re · La Réunion 974 en direct");
   });
 
   it("says on the privacy page that the copies and the « Plus tard » stay on the phone", () => {

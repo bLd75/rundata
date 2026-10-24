@@ -5,7 +5,8 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import { withLectures } from "../src/lectures.js";
 import { INDEX, NOUVEAUTES, OUTILS, outilsRecents, serveur } from "../src/nouveautes.js";
 import { inReunionBeacons } from "../src/providers/pioupiou.js";
-import { VERSION } from "../src/server.js";
+import { existsSync } from "node:fs";
+import { SERVER_ICONS, VERSION } from "../src/server.js";
 import { cite } from "../src/tools/citer.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
 
@@ -47,6 +48,19 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("the server's instructions", () => {
   afterEach(() => expect(fetched).toEqual([]));
+
+  it("names itself as the brand, with the symbol as its icons, the same as in server.json", async () => {
+    const r = await rpcResult("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "test", version: "1" } });
+    expect(r.serverInfo).toMatchObject({ name: "reunion-temps-reel", title: "rundata.re · La Réunion 974 en direct", icons: SERVER_ICONS });
+    const registry = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
+    expect(registry).toMatchObject({ name: "re.rundata/temps-reel", title: "rundata.re · La Réunion 974 en direct", icons: SERVER_ICONS });
+    expect(SERVER_ICONS.map((i) => i.mimeType)).toEqual(["image/png", "image/svg+xml"]);
+    // Files beside the Worker, on rundata.re in HTTPS.
+    for (const i of SERVER_ICONS) {
+      expect(i.src).toMatch(/^https:\/\/rundata\.re\/(icons|logo)\//);
+      expect(existsSync(new URL(`../public${new URL(i.src).pathname}`, import.meta.url))).toBe(true);
+    }
+  });
 
   it("start with the index of the tools and the rules, and are shorter", async () => {
     const r = await rpcResult("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });

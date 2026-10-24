@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "re.rundata/temps-reel",
-  "title": "La Réunion en temps réel",
+  "title": "rundata.re · La Réunion 974 en direct",
   "description": "La Réunion (974) en direct : actualités, météo, rando, bus, eau, événements, volcan, cyclones, air.",
-  "version": "0.137.0",
+  "version": "0.138.0",
   "remotes": [
     {
       "type": "streamable-http",
@@ -11,6 +11,22 @@
     }
   ],
   "websiteUrl": "https://rundata.re",
+  "icons": [
+    {
+      "src": "https://rundata.re/icons/logo-512.77df461b1d.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    },
+    {
+      "src": "https://rundata.re/logo/logo.95c3bacab9.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": [
+        "any"
+      ]
+    }
+  ],
   "repository": {
     "url": "https://github.com/bLd75/rundata",
     "source": "github"

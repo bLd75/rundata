@@ -25,7 +25,8 @@ export const KEPT_PAGES = 40;
 const SLOW_MS = 12_000;
 // Raised when the service worker's code changes in a way its files would not show, and when offlinePage (web/pages.ts)
 // changes visibly: the phones keep the offline page they fetched until this text changes.
-const REVISION = 1;
+// 2: the symbol of the brand (/favicon.svg, the offline page's header).
+const REVISION = 2;
 
 const hash = (s: string) => {
   let h = 5381;

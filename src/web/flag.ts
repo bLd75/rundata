@@ -13,9 +13,3 @@ export const FLAG_INNER =
 export function flag(cls = "flag", label = "Drapeau de La Réunion (Lo Mahavéli)"): string {
   return `<svg class="${cls}" viewBox="0 0 60 40" role="img" aria-label="${label}"><title>${label}</title>${FLAG_INNER}</svg>`;
 }
-
-/** The favicon: the flag on a square, rounded. */
-export const FAVICON =
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><defs><clipPath id="c"><rect width="60" height="60" rx="12"/>` +
-  `</clipPath></defs><g clip-path="url(#c)"><rect width="60" height="60" fill="#2563d8"/>` +
-  `<g transform="translate(-15 0) scale(1.5)">${FLAG_INNER.replace(/<rect[^>]*\/>/, "")}</g></g></svg>`;

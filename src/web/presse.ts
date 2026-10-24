@@ -14,6 +14,7 @@ import { createServer } from "../server.js";
 import { COMMUNES } from "./commune.js";
 import type { AgendaAnswer, RandonneesAnswer } from "./data.js";
 import { esc } from "./map.js";
+import icons from "./icons.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import { follow, icon, layout, SITE } from "./pages.js";
 import visuals from "./presse.json" with { type: "json" };
@@ -146,10 +147,14 @@ export function pressePage(origin: string, figures: Figure[]): string {
   <div class="vis-grid">${wide.map(visual).join("")}</div>
   <div class="vis-grid phones">${phones.map(visual).join("")}</div>
   <div class="vis-grid">
-    <figure class="card vis"><a href="/og.png?v=${og.v}"><img src="/og.png?v=${og.v}" width="1200" height="630" loading="lazy" decoding="async" alt="Le logo de rundata.re : le drapeau de La Réunion et le nom du site"></a>
-    <figcaption>Le logo : le drapeau de La Réunion et le nom du site.<a class="dl" href="/og.png?v=${og.v}" download="rundata-logo.png">Télécharger (PNG)</a><span class="note">PNG 1 200 × 630</span></figcaption></figure>
-    <figure class="card vis"><a href="/favicon.svg"><img class="flag" src="/favicon.svg" width="160" height="160" loading="lazy" decoding="async" alt="Le drapeau de rundata.re"></a>
-    <figcaption>Le drapeau seul, en vectoriel.<a class="dl" href="/favicon.svg" download="rundata-drapeau.svg">Télécharger (SVG)</a><span class="note">SVG, à toute taille</span></figcaption></figure>
+    <figure class="card vis"><a href="${icons["symbole-svg"]}"><img class="logo" src="${icons["symbole-svg"]}" width="160" height="160" loading="lazy" decoding="async" alt="Le symbole de rundata.re, le Point chaud"></a>
+    <figcaption>Le symbole de rundata.re, le Point chaud.<a class="dl" href="${icons["symbole-svg"]}" download="rundata-symbole.svg">Télécharger (SVG)</a><a class="dl" href="${icons["symbole-1024"]}" download="rundata-symbole-1024.png">Télécharger (PNG)</a><span class="note">SVG, à toute taille · PNG 1 024 × 1 024</span></figcaption></figure>
+    <figure class="card vis"><a href="${icons["lockup-nuit"]}"><img class="lockup nuit" src="${icons["lockup-nuit"]}" width="1421" height="230" loading="lazy" decoding="async" alt="Le logo de rundata.re sur fond sombre"></a>
+    <figcaption>Le logo, sur fond sombre.<a class="dl" href="${icons["lockup-nuit"]}" download="rundata-logo-fond-sombre.svg">Télécharger (SVG)</a><span class="note">SVG, à toute taille</span></figcaption></figure>
+    <figure class="card vis"><a href="${icons["lockup-sable"]}"><img class="lockup sable" src="${icons["lockup-sable"]}" width="1421" height="230" loading="lazy" decoding="async" alt="Le logo de rundata.re sur fond clair"></a>
+    <figcaption>Le logo, sur fond clair.<a class="dl" href="${icons["lockup-sable"]}" download="rundata-logo-fond-clair.svg">Télécharger (SVG)</a><span class="note">SVG, à toute taille</span></figcaption></figure>
+    <figure class="card vis"><a href="/og.png?v=${og.v}"><img src="/og.png?v=${og.v}" width="1200" height="630" loading="lazy" decoding="async" alt="L'image de partage de rundata.re : le logo, La Réunion 974 en direct et le relief de l'île"></a>
+    <figcaption>L'image de partage des liens.<a class="dl" href="/og.png?v=${og.v}" download="rundata-partage.png">Télécharger (PNG)</a><span class="note">PNG 1 200 × 630</span></figcaption></figure>
   </div>
 </section>`;
 

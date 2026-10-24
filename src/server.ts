@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Cache } from "./cache.js";
 import type { Recorder } from "./metrics.js";
 import type { Background } from "./web/data.js";
+import icons from "./web/icons.json" with { type: "json" };
 import { GAZETTEER_ATTRIBUTION } from "./places/resolve.js";
 import * as acspo from "./providers/acspo.js";
 import * as arome from "./providers/arome.js";
@@ -71,7 +72,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.137.0";
+export const VERSION = "0.138.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -126,9 +127,15 @@ const lieu = z
  * `record`: told of each tool call (metrics.ts). `background`: work to finish after the answer (the Worker's
  * waitUntil), for resume_du_jour to bring a page copy up to date; without it (stdio, tests) nothing is left to run.
  */
+/** The symbol of rundata.re (web/logo.ts), for the clients that show a server's icon; the same in server.json. */
+export const SERVER_ICONS = [
+  { src: `https://rundata.re${icons["512"]}`, mimeType: "image/png", sizes: ["512x512"] },
+  { src: `https://rundata.re${icons["symbole-svg"]}`, mimeType: "image/svg+xml", sizes: ["any"] },
+];
+
 export function createServer(cache: Cache, record: Recorder = () => {}, background?: Background): McpServer {
   const server = new McpServer(
-    { name: "reunion-temps-reel", title: "La Réunion en temps réel", version: VERSION },
+    { name: "reunion-temps-reel", title: "rundata.re · La Réunion 974 en direct", version: VERSION, icons: SERVER_ICONS },
     { instructions: INSTRUCTIONS },
   );
   // Records the place asked (a commune, a beach…), never a street address: fiche_terrain's stays out of the metrics.

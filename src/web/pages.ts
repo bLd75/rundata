@@ -27,7 +27,8 @@ import icons from "./icons.json" with { type: "json" };
 import { hikesAround } from "./liens.js";
 import rubriques from "./og-rubriques.json" with { type: "json" };
 import { byUse, FIRST, type Urgent, urgentKeys, WITH_PAGE } from "./categories.js";
-import { FLAG_INNER, flag } from "./flag.js";
+import { FLAG_INNER } from "./flag.js";
+import { logo } from "./logo.js";
 import { esc, islandMap, type Marker, type ZoneLink } from "./map.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
@@ -40,8 +41,8 @@ export const SITE = "rundata.re";
 // The headings' typeface (scripts/build-font.py). Bump the number when the font changes: browsers keep it a year.
 export const FONT_PATH = "/font/titres-1.woff2";
 // The tagline, in Réunion Creole (« l'île en direct »); also on the og:image (scripts/build-og.py).
-export const SLOGAN = `<p class="slogan" lang="${brand.slogan_lang}">🇷🇪 ${esc(brand.slogan)}</p>`;
-const OG_ALT = "Drapeau de La Réunion (Lo Mahavéli) et carte de l'île : La Réunion 974 en direct, dans votre assistant IA";
+export const SLOGAN = `<p class="slogan" lang="${brand.slogan_lang}">${esc(brand.slogan)}</p>`;
+const OG_ALT = "Symbole rundata.re et relief de l'île : La Réunion 974 en direct, Lo péï an dirèk";
 
 // Temperatures shown as white on a colour: every stop keeps a contrast of at least 5:1.
 const STOPS: [number, number[]][] = [
@@ -194,7 +195,7 @@ border-bottom:1px solid rgb(255 255 255/.07);color:var(--on-night)}
 .bar{display:flex;align-items:center;gap:.6rem;min-height:3.6rem;padding-block:.45rem}
 .brand{display:flex;align-items:center;gap:.6rem;font:800 1.2rem/1 Bricolage,system-ui,sans-serif;color:inherit;text-decoration:none;letter-spacing:-.02em;margin-right:auto}
 .brand .tld{color:var(--sun)}
-.flag{width:2.1rem;height:1.4rem;border-radius:5px;flex:none;box-shadow:0 0 0 1px rgb(255 255 255/.25),0 4px 12px -4px rgb(0 0 0/.6)}
+.logo{width:1.55rem;height:1.55rem;flex:none}
 .quick{display:none}
 @media (min-width:62rem){.quick{display:flex;gap:.15rem}.quick a{display:flex;align-items:center;gap:.35rem;color:var(--on-night-muted);text-decoration:none;
 padding:.45rem .55rem;border-radius:12px;font-size:.93rem;font-weight:600}.quick a .ic{width:1.1rem;height:1.1rem;color:var(--k)}
@@ -469,7 +470,7 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .figs small{display:block;color:var(--muted);font-size:.82rem;margin-top:.2rem}
 .release{max-width:46rem;gap:.9rem}.release ul{padding-left:1.2rem;display:grid;gap:.5rem}.release h3{margin-top:.6rem}.release a{overflow-wrap:anywhere}
 .vis-grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,20rem),1fr))}.vis-grid.phones{grid-template-columns:repeat(auto-fill,minmax(10rem,1fr))}
-.vis{margin:0;align-content:start}.vis img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line)}.vis img.flag{width:40%;margin:auto;border:0}
+.vis{margin:0;align-content:start}.vis img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line)}.vis img.logo{width:40%;margin:auto;border:0}.vis img.lockup{padding:1.2rem}.vis img.nuit{background:#0b1f36}.vis img.sable{background:#f6f2ea}
 .vis figcaption{display:grid;gap:.35rem;font-size:.92rem}.shot img{display:block;width:100%;height:auto;border-radius:14px}.vis .dl{font-weight:800}
 .profile{width:100%;height:auto;display:block}.profile .fill{fill:color-mix(in srgb,var(--accent) 22%,transparent)}.profile .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round}
 .profile .grid{stroke:var(--border);stroke-width:1}.profile .ax{fill:var(--muted);font:12px system-ui,sans-serif}
@@ -642,7 +643,7 @@ footer.foot a{color:var(--on-night)}
 footer.foot .brand{color:var(--on-night);margin-bottom:.8rem}
 footer.foot p+p{margin-top:.6rem}
 footer.foot h3{color:var(--on-night);font-size:1rem;margin-bottom:.4rem}
-footer.foot .slogan{font-size:1rem}
+footer.foot .slogan{font-size:1rem;padding-left:calc(1.55rem + .6rem)}
 `.replace(/\n/g, "") + AVIS_CSS + PWA_CSS;
 
 interface Head {
@@ -776,7 +777,7 @@ function header(path: string, origin: string, u: Urgent): string {
   const top = accountLinks(SOCIAL, true);
   const sheet = accountLinks();
   return `<header class="top"><div class="wrap bar">
-  <a class="brand" href="/">${flag()}<span>rundata<span class="tld">.re</span></span></a>
+  <a class="brand" href="/">${logo()}<span>rundata<span class="tld">.re</span></span></a>
   <nav class="quick" aria-label="Principales catégories">${quick}</nav>
   ${top.length ? `<nav class="follow-top" aria-label="Suivre rundata.re">${top.join("")}</nav>` : ""}
   <a class="cta-ia" href="/#assistant">${icon("spark")}<span>Mon IA</span></a>
@@ -814,6 +815,7 @@ export function layout(origin: string, head: Head, band: string, body: string): 
 <meta name="description" content="${d}">
 ${head.noindex ? `<meta name="robots" content="noindex">\n` : ""}<link rel="canonical" href="${esc(url)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="${icons["192"]}" type="image/png" sizes="192x192">
 <link rel="manifest" href="/manifest.webmanifest">
 ${head.rss ? `<link rel="alternate" type="application/rss+xml" title="${esc(head.rss.title)}" href="${esc(head.rss.href)}">\n` : ""}<link rel="apple-touch-icon" href="${icons["180"]}">
 <meta name="apple-mobile-web-app-title" content="rundata.re">
@@ -849,9 +851,9 @@ ${head.shell ? "" : `${share(origin, head)}
 ${avisForm(head.path)}`}
 <footer class="foot"><div class="wrap">
   <div>
-    <a class="brand" href="/">${flag()}<span>rundata.re</span></a>
+    <a class="brand" href="/">${logo()}<span>rundata.re</span></a>
     ${SLOGAN}
-    <p>La Réunion en temps réel, pour vous et votre assistant IA.</p>
+    <p>La Réunion 974 en direct, pour vous et votre assistant IA.</p>
     ${head.rss ? `<p><a href="${esc(head.rss.href)}" title="${esc(head.rss.hint)}">${esc(head.rss.link)}</a></p>` : ""}
     <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP.</p>

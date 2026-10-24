@@ -51,12 +51,12 @@ async function send(res: ServerResponse, r: Response) {
 }
 
 // The static files Cloudflare serves beside the Worker (wrangler.jsonc, "assets"): the press page's visuals, the
-// pictures of the link previews and the home-screen icons.
+// pictures of the link previews, the home-screen icons and the symbol of the brand.
 const PUBLIC = new URL("../../public/", import.meta.url);
-const TYPES: Record<string, string> = { jpg: "image/jpeg", webp: "image/webp", png: "image/png" };
+const TYPES: Record<string, string> = { jpg: "image/jpeg", webp: "image/webp", png: "image/png", svg: "image/svg+xml" };
 
 async function asset(req: IncomingMessage): Promise<Response | null> {
-  const m = /^\/((?:presse|og|icons)\/[\w-]+\.[0-9a-f]+\.(jpg|webp|png))$/.exec(req.url ?? "");
+  const m = /^\/((?:presse|og|icons|logo)\/[\w-]+\.[0-9a-f]+\.(jpg|webp|png|svg))$/.exec(req.url ?? "");
   if (!m || (req.method !== "GET" && req.method !== "HEAD")) return null;
   try {
     const body = await readFile(new URL(m[1], PUBLIC));
