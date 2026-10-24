@@ -50,10 +50,12 @@ import * as dae from "./providers/dae.js";
 import { defibrillateurs } from "./tools/dae.js";
 import * as sportSources from "./providers/sport.js";
 import { SPORTS, sportTool, type Quand, type Sport } from "./tools/sport.js";
+import * as gdacs from "./providers/cyclones.js";
+import { cyclones } from "./tools/cyclones.js";
 
-export const VERSION = "0.13.0";
+export const VERSION = "0.14.0";
 
-const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, marée, crues des rivières, vigilance, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, sentiers de randonnée fermés, sport (matchs, régates, rallyes, Grand Raid), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
+const INSTRUCTIONS = `Données en temps réel de l'île de La Réunion (département français 974, océan Indien) : météo (mesures et prévisions, toujours séparées), pluie radar, mer, marée, crues des rivières, vigilance, cyclones, volcan et séismes, électricité, qualité de l'air, calendrier (vacances, jours fériés, soleil), services publics (adresses et horaires), horaires des bus, vélos en libre-service, bornes de recharge, qualité de l'eau (robinet et baignade), restrictions d'eau (sécheresse), coupures d'eau, défibrillateurs, sentiers de randonnée fermés, sport (matchs, régates, rallyes, Grand Raid), cadastre, urbanisme, prix immobiliers et risques naturels à une adresse.
 Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La Réunion (commune, plage, cirque, sommet), même si la question ne dit pas « La Réunion » mais nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo, Boucan Canot…).
 - Maintenant (« il fait combien ? », « il pleut ? », « la mer est à combien ? ») : meteo_actuelle et temperature_mer renvoient des MESURES datées. Dire l'heure de la mesure, la station et sa distance, et relayer les avertissements (altitude, versant, ancienneté), car le climat change beaucoup sur quelques kilomètres.
 - Plus tard (« demain », « ce soir », « ce week-end ») : prevision_meteo renvoie une PRÉVISION de modèle. Toujours dire à l'utilisateur que c'est une prévision, pas une mesure, et relayer ses avertissements ; ne jamais la présenter comme une observation.
@@ -75,6 +77,7 @@ Utiliser ces outils dès qu'une question porte sur le temps à un endroit de La 
 - Sport (« quels matchs ce week-end ? », « résultats du handball ? », « prochaine régate ? », « classement du Grand Raid ? ») : sport renvoie le calendrier et les résultats officiels (handball, volley, voile, golf, sport automobile, Grand Raid) et l'actualité sportive de Réunion La 1ère. Le football n'a pas de source ouverte : le dire, et citer les articles.
 - Terrain à une adresse (« constructible ? », « zone du PLU ? », « prix au m² ? », « zone inondable ? », « risques à cette adresse ? ») : fiche_terrain.
 - Vigilance et cyclones (« alerte cyclonique ? », « vigilance orange ? », « on peut aller en montagne avec ces pluies ? ») : vigilance_meteo renvoie la vigilance officielle de Météo-France. Quand une réponse contient un champ « vigilance », le dire en premier.
+- Cyclones (« il y a un cyclone ? », « où est la tempête ? », « elle va passer près de La Réunion ? », « c'était quoi le dernier cyclone ? ») : cyclones renvoie les systèmes tropicaux actifs du sud-ouest de l'océan Indien (position, stade, distance, déplacement, prévision du CMRS de La Réunion) et l'alerte cyclonique. Ne jamais inventer de trajectoire : citer la prévision du CMRS telle quelle, et renvoyer aux consignes de la préfecture.
 Réunion Island weather: real-time measurements (meteo_actuelle, temperature_mer) and model forecasts (prevision_meteo), never mixed. Always tell the user when a value is a forecast.`;
 
 /** Adds the vigilance above green, if any, to a tool's answer (asked in parallel, so no added wait). */
@@ -541,6 +544,23 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
   );
 
   server.registerTool(
+    "cyclones",
+    {
+      title: "Cyclones dans le sud-ouest de l'océan Indien",
+      description:
+        "Systèmes tropicaux actifs autour de La Réunion (974), d'après les bulletins du CMRS de La Réunion (Météo-France) republiés par GDACS : " +
+        "stade (dépression, tempête tropicale modérée ou forte, cyclone tropical, intense), vent moyen, pression, position, distance et direction " +
+        "depuis La Réunion ou un lieu, déplacement, prévision officielle et passage au plus près ; alerte cyclonique de la préfecture. " +
+        "Hors saison : le dit, avec le dernier système et ceux de la saison. " +
+        "Pour : « il y a un cyclone en ce moment ? », « où est la tempête ? », « elle va passer près de Saint-Philippe ? », « le dernier cyclone ? ». " +
+        "/ Active tropical cyclones near Réunion Island (RSMC La Réunion advisories via GDACS), distance, movement, official forecast.",
+      inputSchema: { lieu },
+      annotations: { title: "Cyclones", ...READ_ONLY },
+    },
+    track("cyclones", (args: { lieu?: string }) => cyclones(cache, args.lieu)),
+  );
+
+  server.registerTool(
     "sources_donnees",
     {
       title: "Sources des données",
@@ -552,7 +572,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}): McpServ
     },
     track("sources_donnees", async () =>
       text({
-        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
+        sources: [...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage() },
         version: VERSION,
