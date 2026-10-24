@@ -92,6 +92,37 @@ export function annonceOf(i: Item, prefecture = false): Annonce | undefined {
   return undefined;
 }
 
+// La Réunion's time, UTC+4 all year.
+const LOCAL_MS = 4 * 3600_000;
+// A reopening announced for an hour is no longer told this long after it.
+const REOPENED_HOURS = 6;
+// A night closure ends on the morning of its last day: at its hour when given, else at noon.
+const NOON = "12:00";
+
+/** The UTC time of « dd/mm » at « hh:mm » in La Réunion, in the year of `from` or the next one when that is earlier. */
+function at(day: string, time: string, from: number): number {
+  const year = new Date(from + LOCAL_MS).getUTCFullYear();
+  const t = (y: number) => Date.parse(`${y}-${day.slice(3, 5)}-${day.slice(0, 2)}T${time}:00Z`) - LOCAL_MS;
+  return t(year) < from - 30 * 86_400_000 ? t(year + 1) : t(year);
+}
+
+/**
+ * Whether what was announced is over: a night closure past the morning of its last day, a reopening at an hour past
+ * by six hours (the hour following the article). Then it is not told, however recent the article.
+ */
+function over(a: Annonce, now: Date): boolean {
+  const published = Date.parse(a.publie);
+  if (a.etat === "fermée la nuit" && a.dates) return now.getTime() > at(a.dates.au, a.horaire?.a ?? NOON, published);
+  if (a.etat === "réouverture" && a.a) {
+    const local = new Date(published + LOCAL_MS).toISOString();
+    let t = Date.parse(`${local.slice(0, 10)}T${a.a}:00Z`) - LOCAL_MS;
+    // « à 5h30 » in an article of 22:00 is the next morning; an hour just before the article's, today's.
+    if (t < published - 3600_000) t += 86_400_000;
+    return now.getTime() > t + REOPENED_HOURS * 3600_000;
+  }
+  return false;
+}
+
 export interface Littoral {
   /** The newest announcement; and, when another source said otherwise within two hours of it, that one too. */
   annonces: Annonce[];
@@ -109,8 +140,8 @@ export function littoral(news: { infos: Item[]; prefecture: Item[] }, now: Date,
     ...news.infos.filter((i) => i.publie >= since).map((i) => annonceOf(i)),
     ...news.prefecture.filter((i) => i.publie >= since).map((i) => annonceOf(i, true)),
   ].filter((a): a is Annonce => !!a).sort((a, b) => b.publie.localeCompare(a.publie));
-  // A source that publishes twice: its last article only.
-  const latest = found.filter((a, k) => found.findIndex((b) => b.media === a.media) === k);
+  // A source that publishes twice: its last article only; and not when what it announced is over.
+  const latest = found.filter((a, k) => found.findIndex((b) => b.media === a.media) === k).filter((a) => !over(a, now));
   const [first] = latest;
   if (!first) return undefined;
   const close = (a: Annonce) => Date.parse(first.publie) - Date.parse(a.publie) <= CONTRADICTION_HOURS * 3600_000;

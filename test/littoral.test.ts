@@ -65,6 +65,19 @@ describe("the route du Littoral as the media announce it", () => {
     expect(prefecture.annonces[0]).toMatchObject({ media: "la préfecture", prefecture: true });
   });
 
+  it("does not tell a night closure past its last morning, nor a reopening hours past its hour", () => {
+    // Published Saturday 24/10 at 18:00: the nights of Monday 26 to Wednesday 28, from 21:00 to 05:00.
+    const nights = (now: Date) => littoral(fil([{ ...item("Route du Littoral : fermeture de nuit de 21h à 5h du lundi 26 au mercredi 28 octobre", 1), publie: "2026-10-24T14:00:00.000Z" }]), now, 120);
+    expect(nights(new Date("2026-10-28T00:30:00Z"))).toBeDefined(); // 28/10 at 04:30
+    expect(nights(new Date("2026-10-28T01:30:00Z"))).toBeUndefined(); // 28/10 at 05:30
+    // Published at 22:00 for 05:30: the next morning, told until 11:30.
+    const reopening = (now: Date) => littoral(fil([{ ...item("Route du Littoral : réouverture prévue à 5h30", 1), publie: "2026-10-24T18:00:00.000Z" }]), now);
+    expect(reopening(new Date("2026-10-25T07:00:00Z"))).toBeDefined(); // 25/10 at 11:00
+    expect(reopening(new Date("2026-10-25T08:00:00Z"))).toBeUndefined(); // 25/10 at 12:00
+    // A night closure without dates, a reopening without an hour: kept the 36 hours.
+    expect(littoral(fil([item("Route du Littoral fermée cette nuit", 30)]), NOW)).toBeDefined();
+  });
+
   it("words the state as marketing does", () => {
     expect(etatText(one("Route du Littoral : basculement en 2x1")!)).toBe("Basculée sur 2×1 voies, côté montagne");
     expect(etatText(one("Fin du basculement sur la route du Littoral")!)).toBe("Circulation sur 4 voies (2×2)");
