@@ -5,7 +5,7 @@
   "Les Avirons": "CISE REUNION",
   "Bras-Panon": "RUNEO",
   "Entre-Deux": "SUDEAU",
-  "L'Étang-Salé": "RUNEO",
+  "L'Étang-Salé": null,
   "Petite-Île": "STÉ PUBLIQUE LOCALE SOURCES ET EAUX",
   "La Plaine-des-Palmistes": "O2LEST",
   "Le Port": "RUNEO",
@@ -26,5 +26,11 @@
   "Le Tampon": "SUDEAU",
   "Les Trois-Bassins": "LA CREOLE",
   "Cilaos": "RECIL"
+ },
+ "plusieurs": {
+  "L'Étang-Salé": [
+   "MAIRIE DE L'ÉTANG-SALÉ",
+   "RUNEO"
+  ]
  }
 }

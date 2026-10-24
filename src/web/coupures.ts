@@ -7,6 +7,7 @@ import type { Cached } from "../cache.js";
 import { CIREST, distributeur, SOURCE as DISTRIBUTEURS } from "../eau/distributeurs.js";
 import { a } from "../tools/format.js";
 import type { Alerte, CoupuresAnswer, EauAnswer, SecheresseAnswer } from "./data.js";
+import { cycloneWater } from "./eau-cyclone.js";
 import { connectorCta, describe, droughtBadge, loading, noticeCard, sourcesNote, tapCard, webPage } from "./domains.js";
 import { esc, islandMap } from "./map.js";
 import { ask, hm, icon, layout, type Live, SITE } from "./pages.js";
@@ -79,8 +80,8 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
       ? `<p><b>${esc(dist.nom)}</b> distribue l'eau ${esc(where)}, d'après le contrôle sanitaire de l'ARS.</p>` +
         (dist.avis
           ? dist.site === CIREST.site
-            ? `<p>Les avis de la commune, publiés par la CIREST, sont relus tous les quarts d'heure : <a href="${esc(dist.site)}" rel="noopener">les avis de la CIREST</a>.</p>`
-            : `<p>Ses avis sont relus tous les quarts d'heure : <a href="${esc(dist.site!)}" rel="noopener">le site de ${esc(dist.nom)}</a>.</p>`
+            ? `<p>Les avis de la commune, publiés par la CIREST, sont relus au moins toutes les 30 minutes : <a href="${esc(dist.site)}" rel="noopener">les avis de la CIREST</a>.</p>`
+            : `<p>Ses avis sont relus au moins toutes les 30 minutes : <a href="${esc(dist.site!)}" rel="noopener">le site de ${esc(dist.nom)}</a>.</p>`
           : `<p>Il ne publie pas ses avis de coupure dans un flux lisible : ils sont sur ses avis aux abonnés et auprès de la mairie.</p>`)
       : `<p>Le distributeur de la commune n'est pas connu ici : voir la mairie.</p>`) +
     `<p class="note">Son numéro d'urgence (fuite, coupure non annoncée) est sur la facture d'eau. <a href="/communes/${p.slug}">${esc(p.nom)} en direct : la mairie, ses horaires et son téléphone →</a></p></div>`;
@@ -128,16 +129,20 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
   <figure class="card mapcard">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
 </div>`;
 
+  // Up the page in the cyclone season, at its foot the rest of the year.
+  const cyclone = cycloneWater(now, p.nom);
   const body = `<section aria-labelledby="h-avis">
   <div class="sec-h"><p class="eyebrow">Récents ou à venir</p><h2 id="h-avis">Les avis ${esc(where)}</h2></div>
   ${list}
   ${d ? `<p class="note">${esc(d.a_savoir)}</p>` : ""}
 </section>
+${cyclone.lead ? cyclone.html : ""}
 <section aria-labelledby="h-qui"><div class="sec-h"><h2 id="h-qui">Qui distribue l'eau, et les restrictions</h2></div>
   <div class="two">${distBlock}${drought}</div>
 </section>
 ${tap}
 ${others}
+${cyclone.lead ? "" : cyclone.html}
 <section>${d && w.coupures ? sourcesNote([...d.sources, { source: DISTRIBUTEURS, licence: "Licence Ouverte 2.0", attribution: "ARS La Réunion" }], w.coupures) : ""}</section>
 ${connectorCta("coupures_eau", "les coupures d'eau")}`;
 

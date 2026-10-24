@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Build src/eau/distributeurs.json: the water distributor of each commune of La Réunion, as the ARS names it in its
-sanitary control of tap water (Hub'Eau, « qualité de l'eau potable », field nom_distributeur): the one of most of the
-commune's samples over the last six months. Open data, Licence Ouverte 2.0.
+sanitary control of tap water (Hub'Eau, « qualité de l'eau potable », field nom_distributeur) in the commune's samples
+over the last six months. A commune whose samples name more than one is left unidentified (null), its distributors
+listed under « plusieurs »: none is guessed (data-run). Open data, Licence Ouverte 2.0.
 Usage: python3 -I scripts/build-distributeurs.py
 """
 import json
@@ -26,9 +27,10 @@ INSEE = {
 
 def main():
     since = (date.today() - timedelta(days=182)).isoformat()
-    communes = {}
+    communes, several = {}, {}
     for nom, code in INSEE.items():
-        url = f"{API}?code_commune={code}&date_min_prelevement={since}&size=500&fields=nom_distributeur"
+        # E. coli is part of every bacteriological analysis: one row per sample, all of them within the page.
+        url = f"{API}?code_commune={code}&code_parametre=1449&date_min_prelevement={since}&size=1000&fields=nom_distributeur"
         for attempt in range(4):
             try:
                 with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=90) as r:
@@ -39,13 +41,16 @@ def main():
                     raise
                 time.sleep(5 * (attempt + 1))
         count = Counter(x["nom_distributeur"] for x in rows if x.get("nom_distributeur"))
-        communes[nom] = count.most_common(1)[0][0] if count else None
-        print(f"  {nom}: {communes[nom]} ({sum(count.values())} résultats)")
+        communes[nom] = next(iter(count)) if len(count) == 1 else None
+        if len(count) > 1:
+            several[nom] = sorted(count)
+        print(f"  {nom}: {communes[nom] or sorted(count)} ({sum(count.values())} résultats)")
         time.sleep(0.5)
     OUT.write_text(json.dumps({
         "construit": date.today().isoformat(),
         "source": "ARS La Réunion, contrôle sanitaire des eaux distribuées (Hub'Eau), Licence Ouverte 2.0",
         "communes": communes,
+        "plusieurs": several,
     }, ensure_ascii=False, indent=1) + "\n")
     print(f"{OUT.relative_to(ROOT)} : {sum(1 for v in communes.values() if v)} communes")
 

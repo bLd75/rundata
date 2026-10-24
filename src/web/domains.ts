@@ -33,6 +33,7 @@ import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
 import { ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
 import { PASSES } from "../historique/cyclones-passes.js";
+import { cycloneWater } from "./eau-cyclone.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
 // What a search engine shows of a title.
@@ -1568,6 +1569,8 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
       : `<p class="card">Aucun avis de coupure récent ou à venir dans les communes suivies.</p>`
     : `<p class="card">Les avis se chargent : rechargez la page dans quelques secondes.</p>`;
 
+  // Up the page in the cyclone season, at its foot the rest of the year.
+  const cyclone = cycloneWater(now);
   const title = "Coupure d'eau Réunion aujourd'hui : avis en cours · 974";
   const short = "🇷🇪 Coupures d'eau à La Réunion (974) : les avis de Dionéo, des Eaux de La Possession et de la CIREST, heures, rues concernées et avis « ne pas boire l'eau ».";
   const description = d ? describe(`🇷🇪 ${d.resume} Coupures d'eau à La Réunion (974) : heures, rues concernées et avis « ne pas boire l'eau ».`, short) : short;
@@ -1592,7 +1595,9 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
   ${d ? `<p class="note">${esc(d.a_savoir)}</p>` : ""}
   ${d && data ? sourcesNote(d.sources, data) : ""}
 </section>
-${connectorCta("coupures_eau", "les coupures d'eau")}`;
+${cyclone.lead ? cyclone.html : ""}
+${connectorCta("coupures_eau", "les coupures d'eau")}
+${cyclone.lead ? "" : cyclone.html}`;
 
   return layout(origin, { title, description, path: "/coupures-eau", jsonld: [crumbs(origin, "Coupures d'eau", "/coupures-eau"), webPage(origin, "/coupures-eau", title, description, data)], alerte }, band, body);
 }
