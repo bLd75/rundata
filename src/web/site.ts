@@ -73,6 +73,7 @@ import { collectePage, communeOf } from "./collecte.js";
 import { decheteriesPage } from "./decheteries.js";
 import { alertePage } from "./alerte-cyclone.js";
 import { kitPage } from "./kit-cyclone.js";
+import { MODELE_CSV, publierPage } from "./publier.js";
 import { passePage } from "./cyclones-passes.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { ecolesPage } from "./ecoles.js";
@@ -249,7 +250,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
   const fixed = (u: string) => [u, STATIC_CHANGED, "monthly"];
   const trace = (u: string) => [u, traces.BUILT, "daily"];
   // The defibrillators are a list bundled with the server: their page changes when it is rebuilt.
-  const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/alerte-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), fixed("/kit-cyclone"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
+  const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/alerte-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), fixed("/kit-cyclone"), fixed("/publier"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
     ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay && fuelDay < today ? fuelDay : today, "daily"],
@@ -304,6 +305,14 @@ async function pages(request: Request, cache: Cache, background: Background, now
     return page(path, (live) => (live ? vigilancePage(origin, data, now, data ? alerteOf(data.value, now) : undefined) : vigilancePage(origin, null, now)), data, background);
   }
   // The plan's list, nothing read but the vigilance's banner.
+  // The guide for those who publish, written once: nothing read but the vigilance's banner.
+  if (path === "/publier" || path === "/publier/") {
+    const a = await alerte(cache, background, now);
+    return new Response(publierPage(origin, a), { headers: HTML });
+  }
+  if (path === "/publier/modele-agenda.csv") {
+    return new Response(MODELE_CSV, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="modele-agenda.csv"', "cache-control": STATIC, "access-control-allow-origin": "*", "x-content-type-options": "nosniff" } });
+  }
   if (path === "/kit-cyclone" || path === "/kit-cyclone/") {
     const a = await alerte(cache, background, now);
     return new Response(kitPage(origin, a), { headers: HTML });
