@@ -471,7 +471,16 @@ async function hourly(cache: Cache, place: Place, p: Period, now: Date) {
   // Today's hours stop at the last one published (the file comes out in the morning).
   const lastHour = [...hs].reverse().find((h) => [rain, temp, sun].some((x) => x && (at(x, "RR1", h) ?? at(x, "T", h) ?? at(x, "INS", h)) != null));
   const today = iso(now.getTime() + 4 * 3600_000);
+  // The hours may come from another station than the days (the place's own has gaps): name it, with how far it is.
+  const where = [...used.keys()].map((x) => {
+    const b = stationBlock(place, asPoste(x), "") as { distance_km?: number; ecart_altitude_m?: number };
+    const km = b.distance_km ?? 0;
+    const dz = b.ecart_altitude_m ?? 0;
+    if (km < 2 && Math.abs(dz) < 100) return x.nom;
+    return `${x.nom}, à ${fr(km)} km${Math.abs(dz) >= 100 ? ` et ${Math.abs(dz)} m plus ${dz > 0 ? "haut" : "bas"}` : ""}`;
+  }).join(" ; ");
   return {
+    ou: where,
     texte: facts.map((f) => f.texte).join(". ") + (p.au === today && lastHour ? ` (aujourd'hui, publié jusqu'à ${lastHour.hour} h)` : ""),
     bloc: {
       definition: "Heure de La Réunion. Chaque valeur est celle de l'heure qui se termine à l'heure indiquée : la pluie de « 15 h » est tombée entre 14 h et 15 h, le soleil de « 15 h » est en minutes sur cette heure-là, la rafale est la plus forte de l'heure. La température est celle relevée à l'heure pile : le maximum et le minimum de la journée, mesurés en continu, peuvent la dépasser un peu.",
@@ -569,7 +578,7 @@ export async function historiqueMeteo(
   const daily = rain || temp ? sentence(`${place.nom}`, p, s, names) : "";
   return text({
     lieu: placeBlock(lieu, res),
-    resume: [daily, hh ? `Heure par heure (${place.nom}) — ${hh.texte}.` : ""].filter(Boolean).join(" ") +
+    resume: [daily, hh ? `Heure par heure (station ${hh.ou}) — ${hh.texte}.` : ""].filter(Boolean).join(" ") +
       (warn.length ? ` Attention : ${[...new Set(warn)].join(" ")}` : "") +
       (!rain && !temp && !hh ? ` Aucune station ne mesurait ${a(place.nom)} ou près de là sur cette période.` : ""),
     stations: stationsUsed(place, [[rain, "pluie"], [temp, "températures et rafales"], [sun, "ensoleillement"]]),
