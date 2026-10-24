@@ -317,6 +317,8 @@ export interface VolcanAnswer {
     /** The prefecture's release, when its phase is the one given. `publie`: the day, ISO (the hour is not given). */
     communique_prefecture?: { niveau: string; titre: string; lien: string; publie: string };
   };
+  /** The episodes whose start and end a release writes (tools/volcan-historique.ts), as the AI reads them. */
+  alertes_precedentes?: { note: string; episodes: { debut: string[]; fin: string }[] };
   publications_ovpf?: { date: string; texte: string; lien?: string; image?: boolean }[];
   seismes?: {
     sous_le_volcan: { "30_jours": number; "7_jours": number; magnitude_max_30j: number | null };

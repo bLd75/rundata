@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-24T21:58:00+04:00", texte: "Volcan : les alertes précédentes depuis novembre 2021, début et fin cités dans les communiqués de la préfecture (liste partielle)." },
   { date: "2026-10-24T21:47:00+04:00", texte: "Cyclones passés : la pluie et les rafales mesurées station par station pendant Garance, Batsirai et Dina." },
   { date: "2026-10-24T21:31:00+04:00", texte: "Kit cyclone : ce que le plan de la préfecture demande de préparer avant la saison, page par page." },
   { date: "2026-10-24T21:30:00+04:00", texte: "Volcan : les séismes localisés par l'OVPF sous le Piton de la Fournaise, jour par jour sur 30 jours." },
