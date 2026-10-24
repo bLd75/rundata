@@ -109,6 +109,10 @@ export function acces(niveau: string | undefined, p: volcan.Phase | undefined, p
         ? { lieu: "Route du volcan", texte: `${base}. Fermée selon l'ONF (${read}).` }
         : { lieu: "Route du volcan", texte: `${base}, et l'ONF ne la signale pas fermée (${read}).` },
   );
+  // During an eruption, what the plan provides for the road (p. 34), whether the eruption is visible or not.
+  if (niveau && /^Alerte 2/i.test(niveau)) {
+    lignes.push({ lieu: "Route du volcan", texte: "Pendant une éruption, en cas d'affluence, le plan de la préfecture prévoit que la route du volcan puisse être fermée depuis Bourg-Murat, ou son accès filtré", source: `${DSO}, p. 34` });
+  }
 
   if (niveau && p && !/^Vigilance/i.test(niveau)) {
     const enclos = said.find((x) => /enclos/i.test(x) && /interdit|ferm|ouvert|accès/i.test(x));

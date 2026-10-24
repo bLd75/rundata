@@ -88,6 +88,11 @@ describe("« Puis-je monter au volcan ? »", () => {
     expect(lineText(acces("Sauvegarde", over, undefined, undefined).lignes[0])).toBe(
       `Enclos : en phase de sauvegarde, « une réouverture partielle de l'enclos est possible » (dispositif ORSEC Volcan, p. 22). Ce qui est ouvert est dans le communiqué de la préfecture du 02/11. ${LIEN}`,
     );
+    // An eruption: what the plan provides for the road, after the road's line; never before alert 2.
+    const eruption = acces("Alerte 2-1", ALERT_1, releaseSentences(PAGE), carte()).lignes.map(lineText);
+    expect(eruption[3]).toBe("Pendant une éruption, en cas d'affluence, le plan de la préfecture prévoit que la route du volcan puisse être fermée depuis Bourg-Murat, ou son accès filtré (dispositif ORSEC Volcan, p. 34).");
+    expect(eruption[2]).toMatch(/^Route du volcan \(route forestière/);
+    expect(acces("Alerte 1", ALERT_1, releaseSentences(PAGE), carte()).lignes.map(lineText).join(" ")).not.toContain("p. 34");
     expect(lineText(acces(undefined, undefined, undefined, undefined).lignes[0])).toBe("Nous n'avons pas pu lire le dernier communiqué de la préfecture : vérifiez sur reunion.gouv.fr avant de monter au volcan.");
   });
 
