@@ -175,3 +175,17 @@ export function ecolesBlock(v: mf.Vigilance, now: Date, c?: Cyclone | null) {
   const e = withPrefecture(ecoles(v, now), c, v, now);
   return { ...e, regle: REGLE, source: SOURCE_PHRASE, limite: LIMITE, page: "https://rundata.re/ecoles-cyclone", rectorat: RECTORAT };
 }
+
+/** The tool's line in an alert: the step in force, in marketing's words; nothing outside one. */
+export function quotidienLine(v: mf.Vigilance, now: Date): string | undefined {
+  const e = ecoles(v, now);
+  const lines: Record<number, string> = {
+    2: "En pré-alerte, selon le dispositif ORSEC Cyclones : « Je m'informe et j'anticipe » ; pas de fermeture prévue à ce stade (p. 17).",
+    3: "En alerte orange, selon le dispositif ORSEC Cyclones : écoles et crèches fermées, « l'activité économique continue » (p. 17).",
+    4: "En alerte rouge, selon le dispositif ORSEC Cyclones : « Tous les établissements recevant du public ferment » (p. 20) ; passé le préavis de 3 heures, « la circulation est strictement interdite » (p. 17).",
+    5: "En alerte violette, selon le dispositif ORSEC Cyclones : « NE SORTEZ EN AUCUN CAS » (p. 17).",
+    6: "En phase de sauvegarde, selon le dispositif ORSEC Cyclones : écoles et crèches fermées pendant le passage du cyclone, « Les activités professionnelles peuvent reprendre progressivement » (p. 20).",
+  };
+  const held = e.niveau >= 2 && (e.fermees || e.niveau === 2) ? lines[e.niveau] : undefined;
+  return held ? `${held} Détail : rundata.re/alerte-cyclone.` : undefined;
+}

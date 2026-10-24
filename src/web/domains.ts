@@ -1794,6 +1794,7 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
     <li><a href="https://www.reunion.gouv.fr" rel="noopener">Consignes de la préfecture de La Réunion</a></li>
     <li><a href="${esc(origin)}/vigilance">La vigilance du moment sur rundata.re</a></li>
     <li><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ?</a></li>
+    <li><a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue</a></li>
   </ul></div>
 </section>
 ${d ? `<section aria-labelledby="h-saison">
@@ -1815,9 +1816,11 @@ export function cyclonesLive(data: Cached<CyclonesAnswer> | null): Live | undefi
   const d = data?.value;
   if (!d) return undefined;
   const active = d.systemes_actifs ?? [];
+  // In an alert, what the plan says of daily life is a click away (marketing).
+  const plan = d.vie_quotidienne ? ` · <a href="/alerte-cyclone">Ce qui ferme, ce qui continue →</a>` : "";
   if (active.length) {
     const r = active[0];
-    return { valeur: `${active.length} système${active.length > 1 ? "s" : ""} actif${active.length > 1 ? "s" : ""}`, detail: `${esc(capital(r.nom))}, ${esc(r.stade)}, ${esc(r.situation)}` };
+    return { valeur: `${active.length} système${active.length > 1 ? "s" : ""} actif${active.length > 1 ? "s" : ""}`, detail: `${esc(capital(r.nom))}, ${esc(r.stade)}, ${esc(r.situation)}${plan}` };
   }
   const last = d.saison_en_cours.systemes[0] ?? d.saison_precedente?.systemes[0];
   return { valeur: "aucun système actif", detail: `saison ${esc(d.saison_en_cours.nom)}${last ? ` ; dernier : ${esc(capital(last.nom))} (${esc(last.du)} – ${esc(last.au)})` : ""}` };

@@ -862,6 +862,7 @@ export async function buildSport(cache: Cache, now = new Date()): Promise<SportA
 export interface CyclonesAnswer {
   resume: string;
   alerte_cyclonique?: string;
+  vie_quotidienne?: string;
   ecoles?: ReturnType<typeof ecolesBlock>;
   systemes_actifs?: Omit<ReturnType<typeof activeRow>, "trajectoire">[];
   saison_en_cours: { nom: string; systemes: ReturnType<typeof seasonRow>[] };

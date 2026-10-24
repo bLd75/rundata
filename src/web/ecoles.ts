@@ -64,7 +64,7 @@ export function ecolesPage(origin: string, data: Cached<mf.Vigilance> | null, no
   <p class="note">D'après le <a href="${ORSEC.lien}" rel="noopener">dispositif ORSEC Cyclones de la préfecture</a> (arrêté 2026-182, page mise à jour le ${esc(ORSEC.mis_a_jour)}). Les annonces du jour viennent de la préfecture et du rectorat (<a href="${RECTORAT}" rel="noopener">ac-reunion.fr</a>).</p>
   <p class="note">${esc(LIMITE)}</p></div>
 </section>
-<section><p><a href="/cyclones">Les cyclones du bassin →</a> · <a href="/vigilance">La vigilance zone par zone →</a></p></section>
+<section><p><a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a> · <a href="/cyclones">Les cyclones du bassin →</a> · <a href="/vigilance">La vigilance zone par zone →</a></p></section>
 ${connectorCta("cyclones", "l'alerte cyclonique")}`;
   return layout(origin, { title: TITLE, description, path, jsonld: [crumbs(origin, "Écoles et cyclone", path), webPage(origin, path, TITLE, description, data)], alerte }, band, body);
 }
