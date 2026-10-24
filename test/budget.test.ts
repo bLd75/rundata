@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WORKER_BUDGET, WORKER_FREE_LIMIT, costOf, count, counted, later, left, measured } from "../src/budget.js";
+import { WORKER_BUDGET, WORKER_FREE_LIMIT, costOf, count, counted, later, left, measured, spent } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { KvStore, type KvBinding } from "../src/kv.js";
 import * as arome from "../src/providers/arome.js";
@@ -15,18 +15,20 @@ const NOW = new Date("2026-10-22T06:00:00Z");
 const RUN = "2026-10-21T18.00.00Z";
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 
+// The platform's own refusal, past its limit (count() refuses before, at the budget).
 function overLimit() {
-  if (left() < 0) throw new Error("Too many subrequests by single Worker invocation");
+  if (spent() > WORKER_FREE_LIMIT) throw new Error("Too many subrequests by single Worker invocation");
 }
 
+/** The data center's cache, counted as the Worker counts it (worker.ts EdgeStore): a read, a write. */
 class EdgeLike extends MemoryStore {
   async get(key: string) {
-    count();
+    count(1, "read");
     overLimit();
     return super.get(key);
   }
   async put(key: string, entry: CacheEntry) {
-    count();
+    count(1, true);
     overLimit();
     return super.put(key, entry);
   }
@@ -248,6 +250,38 @@ describe("the invocation's budget", () => {
       expect(() => count(1, true)).toThrow(/Too many subrequests/);
     });
     expect(await settled()).toEqual({ used: 40, refused: 2 });
+  });
+
+  it("lets a read of a copy already stored use half of that tenth", async () => {
+    const { settled } = await counted(40, async () => {
+      count(36);
+      expect(() => count()).toThrow(/Too many subrequests/);
+      count(2, "read");
+      expect(() => count(1, "read")).toThrow(/Too many subrequests/);
+      count(2, true);
+    });
+    expect(await settled()).toEqual({ used: 40, refused: 2 });
+  });
+
+  it("serves a question late in its budget the copy the data center's cache has, instead of failing", async () => {
+    // Another isolate of the data center stored it a minute ago; this one has nothing in memory.
+    const edge = new EdgeLike();
+    let t = NOW.getTime();
+    await new Cache(new TieredStore(new MemoryStore(), edge), () => t, false).get("x", 300, async () => "copie");
+    t += 60_000;
+    const cold = new Cache(new TieredStore(new MemoryStore(), edge), () => t, false);
+    let asked = 0;
+    const { value, used } = await counted(WORKER_BUDGET, async () => {
+      count(WORKER_BUDGET - 4); // the stations, the radar… : the sources' share is spent
+      return cold.get("x", 300, async () => {
+        asked++;
+        count();
+        return "neuf";
+      });
+    });
+    expect(value).toMatchObject({ value: "copie", stale: false });
+    expect(asked).toBe(0);
+    expect(used).toBe(WORKER_BUDGET - 4 + 1);
   });
 
   it("counts the work after the response against it", async () => {

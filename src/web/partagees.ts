@@ -100,7 +100,7 @@ async function kvList(kv: Kv): Promise<Map<string, KvMeta | undefined> | undefin
 
 async function kvGet(kv: Kv, key: string): Promise<KvEntry | undefined> {
   try {
-    count();
+    count(1, "read");
     return ((await kv.get(kvKey(key), "json")) ?? undefined) as KvEntry | undefined;
   } catch {
     return undefined; // a store problem must never cost an answer

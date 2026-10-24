@@ -34,7 +34,7 @@ class EdgeStore implements CacheStore {
   }
   async get(key: string) {
     try {
-      count();
+      count(1, "read");
       const r = await (await caches.open("upstream")).match(this.url(key));
       return r ? ((await r.json()) as CacheEntry) : undefined;
     } catch {
