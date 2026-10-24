@@ -136,6 +136,7 @@ describe("agenda", () => {
     down = /reunion\.fr|openagenda/;
     const b = body(await agenda(cache(), undefined, "ce_week_end", undefined, NOW));
     expect(b.indisponible).toEqual(["CINOR", "Office de tourisme du Nord", "reunion.fr"]);
+    expect(b.resume).toContain("3 agendas non lus cette fois : CINOR, Office de tourisme du Nord, reunion.fr (liste peut-être incomplète, à redemander dans une minute).");
     expect(b.evenements.length).toBeGreaterThan(0);
     down = /./;
     expect((await agenda(cache(), undefined, undefined, undefined, NOW)).isError).toBe(true);
@@ -194,6 +195,7 @@ describe("agenda", () => {
       expect(first.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
       const named = body(first.value).indisponible as string[];
       expect(named.length).toBeGreaterThan(0);
+      expect(body(first.value).resume).toContain(`non lu${named.length > 1 ? "s" : ""} cette fois : ${named.join(", ")}`);
       expect(body(first.value).nombre).toBeGreaterThan(0);
       let rest = named;
       for (let i = 0; i < 5 && rest?.length; i++) {
@@ -205,6 +207,7 @@ describe("agenda", () => {
         rest = body(next.value).indisponible;
       }
       expect(rest).toBeUndefined();
+      expect(body((await counted(WORKER_FREE_LIMIT, () => agenda(c, undefined, undefined, undefined, NOW))).value).resume).not.toContain("non lu");
     });
 
     it("keeps reading a slow agenda after the response, and stores it for the next question", async () => {

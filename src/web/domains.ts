@@ -1801,7 +1801,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   <div class="sec-h"><p class="eyebrow">Deux semaines</p><h2 id="h-jours">Jour par jour</h2>
   <p>Chaque événement renvoie à la page de celui qui le publie. Heures de La Réunion ; un événement de plusieurs jours est rangé au jour où il commence, ou à aujourd'hui s'il a déjà commencé. Un événement annulé ou reporté reste affiché, avec son statut.</p></div>
   ${list}
-  ${d?.indisponible?.length ? warnings([`Agendas qui ne répondent pas en ce moment : ${d.indisponible.join(", ")}.`]) : ""}
+  ${d?.indisponible?.length ? warnings([`Agendas non lus cette fois (en panne, trop lents, ou laissés à la visite suivante) : ${d.indisponible.join(", ")}. La liste peut être incomplète.`]) : ""}
 </section>
 <section aria-labelledby="h-couv">
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p>

@@ -354,6 +354,8 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     off.length ? `ATTENTION : ${off.map((x) => `« ${x.e.titre} » ${x.e.statut}${x.e.reporte_au ? ` au ${dayText(x.e.reporte_au)}` : ""}${x.e.selon ? ` (d'après ${x.e.selon.media})` : ""}`).slice(0, 4).join(", ")}` : "",
     commune && !covered ? `ni la mairie ${de(commune)} ni une salle de la commune ne publient d'agenda lisible : seuls les grands événements de reunion.fr y figurent` : "",
     commune && !n && all.length ? `${all.length} ailleurs sur l'île` : "",
+    // Said in the summary, not only in `indisponible`: a partial list must not be read as the whole of it.
+    failed.length ? `${failed.length} agenda${failed.length > 1 ? "s" : ""} non lu${failed.length > 1 ? "s" : ""} cette fois : ${failed.join(", ")} (liste peut-être incomplète, à redemander dans une minute)` : "",
   ].filter(Boolean).join(" ; ") + ".";
 
   const used = [...new Set(got.filter((g) => g.value).map((g) => g.agenda.source))] as SourceInfo[];
