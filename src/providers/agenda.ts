@@ -26,10 +26,10 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
 import { communesIn, strip } from "./avis-eau.js";
-import { monthOf, statusOf, type Statut } from "./agenda-mots.js";
+import { lead, monthOf, statusOf, type Statut } from "./agenda-mots.js";
 import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
 
-export { communesIn, monthOf, statusOf, type Statut };
+export { communesIn, lead, monthOf, statusOf, type Statut };
 
 export const SOURCES = {
   mairies: {
@@ -67,8 +67,6 @@ function mairie(id: string, nom: string, url: string): SourceInfo {
 const HEADERS = { "User-Agent": "rundata.re (contact@rundata.re)" };
 const FRESH_SECONDS = 3600;
 const AHEAD_DAYS = 45;
-const TEXT_MAX = 300;
-const LEAD_MAX = 200;
 /** What the tourist office of the East's terms ask to show with what is taken from it. */
 export const OTI_EST = "OTI EST REUNION — Droits réservés";
 
@@ -142,9 +140,6 @@ const localDay = (now: Date) => new Date(now.getTime() + 4 * 3600_000).toISOStri
 const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
 /** Any ISO time with its offset → La Réunion's: « 2026-10-28T09:00:00+04:00 » → « 2026-10-28T09:00 ». */
 export const toLocal = (iso: string) => new Date(Date.parse(iso) + 4 * 3600_000).toISOString().slice(0, 16);
-const short = (s: string, max = TEXT_MAX) => (s.length > max ? `${s.slice(0, max - 1).replace(/\s+\S*$/, "")}…` : s);
-/** The first sentence of a text, short: all a reused agenda gives of it besides the facts. */
-export const lead = (s: string) => short((/^.+?[.!?…](?=\s|$|\p{Lu})/u.exec(s)?.[0] ?? s).trim(), LEAD_MAX);
 // NFKC: the posts copied from social networks write in « mathematical » letters (𝗩𝗔𝗖𝗔𝗡𝗖𝗘𝗦, 𝟮𝟰 𝗼𝗰𝘁𝗼𝗯𝗿𝗲).
 const clean = (html: string) => strip(html).normalize("NFKC").replace(/\s+/g, " ").trim();
 
@@ -202,7 +197,7 @@ export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune:
       commune: communeOf(venue.city) ?? awayAt(e.title) ?? commune,
       prix: clean(e.cost ?? "") || undefined,
       categories: e.categories.map((c) => clean(c.name)),
-      description: description ? short(description) : undefined,
+      description: description ? lead(description) : undefined,
       lien: e.url,
       publie_par: nom,
     };
@@ -260,7 +255,7 @@ export function parseOpenAgenda(body: { events: OaEvent[] }, nom: string): Evene
       lat: l.latitude ?? undefined,
       prix: PRICE.test(fr(e.conditions) ?? "") ? clean(fr(e.conditions)!) : undefined,
       categories: (e.keywords?.fr ?? []).slice(0, 5),
-      description: fr(e.description) ? short(clean(fr(e.description)!)) : undefined,
+      description: fr(e.description) ? lead(clean(fr(e.description)!)) : undefined,
       lien: e.canonicalUrl,
       publie_par: nom,
     };
@@ -336,7 +331,7 @@ export function parseReunionFr(html: string): Evenement[] {
       lon: Number.isFinite(lon) && lon ? lon : undefined,
       lat: Number.isFinite(lat) && lat ? lat : undefined,
       categories: [],
-      description: it.desc ? short(clean(it.desc)) : undefined,
+      description: it.desc ? lead(clean(it.desc)) : undefined,
       lien: it.link,
       publie_par: "reunion.fr",
     };
@@ -445,14 +440,14 @@ export function parseRss(xml: string, nom: string, commune: string, first = fals
       seances,
       commune,
       categories: [],
-      description: (first ? lead(texte) : short(texte)) || undefined,
+      description: lead(texte) || undefined,
       lien,
       publie_par: nom,
     }];
   });
 }
 
-/** `source`: a commune's own (mairie()), whose events keep only the first sentence of their text. */
+/** `source`: a commune's own (mairie()), credited apart from the other mairies. */
 function rss(id: string, nom: string, url: string, commune: string, source?: SourceInfo): Agenda {
   const from = source ?? SOURCES.mairies;
   return {

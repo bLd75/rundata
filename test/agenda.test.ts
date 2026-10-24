@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKER_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { AGENDAS, COVERED, OTI_EST, SOURCES_LUES, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseTribe } from "../src/providers/agenda.js";
+import { AGENDAS, COVERED, OTI_EST, SOURCES_LUES, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseTribe } from "../src/providers/agenda.js";
+import { parseBisik } from "../src/providers/salles.js";
 import { agenda, gather, periode } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
 
@@ -128,6 +129,31 @@ describe("agenda", () => {
     expect(lead("Du 23 au 25 octobre l’ail est en fête au Domaine du Relais !Ouverture de la fête foraine dès le vendredi.")).toBe("Du 23 au 25 octobre l’ail est en fête au Domaine du Relais !");
   });
 
+  it("keeps only the first sentence of every agenda's text, capped when it never ends", () => {
+    expect(lead("Concert gratuit de l'école de musique, ouvert à tous. Buvette sur place. Venez nombreux !")).toBe("Concert gratuit de l'école de musique, ouvert à tous.");
+    const endless = `Grand bal la kour ${"avec les groupes du quartier ".repeat(12)}`;
+    expect(lead(endless).length).toBeLessThanOrEqual(200);
+    expect(lead(endless)).toMatch(/^Grand bal la kour avec les groupes du quartier .*\S…$/);
+    const read = [
+      parseTribe(JSON.parse(fixture("tribe_le-port.json")), "Ville du Port", "Le Port"),
+      parseTribe(JSON.parse(fixture("sechoir.json")), "Le Séchoir", "Saint-Leu"),
+      parseOpenAgenda(JSON.parse(fixture("openagenda_cinor.json")), "CINOR"),
+      parseRss(fixture("rss_le-tampon.xml"), "Ville du Tampon", "Le Tampon"),
+      parseReunionFr(fixture("irt_agenda.html")),
+      parseBisik(fixture("bisik.html")),
+    ];
+    for (const events of read) {
+      const texts = events.map((e) => e.description).filter((d): d is string => !!d);
+      expect(texts.length).toBeGreaterThan(0);
+      for (const d of texts) {
+        expect(d.length).toBeLessThanOrEqual(200);
+        expect(lead(d)).toBe(d);
+      }
+    }
+    // The DKLO's programme at Tan Rouge, many shows long: its first sentence.
+    expect(read[1].find((e) => /TAN ROUGE/.test(e.titre))!.description).toBe("14h30 & 17h Les contes Calumet – Contes 2×30 min Les Contes Calumet, spectacle ZINZIN de Jean Bernard Ifanohiza.");
+  });
+
   it("reads Bras-Panon's agenda, a page a month, with the hours and the price", () => {
     const oct = parseBrasPanon(fixture("bras-panon_2026-10.html"), NOW);
     expect(oct).toHaveLength(10);
@@ -219,11 +245,12 @@ describe("agenda", () => {
 
   it("answers tonight, with the hours", async () => {
     const b = body(await agenda(cache(), undefined, "ce_soir", "concert", NOW));
-    expect(b.resume).toBe("5 événements (concerts et musique) à La Réunion ce soir.");
+    expect(b.resume).toBe("4 événements (concerts et musique) à La Réunion ce soir.");
     // A day without hours may be tonight: the musical of the East is.
-    expect(b.evenements.map((e: { titre: string }) => e.titre)).toEqual(["CALOGERO", "Olivier Ker Ourio", "Une nouvelle comédie musicale indienne signée Sivayanama", "DKLO TAN ROUGE", "Somèn kréol – Plato Zartis"]);
+    // The DKLO at Tan Rouge said « Cirque et musique » after its first sentence: that is no longer kept, nor asked.
+    expect(b.evenements.map((e: { titre: string }) => e.titre)).toEqual(["CALOGERO", "Olivier Ker Ourio", "Une nouvelle comédie musicale indienne signée Sivayanama", "Somèn kréol – Plato Zartis"]);
     expect(b.evenements[0]).toMatchObject({ lieu: "TÉAT Plein Air", commune: "Saint-Paul", genres: ["concert"], publie_par: "TÉAT La Réunion" });
-    expect(b.evenements[4]).toMatchObject({ quand: "samedi 24/10 de 18:00 à 23:00", commune: "Les Trois-Bassins" });
+    expect(b.evenements[3]).toMatchObject({ quand: "samedi 24/10 de 18:00 à 23:00", commune: "Les Trois-Bassins" });
   });
 
   it("answers for a commune, with what its agenda gives", async () => {

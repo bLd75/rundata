@@ -8,6 +8,17 @@ export const MONTHS: [RegExp, number][] = [
 /** The month a word names, French or Creole: « oct », « novembre », « désanm ». */
 export const monthOf = (w: string) => MONTHS.find(([re]) => re.test(w))?.[1];
 
+/** At most this of a reused agenda's text: the cap of a « sentence » that has no full stop. */
+export const LEAD_MAX = 200;
+/**
+ * The first sentence of a text, short: all a reused agenda gives of it besides the facts (« Concert gratuit de l'école
+ * de musique, ouvert à tous. »), cut at a word under LEAD_MAX when it never ends.
+ */
+export function lead(s: string): string {
+  const first = (/^.+?[.!?…](?=\s|$|\p{Lu})/u.exec(s)?.[0] ?? s).trim();
+  return first.length > LEAD_MAX ? `${first.slice(0, LEAD_MAX - 1).replace(/\s+\S*$/, "")}…` : first;
+}
+
 export type Statut = "annulé" | "reporté" | "complet";
 
 /**
