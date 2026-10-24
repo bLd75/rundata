@@ -61,6 +61,8 @@ import icons from "./icons.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import { NOUVEAUTES } from "../nouveautes.js";
 import { nouveautesPage } from "./nouveautes.js";
+import { aujourdhuiPage } from "./aujourdhui.js";
+import { readCopies, resume } from "../tools/resume.js";
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures } from "./presse.js";
@@ -187,7 +189,7 @@ function sitemap(origin: string, now: Date): string {
   const fixed = (u: string) => [u, STATIC_CHANGED, "monthly"];
   const trace = (u: string) => [u, traces.BUILT, "daily"];
   // The defibrillators are a list bundled with the server: their page changes when it is rebuilt.
-  const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/mer"].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)),
+  const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/mer"].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions"].map(fixed),
     ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"]];
@@ -310,6 +312,16 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   }
   if (path === "/communes" || path === "/communes/") {
     return new Response(communesPage(origin, await alerte(cache, background, now)), { headers: HTML });
+  }
+  if (path.startsWith("/aujourdhui/")) {
+    const p = pageOf(path.slice("/aujourdhui/".length).replace(/\/$/, ""));
+    if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
+    // The weather is built when it has no copy, as on the commune's page; the rest only read (tools/resume.ts).
+    const vigilance = vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS);
+    const place = await snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request));
+    const { copies, leftOut } = await readCopies(cache, p, p, now, background, vigilance);
+    const a = copies.vigilance ? alerteOf(copies.vigilance.value, now) : undefined;
+    return new Response(aujourdhuiPage(origin, p, resume(p, copies, now, leftOut), copies.meteo ?? place, a), { headers: htmlFor(place) });
   }
   if (path.startsWith("/communes/")) {
     const p = pageOf(path.slice("/communes/".length).replace(/\/$/, ""));

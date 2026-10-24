@@ -43,6 +43,7 @@ import {
 import { coastal, PAGES, type PlacePage } from "../web/places.js";
 import { occurrences } from "./agenda.js";
 import { hoursOn, openNow } from "./annuaire.js";
+import { SITE_URL } from "./citer.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 import { current, cyclone, highest, raised } from "./vigilance.js";
 
@@ -66,6 +67,8 @@ export interface LeftOut {
   partie: string;
   raison: string;
   outil: string;
+  /** The page of rundata.re that shows it. */
+  page: string;
 }
 
 interface Copy {
@@ -78,6 +81,8 @@ interface Copy {
   /** What the part is, for `non_inclus`, and the tool that answers it. */
   nom: string;
   outil: string;
+  /** Its page on the site, from the root. */
+  page: string;
 }
 
 const H = 60;
@@ -86,16 +91,16 @@ const SEA = "température de la mer";
 /** The copies of the commune's summary, for a place with its own weather page or not. */
 function copiesOf(commune: PlacePage, place: PlacePage): Record<Part, Copy | undefined> {
   return {
-    meteo: { key: `web:lieu:${place.slug}`, build: (c, now) => buildPlace(c, place, now), max: 30, nom: "météo mesurée et prévue", outil: "meteo_actuelle et prevision_meteo" },
-    commune: { key: `web:commune:${commune.slug}`, build: (c, now) => buildCommune(c, commune, now), max: 24 * H, nom: "mairie et info trafic des bus", outil: "annuaire_services_publics et transports" },
-    air: { key: "web:air", build: buildAir, max: 12 * H, sameDay: true, nom: "qualité de l'air", outil: "qualite_air" },
-    mer: coastal(commune) ? { key: "web:mer", build: buildSea, max: 36 * H, nom: SEA, outil: "temperature_mer" } : undefined,
-    electricite: { key: "web:electricite", build: buildElectricite, max: H, nom: "électricité", outil: "electricite" },
-    actualites: { key: "web:actualites", build: buildActualites, max: 2 * H, nom: "actualités de la commune", outil: "actualites" },
-    trafic: { key: "web:trafic", build: buildTrafic, max: 2 * H, nom: "routes et circulation", outil: "actualites (sujet routes)" },
-    coupures: { key: "web:coupures", build: buildCoupures, max: 3 * H, nom: "coupures d'eau", outil: "coupures_eau" },
-    agenda: { key: "web:agenda", build: buildAgenda, max: 24 * H, sameDay: true, nom: "événements du jour", outil: "evenements" },
-    calendrier: { key: "web:calendrier", build: buildCalendrier, max: 24 * H, sameDay: true, nom: "jour férié et vacances", outil: "calendrier" },
+    meteo: { key: `web:lieu:${place.slug}`, build: (c, now) => buildPlace(c, place, now), max: 30, nom: "météo mesurée et prévue", outil: "meteo_actuelle et prevision_meteo", page: `/meteo/${place.slug}` },
+    commune: { key: `web:commune:${commune.slug}`, build: (c, now) => buildCommune(c, commune, now), max: 24 * H, nom: "mairie et info trafic des bus", outil: "annuaire_services_publics et transports", page: `/communes/${commune.slug}` },
+    air: { key: "web:air", build: buildAir, max: 12 * H, sameDay: true, nom: "qualité de l'air", outil: "qualite_air", page: "/air" },
+    mer: coastal(commune) ? { key: "web:mer", build: buildSea, max: 36 * H, nom: SEA, outil: "temperature_mer", page: "/mer" } : undefined,
+    electricite: { key: "web:electricite", build: buildElectricite, max: H, nom: "électricité", outil: "electricite", page: "/electricite" },
+    actualites: { key: "web:actualites", build: buildActualites, max: 2 * H, nom: "actualités de la commune", outil: "actualites", page: "/actualites" },
+    trafic: { key: "web:trafic", build: buildTrafic, max: 2 * H, nom: "routes et circulation", outil: "actualites (sujet routes)", page: "/trafic" },
+    coupures: { key: "web:coupures", build: buildCoupures, max: 3 * H, nom: "coupures d'eau", outil: "coupures_eau", page: `/coupures-eau/${commune.slug}` },
+    agenda: { key: "web:agenda", build: buildAgenda, max: 24 * H, sameDay: true, nom: "événements du jour", outil: "evenements", page: "/evenements" },
+    calendrier: { key: "web:calendrier", build: buildCalendrier, max: 24 * H, sameDay: true, nom: "jour férié et vacances", outil: "calendrier", page: "/calendrier" },
   };
 }
 
@@ -272,15 +277,16 @@ export function placeOf(lieu: string): { commune: PlacePage; place: PlacePage; r
 
 /**
  * Reads the copies of the commune's summary, keeps those recent enough, names the others, and brings the oldest of
- * those up to date after the answer when `background` is given and what its build took is left.
+ * those up to date after the answer when `background` is given and what its build took is left. `vigilance`: the
+ * vigilance as the caller has it already (a page waits for it only a moment), else it is read here.
  */
-export async function readCopies(cache: Cache, commune: PlacePage, place: PlacePage, now: Date, background?: Background) {
+export async function readCopies(cache: Cache, commune: PlacePage, place: PlacePage, now: Date, background?: Background, vigilance?: Promise<Cached<mf.Vigilance> | null>) {
   const parts = Object.entries(copiesOf(commune, place)).filter((e): e is [Part, Copy] => !!e[1]);
   // One read each, as long as the invocation has subrequests left.
   const budget = left();
   const [peeked, vig] = await Promise.all([
     Promise.all(parts.map(([, c], i) => (i < budget ? cache.peek<any>(c.key).catch(() => undefined) : Promise.resolve(undefined)))),
-    mf.enabled() ? mf.vigilance(cache).catch((err) => (console.error(`source ${mf.SOURCE.id} indisponible:`, why(err)), null)) : Promise.resolve(null),
+    vigilance ?? (mf.enabled() ? mf.vigilance(cache).catch((err) => (console.error(`source ${mf.SOURCE.id} indisponible:`, why(err)), null)) : Promise.resolve(null)),
   ]);
   const copies: ResumeCopies = { vigilance: vig };
   const leftOut: LeftOut[] = [];
@@ -293,10 +299,10 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
       noteLecture({ key: c.key, fetchedAt: copy.fetchedAt.getTime(), stale: false, freshSeconds: FRESH_SECONDS });
       return;
     }
-    leftOut.push({ partie: c.nom, raison: copy ? `copie de ${localTime(copy.fetchedAt)}, trop ancienne` : "pas de copie récente", outil: c.outil });
+    leftOut.push({ partie: c.nom, raison: copy ? `copie de ${localTime(copy.fetchedAt)}, trop ancienne` : "pas de copie récente", outil: c.outil, page: `${SITE_URL}${c.page}` });
     due.push({ c, age: copy ? now.getTime() - copy.fetchedAt.getTime() : Infinity });
   });
-  if (!vig) leftOut.push({ partie: "vigilance", raison: mf.enabled() ? "Météo-France ne répond pas" : "vigilance non branchée", outil: "vigilance_meteo" });
+  if (!vig) leftOut.push({ partie: "vigilance", raison: mf.enabled() ? "Météo-France ne répond pas" : "vigilance non branchée", outil: "vigilance_meteo", page: `${SITE_URL}/vigilance` });
   const oldest = due.sort((x, y) => y.age - x.age)[0];
   const refresh = !!background && !!oldest && left() >= (costOf(oldest.c.key) ?? COST_UNKNOWN);
   if (refresh) {

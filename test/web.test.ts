@@ -229,6 +229,25 @@ describe("commune pages", () => {
     expect(warm.used).toBeLessThanOrEqual(17);
   });
 
+  it("have their day on a page of its own, cold within the limit, warm from a few reads", async () => {
+    const edge = new EdgeLike();
+    const cold = await serve(isolate(edge), "/aujourdhui/saint-leu");
+    expect(cold.r.status).toBe(200);
+    expect(cold.text).toContain("<h1>Aujourd&#39;hui à Saint-Leu</h1>");
+    expect(cold.text).toContain('<link rel="canonical" href="https://rundata.re/aujourdhui/saint-leu">');
+    expect(cold.text).toContain('href="/communes/saint-leu"');
+    // The weather is built at once; the rest only read, and named with its page while it has no copy.
+    expect(cold.text).toMatch(/mesurés à \d\d:\d\d par la station/);
+    expect(cold.text).toContain("rundata.re ne mesure pas les bouchons");
+    expect(cold.text).toMatch(/Pas de copie récente pour : .*<a href="\/coupures-eau\/saint-leu">coupures d&#39;eau<\/a>/);
+    expect(cold.used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    // Another isolate: a read for each copy and the vigilance, and the oldest copy missing brought up to date when it fits.
+    const warm = await serve(isolate(edge), "/aujourdhui/saint-leu");
+    expect(warm.used).toBeLessThanOrEqual(20);
+    expect((await serve(isolate(), "/aujourdhui/maido")).r.status).toBe(404);
+    expect((await serve(isolate(edge), "/communes/saint-leu")).text).toContain('<a class="btn glass" href="/aujourdhui/saint-leu">Aujourd&#39;hui à Saint-Leu : le résumé de la journée →</a>');
+  });
+
   it("leave the sea out in the Hauts, and only exist for the 24 communes", async () => {
     const { text } = await serve(isolate(), "/communes/cilaos");
     expect(text).not.toContain(`<h3><a href="/mer">Mer</a></h3>`);
@@ -253,8 +272,8 @@ describe("what crawlers and previews fetch", () => {
     const robots = await (await handle(new Request("https://rundata.re/robots.txt"), isolate())).text();
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
-    // The pages, the 24 communes and their water, and a page per hike and per ONF trail with its GPS trace.
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 30 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length);
+    // The pages, the 24 communes, their water and their day, and a page per hike and per ONF trail with its GPS trace.
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 30 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length);
     expect(map).toContain("<loc>https://rundata.re/randonnees/sentier-du-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/sentiers/le-bloc-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/communes</loc>");
