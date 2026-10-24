@@ -137,5 +137,11 @@ describe("past cyclones", () => {
     expect(b.records_battus).toContainEqual({ station: "Plaine des Cafres", jour: "22/01/2002", rafale_kmh: 220, rafale_ms: 61, record_de_la_station: "mesures depuis 1965" });
     expect(b.page).toBe("https://rundata.re/cyclones/dina-2002");
     expect(b.passage_d_apres.lien).toBe("https://www.vie-publique.fr/files/rapport/pdf/034000505.pdf");
+    // Gamède: Météo-France's words under fixed keys, the quotes as they are.
+    const g = body(await cyclones(new Cache(), undefined, NOW, "Gamède")).selon_meteo_france;
+    expect(Object.keys(g)).toEqual(["attribution", "intro", "citations", "a_savoir"]);
+    expect(g.intro).toBe(passe("gamede-2007").extraits!.intro);
+    expect(g.citations).toEqual(passe("gamede-2007").extraits!.citations);
+    expect(g.attribution).toContain("jamais à rundata.re");
   });
 });
