@@ -339,6 +339,11 @@ text-decoration:none;color:#fff;background:rgb(255 255 255/.09);border:1px solid
 .map .sea{fill:var(--sea)}.map .coast{fill:none;stroke:var(--coast);stroke-width:9;stroke-linejoin:round}
 .map .land{fill:var(--land)}.map .borders{fill:none;stroke:var(--border);stroke-width:1.6}
 .map .hl{fill:var(--hl);stroke:var(--accent);stroke-width:3}
+.map.terrain .borders{stroke:rgb(255 255 255/.28);stroke-width:1.2}
+.map.terrain .hl{fill:rgb(255 224 138/.28);stroke:#ffd43b;stroke-width:5}
+.map.terrain .mn,.map.terrain .pk text,.map.terrain .pin text{fill:#fff;stroke:rgb(10 30 40/.75)}
+.map.terrain .pk path{fill:#fff}
+.map.terrain .mk{filter:drop-shadow(0 4px 6px rgb(0 0 0/.3))}.map.terrain .mk circle,.map.terrain .mk rect{stroke:#fff;stroke-width:4}
 .map text{font-family:system-ui,sans-serif;text-anchor:middle}
 .map .mv{fill:#fff;font-weight:700;font-size:30px}
 .map .mn,.map .pk text{fill:var(--ink);font-size:23px;paint-order:stroke;stroke:var(--land);stroke-width:7px;stroke-linejoin:round}
