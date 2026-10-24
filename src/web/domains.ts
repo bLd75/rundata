@@ -5,7 +5,7 @@
  * its tile on the home page.
  */
 import { PREFECTURE } from "../providers/volcan.js";
-import { ENCLOS_SAID, hausseNiveau, IMAGE_APRES, LOCALISES } from "../tools/volcan.js";
+import { enclosWord, hausseNiveau, IMAGE_APRES, LOCALISES, ORSEC_BAN, sourceName } from "../tools/volcan.js";
 import { type Ligne, libelle, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { alertSections, alerteVolcan, CONSIGNES, releaseDay, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
@@ -21,7 +21,7 @@ import { de, fr } from "../tools/format.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
+import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type Enclos, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
 import { FAST_KW } from "../tools/bornes.js";
 import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
@@ -88,9 +88,37 @@ const connectorCta = (tool: string, what: string) => `<section aria-labelledby="
 
 // ---------------------------------------------------------------- volcan
 
-const ACCESS: Record<string, string> = { ouvert: "ouvert", partiel: "partiellement ouvert", ferme: "fermé", fermé: "fermé" };
 const md = (m: number | null) => (m == null ? "—" : fr(Math.round(m * 10) / 10));
 const dayOf = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Indian/Reunion" });
+
+// The Enclos as its source says it (marketing): the prefecture's release in its title's own words, « 20/10 » its day,
+// or closed by the level of an alert whose title says nothing of it; otherwise pitonlive's word, quoted as its own, then
+// the source pitonlive names.
+const dd = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
+const sourceLink = (x: Enclos) => (x.lien ? `<a href="${esc(x.lien)}">${esc(sourceName(x.source!))}</a>` : esc(sourceName(x.source!)));
+const releaseLink = (c: NonNullable<Enclos["communique"]>) => `<a href="${esc(c.lien)}">communiqué de la préfecture du ${dd(c.jour)}</a>`;
+// The release's words in bold and its day linked, « Accès à l'Enclos : <b>« fermeture »</b> selon le <a>communiqué de la
+// préfecture du 23/10</a> »; or its level, the ban the plan's: « Alerte 2-1 selon le <a>…</a> : accès à l'Enclos
+// <b>interdit</b> à ce niveau (dispositif ORSEC Volcan) ».
+const releaseSaid = (c: NonNullable<Enclos["communique"]>, du = releaseLink(c)) =>
+  c.mots
+    ? `Accès à l'Enclos : <b>${esc(`« ${c.mots} »`)}</b> selon le ${du}`
+    : `${esc(c.niveau!)} selon le ${du} : ${ORSEC_BAN.replace("interdit", "<b>interdit</b>")}`;
+const enclosSaid = (x: Enclos) =>
+  x.communique?.mots
+    ? `Enclos : <b>${esc(`« ${x.communique.mots} »`)}</b> selon le ${releaseLink(x.communique)}.`
+    : x.communique
+      ? `${releaseSaid(x.communique)}.`
+      : `Enclos : <b>${esc(enclosWord(x.statut))}</b> selon pitonlive.com${x.source ? ` (source : ${sourceLink(x)})` : ""}.`;
+const enclosTitle = (x: Enclos) =>
+  x.communique?.mots
+    ? `Enclos : « ${x.communique.mots} » selon le communiqué du ${dd(x.communique.jour)}`
+    : x.communique
+      ? ENCLOS
+      : `Enclos : ${enclosWord(x.statut)} selon pitonlive.com`;
+// In the home page's tile, after « selon pitonlive.com · » said of the eruption.
+const enclosShort = (x: Enclos) =>
+  x.communique?.mots ? `Enclos « ${x.communique.mots} » selon la préfecture` : x.communique?.niveau ? "Enclos interdit" : `Enclos ${enclosWord(x.statut)}`;
 
 // Where the prefecture publishes each phase of the ORSEC volcano plan.
 const GOUV = `<a href="${PREFECTURE.url}">reunion.gouv.fr</a>`;
@@ -102,6 +130,9 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   const e = d?.etat;
   const q = d?.seismes;
   const url = `${origin}/volcan`;
+  // Out of an alert, the level pitonlive's, no release of the prefecture read: quoted with its source, without the
+  // plan's words (marketing).
+  const pitonLevel = !!e && !a && !e.communique_prefecture && !e.niveau_inconnu;
 
   const status = !d
     ? loading("L'état du volcan")
@@ -112,20 +143,22 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
           ? `<p class="lead"><b>${esc(hausseNiveau(e.ecart_prefecture))}</b></p>`
           : a
           ? `<p class="lead"><b>${esc(volcanLead(a))}</b></p>`
-          : e.niveau_inconnu && !e.eruption_en_cours ? "" : `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours"}</p>`) +
+          : e.niveau_inconnu && !e.eruption_en_cours ? "" : `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours selon pitonlive.com"}</p>`) +
           (e.ecart_prefecture ? "<p class=\"lead\">" : e.niveau_inconnu
             // The prefecture's phase not read, none kept: the level is not given (tools/volcan.ts), and why (marketing).
             ? `<p class="lead">Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Nous n'avons pas pu lire le niveau d'alerte de la préfecture : vérifiez-le sur ${GOUV} avant de monter au volcan.`
-            : `<p class="lead">Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>${e.ecart_pitonlive && e.communique_prefecture
+            : `<p class="lead">Niveau du dispositif ORSEC volcan : ${pitonLevel ? `« ${esc(e.niveau_orsec)} » selon pitonlive.com` : `<b>${esc(e.niveau_orsec)}</b>`}${e.ecart_pitonlive && e.communique_prefecture
               ? ` selon le dernier communiqué de la préfecture que nous avons lu (${esc(dayOf(releaseDay(e.communique_prefecture)))}). pitonlive.com indique « ${esc(e.ecart_pitonlive.niveau)} » depuis le ${esc(dayOf(e.ecart_pitonlive.depuis))} : vérifiez le niveau en vigueur sur ${GOUV}`
               : ""}.`) +
-          (e.niveau_definition ? ` <span class="note">${esc(e.niveau_definition)}</span>` : "") +
+          (e.niveau_definition && !pitonLevel ? ` <span class="note">${esc(e.niveau_definition)}</span>` : "") +
           (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b>.` : "") +
           (e.deformation ? ` Déformation du volcan : ${esc(e.deformation)}.` : "") + `</p>` +
-          (e.ecart_pitonlive && e.communique_prefecture && e.acces_enclos
+          (e.ecart_pitonlive && e.communique_prefecture && e.acces_enclos?.communique
             // pitonlive lower for long: the Enclos as the prefecture's release said it, and where it comes from (marketing).
-            ? `<p class="lead">Accès à l'Enclos <b>${esc(ENCLOS_SAID[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b> selon le communiqué du ${esc(dayOf(releaseDay(e.communique_prefecture)))} : vérifiez sur ${GOUV} avant de partir.</p>`
-            : a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.niveau_inconnu ? `<p class="lead">Accès à l'Enclos : à vérifier sur ${GOUV}, avant de partir.</p>` : e.acces_enclos ? `<p class="lead">Accès à l'Enclos : <b>${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</b>.</p>` : "") +
+            ? (e.acces_enclos.communique.mots
+              ? `<p class="lead">${releaseSaid(e.acces_enclos.communique, `communiqué du ${dd(e.acces_enclos.communique.jour)}`)} : vérifiez sur ${GOUV} avant de monter.</p>`
+              : `<p class="lead">${releaseSaid(e.acces_enclos.communique, `communiqué de la préfecture du ${dd(e.acces_enclos.communique.jour)}`)}. Vérifiez sur ${GOUV} avant de monter.</p>`)
+            : a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.niveau_inconnu ? `<p class="lead">Accès à l'Enclos : à vérifier sur ${GOUV}, avant de partir.</p>` : e.acces_enclos ? `<p class="lead">${enclosSaid(e.acces_enclos)}</p>` : "") +
           (e.image_ovpf_plus_recente ? `<p class="lead">${esc(IMAGE_APRES)}</p>` : "")
         : `<p class="lead">${esc(d.resume)}</p>`) +
       (q ? `<p class="lead">Séismes localisés par l'OVPF sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
@@ -135,9 +168,9 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   const enclos = a
     ? `<div class="card">${icon("mountain")}<h3>${esc(ENCLOS)}</h3><p>${esc(CONSIGNES)}</p></div>`
     : e?.acces_enclos
-    ? `<div class="card">${icon("mountain")}<h3>Accès à l'Enclos : ${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}</h3>` +
+    ? `<div class="card">${icon("mountain")}<h3>${esc(enclosTitle(e.acces_enclos))}</h3>` +
       (e.acces_enclos.detail ? `<p>${esc(e.acces_enclos.detail)}</p>` : "") +
-      (e.acces_enclos.source ? `<p class="note">${e.acces_enclos.lien ? `<a href="${esc(e.acces_enclos.lien)}">${esc(e.acces_enclos.source)}</a>` : esc(e.acces_enclos.source)}</p>` : "") +
+      (e.acces_enclos.source ? `<p class="note">${sourceLink(e.acces_enclos)}</p>` : "") +
       `</div>`
     : "";
 
@@ -177,23 +210,19 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   // In vigilance as the prefecture or pitonlive gives it (never an unread level), the level and the plan's words; the
   // level in lower case within a sentence, « Vigilance volcanique » opening the title after its colon (marketing).
   const vigilance = !a && e && !e.niveau_inconnu && e.niveau_orsec === "Vigilance" ? libelle("Vigilance") : undefined;
-  const title = a ? volcanTitle(a) : vigilance ? "Piton de la Fournaise : Vigilance volcanique · 974" : "Piton de la Fournaise en direct : éruption, Enclos, séismes · 974";
+  const title = a ? volcanTitle(a) : vigilance && pitonLevel ? "Piton de la Fournaise : « Vigilance » selon pitonlive.com · 974" : vigilance ? "Piton de la Fournaise : Vigilance volcanique · 974" : "Piton de la Fournaise en direct : éruption, Enclos, séismes · 974";
+  // Out of an alert, whether it erupts only with its source, never on our word, in a fixed length (marketing).
   const description = a
     ? volcanMeta(a)
-    : d && e
-    ? describe(
-        `🇷🇪 Piton de la Fournaise (La Réunion, 974) : ${e.eruption_en_cours ? "éruption en cours" : "pas d'éruption en cours"}, niveau ORSEC ${e.niveau_orsec}` +
-          `${e.acces_enclos ? `, Enclos ${ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut}` : ""}` +
-          `${q ? `, ${q.sous_le_volcan["7_jours"]} séismes localisés par l'OVPF sous le volcan en 7 jours` : ""}.`,
-        "🇷🇪 Piton de la Fournaise (La Réunion, 974) en direct : éruption ou non, accès à l'Enclos, séismes localisés par l'OVPF.",
-      )
+    : e?.eruption_en_cours === false
+    ? "🇷🇪 Piton de la Fournaise (974) : pas d'éruption en cours selon pitonlive.com. Niveau ORSEC, accès à l'Enclos et séismes localisés par l'OVPF, en direct."
     : "🇷🇪 Piton de la Fournaise (La Réunion, 974) en direct : éruption ou non, accès à l'Enclos, séismes localisés par l'OVPF.";
 
   const band = `${crumbBar("Volcan")}
 <div class="wrap intro">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Volcan en direct</p>
-    <h1>${a ? esc(volcanH1(a)) : vigilance ? esc(`Piton de la Fournaise : vigilance, ${vigilance}`) : `Piton de la Fournaise <span class="n974">974</span>`}</h1>
+    <h1>${a ? esc(volcanH1(a)) : vigilance && pitonLevel ? esc("Piton de la Fournaise : « Vigilance » selon pitonlive.com") : vigilance ? esc(`Piton de la Fournaise : vigilance, ${vigilance}`) : `Piton de la Fournaise <span class="n974">974</span>`}</h1>
     ${status}
     ${ask(`Volkan la pété ? Gèt si ${url} é di amwin si lanklo lé ouvèr.`,
       `Le Piton de la Fournaise est-il en éruption ? Lis ${url} et dis-moi aussi si l'Enclos est ouvert.`)}
@@ -259,10 +288,14 @@ export function volcanLive(data: Cached<VolcanAnswer> | null): Live | undefined 
   const q = data!.value.seismes;
   return {
     valeur: e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption",
+    // The value and its source in the same link: « Pas d'éruption » never without « selon pitonlive.com » (marketing).
     detail: [
-      e.acces_enclos ? `Enclos ${esc(ACCESS[e.acces_enclos.statut] ?? e.acces_enclos.statut)}` : `ORSEC ${esc(e.niveau_orsec)}`,
+      "selon pitonlive.com",
+      e.acces_enclos ? esc(enclosShort(e.acces_enclos)) : `ORSEC « ${esc(e.niveau_orsec)} »`,
       q ? `${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} localisé${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} par l'OVPF sous le volcan en 7 jours` : undefined,
     ].filter(Boolean).join(" · "),
+    // In the hero, where the detail is not shown; on a line of its own, never cut with the value.
+    source: "selon pitonlive.com",
   };
 }
 
@@ -1115,7 +1148,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   <p class="note">Les routes du volcan, du Maïdo et de Bébour-Bélouve, et toutes celles que l'ONF interdit à la circulation${rf.mise_a_jour ? `, d'après sa carte mise à jour le ${esc(dayOf(rf.mise_a_jour))}` : ""}. <a href="/sentiers">Sentiers fermés</a>.</p></div>`;
 
   const enclos = d?.enclos
-    ? `<div class="card">${icon("volcano")}<h3>Volcan : accès à l'Enclos</h3><p><b>${esc(ACCESS[d.enclos.statut] ?? d.enclos.statut)}</b>${d.enclos.detail ? ` : ${esc(d.enclos.detail)}` : ""}</p><p class="note"><a href="/volcan">Le volcan en direct</a>.</p></div>`
+    ? `<div class="card">${icon("volcano")}<h3>Volcan : accès à l'Enclos</h3><p>${d.enclos.communique ? releaseSaid(d.enclos.communique) : `<b>${esc(enclosWord(d.enclos.statut))}</b> selon pitonlive.com${d.enclos.detail ? ` : ${esc(d.enclos.detail)}` : ""}`}</p><p class="note"><a href="/volcan">Le volcan en direct</a>.</p></div>`
     : "";
 
   // What the media report on the roads and the blockades in the last hours, their headlines linked: first, as on a day of blockades it matters most.

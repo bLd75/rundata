@@ -92,12 +92,15 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     expect(v.etat?.niveau_orsec).toBe("Alerte 1");
     expect(v.resume).toContain("Niveau du dispositif ORSEC volcan : Alerte 1 selon le dernier communiqué de la préfecture que nous avons lu (17/10). pitonlive.com indique « Vigilance » depuis le 19/10 : vérifiez le niveau en vigueur sur reunion.gouv.fr.");
     // The Enclos as the release said it (closed in alert), and where it comes from: never pitonlive's « partiellement ».
-    expect(v.resume).toContain("Accès à l'Enclos interdit selon le communiqué du 17/10 : vérifiez sur reunion.gouv.fr avant de partir.");
+    // The release's title says nothing of the Enclos: closed by its level, never « interdit » put in its mouth (marketing).
+    expect(v.resume).toContain("Alerte 1 selon le communiqué de la préfecture du 17/10 : accès à l'Enclos interdit à ce niveau (dispositif ORSEC Volcan). Vérifiez sur reunion.gouv.fr avant de monter.");
+    expect(v.resume).not.toContain("interdit selon le communiqué");
     expect(v.resume).not.toContain("partiellement");
     const html = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
     const gouv = `<a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse">reunion.gouv.fr</a>`;
     expect(html).toContain(`Niveau du dispositif ORSEC volcan : <b>Alerte 1</b> selon le dernier communiqué de la préfecture que nous avons lu (17 octobre 2026). pitonlive.com indique « Vigilance » depuis le 19 octobre 2026 : vérifiez le niveau en vigueur sur ${gouv}.`);
-    expect(html).toContain(`Accès à l'Enclos <b>interdit</b> selon le communiqué du 17 octobre 2026 : vérifiez sur ${gouv} avant de partir.`);
+    expect(html).toContain(`Alerte 1 selon le communiqué de la préfecture du 17/10 : accès à l'Enclos <b>interdit</b> à ce niveau (dispositif ORSEC Volcan). Vérifiez sur ${gouv} avant de monter.`);
+    expect(html.replace(/<\/?b>/g, "")).not.toContain("interdit selon le communiqué");
     vi.restoreAllMocks();
   });
 });

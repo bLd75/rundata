@@ -22,9 +22,25 @@ const dayOf = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
 // Worded by marketing: what the texts read say, never that the eruption has not begun.
 export const NON_ANNONCEE = "L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus.";
 export const IMAGE_APRES = "La dernière publication de l'OVPF est une image que nous ne lisons pas : l'état ci-dessus peut ne pas en tenir compte.";
-// « Accès à l'Enclos interdit selon le communiqué du … ».
-export const ENCLOS_SAID: Record<string, string> = { ferme: "interdit", fermé: "interdit", partiel: "partiellement ouvert", ouvert: "ouvert" };
-const ACCESS: Record<string, string> = { ouvert: "ouvert", partiel: "partiellement ouvert", ferme: "fermé", fermé: "fermé" };
+/** pitonlive's word for the Enclos, quoted as its own: never read as « ouvert » (« partiel »), only spelt (« ferme »). */
+export const enclosWord = (statut: string) => `« ${statut === "ferme" ? "fermé" : statut} »`;
+/** The source pitonlive names, as said: « Préfecture de La Réunion, arrêté n° 2026-627 du 7 mai 2026 ». */
+export const sourceName = (s: string) => s.replace(/\s+[—–]\s+/, ", ").replace(/n°(?=\d)/g, "n°\u00a0");
+
+/**
+ * The Enclos when it is the release's (marketing): in its title's own words, never one the release does not say; in an
+ * alert whose title says nothing of it, closed by the level. Otherwise pitonlive's, said as pitonlive's.
+ */
+export function enclosOfRelease(p: volcan.Phase): { mots?: string; niveau?: string } | undefined {
+  if (!p.enclos) return undefined;
+  const mots = volcan.enclosWords(p.titre);
+  return mots ? { mots } : /^Alerte/.test(p.niveau) && p.enclos === "ferme" ? { niveau: p.niveau } : undefined;
+}
+
+/** « Accès à l'Enclos : « fermeture » selon le communiqué de la préfecture du 23/10 », `du` the words before the day. */
+export const enclosWordsSaid = (mots: string, du: string) => `Accès à l'Enclos : « ${mots} » selon le ${du}`;
+// An alert's ban when its release says nothing of the Enclos: the level the release's, the ban the plan's (marketing).
+export const ORSEC_BAN = "accès à l'Enclos interdit à ce niveau (dispositif ORSEC Volcan)";
 
 async function settle<T>(source: string, p: Promise<{ value: T }>): Promise<T | null> {
   try {
@@ -134,9 +150,8 @@ export interface Ecart {
  */
 /** The Enclos as the prefecture's release says it, else as pitonlive gives it. */
 function accessOf(s: volcan.PitonState, p: volcan.Phase): volcan.PitonState["access"] {
-  const enclos = p.enclos ?? s.access?.current?.enclos_status;
-  return enclos
-    ? { current: { available: true, global_status: enclos, enclos_status: enclos, summary: p.titre, source_name: "Préfecture de La Réunion", source_url: p.lien } }
+  return enclosOfRelease(p)
+    ? { current: { available: true, global_status: p.enclos!, enclos_status: p.enclos!, summary: p.titre, source_name: "Préfecture de La Réunion", source_url: p.lien } }
     : s.access;
 }
 
@@ -153,7 +168,7 @@ export function official(s: volcan.PitonState, p: volcan.Phase, now = new Date()
     // the only text on the accesses. Said beside pitonlive's level (`hausse`); the word « éruption » only ever the
     // prefecture's (marketing), and so the eruption and the Enclos as its release says them.
     return up > 0 && /^Alerte/.test(p.niveau)
-      ? { ...s, status: { ...s.status, is_erupting: p.eruption }, access: p.enclos ? accessOf(s, p) : s.access, prefecture: p, hausse: true }
+      ? { ...s, status: { ...s.status, is_erupting: p.eruption }, access: accessOf(s, p), prefecture: p, hausse: true }
       : s;
   }
   const ecart = newer && now.getTime() - known > APART_MS ? { niveau: s.status.alert_level_display, depuis: s.status.published_at! } : undefined;
@@ -196,6 +211,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
 
   // « Puis-je monter au volcan ? »: the release whose phase is the one given, quoted from its page (volcan-acces.ts).
   const given = (state as { prefecture?: volcan.Phase } | null)?.prefecture;
+  // The Enclos when it is the release's: in its own words (marketing).
+  const ofRelease = given && enclosOfRelease(given);
   const phrases = given ? await volcan.releaseText(cache, given, now.getTime()) : undefined;
   const niveau = state && !unknown ? state.status.alert_level_display : undefined;
   const hausse: Hausse | undefined = state && given && (state as { hausse?: true }).hausse
@@ -225,9 +242,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
         ? `ÉRUPTION EN COURS au Piton de la Fournaise${p?.eruption ? `, annoncée par la préfecture le ${dayOf(p.jour)}` : ""}.`
         : /^Alerte/.test(s.alert_level_display)
           ? `${s.alert_level_display} au Piton de la Fournaise${libelle(s.alert_level_display) ? ` : « ${libelle(s.alert_level_display)} » (dispositif ORSEC Volcan)` : ""}. ${NON_ANNONCEE}`
-          : unknown
-            ? "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com."
-            : "Pas d'éruption en cours au Piton de la Fournaise.",
+          // Never on our word: its source with it, the level read or not (data-run).
+          : "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com.",
     );
     if (p) parts.push(`Communiqué de la préfecture du ${dayOf(p.jour)} : « ${p.titre} » (${p.lien}).`);
     const ecart = (state as { ecart?: Ecart }).ecart;
@@ -246,8 +262,12 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     const a = unknown ? undefined : state.access?.current;
     if (unknown) parts.push(`Accès à l'Enclos : ${NIVEAU_INCONNU}, avant de partir.`);
     // pitonlive lower for long: the Enclos as the prefecture's release said it, and where it comes from (marketing).
-    if (ecart && a?.available) parts.push(`Accès à l'Enclos ${ENCLOS_SAID[a.enclos_status] ?? a.enclos_status} selon le communiqué du ${dayOf(p!.jour)} : vérifiez sur reunion.gouv.fr avant de partir.`);
-    else if (a?.available) parts.push(`Accès à l'Enclos : ${ACCESS[a.enclos_status] ?? a.enclos_status}${a.source_name ? ` (${a.source_name})` : ""}.`);
+    const du = given && dayOf(given.jour);
+    if (ecart && a?.available && ofRelease?.mots) parts.push(`${enclosWordsSaid(ofRelease.mots, `communiqué du ${du}`)} : vérifiez sur reunion.gouv.fr avant de monter.`);
+    else if (ecart && a?.available && ofRelease?.niveau) parts.push(`${ofRelease.niveau} selon le communiqué de la préfecture du ${du} : ${ORSEC_BAN}. Vérifiez sur reunion.gouv.fr avant de monter.`);
+    else if (a?.available && ofRelease?.mots) parts.push(`${enclosWordsSaid(ofRelease.mots, `communiqué de la préfecture du ${du}`)}.`);
+    else if (a?.available && ofRelease?.niveau) parts.push(`Niveau : ${ofRelease.niveau.toLowerCase()} selon le communiqué de la préfecture du ${du}. Accès à l'Enclos interdit à ce niveau du dispositif ORSEC Volcan.`);
+    else if (a?.available) parts.push(`Accès à l'Enclos : ${enclosWord(a.enclos_status)} selon pitonlive.com${a.source_name ? ` (source : ${sourceName(a.source_name)})` : ""}.`);
   }
   const last = posts?.[0];
   // The observatory's newest post an image we do not read, newer than what the state comes from: it may announce what
@@ -302,6 +322,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
                 detail: state.access.current.summary,
                 source: state.access.current.source_name,
                 lien: state.access.current.source_url,
+                // The release's, in its words: said as the release's, pitonlive's otherwise.
+                ...(ofRelease && { communique: { ...ofRelease, jour: given!.jour, lien: given!.lien } }),
               }
             : undefined,
           communique_prefecture: prefecture(state),

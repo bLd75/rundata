@@ -296,6 +296,18 @@ function needed<T>(r: { content: { text: string }[]; isError?: boolean }, what: 
   return a;
 }
 
+/**
+ * The Enclos as pitonlive says it, or as the prefecture's release says it (`communique`): in its title's own words
+ * (`mots`), or the level of an alert whose title says nothing of it (`niveau`, « Alerte 1 »), the ban the plan's.
+ */
+export interface Enclos {
+  statut: string;
+  detail?: string;
+  source?: string;
+  lien?: string;
+  communique?: { mots?: string; niveau?: string; jour: string; lien: string };
+}
+
 export interface VolcanAnswer {
   /** « Puis-je monter au volcan ? »: the official texts, place by place (tools/volcan-acces.ts). */
   puis_je_monter?: Acces;
@@ -317,7 +329,7 @@ export interface VolcanAnswer {
     eruption?: { name?: string; started_at?: string; public_summary?: string };
     derniere_eruption_fin?: string;
     deformation?: string;
-    acces_enclos?: { statut: string; detail?: string; source?: string; lien?: string };
+    acces_enclos?: Enclos;
     /**
      * The prefecture's release, when its phase is the one given. `jour`: its day, « 2026-10-24 » (the hour is not
      * given); a copy made by an earlier version has `publie` instead, noon of that day (`releaseDay`, volcan-alerte.ts).
@@ -1190,7 +1202,7 @@ export interface TraficAnswer {
     mise_a_jour?: string;
   } | null;
   /** The Enclos of the volcano, from the volcano's page when it has been built. */
-  enclos?: { statut: string; detail?: string; source?: string; lien?: string };
+  enclos?: Enclos;
   /** The month's maximum fuel prices, set by the prefect. */
   carburants?: carburants.Prix;
   /** What the media report on the roads and the blockades in the last hours, newest first. */
