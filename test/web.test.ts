@@ -51,7 +51,7 @@ function upstream(url: string): Response {
   if (url.includes("noaacwLEOACSPO")) return new Response(fixture("acspo.csv"));
   if (url.includes("erdMH1sstd1day")) return new Response(fixture("modis.csv"));
   if (url.includes("marine-api.open-meteo")) return new Response(fixture("openmeteo_houle.json"));
-  if (url.includes("firms.modaps")) return new Response(fixture("firms_viirs_noaa20.csv"));
+  if (new URL(url).hostname === "firms.modaps.eosdis.nasa.gov") return new Response(fixture("firms_viirs_noaa20.csv"));
   if (new URL(url).hostname.endsWith(".arcgis.com")) return new Response(fixture(`onf/${url.includes("/5/query") ? "sentiers" : url.includes("/4/query") ? "routes" : "couche"}.json`));
   if (url.includes("air-quality-api.open-meteo")) return new Response(fixture("cams_uv.json"));
   if (url.includes("open-meteo.com/data")) return new Response(fixture("openmeteo_meta.json"));
@@ -120,7 +120,7 @@ describe("the budget of subrequests", () => {
     try {
       for (const budget of [0, 6, 18, WORKER_BUDGET]) {
         const cache = isolate();
-        for (const path of ["/sentiers", "/randonnees", "/communes/saint-paul", "/vigilance"]) {
+        for (const path of ["/sentiers", "/randonnees", "/feux", "/communes/saint-paul", "/vigilance"]) {
           const r = await within(cache, path, budget);
           expect(r.status, `${path} with ${budget}`).toBeLessThan(500);
           expect(r.used, `${path} with ${budget}`).toBeLessThanOrEqual(budget);

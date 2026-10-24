@@ -77,17 +77,19 @@ export function forecastLinks(communes: (string | undefined)[]): string {
  * The commune's page's hiking tile: its ONF trails, those closed, and its sector's page; first, the fires seen by
  * satellite in the commune, with the emergency numbers (worded by marketing).
  */
-export function communeHikes(p: PlacePage, hikes: Cached<RandonneesAnswer> | null | undefined, now = new Date()): { live?: Live; href: string } | undefined {
+export function communeHikes(p: PlacePage, hikes: Cached<RandonneesAnswer> | null | undefined, now = new Date()): { live?: Live; href: string; foot?: string } | undefined {
   const sector = secteurNamed(secteur(p.place.lon, p.place.lat).secteur);
   const href = sector ? `/randonnees/${sector.slug}` : "/randonnees";
   if (!hikes) return { href };
   const trails = hikes.value.secteurs.flatMap((z) => z.sentiers).filter((t) => t.commune === p.nom);
   const fires = hikes.value.feux?.detections.filter((d) => d.commune === p.nom) ?? [];
   const burning = fires.length ? `${esc(fire.tileLine(fires, now))} · <b>${esc(fire.URGENCE)}</b>` : "";
-  if (!trails.length) return burning ? { href: "/sentiers", live: { valeur: "Feu détecté", detail: burning } } : undefined;
+  const foot = burning ? `<a href="/feux">Voir la carte des feux →</a>` : undefined;
+  if (!trails.length) return burning ? { href: "/feux", live: { valeur: "Feu détecté", detail: burning }, foot } : undefined;
   const shut = trails.filter((t) => t.etat === "fermé").length;
   return {
     href,
+    foot,
     live: {
       valeur: shut ? `${shut} sentier${shut > 1 ? "s" : ""} fermé${shut > 1 ? "s" : ""}` : "Sentiers ouverts",
       detail: `${burning ? `${burning} · ` : ""}sur ${trails.length} sentiers de l'ONF dans la commune${sector ? ` · randonnée ${esc(sector.dans)}` : ""}`,

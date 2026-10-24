@@ -116,7 +116,10 @@ async function load(cache: Cache, now: Date): Promise<(Feux & { fetchedAt: Date 
     const since = now.getTime() - DAY_MS;
     return { detections: c.value.detections.filter((d) => Date.parse(d.t) >= since), satellites: c.value.satellites, fetchedAt: c.fetchedAt };
   } catch (err) {
-    console.error(`source ${SOURCE.id} indisponible:`, why(err));
+    console.error(`source ${SOURCE.id} indisponible:`, scrub(why(err)));
     return null;
   }
 }
+
+/** The key sits in the request's path: never in a log line, whatever an error ends up saying. */
+const scrub = (s: string) => (mapKey ? s.split(mapKey).join("<MAP_KEY>") : s);

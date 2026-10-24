@@ -9,6 +9,8 @@ import { sentiersRandonnee } from "../src/tools/sentiers.js";
 import { vigilanceMeteo } from "../src/tools/vigilance.js";
 import type { RandonneesAnswer, SentiersAnswer } from "../src/web/data.js";
 import { sentiersPage } from "../src/web/domains.js";
+import { feuxDescription, feuxPage } from "../src/web/feux.js";
+import { site } from "../src/web/site.js";
 import { communeHikes } from "../src/web/liens.js";
 import { pageOf } from "../src/web/places.js";
 
@@ -23,12 +25,13 @@ const FILES: Record<string, string> = { VIIRS_NOAA20_NRT: "firms_viirs_noaa20.cs
 
 let asked: string[] = [];
 function upstream(url: string, quiet = false): Response {
-  if (url.includes("firms.modaps")) {
+  const host = new URL(url).hostname;
+  if (host === "firms.modaps.eosdis.nasa.gov") {
     asked.push(url);
     const source = Object.keys(FILES).find((s) => url.includes(`/${s}/`))!;
     return new Response(quiet ? fixture(FILES.VIIRS_SNPP_NRT) : fixture(FILES[source]));
   }
-  if (url.includes("arcgis") || url.includes("query")) {
+  if (host.endsWith(".arcgis.com")) {
     const file = url.includes("/5/query") ? "sentiers.json" : url.includes("/4/query") ? "routes.json" : "couche.json";
     return new Response(onf(file), { headers: { "content-type": "application/json" } });
   }
@@ -81,7 +84,7 @@ describe("fires seen by satellite", () => {
     expect(asked).toEqual([]);
 
     vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.stubGlobal("fetch", async (url: string) => (String(url).includes("NOAA21") ? new Response("", { status: 500 }) : upstream(String(url))));
+    vi.stubGlobal("fetch", async (url: string) => (new URL(String(url)).pathname.includes("/VIIRS_NOAA21_NRT/") ? new Response("", { status: 500 }) : upstream(String(url))));
     const f = (await feux.feuxNow(cache(), NOW))!;
     expect(f.satellites).toEqual(["Suomi NPP", "NOAA-20"]);
   });
@@ -163,5 +166,76 @@ describe("fires on the site", () => {
     const port = communeHikes(pageOf("le-port")!, { ...hikes, value: { ...hikes.value, feux: { satellites: [], detections: [{ ...seen.detections[0], commune: "Le Port" }] } } }, NOW)!;
     expect(port.live).toEqual({ valeur: "Feu détecté", detail: "feu détecté par satellite à 06:30 (faux positifs possibles) · <b>Vous voyez un feu ? Appelez le 18 ou le 112.</b>" });
     expect(communeHikes(pageOf("le-port")!, { ...hikes, value: { ...hikes.value, feux: undefined } }, NOW)).toBeUndefined();
+  });
+});
+
+describe("the fires' page", () => {
+  const at = (t: string, lieu = "Le Maïdo"): feux.Detection => ({ lat: -21.07, lon: 55.38, t, satellite: "NOAA-20", confiance: "forte", frp_mw: 12, lieu, commune: "Saint-Paul" });
+  const page = (path: string) => site(new Request(`https://rundata.re${path}`, { headers: { accept: "text/html" } }), cache(), () => {}, NOW);
+
+  it("says how many, the newest and where, in its description, and never « 0 » when it could not see", () => {
+    const two = { satellites: ["NOAA-20"], detections: [at("2026-10-24T02:30:00Z"), at("2026-10-23T19:00:00Z")] };
+    expect(feuxDescription(two, NOW)).toBe("2 feux vus par satellite en 24 h à La Réunion (974), le dernier à 06:30 près de Le Maïdo. Faux positifs possibles. Un feu ? 18 ou 112.");
+    expect(feuxDescription({ satellites: [], detections: [at("2026-10-23T19:00:00Z")] }, NOW)).toBe("1 feu vu par satellite en 24 h à La Réunion (974), hier à 23:00 près de Le Maïdo. Faux positifs possibles. Un feu ? 18 ou 112.");
+    const long = feuxDescription({ satellites: [], detections: [at("2026-10-24T02:30:00Z", "Ravine des Chèvres et Grand Bassin du Bras de la Plaine"), at("2026-10-24T01:00:00Z")] }, NOW);
+    expect(long).toBe("2 feux vus par satellite en 24 h à La Réunion (974), le dernier à 06:30. Faux positifs possibles. Un feu ? 18 ou 112.");
+    expect(feuxDescription({ satellites: ["NOAA-20"], detections: [] }, NOW)).toMatch(/^Aucun feu détecté par satellite ces dernières 24 h à La Réunion \(974\)\./);
+    expect(feuxDescription(null, NOW)).not.toMatch(/\b0\b|Aucun/);
+  });
+
+  it("without the key: says the detection is not active, stays out of the search engines and the sitemap", async () => {
+    const html = await (await page("/feux"))!.text();
+    expect(html).toContain('<meta name="robots" content="noindex">');
+    expect(html).toContain("La détection des feux par satellite n&#39;est pas encore active sur rundata.re.");
+    expect(html).toContain("<b>Vous voyez un feu ? Appelez le 18 ou le 112.</b>");
+    expect(html).not.toMatch(/Aucun feu|0 feu/);
+    expect(asked).toEqual([]);
+    expect(await (await page("/sitemap.xml"))!.text()).not.toContain("/feux");
+  });
+
+  it("with it: the map, the list, the closed trails and the vigilance, worded by marketing, and in the sitemap", async () => {
+    feux.configure("key");
+    const r = (await page("/feux"))!;
+    const html = await r.text();
+    expect(r.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(html).toContain("<title>Feux de forêt Réunion : détections satellite 24 h · 974</title>");
+    expect(html).toContain("<h1>Feux de végétation à La Réunion, vus par satellite</h1>");
+    expect(html).not.toContain("noindex");
+    expect(html).toContain('<meta name="description" content="2 feux vus par satellite en 24 h à La Réunion (974), le dernier à 06:30 près de');
+    expect(html).toContain('<h2 id="h-feux">Les feux des dernières 24 h</h2>');
+    expect(html).toContain("Feu détecté près de");
+    expect(html).toContain(`<h2 id="h-sentiers">Les sentiers fermés par l'ONF</h2>`);
+    expect(html).toContain('<h2 id="h-vigilance">La vigilance Météo-France</h2>');
+    expect(html).toContain("Votre IA, branchée sur les feux");
+    expect(html).toContain("Néna difé dann bwa La Rényon astèr ?");
+    expect(html).toContain("#e8590c");
+    expect(await (await page("/sitemap.xml"))!.text()).toContain("<loc>https://rundata.re/feux</loc>");
+    // The satellites not answering: said, not kept.
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", async () => new Response("", { status: 500 }));
+    const down = (await page("/feux"))!;
+    expect(down.headers.get("cache-control")).toBe("no-store");
+    const downHtml = await down.text();
+    expect(downHtml).toContain("Le service de la NASA ne répond pas pour le moment : rechargez la page dans quelques minutes.");
+    expect(downHtml).toContain("<b>Vous voyez un feu ? Appelez le 18 ou le 112.</b>");
+  });
+
+  it("is linked from /sentiers and from a commune's tile when there is a fire", () => {
+    const f: feux.Feux = { satellites: ["NOAA-20"], detections: [at("2026-10-24T02:30:00Z")] };
+    const s = { value: { resume: "", fermes_par_commune: [], routes_forestieres_fermees: [], a_savoir: [], sources: [], points: [], suivis: 1, randonnees: [], feux: f } as SentiersAnswer, fetchedAt: NOW, stale: false };
+    expect(sentiersPage("https://rundata.re", s, NOW)).toContain('<a href="/feux">La carte des feux des dernières 24 h →</a>');
+    const hikes = { value: { randonnees: [], secteurs: [], lignes: [], fermes: 0, suivis: 0, sources: [], feux: f } as RandonneesAnswer, fetchedAt: NOW, stale: false };
+    expect(communeHikes(pageOf("saint-paul")!, hikes, NOW)!.foot).toBe('<a href="/feux">Voir la carte des feux →</a>');
+  });
+
+  it("never logs the key", async () => {
+    feux.configure("secret-key");
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", async (url: string) => {
+      throw new Error(`failed ${url}`);
+    });
+    expect(await feux.feuxNow(cache(), NOW)).toBeNull();
+    expect(errors).toHaveBeenCalled();
+    expect(JSON.stringify(errors.mock.calls)).not.toContain("secret-key");
   });
 });

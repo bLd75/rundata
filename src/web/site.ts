@@ -65,6 +65,8 @@ import { carburantsPage } from "./carburants.js";
 import * as carburants from "../providers/carburants.js";
 import { aujourdhuiPage } from "./aujourdhui.js";
 import { communeRss } from "./rss.js";
+import { FEUX_PATH, feuxPage } from "./feux.js";
+import * as feux from "../providers/feux.js";
 import { readCopies, resume } from "../tools/resume.js";
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { pageOf, PAGES } from "./places.js";
@@ -200,7 +202,9 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
   const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/mer"].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions"].map(fixed),
-    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay ?? today, "daily"]];
+    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay ?? today, "daily"],
+    // The fires' page only once FIRMS's key is there: before, it says the detection is not active.
+    ...(feux.enabled() ? [live(FEUX_PATH)] : [])];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map(([u, day, freq]) => `<url><loc>${origin}${u}</loc><lastmod>${day}</lastmod><changefreq>${freq}</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
@@ -254,6 +258,17 @@ export async function site(request: Request, cache: Cache, background: Backgroun
     ]);
     const [secheresse, eau] = await tileCopies(cache, ["web:secheresse", "web:eau"], background, coupures, now);
     return new Response(coupuresCommunePage(origin, p, { coupures, secheresse, eau }, now, a), { headers: htmlFor(coupures) });
+  }
+  // The fires seen by satellite, with the last copy of /sentiers and the vigilance; never a build of the trails' page.
+  if (path === FEUX_PATH || path === `${FEUX_PATH}/`) {
+    const [fires, vigilance, [sentiers]] = await Promise.all([
+      feux.feuxNow(cache, now),
+      vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
+      tileCopies(cache, ["web:sentiers"], background, undefined, now),
+    ]);
+    const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
+    // Without what the satellites saw, the page is not kept: the next view should have it.
+    return new Response(feuxPage(origin, { fires, sentiers, vigilance }, now, a), { headers: htmlFor(fires ?? (feux.enabled() ? null : true)) });
   }
   // The events page was first published as /agenda.
   if (path === "/agenda" || path === "/agenda/") return Response.redirect(`${origin}/evenements`, 301);
