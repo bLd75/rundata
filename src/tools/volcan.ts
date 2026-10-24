@@ -97,15 +97,20 @@ export interface Ecart {
 
 /**
  * pitonlive's state, with the phase the prefecture declared. The prefecture declares each phase first, pitonlive
- * follows within hours: pitonlive wins only with a status published after the release and a level as high or higher.
+ * follows within hours: pitonlive wins only with a status published a later day than the release and a level as high
+ * or higher, or the release's own day and a higher level.
  * Never lower on pitonlive's word alone: the level comes down with the prefecture's release (« fin de l'alerte »,
  * « retour en vigilance »). A lower level of pitonlive held more than 48 hours is said beside it (`ecart`), and logged.
  */
 export function official(s: volcan.PitonState, p: volcan.Phase, now = new Date()): volcan.PitonState & { prefecture?: volcan.Phase; ecart?: Ecart } {
   const known = s.status.published_at ? Date.parse(s.status.published_at) : 0;
-  // The release has a day, not an hour: pitonlive is newer from the next day only, the prefecture keeping its day.
+  // The release has a day, not an hour: pitonlive is newer from the next day on. On the release's own day it wins only
+  // higher: staying below during an eruption is the dangerous error, rising too early is not. An end of alert published
+  // that day after a higher pitonlive is thus said the next day, or once pitonlive comes down.
   const newer = known > 0 && localDay(known) > p.jour;
-  if (newer && rank(s.status.alert_level_display) >= rank(p.niveau)) return s;
+  const sameDay = known > 0 && localDay(known) === p.jour;
+  const up = rank(s.status.alert_level_display) - rank(p.niveau);
+  if ((newer && up >= 0) || (sameDay && up > 0)) return s;
   const ecart = newer && now.getTime() - known > APART_MS ? { niveau: s.status.alert_level_display, depuis: s.status.published_at! } : undefined;
   if (ecart) console.error(`volcan : la préfecture dit ${p.niveau} (${p.jour}), pitonlive ${ecart.niveau} depuis ${ecart.depuis}`);
   const enclos = p.enclos ?? s.access?.current?.enclos_status;
