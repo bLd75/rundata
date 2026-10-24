@@ -30,6 +30,8 @@ export interface Marker {
   color?: string;
   /** Round for a temperature, a pill for anything else. */
   round?: boolean;
+  /** Its name in the tooltip only: for a crowded map where only a few markers need saying. */
+  quiet?: boolean;
 }
 
 const PEAKS = [
@@ -46,7 +48,7 @@ function marker(m: Marker): string {
     : `<rect x="${x - w / 2}" y="${y - 24}" width="${w}" height="48" rx="24" fill="${fill}"/>`;
   return `<g class="mk"><title>${esc(m.name)}</title>${shape}` +
     `<text x="${x}" y="${y + 11}" class="mv">${esc(m.label)}</text>` +
-    `<text x="${x}" y="${y + 66}" class="mn">${esc(m.name)}</text></g>`;
+    (m.quiet ? "" : `<text x="${x}" y="${y + 66}" class="mn">${esc(m.name)}</text>`) + "</g>";
 }
 
 /**

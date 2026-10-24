@@ -75,6 +75,14 @@ export const CATEGORIES: Category[] = [
     about: "Les bornes publiques pour voiture électrique et l'état de chaque point de charge, libre, occupé ou hors service, en direct.",
   },
   {
+    key: "eau",
+    nom: "Eau",
+    path: "/eau",
+    icon: "drop",
+    tools: ["qualite_eau"],
+    about: "La qualité de l'eau des plages et bassins contrôlés par l'ARS, prélèvement par prélèvement, et celle de l'eau du robinet, réseau par réseau.",
+  },
+  {
     key: "air",
     nom: "Air",
     path: "/air",
