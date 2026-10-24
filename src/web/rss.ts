@@ -112,8 +112,8 @@ function waterItems(p: PlacePage, c: CoupuresAnswer): Item[] {
       title: `Eau : ${n.titre}`,
       description: [
         n.ne_pas_boire ? "Ne pas boire l'eau du robinet." : "",
-        n.coupure ? `Coupure ${n.coupure.a ? `du ${n.coupure.de} au ${n.coupure.a}` : `à partir du ${n.coupure.de}`}.` : "",
-        n.secteurs ? `Secteurs : ${n.secteurs.join(", ")}.` : "",
+        n.coupure?.de ? `Coupure ${n.coupure.a ? `du ${n.coupure.de} au ${n.coupure.a}` : `à partir du ${n.coupure.de}`}.` : "",
+        n.secteurs_complets ? `Secteurs : ${n.secteurs.join(", ")}.` : "",
         n.lien ? `Avis de ${n.distributeur} : ${n.lien}` : `Avis de ${n.distributeur}.`,
       ].filter(Boolean).join(" "),
       path: `/coupures-eau/${p.slug}`,

@@ -19,8 +19,8 @@ const coupures = (etat: string): Cached<CoupuresAnswer> =>
   copy({
     resume: "",
     avis: [
-      { titre: "Travaux sur le réseau / Bois-de-Nèfles", communes: ["Saint-Paul"], distributeur: "CISE Réunion", publie_le: "23/10/2026 à 15:30", coupure: { de: "lundi 26/10 à 08:00", a: "lundi 26/10 à 16:00", etat }, secteurs: ["Bois-de-Nèfles"], ne_pas_boire: undefined, texte: "", lien: "https://example.re/avis/1" },
-      { titre: "Lavage de réservoir", communes: ["Le Port"], distributeur: "Dionéo", publie_le: "23/10/2026 à 15:30", coupure: undefined, secteurs: undefined, ne_pas_boire: undefined, texte: "", lien: "https://example.re/avis/2" },
+      { titre: "Travaux sur le réseau / Bois-de-Nèfles", communes: ["Saint-Paul"], distributeur: "CISE Réunion", publie_le: "23/10/2026 à 15:30", coupure: { de: "lundi 26/10 à 08:00", a: "lundi 26/10 à 16:00", etat }, secteurs: ["Bois-de-Nèfles"], secteurs_complets: true, ne_pas_boire: undefined, texte: "", lien: "https://example.re/avis/1" },
+      { titre: "Lavage de réservoir", communes: ["Le Port"], distributeur: "Dionéo", publie_le: "23/10/2026 à 15:30", coupure: undefined, secteurs: [], secteurs_complets: false, ne_pas_boire: undefined, texte: "", lien: "https://example.re/avis/2" },
     ],
     couverture: "",
     a_savoir: "",

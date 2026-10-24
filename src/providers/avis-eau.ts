@@ -46,7 +46,7 @@ const SAINTE_MARIE = "https://www.ville-saintemarie.re/wp-json/wp/v2/posts?searc
 const SAINT_LEU = "https://www.saintleu.re/wp-json/wp/v2/posts?search=eau&per_page=20&_fields=date,title,link,content";
 const EXTRACT_MAX = 250;
 const FRESH_SECONDS = 15 * 60;
-const TEXT_MAX = 700;
+const TEXT_MAX = 320;
 
 export interface Avis {
   distributeur: string;
@@ -60,12 +60,15 @@ export interface Avis {
   precision?: string;
   /** A notice posted as an image or a PDF: nothing is read from it, only its link is given. */
   forme?: "image" | "PDF";
-  /** The text is a quoted extract cut short (Saint-Leu): what follows, the streets often, is only in the notice. */
+  /** The text is cut short (`cut`, or Saint-Leu's `extract`): what follows, the streets often, is only in the notice. */
   extrait_coupe?: boolean;
   /** Local times « 2026-10-26T21:00 », when the notice gives them. */
   debut?: string;
   fin?: string;
+  /** The streets of the notice, only when its list was read whole (`sectorList`), else empty. */
   secteurs: string[];
+  /** Whether `secteurs` is the notice's whole list; false also when no list was found. */
+  secteurs_complets: boolean;
   /** The water should not be drunk (« ne pas boire », « eau embouteillée ou bouillie »). */
   ne_pas_boire: boolean;
   texte: string;
@@ -113,13 +116,109 @@ const DRINK = /ne pas boire|impropre (?:à|a) la consommation|eau embouteill|bou
 export const BACK = /(?<!information de )retour (?:à|a) la (?:normale|conformit)|lev[ée]e de la restriction|de nouveau (?:potable|garantie|consommable)|à nouveau (?:potable|consommable)|(?:sont|est) conformes?\b|redevenue? potable/i;
 
 /** One notice of the shared platform's feed, in its usual words. */
-export function parseNotice(text: string): Pick<Avis, "debut" | "fin" | "secteurs"> {
-  const start = /(\d\d:\d\d) le (\d\d\/\d\d\/\d{4})/.exec(text) ?? /le (\d\d\/\d\d\/\d{4}) à partir de (\d\d:\d\d)/.exec(text);
+export function parseNotice(text: string): Pick<Avis, "debut" | "fin"> {
+  // The start is said before the return of the water: « perturbée le 28/10/2026 à partir de 08:00 … La remise en eau est prévue à partir de 20:00 le 28/10/2026 ».
+  const head = text.split(/remise en eau/i)[0];
+  const start = /(\d\d:\d\d) le (\d\d\/\d\d\/\d{4})/.exec(head) ?? /le (\d\d\/\d\d\/\d{4}) à partir de (\d\d:\d\d)/.exec(head);
   const end = /remise en eau est prévue (?:à partir de |vers )?(\d\d:\d\d) le (\d\d\/\d\d\/\d{4})/.exec(text) ?? /remise en eau est prévue le (\d\d\/\d\d\/\d{4}) (?:à|vers) (\d\d:\d\d)/.exec(text);
   const when = (m: RegExpExecArray | null) => (m ? (m[1].includes(":") ? local(m[2], m[1]) : local(m[1], m[2])) : undefined);
-  const block = /secteurs? suivants?\s*:\s*\n([\s\S]*?)(?:\n\s*\n|Des perturbations|La remise en eau)/.exec(text)?.[1] ?? "";
-  const secteurs = block.split("\n").map((l) => l.trim()).filter((l) => l && l.length < 80);
-  return { debut: when(start), fin: when(end && end !== start ? end : null), secteurs };
+  return { debut: when(start), fin: when(end) };
+}
+
+const LIST_START = /secteurs? suivants?\s*:[ \t]*\n/i;
+// The lines that close a list of streets: none of them is a street.
+const CLOSING = /^(?:et toutes les voies|la remise en|le rétablissement|des perturbations|CISE|recommandations)/i;
+// Longer, a line is a sentence or a street with its limits (« RD13, Quartier Bras Mouton et rues adjacentes jusque … »).
+const STREET_MAX = 60;
+
+/**
+ * The streets after « secteurs suivants : », one per line, and whether the list was read whole. Worded with marketing:
+ * whole only when the list ends at a known closing line (« Et toutes les voies adjacentes », « La remise en eau … »),
+ * or at a blank line in a feed (`blankEnds`; WordPress posts put a blank line between the streets), and no line of it
+ * was left out. A list that runs to the end of the text (the source cut short) or to a long line, or that another list
+ * follows (« également sur le secteur suivant : »), is not whole: nothing of it is said, the notice is.
+ */
+export function sectorList(text: string, blankEnds: boolean): Pick<Avis, "secteurs" | "secteurs_complets"> {
+  const m = LIST_START.exec(text);
+  if (!m) return { secteurs: [], secteurs_complets: false };
+  const none = { secteurs: [], secteurs_complets: false };
+  const rest = text.slice(m.index + m[0].length).split("\n");
+  const out: string[] = [];
+  for (const [i, raw] of rest.entries()) {
+    const l = raw.trim().replace(/^[•·–-]\s*/, "");
+    if ((!l && blankEnds && out.length) || (l && CLOSING.test(l))) {
+      return out.length && !LIST_START.test(rest.slice(i).join("\n")) ? { secteurs: out, secteurs_complets: true } : none;
+    }
+    if (l.length > STREET_MAX) return none;
+    if (l) out.push(l);
+  }
+  return none;
+}
+
+// The private character that marks, before the text is put on one line, the colon that opens a list.
+const MARK = "\uE000";
+// The sentence that says when the water comes back, the first one, beginning a line or after a full stop; the posts
+// put non-breaking spaces in it (« La remise en\u00a0service »).
+const RETURN = /(?:^|(?<=[.!?:]\s))(?:La\s+remise\s+en\s+(?:eau|service)|Le\s+rétablissement)\b.*?(?:[.!?](?=\s|$)|$)/m;
+/** That sentence, whole and word for word, on one line; none when the notice says nothing of it. */
+export const returnSentence = (text: string) => RETURN.exec(text)?.[0].replace(/\s+/g, " ").trim();
+
+/**
+ * The text said with a notice, cut once, here, so that the page and the tool say the same. Worded with marketing: it
+ * stops right after the colon that opens a list (« pour les secteurs suivants : […] »), never in the middle of the
+ * list, else at the end of a word; a cut text ends with « […] ». The colon that opens a list ends its line, and the
+ * line is a sentence: not a label such as « Objet : » or « Diffusion : », which would leave nothing of the notice.
+ * The sentence of the return of the water is never lost: when the cut leaves it out, it follows the « […] », whole and
+ * word for word (« … : […] La remise en service se fera progressivement à partir de 18h00. »).
+ */
+export function cut(text: string, max = TEXT_MAX): { texte: string; extrait_coupe?: true } {
+  const flat = text.replace(/^(.{20,}?:)[ \t]*\n/m, `$1${MARK}\n`).replace(/\s+/g, " ").trim();
+  const at = flat.indexOf(MARK);
+  const whole = flat.replace(MARK, "");
+  let kept: string;
+  if (at >= 0 && at < max && flat.slice(at + 1).trim()) kept = flat.slice(0, at);
+  else if (whole.length <= max) return { texte: whole };
+  else kept = whole.slice(0, max).replace(/\s+\S*$/, "");
+  const back = returnSentence(text);
+  if (!back || kept.includes(back)) return { texte: `${kept} […]`, extrait_coupe: true };
+  // Begun in what is kept: kept up to its end.
+  const from = whole.indexOf(back);
+  if (from >= 0 && from < kept.length) return { texte: `${whole.slice(0, from + back.length)} […]`, extrait_coupe: true };
+  return { texte: `${kept} […] ${back}`, extrait_coupe: true };
+}
+
+const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const DAY = new RegExp(`\\b(\\d{1,2})(?:er)? (${MONTHS.join("|")}) (\\d{4})|\\b(\\d\\d)\\/(\\d\\d)\\/(\\d{4})`, "i");
+const HOUR = /\b([01]?\d|2[0-3])(?:h(\d\d)?\b|:(\d\d)\b| heures?\b)/i;
+const pad = (n: number | string) => String(n).padStart(2, "0");
+/** « jeudi 15 octobre 2026 », « 15/10/2026 » → « 2026-10-15 ». */
+function dayOf(text: string): string | undefined {
+  const m = DAY.exec(text);
+  if (!m) return undefined;
+  return m[1] ? `${m[3]}-${pad(MONTHS.indexOf(m[2].toLowerCase()) + 1)}-${pad(m[1])}` : `${m[6]}-${m[5]}-${m[4]}`;
+}
+const hourOf = (m: RegExpExecArray) => `${pad(m[1])}:${m[2] ?? m[3] ?? "00"}`;
+
+/**
+ * The hours of a CISE Réunion notice, in its own words: the start « le jeudi 15 octobre 2026 à partir de 5h00 », the
+ * end in the sentence of the return of the water (`returnSentence`, « … à partir de 18h00 », « 15:30 », « 18 heures »),
+ * on its own day or else the day of the cut. Nothing when the notice writes no hour (« en fin d'après-midi »).
+ */
+export function ciseTimes(text: string): Pick<Avis, "debut" | "fin"> {
+  const back = returnSentence(text);
+  const flat = text.replace(/\s+/g, " ");
+  const head = back ? flat.slice(0, flat.indexOf(back)) : flat;
+  const day = dayOf(head);
+  const start = /à partir de ([01]?\d|2[0-3])(?:h(\d\d)?\b|:(\d\d)\b| heures?\b)/i.exec(head);
+  const end = back ? HOUR.exec(back) : null;
+  const endDay = (back && dayOf(back)) ?? day;
+  return { debut: day && start ? `${day}T${hourOf(start)}` : undefined, fin: endDay && end ? `${endDay}T${hourOf(end)}` : undefined };
+}
+/** The shared platform's words first (a runéo notice posted by the CIREST), else CISE Réunion's. */
+function times(text: string): Pick<Avis, "debut" | "fin"> {
+  const p = parseNotice(text.replace(/\s+/g, " "));
+  const c = ciseTimes(text);
+  return { debut: p.debut ?? c.debut, fin: p.fin ?? c.fin };
 }
 
 export function parseRss(xml: string, feed: (typeof FEEDS)[number]): Avis[] {
@@ -133,8 +232,9 @@ export function parseRss(xml: string, feed: (typeof FEEDS)[number]): Avis[] {
       communes: found.length ? found : feed.communes,
       publie: new Date(tag("pubDate")).toISOString(),
       ...parseNotice(texte),
+      ...sectorList(texte, true),
       ne_pas_boire: DRINK.test(texte) && !BACK.test(texte) && !/peut être impropre à la consommation durant quelques heures/i.test(texte),
-      texte: texte.replace(/^Communiqué N°[^\n]*\n/, "").replace(/^Diffusion :\n(?:(?:dans la presse|à la radio)[^\n]*\n)*/, "").replace(/\n+/g, " ").slice(0, TEXT_MAX),
+      ...cut(texte.replace(/^Communiqué N°[^\n]*\n/, "").replace(/^Diffusion :\n(?:(?:dans la presse|à la radio)[^\n]*\n)*/, "")),
       lien: httpUrl(tag("link")),
     };
   });
@@ -144,7 +244,8 @@ interface Post { date: string; title: { rendered: string }; link: string; catego
 
 export function parseCirest(posts: Post[]): Avis[] {
   return posts.map((p) => {
-    const texte = strip(p.content.rendered).replace(/\s+/g, " ").trim();
+    const body = lines(p.content.rendered);
+    const texte = body.replace(/\s+/g, " ");
     const titre = strip(p.title.rendered).trim();
     const communes = p.categories.map((c) => CIREST_COMMUNES[c]).filter(Boolean);
     return {
@@ -153,9 +254,10 @@ export function parseCirest(posts: Post[]): Avis[] {
       communes: communes.length ? communes : communesIn(titre),
       // WordPress gives the local time without its offset.
       publie: new Date(`${p.date}+04:00`).toISOString(),
-      ...parseNotice(texte),
+      ...times(body),
+      ...sectorList(body, false),
       ne_pas_boire: DRINK.test(texte) && !BACK.test(texte),
-      texte: texte.slice(0, TEXT_MAX),
+      ...cut(body),
       lien: httpUrl(p.link),
     };
   });
@@ -192,7 +294,8 @@ export function parseCreole(html: string): Avis[] {
     const date = /(\d\d\/\d\d\/\d{4})\s*-/.exec(li)?.[1];
     if (!date) return [];
     const titre = strip(/<span class="text-uppercase">([\s\S]*?)<\/span>/.exec(li)?.[1] ?? "").trim();
-    const texte = lines(/<span>\s*([\s\S]*)<\/span>/.exec(li)?.[1] ?? "").replace(/\n+/g, " ");
+    const body = lines(/<span>\s*([\s\S]*)<\/span>/.exec(li)?.[1] ?? "");
+    const texte = body.replace(/\n+/g, " ");
     const start = /(\d\d\/\d\d\/\d{4}) à partir de (\d{1,2})h(\d\d)?/.exec(texte);
     return [{
       distributeur: "La Créole",
@@ -201,9 +304,11 @@ export function parseCreole(html: string): Avis[] {
       publie: new Date(`${ddmmyyyy(date)}T00:00:00+04:00`).toISOString(),
       jour: true,
       debut: start ? `${ddmmyyyy(start[1])}T${start[2].padStart(2, "0")}:${start[3] ?? "00"}` : undefined,
+      // Its places are zones with their limits (« sa limite haute : le chemin de La Giroday … »), not a list of streets.
       secteurs: [],
+      secteurs_complets: false,
       ne_pas_boire: drinkSaid(titre, texte),
-      texte: texte.slice(0, TEXT_MAX),
+      ...cut(body),
       lien: CREOLE.url,
     }];
   });
@@ -211,16 +316,6 @@ export function parseCreole(html: string): Avis[] {
 
 // What a post's title is about, after « Communiqué CISE Réunion » (« - fermeture exceptionnelle »): empty when nothing.
 const subject = (titre: string) => titre.replace(/^communiqu[ée] CISE( Réunion)?/i, "").replace(/^[\s\-–:]+/, "").trim();
-/** The streets after « secteurs suivants : », one per line, up to the first line that is a sentence again. */
-function streets(texte: string): string[] {
-  const after = /secteurs? suivants?\s*:\s*\n([\s\S]*)/.exec(texte)?.[1] ?? "";
-  const out: string[] = [];
-  for (const l of after.split("\n").map((x) => x.trim()).filter(Boolean)) {
-    if (l.length > 60 || /^(?:et toutes|la remise|des perturbations|CISE|recommandations)/i.test(l)) break;
-    out.push(l);
-  }
-  return out;
-}
 const WATER = /coupure|interruption|\beau\b|d.eau|distribution|bouillir|potab|travaux|réseau|qualit/i;
 
 /** The mairie of Sainte-Marie's posts « Communiqué CISE Réunion », but not one whose title is about something else than water (the offices closed). */
@@ -237,17 +332,17 @@ export function parseSainteMarie(posts: Omit<Post, "categories">[]): Avis[] {
     // A post that is a picture or a PDF, with at most its file's name for text.
     if (texte.replace(/\s+/g, " ").length < 120 && /<img|\.pdf/i.test(html)) {
       const forme: Avis["forme"] = /\.pdf/i.test(html) ? "PDF" : "image";
-      return [{ distributeur: "CISE Réunion, par la ville de Sainte-Marie", titre: `Communiqué de la CISE du ${p.date.slice(8, 10)}/${p.date.slice(5, 7)} (${forme})`, communes: ["Sainte-Marie"], publie, forme, secteurs: [], ne_pas_boire: false, texte: "", lien }];
+      return [{ distributeur: "CISE Réunion, par la ville de Sainte-Marie", titre: `Communiqué de la CISE du ${p.date.slice(8, 10)}/${p.date.slice(5, 7)} (${forme})`, communes: ["Sainte-Marie"], publie, forme, secteurs: [], secteurs_complets: false, ne_pas_boire: false, texte: "", lien }];
     }
     return [{
       distributeur: "CISE Réunion, par la ville de Sainte-Marie",
       titre,
       communes: ["Sainte-Marie"],
       publie,
-      ...parseNotice(texte),
-      secteurs: streets(texte),
+      ...times(texte),
+      ...sectorList(texte, false),
       ne_pas_boire: drinkSaid(titre, texte),
-      texte: texte.replace(/\n+/g, " ").slice(0, TEXT_MAX),
+      ...cut(texte),
       lien,
     }];
   });
@@ -281,10 +376,10 @@ export function parseSaintLeu(posts: Omit<Post, "categories">[]): Avis[] {
     const texte = lines(html);
     const base = { distributeur: "Derichebourg Aqua OI, par la commune de Saint-Leu", titre, communes: ["Saint-Leu"], publie: new Date(`${p.date}+04:00`).toISOString(), lien: httpUrl(p.link) };
     // A post that is a picture: its title and link only.
-    if (texte.replace(/\s+/g, " ").length < 120) return [{ ...base, forme: "image", secteurs: [], ne_pas_boire: false, texte: "" }];
+    if (texte.replace(/\s+/g, " ").length < 120) return [{ ...base, forme: "image", secteurs: [], secteurs_complets: false, ne_pas_boire: false, texte: "" }];
     // No list of streets: the posts mix streets and long lines (« RD13, Quartier Bras Mouton et rues adjacentes jusque … »), and a list cut short would mislead.
     const quoted = extract(texte);
-    return [{ ...base, ...parseNotice(texte), secteurs: [], ne_pas_boire: drinkSaid(titre, texte), texte: quoted.texte, ...(quoted.coupe ? { extrait_coupe: true } : {}) }];
+    return [{ ...base, ...parseNotice(texte), secteurs: [], secteurs_complets: false, ne_pas_boire: drinkSaid(titre, texte), texte: quoted.texte, ...(quoted.coupe ? { extrait_coupe: true } : {}) }];
   });
 }
 

@@ -71,7 +71,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.122.0";
+export const VERSION = "0.123.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
 // tools and the rules come first, the details of a few tools after. What each tool does is in its description.
@@ -546,7 +546,11 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Sainte-Marie (communiqués de CISE Réunion publiés par la ville), Saint-Leu (avis publiés par la commune, en court extrait), les communes de l'Est " +
         "(Saint-André, Bras-Panon, Saint-Benoît, La Plaine-des-Palmistes, Sainte-Rose, Salazie) et runéo. " +
         "Pour : « coupure d'eau à Saint-Denis ? », « l'eau est potable à la Plaine-des-Palmistes ? », « quand revient l'eau ? ». " +
-        "Sans lieu : tous les avis récents. / Water cuts and do-not-drink notices from Réunion Island's water distributors.",
+        "Sans lieu : tous les avis récents. " +
+        // Worded by marketing; here rather than in the server's instructions, which are kept under 6 000 characters.
+        "Quand secteurs_complets vaut false, la liste des rues de l'avis n'a pas été lue en entier : ne jamais en conclure qu'une rue ou un quartier n'est pas concerné, donner le lien de l'avis complet. " +
+        "Même quand la liste est complète, dire « cette rue n'est pas dans la liste de l'avis », jamais « pas de coupure chez vous ». " +
+        "/ Water cuts and do-not-drink notices from Réunion Island's water distributors.",
       inputSchema: { lieu },
       annotations: { title: "Coupures d'eau", ...READ_ONLY },
     },

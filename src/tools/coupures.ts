@@ -47,8 +47,11 @@ export function noticeRow(n: notices.Avis, now: Date, current = n.ne_pas_boire) 
     precision: n.precision,
     distributeur: n.distributeur,
     publie_le: published(n),
-    coupure: n.debut ? { de: when(n.debut), a: when(n.fin), etat: state } : undefined,
-    secteurs: n.secteurs.length ? n.secteurs : undefined,
+    // Only the end, when the notice writes no start hour (« dès maintenant »): the end is never lost.
+    coupure: n.debut || n.fin ? { de: when(n.debut), a: when(n.fin), etat: state } : undefined,
+    // The whole list, or none: a list read in part would let one conclude a street is not concerned.
+    secteurs: n.secteurs,
+    secteurs_complets: n.secteurs_complets,
     ne_pas_boire: (n.ne_pas_boire && current) || undefined,
     forme: n.forme,
     extrait_coupe: n.extrait_coupe,

@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { communesIn, extract, parseCreole, parseNotice, parseSaintLeu, parseSainteMarie, textOf } from "../src/providers/avis-eau.js";
-import { coupuresEau } from "../src/tools/coupures.js";
+import { communesIn, cut, extract, parseCirest, parseCreole, parseNotice, parseRss, parseSaintLeu, parseSainteMarie, sectorList, textOf } from "../src/providers/avis-eau.js";
+import { coupuresEau, noticeRow } from "../src/tools/coupures.js";
 import { coupuresCommunePage, waterLive } from "../src/web/coupures.js";
 import { buildCoupures } from "../src/web/data.js";
 import { coupuresPage } from "../src/web/domains.js";
@@ -29,10 +29,97 @@ describe("coupures d'eau", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("reads the hours and streets of a cut", () => {
-    const n = parseNotice("Dionéo informe ses clients de SAINT DENIS, qu'en raison de travaux sur le réseau, l'alimentation en eau sera interrompue à partir de 21:00 le 26/10/2026 pour les secteurs suivants :\nROUTE DE BOIS DE NEFLES\nDes perturbations dans la distribution de l'eau sont à prévoir.\nLa remise en eau est prévue à partir de 05:00 le 27/10/2026, sauf incident.");
-    expect(n).toEqual({ debut: "2026-10-26T21:00", fin: "2026-10-27T05:00", secteurs: ["ROUTE DE BOIS DE NEFLES"] });
+    const text = "Dionéo informe ses clients de SAINT DENIS, qu'en raison de travaux sur le réseau, l'alimentation en eau sera interrompue à partir de 21:00 le 26/10/2026 pour les secteurs suivants :\nROUTE DE BOIS DE NEFLES\nDes perturbations dans la distribution de l'eau sont à prévoir.\nLa remise en eau est prévue à partir de 05:00 le 27/10/2026, sauf incident.";
+    expect(parseNotice(text)).toEqual({ debut: "2026-10-26T21:00", fin: "2026-10-27T05:00" });
+    expect(sectorList(text, true)).toEqual({ secteurs: ["ROUTE DE BOIS DE NEFLES"], secteurs_complets: true });
+    // The date first (Eaux de La Possession): the start is not the hour of the return of the water.
+    expect(parseNotice("perturbée le 28/10/2026 à partir de 08:00 pour les secteurs suivants :\nCHEMIN LEGROS\n\nLa remise en eau est prévue à partir de 20:00 le 28/10/2026, sauf incident.")).toEqual({ debut: "2026-10-28T08:00", fin: "2026-10-28T20:00" });
     expect(communesIn("clients de SAINT DENIS")).toEqual(["Saint-Denis"]);
     expect(communesIn("abonnés de La Plaine-des-Palmistes")).toEqual(["La Plaine-des-Palmistes"]);
+  });
+
+  it("cuts each notice's text once, right after the colon that opens a list, else at the end of a word", () => {
+    const dioneo = parseRss(fixture("dioneo.xml"), { nom: "Dionéo", url: "", communes: ["Saint-Denis"] })[0];
+    // The tool's text was the whole notice (436 characters, under 700): the start of the cut stays, and the return of the water follows the « […] ».
+    expect(dioneo.texte).toBe("Dionéo informe ses clients de SAINT DENIS, qu'en raison de travaux sur le réseau, l'alimentation en eau sera interrompue à partir de 21:00 le 26/10/2026 pour les secteurs suivants : […] La remise en eau est prévue à partir de 05:00 le 27/10/2026, sauf incident.");
+    expect(dioneo).toMatchObject({ extrait_coupe: true, debut: "2026-10-26T21:00", fin: "2026-10-27T05:00", secteurs: ["ROUTE DE BOIS DE NEFLES"], secteurs_complets: true });
+    const possession = parseRss(fixture("possession.xml"), { nom: "Eaux de La Possession", url: "", communes: ["La Possession"] })[0];
+    expect(possession.texte).toMatch(/^Eaux de La Possession informe .* le 28\/10\/2026 à partir de 08:00 pour les secteurs suivants : \[…\] La remise en eau est prévue à partir de 20:00 le 28\/10\/2026, sauf incident\.$/);
+    expect(possession).toMatchObject({ debut: "2026-10-28T08:00", fin: "2026-10-28T20:00", secteurs_complets: true });
+    expect(possession.secteurs).toEqual(["RESERVOIR STE THERESE", "CHEMIN LEGROS", "CHEMIN LEOPOLD CAVANE", "LOTISSEMENT LA COLLINE", "RUE JEAN JACQUES ROUSSEAU"]);
+    // « Réf : », « Objet : » open no list: the text goes on, cut at the end of a word.
+    const cirest = parseCirest(JSON.parse(fixture("cirest.json")));
+    const ref = cirest.find((n) => n.texte.startsWith("CISE Réunion vous informe Réf"))!;
+    expect(ref.texte).toMatch(/^CISE Réunion vous informe Réf : 2026-10-450 Objet : Dégradation .* la distribution \[…\]$/);
+    // La Créole: its list comes after 320 characters, the text stops at a word, with the hours of the night cut.
+    const creole = parseCreole(fixture("lacreole.html"))[0];
+    expect(creole.texte).toMatch(/à partir de 22h00 et jusqu’à 6h00 demain matin\. .* \[…\] La remise en eau s’effectuera progressivement à compter de 6h00\.$/);
+    // No sentence of the return of the water: nothing is added, nothing guessed.
+    expect(cirest.find((n) => /^Sainte-Rose : incident/.test(n.titre))!.texte).toMatch(/\[…\]$/);
+    expect(cut("Objet :\nTravaux\nLa distribution sera interrompue le 26/10 à partir de 8h dans les rues suivantes :\nRue A\nRue B")).toEqual({ texte: "Objet : Travaux La distribution sera interrompue le 26/10 à partir de 8h dans les rues suivantes : […]", extrait_coupe: true });
+    expect(cut("Coupure ce soir, rue A.")).toEqual({ texte: "Coupure ce soir, rue A." });
+    expect(cut(`Coupure ${"très ".repeat(80)}longue.`).texte).toMatch(/très \[…\]$/);
+    // The first sentence of the return, whole and word for word, also begun in the part kept.
+    expect(cut("Coupure le 26/10 dans les rues suivantes :\nRue A\nLe rétablissement est prévu vers 17h. La remise en eau sera progressive.").texte).toBe("Coupure le 26/10 dans les rues suivantes : […] Le rétablissement est prévu vers 17h.");
+    expect(cut(`${"Mot ".repeat(77)}fin. La remise en eau est prévue vers 17h. ${"Fin ".repeat(20)}`).texte).toMatch(/Mot fin\. La remise en eau est prévue vers 17h\. \[…\]$/);
+    // The page and the tool say the same text: never longer than 320 characters, its « […] » that says it is cut, and the sentence of the return.
+    const all = [dioneo, possession, ...cirest, creole, ...parseSainteMarie(JSON.parse(fixture("saintemarie.json")))];
+    for (const n of all) {
+      const [kept, back] = n.texte.split(" […]");
+      expect(kept.length).toBeLessThanOrEqual(320);
+      expect(n.texte.includes(" […]")).toBe(!!n.extrait_coupe);
+      if (back) expect(back).toMatch(/^ (La remise en (eau|service)|Le rétablissement) /);
+    }
+  });
+
+  it("reads the hours of CISE Réunion's notices, the end in the sentence of the return of the water", () => {
+    const cirest = parseCirest(JSON.parse(fixture("cirest.json")));
+    const of = (titre: RegExp) => cirest.find((n) => titre.test(n.titre))!;
+    expect(of(/^Saint-André : Lavage/)).toMatchObject({ debut: "2026-10-15T05:00", fin: "2026-10-15T18:00" });
+    expect(of(/^Saint-Benoit : travaux de maintenance/)).toMatchObject({ debut: "2026-10-14T07:30", fin: "2026-10-14T15:00" });
+    // A runéo notice posted by the CIREST: « à partir de 09:00 ce mercredi 21 octobre 2026 ».
+    expect(of(/^Bras-Panon/)).toMatchObject({ debut: "2026-10-21T09:00", fin: "2026-10-21T15:30" });
+    // « en fin d'après-midi », « dès achèvement des travaux »: no hour, none guessed.
+    expect(of(/^Salazie : coupure d’eau ce 22/).fin).toBeUndefined();
+    expect(of(/fuite, vendredi 16 octobre/)).toMatchObject({ debut: "2026-10-16T08:30", fin: undefined });
+    // Sainte-Marie, « dès maintenant … à partir de 18 heures »: the end only, said in the tool, not as a start on the page.
+    const leak = parseSainteMarie(JSON.parse(fixture("saintemarie.json")))[2];
+    expect(leak).toMatchObject({ debut: undefined, fin: "2026-07-29T18:00" });
+    expect(noticeRow(leak, NOW).coupure).toEqual({ de: undefined, a: "mercredi 29/07 à 18:00", etat: undefined });
+  });
+
+  it("gives a list of streets only when it was read whole", () => {
+    const cirest = parseCirest(JSON.parse(fixture("cirest.json")));
+    const of = (titre: RegExp) => cirest.find((n) => titre.test(n.titre))!;
+    // Ended by « Et toutes les voies adjacentes », which is no street.
+    expect(of(/^Saint-André : Lavage/)).toMatchObject({ secteurs: ["Chemin Lefaguyès", "Secteur Grand Canal", "Secteur Champs Borne", "Secteur Bel Ombre", "Chemin Quatre-Vingt", "Chemin des Limites"], secteurs_complets: true });
+    // Bullets dropped.
+    expect(of(/fuite, vendredi 16 octobre/).secteurs).toEqual(["Rue des songes", "Impasse des songes", "Rue Dureaux", "Impasse des Verveines", "Impasse des Papyrus", "Rue Marcelly Robert"]);
+    // « Les secteurs concernés sont : » is not read; a second list follows (Salazie); a long line follows (Grand Ilet): nothing.
+    for (const t of [/^Sainte-Rose : incident/, /^Salazie : Incident sur le réseau/, /^Salazie, Grand-Ilet/]) expect(of(t)).toMatchObject({ secteurs: [], secteurs_complets: false });
+    expect(of(/^Sainte-Rose : incident/)).toMatchObject({ extrait_coupe: true, texte: expect.stringMatching(/Les secteurs concernés sont les suivants : \[…\]$/) });
+    // Running to the end of the text, the source maybe cut short; a line too long to be a street; no list at all.
+    expect(sectorList("secteurs suivants :\nRue A\nRue B", true)).toEqual({ secteurs: [], secteurs_complets: false });
+    expect(sectorList("secteurs suivants :\nRue A\nRD13, Quartier Bras Mouton et rues adjacentes jusqu'au carrefour\nRue B\n\nLa remise en eau", true).secteurs_complets).toBe(false);
+    expect(sectorList("Coupure rue A.", true)).toEqual({ secteurs: [], secteurs_complets: false });
+    // In a WordPress post a blank line parts the streets; in a feed it ends the list.
+    expect(sectorList("secteurs suivants :\n\nRue A\n\nRue B\n\nLa remise en service", false).secteurs).toEqual(["Rue A", "Rue B"]);
+    expect(sectorList("secteurs suivants :\nRue A\n\nUne phrase.", true).secteurs).toEqual(["Rue A"]);
+  });
+
+  it("shows a list read whole, else sends to the notice for the streets, on the page and in the tool", async () => {
+    const coupures = { value: await buildCoupures(cache(), NOW), fetchedAt: NOW };
+    const page = (slug: string) => coupuresCommunePage("https://rundata.re", pageOf(slug)!, { coupures }, NOW);
+    const sd = page("saint-denis");
+    expect(sd).toContain(`<p class="note">Secteurs : ROUTE DE BOIS DE NEFLES</p>`);
+    expect(sd).toContain("pour les secteurs suivants : […] La remise en eau est prévue à partir de 05:00 le 27/10/2026, sauf incident. <a href=\"https://dioneo.re/flash-info/travaux-sur-le-reseau-rd49\" rel=\"noopener\">L'avis complet →</a>");
+    const sr = page("sainte-rose");
+    expect(sr).not.toContain("Secteurs :");
+    expect(sr).toContain("Les secteurs concernés sont les suivants : […] <a href=");
+    expect(sr).toContain("Les secteurs concernés dans l'avis complet →</a>");
+    const tool = body(await coupuresEau(cache(), "Sainte-Rose", NOW));
+    expect(tool.avis.every((n: { secteurs: string[]; secteurs_complets: boolean }) => n.secteurs.length === 0 && !n.secteurs_complets)).toBe(true);
+    expect(body(await coupuresEau(cache(), "Saint-Denis", NOW)).avis[0]).toMatchObject({ secteurs: ["ROUTE DE BOIS DE NEFLES"], secteurs_complets: true, extrait_coupe: true });
   });
 
   it("keeps only the text of a notice, even with broken tags", () => {
