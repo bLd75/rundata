@@ -10,6 +10,8 @@
  *   are in the text (« Du 5 au 10 octobre 2026 », « 19 et 20 désanm »);
  * - La Possession publishes its agenda (IntraMuros) as an RSS feed with each date as data;
  * - Petite-Île shows its agenda as a page, « Du 28 octobre au 31 octobre », « Le 14 octobre de 10h00 à 11h00 »;
+ * - Bras-Panon (a page a month) and Saint-Benoît show theirs as pages too, and the tourist office of the East (OTI Est)
+ *   lists the events of its six communes on one page;
  * - the concert halls and theatres publish their programme on their own site (src/providers/salles.ts), Le Séchoir
  *   (Saint-Leu) with The Events Calendar.
  * Each source cached on its own: one that fails leaves the others answering.
@@ -67,6 +69,8 @@ const FRESH_SECONDS = 3600;
 const AHEAD_DAYS = 45;
 const TEXT_MAX = 300;
 const LEAD_MAX = 200;
+/** What the tourist office of the East's terms ask to show with what is taken from it. */
+export const OTI_EST = "OTI EST REUNION — Droits réservés";
 
 /** One occurrence, in local time: « 2026-10-24T14:00 », or « 2026-10-24 » when the source gives no hour. */
 export interface Seance {
@@ -546,6 +550,51 @@ const ENTRE_DEUX = mairie("entre_deux", "Mairie de l'Entre-Deux", "https://entre
 const LA_POSSESSION = mairie("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda");
 const PETITE_ILE = mairie("petite_ile", "Ville de Petite-Île", "https://www.petite-ile.re/actualites/agenda/");
 
+const BRAS_PANON = mairie("bras_panon", "Ville de Bras-Panon", "https://www.braspanon.re/fr/ev/2512733/agenda-1634");
+const SAINT_BENOIT = mairie("saint_benoit", "Ville de Saint-Benoît", "https://www.saint-benoit.re/evenements/general");
+const OTI_EST_SOURCE: SourceInfo = {
+  id: "agenda_oti_est",
+  nom: "Agenda de l'Office de tourisme intercommunal de l'Est (Côté Est Réunion)",
+  organisme: "OTI EST REUNION",
+  licence: "Reproduction autorisée avec la source, sans modification (mentions légales de reunionest.fr)",
+  attribution: OTI_EST,
+  url: "https://www.reunionest.fr/agenda-et-evenements",
+};
+const EST = ["Saint-André", "Bras-Panon", "Saint-Benoît", "La Plaine-des-Palmistes", "Salazie", "Sainte-Rose"];
+
+const brasPanon: Agenda = {
+  id: "bras_panon",
+  nom: "Ville de Bras-Panon",
+  source: BRAS_PANON,
+  commune: "Bras-Panon",
+  // This month's page and the next one's: the 45 days ahead.
+  requetes: 2,
+  load: (cache, now) =>
+    cache.get("agenda:bras_panon", FRESH_SECONDS, async () => {
+      const day = localDay(now);
+      const months = [day, `${addDays(`${day.slice(0, 7)}-01`, 32).slice(0, 7)}-01`].map((d) => `${d.slice(0, 4)}/${d.slice(5, 7)}`);
+      const pages = await Promise.all(months.map((m) => getText(BRAS_PANON.id, `${BRAS_PANON.url}/${m}`, TIMEOUT_MS, HEADERS)));
+      // An event of two months is on both pages.
+      return [...new Map(pages.flatMap((h) => parseBrasPanon(h, now)).map((e) => [e.id, e])).values()];
+    }),
+};
+
+const saintBenoit: Agenda = {
+  id: "saint_benoit",
+  nom: "Ville de Saint-Benoît",
+  source: SAINT_BENOIT,
+  commune: "Saint-Benoît",
+  load: (cache, now) => cache.get("agenda:saint_benoit", FRESH_SECONDS, async () => parseSaintBenoit(await getText(SAINT_BENOIT.id, SAINT_BENOIT.url, TIMEOUT_MS, HEADERS), now)),
+};
+
+const otiEst: Agenda = {
+  id: "oti_est",
+  nom: "Office de tourisme de l'Est",
+  source: OTI_EST_SOURCE,
+  couvre: EST,
+  load: (cache, now) => cache.get("agenda:oti_est", FRESH_SECONDS, async () => parseOtiEst(await getText(OTI_EST_SOURCE.id, OTI_EST_SOURCE.url, TIMEOUT_MS, HEADERS), now)),
+};
+
 const petiteIle: Agenda = {
   id: "petite_ile",
   nom: "Ville de Petite-Île",
@@ -553,6 +602,134 @@ const petiteIle: Agenda = {
   commune: "Petite-Île",
   load: (cache, now) => cache.get("agenda:petite_ile", FRESH_SECONDS, async () => parsePetiteIle(await getText(PETITE_ILE.id, PETITE_ILE.url, TIMEOUT_MS, HEADERS), now)),
 };
+
+// ---------------------------------------------------------------- Bras-Panon, Saint-Benoît
+
+/**
+ * Bras-Panon's agenda, a page a month: for each event its link, its title, the days and hours (« 24 Octobre 2026
+ * (09:00 - 10:00) », « 24 - 25 Octobre 2026 (09:00) »), « location_on » and the place, « account_balance_wallet » and
+ * the price, then a sentence.
+ */
+export function parseBrasPanon(html: string, now: Date, nom = "Ville de Bras-Panon"): Evenement[] {
+  // The list only: from the link of its first event to the footer.
+  const from = html.lastIndexOf('href="/fr/ev/', html.indexOf("location_on"));
+  const to = html.indexOf("<footer", from);
+  const t = tokens(html.slice(Math.max(0, from - 10), to > 0 ? to : undefined));
+  const out: Evenement[] = [];
+  for (let i = 0; i + 2 < t.length; i++) {
+    const href = t[i].href;
+    const titre = t[i + 1].t;
+    const quand = t[i + 2].t;
+    if (!href || !/^\/fr\/ev\/\d+\/\d+\//.test(href) || !titre || !quand) continue;
+    const days = datesIn(quand, now);
+    if (!days.length) continue;
+    const h = /\((\d\d:\d\d)(?:\s*-\s*(\d\d:\d\d))?\)/.exec(quand);
+    const seances = h && days.length === 1 && !days[0].fin ? [{ debut: `${days[0].debut}T${h[1]}`, ...(h[2] ? { fin: `${days[0].debut}T${h[2]}` } : {}) }] : days;
+    const place: string[] = [];
+    let prix: string | undefined;
+    let texte = "";
+    let j = i + 3;
+    if (t[j]?.t === "location_on") for (j++; j < t.length && t[j].t && t[j].t !== "account_balance_wallet"; j++) place.push(t[j].t!);
+    if (t[j]?.t === "account_balance_wallet") {
+      prix = t[j + 1]?.t;
+      texte = t[j + 2]?.t ?? "";
+    }
+    const lieu = place.filter((x) => !/^\d{5}\b/.test(x) && normalize(x) !== normalize("Bras-Panon")).join(", ");
+    const lien = `https://www.braspanon.re${href}`;
+    const statut = statusOf(clean(titre), texte);
+    out.push({
+      ...(statut ? { statut } : {}),
+      id: lien,
+      titre: clean(titre),
+      seances,
+      lieu: lieu || undefined,
+      commune: "Bras-Panon",
+      prix: prix ? clean(prix) : undefined,
+      categories: [],
+      description: texte ? lead(clean(texte)) || undefined : undefined,
+      lien,
+      publie_par: nom,
+    });
+  }
+  return out;
+}
+
+/**
+ * Saint-Benoît's events: for each, its category (a link), its title, who it is for (« Tout public »), its days
+ * (« Du 23 au 25 octobre », « Mercredi 28 octobre 2026 de 09h30 à 10h30 », without the year most often), its text, and
+ * the link to its page. One without a date (« Tous les premiers jeudis du mois ») is left out.
+ */
+export function parseSaintBenoit(html: string, now: Date, nom = "Ville de Saint-Benoît"): Evenement[] {
+  const from = html.indexOf('<article class="content shadow event');
+  const t = tokens(html.slice(Math.max(0, from), html.lastIndexOf("</article>") + 10));
+  const out: Evenement[] = [];
+  let block: string[] = [];
+  for (const x of t) {
+    if (x.href && /\/evenements\/[a-z-]+$/.test(x.href)) {
+      block = [];
+      continue;
+    }
+    if (x.t) {
+      block.push(x.t);
+      continue;
+    }
+    if (!x.href || !/\/evenements\/articles\/\d+/.test(x.href) || block.length < 3) continue;
+    const [, titre, ...rest] = block;
+    block = [];
+    // The days: the first short line after the title that has some.
+    const at = rest.findIndex((r) => r.length < 120 && datesIn(r, now).length);
+    if (at < 0) continue;
+    const seances = datesIn(rest[at], now);
+    const texte = rest.slice(at + 1).find((r) => r.length > 20);
+    const statut = statusOf(clean(titre), texte);
+    out.push({
+      ...(statut ? { statut } : {}),
+      id: x.href,
+      titre: clean(titre),
+      seances,
+      commune: "Saint-Benoît",
+      categories: at > 0 && rest[0].length < 40 ? [clean(rest[0])] : [],
+      description: texte ? lead(clean(texte)) || undefined : undefined,
+      lien: x.href,
+      publie_par: nom,
+    });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- Office de tourisme de l'Est
+
+/**
+ * The tourist office of the East's agenda: for each event its link, its days (« Le samedi 24 octobre 2026 », « Du 30
+ * octobre 2026 au 1er novembre 2026 »), its title and its commune. Its terms allow a reproduction that cites « OTI EST
+ * REUNION » with « Droits réservés » and alters nothing: each event says so, and its title is kept as written. The
+ * markets that follow the events have no date.
+ */
+export function parseOtiEst(html: string, now: Date): Evenement[] {
+  const from = html.indexOf('<main class="container-fluid">');
+  const to = html.indexOf("Les marchés de l", from);
+  const t = tokens(html.slice(Math.max(0, from), to > 0 ? to : undefined));
+  const out: Evenement[] = [];
+  for (let i = 0; i + 3 < t.length; i++) {
+    const href = t[i].href;
+    if (!href?.startsWith("https://www.reunionest.fr/agenda/") || !t[i + 1].t || !t[i + 2].t) continue;
+    const seances = /^(?:Le|Du)\s/.test(t[i + 1].t!) ? datesIn(t[i + 1].t!, now) : [];
+    if (!seances.length) continue;
+    const titre = t[i + 2].t!;
+    const statut = statusOf(titre);
+    out.push({
+      ...(statut ? { statut } : {}),
+      id: href,
+      titre,
+      seances,
+      commune: communeOf(t[i + 3].t),
+      categories: [],
+      lien: href,
+      publie_par: OTI_EST,
+    });
+  }
+  return out;
+}
 
 const NORD = ["Saint-Denis", "Sainte-Marie", "Sainte-Suzanne"];
 
@@ -568,6 +745,9 @@ export const AGENDAS: Agenda[] = [
   rss("entre_deux", "Mairie de l'Entre-Deux", "https://entredeux.re/taxonomy/term/3/feed", "Entre-Deux", ENTRE_DEUX),
   intraMuros("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda/rss", "La Possession", LA_POSSESSION),
   petiteIle,
+  brasPanon,
+  saintBenoit,
+  otiEst,
   openAgenda("cinor", "CINOR", 50316469, NORD),
   openAgenda("oti_nord", "Office de tourisme du Nord", 32570974, NORD),
   reunionFr,

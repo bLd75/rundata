@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKER_FREE_LIMIT, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { AGENDAS, COVERED, SOURCES_LUES, communeOf, datesIn, lead, parseIntraMuros, parsePetiteIle, parseReunionFr, parseRss, parseTribe } from "../src/providers/agenda.js";
+import { AGENDAS, COVERED, OTI_EST, SOURCES_LUES, communeOf, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseTribe } from "../src/providers/agenda.js";
 import { agenda, gather, periode } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
 
@@ -37,6 +37,9 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("entredeux")) return "rss_entre-deux.xml";
   if (url.includes("letangsale")) return "rss_etang-sale.xml";
   if (url.includes("petite-ile")) return "petite-ile.html";
+  if (url.includes("braspanon")) return url.endsWith("/2026/11") ? "bras-panon_2026-11.html" : url.endsWith("/2026/10") ? "bras-panon_2026-10.html" : undefined;
+  if (url.includes("saint-benoit")) return "saint-benoit.html";
+  if (url.includes("reunionest")) return "oti-est.html";
   if (url.includes("50316469")) return "openagenda_cinor.json";
   if (url.includes("32570974")) return "openagenda_otnord.json";
   if (url.includes("reunion.fr")) return "irt_agenda.html";
@@ -125,6 +128,33 @@ describe("agenda", () => {
     expect(lead("Du 23 au 25 octobre l’ail est en fête au Domaine du Relais !Ouverture de la fête foraine dès le vendredi.")).toBe("Du 23 au 25 octobre l’ail est en fête au Domaine du Relais !");
   });
 
+  it("reads Bras-Panon's agenda, a page a month, with the hours and the price", () => {
+    const oct = parseBrasPanon(fixture("bras-panon_2026-10.html"), NOW);
+    expect(oct).toHaveLength(10);
+    expect(oct[0]).toMatchObject({ titre: "Atelier Pop Up Safari", seances: [{ debut: "2026-10-24T09:00", fin: "2026-10-24T10:00" }], commune: "Bras-Panon", lieu: undefined, prix: "Gratuit", description: "Fais surgir les animaux de la savane !", lien: "https://www.braspanon.re/fr/ev/2512733/1991459/atelier-pop-up-safari/2026/10/24", publie_par: "Ville de Bras-Panon" });
+    // Over two days: the days, without the hour of the first.
+    expect(oct.find((e) => e.titre === "1er Rally National Grand Est")!.seances).toEqual([{ debut: "2026-10-24", fin: "2026-10-25" }]);
+    expect(parseBrasPanon(fixture("bras-panon_2026-11.html"), NOW).find((e) => e.titre === "Nout' Marché de Nuit à Bras-Panon")!.seances).toEqual([{ debut: "2026-11-10T17:00", fin: "2026-11-10T22:30" }]);
+  });
+
+  it("reads Saint-Benoît's events, the days without their year, and leaves out those without a date", () => {
+    const list = parseSaintBenoit(fixture("saint-benoit.html"), NOW);
+    expect(list.some((e) => e.titre === "Soirée Karaoké")).toBe(false); // « Tous les premiers jeudis du mois »
+    expect(list.find((e) => e.titre === "Agenda sportif")).toMatchObject({ seances: [{ debut: "2026-10-23", fin: "2026-10-25" }], categories: ["Tout public"], commune: "Saint-Benoît", lien: "https://www.saint-benoit.re/evenements/articles/9592-agenda-sportif" });
+    expect(list.find((e) => e.titre === "Atelier “Kaniki”")!.seances).toEqual([{ debut: "2026-10-28T09:30", fin: "2026-10-28T10:30" }]);
+    expect(list.find((e) => e.titre.startsWith("Urban Konection"))!.seances).toEqual([{ debut: "2026-11-28" }]);
+  });
+
+  it("reads the tourist office of the East, its titles as written and its terms on each event", () => {
+    const list = parseOtiEst(fixture("oti-est.html"), NOW);
+    expect(list).toHaveLength(10);
+    expect(list.every((e) => e.publie_par === OTI_EST && !e.description)).toBe(true);
+    expect(list[1]).toMatchObject({ titre: "🎀 Grande Marche Rose : rendez-vous le 24 octobre ! 🎀", seances: [{ debut: "2026-10-24" }], commune: "Saint-Benoît" });
+    expect(list.find((e) => e.titre.startsWith("FOLIES FLORALES"))).toMatchObject({ seances: [{ debut: "2026-10-30", fin: "2026-11-01" }], commune: "La Plaine-des-Palmistes" });
+    // The markets, without a date, are not events.
+    expect(list.some((e) => /^Marché forain/.test(e.titre))).toBe(false);
+  });
+
   it("takes each source from one line of the agendas: its reading, its credit and its coverage", () => {
     const possession = AGENDAS.find((a) => a.id === "la_possession")!;
     expect(COVERED).toContain("La Possession");
@@ -149,7 +179,7 @@ describe("agenda", () => {
     const c = cache();
     const b = body(await agenda(c, undefined, undefined, undefined, NOW));
     expect(b.resume).toBe("40 événements à La Réunion dans les deux semaines qui viennent (du samedi 24/10 au samedi 07/11).".replace("40", String(b.nombre)));
-    expect(b.nombre).toBe(76);
+    expect(b.nombre).toBe(104);
     expect(b.evenements).toHaveLength(40);
     expect(b.evenements.filter((e: { titre: string }) => e.titre === "Visite guidée de la Maison Carrère")).toHaveLength(1);
     // Published by reunion.fr and by Petite-Île, told once: the commune's, which gives the place.
@@ -158,20 +188,21 @@ describe("agenda", () => {
     const all = body(await agenda(c, undefined, undefined, undefined, NOW, 300));
     expect(new Set(all.evenements.map((e: { publie_par: string }) => e.publie_par))).toEqual(new Set(["reunion.fr", "Ville du Tampon", "Ville du Port", "Mairie des Trois-Bassins", "CINOR", "Mairie de Saint-Paul", "Ville de Saint-André",
       "Le Séchoir", "TÉAT La Réunion", "Cité des Arts", "Kabardock", "Bisik", "Théâtre Luc Donat", "CDNOI", "Léspas", "Ville de La Possession", "Ville de L'Étang-Salé",
-      "Ville de Petite-Île"]));
+      "Ville de Petite-Île", "Ville de Bras-Panon", "Ville de Saint-Benoît", "OTI EST REUNION — Droits réservés"]));
     // Last year's posts of Saint-Louis are past; nothing of theirs.
     expect(b.evenements.some((e: { publie_par: string }) => e.publie_par === "Ville de Saint-Louis")).toBe(false);
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
-    // Twenty-three agendas, and the pages of the four shows on both TÉAT stages.
-    expect(asked).toHaveLength(27);
+    // Twenty-seven agendas (two pages for Bras-Panon), and the pages of the four shows on both TÉAT stages.
+    expect(asked).toHaveLength(31);
   });
 
   it("answers tonight, with the hours", async () => {
     const b = body(await agenda(cache(), undefined, "ce_soir", "concert", NOW));
-    expect(b.resume).toBe("4 événements (concerts et musique) à La Réunion ce soir.");
-    expect(b.evenements.map((e: { titre: string }) => e.titre)).toEqual(["CALOGERO", "Olivier Ker Ourio", "DKLO TAN ROUGE", "Somèn kréol – Plato Zartis"]);
+    expect(b.resume).toBe("5 événements (concerts et musique) à La Réunion ce soir.");
+    // A day without hours may be tonight: the musical of the East is.
+    expect(b.evenements.map((e: { titre: string }) => e.titre)).toEqual(["CALOGERO", "Olivier Ker Ourio", "Une nouvelle comédie musicale indienne signée Sivayanama", "DKLO TAN ROUGE", "Somèn kréol – Plato Zartis"]);
     expect(b.evenements[0]).toMatchObject({ lieu: "TÉAT Plein Air", commune: "Saint-Paul", genres: ["concert"], publie_par: "TÉAT La Réunion" });
-    expect(b.evenements[3]).toMatchObject({ quand: "samedi 24/10 de 18:00 à 23:00", commune: "Les Trois-Bassins" });
+    expect(b.evenements[4]).toMatchObject({ quand: "samedi 24/10 de 18:00 à 23:00", commune: "Les Trois-Bassins" });
   });
 
   it("answers for a commune, with what its agenda gives", async () => {
