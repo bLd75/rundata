@@ -22,14 +22,14 @@ import { KREOL } from "./publier-texte.js";
 export const PATH = "/associations";
 /** The short addresses people type, sent here. */
 export const ALIASES = ["/clubs", "/asso"];
-const TITLE = "Clubs et associations : faites connaître vos événements, gratuitement · 974";
-const META = "Matchs, kermesses, sorties, concerts : vos dates sur rundata.re et dans les assistants IA, avec le nom de votre club. Gratuit, sans compte, en quelques clics.";
+const TITLE = "Clubs et associations\u00a0: faites connaître vos événements, gratuitement · 974";
+const META = "Matchs, kermesses, sorties, concerts\u00a0: vos dates sur rundata.re et dans les assistants IA, avec le nom de votre club. Gratuit, sans compte, en quelques clics.";
 const H1 = "Espace clubs et associations";
-const ESPRIT = "Vos matchs, vos kermesses, vos sorties et vos concerts s'affichent gratuitement sur rundata.re et dans les assistants IA qui l'utilisent (ChatGPT, Claude, Le Chat), avec le nom et le lien de votre club. Vous continuez à publier là où vous le faites déjà : sans compte, sans publicité, et vos événements deviennent des données ouvertes, que tout le monde peut réutiliser en citant votre club.";
+const ESPRIT = "Vos matchs, vos kermesses, vos sorties et vos concerts s'affichent gratuitement sur rundata.re et dans les assistants IA qui l'utilisent (ChatGPT, Claude, Le Chat), avec le nom et le lien de votre club. Vous continuez à publier là où vous le faites déjà\u00a0: sans compte, sans publicité, et vos événements deviennent des données ouvertes, que tout le monde peut réutiliser en citant votre club.";
 /** Under it, no figure: only the events. */
 const CLUBS_MIN = 10;
 const PROCHAINS = 3;
-const RELAIS = "Votre club ou votre association organise des matchs, des fêtes, des sorties ? rundata.re les affiche gratuitement, sur son site et dans les assistants IA comme ChatGPT, avec le nom de votre club. Quelques clics suffisent, sans compte : https://rundata.re/associations?ref=asso-relais";
+const RELAIS = "Votre club ou votre association organise des matchs, des fêtes, des sorties\u00a0? rundata.re les affiche gratuitement, sur son site et dans les assistants IA comme ChatGPT, avec le nom de votre club. Quelques clics suffisent, sans compte\u00a0: https://rundata.re/associations?ref=asso-relais";
 
 /** What the proof shows: the clubs read, their events in the coming two weeks, the first few. */
 export interface Preuve {
@@ -72,7 +72,7 @@ const etat = (lu: boolean) => (lu ? `<span class="etat lu">Déjà lu</span>` : `
 const OUTILS: { nom: string; faire: string; temps: string; lu: boolean | "non-dit" }[] = [
   {
     nom: "Google Agenda",
-    faire: `<ol><li>Créez un agenda à part pour vos événements publics.</li><li>Rendez-le public, avec tous les détails.</li><li>Copiez l'« Adresse publique au format iCal » et <a href="#lien">donnez-la-nous</a>.</li></ol><p><a href="/publier#google-agenda">Le pas à pas, avec les erreurs à éviter</a></p>`,
+    faire: `<ol><li>Créez un agenda à part pour vos événements publics.</li><li>Rendez-le public, avec tous les détails.</li><li>Copiez l'«\u00a0Adresse publique au format iCal\u00a0» et <a href="#lien">donnez-la-nous</a>.</li></ol><p><a href="/publier#google-agenda">Le pas à pas, avec les erreurs à éviter</a></p>`,
     temps: "10 min, une fois",
     lu: true,
   },
@@ -90,13 +90,13 @@ const OUTILS: { nom: string; faire: string; temps: string; lu: boolean | "non-di
   },
   {
     nom: "Facebook ou Instagram",
-    faire: `<p>Nous ne pouvons pas lire Facebook ni Instagram. Gardez-les pour votre public, et <a href="${PROPOSER_PATH}">proposez chaque événement avec le formulaire</a>, en collant le lien de votre événement Facebook : 2 minutes.</p>`,
+    faire: `<p>Nous ne pouvons pas lire Facebook ni Instagram. Gardez-les pour votre public, et <a href="${PROPOSER_PATH}">proposez chaque événement avec le formulaire</a>, en collant le lien de votre événement Facebook\u00a0: 2 minutes.</p>`,
     temps: "2 min par événement",
     lu: false,
   },
   {
     nom: "HelloAsso",
-    faire: `<p><a href="${PROPOSER_PATH}">Proposez l'événement avec le formulaire</a> et collez le lien de votre billetterie HelloAsso : on renvoie vers elle pour s'inscrire ou payer.</p>`,
+    faire: `<p><a href="${PROPOSER_PATH}">Proposez l'événement avec le formulaire</a> et collez le lien de votre billetterie HelloAsso\u00a0: on renvoie vers elle pour s'inscrire ou payer.</p>`,
     temps: "2 min par événement",
     lu: false,
   },
@@ -110,10 +110,10 @@ const OUTILS: { nom: string; faire: string; temps: string; lu: boolean | "non-di
 
 const REGLES = [
   "C'est gratuit à vie pour les associations à but non lucratif. Pas de compte à créer.",
-  "Vos événements restent des données ouvertes (Licence Ouverte 2.0) : tout le monde peut les réutiliser, en citant votre association.",
+  "Vos événements restent des données ouvertes (Licence Ouverte 2.0)\u00a0: tout le monde peut les réutiliser, en citant votre association.",
   "Nous ne reprenons que les faits (titre, date, lieu, prix) et une phrase, avec votre nom et votre lien.",
-  "Jamais de téléphone personnel, de nom d'enfant ni d'adresse de domicile : seulement ce qui irait sur votre affiche.",
-  "Un événement est annulé ou faux ? Écrivez-nous, nous le retirons dans la journée.",
+  "Jamais de téléphone personnel, de nom d'enfant ni d'adresse de domicile\u00a0: seulement ce qui irait sur votre affiche.",
+  "Un événement est annulé ou faux\u00a0? Écrivez-nous, nous le retirons dans la journée.",
 ];
 
 /** The three steps of the form, for search engines (HowTo). */
@@ -134,11 +134,11 @@ function howTo(origin: string) {
 
 function preuveSection(p: Preuve): string {
   const count = p.clubs >= CLUBS_MIN
-    ? `<p>${p.clubs} clubs et associations lus par rundata.re ; ${p.evenements} de leurs événements dans les deux prochaines semaines.</p>`
+    ? `<p>${p.clubs} clubs et associations lus par rundata.re\u00a0; ${p.evenements} de leurs événements dans les deux prochaines semaines.</p>`
     : "";
   const list = p.prochains.length
     ? `<ul class="rows eau">${p.prochains.map(({ e, quand }) => `<li><span>${e.lien ? `<a href="${esc(e.lien)}" rel="noopener">${esc(e.titre)}</a>` : esc(e.titre)}<small>${[e.commune, e.publie_par].filter(Boolean).map((x) => esc(x!)).join(" · ")}</small></span><span>${esc(quand)}</span></li>`).join("")}</ul>`
-    : `<p>Les premiers événements de clubs et d'associations arrivent : <a href="${PROPOSER_PATH}">proposez le vôtre</a>.</p>`;
+    : `<p>Les premiers événements de clubs et d'associations arrivent\u00a0: <a href="${PROPOSER_PATH}">proposez le vôtre</a>.</p>`;
   return `<section aria-labelledby="h-preuve">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-preuve">Les prochains événements de clubs et d'associations</h2></div>
   ${count}
@@ -157,35 +157,35 @@ export function associationsPage(origin: string, p: Preuve, alerte?: Alerte): st
 </div></div>`;
   const cards = OUTILS.map((o) => `<li class="card outil"><h3>${esc(o.nom)}</h3>
     <p class="aide">Ce qu'il faut faire</p>${o.faire}
-    <p class="aide">Temps : ${esc(o.temps)} · rundata.re : ${etat(o.lu === true)}</p></li>`).join("\n  ");
+    <p class="aide">Temps\u00a0: ${esc(o.temps)} · rundata.re\u00a0: ${etat(o.lu === true)}</p></li>`).join("\n  ");
   const body = `<section class="card proposer" aria-labelledby="h-proposer">
-  <h2 id="h-proposer">Proposer un événement, en 2 minutes</h2>
-  <p>Un match, une kermesse, une sortie, un concert ? Remplissez le formulaire, avec ou sans page Facebook, sans compte. Nous le relisons, puis il s'affiche sur rundata.re et dans les assistants IA, avec le nom de votre association.</p>
+  <h2 id="h-proposer">Proposer un événement, en 2\u00a0minutes</h2>
+  <p>Un match, une kermesse, une sortie, un concert\u00a0? Remplissez le formulaire, avec ou sans page Facebook, sans compte. Nous le relisons, puis il s'affiche sur rundata.re et dans les assistants IA, avec le nom de votre association.</p>
   <p><a class="btn sun" href="${PROPOSER_PATH}">Proposer un événement</a></p>
 </section>
 ${preuveSection(p)}
 <section aria-labelledby="h-outils">
-  <div class="sec-h"><h2 id="h-outils">Votre club utilise déjà un agenda ?</h2><p>Pour ne plus rien saisir deux fois : ce qu'il faut faire, selon l'outil.</p></div>
+  <div class="sec-h"><h2 id="h-outils">Votre club utilise déjà un agenda\u00a0?</h2><p>Pour ne plus rien saisir deux fois\u00a0: ce qu'il faut faire, selon l'outil.</p></div>
   <ul class="outils">
   ${cards}
   </ul>
 </section>
 ${lienForm(PATH)}
 <section aria-labelledby="h-propre">
-  <div class="sec-h"><h2 id="h-propre">Vous voulez faire propre ?</h2>
-  <p>Le guide complet montre comment publier vos événements en flux ouvert, lisible par rundata.re et par tous : Google Agenda, OpenAgenda, WordPress, tableur, data.gouv.fr. <a href="/publier">Lire le guide</a></p></div>
+  <div class="sec-h"><h2 id="h-propre">Vous voulez faire propre\u00a0?</h2>
+  <p>Le guide complet montre comment publier vos événements en flux ouvert, lisible par rundata.re et par tous\u00a0: Google Agenda, OpenAgenda, WordPress, tableur, data.gouv.fr. <a href="/publier">Lire le guide</a></p></div>
 </section>
 <section aria-labelledby="h-regles">
   <div class="sec-h"><h2 id="h-regles">Les règles</h2></div>
   <ul class="card">${REGLES.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
-  <p class="note">Les événements proposés, en données ouvertes : <a href="${ICS_PATH}">agenda ICS</a> · <a href="${JSON_PATH}">JSON</a> (Licence Ouverte 2.0).</p>
+  <p class="note">Les événements proposés, en données ouvertes\u00a0: <a href="${ICS_PATH}">agenda ICS</a> · <a href="${JSON_PATH}">JSON</a> (Licence Ouverte 2.0).</p>
 </section>
 <section aria-labelledby="h-relais">
-  <div class="sec-h"><h2 id="h-relais">Faites passer</h2><p>Le texte à transmettre aux autres clubs et associations :</p></div>
+  <div class="sec-h"><h2 id="h-relais">Faites passer</h2><p>Le texte à transmettre aux autres clubs et associations\u00a0:</p></div>
   <div class="card fo"><p id="relais">${esc(RELAIS)}</p>
   <p><button type="button" data-copy="relais">Copier le texte</button> <a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(RELAIS)}" target="_blank" rel="noopener">Partager sur WhatsApp</a></p></div>
 </section>
-<p>Une question ? <a href="mailto:contact@rundata.re">contact@rundata.re</a></p>
+<p>Une question\u00a0? <a href="mailto:contact@rundata.re">contact@rundata.re</a></p>
 ${TURNSTILE_SCRIPT}`;
   return layout(origin, { title: TITLE, description: META, path: PATH, jsonld: [crumbs(origin, "Clubs et associations", PATH), webPage(origin, PATH, TITLE, META, null), howTo(origin)], alerte, sansPartage: true }, band, body);
 }
