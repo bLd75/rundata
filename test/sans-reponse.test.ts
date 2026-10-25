@@ -246,7 +246,7 @@ describe("what is shown", () => {
 
   it("answers the tool with the whole list, or the sites a word names", async () => {
     const all = JSON.parse((await sitesSansReponse(new Cache(), undefined, MORNING)).content[0].text);
-    expect(all.resume).toBe("1 site public sans réponse ce 26/10, revérifié chaque jour ; le plus ancien depuis le 21/10 (le site de l'OVPF-IPGP).");
+    expect(all.resume).toBe("1 site public sans réponse ce 26/10, revérifié chaque jour\u00a0; le plus ancien depuis le 21/10 (le site de l'OVPF-IPGP).");
     expect(all.sites[0]).toEqual({ site: "le site de l'OVPF-IPGP", statut: "sans réponse", depuis: "21/10", constat: "pas de réponse dans le délai", manque_ici: "les bulletins et communiqués de l'OVPF sur le Piton de la Fournaise", lien: "https://www.ipgp.fr/" });
     expect(all.sites[1]).toMatchObject({ site: "le site de NOAA CoastWatch", statut: "répond de nouveau", depuis: "25/10" });
     expect(all.page).toBe("https://rundata.re/sites-sans-reponse");

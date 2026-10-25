@@ -336,7 +336,7 @@ export function publiques(rows: Ligne[]): Public[] {
         ...l,
         nom: l.nom ?? connues[0]?.organisme ?? l.hote,
         theme: l.theme ?? "Autres sites",
-        manque: l.manque ?? (connues.length ? connues.map((s) => s.nom).join(" ; ") : null),
+        manque: l.manque ?? (connues.length ? connues.map((s) => s.nom).join("\u00a0; ") : null),
       };
     })
     .sort((a, b) => a.premier_echec - b.premier_echec);

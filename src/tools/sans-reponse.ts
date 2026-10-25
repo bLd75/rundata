@@ -41,7 +41,7 @@ export async function sitesSansReponse(cache: Cache, quoi?: string, now = new Da
   const today = jour(Math.floor(now.getTime() / 1000));
   const oldest = silent[0];
   const resume = silent.length
-    ? `${silent.length} site${silent.length > 1 ? "s" : ""} public${silent.length > 1 ? "s" : ""} sans réponse ce ${today}${quoi?.trim() ? ` pour « ${quoi.trim()} »` : ""}, revérifié${silent.length > 1 ? "s" : ""} chaque jour ; le plus ancien depuis le ${jour(oldest.premier_echec)} (le site de ${oldest.nom}).`
+    ? `${silent.length} site${silent.length > 1 ? "s" : ""} public${silent.length > 1 ? "s" : ""} sans réponse ce ${today}${quoi?.trim() ? ` pour « ${quoi.trim()} »` : ""}, revérifié${silent.length > 1 ? "s" : ""} chaque jour\u00a0; le plus ancien depuis le ${jour(oldest.premier_echec)} (le site de ${oldest.nom}).`
     : `Aucun site public sans réponse ce ${today}${quoi?.trim() ? ` pour « ${quoi.trim()} »` : ""}, d'après la revérification quotidienne.`;
   return text({ resume, sites: asked.map(site), page: `${SITE_URL}${PATH}` });
 }
