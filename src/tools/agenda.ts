@@ -458,7 +458,7 @@ export function mentionIle(): string[] {
   const lines: string[] = [];
   if (waiting.length === 1) lines.push(mentionCommune(waiting[0])!);
   else if (waiting.length) {
-    const kinds = ["événements", "actualités"].filter((k) => waiting.some((c) => AUTORISATIONS[c].publie === k)).join(" et ");
+    const kinds = ["événements", "actualités"].filter((k) => waiting.some((c) => AUTORISATIONS[c].publie.includes(k))).join(" et ");
     const days = new Set(waiting.map((c) => (AUTORISATIONS[c].etat === "demandee" ? AUTORISATIONS[c].demandee_le ?? "" : undefined)));
     const day = days.size === 1 ? [...days][0] : undefined;
     lines.push(`Les mentions légales des sites de ${waiting.length} communes interdisent d'en reprendre le contenu sans leur accord : ${enumeration(waiting)}. rundata.re n'affiche donc pas les ${kinds} qu'elles y publient.` +
