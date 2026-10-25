@@ -11,7 +11,7 @@ import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
 import { actualitesLive, airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
-import { enImagesApres, enImagesLuesAilleurs, hausseNiveau, NON_ANNONCEE } from "../tools/volcan.js";
+import { enImagesApres, enImagesLuesAilleurs, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
 import { enfantsLive } from "./enfants.js";
 import { esc, islandMap, type Marker } from "./map.js";
@@ -127,18 +127,18 @@ export function demos(h: HomeLive | null, now: Date): Demo[] {
   }
   const e = h?.volcan?.value.etat;
   if (e) {
-    const q = h!.volcan!.value.seismes;
-    const p0 = h!.volcan!.value.publications_ovpf?.[0];
+    const q = typeof h!.volcan!.value.seismes === "object" ? h!.volcan!.value.seismes : undefined;
+    const p0 = Array.isArray(h!.volcan!.value.publications_ovpf) ? h!.volcan!.value.publications_ovpf[0] : undefined;
     out.push({
       question: "Le volcan est en éruption ?",
       call: "volcan_seismes()",
       // In alert, never « pas encore » on our word: what the texts read say, then the level in the plan's words (marketing).
-      answer: (e.ecart_prefecture
-        // pitonlive higher than the release: both levels, in marketing's words.
-        ? esc(hausseNiveau(e.ecart_prefecture))
-        : !e.eruption_en_cours && /^Alerte/.test(e.niveau_orsec)
+      answer: (!e.eruption_en_cours && /^Alerte/.test(e.niveau_orsec)
         ? `${esc(NON_ANNONCEE)}${e.image_ovpf_plus_recente && p0?.lien ? ` ${esc((p0.texte_lu_dans_l_image ? enImagesLuesAilleurs : enImagesApres)(...(p0.date.split(" ") as [string, string])))} : <a href="${esc(p0.lien)}">la voir</a>.` : ""} Le volcan est en ${esc(e.niveau_orsec.toLowerCase())}${libelle(e.niveau_orsec) ? ` : « ${esc(libelle(e.niveau_orsec)!)} » (dispositif ORSEC Volcan)` : ""}.`
-        : `${e.eruption_en_cours ? "Oui, le Piton de la Fournaise est en éruption" : "Non, pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com"} (niveau ORSEC : ${esc(e.niveau_orsec)}).`) +
+        : e.eruption_en_cours
+        ? `Oui, le Piton de la Fournaise est en éruption (niveau ORSEC : ${esc(e.niveau_orsec)}).`
+        // What the texts read say, with when, never « Non » on our word nor pitonlive's (marketing).
+        : `Pas d'éruption annoncée par l'OVPF ni par la préfecture dans les textes que nous avons lus (${hm(h!.volcan!.fetchedAt)}).${e.niveau_inconnu ? "" : ` Niveau ORSEC : ${esc(e.niveau_orsec)}.`}`) +
         (q ? ` L'observatoire a localisé ${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} sous le volcan en 7 jours.` : ""),
     });
   }

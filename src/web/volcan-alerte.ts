@@ -1,15 +1,16 @@
 /**
  * The volcano put forward while the ORSEC plan is at Alerte 1 or higher, or an eruption is under way: a banner on every
- * page, the first place on the home page, /volcan in its alert dress. Read from the /volcan page's copy, where the
- * prefecture's phase already wins over pitonlive's (tools/volcan.ts), so that the banner never says other than the page.
- * The times are the official texts' own: the prefecture's releases give their day only, so no hour is ever written.
+ * page, the first place on the home page, /volcan in its alert dress. Read from the /volcan page's copy, whose level is
+ * the official texts' alone (tools/volcan.ts `officiel`), so that the banner never says other than the page. The times
+ * are the official texts' own: the prefecture's releases give their day only, so no hour is written for them; the
+ * OVPF's posts have theirs. pitonlive.com is never here (the user, 25/10/2026).
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Cache } from "../cache.js";
 import type { ActualitesAnswer, VolcanAnswer } from "./data.js";
 import { esc } from "./map.js";
 import { DESCRIPTION_MAX } from "./pages.js";
-import { type Hausse, NON_ANNONCEE } from "../tools/volcan.js";
+import { givenAt as postAt, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
 import { OVPF, OVPF_FACEBOOK } from "../providers/volcan.js";
 
@@ -19,8 +20,10 @@ export interface VolcanAlerte {
   eruption: boolean;
   /** The prefecture's release that declared the level. `jour`: its day, « 2026-10-24 ». */
   communique?: { titre: string; lien: string; jour: string };
-  /** pitonlive higher than that release: `niveau` is then pitonlive's, `eruption` the release's, and both levels are said. */
-  hausse?: Hausse;
+  /** The level is the OVPF's, from this post (`date` « 25/10 08:00 heure de La Réunion »), newer and higher than the release. */
+  ovpf?: { date: string; lien: string };
+  /** The OVPF said the eruption stopped, the level still an alert 2 until the prefecture's next release. */
+  arret?: { date: string; lien: string };
 }
 
 /** The day of the prefecture's release in a copy of /volcan, « 2026-10-24 », that copy made by this version or an earlier one. */
@@ -31,17 +34,15 @@ export function alerteVolcan(v: VolcanAnswer | undefined): VolcanAlerte | undefi
   const e = v?.etat;
   if (!e || typeof e !== "object") return undefined;
   const c = e.communique_prefecture;
-  // pitonlive higher than the release: the higher level first, quoted with its source, the release's right after; the
-  // word « éruption » only the prefecture's (marketing), so the eruption only as the release says it.
-  const h = c && e.ecart_prefecture;
   const niveau = /^Alerte/i.test(e.niveau_orsec ?? "") ? e.niveau_orsec : undefined;
   if (!niveau && !e.eruption_en_cours) return undefined;
   return {
     niveau,
-    // Alerte 2 is the eruption under way, in the plan's own terms.
-    eruption: h ? e.eruption_en_cours === true : !!e.eruption_en_cours || /^Alerte 2/i.test(niveau ?? ""),
+    // Alerte 2 is the eruption under way, in the plan's own terms, unless the OVPF said it stopped (tools/volcan.ts).
+    eruption: typeof e.eruption_en_cours === "boolean" ? e.eruption_en_cours || (/^Alerte 2/i.test(niveau ?? "") && e.eruption_ovpf?.en_cours !== false) : /^Alerte 2/i.test(niveau ?? ""),
     communique: c && { titre: c.titre, lien: c.lien, jour: releaseDay(c) },
-    ...(h && { hausse: h }),
+    ...(e.niveau_ovpf && { ovpf: e.niveau_ovpf }),
+    ...(e.eruption_ovpf?.en_cours === false && { arret: e.eruption_ovpf }),
   };
 }
 
@@ -89,14 +90,16 @@ const day = (jour: string) => new Date(`${jour}T12:00:00Z`).toLocaleDateString("
 // The release dated, never « depuis le … »: we know what the last release read says, not that the alert still holds;
 // the day and its month never apart (marketing).
 const dated = (a: VolcanAlerte) => (a.communique ? `communiqué du ${day(a.communique.jour).replace(" ", "\u00a0")}` : "");
+// « 24/10 », of a day « 2026-10-24 ».
+const dm = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
 const released = (a: VolcanAlerte) => (a.communique ? ` (${dated(a)})` : "");
 // « Alerte 1 », the level never apart from its word, and the arrow never alone on its line (marketing).
 const nb = (s: string) => s.replace(/^(alerte) /i, "$1\u00a0");
 const FOLLOW = "Suivre en direct\u00a0→";
-// The level from pitonlive alone, no release of the prefecture read: never « du préfet », nothing said of the Enclos,
-// the official level sent to reunion.gouv.fr (marketing).
-const pitonOnly = (a: VolcanAlerte) => !a.communique && !a.hausse && !!a.niveau;
-const pitonSaid = (a: VolcanAlerte) => `« ${nb(a.niveau!)} » selon pitonlive.com`;
+// Whose the level is: the prefect's, with the release's day, or the OVPF's, with its post's time (marketing, item 7).
+const by = (a: VolcanAlerte) => (a.ovpf ? ` selon l'OVPF (publication du ${postAt(a.ovpf.date)})` : ` du préfet${released(a)}`);
+// Draft, to marketing: the eruption stopped according to the OVPF, the level still an alert 2.
+const arretSaid = (a: VolcanAlerte) => `L'OVPF a annoncé l'arrêt de l'éruption (publication du ${postAt(a.arret!.date)})`;
 const level = (a: VolcanAlerte) => a.niveau!.toLowerCase();
 // The level's words in the plan, true for any alert 1, never a release's of the day nor ours (marketing): « éruption
 // probable ou imminente ». Only what the level names: back in vigilance, no « éruption probable ».
@@ -104,23 +107,13 @@ const plan = (a: VolcanAlerte) => libelle(a.niveau) ?? "";
 const planSaid = (a: VolcanAlerte) => (plan(a) ? ` : « ${plan(a)} », selon le dispositif ORSEC Volcan` : "");
 
 export const ENCLOS = "Accès à l'Enclos interdit.";
-export const CONSIGNES = "Accès à l'Enclos interdit. Seules comptent les consignes de la préfecture et de l'OVPF.";
-// No release of the prefecture read: the official level and the Enclos sent to its releases (marketing).
-const PITON_ONLY = "Le niveau officiel et l'accès à l'Enclos sont dans les communiqués de la préfecture : vérifiez sur reunion.gouv.fr avant de monter.";
-
-/** « 24/10 », of a day « 2026-10-24 ». */
-const shortDay = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
-// Worded by marketing: pitonlive higher than the release, the banner short; the Enclos only if the release says it.
-const hausseBanner = (h: Hausse) =>
-  `« ${h.pitonlive} » selon pitonlive.com, « ${h.prefecture} » selon le communiqué de la préfecture du ${shortDay(h.jour_prefecture)}` +
-  (h.enclos_interdit ? ". Accès à l'Enclos interdit selon ce communiqué : vérifiez sur reunion.gouv.fr." : " : vérifiez sur reunion.gouv.fr.");
+export const SEULES = "Seules comptent les consignes de la préfecture et de l'OVPF.";
+export const CONSIGNES = `${ENCLOS} ${SEULES}`;
 
 export function bannerText(a: VolcanAlerte): string {
-  if (a.hausse) return `🌋 ${hausseBanner(a.hausse)}`;
-  if (pitonOnly(a)) return `🌋 Volcan : ${pitonSaid(a)}, niveau officiel à vérifier sur reunion.gouv.fr.`;
   return a.eruption
-    ? `🌋 Éruption en cours au Piton de la Fournaise${a.niveau ? ` (${level(a)} du préfet${a.communique ? `, ${dated(a)}` : ""})` : ""}. ${ENCLOS}`
-    : `🌋 Piton de la Fournaise : ${level(a)} du préfet${released(a)}${plan(a) ? `, « ${plan(a)} » (dispositif ORSEC Volcan)` : ""}. ${ENCLOS}`;
+    ? `🌋 Éruption en cours au Piton de la Fournaise${a.niveau ? ` (${level(a)}${a.ovpf ? ` selon l'OVPF, publication du ${postAt(a.ovpf.date)}` : ` du préfet${a.communique ? `, ${dated(a)}` : ""}`})` : ""}. ${ENCLOS}`
+    : `🌋 Piton de la Fournaise : ${level(a)}${by(a)}${a.arret ? `. ${arretSaid(a)}` : plan(a) ? `, « ${plan(a)} » (dispositif ORSEC Volcan)` : ""}. ${ENCLOS}`;
 }
 
 export function bannerHtml(a: VolcanAlerte | undefined, path: string): string {
@@ -129,64 +122,51 @@ export function bannerHtml(a: VolcanAlerte | undefined, path: string): string {
   return `<div class="alerte volcan" role="status"><div class="wrap"><span>${esc(bannerText(a))}</span>${more}</div></div>`;
 }
 
-// The description of /volcan in that case: the Enclos dropped when it does not fit (marketing).
-const hausseMeta = (h: Hausse) => {
-  const both = `« ${h.pitonlive} » selon pitonlive.com, « ${h.prefecture} » selon la préfecture (${shortDay(h.jour_prefecture)})`;
-  const short = `${both} : vérifiez sur reunion.gouv.fr · 974`;
-  return [h.enclos_interdit ? `${both}. Enclos interdit selon son communiqué : vérifiez sur reunion.gouv.fr · 974` : short, short].find((x) => x.length <= DESCRIPTION_MAX) ?? short;
-};
-
-// pitonlive higher than the release: its level in its words, with its source (marketing).
-const haussePitonlive = (h: Hausse) => `Piton de la Fournaise : « ${h.pitonlive} » selon pitonlive.com`;
-
 export const volcanTitle = (a: VolcanAlerte) =>
-  a.hausse ? `${haussePitonlive(a.hausse)} · 974` : a.eruption ? "Éruption du Piton de la Fournaise en direct · 974" : `Piton de la Fournaise : ${level(a)}, éruption probable · 974`;
+  a.eruption ? "Éruption du Piton de la Fournaise en direct · 974" : a.arret ? `Piton de la Fournaise : ${level(a)} · 974` : `Piton de la Fournaise : ${level(a)}, éruption probable · 974`;
 
 export const volcanH1 = (a: VolcanAlerte) =>
-  a.hausse ? haussePitonlive(a.hausse) : a.eruption ? "Éruption en cours au Piton de la Fournaise" : `Piton de la Fournaise : ${level(a)}${plan(a) ? `, ${plan(a)}` : ""}`;
+  a.eruption ? "Éruption en cours au Piton de la Fournaise" : `Piton de la Fournaise : ${level(a)}${!a.arret && plan(a) ? `, ${plan(a)}` : ""}`;
 
 export const volcanMeta = (a: VolcanAlerte) =>
-  a.hausse ? hausseMeta(a.hausse) : pitonOnly(a)
-    ? `Piton de la Fournaise : ${pitonSaid(a)}. Niveau officiel : préfecture, reunion.gouv.fr. Communiqués de l'OVPF en direct · 974`
-    : a.eruption
+  a.eruption
     ? `Éruption en cours (OVPF, préfecture)${a.niveau ? `, ${level(a)}` : ""}. ${ENCLOS} Communiqués, séismes et consignes en direct · 974`
     : alertMeta(a);
 
 // Worded by marketing, as the home page's card: the plan's words whole or not at all, within DESCRIPTION_MAX.
 function alertMeta(a: VolcanAlerte): string {
   const tail = `. ${ENCLOS} Communiqués de l'OVPF en direct · 974`;
-  const short = `${nb(a.niveau!)} du préfet${released(a)}${tail}`;
-  return [plan(a) ? `${nb(a.niveau!)} du préfet${released(a)} : « ${plan(a)} »${tail}` : short, short].find((x) => x.length <= DESCRIPTION_MAX) ?? short;
+  const short = `${nb(a.niveau!)}${by(a)}${tail}`;
+  return [plan(a) && !a.arret ? `${nb(a.niveau!)}${by(a)} : « ${plan(a)} »${tail}` : short, short].find((x) => x.length <= DESCRIPTION_MAX) ?? short;
 }
 
 export const volcanLead = (a: VolcanAlerte) =>
-  a.eruption
+  a.arret
+    ? `${arretSaid(a)}. Seuls l'OVPF et la préfecture disent la suite : leurs communiqués s'affichent ici dès que nous les avons lus.`
+    : a.eruption
     ? "Où, quelle intensité, quelles routes : ce que publient l'OVPF et la préfecture, dans l'ordre, avec l'heure. Respectez les consignes et les fermetures de routes."
     // Never « n'a pas commencé » on our word: the OVPF's newest post may be an image we do not read (marketing).
-    : `${NON_ANNONCEE} Seuls l'OVPF et la préfecture l'annonceront : leurs communiqués s'affichent ici dès leur publication.`;
+    : `${NON_ANNONCEE} Seuls l'OVPF et la préfecture l'annonceront : leurs communiqués s'affichent ici dès que nous les avons lus.`;
 
 /**
  * The home page's first card, above the weather, the only volcano block there: what the banner of the other pages says
  * besides, the release's day and the way to /volcan, is in it.
  */
 export function homeCard(a: VolcanAlerte): string {
-  const [h, lead] = a.hausse ? [haussePitonlive(a.hausse), hausseBanner(a.hausse)] : pitonOnly(a)
-    ? [`Piton de la Fournaise : ${pitonSaid(a)}`, "Le niveau officiel est celui des communiqués de la préfecture : vérifiez sur reunion.gouv.fr avant de monter."]
-    : a.eruption
-    ? ["Éruption en cours au Piton de la Fournaise", `${a.niveau ? `${nb(a.niveau)} du préfet${released(a)}. ` : ""}${ENCLOS}`]
-    : [`Piton de la Fournaise : ${nb(level(a))}`, `${nb(a.niveau!)} du préfet${released(a)}${planSaid(a)}. ${ENCLOS}`];
+  const [h, lead] = a.eruption
+    ? ["Éruption en cours au Piton de la Fournaise", `${a.niveau ? `${nb(a.niveau)}${by(a)}. ` : ""}${ENCLOS}`]
+    : [`Piton de la Fournaise : ${nb(level(a))}`, `${nb(a.niveau!)}${by(a)}${a.arret ? `. ${arretSaid(a)}` : planSaid(a)}. ${ENCLOS}`];
   return `<div class="wrap volcan-une"><a class="card" href="/volcan"><h2>🌋 ${esc(h)}</h2><p class="lead">${esc(lead)} <b>${FOLLOW}</b></p></a></div>`;
 }
 
 /** The home tile's figure and line during an alert. */
 export function tileLive(a: VolcanAlerte): { valeur: string; detail: string; source?: string } {
-  // pitonlive's level, in the hero too, with its source on the line under it (marketing).
-  if (a.hausse) return { valeur: esc(`« ${a.hausse.pitonlive} »`), detail: esc(`selon pitonlive.com · préfecture : ${a.hausse.prefecture}`), source: "selon pitonlive.com" };
-  if (pitonOnly(a)) return { valeur: esc(`« ${nb(a.niveau!)} »`), detail: "selon pitonlive.com", source: "selon pitonlive.com" };
+  // Whose the level is, on the tile's line of its own (marketing).
+  const source = a.ovpf ? `OVPF, publication du ${a.ovpf.date.slice(0, 5)}` : a.communique ? `Préfecture, communiqué du ${dm(a.communique.jour)}` : undefined;
   return a.eruption
-    ? { valeur: "Éruption en cours", detail: [a.niveau ? esc(level(a)) : "", "Enclos interdit"].filter(Boolean).join(" · ") }
+    ? { valeur: "Éruption en cours", detail: [a.niveau ? esc(level(a)) : "", "Enclos interdit"].filter(Boolean).join(" · "), source }
     // No quotes, for room (marketing).
-    : { valeur: esc(a.niveau!), detail: [esc(plan(a)), "Enclos interdit"].filter(Boolean).join(" · ") };
+    : { valeur: esc(a.niveau!), detail: [esc(plan(a)), "Enclos interdit"].filter(Boolean).join(" · "), source };
 }
 
 // --- /volcan during an alert -----------------------------------------------------------------------------------------
@@ -226,5 +206,5 @@ export function alertSections(a: VolcanAlerte, news: ActualitesAnswer | undefine
       : `<p class="card">Pas encore d'article des médias de l'île sur cette alerte. Les annonces officielles sont ci-dessus.</p>`) +
     `</section>`;
   return `<section aria-labelledby="h-officiel"><div class="sec-h"><p class="eyebrow">Alerte en cours</p><h2 id="h-officiel">Les annonces officielles</h2></div>` +
-    `<p class="card warn"><b>${esc(pitonOnly(a) ? `Niveau ${pitonSaid(a)}. ${PITON_ONLY}` : CONSIGNES)}</b></p><div class="two">${release}${ovpf}</div></section>${media}`;
+    `<p class="card warn"><b>${esc(CONSIGNES)}</b></p><div class="two">${release}${ovpf}</div></section>${media}`;
 }

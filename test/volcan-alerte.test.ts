@@ -71,9 +71,11 @@ describe("the volcano put forward during an alert", () => {
     expect(page).toContain(`<meta name="description" content="Alerte\u00a01 du préfet (communiqué du 24\u00a0octobre) : « éruption probable ou imminente ». Accès à l&#39;Enclos interdit. Communiqués de l&#39;OVPF en direct · 974">`);
     // The plan's words only, never a release's of the day nor ours.
     expect(page).not.toContain("très brève");
-    expect(page).toContain("<b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus. Seuls l&#39;OVPF et la préfecture l&#39;annonceront : leurs communiqués s&#39;affichent ici dès leur publication.</b>");
+    expect(page).toContain("<b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus. Seuls l&#39;OVPF et la préfecture l&#39;annonceront : leurs communiqués s&#39;affichent ici dès que nous les avons lus.</b>");
     expect(page).not.toMatch(/pas (encore )?commencé/);
-    expect(page).toContain("Accès à l&#39;Enclos interdit. Seules comptent les consignes de la préfecture et de l&#39;OVPF.");
+    expect(page).toContain("<b>Accès à l&#39;Enclos interdit. Seules comptent les consignes de la préfecture et de l&#39;OVPF.</b>");
+    // The Enclos card: its title, then the sentence without the title's words again (marketing).
+    expect(page).toContain("<h3>Accès à l&#39;Enclos interdit.</h3><p>Seules comptent les consignes de la préfecture et de l&#39;OVPF.</p>");
     expect(page).toContain("Le communiqué de la préfecture");
     expect(page).toContain('href="https://x.com/obsfournaise"');
     // The IPGP's site is offline (25/10/2026): the OVPF's Bluesky and Facebook, and no link to ipgp.fr.
@@ -83,7 +85,7 @@ describe("the volcano put forward during an alert", () => {
     expect((v as unknown as { consulter: string[] }).consulter).toEqual(["https://www.reunion.gouv.fr", "https://bsky.app/profile/ovpf.bsky.social", "https://www.facebook.com/ObsVolcanoPitonFournaise"]);
     expect(page).toContain("Pas encore d'article des médias de l'île sur cette alerte.");
     expect(page).not.toContain("partiellement");
-    expect(volcanLive({ value: v, fetchedAt: NOW, stale: false })).toEqual({ valeur: "Alerte 1", detail: "éruption probable ou imminente · Enclos interdit" });
+    expect(volcanLive({ value: v, fetchedAt: NOW, stale: false })).toEqual({ valeur: "Alerte 1", detail: "éruption probable ou imminente · Enclos interdit", source: "Préfecture, communiqué du 24/10" });
   });
 
   it("says the level in the plan's words on the home page too, never « pas encore »", async () => {
@@ -104,8 +106,8 @@ describe("the volcano put forward during an alert", () => {
     void store.put("volcan:prefecture", { value: may, fetchedAt: t });
     const v = await buildVolcan(new Cache(store, () => t), NOW);
     const page = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
-    expect(page).toContain("<title>Piton de la Fournaise : Vigilance volcanique · 974</title>");
-    expect(page).toContain("<h1>Piton de la Fournaise : vigilance, activité persistante et continue sous le massif</h1>");
+    expect(page).toContain("<title>Piton de la Fournaise : vigilance, pas d&#39;éruption annoncée · 974</title>");
+    expect(page).toContain("<h1>Piton de la Fournaise : vigilance, pas d&#39;éruption annoncée</h1>");
     // Only in the folded list of the plan's levels.
     expect(page.replace(/<details>[\s\S]*?<\/details>/, "")).not.toMatch(/éruption probable/);
   });
@@ -115,9 +117,9 @@ describe("the volcano put forward during an alert", () => {
     for (const t of [undefined, ALERT_1, ALERT_2]) expect(await page(t)).toContain("Volkan la pété ? Gèt si https://rundata.re/volcan é di amwin si lanklo lé ouvèr.");
   });
 
-  it("keeps the normal page once the alert is over", async () => {
+  it("keeps the normal page once the alert is over, the state of the volcano when no level is read", async () => {
     const page = volcanPage("https://rundata.re", { value: await answer(), fetchedAt: NOW, stale: false }, NOW);
-    expect(page).toContain("<title>Piton de la Fournaise en direct : éruption, Enclos, séismes · 974</title>");
+    expect(page).toContain("<title>Piton de la Fournaise : état du volcan · 974</title>");
     expect(page).not.toContain("Le communiqué de la préfecture");
   });
 
@@ -192,17 +194,49 @@ describe("the volcano put forward during an alert", () => {
     expect(volcanMeta({ niveau: "Alerte 2-1", eruption: false, communique: sept })).toBe("Alerte\u00a02-1 du préfet (communiqué du 24\u00a0septembre). Accès à l'Enclos interdit. Communiqués de l'OVPF en direct · 974");
   });
 
-  it("never says « du préfet » nor the Enclos forbidden when no release of the prefecture is read, the level pitonlive's", () => {
-    for (const eruption of [false, true]) {
-      const a: VolcanAlerte = { niveau: "Alerte 1", eruption };
-      expect(bannerText(a)).toBe("🌋 Volcan : « Alerte\u00a01 » selon pitonlive.com, niveau officiel à vérifier sur reunion.gouv.fr.");
-      expect(volcanMeta(a)).toBe("Piton de la Fournaise : « Alerte\u00a01 » selon pitonlive.com. Niveau officiel : préfecture, reunion.gouv.fr. Communiqués de l'OVPF en direct · 974");
-      expect(homeCard(a)).toContain("<h2>🌋 Piton de la Fournaise : « Alerte\u00a01 » selon pitonlive.com</h2><p class=\"lead\">Le niveau officiel est celui des communiqués de la préfecture : vérifiez sur reunion.gouv.fr avant de monter. <b>Suivre en direct\u00a0→</b></p>");
-      expect(tileLive(a)).toEqual({ valeur: "« Alerte\u00a01 »", detail: "selon pitonlive.com", source: "selon pitonlive.com" });
-      const top = alertSections(a, undefined);
-      expect(top).toContain("<p class=\"card warn\"><b>Niveau « Alerte\u00a01 » selon pitonlive.com. Le niveau officiel et l&#39;accès à l&#39;Enclos sont dans les communiqués de la préfecture : vérifiez sur reunion.gouv.fr avant de monter.</b></p>");
-      for (const text of [bannerText(a), volcanMeta(a), homeCard(a), JSON.stringify(tileLive(a)), top]) expect(text).not.toMatch(/préfet\b|Enclos interdit/);
-    }
+  it("says the OVPF's level as the OVPF's, with its post's time, never « du préfet »", () => {
+    const ovpf = { date: "13/02 10:45 heure de La Réunion", lien: "https://bsky.app/profile/ovpf.bsky.social/post/3mepvumvjyc2s" };
+    const a: VolcanAlerte = { niveau: "Alerte 2-1", eruption: true, ovpf, communique: { titre: ALERT_1, lien: "https://www.reunion.gouv.fr/x", jour: "2026-02-13" } };
+    expect(bannerText(a)).toBe("🌋 Éruption en cours au Piton de la Fournaise (alerte 2-1 selon l'OVPF, publication du 13/02 à 10:45). Accès à l'Enclos interdit.");
+    expect(homeCard(a)).toContain("Alerte\u00a02-1 selon l&#39;OVPF (publication du 13/02 à 10:45). Accès à l&#39;Enclos interdit.");
+    const quiet: VolcanAlerte = { niveau: "Alerte 1", eruption: false, ovpf };
+    expect(bannerText(quiet)).toBe("🌋 Piton de la Fournaise : alerte 1 selon l'OVPF (publication du 13/02 à 10:45), « éruption probable ou imminente » (dispositif ORSEC Volcan). Accès à l'Enclos interdit.");
+    expect(volcanMeta(quiet)).toMatch(/^Alerte\u00a01 selon l'OVPF \(publication du 13\/02 à 10:45\)/);
+    for (const text of [bannerText(a), bannerText(quiet), volcanMeta(quiet), homeCard(quiet)]) expect(text).not.toMatch(/préfet\b/);
+    // The tile's line: whose the level is.
+    expect(tileLive(a).source).toBe("OVPF, publication du 13/02");
+    expect(tileLive({ niveau: "Alerte 1", eruption: false }).source).toBeUndefined();
+  });
+
+  it("says the OVPF's end of the eruption, the level still the release's alert 2", () => {
+    const arret = { date: "13/04 06:10 heure de La Réunion", lien: "https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g" };
+    const copy = { etat: { eruption_en_cours: false, niveau_orsec: "Alerte 2-2", eruption_ovpf: { en_cours: false, ...arret }, communique_prefecture: { niveau: "Alerte 2-2", titre: "Piton de la Fournaise : passage en alerte 2-2", lien: "https://www.reunion.gouv.fr/x", jour: "2026-03-12" } } } as unknown as VolcanAnswer;
+    const a = alerteVolcan(copy)!;
+    expect(a).toMatchObject({ niveau: "Alerte 2-2", eruption: false, arret });
+    expect(bannerText(a)).toBe("🌋 Piton de la Fournaise : alerte 2-2 du préfet (communiqué du 12\u00a0mars). L'OVPF a annoncé l'arrêt de l'éruption (publication du 13/04 à 06:10). Accès à l'Enclos interdit.");
+  });
+
+  it("never puts pitonlive's level in the banner, the title, the home page or the tile", async () => {
+    // pitonlive at alert 2-1 and erupting, nothing official read: no alert put forward, its line in the body only.
+    const store = new MemoryStore();
+    const t = NOW.getTime();
+    const s = JSON.parse(fixture("pitonlive_state.json"));
+    void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
+    void store.put("volcan:pitonlive", { value: { ...s, status: { ...s.status, alert_level_display: "Alerte 2-1", is_erupting: true, published_at: "2026-10-24T12:00:00Z" } }, fetchedAt: t });
+    void store.put("volcan:prefecture", { value: null, fetchedAt: t });
+    const v = await buildVolcan(new Cache(store, () => t), NOW);
+    expect(v.etat).toMatchObject({ eruption_en_cours: false, niveau_inconnu: true, pitonlive_non_officiel: { niveau: "Alerte 2-1", eruption: true, lu: "24/10 à 18:00" } });
+    expect(alerteVolcan(v)).toBeUndefined();
+    expect(v.resume).toContain("Nous n'avons pas pu lire le niveau d'alerte de la préfecture : vérifiez-le sur reunion.gouv.fr avant de monter au volcan. Selon pitonlive.com, site non officiel, lu le 24/10 à 18:00 : « Alerte 2-1 ». Selon pitonlive.com, site non officiel, lu le 24/10 à 18:00, une éruption est en cours. L'OVPF et la préfecture ne l'ont pas annoncée dans les textes que nous avons lus : suivez l'OVPF (https://bsky.app/profile/ovpf.bsky.social) et reunion.gouv.fr.");
+    expect(v.resume).not.toMatch(/ÉRUPTION EN COURS/);
+    const copy = { value: v, fetchedAt: NOW, stale: false };
+    const page = volcanPage("https://rundata.re", copy, NOW);
+    expect(page).toContain("<title>Piton de la Fournaise : état du volcan · 974</title>");
+    expect(page).toContain(`<p class="lead">Selon pitonlive.com, site non officiel, lu le 24/10 à 18:00 : « Alerte 2-1 ».</p><p class="lead">Selon pitonlive.com, site non officiel, lu le 24/10 à 18:00, une éruption est en cours. L&#39;OVPF et la préfecture ne l&#39;ont pas annoncée dans les textes que nous avons lus : suivez l&#39;OVPF (<a href="https://bsky.app/profile/ovpf.bsky.social">bsky.app/profile/ovpf.bsky.social</a>) et reunion.gouv.fr.</p>`);
+    const head = page.slice(0, page.indexOf("</h1>"));
+    const home = homePage("https://rundata.re", { volcan: copy } as unknown as HomeLive, NOW);
+    // The footer credits every source of the site, pitonlive « en dernier recours ».
+    for (const text of [head, home.replace(/<footer[\s\S]*<\/footer>/, ""), JSON.stringify(volcanLive(copy))]) expect(text).not.toMatch(/pitonlive|Éruption en cours(?! ou non)/);
   });
 
   it("refreshes the shared copy every 5 minutes during an alert, every 30 otherwise", async () => {

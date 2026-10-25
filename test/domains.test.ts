@@ -43,8 +43,8 @@ describe("domain pages", () => {
   };
 
   it("show what the tool answers right now", () => {
-    expect(pages.volcan).toContain("Pas d'éruption en cours");
-    expect(pages.volcan).toContain("Enclos : <b>« partiel »</b> selon pitonlive.com");
+    expect(pages.volcan).toContain("L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus.");
+    expect(pages.volcan).toContain(`Enclos : <b>« réouverture partielle »</b> selon le <a href="https://www.reunion.gouv.fr/x">communiqué de la préfecture du 07/05</a>.`);
     expect(pages.air).toMatch(/<p class="big">moyen<\/p>/);
     expect(pages.air).toContain("var(--aq2)"); // the map, coloured by commune
     // Each coloured commune leads to its line in the list.
@@ -113,8 +113,9 @@ describe("home page tiles", () => {
     };
     const page = homePage(ORIGIN, live, NOW);
     const tile = (name: string) => page.match(new RegExp(`<h3><a href="/[a-z]+">${name}</a></h3>(.*?)</li>`))![1];
-    expect(tile("Volcan")).toContain(`<p class="tv">Pas d'éruption</p>`);
-    expect(tile("Volcan")).toContain("selon pitonlive.com · Enclos « partiel »");
+    expect(tile("Volcan")).toContain(`<p class="tv">Pas d'éruption annoncée</p>`);
+    expect(tile("Volcan")).toContain("OVPF et préfecture, textes lus à ");
+    expect(tile("Volcan")).toContain("Enclos : « réouverture partielle » (préfecture, 07/05)");
     expect(tile("Air")).toContain(`<span class="aq aq2">moyen</span>`);
     expect(tile("Électricité")).toContain(`<p class="tv">43\u202f% renouvelable</p>`);
     expect(tile("Calendrier")).toContain(`<p class="tv">Vacances scolaires</p>`);
@@ -197,7 +198,7 @@ describe("routes", () => {
     const pending: Promise<unknown>[] = [];
     const r = (await site(new Request(`${ORIGIN}/`), cache, (p) => pending.push(p), NOW))!;
     const text = await r.text();
-    expect(text).toContain(`<p class="tv">Pas d'éruption</p>`);
+    expect(text).toContain(`<p class="tv">Pas d'éruption annoncée</p>`);
     expect(text).toContain(`<p class="tv">25\u202f°C</p>`); // the sea, from the weather's copy
     // The tiles never built come first: one of them is being built, the volcano's copy is left as it is.
     expect(pending.length).toBe(1);

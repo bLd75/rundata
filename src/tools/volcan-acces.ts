@@ -97,8 +97,8 @@ export function acces(niveau: string | undefined, p: volcan.Phase | undefined, p
   } else if (/^Vigilance/i.test(niveau)) {
     lignes.push({ lieu: "Enclos", texte: "Partie haute de l'Enclos : « l'accès du public non-accompagné est restreint aux seuls sentiers balisés et ouverts »", source: `${DSO}, p. 23` });
   } else if (!p) {
-    // The level is pitonlive's, newer than the last release read: that release does not tell this level's rules.
-    lignes.push({ lieu: "Enclos", texte: `Le dernier communiqué de la préfecture que nous avons lu est antérieur au niveau affiché : ${VERIFIER} avant de monter au volcan.` });
+    // The level is the OVPF's, above any release read: closed at that level by the plan, no release yet to quote.
+    lignes.push({ lieu: "Enclos", texte: `Enclos : accès interdit à ce niveau d'alerte (${DSO}). Le communiqué de la préfecture sur ce niveau n'est pas encore dans les textes que nous avons lus : ${VERIFIER} avant de monter au volcan.` });
   } else if (/^Sauvegarde/i.test(niveau)) {
     lignes.push({ lieu: "Enclos", texte: `Enclos : en phase de sauvegarde, « une réouverture partielle de l'enclos est possible » (${DSO}, p. 22). Ce qui est ouvert est dans le communiqué de la préfecture du ${dayOf(p.jour)}.`, lien: p.lien });
   } else {

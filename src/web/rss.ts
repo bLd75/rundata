@@ -140,14 +140,15 @@ function trailItems(p: PlacePage, r: RandonneesAnswer): Item[] {
 function volcanoItems(v: VolcanAnswer): Item[] {
   const e = v.etat;
   if (!e || (!e.eruption_en_cours && (e.niveau_orsec === "Vigilance" || e.niveau_inconnu))) return [];
-  const start = e.eruption_en_cours ? e.eruption?.started_at : undefined;
+  // The eruption's start from an official text only: the OVPF's post, else the release's day.
+  const start = e.eruption_en_cours ? (e.eruption_ovpf?.en_cours ? e.eruption_ovpf.date : e.communique_prefecture?.jour) : undefined;
   return [{
     title: e.eruption_en_cours ? `Éruption en cours au Piton de la Fournaise (${e.niveau_orsec})` : `Piton de la Fournaise : ${e.niveau_orsec}`,
-    description: [v.resume, e.acces_enclos?.detail ?? ""].filter(Boolean).join(" "),
+    description: v.resume,
     path: "/volcan",
     // The last eruption's end tells one alert from the next.
     guid: `volcan/${e.niveau_orsec}/${e.eruption_en_cours ? `eruption/${start ?? ""}` : (e.derniere_eruption_fin ?? "")}`,
-    date: start ? new Date(start) : undefined,
+    date: e.eruption_ovpf?.en_cours ? undefined : start ? new Date(`${start}T12:00:00+04:00`) : undefined,
   }];
 }
 

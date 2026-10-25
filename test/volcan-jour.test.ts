@@ -4,7 +4,7 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import { parsePrefecture } from "../src/providers/actualites.js";
 import { parse } from "../src/providers/seismes.js";
 import { activityPosts, phase, phaseOf, type PitonState } from "../src/providers/volcan.js";
-import { official } from "../src/tools/volcan.js";
+import { nonOfficiel, officiel } from "../src/tools/volcan.js";
 import { buildVolcan, type VolcanAnswer } from "../src/web/data.js";
 import { volcanPage } from "../src/web/domains.js";
 import { alerteVolcan } from "../src/web/volcan-alerte.js";
@@ -44,29 +44,23 @@ describe("the day of the prefecture's release, never an hour made up", () => {
     expect(ALERT_1).not.toHaveProperty("publie");
   });
 
-  it("on the release's day, lets pitonlive win only higher; the next day, higher or at another level than the release's alert", () => {
-    // 17:00 and 23:59, La Réunion's time, on the release's day: an eruption is not hidden until midnight.
-    expect(official(piton("Alerte 2-1", "2026-10-24T13:00:00Z"), ALERT_1).status.alert_level_display).toBe("Alerte 2-1");
-    expect(official(piton("Alerte 2-1", "2026-10-24T19:59:00Z"), ALERT_1).status.alert_level_display).toBe("Alerte 2-1");
-    // The same level or lower that day: the prefecture's release keeps the level, and is the one quoted.
-    const same = official(piton("Alerte 1", "2026-10-24T13:00:00Z"), ALERT_1);
-    expect(same.prefecture).toBe(ALERT_1);
-    expect(official(piton("Vigilance", "2026-10-24T13:00:00Z"), ALERT_1).status.alert_level_display).toBe("Alerte 1");
-    // An end of alert of the day, pitonlive still higher: the higher level until pitonlive comes down or the next day.
+  it("keeps the release's level on its day and after, pitonlive higher said apart from its day on, never lower", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const o = officiel(ALERT_1, null);
+    expect(o).toMatchObject({ niveau: "Alerte 1", prefecture: ALERT_1 });
+    const read = new Date("2026-10-24T20:00:00Z");
+    // 17:00 and 23:59 on the release's day, pitonlive higher: a line of its own, the level still the release's.
+    expect(nonOfficiel(piton("Alerte 2-1", "2026-10-24T13:00:00Z"), read, o)).toEqual({ niveau: "Alerte 2-1", lu: "25/10 à 00:00" });
+    expect(nonOfficiel(piton("Alerte 2-1", "2026-10-24T19:59:00Z"), read, o)?.niveau).toBe("Alerte 2-1");
+    // The same level, or lower, that day or the next: nothing said.
+    expect(nonOfficiel(piton("Alerte 1", "2026-10-24T20:30:00Z"), read, o)).toBeUndefined();
+    expect(nonOfficiel(piton("Vigilance", "2026-10-25T04:00:00Z"), read, o)).toBeUndefined();
+    // Before the release's day: an old status, nothing said.
+    expect(nonOfficiel(piton("Alerte 2-1", "2026-10-23T19:00:00Z"), read, o)).toBeUndefined();
+    // An end of alert of the day: vigilance, pitonlive's alert 1 of that morning older than nothing (the day's start).
     const end = phaseOf(parsePrefecture(CARD.replace(TITRE, "Piton de la Fournaise : fin de l'alerte 1")))!;
-    expect(official(piton("Alerte 1", "2026-10-24T05:00:00Z"), end).status.alert_level_display).toBe("Alerte 1");
-    expect(official(piton("Vigilance", "2026-10-24T13:00:00Z"), end).prefecture).toBe(end);
-    // 00:30 the next day, pitonlive at the same alert: it says nothing more, the release stays the source (25/10/2026).
-    const next = official(piton("Alerte 1", "2026-10-24T20:30:00Z"), ALERT_1, new Date("2026-10-27T06:00:00Z"));
-    expect(next).toMatchObject({ prefecture: ALERT_1, status: { alert_level_display: "Alerte 1" } });
-    expect(next).not.toHaveProperty("ecart");
-    // Another alert of the same rank the next day (2-2 after a 2-1): pitonlive's, as before.
-    const a21 = phaseOf(parsePrefecture(CARD.replace(TITRE, "Piton de la Fournaise : passage en alerte 2-1")))!;
-    expect(official(piton("Alerte 2-2", "2026-10-24T20:30:00Z"), a21).prefecture).toBeUndefined();
-    // Lower the next day: the alert holds, nothing said beside it before 48 hours.
-    const lower = official(piton("Vigilance", "2026-10-25T04:00:00Z"), ALERT_1, new Date("2026-10-25T06:00:00Z"));
-    expect(lower.status.alert_level_display).toBe("Alerte 1");
-    expect(lower.ecart).toBeUndefined();
+    expect(officiel(end, null).niveau).toBe("Vigilance");
+    expect(nonOfficiel(piton("Alerte 1", "2026-10-24T05:00:00Z"), read, officiel(end, null))?.niveau).toBe("Alerte 1");
   });
 
   it("gives the day in the answer and on /volcan, with no hour", async () => {

@@ -5,12 +5,19 @@
   "niveau_orsec": "Vigilance",
   "derniere_eruption_fin": "2026-04-12T19:10:00+00:00",
   "acces_enclos": {
-   "statut": "partiel",
-   "detail": "Réouverture PARTIELLE de l'enclos (retour en phase de vigilance ORSEC depuis le 7 mai 2026). L'accès à la partie haute n'est autorisé que sur deux sentiers : Pas de Bellecombe–Formica Léo–Rivals–Cratère Caubet, et Pas de Bellecombe–Formica Léo–site d'observation du Cratère Dolomieu (accès par le nord). Le sentier Kapor reste interdit (partiellement recouvert par la coulée de 2026). Tunnels de lave de 2007 autorisés ; tunnels de 2004 autorisés depuis le 6 mai 2026. La limite Nord de la coulée 2026 est accessible par le sentier des Laves depuis la RN2 (Chemin de pêcheur du Grand Cap). Ceci ne signifie pas que tout l'Enclos est ouvert : respectez strictement l'arrêté n°2026-627 et le balisage de l'ONF.",
-   "source": "Préfecture de La Réunion — arrêté n°2026-627 du 7 mai 2026",
-   "lien": "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-reouverture-partielle-de-l-enclos"
+   "communique": {
+    "mots": "réouverture partielle",
+    "jour": "2026-05-07",
+    "lien": "https://www.reunion.gouv.fr/x"
+   }
   },
-  "source": "pitonlive.com (site indépendant, à recouper avec les sources officielles)"
+  "communique_prefecture": {
+   "niveau": "Vigilance",
+   "titre": "Piton de la Fournaise : retour en vigilance, réouverture partielle de l'enclos",
+   "lien": "https://www.reunion.gouv.fr/x",
+   "jour": "2026-05-07"
+  },
+  "source": "préfecture de La Réunion (communiqués) et OVPF-IPGP (publications)"
  },
  "publications_ovpf": [
   {

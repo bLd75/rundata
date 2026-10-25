@@ -55,7 +55,7 @@ import { access as daeAccess, byCommune as daeByCommune, daeRow, URGENCE as DAE_
 import { coupuresEau, type noticeRow } from "../tools/coupures.js";
 import { lues } from "../eau/distributeurs.js";
 import { type CourantAnswer, type courantBlock, courantCopy } from "../tools/courant.js";
-import { type Hausse, volcanSeismes } from "../tools/volcan.js";
+import { type NonOfficiel, volcanSeismes } from "../tools/volcan.js";
 import type { Acces } from "../tools/volcan-acces.js";
 import * as sportSource from "../providers/sport.js";
 import { grandRaidRow, sportTool, type SportRow } from "../tools/sport.js";
@@ -297,15 +297,15 @@ function needed<T>(r: { content: { text: string }[]; isError?: boolean }, what: 
 }
 
 /**
- * The Enclos as pitonlive says it, or as the prefecture's release says it (`communique`): in its title's own words
- * (`mots`), or the level of an alert whose title says nothing of it (`niveau`, « Alerte 1 »), the ban the plan's.
+ * The Enclos as the official texts say it: the prefecture's release (`communique`), in its title's own words (`mots`),
+ * or the level of an alert whose title says nothing of it (`niveau`), the ban the plan's; an alert of the OVPF's above a
+ * release out of alert (`ovpf`), closed by the plan; in vigilance from a release that says nothing of it, the plan's
+ * rule (`vigilance`). Never pitonlive's (data-run, 25/10/2026).
  */
 export interface Enclos {
-  statut: string;
-  detail?: string;
-  source?: string;
-  lien?: string;
   communique?: { mots?: string; niveau?: string; jour: string; lien: string };
+  ovpf?: { niveau: string; date: string; lien: string };
+  vigilance?: true;
 }
 
 export interface VolcanAnswer {
@@ -313,20 +313,21 @@ export interface VolcanAnswer {
   puis_je_monter?: Acces;
   resume: string;
   etat?: {
-    /** null: unknown, pitonlive higher than a release that does not say it (`ecart_prefecture`). */
+    /** null in a copy made by a version before 0.168: pitonlive higher than a release that did not say it. */
     eruption_en_cours: boolean | null;
     niveau_orsec: string;
     /** The prefecture's phase could not be read and none was kept: `niveau_orsec` says to check it (tools/volcan.ts). */
     niveau_inconnu?: boolean;
     /** The level in force as the ORSEC plan defines it, with its page. */
     niveau_definition?: string;
-    /** pitonlive's lower level, held more than 48 hours after the prefecture's release (tools/volcan.ts `official`). */
-    ecart_pitonlive?: { niveau: string; depuis: string };
-    /** pitonlive's level higher than the prefecture's release in alert, which is kept beside it (tools/volcan.ts `Hausse`). */
-    ecart_prefecture?: Hausse;
+    /** The level is the OVPF's, from this text post, newer and higher than the release (tools/volcan.ts `officiel`). */
+    niveau_ovpf?: { date: string; lien: string };
+    /** Whether it erupts is the OVPF's, from this text post: its start, or its end (`en_cours` false). */
+    eruption_ovpf?: { en_cours: boolean; date: string; lien: string };
+    /** pitonlive.com beyond the official texts, a last resort said as its own (tools/volcan.ts `nonOfficiel`). */
+    pitonlive_non_officiel?: NonOfficiel;
     /** The OVPF's newest post is an image, newer than what the state comes from: the state may not account for it. */
     image_ovpf_plus_recente?: boolean;
-    eruption?: { name?: string; started_at?: string; public_summary?: string };
     derniere_eruption_fin?: string;
     acces_enclos?: Enclos;
     /**

@@ -1,13 +1,13 @@
 /**
- * The state of the Piton de la Fournaise, from two sources, both without a key:
- * - the OVPF-IPGP's own posts on Bluesky (official: monthly bulletins, communiqués, eruption starts and ends),
- *   read through Bluesky's public API; the observatory's website gives no feed;
- * - pitonlive.com, an independent site that keeps the alert level, the eruption under way and the access to the
- *   Enclos (from the prefecture's orders) as JSON. No licence is stated: quoted with its name and link, and
- *   always next to the official sources.
+ * The state of the Piton de la Fournaise, from three sources, all without a key:
  * - the prefecture's press releases, which declare each phase of the ORSEC volcano plan (« passage en alerte 1,
- *   fermeture de l'enclos ») before either of the two above says so: the newest one about the volcano wins over
- *   pitonlive when it is as recent or more.
+ *   fermeture de l'enclos »): the level and the Enclos;
+ * - the OVPF-IPGP's own posts on Bluesky (official: monthly bulletins, communiqués, eruption starts and ends), read
+ *   through Bluesky's public API, the observatory's website giving no feed: the activity, and a level newer than the
+ *   release;
+ * - pitonlive.com, an independent site, not official, whose JSON keeps a level and whether it erupts: said only as a
+ *   last resort, as its own (the user's decision of 25/10/2026: a raw label, and the deformation said the opposite of
+ *   the OVPF's release). No licence is stated: quoted with its name and link.
  */
 import { later } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
@@ -33,8 +33,8 @@ export const OVPF_FACEBOOK = "https://www.facebook.com/ObsVolcanoPitonFournaise"
 
 export const PITONLIVE: SourceInfo = {
   id: "pitonlive",
-  nom: "État du volcan et accès à l'Enclos (pitonlive.com)",
-  organisme: "pitonlive.com, site indépendant",
+  nom: "État du volcan (pitonlive.com, site non officiel)",
+  organisme: "pitonlive.com, site non officiel",
   licence: "Non précisée : cité avec son nom et son lien",
   attribution: "pitonlive.com",
   url: "https://pitonlive.com",
@@ -141,6 +141,31 @@ export function activityPosts(feed: FeedJson): Post[] {
       return ACTIVITY.test(text) && !NOISE.test(text) ? [{ date: post.record.createdAt, texte: text, lien, ...(pdf && { pdf }) }] : [];
     })
     .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// What an OVPF text gives of the level: « ▶ Niveau d'alerte : 2.2 », « Alerte 2-1 », « ▶️ Alerte 2-2 en cours ».
+const SAID_LEVEL = /niveau\s+d['’]\s*alerte\s*:?\s*(?:alerte\s*)?(\d(?:\s*[.-]\s*\d)?)|\balerte\s+(\d(?:\s*[.-]\s*\d)?)/i;
+const END_OF_ALERT = /\b(fin|lev[ée]e)\s+(de\s+l['’]\s*|d['’]\s*)alerte/i;
+
+/** The alert an OVPF text names, as the plan names it (« Alerte 2-2 »), or undefined; never from an end of alert. */
+export function levelSaid(text: string): string | undefined {
+  if (END_OF_ALERT.test(text)) return undefined;
+  const m = SAID_LEVEL.exec(text);
+  return m ? levelOf(`alerte ${m[1] ?? m[2]}`) : undefined;
+}
+
+// The OVPF's words for an eruption going on, and for its end, read first (« sans lien avec l'éruption qui vient de se
+// terminer »). Its texts of February to April 2026: « Eruption en cours au Piton de la Fournaise », « 3e phase de
+// l'éruption … toujours en cours », « L'éruption se poursuit », « l'éruption … a repris », « Arrêt de l'éruption ».
+const ERUPTING = /[ée]ruption\b[^.!?]{0,60}?\b(?:en\s+cours|se\s+poursuit|continue|a\s+repris)|reprise\s+de\s+l['’]\s*[ée]ruption|d[ée]but\s+d['’]\s*[ée]ruption|arriv[ée]e\s+du\s+magma\s+en\s+surface/i;
+const ENDED = /arr[êe]t\s+de\s+l['’]\s*[ée]ruption|[ée]ruption\s+arr[êe]t[ée]e|fin\s+de\s+l['’]\s*[ée]ruption|[ée]ruption\s+qui\s+vient\s+de\s+se\s+terminer/i;
+const NONE = /pas\s+d['’]\s*[ée]ruption|aucune\s+[ée]ruption/i;
+
+/** Whether an OVPF text says an eruption goes on (true), has stopped (false), or neither (undefined). */
+export function eruptionSaid(text: string): boolean | undefined {
+  if (ENDED.test(text)) return false;
+  if (NONE.test(text)) return undefined;
+  return ERUPTING.test(text) ? true : undefined;
 }
 
 export interface PitonState {
@@ -255,8 +280,8 @@ function withDay(p: Phase & { publie?: string }): Phase {
 export const dayStart = (jour: string) => Date.parse(`${jour}T00:00:00+04:00`);
 
 // The last phase the prefecture declared, kept in the durable store (the Worker's KV), whose keys outlive a deploy: a
-// cold cache, a prefecture slow or down, or a release gone from its list of the latest must never leave pitonlive's
-// level alone, which follows the prefecture by hours or days.
+// cold cache, a prefecture slow or down, or a release gone from its list of the latest must never leave the level
+// unknown.
 const LAST_PHASE = "volcan:prefecture:derniere-phase";
 // The durable store forgets its keys after a few days (kv.ts): the phase is kept again once a day.
 const KEEP_AGAIN_MS = 24 * 3600_000;
@@ -356,7 +381,7 @@ async function readPhase(cache: Cache): Promise<Cached<Phase | null>> {
 
 /**
  * The phase of the newest release that declares one; else the last phase kept, as old as it is (tools/volcan.ts
- * `official` lets a newer status of pitonlive win over it). Throws only when neither is there.
+ * `officiel` lets a newer, higher level of the OVPF's texts win over it). Throws only when neither is there.
  */
 export async function phase(cache: Cache, now = Date.now()): Promise<Cached<Phase | null>> {
   const read = await readPhase(cache).catch((err: unknown) => ({ err }));

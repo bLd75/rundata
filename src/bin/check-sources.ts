@@ -88,8 +88,8 @@ export const TOOLS: ToolCheck[] = [
       const out: Probleme[] = [];
       if (!niveau || /vérifier|non lu/i.test(niveau)) out.push({ point, motif: `niveau ORSEC inconnu (« ${niveau || "absent"} »)` });
       else if (!/^vigilance/i.test(niveau) && !e.communique_prefecture) out.push({ point, motif: `niveau ${niveau} sans communiqué de la préfecture lu` });
-      // pitonlive higher than the release (`ecart_prefecture`): the eruption is the release's word, not pitonlive's.
-      if (/alerte 2/i.test(niveau) && !e.eruption_en_cours && !e.ecart_prefecture) out.push({ point, motif: "Alerte 2 sans éruption en cours dans l'état lu" });
+      // The OVPF said the eruption stopped (`eruption_ovpf`), the level still an alert 2 until the next release.
+      if (/alerte 2/i.test(niveau) && !e.eruption_en_cours && e.eruption_ovpf?.en_cours !== false) out.push({ point, motif: "Alerte 2 sans éruption en cours dans l'état lu" });
       // The OVPF's newest post is an image nobody reads: after a day, someone must look at it.
       const first = Array.isArray(p.publications_ovpf) ? p.publications_ovpf[0] : undefined;
       const at = parseTime(first?.date, now);

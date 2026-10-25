@@ -84,7 +84,7 @@ describe("volcano", () => {
     // The same in the answer and on /volcan: its day, the words, the link; nothing read from the image.
     const r = body(await volcanSeismes(cacheWith(posts), NOW));
     expect(r.resume).toContain("Dernière publication de l'OVPF, le 24/10 à 19:46 : une image, sans texte. rundata.re ne lit pas les images : à voir sur https://bsky.app/profile/ovpf.bsky.social/post/arret.");
-    // Newer than pitonlive's status of the 19th: the state may not account for it, and nothing is drawn from it.
+    // Newer than the release of 07/05 the state comes from: the state may not account for it, and nothing is drawn from it.
     expect(r.resume).toContain("La dernière publication de l'OVPF est une image que nous ne lisons pas : l'état ci-dessus peut ne pas en tenir compte.");
     expect(r.etat).toMatchObject({ image_ovpf_plus_recente: true, eruption_en_cours: false, niveau_orsec: "Vigilance" });
     expect(r.publications_ovpf[0]).toMatchObject({ texte: "Publication en une image, sans texte", image: true, lien: "https://bsky.app/profile/ovpf.bsky.social/post/arret", a_lire: A_LIRE });
@@ -93,8 +93,8 @@ describe("volcano", () => {
     expect(html).toContain(`<p>Publication en une image, sans texte</p><p><a href="https://bsky.app/profile/ovpf.bsky.social/post/arret">Voir les images sur Bluesky →</a></p>`);
     expect(html).toContain(`<p class="lead">La dernière publication de l&#39;OVPF est une image que nous ne lisons pas : l&#39;état ci-dessus peut ne pas en tenir compte.</p>`);
 
-    // An image older than what the state comes from: nothing more said.
-    const older = body(await volcanSeismes(cacheWith(activityPosts({ feed: [post("ancienne", "2026-10-15T08:00:00.000Z", "", image())] })), NOW));
+    // An image older than what the state comes from, the day of the release: nothing more said.
+    const older = body(await volcanSeismes(cacheWith(activityPosts({ feed: [post("ancienne", "2026-05-06T08:00:00.000Z", "", image())] })), NOW));
     expect(older.resume).toContain("une image, sans texte. rundata.re ne lit pas les images");
     expect(older.resume).not.toContain("peut ne pas en tenir compte");
     expect(older.etat.image_ovpf_plus_recente).toBeUndefined();
@@ -162,10 +162,16 @@ describe("volcano", () => {
 
   it("sums it all up", async () => {
     const r = body(await volcanSeismes(cacheWith(), NOW));
-    expect(r.resume).toContain("Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Niveau du dispositif ORSEC volcan : Vigilance.");
-    expect(r.resume).toContain("Dernière éruption terminée le 12/04 selon pitonlive.com (il y a 193 jours).");
-    expect(r.resume).toContain("Accès à l'Enclos : « partiel » selon pitonlive.com (source : Préfecture de La Réunion, arrêté n°\u00a02026-627 du 7 mai 2026).");
+    // The official texts first, never « pas d'éruption » on pitonlive's word (the user, 25/10).
+    expect(r.resume.startsWith("L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus. Communiqué de la préfecture du 07/05")).toBe(true);
+    expect(r.resume).toContain("Niveau du dispositif ORSEC volcan : Vigilance.");
+    // The last eruption still pitonlive's, said as its own, until the OVPF's dated table (the next change).
+    expect(r.resume).toContain("Dernière éruption terminée le 12/04 selon pitonlive.com, site non officiel (il y a 193 jours).");
+    // The Enclos as the release says it, never pitonlive's « partiel » nor the decree it names.
+    expect(r.resume).toContain("Accès à l'Enclos : « réouverture partielle » selon le communiqué de la préfecture du 07/05.");
+    expect(r.resume).not.toMatch(/« partiel »|2026-627/);
+    expect(r.etat.source).toBe("préfecture de La Réunion (communiqués) et OVPF-IPGP (publications)");
     expect(r.resume).toContain("11 sous le volcan (magnitude max 1)");
-    expect(r.sources.map((s: { source: string }) => s.source)).toHaveLength(3);
+    expect(r.sources.map((s: { source: string }) => s.source)).toHaveLength(4);
   });
 });
