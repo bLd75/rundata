@@ -29,7 +29,8 @@ export const PRODUCTS: { source: SourceInfo; cost: number; grid: (c: Cache, now:
 ];
 
 export const COVERAGE =
-  "Température de surface MESURÉE par satellite (NOAA ACSPO, ou NASA MODIS en secours), environ 2 jours de retard. " +
+  "Température de surface MESURÉE par satellite (NOAA ACSPO, ou NASA MODIS en secours). Une mesure paraît au plus tôt le lendemain " +
+  "du jour mesuré, et les jours de nuages il n'y en a pas : la dernière peut dater de plusieurs jours. Chaque réponse donne le jour de la mesure. " +
   `Vagues : PRÉVISION du modèle ${houle.MODEL.nom} (maille de ${houle.MODEL.maille_km} km, ${houle.MODEL.echeance_jours} jours), ` +
   "jamais mélangée aux mesures. Les bouées côtières Candhis, qui mesurent la houle et l'eau toutes les 30 min, ne sont pas encore branchées.";
 

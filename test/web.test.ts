@@ -10,6 +10,7 @@ import { alerteOf, buildPlace, buildSea, snapshot, withoutForecast } from "../sr
 import { homePage } from "../src/web/home.js";
 import { communesPage } from "../src/web/commune.js";
 import { VERSION } from "../src/server.js";
+import { COVERAGE as SEA_COVERAGE } from "../src/tools/mer.js";
 import { DESCRIPTION_MAX, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
 import { PAGES, pageOf } from "../src/web/places.js";
 import { isReader, site } from "../src/web/site.js";
@@ -553,6 +554,15 @@ describe("vigilance and sea pages", () => {
     v.zones[mf.ISLAND][mf.CYCLONE] = [];
     v.zones["VIGI974-12"][12] = [{ couleur: 2, debut: "2026-10-22T00:00:00Z" }];
     expect(alerteOf(v, NOW)?.texte).toBe("Vigilance Météo-France : jaune fortes pluies / orages (Est).");
+  });
+
+  it("never says « 2 jours de retard »: a measure appears the next day at the earliest, later on cloudy days (marketing)", async () => {
+    const sea = (await serve(isolate(), "/mer")).text;
+    expect(sea).toContain("<h3>Au mieux, la mesure d'hier</h3>");
+    expect(sea).toContain("publiée au plus tôt le lendemain");
+    const place = (await serve(isolate(), "/meteo/saint-leu")).text;
+    expect(place).toContain("du jour indiqué (une mesure paraît au plus tôt le lendemain)");
+    for (const said of [sea, place, SEA_COVERAGE]) expect(said).not.toMatch(/jours? de (retard|décalage)/);
   });
 
   it("gives the sea temperature beach by beach, and the swell forecast apart", async () => {

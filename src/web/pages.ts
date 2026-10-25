@@ -1291,7 +1291,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
   const sea = coastal(p) && d?.mer
     ? `<section aria-labelledby="h-mer"><h2 id="h-mer">Température de la mer à ${esc(p.nom)}</h2>` +
       `<div class="card">${d.mer.mesure ? `<ul class="seas"><li><span>Au large, le ${esc(dayMonth(d.mer.mesure.jour_mesure))}</span><b>${esc(thin(d.mer.mesure.temperature_eau))}</b></li></ul>` : ""}` +
-      `<p>${esc(thin(d.mer.resume))}</p>${tideLine}<p class="note">Température : mesure satellite au large (environ 2 jours de retard), ` +
+      `<p>${esc(thin(d.mer.resume))}</p>${tideLine}<p class="note">Température : mesure satellite au large, du jour indiqué (une mesure paraît au plus tôt le lendemain), ` +
       `pas celle du lagon ni du bord.${d.mer.etat_de_la_mer ? " Vagues : prévision d'un modèle, au large, pas une mesure." : ""}${tides ? ` Marée : calculée d'après les mesures des marégraphes, hauteurs à environ 5 cm près, <a href="/mer">détail sur la page mer</a>.` : ""} Source : ${credits(d.mer.sources)}${tides ? `, ${esc(TIDE_CITATION)}` : ""}.</p></div></section>`
     : "";
 
@@ -1649,7 +1649,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
       "@context": "https://schema.org",
       "@type": "Dataset",
       name: "Température de surface de la mer autour de La Réunion (974)",
-      description: "Température de surface de la mer mesurée par satellite au large de chaque plage de La Réunion, moyenne du jour, environ 2 jours de retard.",
+      description: "Température de surface de la mer mesurée par satellite au large de chaque plage de La Réunion, moyenne du jour, publiée au plus tôt le lendemain.",
       url: `${origin}/mer`,
       isAccessibleForFree: true,
       inLanguage: "fr-FR",
@@ -1690,7 +1690,7 @@ ${bathingBlock(now)}
   <div class="three">
     <div class="card">${icon("wave")}<h3>La surface, au large</h3><p>Le satellite mesure la toute première couche d'eau, en moyenne sur des carrés de 2 à 4 km. Le lagon et le bord de plage, peu profonds, sont souvent plus chauds en journée.</p></div>
     <div class="card">${icon("cloud")}<h3>Pas à travers les nuages</h3><p>Un ciel couvert cache la mer : la mesure retenue est alors celle d'un jour précédent, ou d'un carré un peu plus loin. La date et la distance sont toujours données.</p></div>
-    <div class="card">${icon("gauge")}<h3>Environ 2 jours de retard</h3><p>Les produits satellite de la NOAA et de la NASA sont publiés avec un à deux jours de décalage. La houle, elle, est une prévision ; pour la vigilance vagues-submersion, voyez <a href="/vigilance">la vigilance</a>.</p></div>
+    <div class="card">${icon("gauge")}<h3>Au mieux, la mesure d'hier</h3><p>Une mesure par satellite paraît au plus tôt le lendemain du jour mesuré : celle d'aujourd'hui n'existe pas encore. La houle, elle, est une prévision ; pour la vigilance vagues-submersion, voyez <a href="/vigilance">la vigilance</a>.</p></div>
   </div>
 </section>
 <section class="card cta" aria-labelledby="h-ia">
