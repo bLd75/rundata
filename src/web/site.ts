@@ -234,30 +234,31 @@ async function tileCopies(cache: Cache, keys: string[], background: Background, 
   return copies.map((c) => c ?? null);
 }
 
-// The day the list of communes, the press page and the legal pages last changed: their <lastmod>.
-const STATIC_CHANGED = "2026-10-24";
+/** A page of the sitemap: its path, the day its content last changed when known, how often it changes. */
+type Url = [string, string | undefined, string];
 
 const localDay = (d: string | Date) => new Date(new Date(d).getTime() + 4 * 3600_000).toISOString().slice(0, 10);
 
 /**
- * Every page with its <lastmod>: today (Réunion time) for the live ones, the day the traces were built for the
- * hikes and trails (their ONF state aside), the day of the latest change for /nouveautes, and STATIC_CHANGED for the
- * pages without live data.
+ * Every page, with a <lastmod> only where the day its content last changed is known: the latest entry of /nouveautes,
+ * the day the defibrillators' list was rebuilt, the day of the fuel prices. Search engines use it only when it is
+ * always exact; « today » on a live page, or the day the traces were built for a trail whose state changed since,
+ * would not be.
  */
 function sitemap(origin: string, now: Date, fuelDay?: string): string {
   const today = localDay(now);
-  const live = (u: string) => [u, today, "hourly"];
-  const fixed = (u: string) => [u, STATIC_CHANGED, "monthly"];
-  const trace = (u: string) => [u, traces.BUILT, "daily"];
+  const live = (u: string): Url => [u, undefined, "hourly"];
+  const fixed = (u: string): Url => [u, undefined, "monthly"];
+  const trace = (u: string): Url => [u, undefined, "daily"];
   // The defibrillators are a list bundled with the server: their page changes when it is rebuilt.
-  const urls = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/alerte-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), fixed("/kit-cyclone"), fixed("/publier"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
+  const urls: Url[] = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/alerte-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), fixed("/kit-cyclone"), fixed("/publier"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
-    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay && fuelDay < today ? fuelDay : today, "daily"],
+    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay ? (fuelDay < today ? fuelDay : today) : undefined, "daily"],
     // The fires' page only once FIRMS's key is there: before, it says the detection is not active.
     ...(feux.enabled() ? [live(FEUX_PATH)] : [])];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-    urls.map(([u, day, freq]) => `<url><loc>${origin}${u}</loc><lastmod>${day}</lastmod><changefreq>${freq}</changefreq></url>`).join("\n") +
+    urls.map(([u, day, freq]) => `<url><loc>${origin}${u}</loc>${day ? `<lastmod>${day}</lastmod>` : ""}<changefreq>${freq}</changefreq></url>`).join("\n") +
     `\n</urlset>\n`;
 }
 

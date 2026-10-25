@@ -9,6 +9,8 @@ import { enclosWord, hausseNiveau, IMAGE_APRES, LOCALISES, ORSEC_BAN, sourceName
 import { type Ligne, libelle, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { alertSections, alerteVolcan, CONSIGNES, releaseDay, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
+import { AGENDAS } from "../providers/agenda.js";
+import { SOURCE as SALLES_SOURCE } from "../providers/salles.js";
 import type { Cached } from "../cache.js";
 import * as historique from "../tools/volcan-historique.js";
 import { normalize } from "../places/resolve.js";
@@ -26,7 +28,6 @@ import { FAST_KW } from "../tools/bornes.js";
 import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
-import rubriques from "./og-rubriques.json" with { type: "json" };
 import { esc, hikesMap, islandMap, type Marker, oceanMap, profile, traceMap, type ZoneLink } from "./map.js";
 import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
@@ -2142,8 +2143,9 @@ const KIND: Record<string, string> = {
   exposition: "Exposition ou visite", sport: "Rendez-vous sportif", atelier: "Atelier ou rencontre",
 };
 const SUMMARY_MAX = 300;
-// The events' picture: the one of the events pages' link previews.
-const EVENTS_IMAGE = rubriques.find((r) => r.pages.includes("/evenements"))?.png;
+// The halls whose own programme is read: an event from it is theirs to organise. A town hall's agenda also lists what
+// associations put on, so the town hall is never said to organise.
+const HALLS = new Set(AGENDAS.filter((a) => a.source === SALLES_SOURCE).map((a) => a.nom));
 
 /** The source's summary, cut at a word within SUMMARY_MAX; else what, where: « Concert à Saint-Paul, TÉAT Plein Air. » */
 export function eventSummary(r: AgendaRow): string {
@@ -2155,10 +2157,11 @@ export function eventSummary(r: AgendaRow): string {
 
 /**
  * The events as schema.org `Event`s, which search engines show in their own box. Only those with a commune and a
- * date: a place and a start are what they require. Nothing the source does not give (no price); the picture is the
- * events pages' own.
+ * date: a place and a start are what they require. Nothing the source does not give: no price, and no picture, the
+ * sources giving none (search engines want one of the event itself, not the site's); the organiser only when the
+ * event comes from its hall's own programme.
  */
-export function agendaEvents(rows: AgendaRow[], origin: string): object[] {
+export function agendaEvents(rows: AgendaRow[]): object[] {
   const iso = (local: string) => (local.length > 10 ? `${local}:00+04:00` : local);
   return rows.filter((r) => r.commune && /^\d{4}-\d\d-\d\d(T\d\d:\d\d)?$/.test(r.date)).map((r) => {
     const end = agendaEnd(r);
@@ -2176,7 +2179,7 @@ export function agendaEvents(rows: AgendaRow[], origin: string): object[] {
       },
       ...(r.lien ? { url: r.lien } : {}),
       description: eventSummary(r),
-      ...(EVENTS_IMAGE ? { image: `${origin}${EVENTS_IMAGE}` } : {}),
+      ...(HALLS.has(r.publie_par) ? { organizer: { "@type": "Organization", name: r.publie_par } } : {}),
     };
   });
 }
@@ -2252,7 +2255,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
 </section>
 ${connectorCta("evenements", "les événements de l'île")}`;
 
-  const events = agendaEvents(d?.evenements ?? [], origin);
+  const events = agendaEvents(d?.evenements ?? []);
   const jsonld = [crumbs(origin, "Événements", "/evenements"), webPage(origin, "/evenements", title, description, data), ...(events.length ? [{ "@context": "https://schema.org", "@graph": events }] : [])];
   return layout(origin, { title, description, path: "/evenements", jsonld, alerte }, band, body);
 }

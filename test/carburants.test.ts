@@ -210,7 +210,12 @@ describe("a new order read before its 1st", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(READ);
     carburants.configure(async () => nov());
-    const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), new Cache())).text();
+    const cache = new Cache();
+    // Before any copy is stored, no day is known: no date.
+    const before = await (await handle(new Request("https://rundata.re/sitemap.xml"), cache)).text();
+    expect(before).toContain("<loc>https://rundata.re/carburants</loc><changefreq>daily</changefreq>");
+    await handle(new Request("https://rundata.re/carburants", { headers: { accept: "text/html" } }), cache);
+    const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), cache)).text();
     expect(map).toContain("<loc>https://rundata.re/carburants</loc><lastmod>2025-10-31</lastmod>");
   });
 });
