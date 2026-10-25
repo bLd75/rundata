@@ -14,7 +14,7 @@ export const SOURCE: SourceInfo = {
   id: "vigicrues",
   nom: "Vigicrues Réunion (vigilance crues, hauteurs et débits des rivières)",
   organisme: "DEAL Réunion",
-  licence: "Licence Ouverte (Etalab)",
+  licence: "Licence Ouverte Etalab",
   attribution: "© VIGICRUES, DEAL Réunion",
   url: "https://www.vigicrues-reunion.re",
 };

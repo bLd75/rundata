@@ -19,7 +19,7 @@ export const SOURCE: SourceInfo = {
   id: "irve",
   nom: "Bornes de recharge pour véhicules électriques (base nationale des IRVE, données statiques et dynamiques)",
   organisme: "transport.data.gouv.fr, d'après les opérateurs de recharge (Freshmile, EZDrive…)",
-  licence: "Licence Ouverte 2.0 (Etalab)",
+  licence: "Licence Ouverte Etalab 2.0",
   attribution: "Base nationale des IRVE, transport.data.gouv.fr",
   url: "https://transport.data.gouv.fr/datasets/beta-bases-nationales-des-points-de-recharge-pour-vehicules-electriques-en-france-irve",
 };

@@ -14,7 +14,7 @@ export const SOURCE = {
   id: "propositions_associations",
   nom: "Événements proposés par les clubs et associations sur rundata.re",
   organisme: "Clubs et associations de La Réunion",
-  licence: "Licence Ouverte 2.0 (Etalab)",
+  licence: "Licence Ouverte Etalab 2.0",
   attribution: "l'association organisatrice de chaque événement, via rundata.re",
   url: "https://rundata.re/associations",
 } satisfies SourceInfo;
