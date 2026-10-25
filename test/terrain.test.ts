@@ -64,6 +64,12 @@ describe("fiche terrain", () => {
       ["rue Auguste Techer Ravine des Cabris", "Rue Auguste Techer"],
       ["av de la victoire, St-Denis", "Avenue de la Victoire"],
       ["rue du general de gaulle", "Rue du Général de Gaulle"],
+      // Streets of the address base, asked the way people shorten them.
+      ["ch paille en queue, Salazie", "Chemin Paille En Queue"],
+      ["impasse arhel, La Plaine-des-Palmistes", "Impasse Joseph Alexis Arhel"],
+      ["chemin andre baret", "Chemin Andre Barret"],
+      ["all bois de lait", "Allée Bois de Lait"],
+      ["rue phlibert", "Rue Philibert"],
     ]) expect(sameStreet(asked, found), `${asked} → ${found}`).toBe(true);
     for (const [asked, found] of [
       ["rue Auguste Escher, Ravine des Cabris", "Rue Beaudelaire Ravine des Cabris"],
