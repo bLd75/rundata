@@ -9,7 +9,7 @@ import { mentionCourte } from "../tools/agenda.js";
 import { type Resume, UPDATING } from "../tools/resume.js";
 import type { Alerte } from "./data.js";
 import { connectorCta, courantItem, silentItem, silentText, webPage } from "./domains.js";
-import { esc } from "./map.js";
+import { esc, fenetre } from "./map.js";
 import { a, de } from "../tools/format.js";
 import { ask, credits, icon, layout, SITE, thin } from "./pages.js";
 import type { PlacePage } from "./places.js";
@@ -47,7 +47,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n > 1 ? man
 const card = (ic: string, title: string, body: string, href?: string, cls = "") =>
   `<div class="card${cls}">${icon(ic)}<h3>${href ? `<a href="${href}">${esc(title)}</a>` : esc(title)}</h3>${body}</div>`;
 const li = (x: { titre: string; lien?: string; quand?: string; media?: string }) =>
-  `<li>${x.lien ? `<a href="${esc(x.lien)}" rel="noopener">${esc(x.titre)}</a>` : esc(x.titre)}${x.quand || x.media ? ` <span class="note">${esc([x.quand, x.media].filter(Boolean).join(" · "))}</span>` : ""}</li>`;
+  `<li>${x.lien ? `<a href="${esc(x.lien)}" rel="noopener"${fenetre(x.lien)}>${esc(x.titre)}</a>` : esc(x.titre)}${x.quand || x.media ? ` <span class="note">${esc([x.quand, x.media].filter(Boolean).join(" · "))}</span>` : ""}</li>`;
 
 export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cached<unknown> | null, alerte?: Alerte): string {
   const path = `/aujourdhui/${p.slug}`;

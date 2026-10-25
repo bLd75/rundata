@@ -8,7 +8,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Cache } from "../cache.js";
 import type { ActualitesAnswer, VolcanAnswer } from "./data.js";
-import { esc } from "./map.js";
+import { esc, fenetre } from "./map.js";
 import { DESCRIPTION_MAX, ligne } from "./pages.js";
 import { givenAt as postAt, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
@@ -213,7 +213,7 @@ export function alertSections(a: VolcanAlerte, news: ActualitesAnswer | undefine
   const media = `<section aria-labelledby="h-medias"><div class="sec-h"><h2 id="h-medias">Ce que disent les médias de l'île</h2>` +
     `<p>Titres repris tels quels, avec leur heure : selon les médias, pas une source officielle.</p></div>` +
     (heads.length
-      ? `<ul class="rows">${heads.map((i) => `<li><span class="note">${esc(i.quand)}</span><span>${esc(i.media)}</span><a href="${esc(i.lien)}">${esc(i.titre)}</a></li>`).join("")}</ul>`
+      ? `<ul class="rows">${heads.map((i) => `<li><span class="note">${esc(i.quand)}</span><span>${esc(i.media)}</span><a href="${esc(i.lien)}"${fenetre(i.lien)}>${esc(i.titre)}</a></li>`).join("")}</ul>`
       : `<p class="card">Pas encore d'article des médias de l'île sur cette alerte. Les annonces officielles sont ci-dessus.</p>`) +
     `</section>`;
   return `<section aria-labelledby="h-officiel"><div class="sec-h"><p class="eyebrow">Alerte en cours</p><h2 id="h-officiel">Les annonces officielles</h2></div>` +

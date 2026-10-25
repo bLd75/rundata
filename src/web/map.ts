@@ -6,6 +6,7 @@
 import island from "../places/island.json" with { type: "json" };
 import relief from "./relief.json" with { type: "json" };
 import ocean from "./ocean.json" with { type: "json" };
+import { ACCUEILS } from "../providers/accueils-medias.js";
 
 const [LON0, LAT0, LON1, LAT1] = island.bbox;
 export const W = island.w;
@@ -20,6 +21,9 @@ export function project(lon: number, lat: number): [number, number] {
 
 export const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+/** ` target="_blank"` for a link to a medium's home page: Freedom asks that it open « dans une nouvelle fenêtre ». */
+export const fenetre = (lien?: string) => (lien && ACCUEILS.has(lien) ? ' target="_blank"' : "");
 
 export interface Marker {
   lon: number;

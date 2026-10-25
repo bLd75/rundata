@@ -2,7 +2,8 @@
  * What is happening on the island now, from its newsrooms: the headlines of the local media, the live blogs they run
  * on a day of mobilisation, a cyclone or an eruption, and the press releases of the prefecture. Headlines, the first
  * sentence and the link only, as a news aggregator does: the articles stay on the media's sites.
- * - Clicanoo (Le Journal de l'île), Freedom, Parallèle Sud: their RSS;
+ * - Clicanoo (Le Journal de l'île), Freedom, Parallèle Sud: their RSS; Freedom's terms allow a link to its home page
+ *   only, so its items link there (src/providers/accueils-medias.ts);
  * - Imaz Press and Témoignages: their Google News sitemap (Imaz Press keeps its RSS from robots); Imaz Press's live
  *   blogs (« l'actu en continu »), read from the article page, each entry with its time;
  * - Le Quotidien de La Réunion: its home page (no feed, and a sitemap without titles), the time to the minute only when
@@ -17,6 +18,7 @@ import { getText, httpUrl } from "../http.js";
 import gazetteer from "../places/gazetteer.json" with { type: "json" };
 import { normalize } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
+import { ACCUEIL, ACCUEILS } from "./accueils-medias.js";
 import { strip } from "./avis-eau.js";
 
 export const SOURCES = {
@@ -326,7 +328,7 @@ function info(media: string, titre: string, raw: string, publie: Date, whole = "
     titre,
     resume: resume !== titre ? resume : undefined,
     media,
-    lien,
+    lien: ACCUEIL[media] ?? lien,
     publie: publie.toISOString(),
     heure: opts.heure ?? true,
     direct: opts.direct || undefined,
@@ -510,11 +512,11 @@ export function liveCandidates(items: Info[], now: Date): string[] {
     .map((i) => i.lien);
 }
 
-/** Two copies of the same article from one medium: the one with a summary. */
+/** Two copies of the same article from one medium: the one with a summary. A link to a home page is shared by all of its medium's items: told apart by their title. */
 function oncePerLink(list: Info[]): Info[] {
   const by = new Map<string, Info>();
   for (const i of list) {
-    const k = i.direct ? `${i.lien}#${i.publie}` : i.lien;
+    const k = i.direct ? `${i.lien}#${i.publie}` : ACCUEILS.has(i.lien) ? `${i.lien}#${i.titre}` : i.lien;
     const old = by.get(k);
     if (!old || (!old.resume && i.resume)) by.set(k, old && !i.resume ? { ...i, resume: old.resume } : i);
   }

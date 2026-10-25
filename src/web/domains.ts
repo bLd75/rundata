@@ -32,7 +32,7 @@ import { FAST_KW } from "../tools/bornes.js";
 import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
-import { esc, hikesMap, islandMap, type Marker, oceanMap, profile, traceMap, type ZoneLink } from "./map.js";
+import { esc, fenetre, hikesMap, islandMap, type Marker, oceanMap, profile, traceMap, type ZoneLink } from "./map.js";
 import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
@@ -1196,7 +1196,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   const lit = d?.littoral;
   const linked = (s: string) => esc(s).replace("infotrafic.re", `<a href="${INFOTRAFIC}">infotrafic.re</a>`);
   const said = (a: littoral.Annonce) =>
-    `<b>${esc(littoral.etatText(a))}</b>, selon ${esc(a.media)}, <a href="${esc(a.lien)}" rel="noopener">${littoral.linkWord(a)}</a> publié ${esc(littoral.publieText(a, now))}.`;
+    `<b>${esc(littoral.etatText(a))}</b>, selon ${esc(a.media)}, <a href="${esc(a.lien)}" rel="noopener"${fenetre(a.lien)}>${littoral.linkWord(a)}</a> publié ${esc(littoral.publieText(a, now))}.`;
   const littoralBody = lit
     ? lit.annonces.length > 1
       ? `<p>${linked(littoral.DISAGREE)}</p><ul class="plain">${lit.annonces.map((a) => `<li>${said(a)}</li>`).join("")}</ul>`
@@ -1254,7 +1254,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
 
   // What the media report on the roads and the blockades in the last hours, their headlines linked: first, as on a day of blockades it matters most.
   const medias = d?.medias?.length
-    ? `<div class="card">${icon("book")}<h3>Signalé par les médias</h3><ul class="plain">${d.medias.map((m) => `<li><a href="${esc(m.lien)}" rel="noopener">${esc(m.titre)}</a> <span class="note">${esc(m.source)}${m.heure ? `, ${esc(m.heure)}` : ""}</span></li>`).join("")}</ul>
+    ? `<div class="card">${icon("book")}<h3>Signalé par les médias</h3><ul class="plain">${d.medias.map((m) => `<li><a href="${esc(m.lien)}" rel="noopener"${fenetre(m.lien)}>${esc(m.titre)}</a> <span class="note">${esc(m.source)}${m.heure ? `, ${esc(m.heure)}` : ""}</span></li>`).join("")}</ul>
   <p class="note">Routes, barrages et manifestations dans les titres des six dernières heures, et les communiqués du jour de la préfecture : lire l'article pour le détail. <a href="/actualites">Toutes les actualités</a>.</p></div>`
     : "";
 
@@ -2269,7 +2269,7 @@ function agendaRow(r: AgendaRow): string {
   const book = r.billetterie && r.billetterie !== r.lien ? ` · <a href="${esc(r.billetterie)}" rel="noopener">billets</a>` : "";
   // Said by the news before the organiser's page: who said it, to check.
   const news = r.statut_d_apres
-    ? `<small class="said">${esc(r.statut!.toLowerCase())}${r.reporte_au ? ` au ${esc(r.reporte_au)}` : ""} d'après <a href="${esc(r.statut_d_apres.lien)}" rel="noopener">${esc(r.statut_d_apres.media)}</a></small>`
+    ? `<small class="said">${esc(r.statut!.toLowerCase())}${r.reporte_au ? ` au ${esc(r.reporte_au)}` : ""} d'après <a href="${esc(r.statut_d_apres.lien)}" rel="noopener"${fenetre(r.statut_d_apres.lien)}>${esc(r.statut_d_apres.media)}</a></small>`
     : "";
   const blank = r.lien && ACCUEILS.has(r.lien) ? ' target="_blank"' : "";
   return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${book}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
@@ -2471,7 +2471,7 @@ const newsTime = (r: NewsRow) => r.quand.replace(/^aujourd'hui à /, "");
 
 function newsRow(r: NewsRow): string {
   const small = [r.media + (r.aussi?.length ? ` (aussi ${r.aussi.map((x) => x.media).join(", ")})` : ""), r.communes?.join(", ")].filter(Boolean).map((x) => esc(x!)).join(" · ");
-  return `<li data-k="${esc(r.lien)}" data-c="${esc((r.communes ?? []).join("|"))}" data-s="${esc((r.sujets ?? []).join("|"))}"><span><a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a>` +
+  return `<li data-k="${esc(r.lien)}" data-c="${esc((r.communes ?? []).join("|"))}" data-s="${esc((r.sujets ?? []).join("|"))}"><span><a href="${esc(r.lien)}" rel="noopener"${fenetre(r.lien)}>${esc(r.titre)}</a>` +
     `${r.resume ? `<small>${esc(r.resume)}</small>` : ""}<small>${small}</small></span><span class="q-none">${esc(newsTime(r))}</span></li>`;
 }
 
@@ -2503,7 +2503,7 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
   const top = d ? (d.en_direct.length ? d.en_direct : d.infos).slice(0, 6) : [];
   const side = d
     ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">${d.en_direct.length ? "En direct" : "À la une"}</h3><ul class="plain">${top.map((r) =>
-        `<li><b style="color:var(--on-night)">${esc(newsTime(r))}</b> <a href="${esc(r.lien)}" rel="noopener" style="color:var(--on-night)">${esc(r.titre)}</a>` +
+        `<li><b style="color:var(--on-night)">${esc(newsTime(r))}</b> <a href="${esc(r.lien)}" rel="noopener"${fenetre(r.lien)} style="color:var(--on-night)">${esc(r.titre)}</a>` +
         `<span class="note" style="color:var(--on-night-muted)"> · ${esc(r.media)}${r.communes?.length ? ` · ${esc(r.communes.join(", "))}` : ""}</span></li>`).join("")}</ul></figure>`
     : "";
 
@@ -2517,7 +2517,7 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
     ? `<section aria-labelledby="h-direct">
   <div class="sec-h"><p class="eyebrow">Heure par heure</p><h2 id="h-direct">Le direct ${/^[aeiouyéèêiî]/i.test(d.en_direct[0].media) ? "d'" : "de "}${esc(d.en_direct[0].media)}</h2>
   <p>Les entrées du direct, la plus récente en haut, avec leur première phrase et ce qu'elles disent des communes. Le texte complet est sur le site du média.</p></div>
-  <ul class="rows eau">${d.en_direct.map((r) => `<li><span><a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a>${r.resume ? `<small>${esc(r.resume)}</small>` : ""}` +
+  <ul class="rows eau">${d.en_direct.map((r) => `<li><span><a href="${esc(r.lien)}" rel="noopener"${fenetre(r.lien)}>${esc(r.titre)}</a>${r.resume ? `<small>${esc(r.resume)}</small>` : ""}` +
     `${r.communes?.length ? `<small>${esc(r.communes.join(", "))}</small>` : ""}</span><span class="q-none">${esc(newsTime(r))}</span></li>`).join("")}</ul>
 </section>`
     : "";
