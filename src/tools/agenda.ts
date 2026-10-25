@@ -154,7 +154,7 @@ const DEADLINE_MS = 5_000;
 // or named, and read by a later question.
 const KEEP_LEFT = 4;
 
-// How often the scheduled event reads its agendas again.
+// How often the scheduled event reads its agendas again, unless an agenda says otherwise (`relecture`).
 const PLANNED_FRESH_SECONDS = 3600;
 
 /** An agenda this invocation has no subrequests left for, and of which no copy is kept. */
@@ -221,9 +221,10 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
 }
 
 /**
- * The scheduled event's last part: the agendas read only there (`planifie`) whose copy is an hour old, each only if
- * what is left pays for its reading and the bundle's write; the bundle written once, and only if one was read. A
- * reading that fails, or that finds nothing where the copy had events, keeps the copy and its time.
+ * The scheduled event's last part: the agendas read only there (`planifie`) whose copy is an hour old (or as old as
+ * their `relecture`), each only if what is left pays for its reading and the bundle's write; the bundle written once,
+ * and only if one was read. A reading that fails, or that finds nothing where the copy had events, keeps the copy and
+ * its time.
  */
 export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ lus: string[]; gardes: string[]; reportes: string[]; trop_vieilles: string[] }> {
   // `trop_vieilles`: not read again this time, and their copy, older than PLANIFIE_MAX_AGE_SECONDS, no longer served.
@@ -238,7 +239,7 @@ export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ 
   const direct: src.AgendaStore = { get: async (_k, _s, load) => ({ value: await load(), fetchedAt: now, stale: false }) };
   for (const agenda of planned) {
     const old = bundle.peek(`agenda:${agenda.id}`);
-    if (old && old.ageMs < PLANNED_FRESH_SECONDS * 1000) continue;
+    if (old && old.ageMs < (agenda.relecture ?? PLANNED_FRESH_SECONDS) * 1000) continue;
     if (left() - KEEP_LEFT - 1 < (agenda.requetes ?? 1)) {
       out.reportes.push(agenda.id);
       continue;
@@ -328,6 +329,9 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     statut: e.statut === "annulé" ? "ANNULÉ" : e.statut === "reporté" ? "REPORTÉ" : e.statut === "complet" ? "complet" : undefined,
     /** « d'après Imaz Press » when the news says it and the organiser's page does not yet. */
     statut_d_apres: e.selon ? { media: e.selon.media, lien: e.selon.lien } : undefined,
+    /** A club's session for its members, told only to who says they are one. */
+    acces: e.reserve_adherents ? src.reserve(e) : undefined,
+    site_du_club: e.reserve_adherents ? httpUrl(e.organisateur?.site) : undefined,
     reporte_au: e.reporte_au ? dayText(e.reporte_au) : undefined,
     billetterie: httpUrl(e.billetterie),
     description: e.description,
@@ -395,7 +399,8 @@ export const CINEMAS = [
 const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publiés par l'organisateur : vérifier sur la page de l'événement avant de se déplacer (annulation, météo, places). Un événement annulé ou reporté reste dans la liste avec son statut ; « complet » : plus de places en vente. Une salle sans heure (TÉAT) donne l'heure sur la page du spectacle. Les matchs des clubs et les programmes sportifs des communes : l'outil sport.";
 
 /** `listed`: how many events at most (the page lists them all). */
-export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?: string, now = new Date(), listed = LISTED) {
+/** `adherent`: the user says they are a club's member: its sessions for the members are told too, said so. */
+export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?: string, now = new Date(), listed = LISTED, adherent = false) {
   let res: ReturnType<typeof resolvePlace> = null;
   if (lieu?.trim()) {
     res = resolvePlace(lieu);
@@ -414,7 +419,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const p = periode(quand, now);
   const what = matcher(quoi);
   // The communes' sports programmes go to the sport tool (src.programmesSportifs).
-  const all = withNews(unique(got.flatMap((g) => g.value ? g.value.value.filter((e) => !src.programmeSportif(e)).map((e) => ({ ...e, lu_le: src.toLocal(g.value!.fetchedAt.toISOString()) })) : [])), news?.value.infos, now)
+  const all = withNews(unique(got.flatMap((g) => g.value ? g.value.value.filter((e) => !src.programmeSportif(e) && (adherent || !e.reserve_adherents)).map((e) => ({ ...e, lu_le: src.toLocal(g.value!.fetchedAt.toISOString()) })) : [])), news?.value.infos, now)
     .map((e) => ({ e, seances: inPeriod(e, p, now) }))
     .filter((x) => x.seances.length && (!what || what.test(x.e)))
     .sort((x, y) => Number(spanDays(x.seances[0]) > LONG_DAYS) - Number(spanDays(y.seances[0]) > LONG_DAYS) ||

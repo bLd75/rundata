@@ -109,6 +109,13 @@ export interface Evenement {
   billetterie?: string;
   /** When rundata.re read it, in local time: set by the tool from the agenda's copy, not by the source. */
   lu_le?: string;
+  /**
+   * The club that publishes it, and the commune of its address (Sportsregions): for the sport tool, never said as the
+   * event's place.
+   */
+  organisateur?: { nom: string; commune?: string; sport?: string; site?: string };
+  /** A session for the club's members (« Jeu libre », a weekly outing): told only to who says they are one. */
+  reserve_adherents?: boolean;
 }
 
 /**
@@ -155,6 +162,8 @@ export interface Agenda {
   planifie?: boolean;
   /** What is read of the commune when it is not an agenda (a mairie's news): said in the answer for that commune. */
   partiel?: string;
+  /** For an agenda read by the scheduled event: the seconds between two readings, when not an hour. */
+  relecture?: number;
   /** One `cache.get("agenda:<id>", …)`, nothing else of the cache. */
   load: (cache: AgendaStore, now: Date) => Promise<Cached<Evenement[]>>;
 }
@@ -1078,6 +1087,113 @@ export const LIGUE_VOLLEY: Agenda = {
   planifie: true,
 };
 
+// ---------------------------------------------------------------- Sportsregions: the clubs' calendar
+
+interface SportsEventLd {
+  "@type"?: string;
+  name?: string;
+  startDate?: string;
+  endDate?: string;
+  location?: { address?: { addressLocality?: string; postalCode?: string } };
+  organizer?: { name?: string; url?: string };
+  sport?: string;
+  url?: string;
+}
+
+// The portal's pages read at most (30 events each: about two months).
+const SR_PAGES = 5;
+// The members' sessions (« Jeu libre - Adultes », « Entraînement jeunes »): not open to the public, kept for the members.
+const CRENEAU = /\b(?:jeux? libres?|entra[iî]nements?|cr[ée]neaux?|s[ée]ances?)\b/i;
+// The same title from the same club this many times in what is read: a regular session (the weekly dive outings).
+const CRENEAU_FOIS = 3;
+
+/** What a members' session is said to be: « réservé aux adhérents de Badminton Club de Saint-Pierre ». */
+export const reserve = (e: Pick<Evenement, "organisateur" | "publie_par">) => `réservé aux adhérents de ${e.organisateur?.nom ?? e.publie_par}`;
+
+/** Sportsregions' times are the club's wall-clock ones, marked « Z » all the same; 00:00 is the whole day. */
+const srTime = (s: string) => (s.length < 16 || s.slice(11, 16) === "00:00" ? s.slice(0, 10) : s.slice(0, 16));
+
+/** The commune a title names: « Journée 1 interclubs - Saint-Paul », « FITA Salle St André », « Compétition au Port ». */
+function communeDuTitre(titre: string): string | undefined {
+  const t = titre.replace(/\bSte?\b\.?(?=\s)/gi, (x) => (/e/i.test(x) ? "Sainte" : "Saint")).replace(/\b(?:au|du)\s+Port\b/gi, "Le Port");
+  return communesIn(t)[0];
+}
+
+/**
+ * The events of the portal's pages: those of the clubs of La Réunion (postal code 974), the members' sessions marked
+ * (`reserve_adherents`). `adherents` and `ailleurs` count them, and the clubs left out, for the log.
+ */
+export function parseSportsregions(pages: string[]): { evenements: Evenement[]; adherents: number; ailleurs: number } {
+  const all = pages.flatMap((html) =>
+    [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].flatMap((m) => {
+      try {
+        const e = JSON.parse(m[1]) as SportsEventLd;
+        return e["@type"] === "SportsEvent" && e.name && e.startDate && e.url ? [e] : [];
+      } catch {
+        return [];
+      }
+    }),
+  );
+  // Each once, by its link: a page may repeat the last one of the page before.
+  const here = [...new Map(all.filter((e) => e.location?.address?.postalCode?.startsWith("974")).map((e) => [e.url, e])).values()];
+  const club = (e: SportsEventLd) => clean(e.organizer?.name ?? "");
+  const key = (e: SportsEventLd) => `${normalize(clean(e.name!))}|${club(e)}`;
+  const times = new Map<string, number>();
+  for (const e of here) times.set(key(e), (times.get(key(e)) ?? 0) + 1);
+  const members = (e: SportsEventLd) => CRENEAU.test(e.name!) || times.get(key(e))! >= CRENEAU_FOIS;
+  const evenements = here.map((e): Evenement => {
+    const titre = clean(e.name!);
+    const debut = srTime(e.startDate!);
+    const fin = e.endDate ? srTime(e.endDate) : undefined;
+    const nom = club(e) || "un club";
+    const commune = communeOf(e.location?.address?.addressLocality);
+    const sport = e.sport && !/^divers$/i.test(e.sport.trim()) ? clean(e.sport) : undefined;
+    const statut = statusOf(titre);
+    const site = httpUrl(e.organizer?.url);
+    return {
+      ...(statut ? { statut } : {}),
+      ...(members(e) ? { reserve_adherents: true } : {}),
+      id: `sportsregions:${e.url}`,
+      titre,
+      seances: [{ debut, fin: fin && fin !== debut && fin !== debut.slice(0, 10) ? fin : undefined }],
+      commune: communeDuTitre(titre),
+      categories: ["Sport", ...(sport ? [sport] : [])],
+      description: `Organisé par ${nom}${commune ? ` (${commune})` : ""}`,
+      lien: e.url!,
+      publie_par: nom,
+      organisateur: { nom, commune, sport, ...(site ? { site } : {}) },
+    };
+  });
+  return { evenements, adherents: evenements.filter((e) => e.reserve_adherents).length, ailleurs: all.filter((e) => !e.location?.address?.postalCode?.startsWith("974")).length };
+}
+
+/**
+ * The calendar of the clubs of La Réunion on Sportsregions, the platform many clubs keep their site on: what each one
+ * publishes in its « Événements » (competitions, open days, galas), 30 to a page, each in its JSON-LD (SportsEvent).
+ * Its place (`location`) is always the club's address, never the event's: the event's place is not said, only who
+ * organises it, and its commune only when its title names one. The members' sessions are kept, marked, and told only
+ * to who says they are a member (tools/agenda.ts, tools/sport.ts: `adherent`). Read by the scheduled event every six
+ * hours, its pages one after the other; the portal's RSS feed is not to be read (robots.txt), its pages are.
+ */
+export const SPORTSREGIONS: Agenda = {
+  id: "sportsregions",
+  nom: "Clubs sportifs (Sportsregions)",
+  source: SPORT_SOURCES.sportsregions,
+  requetes: SR_PAGES,
+  planifie: true,
+  relecture: 6 * 3600,
+  load: (cache) =>
+    cache.get("agenda:sportsregions", 6 * 3600, async () => {
+      const url = SPORT_SOURCES.sportsregions.url;
+      const pages = [await getText(SPORT_SOURCES.sportsregions.id, url, TIMEOUT_MS, HEADERS)];
+      const last = Math.min(SR_PAGES, Math.max(1, ...[...pages[0].matchAll(/[?&]page=(\d+)/g)].map((m) => +m[1])));
+      for (let n = 2; n <= last; n++) pages.push(await getText(SPORT_SOURCES.sportsregions.id, `${url}?page=${n}`, TIMEOUT_MS, HEADERS));
+      const { evenements, adherents, ailleurs } = parseSportsregions(pages);
+      console.log(`agenda sportsregions : ${pages.length} pages, ${evenements.length} événements dont ${adherents} réservés aux adhérents, ${ailleurs} hors de La Réunion`);
+      return evenements;
+    }),
+};
+
 export const AGENDAS: Agenda[] = [
   tribe("saint_paul", "Mairie de Saint-Paul", "https://www.mairie-saintpaul.re", "Saint-Paul"),
   tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port"),
@@ -1097,6 +1213,7 @@ export const AGENDAS: Agenda[] = [
   openAgenda("oti_nord", "Office de tourisme du Nord", 32570974, NORD),
   LIGUE_VOLLEY,
   ...ACTUS_MAIRIES,
+  SPORTSREGIONS,
   reunionFr,
   ...SALLES,
 ];
@@ -1122,11 +1239,12 @@ export async function programmesSportifs(cache: Pick<Cache, "bundle">): Promise<
 
 /**
  * What the sport tool takes from the agendas' last copy, in one read of the bundle (two reads at once would see it
- * empty): the volley league's tournaments, and the communes' sports programmes when `programmes`.
+ * empty): the volley league's tournaments, the clubs' events (Sportsregions), and the communes' sports programmes when
+ * `programmes`.
  */
 export async function sportDesAgendas(cache: Pick<Cache, "bundle">, programmes: boolean) {
   const bundle = await cache.bundle(BUNDLE, BUNDLE_SYNC_SECONDS);
-  return { programmes: programmes ? programmesIn(bundle) : undefined, tournois: copiePlanifiee(bundle, LIGUE_VOLLEY) };
+  return { programmes: programmes ? programmesIn(bundle) : undefined, tournois: copiePlanifiee(bundle, LIGUE_VOLLEY), clubs: copiePlanifiee(bundle, SPORTSREGIONS) };
 }
 
 function programmesIn(bundle: Pick<Bundle, "peek">): { e: Evenement; agenda: Agenda; fetchedAt: Date }[] {

@@ -63,6 +63,14 @@ export const SOURCES = {
     attribution: "LRVB",
     url: "https://lrvb.re/",
   },
+  sportsregions: {
+    id: "sportsregions",
+    nom: "Sportsregions (calendrier des clubs), publié par chaque club",
+    organisme: "Sportsregions ; les clubs sportifs de La Réunion qui y publient leurs événements",
+    licence: "Information publique (événements publiés par chaque club, cités avec leur lien)",
+    attribution: "Sportsregions, publié par chaque club",
+    url: "https://portail.sportsregions.fr/reunion/calendrier-clubs-sportifs-en-reunion",
+  },
   ffvoile: {
     id: "ffvoile",
     nom: "Voile : régates de la Ligue de La Réunion (FFVoile)",
