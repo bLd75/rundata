@@ -121,7 +121,7 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
     : x.avis.length
       ? describe(`${p.nom} (974) : ${x.dry ? "eau à ne pas boire ; " : ""}${plural(x.avis.length, "avis", "avis")} de ${by} en cours ou à venir, avec les rues, les heures et les consignes.`, short)
       : dist?.avis
-        ? describe(`Aucune coupure d'eau annoncée par ${dist.nom} ${where} (974) à ${at}. Restrictions sécheresse, qualité de l'eau du robinet et contact du distributeur.`, short)
+        ? describe(`Aucune coupure d'eau annoncée par ${publisher}${publisher!.includes(p.nom) ? "" : ` ${where}`} (974) à ${at}. Restrictions sécheresse, qualité de l'eau du robinet et contact du distributeur.`, short)
         : short;
   const trail = {
     "@context": "https://schema.org",

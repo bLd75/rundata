@@ -4,8 +4,10 @@
  *
  * - Dionéo (Saint-Denis), runéo (the south and west) and Eaux de La Possession share a platform with an RSS feed of
  *   « flash infos », each notice in the same words: the commune, the hours of the cut, the streets.
- * - The CIREST publishes the notices of the six communes of the east (CISE Réunion) as WordPress posts, one category
- *   per commune.
+ * - The CIREST publishes the notices of the six communes of the east as WordPress posts, one category per commune. Each
+ *   notice is put under the distributor it names (« CISE Réunion informe… », « runéo informe… »), else under the CIREST
+ *   alone: the ARS names O2LEST for four of these communes, runéo and CISE Réunion for the others
+ *   (src/eau/distributeurs.json), while their notices are signed CISE Réunion, so none is deduced.
  * - La Créole (Saint-Paul, Les Trois-Bassins) shows its notices on one HTML page, dated to the day, with no feed.
  * - The mairie of Sainte-Marie posts CISE Réunion's notices among its news: in text, or as an image or a PDF, of which
  *   only the link is kept.
@@ -25,7 +27,7 @@ export const SOURCE: SourceInfo = {
   nom: "Avis des distributeurs d'eau : coupures, travaux, eau non potable (Dionéo, runéo, Eaux de La Possession, La Créole, CIREST, ville de Sainte-Marie, commune de Saint-Leu)",
   organisme: "Distributeurs d'eau et intercommunalités de La Réunion",
   licence: "Information publique (avis aux abonnés)",
-  attribution: "Dionéo, runéo, Eaux de La Possession, La Créole, CIREST / CISE Réunion, ville de Sainte-Marie / CISE Réunion, commune de Saint-Leu / Derichebourg Aqua OI",
+  attribution: "Dionéo, runéo, Eaux de La Possession, La Créole, CIREST, ville de Sainte-Marie / CISE Réunion, commune de Saint-Leu / Derichebourg Aqua OI",
   url: "https://www.cirest.fr/categorie/communique/communique-eau/",
 };
 
@@ -242,14 +244,22 @@ export function parseRss(xml: string, feed: (typeof FEEDS)[number]): Avis[] {
 
 interface Post { date: string; title: { rendered: string }; link: string; categories: number[]; content: { rendered: string } }
 
+// The distributors a CIREST notice may name, as they write themselves.
+const OPERATORS: [RegExp, string][] = [[/CISE\s+R[ée]union/i, "CISE Réunion"], [/\brun[ée]o\b/i, "runéo"], [/\bO2\s?L.?EST\b/i, "O2LEST"]];
+/** The distributor a notice names first in its own words, if any. */
+export function operatorOf(text: string): string | undefined {
+  return OPERATORS.map(([re, nom]) => ({ nom, at: text.search(re) })).filter((x) => x.at >= 0).sort((x, y) => x.at - y.at)[0]?.nom;
+}
+
 export function parseCirest(posts: Post[]): Avis[] {
   return posts.map((p) => {
     const body = lines(p.content.rendered);
     const texte = body.replace(/\s+/g, " ");
     const titre = strip(p.title.rendered).trim();
     const communes = p.categories.map((c) => CIREST_COMMUNES[c]).filter(Boolean);
+    const operator = operatorOf(texte) ?? operatorOf(titre);
     return {
-      distributeur: "CIREST / CISE Réunion",
+      distributeur: operator ? `CIREST / ${operator}` : "CIREST",
       titre,
       communes: communes.length ? communes : communesIn(titre),
       // WordPress gives the local time without its offset.
