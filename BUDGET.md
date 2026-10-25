@@ -121,7 +121,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /sentiers | la page /sentiers | à chaque vue |  | 19 |  |  |  |  |  | 60 | mesuré |
 | /secheresse | la page /secheresse | à chaque vue |  | 12 |  |  |  |  |  | 70 | mesuré |
 | /coupures-eau | la page /coupures-eau | à chaque vue |  | 20 | 1 |  |  |  |  | 100 | mesuré |
-| /defibrillateurs | la page /defibrillateurs | à chaque vue |  | 6 |  |  |  |  |  | 40 | mesuré |
+| /defibrillateurs | la page /defibrillateurs ; « Autour de moi » charge au clic la liste compacte (public/dae/), servie par Cloudflare avant le Worker : 0 Worker, 0 KV, 0 D1 | à chaque vue |  | 6 |  |  |  |  |  | 40 | mesuré |
 | /sport | la page /sport | à chaque vue |  | 42 |  |  |  |  |  | 120 | mesuré |
 | /decheteries | la page /decheteries | à chaque vue |  | 12 |  |  |  |  |  | 30 | mesuré |
 | /cyclones | la page /cyclones | à chaque vue |  | 27 |  |  |  |  |  | 50 | mesuré |

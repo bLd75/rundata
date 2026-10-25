@@ -37,6 +37,7 @@ import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./lie
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
 import { BUILT as DAE_BUILT, DAES } from "../providers/dae.js";
+import DAE_LIST from "../dae/liste.json" with { type: "json" };
 import { anchorId, ask, credits, dayMonth, DESCRIPTION_MAX, empty, hm, icon, ISLAND, layout, type Live, readAt, SITE } from "./pages.js";
 import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
@@ -1824,8 +1825,44 @@ export function daeLive(): Live {
   return { valeur: `${nombre(DAES.length)} défibril&shy;lateurs`, detail: `dans les ${communes} communes, avec leur accès · Géo'DAE du ${esc(dayMonth(DAE_BUILT))}`, entier: true };
 }
 
-const shortAccess = (a: string) =>
-  a.includes("extérieur") ? "dehors, 24 h/24" : a.includes("24 h") ? "24 h/24" : a.includes("accès libre") ? "horaires du lieu" : "accès réservé";
+/**
+ * The four accesses in short, by reach (tools/dae.ts): the same words in the list by commune and in « Autour de moi ».
+ * Reserved, with whom to ask: in an emergency, the staff can bring it (marketing).
+ */
+const ACCES = ["dehors, 24 h/24", "24 h/24", "horaires du lieu", "accès réservé · demander à l'accueil"];
+const shortAccess = (a: string) => ACCES[a.includes("extérieur") ? 0 : a.includes("24 h") ? 1 : a.includes("accès libre") ? 2 : 3];
+
+/**
+ * « Autour de moi »: the position asked of the phone, and the nearest devices worked out there, from the compact list
+ * (public/dae/, scripts/build-dae.py) loaded on the click. The position never leaves the phone: the only request is
+ * the list's, the same for everyone; the island's map is drawn on the page; the walking route link carries the device
+ * alone, never a starting point, and the maps app takes the position itself. Plans on an iPhone (always there, opened
+ * by its own address), Google Maps elsewhere (its address for every device opens the app on Android).
+ */
+export const AUTOUR_SCRIPT = `{const box=document.getElementById("autour"),btn=document.getElementById("autour-btn"),msg=document.getElementById("autour-msg"),res=document.getElementById("autour-res"),ul=document.getElementById("autour-list");
+if(box&&btn&&msg&&res&&ul){box.hidden=false;
+const LIST=${JSON.stringify(DAE_LIST.path)},ACCES=${JSON.stringify(ACCES)},BOX=${JSON.stringify(island.bbox)},W=${island.w},H=${island.h},N=10;
+const T={nogeo:"Votre navigateur ne donne pas la position. Cherchez votre commune plus bas.",refus:"Position non autorisée. Cherchez votre commune plus bas.",perdue:"Position introuvable. Réessayez, ou cherchez votre commune plus bas.",liste:"La liste n'a pas pu se charger. Réessayez, ou cherchez votre commune plus bas.",route:"Itinéraire à pied ↗"};
+const e=(s)=>String(s).replace(/[&<>"']/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+const say=(t)=>{msg.textContent=t;msg.hidden=!t};
+const ios=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const route=(la,lo)=>ios?"https://maps.apple.com/?daddr="+la+","+lo+"&dirflg=w":"https://www.google.com/maps/dir/?api=1&destination="+la+","+lo+"&travelmode=walking";
+const km=(a,b,c,d)=>{const r=Math.PI/180,x=Math.sin((c-a)*r/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)**2;return 12742*Math.asin(Math.sqrt(x))};
+const far=(k)=>k<1?Math.max(10,Math.round(k*100)*10)+" m":(Math.round(k*10)/10).toFixed(1).replace(".",",")+" km";
+const xy=(la,lo)=>[(lo-BOX[0])/(BOX[2]-BOX[0])*W,(BOX[3]-la)/(BOX[3]-BOX[1])*H];
+let list=null;
+const show=(la,lo)=>{const near=list.d.map((d)=>({d,k:km(la,lo,d[0],d[1])})).sort((a,b)=>a.k-b.k).slice(0,N);
+ul.innerHTML=near.map(({d,k},i)=>"<li><span><b>"+(i+1)+".</b> "+e(d[2])+"<small>"+[far(k),[d[4],list.communes[d[5]]].filter(Boolean).join(", "),d[6],d[8]?"étage "+d[8]:"",d[7]].filter(Boolean).map(e).join(" · ")+"</small><a href=\\""+e(route(d[0],d[1]))+"\\" rel=\\"noopener\\">"+e(T.route)+"</a></span><span class=\\""+(d[3]<2?"q-bonne":"q-none")+"\\">"+e(ACCES[d[3]])+"</span></li>").join("");
+res.hidden=false;const svg=document.querySelector(".mapcard svg");if(!svg)return;
+const old=svg.querySelector("#autour-g");if(old)old.remove();
+const pts=near.map(({d})=>xy(d[0],d[1])),me=xy(la,lo),all=[...pts,me],xs=all.map((p)=>p[0]),ys=all.map((p)=>p[1]);
+let w=Math.max(W/12,(Math.max(...xs)-Math.min(...xs))*1.4),h=Math.max(H/12,(Math.max(...ys)-Math.min(...ys))*1.4);if(w/h>W/H)h=w*H/W;else w=h*W/H;
+const cx=(Math.max(...xs)+Math.min(...xs))/2,cy=(Math.max(...ys)+Math.min(...ys))/2,r=w/90;
+svg.setAttribute("viewBox",(cx-w/2)+" "+(cy-h/2)+" "+w+" "+h);svg.classList.add("autour-on");
+svg.insertAdjacentHTML("beforeend","<g id=\\"autour-g\\">"+pts.map((p)=>"<circle class=\\"nr\\" cx=\\""+p[0]+"\\" cy=\\""+p[1]+"\\" r=\\""+r+"\\"/>").join("")+"<circle class=\\"me\\" cx=\\""+me[0]+"\\" cy=\\""+me[1]+"\\" r=\\""+r*1.4+"\\"/></g>")};
+btn.addEventListener("click",()=>{say("");if(!navigator.geolocation){say(T.nogeo);return}btn.disabled=true;
+navigator.geolocation.getCurrentPosition((p)=>(list?Promise.resolve(list):fetch(LIST).then((r)=>{if(!r.ok)throw new Error(String(r.status));return r.json()})).then((l)=>{list=l;show(p.coords.latitude,p.coords.longitude)}).catch(()=>say(T.liste)).finally(()=>{btn.disabled=false}),
+(err)=>{say(err.code===1?T.refus:T.perdue);btn.disabled=false},{enableHighAccuracy:true,timeout:15000,maximumAge:60000})})}}`;
 
 export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
@@ -1839,7 +1876,7 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
 
   const list = d
     ? `<ul class="zones">${d.communes.map((c) =>
-        `<li class="card tgt" id="${anchorId("c", c.commune)}"><h3>${esc(c.commune)} <span class="note">${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}${c.toute_heure ? `, dont ${c.toute_heure} accessible${c.toute_heure > 1 ? "s" : ""} à toute heure` : ""}</span></h3><ul class="rows eau">` +
+        `<li class="card tgt" id="${anchorId("c", c.commune)}"><h3>${esc(c.commune)} <span class="note">${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}${c.toute_heure ? `, dont ${c.toute_heure} accessible${c.toute_heure > 1 ? "s" : ""} à toute heure` : ""}</span></h3><ul class="rows eau dae">` +
         c.liste.map((x) => `<li><span>${esc(x.lieu)}<small>${[x.adresse, x.emplacement, x.etage ? `étage ${x.etage}` : ""].filter(Boolean).map((v) => esc(v!)).join(" · ")}</small></span>` +
           `<span class="${x.acces.includes("toute heure") || x.acces.includes("24 h") ? "q-bonne" : "q-none"}">${esc(shortAccess(x.acces))}</span></li>`).join("") +
         (c.nombre > c.liste.length ? `<li><span class="note">et ${c.nombre - c.liste.length} autres : demandez le plus proche à votre IA.</span><span></span></li>` : "") +
@@ -1856,6 +1893,9 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
     <h1>Défibrillateurs <span class="n974">974</span></h1>
     ${status}
     ${d ? `<p class="lead"><b>${esc(d.urgence)}</b></p>` : ""}
+    <div class="autour" id="autour" hidden><button type="button" class="btn sun" id="autour-btn">Autour de moi</button>
+    <p class="note">Votre position ne quitte pas votre appareil.</p><p class="note" id="autour-msg" role="status" hidden></p>
+    <div id="autour-res" hidden><h3>Les 10 plus proches, à vol d'oiseau</h3><ul class="rows eau dae" id="autour-list"></ul></div></div>
     ${ask(`Ousa néna in défibrilatèr pli prés la plaj l'Ermitaz ? Gèt si ${url} é di amwin.`,
       `Où est le défibrillateur le plus proche de la plage de l'Hermitage ? Lis ${url} et dis-le-moi.`)}
   </div>
@@ -1869,7 +1909,8 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
   ${list}
   <p class="note">Source : Géo'DAE, base nationale des défibrillateurs (ministère chargé de la santé), Licence Ouverte 2.0.</p>
 </section>
-${connectorCta("defibrillateurs", "les défibrillateurs")}`;
+${connectorCta("defibrillateurs", "les défibrillateurs")}
+<script>${AUTOUR_SCRIPT}</script>`;
 
   return layout(origin, { title, description, path: "/defibrillateurs", jsonld: [crumbs(origin, "Défibrillateurs", "/defibrillateurs"), webPage(origin, "/defibrillateurs", title, description, data)], alerte }, band, body);
 }

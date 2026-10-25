@@ -259,7 +259,8 @@ const DOMAIN_PAGES: Record<string, Page> = {
   "/sentiers": { subrequests: 19, cpuMs: 60, from: ["src/tools/sentiers.ts"] },
   "/secheresse": { subrequests: 12, cpuMs: 70, from: ["src/tools/secheresse.ts"] },
   "/coupures-eau": { subrequests: 20, cpuMs: 100, from: ["src/tools/coupures.ts"] },
-  "/defibrillateurs": { subrequests: 6, cpuMs: 40, from: ["src/tools/dae.ts"] },
+  // « Autour de moi » loads its list on the click: a file of public/, served by Cloudflare before the Worker runs.
+  "/defibrillateurs": { subrequests: 6, cpuMs: 40, from: ["src/tools/dae.ts"], what: "la page /defibrillateurs\u00a0; « Autour de moi » charge au clic la liste compacte (public/dae/), servie par Cloudflare avant le Worker : 0 Worker, 0 KV, 0 D1" },
   "/sport": { subrequests: 42, cpuMs: 120, from: ["src/tools/sport.ts"] },
   "/decheteries": { subrequests: 12, cpuMs: 30, from: ["src/tools/decheteries.ts"] },
   "/cyclones": { subrequests: 27, cpuMs: 50, from: ["src/tools/cyclones.ts"] },
