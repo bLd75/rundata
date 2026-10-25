@@ -404,12 +404,12 @@ background:rgb(255 255 255/.12);border:1px solid rgb(255 255 255/.2);-webkit-bac
 .btn:hover{transform:translateY(-2px)}
 .btn.sun,.band .btn.sun{background:var(--sun);color:var(--sun-ink);box-shadow:0 12px 30px -10px rgb(255 207 31/.7)}
 .btn.glass,.band .btn.glass{color:#fff;background:rgb(255 255 255/.12);border:1px solid rgb(255 255 255/.25);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
-.facts-live{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;width:100%;max-width:34rem}
-.facts-live a{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;column-gap:.55rem;align-items:center;padding:.6rem .75rem;border-radius:16px;
+.facts-live{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;gap:.5rem;width:100%;max-width:34rem}
+.facts-live li{display:flex}
+.facts-live a{flex:1;display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;align-content:center;column-gap:.55rem;align-items:center;padding:.6rem .75rem;border-radius:16px;
 text-decoration:none;color:#fff;background:rgb(255 255 255/.09);border:1px solid rgb(255 255 255/.14);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .facts-live .ic{grid-row:span 2;color:var(--k);width:1.4rem;height:1.4rem}
 .facts-live a>span{font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:rgb(255 255 255/.7)}
-.facts-live li:last-child:nth-child(odd){grid-column:1/-1}
 .facts-live b{font:800 .98rem/1.2 Bricolage,system-ui,sans-serif;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .facts-live b .vg,.facts-live b .aq{font-size:.8rem;padding:0 .45rem}
 .facts-live small{grid-column:2;font-size:.74rem;line-height:1.25;color:rgb(255 255 255/.7)}

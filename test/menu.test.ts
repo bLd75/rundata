@@ -92,6 +92,14 @@ describe("the order of the pages", () => {
     expect(facts(homePage(O, { ...live, volcan: { ...quiet, value: { ...quiet.value, etat } } } as HomeLive, NOW))).toEqual(["volcan", "agenda", "sentiers"]);
   });
 
+  it("gives the boxes of « En ce moment » one height, their content centred, a box alone on its row as wide as the others", () => {
+    const page = homePage(O, null, NOW);
+    expect(page).toContain(".facts-live{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;");
+    expect(page).toContain(".facts-live li{display:flex}.facts-live a{flex:1;display:grid;");
+    expect(page).toContain("align-content:center;");
+    expect(page).not.toContain(".facts-live li:last-child");
+  });
+
   it("links rundata.re's accounts from the bar, the menu and the home page's hero, counted as visits from the site", () => {
     const page = meteoPage(O, null, NOW);
     const header = page.match(/<header class="top">(.*?)<\/header>/s)![1];
