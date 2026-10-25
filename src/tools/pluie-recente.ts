@@ -12,6 +12,8 @@ const SLOT_MS = 6 * 60_000;
 const LOCAL_MS = 4 * HOUR_MS;
 // Hours listed: twelve, or all the hours kept when the last rain is older.
 const LISTED = 12;
+// Past this, the newest hour is not late: its copy is stuck (meteofrance.ts serves its last copy when it cannot read it).
+const STUCK_MS = 90 * 60_000;
 
 /** Every hour, how it is written: one hour from the first time to the second, Réunion time. */
 export const CONVENTION =
@@ -46,7 +48,11 @@ export function recentRainBlock(rain: RecentRain, station: StationRain, lieu: st
 
   // The hour under way, from the 6-minute slots after the newest full hour.
   const newest = slots[0] ? Date.parse(slots[0].time) : undefined;
-  const expected = newest ? Math.round((newest - end) / SLOT_MS) : 0;
+  // The hours stuck on an old copy: the slots kept (an hour) start well after its end, the time between was not read.
+  const first = slots.length ? Date.parse(slots.at(-1)!.time) - SLOT_MS : end;
+  const stuck = newest != null && newest - end > STUCK_MS && first > end;
+  const from = stuck ? first : end;
+  const expected = newest ? Math.round((newest - from) / SLOT_MS) : 0;
   const read = slots.filter((s) => s.rr != null);
   const partial = read.reduce((sum, s) => sum + s.rr!, 0);
   const partialWhole = read.length === expected;
@@ -61,17 +67,21 @@ export function recentRainBlock(rain: RecentRain, station: StationRain, lieu: st
     const k = hours.findIndex((v) => v != null && v > 0);
     if (k >= 0) {
       const e = end - k * HOUR_MS;
-      derniere = `${dayWord(e - HOUR_MS, t)} entre ${hm(e - HOUR_MS)} et ${hm(e)}`;
+      // Before hours not read: it may have rained since (marketing).
+      const gap = stuck ? ` (de ${hm(end)} à ${hm(from)}, non lue : il a pu pleuvoir pendant ce temps)` : "";
+      derniere = `${dayWord(e - HOUR_MS, t)} entre ${hm(e - HOUR_MS)} et ${hm(e)}${gap}`;
     }
   }
-  const allRead = hours.every((v) => v != null);
+  const allRead = !stuck && hours.every((v) => v != null);
   const since = end - hours.length * HOUR_MS;
-  derniere ??= allRead ? `pas de pluie mesurée depuis ${dayWord(since, t)} ${hm(since)}` : "pas de pluie mesurée dans les heures disponibles";
+  // The hours not read said, or an assistant would read a dry evening into it (marketing).
+  const unread = stuck ? ` (de ${hm(end)} à ${hm(from)}, non lue)` : "";
+  derniere ??= allRead ? `pas de pluie mesurée depuis ${dayWord(since, t)} ${hm(since)}` : `pas de pluie mesurée dans les heures disponibles${unread}`;
 
   // Since midnight, Réunion time: the full hours that began today, then the hour under way.
   const midnight = day(t) * 24 * HOUR_MS - LOCAL_MS;
   const today = hours.filter((_, k) => end - (k + 1) * HOUR_MS >= midnight);
-  const missing = today.some((v) => v == null) || !partialWhole || end - today.length * HOUR_MS > midnight;
+  const missing = stuck || today.some((v) => v == null) || !partialWhole || end - today.length * HOUR_MS > midnight;
   const total = today.reduce<number>((sum, v) => sum + (v ?? 0), 0) + partial;
   const upTo = newest ?? end;
   const cumul = `${missing ? "au moins " : ""}${mm(total)} de 0 h à ${hm(upTo)}`;
@@ -83,7 +93,8 @@ export function recentRainBlock(rain: RecentRain, station: StationRain, lieu: st
     const prefix = day(e - HOUR_MS) < day(t) ? `${dayWord(e - HOUR_MS, t)} ` : "";
     return `${prefix}${hm(e - HOUR_MS)}–${hm(e)} : ${v == null ? "non mesurée" : mm(v)}`;
   });
-  if (newest) lines.unshift(`${hm(end)}–${hm(newest)} : ${partialWhole ? "" : "au moins "}${mm(partial)} (heure en cours)`);
+  if (stuck) lines.unshift(`${day(end) < day(t) ? `${dayWord(end, t)} ` : ""}${hm(end)}–${hm(from)} : non lue (notre lecture n'a pas abouti)`);
+  if (newest) lines.unshift(`${hm(from)}–${hm(newest)} : ${partialWhole ? "" : "au moins "}${mm(partial)} (${stuck ? "dernières mesures lues, toutes les 6 minutes" : "heure en cours"})`);
 
   const avertissements = [...station.fit.avertissements];
   if (station.fit.pertinence !== "bonne") {
