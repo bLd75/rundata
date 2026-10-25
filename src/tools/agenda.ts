@@ -160,6 +160,10 @@ type Got = {
 // An answer does not wait longer for the slowest of the agendas: one still loading is answered from its last copy, or
 // left out and named, and stored once it lands, after the response.
 const DEADLINE_MS = 5_000;
+// An agenda with a copy kept is waited for only that long: past it, its copy is served, with the time it was read, and
+// its reading lands after the response, for the next view. One slow site (Le Séchoir, reunion.fr) made each cold view
+// wait the whole DEADLINE_MS, 6 to 7 s. An agenda without a copy is still waited for up to DEADLINE_MS.
+const GRACE_MS = 1_000;
 // The subrequests not to be spent on the agendas: what follows them (the news's copy, the bundle's write, the page's
 // copy) and one more, within the invocation's budget (budget.ts); for a question, that one is the read of the scheduled
 // event's copies in KV, once a minute. An agenda past them is answered from its last copy, or named, and read by a
@@ -179,11 +183,11 @@ const echec = src.echecPlanifie;
 class Postponed extends Error {}
 
 /** Every agenda, read in parallel, once per invocation; one that fails, is too slow or is left for later is named. */
-export function gather(cache: Cache, now: Date, deadlineMs = DEADLINE_MS): Promise<Got[]> {
-  return perInvocation("agenda:gather", () => read(cache, now, deadlineMs));
+export function gather(cache: Cache, now: Date, deadlineMs = DEADLINE_MS, graceMs = GRACE_MS): Promise<Got[]> {
+  return perInvocation("agenda:gather", () => read(cache, now, deadlineMs, graceMs));
 }
 
-async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]> {
+async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number): Promise<Got[]> {
   const bundle = await cache.bundle(src.BUNDLE, src.BUNDLE_SYNC_SECONDS);
   const key = (a: src.Agenda) => `agenda:${a.id}`;
   const last = (k: string): Cached<src.Evenement[]> | undefined => {
@@ -215,7 +219,8 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
   const got = await Promise.all(order.map(async (agenda): Promise<Got> => {
     const loading = agenda.load(store(agenda), now);
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const late = new Promise<"late">((resolve) => (timer = setTimeout(() => resolve("late"), deadlineMs)));
+    const wait = last(key(agenda)) ? Math.min(graceMs, deadlineMs) : deadlineMs;
+    const late = new Promise<"late">((resolve) => (timer = setTimeout(() => resolve("late"), wait)));
     try {
       const got = await Promise.race([loading, late]);
       if (got !== "late") return { agenda, value: got };

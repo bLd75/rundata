@@ -823,6 +823,30 @@ describe("agenda", () => {
     expect(none.find((g) => g.agenda.id === "cinor")?.value?.value.length).toBeGreaterThan(0);
   });
 
+  it("serves an agenda's last copy after a short wait, and waits longer only for one without a copy", async () => {
+    let t = NOW.getTime();
+    const c = new Cache(new MemoryStore(), () => t);
+    await gather(c, NOW);
+    t += 7 * 3600_000;
+    // The Kabardock answers, but slowly: past the short wait, within the long one.
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url.includes("kabardock")) await new Promise((r) => setTimeout(r, 300));
+      const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+      return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+    });
+    const fresh = new Cache(new MemoryStore(), () => t);
+    const started = Date.now();
+    const [kept, none] = await Promise.all([gather(c, new Date(t), 2_000, 50), gather(fresh, new Date(t), 2_000, 50)]);
+    const k = kept.find((g) => g.agenda.id === "kabardock")?.value;
+    expect(k?.stale).toBe(true);
+    expect(k?.fetchedAt.getTime()).toBe(NOW.getTime());
+    // Without a copy, it is waited for, and read.
+    const n = none.find((g) => g.agenda.id === "kabardock")?.value;
+    expect(n?.stale).toBe(false);
+    expect(n?.value.length).toBeGreaterThan(0);
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
   describe("within a Worker invocation's subrequests", () => {
     // Every fetch and every read or write of the data center's cache counts; past 50 the invocation fails.
     class EdgeLike extends MemoryStore {
