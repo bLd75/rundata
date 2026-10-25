@@ -5,7 +5,7 @@
  * its tile on the home page.
  */
 import { PREFECTURE } from "../providers/volcan.js";
-import { EN_IMAGES, enclosWord, hausseNiveau, IMAGE_APRES, LOCALISES, ORSEC_BAN, sourceName } from "../tools/volcan.js";
+import { enclosWord, enImagesApres, hausseNiveau, IMAGE_APRES, LOCALISES, ORSEC_BAN, sourceName } from "../tools/volcan.js";
 import { type Ligne, libelle, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { alertSections, alerteVolcan, CONSIGNES, releaseDay, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
@@ -134,6 +134,10 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   // Out of an alert, the level pitonlive's, no release of the prefecture read: quoted with its source, without the
   // plan's words (marketing).
   const pitonLevel = !!e && !a && !e.communique_prefecture && !e.niveau_inconnu;
+  // Under an alert, the OVPF's newest post in images, newer than the release: said once, with its time, after the lead
+  // on the texts read; IMAGE_APRES is then not said (marketing).
+  const p0 = d?.publications_ovpf?.[0];
+  const folded = !!a && !a.eruption && !!e && !e.ecart_prefecture && !!e.image_ovpf_plus_recente && !!p0?.lien;
 
   const status = !d
     ? loading("L'état du volcan")
@@ -143,7 +147,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
           // pitonlive higher than the release: both levels, nothing of ours on the eruption (marketing).
           ? `<p class="lead"><b>${esc(hausseNiveau(e.ecart_prefecture))}</b></p>`
           : a
-          ? `<p class="lead"><b>${esc(volcanLead(a))}</b>${!a.eruption && e.image_ovpf_plus_recente && d.publications_ovpf?.[0]?.lien ? ` ${esc(EN_IMAGES)} : <a href="${esc(d.publications_ovpf[0].lien)}">voir le dernier</a>.` : ""}</p>`
+          ? `<p class="lead"><b>${esc(volcanLead(a))}</b>${folded ? ` ${esc(enImagesApres(...(p0!.date.split(" ") as [string, string])))} : <a href="${esc(p0!.lien!)}">la voir</a>.` : ""}</p>`
           : e.niveau_inconnu && !e.eruption_en_cours ? "" : `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours selon pitonlive.com"}</p>`) +
           (e.ecart_prefecture ? "<p class=\"lead\">" : e.niveau_inconnu
             // The prefecture's phase not read, none kept: the level is not given (tools/volcan.ts), and why (marketing).
@@ -160,7 +164,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
               ? `<p class="lead">${releaseSaid(e.acces_enclos.communique, `communiqué du ${dd(e.acces_enclos.communique.jour)}`)} : vérifiez sur ${GOUV} avant de monter.</p>`
               : `<p class="lead">${releaseSaid(e.acces_enclos.communique, `communiqué de la préfecture du ${dd(e.acces_enclos.communique.jour)}`)}. Vérifiez sur ${GOUV} avant de monter.</p>`)
             : a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.niveau_inconnu ? `<p class="lead">Accès à l'Enclos : à vérifier sur ${GOUV}, avant de partir.</p>` : e.acces_enclos ? `<p class="lead">${enclosSaid(e.acces_enclos)}</p>` : "") +
-          (e.image_ovpf_plus_recente ? `<p class="lead">${esc(IMAGE_APRES)}</p>` : "")
+          (e.image_ovpf_plus_recente && !folded ? `<p class="lead">${esc(IMAGE_APRES)}</p>` : "")
         : `<p class="lead">${esc(d.resume)}</p>`) +
       (q ? `<p class="lead">Séismes localisés par l'OVPF sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
       `</div>`;
@@ -179,7 +183,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
 
   const quakes = q
     ? `<div class="card">${icon("gauge")}<h3>Séismes localisés par l'OVPF</h3>` +
-      quakeDays(q.par_jour_sous_le_volcan, !!e?.image_ovpf_plus_recente) +
+      quakeDays(q.par_jour_sous_le_volcan, !!e?.image_ovpf_plus_recente && !folded) +
       `<p class="facts"><span>Sous le volcan : <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
       `<span>Ailleurs sur l'île : <b>${q.ailleurs_sur_l_ile["30_jours"]}</b>, magnitude max ${md(q.ailleurs_sur_l_ile.magnitude_max_30j)}</span></p>` +
       (q.derniers.length
@@ -207,7 +211,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   const posts = d?.publications_ovpf?.length
     ? `<section aria-labelledby="h-ovpf"><div class="sec-h"><p class="eyebrow">L'observatoire</p><h2 id="h-ovpf">Ce que publie l'OVPF</h2>
   <p>Les derniers messages de l'Observatoire volcanologique du Piton de la Fournaise (IPGP), repris tels quels.</p></div>
-  <ul class="posts">${d.publications_ovpf.slice(0, 4).map((p) => `<li class="card"><p class="note">${esc(p.date)}</p><p>${esc(p.texte)}</p>${p.lien ? `<p><a href="${esc(p.lien)}">${p.image ? "Voir le communiqué sur Bluesky" : "Lire le message"} →</a></p>` : ""}</li>`).join("")}</ul></section>`
+  <ul class="posts">${d.publications_ovpf.slice(0, 4).map((p) => `<li class="card"><p class="note">${esc(p.date)}</p><p>${esc(p.texte)}</p>${p.lien ? `<p><a href="${esc(p.lien)}">${p.image ? "Voir les images sur Bluesky" : "Lire le message"} →</a></p>` : ""}</li>`).join("")}</ul></section>`
     : "";
 
   // In vigilance as the prefecture or pitonlive gives it (never an unread level), the level and the plan's words; the

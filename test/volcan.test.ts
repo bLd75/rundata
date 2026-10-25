@@ -78,34 +78,34 @@ describe("volcano", () => {
     };
     const posts = activityPosts(feed);
     expect(posts.map((p) => p.lien.split("/").pop())).toEqual(["arret", "alt", "bulletin"]);
-    expect(posts[0]).toEqual({ date: "2026-10-24T15:46:00.000Z", texte: "Communiqué publié en une image, sans texte", lien: "https://bsky.app/profile/ovpf.bsky.social/post/arret", image: true, images: 1 });
+    expect(posts[0]).toEqual({ date: "2026-10-24T15:46:00.000Z", texte: "Publication en une image, sans texte", lien: "https://bsky.app/profile/ovpf.bsky.social/post/arret", image: true, images: 1 });
     expect(posts[1].texte).toBe("Communiqué OVPF : crise sismique en cours");
 
     // The same in the answer and on /volcan: its day, the words, the link; nothing read from the image.
     const r = body(await volcanSeismes(cacheWith(posts), NOW));
-    expect(r.resume).toContain("Dernière publication de l'OVPF, le 24/10 à 19:46 : communiqué publié en une image, sans texte. rundata.re ne lit pas les images : à lire sur https://bsky.app/profile/ovpf.bsky.social/post/arret.");
+    expect(r.resume).toContain("Dernière publication de l'OVPF, le 24/10 à 19:46 : une image, sans texte. rundata.re ne lit pas les images : à voir sur https://bsky.app/profile/ovpf.bsky.social/post/arret.");
     // Newer than pitonlive's status of the 19th: the state may not account for it, and nothing is drawn from it.
     expect(r.resume).toContain("La dernière publication de l'OVPF est une image que nous ne lisons pas : l'état ci-dessus peut ne pas en tenir compte.");
     expect(r.etat).toMatchObject({ image_ovpf_plus_recente: true, eruption_en_cours: false, niveau_orsec: "Vigilance" });
-    expect(r.publications_ovpf[0]).toMatchObject({ texte: "Communiqué publié en une image, sans texte", image: true, lien: "https://bsky.app/profile/ovpf.bsky.social/post/arret", a_lire: A_LIRE });
+    expect(r.publications_ovpf[0]).toMatchObject({ texte: "Publication en une image, sans texte", image: true, lien: "https://bsky.app/profile/ovpf.bsky.social/post/arret", a_lire: A_LIRE });
     expect(r.publications_ovpf[1].a_lire).toBeUndefined();
     const html = volcanPage("https://rundata.re", { value: r, fetchedAt: NOW, stale: false }, NOW);
-    expect(html).toContain(`<p>Communiqué publié en une image, sans texte</p><p><a href="https://bsky.app/profile/ovpf.bsky.social/post/arret">Voir le communiqué sur Bluesky →</a></p>`);
+    expect(html).toContain(`<p>Publication en une image, sans texte</p><p><a href="https://bsky.app/profile/ovpf.bsky.social/post/arret">Voir les images sur Bluesky →</a></p>`);
     expect(html).toContain(`<p class="lead">La dernière publication de l&#39;OVPF est une image que nous ne lisons pas : l&#39;état ci-dessus peut ne pas en tenir compte.</p>`);
 
     // An image older than what the state comes from: nothing more said.
     const older = body(await volcanSeismes(cacheWith(activityPosts({ feed: [post("ancienne", "2026-10-15T08:00:00.000Z", "", image())] })), NOW));
-    expect(older.resume).toContain("communiqué publié en une image, sans texte. rundata.re ne lit pas les images");
+    expect(older.resume).toContain("une image, sans texte. rundata.re ne lit pas les images");
     expect(older.resume).not.toContain("peut ne pas en tenir compte");
     expect(older.etat.image_ovpf_plus_recente).toBeUndefined();
   });
 
-  it("says the release of 25/10 given in three images, at the post's time, and that the texts read leave it out", async () => {
+  it("says the post of 25/10 given in three images, at the post's time, once under the alert", async () => {
     // The real post of 25/10 08:02: the release of 08:00 (an intrusion on the 24th, alert 1) as three images, no text,
     // no alternative text. Nothing is read from the images: neither the 08:00 written in them nor what they say.
     const posts = activityPosts(JSON.parse(fixture("ovpf_bluesky_2026-10-25.json")));
     const lien = "https://bsky.app/profile/ovpf.bsky.social/post/3myod6frais2s";
-    expect(posts).toEqual([{ date: "2026-10-25T04:02:38.225Z", texte: "Communiqué publié en 3 images, sans texte", lien, image: true, images: 3 }]);
+    expect(posts).toEqual([{ date: "2026-10-25T04:02:38.225Z", texte: "Publication en 3 images, sans texte", lien, image: true, images: 3 }]);
 
     // Under the prefecture's alert 1 of the 24th, read the morning after.
     const now = new Date("2026-10-25T06:20:00Z");
@@ -118,19 +118,23 @@ describe("volcano", () => {
     void store.put("volcan:prefecture", { value: phaseOf([alerte]), fetchedAt: t });
     const cache = new Cache(store, () => t);
     const r = body(await volcanSeismes(cache, now));
-    expect(r.resume).toContain(`L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus. Certains communiqués de l'OVPF sont publiés en images, que nous ne lisons pas : voir le dernier, ${lien}.`);
-    expect(r.resume).toContain(`Dernière publication de l'OVPF, le 25/10 à 08:02 : communiqué publié en 3 images, sans texte. rundata.re ne lit pas les images : à lire sur ${lien}.`);
+    expect(r.resume).toContain(`L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus. La dernière publication de l'OVPF, le 25/10 à 08:02, est en images, que nous ne lisons pas : la voir, ${lien}.`);
+    expect(r.resume).toContain(`Dernière publication de l'OVPF, le 25/10 à 08:02 : 3 images, sans texte. rundata.re ne lit pas les images : à voir sur ${lien}.`);
     expect(r.resume).not.toContain("08:00");
+    // Said once under the alert: not « l'état ci-dessus peut ne pas en tenir compte » besides; the flag stays.
+    expect(r.resume).not.toContain("peut ne pas en tenir compte");
+    expect(r.etat.image_ovpf_plus_recente).toBe(true);
     // For the AI: the entry, and to open the link before saying anything of it.
-    expect(r.publications_ovpf[0]).toEqual({ date: "25/10 08:02 heure de La Réunion", texte: "Communiqué publié en 3 images, sans texte", lien, image: true, images: 3, a_lire: A_LIRE });
+    expect(r.publications_ovpf[0]).toEqual({ date: "25/10 08:02 heure de La Réunion", texte: "Publication en 3 images, sans texte", lien, image: true, images: 3, a_lire: A_LIRE });
 
     // On /volcan: under the lead, the link; the card says what it is and where to see it. And the home page's demo.
     const v = await buildVolcan(cache, now);
     const html = volcanPage("https://rundata.re", { value: v, fetchedAt: now, stale: false }, now).replace(/&#39;/g, "'");
-    expect(html).toContain(`Certains communiqués de l'OVPF sont publiés en images, que nous ne lisons pas : <a href="${lien}">voir le dernier</a>.</p>`);
-    expect(html).toContain(`<p>Communiqué publié en 3 images, sans texte</p><p><a href="${lien}">Voir le communiqué sur Bluesky →</a></p>`);
+    expect(html).toContain(`La dernière publication de l'OVPF, le 25/10 à 08:02, est en images, que nous ne lisons pas : <a href="${lien}">la voir</a>.</p>`);
+    expect(html).not.toContain("peut ne pas en tenir compte");
+    expect(html).toContain(`<p>Publication en 3 images, sans texte</p><p><a href="${lien}">Voir les images sur Bluesky →</a></p>`);
     const demo = demos({ volcan: { value: v, fetchedAt: now, stale: false } } as unknown as HomeLive, now).find((d) => d.call === "volcan_seismes()")!;
-    expect(demo.answer.replace(/&#39;/g, "'")).toContain(`dans les textes que nous avons lus. Certains communiqués de l'OVPF sont publiés en images, que nous ne lisons pas : <a href="${lien}">voir le dernier</a>. Le volcan est en alerte 1`);
+    expect(demo.answer.replace(/&#39;/g, "'")).toContain(`dans les textes que nous avons lus. La dernière publication de l'OVPF, le 25/10 à 08:02, est en images, que nous ne lisons pas : <a href="${lien}">la voir</a>. Le volcan est en alerte 1`);
   });
 
   it("keeps a release in images with a word or two as such, its words quoted, and a gallery counted", () => {
@@ -148,9 +152,9 @@ describe("volcano", () => {
       ],
     });
     expect(posts.map((p) => [p.lien.split("/").pop(), p.texte])).toEqual([
-      ["emoji", "Communiqué publié en 2 images, avec ces seuls mots : « 🌋 👇 »"],
-      ["deux", "Communiqué publié en une image, avec ces seuls mots : « Point situation »"],
-      ["galerie", "Communiqué publié en 4 images, sans texte"],
+      ["emoji", "Publication en 2 images, avec pour seul texte : « 🌋 👇 »"],
+      ["deux", "Publication en une image, avec pour seul texte : « Point situation »"],
+      ["galerie", "Publication en 4 images, sans texte"],
     ]);
   });
 

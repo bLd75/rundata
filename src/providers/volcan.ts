@@ -57,6 +57,8 @@ export interface Post {
   image?: true;
   /** How many images it is given in, when the feed says. */
   images?: number;
+  /** The word or two that come with the images, as written. */
+  mots?: string;
   /** The PDF of the observatory's release that the post links to, as published (ovpf-pdf.ts); never guessed. */
   pdf?: string;
 }
@@ -88,12 +90,15 @@ interface Facet {
 
 /**
  * What is said of a post given in images: how many, and the few words that come with them, quoted; nothing read from
- * the images. « Communiqué publié en 3 images, sans texte ».
+ * the images, not even that it is a release (a photo, a map…). « 3 images, sans texte » (marketing).
  */
-export function enImages(n: number | undefined, mots?: string): string {
-  const en = n === 1 ? "en une image" : n ? `en ${n} images` : "en images";
-  return `Communiqué publié ${en}, ${mots ? `avec ces seuls mots : « ${mots} »` : "sans texte"}`;
+export function imagesSaid(n: number | undefined, mots?: string, en = false): string {
+  const count = n === 1 ? "une image" : n ? `${n} images` : en ? "images" : "des images";
+  return `${count}, ${mots ? `avec pour seul texte : « ${mots} »` : "sans texte"}`;
 }
+
+/** The same on the post's card: « Publication en 3 images, sans texte ». */
+export const enImages = (n: number | undefined, mots?: string) => `Publication en ${imagesSaid(n, mots, true)}`;
 
 interface FeedJson {
   feed: {
@@ -127,7 +132,7 @@ export function activityPosts(feed: FeedJson): Post[] {
       }
       if (imagesOf(post.embed) && (!text || (fewWords(text) && !NOISE.test(text)))) {
         const images = countOf(post.embed);
-        return [{ date: post.record.createdAt, texte: enImages(images, text || undefined), lien, image: true, ...(images && { images }) }];
+        return [{ date: post.record.createdAt, texte: enImages(images, text || undefined), lien, image: true, ...(images && { images }), ...(text && { mots: text }) }];
       }
       if (!text) return [];
       const pdf = releasePdf(post.record.facets);
