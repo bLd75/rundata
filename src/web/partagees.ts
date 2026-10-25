@@ -33,15 +33,16 @@ export interface Shared {
 // About 300 KV writes a day in all: 48 a day for each of the five every 30 minutes, 24 for the air, 12 for the power
 // cuts the mairies relay, 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
 // of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
-// The cold costs: each build measured alone with `wrangler dev` from an empty cache, plus one, and the traffic's from
-// the event's logs, a little dearer than in `wrangler dev` (24 October 2026). The volcano's: its four sources, each a
+// The cold costs: each build measured alone with `wrangler dev` from an empty cache, plus one. The traffic's: 19 in the
+// tests from an empty cache, since its 8 bus stations' timetables are read together (2 reads of D1 instead of 16 to
+// 32: 33 before, 31 in the event's logs at 4 o'clock), plus one (25 October 2026). The volcano's: its four sources, each a
 // read, a fetch and a write, plus one. The power cuts': one fetch per mairie and one for Saint-André's PDF letters, plus one.
 // The sea's: 18 when it read the satellites, less the 5 they took (13 against 8 in the same test, 25 October 2026): the
 // grids are their own copy. The grids': ACSPO's four files, a read and a write, MODIS's three more where ACSPO sees
 // nothing near a beach, plus one.
 export const SHARED: Shared[] = [
   { key: "web:actualites", build: buildActualites, every: 30, cold: 12 },
-  { key: "web:trafic", build: buildTrafic, every: 30, cold: 27 },
+  { key: "web:trafic", build: buildTrafic, every: 30, cold: 20 },
   { key: "web:electricite", build: buildElectricite, every: 30, cold: 7 },
   { key: "web:coupures", build: buildCoupures, every: 30, cold: 7 },
   { key: "web:air", build: buildAir, every: 60, cold: 4 },
@@ -76,6 +77,8 @@ const LOOKUP = 2;
 // Left to the agendas read after the copies (worker.ts) by a copy due only because another version built it: on a day
 // of deploys a few minutes apart, every event would otherwise spend its whole budget on them.
 export const AFTER_DEPLOY_RESERVE = 12;
+// Past its time by this much, a copy is tried at its cold cost, and said to be late when it is left again.
+const LATE_MINUTES = 60;
 
 /** A copy in KV, with what its build took (`cost`), for the isolates that have not built it yet. */
 type KvEntry = CacheEntry & { cost?: number };
@@ -172,6 +175,9 @@ export interface Warmed {
 // eventually consistent), and this isolate knows its own.
 const wrote = new Map<string, KvMeta>();
 
+/** « 75 min », « 16 h ». */
+const ago = (ms: number) => (ms < 2 * 3600_000 ? `${Math.round(ms / 60_000)} min` : `${Math.floor(ms / 3600_000)} h`);
+
 /** How often `s` is refreshed, given its copy's value. */
 const everyOf = (s: Shared, value: unknown) => (typeof s.every === "number" ? s.every : s.every(value));
 
@@ -198,23 +204,33 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
     // Not by subtraction: the copies never written are all overdue by Infinity, and Infinity - Infinity is NaN.
     .sort((a, b) => (a.over === b.over ? 0 : a.over < b.over ? 1 : -1));
   const out: Warmed = { written: [], left: [] };
-  for (const { s, at, kept, version } of due) {
+  for (const { s, at, kept, over, version } of due) {
+    // An hour past its time, a copy is expected at its cold cost: what it took at a dearer hour, kept with its last
+    // copy, must not hold it back until that copy expires (web:trafic, 31 at 04:00, never under 33 since: cam-change
+    // 279). Its build stays within the budget all the same. Past its time by its rate only: a copy due for its version
+    // is overdue by its age, and keeps what it is expected to take and the agendas' reserve.
+    const late = !version && over >= LATE_MINUTES * 60_000;
+    const leave = (why: string) => {
+      out.left.push({ key: s.key, why });
+      // One line to search for in the Worker's logs: a copy left an hour past its time, about twelve events in a row.
+      if (late) console.error(`copie partagée en retard : ${s.key}, ${at == null ? "jamais écrite" : `écrite il y a ${ago(now.getTime() - at)}`}, reportée (${why})`);
+    };
     // The copy looked up, then built, within what is left besides the writes; the writes (the data center's cache,
     // KV) go in the part kept for them.
-    const cost = LOOKUP + expected(s, kept);
+    const cost = LOOKUP + (late && s.cold != null ? s.cold : expected(s, kept));
     if (cost > left() - (version ? AFTER_DEPLOY_RESERVE : 0)) {
-      out.left.push({ key: s.key, why: `${version ? "autre version, " : ""}budget : ${spent()} faites, ${cost} prévues` });
+      leave(`${version ? "autre version, " : ""}budget : ${spent()} faites, ${cost} prévues`);
       continue;
     }
     try {
       const got = await cache.get(s.key, FRESH_SECONDS, () => measured(s.key, () => s.build(cache, now)));
       // The source failed and the cache served its last copy: not worth spreading.
       if (got.stale) {
-        out.left.push({ key: s.key, why: "copie de secours" });
+        leave("copie de secours");
         continue;
       }
       if (at != null && got.fetchedAt.getTime() <= at) {
-        out.left.push({ key: s.key, why: "pas plus récente que celle de KV" });
+        leave("pas plus récente que celle de KV");
         continue;
       }
       count(1, true);
@@ -225,7 +241,7 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
       wrote.set(kvKey(s.key), meta);
       out.written.push(s.key);
     } catch (err) {
-      out.left.push({ key: s.key, why: `erreur : ${why(err).slice(0, 80)}` });
+      leave(`erreur : ${why(err).slice(0, 80)}`);
     }
   }
   return out;

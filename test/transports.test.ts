@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as transit from "../src/providers/transit.js";
 import type * as rt from "../src/providers/gtfsrt.js";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { departures, findStops, linesNamed, parseQuery, transports } from "../src/tools/transports.js";
+import { departures, findStops, linesNamed, parseQuery, stationDepartures, transports } from "../src/tools/transports.js";
 
 // Rows of the D1 database for the stations of Saint-Pierre, the cable car at Bancoul and Hell-Bourg, from the
 // networks' GTFS of 23/10/2026 (scripts/build-transit.py).
@@ -131,6 +131,30 @@ describe("transports", () => {
     transit.configure(undefined);
     const r = await transports("gare routière Saint-Pierre", undefined, NOW);
     expect(r.isError).toBe(true);
+  });
+});
+
+describe("several bus stations at once", () => {
+  it("gives each the departures it would have alone, from three reads of the timetables at most in all", async () => {
+    const stations = ["gare routière Saint-Pierre", "gare routière du Tampon, CarSud", "Manapany les Bains", "Hell-Bourg"].map((q) => findStops(q).groups);
+    // The morning, and the night, when stations with fewer than 3 departures in 3 hours look 20 hours ahead.
+    for (const [at, further] of [[NOW, false], [new Date("2026-10-23T20:30:00Z"), true]] as const) {
+      const alone: Awaited<ReturnType<typeof departures>>[] = [];
+      let looked = false;
+      for (const groups of stations) {
+        const soon = await departures(groups, at);
+        looked ||= soon.length < 3;
+        alone.push(soon.length < 3 ? await departures(groups, at, 20 * 3600) : soon);
+      }
+      if (further) expect(looked).toBe(true);
+      let reads = 0;
+      transit.configure({ all: <T>(sql: string, ...params: unknown[]) => (reads++, fake.all<T>(sql, ...params)) });
+      expect(await stationDepartures(stations, at)).toEqual(alone);
+      expect(reads).toBeLessThanOrEqual(looked ? 3 : 2);
+      transit.configure(fake);
+      // Not a comparison of empty lists: the fixture has the timetables of three of them.
+      expect(alone.filter((l) => l.length).length).toBeGreaterThanOrEqual(3);
+    }
   });
 });
 

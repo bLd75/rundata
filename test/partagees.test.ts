@@ -282,6 +282,52 @@ describe("the scheduled refresh of the shared copies", () => {
     expect(events.length).toBeLessThanOrEqual(5);
   });
 
+  it("tries a copy an hour past its time at its cold cost, and says in the log when it is left all the same", async () => {
+    const kv = new FakeKv();
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false, undefined, "2.0.0");
+    // Copies written by another isolate whose builds took 31 at night: never under 33 with 4 spent, 32 left.
+    const at = (key: string, ago: number, every = 30, version?: string) =>
+      kv.put(kvKey(key), JSON.stringify({ value: {}, fetchedAt: T0 - ago * 60_000, cost: 31, version }), { metadata: { fetchedAt: T0 - ago * 60_000, cost: 31, every, version } });
+    await at("web:essai-retard", 16 * 60, 30, "2.0.0");
+    await at("web:essai-recent", 45, 30, "2.0.0");
+    // Due only because the previous version built it, an hour and a half ago: not late, its rate is 3 hours.
+    await at("web:essai-version", 90, 3 * 60, "1.0.0");
+    const list: Shared[] = [
+      { key: "web:essai-retard", build: async () => (count(12), {}), every: 30, cold: 15 },
+      { key: "web:essai-recent", build: async () => (count(12), {}), every: 30, cold: 15 },
+      { key: "web:essai-version", build: async () => (count(12), {}), every: 3 * 60, cold: 15 },
+    ];
+    const said: string[] = [];
+    const error = console.error;
+    console.error = (...a: unknown[]) => void said.push(a.join(" "));
+    try {
+      const run = await counted(WORKER_BUDGET, async () => {
+        count(4); // the AROME prefetch, the grids already there
+        return warmShared(cache, kv, new Date(T0), list);
+      });
+      // Sixteen hours late: tried at 2 + 15, and built.
+      expect(run.value.written).toEqual(["web:essai-retard"]);
+      expect(JSON.parse(kv.data.get(kvKey("web:essai-retard"))!).cost).toBe(12);
+      // Due for its version: expected at 31, with the agendas' reserve, and never said late. A quarter of an hour late:
+      // still expected at 31, left, and not yet said.
+      expect(run.value.left).toEqual([
+        { key: "web:essai-version", why: "autre version, budget : 18 faites, 33 prévues" },
+        { key: "web:essai-recent", why: "budget : 18 faites, 33 prévues" },
+      ]);
+      expect(run.used).toBeLessThanOrEqual(WORKER_BUDGET);
+      expect(said).toEqual([]);
+      // An hour and a quarter late, its cold cost does not fit either: one line says so.
+      const later = await counted(WORKER_BUDGET, async () => {
+        count(25);
+        return warmShared(cache, kv, new Date(T0 + 60 * 60_000), list);
+      });
+      expect(later.value.written).toEqual([]);
+      expect(said).toEqual(["copie partagée en retard : web:essai-recent, écrite il y a 105 min, reportée (budget : 26 faites, 17 prévues)"]);
+    } finally {
+      console.error = error;
+    }
+  });
+
   it("keeps a build's cost with its KV copy, for an isolate that has not built it", async () => {
     const kv = new FakeKv();
     const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);

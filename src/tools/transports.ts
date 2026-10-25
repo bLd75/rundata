@@ -132,17 +132,26 @@ const expected = (d: Departure) => d.in + (d.retard ?? 0);
 /** The delay in whole minutes, as the difference of the two times shown (« 21h05 », « 21h07 »): never at odds with them. */
 const delayMinutes = (d: Departure) => Math.floor((d.at + (d.retard ?? 0)) / 60) - Math.floor(d.at / 60);
 
-/** Departures from these stops in the next `horizon` seconds, by yesterday's (after midnight), today's and tomorrow's services. */
-export async function departures(groups: transit.StopGroup[], now: Date, horizon = 3 * 3600): Promise<Departure[]> {
-  const stopGroup = new Map(groups.flatMap((g) => g.ids.map((id) => [id, g] as const)));
+type Moment = { secs: number; days: readonly (readonly [{ ymd: number; weekday: number }, number])[] };
+type Pass = { stop: number; pattern: number; offset: number };
+
+/** Seconds since local midnight, and yesterday's, today's and tomorrow's services with their shift. */
+function moment(now: Date): Moment {
   const local = new Date(now.getTime() + 4 * 3600_000);
   const secs = local.getUTCHours() * 3600 + local.getUTCMinutes() * 60 + local.getUTCSeconds();
-  const days = [[day(now), 0], [day(now, 1), 86400], [day(now, -1), -86400]] as const;
-  // Only the patterns that may stop here in these hours are read: a bus station has hundreds, a few run now.
-  const pass = (await transit.passes([...stopGroup.keys()])).filter((p) =>
-    days.some(([d, shift]) => transit.mayRun(p.pattern, p.offset, stopGroup.get(p.stop)!.reseau, d.ymd, d.weekday, secs - 60 + shift, secs + horizon + shift)),
-  );
-  const pats = pass.length ? await transit.patterns([...new Set(pass.map((p) => p.pattern))]) : new Map<number, transit.Pattern>();
+  return { secs, days: [[day(now), 0], [day(now, 1), 86400], [day(now, -1), -86400]] };
+}
+
+const byStop = (groups: transit.StopGroup[]) => new Map(groups.flatMap((g) => g.ids.map((id) => [id, g] as const)));
+
+/** Only the patterns that may stop here in these hours are read: a bus station has hundreds, a few run now. */
+const passing = (pass: Pass[], stopGroup: Map<number, transit.StopGroup>, horizon: number, { secs, days }: Moment) =>
+  pass.filter((p) => {
+    const g = stopGroup.get(p.stop);
+    return g !== undefined && days.some(([d, shift]) => transit.mayRun(p.pattern, p.offset, g.reseau, d.ymd, d.weekday, secs - 60 + shift, secs + horizon + shift));
+  });
+
+function listed(pass: Pass[], pats: Map<number, transit.Pattern>, stopGroup: Map<number, transit.StopGroup>, horizon: number, { secs, days }: Moment): Departure[] {
   const out: Departure[] = [];
   for (const p of pass) {
     const pat = pats.get(p.pattern);
@@ -169,6 +178,39 @@ export async function departures(groups: transit.StopGroup[], now: Date, horizon
       seen.add(k);
       return true;
     });
+}
+
+/** Departures from these stops in the next `horizon` seconds, by yesterday's (after midnight), today's and tomorrow's services. */
+export async function departures(groups: transit.StopGroup[], now: Date, horizon = 3 * 3600): Promise<Departure[]> {
+  const stopGroup = byStop(groups);
+  const c = moment(now);
+  const pass = passing(await transit.passes([...stopGroup.keys()]), stopGroup, horizon, c);
+  const pats = pass.length ? await transit.patterns([...new Set(pass.map((p) => p.pattern))]) : new Map<number, transit.Pattern>();
+  return listed(pass, pats, stopGroup, horizon, c);
+}
+
+/**
+ * At each of these stations, its departures in the next 3 hours, or in the next 20 when there are fewer than 3 (at
+ * night), as `departures` gives them, read for all the stations at once: one read of the passes, one of the
+ * patterns, and one more for the stations that look further. The bus stations of /bus and /trafic: 2 or 3
+ * subrequests instead of 2 or 4 each (cam-change 279).
+ */
+export async function stationDepartures(stations: transit.StopGroup[][], now: Date): Promise<Departure[][]> {
+  const c = moment(now);
+  const stops = stations.map(byStop);
+  const all = await transit.passes([...new Set(stops.flatMap((m) => [...m.keys()]))]);
+  const pats = new Map<number, transit.Pattern>();
+  const read = async (pass: Pass[]) => {
+    const ids = [...new Set(pass.map((p) => p.pattern))].filter((id) => !pats.has(id));
+    if (ids.length) for (const [id, pat] of await transit.patterns(ids)) pats.set(id, pat);
+  };
+  const near = stops.map((m) => passing(all, m, 3 * 3600, c));
+  await read(near.flat());
+  const lists = stops.map((m, i) => listed(near[i], pats, m, 3 * 3600, c));
+  const far = new Map(lists.flatMap((l, i) => (l.length < 3 ? [[i, passing(all, stops[i], 20 * 3600, c)] as const] : [])));
+  await read([...far.values()].flat());
+  for (const [i, pass] of far) lists[i] = listed(pass, pats, stops[i], 20 * 3600, c);
+  return lists;
 }
 
 /** The real-time feeds of these networks that are recent and say something; a feed that fails, stopped or is empty is left out. */
