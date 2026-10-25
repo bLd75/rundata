@@ -6,7 +6,7 @@
  * /clubs and /asso lead here.
  */
 import type { Cache } from "../cache.js";
-import { AGENDAS, BUNDLE, BUNDLE_SYNC_SECONDS, copiePlanifiee, type Evenement } from "../providers/agenda.js";
+import { AGENDAS, BUNDLE, BUNDLE_SYNC_SECONDS, copiePlanifiee, type Evenement, planifiees } from "../providers/agenda.js";
 import { evenements as proposes, ID as PROPOSITIONS_ID } from "../providers/agenda-propositions.js";
 import { lisible } from "../propositions.js";
 import { inPeriod, periode, when } from "../tools/agenda.js";
@@ -39,17 +39,18 @@ export interface Preuve {
 }
 
 /**
- * The proof, from the agendas' last copy (one read of the cache), the proposed events read from the table when no
- * copy has them yet. A club is a name that publishes: each organiser of a proposed event, each club of an agenda; an
- * agenda of clubs read without any event yet counts once.
+ * The proof, from the agendas' last copies (the questions' bundle, and the scheduled event's for the agendas it alone
+ * reads, as the agenda tool does), the proposed events read from the table when no copy has them yet. A club is a name
+ * that publishes: each organiser of a proposed event, each club of an agenda; an agenda of clubs read without any event
+ * yet counts once.
  */
 export async function preuve(cache: Pick<Cache, "bundle">, now: Date): Promise<Preuve> {
-  const bundle = await cache.bundle(BUNDLE, BUNDLE_SYNC_SECONDS);
+  const [bundle, planned] = await Promise.all([cache.bundle(BUNDLE, BUNDLE_SYNC_SECONDS), planifiees(cache)]);
   const names = new Set<string>();
   const all: Evenement[] = [];
   let empty = 0;
   for (const agenda of AGENDAS.filter((a) => a.club)) {
-    const hit = agenda.planifie ? copiePlanifiee(bundle, agenda)?.value : (bundle.peek(`agenda:${agenda.id}`)?.value as Evenement[] | undefined);
+    const hit = agenda.planifie ? copiePlanifiee(planned, agenda)?.value : (bundle.peek(`agenda:${agenda.id}`)?.value as Evenement[] | undefined);
     const list = hit ?? (agenda.id === PROPOSITIONS_ID && lisible() ? await proposes(now) : undefined);
     if (!list) continue;
     if (!list.length && agenda.id !== PROPOSITIONS_ID) empty++;

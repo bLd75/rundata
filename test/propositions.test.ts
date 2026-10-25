@@ -662,6 +662,20 @@ describe("the clubs' and associations' space (web/associations.ts)", () => {
     expect(html).toContain("Tournoi 1");
   });
 
+  it("finds the agendas the scheduled event alone reads in its own copies", async () => {
+    const { preuve } = await import("../src/web/associations.js");
+    const { PLANIFIES } = await import("../src/providers/agenda.js");
+    const { evenement } = await import("../src/providers/agenda-propositions.js");
+    const tournoi = { ...evenement(ligne(1, "Ligue réunionnaise de volley-ball")), id: "lrvb-1" };
+    const cache = {
+      bundle: async (name: string) => ({
+        peek: (k: string) => (name === PLANIFIES && k === "agenda:lrvb" ? { value: [tournoi], ageMs: 0, fetchedAt: NOW.getTime() } : undefined),
+      }),
+    } as never;
+    const p = await preuve(cache, NOW);
+    expect(p.prochains.map((x) => x.e.publie_par)).toEqual(["Ligue réunionnaise de volley-ball"]);
+  });
+
   it("reads the proposed events from the table when the agendas' copy has none yet", async () => {
     const { preuve } = await import("../src/web/associations.js");
     const s = await propose();
