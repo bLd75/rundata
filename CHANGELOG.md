@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Actualités : les titres du Quotidien de La Réunion s'ajoutent aux autres médias de l'île, sur rundata.re/actualites et dans votre IA.
 - Clubs de sport : les rendez-vous publiés sur Sportsregions (tir à l'arc, triathlon, golf, badminton…), avec le club et le lien.
 - Suivez rundata.re sur sa chaîne WhatsApp : les sorties du week-end, chaque vendredi matin. Le lien est dans le menu et en bas des pages.
 - Bus : votre IA dit où est le Car Jaune ou le bus CarSud en ce moment, près de quel arrêt, avec l'heure de sa position.
