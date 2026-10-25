@@ -8,7 +8,7 @@ import * as enfants from "../vie/enfants.js";
 import type { Alerte, EnfantsAnswer } from "./data.js";
 import { agendaHours, connectorCta, crumbBar, crumbs, loading, webPage } from "./domains.js";
 import { esc, islandMap } from "./map.js";
-import { anchorId, layout } from "./pages.js";
+import { anchorId, ask, layout } from "./pages.js";
 
 type Row = EnfantsAnswer["evenements"][number];
 const { typo } = enfants;
@@ -19,6 +19,8 @@ export const LEAD = typo("Aires de jeux, parcs, piscines, médiathèques, zoos, 
 export const DESCRIPTION = "Où emmener les enfants à La Réunion : aires de jeux, parcs, piscines, médiathèques, zoos, skateparks, commune par commune, et les activités du week-end.";
 const MISSING = typo("<b>Ce que vous ne trouverez pas ici.</b> Les accueils de loisirs (centres aérés), les crèches et les relais petite enfance sont publiés par la CAF sur monenfant.fr, dont nous ne pouvons pas reprendre les données. Pour trouver un mode de garde ou un accueil de loisirs : <a href=\"https://monenfant.fr\" rel=\"noopener\">monenfant.fr</a>. Les activités privées qui ne figurent sur aucune carte ouverte manquent aussi. Un lieu oublié ? <a href=\"#avis\">Dites-le-nous</a>, ou ajoutez-le sur <a href=\"https://www.openstreetmap.org/\" rel=\"noopener\">OpenStreetMap</a> : il apparaîtra ici.");
 const CREDITS = typo("Lieux : © les contributeurs d'OpenStreetMap (ODbL) ; recensement des équipements sportifs (Data ES, ministère des Sports) et Basilic (ministère de la Culture), sous Licence Ouverte. Activités : les agendas des communes, des salles et de reunion.fr, chacun cité sur sa ligne.");
+export const ASK_KREOL = typo("Kosa néna pou fé ek marmay sé wikenn la ? Gèt si https://rundata.re/enfants é di amwin.");
+export const ASK_FRANCAIS = typo("Où aller avec les enfants ce week-end à La Réunion ? Lis https://rundata.re/enfants et propose-moi des lieux et des activités pour leur âge, près de chez moi.");
 // The link is to the events page: the site has no /sorties.
 const EMPTY = typo("Les agendas que nous lisons n'annoncent pas d'activité pour les enfants dans les deux semaines qui viennent. Ils ne disent pas tout : voyez aussi les <a href=\"/evenements\">sorties</a>.");
 /** The agenda's kind, first in the filter and on the page. */
@@ -103,6 +105,7 @@ export function enfantsPage(origin: string, data: Cached<EnfantsAnswer> | null, 
     <p class="pill"><span class="dot"></span>De 0 à 17 ans</p>
     <h1>${esc(H1)} <span class="n974">974</span></h1>
     <p class="lead">${esc(LEAD)}</p>
+    ${ask(ASK_KREOL, ASK_FRANCAIS)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : le nombre de lieux pour les enfants par commune" })}
   <figcaption class="note" style="color:var(--on-night-muted)">Nombre de lieux par commune.</figcaption></figure>
