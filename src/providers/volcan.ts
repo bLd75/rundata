@@ -149,7 +149,6 @@ export interface PitonState {
   access?: {
     current?: { available: boolean; global_status: string; enclos_status: string; summary?: string; source_name?: string; source_url?: string; source_timestamp?: string };
   };
-  deformation?: { available: boolean; label?: string; published_at?: string; source_name?: string };
 }
 
 export async function posts(cache: Cache): Promise<Cached<Post[]>> {
@@ -160,7 +159,7 @@ export async function state(cache: Cache): Promise<Cached<PitonState>> {
   const got = await cache.get("volcan:pitonlive", FRESH_SECONDS, async () => {
     const s = await getJson<PitonState>(PITONLIVE.id, STATE);
     // Keep what the tool shows; the full answer carries a daily seismic series and the air quality too.
-    return { status: s.status, eruption: s.eruption, last_eruption_ended_at: s.last_eruption_ended_at, days_since_last_eruption: s.days_since_last_eruption, access: s.access, deformation: s.deformation };
+    return { status: s.status, eruption: s.eruption, last_eruption_ended_at: s.last_eruption_ended_at, days_since_last_eruption: s.days_since_last_eruption, access: s.access };
   });
   // The level as the plan names it, never pitonlive's label (« Alerte 1 - eruption probable ou imminente », unaccented):
   // the plan's words are said beside it, from the plan. On read, so that a copy made before is named so too.
