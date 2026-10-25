@@ -348,6 +348,30 @@ describe("the scheduled refresh of the shared copies", () => {
     expect(kv.writes.get(kvKey(C))).toBe(4);
   });
 
+  it("reads the events of /chiffres again an hour after a list in part, not at every event, and every 6 hours once whole", async () => {
+    const kv = new FakeKv();
+    let now = T0;
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => now, false);
+    let silent = true;
+    const evenements = SHARED.find((s) => s.key === "web:chiffres:evenements")!;
+    // A key of its own: the copies the tests before wrote are remembered by the module.
+    const K = "web:chiffres:evenements-partiel";
+    const list: Shared[] = [{ ...evenements, key: K, before: [], build: async () => (count(2), { nombre: 40, ...(silent ? { sans: ["Le Séchoir"] } : {}) }) }];
+    const events = async (minutes: number) => {
+      for (const end = now + minutes * 60_000; now < end; now += 5 * 60_000) await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    };
+    // Two hours of events while an agenda is silent: at the first, then in the slots of its hour (minute 30), never
+    // at every event.
+    await events(120);
+    expect(kv.writes.get(kvKey(K))).toBe(3);
+    // Whole again at the next slot, then not before 6 hours.
+    silent = false;
+    await events(60);
+    expect(kv.writes.get(kvKey(K))).toBe(4);
+    await events(3 * 60);
+    expect(kv.writes.get(kvKey(K))).toBe(4);
+  });
+
   it("short of subrequests, leaves a build that would not fit after a full AROME prefetch to a later event, and says why", async () => {
     const kv = new FakeKv();
     const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);

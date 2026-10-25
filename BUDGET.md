@@ -35,7 +35,7 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 |---|---:|---:|---:|---:|---:|---:|---:|
 | pire passage planifié | 298 | 2 | 17 | 10 | 922 | 31 | 1 612 |
 | tâche planifiée, par jour | 7 267 | 576 | 660 | 387 | 44 732 | 31 | 45 603 |
-| tâche planifiée, par jour, cadences les plus courtes | 12 315 | 576 | 976 | 867 | 49 772 | 31 | 77 483 |
+| tâche planifiée, par jour, cadences les plus courtes | 13 455 | 576 | 996 | 867 | 49 772 | 31 | 81 483 |
 | tâche planifiée, par mois (30 jours) | 218 010 | 17 280 | 19 800 | 11 610 | 1 341 960 | 930 | 1 368 090 |
 | tâches GitHub, par jour | 0 |  | 101 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 3 030 | 60 |  | 861 000 |  |
@@ -60,7 +60,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | web:volcan | copie partagée (KV) | 30 min (5 au plus court) | 00:15 | 18 |  | 1 | 2 | 21 |  | 110 | mesuré |
 | web:courant | copie partagée (KV) | 120 min (30 au plus court) | 00:20 | 8 |  | 1 |  |  |  | 30 | mesuré |
 | web:chiffres | copie partagée (KV) | 60 min | 00:50 | 26 |  | 1 | 2 | 21 |  | 60 | estimé |
-| web:chiffres:evenements | copie partagée (KV) | 360 min | 00:30 | 57 |  | 1 |  |  |  | 200 | estimé |
+| web:chiffres:evenements | copie partagée (KV) | 360 min (60 au plus court) | 00:30 | 57 |  | 1 |  |  |  | 200 | estimé |
 | ens:ile | copie partagée, avec ce que les autres ont laissé | 180 min | 01:40 | 4 |  | 1 |  |  |  | 40 | mesuré |
 | agendas:planifies | agendas lus par la tâche planifiée : leur copie commune (KV), lue à chaque passage, écrite après une lecture | 5 min | 00:00 | 1 | 1 |  |  |  |  |  | code |
 | agendas:planifies:ecriture | agendas lus par la tâche planifiée : l'écriture de leur copie commune | 60 min | 00:00 | 1 |  | 1 |  |  |  |  | code |

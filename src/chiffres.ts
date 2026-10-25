@@ -128,7 +128,18 @@ export interface Copie {
   evenements?: Compte;
   /** The clubs of Sportsregions that are not producers already: never their names. */
   clubs?: Compte;
+  /** When this copy was built (ISO): a count of another hour was kept from the copy before, or from another copy. */
+  construite_le?: string;
 }
+
+/** The events' copy; `sans`: the agendas that did not answer, when the list is in part or missing (never counted). */
+export interface EvenementsCopie {
+  nombre?: number;
+  sans?: string[];
+}
+
+/** Every 6 hours; every hour while the last list was in part, rather than at every event of 5 minutes. */
+export const evenementsEvery = (last: unknown) => ((last as EvenementsCopie | undefined)?.sans?.length ? 60 : 6 * 60);
 
 // A weather observation older than this is not « read » (tools/meteo.ts says it old past the same).
 const OBSERVATION_MS = 90 * 60_000;
@@ -160,14 +171,15 @@ async function stationsMeteo(cache: Cache, now: Date): Promise<number | undefine
 
 /**
  * The events of the next two weeks on the whole island, as /evenements counts them. An agenda that does not answer
- * leaves the list in part: no copy then, the one before is kept with its hour.
+ * leaves the list in part: the copy says which, is never counted (the count before is kept with its hour), and is
+ * tried again an hour later (`evenementsEvery`). Not written, it would be due again at every event.
  */
-export async function buildEvenements(cache: Cache, now = new Date()): Promise<{ nombre: number }> {
+export async function buildEvenements(cache: Cache, now = new Date()): Promise<EvenementsCopie> {
   const r = await agenda(cache, undefined, undefined, undefined, now, 1);
-  if ("isError" in r && r.isError) throw new Error("agenda sans réponse");
+  // No agenda answered: no list at all, tried again an hour later as well.
+  if ("isError" in r && r.isError) return { sans: ["agenda"] };
   const a = JSON.parse(r.content[0].text) as { nombre: number; indisponible?: string[] };
-  if (a.indisponible?.length) throw new Error(`agenda lu en partie, sans ${a.indisponible.join(", ")}`);
-  return { nombre: a.nombre };
+  return { nombre: a.nombre, ...(a.indisponible?.length ? { sans: a.indisponible } : {}) };
 }
 
 /**
@@ -187,11 +199,12 @@ export async function buildChiffres(cache: Cache, now = new Date()): Promise<Cop
     }
   };
   // A shared copy as it is: its count, at its hour.
-  const copie = async <T>(key: string, count: (v: T, at: Date) => number): Promise<Compte | undefined> => {
+  const copie = async <T>(key: string, count: (v: T, at: Date) => number | undefined): Promise<Compte | undefined> => {
     const c = await cache.peek<T>(key).catch(() => undefined);
-    return c && !c.stale ? { nombre: count(c.value, c.fetchedAt), le: c.fetchedAt.toISOString() } : undefined;
+    const n = c && !c.stale ? count(c.value, c.fetchedAt) : undefined;
+    return n === undefined ? undefined : { nombre: n, le: c!.fetchedAt.toISOString() };
   };
-  const out: Copie = {};
+  const out: Copie = { construite_le: le };
   out.stations_meteo = await recompte("stations_meteo", async () => {
     const n = await stationsMeteo(cache, now);
     return n === undefined ? undefined : { nombre: n };
@@ -213,7 +226,7 @@ export async function buildChiffres(cache: Cache, now = new Date()): Promise<Cop
     return { nombre: publiques(e.lignes).filter((l) => l.statut === "injoignable" || l.statut === "bloque").length, ...(e.passage ? { passage: e.passage } : {}) };
   });
   // Its own copy, every 6 hours, built before this one when both are due (web/partagees.ts).
-  out.evenements = (await copie<{ nombre: number }>(EVENEMENTS_KEY, (v) => v.nombre)) ?? before.evenements;
+  out.evenements = (await copie<EvenementsCopie>(EVENEMENTS_KEY, (v) => (v.sans?.length ? undefined : v.nombre))) ?? before.evenements;
   out.clubs = await recompte("clubs", async () => {
     const c = copiePlanifiee(await planifiees(cache), SPORTSREGIONS);
     return c ? { nombre: clubs(c.value) } : undefined;
@@ -281,7 +294,8 @@ export function chiffres(sources: SourceInfo[], copie: Cached<Copie> | undefined
       sites_sans_reponse: k.sans_reponse ? { ...nombre(k.sans_reponse)!, ...(k.sans_reponse.passage ? { derniere_reverification: aLHeure(new Date(k.sans_reponse.passage * 1000)) } : {}) } : undefined,
     },
     nouveautes: NOUVEAUTES.length,
-    compte_le: aLHeure(copie?.fetchedAt ?? now),
+    // The build's hour, not the write's: a build that ends the minute after would mark every count as kept.
+    compte_le: aLHeure(copie ? new Date(copie.value.construite_le ?? copie.fetchedAt) : now),
     lien: LIEN,
   };
 }

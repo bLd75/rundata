@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { buildChiffres, cadenceEnMots, chiffres, cle, clubs, type Copie, DOMAINES, KEY, resume } from "../src/chiffres.js";
+import { buildChiffres, buildEvenements, cadenceEnMots, chiffres, cle, clubs, type Copie, DOMAINES, EVENEMENTS_KEY, evenementsEvery, KEY, resume } from "../src/chiffres.js";
 import { compte, FICHES, producteursDe } from "../src/producteurs.js";
 import { STATIONS as BORNES } from "../src/providers/irve.js";
 import { createServer, toutesLesSources } from "../src/server.js";
@@ -128,7 +128,36 @@ describe("the counts (chiffres.ts)", () => {
     expect(got.evenements).toEqual(COPIE.evenements);
     const first = await buildChiffres(new Cache(new MemoryStore(), () => NOW.getTime()), NOW);
     expect(first.sentiers).toBeUndefined();
-    expect(Object.values(first).some((v) => v && "nombre" in v && v.nombre === 0 && v !== first.sans_reponse)).toBe(false);
+    expect(Object.values(first).some((v) => typeof v === "object" && "nombre" in v && v.nombre === 0 && v !== first.sans_reponse)).toBe(false);
+    expect(got.construite_le).toBe(NOW.toISOString());
+  });
+
+  it("count the events only from a whole list: one in part keeps the count before, and is read again an hour later, not at every event", async () => {
+    // No network in the tests: the agendas do not answer, the list is in part.
+    const partial = await buildEvenements(new Cache(new MemoryStore(), () => NOW.getTime()), NOW);
+    expect(partial.sans?.length).toBeGreaterThan(0);
+    expect(evenementsEvery(partial)).toBe(60);
+    expect(evenementsEvery({ nombre: 120 })).toBe(6 * 60);
+    expect(evenementsEvery(undefined)).toBe(6 * 60);
+    const withEvents = async (value: object) => {
+      const store = new MemoryStore();
+      await store.put(KEY, { value: COPIE, fetchedAt: NOW.getTime() - 3600_000 });
+      await store.put(EVENEMENTS_KEY, { value, fetchedAt: NOW.getTime() - 60_000 });
+      return (await buildChiffres(new Cache(store, () => NOW.getTime()), NOW)).evenements;
+    };
+    expect(await withEvents({ nombre: 99, sans: ["Le Séchoir"] })).toEqual(COPIE.evenements);
+    expect(await withEvents({ nombre: 120 })).toEqual({ nombre: 120, le: new Date(NOW.getTime() - 60_000).toISOString() });
+  });
+
+  it("date the copy by its build, not its write: a build that ends the minute after marks only the counts kept", () => {
+    const late = { value: { ...COPIE, construite_le: NOW.toISOString() }, fetchedAt: new Date(NOW.getTime() + 70_000), stale: false };
+    const c = chiffres(sources, late, NOW, OUTILS_ICI);
+    expect(c.compte_le).toBe("26/10 à 08:00");
+    const html = typo(chiffresPage("https://rundata.re", c));
+    expect(html).not.toContain("(compté le 26/10 à 08:00)");
+    expect(html).toContain("(compté le 26/10 à 06:00)");
+    // A copy written before the build's hour was kept: its write's hour, as before.
+    expect(chiffres(sources, copie, NOW, OUTILS_ICI).compte_le).toBe("26/10 à 08:00");
   });
 });
 
