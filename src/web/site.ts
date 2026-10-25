@@ -187,7 +187,7 @@ let swText: string | undefined;
 let reliefBytes: Uint8Array<ArrayBuffer> | undefined;
 
 /** The domain pages: built from a tool's answer, kept like the other pages (web/data.ts). */
-const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) => Promise<any>; page: (origin: string, data: Cached<any> | null, now: Date, alerte?: Alerte) => string }> = {
+export const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) => Promise<any>; page: (origin: string, data: Cached<any> | null, now: Date, alerte?: Alerte) => string }> = {
   "/meteo": { key: "web:meteo", build: buildHome, page: meteoPage },
   "/volcan": { key: "web:volcan", build: buildVolcan, page: volcanPage },
   "/air": { key: "web:air", build: buildAir, page: airPage },
@@ -222,10 +222,10 @@ const BUILDS: Record<string, (cache: Cache, now: Date) => Promise<unknown>> = {
 };
 // The home page's tiles besides the weather and the vigilance; a commune page's besides its own.
 // The news first: on a day of mobilisation its headlines go above the tiles.
-const HOME_TILES = ["web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
+export const HOME_TILES = ["web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
 // A commune's feed: the copies besides the vigilance (web/rss.ts).
 const RSS_TILES = ["web:coupures", "web:randonnees", "web:volcan"];
-const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier", "web:coupures", "web:secheresse", "web:eau", "web:randonnees", "web:agenda"];
+export const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier", "web:coupures", "web:secheresse", "web:eau", "web:randonnees", "web:agenda"];
 
 /**
  * The last copy of each of these pages, without building them: building them all would not fit in one invocation.
