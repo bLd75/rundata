@@ -55,6 +55,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-26T03:52:00+04:00", texte: "Bus\u00a0: chaque départ s'ouvre sur tous ses arrêts, avec l'heure de passage à chacun, et chaque arrêt a sa page, à chercher sur rundata.re/bus." },
   { date: "2026-10-26T02:17:00+04:00", texte: "rundata.re en chiffres\u00a0: une page compte les sources publiques lues, leurs producteurs, leurs licences, et ce qui manque encore." },
   { date: "2026-10-25T23:19:00+04:00", texte: "Quand le site d'une source ne répond pas, la page le dit, avec l'heure de la dernière lecture, au lieu de rien." },
   { date: "2026-10-25T22:47:00+04:00", texte: "Sites sans réponse\u00a0: une page liste les sites publics de l'île qui ne répondent pas, depuis quand, et ce qui manque donc ici." },

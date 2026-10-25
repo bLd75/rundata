@@ -566,12 +566,13 @@ function addDays(ymd: number, n: number): number {
  * For a stop with nothing of it running today: the fact, then what the timetables say beside it for all its lines, else
  * the live alerts about them. Undefined when some of it runs today.
  */
-async function quiet(groups: transit.StopGroup[], where: string, feeds: Map<string, rt.Realtime>, now: Date, cache?: Cache) {
+async function quiet(groups: transit.StopGroup[], where: string | undefined, feeds: Map<string, rt.Realtime>, now: Date, cache?: Cache, read?: Pass[]) {
   const ids = groups.flatMap((g) => g.ids);
-  const pats = [...new Set((await transit.passes(ids)).map((p) => p.pattern))];
+  const pats = [...new Set((read ?? (await transit.passes(ids))).map((p) => p.pattern))];
   const today = day(now);
   if (!pats.length || pats.some((p) => runsOn(p, today))) return undefined;
-  const head = `Arrêt${groups.length > 1 ? "s" : ""} ${where}${NBSP}: aucun départ aujourd'hui, ${dayName(today)}`;
+  // A stop's page names the stop in its title: its sentence starts with the fact.
+  const head = where ? `Arrêt${groups.length > 1 ? "s" : ""} ${where}${NBSP}: aucun départ aujourd'hui, ${dayName(today)}` : `Aucun départ aujourd'hui, ${dayName(today)}`;
   const off = await offDay(pats, today, cache);
   if (off && "ferie" in off) return { text: `${head}, ${off.ferie}, d'après les horaires publiés.` };
   if (off) return { text: `${head}. D'après les horaires publiés, aucune des lignes qui le desservent ne circule le ${WEEKDAYS[today.weekday]}.` };
@@ -840,7 +841,7 @@ export interface TripRun {
   /** First and last time of the trip, in ms since 1970, as scheduled: what the page says without its stops. */
   depart: number;
   arrivee?: number;
-  /** Where its network has a real-time feed and the trip is on the road: whether the feed speaks of it, and the feed's time. */
+  /** Where its network has a real-time feed: whether the feed speaks of this run (only while it is on the road), and the feed's time. */
   direct?: { etat: "suivi" | "absent"; flux: number } | { etat: "muet" };
   /** The real-time feed says the trip will not run. */
   supprime?: boolean;
@@ -899,9 +900,11 @@ export async function tripRun(net: string, local: number, trip: string, jour: nu
     depart: base,
     ...(stops?.length ? { arrivee: base + last * 1000 } : {}),
   };
-  // The feed speaks of a trip id's run on the road now, not of its runs of other days.
+  // The feed speaks of a trip id's run on the road now, not of its runs of other days: read for any run of a network
+  // that has one, so that the page says the bus is not in it, but its times applied only around this run's.
   const t = now.getTime();
-  if (cache && n.temps_reel && t >= base - LIVE_AROUND_MS && t <= base + last * 1000 + LIVE_AROUND_MS) {
+  const onRoad = t >= base - LIVE_AROUND_MS && t <= base + last * 1000 + LIVE_AROUND_MS;
+  if (cache && n.temps_reel) {
     let f: rt.Realtime | undefined;
     try {
       f = (await rt.realtime(cache, net))?.value;
@@ -910,6 +913,7 @@ export async function tripRun(net: string, local: number, trip: string, jour: nu
     }
     // A feed too old says nothing of now: as one that does not answer.
     if (!f || t / 1000 - f.at >= rt.MAX_AGE_SECONDS) out.direct = { etat: "muet" };
+    else if (!onRoad) out.direct = { etat: "absent", flux: f.at };
     else {
       const told = f.trips[trip];
       out.supprime = f.cancelled.includes(trip) || undefined;
@@ -925,4 +929,64 @@ export async function tripRun(net: string, local: number, trip: string, jour: nu
     }
   }
   return out;
+}
+
+/**
+ * A stop's page (web/arret.ts): its next departures, of all its networks, with the real-time feeds; the day's sentence
+ * when nothing of it runs today; the lines that stop there. One read of its passes serves the three, one or two of the
+ * patterns: what the tool reads for a stop.
+ */
+export async function stopPageDepartures(groups: transit.StopGroup[], now: Date, cache?: Cache) {
+  const c = moment(now);
+  const m = byStop(groups);
+  const all = await transit.passes([...m.keys()]);
+  const pats = new Map<number, transit.Pattern>();
+  const read = async (pass: Pass[]) => {
+    const ids = [...new Set(pass.map((p) => p.pattern))].filter((id) => !pats.has(id));
+    if (ids.length) for (const [id, pat] of await transit.patterns(ids)) pats.set(id, pat);
+  };
+  let pass = passing(all, m, 3 * 3600, c);
+  await read(pass);
+  let list = listed(pass, pats, m, 3 * 3600, c);
+  if (list.length < 3) {
+    pass = passing(all, m, 20 * 3600, c);
+    await read(pass);
+    list = listed(pass, pats, m, 20 * 3600, c);
+  }
+  const feeds = cache ? await realtimeFeeds(groups.map((g) => g.reseau), cache, now) : new Map<string, rt.Realtime>();
+  const shown = spread(applyRealtime(list, feeds, now));
+  const off = shown.every((d) => d.at >= 86400) ? await quiet(groups, undefined, feeds, now, cache, all) : undefined;
+  // The lines that stop there (not their terminus), whatever the day: they change seldom, the times every minute.
+  const lines = [...new Set(all.map((p) => transit.ENDS[p.pattern]?.[0]).filter((r): r is number => r !== undefined))].map((r) => lineName(r).ligne);
+  const live = [...new Set(shown.filter((d) => d.retard !== undefined || d.supprime).map((d) => d.reseau))];
+  const at = [...feeds].filter(([n]) => live.includes(n)).reduce((t, [, f]) => Math.max(t, f.at), 0);
+  return {
+    departs: shown.map(pageRow),
+    ...(off ? { aucun: off.text } : {}),
+    alertes: [...(off?.alertes ?? []), ...alertsFor(groups, shown, feeds, now)].filter((a, i, l) => l.findIndex((b) => b.titre === a.titre) === i),
+    lignes: [...new Set(lines)].sort((a, b) => a.localeCompare(b, "fr", { numeric: true })),
+    /** The networks whose departures shown come from their feed, and the feed's time (seconds since 1970). */
+    direct: live.map((n) => transit.NETWORKS[n].nom),
+    flux: at || undefined,
+    sources: [transit.SOURCE, ...(live.length ? [rt.SOURCE] : [])],
+  };
+}
+
+/**
+ * The stop pages a search names (/bus/arret?q=), the best first: the words of a stop's name, as the tool matches them
+ * (`findStops`), within the network and the commune it names; never the stops near a place.
+ */
+export function searchStops(asked: string): transit.StopPage[] {
+  const { reseau, commune, words } = parseQuery(asked);
+  if (!words.length) return [];
+  const pool = transit.GROUPS.filter((g) => (!reseau || g.reseau === reseau) && (!commune || g.commune === commune));
+  const scored = pool.map((g) => ({ g, n: words.filter((w) => matches(g, w)).length })).filter((x) => x.n >= Math.max(1, Math.ceil(words.length / 2)));
+  if (!scored.length) return [];
+  const best = Math.max(...scored.map((x) => x.n));
+  const out = new Map<string, transit.StopPage>();
+  for (const { g } of scored.filter((x) => x.n === best).sort((a, b) => a.g.words.size - b.g.words.size || a.g.commune.localeCompare(b.g.commune, "fr"))) {
+    const p = transit.pageOfStop(g.ids[0]);
+    if (p && !out.has(p.slug)) out.set(p.slug, p);
+  }
+  return [...out.values()];
 }

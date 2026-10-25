@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { failed, handle } from "../src/app.js";
+import { stopPages } from "../src/providers/transit.js";
 import { PAGE_BUDGET, count, counted, later, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
@@ -438,8 +439,11 @@ describe("what crawlers and previews fetch", () => {
     const robots = await (await handle(new Request("https://rundata.re/robots.txt"), isolate())).text();
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
-    // The pages, the 24 communes, their water and their day, a page per hike and per ONF trail with its GPS trace, and per past cyclone.
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 50 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length);
+    // The pages, the 24 communes, their water and their day, a page per hike and per ONF trail with its GPS trace, and per past
+    // cyclone, and the busiest bus stops.
+    const stops = [...stopPages().values()].filter((p) => p.indexe);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 50 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length + stops.length);
+    expect(map).toContain(`<loc>https://rundata.re/bus/arret/${stops[0].slug}</loc>`);
     expect(map).toContain("<loc>https://rundata.re/enfants</loc>");
     expect(map).toContain("<loc>https://rundata.re/sites-sans-reponse</loc>");
     expect(map).toContain("<loc>https://rundata.re/chiffres</loc>");
