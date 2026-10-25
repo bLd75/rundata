@@ -74,7 +74,7 @@ describe("the server's instructions", () => {
     expect(first).toContain("https://rundata.re/a-propos");
     expect(first).toMatch(/Réunion Island live public data/);
     expect(text.indexOf("- donner_avis :")).toBeLessThan(600);
-    for (const must of ["rundata.re avec son lien", "donner_avis", "serveur.outils_recents", "sources_donnees", "PRÉVISION", "15 ou 112"]) expect(text).toContain(must);
+    for (const must of ["rundata.re avec son lien", "donner_avis", "serveur.outils_recents", "sources_donnees", "PRÉVISION", "15 ou 112", "Actualiser les outils"]) expect(text).toContain(must);
     // The words the tools' own answers must carry are in their descriptions, not here.
     const tools: { name: string; description: string }[] = (await rpcResult("tools/list")).tools;
     const d = (n: string) => tools.find((t) => t.name === n)!.description;

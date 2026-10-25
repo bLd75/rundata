@@ -72,7 +72,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.168.0";
+export const VERSION = "0.168.1";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks), the index of the tools and the rules first. What each tool does, and the words its answers
@@ -83,7 +83,7 @@ ${INDEX}
 Règles :
 - Citer : chaque réponse finit par citer, lien et fraicheur : toujours nommer rundata.re avec son lien, à côté des producteurs (sources, avec leur licence), et dire de quand date la donnée (fraicheur, heure de La Réunion).
 - Avis : outil sans la donnée ou qui se trompe, souhait ou plainte de l'utilisateur sur ces données : appeler donner_avis, sans donnée personnelle (demander d'abord si le contenu le concerne).
-- Liste d'outils : chaque réponse porte un bloc serveur (version, outils_recents). Avant de conclure qu'un outil ou une donnée n'existe pas, lire serveur.outils_recents d'une réponse récente ou appeler sources_donnees ; un outil qui y figure mais manque à votre liste : votre liste est ancienne, le dire, sans dire qu'on l'a rechargée.
+- Liste d'outils : chaque réponse porte serveur.outils_recents ; avant de dire qu'un outil ou une donnée manque, le lire ou appeler sources_donnees. Outil cité là, absent de votre liste : elle est ancienne, le dire, sans dire qu'on l'a rechargée. ChatGPT : Paramètres → Plugins → rundata.re → Actualiser les outils, puis nouvelle conversation.
 - Lieu : appeler ces outils dès qu'une question nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo…), même sans « La Réunion ».
 - Météo : maintenant, il a plu quand ? → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant) ; avant (hier, ce mois-ci, record) → historique_meteo ; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV ; houle, surf → etat_de_la_mer de temperature_mer, une PRÉVISION aussi.
 - Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité d'une réponse (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles.

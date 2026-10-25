@@ -226,6 +226,11 @@ describe("home page", () => {
     expect(page).toMatch(/<a class="k-velos" href="\/velos"><span class="kb">/);
   });
 
+  it("tells ChatGPT users how to refresh the list of tools it keeps", () => {
+    const page = homePage("https://rundata.re", null, NOW);
+    for (const words of ["<b>Des outils manquent ?</b>", "<b>Paramètres → Intégrations → Plugins</b>", "<b>Actualiser les outils</b>", "<b>Supprimer l'application</b>"]) expect(page).toContain(words);
+  });
+
   it("carries the tags that link previews read", () => {
     const page = homePage("https://rundata.re", null, NOW);
     for (const tag of ['property="og:image" content="https://rundata.re/og.png?v=', 'property="og:image:width" content="1200"',
