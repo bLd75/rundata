@@ -88,6 +88,7 @@ import { FEUX_PATH, feuxPage } from "./feux.js";
 import * as feux from "../providers/feux.js";
 import { rafraichirPropositions } from "../tools/agenda.js";
 import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
+import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
 import { readCopies, resume } from "../tools/resume.js";
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { OFFLINE_PATH, serviceWorker, SW_PATH } from "./pwa.js";
@@ -262,6 +263,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
   const urls: Url[] = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/alerte-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), fixed("/kit-cyclone"), fixed("/publier"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
+    ...(formulaires.enLigne() ? [live(ASSOCIATIONS_PATH), fixed(formulaires.PROPOSER_PATH)] : []),
     ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay ? (fuelDay < today ? fuelDay : today) : undefined, "daily"],
     // The fires' page only once FIRMS's key is there: before, it says the detection is not active.
     ...(feux.enabled() ? [live(FEUX_PATH)] : [])];
@@ -285,6 +287,12 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/avis") return avisPost(request, now);
   // The clubs' and associations' forms (web/propositions.ts), once their page goes out.
   if (formulaires.enLigne()) {
+    // The space's page: the agendas' last copy for its proof, and the vigilance's banner.
+    if (path === ASSOCIATIONS_PATH || path === `${ASSOCIATIONS_PATH}/`) {
+      const [a, p] = await Promise.all([alerte(cache, background, now), preuve(cache, now)]);
+      return new Response(associationsPage(origin, p, a), { headers: HTML });
+    }
+    if (ASSOCIATIONS_ALIASES.includes(path.replace(/\/$/, ""))) return Response.redirect(`${origin}${ASSOCIATIONS_PATH}${new URL(request.url).search}`, 301);
     if (path === formulaires.LIEN_PATH) return formulaires.lienPost(request, now);
     if (path === formulaires.PROPOSER_PATH || path === `${formulaires.PROPOSER_PATH}/`) return formulaires.proposer(request, now, await alerte(cache, background, now));
     if (path === ICS_PATH || path === JSON_PATH) return flux(request, path, now);

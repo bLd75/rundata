@@ -3,6 +3,7 @@
  * reach it (the communication audit of 25/10/2026, C2). Never a person's name: the editor is anonymous, as the law
  * allows (/conditions#mentions-legales).
  */
+import { enLigne } from "./associations-drapeau.js";
 import type { Alerte } from "./data.js";
 import { crumbBar, crumbs, webPage } from "./domains.js";
 import { layout } from "./pages.js";
@@ -33,7 +34,7 @@ export function aProposPage(origin: string, alerte?: Alerte): string {
     <li><b>Une erreur signalée est vérifiée et corrigée au plus vite.</b></li>
   </ul>
   <h2 id="contact">Joindre rundata.re</h2>
-  <p>Écrivez à <a href="mailto:contact@rundata.re"><b>contact@rundata.re</b></a>, ou laissez un avis avec le formulaire en bas de chaque page. Le site est né en octobre 2026. Son code est libre (licence MIT). Les sources de chaque donnée sont citées en bas de chaque page. Voir aussi : <a href="/presse">l'espace presse</a>, <a href="/nouveautes">les nouveautés</a>, <a href="/conditions#mentions-legales">les mentions légales</a> et <a href="/confidentialite">la confidentialité</a>.</p>
+  <p>Écrivez à <a href="mailto:contact@rundata.re"><b>contact@rundata.re</b></a>, ou laissez un avis avec le formulaire en bas de chaque page. Le site est né en octobre 2026. Son code est libre (licence MIT). Les sources de chaque donnée sont citées en bas de chaque page. Voir aussi : <a href="/presse">l'espace presse</a>,${enLigne() ? ` <a href="/associations">l'espace clubs et associations</a>,` : ""} <a href="/nouveautes">les nouveautés</a>, <a href="/conditions#mentions-legales">les mentions légales</a> et <a href="/confidentialite">la confidentialité</a>.</p>
 </section>`;
   return layout(origin, { title: TITLE, description: DESCRIPTION, path: PATH, jsonld: [crumbs(origin, "Qui fait rundata.re ?", PATH), { ...webPage(origin, PATH, TITLE, DESCRIPTION, null), "@type": "AboutPage" }], alerte }, band, body);
 }

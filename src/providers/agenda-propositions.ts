@@ -76,6 +76,7 @@ export const PROPOSITIONS: Agenda = {
   source: SOURCE,
   // Whole island: no commune is « covered » by it.
   couvre: [],
+  club: true,
   // Without the database (Node, the tests), nothing, and no subrequest taken from the others.
   load: (cache: AgendaStore, now: Date): Promise<Cached<Evenement[]>> =>
     lisible() ? cache.get(`agenda:${ID}`, FRESH_SECONDS, () => evenements(now)) : Promise.resolve({ value: [], fetchedAt: now, stale: false }),

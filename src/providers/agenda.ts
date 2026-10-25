@@ -178,6 +178,11 @@ export interface Agenda {
   partiel?: string;
   /** For an agenda read by the scheduled event: the seconds between two readings, when not an hour. */
   relecture?: number;
+  /**
+   * Published by clubs or associations (a league, the clubs' sites, the proposed events), not by a town hall nor a
+   * hall: what the counter of /associations counts (web/associations.ts).
+   */
+  club?: boolean;
   /** One `cache.get("agenda:<id>", …)`, nothing else of the cache. */
   load: (cache: AgendaStore, now: Date) => Promise<Cached<Evenement[]>>;
 }
@@ -1099,6 +1104,7 @@ const NORD = ["Saint-Denis", "Sainte-Marie", "Sainte-Suzanne"];
 export const LIGUE_VOLLEY: Agenda = {
   ...tribe("lrvb", "Ligue réunionnaise de volley-ball", "https://lrvb.re", undefined, SPORT_SOURCES.lrvb_tournois, "lieu à venir (voir la page de la Ligue)"),
   planifie: true,
+  club: true,
 };
 
 // ---------------------------------------------------------------- Sportsregions: the clubs' calendar
