@@ -430,9 +430,10 @@ export function mentionCommune(commune: string | undefined): string | undefined 
 
 /**
  * The same in a few words (marketing): for the commune page's tile of outings, `valeur` and `detail` when it has no
- * event from elsewhere, `tete` before the next one's when it has; `resume` for the tool's summary.
+ * event from elsewhere, `tete` before the next one's when it has; `resume` for the tool's summary; `ligne` under the
+ * outings of the day's page.
  */
-export function mentionCourte(commune: string): { valeur: string; detail: string; tete: string; resume: string } | undefined {
+export function mentionCourte(commune: string): { valeur: string; detail: string; tete: string; resume: string; ligne: string } | undefined {
   if (autorisee(commune)) return undefined;
   const au = AUTORISATIONS[commune];
   const news = au.publie === "actualités";
@@ -443,6 +444,7 @@ export function mentionCourte(commune: string): { valeur: string; detail: string
     detail,
     tete: news ? "Actualités communales non reprises" : "Agenda communal non repris",
     resume: `${news ? "actualités du site de la commune non reprises" : "agenda du site de la commune non repris"}, ${detail} (voir non_repris)`,
+    ligne: `${news ? "Actualités du site de la commune non reprises" : "Agenda du site de la commune non repris"} : ${detail}.`,
   };
 }
 
@@ -464,6 +466,22 @@ export function mentionIle(): string[] {
     if (day === undefined) lines.push(...waiting.filter((c) => AUTORISATIONS[c].etat === "demandee").map((c) => mentionCommune(c)!));
   }
   return [...lines, ...refused.map((c) => mentionCommune(c)!)];
+}
+
+// The agendas not read until their commune agrees, and the sources only they are credited with.
+const NON_LUS = src.LISIBLES.filter((x) => !src.AGENDAS.includes(x));
+const THEIRS_ONLY = new Set(NON_LUS.map((x) => x.source).filter((s) => !src.AGENDAS.some((x) => x.source === s)).map((s) => s.nom));
+
+/**
+ * Whether an event of a copy may be served: not one read on a site not read until its commune agrees, however old the
+ * copy (one built before, by another revision, can still be served while it is rebuilt: tools/resume.ts, readCopies).
+ */
+export const repris = (r: Pick<EventRow, "source" | "publie_par">) =>
+  !NON_LUS.some((x) => r.publie_par === x.nom || (!!x.site_commune && !!r.source?.startsWith(`${x.site_commune}, `)));
+
+/** The credits of a copy, as they read now: none of a source not read, the mairies' agendas named as now (SOURCES). */
+export function sourcesServies<T extends { source: string }>(cs: T[] | undefined): (T | ReturnType<typeof credits>[number])[] | undefined {
+  return cs?.filter((c) => !THEIRS_ONLY.has(c.source)).map((c) => (c.source.startsWith("Agendas des mairies") ? credits([src.SOURCES.mairies])[0] : c));
 }
 
 // Told from the agendas read: a source taken out of AGENDAS leaves this text too.

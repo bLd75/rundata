@@ -7,7 +7,7 @@ import type { Cached } from "../cache.js";
 import { distanceKm } from "../geo.js";
 import * as traces from "../providers/traces.js";
 import * as fire from "../tools/feux.js";
-import { mentionCommune, mentionCourte } from "../tools/agenda.js";
+import { mentionCommune, mentionCourte, repris } from "../tools/agenda.js";
 import { secteur } from "../tools/sentiers.js";
 import { secteurNamed } from "../traces/secteurs.js";
 import type { AgendaAnswer, RandonneesAnswer } from "./data.js";
@@ -143,7 +143,7 @@ export function communeHikes(p: PlacePage, hikes: Cached<RandonneesAnswer> | nul
 /** The commune's page's tile of outings: what its agendas announce in the two weeks. */
 export function communeEvents(p: PlacePage, agenda: Cached<AgendaAnswer> | null | undefined): Live | undefined {
   if (!agenda) return undefined;
-  const rows = (agenda.value.evenements ?? []).filter((r) => r.commune === p.nom);
+  const rows = (agenda.value.evenements ?? []).filter((r) => r.commune === p.nom && repris(r));
   // Its site not read until it agrees: said first, in short, the whole of it in the title; and never « rien d'annoncé »,
   // which would be wrong (marketing).
   const mention = mentionCourte(p.nom);

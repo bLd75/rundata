@@ -5,6 +5,7 @@
  */
 import type { Cached } from "../cache.js";
 import { ACCUEILS } from "../providers/agenda.js";
+import { mentionCourte } from "../tools/agenda.js";
 import { type Resume, UPDATING } from "../tools/resume.js";
 import type { Alerte } from "./data.js";
 import { connectorCta, courantItem, webPage } from "./domains.js";
@@ -94,11 +95,14 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
         `/coupures-eau/${p.slug}`, r.coupures_eau.avis.some((n) => n.ne_pas_boire) ? " warn" : "")
     : "";
   const ev = r.evenements_du_jour;
+  const notRead = mentionCourte(p.nom);
   const events = ev
     ? card("music", "Sortir aujourd'hui",
-        ev.liste.length
+        (ev.liste.length
           ? `<ul class="plain">${ev.liste.map((e) => `<li>${e.statut ? `<b>${esc(e.statut)}</b> · ` : ""}${e.lien && ACCUEILS.has(e.lien) ? `<a href="${esc(e.lien)}" rel="noopener" target="_blank">${esc(e.titre)}</a>` : li({ titre: e.titre, lien: e.lien }).slice(4, -5)} <span class="note">${esc([e.quand, e.lieu, e.prix, e.source && `Source\u00a0: ${e.source}`].filter(Boolean).join(" · "))}</span></li>`).join("")}</ul>${ev.autres ? `<p class="note">Et ${plural(ev.autres, "autre")}.</p>` : ""}`
-          : `<p>Rien d'annoncé aujourd'hui ${esc(aCommune(p.nom))} dans les agendas lus.</p>`,
+          : `<p>Rien d'annoncé aujourd'hui ${esc(aCommune(p.nom))} dans les agendas lus.</p>`) +
+        // Its site not read until it agrees: said under them, in marketing's words.
+        (notRead ? `<p class="note">${esc(notRead.ligne)}</p>` : ""),
         "/evenements")
     : "";
   const d = r.decheteries;

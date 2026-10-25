@@ -2,12 +2,13 @@ import type { Cache, Cached } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
 import { httpUrl } from "../http.js";
-import { type Evenement, type programmesSportifs, reserve, sportDesAgendas } from "../providers/agenda.js";
+import { AGENDAS, type Evenement, LISIBLES, type programmesSportifs, reserve, sportDesAgendas } from "../providers/agenda.js";
+import { AUTORISATIONS } from "../providers/autorisations.js";
 import * as src from "../providers/sport.js";
 import * as avis from "../providers/sport-avis.js";
 import { type Club, clubOf, clubsNamed, type ClubSport, zoneOf } from "../sport/clubs.js";
 import { type SourceInfo, why } from "../types.js";
-import { a, credits, de, notFound, placeBlock, text } from "./format.js";
+import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
 
 export type Sport = "grand_raid" | "handball" | "volley" | "basket" | "voile" | "golf" | "sport_auto" | "football";
 export type Quand = "aujourd_hui" | "demain" | "samedi" | "dimanche" | "ce_week_end" | "a_venir" | "resultats";
@@ -338,6 +339,32 @@ export function grandRaidRow(g: src.GrandRaid) {
   };
 }
 
+const dayMonth = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
+
+/**
+ * Said instead of the sports programmes of the communes whose site is not read until they agree (marketing), for the
+ * whole island or the communes asked: undefined when there is none.
+ */
+export function mentionProgrammes(communes?: string[]): string | undefined {
+  const theirs = LISIBLES.filter((x) => x.programmes && x.commune && !AGENDAS.includes(x) && (!communes || communes.includes(x.commune))).map((x) => x.commune!).sort((x, y) => x.localeCompare(y, "fr"));
+  const waiting = theirs.filter((c) => AUTORISATIONS[c]?.etat !== "refusee");
+  const lines: string[] = [];
+  if (waiting.length) {
+    const days = new Set(waiting.map((c) => (AUTORISATIONS[c]?.etat === "demandee" ? AUTORISATIONS[c].demandee_le ?? "" : undefined)));
+    const day = days.size === 1 ? [...days][0] : undefined;
+    const one = waiting.length === 1;
+    lines.push((one
+      ? `Les mentions légales du site de la commune ${de(waiting[0])} interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas le programme sportif qu'elle y publie.`
+      : `Les programmes sportifs ${enumeration(waiting.map(de))} ne sont pas repris : les mentions légales des sites de ces communes l'interdisent sans leur accord.`) +
+      (day !== undefined ? ` Nous ${one ? "lui" : "leur"} avons demandé cet accord${day ? ` le ${dayMonth(day)}` : ""} et attendons ${one ? "sa" : "leur"} réponse.` : ""));
+  }
+  for (const c of theirs.filter((x) => !waiting.includes(x))) {
+    const no = AUTORISATIONS[c].refusee_le;
+    lines.push(`La commune ${de(c)} a refusé${no ? `, le ${dayMonth(no)},` : ""} que rundata.re reprenne le contenu de son site : le programme sportif qu'elle y publie ne s'affiche donc pas ici.`);
+  }
+  return lines.join(" ") || undefined;
+}
+
 const PROGRAMMES =
   "Programme sportif de la commune : le document publié par la mairie avec les compétitions de ses clubs. rundata.re ne lit pas ce document, il en donne seulement le lien : " +
   "les matchs, les heures et les lieux sont dans le document.";
@@ -506,6 +533,8 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     a_verifier: check.length ? check : undefined,
     programmes_communes: programmes.length ? programmes.map(({ date: _d, agenda: _a, ...p }) => p) : undefined,
     programmes_a_savoir: programmes.length ? PROGRAMMES : undefined,
+    // The programmes of the communes whose site is not read until they agree, where programmes are given.
+    non_repris: sport || q === "resultats" || (w && w.kind !== "communes") ? undefined : mentionProgrammes(w?.kind === "communes" ? w.communes : undefined),
     classements: standings,
     grand_raid: showRaid ? grandRaidRow(gr) : undefined,
     actualite: news.length ? news : undefined,
