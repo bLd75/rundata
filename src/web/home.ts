@@ -186,10 +186,11 @@ export function sky(now: Date): "nuit" | "aube" | "jour" | "soir" {
 
 /**
  * The figures of the moment under the title, two by two: the vigilance and the volcano while in force, then the
- * events, the hikes, the weather.
+ * events, the hikes, the weather and the air, an even number with both alerts or none. One missing for want of its
+ * data, or one alert alone: the last box is as wide as the grid, as high as the others.
  */
 function facts(live: Record<string, Live | undefined>, u: Urgent): string {
-  const shown = [...urgentKeys(u), ...FIRST]
+  const shown = [...urgentKeys(u), ...FIRST, "air"]
     .map((k) => ({ c: CATEGORIES.find((c) => c.key === k)!, l: live[k] }))
     .filter((x) => x.l);
   if (!shown.length) return "";
