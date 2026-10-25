@@ -225,9 +225,9 @@ function heroMap(h: HomeLive | null): string {
 function tile(c: Category, l: Live | undefined, odd = false): string {
   const name = c.path ? `<h3><a href="${c.path}">${esc(c.nom)}</a></h3>` : `<h3>${esc(c.nom)}</h3>`;
   const now = l?.vide
-    ? `<p class="td">${l.detail}</p>`
+    ? `<p class="td all">${l.detail}</p>`
     : l
-    ? `<p class="tv">${l.valeur}</p><p class="td">${l.detail}</p>`
+    ? `<p class="tv">${l.valeur}</p><p class="td${l.entier ? " all" : ""}">${l.detail}</p>`
     : c.exemple
       ? `<p class="tq">« ${esc(c.exemple)} »</p>`
       // No copy at all: the read is under way (a copy with nothing to show says so, `vide`).

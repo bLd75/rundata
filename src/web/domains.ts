@@ -1820,7 +1820,8 @@ export function coupuresLive(data: Cached<CoupuresAnswer> | null): Live | undefi
  */
 export function daeLive(): Live {
   const communes = new Set(DAES.map((d) => d.commune)).size;
-  return { valeur: `${nombre(DAES.length)} défibrillateurs`, detail: `dans les ${communes} communes, avec leur accès · Géo'DAE du ${esc(dayMonth(DAE_BUILT))}` };
+  // A hyphen where the word may break: too long for a tile two by two on a phone.
+  return { valeur: `${nombre(DAES.length)} défibril&shy;lateurs`, detail: `dans les ${communes} communes, avec leur accès · Géo'DAE du ${esc(dayMonth(DAE_BUILT))}`, entier: true };
 }
 
 const shortAccess = (a: string) =>

@@ -68,9 +68,9 @@ interface Tile {
 function tile(t: Tile): string {
   const head = t.href ? `<h3><a href="${t.href}">${esc(t.nom)}</a></h3>` : `<h3>${esc(t.nom)}</h3>`;
   const body = t.live?.vide
-    ? `<p class="td">${t.live.detail}</p>`
+    ? `<p class="td all">${t.live.detail}</p>`
     : t.live
-    ? `<p class="tv">${t.live.valeur}</p><p class="td"${t.live.title ? ` title="${esc(t.live.title)}"` : ""}>${t.live.detail}</p>`
+    ? `<p class="tv">${t.live.valeur}</p><p class="td${t.live.entier ? " all" : ""}"${t.live.title ? ` title="${esc(t.live.title)}"` : ""}>${t.live.detail}</p>`
     : t.question
       ? `<p class="tq">« ${esc(t.question)} »</p>`
       // No copy at all: the read is under way (a copy with nothing to show says so, `vide`).

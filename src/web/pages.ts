@@ -379,7 +379,7 @@ background:radial-gradient(closest-side,color-mix(in srgb,var(--k) 22%,transpare
 .tile h3 a:focus-visible{outline:none}.tile:has(h3 a:focus-visible){outline:2px solid var(--link);outline-offset:2px}
 .tv{font:800 clamp(1.15rem,4.6vw,1.5rem)/1.12 Bricolage,system-ui,sans-serif;letter-spacing:-.015em;overflow-wrap:anywhere}
 .tv .vg,.tv .aq{font:inherit;font-size:.95rem;padding:.15rem .6rem;vertical-align:.12em}
-.td{font-size:.84rem;line-height:1.4;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.td{font-size:.84rem;line-height:1.4;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.td.all{display:block;overflow:visible}
 .tq{font-size:.92rem;font-style:italic;align-self:flex-start;padding:.4rem .85rem;border-radius:16px 16px 16px 4px;background:var(--surface-2);border:1px solid var(--line)}
 .ta{display:none}
 @media (min-width:66rem){.ta{display:block;font-size:.86rem;line-height:1.45;color:var(--muted);padding-top:.5rem;margin-top:auto;border-top:1px solid var(--line)}}
@@ -1134,9 +1134,11 @@ export interface Live {
   title?: string;
   /**
    * A copy read with nothing to show: its detail alone, one line saying what was read and when, in place of a figure;
-   * not among the figures under the home page's title.
+   * not among the figures under the home page's title. Said in full, never cut: its hour is at its end.
    */
   vide?: boolean;
+  /** The detail said in full on a phone, where the others are cut after three lines: its source and date at its end. */
+  entier?: boolean;
 }
 
 /** A tile's line for a copy read with nothing to show (`vide`), in plain text. */
