@@ -10,7 +10,7 @@
 import { costOf } from "./budget.js";
 import { cacheTally } from "./metrics.js";
 
-import { noteLecture } from "./lectures.js";
+import { noteLecture, withSource } from "./lectures.js";
 import { UpstreamError, why } from "./types.js";
 import { familyOf, RENDU_REVISION } from "./web/revisions.js";
 
@@ -31,6 +31,8 @@ export interface CacheEntry {
   cost?: number;
   /** For a page's copy: the revision of the code that built it (`stampOf`). */
   version?: string;
+  /** The source it was read from, when it was one (lectures.ts `withSource`). */
+  from?: string;
 }
 
 /**
@@ -116,6 +118,8 @@ export interface Cached<T> {
   stale: boolean;
   /** With `stale`: the id of the source that did not answer, when its error said it (an UpstreamError). */
   source?: string;
+  /** The source it was read from, when it was one: a fresh copy and a last copy of the same source tell their parts apart. */
+  from?: string;
   /** What its build took, when it was measured (`peek` only). */
   cost?: number;
   /** A page's copy built by another version of the code (`outdated`, `peek` only). */
@@ -184,13 +188,13 @@ export class Cache {
    * served if fresh enough, else loaded, the entry being the copy served if the source fails.
    */
   async getFrom<T>(key: string, have: Cached<T> | undefined, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>> {
-    const hit = have && { value: have.value, fetchedAt: have.fetchedAt.getTime(), ...(have.cost != null && { cost: have.cost }), ...(!have.outdated && { version: stampOf(key, this.version) }) };
+    const hit = have && { value: have.value, fetchedAt: have.fetchedAt.getTime(), ...(have.cost != null && { cost: have.cost }), ...(have.from && { from: have.from }), ...(!have.outdated && { version: stampOf(key, this.version) }) };
     return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e)));
   }
 
   /** Tells the tool call being answered, if any, what it was served (lectures.ts): its answer says how fresh it is. */
   private noted<T>(key: string, freshSeconds: number, c: Cached<T>): Cached<T> {
-    noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds, ...(c.source && { source: c.source }) });
+    noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds, ...(c.source && { source: c.source }), ...(c.from && { from: c.from }) });
     return c;
   }
 
@@ -270,7 +274,7 @@ export class Cache {
   ): Promise<Cached<T>> {
     if (hit && this.now() - hit.fetchedAt < freshSeconds * 1000 && !outdated(key, hit, this.version)) {
       cacheTally().hits++;
-      return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false };
+      return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.from && { from: hit.from }) };
     }
     cacheTally().loads++;
     const failed = this.failures.get(key);
@@ -293,13 +297,13 @@ export class Cache {
     put: (e: CacheEntry) => Promise<void>,
   ): Promise<Cached<T>> {
     try {
-      const value = await load();
+      const { value, from } = await withSource(load);
       // A page's build is measured under its key (budget.ts `measured`): what it took goes with its copy.
       const cost = costOf(key);
-      const entry: CacheEntry = { value, fetchedAt: this.now(), ...(cost != null && { cost }), ...(stampOf(key, this.version) != null && { version: stampOf(key, this.version) }) };
+      const entry: CacheEntry = { value, fetchedAt: this.now(), ...(cost != null && { cost }), ...(stampOf(key, this.version) != null && { version: stampOf(key, this.version) }), ...(from && { from }) };
       await put(entry);
       this.failures.delete(key);
-      return { value, fetchedAt: new Date(entry.fetchedAt), stale: false };
+      return { value, fetchedAt: new Date(entry.fetchedAt), stale: false, ...(from && { from }) };
     } catch (error) {
       if (!OUT_OF_BUDGET.test(String((error as Error)?.message ?? error))) {
         this.failures.set(key, { at: this.now(), error });

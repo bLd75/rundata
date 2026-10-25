@@ -14,9 +14,12 @@ export interface Lecture {
   freshSeconds: number;
   /** For a last copy: the id of the source that did not answer (`SourceInfo.id`), when its error said it. */
   source?: string;
+  /** The source the entry was read from (`SourceInfo.id`), when it was one, fresh or not (`withSource`). */
+  from?: string;
 }
 
 const current = new AsyncLocalStorage<Lecture[]>();
+const asked = new AsyncLocalStorage<Set<string>>();
 
 /** Runs `fn`, and returns with its value the entries the cache served it. */
 export async function withLectures<T>(fn: () => Promise<T>): Promise<{ value: T; lectures: Lecture[] }> {
@@ -28,4 +31,16 @@ export async function withLectures<T>(fn: () => Promise<T>): Promise<{ value: T;
 /** Called by the cache for each entry it serves; nothing outside a tool call. */
 export function noteLecture(l: Lecture) {
   current.getStore()?.push(l);
+}
+
+/** Runs `fn` (a cache load), and returns with its value the source it asked, when it asked one and only one. */
+export async function withSource<T>(fn: () => Promise<T>): Promise<{ value: T; from?: string }> {
+  const ids = new Set<string>();
+  const value = await asked.run(ids, fn);
+  return { value, ...(ids.size === 1 && { from: [...ids][0] }) };
+}
+
+/** Called by http.ts for each source asked; nothing outside a cache load. */
+export function noteSource(id: string) {
+  asked.getStore()?.add(id);
 }

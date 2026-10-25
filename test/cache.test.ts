@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
+import { noteSource } from "../src/lectures.js";
 import { UpstreamError } from "../src/types.js";
 import { familyOf, RENDU_REVISION } from "../src/web/revisions.js";
 
@@ -56,6 +57,29 @@ describe("Cache", () => {
     expect(log).toHaveBeenCalledTimes(1);
     expect(log.mock.calls[0][0]).toBe("lecture sans aboutir : page");
     log.mockRestore();
+  });
+
+  it("keeps the source a copy was read from, when it asked one: fresh, from the store and in a bundle", async () => {
+    const c = clock();
+    const store = new MemoryStore();
+    const cache = new Cache(store, c.now);
+    const from = (id: string) => async () => { noteSource(id); return "ok"; };
+    expect(await cache.get("slot", 60, from("meteofrance"))).toMatchObject({ stale: false, from: "meteofrance" });
+    // Served fresh, by this process or another one reading the store.
+    expect((await cache.get("slot", 60, from("autre"))).from).toBe("meteofrance");
+    expect((await new Cache(store, c.now).get("slot", 60, from("autre"))).from).toBe("meteofrance");
+    const b = await cache.bundle("paquet", 60);
+    expect((await b.get("horaire", 60, from("meteofrance"))).from).toBe("meteofrance");
+    // Two sources asked for one entry: none said.
+    const both = async () => { noteSource("metar"); noteSource("pioupiou"); return "ok"; };
+    expect((await cache.get("vent", 60, both)).from).toBeUndefined();
+    // A load within a load: each entry its own source.
+    const outer = await cache.get("dehors", 60, async () => {
+      noteSource("ovpf");
+      return (await cache.get("dedans", 60, from("bgs"))).value;
+    });
+    expect(outer.from).toBe("ovpf");
+    expect((await cache.get("dedans", 60, from("autre"))).from).toBe("bgs");
   });
 
   it("remembers a failure as long as the source asks, but not one of the invocation's budget", async () => {
