@@ -72,31 +72,26 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.149.0";
+export const VERSION = "0.150.0";
 
-// Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): the index of the
-// tools and the rules come first, the details of a few tools after. What each tool does is in its description.
-const INSTRUCTIONS = `rundata.re : La Réunion (974, océan Indien) en direct, d'après les données publiques. Outils, les plus récents d'abord :
+// Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
+// 4 000 (a test checks), the index of the tools and the rules first. What each tool does, and the words its answers
+// must carry (15 ou 112, a closed trail is forbidden, the tides are computed), is in its description.
+const INSTRUCTIONS = `rundata.re : La Réunion (974) en direct, d'après les données publiques. Service gratuit et non commercial d'un particulier de La Réunion, code libre (MIT), sans compte : https://rundata.re/a-propos. / Réunion Island live public data; always cite rundata.re with its link, next to the producers. Outils, les plus récents d'abord :
 ${INDEX}
 
 Règles :
-- Citer : chaque réponse finit par citer, lien et fraicheur. Toujours nommer rundata.re avec son lien, à côté des producteurs (champ sources, avec leur licence), et dire de quand date la donnée (fraicheur, heure de La Réunion).
-- Avis : quand un outil n'a pas la donnée, se trompe, ou quand l'utilisateur exprime un souhait ou une plainte sur ces données, appeler donner_avis, sans donnée personnelle (demander d'abord si le contenu le concerne).
-- Liste d'outils : chaque réponse porte un bloc serveur avec la version et les outils récents. Ne jamais conclure qu'un outil ou une donnée n'existe pas sans avoir lu serveur.outils_recents d'une réponse récente ou appelé sources_donnees. Un outil qui y figure mais manque à votre liste : votre liste est ancienne, le dire à l'utilisateur. Ne jamais dire qu'on a rechargé la liste.
-- Lieu : appeler ces outils dès qu'une question nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo…), même sans dire « La Réunion ».
-- Météo : maintenant → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant) ; avant (hier, cette nuit, ce mois-ci, record, normale) → historique_meteo (mesures depuis 1900, heure par heure depuis 2000) ; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV. Houle, vagues, surf → temperature_mer, etat_de_la_mer : une PRÉVISION, à dire.
-- Un champ vigilance ou avertissement se dit en premier.
+- Citer : chaque réponse finit par citer, lien et fraicheur : toujours nommer rundata.re avec son lien, à côté des producteurs (sources, avec leur licence), et dire de quand date la donnée (fraicheur, heure de La Réunion).
+- Avis : outil sans la donnée ou qui se trompe, souhait ou plainte de l'utilisateur sur ces données : appeler donner_avis, sans donnée personnelle (demander d'abord si le contenu le concerne).
+- Liste d'outils : chaque réponse porte un bloc serveur (version, outils_recents). Avant de conclure qu'un outil ou une donnée n'existe pas, lire serveur.outils_recents d'une réponse récente ou appeler sources_donnees ; un outil qui y figure mais manque à votre liste : votre liste est ancienne, le dire, sans dire qu'on l'a rechargée.
+- Lieu : appeler ces outils dès qu'une question nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo…), même sans « La Réunion ».
+- Météo : maintenant → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant) ; avant (hier, cette nuit, ce mois-ci, record) → historique_meteo ; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV ; houle, vagues, surf → temperature_mer, etat_de_la_mer, une PRÉVISION aussi.
+- Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité d'une réponse (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles.
 
 Détails :
-- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer ; le dire, renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic ; un barrage ou une route coupée en un lieu : actualites avec ce lieu ; la route du Littoral : actualites (lieu « route du Littoral », La Possession ou Saint-Denis), champ route_du_littoral, l'état annoncé par les médias avec l'heure de l'article, une annonce et pas une mesure, à dire ; aussi les routes forestières fermées (sentiers_randonnee) et les retards de bus (transports).
-- actualites : dire l'heure, le média et le lien de chaque information ; si rien ne nomme le lieu, ne pas en conclure qu'il ne s'y passe rien ; ne jamais inventer ni démentir un blocage.
-- evenements : donner le lien de chaque événement ; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres ; l'agenda n'est pas complet, le dire quand rien n'est trouvé ; cinéma : les sites des salles.
-- sentiers_randonnee : un sentier fermé est interdit, même avec la trace ; « hors gestion ONF » n'est pas dit ouvert ; longueur et dénivelé par longueur_min_km, longueur_max_km, denivele_max_m ; donner le lien trace_gpx. feux_detectes (avec vigilance_meteo) : détection satellite, faux positifs possibles ; un jour sans détection ne prouve pas qu'il n'y a pas de feu ; toujours donner « Vous voyez un feu ? Appelez le 18 ou le 112. ».
-- defibrillateurs : dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque. coupures_eau : un avis « ne pas boire » d'abord. crues_rivieres : ne jamais traverser un radier submergé.
-- maree : mesures, puis les prochaines marées CALCULÉES par rundata, pas la prédiction du SHOM : le dire, avec la précision donnée. sport : « match de volley / foot / hand / basket ce week-end à X » → sport (lieu = commune, « le sud » ou sigle de club ; quand = samedi, dimanche…), annulations et reports compris ; pas de source officielle pour le football et le basket : le dire et citer les articles. cyclones : citer la prévision du CMRS telle quelle, jamais de trajectoire inventée ; renvoyer aux consignes de la préfecture.
-- Baignade, surf, requins (« on peut se baigner à Boucan ? ») : qualite_eau donne la règle de l'arrêté préfectoral en vigueur et les zones permises. Ne jamais dire qu'un endroit est sans requin ou sans risque, ni qu'une zone est ouverte aujourd'hui : renvoyer au drapeau sur place.
-- Bateau, ferry pour Maurice ou Rodrigues : transports (pas de liaison maritime régulière de passagers : ne pas en inventer, ni d'horaires de bateau).
-Réunion Island live public data. Weather: measurements (meteo_actuelle), past measurements (historique_meteo) and forecasts (prevision_meteo), never mixed. Always cite rundata.re with its link, next to the original producers.`;
+- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer ; renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu (route du Littoral : champ route_du_littoral, une annonce des médias datée, pas une mesure) ; routes forestières fermées : sentiers_randonnee ; retards de bus : transports.
+- actualites : l'heure, le média et le lien de chaque information ; rien sur un lieu ne prouve qu'il ne s'y passe rien ; ne jamais inventer ni démentir un blocage.
+- evenements : le lien de chaque événement ; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres ; agenda incomplet, le dire quand rien n'est trouvé ; cinéma : les sites des salles ; compétitions : sport.`;
 
 /** Adds the vigilance above green, if any, to a tool's answer (asked in parallel, so no added wait). */
 async function withVigilance<R extends { content: { type: "text"; text: string }[]; isError?: boolean }>(
@@ -236,7 +231,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           "Pour : « y a-t-il une alerte cyclonique ? », « on est en vigilance orange ? », « vigilance fortes pluies à Saint-Benoît ? », " +
           "« la mer est dangereuse ? », « on peut randonner à Mafate demain avec la pluie ? ». " +
           "Avec un lieu : la zone de vigilance de sa commune ; sans lieu : toute l'île. " +
-          (feux.enabled() ? "Une ligne feux_detectes quand un feu de végétation a été détecté par satellite ces dernières 24 h (faux positifs possibles). " : "") +
+          (feux.enabled() ? "Une ligne feux_detectes quand un feu de végétation a été détecté par satellite ces dernières 24 h : faux positifs possibles, et un jour sans détection ne prouve pas qu'il n'y a pas de feu ; toujours donner « Vous voyez un feu ? Appelez le 18 ou le 112. ». " : "") +
           "/ Official Météo-France weather warnings and cyclone alert for Réunion Island, by zone, for the next 24 h.",
         inputSchema: { lieu },
         annotations: { title: "Vigilance météo à La Réunion", ...READ_ONLY },
@@ -272,7 +267,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "« météo de l'électricité » d'EDF pour les jours qui viennent (heures de pointe, réseau contraint, recharge conseillée " +
         "d'un véhicule électrique). Pour : « d'où vient l'électricité ? », « quelle part de renouvelable ? », " +
         "« quand recharger ma voiture électrique ? », « risque de délestage ? ». " +
-        "Coupures de courant : les avis d'EDF que relaient les mairies (Sainte-Marie, Saint-Philippe, Cilaos, Saint-André, Sainte-Suzanne), " +
+        "Coupures de courant (électricité, pas l'eau : coupures_eau) : les avis d'EDF que relaient les mairies (Sainte-Marie, Saint-Philippe, Cilaos, Saint-André, Sainte-Suzanne), " +
         "jours, heures et secteurs, avec le lien de l'avis ; ailleurs, la mairie ne les publie pas et l'outil le dit. " +
         "Pour : « coupure de courant à Sainte-Marie ? », « coupure EDF prévue à Cilaos ? ». " +
         "/ Réunion Island electricity right now: production mix, renewable share, EDF's grid signal, and the power cuts some town halls relay.",
@@ -323,7 +318,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "d'après l'annuaire officiel de service-public.fr. Aussi les prix maximum des carburants et de la bouteille de gaz du mois, " +
         "fixés par le préfet (quoi = « carburant », « essence », « gazole », « gaz »), les pharmacies et les hôpitaux les plus proches d'après FINESS " +
         "(quoi = « pharmacie », « urgences », « hôpital ») : la pharmacie de garde n'est connue que de 3237.fr et du 32 37, l'urgence passe par le 15 ; " +
-        "les marchés forains et couverts d'après OpenStreetMap (quoi = « marché »), et les déchèteries de l'Ouest (TCO) avec les bennes pleines " +
+        "les marchés forains et couverts d'après OpenStreetMap (quoi = « marché » ; un marché de Noël ou nocturne annoncé : evenements), et les déchèteries de l'Ouest (TCO) avec les bennes pleines " +
         "en direct (quoi = « déchèterie », « encombrants », « déchets verts »), et le jour de collecte des déchets rue par rue dans l'Ouest " +
         "(quoi = « collecte », « poubelles », lieu = la rue et la commune : « rue Labourdonnais, Saint-Paul »), d'après les calendriers du TCO. " +
         "Pour : « horaires de la mairie de Saint-Paul ? », « pharmacie près de Boucan Canot ? », « marché forain à Sainte-Marie ? », " +
@@ -370,7 +365,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           "CarSud (Le Tampon, Saint-Joseph…), Estival (Saint-André, Saint-Benoît, Salazie…), téléphérique Papang. Ligne, direction, heure, " +
           "minutes d'attente ; pour Car Jaune (et Alternéo, CarSud quand leur flux fonctionne), l'heure annoncée en temps réel, le retard, " +
           "les arrêts non desservis et l'info trafic. Pour : « prochain bus à la gare routière de Saint-Pierre ? », « à quelle heure passe le car jaune à Saint-Leu ? », " +
-          "« horaires de la ligne 2 à l'arrêt Mairie au Tampon ? », « le car jaune a du retard ? ». Bateau pour Maurice : dit qu'il n'y a pas de liaison régulière. / Next bus departures at a stop in Réunion Island, from the published timetables and, where available, real-time feeds.",
+          "« horaires de la ligne 2 à l'arrêt Mairie au Tampon ? », « le car jaune a du retard ? ». Bateau ou ferry pour Maurice ou Rodrigues : dit qu'il n'y a pas de liaison maritime régulière de passagers, ne pas en inventer ni d'horaires de bateau. / Next bus departures at a stop in Réunion Island, from the published timetables and, where available, real-time feeds.",
         inputSchema: {
           arret: z.string().describe("Nom de l'arrêt et sa commune (« Gare routière, Saint-Pierre »), ou un lieu (« plage de Boucan ») pour les arrêts les plus proches. / Stop name and town, or a place."),
           ligne: z.string().optional().describe("Ligne à garder seulement (« 2 », « S1 », « Z1 »). / Only this line."),
@@ -407,8 +402,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Marée à La Réunion",
       description:
         "Hauteur de la mer mesurée chaque minute par les marégraphes du SHOM au Port (Pointe des Galets) et à Sainte-Marie : niveau actuel, " +
-        "marée montante ou descendante, dernières pleine et basse mer observées ; puis les prochaines pleines et basses mers, CALCULÉES par rundata " +
-        "d'après les mesures (pas la prédiction officielle du SHOM), à environ 15 à 20 min et 5 cm près. " +
+        "marée montante ou descendante, dernières pleine et basse mer observées ; puis les prochaines pleines et basses mers sur deux jours, CALCULÉES par rundata " +
+        "d'après les mesures (pas la prédiction officielle du SHOM), à environ 15 à 20 min et 5 cm près : le dire, avec la précision donnée, et au-delà de l'horizon renvoyer au SHOM. " +
         "Pour : « la marée monte ? », « c'est quand la marée basse demain ? », « niveau de la mer au Port ? ». " +
         "/ Measured sea level and tide state at Réunion Island's two tide gauges, and the next tides computed from the measurements (not the SHOM's prediction).",
       inputSchema: {
@@ -428,7 +423,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Crues et rivières à La Réunion",
       description:
         "Vigilance crues de Vigicrues Réunion (DEAL), rivière par rivière, et hauteur d'eau et débit mesurés toutes les 5 minutes aux 29 stations " +
-        "des rivières et ravines de l'île, avec leur tendance et les crues historiques comme repères. Pour : « la rivière des Galets est en crue ? », " +
+        "des rivières et ravines de l'île, avec leur tendance et les crues historiques comme repères. Rappeler de ne jamais traverser un radier submergé. Pour : « la rivière des Galets est en crue ? », " +
         "« il y a une vigilance crues ? », « niveau de la ravine Saint-Gilles ? », « la rivière monte à Salazie ? ». " +
         "/ Réunion Island river flood vigilance and live river levels and flows (Vigicrues Réunion).",
       inputSchema: {
@@ -475,7 +470,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "germes ou paramètres au-dessus des limites sur 6 mois) et eau de baignade des plages et bassins contrôlés (Hermitage, Boucan Canot, " +
         "La Saline, Saint-Pierre, Étang-Salé, Grande Anse, bassin Bleu, bassin Dinan…), prélèvement par prélèvement. " +
         "Pour : « l'eau du robinet est potable à Cilaos ? », « eau non conforme à Ravine des Cabris ? », « on peut se baigner à l'Hermitage ? », " +
-        "« l'eau du bassin Dinan est propre ? ». Avec la baignade, la règle requin de l'arrêté préfectoral (bande des 300 m) et les zones permises. / Tap water and bathing water quality in Réunion Island (official sanitary control).",
+        "« l'eau du bassin Dinan est propre ? ». Avec la baignade, la règle requin de l'arrêté préfectoral (bande des 300 m) et les zones permises : ne jamais dire qu'un endroit est sans requin ou sans risque, ni qu'une zone est ouverte aujourd'hui, renvoyer au drapeau sur place. Les avis « ne pas boire » en cours sont dans coupures_eau. / Tap water and bathing water quality in Réunion Island (official sanitary control).",
       inputSchema: {
         lieu: z
           .string()
@@ -501,11 +496,11 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "autour d'un lieu (Maïdo, Piton des Neiges, Bélouve, Roche Plate…), dans un cirque (Mafate, Cilaos, Salazie) ou une commune ; sans lieu, " +
         "tous les sentiers fermés de l'île. Chaque sentier et chaque randonnée a sa trace GPS (lien GPX), sa longueur et son dénivelé " +
         "(altitudes de l'IGN) ; les itinéraires complets d'OpenStreetMap (GR R1, R2, R3, Piton des Neiges, Roche Écrite, Dolomieu…) sont " +
-        "donnés avec l'état des sentiers de l'ONF qu'ils empruntent. Pour : « sentiers fermés à Mafate ? », « le sentier de la Roche Pendue est ouvert ? », " +
+        "donnés avec l'état des sentiers de l'ONF qu'ils empruntent. Un sentier fermé est interdit, même avec la trace ; « hors gestion ONF » n'est pas dit ouvert ; donner le lien trace_gpx. Pour : « sentiers fermés à Mafate ? », « le sentier de la Roche Pendue est ouvert ? », " +
         "« on peut randonner à Bélouve ? », « la trace GPS du Piton des Neiges ? », « dénivelé du GR R2 ? », « une rando de 10 km à Cilaos ? » " +
         "(longueur_min_km, longueur_max_km, denivele_max_m filtrent les itinéraires et sentiers proposés). Dès qu'un sentier de l'ONF d'un " +
         "itinéraire est fermé, la réponse porte un champ avertissement, à donner en premier. " +
-        (feux.enabled() ? "Avec les feux de végétation détectés par satellite (NASA FIRMS) ces dernières 24 h, dans feux_detectes : faux positifs possibles. " : "") +
+        (feux.enabled() ? "Avec les feux de végétation détectés par satellite (NASA FIRMS) ces dernières 24 h, dans feux_detectes : faux positifs possibles, un jour sans détection ne prouve pas qu'il n'y a pas de feu ; toujours donner « Vous voyez un feu ? Appelez le 18 ou le 112. ». " : "") +
         "/ Hiking in Réunion Island: open and closed trails (ONF), GPX traces, distance and elevation gain, hikes by length; closure warnings.",
       inputSchema: {
         lieu: z
@@ -554,7 +549,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Sainte-Marie (communiqués de CISE Réunion publiés par la ville), Saint-Leu (avis publiés par la commune, en court extrait), les communes de l'Est " +
         "(Saint-André, Bras-Panon, Saint-Benoît, La Plaine-des-Palmistes, Sainte-Rose, Salazie) et runéo. " +
         "Pour : « coupure d'eau à Saint-Denis ? », « l'eau est potable à la Plaine-des-Palmistes ? », « quand revient l'eau ? ». " +
-        "Sans lieu : tous les avis récents. " +
+        "Sans lieu : tous les avis récents. Un avis « ne pas boire » se dit d'abord ; la conformité des analyses de l'ARS est dans qualite_eau. " +
         // Worded by marketing; here rather than in the server's instructions, which are kept under 6 000 characters.
         "Quand secteurs_complets vaut false, la liste des rues de l'avis n'a pas été lue en entier : ne jamais en conclure qu'une rue ou un quartier n'est pas concerné, donner le lien de l'avis complet. " +
         "Même quand la liste est complète, dire « cette rue n'est pas dans la liste de l'avis », jamais « pas de coupure chez vous ». " +
@@ -592,7 +587,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Défibrillateurs (DAE) les plus proches d'un lieu de La Réunion (974), d'après la base nationale Géo'DAE : adresse, distance et temps à pied, " +
         "emplacement exact, accessible à toute heure ou aux heures d'ouverture. Plus de 1 200 appareils dans les 24 communes. " +
         "Pour : « où est le défibrillateur le plus proche de la plage de l'Hermitage ? », « défibrillateur à Cilaos ? ». " +
-        "Rappelle d'appeler le 15 ou le 112. / Nearest public defibrillators (AED) in Réunion Island.",
+        "Dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque. / Nearest public defibrillators (AED) in Réunion Island.",
       inputSchema: { lieu },
       annotations: { title: "Défibrillateurs", ...READ_ONLY },
     },
@@ -640,7 +635,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Systèmes tropicaux actifs autour de La Réunion (974), d'après les bulletins du CMRS de La Réunion (Météo-France) republiés par GDACS : " +
         "stade (dépression, tempête tropicale modérée ou forte, cyclone tropical, intense), vent moyen, pression, position, distance et direction " +
         "depuis La Réunion ou un lieu, déplacement, prévision officielle et passage au plus près ; alerte cyclonique de la préfecture, et ce qu'elle veut dire pour les crèches, écoles, collèges, lycées et universités selon le dispositif ORSEC Cyclones (jamais une école en particulier). " +
-        "Hors saison : le dit, avec le dernier système et ceux de la saison. " +
+        "Hors saison : le dit, avec le dernier système et ceux de la saison. Citer la prévision du CMRS telle quelle, jamais de trajectoire inventée ; renvoyer aux consignes de la préfecture. " +
         "Pour : « il y a un cyclone en ce moment ? », « où est la tempête ? », « elle va passer près de Saint-Philippe ? », « le dernier cyclone ? », « école fermée demain avec le cyclone ? », « combien de pluie pendant Garance ? » (nom). " +
         "/ Active tropical cyclones near Réunion Island (RSMC La Réunion advisories via GDACS), distance, movement, official forecast.",
       inputSchema: {

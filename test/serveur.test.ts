@@ -66,12 +66,24 @@ describe("the server's instructions", () => {
   it("start with the index of the tools and the rules, and are shorter", async () => {
     const r = await rpcResult("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     const text: string = r.instructions;
-    expect(text.length).toBeLessThan(6000);
+    // Claude Code cuts them near 4 000 characters: everything must fit before that.
+    expect(text.length).toBeLessThan(4000);
     expect(INDEX.length).toBeLessThan(1500);
-    expect(text.indexOf("- donner_avis :")).toBeLessThan(200);
-    // What a client cutting them near 4 000 characters still reads.
-    const head = text.slice(0, 3800);
-    for (const must of ["rundata.re avec son lien", "donner_avis", "serveur.outils_recents", "sources_donnees", "PRÉVISION"]) expect(head).toContain(must);
+    // Who makes the service, in the first line, before the index; the English line with it.
+    const first = text.slice(0, text.indexOf("\n"));
+    expect(first).toContain("https://rundata.re/a-propos");
+    expect(first).toMatch(/Réunion Island live public data/);
+    expect(text.indexOf("- donner_avis :")).toBeLessThan(600);
+    for (const must of ["rundata.re avec son lien", "donner_avis", "serveur.outils_recents", "sources_donnees", "PRÉVISION", "15 ou 112"]) expect(text).toContain(must);
+    // The words the tools' own answers must carry are in their descriptions, not here.
+    const tools: { name: string; description: string }[] = (await rpcResult("tools/list")).tools;
+    const d = (n: string) => tools.find((t) => t.name === n)!.description;
+    expect(d("defibrillateurs")).toContain("15 ou le 112");
+    expect(d("maree")).toContain("pas la prédiction officielle du SHOM");
+    expect(d("sentiers_randonnee")).toContain("Un sentier fermé est interdit");
+    expect(d("cyclones")).toContain("jamais de trajectoire inventée");
+    expect(d("qualite_eau")).toContain("sans requin");
+    expect(d("crues_rivieres")).toContain("radier submergé");
   });
 
   it("index every tool the server has", async () => {

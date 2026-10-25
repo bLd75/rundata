@@ -334,7 +334,7 @@ export const CINEMAS = [
   { nom: "Cinepalmes (Sainte-Marie)", lien: "https://iccreunion.com/" },
   { nom: "Moulin à Café (Saint-Pierre, Ravine des Cabris)", lien: "https://www.saintpierre.re/culture/arts-visuels-et-cinema/cinema-moulin-cafe" },
 ];
-const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publiés par l'organisateur : vérifier sur la page de l'événement avant de se déplacer (annulation, météo, places). Un événement annulé ou reporté reste dans la liste avec son statut ; « complet » : plus de places en vente. Une salle sans heure (TÉAT) donne l'heure sur la page du spectacle.";
+const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publiés par l'organisateur : vérifier sur la page de l'événement avant de se déplacer (annulation, météo, places). Un événement annulé ou reporté reste dans la liste avec son statut ; « complet » : plus de places en vente. Une salle sans heure (TÉAT) donne l'heure sur la page du spectacle. Les matchs des clubs et les programmes sportifs des communes : l'outil sport.";
 
 /** `listed`: how many events at most (the page lists them all). */
 export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?: string, now = new Date(), listed = LISTED) {
