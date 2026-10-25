@@ -425,14 +425,24 @@ describe("commune pages", () => {
 });
 
 describe("what crawlers and previews fetch", () => {
+  it("serves /chiffres from the code before any copy, its counts of the sources left out", async () => {
+    const r = await handle(new Request("https://rundata.re/chiffres"), isolate());
+    expect(r.status).toBe(200);
+    const html = await r.text();
+    expect(html).toContain("<h1>rundata.re en chiffres</h1>");
+    expect(html).toContain("sources publiques lues");
+    expect(html).not.toContain("stations météo lues");
+  });
+
   it("robots.txt points to the sitemap, which lists every page", async () => {
     const robots = await (await handle(new Request("https://rundata.re/robots.txt"), isolate())).text();
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
     // The pages, the 24 communes, their water and their day, a page per hike and per ONF trail with its GPS trace, and per past cyclone.
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 49 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 50 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length);
     expect(map).toContain("<loc>https://rundata.re/enfants</loc>");
     expect(map).toContain("<loc>https://rundata.re/sites-sans-reponse</loc>");
+    expect(map).toContain("<loc>https://rundata.re/chiffres</loc>");
     expect(map).toContain("<loc>https://rundata.re/randonnees/sentier-du-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/sentiers/le-bloc-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/communes</loc>");

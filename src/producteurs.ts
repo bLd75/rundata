@@ -6,15 +6,17 @@
  *   NOAA relaying Météo-France, GDACS, Hub'Eau, transport.data.gouv.fr and the Géoportail de l'urbanisme do not count,
  *   the body behind them does. Each body named counts, under one canonical name: a mairie read by its agenda, its news
  *   and its water notices is one commune.
- * - A collective (communes, salles, media, water distributors) counts each body the code reads, from the lists it keeps
- *   (providers/agenda.ts); never 1 for the collective. The charge point operators and the clubs on Sportsregions are
- *   read from the last copy of their source, not from the code: counted live, not here.
+ * - A collective (communes, salles, media, water distributors, charge point operators) counts each body the code reads,
+ *   from the lists it keeps (providers/agenda.ts, irve/stations.json); never 1 for the collective. The clubs on
+ *   Sportsregions are read from the last copy of their calendar: counted live (chiffres.ts), not here.
  * - A licence is one of five families; the first four are open. In doubt, a source is not said open.
  *
  * Every source of toutesLesSources (server.ts) has its entry here (test/producteurs.test.ts), its producers given or
  * taken from the agendas that read it.
  */
+import { normalize } from "./places/resolve.js";
 import { AGENDAS, type Agenda } from "./providers/agenda.js";
+import { STATIONS as BORNES } from "./providers/irve.js";
 import type { SourceInfo } from "./types.js";
 
 export type Famille = "licence_ouverte" | "odbl" | "cc_by" | "domaine_public" | "information_publique";
@@ -44,13 +46,20 @@ export function commune(nom: string): string {
   return `Commune de ${nom}`;
 }
 
+/** The charge point operators, each once whatever its spelling (« EZDrive », « Ezdrive »), as the file first writes it. */
+function operateurs(): string[] {
+  const seen = new Map<string, string>();
+  for (const s of BORNES) if (s.reseau.trim() && !seen.has(normalize(s.reseau))) seen.set(normalize(s.reseau), s.reseau.trim());
+  return [...seen.values()];
+}
+
 const MF = "Météo-France";
 const ECMWF = "ECMWF";
 const SANTE = "Ministère chargé de la santé";
 const ARS = "Agence régionale de santé La Réunion";
 const PREFECTURE = "Préfecture de La Réunion";
 const MTE = "Ministère de la Transition écologique";
-const OSM = "OpenStreetMap";
+const OSM = "contributeurs d'OpenStreetMap";
 const LA1ERE = "Réunion La 1ère";
 
 export const FICHES: Record<string, Fiche> = {
@@ -118,8 +127,8 @@ export const FICHES: Record<string, Fiche> = {
   gtfs_rt_reunion: { famille: "licence_ouverte", producteurs: ["Région Réunion", "CIVIS", "CASUD"] },
   // The CIVIS decides, Ecovélo runs it.
   altervelo: { famille: "licence_ouverte", producteurs: ["CIVIS"] },
-  // The operators, from the last copy of the file: counted live.
-  irve: { famille: "licence_ouverte", producteurs: [] },
+  // The operators of La Réunion's stations, from the copy of the national base bundled with the site (irve/stations.json).
+  irve: { famille: "licence_ouverte", producteurs: operateurs() },
   onf_sentiers: { famille: "information_publique", producteurs: ["ONF"] },
   osm_randonnees: { famille: "odbl", producteurs: [OSM] },
   // Sport.

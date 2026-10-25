@@ -94,7 +94,7 @@ import { readCopies, resume } from "../tools/resume.js";
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { OFFLINE_PATH, serviceWorker, SW_PATH } from "./pwa.js";
 import { pageOf, PAGES } from "./places.js";
-import { pressePage, pressFigures } from "./presse.js";
+import { pressePage, pressFigures, toolCount } from "./presse.js";
 import { avisPost } from "./avis.js";
 import * as formulaires from "./propositions.js";
 import * as dae from "../providers/dae.js";
@@ -103,6 +103,9 @@ import { SECTEURS, secteurOf } from "../traces/secteurs.js";
 import { secteurPage } from "./randonnees.js";
 import { aProposPage, llmsTxt } from "./a-propos.js";
 import { PATH as SANS_REPONSE, sansReponsePage } from "./sans-reponse.js";
+import { chiffres, type Copie, KEY as CHIFFRES_KEY, PATH as CHIFFRES } from "../chiffres.js";
+import { chiffresPage } from "./chiffres.js";
+import { toutesLesSources } from "../server.js";
 import { etat as sansReponse } from "../sans-reponse.js";
 import { connecteurPage } from "./connecteur.js";
 import { typo, typoPage } from "./typo.js";
@@ -268,7 +271,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
     ...(formulaires.enLigne() ? [live(ASSOCIATIONS_PATH), fixed(formulaires.PROPOSER_PATH)] : []),
-    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], [SANS_REPONSE, undefined, "daily"], ["/carburants", fuelDay ? (fuelDay < today ? fuelDay : today) : undefined, "daily"],
+    ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], [SANS_REPONSE, undefined, "daily"], live(CHIFFRES), ["/carburants", fuelDay ? (fuelDay < today ? fuelDay : today) : undefined, "daily"],
     // The fires' page only once FIRMS's key is there: before, it says the detection is not active.
     ...(feux.enabled() ? [live(FEUX_PATH)] : [])];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
@@ -474,6 +477,11 @@ async function pages(request: Request, cache: Cache, background: Background, now
   // Who makes the site, and the connector's page for a browser (app.ts sends only those here): nothing read but the vigilance's banner.
   if (path === "/a-propos" || path === "/a-propos/") {
     return new Response(aProposPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
+  // rundata.re en chiffres: what the code counts, and the last copy of what the sources do (chiffres.ts); never a source.
+  if (path === CHIFFRES || path === `${CHIFFRES}/`) {
+    const [copie, a] = await Promise.all([cache.peek<Copie>(CHIFFRES_KEY).catch(() => undefined), alerte(cache, background, now)]);
+    return new Response(chiffresPage(origin, chiffres(toutesLesSources(), copie, now, toolCount(cache)), a), { headers: { ...HTML, "cache-control": "public, max-age=900" } });
   }
   // The sites that do not answer: their rows read at most every 15 minutes (sans-reponse.ts), whatever the visits.
   if (path === SANS_REPONSE || path === `${SANS_REPONSE}/`) {

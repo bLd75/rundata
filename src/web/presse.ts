@@ -36,7 +36,7 @@ const CAPTIONS: Record<keyof typeof visuals, string> = {
 
 // Counted once per isolate: the tools this server registers, as the connector lists them.
 let tools: number | undefined;
-const toolCount = (cache: Cache) => (tools ??= Object.keys((createServer(cache) as unknown as { _registeredTools: object })._registeredTools).length);
+export const toolCount = (cache: Cache) => (tools ??= Object.keys((createServer(cache) as unknown as { _registeredTools: object })._registeredTools).length);
 
 export interface Figure {
   valeur: number;
@@ -135,7 +135,7 @@ export function pressePage(origin: string, figures: Figure[]): string {
 
   const keyFigures = `<section aria-labelledby="h-chiffres">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-chiffres">Chiffres clés</h2>
-  <p>Comptés au moment où cette page s'affiche, dans les données que le site sert.</p></div>
+  <p>Comptés au moment où cette page s'affiche, dans les données que le site sert. Tous les chiffres, avec les sources, leurs producteurs et leurs licences : <a href="/chiffres">rundata.re en chiffres</a>.</p></div>
   <ul class="figs">${figures.map((f) => `<li class="card"><span class="fig">${n(f.valeur)}</span><span>${esc(f.label)}${f.detail ? `<small>${esc(f.detail)}</small>` : ""}</span></li>`).join("")}</ul>
 </section>`;
 

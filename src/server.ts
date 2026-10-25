@@ -1,3 +1,4 @@
+import { chiffres, type Copie, KEY as CHIFFRES, resume as resumeChiffres } from "./chiffres.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as courantMairies from "./providers/coupures-courant.js";
 import * as carburantsPrix from "./providers/carburants.js";
@@ -82,7 +83,7 @@ import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.190.14";
+export const VERSION = "0.191.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -869,21 +870,28 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Sources des données",
       description:
         "Sources de données utilisées par ce serveur (organisme, licence, attribution à citer), ce qui est couvert ou pas encore, " +
-        "la liste à jour de tous les outils et les dernières nouveautés. À appeler avant de conclure qu'un outil ou une donnée n'existe pas. " +
+        "la liste à jour de tous les outils, les dernières nouveautés, et rundata.re en chiffres (sources, producteurs, licences, stations, défibrillateurs, sentiers). " +
+        "Pour : « d'où viennent tes données ? », « combien de sources lit rundata.re ? », « c'est open data ? ». " +
+        "À appeler avant de conclure qu'un outil ou une donnée n'existe pas. " +
         "/ Data sources, licences and coverage; the up-to-date list of tools and the latest changes.",
       inputSchema: {},
       annotations: { title: "Sources des données", ...READ_ONLY },
     },
-    track("sources_donnees", async () =>
-      text({
-        sources: toutesLesSources(),
+    track("sources_donnees", async () => {
+      // rundata.re en chiffres (chiffres.ts): what the code counts, and the last copy of what the sources do.
+      const sources = toutesLesSources();
+      const c = chiffres(sources, await cache.peek<Copie>(CHIFFRES).catch(() => undefined), new Date(), tools);
+      return text({
+        resume: resumeChiffres(c),
+        sources,
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage(), evenements: AGENDA_COVERAGE },
+        chiffres: c,
         version: VERSION,
         // Every tool and the latest changes, for a client whose list of tools is older than the server.
         ...catalogue(),
-      }),
-    ),
+      });
+    }),
   );
 
   return server;
