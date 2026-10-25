@@ -18,6 +18,11 @@ describe("who makes rundata.re, the connector's page, the legal notice, the 404 
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it("tells on the home page's ChatGPT tab to name rundata.re in the question, the @ menu as the other way", async () => {
+    const page = await (await handle(get("/", BROWSER), new Cache())).text();
+    expect(page).toContain("Ensuite, dans une conversation (appli comprise), nommez rundata.re dans la question, par exemple <b>«\u00a0Avec rundata.re\u00a0: il fait combien à Cilaos en ce moment\u00a0?\u00a0»</b>, ou tapez <b>@</b> et choisissez rundata.re. Sinon, ChatGPT peut répondre avec sa propre météo, sans station ni heure de mesure. Testé avec l'offre ChatGPT Go.");
+  });
+
   it("shows a browser at /mcp how to add the connector, and keeps the endpoint for the MCP clients", async () => {
     const hits: Hit[] = [];
     const r = await handle(get("/mcp", BROWSER), new Cache(), () => {}, (h) => hits.push(h));
@@ -29,6 +34,9 @@ describe("who makes rundata.re, the connector's page, the legal notice, the 404 
     expect(page).toContain('<code id="mcp-url">https://rundata.re/mcp</code>');
     for (const a of ["<h3>Claude</h3>", "<h3>ChatGPT</h3>", "<h3>Le Chat</h3>", 'datetime="2026-10-25"', 'href="/confidentialite"', 'href="/conditions"']) expect(page).toContain(a);
     expect(page.match(/<meta name="description" content="([^"]*)"/)![1].length).toBeLessThanOrEqual(DESCRIPTION_MAX);
+    // ChatGPT answers with its own weather unless rundata.re is named: the card says to name it, no-break spaces as sent.
+    expect(page).toContain("<b>Plugins → Ajouter → Ajouter un serveur MCP personnalisé</b>.</p>");
+    expect(page).toContain("<p><b>Ensuite\u00a0:</b> nommez rundata.re dans la question («\u00a0Avec rundata.re\u00a0: …\u00a0») ou tapez <b>@</b> et choisissez-le.</p></div>");
     expect(hits).toMatchObject([{ kind: "page", name: "/mcp", status: 200 }]);
     // HEAD from a link preview: the page too.
     expect((await handle(get("/mcp", BROWSER, "HEAD"), new Cache())).status).toBe(200);
