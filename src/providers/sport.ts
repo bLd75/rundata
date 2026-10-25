@@ -55,6 +55,14 @@ export const SOURCES = {
     attribution: "LRVB",
     url: "https://lrvb.re/",
   },
+  lrvb_tournois: {
+    id: "lrvb_tournois",
+    nom: "Volley-ball : tournois de la Ligue réunionnaise (beach, green volley, jeunes)",
+    organisme: "Ligue réunionnaise de volley-ball (LRVB)",
+    licence: "Information publique (calendrier officiel de la Ligue, cité avec son lien)",
+    attribution: "LRVB",
+    url: "https://lrvb.re/",
+  },
   ffvoile: {
     id: "ffvoile",
     nom: "Voile : régates de la Ligue de La Réunion (FFVoile)",
@@ -358,7 +366,7 @@ export async function championnats(cache: Cache, which: "handball" | "volley"): 
 // ---------------------------------------------------------------- events (sailing, golf, motor sport)
 
 export interface Epreuve {
-  sport: "voile" | "golf" | "sport auto";
+  sport: "voile" | "golf" | "sport auto" | "volley-ball";
   nom: string;
   /** YYYY-MM-DD, local. */
   debut: string;

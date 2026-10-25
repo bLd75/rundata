@@ -28,6 +28,7 @@ import type { SourceInfo } from "../types.js";
 import { communesIn, strip } from "./avis-eau.js";
 import { extrait, lead, monthOf, statusOf, type Statut } from "./agenda-mots.js";
 import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
+import { SOURCES as SPORT_SOURCES } from "./sport.js";
 
 export { communesIn, lead, monthOf, statusOf, type Statut };
 
@@ -126,6 +127,14 @@ export type AgendaStore = Pick<Bundle, "get">;
 // (a read and a write each would take two subrequests per agenda). An isolate looks for another's copies once a minute.
 export const BUNDLE = "agendas";
 export const BUNDLE_SYNC_SECONDS = 60;
+/** How long the copy of an agenda read by the scheduled event is served: past it, a tournament may have been called off. */
+export const PLANIFIE_MAX_AGE_SECONDS = 48 * 3600;
+
+/** The copy of an agenda read by the scheduled event, if young enough to be served, with the time it was read. */
+export function copiePlanifiee(bundle: Pick<Bundle, "peek">, agenda: Agenda): Cached<Evenement[]> | undefined {
+  const hit = bundle.peek(`agenda:${agenda.id}`);
+  return hit && hit.ageMs <= PLANIFIE_MAX_AGE_SECONDS * 1000 ? { value: hit.value as Evenement[], fetchedAt: new Date(hit.fetchedAt), stale: false } : undefined;
+}
 
 export interface Agenda {
   id: string;
@@ -137,6 +146,11 @@ export interface Agenda {
   couvre?: string[];
   /** The fetches one reading makes, when more than one: an invocation reads the agendas its subrequests allow. */
   requetes?: number;
+  /**
+   * Read by the scheduled event only (tools/agenda.ts, `refreshPlanned`), never by a question: a question serves its
+   * copy while it is younger than PLANIFIE_MAX_AGE_SECONDS, else goes without it.
+   */
+  planifie?: boolean;
   /** One `cache.get("agenda:<id>", …)`, nothing else of the cache. */
   load: (cache: AgendaStore, now: Date) => Promise<Cached<Evenement[]>>;
 }
@@ -183,7 +197,7 @@ function awayAt(title: string): string | undefined {
   return at ? resolvePlace(at)?.lieu.commune : undefined;
 }
 
-export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune: string, home?: string): Evenement[] {
+export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune: string | undefined, home?: string): Evenement[] {
   // A venue's school performances (« Scolaires ») are not open to the public.
   return body.events.filter((e) => !e.categories.some((c) => /^scolaires?$/i.test(c.name.trim()))).map((e) => {
     const venue = Array.isArray(e.venue) ? {} : (e.venue as { venue?: string; address?: string; city?: string });
@@ -209,7 +223,7 @@ export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune:
   });
 }
 
-function tribe(id: string, nom: string, site: string, commune: string, source: SourceInfo = SOURCES.mairies, home?: string): Agenda {
+function tribe(id: string, nom: string, site: string, commune: string | undefined, source: SourceInfo = SOURCES.mairies, home?: string): Agenda {
   return {
     id,
     nom,
@@ -980,6 +994,16 @@ export function parseOtiEst(html: string, now: Date): Evenement[] {
 
 const NORD = ["Saint-Denis", "Sainte-Marie", "Sainte-Suzanne"];
 
+/**
+ * The volley league's calendar: its open tournaments (beach and green volley, « King », « Green 3X3 ») and its youth
+ * championships, all over the island. Their place is often not given yet (« Infos à venir »): said so, never guessed.
+ * Read by the scheduled event: the questions' subrequests all go to the communes' agendas.
+ */
+export const LIGUE_VOLLEY: Agenda = {
+  ...tribe("lrvb", "Ligue réunionnaise de volley-ball", "https://lrvb.re", undefined, SPORT_SOURCES.lrvb_tournois, "lieu à venir (voir la page de la Ligue)"),
+  planifie: true,
+};
+
 export const AGENDAS: Agenda[] = [
   tribe("saint_paul", "Mairie de Saint-Paul", "https://www.mairie-saintpaul.re", "Saint-Paul"),
   tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port"),
@@ -997,6 +1021,7 @@ export const AGENDAS: Agenda[] = [
   otiEst,
   openAgenda("cinor", "CINOR", 50316469, NORD),
   openAgenda("oti_nord", "Office de tourisme du Nord", 32570974, NORD),
+  LIGUE_VOLLEY,
   reunionFr,
   ...SALLES,
 ];
@@ -1017,7 +1042,19 @@ export const SANS_AGENDA: Record<string, string> = {
  * source read for this. Each once, by its link.
  */
 export async function programmesSportifs(cache: Pick<Cache, "bundle">): Promise<{ e: Evenement; agenda: Agenda; fetchedAt: Date }[]> {
+  return programmesIn(await cache.bundle(BUNDLE, BUNDLE_SYNC_SECONDS));
+}
+
+/**
+ * What the sport tool takes from the agendas' last copy, in one read of the bundle (two reads at once would see it
+ * empty): the volley league's tournaments, and the communes' sports programmes when `programmes`.
+ */
+export async function sportDesAgendas(cache: Pick<Cache, "bundle">, programmes: boolean) {
   const bundle = await cache.bundle(BUNDLE, BUNDLE_SYNC_SECONDS);
+  return { programmes: programmes ? programmesIn(bundle) : undefined, tournois: copiePlanifiee(bundle, LIGUE_VOLLEY) };
+}
+
+function programmesIn(bundle: Pick<Bundle, "peek">): { e: Evenement; agenda: Agenda; fetchedAt: Date }[] {
   const seen = new Set<string>();
   return AGENDAS.flatMap((agenda) => {
     const hit = bundle.peek(`agenda:${agenda.id}`);

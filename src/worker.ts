@@ -19,6 +19,7 @@ import * as feux from "./providers/feux.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
+import { refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
 import { why } from "./types.js";
@@ -200,12 +201,15 @@ export default {
         const first = kv ? await warmShared(c, kv) : { written: [], left: [] };
         const after = kv ? await warmShared(c, kv, new Date(), SHARED_AFTER) : { written: [], left: [] };
         const copies = { written: [...first.written, ...after.written], left: [...first.left, ...after.left] };
-        return { arome, aromeUsed, copies };
+        // Last, with what is left: the agendas read only here.
+        const agendas = kv ? await refreshPlanned(c).catch((err) => (console.error("agendas planifiés impossibles", why(err)), null)) : null;
+        return { arome, aromeUsed, copies, agendas };
       })
         .then(({ value, used }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +
           (value.copies.written.length ? ` ; copies partagées : ${value.copies.written.join(", ")}` : "") +
           (value.copies.left.length ? ` ; reportées : ${value.copies.left.map((x) => `${x.key} (${x.why})`).join(", ")}` : "") +
-          (value.copies.written.length || value.copies.left.length ? `, sous-requêtes en tout : ${used}` : "")))
+          (value.agendas?.lus.length || value.agendas?.gardes.length ? ` ; agendas planifiés : ${JSON.stringify(value.agendas)}` : "") +
+          (value.copies.written.length || value.copies.left.length || value.agendas?.lus.length ? `, sous-requêtes en tout : ${used}` : "")))
         .catch((err) => console.error("préchargement impossible", why(err))),
     );
   },

@@ -154,6 +154,9 @@ const DEADLINE_MS = 5_000;
 // or named, and read by a later question.
 const KEEP_LEFT = 4;
 
+// How often the scheduled event reads its agendas again.
+const PLANNED_FRESH_SECONDS = 3600;
+
 /** An agenda this invocation has no subrequests left for, and of which no copy is kept. */
 class Postponed extends Error {}
 
@@ -170,9 +173,12 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
     return e && { value: e.value as src.Evenement[], fetchedAt: new Date(e.fetchedAt), stale: true };
   };
   let allowed = left() - KEEP_LEFT;
-  // The subrequests go first to the agendas without a copy, then to the oldest.
+  // The subrequests go first to the agendas without a copy, then to the oldest. Those of the scheduled event are never
+  // read here: their copy while young enough, else nothing, and nothing said (not this invocation's to read). Their
+  // entry stays in the bundle as read, written back with the others.
   const age = (a: src.Agenda) => bundle.peek(key(a))?.ageMs ?? Infinity;
-  const order = [...src.AGENDAS].sort((x, y) => age(y) - age(x));
+  const order = src.AGENDAS.filter((a) => !a.planifie).sort((x, y) => age(y) - age(x));
+  const planned = src.AGENDAS.filter((a) => a.planifie).map((agenda): Got => ({ agenda, value: src.copiePlanifiee(bundle, agenda) }));
   const store = (a: src.Agenda): src.AgendaStore => ({
     get: <T>(k: string, freshSeconds: number, load: () => Promise<T>) => {
       const hit = bundle.peek(k);
@@ -211,7 +217,47 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
   const save = () => bundle.save().catch((err) => console.error("agendas : copie impossible", why(err)));
   if (pending.length) later(Promise.allSettled(pending).then(save));
   else await save();
-  return src.AGENDAS.map((a) => got.find((g) => g.agenda === a)!);
+  return src.AGENDAS.map((a) => [...got, ...planned].find((g) => g.agenda === a)!);
+}
+
+/**
+ * The scheduled event's last part: the agendas read only there (`planifie`) whose copy is an hour old, each only if
+ * what is left pays for its reading and the bundle's write; the bundle written once, and only if one was read. A
+ * reading that fails, or that finds nothing where the copy had events, keeps the copy and its time.
+ */
+export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ lus: string[]; gardes: string[]; reportes: string[] }> {
+  const out = { lus: [] as string[], gardes: [] as string[], reportes: [] as string[] };
+  const planned = src.AGENDAS.filter((a) => a.planifie);
+  // The bundle's read (unless this invocation has it already), one agenda's reading, the write.
+  if (!planned.length || left() - KEEP_LEFT < 3) {
+    out.reportes = planned.map((a) => a.id);
+    return out;
+  }
+  const bundle = await cache.bundle(src.BUNDLE, src.BUNDLE_SYNC_SECONDS);
+  const direct: src.AgendaStore = { get: async (_k, _s, load) => ({ value: await load(), fetchedAt: now, stale: false }) };
+  for (const agenda of planned) {
+    const old = bundle.peek(`agenda:${agenda.id}`);
+    if (old && old.ageMs < PLANNED_FRESH_SECONDS * 1000) continue;
+    if (left() - KEEP_LEFT - 1 < (agenda.requetes ?? 1)) {
+      out.reportes.push(agenda.id);
+      continue;
+    }
+    try {
+      const { value } = await agenda.load(direct, now);
+      if (!value.length && (old?.value as src.Evenement[] | undefined)?.length) {
+        console.error(`source ${agenda.source.id} (${agenda.id}) : aucun événement, la copie est gardée`);
+        out.gardes.push(agenda.id);
+        continue;
+      }
+      bundle.set(`agenda:${agenda.id}`, value);
+      out.lus.push(agenda.id);
+    } catch (err) {
+      console.error(`source ${agenda.source.id} (${agenda.id}) indisponible, la copie est gardée:`, why(err));
+      out.gardes.push(agenda.id);
+    }
+  }
+  if (out.lus.length) await bundle.save();
+  return out;
 }
 
 /**
@@ -348,7 +394,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   // The news already read (the page /actualites, the tool actualites), for the cancellations it reports: never fetched
   // for this, read once per invocation (the page asks twice), and after the agendas, so as not to take one's subrequest.
   const news = await perInvocation("agenda:actualites", () => cache.peek<Fil>("actualites:fil").catch(() => undefined));
-  const failed = got.filter((g) => !g.value).map((g) => g.agenda.nom);
+  const failed = got.filter((g) => !g.value && !g.agenda.planifie).map((g) => g.agenda.nom);
   if (got.every((g) => !g.value)) {
     return { ...text({ erreur: "Les agendas ne répondent pas pour le moment.", indisponible: failed }), isError: true };
   }
