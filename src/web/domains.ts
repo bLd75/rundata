@@ -157,7 +157,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
               : ""}.`) +
           (e.niveau_definition && !pitonLevel ? ` <span class="note">${esc(e.niveau_definition)}</span>` : "") +
           (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b> selon pitonlive.com.` : "") +
-          (e.deformation ? ` Déformation du volcan : ${esc(e.deformation)}.` : "") + `</p>` +
+          `</p>` +
           (e.ecart_pitonlive && e.communique_prefecture && e.acces_enclos?.communique
             // pitonlive lower for long: the Enclos as the prefecture's release said it, and where it comes from (marketing).
             ? (e.acces_enclos.communique.mots

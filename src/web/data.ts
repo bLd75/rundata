@@ -328,7 +328,6 @@ export interface VolcanAnswer {
     image_ovpf_plus_recente?: boolean;
     eruption?: { name?: string; started_at?: string; public_summary?: string };
     derniere_eruption_fin?: string;
-    deformation?: string;
     acces_enclos?: Enclos;
     /**
      * The prefecture's release, when its phase is the one given. `jour`: its day, « 2026-10-24 » (the hour is not

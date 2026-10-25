@@ -62,7 +62,6 @@ async function settle<T>(source: string, p: Promise<{ value: T }>): Promise<T | 
 export const LOCALISES = "Seuls les séismes localisés par l'OVPF sont comptés ici : ce n'est pas le nombre total de séismes enregistrés.";
 const BAR_DAYS = 30;
 const localDay = (t: number) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
-const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 /**
  * The events located under the summit, per day of La Réunion, the last 30 days up to today, today « en cours »: the
@@ -329,11 +328,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
           ...((state as { ecart?: Ecart }).ecart && { ecart_pitonlive: (state as { ecart?: Ecart }).ecart }),
           ...(hausse && { ecart_prefecture: hausse }),
           derniere_eruption_fin: state.last_eruption_ended_at ?? undefined,
-          // In the middle of a sentence, « Déformation du volcan : inflation (…) », the observatory's release as pitonlive
-          // relays it (marketing).
-          deformation: state.deformation?.available
-            ? `${lowerFirst(state.deformation.label ?? "")} (communiqué${/^OVPF/i.test(state.deformation.source_name ?? "") ? " de l'OVPF" : ""} du ${day(state.deformation.published_at!)}, selon pitonlive.com)`
-            : undefined,
+          // No word of pitonlive's on the deformation (« déflation »): on 25/10/2026 it said the opposite of the OVPF's
+          // release, whose summit inflation went on (the deflation was the deep source's). The OVPF's posts are linked.
           acces_enclos: !unknown && state.access?.current?.available
             ? {
                 statut: state.access.current.enclos_status,
