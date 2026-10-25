@@ -4,6 +4,9 @@
 -- t: Unix time in seconds; canal: « mcp » (tool donner_avis) or « site » (form, POST /avis); type: manque, erreur,
 -- suggestion, bravo, or NULL from the form; client: the assistant, from its User-Agent; page: the form's page;
 -- source: a salted hash of the sender's address and the day, only to refuse a flood, wiped after a day.
+-- traite_le: Unix time when the one who reads the feedback dealt with it; suite: what was done, in a few words
+-- (« corrigé en 0.140.0 », « source ajoutée », « hors sujet »), never about the sender. Both written by avis.py
+-- --traiter, NULL while the feedback waits. A table made before them gets them from scripts/avis-traite.sql, once.
 CREATE TABLE IF NOT EXISTS avis (
   id INTEGER PRIMARY KEY,
   t INTEGER NOT NULL,
@@ -15,7 +18,9 @@ CREATE TABLE IF NOT EXISTS avis (
   question TEXT,
   client TEXT,
   page TEXT,
-  source TEXT
+  source TEXT,
+  traite_le INTEGER,
+  suite TEXT
 );
 CREATE INDEX IF NOT EXISTS avis_t ON avis (t);
 CREATE INDEX IF NOT EXISTS avis_source ON avis (source, t);

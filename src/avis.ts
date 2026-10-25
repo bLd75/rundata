@@ -7,7 +7,8 @@
  * says it (« Claude », « ChatGPT (connecteur) »…), the page of the form. No address: to refuse a flood, each row
  * carries a fingerprint of the sender (a hash of its address and the day, salted with a secret or, without one, a
  * value drawn by each instance), wiped after a day; the table forgets every row after 12 months (both by trigger).
- * Phone numbers and e-mail addresses in a message are blanked before it is written.
+ * Phone numbers and e-mail addresses in a message are blanked before it is written. Once a feedback is dealt with,
+ * whoever reads them notes when and what was done (`traite_le`, `suite`), never anything about the sender.
  *
  * In the Worker the rows go to D1; in Node, without a database, nothing is kept and the tool says where to write.
  */
