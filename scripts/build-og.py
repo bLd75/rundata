@@ -55,12 +55,12 @@ RUBRIQUES = [
     ("carburants", "Carburants 974", "Les prix maximum du mois", ["/carburants"]),
     ("feux", "Feux 974", "Les feux de végétation|vus par satellite, 24 h", ["/feux"]),
     ("enfants", "Enfants 974", "Où aller avec les enfants,|de 0 à 17 ans", ["/enfants"]),
-    ("associations", "Espace clubs|et associations", "Proposer un événement,|en 2 minutes.|Gratuit, sans compte.", ["/associations"]),
+    ("associations", "Espace clubs|et associations", "Proposer un événement,|en 2\u00a0minutes.|Gratuit, sans compte.", ["/associations"]),
 ]
 # The volcano's third line, the kit's; the others have two levels.
 INFO = {"volcan": "Niveau d'alerte, accès à l'Enclos, séismes"}
 # A text in sentences, said as it is written (marketing).
-ALT = {"associations": "Symbole rundata.re et relief de l'île : Espace clubs et associations. Proposer un événement, en 2 minutes. Gratuit, sans compte."}
+ALT = {"associations": "Symbole rundata.re et relief de l'île\u00a0: Espace clubs et associations. Proposer un événement, en 2 minutes. Gratuit, sans compte."}
 OUT = ROOT / "public/og"
 
 
@@ -178,7 +178,7 @@ def main():
             (OUT / file).write_bytes(data)
             what = "relief du Piton de la Fournaise" if key == "volcan" else "relief de l'île"
             said = line.replace("|", " ")
-            alt = ALT.get(key) or f"Symbole rundata.re et {what} : {name}, {said[0].lower()}{said[1:]}"
+            alt = ALT.get(key) or f"Symbole rundata.re et {what}\u00a0: {name}, {said[0].lower()}{said[1:]}"
             manifest.append({"pages": pages, "png": f"/og/{file}", "alt": alt})
             print(OUT / file, f"{len(data) // 1024} KB PNG")
         (ROOT / "src/web/og-rubriques.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n")
