@@ -287,12 +287,13 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     else if (a?.available && ofRelease?.niveau) parts.push(`Niveau : ${ofRelease.niveau.toLowerCase()} selon le communiqué de la préfecture du ${du}. Accès à l'Enclos interdit à ce niveau du dispositif ORSEC Volcan.`);
     else if (a?.available) parts.push(`Accès à l'Enclos : ${enclosWord(a.enclos_status)} selon pitonlive.com${a.source_name ? ` (source : ${sourceName(a.source_name)})` : ""}.`);
   }
-  if (last) {
+  // Under an alert, the post in images already named in the sentence on the texts read: not again (marketing).
+  if (last && !folded) {
     parts.push(last.image
       // The time of the post, never the one written in the images: they are not read.
       ? `Dernière publication de l'OVPF, le ${jour} à ${heure} : ${volcan.imagesSaid(last.images, last.mots)}. rundata.re ne lit pas les images : à voir sur ${last.lien}.`
       : `Dernière publication de l'OVPF sur l'activité (${day(last.date)}) : « ${last.texte.slice(0, 220)}${last.texte.length > 220 ? "…" : ""} »`);
-    if (imageAfter && !folded) parts.push(IMAGE_APRES);
+    if (imageAfter) parts.push(IMAGE_APRES);
   }
   const q = quakes ? quakeSummary(quakes, now) : null;
   if (q) {

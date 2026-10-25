@@ -119,9 +119,11 @@ describe("volcano", () => {
     const cache = new Cache(store, () => t);
     const r = body(await volcanSeismes(cache, now));
     expect(r.resume).toContain(`L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus. La dernière publication de l'OVPF, le 25/10 à 08:02, est en images, que nous ne lisons pas : la voir, ${lien}.`);
-    expect(r.resume).toContain(`Dernière publication de l'OVPF, le 25/10 à 08:02 : 3 images, sans texte. rundata.re ne lit pas les images : à voir sur ${lien}.`);
     expect(r.resume).not.toContain("08:00");
-    // Said once under the alert: not « l'état ci-dessus peut ne pas en tenir compte » besides; the flag stays.
+    // Said once under the alert: neither « Dernière publication de l'OVPF… » nor « l'état ci-dessus peut ne pas en tenir
+    // compte » besides; the flag stays.
+    expect(r.resume.split(lien)).toHaveLength(2);
+    expect(r.resume).not.toContain("Dernière publication de l'OVPF");
     expect(r.resume).not.toContain("peut ne pas en tenir compte");
     expect(r.etat.image_ovpf_plus_recente).toBe(true);
     // For the AI: the entry, and to open the link before saying anything of it.
