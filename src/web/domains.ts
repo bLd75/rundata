@@ -21,7 +21,7 @@ import { SUJETS } from "../providers/actualites.js";
 import * as littoral from "../tools/littoral.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
-import { de, fr, nombre } from "../tools/format.js";
+import { a, de, fr, nombre } from "../tools/format.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
@@ -1661,7 +1661,11 @@ export function secheresseLive(data: Cached<SecheresseAnswer> | null): Live | un
   if (!d.communes.length) return { valeur: "aucune restriction", detail: "d'après VigiEau" };
   const worst = DROUGHT_ORDER.find((n) => d.communes.some((c) => c.eau_du_robinet === n));
   const hit = d.communes.filter((c) => c.eau_du_robinet && c.eau_du_robinet !== "vigilance").length;
-  return { valeur: worst ? `jusqu'à ${worst}` : "vigilance", detail: `${hit} commune${hit > 1 ? "s" : ""} sur 24 en alerte ou plus pour l'eau du robinet` };
+  // Above vigilance, the worst level and where, as /secheresse says it: « crise à Saint-Joseph », « alerte renforcée dans
+  // 5 communes » (worded by the user, 26/10). The tile's value is HTML: « Saint-Joseph » kept on one line.
+  const at = d.communes.filter((c) => c.eau_du_robinet === worst).map((c) => c.commune);
+  const valeur = !worst ? "vigilance" : worst === "vigilance" ? `jusqu'à ${worst}` : at.length === 1 ? `${worst} ${nobreak(a(at[0]))}` : `${worst} dans ${at.length} communes`;
+  return { valeur, detail: `${hit} commune${hit > 1 ? "s" : ""} sur 24 en alerte ou plus pour l'eau du robinet` };
 }
 
 // ---------------------------------------------------------------- coupures d'eau
