@@ -430,8 +430,9 @@ describe("what crawlers and previews fetch", () => {
     expect(robots).toContain("Sitemap: https://rundata.re/sitemap.xml");
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
     // The pages, the 24 communes, their water and their day, a page per hike and per ONF trail with its GPS trace, and per past cyclone.
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 48 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 49 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length);
     expect(map).toContain("<loc>https://rundata.re/enfants</loc>");
+    expect(map).toContain("<loc>https://rundata.re/sites-sans-reponse</loc>");
     expect(map).toContain("<loc>https://rundata.re/randonnees/sentier-du-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/sentiers/le-bloc-piton-des-neiges</loc>");
     expect(map).toContain("<loc>https://rundata.re/communes</loc>");

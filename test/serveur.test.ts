@@ -119,7 +119,7 @@ describe("the serveur block", () => {
     expect(Object.keys(outilsRecents(new Date("2026-10-24T13:00:00Z"))!).slice(0, 3)).toEqual(["resume_du_jour", "donner_avis", "actualites"]);
     expect(JSON.stringify(s).length).toBeLessThan(600);
     const r = body(await rpcResult("tools/call", { name: "defibrillateurs", arguments: { lieu: "Cilaos" } }));
-    expect(r.serveur).toMatchObject({ version: VERSION, nombre_outils: 26 });
+    expect(r.serveur).toMatchObject({ version: VERSION, nombre_outils: 27 });
     expect(r.serveur.si_outil_absent).toMatch(/ancienne/);
   });
 

@@ -41,6 +41,18 @@ class Places {
   }
 }
 
+/** Told of each failed read (worker.ts: the sites that do not answer, sans-reponse.ts); the refused budget is not one. */
+let onFailure: ((source: string, url: string, err: UpstreamError) => void) | undefined;
+export function whenFailed(f: typeof onFailure) {
+  onFailure = f;
+}
+
+/** Told of each read as it leaves (worker.ts: the morning's recheck asks a host only once this isolate has left it alone). */
+let onRead: ((url: string) => void) | undefined;
+export function whenRead(f: typeof onRead) {
+  onRead = f;
+}
+
 async function get<T>(
   source: string,
   url: string,
@@ -55,6 +67,7 @@ async function get<T>(
   try {
     let res: Response;
     const signal = AbortSignal.timeout(timeoutMs);
+    onRead?.(url);
     try {
       res = await fetch(url, {
         ...(body ? { method: "POST", body } : {}),
@@ -62,11 +75,15 @@ async function get<T>(
         signal,
       });
     } catch (err) {
-      throw new UpstreamError(source, err instanceof Error ? err.message : String(err));
+      const failed = new UpstreamError(source, err instanceof Error ? err.message : String(err));
+      onFailure?.(source, url, failed);
+      throw failed;
     }
     if (!res.ok) {
       await res.body?.cancel().catch(() => {});
-      throw new UpstreamError(source, `HTTP ${res.status}`, res.status);
+      const failed = new UpstreamError(source, `HTTP ${res.status}`, res.status);
+      onFailure?.(source, url, failed);
+      throw failed;
     }
     return await read(res);
   } finally {

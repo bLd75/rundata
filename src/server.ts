@@ -72,8 +72,9 @@ import { agenda, COUVERTURE as AGENDA_COVERAGE, MAIRIES_LUES } from "./tools/age
 import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
+import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.188.1";
+export const VERSION = "0.189.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -91,9 +92,9 @@ Règles :
 - Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité d'une réponse (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles.
 
 Détails :
-- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer\u00a0; renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu\u00a0; routes forestières fermées : sentiers_randonnee\u00a0; retards de bus : transports.
+- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer\u00a0; renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu\u00a0; routes forestières fermées : sentiers_randonnee.
 - actualites : l'heure, le média et le lien de chaque information\u00a0; rien sur un lieu ne prouve qu'il ne s'y passe rien\u00a0; ne jamais inventer ni démentir un blocage.
-- evenements : le lien de chaque événement\u00a0; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres\u00a0; agenda incomplet, le dire quand rien n'est trouvé\u00a0; cinéma : les sites des salles\u00a0; compétitions : sport.`;
+- evenements : le lien de chaque événement\u00a0; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres\u00a0; agenda incomplet, le dire quand rien n'est trouvé\u00a0; cinéma : les sites des salles.`;
 
 /** Adds the vigilance above green, if any, to a tool's answer (asked in parallel, so no added wait). */
 async function withVigilance<R extends { content: { type: "text"; text: string }[]; isError?: boolean }>(
@@ -137,6 +138,10 @@ const lieu = z
  * `record`: told of each tool call (metrics.ts). `background`: work to finish after the answer (the Worker's
  * waitUntil), for resume_du_jour to bring a page copy up to date; without it (stdio, tests) nothing is left to run.
  */
+/** Every source the server reads, each once (sources_donnees' list, and the sites that do not answer: sans-reponse.ts). */
+export const toutesLesSources = () =>
+  oncePerId([...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(feux.enabled() ? [feux.SOURCE] : [])]);
+
 /** The symbol of rundata.re (web/logo.ts), for the clients that show a server's icon; the same in server.json. */
 export const SERVER_ICONS = [
   { src: `https://rundata.re${icons["512"]}`, mimeType: "image/png", sizes: ["512x512"] },
@@ -823,6 +828,26 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
   );
 
   server.registerTool(
+    "sites_sans_reponse",
+    {
+      title: "Sites publics de La Réunion sans réponse",
+      description:
+        "Sites publics de La Réunion (974) qui ne répondent pas en ce moment, revérifiés chaque jour : pour chacun, depuis quand, le dernier constat en mots simples (erreur du serveur, page de maintenance, pas de réponse dans le délai…) et ce qui manque donc sur rundata.re (avis de coupure d'eau, bulletins du volcan, houle…). " +
+        "Un site qui répond de nouveau sort de la liste. Ne dit jamais pourquoi un site se tait. " +
+        "Pour : « le site de l'OVPF marche ? », « pourquoi pas de bulletin du volcan ? », « le site de Sudéau ne répond plus ? ». " +
+        "/ Réunion Island public websites currently not responding, rechecked daily: since when, the last error, and what is missing on rundata.re as a result.",
+      inputSchema: {
+        quoi: z
+          .string()
+          .optional()
+          .describe("Un site, une commune ou un thème : « volcan », « eau », « Saint-Joseph ». Vide = toute la liste. / A site, a commune or a theme; empty = the whole list."),
+      },
+      annotations: { title: "Sites publics sans réponse", ...READ_ONLY },
+    },
+    track("sites_sans_reponse", (args) => sitesSansReponse(cache, args.quoi)),
+  );
+
+  server.registerTool(
     "sources_donnees",
     {
       title: "Sources des données",
@@ -835,7 +860,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
     },
     track("sources_donnees", async () =>
       text({
-        sources: oncePerId([...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(feux.enabled() ? [feux.SOURCE] : [])]),
+        sources: toutesLesSources(),
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage(), evenements: AGENDA_COVERAGE },
         version: VERSION,

@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Sites sans réponse : une page liste les sites publics de l'île qui ne répondent pas, depuis quand, et ce qui manque donc ici.
 - Coupures d'électricité : avis de Cilaos, Saint-André, Saint-Philippe et Sainte-Suzanne retirés, leurs mentions légales l'interdisent.
 - Événements : nous lisons tout l'agenda de Saint-Louis, et les événements que Saint-Leu et La Plaine-des-Palmistes annoncent avec leur date.
 - Événements : même règle pour 3 communes de plus, Saint-Denis, Saint-Pierre et Sainte-Rose, dont les mentions légales interdisent la reprise.
