@@ -5,7 +5,7 @@ import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.j
 import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSpipNews, parseSportsregions, parseTribe, parseWpNews } from "../src/providers/agenda.js";
 import { extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
-import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned } from "../src/tools/agenda.js";
+import { agenda, COUVERTURE, gather, MAIRIES_LUES, oublierEchecs, periode, refreshPlanned } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
 
 // The agendas on Saturday 24/10/2026 in the morning: the Fête de l'ail at Petite-Île (23 to 25), a concert tonight at
@@ -63,6 +63,7 @@ describe("agenda", () => {
   beforeEach(() => {
     down = undefined;
     asked = [];
+    oublierEchecs();
     vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
       asked.push(new Headers(init?.headers).get("User-Agent") ?? "");
       const f = file(url, typeof init?.body === "string" ? init.body : undefined);
@@ -161,15 +162,29 @@ describe("agenda", () => {
       league = () => new Response("", { status: 503 });
       expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: MAIRIES, gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
       expect(await entry(store)).toEqual(first);
+      // Not tried again at each scheduled event: only once its next reading is due, an hour after the failure.
+      const tries = urls.filter(isLeague).length;
+      t += 55 * 60_000;
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(urls.filter(isLeague)).toHaveLength(tries);
+      t += 5 * 60_000;
       league = () => new Response(JSON.stringify({ events: [] }));
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: MAIRIES, gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
       expect(await entry(store)).toEqual(first);
+      // Finding nothing counts as a failure too: not read again within the hour; past it, read, and the copy replaced.
+      t += 30 * 60_000;
+      league = () => new Response(bytes("tribe_lrvb.json"));
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: [], reportes: [], trop_vieilles: [] });
+      t += 30 * 60_000;
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["lrvb", ...MAIRIES], gardes: [], reportes: [], trop_vieilles: [] });
+      const second = await entry(store);
+      expect(second?.fetchedAt).toBe(t);
       // Still failing two days on: the copy, no longer served, is said too old in the scheduled event's log (the clubs'
       // calendar, read every six hours, is read again).
-      t += 48 * 3600_000;
+      t += 49 * 3600_000;
       league = () => new Response("", { status: 503 });
       expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [...MAIRIES, "sportsregions"], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
-      expect(await entry(store)).toEqual(first);
+      expect(await entry(store)).toEqual(second);
     });
 
     it("reads nothing and writes nothing when the invocation cannot pay for its reading and the write", async () => {
