@@ -608,8 +608,10 @@ describe("vigilance and sea pages", () => {
     const v = structuredClone(await vigilanceSample());
     v.zones[mf.ISLAND][mf.CYCLONE] = [{ couleur: 3, debut: "2026-10-22T00:00:00Z" }];
     const a = alerteOf(v, NOW)!;
-    expect(a).toEqual({ couleur: 3, texte: expect.stringContaining("ALERTE CYCLONIQUE orange"), ecoles: true });
-    expect(homePage("https://rundata.re", null, NOW, a)).toContain('<div class="alerte vg vg3" role="status">');
+    expect(a).toEqual({ couleur: 3, texte: expect.stringContaining("ALERTE CYCLONIQUE orange"), ecoles: true, court: { cyclone: 3, prevue: false } });
+    expect(homePage("https://rundata.re", null, NOW, a)).toContain('<div class="alerte vg vg3" data-court role="status">');
+    // On a phone, one line to /vigilance; the sentence stays for wider screens.
+    expect(homePage("https://rundata.re", null, NOW, a)).toContain('<a class="ligne" href="/vigilance"><span aria-hidden="true">⚠</span><span class="txt">Alerte cyclonique orange du préfet</span><span aria-hidden="true">→</span></a><a class="ligne" href="/ecoles-cyclone"><span class="txt">Écoles et crèches fermées</span><span aria-hidden="true">→</span></a><div class="wrap">');
     expect(homePage("https://rundata.re", null, NOW, a)).toContain('<a href="/ecoles-cyclone">Écoles fermées →</a>');
     const page = vigilancePage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW, a);
     expect(page).toContain("Alerte cyclonique orange");
@@ -617,6 +619,11 @@ describe("vigilance and sea pages", () => {
     v.zones[mf.ISLAND][mf.CYCLONE] = [];
     v.zones["VIGI974-12"][12] = [{ couleur: 2, debut: "2026-10-22T00:00:00Z" }];
     expect(alerteOf(v, NOW)?.texte).toBe("Vigilance Météo-France : jaune fortes pluies / orages (Est).");
+    expect(alerteOf(v, NOW)?.court).toEqual({ couleur: "jaune", phenomenes: ["Fortes pluies / orages"], zones: [mf.ZONES["VIGI974-12"]] });
+    // The worst colour's phenomena and zones only, each once.
+    v.zones["VIGI974-11"] = { 12: [{ couleur: 2, debut: "2026-10-22T00:00:00Z" }], 1: [{ couleur: 1, debut: "2026-10-22T00:00:00Z" }] };
+    expect(alerteOf(v, NOW)?.court).toMatchObject({ couleur: "jaune", phenomenes: ["Fortes pluies / orages"] });
+    expect(new Set((alerteOf(v, NOW)?.court as { zones: string[] }).zones)).toEqual(new Set([mf.ZONES["VIGI974-11"], mf.ZONES["VIGI974-12"]]));
   });
 
   it("never says « 2 jours de retard »: a measure appears the next day at the earliest, later on cloudy days (marketing)", async () => {

@@ -9,7 +9,7 @@ import { type VolcanAlerte, withVolcan } from "../src/web/volcan-alerte.js";
 
 const O = "https://rundata.re";
 const NOW = new Date("2026-10-25T06:00:00Z");
-const VIGILANCE: Alerte = { couleur: 3, texte: "Vigilance Météo-France : orange fortes pluies / orages (Est)." };
+const VIGILANCE: Alerte = { couleur: 3, texte: "Vigilance Météo-France : orange fortes pluies / orages (Est).", court: { couleur: "orange", phenomenes: ["Fortes pluies / orages"], zones: ["Est : Sainte-Suzanne, Saint-André"] } };
 const VOLCAN: VolcanAlerte = { niveau: "Alerte 1", eruption: false };
 
 // The keys in the bar on wide screens and in the menu's grid, in their order.
@@ -112,5 +112,54 @@ describe("the order of the pages", () => {
       expect(sheet).toContain(`${link}${s.svg}${s.nom}</a>`);
       expect(hero).toContain(`${link}${s.svg}${s.nom}</a>`);
     }
+  });
+});
+
+describe("the alerts on a phone", () => {
+  // The words of the vigilance's line on a page other than /vigilance.
+  const said = (a: Alerte) => [...meteoPage(O, null, NOW, a).matchAll(/<a class="ligne" href="[^"]+">(?:<span aria-hidden="true">[^<]+<\/span>)?<span class="txt">(.*?)<\/span><span aria-hidden="true">→/g)].map((m) => m[1].replace(/<[^>]+>/g, "").replace(/&#39;/g, "'"));
+  const vigilance = (couleur: string, phenomenes: string[], zones: string[]): Alerte => ({ couleur: 2, texte: "Vigilance Météo-France : …", court: { couleur, phenomenes, zones } });
+  const LAND = ["Nord : Saint-Denis", "Est : Saint-Benoît", "Sud-Est : Saint-Joseph", "Sud : Saint-Pierre", "Ouest : Saint-Paul"];
+  const coasts = (n: number) => Array.from({ length: n }, (_, i) => `Zone côtière ${i}`);
+
+  it("are one line each, stacked without a gap, the vigilance then the volcano, each to its page", () => {
+    const home = withVolcan(VOLCAN, () => homePage(O, null, NOW, VIGILANCE));
+    const lines = [...home.matchAll(/<a class="ligne" href="([^"]+)"><span aria-hidden="true">([^<]+)<\/span><span class="txt">(.*?)<\/span><span aria-hidden="true">→<\/span>/g)].map((m) => [m[1], m[2], m[3].replace(/<[^>]+>/g, "")]);
+    expect(lines).toEqual([
+      ["/vigilance", "⚠", "Vigilance orange pluies-orages · Est"],
+      ["/volcan", "🌋", "Volcan\u00a0: alerte\u00a01 du préfet · Enclos interdit"],
+    ]);
+    // The sentences stay on wider screens: only below 600 px the line replaces them, never cut with « … ».
+    expect(home).toContain(".ligne{display:none}");
+    expect(home).toContain("@media (max-width:599.98px){[data-court]>.wrap,[data-court]>.card{display:none}");
+    expect(home).toContain(".ligne .txt{flex:1;min-width:0}");
+    expect(home).not.toContain("text-overflow:ellipsis");
+    // On two lines, the break comes before the last « · », never inside « Sud-Est » nor « Enclos interdit ».
+    expect(home).toContain('<span class="txt">Vigilance orange pluies-orages <span class="nw">· Est</span></span>');
+    expect(home).toContain(".ligne .nw{white-space:nowrap}");
+    expect(home).toContain(".volcan-une[data-court]{padding:0;max-width:none}");
+  });
+
+  it("say the vigilance's colour, two phenomena at most by their short names, and the zones named, counted or whole (marketing)", () => {
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], ["Sud-Est : Saint-Joseph, Saint-Philippe"]))).toEqual(["Vigilance jaune pluies-orages · Sud-Est"]);
+    expect(said(vigilance("orange", ["Vents forts"], LAND))).toEqual(["Vigilance orange vents forts · toute l'île"]);
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(2, 4)))).toEqual(["Vigilance jaune pluies-orages · Sud-Est, Sud"]);
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(0, 3)))).toEqual(["Vigilance jaune pluies-orages · 3 zones"]);
+    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(3)))).toEqual(["Vigilance jaune vagues-submersion · 3 zones côtières"]);
+    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(1)))).toEqual(["Vigilance jaune vagues-submersion · 1 zone côtière"]);
+    expect(said(vigilance("orange", ["Vagues - submersion"], coasts(8)))).toEqual(["Vigilance orange vagues-submersion · toutes les côtes"]);
+    expect(said(vigilance("orange", ["Fortes pluies / orages", "Vents forts", "Vagues - submersion"], [LAND[1], ...coasts(2)]))).toEqual(["Vigilance orange pluies-orages, vents forts · Est, 2 zones côtières"]);
+  });
+
+  it("give the cyclone alert to the prefect, with the schools closed on a line of their own (marketing)", () => {
+    const cyclone = (c: number, prevue = false, ecoles?: boolean): Alerte => ({ couleur: c, texte: "Météo-France : …", ecoles, court: { cyclone: c, prevue } });
+    expect(said(cyclone(2))).toEqual(["Pré-alerte cyclonique du préfet"]);
+    expect(said(cyclone(3))).toEqual(["Alerte cyclonique orange du préfet"]);
+    expect(said(cyclone(4))).toEqual(["Alerte cyclonique rouge du préfet"]);
+    expect(said(cyclone(6))).toEqual(["Phase de sauvegarde cyclonique du préfet"]);
+    expect(said(cyclone(3, true))).toEqual(["Alerte cyclonique prévue par le préfet"]);
+    const schools = meteoPage(O, null, NOW, cyclone(4, false, true));
+    expect(said(cyclone(4, false, true))).toEqual(["Alerte cyclonique rouge du préfet", "Écoles et crèches fermées"]);
+    expect(schools).toContain('<a class="ligne" href="/ecoles-cyclone"><span class="txt">Écoles et crèches fermées</span><span aria-hidden="true">→</span></a>');
   });
 });
