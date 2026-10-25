@@ -8,6 +8,7 @@ import { pageOf } from "../src/web/places.js";
 import { manifest, site } from "../src/web/site.js";
 import { LOGO_PETIT_SVG } from "../src/web/logo.js";
 import { sentiersPage } from "../src/web/domains.js";
+import { textOf } from "../src/providers/avis-eau.js";
 
 const NOW = new Date("2026-10-24T04:00:00Z");
 const O = "https://rundata.re";
@@ -86,7 +87,7 @@ describe("sharing and following", () => {
   });
 
   it("leaves out of that sentence an account without an address", () => {
-    const sentence = () => placePage(O, pageOf("cilaos")!, null, NOW).match(/class="share wrap"[^]*?<p>(.*?)<\/p>/)![1].replace(/<[^>]+>/g, "");
+    const sentence = () => textOf(placePage(O, pageOf("cilaos")!, null, NOW).match(/class="share wrap"[^]*?<p>(.*?)<\/p>/)![1]);
     const urls = SOCIAL.map((s) => s.url);
     const only = (...noms: string[]) => SOCIAL.forEach((s, k) => (s.url = noms.includes(s.nom) ? urls[k] : ""));
     try {
