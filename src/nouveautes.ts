@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-25T15:27:00+04:00", texte: "Saint-Philippe, Cilaos, Saint-Joseph\u00a0: les événements annoncés dans les actualités de la mairie s'affichent, avec le lien de l'article." },
   { date: "2026-10-25T15:15:00+04:00", texte: "Nouvelle page Enfants : aires de jeux, parcs, piscines, médiathèques et activités du week-end, de 0 à 17 ans, commune par commune." },
   { date: "2026-10-25T14:50:00+04:00", texte: "ChatGPT\u00a0: des outils de rundata.re manquent\u00a0? Le tutoriel dit comment actualiser la liste dans les paramètres." },
   { date: "2026-10-25T14:45:00+04:00", texte: "Bus\u00a0: votre IA donne les arrêts d'une ligne commune par commune, ses premiers et derniers départs, et si elle s'arrête près de chez vous." },

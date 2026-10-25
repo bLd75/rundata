@@ -87,6 +87,18 @@ export function ageIn(text: string): string | undefined {
   return undefined;
 }
 
+/**
+ * A mairie's news (Saint-Philippe, Cilaos, Saint-Joseph): what makes an article the announcement of an event, besides
+ * the genres above (« Journée de prévention de l'AVC », « repas de partage », « Dépistage respiratoire gratuit »), and
+ * what makes it a service notice, never an event even with a day and such a word (« Distribution de compost :
+ * suspension temporaire le 27 octobre », « Horaires d'ouverture des équipements nautiques », « permanence des impôts »,
+ * « Séance du conseil municipal »: a council's meeting is no outing).
+ */
+const EVENT = W(`journ[ée]es?${END}|repas${END}|s[ée]ances?${END}|d[ée]pistage|caravane|caf[ée] des|c[ée]r[ée]monie|inauguration|spectacles?${END}|animations?${END}|festivit[ée]s|comm[ée]moration|d[ée]fil[ée]${END}|tournoi`);
+const SERVICE = W(`suspension|suspendu|fermetures?${END}|ferm[ée]e?s?${END}|travaux|coupures?${END}|perturbations?|restrictions?|recrute|recrutement|horaires?${END}|permanences?${END}|communiqu[ée]|d[ée]ratisation|circulation|stationnement|interruption|r[ée]glementation|conseil (?:municipal|communautaire)`);
+/** An article of a mairie's news that announces an event: an event's word, and no service notice. */
+export const annonceEvenement = (text: string) => !SERVICE.test(text) && (EVENT.test(text) || themesIn(text).length > 0);
+
 /** At most this of a reused agenda's text: the cap of a « sentence » that has no full stop. */
 export const LEAD_MAX = 200;
 /**
