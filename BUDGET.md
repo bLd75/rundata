@@ -140,7 +140,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | evenements | l'outil evenements | à chaque vue |  | 34 |  |  |  |  |  | 190 | mesuré |
 | sport | l'outil sport | à chaque vue |  | 34 |  |  |  |  |  | 160 | mesuré |
 | volcan_seismes | l'outil volcan_seismes | à chaque vue |  | 30 |  |  | 2 | 21 |  | 90 | mesuré |
-| fiche_terrain | l'outil fiche_terrain | à chaque vue |  | 24 |  |  |  |  |  | 70 | mesuré |
+| fiche_terrain | l'outil fiche_terrain | à chaque vue |  | 36 |  |  |  |  |  | 80 | estimé |
 | prevision_meteo | l'outil prevision_meteo | à chaque vue |  | 20 |  |  |  |  |  | 100 | mesuré |
 | qualite_eau | l'outil qualite_eau | à chaque vue |  | 15 |  |  |  |  |  | 90 | mesuré |
 | temperature_mer | l'outil temperature_mer | à chaque vue |  | 14 |  |  |  |  |  | 50 | mesuré |

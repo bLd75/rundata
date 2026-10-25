@@ -71,6 +71,12 @@ const median = (v: number[]) => {
 const euros = (n: number) => `${fr(Math.round(n / 1000) * 1000).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} €`;
 
 /**
+ * Below this many sales of one kind on the street, their count alone: DVF's terms forbid making people identifiable
+ * again. The same threshold as the area around (`market`), decided on 26/10.
+ */
+export const MEDIANE_MIN = 3;
+
+/**
  * Aggregates only: DVF's terms forbid re-identifying people, so no single sale, address or parcel is given out.
  * Houses and flats sold alone, with a built surface, for a median price and a median price per m².
  */
@@ -92,6 +98,49 @@ export function market(sales: terrain.Sale[]) {
     terrains_nus: land.length >= 3 ? { ventes: land.length, prix_m2_median: `${fr(Math.round(median(land.map((s) => s.valeur / s.surface_terrain))!))} €/m²` } : { ventes: land.length },
     toutes_ventes: sales.length,
   };
+}
+
+// The area of `market`: a square, not a radius (marketing's words, 25/10).
+const SECTEUR = "dans le secteur alentour (environ 600 m sur 600 m)";
+
+/**
+ * The sales on the street asked (DVF géolocalisées), aggregates only like `market`: by kind, a median per m² from
+ * MEDIANE_MIN sales of that kind, the count alone below; with fewer than MEDIANE_MIN sales in all, the count alone.
+ */
+export function streetMarket(nom: string, depuis: number, sales: terrain.StreetSale[]) {
+  const n = sales.length;
+  // marketing's words (25/10): DVF comes months late, so « no sale » is DVF's, not the street's.
+  if (n < MEDIANE_MIN) return { voie: nom, depuis, ventes: n, note: n ? `${enregistrees(n)} dans DVF sur la voie depuis ${depuis}, trop peu pour une médiane` : `aucune vente enregistrée dans DVF sur la voie depuis ${depuis}` };
+  const built = (type: "maison" | "appartement") => {
+    const list = sales.filter((s) => s.type === type && s.surface_bati >= 15);
+    return list.length < MEDIANE_MIN
+      ? { ventes: sales.filter((s) => s.type === type).length }
+      : { ventes: list.length, prix_median: euros(median(list.map((s) => s.valeur))!), prix_m2_median: `${fr(Math.round(median(list.map((s) => s.valeur / s.surface_bati))! / 10) * 10)} €/m²` };
+  };
+  const land = sales.filter((s) => s.type === "terrain" && s.surface_terrain > 0);
+  return {
+    voie: nom,
+    depuis,
+    ventes: n,
+    maisons: built("maison"),
+    appartements: built("appartement"),
+    terrains_nus: land.length >= MEDIANE_MIN ? { ventes: land.length, prix_m2_median: `${fr(Math.round(median(land.map((s) => s.valeur / s.surface_terrain))!))} €/m²` } : { ventes: sales.filter((s) => s.type === "terrain").length },
+    autres_ventes: sales.filter((s) => s.type === "autre").length,
+  };
+}
+
+const enregistrees = (n: number) => `${n} vente${n > 1 ? "s enregistrées" : " enregistrée"}`;
+
+/** The street's line of the summary, named as the address base writes it (marketing's words, 25/10). */
+function streetLine(v: ReturnType<typeof streetMarket>): string {
+  const voie = `sur la voie (${v.voie})`;
+  if (!v.ventes) return `${voie}, aucune vente enregistrée dans DVF depuis ${v.depuis}`;
+  if (v.note !== undefined) return `${voie}, ${enregistrees(v.ventes)} dans DVF depuis ${v.depuis}, trop peu pour une médiane`;
+  const kind = (name: string, k: { ventes: number; prix_m2_median?: string } | undefined) => (k?.prix_m2_median ? `${name} ${k.prix_m2_median} en médiane (${k.ventes} ventes)` : undefined);
+  const kinds = [kind("maisons", v.maisons), kind("appartements", v.appartements), kind("terrains nus", v.terrains_nus)].filter(Boolean);
+  return kinds.length
+    ? `${voie} depuis ${v.depuis} : ${kinds.join(", ")}`
+    : `${voie}, ${enregistrees(v.ventes)} dans DVF depuis ${v.depuis}, trop peu par type de bien pour une médiane`;
 }
 
 /** The value, or undefined when the source failed (null stays "nothing at this point"). */
@@ -118,6 +167,8 @@ export function communeOf(adresse: string): string | undefined {
 export async function ficheLieu(cache: Cache, adresse: string, now = new Date()) {
   // A street address goes to the national address base; a place name to the gazetteer first.
   let where: { label: string; lon: number; lat: number; precision: string; insee?: string } | null = null;
+  // The street asked, found in the address base with its land registry code: its own sales besides the area's.
+  let voie: { nom: string; code: string; insee: string } | undefined;
   const place = resolvePlace(adresse);
   if (place?.correspondance === "coordonnees") {
     where = { label: `point ${place.lieu.nom}`, lon: place.lieu.lon, lat: place.lieu.lat, precision: "coordonnées données" };
@@ -150,6 +201,8 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
         isError: true,
       };
     }
+    const code = a && street ? terrain.codeVoie(a.id) : undefined;
+    if (a && street && code) voie = { nom: street, code, insee: a.insee };
     if (a) where = { label: a.label, lon: a.lon, lat: a.lat, precision: a.type === "housenumber" ? "adresse exacte" : a.type === "street" ? "milieu de la rue" : "centre de la commune", insee: a.insee };
     else if (place) where = { label: `${place.lieu.nom} (${place.lieu.type}, ${place.lieu.commune})`, lon: place.lieu.lon, lat: place.lieu.lat, precision: "centre du lieu-dit", insee: INSEE[place.lieu.commune] };
   }
@@ -160,12 +213,13 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
     };
   }
   const { lon, lat } = where;
-  const fromYear = new Date(now.getTime() + 4 * 3600_000).getUTCFullYear() - 5;
+  const year = new Date(now.getTime() + 4 * 3600_000).getUTCFullYear();
+  const fromYear = year - 5;
   const known = where.insee?.startsWith("974") ? where.insee : undefined;
   const parcelP = settle(terrain.SOURCES.cadastre.id, terrain.parcel(cache, lon, lat));
   // Given coordinates name no commune: the parcel's id starts with its INSEE code.
   const inseeP = known ? Promise.resolve(known) : parcelP.then((x) => (x?.idu.startsWith("974") ? x.idu.slice(0, 5) : undefined));
-  const [p, z, alt, s, ppr, cat, mvt, insee] = await Promise.all([
+  const [p, z, alt, s, ppr, cat, mvt, insee, sv] = await Promise.all([
     parcelP,
     settle(terrain.SOURCES.gpu.id, terrain.zone(cache, lon, lat)),
     settle(terrain.SOURCES.alti.id, terrain.altitude(cache, lon, lat)),
@@ -174,6 +228,7 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
     inseeP.then((c) => (c ? settle(terrain.SOURCES.georisques.id, terrain.catnat(cache, c)) : undefined)),
     settle(terrain.SOURCES.georisques.id, terrain.landslides(cache, lon, lat)),
     inseeP,
+    voie ? settle(terrain.SOURCES.dvfVoie.id, terrain.salesOnStreet(cache, voie.insee, voie.code, fromYear, year)) : undefined,
   ]);
 
   const parts = [`${where.label} (${where.precision})`];
@@ -184,8 +239,10 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
   const m = s ? market(s) : null;
   const risks = ppr ? riskLine(ppr) : undefined;
   if (risks) parts.push(risks);
-  if (m && "prix_m2_median" in m.maisons) parts.push(`maisons vendues autour depuis ${fromYear} : ${m.maisons.prix_m2_median} en médiane (${m.maisons.ventes} ventes)`);
-  if (m && "prix_m2_median" in m.appartements) parts.push(`appartements : ${m.appartements.prix_m2_median} (${m.appartements.ventes} ventes)`);
+  const onStreet = voie && sv ? streetMarket(voie.nom, fromYear, sv.ventes) : undefined;
+  if (onStreet) parts.push(streetLine(onStreet));
+  if (m && "prix_m2_median" in m.maisons) parts.push(`${SECTEUR}, maisons vendues depuis ${fromYear} : ${m.maisons.prix_m2_median} en médiane (${m.maisons.ventes} ventes)`);
+  if (m && "prix_m2_median" in m.appartements) parts.push(`${"prix_m2_median" in m.maisons ? "" : `${SECTEUR}, `}appartements : ${m.appartements.prix_m2_median} (${m.appartements.ventes} ventes)`);
 
   const used = [
     terrain.SOURCES.ban,
@@ -193,6 +250,7 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
     ...(z ? [terrain.SOURCES.gpu] : []),
     ...(alt != null ? [terrain.SOURCES.alti] : []),
     ...(s ? [terrain.SOURCES.dvf] : []),
+    ...(onStreet ? [terrain.SOURCES.dvfVoie] : []),
     ...(ppr ? [terrain.SOURCES.ppr] : []),
     ...(cat || mvt ? [terrain.SOURCES.georisques] : []),
   ];
@@ -212,7 +270,13 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
         }
       : z === undefined ? DOWN : "pas de zonage publié à ce point sur le Géoportail de l'urbanisme",
     marche_immobilier: m
-      ? { perimetre: "environ 600 m × 600 m autour du point", depuis: fromYear, ...m, note: "Médianes des ventes enregistrées (DVF), maisons et appartements vendus seuls. Aucune vente individuelle n'est donnée." }
+      ? {
+          perimetre: "environ 600 m × 600 m autour du point",
+          depuis: fromYear,
+          ...m,
+          ...(voie ? { sur_la_voie: onStreet ?? DOWN } : {}),
+          note: "Médianes des ventes enregistrées (DVF), maisons et appartements vendus seuls. Aucune vente individuelle n'est donnée.",
+        }
       : DOWN,
     risques: risksBlock(lon, lat, insee, ppr, cat, mvt),
     avertissements: [
