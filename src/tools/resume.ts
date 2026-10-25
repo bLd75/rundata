@@ -52,7 +52,7 @@ import {
 } from "../web/data.js";
 import { anchorOf } from "../web/decheteries.js";
 import { coastal, PAGES, type PlacePage } from "../web/places.js";
-import { mentionCommune, occurrences } from "./agenda.js";
+import { mentionCommune, occurrences, repris, sourcesServies } from "./agenda.js";
 import { hoursOn, openNow } from "./annuaire.js";
 import { priceLine } from "./carburants.js";
 import { ecoles, resumeLine } from "./ecoles.js";
@@ -260,7 +260,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     : undefined;
   const avis = l.coupures?.value.avis.filter((n) => n.communes.includes(nom)) ?? [];
   const dist = distributeur(nom);
-  const events = (l.agenda?.value.evenements ?? []).filter((r) => r.commune === nom && occurrences(r).some((o) => o.du <= today && today <= o.au));
+  const events = (l.agenda?.value.evenements ?? []).filter((r) => r.commune === nom && repris(r) && occurrences(r).some((o) => o.du <= today && today <= o.au));
   const mairie = l.commune?.value.mairie;
   const open = mairie ? openNow(mairie, now) : null;
   const sun = cal.sun(today, commune.place.lon, commune.place.lat, commune.place.altitude_m ?? 0);
@@ -363,7 +363,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     non_inclus: out.length ? out : undefined,
     sources: sourcesOf([
       l.meteo?.value.meteo?.sources, l.meteo?.value.prevision?.sources, l.vigilance ? credits([mf.SOURCE]) : undefined, l.air?.value.sources, l.mer?.value.sources,
-      l.electricite?.value.sources, l.actualites?.value.sources, l.trafic?.value.sources, l.coupures?.value.sources, l.agenda?.value.sources, l.calendrier?.value.sources,
+      l.electricite?.value.sources, l.actualites?.value.sources, l.trafic?.value.sources, l.coupures?.value.sources, sourcesServies(l.agenda?.value.sources), l.calendrier?.value.sources,
       l.commune?.value.sources, l.dechets?.value.sources, power.length ? l.courant!.value.sources : undefined, markets.length ? credits([marches.OSM]) : undefined, credits([sante.ARS_GARDE]),
     ]),
   };

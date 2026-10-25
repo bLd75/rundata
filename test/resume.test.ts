@@ -279,8 +279,11 @@ describe("reading the copies", () => {
       const { copies, leftOut } = await counted(WORKER_BUDGET, () => readCopies(cache, LE_TAMPON, LE_TAMPON, NOW)).then((r) => r.value);
       return resume(LE_TAMPON, copies, NOW, leftOut);
     };
-    // Of this revision, the copy is served: the event is there, so the case below is the one the copy would show.
-    expect(JSON.stringify(await summary(stampOf(KEYS.agenda, "2.0.0")!))).toContain("Fête des goyaviers");
+    // Of this revision, the copy is served, but not the event of a site no longer read (tools/agenda.ts, repris).
+    const current = await summary(stampOf(KEYS.agenda, "2.0.0")!);
+    expect(current.evenements_du_jour).toBeDefined();
+    expect(JSON.stringify(current)).not.toContain("Fête des goyaviers");
+    expect(current.non_inclus ?? []).not.toContainEqual(expect.objectContaining({ partie: "événements du jour" }));
     const r = await summary("rendu-0");
     expect(JSON.stringify(r)).not.toContain("Fête des goyaviers");
     expect(JSON.stringify(r)).not.toContain("letampon.fr");

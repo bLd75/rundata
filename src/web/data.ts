@@ -901,6 +901,8 @@ export interface SportAnswer {
   grand_raid?: ReturnType<typeof grandRaidRow>;
   programmes_communes?: { type: string; commune?: string; titre: string; dates: string; lien: string; source: string; publie_par: string; lu_le: string }[];
   programmes_a_savoir?: string;
+  /** The sports programmes of the communes whose site is not read until they agree (tools/sport.ts, mentionProgrammes). */
+  non_repris?: string;
 }
 
 /** The tool's answer for the whole island, with the standings and the last Grand Raid, which it gives only when asked. */

@@ -40,10 +40,11 @@ export { communesIn, lead, monthOf, statusOf, type Statut };
 export const SOURCES = {
   mairies: {
     id: "agenda_mairies",
-    nom: "Agendas des mairies de Saint-Paul, du Port, des Trois-Bassins, du Tampon, de Saint-Louis et de Saint-André",
+    // Named after the mairies read, once AGENDAS is known.
+    nom: "Agendas des mairies",
     organisme: "Communes de La Réunion",
     licence: "Information publique (agendas municipaux)",
-    attribution: "Villes de Saint-Paul, Le Port, Les Trois-Bassins, Le Tampon, Saint-Louis et Saint-André",
+    attribution: "Villes",
     url: "https://www.mairie-saintpaul.re/evenements/",
   },
   openagenda: {
@@ -213,6 +214,8 @@ export interface Agenda {
   faits?: boolean;
   /** Its site's terms allow a link to its home page only: this page, for each of its events. */
   accueil?: string;
+  /** It publishes its clubs' sports programmes (`programmeSportif`), which the tool sport links to: said when not read. */
+  programmes?: true;
   /** One `cache.get("agenda:<id>", …)`, nothing else of the cache. */
   load: (cache: AgendaStore, now: Date) => Promise<Cached<Evenement[]>>;
 }
@@ -1270,11 +1273,11 @@ export const LISIBLES: Agenda[] = [
   { ...rss("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda/evenements?format=feed&type=rss", "Saint-Louis"), site_commune: "site de la commune de Saint-Louis" },
   { ...rss("saint_andre", "Ville de Saint-André", "https://www.saint-andre.re/category/agenda/feed/", "Saint-André"), site_commune: "site de la commune de Saint-André", faits: true },
   tribe("sechoir", "Le Séchoir", "https://www.lesechoir.com", "Saint-Leu", SALLES_SOURCE, "Le Séchoir"),
-  { ...rss("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations?format=feed&type=rss", "L'Étang-Salé", ETANG_SALE), site_commune: "site de la commune de L'Étang-Salé", faits: true },
-  { ...intraMuros("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda/rss", "La Possession", LA_POSSESSION), site_commune: "site de la commune de La Possession", faits: true },
+  { ...rss("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations?format=feed&type=rss", "L'Étang-Salé", ETANG_SALE), site_commune: "site de la commune de L'Étang-Salé", faits: true, programmes: true },
+  { ...intraMuros("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda/rss", "La Possession", LA_POSSESSION), site_commune: "site de la commune de La Possession", faits: true, programmes: true },
   { ...petiteIle, site_commune: "site de la commune de Petite-Île", faits: true, accueil: PETITE_ILE.url },
   { ...brasPanon, site_commune: "site de la commune de Bras-Panon", faits: true },
-  { ...saintBenoit, site_commune: "site de la commune de Saint-Benoît", faits: true, accueil: SAINT_BENOIT.url },
+  { ...saintBenoit, site_commune: "site de la commune de Saint-Benoît", faits: true, accueil: SAINT_BENOIT.url, programmes: true },
   otiEst,
   openAgenda("cinor", "CINOR", 50316469, NORD),
   openAgenda("oti_nord", "Office de tourisme du Nord", 32570974, NORD),
@@ -1291,6 +1294,13 @@ export const LISIBLES: Agenda[] = [
  * (src/providers/autorisations.ts). One left out is not read, and its copies, already kept, are not served.
  */
 export const AGENDAS: Agenda[] = LISIBLES.filter((a) => !a.site_commune || autorisee(a.commune));
+
+// The mairies' agendas credited by name: those read only, one left out until it agrees no longer named.
+const mairiesLues = AGENDAS.filter((a) => a.source === SOURCES.mairies).map((a) => a.commune!);
+const ofCommune = (c: string) => c.replace(/^Le /, "du ").replace(/^Les /, "des ").replace(/^(?!du |des )/, "de ");
+const listed = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} et ${xs.at(-1)}` : xs.join(""));
+SOURCES.mairies.nom = `Agendas des mairies ${listed(mairiesLues.map(ofCommune))}`;
+SOURCES.mairies.attribution = `Villes de ${listed(mairiesLues)}`;
 
 /**
  * The home pages some events link to instead of their own page (`accueil`): opened in a new window, as the terms of
