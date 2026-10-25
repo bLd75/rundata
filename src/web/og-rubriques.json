@@ -122,5 +122,19 @@
   ],
   "png": "/og/carburants.f4bdccc40a.png",
   "alt": "Symbole rundata.re et relief de l'île : Carburants 974, les prix maximum du mois"
+ },
+ {
+  "pages": [
+   "/feux"
+  ],
+  "png": "/og/feux.5f205c0828.png",
+  "alt": "Symbole rundata.re et relief de l'île : Feux 974, les feux de végétation vus par satellite, 24 h"
+ },
+ {
+  "pages": [
+   "/enfants"
+  ],
+  "png": "/og/enfants.6d125c9bce.png",
+  "alt": "Symbole rundata.re et relief de l'île : Enfants 974, où aller avec les enfants, de 0 à 17 ans"
  }
 ]

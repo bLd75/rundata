@@ -53,6 +53,8 @@ RUBRIQUES = [
     ("cyclones", "Cyclones 974", "Trajectoire et alerte|en direct", ["/cyclones"]),
     ("sport", "Sport 974", "Matchs, résultats,|Grand Raid", ["/sport"]),
     ("carburants", "Carburants 974", "Les prix maximum du mois", ["/carburants"]),
+    ("feux", "Feux 974", "Les feux de végétation|vus par satellite, 24 h", ["/feux"]),
+    ("enfants", "Enfants 974", "Où aller avec les enfants,|de 0 à 17 ans", ["/enfants"]),
 ]
 # The volcano's third line, the kit's; the others have two levels.
 INFO = {"volcan": "Niveau d'alerte, accès à l'Enclos, séismes"}
