@@ -66,9 +66,16 @@ export const SOURCES = {
 } satisfies Record<string, SourceInfo>;
 
 /** A commune's agenda as its own source: credited only while its line is in AGENDAS. */
-function mairie(id: string, nom: string, url: string): SourceInfo {
-  return { id: `agenda_${id}`, nom: `Agenda de la ${nom}`, organisme: nom, licence: "Information publique (agenda municipal)", attribution: nom, url };
+function mairie(id: string, nom: string, url: string, licence = "Information publique (agenda municipal)"): SourceInfo {
+  return { id: `agenda_${id}`, nom: `Agenda de la ${nom}`, organisme: nom, licence, attribution: nom, url };
 }
+
+/**
+ * The clause of Saint-Louis's, Saint-Leu's and La Plaine-des-Palmistes's legal notices (read on 25/10/2026): their
+ * information may be reproduced « à des fins d'information et en aucune manière à des fins commerciales ». Saint-Louis
+ * and La Plaine-des-Palmistes add « ne pas modifier »: their titles, days and places are kept as they write them.
+ */
+const REPRISE_INFORMATION = "Reprise autorisée à des fins d'information, sans usage commercial (mentions légales du site)";
 
 // The sites are asked who is reading: some answer an unnamed robot with an error page.
 const HEADERS = { "User-Agent": "rundata.re (contact@rundata.re)" };
@@ -581,12 +588,12 @@ export function parseSpipNews(xml: string, nom: string, commune: string, now: Da
   });
 }
 
-function news(id: string, nom: string, site: string, url: string, commune: string, parse: (body: string, now: Date) => Evenement[]): Agenda {
+function news(id: string, nom: string, site: string, url: string, commune: string, parse: (body: string, now: Date) => Evenement[], licence = "Information publique (actualités municipales)"): Agenda {
   const source: SourceInfo = {
     id: `actus_${id}`,
     nom: `Actualités de la ${nom} (événements annoncés)`,
     organisme: nom,
-    licence: "Information publique (actualités municipales)",
+    licence,
     attribution: nom,
     url: site,
   };
@@ -611,6 +618,27 @@ export const ACTUS_MAIRIES: Agenda[] = [
   // Its feed of articles; not `?page=ical`, whose dates are the articles' publication, not events.
   { ...news("saint_joseph", "Ville de Saint-Joseph", "https://saintjoseph.re/", "https://saintjoseph.re/spip.php?page=backend", "Saint-Joseph",
     (body, now) => parseSpipNews(body, "Ville de Saint-Joseph", "Saint-Joseph", now)), site_commune: "site de la commune de Saint-Joseph", faits: true },
+  // Its news (Joomla), apart from its agenda (« saint_louis »): the events it announces there, such as the associations'
+  // forum. A feed of the same shape as SPIP's.
+  { ...news("saint_louis_actus", "Ville de Saint-Louis", "https://saintlouis.re/actualites", "https://saintlouis.re/actualites?format=feed&type=rss", "Saint-Louis",
+    (body, now) => parseSpipNews(body, "Ville de Saint-Louis", "Saint-Louis", now), REPRISE_INFORMATION), site_commune: "site de la commune de Saint-Louis" },
+  // Its category « Actualité » (4): its « À faire à Saint-Leu » has had nothing since March 2025. Its terms allow its
+  // information and keep its « œuvres » (its texts, its photos): the facts only, without the article's sentence.
+  { ...news("saint_leu", "Ville de Saint-Leu", "https://www.saintleu.re/", `https://www.saintleu.re${WP_NEWS}&categories=4`, "Saint-Leu",
+    (body, now) => parseWpNews(JSON.parse(body), "Ville de Saint-Leu", "Saint-Leu", now), REPRISE_INFORMATION), site_commune: "site de la commune de Saint-Leu", faits: true },
+  // Two types of its own: « agenda » and « actus ». Its posts are the council's deliberations and the mayor's orders.
+  // Its terms ask for « https://www.ville-plainedespalmistes.fr » on what is taken from it.
+  ...(["agenda", "actus"] as const).map((type) => {
+    const read = news(`plaine_des_palmistes_${type}`, "Ville de La Plaine-des-Palmistes", "https://www.ville-plainedespalmistes.fr/", `https://www.ville-plainedespalmistes.fr/wp-json/wp/v2/${type}?per_page=20&_fields=date,link,title,excerpt`, "La Plaine-des-Palmistes",
+      (body, now) => parseWpNews(JSON.parse(body), "Ville de La Plaine-des-Palmistes", "La Plaine-des-Palmistes", now), REPRISE_INFORMATION);
+    // Its agenda credited as such, not as a second « Actualités ».
+    return {
+      ...read,
+      ...(type === "agenda" && { source: { ...read.source, nom: "Agenda de la Ville de La Plaine-des-Palmistes (événements annoncés avec leur date)" } }),
+      partiel: "seuls les événements que la Ville de La Plaine-des-Palmistes annonce avec leur date dans son agenda et ses actualités sont lus, ce n'est pas un agenda complet",
+      site_commune: "site de la commune de La Plaine-des-Palmistes (©\u00a0https://www.ville-plainedespalmistes.fr)",
+    };
+  }),
 ];
 
 // ---------------------------------------------------------------- IntraMuros (La Possession)
@@ -941,6 +969,7 @@ export function parsePetiteIle(html: string, now: Date, nom = "Ville de Petite-�
   return out;
 }
 
+const SAINT_LOUIS = mairie("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda", REPRISE_INFORMATION);
 const ETANG_SALE = mairie("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations");
 const LA_POSSESSION = mairie("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda");
 // Credited by their home page, the only page their terms allow a link to; their agenda page is read.
@@ -1270,7 +1299,8 @@ export const LISIBLES: Agenda[] = [
   { ...tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port"), site_commune: "site de la commune du Port (©\u00a0www.ville-port.re)" },
   { ...tribe("trois_bassins", "Mairie des Trois-Bassins", "https://trois-bassins.re", "Les Trois-Bassins"), site_commune: "site de la commune des Trois-Bassins" },
   { ...rss("le_tampon", "Ville du Tampon", "https://letampon.fr/agenda/feed/", "Le Tampon"), site_commune: "site de la commune du Tampon", faits: true, accueil: "https://letampon.fr/" },
-  { ...rss("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda/evenements?format=feed&type=rss", "Saint-Louis"), site_commune: "site de la commune de Saint-Louis" },
+  // Its whole agenda, all its categories: « /agenda/evenements » has had nothing to come since September 2026.
+  { ...rss("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda?format=feed&type=rss", "Saint-Louis", SAINT_LOUIS), site_commune: "site de la commune de Saint-Louis" },
   { ...rss("saint_andre", "Ville de Saint-André", "https://www.saint-andre.re/category/agenda/feed/", "Saint-André"), site_commune: "site de la commune de Saint-André", faits: true },
   tribe("sechoir", "Le Séchoir", "https://www.lesechoir.com", "Saint-Leu", SALLES_SOURCE, "Le Séchoir"),
   { ...rss("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations?format=feed&type=rss", "L'Étang-Salé", ETANG_SALE), site_commune: "site de la commune de L'Étang-Salé", faits: true, programmes: true },

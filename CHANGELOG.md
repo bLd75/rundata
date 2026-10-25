@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Événements : nous lisons tout l'agenda de Saint-Louis, et les événements que Saint-Leu et La Plaine-des-Palmistes annoncent avec leur date.
 - Événements : même règle pour 3 communes de plus, Saint-Denis, Saint-Pierre et Sainte-Rose, dont les mentions légales interdisent la reprise.
 - Événements : ceux que publient 10 communes dont les mentions légales interdisent la reprise ne sont plus repris ; la page dit lesquelles.
 - Marée : à Saint-Leu, Saint-Pierre, dans le Sud et l'Est, le lien vers les horaires officiels du SHOM remplace nos heures calculées.

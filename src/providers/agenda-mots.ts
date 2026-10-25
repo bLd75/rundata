@@ -95,8 +95,12 @@ export function ageIn(text: string): string | undefined {
  * « Séance du conseil municipal »: a council's meeting is no outing).
  */
 const EVENT = W(`journ[ée]es?${END}|repas${END}|s[ée]ances?${END}|d[ée]pistage|caravane|caf[ée] des|c[ée]r[ée]monie|inauguration|spectacles?${END}|animations?${END}|festivit[ée]s|comm[ée]moration|d[ée]fil[ée]${END}|tournoi`);
-const SERVICE = W(`suspension|suspendu|fermetures?${END}|ferm[ée]e?s?${END}|travaux|coupures?${END}|perturbations?|restrictions?|recrute|recrutement|horaires?${END}|permanences?${END}|communiqu[ée]|d[ée]ratisation|circulation|stationnement|interruption|r[ée]glementation|conseil (?:municipal|communautaire)`);
-/** An article of a mairie's news that announces an event: an event's word, and no service notice. */
+const SERVICE = W(`suspension|suspendu|fermetures?${END}|ferm[ée]e?s?${END}|travaux|coupures?${END}|perturbations?|restrictions?|recrute|recrutement|horaires?${END}|permanences?${END}|communiqu[ée]|d[ée]ratisation|circulation|stationnement|interruption|r[ée]glementation|conseil (?:municipal|communautaire)|appels? (?:à|aux)${END}|avis de publicit[ée]`);
+/**
+ * An article of a mairie's news that announces an event: an event's word, and no service notice. A call (« appel à
+ * candidatures », « appel aux forains », « … : appel aux professionnels de la restauration rapide ») names its event
+ * and calls traders or applicants, not the public: never the event's announcement, even with the event's day.
+ */
 export const annonceEvenement = (text: string) => !SERVICE.test(text) && (EVENT.test(text) || themesIn(text).length > 0);
 
 /** At most this of a reused agenda's text: the cap of a « sentence » that has no full stop. */

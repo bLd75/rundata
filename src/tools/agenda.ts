@@ -491,6 +491,15 @@ export function sourcesServies<T extends { source: string }>(cs: T[] | undefined
 
 // Told from the agendas read: a source taken out of AGENDAS leaves this text too.
 const halls = src.AGENDAS.filter((x) => x.source === SALLES_SOURCE);
+/** « du Séchoir », « de la Cité des Arts », « de Léspas ». */
+const ofHall = (nom: string) => nom.replace(/^Le /, "du ").replace(/^La /, "de la ").replace(/^Les /, "des ").replace(/^(?!du |de la |des )/, /^[AEIOUYÉÈÊÀÂ]/iu.test(nom) ? "de l'" : "de ");
+/** What a commune read only through its mairie's news has besides (marketing): its halls' programmes, reunion.fr's. */
+function besides(commune: string): string {
+  const its = halls.filter((h) => h.commune === commune).map((h) => ofHall(h.nom));
+  return its.length
+    ? `\u00a0; s'y ajoutent ${its.length > 1 ? "les programmes" : "le programme"} ${enumeration(its)} et les grands événements de reunion.fr`
+    : ", avec les grands événements de reunion.fr";
+}
 const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== "reunion_fr" && x.id !== PROPOSITIONS_ID && !x.partiel);
 const partial = src.AGENDAS.filter((x) => x.partiel);
 // Not those whose site is not read until they agree: said apart (mentionIle).
@@ -500,7 +509,7 @@ export const MAIRIES_LUES = towns.filter((x) => x.commune && !x.couvre).map((x) 
 export const COUVERTURE =
   `Agendas lus : ${towns.map((x) => (x.couvre ? `${x.nom} (${x.couvre.join(", ")})` : x.nom)).join(", ")}\u00a0; agenda de reunion.fr pour les grandes fêtes ` +
   `et festivals de toute l'île. Programmes des salles : ${halls.map((x) => x.nom).join(", ")}. ` +
-  (partial.length ? `Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : ${partial.map((x) => x.commune).join(", ")}. ` : "") +
+  (partial.length ? `Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : ${[...new Set(partial.map((x) => x.commune))].join(", ")}. ` : "") +
   `Sans agenda lu (seuls les grands événements de reunion.fr) : ${without.join(", ")}` +
   `${Object.entries(src.SANS_AGENDA).filter(([c]) => without.includes(c)).map(([, why]) => `\u00a0; ${why}`).join("")}. ` +
   (mentionIle().length ? `${mentionIle().join(" ")} ` : "") +
@@ -558,7 +567,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     off.length ? `ATTENTION : ${off.map((x) => `« ${x.e.titre} » ${x.e.statut}${x.e.reporte_au ? ` au ${dayText(x.e.reporte_au)}` : ""}${x.e.selon ? ` (d'après ${x.e.selon.media})` : ""}`).slice(0, 4).join(", ")}` : "",
     commune && nonRepris ? mentionCourte(commune)!.resume : "",
     commune && !covered ? (nonRepris ? "seuls les grands événements de reunion.fr y figurent" : `${src.SANS_AGENDA[commune] ?? `ni la mairie ${de(commune)} ni une salle de la commune ne publient d'agenda lisible`} : seuls les grands événements de reunion.fr y figurent`) : "",
-    partly ? `${commune} : ${partly.partiel}, avec les grands événements de reunion.fr` : "",
+    partly ? `${commune} : ${partly.partiel}${besides(commune!)}` : "",
     commune && !n && all.length ? `${all.length} ailleurs sur l'île` : "",
     // Said in the summary, not only in `indisponible`: a partial list must not be read as the whole of it.
     failed.length ? `${failed.length} agenda${failed.length > 1 ? "s" : ""} non lu${failed.length > 1 ? "s" : ""} cette fois : ${failed.join(", ")} (liste peut-être incomplète, à redemander dans une minute)` : "",
