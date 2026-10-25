@@ -18,8 +18,12 @@ export const FUSEAU = "heure de La Réunion (UTC+4)";
 type Payload = Record<string, unknown>;
 type Dated = { du: string; age?: string };
 
+// The age the block states beside its date: its text, or its minutes (the production of electricite has only those).
+const ageOf = (o: Payload): string | undefined =>
+  typeof o.age_texte === "string" ? o.age_texte : typeof o.age_min === "number" ? (o.age_min < 1 ? "à l'instant" : ageText(o.age_min)) : undefined;
+
 const dated = (o: Payload): Dated | undefined => {
-  for (const k of DATED) if (typeof o[k] === "string" && o[k]) return { du: o[k] as string, age: typeof o.age_texte === "string" ? o.age_texte : undefined };
+  for (const k of DATED) if (typeof o[k] === "string" && o[k]) return { du: o[k] as string, age: ageOf(o) };
   return undefined;
 };
 
