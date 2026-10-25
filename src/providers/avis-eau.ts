@@ -246,9 +246,20 @@ interface Post { date: string; title: { rendered: string }; link: string; catego
 
 // The distributors a CIREST notice may name, as they write themselves.
 const OPERATORS: [RegExp, string][] = [[/CISE\s+R[ée]union/i, "CISE Réunion"], [/\brun[ée]o\b/i, "runéo"], [/\bO2\s?L.?EST\b/i, "O2LEST"]];
-/** The distributor a notice names first in its own words, if any. */
-export function operatorOf(text: string): string | undefined {
-  return OPERATORS.map(([re, nom]) => ({ nom, at: text.search(re) })).filter((x) => x.at >= 0).sort((x, y) => x.at - y.at)[0]?.nom;
+const first = (text: string, signed: boolean) =>
+  OPERATORS.map(([re, nom]) => ({ nom, at: text.search(signed ? new RegExp(`${re.source}\\s+(?:vous\\s+)?informe`, "i") : re) }))
+    .filter((x) => x.at >= 0).sort((x, y) => x.at - y.at)[0]?.nom;
+/**
+ * The distributor a notice names in its own words, if any: the one that signs it (« CISE Réunion informe… ») in any of
+ * `texts`, else the first one it names (« …signalé par CISE Réunion »). « Suite à une casse sur le réseau de runéo,
+ * CISE Réunion informe… » is CISE Réunion's.
+ */
+export function operatorOf(...texts: string[]): string | undefined {
+  for (const signed of [true, false]) for (const t of texts) {
+    const nom = first(t, signed);
+    if (nom) return nom;
+  }
+  return undefined;
 }
 
 export function parseCirest(posts: Post[]): Avis[] {
@@ -257,7 +268,7 @@ export function parseCirest(posts: Post[]): Avis[] {
     const texte = body.replace(/\s+/g, " ");
     const titre = strip(p.title.rendered).trim();
     const communes = p.categories.map((c) => CIREST_COMMUNES[c]).filter(Boolean);
-    const operator = operatorOf(texte) ?? operatorOf(titre);
+    const operator = operatorOf(texte, titre);
     return {
       distributeur: operator ? `CIREST / ${operator}` : "CIREST",
       titre,
