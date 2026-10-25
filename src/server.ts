@@ -368,14 +368,15 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           "CarSud (Le Tampon, Saint-Joseph…), Estival (Saint-André, Saint-Benoît, Salazie…), téléphérique Papang. Ligne, direction, heure, " +
           "minutes d'attente ; pour Car Jaune (et Alternéo, CarSud quand leur flux fonctionne), l'heure annoncée en temps réel, le retard, " +
           "les arrêts non desservis et l'info trafic. Pour : « prochain bus à la gare routière de Saint-Pierre ? », « à quelle heure passe le car jaune à Saint-Leu ? », " +
-          "« horaires de la ligne 2 à l'arrêt Mairie au Tampon ? », « le car jaune a du retard ? ». Bateau ou ferry pour Maurice ou Rodrigues : dit qu'il n'y a pas de liaison maritime régulière de passagers, ne pas en inventer ni d'horaires de bateau. / Next bus departures at a stop in Réunion Island, from the published timetables and, where available, real-time feeds.",
+          "« horaires de la ligne 2 à l'arrêt Mairie au Tampon ? », « le car jaune a du retard ? », « par où passe la ligne S1 ? », « le S1 s'arrête à Manapany ? ». " +
+          "Chaque départ dit d'où vient le car et où il va ; un jour sans service (dimanche, jour férié) est dit. Bateau ou ferry pour Maurice ou Rodrigues : dit qu'il n'y a pas de liaison maritime régulière de passagers, ne pas en inventer ni d'horaires de bateau. / Next bus departures at a stop in Réunion Island, from the published timetables and, where available, real-time feeds.",
         inputSchema: {
-          arret: z.string().describe("Nom de l'arrêt et sa commune (« Gare routière, Saint-Pierre »), ou un lieu (« plage de Boucan ») pour les arrêts les plus proches. / Stop name and town, or a place."),
-          ligne: z.string().optional().describe("Ligne à garder seulement (« 2 », « S1 », « Z1 »). / Only this line."),
+          arret: z.string().optional().describe("Nom de l'arrêt et sa commune (« Gare routière, Saint-Pierre »), ou un lieu (« plage de Boucan », « Manapany ») pour les arrêts les plus proches ; avec une ligne, dit si elle y passe, sinon son arrêt le plus proche. Une heure (« après 17 h ») donne les départs une par une. Facultatif avec une ligne. / Stop name and town, or a place; optional with a line."),
+          ligne: z.string().optional().describe("Une ligne (« S1 », « O1X », « 2 », « S1 Car Jaune ») : seule, ses arrêts dans l'ordre pour chaque sens et ses départs du jour ; avec un arrêt, ses prochains départs là. / A line: its stops in order and its day's departures."),
         },
         annotations: { title: "Bus à La Réunion", ...READ_ONLY },
       },
-      track("transports", (args: { arret: string; ligne?: string }) => transports(args.arret, args.ligne, new Date(), cache)),
+      track("transports", (args: { arret?: string; ligne?: string }) => transports(args.arret, args.ligne, new Date(), cache)),
     );
   }
 

@@ -1,19 +1,21 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as transit from "../src/providers/transit.js";
-import { findStops, parseQuery, transports } from "../src/tools/transports.js";
+import type { Cache } from "../src/cache.js";
+import { findStops, linesNamed, parseQuery, transports } from "../src/tools/transports.js";
 
 // Rows of the D1 database for the stations of Saint-Pierre, the cable car at Bancoul and Hell-Bourg, from the
 // networks' GTFS of 23/10/2026 (scripts/build-transit.py).
 // By feed, as scripts/build-transit.py writes them to the database.
 const rows = JSON.parse(readFileSync(new URL("./fixtures/transit/rows.json", import.meta.url), "utf8")) as Record<
   string,
-  { passes: { id: number }[]; patterns: { id: number }[] }
+  { passes?: { id: number }[]; patterns?: { id: number }[]; pattern_stops?: { id: number }[] }
 >;
 const fake: transit.TransitDb = {
   all: async <T>(sql: string, keys: unknown) =>
     (JSON.parse(String(keys)) as [string, number][]).flatMap(([feed, id]) =>
-      (/FROM passes/.test(sql) ? rows[feed]?.passes : rows[feed]?.patterns)?.filter((r) => r.id === id).map((r) => ({ feed, ...r })) ?? [],
+      (/FROM passes/.test(sql) ? rows[feed]?.passes : /FROM pattern_stops/.test(sql) ? rows[feed]?.pattern_stops : rows[feed]?.patterns)
+        ?.filter((r) => r.id === id).map((r) => ({ feed, ...r })) ?? [],
     ) as T[],
 };
 // Friday 23/10/2026, 7h30 in La Réunion.
@@ -65,6 +67,8 @@ describe("transports", () => {
     expect(new Set(r.departs.map((d: { reseau: string }) => d.reseau)).size).toBeGreaterThan(1);
     expect(r.horaires).toMatch(/^théoriques/);
     expect(r.sources[0].licence).toBe("Licence Ouverte Etalab 2.0");
+    // Where each bus comes from and goes, from the bundle: no row more is read for it.
+    expect(r.departs.every((d: { origine?: string; terminus?: string }) => d.origine && d.terminus)).toBe(true);
   });
 
   it("keeps one line only when asked, and never a code as direction", async () => {
@@ -103,7 +107,7 @@ describe("transports", () => {
       },
     });
     const r = body(await transports("gare routière Saint-Pierre", undefined, NOW));
-    const passing = Object.values(rows).reduce((n, f) => n + f.patterns.length, 0);
+    const passing = Object.values(rows).reduce((n, f) => n + (f.patterns?.length ?? 0), 0);
     // 578 patterns pass at the station; on a Friday at 7h30, 65 of them may stop there in the next three hours.
     expect(asked).toHaveLength(1);
     expect(asked[0]).toBeLessThan(passing / 4);
@@ -128,3 +132,88 @@ describe("transports", () => {
     expect(r.isError).toBe(true);
   });
 });
+
+describe("a line", () => {
+  type Sens = { direction: string; nombre_arrets?: number; arrets?: string[] | string; departs_du_jour: { nombre: number; premier?: string; par_tranche?: unknown[] }; departs_apres_l_heure_demandee?: string[] };
+
+  it("is found by its name, in the network named with it", () => {
+    const [s1] = linesNamed("S1", "carjaune");
+    expect(transit.ROUTES[s1]).toEqual(["carjaune", "S1", "St-Benoît / St-Pierre par le Grand Brûlé"]);
+    expect(linesNamed("ligne S1 car jaune")).toEqual([s1]);
+    expect(linesNamed("Z9Z")).toEqual([]);
+  });
+
+  it("alone, gives its stops in order for each direction and its day's departures in a few figures", async () => {
+    const r = body(await transports(undefined, "S1", NOW));
+    expect(r.resume).toMatch(/^Ligne S1 \(St-Benoît \/ St-Pierre par le Grand Brûlé\), Car Jaune, d'après les horaires publiés : Gare de St-Benoît → Gare de St-Pierre, 31 arrêts, \d+ départs aujourd'hui, de \d+h\d\d à \d+h\d\d/);
+    const sens = r.sens as Sens[];
+    expect(sens).toHaveLength(2);
+    expect(sens[0].arrets).toContain("Saint-Joseph : Église Vincendo, Centre Multiservices, Gare de St-Joseph, Lycée Agricole, Manapany les Bains");
+    // The way back by the same stops is said, not listed again.
+    expect(sens[1].arrets).toBe("les mêmes arrêts, dans l'ordre inverse");
+    expect(sens[0].departs_du_jour.nombre).toBeGreaterThan(3);
+    expect(sens[0].departs_du_jour.par_tranche!.length).toBeGreaterThan(0);
+    // No departure one by one unless an hour is asked.
+    expect(r.departs).toBeUndefined();
+    expect(sens[0].departs_apres_l_heure_demandee).toBeUndefined();
+    expect(r.detail).toMatch(/redemander avec l'heure/);
+    expect(JSON.stringify(r).length).toBeLessThan(6000);
+  });
+
+  it("at a place it serves, says so and gives its next departures there, with where each bus comes from", async () => {
+    const r = body(await transports("Manapany", "S1", NOW));
+    expect(r.arret).toMatchObject({ arret: "Manapany les Bains", commune: "Saint-Joseph", dessert_le_lieu_demande: true });
+    expect(r.resume).toMatch(/Elle s'arrête à Manapany les Bains \(Saint-Joseph\)/);
+    expect(r.departs.length).toBeGreaterThan(0);
+    expect(r.departs.every((d: { ligne: string; origine: string; terminus: string }) => d.ligne === "S1" && /Gare de St-(Benoît|Pierre)/.test(d.origine) && d.terminus)).toBe(true);
+  });
+
+  it("at a place it does not serve, gives its nearest stop and how far", async () => {
+    const r = body(await transports("Manapany", "S2 car jaune", NOW));
+    expect(r.arret.dessert_le_lieu_demande).toBe(false);
+    expect(r.arret.distance_du_lieu_demande).toMatch(/km$/);
+    expect(r.resume).toMatch(/Elle ne passe pas à « Manapany » : son arrêt le plus proche est .+, à [\d,]+ km\./);
+  });
+
+  it("gives its departures one by one after the hour asked", async () => {
+    const r = body(await transports("après 17 h", "S1", NOW));
+    const times = (r.sens as Sens[])[0].departs_apres_l_heure_demandee!;
+    expect(times.length).toBeGreaterThan(0);
+    expect(times.every((t) => Number(t.split("h")[0]) >= 17)).toBe(true);
+    expect(r.arret).toBeUndefined();
+  });
+
+  it("says when it does not run, why, and gives its next day", async () => {
+    // Sunday 25/10/2026: the E1 runs on weekdays only.
+    const sunday = body(await transports(undefined, "E1", new Date("2026-10-25T03:30:00Z")));
+    expect(sunday.resume).toMatch(/^La ligne E1 \(St-Denis \/ St-Benoît\), Car Jaune ne circule pas aujourd'hui, dimanche 25 octobre, elle ne circule pas le dimanche, d'après les horaires publiés\. Sa prochaine journée, lundi 26 octobre : /);
+    expect(sunday.jour).toBe("lundi 26 octobre");
+    // Wednesday 11/11/2026, a public holiday, by the State's calendar when it is at hand.
+    const cache = { get: async () => ({ value: { "2026-11-11": "11 novembre" }, fetchedAt: new Date() }) } as unknown as Cache;
+    const holiday = body(await transports(undefined, "E1", new Date("2026-11-11T03:30:00Z"), cache));
+    expect(holiday.resume).toMatch(/ne circule pas aujourd'hui, mercredi 11 novembre, jour férié \(11 novembre\)/);
+    const unknown = body(await transports(undefined, "E1", new Date("2026-11-11T03:30:00Z")));
+    expect(unknown.resume).toMatch(/mercredi 11 novembre, un jour sans service au calendrier du réseau/);
+  });
+
+  it("without its stops in the database, gives its termini and its hours, and says the list is missing", async () => {
+    transit.configure({
+      all: async <T>(sql: string, keys: unknown) => {
+        if (/pattern_stops/.test(sql)) throw new Error("D1_ERROR: no such table: pattern_stops: SQLITE_ERROR");
+        return fake.all<T>(sql, keys);
+      },
+    });
+    const r = body(await transports("Manapany", "S1", NOW));
+    expect(r.resume).toMatch(/La liste de ses arrêts n'est pas disponible pour le moment\./);
+    expect(r.note).toMatch(/Liste des arrêts indisponible/);
+    expect((r.sens as Sens[])[0]).not.toHaveProperty("arrets");
+    expect((r.sens as Sens[])[0].departs_du_jour.nombre).toBeGreaterThan(3);
+    expect(r.erreur).toBeUndefined();
+  });
+
+  it("asks which network when several have a line of that name", async () => {
+    const r = body(await transports(undefined, "1", NOW));
+    expect(r.resume).toMatch(/^Plusieurs réseaux ont une ligne « 1 »/);
+  });
+});
+
