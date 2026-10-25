@@ -210,10 +210,14 @@ export function slotStart(now: number, every: number, offset = 0): number {
 /** How often `s` is refreshed, given its copy's value. */
 const everyOf = (s: Shared, value: unknown) => (typeof s.every === "number" ? s.every : s.every(value));
 
-export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = SHARED): Promise<Warmed> {
+/** One listing of the copies in KV, for the event's two calls of warmShared (worker.ts): one subrequest, not two. */
+export const listShared = (kv: Kv) => kvList(kv);
+
+export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = SHARED, listing = listShared(kv)): Promise<Warmed> {
   // The ages and costs of all the copies from one listing; a copy read whole only when the listing has no metadata for
-  // it (written before it was kept there), or when KV did not list.
-  const listed = await kvList(kv);
+  // it (written before it was kept there), or when KV did not list. The event's second call shares the first's: what
+  // this isolate wrote since, `wrote` knows.
+  const listed = await listing;
   const ages = await Promise.all(list.map(async (s): Promise<{ s: Shared; at?: number; kept?: number; every: number; old: boolean }> => {
     const k = kvKey(s.key);
     const meta = wrote.get(k) ?? listed?.get(k);

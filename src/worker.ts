@@ -27,7 +27,7 @@ import { whenFailed, whenRead } from "./http.js";
 import * as formulaires from "./web/propositions.js";
 import { refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
-import { SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
+import { listShared, SHARED, SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
 import { why } from "./types.js";
 
 // How long the edge keeps an entry. Much longer than any freshness window: an old copy is what gets served,
@@ -242,8 +242,10 @@ export default {
     const reads = counted(SCHEDULED_BUDGET, async () => {
       const arome = await prefetchForecasts(c).catch((err) => (console.error("préchargement AROME impossible", why(err)), null));
       const aromeUsed = spent();
-      const first = kv ? await warmShared(c, kv) : { written: [], left: [] };
-      const after = kv ? await warmShared(c, kv, new Date(), SHARED_AFTER) : { written: [], left: [] };
+      // One listing of KV for both.
+      const listing = kv ? listShared(kv) : undefined;
+      const first = kv ? await warmShared(c, kv, new Date(), SHARED, listing) : { written: [], left: [] };
+      const after = kv ? await warmShared(c, kv, new Date(), SHARED_AFTER, listing) : { written: [], left: [] };
       const copies = { written: [...first.written, ...after.written], left: [...first.left, ...after.left] };
       // Last, with what is left: the agendas read only here.
       const agendas = kv ? await refreshPlanned(c).catch((err) => (console.error("agendas planifiés impossibles", why(err)), null)) : null;
