@@ -14,7 +14,7 @@ import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildCourant
 import { alerteVolcan } from "./volcan-alerte.js";
 import { type CourantAnswer, followed } from "../tools/courant.js";
 import { buildSatellites, SATELLITES, satellitesEvery } from "../tools/mer.js";
-import { buildChiffres, buildEvenements, EVENEMENTS_KEY, KEY as CHIFFRES } from "../chiffres.js";
+import { buildChiffres, buildEvenements, EVENEMENTS_KEY, evenementsEvery, KEY as CHIFFRES } from "../chiffres.js";
 
 /** The part of a KV namespace binding used here. */
 export interface Kv {
@@ -47,7 +47,7 @@ export interface Shared {
 }
 
 // About 330 KV writes a day in all: 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
-// of /chiffres (4 more for their events), 12 for the power
+// of /chiffres (4 more for their events, 24 while an agenda does not answer), 12 for the power
 // cuts the mairies relay (48 while the site of one of them does not answer), 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
 // of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
 // The cold costs: each build measured alone with `wrangler dev` from an empty cache, plus one. The traffic's: about 28
@@ -88,8 +88,8 @@ export const SHARED: Shared[] = [
   // from the code.
   { key: CHIFFRES, build: buildChiffres, every: 60, cold: 25, cpu: 60, offset: 50 },
   // Its events, the whole agenda as /evenements reads it (55 measured there): every 6 hours, in the half hour's first
-  // event, which no copy every 30 minutes takes.
-  { key: EVENEMENTS_KEY, build: buildEvenements, every: 6 * 60, cold: 56, cpu: 200, offset: 30, before: [CHIFFRES] },
+  // event, which no copy every 30 minutes takes; every hour while an agenda did not answer (chiffres.ts).
+  { key: EVENEMENTS_KEY, build: buildEvenements, every: evenementsEvery, cold: 56, cpu: 200, range: { usual: 6 * 60, shortest: 60 }, offset: 30, before: [CHIFFRES] },
 ];
 /**
  * Warmed after SHARED, with what it left, so that they never go short for these: the confidence of the forecast
