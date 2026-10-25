@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-25T14:45:00+04:00", texte: "Bus\u00a0: votre IA donne les arrêts d'une ligne commune par commune, ses premiers et derniers départs, et si elle s'arrête près de chez vous." },
   { date: "2026-10-25T14:20:00+04:00", texte: "Volley-ball\u00a0: les tournois en plein air de la Ligue réunionnaise, avec leur date et le lien de la Ligue." },
   { date: "2026-10-25T13:12:00+04:00", texte: "Il a plu quand à Saint-Joseph\u00a0? Dans votre IA, la pluie heure par heure et depuis minuit au pluviomètre Météo-France le plus proche." },
   { date: "2026-10-25T03:00:00+04:00", texte: "Marée : les pleines et basses mers calculées pour les deux prochains jours, avec le lien du SHOM au-delà." },
