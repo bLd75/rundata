@@ -6,7 +6,7 @@ import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.j
 import { configure } from "../src/providers/mf-auth.js";
 import * as mf from "../src/providers/vigilance.js";
 import * as feux from "../src/providers/feux.js";
-import { alerteOf, buildPlace, snapshot, withoutForecast } from "../src/web/data.js";
+import { alerteOf, buildPlace, buildSea, snapshot, withoutForecast } from "../src/web/data.js";
 import { homePage } from "../src/web/home.js";
 import { communesPage } from "../src/web/commune.js";
 import { VERSION } from "../src/server.js";
@@ -176,6 +176,33 @@ describe("home page", () => {
     expect(warm.used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
+  it("takes the sea from the copy of /mer, however old, and never asks the satellites itself (cam-change 273)", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      overLimit();
+      asked.push(String(url));
+      return upstream(String(url));
+    });
+    const satellites = () => asked.filter((u) => u.includes("/thredds/") || u.includes("/erddap/"));
+    // No copy of /mer yet: the page goes without the sea rather than ask NOAA.
+    const bare = await serve(isolate(), "/meteo");
+    expect(bare.text).toContain("Piton Maïdo");
+    expect(bare.text).not.toContain("Par satellite, le");
+    expect(satellites()).toEqual([]);
+    // The copy the scheduled event wrote three hours ago, Saint-Leu's reading of 19 October.
+    const sea = (await counted(WORKER_BUDGET, () => buildSea(isolate(), NOW))).value;
+    const leu = sea.plages.find((b) => b.nom === "Saint-Leu")!;
+    Object.assign(leu, { valeur: 26.4, jour: "2026-10-19" });
+    for (const b of sea.plages) if (b !== leu && b.jour) b.jour = "2026-10-18";
+    const edge = new EdgeLike();
+    await edge.put("web:mer", { value: sea, fetchedAt: NOW.getTime() - 3 * 3600_000 });
+    asked.length = 0;
+    const { text } = await serve(isolate(edge), "/meteo");
+    expect(text).toMatch(/<li><span>Saint-Leu<\/span><b>26,4[^<]*°C<\/b><\/li>/);
+    expect(text).toContain("Par satellite, le 19/10.");
+    expect(satellites()).toEqual([]);
+  });
+
   it("reads no tile from the data center's cache on a warm isolate whose copies are fresh", async () => {
     // Every tile's copy fresh in the data center's cache, as other isolates left them, and the weather's too.
     const edge = new ReadsByKey();
@@ -185,7 +212,8 @@ describe("home page", () => {
     const cache = isolate(edge);
     // These copies are empty: the page is served without them (site.ts), only the reads matter here.
     await serve(cache, "/");
-    const tileReads = () => [...edge.reads].filter(([k]) => k.startsWith("web:") && k !== "web:meteo").reduce((a, [, n]) => a + n, 0);
+    // The weather's build reads the copy of /mer for the sea, as a source and not as a tile.
+    const tileReads = () => [...edge.reads].filter(([k]) => k.startsWith("web:") && k !== "web:meteo" && k !== "web:mer").reduce((a, [, n]) => a + n, 0);
     expect(tileReads()).toBe(17);
     // The same isolate a minute later: the tiles from its memory.
     edge.reads.clear();
