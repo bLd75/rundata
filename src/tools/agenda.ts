@@ -12,6 +12,7 @@ import { evenements as proposes, ID as PROPOSITIONS_ID } from "../providers/agen
 import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
+import { type Injoignable, injoignable } from "./injoignable.js";
 import { dayMonth, mention, mentionIle as ileMention } from "./non-repris.js";
 import { quand as dayText, derniereLecture } from "./sport.js";
 
@@ -148,7 +149,13 @@ export function matcher(quoi: string | undefined): { nom?: string; test: (e: src
 }
 
 // `nonServie`: an agenda of the scheduled event whose copy is not served, and why (src.nonServie).
-type Got = { agenda: src.Agenda; value?: Cached<src.Evenement[]>; nonServie?: ReturnType<typeof src.nonServie> };
+type Got = {
+  agenda: src.Agenda;
+  value?: Cached<src.Evenement[]>;
+  nonServie?: ReturnType<typeof src.nonServie>;
+  /** Not read this time for want of subrequests: left to the next question, not silent. */
+  remise?: true;
+};
 
 // An answer does not wait longer for the slowest of the agendas: one still loading is answered from its last copy, or
 // left out and named, and stored once it lands, after the response.
@@ -218,8 +225,11 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
       console.error(`source ${agenda.source.id} (${agenda.id}) trop lente${old ? " : dernière copie" : ""}`);
       return { agenda, value: old };
     } catch (err) {
-      if (err instanceof Postponed) console.error(`source ${agenda.source.id} (${agenda.id}) remise à plus tard : plus assez de sous-requêtes`);
-      else console.error(`source ${agenda.source.id} (${agenda.id}) indisponible:`, why(err));
+      if (err instanceof Postponed) {
+        console.error(`source ${agenda.source.id} (${agenda.id}) remise à plus tard : plus assez de sous-requêtes`);
+        return { agenda, remise: true };
+      }
+      console.error(`source ${agenda.source.id} (${agenda.id}) indisponible:`, why(err));
       return { agenda };
     } finally {
       clearTimeout(timer);
@@ -420,6 +430,21 @@ export const mentionCommune = (commune: string | undefined) => mention("agenda",
 /** The same for the whole island. */
 export const mentionIle = () => ileMention("agenda");
 
+/** « Mairie de Saint-Paul » → « le site de la Mairie de Saint-Paul », « Le Séchoir » → « le site du Séchoir ». */
+export function siteOf(nom: string): string {
+  if (/^(Ville|Mairie|Commune)\b/.test(nom)) return `le site de la ${nom}`;
+  const de = nom.replace(/^Le /, "du ").replace(/^La /, "de la ").replace(/^Les /, "des ");
+  return `le site ${de !== nom ? de : /^[AEIOUYÉÈÊÀÂ]/iu.test(nom) ? `de l'${nom}` : `de ${nom}`}`;
+}
+
+/**
+ * The agendas of a commune that did not answer this time (`indisponible`), in marketing's words (tools/injoignable.ts):
+ * its tile then never says « rien d'annoncé » alone.
+ */
+export function silentOf(indisponible: string[] | undefined, commune: string, readAt: string, now: Date): (Injoignable & { site: string })[] {
+  return src.AGENDAS.filter((a) => a.commune === commune && indisponible?.includes(a.nom)).map((a) => ({ site: siteOf(a.nom), ...injoignable(siteOf(a.nom), undefined, readAt, now) }));
+}
+
 /**
  * The same in a few words (marketing): for the commune page's tile of outings, `valeur` and `detail` when it has no
  * event from elsewhere, `tete` before the next one's when it has; `resume` for the tool's summary; `ligne` under the
@@ -576,6 +601,8 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     ailleurs_sur_l_ile: commune && !n && all.length ? all.slice(0, ELSEWHERE_MAX).map((x) => eventRow(x.e, x.seances)) : undefined,
     cinemas: what?.nom?.includes("cinéma") || /cin[ée]|film/i.test(quoi ?? "") ? { seances: "Les séances des cinémas sont sur leurs sites :", salles: CINEMAS } : undefined,
     indisponible: failed.length ? failed : undefined,
+    // Those of `indisponible` left to the next question for want of subrequests; the others did not answer.
+    remises: failed.length && got.some((g) => g.remise) ? got.filter((g) => g.remise).map((g) => g.agenda.nom) : undefined,
     non_lus: unread.length ? unread.map((x) => `${x.nom} : ${x.etat}`) : undefined,
     // Where a commune's site is not read until it agrees: to be said with the answer.
     non_repris: nonRepris,

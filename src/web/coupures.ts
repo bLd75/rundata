@@ -6,10 +6,11 @@
 import type { Cached } from "../cache.js";
 import { CIREST, distributeur, LIENS, MAIRIE_SAINT_LEU, MAIRIE_SAINTE_MARIE, SOURCE as DISTRIBUTEURS } from "../eau/distributeurs.js";
 import { CREOLE } from "../providers/avis-eau.js";
+import { muetPour } from "../tools/coupures.js";
 import { a } from "../tools/format.js";
 import type { Alerte, CoupuresAnswer, EauAnswer, SecheresseAnswer } from "./data.js";
 import { cycloneWater } from "./eau-cyclone.js";
-import { connectorCta, describe, droughtBadge, loading, nobreak, noticeCard, sourcesNote, tapCard, webPage } from "./domains.js";
+import { connectorCta, describe, droughtBadge, loading, nobreak, noticeCard, silentText, sourcesNote, tapCard, webPage } from "./domains.js";
 import { esc, islandMap } from "./map.js";
 import { ask, hm, icon, layout, type Live, SITE } from "./pages.js";
 import { PAGES, type PlacePage } from "./places.js";
@@ -31,6 +32,8 @@ export function waterOf(commune: string, w: WaterCopies) {
     avis: [...avis].sort((x, y) => Number(!!y.ne_pas_boire) - Number(!!x.ne_pas_boire)),
     dry: !!w.coupures?.value.ne_pas_boire?.includes(commune) || avis.some((n) => n.ne_pas_boire),
     distributeur: distributeur(commune),
+    // Its distributor's feed did not answer at the last read: never « pas de coupure annoncée » (tools/injoignable.ts).
+    muet: distributeur(commune)?.avis ? muetPour(w.coupures?.value.injoignable, commune) : undefined,
     secheresse: w.secheresse?.value.communes.find((c) => c.commune === commune),
     interdits: w.secheresse?.value.interdits.find((x) => x.communes.includes(commune)),
     robinet: w.eau?.value.communes.find((c) => c.commune === commune),
@@ -43,8 +46,9 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n > 1 ? man
 export function waterLive(p: PlacePage, w: WaterCopies): Live | undefined {
   if (!w.coupures) return undefined;
   const x = waterOf(p.nom, w);
-  const valeur = x.dry ? "Eau à ne pas boire" : x.avis.length ? plural(x.avis.length, "avis de coupure", "avis de coupure") : x.distributeur?.avis ? "Pas de coupure annoncée" : "Coupures non publiées";
+  const valeur = x.dry ? "Eau à ne pas boire" : x.avis.length ? plural(x.avis.length, "avis de coupure", "avis de coupure") : x.muet ? "Site sans réponse" : x.distributeur?.avis ? "Pas de coupure annoncée" : "Coupures non publiées";
   const detail = [
+    x.muet ? esc(x.muet.court) : "",
     x.distributeur ? `distributeur ${esc(x.distributeur.nom)}` : "",
     x.secheresse ? `sécheresse : ${esc(x.secheresse.eau_du_robinet ?? "aucune restriction")}` : "",
     x.robinet ? (x.robinet.non_conformes_6_mois ? `robinet : ${plural(x.robinet.non_conformes_6_mois, "analyse non conforme", "analyses non conformes")} en 6 mois` : x.robinet.analyses_6_mois ? "robinet : analyses conformes" : "") : "",
@@ -66,9 +70,13 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
   const lien = LIENS[p.nom];
   const lienA = lien ? ` <a href="${esc(lien.site)}" rel="noopener">${nobreak(lien.libelle)} →</a>` : "";
 
+  // Its feed silent: what was read before, said with its hour, the site linked; or that its read failed.
+  const silent = x.muet ? `<p class="note">${silentText(x.muet)}</p>` : "";
   const status = !d
     ? loading("Les avis des distributeurs")
-    : x.avis.length
+    : x.muet && !x.avis.length
+      ? `<p class="lead">${esc(x.muet.texte)}</p>`
+      : x.avis.length
       ? `<div class="now"><span class="big">${x.avis.length}</span><p>avis de coupure ou de travaux récents ou à venir ${esc(where)}${x.dry ? ` ; <b>eau à ne pas boire</b> dans les secteurs de l'avis` : ""}.</p></div>`
       : dist?.avis
         // Worded with marketing: who publishes the notices read, without the commune when that name already says it.
@@ -78,7 +86,8 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
   const list = !d
     ? `<p class="card">Les avis se chargent : rechargez la page dans quelques secondes.</p>`
     : x.avis.length
-      ? `<ul class="zones">${x.avis.map(noticeCard).join("")}</ul>`
+      ? `${silent}<ul class="zones">${x.avis.map(noticeCard).join("")}</ul>`
+      : x.muet ? ""
       : `<p class="card">${dist?.avis ? `Aucun avis publié à ${esc(at)}, ni coupure en cours ou à venir, ni avis « ne pas boire l'eau ».` : `Pas d'avis en ligne lisible pour ${esc(p.nom)}.`}</p>`;
 
   const distBlock = `<div class="card">${icon("drop")}<h3>Le distributeur</h3>` +
@@ -120,7 +129,7 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
     ? short
     : x.avis.length
       ? describe(`${p.nom} (974) : ${x.dry ? "eau à ne pas boire ; " : ""}${plural(x.avis.length, "avis", "avis")} de ${by} en cours ou à venir, avec les rues, les heures et les consignes.`, short)
-      : dist?.avis
+      : dist?.avis && !x.muet
         ? describe(`Aucune coupure d'eau annoncée par ${publisher}${publisher!.includes(p.nom) ? "" : ` ${where}`} (974) à ${at}. Restrictions sécheresse, qualité de l'eau du robinet et contact du distributeur.`, short)
         : short;
   const trail = {

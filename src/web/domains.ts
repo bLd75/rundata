@@ -25,6 +25,8 @@ import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
 import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type Enclos, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
+import { localTime } from "../geo.js";
+import { agendasNonLus, mediasNonLus } from "../tools/injoignable.js";
 import { FAST_KW } from "../tools/bornes.js";
 import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
@@ -84,6 +86,15 @@ const sourcesNote = (list: { source: string; licence: string; attribution: strin
  */
 export const sansLecture = (nonLus: string[] | undefined): string[] =>
   nonLus?.length ? [`Agendas sans lecture récente : ${nonLus.map((x) => x.replace(/ : (?!.* : )/, ", ")).join("\u00a0; ")}. Leurs événements peuvent manquer ici.`] : [];
+
+/**
+ * What a list of events may lack, one formula for /evenements, its weekend and its concerts (marketing): the agendas
+ * not read this time, silent or left to the next visit, then those of the scheduled event not read lately.
+ */
+export const agendaNotes = (data: Cached<AgendaAnswer> | null | undefined, now: Date): string[] => [
+  ...(data?.value.indisponible?.length ? [agendasNonLus(data.value.indisponible, data.value.remises, localTime(data.fetchedAt), now)] : []),
+  ...sansLecture(data?.value.non_lus),
+];
 
 const warnings = (list: string[]) =>
   list.length ? `<div class="card warn">${icon("alert")}<h3>À savoir</h3><ul class="plain">${list.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : "";
@@ -413,8 +424,8 @@ export function airLive(data: Cached<AirAnswer> | null): Live | undefined {
 
 // ---------------------------------------------------------------- électricité
 
-/** A mairie's site that did not answer (tools/courant.ts), « son site » linked to it. */
-const silentText = (s: { texte: string; site: string }) => esc(s.texte).replace(/voir son site\.$/, `voir <a href="${esc(s.site)}/" rel="noopener">son site</a>.`);
+/** A site that did not answer (tools/injoignable.ts), « son site » linked to it. */
+export const silentText = (s: { texte: string; site: string }) => esc(s.texte).replace(/voir son site\.$/, `voir <a href="${esc(s.site)}" rel="noopener">son site</a>.`);
 export const silentItem = (s: { texte: string; site: string }) => `<li><span class="note">${silentText(s)}</span></li>`;
 
 /**
@@ -1838,8 +1849,8 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
 
   const standings = d?.classements.length
     ? `<ul class="zones">${d.classements.map((c) =>
-        `<li class="card"><h3><a href="${esc(c.lien)}" rel="noopener">${esc(c.competition)}</a></h3><ul class="rows eau">${c.lignes.map((l) =>
-          `<li><span>${l.place}. ${esc(l.equipe)}<small>${l.joues} match${l.joues > 1 ? "s" : ""} joué${l.joues > 1 ? "s" : ""}</small></span><span class="score">${l.points} pts</span></li>`).join("")}</ul></li>`).join("")}</ul>`
+        `<li class="card"><h3><a href="${esc(c.lien)}" rel="noopener">${esc(c.competition)}</a></h3>${c.muet ? `<p class="note">${silentText(c.muet)}</p>` : ""}${c.lignes.length ? `<ul class="rows eau">${c.lignes.map((l) =>
+          `<li><span>${l.place}. ${esc(l.equipe)}<small>${l.joues} match${l.joues > 1 ? "s" : ""} joué${l.joues > 1 ? "s" : ""}</small></span><span class="score">${l.points} pts</span></li>`).join("")}</ul>` : ""}</li>`).join("")}</ul>`
     : "";
 
   const raid = d?.grand_raid
@@ -2295,10 +2306,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   ${list}
   ${d?.non_repris ? `<p>${esc(d.non_repris)}</p>` : ""}
   ${clubsLink()}
-  ${warnings([
-    ...(d?.indisponible?.length ? [`Agendas non lus cette fois (sans réponse dans le délai, ou laissés à la visite suivante) : ${d.indisponible.join(", ")}. La liste peut être incomplète.`] : []),
-    ...sansLecture(d?.non_lus),
-  ])}
+  ${warnings(agendaNotes(data, now))}
 </section>
 <section aria-labelledby="h-couv">
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p>
@@ -2379,7 +2387,7 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
   const list = d
     ? d.infos.length
       ? `${NEWS_FILTER.replace("COMMUNES", communes.map((c) => `<option>${esc(c)}</option>`).join(""))}<ul class="rows eau" id="news">${d.infos.map(newsRow).join("")}</ul>`
-      : `<p class="card">Aucune information des médias lus depuis 24 h.</p>`
+      : d.indisponible.length ? "" : `<p class="card">Aucune information des médias lus depuis 24 h.</p>`
     : `<p class="card">L'actualité se charge : rechargez la page dans quelques secondes.</p>`;
 
   const live = d?.en_direct.length
@@ -2419,7 +2427,7 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
   <div class="sec-h"><p class="eyebrow">Les dernières 24 heures</p><h2 id="h-news">Toutes les informations</h2>
   <p>Le titre de chaque article, sa première phrase quand le média la donne, son média, les communes qu'il nomme et son heure (heure de La Réunion), ou son jour seulement quand le média ne donne pas l'heure. Une même information publiée par plusieurs médias n'est listée qu'une fois.</p></div>
   ${list}
-  ${d?.indisponible.length ? warnings([`Ne répondent pas en ce moment : ${d.indisponible.join(", ")}.`]) : ""}
+  ${d?.indisponible.length ? warnings([mediasNonLus(d.indisponible, localTime(data!.fetchedAt), now)]) : ""}
 </section>
 ${pref}
 <section aria-labelledby="h-couv">

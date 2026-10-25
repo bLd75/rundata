@@ -1,8 +1,10 @@
 import type { Cache } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as src from "../providers/actualites.js";
+import { localTime } from "../geo.js";
 import { why } from "../types.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
+import { mediasNonLus } from "./injoignable.js";
 import * as littoral from "./littoral.js";
 
 const DEFAULT_HOURS = 24;
@@ -87,8 +89,10 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
     if (!res) return notFound(lieu);
   }
   let data: src.Fil;
+  let readAt: Date;
   try {
-    data = (await src.fil(cache, now)).value;
+    const got = await src.fil(cache, now);
+    ({ value: data, fetchedAt: readAt } = got);
   } catch (err) {
     console.error(`source ${src.SOURCES.medias.id} indisponible:`, why(err));
     return { ...text({ erreur: "Les médias ne répondent pas pour le moment.", consulter: src.SOURCES.medias.url }), isError: true };
@@ -115,8 +119,12 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
   const latest = (i: src.Info) => `${quand(i, now)} (${i.media}${i.direct ? ", en direct" : ""}) : « ${i.titre} »`;
   // What a text says of the place asked for, when it says it past its first sentence.
   const about = (i: src.Info) => i.extraits?.find((e) => e.communes.includes(commune!))?.texte ?? (i.resume && src.placesIn(i.resume).communes.includes(commune!) ? i.resume : undefined);
+  // Media that did not answer: said, and no « aucune information » when none of them answered (a site that does not
+  // answer is neither gone nor empty).
+  const silent = data.indisponible.length ? mediasNonLus(data.indisponible, localTime(readAt), now) : "";
+  const blind = !data.infos.length && !!silent;
   const resume = [
-    res
+    blind ? "" : res
       ? mine.length
         ? `${mine.length} information${mine.length > 1 ? "s" : ""}${kind} des dernières ${h} h mentionne${mine.length > 1 ? "nt" : ""} ${where}. ` +
           mine.slice(0, 4).map((i) => `${latest(i)}${about(i) ? ` : « ${about(i)} »` : ""}`).join("\u00a0; ") + "."
@@ -125,6 +133,7 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
         ? `${articles.length} information${articles.length > 1 ? "s" : ""}${kind} des médias de La Réunion depuis ${h} h\u00a0; la plus récente, ${articles[0] ? latest(articles[0]) : "—"}.`
         : `Aucune information${kind} des médias lus depuis ${h} h.`,
     live.length ? `En direct sur l'île, ${latest(live[0])}.` : "",
+    silent,
     prefecture.length ? `Dernier communiqué de la préfecture, ${quand(prefecture[0], now)} : « ${prefecture[0].titre} ».` : "",
   ].filter(Boolean).join(" ");
 

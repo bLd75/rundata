@@ -168,11 +168,12 @@ function stateOf(v: mf.Vigilance | undefined, now: Date, decision?: Cyclone | nu
   return { texte: e.depuis ?? `${step?.titre ?? mf.cycloneName(e.niveau)} en vigueur à La Réunion (bulletin de Météo-France).`, ancre: step?.id, label: THIS_STEP };
 }
 
-export function alertePage(origin: string, data: Cached<mf.Vigilance> | null, now = new Date(), alerte?: Alerte, decision?: Cyclone | null): string {
+/** `rubrique`: the cyclone's section of the prefecture not read (providers/prefecture.ts, rubriqueNonLue). */
+export function alertePage(origin: string, data: Cached<mf.Vigilance> | null, now = new Date(), alerte?: Alerte, decision?: Cyclone | null, rubrique?: string): string {
   const path = "/alerte-cyclone";
   const s = stateOf(data?.value, now, decision);
   const state = s
-    ? `<div class="status"><p class="lead"><b>${citesHtml(esc(s.texte), s.cites)}</b>${s.ancre ? ` <a href="#${s.ancre}">${esc(s.label!)}</a>` : ""}${s.ancre === "pre-alerte" ? ` · <a href="/kit-cyclone">${esc(KIT)}</a>` : ""}</p></div>`
+    ? `<div class="status"><p class="lead"><b>${citesHtml(esc(s.texte), s.cites)}</b>${s.ancre ? ` <a href="#${s.ancre}">${esc(s.label!)}</a>` : ""}${s.ancre === "pre-alerte" ? ` · <a href="/kit-cyclone">${esc(KIT)}</a>` : ""}</p>${rubrique ? `<p class="lead">${esc(rubrique)}</p>` : ""}</div>`
     : `<div class="status"><p class="lead">L'alerte en vigueur n'a pas pu être lue à l'instant : voir la préfecture (reunion.gouv.fr) et Météo-France.</p></div>`;
   const band = `${crumbBar("Alerte cyclonique")}
 <div class="wrap intro"><div class="pitch">

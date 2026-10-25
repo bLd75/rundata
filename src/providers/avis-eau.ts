@@ -20,7 +20,8 @@ import type { Cache, Cached } from "../cache.js";
 import { getJson, getText, httpUrl } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
-import type { SourceInfo } from "../types.js";
+import { localTime } from "../geo.js";
+import { type SourceInfo, why } from "../types.js";
 
 export const SOURCE: SourceInfo = {
   id: "avis_eau",
@@ -404,17 +405,51 @@ export function parseSaintLeu(posts: Omit<Post, "categories">[]): Avis[] {
   });
 }
 
-/** Every notice of the feeds; a feed that fails is left out, unless all do. */
-export async function avis(cache: Cache): Promise<Cached<Avis[]>> {
-  return cache.get("avis-eau", FRESH_SECONDS, async () => {
-    const parts = await Promise.allSettled([
-      ...FEEDS.map(async (f) => parseRss(await getText(SOURCE.id, f.url, 12_000), f)),
-      getJson<Post[]>(SOURCE.id, CIREST, 12_000).then(parseCirest),
-      getText(SOURCE.id, CREOLE.url, 12_000).then(parseCreole),
-      getJson<Post[]>(SOURCE.id, SAINTE_MARIE, 12_000).then(parseSainteMarie),
-      getJson<Post[]>(SOURCE.id, SAINT_LEU, 12_000).then(parseSaintLeu),
-    ]);
-    if (parts.every((p) => p.status === "rejected")) throw (parts[0] as PromiseRejectedResult).reason;
-    return parts.flatMap((p) => (p.status === "fulfilled" ? p.value : [])).sort((a, b) => b.publie.localeCompare(a.publie));
+/**
+ * One feed's read. A feed that did not answer keeps the notices of the read before, with the hour of that read
+ * (`lu_a`), and is said silent (`muet`): a failed read is never « no notice » (tools/injoignable.ts).
+ */
+export interface Flux {
+  /** Its name as the pages say it, after « le site »: « de la CIREST », « des Eaux de La Possession ». */
+  de: string;
+  /** The page its notices are on, for « voir son site ». */
+  site: string;
+  avis: Avis[];
+  muet?: true;
+  /** When the notices kept were read (« 24/10 10:00 »), when it is silent. */
+  lu_a?: string;
+}
+
+const PARTS: { de: string; site: string; load: () => Promise<Avis[]> }[] = [
+  ...FEEDS.map((f) => ({ de: f.nom === "Eaux de La Possession" ? "des Eaux de La Possession" : `de ${f.nom}`, site: new URL(f.url).origin + "/", load: async () => parseRss(await getText(SOURCE.id, f.url, 12_000), f) })),
+  { de: "de la CIREST", site: "https://www.cirest.fr/categorie/communique/communique-eau/", load: async () => parseCirest(await getJson<Post[]>(SOURCE.id, CIREST, 12_000)) },
+  { de: "de La Créole", site: CREOLE.url, load: async () => parseCreole(await getText(SOURCE.id, CREOLE.url, 12_000)) },
+  { de: "de la ville de Sainte-Marie", site: "https://www.ville-saintemarie.re/?s=CISE", load: async () => parseSainteMarie(await getJson<Post[]>(SOURCE.id, SAINTE_MARIE, 12_000)) },
+  { de: "de la commune de Saint-Leu", site: "https://www.saintleu.re/?s=eau", load: async () => parseSaintLeu(await getJson<Post[]>(SOURCE.id, SAINT_LEU, 12_000)) },
+];
+
+const FLUX = "avis-eau:flux";
+
+/** Every feed's read, the notices of one that did not answer kept from the read before; throws only when all fail with nothing kept. */
+export async function lecture(cache: Cache): Promise<Cached<Flux[]>> {
+  return cache.get(FLUX, FRESH_SECONDS, async () => {
+    const before = await cache.peek<Flux[]>(FLUX).catch(() => undefined);
+    const parts = await Promise.allSettled(PARTS.map((p) => p.load()));
+    const flux = PARTS.map((p, i): Flux => {
+      const r = parts[i];
+      if (r.status === "fulfilled") return { de: p.de, site: p.site, avis: r.value };
+      console.error(`source ${SOURCE.id} indisponible (${p.site}):`, why(r.reason));
+      const was = before?.value.find((f) => f.site === p.site);
+      const kept = was?.avis.length ? was.avis : [];
+      return { de: p.de, site: p.site, avis: kept, muet: true, ...(kept.length ? { lu_a: was!.muet ? was!.lu_a : localTime(before!.fetchedAt) } : {}) };
+    });
+    if (parts.every((p) => p.status === "rejected") && !flux.some((f) => f.avis.length)) throw (parts[0] as PromiseRejectedResult).reason;
+    return flux;
   });
+}
+
+/** Every notice of the feeds, those of a feed that did not answer kept from the read before (`lecture`). */
+export async function avis(cache: Cache): Promise<Cached<Avis[]>> {
+  const c = await lecture(cache);
+  return { ...c, value: c.value.flatMap((f) => f.avis).sort((a, b) => b.publie.localeCompare(a.publie)) };
 }

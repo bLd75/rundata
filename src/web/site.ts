@@ -86,6 +86,7 @@ import { aujourdhuiPage } from "./aujourdhui.js";
 import { communeRss } from "./rss.js";
 import { FEUX_PATH, feuxPage } from "./feux.js";
 import * as feux from "../providers/feux.js";
+import * as prefecture from "../providers/prefecture.js";
 import { rafraichirPropositions } from "../tools/agenda.js";
 import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
 import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
@@ -349,14 +350,16 @@ async function pages(request: Request, cache: Cache, background: Background, now
       vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
       cycloneDecisionNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
     ]);
-    return page(path, (live) => (live ? alertePage(origin, data, now, data ? alerteOf(data.value, now) : undefined, decision) : alertePage(origin, null, now)), data, background);
+    const rubrique = await prefecture.rubriqueNonLue(cache, now).catch(() => undefined);
+    return page(path, (live) => (live ? alertePage(origin, data, now, data ? alerteOf(data.value, now) : undefined, decision, rubrique) : alertePage(origin, null, now)), data, background);
   }
   if (path === "/ecoles-cyclone" || path === "/ecoles-cyclone/") {
     const [data, decision] = await Promise.all([
       vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
       cycloneDecisionNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
     ]);
-    return page(path, (live) => (live ? ecolesPage(origin, data, now, data ? alerteOf(data.value, now) : undefined, decision) : ecolesPage(origin, null, now)), data, background);
+    const rubrique = await prefecture.rubriqueNonLue(cache, now).catch(() => undefined);
+    return page(path, (live) => (live ? ecolesPage(origin, data, now, data ? alerteOf(data.value, now) : undefined, decision, rubrique) : ecolesPage(origin, null, now)), data, background);
   }
   if (path === "/mer" || path === "/mer/") {
     const [data, a] = await Promise.all([

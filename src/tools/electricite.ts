@@ -115,8 +115,8 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
         "réseau tendu, décaler les gros usages. La recharge conseillée est la part de la puissance de recharge d'un véhicule électrique.",
     };
   }
-  // A mairie's site that did not answer: in a few words, the whole of it in coupures_annoncees.injoignable.
-  const silent = (coupures.injoignable ?? []).map((s) => `Avis de coupure d'électricité de ${s.commune} : ${s.court}, voir injoignable.`);
+  // A mairie's site that did not answer: in marketing's words, as in coupures_annoncees.injoignable.
+  const silent = (coupures.injoignable ?? []).map((s) => s.texte);
   if (res) parts.unshift(coupures.avis?.length ? coupures.avis[0].texte : coupures.note ?? "", ...silent);
   else parts.push(...silent);
   // The island: the mairies not read until they agree, in a few words, the whole of it in coupures_annoncees.non_repris.

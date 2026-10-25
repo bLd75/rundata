@@ -8,6 +8,7 @@ import { buildCoupures } from "../src/web/data.js";
 import { coupuresPage } from "../src/web/domains.js";
 import island from "../src/places/island.json" with { type: "json" };
 import { pageOf } from "../src/web/places.js";
+import { resume } from "../src/tools/resume.js";
 import { site } from "../src/web/site.js";
 import { mapLinks } from "./cartes.js";
 
@@ -267,6 +268,45 @@ describe("coupures d'eau", () => {
     // The notice of the 23rd is in Saint-Paul: not on Les Trois-Bassins' page.
     expect(waterLive(pageOf("les-trois-bassins")!, { coupures })).toMatchObject({ valeur: "Pas de coupure annoncée" });
     expect(waterLive(pageOf("le-tampon")!, { coupures })).toMatchObject({ valeur: "Coupures non publiées" });
+  });
+
+  it("says a feed that does not answer: its notices kept with the hour they were read, else its read failed, never « no cut »", async () => {
+    const store = new MemoryStore();
+    let t = NOW.getTime();
+    const at = () => new Cache(store, () => t);
+    await coupuresEau(at(), undefined, new Date(t));
+    // Two hours on, Dionéo's site does not answer, nor runéo's: Dionéo's notice kept, runéo's read said failed.
+    t += 2 * 3600_000;
+    const now = new Date(t);
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (url.includes("dioneo") || url.includes("runeo")) return new Response("", { status: 503 });
+      const file = url.includes("possession") ? "possession.xml" : url.includes("lacreole") ? "lacreole.html" : url.includes("saintemarie") ? "saintemarie.json" : url.includes("saintleu") ? "saintleu.json" : "cirest.json";
+      return new Response(fixture(file));
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const sd = body(await coupuresEau(at(), "Saint-Denis", now));
+    expect(sd.avis.length).toBeGreaterThan(0);
+    expect(sd.injoignable).toEqual([{ texte: "Lu aujourd'hui à 08:00 : le site de Dionéo n'a pas répondu depuis. Ce qui suit peut avoir changé : voir son site.", court: "lu aujourd'hui à 08:00, sans réponse depuis", de: "de Dionéo", site: "https://dioneo.re/" }]);
+    expect(sd.resume).toContain("Lu aujourd'hui à 08:00 : le site de Dionéo n'a pas répondu depuis. Ce qui suit peut avoir changé : voir son site.");
+    // runéo had nothing for Saint-Pierre at the first read: no notice kept, its read said failed.
+    const sp = body(await coupuresEau(at(), "Saint-Pierre", now));
+    expect(sp.resume).not.toContain("Aucun avis");
+    expect(sp.injoignable[0].texte).toBe("Le site de runéo n'a pas répondu à notre dernière lecture (aujourd'hui à 10:00) : nous ne savons pas ce qu'il annonce en ce moment.");
+    // The page, the tile and the day's summary say it too.
+    const coupures = { value: await buildCoupures(at(), now), fetchedAt: now };
+    const page = coupuresCommunePage("https://rundata.re", pageOf("saint-pierre")!, { coupures }, now);
+    expect(page).toContain("Le site de runéo n&#39;a pas répondu à notre dernière lecture");
+    expect(page).not.toMatch(/Aucun avis|Aucune coupure/);
+    expect(coupuresCommunePage("https://rundata.re", pageOf("saint-denis")!, { coupures }, now)).toContain('voir <a href="https://dioneo.re/" rel="noopener">son site</a>.');
+    expect(waterLive(pageOf("saint-pierre")!, { coupures })).toMatchObject({ valeur: "Site sans réponse", detail: expect.stringContaining("site sans réponse à notre dernière lecture (10:00)") });
+    const day = resume(pageOf("saint-pierre")!, { coupures } as never, now);
+    expect(day.coupures_eau?.injoignable?.texte).toBe(sp.injoignable[0].texte);
+    expect(JSON.stringify(day)).not.toContain("pas de coupure d'eau annoncée");
+    // The island: both said, in a few words.
+    const ile = body(await coupuresEau(at(), undefined, now));
+    expect(ile.injoignable.map((f: { de: string }) => f.de)).toEqual(["de Dionéo", "de runéo"]);
+    expect(ile.resume).toContain("Le site de runéo n'a pas répondu à notre dernière lecture (aujourd'hui à 10:00) : nous ne savons pas ce qu'il annonce en ce moment.");
+    vi.restoreAllMocks();
   });
 
   it("gives Sainte-Marie's image notice as a link, read from the mairie's posts", async () => {

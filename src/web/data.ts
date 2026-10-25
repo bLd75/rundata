@@ -52,7 +52,7 @@ import { pathOf } from "./map.js";
 import { restrictionsEau } from "../tools/secheresse.js";
 import * as daeSource from "../providers/dae.js";
 import { access as daeAccess, byCommune as daeByCommune, daeRow, URGENCE as DAE_URGENCE } from "../tools/dae.js";
-import { coupuresEau, type noticeRow } from "../tools/coupures.js";
+import { coupuresEau, type FluxMuet, type noticeRow } from "../tools/coupures.js";
 import { lues } from "../eau/distributeurs.js";
 import { type CourantAnswer, type courantBlock, courantCopy } from "../tools/courant.js";
 import { type NonOfficiel, volcanSeismes } from "../tools/volcan.js";
@@ -874,6 +874,8 @@ export interface CoupuresAnswer {
   resume: string;
   ne_pas_boire?: string[];
   avis: ReturnType<typeof noticeRow>[];
+  /** The feeds that did not answer at the last read (tools/coupures.ts). */
+  injoignable?: FluxMuet[];
   couverture: string;
   a_savoir: string;
   sources: Credit[];
@@ -898,7 +900,9 @@ export interface SportAnswer {
   indisponible?: string[];
   non_couvert: string;
   sources: Credit[];
-  classements: { competition: string; lignes: sportSource.Rang[]; lien: string }[];
+  classements: { competition: string; lignes: sportSource.Rang[]; lien: string; muet?: { texte: string; site: string } }[];
+  /** The competitions whose page did not answer (tools/injoignable.ts). */
+  injoignable?: { competition: string; texte: string; site: string }[];
   grand_raid?: ReturnType<typeof grandRaidRow>;
   programmes_communes?: { type: string; commune?: string; titre: string; dates: string; lien: string; source: string; publie_par: string; lu_le: string }[];
   programmes_a_savoir?: string;
@@ -914,11 +918,11 @@ export async function buildSport(cache: Cache, now = new Date()): Promise<SportA
     sportSource.championnats(cache, "volley").catch(() => undefined),
     sportSource.grandRaid(cache, now).catch(() => undefined),
   ]);
-  const classements = [...(hb?.value ?? []), ...(vb?.value ?? [])].map((c) => ({
-    competition: `${c.sport === "handball" ? "Handball" : "Volley-ball"}, ${c.nom}`,
-    lignes: c.classement,
-    lien: c.lien,
-  }));
+  const classements = [...(hb?.value ?? []), ...(vb?.value ?? [])].map((c) => {
+    const competition = `${c.sport === "handball" ? "Handball" : "Volley-ball"}, ${c.nom}`;
+    const muet = c.muet ? a.injoignable?.find((x) => x.competition.toLowerCase() === competition.toLowerCase()) : undefined;
+    return { competition, lignes: c.classement, lien: c.lien, ...(muet && { muet: { texte: muet.texte, site: muet.site } }) };
+  });
   return { ...a, classements, grand_raid: gr ? grandRaidRow(gr.value) : undefined };
 }
 
@@ -1007,6 +1011,8 @@ export interface AgendaAnswer {
   evenements?: EventRow[];
   autres?: string;
   indisponible?: string[];
+  /** Those of `indisponible` left to the next question, not silent (tools/agenda.ts). */
+  remises?: string[];
   /** The agendas read by the scheduled event whose copy is not served, with why (tools/agenda.ts, nonLus). */
   non_lus?: string[];
   /** The communes whose site is not read until they agree (tools/agenda.ts, mentionIle). */

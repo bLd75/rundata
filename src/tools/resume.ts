@@ -55,6 +55,7 @@ import { mentionCommune, occurrences, repris, sourcesServies } from "./agenda.js
 import { hoursOn, openNow } from "./annuaire.js";
 import { priceLine } from "./carburants.js";
 import { ecoles, resumeLine } from "./ecoles.js";
+import { muetPour } from "./coupures.js";
 import { aheadRows, type CourantAnswer, followed, injoignable, shortOf } from "./courant.js";
 import { mention } from "./non-repris.js";
 import { SITE_URL } from "./citer.js";
@@ -260,6 +261,8 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     : undefined;
   const avis = l.coupures?.value.avis.filter((n) => n.communes.includes(nom)) ?? [];
   const dist = distributeur(nom);
+  // Its distributor's feed did not answer at the last read (tools/coupures.ts).
+  const waterSilent = dist?.avis ? muetPour(l.coupures?.value.injoignable, nom) : undefined;
   const events = (l.agenda?.value.evenements ?? []).filter((r) => r.commune === nom && repris(r) && occurrences(r).some((o) => o.du <= today && today <= o.au));
   const mairie = l.commune?.value.mairie;
   const open = mairie ? openNow(mairie, now) : null;
@@ -295,7 +298,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     f?.temperature_min && f.temperature_max ? `prévision du jour ${f.temperature_min} à ${f.temperature_max}${f.ciel_en_journee ? `, ${f.ciel_en_journee}` : ""}` : "",
     v ? `vigilance : ${v.maintenant}${v.alerte_cyclonique ? `, ${v.alerte_cyclonique}` : ""}` : "",
     v?.ecoles ? v.ecoles.replace(/\.$/, "") : "",
-    l.coupures ? (avis.length ? `${avis.length} avis de coupure d'eau` : dist?.avis ? "pas de coupure d'eau annoncée" : "") : "",
+    l.coupures ? (avis.length ? `${avis.length} avis de coupure d'eau${waterSilent ? ` (${waterSilent.court})` : ""}` : waterSilent ? `coupures d'eau : ${waterSilent.court}` : dist?.avis ? "pas de coupure d'eau annoncée" : "") : "",
     l.agenda ? `${events.length} événement${events.length > 1 ? "s" : ""} aujourd'hui` : "",
     roads.length ? `${roads.length} info${roads.length > 1 ? "s" : ""} sur les routes ou des blocages` : "",
     power.length ? shortOf(power[0], now) : "",
@@ -330,6 +333,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
           avis: avis.map((n) => ({ titre: n.titre, coupure: n.coupure, secteurs: n.secteurs, secteurs_complets: n.secteurs_complets, ne_pas_boire: n.ne_pas_boire, lien: n.lien })),
           distributeur: dist?.nom,
           note: avis.length || dist?.avis ? undefined : `Le distributeur ${a(nom)} ne publie pas ses avis dans un flux lisible : voir la mairie.`,
+          injoignable: waterSilent && { texte: waterSilent.texte, site: waterSilent.site },
         }
       : undefined,
     evenements_du_jour: l.agenda

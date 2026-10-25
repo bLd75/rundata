@@ -4,7 +4,7 @@
  */
 import type { Cached } from "../cache.js";
 import type { AgendaAnswer, Alerte } from "./data.js";
-import { agendaEvents, agendaRow, agendaTabs, connectorCta, describe, GENRE_SCRIPT, GENRES, loading, longDay, sansLecture, sourcesNote, warnings, webPage } from "./domains.js";
+import { agendaEvents, agendaNotes, agendaRow, agendaTabs, connectorCta, describe, GENRE_SCRIPT, GENRES, loading, longDay, sourcesNote, warnings, webPage } from "./domains.js";
 import { occurrences } from "../tools/agenda.js";
 import { forecastLinks } from "./liens.js";
 import { esc } from "./map.js";
@@ -124,11 +124,6 @@ const graph = (rows: Row[], origin: string) => {
   return events.length ? [{ "@context": "https://schema.org", "@graph": events }] : [];
 };
 
-/** What the list may lack: the agendas not read this time, and those of the scheduled event not read lately. */
-const agendaNotes = (d: AgendaAnswer | undefined) => [
-  ...(d?.indisponible?.length ? [`Agendas non lus cette fois (sans réponse dans le délai, ou laissés à la visite suivante) : ${d.indisponible.join(", ")}. La liste peut être incomplète.`] : []),
-  ...sansLecture(d?.non_lus),
-];
 
 const CONCERT = "concert";
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n > 1 ? many : one}`;
@@ -200,7 +195,7 @@ export function weekendPage(origin: string, data: Cached<AgendaAnswer> | null, n
   <p>Le week-end commence le vendredi à 17 h et finit le dimanche soir ; un jour férié collé au week-end en fait partie. À partir du lundi, c'est le week-end qui vient. Chaque événement renvoie à la page de celui qui le publie ; un événement annulé ou reporté reste affiché, avec son statut.</p></div>
   ${agendaTabs(path)}
   ${list}
-  ${warnings(agendaNotes(d))}
+  ${warnings(agendaNotes(data, now))}
 </section>
 <section aria-labelledby="h-couv">
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p></div>
@@ -267,7 +262,7 @@ export function concertsPage(origin: string, data: Cached<AgendaAnswer> | null, 
   <p>Maloya, séga, jazz, rock, reggae, électro, classique : tout ce que les salles, les mairies et l'office de tourisme annoncent comme concert. Heures de La Réunion ; chaque concert renvoie à la page de celui qui le publie, et à la billetterie quand elle est donnée.</p></div>
   ${agendaTabs(path)}
   ${list}
-  ${warnings(agendaNotes(d))}
+  ${warnings(agendaNotes(data, now))}
 </section>
 <section aria-labelledby="h-couv">
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p>${n ? halls : ""}</div>

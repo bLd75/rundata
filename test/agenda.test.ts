@@ -798,6 +798,7 @@ describe("agenda", () => {
     down = /reunion\.fr|openagenda/;
     const b = body(await agenda(cache(), undefined, "ce_week_end", undefined, NOW));
     expect(b.indisponible).toEqual(["CINOR", "Office de tourisme du Nord", "reunion.fr"]);
+    expect(b.remises).toBeUndefined();
     expect(b.resume).toContain("3 agendas non lus cette fois : CINOR, Office de tourisme du Nord, reunion.fr (liste peut-être incomplète, à redemander dans une minute).");
     expect(b.evenements.length).toBeGreaterThan(0);
     down = /./;
@@ -874,6 +875,8 @@ describe("agenda", () => {
       expect(named.length).toBeGreaterThan(0);
       expect(body(first.value).resume).toContain(`non lu${named.length > 1 ? "s" : ""} cette fois : ${named.join(", ")}`);
       expect(body(first.value).nombre).toBeGreaterThan(0);
+      // Left to the next question, not silent: said apart (the pages' « Lecture remise à la suivante »).
+      expect(body(first.value).remises).toEqual(named);
       let rest = named;
       for (let i = 0; i < 5 && rest?.length; i++) {
         const next = await counted(PAGE_BUDGET, async () => {

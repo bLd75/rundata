@@ -6,8 +6,10 @@
  */
 import { later } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
+import { localTime } from "../geo.js";
 import { getText } from "../http.js";
 import { UpstreamError } from "../types.js";
+import { when } from "../tools/injoignable.js";
 import { type Info, parsePrefecture, SOURCES } from "./actualites.js";
 
 export const SOURCE = SOURCES.prefecture;
@@ -23,23 +25,49 @@ export function sectionOf(html: string): string | undefined {
   return SECTION.exec(html)?.[1];
 }
 
+interface Communiques {
+  liste: Info[];
+  /** The cyclone's section, linked by the menu, did not answer: its releases are missing from `liste`. */
+  rubrique_non_lue?: true;
+}
+
+// Not « prefecture:communiques »: the copies kept under that key are a bare list.
+const KEY = "prefecture:communiques:rubrique";
+
 /**
  * The latest releases, newest first: the press releases, and those of the cyclone's section when the menu has one
  * (one subrequest more, then). Throws on a page without its list (an error page served as 200); a section that fails
- * leaves the press releases alone.
+ * leaves the press releases alone, and is noted (`rubrique_non_lue`): never a silent fallback.
  */
-export async function releases(cache: Cache): Promise<Cached<Info[]>> {
-  return cache.get("prefecture:communiques", 5 * 60, async () => {
+async function communiques(cache: Cache): Promise<Cached<Communiques>> {
+  return cache.get(KEY, 5 * 60, async () => {
     const html = await getText(SOURCE.id, SOURCE.url, 12_000, HEADERS);
     const list = parsePrefecture(html);
     if (!list.length) throw new UpstreamError(SOURCE.id, "liste des communiqués vide");
     const section = sectionOf(html);
     const more = section
-      ? await getText(SOURCE.id, `${ORIGIN}${section}`, 12_000, HEADERS).then((h) => parsePrefecture(h)).catch((err) => (console.error(`préfecture : rubrique ${section} non lue`, err), []))
+      ? await getText(SOURCE.id, `${ORIGIN}${section}`, 12_000, HEADERS).then((h) => parsePrefecture(h)).catch((err) => (console.error(`préfecture : rubrique ${section} non lue`, err), null))
       : [];
     const seen = new Set<string>();
-    return [...list, ...more].filter((r) => !seen.has(r.lien) && seen.add(r.lien)).sort((a, b) => b.publie.localeCompare(a.publie));
+    const liste = [...list, ...(more ?? [])].filter((r) => !seen.has(r.lien) && seen.add(r.lien)).sort((a, b) => b.publie.localeCompare(a.publie));
+    return more ? { liste } : { liste, rubrique_non_lue: true };
   });
+}
+
+/** The latest releases, newest first (`communiques`). */
+export async function releases(cache: Cache): Promise<Cached<Info[]>> {
+  const c = await communiques(cache);
+  return { ...c, value: c.value.liste };
+}
+
+/**
+ * Said beside the decision when the cyclone's section did not answer at the last read: the red and violet alerts and
+ * the phase de sauvegarde were published there only (February 2025), so a decision may be missing. Undefined otherwise.
+ */
+export async function rubriqueNonLue(cache: Cache, now: Date): Promise<string | undefined> {
+  const c = await cache.peek<Communiques>(KEY).catch(() => undefined);
+  if (!c?.value.rubrique_non_lue) return undefined;
+  return `La rubrique cyclone du site de la préfecture n'a pas répondu à notre dernière lecture (${when(localTime(c.fetchedAt), now)}) : une décision publiée depuis peut manquer ici.`;
 }
 
 /** A decision of the cyclone alert, as a release's title says it. */

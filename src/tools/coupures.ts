@@ -1,12 +1,14 @@
-import type { Cache } from "../cache.js";
+import type { Cache, Cached } from "../cache.js";
 import { distributeur, LIENS, lues, SOURCE as DISTRIBUTEURS } from "../eau/distributeurs.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as notices from "../providers/avis-eau.js";
 import { BACK } from "../providers/avis-eau.js";
 import * as potable from "../providers/eaupotable.js";
+import { localTime } from "../geo.js";
 import { why } from "../types.js";
 import { slugify } from "../web/places.js";
 import { a, credits, enumeration, notFound, placeBlock, text } from "./format.js";
+import { type Injoignable, injoignable } from "./injoignable.js";
 
 const RECENT_DAYS = 5;
 const QUALITY = /qualit|potab|boire|chlor|conformit|bouilli|embouteill/i;
@@ -68,10 +70,33 @@ const COMMON = {
   a_savoir: "Après une coupure, l'eau peut être trouble ou impropre à la boisson pendant quelques heures : la laisser couler avant de la boire. Quand un avis dit de ne pas boire l'eau, utiliser de l'eau en bouteille ou bouillie au moins 3 minutes pour boire, cuisiner et se brosser les dents. La conformité de l'eau du robinet d'après les analyses de l'ARS : qualite_eau.",
 };
 
+/** A feed that did not answer at the last read, said in marketing's words (tools/injoignable.ts), with its page. */
+export interface FluxMuet extends Injoignable {
+  /** « de la CIREST ». */
+  de: string;
+  site: string;
+}
+
+/** The feeds that did not answer at the last read: their notices kept, or their read said failed. */
+export function muets(c: Cached<notices.Flux[]>, now: Date): FluxMuet[] {
+  return c.value.filter((f) => f.muet).map((f) => ({ ...injoignable(`le site ${f.de}`, f.lu_a, localTime(c.fetchedAt), now), de: f.de, site: f.site }));
+}
+
+/** The silent feed that reads a commune's notices, if it is one: its distributor's site (src/eau/distributeurs.ts). */
+export function muetPour<T extends { site: string }>(list: T[] | undefined, commune: string): T | undefined {
+  const site = distributeur(commune)?.site;
+  if (!site || !list) return undefined;
+  const host = new URL(site).hostname;
+  return list.find((f) => new URL(f.site).hostname === host);
+}
+
 export async function coupuresEau(cache: Cache, lieu: string | undefined, now = new Date()) {
   let all: notices.Avis[];
+  let silent: FluxMuet[];
   try {
-    all = (await notices.avis(cache)).value;
+    const read = await notices.lecture(cache);
+    all = read.value.flatMap((f) => f.avis).sort((x, y) => y.publie.localeCompare(x.publie));
+    silent = muets(read, now);
   } catch (err) {
     console.error(`source ${notices.SOURCE.id} indisponible:`, why(err));
     return { ...text({ erreur: "Les avis des distributeurs d'eau ne répondent pas pour le moment.", consulter: notices.SOURCE.url }), isError: true };
@@ -83,7 +108,9 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
     const dry = lues().map((c) => doNotDrink(all, c) && c).filter(Boolean) as string[];
     return text({
       resume: (dry.length ? `Eau à ne pas boire en ce moment : ${dry.join(", ")}. ` : "") +
-        (live.length ? `${live.length} avis des distributeurs d'eau récents ou à venir.` : "Aucun avis de coupure récent ou à venir."),
+        (live.length ? `${live.length} avis des distributeurs d'eau récents ou à venir.` : silent.length ? "" : "Aucun avis de coupure récent ou à venir.") +
+        silent.map((f) => ` ${f.texte}`).join(""),
+      injoignable: silent.length ? silent : undefined,
       ne_pas_boire: dry.length ? dry : undefined,
       avis: live.map((n) => noticeRow(n, now, n.communes.some((c) => doNotDrink(all, c) === n))),
       ...common,
@@ -100,13 +127,17 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
   const covered = !!dist?.avis || all.some((n) => n.communes.includes(commune));
   // Not read: the distributor the ARS names, as on the commune's page (worded by marketing); none named, the plain sentence.
   const unread = covered ? undefined : dist;
+  // Its feed did not answer at the last read: its notices kept said so, or its read said failed, never « aucun avis ».
+  const mute = dist?.avis ? muetPour(silent, commune) : undefined;
   const resume = [
     dry ? `EAU À NE PAS BOIRE ${a(commune)} (secteurs dans l'avis), d'après l'avis du ${published(dry)} : « ${dry.titre} ».` : "",
     mine.length
       ? `${mine.length} avis récent${mine.length > 1 ? "s" : ""} ou à venir ${a(commune)} : ${mine.slice(0, 3).map((n) => n.titre).join("\u00a0; ")}.`
+      : mute ? ""
       : covered ? `Aucun avis de coupure récent ou à venir ${a(commune)}.`
       : unread ? `Pas d'avis en ligne lisible pour ${commune} : ${unread.nom}, qui y distribue l'eau, ne publie pas ses avis de coupure dans un flux que rundata.re peut lire. Voir ${unread.nom} ou la mairie.`
       : `Pas d'avis en ligne lisible pour ${commune} : voir la mairie ou le distributeur d'eau.`,
+    mute ? mute.texte : "",
   ].filter(Boolean).join(" ");
   return text({
     lieu: placeBlock(lieu, res),
@@ -116,6 +147,7 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
     mairie: !covered && LIENS[commune] ? { libelle: LIENS[commune].libelle, lien: LIENS[commune].site } : undefined,
     distributeur: unread ? { nom: unread.nom, d_apres: DISTRIBUTEURS } : undefined,
     contact: covered ? undefined : `Le numéro d'urgence du distributeur (fuite, coupure non annoncée) est sur la facture d'eau\u00a0; la mairie : https://rundata.re/communes/${slugify(commune)}`,
+    injoignable: mute ? [mute] : undefined,
     avis: mine.map((n) => noticeRow(n, now, n === dry)),
     ...common,
     // The distributor named is the ARS's sanitary control's (src/eau/distributeurs.json), credited as the page does.
