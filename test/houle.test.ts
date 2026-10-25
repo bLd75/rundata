@@ -115,7 +115,7 @@ describe("the waves in temperature_mer", () => {
   it("go with each point of the tour of the island", async () => {
     const r = body(await temperatureMer(isolate(), undefined, NOW));
     expect(r.points.every((p: { vagues_prevision?: string }) => /^\d+(,\d)? m /.test(p.vagues_prevision ?? ""))).toBe(true);
-    expect(r.resume).toMatch(/Eau de mer, MESURÉE par satellite : .* Vagues PRÉVUES maintenant \(modèle WAM .*pas une mesure\) : Plage de Boucan-Canot \d/);
+    expect(r.resume).toMatch(/Eau de mer, MESURÉE par satellite\u00a0: .* Vagues PRÉVUES maintenant \(modèle WAM .*pas une mesure\) : Plage de Boucan-Canot \d/);
   });
 
   it("cost one request for the whole coast cold, three subrequests with the cache, then one, then none", async () => {
