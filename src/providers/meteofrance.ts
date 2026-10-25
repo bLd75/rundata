@@ -32,6 +32,16 @@ const SLOTS = 11;
 const BUNDLE = "meteofrance:6min";
 const SYNC_SECONDS = 60;
 
+// The hourly package of the 974: every station's last days hour by hour in one call (about 900 kB of CSV), an hour
+// being in it about 10 minutes after it ends (measured 25/10/2026). Kept in the same bundle as each station's rain
+// over the last hours only, and asked again only once the next hour should be in it.
+const HOURLY = "horaire";
+const HOURLY_URL = "https://public-api.meteofrance.fr/public/DPPaquetObs/v2/paquet/horaire?id-departement=974&format=csv";
+const HOUR_MS = 3_600_000;
+const HOURLY_IN_MS = 15 * 60_000;
+const HOURLY_RECHECK_SECONDS = 5 * 60;
+export const HOURS_KEPT = 24;
+
 export { configure, enabled, type Credentials } from "./mf-auth.js";
 
 const STATIONS = new Map<string, Omit<Station, "variables">>(
@@ -115,6 +125,86 @@ async function slot(b: Bundle, start: number, now: number, s: Session): Promise<
   }
 }
 
+/**
+ * Each station's rain hour by hour. `end` is the end of the newest hour, as Météo-France dates its hourly values:
+ * `rr[id][k]` is the rain from end − (k + 1) h to end − k h, null when the station did not report it.
+ */
+export interface HourlyRain {
+  end: string;
+  rr: Record<string, (number | null)[]>;
+}
+
+/**
+ * The stations' hourly rain (rr1) over the HOURS_KEPT hours up to the newest one in the package, at most `newest`.
+ * The package holds several days: each line is only looked at for its time, and only its station and its rain are
+ * read when it is wanted, since a regex or a split of the whole of it takes the Worker's CPU time of a request.
+ */
+export function parseHourly(csv: string, newest: number): HourlyRain {
+  const head = csv.slice(0, csv.indexOf("\n")).trim().split(";");
+  const [id, time, rr1] = ["geo_id_insee", "validity_time", "rr1"].map((c) => head.indexOf(c));
+  let end = Math.floor(newest / HOUR_MS) * HOUR_MS;
+  while (end > newest - 6 * HOUR_MS && !csv.includes(`;${iso(end)};`)) end -= HOUR_MS;
+  const hours = new Map(Array.from({ length: HOURS_KEPT }, (_, k) => [iso(end - k * HOUR_MS), k]));
+  const rr: HourlyRain["rr"] = {};
+  const last = Math.max(id, rr1) + 1;
+  for (let from = csv.indexOf("\n") + 1; from > 0 && from < csv.length; ) {
+    let to = csv.indexOf("\n", from);
+    if (to < 0) to = csv.length;
+    // The start of each field: up to the time on every line, up to the rain on the wanted ones only.
+    const at = [from];
+    for (let n = 1; n <= time + 1; n++) at.push(csv.indexOf(";", at[n - 1]) + 1);
+    const k = hours.get(csv.slice(at[time], at[time] + 20));
+    if (k != null) {
+      for (let n = at.length; n <= last; n++) at.push(csv.indexOf(";", at[n - 1]) + 1);
+      const station = csv.slice(at[id], at[id + 1] - 1);
+      const value = at[rr1 + 1] > 0 && at[rr1 + 1] <= to + 1 ? csv.slice(at[rr1], at[rr1 + 1] - 1) : "";
+      if (station.startsWith("974")) {
+        rr[station] ??= Array(HOURS_KEPT).fill(null);
+        // The two airports write -0.1 now and then: no rain counted.
+        if (value) rr[station][k] = Math.max(0, Number(value));
+      }
+    }
+    from = to + 1;
+  }
+  return { end: iso(end), rr };
+}
+
+/** The rain of the last hours: every station's hour by hour, and a station's 6-minute slots since the newest hour. */
+export interface RecentRain {
+  hourly: HourlyRain;
+  /** The station's slots after `hourly.end` that are there, newest first. */
+  slots(id: string): { time: string; rr: number | null }[];
+}
+
+/** Undefined when the hourly package cannot be read. Call after `observations`, whose bundle it reads again without I/O. */
+export async function recentRain(cache: Cache, now = new Date()): Promise<RecentRain | undefined> {
+  const b = await cache.bundle(BUNDLE, SYNC_SECONDS);
+  // Complete once it holds the newest hour that should be published: kept until the next one is due.
+  const due = Math.floor((now.getTime() - HOURLY_IN_MS) / HOUR_MS) * HOUR_MS;
+  const have = b.peek(HOURLY)?.value as HourlyRain | undefined;
+  const fresh = have && Date.parse(have.end) >= due ? (2 * HOUR_MS) / 1000 : HOURLY_RECHECK_SECONDS;
+  let hourly: HourlyRain;
+  try {
+    hourly = (await b.get(HOURLY, fresh, async () => parseHourly(await download(HOURLY_URL, session(SOURCE.id), getText), now.getTime()))).value;
+    await b.save();
+  } catch (err) {
+    console.error("pluie heure par heure indisponible", err instanceof Error ? err.message : String(err));
+    return undefined;
+  }
+  const latest = Math.floor(now.getTime() / SLOT_MS) * SLOT_MS;
+  return {
+    hourly,
+    slots: (id) => {
+      const out: { time: string; rr: number | null }[] = [];
+      for (let t = latest; t > Date.parse(hourly.end); t -= SLOT_MS) {
+        const row = (b.peek(iso(t))?.value as Row[] | undefined)?.find((r) => r.id === id);
+        if (row) out.push({ time: row.time, rr: row.rr_per });
+      }
+      return out;
+    },
+  };
+}
+
 /** Rain over the hour ending with `time`, when all ten slots of that hour are there. */
 function rainHour(byTime: Map<string, Row>, time: string): number | null {
   let sum = 0;
@@ -132,7 +222,7 @@ export async function observations(cache: Cache, now = new Date()): Promise<Cach
   const b = await cache.bundle(BUNDLE, SYNC_SECONDS);
   const got = await Promise.all(Array.from({ length: SLOTS }, (_, k) => slot(b, latest - k * SLOT_MS, now.getTime(), s)));
   const oldest = iso(latest - (SLOTS - 1) * SLOT_MS);
-  b.drop((date) => date >= oldest);
+  b.drop((key) => key === HOURLY || key >= oldest);
   await b.save();
   const ok = got.filter((g): g is Cached<Row[]> => !(g instanceof Error));
   if (!ok.length) throw got[0];
