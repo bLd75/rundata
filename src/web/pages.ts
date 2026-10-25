@@ -70,7 +70,7 @@ export const hm = (iso: string | Date) => localTime(new Date(iso)).split(" ")[1]
 export const since = (iso: string | Date, now: Date) =>
   `<span data-age="${new Date(iso).toISOString()}">${ageText(ageMinutes(new Date(iso), now))}</span>`;
 
-export const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-reunion-en-direct-meteo-mer-bus-velos-air-volcan-pour-vous-et-votre-assistant-ia";
+export const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-reunion-974-en-direct-pour-vous-et-votre-assistant-ia";
 // Where else rundata.re lives, linked from every footer and named in the home page's structured data.
 export const GITHUB = "https://github.com/rundata-re/rundata";
 export const GLAMA = "https://glama.ai/mcp/servers/bLd75/rundata";
