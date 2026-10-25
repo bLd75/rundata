@@ -1135,14 +1135,14 @@ export function meteoPage(origin: string, data: Cached<HomeData> | null, now = n
     {
       "@context": "https://schema.org",
       "@type": "Dataset",
-      name: "Mesures météo en temps réel à La Réunion (974)",
+      name: "Mesures météo en direct à La Réunion (974)",
       description:
         "Température, humidité, vent et pluie mesurés par les stations de La Réunion toutes les 6 minutes, et température " +
         "de surface de la mer par satellite, réunis et datés, accessibles par un serveur MCP pour assistants IA.",
       url: `${origin}/meteo`,
       isAccessibleForFree: true,
       inLanguage: "fr-FR",
-      keywords: ["météo", "La Réunion", "974", "temps réel", "stations météo", "température de la mer", "pluie", "vent"],
+      keywords: ["météo", "La Réunion", "974", "en direct", "stations météo", "température de la mer", "pluie", "vent"],
       spatialCoverage: ISLAND,
       variableMeasured: ["température de l'air", "humidité", "vent moyen", "rafales", "pluie", "température de la mer"],
       measurementTechnique: "stations météorologiques au sol, radiomètres satellitaires",
@@ -1379,7 +1379,7 @@ ${hikesAround(p, hikes)}
 export function notFoundPage(origin: string, path: string): string {
   return layout(origin, {
     title: `Page introuvable · ${SITE}`,
-    description: "La Réunion (974) en temps réel\u00a0: sorties, randos, météo, routes, vigilance, volcan, air, électricité, calendrier.",
+    description: "La Réunion (974) en direct\u00a0: sorties, randos, météo, routes, vigilance, volcan, air, électricité, calendrier.",
     path,
     jsonld: [],
   }, `<div class="wrap intro"><div class="pitch"><h1>Page introuvable</h1><p class="lead">Cette adresse n'existe pas sur rundata.re. Repartez de <a href="/">l'accueil</a>, des <a href="/evenements">sorties</a>, des <a href="/randonnees">randos</a> ou de <a href="/communes">votre commune</a>, ou découvrez <a href="/a-propos">qui fait rundata.re</a>.</p></div></div>`,

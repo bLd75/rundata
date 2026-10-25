@@ -608,7 +608,7 @@ export function liveText(x: Row): string {
   if (x.temps_reel) return ` <b class="rt">${esc(x.temps_reel)}</b>`;
   if (x.retard_min === undefined) return "";
   const m = x.retard_min;
-  return ` <b class="rt" title="Heure annoncée en temps réel par le réseau">${m === 0 ? "à l'heure" : m > 0 ? `+${fr(m)} min` : `${fr(-m)} min d'avance`}</b>`;
+  return ` <b class="rt" title="Heure annoncée en direct par le réseau">${m === 0 ? "à l'heure" : m > 0 ? `+${fr(m)} min` : `${fr(-m)} min d'avance`}</b>`;
 }
 
 /** One departure as a row: line, direction, wait (from the real-time feed when there is one). */
@@ -639,7 +639,7 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
           ? `<ul class="rows">${g.departs.map((x) => departureLi(x, waitText(x.dans_min, x.heure_annoncee ?? x.heure))).join("")}</ul>`
           : `<p>Pas de départ prévu dans les prochaines heures.</p>`) +
         `</li>`).join("")}</ul>` +
-      `<p class="note">${d!.temps_reel?.length ? `${esc(d!.temps_reel.map((t) => t.reseau).join(", "))} : heures annoncées en temps réel par le réseau quand le bus y figure (flux de ${esc(d!.temps_reel[0].heure)}). ` : ""}` +
+      `<p class="note">${d!.temps_reel?.length ? `${esc(d!.temps_reel.map((t) => t.reseau).join(", "))} : heures annoncées en direct par le réseau quand le bus y figure (flux de ${esc(d!.temps_reel[0].heure)}). ` : ""}` +
       `Sinon, horaires théoriques publiés par chaque réseau, sans les retards ni les déviations. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
     : `<p class="card">Les prochains départs à n'importe quel arrêt de l'île sont donnés par le connecteur : demandez à votre assistant « le prochain bus à la gare de Saint-Pierre ? ».</p>`;
 
@@ -664,7 +664,7 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
   ${gares}
   ${d ? `<p class="note">Sources : ${credits(d.sources)}.</p>` : ""}
 </section>
-${d?.alertes?.length ? `<section aria-labelledby="h-trafic"><h2 id="h-trafic">Info trafic</h2><div class="card">${alertList(d.alertes)}<p class="note">Publié par les réseaux dans leur flux temps réel, repris tel quel.</p></div></section>` : ""}
+${d?.alertes?.length ? `<section aria-labelledby="h-trafic"><h2 id="h-trafic">Info trafic</h2><div class="card">${alertList(d.alertes)}<p class="note">Publié par les réseaux dans leur flux en direct, repris tel quel.</p></div></section>` : ""}
 ${connectorCta("transports", "les bus de l'île")}
 <section aria-labelledby="h-bateau"><h3 id="h-bateau">${esc(FERRY.h3)}</h3><p>${esc(FERRY.page)}</p><p class="note">${esc(FERRY.verifie)}</p></section>`;
 
@@ -1143,14 +1143,14 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   const busCard = !d
     ? `<div class="card">${loading("Les retards des bus")}</div>`
     : !b
-      ? `<div class="card">${icon("bus")}<h3>Retards des bus</h3><p class="note">Le temps réel des bus ne répond pas pour le moment.</p></div>`
+      ? `<div class="card">${icon("bus")}<h3>Retards des bus</h3><p class="note">Le flux en direct des bus ne répond pas pour le moment.</p></div>`
       : `<div class="card">${icon("bus")}<h3>Retards des bus au départ des gares</h3>
   <p class="note">Retards des bus, pas une mesure des bouchons : un car en retard l'est souvent depuis sa course précédente.</p>
   ${b.retards.length
     ? `<ul class="rows eau">${b.retards.slice(0, 12).map((r) => `<li><span>${esc(r.reseau)} ${esc(r.ligne)} vers ${esc(r.direction)}<small>gare ${esc(de(r.gare))}, départ prévu à ${esc(r.heure)}</small></span><span class="score">${r.retard_min} min</span></li>`).join("")}</ul>`
-    : `<p>${b.suivis ? `Aucun des ${b.suivis} départs suivis en temps réel n'a plus de ${LATE_MIN} min de retard.` : "Pas de départ suivi en temps réel en ce moment."}</p>`}
+    : `<p>${b.suivis ? `Aucun des ${b.suivis} départs suivis en direct n'a plus de ${LATE_MIN} min de retard.` : "Pas de départ suivi en direct en ce moment."}</p>`}
   ${b.alertes.length ? `<h4>Déviations et avis des réseaux</h4>${alertList(b.alertes)}` : ""}
-  ${b.temps_reel.length ? `<p class="note">Flux temps réel : ${b.temps_reel.map((t) => `${esc(t.reseau)} à ${esc(t.heure)}`).join(", ")}. <a href="/bus">Les prochains départs</a>.</p>` : `<p class="note"><a href="/bus">Les prochains départs</a>.</p>`}</div>`;
+  ${b.temps_reel.length ? `<p class="note">Flux en direct : ${b.temps_reel.map((t) => `${esc(t.reseau)} à ${esc(t.heure)}`).join(", ")}. <a href="/bus">Les prochains départs</a>.</p>` : `<p class="note"><a href="/bus">Les prochains départs</a>.</p>`}</div>`;
 
   const rf = d?.routes_forestieres;
   const roadsCard = !d
@@ -1208,7 +1208,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
 ${official}
 ${ours}
 ${why}
-${connectorCta("transports", "les bus en temps réel")}
+${connectorCta("transports", "les bus en direct")}
 <script>${WAZE_SCRIPT}</script>`;
   return layout(origin, { title, description, path: "/trafic", jsonld: [crumbs(origin, "Circulation", "/trafic"), webPage(origin, "/trafic", title, description, data)], alerte }, band, body);
 }

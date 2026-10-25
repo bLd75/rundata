@@ -36,7 +36,7 @@ export function coverage(): string {
         "les observations des 2 aéroports (METAR, état du ciel) et 1 balise de vent (Cambaie, Saint-Paul)."
     : "Version 0.1 : seules les sources ouvertes sans clé sont branchées, soit les 2 stations des aéroports " +
         "(Saint-Denis Gillot et Saint-Pierre Pierrefonds, toutes les 30 min) et 1 balise de vent (Cambaie, Saint-Paul). " +
-        "Pas encore de pluviomètre en temps réel, ni de station dans les Hauts ou les cirques.";
+        "Pas encore de pluviomètre lu en direct, ni de station dans les Hauts ou les cirques.";
 }
 
 // Without a place, the tour of the island: coast on every side, the Hauts and a cirque, not all of them.

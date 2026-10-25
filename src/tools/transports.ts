@@ -323,7 +323,8 @@ export const departureRow = (d: Departure): DepartureRow => ({
 });
 
 /** « à l'heure », « 5 min de retard », « 2 min d'avance ». */
-const delayText = (m: number) => (m === 0 ? "à l'heure" : m > 0 ? `${fr(m)} min de retard` : `${fr(-m)} min d'avance`);
+// marketing's words, the participle agreeing with the noun before it.
+const delayText = (m: number) => (m === 0 ? "à l'heure, annoncé en direct" : m > 0 ? `retard de ${fr(m)} min annoncé en direct` : `avance de ${fr(-m)} min annoncée en direct`);
 
 /** The departure as the tool gives it, with where its trip comes from and goes, and where its bus is. */
 const toolRow = (d: Departure) => ({ ...departureRow(d), ...endsOf(d), ...(d.bus ? { position_du_bus: d.bus } : {}) });
@@ -337,9 +338,9 @@ export function endsOf(d: Departure): { origine: string; terminus: string } | un
 const said = (d: Departure) =>
   `${lineName(d.route).ligne} vers ${d.headsign} ` +
   (d.supprime
-    ? `${atTime(d.at)} : ne passe pas à cet arrêt (temps réel)`
+    ? `${atTime(d.at)} : ne passe pas à cet arrêt (annoncé en direct par le réseau)`
     : d.retard !== undefined
-      ? `${atTime(d.at + d.retard)} (${wait(minutes(d))}, ${delayText(delayMinutes(d))} en temps réel)`
+      ? `${atTime(d.at + d.retard)} (${wait(minutes(d))}, ${delayText(delayMinutes(d))})`
       : `${atTime(d.at)} (${wait(minutes(d))})`) +
   (d.bus?.ou ? `, position du bus à ${d.bus.heure_de_la_position} : ${d.bus.ou}` : "");
 
@@ -362,7 +363,7 @@ async function stopDepartures(groups: transit.StopGroup[], now: Date, cache: Cac
 const timetables = (live: string[], feeds: Map<string, rt.Realtime>) => {
   const at = [...feeds.values()].reduce((m, f) => Math.max(m, f.at), 0);
   return live.length
-    ? `${live.join(", ")} : heures annoncées en temps réel par le réseau (flux de ${localTime(new Date(at * 1000)).split(" ")[1]}) quand le bus y figure ; sinon horaires théoriques, sans les retards ni les déviations`
+    ? `${live.join(", ")} : heures annoncées en direct par le réseau (flux de ${localTime(new Date(at * 1000)).split(" ")[1]}) quand le bus y figure ; sinon horaires théoriques, sans les retards ni les déviations`
     : "théoriques, publiés par chaque réseau : retards, suppressions et déviations ne sont pas pris en compte";
 };
 
@@ -405,7 +406,7 @@ async function stopAnswer(asked: string, ligne: string | undefined, now: Date, c
   }));
   const where = stops.map((s) => `${s.nom} (${s.commune}, ${s.reseau})`).join(", ");
   const resume = shown.length
-    ? `Prochains départs à ${where}, d'après ${live.length ? "le temps réel et " : ""}les horaires publiés : ` + shown.slice(0, 5).map(said).join(" ; ") + "." +
+    ? `Prochains départs à ${where}, d'après ${live.length ? "les annonces en direct des réseaux et " : ""}les horaires publiés : ` + shown.slice(0, 5).map(said).join(" ; ") + "." +
       (alertes.length ? ` Info trafic : ${alertes.map((a) => `${a.lignes ? `ligne ${a.lignes.join(", ")}, ` : ""}${a.titre}`).join(" ; ")}.` : "")
     : `Aucun départ prévu dans les prochaines heures à ${where}, d'après les horaires publiés.` + (await quiet(groups, now, cache));
   const used = live.length > 0 || alertes.length > 0;

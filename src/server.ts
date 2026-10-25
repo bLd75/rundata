@@ -72,7 +72,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.182.2";
+export const VERSION = "0.182.3";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -279,7 +279,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
     {
       title: "Électricité à La Réunion en ce moment",
       description:
-        "Électricité à La Réunion (974) en temps réel, d'après EDF : production totale, part de chaque filière (solaire, " +
+        "Électricité à La Réunion (974) en direct, d'après EDF : production totale, part de chaque filière (solaire, " +
         "bagasse et biomasse, hydraulique, éolien, charbon, diesel) et part renouvelable, mises à jour toutes les 5 min ; " +
         "« météo de l'électricité » d'EDF pour les jours qui viennent (heures de pointe, réseau contraint, recharge conseillée " +
         "d'un véhicule électrique). Pour : « d'où vient l'électricité ? », « quelle part de renouvelable ? », " +
@@ -382,7 +382,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           "Prochains départs de bus à un arrêt de La Réunion (974), d'après les horaires publiés par les réseaux : Car Jaune (toute l'île), " +
           "Citalis (Saint-Denis, Sainte-Marie, Sainte-Suzanne), Kar'Ouest (Le Port à Saint-Leu), Alternéo (Saint-Pierre, Saint-Louis…), " +
           "CarSud (Le Tampon, Saint-Joseph…), Estival (Saint-André, Saint-Benoît, Salazie…), téléphérique Papang. Ligne, direction, heure, " +
-          "minutes d'attente ; pour Car Jaune (et Alternéo, CarSud quand leur flux fonctionne), l'heure annoncée en temps réel, le retard, " +
+          "minutes d'attente ; pour Car Jaune (et Alternéo, CarSud quand leur flux fonctionne), l'heure annoncée en direct par le réseau, le retard, " +
           "les arrêts non desservis et l'info trafic ; où est le bus quand il donne sa position (Car Jaune, CarSud), avec l'heure de cette position, jamais une position de plus de 10 minutes. " +
           "Pour : « prochain bus à la gare routière de Saint-Pierre ? », « à quelle heure passe le car jaune à Saint-Leu ? », " +
           "« horaires de la ligne 2 à l'arrêt Mairie au Tampon ? », « le car jaune a du retard ? », « par où passe la ligne S1 ? », « le S1 s'arrête à Manapany ? », « où est le S1 en ce moment ? ». " +
