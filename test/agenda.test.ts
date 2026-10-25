@@ -5,7 +5,7 @@ import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.j
 import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSpipNews, parseSportsregions, parseTribe, parseWpNews } from "../src/providers/agenda.js";
 import { extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
-import { agenda, COUVERTURE, gather, MAIRIES_LUES, oublierEchecs, periode, refreshPlanned } from "../src/tools/agenda.js";
+import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
 
 // The agendas on Saturday 24/10/2026 in the morning: the Fête de l'ail at Petite-Île (23 to 25), a concert tonight at
@@ -63,7 +63,6 @@ describe("agenda", () => {
   beforeEach(() => {
     down = undefined;
     asked = [];
-    oublierEchecs();
     vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
       asked.push(new Headers(init?.headers).get("User-Agent") ?? "");
       const f = file(url, typeof init?.body === "string" ? init.body : undefined);
@@ -185,6 +184,46 @@ describe("agenda", () => {
       league = () => new Response("", { status: 503 });
       expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [...MAIRIES, "sportsregions"], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
       expect(await entry(store)).toEqual(second);
+    });
+
+    it("writes when it failed even if it read nothing else, so that the next scheduled events, in other isolates, do not try again", async () => {
+      let t = NOW.getTime();
+      class Counting extends MemoryStore {
+        puts = 0;
+        async put(key: string, e: CacheEntry) {
+          this.puts++;
+          return super.put(key, e);
+        }
+      }
+      const store = new Counting();
+      const at = () => new Cache(store, () => t);
+      await refreshPlanned(at(), NOW);
+      // The league's copy two hours old, the others fresh: the league is the only one due.
+      const stored = (await store.get("agendas:planifies"))!;
+      const entries = stored.value as Record<string, CacheEntry>;
+      entries["agenda:lrvb"] = { ...entries["agenda:lrvb"], fetchedAt: NOW.getTime() - 2 * 3600_000 };
+      await store.put("agendas:planifies", stored);
+      const copy = await entry(store);
+      store.puts = 0;
+      t += 5 * 60_000;
+      league = () => new Response("", { status: 503 });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
+      expect(store.puts).toBe(1);
+      expect(await entry(store)).toEqual(copy);
+      // A new isolate at each scheduled event: not tried again within the hour, and nothing written.
+      const tries = urls.filter(isLeague).length;
+      for (let i = 0; i < 11; i++) {
+        t += 5 * 60_000;
+        expect((await refreshPlanned(at(), new Date(t))).gardes).toEqual([]);
+      }
+      expect(urls.filter(isLeague)).toHaveLength(tries);
+      // Read again once it answers: the failure forgotten with the new copy, in the same write.
+      league = () => new Response(bytes("tribe_lrvb.json"));
+      t += 5 * 60_000;
+      store.puts = 0;
+      expect((await refreshPlanned(at(), new Date(t))).lus).toContain("lrvb");
+      expect(store.puts).toBe(1);
+      expect(Object.keys((await store.get("agendas:planifies"))?.value as Record<string, CacheEntry>)).not.toContain("echec:lrvb");
     });
 
     it("reads nothing and writes nothing when the invocation cannot pay for its reading and the write", async () => {
