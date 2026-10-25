@@ -126,10 +126,10 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
   };
   const band = `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li><a href="/communes">Communes</a></li><li><a href="/communes/${p.slug}">${esc(p.nom)}</a></li><li aria-current="page">Aujourd'hui</li></ol></nav></div>
 <div class="wrap intro"><div class="pitch">
-  <p class="pill"><span class="dot"></span>${esc(r.resume.split(" ; ")[0])}</p>
+  <p class="pill"><span class="dot"></span>${esc(r.resume.split("\u00a0; ")[0])}</p>
   <h1>${esc(H1(p))}</h1>
   <p class="hook">${esc(HOOK(p))}</p>
-  ${r.resume.includes(" ; ") ? `<p class="lead">${esc(r.resume.split(" ; ").slice(1).join(" ; ").replace(/^\p{L}/u, (x) => x.toUpperCase()))}</p>` : ""}
+  ${r.resume.includes("\u00a0; ") ? `<p class="lead">${esc(r.resume.split("\u00a0; ").slice(1).join("\u00a0; ").replace(/^\p{L}/u, (x) => x.toUpperCase()))}</p>` : ""}
   ${ask(`Kosa i spas ${p.nom} jordi ? Gèt si ${url} é di amwin.`, `Que se passe-t-il ${aCommune(p.nom)} aujourd'hui ? Lis ${url} et résume-moi la journée.`)}
 </div></div>`;
   const body = `<section aria-labelledby="h-temps"><div class="sec-h"><h2 id="h-temps">Le temps</h2></div>

@@ -21,8 +21,8 @@ export const SOURCE: SourceInfo = {
   id: "openmeteo_ens",
   nom: "Ensemble de prévisions du Centre européen (ECMWF ENS, 51 scénarios), via Open-Meteo",
   organisme: "ECMWF (données ouvertes ENS), diffusé par Open-Meteo",
-  licence: "CC BY 4.0 (ECMWF et Open-Meteo) ; API Open-Meteo gratuite réservée aux usages non commerciaux",
-  attribution: "Weather data by Open-Meteo.com <https://open-meteo.com/> ; ensemble ENS, ECMWF",
+  licence: "CC BY 4.0 (ECMWF et Open-Meteo)\u00a0; API Open-Meteo gratuite réservée aux usages non commerciaux",
+  attribution: "Weather data by Open-Meteo.com <https://open-meteo.com/>\u00a0; ensemble ENS, ECMWF",
   url: "https://open-meteo.com/en/docs/ensemble-api",
 };
 

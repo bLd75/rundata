@@ -47,7 +47,7 @@ export function defibrillateurs(lieu: string | undefined) {
   if (!lieu?.trim()) {
     const communes = byCommune();
     return text({
-      resume: `${DAES.length} défibrillateurs déclarés en service à La Réunion, dans les 24 communes ; préciser un lieu pour les plus proches.`,
+      resume: `${DAES.length} défibrillateurs déclarés en service à La Réunion, dans les 24 communes\u00a0; préciser un lieu pour les plus proches.`,
       communes: communes.map((c) => ({ commune: c.commune, defibrillateurs: c.list.length, accessibles_a_toute_heure: c.list.filter((d) => reach(d) === 0).length })),
       ...common,
     });

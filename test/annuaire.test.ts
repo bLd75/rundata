@@ -20,7 +20,7 @@ describe("public services directory", () => {
   it("reads address, position, hours and phone", () => {
     expect(saintPaul.adresse).toBe("Place du Général-de-Gaulle, 97460 Saint-Paul");
     expect(saintPaul.lat).toBeCloseTo(-21.014, 2);
-    expect(hoursText(saintPaul)).toBe("lundi au jeudi 8h-16h ; vendredi 8h-15h");
+    expect(hoursText(saintPaul)).toBe("lundi au jeudi 8h-16h\u00a0; vendredi 8h-15h");
     expect(saintPaul.telephone).toBe("02 62 45 43 45");
   });
 

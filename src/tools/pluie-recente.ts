@@ -104,6 +104,6 @@ export function recentRainBlock(rain: RecentRain, station: StationRain, lieu: st
     convention: CONVENTION,
     bruine,
     avertissements,
-    resume: `Pluie à ${station.nom} (pluviomètre, ${fr(station.fit.distance_km)} km) : ${derniere.startsWith("pas de") ? derniere : `dernière pluie ${derniere}`} ; ${cumul} (depuis minuit).${bruine ? ` ${bruine}` : ""}`,
+    resume: `Pluie à ${station.nom} (pluviomètre, ${fr(station.fit.distance_km)} km) : ${derniere.startsWith("pas de") ? derniere : `dernière pluie ${derniere}`}\u00a0; ${cumul} (depuis minuit).${bruine ? ` ${bruine}` : ""}`,
   };
 }

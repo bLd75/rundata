@@ -105,7 +105,7 @@ export function sentence(a: cc.AvisCourant, now: Date, first = true): string {
   const coming = a.creneaux.filter((s) => ends(s) >= today);
   const shown = (coming.length ? coming : a.creneaux).slice(0, SLOTS_MAX);
   const more = (coming.length || a.creneaux.length) - shown.length;
-  return `${head} : coupure programmée ${shown.map((x) => slotText(x, now)).join(" ; ")}${more > 0 ? ` ; et ${more} autre${more > 1 ? "s" : ""} dans l'avis` : ""}.`;
+  return `${head} : coupure programmée ${shown.map((x) => slotText(x, now)).join("\u00a0; ")}${more > 0 ? `\u00a0; et ${more} autre${more > 1 ? "s" : ""} dans l'avis` : ""}.`;
 }
 
 export interface CourantRow {

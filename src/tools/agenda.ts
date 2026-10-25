@@ -402,11 +402,11 @@ const without = Object.keys(INSEE).filter((c) => !src.COVERED.includes(c));
 /** The communes whose mairie's agenda is read, for the tool's description. */
 export const MAIRIES_LUES = towns.filter((x) => x.commune && !x.couvre).map((x) => x.commune).join(", ");
 export const COUVERTURE =
-  `Agendas lus : ${towns.map((x) => (x.couvre ? `${x.nom} (${x.couvre.join(", ")})` : x.nom)).join(", ")} ; agenda de reunion.fr pour les grandes fêtes ` +
+  `Agendas lus : ${towns.map((x) => (x.couvre ? `${x.nom} (${x.couvre.join(", ")})` : x.nom)).join(", ")}\u00a0; agenda de reunion.fr pour les grandes fêtes ` +
   `et festivals de toute l'île. Programmes des salles : ${halls.map((x) => x.nom).join(", ")}. ` +
   (partial.length ? `Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : ${partial.map((x) => x.commune).join(", ")}. ` : "") +
   `Sans agenda lu (seuls les grands événements de reunion.fr) : ${without.join(", ")}` +
-  `${Object.entries(src.SANS_AGENDA).filter(([c]) => without.includes(c)).map(([, why]) => ` ; ${why}`).join("")}. ` +
+  `${Object.entries(src.SANS_AGENDA).filter(([c]) => without.includes(c)).map(([, why]) => `\u00a0; ${why}`).join("")}. ` +
   "Aussi : les événements que les clubs et associations proposent sur rundata.re (https://rundata.re/associations), relus avant publication. " +
   "Pas encore lus : les bars et les clubs, les billetteries privées. Un événement absent ici peut quand même avoir lieu (voir le site ou la " +
   "page Facebook de la salle ou de la mairie). Chaque événement dit qui le publie, renvoie à sa page et dit quand rundata.re l'a lu.";
@@ -416,7 +416,7 @@ export const CINEMAS = [
   { nom: "Cinepalmes (Sainte-Marie)", lien: "https://iccreunion.com/" },
   { nom: "Moulin à Café (Saint-Pierre, Ravine des Cabris)", lien: "https://www.saintpierre.re/culture/arts-visuels-et-cinema/cinema-moulin-cafe" },
 ];
-const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publiés par l'organisateur : vérifier sur la page de l'événement avant de se déplacer (annulation, météo, places). Un événement annulé ou reporté reste dans la liste avec son statut ; « complet » : plus de places en vente. Une salle sans heure (TÉAT) donne l'heure sur la page du spectacle. Les matchs des clubs et les programmes sportifs des communes : l'outil sport.";
+const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publiés par l'organisateur : vérifier sur la page de l'événement avant de se déplacer (annulation, météo, places). Un événement annulé ou reporté reste dans la liste avec son statut\u00a0; « complet » : plus de places en vente. Une salle sans heure (TÉAT) donne l'heure sur la page du spectacle. Les matchs des clubs et les programmes sportifs des communes : l'outil sport.";
 
 /** `listed`: how many events at most (the page lists them all). */
 /** `adherent`: the user says they are a club's member: its sessions for the members are told too, said so. */
@@ -463,7 +463,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     commune && !n && all.length ? `${all.length} ailleurs sur l'île` : "",
     // Said in the summary, not only in `indisponible`: a partial list must not be read as the whole of it.
     failed.length ? `${failed.length} agenda${failed.length > 1 ? "s" : ""} non lu${failed.length > 1 ? "s" : ""} cette fois : ${failed.join(", ")} (liste peut-être incomplète, à redemander dans une minute)` : "",
-  ].filter(Boolean).join(" ; ") + ".";
+  ].filter(Boolean).join("\u00a0; ") + ".";
 
   const used = [...new Set(got.filter((g) => g.value && (g.agenda.id !== PROPOSITIONS_ID || g.value.value.length)).map((g) => g.agenda.source))] as SourceInfo[];
   return text({

@@ -98,7 +98,7 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
   const resume = [
     dry ? `EAU À NE PAS BOIRE ${a(commune)} (secteurs dans l'avis), d'après l'avis du ${published(dry)} : « ${dry.titre} ».` : "",
     mine.length
-      ? `${mine.length} avis récent${mine.length > 1 ? "s" : ""} ou à venir ${a(commune)} : ${mine.slice(0, 3).map((n) => n.titre).join(" ; ")}.`
+      ? `${mine.length} avis récent${mine.length > 1 ? "s" : ""} ou à venir ${a(commune)} : ${mine.slice(0, 3).map((n) => n.titre).join("\u00a0; ")}.`
       : covered ? `Aucun avis de coupure récent ou à venir ${a(commune)}.` : `Pas d'avis en ligne lisible pour ${commune} : voir la mairie ou le distributeur d'eau.`,
   ].filter(Boolean).join(" ");
   return text({

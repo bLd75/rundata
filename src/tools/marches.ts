@@ -41,8 +41,8 @@ export function marchesAnswer(lieu: string | undefined) {
   return text({
     lieu: placeBlock(lieu!, res),
     resume: here.length
-      ? `Marchés ${a(commune)} d'après OpenStreetMap : ${here.map(said).join(" ; ")}.`
-      : `Aucun marché ${a(commune)} dans OpenStreetMap. Les plus proches : ${near.map((m) => `${said(m)}, ${a(m.commune)}, à ${fr(Math.round((m.km ?? 0) * 10) / 10)} km`).join(" ; ")}.`,
+      ? `Marchés ${a(commune)} d'après OpenStreetMap : ${here.map(said).join("\u00a0; ")}.`
+      : `Aucun marché ${a(commune)} dans OpenStreetMap. Les plus proches : ${near.map((m) => `${said(m)}, ${a(m.commune)}, à ${fr(Math.round((m.km ?? 0) * 10) / 10)} km`).join("\u00a0; ")}.`,
     marches: near.map(row),
     avertissements: [NOT_ALL],
     sources: credits([marches.OSM]),

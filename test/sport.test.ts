@@ -141,7 +141,7 @@ describe("sport", () => {
     expect(b.a_venir.find((r: { epreuve: string }) => r.epreuve === "TGV – VBSP")).toMatchObject({ commune: "Le Tampon", deplacement: "club de Saint-Pierre en déplacement au Tampon" });
     // « volley dimanche dans le sud »: none is played in the south; the Tampon plays at Saint-Paul and Saint-Denis.
     const s = body(await sportTool(cache(), "volley", "le sud", "dimanche", NOW));
-    expect(s.resume).toBe("Aucun rendez-vous de volley-ball trouvé dans le Sud dimanche 25/10 ; 2 matchs de clubs du Sud à l'extérieur.");
+    expect(s.resume).toBe("Aucun rendez-vous de volley-ball trouvé dans le Sud dimanche 25/10\u00a0; 2 matchs de clubs du Sud à l'extérieur.");
     expect(s.a_venir.map((r: { epreuve: string; commune: string }) => `${r.epreuve} (${r.commune})`)).toEqual(["USAB 3 – TGV 2 (Saint-Paul)", "SDOVB 2 – TGV 2A (Saint-Denis)"]);
     const club = body(await sportTool(cache(), undefined, "VBSP", "a_venir", NOW));
     expect(club.a_venir.every((r: { epreuve: string }) => /VBSP/.test(r.epreuve))).toBe(true);
@@ -166,7 +166,7 @@ describe("sport", () => {
     expect(b.a_venir).toHaveLength(10);
     expect(b.a_venir.every((r: { etat: string; selon: string; lien_avis: string }) =>
       r.etat === "annulée" && r.selon === "la Ligue réunionnaise de volley-ball (LRVB), à rejouer à une date à fixer" && r.lien_avis.includes("1770758655057957"))).toBe(true);
-    expect(b.resume).toBe("10 rendez-vous de volley-ball à La Réunion samedi 24/10 ; tous annulés ou reportés d'après la Ligue réunionnaise de volley-ball (LRVB).");
+    expect(b.resume).toBe("10 rendez-vous de volley-ball à La Réunion samedi 24/10\u00a0; tous annulés ou reportés d'après la Ligue réunionnaise de volley-ball (LRVB).");
     expect(b.avis).toEqual([expect.objectContaining({ jours: ["samedi 24/10"], extrait: expect.stringMatching(/toutes les rencontres indoor et outdoor prévues ce samedi 24 octobre 2026 sont annulées\.$/) })]);
     // Sunday's matches are not touched.
     const w = body(await sportTool(cache(), "volley", undefined, "ce_week_end", NOW));

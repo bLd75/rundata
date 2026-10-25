@@ -174,7 +174,7 @@ export function wavesAt(w: houle.Waves, lon: number, lat: number, now: Date) {
 
 const WAVE_WARNINGS = [
   "PRÉVISION d'un modèle numérique de vagues, pas une mesure. Elle vaut au large, avant le récif : dans le lagon, " +
-    "derrière une digue ou sur un spot abrité, les vagues sont bien plus petites ; sur une pointe exposée, plus fortes.",
+    "derrière une digue ou sur un spot abrité, les vagues sont bien plus petites\u00a0; sur une pointe exposée, plus fortes.",
   "Hauteur significative : celle du tiers des plus hautes vagues. Des vagues isolées peuvent approcher le double.",
   "Pour la sécurité : la vigilance vagues-submersion de Météo-France (vigilance_meteo), les drapeaux de baignade et les maîtres-nageurs.",
 ];
@@ -202,7 +202,7 @@ function waveBlock(w: Cached<houle.Waves>, place: Place, now: Date) {
   return {
     resume:
       `Vagues PRÉVUES près de ${place.nom} (modèle ${houle.MODEL.nom}, pas une mesure) : ${l.maintenant} ` +
-      `vers ${l.heure} ; jusqu'à ${l.max} ${l.max_jour}.`,
+      `vers ${l.heure}\u00a0; jusqu'à ${l.max} ${l.max_jour}.`,
     bloc: {
       nature: "prevision",
       modele: { nom: houle.MODEL.nom, maille_km: houle.MODEL.maille_km, mise_a_jour: houle.MODEL.mise_a_jour },
@@ -244,8 +244,8 @@ export async function temperatureMer(cache: Cache, lieu: string | undefined, now
     const waves = points.filter((p) => p.vagues_prevision).map((p) => `${p.lieu} ${p.vagues_prevision}`);
     return text({
       resume: [
-        measured.length ? `Eau de mer, MESURÉE par satellite : ${measured.join(" ; ")}.` : "Pas de mesure satellite de l'eau pour le moment.",
-        ...(waves.length ? [`Vagues PRÉVUES maintenant (modèle ${houle.MODEL.nom}, pas une mesure) : ${waves.join(" ; ")}.`] : []),
+        measured.length ? `Eau de mer, MESURÉE par satellite : ${measured.join("\u00a0; ")}.` : "Pas de mesure satellite de l'eau pour le moment.",
+        ...(waves.length ? [`Vagues PRÉVUES maintenant (modèle ${houle.MODEL.nom}, pas une mesure) : ${waves.join("\u00a0; ")}.`] : []),
       ].join(" "),
       points,
       avertissements: [...(t ? CAVEATS : []), ...(t?.used.flatMap(staleWarning) ?? []), ...(w ? WAVE_WARNINGS : [])],

@@ -100,8 +100,8 @@ export function nextTides(g: GaugeNow, now: Date) {
   const offset = g.offset ?? 0;
   return {
     nature: "calcul",
-    avertissement: `${calc.LABEL} ; ${precision(c)}.`,
-    horizon: `calculé jusqu'au ${until(now)} heure de La Réunion ; au-delà, les prédictions officielles du SHOM : ${SHOM}`,
+    avertissement: `${calc.LABEL}\u00a0; ${precision(c)}.`,
+    horizon: `calculé jusqu'au ${until(now)} heure de La Réunion\u00a0; au-delà, les prédictions officielles du SHOM : ${SHOM}`,
     ...(checked(c) ? { controle: checked(c) } : {}),
     ...(g.offset != null
       ? { recalage: `hauteurs recalées de ${offset >= 0 ? "+" : ""}${fr(Math.round(offset * 100))} cm sur le niveau mesuré des ${OFFSET_HOURS} dernières heures` }
@@ -152,7 +152,7 @@ export function state(r: mg.Reading): string {
     .filter((e): e is mg.Extremum => !!e)
     .sort((a, b) => b.t - a.t)
     .map((e) => `dernière ${e.type === "pleine_mer" ? "pleine mer" : "basse mer"} vers ${hm(e.t)} (${m(e.h)})`);
-  return [`${m(r.h)}, ${tide}`, ...turns].join(" ; ");
+  return [`${m(r.h)}, ${tide}`, ...turns].join("\u00a0; ");
 }
 
 export function gaugeRow({ gauge, reading, offset, error }: GaugeNow, now: Date, km?: number) {
@@ -184,9 +184,9 @@ const COMMON = {
   donnees:
     "Hauteur d'eau mesurée chaque minute par les marégraphes du SHOM, données brutes non validées, en mètres au-dessus du zéro des cartes marines. " +
     "Les dernières pleine et basse mer sont celles observées. Les prochaines (prochaines_marees) sont un calcul de rundata d'après plusieurs années de " +
-    "ces mesures (analyse harmonique), pas la prédiction officielle du SHOM, qui n'est pas en données ouvertes ; pas de coefficient.",
+    "ces mesures (analyse harmonique), pas la prédiction officielle du SHOM, qui n'est pas en données ouvertes\u00a0; pas de coefficient.",
   bon_a_savoir:
-    "La marée est faible à La Réunion (20 à 80 cm) : utile pour le lagon, la pêche à pied ou la mise à l'eau, pas pour la navigation ; " +
+    "La marée est faible à La Réunion (20 à 80 cm) : utile pour le lagon, la pêche à pied ou la mise à l'eau, pas pour la navigation\u00a0; " +
     "la houle et le vent comptent souvent plus pour la mer au bord.",
 };
 
@@ -201,7 +201,7 @@ function sentence(g: GaugeNow, now: Date, both = false): string {
   const c = calc.constantsOf(g.gauge.id)!;
   if (!next?.liste.length) return measured;
   const count = both ? 2 : next.liste.filter((e) => /^(?:vers|demain) /.test(e.heure)).length;
-  return `${measured} ; prochaines marées, ${calc.LABEL}, à environ ${minutes(c)} min près : ${nextText(next, count)} ; ` +
+  return `${measured}\u00a0; prochaines marées, ${calc.LABEL}, à environ ${minutes(c)} min près : ${nextText(next, count)}\u00a0; ` +
     `${next.liste.length} marées calculées jusqu'au ${until(now)} (prochaines_marees), au-delà les prédictions officielles du SHOM (${SHOM})`;
 }
 

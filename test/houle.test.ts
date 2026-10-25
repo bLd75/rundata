@@ -80,7 +80,7 @@ describe("houle.parse", () => {
 describe("the waves in temperature_mer", () => {
   it("answer « la houle à Saint-Leu ? » with a forecast labelled as such, apart from the measured temperature", async () => {
     const r = body(await temperatureMer(isolate(), "Saint-Leu", NOW));
-    expect(r.resume).toMatch(/Vagues PRÉVUES près de Saint-Leu \(modèle WAM du Centre européen \(ECMWF\), pas une mesure\) : \d+(,\d)? m (du |de l')[a-z-]+, période \d+ s vers 9h ; jusqu'à \d+(,\d)? m/);
+    expect(r.resume).toMatch(/Vagues PRÉVUES près de Saint-Leu \(modèle WAM du Centre européen \(ECMWF\), pas une mesure\) : \d+(,\d)? m (du |de l')[a-z-]+, période \d+ s vers 9h\u00a0; jusqu'à \d+(,\d)? m/);
     const s = r.etat_de_la_mer;
     expect(s.nature).toBe("prevision");
     expect(s.point_du_modele.distance_km).toBeLessThan(10);

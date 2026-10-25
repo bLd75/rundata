@@ -13,7 +13,7 @@ import type { SourceInfo } from "../types.js";
 export const SOURCE: SourceInfo = {
   id: "vigieau",
   nom: "Restrictions d'eau en cas de sécheresse (VigiEau, arrêtés préfectoraux)",
-  organisme: "Ministère de la Transition écologique (VigiEau) ; préfecture de La Réunion",
+  organisme: "Ministère de la Transition écologique (VigiEau)\u00a0; préfecture de La Réunion",
   licence: "Licence Ouverte 2.0",
   attribution: "VigiEau, préfecture de La Réunion",
   url: "https://vigieau.gouv.fr",
@@ -70,8 +70,9 @@ interface Raw {
   usages?: { nom: string; description: string; concerneParticulier?: boolean; concerneEntreprise?: boolean; concerneCollectivite?: boolean; concerneExploitation?: boolean }[];
 }
 
-// The texts carry zero-width joiners and hard line breaks from the order's tables.
-const tidy = (s: string) => s.replace(/[​-‍﻿]/g, "").replace(/\s*\n\s*/g, " ; ").replace(/\s+/g, " ").trim();
+// The texts carry zero-width joiners and hard line breaks from the order's tables; a break becomes « ; », after a
+// no-break space that the collapse of the spaces would turn back into an ordinary one.
+const tidy = (s: string) => s.replace(/[​-‍﻿]/g, "").replace(/\s*\n\s*/g, "\n").replace(/[^\S\n]+/g, " ").replace(/\n/g, "\u00a0; ").trim();
 
 export function parse(raw: Raw[]): Zone[] {
   return raw

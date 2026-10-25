@@ -759,7 +759,7 @@ export async function trailGpx(cache: Cache, origin: string, t: { nom: string } 
   return traces.gpx({
     nom: t.nom,
     description: `${t.nom}, sentier de l'ONF à La Réunion : ${figures(t)}. État d'après la carte de l'ONF le ${stamp(now)} : ${etat}. ` +
-      "Trace : ONF La Réunion. Altitudes : IGN, RGE ALTI (Licence Ouverte). Un sentier fermé est interdit ; vérifier son état et la vigilance météo avant de partir.",
+      "Trace : ONF La Réunion. Altitudes : IGN, RGE ALTI (Licence Ouverte). Un sentier fermé est interdit\u00a0; vérifier son état et la vigilance météo avant de partir.",
     page: `${origin}/sentiers/${t.slug}`,
     auteur: "ONF La Réunion",
     pieces: tr.troncons.map((x) => x.points),
@@ -808,7 +808,7 @@ export async function routeGpx(cache: Cache, origin: string, r: traces.Randonnee
   return traces.gpx({
     nom: r.nom,
     description: `${r.nom}, itinéraire de randonnée à La Réunion : ${figures(r)}${r.boucle ? ", en boucle" : ""}. Sentiers de l'ONF le ${stamp(now)} : ${etat}. ` +
-      "Itinéraire © les contributeurs d'OpenStreetMap (ODbL). Altitudes : IGN, RGE ALTI (Licence Ouverte). Un sentier fermé est interdit ; vérifier son état et la vigilance météo avant de partir.",
+      "Itinéraire © les contributeurs d'OpenStreetMap (ODbL). Altitudes : IGN, RGE ALTI (Licence Ouverte). Un sentier fermé est interdit\u00a0; vérifier son état et la vigilance météo avant de partir.",
     page: `${origin}/randonnees/${r.slug}`,
     auteur: "© les contributeurs d'OpenStreetMap",
     licence: "https://opendatacommons.org/licenses/odbl/1-0/",
@@ -1325,7 +1325,7 @@ export async function buildTrafic(cache: Cache, now = new Date()): Promise<Trafi
           principales: [...new Set(roads.filter((r) => MAIN_ROADS.test(r.nom)).map((r) => r.nom))].map((nom) => {
             const parts = roads.filter((r) => r.nom === nom);
             const shut = parts.find((r) => /interdit/i.test(r.circulation));
-            return { route: nom, circulation: shut?.circulation ?? [...new Set(parts.map((r) => r.circulation))].join(" ; "), cause: shut?.cause, precision: shut?.info };
+            return { route: nom, circulation: shut?.circulation ?? [...new Set(parts.map((r) => r.circulation))].join("\u00a0; "), cause: shut?.cause, precision: shut?.info };
           }),
           mise_a_jour: carte.mise_a_jour,
         }

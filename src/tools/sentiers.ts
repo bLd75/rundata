@@ -185,7 +185,7 @@ export function warning(rows: RouteRow[], trails: onf.Sentier[] = []) {
         shut.map((t) => `${t.sentier}${t.cause ? ` (${t.cause})` : ""}`).join(", ");
     }),
     ...alone.map((w) => `${w.sentier} est fermé${w.cause ? ` (${w.cause})` : ""}`),
-  ].join(" ; ") + ". Un sentier fermé est interdit : ne pas s'y engager, prendre une variante ouverte ou renoncer.";
+  ].join("\u00a0; ") + ". Un sentier fermé est interdit : ne pas s'y engager, prendre une variante ouverte ou renoncer.";
   // Said first in the summary when a hike is cut; a trail asked by its name already opens it with its state.
   return { message, sentiers_fermes: [...by.values()], routes: hit.length > 0 };
 }
@@ -222,7 +222,7 @@ const COMMON = {
     "Un sentier fermé l'est par arrêté préfectoral ou décision de l'ONF (éboulement, passage effondré, coulée, travaux) : s'y engager est interdit et dangereux.",
     "Les sentiers « hors gestion ONF » (communes, Département, privés) n'ont pas d'état connu ici : se renseigner auprès de la commune ou du Parc national.",
     "En cas de vigilance fortes pluies ou orages, la préfecture peut fermer d'autres sentiers ou interdire l'accès aux ravines : vérifier la vigilance avant de partir. Urgence en montagne : 112.",
-    "Traces GPS (GPX) : sentiers de l'ONF tels que sa carte les trace, itinéraires complets d'OpenStreetMap (© les contributeurs d'OpenStreetMap, ODbL) ; altitudes, dénivelés et profils d'après l'IGN (RGE ALTI). Une trace ne remplace ni le balisage ni l'état du sentier.",
+    "Traces GPS (GPX) : sentiers de l'ONF tels que sa carte les trace, itinéraires complets d'OpenStreetMap (© les contributeurs d'OpenStreetMap, ODbL)\u00a0; altitudes, dénivelés et profils d'après l'IGN (RGE ALTI). Une trace ne remplace ni le balisage ni l'état du sentier.",
   ],
 };
 
@@ -319,7 +319,7 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
   if (warn?.routes) parts.push(warn.message);
   for (const h of hikes.slice(0, 3)) {
     const row = routeRow(h, carte);
-    parts.push(`${h.nom} (OpenStreetMap) : ${String(h.km).replace(".", ",")} km, ${h.dplus} m de dénivelé positif${h.boucle ? ", en boucle" : ""} ; ${row.etat} ; trace GPS ${row.trace_gpx}.`);
+    parts.push(`${h.nom} (OpenStreetMap) : ${String(h.km).replace(".", ",")} km, ${h.dplus} m de dénivelé positif${h.boucle ? ", en boucle" : ""}\u00a0; ${row.etat}\u00a0; trace GPS ${row.trace_gpx}.`);
   }
   if (named.length) {
     const shut = named.filter((s) => s.statut === "fermé");
@@ -335,7 +335,7 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
     const zRoads = zone.routes.filter((r) => /interdit/i.test(r.circulation));
     parts.push(zone.sentiers.length
       ? `${zone.dans} : ${zClosed.length} sentier${zClosed.length > 1 ? "s" : ""} fermé${zClosed.length > 1 ? "s" : ""}, ${zOpen} ouvert${zOpen > 1 ? "s" : ""}` +
-        (zOther ? `, ${zOther} hors gestion ONF (état non connu)` : "") + (zRoads.length ? ` ; ${zRoads.length} route${zRoads.length > 1 ? "s" : ""} forestière${zRoads.length > 1 ? "s" : ""} interdite${zRoads.length > 1 ? "s" : ""}` : "") + "."
+        (zOther ? `, ${zOther} hors gestion ONF (état non connu)` : "") + (zRoads.length ? `\u00a0; ${zRoads.length} route${zRoads.length > 1 ? "s" : ""} forestière${zRoads.length > 1 ? "s" : ""} interdite${zRoads.length > 1 ? "s" : ""}` : "") + "."
       : `${zone.dans} : aucun sentier suivi par l'ONF.`);
     if (filtering(filtre)) {
       const n = around.length;

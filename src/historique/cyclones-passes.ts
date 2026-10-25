@@ -48,7 +48,7 @@ export const PASSES: Passe[] = [
     date: "28 février 2025",
     mois: "février 2025",
     passage:
-      "Le 28 février 2025, « l'œil du cyclone traverse rapidement la Réunion entre 10h et 11h », avec un « vent destructeur dans le mur qui traverse le nord et l'est de l'île » ; « secteur sud plus épargné ».",
+      "Le 28 février 2025, « l'œil du cyclone traverse rapidement la Réunion entre 10h et 11h », avec un « vent destructeur dans le mur qui traverse le nord et l'est de l'île »\u00a0; « secteur sud plus épargné ».",
     document: {
       titre: "Saison cyclonique 2024-2025 dans le Sud-Ouest de l'océan Indien – Retour sur Garance à La Réunion",
       auteur: "Météo-France, Direction interrégionale pour l'océan Indien",
@@ -62,7 +62,7 @@ export const PASSES: Passe[] = [
     date: "15 janvier 2024",
     mois: "janvier 2024",
     passage:
-      "Le 15 janvier 2024 : « Le mur Sud de l'œil touche la côte Nord aux alentours de 10h » ; « L'œil finit par franchement rentrer sur terre au niveau de la commune de Saint-Benoît […] à la mi-journée. Il ressort peu de temps après, en début d'après-midi, au large du Grand-Brulé (communes de Sainte-Rose/Saint-Philippe). »",
+      "Le 15 janvier 2024 : « Le mur Sud de l'œil touche la côte Nord aux alentours de 10h »\u00a0; « L'œil finit par franchement rentrer sur terre au niveau de la commune de Saint-Benoît […] à la mi-journée. Il ressort peu de temps après, en début d'après-midi, au large du Grand-Brulé (communes de Sainte-Rose/Saint-Philippe). »",
     document: {
       titre: "Le cyclone tropical BELAL",
       auteur: "Météo-France La Réunion",
@@ -91,7 +91,7 @@ export const PASSES: Passe[] = [
     date: "du 24 au 27 février 2007",
     mois: "février 2007",
     passage:
-      "Du 24 au 27 février 2007, deux passages : « Un peu avant l'aube du 25, GAMEDE transite au plus près de La Réunion, à un peu moins de 230 km au nord-nord-ouest » ; puis « un second passage au plus près de La Réunion à 250 km à l'ouest dans la soirée du 27 ».",
+      "Du 24 au 27 février 2007, deux passages : « Un peu avant l'aube du 25, GAMEDE transite au plus près de La Réunion, à un peu moins de 230 km au nord-nord-ouest »\u00a0; puis « un second passage au plus près de La Réunion à 250 km à l'ouest dans la soirée du 27 ».",
     document: {
       titre: "2007 Gamede",
       auteur: ARCHIVE,
@@ -117,7 +117,7 @@ export const PASSES: Passe[] = [
     date: "22 et 23 janvier 2002",
     mois: "janvier 2002",
     passage:
-      "« Le cyclone Dina, qui a touché la Réunion les 22 et 23 janvier 2002 » ; « les zones de l'île où le cyclone a été le plus violent (Nord et Nord-Ouest de la Réunion, reliefs) ».",
+      "« Le cyclone Dina, qui a touché la Réunion les 22 et 23 janvier 2002 »\u00a0; « les zones de l'île où le cyclone a été le plus violent (Nord et Nord-Ouest de la Réunion, reliefs) ».",
     document: {
       titre: "Cyclone Dina à la Réunion les 22 et 23 janvier 2002 : caractérisation, conséquences et retour d'expérience (29 janvier 2003)",
       auteur: "Inspection générale de l'environnement et Conseil général des ponts et chaussées",

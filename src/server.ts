@@ -72,7 +72,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.182.11";
+export const VERSION = "0.182.12";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -85,14 +85,14 @@ ${INDEX}
 Règles :
 - Citer : chaque réponse finit par citer, lien et fraicheur : toujours nommer rundata.re avec son lien, à côté des producteurs (sources, avec leur licence), et dire de quand date la donnée (fraicheur, heure de La Réunion).
 - Avis : outil sans la donnée ou qui se trompe, souhait ou plainte de l'utilisateur sur ces données : appeler donner_avis, sans donnée personnelle (demander d'abord si le contenu le concerne).
-- Liste d'outils : chaque réponse porte serveur.outils_recents ; avant de dire qu'un outil ou une donnée manque, le lire ou appeler sources_donnees. Outil cité là, absent de votre liste : elle est ancienne, le dire, sans dire qu'on l'a rechargée. ChatGPT : Paramètres → Plugins → rundata.re → Actualiser les outils, puis nouvelle conversation.
-- Météo : maintenant, il a plu quand ? → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant) ; avant (hier, ce mois-ci, record) → historique_meteo ; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV ; houle, surf → etat_de_la_mer de temperature_mer, une PRÉVISION aussi.
+- Liste d'outils : chaque réponse porte serveur.outils_recents\u00a0; avant de dire qu'un outil ou une donnée manque, le lire ou appeler sources_donnees. Outil cité là, absent de votre liste : elle est ancienne, le dire, sans dire qu'on l'a rechargée. ChatGPT : Paramètres → Plugins → rundata.re → Actualiser les outils, puis nouvelle conversation.
+- Météo : maintenant, il a plu quand ? → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant)\u00a0; avant (hier, ce mois-ci, record) → historique_meteo\u00a0; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV\u00a0; houle, surf → etat_de_la_mer de temperature_mer, une PRÉVISION aussi.
 - Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité d'une réponse (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles.
 
 Détails :
-- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer ; renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu ; routes forestières fermées : sentiers_randonnee ; retards de bus : transports.
-- actualites : l'heure, le média et le lien de chaque information ; rien sur un lieu ne prouve qu'il ne s'y passe rien ; ne jamais inventer ni démentir un blocage.
-- evenements : le lien de chaque événement ; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres ; agenda incomplet, le dire quand rien n'est trouvé ; cinéma : les sites des salles ; compétitions : sport.`;
+- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer\u00a0; renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu\u00a0; routes forestières fermées : sentiers_randonnee\u00a0; retards de bus : transports.
+- actualites : l'heure, le média et le lien de chaque information\u00a0; rien sur un lieu ne prouve qu'il ne s'y passe rien\u00a0; ne jamais inventer ni démentir un blocage.
+- evenements : le lien de chaque événement\u00a0; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres\u00a0; agenda incomplet, le dire quand rien n'est trouvé\u00a0; cinéma : les sites des salles\u00a0; compétitions : sport.`;
 
 /** Adds the vigilance above green, if any, to a tool's answer (asked in parallel, so no added wait). */
 async function withVigilance<R extends { content: { type: "text"; text: string }[]; isError?: boolean }>(
@@ -200,7 +200,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "« il fera beau cet après-midi à l'Hermitage ? », « prévisions pour la Plaine des Cafres samedi ». " +
         "Dans les Hauts (au-dessus de 800 m) : la mer de nuages du matin, de 6 h à 9 h et de 9 h à 12 h (bloc mer_de_nuages), " +
         "pour « est-ce dégagé au Maïdo demain matin ? », « on sera au-dessus des nuages au Piton des Neiges ? ». " +
-        "Chaque réponse est étiquetée « prévision » avec ses limites (le modèle ne voit pas les microclimats de l'île) ; " +
+        "Chaque réponse est étiquetée « prévision » avec ses limites (le modèle ne voit pas les microclimats de l'île)\u00a0; " +
         "pour un cyclone, renvoie à la vigilance officielle de Météo-France. Pour le temps qu'il fait maintenant, utiliser meteo_actuelle. " +
         "/ Weather FORECAST (numerical model, not a measurement) for a place in Réunion Island, up to 7 days: " +
         "'will it rain tomorrow in Saint-Pierre?', 'weather this weekend in Cilaos?'. Always labelled as a forecast.",
@@ -226,7 +226,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Température de la mer et houle à La Réunion",
       description:
         "La mer à La Réunion (974), près d'une plage ou d'un lieu côtier. Température de l'eau MESURÉE (satellite) : " +
-        "« la mer est à combien à Saint-Leu ? », « l'eau est bonne à Boucan ? » ; houle et vagues PRÉVUES (modèle, 4 jours) : " +
+        "« la mer est à combien à Saint-Leu ? », « l'eau est bonne à Boucan ? »\u00a0; houle et vagues PRÉVUES (modèle, 4 jours) : " +
         "« la houle à Saint-Leu ? », « ça surfe à Saint-Pierre demain ? », « la mer est grosse à Saint-Gilles ? ». " +
         "La mesure (avec sa date et sa distance) et la prévision des vagues (hauteur, période, direction) sont dans deux blocs séparés. " +
         "/ Sea in Réunion Island: measured water temperature, and forecast waves (height, period, direction), kept apart.",
@@ -247,8 +247,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           "et les vagues-submersion, sur les 24 h du bulletin, avec les textes de suivi. " +
           "Pour : « y a-t-il une alerte cyclonique ? », « on est en vigilance orange ? », « vigilance fortes pluies à Saint-Benoît ? », " +
           "« la mer est dangereuse ? », « on peut randonner à Mafate demain avec la pluie ? ». " +
-          "Avec un lieu : la zone de vigilance de sa commune ; sans lieu : toute l'île. " +
-          (feux.enabled() ? "Une ligne feux_detectes quand un feu de végétation a été détecté par satellite ces dernières 24 h : faux positifs possibles, et un jour sans détection ne prouve pas qu'il n'y a pas de feu ; toujours donner « Vous voyez un feu ? Appelez le 18 ou le 112. ». " : "") +
+          "Avec un lieu : la zone de vigilance de sa commune\u00a0; sans lieu : toute l'île. " +
+          (feux.enabled() ? "Une ligne feux_detectes quand un feu de végétation a été détecté par satellite ces dernières 24 h : faux positifs possibles, et un jour sans détection ne prouve pas qu'il n'y a pas de feu\u00a0; toujours donner « Vous voyez un feu ? Appelez le 18 ou le 112. ». " : "") +
           "/ Official Météo-France weather warnings and cyclone alert for Réunion Island, by zone, for the next 24 h.",
         inputSchema: { lieu },
         annotations: { title: "Vigilance météo à La Réunion", ...READ_ONLY },
@@ -280,12 +280,12 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Électricité à La Réunion en ce moment",
       description:
         "Électricité à La Réunion (974) en direct, d'après EDF : production totale, part de chaque filière (solaire, " +
-        "bagasse et biomasse, hydraulique, éolien, charbon, diesel) et part renouvelable, mises à jour toutes les 5 min ; " +
+        "bagasse et biomasse, hydraulique, éolien, charbon, diesel) et part renouvelable, mises à jour toutes les 5 min\u00a0; " +
         "« météo de l'électricité » d'EDF pour les jours qui viennent (heures de pointe, réseau contraint, recharge conseillée " +
         "d'un véhicule électrique). Pour : « d'où vient l'électricité ? », « quelle part de renouvelable ? », " +
         "« quand recharger ma voiture électrique ? », « risque de délestage ? ». " +
         "Coupures de courant (électricité, pas l'eau : coupures_eau) : les avis d'EDF que relaient les mairies (Sainte-Marie, Saint-Philippe, Cilaos, Saint-André, Sainte-Suzanne), " +
-        "jours, heures et secteurs, avec le lien de l'avis ; ailleurs, la mairie ne les publie pas et l'outil le dit. " +
+        "jours, heures et secteurs, avec le lien de l'avis\u00a0; ailleurs, la mairie ne les publie pas et l'outil le dit. " +
         "Pour : « coupure de courant à Sainte-Marie ? », « coupure EDF prévue à Cilaos ? ». " +
         "/ Réunion Island electricity right now: production mix, renewable share, EDF's grid signal, and the power cuts some town halls relay.",
       inputSchema: { lieu },
@@ -334,10 +334,10 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "mairies et mairies annexes, préfecture et sous-préfectures, CAF, CPAM, France Travail, impôts, tribunaux, France services… " +
         "d'après l'annuaire officiel de service-public.fr. Aussi les prix maximum des carburants et de la bouteille de gaz du mois, " +
         "fixés par le préfet (quoi = « carburant », « essence », « gazole », « gaz »), les pharmacies et les hôpitaux les plus proches d'après FINESS " +
-        "(quoi = « pharmacie », « urgences », « hôpital ») : la pharmacie de garde n'est connue que de 3237.fr et du 32 37, l'urgence passe par le 15 ; " +
-        "les marchés forains et couverts d'après OpenStreetMap (quoi = « marché » ; un marché de Noël ou nocturne annoncé : evenements), et les déchèteries de l'Ouest (TCO) avec les bennes pleines " +
+        "(quoi = « pharmacie », « urgences », « hôpital ») : la pharmacie de garde n'est connue que de 3237.fr et du 32 37, l'urgence passe par le 15\u00a0; " +
+        "les marchés forains et couverts d'après OpenStreetMap (quoi = « marché »\u00a0; un marché de Noël ou nocturne annoncé : evenements), et les déchèteries de l'Ouest (TCO) avec les bennes pleines " +
         "en direct (quoi = « déchèterie », « encombrants », « déchets verts »), et le jour de collecte des déchets rue par rue dans l'Ouest " +
-        "(quoi = « collecte », « poubelles », lieu = la rue et la commune : « rue Labourdonnais, Saint-Paul »), d'après les calendriers du TCO ; " +
+        "(quoi = « collecte », « poubelles », lieu = la rue et la commune : « rue Labourdonnais, Saint-Paul »), d'après les calendriers du TCO\u00a0; " +
         "où aller avec les enfants (quoi = « enfants », « aire de jeux », « piscine », « médiathèque », « skatepark »…) : aires de jeux, parcs, piscines, médiathèques, zoos, " +
         "parcs de loisirs, salles de jeux, skateparks, escalade, musées, commune par commune, avec l'âge quand la carte le donne, d'après OpenStreetMap, Data ES et Basilic. " +
         "Pour : « horaires de la mairie de Saint-Paul ? », « pharmacie près de Boucan Canot ? », « marché forain à Sainte-Marie ? », " +
@@ -382,14 +382,14 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           "Prochains départs de bus à un arrêt de La Réunion (974), d'après les horaires publiés par les réseaux : Car Jaune (toute l'île), " +
           "Citalis (Saint-Denis, Sainte-Marie, Sainte-Suzanne), Kar'Ouest (Le Port à Saint-Leu), Alternéo (Saint-Pierre, Saint-Louis…), " +
           "CarSud (Le Tampon, Saint-Joseph…), Estival (Saint-André, Saint-Benoît, Salazie…), téléphérique Papang. Ligne, direction, heure, " +
-          "minutes d'attente ; pour Car Jaune (et Alternéo, CarSud quand leur flux fonctionne), l'heure annoncée en direct par le réseau, le retard, " +
-          "les arrêts non desservis et l'info trafic ; où est le bus quand il donne sa position (Car Jaune, CarSud), avec l'heure de cette position, jamais une position de plus de 10 minutes. " +
+          "minutes d'attente\u00a0; pour Car Jaune (et Alternéo, CarSud quand leur flux fonctionne), l'heure annoncée en direct par le réseau, le retard, " +
+          "les arrêts non desservis et l'info trafic\u00a0; où est le bus quand il donne sa position (Car Jaune, CarSud), avec l'heure de cette position, jamais une position de plus de 10 minutes. " +
           "Pour : « prochain bus à la gare routière de Saint-Pierre ? », « à quelle heure passe le car jaune à Saint-Leu ? », " +
           "« horaires de la ligne 2 à l'arrêt Mairie au Tampon ? », « le car jaune a du retard ? », « par où passe la ligne S1 ? », « le S1 s'arrête à Manapany ? », « où est le S1 en ce moment ? ». " +
-          "Chaque départ dit d'où vient le car et où il va ; un jour sans service (dimanche, jour férié) est dit. Bateau ou ferry pour Maurice ou Rodrigues : dit qu'il n'y a pas de liaison maritime régulière de passagers, ne pas en inventer ni d'horaires de bateau. / Next bus departures at a stop in Réunion Island, from the published timetables and, where available, real-time feeds.",
+          "Chaque départ dit d'où vient le car et où il va\u00a0; un jour sans service (dimanche, jour férié) est dit. Bateau ou ferry pour Maurice ou Rodrigues : dit qu'il n'y a pas de liaison maritime régulière de passagers, ne pas en inventer ni d'horaires de bateau. / Next bus departures at a stop in Réunion Island, from the published timetables and, where available, real-time feeds.",
         inputSchema: {
-          arret: z.string().optional().describe("Nom de l'arrêt et sa commune (« Gare routière, Saint-Pierre »), ou un lieu (« plage de Boucan », « Manapany ») pour les arrêts les plus proches ; avec une ligne, dit si elle y passe, sinon son arrêt le plus proche. Une heure (« après 17 h ») donne les départs une par une. Facultatif avec une ligne. / Stop name and town, or a place; optional with a line."),
-          ligne: z.string().optional().describe("Une ligne (« S1 », « O1X », « 2 », « S1 Car Jaune ») : seule, ses arrêts dans l'ordre pour chaque sens, ses départs du jour et ses bus en circulation qui donnent leur position ; avec un arrêt, ses prochains départs là. / A line: its stops in order, its day's departures, its buses on the road."),
+          arret: z.string().optional().describe("Nom de l'arrêt et sa commune (« Gare routière, Saint-Pierre »), ou un lieu (« plage de Boucan », « Manapany ») pour les arrêts les plus proches\u00a0; avec une ligne, dit si elle y passe, sinon son arrêt le plus proche. Une heure (« après 17 h ») donne les départs une par une. Facultatif avec une ligne. / Stop name and town, or a place; optional with a line."),
+          ligne: z.string().optional().describe("Une ligne (« S1 », « O1X », « 2 », « S1 Car Jaune ») : seule, ses arrêts dans l'ordre pour chaque sens, ses départs du jour et ses bus en circulation qui donnent leur position\u00a0; avec un arrêt, ses prochains départs là. / A line: its stops in order, its day's departures, its buses on the road."),
         },
         annotations: { title: "Bus à La Réunion", ...READ_ONLY },
       },
@@ -423,7 +423,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Marée à La Réunion",
       description:
         "Hauteur de la mer mesurée chaque minute par les marégraphes du SHOM au Port (Pointe des Galets) et à Sainte-Marie : niveau actuel, " +
-        "marée montante ou descendante, dernières pleine et basse mer observées ; puis les prochaines pleines et basses mers sur deux jours, CALCULÉES par rundata " +
+        "marée montante ou descendante, dernières pleine et basse mer observées\u00a0; puis les prochaines pleines et basses mers sur deux jours, CALCULÉES par rundata " +
         "d'après les mesures (pas la prédiction officielle du SHOM), à environ 15 à 20 min et 5 cm près : le dire, avec la précision donnée, et au-delà de l'horizon renvoyer au SHOM. " +
         "Pour : « la marée monte ? », « c'est quand la marée basse demain ? », « niveau de la mer au Port ? ». " +
         "/ Measured sea level and tide state at Réunion Island's two tide gauges, and the next tides computed from the measurements (not the SHOM's prediction).",
@@ -500,7 +500,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         eau: z
           .enum(["robinet", "baignade"])
           .optional()
-          .describe("« robinet » (eau potable) ou « baignade » ; vide = d'après la question et le lieu. / Tap or bathing water; empty = guessed."),
+          .describe("« robinet » (eau potable) ou « baignade »\u00a0; vide = d'après la question et le lieu. / Tap or bathing water; empty = guessed."),
       },
       annotations: { title: "Qualité de l'eau", ...READ_ONLY },
     },
@@ -514,22 +514,22 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       description:
         "Sentiers de randonnée et routes forestières de La Réunion (974) ouverts ou fermés, d'après la carte de l'ONF tenue à jour avec les arrêtés " +
         "préfectoraux : cause de la fermeture (éboulement, sentier dégradé, travaux, coulée), date de réouverture prévue. Par nom de sentier, " +
-        "autour d'un lieu (Maïdo, Piton des Neiges, Bélouve, Roche Plate…), dans un cirque (Mafate, Cilaos, Salazie) ou une commune ; sans lieu, " +
+        "autour d'un lieu (Maïdo, Piton des Neiges, Bélouve, Roche Plate…), dans un cirque (Mafate, Cilaos, Salazie) ou une commune\u00a0; sans lieu, " +
         "tous les sentiers fermés de l'île. Chaque sentier et chaque randonnée a sa trace GPS (lien GPX), sa longueur et son dénivelé " +
-        "(altitudes de l'IGN) ; les itinéraires complets d'OpenStreetMap (GR R1, R2, R3, Piton des Neiges, Roche Écrite, Dolomieu…) sont " +
-        "donnés avec l'état des sentiers de l'ONF qu'ils empruntent. Un sentier fermé est interdit, même avec la trace ; « hors gestion ONF » n'est pas dit ouvert ; donner le lien trace_gpx. Pour : « sentiers fermés à Mafate ? », « le sentier de la Roche Pendue est ouvert ? », " +
+        "(altitudes de l'IGN)\u00a0; les itinéraires complets d'OpenStreetMap (GR R1, R2, R3, Piton des Neiges, Roche Écrite, Dolomieu…) sont " +
+        "donnés avec l'état des sentiers de l'ONF qu'ils empruntent. Un sentier fermé est interdit, même avec la trace\u00a0; « hors gestion ONF » n'est pas dit ouvert\u00a0; donner le lien trace_gpx. Pour : « sentiers fermés à Mafate ? », « le sentier de la Roche Pendue est ouvert ? », " +
         "« on peut randonner à Bélouve ? », « la trace GPS du Piton des Neiges ? », « dénivelé du GR R2 ? », « une rando de 10 km à Cilaos ? » " +
         "(longueur_min_km, longueur_max_km, denivele_max_m filtrent les itinéraires et sentiers proposés). Dès qu'un sentier de l'ONF d'un " +
         "itinéraire est fermé, la réponse porte un champ avertissement, à donner en premier. " +
-        (feux.enabled() ? "Avec les feux de végétation détectés par satellite (NASA FIRMS) ces dernières 24 h, dans feux_detectes : faux positifs possibles, un jour sans détection ne prouve pas qu'il n'y a pas de feu ; toujours donner « Vous voyez un feu ? Appelez le 18 ou le 112. ». " : "") +
+        (feux.enabled() ? "Avec les feux de végétation détectés par satellite (NASA FIRMS) ces dernières 24 h, dans feux_detectes : faux positifs possibles, un jour sans détection ne prouve pas qu'il n'y a pas de feu\u00a0; toujours donner « Vous voyez un feu ? Appelez le 18 ou le 112. ». " : "") +
         "/ Hiking in Réunion Island: open and closed trails (ONF), GPX traces, distance and elevation gain, hikes by length; closure warnings.",
       inputSchema: {
         lieu: z
           .string()
           .optional()
-          .describe("Un sentier ou une randonnée (« sentier de la Roche Pendue », « Piton des Neiges », « GR R2 »), un lieu (« Maïdo »), un cirque (« Mafate ») ou une commune ; vide = toute l'île. / A trail or hike, place, cirque or town; empty = whole island."),
+          .describe("Un sentier ou une randonnée (« sentier de la Roche Pendue », « Piton des Neiges », « GR R2 »), un lieu (« Maïdo »), un cirque (« Mafate ») ou une commune\u00a0; vide = toute l'île. / A trail or hike, place, cirque or town; empty = whole island."),
         longueur_min_km: z.number().min(0).optional().describe("Longueur minimale en km d'une randonnée proposée (« une rando de 10 km » : 8). / Minimum length, km."),
-        longueur_max_km: z.number().min(0).optional().describe("Longueur maximale en km (« une rando de 10 km » : 12 ; « une petite balade » : 5). / Maximum length, km."),
+        longueur_max_km: z.number().min(0).optional().describe("Longueur maximale en km (« une rando de 10 km » : 12\u00a0; « une petite balade » : 5). / Maximum length, km."),
         denivele_max_m: z.number().min(0).optional().describe("Dénivelé positif maximal en m (« sans trop de dénivelé » : 400). / Maximum elevation gain, m."),
       },
       annotations: { title: "Sentiers de randonnée", ...READ_ONLY },
@@ -553,7 +553,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         profil: z
           .enum(["particulier", "entreprise", "collectivite", "exploitation"])
           .optional()
-          .describe("Pour qui (« exploitation » = agriculteur) ; par défaut un particulier. / Who asks; default a private person."),
+          .describe("Pour qui (« exploitation » = agriculteur)\u00a0; par défaut un particulier. / Who asks; default a private person."),
       },
       annotations: { title: "Restrictions d'eau", ...READ_ONLY },
     },
@@ -570,7 +570,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Sainte-Marie (communiqués de CISE Réunion publiés par la ville), Saint-Leu (avis publiés par la commune, en court extrait), les communes de l'Est " +
         "(Saint-André, Bras-Panon, Saint-Benoît, La Plaine-des-Palmistes, Sainte-Rose, Salazie) et runéo. " +
         "Pour : « coupure d'eau à Saint-Denis ? », « l'eau est potable à la Plaine-des-Palmistes ? », « quand revient l'eau ? ». " +
-        "Sans lieu : tous les avis récents. Un avis « ne pas boire » se dit d'abord ; la conformité des analyses de l'ARS est dans qualite_eau. " +
+        "Sans lieu : tous les avis récents. Un avis « ne pas boire » se dit d'abord\u00a0; la conformité des analyses de l'ARS est dans qualite_eau. " +
         // Worded by marketing; here rather than in the server's instructions, which are kept under 6 000 characters.
         "Quand secteurs_complets vaut false, la liste des rues de l'avis n'a pas été lue en entier : ne jamais en conclure qu'une rue ou un quartier n'est pas concerné, donner le lien de l'avis complet. " +
         "Même quand la liste est complète, dire « cette rue n'est pas dans la liste de l'avis », jamais « pas de coupure chez vous ». " +
@@ -625,7 +625,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "les matchs annulés ou reportés (avis de la Ligue de volley, actualité locale), classements, régates de voile, compétitions de golf, " +
         "rallyes et sport automobile (calendrier de la Ligue), Grand Raid (courses, partants, abandons, podiums), les programmes sportifs publiés par les communes " +
         "(le lien du document de la mairie, sans son contenu), les événements publiés par les clubs sur Sportsregions (tir à l'arc, triathlon, golf, badminton…, " +
-        "avec le club qui organise ; les séances réservées aux adhérents seulement si l'utilisateur dit en être), et l'actualité sportive " +
+        "avec le club qui organise\u00a0; les séances réservées aux adhérents seulement si l'utilisateur dit en être), et l'actualité sportive " +
         "de Réunion La 1ère (titres et liens, dont le football et le basket). " +
         "Pour : « match de volley dimanche dans le sud ? », « match de hand ce week-end à Saint-Pierre ? », « le TGV joue quand ? », " +
         "« foot ou basket ce week-end ? », « tournoi de badminton ce week-end ? », « résultats du volley à Saint-Leu ? », « classement du handball ? », « prochaine régate ? », " +
@@ -634,7 +634,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         sport: z
           .enum(SPORTS as [Sport, ...Sport[]])
           .optional()
-          .describe("Le sport ; vide = tous. « football » et « basket » renvoient l'actualité seulement (pas de résultats officiels lus). / The sport; empty = all."),
+          .describe("Le sport\u00a0; vide = tous. « football » et « basket » renvoient l'actualité seulement (pas de résultats officiels lus). / The sport; empty = all."),
         lieu: z
           .string()
           .optional()
@@ -642,7 +642,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         quand: z
           .enum(QUANDS as [Quand, ...Quand[]])
           .optional()
-          .describe("« aujourd_hui », « demain », « samedi » ou « dimanche » (le prochain), « ce_week_end », « a_venir » (14 jours) ou « resultats » ; vide = les deux. / Today, tomorrow, next Saturday or Sunday, this weekend, upcoming or results; empty = both."),
+          .describe("« aujourd_hui », « demain », « samedi » ou « dimanche » (le prochain), « ce_week_end », « a_venir » (14 jours) ou « resultats »\u00a0; vide = les deux. / Today, tomorrow, next Saturday or Sunday, this weekend, upcoming or results; empty = both."),
         adherent: ADHERENT,
       },
       annotations: { title: "Sport", ...READ_ONLY },
@@ -657,8 +657,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       description:
         "Systèmes tropicaux actifs autour de La Réunion (974), d'après les bulletins du CMRS de La Réunion (Météo-France) republiés par GDACS : " +
         "stade (dépression, tempête tropicale modérée ou forte, cyclone tropical, intense), vent moyen, pression, position, distance et direction " +
-        "depuis La Réunion ou un lieu, déplacement, prévision officielle et passage au plus près ; alerte cyclonique de la préfecture, et ce qu'elle veut dire pour les crèches, écoles, collèges, lycées et universités selon le dispositif ORSEC Cyclones (jamais une école en particulier). " +
-        "Hors saison : le dit, avec le dernier système et ceux de la saison. Citer la prévision du CMRS telle quelle, jamais de trajectoire inventée ; renvoyer aux consignes de la préfecture. " +
+        "depuis La Réunion ou un lieu, déplacement, prévision officielle et passage au plus près\u00a0; alerte cyclonique de la préfecture, et ce qu'elle veut dire pour les crèches, écoles, collèges, lycées et universités selon le dispositif ORSEC Cyclones (jamais une école en particulier). " +
+        "Hors saison : le dit, avec le dernier système et ceux de la saison. Citer la prévision du CMRS telle quelle, jamais de trajectoire inventée\u00a0; renvoyer aux consignes de la préfecture. " +
         "Pour : « il y a un cyclone en ce moment ? », « où est la tempête ? », « elle va passer près de Saint-Philippe ? », « le dernier cyclone ? », « école fermée demain avec le cyclone ? », « combien de pluie pendant Garance ? » (nom). " +
         "/ Active tropical cyclones near Réunion Island (RSMC La Réunion advisories via GDACS), distance, movement, official forecast.",
       inputSchema: {
@@ -666,7 +666,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         nom: z
           .string()
           .optional()
-          .describe(`Un cyclone passé (« Garance », « Dina 2002 ») : la pluie et les rafales mesurées station par station pendant son passage, les records de station et sa page ; le champ selon_meteo_france cite Météo-France mot pour mot (records mondiaux de Gamède) : à attribuer à Météo-France, jamais à rundata.re. Disponibles : ${PASSES_LIST}. / A past cyclone: rain and gusts measured.`),
+          .describe(`Un cyclone passé (« Garance », « Dina 2002 ») : la pluie et les rafales mesurées station par station pendant son passage, les records de station et sa page\u00a0; le champ selon_meteo_france cite Météo-France mot pour mot (records mondiaux de Gamède) : à attribuer à Météo-France, jamais à rundata.re. Disponibles : ${PASSES_LIST}. / A past cyclone: rain and gusts measured.`),
       },
       annotations: { title: "Cyclones", ...READ_ONLY },
     },
@@ -685,7 +685,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Pour toute question sur le temps qu'il a fait : « il a beaucoup plu ce mois-ci à Saint-Benoît ? », « il fait gris tous les jours depuis deux semaines au Tampon ? », " +
         "« quelle température hier à Cilaos ? », « il a fait combien le 24 octobre 2006 ? », « record de chaleur à Saint-Denis ? », « c'est normal ce temps pour octobre ? », " +
         "« à quelle heure a-t-il plu hier à Cilaos ? », « rafale max cette nuit à Sainte-Marie ? », « le soleil s'est caché à quelle heure ? ». " +
-        "Pour maintenant, utiliser meteo_actuelle ; pour les jours à venir, prevision_meteo. " +
+        "Pour maintenant, utiliser meteo_actuelle\u00a0; pour les jours à venir, prevision_meteo. " +
         "/ Past MEASURED weather in Réunion Island (Météo-France stations, daily, back to their first year, up to yesterday): rain, min/max temperature, " +
         "sunshine, gusts, against the 1991-2020 normal and the station's records; hour by hour since 2000 for periods of a few days, last night included.",
       inputSchema: {
@@ -696,7 +696,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           .describe("Début : « 2026-10-01 », « 01/10/2026 », « 2026-10 » (un mois), « 2006 » (une année). Seul, c'est ce jour, ce mois ou cette année. / Start date, month or year."),
         au: z.string().optional().describe("Fin, même format. Pour « cette nuit » ou « ce matin », la date d'aujourd'hui. / End, same format; today's date for last night or this morning."),
         detail: z.enum(["jour", "heure"]).optional()
-          .describe("« heure » : heure par heure jusqu'à 7 jours (sinon automatique sur 3 jours ou moins) ; « jour » : sans le détail horaire. / 'heure' forces hourly detail up to 7 days; 'jour' leaves it out."),
+          .describe("« heure » : heure par heure jusqu'à 7 jours (sinon automatique sur 3 jours ou moins)\u00a0; « jour » : sans le détail horaire. / 'heure' forces hourly detail up to 7 days; 'jour' leaves it out."),
       },
       annotations: { title: "Historique météo", ...READ_ONLY },
     },
@@ -724,11 +724,11 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         quand: z
           .string()
           .optional()
-          .describe("« aujourd_hui », « ce_soir », « demain », « ce_week_end », « cette_semaine », « a_venir » (30 jours), un jour (« samedi ») ou une date (« 2026-10-31 ») ; vide = les 14 jours qui viennent. / When; empty = next 14 days."),
+          .describe("« aujourd_hui », « ce_soir », « demain », « ce_week_end », « cette_semaine », « a_venir » (30 jours), un jour (« samedi ») ou une date (« 2026-10-31 »)\u00a0; vide = les 14 jours qui viennent. / When; empty = next 14 days."),
         quoi: z
           .string()
           .optional()
-          .describe("Le genre (« concert », « spectacle », « théâtre », « danse », « humour », « soirée », « festival », « marché », « cinéma », « enfants », « sport », « exposition ») ou des mots du titre ou de la salle (« ail », « dragon boat », « Kabardock ») ; vide = tout. / Kind, or words of the title or venue; empty = all."),
+          .describe("Le genre (« concert », « spectacle », « théâtre », « danse », « humour », « soirée », « festival », « marché », « cinéma », « enfants », « sport », « exposition ») ou des mots du titre ou de la salle (« ail », « dragon boat », « Kabardock »)\u00a0; vide = tout. / Kind, or words of the title or venue; empty = all."),
         adherent: ADHERENT,
       },
       annotations: { title: "Événements", ...READ_ONLY },
@@ -756,7 +756,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         sujet: z
           .string()
           .optional()
-          .describe("« mobilisation » (manifestations, blocages, barrages), « route », « meteo », « volcan », « eau », « securite », « sante », « politique », « culture », « sport », ou des mots du titre ; vide = tout. / Subject or words; empty = all."),
+          .describe("« mobilisation » (manifestations, blocages, barrages), « route », « meteo », « volcan », « eau », « securite », « sante », « politique », « culture », « sport », ou des mots du titre\u00a0; vide = tout. / Subject or words; empty = all."),
         heures: z
           .number()
           .optional()
@@ -776,7 +776,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "semble fausse ou périmée (« erreur »), une idée (« suggestion »), ou un remerciement (« bravo »). L'appeler sans attendre qu'on le " +
         "demande quand un outil n'a pas trouvé ce que l'utilisateur cherchait, a renvoyé quelque chose de faux ou d'incomplet, ou quand " +
         "l'utilisateur exprime un souhait ou une plainte sur ces données, ou dit après coup qu'une information de rundata.re était fausse : c'est ainsi que le service s'améliore. Écrire un message court et " +
-        "concret (quel outil, quel lieu, ce qui manquait). Ne mettre aucune donnée personnelle ; si le contenu touche la personne " +
+        "concret (quel outil, quel lieu, ce qui manquait). Ne mettre aucune donnée personnelle\u00a0; si le contenu touche la personne " +
         "(son adresse, sa santé…), lui demander d'abord son accord. Les avis sont lus par une personne, sans réponse directe. " +
         "/ Send feedback to rundata.re: missing data, a wrong value, a suggestion or thanks. Use it when a tool lacked data or erred, or the user voiced a wish or complaint; no personal data.",
       inputSchema: {
@@ -814,7 +814,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       );
       if (issue === "limite") return { ...text({ erreur: "Beaucoup d'avis reçus depuis cette adresse en une heure : réessayer plus tard." }), isError: true };
       if (issue === "indisponible") return { ...text({ erreur: `L'avis n'a pas pu être enregistré pour le moment. Il peut aussi être laissé sur ${SITE_URL} (formulaire en bas de chaque page).` }), isError: true };
-      return text({ merci: `Avis transmis à rundata.re, merci. Il sera lu ; les nouveautés sont annoncées sur ${SITE_URL}.` });
+      return text({ merci: `Avis transmis à rundata.re, merci. Il sera lu\u00a0; les nouveautés sont annoncées sur ${SITE_URL}.` });
     }),
   );
 

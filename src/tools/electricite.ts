@@ -101,7 +101,7 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
     if (nowHour) parts.push(`Météo de l'électricité EDF en ce moment : ${nowHour.signal_horaire_texte.toLowerCase()}.`);
     parts.push(
       next.length
-        ? `Moments à éviter pour les gros usages (recharge de véhicule, chauffe-eau, clim) : ${next.slice(0, 4).map((c) => `${c.quand} (${c.signal})`).join(" ; ")}.`
+        ? `Moments à éviter pour les gros usages (recharge de véhicule, chauffe-eau, clim) : ${next.slice(0, 4).map((c) => `${c.quand} (${c.signal})`).join("\u00a0; ")}.`
         : "Aucune période de tension annoncée par EDF dans les jours qui viennent.",
     );
     if (cyclone) parts.push("EDF signale une situation cyclonique.");
@@ -111,7 +111,7 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
       jusqu_au: hours.length ? localTime(new Date(hours[hours.length - 1].dateheure)).split(" ")[0] : undefined,
       cyclone_en_cours: cyclone,
       explication:
-        "Signal horaire d'EDF : « optimal » = réseau à l'aise ; « heures de pointe » (souvent 18h-21h) ; « contraint » et « très contraint » = " +
+        "Signal horaire d'EDF : « optimal » = réseau à l'aise\u00a0; « heures de pointe » (souvent 18h-21h)\u00a0; « contraint » et « très contraint » = " +
         "réseau tendu, décaler les gros usages. La recharge conseillée est la part de la puissance de recharge d'un véhicule électrique.",
     };
   }
@@ -124,7 +124,7 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
     coupures_annoncees: coupures,
     avertissements: [
       "La Réunion n'est pas reliée au réseau européen : toute l'électricité est produite sur l'île, d'où les périodes de tension.",
-      "Les bioénergies incluent la bagasse des sucreries (en campagne sucrière, de juillet à décembre) ; la part renouvelable est celle publiée par filière.",
+      "Les bioénergies incluent la bagasse des sucreries (en campagne sucrière, de juillet à décembre)\u00a0; la part renouvelable est celle publiée par filière.",
     ],
     sources: courant ? [...credits([edf.SOURCE]), ...courant.value.sources] : credits([edf.SOURCE]),
   });

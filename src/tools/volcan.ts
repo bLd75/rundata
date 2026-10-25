@@ -32,14 +32,14 @@ export const enImagesApres = (jour: string, heure: string) => `La dernière publ
  * The same, the text of its first image read by rundata.re (providers/ovpf-ocr.ts) and quoted beside: read by a
  * machine, « sans l'analyser », not one of « les textes que nous avons lus » of NON_ANNONCEE (marketing).
  */
-export const enImagesLuesApres = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images ; nous citons le texte de la première, lu automatiquement, sans l'analyser`;
+export const enImagesLuesApres = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images\u00a0; nous citons le texte de la première, lu automatiquement, sans l'analyser`;
 /** The same where the text is not quoted (the home page's demo): where it is (marketing). */
-export const enImagesLuesAilleurs = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images ; le texte de la première, lu automatiquement, est cité sur la page Volcan`;
+export const enImagesLuesAilleurs = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images\u00a0; le texte de la première, lu automatiquement, est cité sur la page Volcan`;
 export const IMAGE_LUE_APRES = "La dernière publication de l'OVPF est en images : l'état ci-dessus peut ne pas en tenir compte. Nous citons le texte de la première image, lu automatiquement, sans l'analyser.";
 /** Before the text read in the first image, wherever it is quoted (marketing). */
 export const LU_DANS_L_IMAGE = "Texte de la première image, lu automatiquement par rundata.re (il peut contenir des erreurs)";
 /** For the AI, beside the text read in the first image (marketing). */
-export const A_LIRE_LU = "Ce texte a été lu automatiquement par rundata.re dans la première image de la publication ; les autres images ne sont pas lues. Il peut contenir des erreurs, surtout dans les chiffres et les heures. Citez-le comme tel, avec le lien de la publication, et renvoyez à celle-ci pour les chiffres et les heures. N'en déduisez ni le niveau d'alerte, ni le début ou la fin d'une éruption : l'état officiel est celui donné plus haut.";
+export const A_LIRE_LU = "Ce texte a été lu automatiquement par rundata.re dans la première image de la publication\u00a0; les autres images ne sont pas lues. Il peut contenir des erreurs, surtout dans les chiffres et les heures. Citez-le comme tel, avec le lien de la publication, et renvoyez à celle-ci pour les chiffres et les heures. N'en déduisez ni le niveau d'alerte, ni le début ou la fin d'une éruption : l'état officiel est celui donné plus haut.";
 // The text read, in the summary: its first words.
 const EXTRAIT = 400;
 /** For the AI, beside a post given in images: its content is only there, and the AI may not open it either. */
@@ -344,7 +344,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     parts.push(
       `Séismes localisés par l'OVPF en 30 jours : ${q.sous_le_volcan["30_jours"]} sous le volcan` +
         (q.sous_le_volcan.magnitude_max_30j != null ? ` (magnitude max ${fr(Math.round(q.sous_le_volcan.magnitude_max_30j * 10) / 10)})` : "") +
-        `, dont ${q.sous_le_volcan["7_jours"]} ces 7 derniers jours ; ${q.ailleurs_sur_l_ile["30_jours"]} ailleurs sur l'île.`,
+        `, dont ${q.sous_le_volcan["7_jours"]} ces 7 derniers jours\u00a0; ${q.ailleurs_sur_l_ile["30_jours"]} ailleurs sur l'île.`,
       `Séismes localisés par l'OVPF sous le volcan, par jour (heure de La Réunion) : ${q.par_jour_sous_le_volcan.slice(-7).map((j) => `${day(`${j.jour}T12:00:00+04:00`)} ${j.nombre}${j.en_cours ? " (jour en cours)" : ""}`).join(", ")}.`,
       LOCALISES,
     );

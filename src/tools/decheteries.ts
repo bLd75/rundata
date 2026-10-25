@@ -37,20 +37,20 @@ export async function decheteriesAnswer(cache: Cache, quoi: string, lieu: string
   const at = (s: dech.SiteNow) => (s.mis_a_jour ? s.mis_a_jour.split(" ")[1] : "?");
   const where = (s: dech.SiteNow & { km?: number }) => `${s.nom}${s.km != null ? ` (à ${km(s.km)})` : ` (${s.commune})`}`;
   let resume: string;
-  if (!live) resume = `L'état des bennes du TCO n'est pas disponible pour le moment. Déchèteries ${res ? `les plus proches ${a(res.lieu.nom)}` : "du TCO"} : ${near.map(where).join(" ; ")}.`;
+  if (!live) resume = `L'état des bennes du TCO n'est pas disponible pour le moment. Déchèteries ${res ? `les plus proches ${a(res.lieu.nom)}` : "du TCO"} : ${near.map(where).join("\u00a0; ")}.`;
   else if (label) {
     const yes = near.filter((s) => s.a_jour && s.accepte.includes(label));
     const full = near.filter((s) => s.a_jour && s.refuse.includes(label));
     const old = near.filter((s) => !s.a_jour);
     resume = [
-      yes.length ? `${label.charAt(0).toUpperCase()}${label.slice(1)} acceptés en ce moment : ${yes.map((s) => `${where(s)}, mis à jour à ${at(s)}`).join(" ; ")}.` : `Aucune déchèterie proche ne dit accepter les ${label} en ce moment.`,
-      full.length ? `Benne pleine : ${full.map(where).join(" ; ")}.` : "",
-      old.length ? `À vérifier sur place (mise à jour il y a plus de 6 h) : ${old.map(where).join(" ; ")}.` : "",
+      yes.length ? `${label.charAt(0).toUpperCase()}${label.slice(1)} acceptés en ce moment : ${yes.map((s) => `${where(s)}, mis à jour à ${at(s)}`).join("\u00a0; ")}.` : `Aucune déchèterie proche ne dit accepter les ${label} en ce moment.`,
+      full.length ? `Benne pleine : ${full.map(where).join("\u00a0; ")}.` : "",
+      old.length ? `À vérifier sur place (mise à jour il y a plus de 6 h) : ${old.map(where).join("\u00a0; ")}.` : "",
     ].filter(Boolean).join(" ");
   } else {
     resume = near.slice(0, 3).map((s) => s.a_jour
       ? `${where(s)} : ${s.refuse.length ? `bennes pleines pour ${s.refuse.join(", ")}` : "toutes les bennes acceptent"}, mis à jour à ${at(s)}`
-      : `${where(s)} : dernière mise à jour à ${at(s)}, à vérifier`).join(" ; ") + ".";
+      : `${where(s)} : dernière mise à jour à ${at(s)}, à vérifier`).join("\u00a0; ") + ".";
   }
   return text({
     ...(res ? { lieu: placeBlock(lieu!, res) } : {}),
@@ -69,7 +69,7 @@ export async function decheteriesAnswer(cache: Cache, quoi: string, lieu: string
     })),
     avertissements: [
       "État des bennes rempli par les agents sur place, environ toutes les 2 heures : une mise à jour de plus de 6 h est à vérifier sur place.",
-      "Horaires non publiés : le TCO dit ses déchèteries ouvertes 7 jours sur 7 ; voir la page de chaque déchèterie.",
+      "Horaires non publiés : le TCO dit ses déchèteries ouvertes 7 jours sur 7\u00a0; voir la page de chaque déchèterie.",
       ...(live?.stale ? ["Copie de secours : le TCO n'a pas répondu."] : []),
       ONLY_TCO,
     ],

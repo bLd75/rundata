@@ -83,7 +83,7 @@ export async function calendrier(cache: Cache, lieu: string | undefined, now = n
       lever: hm(s.lever),
       coucher: hm(s.coucher),
       duree_du_jour: `${Math.floor(length / 60)} h ${String(length % 60).padStart(2, "0")}`,
-      note: "Calculé pour l'horizon dégagé ; dans les cirques et les ravines, le relief cache le soleil plus tôt.",
+      note: "Calculé pour l'horizon dégagé\u00a0; dans les cirques et les ravines, le relief cache le soleil plus tôt.",
     },
     sources: credits([...(feries ? [cal.HOLIDAYS] : []), ...(schools ? [cal.SCHOOL] : [])]),
   });

@@ -79,7 +79,7 @@ describe("the prefect's fuel prices", () => {
     const prix = carburants.parseRelease(fixture("carburants_octobre.html"), LIEN, NOW)!;
     carburants.configure(async () => prix);
     const r = body(await annuaireTool(new Cache(), "prix de l'essence", undefined, NOW));
-    expect(r.resume).toBe("Prix maximum à La Réunion depuis le 1er octobre 2026 (arrêté du préfet) : sans plomb (« supercarburant » dans l'arrêté) 2,00 €/litre (+0,17 €) ; gazole 1,80 €/litre (+0,12 €) ; gaz 20,81 € la bouteille de 12,5 kg (+0,21 €), 18 € avec aides locales. Les mêmes plafonds dans toute l'île : une station peut vendre moins cher, pas plus.");
+    expect(r.resume).toBe("Prix maximum à La Réunion depuis le 1er octobre 2026 (arrêté du préfet) : sans plomb (« supercarburant » dans l'arrêté) 2,00 €/litre (+0,17 €)\u00a0; gazole 1,80 €/litre (+0,12 €)\u00a0; gaz 20,81 € la bouteille de 12,5 kg (+0,21 €), 18 € avec aides locales. Les mêmes plafonds dans toute l'île : une station peut vendre moins cher, pas plus.");
     expect(r.prix_maximums).toHaveLength(7);
     expect(r.communique.lien).toBe(LIEN);
     expect(r.avertissements).toEqual([]);
@@ -134,7 +134,7 @@ describe("a new order read before its 1st", () => {
   const READ = new Date("2025-10-31T09:00:00Z");
   const nov = () => carburants.parseRelease(fixture("carburants_novembre_2025.html"), NOV, READ)!;
   const at = (p: carburants.Prix) => ({ value: p, fetchedAt: READ, stale: false });
-  const ANNONCE = "Prix maximum au 1er novembre, fixés par la préfecture (communiqué du 31 octobre) : sans plomb 1,54 €/litre (−0,02 €) ; gazole 1,23 €/litre (−0,01 €) ; gaz 18,59 € la bouteille de 12,5 kg (−0,50 €), 18 € avec aides locales";
+  const ANNONCE = "Prix maximum au 1er novembre, fixés par la préfecture (communiqué du 31 octobre) : sans plomb 1,54 €/litre (−0,02 €)\u00a0; gazole 1,23 €/litre (−0,01 €)\u00a0; gaz 18,59 € la bouteille de 12,5 kg (−0,50 €), 18 € avec aides locales";
   // Every way the prices of November could be said in force.
   const IN_FORCE = /depuis le 1er novembre|en vigueur depuis le 1er novembre|à La Réunion, novembre 2025<\/h1>/;
 
@@ -148,7 +148,8 @@ describe("a new order read before its 1st", () => {
     for (const t of ["2025-10-31T05:00:00Z", "2025-10-31T09:00:00Z", "2025-10-31T19:59:59Z"]) {
       const page = render("https://rundata.re", at(nov()), new Date(t));
       expect(page, t).toContain("<h1>Prix des carburants à La Réunion, octobre 2025</h1>");
-      expect(page, t).toContain(`<p class="lead">${ANNONCE}.</p><p class="lead">En vigueur jusqu&#39;au 31 octobre : sans plomb 1,56 €/litre ; gazole 1,24 €/litre ; gaz 19,09 € la bouteille de 12,5 kg.</p>`);
+      // The page is put in French typography as it is sent (web/typo.ts), not here.
+      expect(page, t).toContain(`<p class="lead">${ANNONCE.replaceAll("\u00a0;", " ;")}.</p><p class="lead">En vigueur jusqu&#39;au 31 octobre : sans plomb 1,56 €/litre ; gazole 1,24 €/litre ; gaz 19,09 € la bouteille de 12,5 kg.</p>`);
       expect(page, t).toContain('<th scope="col">Au 1er novembre 2025</th><th scope="col">Jusqu&#39;au 31 octobre 2025</th>');
       expect(page, t).not.toMatch(IN_FORCE);
       expect(page, t).not.toContain("pas encore publiés");
@@ -171,7 +172,7 @@ describe("a new order read before its 1st", () => {
     carburants.configure(async () => nov());
     const r = body(await annuaireTool(new Cache(), "prix de l'essence", undefined, READ));
     expect(r.resume).toBe(
-      "Prix maximum en vigueur aujourd'hui à La Réunion, jusqu'au 31 octobre (arrêté du préfet) : sans plomb (« supercarburant » dans l'arrêté) 1,56 €/litre ; gazole 1,24 €/litre ; gaz 19,09 € la bouteille de 12,5 kg. " +
+      "Prix maximum en vigueur aujourd'hui à La Réunion, jusqu'au 31 octobre (arrêté du préfet) : sans plomb (« supercarburant » dans l'arrêté) 1,56 €/litre\u00a0; gazole 1,24 €/litre\u00a0; gaz 19,09 € la bouteille de 12,5 kg. " +
       `${ANNONCE}. Les mêmes plafonds dans toute l'île : une station peut vendre moins cher, pas plus.`,
     );
     expect(r.en_vigueur_depuis).toBe("1er octobre 2025");

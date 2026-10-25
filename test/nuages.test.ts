@@ -66,7 +66,7 @@ describe("where a place stands against the cloud sea", () => {
     const mn = merDeNuages(forecast([hour(SIX, 80, 1200, 1800), hour(NINE, 90, 1400, 2300)]), MAIDO, EVENING)!;
     expect(mn.titre).toBe("Mer de nuages demain matin");
     expect(mn.resume).toBe(
-      "Maïdo (2 197 m), demain matin : de 6 h à 9 h, au-dessus de la mer de nuages (nuages entre 1 200 et 1 800 m) ; " +
+      "Maïdo (2 197 m), demain matin : de 6 h à 9 h, au-dessus de la mer de nuages (nuages entre 1 200 et 1 800 m)\u00a0; " +
         "de 9 h à 12 h, dans les nuages (entre 1 400 et 2 300 m). La vue se ferme dans la matinée, selon le modèle.",
     );
     expect(mn).toMatchObject({ prevision: LABEL, mise_en_garde: CAVEAT });
@@ -74,7 +74,7 @@ describe("where a place stands against the cloud sea", () => {
 
   it("says the view closes only into the clouds, not under them", () => {
     const under = merDeNuages(forecast([hour(SIX, 10, null, null), hour(NINE, 90, 2400, 2900)]), MAIDO, EVENING)!;
-    expect(under.ligne).toBe("De 6\u00a0h à 9\u00a0h, dégagé ; de 9\u00a0h à 12\u00a0h, sous les nuages (à partir de 2\u202f400\u00a0m).");
+    expect(under.ligne).toBe("De 6\u00a0h à 9\u00a0h, dégagé\u00a0; de 9\u00a0h à 12\u00a0h, sous les nuages (à partir de 2\u202f400\u00a0m).");
   });
 
   it("puts the place's words before its altitude, in one pair of brackets", () => {
@@ -146,7 +146,7 @@ describe("prevision_meteo in the Hauts", () => {
     });
     const r = body(await previsionMeteo(await offline(), "Maïdo", "demain matin", EVENING));
     expect(r.mer_de_nuages.fenetres.map((w: { etat: string }) => w.etat)).toEqual(["degage", "dans"]);
-    expect(r.mer_de_nuages.ligne).toMatch(/^De 6 h à 9 h, dégagé ; de 9 h à 12 h, dans les nuages \(à partir de 2 \d00 m\)\. La vue se ferme/);
+    expect(r.mer_de_nuages.ligne).toMatch(/^De 6 h à 9 h, dégagé\u00a0; de 9 h à 12 h, dans les nuages \(à partir de 2 \d00 m\)\. La vue se ferme/);
     expect(r.resume).toContain(`Mer de nuages, ${LABEL} : Maïdo (2\u202f197\u00a0m), demain matin : de 6\u00a0h à 9\u00a0h, dégagé`);
     expect(r.mer_de_nuages.mise_en_garde).toBe(CAVEAT);
   });

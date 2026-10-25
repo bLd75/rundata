@@ -34,7 +34,7 @@ export const SECTEURS: Secteur[] = [
   },
   {
     slug: "salazie", nom: "Salazie", dans: "à Salazie", quoi: "le cirque vert, ses cascades, Hell-Bourg et Grand Îlet",
-    acces: "Par la route de Salazie depuis Saint-André. Hell-Bourg est le départ vers la caverne Dufour et le Piton des Neiges, et vers Bélouve ; Grand Îlet celui du col des Bœufs, vers Mafate.",
+    acces: "Par la route de Salazie depuis Saint-André. Hell-Bourg est le départ vers la caverne Dufour et le Piton des Neiges, et vers Bélouve\u00a0; Grand Îlet celui du col des Bœufs, vers Mafate.",
     meteo: "hell-bourg",
   },
   {
@@ -55,7 +55,7 @@ export const SECTEURS: Secteur[] = [
   },
   {
     slug: "est", nom: "Est", dans: "dans l'Est", quoi: "Bélouve, Bébour, Takamaka et les Hauts de Saint-André à Saint-Benoît",
-    acces: "Par la route de la Plaine des Palmistes (RN3) et la route forestière de Bébour ; Takamaka depuis Saint-Benoît.",
+    acces: "Par la route de la Plaine des Palmistes (RN3) et la route forestière de Bébour\u00a0; Takamaka depuis Saint-Benoît.",
     meteo: "la-plaine-des-palmistes",
   },
   {

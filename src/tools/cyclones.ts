@@ -41,12 +41,12 @@ export const OFFICIAL = {
 const COMMON = {
   a_savoir:
     "Positions et prévisions du CMRS de La Réunion (Météo-France), le centre chargé des cyclones du sud-ouest de l'océan Indien, republiées par GDACS toutes les 6 heures : " +
-    "elles peuvent avoir quelques heures de retard. Vents moyens sur 10 minutes, comme dans les bulletins de Météo-France ; les rafales sont plus fortes. " +
+    "elles peuvent avoir quelques heures de retard. Vents moyens sur 10 minutes, comme dans les bulletins de Météo-France\u00a0; les rafales sont plus fortes. " +
     "Pour savoir quoi faire, seules comptent l'alerte cyclonique de la préfecture et les bulletins de Météo-France.",
   phases_alerte:
     "À La Réunion, la préfecture déclenche : la pré-alerte cyclonique (menace dans les jours à venir, s'informer), l'alerte orange (danger dans les 24 heures, se préparer), " +
     "l'alerte rouge (danger imminent, se confiner), l'alerte violette (confinement strict, même les secours ne circulent plus), puis la phase de sauvegarde (après le passage, rester prudent).",
-  saison: "La saison cyclonique va de novembre à avril ; des systèmes se forment parfois hors saison.",
+  saison: "La saison cyclonique va de novembre à avril\u00a0; des systèmes se forment parfois hors saison.",
 };
 
 /** Movement between the last two observed positions. */
@@ -235,7 +235,7 @@ export async function cyclones(cache: Cache, lieu: string | undefined, now = new
     saison_en_cours: { nom: season.nom, systemes: thisSeason.map(seasonRow) },
     saison_precedente: rows.length ? undefined : { nom: previous, systemes: lastSeason.map(seasonRow) },
     cyclone_passe: nom?.trim()
-      ? `Pas de mesures sur rundata.re pour « ${nom.trim()} » ; cyclones passés disponibles : ${PASSES_LIST}.`
+      ? `Pas de mesures sur rundata.re pour « ${nom.trim()} »\u00a0; cyclones passés disponibles : ${PASSES_LIST}.`
       : undefined,
     ...COMMON,
     consulter: OFFICIAL,

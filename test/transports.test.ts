@@ -226,7 +226,7 @@ describe("a line", () => {
     const asked = `${g.nom} car jaune`;
     const where = `${g.nom} \\(${g.commune}, Car Jaune\\)`;
     const sunday = body(await transports(asked, undefined, new Date("2026-10-25T06:00:00Z")));
-    expect(sunday.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\\. D'après les horaires publiés, aucune des lignes qui le desservent ne circule le dimanche\\. Prochains départs\u00a0: E1 vers St-(Denis|Benoît) demain à 5h00 \\(dans 19 h\\) ; `));
+    expect(sunday.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\\. D'après les horaires publiés, aucune des lignes qui le desservent ne circule le dimanche\\. Prochains départs\u00a0: E1 vers St-(Denis|Benoît) demain à 5h00 \\(dans 19 h\\)\u00a0; `));
     const WED = new Date("2026-11-11T06:00:00Z");
     const feries = { get: async () => ({ value: { "2026-11-11": "11 novembre" }, fetchedAt: new Date() }) } as unknown as Cache;
     expect(body(await transports(asked, undefined, WED, feries)).resume)

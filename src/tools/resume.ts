@@ -294,7 +294,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     fresh.length ? `déchets verts acceptés dans ${green} déchèterie${green > 1 ? "s" : ""} sur ${fresh.length}` : "",
     bins ? `collecte des déchets : le jour de votre rue sur rundata.re/collecte/${col.communeSlug(nom)}` : "",
     "pharmacie de garde : 3237.fr",
-  ].filter(Boolean).join(" ; ") + ".";
+  ].filter(Boolean).join("\u00a0; ") + ".";
 
   return {
     commune: nom,

@@ -82,7 +82,7 @@ describe("the bins' calendars of the West", () => {
 describe("the tool and the pages", () => {
   it("answers for a street, in marketing's words, with the calendar's PDF", () => {
     const r = body(collecteAnswer("12 rue Victoria, La Possession", NOW));
-    expect(r.resume).toMatch(/^Rue Victoria, La Possession : ordures ménagères le lundi et le jeudi ; tri le mercredi, une semaine sur deux \(prochain : 28\/10\)/);
+    expect(r.resume).toMatch(/^Rue Victoria, La Possession : ordures ménagères le lundi et le jeudi\u00a0; tri le mercredi, une semaine sur deux \(prochain : 28\/10\)/);
     expect(r.rues[0].calendrier_pdf).toMatch(/2026_POSS_01\.pdf$/);
     expect(r.a_savoir).toBe("Seulement les 5 communes de l'Ouest (TCO) pour l'instant. Calendriers 2026 publiés par le TCO (data.tco.re), mis à jour le 06/08/2026. En cas d'alerte cyclonique, la collecte peut être suspendue : suivez les annonces du TCO.");
     expect(body(collecteAnswer("rue Inexistante du Test, Saint-Paul", NOW)).resume).toBe("Rue non trouvée dans les calendriers du TCO. Vérifiez l'orthographe, ou essayez le nom du quartier.");

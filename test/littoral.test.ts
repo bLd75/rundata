@@ -151,9 +151,9 @@ describe("the route du Littoral as the media announce it", () => {
     const answer = (infos: Info[]) => ({ value: { infos: infos.map((i) => infoRow(i, NOW)), en_direct: [], prefecture: [] } as unknown as ActualitesAnswer, fetchedAt: NOW, stale: false });
     const said = (slug: string, infos: Info[]) => resume(pageOf(slug)!, { actualites: answer(infos) }, NOW).circulation.route_du_littoral;
     expect(said("la-possession", [item("Route du Littoral : basculement en 2x1 voies", 1, "Clicanoo")])).toBe(
-      "Route du Littoral : basculée sur 2×1 voies, côté montagne, selon Clicanoo (aujourd'hui à 18:00) ; état officiel sur infotrafic.re.",
+      "Route du Littoral : basculée sur 2×1 voies, côté montagne, selon Clicanoo (aujourd'hui à 18:00)\u00a0; état officiel sur infotrafic.re.",
     );
-    expect(said("saint-denis", [item("La route du Littoral fermée", 8)])).toBe("Route du Littoral, dernière annonce il y a 8 h : fermée, selon Freedom (aujourd'hui à 11:00) ; état officiel sur infotrafic.re.");
+    expect(said("saint-denis", [item("La route du Littoral fermée", 8)])).toBe("Route du Littoral, dernière annonce il y a 8 h : fermée, selon Freedom (aujourd'hui à 11:00)\u00a0; état officiel sur infotrafic.re.");
     expect(said("saint-denis", [item("La route du Littoral fermée", 13)])).toBeUndefined();
     expect(said("saint-paul", [item("Route du Littoral : basculement en 2x1 voies", 1)])).toBeUndefined();
     expect(forSummary(undefined, NOW)).toBeUndefined();

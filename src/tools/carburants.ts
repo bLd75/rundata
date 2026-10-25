@@ -43,7 +43,7 @@ export const keep = (s: string) =>
   s.replace(/(\d) (€|kg)/g, "$1\u00a0$2").replace(new RegExp(`(\\d|1er) (${MONTH})`, "g"), "$1\u00a0$2");
 
 const MAIN = /^(supercarburant|gazole|gaz)$/i;
-const mainLines = (m: carburants.Mois) => m.produits.filter((x) => MAIN.test(x.produit)).map(priceLine).join(" ; ");
+const mainLines = (m: carburants.Mois) => m.produits.filter((x) => MAIN.test(x.produit)).map(priceLine).join("\u00a0; ");
 
 /**
  * What is said of an order on `now`'s day, marketing's words. Before its 1st: « Prix maximum au 1er novembre, fixés

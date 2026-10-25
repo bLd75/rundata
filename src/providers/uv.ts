@@ -16,8 +16,8 @@ export const SOURCE: SourceInfo = {
   id: "cams_uv",
   nom: "Indice UV prévu par le service Copernicus de surveillance de l'atmosphère (CAMS), via Open-Meteo",
   organisme: "Copernicus Atmosphere Monitoring Service (CAMS, ECMWF pour l'Union européenne), diffusé par Open-Meteo",
-  licence: "Licence Copernicus (libre, citer CAMS) et CC BY 4.0 (Open-Meteo) ; API Open-Meteo gratuite réservée aux usages non commerciaux",
-  attribution: "Generated using Copernicus Atmosphere Monitoring Service information ; data by Open-Meteo.com <https://open-meteo.com/>",
+  licence: "Licence Copernicus (libre, citer CAMS) et CC BY 4.0 (Open-Meteo)\u00a0; API Open-Meteo gratuite réservée aux usages non commerciaux",
+  attribution: "Generated using Copernicus Atmosphere Monitoring Service information\u00a0; data by Open-Meteo.com <https://open-meteo.com/>",
   url: "https://open-meteo.com/en/docs/air-quality-api",
 };
 

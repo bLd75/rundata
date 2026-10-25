@@ -71,7 +71,7 @@ describe("the power cuts the mairies relay", () => {
   it("says each notice in marketing's words, and never that there is no cut", () => {
     const [sm, , sp, ci] = copy.avis;
     expect(sentence(sm, NOW)).toBe(
-      "Dernier avis de coupure d'électricité publié par la mairie de Sainte-Marie le 21/10 : coupure programmée le lundi 26/10 de 09:00 à 15:00, secteurs Rue des Jésuites, Rue Médard ; le mardi 27/10 de 09:30 à 12:00, secteurs Chemin Conteur.",
+      "Dernier avis de coupure d'électricité publié par la mairie de Sainte-Marie le 21/10 : coupure programmée le lundi 26/10 de 09:00 à 15:00, secteurs Rue des Jésuites, Rue Médard\u00a0; le mardi 27/10 de 09:30 à 12:00, secteurs Chemin Conteur.",
     );
     expect(sentence(sp, NOW)).toBe("Coupure en cours selon la mairie de Saint-Philippe (avis du 24/10) : secteurs Chemin Paul Hoareau, Chemin Ceinture.");
     // Two days later, a cut said to be happening is no longer said to be.

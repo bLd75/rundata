@@ -17,8 +17,8 @@ export const SOURCE: SourceInfo = {
   id: "openmeteo",
   nom: "Prévisions du modèle IFS du Centre européen (ECMWF), via Open-Meteo",
   organisme: "ECMWF (données ouvertes IFS HRES), diffusé par Open-Meteo",
-  licence: "CC BY 4.0 (ECMWF et Open-Meteo) ; API Open-Meteo gratuite réservée aux usages non commerciaux",
-  attribution: "Weather data by Open-Meteo.com <https://open-meteo.com/> ; modèle IFS, ECMWF",
+  licence: "CC BY 4.0 (ECMWF et Open-Meteo)\u00a0; API Open-Meteo gratuite réservée aux usages non commerciaux",
+  attribution: "Weather data by Open-Meteo.com <https://open-meteo.com/>\u00a0; modèle IFS, ECMWF",
   url: "https://open-meteo.com/en/docs/ecmwf-api",
 };
 

@@ -130,16 +130,16 @@ describe("the alerts before this one", () => {
     expect(p.note).toContain(AVANT_2021);
     expect(p.episodes[0].debut[0]).toBe("13/02/2026, éruption débutée (selon le communiqué du 07/05/2026) : « Suite à la fin de l'éruption volcanique débutée le 13 février 2026 » (communiqué du 07/05/2026 : https://web.archive.org/web/20260507190343/https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-reouverture-partielle-de-l-enclos)");
     expect(resumeText()).toBe(
-      "Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis 2016 ; avant novembre 2021, les niveaux du plan précédent) : " +
-        "13/02/2026 éruption débutée (selon le communiqué du 07/05/2026) → 07/05/2026 retour en phase de vigilance ; 18/01/2026 alerte 2-1 → 27/01/2026 réouverture des sentiers ; " +
-        "01/01/2026 alerte 1 → 02/01/2026 retour en phase de vigilance ; 02/07/2023 alerte 1, 02/07/2023 alerte 2-1 → 31/08/2023 Enclos accessible au public ; " +
-        "19/09/2022 alerte 1, 19/09/2022 alerte 2-1 → 05/10/2022 éruption arrêtée ; " +
-        "02/04/2020 alerte 2-2 → 06/04/2020 passage en phase de sauvegarde ; 25/10/2019 alerte 2-2 → 28/10/2019 passage en phase de sauvegarde ; " +
-        "21/10/2019 alerte 1 → 23/10/2019 retour en phase de vigilance ; 11/08/2019 alerte 2-2 → 04/09/2019 retour en phase de vigilance ; " +
-        "16/02/2019 alerte 1, 18/02/2019 alerte 2-2 → 19/02/2019 passage en phase de sauvegarde (le même jour, nouvelle alerte 2-2 : sa fin n'est pas dans les communiqués que nous avons retrouvés) ; 15/09/2018 alerte 1, 15/09/2018 alerte 2-2 → 01/11/2018 passage en phase de sauvegarde ; " +
-        "03/04/2018 éruption débutée (selon le communiqué du 04/04/2018) → 14/04/2018 retour en phase de vigilance volcanique ; 14/07/2017 alerte 2-2 → 28/08/2017 passage en phase de sauvegarde ; " +
-        "17/05/2017 alerte 1, 17/05/2017 alerte 2-2 → 02/06/2017 retour en phase de vigilance ; 31/01/2017 alerte 1, 31/01/2017 alerte 2-2 → 28/02/2017 passage en phase de sauvegarde ; " +
-        "11/09/2016 alerte 1, 11/09/2016 alerte 2-2 → 18/09/2016 passage en phase de sauvegarde ; 26/05/2016 alerte 2-2 → 27/05/2016 passage en phase de sauvegarde.",
+      "Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis 2016\u00a0; avant novembre 2021, les niveaux du plan précédent) : " +
+        "13/02/2026 éruption débutée (selon le communiqué du 07/05/2026) → 07/05/2026 retour en phase de vigilance\u00a0; 18/01/2026 alerte 2-1 → 27/01/2026 réouverture des sentiers\u00a0; " +
+        "01/01/2026 alerte 1 → 02/01/2026 retour en phase de vigilance\u00a0; 02/07/2023 alerte 1, 02/07/2023 alerte 2-1 → 31/08/2023 Enclos accessible au public\u00a0; " +
+        "19/09/2022 alerte 1, 19/09/2022 alerte 2-1 → 05/10/2022 éruption arrêtée\u00a0; " +
+        "02/04/2020 alerte 2-2 → 06/04/2020 passage en phase de sauvegarde\u00a0; 25/10/2019 alerte 2-2 → 28/10/2019 passage en phase de sauvegarde\u00a0; " +
+        "21/10/2019 alerte 1 → 23/10/2019 retour en phase de vigilance\u00a0; 11/08/2019 alerte 2-2 → 04/09/2019 retour en phase de vigilance\u00a0; " +
+        "16/02/2019 alerte 1, 18/02/2019 alerte 2-2 → 19/02/2019 passage en phase de sauvegarde (le même jour, nouvelle alerte 2-2 : sa fin n'est pas dans les communiqués que nous avons retrouvés)\u00a0; 15/09/2018 alerte 1, 15/09/2018 alerte 2-2 → 01/11/2018 passage en phase de sauvegarde\u00a0; " +
+        "03/04/2018 éruption débutée (selon le communiqué du 04/04/2018) → 14/04/2018 retour en phase de vigilance volcanique\u00a0; 14/07/2017 alerte 2-2 → 28/08/2017 passage en phase de sauvegarde\u00a0; " +
+        "17/05/2017 alerte 1, 17/05/2017 alerte 2-2 → 02/06/2017 retour en phase de vigilance\u00a0; 31/01/2017 alerte 1, 31/01/2017 alerte 2-2 → 28/02/2017 passage en phase de sauvegarde\u00a0; " +
+        "11/09/2016 alerte 1, 11/09/2016 alerte 2-2 → 18/09/2016 passage en phase de sauvegarde\u00a0; 26/05/2016 alerte 2-2 → 27/05/2016 passage en phase de sauvegarde.",
     );
     const html = volcanPage("https://rundata.re", { value: { resume: "", sources: [], avertissements: [] } as unknown as VolcanAnswer, fetchedAt: NOW, stale: false }, NOW);
     expect(html).toContain(`<h2 id="h-alertes">Les alertes précédentes</h2><p>${CHAPEAU.replace(/'/g, "&#39;")}</p>`);

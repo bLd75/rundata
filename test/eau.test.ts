@@ -64,7 +64,7 @@ describe("qualité de l'eau", () => {
 
   it("finds the network of the quartier asked, and what went off the limits", async () => {
     const b = body(await qualiteEau(cache(), "Ravine des Cabris", undefined, NOW));
-    expect(b.resume).toBe("Eau du robinet, réseau Usine Dassy Conde à La Ravine des Cabris : dernière analyse le 24/08/2026 : NON CONFORME ; 6 analyses non conformes sur 16 en 6 mois.");
+    expect(b.resume).toBe("Eau du robinet, réseau Usine Dassy Conde à La Ravine des Cabris : dernière analyse le 24/08/2026 : NON CONFORME\u00a0; 6 analyses non conformes sur 16 en 6 mois.");
     expect(b.eau_du_robinet.reseau.non_conformites[0]).toEqual({
       date: "24/08/2026",
       prelevements: 3,
@@ -78,7 +78,7 @@ describe("qualité de l'eau", () => {
     const b = body(await qualiteEau(cache(), "eau du robinet à Saint-Pierre", undefined, NOW));
     expect(b.eau_du_robinet.reseaux).toHaveLength(13);
     expect(b.eau_du_robinet.reseaux[0]).toMatchObject({ reseau: "Usine Dassy Conde", non_conformes_6_mois: 6 });
-    expect(b.resume).toMatch(/^Eau du robinet à Saint-Pierre : 13 réseaux, 75 analyses en 6 mois ; non-conformités sur Usine Dassy Conde \(6\)\./);
+    expect(b.resume).toMatch(/^Eau du robinet à Saint-Pierre : 13 réseaux, 75 analyses en 6 mois\u00a0; non-conformités sur Usine Dassy Conde \(6\)\./);
   });
 
   it("names, under the tap water, every commune whose notices are read, from the table of distributors", () => {

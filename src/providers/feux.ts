@@ -19,7 +19,7 @@ export const SOURCE: SourceInfo = {
   id: "nasa_firms",
   nom: "Feux actifs détectés par les satellites VIIRS (Suomi NPP, NOAA-20, NOAA-21)",
   organisme: "NASA FIRMS (LANCE, Earth Science Data and Information System)",
-  licence: "Données de la NASA, partage libre et ouvert ; citer NASA FIRMS",
+  licence: "Données de la NASA, partage libre et ouvert\u00a0; citer NASA FIRMS",
   attribution: "We acknowledge the use of data and/or imagery from NASA's FIRMS (https://earthdata.nasa.gov/firms), part of NASA's Earth Science Data and Information System (ESDIS).",
   url: "https://firms.modaps.eosdis.nasa.gov/",
 };

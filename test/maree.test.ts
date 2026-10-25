@@ -36,7 +36,7 @@ describe("tide gauges", () => {
 
   it("answers for a place from the nearest gauge, in La Réunion's time", async () => {
     const r = body(await maree(cache(), "Saint-Paul", NOW));
-    expect(r.resume).toMatch(/^Marée au marégraphe le plus proche de Saint-Paul, Pointe des Galets \(Le Port, à \d+ km\) : 0,\d+ m, marée descendante ; dernière pleine mer vers 00:0\d \(0,86 m\) ; dernière basse mer vers 17:4\d \(0,39 m\) ; prochaines marées, /);
+    expect(r.resume).toMatch(/^Marée au marégraphe le plus proche de Saint-Paul, Pointe des Galets \(Le Port, à \d+ km\) : 0,\d+ m, marée descendante\u00a0; dernière pleine mer vers 00:0\d \(0,86 m\)\u00a0; dernière basse mer vers 17:4\d \(0,39 m\)\u00a0; prochaines marées, /);
     expect(r.maregraphes[0].reference).toMatch(/zéro hydrographique/);
     expect(r.donnees).toMatch(/pas la prédiction officielle du SHOM/);
   });
@@ -47,22 +47,22 @@ describe("tide gauges", () => {
     expect(r.resume).toContain("calcul de rundata d'après les mesures, pas la prédiction officielle du SHOM, à environ 15 min près : basse mer vers 06:00 (0,");
     const next = r.maregraphes[0].prochaines_marees;
     expect(next.nature).toBe("calcul");
-    expect(next.avertissement).toBe("calcul de rundata d'après les mesures, pas la prédiction officielle du SHOM ; heures à environ 15 min près, hauteurs à environ 5 cm près.");
+    expect(next.avertissement).toBe("calcul de rundata d'après les mesures, pas la prédiction officielle du SHOM\u00a0; heures à environ 15 min près, hauteurs à environ 5 cm près.");
     expect(next.controle).toMatch(/^vérifié sur 3 mois de mesures hors calcul : écart médian \d+ min, \d+ cm$/);
     expect(next.recalage).toMatch(/^hauteurs recalées de [+-]\d+ cm sur le niveau mesuré des 6 dernières heures$/);
     // Two days of tides (« la marée basse demain »), high and low in turn, and where the computation stops.
     const types = next.liste.map((e: { type: string }) => e.type);
     expect(types.length).toBeGreaterThanOrEqual(7);
     expect(types).toEqual(types.map((_: string, i: number) => (i % 2 ? "pleine mer" : "basse mer")));
-    expect(next.horizon).toMatch(/^calculé jusqu'au 26\/10 03:4\d heure de La Réunion ; au-delà, les prédictions officielles du SHOM : https:\/\/maree\.shom\.fr$/);
+    expect(next.horizon).toMatch(/^calculé jusqu'au 26\/10 03:4\d heure de La Réunion\u00a0; au-delà, les prédictions officielles du SHOM : https:\/\/maree\.shom\.fr$/);
     // Never a time to the minute.
     for (const e of next.liste) expect(e.heure).toMatch(/vers \d\d:[0-5][05]$/);
     // The summary read alone: today's and tomorrow's tides, and where the computation stops, with the SHOM beyond.
-    const listed = r.resume.split(" près : ")[1].split(" ; ")[0].split(/, (?=pleine|basse)/);
+    const listed = r.resume.split(" près : ")[1].split("\u00a0; ")[0].split(/, (?=pleine|basse)/);
     expect(listed.length).toBe(next.liste.filter((e: { heure: string }) => !/^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche) /.test(e.heure)).length);
     expect(listed.length).toBeGreaterThanOrEqual(6);
     expect(listed.at(-1)).toMatch(/^(?:basse|pleine) mer demain vers \d\d:[0-5][05] \(0,\d+ m/);
-    expect(r.resume).toMatch(new RegExp(` ; ${next.liste.length} marées calculées jusqu'au 26/10 03:4\\d \\(prochaines_marees\\), au-delà les prédictions officielles du SHOM \\(https://maree\\.shom\\.fr\\)\\.$`));
+    expect(r.resume).toMatch(new RegExp(`\u00a0; ${next.liste.length} marées calculées jusqu'au 26/10 03:4\\d \\(prochaines_marees\\), au-delà les prédictions officielles du SHOM \\(https://maree\\.shom\\.fr\\)\\.$`));
     // Sainte-Marie has its own precision.
     expect(r.maregraphes[1].prochaines_marees.avertissement).toContain("heures à environ 20 min près");
     expect(r.sources[0].attribution).toBe("REFMAR. http://dx.doi.org/10.17183/REFMAR#RONIM");
@@ -74,7 +74,7 @@ describe("tide gauges", () => {
     const r = body(await maree(cache({}), "Saint-Paul", NOW));
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-    expect(r.resume).toMatch(/marégraphe muet pour le moment ; prochaines marées, calcul de rundata d'après les mesures, pas la prédiction officielle du SHOM/);
+    expect(r.resume).toMatch(/marégraphe muet pour le moment\u00a0; prochaines marées, calcul de rundata d'après les mesures, pas la prédiction officielle du SHOM/);
     expect(r.maregraphes[0].prochaines_marees.recalage).toBeUndefined();
   });
 
@@ -84,7 +84,7 @@ describe("tide gauges", () => {
     expect(r.maregraphes).toHaveLength(2);
     // The whole island: the next two of each gauge, and the horizon.
     expect(r.resume.match(/marées calculées jusqu'au 26\/10 03:4\d \(prochaines_marees\)/g)).toHaveLength(2);
-    expect(r.resume.split(". ")[0].split(" près : ")[1].split(" ; ")[0].split(/, (?=pleine|basse)/)).toHaveLength(2);
+    expect(r.resume.split(". ")[0].split(" près : ")[1].split("\u00a0; ")[0].split(/, (?=pleine|basse)/)).toHaveLength(2);
     expect(r.maregraphes[1].avertissement).toMatch(/n'a rien envoyé depuis/);
     expect(r.sources[0].attribution).toMatch(/REFMAR/);
   });
