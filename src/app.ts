@@ -11,6 +11,7 @@ import { why } from "./types.js";
 import { watch } from "./usage.js";
 import type { Background } from "./web/data.js";
 import { notFound, site } from "./web/site.js";
+import { wantsPage } from "./web/connecteur.js";
 import { OFFLINE_PATH } from "./web/pwa.js";
 
 // Browser-based clients (MCP Inspector, web chat apps) call the endpoint cross-origin.
@@ -82,7 +83,8 @@ export async function handle(request: Request, cache: Cache, background: Backgro
   if (shortcut) return new Response(null, { status: 302, headers: { location: `/?ref=${shortcut}` } });
   // The daily check of the sources (bin/check-sources.ts) is not a visitor: not counted.
   if (CHECKER.test(request.headers.get("user-agent") ?? "")) record = () => {};
-  if (url.pathname === "/mcp") {
+  // A browser opening the connector's address gets the page that explains it (web/connecteur.ts); the clients, the endpoint.
+  if (url.pathname === "/mcp" && !wantsPage(request)) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     const watching = watch(request, record);
     // Stateless and answering in JSON, the endpoint has no stream to send anything on: GET (the stream a client
@@ -129,6 +131,8 @@ export async function handle(request: Request, cache: Cache, background: Backgro
     }
     return page;
   }
-  if (accept.includes("text/html")) return notFound(request);
+  // The page that leads back to the site, for a browser and for whatever takes anything (the fetchers of the assistants
+  // often send « */* » or nothing); the plain line for a client that asks for something else.
+  if (!accept || accept.includes("text/html") || accept.includes("*/*")) return notFound(request);
   return new Response("Not found", { status: 404 });
 }
