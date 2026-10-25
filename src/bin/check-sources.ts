@@ -128,7 +128,7 @@ export const TOOLS: ToolCheck[] = [
       ...(/aujourd'hui/.test(String(p.resume ?? "")) ? [] : [{ point: "qualite_air", motif: "pas d'indice du jour" }]),
     ],
   },
-  { point: "electricite", tool: "electricite", args: {}, check: (p, now) => fresh("electricite", "production", p.production?.heure, 3, now) },
+  { point: "electricite", tool: "electricite", args: {}, check: (p, now) => fresh("electricite", "production", p.production?.heure_mesure, 3, now) },
   {
     point: "crues_rivieres",
     tool: "crues_rivieres",

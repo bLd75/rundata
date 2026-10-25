@@ -203,6 +203,11 @@ describe("fraicheur", () => {
     expect(f).toMatchObject({ donnee_du: "25/10 02:12", lue_a: "25/10 02:18", age: "il y a 7 min", fuseau: "heure de La Réunion (UTC+4)" });
     // The oldest read stays when it is not before the data.
     expect(fraicheur({ stations: [{ heure_mesure: "25/10 01:40" }] }, lectures, now).lue_a).toBe("25/10 01:46");
+    // A block with its age in minutes only (the production of electricite): that age, never the read's.
+    const elec = { production: { heure_mesure: "25/10 07:10 heure de La Réunion", age_min: 225 } };
+    const read = [{ key: "edf:mix", fetchedAt: Date.parse("2026-10-25T10:53:00+04:00"), stale: false, freshSeconds: 240 }];
+    expect(fraicheur(elec, read, new Date("2026-10-25T10:55:00+04:00"))).toMatchObject({ donnee_du: "25/10 07:10 heure de La Réunion", lue_a: "25/10 10:53", age: "il y a 4 h" });
+    expect(fraicheur({ production: { heure_mesure: "25/10 10:55", age_min: 0 } }, read, new Date("2026-10-25T10:55:00+04:00")).age).toBe("à l'instant");
     // No single date for an answer made of many dated parts.
     expect(fraicheur({ vigilance: { emise: "24/10 15:25" } }, lectures, now, { donnee: false }).donnee_du).toBeUndefined();
   });

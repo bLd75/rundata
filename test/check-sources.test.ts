@@ -31,6 +31,10 @@ describe("the daily check of the sources", () => {
       .toEqual(["copie de secours : Source injoignable : dernière valeur connue, lue le 23/10 18:00."]);
     expect(motifs("meteo_actuelle", { stations: [{ heure_mesure: "24/10 02:30" }, { heure_mesure: "24/10 06:30" }], fraicheur: {} })).toEqual([]);
     expect(motifs("meteo_actuelle", { stations: [], fraicheur: {} })).toEqual(["mesure absente ou illisible"]);
+    // The production's time is heure_mesure (electricite): fresh, three hours old and more, missing.
+    expect(motifs("electricite", { production: { heure_mesure: "24/10 06:50 heure de La Réunion", age_min: 21 }, fraicheur: {} })).toEqual([]);
+    expect(motifs("electricite", { production: { heure_mesure: "24/10 03:20 heure de La Réunion", age_min: 231 }, fraicheur: {} })).toEqual(["production d'il y a 3,9 h (seuil 3 h)"]);
+    expect(motifs("electricite", { production: { heure: "24/10 06:50 heure de La Réunion" }, fraicheur: {} })).toEqual(["production absente ou illisible"]);
   });
 
   it("fails on the volcano's level unknown, and on an OVPF image left unread for a day", () => {
