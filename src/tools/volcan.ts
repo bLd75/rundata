@@ -29,15 +29,17 @@ export const IMAGE_APRES = "La dernière publication de l'OVPF est une image que
  */
 export const enImagesApres = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images, que nous ne lisons pas`;
 /**
- * The same, its text read by rundata.re in the first image (providers/ovpf-ocr.ts): « nous en citons le texte » instead
- * of « que nous ne lisons pas » (draft, marketing).
+ * The same, the text of its first image read by rundata.re (providers/ovpf-ocr.ts) and quoted beside: read by a
+ * machine, « sans l'analyser », not one of « les textes que nous avons lus » of NON_ANNONCEE (marketing).
  */
-export const enImagesLuesApres = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images, dont nous citons le texte lu automatiquement`;
-export const IMAGE_LUE_APRES = "La dernière publication de l'OVPF est en images : l'état ci-dessus peut ne pas en tenir compte. Nous en citons le texte, lu automatiquement.";
-/** Before the text read in the images, wherever it is quoted (draft, marketing). */
-export const LU_DANS_L_IMAGE = "Texte lu automatiquement par rundata.re dans la première image, il peut contenir des erreurs";
-/** For the AI, beside the text read in the images (draft, marketing). */
-export const A_LIRE_LU = "Ce texte a été lu automatiquement par rundata.re dans la première image de la publication : il peut contenir des erreurs. Citez-le comme tel, avec le lien de la publication, et renvoyez à celle-ci pour les chiffres et les heures.";
+export const enImagesLuesApres = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images ; nous citons le texte de la première, lu automatiquement, sans l'analyser`;
+/** The same where the text is not quoted (the home page's demo): where it is (marketing). */
+export const enImagesLuesAilleurs = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images ; le texte de la première, lu automatiquement, est cité sur la page Volcan`;
+export const IMAGE_LUE_APRES = "La dernière publication de l'OVPF est en images : l'état ci-dessus peut ne pas en tenir compte. Nous citons le texte de la première image, lu automatiquement, sans l'analyser.";
+/** Before the text read in the first image, wherever it is quoted (marketing). */
+export const LU_DANS_L_IMAGE = "Texte de la première image, lu automatiquement par rundata.re (il peut contenir des erreurs)";
+/** For the AI, beside the text read in the first image (marketing). */
+export const A_LIRE_LU = "Ce texte a été lu automatiquement par rundata.re dans la première image de la publication ; les autres images ne sont pas lues. Il peut contenir des erreurs, surtout dans les chiffres et les heures. Citez-le comme tel, avec le lien de la publication, et renvoyez à celle-ci pour les chiffres et les heures. N'en déduisez ni le niveau d'alerte, ni le début ou la fin d'une éruption : l'état officiel est celui donné plus haut.";
 // The text read, in the summary: its first words.
 const EXTRAIT = 400;
 /** For the AI, beside a post given in images: its content is only there, and the AI may not open it either. */
@@ -322,7 +324,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   if (last && !folded) {
     parts.push(last.image
       // The time of the post, never the one written in the images, even when read.
-      ? `Dernière publication de l'OVPF, le ${jour} à ${heure} : ${volcan.imagesSaid(last.images, last.mots)}. ${lu ? `${LU_DANS_L_IMAGE} : « ${extrait(lu)} » (${last.lien}).` : `rundata.re ne lit pas les images : à voir sur ${last.lien}.`}`
+      ? `Dernière publication de l'OVPF, le ${jour} à ${heure} : ${volcan.imagesSaid(last.images, last.mots, false, !!lu)}. ${lu ? `${LU_DANS_L_IMAGE} : « ${extrait(lu)} » (${last.lien}).` : `rundata.re ne lit pas les images : à voir sur ${last.lien}.`}`
       : `Dernière publication de l'OVPF sur l'activité (${day(last.date)}) : « ${last.texte.slice(0, 220)}${last.texte.length > 220 ? "…" : ""} »`);
     if (imageAfter) parts.push(lu ? IMAGE_LUE_APRES : IMAGE_APRES);
   } else if (lu) parts.push(`${LU_DANS_L_IMAGE} : « ${extrait(lu)} »`);
@@ -378,7 +380,15 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
       : "indisponible",
     alertes_precedentes: historique.precedentes(),
     // The release's PDF stays out of the answer until what it is read for is shown (ovpf-pdf.ts, SHOW).
-    publications_ovpf: posts ? posts.slice(0, 3).map(({ pdf: _, mots: __, ...p }) => ({ ...p, date: `${localTime(new Date(p.date))} heure de La Réunion`, ...(p.image && (lus.has(p.lien) ? { texte_lu_dans_l_image: lus.get(p.lien)!.join("\n\n"), a_lire: A_LIRE_LU } : { a_lire: A_LIRE })) })) : "indisponible",
+    publications_ovpf: posts
+      ? posts.slice(0, 3).map(({ pdf: _, mots, ...p }) => ({
+          ...p,
+          date: `${localTime(new Date(p.date))} heure de La Réunion`,
+          ...(p.image && (lus.has(p.lien)
+            ? { texte: volcan.enImages(p.images, mots, true), texte_lu_dans_l_image: lus.get(p.lien)!.join("\n\n"), a_lire: A_LIRE_LU }
+            : { a_lire: A_LIRE })),
+        }))
+      : "indisponible",
     seismes: q ?? "indisponible",
     avertissements: [OFFICIAL],
     // The IPGP's site is offline (25/10/2026): the OVPF's own accounts instead.

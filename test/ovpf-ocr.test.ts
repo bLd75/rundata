@@ -5,7 +5,7 @@ import type { Info } from "../src/providers/actualites.js";
 import * as ocr from "../src/providers/ovpf-ocr.js";
 import { parse } from "../src/providers/seismes.js";
 import { activityPosts, phaseOf } from "../src/providers/volcan.js";
-import { A_LIRE, A_LIRE_LU, enImagesLuesApres, LU_DANS_L_IMAGE, volcanSeismes } from "../src/tools/volcan.js";
+import { A_LIRE, A_LIRE_LU, enImagesLuesAilleurs, enImagesLuesApres, IMAGE_LUE_APRES, LU_DANS_L_IMAGE, volcanSeismes } from "../src/tools/volcan.js";
 import { buildVolcan } from "../src/web/data.js";
 import { volcanPage } from "../src/web/domains.js";
 import { demos, type HomeLive } from "../src/web/home.js";
@@ -114,7 +114,8 @@ describe("the text read, in the answers", () => {
     expect(r.resume).toMatch(/… »/);
     // The time of the post, never the one written in the image.
     expect(r.resume).not.toMatch(/08[:h]00/);
-    expect(r.publications_ovpf[0]).toMatchObject({ date: "25/10 08:02 heure de La Réunion", texte: "Publication en 3 images, sans texte", lien, image: true, a_lire: A_LIRE_LU });
+    // « sans légende »: a text is quoted (marketing).
+    expect(r.publications_ovpf[0]).toMatchObject({ date: "25/10 08:02 heure de La Réunion", texte: "Publication en 3 images, sans légende", lien, image: true, a_lire: A_LIRE_LU });
     expect(r.publications_ovpf[0].texte_lu_dans_l_image.split("\n\n")).toEqual((stored as { paragraphes: string[] }).paragraphes);
     // Read once: kept in the cache, KV is not asked again.
     await volcanSeismes(c, now);
@@ -123,10 +124,24 @@ describe("the text read, in the answers", () => {
     const v = await buildVolcan(c, now);
     const html = volcanPage("https://rundata.re", { value: v, fetchedAt: now, stale: false }, now).replace(/&#39;/g, "'");
     expect(html).toContain(`${enImagesLuesApres("25/10", "08:02")} : <a href="${lien}">la voir</a>.</p>`);
-    expect(html).toContain(`<p>Publication en 3 images, sans texte</p><details><summary>${LU_DANS_L_IMAGE}</summary><p>Retour sur l’intrusion du 24 octobre 2026.`);
+    expect(html).toContain(`<p>Publication en 3 images, sans légende</p><details><summary>${LU_DANS_L_IMAGE}</summary><p>Retour sur l’intrusion du 24 octobre 2026.`);
     expect(html).toContain(`<p>Niveau d'alerte en cours : Alerte 1</p></details><p><a href="${lien}">Voir les images sur Bluesky →</a></p>`);
     const demo = demos({ volcan: { value: v, fetchedAt: now, stale: false } } as unknown as HomeLive, now).find((d) => d.call === "volcan_seismes()")!;
-    expect(demo.answer.replace(/&#39;/g, "'")).toContain(`${enImagesLuesApres("25/10", "08:02")} : <a href="${lien}">la voir</a>.`);
+    // The demo does not quote the text: where it is.
+    expect(demo.answer.replace(/&#39;/g, "'")).toContain(`${enImagesLuesAilleurs("25/10", "08:02")} : <a href="${lien}">la voir</a>.`);
+  });
+
+  it("is quoted after what the post is, out of an alert, cut at a word", async () => {
+    // The same release, had it been given in vigilance.
+    const vigilance = { ...stored, niveau_lu: "Niveau d'alerte : Vigilance", paragraphes: ["Court texte.", "Niveau d'alerte : Vigilance"] } as ocr.Stocke;
+    ocr.configure(async () => vigilance);
+    const r = body(await volcanSeismes(cache(false), now));
+    expect(r.resume).toContain(`Dernière publication de l'OVPF, le 25/10 à 08:02 : 3 images, sans légende. ${LU_DANS_L_IMAGE} : « Court texte. Niveau d'alerte : Vigilance » (${lien}). ${IMAGE_LUE_APRES}`);
+    ocr.configure(async () => stored);
+    const long = body(await volcanSeismes(cache(), now)).resume as string;
+    const quoted = long.slice(long.indexOf(`${LU_DANS_L_IMAGE} : « `) + LU_DANS_L_IMAGE.length + 5, long.indexOf(" »", long.indexOf(LU_DANS_L_IMAGE)));
+    expect(quoted.length).toBeLessThanOrEqual(401);
+    expect(quoted).toMatch(/\S…$/);
   });
 
   it("is not said when the level it gives is not the one known, nor when nothing was read", async () => {
