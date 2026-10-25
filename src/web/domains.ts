@@ -8,6 +8,7 @@ import { enLigne } from "./associations-drapeau.js";
 import { OVPF, PREFECTURE } from "../providers/volcan.js";
 import { enImagesApres, enImagesLuesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, LOCALISES, LU_DANS_L_IMAGE, NIVEAU_ILLISIBLE, NON_ANNONCEE, ORSEC_BAN, ovpfNiveau, pitonLines, VIGILANCE_ENCLOS } from "../tools/volcan.js";
 import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
+import { PATH as SANS_REPONSE } from "./sans-reponse.js";
 import { alertSections, alerteVolcan, ENCLOS, SEULES, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import { ACCUEILS, AGENDAS } from "../providers/agenda.js";
@@ -190,6 +191,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
               (e.niveau_definition ? ` <span class="note">${esc(e.niveau_definition)}</span>` : "") +
               (!e.eruption_en_cours && e.derniere_eruption ? ` Dernière éruption : <b>${esc(historique.derniereEruptionDates(e.derniere_eruption))}</b>, selon l'<a href="${esc(e.derniere_eruption.lien)}" rel="noopener">OVPF</a>.` : "") +
               `</p>`) +
+          // The IPGP's site silent, under the state it may leave out (marketing), with the list of the silent sites.
+          (d.injoignable ? `<p class="note">${esc(d.injoignable)} <a href="${SANS_REPONSE}">Voir les sites sans réponse</a>.</p>` : "") +
           ovpf + piton +
           (a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : `<p class="lead">${enclosSaid(e.acces_enclos ?? {})}</p>`) +
           (e.image_ovpf_plus_recente && !folded ? `<p class="lead">${esc(apres)}</p>` : "")

@@ -392,7 +392,9 @@ export async function phase(cache: Cache, now = Date.now()): Promise<Cached<Phas
     return { ...read, value: p };
   }
   const kept = await keptPhase(cache, now);
-  if (kept) return kept;
+  // The releases read, none declaring a phase: the kept one is not a copy for a silent source (tools/volcan.ts says
+  // the prefecture read on it).
+  if (kept) return "err" in read || read.stale ? kept : { ...kept, stale: false };
   if ("err" in read) throw read.err;
   return read;
 }

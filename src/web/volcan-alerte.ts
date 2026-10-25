@@ -177,7 +177,6 @@ export const OVPF_LINKS = [
   { nom: "Facebook : ObsVolcanoPitonFournaise", url: OVPF_FACEBOOK },
   { nom: "X : @obsfournaise", url: "https://x.com/obsfournaise" },
 ];
-export const IPGP_INDISPONIBLE = "Le site de l'OVPF (IPGP) est momentanément indisponible : ses annonces restent publiées sur ses réseaux.";
 
 const ABOUT_VOLCANO = /fournaise|volcan|enclos|[ée]ruption/i;
 
@@ -197,7 +196,7 @@ export function alertSections(a: VolcanAlerte, news: ActualitesAnswer | undefine
       `<p><a href="${esc(a.communique.lien)}">${esc(a.communique.titre)}</a></p></div>`
     : "";
   const ovpf = `<div class="card"><h3>Les annonces de l'Observatoire volcanologique (OVPF)</h3><ul class="plain">` +
-    OVPF_LINKS.map((l) => `<li><a href="${esc(l.url)}">${esc(l.nom)}</a></li>`).join("") + `</ul><p class="note">${esc(IPGP_INDISPONIBLE)}</p></div>`;
+    OVPF_LINKS.map((l) => `<li><a href="${esc(l.url)}">${esc(l.nom)}</a></li>`).join("") + `</ul></div>`;
   const heads = mediaHeadlines(news);
   const media = `<section aria-labelledby="h-medias"><div class="sec-h"><h2 id="h-medias">Ce que disent les médias de l'île</h2>` +
     `<p>Titres repris tels quels, avec leur heure : selon les médias, pas une source officielle.</p></div>` +

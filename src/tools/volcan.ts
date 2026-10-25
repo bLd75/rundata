@@ -1,10 +1,11 @@
-import type { Cache } from "../cache.js";
+import type { Cache, Cached } from "../cache.js";
 import { localTime } from "../geo.js";
 import * as seismes from "../providers/seismes.js";
 import type * as onf from "../providers/sentiers.js";
 import * as historique from "./volcan-historique.js";
 import * as ocr from "../providers/ovpf-ocr.js";
 import * as volcan from "../providers/volcan.js";
+import { etatHote, jour as jourDe, jourHeure, type Public } from "../sans-reponse.js";
 import { why } from "../types.js";
 import { credits, fr, text } from "./format.js";
 import { acces, definition, libelle, lineText } from "./volcan-acces.js";
@@ -60,13 +61,29 @@ export const enclosWordsSaid = (mots: string, du: string) => `Accès à l'Enclos
 // An alert's ban when its release says nothing of the Enclos: the level the release's, the ban the plan's (marketing).
 export const ORSEC_BAN = "accès à l'Enclos interdit à ce niveau (dispositif ORSEC Volcan)";
 
-async function settle<T>(source: string, p: Promise<{ value: T }>): Promise<T | null> {
+async function settle<T>(source: string, p: Promise<Cached<T>>): Promise<Cached<T> | null> {
   try {
-    return (await p).value;
+    return await p;
   } catch (err) {
     console.error(`source ${source} indisponible:`, why(err));
     return null;
   }
+}
+
+/**
+ * The OVPF-IPGP's site listed as silent (sans-reponse.ts, rechecked every morning), in marketing's words: since when,
+ * the last recheck, what may be missing here. What is still read is said only of the sources whose last read answered.
+ */
+export function ipgpMuet(l: Public, lus: { bluesky: boolean; prefecture: boolean }, now: Date): string {
+  // /sites-sans-reponse's words for a site that answers, but not to our reads (statutEnMots).
+  const depuis = l.statut === "bloque" ? `répond, mais pas à nos lectures, depuis le ${jourDe(l.premier_echec)}` : `n'a pas répondu depuis le ${jourDe(l.premier_echec)}`;
+  // « aujourd'hui à 06:02 » the same day, as lu_le.
+  const t = l.dernier_essai;
+  const essai = t ? ` (dernier essai ${jourDe(t) === jourDe(now.getTime() / 1000) ? `aujourd'hui à ${jourHeure(t).split(" à ")[1]}` : `le ${jourHeure(t)}`})` : "";
+  const encore = lus.bluesky && lus.prefecture
+    ? "ses publications sur Bluesky et les communiqués de la préfecture, eux, sont lus"
+    : lus.bluesky ? "ses publications sur Bluesky, elles, sont lues" : lus.prefecture ? "les communiqués de la préfecture, eux, sont lus" : "";
+  return `Le site de ${l.nom} ${depuis}${essai}. Un communiqué ou un bulletin de l'observatoire publié depuis peut manquer ici${encore ? `\u00a0; ${encore}` : ""}.`;
 }
 
 // Worded by marketing, under the counts: the catalogue holds the located events only, far fewer in a seismic crisis.
@@ -244,13 +261,18 @@ function enclosOf(o: Officiel) {
 }
 
 export async function volcanSeismes(cache: Cache, now = new Date()) {
-  const [piton, posts, quakes, phase] = await Promise.all([
+  const [piton, read, seen, given0, silent] = await Promise.all([
     // With its time: pitonlive's line says when we read it (marketing).
     volcan.state(cache).catch((err: unknown) => (console.error(`source ${volcan.PITONLIVE.id} indisponible:`, why(err)), null)),
     settle(volcan.OVPF.id, volcan.posts(cache)),
     settle(seismes.SOURCE.id, seismes.seismes(cache, now)),
     settle(volcan.PREFECTURE.id, volcan.phase(cache)),
+    // The IPGP's site as /sites-sans-reponse shows it, from the same copy (15 minutes): never read here.
+    etatHote(cache, "ipgp.fr").catch((err: unknown) => (console.error("volcan : état du site de l'IPGP illisible:", why(err)), undefined)),
   ]);
+  const [posts, quakes, phase] = [read?.value ?? null, seen?.value ?? null, given0?.value ?? null];
+  // Said while it is listed, until the recheck finds it back; the table absent, nothing.
+  const ipgp = silent && silent.statut !== "revenu" ? ipgpMuet(silent, { bluesky: !!read && !read.stale, prefecture: !!given0 && !given0.stale }, now) : undefined;
   // The ONF's map as another page last read it, never built here (a read).
   const carte = await cache.peek<onf.Carte>("onf:sentiers").catch(() => undefined);
   if (!piton && !posts && !quakes && !phase) {
@@ -313,6 +335,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
           // Never on our word: what the texts read say (marketing).
           : NON_ANNONCEE,
   );
+  if (ipgp) parts.push(ipgp);
   if (o.niveauOvpf) parts.push(ovpfNiveau(niveau!, atTime(o.niveauOvpf.date), o.niveauOvpf.lien));
   if (given) parts.push(`Communiqué de la préfecture du ${dayOf(given.jour)} : « ${given.titre} » (${given.lien}).`);
   parts.push(unknown ? NIVEAU_ILLISIBLE : `Niveau du dispositif ORSEC volcan : ${niveau}.`);
@@ -389,6 +412,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
         }))
       : "indisponible",
     seismes: q ?? "indisponible",
+    ...(ipgp && { injoignable: ipgp }),
     avertissements: [OFFICIAL],
     // The IPGP's site is offline (25/10/2026): the OVPF's own accounts instead.
     consulter: ["https://www.reunion.gouv.fr", volcan.OVPF.url, volcan.OVPF_FACEBOOK],

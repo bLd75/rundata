@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { parse, where } from "../src/providers/seismes.js";
 import type { Info } from "../src/providers/actualites.js";
@@ -7,6 +7,7 @@ import { activityPosts, phaseOf } from "../src/providers/volcan.js";
 import { A_LIRE, quakeSummary, volcanSeismes } from "../src/tools/volcan.js";
 import { buildVolcan } from "../src/web/data.js";
 import { volcanPage } from "../src/web/domains.js";
+import { esc } from "../src/web/map.js";
 import { demos, type HomeLive } from "../src/web/home.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
@@ -14,11 +15,13 @@ const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.me
 const NOW = new Date("2026-10-22T23:20:00Z");
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 
-function cacheWith(posts = activityPosts(JSON.parse(fixture("ovpf_bluesky.json")))) {
+/** `more`: other copies, read at NOW; `old`: the copies read two days before, to be asked again. */
+function cacheWith(posts = activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), more: Record<string, unknown> = {}, old: string[] = []) {
   const store = new MemoryStore();
   const t = NOW.getTime();
+  for (const [k, value] of Object.entries(more)) void store.put(k, { value, fetchedAt: t });
   void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
-  void store.put("volcan:ovpf", { value: posts, fetchedAt: t });
+  void store.put("volcan:ovpf", { value: posts, fetchedAt: old.includes("volcan:ovpf") ? t - 2 * 86_400_000 : t });
   void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
   void store.put("volcan:prefecture", { value: null, fetchedAt: t });
   // The last phase the prefecture declared, kept: back to vigilance in May, before pitonlive's status of October.
@@ -176,6 +179,43 @@ describe("volcano", () => {
     expect(r.resume).toContain("11 sous le volcan (magnitude max 1)");
     // pitonlive.com said nowhere, so not credited.
     expect(r.sources.map((s: { source: string }) => s.source)).toHaveLength(3);
+  });
+
+  it("says the IPGP's site silent as /sites-sans-reponse lists it, right after the state, and only the sources read", async () => {
+    // As sans-reponse.ts keeps its rows: silent since 21/10, asked again on 22/10 at 06:02.
+    const ipgp = (statut: string) => ({ "sans-reponse": { lignes: [{ hote: "ipgp.fr", url: "https://www.ipgp.fr/", nom: "l'OVPF-IPGP", theme: "Volcan", manque: null, page: "/volcan", sources: [], statut, premier_echec: 1792526400, dernier_essai: 1792634520, constat: "delai", revenu_le: null, n403: 0, verifier: null }] } });
+    const said = "Le site de l'OVPF-IPGP n'a pas répondu depuis le 21/10 (dernier essai le 22/10 à 06:02). Un communiqué ou un bulletin de l'observatoire publié depuis peut manquer ici\u00a0; ses publications sur Bluesky et les communiqués de la préfecture, eux, sont lus.";
+    const r = body(await volcanSeismes(cacheWith(undefined, ipgp("injoignable")), NOW));
+    expect(r.injoignable).toBe(said);
+    expect(r.resume).toMatch(/^L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus\. Le site de l'OVPF-IPGP n'a pas répondu depuis le 21\/10 /);
+    const html = volcanPage("https://rundata.re", { value: r, fetchedAt: NOW, stale: false }, NOW);
+    expect(html).toContain(`<p class="note">${esc(said)} <a href="/sites-sans-reponse">Voir les sites sans réponse</a>.</p>`);
+    // Under the state line, above what follows it.
+    expect(html.indexOf("Niveau du dispositif ORSEC volcan")).toBeLessThan(html.indexOf("Le site de l&#39;OVPF-IPGP"));
+
+    // What did not answer this time is not said to be read: the Bluesky feed silent, its last copy shown.
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("timeout");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const x = body(await volcanSeismes(cacheWith(undefined, ipgp("injoignable"), ["volcan:ovpf"]), NOW));
+      expect(x.injoignable).toBe("Le site de l'OVPF-IPGP n'a pas répondu depuis le 21/10 (dernier essai le 22/10 à 06:02). Un communiqué ou un bulletin de l'observatoire publié depuis peut manquer ici\u00a0; les communiqués de la préfecture, eux, sont lus.");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+    // Answering, but not to our reads, in /sites-sans-reponse's words; asked again the same day: « aujourd'hui ».
+    expect(body(await volcanSeismes(cacheWith(undefined, ipgp("bloque")), NOW)).injoignable).toMatch(/^Le site de l'OVPF-IPGP répond, mais pas à nos lectures, depuis le 21\/10 \(dernier essai le 22\/10 à 06:02\)\. /);
+    const sameDay = new Date("2026-10-22T05:00:00Z");
+    expect(body(await volcanSeismes(cacheWith(undefined, ipgp("injoignable")), sameDay)).injoignable).toContain("(dernier essai aujourd'hui à 06:02)");
+
+    // Back, unknown, or the table absent: nothing.
+    for (const more of [ipgp("revenu"), { "sans-reponse": { lignes: [] } }, {}]) {
+      const x = body(await volcanSeismes(cacheWith(undefined, more), NOW));
+      expect(x.injoignable).toBeUndefined();
+      expect(x.resume).not.toContain("OVPF-IPGP n'a pas");
+    }
   });
 
   it("leaves out the last eruption's dates once the OVPF posts a newer end, for check-sources to say", async () => {

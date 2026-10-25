@@ -78,9 +78,10 @@ describe("the volcano put forward during an alert", () => {
     expect(page).toContain("<h3>Accès à l&#39;Enclos interdit.</h3><p>Seules comptent les consignes de la préfecture et de l&#39;OVPF.</p>");
     expect(page).toContain("Le communiqué de la préfecture");
     expect(page).toContain('href="https://x.com/obsfournaise"');
-    // The IPGP's site is offline (25/10/2026): the OVPF's Bluesky and Facebook, and no link to ipgp.fr.
+    // The OVPF's Bluesky and Facebook, and no link to ipgp.fr; whether its site answers is said by /sites-sans-reponse's
+    // state only (tools/volcan.ts `ipgpMuet`), never by a sentence written in advance.
     for (const u of ["https://bsky.app/profile/ovpf.bsky.social", "https://www.facebook.com/ObsVolcanoPitonFournaise"]) expect(page).toContain(`href="${u}"`);
-    expect(page).toContain("Le site de l&#39;OVPF (IPGP) est momentanément indisponible");
+    expect(page).not.toContain("momentanément indisponible");
     expect(page).not.toContain("ipgp.fr/fr/ovpf");
     expect((v as unknown as { consulter: string[] }).consulter).toEqual(["https://www.reunion.gouv.fr", "https://bsky.app/profile/ovpf.bsky.social", "https://www.facebook.com/ObsVolcanoPitonFournaise"]);
     expect(page).toContain("Pas encore d'article des médias de l'île sur cette alerte.");
