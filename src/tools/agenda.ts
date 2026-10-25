@@ -150,8 +150,9 @@ type Got = { agenda: src.Agenda; value?: Cached<src.Evenement[]> };
 // left out and named, and stored once it lands, after the response.
 const DEADLINE_MS = 5_000;
 // The subrequests not to be spent on the agendas: what follows them (the news's copy, the bundle's write, the page's
-// copy) and one more, within the invocation's budget (budget.ts). An agenda past them is answered from its last copy,
-// or named, and read by a later question.
+// copy) and one more, within the invocation's budget (budget.ts); for a question, that one is the read of the scheduled
+// event's copies in KV, once a minute. An agenda past them is answered from its last copy, or named, and read by a
+// later question.
 const KEEP_LEFT = 4;
 
 // How often the scheduled event reads its agendas again, unless an agenda says otherwise (`relecture`).
@@ -173,12 +174,14 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
     return e && { value: e.value as src.Evenement[], fetchedAt: new Date(e.fetchedAt), stale: true };
   };
   let allowed = left() - KEEP_LEFT;
+  // Once the agendas' share is set: this read is KEEP_LEFT's one more.
+  const planifiees = await src.planifiees(cache);
   // The subrequests go first to the agendas without a copy, then to the oldest. Those of the scheduled event are never
   // read here: their copy while young enough, else nothing, and nothing said (not this invocation's to read). Their
-  // entry stays in the bundle as read, written back with the others.
+  // copies are in KV (src.PLANIFIES), written by the scheduled event only.
   const age = (a: src.Agenda) => bundle.peek(key(a))?.ageMs ?? Infinity;
   const order = src.AGENDAS.filter((a) => !a.planifie).sort((x, y) => age(y) - age(x));
-  const planned = src.AGENDAS.filter((a) => a.planifie).map((agenda): Got => ({ agenda, value: src.copiePlanifiee(bundle, agenda) }));
+  const planned = src.AGENDAS.filter((a) => a.planifie).map((agenda): Got => ({ agenda, value: src.copiePlanifiee(planifiees, agenda) }));
   const store = (a: src.Agenda): src.AgendaStore => ({
     get: <T>(k: string, freshSeconds: number, load: () => Promise<T>) => {
       const hit = bundle.peek(k);
@@ -212,8 +215,8 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
       clearTimeout(timer);
     }
   }));
-  // An agenda no longer read is not kept.
-  bundle.drop((k) => src.AGENDAS.some((a) => key(a) === k));
+  // An agenda no longer read here is not kept (nor the scheduled event's copies, once kept in this bundle).
+  bundle.drop((k) => src.AGENDAS.some((a) => !a.planifie && key(a) === k));
   const save = () => bundle.save().catch((err) => console.error("agendas : copie impossible", why(err)));
   if (pending.length) later(Promise.allSettled(pending).then(save));
   else await save();
@@ -222,9 +225,9 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
 
 /**
  * The scheduled event's last part: the agendas read only there (`planifie`) whose copy is an hour old (or as old as
- * their `relecture`), each only if what is left pays for its reading and the bundle's write; the bundle written once,
- * and only if one was read. A reading that fails, or that finds nothing where the copy had events, keeps the copy and
- * its time.
+ * their `relecture`), each only if what is left pays for its reading and the bundle's write; the bundle (in KV,
+ * src.PLANIFIES) written once, and only if one was read. A reading that fails, or that finds nothing where the copy had
+ * events, keeps the copy and its time.
  */
 export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ lus: string[]; gardes: string[]; reportes: string[]; trop_vieilles: string[] }> {
   // `trop_vieilles`: not read again this time, and their copy, older than PLANIFIE_MAX_AGE_SECONDS, no longer served.
@@ -235,7 +238,7 @@ export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ 
     out.reportes = planned.map((a) => a.id);
     return out;
   }
-  const bundle = await cache.bundle(src.BUNDLE, src.BUNDLE_SYNC_SECONDS);
+  const bundle = await src.planifiees(cache);
   const direct: src.AgendaStore = { get: async (_k, _s, load) => ({ value: await load(), fetchedAt: now, stale: false }) };
   for (const agenda of planned) {
     const old = bundle.peek(`agenda:${agenda.id}`);
