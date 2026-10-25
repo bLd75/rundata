@@ -178,9 +178,10 @@ export function homeCard(a: VolcanAlerte): string {
 }
 
 /** The home tile's figure and line during an alert. */
-export function tileLive(a: VolcanAlerte): { valeur: string; detail: string } {
-  if (a.hausse) return { valeur: esc(`« ${a.hausse.pitonlive} »`), detail: esc(`selon pitonlive.com · préfecture : ${a.hausse.prefecture}`) };
-  if (pitonOnly(a)) return { valeur: esc(`« ${nb(a.niveau!)} »`), detail: "selon pitonlive.com" };
+export function tileLive(a: VolcanAlerte): { valeur: string; detail: string; source?: string } {
+  // pitonlive's level, in the hero too, with its source on the line under it (marketing).
+  if (a.hausse) return { valeur: esc(`« ${a.hausse.pitonlive} »`), detail: esc(`selon pitonlive.com · préfecture : ${a.hausse.prefecture}`), source: "selon pitonlive.com" };
+  if (pitonOnly(a)) return { valeur: esc(`« ${nb(a.niveau!)} »`), detail: "selon pitonlive.com", source: "selon pitonlive.com" };
   return a.eruption
     ? { valeur: "Éruption en cours", detail: [a.niveau ? esc(level(a)) : "", "Enclos interdit"].filter(Boolean).join(" · ") }
     // No quotes, for room (marketing).

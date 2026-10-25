@@ -56,7 +56,7 @@ describe("the located earthquakes per day under the volcano", () => {
     expect(html).toContain(`<p class="note">Seuls les séismes localisés par l&#39;OVPF sont comptés ici : ce n&#39;est pas le nombre total de séismes enregistrés.</p>`);
     expect(html).toContain("Séismes localisés par l'OVPF sous le volcan : <b>");
     expect(html).not.toMatch(/séismes sous le volcan/i);
-    expect(html).toContain("Déformation du volcan : inflation (communiqué du 24/09).");
+    expect(html).toContain("Déformation du volcan : inflation (communiqué de l&#39;OVPF du 24/09, selon pitonlive.com).");
     // At most 10 a day, the scale stays at 10: one event is a tenth of the chart.
     const one = { ...r, seismes: { ...r.seismes, par_jour_sous_le_volcan: perDay([quake("2026-10-22T10:00:00.000Z")], NOW) } };
     const small = volcanPage("https://rundata.re", { value: one, fetchedAt: NOW, stale: false }, NOW);

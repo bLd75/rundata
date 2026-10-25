@@ -1,10 +1,10 @@
 {
- "resume": "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Niveau du dispositif ORSEC volcan : Vigilance. Dernière éruption terminée le 12/04 (il y a 193 jours). Accès à l'Enclos : « partiel » selon pitonlive.com (source : Préfecture de La Réunion, arrêté n° 2026-627 du 7 mai 2026). Dernière publication de l'OVPF sur l'activité (05/10) : « Bulletin mensuel OVPF-IPGP – Septembre 2026 📈 Persistance de l'inflation du Piton de la Fournaise. 📊 Augmentation de l'activité sismique superficiel > Témoins d'une mise en pression du réservoir superficiel Toutes les … » Séismes localisés par l'OVPF en 30 jours : 11 sous le volcan (magnitude max 1), dont 2 ces 7 derniers jours ; 6 ailleurs sur l'île.",
+ "resume": "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com. Niveau du dispositif ORSEC volcan : Vigilance. Dernière éruption terminée le 12/04 selon pitonlive.com (il y a 193 jours). Accès à l'Enclos : « partiel » selon pitonlive.com (source : Préfecture de La Réunion, arrêté n° 2026-627 du 7 mai 2026). Dernière publication de l'OVPF sur l'activité (05/10) : « Bulletin mensuel OVPF-IPGP – Septembre 2026 📈 Persistance de l'inflation du Piton de la Fournaise. 📊 Augmentation de l'activité sismique superficiel > Témoins d'une mise en pression du réservoir superficiel Toutes les … » Séismes localisés par l'OVPF en 30 jours : 11 sous le volcan (magnitude max 1), dont 2 ces 7 derniers jours ; 6 ailleurs sur l'île.",
  "etat": {
   "eruption_en_cours": false,
   "niveau_orsec": "Vigilance",
   "derniere_eruption_fin": "2026-04-12T19:10:00+00:00",
-  "deformation": "Inflation (communiqué du 24/09)",
+  "deformation": "inflation (communiqué de l'OVPF du 24/09, selon pitonlive.com)",
   "acces_enclos": {
    "statut": "partiel",
    "detail": "Réouverture PARTIELLE de l'enclos (retour en phase de vigilance ORSEC depuis le 7 mai 2026). L'accès à la partie haute n'est autorisé que sur deux sentiers : Pas de Bellecombe–Formica Léo–Rivals–Cratère Caubet, et Pas de Bellecombe–Formica Léo–site d'observation du Cratère Dolomieu (accès par le nord). Le sentier Kapor reste interdit (partiellement recouvert par la coulée de 2026). Tunnels de lave de 2007 autorisés ; tunnels de 2004 autorisés depuis le 6 mai 2026. La limite Nord de la coulée 2026 est accessible par le sentier des Laves depuis la RN2 (Chemin de pêcheur du Grand Cap). Ceci ne signifie pas que tout l'Enclos est ouvert : respectez strictement l'arrêté n°2026-627 et le balisage de l'ONF.",
