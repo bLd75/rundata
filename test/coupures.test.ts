@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { communesIn, cut, extract, parseCirest, parseCreole, parseNotice, parseRss, parseSaintLeu, parseSainteMarie, sectorList, textOf } from "../src/providers/avis-eau.js";
+import { communesIn, cut, extract, operatorOf, parseCirest, parseCreole, parseNotice, parseRss, parseSaintLeu, parseSainteMarie, sectorList, textOf } from "../src/providers/avis-eau.js";
 import { coupuresEau, noticeRow } from "../src/tools/coupures.js";
 import { coupuresCommunePage, waterLive } from "../src/web/coupures.js";
 import { buildCoupures } from "../src/web/data.js";
@@ -71,6 +71,22 @@ describe("coupures d'eau", () => {
       expect(n.texte.includes(" […]")).toBe(!!n.extrait_coupe);
       if (back) expect(back).toMatch(/^ (La remise en (eau|service)|Le rétablissement) /);
     }
+  });
+
+  it("puts each CIREST notice under the distributor it names, else under the CIREST alone, never one deduced", () => {
+    const cirest = parseCirest(JSON.parse(fixture("cirest.json")));
+    const of = (titre: RegExp) => cirest.find((n) => titre.test(n.titre))!.distributeur;
+    // The ARS names runéo for Bras-Panon, O2LEST for Salazie; the notices say who writes them.
+    expect(of(/^Bras-Panon : coupure/)).toBe("CIREST / runéo");
+    expect(of(/^Salazie : Incident/)).toBe("CIREST / CISE Réunion");
+    expect(of(/^Saint-André : Lavage/)).toBe("CIREST / CISE Réunion");
+    // « Des travaux de réparation d'une fuite… »: no distributor named.
+    expect(of(/^Salazie : coupure d.eau ce 22/)).toBe("CIREST");
+    expect(cirest.map((n) => n.distributeur)).not.toContain("CIREST / O2LEST");
+    expect(operatorOf("La CIREST informe les habitants qu'un incident signalé par CISE REUNION…")).toBe("CISE Réunion");
+    expect(operatorOf("Runéo informe ses clients de BRAS-PANON")).toBe("runéo");
+    expect(operatorOf("O2LEST informe ses abonnés")).toBe("O2LEST");
+    expect(operatorOf("La CIREST informe les habitants")).toBeUndefined();
   });
 
   it("reads the hours of CISE Réunion's notices, the end in the sentence of the return of the water", () => {
@@ -258,7 +274,7 @@ describe("coupures d'eau", () => {
     });
     const b = body(await coupuresEau(cache(), undefined, NOW));
     expect(b.ne_pas_boire).toEqual(["La Plaine-des-Palmistes", "Saint-Pierre", "Salazie"]);
-    expect(b.couverture).toBe("Avis lus pour Bras-Panon, La Plaine-des-Palmistes, La Possession, Le Port, Les Trois-Bassins, Saint-André, Saint-Benoît, Saint-Denis, Saint-Leu, Saint-Louis, Saint-Paul, Saint-Pierre, Sainte-Marie, Sainte-Rose, Sainte-Suzanne et Salazie (Dionéo, runéo, Eaux de La Possession, La Créole, CISE Réunion par la CIREST et par la ville de Sainte-Marie, Derichebourg Aqua OI par la commune de Saint-Leu)\u00a0: une coupure que ces sources n'annoncent pas n'apparaît pas ici. Ailleurs, voir la mairie ou le distributeur.");
+    expect(b.couverture).toBe("Avis lus pour Bras-Panon, La Plaine-des-Palmistes, La Possession, Le Port, Les Trois-Bassins, Saint-André, Saint-Benoît, Saint-Denis, Saint-Leu, Saint-Louis, Saint-Paul, Saint-Pierre, Sainte-Marie, Sainte-Rose, Sainte-Suzanne et Salazie (Dionéo, runéo, Eaux de La Possession, La Créole, la CIREST pour ses six communes, CISE Réunion par la ville de Sainte-Marie, Derichebourg Aqua OI par la commune de Saint-Leu)\u00a0: une coupure que ces sources n'annoncent pas n'apparaît pas ici. Ailleurs, voir la mairie ou le distributeur.");
     const value = await buildCoupures(cache(), NOW);
     expect(value.communes_suivies).toEqual(expect.arrayContaining(["Le Port", "Saint-Louis", "Saint-Pierre", "Sainte-Suzanne"]));
     const sp = island.paths.find((p: { nom: string }) => p.nom === "Saint-Pierre")!;
@@ -315,6 +331,12 @@ describe("coupures d'eau", () => {
     const later = new Date("2026-10-24T04:00:00Z");
     const now = { value: await buildCoupures(cache(), later), fetchedAt: later };
     expect(coupuresCommunePage("https://rundata.re", pageOf("saint-leu")!, { coupures: now }, later)).toMatch(/Aucun avis de coupure publié par la commune de Saint-Leu à \d\d:\d\d\./);
+    expect(coupuresCommunePage("https://rundata.re", pageOf("saint-leu")!, { coupures: now }, later)).toMatch(/content="Aucune coupure d&#39;eau annoncée par la commune de Saint-Leu \(974\) à \d\d:\d\d\./);
+    // The east: the CIREST publishes the notices read, not O2LEST, which the ARS names as the distributor.
+    const sa = coupuresCommunePage("https://rundata.re", pageOf("saint-andre")!, { coupures: now }, later);
+    expect(sa).toMatch(/content="Aucune coupure d&#39;eau annoncée par la CIREST à Saint-André \(974\) à \d\d:\d\d\./);
+    expect(sa).toContain("<b>O2LEST</b> distribue l'eau à Saint-André, d'après le contrôle sanitaire de l'ARS.");
+    expect(coupuresCommunePage("https://rundata.re", pageOf("sainte-marie")!, { coupures: now }, later)).toMatch(/content="Aucune coupure d&#39;eau annoncée par la ville de Sainte-Marie \(974\) à \d\d:\d\d\./);
   });
 
   it("gives, for a commune whose mairie is only linked to, where its notices are", async () => {
