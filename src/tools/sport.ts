@@ -436,7 +436,9 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
         titre: e.titre,
         dates: s.fin && s.fin !== s.debut ? `du ${quand(s.debut)} au ${quand(s.fin)}` : quand(s.debut),
         lien: e.lien,
-        source: e.publie_par,
+        /** « site de la commune de Saint-Benoît, lu le samedi 24/10 à 07:00 », as on the events. */
+        source: agenda.site_commune ? `${agenda.site_commune}, lu le ${quand(localClock(fetchedAt))}` : e.publie_par,
+        publie_par: e.publie_par,
         lu_le: quand(localClock(fetchedAt)),
         date: s.debut,
         agenda,

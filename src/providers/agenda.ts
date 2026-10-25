@@ -17,8 +17,11 @@
  * Each source cached on its own: one that fails leaves the others answering.
  *
  * The agendas of the mairies are public information (CRPA, art. L321-1): each event keeps its facts only, at most the
- * first sentence of its text, the name of who published it, a link to its page and the hour it was read. Each source
- * is one line of AGENDAS: taking it out stops its reading, its events, its credit and its coverage at once.
+ * first sentence of its text, the name of who published it, a link to its page and the hour it was read. Each says it
+ * comes from its commune's site, with that hour (art. L322-1, `site_commune`). Where the site's terms ask for an
+ * authorisation, not even the sentence (`faits`) until it is given; where they allow a link to the home page only, a
+ * link there (`accueil`). Each source is one line of AGENDAS: taking it out stops its reading, its events, its credit
+ * and its coverage at once.
  */
 import type { Bundle, Cache, Cached } from "../cache.js";
 import { getBytes, getText, httpUrl } from "../http.js";
@@ -110,6 +113,8 @@ export interface Evenement {
   billetterie?: string;
   /** When rundata.re read it, in local time: set by the tool from the agenda's copy, not by the source. */
   lu_le?: string;
+  /** « site de la commune du Tampon », when it comes from a commune's site: set by the tool from its agenda. */
+  site_commune?: string;
   /**
    * The club that publishes it, and the commune of its address (Sportsregions): for the sport tool, never said as the
    * event's place.
@@ -156,7 +161,22 @@ export const PLANIFIE_MAX_AGE_SECONDS = 48 * 3600;
 /** The copy of an agenda read by the scheduled event, if young enough to be served, with the time it was read. */
 export function copiePlanifiee(bundle: Pick<Bundle, "peek">, agenda: Agenda): Cached<Evenement[]> | undefined {
   const hit = bundle.peek(`agenda:${agenda.id}`);
-  return hit && hit.ageMs <= PLANIFIE_MAX_AGE_SECONDS * 1000 ? { value: hit.value as Evenement[], fetchedAt: new Date(hit.fetchedAt), stale: false } : undefined;
+  return hit && hit.ageMs <= PLANIFIE_MAX_AGE_SECONDS * 1000 ? { value: servis(agenda, hit.value as Evenement[]), fetchedAt: new Date(hit.fetchedAt), stale: false } : undefined;
+}
+
+/**
+ * An agenda's events as they may be shown, from its copy whatever its age: without their sentence (`faits`), linking to
+ * the home page (`accueil`). Applied where a copy is served, not where it is read, so that a copy read before its
+ * site's terms were known is served as they ask too.
+ */
+export function servis(agenda: Agenda, events: Evenement[]): Evenement[] {
+  if (!agenda.faits && !agenda.accueil) return events;
+  return events.map((e) => {
+    const out = { ...e };
+    if (agenda.faits) delete out.description;
+    if (agenda.accueil) out.lien = agenda.accueil;
+    return out;
+  });
 }
 
 export interface Agenda {
@@ -183,6 +203,15 @@ export interface Agenda {
    * hall: what the counter of /associations counts (web/associations.ts).
    */
   club?: boolean;
+  /**
+   * Read on its commune's own site: « site de la commune du Tampon », each of its events saying so with the hour it was
+   * read, and anything the site's terms ask to show with it (Le Port's « © www.ville-port.re »).
+   */
+  site_commune?: string;
+  /** Its site's terms ask for an authorisation to reproduce it: its events keep their facts, without their sentence. */
+  faits?: boolean;
+  /** Its site's terms allow a link to its home page only: this page, for each of its events. */
+  accueil?: string;
   /** One `cache.get("agenda:<id>", …)`, nothing else of the cache. */
   load: (cache: AgendaStore, now: Date) => Promise<Cached<Evenement[]>>;
 }
@@ -570,14 +599,14 @@ function news(id: string, nom: string, site: string, url: string, commune: strin
 
 const WP_NEWS = "/wp-json/wp/v2/posts?per_page=20&_fields=date,link,title,excerpt";
 export const ACTUS_MAIRIES: Agenda[] = [
-  news("saint_philippe", "Mairie de Saint-Philippe", "https://saintphilippe.re/", `https://saintphilippe.re${WP_NEWS}`, "Saint-Philippe",
-    (body, now) => parseWpNews(JSON.parse(body), "Mairie de Saint-Philippe", "Saint-Philippe", now)),
+  { ...news("saint_philippe", "Mairie de Saint-Philippe", "https://saintphilippe.re/", `https://saintphilippe.re${WP_NEWS}`, "Saint-Philippe",
+    (body, now) => parseWpNews(JSON.parse(body), "Mairie de Saint-Philippe", "Saint-Philippe", now)), site_commune: "site de la commune de Saint-Philippe", faits: true },
   // Its category « Actualité » (17): the others are notices.
-  news("cilaos", "Ville de Cilaos", "https://ville-cilaos.fr/", `https://ville-cilaos.fr${WP_NEWS}&categories=17`, "Cilaos",
-    (body, now) => parseWpNews(JSON.parse(body), "Ville de Cilaos", "Cilaos", now)),
+  { ...news("cilaos", "Ville de Cilaos", "https://ville-cilaos.fr/", `https://ville-cilaos.fr${WP_NEWS}&categories=17`, "Cilaos",
+    (body, now) => parseWpNews(JSON.parse(body), "Ville de Cilaos", "Cilaos", now)), site_commune: "site de la commune de Cilaos", faits: true },
   // Its feed of articles; not `?page=ical`, whose dates are the articles' publication, not events.
-  news("saint_joseph", "Ville de Saint-Joseph", "https://saintjoseph.re/", "https://saintjoseph.re/spip.php?page=backend", "Saint-Joseph",
-    (body, now) => parseSpipNews(body, "Ville de Saint-Joseph", "Saint-Joseph", now)),
+  { ...news("saint_joseph", "Ville de Saint-Joseph", "https://saintjoseph.re/", "https://saintjoseph.re/spip.php?page=backend", "Saint-Joseph",
+    (body, now) => parseSpipNews(body, "Ville de Saint-Joseph", "Saint-Joseph", now)), site_commune: "site de la commune de Saint-Joseph", faits: true },
 ];
 
 // ---------------------------------------------------------------- IntraMuros (La Possession)
@@ -910,10 +939,13 @@ export function parsePetiteIle(html: string, now: Date, nom = "Ville de Petite-�
 
 const ETANG_SALE = mairie("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations");
 const LA_POSSESSION = mairie("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda");
-const PETITE_ILE = mairie("petite_ile", "Ville de Petite-Île", "https://www.petite-ile.re/actualites/agenda/");
+// Credited by their home page, the only page their terms allow a link to; their agenda page is read.
+const PETITE_ILE = mairie("petite_ile", "Ville de Petite-Île", "https://www.petite-ile.re/");
+const PETITE_ILE_AGENDA = "https://www.petite-ile.re/actualites/agenda/";
 
 const BRAS_PANON = mairie("bras_panon", "Ville de Bras-Panon", "https://www.braspanon.re/fr/ev/2512733/agenda-1634");
-const SAINT_BENOIT = mairie("saint_benoit", "Ville de Saint-Benoît", "https://www.saint-benoit.re/evenements/general");
+const SAINT_BENOIT = mairie("saint_benoit", "Ville de Saint-Benoît", "https://www.saint-benoit.re/");
+const SAINT_BENOIT_AGENDA = "https://www.saint-benoit.re/evenements/general";
 const OTI_EST_SOURCE: SourceInfo = {
   id: "agenda_oti_est",
   nom: "Agenda de l'Office de tourisme intercommunal de l'Est (Côté Est Réunion)",
@@ -946,7 +978,7 @@ const saintBenoit: Agenda = {
   nom: "Ville de Saint-Benoît",
   source: SAINT_BENOIT,
   commune: "Saint-Benoît",
-  load: (cache, now) => cache.get("agenda:saint_benoit", FRESH_SECONDS, async () => parseSaintBenoit(await getText(SAINT_BENOIT.id, SAINT_BENOIT.url, TIMEOUT_MS, HEADERS), now)),
+  load: (cache, now) => cache.get("agenda:saint_benoit", FRESH_SECONDS, async () => parseSaintBenoit(await getText(SAINT_BENOIT.id, SAINT_BENOIT_AGENDA, TIMEOUT_MS, HEADERS), now)),
 };
 
 const otiEst: Agenda = {
@@ -962,7 +994,7 @@ const petiteIle: Agenda = {
   nom: "Ville de Petite-Île",
   source: PETITE_ILE,
   commune: "Petite-Île",
-  load: (cache, now) => cache.get("agenda:petite_ile", FRESH_SECONDS, async () => parsePetiteIle(await getText(PETITE_ILE.id, PETITE_ILE.url, TIMEOUT_MS, HEADERS), now)),
+  load: (cache, now) => cache.get("agenda:petite_ile", FRESH_SECONDS, async () => parsePetiteIle(await getText(PETITE_ILE.id, PETITE_ILE_AGENDA, TIMEOUT_MS, HEADERS), now)),
 };
 
 // ---------------------------------------------------------------- Bras-Panon, Saint-Benoît
@@ -1225,19 +1257,22 @@ export const SPORTSREGIONS: Agenda = {
     }),
 };
 
+// The terms of each commune's site, read on 25/10/2026: those that ask for an authorisation to reproduce it (`faits`),
+// those that allow a link to their home page only (`accueil`).
 export const AGENDAS: Agenda[] = [
-  tribe("saint_paul", "Mairie de Saint-Paul", "https://www.mairie-saintpaul.re", "Saint-Paul"),
-  tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port"),
-  tribe("trois_bassins", "Mairie des Trois-Bassins", "https://trois-bassins.re", "Les Trois-Bassins"),
-  rss("le_tampon", "Ville du Tampon", "https://letampon.fr/agenda/feed/", "Le Tampon"),
-  rss("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda/evenements?format=feed&type=rss", "Saint-Louis"),
-  rss("saint_andre", "Ville de Saint-André", "https://www.saint-andre.re/category/agenda/feed/", "Saint-André"),
+  { ...tribe("saint_paul", "Mairie de Saint-Paul", "https://www.mairie-saintpaul.re", "Saint-Paul"), site_commune: "site de la commune de Saint-Paul" },
+  // Its terms ask for « www.ville-port.re » on what is taken from it.
+  { ...tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port"), site_commune: "site de la commune du Port (©\u00a0www.ville-port.re)" },
+  { ...tribe("trois_bassins", "Mairie des Trois-Bassins", "https://trois-bassins.re", "Les Trois-Bassins"), site_commune: "site de la commune des Trois-Bassins" },
+  { ...rss("le_tampon", "Ville du Tampon", "https://letampon.fr/agenda/feed/", "Le Tampon"), site_commune: "site de la commune du Tampon", faits: true, accueil: "https://letampon.fr/" },
+  { ...rss("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda/evenements?format=feed&type=rss", "Saint-Louis"), site_commune: "site de la commune de Saint-Louis" },
+  { ...rss("saint_andre", "Ville de Saint-André", "https://www.saint-andre.re/category/agenda/feed/", "Saint-André"), site_commune: "site de la commune de Saint-André", faits: true },
   tribe("sechoir", "Le Séchoir", "https://www.lesechoir.com", "Saint-Leu", SALLES_SOURCE, "Le Séchoir"),
-  rss("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations?format=feed&type=rss", "L'Étang-Salé", ETANG_SALE),
-  intraMuros("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda/rss", "La Possession", LA_POSSESSION),
-  petiteIle,
-  brasPanon,
-  saintBenoit,
+  { ...rss("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations?format=feed&type=rss", "L'Étang-Salé", ETANG_SALE), site_commune: "site de la commune de L'Étang-Salé", faits: true },
+  { ...intraMuros("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda/rss", "La Possession", LA_POSSESSION), site_commune: "site de la commune de La Possession", faits: true },
+  { ...petiteIle, site_commune: "site de la commune de Petite-Île", faits: true, accueil: PETITE_ILE.url },
+  { ...brasPanon, site_commune: "site de la commune de Bras-Panon", faits: true },
+  { ...saintBenoit, site_commune: "site de la commune de Saint-Benoît", faits: true, accueil: SAINT_BENOIT.url },
   otiEst,
   openAgenda("cinor", "CINOR", 50316469, NORD),
   openAgenda("oti_nord", "Office de tourisme du Nord", 32570974, NORD),
@@ -1248,6 +1283,12 @@ export const AGENDAS: Agenda[] = [
   ...SALLES,
   PROPOSITIONS,
 ];
+
+/**
+ * The home pages some events link to instead of their own page (`accueil`): opened in a new window, as the terms of
+ * Petite-Île's and Saint-Benoît's sites ask.
+ */
+export const ACCUEILS = new Set(AGENDAS.flatMap((a) => (a.accueil ? [a.accueil] : [])));
 
 /**
  * The communes whose own agenda is read (the CINOR's for the North), or that have a hall whose programme is, besides
@@ -1282,8 +1323,8 @@ function programmesIn(bundle: Pick<Bundle, "peek">): { e: Evenement; agenda: Age
   const seen = new Set<string>();
   return AGENDAS.flatMap((agenda) => {
     const hit = bundle.peek(`agenda:${agenda.id}`);
-    return (hit ? (hit.value as Evenement[]) : [])
-      .filter((e) => programmeSportif(e) && !seen.has(e.lien) && seen.add(e.lien))
+    // Each once by its own link, before it may be replaced by the site's home page.
+    return servis(agenda, (hit ? (hit.value as Evenement[]) : []).filter((e) => programmeSportif(e) && !seen.has(e.lien) && seen.add(e.lien)))
       .map((e) => ({ e, agenda, fetchedAt: new Date(hit!.fetchedAt) }));
   });
 }

@@ -899,7 +899,7 @@ export interface SportAnswer {
   sources: Credit[];
   classements: { competition: string; lignes: sportSource.Rang[]; lien: string }[];
   grand_raid?: ReturnType<typeof grandRaidRow>;
-  programmes_communes?: { type: string; commune?: string; titre: string; dates: string; lien: string; source: string; lu_le: string }[];
+  programmes_communes?: { type: string; commune?: string; titre: string; dates: string; lien: string; source: string; publie_par: string; lu_le: string }[];
   programmes_a_savoir?: string;
 }
 

@@ -222,16 +222,17 @@ describe("sport", () => {
   it("links to the communes' sports programmes from the agendas' copy, without reading them", async () => {
     const b = body(await sportTool(withAgendas(), undefined, undefined, undefined, NOW));
     expect(b.programmes_communes).toEqual([
-      { type: "programme sportif de la commune", commune: "La Possession", titre: "Agenda sportif du 22 au 24 octobre", dates: "du jeudi 22/10 au samedi 24/10", lien: "https://www.lapossession.re/agenda/890500", source: "Ville de La Possession", lu_le: "samedi 24/10 à 07:00" },
-      { type: "programme sportif de la commune", commune: "L'Étang-Salé", titre: "Planning des compétitions sportives du 23 au 25 octobre 2026", dates: "du vendredi 23/10 au dimanche 25/10", lien: "https://www.letangsale.fr/planning", source: "Ville de L'Étang-Salé", lu_le: "samedi 24/10 à 07:00" },
-      { type: "programme sportif de la commune", commune: "Saint-Benoît", titre: "Agenda sportif", dates: "du vendredi 23/10 au dimanche 25/10", lien: "https://www.saint-benoit.re/evenements/articles/9592-agenda-sportif", source: "Ville de Saint-Benoît", lu_le: "samedi 24/10 à 07:00" },
+      { type: "programme sportif de la commune", commune: "La Possession", titre: "Agenda sportif du 22 au 24 octobre", dates: "du jeudi 22/10 au samedi 24/10", lien: "https://www.lapossession.re/agenda/890500", source: "site de la commune de La Possession, lu le samedi 24/10 à 07:00", publie_par: "Ville de La Possession", lu_le: "samedi 24/10 à 07:00" },
+      { type: "programme sportif de la commune", commune: "L'Étang-Salé", titre: "Planning des compétitions sportives du 23 au 25 octobre 2026", dates: "du vendredi 23/10 au dimanche 25/10", lien: "https://www.letangsale.fr/planning", source: "site de la commune de L'Étang-Salé, lu le samedi 24/10 à 07:00", publie_par: "Ville de L'Étang-Salé", lu_le: "samedi 24/10 à 07:00" },
+      { type: "programme sportif de la commune", commune: "Saint-Benoît", titre: "Agenda sportif", dates: "du vendredi 23/10 au dimanche 25/10", lien: "https://www.saint-benoit.re/", source: "site de la commune de Saint-Benoît, lu le samedi 24/10 à 07:00", publie_par: "Ville de Saint-Benoît", lu_le: "samedi 24/10 à 07:00" },
     ]);
     expect(b.programmes_a_savoir).toMatch(/ne lit pas ce document, il en donne seulement le lien/);
     expect(b.resume).toContain("3 programmes sportifs de commune (La Possession, L'Étang-Salé, Saint-Benoît), en lien seulement");
     expect(b.sources.map((s: { source: string }) => s.source)).toEqual(expect.arrayContaining(["Agenda de la Ville de La Possession", "Agenda de la Ville de L'Étang-Salé", "Agenda de la Ville de Saint-Benoît"]));
     const page = sportPage("https://rundata.re", { value: { ...b, classements: [] }, fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain("Programmes sportifs des communes");
-    expect(page).toContain(`<a href="https://www.saint-benoit.re/evenements/articles/9592-agenda-sportif" rel="noopener">Agenda sportif</a><small>Saint-Benoît · Ville de Saint-Benoît</small></span><span class="q-none">23/10 → 25/10</span>`);
+    // Its site's terms allow a link to its home page only, in a new window.
+    expect(page).toContain(`<a href="https://www.saint-benoit.re/" rel="noopener" target="_blank">Agenda sportif</a><small>Saint-Benoît · Source\u00a0: site de la commune de Saint-Benoît, lu le samedi 24/10 à 07:00</small></span><span class="q-none">23/10 → 25/10</span>`);
     // A commune's own; none for one sport, a club, or the results.
     expect(body(await sportTool(withAgendas(), undefined, "Saint-Benoît", "ce_week_end", NOW)).programmes_communes.map((p: { commune: string }) => p.commune)).toEqual(["Saint-Benoît"]);
     expect(body(await sportTool(withAgendas(), "volley", undefined, undefined, NOW)).programmes_communes).toBeUndefined();

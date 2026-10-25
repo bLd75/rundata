@@ -227,7 +227,9 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
   const save = () => bundle.save().catch((err) => console.error("agendas : copie impossible", why(err)));
   if (pending.length) later(Promise.allSettled(pending).then(save));
   else await save();
-  return src.AGENDAS.map((a) => [...got, ...planned].find((g) => g.agenda === a)!);
+  // As their sites' terms ask (the scheduled event's copies are already, by src.copiePlanifiee).
+  const served = got.map((g) => (g.value ? { ...g, value: { ...g.value, value: src.servis(g.agenda, g.value.value) } } : g));
+  return src.AGENDAS.map((a) => [...served, ...planned].find((g) => g.agenda === a)!);
 }
 
 /**
@@ -370,6 +372,8 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     publie_par: e.publie_par,
     /** When rundata.re read the agenda this comes from; not for an event its organiser proposed, never read elsewhere. */
     lu_le: e.lu_le && !e.propose ? dayText(e.lu_le) : undefined,
+    /** « site de la commune du Tampon, lu le samedi 24/10 à 08:00 », when it comes from a commune's site. */
+    source: e.site_commune && e.lu_le ? `${e.site_commune}, lu le ${dayText(e.lu_le)}` : undefined,
     /** Proposed by its organiser on rundata.re: said so, with the day, never « checked ». */
     propose: e.propose ? `Proposé par l'organisateur sur rundata.re le ${e.propose.le.split("-").reverse().join("/")}` : undefined,
     /** The contact its author chose to show, only then. */
@@ -453,7 +457,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const p = periode(quand, now);
   const what = matcher(quoi);
   // The communes' sports programmes go to the sport tool (src.programmesSportifs).
-  const all = withNews(unique(got.flatMap((g) => g.value ? g.value.value.filter((e) => !src.programmeSportif(e) && (adherent || !e.reserve_adherents)).map((e) => ({ ...e, lu_le: src.toLocal(g.value!.fetchedAt.toISOString()) })) : [])), news?.value.infos, now)
+  const all = withNews(unique(got.flatMap((g) => g.value ? g.value.value.filter((e) => !src.programmeSportif(e) && (adherent || !e.reserve_adherents)).map((e) => ({ ...e, lu_le: src.toLocal(g.value!.fetchedAt.toISOString()), site_commune: g.agenda.site_commune })) : [])), news?.value.infos, now)
     .map((e) => ({ e, seances: inPeriod(e, p, now) }))
     .filter((x) => x.seances.length && (!what || what.test(x.e)))
     .sort((x, y) => Number(spanDays(x.seances[0]) > LONG_DAYS) - Number(spanDays(y.seances[0]) > LONG_DAYS) ||

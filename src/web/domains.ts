@@ -10,7 +10,7 @@ import { enImagesApres, enImagesLuesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt
 import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { alertSections, alerteVolcan, ENCLOS, SEULES, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
-import { AGENDAS } from "../providers/agenda.js";
+import { ACCUEILS, AGENDAS } from "../providers/agenda.js";
 import { SOURCE as SALLES_SOURCE } from "../providers/salles.js";
 import type { Cached } from "../cache.js";
 import * as historique from "../tools/volcan-historique.js";
@@ -1875,7 +1875,7 @@ ${d?.programmes_communes?.length ? `<section aria-labelledby="h-prog">
   <div class="sec-h"><p class="eyebrow">Publiés par les mairies</p><h2 id="h-prog">Programmes sportifs des communes</h2>
   <p>${esc(d.programmes_a_savoir ?? "")}</p></div>
   <ul class="zones"><li class="card"><ul class="rows eau">${d.programmes_communes.map((p) =>
-    `<li><span><a href="${esc(p.lien)}" rel="noopener">${esc(p.titre)}</a><small>${esc([p.commune, p.source].filter(Boolean).join(" · "))}</small></span><span class="q-none">${esc(shortWhen(p.dates))}</span></li>`).join("")}</ul></li></ul>
+    `<li><span><a href="${esc(p.lien)}" rel="noopener"${ACCUEILS.has(p.lien) ? ' target="_blank"' : ""}>${esc(p.titre)}</a><small>${esc([p.commune, `Source\u00a0: ${p.source}`].filter(Boolean).join(" · "))}</small></span><span class="q-none">${esc(shortWhen(p.dates))}</span></li>`).join("")}</ul></li></ul>
 </section>` : ""}
 ${d?.resultats?.length ? `<section aria-labelledby="h-res">
   <div class="sec-h"><p class="eyebrow">Sept derniers jours</p><h2 id="h-res">Derniers résultats</h2></div>
@@ -2132,7 +2132,7 @@ export function agendaHours(q: string): string {
 
 function agendaRow(r: AgendaRow): string {
   const lieu = r.lieu && r.lieu.length > 80 ? `${r.lieu.slice(0, 79)}…` : r.lieu;
-  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.publie_par && r.lu_le ? `${r.publie_par}, lu ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
+  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.source ? `Source\u00a0: ${r.source}` : r.publie_par && r.lu_le ? `${r.publie_par}, lu le ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
     .filter(Boolean).map((x) => esc(x!)).join(" · ");
   // Cancelled or postponed stays listed, said first: people look for it.
   const badge = r.statut ? `<span class="badge${r.statut === "complet" ? " m" : ""}">${esc(r.statut)}</span> ` : "";
@@ -2141,7 +2141,8 @@ function agendaRow(r: AgendaRow): string {
   const news = r.statut_d_apres
     ? `<small class="said">${esc(r.statut!.toLowerCase())}${r.reporte_au ? ` au ${esc(r.reporte_au)}` : ""} d'après <a href="${esc(r.statut_d_apres.lien)}" rel="noopener">${esc(r.statut_d_apres.media)}</a></small>`
     : "";
-  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${book}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
+  const blank = r.lien && ACCUEILS.has(r.lien) ? ' target="_blank"' : "";
+  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${book}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
 }
 
 /** A row's end, local, from its hours: « samedi 24/10 de 09:00 à 16:00 », « du vendredi 23/10 au dimanche 01/11 ». */
@@ -2242,7 +2243,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
 
   const weekend = d?.ce_week_end.length
     ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Ce week-end</h3><ul class="plain">${d.ce_week_end.slice(0, AGENDA_WEEKEND).map((r) =>
-        `<li><b>${esc(r.quand)}</b> : ${r.statut && r.statut !== "complet" ? `<b>${esc(r.statut)}</b> ` : ""}${esc(r.titre)}${r.commune ? ` <span class="note" style="color:var(--on-night-muted)">(${esc(r.commune)})</span>` : ""}</li>`).join("")}</ul>` +
+        `<li><b>${esc(r.quand)}</b> : ${r.statut && r.statut !== "complet" ? `<b>${esc(r.statut)}</b> ` : ""}${esc(r.titre)}${r.commune || r.source ? ` <span class="note" style="color:var(--on-night-muted)">${esc([r.commune && `(${r.commune})`, r.source && `Source\u00a0: ${r.source}`].filter(Boolean).join(" · "))}</span>` : ""}</li>`).join("")}</ul>` +
       `<p class="note"><a href="/evenements/ce-week-end" style="color:var(--on-night)">${d.ce_week_end.length > AGENDA_WEEKEND ? `Et ${d.ce_week_end.length - AGENDA_WEEKEND} autres : tout` : "Tout"} le week-end →</a></p></figure>`
     : "";
 

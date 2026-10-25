@@ -6,6 +6,7 @@ import { configure } from "../src/providers/mf-auth.js";
 import { readCopies, resume, resumeDuJour } from "../src/tools/resume.js";
 import { buildAir, buildPlace } from "../src/web/data.js";
 import { pageOf } from "../src/web/places.js";
+import { aujourdhuiPage } from "../src/web/aujourdhui.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url));
 // Saturday 24 October 2026, 14:00 at La Réunion.
@@ -94,6 +95,12 @@ describe("the summary of a day", () => {
     expect(r.coupures_eau!.avis.map((n) => n.titre)).toEqual(["Coupure rue de la Gare"]);
     // Today's events of the commune, those over several days included.
     expect(r.evenements_du_jour!.liste.map((e) => e.titre)).toEqual(["Concert au Kabardock", "Festival sur trois jours"]);
+    // An event from a commune's site says so, in the tool and on the page.
+    const ev = COPIES.agenda.value.evenements;
+    const fromSite = resume(SAINT_PAUL, { ...COPIES, agenda: { ...COPIES.agenda, value: { ...COPIES.agenda.value, evenements: [{ ...ev[0], source: "site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00" }, ...ev.slice(1)] } } } as never, NOW);
+    expect(fromSite.evenements_du_jour!.liste[0].source).toBe("site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00");
+    expect(fromSite.evenements_du_jour!.liste[1].source).toBeUndefined();
+    expect(aujourdhuiPage("https://rundata.re", SAINT_PAUL, fromSite, null)).toContain("Source\u00a0: site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00");
     // Saturday: the town hall is closed all day; the buses' notices of the commune.
     expect(r.mairie).toMatchObject({ ouverte: false, horaires_aujourd_hui: "fermée aujourd'hui", telephone: "0262 45 90 00" });
     expect(r.circulation.bus).toEqual([{ reseau: "Kar'Ouest", titre: "Ligne 1 déviée" }]);

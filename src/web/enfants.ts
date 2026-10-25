@@ -4,6 +4,7 @@
  * Filtered by age band and kind in the page. The words are marketing's (marketing/enfants-textes.md).
  */
 import type { Cached } from "../cache.js";
+import { ACCUEILS } from "../providers/agenda.js";
 import * as enfants from "../vie/enfants.js";
 import type { Alerte, EnfantsAnswer } from "./data.js";
 import { agendaHours, connectorCta, crumbBar, crumbs, loading, webPage } from "./domains.js";
@@ -43,10 +44,10 @@ export function enfantsLive(list = enfants.LIEUX, order?: enfants.Kind[]): Live 
 function eventLi(r: Row): string {
   const a = enfants.eventAge(r.age);
   const hours = agendaHours(r.quand);
-  const small = [r.quand.replace(/ (de|à) \d\d:\d\d.*$/, "") + (hours ? ` · ${hours}` : ""), r.commune, r.lieu && r.lieu.length < 80 ? r.lieu : undefined, r.publie_par]
+  const small = [r.quand.replace(/ (de|à) \d\d:\d\d.*$/, "") + (hours ? ` · ${hours}` : ""), r.commune, r.lieu && r.lieu.length < 80 ? r.lieu : undefined, r.source ? `Source\u00a0: ${r.source}` : r.publie_par]
     .filter(Boolean).map((x) => esc(x!)).join(" · ");
   const status = r.statut && r.statut !== "complet" ? `<span class="badge">${esc(r.statut)}</span> ` : "";
-  return `<li data-b="${a.bands.join(" ")}" data-t="agenda"><span>${status}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a>` : esc(r.titre)}<small>${small}</small></span>${badge(a)}</li>`;
+  return `<li data-b="${a.bands.join(" ")}" data-t="agenda"><span>${status}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${ACCUEILS.has(r.lien) ? ' target="_blank"' : ""}>${esc(r.titre)}</a>` : esc(r.titre)}<small>${small}</small></span>${badge(a)}</li>`;
 }
 
 function placeLi(l: enfants.Lieu, now: Date): string {
