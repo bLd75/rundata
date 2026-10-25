@@ -53,8 +53,10 @@ export interface Post {
   date: string;
   texte: string;
   lien: string;
-  /** A release given as an image only, without text nor alternative text: `texte` says so, the link leads to it. */
+  /** A release given in images, without text (or a few words) nor alternative text: `texte` says so, the link leads to it. */
   image?: true;
+  /** How many images it is given in, when the feed says. */
+  images?: number;
   /** The PDF of the observatory's release that the post links to, as published (ovpf-pdf.ts); never guessed. */
   pdf?: string;
 }
@@ -84,23 +86,33 @@ interface Facet {
   features?: { $type?: string; uri?: string }[];
 }
 
-/** What is said of a post given as an image only: neither read from the image nor copied. */
-export const IMAGE_SEULE = "Communiqué en image (sans texte)";
+/**
+ * What is said of a post given in images: how many, and the few words that come with them, quoted; nothing read from
+ * the images. « Communiqué publié en 3 images, sans texte ».
+ */
+export function enImages(n: number | undefined, mots?: string): string {
+  const en = n === 1 ? "en une image" : n ? `en ${n} images` : "en images";
+  return `Communiqué publié ${en}, ${mots ? `avec ces seuls mots : « ${mots} »` : "sans texte"}`;
+}
 
 interface FeedJson {
   feed: {
     reason?: unknown;
-    post: { uri: string; author: { handle: string }; record: { text: string; createdAt: string; facets?: Facet[] }; embed?: { $type?: string; images?: { alt?: string }[]; media?: { $type?: string } } };
+    post: { uri: string; author: { handle: string }; record: { text: string; createdAt: string; facets?: Facet[] }; embed?: { $type?: string; images?: { alt?: string }[]; items?: unknown[]; media?: { $type?: string; images?: unknown[]; items?: unknown[] } } };
   }[];
 }
 
 // An image, a gallery of them, or a quote with images: the post's own media.
 const IMAGES = /^app\.bsky\.embed\.(images|gallery)#view$/;
 const imagesOf = (e: FeedJson["feed"][number]["post"]["embed"]) => !!e && (IMAGES.test(e.$type ?? "") || IMAGES.test(e.media?.$type ?? ""));
+const countOf = (e: FeedJson["feed"][number]["post"]["embed"]) => (e?.images ?? e?.items ?? e?.media?.images ?? e?.media?.items)?.length || undefined;
+// A text of a word or two (« 🌋 », « Communiqué OVPF »): the release is in the images.
+const fewWords = (text: string) => (text.match(/\p{L}{2,}/gu) ?? []).length < 3;
 
 /**
- * The observatory's own posts about the volcano's activity, newest first. Its releases are often an image alone, with
- * no text (« Arrêt crise sismique… Alerte 1 », 24/10): kept as such, since nothing tells them from the others.
+ * The observatory's own posts about the volcano's activity, newest first. Its releases are often images alone, with
+ * no text (« Arrêt crise sismique… Alerte 1 », 24/10; the release of 25/10 08:00, three images) or a word or two: kept
+ * as such, since nothing tells them from the others.
  */
 export function activityPosts(feed: FeedJson): Post[] {
   return feed.feed
@@ -112,8 +124,12 @@ export function activityPosts(feed: FeedJson): Post[] {
         // An image alone: its alternative text, when there is one, is the observatory's words.
         const alt = (post.embed?.images ?? []).map((i) => i.alt?.trim()).filter(Boolean).join(" ");
         if (alt) return ACTIVITY.test(alt) && !NOISE.test(alt) ? [{ date: post.record.createdAt, texte: alt.replace(/\s+/g, " "), lien }] : [];
-        return imagesOf(post.embed) ? [{ date: post.record.createdAt, texte: IMAGE_SEULE, lien, image: true }] : [];
       }
+      if (imagesOf(post.embed) && (!text || (fewWords(text) && !NOISE.test(text)))) {
+        const images = countOf(post.embed);
+        return [{ date: post.record.createdAt, texte: enImages(images, text || undefined), lien, image: true, ...(images && { images }) }];
+      }
+      if (!text) return [];
       const pdf = releasePdf(post.record.facets);
       return ACTIVITY.test(text) && !NOISE.test(text) ? [{ date: post.record.createdAt, texte: text, lien, ...(pdf && { pdf }) }] : [];
     })

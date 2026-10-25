@@ -5,7 +5,7 @@
  * its tile on the home page.
  */
 import { PREFECTURE } from "../providers/volcan.js";
-import { enclosWord, hausseNiveau, IMAGE_APRES, LOCALISES, ORSEC_BAN, sourceName } from "../tools/volcan.js";
+import { EN_IMAGES, enclosWord, hausseNiveau, IMAGE_APRES, LOCALISES, ORSEC_BAN, sourceName } from "../tools/volcan.js";
 import { type Ligne, libelle, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { alertSections, alerteVolcan, CONSIGNES, releaseDay, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
@@ -143,7 +143,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
           // pitonlive higher than the release: both levels, nothing of ours on the eruption (marketing).
           ? `<p class="lead"><b>${esc(hausseNiveau(e.ecart_prefecture))}</b></p>`
           : a
-          ? `<p class="lead"><b>${esc(volcanLead(a))}</b></p>`
+          ? `<p class="lead"><b>${esc(volcanLead(a))}</b>${!a.eruption && e.image_ovpf_plus_recente && d.publications_ovpf?.[0]?.lien ? ` ${esc(EN_IMAGES)} : <a href="${esc(d.publications_ovpf[0].lien)}">voir le dernier</a>.` : ""}</p>`
           : e.niveau_inconnu && !e.eruption_en_cours ? "" : `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours selon pitonlive.com"}</p>`) +
           (e.ecart_prefecture ? "<p class=\"lead\">" : e.niveau_inconnu
             // The prefecture's phase not read, none kept: the level is not given (tools/volcan.ts), and why (marketing).
@@ -207,7 +207,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   const posts = d?.publications_ovpf?.length
     ? `<section aria-labelledby="h-ovpf"><div class="sec-h"><p class="eyebrow">L'observatoire</p><h2 id="h-ovpf">Ce que publie l'OVPF</h2>
   <p>Les derniers messages de l'Observatoire volcanologique du Piton de la Fournaise (IPGP), repris tels quels.</p></div>
-  <ul class="posts">${d.publications_ovpf.slice(0, 4).map((p) => `<li class="card"><p class="note">${esc(p.date)}</p><p>${esc(p.texte)}</p>${p.lien ? `<p><a href="${esc(p.lien)}">Lire le message →</a></p>` : ""}</li>`).join("")}</ul></section>`
+  <ul class="posts">${d.publications_ovpf.slice(0, 4).map((p) => `<li class="card"><p class="note">${esc(p.date)}</p><p>${esc(p.texte)}</p>${p.lien ? `<p><a href="${esc(p.lien)}">${p.image ? "Voir le communiqué sur Bluesky" : "Lire le message"} →</a></p>` : ""}</li>`).join("")}</ul></section>`
     : "";
 
   // In vigilance as the prefecture or pitonlive gives it (never an unread level), the level and the plan's words; the

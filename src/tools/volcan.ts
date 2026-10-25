@@ -22,6 +22,10 @@ const dayOf = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
 // Worded by marketing: what the texts read say, never that the eruption has not begun.
 export const NON_ANNONCEE = "L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus.";
 export const IMAGE_APRES = "La dernière publication de l'OVPF est une image que nous ne lisons pas : l'état ci-dessus peut ne pas en tenir compte.";
+/** After NON_ANNONCEE when the newest post is in images: « the texts we read » leaves those out, and says where they are. */
+export const EN_IMAGES = "Certains communiqués de l'OVPF sont publiés en images, que nous ne lisons pas";
+/** For the AI, beside a post given in images: its content is only there. */
+export const A_LIRE = "Le contenu de ce communiqué est dans ses images, que rundata.re ne lit pas : ouvrez le lien pour le lire, et n'en dites rien sans l'avoir lu.";
 /** pitonlive's word for the Enclos, quoted as its own: never read as « ouvert » (« partiel »), only spelt (« ferme »). */
 export const enclosWord = (statut: string) => `« ${statut === "ferme" ? "fermé" : statut} »`;
 /** The source pitonlive names, as said: « Préfecture de La Réunion, arrêté n° 2026-627 du 7 mai 2026 ». */
@@ -230,6 +234,14 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   // The plan's words for the level, never beside pitonlive's (marketing).
   const defini = niveau && !hausse ? definition(niveau) : undefined;
 
+  const last = posts?.[0];
+  // The observatory's newest post an image we do not read, newer than what the state comes from: it may announce what
+  // the state does not say (an eruption, its end). Said, and nothing drawn from it (marketing).
+  const p0 = (state as { prefecture?: volcan.Phase } | null)?.prefecture;
+  // The release counts from its day's start: a post of the same day, before or after it, is said.
+  const told = Math.max(state?.status.published_at ? Date.parse(state.status.published_at) : 0, p0 ? volcan.dayStart(p0.jour) : 0);
+  const imageAfter = !!state && !!last?.image && Date.parse(last.date) > told;
+
   const parts: string[] = [];
   let monterAt = 0;
   if (state) {
@@ -241,7 +253,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
         // The day only from an official text: pitonlive's start time is not one (the page says none either).
         ? `ÉRUPTION EN COURS au Piton de la Fournaise${p?.eruption ? `, annoncée par la préfecture le ${dayOf(p.jour)}` : ""}.`
         : /^Alerte/.test(s.alert_level_display)
-          ? `${s.alert_level_display} au Piton de la Fournaise${libelle(s.alert_level_display) ? ` : « ${libelle(s.alert_level_display)} » (dispositif ORSEC Volcan)` : ""}. ${NON_ANNONCEE}`
+          ? `${s.alert_level_display} au Piton de la Fournaise${libelle(s.alert_level_display) ? ` : « ${libelle(s.alert_level_display)} » (dispositif ORSEC Volcan)` : ""}. ${NON_ANNONCEE}${imageAfter ? ` ${EN_IMAGES} : voir le dernier, ${last!.lien}.` : ""}`
           // Never on our word: its source with it, the level read or not (data-run).
           : "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com.",
     );
@@ -269,16 +281,11 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     else if (a?.available && ofRelease?.niveau) parts.push(`Niveau : ${ofRelease.niveau.toLowerCase()} selon le communiqué de la préfecture du ${du}. Accès à l'Enclos interdit à ce niveau du dispositif ORSEC Volcan.`);
     else if (a?.available) parts.push(`Accès à l'Enclos : ${enclosWord(a.enclos_status)} selon pitonlive.com${a.source_name ? ` (source : ${sourceName(a.source_name)})` : ""}.`);
   }
-  const last = posts?.[0];
-  // The observatory's newest post an image we do not read, newer than what the state comes from: it may announce what
-  // the state does not say (an eruption, its end). Said, and nothing drawn from it (marketing).
-  const p0 = (state as { prefecture?: volcan.Phase } | null)?.prefecture;
-  // The release counts from its day's start: a post of the same day, before or after it, is said.
-  const told = Math.max(state?.status.published_at ? Date.parse(state.status.published_at) : 0, p0 ? volcan.dayStart(p0.jour) : 0);
-  const imageAfter = !!state && !!last?.image && Date.parse(last.date) > told;
   if (last) {
+    const [jour, heure] = localTime(new Date(last.date)).split(" ");
     parts.push(last.image
-      ? `Dernière publication de l'OVPF (${localTime(new Date(last.date)).replace(" ", ", ")}) : un communiqué en image, que rundata.re ne peut pas lire, à lire sur ${last.lien}.`
+      // The time of the post, never the one written in the images: they are not read.
+      ? `Dernière publication de l'OVPF, le ${jour} à ${heure} : ${lowerFirst(last.texte)}. rundata.re ne lit pas les images : à lire sur ${last.lien}.`
       : `Dernière publication de l'OVPF sur l'activité (${day(last.date)}) : « ${last.texte.slice(0, 220)}${last.texte.length > 220 ? "…" : ""} »`);
     if (imageAfter) parts.push(IMAGE_APRES);
   }
@@ -337,7 +344,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
       : "indisponible",
     alertes_precedentes: historique.precedentes(),
     // The release's PDF stays out of the answer until what it is read for is shown (ovpf-pdf.ts, SHOW).
-    publications_ovpf: posts ? posts.slice(0, 3).map(({ pdf: _, ...p }) => ({ ...p, date: `${localTime(new Date(p.date))} heure de La Réunion` })) : "indisponible",
+    publications_ovpf: posts ? posts.slice(0, 3).map(({ pdf: _, ...p }) => ({ ...p, date: `${localTime(new Date(p.date))} heure de La Réunion`, ...(p.image && { a_lire: A_LIRE }) })) : "indisponible",
     seismes: q ?? "indisponible",
     avertissements: [OFFICIAL],
     // The IPGP's site is offline (25/10/2026): the OVPF's own accounts instead.
