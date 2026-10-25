@@ -10,6 +10,8 @@ import { traficPage } from "../src/web/domains.js";
 // The ONF's map of 24/10/2026 (test/fixtures/onf): 4 forest roads closed. The buses' timetables live in D1, absent here.
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/onf/${f}`, import.meta.url), "utf8");
 const NOW = new Date("2026-10-24T04:00:00Z");
+// The views tested before the fake clock run at the real time: past NOW since 25/10/2026.
+const LOADED = Date.now();
 const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
 const BOT = { headers: { "user-agent": "Googlebot", accept: "text/html" } };
 
@@ -132,8 +134,8 @@ describe("circulation", () => {
     it("reads the news after the response when there is none, or when it is old", async () => {
       const c = cache();
       const later: Promise<unknown>[] = [];
-      // A day on: the views of the tests above have asked for it already (once a minute at most).
-      expect(await roadNewsNow(c, (p) => later.push(p), new Date(NOW.getTime() + 86400_000))).toBeUndefined();
+      // A day on: the views of the tests above have asked for it already (once a minute at most), at the real time.
+      expect(await roadNewsNow(c, (p) => later.push(p), new Date(Math.max(LOADED, NOW.getTime()) + 86400_000))).toBeUndefined();
       expect(later).toHaveLength(1);
       await Promise.all(later);
       expect(asked.some((u) => feeds.test(u))).toBe(true);
