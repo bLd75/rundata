@@ -8,7 +8,9 @@ name: Historique météo
 
 on:
   schedule:
-    - cron: "30 5 * * *"
+    # 07:45 UTC, 11:45 at La Réunion: after Météo-France's files of the day, seen at 05:56 UTC for the daily ones and
+    # 06:52 UTC for the hourly ones (24 and 25 October 2026). At 05:30 the job read the files of the day before.
+    - cron: "45 7 * * *"
   workflow_dispatch:
 
 permissions:
