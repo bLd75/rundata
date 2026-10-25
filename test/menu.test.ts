@@ -93,12 +93,33 @@ describe("the order of the pages", () => {
     expect(facts(homePage(O, { ...live, volcan: { ...quiet, value: { ...quiet.value, etat } } } as HomeLive, NOW))).toEqual(["volcan", "agenda", "sentiers"]);
   });
 
-  it("gives the boxes of « En ce moment » one height, their content centred, a box alone on its row as wide as the others", () => {
+  it("gives the boxes of « En ce moment » one height, their content centred, a box alone on the last row the grid's width", () => {
     const page = homePage(O, null, NOW);
     expect(page).toContain(".facts-live{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;");
     expect(page).toContain(".facts-live li{display:flex}.facts-live a{flex:1;display:grid;");
     expect(page).toContain("align-content:center;");
-    expect(page).not.toContain(".facts-live li:last-child");
+    expect(page).toContain(".facts-live li:last-child:nth-child(odd){grid-column:1/-1}");
+    // Lower on a phone (80 px at 390 px, measured): less padding, a smaller icon, label and detail.
+    expect(page).toContain("@media (max-width:599.98px){.facts-live a{padding:.45rem .6rem;column-gap:.45rem}.facts-live .ic{width:1.2rem;height:1.2rem}");
+    expect(page).toContain(".facts-live a>span{font-size:.7rem}.facts-live small{font-size:.7rem;line-height:1.2}}");
+  });
+
+  it("puts the air of the day last in « En ce moment », as on its tile, for an even number of boxes", () => {
+    const air = { value: JSON.parse(readFileSync(new URL("./fixtures/pages/qualite_air.json", import.meta.url), "utf8")), fetchedAt: NOW, stale: false };
+    const live = {
+      agenda: { value: { nombre: 42, ce_week_end: [] }, fetchedAt: NOW, stale: false },
+      sentiers: { value: { points: [], suivis: 120, randonnees: [] }, fetchedAt: NOW, stale: false },
+      air,
+    } as unknown as HomeLive;
+    const page = homePage(O, live, NOW);
+    expect(facts(page)).toEqual(["agenda", "sentiers", "air"]);
+    // The words of the air's tile further down, its badge included.
+    const value = /<li class="tile k-air">.*?<p class="tv">(.*?)<\/p>/s.exec(page)![1];
+    expect(value).toMatch(/<span class="aq aq\d">/);
+    expect(page).toContain(`<li class="k-air"><a href="/air">`);
+    expect(page).toContain(`<span>Air</span><b>${value}</b></a></li></ul>`);
+    // Without its copy, no box.
+    expect(facts(homePage(O, { ...live, air: null } as HomeLive, NOW))).toEqual(["agenda", "sentiers"]);
   });
 
   it("links rundata.re's accounts from the bar, the menu and the home page's hero, counted as visits from the site", () => {
