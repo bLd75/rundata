@@ -19,7 +19,8 @@ export const RECENT_HOURS = 6;
 const CONTRADICTION_HOURS = 2;
 
 export const A_SAVOIR = "Ce que publient les médias, pas une mesure : l'état officiel, en direct, est sur infotrafic.re.";
-export const NONE = "Pas d'annonce des médias sur la route du Littoral depuis 36 h. L'état officiel, en direct, est sur infotrafic.re.";
+// No figure: how far back each feed goes is its own; « titres »: annonceOf reads the headline and its first lines.
+export const NONE = "Pas d'annonce récente sur la route du Littoral dans les titres des médias et de la préfecture que nous avons lus. L'état officiel, en direct, est sur infotrafic.re.";
 export const DISAGREE = "Les annonces ne disent pas la même chose (la plus récente en premier). Vérifiez sur infotrafic.re.";
 
 export type Etat = "4 voies" | "basculée" | "fermée" | "fermée la nuit" | "réouverture";
@@ -45,7 +46,12 @@ export interface Annonce {
 /** What a headline needs: its words, who published it, when, and its link. */
 export type Item = Pick<Info, "titre" | "resume" | "media" | "lien" | "publie" | "heure">;
 
-export const NAMED = /\b(?:route du littoral|nrl|rn ?1 (?:entre )?(?:saint denis|la possession))\b/;
+export const NAMED = /\b(?:route (?:du )?littoral|nrl|rn ?1 (?:entre )?(?:saint denis|la possession))\b/;
+// Asked as a place, « RN1 » alone is the road too; in a headline it is not, the RN1 going on to Saint-Pierre.
+const RN1 = /^(?:la )?(?:rn ?1|route nationale 1)$/;
+
+/** Whether the place asked for is the route du Littoral. */
+export const asked = (lieu: string) => NAMED.test(normalize(lieu)) || RN1.test(normalize(lieu).trim());
 const REOPEN = /\b(?:reouv|rouv|reouvr)\w*/;
 const BACK_TO_FOUR = /\bfin (?:du|de) basculement\b|\b(?:retour|repasse|revient|remise?) (?:a|en|sur) (?:4|quatre) voies\b/;
 const SWITCHED = /\bbascul\w*|\b2 ?x ?1\b|\b2 fois 1\b|\bdeux fois une voie\b/;
@@ -186,10 +192,10 @@ export function lineText(a: Annonce, now: Date): string {
 
 /**
  * What the tool actualites gives of it, when the place or the subject is the road. With no announcement it says so,
- * with the window read: left out, the AI said nothing of the road (researcher, 25/10). Never « ouverte » by deduction.
+ * in marketing's words: left out, the AI said nothing of the road (researcher, 25/10). Never « ouverte » by deduction.
  */
 export function forTool(l: Littoral | undefined, now: Date) {
-  if (!l) return { annonce: NONE, aucune_annonce: true as const, periode_lue: `les dernières ${MAX_HOURS} heures`, etat_officiel: INFOTRAFIC };
+  if (!l) return { annonce: NONE, aucune_annonce: true as const, etat_officiel: INFOTRAFIC };
   return {
     annonce: `${l.annonces.length > 1 ? `${DISAGREE} ` : agePrefix(l)}${l.annonces.map((a) => lineText(a, now)).join(" ")}`,
     annonces: l.annonces.map((a) => ({ etat: etatText(a), selon: a.media, publie: publieText(a, now), lien: a.lien })),

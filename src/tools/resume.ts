@@ -61,7 +61,7 @@ import { SITE_URL } from "./citer.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 import { current, cyclone, highest, raised } from "./vigilance.js";
 import type { InfoRow } from "./actualites.js";
-import { ENDS as LITTORAL_ENDS, forSummary, littoral } from "./littoral.js";
+import { ENDS as LITTORAL_ENDS, forSummary, littoral, NONE as LITTORAL_NONE } from "./littoral.js";
 
 // How old an announcement of the route du Littoral may be to be told in a summary.
 const LITTORAL_SUMMARY_HOURS = 12;
@@ -242,12 +242,15 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
   const others = news.filter((i) => !roads.includes(i));
   // At either end of the route du Littoral, its announcement of the last hours: from the news already read, none older.
   const asRead = (r: InfoRow) => ({ ...r, heure: r.il_y_a != null });
-  const road = LITTORAL_ENDS.includes(nom) && l.actualites
-    ? forSummary(littoral(
-        { infos: [...l.actualites.value.en_direct, ...l.actualites.value.infos].map(asRead), prefecture: l.actualites.value.prefecture.map((r) => ({ ...r, heure: false })) },
-        now,
-        LITTORAL_SUMMARY_HOURS,
-      ), now)
+  const read = l.actualites && {
+    infos: [...l.actualites.value.en_direct, ...l.actualites.value.infos].map(asRead),
+    prefecture: l.actualites.value.prefecture.map((r) => ({ ...r, heure: false })),
+  };
+  // None in the last hours: said so (marketing's words) when the copy reaches that far back, a copy cut short
+  // (NEWS_LISTED, web/data.ts) could have left one out; and not when an older one was read, which is not « none ».
+  const covered = !!read && read.infos.some((i) => now.getTime() - Date.parse(i.publie) >= LITTORAL_SUMMARY_HOURS * 3600_000);
+  const road = LITTORAL_ENDS.includes(nom) && read
+    ? forSummary(littoral(read, now, LITTORAL_SUMMARY_HOURS), now) ?? (covered && !littoral(read, now) ? LITTORAL_NONE : undefined)
     : undefined;
   const avis = l.coupures?.value.avis.filter((n) => n.communes.includes(nom)) ?? [];
   const dist = distributeur(nom);
