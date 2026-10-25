@@ -9,6 +9,7 @@ import { volcanLive, volcanPage } from "../src/web/domains.js";
 import { SHARED } from "../src/web/partagees.js";
 import { site } from "../src/web/site.js";
 import { demos, homePage, type HomeLive } from "../src/web/home.js";
+import { esc } from "../src/web/map.js";
 import { NIVEAUX } from "../src/tools/volcan-acces.js";
 import { DESCRIPTION_MAX, meteoPage } from "../src/web/pages.js";
 import { alertSections, alerteVolcan, bannerText, homeCard, mediaHeadlines, tileLive, type VolcanAlerte, volcanMeta, withVolcan } from "../src/web/volcan-alerte.js";
@@ -178,15 +179,17 @@ describe("the volcano put forward during an alert", () => {
   });
 
   it("says on a phone's line whose the level or the eruption is, and « Enclos interdit », without a date (marketing)", () => {
-    const said = (a: VolcanAlerte) => /<a class="ligne" href="\/volcan"><span aria-hidden="true">🌋<\/span><span class="txt">(.*?)<\/span><span aria-hidden="true">→/.exec(withVolcan(a, () => meteoPage("https://rundata.re", null, NOW)))![1].replace(/<[^>]+>/g, "").replace(/&#39;/g, "'");
+    const said = (a: VolcanAlerte) => /<a class="ligne" href="\/volcan"><span aria-hidden="true">🌋<\/span><span class="txt">(.*?)<\/span><span aria-hidden="true">→/.exec(withVolcan(a, () => meteoPage("https://rundata.re", null, NOW)))![1];
+    // Compared as HTML, never with the tags taken out: the last part in its own span, the apostrophe escaped.
+    const line = (head: string) => `${esc(head)} <span class="nw">· Enclos interdit</span>`;
     const ovpf = { date: "25/10 08:00 heure de La Réunion", lien: "https://www.ipgp.fr/" };
-    expect(said({ niveau: "Alerte 1", eruption: false })).toBe("Volcan\u00a0: alerte\u00a01 du préfet · Enclos interdit");
-    expect(said({ niveau: "Alerte 2-1", eruption: false })).toBe("Volcan\u00a0: alerte\u00a02-1 du préfet · Enclos interdit");
-    expect(said({ niveau: "Alerte 1", eruption: false, ovpf })).toBe("Volcan\u00a0: alerte\u00a01 selon l'OVPF · Enclos interdit");
-    expect(said({ niveau: "Alerte 2-1", eruption: true })).toBe("Éruption selon le préfet · Enclos interdit");
-    expect(said({ niveau: "Alerte 2-1", eruption: true, ovpf })).toBe("Éruption selon l'OVPF · Enclos interdit");
-    expect(said({ eruption: true })).toBe("Éruption selon l'OVPF · Enclos interdit");
-    expect(said({ niveau: "Alerte 2-1", eruption: false, arret: ovpf })).toBe("Éruption arrêtée selon l'OVPF · Enclos interdit");
+    expect(said({ niveau: "Alerte 1", eruption: false })).toBe(line("Volcan\u00a0: alerte\u00a01 du préfet"));
+    expect(said({ niveau: "Alerte 2-1", eruption: false })).toBe(line("Volcan\u00a0: alerte\u00a02-1 du préfet"));
+    expect(said({ niveau: "Alerte 1", eruption: false, ovpf })).toBe(line("Volcan\u00a0: alerte\u00a01 selon l'OVPF"));
+    expect(said({ niveau: "Alerte 2-1", eruption: true })).toBe(line("Éruption selon le préfet"));
+    expect(said({ niveau: "Alerte 2-1", eruption: true, ovpf })).toBe(line("Éruption selon l'OVPF"));
+    expect(said({ eruption: true })).toBe(line("Éruption selon l'OVPF"));
+    expect(said({ niveau: "Alerte 2-1", eruption: false, arret: ovpf })).toBe(line("Éruption arrêtée selon l'OVPF"));
   });
 
   it("describes /volcan within DESCRIPTION_MAX at every level and every month, the plan's words whole or not at all", () => {

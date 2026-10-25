@@ -4,6 +4,7 @@ import { WITH_PAGE } from "../src/web/categories.js";
 import * as enfants from "../src/vie/enfants.js";
 import type { Alerte } from "../src/web/data.js";
 import { homePage, type HomeLive } from "../src/web/home.js";
+import { esc } from "../src/web/map.js";
 import { meteoPage, SOCIAL } from "../src/web/pages.js";
 import { type VolcanAlerte, withVolcan } from "../src/web/volcan-alerte.js";
 
@@ -117,17 +118,24 @@ describe("the order of the pages", () => {
 
 describe("the alerts on a phone", () => {
   // The words of the vigilance's line on a page other than /vigilance.
-  const said = (a: Alerte) => [...meteoPage(O, null, NOW, a).matchAll(/<a class="ligne" href="[^"]+">(?:<span aria-hidden="true">[^<]+<\/span>)?<span class="txt">(.*?)<\/span><span aria-hidden="true">→/g)].map((m) => m[1].replace(/<[^>]+>/g, "").replace(/&#39;/g, "'"));
+  const said = (a: Alerte) => [...meteoPage(O, null, NOW, a).matchAll(/<a class="ligne" href="[^"]+">(?:<span aria-hidden="true">[^<]+<\/span>)?<span class="txt">(.*?)<\/span><span aria-hidden="true">→/g)].map((m) => m[1]);
+  // The HTML of a line's words: the last part kept whole in its own span, the apostrophe escaped. Compared as HTML,
+  // never with the tags taken out.
+  const frag = (t: string) => {
+    const i = t.lastIndexOf(" · ");
+    return i < 0 ? esc(t) : `${esc(t.slice(0, i))} <span class="nw">· ${esc(t.slice(i + 3))}</span>`;
+  };
+  const frags = (ts: string[]) => ts.map(frag);
   const vigilance = (couleur: string, phenomenes: string[], zones: string[]): Alerte => ({ couleur: 2, texte: "Vigilance Météo-France : …", court: { couleur, phenomenes, zones } });
   const LAND = ["Nord : Saint-Denis", "Est : Saint-Benoît", "Sud-Est : Saint-Joseph", "Sud : Saint-Pierre", "Ouest : Saint-Paul"];
   const coasts = (n: number) => Array.from({ length: n }, (_, i) => `Zone côtière ${i}`);
 
   it("are one line each, stacked without a gap, the vigilance then the volcano, each to its page", () => {
     const home = withVolcan(VOLCAN, () => homePage(O, null, NOW, VIGILANCE));
-    const lines = [...home.matchAll(/<a class="ligne" href="([^"]+)"><span aria-hidden="true">([^<]+)<\/span><span class="txt">(.*?)<\/span><span aria-hidden="true">→<\/span>/g)].map((m) => [m[1], m[2], m[3].replace(/<[^>]+>/g, "")]);
+    const lines = [...home.matchAll(/<a class="ligne" href="([^"]+)"><span aria-hidden="true">([^<]+)<\/span><span class="txt">(.*?)<\/span><span aria-hidden="true">→<\/span>/g)].map((m) => [m[1], m[2], m[3]]);
     expect(lines).toEqual([
-      ["/vigilance", "⚠", "Vigilance orange pluies-orages · Est"],
-      ["/volcan", "🌋", "Volcan\u00a0: alerte\u00a01 du préfet · Enclos interdit"],
+      ["/vigilance", "⚠", frag("Vigilance orange pluies-orages · Est")],
+      ["/volcan", "🌋", frag("Volcan\u00a0: alerte\u00a01 du préfet · Enclos interdit")],
     ]);
     // The sentences stay on wider screens: only below 600 px the line replaces them, never cut with « … ».
     expect(home).toContain(".ligne{display:none}");
@@ -141,25 +149,25 @@ describe("the alerts on a phone", () => {
   });
 
   it("say the vigilance's colour, two phenomena at most by their short names, and the zones named, counted or whole (marketing)", () => {
-    expect(said(vigilance("jaune", ["Fortes pluies / orages"], ["Sud-Est : Saint-Joseph, Saint-Philippe"]))).toEqual(["Vigilance jaune pluies-orages · Sud-Est"]);
-    expect(said(vigilance("orange", ["Vents forts"], LAND))).toEqual(["Vigilance orange vents forts · toute l'île"]);
-    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(2, 4)))).toEqual(["Vigilance jaune pluies-orages · Sud-Est, Sud"]);
-    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(0, 3)))).toEqual(["Vigilance jaune pluies-orages · 3 zones"]);
-    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(3)))).toEqual(["Vigilance jaune vagues-submersion · 3 zones côtières"]);
-    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(1)))).toEqual(["Vigilance jaune vagues-submersion · 1 zone côtière"]);
-    expect(said(vigilance("orange", ["Vagues - submersion"], coasts(8)))).toEqual(["Vigilance orange vagues-submersion · toutes les côtes"]);
-    expect(said(vigilance("orange", ["Fortes pluies / orages", "Vents forts", "Vagues - submersion"], [LAND[1], ...coasts(2)]))).toEqual(["Vigilance orange pluies-orages, vents forts · Est, 2 zones côtières"]);
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], ["Sud-Est : Saint-Joseph, Saint-Philippe"]))).toEqual(frags(["Vigilance jaune pluies-orages · Sud-Est"]));
+    expect(said(vigilance("orange", ["Vents forts"], LAND))).toEqual(frags(["Vigilance orange vents forts · toute l'île"]));
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(2, 4)))).toEqual(frags(["Vigilance jaune pluies-orages · Sud-Est, Sud"]));
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(0, 3)))).toEqual(frags(["Vigilance jaune pluies-orages · 3 zones"]));
+    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(3)))).toEqual(frags(["Vigilance jaune vagues-submersion · 3 zones côtières"]));
+    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(1)))).toEqual(frags(["Vigilance jaune vagues-submersion · 1 zone côtière"]));
+    expect(said(vigilance("orange", ["Vagues - submersion"], coasts(8)))).toEqual(frags(["Vigilance orange vagues-submersion · toutes les côtes"]));
+    expect(said(vigilance("orange", ["Fortes pluies / orages", "Vents forts", "Vagues - submersion"], [LAND[1], ...coasts(2)]))).toEqual(frags(["Vigilance orange pluies-orages, vents forts · Est, 2 zones côtières"]));
   });
 
   it("give the cyclone alert to the prefect, with the schools closed on a line of their own (marketing)", () => {
     const cyclone = (c: number, prevue = false, ecoles?: boolean): Alerte => ({ couleur: c, texte: "Météo-France : …", ecoles, court: { cyclone: c, prevue } });
-    expect(said(cyclone(2))).toEqual(["Pré-alerte cyclonique du préfet"]);
-    expect(said(cyclone(3))).toEqual(["Alerte cyclonique orange du préfet"]);
-    expect(said(cyclone(4))).toEqual(["Alerte cyclonique rouge du préfet"]);
-    expect(said(cyclone(6))).toEqual(["Phase de sauvegarde cyclonique du préfet"]);
-    expect(said(cyclone(3, true))).toEqual(["Alerte cyclonique prévue par le préfet"]);
+    expect(said(cyclone(2))).toEqual(frags(["Pré-alerte cyclonique du préfet"]));
+    expect(said(cyclone(3))).toEqual(frags(["Alerte cyclonique orange du préfet"]));
+    expect(said(cyclone(4))).toEqual(frags(["Alerte cyclonique rouge du préfet"]));
+    expect(said(cyclone(6))).toEqual(frags(["Phase de sauvegarde cyclonique du préfet"]));
+    expect(said(cyclone(3, true))).toEqual(frags(["Alerte cyclonique prévue par le préfet"]));
     const schools = meteoPage(O, null, NOW, cyclone(4, false, true));
-    expect(said(cyclone(4, false, true))).toEqual(["Alerte cyclonique rouge du préfet", "Écoles et crèches fermées"]);
+    expect(said(cyclone(4, false, true))).toEqual(frags(["Alerte cyclonique rouge du préfet", "Écoles et crèches fermées"]));
     expect(schools).toContain('<a class="ligne" href="/ecoles-cyclone"><span class="txt">Écoles et crèches fermées</span><span aria-hidden="true">→</span></a>');
   });
 });
