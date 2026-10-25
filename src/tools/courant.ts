@@ -6,19 +6,34 @@
 import type { Cached } from "../cache.js";
 import { localTime } from "../geo.js";
 import * as cc from "../providers/coupures-courant.js";
-import { a as at, credits, de } from "./format.js";
+import { a as at, credits, de, enumeration } from "./format.js";
+import { mention, mentionIle } from "./non-repris.js";
 
 export interface CourantAnswer {
   avis: cc.AvisCourant[];
   /** The mairies read at the last refresh, and those that did not answer. */
   lues: string[];
   indisponibles: string[];
+  /** A mairie that did not answer: its notices as last read, and when (« 25/10 19:50 »). */
+  gardes?: { commune: string; lu_a: string }[];
   sources: ReturnType<typeof credits>;
 }
 
-/** The copy shared by the tool and the pages (web/partagees.ts). */
-export async function courantCopy(): Promise<CourantAnswer> {
-  return { ...(await cc.coupures()), sources: credits([cc.SOURCE]) };
+/**
+ * The copy shared by the tool and the pages (web/partagees.ts). A mairie that does not answer keeps its notices of the
+ * copy before, said with the hour they were read: one failed read does not make its notices vanish, nor its commune
+ * read as one that publishes none.
+ */
+export async function courantCopy(before?: Cached<CourantAnswer>): Promise<CourantAnswer> {
+  const read = await cc.coupures();
+  const was = before?.value;
+  const kept = read.indisponibles.filter((x) => followed(x) && was?.avis.some((a) => a.commune === x));
+  return {
+    ...read,
+    avis: [...read.avis, ...(was?.avis ?? []).filter((a) => kept.includes(a.commune))],
+    gardes: kept.length ? kept.map((x) => ({ commune: x, lu_a: was!.gardes?.find((g) => g.commune === x)?.lu_a ?? localTime(before!.fetchedAt) })) : undefined,
+    sources: credits([cc.SOURCE]),
+  };
 }
 
 /** EDF's number for a breakdown (free), as https://reunion.edf.fr/particulier/contacter-edf-a-la-reunion gives it (24/10/2026). */
@@ -48,15 +63,57 @@ const list = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} e
 export const mairie = (commune: string) => `la mairie ${de(commune)}`;
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/**
+ * Whether a mairie's notices are read: not those of a mairie that has not agreed, even from a copy kept before
+ * (providers/autorisations.ts).
+ */
+export const followed = (commune: string) => cc.MAIRIES.some((m) => m.commune === commune);
+
 /** The communes whose mairie relayed a notice lately, for the honesty line. */
 export function liveCommunes(c: CourantAnswer, now: Date): string[] {
-  return c.lues.filter((commune) => c.avis.some((a) => a.commune === commune && now.getTime() - Date.parse(a.publie) < LIVE_DAYS * 86400_000));
+  return [...c.lues, ...(c.gardes ?? []).map((g) => g.commune)].filter((commune) => followed(commune) && c.avis.some((a) => a.commune === commune && now.getTime() - Date.parse(a.publie) < LIVE_DAYS * 86400_000));
 }
 
-/** Marketing's honesty line, its list of communes taken from the mairies read. */
-export function honesty(c: CourantAnswer, now: Date): string {
-  const live = liveCommunes(c, now);
-  return `EDF ne publie pas ses avis de coupure dans un format que nous pouvons lire. Nous reprenons ceux que relaient les mairies${live.length ? ` : aujourd'hui ${list(live)}` : ""}.`;
+/**
+ * Marketing's honesty line. It names every mairie read, with or without a recent notice, the same whether its site
+ * answered or not (that is said apart, `injoignable`); those not read are said apart too (non_repris).
+ */
+export function honesty(): string {
+  const read = cc.MAIRIES.map((m) => m.commune);
+  return `EDF ne publie pas ses avis de coupure dans un format que nous pouvons lire. Nous reprenons ceux que relaient les mairies dont le site ne l'interdit pas${read.length ? ` : aujourd'hui ${list(read)}, quand ${read.length > 1 ? "leurs" : "ses"} avis sont lisibles` : ""}.`;
+}
+
+/** « 24/10 10:00 » → « aujourd'hui à 10:00 » the same day at La Réunion, else « le 24/10 à 10:00 » (marketing, as lu_le). */
+const when = (at: string, now: Date) => {
+  const [day, hour] = at.split(" ");
+  return day === localTime(now).split(" ")[0] ? `aujourd'hui à ${hour}` : `le ${day} à ${hour}`;
+};
+/**
+ * The subject when a mairie's site does not answer: its site, as the source shows its name, never the mairie alone,
+ * which would read as ignoring a request.
+ */
+const siteOf = (commune: string) => `le site de ${mairie(commune)}`;
+
+/**
+ * A mairie followed whose site did not answer at the last read, in marketing's words (rule « a site that does not
+ * answer is neither gone nor empty »): with its notices kept, the hour they were read; without, that its read failed.
+ * Never « publishes none ». `court` goes in a summary, `texte` in the field `injoignable`.
+ */
+export function injoignable(c: CourantAnswer, commune: string, readAt: string, now: Date) {
+  if (!followed(commune) || !c.indisponibles.includes(commune)) return undefined;
+  const site = cc.LISIBLES.find((m) => m.commune === commune)!.site;
+  const kept = c.gardes?.find((g) => g.commune === commune);
+  if (kept) {
+    const at = when(kept.lu_a, now);
+    return { commune, texte: `Lu ${at} : ${siteOf(commune)} n'a pas répondu depuis. Ce qui suit peut avoir changé : voir son site.`, court: `lu ${at}, sans réponse depuis`, site };
+  }
+  const hour = when(readAt, now);
+  return {
+    commune,
+    texte: `${capital(siteOf(commune))} n'a pas répondu à notre dernière lecture (${hour}) : nous ne savons pas ce qu'il annonce en ce moment.`,
+    court: `site sans réponse à notre dernière lecture (${hour.startsWith("aujourd'hui") ? readAt.split(" ")[1] : readAt})`,
+    site,
+  };
 }
 
 export const none = (commune: string) => `${capital(mairie(commune))} ne publie pas les avis d'EDF dans un format lisible : nous ne savons pas si une coupure est prévue.`;
@@ -135,14 +192,14 @@ const row = (a: cc.AvisCourant, now: Date, first: boolean): CourantRow => ({
 
 /** A commune's notices to say: those of today or later, else its latest one; none when its mairie relays none. */
 export function rowsOf(c: CourantAnswer, commune: string, now: Date): CourantRow[] {
-  const own = c.avis.filter((a) => a.commune === commune);
+  const own = followed(commune) ? c.avis.filter((a) => a.commune === commune) : [];
   const coming = own.filter((a) => ahead(a, now));
   return (coming.length ? coming : own.slice(0, 1)).map((a, i) => row(a, now, i === 0 && a === own[0]));
 }
 
 /** A commune's notices of today or later only: what resume_du_jour says, nothing on the other days. */
 export function aheadRows(c: CourantAnswer, commune: string, now: Date): CourantRow[] {
-  const own = c.avis.filter((a) => a.commune === commune);
+  const own = followed(commune) ? c.avis.filter((a) => a.commune === commune) : [];
   return own.filter((a) => ahead(a, now)).map((a) => row(a, now, a === own[0]));
 }
 
@@ -157,20 +214,36 @@ export function shortOf(a: Pick<CourantRow, "nature" | "creneaux" | "pdf">, now:
 }
 
 /**
+ * The mairies whose notices are not read until they agree, in a few words for the tool's summary (marketing):
+ * undefined when there is none.
+ */
+export function nonReprisCourt(): string | undefined {
+  const communes = cc.LISIBLES.map((m) => m.commune).filter((x) => !followed(x)).sort((a, b) => a.localeCompare(b, "fr"));
+  if (!communes.length) return undefined;
+  const theirs = communes.length > 1 ? "leurs mentions légales l'interdisent sans leur accord" : "ses mentions légales l'interdisent sans son accord";
+  return `avis de coupure d'électricité de ${enumeration(communes)} non repris, ${theirs} (voir non_repris)`;
+}
+
+/**
  * What the tool electricite adds: the commune's notices, or, when no place is given, the latest of each mairie that
- * relayed one lately (those of the honesty line): a notice of last year says nothing of the island today.
+ * relayed one lately (those of the honesty line): a notice of last year says nothing of the island today. For a mairie
+ * not read until it agrees, what is said instead (`non_repris`, and `note` for its commune); for the island, the same
+ * for all of them.
  */
 export function courantBlock(copy: Cached<CourantAnswer> | undefined, commune: string | undefined, now: Date) {
-  if (!copy) return { indisponible: "Les avis de coupure relayés par les mairies n'ont pas encore été lus : réessayer plus tard." };
+  const nonRepris = commune ? mention("courant", commune) : mentionIle("courant").join(" ") || undefined;
+  if (!copy) return { indisponible: "Les avis de coupure relayés par les mairies n'ont pas encore été lus : réessayer plus tard.", non_repris: nonRepris };
   const c = copy.value;
-  const followed = (x: string) => cc.MAIRIES.some((m) => m.commune === x);
-  const avis = commune ? (followed(commune) ? rowsOf(c, commune, now) : []) : liveCommunes(c, now).flatMap((x) => rowsOf(c, x, now));
+  const avis = commune ? rowsOf(c, commune, now) : liveCommunes(c, now).flatMap((x) => rowsOf(c, x, now));
+  const silent = (commune ? [commune] : c.indisponibles).flatMap((x) => injoignable(c, x, localTime(copy.fetchedAt), now) ?? []);
   return {
     avis,
-    note: commune && !avis.length ? none(commune) : undefined,
-    a_savoir: honesty(c, now),
+    note: commune && !avis.length && !silent.length ? nonRepris ?? none(commune) : undefined,
+    injoignable: silent.length ? silent : undefined,
+    non_repris: nonRepris,
+    a_savoir: honesty(),
     depannage: panne(),
     lu_a: localTime(copy.fetchedAt),
-    indisponibles: c.indisponibles.length ? c.indisponibles : undefined,
+    indisponibles: c.indisponibles.filter(followed).length ? c.indisponibles.filter(followed) : undefined,
   };
 }

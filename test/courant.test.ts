@@ -3,13 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { counted, PAGE_BUDGET } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { coupures, namedDay, parseMedia, parsePosts, slotsOf } from "../src/providers/coupures-courant.js";
-import { ahead, type CourantAnswer, courantBlock, honesty, none, sentence, shortOf } from "../src/tools/courant.js";
+import { ahead, type CourantAnswer, courantBlock, courantCopy, honesty, injoignable, none, sentence, shortOf } from "../src/tools/courant.js";
 import { electricite } from "../src/tools/electricite.js";
 import { resume } from "../src/tools/resume.js";
 import { aujourdhuiPage } from "../src/web/aujourdhui.js";
 import { courantItem, electricitePage } from "../src/web/domains.js";
 import { SHARED } from "../src/web/partagees.js";
 import { pageOf } from "../src/web/places.js";
+
+// Every mairie agreed: their notices read (what is said while some have not: test/autorisations.test.ts).
+vi.mock("../src/providers/autorisations.js", () => import("./autorisees.js"));
 
 // Saturday 24 October 2026, 14:00 at La Réunion.
 const NOW = new Date("2026-10-24T10:00:00Z");
@@ -85,8 +88,8 @@ describe("the power cuts the mairies relay", () => {
     // Past 30 days, the same: no details of a cut long gone.
     expect(sentence(sm, new Date("2026-11-25T10:00:00Z"))).toBe("Pas d'avis récent de la mairie de Sainte-Marie : le dernier date du 21/10. Nous ne savons pas si une coupure est prévue.");
     expect(none("Le Port")).toBe("La mairie du Port ne publie pas les avis d'EDF dans un format lisible : nous ne savons pas si une coupure est prévue.");
-    // The communes of the honesty line: those whose mairie relayed a notice lately, not Saint-André's of long ago.
-    expect(honesty(copy, NOW)).toBe("EDF ne publie pas ses avis de coupure dans un format que nous pouvons lire. Nous reprenons ceux que relaient les mairies : aujourd'hui Sainte-Marie, Saint-Philippe et Cilaos.");
+    // The communes of the honesty line: every mairie read, with or without a recent notice (all agreed here).
+    expect(honesty()).toBe("EDF ne publie pas ses avis de coupure dans un format que nous pouvons lire. Nous reprenons ceux que relaient les mairies dont le site ne l'interdit pas : aujourd'hui Sainte-Marie, Saint-Philippe, Cilaos, Saint-André et Sainte-Suzanne, quand leurs avis sont lisibles.");
     const cached = { value: copy, fetchedAt: NOW, stale: false };
     expect(courantBlock(cached, "Le Port", NOW)).toMatchObject({ avis: [], note: none("Le Port") });
     expect(courantBlock(cached, "Sainte-Marie", NOW).avis.map((x) => x.publie_le)).toEqual(["21/10 10:00"]);
@@ -113,9 +116,51 @@ describe("the power cuts the mairies relay", () => {
     const html = electricitePage("https://rundata.re", { value: { resume: "", avertissements: [], sources: [], coupures_annoncees: block } as never, fetchedAt: NOW, stale: false }, NOW);
     expect(html).toContain('<section id="coupures" aria-labelledby="h-coupures">');
     expect(html).toContain("Coupures d'électricité annoncées par les mairies</h2>");
-    expect(html).toContain("aujourd&#39;hui Sainte-Marie, Saint-Philippe et Cilaos.");
+    expect(html).toContain("aujourd&#39;hui Sainte-Marie, Saint-Philippe, Cilaos, Saint-André et Sainte-Suzanne, quand leurs avis sont lisibles.");
     expect(html).toContain("<p><b>Panne chez vous ? Le service dépannage d&#39;EDF Réunion répond au 0800 333 974 (numéro vert).</b></p>");
     expect(html).toMatch(/Dernier avis de coupure d&#39;électricité publié par la mairie de Sainte-Marie le 21\/10 : .*<a href="https:\/\/example\.org\/[^"]+" rel="noopener">l'avis →<\/a>/);
+  });
+});
+
+describe("a mairie that does not answer", () => {
+  afterEach(() => (vi.unstubAllGlobals(), vi.restoreAllMocks()));
+
+  it("keeps its notices of the copy before, said with the hour they were read; without any, its read said failed, never « publishes none »", async () => {
+    const withCopy = (v: CourantAnswer) => { const st = new MemoryStore(); void st.put("web:courant", { value: v, fetchedAt: NOW.getTime() }); return new Cache(st, () => NOW.getTime()); };
+    // Sainte-Marie does not answer this time; the others answer with nothing.
+    vi.stubGlobal("fetch", async (url: string) => (String(url).includes("saintemarie") ? new Response("", { status: 503 }) : Response.json([])));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const before = { value: { avis: parsePosts(POSTS["ville-saintemarie.re"], "Sainte-Marie"), lues: ["Sainte-Marie"], indisponibles: [], sources: [] } as CourantAnswer, fetchedAt: new Date("2026-10-24T06:00:00Z"), stale: false };
+    const now = await courantCopy(before);
+    expect([now.indisponibles, now.gardes]).toEqual([["Sainte-Marie"], [{ commune: "Sainte-Marie", lu_a: "24/10 10:00" }]]);
+    const block = courantBlock({ value: now, fetchedAt: NOW, stale: false }, "Sainte-Marie", NOW);
+    expect(block.avis!.map((x) => x.publie_le)).toEqual(["21/10 10:00"]);
+    // Read this morning: « aujourd'hui », the site as subject, never the mairie.
+    expect(block.injoignable).toEqual([{ commune: "Sainte-Marie", texte: "Lu aujourd'hui à 10:00 : le site de la mairie de Sainte-Marie n'a pas répondu depuis. Ce qui suit peut avoir changé : voir son site.", court: "lu aujourd'hui à 10:00, sans réponse depuis", site: "https://www.ville-saintemarie.re" }]);
+    expect(injoignable(now, "Sainte-Marie", "25/10 14:00", new Date("2026-10-25T10:00:00Z"))?.texte).toMatch(/^Lu le 24\/10 à 10:00 : /);
+    // Kept again at the next failure, with the hour of the read, not of the copy that kept them.
+    expect((await courantCopy({ value: now, fetchedAt: NOW, stale: false })).gardes).toEqual([{ commune: "Sainte-Marie", lu_a: "24/10 10:00" }]);
+    // Island: its notices still there, and said kept.
+    const ile = courantBlock({ value: now, fetchedAt: NOW, stale: false }, undefined, NOW);
+    expect(ile.avis!.some((x) => x.commune === "Sainte-Marie")).toBe(true);
+    expect(ile.injoignable).toEqual(block.injoignable);
+    const tool = body(await electricite(withCopy(now), NOW, "Sainte-Marie"));
+    expect(tool.resume).toContain("Avis de coupure d'électricité de Sainte-Marie : lu aujourd'hui à 10:00, sans réponse depuis, voir injoignable.");
+    const page = electricitePage("https://rundata.re", { value: { resume: "", avertissements: [], sources: [], coupures_annoncees: ile }, fetchedAt: NOW, stale: false } as never, NOW);
+    expect(page).toContain('voir <a href="https://www.ville-saintemarie.re/" rel="noopener">son site</a>.');
+    expect(page.indexOf("n&#39;a pas répondu depuis")).toBeLessThan(page.indexOf("Rue des Jésuites"));
+    // The honesty line keeps naming it: its silence is said apart, never by leaving it out.
+    expect(courantBlock({ value: now, fetchedAt: NOW, stale: false }, undefined, NOW).a_savoir).toBe(honesty());
+    // Nothing kept: its read said failed.
+    const bare = await courantCopy();
+    const unread = courantBlock({ value: bare, fetchedAt: NOW, stale: false }, "Sainte-Marie", NOW);
+    expect(unread.injoignable?.[0]).toMatchObject({ texte: "Le site de la mairie de Sainte-Marie n'a pas répondu à notre dernière lecture (aujourd'hui à 14:00) : nous ne savons pas ce qu'il annonce en ce moment.", court: "site sans réponse à notre dernière lecture (14:00)" });
+    expect(unread.note).toBeUndefined();
+    expect(JSON.stringify(unread)).not.toMatch(/Sainte-Marie ne publie pas|Aucun avis/);
+    // The day's summary says it too, instead of nothing.
+    const day = resume(pageOf("sainte-marie")!, { courant: { value: bare, fetchedAt: NOW, stale: false } } as never, NOW);
+    expect(day.coupures_electricite?.injoignable?.texte).toBe(unread.injoignable?.[0].texte);
+    expect(aujourdhuiPage("https://rundata.re", pageOf("sainte-marie")!, day, null)).toContain("n&#39;a pas répondu à notre dernière lecture");
   });
 });
 
@@ -202,7 +247,7 @@ describe("Saint-André's PDF letters of EDF", () => {
   const cached = { value: copy, fetchedAt: NOW, stale: false };
 
   it("adds Saint-André to the honesty line, the summary and the pages, the arrow its link", () => {
-    expect(honesty(copy, NOW)).toMatch(/aujourd'hui Sainte-Marie, Saint-Philippe, Cilaos et Saint-André\.$/);
+    expect(honesty()).toContain("Cilaos, Saint-André et Sainte-Suzanne, quand leurs avis sont lisibles.");
     const r = resume(pageOf("saint-andre")!, { courant: cached } as never, NOW);
     expect(r.coupures_electricite!.avis.map((x) => x.texte)).toEqual([sentence(avis[0], NOW)]);
     expect(r.resume).toContain("coupure d'électricité annoncée par EDF le lundi 02/11, heures et secteurs dans l'avis de la mairie");

@@ -15,7 +15,6 @@ import { noteLecture } from "../lectures.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import { phases } from "../providers/carburants.js";
-import * as cc from "../providers/coupures-courant.js";
 import * as sante from "../sante/etablissements.js";
 import * as col from "../vie/collecte.js";
 import * as dech from "../vie/decheteries.js";
@@ -56,7 +55,8 @@ import { mentionCommune, occurrences, repris, sourcesServies } from "./agenda.js
 import { hoursOn, openNow } from "./annuaire.js";
 import { priceLine } from "./carburants.js";
 import { ecoles, resumeLine } from "./ecoles.js";
-import { aheadRows, type CourantAnswer, shortOf } from "./courant.js";
+import { aheadRows, type CourantAnswer, followed, injoignable, shortOf } from "./courant.js";
+import { mention } from "./non-repris.js";
 import { SITE_URL } from "./citer.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
 import { current, cyclone, highest, raised } from "./vigilance.js";
@@ -127,8 +127,8 @@ function copiesOf(commune: PlacePage, place: PlacePage): Record<Part, Copy | und
       ? { key: "web:dechets", build: buildDechets, max: 3 * H, nom: "état des déchèteries", outil: "annuaire_services_publics", page: `/decheteries#${anchorOf(commune.nom)}` }
       : undefined,
     // Only the mairies that relay EDF's notices: elsewhere nothing is said, rather than the same « we do not know » each day.
-    courant: cc.MAIRIES.some((m) => m.commune === commune.nom)
-      ? { key: "web:courant", build: () => buildCourant(), max: 6 * H, nom: "coupures d'électricité relayées par la mairie", outil: "electricite", page: "/electricite#coupures" }
+    courant: followed(commune.nom)
+      ? { key: "web:courant", build: (cache) => buildCourant(cache), max: 6 * H, nom: "coupures d'électricité relayées par la mairie", outil: "electricite", page: "/electricite#coupures" }
       : undefined,
   };
 }
@@ -280,7 +280,11 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
   const sites = l.dechets && dech.TCO_COMMUNES.includes(nom) ? dech.sitesNow(l.dechets.value.etats, now).filter((s) => s.commune === nom) : undefined;
   const fresh = sites?.filter((s) => s.a_jour) ?? [];
   const green = fresh.filter((s) => s.accepte.includes("déchets verts")).length;
-  const power = l.courant && cc.MAIRIES.some((m) => m.commune === nom) ? aheadRows(l.courant.value, nom, now) : [];
+  const power = l.courant && followed(nom) ? aheadRows(l.courant.value, nom, now) : [];
+  // A mairie not read until it agrees: what is said instead (tools/non-repris.ts).
+  const powerNotRead = mention("courant", nom);
+  // Its site did not answer at the last read: said, never left as no cut (tools/courant.ts).
+  const powerSilent = l.courant ? injoignable(l.courant.value, nom, localTime(l.courant.fetchedAt), now) : undefined;
 
   const t = meteo?.mesure?.mesures.temperature;
   const f = meteo?.prevision?.aujourd_hui;
@@ -340,7 +344,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     mairie: mairie
       ? { ouverte: open, horaires_aujourd_hui: hoursOn(mairie, now) ?? (open === null ? undefined : "fermée aujourd'hui"), adresse: mairie.adresse, telephone: mairie.telephone }
       : undefined,
-    coupures_electricite: power.length ? { avis: power } : undefined,
+    coupures_electricite: power.length || powerSilent ? { avis: power.length ? power : undefined, injoignable: powerSilent && { texte: powerSilent.texte, site: powerSilent.site } } : powerNotRead ? { non_repris: powerNotRead } : undefined,
     marches_du_jour: markets.length
       ? { liste: markets.map((m) => ({ nom: m.nom, horaires_aujourd_hui: m.horaires_aujourd_hui, adresse: m.adresse ?? undefined, carte: m.osm })), avertissement: MARKETS_NOT_ALL }
       : undefined,

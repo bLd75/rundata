@@ -1,50 +1,69 @@
 /**
- * The communes whose site's terms forbid taking its information without their authorisation (Petite-Île, Cilaos,
- * Saint-Philippe, Saint-Joseph, Le Tampon, Saint-André, L'Étang-Salé, La Possession, Bras-Panon, Saint-Benoît, then
- * Saint-Denis, Saint-Pierre and Sainte-Rose, as their legal notices read on 25/10/2026), and where their answer stands.
- * The same rule for every commune of the island: one whose site is not read at all is said so too. Until a commune has agreed, nothing is read
- * on its site: not its agenda, not its news (src/providers/agenda.ts, `site_commune`), and what was kept of them is no
- * longer served. Each answer says so instead (tools/agenda.ts, `mentionCommune`).
+ * The sources whose site's terms forbid taking their information without their authorisation, and where their answer
+ * stands, one line per source: a commune's agenda or news (Petite-Île, Cilaos, Saint-Philippe, Saint-Joseph, Le
+ * Tampon, Saint-André, L'Étang-Salé, La Possession, Bras-Panon, Saint-Benoît, then Saint-Denis, Saint-Pierre and
+ * Sainte-Rose, whose site is not read at all, as their legal notices read on 25/10/2026), the notices of power cuts a
+ * commune relays (Cilaos, Saint-Philippe, Saint-André, Sainte-Suzanne). The same rule for every commune of the island. Until
+ * a source has agreed, nothing is read of it, and what was kept of it is no longer served: each answer says so instead,
+ * in marketing's words (tools/non-repris.ts).
  *
  * Those whose terms allow taking their information, on conditions they write (Saint-Louis, Saint-Leu, La
  * Plaine-des-Palmistes: « à des fins d'information », not commercial), are here too, « permise », to be named as such.
- * A commune that is not here: its site's terms say nothing.
+ * A source that is not here: its site's terms say nothing.
  */
 export interface Autorisation {
+  /** The commune whose site it is. */
+  commune: string;
+  /**
+   * What is read there once it agrees: its agenda's events, the events announced in its news, both, the notices of
+   * power cuts it relays.
+   */
+  publie: "événements" | "actualités" | "événements et actualités" | "avis de coupure d'électricité";
   /**
    * « a_demander » until the letter asking for it has gone, « demandee » once it has, « refusee » only after a written
    * no, « accordee » after a yes; « permise » when the site's own terms allow it, without asking.
    */
   etat: "a_demander" | "demandee" | "accordee" | "permise" | "refusee";
-  /** What its site publishes, read once it agrees: its agenda's events, the events announced in its news, or both. */
-  publie: "événements" | "actualités" | "événements et actualités";
   /** The day the letter went, « 2026-10-26 », as given by who sent it: never guessed. */
   demandee_le?: string;
   /** The day of its written no. */
   refusee_le?: string;
 }
 
+/**
+ * By source: `agenda:<id>` for an agenda or a mairie's news (src/providers/agenda.ts, LISIBLES, or a commune whose site
+ * is not read at all: `agenda:saint_denis`), `courant:<commune>`
+ * for the notices of power cuts a mairie relays (src/providers/coupures-courant.ts, MAIRIES). In the order said.
+ */
 export const AUTORISATIONS: Record<string, Autorisation> = {
-  "Bras-Panon": { etat: "a_demander", publie: "événements" },
-  Cilaos: { etat: "a_demander", publie: "actualités" },
-  "L'Étang-Salé": { etat: "a_demander", publie: "événements" },
-  "La Possession": { etat: "a_demander", publie: "événements" },
-  "Le Tampon": { etat: "a_demander", publie: "événements" },
-  "La Plaine-des-Palmistes": { etat: "permise", publie: "actualités" },
-  "Petite-Île": { etat: "a_demander", publie: "événements" },
-  "Saint-André": { etat: "a_demander", publie: "événements" },
-  "Saint-Benoît": { etat: "a_demander", publie: "événements" },
-  "Saint-Denis": { etat: "a_demander", publie: "actualités" },
-  "Saint-Joseph": { etat: "a_demander", publie: "actualités" },
-  "Saint-Leu": { etat: "permise", publie: "actualités" },
-  "Saint-Louis": { etat: "permise", publie: "événements" },
-  "Saint-Philippe": { etat: "a_demander", publie: "actualités" },
-  "Saint-Pierre": { etat: "a_demander", publie: "événements et actualités" },
-  "Sainte-Rose": { etat: "a_demander", publie: "événements et actualités" },
+  "agenda:bras_panon": { commune: "Bras-Panon", publie: "événements", etat: "a_demander" },
+  "agenda:cilaos": { commune: "Cilaos", publie: "actualités", etat: "a_demander" },
+  "agenda:etang_sale": { commune: "L'Étang-Salé", publie: "événements", etat: "a_demander" },
+  "agenda:la_possession": { commune: "La Possession", publie: "événements", etat: "a_demander" },
+  "agenda:le_tampon": { commune: "Le Tampon", publie: "événements", etat: "a_demander" },
+  "agenda:petite_ile": { commune: "Petite-Île", publie: "événements", etat: "a_demander" },
+  "agenda:plaine_des_palmistes": { commune: "La Plaine-des-Palmistes", publie: "actualités", etat: "permise" },
+  "agenda:saint_andre": { commune: "Saint-André", publie: "événements", etat: "a_demander" },
+  "agenda:saint_benoit": { commune: "Saint-Benoît", publie: "événements", etat: "a_demander" },
+  "agenda:saint_denis": { commune: "Saint-Denis", publie: "actualités", etat: "a_demander" },
+  "agenda:saint_joseph": { commune: "Saint-Joseph", publie: "actualités", etat: "a_demander" },
+  "agenda:saint_leu": { commune: "Saint-Leu", publie: "actualités", etat: "permise" },
+  "agenda:saint_louis": { commune: "Saint-Louis", publie: "événements", etat: "permise" },
+  "agenda:saint_philippe": { commune: "Saint-Philippe", publie: "actualités", etat: "a_demander" },
+  "agenda:saint_pierre": { commune: "Saint-Pierre", publie: "événements et actualités", etat: "a_demander" },
+  "agenda:sainte_rose": { commune: "Sainte-Rose", publie: "événements et actualités", etat: "a_demander" },
+  "courant:Cilaos": { commune: "Cilaos", publie: "avis de coupure d'électricité", etat: "a_demander" },
+  "courant:Saint-André": { commune: "Saint-André", publie: "avis de coupure d'électricité", etat: "a_demander" },
+  "courant:Saint-Philippe": { commune: "Saint-Philippe", publie: "avis de coupure d'électricité", etat: "a_demander" },
+  "courant:Sainte-Suzanne": { commune: "Sainte-Suzanne", publie: "avis de coupure d'électricité", etat: "a_demander" },
 };
 
-/** Whether what its commune's site publishes may be taken: yes for a commune whose site asks nothing, or allows it. */
-export const autorisee = (commune: string | undefined) => !commune || ["accordee", "permise"].includes(AUTORISATIONS[commune]?.etat ?? "accordee");
+/** Whether a source may be read: yes for one whose site asks nothing, or allows it. */
+export const autorisee = (source: string) => ["accordee", "permise"].includes(AUTORISATIONS[source]?.etat ?? "accordee");
 
-/** The communes whose site is not read until they agree, in the list's order. */
-export const nonAutorisees = () => Object.keys(AUTORISATIONS).filter((c) => !autorisee(c));
+/** The sources of a kind (`agenda`, `courant`) not read until they agree, in the list's order. */
+export const nonAutorisees = (famille: string): Autorisation[] =>
+  Object.entries(AUTORISATIONS).filter(([k]) => k.startsWith(`${famille}:`) && !autorisee(k)).map(([, a]) => a);
+
+/** A commune's source of that kind, while it has not agreed. */
+export const nonAutorisee = (famille: string, commune: string | undefined) => nonAutorisees(famille).find((a) => a.commune === commune);

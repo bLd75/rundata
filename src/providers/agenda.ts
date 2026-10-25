@@ -1385,9 +1385,9 @@ export const LISIBLES: Agenda[] = [
 
 /**
  * The agendas read: not those of a commune's site whose terms ask its authorisation, until it is given
- * (src/providers/autorisations.ts). One left out is not read, and its copies, already kept, are not served.
+ * (src/providers/autorisations.ts, `agenda:<id>`). One left out is not read, and its copies, already kept, are not served.
  */
-export const AGENDAS: Agenda[] = LISIBLES.filter((a) => !a.site_commune || autorisee(a.commune));
+export const AGENDAS: Agenda[] = LISIBLES.filter((a) => autorisee(`agenda:${a.id}`));
 
 // The mairies' agendas credited by name: those read only, one left out until it agrees no longer named.
 const mairiesLues = AGENDAS.filter((a) => a.source === SOURCES.mairies).map((a) => a.commune!);

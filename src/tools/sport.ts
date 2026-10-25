@@ -3,7 +3,7 @@ import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
 import { httpUrl } from "../http.js";
 import { AGENDAS, type Evenement, LISIBLES, type programmesSportifs, reserve, sportDesAgendas } from "../providers/agenda.js";
-import { AUTORISATIONS } from "../providers/autorisations.js";
+import { nonAutorisee } from "../providers/autorisations.js";
 import * as src from "../providers/sport.js";
 import * as avis from "../providers/sport-avis.js";
 import { type Club, clubOf, clubsNamed, type ClubSport, zoneOf } from "../sport/clubs.js";
@@ -347,10 +347,11 @@ const dayMonth = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
  */
 export function mentionProgrammes(communes?: string[]): string | undefined {
   const theirs = LISIBLES.filter((x) => x.programmes && x.commune && !AGENDAS.includes(x) && (!communes || communes.includes(x.commune))).map((x) => x.commune!).sort((x, y) => x.localeCompare(y, "fr"));
-  const waiting = theirs.filter((c) => AUTORISATIONS[c]?.etat !== "refusee");
+  const au = (c: string) => nonAutorisee("agenda", c);
+  const waiting = theirs.filter((c) => au(c)?.etat !== "refusee");
   const lines: string[] = [];
   if (waiting.length) {
-    const days = new Set(waiting.map((c) => (AUTORISATIONS[c]?.etat === "demandee" ? AUTORISATIONS[c].demandee_le ?? "" : undefined)));
+    const days = new Set(waiting.map((c) => (au(c)?.etat === "demandee" ? au(c)!.demandee_le ?? "" : undefined)));
     const day = days.size === 1 ? [...days][0] : undefined;
     const one = waiting.length === 1;
     lines.push((one
@@ -359,7 +360,7 @@ export function mentionProgrammes(communes?: string[]): string | undefined {
       (day !== undefined ? ` Nous ${one ? "lui" : "leur"} avons demandé cet accord${day ? ` le ${dayMonth(day)}` : ""} et attendons ${one ? "sa" : "leur"} réponse.` : ""));
   }
   for (const c of theirs.filter((x) => !waiting.includes(x))) {
-    const no = AUTORISATIONS[c].refusee_le;
+    const no = au(c)?.refusee_le;
     lines.push(`La commune ${de(c)} a refusé${no ? `, le ${dayMonth(no)},` : ""} que rundata.re reprenne le contenu de son site : le programme sportif qu'elle y publie ne s'affiche donc pas ici.`);
   }
   return lines.join(" ") || undefined;

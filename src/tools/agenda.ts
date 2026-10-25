@@ -5,13 +5,14 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
 import * as src from "../providers/agenda.js";
-import { AUTORISATIONS, autorisee, nonAutorisees } from "../providers/autorisations.js";
+import { nonAutorisee } from "../providers/autorisations.js";
 import { names, THEMES, W } from "../providers/agenda-mots.js";
 import { withNews } from "../providers/agenda-presse.js";
 import { evenements as proposes, ID as PROPOSITIONS_ID } from "../providers/agenda-propositions.js";
 import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
+import { dayMonth, mention, mentionIle as ileMention } from "./non-repris.js";
 import { quand as dayText } from "./sport.js";
 
 const AHEAD_DAYS = 14;
@@ -412,21 +413,11 @@ export function occurrences(r: Pick<EventRow, "date" | "quand" | "autres_dates">
   return [r.quand, ...(r.autres_dates ?? [])].map(read).filter((o): o is Occurrence => !!o);
 }
 
-const dayMonth = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
-const its = (commune: string) => `les ${AUTORISATIONS[commune].publie} qu'elle y publie`;
+/** Said instead of a commune's events while its site is not read until it agrees (tools/non-repris.ts). */
+export const mentionCommune = (commune: string | undefined) => mention("agenda", commune);
 
-/**
- * Said instead of a commune's events while its site's terms forbid taking its information and it has not agreed
- * (src/providers/autorisations.ts), in marketing's words: undefined for any other commune. The day it was asked, or
- * refused, only once known; nothing said of a request before it has gone.
- */
-export function mentionCommune(commune: string | undefined): string | undefined {
-  if (!commune || autorisee(commune)) return undefined;
-  const au = AUTORISATIONS[commune];
-  if (au.etat === "refusee") return `La commune ${de(commune)} a refusé${au.refusee_le ? `, le ${dayMonth(au.refusee_le)},` : ""} que rundata.re reprenne le contenu de son site : ${its(commune)} ne s'affichent donc pas ici.`;
-  const first = `Les mentions légales du site de la commune ${de(commune)} interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas ${its(commune)}.`;
-  return au.etat === "demandee" ? `${first} Nous lui avons demandé cet accord${au.demandee_le ? ` le ${dayMonth(au.demandee_le)}` : ""} et attendons sa réponse.` : first;
-}
+/** The same for the whole island. */
+export const mentionIle = () => ileMention("agenda");
 
 /**
  * The same in a few words (marketing): for the commune page's tile of outings, `valeur` and `detail` when it has no
@@ -434,14 +425,15 @@ export function mentionCommune(commune: string | undefined): string | undefined 
  * outings of the day's page.
  */
 export function mentionCourte(commune: string): { valeur: string; detail: string; tete: string; resume: string; ligne: string } | undefined {
-  if (autorisee(commune)) return undefined;
-  const au = AUTORISATIONS[commune];
+  const au = nonAutorisee("agenda", commune);
+  if (!au) return undefined;
   // In marketing's words for each kind: its agenda, its news, or both (« site communal » in the tile's few words).
-  const words = {
+  const words = ({
     "événements": { valeur: "Agenda non repris", tete: "Agenda communal non repris", ce: "agenda du site de la commune non repris" },
     "actualités": { valeur: "Actualités non reprises", tete: "Actualités communales non reprises", ce: "actualités du site de la commune non reprises" },
     "événements et actualités": { valeur: "Agenda et actualités non repris", tete: "Site communal non repris", ce: "agenda et actualités du site de la commune non repris" },
-  }[au.publie];
+  } as Record<string, { valeur: string; tete: string; ce: string }>)[au.publie];
+  if (!words) return undefined;
   const asked = au.etat !== "demandee" ? "" : au.demandee_le ? `, demandé le ${dayMonth(au.demandee_le)}` : ", que nous lui avons demandé";
   const detail = au.etat === "refusee" ? `elle a refusé${au.refusee_le ? ` le ${dayMonth(au.refusee_le)}` : ""}` : `ses mentions légales l'interdisent sans son accord${asked}`;
   return {
@@ -451,26 +443,6 @@ export function mentionCourte(commune: string): { valeur: string; detail: string
     resume: `${words.ce}, ${detail} (voir non_repris)`,
     ligne: `${words.ce[0].toUpperCase()}${words.ce.slice(1)} : ${detail}.`,
   };
-}
-
-/**
- * The same for the whole island, in one block for the communes still waiting (with the day they were asked when it is
- * the same for all), then a line for each one asked on another day, and for each one that refused.
- */
-export function mentionIle(): string[] {
-  const waiting = nonAutorisees().filter((c) => AUTORISATIONS[c].etat !== "refusee");
-  const refused = nonAutorisees().filter((c) => AUTORISATIONS[c].etat === "refusee");
-  const lines: string[] = [];
-  if (waiting.length === 1) lines.push(mentionCommune(waiting[0])!);
-  else if (waiting.length) {
-    const kinds = ["événements", "actualités"].filter((k) => waiting.some((c) => AUTORISATIONS[c].publie.includes(k))).join(" et ");
-    const days = new Set(waiting.map((c) => (AUTORISATIONS[c].etat === "demandee" ? AUTORISATIONS[c].demandee_le ?? "" : undefined)));
-    const day = days.size === 1 ? [...days][0] : undefined;
-    lines.push(`Les mentions légales des sites de ${waiting.length} communes interdisent d'en reprendre le contenu sans leur accord : ${enumeration(waiting)}. rundata.re n'affiche donc pas les ${kinds} qu'elles y publient.` +
-      (day !== undefined ? ` Nous leur avons demandé cet accord${day ? ` le ${dayMonth(day)}` : ""} et attendons leur réponse.` : ""));
-    if (day === undefined) lines.push(...waiting.filter((c) => AUTORISATIONS[c].etat === "demandee").map((c) => mentionCommune(c)!));
-  }
-  return [...lines, ...refused.map((c) => mentionCommune(c)!)];
 }
 
 // The agendas not read until their commune agrees, and the sources only they are credited with.
@@ -503,7 +475,7 @@ function besides(commune: string): string {
 const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== "reunion_fr" && x.id !== PROPOSITIONS_ID && !x.partiel);
 const partial = src.AGENDAS.filter((x) => x.partiel);
 // Not those whose site is not read until they agree: said apart (mentionIle).
-const without = Object.keys(INSEE).filter((c) => !src.COVERED.includes(c) && autorisee(c));
+const without = Object.keys(INSEE).filter((c) => !src.COVERED.includes(c) && !nonAutorisee("agenda", c));
 /** The communes whose mairie's agenda is read, for the tool's description. */
 export const MAIRIES_LUES = towns.filter((x) => x.commune && !x.couvre).map((x) => x.commune).join(", ");
 export const COUVERTURE =
