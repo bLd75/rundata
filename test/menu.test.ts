@@ -66,11 +66,12 @@ describe("the order of the pages", () => {
     expect(both.slice(-5)).toEqual(["trafic", "mer", "bus", "services", "terrain"]);
   });
 
-  it("gives the children's tile the number of places and its three most frequent kinds, with nothing to fetch", () => {
+  it("gives the children's tile the number of places, then the playgrounds, the parks and the pools, with nothing to fetch", () => {
     const tile = homePage(O, null, NOW).match(/<li class="tile k-enfants">(.*?)<\/li>/s)![1];
     expect(tile).toContain('<a href="/enfants">Enfants</a>');
     expect(tile).toContain(`<p class="tv">${enfants.LIEUX.length} lieux</p>`);
-    expect(tile).toMatch(/<p class="td">(?:\d+ [^<·]+ · ){3}…<\/p>/);
+    const n = (k: string) => enfants.LIEUX.filter((l) => l.type === k).length;
+    expect(tile).toContain(`<p class="td">${n("aire_de_jeux")} aires de jeux · ${n("parc")} parcs et jardins · ${n("piscine")} piscines · …</p>`);
     expect(tile).not.toContain("rechargez la page");
   });
 

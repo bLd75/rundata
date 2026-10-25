@@ -160,7 +160,7 @@ export const CATEGORIES: Category[] = [
     path: "/enfants",
     icon: "kids",
     tools: ["annuaire_services_publics", "evenements"],
-    about: "Aires de jeux, parcs, piscines, médiathèques, zoos et skateparks commune par commune, et les activités pour les enfants des deux semaines qui viennent, avec l'âge quand la source le donne.",
+    about: "Aires de jeux, parcs, piscines, médiathèques, zoos et skateparks, commune par commune, et les activités pour les enfants des deux semaines qui viennent, avec l'âge quand la source le donne.",
   },
   {
     key: "eau",
