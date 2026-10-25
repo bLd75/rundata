@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { breaks, parisDate, sun } from "../src/providers/calendrier.js";
+import { breaks, parisDate, schoolBreaks, sun } from "../src/providers/calendrier.js";
 import { calendrier, longDate } from "../src/tools/calendrier.js";
 import { buildCalendrier } from "../src/web/data.js";
 import { calendrierPage } from "../src/web/domains.js";
@@ -17,6 +17,36 @@ function cacheAt(now: Date) {
 }
 
 describe("calendar", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads the latest school years when the ministry has more than the 100 rows the API gives", async () => {
+    // 35 school years of 5 breaks: 175 rows, sorted and cut to the limit as the API does.
+    const rows = Array.from({ length: 35 }, (_, k) => 1993 + k).flatMap((y) =>
+      ["Vacances après 1ère période", "Vacances de Noël", "Vacances après 3ème période", "Vacances après 4ème période", "Début des Vacances d'Hiver austral"].map((description, i) => {
+        const start = new Date(Date.UTC(y + (i ? 1 : 0), [9, 11, 2, 4, 6][i], 10, 22)).toISOString().replace(".000Z", "+00:00");
+        return { description, start_date: start, end_date: start, annee_scolaire: `${y}-${y + 1}` };
+      }));
+    let asked = 0;
+    vi.stubGlobal("fetch", async (url: string) => {
+      const u = new URL(url);
+      expect(u.hostname).toBe("data.education.gouv.fr");
+      asked++;
+      const [field, dir] = u.searchParams.get("order_by")!.split(" ");
+      const sorted = [...rows].sort((x, y) => (x as Record<string, string>)[field].localeCompare((y as Record<string, string>)[field]) * (dir === "desc" ? -1 : 1));
+      return new Response(JSON.stringify({ total_count: rows.length, results: sorted.slice(0, Number(u.searchParams.get("limit"))) }));
+    });
+    const now = new Date("2026-10-25T08:00:00Z");
+    const got = (await schoolBreaks(new Cache(new MemoryStore(), () => now.getTime()))).value;
+    expect(asked).toBe(1);
+    expect(got).toHaveLength(100);
+    const years = new Set(got.map((b) => b.annee_scolaire));
+    expect(years).toContain("2026-2027");
+    expect(years).toContain("2027-2028");
+    expect(got.at(-1)!.annee_scolaire).toBe("2027-2028");
+    // Still in order, the oldest first.
+    expect(got.map((b) => b.debut)).toEqual([...got.map((b) => b.debut)].sort());
+  });
+
   it("reads the ministry's dates as Paris midnights", () => {
     expect(parisDate("2026-10-09T22:00:00+00:00")).toBe("2026-10-10");
     expect(parisDate("2026-10-25T23:00:00+00:00")).toBe("2026-10-26");
