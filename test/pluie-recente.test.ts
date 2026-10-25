@@ -77,6 +77,29 @@ describe("the rain of the last hours", () => {
     expect(b.par_heure.at(-1)).toBe("0 h–1 h : 0");
   });
 
+  it("says the hours not read when the hourly package is stuck on an old copy, never as the hour under way", () => {
+    // 17:30 in Réunion, the hourly copy still ending at 12 h, the slots kept from 16 h 30 to 17 h 24, dry.
+    const now = new Date("2026-10-25T13:30:00Z");
+    const slots = Array.from({ length: 9 }, (_, k) => ({ time: iso(Date.parse("2026-10-25T13:24:00Z") - k * SLOT), rr: 0 }));
+    const b = recentRainBlock({ hourly: HOURLY, slots: () => slots }, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", now, false)!;
+    expect(b.par_heure.slice(0, 3)).toEqual([
+      "16 h 30–17 h 24 : 0 (dernières mesures lues, toutes les 6 minutes)",
+      "12 h–16 h 30 : non lue (notre lecture n'a pas abouti)",
+      "11 h–12 h : 2,6 mm",
+    ]);
+    // Midnight to 17 h 24 with four hours and a half not read: a floor.
+    expect(b.cumul_depuis_minuit).toBe("au moins 12,3 mm de 0 h à 17 h 24");
+    // Dry in every hour read: not « since yesterday », the hours between were not read.
+    const dry = { ...HOURLY, rr: { ...HOURLY.rr, "97412356": HOURLY.rr["97412356"].map((v) => (v == null ? v : 0)) } };
+    expect(recentRainBlock({ hourly: dry, slots: () => slots }, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", now, false)!.derniere_pluie).toBe(
+      "pas de pluie mesurée dans les heures disponibles (de 12 h à 16 h 30, non lue)",
+    );
+    // An hour late only (the next one not published yet): still the hour under way.
+    const late = new Date("2026-10-25T09:20:00Z");
+    const recent = Array.from({ length: 13 }, (_, k) => ({ time: iso(Date.parse("2026-10-25T09:18:00Z") - k * SLOT), rr: 0 }));
+    expect(recentRainBlock({ hourly: HOURLY, slots: () => recent }, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", late, false)!.par_heure[0]).toBe("12 h–13 h 18 : 0 (heure en cours)");
+  });
+
   it("goes back 24 hours when the last rain is older than 12 hours, yesterday's hours named", () => {
     const b = recentRainBlock({ hourly: HOURLY, slots: () => [] }, { id: "97422440", nom: "Plaine des Cafres", fit: near }, "Plaine des Cafres", NOW, false)!;
     expect(b.par_heure).toHaveLength(24);
