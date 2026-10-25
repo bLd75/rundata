@@ -87,6 +87,11 @@ describe("the rain of the last hours", () => {
       "12 h–16 h 30 : non lue (notre lecture n'a pas abouti)",
       "11 h–12 h : 2,6 mm",
     ]);
+    // The last rain read is before the hours not read: it may have rained since.
+    expect(b.derniere_pluie).toBe("aujourd'hui entre 11 h et 12 h (de 12 h à 16 h 30, non lue : il a pu pleuvoir pendant ce temps)");
+    // Rain measured after them is the last rain: said as it is.
+    const wet = slots.map((x, k) => (k === 2 ? { ...x, rr: 0.2 } : x));
+    expect(recentRainBlock({ hourly: HOURLY, slots: () => wet }, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", now, false)!.derniere_pluie).toBe("aujourd'hui entre 17 h 06 et 17 h 12");
     // Midnight to 17 h 24 with four hours and a half not read: a floor.
     expect(b.cumul_depuis_minuit).toBe("au moins 12,3 mm de 0 h à 17 h 24");
     // Dry in every hour read: not « since yesterday », the hours between were not read.

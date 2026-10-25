@@ -67,7 +67,9 @@ export function recentRainBlock(rain: RecentRain, station: StationRain, lieu: st
     const k = hours.findIndex((v) => v != null && v > 0);
     if (k >= 0) {
       const e = end - k * HOUR_MS;
-      derniere = `${dayWord(e - HOUR_MS, t)} entre ${hm(e - HOUR_MS)} et ${hm(e)}`;
+      // Before hours not read: it may have rained since (marketing).
+      const gap = stuck ? ` (de ${hm(end)} à ${hm(from)}, non lue : il a pu pleuvoir pendant ce temps)` : "";
+      derniere = `${dayWord(e - HOUR_MS, t)} entre ${hm(e - HOUR_MS)} et ${hm(e)}${gap}`;
     }
   }
   const allRead = !stuck && hours.every((v) => v != null);
