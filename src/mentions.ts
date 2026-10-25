@@ -23,7 +23,7 @@ const MENTIONS: Readonly<Record<string, Mention>> = {
 };
 
 // Any of the hosts in a text, as a quick test before a closer look: most answers and pages have none.
-const ANY = new RegExp(Object.keys(MENTIONS).map((h) => h.replace(/\./g, "\\.")).join("|"));
+const ANY = new RegExp(Object.keys(MENTIONS).map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"));
 const HOST = /^https?:\/\/([^/?#:]+)/i;
 
 function find(url: string): Mention | undefined {
