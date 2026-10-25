@@ -184,17 +184,38 @@ describe("a line", () => {
     expect(r.arret).toBeUndefined();
   });
 
-  it("says when it does not run, why, and gives its next day", async () => {
+  it("says when it does not run, what the timetables say beside it, and gives its next day of service", async () => {
     // Sunday 25/10/2026: the E1 runs on weekdays only.
     const sunday = body(await transports(undefined, "E1", new Date("2026-10-25T03:30:00Z")));
-    expect(sunday.resume).toMatch(/^La ligne E1 \(St-Denis \/ St-Benoît\), Car Jaune ne circule pas aujourd'hui, dimanche 25 octobre, elle ne circule pas le dimanche, d'après les horaires publiés\. Sa prochaine journée, lundi 26 octobre : /);
+    expect(sunday.resume).toMatch(/^Ligne E1 \(St-Denis \/ St-Benoît, Car Jaune\)\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\. D'après les horaires publiés, elle ne circule pas le dimanche\. Prochaine journée de service, lundi 26 octobre\u00a0: [^;]+, \d+ arrêts, \d+ départs de \d+h\d\d à \d+h\d\d\u00a0; /);
+    expect(sunday.resume).not.toMatch(/le lundi 26 octobre|aujourd'hui,? de/);
     expect(sunday.jour).toBe("lundi 26 octobre");
-    // Wednesday 11/11/2026, a public holiday, by the State's calendar when it is at hand.
-    const cache = { get: async () => ({ value: { "2026-11-11": "11 novembre" }, fetchedAt: new Date() }) } as unknown as Cache;
-    const holiday = body(await transports(undefined, "E1", new Date("2026-11-11T03:30:00Z"), cache));
-    expect(holiday.resume).toMatch(/ne circule pas aujourd'hui, mercredi 11 novembre, jour férié \(11 novembre\)/);
-    const unknown = body(await transports(undefined, "E1", new Date("2026-11-11T03:30:00Z")));
-    expect(unknown.resume).toMatch(/mercredi 11 novembre, un jour sans service au calendrier du réseau/);
+    // Wednesday 11/11/2026, a public holiday, by the State's calendar when it is at hand: its name, never its date again.
+    const WED = new Date("2026-11-11T03:30:00Z");
+    const feries = (name: string) => ({ get: async () => ({ value: { "2026-11-11": name }, fetchedAt: new Date() }) }) as unknown as Cache;
+    expect(body(await transports(undefined, "E1", WED, feries("Armistice 1918"))).resume)
+      .toMatch(/^Ligne E1 \(St-Denis \/ St-Benoît, Car Jaune\)\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, jour férié \(Armistice 1918\), d'après les horaires publiés\. Prochaine journée de service, jeudi 12 novembre\u00a0: /);
+    expect(body(await transports(undefined, "E1", WED, feries("11 novembre"))).resume)
+      .toMatch(/^Ligne E1 \(St-Denis \/ St-Benoît, Car Jaune\)\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, jour férié, d'après les horaires publiés\. Prochaine/);
+    // Without the calendar: a Wednesday its network's calendar leaves out, while it runs on the other Wednesdays.
+    const unknown = body(await transports(undefined, "E1", WED));
+    expect(unknown.resume).toMatch(/^Ligne E1 \(St-Denis \/ St-Benoît, Car Jaune\)\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, d'après les horaires publiés, alors qu'elle circule le mercredi les autres semaines\. Les horaires ne disent pas pourquoi\u00a0: voir l'info trafic du réseau\. Prochaine journée de service, jeudi 12 novembre\u00a0: /);
+    // The network's live alert about the line, when its feed has one, with the feed's time.
+    const cj = transit.NETWORKS.carjaune;
+    const [e1] = linesNamed("E1", "carjaune");
+    const store = new MemoryStore();
+    store.put("calendrier:feries:2026", { value: {}, fetchedAt: WED.getTime() });
+    const alert = { titre: "Grève : lignes E1 et S2 non assurées", lignes: [cj.temps_reel!.lignes[e1 - cj.first_route]], arrets: [], periodes: [[null, null]] };
+    store.put("rt:carjaune", { value: { at: WED.getTime() / 1000 - 30, trips: {}, cancelled: [], alerts: [alert], vehicles: [] }, fetchedAt: WED.getTime() });
+    const told = body(await transports(undefined, "E1", WED, new Cache(store, () => WED.getTime(), false)));
+    expect(told.resume).toMatch(/alors qu'elle circule le mercredi les autres semaines\. Info trafic Car Jaune \(flux de 07:29\)\u00a0: Grève : lignes E1 et S2 non assurées\. Prochaine journée de service, jeudi 12 novembre\u00a0: /);
+    expect(told.info_trafic).toEqual([{ reseau: "Car Jaune", lignes: ["E1"], titre: alert.titre }]);
+  });
+
+  it("gives line and stop names with single spaces, as some feeds have two", () => {
+    expect(transit.ROUTES.some(([, s, l]) => /\s{2}/.test(s + l))).toBe(false);
+    expect(transit.ROUTES.some(([net, s, l]) => net === "carsud" && s === "STD" && l === "Pointe Tremblet -Langevin - Gare St Joseph")).toBe(true);
+    expect(transit.GROUPS.some((g) => /\s{2}/.test(g.nom))).toBe(false);
   });
 
   it("without its stops in the database, gives its termini and its hours, and says the list is missing", async () => {
