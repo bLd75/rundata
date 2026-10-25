@@ -123,6 +123,8 @@ export interface Departure {
   /** From the real-time feed: seconds late (early when negative) at this stop, or that the bus will not stop. */
   retard?: number;
   supprime?: boolean;
+  /** Where its bus is, when it sends its position. */
+  bus?: BusPosition;
 }
 
 /** Seconds from now until the bus is expected: the real-time feed's time when there is one. */
@@ -177,7 +179,7 @@ export async function realtimeFeeds(nets: string[], cache: Cache, now: Date): Pr
       try {
         const c = await rt.realtime(cache, n);
         const f = c?.value;
-        if (f && now.getTime() / 1000 - f.at < rt.MAX_AGE_SECONDS && (f.cancelled.length || f.alerts.length || Object.keys(f.trips).length)) out.set(n, f);
+        if (f && now.getTime() / 1000 - f.at < rt.MAX_AGE_SECONDS && (f.cancelled.length || f.alerts.length || f.vehicles?.length || Object.keys(f.trips).length)) out.set(n, f);
       } catch (err) {
         console.error(`source ${rt.SOURCE.id} (${n}) indisponible:`, why(err));
       }
@@ -206,6 +208,62 @@ export function applyRealtime(list: Departure[], feeds: Map<string, rt.Realtime>
     })
     .filter((d) => d.supprime || expected(d) >= -60)
     .sort((a, b) => expected(a) - expected(b));
+}
+
+/** Beyond this age, a bus's position is not given: it says where the bus was, not where it is. */
+export const POSITION_MAX_AGE = 10 * 60;
+/** Within this distance of a stop, a bus that names none is said to be near it. */
+const NEAR_STOP_M = 500;
+
+export interface BusPosition {
+  /** « à l'arrêt Mairie (Le Tampon) », « arrive à … », « en route vers … », « près de … »; none far from any stop. */
+  ou?: string;
+  /** Always given: a position is only true at its time. */
+  heure_de_la_position: string;
+  lat: number;
+  lon: number;
+}
+
+/** A network's stops by their GTFS id, which the feed's positions name them by; built once per network. */
+const stopIndexes = new Map<string, Map<string, number>>();
+function stopIndex(net: string, id: string): number | undefined {
+  let m = stopIndexes.get(net);
+  if (!m) {
+    const n = transit.NETWORKS[net];
+    m = new Map(n.temps_reel!.arrets.map((x, i) => [x, n.first_stop + i]));
+    stopIndexes.set(net, m);
+  }
+  return m.get(id);
+}
+
+/** Where a bus is, in words: its stop and what it does there, else its network's stop nearest it. */
+function whereIs(net: string, v: rt.Vehicle): string | undefined {
+  const id = v.stop !== undefined ? stopIndex(net, v.stop) : undefined;
+  if (id !== undefined) {
+    const s = transit.stop(id);
+    const at = `${s.nom} (${s.commune})`;
+    return v.status === 1 ? `à l'arrêt ${at}` : v.status === 0 ? `arrive à ${at}` : `en route vers ${at}`;
+  }
+  const near = nearStops(v.lon, v.lat, net)[0];
+  return near && near.m <= NEAR_STOP_M ? `près de ${near.g.nom} (${near.g.commune})` : undefined;
+}
+
+/** A bus's position as the tool gives it, with its time; undefined when it is more than 10 minutes old. */
+function position(net: string, v: rt.Vehicle, now: Date): BusPosition | undefined {
+  if (now.getTime() / 1000 - v.at > POSITION_MAX_AGE) return undefined;
+  const ou = whereIs(net, v);
+  return { ...(ou ? { ou } : {}), heure_de_la_position: clock(v.at + 4 * 3600), lat: Math.round(v.lat * 1e4) / 1e4, lon: Math.round(v.lon * 1e4) / 1e4 };
+}
+
+/** The departures whose bus sends its position, with it: the bus is on its way to the stop, or at it. */
+export function withPositions(list: Departure[], feeds: Map<string, rt.Realtime>, now: Date): Departure[] {
+  const byTrip = new Map([...feeds].flatMap(([net, f]) => (f.vehicles ?? []).map((v) => [`${net}|${v.trip}`, v] as const)));
+  if (!byTrip.size) return list;
+  return list.map((d) => {
+    const v = d.supprime ? undefined : byTrip.get(`${d.reseau}|${d.trip}`);
+    const bus = v && position(d.reseau, v, now);
+    return bus ? { ...d, bus } : d;
+  });
 }
 
 /** The traffic alerts in force about these stops or the lines of these departures. */
@@ -267,8 +325,8 @@ export const departureRow = (d: Departure): DepartureRow => ({
 /** « à l'heure », « 5 min de retard », « 2 min d'avance ». */
 const delayText = (m: number) => (m === 0 ? "à l'heure" : m > 0 ? `${fr(m)} min de retard` : `${fr(-m)} min d'avance`);
 
-/** The departure as the tool gives it, with where its trip comes from and goes. */
-const toolRow = (d: Departure) => ({ ...departureRow(d), ...endsOf(d) });
+/** The departure as the tool gives it, with where its trip comes from and goes, and where its bus is. */
+const toolRow = (d: Departure) => ({ ...departureRow(d), ...endsOf(d), ...(d.bus ? { position_du_bus: d.bus } : {}) });
 
 /** Where a departure's trip comes from and goes: the first and last stops of its pattern. */
 export function endsOf(d: Departure): { origine: string; terminus: string } | undefined {
@@ -282,7 +340,8 @@ const said = (d: Departure) =>
     ? `${atTime(d.at)} : ne passe pas à cet arrêt (temps réel)`
     : d.retard !== undefined
       ? `${atTime(d.at + d.retard)} (${wait(minutes(d))}, ${delayText(delayMinutes(d))} en temps réel)`
-      : `${atTime(d.at)} (${wait(minutes(d))})`);
+      : `${atTime(d.at)} (${wait(minutes(d))})`) +
+  (d.bus?.ou ? `, position du bus à ${d.bus.heure_de_la_position} : ${d.bus.ou}` : "");
 
 const STOP_HELP = "Donner le nom de l'arrêt et sa commune (« Gare routière, Saint-Pierre », « Mairie, Le Tampon »), ou un lieu proche.";
 
@@ -296,8 +355,8 @@ async function stopDepartures(groups: transit.StopGroup[], now: Date, cache: Cac
   }
   const feeds = cache ? await realtimeFeeds(groups.map((g) => g.reseau), cache, now) : new Map<string, rt.Realtime>();
   list = applyRealtime(list, feeds, now);
-  const shown = spread(list);
-  return { shown, feeds, alertes: alertsFor(groups, shown, feeds, now), live: [...new Set(shown.filter((d) => d.retard !== undefined || d.supprime).map((d) => transit.NETWORKS[d.reseau].nom))] };
+  const shown = withPositions(spread(list), feeds, now);
+  return { shown, feeds, alertes: alertsFor(groups, shown, feeds, now), live: [...new Set(shown.filter((d) => d.retard !== undefined || d.supprime || d.bus).map((d) => transit.NETWORKS[d.reseau].nom))] };
 }
 
 const timetables = (live: string[], feeds: Map<string, rt.Realtime>) => {
@@ -548,6 +607,30 @@ async function lineAnswer(ligne: string, asked: string, now: Date, cache?: Cache
   }).join(" ; ") + ".";
   if (!stopsOf) resume += " La liste de ses arrêts n'est pas disponible pour le moment.";
 
+  // Its buses on the road now, when the network's feed gives their positions: by their trip, which says the direction,
+  // else by their line. A network that sends none says nothing.
+  let buses: (BusPosition & { vers?: string })[] | undefined;
+  if (!ahead && cache && transit.NETWORKS[net].temps_reel) {
+    const f = (await realtimeFeeds([net], cache, now)).get(net);
+    if (f?.vehicles?.length) {
+      const patternOf = new Map(running.flatMap((p) => (rows.get(p)?.trips ?? []).map(([, , trip]) => [trip, p] as const)));
+      const ids = new Set(routes.map((r) => gtfsRoute(transit.NETWORKS[net], r)));
+      buses = f.vehicles
+        .filter((v) => patternOf.has(v.trip) || (v.route !== undefined && ids.has(v.route)))
+        .flatMap((v) => {
+          const pos = position(net, v, now);
+          const p = patternOf.get(v.trip);
+          return pos ? [{ ...(p !== undefined ? { vers: transit.stop(transit.ENDS[p][2]).nom } : {}), ...pos }] : [];
+        })
+        .sort((a, b) => (a.vers ?? "").localeCompare(b.vers ?? "", "fr"))
+        .slice(0, 20);
+      resume += buses.length
+        ? ` En ce moment, ${buses.length} bus de la ligne ${buses.length > 1 ? "donnent leur" : "donne sa"} position : ` +
+          buses.slice(0, 4).map((b) => `${b.vers ? `vers ${b.vers}, ` : ""}${b.ou ?? "loin de tout arrêt"} à ${b.heure_de_la_position}`).join(" ; ") + "."
+        : " Aucun bus de la ligne ne donne sa position en ce moment, ce qui ne veut pas dire qu'aucun ne circule.";
+    }
+  }
+
   // A place asked about: the line's stop there, else its nearest one, and the next departures there.
   let place: Record<string, unknown> | undefined;
   let shownAt: Awaited<ReturnType<typeof stopDepartures>> | undefined;
@@ -579,12 +662,13 @@ async function lineAnswer(ligne: string, asked: string, now: Date, cache?: Cache
       if (shownAt.shown.length) resume += ` Prochains départs à ${groups[0].nom} : ${shownAt.shown.slice(0, 4).map(said).join(" ; ")}.`;
     }
   }
-  const used = !!shownAt && (shownAt.live.length > 0 || shownAt.alertes.length > 0);
+  const used = !!buses?.length || (!!shownAt && (shownAt.live.length > 0 || shownAt.alertes.length > 0));
   return text({
     resume,
     ligne: name,
     jour: dayName(d),
     sens: sens.map((x) => x.out),
+    ...(buses?.length ? { bus_en_circulation: buses } : {}),
     ...(stopsOf ? {} : { note: "Liste des arrêts indisponible pour le moment : seuls les terminus et les horaires sont donnés." }),
     ...(place ? { arret: place } : {}),
     ...(shownAt?.shown.length ? { departs: shownAt.shown.map(toolRow) } : {}),
