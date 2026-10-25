@@ -1,5 +1,6 @@
 import { ageMinutes, ageText, compass, localTime, versant } from "../geo.js";
 import type { Resolution } from "../places/resolve.js";
+import { withMentions } from "../mentions.js";
 import type { Reading, SourceInfo } from "../types.js";
 
 /** One reading as a short string a model can quote: "24 °C", "ESE (112°)", "65 % (calculée)". */
@@ -69,8 +70,9 @@ export function credits(sources: SourceInfo[]) {
   return sources.map((s) => ({ source: s.nom, licence: s.licence, attribution: s.attribution }));
 }
 
+/** A tool's answer, each link to a site that asks for it with its mention beside it (mentions.ts). */
 export function text(payload: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(payload, null, 1) }] };
+  return { content: [{ type: "text" as const, text: withMentions(payload) }] };
 }
 
 export function notFound(asked: string) {

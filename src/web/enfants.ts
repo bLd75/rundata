@@ -4,6 +4,7 @@
  * Filtered by age band and kind in the page. The words are marketing's (marketing/enfants-textes.md).
  */
 import type { Cached } from "../cache.js";
+import { mentionOf } from "../mentions.js";
 import { ACCUEILS } from "../providers/agenda.js";
 import * as enfants from "../vie/enfants.js";
 import type { Alerte, EnfantsAnswer } from "./data.js";
@@ -53,9 +54,10 @@ function eventLi(r: Row): string {
 function placeLi(l: enfants.Lieu, now: Date): string {
   const a = enfants.ageOf(l);
   const today = enfants.hoursToday(l, now);
-  const small = [l.detail, l.adresse, today ? `aujourd'hui ${today}` : undefined].filter(Boolean).map((x) => esc(x!)).join(" · ");
-  const name = esc(enfants.nameOf(l));
   const link = l.site ?? l.lien;
+  // A site that asks for its name with each link (mentions.ts): right after the address.
+  const small = [l.detail, l.adresse, mentionOf(link), today ? `aujourd'hui ${today}` : undefined].filter(Boolean).map((x) => esc(x!)).join(" · ");
+  const name = esc(enfants.nameOf(l));
   return `<li data-b="${a.bands.join(" ")}" data-t="${l.type}"><span>${link ? `<a href="${esc(link)}" rel="noopener">${name}</a>` : name}${small ? `<small>${small}</small>` : ""}</span>${badge(a)}</li>`;
 }
 
