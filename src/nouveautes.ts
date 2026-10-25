@@ -53,7 +53,6 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
-  { date: "2026-10-25T13:10:00+04:00", texte: "Il a plu quand à Saint-Joseph\u00a0? Dans votre IA, la pluie heure par heure au pluviomètre le plus proche et le cumul depuis minuit, mesurés par Météo-France." },
   { date: "2026-10-25T03:00:00+04:00", texte: "Marée : les pleines et basses mers calculées pour les deux prochains jours, avec le lien du SHOM au-delà." },
   { date: "2026-10-25T02:40:00+04:00", texte: "Mairies, associations, organisateurs\u00a0: un guide gratuit pour publier votre agenda en flux ouvert, 8 tutos, du plus simple au plus avancé." },
   { date: "2026-10-25T02:08:00+04:00", texte: "Cyclones passés : Gamède (2007), Colina (1993) et Clotilda (1987), dont les records mondiaux de pluie de Gamède cités par Météo-France." },
