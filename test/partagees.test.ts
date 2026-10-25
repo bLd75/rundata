@@ -114,7 +114,7 @@ describe("the shared copies, read from KV", () => {
   });
 });
 
-describe("the shared copies after a deploy (cam-change 285)", () => {
+describe("the shared copies after a deploy", () => {
   it("are read from KV when the data center's copy is of another version, however fresh", async () => {
     const kv = new FakeKv();
     const edge = new CountingStore();
@@ -191,7 +191,7 @@ describe("the shared copies after a deploy (cam-change 285)", () => {
   });
 });
 
-describe("the shared copies after a deploy that raises no revision (cam-change 286)", () => {
+describe("the shared copies after a deploy that raises no revision", () => {
   it("are none due for their version: the events cost what they cost before the deploy", async () => {
     const kv = new FakeKv();
     const now = T0;

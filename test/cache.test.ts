@@ -131,8 +131,8 @@ describe("peek with a freshness", () => {
 
 
 // A family missing from web/revisions.ts: its copy is stamped with the version of the code, and built again after every
-// deploy, as all were before cam-change 286.
-describe("a page's copy of a family without revision, after a deploy (cam-change 285)", () => {
+// deploy, as all were before #272.
+describe("a page's copy of a family without revision, after a deploy", () => {
   it("is written with the version that built it, a source's entry without", async () => {
     const store = new MemoryStore();
     const cache = new Cache(store, undefined, false, undefined, "2.0.0");
@@ -198,7 +198,7 @@ describe("a page's copy of a family without revision, after a deploy (cam-change
   });
 });
 
-describe("a page's copy kept across the deploys that leave its family's revision (cam-change 286)", () => {
+describe("a page's copy kept across the deploys that leave its family's revision", () => {
   it("is stamped with its family's revision, whatever the version, a source's entry and a family without one otherwise", async () => {
     const store = new MemoryStore();
     const cache = new Cache(store, undefined, false, undefined, "2.0.0");

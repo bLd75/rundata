@@ -1287,7 +1287,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
 
   // The next tides at the nearest gauge, computed at the view: no request, whatever the copy's age.
   const tides = coastal(p) ? tidesNear(p.place.lon, p.place.lat, now) : undefined;
-  // Away from the gauges, no times: they are not the place's (cam-change 276).
+  // Away from the gauges, no times: they are not the place's.
   const away = coastal(p) && !tides ? farFrom(p.place.lon, p.place.lat, p.place.commune) : undefined;
   const tideLine = tides
     ? `<p>Marée à ${esc(tides.nom)}, ${esc(TIDE_LABEL)}, à environ ${tides.minutes} min près : ${esc(thin(nextText(tides.next)))}.</p>`

@@ -165,7 +165,7 @@ describe("volcano", () => {
     // The official texts first, never « pas d'éruption » on pitonlive's word (the user, 25/10).
     expect(r.resume.startsWith("L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus. Communiqué de la préfecture du 07/05")).toBe(true);
     expect(r.resume).toContain("Niveau du dispositif ORSEC volcan : Vigilance.");
-    // The last eruption, the OVPF's dates, never pitonlive's (cam-change 251).
+    // The last eruption, the OVPF's dates, never pitonlive's.
     expect(r.resume).toContain("Dernière éruption : du 13 février au 12 avril 2026, selon l'OVPF (https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g).");
     expect(r.etat.derniere_eruption).toEqual({ debut: "2026-02-13", fin: "2026-04-12", lien: "https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g", source: "OVPF-IPGP" });
     expect(r.resume).not.toContain("pitonlive");

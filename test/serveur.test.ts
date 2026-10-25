@@ -70,7 +70,7 @@ describe("the server's instructions", () => {
     expect(text.length).toBeLessThan(4000);
     expect(INDEX.length).toBeLessThan(1500);
     // ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it, any place of the island named
-    // without « La Réunion » (cam-change 255); the English line with it.
+    // without « La Réunion »; the English line with it.
     const head = text.slice(0, 512);
     for (const must of ["La Réunion (974) en direct", "mesurée", "même sans « La Réunion »", "Cilaos", "Réunion Island live public data"]) expect(head).toContain(must);
     expect(text.slice(0, text.indexOf("\n"))).not.toContain("Outils");
@@ -139,7 +139,7 @@ describe("the serveur block", () => {
   it("sources_donnees names each source once", async () => {
     const ids: string[] = body(await rpcResult("tools/call", { name: "sources_donnees", arguments: {} })).sources.map((s: { id: string }) => s.id);
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
-    // Given by two modules each (cam-change 258), listed once.
+    // Given by two modules each, listed once.
     for (const id of ["lrvb_tournois", "sportsregions", "ign_altimetrie"]) expect(ids).toContain(id);
   });
 });

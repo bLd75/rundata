@@ -23,7 +23,7 @@ const SHOM = "https://maree.shom.fr";
 const OFFSET_HOURS = 6;
 
 // The computed times hold near a gauge only: along the coast the tide turns at other times, by a gap that changes from
-// one tide to the next, so that no fixed shift would do (cam-change 276). Beyond this distance: neither times nor
+// one tide to the next, so that no fixed shift would do. Beyond this distance: neither times nor
 // trend, the gauge's height named as such, and the SHOM's official times as a link.
 export const NEAR_KM = 15;
 
