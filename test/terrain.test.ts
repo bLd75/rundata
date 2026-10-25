@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { codeVoie, latestAct, planOf, SOURCES, streetSales } from "../src/providers/terrain.js";
 import { SOURCES as TRACES } from "../src/providers/traces.js";
-import { communeOf, ficheLieu, market, riskLine, sameStreet, streetMarket } from "../src/tools/terrain.js";
+import { communeOf, ficheLieu, market, riskLine, sameStreet, streetLine, streetMarket } from "../src/tools/terrain.js";
 
 // Real answers of 23/10/2026 for 7 rue de la Buse, Saint-Paul: parcel BO 552, zone U1c, 115 sales since 2021.
 const raw = (f: string) => readFileSync(new URL(`./fixtures/terrain/${f}`, import.meta.url), "utf8");
@@ -35,14 +35,18 @@ describe("fiche terrain", () => {
     expect(SOURCES.alti).toMatchObject({ id: "ign_altimetrie", nom: "Altitudes du sol (RGE ALTI, service d'altimétrie de la Géoplateforme)", attribution: "IGN, RGE ALTI" });
   });
 
-  it("gives medians only, houses and flats sold alone", () => {
+  it("gives medians only, houses and flats with their outbuildings, exchanges left out", () => {
     const sales = JSON.parse(raw("dvf.json")).features.map(({ properties: p }: { properties: Record<string, string> }) => ({
       annee: Number(p.anneemut), type: p.libtypbien, code: p.codtypbien, valeur: Number(p.valeurfonc),
       surface_bati: Number(p.sbati), surface_terrain: Number(p.sterr), lots: Number(p.nblocmut),
+      nature: p.libnatmut,
     }));
     const m = market(sales);
-    expect(m.toutes_ventes).toBe(115);
-    expect(m.maisons.ventes).toBeGreaterThan(3);
+    // 115 sales read, one of them an exchange.
+    expect(m.toutes_ventes).toBe(114);
+    expect(m.maisons).toMatchObject({ ventes: 16, prix_m2_median: "5\u202f130\u00a0€/m²" });
+    // Sold with a parking or a cellar, and off plan: 63 flats, where the parcel's lot alone kept 3.
+    expect(m.appartements).toMatchObject({ ventes: 63, prix_m2_median: "5\u202f120\u00a0€/m²" });
     expect(JSON.stringify(m)).not.toMatch(/BO|0552|rue/i);
   });
 
@@ -57,6 +61,42 @@ describe("fiche terrain", () => {
     expect(sales.map((x) => x.type).sort()).toEqual(["appartement", "appartement", "maison", "maison", "maison", "maison", "maison", "maison", "maison", "terrain"]);
     expect(sales.filter((x) => x.valeur === 420_000)).toEqual([{ annee: 2024, type: "maison", valeur: 420_000, surface_bati: 130, surface_terrain: 3500 }]);
     expect(sales.find((x) => x.valeur === 200_000)).toMatchObject({ surface_bati: 100, surface_terrain: 600 });
+  });
+
+  it("counts a sale DVF records twice once, on the same parcels and lots at the same value", () => {
+    const head = raw("geo-dvf.csv").split("\n")[0];
+    const cols = head.split(",");
+    // One line of a made-up street, with the shape of a new building's sales: a flat and its outbuildings, each a lot.
+    const line = (id: string, date: string, nature: string, valeur: number, lot: string, type: string, bati = "") => {
+      const c: Record<string, string> = {
+        id_mutation: id, date_mutation: date, numero_disposition: "000001", nature_mutation: nature, valeur_fonciere: String(valeur),
+        adresse_numero: "47", adresse_nom_voie: "RUE DES TAMARINS", adresse_code_voie: "0999", code_commune: "97411", id_parcelle: "97411000ZZ0001",
+        lot1_numero: lot, code_type_local: type, type_local: type === "2" ? "Appartement" : "Dépendance", surface_reelle_bati: bati,
+      };
+      return cols.map((k) => c[k] ?? "").join(",");
+    };
+    const VEFA = "Vente en l'état futur d'achèvement";
+    const flat = (id: string, date: string, nature: string, valeur: number, lots: string[], bati: number) =>
+      [line(id, date, nature, valeur, lots[0], "2", String(bati)), ...lots.slice(1).map((l) => line(id, date, nature, valeur, l, "3"))];
+    const csv = [head,
+      ...flat("2021-A1", "2021-04-09", VEFA, 537_300, ["112", "125", "126"], 87),
+      ...flat("2021-A2", "2021-04-16", VEFA, 329_621, ["113", "134"], 46),
+      ...flat("2021-A3", "2021-06-17", VEFA, 339_621, ["114", "138"], 49),
+      ...flat("2021-A4", "2021-02-11", VEFA, 458_205, ["159", "139"], 70),
+      ...flat("2021-A5", "2021-07-08", VEFA, 336_616, ["108", "146"], 57),
+      ...flat("2021-B1", "2021-10-18", "Vente", 320_000, ["109", "133"], 49),
+      // The same flat, outbuildings and price, recorded twice in two months: one sale.
+      ...flat("2021-B2", "2021-08-04", "Vente", 788_000, ["162", "147", "148"], 104),
+      ...flat("2021-B3", "2021-10-18", "Vente", 788_000, ["148", "162", "147"], 104),
+    ].join("\n");
+    const sales = streetSales(csv, "0999");
+    // Off plan or not, one median of the flats: 7 sales, the one recorded twice counted once (8 gave 6 740 €/m²).
+    expect(sales.map((s) => s.type)).toEqual(Array(7).fill("appartement"));
+    const v = streetMarket("Rue des Tamarins", 2021, sales);
+    expect(v.appartements).toEqual({ ventes: 7, prix_median: "340\u202f000\u00a0€", prix_m2_median: "6\u202f550\u00a0€/m²" });
+    expect(streetLine(v)).toBe("sur la voie (Rue des Tamarins) depuis 2021 : appartements 6\u202f550\u00a0€/m² en médiane (7 ventes)");
+    // Another price for the same lots is another sale.
+    expect(streetSales(csv.replace(/2021-B3,(.*?),788000/g, "2021-B3,$1,790000"), "0999")).toHaveLength(8);
   });
 
   it("gives the street's medians from 3 sales of a kind, as the area's, its count alone below", () => {
@@ -93,6 +133,7 @@ describe("fiche terrain", () => {
     // The street's own sales first, then the area's, named before its figures.
     expect(r.resume).toContain("\u00a0; sur la voie (Rue de la Buse) depuis 2021 : maisons 2\u202f500\u00a0€/m² en médiane (7 ventes)\u00a0; dans le secteur alentour (environ 600 m sur 600 m), maisons vendues depuis 2021 : ");
     expect(r.marche_immobilier.sur_la_voie).toMatchObject({ voie: "Rue de la Buse", depuis: 2021, ventes: 10, maisons: { ventes: 7, prix_m2_median: "2\u202f500\u00a0€/m²" }, appartements: { ventes: 2 } });
+    expect(r.resume).toContain(" : 5\u202f130\u00a0€/m² en médiane (16 ventes)\u00a0; appartements : 5\u202f120\u00a0€/m² (63 ventes).");
     // One file a year of the commune, from 2021; none of a sale, its parcel or its price alone in the answer.
     expect(urls.filter((u) => u.includes("geo-dvf"))).toEqual([2021, 2022, 2023, 2024, 2025, 2026].map((y) => `https://files.data.gouv.fr/geo-dvf/latest/csv/${y}/communes/974/97415.csv`));
     expect(JSON.stringify(r.marche_immobilier)).not.toMatch(/BO00|420 000|T7/);
