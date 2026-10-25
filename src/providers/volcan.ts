@@ -157,11 +157,36 @@ export async function posts(cache: Cache): Promise<Cached<Post[]>> {
 }
 
 export async function state(cache: Cache): Promise<Cached<PitonState>> {
-  return cache.get("volcan:pitonlive", FRESH_SECONDS, async () => {
+  const got = await cache.get("volcan:pitonlive", FRESH_SECONDS, async () => {
     const s = await getJson<PitonState>(PITONLIVE.id, STATE);
     // Keep what the tool shows; the full answer carries a daily seismic series and the air quality too.
     return { status: s.status, eruption: s.eruption, last_eruption_ended_at: s.last_eruption_ended_at, days_since_last_eruption: s.days_since_last_eruption, access: s.access, deformation: s.deformation };
   });
+  // The level as the plan names it, never pitonlive's label (« Alerte 1 - eruption probable ou imminente », unaccented):
+  // the plan's words are said beside it, from the plan. On read, so that a copy made before is named so too.
+  const display = levelOf(got.value.status.alert_level_display) ?? got.value.status.alert_level_display;
+  return { ...got, value: { ...got.value, status: { ...got.value.status, alert_level_display: display } } };
+}
+
+/** The level of the ORSEC volcano plan a text names, as the plan names it (« Alerte 2-1 »), or undefined. */
+export function levelOf(t: string): string | undefined {
+  return /alerte\s*2[\s.-]*3/i.test(t)
+    ? "Alerte 2-3"
+    : /alerte\s*2[\s.-]*2/i.test(t)
+      ? "Alerte 2-2"
+      : /alerte\s*2[\s.-]*1/i.test(t)
+        ? "Alerte 2-1"
+        : /alerte\s*2/i.test(t)
+          ? "Alerte 2"
+          : /alerte\s*1/i.test(t)
+            ? "Alerte 1"
+            : /sauvegarde/i.test(t)
+              ? "Sauvegarde"
+              : /vigilance\s+renforc/i.test(t)
+                ? "Vigilance renforcée"
+                : /vigilance/i.test(t)
+                  ? "Vigilance"
+                  : undefined;
 }
 
 /** A phase of the ORSEC volcano plan, as the prefecture's latest press release about the volcano declares it. */
@@ -200,25 +225,7 @@ export function phaseOf(releases: Info[]): Phase | undefined {
 function declared(r: Info): Phase | undefined {
   const t = r.titre;
   // The end of the alert names it (« fin de l'alerte 1 ») and is a return to vigilance: read first.
-  const niveau = /\b(fin|lev[ée]e)\s+(de\s+l['’]\s*|d['’]\s*)alerte/i.test(t)
-    ? "Vigilance"
-    : /alerte\s*2[\s.-]*3/i.test(t)
-      ? "Alerte 2-3"
-      : /alerte\s*2[\s.-]*2/i.test(t)
-    ? "Alerte 2-2"
-    : /alerte\s*2[\s.-]*1/i.test(t)
-      ? "Alerte 2-1"
-      : /alerte\s*2/i.test(t)
-        ? "Alerte 2"
-        : /alerte\s*1/i.test(t)
-          ? "Alerte 1"
-          : /sauvegarde/i.test(t)
-            ? "Sauvegarde"
-            : /vigilance\s+renforc/i.test(t)
-              ? "Vigilance renforcée"
-              : /vigilance/i.test(t)
-                ? "Vigilance"
-                : undefined;
+  const niveau = /\b(fin|lev[ée]e)\s+(de\s+l['’]\s*|d['’]\s*)alerte/i.test(t) ? "Vigilance" : levelOf(t);
   if (!niveau) return undefined;
   const eruption = /^Alerte 2/.test(niveau) || /[ée]ruption en cours|d[ée]but d.[ée]ruption/i.test(t);
   // In alert the Enclos is closed by order; a release may say otherwise in its own words.

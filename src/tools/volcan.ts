@@ -151,7 +151,8 @@ export interface Ecart {
  * pitonlive's state, with the phase the prefecture declared. The prefecture declares each phase first, pitonlive
  * follows within hours: pitonlive wins only with a status published a later day than the release and a level as high
  * or higher, or the release's own day and a higher level. Higher than a release in alert, the release is kept beside it
- * (`hausse`): its bans and its words on the accesses stand.
+ * (`hausse`): its bans and its words on the accesses stand. At the release's own alert, pitonlive's status of a later day
+ * says nothing more: the release stays the source, of the level and of the Enclos.
  * Never lower on pitonlive's word alone: the level comes down with the prefecture's release (« fin de l'alerte »,
  * « retour en vigilance »). A lower level of pitonlive held more than 48 hours is said beside it (`ecart`), and logged.
  */
@@ -170,7 +171,8 @@ export function official(s: volcan.PitonState, p: volcan.Phase, now = new Date()
   const newer = known > 0 && localDay(known) > p.jour;
   const sameDay = known > 0 && localDay(known) === p.jour;
   const up = rank(s.status.alert_level_display) - rank(p.niveau);
-  if ((newer && up >= 0) || (sameDay && up > 0)) {
+  const sameAlert = /^Alerte/.test(p.niveau) && s.status.alert_level_display === p.niveau;
+  if ((newer && up >= 0 && !sameAlert) || (sameDay && up > 0)) {
     // Higher than an alert of the prefecture: its release still holds, an alert's bans standing at a higher one, and is
     // the only text on the accesses. Said beside pitonlive's level (`hausse`); the word « éruption » only ever the
     // prefecture's (marketing), and so the eruption and the Enclos as its release says them.
@@ -178,7 +180,7 @@ export function official(s: volcan.PitonState, p: volcan.Phase, now = new Date()
       ? { ...s, status: { ...s.status, is_erupting: p.eruption }, access: accessOf(s, p), prefecture: p, hausse: true }
       : s;
   }
-  const ecart = newer && now.getTime() - known > APART_MS ? { niveau: s.status.alert_level_display, depuis: s.status.published_at! } : undefined;
+  const ecart = newer && up < 0 && now.getTime() - known > APART_MS ? { niveau: s.status.alert_level_display, depuis: s.status.published_at! } : undefined;
   if (ecart) console.error(`volcan : la préfecture dit ${p.niveau} (${p.jour}), pitonlive ${ecart.niveau} depuis ${ecart.depuis}`);
   return {
     ...s,
