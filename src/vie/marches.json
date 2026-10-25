@@ -144,7 +144,7 @@
 },
 {
 "nom": "Marché forain de Saint-Paul",
-"horaires": "le vendredi de 8 h à 18 h ; le samedi de 8 h à 12 h",
+"horaires": "le vendredi de 8 h à 18 h ; le samedi de 8 h à 12 h",
 "horaires_osm": "Fr 08:00-18:00;Sa 08:00-12:00",
 "note": null,
 "adresse": "Quai Gilbert",
@@ -244,7 +244,7 @@
 },
 {
 "nom": "Marché Forain du Chaudron",
-"horaires": "le mercredi de 6 h à 13 h ; le dimanche de 6 h à 13 h",
+"horaires": "le mercredi de 6 h à 13 h ; le dimanche de 6 h à 13 h",
 "horaires_osm": "We 06:00-13:00; Su 06:00-13:00",
 "note": null,
 "adresse": null,
@@ -264,7 +264,7 @@
 },
 {
 "nom": "Le Petit Marché",
-"horaires": "du lundi au samedi de 6 h à 18 h 30 ; le dimanche de 6 h à 12 h",
+"horaires": "du lundi au samedi de 6 h à 18 h 30 ; le dimanche de 6 h à 12 h",
 "horaires_osm": "Mo-Sa 06:00-18:30; Su 06:00-12:00",
 "note": null,
 "adresse": null,

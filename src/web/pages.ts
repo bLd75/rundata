@@ -31,6 +31,7 @@ import { byUse, FIRST, type Urgent, urgentKeys, WITH_PAGE } from "./categories.j
 import { FLAG_INNER } from "./flag.js";
 import { logo } from "./logo.js";
 import { esc, islandMap, type Marker, type ZoneLink } from "./map.js";
+import { typo } from "./typo.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
 import { FORMS_CSS } from "./formulaires-style.js";
@@ -838,9 +839,14 @@ function ogImage(origin: string, path: string): { src: string; alt: string } {
 /** What the page's banners say is in force, or its own alert block: the offline page, kept for days, says nothing. */
 const urgent = (head: Head): Urgent => (head.shell ? {} : { vigilance: !!head.alerte, volcan: !!head.volcan || !!volcanBanner() });
 
+/** The JSON-LD's « description » values, at every depth, as the metas' (a raw text: typo() only turns spaces into no-break ones). */
+const frenchDescriptions = (key: string, value: unknown) => (key === "description" && typeof value === "string" ? typo(value) : value);
+
 export function layout(origin: string, head: Head, band: string, body: string): string {
   const url = `${origin}${head.path}`;
-  const d = esc(head.description);
+  // The descriptions in French typography like the page's text, with the no-break space itself, never « &nbsp; »: their
+  // length is unchanged. Not the titles, nor the JSON-LD's other values (marketing, 25/10).
+  const d = typo(esc(head.description));
   const image = ogImage(origin, head.path);
   return `<!doctype html>
 <html lang="fr">
@@ -873,7 +879,7 @@ ${head.rss ? `<link rel="alternate" type="application/rss+xml" title="${esc(head
 <meta name="twitter:description" content="${d}">
 <meta name="twitter:image" content="${esc(image.src)}">
 <meta name="twitter:image:alt" content="${esc(image.alt)}">
-${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head.jsonld.length === 1 ? head.jsonld[0] : head.jsonld).replace(/</g, "\\u003c")}</script>\n` : ""}<style>${CSS}</style>
+${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head.jsonld.length === 1 ? head.jsonld[0] : head.jsonld, frenchDescriptions).replace(/</g, "\\u003c")}</script>\n` : ""}<style>${CSS}</style>
 </head>
 <body>
 ${header(head.path, origin, urgent(head))}

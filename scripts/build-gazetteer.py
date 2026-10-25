@@ -185,7 +185,7 @@ def main():
 
     out = ROOT / "src" / "places" / "gazetteer.json"
     out.write_text(json.dumps({
-        "attribution": "© contributeurs OpenStreetMap (ODbL) ; IGN RGE ALTI et geo.api.gouv.fr (Licence Ouverte 2.0)",
+        "attribution": "© contributeurs OpenStreetMap (ODbL)\u00a0; IGN RGE ALTI et geo.api.gouv.fr (Licence Ouverte 2.0)",
         "places": kept, "aliases": aliases}, ensure_ascii=False, separators=(",", ":")))
     counts = {}
     for p in kept:

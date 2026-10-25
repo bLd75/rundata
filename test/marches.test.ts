@@ -9,13 +9,13 @@ describe("the markets of OpenStreetMap", () => {
   it("are bundled, each in a commune, their days in words when OpenStreetMap gives them", () => {
     expect(MARCHES().length).toBeGreaterThan(15);
     for (const m of MARCHES()) expect(Object.keys(INSEE), m.nom).toContain(m.commune);
-    expect(MARCHES().find((m) => m.nom === "Marché forain de Saint-Paul")).toMatchObject({ commune: "Saint-Paul", horaires: "le vendredi de 8 h à 18 h ; le samedi de 8 h à 12 h" });
+    expect(MARCHES().find((m) => m.nom === "Marché forain de Saint-Paul")).toMatchObject({ commune: "Saint-Paul", horaires: "le vendredi de 8 h à 18 h\u00a0; le samedi de 8 h à 12 h" });
     expect(MARCHES().some((m) => /brocante/i.test(m.nom))).toBe(false);
   });
 
   it("give the commune's markets, or the nearest, and say the list is not complete", () => {
     const r = body(marchesAnswer("Saint-Paul"));
-    expect(r.resume).toMatch(/^Marchés à Saint-Paul d'après OpenStreetMap : .*Marché forain de Saint-Paul \(le vendredi de 8 h à 18 h ; le samedi de 8 h à 12 h\)/);
+    expect(r.resume).toMatch(/^Marchés à Saint-Paul d'après OpenStreetMap : .*Marché forain de Saint-Paul \(le vendredi de 8 h à 18 h\u00a0; le samedi de 8 h à 12 h\)/);
     expect(r.avertissements[0]).toMatch(/tous les marchés n'y sont pas/);
     expect(r.sources[0].licence).toBe("ODbL");
     // A commune with none mapped: the nearest, with their distance.

@@ -108,7 +108,7 @@ def main():
     target.parent.mkdir(exist_ok=True)
     target.write_text(json.dumps({
         "periode": f"{Y0}-{Y1}",
-        "attribution": "Météo-France, données climatologiques de base quotidiennes (Licence Ouverte 2.0) ; moyennes calculées par rundata.re",
+        "attribution": "Météo-France, données climatologiques de base quotidiennes (Licence Ouverte 2.0)\u00a0; moyennes calculées par rundata.re",
         "stations": out,
     }, ensure_ascii=False, separators=(",", ":")) + "\n")
     print(f"{target.relative_to(ROOT)} : {len(out)} stations, {target.stat().st_size // 1024} Ko")

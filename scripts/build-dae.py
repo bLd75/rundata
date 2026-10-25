@@ -49,7 +49,7 @@ def hours(text):
         days = re.sub(r"(Mo|Tu|We|Th|Fr|Sa|Su)", lambda d: DAYS[d.group(1)], m.group(1)).replace("-", " au ").replace(",", ", ")
         spans = m.group(2)
         out.append(f"{days} : {'fermé' if spans == 'off' else spans.replace('-', ' – ').replace(',', ', ')}")
-    return " ; ".join(out)
+    return "\u00a0; ".join(out)
 
 
 def tidy(s):

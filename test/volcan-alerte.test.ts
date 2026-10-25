@@ -68,7 +68,7 @@ describe("the volcano put forward during an alert", () => {
     const page = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain("<title>Piton de la Fournaise : alerte 1, éruption probable · 974</title>");
     expect(page).toContain("<h1>Piton de la Fournaise : alerte 1, éruption probable ou imminente</h1>");
-    expect(page).toContain(`<meta name="description" content="Alerte\u00a01 du préfet (communiqué du 24\u00a0octobre) : « éruption probable ou imminente ». Accès à l&#39;Enclos interdit. Communiqués de l&#39;OVPF en direct · 974">`);
+    expect(page).toContain(`<meta name="description" content="Alerte\u00a01 du préfet (communiqué du 24\u00a0octobre)\u00a0: «\u00a0éruption probable ou imminente\u00a0». Accès à l&#39;Enclos interdit. Communiqués de l&#39;OVPF en direct · 974">`);
     // The plan's words only, never a release's of the day nor ours.
     expect(page).not.toContain("très brève");
     expect(page).toContain("<b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus. Seuls l&#39;OVPF et la préfecture l&#39;annonceront : leurs communiqués s&#39;affichent ici dès que nous les avons lus.</b>");

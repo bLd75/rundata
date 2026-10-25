@@ -232,7 +232,7 @@ describe("coupures d'eau", () => {
     expect(sd).toContain(`<li><a href="/coupures-eau">Coupures d'eau</a></li><li aria-current="page">Saint-Denis</li>`);
     const pdp = page("la-plaine-des-palmistes");
     expect(pdp).toContain("<b>eau à ne pas boire</b>");
-    expect(pdp).toMatch(/<meta name="description" content="La Plaine-des-Palmistes \(974\) : eau à ne pas boire ; \d+ avis de /);
+    expect(pdp).toMatch(/<meta name="description" content="La Plaine-des-Palmistes \(974\)\u00a0: eau à ne pas boire\u00a0; \d+ avis de /);
     expect(pdp).toContain("les avis de la CIREST");
     // runéo's feed is read, and has nothing for Saint-Pierre: said with the time of the copy.
     expect(page("saint-pierre")).toContain("Aucun avis de coupure publié par runéo à Saint-Pierre à 08:00.");
