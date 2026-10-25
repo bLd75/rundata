@@ -136,7 +136,7 @@ describe("tide gauges", () => {
     const r = body(await maree(cache({}), "Saint-Joseph", NOW));
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-    expect(r.resume).toContain("Le marégraphe de Sainte-Marie, à 55 km, est muet pour le moment. Horaires officiels de la marée : site du SHOM, https://maree.shom.fr.");
+    expect(r.resume).toContain("Le marégraphe de Sainte-Marie, à 55 km, ne transmet pas de mesure en ce moment. Horaires officiels de la marée : site du SHOM, https://maree.shom.fr.");
     expect(r.avertissement).toMatch(/Renvoyer aux horaires officiels du SHOM : https:\/\/maree\.shom\.fr\.$/);
   });
 

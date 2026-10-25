@@ -261,7 +261,7 @@ function far(lieu: string, res: NonNullable<ReturnType<typeof resolvePlace>>, al
       `Pas d'heures de marée calculées pour ${p.nom} : nous les calculons d'après les marégraphes du Port et de Sainte-Marie, et la marée n'arrive pas à la même heure partout sur la côte. ` +
       (r
         ? `Hauteur mesurée au marégraphe ${de(f.nom)}, à ${km} km : ${m(r.h)} à ${hm(r.t)} (${at}, pas à ${p.nom}). `
-        : `Le marégraphe ${de(f.nom)}, à ${km} km, est muet pour le moment. `) +
+        : `Le marégraphe ${de(f.nom)}, à ${km} km, ne transmet pas de mesure en ce moment. `) +
       (f.port ? `Horaires officiels de la marée à ${f.port}, par le SHOM : ${f.lien}.` : `Horaires officiels de la marée : site du SHOM, ${f.lien}.`),
     horaires_officiels: f.lien,
     maregraphes: all
