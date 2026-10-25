@@ -742,4 +742,20 @@ describe("the clubs' and associations' space (web/associations.ts)", () => {
     expect(form).toContain('"position":2,"name":"Clubs et associations","item":"https://rundata.re/associations"');
     expect(form).toContain('href="/confidentialite#associations-donnees"');
   });
+
+  it("says, under both forms' anti-robot check, that it keeps something in the browser, and where it is explained", async () => {
+    expect(plain(await (await get("/confidentialite")).text())).not.toContain('href="#abus"');
+    formulaires.ouvrir(true);
+    const privacy = plain(await (await get("/confidentialite")).text());
+    expect(privacy).toContain('<p id="abus"><b>Contre les abus</b>');
+    expect(privacy).toContain('Le site ne pose aucun cookie et ne contient aucun traceur publicitaire. Seule la vérification anti-robot des deux formulaires des clubs et associations garde une donnée dans le navigateur (voir <a href="#abus">« Contre les abus »</a>).');
+    expect(privacy).toContain("C'est du stockage local du navigateur, pas un cookie.");
+    const note = '<p class="note">La vérification anti-robot de Cloudflare garde une donnée dans votre navigateur (pas un cookie) : <a href="/confidentialite#abus">ce que c\'est</a>.</p>';
+    // Right under the widget, on the event form and on the link form (/associations, /publier).
+    for (const path of ["/associations/proposer", "/associations", "/publier"]) {
+      const html = plain(await (await get(path)).text());
+      expect(html.match(/<div class="cf-turnstile"[^>]*><\/div>\s*<p class="note">[^<]*<a href="\/confidentialite#abus">/g), path).toHaveLength(1);
+      expect(html, path).toContain(note);
+    }
+  });
 });
