@@ -12,7 +12,10 @@ const REFERENCE_SECONDS = 6 * 3600;
 const DATED = ["heure_mesure", "run_du_modele", "emise", "mis_a_jour", "publie_le", "derniere_analyse"];
 // Lists of notices and publications beside the data (the mairies' power cuts, the OVPF's posts, the media's
 // headlines): dated, but not what the answer measures. Read last, when no other block carries a date.
-const NOTICES = new Set(["sources", "serveur", "avis", "coupures_annoncees", "publications_ovpf", "alertes_precedentes", "infos", "en_direct", "prefecture", "actualites", "evenements_du_jour"]);
+const NOTICES = new Set(["sources", "serveur", "avis", "coupures_annoncees", "publications_ovpf", "alertes_precedentes", "infos", "en_direct", "prefecture", "actualites", "evenements_du_jour", "actualite"]);
+// Never the answer's date, even with nothing else dated: the sources, the server, and the media's headlines beside the
+// results (sport's `actualite`: a headline of 15:15 is not the age of the fixtures read at 22:58).
+const BESIDE = new Set(["sources", "serveur", "actualite"]);
 export const FUSEAU = "heure de La Réunion (UTC+4)";
 
 type Payload = Record<string, unknown>;
@@ -59,7 +62,7 @@ export function dataDate(p: Payload): Dated | undefined {
     const d = dateIn(v);
     if (d) return d;
   }
-  for (const [k, v] of blocks) if (NOTICES.has(k) && k !== "sources" && k !== "serveur") {
+  for (const [k, v] of blocks) if (NOTICES.has(k) && !BESIDE.has(k)) {
     const d = dateIn(v);
     if (d) return d;
   }
