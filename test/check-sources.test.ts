@@ -50,6 +50,9 @@ describe("the daily check of the sources", () => {
     const alerte2 = { niveau_orsec: "Alerte 2-2", eruption_en_cours: false, communique_prefecture: { niveau: "Alerte 2-2" } };
     expect(motifs("volcan", { etat: alerte2, fraicheur: {} })).toEqual(["Alerte 2 sans éruption en cours dans l'état lu"]);
     expect(motifs("volcan", { etat: { ...alerte2, eruption_ovpf: { en_cours: false, date: "2026-04-12T19:10:00Z", lien: "https://bsky.app/x" } }, fraicheur: {} })).toEqual([]);
+    // A newer end of an eruption than the last eruption's dates, kept by hand: to date.
+    expect(motifs("volcan", { etat: { niveau_orsec: "Vigilance", derniere_eruption_a_dater: { date: "20/10 14:00 heure de La Réunion", lien: "https://bsky.app/x" } }, fraicheur: {} }))
+      .toEqual(["l'OVPF a annoncé la fin d'une éruption le 20/10 14:00 heure de La Réunion (https://bsky.app/x) : dater la dernière éruption dans volcan-historique.ts"]);
   });
 
   it("checks the buses' real time and the month's fuel prices", () => {

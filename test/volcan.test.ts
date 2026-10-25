@@ -165,13 +165,28 @@ describe("volcano", () => {
     // The official texts first, never « pas d'éruption » on pitonlive's word (the user, 25/10).
     expect(r.resume.startsWith("L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus. Communiqué de la préfecture du 07/05")).toBe(true);
     expect(r.resume).toContain("Niveau du dispositif ORSEC volcan : Vigilance.");
-    // The last eruption still pitonlive's, said as its own, until the OVPF's dated table (the next change).
-    expect(r.resume).toContain("Dernière éruption terminée le 12/04 selon pitonlive.com, site non officiel (il y a 193 jours).");
+    // The last eruption, the OVPF's dates, never pitonlive's (cam-change 251).
+    expect(r.resume).toContain("Dernière éruption : du 13 février au 12 avril 2026, selon l'OVPF (https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g).");
+    expect(r.etat.derniere_eruption).toEqual({ debut: "2026-02-13", fin: "2026-04-12", lien: "https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g", source: "OVPF-IPGP" });
+    expect(r.resume).not.toContain("pitonlive");
     // The Enclos as the release says it, never pitonlive's « partiel » nor the decree it names.
     expect(r.resume).toContain("Accès à l'Enclos : « réouverture partielle » selon le communiqué de la préfecture du 07/05.");
     expect(r.resume).not.toMatch(/« partiel »|2026-627/);
     expect(r.etat.source).toBe("préfecture de La Réunion (communiqués) et OVPF-IPGP (publications)");
     expect(r.resume).toContain("11 sous le volcan (magnitude max 1)");
-    expect(r.sources.map((s: { source: string }) => s.source)).toHaveLength(4);
+    // pitonlive.com said nowhere, so not credited.
+    expect(r.sources.map((s: { source: string }) => s.source)).toHaveLength(3);
+  });
+
+  it("leaves out the last eruption's dates once the OVPF posts a newer end, for check-sources to say", async () => {
+    const fin = { date: "2026-10-20T10:00:00Z", texte: "Communiqué OVPF-IPGP - 20/10/2026 - 14h 🌋 Arrêt de l'éruption ✅ Arrêt du trémor vers 13h heure locale", lien: "https://bsky.app/profile/ovpf.bsky.social/post/fin" };
+    const r = body(await volcanSeismes(cacheWith([fin, ...activityPosts(JSON.parse(fixture("ovpf_bluesky.json")))]), NOW));
+    expect(r.resume).not.toContain("Dernière éruption");
+    expect(r.etat.derniere_eruption).toBeUndefined();
+    expect(r.etat.derniere_eruption_a_dater).toEqual({ date: "20/10 14:00 heure de La Réunion", lien: fin.lien });
+    // An end in images is not read: the dates stay.
+    const image = body(await volcanSeismes(cacheWith([{ ...fin, image: true as const }, ...activityPosts(JSON.parse(fixture("ovpf_bluesky.json")))]), NOW));
+    expect(image.etat.derniere_eruption_a_dater).toBeUndefined();
+    expect(image.resume).toContain("Dernière éruption : du 13 février au 12 avril 2026, selon l'OVPF");
   });
 });

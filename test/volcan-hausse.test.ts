@@ -86,7 +86,7 @@ describe("pitonlive higher than the prefecture's release: the release's level, p
     for (const level of ["Alerte 1", "Vigilance"]) {
       const v = await answer(piton(level, "2026-10-24T13:00:00Z"));
       expect(v.etat).not.toHaveProperty("pitonlive_non_officiel");
-      expect(v.resume.replace(/Dernière éruption terminée le [^.]*\./, "")).not.toContain("pitonlive");
+      expect(v.resume).not.toContain("pitonlive");
     }
   });
 });

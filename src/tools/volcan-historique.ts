@@ -232,3 +232,24 @@ export function precedentes() {
 export const resumeText = () =>
   `Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis 2016 ; avant novembre 2021, les niveaux du plan précédent) : ${EPISODES.map((e) =>
     `${e.debut.map((m) => `${date(m.jour)} ${quoi(m)}`).join(", ")} → ${date(e.fin.jour)} ${e.fin.quoi}${e.puis ? ` (${PUIS.toLowerCase()} ${e.puis.quoi} : ${SANS_FIN[0].toLowerCase()}${SANS_FIN.slice(1, -1)})` : ""}`).join(" ; ")}.`;
+
+/**
+ * The last eruption, as the OVPF dates it in its posts (cam-change 251), in place of pitonlive.com's date: kept by hand,
+ * read on 25/10/2026. Its start « Eruption en cours » of 13/02/2026, its end the « Arrêt de l'éruption » posted on
+ * 13/04/2026 at 06:10, the tremor stopped on 12/04 around 23:10. check-sources says when the OVPF posts a newer end.
+ */
+export const DERNIERE_ERUPTION = {
+  debut: "2026-02-13",
+  fin: "2026-04-12",
+  /** The post that says the end, and when it was posted: a newer end means this one is out of date. */
+  lien: "https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g",
+  publiee: "2026-04-13T02:10:39Z",
+};
+
+// « 13 février », « 12 avril 2026 ».
+const jourMois = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" });
+/** « du 13 février au 12 avril 2026 », the year on both days when they differ. */
+export const derniereEruptionDates = (e: { debut: string; fin: string } = DERNIERE_ERUPTION) =>
+  `du ${jourMois(e.debut)}${e.debut.slice(0, 4) === e.fin.slice(0, 4) ? "" : ` ${e.debut.slice(0, 4)}`} au ${jourMois(e.fin)} ${e.fin.slice(0, 4)}`;
+/** For the AI: « Dernière éruption : du 13 février au 12 avril 2026, selon l'OVPF (lien). » (marketing). */
+export const derniereEruptionText = (e = DERNIERE_ERUPTION) => `Dernière éruption : ${derniereEruptionDates(e)}, selon l'OVPF (${e.lien}).`;

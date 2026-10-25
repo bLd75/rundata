@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { decodeText, textOf } from "../src/providers/avis-eau.js";
-import { AVANT_2021, avant2021, CHAPEAU, type Communique, EPISODES, PLAN_2021, precedentes, resumeText } from "../src/tools/volcan-historique.js";
+import { AVANT_2021, avant2021, CHAPEAU, type Communique, DERNIERE_ERUPTION, derniereEruptionDates, derniereEruptionText, EPISODES, PLAN_2021, precedentes, resumeText } from "../src/tools/volcan-historique.js";
 import { volcanPage } from "../src/web/domains.js";
 import type { VolcanAnswer } from "../src/web/data.js";
 
@@ -161,5 +161,15 @@ describe("the alerts before this one", () => {
     expect(feb2019.puis).toBe("Le même jour, nouvelle alerte 2-2 : « le Préfet a décidé la mise en œuvre de la phase d’alerte 2-2 […] ce mardi 19 février à 18h30 » (communiqué du 19/02/2019 : https://web.archive.org/web/20190222142555/http://www.reunion.gouv.fr/piton-de-la-fournaise-passage-en-alerte-2-2-a4948.html). Sa fin n'est pas dans les communiqués que nous avons retrouvés.");
     expect(p.episodes.filter((e) => "puis" in e)).toHaveLength(1);
     expect(older).toContain(`<li><b>26/05/2016</b>, alerte 2-2\u00a0: «\u00a0le préfet de la Réunion a déclenché ce jour (jeudi 26 mai 2016) à 8h30 l’alerte 2-2\u00a0» <a href="https://web.archive.org/web/20160530083219/http://www.reunion.gouv.fr/piton-de-la-fournaise-eruption-en-cours-dans-l-a1635.html">communiqué du 26/05/2016 →</a></li>`);
+  });
+});
+
+describe("the last eruption, the OVPF's dates", () => {
+  it("says its days in words, the year on both when they differ, with the OVPF's post (marketing)", () => {
+    expect(derniereEruptionText()).toBe("Dernière éruption : du 13 février au 12 avril 2026, selon l'OVPF (https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g).");
+    expect(derniereEruptionDates({ debut: "2026-12-28", fin: "2027-01-03" })).toBe("du 28 décembre 2026 au 3 janvier 2027");
+    expect(derniereEruptionDates({ debut: "2026-11-01", fin: "2026-11-01" })).toBe("du 1 novembre au 1 novembre 2026");
+    // The end post is newer than the end it tells of: posted the next morning.
+    expect(Date.parse(DERNIERE_ERUPTION.publiee)).toBeGreaterThan(Date.parse(`${DERNIERE_ERUPTION.fin}T00:00:00+04:00`));
   });
 });

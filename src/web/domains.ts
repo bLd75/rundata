@@ -170,7 +170,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
             ? `<p class="lead">${a ? "" : `${esc(NON_ANNONCEE)} `}${esc(NIVEAU_ILLISIBLE).replace("reunion.gouv.fr", GOUV)}</p>`
             : `<p class="lead">${a ? "" : `${esc(NON_ANNONCEE)} `}Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>.` +
               (e.niveau_definition ? ` <span class="note">${esc(e.niveau_definition)}</span>` : "") +
-              (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b> selon pitonlive.com, site non officiel.` : "") +
+              (!e.eruption_en_cours && e.derniere_eruption ? ` Dernière éruption : <b>${esc(historique.derniereEruptionDates(e.derniere_eruption))}</b>, selon l'<a href="${esc(e.derniere_eruption.lien)}" rel="noopener">OVPF</a>.` : "") +
               `</p>`) +
           ovpf + piton +
           (a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : `<p class="lead">${enclosSaid(e.acces_enclos ?? {})}</p>`) +
