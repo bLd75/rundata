@@ -47,7 +47,7 @@ export const SHARED: Shared[] = [
   { key: "web:electricite", build: buildElectricite, every: 30, cold: 7 },
   { key: "web:coupures", build: buildCoupures, every: 30, cold: 7 },
   { key: "web:air", build: buildAir, every: 60, cold: 4 },
-  // Built only here: the copy of /mer, the pages and temperature_mer read it, never the satellites (cam-change 273).
+  // Built only here: the copy of /mer, the pages and temperature_mer read it, never the satellites.
   { key: SATELLITES, build: buildSatellites, every: (last) => satellitesEvery(last), cold: 10 },
   { key: "web:mer", build: buildSea, every: 3 * 60, cold: 13 },
   { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8 },
@@ -207,8 +207,8 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
   const out: Warmed = { written: [], left: [] };
   for (const { s, at, kept, over, version } of due) {
     // An hour past its time, a copy is expected at its cold cost: what it took at a dearer hour, kept with its last
-    // copy, must not hold it back until that copy expires (web:trafic, 31 at 04:00, never under 33 since: cam-change
-    // 279). Its build stays within the budget all the same. Past its time by its rate only: a copy due for its version
+    // copy, must not hold it back until that copy expires (web:trafic, 31 at 04:00, never under 33 since).
+    // Its build stays within the budget all the same. Past its time by its rate only: a copy due for its version
     // is overdue by its age, and keeps what it is expected to take and the agendas' reserve.
     const late = !version && over >= LATE_MINUTES * 60_000;
     const leave = (why: string) => {

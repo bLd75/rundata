@@ -249,7 +249,7 @@ describe("reading the copies", () => {
     expect(meteo.used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
-  it("uses a recent copy built before its family's revision was raised, and brings it up to date first (cam-change 285, 286)", async () => {
+  it("uses a recent copy built before its family's revision was raised, and brings it up to date first", async () => {
     await counted(WORKER_BUDGET, () => measured(KEYS.air, () => buildAir(isolate(new EdgeLike()), NOW)).catch(() => undefined));
     const edge = new EdgeLike();
     for (const [part, c] of Object.entries(COPIES)) {

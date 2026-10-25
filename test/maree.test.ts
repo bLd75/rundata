@@ -111,7 +111,7 @@ describe("tide gauges", () => {
     expect(tile).toContain(" · basse mer vers 06:00 (marée calculée, pas le SHOM)");
   });
 
-  // cam-change 276: along the coast the tide turns at other times than at the gauges.
+  // Along the coast the tide turns at other times than at the gauges.
   it("keeps the computed times within 15 km of a gauge only", () => {
     const near = PAGES.filter(coastal).filter((p) => nearest(p.place.lon, p.place.lat).km <= NEAR_KM).map((p) => p.nom).sort();
     expect(near).toEqual(["La Possession", "Le Port", "Saint-Denis", "Saint-Gilles-les-Bains", "Saint-Paul", "Sainte-Marie", "Sainte-Suzanne"]);

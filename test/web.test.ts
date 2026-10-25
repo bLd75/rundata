@@ -178,7 +178,7 @@ describe("home page", () => {
     expect(warm.used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
-  it("takes the sea from the copy of /mer, however old, and never asks the satellites itself, nor does a place on the coast (cam-change 273)", async () => {
+  it("takes the sea from the copy of /mer, however old, and never asks the satellites itself, nor does a place on the coast", async () => {
     const asked: string[] = [];
     vi.stubGlobal("fetch", async (url: string) => {
       overLimit();
@@ -212,7 +212,7 @@ describe("home page", () => {
     expect(satellites()).toEqual([]);
   });
 
-  it("never asks the satellites from /mer either, when its copy is rebuilt after a view (cam-change 273)", async () => {
+  it("never asks the satellites from /mer either, when its copy is rebuilt after a view", async () => {
     const asked: string[] = [];
     vi.stubGlobal("fetch", async (url: string) => {
       overLimit();
@@ -530,7 +530,7 @@ describe("page data", () => {
     expect((await snapshot(c, "k", slow, () => {}, NOW, 5))?.value).toBe(42);
   });
 
-  it("built before its family's revision was raised, is built again at the first view after the deploy, not served (cam-change 285, 286)", async () => {
+  it("built before its family's revision was raised, is built again at the first view after the deploy, not served", async () => {
     const store = new MemoryStore();
     // Stamped with a revision older than any in web/revisions.ts.
     await store.put("web:agenda", { value: "ancienne", fetchedAt: NOW.getTime() - 60_000, version: "rendu-0" });

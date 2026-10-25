@@ -193,7 +193,7 @@ export async function departures(groups: transit.StopGroup[], now: Date, horizon
  * At each of these stations, its departures in the next 3 hours, or in the next 20 when there are fewer than 3 (at
  * night), as `departures` gives them, read for all the stations at once: one read of the passes, one of the
  * patterns, and one more for the stations that look further. The bus stations of /bus and /trafic: 2 or 3
- * subrequests instead of 2 or 4 each (cam-change 279).
+ * subrequests instead of 2 or 4 each.
  */
 export async function stationDepartures(stations: transit.StopGroup[][], now: Date): Promise<Departure[][]> {
   const c = moment(now);

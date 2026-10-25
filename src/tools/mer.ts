@@ -64,7 +64,7 @@ const gridCopy = (g: Grid): GridCopy =>
 /**
  * The satellites' grids, a shared copy (web/partagees.ts) that only the scheduled event builds: the copy of /mer, the
  * pages and the answers read it, however old, and never ask the satellites themselves. Their servers can take more
- * than 10 s to answer, or not answer (cam-change 273).
+ * than 10 s to answer, or not answer.
  */
 export const SATELLITES = "mer:satellites";
 

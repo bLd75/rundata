@@ -211,7 +211,7 @@ export function nonOfficiel(s: volcan.PitonState | null, readAt: Date | undefine
   return said || eruption ? { ...(said && { niveau: said }), ...(eruption && { eruption }), lu: atTime(readAt.toISOString()) } : undefined;
 }
 
-// Worded by marketing (cam-change 251): pitonlive after the official source, always « Selon pitonlive.com, site non
+// Worded by marketing: pitonlive after the official source, always « Selon pitonlive.com, site non
 // officiel », with the time we read it.
 export const pitonNiveau = (n: NonOfficiel) =>
   `Selon pitonlive.com, site non officiel, lu le ${n.lu} : « ${n.niveau} ». Ce niveau n'apparaît pas dans les communiqués de la préfecture que nous avons lus : vérifiez sur reunion.gouv.fr avant de monter au volcan.`;

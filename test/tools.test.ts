@@ -101,7 +101,7 @@ describe("temperature_mer", () => {
     expect(r.sources[0].source).toMatch(/MODIS/);
   });
 
-  it("answers from the copy of /mer however old, and never asks the satellites itself (cam-change 273)", async () => {
+  it("answers from the copy of /mer however old, and never asks the satellites itself", async () => {
     const asked: string[] = [];
     vi.stubGlobal("fetch", async (url: string) => {
       asked.push(String(url));

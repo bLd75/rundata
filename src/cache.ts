@@ -40,7 +40,7 @@ export const isCopy = (key: string) => key.startsWith("web:");
 
 /**
  * What a page's copy built by the code of `version` (server.ts) is stamped with: its family's revision
- * (web/revisions.ts, cam-change 286), or the version itself for a family not listed there. Nothing for another key, or
+ * (web/revisions.ts, #272), or the version itself for a family not listed there. Nothing for another key, or
  * when the code has no version (tests, Node).
  */
 export const stampOf = (key: string, version: string | undefined) => {
@@ -51,7 +51,7 @@ export const stampOf = (key: string, version: string | undefined) => {
 
 /**
  * Whether `entry`, kept under `key`, is a page's copy stamped otherwise than the code of `version` stamps it
- * (cam-change 285, 286): due at once, whatever its age, so that a page shows what its code says from the first view
+ * (#269, #272): due at once, whatever its age, so that a page shows what its code says from the first view
  * after the deploy that changed it. It stays the copy served if its build fails. A copy written before the stamps were
  * kept has none: built again once.
  */

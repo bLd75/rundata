@@ -234,7 +234,7 @@ export const resumeText = () =>
     `${e.debut.map((m) => `${date(m.jour)} ${quoi(m)}`).join(", ")} → ${date(e.fin.jour)} ${e.fin.quoi}${e.puis ? ` (${PUIS.toLowerCase()} ${e.puis.quoi} : ${SANS_FIN[0].toLowerCase()}${SANS_FIN.slice(1, -1)})` : ""}`).join("\u00a0; ")}.`;
 
 /**
- * The last eruption, as the OVPF dates it in its posts (cam-change 251), in place of pitonlive.com's date: kept by hand,
+ * The last eruption, as the OVPF dates it in its posts, in place of pitonlive.com's date: kept by hand,
  * read on 25/10/2026. Its start « Eruption en cours » of 13/02/2026, its end the « Arrêt de l'éruption » posted on
  * 13/04/2026 at 06:10, the tremor stopped on 12/04 around 23:10. check-sources says when the OVPF posts a newer end.
  */

@@ -211,7 +211,7 @@ const credit = (s: { nom: string; licence: string; attribution: string }): Credi
 /**
  * The sea of the tour, from the copy of /mer that the scheduled event refreshes every 3 hours (partagees.ts), however
  * old: the day of each reading says its age. The page never asks the satellites itself: their servers can take more
- * than 10 s to answer, or not answer, which held the copy's refresh and those who wait for it (cam-change 273).
+ * than 10 s to answer, or not answer, which held the copy's refresh and those who wait for it.
  */
 async function seaOfTour(cache: Cache, now: Date): Promise<{ mer: SeaNow[]; sources: Credit[] } | null> {
   // One in memory from the last 3 hours will do: the stores are asked only for a newer one (one read each).

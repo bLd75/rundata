@@ -1,5 +1,5 @@
 /**
- * The revision of what each family of pages' copies holds (cam-change 286): the copy of `web:<family>` or
+ * The revision of what each family of pages' copies holds (#272): the copy of `web:<family>` or
  * `web:<family>:<slug>` kept across a deploy only while its family's number stays the same (cache.ts, `outdated`).
  *
  * Raise a family's number in the PR that changes what its build puts in the copy: a field added, removed or computed

@@ -11,7 +11,7 @@ for (const f of files) {
   for (const m of text.matchAll(/["`]web:([a-z0-9-]+)/g)) named.add(m[1]);
 }
 
-describe("the revisions of the pages' copies (cam-change 286)", () => {
+describe("the revisions of the pages' copies", () => {
   it("list every family of copy the code names, so that none is built again at every deploy unnoticed", () => {
     expect(named.size).toBeGreaterThan(20);
     expect([...named].filter((f) => !(f in RENDU_REVISION)).sort()).toEqual([]);
