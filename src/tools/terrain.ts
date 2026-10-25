@@ -18,6 +18,51 @@ const ZONE_TYPES: Record<string, string> = {
 
 const ADDRESS = /\d|\b(rue|chemin|allée|allee|impasse|avenue|av|boulevard|bd|route|ruelle|lotissement|résidence|residence|cité|cite|sentier|place)\b/i;
 
+// Street kinds, as people and the address base write them, to one word each.
+const KINDS: Record<string, string> = {
+  rue: "rue", ruelle: "ruelle", allee: "allee", all: "allee", impasse: "impasse", imp: "impasse", chemin: "chemin", ch: "chemin", chem: "chemin",
+  avenue: "avenue", av: "avenue", ave: "avenue", boulevard: "boulevard", bd: "boulevard", bld: "boulevard", route: "route", rte: "route",
+  sentier: "sentier", place: "place", pl: "place", lotissement: "lotissement", lot: "lotissement", residence: "residence", res: "residence",
+  cite: "cite", square: "square", quai: "quai", passage: "passage", traverse: "traverse", voie: "voie", ravine: "ravine", rampe: "rampe",
+};
+const SMALL = new Set(["de", "des", "du", "la", "le", "les", "l", "d", "et", "a", "au", "aux", "en", "bis", "ter", "reunion"]);
+const words = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean)
+    .map((w) => (w === "st" ? "saint" : w === "ste" ? "sainte" : w));
+/** The words of the 24 communes' names, which a question adds after the street and the address base leaves out of it. */
+const COMMUNE_WORDS = new Set(Object.keys(INSEE).flatMap(words));
+// « ravine » names streets too (« Ravine des Cabris »): a kind only when it comes first.
+const kindOf = (w: string[]) => w.map((x, i) => (x === "ravine" && i > 0 ? undefined : KINDS[x])).find(Boolean);
+const distinct = (w: string[]) => w.filter((x) => !SMALL.has(x) && !/^\d+[a-z]?$/.test(x) && !(KINDS[x] && x !== "ravine"));
+
+/** Edit distance, for one letter off (« Lecomte », « Leconte »). */
+function oneOff(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (Math.min(a.length, b.length) < 5 || Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  return a.slice(i + 1) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i) || a.slice(i) === b.slice(i + 1);
+}
+const within = (some: string[], all: string[]) => some.every((x) => all.some((y) => oneOff(x, y)));
+
+/**
+ * Whether the street the address base found is the one asked about, by their names: the words asked, without the
+ * commune's, all in its name (« rue Juliette Dodu » for « Rue Juliette Dodu »), or all of its name's words in what was
+ * asked (« Rue Beaudelaire Ravine des Cabris » for « 12 rue Beaudelaire Ravine des Cabris, Saint-Pierre »); one letter
+ * off allowed in a long word; and the same kind of street when both say one (an allée is not an impasse).
+ */
+export function sameStreet(asked: string, found: string): boolean {
+  const a = words(asked);
+  const f = words(found);
+  const ka = kindOf(a);
+  const kf = kindOf(f);
+  if (ka && kf && ka !== kf) return false;
+  const fd = distinct(f);
+  if (!fd.length) return false;
+  const street = distinct(a).filter((x) => !COMMUNE_WORDS.has(x));
+  return (street.length > 0 && within(street, fd)) || within(fd, distinct(a));
+}
+
 const median = (v: number[]) => {
   if (!v.length) return null;
   const s = [...v].sort((a, b) => a - b);
@@ -71,6 +116,30 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
     where = { label: `${place.lieu.nom} (${place.lieu.type}, ${place.lieu.commune})`, lon: place.lieu.lon, lat: place.lieu.lat, precision: "centre du lieu-dit ou de la commune", insee: INSEE[place.lieu.commune] };
   } else {
     const a = await settle(terrain.SOURCES.ban.id, terrain.geocode(cache, adresse));
+    // Another street than the one asked: no figures of it, nor of the place around; the streets of the commune whose
+    // names come close instead.
+    const street = a && (a.type === "street" || a.type === "housenumber") && kindOf(words(adresse)) ? a.street ?? a.label.replace(/ \d{5} .*$/, "") : undefined;
+    if (a && street && !sameStreet(adresse, street)) {
+      const insee = (place && INSEE[place.lieu.commune]) || a.insee;
+      const commune = Object.keys(INSEE).find((c) => INSEE[c] === insee);
+      const near = ((await settle(terrain.SOURCES.ban.id, terrain.streets(cache, adresse.split(",")[0], insee))) ?? []).filter((x) => x !== street);
+      const N = "\u00a0";
+      const q = (x: string) => `«${N}${x}${N}»`;
+      const at = commune ? ` à ${commune}` : "";
+      const one = near.length === 1;
+      return {
+        ...text({
+          erreur: `Voie introuvable dans la Base adresse nationale${N}: ${q(adresse)}. Sa réponse la plus approchante, ${q(street)}${commune ? ` (${commune})` : ""}, est une autre voie${N}: pas de cadastre, de prix, d'urbanisme ni de risques pour une voie autre que celle demandée.`,
+          ...(near.length ? { voies_proches: near.map((x) => (commune ? `${x}, ${commune}` : x)) } : {}),
+          // The base's order, the closest first.
+          conseil: near.length
+            ? `${one ? "Voie" : "Voies"} au nom proche${at}, d'après la Base adresse nationale${N}: ${near.join(", ")}. Demander à l'utilisateur ${one ? "si c'est la bonne" : "laquelle est la bonne"}, puis redemander avec ce nom et la commune${N}; ne pas ${one ? "la choisir" : "en choisir une"} à sa place.`
+            : `Aucune voie au nom proche${at} dans la Base adresse nationale. Demander à l'utilisateur de vérifier le nom de la voie, puis redemander avec la commune, ou avec un lieu-dit.`,
+          sources: credits([terrain.SOURCES.ban]),
+        }),
+        isError: true,
+      };
+    }
     if (a) where = { label: a.label, lon: a.lon, lat: a.lat, precision: a.type === "housenumber" ? "adresse exacte" : a.type === "street" ? "milieu de la rue" : "centre de la commune", insee: a.insee };
     else if (place) where = { label: `${place.lieu.nom} (${place.lieu.type}, ${place.lieu.commune})`, lon: place.lieu.lon, lat: place.lieu.lat, precision: "centre du lieu-dit", insee: INSEE[place.lieu.commune] };
   }

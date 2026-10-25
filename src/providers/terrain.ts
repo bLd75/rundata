@@ -33,6 +33,8 @@ export interface Address {
   score: number;
   type: string;
   insee: string;
+  /** The street's name, for a street or a house number: what was asked is checked against it. */
+  street?: string;
 }
 
 /** The best address match in La Réunion (postcodes 974xx), or null. */
@@ -46,7 +48,22 @@ export async function geocode(cache: Cache, q: string): Promise<Cached<Address |
     const f = r.features.find((x) => String(x.properties.postcode ?? "").startsWith("974"));
     if (!f) return null;
     const p = f.properties;
-    return { label: String(p.label), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], score: Number(p.score), type: String(p.type), insee: String(p.citycode) };
+    return {
+      label: String(p.label), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], score: Number(p.score), type: String(p.type), insee: String(p.citycode),
+      ...(p.street ? { street: String(p.street) } : {}),
+    };
+  });
+}
+
+/** Up to five streets of a commune whose names come close to `q`, best first, without the postcode: « Rue Auguste Techer ». */
+export async function streets(cache: Cache, q: string, insee: string): Promise<Cached<string[]>> {
+  const text = q.trim().slice(0, 200);
+  return cache.get(`ban-voies:${insee}:${text.toLowerCase()}`, DAY, async () => {
+    const r = await getJson<{ features: { properties: Record<string, string | number> }[] }>(
+      SOURCES.ban.id,
+      `https://data.geopf.fr/geocodage/search?q=${encodeURIComponent(text)}&citycode=${insee}&type=street&limit=5`,
+    );
+    return [...new Set(r.features.filter((x) => String(x.properties.postcode ?? "").startsWith("974")).map((x) => String(x.properties.name)))];
   });
 }
 

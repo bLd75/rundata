@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { latestAct, planOf, SOURCES } from "../src/providers/terrain.js";
 import { SOURCES as TRACES } from "../src/providers/traces.js";
-import { ficheLieu, market, riskLine } from "../src/tools/terrain.js";
+import { ficheLieu, market, riskLine, sameStreet } from "../src/tools/terrain.js";
 
 // Real answers of 23/10/2026 for 7 rue de la Buse, Saint-Paul: parcel BO 552, zone U1c, 115 sales since 2021.
 const raw = (f: string) => readFileSync(new URL(`./fixtures/terrain/${f}`, import.meta.url), "utf8");
@@ -49,6 +49,67 @@ describe("fiche terrain", () => {
     expect(r.resume).toMatch(/^7 Rue de la Buse 97460 Saint-Paul \(adresse exacte\) ; altitude 5 m ; parcelle cadastrale BO 0552 \(2416 m²\) ; zone U1c du PLU, zone urbaine/);
     expect(r.urbanisme.approuve_le).toBe("27/09/2012");
     expect(urls[0]).toContain("geocodage");
+  });
+
+  it("knows the street asked from another, by its name", () => {
+    // Shortened, without accents, without the commune, with the quarter the address base adds, one letter off.
+    for (const [asked, found] of [
+      ["rue Auguste Techer, Saint-Pierre", "Rue Auguste Techer"],
+      ["7 rue de la Buse, Saint-Paul", "Rue de la Buse"],
+      ["rue Juliette Dodu", "Rue Juliette Dodu"],
+      ["rue juliette dodu saint denis", "Rue Juliette Dodu"],
+      ["rue Leconte de Lisle, Saint-Denis", "Rue Charles Marie Leconte de Lisle"],
+      ["rue Lecomte de Lisle", "Rue Leconte de Lisle"],
+      ["12 rue Beaudelaire, Saint-Pierre", "Rue Beaudelaire Ravine des Cabris"],
+      ["rue Auguste Techer Ravine des Cabris", "Rue Auguste Techer"],
+      ["av de la victoire, St-Denis", "Avenue de la Victoire"],
+      ["rue du general de gaulle", "Rue du Général de Gaulle"],
+      // Streets of the address base, asked the way people shorten them.
+      ["ch paille en queue, Salazie", "Chemin Paille En Queue"],
+      ["impasse arhel, La Plaine-des-Palmistes", "Impasse Joseph Alexis Arhel"],
+      ["chemin andre baret", "Chemin Andre Barret"],
+      ["all bois de lait", "Allée Bois de Lait"],
+      ["rue phlibert", "Rue Philibert"],
+    ]) expect(sameStreet(asked, found), `${asked} → ${found}`).toBe(true);
+    for (const [asked, found] of [
+      ["rue Auguste Escher, Ravine des Cabris", "Rue Beaudelaire Ravine des Cabris"],
+      ["allée des Daturas, Ravine des Cabris", "Rue Beaudelaire Ravine des Cabris"],
+      ["allée des Daturas", "Impasse des Daturas"],
+      ["rue Auguste Escher", "Rue Auguste Techer"],
+    ]) expect(sameStreet(asked, found), `${asked} → ${found}`).toBe(false);
+  });
+
+  it("says when the address base finds another street, gives nothing of it, and names the streets close by", async () => {
+    // Real answers of 25/10/2026 (avis #12): the base's best match is another street of Ravine des Cabris.
+    files = { citycode: "voies-escher.json", geocodage: "geocode-escher.json" };
+    const r = await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Auguste Escher, Ravine des Cabris", NOW);
+    expect(r.isError).toBe(true);
+    const b = body(r);
+    expect(b.erreur).toBe("Voie introuvable dans la Base adresse nationale\u00a0: «\u00a0rue Auguste Escher, Ravine des Cabris\u00a0». Sa réponse la plus approchante, «\u00a0Rue Beaudelaire Ravine des Cabris\u00a0» (Saint-Pierre), est une autre voie\u00a0: pas de cadastre, de prix, d'urbanisme ni de risques pour une voie autre que celle demandée.");
+    expect(b.voies_proches[0]).toBe("Rue Auguste Techer, Saint-Pierre");
+    expect(b.conseil).toBe("Voies au nom proche à Saint-Pierre, d'après la Base adresse nationale\u00a0: Rue Auguste Techer, Rue Auguste Babet, Rue Auguste Langlois, Rue Auguste Toussaint, Rue Auguste Lacaussade. Demander à l'utilisateur laquelle est la bonne, puis redemander avec ce nom et la commune\u00a0; ne pas en choisir une à sa place.");
+    // Neither the parcel, nor the zone, nor the sales of the other street; one more call to the address base.
+    expect(urls.every((u) => u.includes("geocodage"))).toBe(true);
+    expect(urls).toHaveLength(2);
+    expect(urls[1]).toMatch(/citycode=97416&type=street/);
+
+    files = { citycode: "voies-daturas.json", geocodage: "geocode-daturas.json" };
+    const d = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "allée des Daturas, Ravine des Cabris", NOW));
+    expect(d.voies_proches).toEqual(["Impasse des Daturas, Saint-Pierre"]);
+    expect(d.conseil).toBe("Voie au nom proche à Saint-Pierre, d'après la Base adresse nationale\u00a0: Impasse des Daturas. Demander à l'utilisateur si c'est la bonne, puis redemander avec ce nom et la commune\u00a0; ne pas la choisir à sa place.");
+    // Without a street close by.
+    files = { citycode: "voies-aucune.json", geocodage: "geocode-daturas.json" };
+    const none = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "allée des Daturas, Ravine des Cabris", NOW));
+    expect(none.voies_proches).toBeUndefined();
+    expect(none.conseil).toBe("Aucune voie au nom proche à Saint-Pierre dans la Base adresse nationale. Demander à l'utilisateur de vérifier le nom de la voie, puis redemander avec la commune, ou avec un lieu-dit.");
+    expect([d.cadastre, d.urbanisme, d.marche_immobilier, d.risques]).toEqual([undefined, undefined, undefined, undefined]);
+  });
+
+  it("still reads the street asked, written right", async () => {
+    files = { ...files, geocodage: "geocode-techer.json" };
+    const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Auguste Techer, Saint-Pierre", NOW));
+    expect(r.resume).toMatch(/^Rue Auguste Techer 97432 Saint-Pierre \(milieu de la rue\) ; /);
+    expect(urls.filter((u) => u.includes("geocodage"))).toHaveLength(1);
   });
 
   it("takes a known place from the gazetteer without geocoding", async () => {
