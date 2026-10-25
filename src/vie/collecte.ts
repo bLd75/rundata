@@ -131,7 +131,7 @@ export function rhythmOf(c: Calendar, today: number): string | undefined {
   return KINDS.flatMap(([k, name]) => {
     const r = rhythm(c[k], today);
     return r ? [`${name} ${r}`] : [];
-  }).join(" ; ");
+  }).join("\u00a0; ");
 }
 
 /**

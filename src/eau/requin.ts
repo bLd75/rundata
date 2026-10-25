@@ -27,7 +27,7 @@ export const CSR_URL = "https://www.securite-requin.re/section/les-zones-de-prat
 export const SOURCE: SourceInfo = {
   id: "risque_requin",
   nom: "Arrêté préfectoral n° 180 du 13 février 2026 (baignade et activités nautiques, bande des 300 m) et zones du Centre Sécurité Requin",
-  organisme: "Préfecture de La Réunion ; Centre Sécurité Requin (GIP)",
+  organisme: "Préfecture de La Réunion\u00a0; Centre Sécurité Requin (GIP)",
   licence: "Information publique (reunion.gouv.fr, securite-requin.re)",
   attribution: "Préfecture de La Réunion, Centre Sécurité Requin",
   url: RAA_URL,

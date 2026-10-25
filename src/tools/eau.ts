@@ -67,7 +67,7 @@ export function networkRow(r: potable.Reseau, samples: potable.Prelevement[]) {
   const last = mine[0];
   return {
     reseau: r.nom,
-    quartiers: r.quartiers.length ? r.quartiers.join(" ; ") : undefined,
+    quartiers: r.quartiers.length ? r.quartiers.join("\u00a0; ") : undefined,
     derniere_analyse: last ? day(last.date) : "aucune depuis 6 mois",
     derniere_analyse_conforme: last ? last.conforme : undefined,
     analyses_6_mois: mine.length,
@@ -82,7 +82,7 @@ function tapSentence(row: ReturnType<typeof networkRow>, where: string): string 
   const bad = row.non_conformes_6_mois
     ? `${row.non_conformes_6_mois} analyse${row.non_conformes_6_mois > 1 ? "s" : ""} non conforme${row.non_conformes_6_mois > 1 ? "s" : ""} sur ${row.analyses_6_mois} en 6 mois`
     : `toutes conformes en 6 mois (${row.analyses_6_mois})`;
-  return `Eau du robinet, réseau ${row.reseau} ${where} : ${last} ; ${bad}.`;
+  return `Eau du robinet, réseau ${row.reseau} ${where} : ${last}\u00a0; ${bad}.`;
 }
 
 /** A distributor's « ne pas boire » notice in force for the commune, if its feed is read; never fails the answer. */
@@ -112,7 +112,7 @@ async function robinet(cache: Cache, res: Resolution, now: Date) {
   const total = value.prelevements.length;
   const resume = `Eau du robinet ${a(commune)} : ${value.reseaux.length} réseau${value.reseaux.length > 1 ? "x" : ""}, ${total} analyse${total > 1 ? "s" : ""} en 6 mois` +
     (badNets.length
-      ? ` ; non-conformités sur ${badNets.map((r) => `${r.reseau} (${r.non_conformes_6_mois})`).join(", ")}.`
+      ? `\u00a0; non-conformités sur ${badNets.map((r) => `${r.reseau} (${r.non_conformes_6_mois})`).join(", ")}.`
       : total ? ", toutes conformes." : ".") +
     (value.reseaux.length > 1 ? " La qualité dépend du réseau qui dessert le quartier : préciser le quartier." : "");
   return { resume: [warn.resume_avis, resume].filter(Boolean).join(" "), ...warn, reseaux: ordered };
@@ -170,7 +170,7 @@ async function baignade(cache: Cache, res: Resolution, now: Date, lieu: string) 
   const picked = near.filter((x) => x.d <= NEAR_KM).slice(0, 2);
   if (!picked.length) {
     return {
-      resume: `Aucun site de baignade contrôlé par l'ARS à moins de ${NEAR_KM} km ${a(res.lieu.commune || res.lieu.nom)} ; le plus proche : ${near[0].s.nom} (${near[0].s.commune}, ${Math.round(near[0].d)} km).`,
+      resume: `Aucun site de baignade contrôlé par l'ARS à moins de ${NEAR_KM} km ${a(res.lieu.commune || res.lieu.nom)}\u00a0; le plus proche : ${near[0].s.nom} (${near[0].s.commune}, ${Math.round(near[0].d)} km).`,
       sites_controles: baignades.SITES.map((s) => `${s.nom} (${s.commune})`),
     };
   }
@@ -196,7 +196,7 @@ export function tapNote(where: "outil" | "page"): string {
 export const COMMON = {
   eau_du_robinet: tapNote("outil"),
   eau_de_baignade:
-    "Prélèvement toutes les deux semaines environ ; seuils par prélèvement (germes pour 100 mL) : bonne jusqu'à 100 entérocoques et 100 E. coli, " +
+    "Prélèvement toutes les deux semaines environ\u00a0; seuils par prélèvement (germes pour 100 mL) : bonne jusqu'à 100 entérocoques et 100 E. coli, " +
     "mauvaise au-delà de 370 entérocoques ou 1 000 E. coli. Après de fortes pluies, l'eau est souvent polluée pendant un à trois jours (ravines, rejets).",
 };
 

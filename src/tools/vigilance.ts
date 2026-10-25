@@ -139,7 +139,7 @@ export async function vigilanceMeteo(cache: Cache, lieu: string | undefined, now
   if (!lieu?.trim()) {
     const resume = r.length
       ? `${common.alerte_cyclonique} Vigilances au-dessus du vert : ` +
-        r.map((x) => `${x.couleur_max} ${x.phenomene.toLowerCase()} pour ${x.zone}`).join(" ; ") + "."
+        r.map((x) => `${x.couleur_max} ${x.phenomene.toLowerCase()} pour ${x.zone}`).join("\u00a0; ") + "."
       : `${common.alerte_cyclonique} Aucune vigilance particulière à La Réunion (tout est vert) dans les 24 h du bulletin.`;
     return text({ resume, ...common, vigilances: r.map(({ max: _, ...x }) => x) });
   }
@@ -168,7 +168,7 @@ export async function vigilanceMeteo(cache: Cache, lieu: string | undefined, now
     resume:
       `${common.alerte_cyclonique} ` +
       (above.length
-        ? `${zoneName.split(" :")[0]} : ` + above.map((n) => `${n.phenomene.toLowerCase()} ${n.a_venir!.join(", ")}`).join(" ; ") + "."
+        ? `${zoneName.split(" :")[0]} : ` + above.map((n) => `${n.phenomene.toLowerCase()} ${n.a_venir!.join(", ")}`).join("\u00a0; ") + "."
         : `Pas de vigilance particulière pour la zone ${zoneName.split(" :")[0]} (vert).`) +
       (coast.length ? ` Vagues-submersion sur le littoral : ${coast.map((c) => `${c.couleur_max} (${c.zone})`).join(", ")}.` : ""),
     niveaux,

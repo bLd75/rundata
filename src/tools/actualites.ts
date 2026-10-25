@@ -17,7 +17,7 @@ export const COUVERTURE =
   "par un programme : ils n'y sont pas.";
 export const A_SAVOIR =
   "Titres des articles, avec leur première phrase quand le média la donne, et leur lien : lire l'article pour le détail. Qu'aucune information ne mentionne un lieu ne prouve pas " +
-  "qu'il ne s'y passe rien. Pour la route en direct, écouter la radio (Freedom, Réunion La 1ère) ; en cas de danger, appeler le 17 ou le 112, et suivre " +
+  "qu'il ne s'y passe rien. Pour la route en direct, écouter la radio (Freedom, Réunion La 1ère)\u00a0; en cas de danger, appeler le 17 ou le 112, et suivre " +
   "les consignes de la préfecture.";
 
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
@@ -119,10 +119,10 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
     res
       ? mine.length
         ? `${mine.length} information${mine.length > 1 ? "s" : ""}${kind} des dernières ${h} h mentionne${mine.length > 1 ? "nt" : ""} ${where}. ` +
-          mine.slice(0, 4).map((i) => `${latest(i)}${about(i) ? ` : « ${about(i)} »` : ""}`).join(" ; ") + "."
+          mine.slice(0, 4).map((i) => `${latest(i)}${about(i) ? ` : « ${about(i)} »` : ""}`).join("\u00a0; ") + "."
         : `Aucune information${kind} des médias lus ne mentionne ${where} depuis ${quand({ publie: since, heure: true }, now)}.`
       : pool.length
-        ? `${articles.length} information${articles.length > 1 ? "s" : ""}${kind} des médias de La Réunion depuis ${h} h ; la plus récente, ${articles[0] ? latest(articles[0]) : "—"}.`
+        ? `${articles.length} information${articles.length > 1 ? "s" : ""}${kind} des médias de La Réunion depuis ${h} h\u00a0; la plus récente, ${articles[0] ? latest(articles[0]) : "—"}.`
         : `Aucune information${kind} des médias lus depuis ${h} h.`,
     live.length ? `En direct sur l'île, ${latest(live[0])}.` : "",
     prefecture.length ? `Dernier communiqué de la préfecture, ${quand(prefecture[0], now)} : « ${prefecture[0].titre} ».` : "",

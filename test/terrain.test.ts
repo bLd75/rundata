@@ -46,7 +46,7 @@ describe("fiche terrain", () => {
 
   it("reads an address: parcel, PLU zone, altitude, market", async () => {
     const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "7 rue de la Buse, Saint-Paul", NOW));
-    expect(r.resume).toMatch(/^7 Rue de la Buse 97460 Saint-Paul \(adresse exacte\) ; altitude 5 m ; parcelle cadastrale BO 0552 \(2416 m²\) ; zone U1c du PLU, zone urbaine/);
+    expect(r.resume).toMatch(/^7 Rue de la Buse 97460 Saint-Paul \(adresse exacte\)\u00a0; altitude 5 m\u00a0; parcelle cadastrale BO 0552 \(2416 m²\)\u00a0; zone U1c du PLU, zone urbaine/);
     expect(r.urbanisme.approuve_le).toBe("27/09/2012");
     expect(urls[0]).toContain("geocodage");
   });
@@ -108,7 +108,7 @@ describe("fiche terrain", () => {
   it("still reads the street asked, written right", async () => {
     files = { ...files, geocodage: "geocode-techer.json" };
     const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Auguste Techer, Saint-Pierre", NOW));
-    expect(r.resume).toMatch(/^Rue Auguste Techer 97432 Saint-Pierre \(milieu de la rue\) ; /);
+    expect(r.resume).toMatch(/^Rue Auguste Techer 97432 Saint-Pierre \(milieu de la rue\)\u00a0; /);
     expect(urls.filter((u) => u.includes("geocodage"))).toHaveLength(1);
   });
 

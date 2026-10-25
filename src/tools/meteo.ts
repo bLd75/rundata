@@ -147,7 +147,7 @@ export async function meteoActuelle(cache: Cache, lieu: string | undefined, now 
   if (!lieu?.trim()) {
     const { tour, down, sources } = await islandTour(cache, now);
     return text({
-      resume: tour.map(({ o }) => sentence(o.station.nom, o, now)).join(" ; ") || "Aucune mesure disponible.",
+      resume: tour.map(({ o }) => sentence(o.station.nom, o, now)).join("\u00a0; ") || "Aucune mesure disponible.",
       stations: tour.map(({ o, stale }) => ({ ...stationBlock(o, stale, now), versant: versant(o.station.lon, o.station.lat) })),
       sources_indisponibles: down.length ? down : undefined,
       couverture: coverage(),
@@ -204,7 +204,7 @@ export async function meteoActuelle(cache: Cache, lieu: string | undefined, now 
     ? `Mesures les plus proches de ${r.lieu.nom} — ` +
       shown
         .map((x) => sentence(`${x.o.station.nom} (${fr(x.f.distance_km)} km, direction ${x.f.direction}, pertinence ${x.f.pertinence})`, x.o, now))
-        .join(" ; ") +
+        .join("\u00a0; ") +
       (warnings.length ? `. Attention : ${warnings.join(" ")}` : "")
     : "Aucune mesure disponible pour le moment.";
   const resumeAll = [resume, rain?.resume, pluie?.resume].filter(Boolean).join(" ");

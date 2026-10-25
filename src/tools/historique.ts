@@ -224,7 +224,7 @@ function summary(p: Period, rain?: Series, temp?: Series, sun?: Series) {
       jours_gris: sig.filter((v) => v < GREY_SIGMA).length,
       jours_ensoleilles: sig.filter((v) => v >= SUNNY_SIGMA).length,
       jours_mesures: sig.length,
-      definition: `Jour gris : moins de ${GREY_SIGMA} % du soleil possible ce jour-là ; ensoleillé : ${SUNNY_SIGMA} % ou plus.`,
+      definition: `Jour gris : moins de ${GREY_SIGMA} % du soleil possible ce jour-là\u00a0; ensoleillé : ${SUNNY_SIGMA} % ou plus.`,
     };
   }
   return out;
@@ -357,17 +357,17 @@ export function nothing(where: string, p: Period, now: Date, last?: string): str
   const yesterday = iso(now.getTime() + 4 * 3600_000 - DAY_MS);
   const recent = !last && p.au >= yesterday && Math.round((Date.parse(p.au) - Date.parse(p.du)) / DAY_MS) < RECENT_DAYS;
   return recent
-    ? `Les mesures du ${frDate(p.du)}${p.du !== p.au ? ` au ${frDate(p.au)}` : ""} ne sont peut-être pas encore disponibles : ${LOADED}. Réessayer plus tard ; pour maintenant, meteo_actuelle.`
+    ? `Les mesures du ${frDate(p.du)}${p.du !== p.au ? ` au ${frDate(p.au)}` : ""} ne sont peut-être pas encore disponibles : ${LOADED}. Réessayer plus tard\u00a0; pour maintenant, meteo_actuelle.`
     : `Aucune station ne mesurait ${a(where)} ou près de là sur cette période.`;
 }
 
 const COMMON = {
   nature: "mesure",
   a_savoir: [
-    "Mesures quotidiennes des stations Météo-France, chargées chaque jour vers midi (heure de La Réunion) avec la veille : le dernier jour disponible est hier après le chargement, avant-hier avant. Pour aujourd'hui, voir meteo_actuelle ; pour les jours à venir, prevision_meteo.",
+    "Mesures quotidiennes des stations Météo-France, chargées chaque jour vers midi (heure de La Réunion) avec la veille : le dernier jour disponible est hier après le chargement, avant-hier avant. Pour aujourd'hui, voir meteo_actuelle\u00a0; pour les jours à venir, prevision_meteo.",
     "La pluie d'un jour est celle tombée de 10 h ce jour-là à 10 h le lendemain (heure de La Réunion), comme Météo-France la compte.",
     `Normales : moyennes 1991-2020 de la station, calculées sur les mesures de Météo-France (au moins 10 années).`,
-    `Heure par heure (depuis 2000) : donné pour ${HOURLY_AUTO} jours ou moins, et jusqu'à ${HOURLY_MAX} jours avec detail « heure » ; chargé chaque jour vers midi (heure de La Réunion) avec la nuit qui vient de finir, si bien qu'après midi les premières heures d'aujourd'hui y sont.`,
+    `Heure par heure (depuis 2000) : donné pour ${HOURLY_AUTO} jours ou moins, et jusqu'à ${HOURLY_MAX} jours avec detail « heure »\u00a0; chargé chaque jour vers midi (heure de La Réunion) avec la nuit qui vient de finir, si bien qu'après midi les premières heures d'aujourd'hui y sont.`,
   ],
 };
 
@@ -381,7 +381,7 @@ function sentence(where: string, p: Period, s: Record<string, unknown>, names: {
   const e = s.ensoleillement as { heures_par_jour?: number; normale_heures_par_jour?: number; jours_gris: number; jours_mesures: number } | undefined;
   if (e?.jours_mesures) parts.push(`soleil ${e.heures_par_jour != null ? `${fr(e.heures_par_jour)} h par jour` : ""}${e.normale_heures_par_jour != null ? ` (normale ${fr(e.normale_heures_par_jour)} h)` : ""}, ${e.jours_gris} jour${e.jours_gris > 1 ? "s" : ""} gris sur ${e.jours_mesures} à ${names.sun}`);
   const span = p.du === p.au ? `le ${frDate(p.du)}` : `du ${frDate(p.du)} au ${frDate(p.au)}`;
-  return `${where}, ${span} : ${parts.join(" ; ") || "aucune mesure publiée"}.`;
+  return `${where}, ${span} : ${parts.join("\u00a0; ") || "aucune mesure publiée"}.`;
 }
 
 function oneDay(where: string, d: string, s: Record<string, unknown>, names: { rain?: string; temp?: string; sun?: string }): string {
@@ -394,7 +394,7 @@ function oneDay(where: string, d: string, s: Record<string, unknown>, names: { r
   }
   const e = s.ensoleillement as { heures_par_jour?: number; jours_mesures: number } | undefined;
   if (e?.jours_mesures && e.heures_par_jour != null) parts.push(`${fr(e.heures_par_jour)} h de soleil à ${names.sun}`);
-  return `${where}, le ${frDate(d)} : ${parts.join(" ; ") || "aucune mesure publiée"}.`;
+  return `${where}, le ${frDate(d)} : ${parts.join("\u00a0; ") || "aucune mesure publiée"}.`;
 }
 
 interface HourSeries {
@@ -464,7 +464,7 @@ function dayFacts(day: string, hs: Hour[], rain?: HourSeries, temp?: HourSeries,
   if (hot && cold) parts.push(`${fr(cold[1])} °C à ${cold[0]} h, ${fr(hot[1])} °C à ${hot[0]} h`);
   if (gust) parts.push(`rafale max ${Math.round(gust[1] * 3.6)} km/h vers ${gust[0]} h`);
   return {
-    texte: `${frDate(day).slice(0, 5)} : ${parts.filter(Boolean).join(" ; ") || "aucune mesure"}`,
+    texte: `${frDate(day).slice(0, 5)} : ${parts.filter(Boolean).join("\u00a0; ") || "aucune mesure"}`,
     chiffres: {
       date: frDate(day),
       pluie_mm: rr.length ? total : undefined,
@@ -527,7 +527,7 @@ async function hourly(cache: Cache, place: Place, p: Period, now: Date) {
     const dz = b.ecart_altitude_m ?? 0;
     if (km < 2 && Math.abs(dz) < 100) return x.nom;
     return `${x.nom}, à ${fr(km)} km${Math.abs(dz) >= 100 ? ` et ${Math.abs(dz)} m plus ${dz > 0 ? "haut" : "bas"}` : ""}`;
-  }).join(" ; ");
+  }).join("\u00a0; ");
   return {
     ou: where,
     texte: facts.map((f) => f.texte).join(". ") + (p.au === today && lastHour ? ` (aujourd'hui, publié jusqu'à ${lastHour.hour} h)` : ""),
@@ -582,7 +582,7 @@ export async function historiqueMeteo(
       const pl = (r as { pluie?: { total_mm: number; normale_mm?: number } }).pluie;
       const t = (r as { temperatures?: { maximales_moyenne?: number } }).temperatures;
       return `${r.station} : ${pl ? `${fr(pl.total_mm)} mm${pl.normale_mm != null ? ` (normale ${pl.normale_mm})` : ""}` : "pluie non mesurée"}${t?.maximales_moyenne != null ? `, max ${fr(t.maximales_moyenne)} °C` : ""}`;
-    }).join(" ; ");
+    }).join("\u00a0; ");
     const last = lastDay(read, iso(now.getTime() + 4 * 3600_000 - DAY_MS));
     return text({ resume: `La Réunion du ${frDate(p.du)} au ${frDate(p.au)} — ${resume}.${notYet(p, now, last)}`, stations: rows, ...common });
   }

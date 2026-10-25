@@ -25,7 +25,7 @@ describe("restrictions d'eau", () => {
 
   it("sums up the island", async () => {
     const b = body(await restrictionsEau(cache(), undefined));
-    expect(b.resume).toBe("Sécheresse à La Réunion (arrêté en vigueur depuis le 10/10/2026). Eau du robinet : crise à Saint-Joseph ; alerte renforcée dans 5 communes ; alerte dans 14 communes ; vigilance aux Trois-Bassins, à Saint-Leu, à Saint-Louis et à Sainte-Rose.");
+    expect(b.resume).toBe("Sécheresse à La Réunion (arrêté en vigueur depuis le 10/10/2026). Eau du robinet : crise à Saint-Joseph\u00a0; alerte renforcée dans 5 communes\u00a0; alerte dans 14 communes\u00a0; vigilance aux Trois-Bassins, à Saint-Leu, à Saint-Louis et à Sainte-Rose.");
     expect(b.communes[0]).toEqual({ commune: "Saint-Joseph", eau_du_robinet: "crise", rivieres_et_sources: "alerte renforcée", nappes: "crise" });
     expect(b.communes).toHaveLength(24);
   });
@@ -40,7 +40,7 @@ describe("restrictions d'eau", () => {
 
   it("says what a private person may not do in a commune", async () => {
     const b = body(await restrictionsEau(cache(), "Saint-Joseph"));
-    expect(b.resume).toBe("Restrictions d'eau à Saint-Joseph : crise pour l'eau du robinet ; crise pour les nappes souterraines, alerte renforcée pour les rivières et sources.");
+    expect(b.resume).toBe("Restrictions d'eau à Saint-Joseph : crise pour l'eau du robinet\u00a0; crise pour les nappes souterraines, alerte renforcée pour les rivières et sources.");
     const usages = b.restrictions_eau_du_robinet.map((r: { usage: string }) => r.usage);
     expect(usages).toContain("Arrosage des pelouses");
     expect(usages).not.toContain("Arrosage des golfs");

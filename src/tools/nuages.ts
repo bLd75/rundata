@@ -129,7 +129,7 @@ export function merDeNuages(f: Forecast, place: Place, now: Date, o: { nom?: str
     : fenetres.map((w) => `${span(w.de, w.a)}, ${w.texte}`);
   // Only into the clouds: a summit under them often keeps its view over the cloud sea and the cirques.
   const closes = fenetres.length === 2 && ["degage", "dessus", "bord"].includes(fenetres[0].etat) && fenetres[1].etat === "dans";
-  const tail = `${parts.join(" ; ")}.${closes ? ` ${CLOSING}` : ""}`;
+  const tail = `${parts.join("\u00a0; ")}.${closes ? ` ${CLOSING}` : ""}`;
   return {
     titre: `Mer de nuages ${mo.libelle}`,
     ligne: cap(tail),

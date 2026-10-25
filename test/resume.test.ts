@@ -99,7 +99,7 @@ describe("the summary of a day", () => {
     expect(r.circulation.bus).toEqual([{ reseau: "Kar'Ouest", titre: "Ligne 1 déviée" }]);
     expect(r.calendrier).toEqual({ jour_ferie: undefined, vacances_scolaires: "Vacances de la Toussaint" });
     expect(r.soleil.lever).toMatch(/^0[5-6]:\d\d$/);
-    expect(r.resume).toMatch(/^Saint-Paul, samedi 24 octobre ; 27,4 °C mesurés à 13:54 \(station Saint-Paul\) ; prévision du jour 21 °C à 29 °C, ensoleillé ;/);
+    expect(r.resume).toMatch(/^Saint-Paul, samedi 24 octobre\u00a0; 27,4 °C mesurés à 13:54 \(station Saint-Paul\)\u00a0; prévision du jour 21 °C à 29 °C, ensoleillé\u00a0;/);
     expect(r.resume).toContain("2 événements aujourd'hui");
     // Saturday: the forain of Saint-Paul, from its OpenStreetMap days; the duty pharmacy never guessed.
     expect(r.marches_du_jour!.liste).toEqual([expect.objectContaining({ nom: "Marché forain de Saint-Paul", horaires_aujourd_hui: "de 8 h à 12 h" })]);
@@ -114,7 +114,7 @@ describe("the summary of a day", () => {
     expect(r.decheteries!.page).toBe("https://rundata.re/decheteries#saint-paul");
     expect(r.resume).toContain("déchets verts acceptés dans 1 déchèterie sur 2");
     // The month's maximum prices, the same everywhere.
-    expect(r.resume).toContain("carburants (prix maximum) : sans plomb 2,00 €/L, gazole 1,80 €/L ;");
+    expect(r.resume).toContain("carburants (prix maximum) : sans plomb 2,00 €/L, gazole 1,80 €/L\u00a0;");
     expect(r.carburants).toMatchObject({ depuis: "2026-10-01", prix_maximum: "sans plomb 2,00 €/L, gazole 1,80 €/L", prix_maximums: ["sans plomb 2,00 €/litre (+0,17 €)", "gazole 1,80 €/litre (stable)"] });
     // Each source once; the tap water is not a day's news (qualite_eau).
     expect(new Set(r.sources.map((s) => s.source)).size).toBe(r.sources.length);

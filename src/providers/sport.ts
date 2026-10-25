@@ -26,7 +26,7 @@ export const SOURCES = {
   livetrail: {
     id: "livetrail",
     nom: "Grand Raid de La Réunion : suivi et classements (Livetrail)",
-    organisme: "Association Grand Raid ; Livetrail (chronométrage)",
+    organisme: "Association Grand Raid\u00a0; Livetrail (chronométrage)",
     licence: "Information publique (résultats publiés par l'organisateur)",
     attribution: "Grand Raid de La Réunion, Livetrail",
     url: "https://grandraid-reunion.v3.livetrail.net/",
@@ -66,7 +66,7 @@ export const SOURCES = {
   sportsregions: {
     id: "sportsregions",
     nom: "Sportsregions (calendrier des clubs), publié par chaque club",
-    organisme: "Sportsregions ; les clubs sportifs de La Réunion qui y publient leurs événements",
+    organisme: "Sportsregions\u00a0; les clubs sportifs de La Réunion qui y publient leurs événements",
     licence: "Information publique (événements publiés par chaque club, cités avec leur lien)",
     attribution: "Sportsregions, publié par chaque club",
     url: "https://portail.sportsregions.fr/reunion/calendrier-clubs-sportifs-en-reunion",
@@ -99,7 +99,7 @@ export const SOURCES = {
     id: "la1ere_sport",
     nom: "Actualité sportive de Réunion La 1ère (titres et liens)",
     organisme: "France Télévisions, Réunion La 1ère",
-    licence: "Titres et liens seulement ; articles sur le site de Réunion La 1ère",
+    licence: "Titres et liens seulement\u00a0; articles sur le site de Réunion La 1ère",
     attribution: "Réunion La 1ère",
     url: "https://la1ere.franceinfo.fr/reunion/sport/",
   },

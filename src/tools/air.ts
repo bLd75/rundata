@@ -59,7 +59,7 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
   const parts = [now_ && sentence(now_, `Qualité de l'air aujourd'hui à ${res.lieu.commune}`), next && sentence(next, "demain")].filter(Boolean);
   return text({
     lieu: placeBlock(lieu, res),
-    resume: parts.length ? `${parts.join(" ; ")}.` : `Pas d'indice publié pour ${res.lieu.commune} aujourd'hui.`,
+    resume: parts.length ? `${parts.join("\u00a0; ")}.` : `Pas d'indice publié pour ${res.lieu.commune} aujourd'hui.`,
     indices: mine.map((x) => ({
       jour: x.jour,
       niveau: x.niveau,

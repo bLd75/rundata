@@ -24,7 +24,7 @@ export const kindAsked = (quoi: string) => KINDS.find(([re]) => re.test(quoi))?.
 const NOT_ALL =
   "Liste d'après OpenStreetMap, Data ES et Basilic : tous les lieux n'y sont pas. Les accueils de loisirs (centres aérés), les crèches et les relais petite enfance sont publiés par la CAF sur monenfant.fr, dont les données ne peuvent pas être reprises : y renvoyer pour un mode de garde. Un lieu oublié : donner_avis, ou l'ajouter sur OpenStreetMap.";
 const AGES =
-  "age : celui de la carte quand elle le donne (age_d_apres_la_source = true) ; sinon une indication de rundata.re selon le type de lieu, à dire comme telle, jamais comme une règle du lieu. Aucun lieu n'est dit ouvert sans horaires de la source.";
+  "age : celui de la carte quand elle le donne (age_d_apres_la_source = true)\u00a0; sinon une indication de rundata.re selon le type de lieu, à dire comme telle, jamais comme une règle du lieu. Aucun lieu n'est dit ouvert sans horaires de la source.";
 const ACTIVITIES = "Activités et spectacles pour les enfants des deux semaines qui viennent : outil evenements, quoi = « enfants ».";
 
 const row = (now: Date) => (l: enfants.Lieu & { km?: number }) => {
@@ -70,7 +70,7 @@ export function enfantsAnswer(quoi: string, lieu: string | undefined, now = new 
     lieu: placeBlock(lieu!, res),
     resume: here.length
       ? `${here.length} ${what} ${a(commune)} d'après les cartes ouvertes${kind ? "" : ` : ${byKind.map(([k, n]) => enfants.counted(k, n)).join(", ")}`}.`
-      : `Aucun lieu de ce type ${a(commune)} dans les sources. Les plus proches : ${near.slice(0, 3).map((l) => `${enfants.nameOf(l)}, ${a(l.commune)}, à ${fr(Math.round(((l as { km?: number }).km ?? 0) * 10) / 10)} km`).join(" ; ")}.`,
+      : `Aucun lieu de ce type ${a(commune)} dans les sources. Les plus proches : ${near.slice(0, 3).map((l) => `${enfants.nameOf(l)}, ${a(l.commune)}, à ${fr(Math.round(((l as { km?: number }).km ?? 0) * 10) / 10)} km`).join("\u00a0; ")}.`,
     lieux: rows,
     page: `https://rundata.re/enfants#c-${slugify(commune)}`,
     avertissements: warnings,

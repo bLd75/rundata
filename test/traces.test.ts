@@ -88,7 +88,7 @@ describe("traces GPS", () => {
       troncons_onf: [{ sentier: "Le Bloc - Piton des Neiges", etat: "ouvert" }],
       trace_gpx: "https://rundata.re/randonnees/sentier-du-piton-des-neiges.gpx",
     });
-    expect(b.resume).toMatch(/^Sentier du Piton des Neiges \(OpenStreetMap\) : 7,8 km, \d+ m de dénivelé positif ; tronçons suivis par l'ONF ouverts ; trace GPS https:\/\/rundata\.re\/randonnees\/sentier-du-piton-des-neiges\.gpx\./);
+    expect(b.resume).toMatch(/^Sentier du Piton des Neiges \(OpenStreetMap\) : 7,8 km, \d+ m de dénivelé positif\u00a0; tronçons suivis par l'ONF ouverts\u00a0; trace GPS https:\/\/rundata\.re\/randonnees\/sentier-du-piton-des-neiges\.gpx\./);
     expect(b.sentiers_nommes.find((s: { sentier: string }) => s.sentier === "Le Bloc - Piton des Neiges")).toMatchObject({
       etat: "ouvert",
       trace_gpx: "https://rundata.re/sentiers/le-bloc-piton-des-neiges.gpx",

@@ -209,5 +209,5 @@ export function forSummary(l: Littoral | undefined, now: Date): string | undefin
   if (!l) return undefined;
   const one = (a: Annonce) => `${etatText(a).replace(/^\p{Lu}/u, (c) => c.toLowerCase())}, selon ${a.media} (${publieText(a, now)})`;
   const head = l.annonces.length > 1 ? "Route du Littoral, les annonces ne disent pas la même chose : " : l.age_h >= RECENT_HOURS ? `Route du Littoral, dernière annonce il y a ${l.age_h} h : ` : "Route du Littoral : ";
-  return `${head}${l.annonces.map(one).join(" ; ")} ; état officiel sur infotrafic.re.`;
+  return `${head}${l.annonces.map(one).join("\u00a0; ")}\u00a0; état officiel sur infotrafic.re.`;
 }

@@ -363,7 +363,7 @@ async function stopDepartures(groups: transit.StopGroup[], now: Date, cache: Cac
 const timetables = (live: string[], feeds: Map<string, rt.Realtime>) => {
   const at = [...feeds.values()].reduce((m, f) => Math.max(m, f.at), 0);
   return live.length
-    ? `${live.join(", ")} : heures annoncées en direct par le réseau (flux de ${localTime(new Date(at * 1000)).split(" ")[1]}) quand le bus y figure ; sinon horaires théoriques, sans les retards ni les déviations`
+    ? `${live.join(", ")} : heures annoncées en direct par le réseau (flux de ${localTime(new Date(at * 1000)).split(" ")[1]}) quand le bus y figure\u00a0; sinon horaires théoriques, sans les retards ni les déviations`
     : "théoriques, publiés par chaque réseau : retards, suppressions et déviations ne sont pas pris en compte";
 };
 
@@ -411,8 +411,8 @@ async function stopAnswer(asked: string, ligne: string | undefined, now: Date, c
   const others = alertes.filter((a) => !told.has(a.titre));
   // After the stop's opening, which says where and by what, the departures alone.
   const next = shown.length
-    ? (off ? `Prochains départs${NBSP}: ` : `Prochains départs à ${where}, d'après ${live.length ? "les annonces en direct des réseaux et " : ""}les horaires publiés${NBSP}: `) + shown.slice(0, 5).map(said).join(" ; ") + "." +
-      (others.length ? ` Info trafic : ${others.map((a) => `${a.lignes ? `ligne ${a.lignes.join(", ")}, ` : ""}${a.titre}`).join(" ; ")}.` : "")
+    ? (off ? `Prochains départs${NBSP}: ` : `Prochains départs à ${where}, d'après ${live.length ? "les annonces en direct des réseaux et " : ""}les horaires publiés${NBSP}: `) + shown.slice(0, 5).map(said).join("\u00a0; ") + "." +
+      (others.length ? ` Info trafic : ${others.map((a) => `${a.lignes ? `ligne ${a.lignes.join(", ")}, ` : ""}${a.titre}`).join("\u00a0; ")}.` : "")
     : off ? "" : `Aucun départ prévu dans les prochaines heures à ${where}, d'après les horaires publiés.`;
   const resume = [off?.text, next].filter(Boolean).join(" ");
   const used = live.length > 0 || alertes.length > 0 || !!off?.alertes;
@@ -590,7 +590,7 @@ async function lineAnswer(ligne: string, asked: string, now: Date, cache?: Cache
   if (!routes.length) return undefined;
   if (nets.length > 1) {
     return text({
-      resume: `Plusieurs réseaux ont une ligne « ${ligne} » : ${routes.map((r) => `${lineName(r).ligne}${lineName(r).nom_ligne ? ` (${lineName(r).nom_ligne})` : ""}, ${lineName(r).reseau}`).join(" ; ")}.`,
+      resume: `Plusieurs réseaux ont une ligne « ${ligne} » : ${routes.map((r) => `${lineName(r).ligne}${lineName(r).nom_ligne ? ` (${lineName(r).nom_ligne})` : ""}, ${lineName(r).reseau}`).join("\u00a0; ")}.`,
       conseil: `Préciser le réseau (« ${ligne} Car Jaune ») ou un arrêt de la ligne.`,
       sources: credits([transit.SOURCE]),
     });
@@ -659,7 +659,7 @@ async function lineAnswer(ligne: string, asked: string, now: Date, cache?: Cache
     const s = out.departs_du_jour as ReturnType<typeof daySummary>;
     const range = s.nombre ? `${off ? "" : ","} de ${s.premier} à ${s.dernier}` : "";
     return `${out.direction}${out.nombre_arrets ? `, ${out.nombre_arrets} arrêts` : ""}, ${s.nombre} départ${s.nombre > 1 ? "s" : ""}${off ? "" : " aujourd'hui"}${range}`;
-  }).join(off ? "\u00a0; " : " ; ") + ".";
+  }).join("\u00a0; ") + ".";
   if (!stopsOf) resume += " La liste de ses arrêts n'est pas disponible pour le moment.";
 
   // Its buses on the road now, when the network's feed gives their positions: by their trip, which says the direction,
@@ -681,7 +681,7 @@ async function lineAnswer(ligne: string, asked: string, now: Date, cache?: Cache
         .slice(0, 20);
       resume += buses.length
         ? ` En ce moment, ${buses.length} bus de la ligne ${buses.length > 1 ? "donnent leur" : "donne sa"} position : ` +
-          buses.slice(0, 4).map((b) => `${b.vers ? `vers ${b.vers}, ` : ""}${b.ou ?? "loin de tout arrêt"} à ${b.heure_de_la_position}`).join(" ; ") + "."
+          buses.slice(0, 4).map((b) => `${b.vers ? `vers ${b.vers}, ` : ""}${b.ou ?? "loin de tout arrêt"} à ${b.heure_de_la_position}`).join("\u00a0; ") + "."
         : " Aucun bus de la ligne ne donne sa position en ce moment, ce qui ne veut pas dire qu'aucun ne circule.";
     }
   }
@@ -714,7 +714,7 @@ async function lineAnswer(ligne: string, asked: string, now: Date, cache?: Cache
     }
     if (groups.length) {
       shownAt = await stopDepartures(groups, now, cache, (x) => routes.includes(x.route));
-      if (shownAt.shown.length) resume += ` Prochains départs à ${groups[0].nom}${NBSP}: ${shownAt.shown.slice(0, 4).map(said).join(" ; ")}.`;
+      if (shownAt.shown.length) resume += ` Prochains départs à ${groups[0].nom}${NBSP}: ${shownAt.shown.slice(0, 4).map(said).join("\u00a0; ")}.`;
     }
   }
   const used = !!buses?.length || !!off?.alertes || (!!shownAt && (shownAt.live.length > 0 || shownAt.alertes.length > 0));

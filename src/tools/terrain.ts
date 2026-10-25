@@ -187,7 +187,7 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
     ...(cat || mvt ? [terrain.SOURCES.georisques] : []),
   ];
   return text({
-    resume: `${parts.join(" ; ")}.`,
+    resume: `${parts.join("\u00a0; ")}.`,
     lieu: { ...where, lon: Math.round(lon * 1e5) / 1e5, lat: Math.round(lat * 1e5) / 1e5 },
     altitude_m: alt ?? DOWN,
     cadastre: p === undefined ? DOWN : p ?? "aucune parcelle à ce point (domaine public, route, ou point imprécis)",
@@ -277,7 +277,7 @@ export function risksBlock(
     radon: insee && terrain.RADON_2.has(insee)
       ? "potentiel radon de catégorie 2 : faible, mais la géologie peut faciliter sa remontée dans les bâtiments"
       : "potentiel radon de catégorie 1 (faible)",
-    cyclone_et_volcan: "toute l'île est exposée aux cyclones ; les coulées du Piton de la Fournaise touchent l'Enclos et le Grand Brûlé, entre Sainte-Rose et Saint-Philippe (en 1977, une coulée sortie de l'Enclos a atteint Piton Sainte-Rose)",
+    cyclone_et_volcan: "toute l'île est exposée aux cyclones\u00a0; les coulées du Piton de la Fournaise touchent l'Enclos et le Grand Brûlé, entre Sainte-Rose et Saint-Philippe (en 1977, une coulée sortie de l'Enclos a atteint Piton Sainte-Rose)",
     pour_aller_plus_loin: "https://www.georisques.gouv.fr/mes-risques/connaitre-les-risques-pres-de-chez-moi",
   };
 }

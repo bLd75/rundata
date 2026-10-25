@@ -39,7 +39,7 @@ describe("bornes de recharge", () => {
 
   it("sums up the island, fast charging apart", async () => {
     const r = body(await bornesRecharge(cache(LIVE), undefined, false, NOW));
-    expect(r.resume).toMatch(/^Bornes de recharge publiques à La Réunion : 136 stations, 411 points de charge ; en ce moment 268 libres sur 411/);
+    expect(r.resume).toMatch(/^Bornes de recharge publiques à La Réunion : 136 stations, 411 points de charge\u00a0; en ce moment 268 libres sur 411/);
     expect(r.communes[0]).toEqual({ commune: "Sainte-Marie", stations: 18, points: 103, libres: 45 });
     expect(r.recharge_rapide.every((s: { puissance_max_kw: number }) => s.puissance_max_kw >= 50)).toBe(true);
   });

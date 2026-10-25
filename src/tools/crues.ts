@@ -92,7 +92,7 @@ export function vigilanceText(v: vc.Vigilance): string {
   }
   const by = (c: vc.Colour) => v.rivieres.filter((r) => r.couleur === c).map((r) => r.nom);
   const raised = (["rouge", "orange", "jaune"] as const).filter((c) => by(c).length).map((c) => `${c} pour ${by(c).join(", ")}`);
-  return `Vigilance crues en cours (bulletin n° ${v.bulletin} du ${dm(v.date)}) : ${raised.length ? raised.join(" ; ") : "toutes les rivières au vert"}.` +
+  return `Vigilance crues en cours (bulletin n° ${v.bulletin} du ${dm(v.date)}) : ${raised.length ? raised.join("\u00a0; ") : "toutes les rivières au vert"}.` +
     (v.observations ? ` Observations : ${v.observations}` : "") + (v.anticipation ? ` À venir : ${v.anticipation}` : "");
 }
 
@@ -121,7 +121,7 @@ const COMMON = {
   donnees:
     "Hauteur d'eau à l'échelle de chaque station (un repère propre à la station : ce n'est pas la profondeur, et une valeur négative est normale) et débit, mesurés toutes les 5 minutes par la DEAL Réunion (Vigicrues Réunion).",
   consignes:
-    "En cas de pluies fortes ou de crue : ne jamais traverser un radier submergé ni une ravine en eau, à pied ou en voiture ; suivre la vigilance de Météo-France et les consignes de la préfecture.",
+    "En cas de pluies fortes ou de crue : ne jamais traverser un radier submergé ni une ravine en eau, à pied ou en voiture\u00a0; suivre la vigilance de Météo-France et les consignes de la préfecture.",
   site: vc.SOURCE.url,
 };
 
@@ -162,7 +162,7 @@ export async function crues(cache: Cache, lieu: string | undefined, now = new Da
     const levels = vc.STATIONS.map((s) => level(s, h, q));
     const rising = levels.filter((l) => l.hauteur?.tendance === "en hausse");
     const at = measuredAt(levels);
-    const moving = rising.length ? `En hausse sur la dernière demi-heure : ${rising.map(sentence).join(" ; ")}` : "Aucune rivière suivie n'est en hausse sur la dernière demi-heure";
+    const moving = rising.length ? `En hausse sur la dernière demi-heure : ${rising.map(sentence).join("\u00a0; ")}` : "Aucune rivière suivie n'est en hausse sur la dernière demi-heure";
     return text({
       resume: say(`${moving}${at ? ` (${at})` : ""}.`),
       ...(v ? { vigilance_crues: vigilanceBlock(v) } : {}),
@@ -180,7 +180,7 @@ export async function crues(cache: Cache, lieu: string | undefined, now = new Da
     const ref = landmark(river[0]);
     const at = measuredAt(mine);
     return text({
-      resume: say(`${mine.map(sentence).join(" ; ")}${at ? ` (${at})` : ""}.${ref ? ` Pour repère, la plus petite crue de référence à ${river[0].nom} : ${ref}.` : ""}`),
+      resume: say(`${mine.map(sentence).join("\u00a0; ")}${at ? ` (${at})` : ""}.${ref ? ` Pour repère, la plus petite crue de référence à ${river[0].nom} : ${ref}.` : ""}`),
       ...(v ? { vigilance_crues: vigilanceBlock(v) } : {}),
       stations: mine.map((l) => levelRow(l, now)),
       ...common,
@@ -202,7 +202,7 @@ export async function crues(cache: Cache, lieu: string | undefined, now = new Da
   return text({
     lieu: placeBlock(lieu, res),
     resume: say(
-      `Rivières suivies près ${de(p.nom)}${at ? `, ${at}` : ""} : ${shown.map((x, i) => `${sentence(levels[i])} (à ${fr(Math.round(x.km))} km)`).join(" ; ")}.` +
+      `Rivières suivies près ${de(p.nom)}${at ? `, ${at}` : ""} : ${shown.map((x, i) => `${sentence(levels[i])} (à ${fr(Math.round(x.km))} km)`).join("\u00a0; ")}.` +
         (ref ? ` Pour repère, la plus petite crue de référence à ${shown[0].s.nom} : ${ref}.` : ""),
     ),
     ...(v ? { vigilance_crues: vigilanceBlock(v) } : {}),

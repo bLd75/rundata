@@ -30,7 +30,7 @@ export type Etat = "aucune" | "pre_alerte" | "orange_avant_ouverture" | "orange_
 const STATES: Record<Exclude<Etat, "aucune" | "levee">, string> = {
   pre_alerte: "Pré-alerte cyclonique : « Je m'informe et j'anticipe » (p. 17). C'est en alerte orange que « Tous les établissements scolaires et les crèches ferment » (p. 17)",
   orange_avant_ouverture: "Alerte orange annoncée avant l'ouverture des écoles : pas de ramassage scolaire, et les crèches, écoles, collèges et lycées n'ouvrent pas",
-  orange_en_journee: "Alerte orange : crèches, écoles, collèges et lycées ferment, « pour l'ensemble du département » (p. 9) ; les élèves déjà en classe, internes compris, rentrent chez eux selon le plan d'évacuation de leur établissement",
+  orange_en_journee: "Alerte orange : crèches, écoles, collèges et lycées ferment, « pour l'ensemble du département » (p. 9)\u00a0; les élèves déjà en classe, internes compris, rentrent chez eux selon le plan d'évacuation de leur établissement",
   rouge: "Alerte rouge : crèches, écoles, collèges, lycées et universités fermés",
   violette: "Alerte violette : crèches, écoles, collèges, lycées et universités fermés",
   sauvegarde: "Phase de sauvegarde : les crèches, les écoles, les collèges, les lycées et les universités « restent fermés », et leur « réouverture est décidée quand les conditions d'accueil sont satisfaisantes » (p. 19-20)",
@@ -195,9 +195,9 @@ export function quotidienLine(v: mf.Vigilance, now: Date): string | undefined {
   const lines: Record<number, string> = {
     2: "En pré-alerte, selon le dispositif ORSEC Cyclones : « Je m'informe et j'anticipe », « Suivez les prévisions météorologiques et les bulletins d'information » (p. 17). C'est en alerte orange que « Tous les établissements scolaires et les crèches ferment » (p. 17).",
     3: "En alerte orange, selon le dispositif ORSEC Cyclones : écoles et crèches fermées, « l'activité économique continue » (p. 17).",
-    4: "En alerte rouge, selon le dispositif ORSEC Cyclones : « Les activités cessent. Tous les établissements recevant du public ferment », sauf les exceptions listées (p. 20-21) ; passé le préavis de 3 heures, « La circulation est strictement interdite » (p. 17).",
+    4: "En alerte rouge, selon le dispositif ORSEC Cyclones : « Les activités cessent. Tous les établissements recevant du public ferment », sauf les exceptions listées (p. 20-21)\u00a0; passé le préavis de 3 heures, « La circulation est strictement interdite » (p. 17).",
     5: "En alerte violette, selon le dispositif ORSEC Cyclones : « RESTEZ CONFINE », « NE SORTEZ EN AUCUN CAS » (p. 17).",
-    6: "En phase de sauvegarde, selon le dispositif ORSEC Cyclones : les écoles et les crèches « restent fermés », leur « réouverture est décidée quand les conditions d'accueil sont satisfaisantes » (p. 19-20) ; « Les activités professionnelles peuvent reprendre progressivement » (p. 20).",
+    6: "En phase de sauvegarde, selon le dispositif ORSEC Cyclones : les écoles et les crèches « restent fermés », leur « réouverture est décidée quand les conditions d'accueil sont satisfaisantes » (p. 19-20)\u00a0; « Les activités professionnelles peuvent reprendre progressivement » (p. 20).",
   };
   const held = e.niveau >= 2 && (e.fermees || e.niveau === 2) ? lines[e.niveau] : undefined;
   return held ? `${held} Détail : rundata.re/alerte-cyclone.` : undefined;

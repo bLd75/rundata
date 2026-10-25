@@ -108,7 +108,7 @@ const better = (live: irve.Live | undefined) => (a: irve.Station, b: irve.Statio
 
 const COMMON = {
   recharge:
-    "Pour charger : l'application ou le badge du réseau indiqué (Freshmile, EZDrive…), ou le badge d'un autre opérateur accepté en itinérance. Recharge rapide = 50 kW ou plus (prise Combo CCS ou CHAdeMO) ; Type 2 = recharge normale, de 7 à 22 kW.",
+    "Pour charger : l'application ou le badge du réseau indiqué (Freshmile, EZDrive…), ou le badge d'un autre opérateur accepté en itinérance. Recharge rapide = 50 kW ou plus (prise Combo CCS ou CHAdeMO)\u00a0; Type 2 = recharge normale, de 7 à 22 kW.",
 };
 
 export async function bornesRecharge(cache: Cache, lieu: string | undefined, rapide = false, now = new Date()) {
@@ -125,7 +125,7 @@ export async function bornesRecharge(cache: Cache, lieu: string | undefined, rap
   const common = {
     ...COMMON,
     donnees: live
-      ? `État de chaque point d'après son opérateur, relevé à ${localTime(lu!).split(" ")[1]} (heure de La Réunion) ; « depuis » est l'heure de son dernier changement d'état. Un point peut être pris entre-temps.`
+      ? `État de chaque point d'après son opérateur, relevé à ${localTime(lu!).split(" ")[1]} (heure de La Réunion)\u00a0; « depuis » est l'heure de son dernier changement d'état. Un point peut être pris entre-temps.`
       : "L'état en direct des bornes est indisponible pour le moment : seule la liste des stations est donnée.",
     ...(old ? { avertissement: `État relevé ${ageText(ageMinutes(lu!, now))} : il a pu changer depuis.` } : {}),
     sources: credits([irve.SOURCE]),
@@ -146,7 +146,7 @@ export async function bornesRecharge(cache: Cache, lieu: string | undefined, rap
     return text({
       resume:
         `${rapide ? "Recharge rapide" : "Bornes de recharge publiques"} à La Réunion : ${plural(pool.length, "station", "stations")}, ${plural(c.total, "point de charge", "points de charge")}` +
-        (live ? ` ; en ce moment ${countText(c)}.` : "."),
+        (live ? `\u00a0; en ce moment ${countText(c)}.` : "."),
       communes,
       recharge_rapide: fast.map((s) => stationRow(s, live, now, undefined, false)),
       ...common,

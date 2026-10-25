@@ -18,8 +18,8 @@ export const SOURCE: SourceInfo = {
   id: "openmeteo_houle",
   nom: "Prévision des vagues du modèle WAM du Centre européen (ECMWF), via Open-Meteo",
   organisme: "ECMWF (données ouvertes, modèle de vagues WAM), diffusé par Open-Meteo",
-  licence: "CC BY 4.0 (ECMWF et Open-Meteo) ; API Open-Meteo gratuite réservée aux usages non commerciaux",
-  attribution: "Marine data by Open-Meteo.com <https://open-meteo.com/> ; modèle de vagues WAM, ECMWF",
+  licence: "CC BY 4.0 (ECMWF et Open-Meteo)\u00a0; API Open-Meteo gratuite réservée aux usages non commerciaux",
+  attribution: "Marine data by Open-Meteo.com <https://open-meteo.com/>\u00a0; modèle de vagues WAM, ECMWF",
   url: "https://open-meteo.com/en/docs/marine-weather-api",
 };
 

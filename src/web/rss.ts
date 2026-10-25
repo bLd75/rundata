@@ -89,7 +89,7 @@ function vigilanceItems(p: PlacePage, v: mf.Vigilance, now: Date): Item[] {
       const where = raised(v).filter((x) => x.phenomene === mf.PHENOMENA[WAVES]).map((x) => `${x.zone} : ${x.periodes.join(", ")}`);
       items.push({
         title: `Vigilance ${mf.colour(e.max)} vagues-submersion sur le littoral`,
-        description: `${where.join(" ; ")}. ${issued}`,
+        description: `${where.join("\u00a0; ")}. ${issued}`,
         path: "/vigilance",
         guid: `vigilance/littoral/${WAVES}/${e.max}/${localDay(e.debut)}`,
         date: since(v, e.debut),

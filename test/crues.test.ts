@@ -104,6 +104,6 @@ describe("Vigicrues Réunion", () => {
         { nom: "rivière des Galets", couleur: "vert", precedente: "vert" },
       ],
     };
-    expect(vigilanceText(v)).toBe("Vigilance crues en cours (bulletin n° 12 du 03/02 à 12:00) : orange pour rivière des Roches ; jaune pour rivière du Mât. Observations : Fortes pluies sur l'est.");
+    expect(vigilanceText(v)).toBe("Vigilance crues en cours (bulletin n° 12 du 03/02 à 12:00) : orange pour rivière des Roches\u00a0; jaune pour rivière du Mât. Observations : Fortes pluies sur l'est.");
   });
 });

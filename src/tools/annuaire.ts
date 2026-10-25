@@ -21,7 +21,7 @@ export function hoursText(o: annuaire.Office): string | undefined {
   if (!o.horaires.length) return undefined;
   return o.horaires
     .map((h) => `${h.de === h.a ? h.de : `${h.de} au ${h.a}`} ${h.plages.map(([d, f]) => `${short(d)}-${short(f)}`).join(" et ")}${h.note ? ` (${h.note})` : ""}`)
-    .join(" ; ");
+    .join("\u00a0; ");
 }
 
 /** Open at `now` (local time), from the published hours; null when no hours are published. */

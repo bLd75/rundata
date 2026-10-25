@@ -57,7 +57,7 @@ describe("sentiers de randonnée", () => {
 
   it("looks around a place, with the trails named after it", async () => {
     const b = body(await sentiersRandonnee(cache(), "Bélouve", NOW));
-    expect(b.resume).toMatch(/^ATTENTION : Sentier de l'École normale emprunte 1 sentier fermé : Sentier de l'École Normale ; .+\. 4 sentiers portent ce nom : 1 fermé \(Sentier de la Tamarinaie de Bélouve\)\. À moins de 4 km de Bélouve : \d+ sentiers fermés/);
+    expect(b.resume).toMatch(/^ATTENTION : Sentier de l'École normale emprunte 1 sentier fermé : Sentier de l'École Normale\u00a0; .+\. 4 sentiers portent ce nom : 1 fermé \(Sentier de la Tamarinaie de Bélouve\)\. À moins de 4 km de Bélouve : \d+ sentiers fermés/);
     // The closed trail asked by its name is in the warning too, with no hike.
     expect(b.avertissement.sentiers_fermes).toContainEqual(expect.objectContaining({ sentier: "Sentier de la Tamarinaie de Bélouve", randonnees: [] }));
     expect(b.autour.sentiers_fermes[0].distance_km).toBeTypeOf("number");

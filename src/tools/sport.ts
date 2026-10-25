@@ -344,11 +344,11 @@ const PROGRAMMES =
 
 const COMMON = {
   non_couvert:
-    "Football (Régionale 1 et coupes), basket, rugby, tennis et courses à pied : pas de source ouverte lisible en direct ; " +
+    "Football (Régionale 1 et coupes), basket, rugby, tennis et courses à pied : pas de source ouverte lisible en direct\u00a0; " +
     "l'actualité de Réunion La 1ère en donne les comptes rendus. Les heures sont celles de La Réunion.",
 };
 const CALLED_OFF =
-  "Annulations et reports : les pages de résultats des fédérations ne les montrent pas ; ils viennent des avis de la Ligue réunionnaise de volley-ball (lrvb.re) " +
+  "Annulations et reports : les pages de résultats des fédérations ne les montrent pas\u00a0; ils viennent des avis de la Ligue réunionnaise de volley-ball (lrvb.re) " +
   "et de l'actualité locale, cités avec leur lien. Un jour de grève, de blocage ou d'alerte météo, vérifier auprès du club.";
 
 /** When each source was read, and the last result it holds. */
@@ -469,11 +469,11 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
       ? `tous annulés ou reportés d'après ${offBy}`
       : `${off.length} annulé${off.length > 1 ? "s" : ""} ou reporté${off.length > 1 ? "s" : ""} d'après ${offBy}`,
     check.length ? "des reports sont annoncés dans l'actualité : vérifier auprès du club" : "",
-  ].filter(Boolean).join(" ; ");
+  ].filter(Boolean).join("\u00a0; ");
   const resume = sport && NEWS_ONLY[sport]
     ? `${NEWS_ONLY[sport]} ${news.length ? `Les ${news.length} derniers articles de Réunion La 1ère qui en parlent sont ci-dessous.` : `Aucun article récent de Réunion La 1ère sur le ${NAMES[sport]}.`}`
     : sport === "grand_raid"
-      ? gr ? `${gr.edition} : ${gr.courses.map((c) => `${c.nom} ${c.statut}${c.podium[0] ? `, vainqueur ${c.podium[0].nom} en ${c.podium[0].temps}` : ""}`).join(" ; ")}.` : "Le suivi du Grand Raid ne répond pas pour le moment."
+      ? gr ? `${gr.edition} : ${gr.courses.map((c) => `${c.nom} ${c.statut}${c.podium[0] ? `, vainqueur ${c.podium[0].nom} en ${c.podium[0].temps}` : ""}`).join("\u00a0; ")}.` : "Le suivi du Grand Raid ne répond pas pour le moment."
       : [
           q === "resultats" ? "" : upcomingText,
           results.length ? `${results.length} résultat${results.length > 1 ? "s" : ""} depuis le ${quand(du)}` : q === "resultats" ? `Aucun résultat de ${what}${place} depuis le ${quand(du)}` : "",

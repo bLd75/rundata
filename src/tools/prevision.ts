@@ -17,7 +17,7 @@ export function coverage(): string {
   const ecmwf = `modèle ${openmeteo.MODEL.nom} (maille d'environ ${openmeteo.MODEL.maille_km} km, ${openmeteo.MODEL.echeance_jours} jours, ` +
     `nouveau calcul ${openmeteo.MODEL.mise_a_jour}, via Open-Meteo)`;
   return arome.enabled()
-    ? `Prévisions du modèle ${arome.MODEL.nom} (maille de 2,5 km, 48 h, ${arome.MODEL.mise_a_jour}) ; au-delà, et quand ` +
+    ? `Prévisions du modèle ${arome.MODEL.nom} (maille de 2,5 km, 48 h, ${arome.MODEL.mise_a_jour})\u00a0; au-delà, et quand ` +
         `AROME ne répond pas, ${ecmwf}. Ce sont des prévisions, jamais mélangées aux mesures.`
     : `Prévisions du ${ecmwf}. Ce sont des prévisions, jamais mélangées aux mesures.`;
 }
@@ -381,9 +381,9 @@ function warnings(f: Forecast, place?: Place): string[] {
     }
   } else {
     const altitude = place
-      ? `Les températures sont ramenées à l'altitude de ${place.nom} (${f.altitude_m} m) ; la pluie, le vent et les nuages ` +
+      ? `Les températures sont ramenées à l'altitude de ${place.nom} (${f.altitude_m} m)\u00a0; la pluie, le vent et les nuages ` +
         "sont ceux de tout le carré."
-      : "Les températures sont ramenées à l'altitude de chaque lieu ; la pluie, le vent et les nuages sont ceux de tout le carré.";
+      : "Les températures sont ramenées à l'altitude de chaque lieu\u00a0; la pluie, le vent et les nuages sont ceux de tout le carré.";
     out.push(
       `Le modèle calcule sur des carrés d'environ ${km(f.model)} km : il ne distingue pas les microclimats de La Réunion ` +
         `(cirques, Hauts, versant au vent ou sous le vent, brises de mer). ${altitude}`,
@@ -402,7 +402,7 @@ function header(f: Forecast, later = false): string {
   const suite = (f.suite ?? []).map((x) => `, et de ${localTime(x.runAt)} pour la suite`).join("");
   const run = f.runAt ? `, calcul de ${localTime(f.runAt)}${suite}` : "";
   const relais = f.relais?.length ? `, relayé ensuite par ${f.relais.map((r) => `${r.model.nom}, maille de ${km(r.model)} km`).join(", ")}` : "";
-  return `PRÉVISION (modèle ${f.model.nom}, maille de ${km(f.model)} km${run}${relais} ; pas une mesure)`;
+  return `PRÉVISION (modèle ${f.model.nom}, maille de ${km(f.model)} km${run}${relais}\u00a0; pas une mesure)`;
 }
 
 function modelBlock(c: Cached<Forecast>) {
@@ -445,8 +445,8 @@ function uvWarnings(u: Cached<uv.UvCell[]> | null): string[] {
   if (!u) return [];
   return [
     `Indice UV : PRÉVISION du service européen Copernicus (${uv.MODEL.nom}, maille d'environ ${uv.MODEL.maille_km} km), ` +
-      "nuages compris, au plus fort de la journée (vers midi) ; pas une mesure. Il est plus fort en altitude, d'environ 10 % " +
-      "par 1 000 m. Dès 3, se protéger ; à 8 et plus, éviter le soleil de 11h à 15h (échelle de l'OMS).",
+      "nuages compris, au plus fort de la journée (vers midi)\u00a0; pas une mesure. Il est plus fort en altitude, d'environ 10 % " +
+      "par 1 000 m. Dès 3, se protéger\u00a0; à 8 et plus, éviter le soleil de 11h à 15h (échelle de l'OMS).",
     ...(u.stale ? ["Indice UV : service momentanément injoignable, prévision précédente."] : []),
   ];
 }
@@ -488,7 +488,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
       resume:
         `${header(ok[0].c.value, aromeLater)}, tour de l'île — ` +
         ok.map(({ p, c }) => `${p.nom} : ` + c.value.days.filter((d) => wanted.includes(d.date))
-          .map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} ${daySentence(c.value, d, uvAt(u, p), confAt(ens, p, now))}`).join(" ; ")).join(" | "),
+          .map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} ${daySentence(c.value, d, uvAt(u, p), confAt(ens, p, now))}`).join("\u00a0; ")).join(" | "),
       periode: period.defaut ? "aujourd'hui et demain" : period.libelle,
       lieux,
       modele: modelBlock(ok[0].c),
@@ -535,7 +535,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     const days = f.days.filter((d) => d.date >= today);
     jours = days.map((d) => dayBlock(f, d, uvOf, confOf));
     resume = `${HEADER} pour ${r.lieu.nom} — ` +
-      days.map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} : ${daySentence(f, d, uvOf, confOf)}`).join(" ; ") + ".";
+      days.map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} : ${daySentence(f, d, uvOf, confOf)}`).join("\u00a0; ") + ".";
   } else {
     const inRange = period.slots.filter((s) => s.jour <= last);
     if (!inRange.length) {
@@ -555,12 +555,12 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     const partial = inRange.some((s) => s.de > 0 || s.a < 24);
     resume = partial && pas.length
       ? `${HEADER} pour ${r.lieu.nom}, ${period.libelle} : ` +
-        pas.map((s) => `${s.heures.split(" ").pop()} ${[s.ciel, s.temperature, s.pluie].filter(Boolean).join(", ")}`).join(" ; ") + "."
+        pas.map((s) => `${s.heures.split(" ").pop()} ${[s.ciel, s.temperature, s.pluie].filter(Boolean).join(", ")}`).join("\u00a0; ") + "."
       : days.length === 1
         ? `${HEADER} pour ${r.lieu.nom}, ${period.libelle === dayLabel(days[0].date) ? period.libelle : `${period.libelle} (${dayLabel(days[0].date)})`} : ` +
           `${daySentence(f, days[0], uvOf, confOf)}.`
         : `${HEADER} pour ${r.lieu.nom}, ${period.libelle} — ` +
-          days.map((d) => `${dayLabel(d.date)} : ${daySentence(f, d, uvOf, confOf)}`).join(" ; ") + ".";
+          days.map((d) => `${dayLabel(d.date)} : ${daySentence(f, d, uvOf, confOf)}`).join("\u00a0; ") + ".";
     if (inRange.length < period.slots.length) avertissements.push(`Le modèle ne va que jusqu'au ${dayLabel(last)}.`);
     if (hauts && inRange.some((s) => s.jour > addDays(today, 2))) avertissements.push(nuages.BEYOND);
   }

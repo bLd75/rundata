@@ -97,7 +97,7 @@ describe("the rain of the last hours", () => {
     expect(r.pluie_recente.par_heure[0]).toBe("12 h–12 h 54 : 0,4 mm (heure en cours)");
     expect(r.pluie_recente.par_heure[1]).toBe("11 h–12 h : 0");
     expect(r.resume).toContain("Pluie à Saint-Joseph (pluviomètre, ");
-    expect(r.resume).toContain("dernière pluie aujourd'hui entre 12 h 24 et 12 h 30 ; 0,4 mm de 0 h à 12 h 54 (depuis minuit).");
+    expect(r.resume).toContain("dernière pluie aujourd'hui entre 12 h 24 et 12 h 30\u00a0; 0,4 mm de 0 h à 12 h 54 (depuis minuit).");
     expect(r.pluie_recente.bruine).toBeUndefined();
   });
 

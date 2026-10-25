@@ -28,7 +28,7 @@ export function pharmaciesAnswer(lieu: string | undefined) {
   return text({
     ...(res ? { lieu: placeBlock(lieu!, res) } : {}),
     resume: near.length
-      ? `${garde} Les pharmacies les plus proches ${de(res!.lieu.nom)} : ${near.slice(0, 3).map((e) => `${e.nom} (${e.adresse}, ${e.commune}, à ${km(e.km)}${e.telephone ? `, tél. ${e.telephone}` : ""})`).join(" ; ")}.`
+      ? `${garde} Les pharmacies les plus proches ${de(res!.lieu.nom)} : ${near.slice(0, 3).map((e) => `${e.nom} (${e.adresse}, ${e.commune}, à ${km(e.km)}${e.telephone ? `, tél. ${e.telephone}` : ""})`).join("\u00a0; ")}.`
       : `${garde} Donner un lieu pour les pharmacies les plus proches : ${sante.ETABLISSEMENTS.filter((e) => e.type === "pharmacie").length} pharmacies dans l'île.`,
     pharmacie_de_garde: { ...sante.GARDE, source: sante.ARS_GARDE.url },
     pharmacies: near.length ? near.map(row) : undefined,
@@ -48,7 +48,7 @@ export function urgencesAnswer(lieu: string | undefined) {
   return text({
     ...(res ? { lieu: placeBlock(lieu!, res) } : {}),
     resume: near.length
-      ? `${first} Hôpitaux et cliniques les plus proches ${de(res!.lieu.nom)} : ${near.slice(0, 3).map((e) => `${e.nom} (${e.commune}, à ${km(e.km)}${e.telephone ? `, standard ${e.telephone}` : ""})`).join(" ; ")}.`
+      ? `${first} Hôpitaux et cliniques les plus proches ${de(res!.lieu.nom)} : ${near.slice(0, 3).map((e) => `${e.nom} (${e.commune}, à ${km(e.km)}${e.telephone ? `, standard ${e.telephone}` : ""})`).join("\u00a0; ")}.`
       : first,
     numeros: { samu: "15", europeen: "112", pompiers: "18", sourds_et_malentendants: "114" },
     urgences_pediatriques: { sites: ["CHU Nord (Saint-Denis)", "CHU Sud (Saint-Pierre)", "CHOR (Saint-Paul)"], source: sante.SANTE_FR.url },

@@ -50,7 +50,7 @@ export async function restrictionsEau(cache: Cache, lieu: string | undefined, pr
       .filter((x) => x.list.length)
       .map((x) => `${name(x.lvl)} ${x.list.length > 4 ? `dans ${x.list.length} communes` : list(x.list.map(a))}`);
     return text({
-      resume: `Sécheresse à La Réunion${since ? ` (arrêté en vigueur depuis le ${day(since)})` : ""}. Eau du robinet : ${tap.join(" ; ")}.`,
+      resume: `Sécheresse à La Réunion${since ? ` (arrêté en vigueur depuis le ${day(since)})` : ""}. Eau du robinet : ${tap.join("\u00a0; ")}.`,
       communes: rows.map(({ niveau_max: _, ...r }) => r),
       ...common,
     });
@@ -70,7 +70,7 @@ export async function restrictionsEau(cache: Cache, lieu: string | undefined, pr
   return text({
     lieu: placeBlock(lieu, res),
     resume: `Restrictions d'eau ${a(res.lieu.commune)} : ${aep ? `${name(aep.niveau)} pour l'eau du robinet` : "pas de restriction sur l'eau du robinet"}` +
-      (others.length ? ` ; ${others.map((z) => `${name(z.niveau)} pour les ${vigieau.RESSOURCES[z.ressource]}`).join(", ")}` : "") + ".",
+      (others.length ? `\u00a0; ${others.map((z) => `${name(z.niveau)} pour les ${vigieau.RESSOURCES[z.ressource]}`).join(", ")}` : "") + ".",
     niveaux: { eau_du_robinet: row.eau_du_robinet, rivieres_et_sources: row.rivieres_et_sources, nappes: row.nappes },
     profil,
     restrictions_eau_du_robinet: aep ? pick(aep) : undefined,
