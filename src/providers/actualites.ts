@@ -7,6 +7,8 @@
  * - Clicanoo (Le Journal de l'île), Freedom, Parallèle Sud: their RSS;
  * - Imaz Press and Témoignages: their Google News sitemap (Imaz Press keeps its RSS from robots); Imaz Press's live
  *   blogs (« l'actu en continu »), read from the article page, each entry with its time;
+ * - Le Quotidien de La Réunion: its home page (no feed, and a sitemap without titles), the time to the minute only when
+ *   it says « il y a N minutes »;
  * - the prefecture: the list of its press releases.
  * Linfo.re and Zinfos974 refuse automated readers: they are not read.
  * Everything is read in one go every few minutes and kept as one entry, so a question costs at most a dozen requests.
@@ -21,10 +23,10 @@ import { strip } from "./avis-eau.js";
 export const SOURCES = {
   medias: {
     id: "medias_locaux",
-    nom: "Titres des médias de La Réunion : Réunion La 1ère, Clicanoo, Imaz Press, Freedom, Parallèle Sud, Témoignages",
+    nom: "Titres des médias de La Réunion : Réunion La 1ère, Clicanoo, Le Quotidien, Imaz Press, Freedom, Parallèle Sud, Témoignages",
     organisme: "Rédactions de La Réunion",
-    licence: "Titres, première phrase et lien seulement ; les articles sont sur le site de chaque média",
-    attribution: "Réunion La 1ère, Clicanoo (Le Journal de l'île), Imaz Press Réunion, Freedom, Parallèle Sud, Témoignages",
+    licence: "Titres, première phrase quand le média la donne, et lien seulement ; les articles sont sur le site de chaque média",
+    attribution: "Réunion La 1ère, Clicanoo (Le Journal de l'île), Le Quotidien de La Réunion, Imaz Press Réunion, Freedom, Parallèle Sud, Témoignages",
     url: "https://la1ere.franceinfo.fr/reunion/",
   },
   prefecture: {
@@ -369,6 +371,42 @@ export function parseNewsSitemap(xml: string, media: string, skip?: RegExp): Inf
   }).filter((x): x is Info => x !== null);
 }
 
+/** Le Quotidien's sections that are not the island's news: the agency's France and world, the readers' letters, the opinions. */
+const QUOTIDIEN_SKIP = /^(?:national-et-international|courrier-des-lecteurs|libres-opinions|opinions|programmes)$/;
+const AGO = /flaticon-history"><\/i>\s*il y a (\d+) (minute|heure|jour)s?\b/;
+
+/**
+ * Le Quotidien de La Réunion's home page: it has no feed (its RSS answers 410) and the sitemap of the month gives
+ * neither titles nor hours, a day late. The title of each article, its day (in its address), and the time when the page
+ * gives it to the minute (« il y a 41 minutes »); « il y a 4 heures » orders it but is no hour to show.
+ */
+export function parseQuotidien(html: string, now: Date, origin = "https://www.lequotidien.re"): Info[] {
+  const by = new Map<string, { titre: string; day: string; ago?: [number, string] }>();
+  for (const m of html.matchAll(/<a href="(\/article\/([a-z0-9-]+)\/(\d{4})\/(\d\d)\/(\d\d)\/[^"]+)"([^>]*)>([\s\S]*?)<\/a>/g)) {
+    const [whole, path, section, y, mo, d, attrs, text] = m;
+    if (QUOTIDIEN_SKIP.test(section)) continue;
+    const a = by.get(path) ?? by.set(path, { titre: "", day: `${y}-${mo}-${d}` }).get(path)!;
+    const t = plain(/title="([^"]*)"/.exec(attrs)?.[1] ?? "").replace(/^(?:Lien vers l.article|Article)\s*:\s*/, "") || plain(text);
+    // A title the page cuts (« Grand Raid : «Judicaël peut faire enc... ») only when it gives no other.
+    if (t && (!a.titre || (a.titre.endsWith("...") && !t.endsWith("...")))) a.titre = t;
+    // The time under the title, before the next article.
+    const after = html.slice(m.index! + whole.length, m.index! + whole.length + 800);
+    const next = after.indexOf('href="/article/');
+    const ago = AGO.exec(next < 0 ? after : after.slice(0, next));
+    if (ago && !a.ago) a.ago = [+ago[1], ago[2]];
+  }
+  return [...by].map(([path, a]) => {
+    const titre = a.titre.replace(/\.\.\.$/, "…");
+    // The day at noon, La Réunion's time, not after now, when the page gives no time that day.
+    const noon = new Date(Math.min(Date.parse(`${a.day}T12:00:00+04:00`), now.getTime()));
+    if (!a.ago || a.ago[1] === "jour") return info("Le Quotidien", titre, origin + path, noon, undefined, { heure: false });
+    const at = new Date(now.getTime() - a.ago[0] * (a.ago[1] === "minute" ? 60_000 : 3600_000));
+    // A time of another day than the address's: the page counts from an update; the day is the address's.
+    if (new Date(at.getTime() + 4 * 3600_000).toISOString().slice(0, 10) !== a.day) return info("Le Quotidien", titre, origin + path, noon, undefined, { heure: false });
+    return info("Le Quotidien", titre, origin + path, at, undefined, { heure: a.ago[1] === "minute" });
+  }).filter((x): x is Info => x !== null);
+}
+
 /** The prefecture's press releases: a title and the day. */
 export function parsePrefecture(html: string, origin = "https://www.reunion.gouv.fr"): Info[] {
   return [...html.matchAll(/<a class="fr-card__link" href="([^"]+)">([\s\S]*?)<\/a>[\s\S]*?Publié le (\d\d)\/(\d\d)\/(\d{4})/g)].map(([, href, t, d, m, y]) =>
@@ -451,7 +489,7 @@ export function merge(list: Info[]): Info[] {
 interface Feed {
   media: string;
   url: string;
-  parse: (body: string) => Info[];
+  parse: (body: string, now: Date) => Info[];
 }
 
 const FEEDS: Feed[] = [
@@ -462,6 +500,7 @@ const FEEDS: Feed[] = [
   { media: "Freedom", url: "https://freedom.fr/feed/", parse: (b) => parseRss(b, "Freedom", /jeux|podcast|actus radio/i) },
   { media: "Parallèle Sud", url: "https://www.parallelesud.com/feed/", parse: (b) => parseRss(b, "Parallèle Sud") },
   { media: "Témoignages", url: "https://www.temoignages.re/spip.php?page=sitemap-news-fr.xml", parse: (b) => parseNewsSitemap(b, "Témoignages") },
+  { media: "Le Quotidien", url: "https://www.lequotidien.re/", parse: (b, now) => parseQuotidien(b, now) },
 ];
 
 /** Imaz Press articles that may be live blogs: the newest of its editors' selection, or with a live word in the title. */
@@ -489,7 +528,7 @@ export async function fil(cache: Cache, now = new Date()): Promise<Cached<Fil>> 
   return cache.get("actualites:fil", FRESH_SECONDS, async () => {
     const read = (url: string) => getText(SOURCES.medias.id, url, 12_000, HEADERS);
     const [feeds, pref] = await Promise.all([
-      Promise.allSettled(FEEDS.map(async (f) => f.parse(await read(f.url)))),
+      Promise.allSettled(FEEDS.map(async (f) => f.parse(await read(f.url), now))),
       read(SOURCES.prefecture.url).then((h) => parsePrefecture(h)).catch((err) => {
         console.error("source prefecture_communiques indisponible:", err);
         return null;

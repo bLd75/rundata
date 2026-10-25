@@ -2385,7 +2385,7 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
   const body = `${live}
 <section aria-labelledby="h-news">
   <div class="sec-h"><p class="eyebrow">Les dernières 24 heures</p><h2 id="h-news">Toutes les informations</h2>
-  <p>Le titre et la première phrase de chaque article, son média, les communes qu'il nomme et son heure (heure de La Réunion). Une même information publiée par plusieurs médias n'est listée qu'une fois.</p></div>
+  <p>Le titre de chaque article, sa première phrase quand le média la donne, son média, les communes qu'il nomme et son heure (heure de La Réunion), ou son jour seulement quand le média ne donne pas l'heure. Une même information publiée par plusieurs médias n'est listée qu'une fois.</p></div>
   ${list}
   ${d?.indisponible.length ? warnings([`Ne répondent pas en ce moment : ${d.indisponible.join(", ")}.`]) : ""}
 </section>
