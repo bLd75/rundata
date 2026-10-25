@@ -31,7 +31,7 @@ const words = (s: string) =>
     .map((w) => (w === "st" ? "saint" : w === "ste" ? "sainte" : w));
 /** The words of the 24 communes' names, which a question adds after the street and the address base leaves out of it. */
 const COMMUNE_WORDS = new Set(Object.keys(INSEE).flatMap(words));
-// « ravine » names streets too (« Ravine des Cabris »): a kind only when it comes first.
+// « ravine » also comes inside a street's name or its quarter's: a kind only when it comes first.
 const kindOf = (w: string[]) => w.map((x, i) => (x === "ravine" && i > 0 ? undefined : KINDS[x])).find(Boolean);
 const distinct = (w: string[]) => w.filter((x) => !SMALL.has(x) && !/^\d+[a-z]?$/.test(x) && !(KINDS[x] && x !== "ravine"));
 
@@ -48,7 +48,7 @@ const within = (some: string[], all: string[]) => some.every((x) => all.some((y)
 /**
  * Whether the street the address base found is the one asked about, by their names: the words asked, without the
  * commune's, all in its name (« rue Juliette Dodu » for « Rue Juliette Dodu »), or all of its name's words in what was
- * asked (« Rue Beaudelaire Ravine des Cabris » for « 12 rue Beaudelaire Ravine des Cabris, Saint-Pierre »); one letter
+ * asked (« Rue Roland Garros (Bois de Nèfles) » for « 12 rue Roland Garros Bois de Nèfles, Saint-Paul »); one letter
  * off allowed in a long word; and the same kind of street when both say one (an allée is not an impasse).
  */
 export function sameStreet(asked: string, found: string): boolean {
