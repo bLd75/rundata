@@ -1213,6 +1213,7 @@ export const SPORTSREGIONS: Agenda = {
   requetes: SR_PAGES,
   planifie: true,
   relecture: 6 * 3600,
+  club: true,
   load: (cache) =>
     cache.get("agenda:sportsregions", 6 * 3600, async () => {
       const url = SPORT_SOURCES.sportsregions.url;

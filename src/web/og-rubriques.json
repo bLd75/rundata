@@ -4,7 +4,7 @@
    "/meteo"
   ],
   "png": "/og/meteo.a09cd3d597.png",
-  "alt": "Symbole rundata.re et relief de l'île : Météo 974, mesurée aux stations, en direct"
+  "alt": "Symbole rundata.re et relief de l'île : Météo 974, mesurée aux stations, en direct"
  },
  {
   "pages": [
@@ -12,42 +12,42 @@
    "/sentiers"
   ],
   "png": "/og/randonnee.0385a12975.png",
-  "alt": "Symbole rundata.re et relief de l'île : Rando 974, sentiers ouverts ou fermés, traces GPS"
+  "alt": "Symbole rundata.re et relief de l'île : Rando 974, sentiers ouverts ou fermés, traces GPS"
  },
  {
   "pages": [
    "/evenements"
   ],
   "png": "/og/evenements.76da22876f.png",
-  "alt": "Symbole rundata.re et relief de l'île : Sorties 974, que faire ce week-end ?"
+  "alt": "Symbole rundata.re et relief de l'île : Sorties 974, que faire ce week-end ?"
  },
  {
   "pages": [
    "/actualites"
   ],
   "png": "/og/actualites.4b93d4800f.png",
-  "alt": "Symbole rundata.re et relief de l'île : Actu 974, l'actu de l'île, commune par commune"
+  "alt": "Symbole rundata.re et relief de l'île : Actu 974, l'actu de l'île, commune par commune"
  },
  {
   "pages": [
    "/volcan"
   ],
   "png": "/og/volcan.5f0b687391.png",
-  "alt": "Symbole rundata.re et relief du Piton de la Fournaise : Volcan 974, piton de la Fournaise en direct"
+  "alt": "Symbole rundata.re et relief du Piton de la Fournaise : Volcan 974, piton de la Fournaise en direct"
  },
  {
   "pages": [
    "/mer"
   ],
   "png": "/og/mer.8705e349af.png",
-  "alt": "Symbole rundata.re et relief de l'île : Mer 974, la mer est à combien ?"
+  "alt": "Symbole rundata.re et relief de l'île : Mer 974, la mer est à combien ?"
  },
  {
   "pages": [
    "/bus"
   ],
   "png": "/og/bus.53da01f364.png",
-  "alt": "Symbole rundata.re et relief de l'île : Bus 974, prochain bus à votre arrêt"
+  "alt": "Symbole rundata.re et relief de l'île : Bus 974, prochain bus à votre arrêt"
  },
  {
   "pages": [
@@ -56,21 +56,21 @@
    "/secheresse"
   ],
   "png": "/og/eau.cc676cf98b.png",
-  "alt": "Symbole rundata.re et relief de l'île : Eau 974, coupures, qualité, restrictions"
+  "alt": "Symbole rundata.re et relief de l'île : Eau 974, coupures, qualité, restrictions"
  },
  {
   "pages": [
    "/trafic"
   ],
   "png": "/og/trafic.89028ce066.png",
-  "alt": "Symbole rundata.re et relief de l'île : Routes 974, routes fermées et déviations"
+  "alt": "Symbole rundata.re et relief de l'île : Routes 974, routes fermées et déviations"
  },
  {
   "pages": [
    "/historique"
   ],
   "png": "/og/historique.630c268fc2.png",
-  "alt": "Symbole rundata.re et relief de l'île : Historique 974, le temps qu'il a fait depuis 1900"
+  "alt": "Symbole rundata.re et relief de l'île : Historique 974, le temps qu'il a fait depuis 1900"
  },
  {
   "pages": [
@@ -79,62 +79,69 @@
    "/electricite"
   ],
   "png": "/og/energie.71690d2308.png",
-  "alt": "Symbole rundata.re et relief de l'île : Énergie 974, recharge et électricité en direct"
+  "alt": "Symbole rundata.re et relief de l'île : Énergie 974, recharge et électricité en direct"
  },
  {
   "pages": [
    "/communes"
   ],
   "png": "/og/communes.60c571cb63.png",
-  "alt": "Symbole rundata.re et relief de l'île : Communes 974, votre commune en direct"
+  "alt": "Symbole rundata.re et relief de l'île : Communes 974, votre commune en direct"
  },
  {
   "pages": [
    "/defibrillateurs"
   ],
   "png": "/og/defibrillateurs.be25650826.png",
-  "alt": "Symbole rundata.re et relief de l'île : Défibrillateurs 974, le plus proche de vous et ses horaires"
+  "alt": "Symbole rundata.re et relief de l'île : Défibrillateurs 974, le plus proche de vous et ses horaires"
  },
  {
   "pages": [
    "/calendrier"
   ],
   "png": "/og/calendrier.c350705cb9.png",
-  "alt": "Symbole rundata.re et relief de l'île : Calendrier 974, vacances scolaires et jours fériés"
+  "alt": "Symbole rundata.re et relief de l'île : Calendrier 974, vacances scolaires et jours fériés"
  },
  {
   "pages": [
    "/cyclones"
   ],
   "png": "/og/cyclones.a65d3adc45.png",
-  "alt": "Symbole rundata.re et relief de l'île : Cyclones 974, trajectoire et alerte en direct"
+  "alt": "Symbole rundata.re et relief de l'île : Cyclones 974, trajectoire et alerte en direct"
  },
  {
   "pages": [
    "/sport"
   ],
   "png": "/og/sport.174fc3b0a0.png",
-  "alt": "Symbole rundata.re et relief de l'île : Sport 974, matchs, résultats, Grand Raid"
+  "alt": "Symbole rundata.re et relief de l'île : Sport 974, matchs, résultats, Grand Raid"
  },
  {
   "pages": [
    "/carburants"
   ],
   "png": "/og/carburants.f4bdccc40a.png",
-  "alt": "Symbole rundata.re et relief de l'île : Carburants 974, les prix maximum du mois"
+  "alt": "Symbole rundata.re et relief de l'île : Carburants 974, les prix maximum du mois"
  },
  {
   "pages": [
    "/feux"
   ],
   "png": "/og/feux.5f205c0828.png",
-  "alt": "Symbole rundata.re et relief de l'île : Feux 974, les feux de végétation vus par satellite, 24 h"
+  "alt": "Symbole rundata.re et relief de l'île : Feux 974, les feux de végétation vus par satellite, 24 h"
  },
  {
   "pages": [
    "/enfants"
   ],
   "png": "/og/enfants.6d125c9bce.png",
-  "alt": "Symbole rundata.re et relief de l'île : Enfants 974, où aller avec les enfants, de 0 à 17 ans"
+  "alt": "Symbole rundata.re et relief de l'île : Enfants 974, où aller avec les enfants, de 0 à 17 ans"
+ },
+ {
+  "pages": [
+   "/associations"
+  ],
+  "png": "/og/associations.4e04b7608e.png",
+  "alt": "Symbole rundata.re et relief de l'île : Espace clubs et associations. Proposer un événement, en 2 minutes. Gratuit, sans compte."
  }
 ]

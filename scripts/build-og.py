@@ -55,9 +55,12 @@ RUBRIQUES = [
     ("carburants", "Carburants 974", "Les prix maximum du mois", ["/carburants"]),
     ("feux", "Feux 974", "Les feux de végétation|vus par satellite, 24 h", ["/feux"]),
     ("enfants", "Enfants 974", "Où aller avec les enfants,|de 0 à 17 ans", ["/enfants"]),
+    ("associations", "Espace clubs|et associations", "Proposer un événement,|en 2\u00a0minutes.|Gratuit, sans compte.", ["/associations"]),
 ]
 # The volcano's third line, the kit's; the others have two levels.
 INFO = {"volcan": "Niveau d'alerte, accès à l'Enclos, séismes"}
+# A text in sentences, said as it is written (marketing).
+ALT = {"associations": "Symbole rundata.re et relief de l'île\u00a0: Espace clubs et associations. Proposer un événement, en 2 minutes. Gratuit, sans compte."}
 OUT = ROOT / "public/og"
 
 
@@ -141,12 +144,13 @@ def rubrique(key, name, line, path):
     carte = ('<div class="carte" style="width:500px;height:502px;background:#0d2236 url(fournaise.webp) 72% 58%/675px auto no-repeat"></div>'
              if key == "volcan" else
              f'<div class="carte" style="width:500px;height:502px;display:grid;place-items:center">{island(392, 8)}</div>')
-    head, num = name.rsplit(" ", 1)
+    # « Météo 974 »: the number in the accent colour; a name without one (« Espace clubs|et associations ») breaks where written.
+    head, num = name.rsplit(" ", 1) if name[-1].isdigit() else (name, "")
     info = f'<div class="info fit" data-max="528" style="font-size:24px;margin-top:20px">{escape(INFO[key])}</div>' if key in INFO else ""
     return page(f'<div class="abs" style="left:628px;top:64px">{carte}</div>'
                 f'<div class="abs" style="left:72px;top:64px">{lockup(40, path)}</div>'
                 f'<div class="abs" style="left:72px;top:206px">'
-                f'<div class="titre fit" data-max="528" style="font-size:112px">{escape(head)} <span class="n">{num}</span></div>'
+                f'<div class="titre fit" data-max="528" style="font-size:112px">{lines(head)}{f' <span class="n">{num}</span>' if num else ""}</div>'
                 f'<div class="slogan fit" data-max="528" style="font-size:40px;margin-top:24px;font-style:normal">{lines(line)}</div>{info}</div>')
 
 
@@ -174,7 +178,8 @@ def main():
             (OUT / file).write_bytes(data)
             what = "relief du Piton de la Fournaise" if key == "volcan" else "relief de l'île"
             said = line.replace("|", " ")
-            manifest.append({"pages": pages, "png": f"/og/{file}", "alt": f"Symbole rundata.re et {what} : {name}, {said[0].lower()}{said[1:]}"})
+            alt = ALT.get(key) or f"Symbole rundata.re et {what}\u00a0: {name}, {said[0].lower()}{said[1:]}"
+            manifest.append({"pages": pages, "png": f"/og/{file}", "alt": alt})
             print(OUT / file, f"{len(data) // 1024} KB PNG")
         (ROOT / "src/web/og-rubriques.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n")
         data = shoot(tmp, "og", partage())
