@@ -32,6 +32,7 @@ import {
   buildCoupures,
   buildSport,
   buildAgenda,
+  buildEnfants,
   buildActualites,
   buildRoute,
   buildTrail,
@@ -57,6 +58,7 @@ import {
 import { COMMUNES, communePage, communesPage } from "./commune.js";
 import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
 import { concertsPage, weekendPage } from "./evenements.js";
+import { enfantsPage } from "./enfants.js";
 import { coupuresCommunePage } from "./coupures.js";
 import { cloudSeaTold, hikesNear, summitOf } from "./liens.js";
 import { LOGO_PETIT_SVG } from "./logo.js";
@@ -203,6 +205,7 @@ const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) =>
   "/evenements/ce-week-end": { key: "web:agenda", build: buildAgenda, page: weekendPage },
   "/evenements/concerts": { key: "web:agenda", build: buildAgenda, page: concertsPage },
   "/actualites": { key: "web:actualites", build: buildActualites, page: actualitesPage },
+  "/enfants": { key: "web:enfants", build: buildEnfants, page: enfantsPage },
 };
 
 /** How to build each category page's copy, by its cache key: what the home page and the commune pages show as tiles. */

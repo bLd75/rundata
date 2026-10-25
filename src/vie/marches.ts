@@ -49,7 +49,7 @@ const hour = (t: string) => {
  * 08:00-12:00 », « Mo-Sa 07:00-17:00 »): « de 8 h à 18 h », or undefined when it is not held that day or its days are
  * not given in that form.
  */
-export function hoursOn(m: Marche, now: Date): string | undefined {
+export function hoursOn(m: Pick<Marche, "horaires_osm">, now: Date): string | undefined {
   const today = new Date(now.getTime() + 4 * 3600_000).getUTCDay();
   for (const rule of (m.horaires_osm ?? "").split(";")) {
     const r = /^\s*([A-Za-z,-]+)\s+([\d:,\s-]+)$/.exec(rule);

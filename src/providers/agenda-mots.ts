@@ -17,7 +17,8 @@ export const monthOf = (w: string) => MONTHS.find(([re]) => re.test(w))?.[1];
 export const W = (alts: string) => new RegExp(`(?<![\\p{L}\\p{N}_])(?:${alts})`, "iu");
 const END = "(?![\\p{L}])";
 
-export const THEMES: { nom: string; genre: string; demande: RegExp; texte: RegExp }[] = [
+/** `sauf`: words that say the event is not of the theme, though its words are there. */
+export const THEMES: { nom: string; genre: string; demande: RegExp; texte: RegExp; sauf?: RegExp }[] = [
   { nom: "concerts et musique", genre: "concert", demande: /concert|musique|music|maloya|sega|seggae|kabar|jazz|rock|metal|reggae|rap|hip hop|electro|classique|recital|chanson|zouk/, texte: W(`concerts?${END}|musique|musical|maloya|s[ée]ga${END}|seggae|kabar|jazz|rock${END}|m[ée]tal${END}|reggae|dancehall|dub${END}|rap${END}|hip.hop|[ée]lectro|blues|soul${END}|funk|zouk|chansons?${END}|r[ée]cital|piano|orchestre|symphon|chant(?:eur|euse|s)?${END}|chorale|bal${END}|live${END}|plato zartis|sono mondiale`) },
   { nom: "théâtre", genre: "théâtre", demande: /theatre|piece|comedie|spectacle/, texte: W(`th[ée][âa]tre|com[ée]die|lecture${END}`) },
   { nom: "danse", genre: "danse", demande: /danse|ballet|choregraph|battle|spectacle/, texte: W(`danses?${END}|ballet|chor[ée]graph|battle`) },
@@ -28,12 +29,63 @@ export const THEMES: { nom: string; genre: string; demande: RegExp; texte: RegEx
   { nom: "fêtes et festivals", genre: "festival", demande: /fete|fet\b|festival|kermesse|carnaval|feu d artifice|kabar/, texte: W(`f[êe]tes?${END}|f[èe]t${END}|festival|kermesse|carnaval|feu d.artifice|som[èe]n${END}|semaine cr[ée]ole|zourn[ée]|kabar|temps fort`) },
   { nom: "cinéma", genre: "cinéma", demande: /cinema|film|projection|cine\b|documentaire/, texte: W(`cin[ée]ma|projections?${END}|films?${END}|documentaire|court.m[ée]trage`) },
   { nom: "sport", genre: "sport", demande: /sport|course|trail|randonnee|tournoi|match|velo|dragon|rallye/, texte: W(`sports?${END}|sporti(?:f|ve)|courses?${END}|trail${END}|randonn[ée]e|tournoi|match${END}|v[ée]lo|koupe|dragon boat|nage${END}|natation|surf${END}|rallye`) },
-  { nom: "pour les enfants", genre: "enfants", demande: /enfant|marmaille|famille|kids|jeune public|ado/, texte: W(`enfants?${END}|marmailles?${END}|famil|jeune public|escape game|ludique|jeux${END}|frissons|kids${END}`) },
+  // « Famille » alone also names what is for parents (« village famille et jeunesse », a talk on parenting): only « en
+  // famille » and « familial » say the children are welcome. An age given for them says it too (extrait()).
+  { nom: "pour les enfants", genre: "enfants", demande: /enfant|marmaille|famille|kids|jeune public|ado/, texte: W(`enfants?${END}|marmailles?${END}|en famille|familia(?:l|le|ux)${END}|jeune public|escape game|ludique|jeux${END}|frissons|kids${END}`), sauf: W(`parentalit[ée]|pour les parents|collecte de jouets|dons? de jouets|sans enfants?${END}`) },
   { nom: "expositions et visites", genre: "exposition", demande: /expo|musee|patrimoine|visite|galerie/, texte: W(`expo|mus[ée]e|patrimoine|visites?${END}|galerie`) },
   { nom: "ateliers et rencontres", genre: "atelier", demande: /atelier|conference|forum|salon|formation|permanence|rencontre|reunion publique|concertation/, texte: W(`ateliers?${END}|conf[ée]rences?${END}|forum${END}|salon${END}|formation|permanences?${END}|rencontres?${END}|congr[èe]s|r[ée]unions? publiques?|concertation|enqu[êe]te publique|consultation|stage${END}|webinaire|s[ée]minaire`) },
 ];
+/** Whether a text names a theme. */
+export const names = (t: (typeof THEMES)[number], text: string) => t.texte.test(text) && !t.sauf?.test(text);
 /** The genres a text names. */
-export const themesIn = (text: string) => THEMES.filter((t) => t.texte.test(text)).map((t) => t.genre);
+export const themesIn = (text: string) => THEMES.filter((t) => names(t, text)).map((t) => t.genre);
+
+const N = String.raw`(\d{1,2})`;
+const UNIT = String.raw`(mois|ans?)`;
+const AGES: RegExp[] = [
+  // « de 6 mois à 6 ans », « à partir de 6 mois à 6 ans », « de 3 à 12 ans », « 3-12 ans », « pour les 6–10 ans »
+  new RegExp(String.raw`(?:(?:à partir de|dès|de)\s+)?${N}\s*${UNIT}?\s*(?:à|au|-|–|—)\s*${N}\s*ans(?![\p{L}])`, "iu"),
+  // « dès 10 ans », « à partir de 3 ans », « dès l'âge de 8 ans » (not « plus de 10 ans » of a festival's history)
+  new RegExp(String.raw`(?:à partir de|dès(?: l['’]âge de)?)\s*${N}\s*${UNIT}(?![\p{L}])`, "iu"),
+  // « jusqu'à 12 ans »
+  new RegExp(String.raw`jusqu['’]à\s*${N}\s*${UNIT}(?![\p{L}])`, "iu"),
+  // « 8 ans et plus »
+  new RegExp(String.raw`${N}\s*${UNIT}\s*et\s*plus(?![\p{L}])`, "iu"),
+];
+
+/** The ages a child's age said in words stands for, in years: « 6 mois à 6 ans » → 0.5 to 6; « dès 10 ans » → from 10. */
+export function ageRange(said: string): { min?: number; max?: number } | undefined {
+  const years = (n: string, unit?: string) => (unit && /^mois/i.test(unit) ? Number(n) / 12 : Number(n));
+  let m = AGES[0].exec(said);
+  if (m) {
+    const [min, max] = [years(m[1], m[2]), Number(m[3])];
+    return min < max && max <= 18 ? { min, max } : undefined;
+  }
+  if ((m = AGES[1].exec(said)) || (m = AGES[3].exec(said))) {
+    const min = years(m[1], m[2]);
+    return min < 18 ? { min } : undefined;
+  }
+  if ((m = AGES[2].exec(said))) {
+    const max = years(m[1], m[2]);
+    return max <= 18 ? { max } : undefined;
+  }
+  return undefined;
+}
+
+// What a price says of an age is not who the event is for: « gratuit jusqu'à 12 ans », « tarif réduit 3-12 ans ».
+const PRICE = /gratuit|tarif|réduit|€|prix|offert|entrée/i;
+
+/**
+ * The children's ages an event's text gives, in its own words (« À partir de 6 mois à 6 ans », « dès 10 ans »), or
+ * undefined: never guessed. An adult's age (« dès 18 ans ») is not one, nor an age a price is given for.
+ */
+export function ageIn(text: string): string | undefined {
+  for (const re of AGES) {
+    const m = re.exec(text);
+    if (m && ageRange(m[0]) && !PRICE.test(text.slice(Math.max(0, m.index - 30), m.index))) return m[0].trim();
+  }
+  return undefined;
+}
 
 /** At most this of a reused agenda's text: the cap of a « sentence » that has no full stop. */
 export const LEAD_MAX = 200;
@@ -50,12 +102,13 @@ export function lead(s: string): string {
  * What is kept of an event's text: its first sentence, and the genres the rest of it names, never its words. The
  * search still finds a « concert » said in the third sentence of a programme (« Cirque et musique »).
  */
-export function extrait(text: string): { description?: string; themes?: string[] } {
+export function extrait(text: string): { description?: string; themes?: string[]; age?: string } {
   const description = lead(text) || undefined;
   if (!description) return {};
+  const age = ageIn(text);
   const shown = new Set(themesIn(description));
-  const themes = themesIn(text).filter((g) => !shown.has(g));
-  return themes.length ? { description, themes } : { description };
+  const themes = [...new Set([...themesIn(text), ...(age ? ["enfants"] : [])])].filter((g) => !shown.has(g));
+  return { description, ...(themes.length ? { themes } : {}), ...(age ? { age } : {}) };
 }
 
 export type Statut = "annulé" | "reporté" | "complet";

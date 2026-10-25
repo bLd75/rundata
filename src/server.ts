@@ -72,7 +72,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.168.3";
+export const VERSION = "0.169.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks), the index of the tools and the rules first. What each tool does, and the words its answers
@@ -325,12 +325,14 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "(quoi = « pharmacie », « urgences », « hôpital ») : la pharmacie de garde n'est connue que de 3237.fr et du 32 37, l'urgence passe par le 15 ; " +
         "les marchés forains et couverts d'après OpenStreetMap (quoi = « marché » ; un marché de Noël ou nocturne annoncé : evenements), et les déchèteries de l'Ouest (TCO) avec les bennes pleines " +
         "en direct (quoi = « déchèterie », « encombrants », « déchets verts »), et le jour de collecte des déchets rue par rue dans l'Ouest " +
-        "(quoi = « collecte », « poubelles », lieu = la rue et la commune : « rue Labourdonnais, Saint-Paul »), d'après les calendriers du TCO. " +
+        "(quoi = « collecte », « poubelles », lieu = la rue et la commune : « rue Labourdonnais, Saint-Paul »), d'après les calendriers du TCO ; " +
+        "où aller avec les enfants (quoi = « enfants », « aire de jeux », « piscine », « médiathèque », « skatepark »…) : aires de jeux, parcs, piscines, médiathèques, zoos, " +
+        "parcs de loisirs, salles de jeux, skateparks, escalade, musées, commune par commune, avec l'âge quand la carte le donne, d'après OpenStreetMap, Data ES et Basilic. " +
         "Pour : « horaires de la mairie de Saint-Paul ? », « pharmacie près de Boucan Canot ? », « marché forain à Sainte-Marie ? », " +
-        "« où est la CAF la plus proche du Tampon ? », « numéro de la sous-préfecture de Saint-Pierre ? », « prix de l'essence ce mois-ci ? », « quel jour passent les poubelles rue Labourdonnais à Saint-Paul ? ». " +
-        "/ Public offices in Réunion Island (addresses, hours, phones), this month's maximum fuel prices, pharmacies and hospitals.",
+        "« où est la CAF la plus proche du Tampon ? », « numéro de la sous-préfecture de Saint-Pierre ? », « prix de l'essence ce mois-ci ? », « quel jour passent les poubelles rue Labourdonnais à Saint-Paul ? », « une aire de jeux à Saint-Leu ? ». " +
+        "/ Public offices in Réunion Island (addresses, hours, phones), this month's maximum fuel prices, pharmacies and hospitals, places to go with children.",
       inputSchema: {
-        quoi: z.string().describe("Le service cherché, en quelques mots : « mairie », « CAF », « préfecture », « impôts », « France Travail », « tribunal »…, ou « carburant » pour les prix du mois, « pharmacie », « urgences ». / The office sought, or 'carburant', 'pharmacie', 'urgences'."),
+        quoi: z.string().describe("Le service cherché, en quelques mots : « mairie », « CAF », « préfecture », « impôts », « France Travail », « tribunal »…, ou « carburant » pour les prix du mois, « pharmacie », « urgences », « enfants » pour les lieux où aller avec eux. / The office sought, or 'carburant', 'pharmacie', 'urgences', 'enfants'."),
         lieu,
       },
       annotations: { title: "Services publics à La Réunion", ...READ_ONLY },

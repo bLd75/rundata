@@ -20,6 +20,7 @@ export interface Outil {
 
 // Newest first: the index of the instructions and the `serveur` block read them in this order.
 export const OUTILS: Outil[] = [
+  { nom: "annuaire_services_publics", ligne: "mairies, santé, carburants, déchets, enfants", depuis: "2026-10-25T14:00:00+04:00" },
   { nom: "resume_du_jour", ligne: "la journée d'une commune en un appel", depuis: "2026-10-24T15:45:00+04:00" },
   { nom: "donner_avis", ligne: "donnée manquante ou fausse, souhait", depuis: "2026-10-24T14:15:00+04:00" },
   { nom: "actualites", ligne: "blocages, routes, faits divers, en direct", depuis: "2026-10-24T12:32:00+04:00" },
@@ -45,7 +46,6 @@ export const OUTILS: Outil[] = [
   { nom: "electricite", ligne: "électricité, renouvelable, coupures de courant", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "calendrier", ligne: "vacances, jours fériés, soleil", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "qualite_air", ligne: "qualité de l'air", depuis: "2026-10-23T16:09:00+04:00" },
-  { nom: "annuaire_services_publics", ligne: "vie pratique : mairies, santé, carburants, déchets", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "fiche_terrain", ligne: "cadastre, PLU, prix, risques", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "sources_donnees", ligne: "sources, licences, outils, nouveautés", depuis: "2026-10-23T16:09:00+04:00" },
 ];
@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-25T15:15:00+04:00", texte: "Nouvelle page Enfants : aires de jeux, parcs, piscines, médiathèques et activités du week-end, de 0 à 17 ans, commune par commune." },
   { date: "2026-10-25T14:50:00+04:00", texte: "ChatGPT\u00a0: des outils de rundata.re manquent\u00a0? Le tutoriel dit comment actualiser la liste dans les paramètres." },
   { date: "2026-10-25T14:45:00+04:00", texte: "Bus\u00a0: votre IA donne les arrêts d'une ligne commune par commune, ses premiers et derniers départs, et si elle s'arrête près de chez vous." },
   { date: "2026-10-25T14:20:00+04:00", texte: "Volley-ball\u00a0: les tournois en plein air de la Ligue réunionnaise, avec leur date et le lien de la Ligue." },

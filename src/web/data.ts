@@ -989,6 +989,23 @@ export async function buildAgenda(cache: Cache, now = new Date()): Promise<Agend
   return { ...a, ce_week_end: weekend?.evenements ?? [] };
 }
 
+export interface EnfantsAnswer {
+  /** The agenda's activities for children in the next two weeks, and this weekend's apart. */
+  evenements: EventRow[];
+  ce_week_end: EventRow[];
+  indisponible?: string[];
+}
+
+/**
+ * The agenda's part of the children's page: the places are bundled with the server (vie/enfants.ts). An agenda that
+ * cannot be read leaves the page with its places.
+ */
+export async function buildEnfants(cache: Cache, now = new Date()): Promise<EnfantsAnswer> {
+  const all = answer<{ evenements?: EventRow[]; indisponible?: string[] }>(await agenda(cache, undefined, undefined, "enfants", now, PAGE_EVENTS));
+  const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", "enfants", now));
+  return { evenements: all?.evenements ?? [], ce_week_end: weekend?.evenements ?? [], ...(all?.indisponible?.length ? { indisponible: all.indisponible } : {}) };
+}
+
 export interface ActualitesAnswer {
   /** The last 24 hours, newest first, the live entries apart. */
   infos: InfoRow[];

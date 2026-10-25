@@ -5,7 +5,7 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
 import * as src from "../providers/agenda.js";
-import { THEMES, W } from "../providers/agenda-mots.js";
+import { names, THEMES, W } from "../providers/agenda-mots.js";
 import { withNews } from "../providers/agenda-presse.js";
 import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
@@ -105,7 +105,7 @@ const body = (e: src.Evenement) => `${about(e)} ${e.lieu ?? ""}`.toLowerCase();
 // mentions a dance contest.
 const head = (e: src.Evenement) => `${e.titre} ${e.categories.join(" ")}`.toLowerCase();
 
-const kindsOf = (text: string) => THEMES.filter((t) => t.texte.test(text)).map((t) => t.genre);
+const kindsOf = (text: string) => THEMES.filter((t) => names(t, text)).map((t) => t.genre);
 /** The genres of its title, categories and first sentence, and those the rest of its text named (`themes`), in THEMES' order. */
 const aboutKinds = (e: src.Evenement) => {
   const found = new Set([...kindsOf(about(e)), ...(e.themes ?? [])]);
@@ -331,6 +331,8 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     reporte_au: e.reporte_au ? dayText(e.reporte_au) : undefined,
     billetterie: httpUrl(e.billetterie),
     description: e.description,
+    /** The children's ages the organiser gives, in its words: « dès 10 ans ». */
+    age: e.age,
     /** Absent when the source gives no http(s) link. */
     lien: httpUrl(e.lien),
     publie_par: e.publie_par,
