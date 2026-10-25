@@ -6,8 +6,8 @@
  * - the CINOR (Saint-Denis, Sainte-Marie, Sainte-Suzanne) and the tourist office of the North publish on OpenAgenda;
  * - the agenda of reunion.fr, the island's tourist board, lists the big fêtes and festivals: its page carries the
  *   list as data (`itemsData`), dates and commune included;
- * - Le Tampon, Saint-Louis, Saint-André, L'Étang-Salé and L'Entre-Deux publish an RSS feed of their agenda whose dates
- *   are in the text (« Du 5 au 10 octobre 2026 », « 19 et 20 désanm »);
+ * - Le Tampon, Saint-Louis, Saint-André and L'Étang-Salé publish an RSS feed of their agenda whose dates are in the
+ *   text (« Du 5 au 10 octobre 2026 », « 19 et 20 désanm »);
  * - La Possession publishes its agenda (IntraMuros) as an RSS feed with each date as data;
  * - Petite-Île shows its agenda as a page, « Du 28 octobre au 31 octobre », « Le 14 octobre de 10h00 à 11h00 »;
  * - Bras-Panon (a page a month) and Saint-Benoît show theirs as pages too, and the tourist office of the East (OTI Est)
@@ -909,7 +909,6 @@ export function parsePetiteIle(html: string, now: Date, nom = "Ville de Petite-�
 }
 
 const ETANG_SALE = mairie("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations");
-const ENTRE_DEUX = mairie("entre_deux", "Mairie de l'Entre-Deux", "https://entredeux.re/agenda");
 const LA_POSSESSION = mairie("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda");
 const PETITE_ILE = mairie("petite_ile", "Ville de Petite-Île", "https://www.petite-ile.re/actualites/agenda/");
 
@@ -1235,7 +1234,6 @@ export const AGENDAS: Agenda[] = [
   rss("saint_andre", "Ville de Saint-André", "https://www.saint-andre.re/category/agenda/feed/", "Saint-André"),
   tribe("sechoir", "Le Séchoir", "https://www.lesechoir.com", "Saint-Leu", SALLES_SOURCE, "Le Séchoir"),
   rss("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations?format=feed&type=rss", "L'Étang-Salé", ETANG_SALE),
-  rss("entre_deux", "Mairie de l'Entre-Deux", "https://entredeux.re/taxonomy/term/3/feed", "Entre-Deux", ENTRE_DEUX),
   intraMuros("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda/rss", "La Possession", LA_POSSESSION),
   petiteIle,
   brasPanon,

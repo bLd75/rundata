@@ -40,7 +40,6 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("letampon")) return "rss_le-tampon.xml";
   if (url.includes("saintlouis")) return "rss_saint-louis.xml";
   if (url.includes("lapossession")) return "rss_la-possession.xml";
-  if (url.includes("entredeux")) return "rss_entre-deux.xml";
   if (url.includes("letangsale")) return "rss_etang-sale.xml";
   if (url.includes("petite-ile")) return "petite-ile.html";
   if (url.includes("braspanon")) return url.endsWith("/2026/11") ? "bras-panon_2026-11.html" : url.endsWith("/2026/10") ? "bras-panon_2026-10.html" : undefined;
@@ -493,17 +492,13 @@ describe("agenda", () => {
     expect(list.every((e) => !e.description || e.description.length <= 200)).toBe(true);
   });
 
-  it("reads the feeds of L'Étang-Salé and L'Entre-Deux, the first sentence of their text only", () => {
+  it("reads the feed of L'Étang-Salé, the first sentence of its text only", () => {
     const etang = parseRss(fixture("rss_etang-sale.xml"), "Ville de L'Étang-Salé", "L'Étang-Salé", true);
     expect(etang.map((e) => [e.titre, e.seances, e.description])).toEqual([
       ["Planning des compétitions sportives du 23 au 25 octobre 2026", [{ debut: "2026-10-23", fin: "2026-10-25" }], undefined],
       // Without the hour of its posting (« 24 Octobre 2026 09:20 ») nor its label (« EVENEMENT »).
       ["Marche Solidaire contre la polio", [{ debut: "2026-10-24" }], "Rendez-vous demain, samedi 24 octobre pour la marche solidaire contre la polio !"],
     ]);
-    const [show] = parseRss(fixture("rss_entre-deux.xml"), "Mairie de l'Entre-Deux", "Entre-Deux", true);
-    expect(show).toMatchObject({ titre: "Mille et une vies, l'histoire d'une âme", seances: [{ debut: "2026-10-10" }], commune: "Entre-Deux" });
-    expect(show.description).toMatch(/^« Mille et une vies, l’histoire d’une âme » L’association Bellydance/);
-    expect(show.description!.length).toBeLessThanOrEqual(200);
     expect(lead("Du 23 au 25 octobre l’ail est en fête au Domaine du Relais !Ouverture de la fête foraine dès le vendredi.")).toBe("Du 23 au 25 octobre l’ail est en fête au Domaine du Relais !");
   });
 
@@ -602,8 +597,8 @@ describe("agenda", () => {
     // Last year's posts of Saint-Louis are past; nothing of theirs.
     expect(b.evenements.some((e: { publie_par: string }) => e.publie_par === "Ville de Saint-Louis")).toBe(false);
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
-    // Twenty-seven agendas (two pages for Bras-Panon), and the pages of the four shows on both TÉAT stages.
-    expect(asked).toHaveLength(31);
+    // Twenty-six agendas (two pages for Bras-Panon), and the pages of the four shows on both TÉAT stages.
+    expect(asked).toHaveLength(30);
   });
 
   it("leaves the communes' sports programmes to the sport tool, not the sports events", async () => {
