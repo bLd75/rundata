@@ -33,8 +33,11 @@ export function daeRow(d: Dae, from?: { lon: number; lat: number }) {
   };
 }
 
+/** Reachable at any hour: outside, or open day and night. */
+export const anyHour = (d: Dae) => d.exterieur || d.horaires === "24 h/24, 7 j/7";
+
 /** Outside first, then free access: what can be reached now. */
-const reach = (d: Dae) => (d.exterieur || d.horaires === "24 h/24, 7 j/7" ? 0 : d.acces_libre ? 1 : 2);
+const reach = (d: Dae) => (anyHour(d) ? 0 : d.acces_libre ? 1 : 2);
 
 export function byCommune() {
   const by = new Map<string, Dae[]>();

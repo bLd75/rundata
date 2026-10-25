@@ -36,7 +36,8 @@ import { esc, hikesMap, islandMap, type Marker, oceanMap, profile, traceMap, typ
 import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
-import { anchorId, ask, credits, DESCRIPTION_MAX, hm, icon, ISLAND, layout, type Live, SITE } from "./pages.js";
+import { BUILT as DAE_BUILT, DAES } from "../providers/dae.js";
+import { anchorId, ask, credits, dayMonth, DESCRIPTION_MAX, empty, hm, icon, ISLAND, layout, type Live, readAt, SITE } from "./pages.js";
 import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
@@ -318,9 +319,11 @@ function quakeDays(days: NonNullable<VolcanAnswer["seismes"]>["par_jour_sous_le_
     (imageAfter ? `<p class="note">${esc(imageAfter)}</p>` : "");
 }
 
-export function volcanLive(data: Cached<VolcanAnswer> | null): Live | undefined {
-  const e = data?.value.etat;
-  if (!e) return undefined;
+export function volcanLive(data: Cached<VolcanAnswer> | null, now = new Date()): Live | undefined {
+  if (!data) return undefined;
+  const e = data.value.etat;
+  // Nothing on an eruption either way: the page says what the texts read say.
+  if (!e) return empty(`Textes de l'OVPF et de la préfecture lus ${readAt(data.fetchedAt, now).a} : état du volcan à lire sur la page.`);
   const a = alerteVolcan(data!.value);
   if (a) return tileLive(a);
   const q = typeof data!.value.seismes === "object" ? data!.value.seismes : undefined;
@@ -413,9 +416,10 @@ ${connectorCta("qualite_air", "l'air de l'île")}`;
   return layout(origin, { title, description, path: "/air", jsonld: [crumbs(origin, "Qualité de l'air", "/air"), webPage(origin, "/air", title, description, data)], alerte }, band, body);
 }
 
-export function airLive(data: Cached<AirAnswer> | null): Live | undefined {
-  const list = data?.value.communes ?? [];
-  if (!list.length) return undefined;
+export function airLive(data: Cached<AirAnswer> | null, now = new Date()): Live | undefined {
+  if (!data) return undefined;
+  const list = data.value.communes ?? [];
+  if (!list.length) return empty(`Indice ATMO du jour pas encore dans la lecture ${readAt(data.fetchedAt, now).de}.`);
   const worst = Math.max(...list.map((c) => c.niveau));
   const best = Math.min(...list.map((c) => c.niveau));
   const polluants = [...new Set(list.filter((c) => c.niveau === worst).flatMap((c) => c.polluants))];
@@ -510,9 +514,10 @@ ${connectorCta("electricite", "l'électricité de l'île")}`;
   return layout(origin, { title, description, path: "/electricite", jsonld: [crumbs(origin, "Électricité", "/electricite"), webPage(origin, "/electricite", title, description, data)], alerte }, band, body);
 }
 
-export function electriciteLive(data: Cached<ElectriciteAnswer> | null): Live | undefined {
-  const p = data?.value.production;
-  if (!p) return undefined;
+export function electriciteLive(data: Cached<ElectriciteAnswer> | null, now = new Date()): Live | undefined {
+  if (!data) return undefined;
+  const p = data.value.production;
+  if (!p) return empty(`Production d'EDF absente de la lecture ${readAt(data.fetchedAt, now).de}.`);
   const signal = data!.value.meteo_electricite?.maintenant?.signal;
   return {
     valeur: `${fr(Math.round(p.renouvelable_pct))}\u202f% renouvelable`,
@@ -611,7 +616,8 @@ export function calendrierLive(data: Cached<CalendrierAnswer> | null): Live | un
   const f = d.jours_feries;
   const next = f?.prochains[0];
   const valeur = f?.aujourd_hui ? `Férié : ${esc(f.aujourd_hui)}` : v ? "Vacances scolaires" : next ? `${esc(next.nom)} dans ${next.dans_jours} j` : undefined;
-  if (!valeur) return undefined;
+  // The date is enough here: the year's list runs out at its end, before the next one is loaded.
+  if (!valeur) return empty(`Ni vacances en cours ni jour férié à venir dans le calendrier lu le ${localTime(data!.fetchedAt).split(" ")[0]}.`);
   return {
     valeur,
     detail: [
@@ -733,8 +739,10 @@ ${connectorCta("transports", "les bus de l'île")}
 
 export function busLive(data: Cached<BusData> | null, now = new Date()): Live | undefined {
   const d = data?.value;
-  const g = d?.gares.find((x) => stillToCome(x.departs, data!.fetchedAt, now).length);
-  if (!d || !g) return undefined;
+  if (!d) return undefined;
+  const g = d.gares.find((x) => stillToCome(x.departs, data!.fetchedAt, now).length);
+  // The words of the commune pages' bus tile in the same case.
+  if (!g) return { valeur: "Pas de départ", detail: "aux gares dans les prochaines heures, d'après les horaires publiés" };
   const { x, heure } = stillToCome(g.departs, data!.fetchedAt, now)[0];
   return {
     // A time rather than « dans 3 min »: the page may be a few minutes old.
@@ -813,9 +821,10 @@ ${connectorCta("velos_libre_service", "les vélos du Sud")}`;
   return layout(origin, { title, description, path: "/velos", jsonld: [crumbs(origin, "Vélos", "/velos"), webPage(origin, "/velos", title, description, data)], alerte }, band, body);
 }
 
-export function velosLive(data: Cached<VelosAnswer> | null): Live | undefined {
+export function velosLive(data: Cached<VelosAnswer> | null, now = new Date()): Live | undefined {
   const d = data?.value;
-  if (!d?.communes) return undefined;
+  if (!d) return undefined;
+  if (!d.communes) return empty(`Disponibilités Altervélo absentes de la lecture ${readAt(data!.fetchedAt, now).de}.`);
   const total = d.communes.reduce((n, c) => n + c.velos_disponibles, 0);
   const best = [...d.stations].sort((a, b) => b.velos_electriques - a.velos_electriques)[0];
   return {
@@ -899,9 +908,10 @@ ${connectorCta("bornes_recharge", "les bornes de recharge")}`;
   return layout(origin, { title, description, path: "/bornes", jsonld: [crumbs(origin, "Recharge", "/bornes"), webPage(origin, "/bornes", title, description, data)], alerte }, band, body);
 }
 
-export function bornesLive(data: Cached<BornesAnswer> | null): Live | undefined {
+export function bornesLive(data: Cached<BornesAnswer> | null, now = new Date()): Live | undefined {
   const d = data?.value;
-  if (!d?.stations.length) return undefined;
+  if (!d) return undefined;
+  if (!d.stations.length) return empty(`État des bornes absent de la lecture ${readAt(data!.fetchedAt, now).de}.`);
   const libres = d.stations.reduce((n, s) => n + s.libres, 0);
   const fast = d.stations.filter((s) => s.puissance_max_kw >= FAST_KW && s.libres > 0).length;
   return {
@@ -1005,9 +1015,10 @@ const EAU_TEXT = {
   robinet: "Chaque commune a plusieurs réseaux d'eau, du centre-ville aux écarts des Hauts : la qualité dépend du réseau qui dessert le quartier. Les réseaux ci-dessous ont eu au moins une analyse non conforme.",
 };
 
-export function eauLive(data: Cached<EauAnswer> | null): Live | undefined {
+export function eauLive(data: Cached<EauAnswer> | null, now = new Date()): Live | undefined {
   const d = data?.value;
-  if (!d?.baignades.length) return undefined;
+  if (!d) return undefined;
+  if (!d.baignades.length) return empty(`Résultats de l'ARS absents de la lecture ${readAt(data!.fetchedAt, now).de}.`);
   const good = d.baignades.filter((s) => s.qualite_dernier_prelevement === "bonne").length;
   return {
     valeur: `${good} site${good > 1 ? "s" : ""} sur ${d.baignades.length}`,
@@ -1795,6 +1806,15 @@ export function coupuresLive(data: Cached<CoupuresAnswer> | null): Live | undefi
 
 // ---------------------------------------------------------------- défibrillateurs
 
+/**
+ * The home page's tile: the bundled list, nothing to fetch. Not how many are reachable at any hour: alone on a tile, the
+ * figure would read as an island poorly equipped; the page says it commune by commune (marketing).
+ */
+export function daeLive(): Live {
+  const communes = new Set(DAES.map((d) => d.commune)).size;
+  return { valeur: `${nombre(DAES.length)} défibrillateurs`, detail: `dans les ${communes} communes, avec leur accès · Géo'DAE du ${esc(dayMonth(DAE_BUILT))}` };
+}
+
 const shortAccess = (a: string) =>
   a.includes("extérieur") ? "dehors, 24 h/24" : a.includes("24 h") ? "24 h/24" : a.includes("accès libre") ? "horaires du lieu" : "accès réservé";
 
@@ -2173,10 +2193,11 @@ function hourlySection(h: HourlyAnswer): string {
 </section>`;
 }
 
-export function historiqueLive(data: Cached<HistoriqueAnswer> | null): Live | undefined {
+export function historiqueLive(data: Cached<HistoriqueAnswer> | null, now = new Date()): Live | undefined {
   const d = data?.value;
-  const r = d?.stations.find((x) => x.pluie?.rapport_a_la_normale) ;
-  if (!d || !r?.pluie) return undefined;
+  if (!d) return undefined;
+  const r = d.stations.find((x) => x.pluie?.rapport_a_la_normale);
+  if (!r?.pluie) return empty(`Rapport à la normale pas encore calculé pour les 30 derniers jours (lecture ${readAt(data!.fetchedAt, now).de}).`);
   return { valeur: `${r.pluie.rapport_a_la_normale} de la normale`, detail: `pluie des 30 derniers jours à ${esc(r.station)} (${fr(r.pluie.total_mm)} mm)` };
 }
 

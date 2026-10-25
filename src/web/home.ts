@@ -9,7 +9,7 @@ import { PATH as A_PROPOS, QUI } from "./a-propos.js";
 import icons from "./icons.json" with { type: "json" };
 import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from "./categories.js";
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
-import { actualitesLive, airLive, atDay, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive, saidNow, stillToCome } from "./domains.js";
+import { actualitesLive, airLive, atDay, bornesLive, busLive, coupuresLive, daeLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive, saidNow, stillToCome } from "./domains.js";
 import { de } from "../tools/format.js";
 import { enImagesApres, enImagesLuesAilleurs, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
@@ -70,29 +70,30 @@ export interface HomeLive {
 
 function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> {
   return {
-    meteo: meteoLive(h?.meteo ?? null),
+    meteo: meteoLive(h?.meteo ?? null, now),
     vigilance: vigilanceLive(h?.vigilance ?? null, now),
-    mer: merLive(h?.meteo ?? null),
-    volcan: volcanLive(h?.volcan ?? null),
+    mer: merLive(h?.meteo ?? null, now),
+    volcan: volcanLive(h?.volcan ?? null, now),
     bus: busLive(h?.bus ?? null, now),
     trafic: traficLive(h?.trafic ?? null),
-    velos: velosLive(h?.velos ?? null),
-    bornes: bornesLive(h?.bornes ?? null),
-    eau: eauLive(h?.eau ?? null),
+    velos: velosLive(h?.velos ?? null, now),
+    bornes: bornesLive(h?.bornes ?? null, now),
+    eau: eauLive(h?.eau ?? null, now),
     sentiers: randonneesLive(h?.sentiers ?? null),
     secheresse: secheresseLive(h?.secheresse ?? null),
     coupures: coupuresLive(h?.coupures ?? null),
     sport: sportLive(h?.sport ?? null),
     cyclones: cyclonesLive(h?.cyclones ?? null),
-    historique: historiqueLive(h?.historique ?? null),
+    historique: historiqueLive(h?.historique ?? null, now),
     agenda: agendaLive(h?.agenda ?? null),
     actualites: actualitesLive(h?.actualites ?? null),
-    air: airLive(h?.air ?? null),
-    electricite: electriciteLive(h?.electricite ?? null),
+    air: airLive(h?.air ?? null, now),
+    electricite: electriciteLive(h?.electricite ?? null, now),
     calendrier: calendrierLive(h?.calendrier ?? null),
     // The bundled places: always there, nothing to fetch. The playgrounds, parks and pools first, not the most numerous
     // (the skateparks and city stadiums).
     enfants: enfantsLive(undefined, ["aire_de_jeux", "parc", "piscine"]),
+    dae: daeLive(),
   };
 }
 
@@ -194,7 +195,7 @@ export function sky(now: Date): "nuit" | "aube" | "jour" | "soir" {
 function facts(live: Record<string, Live | undefined>, u: Urgent): string {
   const shown = [...urgentKeys(u), ...FIRST, "air"]
     .map((k) => ({ c: CATEGORIES.find((c) => c.key === k)!, l: live[k] }))
-    .filter((x) => x.l);
+    .filter((x) => x.l && !x.l.vide);
   if (!shown.length) return "";
   return `<ul class="facts-live" aria-label="En ce moment">${shown
     .map((x) => `<li class="k-${x.c.key}"><a href="${x.c.path}">${icon(x.c.icon)}<span>${esc(x.c.nom)}</span><b>${x.l!.valeur}</b>${x.l!.source ? `<small>${x.l!.source}</small>` : ""}</a></li>`)
@@ -223,10 +224,13 @@ function heroMap(h: HomeLive | null): string {
 
 function tile(c: Category, l: Live | undefined, odd = false): string {
   const name = c.path ? `<h3><a href="${c.path}">${esc(c.nom)}</a></h3>` : `<h3>${esc(c.nom)}</h3>`;
-  const now = l
+  const now = l?.vide
+    ? `<p class="td">${l.detail}</p>`
+    : l
     ? `<p class="tv">${l.valeur}</p><p class="td">${l.detail}</p>`
     : c.exemple
       ? `<p class="tq">« ${esc(c.exemple)} »</p>`
+      // No copy at all: the read is under way (a copy with nothing to show says so, `vide`).
       : `<p class="td">Se met à jour : rechargez la page dans quelques secondes.</p>`;
   const more = c.path ? `<span class="go" aria-hidden="true">→</span>` : "";
   const foot = c.path ? "" : `<a class="tl" href="#assistant">Demandez à votre IA →</a>`;

@@ -68,6 +68,15 @@ export function chip(t: number): string {
 export const hm = (iso: string | Date) => localTime(new Date(iso)).split(" ")[1];
 
 /**
+ * When a copy was read, said after « de » or « à »: « de 03:12 », « à 03:12 »; another day, « du 25/10 à 03:12 »,
+ * « le 25/10 à 03:12 ».
+ */
+export function readAt(at: Date, now: Date): { de: string; a: string } {
+  const [day, time] = localTime(at).split(" ");
+  return day === localTime(now).split(" ")[0] ? { de: `de ${time}`, a: `à ${time}` } : { de: `du ${day} à ${time}`, a: `le ${day} à ${time}` };
+}
+
+/**
  * « il y a 5 min », kept true in a copy of the page served minutes after it was built: the script of the layout
  * counts it again from the time of the data, in the browser.
  */
@@ -1123,13 +1132,22 @@ export interface Live {
   source?: string;
   /** The detail in full, plain text, when the tile shows it shortened (its `title`). */
   title?: string;
+  /**
+   * A copy read with nothing to show: its detail alone, one line saying what was read and when, in place of a figure;
+   * not among the figures under the home page's title.
+   */
+  vide?: boolean;
 }
+
+/** A tile's line for a copy read with nothing to show (`vide`), in plain text. */
+export const empty = (line: string): Live => ({ valeur: "", detail: esc(line), vide: true });
 
 const range = (lo: number, hi: number) => `${fr(Math.round(lo))} à ${thin(deg(Math.round(hi)))}`;
 
-export function meteoLive(data: Cached<HomeData> | null): Live | undefined {
+export function meteoLive(data: Cached<HomeData> | null, now = new Date()): Live | undefined {
   const l = withTemp(data);
-  if (!data || !l.length) return undefined;
+  if (!data) return undefined;
+  if (!l.length) return empty(`Aucune température dans la lecture des stations ${readAt(data.fetchedAt, now).de}.`);
   const lo = coldest(l);
   const hi = warmest(l);
   const latest = data.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
@@ -1139,9 +1157,10 @@ export function meteoLive(data: Cached<HomeData> | null): Live | undefined {
   };
 }
 
-export function merLive(data: Cached<HomeData> | null): Live | undefined {
-  const mer = data?.value.mer ?? [];
-  if (!mer.length) return undefined;
+export function merLive(data: Cached<HomeData> | null, now = new Date()): Live | undefined {
+  if (!data) return undefined;
+  const mer = data.value.mer ?? [];
+  if (!mer.length) return empty(`Pas de mesure satellite de la mer dans la lecture ${readAt(data.fetchedAt, now).de}.`);
   const v = mer.map((m) => m.valeur);
   return {
     valeur: Math.round(Math.min(...v)) === Math.round(Math.max(...v)) ? thin(deg(Math.round(v[0]))) : range(Math.min(...v), Math.max(...v)),
@@ -1167,8 +1186,9 @@ export function vigilanceLive(data: Cached<mf.Vigilance> | null, now: Date): Liv
 
 /** The island's weather: every station, from the coast to the summits, the sea, and a page per commune or place. */
 export function meteoPage(origin: string, data: Cached<HomeData> | null, now = new Date(), alerte?: Alerte): string {
-  const live = meteoLive(data);
   const l = withTemp(data);
+  // The page's figure, not a tile's line for a copy with no temperature (`vide`).
+  const live = l.length ? meteoLive(data) : undefined;
   const url = `${origin}/meteo`;
   const latest = data?.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
 
