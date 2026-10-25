@@ -11,7 +11,7 @@ import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
 import { actualitesLive, airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
 import { de } from "../tools/format.js";
-import { enImagesApres, hausseNiveau, NON_ANNONCEE } from "../tools/volcan.js";
+import { enImagesApres, enImagesLuesAilleurs, hausseNiveau, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import {
@@ -133,7 +133,7 @@ export function demos(h: HomeLive | null, now: Date): Demo[] {
         // pitonlive higher than the release: both levels, in marketing's words.
         ? esc(hausseNiveau(e.ecart_prefecture))
         : !e.eruption_en_cours && /^Alerte/.test(e.niveau_orsec)
-        ? `${esc(NON_ANNONCEE)}${e.image_ovpf_plus_recente && p0?.lien ? ` ${esc(enImagesApres(...(p0.date.split(" ") as [string, string])))} : <a href="${esc(p0.lien)}">la voir</a>.` : ""} Le volcan est en ${esc(e.niveau_orsec.toLowerCase())}${libelle(e.niveau_orsec) ? ` : « ${esc(libelle(e.niveau_orsec)!)} » (dispositif ORSEC Volcan)` : ""}.`
+        ? `${esc(NON_ANNONCEE)}${e.image_ovpf_plus_recente && p0?.lien ? ` ${esc((p0.texte_lu_dans_l_image ? enImagesLuesAilleurs : enImagesApres)(...(p0.date.split(" ") as [string, string])))} : <a href="${esc(p0.lien)}">la voir</a>.` : ""} Le volcan est en ${esc(e.niveau_orsec.toLowerCase())}${libelle(e.niveau_orsec) ? ` : « ${esc(libelle(e.niveau_orsec)!)} » (dispositif ORSEC Volcan)` : ""}.`
         : `${e.eruption_en_cours ? "Oui, le Piton de la Fournaise est en éruption" : "Non, pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com"} (niveau ORSEC : ${esc(e.niveau_orsec)}).`) +
         (q ? ` L'observatoire a localisé ${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} sous le volcan en 7 jours.` : ""),
     });

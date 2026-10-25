@@ -3,6 +3,7 @@ import { localTime } from "../geo.js";
 import * as seismes from "../providers/seismes.js";
 import type * as onf from "../providers/sentiers.js";
 import * as historique from "./volcan-historique.js";
+import * as ocr from "../providers/ovpf-ocr.js";
 import * as volcan from "../providers/volcan.js";
 import { why } from "../types.js";
 import { credits, fr, text } from "./format.js";
@@ -27,6 +28,20 @@ export const IMAGE_APRES = "La dernière publication de l'OVPF est une image que
  * and its time tells it is newer (marketing). Followed by « : la voir », the link. IMAGE_APRES is then not said.
  */
 export const enImagesApres = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images, que nous ne lisons pas`;
+/**
+ * The same, the text of its first image read by rundata.re (providers/ovpf-ocr.ts) and quoted beside: read by a
+ * machine, « sans l'analyser », not one of « les textes que nous avons lus » of NON_ANNONCEE (marketing).
+ */
+export const enImagesLuesApres = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images ; nous citons le texte de la première, lu automatiquement, sans l'analyser`;
+/** The same where the text is not quoted (the home page's demo): where it is (marketing). */
+export const enImagesLuesAilleurs = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images ; le texte de la première, lu automatiquement, est cité sur la page Volcan`;
+export const IMAGE_LUE_APRES = "La dernière publication de l'OVPF est en images : l'état ci-dessus peut ne pas en tenir compte. Nous citons le texte de la première image, lu automatiquement, sans l'analyser.";
+/** Before the text read in the first image, wherever it is quoted (marketing). */
+export const LU_DANS_L_IMAGE = "Texte de la première image, lu automatiquement par rundata.re (il peut contenir des erreurs)";
+/** For the AI, beside the text read in the first image (marketing). */
+export const A_LIRE_LU = "Ce texte a été lu automatiquement par rundata.re dans la première image de la publication ; les autres images ne sont pas lues. Il peut contenir des erreurs, surtout dans les chiffres et les heures. Citez-le comme tel, avec le lien de la publication, et renvoyez à celle-ci pour les chiffres et les heures. N'en déduisez ni le niveau d'alerte, ni le début ou la fin d'une éruption : l'état officiel est celui donné plus haut.";
+// The text read, in the summary: its first words.
+const EXTRAIT = 400;
 /** For the AI, beside a post given in images: its content is only there, and the AI may not open it either. */
 export const A_LIRE = "Le contenu de cette publication est dans ses images, que rundata.re ne lit pas : donnez le lien à l'utilisateur, et ne dites rien de ce qu'elle contient sans l'avoir lue.";
 /** pitonlive's word for the Enclos, quoted as its own: never read as « ouvert » (« partiel »), only spelt (« ferme »). */
@@ -62,6 +77,12 @@ async function settle<T>(source: string, p: Promise<{ value: T }>): Promise<T | 
 export const LOCALISES = "Seuls les séismes localisés par l'OVPF sont comptés ici : ce n'est pas le nombre total de séismes enregistrés.";
 const BAR_DAYS = 30;
 const localDay = (t: number) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
+const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+/** The first words of a text read in images, cut at a word: « … » quoted in the summary. */
+const extrait = (paras: string[]) => {
+  const t = paras.join(" ");
+  return t.length <= EXTRAIT ? t : `${t.slice(0, t.lastIndexOf(" ", EXTRAIT))}…`;
+};
 
 /**
  * The events located under the summit, per day of La Réunion, the last 30 days up to today, today « en cours »: the
@@ -238,7 +259,18 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   // The plan's words for the level, never beside pitonlive's (marketing).
   const defini = niveau && !hausse ? definition(niveau) : undefined;
 
+  // The text read in the images of the posts shown, only when the level it gives is the one known: else the post stays
+  // said as images not read, and the difference is logged.
+  const known = niveau && !hausse ? niveau : undefined;
+  const lus = new Map<string, string[]>();
+  await Promise.all((posts ?? []).slice(0, 3).filter((p) => p.image).map(async (p) => {
+    const r = await ocr.resultat(cache, p);
+    if (r?.statut !== "lu") return;
+    if (ocr.sameLevel(r.niveau_lu, known)) lus.set(p.lien, r.paragraphes);
+    else console.error(`volcan : texte lu dans l'image de l'OVPF non affiché (${p.lien}) : « ${r.niveau_lu} », niveau connu ${known ?? "aucun"}`);
+  }));
   const last = posts?.[0];
+  const lu = last && lus.get(last.lien);
   // The observatory's newest post an image we do not read, newer than what the state comes from: it may announce what
   // the state does not say (an eruption, its end). Said, and nothing drawn from it (marketing).
   const p0 = (state as { prefecture?: volcan.Phase } | null)?.prefecture;
@@ -260,7 +292,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
         // The day only from an official text: pitonlive's start time is not one (the page says none either).
         ? `ÉRUPTION EN COURS au Piton de la Fournaise${p?.eruption ? `, annoncée par la préfecture le ${dayOf(p.jour)}` : ""}.`
         : /^Alerte/.test(s.alert_level_display)
-          ? `${s.alert_level_display} au Piton de la Fournaise${libelle(s.alert_level_display) ? ` : « ${libelle(s.alert_level_display)} » (dispositif ORSEC Volcan)` : ""}. ${NON_ANNONCEE}${folded ? ` ${enImagesApres(jour, heure)} : la voir, ${last!.lien}.` : ""}`
+          ? `${s.alert_level_display} au Piton de la Fournaise${libelle(s.alert_level_display) ? ` : « ${libelle(s.alert_level_display)} » (dispositif ORSEC Volcan)` : ""}. ${NON_ANNONCEE}${folded ? ` ${(lu ? enImagesLuesApres : enImagesApres)(jour, heure)} : la voir, ${last!.lien}.` : ""}`
           // Never on our word: its source with it, the level read or not (data-run).
           : "Pas d'éruption en cours au Piton de la Fournaise selon pitonlive.com.",
     );
@@ -291,11 +323,11 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   // Under an alert, the post in images already named in the sentence on the texts read: not again (marketing).
   if (last && !folded) {
     parts.push(last.image
-      // The time of the post, never the one written in the images: they are not read.
-      ? `Dernière publication de l'OVPF, le ${jour} à ${heure} : ${volcan.imagesSaid(last.images, last.mots)}. rundata.re ne lit pas les images : à voir sur ${last.lien}.`
+      // The time of the post, never the one written in the images, even when read.
+      ? `Dernière publication de l'OVPF, le ${jour} à ${heure} : ${volcan.imagesSaid(last.images, last.mots, false, !!lu)}. ${lu ? `${LU_DANS_L_IMAGE} : « ${extrait(lu)} » (${last.lien}).` : `rundata.re ne lit pas les images : à voir sur ${last.lien}.`}`
       : `Dernière publication de l'OVPF sur l'activité (${day(last.date)}) : « ${last.texte.slice(0, 220)}${last.texte.length > 220 ? "…" : ""} »`);
-    if (imageAfter) parts.push(IMAGE_APRES);
-  }
+    if (imageAfter) parts.push(lu ? IMAGE_LUE_APRES : IMAGE_APRES);
+  } else if (lu) parts.push(`${LU_DANS_L_IMAGE} : « ${extrait(lu)} »`);
   const q = quakes ? quakeSummary(quakes, now) : null;
   if (q) {
     parts.push(
@@ -348,7 +380,15 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
       : "indisponible",
     alertes_precedentes: historique.precedentes(),
     // The release's PDF stays out of the answer until what it is read for is shown (ovpf-pdf.ts, SHOW).
-    publications_ovpf: posts ? posts.slice(0, 3).map(({ pdf: _, mots: __, ...p }) => ({ ...p, date: `${localTime(new Date(p.date))} heure de La Réunion`, ...(p.image && { a_lire: A_LIRE }) })) : "indisponible",
+    publications_ovpf: posts
+      ? posts.slice(0, 3).map(({ pdf: _, mots, ...p }) => ({
+          ...p,
+          date: `${localTime(new Date(p.date))} heure de La Réunion`,
+          ...(p.image && (lus.has(p.lien)
+            ? { texte: volcan.enImages(p.images, mots, true), texte_lu_dans_l_image: lus.get(p.lien)!.join("\n\n"), a_lire: A_LIRE_LU }
+            : { a_lire: A_LIRE })),
+        }))
+      : "indisponible",
     seismes: q ?? "indisponible",
     avertissements: [OFFICIAL],
     // The IPGP's site is offline (25/10/2026): the OVPF's own accounts instead.

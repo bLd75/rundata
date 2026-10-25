@@ -40,7 +40,8 @@ export const PITONLIVE: SourceInfo = {
   url: "https://pitonlive.com",
 };
 
-const FEED =
+// Also read by the collector of the releases given in images (scripts/ovpf-ocr.ts).
+export const FEED =
   "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=did:plc:qzdltnkksm37jcg5jr6rkuas&limit=30&filter=posts_no_replies";
 const STATE = "https://pitonlive.com/api/v1/public/state";
 const FRESH_SECONDS = 10 * 60;
@@ -90,15 +91,16 @@ interface Facet {
 
 /**
  * What is said of a post given in images: how many, and the few words that come with them, quoted; nothing read from
- * the images, not even that it is a release (a photo, a map…). « 3 images, sans texte » (marketing).
+ * the images, not even that it is a release (a photo, a map…). « 3 images, sans texte » (marketing). `lu`: the text of
+ * its first image is quoted (ovpf-ocr.ts), the post's own words are then its caption, « sans légende » (marketing).
  */
-export function imagesSaid(n: number | undefined, mots?: string, en = false): string {
+export function imagesSaid(n: number | undefined, mots?: string, en = false, lu = false): string {
   const count = n === 1 ? "une image" : n ? `${n} images` : en ? "images" : "des images";
-  return `${count}, ${mots ? `avec pour seul texte : « ${mots} »` : "sans texte"}`;
+  return `${count}, ${mots ? `avec pour ${lu ? "seule légende" : "seul texte"} : « ${mots} »` : lu ? "sans légende" : "sans texte"}`;
 }
 
 /** The same on the post's card: « Publication en 3 images, sans texte ». */
-export const enImages = (n: number | undefined, mots?: string) => `Publication en ${imagesSaid(n, mots, true)}`;
+export const enImages = (n: number | undefined, mots?: string, lu = false) => `Publication en ${imagesSaid(n, mots, true, lu)}`;
 
 interface FeedJson {
   feed: {

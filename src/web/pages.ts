@@ -642,6 +642,8 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .posts{list-style:none;padding:0;display:grid;gap:1rem}
 @media (min-width:58rem){.posts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .posts p{overflow-wrap:anywhere}
+/* The text read in an image of the OVPF, quoted apart from the card's own words (providers/ovpf-ocr.ts). */
+.posts details>summary{cursor:pointer}.posts details>p{margin:.6rem 0 0;padding-left:.8rem;border-left:3px solid var(--line)}
 .warn ul{padding:0}
 .social{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem 1rem}.social a{display:inline-flex;align-items:center;gap:.35rem}.social svg{width:1.1rem;height:1.1rem;flex:none}
 .pages{list-style:none;padding:0;margin-top:1rem;display:flex;flex-wrap:wrap;gap:.4rem}.pages a{display:block;padding:.3rem .75rem;border-radius:999px;background:rgb(255 255 255/.06);border:1px solid rgb(255 255 255/.1);text-decoration:none;font-size:.86rem}
