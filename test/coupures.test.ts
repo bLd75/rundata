@@ -244,9 +244,9 @@ describe("coupures d'eau", () => {
     expect(sp).toContain("<b>À partir du vendredi 23/10 à 22:00</b>");
     expect(sp).toContain(`les avis de <a href="https://lacreole.re/flash-infos" rel="noopener">la page « flash infos » de La Créole</a> : ils s'affichent en haut de cette page.`);
     expect(sp).not.toContain("Il ne publie pas ses avis de coupure");
-    // Sudeau publishes nothing read: the page says so rather than « no cut ».
+    // Sudéau publishes nothing read: the page says so rather than « no cut ».
     const lt = page("le-tampon");
-    expect(lt).toContain("Sudeau ne publie pas ses avis de coupure dans un flux");
+    expect(lt).toContain("Sudéau ne publie pas ses avis de coupure dans un flux");
     expect(lt).not.toContain("Aucune coupure d&#39;eau annoncée");
     expect(page("le-port")).toContain("<h1>Coupures d'eau au Port</h1>");
     expect(waterLive(pageOf("salazie")!, { coupures })).toMatchObject({ valeur: "Eau à ne pas boire" });

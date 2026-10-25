@@ -17,7 +17,7 @@ export interface Distributeur {
 
 // The ARS's names, as people write them.
 const NAMES: Record<string, string> = {
-  "CISE REUNION": "CISE Réunion", RUNEO: "runéo", SUDEAU: "Sudeau", "STÉ PUBLIQUE LOCALE SOURCES ET EAUX": "SPL Sources et Eaux",
+  "CISE REUNION": "CISE Réunion", RUNEO: "runéo", SUDEAU: "Sudéau", "STÉ PUBLIQUE LOCALE SOURCES ET EAUX": "SPL Sources et Eaux",
   O2LEST: "O2LEST", "EAUX DE LA POSSESSION": "Eaux de La Possession", DIONEO: "Dionéo", "DERICHEBOURG AQUA OI": "Derichebourg Aqua OI",
   "LA CREOLE": "La Créole", RECIL: "RECIL", "MAIRIE DE L'ÉTANG-SALÉ": "la mairie de L'Étang-Salé",
 };
