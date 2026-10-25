@@ -267,7 +267,7 @@ function assistant(origin: string, h: HomeLive | null, now: Date): string {
   return `<section id="assistant" aria-labelledby="h-assistant">
   <div class="sec-h"><p class="eyebrow">Comment ça marche</p>
     <h2 id="h-assistant">Branché en 2 minutes, gratuit, sans compte</h2>
-    <p>Le connecteur suit le protocole ouvert MCP (Model Context Protocol), compris par la plupart des assistants IA. Le connecteur ne reçoit que la question posée à l'outil, par exemple «\u00a0Saint-Paul\u00a0», jamais votre conversation.</p></div>
+    <p>Le connecteur suit le protocole ouvert MCP (Model Context Protocol), compris par la plupart des assistants IA. Il ne reçoit que la question posée à l'outil, par exemple «\u00a0Saint-Paul\u00a0», jamais votre conversation.</p></div>
   <div class="duo"><div class="card easy">${askHome(origin)}</div>${chatDemo(h, now)}</div>
   <p class="or">Ou branchez le connecteur une fois pour toutes, pour que votre IA aille chercher les données toute seule :</p>
   ${connectSteps(origin)}
