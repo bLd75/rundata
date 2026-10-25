@@ -6,7 +6,7 @@
  * cache has no copy, and copies what it read there.
  */
 import { costOf, count, left, measured, spent, unmeasured } from "../budget.js";
-import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore, isCopy, outdated } from "../cache.js";
+import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore, outdated, stampOf } from "../cache.js";
 import * as ensemble from "../providers/ensemble.js";
 import * as ovpfPdf from "../providers/ovpf-pdf.js";
 import { why } from "../types.js";
@@ -75,7 +75,7 @@ const KV_TTL_SECONDS = 24 * 3600;
 const COST_UNKNOWN = 25;
 // Besides the build: the data center's cache, then KV, asked for the copy before it is built (SharedFallback).
 const LOOKUP = 2;
-// Left to the agendas read after the copies (worker.ts) by a copy due only because another version built it: on a day
+// Left to the agendas read after the copies (worker.ts) by a copy due only because another revision built it: on a day
 // of deploys a few minutes apart, every event would otherwise spend its whole budget on them.
 export const AFTER_DEPLOY_RESERVE = 12;
 // Past its time by this much, a copy is tried at its cold cost, and said to be late when it is left again.
@@ -140,8 +140,8 @@ async function kvGet(kv: Kv, key: string): Promise<KvEntry | undefined> {
 
 /**
  * The data center's cache, and KV behind it for the shared copies only: asked when the cache has none, only one older
- * than FRESH_SECONDS (a data center that served the page once, then slept), or one of another version (`version`,
- * cache.ts), at the cost of one read instead of a build. The newer of the two is served, one of this version before one
+ * than FRESH_SECONDS (a data center that served the page once, then slept), or one of another revision (`outdated`,
+ * cache.ts), at the cost of one read instead of a build. The newer of the two is served, one of this revision before one
  * of another, and KV's is put in the cache, so that the data center's next isolates find it there. Never written to KV.
  */
 export class SharedFallback implements CacheStore {
@@ -194,7 +194,7 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
     const e = await kvGet(kv, s.key);
     return { s, at: e?.fetchedAt, kept: e?.cost, every: everyOf(s, e?.value), old: outdated(s.key, e, cache.version) };
   }));
-  // A copy of another version (cache.ts, `outdated`) is due at once, by its age: after a deploy they are all due, and
+  // A copy of another revision (cache.ts, `outdated`) is due at once, by its age: after a deploy they are all due, and
   // go the oldest first, over as many events as their builds take within the budget, less what the agendas keep.
   const due = ages
     .map(({ s, at, kept, every, old }) => {
@@ -235,7 +235,7 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
         continue;
       }
       count(1, true);
-      const version = isCopy(s.key) ? cache.version : undefined;
+      const version = stampOf(s.key, cache.version);
       const entry: KvEntry = { value: got.value, fetchedAt: got.fetchedAt.getTime(), cost: costOf(s.key) ?? kept, ...(version && { version }) };
       const meta: KvMeta = { fetchedAt: entry.fetchedAt, cost: entry.cost, every: everyOf(s, got.value), ...(version && { version }) };
       await kv.put(kvKey(s.key), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS, metadata: meta });

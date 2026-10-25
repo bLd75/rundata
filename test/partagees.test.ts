@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { count, counted, left, measured, WORKER_BUDGET } from "../src/budget.js";
-import { Cache, CACHE_FORMAT, type CacheEntry, isCopy, MemoryStore, TieredStore } from "../src/cache.js";
+import { Cache, CACHE_FORMAT, type CacheEntry, isCopy, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
 import { VERSION } from "../src/server.js";
 import { SATELLITES as SATELLITES_KEY } from "../src/tools/mer.js";
 import { FRESH_SECONDS } from "../src/web/data.js";
@@ -124,7 +124,7 @@ describe("the shared copies after a deploy (cam-change 285)", () => {
     // KV has none of this version yet: the data center's is served, for the cache to build again.
     expect(await store.get("web:actualites")).toEqual(old);
     // The scheduled event wrote one of this version, older than the data center's: it wins, and is put there.
-    const current: CacheEntry = { value: { n: 2 }, fetchedAt: T0 - 3 * 60_000, version: "2.0.0" };
+    const current: CacheEntry = { value: { n: 2 }, fetchedAt: T0 - 3 * 60_000, version: stampOf("web:actualites", "2.0.0") };
     await kv.put(kvKey("web:actualites"), JSON.stringify(current));
     expect(await store.get("web:actualites")).toEqual(current);
     expect(await edge.get("web:actualites")).toEqual(current);
@@ -188,6 +188,33 @@ describe("the shared copies after a deploy (cam-change 285)", () => {
     const after = await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(now), list));
     for (const k of after.value.written) expect(byRate(k, now), k).toBe(true);
     expect(after.value.left.filter((l) => l.why.startsWith("autre version"))).toEqual([]);
+  });
+});
+
+describe("the shared copies after a deploy that raises no revision (cam-change 286)", () => {
+  it("are none due for their version: the events cost what they cost before the deploy", async () => {
+    const kv = new FakeKv();
+    const now = T0;
+    const edge = new CountedStore();
+    // The real list's keys, each written by the previous version a minute apart, none due by its rate.
+    const list: Shared[] = SHARED.map((s) => ({ ...s, build: async () => (count(s.cold ?? 25), {}) }));
+    for (const [i, s] of list.entries()) {
+      const at = now - (i + 1) * 60_000;
+      const version = stampOf(s.key, "1.0.0");
+      const entry = { value: {}, fetchedAt: at, cost: s.cold, ...(version && { version }) };
+      await kv.put(kvKey(s.key), JSON.stringify(entry), { metadata: { fetchedAt: at, cost: s.cold, every: typeof s.every === "number" ? s.every : 30, ...(version && { version }) } });
+      await edge.put(s.key, entry);
+    }
+    const event = (version: string) =>
+      counted(WORKER_BUDGET, () => warmShared(new Cache(new TieredStore(new MemoryStore(), edge), () => now, false, undefined, version), kv, new Date(now), list));
+    const before = await event("1.0.0");
+    const after = await event("2.0.0");
+    expect(before.value).toEqual({ written: [], left: [] });
+    expect(after.value).toEqual({ written: [], left: [] });
+    expect(after.used).toBe(before.used);
+    // A page's copy read by the data center after the deploy: served, not built again.
+    const page = new Cache(new TieredStore(new MemoryStore(), new SharedFallback(edge, kv, () => now, "2.0.0")), () => now, false, undefined, "2.0.0");
+    expect((await page.peek("web:air"))!.outdated).toBeUndefined();
   });
 });
 
