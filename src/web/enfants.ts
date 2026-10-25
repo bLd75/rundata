@@ -8,7 +8,7 @@ import * as enfants from "../vie/enfants.js";
 import type { Alerte, EnfantsAnswer } from "./data.js";
 import { agendaHours, connectorCta, crumbBar, crumbs, loading, webPage } from "./domains.js";
 import { esc, islandMap } from "./map.js";
-import { anchorId, ask, layout } from "./pages.js";
+import { anchorId, ask, layout, type Live } from "./pages.js";
 
 type Row = EnfantsAnswer["evenements"][number];
 const { typo } = enfants;
@@ -28,6 +28,15 @@ const ACTIVITIES = "Activités et spectacles";
 
 /** The badge of an age: bold when the source gives it, « · indicatif » when it is rundata.re's (its note on hover, set by the script). */
 const badge = (a: enfants.Age) => `<span class="age${a.fait ? "" : a.texte === enfants.NO_AGE ? " i" : " i n"}">${esc(a.texte)}</span>`;
+
+/**
+ * The tile of a list of places (the island's on the home page, a commune's on its page): how many, then the three kinds
+ * it has most of, the number first: « 4 aires de jeux · 2 parcs et jardins · 1 piscine · … ».
+ */
+export function enfantsLive(list = enfants.LIEUX): Live {
+  const kinds = enfants.TYPES.map((t) => [t.type, list.filter((l) => l.type === t.type).length] as const).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
+  return { valeur: `${list.length} lieu${list.length > 1 ? "x" : ""}`, detail: kinds.slice(0, 3).map(([k, n]) => enfants.counted(k, n)).join(" · ") + (kinds.length > 3 ? " · …" : "") };
+}
 
 function eventLi(r: Row): string {
   const a = enfants.eventAge(r.age);

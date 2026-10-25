@@ -155,6 +155,14 @@ export const CATEGORIES: Category[] = [
     about: "Les concerts, spectacles, fêtes, festivals et marchés des prochains jours, d'après les programmes des salles, les agendas des mairies et reunion.fr.",
   },
   {
+    key: "enfants",
+    nom: "Enfants",
+    path: "/enfants",
+    icon: "kids",
+    tools: ["annuaire_services_publics", "evenements"],
+    about: "Aires de jeux, parcs, piscines, médiathèques, zoos et skateparks commune par commune, et les activités pour les enfants des deux semaines qui viennent, avec l'âge quand la source le donne.",
+  },
+  {
     key: "eau",
     nom: "Eau",
     path: "/eau",
@@ -215,6 +223,8 @@ export interface Urgent {
 
 // What serves the most people goes first: the events, the hikes, the weather; the sea and the buses after the rest.
 export const FIRST = ["agenda", "sentiers", "meteo"];
+// In the menu and the tiles, the children's page right after the events, but not in the bar.
+const LEADING = [FIRST[0], "enfants", ...FIRST.slice(1)];
 const LAST = ["mer", "bus"];
 // What is first while in force; on the home page's tiles, before the sea and the buses when quiet.
 const URGENT = ["vigilance", "volcan"];
@@ -226,12 +236,13 @@ const TILES_LAST = ["trafic"];
 export const urgentKeys = (u: Urgent) => [u.vigilance && "vigilance", u.volcan && "volcan"].filter((k): k is string => !!k);
 
 /**
- * `list` in the order of use: the vigilance and the volcano first while in force, then FIRST, the others as listed
+ * `list` in the order of use: the vigilance and the volcano first while in force, then FIRST with the children's page
+ * after the events, the others as listed
  * (the vigilance and the volcano among them when quiet), the sea and the buses last. With `quietLast` (the home page's
  * tiles), the traffic, then a quiet vigilance and a quiet volcano go to the end too, before the sea and the buses.
  */
 export function byUse<T extends { key: string }>(list: T[], u: Urgent, quietLast = false): T[] {
-  const top = [...urgentKeys(u), ...FIRST];
+  const top = [...urgentKeys(u), ...LEADING];
   const last = quietLast ? [...TILES_LAST, ...URGENT.filter((k) => !top.includes(k)), ...LAST] : LAST;
   const rank = (key: string) => (top.includes(key) ? top.indexOf(key) - 100 : last.includes(key) ? 100 + last.indexOf(key) : 0);
   // The sort is stable: the others keep their order.
