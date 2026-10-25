@@ -373,13 +373,15 @@ export function occurrences(r: Pick<EventRow, "date" | "quand" | "autres_dates">
 
 // Told from the agendas read: a source taken out of AGENDAS leaves this text too.
 const halls = src.AGENDAS.filter((x) => x.source === SALLES_SOURCE);
-const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== "reunion_fr");
+const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== "reunion_fr" && !x.partiel);
+const partial = src.AGENDAS.filter((x) => x.partiel);
 const without = Object.keys(INSEE).filter((c) => !src.COVERED.includes(c));
 /** The communes whose mairie's agenda is read, for the tool's description. */
 export const MAIRIES_LUES = towns.filter((x) => x.commune && !x.couvre).map((x) => x.commune).join(", ");
 export const COUVERTURE =
   `Agendas lus : ${towns.map((x) => (x.couvre ? `${x.nom} (${x.couvre.join(", ")})` : x.nom)).join(", ")} ; agenda de reunion.fr pour les grandes fêtes ` +
   `et festivals de toute l'île. Programmes des salles : ${halls.map((x) => x.nom).join(", ")}. ` +
+  (partial.length ? `Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : ${partial.map((x) => x.commune).join(", ")}. ` : "") +
   `Sans agenda lu (seuls les grands événements de reunion.fr) : ${without.join(", ")}` +
   `${Object.entries(src.SANS_AGENDA).filter(([c]) => without.includes(c)).map(([, why]) => ` ; ${why}`).join("")}. ` +
   "Pas encore lus : les bars et les clubs, les billetteries privées. Un événement absent ici peut quand même avoir lieu (voir le site ou la " +
@@ -424,11 +426,14 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const kind = what?.nom ? ` (${what.nom})` : "";
   const n = mine.length;
   const covered = !commune || src.COVERED.includes(commune);
+  // A commune read only through its mairie's news: said, so that a short list is not taken for its whole agenda.
+  const partly = commune ? partial.find((x) => x.commune === commune && !towns.some((y) => (y.couvre ?? [y.commune]).includes(commune))) : undefined;
   const off = mine.filter((x) => x.e.statut === "annulé" || x.e.statut === "reporté");
   const resume = [
     n ? `${n} événement${n > 1 ? "s" : ""}${kind} ${where} ${periodText}` : `Aucun événement${kind} trouvé ${where} ${periodText}`,
     off.length ? `ATTENTION : ${off.map((x) => `« ${x.e.titre} » ${x.e.statut}${x.e.reporte_au ? ` au ${dayText(x.e.reporte_au)}` : ""}${x.e.selon ? ` (d'après ${x.e.selon.media})` : ""}`).slice(0, 4).join(", ")}` : "",
     commune && !covered ? `${src.SANS_AGENDA[commune] ?? `ni la mairie ${de(commune)} ni une salle de la commune ne publient d'agenda lisible`} : seuls les grands événements de reunion.fr y figurent` : "",
+    partly ? `${commune} : ${partly.partiel}, avec les grands événements de reunion.fr` : "",
     commune && !n && all.length ? `${all.length} ailleurs sur l'île` : "",
     // Said in the summary, not only in `indisponible`: a partial list must not be read as the whole of it.
     failed.length ? `${failed.length} agenda${failed.length > 1 ? "s" : ""} non lu${failed.length > 1 ? "s" : ""} cette fois : ${failed.join(", ")} (liste peut-être incomplète, à redemander dans une minute)` : "",

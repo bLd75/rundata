@@ -2,10 +2,10 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKER_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseTribe } from "../src/providers/agenda.js";
+import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSpipNews, parseTribe, parseWpNews } from "../src/providers/agenda.js";
 import { extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
-import { agenda, gather, periode, refreshPlanned } from "../src/tools/agenda.js";
+import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
 
 // The agendas on Saturday 24/10/2026 in the morning: the Fête de l'ail at Petite-Île (23 to 25), a concert tonight at
@@ -34,6 +34,9 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("ville-port")) return "tribe_le-port.json";
   if (url.includes("trois-bassins")) return "tribe_trois-bassins.json";
   if (url.includes("lrvb.re")) return "tribe_lrvb.json";
+  if (url.includes("saintphilippe.re")) return "actus_saint-philippe.json";
+  if (url.includes("ville-cilaos.fr")) return "actus_cilaos.json";
+  if (url.includes("saintjoseph.re")) return "rss_saint-joseph.xml";
   if (url.includes("letampon")) return "rss_le-tampon.xml";
   if (url.includes("saintlouis")) return "rss_saint-louis.xml";
   if (url.includes("lapossession")) return "rss_la-possession.xml";
@@ -100,6 +103,8 @@ describe("agenda", () => {
     let urls: string[];
     let league: () => Response;
     const KING = "King Saison 6 Solo étape 2";
+    // The mairies' news, read by the scheduled event too: their sites answer.
+    const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph"];
     const titles = (b: { evenements?: { titre: string }[] }) => (b.evenements ?? []).map((e) => e.titre);
     const entry = async (store: MemoryStore) => ((await store.get("agendas"))?.value as Record<string, CacheEntry> | undefined)?.["agenda:lrvb"];
     beforeEach(() => {
@@ -122,7 +127,7 @@ describe("agenda", () => {
       expect(urls.some((u) => u.includes("lrvb.re"))).toBe(false);
       expect(before.indisponible).toBeUndefined();
       expect(titles(before)).not.toContain(KING);
-      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["lrvb"], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["lrvb", ...MAIRIES], gardes: [], reportes: [], trop_vieilles: [] });
       expect(urls.filter((u) => u.includes("lrvb.re"))).toHaveLength(1);
       // Another isolate serves it, with the time it was read.
       const after = body(await agenda(at(), undefined, undefined, "King", NOW));
@@ -147,7 +152,7 @@ describe("agenda", () => {
       expect((first?.value as unknown[]).length).toBe(3);
       t += 2 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: MAIRIES, gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
       expect(await entry(store)).toEqual(first);
       league = () => new Response(JSON.stringify({ events: [] }));
       expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
@@ -155,7 +160,7 @@ describe("agenda", () => {
       // Still failing two days on: the copy, no longer served, is said too old in the scheduled event's log.
       t += 48 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: MAIRIES, gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
       expect(await entry(store)).toEqual(first);
     });
 
@@ -172,7 +177,7 @@ describe("agenda", () => {
         count(left() - 5); // what the scheduled event did before: 5 left, KEEP_LEFT 4 of them
         return refreshPlanned(new Cache(store, () => NOW.getTime()), NOW);
       });
-      expect(value).toEqual({ lus: [], gardes: [], reportes: ["lrvb"], trop_vieilles: [] });
+      expect(value).toEqual({ lus: [], gardes: [], reportes: ["lrvb", ...MAIRIES], trop_vieilles: [] });
       expect(urls).toEqual([]);
       expect(store.puts).toBe(0);
     });
@@ -188,6 +193,39 @@ describe("agenda", () => {
       const written = (await store.get("agendas"))?.value as Record<string, CacheEntry>;
       expect(Object.keys(written).length).toBeGreaterThan(10);
       expect(written["agenda:lrvb"]).toEqual({ value: copy, fetchedAt: at });
+    });
+  });
+
+  describe("a mairie's news (Saint-Philippe, Cilaos, Saint-Joseph)", () => {
+    const seen = (list: { titre: string; seances: unknown[] }[]) => list.map((e) => [e.titre, e.seances]);
+
+    it("keeps only the articles that give an event's day, today or later, and no service notice", () => {
+      expect(seen(parseWpNews(JSON.parse(fixture("actus_saint-philippe.json")), "Mairie de Saint-Philippe", "Saint-Philippe", NOW))).toEqual([
+        ["« Union » : repas de partage et séance poétique le 25 octobre", [{ debut: "2026-10-25" }]],
+        ["Dépistage respiratoire gratuit à Saint-Philippe le 18 novembre", [{ debut: "2026-11-18" }]],
+      ]);
+      // Not « Distribution de compost à Cilaos : suspension temporaire le 27 octobre 2026 », a day and a service; nor
+      // the Café des Aidants of the 22nd, past.
+      const cilaos = parseWpNews(JSON.parse(fixture("actus_cilaos.json")), "Ville de Cilaos", "Cilaos", NOW);
+      expect(seen(cilaos)).toEqual([["Journée de prévention de l’AVC à Cilaos le 28 octobre 2026", [{ debut: "2026-10-28" }]]]);
+      expect(cilaos[0]).toMatchObject({ commune: "Cilaos", publie_par: "Ville de Cilaos", lien: expect.stringContaining("ville-cilaos.fr") });
+      // The day in the first sentence (« Du 7 au 11 novembre 2026, … »); not the hours of the swimming pools, nor the
+      // holidays' stays, which give no day.
+      expect(seen(parseSpipNews(fixture("rss_saint-joseph.xml"), "Ville de Saint-Joseph", "Saint-Joseph", NOW))).toEqual([
+        ["Safran en fête 2026 : cinq jours de festivités à la Plaine des Grègues", [{ debut: "2026-11-07", fin: "2026-11-11" }]],
+        ["La Caravane Santé fait étape à Saint-Joseph le 24 octobre 2026", [{ debut: "2026-10-24T09:00", fin: "2026-10-24T15:00" }]],
+      ]);
+    });
+
+    it("says it is no full agenda, in the answer for the commune and in the coverage", async () => {
+      const c = cache();
+      await refreshPlanned(c, NOW);
+      const b = body(await agenda(c, "Saint-Philippe", undefined, undefined, NOW));
+      expect(b.resume).toContain("Saint-Philippe : seuls les événements annoncés dans les actualités de la Mairie de Saint-Philippe sont lus, ce n'est pas un agenda complet");
+      expect(b.evenements.map((e: { titre: string }) => e.titre)).toContain("« Union » : repas de partage et séance poétique le 25 octobre");
+      expect(COUVERTURE).toContain("Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : Saint-Philippe, Cilaos, Saint-Joseph.");
+      expect(MAIRIES_LUES).not.toContain("Saint-Philippe");
+      expect(ACTUS_MAIRIES.every((a) => a.planifie && AGENDAS.includes(a))).toBe(true);
     });
   });
 

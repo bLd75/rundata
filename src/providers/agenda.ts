@@ -26,7 +26,7 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
 import { communesIn, strip } from "./avis-eau.js";
-import { extrait, lead, monthOf, statusOf, type Statut } from "./agenda-mots.js";
+import { annonceEvenement, extrait, lead, monthOf, statusOf, type Statut } from "./agenda-mots.js";
 import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
 import { SOURCES as SPORT_SOURCES } from "./sport.js";
 
@@ -153,6 +153,8 @@ export interface Agenda {
    * copy while it is younger than PLANIFIE_MAX_AGE_SECONDS, else goes without it.
    */
   planifie?: boolean;
+  /** What is read of the commune when it is not an agenda (a mairie's news): said in the answer for that commune. */
+  partiel?: string;
   /** One `cache.get("agenda:<id>", …)`, nothing else of the cache. */
   load: (cache: AgendaStore, now: Date) => Promise<Cached<Evenement[]>>;
 }
@@ -479,6 +481,76 @@ function rss(id: string, nom: string, url: string, commune: string, source?: Sou
     load: (cache) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => parseRss(await getText(from.id, url, TIMEOUT_MS, HEADERS), nom, commune, !!source)),
   };
 }
+
+// ---------------------------------------------------------------- A mairie's news (WordPress, SPIP)
+
+/**
+ * A mairie with no agenda that announces some of its events in its news. An article is an event only when its title
+ * (a feed's: its title or its first sentence) gives the event's day, today or later, and announces an event rather than
+ * a service (annonceEvenement); anything else is left out, never guessed: an article whose day cannot be read is no
+ * event. What comes of it is small municipal events, not an agenda (`partiel`).
+ */
+function newsEvent(titre: string, texte: string, dated: string, lien: string, published: Date, now: Date, nom: string, commune: string): Evenement[] {
+  if (!annonceEvenement(titre)) return [];
+  const today = localDay(now);
+  const seances = datesIn(dated, published).filter((s) => (s.fin ?? s.debut).slice(0, 10) >= today);
+  if (!seances.length) return [];
+  const statut = statusOf(titre, texte);
+  return [{ ...(statut ? { statut } : {}), id: lien, titre, seances, commune, categories: [], ...extrait(texte), lien, publie_par: nom }];
+}
+
+interface WpPost { date: string; link: string; title: { rendered: string }; excerpt?: { rendered: string } }
+
+/** WordPress posts: the day in the title (« … le 25 octobre », « … le 28 octobre 2026 »). */
+export function parseWpNews(posts: WpPost[], nom: string, commune: string, now: Date): Evenement[] {
+  return posts.flatMap((p) => {
+    const titre = clean(p.title.rendered);
+    // WordPress dates a post in the site's time (La Réunion's here), without an offset.
+    return newsEvent(titre, clean(p.excerpt?.rendered ?? "").replace(/\s*\[(?:…|&hellip;)\]\s*$/u, ""), titre, p.link, new Date(`${p.date}+04:00`), now, nom, commune);
+  });
+}
+
+/** A SPIP feed: the day in the title or in the first sentence (« Du 7 au 11 novembre 2026, … »). */
+export function parseSpipNews(xml: string, nom: string, commune: string, now: Date): Evenement[] {
+  return [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/g)].flatMap(([, item]) => {
+    const titre = clean(tag(item, "title"));
+    const texte = clean(tag(item, "description"));
+    const published = new Date(tag(item, "dc:date") || tag(item, "pubDate"));
+    return newsEvent(titre, texte, `${titre} ${lead(texte)}`, clean(tag(item, "link")), published, now, nom, commune);
+  });
+}
+
+function news(id: string, nom: string, site: string, url: string, commune: string, parse: (body: string, now: Date) => Evenement[]): Agenda {
+  const source: SourceInfo = {
+    id: `actus_${id}`,
+    nom: `Actualités de la ${nom} (événements annoncés)`,
+    organisme: nom,
+    licence: "Information publique (actualités municipales)",
+    attribution: nom,
+    url: site,
+  };
+  return {
+    id,
+    nom,
+    source,
+    commune,
+    planifie: true,
+    partiel: `seuls les événements annoncés dans les actualités de la ${nom} sont lus, ce n'est pas un agenda complet`,
+    load: (cache, now) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => parse(await getText(source.id, url, TIMEOUT_MS, HEADERS), now)),
+  };
+}
+
+const WP_NEWS = "/wp-json/wp/v2/posts?per_page=20&_fields=date,link,title,excerpt";
+export const ACTUS_MAIRIES: Agenda[] = [
+  news("saint_philippe", "Mairie de Saint-Philippe", "https://saintphilippe.re/", `https://saintphilippe.re${WP_NEWS}`, "Saint-Philippe",
+    (body, now) => parseWpNews(JSON.parse(body), "Mairie de Saint-Philippe", "Saint-Philippe", now)),
+  // Its category « Actualité » (17): the others are notices.
+  news("cilaos", "Ville de Cilaos", "https://ville-cilaos.fr/", `https://ville-cilaos.fr${WP_NEWS}&categories=17`, "Cilaos",
+    (body, now) => parseWpNews(JSON.parse(body), "Ville de Cilaos", "Cilaos", now)),
+  // Its feed of articles; not `?page=ical`, whose dates are the articles' publication, not events.
+  news("saint_joseph", "Ville de Saint-Joseph", "https://saintjoseph.re/", "https://saintjoseph.re/spip.php?page=backend", "Saint-Joseph",
+    (body, now) => parseSpipNews(body, "Ville de Saint-Joseph", "Saint-Joseph", now)),
+];
 
 // ---------------------------------------------------------------- IntraMuros (La Possession)
 
@@ -1024,6 +1096,7 @@ export const AGENDAS: Agenda[] = [
   openAgenda("cinor", "CINOR", 50316469, NORD),
   openAgenda("oti_nord", "Office de tourisme du Nord", 32570974, NORD),
   LIGUE_VOLLEY,
+  ...ACTUS_MAIRIES,
   reunionFr,
   ...SALLES,
 ];
