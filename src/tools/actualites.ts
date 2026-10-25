@@ -12,7 +12,7 @@ const LIVE_MAX = 8;
 const PREFECTURE_DAYS = 3;
 
 export const COUVERTURE =
-  "Médias lus toutes les 5 minutes : Réunion La 1ère, Clicanoo (Le Journal de l'île), Imaz Press (et son direct « l'actu en continu » les jours de mobilisation, " +
+  "Médias lus toutes les 5 minutes : Réunion La 1ère, Clicanoo (Le Journal de l'île), Le Quotidien de La Réunion, Imaz Press (et son direct « l'actu en continu » les jours de mobilisation, " +
   "de cyclone ou d'éruption), Freedom, Parallèle Sud, Témoignages, et les communiqués de la préfecture. Linfo.re et Zinfos974 ne se laissent pas lire " +
   "par un programme : ils n'y sont pas.";
 export const A_SAVOIR =

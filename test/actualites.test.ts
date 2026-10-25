@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { firstSentence, merge, parseImazLive, parseNewsSitemap, parsePrefecture, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
+import { firstSentence, merge, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
 import { actualites, quand } from "../src/tools/actualites.js";
 import { actualitesPage } from "../src/web/domains.js";
 import { buildActualites } from "../src/web/data.js";
@@ -14,6 +14,7 @@ const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].tex
 const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
 
 function file(url: string): string | undefined {
+  if (new URL(url).hostname === "www.lequotidien.re") return "quotidien.html";
   if (url.includes("googlenews")) return "la1ere_googlenews.xml";
   if (url.includes("la1ere") && url.includes("/rss")) return "la1ere_societe.xml";
   if (url.includes("clicanoo")) return "clicanoo.xml";
@@ -70,6 +71,27 @@ describe("actualités", () => {
     expect(firstSentence("Dès 6 heures, une convergence des mouvements appelle à la mobilisation. Puis la suite.")).toBe("Dès 6 heures, une convergence des mouvements appelle à la mobilisation.");
   });
 
+  it("reads Le Quotidien's home page: the titles, the day of each, the time only when given to the minute", () => {
+    // Its home page on Sunday 25/10/2026 at 15:46 in La Réunion.
+    const at = new Date("2026-10-25T11:46:16Z");
+    const list = parseQuotidien(fixture("quotidien.html"), at);
+    const find = (t: string) => list.find((i) => i.titre.startsWith(t))!;
+    // « il y a 41 minutes »: the time.
+    expect(find("Saint-André : au Velli, Marie Grondin")).toMatchObject({ media: "Le Quotidien", publie: "2026-10-25T11:05:16.000Z", heure: true, communes: ["Saint-André"] });
+    expect(quand(find("Saint-André : au Velli"), at)).toBe("aujourd'hui à 15:05");
+    expect(find("Saint-André : au Velli").lien).toBe("https://www.lequotidien.re/article/culture/2026/10/25/saint-andre-au-velli-marie-grondin-fait-vivre-la-cuisine-creole-entre-tradition-et-modernite");
+    // « il y a 1 heure », « il y a 22 heures »: the order, the day only.
+    expect(find("Facturation électronique à La Réunion")).toMatchObject({ publie: "2026-10-25T10:46:16.000Z", heure: false });
+    expect(quand(find("La Rivière des Galets : un enfant de 5 ans"), at)).toBe("hier");
+    // No time on the page: the day of its address, at noon.
+    expect(find("Braconnage dans la réserve naturelle")).toMatchObject({ publie: "2026-10-23T08:00:00.000Z", heure: false });
+    // The whole title, not the one the page cuts, nor its « Article : » label; no France-monde, no readers' letters.
+    expect(find("Grand Raid : «Judicaël").titre).toBe("Grand Raid : «Judicaël peut faire encore mieux!»");
+    expect(list.some((i) => /^Article\b|\.\.\.$/.test(i.titre))).toBe(false);
+    expect(list.some((i) => /national-et-international|courrier-des-lecteurs/.test(i.lien))).toBe(false);
+    expect(new Set(list.map((i) => i.lien)).size).toBe(list.length);
+  });
+
   it("reads a live blog, its Paris times turned into La Réunion's, and what each entry says of each commune", () => {
     const live = parseImazLive(fixture("imaz_live.html"), "https://imazpress.com/live", NOW);
     // Stamped 09:33 in Paris: 11:33 in La Réunion, « À 11 heures, une vingtaine de personnes rassemblées ».
@@ -108,7 +130,9 @@ describe("actualités", () => {
     expect(b.prefecture[0].titre).toBe("Violences urbaines : bilan de la nuit");
     // Every medium is read with the site's name; one request each, and the live blog.
     expect(asked.every((a) => a.startsWith("rundata.re (contact@rundata.re) "))).toBe(true);
-    expect(asked.length).toBeLessThanOrEqual(11);
+    expect(asked.length).toBeLessThanOrEqual(12);
+    // Le Quotidien: its home page, once.
+    expect(asked.filter((a) => a.endsWith(" https://www.lequotidien.re/"))).toHaveLength(1);
   });
 
   it("says when nothing names a place, without saying nothing happens there", async () => {
