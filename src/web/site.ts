@@ -94,6 +94,8 @@ import * as dae from "../providers/dae.js";
 import * as traces from "../providers/traces.js";
 import { SECTEURS, secteurOf } from "../traces/secteurs.js";
 import { secteurPage } from "./randonnees.js";
+import { aProposPage, llmsTxt } from "./a-propos.js";
+import { connecteurPage } from "./connecteur.js";
 import { typo, typoPage } from "./typo.js";
 
 const HTML = {
@@ -253,7 +255,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
   // The defibrillators are a list bundled with the server: their page changes when it is rebuilt.
   const urls: Url[] = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/alerte-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), fixed("/kit-cyclone"), fixed("/publier"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
-    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
+    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
     ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], ["/carburants", fuelDay ? (fuelDay < today ? fuelDay : today) : undefined, "daily"],
     // The fires' page only once FIRMS's key is there: before, it says the detection is not active.
     ...(feux.enabled() ? [live(FEUX_PATH)] : [])];
@@ -438,6 +440,19 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === BAIGNADE || path === `${BAIGNADE}/`) {
     return new Response(bathingPage(origin, now), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
+  if (path === "/mentions-legales" || path === "/mentions-legales/") {
+    return new Response(null, { status: 301, headers: { location: "/conditions#mentions-legales", "cache-control": STATIC } });
+  }
+  // Who makes the site, and the connector's page for a browser (app.ts sends only those here): nothing read but the vigilance's banner.
+  if (path === "/a-propos" || path === "/a-propos/") {
+    return new Response(aProposPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
+  if (path === "/mcp") {
+    return new Response(connecteurPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600", vary: "accept" } });
+  }
+  if (path === "/llms.txt") {
+    return new Response(llmsTxt(origin), { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" } });
   }
   if (path === "/confidentialite" || path === "/conditions") {
     return new Response(legalPage(origin, path.slice(1) as "confidentialite" | "conditions"), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });

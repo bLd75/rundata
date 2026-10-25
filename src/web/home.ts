@@ -5,6 +5,7 @@
 import { alerteVolcan, homeCard, volcanBanner } from "./volcan-alerte.js";
 import type { Cached } from "../cache.js";
 import type * as mf from "../providers/vigilance.js";
+import { PATH as A_PROPOS, QUI } from "./a-propos.js";
 import icons from "./icons.json" with { type: "json" };
 import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from "./categories.js";
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
@@ -91,7 +92,8 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
   };
 }
 
-function askHome(origin: string): string {
+/** The buttons that send the question to an assistant, with no connector: on the home page and on /mcp. */
+export function askHome(origin: string): string {
   const url = `${origin}/`;
   return ask(`Kwélafé La Rényon astèr ? Gèt si ${url} é di amwin lo tan, lo volkan, lo kouran é lo bis.`,
     `Que se passe-t-il en ce moment à La Réunion ? Lis ${url} et résume-moi la météo, la vigilance, le volcan, l'électricité, l'air et les bus, avec l'heure des données.`);
@@ -263,7 +265,13 @@ function assistant(origin: string, h: HomeLive | null, now: Date): string {
     <p>Le connecteur suit le protocole ouvert MCP (Model Context Protocol), compris par la plupart des assistants IA. Aucune donnée personnelle n'est collectée.</p></div>
   <div class="duo"><div class="card easy">${askHome(origin)}</div>${chatDemo(h, now)}</div>
   <p class="or">Ou branchez le connecteur une fois pour toutes, pour que votre IA aille chercher les données toute seule :</p>
-  <ol class="steps">
+  ${connectSteps(origin)}
+</section>`;
+}
+
+/** The three steps to plug the connector, assistant by assistant: on the home page and on /mcp. */
+export function connectSteps(origin: string): string {
+  return `<ol class="steps">
     <li class="card step"><span class="num">1</span><h3>Copiez l'adresse</h3>${connector(origin, "mcp-url")}</li>
     <li class="card step"><span class="num">2</span><h3>Ajoutez-la à votre assistant</h3>
       <div class="tabs">
@@ -285,8 +293,7 @@ function assistant(origin: string, h: HomeLive | null, now: Date): string {
     <li class="card step"><span class="num">3</span><h3>Posez votre question</h3>
       <ul class="qs"><li>Le prochain bus à la gare de Saint-Pierre ?</li><li>Il fait quelle température à l'Hermitage ?</li>
       <li>Le volcan est en éruption ?</li><li>La mairie de Saint-Paul est ouverte ?</li></ul></li>
-  </ol>
-</section>`;
+  </ol>`;
 }
 
 const PRINCIPLES = `<section aria-labelledby="h-lire">
@@ -310,6 +317,11 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
       // Square, at least 112 px and readable on white, as Google asks of a logo: the symbol's tile, not the share picture.
       logo: `${origin}${icons["512"]}`,
       email: "contact@rundata.re",
+      description: QUI,
+      foundingDate: "2026-10",
+      areaServed: { "@type": "AdministrativeArea", name: "La Réunion" },
+      publishingPrinciples: `${origin}${A_PROPOS}#engagements`,
+      contactPoint: { "@type": "ContactPoint", email: "contact@rundata.re", contactType: "presse", availableLanguage: "fr" },
       sameAs: [...followed().map((s) => s.url), GITHUB, DATAGOUV_REUSE, GLAMA],
     },
     {

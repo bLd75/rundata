@@ -856,7 +856,7 @@ ${avisForm(head.path)}`}
     ${SLOGAN}
     <p>La Réunion 974 en direct, pour vous et votre assistant IA.</p>
     ${head.rss ? `<p><a href="${esc(head.rss.href)}" title="${esc(head.rss.hint)}">${esc(head.rss.link)}</a></p>` : ""}
-    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · <a href="/publier">publier vos données</a> · contact@rundata.re</p>
+    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/a-propos">qui fait rundata.re ?</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · <a href="/publier">publier vos données</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP.</p>
     ${follow()}
     <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li></ul>
@@ -1347,7 +1347,7 @@ export function notFoundPage(origin: string, path: string): string {
     description: "La Réunion (974) en temps réel\u00a0: sorties, randos, météo, routes, vigilance, volcan, air, électricité, calendrier.",
     path,
     jsonld: [],
-  }, `<div class="wrap intro"><div class="pitch"><h1>Page introuvable</h1><p class="lead">Cette adresse n'existe pas. Toute l'île en direct est sur <a href="/">la page d'accueil</a>, et chaque catégorie a sa page ci-dessous.</p></div></div>`,
+  }, `<div class="wrap intro"><div class="pitch"><h1>Page introuvable</h1><p class="lead">Cette adresse n'existe pas sur rundata.re. Repartez de <a href="/">l'accueil</a>, des <a href="/evenements">sorties</a>, des <a href="/randonnees">randos</a> ou de <a href="/communes">votre commune</a>, ou découvrez <a href="/a-propos">qui fait rundata.re</a>.</p></div></div>`,
   `<section aria-labelledby="h-cat"><h2 id="h-cat">Les catégories</h2><ul class="chips">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}</ul></section>
 <section aria-labelledby="h-communes"><h2 id="h-communes">Météo par commune et par lieu</h2>${placeLinks()}</section>`);
 }
@@ -1693,9 +1693,9 @@ export function legalPage(origin: string, kind: "confidentialite" | "conditions"
   <p>Le service est fait pour répondre à des questions. Ne l'interrogez pas en masse de façon automatique : il peut limiter ou bloquer un usage qui gêne les autres ou les services publics qu'il interroge.</p>
   <h2>Réutiliser les données</h2>
   <p>Chaque donnée garde la licence de sa source : Licence Ouverte Etalab 2.0 pour la plupart, ODbL pour OpenStreetMap, CC BY 4.0 pour Open-Meteo et les séismes de l'IPGP. L'outil <code>sources_donnees</code> les liste avec l'attribution à citer.</p>
-  <h2>Mentions légales</h2>
-  <p>Éditeur : un particulier, joignable à <b>contact@rundata.re</b>. Hébergeur : Cloudflare, Inc., 101 Townsend Street, San Francisco, CA 94107, États-Unis. Le site est soumis au droit français.</p>
-  <p style="color:var(--muted)">Mise à jour : 23 octobre 2026.</p>
+  <h2 id="mentions-legales">Mentions légales</h2>
+  <p>rundata.re est édité à titre non professionnel par un particulier qui, comme le permet l'article 1-1, II de la loi n° 2004-575 du 21 juin 2004 pour la confiance dans l'économie numérique, a choisi de préserver son anonymat. Ses éléments d'identification ont été communiqués à l'hébergeur. Contact : <b>contact@rundata.re</b>. Hébergeur : Cloudflare, Inc., 101 Townsend Street, San Francisco, CA 94107, États-Unis (cloudflare.com). Nom de domaine enregistré auprès de l'AFNIC (.re).</p>
+  <p style="color:var(--muted)">Mise à jour : 25 octobre 2026.</p>
 </section>`;
   return layout(origin, {
     title: `${title} · rundata.re`,
