@@ -68,7 +68,7 @@ interface Tile {
 function tile(t: Tile): string {
   const head = t.href ? `<h3><a href="${t.href}">${esc(t.nom)}</a></h3>` : `<h3>${esc(t.nom)}</h3>`;
   const body = t.live
-    ? `<p class="tv">${t.live.valeur}</p><p class="td">${t.live.detail}</p>`
+    ? `<p class="tv">${t.live.valeur}</p><p class="td"${t.live.title ? ` title="${esc(t.live.title)}"` : ""}>${t.live.detail}</p>`
     : t.question
       ? `<p class="tq">« ${esc(t.question)} »</p>`
       : `<p class="td">Se met à jour : rechargez la page dans quelques secondes.</p>`;

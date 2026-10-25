@@ -429,20 +429,21 @@ export function mentionCommune(commune: string | undefined): string | undefined 
 }
 
 /**
- * The same in a few words, for the commune page's tile of outings (marketing): `valeur` and `detail` when it has no
- * event from elsewhere, `complet` after the next one's when it has.
+ * The same in a few words (marketing): for the commune page's tile of outings, `valeur` and `detail` when it has no
+ * event from elsewhere, `tete` before the next one's when it has; `resume` for the tool's summary.
  */
-export function mentionTuile(commune: string): { valeur: string; detail: string; complet: string } | undefined {
+export function mentionCourte(commune: string): { valeur: string; detail: string; tete: string; resume: string } | undefined {
   if (autorisee(commune)) return undefined;
   const au = AUTORISATIONS[commune];
-  const valeur = au.publie === "actualités" ? "Actualités non reprises" : "Agenda non repris";
-  const what = au.publie === "actualités" ? "Actualités du site de la commune non reprises" : "Agenda du site de la commune non repris";
-  if (au.etat === "refusee") {
-    const refused = `elle a refusé${au.refusee_le ? ` le ${dayMonth(au.refusee_le)}` : ""}`;
-    return { valeur, detail: refused, complet: `${what} : ${refused}.` };
-  }
+  const news = au.publie === "actualités";
   const asked = au.etat !== "demandee" ? "" : au.demandee_le ? `, demandé le ${dayMonth(au.demandee_le)}` : ", que nous lui avons demandé";
-  return { valeur, detail: `les mentions légales du site de la commune l'interdisent sans son accord${asked}`, complet: `${what} : ses mentions légales l'interdisent sans son accord${asked}.` };
+  const detail = au.etat === "refusee" ? `elle a refusé${au.refusee_le ? ` le ${dayMonth(au.refusee_le)}` : ""}` : `ses mentions légales l'interdisent sans son accord${asked}`;
+  return {
+    valeur: news ? "Actualités non reprises" : "Agenda non repris",
+    detail,
+    tete: news ? "Actualités communales non reprises" : "Agenda communal non repris",
+    resume: `${news ? "actualités du site de la commune non reprises" : "agenda du site de la commune non repris"}, ${detail} (voir non_repris)`,
+  };
 }
 
 /**
@@ -532,7 +533,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const resume = [
     n ? `${n} événement${n > 1 ? "s" : ""}${kind} ${where} ${periodText}` : `Aucun événement${kind} trouvé ${where} ${periodText}`,
     off.length ? `ATTENTION : ${off.map((x) => `« ${x.e.titre} » ${x.e.statut}${x.e.reporte_au ? ` au ${dayText(x.e.reporte_au)}` : ""}${x.e.selon ? ` (d'après ${x.e.selon.media})` : ""}`).slice(0, 4).join(", ")}` : "",
-    commune && nonRepris ? nonRepris.replace(/^\p{Lu}/u, (c) => c.toLowerCase()).replace(/\.$/, "") : "",
+    commune && nonRepris ? mentionCourte(commune)!.resume : "",
     commune && !covered ? (nonRepris ? "seuls les grands événements de reunion.fr y figurent" : `${src.SANS_AGENDA[commune] ?? `ni la mairie ${de(commune)} ni une salle de la commune ne publient d'agenda lisible`} : seuls les grands événements de reunion.fr y figurent`) : "",
     partly ? `${commune} : ${partly.partiel}, avec les grands événements de reunion.fr` : "",
     commune && !n && all.length ? `${all.length} ailleurs sur l'île` : "",

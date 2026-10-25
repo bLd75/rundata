@@ -1064,6 +1064,8 @@ export interface Live {
   detail: string;
   /** Whose word the value is, said under it where the value is shown without its detail (the home page's hero). */
   source?: string;
+  /** The detail in full, plain text, when the tile shows it shortened (its `title`). */
+  title?: string;
 }
 
 const range = (lo: number, hi: number) => `${fr(Math.round(lo))} à ${thin(deg(Math.round(hi)))}`;

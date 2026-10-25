@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { AGENDAS, LISIBLES, PLANIFIES } from "../src/providers/agenda.js";
 import { AUTORISATIONS, type Autorisation } from "../src/providers/autorisations.js";
-import { agenda, COUVERTURE, MAIRIES_LUES, mentionCommune, mentionIle, mentionTuile, refreshPlanned } from "../src/tools/agenda.js";
+import { agenda, COUVERTURE, MAIRIES_LUES, mentionCommune, mentionIle, mentionCourte, refreshPlanned } from "../src/tools/agenda.js";
 import type { AgendaAnswer } from "../src/web/data.js";
 import { agendaPage } from "../src/web/domains.js";
 import { communeEvents } from "../src/web/liens.js";
@@ -72,16 +72,16 @@ describe("the communes whose site's terms ask for their authorisation, until the
     expect(mentionCommune("Le Tampon")).toBe(`${TAMPON} Nous lui avons demandé cet accord et attendons sa réponse.`);
     set("Le Tampon", { demandee_le: "2026-10-26" });
     expect(mentionCommune("Le Tampon")).toBe(`${TAMPON} Nous lui avons demandé cet accord le 26/10 et attendons sa réponse.`);
-    expect(mentionTuile("Le Tampon")).toEqual({ valeur: "Agenda non repris", detail: "les mentions légales du site de la commune l'interdisent sans son accord, demandé le 26/10", complet: "Agenda du site de la commune non repris : ses mentions légales l'interdisent sans son accord, demandé le 26/10." });
+    expect(mentionCourte("Le Tampon")).toEqual({ valeur: "Agenda non repris", detail: "ses mentions légales l'interdisent sans son accord, demandé le 26/10", tete: "Agenda communal non repris", resume: "agenda du site de la commune non repris, ses mentions légales l'interdisent sans son accord, demandé le 26/10 (voir non_repris)" });
     set("Le Tampon", { etat: "refusee", refusee_le: "2026-11-03" });
     expect(mentionCommune("Le Tampon")).toBe("La commune du Tampon a refusé, le 03/11, que rundata.re reprenne le contenu de son site : les événements qu'elle y publie ne s'affichent donc pas ici.");
-    expect(mentionTuile("Le Tampon")).toEqual({ valeur: "Agenda non repris", detail: "elle a refusé le 03/11", complet: "Agenda du site de la commune non repris : elle a refusé le 03/11." });
-    expect(mentionTuile("Cilaos")).toEqual({ valeur: "Actualités non reprises", detail: "les mentions légales du site de la commune l'interdisent sans son accord", complet: "Actualités du site de la commune non reprises : ses mentions légales l'interdisent sans son accord." });
+    expect(mentionCourte("Le Tampon")?.detail).toBe("elle a refusé le 03/11");
+    expect(mentionCourte("Cilaos")).toEqual({ valeur: "Actualités non reprises", detail: "ses mentions légales l'interdisent sans son accord", tete: "Actualités communales non reprises", resume: "actualités du site de la commune non reprises, ses mentions légales l'interdisent sans son accord (voir non_repris)" });
     set("Cilaos", { etat: "demandee" });
-    expect(mentionTuile("Cilaos")?.detail).toBe("les mentions légales du site de la commune l'interdisent sans son accord, que nous lui avons demandé");
+    expect(mentionCourte("Cilaos")?.detail).toBe("ses mentions légales l'interdisent sans son accord, que nous lui avons demandé");
     set("Le Tampon", { etat: "accordee" });
     expect(mentionCommune("Le Tampon")).toBeUndefined();
-    expect(mentionTuile("Le Tampon")).toBeUndefined();
+    expect(mentionCourte("Le Tampon")).toBeUndefined();
   });
 
   it("are said in one block for the whole island, the day of the request when it is the same for all", () => {
@@ -106,7 +106,7 @@ describe("the communes whose site's terms ask for their authorisation, until the
     const c = await cacheWith();
     const tampon = body(await agenda(c, "Le Tampon", undefined, undefined, NOW));
     expect(tampon.non_repris).toBe(TAMPON);
-    expect(tampon.resume).toContain(`; l${TAMPON.slice(1, -1)}`);
+    expect(tampon.resume).toContain("; agenda du site de la commune non repris, ses mentions légales l'interdisent sans son accord (voir non_repris)");
     const ile = body(await agenda(c, undefined, undefined, undefined, NOW));
     expect(ile.non_repris).toBe(mentionIle().join(" "));
     // Petite-Île: no other source there.
@@ -121,10 +121,10 @@ describe("the communes whose site's terms ask for their authorisation, until the
     // Each keeps its page, its tile of outings and all that comes from elsewhere: only its site is not read.
     expect(DIX.filter((c) => !PAGES.some((p) => p.commune && p.nom === c))).toEqual([]);
     const copy = { value, fetchedAt: NOW, stale: false };
-    expect(communeEvents(page("le-tampon"), copy)).toEqual({ valeur: "Agenda non repris", detail: "les mentions légales du site de la commune l&#39;interdisent sans son accord" });
+    expect(communeEvents(page("le-tampon"), copy)).toEqual({ valeur: "Agenda non repris", detail: "ses mentions légales l&#39;interdisent sans son accord", title: TAMPON });
     // With events from other sources (its theatre): their number, and the whole mention after the next one.
     const luc = { titre: "Spectacle", date: "2026-10-25T20:00", quand: "dimanche 25/10 à 20:00", genres: [], commune: "Le Tampon", lien: "https://example.re" } as unknown as NonNullable<AgendaAnswer["evenements"]>[number];
-    expect(communeEvents(page("le-tampon"), { ...copy, value: { ...value, evenements: [luc] } })).toEqual({ valeur: "1 événement", detail: "d'ici quinze jours ; le prochain : Spectacle, dimanche 25/10 à 20:00 · Agenda du site de la commune non repris : ses mentions légales l&#39;interdisent sans son accord." });
+    expect(communeEvents(page("le-tampon"), { ...copy, value: { ...value, evenements: [luc] } })).toEqual({ valeur: "1 événement", detail: "Agenda communal non repris · le prochain : Spectacle, dimanche 25/10 à 20:00", title: TAMPON });
     expect(communeEvents(page("saint-pierre"), copy)).toMatchObject({ valeur: "Rien d'annoncé" });
   });
 });
