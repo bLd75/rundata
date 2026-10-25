@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-25T16:25:00+04:00", texte: "Nouvel espace clubs et associations\u00a0: proposez vos événements en 2 minutes, gratuitement et sans compte, sur rundata.re/associations." },
   { date: "2026-10-25T16:13:00+04:00", texte: "Volcan\u00a0: le niveau d'alerte et l'accès à l'Enclos sont tirés des textes de la préfecture et de l'OVPF, cités avec leur date." },
   { date: "2026-10-25T16:11:00+04:00", texte: "Actualités\u00a0: les titres du Quotidien de La Réunion s'ajoutent aux autres médias de l'île, sur rundata.re/actualites et dans votre IA." },
   { date: "2026-10-25T16:02:00+04:00", texte: "Clubs de sport\u00a0: les rendez-vous publiés sur Sportsregions (tir à l'arc, triathlon, golf, badminton…), avec le club et le lien." },

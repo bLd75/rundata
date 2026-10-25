@@ -8,6 +8,7 @@
  * The weather is one category among others, but the one people search for: « météo réunion 974 », « météo cilaos
  * 974 ». « 974 » sorts La Réunion from meetings, so titles and headings carry it.
  */
+import { enLigne } from "./associations-drapeau.js";
 import { softened } from "../tools/nuages.js";
 import type { Cached } from "../cache.js";
 import { ageMinutes, ageText, localTime, versant } from "../geo.js";
@@ -699,7 +700,7 @@ function banner(a: Alerte | undefined, path: string): string {
 
 const SCRIPT = `const menu=document.querySelector("details.menu");if(menu)document.addEventListener("click",(e)=>{if(menu.open&&!menu.contains(e.target))menu.open=false});
 document.querySelectorAll("[data-copy]").forEach((b)=>b.addEventListener("click",async()=>{const t=document.getElementById(b.dataset.copy);
-try{await navigator.clipboard.writeText(t.textContent);b.textContent="Copié ✓";setTimeout(()=>b.textContent="Copier",2500)}catch{getSelection().selectAllChildren(t)}}));
+const o=b.textContent;try{await navigator.clipboard.writeText(t.textContent);b.textContent="Copié ✓";setTimeout(()=>b.textContent=o,2500)}catch{getSelection().selectAllChildren(t)}}));
 const f=document.getElementById("filtre");if(f){const n=(s)=>s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
 f.addEventListener("input",()=>{const q=n(f.value.trim());let any=false;document.querySelectorAll(".places li").forEach((li)=>{const ok=n(li.textContent).includes(q);li.hidden=!ok;any||=ok});
 document.querySelectorAll(".places h3").forEach((h)=>{h.hidden=![...h.nextElementSibling.children].some((li)=>!li.hidden)});document.getElementById("rien").hidden=any})}
@@ -893,7 +894,7 @@ ${head.sansAvis ? "" : avisForm(head.path)}`}
     <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/a-propos">qui fait rundata.re ?</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · <a href="/publier">publier vos données</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP.</p>
     ${follow()}
-    <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li></ul>
+    <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li>${enLigne() ? `<li><a href="/associations">Clubs et associations</a></li>` : ""}</ul>
   </div>
   <div>
     <h3>Sources</h3>
@@ -1703,7 +1704,7 @@ export function legalPage(origin: string, kind: "confidentialite" | "conditions"
   const body = privacy
     ? `<section style="${PROSE}">
   <h2>En bref</h2>
-  <p>rundata.re ne demande ni compte, ni nom, ni adresse électronique. Le site ne pose aucun cookie et ne contient aucun traceur publicitaire. Rien n'est vendu ni partagé à des fins commerciales.</p>
+  <p>${enLigne() ? `Pour consulter le site ou l'utiliser depuis un assistant IA, rundata.re ne demande ni compte, ni nom, ni adresse électronique. Seuls les deux formulaires des clubs et associations demandent une adresse électronique (voir <a href="#associations-donnees">«\u00a0Ce que les clubs et associations envoient\u00a0»</a>).` : "rundata.re ne demande ni compte, ni nom, ni adresse électronique."} Le site ne pose aucun cookie et ne contient aucun traceur publicitaire. Rien n'est vendu ni partagé à des fins commerciales.</p>
   <h2>Ce que le site compte</h2>
   <p>Pour savoir quelles pages et quels outils servent, et les améliorer, chaque page vue et chaque message reçu par le connecteur ajoutent une ligne anonyme aux statistiques : la page et sa rubrique, ou l'outil appelé avec le nom des paramètres donnés (pas leur valeur) ; le lieu demandé quand c'en est un, tel que le site l'a compris (une commune, une plage…), ou le texte demandé, coupé à 60 caractères, quand il ne l'a pas compris, pour apprendre à le comprendre ; le nom et la version de l'application de l'assistant (par exemple « claude-ai ») ; si la réponse a réussi, son temps et sa taille ; le pays déduit par Cloudflare, la langue du navigateur, si la page est ouverte depuis l'application installée sur l'écran d'accueil, le site d'où vient le visiteur et son type (une personne, un assistant, ou le nom du robot d'un assistant ou d'un moteur de recherche). Chaque lecture d'un flux RSS de commune ajoute aussi une ligne, à part : le flux, le nom de l'application qui le lit (Feedly, Inoreader…) et le nombre d'abonnés qu'elle annonce, sans rien sur les abonnés eux-mêmes. Ni adresse IP, ni identifiant, ni cookie. Des coordonnées ne sont jamais gardées, seulement leur commune. Depuis le 24 octobre 2026, un texte non compris qui ressemble à une adresse (un numéro suivi d'une rue, d'un chemin, d'une impasse, d'un lotissement…) n'est plus gardé tel qu'écrit, ni dans les statistiques ni dans le journal : seulement le mot « adresse ». Un nom de rue sans numéro peut encore être gardé, coupé à 60 caractères, comme tout lieu non compris. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée, pas plus que les autres paramètres (un arrêt de bus, un sujet…). Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
   <p>Installation et lecture hors ligne : elles n'utilisent aucun cookie. Pour afficher les pages sans réseau, le site garde sur votre téléphone une copie des pages que vous ouvrez (le cache du navigateur, géré par un « service worker »). Votre choix « Plus tard » est gardé de la même façon. Ces données restent sur le téléphone et ne sont envoyées à personne. Elles s'effacent depuis les réglages du navigateur (données du site rundata.re).</p>
@@ -1712,11 +1713,15 @@ export function legalPage(origin: string, kind: "confidentialite" | "conditions"
   <p>Comme tout hébergeur, Cloudflare garde quelques jours les journaux du service (adresse demandée, erreurs, durée). Pour chaque message du connecteur, ils reprennent les éléments des statistiques ci-dessus, sans rien de plus. Une copie sans aucune adresse IP est conservée un an au plus, pour comprendre les pannes. Votre conversation n'y figure jamais.</p>
   <h2 id="avis-donnees">Les avis que vous laissez</h2>
   <p>Le formulaire en bas de chaque page et l'outil <code>donner_avis</code> du connecteur (que votre assistant peut appeler pour signaler une donnée qui manque ou une erreur) enregistrent : la date, le type d'avis, le message, l'outil et le lieu concernés, la page du formulaire, et le nom de l'assistant quand il se présente (Claude, ChatGPT…). Ils servent à corriger et à compléter les données, et à rien d'autre. Ni compte, ni adresse IP : pour refuser les envois en masse, une empreinte chiffrée de l'adresse, qui change chaque jour et ne permet pas de la retrouver, est gardée un jour puis effacée. Les numéros de téléphone et adresses électroniques écrits dans un message sont retirés avant l'enregistrement. Les avis sont conservés 12 mois, chez Cloudflare (base D1), puis effacés automatiquement. Ils ne sont ni publiés ni partagés. Pour qu'un avis soit effacé plus tôt, écrire à <b>contact@rundata.re</b> en le citant.</p>
-  <h2>Quand votre assistant pose une question</h2>
+${enLigne() ? `<h2 id="associations-donnees">Ce que les clubs et associations envoient</h2>
+  <p><b>Formulaire «\u00a0Proposer un événement\u00a0».</b> Nous recueillons l'adresse e-mail de l'organisateur pour confirmer l'événement, le modérer et permettre de le modifier ou de l'annuler. Elle n'est pas publiée, sauf si l'organisateur coche «\u00a0Utiliser mon adresse e-mail comme contact public\u00a0»\u00a0: elle apparaît alors avec l'événement, sur rundata.re, dans les réponses des assistants IA et dans le flux ouvert des événements, et d'autres peuvent l'avoir copiée entre-temps. Il en va de même pour le contact public saisi dans le formulaire. L'adresse et le contact public sont effacés 30 jours après la dernière date de l'événement, avec une correction qui attendrait encore la relecture. Une proposition non confirmée est effacée sous 48 heures, et un événement l'est un an après sa dernière date.</p>
+  <p><b>Formulaire «\u00a0Nous donner votre lien\u00a0».</b> Le lien, le nom de l'organisation, sa commune et le contact facultatif (jamais publié) sont effacés 12 mois après l'envoi.</p>
+  <p><b>Contre les abus</b>, pour les deux formulaires, une empreinte de la connexion est gardée un jour, puis effacée. L'adresse IP elle-même n'est pas gardée. La vérification anti-robot (Cloudflare Turnstile) voit l'adresse au moment de l'envoi, sans que nous la gardions.</p>
+  ` : ""}  <h2>Quand votre assistant pose une question</h2>
   <p>Votre assistant (ChatGPT, Claude, Le Chat…) n'envoie au connecteur que les paramètres de l'outil, par exemple « Saint-Paul » ou une adresse, jamais votre conversation. Pour répondre, rundata.re transmet ce paramètre aux services publics qui détiennent la donnée : par exemple, une adresse est envoyée au géocodeur de l'IGN, puis le point trouvé au cadastre, au Géoportail de l'urbanisme, à Géorisques et à l'API DVF du Cerema. Ce que fait votre assistant de la conversation relève de sa propre politique de confidentialité.</p>
   <h2>Vos droits</h2>
-  <p>Aucune donnée ne permet de vous identifier, il n'y a donc rien à consulter ni à effacer à votre nom (sauf ce que vous auriez écrit vous-même dans un avis). Pour toute question : <b>contact@rundata.re</b>. Vous pouvez aussi saisir la <a href="https://www.cnil.fr/fr/plaintes">CNIL</a>.</p>
-  <p style="color:var(--muted)">Mise à jour : 24 octobre 2026.</p>
+  <p>${enLigne() ? `Pour qui consulte le site, aucune donnée ne permet de l'identifier\u00a0: il n'y a rien à consulter ni à effacer à son nom (sauf ce qu'il aurait écrit lui-même dans un avis). Si vous avez proposé un événement ou donné un lien, vous pouvez le corriger, l'annuler ou le retirer avec le lien reçu par e-mail. Pour consulter ou faire effacer ce que nous gardons, écrivez à <b>contact@rundata.re</b>\u00a0: nous répondons sous un mois.` : "Aucune donnée ne permet de vous identifier, il n'y a donc rien à consulter ni à effacer à votre nom (sauf ce que vous auriez écrit vous-même dans un avis). Pour toute question\u00a0: <b>contact@rundata.re</b>."} Vous pouvez aussi saisir la <a href="https://www.cnil.fr/fr/plaintes">CNIL</a>.</p>
+  <p style="color:var(--muted)">Mise à jour\u00a0: 25 octobre 2026.</p>
 </section>`
     : `<section style="${PROSE}">
   <h2>Le service</h2>
@@ -1727,9 +1732,10 @@ export function legalPage(origin: string, kind: "confidentialite" | "conditions"
   <p>Le service est fait pour répondre à des questions. Ne l'interrogez pas en masse de façon automatique : il peut limiter ou bloquer un usage qui gêne les autres ou les services publics qu'il interroge.</p>
   <h2>Réutiliser les données</h2>
   <p>Chaque donnée garde la licence de sa source : Licence Ouverte Etalab 2.0 pour la plupart, ODbL pour OpenStreetMap, CC BY 4.0 pour Open-Meteo et les séismes de l'IPGP. L'outil <code>sources_donnees</code> les liste avec l'attribution à citer.</p>
-  <h2 id="mentions-legales">Mentions légales</h2>
+${enLigne() ? `<p id="evenements-proposes"><b>Événements proposés par les clubs et associations.</b> L'association qui propose un événement en est responsable\u00a0: elle garantit qu'il est ouvert au public, exact, et qu'elle a le droit de le publier. rundata.re relit chaque proposition avant de l'afficher. Il peut refuser ou retirer un événement, en donnant le motif à l'organisateur\u00a0: notamment un événement privé, une adresse de domicile, des données personnelles, de la politique électorale, une collecte d'argent sans organisme identifié ou de la publicité commerciale. Un événement faux ou qui pose problème peut être signalé à contact@rundata.re\u00a0; nous le retirons, en général dans la journée. La mention «\u00a0Proposé par l'organisateur\u00a0» signale que l'événement n'a pas été vérifié par rundata.re. Les événements publiés sont sous Licence Ouverte 2.0.</p>
+  ` : ""}  <h2 id="mentions-legales">Mentions légales</h2>
   <p>rundata.re est édité à titre non professionnel par un particulier qui, comme le permet l'article 1-1, II de la loi n° 2004-575 du 21 juin 2004 pour la confiance dans l'économie numérique, a choisi de préserver son anonymat. Ses éléments d'identification ont été communiqués à l'hébergeur. Contact : <b>contact@rundata.re</b>. Hébergeur : Cloudflare, Inc., 101 Townsend Street, San Francisco, CA 94107, États-Unis (cloudflare.com). Nom de domaine enregistré auprès de l'AFNIC (.re).</p>
-  <p style="color:var(--muted)">Mise à jour : 25 octobre 2026.</p>
+  <p style="color:var(--muted)">Mise à jour\u00a0: 25 octobre 2026.</p>
 </section>`;
   return layout(origin, {
     title: `${title} · rundata.re`,

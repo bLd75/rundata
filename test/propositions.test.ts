@@ -31,6 +31,8 @@ const rows = <T = Record<string, unknown>>(sql: string) => db.prepare(sql).all()
 beforeEach(() => {
   sent = [];
   plug();
+  // Each test opens the space itself: closed, nothing of it answers.
+  formulaires.ouvrir(false);
 });
 afterEach(() => {
   propositions.configure(undefined);
@@ -201,8 +203,8 @@ describe("the forms on the site (web/propositions.ts)", () => {
     handle(new Request(`https://rundata.re${path}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", ...headers }, body: new URLSearchParams(fields).toString() }), new Cache());
   const human = () => formulaires.configure(undefined, async (token) => token === "jeton-turnstile");
 
-  it("answer nothing before the page goes out", async () => {
-    expect(formulaires.ASSOCIATIONS_EN_LIGNE).toBe(false);
+  it("are out, and answer nothing while the space is closed", async () => {
+    expect(formulaires.ASSOCIATIONS_EN_LIGNE).toBe(true);
     expect((await handle(new Request("https://rundata.re/associations/proposer", { headers: { accept: "text/html" } }), new Cache())).status).toBe(404);
     expect((await post("/associations/lien", { nom: "Club" })).status).toBe(404);
   });
@@ -603,5 +605,114 @@ describe("the secret link's page (web/propositions.ts)", () => {
     expect(html).toContain("En attendant, la version actuelle reste affichée.");
     // The form shows the correction waiting, to go on from it.
     expect(html).toContain('name="titre" value="Grand tournoi"');
+  });
+});
+
+describe("the clubs' and associations' space (web/associations.ts)", () => {
+  const get = (path: string) => handle(new Request(`https://rundata.re${path}`, { headers: { accept: "text/html" } }), new Cache());
+  const ligne = (id: number, organisateur: string, date = "2026-11-07"): propositions.Ligne => ({
+    id, t: Date.parse("2026-10-25T08:00:00Z") / 1000, etat: "publie", titre: `Tournoi ${id}`, date, debut: "14:00", fin: null, repete: null, jusqu_au: null,
+    commune: "Saint-Pierre", lieu: "Stade", organisateur, description: "Ouvert à tous.", prix: "Gratuit", lien: null, email: "x@example.org",
+    contact_public: null, derniere_date: date, motif: null, reporte_au: null,
+  });
+  /** A cache whose agendas' copy holds these proposed events only. */
+  const copie = async (lignes: propositions.Ligne[]) => {
+    const { evenement } = await import("../src/providers/agenda-propositions.js");
+    const value = lignes.map(evenement);
+    return { bundle: async () => ({ peek: (k: string) => (k === "agenda:propositions" ? { value, ageMs: 0, fetchedAt: NOW.getTime() } : undefined) }) } as never;
+  };
+
+  it("answers at /associations, the short addresses sent there with their query, nothing while closed", async () => {
+    for (const path of ["/associations", "/clubs", "/asso"]) expect((await get(path)).status).toBe(404);
+    formulaires.ouvrir(true);
+    const r = await get("/associations");
+    expect(r.status).toBe(200);
+    const html = plain(await r.text());
+    expect(html).toContain("<h1>Espace clubs et associations</h1>");
+    expect(html).toContain('href="/associations/proposer"');
+    expect(html).toContain('<input type="hidden" name="page" value="/associations">');
+    expect(html).toContain('href="/associations/evenements.ics"');
+    expect(html).toContain('"@type":"HowTo"');
+    // No figure before there are ten clubs; the empty list says what to do.
+    expect(html).not.toContain("clubs et associations lus par rundata.re");
+    expect(html).toContain("Les premiers événements de clubs et d'associations arrivent : ");
+    expect(html).toContain("et la date à laquelle nous l'avons lu ou à laquelle vous l'avez proposé.");
+    // One WhatsApp button, the relay's; the feedback form stays.
+    expect(html.match(/Partager sur WhatsApp/g)).toHaveLength(1);
+    expect(html).not.toContain("Une info utile chaque matin");
+    expect(html).toContain('action="/avis"');
+    for (const path of ["/clubs?ref=affiche", "/asso/?ref=affiche"]) {
+      const to = await get(path);
+      expect(to.status).toBe(301);
+      expect(to.headers.get("location")).toBe("https://rundata.re/associations?ref=affiche");
+    }
+  });
+
+  it("proves with the coming events of clubs, and counts them from ten clubs on", async () => {
+    const { preuve, associationsPage } = await import("../src/web/associations.js");
+    const few = await preuve(await copie([ligne(1, "Club A"), ligne(2, "club a "), ligne(3, "Club B", "2026-12-20")]), NOW);
+    // Two names (the same club written twice), one event beyond the two weeks.
+    expect(few.clubs).toBe(2);
+    expect(few.evenements).toBe(2);
+    expect(plain(associationsPage("https://rundata.re", few))).not.toContain("lus par rundata.re");
+    const ten = await preuve(await copie(Array.from({ length: 10 }, (_, i) => ligne(i + 1, `Club ${i + 1}`))), NOW);
+    expect(ten.clubs).toBe(10);
+    const html = plain(associationsPage("https://rundata.re", ten));
+    expect(html).toContain("10 clubs et associations lus par rundata.re ; 10 de leurs événements dans les deux prochaines semaines.");
+    expect(html).toContain("Tournoi 1");
+  });
+
+  it("finds the agendas the scheduled event alone reads in its own copies", async () => {
+    const { preuve } = await import("../src/web/associations.js");
+    const { PLANIFIES } = await import("../src/providers/agenda.js");
+    const { evenement } = await import("../src/providers/agenda-propositions.js");
+    const tournoi = { ...evenement(ligne(1, "Ligue réunionnaise de volley-ball")), id: "lrvb-1" };
+    const cache = {
+      bundle: async (name: string) => ({
+        peek: (k: string) => (name === PLANIFIES && k === "agenda:lrvb" ? { value: [tournoi], ageMs: 0, fetchedAt: NOW.getTime() } : undefined),
+      }),
+    } as never;
+    const p = await preuve(cache, NOW);
+    expect(p.prochains.map((x) => x.e.publie_par)).toEqual(["Ligue réunionnaise de volley-ball"]);
+  });
+
+  it("reads the proposed events from the table when the agendas' copy has none yet", async () => {
+    const { preuve } = await import("../src/web/associations.js");
+    const s = await propose();
+    await propositions.agir(s, { kind: "confirmer" }, NOW);
+    publish();
+    const p = await preuve(new Cache(), NOW);
+    expect(p.prochains.map((x) => x.e.titre)).toEqual(["Tournoi de pétanque du club"]);
+    expect(p.clubs).toBe(1);
+  });
+
+  it("is linked from the footer, /publier, /a-propos, the sitemap and the form's breadcrumb, only once out", async () => {
+    const closed = plain(await (await get("/confidentialite")).text());
+    expect(closed).not.toContain('href="/associations"');
+    expect(closed).not.toContain('id="associations-donnees"');
+    expect(closed).toContain("<p>rundata.re ne demande ni compte, ni nom, ni adresse électronique. Le site");
+    expect(plain(await (await get("/conditions")).text())).not.toContain('id="evenements-proposes"');
+    expect(plain(await (await get("/publier")).text())).not.toContain('id="lien"');
+    formulaires.ouvrir(true);
+    const privacy = plain(await (await get("/confidentialite")).text());
+    expect(privacy).toContain('<li><a href="/associations">Clubs et associations</a></li>');
+    expect(privacy).toContain('<h2 id="associations-donnees">');
+    expect(privacy).toContain("La vérification anti-robot (Cloudflare Turnstile) voit l'adresse au moment de l'envoi, sans que nous la gardions.");
+    expect(privacy).toContain('Seuls les deux formulaires des clubs et associations demandent une adresse électronique (voir <a href="#associations-donnees">« Ce que les clubs et associations envoient »</a>).');
+    expect(privacy).toContain("Pour consulter ou faire effacer ce que nous gardons, écrivez à <b>contact@rundata.re</b> : nous répondons sous un mois.");
+    expect(privacy).not.toContain("Aucune donnée ne permet de vous identifier");
+    const terms = plain(await (await get("/conditions")).text());
+    expect(terms).toContain('<p id="evenements-proposes"><b>Événements proposés par les clubs et associations.</b> L\'association qui propose un événement en est responsable : ');
+    expect(terms).toContain("La mention « Proposé par l'organisateur » signale que l'événement n'a pas été vérifié par rundata.re.");
+    const publier = plain(await (await get("/publier")).text());
+    expect(publier).toContain("Petit club, peu de temps ? Commencez par l'");
+    expect(publier).toContain('<input type="hidden" name="page" value="/publier">');
+    expect(publier.indexOf('id="lien"')).toBeLessThan(publier.indexOf('<section id="exemples"'));
+    expect(plain(await (await get("/a-propos")).text())).toContain('href="/associations"');
+    const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), new Cache())).text();
+    for (const loc of ["https://rundata.re/associations", "https://rundata.re/associations/proposer"]) expect(map).toContain(`<loc>${loc}</loc>`);
+    const form = plain(await (await get("/associations/proposer")).text());
+    expect(form).toContain('"position":2,"name":"Clubs et associations","item":"https://rundata.re/associations"');
+    expect(form).toContain('href="/confidentialite#associations-donnees"');
   });
 });

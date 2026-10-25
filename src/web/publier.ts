@@ -8,7 +8,9 @@ import { crumbBar, crumbs, webPage } from "./domains.js";
 import { esc } from "./map.js";
 import { layout } from "./pages.js";
 import brand from "./brand.json" with { type: "json" };
-import { GUIDE, INTRO, KREOL } from "./publier-texte.js";
+import { enLigne } from "./associations-drapeau.js";
+import { lienForm, TURNSTILE_SCRIPT } from "./propositions.js";
+import { GUIDE, INTRO, KREOL, REFERENCER_FORMULAIRE } from "./publier-texte.js";
 
 export const PATH = "/publier";
 export const TITLE = "Publier son agenda et ses données en open data · guide gratuit · La Réunion 974";
@@ -162,7 +164,14 @@ export function publierPage(origin: string, alerte?: Alerte): string {
   <p class="lead">${inline(INTRO[0])}</p>
   <p>${inline(INTRO[1])}</p>
 </div></div>`;
+  // Once the clubs' space is out: its box first, and « Référencer votre flux » with the form, the e-mail second.
+  const open = enLigne();
+  const guide = open ? GUIDE.replace(/^> \*\*Votre flux est en ligne[\s\S]*?remplacera bientôt cet e-mail\.$/m, REFERENCER_FORMULAIRE) : GUIDE;
+  if (open && guide === GUIDE) throw new Error("publier : « Référencer votre flux » introuvable");
   // The address to write to opens the mail, with its subject.
-  const body = render(GUIDE).replaceAll("<strong>contact@rundata.re</strong>", `<a href="${MAILTO}"><strong>contact@rundata.re</strong></a>`);
+  let body = render(guide).replaceAll("<strong>contact@rundata.re</strong>", `<a href="${MAILTO}"><strong>contact@rundata.re</strong></a>`);
+  if (open) {
+    body = `<aside class="card callout"><p>Petit club, peu de temps\u00a0? Commencez par l'<a href="/associations">Espace clubs et associations</a>\u00a0: quelques clics suffisent.</p></aside>\n${body.replace(`<section id="exemples" class="guide">`, `${lienForm(PATH)}\n<section id="exemples" class="guide">`)}${TURNSTILE_SCRIPT}`;
+  }
   return layout(origin, { title: TITLE, description: META, path: PATH, jsonld: [crumbs(origin, "Publier ses données", PATH), webPage(origin, PATH, TITLE, META, null)], alerte }, band, body);
 }

@@ -4,6 +4,7 @@
  * assistants reading a page see it, and points to the connector for the rest. Each also says it in a few words for
  * its tile on the home page.
  */
+import { enLigne } from "./associations-drapeau.js";
 import { OVPF, PREFECTURE } from "../providers/volcan.js";
 import { enImagesApres, enImagesLuesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, LOCALISES, LU_DANS_L_IMAGE, NIVEAU_ILLISIBLE, NON_ANNONCEE, ORSEC_BAN, ovpfNiveau, pitonLines, VIGILANCE_ENCLOS } from "../tools/volcan.js";
 import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
@@ -45,14 +46,13 @@ const TITLE_MAX = 60;
 /** `full` when it fits in what search engines show, else `short`. */
 const describe = (full: string, short: string) => (full.length <= DESCRIPTION_MAX ? full : short);
 
-function crumbs(origin: string, name: string, path: string) {
+/** `parent`: the page between the home page and this one (« Clubs et associations » above its form). */
+function crumbs(origin: string, name: string, path: string, parent?: { name: string; path: string }) {
+  const trail = [{ name: SITE, path: "/" }, ...(parent ? [parent] : []), { name, path }];
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: SITE, item: `${origin}/` },
-      { "@type": "ListItem", position: 2, name, item: `${origin}${path}` },
-    ],
+    itemListElement: trail.map((t, i) => ({ "@type": "ListItem", position: i + 1, name: t.name, item: `${origin}${t.path}` })),
   };
 }
 
@@ -69,8 +69,8 @@ function webPage(origin: string, path: string, title: string, description: strin
   };
 }
 
-const crumbBar = (label: string) =>
-  `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li aria-current="page">${esc(label)}</li></ol></nav></div>`;
+const crumbBar = (label: string, parent?: { name: string; path: string }) =>
+  `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li>${parent ? `<li><a href="${esc(parent.path)}">${esc(parent.name)}</a></li>` : ""}<li aria-current="page">${esc(label)}</li></ol></nav></div>`;
 
 /** What to say while the data of a page is not there yet. */
 const loading = (what: string) => `<p class="lead">${esc(what)} se charge : rechargez la page dans quelques secondes.</p>`;
@@ -1869,6 +1869,7 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
   <div class="sec-h"><p class="eyebrow">Quinze prochains jours</p><h2 id="h-venir">À venir</h2>
   <p>Les matchs des championnats régionaux de handball (D1) et de volley (R1), les régates de la Ligue de voile, les compétitions des trois golfs et le calendrier de la Ligue du sport automobile. Heures de La Réunion.</p></div>
   ${d ? (d.a_venir?.length ? bySport(d.a_venir, false) : `<p class="card">Aucun rendez-vous trouvé dans les quinze prochains jours.</p>`) : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
+  ${clubsLink()}
 </section>
 ${d?.programmes_communes?.length ? `<section aria-labelledby="h-prog">
   <div class="sec-h"><p class="eyebrow">Publiés par les mairies</p><h2 id="h-prog">Programmes sportifs des communes</h2>
@@ -2156,6 +2157,10 @@ function agendaEnd(r: AgendaRow): string | undefined {
 
 const STATUS: Record<string, string> = { "ANNULÉ": "EventCancelled", "REPORTÉ": "EventPostponed" };
 
+/** Under the lists of events and of matches, once the clubs' space is out (web/associations.ts). */
+const clubsLink = () =>
+  enLigne() ? `<p><a href="/associations?ref=site">Votre club ou votre association n'y est pas\u00a0? Faites connaître vos événements</a></p>` : "";
+
 // What an event is, said in its schema.org description when its source gives no summary.
 const KIND: Record<string, string> = {
   concert: "Concert", théâtre: "Théâtre", danse: "Spectacle de danse", humour: "Spectacle d'humour", cirque: "Cirque, conte ou magie",
@@ -2274,6 +2279,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   <p>Chaque événement renvoie à la page de celui qui le publie. Heures de La Réunion ; un événement de plusieurs jours est rangé au jour où il commence, ou à aujourd'hui s'il a déjà commencé. Un événement annulé ou reporté reste affiché, avec son statut.</p></div>
   ${agendaTabs("/evenements")}
   ${list}
+  ${clubsLink()}
   ${d?.indisponible?.length ? warnings([`Agendas non lus cette fois (en panne, trop lents, ou laissés à la visite suivante) : ${d.indisponible.join(", ")}. La liste peut être incomplète.`]) : ""}
 </section>
 <section aria-labelledby="h-couv">

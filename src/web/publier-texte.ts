@@ -326,3 +326,16 @@ export const GUIDE = [
   "- **URL stable** : une adresse qui ne change jamais, même quand le fichier est mis à jour.",
   "",
 ].join("\n");
+
+/**
+ * « Référencer votre flux » once the form « Nous donner votre lien » is on the page (web/associations-drapeau.ts): the
+ * form first, the e-mail second (espace-associations.md §6). Replaces the lines of GUIDE from « > **Votre flux » to the
+ * end of the quote.
+ */
+export const REFERENCER_FORMULAIRE = [
+  "> **Votre flux est en ligne\u00a0? Dites-le-nous** avec le formulaire «\u00a0Nous donner votre lien\u00a0», juste en dessous, sans compte\u00a0: le nom de votre organisation, sa commune et le lien de votre flux («\u00a0le lien à nous donner\u00a0» du tutoriel que vous avez suivi).",
+  ">",
+  "> Vous préférez l'e-mail\u00a0? Écrivez à **contact@rundata.re** avec le nom de votre organisation et votre commune, le lien de votre flux, la licence choisie, et une adresse ou un téléphone de l'organisation, pour vous prévenir si le flux ne répond plus.",
+  ">",
+  "> Nous vérifions que le flux se lit bien, puis vos événements peuvent apparaître sur rundata.re et dans les réponses des assistants IA qui l'utilisent.",
+].join("\n");

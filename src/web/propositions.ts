@@ -8,7 +8,7 @@
  * Rows go to src/propositions.ts. Against robots: Turnstile (Cloudflare's check, its script on these forms only), a
  * field people do not see, a length cap, no form posted from another site, and the daily caps of the storage.
  *
- * Nothing answers before ASSOCIATIONS_EN_LIGNE: the page goes out with its forms, not before (data-run, 25/10).
+ * Nothing answers before ASSOCIATIONS_EN_LIGNE (web/associations-drapeau.ts): the page goes out with its forms.
  */
 import * as avis from "../avis.js";
 import { INSEE } from "../places/insee.js";
@@ -19,14 +19,7 @@ import { crumbBar, crumbs, webPage } from "./domains.js";
 import { esc } from "./map.js";
 import { layout } from "./pages.js";
 
-/** Whether /associations and its forms answer. */
-export const ASSOCIATIONS_EN_LIGNE = false;
-let ouvert = ASSOCIATIONS_EN_LIGNE;
-export const enLigne = () => ouvert;
-/** For the tests: the forms answer before the page goes out. */
-export function ouvrir(v: boolean) {
-  ouvert = v;
-}
+export { ASSOCIATIONS_EN_LIGNE, enLigne, ouvrir } from "./associations-drapeau.js";
 
 export const LIEN_PATH = "/associations/lien";
 export const PROPOSER_PATH = "/associations/proposer";
@@ -34,6 +27,8 @@ export const PROPOSER_PATH = "/associations/proposer";
 export const PROPOSITION_PATH = "/associations/proposition/";
 
 const BODY_MAX = 8192;
+/** The space the forms belong to, in their breadcrumb. */
+const PARENT = { name: "Clubs et associations", path: "/associations" };
 export const COMMUNES = Object.keys(INSEE).sort((a, b) => a.localeCompare(b, "fr"));
 
 // ---------------------------------------------------------------- Turnstile
@@ -217,7 +212,7 @@ function proposerForm(e: Etat, now: Date, correction?: { action: string; f: URLS
   ${hp}
   ${widget()}
   <button type="submit">Proposer l'événement</button>
-  <p class="note">Votre e-mail sert seulement à confirmer, relire et modifier l'événement. Il n'est publié que si vous le demandez, et il est effacé 30 jours après la dernière date de l'événement, comme le contact public. <a href="/confidentialite">Ce qui est gardé</a>.</p>
+  <p class="note">Votre e-mail sert seulement à confirmer, relire et modifier l'événement. Il n'est publié que si vous le demandez, et il est effacé 30 jours après la dernière date de l'événement, comme le contact public. <a href="/confidentialite#associations-donnees">Ce qui est gardé</a>.</p>
 </form>`}`;
 }
 
@@ -226,7 +221,7 @@ const REPETE_SCRIPT = `<script>{const r=document.getElementById("p-repete"),j=do
 
 /** The page of the form, or of what happens once it is sent. */
 export function proposerPage(origin: string, e: Etat = { kind: "vide" }, now = new Date(), alerte?: Alerte): string {
-  const band = `${crumbBar("Proposer un événement")}
+  const band = `${crumbBar("Proposer un événement", PARENT)}
 <div class="wrap intro solo"><div class="pitch">
   <p class="pill"><span class="dot"></span>Clubs et associations</p>
   <h1>Proposer un événement</h1>
@@ -243,7 +238,7 @@ export function proposerPage(origin: string, e: Etat = { kind: "vide" }, now = n
   <p class="note">Rien reçu\u00a0? Regardez dans les indésirables, ou écrivez à contact@rundata.re.</p>
   <p><a href="${PROPOSER_PATH}">Proposer un autre événement</a> · <a href="/associations">Retour à l'espace clubs et associations</a></p></section>`
       : `${proposerForm(e, now)}${REPETE_SCRIPT}${TURNSTILE_SCRIPT}`;
-  return layout(origin, { title: TITLE, description: META, path: PROPOSER_PATH, jsonld: [crumbs(origin, "Proposer un événement", PROPOSER_PATH), webPage(origin, PROPOSER_PATH, TITLE, META, null)], alerte, sansAvis: true }, band, body);
+  return layout(origin, { title: TITLE, description: META, path: PROPOSER_PATH, jsonld: [crumbs(origin, "Proposer un événement", PROPOSER_PATH, PARENT), webPage(origin, PROPOSER_PATH, TITLE, META, null)], alerte, sansAvis: true }, band, body);
 }
 
 /** GET /associations/proposer: the empty form. POST: the proposal written and its link e-mailed, or the form again. */
@@ -385,7 +380,7 @@ function gererBody(l: propositions.Ligne, action: string, g: Extract<Gerer, { ki
 
 /** The page of the secret link; `action`: its own address, where its forms post. */
 export function gererPage(origin: string, l: propositions.Ligne | undefined, action: string, g: Gerer, now = new Date(), alerte?: Alerte): string {
-  const band = `${crumbBar("Votre événement")}
+  const band = `${crumbBar("Votre événement", PARENT)}
 <div class="wrap intro solo"><div class="pitch">
   <p class="pill"><span class="dot"></span>Clubs et associations</p>
   <h1>Votre événement</h1>

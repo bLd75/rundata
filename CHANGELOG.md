@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Nouvel espace clubs et associations : proposez vos événements en 2 minutes, gratuitement et sans compte, sur rundata.re/associations.
 - Volcan : le niveau d'alerte et l'accès à l'Enclos sont tirés des textes de la préfecture et de l'OVPF, cités avec leur date.
 - Actualités : les titres du Quotidien de La Réunion s'ajoutent aux autres médias de l'île, sur rundata.re/actualites et dans votre IA.
 - Clubs de sport : les rendez-vous publiés sur Sportsregions (tir à l'arc, triathlon, golf, badminton…), avec le club et le lien.
