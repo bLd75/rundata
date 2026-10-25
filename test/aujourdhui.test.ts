@@ -41,6 +41,8 @@ describe("the page of a commune's day", () => {
     expect(html).toContain("Fête 0");
     expect(html).toContain('<a href="/electricite">électricité</a>');
     expect(html).not.toMatch(/conforme/);
+    expect(html).toContain(`<a href="https://www.infotrafic.re/" rel="noopener">la carte officielle sur infotrafic.re ↗</a>`);
+    expect(html).not.toMatch(/waze/i);
   });
 
   it("gives the practical side of the day: the market, the skips of the TCO, the fuel, the duty pharmacy", () => {

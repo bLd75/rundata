@@ -5,7 +5,7 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import * as transit from "../src/providers/transit.js";
 import * as annuaire from "../src/providers/annuaire.js";
 import { communePage } from "../src/web/commune.js";
-import { buildBus, communeStops, type CommuneData } from "../src/web/data.js";
+import { buildBus, communeStops, type CommuneData, type TraficAnswer } from "../src/web/data.js";
 import { airPage, busPage, calendrierPage, electricitePage, volcanPage } from "../src/web/domains.js";
 import { homePage } from "../src/web/home.js";
 import { DESCRIPTION_MAX } from "../src/web/pages.js";
@@ -110,6 +110,7 @@ describe("home page tiles", () => {
       electricite: cached(answer("electricite")),
       calendrier: cached(answer("calendrier")),
       bus: cached(await buildBus(NOW)),
+      trafic: cached({ bus: null, routes_forestieres: { interdites: [{ route: "RF58" }], principales: [] }, sources: [] } as unknown as TraficAnswer),
     };
     const page = homePage(ORIGIN, live, NOW);
     const tile = (name: string) => page.match(new RegExp(`<h3><a href="/[a-z]+">${name}</a></h3>(.*?)</li>`))![1];
@@ -120,6 +121,9 @@ describe("home page tiles", () => {
     expect(tile("Électricité")).toContain(`<p class="tv">43\u202f% renouvelable</p>`);
     expect(tile("Calendrier")).toContain(`<p class="tv">Vacances scolaires</p>`);
     expect(tile("Calendrier")).toContain("Toussaint dans 9 j");
+    // The Région's official map; Waze only on /trafic, beside its own map.
+    expect(tile("Circulation").replaceAll("\u00a0", " ")).toContain(`<p class="tv">Carte officielle</p><p class="td">bouchons, accidents et travaux : infotrafic.re ; 1 route forestière fermée</p>`);
+    expect(page).not.toMatch(/waze/i);
     // A time, not « dans 3 min »: the page may be a few minutes old.
     expect(tile("Bus")).toMatch(/<p class="tv">(demain )?\d+h\d\d<\/p><p class="td">prochain départ de la gare de Saint-/);
     // Those without a page give a question to ask.
@@ -173,6 +177,7 @@ describe("commune page", () => {
     expect(tile(page, "Soleil et calendrier")).toMatch(/<p class="tv">\d\dh\d\d – \d\dh\d\d<\/p>/);
     expect(desc(page).length).toBeLessThanOrEqual(DESCRIPTION_MAX);
     expect(jsonld(page)[0].itemListElement.map((x: { name: string }) => x.name)).toEqual(["rundata.re", "Communes", "Saint-Pierre"]);
+    expect(page).not.toMatch(/waze/i);
   });
 });
 

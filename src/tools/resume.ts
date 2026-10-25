@@ -161,7 +161,7 @@ function fuelShort(p: { produits: { produit: string; prix_eur: number }[] }): st
   return [litre(/^supercarburant$/i, "sans plomb"), litre(/^gazole$/i, "gazole")].filter(Boolean).join(", ");
 }
 
-const NO_JAMS = "rundata.re ne mesure pas les bouchons : voir la carte Waze en direct, l'état des routes nationales sur infotrafic.re (Région Réunion) et https://rundata.re/trafic.";
+const NO_JAMS = "rundata.re ne mesure pas les bouchons : voir la carte officielle des bouchons, accidents et travaux sur https://www.infotrafic.re/ (Région Réunion), et https://rundata.re/trafic.";
 
 /**
  * Why a part is left out when its copy was built by another revision (cache.ts, `outdated`): what it holds may be what
@@ -321,7 +321,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
       : undefined,
     circulation: {
       mesure_des_bouchons: NO_JAMS,
-      waze: `https://www.waze.com/ul?ll=${commune.place.lat},${commune.place.lon}&zoom=13`,
+      carte_officielle: "https://www.infotrafic.re/",
       route_du_littoral: road,
       infos_routes: l.actualites ? roads.slice(0, NEWS_MAX).map(newsRow) : undefined,
       routes_ile: l.trafic?.value.medias?.length ? l.trafic.value.medias.slice(0, 3) : undefined,

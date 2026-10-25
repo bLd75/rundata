@@ -56,7 +56,7 @@ describe("search engines", () => {
     expect(title(agendaPage(O, null, NOW))).toBe("Que faire à La Réunion ? Concerts, fêtes, sorties · 974");
     expect(title(busPage(O, null, NOW))).toBe("Horaires bus Réunion : prochains départs en gare · 974");
     expect(title(daePage(O, null, NOW))).toBe("Défibrillateurs Réunion : où trouver un DAE · 974");
-    expect(title(traficPage(O, null, NOW))).toBe("Bouchons Réunion : carte Waze et état des routes · 974");
+    expect(title(traficPage(O, null, NOW))).toBe("Info trafic Réunion : bouchons, routes, bus en direct · 974");
     expect(title(placePage(O, pageOf("cilaos")!, null, NOW))).toBe("Météo Cilaos en direct et prévisions · 974");
     // The sector first (§8), then « état ONF » when the name leaves room.
     expect(title(tracePage(O, "randonnee", "sentier-du-piton-des-neiges", "Sentier du Piton des Neiges", null, NOW))).toBe("Sentier du Piton des Neiges (Cilaos) : trace GPX · 974");
