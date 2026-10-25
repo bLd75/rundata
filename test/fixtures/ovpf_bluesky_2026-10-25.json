@@ -1,0 +1,120 @@
+{
+ "feed": [
+  {
+   "post": {
+    "uri": "at://did:plc:qzdltnkksm37jcg5jr6rkuas/app.bsky.feed.post/3myod6frais2s",
+    "cid": "bafyreid3rcd3uamlym2wuqcfcyejfbvn2fji47gyy7lgouls3a4hsxomxa",
+    "author": {
+     "did": "did:plc:qzdltnkksm37jcg5jr6rkuas",
+     "handle": "ovpf.bsky.social",
+     "displayName": "Observatoire volcanologique du Piton de la Fournaise",
+     "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:qzdltnkksm37jcg5jr6rkuas/bafkreica54rlsuzhxvrtwkojsrkrgwete7npiboatostmlniop5faklgpq",
+     "associated": {
+      "activitySubscription": {
+       "allowSubscriptions": "followers"
+      }
+     },
+     "labels": [],
+     "createdAt": "2025-02-05T13:25:21.245Z"
+    },
+    "record": {
+     "$type": "app.bsky.feed.post",
+     "createdAt": "2026-10-25T04:02:38.225Z",
+     "embed": {
+      "$type": "app.bsky.embed.images",
+      "images": [
+       {
+        "alt": "",
+        "aspectRatio": {
+         "height": 3508,
+         "width": 2480
+        },
+        "image": {
+         "$type": "blob",
+         "ref": {
+          "$link": "bafkreifuz4fbj55wfwfopvev4u636hnlwjbvxdcfbjc36dmnbbycnyb4ve"
+         },
+         "mimeType": "image/jpeg",
+         "size": 1696097
+        }
+       },
+       {
+        "alt": "",
+        "aspectRatio": {
+         "height": 3508,
+         "width": 2480
+        },
+        "image": {
+         "$type": "blob",
+         "ref": {
+          "$link": "bafkreib5fauaz2ecja6vp36bmb24gdc5iw5kvof5qdjs77epbkhudn3tfa"
+         },
+         "mimeType": "image/jpeg",
+         "size": 1710949
+        }
+       },
+       {
+        "alt": "",
+        "aspectRatio": {
+         "height": 3508,
+         "width": 2480
+        },
+        "image": {
+         "$type": "blob",
+         "ref": {
+          "$link": "bafkreigdsc3y6jqjnciqmjreagupbmlx3zp7myojftxf4iaufvphuu24vy"
+         },
+         "mimeType": "image/jpeg",
+         "size": 1895264
+        }
+       }
+      ]
+     },
+     "langs": [
+      "fr"
+     ],
+     "text": ""
+    },
+    "embed": {
+     "images": [
+      {
+       "thumb": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:qzdltnkksm37jcg5jr6rkuas/bafkreifuz4fbj55wfwfopvev4u636hnlwjbvxdcfbjc36dmnbbycnyb4ve",
+       "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:qzdltnkksm37jcg5jr6rkuas/bafkreifuz4fbj55wfwfopvev4u636hnlwjbvxdcfbjc36dmnbbycnyb4ve",
+       "alt": "",
+       "aspectRatio": {
+        "height": 3508,
+        "width": 2480
+       }
+      },
+      {
+       "thumb": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:qzdltnkksm37jcg5jr6rkuas/bafkreib5fauaz2ecja6vp36bmb24gdc5iw5kvof5qdjs77epbkhudn3tfa",
+       "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:qzdltnkksm37jcg5jr6rkuas/bafkreib5fauaz2ecja6vp36bmb24gdc5iw5kvof5qdjs77epbkhudn3tfa",
+       "alt": "",
+       "aspectRatio": {
+        "height": 3508,
+        "width": 2480
+       }
+      },
+      {
+       "thumb": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:qzdltnkksm37jcg5jr6rkuas/bafkreigdsc3y6jqjnciqmjreagupbmlx3zp7myojftxf4iaufvphuu24vy",
+       "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:qzdltnkksm37jcg5jr6rkuas/bafkreigdsc3y6jqjnciqmjreagupbmlx3zp7myojftxf4iaufvphuu24vy",
+       "alt": "",
+       "aspectRatio": {
+        "height": 3508,
+        "width": 2480
+       }
+      }
+     ],
+     "$type": "app.bsky.embed.images#view"
+    },
+    "bookmarkCount": 0,
+    "replyCount": 0,
+    "repostCount": 0,
+    "likeCount": 2,
+    "quoteCount": 0,
+    "indexedAt": "2026-10-25T04:02:55.836Z",
+    "labels": []
+   }
+  }
+ ]
+}

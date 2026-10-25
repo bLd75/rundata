@@ -338,7 +338,7 @@ export interface VolcanAnswer {
   };
   /** The episodes whose start and end a release writes (tools/volcan-historique.ts), as the AI reads them. */
   alertes_precedentes?: { note: string; episodes: { debut: string[]; fin: string }[] };
-  publications_ovpf?: { date: string; texte: string; lien?: string; image?: boolean }[];
+  publications_ovpf?: { date: string; texte: string; lien?: string; image?: boolean; images?: number; a_lire?: string }[];
   seismes?: {
     sous_le_volcan: { "30_jours": number; "7_jours": number; magnitude_max_30j: number | null };
     ailleurs_sur_l_ile: { "30_jours": number; magnitude_max_30j: number | null };
