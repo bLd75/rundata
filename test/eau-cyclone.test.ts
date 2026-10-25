@@ -23,7 +23,7 @@ describe("after a cyclone, the tap water", () => {
     expect(distributeur("L'Étang-Salé")).toBeUndefined();
     expect(plusieurs("L'Étang-Salé")).toEqual(["la mairie de L'Étang-Salé", "runéo"]);
     expect(coverageLine("L'Étang-Salé")).toBe("Distributeur non identifié à L'Étang-Salé : le contrôle sanitaire de l'ARS en cite plusieurs (la mairie de L'Étang-Salé et runéo). Renseignez-vous auprès de la mairie.");
-    expect(coverageLine("Le Tampon")).toBe("Nous ne lisons pas les avis de Sudeau, qui distribue l'eau au Tampon : renseignez-vous auprès de Sudeau ou de la mairie.");
+    expect(coverageLine("Le Tampon")).toBe("Nous ne lisons pas les avis de Sudéau, qui distribue l'eau au Tampon : renseignez-vous auprès de Sudéau ou de la mairie.");
     expect(coverageLine("Saint-Paul")).toBe("Nous lisons les avis publiés par La Créole pour Saint-Paul, au moins toutes les 30 minutes : ils s'affichent en haut de cette page.");
     // Sainte-Marie: CISE Réunion's notices, as the ville posts them; Les Avirons, also CISE Réunion, is not read.
     expect(coverageLine("Sainte-Marie")).toBe("Nous lisons les communiqués de CISE Réunion publiés par la ville de Sainte-Marie, au moins toutes les 30 minutes\u00a0: ils s'affichent en haut de cette page. Un communiqué publié en image ou en PDF n'est pas lu\u00a0: nous donnons seulement son lien.");
@@ -39,11 +39,11 @@ describe("after a cyclone, the tap water", () => {
       expect(html).not.toMatch(/eau potable|rétabli|aucun avis/i);
     const island = cycloneWater(OCTOBER).html;
     expect(island).toContain("<b>Distributeur non identifié</b>");
-    expect(island).toMatch(/Sudeau \(<a href="\/coupures-eau\/[a-z-]+">[^<]+<\/a>, <a href="\/coupures-eau\/[a-z-]+">[^<]+<\/a>/);
+    expect(island).toMatch(/Sudéau \(<a href="\/coupures-eau\/[a-z-]+">[^<]+<\/a>, <a href="\/coupures-eau\/[a-z-]+">[^<]+<\/a>/);
     expect(island).toContain(`CISE Réunion (<a href="/coupures-eau/les-avirons">Les Avirons</a>)`);
     const read = /<b>Avis lus<\/b> : (.*?)<\/li>/.exec(island)![1];
     for (const c of ["Saint-Paul", "Les Trois-Bassins", "Sainte-Marie"]) expect(read).toContain(`>${c}</a>`);
-    expect(island.match(/Sudeau \(/g)).toHaveLength(1);
+    expect(island.match(/Sudéau \(/g)).toHaveLength(1);
     expect(island).toContain('<a href="https://www.eaudurobinet.re/" rel="noopener">');
   });
 

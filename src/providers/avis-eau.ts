@@ -13,7 +13,7 @@
  *   only the link is kept.
  * - The commune of Saint-Leu posts Derichebourg Aqua OI's notices among its news: a short extract is kept, with the
  *   facts (hours, streets) and the link; a post that is only an image gives its link.
- * Other distributors (Sudeau, CISE in Les Avirons, Petite-Île, Cilaos) are not read here: some mairies get a link only
+ * Other distributors (Sudéau, CISE in Les Avirons, Petite-Île, Cilaos) are not read here: some mairies get a link only
  * (src/eau/distributeurs.ts).
  */
 import type { Cache, Cached } from "../cache.js";
