@@ -7,6 +7,7 @@ import { STATIONS_EN_SERVICE } from "../src/providers/meteofrance-stations.js";
 import { IDS } from "../src/providers/irve.js";
 import icons from "../src/web/icons.json" with { type: "json" };
 import visuals from "../src/web/presse.json" with { type: "json" };
+import { homePage } from "../src/web/home.js";
 
 const NOW = new Date("2026-10-24T04:00:00Z");
 const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
@@ -36,6 +37,15 @@ describe("press page", () => {
     expect(html).toContain("commune par commune, mise à jour en continu, chaque donnée avec son heure.");
     expect(html).not.toContain("cinq minutes");
     expect(html).toContain(`<link rel="canonical" href="https://rundata.re/presse">`);
+  });
+
+  it("says what the connector receives, never that no personal data is collected (the host keeps logs with the address)", async () => {
+    const said = "le connecteur ne reçoit que la question posée à l'outil, par exemple «\u00a0Saint-Paul\u00a0», jamais votre conversation.";
+    const html = await page();
+    expect(html).toContain(`Rien à installer, pas de compte\u00a0: ${said}`);
+    const home = homePage("https://rundata.re", null, NOW);
+    expect(home).toContain(`compris par la plupart des assistants IA. L${said.slice(1)}</p>`);
+    for (const h of [html, home]) expect(h).not.toMatch(/donnée personnelle/);
   });
 
   it("names the press contact once, by first name, in the release's contact line only", async () => {
