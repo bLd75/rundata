@@ -4,7 +4,9 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import { RANDONNEES } from "../src/providers/traces.js";
 import type { AgendaAnswer } from "../src/web/data.js";
 import { agendaEvents, eventSummary, agendaPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, historiquePage, sportPage, tracePage, traficPage } from "../src/web/domains.js";
+import { feuxPage } from "../src/web/feux.js";
 import { homePage } from "../src/web/home.js";
+import rubriques from "../src/web/og-rubriques.json" with { type: "json" };
 import { meteoPage, placePage } from "../src/web/pages.js";
 import { pageOf, PAGES } from "../src/web/places.js";
 import { site } from "../src/web/site.js";
@@ -138,8 +140,15 @@ describe("link previews", () => {
     expect(img(calendrierPage(O, null, NOW))).toMatch(/\/og\/calendrier\./);
     expect(img(cyclonesPage(O, null, NOW))).toMatch(/\/og\/cyclones\./);
     expect(img(sportPage(O, null, NOW))).toMatch(/\/og\/sport\./);
+    // The island alone, no fire on it: Facebook and WhatsApp keep the picture for days, fire or not.
+    expect(img(feuxPage(O, { fires: null }, NOW))).toMatch(/\/og\/feux\./);
     expect(img(homePage(O, null, NOW))).toMatch(/\/og\.png\?v=/);
     expect(agendaPage(O, null, NOW)).toMatch(/<meta name="twitter:image" content="https:\/\/rundata\.re\/og\/evenements\.[0-9a-f]{10}\.png">/);
+  });
+
+  it("have every picture they name in public/og/, /enfants's ready for its page", () => {
+    for (const r of rubriques) expect(existsSync(new URL(`../public${r.png}`, import.meta.url)), r.png).toBe(true);
+    expect(rubriques.find((r) => r.pages.includes("/enfants"))).toMatchObject({ png: expect.stringMatching(/^\/og\/enfants\.[0-9a-f]{10}\.png$/), alt: expect.stringContaining("Enfants 974") });
   });
 });
 
