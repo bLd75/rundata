@@ -52,8 +52,8 @@ describe("who makes rundata.re, the connector's page, the legal notice, the 404 
     const page = await r.text();
     expect(page).toContain("<h1>Qui fait rundata.re\u00a0?</h1>");
     for (const id of ["pourquoi", "financement", "engagements", "contact"]) expect(page).toContain(`id="${id}"`);
-    for (const s of ["projet personnel et bénévole", "habitant de l'île, développeur", "Cloudflare", "Il n'affiche aucune publicité et ne vend aucune donnée", "Il restera gratuit pour tout le monde.", "contact@rundata.re", 'href="/conditions#mentions-legales"', 'href="/presse"', '"@type":"AboutPage"']) expect(page).toContain(s);
-    for (const s of ["aucun revenu", "offres gratuites"]) expect(page).not.toContain(s);
+    for (const s of ["projet personnel et bénévole", "habitant de l'île, développeur", "Cloudflare", "Il est gratuit, n'affiche aucune publicité et ne vend aucune donnée.", "Pour les associations à but non lucratif, il est gratuit à vie.", "contact@rundata.re", 'href="/conditions#mentions-legales"', 'href="/presse"', '"@type":"AboutPage"']) expect(page).toContain(s);
+    for (const s of ["aucun revenu", "offres gratuites", "restera gratuit"]) expect(page).not.toContain(s);
     const main = aProposPage("https://rundata.re").split("<footer")[0];
     expect(main).not.toMatch(/bLd75|github/i);
     // About 250 words: the title, its sentence and the four sections.

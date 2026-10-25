@@ -24,7 +24,7 @@ export function aProposPage(origin: string, alerte?: Alerte): string {
   <h2 id="pourquoi">Pourquoi</h2>
   <p>Les données publiques de l'île existent, mais elles sont éparpillées : la météo chez Météo-France, le volcan à l'observatoire, les bus chez chaque réseau, les coupures d'eau chez chaque distributeur. Et quand on demande à une IA « il pleut à Cilaos ? », elle répond souvent de mémoire, sans mesure ni source. rundata.re les rassemble au même endroit, avec leur heure et leur source, pour les habitants et pour leurs assistants IA.</p>
   <h2 id="financement">Comment c'est financé</h2>
-  <p>Le site est hébergé chez Cloudflare. Il n'affiche aucune publicité et ne vend aucune donnée. Il restera gratuit pour tout le monde.</p>
+  <p>Le site est hébergé chez Cloudflare. Il est gratuit, n'affiche aucune publicité et ne vend aucune donnée. Pour les associations à but non lucratif, il est gratuit à vie.</p>
   <h2 id="engagements">Ce que rundata.re promet</h2>
   <ul>
     <li><b>La mesure et la prévision ne sont jamais mélangées.</b> Chaque chiffre dit s'il a été mesuré ou s'il est prévu.</li>
