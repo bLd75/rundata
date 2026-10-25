@@ -159,12 +159,11 @@ const KEEP_LEFT = 4;
 // How often the scheduled event reads its agendas again, unless an agenda says otherwise (`relecture`).
 const PLANNED_FRESH_SECONDS = 3600;
 
-// When a planned agenda last failed (or found nothing where its copy had events), in this isolate: it is not tried
-// again before its next reading is due, rather than at each scheduled event, for a subrequest and up to TIMEOUT_MS
-// each time (Saint-Joseph's site does not answer Cloudflare's addresses).
-const echecs = new Map<string, number>();
-/** For the tests: each starts as a new isolate. */
-export const oublierEchecs = () => echecs.clear();
+// When a planned agenda last failed (or found nothing where its copy had events), kept in the bundle beside its copy:
+// it is not tried again before its next reading is due, rather than at each scheduled event, for a subrequest and up
+// to TIMEOUT_MS each time (Saint-Joseph's site does not answer Cloudflare's addresses). In the bundle, not in memory:
+// the scheduled events seldom run twice in the same isolate.
+const echec = (agenda: src.Agenda) => `echec:${agenda.id}`;
 
 /** An agenda this invocation has no subrequests left for, and of which no copy is kept. */
 class Postponed extends Error {}
@@ -234,8 +233,9 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
 /**
  * The scheduled event's last part: the agendas read only there (`planifie`) whose copy is an hour old (or as old as
  * their `relecture`), each only if what is left pays for its reading and the bundle's write; the bundle (in KV,
- * src.PLANIFIES) written once, and only if one was read. A reading that fails, or that finds nothing where the copy had
- * events, keeps the copy and its time, and is not tried again before the agenda's next reading is due.
+ * src.PLANIFIES) written once, and only if one was read or failed. A reading that fails, or that finds nothing where the
+ * copy had events, keeps the copy and its time, and is not tried again before the agenda's next reading is due, in
+ * whatever isolate the next scheduled events run.
  */
 export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ lus: string[]; gardes: string[]; reportes: string[]; trop_vieilles: string[] }> {
   // `trop_vieilles`: not read again this time, and their copy, older than PLANIFIE_MAX_AGE_SECONDS, no longer served.
@@ -252,8 +252,8 @@ export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ 
     const old = bundle.peek(`agenda:${agenda.id}`);
     const every = (agenda.relecture ?? PLANNED_FRESH_SECONDS) * 1000;
     if (old && old.ageMs < every) continue;
-    const failed = echecs.get(agenda.id);
-    if (failed !== undefined && now.getTime() - failed < every) continue;
+    const failed = bundle.peek(echec(agenda));
+    if (failed && failed.ageMs < every) continue;
     if (left() - KEEP_LEFT - 1 < (agenda.requetes ?? 1)) {
       out.reportes.push(agenda.id);
       continue;
@@ -263,16 +263,16 @@ export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ 
       if (!value.length && (old?.value as src.Evenement[] | undefined)?.length) {
         console.error(`source ${agenda.source.id} (${agenda.id}) : aucun événement, la copie est gardée`);
         out.gardes.push(agenda.id);
-        echecs.set(agenda.id, now.getTime());
+        bundle.set(echec(agenda), true);
         continue;
       }
       bundle.set(`agenda:${agenda.id}`, value);
       out.lus.push(agenda.id);
-      echecs.delete(agenda.id);
+      bundle.drop((k) => k !== echec(agenda));
     } catch (err) {
       console.error(`source ${agenda.source.id} (${agenda.id}) indisponible, la copie est gardée:`, why(err));
       out.gardes.push(agenda.id);
-      echecs.set(agenda.id, now.getTime());
+      bundle.set(echec(agenda), true);
     }
   }
   for (const agenda of planned) {
@@ -282,7 +282,7 @@ export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ 
       out.trop_vieilles.push(agenda.id);
     }
   }
-  if (out.lus.length) await bundle.save();
+  if (out.lus.length || out.gardes.length) await bundle.save();
   return out;
 }
 
