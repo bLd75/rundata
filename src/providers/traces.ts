@@ -19,7 +19,7 @@ export const SOURCES = {
   osm: {
     id: "osm_randonnees",
     nom: "Itinéraires de randonnée d'OpenStreetMap",
-    organisme: "Contributeurs d'OpenStreetMap",
+    organisme: "Les contributeurs d'OpenStreetMap",
     licence: "ODbL 1.0",
     attribution: "© les contributeurs d'OpenStreetMap",
     url: "https://www.openstreetmap.org/copyright",

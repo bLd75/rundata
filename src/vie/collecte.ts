@@ -12,9 +12,9 @@ const DAY_MS = 86400_000;
 
 export const SOURCE: SourceInfo = {
   id: "tco_collecte",
-  nom: "Calendriers de collectes du Territoire de l'Ouest",
+  nom: "Calendriers de collecte des déchets du Territoire de l'Ouest",
   organisme: "Territoire de l'Ouest (TCO)",
-  licence: "Licence Ouverte (Etalab)",
+  licence: "Licence Ouverte Etalab",
   attribution: "Territoire de l'Ouest (TCO)",
   url: "https://data.tco.re/explore/dataset/calendriers-de-collectes-du-territoire-de-louest-gru/",
 };

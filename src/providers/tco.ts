@@ -12,7 +12,7 @@ export const SOURCE: SourceInfo = {
   id: "tco_decheteries",
   nom: "Météo des déchèteries du Territoire de l'Ouest",
   organisme: "Territoire de l'Ouest (TCO)",
-  licence: "Licence Ouverte (Etalab)",
+  licence: "Licence Ouverte Etalab",
   attribution: "Territoire de l'Ouest (TCO)",
   url: "https://data.tco.re/explore/dataset/meteo-des-decheteries/",
 };

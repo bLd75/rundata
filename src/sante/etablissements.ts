@@ -24,15 +24,15 @@ export const BUILT = data.construit;
 export const FINESS: SourceInfo = {
   id: "finess",
   nom: "FINESS, fichier national des établissements sanitaires et sociaux",
-  organisme: "Ministère de la Santé",
-  licence: "Licence Ouverte 2.0",
-  attribution: "Ministère de la Santé, FINESS",
+  organisme: "Ministère chargé de la santé",
+  licence: "Licence Ouverte Etalab",
+  attribution: "Ministère chargé de la santé, FINESS",
   url: "https://www.data.gouv.fr/datasets/finess-extraction-du-fichier-des-etablissements/",
 };
 
 export const ARS_GARDE: SourceInfo = {
   id: "ars_garde",
-  nom: "Trouver la pharmacie de garde la plus proche (ARS La Réunion)",
+  nom: "Pharmacies de garde (ARS La Réunion)",
   organisme: "Agence régionale de santé La Réunion",
   licence: "Information publique",
   attribution: "ARS La Réunion",
