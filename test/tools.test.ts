@@ -1,7 +1,7 @@
 import { counted } from "../src/budget.js";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Cache, MemoryStore } from "../src/cache.js";
+import { Cache, MemoryStore, TieredStore } from "../src/cache.js";
 import { parseAscii, parseCsv } from "../src/providers/acspo.js";
 import * as meteofrance from "../src/providers/meteofrance.js";
 import { inReunionBeacons } from "../src/providers/pioupiou.js";
@@ -119,6 +119,20 @@ describe("temperature_mer", () => {
     const bare = new Cache(new MemoryStore(), () => NOW.getTime());
     expect((await temperatureMer(bare, "Saint-Leu", NOW)).isError).toBe(true);
     expect(satellites()).toEqual([]);
+  });
+
+  it("asks the stores again for a copy of /mer made before it kept the grids, rather than keep it 3 hours", async () => {
+    const at = NOW.getTime();
+    // In this isolate's memory, the copy of 20 minutes ago without the grids; in the data center's cache, a page's newer one.
+    const memory = new MemoryStore();
+    const edge = new MemoryStore();
+    await memory.put("web:mer", { value: { plages: [], sources: [] }, fetchedAt: at - 20 * 60_000 });
+    const satellites = [{ source: "acspo", jours: [parseAscii(fixture("acspo.ascii"), "2026-10-16")], lu: at - 60_000 }];
+    await edge.put("web:mer", { value: { plages: [], sources: [], satellites }, fetchedAt: at - 60_000 });
+    const r = body(await temperatureMer(new Cache(new TieredStore(memory, edge), () => at, false), "Saint-Leu", NOW));
+    expect(r.mesure).toMatchObject({ nature: "mesure_satellite", jour_mesure: "2026-10-16" });
+    // The newer one is kept in memory: the next answers ask no store.
+    expect(((await memory.get("web:mer"))!.value as { satellites?: unknown[] }).satellites).toHaveLength(1);
   });
 
   it("does not invent a sea temperature for Cilaos", async () => {
