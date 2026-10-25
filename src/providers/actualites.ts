@@ -25,7 +25,7 @@ export const SOURCES = {
     id: "medias_locaux",
     nom: "Titres des médias de La Réunion : Réunion La 1ère, Clicanoo, Le Quotidien, Imaz Press, Freedom, Parallèle Sud, Témoignages",
     organisme: "Rédactions de La Réunion",
-    licence: "Titres, première phrase et lien seulement ; les articles sont sur le site de chaque média",
+    licence: "Titres, première phrase quand le média la donne, et lien seulement ; les articles sont sur le site de chaque média",
     attribution: "Réunion La 1ère, Clicanoo (Le Journal de l'île), Le Quotidien de La Réunion, Imaz Press Réunion, Freedom, Parallèle Sud, Témoignages",
     url: "https://la1ere.franceinfo.fr/reunion/",
   },

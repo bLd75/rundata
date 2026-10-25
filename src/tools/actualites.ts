@@ -16,7 +16,7 @@ export const COUVERTURE =
   "de cyclone ou d'éruption), Freedom, Parallèle Sud, Témoignages, et les communiqués de la préfecture. Linfo.re et Zinfos974 ne se laissent pas lire " +
   "par un programme : ils n'y sont pas.";
 export const A_SAVOIR =
-  "Titres et premières phrases des articles, avec leur lien : lire l'article pour le détail. Qu'aucune information ne mentionne un lieu ne prouve pas " +
+  "Titres des articles, avec leur première phrase quand le média la donne, et leur lien : lire l'article pour le détail. Qu'aucune information ne mentionne un lieu ne prouve pas " +
   "qu'il ne s'y passe rien. Pour la route en direct, écouter la radio (Freedom, Réunion La 1ère) ; en cas de danger, appeler le 17 ou le 112, et suivre " +
   "les consignes de la préfecture.";
 

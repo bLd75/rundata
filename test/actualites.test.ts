@@ -160,5 +160,8 @@ describe("actualités", () => {
     expect(html).toContain("Le direct d'Imaz Press");
     expect(html).toContain('id="nf"');
     expect(html).toContain("Communiqués de la préfecture");
+    // Le Quotidien gives neither a first sentence nor always an hour: the page does not promise them.
+    expect(html).toContain("Le titre de chaque article, sa première phrase quand le média la donne, son média, les communes qu'il nomme et son heure (heure de La Réunion), ou son jour seulement quand le média ne donne pas l'heure.");
+    expect(html).toContain("Titres des articles, avec leur première phrase quand le média la donne, et leur lien");
   });
 });
