@@ -86,6 +86,8 @@ const SHARED_FROM: Record<string, string[]> = {
   "web:volcan": ["src/tools/volcan.ts", "src/providers/ovpf-pdf.ts"],
   "web:courant": ["src/tools/courant.ts"],
   "ens:ile": ["src/providers/ensemble.ts"],
+  "web:chiffres": ["src/tools/meteo.ts", "src/providers/velos.ts", "src/providers/sentiers.ts", "src/sans-reponse.ts"],
+  "web:chiffres:evenements": ["src/tools/agenda.ts"],
 };
 // The traffic's copy reads the 8 bus stations' timetables in 2 D1 calls (the patterns, about 811 rows, and the passes,
 // about 23), as the D1 analytics count them.
@@ -93,10 +95,12 @@ const SHARED_D1: Record<string, Pick<Run, "d1Calls" | "d1RowsRead">> = {
   "web:trafic": { d1Calls: 2, d1RowsRead: 840 },
   // The state of the OVPF-IPGP's site (tools/volcan.ts), in the copy of /sites-sans-reponse.
   "web:volcan": SANS_REPONSE_D1,
+  // The silent sites, counted.
+  "web:chiffres": SANS_REPONSE_D1,
 };
 
 // Never built alone over MEASURED: their CPU is that of the page that shows them.
-const SHARED_ESTIMATED = new Set(["mer:satellites", "web:calendrier"]);
+const SHARED_ESTIMATED = new Set(["mer:satellites", "web:calendrier", "web:chiffres", "web:chiffres:evenements"]);
 
 const sharedEntry = (s: Shared, after: boolean): Entry => ({
   id: s.key,
@@ -282,6 +286,8 @@ const OTHER_PAGES: Record<string, Page> = {
   "/carburants": { subrequests: 13, cpuMs: 30, from: ["src/tools/carburants.ts"] },
   "/associations": { subrequests: 10, cpuMs: 40, from: ["src/web/propositions.ts"], what: "l'espace des associations et leurs propositions (D1)" },
   "/sites-sans-reponse": { subrequests: 9, cpuMs: 40, from: ["src/sans-reponse.ts"], d1: SANS_REPONSE_D1, what: "les sites publics sans réponse (D1), avec la vigilance et la version de l'en-tête", basis: "code" },
+  // The copy of its counts (the data center's cache, else KV): never a source.
+  "/chiffres": { subrequests: 9, cpuMs: 40, from: [], what: "rundata.re en chiffres : la copie de ses comptes, avec la vigilance et la version de l'en-tête", basis: "code" },
   "*": { subrequests: 7, cpuMs: 70, from: [], what: "toute autre adresse : la vigilance et la version, lues pour l'en-tête" },
 };
 
@@ -297,7 +303,7 @@ const pageEntry = (path: string, p: Page, kvReads: number): Entry => ({
 // A page reads a shared copy from KV when its data center's cache has none: at most once per shared copy it shows.
 const SHARED_KEYS = new Set([...SHARED, ...SHARED_AFTER].map((s) => s.key));
 const sharedIn = (keys: string[]) => new Set(keys.filter((k) => SHARED_KEYS.has(k))).size;
-const KV_READS: Record<string, number> = { "/": sharedIn(HOME_TILES), "/communes/*": sharedIn(COMMUNE_TILES), "/aujourdhui/*": sharedIn([...COMMUNE_TILES, ...HOME_TILES]) };
+const KV_READS: Record<string, number> = { "/chiffres": 1, "/": sharedIn(HOME_TILES), "/communes/*": sharedIn(COMMUNE_TILES), "/aujourdhui/*": sharedIn([...COMMUNE_TILES, ...HOME_TILES]) };
 
 const VISITS: Entry[] = [
   ...Object.entries(OTHER_PAGES).map(([path, p]) => pageEntry(path, p, KV_READS[path] ?? 0)),
@@ -336,7 +342,8 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   qualite_air: { subrequests: 3, cpuMs: 50, file: "air" },
   defibrillateurs: { subrequests: 0, cpuMs: 70, file: "dae" },
   donner_avis: { subrequests: 1, cpuMs: 60, d1: { d1Calls: 1, d1RowsRead: 5, d1RowsWritten: 3 } },
-  sources_donnees: { subrequests: 0, cpuMs: 40 },
+  // The copy of /chiffres for its block `chiffres` (the data center's cache, else KV).
+  sources_donnees: { subrequests: 2, cpuMs: 40, basis: "code" },
   // Its file imports the page's address, whose imports reach every source: its reads start at the rows'.
   sites_sans_reponse: { subrequests: 2, cpuMs: 30, from: ["src/sans-reponse.ts"], d1: SANS_REPONSE_D1, basis: "code" },
 };

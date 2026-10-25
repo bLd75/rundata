@@ -4,6 +4,10 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 <!-- Généré à partir de src/nouveautes.ts par `npm run changelog` : modifier la liste là-bas. -->
 
+## Lundi 26 octobre 2026
+
+- rundata.re en chiffres : une page compte les sources publiques lues, leurs producteurs, leurs licences, et ce qui manque encore.
+
 ## Dimanche 25 octobre 2026
 
 - Quand le site d'une source ne répond pas, la page le dit, avec l'heure de la dernière lecture, au lieu de rien.

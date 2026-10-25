@@ -5,8 +5,8 @@ import { toutesLesSources } from "../src/server.js";
 
 // Every source, those of a base or a key the tests lack included.
 const sources = toutesLesSources(true);
-// Their producers counted live from the source's last copy, or unknown to the code (producteurs.ts).
-const SANS_PRODUCTEUR_ICI = ["gpu_zone_urba", "irve", "sportsregions"];
+// Their producers counted live from the source's last copy (chiffres.ts), or unknown to the code (producteurs.ts).
+const SANS_PRODUCTEUR_ICI = ["gpu_zone_urba", "sportsregions"];
 
 describe("the producers and licences of the sources (producteurs.ts)", () => {
   it("have an entry for every source read, and none for a source no longer read", () => {

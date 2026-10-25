@@ -17,26 +17,26 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 215 | 500 |
-| pire passage planifié, appels KV et D1 | 25 | 1 000 |
-| pire passage planifié, CPU (ms) | 1 352 | 30 000 |
+| pire passage planifié, sous-requêtes | 298 | 500 |
+| pire passage planifié, appels KV et D1 | 29 | 1 000 |
+| pire passage planifié, CPU (ms) | 1 612 | 30 000 |
 | passage le plus chargé (cadences les plus courtes), sous-requêtes | 82 | 500 |
 | vue la plus chère, sous-requêtes | 78 | 200 |
 | question la plus chère, sous-requêtes | 59 | 200 |
-| construction de copie la plus chère, sous-requêtes | 30 | 100 |
+| construction de copie la plus chère, sous-requêtes | 56 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
 - Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 64 sous-requêtes (arome:veille, arome:grilles, partagees:liste, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
 - Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 82 sous-requêtes (arome:veille, arome:grilles, partagees:liste, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 193 sous-requêtes à 00:00 UTC.
-- Vue la plus chère : /communes/*, 78. Question la plus chère : resume_du_jour, 59. Construction la plus chère : web:trafic, 30.
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 276 sous-requêtes à 00:00 UTC.
+- Vue la plus chère : /communes/*, 78. Question la plus chère : resume_du_jour, 59. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 215 | 2 | 15 | 8 | 901 | 31 | 1 352 |
-| tâche planifiée, par jour | 6 415 | 576 | 632 | 339 | 44 228 | 31 | 43 363 |
-| tâche planifiée, par jour, cadences les plus courtes | 11 463 | 576 | 948 | 819 | 49 268 | 31 | 75 243 |
-| tâche planifiée, par mois (30 jours) | 192 450 | 17 280 | 18 960 | 10 170 | 1 326 840 | 930 | 1 300 890 |
+| pire passage planifié | 298 | 2 | 17 | 10 | 922 | 31 | 1 612 |
+| tâche planifiée, par jour | 7 267 | 576 | 660 | 387 | 44 732 | 31 | 45 603 |
+| tâche planifiée, par jour, cadences les plus courtes | 12 315 | 576 | 976 | 867 | 49 772 | 31 | 77 483 |
+| tâche planifiée, par mois (30 jours) | 218 010 | 17 280 | 19 800 | 11 610 | 1 341 960 | 930 | 1 368 090 |
 | tâches GitHub, par jour | 0 |  | 101 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 3 030 | 60 |  | 861 000 |  |
 
@@ -59,6 +59,8 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | web:calendrier | copie partagée (KV) | 360 min | 02:10 | 9 |  | 1 |  |  |  | 40 | estimé |
 | web:volcan | copie partagée (KV) | 30 min (5 au plus court) | 00:15 | 18 |  | 1 | 2 | 21 |  | 110 | mesuré |
 | web:courant | copie partagée (KV) | 120 min (30 au plus court) | 00:20 | 8 |  | 1 |  |  |  | 30 | mesuré |
+| web:chiffres | copie partagée (KV) | 60 min | 00:50 | 26 |  | 1 | 2 | 21 |  | 60 | estimé |
+| web:chiffres:evenements | copie partagée (KV) | 360 min | 00:30 | 57 |  | 1 |  |  |  | 200 | estimé |
 | ens:ile | copie partagée, avec ce que les autres ont laissé | 180 min | 01:40 | 4 |  | 1 |  |  |  | 40 | mesuré |
 | agendas:planifies | agendas lus par la tâche planifiée : leur copie commune (KV), lue à chaque passage, écrite après une lecture | 5 min | 00:00 | 1 | 1 |  |  |  |  |  | code |
 | agendas:planifies:ecriture | agendas lus par la tâche planifiée : l'écriture de leur copie commune | 60 min | 00:00 | 1 |  | 1 |  |  |  |  | code |
@@ -102,6 +104,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /carburants | la page /carburants | à chaque vue |  | 13 |  |  |  |  |  | 30 | mesuré |
 | /associations | l'espace des associations et leurs propositions (D1) | à chaque vue |  | 10 |  |  |  |  |  | 40 | mesuré |
 | /sites-sans-reponse | les sites publics sans réponse (D1), avec la vigilance et la version de l'en-tête | à chaque vue |  | 9 |  |  | 2 | 21 |  | 40 | code |
+| /chiffres | rundata.re en chiffres : la copie de ses comptes, avec la vigilance et la version de l'en-tête | à chaque vue |  | 9 | 1 |  |  |  |  | 40 | code |
 | * | toute autre adresse : la vigilance et la version, lues pour l'en-tête | à chaque vue |  | 7 |  |  |  |  |  | 70 | mesuré |
 | /meteo | la page /meteo | à chaque vue |  | 41 |  |  |  |  |  | 80 | mesuré |
 | /volcan | la page /volcan | à chaque vue |  | 43 | 1 |  | 2 | 21 |  | 60 | mesuré |
@@ -159,7 +162,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | qualite_air | l'outil qualite_air | à chaque vue |  | 3 |  |  |  |  |  | 50 | mesuré |
 | defibrillateurs | l'outil defibrillateurs | à chaque vue |  | 0 |  |  |  |  |  | 70 | mesuré |
 | donner_avis | l'outil donner_avis | à chaque vue |  | 1 |  |  | 1 | 5 | 3 | 60 | mesuré |
-| sources_donnees | l'outil sources_donnees | à chaque vue |  | 0 |  |  |  |  |  | 40 | mesuré |
+| sources_donnees | l'outil sources_donnees | à chaque vue |  | 2 |  |  |  |  |  | 40 | code |
 | sites_sans_reponse | l'outil sites_sans_reponse | à chaque vue |  | 2 |  |  | 2 | 21 |  | 30 | code |
 
 ## Sources lues
@@ -180,6 +183,8 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | web:calendrier | providers/calendrier |
 | web:volcan | providers/actualites, providers/agenda, providers/avis-eau, providers/ovpf-pdf, providers/prefecture, providers/salles, providers/seismes, providers/sentiers, providers/sport, providers/traces, providers/volcan |
 | web:courant | providers/avis-eau, providers/coupures-courant |
+| web:chiffres | providers/agenda, providers/avis-eau, providers/metar, providers/meteofrance, providers/mf-auth, providers/pioupiou, providers/radar, providers/salles, providers/sentiers, providers/sport, providers/velos |
+| web:chiffres:evenements | providers/actualites, providers/agenda, providers/avis-eau, providers/salles, providers/sport-avis, providers/sport |
 | ens:ile | providers/ensemble |
 | agenda:salazie | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | agenda:lrvb | providers/agenda, providers/avis-eau, providers/salles, providers/sport |

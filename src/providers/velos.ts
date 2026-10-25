@@ -104,14 +104,18 @@ export function merge(stations: Station[], status: StatusJson[]): StationNow[] {
   });
 }
 
+/** The stations, without their bikes: read again once a day (/chiffres counts them). */
+export const info = (cache: Cache) =>
+  cache.get("velos:info", INFO_SECONDS, async () =>
+    parseInfo((await getJson<{ data: { stations: InfoJson[] } }>(SOURCE.id, `${BASE}station_information.json`)).data.stations),
+  );
+
 export async function stations(cache: Cache) {
-  const [info, status] = await Promise.all([
-    cache.get("velos:info", INFO_SECONDS, async () =>
-      parseInfo((await getJson<{ data: { stations: InfoJson[] } }>(SOURCE.id, `${BASE}station_information.json`)).data.stations),
-    ),
+  const [fixed, status] = await Promise.all([
+    info(cache),
     cache.get("velos:status", STATUS_SECONDS, async () =>
       (await getJson<{ data: { stations: StatusJson[] } }>(SOURCE.id, `${BASE}station_status.json`)).data.stations,
     ),
   ]);
-  return { value: merge(info.value, status.value), fetchedAt: status.fetchedAt, stale: info.stale || status.stale };
+  return { value: merge(fixed.value, status.value), fetchedAt: status.fetchedAt, stale: fixed.stale || status.stale };
 }

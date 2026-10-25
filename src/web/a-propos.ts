@@ -23,6 +23,7 @@ export function aProposPage(origin: string, alerte?: Alerte): string {
 </div></div>`;
   const body = `<section style="max-width:44rem;display:grid;gap:1rem">
   <h2 id="pourquoi">Pourquoi</h2>
+  <p>Ce que rundata.re lit, compté en direct : <a href="/chiffres">rundata.re en chiffres</a>.</p>
   <p>Les données publiques de l'île existent, mais elles sont éparpillées : la météo chez Météo-France, le volcan à l'observatoire, les bus chez chaque réseau, les coupures d'eau chez chaque distributeur. Et quand on demande à une IA « il pleut à Cilaos ? », elle répond souvent de mémoire, sans mesure ni source. rundata.re les rassemble au même endroit, avec leur heure et leur source, pour les habitants et pour leurs assistants IA.</p>
   <h2 id="financement">Comment c'est financé</h2>
   <p>Le site est hébergé chez Cloudflare. Il est gratuit, n'affiche aucune publicité et ne vend aucune donnée. Pour les associations à but non lucratif, il est gratuit à vie.</p>
@@ -34,7 +35,7 @@ export function aProposPage(origin: string, alerte?: Alerte): string {
     <li><b>Une erreur signalée est vérifiée et corrigée au plus vite.</b></li>
   </ul>
   <h2 id="contact">Joindre rundata.re</h2>
-  <p>Écrivez à <a href="mailto:contact@rundata.re"><b>contact@rundata.re</b></a>, ou laissez un avis avec le formulaire en bas de chaque page. Le site est né en octobre 2026. Son code est libre (licence MIT). Les sources de chaque donnée sont citées en bas de chaque page. Voir aussi\u00a0: <a href="/presse">l'espace presse</a>,${enLigne() ? ` <a href="/associations">l'espace clubs et associations</a>,` : ""} <a href="/nouveautes">les nouveautés</a>, <a href="/sites-sans-reponse">les sites publics sans réponse</a>, <a href="/conditions#mentions-legales">les mentions légales</a> et <a href="/confidentialite">la confidentialité</a>.</p>
+  <p>Écrivez à <a href="mailto:contact@rundata.re"><b>contact@rundata.re</b></a>, ou laissez un avis avec le formulaire en bas de chaque page. Le site est né en octobre 2026. Son code est libre (licence MIT). Les sources de chaque donnée sont citées en bas de chaque page. Voir aussi\u00a0: <a href="/presse">l'espace presse</a>,${enLigne() ? ` <a href="/associations">l'espace clubs et associations</a>,` : ""} <a href="/nouveautes">les nouveautés</a>, <a href="/chiffres">rundata.re en chiffres</a>, <a href="/sites-sans-reponse">les sites publics sans réponse</a>, <a href="/conditions#mentions-legales">les mentions légales</a> et <a href="/confidentialite">la confidentialité</a>.</p>
 </section>`;
   return layout(origin, { title: TITLE, description: DESCRIPTION, path: PATH, jsonld: [crumbs(origin, "Qui fait rundata.re ?", PATH), { ...webPage(origin, PATH, TITLE, DESCRIPTION, null), "@type": "AboutPage" }], alerte }, band, body);
 }
