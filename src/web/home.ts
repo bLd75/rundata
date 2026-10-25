@@ -244,8 +244,9 @@ function happening(h: HomeLive | null, now: Date): string {
 }
 
 function tiles(live: Record<string, Live | undefined>, u: Urgent, news = ""): string {
-  // In the order of the menu; those without a page after them all.
-  const all = [...byUse(CATEGORIES.filter((c) => c.path), u), ...CATEGORIES.filter((c) => !c.path)];
+  // In the order of the menu, but the traffic, a quiet vigilance and a quiet volcano at the end, before the sea and the
+  // buses; those without a page after them all.
+  const all = [...byUse(CATEGORIES.filter((c) => c.path), u, true), ...CATEGORIES.filter((c) => !c.path)];
   return `<section id="en-ce-moment" aria-labelledby="h-ile">
   <div class="sec-h"><p class="eyebrow">En direct</p>
     <h2 id="h-ile">L'île en ce moment</h2>

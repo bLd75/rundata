@@ -43,11 +43,25 @@ describe("the order of the pages", () => {
     }
   });
 
-  it("orders the home page's tiles as the menu, those without a page after them", () => {
+  it("orders the home page's tiles as the menu, the traffic and a quiet vigilance and volcano with the sea and the buses at the end", () => {
     const quiet = homePage(O, null, NOW);
-    expect(tiles(quiet).slice(0, 3)).toEqual(["agenda", "sentiers", "meteo"]);
-    expect(tiles(quiet).slice(-4)).toEqual(["mer", "bus", "services", "terrain"]);
-    expect(tiles(homePage(O, null, NOW, VIGILANCE))[0]).toBe("vigilance");
+    expect(tiles(quiet)).toEqual(["agenda", "sentiers", "meteo", "actualites", "historique", "cyclones", "velos", "bornes", "coupures", "dae",
+      "secheresse", "sport", "eau", "air", "electricite", "calendrier", "trafic", "vigilance", "volcan", "mer", "bus", "services", "terrain"]);
+    // Nothing hidden, and the menu keeps its order.
+    expect([...tiles(quiet)].sort()).toEqual([...tiles(homePage(O, null, NOW, VIGILANCE))].sort());
+    expect(menu(quiet).slice(-3)).toEqual(["communes", "mer", "bus"]);
+  });
+
+  it("puts the home page's vigilance and volcano tiles back first while in force, the other one still at the end", () => {
+    const vigilance = tiles(homePage(O, null, NOW, VIGILANCE));
+    expect(vigilance.slice(0, 4)).toEqual(["vigilance", "agenda", "sentiers", "meteo"]);
+    expect(vigilance.slice(-6)).toEqual(["trafic", "volcan", "mer", "bus", "services", "terrain"]);
+    const volcan = tiles(withVolcan(VOLCAN, () => homePage(O, null, NOW)));
+    expect(volcan.slice(0, 2)).toEqual(["volcan", "agenda"]);
+    expect(volcan.slice(-6)).toEqual(["trafic", "vigilance", "mer", "bus", "services", "terrain"]);
+    const both = tiles(withVolcan(VOLCAN, () => homePage(O, null, NOW, VIGILANCE)));
+    expect(both.slice(0, 3)).toEqual(["vigilance", "volcan", "agenda"]);
+    expect(both.slice(-5)).toEqual(["trafic", "mer", "bus", "services", "terrain"]);
   });
 
   it("puts the events and the hikes in « En ce moment », the volcano only in alert, never the sea", () => {
