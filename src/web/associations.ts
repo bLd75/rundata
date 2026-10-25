@@ -142,7 +142,7 @@ function preuveSection(p: Preuve): string {
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-preuve">Les prochains événements de clubs et d'associations</h2></div>
   ${count}
   <div class="card">${list}<p><a href="/evenements">Voir tous les événements</a></p></div>
-  <p class="note">Sur chaque événement : le nom de votre club, un lien vers votre page, et l'heure à laquelle nous l'avons lu.</p>
+  <p class="note">Sur chaque événement\u00a0: le nom de votre club ou de votre association, un lien vers votre page, et la date à laquelle nous l'avons lu ou à laquelle vous l'avez proposé.</p>
 </section>`;
 }
 
@@ -186,5 +186,5 @@ ${lienForm(PATH)}
 </section>
 <p>Une question ? <a href="mailto:contact@rundata.re">contact@rundata.re</a></p>
 ${TURNSTILE_SCRIPT}`;
-  return layout(origin, { title: TITLE, description: META, path: PATH, jsonld: [crumbs(origin, "Clubs et associations", PATH), webPage(origin, PATH, TITLE, META, null), howTo(origin)], alerte }, band, body);
+  return layout(origin, { title: TITLE, description: META, path: PATH, jsonld: [crumbs(origin, "Clubs et associations", PATH), webPage(origin, PATH, TITLE, META, null), howTo(origin)], alerte, sansPartage: true }, band, body);
 }

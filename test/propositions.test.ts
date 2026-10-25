@@ -636,6 +636,11 @@ describe("the clubs' and associations' space (web/associations.ts)", () => {
     // No figure before there are ten clubs; the empty list says what to do.
     expect(html).not.toContain("clubs et associations lus par rundata.re");
     expect(html).toContain("Les premiers événements de clubs et d'associations arrivent : ");
+    expect(html).toContain("et la date à laquelle nous l'avons lu ou à laquelle vous l'avez proposé.");
+    // One WhatsApp button, the relay's; the feedback form stays.
+    expect(html.match(/Partager sur WhatsApp/g)).toHaveLength(1);
+    expect(html).not.toContain("Une info utile chaque matin");
+    expect(html).toContain('action="/avis"');
     for (const path of ["/clubs?ref=affiche", "/asso/?ref=affiche"]) {
       const to = await get(path);
       expect(to.status).toBe(301);
@@ -671,12 +676,20 @@ describe("the clubs' and associations' space (web/associations.ts)", () => {
     const closed = plain(await (await get("/confidentialite")).text());
     expect(closed).not.toContain('href="/associations"');
     expect(closed).not.toContain('id="associations-donnees"');
+    expect(closed).toContain("<p>rundata.re ne demande ni compte, ni nom, ni adresse électronique. Le site");
+    expect(plain(await (await get("/conditions")).text())).not.toContain('id="evenements-proposes"');
     expect(plain(await (await get("/publier")).text())).not.toContain('id="lien"');
     formulaires.ouvrir(true);
     const privacy = plain(await (await get("/confidentialite")).text());
     expect(privacy).toContain('<li><a href="/associations">Clubs et associations</a></li>');
     expect(privacy).toContain('<h2 id="associations-donnees">');
     expect(privacy).toContain("La vérification anti-robot (Cloudflare Turnstile) voit l'adresse au moment de l'envoi, sans que nous la gardions.");
+    expect(privacy).toContain('Seuls les deux formulaires des clubs et associations demandent une adresse électronique (voir <a href="#associations-donnees">« Ce que les clubs et associations envoient »</a>).');
+    expect(privacy).toContain("Pour consulter ou faire effacer ce que nous gardons, écrivez à <b>contact@rundata.re</b> : nous répondons sous un mois.");
+    expect(privacy).not.toContain("Aucune donnée ne permet de vous identifier");
+    const terms = plain(await (await get("/conditions")).text());
+    expect(terms).toContain('<p id="evenements-proposes"><b>Événements proposés par les clubs et associations.</b> L\'association qui propose un événement en est responsable : ');
+    expect(terms).toContain("La mention « Proposé par l'organisateur » signale que l'événement n'a pas été vérifié par rundata.re.");
     const publier = plain(await (await get("/publier")).text());
     expect(publier).toContain("Petit club, peu de temps ? Commencez par l'");
     expect(publier).toContain('<input type="hidden" name="page" value="/publier">');
