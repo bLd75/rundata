@@ -209,6 +209,7 @@ describe("agenda", () => {
       const cilaos = parseWpNews(JSON.parse(fixture("actus_cilaos.json")), "Ville de Cilaos", "Cilaos", NOW);
       expect(seen(cilaos)).toEqual([["Journée de prévention de l’AVC à Cilaos le 28 octobre 2026", [{ debut: "2026-10-28" }]]]);
       expect(cilaos[0]).toMatchObject({ commune: "Cilaos", publie_par: "Ville de Cilaos", lien: expect.stringContaining("ville-cilaos.fr") });
+      expect(parseWpNews([{ date: "2026-10-23T10:00:00", link: "https://ville-cilaos.fr/conseil", title: { rendered: "Séance du conseil municipal le 28 octobre 2026" } }], "Ville de Cilaos", "Cilaos", NOW)).toEqual([]);
       // The day in the first sentence (« Du 7 au 11 novembre 2026, … »); not the hours of the swimming pools, nor the
       // holidays' stays, which give no day.
       expect(seen(parseSpipNews(fixture("rss_saint-joseph.xml"), "Ville de Saint-Joseph", "Saint-Joseph", NOW))).toEqual([
