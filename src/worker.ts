@@ -181,7 +181,11 @@ function setup(env: Env): Cache {
   avis.configure(avisRun, env.AVIS_SEL);
   // The links and events the clubs send, in the same database (scripts/propositions.sql); a proposal's link is e-mailed
   // through Cloudflare, and without the binding a proposal is refused rather than kept unconfirmable.
-  propositions.configure(avisRun, env.EMAIL && propositions.envoiCloudflare(env.EMAIL));
+  propositions.configure(
+    avisRun,
+    env.EMAIL && propositions.envoiCloudflare(env.EMAIL),
+    avisDb && (async <T>(sql: string, ...params: unknown[]) => (count(), (await avisDb.prepare(sql).bind(...params).all<T>()).results)),
+  );
   formulaires.configure(env.TURNSTILE_SECRET);
   // Without the KV binding, the bundles stay in the data center's cache like everything else.
   // The page copies shared by every data center are read from KV when the data center's cache has none (web/partagees.ts).
@@ -229,5 +233,13 @@ export default {
           (value.copies.written.length || value.copies.left.length || value.agendas?.lus.length ? `, sous-requêtes en tout : ${used}` : "")))
         .catch((err) => console.error("préchargement impossible", why(err))),
     );
+    // Once a day, at 04:00 in La Réunion (the run between 00:00 and 00:05 UTC): what the clubs sent is forgotten on
+    // time even on the days nothing new is proposed (scripts/propositions.sql).
+    const now = new Date();
+    if (now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
+      ctx.waitUntil(propositions.purger(now)
+        .then((n) => console.log(`propositions : purge quotidienne, ${n} lignes`))
+        .catch((err) => console.error("propositions : purge impossible", why(err))));
+    }
   },
 };

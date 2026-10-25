@@ -682,6 +682,10 @@ interface Head {
   shell?: boolean;
   /** A page that is a form itself (/associations/proposer): no feedback form below, where an event could be typed by mistake. */
   sansAvis?: boolean;
+  /** Nothing to share nor follow below (the secret link of a proposed event: its author would think they share it). */
+  sansPartage?: boolean;
+  /** The page's referrer policy, besides the header: « no-referrer » where the address holds a secret. */
+  referrer?: string;
   /** The page shows the volcano's alert itself (the home page's card, /volcan's heading): no volcano banner above it. */
   volcan?: boolean;
 }
@@ -845,7 +849,7 @@ export function layout(origin: string, head: Head, band: string, body: string): 
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(head.title)}</title>
 <meta name="description" content="${d}">
-${head.noindex ? `<meta name="robots" content="noindex">\n` : ""}<link rel="canonical" href="${esc(url)}">
+${head.noindex ? `<meta name="robots" content="noindex">\n` : ""}${head.referrer ? `<meta name="referrer" content="${esc(head.referrer)}">\n` : ""}<link rel="canonical" href="${esc(url)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="${icons["192"]}" type="image/png" sizes="192x192">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -879,7 +883,7 @@ ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
 <main class="wrap">
 ${body}
 </main>
-${head.shell ? "" : `${share(origin, head)}
+${head.shell ? "" : `${head.sansPartage ? "" : share(origin, head)}
 ${head.sansAvis ? "" : avisForm(head.path)}`}
 <footer class="foot"><div class="wrap">
   <div>

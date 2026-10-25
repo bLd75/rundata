@@ -7,6 +7,7 @@ import type { Fil } from "../providers/actualites.js";
 import * as src from "../providers/agenda.js";
 import { names, THEMES, W } from "../providers/agenda-mots.js";
 import { withNews } from "../providers/agenda-presse.js";
+import { evenements as proposes, ID as PROPOSITIONS_ID } from "../providers/agenda-propositions.js";
 import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, notFound, placeBlock, text } from "./format.js";
@@ -273,6 +274,17 @@ export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ 
 }
 
 /**
+ * After its author called off, postponed or changed the public contact of an event they proposed: the copy of the
+ * proposed events written again at once, so that the answers say it now rather than within the quarter of an hour.
+ * The bundle's read, the table's, the write.
+ */
+export async function rafraichirPropositions(cache: Cache, now = new Date()): Promise<void> {
+  const bundle = await cache.bundle(src.BUNDLE, src.BUNDLE_SYNC_SECONDS);
+  bundle.set(`agenda:${PROPOSITIONS_ID}`, await proposes(now));
+  await bundle.save();
+}
+
+/**
  * The same event published twice (by the CINOR and the tourist office, a mairie and reunion.fr, a hall and the town)
  * is told once: same first words of the title (« CÉDRIC "ANALYSE" & SES INVITÉS », « Cédric « Analyse » et ses
  * invités ») on the same day, in the same commune when both say it.
@@ -343,8 +355,12 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     /** Absent when the source gives no http(s) link. */
     lien: httpUrl(e.lien),
     publie_par: e.publie_par,
-    /** When rundata.re read the agenda this comes from. */
-    lu_le: e.lu_le ? dayText(e.lu_le) : undefined,
+    /** When rundata.re read the agenda this comes from; not for an event its organiser proposed, never read elsewhere. */
+    lu_le: e.lu_le && !e.propose ? dayText(e.lu_le) : undefined,
+    /** Proposed by its organiser on rundata.re: said so, with the day, never « checked ». */
+    propose: e.propose ? `Proposé par l'organisateur sur rundata.re le ${e.propose.le.split("-").reverse().join("/")}` : undefined,
+    /** The contact its author chose to show, only then. */
+    contact: e.propose?.contact,
   };
 }
 export type EventRow = ReturnType<typeof eventRow>;
@@ -380,7 +396,7 @@ export function occurrences(r: Pick<EventRow, "date" | "quand" | "autres_dates">
 
 // Told from the agendas read: a source taken out of AGENDAS leaves this text too.
 const halls = src.AGENDAS.filter((x) => x.source === SALLES_SOURCE);
-const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== "reunion_fr" && !x.partiel);
+const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== "reunion_fr" && x.id !== PROPOSITIONS_ID && !x.partiel);
 const partial = src.AGENDAS.filter((x) => x.partiel);
 const without = Object.keys(INSEE).filter((c) => !src.COVERED.includes(c));
 /** The communes whose mairie's agenda is read, for the tool's description. */
@@ -391,6 +407,7 @@ export const COUVERTURE =
   (partial.length ? `Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : ${partial.map((x) => x.commune).join(", ")}. ` : "") +
   `Sans agenda lu (seuls les grands événements de reunion.fr) : ${without.join(", ")}` +
   `${Object.entries(src.SANS_AGENDA).filter(([c]) => without.includes(c)).map(([, why]) => ` ; ${why}`).join("")}. ` +
+  "Aussi : les événements que les clubs et associations proposent sur rundata.re (https://rundata.re/associations), relus avant publication. " +
   "Pas encore lus : les bars et les clubs, les billetteries privées. Un événement absent ici peut quand même avoir lieu (voir le site ou la " +
   "page Facebook de la salle ou de la mairie). Chaque événement dit qui le publie, renvoie à sa page et dit quand rundata.re l'a lu.";
 /** The cinemas' showtimes are on their own sites, not here. */
@@ -415,7 +432,8 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   // for this, read once per invocation (the page asks twice), and after the agendas, so as not to take one's subrequest.
   const news = await perInvocation("agenda:actualites", () => cache.peek<Fil>("actualites:fil").catch(() => undefined));
   const failed = got.filter((g) => !g.value && !g.agenda.planifie).map((g) => g.agenda.nom);
-  if (got.every((g) => !g.value)) {
+  // The proposed events alone are not an agenda that answers: there may be none.
+  if (got.every((g) => !g.value || (g.agenda.id === PROPOSITIONS_ID && !g.value.value.length))) {
     return { ...text({ erreur: "Les agendas ne répondent pas pour le moment.", indisponible: failed }), isError: true };
   }
 
@@ -447,7 +465,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     failed.length ? `${failed.length} agenda${failed.length > 1 ? "s" : ""} non lu${failed.length > 1 ? "s" : ""} cette fois : ${failed.join(", ")} (liste peut-être incomplète, à redemander dans une minute)` : "",
   ].filter(Boolean).join(" ; ") + ".";
 
-  const used = [...new Set(got.filter((g) => g.value).map((g) => g.agenda.source))] as SourceInfo[];
+  const used = [...new Set(got.filter((g) => g.value && (g.agenda.id !== PROPOSITIONS_ID || g.value.value.length)).map((g) => g.agenda.source))] as SourceInfo[];
   return text({
     lieu: res && lieu ? placeBlock(lieu, res) : undefined,
     resume,

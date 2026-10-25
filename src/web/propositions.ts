@@ -163,8 +163,12 @@ const FAUX: Record<string, string> = {
 
 type Etat = { kind: "vide" } | { kind: "hors_perimetre" } | { kind: "faux"; f: URLSearchParams; erreurs: string[] } | { kind: "limite"; f: URLSearchParams } | { kind: "indisponible"; f: URLSearchParams } | { kind: "envoye" };
 
-function proposerForm(e: Etat, now: Date): string {
-  const f = e.kind === "faux" || e.kind === "limite" || e.kind === "indisponible" ? e.f : new URLSearchParams();
+/**
+ * The form; with `correction`, the one of the secret link: what was proposed, to correct, sent to its page; without who
+ * they are, their address, the consent nor the robots' checks, given once already.
+ */
+function proposerForm(e: Etat, now: Date, correction?: { action: string; f: URLSearchParams; affiche: boolean }): string {
+  const f = e.kind === "faux" || e.kind === "limite" || e.kind === "indisponible" ? e.f : correction ? correction.f : new URLSearchParams();
   const wrong = new Set(e.kind === "faux" ? e.erreurs : []);
   const v = (k: string) => esc(f.get(k) ?? "");
   const bad = (k: string) => (wrong.has(k) ? ` aria-invalid="true" aria-describedby="faux-${k}"` : "");
@@ -179,12 +183,13 @@ function proposerForm(e: Etat, now: Date): string {
         : e.kind === "indisponible"
           ? `<p class="msg vu" role="alert">La proposition n'a pas pu être enregistrée. Réessayez dans quelques minutes, ou écrivez à contact@rundata.re.</p>`
           : "";
-  return `<form class="card fo" method="post" action="${PROPOSER_PATH}" aria-labelledby="h-proposer" novalidate>
-  <h2 id="h-proposer">Votre événement</h2>
+  return `<form class="card fo" method="post" action="${correction ? esc(correction.action) : PROPOSER_PATH}" aria-labelledby="h-proposer" novalidate>
+  <h2 id="h-proposer">${correction ? "Corriger l'événement" : "Votre événement"}</h2>
+  ${correction ? `<input type="hidden" name="action" value="corriger"><p class="note">${correction.affiche ? "Une fois corrigé, l'événement est relu à nouveau, en général sous 24 heures. En attendant, la version actuelle reste affichée." : "Une fois corrigé, l'événement est relu à nouveau avant de s'afficher, en général sous 24 heures."}</p>` : ""}
   ${top}
-  <fieldset${bad("vous_etes")}><legend>Vous êtes</legend>
+  ${correction ? "" : `<fieldset${bad("vous_etes")}><legend>Vous êtes</legend>
     ${VOUS_ETES.map(([value, text]) => `<label class="case"><input type="radio" name="vous_etes" value="${value}"${f.get("vous_etes") === value ? " checked" : ""} required> ${esc(text)}</label>`).join("\n    ")}
-  </fieldset>${note("vous_etes")}
+  </fieldset>${note("vous_etes")}`}
   <div class="f"><label for="p-titre">Titre</label><input id="p-titre" name="titre" value="${v("titre")}" required maxlength="${propositions.NOM_MAX}"${bad("titre")}>${note("titre")}</div>
   <div class="f"><label for="p-date">Date</label><input id="p-date" name="date" type="date" min="${today}" value="${v("date")}" required${bad("date")}>${note("date")}</div>
   <div class="row court">
@@ -204,15 +209,16 @@ function proposerForm(e: Etat, now: Date): string {
   <div class="f"><label for="p-prix">Prix</label><input id="p-prix" name="prix" value="${v("prix")}" maxlength="${propositions.PRIX_MAX}" placeholder="5 €, gratuit pour les enfants"${bad("prix")}>${note("prix")}
     <label class="case"><input type="checkbox" name="gratuit" value="oui"${f.get("gratuit") === "oui" ? " checked" : ""}> Gratuit</label></div>
   <div class="f"><label for="p-lien">Lien <span class="aide">(facultatif\u00a0: page Facebook, billetterie ou inscription)</span></label><input id="p-lien" name="lien" type="url" value="${v("lien")}" maxlength="${propositions.LIEN_MAX}" placeholder="https://" inputmode="url"${bad("lien")}>${note("lien")}</div>
-  <div class="f"><label for="p-email">Votre e-mail <span class="aide bloc">Non publié, sauf si vous le choisissez plus bas. Vous y recevez le lien de confirmation, puis de quoi corriger, annuler ou reporter l'événement.</span></label><input id="p-email" name="email" type="email" value="${v("email")}" required maxlength="${propositions.EMAIL_MAX}" autocomplete="email"${bad("email")}>${note("email")}</div>
+  ${correction ? "" : `<div class="f"><label for="p-email">Votre e-mail <span class="aide bloc">Non publié, sauf si vous le choisissez plus bas. Vous y recevez le lien de confirmation, puis de quoi corriger, annuler ou reporter l'événement.</span></label><input id="p-email" name="email" type="email" value="${v("email")}" required maxlength="${propositions.EMAIL_MAX}" autocomplete="email"${bad("email")}>${note("email")}</div>`}
   <div class="f"><label for="p-contact">Contact public (facultatif) <span class="aide bloc">L'e-mail ou le téléphone de votre association, que le public pourra voir. Évitez un numéro personnel.</span></label><input id="p-contact" name="contact_public" value="${v("contact_public")}" maxlength="${propositions.CONTACT_MAX}"${bad("contact_public")}>${note("contact_public")}</div>
   <label class="case"><input type="checkbox" name="email_public" value="oui"${f.get("email_public") === "oui" ? " checked" : ""}> Utiliser mon adresse e-mail comme contact public</label>
-  <label class="case"><input type="checkbox" name="accord" value="oui" required${f.get("accord") === "oui" ? " checked" : ""}${bad("accord")}> J'agis pour cette association, cet événement est ouvert au public, et je le publie sous Licence Ouverte 2.0\u00a0: tout le monde pourra le réutiliser librement, en citant l'association.</label>${note("accord")}
+  ${correction ? `<button type="submit">Envoyer la correction</button>
+</form>` : `<label class="case"><input type="checkbox" name="accord" value="oui" required${f.get("accord") === "oui" ? " checked" : ""}${bad("accord")}> J'agis pour cette association, cet événement est ouvert au public, et je le publie sous Licence Ouverte 2.0\u00a0: tout le monde pourra le réutiliser librement, en citant l'association.</label>${note("accord")}
   ${hp}
   ${widget()}
   <button type="submit">Proposer l'événement</button>
   <p class="note">Votre e-mail sert seulement à confirmer, relire et modifier l'événement. Il n'est publié que si vous le demandez, et il est effacé 30 jours après la dernière date de l'événement, comme le contact public. <a href="/confidentialite">Ce qui est gardé</a>.</p>
-</form>`;
+</form>`}`;
 }
 
 // « Jusqu'au » only for a repeated event, once the script runs; without it, the field stays.
@@ -255,4 +261,181 @@ export async function proposer(request: Request, now = new Date(), alerte?: Aler
   if (!(await human(f, adresse))) return html({ kind: "indisponible", f }, 503);
   const issue = await propositions.enregistrerProposition(read.proposition, adresse, `${origin}${PROPOSITION_PATH}`, now);
   return issue === "ok" ? html({ kind: "envoye" }) : issue === "limite" ? html({ kind: "limite", f }, 429) : html({ kind: "indisponible", f }, 503);
+}
+
+// ---------------------------------------------------------------- the secret link
+
+const GERER_TITLE = "Votre événement proposé · rundata.re";
+const GERER_META = "Confirmer, corriger, annuler ou reporter l'événement que vous avez proposé sur rundata.re.";
+
+/** What was just done, said once on the page the browser is sent back to. */
+const FAIT: Record<string, string> = {
+  confirmer: "Merci, l'événement est confirmé. Nous le relisons, en général sous 24 heures\u00a0; il s'affiche ensuite sur rundata.re.",
+  annuler: "C'est fait\u00a0: l'événement est annoncé «\u00a0annulé\u00a0» sur rundata.re et dans les réponses des assistants IA.",
+  retirer: "C'est fait\u00a0: la proposition est retirée, elle ne sera pas publiée.",
+  reporter: "C'est fait\u00a0: l'événement est annoncé «\u00a0reporté\u00a0», à sa nouvelle date.",
+  prolonger: "C'est fait\u00a0: les nouvelles dates s'affichent.",
+  retirer_contact: "C'est fait\u00a0: le contact public n'est plus affiché.",
+  corriger: "Merci, la correction est enregistrée. Nous la relisons, en général sous 24 heures, avant qu'elle s'affiche.",
+};
+
+const ETAT: Record<propositions.EtatProposition, string> = {
+  a_confirmer: "À confirmer",
+  a_moderer: "En cours de relecture",
+  publie: "Publié",
+  refuse: "Non publié",
+  annule: "Annulé",
+  reporte: "Reporté",
+  retire: "Retiré",
+};
+
+/** Green once shown, amber while waiting, red when not or no longer shown. */
+const TEINTE: Record<propositions.EtatProposition, string> = {
+  a_confirmer: " ambre",
+  a_moderer: " ambre",
+  publie: " vert",
+  refuse: "",
+  annule: "",
+  reporte: " ambre",
+  retire: "",
+};
+
+const jourFr = (day: string) => day.split("-").reverse().join("/");
+
+/** The proposal's facts, as the form gave them (its correction waiting, if any), to put back in it for a correction. */
+function champs(l: propositions.Ligne): URLSearchParams {
+  const f = new URLSearchParams();
+  let c: Partial<propositions.Correction> = {};
+  try {
+    c = l.correction ? JSON.parse(l.correction) : {};
+  } catch {
+    // An unreadable correction: the published version.
+  }
+  const source = { ...l, ...c } as propositions.Ligne;
+  for (const k of ["titre", "date", "debut", "fin", "repete", "jusqu_au", "commune", "lieu", "organisateur", "description", "lien", "contact_public"] as const) {
+    if (source[k]) f.set(k, source[k]!);
+  }
+  l = source;
+  if (l.prix === "gratuit") f.set("gratuit", "oui");
+  else f.set("prix", l.prix);
+  return f;
+}
+
+/**
+ * When and where, in one line, date, hours, repetition, place: « le 07/11/2026, de 14:00 à 18:00, chaque semaine
+ * jusqu'au 26/12/2026, Boulodrome (Saint-Pierre) », « le 07/11/2026 à 14:00, … ».
+ */
+function quandOu(l: propositions.Ligne): string {
+  const day = l.reporte_au ?? l.date;
+  const hours = l.fin ? `, de ${l.debut} à ${l.fin}` : ` à ${l.debut}`;
+  const repeat = l.repete && l.jusqu_au ? `, chaque ${l.repete} jusqu'au ${jourFr(l.jusqu_au)}` : "";
+  return `le ${jourFr(day)}${hours}${repeat}, ${l.lieu} (${l.commune})`;
+}
+
+/** One action: a form of its own, so that a link opened by a mail scanner changes nothing. */
+const actionForm = (action: string, kind: string, inner: string) =>
+  `<form class="fo" method="post" action="${esc(action)}"><input type="hidden" name="action" value="${kind}">${inner}</form>`;
+
+type Gerer = { kind: "page"; fait?: string; refuse?: boolean; faux?: { f: URLSearchParams; erreurs: string[] } } | { kind: "inconnu" };
+
+function gererBody(l: propositions.Ligne, action: string, g: Extract<Gerer, { kind: "page" }>, now: Date): string {
+  const today = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
+  const open = propositions.modifiable(l, now);
+  const shown = propositions.VISIBLES.includes(l.etat) && open;
+  const head = `<section class="card fo" aria-labelledby="h-gerer">
+  <h2 id="h-gerer">${esc(l.titre)}</h2>
+  ${g.fait && FAIT[g.fait] ? `<p class="msg vu ok" role="status">${FAIT[g.fait]}</p>` : ""}
+  ${g.refuse ? `<p class="msg vu" role="alert">Ce changement n'est plus possible pour cet événement. Pour toute question, écrivez à contact@rundata.re.</p>` : ""}
+  <p><span class="badge${TEINTE[l.etat]}">${esc(ETAT[l.etat])}</span> ${esc(quandOu(l))}.</p>
+  <p class="note">Organisé par ${esc(l.organisateur)}.${l.contact_public ? ` Contact public\u00a0: ${esc(l.contact_public)}.` : ""}${l.etat === "refuse" ? `${l.motif ? ` Motif\u00a0: ${esc(l.motif)}.` : ""} Pour toute question, écrivez à contact@rundata.re.` : ""}</p>
+  ${l.correction && open ? `<p class="note">Votre correction attend la relecture, en général sous 24 heures\u00a0; en attendant, la version ci-dessus reste affichée.</p>` : ""}
+  ${!l.correction && l.motif && l.etat !== "refuse" && open ? `<p class="note">Votre dernière correction n'a pas été retenue. Motif\u00a0: ${esc(l.motif)}. Pour toute question, écrivez à contact@rundata.re.</p>` : ""}
+  ${!open && !["refuse", "annule", "retire"].includes(l.etat) ? `<p class="note">La date de l'événement est passée\u00a0: il ne peut plus être changé.</p>` : ""}
+  ${l.etat === "a_confirmer" && open ? actionForm(action, "confirmer", `<button type="submit">Confirmer l'événement</button>`) : ""}
+  ${shown ? `<p><a href="/evenements">Voir les événements sur rundata.re</a></p>` : ""}
+</section>`;
+  if (!open || l.etat === "a_confirmer") return head;
+  const parts: string[] = [];
+  if (l.etat !== "a_moderer") {
+    parts.push(`<section class="card fo" aria-labelledby="h-annuler"><h2 id="h-annuler">Annuler</h2>
+  <p>L'événement reste affiché, marqué «\u00a0annulé\u00a0», pour que personne ne se déplace pour rien.</p>
+  ${actionForm(action, "annuler", `<label class="case"><input type="checkbox" name="sur" value="oui" required> Oui, l'événement est annulé</label><button type="submit">Annoncer l'annulation</button>`)}</section>`);
+    parts.push(`<section class="card fo" aria-labelledby="h-reporter"><h2 id="h-reporter">Reporter</h2>
+  <p>L'événement est marqué «\u00a0reporté\u00a0», à sa nouvelle date, à la même heure.${l.repete ? " Un événement qui se répète devient alors un événement unique." : ""}</p>
+  ${actionForm(action, "reporter", `<div class="f"><label for="g-date">Nouvelle date</label><input id="g-date" name="date" type="date" min="${today}" required></div><button type="submit">Annoncer le report</button>`)}</section>`);
+  } else {
+    parts.push(`<section class="card fo" aria-labelledby="h-annuler"><h2 id="h-annuler">Retirer la proposition</h2>
+  <p>L'événement n'est pas encore publié\u00a0: retiré, il ne le sera pas.</p>
+  ${actionForm(action, "annuler", `<label class="case"><input type="checkbox" name="sur" value="oui" required> Oui, retirer cet événement</label><button type="submit">Retirer</button>`)}</section>`);
+  }
+  if (l.repete && l.jusqu_au) {
+    const max = propositions.addMonths(today, propositions.REPETITION_MOIS_MAX);
+    parts.push(`<section class="card fo" aria-labelledby="h-prolonger"><h2 id="h-prolonger">Prolonger</h2>
+  <p>Ajoutez des dates à l'événement qui se répète, jusqu'à 3 mois à partir d'aujourd'hui.</p>
+  ${actionForm(action, "prolonger", `<div class="f"><label for="g-jusqu">Jusqu'au</label><input id="g-jusqu" name="jusqu_au" type="date" min="${l.jusqu_au}" max="${max}" required></div><button type="submit">Prolonger</button>`)}</section>`);
+  }
+  if (l.contact_public) {
+    parts.push(`<section class="card fo" aria-labelledby="h-contact"><h2 id="h-contact">Retirer le contact public</h2>
+  <p>«\u00a0${esc(l.contact_public)}\u00a0» ne sera plus affiché avec l'événement, dès que vous cliquez. Ceux qui l'ont déjà copié le gardent.</p>
+  ${actionForm(action, "retirer_contact", `<button type="submit">Retirer le contact</button>`)}</section>`);
+  }
+  const fix = proposerForm(g.faux ? { kind: "faux", f: g.faux.f, erreurs: g.faux.erreurs } : { kind: "vide" }, now, { action, f: champs(l), affiche: shown });
+  return `${head}\n${parts.join("\n")}\n${fix}${REPETE_SCRIPT}`;
+}
+
+/** The page of the secret link; `action`: its own address, where its forms post. */
+export function gererPage(origin: string, l: propositions.Ligne | undefined, action: string, g: Gerer, now = new Date(), alerte?: Alerte): string {
+  const band = `${crumbBar("Votre événement")}
+<div class="wrap intro solo"><div class="pitch">
+  <p class="pill"><span class="dot"></span>Clubs et associations</p>
+  <h1>Votre événement</h1>
+  <p class="lead">Gardez ce lien\u00a0: il est le seul moyen de changer l'événement. Ne le partagez pas. Lien perdu\u00a0? Écrivez à contact@rundata.re.</p>
+</div></div>`;
+  const body = l && g.kind === "page"
+    ? gererBody(l, action, g, now)
+    : `<section class="card fo" aria-labelledby="h-inconnu"><h2 id="h-inconnu">Ce lien ne mène à aucun événement</h2>
+  <p>Une proposition non confirmée sous 48 heures est effacée, et un événement l'est un an après sa dernière date. Vous pouvez <a href="${PROPOSER_PATH}">proposer l'événement à nouveau</a>, ou écrire à contact@rundata.re.</p></section>`;
+  // The secret is never in the canonical address, nor sent to another site, nor indexed; nothing to share here, where a
+  // volunteer would think they share their link.
+  return layout(origin, { title: GERER_TITLE, description: GERER_META, path: PROPOSER_PATH, jsonld: [], alerte, sansAvis: true, sansPartage: true, noindex: true, referrer: "no-referrer" }, band, body);
+}
+
+const SECRET_HEADERS = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "x-robots-tag": "noindex" };
+
+/**
+ * GET /associations/proposition/<secret>: the proposal and what its author can do, never a change (a mail scanner
+ * opens the links it sees). POST: one change, then back to the page (303), which says it. `apres`: what to do once a
+ * change the public sees is made (the agendas' copy written again).
+ */
+export async function proposition(request: Request, now = new Date(), alerte?: Alerte, apres?: () => Promise<void>): Promise<Response> {
+  const url = new URL(request.url);
+  const jeton = url.pathname.slice(PROPOSITION_PATH.length).replace(/\/$/, "");
+  const action = `${PROPOSITION_PATH}${jeton}`;
+  const page = (l: propositions.Ligne | undefined, g: Gerer, status = 200) =>
+    new Response(gererPage(url.origin, l, action, g, now, alerte), { status, headers: SECRET_HEADERS });
+  if (request.method === "GET" || request.method === "HEAD") {
+    const l = await propositions.parJeton(jeton);
+    const fait = url.searchParams.get("fait") ?? undefined;
+    return l ? page(l, { kind: "page", fait }) : page(undefined, { kind: "inconnu" }, 404);
+  }
+  const f = await received(request, "Cette page");
+  if (f instanceof Response) return f;
+  const l = await propositions.parJeton(jeton);
+  if (!l) return page(undefined, { kind: "inconnu" }, 404);
+  const kind = f.get("action");
+  let a: propositions.Action | undefined;
+  if (kind === "confirmer" || kind === "retirer_contact") a = { kind };
+  else if (kind === "annuler" && f.get("sur") === "oui") a = { kind };
+  else if (kind === "reporter") a = { kind, date: f.get("date") ?? "" };
+  else if (kind === "prolonger") a = { kind, jusqu_au: f.get("jusqu_au") ?? "" };
+  else if (kind === "corriger") {
+    if (!l.email) return page(l, { kind: "page", refuse: true }, 409);
+    const read = propositions.lireProposition(f, COMMUNES, now, { email: l.email });
+    if ("erreurs" in read) return page(l, { kind: "page", faux: { f, erreurs: read.erreurs } }, 422);
+    a = { kind, p: read.proposition };
+  }
+  if (!a || !(await propositions.agir(jeton, a, now))) return page(l, { kind: "page", refuse: true }, 409);
+  if (propositions.visibleAussitot(a) && apres) await apres().catch((err) => console.error("propositions : copie de l'agenda impossible", err instanceof Error ? err.message : String(err)));
+  const fait = a.kind === "annuler" && l.etat === "a_moderer" ? "retirer" : a.kind;
+  return new Response(null, { status: 303, headers: { location: `${url.origin}${action}?fait=${fait}`, "cache-control": "no-store", "referrer-policy": "no-referrer" } });
 }
