@@ -134,8 +134,16 @@ export type AgendaStore = Pick<Bundle, "get">;
 
 // Every agenda's copy in one entry of the cache: one read and at most one write per invocation, whatever their number
 // (a read and a write each would take two subrequests per agenda). An isolate looks for another's copies once a minute.
+// The data center's cache: those of the agendas read by the questions.
 export const BUNDLE = "agendas";
 export const BUNDLE_SYNC_SECONDS = 60;
+// Those of the agendas read by the scheduled event (`planifie`), in KV, written by it only: it runs in any data center,
+// and the questions are answered in all of them (in the data center's cache, its copies were seen only where it ran).
+export const PLANIFIES = "agendas:planifies";
+
+/** The copies of the agendas read by the scheduled event: one read of KV per isolate and per minute at most. */
+export const planifiees = (cache: Pick<Cache, "bundle">) => cache.bundle(PLANIFIES, BUNDLE_SYNC_SECONDS, true);
+
 /** How long the copy of an agenda read by the scheduled event is served: past it, a tournament may have been called off. */
 export const PLANIFIE_MAX_AGE_SECONDS = 48 * 3600;
 
@@ -156,8 +164,8 @@ export interface Agenda {
   /** The fetches one reading makes, when more than one: an invocation reads the agendas its subrequests allow. */
   requetes?: number;
   /**
-   * Read by the scheduled event only (tools/agenda.ts, `refreshPlanned`), never by a question: a question serves its
-   * copy while it is younger than PLANIFIE_MAX_AGE_SECONDS, else goes without it.
+   * Read by the scheduled event only (tools/agenda.ts, `refreshPlanned`), never by a question, its copy kept in KV
+   * (PLANIFIES): a question serves it while it is younger than PLANIFIE_MAX_AGE_SECONDS, else goes without it.
    */
   planifie?: boolean;
   /** What is read of the commune when it is not an agenda (a mairie's news): said in the answer for that commune. */
@@ -1238,13 +1246,13 @@ export async function programmesSportifs(cache: Pick<Cache, "bundle">): Promise<
 }
 
 /**
- * What the sport tool takes from the agendas' last copy, in one read of the bundle (two reads at once would see it
- * empty): the volley league's tournaments, the clubs' events (Sportsregions), and the communes' sports programmes when
- * `programmes`.
+ * What the sport tool takes from the agendas' last copies, in one read of each bundle (two reads of one at once would
+ * see it empty): the volley league's tournaments, the clubs' events (Sportsregions), and the communes' sports
+ * programmes when `programmes`.
  */
 export async function sportDesAgendas(cache: Pick<Cache, "bundle">, programmes: boolean) {
-  const bundle = await cache.bundle(BUNDLE, BUNDLE_SYNC_SECONDS);
-  return { programmes: programmes ? programmesIn(bundle) : undefined, tournois: copiePlanifiee(bundle, LIGUE_VOLLEY), clubs: copiePlanifiee(bundle, SPORTSREGIONS) };
+  const [bundle, planned] = await Promise.all([cache.bundle(BUNDLE, BUNDLE_SYNC_SECONDS), planifiees(cache)]);
+  return { programmes: programmes ? programmesIn(bundle) : undefined, tournois: copiePlanifiee(planned, LIGUE_VOLLEY), clubs: copiePlanifiee(planned, SPORTSREGIONS) };
 }
 
 function programmesIn(bundle: Pick<Bundle, "peek">): { e: Evenement; agenda: Agenda; fetchedAt: Date }[] {

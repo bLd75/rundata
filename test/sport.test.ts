@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Cache, MemoryStore } from "../src/cache.js";
+import { WORKER_BUDGET, count, counted } from "../src/budget.js";
+import { Cache, MemoryStore, type CacheEntry } from "../src/cache.js";
 import { parseRss, type Info } from "../src/providers/actualites.js";
 import { parseSportsregions } from "../src/providers/agenda.js";
 import { frenchDays, parisDay, parseGolf, parseLsar, parseNews, parseVolley } from "../src/providers/sport.js";
@@ -244,7 +245,8 @@ describe("sport", () => {
     const store = new MemoryStore();
     const at = NOW.getTime() - 3600_000;
     const tournoi = { id: "Ligue réunionnaise de volley-ball:8790", titre: "King Saison 6 Solo étape 2", seances: [{ debut: "2026-11-01" }], lieu: "lieu à venir (voir la page de la Ligue)", categories: ["OUTDOOR"], lien: "https://lrvb.re/calendrier2/king-saison-6-solo-etape-2/", publie_par: "Ligue réunionnaise de volley-ball" };
-    await store.put("agendas", { value: { "agenda:lrvb": { value: [tournoi], fetchedAt: at } }, fetchedAt: at });
+    // The scheduled event's copy, in KV.
+    await store.put("agendas:planifies", { value: { "agenda:lrvb": { value: [tournoi], fetchedAt: at } }, fetchedAt: at });
     const ligue = () => new Cache(store, () => NOW.getTime());
     const b = body(await sportTool(ligue(), "volley", undefined, "a_venir", NOW));
     expect(b.a_venir.find((r: { epreuve: string }) => r.epreuve === "King Saison 6 Solo étape 2")).toEqual({
@@ -257,11 +259,38 @@ describe("sport", () => {
     expect(body(await sportTool(ligue(), "volley", "Saint-Pierre", "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
   });
 
+  it("reads the scheduled event's copies from KV once, cold, within the budget", async () => {
+    // Every read or write of a store counts, as in the Worker.
+    class Counted extends MemoryStore {
+      reads = 0;
+      async get(key: string, freshAfter?: number) {
+        count(1, "read");
+        this.reads++;
+        return super.get(key, freshAfter);
+      }
+      async put(key: string, e: CacheEntry) {
+        count(1, true);
+        return super.put(key, e);
+      }
+    }
+    const kv = new Counted();
+    const at = NOW.getTime() - 3600_000;
+    const tournoi = { id: "Ligue réunionnaise de volley-ball:8790", titre: "King Saison 6 Solo étape 2", seances: [{ debut: "2026-11-01" }], lieu: "lieu à venir (voir la page de la Ligue)", categories: ["OUTDOOR"], lien: "https://lrvb.re/calendrier2/king-saison-6-solo-etape-2/", publie_par: "Ligue réunionnaise de volley-ball" };
+    await kv.put("agendas:planifies", { value: { "agenda:lrvb": { value: [tournoi], fetchedAt: at } }, fetchedAt: at });
+    kv.reads = 0;
+    const c = new Cache(new Counted(), () => NOW.getTime(), true, kv);
+    const cold = await counted(WORKER_BUDGET, () => sportTool(c, "volley", undefined, "a_venir", NOW));
+    expect(body(cold.value).a_venir.map((r: { epreuve: string }) => r.epreuve)).toContain("King Saison 6 Solo étape 2");
+    expect(cold.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(kv.reads).toBe(1);
+  });
+
   it("gives the clubs' events from the agendas' copy, their place not said, of the sport asked", async () => {
     const store = new MemoryStore();
     const at = NOW.getTime() - 3600_000;
     const pages = [1, 2, 3, 4].map((n) => readFileSync(new URL(`./fixtures/agenda/sportsregions_${n}.html`, import.meta.url), "utf8"));
-    await store.put("agendas", { value: { "agenda:sportsregions": { value: parseSportsregions(pages).evenements, fetchedAt: at } }, fetchedAt: at });
+    // The scheduled event's copy, in KV.
+    await store.put("agendas:planifies", { value: { "agenda:sportsregions": { value: parseSportsregions(pages).evenements, fetchedAt: at } }, fetchedAt: at });
     const clubs = () => new Cache(store, () => NOW.getTime());
     const epreuves = (b: { a_venir?: { epreuve: string }[] }) => (b.a_venir ?? []).map((r) => r.epreuve);
     const golf = body(await sportTool(clubs(), "golf", undefined, "a_venir", NOW));

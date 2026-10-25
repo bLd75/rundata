@@ -112,13 +112,14 @@ describe("agenda", () => {
     // The mairies' news, read by the scheduled event too: their sites answer.
     const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph"];
     const titles = (b: { evenements?: { titre: string }[] }) => (b.evenements ?? []).map((e) => e.titre);
-    const entry = async (store: MemoryStore) => ((await store.get("agendas"))?.value as Record<string, CacheEntry> | undefined)?.["agenda:lrvb"];
+    const entry = async (store: MemoryStore) => ((await store.get("agendas:planifies"))?.value as Record<string, CacheEntry> | undefined)?.["agenda:lrvb"];
+    const isLeague = (u: string) => new URL(u).hostname === "lrvb.re";
     beforeEach(() => {
       urls = [];
       league = () => new Response(bytes("tribe_lrvb.json"));
       vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
         urls.push(url);
-        if (url.includes("lrvb.re")) return league();
+        if (isLeague(url)) return league();
         const f = file(url, typeof init?.body === "string" ? init.body : undefined);
         return f ? new Response(bytes(f)) : new Response("", { status: 503 });
       });
@@ -130,18 +131,18 @@ describe("agenda", () => {
       const at = () => new Cache(store, () => t);
       // A question never reads it, and says nothing of it while there is no copy.
       const before = body(await agenda(at(), undefined, undefined, undefined, NOW));
-      expect(urls.some((u) => u.includes("lrvb.re"))).toBe(false);
+      expect(urls.some(isLeague)).toBe(false);
       expect(before.indisponible).toBeUndefined();
       expect(titles(before)).not.toContain(KING);
       expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
-      expect(urls.filter((u) => u.includes("lrvb.re"))).toHaveLength(1);
+      expect(urls.filter(isLeague)).toHaveLength(1);
       // Another isolate serves it, with the time it was read.
       const after = body(await agenda(at(), undefined, undefined, "King", NOW));
       expect(after.evenements.find((e: { titre: string }) => e.titre === KING)).toMatchObject({ lieu: "lieu à venir (voir la page de la Ligue)", lu_le: expect.stringContaining("08:00") });
       // Not again within the hour.
       t += 30 * 60_000;
       expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: [], reportes: [], trop_vieilles: [] });
-      expect(urls.filter((u) => u.includes("lrvb.re"))).toHaveLength(1);
+      expect(urls.filter(isLeague)).toHaveLength(1);
       // Past 48 hours unread, it is not served any more, and still not named.
       t = NOW.getTime() + 49 * 3600_000;
       const late = body(await agenda(at(), undefined, undefined, "King", new Date(t)));
@@ -189,17 +190,29 @@ describe("agenda", () => {
       expect(store.puts).toBe(0);
     });
 
-    it("is written back as it was by a question that writes the bundle", async () => {
-      const store = new MemoryStore();
-      const at = NOW.getTime() - 3 * 3600_000;
-      const copy = [{ id: "Ligue réunionnaise de volley-ball:8790", titre: KING, seances: [{ debut: "2026-11-01" }], lieu: "lieu à venir (voir la page de la Ligue)", categories: [], lien: "https://lrvb.re/calendrier2/king-saison-6-solo-etape-2/", publie_par: "Ligue réunionnaise de volley-ball" }];
-      await store.put("agendas", { value: { "agenda:lrvb": { value: copy, fetchedAt: at } }, fetchedAt: at });
-      // A cold question reads every other agenda and writes the bundle.
-      const b = body(await agenda(new Cache(store, () => NOW.getTime()), undefined, undefined, "King", NOW));
-      expect(titles(b)).toContain(KING);
-      const written = (await store.get("agendas"))?.value as Record<string, CacheEntry>;
-      expect(Object.keys(written).length).toBeGreaterThan(10);
-      expect(written["agenda:lrvb"]).toEqual({ value: copy, fetchedAt: at });
+    it("is kept in KV: read once an hour whatever the data center the scheduled event runs in, served in all of them", async () => {
+      let t = NOW.getTime();
+      // Each data center its own cache, KV shared by all.
+      const kv = new MemoryStore();
+      const [edgeA, edgeB] = [new MemoryStore(), new MemoryStore()];
+      const at = (edge: MemoryStore) => new Cache(edge, () => t, true, kv);
+      // A copy left in a data center's cache before, by an earlier version: not served, and dropped there.
+      const before = NOW.getTime() - 3 * 3600_000;
+      await edgeB.put("agendas", { value: { "agenda:lrvb": { value: [{ id: "x", titre: "Tournoi d'avant", seances: [{ debut: "2026-11-01" }], categories: [], lien: "https://lrvb.re/x", publie_par: "Ligue réunionnaise de volley-ball" }], fetchedAt: before } }, fetchedAt: before });
+      expect((await refreshPlanned(at(edgeA), NOW)).lus).toContain("lrvb");
+      expect(await edgeA.get("agendas:planifies")).toBeUndefined();
+      // A question answered in the other data center serves it, with the time it was read.
+      expect(titles(body(await agenda(at(edgeB), undefined, undefined, "King", NOW)))).toContain(KING);
+      expect(titles(body(await agenda(at(edgeB), undefined, undefined, "Tournoi", NOW)))).not.toContain("Tournoi d'avant");
+      expect(Object.keys((await edgeB.get("agendas"))?.value as Record<string, CacheEntry>)).not.toContain("agenda:lrvb");
+      // The next scheduled events, in either data center, do not read it again within the hour; past it, once.
+      t += 5 * 60_000;
+      expect(await refreshPlanned(at(edgeB), new Date(t))).toEqual({ lus: [], gardes: [], reportes: [], trop_vieilles: [] });
+      t += 50 * 60_000;
+      expect((await refreshPlanned(at(edgeA), new Date(t))).lus).toEqual([]);
+      t += 10 * 60_000;
+      expect((await refreshPlanned(at(edgeB), new Date(t))).lus).toContain("lrvb");
+      expect(urls.filter(isLeague)).toHaveLength(2);
     });
   });
 
@@ -620,6 +633,21 @@ describe("agenda", () => {
       const warm = await counted(WORKER_BUDGET, () => agenda(c, undefined, undefined, undefined, NOW));
       expect(body(warm.value).nombre).toBe(body(cold.value).nombre);
       expect(warm.used).toBeLessThanOrEqual(2);
+    });
+
+    it("reads the scheduled event's copies from KV once, cold, within the budget", async () => {
+      const kv = new EdgeLike(); // each read or write of KV counts too
+      await refreshPlanned(new Cache(new MemoryStore(), () => NOW.getTime(), false, kv), NOW);
+      const reads = vi.spyOn(kv, "get");
+      const c = new Cache(new TieredStore(new MemoryStore(), new EdgeLike()), () => NOW.getTime(), false, kv);
+      const cold = await counted(WORKER_BUDGET, () => agenda(c, undefined, undefined, undefined, NOW));
+      expect(body(cold.value).indisponible).toBeUndefined();
+      expect(cold.used).toBeLessThanOrEqual(40);
+      expect(reads).toHaveBeenCalledTimes(1);
+      const king = await counted(WORKER_BUDGET, () => agenda(c, undefined, undefined, "King", NOW));
+      expect(body(king.value).evenements.map((e: { titre: string }) => e.titre)).toContain("King Saison 6 Solo étape 2");
+      expect(king.used).toBeLessThanOrEqual(2);
+      expect(reads).toHaveBeenCalledTimes(1);
     });
 
     it("leaves for later the agendas it has no subrequests for, names them, and the next calls read them", async () => {
