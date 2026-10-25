@@ -33,7 +33,7 @@ import { gaugeRow, gauges } from "../tools/maree.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
 import { named } from "../tools/annuaire.js";
-import { alertsFor, applyRealtime, departureRow, departures, findStops, nearStops, realtimeFeeds, spread } from "../tools/transports.js";
+import { alertsFor, applyRealtime, departureRow, departures, findStops, nearStops, realtimeFeeds, spread, stationDepartures } from "../tools/transports.js";
 import * as prefecture from "../providers/prefecture.js";
 import type { Cyclone } from "../providers/prefecture.js";
 import { ecoles, type ecolesBlock } from "../tools/ecoles.js";
@@ -1205,18 +1205,13 @@ export async function buildBus(now = new Date(), cache?: Cache): Promise<BusData
   const gares: GareNow[] = [];
   const feeds = cache && transit.enabled() ? await realtimeFeeds(rt.withRealtime(), cache, now) : new Map<string, rt.Realtime>();
   if (transit.enabled()) {
-    for (const q of GARES) {
-      const { groups } = findStops(q);
-      if (!groups.length) continue;
-      let list = await departures(groups, now);
-      if (list.length < 3) list = await departures(groups, now, 20 * 3600);
-      list = applyRealtime(list, feeds, now);
-      gares.push({
-        commune: groups[0].commune,
-        arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })),
-        departs: spread(list, 8).map(departureRow),
-      });
-    }
+    const stations = GARES.map((q) => findStops(q).groups).filter((groups) => groups.length);
+    const lists = await stationDepartures(stations, now);
+    stations.forEach((groups, i) => gares.push({
+      commune: groups[0].commune,
+      arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })),
+      departs: spread(applyRealtime(lists[i], feeds, now), 8).map(departureRow),
+    }));
   }
   // Only the networks whose departures shown come from their feed.
   const used = new Set(gares.flatMap((g) => g.departs.filter((d) => d.retard_min !== undefined || d.temps_reel).map((d) => d.reseau)));
