@@ -71,9 +71,11 @@ describe("the volcano put forward during an alert", () => {
     expect(page).toContain(`<meta name="description" content="Alerte\u00a01 du préfet (communiqué du 24\u00a0octobre) : « éruption probable ou imminente ». Accès à l&#39;Enclos interdit. Communiqués de l&#39;OVPF en direct · 974">`);
     // The plan's words only, never a release's of the day nor ours.
     expect(page).not.toContain("très brève");
-    expect(page).toContain("<b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus. Seuls l&#39;OVPF et la préfecture l&#39;annonceront : leurs communiqués s&#39;affichent ici dès leur publication.</b>");
+    expect(page).toContain("<b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus. Seuls l&#39;OVPF et la préfecture l&#39;annonceront : leurs communiqués s&#39;affichent ici dès que nous les avons lus.</b>");
     expect(page).not.toMatch(/pas (encore )?commencé/);
-    expect(page).toContain("Accès à l&#39;Enclos interdit. Seules comptent les consignes de la préfecture et de l&#39;OVPF.");
+    expect(page).toContain("<b>Accès à l&#39;Enclos interdit. Seules comptent les consignes de la préfecture et de l&#39;OVPF.</b>");
+    // The Enclos card: its title, then the sentence without the title's words again (marketing).
+    expect(page).toContain("<h3>Accès à l&#39;Enclos interdit.</h3><p>Seules comptent les consignes de la préfecture et de l&#39;OVPF.</p>");
     expect(page).toContain("Le communiqué de la préfecture");
     expect(page).toContain('href="https://x.com/obsfournaise"');
     // The IPGP's site is offline (25/10/2026): the OVPF's Bluesky and Facebook, and no link to ipgp.fr.
@@ -83,7 +85,7 @@ describe("the volcano put forward during an alert", () => {
     expect((v as unknown as { consulter: string[] }).consulter).toEqual(["https://www.reunion.gouv.fr", "https://bsky.app/profile/ovpf.bsky.social", "https://www.facebook.com/ObsVolcanoPitonFournaise"]);
     expect(page).toContain("Pas encore d'article des médias de l'île sur cette alerte.");
     expect(page).not.toContain("partiellement");
-    expect(volcanLive({ value: v, fetchedAt: NOW, stale: false })).toEqual({ valeur: "Alerte 1", detail: "éruption probable ou imminente · Enclos interdit" });
+    expect(volcanLive({ value: v, fetchedAt: NOW, stale: false })).toEqual({ valeur: "Alerte 1", detail: "éruption probable ou imminente · Enclos interdit", source: "Préfecture, communiqué du 24/10" });
   });
 
   it("says the level in the plan's words on the home page too, never « pas encore »", async () => {
@@ -201,6 +203,9 @@ describe("the volcano put forward during an alert", () => {
     expect(bannerText(quiet)).toBe("🌋 Piton de la Fournaise : alerte 1 selon l'OVPF (publication du 13/02 à 10:45), « éruption probable ou imminente » (dispositif ORSEC Volcan). Accès à l'Enclos interdit.");
     expect(volcanMeta(quiet)).toMatch(/^Alerte\u00a01 selon l'OVPF \(publication du 13\/02 à 10:45\)/);
     for (const text of [bannerText(a), bannerText(quiet), volcanMeta(quiet), homeCard(quiet)]) expect(text).not.toMatch(/préfet\b/);
+    // The tile's line: whose the level is.
+    expect(tileLive(a).source).toBe("OVPF, publication du 13/02");
+    expect(tileLive({ niveau: "Alerte 1", eruption: false }).source).toBeUndefined();
   });
 
   it("says the OVPF's end of the eruption, the level still the release's alert 2", () => {

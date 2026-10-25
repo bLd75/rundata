@@ -321,7 +321,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   if (defini) parts.push(`Définition : ${defini}`);
   const monterAt = parts.length;
   const ended = !o.eruption && piton?.value.last_eruption_ended_at;
-  if (ended) parts.push(`Dernière éruption terminée le ${day(ended)} selon pitonlive.com (il y a ${piton!.value.days_since_last_eruption} jours).`);
+  if (ended) parts.push(`Dernière éruption terminée le ${day(ended)} selon pitonlive.com, site non officiel (il y a ${piton!.value.days_since_last_eruption} jours).`);
   const du = given && dayOf(given.jour);
   if (unknown) parts.push(`Accès à l'Enclos : ${NIVEAU_INCONNU}, avant de partir.`);
   else if (enclos?.ovpf) parts.push(`${enclos.ovpf.niveau} selon l'OVPF : ${ORSEC_BAN}.`);

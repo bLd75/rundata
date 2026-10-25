@@ -90,6 +90,8 @@ const day = (jour: string) => new Date(`${jour}T12:00:00Z`).toLocaleDateString("
 // The release dated, never « depuis le … »: we know what the last release read says, not that the alert still holds;
 // the day and its month never apart (marketing).
 const dated = (a: VolcanAlerte) => (a.communique ? `communiqué du ${day(a.communique.jour).replace(" ", "\u00a0")}` : "");
+// « 24/10 », of a day « 2026-10-24 ».
+const dm = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
 const released = (a: VolcanAlerte) => (a.communique ? ` (${dated(a)})` : "");
 // « Alerte 1 », the level never apart from its word, and the arrow never alone on its line (marketing).
 const nb = (s: string) => s.replace(/^(alerte) /i, "$1\u00a0");
@@ -105,7 +107,8 @@ const plan = (a: VolcanAlerte) => libelle(a.niveau) ?? "";
 const planSaid = (a: VolcanAlerte) => (plan(a) ? ` : « ${plan(a)} », selon le dispositif ORSEC Volcan` : "");
 
 export const ENCLOS = "Accès à l'Enclos interdit.";
-export const CONSIGNES = "Accès à l'Enclos interdit. Seules comptent les consignes de la préfecture et de l'OVPF.";
+export const SEULES = "Seules comptent les consignes de la préfecture et de l'OVPF.";
+export const CONSIGNES = `${ENCLOS} ${SEULES}`;
 
 export function bannerText(a: VolcanAlerte): string {
   return a.eruption
@@ -139,11 +142,11 @@ function alertMeta(a: VolcanAlerte): string {
 
 export const volcanLead = (a: VolcanAlerte) =>
   a.arret
-    ? `${arretSaid(a)}. Seuls l'OVPF et la préfecture disent la suite : leurs communiqués s'affichent ici dès leur publication.`
+    ? `${arretSaid(a)}. Seuls l'OVPF et la préfecture disent la suite : leurs communiqués s'affichent ici dès que nous les avons lus.`
     : a.eruption
     ? "Où, quelle intensité, quelles routes : ce que publient l'OVPF et la préfecture, dans l'ordre, avec l'heure. Respectez les consignes et les fermetures de routes."
     // Never « n'a pas commencé » on our word: the OVPF's newest post may be an image we do not read (marketing).
-    : `${NON_ANNONCEE} Seuls l'OVPF et la préfecture l'annonceront : leurs communiqués s'affichent ici dès leur publication.`;
+    : `${NON_ANNONCEE} Seuls l'OVPF et la préfecture l'annonceront : leurs communiqués s'affichent ici dès que nous les avons lus.`;
 
 /**
  * The home page's first card, above the weather, the only volcano block there: what the banner of the other pages says
@@ -158,10 +161,12 @@ export function homeCard(a: VolcanAlerte): string {
 
 /** The home tile's figure and line during an alert. */
 export function tileLive(a: VolcanAlerte): { valeur: string; detail: string; source?: string } {
+  // Whose the level is, on the tile's line of its own (marketing).
+  const source = a.ovpf ? `OVPF, publication du ${a.ovpf.date.slice(0, 5)}` : a.communique ? `Préfecture, communiqué du ${dm(a.communique.jour)}` : undefined;
   return a.eruption
-    ? { valeur: "Éruption en cours", detail: [a.niveau ? esc(level(a)) : "", "Enclos interdit"].filter(Boolean).join(" · ") }
+    ? { valeur: "Éruption en cours", detail: [a.niveau ? esc(level(a)) : "", "Enclos interdit"].filter(Boolean).join(" · "), source }
     // No quotes, for room (marketing).
-    : { valeur: esc(a.niveau!), detail: [esc(plan(a)), "Enclos interdit"].filter(Boolean).join(" · ") };
+    : { valeur: esc(a.niveau!), detail: [esc(plan(a)), "Enclos interdit"].filter(Boolean).join(" · "), source };
 }
 
 // --- /volcan during an alert -----------------------------------------------------------------------------------------

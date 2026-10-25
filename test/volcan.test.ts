@@ -166,7 +166,7 @@ describe("volcano", () => {
     expect(r.resume.startsWith("L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus. Communiqué de la préfecture du 07/05")).toBe(true);
     expect(r.resume).toContain("Niveau du dispositif ORSEC volcan : Vigilance.");
     // The last eruption still pitonlive's, said as its own, until the OVPF's dated table (the next change).
-    expect(r.resume).toContain("Dernière éruption terminée le 12/04 selon pitonlive.com (il y a 193 jours).");
+    expect(r.resume).toContain("Dernière éruption terminée le 12/04 selon pitonlive.com, site non officiel (il y a 193 jours).");
     // The Enclos as the release says it, never pitonlive's « partiel » nor the decree it names.
     expect(r.resume).toContain("Accès à l'Enclos : « réouverture partielle » selon le communiqué de la préfecture du 07/05.");
     expect(r.resume).not.toMatch(/« partiel »|2026-627/);

@@ -7,7 +7,7 @@
 import { OVPF, PREFECTURE } from "../providers/volcan.js";
 import { enImagesApres, enImagesLuesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, LOCALISES, LU_DANS_L_IMAGE, NIVEAU_ILLISIBLE, NON_ANNONCEE, ORSEC_BAN, ovpfNiveau, pitonLines, VIGILANCE_ENCLOS } from "../tools/volcan.js";
 import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
-import { alertSections, alerteVolcan, CONSIGNES, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
+import { alertSections, alerteVolcan, ENCLOS, SEULES, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
 import { AGENDAS } from "../providers/agenda.js";
 import { SOURCE as SALLES_SOURCE } from "../providers/salles.js";
@@ -126,7 +126,7 @@ const enclosShort = (x: Enclos | undefined): { valeur: string; source: string } 
     : x?.communique
       ? { valeur: "Interdit", source: `préfecture, ${dd(x.communique.jour)}` }
       : x?.ovpf
-        ? { valeur: "Interdit", source: `plan ORSEC, ${x.ovpf.niveau.toLowerCase()} selon l'OVPF` }
+        ? { valeur: "Interdit", source: `plan ORSEC en ${x.ovpf.niveau.toLowerCase()}, niveau publié par l'OVPF` }
         : x?.vigilance
           ? { valeur: "Sentiers balisés seulement", source: "plan ORSEC, en vigilance" }
           : { valeur: "À vérifier", source: "reunion.gouv.fr" };
@@ -170,7 +170,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
             ? `<p class="lead">${a ? "" : `${esc(NON_ANNONCEE)} `}${esc(NIVEAU_ILLISIBLE).replace("reunion.gouv.fr", GOUV)}</p>`
             : `<p class="lead">${a ? "" : `${esc(NON_ANNONCEE)} `}Niveau du dispositif ORSEC volcan : <b>${esc(e.niveau_orsec)}</b>.` +
               (e.niveau_definition ? ` <span class="note">${esc(e.niveau_definition)}</span>` : "") +
-              (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b> selon pitonlive.com.` : "") +
+              (!e.eruption_en_cours && e.derniere_eruption_fin ? ` Dernière éruption terminée le <b>${esc(dayOf(e.derniere_eruption_fin))}</b> selon pitonlive.com, site non officiel.` : "") +
               `</p>`) +
           ovpf + piton +
           (a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : `<p class="lead">${enclosSaid(e.acces_enclos ?? {})}</p>`) +
@@ -182,7 +182,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   // During an alert the Enclos is closed by order, whatever another source says (marketing's rule: never « partiel »).
   // id="enclos": /trafic sends its readers here for the trails.
   const enclos = a
-    ? `<div class="card" id="enclos">${icon("mountain")}<h3>${esc(ENCLOS)}</h3><p>${esc(CONSIGNES)}</p></div>`
+    ? `<div class="card" id="enclos">${icon("mountain")}<h3>${esc(ENCLOS)}</h3><p>${esc(SEULES)}</p></div>`
     : e
     ? `<div class="card" id="enclos">${icon("mountain")}<h3>${esc(ENCLOS_TITRE)}</h3><p>${enclosSaid(e.acces_enclos ?? {})}</p>` +
       // The trails the ONF says open, place by place, are in « Puis-je monter au volcan ? ».

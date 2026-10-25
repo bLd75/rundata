@@ -145,6 +145,8 @@ describe("the Enclos, as the official texts say it", () => {
     expect(page).toContain(`<p class="lead">Enclos : <b>« réouverture partielle »</b> selon le ${link}.</p>`);
     expect(page).toContain(`<h3>Accès à l&#39;Enclos</h3><p>Enclos : <b>« réouverture partielle »</b> selon le ${link}.</p></div>`);
     expect(trafic(v)).toContain("<p><b>« réouverture partielle »</b> (préfecture, 20/10).");
+    // Until the OVPF's dated last eruption (cam-change 251, PR2), pitonlive's, named as not official (marketing).
+    expect(page).toContain("</b> selon pitonlive.com, site non officiel.");
     expect(v.resume).toContain("Accès à l'Enclos : « réouverture partielle » selon le communiqué de la préfecture du 20/10.");
     for (const t of [page, trafic(v), v.resume, volcanLive(copyOf(v))!.detail]) expect(t.replace(/Dernière éruption terminée le [^.]*\./, "").replace(/<footer[\s\S]*<\/footer>|<p class="note">Sources : [\s\S]*?<\/p>/g, "")).not.toMatch(/pitonlive|« partiel »|partiellement ouvert/);
   });
@@ -159,6 +161,12 @@ describe("the Enclos, as the official texts say it", () => {
     expect(trafic(v)).toContain("<p><b>Sentiers balisés seulement</b> (plan ORSEC, en vigilance).");
     expect(volcanLive(copyOf(v))!.detail).toContain("Enclos : Sentiers balisés seulement (plan ORSEC, en vigilance)");
     for (const t of [page, v.resume]) expect(t).not.toMatch(/« partiel »|2026-627|Résumé de pitonlive/);
+  });
+
+  it("says on /trafic that the OVPF publishes the level, the prefect setting it (marketing)", async () => {
+    const v = await answer(VIGILANCE);
+    v.etat!.acces_enclos = { ovpf: { niveau: "Alerte 1", date: "25/10 08:00 heure de La Réunion", lien: "https://bsky.app/x" } };
+    expect(trafic(v).replace(/&#39;/g, "'")).toContain("<p><b>Interdit</b> (plan ORSEC en alerte 1, niveau publié par l'OVPF).");
   });
 
   it("says the Enclos is to check when no official text says it", async () => {
