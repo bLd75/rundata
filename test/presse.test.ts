@@ -42,9 +42,10 @@ describe("press page", () => {
   it("says what the connector receives, never that no personal data is collected (the host keeps logs with the address)", async () => {
     const said = "le connecteur ne reçoit que la question posée à l'outil, par exemple «\u00a0Saint-Paul\u00a0», jamais votre conversation.";
     const html = await page();
-    expect(html).toContain(`Rien à installer, pas de compte\u00a0: ${said}`);
+    // « Saint-Paul » kept on one line: cut at its hyphen, it read « Saint- / Paul » at 390 px.
+    expect(html).toContain(`Rien à installer, pas de compte\u00a0: ${said.replace("«\u00a0Saint-Paul\u00a0»", '<span style="white-space:nowrap">«\u00a0Saint-Paul\u00a0»</span>')}`);
     const home = homePage("https://rundata.re", null, NOW);
-    expect(home).toContain(`compris par la plupart des assistants IA. L${said.slice(1)}</p>`);
+    expect(home).toContain(`compris par la plupart des assistants IA. Il${said.slice("le connecteur".length)}</p>`);
     for (const h of [html, home]) expect(h).not.toMatch(/donnée personnelle/);
   });
 
