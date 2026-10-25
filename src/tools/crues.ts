@@ -81,15 +81,31 @@ export function levelRow(l: Level, now: Date, km?: number) {
   };
 }
 
+// Vigicrues Réunion's guide (§ 4): the bulletins are made only while a river is in yellow vigilance or above. Out
+// of one, the last bulletin's date is the end of the last episode, not the age of the levels.
+const ONLY_IN_VIGILANCE = "Vigicrues Réunion n'en publie que lorsqu'au moins une rivière est en vigilance jaune ou plus";
+
 /** « Vigilance crues orange pour la rivière des Galets ; jaune pour… », or that none is in force. */
 export function vigilanceText(v: vc.Vigilance): string {
   if (!v.active) {
-    return `Pas de vigilance crues en cours : toutes les rivières suivies sont au vert${v.date ? ` (dernier bulletin le ${dm(v.date)})` : ""}.`;
+    return `Pas de vigilance crues en cours : toutes les rivières suivies sont au vert.${v.date ? ` Aucun bulletin de vigilance depuis le ${dm(v.date)} : ${ONLY_IN_VIGILANCE}.` : ""}`;
   }
   const by = (c: vc.Colour) => v.rivieres.filter((r) => r.couleur === c).map((r) => r.nom);
   const raised = (["rouge", "orange", "jaune"] as const).filter((c) => by(c).length).map((c) => `${c} pour ${by(c).join(", ")}`);
   return `Vigilance crues en cours (bulletin n° ${v.bulletin} du ${dm(v.date)}) : ${raised.length ? raised.join(" ; ") : "toutes les rivières au vert"}.` +
     (v.observations ? ` Observations : ${v.observations}` : "") + (v.anticipation ? ` À venir : ${v.anticipation}` : "");
+}
+
+/** The vigilance as the answer gives it: out of an episode, the last bulletin said for what it is. */
+function vigilanceBlock(v: vc.Vigilance) {
+  if (v.active) return v;
+  return { active: false, ...(v.date ? { aucun_bulletin_depuis: dm(v.date), pourquoi: `${ONLY_IN_VIGILANCE}.` } : {}), rivieres: v.rivieres };
+}
+
+/** « mesures de 12:40 »: the newest reading among the gauges given, said before the vigilance; nothing without one. */
+function measuredAt(levels: Level[]): string | undefined {
+  const t = Math.max(...levels.map((l) => l.hauteur?.t ?? -Infinity));
+  return Number.isFinite(t) ? `mesures de ${hm(t)}` : undefined;
 }
 
 /** The gauges of a river the question names (« la rivière des Galets », « ravine Saint-Gilles »). */
@@ -140,9 +156,11 @@ export async function crues(cache: Cache, lieu: string | undefined, now = new Da
     const { head, common } = context(v, failed);
     const levels = vc.STATIONS.map((s) => level(s, h, q));
     const rising = levels.filter((l) => l.hauteur?.tendance === "en hausse");
+    const at = measuredAt(levels);
+    const moving = rising.length ? `En hausse sur la dernière demi-heure : ${rising.map(sentence).join(" ; ")}` : "Aucune rivière suivie n'est en hausse sur la dernière demi-heure";
     return text({
-      resume: `${head} ${rising.length ? `En hausse sur la dernière demi-heure : ${rising.map(sentence).join(" ; ")}.` : "Aucune rivière suivie n'est en hausse sur la dernière demi-heure."}`,
-      ...(v ? { vigilance_crues: v } : {}),
+      resume: `${moving}${at ? ` (${at})` : ""}. ${head}`,
+      ...(v ? { vigilance_crues: vigilanceBlock(v) } : {}),
       stations: levels.map((l) => levelRow(l, now)),
       ...common,
     });
@@ -155,9 +173,10 @@ export async function crues(cache: Cache, lieu: string | undefined, now = new Da
     const { head, common } = context(v, failed);
     const mine = river.map((s) => level(s, h, q));
     const ref = landmark(river[0]);
+    const at = measuredAt(mine);
     return text({
-      resume: `${mine.map(sentence).join(" ; ")}.${ref ? ` Pour repère, la plus petite crue de référence à ${river[0].nom} : ${ref}.` : ""} ${head}`,
-      ...(v ? { vigilance_crues: v } : {}),
+      resume: `${mine.map(sentence).join(" ; ")}${at ? ` (${at})` : ""}.${ref ? ` Pour repère, la plus petite crue de référence à ${river[0].nom} : ${ref}.` : ""} ${head}`,
+      ...(v ? { vigilance_crues: vigilanceBlock(v) } : {}),
       stations: mine.map((l) => levelRow(l, now)),
       ...common,
     });
@@ -173,14 +192,16 @@ export async function crues(cache: Cache, lieu: string | undefined, now = new Da
   if (!v && !Object.keys(h).length) return down();
   const { head, common } = context(v, failed);
   const ref = landmark(shown[0].s);
+  const levels = shown.map((x) => level(x.s, h, q));
+  const at = measuredAt(levels);
   return text({
     lieu: placeBlock(lieu, res),
     resume:
-      `Rivières suivies près ${de(p.nom)} : ${shown.map((x) => `${sentence(level(x.s, h, q))} (à ${fr(Math.round(x.km))} km)`).join(" ; ")}.` +
+      `Rivières suivies près ${de(p.nom)}${at ? `, ${at}` : ""} : ${shown.map((x, i) => `${sentence(levels[i])} (à ${fr(Math.round(x.km))} km)`).join(" ; ")}.` +
       (ref ? ` Pour repère, la plus petite crue de référence à ${shown[0].s.nom} : ${ref}.` : "") +
       ` ${head}`,
-    ...(v ? { vigilance_crues: v } : {}),
-    stations: shown.map((x) => levelRow(level(x.s, h, q), now, x.km)),
+    ...(v ? { vigilance_crues: vigilanceBlock(v) } : {}),
+    stations: shown.map((x, i) => levelRow(levels[i], now, x.km)),
     ...(near.length ? {} : { note: `Aucune station de mesure à moins de ${NEAR_KM} km : voici les plus proches, qui ne sont peut-être pas sur le même cours d'eau.` }),
     ...common,
   });

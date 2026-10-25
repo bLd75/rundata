@@ -45,10 +45,14 @@ describe("Vigicrues Réunion", () => {
     expect(riverAsked("Saint-Denis")).toEqual([]);
   });
 
-  it("sums up the island: vigilance first, then the rivers rising", async () => {
+  it("sums up the island: the levels measured and their time first, then the vigilance and why no bulletin is out", async () => {
     const r = body(await crues(cache(), undefined, NOW));
-    expect(r.resume).toMatch(/^Pas de vigilance crues en cours : toutes les rivières suivies sont au vert \(dernier bulletin le 07\/08 à 06:22\)\. /);
-    expect(r.resume).toMatch(/En hausse sur la dernière demi-heure : Cabris - RN3 \(ravine des Cabris, Saint-Pierre\) : 0,06 m, en hausse/);
+    expect(r.resume).toMatch(/^En hausse sur la dernière demi-heure : Cabris - RN3 \(ravine des Cabris, Saint-Pierre\) : 0,06 m, en hausse.* \(mesures de 03:45\)\. Pas de vigilance crues en cours/);
+    // The last bulletin is the end of the last episode, never the levels' date: Vigicrues Réunion publishes in vigilance only.
+    expect(r.resume).toMatch(/Pas de vigilance crues en cours : toutes les rivières suivies sont au vert\. Aucun bulletin de vigilance depuis le 07\/08 à 06:22 : Vigicrues Réunion n'en publie que lorsqu'au moins une rivière est en vigilance jaune ou plus\.$/);
+    expect(r.resume).not.toMatch(/dernier bulletin/);
+    expect(r.vigilance_crues).toEqual({ active: false, aucun_bulletin_depuis: "07/08 à 06:22", pourquoi: expect.stringMatching(/^Vigicrues Réunion n'en publie que/), rivieres: expect.any(Array) });
+    expect(r.vigilance_crues).not.toHaveProperty("date");
     expect(r.stations).toHaveLength(STATIONS.length);
   });
 
@@ -56,9 +60,15 @@ describe("Vigicrues Réunion", () => {
     const r = body(await crues(cache(), "Saint-Gilles", NOW));
     expect(r.stations[0]).toMatchObject({ station: "Saint-Gilles - RN1a", riviere: "ravine Saint-Gilles", hauteur_m: 0.177, tendance_30_min: "stable" });
     expect(r.stations[0].distance_km).toBeLessThan(2);
+    expect(r.resume).toMatch(/^Rivières suivies près de Saint-Gilles-les-Bains, mesures de 03:45 : Saint-Gilles - RN1a/);
     expect(r.resume).toMatch(/Pour repère, la plus petite crue de référence à Saint-Gilles - RN1a : 0,7 m/);
     expect(asked.filter((a) => a.startsWith("valeurs.php")).every((a) => Number(a.split(" ")[2]) <= 4)).toBe(true);
     expect(r.consignes).toMatch(/radier/);
+  });
+
+  it("gives a river's levels with their time, before the vigilance", async () => {
+    const r = body(await crues(cache(), "la rivière des Galets", NOW));
+    expect(r.resume).toMatch(/^[^.]*rivière des Galets[^.]* \(mesures de \d\d:\d\d\)\. .*Pas de vigilance crues en cours : toutes les rivières suivies sont au vert\. Aucun bulletin de vigilance depuis le 07\/08 à 06:22/);
   });
 
   it("names the rivers under vigilance, the worst first", () => {
