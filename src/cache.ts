@@ -11,13 +11,15 @@ import { costOf } from "./budget.js";
 import { cacheTally } from "./metrics.js";
 
 import { noteLecture } from "./lectures.js";
+import { familyOf, RENDU_REVISION } from "./web/revisions.js";
 
 /**
  * The shape of what the stores keep (a source's answer, a page's copy), in the keys of the data center's cache and of
  * the shared copies in KV (worker.ts, web/partagees.ts). Raised only by a change that makes the new code unable to read
  * an entry the old code wrote (a field renamed, removed, or newly required): a deploy then starts from empty stores.
  * Any other deploy keeps them, so that the data centers stay warm. A copy that still breaks a page is caught there
- * (web/site.ts) and built again. A page's copy is built again after any deploy, at its first view (`outdated`).
+ * (web/site.ts) and built again. A page's copy is built again at its first view after the deploy that raises its
+ * family's revision (`outdated`).
  */
 export const CACHE_FORMAT = "2";
 
@@ -26,7 +28,7 @@ export interface CacheEntry {
   fetchedAt: number;
   /** For a page's copy: the subrequests its build took (budget.ts), for the isolates that have not built it yet. */
   cost?: number;
-  /** For a page's copy: the version of the code that built it (`outdated`). */
+  /** For a page's copy: the revision of the code that built it (`stampOf`). */
   version?: string;
 }
 
@@ -37,12 +39,24 @@ export interface CacheEntry {
 export const isCopy = (key: string) => key.startsWith("web:");
 
 /**
- * Whether `entry`, kept under `key`, is a page's copy built by another version than `version` (cam-change 285): due at
- * once, whatever its age, so that a page shows what its code says from the first view after a deploy. It stays the copy
- * served if its build fails. A copy written before the versions were kept has none: built again once.
+ * What a page's copy built by the code of `version` (server.ts) is stamped with: its family's revision
+ * (web/revisions.ts, cam-change 286), or the version itself for a family not listed there. Nothing for another key, or
+ * when the code has no version (tests, Node).
+ */
+export const stampOf = (key: string, version: string | undefined) => {
+  if (version == null || !isCopy(key)) return undefined;
+  const revision = RENDU_REVISION[familyOf(key)];
+  return revision != null ? `rendu-${revision}` : version;
+};
+
+/**
+ * Whether `entry`, kept under `key`, is a page's copy stamped otherwise than the code of `version` stamps it
+ * (cam-change 285, 286): due at once, whatever its age, so that a page shows what its code says from the first view
+ * after the deploy that changed it. It stays the copy served if its build fails. A copy written before the stamps were
+ * kept has none: built again once.
  */
 export const outdated = (key: string, entry: { version?: string } | undefined, version: string | undefined) =>
-  version != null && entry != null && isCopy(key) && entry.version !== version;
+  entry != null && stampOf(key, version) != null && entry.version !== stampOf(key, version);
 
 /** Where entries live: process memory on Node; memory in front of the Cloudflare cache in the Worker. */
 export interface CacheStore {
@@ -141,7 +155,8 @@ export class Cache {
    * awaiting a fetch started by another request fails if that other request is cancelled first.
    * `durable` holds the bundles that must outlive the data center's cache (the Worker's KV: written by the
    * scheduled prefetch in one data center, read by questions in all of them).
-   * `version`: the code's (server.ts), written with each page's copy; a copy of another version is built again (`outdated`).
+   * `version`: the code's (server.ts); each page's copy is stamped with its family's revision (`stampOf`), and a copy
+   * stamped otherwise is built again (`outdated`).
    */
   constructor(
     private store: CacheStore = new MemoryStore(),
@@ -162,7 +177,7 @@ export class Cache {
    * served if fresh enough, else loaded, the entry being the copy served if the source fails.
    */
   async getFrom<T>(key: string, have: Cached<T> | undefined, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>> {
-    const hit = have && { value: have.value, fetchedAt: have.fetchedAt.getTime(), ...(have.cost != null && { cost: have.cost }), ...(!have.outdated && { version: this.version }) };
+    const hit = have && { value: have.value, fetchedAt: have.fetchedAt.getTime(), ...(have.cost != null && { cost: have.cost }), ...(!have.outdated && { version: stampOf(key, this.version) }) };
     return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e)));
   }
 
@@ -274,7 +289,7 @@ export class Cache {
       const value = await load();
       // A page's build is measured under its key (budget.ts `measured`): what it took goes with its copy.
       const cost = costOf(key);
-      const entry: CacheEntry = { value, fetchedAt: this.now(), ...(cost != null && { cost }), ...(this.version != null && isCopy(key) && { version: this.version }) };
+      const entry: CacheEntry = { value, fetchedAt: this.now(), ...(cost != null && { cost }), ...(stampOf(key, this.version) != null && { version: stampOf(key, this.version) }) };
       await put(entry);
       this.failures.delete(key);
       return { value, fetchedAt: new Date(entry.fetchedAt), stale: false };

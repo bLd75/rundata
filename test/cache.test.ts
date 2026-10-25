@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Cache, MemoryStore, TieredStore } from "../src/cache.js";
+import { Cache, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
+import { familyOf, RENDU_REVISION } from "../src/web/revisions.js";
 
 function clock() {
   let t = 1_000_000;
@@ -129,27 +130,29 @@ describe("peek with a freshness", () => {
 });
 
 
-describe("a page's copy after a deploy (cam-change 285)", () => {
+// A family missing from web/revisions.ts: its copy is stamped with the version of the code, and built again after every
+// deploy, as all were before cam-change 286.
+describe("a page's copy of a family without revision, after a deploy (cam-change 285)", () => {
   it("is written with the version that built it, a source's entry without", async () => {
     const store = new MemoryStore();
     const cache = new Cache(store, undefined, false, undefined, "2.0.0");
-    await cache.get("web:agenda", 300, async () => "liste");
+    await cache.get("web:essai", 300, async () => "liste");
     await cache.get("agenda:petite_ile", 300, async () => "lue");
-    expect((await store.get("web:agenda"))!.version).toBe("2.0.0");
+    expect((await store.get("web:essai"))!.version).toBe("2.0.0");
     expect((await store.get("agenda:petite_ile"))!.version).toBeUndefined();
   });
 
   it("is built again at its first view when another version built it, however fresh", async () => {
     const c = clock();
     const store = new MemoryStore();
-    await new Cache(store, c.now, false, undefined, "1.0.0").get("web:agenda", 300, async () => "ancienne");
+    await new Cache(store, c.now, false, undefined, "1.0.0").get("web:essai", 300, async () => "ancienne");
     // A source's entry is the source's, whatever the code: kept.
     await new Cache(store, c.now, false, undefined, "1.0.0").get("agenda:petite_ile", 300, async () => "lue");
     c.advance(10);
     const cache = new Cache(store, c.now, false, undefined, "2.0.0");
     let builds = 0;
-    expect((await cache.get("web:agenda", 300, async () => (builds++, "nouvelle"))).value).toBe("nouvelle");
-    expect((await cache.get("web:agenda", 300, async () => (builds++, "encore"))).value).toBe("nouvelle");
+    expect((await cache.get("web:essai", 300, async () => (builds++, "nouvelle"))).value).toBe("nouvelle");
+    expect((await cache.get("web:essai", 300, async () => (builds++, "encore"))).value).toBe("nouvelle");
     expect(builds).toBe(1);
     expect((await cache.get("agenda:petite_ile", 300, async () => "relue")).value).toBe("lue");
   });
@@ -157,37 +160,77 @@ describe("a page's copy after a deploy (cam-change 285)", () => {
   it("stays the copy served when its build fails", async () => {
     const c = clock();
     const store = new MemoryStore();
-    await new Cache(store, c.now, false, undefined, "1.0.0").get("web:volcan", 300, async () => "ancienne");
+    await new Cache(store, c.now, false, undefined, "1.0.0").get("web:essai", 300, async () => "ancienne");
     const cache = new Cache(store, c.now, false, undefined, "2.0.0");
-    expect(await cache.get("web:volcan", 300, async () => { throw new Error("source muette"); })).toMatchObject({ value: "ancienne", stale: true });
+    expect(await cache.get("web:essai", 300, async () => { throw new Error("source muette"); })).toMatchObject({ value: "ancienne", stale: true });
   });
 
   it("is said to be of another version by peek, and built again by getFrom from it", async () => {
     const c = clock();
     const store = new MemoryStore();
-    await new Cache(store, c.now, false, undefined, "1.0.0").get("web:lieu:saint-pierre", 300, async () => "ancienne");
+    await new Cache(store, c.now, false, undefined, "1.0.0").get("web:essai:saint-pierre", 300, async () => "ancienne");
     const cache = new Cache(store, c.now, false, undefined, "2.0.0");
-    const seen = await cache.peek<string>("web:lieu:saint-pierre");
+    const seen = await cache.peek<string>("web:essai:saint-pierre");
     expect(seen!.outdated).toBe(true);
     // As web/data.ts `snapshot` asks: any copy of the last 24 hours will do, but not this one.
-    expect((await cache.getFrom("web:lieu:saint-pierre", seen, 24 * 3600, async () => "nouvelle")).value).toBe("nouvelle");
-    expect((await cache.peek("web:lieu:saint-pierre"))!.outdated).toBeUndefined();
+    expect((await cache.getFrom("web:essai:saint-pierre", seen, 24 * 3600, async () => "nouvelle")).value).toBe("nouvelle");
+    expect((await cache.peek("web:essai:saint-pierre"))!.outdated).toBeUndefined();
   });
 
   it("written before the versions were kept, is built again once", async () => {
     const store = new MemoryStore();
     const cache = new Cache(store, undefined, false, undefined, "2.0.0");
-    await store.put("web:air", { value: "sans version", fetchedAt: Date.now() });
-    expect((await cache.peek("web:air"))!.outdated).toBe(true);
-    expect((await cache.get("web:air", 300, async () => "avec")).value).toBe("avec");
-    expect((await store.get("web:air"))!.version).toBe("2.0.0");
+    await store.put("web:essai", { value: "sans version", fetchedAt: Date.now() });
+    expect((await cache.peek("web:essai"))!.outdated).toBe(true);
+    expect((await cache.get("web:essai", 300, async () => "avec")).value).toBe("avec");
+    expect((await store.get("web:essai"))!.version).toBe("2.0.0");
   });
 
-  it("is never said outdated where the code has no version (Node, tests)", async () => {
+  it("is never said outdated where the code has no version (Node, tests), whatever its family", async () => {
     const store = new MemoryStore();
-    await store.put("web:air", { value: 1, fetchedAt: Date.now(), version: "1.0.0" });
+    await store.put("web:essai", { value: 1, fetchedAt: Date.now(), version: "1.0.0" });
+    await store.put("web:air", { value: 1, fetchedAt: Date.now(), version: "rendu-0" });
     const cache = new Cache(store);
-    expect((await cache.peek("web:air"))!.outdated).toBeUndefined();
-    expect((await cache.get("web:air", 300, async () => 2)).value).toBe(1);
+    for (const key of ["web:essai", "web:air"]) {
+      expect((await cache.peek(key))!.outdated).toBeUndefined();
+      expect((await cache.get(key, 300, async () => 2)).value).toBe(1);
+    }
+  });
+});
+
+describe("a page's copy kept across the deploys that leave its family's revision (cam-change 286)", () => {
+  it("is stamped with its family's revision, whatever the version, a source's entry and a family without one otherwise", async () => {
+    const store = new MemoryStore();
+    const cache = new Cache(store, undefined, false, undefined, "2.0.0");
+    await cache.get("web:lieu:le-port", 300, async () => "copie");
+    await cache.get("web:essai", 300, async () => "copie");
+    await cache.get("agenda:petite_ile", 300, async () => "lue");
+    expect((await store.get("web:lieu:le-port"))!.version).toBe(`rendu-${RENDU_REVISION.lieu}`);
+    expect((await store.get("web:essai"))!.version).toBe("2.0.0");
+    expect((await store.get("agenda:petite_ile"))!.version).toBeUndefined();
+    expect(stampOf("web:lieu:le-port", "2.0.0")).toBe(stampOf("web:lieu:le-port", "1.0.0"));
+  });
+
+  it("is served across a deploy that leaves its revision, and built again only after one that raises it", async () => {
+    const c = clock();
+    const store = new MemoryStore();
+    await new Cache(store, c.now, false, undefined, "1.0.0").get("web:lieu:le-port", 300, async () => "ancienne");
+    c.advance(10);
+    let builds = 0;
+    const next = new Cache(store, c.now, false, undefined, "2.0.0");
+    expect((await next.peek("web:lieu:le-port"))!.outdated).toBeUndefined();
+    expect((await next.get("web:lieu:le-port", 300, async () => (builds++, "nouvelle"))).value).toBe("ancienne");
+    expect(builds).toBe(0);
+    // The deploy before the one that raised the family's revision: its copies say the revision before.
+    await store.put("web:lieu:le-port", { value: "avant", fetchedAt: c.now(), version: `rendu-${RENDU_REVISION.lieu - 1}` });
+    expect((await next.peek("web:lieu:le-port"))!.outdated).toBe(true);
+    expect((await next.get("web:lieu:le-port", 300, async () => (builds++, "nouvelle"))).value).toBe("nouvelle");
+    expect(builds).toBe(1);
+  });
+
+  it("names its family by the first part of its key", () => {
+    expect(familyOf("web:lieu:le-port")).toBe("lieu");
+    expect(familyOf("web:volcan")).toBe("volcan");
+    expect(familyOf("web:randonnees:cap-noir")).toBe("randonnees");
   });
 });

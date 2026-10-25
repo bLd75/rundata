@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { count, counted, measured, WORKER_BUDGET } from "../src/budget.js";
-import { Cache, type CacheEntry, MemoryStore, TieredStore } from "../src/cache.js";
+import { Cache, type CacheEntry, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
 import { readCopies, resume, resumeDuJour } from "../src/tools/resume.js";
 import { buildAir, buildPlace } from "../src/web/data.js";
@@ -249,11 +249,11 @@ describe("reading the copies", () => {
     expect(meteo.used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
-  it("uses a recent copy built by the previous version, and brings it up to date first (cam-change 285)", async () => {
+  it("uses a recent copy built before its family's revision was raised, and brings it up to date first (cam-change 285, 286)", async () => {
     await counted(WORKER_BUDGET, () => measured(KEYS.air, () => buildAir(isolate(new EdgeLike()), NOW)).catch(() => undefined));
     const edge = new EdgeLike();
     for (const [part, c] of Object.entries(COPIES)) {
-      await edge.put(KEYS[part], { value: c.value, fetchedAt: c.fetchedAt.getTime(), version: part === "air" ? "1.0.0" : "2.0.0" });
+      await edge.put(KEYS[part], { value: c.value, fetchedAt: c.fetchedAt.getTime(), version: part === "air" ? "rendu-0" : stampOf(KEYS[part], "2.0.0") });
     }
     const cache = new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false, new MemoryStore(), "2.0.0");
     const pending: Promise<unknown>[] = [];

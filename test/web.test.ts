@@ -530,13 +530,14 @@ describe("page data", () => {
     expect((await snapshot(c, "k", slow, () => {}, NOW, 5))?.value).toBe(42);
   });
 
-  it("built by the previous version, is built again at the first view after a deploy, not served (cam-change 285)", async () => {
+  it("built before its family's revision was raised, is built again at the first view after the deploy, not served (cam-change 285, 286)", async () => {
     const store = new MemoryStore();
-    await new Cache(store, () => NOW.getTime() - 60_000, false, undefined, "1.0.0").get("web:agenda", 300, async () => "ancienne");
+    // Stamped with a revision older than any in web/revisions.ts.
+    await store.put("web:agenda", { value: "ancienne", fetchedAt: NOW.getTime() - 60_000, version: "rendu-0" });
     const c = new Cache(store, () => NOW.getTime(), false, undefined, "2.0.0");
     expect((await snapshot(c, "web:agenda", async () => "nouvelle", () => {}, NOW))?.value).toBe("nouvelle");
     // A build too long for the wait: the page goes without its live block, as one never built, and the next view has it.
-    await new Cache(store, () => NOW.getTime() - 60_000, false, undefined, "1.0.0").get("web:lieu:essai", 300, async () => "ancienne");
+    await store.put("web:lieu:essai", { value: "ancienne", fetchedAt: NOW.getTime() - 60_000, version: "rendu-0" });
     const later: Promise<unknown>[] = [];
     const slow = () => new Promise<string>((r) => setTimeout(() => r("nouvelle"), 30));
     expect(await snapshot(c, "web:lieu:essai", slow, (p) => later.push(p), NOW, 5)).toBeNull();
