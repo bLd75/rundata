@@ -758,16 +758,23 @@ export function hook(path: string): string | undefined {
 /**
  * Above the feedback form: send the page on WhatsApp, the island's first channel with Facebook (a plain link, no
  * script of theirs; `?ref=wa` counts the visits it brings, src/metrics.ts), follow rundata.re's accounts, and put the
- * site on the home screen (web/pwa.ts).
+ * site on the home screen (web/pwa.ts). The accounts say what each brings: a useful fact every morning, the weekend's
+ * outings on Friday on the WhatsApp channel, named « chaîne WhatsApp » so as not to read as the share link.
  */
 function share(origin: string, head: Head): string {
   const text = `${head.title.replace(/ · 974$/, "")} : ${origin}${head.path}?ref=wa`;
-  const accounts = followed().map((s) => `<a href="${esc(fromSite(s.url))}" rel="noopener">${esc(s.nom)}</a>`);
-  // « Facebook, Instagram ou WhatsApp ».
-  const named = accounts.length > 1 ? `${accounts.slice(0, -1).join(", ")} ou ${accounts.at(-1)}` : accounts[0];
+  const link = (s: Social, label = s.nom) => `<a href="${esc(fromSite(s.url))}" rel="noopener">${esc(label)}</a>`;
+  const daily = followed().filter((s) => s.nom !== "WhatsApp").map((s) => link(s));
+  const channel = followed().find((s) => s.nom === "WhatsApp");
+  // « Facebook ou Instagram ».
+  const morning = daily.length > 1 ? `${daily.slice(0, -1).join(", ")} ou ${daily.at(-1)}` : daily[0];
+  const weekend = channel && `les sorties du week-end le vendredi sur notre ${link(channel, "chaîne WhatsApp")}`;
+  const sentence = morning && weekend
+    ? `Une info utile chaque matin sur ${morning}, et ${weekend}.`
+    : morning ? `Une info utile chaque matin sur ${morning}.` : weekend ? `${weekend[0].toUpperCase()}${weekend.slice(1)}.` : "";
   return `<aside class="share wrap" aria-label="Partager et suivre"><div class="card">
   <a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp ${EXTERNAL}</a>
-  ${named ? `<p>Une info utile chaque matin : suivez rundata.re sur ${named}.</p>` : ""}
+  ${sentence ? `<p>${sentence}</p>` : ""}
 </div>
 ${INSTALL}
 </aside>`;
