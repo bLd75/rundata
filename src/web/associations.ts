@@ -54,8 +54,10 @@ export async function preuve(cache: Pick<Cache, "bundle">, now: Date): Promise<P
     const list = hit ?? (agenda.id === PROPOSITIONS_ID && lisible() ? await proposes(now) : undefined);
     if (!list) continue;
     if (!list.length && agenda.id !== PROPOSITIONS_ID) empty++;
-    for (const e of list) names.add(e.publie_par.trim().toLowerCase());
-    all.push(...list);
+    // The members' sessions (Sportsregions' « Jeu libre », trainings) are not shown to the public: not counted either.
+    const open = list.filter((e) => !e.reserve_adherents);
+    for (const e of open) names.add(e.publie_par.trim().toLowerCase());
+    all.push(...open);
   }
   const p = periode(undefined, now);
   const coming = all
@@ -68,8 +70,8 @@ export async function preuve(cache: Pick<Cache, "bundle">, now: Date): Promise<P
 /** « Déjà lu » or « Pas lu », as on /publier. */
 const etat = (lu: boolean) => (lu ? `<span class="etat lu">Déjà lu</span>` : `<span class="etat non">Pas lu</span>`);
 
-/** The tools a club may already use (§3). Sportsregions waits for its reader: no card says « lu » before it is. */
-const OUTILS: { nom: string; faire: string; temps: string; lu: boolean | "non-dit" }[] = [
+/** The tools a club may already use (§3); « Déjà lu » only for what an agenda here reads. */
+const OUTILS: { nom: string; faire: string; temps: string; lu: boolean }[] = [
   {
     nom: "Google Agenda",
     faire: `<ol><li>Créez un agenda à part pour vos événements publics.</li><li>Rendez-le public, avec tous les détails.</li><li>Copiez l'«\u00a0Adresse publique au format iCal\u00a0» et <a href="#lien">donnez-la-nous</a>.</li></ol><p><a href="/publier#google-agenda">Le pas à pas, avec les erreurs à éviter</a></p>`,
@@ -86,6 +88,12 @@ const OUTILS: { nom: string; faire: string; temps: string; lu: boolean | "non-di
     nom: "OpenAgenda",
     faire: `<p>Proposez vos événements à l'agenda de votre commune ou de votre office de tourisme, s'il accepte les contributions. Vos dates apparaissent là où le public les cherche déjà, et chez nous. <a href="/publier#openagenda">Le pas à pas</a></p>`,
     temps: "5 min par événement",
+    lu: true,
+  },
+  {
+    nom: "Sportsregions (le site du club)",
+    faire: `<p>Remplissez la rubrique <b>Événements</b> de votre site Sportsregions\u00a0: la date, l'heure et le champ «\u00a0Lieu de l'événement\u00a0». Laissez l'événement public. C'est tout\u00a0: rundata.re lit le calendrier Sportsregions Réunion plusieurs fois par jour. Les entraînements et créneaux réservés aux adhérents ne s'affichent pas pour le public. Votre événement n'apparaît pas sous 48\u00a0h\u00a0? Donnez-nous le lien de sa page avec le formulaire <a href="#lien">«\u00a0Nous donner votre lien\u00a0»</a>\u00a0: nous regardons pourquoi.</p>`,
+    temps: "2 min par événement",
     lu: true,
   },
   {
@@ -157,7 +165,7 @@ export function associationsPage(origin: string, p: Preuve, alerte?: Alerte): st
 </div></div>`;
   const cards = OUTILS.map((o) => `<li class="card outil"><h3>${esc(o.nom)}</h3>
     <p class="aide">Ce qu'il faut faire</p>${o.faire}
-    <p class="aide">Temps\u00a0: ${esc(o.temps)} · rundata.re\u00a0: ${etat(o.lu === true)}</p></li>`).join("\n  ");
+    <p class="aide">Temps\u00a0: ${esc(o.temps)} · rundata.re\u00a0: ${etat(o.lu)}</p></li>`).join("\n  ");
   const body = `<section class="card proposer" aria-labelledby="h-proposer">
   <h2 id="h-proposer">Proposer un événement, en 2\u00a0minutes</h2>
   <p>Un match, une kermesse, une sortie, un concert\u00a0? Remplissez le formulaire, avec ou sans page Facebook, sans compte. Nous le relisons, puis il s'affiche sur rundata.re et dans les assistants IA, avec le nom de votre association.</p>

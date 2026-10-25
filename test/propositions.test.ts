@@ -677,6 +677,28 @@ describe("the clubs' and associations' space (web/associations.ts)", () => {
     expect(p.prochains.map((x) => x.e.publie_par)).toEqual(["Ligue réunionnaise de volley-ball"]);
   });
 
+  it("counts the Sportsregions clubs, never their members' sessions; its card says « Déjà lu »", async () => {
+    const { preuve, associationsPage } = await import("../src/web/associations.js");
+    const { PLANIFIES } = await import("../src/providers/agenda.js");
+    const { evenement } = await import("../src/providers/agenda-propositions.js");
+    const clubs = [
+      { ...evenement(ligne(1, "Badminton Club de Saint-Pierre")), id: "sportsregions:a" },
+      { ...evenement(ligne(2, "Archers du Colosse")), id: "sportsregions:b", reserve_adherents: true },
+    ];
+    const cache = {
+      bundle: async (name: string) => ({
+        peek: (k: string) => (name === PLANIFIES && k === "agenda:sportsregions" ? { value: clubs, ageMs: 0, fetchedAt: NOW.getTime() } : undefined),
+      }),
+    } as never;
+    const p = await preuve(cache, NOW);
+    expect(p.clubs).toBe(1);
+    expect(p.prochains.map((x) => x.e.publie_par)).toEqual(["Badminton Club de Saint-Pierre"]);
+    const html = plain(associationsPage("https://rundata.re", p));
+    expect(html).toContain("<h3>Sportsregions (le site du club)</h3>");
+    expect(html).toContain("Votre événement n'apparaît pas sous 48 h ? Donnez-nous le lien de sa page avec le formulaire <a href=\"#lien\">« Nous donner votre lien »</a> : nous regardons pourquoi.");
+    expect(html.match(/<span class="etat lu">Déjà lu<\/span>/g)).toHaveLength(4);
+  });
+
   it("reads the proposed events from the table when the agendas' copy has none yet", async () => {
     const { preuve } = await import("../src/web/associations.js");
     const s = await propose();
