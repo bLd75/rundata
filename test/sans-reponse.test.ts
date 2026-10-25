@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache } from "../src/cache.js";
 import * as sr from "../src/sans-reponse.js";
 import { sitesSansReponse } from "../src/tools/sans-reponse.js";
@@ -154,6 +154,47 @@ describe("the morning's recheck", () => {
     expect(row("coastwatch.noaa.gov")).toBeUndefined();
   });
 
+  it("never shows a host for a 403 or a 429 seen in the day: only the morning's recheck, asked alone, can", async () => {
+    const { db, row } = database();
+    db.prepare("DELETE FROM sans_reponse").run();
+    // A run of our reads turned away by the prefecture: the host is to check, nothing more, however many times.
+    for (const constat of ["http_429", "http_429", "http_403"]) await sr.noter("prefecture_communiques", "https://www.reunion.gouv.fr/Actualites", constat, MORNING);
+    expect(row("reunion.gouv.fr")).toMatchObject({ statut: "a_verifier", n403: 0 });
+    expect(sr.publiques(await sr.lignes())).toEqual([]);
+    // A host already listed keeps its state.
+    db.prepare("INSERT INTO sans_reponse (hote, url, statut, premier_echec, constat) VALUES ('ipgp.fr', 'https://www.ipgp.fr/', 'injoignable', ?, 'delai')").run(T - 86_400);
+    await sr.noter("ovpf_pdf", "https://www.ipgp.fr/x.pdf", "http_429", MORNING);
+    expect(row("ipgp.fr")).toMatchObject({ statut: "injoignable", constat: "delai" });
+
+    // The morning: this isolate read the prefecture a moment ago, the recheck waits a minute after that read.
+    vi.useFakeTimers({ toFake: ["Date"], now: MORNING });
+    try {
+      const waits: number[] = [];
+      const attendre = async (ms: number) => void (waits.push(ms), vi.setSystemTime(Date.now() + ms));
+      const asked: number[] = [];
+      const fetcher = answers({
+        "reunion.gouv.fr": () => (asked.push(Date.now()), new Response("", { status: 429 })),
+        "ipgp.fr": () => new Response("<title>Accueil</title>"),
+      });
+      sr.lu("https://www.reunion.gouv.fr/Actualites", Date.now() - 10_000);
+      await sr.reverifier(MORNING, fetcher, attendre);
+      expect(waits).toEqual([50_000]);
+      expect(asked).toEqual([MORNING.getTime() + 50_000]);
+      // One 429 in the morning is not enough either.
+      expect(row("reunion.gouv.fr")).toMatchObject({ statut: "a_verifier", n403: 1 });
+      // A host this isolate never leaves alone is not asked: left for the next morning, unchanged.
+      asked.length = 0;
+      const busy = async (ms: number) => void (vi.setSystemTime(Date.now() + ms), sr.lu("https://www.reunion.gouv.fr/", Date.now()));
+      sr.lu("https://www.reunion.gouv.fr/", Date.now());
+      await sr.reverifier(MORNING, fetcher, busy);
+      expect(asked).toEqual([]);
+      expect(row("reunion.gouv.fr")).toMatchObject({ statut: "a_verifier", n403: 1 });
+    } finally {
+      sr.lu("https://www.reunion.gouv.fr/", 0);
+      vi.useRealTimers();
+    }
+  });
+
   it("runs at 06:00 in La Réunion only", () => {
     expect(sr.heureDuPassage(new Date("2026-10-26T02:00:00Z"))).toBe(true);
     expect(sr.heureDuPassage(new Date("2026-10-26T02:05:00Z"))).toBe(false);
@@ -181,12 +222,14 @@ describe("what is shown", () => {
   });
 
   it("says it on the page in marketing's words, never down, closed, empty or refusing", () => {
-    const page = typo(sansReponsePage("https://rundata.re", rows, T, MORNING));
+    const page = typo(sansReponsePage("https://rundata.re", rows, T));
     expect(page).toContain("<title>Sites publics de La Réunion sans réponse · rundata.re</title>");
     expect(page).toContain("<h1>Sites publics sans réponse</h1>");
     expect(page).toContain("Chaque site est revérifié chaque jour et quitte la liste dès qu'il répond.");
-    expect(page).toContain('<a href="https://www.ipgp.fr/" rel="nofollow noopener">le site de l&#39;OVPF</a> : sans réponse depuis le 21/10');
+    expect(page).toContain('<a href="https://www.ipgp.fr/" rel="nofollow noopener">le site de l&#39;OVPF-IPGP</a> : sans réponse depuis le 21/10');
     expect(page).toContain('ce qui manque ici : <a href="/volcan">les bulletins et communiqués de l&#39;OVPF sur le Piton de la Fournaise</a>');
+    expect(page).toContain('<h2 id="sans-reponse">Sans réponse</h2>');
+    expect(page).toContain('<h2 id="repondent-de-nouveau">Répondent de nouveau</h2>');
     expect(page).toContain("répond de nouveau depuis le 25/10");
     expect(page).toContain("Une donnée publique déposée en fichier ouvert sur data.gouv.fr reste lisible même quand le site de son éditeur ne répond pas.");
     expect(page).toContain("Revérifié chaque jour, dernier passage le 26/10 à 06:01. Un site de cette liste répond pour vous ? Écrivez-nous : <a href=\"mailto:contact@rundata.re\">contact@rundata.re</a>");
@@ -196,14 +239,19 @@ describe("what is shown", () => {
     expect(own).not.toMatch(/en panne|hors ligne|hors service|ferm[ée]|\bvide\b|refus|ne publie pas|piraté/i);
   });
 
+  it("says when no site is listed, with the date of the last pass when there was one", () => {
+    expect(typo(sansReponsePage("https://rundata.re", [], T))).toContain("<p>Aucun site public sans réponse à la revérification du 26/10.</p>");
+    expect(typo(sansReponsePage("https://rundata.re", [], undefined))).toContain("<p>Aucun site public sans réponse pour l'instant.</p>");
+  });
+
   it("answers the tool with the whole list, or the sites a word names", async () => {
     const all = JSON.parse((await sitesSansReponse(new Cache(), undefined, MORNING)).content[0].text);
-    expect(all.resume).toBe("1 site public sans réponse ce 26/10, revérifié chaque jour ; le plus ancien depuis le 21/10 (le site de l'OVPF).");
-    expect(all.sites[0]).toEqual({ site: "le site de l'OVPF", statut: "sans réponse", depuis: "21/10", constat: "pas de réponse dans le délai", manque_ici: "les bulletins et communiqués de l'OVPF sur le Piton de la Fournaise", lien: "https://www.ipgp.fr/" });
+    expect(all.resume).toBe("1 site public sans réponse ce 26/10, revérifié chaque jour ; le plus ancien depuis le 21/10 (le site de l'OVPF-IPGP).");
+    expect(all.sites[0]).toEqual({ site: "le site de l'OVPF-IPGP", statut: "sans réponse", depuis: "21/10", constat: "pas de réponse dans le délai", manque_ici: "les bulletins et communiqués de l'OVPF sur le Piton de la Fournaise", lien: "https://www.ipgp.fr/" });
     expect(all.sites[1]).toMatchObject({ site: "le site de NOAA CoastWatch", statut: "répond de nouveau", depuis: "25/10" });
     expect(all.page).toBe("https://rundata.re/sites-sans-reponse");
     const volcan = JSON.parse((await sitesSansReponse(new Cache(), "volcan", MORNING)).content[0].text);
-    expect(volcan.sites.map((s: { site: string }) => s.site)).toEqual(["le site de l'OVPF"]);
+    expect(volcan.sites.map((s: { site: string }) => s.site)).toEqual(["le site de l'OVPF-IPGP"]);
     const eau = JSON.parse((await sitesSansReponse(new Cache(), "eau", MORNING)).content[0].text);
     expect(eau.resume).toBe("Aucun site public sans réponse ce 26/10 pour « eau », d'après la revérification quotidienne.");
   });

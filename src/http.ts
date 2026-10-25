@@ -47,6 +47,12 @@ export function whenFailed(f: typeof onFailure) {
   onFailure = f;
 }
 
+/** Told of each read as it leaves (worker.ts: the morning's recheck asks a host only once this isolate has left it alone). */
+let onRead: ((url: string) => void) | undefined;
+export function whenRead(f: typeof onRead) {
+  onRead = f;
+}
+
 async function get<T>(
   source: string,
   url: string,
@@ -61,6 +67,7 @@ async function get<T>(
   try {
     let res: Response;
     const signal = AbortSignal.timeout(timeoutMs);
+    onRead?.(url);
     try {
       res = await fetch(url, {
         ...(body ? { method: "POST", body } : {}),

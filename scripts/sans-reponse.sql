@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS sans_reponse_passage (
 -- sure failure seen from the Worker: « a_verifier », the morning's recheck sorts them.
 INSERT OR IGNORE INTO sans_reponse (hote, url, nom, theme, manque, page, sources, statut, premier_echec, constat, revenu_le) VALUES
   ('ipgp.fr', 'https://www.ipgp.fr/volcanoweb/reunion/Bulletins-Communiques/2026/Communiques/OVPF_20260924_09h00_communique_AugmentationSismicite.pdf',
-    'l''OVPF', 'Volcan', 'les bulletins et communiqués de l''OVPF sur le Piton de la Fournaise', '/volcan', '["ovpf_pdf"]', 'injoignable', 1792526400, 'delai', NULL),
+    'l''OVPF-IPGP', 'Volcan', 'les bulletins et communiqués de l''OVPF sur le Piton de la Fournaise', '/volcan', '["ovpf_pdf"]', 'injoignable', 1792526400, 'delai', NULL),
   ('coastwatch.noaa.gov', 'https://coastwatch.noaa.gov/',
     'NOAA CoastWatch', 'Mer', 'la température de la mer mesurée par satellite (ACSPO)', '/mer', '["acspo"]', 'revenu', 1792866300, 'http_404', 1792931340),
   ('coastwatch.pfeg.noaa.gov', 'https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMH1sstd1day_R2022NRTMasked.html',

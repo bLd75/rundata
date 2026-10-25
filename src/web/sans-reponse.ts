@@ -38,7 +38,7 @@ function parTheme(rows: Public[]): string {
   return themes.map((t) => `<h3>${esc(t)}</h3><ul>${rows.filter((l) => l.theme === t).map(item).join("")}</ul>`).join("");
 }
 
-export function sansReponsePage(origin: string, rows: Ligne[], passage: number | undefined, now: Date, alerte?: Alerte): string {
+export function sansReponsePage(origin: string, rows: Ligne[], passage: number | undefined, alerte?: Alerte): string {
   const shown = publiques(rows);
   const muets = shown.filter((l) => l.statut === "injoignable");
   const bloques = shown.filter((l) => l.statut === "bloque");
@@ -51,10 +51,10 @@ export function sansReponsePage(origin: string, rows: Ligne[], passage: number |
   const parts = [
     muets.length ? `<h2 id="sans-reponse">Sans réponse</h2>${parTheme(muets)}` : "",
     bloques.length ? `<h2 id="pas-a-nos-lectures">Répondent, mais pas à nos lectures</h2><p>${BLOQUES}</p>${parTheme(bloques)}` : "",
-    revenus.length ? `<h2 id="revenus">Revenus</h2>${parTheme(revenus)}` : "",
+    revenus.length ? `<h2 id="repondent-de-nouveau">Répondent de nouveau</h2>${parTheme(revenus)}` : "",
   ].filter(Boolean);
   const body = `<section style="max-width:44rem;display:grid;gap:1rem">
-  ${parts.length ? parts.join("\n  ") : `<p>Aucun site sans réponse ce ${jour(Math.floor(now.getTime() / 1000))}.</p>`}
+  ${parts.length ? parts.join("\n  ") : `<p>${passage ? `Aucun site public sans réponse à la revérification du ${jour(passage)}.` : "Aucun site public sans réponse pour l'instant."}</p>`}
   <aside class="card"><p>${OPEN_DATA}</p></aside>
   <p>Revérifié chaque jour${passage ? `, dernier passage le ${jourHeure(passage)}` : ""}. Un site de cette liste répond pour vous ? Écrivez-nous : <a href="mailto:contact@rundata.re">contact@rundata.re</a></p>
 </section>`;

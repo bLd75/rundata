@@ -5,8 +5,10 @@
  *
  * A failed read (http.ts) is written only when it changes the host's state: an unknown host, or one that had come
  * back, enters « a_verifier », never shown. The Worker's own failures (its connections queued, a slow invocation) look
- * like a site's: only the recheck makes a row public. Once a day, at 06:00 in La Réunion, each row not « revenu » is
- * asked once, four at a time, with 20 s each:
+ * like a site's: only the recheck makes a row public, and a failure seen in the day (a 403 or a 429 after a run of our own
+ * reads among them) leaves it « a_verifier » at most. Once a day, at 06:00 in La Réunion, after the scheduled event's
+ * reads and a minute after this isolate last read the host, each row not « revenu » is asked once, four at a time, with
+ * 20 s each:
  * - an answer (2xx, no maintenance page, and a recent enough datum when the row says what to check): « revenu », kept
  *   7 days, then deleted; a row still « a_verifier » is deleted at once, it was never shown;
  * - a 403 or 429 twice in a row (a site may refuse reads at night only): « bloque », the site answers but not to our
@@ -75,6 +77,10 @@ export function inscrire(sources: SourceInfo[]) {
 export const GARDE_REVENUS_JOURS = 7;
 const DELAI_MS = 20_000;
 const A_LA_FOIS = 4;
+// A host is asked by the recheck only this long after this isolate's last read of it: its answer is to that one GET,
+// never to a run of ours (reunion.gouv.fr turns away bursts). Past CALME_ESSAIS waits, it is left for the next morning.
+const CALME_MS = 60_000;
+const CALME_ESSAIS = 3;
 // The rows' states, read once in a while by each isolate at its first failure, so that a failure already known writes nothing.
 const RELIRE_MS = 10 * 60_000;
 // Sites that answer a robot with no name by an error page: the same words as the agendas'.
@@ -88,6 +94,13 @@ export const hoteDe = (url: string) => {
     return undefined;
   }
 };
+
+/** When this isolate last read each host (http.ts, worker.ts). */
+const lectures = new Map<string, number>();
+export function lu(url: string, t = Date.now()) {
+  const hote = hoteDe(url);
+  if (hote) lectures.set(hote, t);
+}
 
 const absente = (err: unknown) => /no such table/i.test(err instanceof Error ? err.message : String(err));
 
@@ -227,11 +240,24 @@ export async function dernierPassage(): Promise<number | undefined> {
   }
 }
 
+const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Asks the row once this isolate has left its host alone for CALME_MS; null when it never did, the row then waits. */
+async function seul(l: Ligne, now: Date, fetcher: typeof fetch, attendre: (ms: number) => Promise<void>): Promise<Verdict | null> {
+  for (let i = 0; i < CALME_ESSAIS; i++) {
+    const reste = CALME_MS - (Date.now() - (lectures.get(l.hote) ?? -Infinity));
+    if (reste <= 0) return essayer(l, now, fetcher);
+    await attendre(reste);
+  }
+  return null;
+}
+
 /**
- * The morning's recheck (worker.ts, the scheduled event at 02:00 UTC): each row not « revenu » asked once, the rows
- * come back more than 7 days ago deleted, every write in one batch. Returns what it did, for the Worker's log.
+ * The morning's recheck (worker.ts, the scheduled event at 02:00 UTC, after its reads): each row not « revenu » asked
+ * once, alone, the rows come back more than 7 days ago deleted, every write in one batch. Returns what it did, for the
+ * Worker's log.
  */
-export async function reverifier(now = new Date(), fetcher: typeof fetch = fetch): Promise<{ essayes: number; changes: string[] } | null> {
+export async function reverifier(now = new Date(), fetcher: typeof fetch = fetch, attendre = pause): Promise<{ essayes: number; changes: string[] } | null> {
   if (!all || !batch) return null;
   const rows = await lignes();
   const t = Math.floor(now.getTime() / 1000);
@@ -246,8 +272,8 @@ export async function reverifier(now = new Date(), fetcher: typeof fetch = fetch
   }
   for (let i = 0; i < aEssayer.length; i += A_LA_FOIS) {
     const lot = aEssayer.slice(i, i + A_LA_FOIS);
-    // A row past the budget is left for the next morning.
-    const verdicts = await Promise.all(lot.map((l) => essayer(l, now, fetcher).catch(() => null)));
+    // A row past the budget, or whose host this isolate never left alone, is left for the next morning.
+    const verdicts = await Promise.all(lot.map((l) => seul(l, now, fetcher, attendre).catch(() => null)));
     lot.forEach((l, j) => {
       const v = verdicts[j];
       if (!v) return;

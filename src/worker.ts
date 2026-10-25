@@ -23,7 +23,7 @@ import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
 import * as propositions from "./propositions.js";
 import * as sansReponse from "./sans-reponse.js";
-import { whenFailed } from "./http.js";
+import { whenFailed, whenRead } from "./http.js";
 import * as formulaires from "./web/propositions.js";
 import { refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
@@ -209,6 +209,7 @@ function setup(env: Env): Cache {
     const constat = sansReponse.constatDe(err);
     if (constat) later(sansReponse.noter(source, url, constat));
   });
+  whenRead((url) => sansReponse.lu(url));
   // Without the KV binding, the bundles stay in the data center's cache like everything else.
   // The page copies shared by every data center are read from KV when the data center's cache has none (web/partagees.ts).
   // Each page's copy says which version built it: one of another version is built again at its first view (cache.ts).
@@ -237,30 +238,30 @@ export default {
     const kv = env.STORE;
     // The AROME grids first; then, with what is left of the invocation, the shared page copies that are due, and the
     // forecast's ensemble with what they left.
-    ctx.waitUntil(
-      // Its own budget, enough for every copy that is due: past it a subrequest is refused here (budget.ts).
-      counted(SCHEDULED_BUDGET, async () => {
-        const arome = await prefetchForecasts(c).catch((err) => (console.error("préchargement AROME impossible", why(err)), null));
-        const aromeUsed = spent();
-        const first = kv ? await warmShared(c, kv) : { written: [], left: [] };
-        const after = kv ? await warmShared(c, kv, new Date(), SHARED_AFTER) : { written: [], left: [] };
-        const copies = { written: [...first.written, ...after.written], left: [...first.left, ...after.left] };
-        // Last, with what is left: the agendas read only here.
-        const agendas = kv ? await refreshPlanned(c).catch((err) => (console.error("agendas planifiés impossibles", why(err)), null)) : null;
-        return { arome, aromeUsed, copies, agendas };
-        // What a read hands over after it (a failed read written down) finishes within the event.
-      }, (p) => ctx.waitUntil(p))
-        .then(({ value, used }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +
-          (value.copies.written.length ? ` ; copies partagées : ${value.copies.written.join(", ")}` : "") +
-          (value.copies.left.length ? ` ; reportées : ${value.copies.left.map((x) => `${x.key} (${x.why})`).join(", ")}` : "") +
-          (value.agendas?.lus.length || value.agendas?.gardes.length || value.agendas?.trop_vieilles.length ? ` ; agendas planifiés : ${JSON.stringify(value.agendas)}` : "") +
-          (value.copies.written.length || value.copies.left.length || value.agendas?.lus.length ? `, sous-requêtes en tout : ${used}` : "")))
-        .catch((err) => console.error("préchargement impossible", why(err))),
-    );
+    // Its own budget, enough for every copy that is due: past it a subrequest is refused here (budget.ts).
+    const reads = counted(SCHEDULED_BUDGET, async () => {
+      const arome = await prefetchForecasts(c).catch((err) => (console.error("préchargement AROME impossible", why(err)), null));
+      const aromeUsed = spent();
+      const first = kv ? await warmShared(c, kv) : { written: [], left: [] };
+      const after = kv ? await warmShared(c, kv, new Date(), SHARED_AFTER) : { written: [], left: [] };
+      const copies = { written: [...first.written, ...after.written], left: [...first.left, ...after.left] };
+      // Last, with what is left: the agendas read only here.
+      const agendas = kv ? await refreshPlanned(c).catch((err) => (console.error("agendas planifiés impossibles", why(err)), null)) : null;
+      return { arome, aromeUsed, copies, agendas };
+      // What a read hands over after it (a failed read written down) finishes within the event.
+    }, (p) => ctx.waitUntil(p))
+      .then(({ value, used }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +
+        (value.copies.written.length ? ` ; copies partagées : ${value.copies.written.join(", ")}` : "") +
+        (value.copies.left.length ? ` ; reportées : ${value.copies.left.map((x) => `${x.key} (${x.why})`).join(", ")}` : "") +
+        (value.agendas?.lus.length || value.agendas?.gardes.length || value.agendas?.trop_vieilles.length ? ` ; agendas planifiés : ${JSON.stringify(value.agendas)}` : "") +
+        (value.copies.written.length || value.copies.left.length || value.agendas?.lus.length ? `, sous-requêtes en tout : ${used}` : "")))
+      .catch((err) => console.error("préchargement impossible", why(err)));
+    ctx.waitUntil(reads);
     const now = new Date();
-    // Once a day, at 06:00 in La Réunion: each public site that did not answer asked again (sans-reponse.ts).
+    // Once a day, at 06:00 in La Réunion: each public site that did not answer asked again (sans-reponse.ts), once the
+    // reads above are done, so that its one GET is never part of a run of ours.
     if (sansReponse.heureDuPassage(now)) {
-      ctx.waitUntil(counted(BUILD_BUDGET, () => sansReponse.reverifier(now))
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => sansReponse.reverifier(now)))
         .then(({ value, used }) => value && console.log(`sites sans réponse : ${value.essayes} revérifiés${value.changes.length ? `, ${value.changes.join(", ")}` : ""}, sous-requêtes : ${used}`))
         .catch((err) => console.error("sites sans réponse : revérification impossible", why(err))));
     }
