@@ -72,7 +72,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.175.0";
+export const VERSION = "0.176.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks), the index of the tools and the rules first. What each tool does, and the words its answers
@@ -110,6 +110,11 @@ type Extra = { requestInfo?: { headers?: Record<string, string | string[] | unde
 // The three hints are said outright, destructiveHint too, though implied by readOnlyHint: the ChatGPT apps review asks
 // for them on every tool (test/serveur.test.ts checks it).
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
+// The clubs' sessions for their members (Sportsregions): told only when the user says they are one.
+const ADHERENT = z
+  .boolean()
+  .optional()
+  .describe("L'utilisateur dit être adhérent ou membre d'un club : montrer aussi les séances réservées aux adhérents. / The user says they are a club member: also show members-only sessions.");
 
 const lieu = z
   .string()
@@ -612,10 +617,11 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "(R1 et R2, hommes et femmes, toutes les poules), avec les clubs en toutes lettres (VBSP = Volley-Ball de Saint-Pierre) et la commune où l'on joue, " +
         "les matchs annulés ou reportés (avis de la Ligue de volley, actualité locale), classements, régates de voile, compétitions de golf, " +
         "rallyes et sport automobile (calendrier de la Ligue), Grand Raid (courses, partants, abandons, podiums), les programmes sportifs publiés par les communes " +
-        "(le lien du document de la mairie, sans son contenu), et l'actualité sportive " +
+        "(le lien du document de la mairie, sans son contenu), les événements publiés par les clubs sur Sportsregions (tir à l'arc, triathlon, golf, badminton…, " +
+        "avec le club qui organise ; les séances réservées aux adhérents seulement si l'utilisateur dit en être), et l'actualité sportive " +
         "de Réunion La 1ère (titres et liens, dont le football et le basket). " +
         "Pour : « match de volley dimanche dans le sud ? », « match de hand ce week-end à Saint-Pierre ? », « le TGV joue quand ? », " +
-        "« foot ou basket ce week-end ? », « résultats du volley à Saint-Leu ? », « classement du handball ? », « prochaine régate ? », " +
+        "« foot ou basket ce week-end ? », « tournoi de badminton ce week-end ? », « résultats du volley à Saint-Leu ? », « classement du handball ? », « prochaine régate ? », " +
         "« prochain rallye ? », « qui a gagné le Grand Raid ? ». / Sport in Réunion Island: fixtures, results, cancellations, standings, Grand Raid.",
       inputSchema: {
         sport: z
@@ -630,10 +636,11 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           .enum(QUANDS as [Quand, ...Quand[]])
           .optional()
           .describe("« aujourd_hui », « demain », « samedi » ou « dimanche » (le prochain), « ce_week_end », « a_venir » (14 jours) ou « resultats » ; vide = les deux. / Today, tomorrow, next Saturday or Sunday, this weekend, upcoming or results; empty = both."),
+        adherent: ADHERENT,
       },
       annotations: { title: "Sport", ...READ_ONLY },
     },
-    track("sport", (args: { sport?: Sport; lieu?: string; quand?: Quand }) => sportTool(cache, args.sport, args.lieu, args.quand)),
+    track("sport", (args: { sport?: Sport; lieu?: string; quand?: Quand; adherent?: boolean }) => sportTool(cache, args.sport, args.lieu, args.quand, undefined, args.adherent)),
   );
 
   server.registerTool(
@@ -697,7 +704,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Événements à venir à La Réunion (974) : concerts, théâtre, danse, humour, cirque, soirées, fêtes, festivals, marchés, cinéma en " +
         "plein air, animations municipales. D'après les programmes des salles (TÉAT Champ Fleuri et Plein Air, Cité des Arts et Palaxa, " +
         "CDNOI, Kabardock, Le Séchoir, Léspas, Bisik, Théâtre Luc Donat), les agendas des mairies (" +
-        `${MAIRIES_LUES}), de la CINOR et de l'office de tourisme du Nord (OpenAgenda) et reunion.fr. Chaque événement : ` +
+        `${MAIRIES_LUES}), de la CINOR et de l'office de tourisme du Nord (OpenAgenda), reunion.fr et les clubs sportifs (Sportsregions). Chaque événement : ` +
         "titre, date et heures (heure de La Réunion), salle, commune, genre, prix et lien de billetterie quand ils sont donnés, statut " +
         "(ANNULÉ, REPORTÉ, complet), y compris quand c'est un média de l'île qui l'annonce avant l'organisateur (statut_d_apres). " +
         "Pour : « que faire ce week-end à Saint-Paul ? », « concert ce soir ? », « spectacle à Saint-Denis samedi ? », « marché forain demain ? », « c'est quand la fête de l'ail ? ». " +
@@ -715,10 +722,11 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           .string()
           .optional()
           .describe("Le genre (« concert », « spectacle », « théâtre », « danse », « humour », « soirée », « festival », « marché », « cinéma », « enfants », « sport », « exposition ») ou des mots du titre ou de la salle (« ail », « dragon boat », « Kabardock ») ; vide = tout. / Kind, or words of the title or venue; empty = all."),
+        adherent: ADHERENT,
       },
       annotations: { title: "Événements", ...READ_ONLY },
     },
-    track("evenements", (args: { lieu?: string; quand?: string; quoi?: string }) => agenda(cache, args.lieu, args.quand, args.quoi)),
+    track("evenements", (args: { lieu?: string; quand?: string; quoi?: string; adherent?: boolean }) => agenda(cache, args.lieu, args.quand, args.quoi, undefined, undefined, args.adherent)),
   );
 
   server.registerTool(

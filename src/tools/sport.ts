@@ -1,7 +1,8 @@
 import type { Cache, Cached } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
-import { type Evenement, type programmesSportifs, sportDesAgendas } from "../providers/agenda.js";
+import { httpUrl } from "../http.js";
+import { type Evenement, type programmesSportifs, reserve, sportDesAgendas } from "../providers/agenda.js";
 import * as src from "../providers/sport.js";
 import * as avis from "../providers/sport-avis.js";
 import { type Club, clubOf, clubsNamed, type ClubSport, zoneOf } from "../sport/clubs.js";
@@ -103,6 +104,9 @@ export interface Item {
   selon?: string;
   lien_avis?: string;
   lien?: string;
+  /** « réservé aux adhérents de <club> »: a club's session, told only to who says they are a member. */
+  acces?: string;
+  site_du_club?: string;
 }
 
 /** For filtering, never shown: the communes and clubs of both teams. */
@@ -163,6 +167,34 @@ const eventRow = (e: src.Epreuve): Row => ({
   clubs: [],
 });
 
+/** The sports of the tool a club's event on Sportsregions may be of (its JSON-LD `sport`). */
+const SPORT_DU_CLUB: [RegExp, Sport][] = [[/^golf/i, "golf"], [/^volley/i, "volley"], [/^hand/i, "handball"], [/^voile/i, "voile"], [/^(?:sport )?auto/i, "sport_auto"]];
+const sportDuClub = (s: string | undefined) => (s ? SPORT_DU_CLUB.find(([re]) => re.test(s))?.[1] : undefined);
+// Sportsregions gives the club's address, not the event's: its place is not said.
+const LIEU_CLUB = "non précisé (voir la page de l'événement)";
+
+/**
+ * An event a club publishes on Sportsregions: who organises it, never its place, unknown. In a commune only when its
+ * title names it (the club's address is not where it is played).
+ */
+const clubRow = (e: Evenement): Row[] =>
+  e.seances.slice(0, 1).map((s) => ({
+    sport: e.organisateur?.sport?.toLowerCase() ?? "sport",
+    quand: span({ debut: s.debut, fin: s.fin ?? s.debut }),
+    date: s.debut,
+    fin: s.fin,
+    epreuve: e.titre,
+    detail: e.description,
+    lieu: LIEU_CLUB,
+    commune: e.commune,
+    etat: e.statut === "annulé" ? "annulée" : e.statut === "reporté" ? "reportée" : undefined,
+    lien: e.lien,
+    acces: e.reserve_adherents ? reserve(e) : undefined,
+    site_du_club: e.reserve_adherents ? httpUrl(e.organisateur?.site) : undefined,
+    communes: [e.commune],
+    clubs: [],
+  }));
+
 const ZONE_DE: Record<string, string> = { Nord: "du Nord", Sud: "du Sud", Est: "de l'Est", Ouest: "de l'Ouest" };
 
 /** « St Leu », « ST PIERRE » as the communes are named. */
@@ -214,6 +246,8 @@ export interface SportData {
   grandRaid?: Got<src.GrandRaid>;
   championnats: Got<src.Championnat[]>[];
   epreuves: Got<src.Epreuve[]>[];
+  /** The clubs' events (Sportsregions), as the scheduled event last read them, of the sport asked. */
+  clubs?: Got<Evenement[]>;
   actualite: Got<src.Article[]>;
   /** The league's notices (volley). */
   avis?: Got<avis.Avis[]>;
@@ -224,7 +258,7 @@ export interface SportData {
 }
 
 /** What `sport` needs, read in parallel; a source that fails is left out and named. */
-export async function gather(cache: Cache, sport: Sport | undefined, now: Date): Promise<SportData> {
+export async function gather(cache: Cache, sport: Sport | undefined, now: Date, adherent = false): Promise<SportData> {
   const want = (s: Sport) => !sport || sport === s;
   const [grandRaid, handball, volley, voile, golfs, auto, actualite, notices, presse, agendas] = await Promise.all([
     want("grand_raid") ? attempt(src.SOURCES.livetrail, () => src.grandRaid(cache, now)) : undefined,
@@ -236,12 +270,14 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date):
     attempt(src.SOURCES.la1ere, () => src.actualite(cache)),
     want("volley") ? attempt(avis.SOURCE, () => avis.avisLigue(cache, now)) : undefined,
     want("volley") || want("handball") ? cache.peek<Fil>("actualites:fil").catch(() => undefined) : undefined,
-    // The communes' programmes, of every sport, only when none is asked; the volley league's tournaments.
-    !sport || want("volley")
+    // The communes' programmes, of every sport, only when none is asked; the volley league's tournaments; the clubs'
+    // events.
+    !sport || want("volley") || SPORT_DU_CLUB.some(([, s]) => s === sport)
       ? sportDesAgendas(cache, !sport).catch((err) => (console.error("programmes sportifs : copie des agendas illisible", why(err)), undefined))
       : undefined,
   ]);
-  const ligue = agendas?.tournois;
+  const ligue = want("volley") ? agendas?.tournois : undefined;
+  const ofSport = agendas?.clubs?.value.filter((e) => (!sport || sportDuClub(e.organisateur?.sport) === sport) && (adherent || !e.reserve_adherents));
   return {
     grandRaid,
     championnats: [handball, volley].filter((x): x is Got<src.Championnat[]> => !!x),
@@ -251,6 +287,7 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date):
       auto,
       ligue ? { source: src.SOURCES.lrvb_tournois, value: { ...ligue, value: ligue.value.flatMap(tournoi) } } : undefined,
     ].filter((x): x is Got<src.Epreuve[]> => !!x),
+    clubs: ofSport?.length ? { source: src.SOURCES.sportsregions, value: { ...agendas!.clubs!, value: ofSport } } : undefined,
     actualite,
     avis: notices,
     presse,
@@ -330,7 +367,8 @@ function freshness(got: { value?: Cached<unknown>; source: SourceInfo }[]) {
   });
 }
 
-export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: Quand, now = new Date()) {
+/** `adherent`: the user says they are a club's member: its sessions for the members are told too, said so. */
+export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: Quand, now = new Date(), adherent = false) {
   let w: Where | null = null;
   if (lieu?.trim()) {
     w = where(lieu, sport);
@@ -338,8 +376,8 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     // A club is of one sport: only its sources are read.
     if (w.kind === "clubs" && w.sport) sport ??= w.sport;
   }
-  const data = await gather(cache, sport, now);
-  const got = ([data.grandRaid, ...data.championnats, ...data.epreuves, data.avis, data.actualite] as (Got<unknown> | undefined)[]).filter((x): x is Got<unknown> => !!x);
+  const data = await gather(cache, sport, now, adherent);
+  const got = ([data.grandRaid, ...data.championnats, ...data.epreuves, data.clubs, data.avis, data.actualite] as (Got<unknown> | undefined)[]).filter((x): x is Got<unknown> => !!x);
   const failed = got.filter((g) => !g.value).map((g) => g.source.nom);
   if (got.every((g) => !g.value)) {
     return { ...text({ erreur: "Les sources du sport ne répondent pas pour le moment.", indisponible: failed }), isError: true };
@@ -352,6 +390,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
   const rows: Row[] = [
     ...data.championnats.flatMap((g) => (g.value?.value ?? []).flatMap((c) => c.matchs.filter((m) => m.date).map((m) => matchRow(c, m, calledOff)))),
     ...data.epreuves.flatMap((g) => (g.value?.value ?? []).map(eventRow)),
+    ...(data.clubs?.value?.value ?? []).flatMap(clubRow),
   ].flatMap((r) => {
     const k = w ? keep(w, r) : r;
     return k ? [k] : [];

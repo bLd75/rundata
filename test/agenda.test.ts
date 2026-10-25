@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKER_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSpipNews, parseTribe, parseWpNews } from "../src/providers/agenda.js";
+import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSpipNews, parseSportsregions, parseTribe, parseWpNews } from "../src/providers/agenda.js";
 import { extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
 import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned } from "../src/tools/agenda.js";
@@ -49,7 +49,13 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("50316469")) return "openagenda_cinor.json";
   if (url.includes("32570974")) return "openagenda_otnord.json";
   if (url.includes("reunion.fr")) return "irt_agenda.html";
+  // The clubs' calendar on Sunday 25/10/2026: four pages.
+  if (url.includes("sportsregions")) return `sportsregions_${/[?&]page=(\d+)/.exec(url)?.[1] ?? "1"}.html`;
 }
+const PORTAIL = "https://portail.sportsregions.fr/reunion/calendrier-clubs-sportifs-en-reunion";
+/** One club event in the portal's JSON-LD, as its pages write it. */
+const ld = (name: string, startDate: string, club: string, postalCode = "97410", url = `https://club.example/evenements/${encodeURIComponent(name)}-${startDate}`) =>
+  `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "SportsEvent", name, startDate, endDate: startDate.slice(0, 10), location: { "@type": "Place", name: club, address: { "@type": "PostalAddress", addressLocality: "SAINT PIERRE", postalCode } }, organizer: { "@type": "SportsOrganization", name: club }, sport: "Badminton", url })}</script>`;
 
 describe("agenda", () => {
   let down: RegExp | undefined;
@@ -127,7 +133,7 @@ describe("agenda", () => {
       expect(urls.some((u) => u.includes("lrvb.re"))).toBe(false);
       expect(before.indisponible).toBeUndefined();
       expect(titles(before)).not.toContain(KING);
-      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["lrvb", ...MAIRIES], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
       expect(urls.filter((u) => u.includes("lrvb.re"))).toHaveLength(1);
       // Another isolate serves it, with the time it was read.
       const after = body(await agenda(at(), undefined, undefined, "King", NOW));
@@ -157,10 +163,11 @@ describe("agenda", () => {
       league = () => new Response(JSON.stringify({ events: [] }));
       expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
       expect(await entry(store)).toEqual(first);
-      // Still failing two days on: the copy, no longer served, is said too old in the scheduled event's log.
+      // Still failing two days on: the copy, no longer served, is said too old in the scheduled event's log (the clubs'
+      // calendar, read every six hours, is read again).
       t += 48 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: MAIRIES, gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [...MAIRIES, "sportsregions"], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
       expect(await entry(store)).toEqual(first);
     });
 
@@ -177,7 +184,7 @@ describe("agenda", () => {
         count(left() - 5); // what the scheduled event did before: 5 left, KEEP_LEFT 4 of them
         return refreshPlanned(new Cache(store, () => NOW.getTime()), NOW);
       });
-      expect(value).toEqual({ lus: [], gardes: [], reportes: ["lrvb", ...MAIRIES], trop_vieilles: [] });
+      expect(value).toEqual({ lus: [], gardes: [], reportes: ["lrvb", ...MAIRIES, "sportsregions"], trop_vieilles: [] });
       expect(urls).toEqual([]);
       expect(store.puts).toBe(0);
     });
@@ -193,6 +200,143 @@ describe("agenda", () => {
       const written = (await store.get("agendas"))?.value as Record<string, CacheEntry>;
       expect(Object.keys(written).length).toBeGreaterThan(10);
       expect(written["agenda:lrvb"]).toEqual({ value: copy, fetchedAt: at });
+    });
+  });
+
+  describe("the clubs' calendar (Sportsregions), read by the scheduled event", () => {
+    // The mairies' news, read by the scheduled event before it.
+    const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph"];
+    const pages = [1, 2, 3, 4].map((n) => fixture(`sportsregions_${n}.html`));
+    let urls: string[];
+    beforeEach(() => {
+      urls = [];
+      vi.stubGlobal("fetch", async (url: string) => {
+        urls.push(url);
+        const f = file(url);
+        return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+      });
+    });
+
+    it("reads the clubs' events, the members' sessions marked, the club's address never as the event's place", () => {
+      const { evenements, adherents, ailleurs } = parseSportsregions(pages);
+      // 109 on the four pages: 61 sessions for the members (« Jeu libre », « Entraînement », the weekly dive outings).
+      expect([evenements.length, adherents, ailleurs]).toEqual([109, 61, 0]);
+      const members = evenements.filter((e) => e.reserve_adherents);
+      expect(members.every((e) => /jeu libre|entra[iî]nement|^plong[ée]e$/i.test(e.titre))).toBe(true);
+      expect(evenements.filter((e) => !e.reserve_adherents).some((e) => /jeu libre|entra[iî]nement|^plong[ée]e$/i.test(e.titre))).toBe(false);
+      expect(members.find((e) => e.titre.startsWith("Jeu libre"))!.organisateur).toEqual({ nom: "Badminton Club de Saint-Pierre", commune: "Saint-Pierre", sport: "Badminton", site: "https://www.bcspi.re" });
+      // The commune of its title only; the club's in what it says of who organises it.
+      expect(evenements.find((e) => e.titre === "Journée 1 interclubs - Saint-Paul")).toEqual({
+        id: "sportsregions:https://bcsa.sportsregions.fr/evenements/2026/10/25/journee-1-interclubs-saint-paul-2558506",
+        titre: "Journée 1 interclubs - Saint-Paul",
+        seances: [{ debut: "2026-10-25T08:00" }],
+        commune: "Saint-Paul",
+        categories: ["Sport", "Badminton"],
+        description: "Organisé par Badminton Club Saint-André (BCSA) (Saint-André)",
+        lien: "https://bcsa.sportsregions.fr/evenements/2026/10/25/journee-1-interclubs-saint-paul-2558506",
+        publie_par: "Badminton Club Saint-André (BCSA)",
+        organisateur: { nom: "Badminton Club Saint-André (BCSA)", commune: "Saint-André", sport: "Badminton", site: "https://bcsa.sportsregions.fr" },
+      });
+      // Midnight: whole days. The golf league's address is at Le Tampon, its Grand Prix at the Golf de Bourbon.
+      const gp = evenements.find((e) => e.titre === "GRAND PRIX LRGR DE BOURBON")!;
+      expect([gp.seances, gp.commune]).toEqual([[{ debut: "2026-10-31", fin: "2026-11-01" }], undefined]);
+      expect(evenements.find((e) => e.titre === "Compétition au Port (18m)")!.commune).toBe("Le Port");
+      expect(evenements.find((e) => e.titre === "FITA Salle St André (25m-18m)")!.commune).toBe("Saint-André");
+      expect(evenements.every((e) => e.lieu === undefined)).toBe(true);
+    });
+
+    it("leaves out the clubs of elsewhere, and marks a title of the same club three times or more", () => {
+      const twice = [ld("Tournoi de Noël", "2026-12-19T08:00:00Z", "BC Sud"), ld("Tournoi de Noël", "2026-12-20T08:00:00Z", "BC Sud")];
+      const thrice = ["2026-11-03", "2026-11-10", "2026-11-17"].map((d) => ld("Sortie du mardi", `${d}T06:00:00Z`, "BC Sud"));
+      const { evenements, adherents, ailleurs } = parseSportsregions([[...twice, ...thrice, ld("Open de Djibouti", "2026-11-14T08:00:00Z", "Club de Djibouti", "77000"), ld("Séance découverte", "2026-11-07T09:00:00Z", "BC Sud")].join("\n")]);
+      expect(evenements.map((e) => [e.titre, e.seances[0].debut, !!e.reserve_adherents])).toEqual([
+        ["Tournoi de Noël", "2026-12-19T08:00", false], ["Tournoi de Noël", "2026-12-20T08:00", false],
+        ["Sortie du mardi", "2026-11-03T06:00", true], ["Sortie du mardi", "2026-11-10T06:00", true], ["Sortie du mardi", "2026-11-17T06:00", true],
+        ["Séance découverte", "2026-11-07T09:00", true],
+      ]);
+      expect([adherents, ailleurs]).toEqual([4, 1]);
+      // The same event on two pages is one.
+      expect(parseSportsregions([twice[0], twice[0]]).evenements).toHaveLength(1);
+      // A block that is not an event, or not JSON, is passed over.
+      expect(parseSportsregions(['<script type="application/ld+json">{ "@type": "BreadcrumbList" }</script><script type="application/ld+json">{ oops</script>']).evenements).toEqual([]);
+    });
+
+    it("reads its pages one after the other up to the last one linked, five at most, and says what it left out", async () => {
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      const { value } = await SPORTSREGIONS.load(cache(), NOW);
+      expect(urls).toEqual([PORTAIL, `${PORTAIL}?page=2`, `${PORTAIL}?page=3`, `${PORTAIL}?page=4`]);
+      expect(value).toHaveLength(109);
+      expect(log).toHaveBeenCalledWith("agenda sportsregions : 4 pages, 109 événements dont 61 réservés aux adhérents, 0 hors de La Réunion");
+      urls = [];
+      vi.stubGlobal("fetch", async (url: string) => (urls.push(url), new Response(`${pages[0]}<a href="/reunion/calendrier-clubs-sportifs-en-reunion?page=9">9</a>`)));
+      await SPORTSREGIONS.load(cache(), NOW);
+      expect(urls).toHaveLength(SPORTSREGIONS.requetes!);
+      log.mockRestore();
+    });
+
+    it("is read every six hours, served to the questions as an agenda of the whole island", async () => {
+      const titles = (b: { evenements?: { titre: string }[] }) => (b.evenements ?? []).map((e) => e.titre);
+      vi.spyOn(console, "log").mockImplementation(() => {});
+      let t = NOW.getTime();
+      const store = new MemoryStore();
+      const at = () => new Cache(store, () => t);
+      expect((await refreshPlanned(at(), NOW)).lus).toContain("sportsregions");
+      const read = () => urls.filter((u) => u.includes("sportsregions")).length;
+      expect(read()).toBe(4);
+      t += 5 * 3600_000;
+      expect((await refreshPlanned(at(), new Date(t))).lus).not.toContain("sportsregions");
+      expect(read()).toBe(4);
+      t += 3600_000;
+      expect((await refreshPlanned(at(), new Date(t))).lus).toContain("sportsregions");
+      expect(read()).toBe(8);
+      const b = body(await agenda(at(), undefined, "à venir", "Grand Prix", new Date(t)));
+      expect(b.evenements.find((e: { titre: string }) => e.titre === "GRAND PRIX LRGR DE BOURBON")).toMatchObject({ description: "Organisé par Ligue Régionale de Golf de La Réunion (Le Tampon)", publie_par: "Ligue Régionale de Golf de La Réunion" });
+      // Not in a commune by the club's address.
+      expect(titles(body(await agenda(at(), "Le Tampon", "à venir", "Grand Prix", new Date(t))))).not.toContain("GRAND PRIX LRGR DE BOURBON");
+      // The members' sessions: not told by default; to a member, said reserved, with the club's site.
+      const libre = (b: { evenements?: { titre: string }[] }) => (b.evenements ?? []).filter((e) => e.titre.startsWith("Jeu libre"));
+      expect(libre(body(await agenda(at(), undefined, "à venir", "Jeu libre", new Date(t))))).toEqual([]);
+      expect(libre(body(await agenda(at(), undefined, "à venir", undefined, new Date(t), 200)))).toEqual([]);
+      const member = libre(body(await agenda(at(), undefined, "à venir", "Jeu libre", new Date(t), undefined, true)));
+      expect(member.length).toBeGreaterThan(0);
+      expect(member[0]).toMatchObject({ acces: "réservé aux adhérents de Badminton Club de Saint-Pierre", site_du_club: "https://www.bcspi.re", publie_par: "Badminton Club de Saint-Pierre" });
+      // An event open to all says nothing of it.
+      const gp = body(await agenda(at(), undefined, "à venir", "Grand Prix", new Date(t), undefined, true)).evenements.find((e: { titre: string }) => e.titre === "GRAND PRIX LRGR DE BOURBON");
+      expect([gp.acces, gp.site_du_club]).toEqual([undefined, undefined]);
+      vi.mocked(console.log).mockRestore();
+    });
+
+    it("fits with the volley league in what the scheduled event has left, or waits for a later one", async () => {
+      vi.spyOn(console, "log").mockImplementation(() => {});
+      // As KV in the Worker: each read and write of the bundle is a subrequest.
+      class Kv extends MemoryStore {
+        async get(key: string) {
+          count(1);
+          return super.get(key);
+        }
+        async put(key: string, e: CacheEntry) {
+          count(1);
+          return super.put(key, e);
+        }
+      }
+      // 15 left: the bundle's read, the league's page, the three mairies' news, the four pages, the write, and KEEP_LEFT (4)
+      // still left.
+      const both = await counted(WORKER_BUDGET, async () => {
+        count(left() - 15);
+        const out = await refreshPlanned(new Cache(new Kv(), () => NOW.getTime()), NOW);
+        return { out, left: left() };
+      });
+      expect(both.value.out).toEqual({ lus: ["lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(both.value.left).toBe(5);
+      // One fewer: the league and the mairies only, the clubs' calendar at a later run (its copy served meanwhile).
+      urls = [];
+      const one = await counted(WORKER_BUDGET, async () => {
+        count(left() - 14);
+        return refreshPlanned(new Cache(new Kv(), () => NOW.getTime()), NOW);
+      });
+      expect(one.value).toEqual({ lus: ["lrvb", ...MAIRIES], gardes: [], reportes: ["sportsregions"], trop_vieilles: [] });
+      expect(urls.filter((u) => u.includes("sportsregions"))).toEqual([]);
+      vi.mocked(console.log).mockRestore();
     });
   });
 

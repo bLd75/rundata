@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { parseRss, type Info } from "../src/providers/actualites.js";
+import { parseSportsregions } from "../src/providers/agenda.js";
 import { frenchDays, parisDay, parseGolf, parseLsar, parseNews, parseVolley } from "../src/providers/sport.js";
 import { avisIn, avisPresse, daysIn, parseLrvb } from "../src/providers/sport-avis.js";
 import { clubOf, clubsNamed, zoneOf } from "../src/sport/clubs.js";
@@ -254,6 +255,41 @@ describe("sport", () => {
     // Not for another sport, nor for a commune (its place is not known yet).
     expect(body(await sportTool(ligue(), "handball", undefined, "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
     expect(body(await sportTool(ligue(), "volley", "Saint-Pierre", "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
+  });
+
+  it("gives the clubs' events from the agendas' copy, their place not said, of the sport asked", async () => {
+    const store = new MemoryStore();
+    const at = NOW.getTime() - 3600_000;
+    const pages = [1, 2, 3, 4].map((n) => readFileSync(new URL(`./fixtures/agenda/sportsregions_${n}.html`, import.meta.url), "utf8"));
+    await store.put("agendas", { value: { "agenda:sportsregions": { value: parseSportsregions(pages).evenements, fetchedAt: at } }, fetchedAt: at });
+    const clubs = () => new Cache(store, () => NOW.getTime());
+    const epreuves = (b: { a_venir?: { epreuve: string }[] }) => (b.a_venir ?? []).map((r) => r.epreuve);
+    const golf = body(await sportTool(clubs(), "golf", undefined, "a_venir", NOW));
+    expect(golf.a_venir.find((r: { epreuve: string }) => r.epreuve === "GRAND PRIX LRGR DE BOURBON")).toEqual({
+      sport: "golf", quand: "du samedi 31/10 au dimanche 01/11", epreuve: "GRAND PRIX LRGR DE BOURBON", detail: "Organisé par Ligue Régionale de Golf de La Réunion (Le Tampon)",
+      lieu: "non précisé (voir la page de l'événement)", lien: expect.stringMatching(/^https:\/\/[\w.-]+\/evenements\/2026\/10\/31\//),
+    });
+    expect(golf.sources.map((s: { source: string }) => s.source)).toContain("Sportsregions (calendrier des clubs), publié par chaque club");
+    expect(epreuves(golf)).not.toContain("Triathlon TRI SALAZES");
+    // Every sport when none is asked; none of another sport.
+    expect(epreuves(body(await sportTool(clubs(), undefined, undefined, "a_venir", NOW)))).toEqual(expect.arrayContaining(["Triathlon TRI SALAZES", "Tir en salle du Port"]));
+    const hand = body(await sportTool(clubs(), "handball", undefined, "a_venir", NOW));
+    expect(epreuves(hand).filter((e) => /TRI SALAZES|BOURBON|Tir en salle/.test(e))).toEqual([]);
+    expect(hand.sources.map((s: { source: string }) => s.source)).not.toContain("Sportsregions (calendrier des clubs), publié par chaque club");
+    // In a commune: those its title names only, never by the club's address (the golf league's, at Le Tampon, plays
+    // its Grand Prix at the Golf de Bourbon).
+    expect(epreuves(body(await sportTool(clubs(), undefined, "Le Port", "a_venir", NOW)))).toEqual(expect.arrayContaining(["Tir en salle du Port", "Compétition au Port (18m)"]));
+    expect(epreuves(body(await sportTool(clubs(), "golf", "Le Tampon", "a_venir", NOW)))).not.toContain("GRAND PRIX LRGR DE BOURBON");
+    expect(epreuves(body(await sportTool(clubs(), undefined, "Saint-André", "a_venir", NOW)))).not.toContain("Triathlon TRI SALAZES");
+    expect(epreuves(body(await sportTool(clubs(), undefined, "Saint-Denis", "a_venir", NOW)))).not.toContain("Tir en salle du Port");
+    // The members' sessions: not told by default; to a member, said reserved, with the club's site.
+    const libre = (b: { a_venir?: { epreuve: string }[] }) => (b.a_venir ?? []).filter((r) => r.epreuve.startsWith("Jeu libre"));
+    expect(libre(body(await sportTool(clubs(), undefined, undefined, "a_venir", NOW)))).toEqual([]);
+    expect(libre(body(await sportTool(clubs(), undefined, undefined, "a_venir", NOW, false)))).toEqual([]);
+    const member = libre(body(await sportTool(clubs(), undefined, undefined, "a_venir", NOW, true)));
+    expect(member.length).toBeGreaterThan(0);
+    expect(member[0]).toMatchObject({ sport: "badminton", acces: "réservé aux adhérents de Badminton Club de Saint-Pierre", site_du_club: "https://www.bcspi.re", lieu: "non précisé (voir la page de l'événement)" });
+    expect(body(await sportTool(clubs(), "golf", undefined, "a_venir", NOW, true)).a_venir.every((r: { acces?: string }) => !r.acces)).toBe(true);
   });
 
   it("gives the last handball round and the standings", async () => {
