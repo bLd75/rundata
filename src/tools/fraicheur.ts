@@ -100,6 +100,8 @@ function ageFrom(data: Dated, at: number, now: Date): string {
 export interface CopieDeSecours {
   source?: string;
   lue_le: string;
+  /** The answer also has parts of this source read at their pace: only some of what comes from it is old. */
+  partielle?: true;
 }
 
 /**
@@ -107,14 +109,18 @@ export interface CopieDeSecours {
  * source did not answer (its error said which, cache.ts), not when our read of it failed.
  */
 function copies(pool: Lecture[], nom: (id: string) => string | undefined): CopieDeSecours[] {
-  const oldest = new Map<string, { source?: string; at: number }>();
+  // The sources also read fresh for this answer (the stations' latest slots beside their hourly rain kept from before).
+  const fresh = new Set(pool.filter((l) => !l.stale && l.from).map((l) => l.from));
+  const oldest = new Map<string, { source?: string; at: number; partielle: boolean }>();
   for (const l of pool.filter((l) => l.stale)) {
     const source = l.source && nom(l.source);
     // A part without a name is said for each copy: one key, one read.
     const k = source ?? `#${l.key}`;
-    if (!oldest.has(k) || l.fetchedAt < oldest.get(k)!.at) oldest.set(k, { source, at: l.fetchedAt });
+    if (!oldest.has(k) || l.fetchedAt < oldest.get(k)!.at) oldest.set(k, { source, at: l.fetchedAt, partielle: !!source && fresh.has(l.source) });
   }
-  return [...oldest.values()].sort((a, b) => a.at - b.at).map((c) => ({ ...(c.source && { source: c.source }), lue_le: localTime(new Date(c.at)) }));
+  return [...oldest.values()]
+    .sort((a, b) => a.at - b.at)
+    .map((c) => ({ ...(c.source && { source: c.source }), lue_le: localTime(new Date(c.at)), ...(c.partielle && { partielle: true as const }) }));
 }
 
 // « 25/10 22:22 » as said in a sentence: « 25/10 à 22:22 », the day again only when it changes (« et à 22:22 »).
@@ -125,27 +131,30 @@ const dits = (reads: string[]) => {
 const quoted = (s: string) => `« ${s} »`;
 
 /**
- * Marketing's words: the sources that did not answer named, each with its last read, then the parts whose read did
- * not succeed, without a cause; « le reste » only when every other part was read at its own pace.
+ * Marketing's words: the sources that did not answer named, each with its last read; then each source only part of
+ * which is old, in a sentence of its own (it did answer for the rest); then the parts whose read did not succeed,
+ * without a cause; « le reste » only when every other part was read at its own pace.
  */
 function avertissement(list: CopieDeSecours[], rest: boolean): string {
-  const named = list.filter((c) => c.source);
+  const named = list.filter((c) => c.source && !c.partielle);
+  const partial = list.filter((c) => c.partielle);
   const parts = [...new Set(list.filter((c) => !c.source).map((c) => c.lue_le))];
   const restText = " Le reste de la réponse est à jour.";
   const out: string[] = [];
   if (named.length === 1) out.push(`La source ${quoted(named[0].source!)} n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture ${dits([named[0].lue_le])}.`);
+  // Alone, « le reste » closes the sentence of the sources (marketing).
+  const closed = named.length > 1 && !partial.length && !parts.length;
   if (named.length > 1) {
     const each = named.map((c) => `${quoted(c.source!)}, lue le ${c.lue_le.replace(" ", " à ")}`).join("\u00a0; ");
-    // Alone, « le reste » closes the same sentence (marketing).
-    const close = rest && !parts.length ? "\u00a0; le reste de la réponse est à jour." : ".";
-    out.push(`Ces sources n'ont pas répondu à notre dernière lecture : ${each}. Ce qui vient d'elles date de ces lectures${close}`);
+    out.push(`Ces sources n'ont pas répondu à notre dernière lecture : ${each}. Ce qui vient d'elles date de ces lectures${closed && rest ? "\u00a0; le reste de la réponse est à jour." : "."}`);
   }
+  for (const c of partial) out.push(`Une partie de ce qui vient de la source ${quoted(c.source!)} date de notre lecture ${dits([c.lue_le])} : la lecture suivante n'a pas abouti.`);
   if (parts.length) {
-    const another = named.length ? (parts.length === 1 ? "Une autre partie date" : "D'autres parties datent") : parts.length === 1 ? "Une partie de cette réponse date" : "Des parties de cette réponse datent";
+    const before = named.length + partial.length > 0;
+    const another = before ? (parts.length === 1 ? "Une autre partie date" : "D'autres parties datent") : parts.length === 1 ? "Une partie de cette réponse date" : "Des parties de cette réponse datent";
     const next = parts.length === 1 ? "la lecture suivante n'a pas abouti" : "les lectures suivantes n'ont pas abouti";
     out.push(`${another} de ${parts.length === 1 ? "notre lecture" : "nos lectures"} ${dits(parts)} : ${next}.`);
   }
-  const closed = named.length > 1 && !parts.length;
   return out.join(" ") + (rest && !closed ? restText : "");
 }
 

@@ -1,4 +1,5 @@
 import { count, perInvocation } from "./budget.js";
+import { noteSource } from "./lectures.js";
 import { UpstreamError } from "./types.js";
 
 /** A link read from a source, kept only as an absolute http(s) address: `javascript:`, `data:`, a relative link or « //hote » give no link. */
@@ -62,6 +63,7 @@ async function get<T>(
   body?: URLSearchParams | string,
 ): Promise<T> {
   count();
+  noteSource(source);
   const places = perInvocation("http:places", () => new Places());
   await places.take();
   try {

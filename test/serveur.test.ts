@@ -273,6 +273,29 @@ describe("fraicheur", () => {
     expect(said([fresh, la1ere, ours("a", "22:22")]).avertissement).toBe(
       "La source « Réunion La 1ère (actualité sportive) » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 22:22. Une autre partie date de notre lecture du 25/10 à 22:22 : la lecture suivante n'a pas abouti. Le reste de la réponse est à jour.",
     );
+    // The same source also read at its pace for this answer: it did answer for the rest, a sentence of its own.
+    const la1ereFresh = { ...fresh, key: "sport:actu:hier", from: "la1ere" };
+    expect(said([la1ereFresh, { ...la1ere, from: "la1ere" }])).toMatchObject({
+      copies_de_secours: [{ source: "Réunion La 1ère (actualité sportive)", lue_le: "25/10 22:22", partielle: true }],
+      avertissement: "Une partie de ce qui vient de la source « Réunion La 1ère (actualité sportive) » date de notre lecture du 25/10 à 22:22 : la lecture suivante n'a pas abouti. Le reste de la réponse est à jour.",
+    });
+    // Never in the list of the sources that did not answer: after it, before « le reste », said once.
+    expect(said([la1ereFresh, la1ere, ffhb]).avertissement).toBe(
+      "La source « FFHB » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 21:51. Une partie de ce qui vient de la source « Réunion La 1ère (actualité sportive) » date de notre lecture du 25/10 à 22:22 : la lecture suivante n'a pas abouti. Le reste de la réponse est à jour.",
+    );
+    const metar = { key: "metar", fetchedAt: t("21:00"), stale: true, freshSeconds: 600, source: "metar" };
+    const said2 = (lectures: object[]) => fraicheur({}, lectures as never, now, { nom: (id) => ({ la1ere: "Réunion La 1ère (actualité sportive)", ffhb: "FFHB", metar: "METAR" })[id] });
+    expect(said2([la1ereFresh, la1ere, ffhb, metar]).avertissement).toBe(
+      "Ces sources n'ont pas répondu à notre dernière lecture : « METAR », lue le 25/10 à 21:00\u00a0; « FFHB », lue le 25/10 à 21:51. Ce qui vient d'elles date de ces lectures. Une partie de ce qui vient de la source « Réunion La 1ère (actualité sportive) » date de notre lecture du 25/10 à 22:22 : la lecture suivante n'a pas abouti. Le reste de la réponse est à jour.",
+    );
+    // Two partly old sources, one sentence each; a part of ours after them is « une autre partie ».
+    expect(said([la1ereFresh, la1ere, { ...fresh, key: "hand:hier", from: "ffhb" }, ffhb, ours("page", "22:30")]).avertissement).toBe(
+      "Une partie de ce qui vient de la source « FFHB » date de notre lecture du 25/10 à 21:51 : la lecture suivante n'a pas abouti. Une partie de ce qui vient de la source « Réunion La 1ère (actualité sportive) » date de notre lecture du 25/10 à 22:22 : la lecture suivante n'a pas abouti. Une autre partie date de notre lecture du 25/10 à 22:30 : la lecture suivante n'a pas abouti. Le reste de la réponse est à jour.",
+    );
+    // Another source read fresh: the whole of it is old.
+    expect(said([{ ...fresh, from: "ffhb" }, la1ere]).copies_de_secours).toEqual([{ source: "Réunion La 1ère (actualité sportive)", lue_le: "25/10 22:22" }]);
+    // A part of ours that failed is never partly old: it has no source.
+    expect(said([{ ...fresh, from: "x" }, { ...ours("page", "22:22"), from: "x" }]).copies_de_secours).toEqual([{ lue_le: "25/10 22:22" }]);
     // Another part older than its pace for another reason: no « reste ».
     const late = { key: "golf", fetchedAt: t("21:00"), stale: false, freshSeconds: 3600 };
     expect(said([late, la1ere]).avertissement).not.toMatch(/reste/);
