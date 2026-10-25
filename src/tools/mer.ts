@@ -21,9 +21,10 @@ export const BEACHES = ["Saint-Denis", "Sainte-Marie", "Saint-Benoît", "Anse de
 
 // Best first: ACSPO merges several satellites at 2 km; MODIS (one satellite, 4 km) stands in when ACSPO is
 // down or clouded out near the place.
-const PRODUCTS: { source: SourceInfo; grid: (c: Cache) => Promise<Cached<acspo.SstDay[]>> }[] = [
-  { source: acspo.SOURCE, grid: acspo.grid },
-  { source: modis.SOURCE, grid: modis.grid },
+// `cost`: the subrequests of a product not in memory (budget.ts).
+const PRODUCTS: { source: SourceInfo; cost: number; grid: (c: Cache, now: Date) => Promise<Cached<acspo.SstDay[]>> }[] = [
+  { source: acspo.SOURCE, cost: acspo.COST, grid: acspo.grid },
+  { source: modis.SOURCE, cost: modis.COST, grid: modis.grid },
 ];
 
 export const COVERAGE =
@@ -36,7 +37,6 @@ const CAVEATS = [
     "c'est la température au large du lieu, pas au bord de la plage ni dans le lagon, qui peuvent différer.",
 ];
 
-const PRODUCT_SUBREQUESTS = 3;
 // The waves of the whole coast: a cache read, one request for every beach, the cache write.
 const WAVE_SUBREQUESTS = 3;
 // Further from the model's nearest sea cell, a place is not on the stretch of coast the cell stands for.
@@ -49,14 +49,13 @@ interface Grid {
 }
 
 /** The products that answer, in order of preference. A product that fails is skipped. */
-async function grids(cache: Cache): Promise<Grid[]> {
+async function grids(cache: Cache, now: Date): Promise<Grid[]> {
   const out: Grid[] = [];
   for (const p of PRODUCTS) {
-    // A product not in memory costs a cache read, the download and the cache write: without them, the page keeps
-    // what it has rather than fail on the limit.
-    if (left() < PRODUCT_SUBREQUESTS) break;
+    // Without the subrequests of a product not in memory, the page keeps what it has rather than fail on the limit.
+    if (left() < p.cost) break;
     try {
-      out.push({ source: p.source, cached: await p.grid(cache) });
+      out.push({ source: p.source, cached: await p.grid(cache, now) });
     } catch (err) {
       console.error(`source ${p.source.id} indisponible:`, why(err));
     }
@@ -93,12 +92,12 @@ function staleWarning(g: Grid | undefined) {
 
 /** The tour of the coast, without a place: one reading per stretch of `names`, null where no product has one. */
 export async function seaTour(cache: Cache, now = new Date(), names = TOUR) {
-  let gs = await grids(cache);
+  let gs = await grids(cache, now);
   if (!gs.length) return null;
   // The fallback is only fetched if some point of the tour needs it.
   let readings = names.map((n) => resolvePlace(n)!.lieu).map((p) => ({ p, r: reading(p, gs, now) }));
   if (readings.some((x) => !x.r) && gs.length < PRODUCTS.length) {
-    gs = await withFallback(cache, gs);
+    gs = await withFallback(cache, gs, now);
     readings = readings.map((x) => ({ p: x.p, r: reading(x.p, gs, now) }));
   }
   const used = [...new Set(readings.flatMap((x) => (x.r ? [x.r.grid] : [])))];
@@ -259,11 +258,11 @@ export async function temperatureMer(cache: Cache, lieu: string | undefined, now
 
   const r = resolvePlace(lieu);
   if (!r) return notFound(lieu);
-  let [gs, w] = await Promise.all([grids(cache), wavesNow(cache)]);
+  let [gs, w] = await Promise.all([grids(cache, now), wavesNow(cache)]);
   if (!gs.length && !w) return unavailable();
   let m = gs.length ? reading(r.lieu, gs, now) : null;
   if (gs.length && !m && gs.length < PRODUCTS.length) {
-    gs = await withFallback(cache, gs);
+    gs = await withFallback(cache, gs, now);
     m = reading(r.lieu, gs, now);
   }
   const v = w ? waveBlock(w, r.lieu, now) : null;
@@ -301,12 +300,12 @@ export async function temperatureMer(cache: Cache, lieu: string | undefined, now
 }
 
 /** Adds the products not loaded yet (the fallback), for a place the loaded ones cannot answer. */
-async function withFallback(cache: Cache, gs: Grid[]): Promise<Grid[]> {
+async function withFallback(cache: Cache, gs: Grid[], now: Date): Promise<Grid[]> {
   const out = [...gs];
   for (const p of PRODUCTS) {
     if (out.some((g) => g.source === p.source)) continue;
     try {
-      out.push({ source: p.source, cached: await p.grid(cache) });
+      out.push({ source: p.source, cached: await p.grid(cache, now) });
     } catch (err) {
       console.error(`source ${p.source.id} indisponible:`, why(err));
     }
