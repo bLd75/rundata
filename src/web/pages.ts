@@ -700,6 +700,16 @@ function banner(a: Alerte | undefined, path: string): string {
   return `<div class="alerte vg ${a.neutre ? "vgpre" : `vg${a.couleur}`}" role="status"><div class="wrap"><span>⚠ ${esc(a.texte)}</span>${schools}${more}</div></div>`;
 }
 
+/**
+ * A tab taken up again, kept in the browser's memory or hidden for hours: its clock says now, its measures « il y a
+ * 3 h ». When the newest measure of the page is more than 15 min old, the page is asked again; at most once per 15 min
+ * for a page, since a source that does not answer keeps the measures old.
+ */
+export const RELOAD_SCRIPT = `const again=()=>{const a=[...document.querySelectorAll("[data-age]")].map((e)=>Date.parse(e.dataset.age)).filter((t)=>t>0);
+const n=Date.now();if(!a.length||n-Math.max(...a)<9e5)return;const k="recharge:"+location.pathname;let last=0;try{last=Number(sessionStorage.getItem(k))||0}catch{}
+if(n-last<9e5)return;try{sessionStorage.setItem(k,String(n))}catch{}location.reload()};
+addEventListener("pageshow",(e)=>{if(e.persisted)again()});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")again()});`;
+
 const SCRIPT = `const menu=document.querySelector("details.menu");if(menu)document.addEventListener("click",(e)=>{if(menu.open&&!menu.contains(e.target))menu.open=false});
 document.querySelectorAll("[data-copy]").forEach((b)=>b.addEventListener("click",async()=>{const t=document.getElementById(b.dataset.copy);
 const o=b.textContent;try{await navigator.clipboard.writeText(t.textContent);b.textContent="Copié ✓";setTimeout(()=>b.textContent=o,2500)}catch{getSelection().selectAllChildren(t)}}));
@@ -718,6 +728,7 @@ document.querySelectorAll("[data-age]").forEach((e)=>{const m=Math.max(0,Math.ro
 e.textContent="il y a "+(m<90?m+" min":m<2880?Math.round(m/60)+" h":Math.round(m/1440)+" jours")})};
 document.querySelectorAll("[data-js]").forEach((e)=>{e.hidden=false});document.querySelectorAll("[data-nojs]").forEach((e)=>{e.hidden=true});
 tick();setInterval(tick,3e4);
+${RELOAD_SCRIPT}
 ${PWA_SCRIPT}`;
 
 /** Whether a page belongs to a category: /meteo/cilaos is in the weather. */
