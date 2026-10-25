@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Il a plu quand à Saint-Joseph ? Dans votre IA, la pluie heure par heure au pluviomètre le plus proche et le cumul depuis minuit, mesurés par Météo-France.
 - Marée : les pleines et basses mers calculées pour les deux prochains jours, avec le lien du SHOM au-delà.
 - Mairies, associations, organisateurs : un guide gratuit pour publier votre agenda en flux ouvert, 8 tutos, du plus simple au plus avancé.
 - Cyclones passés : Gamède (2007), Colina (1993) et Clotilda (1987), dont les records mondiaux de pluie de Gamède cités par Météo-France.
