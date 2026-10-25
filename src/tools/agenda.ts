@@ -5,12 +5,13 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
 import * as src from "../providers/agenda.js";
+import { AUTORISATIONS, autorisee, nonAutorisees } from "../providers/autorisations.js";
 import { names, THEMES, W } from "../providers/agenda-mots.js";
 import { withNews } from "../providers/agenda-presse.js";
 import { evenements as proposes, ID as PROPOSITIONS_ID } from "../providers/agenda-propositions.js";
 import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
-import { a, credits, de, notFound, placeBlock, text } from "./format.js";
+import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
 import { quand as dayText } from "./sport.js";
 
 const AHEAD_DAYS = 14;
@@ -411,11 +412,65 @@ export function occurrences(r: Pick<EventRow, "date" | "quand" | "autres_dates">
   return [r.quand, ...(r.autres_dates ?? [])].map(read).filter((o): o is Occurrence => !!o);
 }
 
+const dayMonth = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
+const its = (commune: string) => `les ${AUTORISATIONS[commune].publie} qu'elle y publie`;
+
+/**
+ * Said instead of a commune's events while its site's terms forbid taking its information and it has not agreed
+ * (src/providers/autorisations.ts), in marketing's words: undefined for any other commune. The day it was asked, or
+ * refused, only once known; nothing said of a request before it has gone.
+ */
+export function mentionCommune(commune: string | undefined): string | undefined {
+  if (!commune || autorisee(commune)) return undefined;
+  const au = AUTORISATIONS[commune];
+  if (au.etat === "refusee") return `La commune ${de(commune)} a refusé${au.refusee_le ? `, le ${dayMonth(au.refusee_le)},` : ""} que rundata.re reprenne le contenu de son site : ${its(commune)} ne s'affichent donc pas ici.`;
+  const first = `Les mentions légales du site de la commune ${de(commune)} interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas ${its(commune)}.`;
+  return au.etat === "demandee" ? `${first} Nous lui avons demandé cet accord${au.demandee_le ? ` le ${dayMonth(au.demandee_le)}` : ""} et attendons sa réponse.` : first;
+}
+
+/**
+ * The same in a few words, for the commune page's tile of outings (marketing): `valeur` and `detail` when it has no
+ * event from elsewhere, `complet` after the next one's when it has.
+ */
+export function mentionTuile(commune: string): { valeur: string; detail: string; complet: string } | undefined {
+  if (autorisee(commune)) return undefined;
+  const au = AUTORISATIONS[commune];
+  const valeur = au.publie === "actualités" ? "Actualités non reprises" : "Agenda non repris";
+  const what = au.publie === "actualités" ? "Actualités du site de la commune non reprises" : "Agenda du site de la commune non repris";
+  if (au.etat === "refusee") {
+    const refused = `elle a refusé${au.refusee_le ? ` le ${dayMonth(au.refusee_le)}` : ""}`;
+    return { valeur, detail: refused, complet: `${what} : ${refused}.` };
+  }
+  const asked = au.etat !== "demandee" ? "" : au.demandee_le ? `, demandé le ${dayMonth(au.demandee_le)}` : ", que nous lui avons demandé";
+  return { valeur, detail: `les mentions légales du site de la commune l'interdisent sans son accord${asked}`, complet: `${what} : ses mentions légales l'interdisent sans son accord${asked}.` };
+}
+
+/**
+ * The same for the whole island, in one block for the communes still waiting (with the day they were asked when it is
+ * the same for all), then a line for each one asked on another day, and for each one that refused.
+ */
+export function mentionIle(): string[] {
+  const waiting = nonAutorisees().filter((c) => AUTORISATIONS[c].etat !== "refusee");
+  const refused = nonAutorisees().filter((c) => AUTORISATIONS[c].etat === "refusee");
+  const lines: string[] = [];
+  if (waiting.length === 1) lines.push(mentionCommune(waiting[0])!);
+  else if (waiting.length) {
+    const kinds = ["événements", "actualités"].filter((k) => waiting.some((c) => AUTORISATIONS[c].publie === k)).join(" et ");
+    const days = new Set(waiting.map((c) => (AUTORISATIONS[c].etat === "demandee" ? AUTORISATIONS[c].demandee_le ?? "" : undefined)));
+    const day = days.size === 1 ? [...days][0] : undefined;
+    lines.push(`Les mentions légales des sites de ${waiting.length} communes interdisent d'en reprendre le contenu sans leur accord : ${enumeration(waiting)}. rundata.re n'affiche donc pas les ${kinds} qu'elles y publient.` +
+      (day !== undefined ? ` Nous leur avons demandé cet accord${day ? ` le ${dayMonth(day)}` : ""} et attendons leur réponse.` : ""));
+    if (day === undefined) lines.push(...waiting.filter((c) => AUTORISATIONS[c].etat === "demandee").map((c) => mentionCommune(c)!));
+  }
+  return [...lines, ...refused.map((c) => mentionCommune(c)!)];
+}
+
 // Told from the agendas read: a source taken out of AGENDAS leaves this text too.
 const halls = src.AGENDAS.filter((x) => x.source === SALLES_SOURCE);
 const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== "reunion_fr" && x.id !== PROPOSITIONS_ID && !x.partiel);
 const partial = src.AGENDAS.filter((x) => x.partiel);
-const without = Object.keys(INSEE).filter((c) => !src.COVERED.includes(c));
+// Not those whose site is not read until they agree: said apart (mentionIle).
+const without = Object.keys(INSEE).filter((c) => !src.COVERED.includes(c) && autorisee(c));
 /** The communes whose mairie's agenda is read, for the tool's description. */
 export const MAIRIES_LUES = towns.filter((x) => x.commune && !x.couvre).map((x) => x.commune).join(", ");
 export const COUVERTURE =
@@ -424,6 +479,7 @@ export const COUVERTURE =
   (partial.length ? `Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : ${partial.map((x) => x.commune).join(", ")}. ` : "") +
   `Sans agenda lu (seuls les grands événements de reunion.fr) : ${without.join(", ")}` +
   `${Object.entries(src.SANS_AGENDA).filter(([c]) => without.includes(c)).map(([, why]) => `\u00a0; ${why}`).join("")}. ` +
+  (mentionIle().length ? `${mentionIle().join(" ")} ` : "") +
   "Aussi : les événements que les clubs et associations proposent sur rundata.re (https://rundata.re/associations), relus avant publication. " +
   "Pas encore lus : les bars et les clubs, les billetteries privées. Un événement absent ici peut quand même avoir lieu (voir le site ou la " +
   "page Facebook de la salle ou de la mairie). Chaque événement dit qui le publie, renvoie à sa page et dit quand rundata.re l'a lu.";
@@ -472,10 +528,12 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   // A commune read only through its mairie's news: said, so that a short list is not taken for its whole agenda.
   const partly = commune ? partial.find((x) => x.commune === commune && !towns.some((y) => (y.couvre ?? [y.commune]).includes(commune))) : undefined;
   const off = mine.filter((x) => x.e.statut === "annulé" || x.e.statut === "reporté");
+  const nonRepris = commune ? mentionCommune(commune) : mentionIle().join(" ") || undefined;
   const resume = [
     n ? `${n} événement${n > 1 ? "s" : ""}${kind} ${where} ${periodText}` : `Aucun événement${kind} trouvé ${where} ${periodText}`,
     off.length ? `ATTENTION : ${off.map((x) => `« ${x.e.titre} » ${x.e.statut}${x.e.reporte_au ? ` au ${dayText(x.e.reporte_au)}` : ""}${x.e.selon ? ` (d'après ${x.e.selon.media})` : ""}`).slice(0, 4).join(", ")}` : "",
-    commune && !covered ? `${src.SANS_AGENDA[commune] ?? `ni la mairie ${de(commune)} ni une salle de la commune ne publient d'agenda lisible`} : seuls les grands événements de reunion.fr y figurent` : "",
+    commune && nonRepris ? nonRepris.replace(/^\p{Lu}/u, (c) => c.toLowerCase()).replace(/\.$/, "") : "",
+    commune && !covered ? (nonRepris ? "seuls les grands événements de reunion.fr y figurent" : `${src.SANS_AGENDA[commune] ?? `ni la mairie ${de(commune)} ni une salle de la commune ne publient d'agenda lisible`} : seuls les grands événements de reunion.fr y figurent`) : "",
     partly ? `${commune} : ${partly.partiel}, avec les grands événements de reunion.fr` : "",
     commune && !n && all.length ? `${all.length} ailleurs sur l'île` : "",
     // Said in the summary, not only in `indisponible`: a partial list must not be read as the whole of it.
@@ -494,6 +552,8 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     ailleurs_sur_l_ile: commune && !n && all.length ? all.slice(0, ELSEWHERE_MAX).map((x) => eventRow(x.e, x.seances)) : undefined,
     cinemas: what?.nom?.includes("cinéma") || /cin[ée]|film/i.test(quoi ?? "") ? { seances: "Les séances des cinémas sont sur leurs sites :", salles: CINEMAS } : undefined,
     indisponible: failed.length ? failed : undefined,
+    // Where a commune's site is not read until it agrees: to be said with the answer.
+    non_repris: nonRepris,
     couverture: COUVERTURE,
     a_savoir: A_SAVOIR,
     sources: credits(used),

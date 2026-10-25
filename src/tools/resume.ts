@@ -52,7 +52,7 @@ import {
 } from "../web/data.js";
 import { anchorOf } from "../web/decheteries.js";
 import { coastal, PAGES, type PlacePage } from "../web/places.js";
-import { occurrences } from "./agenda.js";
+import { mentionCommune, occurrences } from "./agenda.js";
 import { hoursOn, openNow } from "./annuaire.js";
 import { priceLine } from "./carburants.js";
 import { ecoles, resumeLine } from "./ecoles.js";
@@ -326,6 +326,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
       ? {
           liste: events.slice(0, EVENTS_MAX).map((r) => ({ titre: r.titre, quand: r.quand, lieu: r.lieu, prix: r.prix, statut: r.statut, lien: r.lien, source: r.source })),
           autres: events.length > EVENTS_MAX ? events.length - EVENTS_MAX : undefined,
+          non_repris: mentionCommune(nom),
         }
       : undefined,
     calendrier: c ? { jour_ferie: c.jours_feries?.aujourd_hui ?? undefined, vacances_scolaires: c.vacances_scolaires?.en_cours?.nom } : undefined,

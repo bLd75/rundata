@@ -33,6 +33,7 @@ import { annonceEvenement, extrait, lead, monthOf, statusOf, type Statut } from 
 import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
 import { SOURCES as SPORT_SOURCES } from "./sport.js";
 import { PROPOSITIONS } from "./agenda-propositions.js";
+import { autorisee } from "./autorisations.js";
 
 export { communesIn, lead, monthOf, statusOf, type Statut };
 
@@ -1259,7 +1260,8 @@ export const SPORTSREGIONS: Agenda = {
 
 // The terms of each commune's site, read on 25/10/2026: those that ask for an authorisation to reproduce it (`faits`),
 // those that allow a link to their home page only (`accueil`).
-export const AGENDAS: Agenda[] = [
+/** Every agenda that can be read, before the communes' authorisations (AGENDAS). */
+export const LISIBLES: Agenda[] = [
   { ...tribe("saint_paul", "Mairie de Saint-Paul", "https://www.mairie-saintpaul.re", "Saint-Paul"), site_commune: "site de la commune de Saint-Paul" },
   // Its terms ask for « www.ville-port.re » on what is taken from it.
   { ...tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port"), site_commune: "site de la commune du Port (©\u00a0www.ville-port.re)" },
@@ -1285,10 +1287,16 @@ export const AGENDAS: Agenda[] = [
 ];
 
 /**
+ * The agendas read: not those of a commune's site whose terms ask its authorisation, until it is given
+ * (src/providers/autorisations.ts). One left out is not read, and its copies, already kept, are not served.
+ */
+export const AGENDAS: Agenda[] = LISIBLES.filter((a) => !a.site_commune || autorisee(a.commune));
+
+/**
  * The home pages some events link to instead of their own page (`accueil`): opened in a new window, as the terms of
  * Petite-Île's and Saint-Benoît's sites ask.
  */
-export const ACCUEILS = new Set(AGENDAS.flatMap((a) => (a.accueil ? [a.accueil] : [])));
+export const ACCUEILS = new Set(LISIBLES.flatMap((a) => (a.accueil ? [a.accueil] : [])));
 
 /**
  * The communes whose own agenda is read (the CINOR's for the North), or that have a hall whose programme is, besides

@@ -56,7 +56,9 @@ describe("links between the weather, the hikes and the communes", () => {
     const rows = [{ titre: "Kabar", date: "2026-10-31T19:00", quand: "samedi 31/10 à 19:00", genres: ["concert"], commune: "Saint-Paul", lien: "https://example.re" }];
     const agenda = { value: { resume: "", nombre: 1, evenements: rows, couverture: "", a_savoir: "", sources: [], ce_week_end: [] } as unknown as AgendaAnswer, fetchedAt: NOW };
     expect(communeEvents(pageOf("saint-paul")!, agenda)).toMatchObject({ valeur: "1 événement" });
-    expect(communeEvents(pageOf("cilaos")!, agenda)).toMatchObject({ valeur: "Rien d'annoncé" });
+    expect(communeEvents(pageOf("saint-pierre")!, agenda)).toMatchObject({ valeur: "Rien d'annoncé" });
+    // A commune whose site is not read until it agrees: never « rien d'annoncé » (test/autorisations.test.ts).
+    expect(communeEvents(pageOf("cilaos")!, agenda)).toMatchObject({ valeur: "Actualités non reprises" });
     // From a commune's site: said with the event.
     const fromSite = { value: { ...agenda.value, evenements: [{ ...rows[0], source: "site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00" }] } as unknown as AgendaAnswer, fetchedAt: NOW };
     expect(communeEvents(pageOf("saint-paul")!, fromSite)?.detail).toBe("d'ici quinze jours ; le prochain : Kabar, samedi 31/10 à 19:00 (Source\u00a0: site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00)");

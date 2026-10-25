@@ -10,6 +10,9 @@ import { clubOf, clubsNamed, zoneOf } from "../src/sport/clubs.js";
 import { sportTool, window } from "../src/tools/sport.js";
 import { sportPage } from "../src/web/domains.js";
 
+// The communes' sites read, as once they have agreed (test/autorisations.test.ts for what is said until then).
+vi.mock("../src/providers/autorisations.js", () => import("./autorisees.js"));
+
 // The sources on Saturday 24/10/2026 in the morning: the Grand Raid over since the 18th, the 6th round of handball on
 // the 30th (the 5th played on the 9th to 11th), volley R1 played on Friday night and again tonight, a rally this
 // weekend, a regatta at Saint-Paul next weekend. Volley: the five pools of the league (R1M, R1F, R2F, 2MA, 2MB); the
