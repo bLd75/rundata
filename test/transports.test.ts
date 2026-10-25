@@ -208,8 +208,40 @@ describe("a line", () => {
     const alert = { titre: "Grève : lignes E1 et S2 non assurées", lignes: [cj.temps_reel!.lignes[e1 - cj.first_route]], arrets: [], periodes: [[null, null]] };
     store.put("rt:carjaune", { value: { at: WED.getTime() / 1000 - 30, trips: {}, cancelled: [], alerts: [alert], vehicles: [] }, fetchedAt: WED.getTime() });
     const told = body(await transports(undefined, "E1", WED, new Cache(store, () => WED.getTime(), false)));
-    expect(told.resume).toMatch(/alors qu'elle circule le mercredi les autres semaines\. Info trafic Car Jaune \(flux de 07:29\)\u00a0: Grève : lignes E1 et S2 non assurées\. Prochaine journée de service, jeudi 12 novembre\u00a0: /);
+    expect(told.resume).toMatch(/alors qu'elle circule le mercredi les autres semaines\. Info trafic de Car Jaune \(flux de 07:29\)\u00a0: «\u00a0Grève : lignes E1 et S2 non assurées\u00a0»\. Prochaine journée de service, jeudi 12 novembre\u00a0: /);
     expect(told.info_trafic).toEqual([{ reseau: "Car Jaune", lignes: ["E1"], titre: alert.titre }]);
+  });
+
+  it("at a stop with nothing running today, says so for all its lines, and what the timetables say beside it", async () => {
+    // A stop served by the E1 alone: its first stop, with the passes of the E1's patterns only.
+    const cj = transit.NETWORKS.carjaune;
+    const [e1] = linesNamed("E1", "carjaune");
+    const pats = transit.patternsOf(e1);
+    const g = transit.GROUPS.find((x) => x.reseau === "carjaune" && x.ids.includes(transit.ENDS[pats[0]][1]))!;
+    transit.configure({
+      all: async <T>(sql: string, keys: unknown) => /FROM passes/.test(sql)
+        ? g.ids.map((id) => ({ feed: cj.feed, id: id - cj.first_stop, passes: JSON.stringify(pats.map((p) => [p - cj.first_pattern, 0])) })) as T[]
+        : fake.all<T>(sql, keys),
+    });
+    const asked = `${g.nom} car jaune`;
+    const where = `${g.nom} \\(${g.commune}, Car Jaune\\)`;
+    const sunday = body(await transports(asked, undefined, new Date("2026-10-25T06:00:00Z")));
+    expect(sunday.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\\. D'après les horaires publiés, aucune des lignes qui le desservent ne circule le dimanche\\. Prochains départs à ${where}, d'après les horaires publiés : E1 vers St-(Denis|Benoît) demain à 5h00`));
+    const WED = new Date("2026-11-11T06:00:00Z");
+    const feries = { get: async () => ({ value: { "2026-11-11": "11 novembre" }, fetchedAt: new Date() }) } as unknown as Cache;
+    expect(body(await transports(asked, undefined, WED, feries)).resume)
+      .toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, jour férié, d'après les horaires publiés\\. Prochains départs à `));
+    expect(body(await transports(asked, undefined, WED)).resume)
+      .toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, d'après les horaires publiés\\. Prochains départs à `));
+    // With the network's live alerts about its lines, quoted, two of them.
+    const store = new MemoryStore();
+    store.put("calendrier:feries:2026", { value: {}, fetchedAt: WED.getTime() });
+    const line = cj.temps_reel!.lignes[e1 - cj.first_route];
+    const alerts = [{ titre: "Grève : lignes E1 et S2 non assurées.", lignes: [line], arrets: [], periodes: [] }, { titre: "Travaux à Sainte-Suzanne", lignes: [line], arrets: [], periodes: [] }];
+    store.put("rt:carjaune", { value: { at: WED.getTime() / 1000 - 30, trips: {}, cancelled: [], alerts, vehicles: [] }, fetchedAt: WED.getTime() });
+    const told = body(await transports(asked, undefined, WED, new Cache(store, () => WED.getTime(), false)));
+    expect(told.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, d'après les horaires publiés\\. Info trafic de Car Jaune \\(flux de 09:59\\)\u00a0: «\u00a0Grève : lignes E1 et S2 non assurées\u00a0»\u00a0; «\u00a0Travaux à Sainte-Suzanne\u00a0»\\. Prochains départs à ${where}, d'après les horaires publiés : [^.]+\\.$`));
+    expect(told.info_trafic).toHaveLength(2);
   });
 
   it("gives line and stop names with single spaces, as some feeds have two", () => {
