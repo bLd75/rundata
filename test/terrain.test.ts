@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { latestAct, planOf, SOURCES } from "../src/providers/terrain.js";
 import { SOURCES as TRACES } from "../src/providers/traces.js";
-import { ficheLieu, market, riskLine, sameStreet } from "../src/tools/terrain.js";
+import { communeOf, ficheLieu, market, riskLine, sameStreet } from "../src/tools/terrain.js";
 
 // Real answers of 23/10/2026 for 7 rue de la Buse, Saint-Paul: parcel BO 552, zone U1c, 115 sales since 2021.
 const raw = (f: string) => readFileSync(new URL(`./fixtures/terrain/${f}`, import.meta.url), "utf8");
@@ -81,7 +81,7 @@ describe("fiche terrain", () => {
 
   it("says when the address base finds another street, gives nothing of it, and names the streets close by", async () => {
     // Real answers of 25/10/2026: the base's best match is another street of the quarter named.
-    files = { citycode: "voies-gaspard.json", geocodage: "geocode-gaspard.json" };
+    files = { "type=street": "voies-gaspard.json", geocodage: "geocode-gaspard.json" };
     const r = await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Roland Gaspard, Bois de Nèfles", NOW);
     expect(r.isError).toBe(true);
     const b = body(r);
@@ -95,12 +95,12 @@ describe("fiche terrain", () => {
     expect(urls[1]).toMatch(/citycode=97415&type=street/);
 
     // An alley asked, only an impasse of that name in the quarter: another street, and one close by elsewhere.
-    files = { citycode: "voies-rochers.json", geocodage: "geocode-rochers.json" };
+    files = { "type=street": "voies-rochers.json", geocodage: "geocode-rochers.json" };
     const d = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "allée des Rochers, Bois de Nèfles", NOW));
     expect(d.voies_proches).toEqual(["Impasse des Rochers (Grande Fontaine), Saint-Paul"]);
     expect(d.conseil).toBe("Voie au nom proche à Saint-Paul, d'après la Base adresse nationale\u00a0: Impasse des Rochers (Grande Fontaine). Demander à l'utilisateur si c'est la bonne, puis redemander avec ce nom et la commune\u00a0; ne pas la choisir à sa place.");
     // Without a street close by.
-    files = { citycode: "voies-aucune.json", geocodage: "geocode-rochers.json" };
+    files = { "type=street": "voies-aucune.json", geocodage: "geocode-rochers.json" };
     const none = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "allée des Rochers, Bois de Nèfles", NOW));
     expect(none.voies_proches).toBeUndefined();
     expect(none.conseil).toBe("Aucune voie au nom proche à Saint-Paul dans la Base adresse nationale. Demander à l'utilisateur de vérifier le nom de la voie, puis redemander avec la commune, ou avec un lieu-dit.");
@@ -112,6 +112,20 @@ describe("fiche terrain", () => {
     const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Étienne Regnault, Saint-Paul", NOW));
     expect(r.resume).toMatch(/^Rue Étienne Regnault \(St Paul Centre\) 97460 Saint-Paul \(milieu de la rue\)\u00a0; /);
     expect(urls.filter((u) => u.includes("geocodage"))).toHaveLength(1);
+  });
+
+  it("looks for the street in the commune named after the comma, and only there", async () => {
+    expect(["rue Roland Garros, Saint-Paul", "rue Roland Garros, Bois de Nèfles", "12 rue de Saint-Denis, 97460 St Paul"].map(communeOf)).toEqual(["97415", "97415", "97415"]);
+    // No commune named: no filter, not even the airport's commune that the gazetteer finds in the name.
+    expect(["rue Roland Garros", "rue Roland Garros, près de l'école"].map(communeOf)).toEqual([undefined, undefined]);
+    // Real answer of 25/10/2026 for Saint-Paul only; without the filter, the base put the street of Saint-Leu first.
+    files = { ...files, geocodage: "geocode-garros.json" };
+    const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Roland Garros, Saint-Paul", NOW));
+    expect(urls[0]).toMatch(/&citycode=97415$/);
+    expect(r.resume).toMatch(/^Rue Roland Garros \(St Paul Centre\) 97460 Saint-Paul \(milieu de la rue\)\u00a0; /);
+    urls.length = 0;
+    await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Roland Garros", NOW);
+    expect(urls[0]).not.toContain("citycode");
   });
 
   it("takes a known place from the gazetteer without geocoding", async () => {

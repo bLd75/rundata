@@ -106,6 +106,15 @@ async function settle<T>(source: string, p: Promise<{ value: T }>): Promise<T | 
 
 const DOWN = "service momentanément indisponible : réessayer dans un instant";
 
+// The commune named after the last comma, or the commune of the quarter named there (« …, Bois de Nèfles »): only that
+// part, a street may carry the name of another commune (« rue de Saint-Denis, Saint-Paul »).
+export function communeOf(adresse: string): string | undefined {
+  const i = adresse.lastIndexOf(",");
+  if (i < 0) return undefined;
+  const p = resolvePlace(adresse.slice(i + 1).replace(/\b97\d{3}\b/g, " ").trim());
+  return p?.correspondance === "exacte" ? INSEE[p.lieu.commune] : undefined;
+}
+
 export async function ficheLieu(cache: Cache, adresse: string, now = new Date()) {
   // A street address goes to the national address base; a place name to the gazetteer first.
   let where: { label: string; lon: number; lat: number; precision: string; insee?: string } | null = null;
@@ -115,12 +124,13 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
   } else if (place && place.correspondance === "exacte" && !ADDRESS.test(adresse)) {
     where = { label: `${place.lieu.nom} (${place.lieu.type}, ${place.lieu.commune})`, lon: place.lieu.lon, lat: place.lieu.lat, precision: "centre du lieu-dit ou de la commune", insee: INSEE[place.lieu.commune] };
   } else {
-    const a = await settle(terrain.SOURCES.ban.id, terrain.geocode(cache, adresse));
+    const asked = communeOf(adresse);
+    const a = await settle(terrain.SOURCES.ban.id, terrain.geocode(cache, adresse, asked));
     // Another street than the one asked: no figures of it, nor of the place around; the streets of the commune whose
     // names come close instead.
     const street = a && (a.type === "street" || a.type === "housenumber") && kindOf(words(adresse)) ? a.street ?? a.label.replace(/ \d{5} .*$/, "") : undefined;
     if (a && street && !sameStreet(adresse, street)) {
-      const insee = (place && INSEE[place.lieu.commune]) || a.insee;
+      const insee = asked ?? a.insee;
       const commune = Object.keys(INSEE).find((c) => INSEE[c] === insee);
       const near = ((await settle(terrain.SOURCES.ban.id, terrain.streets(cache, adresse.split(",")[0], insee))) ?? []).filter((x) => x !== street);
       const N = "\u00a0";
