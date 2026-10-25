@@ -22,6 +22,32 @@ const NEXT_HOURS = 48;
 const SHOM = "https://maree.shom.fr";
 const OFFSET_HOURS = 6;
 
+// The computed times hold near a gauge only: along the coast the tide turns at other times, by a gap that changes from
+// one tide to the next, so that no fixed shift would do (cam-change 276). Beyond this distance: neither times nor
+// trend, the gauge's height named as such, and the SHOM's official times as a link.
+export const NEAR_KM = 15;
+
+// The SHOM's page of the ports it predicts away from the gauges, by commune: a link, never its values.
+const SHOM_PORTS: Record<string, string> = {
+  "Saint-Leu": `${SHOM}/harbor/SAINT-LEU/hlt/0`,
+  "Saint-Pierre": `${SHOM}/harbor/SAINT-PIERRE_LA_REUNION/hlt/0`,
+};
+
+/** The SHOM's page of a commune's port, if it has one. */
+export const shomPort = (commune: string): string | undefined => SHOM_PORTS[commune];
+
+/** The gauge nearest a point, and how far. */
+export function nearest(lon: number, lat: number): { gauge: mg.Gauge; km: number } {
+  return mg.GAUGES.map((gauge) => ({ gauge, km: distanceKm(lon, lat, gauge.lon, gauge.lat) })).sort((a, b) => a.km - b.km)[0];
+}
+
+/** Away from the gauges: the nearest one, and the SHOM's page of the commune's port when it has one, else its site. */
+export function farFrom(lon: number, lat: number, commune: string) {
+  const n = nearest(lon, lat);
+  if (n.km <= NEAR_KM) return undefined;
+  return { ...n, nom: label(n.gauge), port: SHOM_PORTS[commune] ? commune : undefined, lien: SHOM_PORTS[commune] ?? SHOM };
+}
+
 export interface GaugeNow {
   gauge: mg.Gauge;
   reading: mg.Reading | null;
@@ -124,8 +150,8 @@ export function nextTides(g: GaugeNow, now: Date) {
  * old). `rows`: the gauges as the copy has them, for the correction measured when it was made, if recent.
  */
 export function tidesNear(lon: number, lat: number, now: Date, rows: { maregraphe: string; recalage_m?: number }[] = [], asOf?: Date) {
-  const gauge = [...mg.GAUGES].sort((a, b) => distanceKm(lon, lat, a.lon, a.lat) - distanceKm(lon, lat, b.lon, b.lat))[0];
-  return tidesAt(gauge, now, rows, asOf);
+  const n = nearest(lon, lat);
+  return n.km <= NEAR_KM ? tidesAt(n.gauge, now, rows, asOf) : undefined;
 }
 
 /** The same at one gauge. */
@@ -210,6 +236,44 @@ function row(g: GaugeNow, now: Date, km?: number) {
   return { ...gaugeRow(g, now, km), ...(next ? { prochaines_marees: next } : {}) };
 }
 
+/** Away from the gauges: the height measured at the gauge, without the trend nor the turns, whose times are not the place's. */
+function farRow(g: GaugeNow, now: Date, km: number) {
+  const { tendance: _t, derniers_extremes: _d, recalage_m: _r, ...rest } = gaugeRow(g, now, km) as ReturnType<typeof gaugeRow> & { tendance?: unknown; derniers_extremes?: unknown; recalage_m?: unknown };
+  return rest;
+}
+
+const ISLAND_NOTE =
+  `Ces heures valent près des deux marégraphes, à ${NEAR_KM} km au plus. Plus loin, à Saint-Leu, à Saint-Pierre, dans le Sud et dans l'Est, ` +
+  `la marée arrive à une autre heure : voir les horaires officiels du SHOM (${SHOM}).`;
+
+function far(lieu: string, res: NonNullable<ReturnType<typeof resolvePlace>>, all: GaugeNow[], now: Date, sources: ReturnType<typeof credits>) {
+  const p = res.lieu;
+  const f = farFrom(p.lon, p.lat, p.commune)!;
+  const r = all.find((x) => x.gauge.id === f.gauge.id)?.reading;
+  const km = fr(Math.round(f.km));
+  const at = f.gauge.commune === "Le Port" ? "au Port" : `à ${f.gauge.commune}`;
+  return text({
+    lieu: placeBlock(lieu, res),
+    avertissement:
+      `Ne donner aucune heure de marée pour ${p.nom} : les heures calculées au marégraphe ${de(f.nom)} n'y valent pas, la marée y arrive à une autre heure. ` +
+      `Renvoyer aux horaires officiels du SHOM : ${f.lien}.`,
+    resume:
+      `Pas d'heures de marée calculées pour ${p.nom} : nous les calculons d'après les marégraphes du Port et de Sainte-Marie, et la marée n'arrive pas à la même heure partout sur la côte. ` +
+      (r
+        ? `Hauteur mesurée au marégraphe ${de(f.nom)}, à ${km} km : ${m(r.h)} à ${hm(r.t)} (${at}, pas à ${p.nom}). `
+        : `Le marégraphe ${de(f.nom)}, à ${km} km, est muet pour le moment. `) +
+      (f.port ? `Horaires officiels de la marée à ${f.port}, par le SHOM : ${f.lien}.` : `Horaires officiels de la marée : site du SHOM, ${f.lien}.`),
+    horaires_officiels: f.lien,
+    maregraphes: all
+      .map((x) => ({ x, km: distanceKm(p.lon, p.lat, x.gauge.lon, x.gauge.lat) }))
+      .sort((a, b) => a.km - b.km)
+      .map(({ x, km }) => farRow(x, now, km)),
+    donnees: "Hauteur d'eau mesurée chaque minute par les marégraphes du SHOM, données brutes non validées, en mètres au-dessus du zéro des cartes marines : celle du marégraphe, pas celle de la côte de ce lieu.",
+    bon_a_savoir: COMMON.bon_a_savoir,
+    sources,
+  });
+}
+
 export async function maree(cache: Cache, lieu: string | undefined, now = new Date()) {
   const all = await gauges(cache, now);
   const sources = credits([mg.SOURCE]);
@@ -220,7 +284,7 @@ export async function maree(cache: Cache, lieu: string | undefined, now = new Da
 
   if (!lieu?.trim()) {
     return text({
-      resume: all.map((g) => `${label(g.gauge)} : ${sentence(g, now, true)}`).join(". ") + ".",
+      resume: all.map((g) => `${label(g.gauge)} : ${sentence(g, now, true)}`).join(". ") + `. ${ISLAND_NOTE}`,
       maregraphes: all.map((g) => row(g, now)),
       ...COMMON,
       sources,
@@ -230,9 +294,9 @@ export async function maree(cache: Cache, lieu: string | undefined, now = new Da
   const res = resolvePlace(lieu);
   if (!res) return notFound(lieu);
   const p = res.lieu;
-  const by = all
-    .map((g) => ({ g, km: distanceKm(p.lon, p.lat, g.gauge.lon, g.gauge.lat) }))
-    .sort((a, b) => Number(!!b.g.reading) - Number(!!a.g.reading) || a.km - b.km);
+  if (farFrom(p.lon, p.lat, p.commune)) return far(lieu, res, all, now, sources);
+  // Near a gauge, that gauge's times, even while it is silent: the other one's are not the place's.
+  const by = all.map((g) => ({ g, km: distanceKm(p.lon, p.lat, g.gauge.lon, g.gauge.lat) })).sort((a, b) => a.km - b.km);
   const best = by[0];
   return text({
     lieu: placeBlock(lieu, res),
@@ -240,7 +304,6 @@ export async function maree(cache: Cache, lieu: string | undefined, now = new Da
       `Marée au marégraphe le plus proche ${de(p.nom)}, ${best.g.gauge.nom} (${best.g.gauge.commune}, à ${fr(Math.round(best.km))} km) : ` +
       `${sentence(best.g, now)}.`,
     maregraphes: by.map((x) => row(x.g, now, x.km)),
-    ...(best.km > 25 ? { note: `Il n'y a que deux marégraphes, au Port et à Sainte-Marie : celui-ci est à ${fr(Math.round(best.km))} km.` } : {}),
     ...COMMON,
     sources,
   });

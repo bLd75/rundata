@@ -23,7 +23,7 @@ import * as traces from "../providers/traces.js";
 import { GAUGES } from "../providers/maregraphes.js";
 import { cardReason } from "../providers/ensemble.js";
 import { CITATION as TIDE_CITATION, LABEL as TIDE_LABEL } from "../maree/calcul.js";
-import { nextText, tidesAt, tidesNear } from "../tools/maree.js";
+import { farFrom, NEAR_KM, nextText, shomPort, tidesAt, tidesNear } from "../tools/maree.js";
 import icons from "./icons.json" with { type: "json" };
 import { hikesAround } from "./liens.js";
 import rubriques from "./og-rubriques.json" with { type: "json" };
@@ -1285,9 +1285,14 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
 
   // The next tides at the nearest gauge, computed at the view: no request, whatever the copy's age.
   const tides = coastal(p) ? tidesNear(p.place.lon, p.place.lat, now) : undefined;
+  // Away from the gauges, no times: they are not the place's (cam-change 276).
+  const away = coastal(p) && !tides ? farFrom(p.place.lon, p.place.lat, p.place.commune) : undefined;
   const tideLine = tides
     ? `<p>Marée à ${esc(tides.nom)}, ${esc(TIDE_LABEL)}, à environ ${tides.minutes} min près : ${esc(thin(nextText(tides.next)))}.</p>`
-    : "";
+    : away
+      ? `<p>Marée : pas d'heures calculées ici, la marée y arrive à une autre heure qu'au Port et à Sainte-Marie, nos deux marégraphes. ` +
+        `<a href="${esc(away.lien)}">${away.port ? `Horaires officiels du SHOM pour ${esc(away.port)}` : "Horaires officiels sur le site du SHOM"}</a></p>`
+      : "";
   const sea = coastal(p) && d?.mer
     ? `<section aria-labelledby="h-mer"><h2 id="h-mer">Température de la mer à ${esc(p.nom)}</h2>` +
       `<div class="card">${d.mer.mesure ? `<ul class="seas"><li><span>Au large, le ${esc(dayMonth(d.mer.mesure.jour_mesure))}</span><b>${esc(thin(d.mer.mesure.temperature_eau))}</b></li></ul>` : ""}` +
@@ -1614,7 +1619,8 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
   <ul class="seas">${computed.map((x) => `<li><span>${esc(x.nom)}</span>` +
       x.next.liste.map((e, i) => (i === 0 ? `<b>${esc(e.type)} ${esc(e.heure)}</b><span>${esc(thin(`${fr(e.hauteur_m)} m`))}${"note" in e ? ", marée faible : heure plus incertaine" : ""}</span>` : `<span>${esc(e.type)} ${esc(e.heure)} (${esc(thin(`${fr(e.hauteur_m)} m`))})</span>`)).join("") +
       `</li>`).join("")}</ul>
-  <p class="note">${esc(TIDE_LABEL.replace(/^c/, "C"))} : analyse harmonique de plusieurs années de mesures de ces deux marégraphes ; heures à environ ${computed.map((x) => `${x.minutes} min près ${x.gauge.commune === "Le Port" ? "au Port" : `à ${x.gauge.commune}`}`).join(", ")}, hauteurs à environ 5 cm près ; pas de coefficient. La marée est faible à La Réunion (20 à 80 cm) : utile pour le lagon, la pêche à pied ou la mise à l'eau, pas pour la navigation. ${esc(TIDE_CITATION)}</p>`
+  <p class="note">${esc(TIDE_LABEL.replace(/^c/, "C"))} : analyse harmonique de plusieurs années de mesures de ces deux marégraphes ; heures à environ ${computed.map((x) => `${x.minutes} min près ${x.gauge.commune === "Le Port" ? "au Port" : `à ${x.gauge.commune}`}`).join(", ")}, hauteurs à environ 5 cm près ; pas de coefficient. La marée est faible à La Réunion (20 à 80 cm) : utile pour le lagon, la pêche à pied ou la mise à l'eau, pas pour la navigation. ${esc(TIDE_CITATION)}</p>
+  <p class="note">Ces heures valent près des deux marégraphes, à ${NEAR_KM} km au plus. Plus loin sur la côte, la marée arrive à une autre heure : horaires officiels du SHOM pour ${["Saint-Leu", "Saint-Pierre"].map((c) => `<a href="${esc(shomPort(c)!)}">${c}</a>`).join(" et ")}.</p>`
     : "";
   const tide = d?.maree?.length || coming
     ? `<section aria-labelledby="h-maree">
