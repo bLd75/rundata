@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WORKER_BUDGET, count, counted, left } from "../src/budget.js";
+import { PAGE_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import * as acspo from "../src/providers/acspo.js";
 import * as houle from "../src/providers/houle.js";
@@ -129,12 +129,12 @@ describe("the waves in temperature_mer", () => {
   it("cost one request for the whole coast cold, three subrequests with the cache, then one, then none", async () => {
     const edge = new EdgeLike();
     const cache = isolate(edge);
-    const cold = await counted(WORKER_BUDGET, async () => {
+    const cold = await counted(PAGE_BUDGET, async () => {
       await temperatureMer(cache, "Saint-Leu", NOW);
       await temperatureMer(cache, "Saint-Denis", NOW);
       await temperatureMer(cache, undefined, NOW);
     });
-    expect(cold.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(cold.used).toBeLessThanOrEqual(PAGE_BUDGET);
     expect(marine()).toBe(1);
     expect(edge.ops.filter((k) => k.startsWith("houle:"))).toEqual(["houle:plages", "houle:plages"]); // the miss, the write
     // Another isolate of the same data center: one read of the edge.
@@ -162,7 +162,7 @@ describe("the UV index in prevision_meteo", () => {
   it("is one request for the whole island, three subrequests cold", async () => {
     const edge = new EdgeLike();
     const cache = isolate(edge);
-    await counted(WORKER_BUDGET, async () => {
+    await counted(PAGE_BUDGET, async () => {
       await previsionMeteo(cache, "Saint-Leu", undefined, NOW);
       await previsionMeteo(cache, undefined, undefined, NOW);
     });

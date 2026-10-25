@@ -7,7 +7,7 @@
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
 import { failed, handle } from "./app.js";
-import { WORKER_BUDGET, count, counted, later, spent } from "./budget.js";
+import { PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
 import { VERSION } from "./server.js";
@@ -178,7 +178,8 @@ function setup(env: Env): Cache {
   );
   // The feedback of the tool donner_avis and of the site's form: one row each (scripts/avis.sql).
   const avisDb = env.AVIS;
-  const avisRun = avisDb && (async (sql: string, ...params: unknown[]) => (await avisDb.prepare(sql).bind(...params).run()).meta.changes);
+  // Counted as every D1 call: an invocation's calls to the bound services are limited together (budget.ts).
+  const avisRun = avisDb && (async (sql: string, ...params: unknown[]) => (count(1, true), (await avisDb.prepare(sql).bind(...params).run()).meta.changes));
   avis.configure(avisRun, env.AVIS_SEL);
   // The links and events the clubs send, in the same database (scripts/propositions.sql); a proposal's link is e-mailed
   // through Cloudflare, and without the binding a proposal is refused rather than kept unconfirmable.
@@ -201,11 +202,11 @@ export default {
     // A page served from its last copy refreshes it after the response (web/data.ts); an agenda too slow for the
     // answer is still stored (tools/agenda.ts).
     const path = new URL(request.url).pathname;
-    const { value, used, settled } = await counted(WORKER_BUDGET, () => handle(request, c, later, recorder(env, request)).catch((err) => failed(path, err)), (p) => ctx.waitUntil(p));
+    const { value, used, settled } = await counted(PAGE_BUDGET, () => handle(request, c, later, recorder(env, request)).catch((err) => failed(path, err)), (p) => ctx.waitUntil(p));
     // Once the work after the response is done too: it counts against the same budget.
     ctx.waitUntil(settled().then((total) => {
       const after = total.used > used ? `, dont ${total.used - used} après la réponse` : "";
-      const refused = total.refused ? `, ${total.refused} refusées (budget de ${WORKER_BUDGET})` : "";
+      const refused = total.refused ? `, ${total.refused} refusées (budget de ${PAGE_BUDGET})` : "";
       if (total.used) console.log(`sous-requêtes : ${total.used} (${path})${after}${refused}`);
     }));
     return value;
@@ -217,8 +218,8 @@ export default {
     // The AROME grids first; then, with what is left of the invocation, the shared page copies that are due, and the
     // forecast's ensemble with what they left.
     ctx.waitUntil(
-      // The same budget as a page: past it a subrequest is refused here, before the platform's own limit.
-      counted(WORKER_BUDGET, async () => {
+      // Its own budget, enough for every copy that is due: past it a subrequest is refused here (budget.ts).
+      counted(SCHEDULED_BUDGET, async () => {
         const arome = await prefetchForecasts(c).catch((err) => (console.error("préchargement AROME impossible", why(err)), null));
         const aromeUsed = spent();
         const first = kv ? await warmShared(c, kv) : { written: [], left: [] };

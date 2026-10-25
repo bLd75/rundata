@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WORKER_BUDGET, count, counted } from "../src/budget.js";
+import { PAGE_BUDGET, count, counted } from "../src/budget.js";
 import { Cache, MemoryStore, type CacheEntry } from "../src/cache.js";
 import { parseRss, type Info } from "../src/providers/actualites.js";
 import { parseSportsregions } from "../src/providers/agenda.js";
@@ -283,9 +283,9 @@ describe("sport", () => {
     await kv.put("agendas:planifies", { value: { "agenda:lrvb": { value: [tournoi], fetchedAt: at } }, fetchedAt: at });
     kv.reads = 0;
     const c = new Cache(new Counted(), () => NOW.getTime(), true, kv);
-    const cold = await counted(WORKER_BUDGET, () => sportTool(c, "volley", undefined, "a_venir", NOW));
+    const cold = await counted(PAGE_BUDGET, () => sportTool(c, "volley", undefined, "a_venir", NOW));
     expect(body(cold.value).a_venir.map((r: { epreuve: string }) => r.epreuve)).toContain("King Saison 6 Solo étape 2");
-    expect(cold.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(cold.used).toBeLessThanOrEqual(PAGE_BUDGET);
     expect(kv.reads).toBe(1);
   });
 

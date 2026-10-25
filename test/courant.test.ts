@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { counted, WORKER_BUDGET } from "../src/budget.js";
+import { counted, PAGE_BUDGET } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { coupures, namedDay, parseMedia, parsePosts, slotsOf } from "../src/providers/coupures-courant.js";
 import { ahead, type CourantAnswer, courantBlock, honesty, none, sentence, shortOf } from "../src/tools/courant.js";
@@ -146,7 +146,7 @@ describe("the tool electricite and the cuts", () => {
     const fixture = (f: string) => JSON.parse(readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8")).results;
     await store.put("edf:mix", { value: fixture("edf_mix.json")[0], fetchedAt: NOW.getTime() });
     await store.put("edf:signal", { value: fixture("edf_signal.json"), fetchedAt: NOW.getTime() });
-    const run = await counted(WORKER_BUDGET, () => electricite(new Cache(store, () => NOW.getTime()), NOW, "Sainte-Marie"));
+    const run = await counted(PAGE_BUDGET, () => electricite(new Cache(store, () => NOW.getTime()), NOW, "Sainte-Marie"));
     expect(body(run.value).coupures_annoncees.indisponible).toMatch(/pas encore été lus/);
     expect(requested.filter((u) => u.includes("wp-json"))).toEqual([]);
   });

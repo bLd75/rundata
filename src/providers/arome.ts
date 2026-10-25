@@ -58,9 +58,9 @@ const RANGE_H = 48;
 export interface RunListing {
   freshSeconds: number;
   timeoutMs: number;
+  /** Grids it may download, at most (MAX_NEW_GRIDS, QUESTION_NEW_GRIDS). */
+  newGrids: number;
 }
-export const FOR_QUESTIONS: RunListing = { freshSeconds: 60 * 60, timeoutMs: 20_000 };
-export const FOR_PREFETCH: RunListing = { freshSeconds: 15 * 60, timeoutMs: 60_000 };
 const RUNS = "arome:calculs";
 // How often a process merges in the grids other processes (the scheduled prefetch) added to the run's bundle.
 const BUNDLE_SYNC_SECONDS = 60;
@@ -73,6 +73,14 @@ const PENDING_RETRY_MS = 25 * 60_000;
  * subrequests left decide (budget.ts); steps not fetched yet are answered by the other model this time.
  */
 export const MAX_NEW_GRIDS = 40;
+/**
+ * A question's share in the Worker: two steps of five grids, about what the budget of 40 subrequests left it. The
+ * scheduled prefetch fills the run's bundle, which every data center reads: with the budgets of budget.ts, questions
+ * in several data centers at once must not download a new run's grids each, past the API's rate.
+ */
+export const QUESTION_NEW_GRIDS = 10;
+export const FOR_QUESTIONS: RunListing = { freshSeconds: 60 * 60, timeoutMs: 20_000, newGrids: QUESTION_NEW_GRIDS };
+export const FOR_PREFETCH: RunListing = { freshSeconds: 15 * 60, timeoutMs: 60_000, newGrids: MAX_NEW_GRIDS };
 const CONCURRENCY = 6;
 // Subrequests kept aside while downloading grids: a token, a renewal, one retry per grid in flight, the save.
 const SPARE = 3 + CONCURRENCY;
@@ -327,7 +335,9 @@ export async function prepare(cache: Cache, starts: Date[], reserve = 0, listing
   const got = new Map<number, AromeData["steps"][number]>();
   let downloads = 0;
   // Never below none: a step whose grids are all in the bundle costs nothing, whatever is left.
-  const allowed = () => Math.max(0, Math.min(MAX_NEW_GRIDS - downloads, left() - reserve - SPARE - (hasRelief ? 0 : 3)));
+  // Outside the Worker (Node) no scheduled prefetch fills the bundle: a question may take as many as the prefetch.
+  const most = Number.isFinite(left()) ? listing.newGrids : MAX_NEW_GRIDS;
+  const allowed = () => Math.max(0, Math.min(most - downloads, left() - reserve - SPARE - (hasRelief ? 0 : 3)));
   let budget = allowed();
   let reliefValue: Grid | undefined;
   try {

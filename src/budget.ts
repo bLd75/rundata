@@ -1,21 +1,45 @@
 /**
- * Subrequests of the current invocation. A Cloudflare Worker may make a limited number per invocation (fetches,
- * Cache API and KV calls alike) and fails the next ones, so every upstream or store call is counted here.
+ * Subrequests of the current invocation. Every upstream or store call is counted here (fetches, Cache API, KV and D1
+ * calls alike), against a budget per kind of invocation, well under the platform's limits.
  *
- * The rule, for every page and tool: an invocation makes at most WORKER_BUDGET subrequests, the work after its response
- * included, well under the platform's limit. A tenth of it is kept for the cache: for writing to it what was read, which
- * is what saves the next visits from reading it again, and half of that tenth for reading a copy already stored too, so
- * that a question late in its budget is still served the copy one read away rather than an error. Past it a subrequest
- * is refused here, as the platform would refuse it: a refused read of the cache is a copy not found, a refused load is
- * not held against the source (the copy in memory, if any, is served), and the Worker's log says how many were refused. Work that may wait (a tile brought up to date after the response, an agenda, the
- * AROME grids) is sized from `left()` and the cost of its last run (`costOf`), and is left to a later visit otherwise.
- * Outside a counted invocation (Node, tests) nothing is limited.
+ * The platform: SUBREQUEST_LIMIT per invocation; SERVICE_OPS_LIMIT calls to KV, D1 and the other bound
+ * services together per invocation (a bulk KV call counts as one); at most six connections waiting for their headers
+ * at once, the next ones queued; 30 s of CPU for a scheduled event that runs more often than hourly. Fetches are not
+ * billed; CPU time and KV operations past the month's included ones are.
+ *
+ * The budgets: SCHEDULED_BUDGET for the scheduled event, which builds every shared copy that is due; PAGE_BUDGET for a
+ * visit or a tool call, the work after its response included; BUILD_BUDGET for one page's copy (`measured`), so that
+ * a build gone wrong stops there. They are all under SERVICE_OPS_LIMIT, and every KV and D1 call is counted: the
+ * platform's limit on them is never reached. How often a source is read does not depend on them: every read waits for
+ * its copy to be due (cache.ts), the budget only lets it happen now rather than at a later visit.
+ *
+ * A tenth of a budget is kept for the cache: for writing to it what was read, which is what saves the next visits from
+ * reading it again, and half of that tenth for reading a copy already stored too, so that a question late in its budget
+ * is still served the copy one read away rather than an error. Past it a subrequest is refused here: a refused read of
+ * the cache is a copy not found, a refused load is not held against the source (the copy in memory, if any, is
+ * served), and the Worker's log says how many were refused. Work that may wait (a tile brought up to date after the
+ * response, an agenda, the AROME grids) is sized from `left()` and the cost of its last run (`costOf`), and is left to a
+ * later visit otherwise. Outside a counted invocation (Node, tests) nothing is limited.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 
-export const WORKER_FREE_LIMIT = 50;
-/** What a page or a tool may use, the work after the response included. */
-export const WORKER_BUDGET = 40;
+/** What the platform allows an invocation. */
+export const SUBREQUEST_LIMIT = 10_000;
+/** Calls to KV, D1 and the other bound services, together, per invocation. */
+export const SERVICE_OPS_LIMIT = 1_000;
+/**
+ * The scheduled event, every 5 minutes: the AROME grids (MAX_NEW_GRIDS at most, providers/arome.ts), every shared copy
+ * that is due (about 115 subrequests when all are, from cold, web/partagees.ts), the planned agendas, with room for a
+ * slow day. Half of SERVICE_OPS_LIMIT.
+ */
+export const SCHEDULED_BUDGET = 500;
+/**
+ * A visit or a tool call, the work after its response included: its own reads, and the copies it brings up to date
+ * after the response (a page's dearest, about 35 from cold). Lower than the scheduled event's, which does the bulk.
+ */
+export const PAGE_BUDGET = 200;
+/** One page's copy (`measured`): about three times the dearest measured (a place's or the traffic's, about 35). */
+export const BUILD_BUDGET = 100;
 
 interface Tally {
   used: number;
@@ -32,6 +56,8 @@ interface Tally {
 /** A part of the invocation whose subrequests are measured (a page's build), within the ones it is part of. */
 interface Job {
   key: string;
+  /** What it may use, besides what the invocation has left (BUILD_BUDGET). */
+  limit: number;
   used: number;
   refused: number;
   done: boolean;
@@ -43,10 +69,10 @@ const jobs = new AsyncLocalStorage<Job>();
 // What each job took the last times it ran in this isolate: the most of them, refused subrequests included.
 const costs = new Map<string, number>();
 
-/** A subrequest past the invocation's budget. « Too many subrequests », as the platform says it (cache.ts). */
+/** A subrequest past the invocation's budget, or a build's. « Too many subrequests », as the platform says it (cache.ts). */
 export class OutOfBudget extends Error {
   constructor(limit: number) {
-    super(`Too many subrequests: the invocation's budget of ${limit} is spent`);
+    super(`Too many subrequests: the budget of ${limit} is spent`);
   }
 }
 
@@ -94,7 +120,10 @@ export function count(n = 1, kind: boolean | "read" = false) {
   const t = current.getStore();
   if (!t) return;
   const room = kind === true ? t.limit : kind === "read" ? t.limit - Math.ceil(kept(t) / 2) : t.limit - kept(t);
-  const refused = t.used + n > room;
+  // The budget it would go past: the invocation's, or that of a build it is part of.
+  let over = t.used + n > room ? t.limit : undefined;
+  for (let j = jobs.getStore(); j && over === undefined; j = j.parent) if (j.used + n > j.limit) over = j.limit;
+  const refused = over !== undefined;
   if (refused) t.refused += n;
   else t.used += n;
   for (let j = jobs.getStore(); j; j = j.parent) {
@@ -103,16 +132,17 @@ export function count(n = 1, kind: boolean | "read" = false) {
     // Work a job handed over after it returned still counts as its own.
     if (j.done) costs.set(j.key, Math.max(costs.get(j.key) ?? 0, j.used + j.refused));
   }
-  if (refused) throw new OutOfBudget(t.limit);
+  if (refused) throw new OutOfBudget(over!);
 }
 
 /**
  * Runs `fn` as the job `key` (a page's build) and remembers how many subrequests it took, so that it is started again
- * only when they are left (`costOf`). Outside a counted invocation it just runs.
+ * only when they are left (`costOf`). Past `limit`, its subrequests are refused, whatever the invocation has left.
+ * Outside a counted invocation it just runs.
  */
-export async function measured<T>(key: string, fn: () => Promise<T>): Promise<T> {
+export async function measured<T>(key: string, fn: () => Promise<T>, limit = BUILD_BUDGET): Promise<T> {
   if (!current.getStore()) return fn();
-  const job: Job = { key, used: 0, refused: 0, done: false, parent: jobs.getStore() };
+  const job: Job = { key, limit, used: 0, refused: 0, done: false, parent: jobs.getStore() };
   try {
     return await jobs.run(job, fn);
   } finally {
