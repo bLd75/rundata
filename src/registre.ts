@@ -320,7 +320,9 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   sport: { subrequests: 34, cpuMs: 160, file: "sport" },
   // Measured 26, before it read the list of the silent sites, as /volcan.
   volcan_seismes: { subrequests: 30, cpuMs: 90, file: "volcan", d1: SANS_REPONSE_D1 },
-  fiche_terrain: { subrequests: 24, cpuMs: 70, file: "terrain" },
+  // 24 measured, and the street's sales from the code: for a street not copied yet, one file a year of DVF géolocalisées
+  // (6, each redirected once to its storage) and about 10 ms to read them; copied 7 days.
+  fiche_terrain: { subrequests: 36, cpuMs: 80, file: "terrain", basis: "estimé" },
   prevision_meteo: { subrequests: 20, cpuMs: 100, file: "prevision" },
   qualite_eau: { subrequests: 15, cpuMs: 90, file: "eau" },
   temperature_mer: { subrequests: 14, cpuMs: 50, file: "mer" },

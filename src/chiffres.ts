@@ -93,7 +93,7 @@ export const DOMAINES: Domaine[] = [
   { categorie: "calendrier", sources: ids("education_calendrier", "jours_feries"), cadence: { minutes: DAY, de: "education_calendrier" } },
   // The TCO's dumps every 30 minutes (providers/tco.ts).
   { categorie: "services", sources: ids("annuaire_administration", "prefecture_carburants", "tco_decheteries", "tco_collecte", "finess", "ars_garde", "sante_fr_urgences", "osm_marches"), cadence: { minutes: 30, de: "tco_decheteries" } },
-  { categorie: "terrain", sources: ids("ban_geocodage", "cadastre_apicarto", "gpu_zone_urba", "gpu_ppr", "georisques", "dvf_cerema", "ign_altimetrie"), question: true },
+  { categorie: "terrain", sources: ids("ban_geocodage", "cadastre_apicarto", "gpu_zone_urba", "gpu_ppr", "georisques", "dvf_cerema", "dvf_etalab", "ign_altimetrie"), question: true },
 ];
 
 /** Counted, never named here: pitonlive.com, an unofficial site, said only beside the official sources (marketing). */

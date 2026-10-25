@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { latestAct, planOf, SOURCES } from "../src/providers/terrain.js";
+import { codeVoie, latestAct, planOf, SOURCES, streetSales } from "../src/providers/terrain.js";
 import { SOURCES as TRACES } from "../src/providers/traces.js";
-import { communeOf, ficheLieu, market, riskLine, sameStreet } from "../src/tools/terrain.js";
+import { communeOf, ficheLieu, market, riskLine, sameStreet, streetMarket } from "../src/tools/terrain.js";
 
 // Real answers of 23/10/2026 for 7 rue de la Buse, Saint-Paul: parcel BO 552, zone U1c, 115 sales since 2021.
 const raw = (f: string) => readFileSync(new URL(`./fixtures/terrain/${f}`, import.meta.url), "utf8");
@@ -19,6 +19,8 @@ beforeEach(() => {
   vi.stubGlobal("fetch", async (url: string) => {
     urls.push(String(url));
     const u = String(url);
+    // DVF géolocalisées: one file a year, made up in its layout (geo-dvf.csv), for 2024 only.
+    if (u.includes("geo-dvf")) return u.includes("/2024/") ? new Response(raw("geo-dvf.csv")) : new Response("", { status: 404 });
     const extra = Object.entries(files).find(([k]) => u.includes(k));
     const f = extra ? extra[1] : u.includes("geocodage") ? "geocode.json" : u.includes("cadastre") ? "parcelle.json" : u.includes("zone-urba") ? "zone.json" : u.includes("altimetrie") ? "alti.json" : u.includes("dvf") ? "dvf.json" : null;
     if (!f) throw new Error(`unexpected ${u}`);
@@ -44,11 +46,54 @@ describe("fiche terrain", () => {
     expect(JSON.stringify(m)).not.toMatch(/BO|0552|rue/i);
   });
 
+  it("counts each sale on the street once, by the land registry's street code", () => {
+    expect(codeVoie("97416_1281")).toBe("1281");
+    expect(codeVoie("97415_0260_00007")).toBe("0260");
+    // A street the address base names on its own: DVF does not know it.
+    expect(codeVoie("97415_xutypl")).toBeUndefined();
+    const sales = streetSales(raw("geo-dvf.csv"), "0260");
+    // A house on two lines (two kinds of land) is one sale; an exchange is none; a house sold with a field on another
+    // street is one sale, at its one price.
+    expect(sales.map((x) => x.type).sort()).toEqual(["appartement", "appartement", "maison", "maison", "maison", "maison", "maison", "maison", "maison", "terrain"]);
+    expect(sales.filter((x) => x.valeur === 420_000)).toEqual([{ annee: 2024, type: "maison", valeur: 420_000, surface_bati: 130, surface_terrain: 3500 }]);
+    expect(sales.find((x) => x.valeur === 200_000)).toMatchObject({ surface_bati: 100, surface_terrain: 600 });
+  });
+
+  it("gives the street's medians from 3 sales of a kind, as the area's, its count alone below", () => {
+    const house = (valeur: number) => ({ annee: 2022, type: "maison" as const, valeur, surface_bati: 100, surface_terrain: 500 });
+    expect(streetMarket("Chemin Rangama", 2021, [house(250_000), house(300_000)])).toEqual({
+      voie: "Chemin Rangama", depuis: 2021, ventes: 2, note: "2 ventes enregistrées dans DVF sur la voie depuis 2021, trop peu pour une médiane",
+    });
+    expect(streetMarket("Chemin Rangama", 2021, [house(250_000)]).note).toBe("1 vente enregistrée dans DVF sur la voie depuis 2021, trop peu pour une médiane");
+    expect(streetMarket("Chemin Rangama", 2021, []).note).toBe("aucune vente enregistrée dans DVF sur la voie depuis 2021");
+    const three = streetMarket("Rue de la Buse", 2021, [250_000, 300_000, 320_000].map(house));
+    expect(three.maisons).toEqual({ ventes: 3, prix_median: "300 000 €", prix_m2_median: "3000 €/m²" });
+    expect(three.appartements).toEqual({ ventes: 0 });
+    // Three sales in all, of three kinds: the count, no median of one sale.
+    const mixed = streetMarket("Rue de la Buse", 2021, [house(250_000), { ...house(200_000), type: "appartement" }, { annee: 2022, type: "terrain", valeur: 90_000, surface_bati: 0, surface_terrain: 600 }]);
+    expect([mixed.maisons, mixed.appartements, mixed.terrains_nus]).toEqual([{ ventes: 1 }, { ventes: 1 }, { ventes: 1 }]);
+  });
+
+  it("says a street's few sales as a count, attributed to DVF, before the area's figures", async () => {
+    files = { ...files, geocodage: "geocode-temple.json" };
+    const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue du Temple, Saint-Pierre", NOW));
+    expect(r.resume).toContain("\u00a0; sur la voie (Rue du Temple), 2 ventes enregistrées dans DVF depuis 2021, trop peu pour une médiane\u00a0; dans le secteur alentour (environ 600 m sur 600 m), maisons vendues depuis 2021 : ");
+    expect(r.marche_immobilier.sur_la_voie).toEqual({ voie: "Rue du Temple", depuis: 2021, ventes: 2, note: "2 ventes enregistrées dans DVF sur la voie depuis 2021, trop peu pour une médiane" });
+    expect(urls.filter((u) => u.includes("geo-dvf"))[0]).toBe("https://files.data.gouv.fr/geo-dvf/latest/csv/2021/communes/974/97416.csv");
+  });
+
   it("reads an address: parcel, PLU zone, altitude, market", async () => {
     const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "7 rue de la Buse, Saint-Paul", NOW));
     expect(r.resume).toMatch(/^7 Rue de la Buse 97460 Saint-Paul \(adresse exacte\)\u00a0; altitude 5 m\u00a0; parcelle cadastrale BO 0552 \(2416 m²\)\u00a0; zone U1c du PLU, zone urbaine/);
     expect(r.urbanisme.approuve_le).toBe("27/09/2012");
     expect(urls[0]).toContain("geocodage");
+    // The street's own sales first, then the area's, named before its figures.
+    expect(r.resume).toContain("\u00a0; sur la voie (Rue de la Buse) depuis 2021 : maisons 2500 €/m² en médiane (7 ventes)\u00a0; dans le secteur alentour (environ 600 m sur 600 m), maisons vendues depuis 2021 : ");
+    expect(r.marche_immobilier.sur_la_voie).toMatchObject({ voie: "Rue de la Buse", depuis: 2021, ventes: 10, maisons: { ventes: 7, prix_m2_median: "2500 €/m²" }, appartements: { ventes: 2 } });
+    // One file a year of the commune, from 2021; none of a sale, its parcel or its price alone in the answer.
+    expect(urls.filter((u) => u.includes("geo-dvf"))).toEqual([2021, 2022, 2023, 2024, 2025, 2026].map((y) => `https://files.data.gouv.fr/geo-dvf/latest/csv/${y}/communes/974/97415.csv`));
+    expect(JSON.stringify(r.marche_immobilier)).not.toMatch(/BO00|420 000|T7/);
+    expect(r.sources.map((x: { source: string }) => x.source)).toContain("Demandes de valeurs foncières géolocalisées (DVF, Etalab)");
   });
 
   it("knows the street asked from another, by its name", () => {

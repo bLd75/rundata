@@ -3,16 +3,17 @@
  * - address search: Géoplateforme geocoder (Base adresse nationale), IGN;
  * - cadastral parcel and zone of the local urban plan (PLU): API Carto, IGN (cadastre, Géoportail de l'urbanisme);
  * - ground altitude: IGN RGE ALTI;
- * - property sales around: DVF open data, Cerema API (published as "preprod", no availability promise);
+ * - property sales around: DVF open data, Cerema API (published as "preprod", no availability promise); on the street
+ *   asked, the commune's yearly files of DVF géolocalisées (Etalab), which keep the street's code;
  * - risk prevention plans (PPR) at the point: public-utility easements of the Géoportail de l'urbanisme, through API Carto;
  * - natural disaster decrees of the commune and landslides recorded around: Géorisques API v1 (BRGM).
  */
 import type { Cache, Cached } from "../cache.js";
-import { getJson } from "../http.js";
-import type { SourceInfo } from "../types.js";
+import { getJson, getText } from "../http.js";
+import { UpstreamError, type SourceInfo } from "../types.js";
 import { ALTIMETRIE } from "./ign.js";
 
-export const SOURCES: Record<"ban" | "cadastre" | "gpu" | "alti" | "dvf" | "ppr" | "georisques", SourceInfo> = {
+export const SOURCES: Record<"ban" | "cadastre" | "gpu" | "alti" | "dvf" | "dvfVoie" | "ppr" | "georisques", SourceInfo> = {
   ban: { id: "ban_geocodage", nom: "Base adresse nationale (géocodage de la Géoplateforme)", organisme: "IGN, Etalab", licence: "Licence Ouverte Etalab 2.0", attribution: "BAN, IGN", url: "https://geoservices.ign.fr/documentation/services/services-geoplateforme/geocodage" },
   cadastre: { id: "cadastre_apicarto", nom: "Plan cadastral (API Carto)", organisme: "DGFiP, IGN", licence: "Licence Ouverte Etalab 2.0", attribution: "DGFiP, IGN", url: "https://apicarto.ign.fr/api/doc/cadastre" },
   gpu: { id: "gpu_zone_urba", nom: "Zonage des plans locaux d'urbanisme (Géoportail de l'urbanisme)", organisme: "Communes, IGN", licence: "Licence Ouverte Etalab 2.0", attribution: "Géoportail de l'urbanisme", url: "https://www.geoportail-urbanisme.gouv.fr" },
@@ -20,6 +21,7 @@ export const SOURCES: Record<"ban" | "cadastre" | "gpu" | "alti" | "dvf" | "ppr"
   ppr: { id: "gpu_ppr", nom: "Plans de prévention des risques (servitudes du Géoportail de l'urbanisme)", organisme: "DEAL Réunion, IGN", licence: "Licence Ouverte Etalab 2.0", attribution: "DEAL Réunion, Géoportail de l'urbanisme", url: "https://www.geoportail-urbanisme.gouv.fr" },
   georisques: { id: "georisques", nom: "Géorisques : arrêtés de catastrophe naturelle, mouvements de terrain recensés (BDMvt)", organisme: "Ministère de la Transition écologique, BRGM", licence: "Licence Ouverte Etalab 2.0", attribution: "Géorisques, BRGM", url: "https://www.georisques.gouv.fr" },
   dvf: { id: "dvf_cerema", nom: "Demandes de valeurs foncières (DVF open data, Cerema)", organisme: "DGFiP, Cerema", licence: "Licence Ouverte Etalab 2.0", attribution: "DGFiP, Cerema (DVF open data)", url: "https://apidf-preprod.cerema.fr" },
+  dvfVoie: { id: "dvf_etalab", nom: "Demandes de valeurs foncières géolocalisées (DVF, Etalab)", organisme: "DGFiP, Etalab", licence: "Licence Ouverte Etalab 2.0", attribution: "DGFiP, Etalab (DVF géolocalisées)", url: "https://files.data.gouv.fr/geo-dvf/" },
 };
 
 const DAY = 24 * 3600;
@@ -35,6 +37,17 @@ export interface Address {
   insee: string;
   /** The street's name, for a street or a house number: what was asked is checked against it. */
   street?: string;
+  /** The address base's id: « 97416_1281 » for a street, « 97416_1281_00012 » for a number on it. */
+  id?: string;
+}
+
+/**
+ * The street's code in the land registry (FANTOIR), from the address base's id: « 1281 » for « 97416_1281 » or
+ * « 97416_1281_00012 ». None for a street the address base names on its own (« 97415_xutypl »): DVF does not know it.
+ */
+export function codeVoie(id: string | undefined): string | undefined {
+  const m = /^974\d\d_([0-9A-Z]\d{3})(?:_|$)/i.exec(id ?? "");
+  return m?.[1].toUpperCase();
 }
 
 /** The best address match in La Réunion (postcodes 974xx), or null. */
@@ -53,6 +66,7 @@ export async function geocode(cache: Cache, q: string, insee?: string): Promise<
     return {
       label: String(p.label), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], score: Number(p.score), type: String(p.type), insee: String(p.citycode),
       ...(p.street ? { street: String(p.street) } : {}),
+      ...(p.id ? { id: String(p.id) } : {}),
     };
   });
 }
@@ -146,6 +160,103 @@ export async function sales(cache: Cache, lon: number, lat: number, fromYear: nu
         lots: Number(p.nblocmut),
       }))
       .filter((s) => s.valeur > 0 && String(s.code) !== "undefined");
+  });
+}
+
+export interface StreetSale {
+  annee: number;
+  /** « maison » or « appartement » sold alone (with its outbuildings), « terrain » without a building, else « autre ». */
+  type: "maison" | "appartement" | "terrain" | "autre";
+  valeur: number;
+  surface_bati: number;
+  surface_terrain: number;
+}
+
+/** The yearly files of DVF géolocalisées, one per commune; the years that have one. */
+const GEO_DVF = (year: number, insee: string) => `https://files.data.gouv.fr/geo-dvf/latest/csv/${year}/communes/974/${insee}.csv`;
+// Not sales, though DVF records them.
+const NOT_SALES = new Set(["Echange", "Expropriation"]);
+
+/** One line of a CSV file of geo-dvf, its quoted fields included. */
+function cells(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') (cur += '"'), i++;
+      else if (c === '"') quoted = false;
+      else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") out.push(cur), (cur = "");
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+/**
+ * The sales of one year file on the street `voie` (its FANTOIR code), each sale once with all its lines, those on other
+ * streets included (a house on this street sold with a field elsewhere is one sale, at one price).
+ */
+export function streetSales(csv: string, voie: string): StreetSale[] {
+  const lines = csv.split("\n");
+  const head = cells(lines[0] ?? "");
+  const col = (name: string) => head.indexOf(name);
+  const [ID, DATE, NATURE, VALEUR, CODE_VOIE, PARCELLE, LOT, TYPE, SBATI, CULTURE, STERR] = ["id_mutation", "date_mutation", "nature_mutation", "valeur_fonciere", "adresse_code_voie", "id_parcelle", "lot1_numero", "code_type_local", "surface_reelle_bati", "code_nature_culture", "surface_terrain"].map(col);
+  if ([ID, CODE_VOIE, VALEUR].some((i) => i < 0)) return [];
+  // The street's code is a field of its own: a quick look first, then the field checked.
+  const ids = new Set<string>();
+  for (const line of lines.slice(1)) if (line.includes(`,${voie},`)) {
+    const c = cells(line);
+    if (c[CODE_VOIE] === voie) ids.add(c[ID]);
+  }
+  const rows = new Map<string, string[][]>();
+  for (const line of lines.slice(1)) {
+    const id = line.slice(0, line.indexOf(","));
+    if (ids.has(id)) rows.set(id, [...(rows.get(id) ?? []), cells(line)]);
+  }
+  return [...rows.values()].flatMap((r) => {
+    const first = r[0];
+    const valeur = Number(first[VALEUR]);
+    if (NOT_SALES.has(first[NATURE]) || !(valeur > 0)) return [];
+    // A building is on as many lines as its parcel has kinds of land, and a kind of land on as many as the parcel has
+    // buildings: each counted once, per parcel, lot, kind and surface, and per parcel and kind of land.
+    const locals = new Map<string, { type: string; bati: number }>();
+    const land = new Map<string, number>();
+    for (const c of r) {
+      if (c[TYPE]) locals.set([c[PARCELLE], c[LOT], c[TYPE], c[SBATI]].join("|"), { type: c[TYPE], bati: Number(c[SBATI]) || 0 });
+      if (c[CULTURE]) land.set(`${c[PARCELLE]}|${c[CULTURE]}`, Number(c[STERR]) || 0);
+    }
+    const of = (code: string) => [...locals.values()].filter((l) => l.type === code);
+    const [maisons, apparts, locaux] = [of("1"), of("2"), of("4")];
+    const type: StreetSale["type"] = !locals.size ? "terrain" : maisons.length === 1 && !apparts.length && !locaux.length ? "maison" : apparts.length === 1 && !maisons.length && !locaux.length ? "appartement" : "autre";
+    return [{
+      annee: Number(first[DATE].slice(0, 4)),
+      type,
+      valeur,
+      surface_bati: type === "maison" ? maisons[0].bati : type === "appartement" ? apparts[0].bati : 0,
+      surface_terrain: [...land.values()].reduce((a, b) => a + b, 0),
+    }];
+  });
+}
+
+/**
+ * The sales on the street `voie` (FANTOIR code) of commune `insee`, from `fromYear` to `toYear`: one file per year. A
+ * year without a file yet (404) is left out; `annees` says which were read.
+ */
+export async function salesOnStreet(cache: Cache, insee: string, voie: string, fromYear: number, toYear: number): Promise<Cached<{ ventes: StreetSale[]; annees: number[] }>> {
+  return cache.get(`dvf-voie:${insee}:${voie}:${fromYear}-${toYear}`, 7 * DAY, async () => {
+    const years = Array.from({ length: toYear - fromYear + 1 }, (_, i) => fromYear + i);
+    const files = await Promise.all(years.map((y) => getText(SOURCES.dvfVoie.id, GEO_DVF(y, insee), 25_000).catch((err) => {
+      if (err instanceof UpstreamError && err.status === 404) return undefined;
+      throw err;
+    })));
+    return {
+      ventes: files.flatMap((f) => (f ? streetSales(f, voie) : [])),
+      annees: years.filter((_, i) => files[i] !== undefined),
+    };
   });
 }
 

@@ -112,6 +112,8 @@ export const FICHES: Record<string, Fiche> = {
   ign_altimetrie: { famille: "licence_ouverte", producteurs: ["IGN"] },
   georisques: { famille: "licence_ouverte", producteurs: [MTE, "BRGM"] },
   dvf_cerema: { famille: "licence_ouverte", producteurs: ["DGFiP", "Cerema"] },
+  // The same sales, by street: the DGFiP's, placed on the map by Etalab.
+  dvf_etalab: { famille: "licence_ouverte", producteurs: ["DGFiP", "Etalab"] },
   prefecture_carburants: { famille: "licence_ouverte", producteurs: [PREFECTURE] },
   tco_decheteries: { famille: "licence_ouverte", producteurs: ["TCO"] },
   tco_collecte: { famille: "licence_ouverte", producteurs: ["TCO"] },
