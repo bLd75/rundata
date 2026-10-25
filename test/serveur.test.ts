@@ -200,6 +200,9 @@ describe("fraicheur", () => {
     const cuts = { resume: "…", ne_pas_boire: ["Salazie"], avis: [{ publie_le: "23/10/2026 à 21:49" }] };
     expect(dataDate(cuts)?.du).toBe("23/10/2026 à 21:49");
     expect(dataDate({ resume: "rien de daté", stations: [] })).toBeUndefined();
+    // The media's headlines beside sport's results never date them, even when nothing else does.
+    const sport = { resume: "…", a_venir: [{ quand: "mardi 27/10 à 20:30" }], actualite: [{ titre: "Football", publie_le: "dimanche 25/10 à 15:15" }] };
+    expect(dataDate(sport)).toBeUndefined();
   });
 
   it("reads the dates an answer writes, Réunion time", () => {
