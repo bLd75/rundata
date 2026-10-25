@@ -53,6 +53,9 @@ describe("domain pages", () => {
     expect(deadAnchors(pages.air)).toEqual([]);
     expect(doubleIds(pages.air)).toEqual([]);
     expect(pages.air).toContain("L&#39;Etang-Salé");
+    // Out of an alert too, high on the page: the OVPF's Facebook page, a link only.
+    expect(pages.volcan.replace(/&#39;/g, "'").replaceAll("\u00a0", " ")).toContain(`<p class="lead">L'OVPF publie aussi sur Facebook, que nous ne lisons pas : <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">suivre sa page officielle ↗</a></p>`);
+    expect(pages.volcan).not.toContain("facebook.com/plugins");
     expect(pages.electricite).toContain(`<span class="big">43 %</span>`);
     expect(pages.electricite).toContain("bioénergies (bagasse, biomasse, biogaz)");
     expect(pages.calendrier).toContain("Prochain jour férié : <b>Toussaint</b>");

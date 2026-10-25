@@ -9,7 +9,7 @@ import { PATH as A_PROPOS, QUI } from "./a-propos.js";
 import icons from "./icons.json" with { type: "json" };
 import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from "./categories.js";
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
-import { actualitesLive, airLive, atDay, bornesLive, busLive, coupuresLive, daeLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive, saidNow, stillToCome } from "./domains.js";
+import { actualitesLive, airLive, atDay, bornesLive, imageLinks, busLive, coupuresLive, daeLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive, saidNow, stillToCome } from "./domains.js";
 import { de } from "../tools/format.js";
 import { enImagesApres, enImagesLuesAilleurs, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
@@ -135,7 +135,7 @@ export function demos(h: HomeLive | null, now: Date): Demo[] {
       call: "volcan_seismes()",
       // In alert, never « pas encore » on our word: what the texts read say, then the level in the plan's words (marketing).
       answer: (!e.eruption_en_cours && /^Alerte/.test(e.niveau_orsec)
-        ? `${esc(NON_ANNONCEE)}${e.image_ovpf_plus_recente && p0?.lien ? ` ${esc((p0.texte_lu_dans_l_image ? enImagesLuesAilleurs : enImagesApres)(...(p0.date.split(" ") as [string, string])))} : <a href="${esc(p0.lien)}">la voir</a>.` : ""} Le volcan est en ${esc(e.niveau_orsec.toLowerCase())}${libelle(e.niveau_orsec) ? ` : « ${esc(libelle(e.niveau_orsec)!)} » (dispositif ORSEC Volcan)` : ""}.`
+        ? `${esc(NON_ANNONCEE)}${e.image_ovpf_plus_recente && p0?.lien ? ` ${esc((p0.texte_lu_dans_l_image ? enImagesLuesAilleurs : enImagesApres)(...(p0.date.split(" ") as [string, string])))} : ${imageLinks(p0.lien)}.` : ""} Le volcan est en ${esc(e.niveau_orsec.toLowerCase())}${libelle(e.niveau_orsec) ? ` : « ${esc(libelle(e.niveau_orsec)!)} » (dispositif ORSEC Volcan)` : ""}.`
         : e.eruption_en_cours
         ? `Oui, le Piton de la Fournaise est en éruption (niveau ORSEC : ${esc(e.niveau_orsec)}).`
         // What the texts read say, with when, never « Non » on our word nor pitonlive's (marketing).

@@ -5,7 +5,7 @@
  * its tile on the home page.
  */
 import { enLigne } from "./associations-drapeau.js";
-import { OVPF, PREFECTURE } from "../providers/volcan.js";
+import { OVPF, OVPF_FACEBOOK, PREFECTURE } from "../providers/volcan.js";
 import { enImagesApres, enImagesLuesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, LOCALISES, LU_DANS_L_IMAGE, NIVEAU_ILLISIBLE, NON_ANNONCEE, ORSEC_BAN, ovpfNiveau, pitonLines, VIGILANCE_ENCLOS } from "../tools/volcan.js";
 import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { PATH as SANS_REPONSE } from "./sans-reponse.js";
@@ -155,6 +155,11 @@ const OVPF_LINK = `<a href="${OVPF.url}">${OVPF.url.replace("https://", "")}</a>
 // A text of ours with the OVPF's link, or a post's, in it: escaped, then the link put back as a link.
 const linked = (t: string, url: string, a: string) => esc(t).replace(esc(url), a);
 
+// The OVPF's Facebook page, which rundata.re does not read: a link only, no embed (marketing).
+const FACEBOOK_LINE = `<p class="lead">L'OVPF publie aussi sur Facebook, que nous ne lisons pas : <a href="${OVPF_FACEBOOK}">suivre sa page officielle ↗</a></p>`;
+/** After « …est en images, que nous ne lisons pas : »: the post on Bluesky, and the OVPF's Facebook page, where the same post may not be (marketing). */
+export const imageLinks = (lien: string) => `<a href="${esc(lien)}">la voir sur Bluesky ↗</a>, ou suivre <a href="${OVPF_FACEBOOK}">l'OVPF sur Facebook ↗</a>`;
+
 // Where the prefecture publishes each phase of the ORSEC volcano plan.
 const GOUV = `<a href="${PREFECTURE.url}">reunion.gouv.fr</a>`;
 
@@ -185,7 +190,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     ? loading("L'état du volcan")
     : `<div class="status">` +
       (e
-        ? (a ? `<p class="lead"><b>${esc(volcanLead(a))}</b>${folded ? ` ${esc((lu ? enImagesLuesApres : enImagesApres)(...(p0!.date.split(" ") as [string, string])))} : <a href="${esc(p0!.lien!)}">la voir</a>.` : ""}</p>` : "") +
+        ? (a ? `<p class="lead"><b>${esc(volcanLead(a))}</b>${folded ? ` ${esc((lu ? enImagesLuesApres : enImagesApres)(...(p0!.date.split(" ") as [string, string])))} : ${imageLinks(p0!.lien!)}.` : ""}</p>${FACEBOOK_LINE}` : "") +
           (e.niveau_inconnu
             // No official level read nor kept: why, then pitonlive as a last resort (marketing).
             ? `<p class="lead">${a ? "" : `${esc(NON_ANNONCEE)} `}${esc(NIVEAU_ILLISIBLE).replace("reunion.gouv.fr", GOUV)}</p>`
@@ -193,6 +198,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
               (e.niveau_definition ? ` <span class="note">${esc(e.niveau_definition)}</span>` : "") +
               (!e.eruption_en_cours && e.derniere_eruption ? ` Dernière éruption : <b>${esc(historique.derniereEruptionDates(e.derniere_eruption))}</b>, selon l'<a href="${esc(e.derniere_eruption.lien)}" rel="noopener">OVPF</a>.` : "") +
               `</p>`) +
+          // Out of an alert, under the level: the OVPF's Facebook page, high on the page too.
+          (a ? "" : FACEBOOK_LINE) +
           // The IPGP's site silent, under the state it may leave out (marketing), with the list of the silent sites.
           (d.injoignable ? `<p class="note">${esc(d.injoignable)} <a href="${SANS_REPONSE}">Voir les sites sans réponse</a>.</p>` : "") +
           ovpf + piton +
