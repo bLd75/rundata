@@ -184,9 +184,12 @@ export function lineText(a: Annonce, now: Date): string {
   return `${etatText(a)}, selon ${a.media}, ${linkWord(a)} publié ${publieText(a, now)} (${a.lien}).`;
 }
 
-/** What the tool actualites gives of it, when the place or the subject is the road: nothing when there is no announcement. */
+/**
+ * What the tool actualites gives of it, when the place or the subject is the road. With no announcement it says so,
+ * with the window read: left out, the AI said nothing of the road (researcher, 25/10). Never « ouverte » by deduction.
+ */
 export function forTool(l: Littoral | undefined, now: Date) {
-  if (!l) return undefined;
+  if (!l) return { annonce: NONE, aucune_annonce: true as const, periode_lue: `les dernières ${MAX_HOURS} heures`, etat_officiel: INFOTRAFIC };
   return {
     annonce: `${l.annonces.length > 1 ? `${DISAGREE} ` : agePrefix(l)}${l.annonces.map((a) => lineText(a, now)).join(" ")}`,
     annonces: l.annonces.map((a) => ({ etat: etatText(a), selon: a.media, publie: publieText(a, now), lien: a.lien })),
