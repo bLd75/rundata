@@ -5,7 +5,6 @@
 import { alerteVolcan, homeCard, volcanBanner } from "./volcan-alerte.js";
 import type { Cached } from "../cache.js";
 import type * as mf from "../providers/vigilance.js";
-import brand from "./brand.json" with { type: "json" };
 import icons from "./icons.json" with { type: "json" };
 import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from "./categories.js";
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
@@ -222,7 +221,7 @@ function tile(c: Category, l: Live | undefined, odd = false): string {
   const more = c.path ? `<span class="go" aria-hidden="true">→</span>` : "";
   const foot = c.path ? "" : `<a class="tl" href="#assistant">Demandez à votre IA →</a>`;
   return `<li class="tile k-${c.key}${c.path ? "" : " wide"}${odd ? " odd" : ""}"><div class="th"><span class="kb">${icon(c.icon)}</span>${name}${more}</div>${now}` +
-    `<p class="ta">${esc(c.about)}</p><p class="tf">${c.tools.map((t) => `<code>${t}</code>`).join(" ")}</p>${foot}</li>`;
+    `<p class="ta">${esc(c.about)}</p>${foot}</li>`;
 }
 
 // On a phone the tiles go two by two: an odd one out at the end of those with a page takes the whole row.
@@ -250,7 +249,7 @@ function tiles(live: Record<string, Live | undefined>, u: Urgent, news = ""): st
   return `<section id="en-ce-moment" aria-labelledby="h-ile">
   <div class="sec-h"><p class="eyebrow">En direct</p>
     <h2 id="h-ile">L'île en ce moment</h2>
-    <p>Une page par sujet, mise à jour toutes les 5 minutes. Chaque donnée vient d'un organisme public ou d'un projet ouvert, avec son heure et sa source.</p></div>
+    <p>Une page par sujet, mise à jour en continu. Chaque donnée vient d'un organisme public ou d'un projet ouvert, avec son heure et sa source.</p></div>
   ${news}
   <ul class="tiles" aria-label="Catégories">${all.map((c, i) => tile(c, live[c.key], i === PAGED - 1 && PAGED % 2 === 1)).join("")}</ul>
 </section>`;
@@ -278,7 +277,7 @@ function assistant(origin: string, h: HomeLive | null, now: Date): string {
         <p>Ensuite, dans une conversation (appli comprise), tapez <b>@</b> et choisissez rundata.re. Testé avec l'offre ChatGPT Go. Si le menu Plugins n'apparaît pas sur votre compte, utilisez les boutons « Domann out IA » plus haut.</p></div>
         <p class="tab t-claude"><b>Gratuit</b> (un connecteur personnalisé inclus). Sur <a href="https://claude.ai/">claude.ai</a> dans un navigateur : <b>Personnaliser → Connecteurs → Ajouter un connecteur personnalisé</b>, nom <b>rundata.re</b>, collez l'adresse, puis <b>Ajouter</b>. Il marche ensuite aussi dans l'appli iPhone et Android.</p>
         <p class="tab t-gemini">Pour l'instant, Google réserve les connecteurs personnalisés de Gemini à certains abonnés Google AI Pro ou Ultra aux États-Unis. Si votre compte y a droit : dans Gemini sur le web, ajoutez une application personnalisée et collez l'adresse du serveur MCP.</p>
-        <p class="tab t-meta">Meta AI (WhatsApp, Messenger, Instagram) ne permet pas encore d'ajouter un connecteur. En attendant, envoyez-lui le lien de la page de votre commune, par exemple <b>rundata.re/meteo/saint-denis</b>, ou ouvrez-la directement : elle se met à jour toutes les 5 minutes.</p>
+        <p class="tab t-meta">Meta AI (WhatsApp, Messenger, Instagram) ne permet pas encore d'ajouter un connecteur. En attendant, envoyez-lui le lien de la page de votre commune, par exemple <b>rundata.re/meteo/saint-denis</b>, ou ouvrez-la directement : elle se met à jour en continu, chaque donnée avec son heure et sa source.</p>
         <p class="tab t-lechat">Dans <a href="https://chat.mistral.ai/">Le Chat</a> de Mistral : <b>Connecteurs → Ajouter un connecteur → MCP personnalisé</b>, puis collez l'adresse.</p>
         <p class="tab t-local">Claude Desktop, Cursor, VS Code et autres logiciels compatibles MCP : collez l'adresse comme serveur distant (HTTP).</p>
       </div></li>
@@ -338,7 +337,7 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
     <h1>La Réunion <span class="n974">974</span> en direct</h1>
     ${SLOGAN}
     <p class="lead">Sorties, randos, météo, routes : la donnée publique du moment, datée et sourcée, pour vous et pour <b>votre assistant IA</b>.</p>
-    <p class="hero-cta"><a class="btn sun" href="#assistant">${icon("spark")}Brancher mon IA</a><a class="btn glass" href="#en-ce-moment">Voir l'île</a></p>
+    <p class="hero-cta"><a class="btn sun" href="#en-ce-moment">Voir l'île</a><a class="btn glass" href="#assistant">${icon("spark")}Brancher mon IA</a></p>
     ${follow(undefined, "social hero-follow")}
     ${facts(live, u)}
   </div>
@@ -355,8 +354,8 @@ ${PRINCIPLES}`;
   return layout(origin, {
     title: "La Réunion 974 en direct : météo, routes, rando, sorties",
     description:
-      `🇷🇪 ${brand.slogan}\u00a0: sorties, randos, météo et routes de La Réunion 974, en direct dans ` +
-      "ChatGPT, Claude ou Le Chat. Gratuit, sans compte.",
+      "Sorties, randos, météo mesurée, routes\u00a0: les données publiques de La Réunion 974 en direct, datées et sourcées. " +
+      "Gratuit, sans compte, aussi dans votre IA.",
     path: "/",
     jsonld,
     alerte,

@@ -29,7 +29,7 @@ describe("past cyclones", () => {
       ["Le Baril", "rafale", 1989],
     ]);
     expect(records(passe("batsirai-2022"))).toEqual([]);
-    expect(metaOf(passe("garance-2025"))).toBe("🇷🇪 Cyclone Garance (février 2025) à La Réunion (974) : pluie et rafales mesurées station par station par Météo-France, et les records de station.");
+    expect(metaOf(passe("garance-2025"))).toBe("Cyclone Garance (février 2025) à La Réunion (974) : pluie et rafales mesurées station par station par Météo-France, et les records de station.");
     expect(metaOf(passe("batsirai-2022"))).not.toContain("records");
   });
 
@@ -64,7 +64,7 @@ describe("past cyclones", () => {
   it("gives a long episode each station's wettest day, and says how few measured the wind", () => {
     const h = passe("hyacinthe-1980");
     expect(titleOf(h)).toBe("Cyclone Hyacinthe 1980 : pluie mesurée · Réunion 974");
-    expect(metaOf(h)).toBe("🇷🇪 Cyclone Hyacinthe (janvier 1980) à La Réunion (974) : pluie mesurée station par station par Météo-France, et les records de station.");
+    expect(metaOf(h)).toBe("Cyclone Hyacinthe (janvier 1980) à La Réunion (974) : pluie mesurée station par station par Météo-France, et les records de station.");
     expect(mesures(h).jours).toHaveLength(12);
     const html = passePage("https://rundata.re", h);
     expect(html).toContain("<h1>Cyclone Hyacinthe, du 15 au 28 janvier 1980</h1>");
@@ -94,7 +94,7 @@ describe("past cyclones", () => {
     expect(html).toContain("<h2 id=\"h-extraits\">Records mondiaux, selon Météo-France</h2>");
     expect(html).toContain("<p>Cumuls de pluie de Gamède, selon la page de Météo-France :</p>");
     expect(html).toContain("rel=\"noopener\">2007 Gamede</a>, Météo-France, site « Pluies extrêmes à La Réunion », copie archivée du 18/05/2024 : le site est suspendu depuis juillet 2024)</p>");
-    expect(metaOf(g)).toBe("🇷🇪 Cyclone Gamède (février 2007) à La Réunion (974) : pluie et vent mesurés, records de station, records mondiaux de pluie en 72 et 96 h selon Météo-France.");
+    expect(metaOf(g)).toBe("Cyclone Gamède (février 2007) à La Réunion (974) : pluie et vent mesurés, records de station, records mondiaux de pluie en 72 et 96 h selon Météo-France.");
     for (const p of PASSES) expect(metaOf(p).length, p.slug).toBeLessThanOrEqual(DESCRIPTION_MAX);
     expect(html).toContain("« en 72 heures : 3930\u00a0mm au Cratère Commerson et 3271\u00a0mm à Hell-Bourg, dépassant ainsi le précédent record mondial de 3240\u00a0mm");
     // « record mondial » only inside Météo-France's words.

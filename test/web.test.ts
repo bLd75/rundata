@@ -234,7 +234,7 @@ describe("home page", () => {
     // The title names what people look for; the AI stays in the h1 and the description.
     expect(page).toContain("<title>La Réunion 974 en direct : météo, routes, rando, sorties</title>");
     expect(page).toContain('property="og:title" content="La Réunion 974 en direct : météo, routes, rando, sorties"');
-    expect(page).toMatch(/name="description" content="🇷🇪 [^"]*974/);
+    expect(page).toMatch(/name="description" content="[^"]*974/);
     for (const link of ["https://www.facebook.com/1432704299917309", "https://glama.ai/mcp/servers/bLd75/rundata", "https://www.data.gouv.fr/reuses/"]) expect(page).toContain(`href="${link}`);
   });
 

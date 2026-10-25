@@ -358,9 +358,8 @@ background:radial-gradient(closest-side,color-mix(in srgb,var(--k) 22%,transpare
 .tv .vg,.tv .aq{font:inherit;font-size:.95rem;padding:.15rem .6rem;vertical-align:.12em}
 .td{font-size:.84rem;line-height:1.4;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .tq{font-size:.92rem;font-style:italic;align-self:flex-start;padding:.4rem .85rem;border-radius:16px 16px 16px 4px;background:var(--surface-2);border:1px solid var(--line)}
-.ta,.tf{display:none}
-@media (min-width:66rem){.ta{display:block;font-size:.86rem;line-height:1.45;color:var(--muted);padding-top:.5rem;margin-top:auto;border-top:1px solid var(--line)}
-.tf{display:block}.tf code{font:700 .74rem ui-monospace,SFMono-Regular,Menlo,monospace;color:color-mix(in srgb,var(--k) 70%,var(--muted))}}
+.ta{display:none}
+@media (min-width:66rem){.ta{display:block;font-size:.86rem;line-height:1.45;color:var(--muted);padding-top:.5rem;margin-top:auto;border-top:1px solid var(--line)}}
 .tl{position:relative;z-index:2;font-weight:700;font-size:.9rem;margin-top:.2rem}
 
 .hero{position:relative;z-index:1;overflow:hidden;color:#fff;--sky1:#050f1a;--sky2:#0f2c4b;--glow:rgb(255 207 31/.0);
@@ -1085,9 +1084,9 @@ export function meteoPage(origin: string, data: Cached<HomeData> | null, now = n
 
   const title = "Météo Réunion 974 en direct : stations et prévisions";
   const description = live
-    ? fit(`🇷🇪 Météo à La Réunion (974) en direct : de ${thin(deg(coldest(l).temperature!))} à ${shortName(coldest(l).nom)} à ${thin(deg(warmest(l).temperature!))} à ${shortName(warmest(l).nom)}, mesurés à ${hm(latest!)}.`,
+    ? fit(`Météo à La Réunion (974) en direct : de ${thin(deg(coldest(l).temperature!))} à ${shortName(coldest(l).nom)} à ${thin(deg(warmest(l).temperature!))} à ${shortName(warmest(l).nom)}, mesurés à ${hm(latest!)}.`,
         " Pluie, vent, mer et prévisions par commune.")
-    : "🇷🇪 Météo à La Réunion (974) en direct : température, pluie et vent mesurés par les stations de l'île, mer et prévisions par commune.";
+    : "Météo à La Réunion (974) en direct : température, pluie et vent mesurés par les stations de l'île, mer et prévisions par commune.";
 
   const jsonld = [
     {
@@ -1212,9 +1211,9 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
   const title = `Météo ${p.nom} en direct et prévisions · 974`.length <= 60 ? `Météo ${p.nom} en direct et prévisions · 974` : `Météo ${p.nom} en direct · 974`;
   const description = fit(
     first
-      ? `🇷🇪 Météo à ${p.nom} (La Réunion, 974) en direct : ${first.mesures.temperature} mesurés à ${first.station} à ` +
+      ? `Météo à ${p.nom} (La Réunion, 974) en direct : ${first.mesures.temperature} mesurés à ${first.station} à ` +
         `${first.heure_mesure.split(" ")[1]}.`
-      : `🇷🇪 Météo à ${p.nom} (La Réunion, 974) en direct : température, pluie et vent mesurés par la station la plus proche.`,
+      : `Météo à ${p.nom} (La Réunion, 974) en direct : température, pluie et vent mesurés par la station la plus proche.`,
     first ? ` Pluie, vent${coastal(p) ? ", mer" : ""} et prévision.` : ` ${coastal(p) ? "Mer et prévision" : "Prévision"} des prochains jours.`,
   );
 
@@ -1345,7 +1344,7 @@ ${hikesAround(p, hikes)}
 export function notFoundPage(origin: string, path: string): string {
   return layout(origin, {
     title: `Page introuvable · ${SITE}`,
-    description: "🇷🇪 La Réunion (974) en temps réel\u00a0: sorties, randos, météo, routes, vigilance, volcan, air, électricité, calendrier.",
+    description: "La Réunion (974) en temps réel\u00a0: sorties, randos, météo, routes, vigilance, volcan, air, électricité, calendrier.",
     path,
     jsonld: [],
   }, `<div class="wrap intro"><div class="pitch"><h1>Page introuvable</h1><p class="lead">Cette adresse n'existe pas. Toute l'île en direct est sur <a href="/">la page d'accueil</a>, et chaque catégorie a sa page ci-dessous.</p></div></div>`,
@@ -1466,8 +1465,8 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
 
   const title = "Vigilance météo et alerte cyclonique Réunion 974 en direct";
   const description = v
-    ? `🇷🇪 Vigilance Météo-France à La Réunion (974) : ${cyclone(v, now)} ${r.length ? `Au-dessus du vert : ${r.map((x) => `${x.couleur_max} ${x.phenomene.toLowerCase()} (${x.zone.split(" :")[0]})`).join(", ")}.` : "Tout est vert."} Bulletin du ${emise}.`
-    : "🇷🇪 Vigilance Météo-France à La Réunion (974) en direct : alerte cyclonique, fortes pluies, vents forts, vagues-submersion, zone par zone.";
+    ? `Vigilance Météo-France à La Réunion (974) : ${cyclone(v, now)} ${r.length ? `Au-dessus du vert : ${r.map((x) => `${x.couleur_max} ${x.phenomene.toLowerCase()} (${x.zone.split(" :")[0]})`).join(", ")}.` : "Tout est vert."} Bulletin du ${emise}.`
+    : "Vigilance Météo-France à La Réunion (974) en direct : alerte cyclonique, fortes pluies, vents forts, vagues-submersion, zone par zone.";
 
   const jsonld = [
     {
@@ -1593,8 +1592,8 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
 
   const title = "Mer Réunion : houle, température de l'eau et marée · 974";
   const description = warm && cool
-    ? `🇷🇪 La mer à La Réunion (974) plage par plage : l'eau de ${deg(cool.valeur!)} à ${deg(warm.valeur!)}, mesurée par satellite le ${dayMonth(day!)}${top ? `, et la houle prévue, jusqu'à ${top.houle!.max}` : ""}.`
-    : "🇷🇪 La mer à La Réunion (974), plage par plage : la température mesurée par satellite, la houle prévue. Saint-Gilles, Saint-Leu, Saint-Pierre…";
+    ? `La mer à La Réunion (974) plage par plage : l'eau de ${deg(cool.valeur!)} à ${deg(warm.valeur!)}, mesurée par satellite le ${dayMonth(day!)}${top ? `, et la houle prévue, jusqu'à ${top.houle!.max}` : ""}.`
+    : "La mer à La Réunion (974), plage par plage : la température mesurée par satellite, la houle prévue. Saint-Gilles, Saint-Leu, Saint-Pierre…";
 
   const jsonld = [
     {

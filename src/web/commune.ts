@@ -267,7 +267,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     mairie && mairie.valeur !== "Horaires non publiés" && `mairie ${mairie.valeur.toLowerCase()}`,
   ].filter(Boolean);
   const description = fit(
-    `🇷🇪 ${p.nom} (La Réunion, 974) en direct${facts.length ? ` : ${facts.join(", ")}` : ""}.`,
+    `${p.nom} (La Réunion, 974) en direct${facts.length ? ` : ${facts.join(", ")}` : ""}.`,
     " Vigilance, prochains bus, soleil, chaque donnée datée et sourcée.",
   );
 
@@ -315,7 +315,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const sources = [...(l.commune?.value.sources ?? []), ...(l.place?.value.meteo?.sources ?? []), ...(l.air?.value.sources ?? [])];
   const body = `<section id="en-ce-moment" aria-labelledby="h-now">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-now">${esc(p.nom)} en ce moment</h2>
-  <p>Chaque catégorie a sa page pour toute l'île ; ici, ce qui concerne ${esc(p.nom)}. Données mises à jour toutes les 5 minutes, avec leur heure et leur source.</p></div>
+  <p>Chaque catégorie a sa page pour toute l'île ; ici, ce qui concerne ${esc(p.nom)}. Mise à jour en continu, chaque donnée avec son heure et sa source.</p></div>
   <ul class="tiles" aria-label="Catégories">${tiles.map(tile).join("")}</ul>
   ${sources.length ? `<p class="note">Sources : ${credits(sources)}. Bus : horaires théoriques publiés par les réseaux, sans les retards. Mairie : horaires publiés sur service-public.fr, sans les fermetures exceptionnelles.</p>` : ""}
   ${coastal(p) ? `<p class="or">${BAIGNADE_LINE}</p>` : ""}
@@ -341,7 +341,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
 export function communesPage(origin: string, alerte?: Alerte): string {
   const zones = ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"];
   const title = "Les 24 communes de La Réunion 974 en direct";
-  const description = "🇷🇪 Les 24 communes de La Réunion (974) en direct : météo, vigilance, air, mer, prochains bus, mairie ouverte ou non, soleil.";
+  const description = "Les 24 communes de La Réunion (974) en direct : météo, vigilance, air, mer, prochains bus, mairie ouverte ou non, soleil.";
   const jsonld = [
     {
       "@context": "https://schema.org",

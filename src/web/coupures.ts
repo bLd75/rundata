@@ -115,13 +115,13 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
 
   const title = [`Coupure d'eau ${p.nom} aujourd'hui : avis en cours · 974`, `Coupure d'eau ${p.nom} : avis en cours · 974`, `Coupure d'eau ${p.nom} · 974`]
     .find((t) => t.length <= TITLE_MAX) ?? `Coupure d'eau ${p.nom} · 974`;
-  const short = `🇷🇪 Coupures d'eau ${where} (974) : avis du distributeur, restrictions sécheresse et qualité de l'eau du robinet.`;
+  const short = `Coupures d'eau ${where} (974) : avis du distributeur, restrictions sécheresse et qualité de l'eau du robinet.`;
   const description = !d
     ? short
     : x.avis.length
-      ? describe(`🇷🇪 ${p.nom} (974) : ${x.dry ? "eau à ne pas boire ; " : ""}${plural(x.avis.length, "avis", "avis")} de ${by} en cours ou à venir, avec les rues, les heures et les consignes.`, short)
+      ? describe(`${p.nom} (974) : ${x.dry ? "eau à ne pas boire ; " : ""}${plural(x.avis.length, "avis", "avis")} de ${by} en cours ou à venir, avec les rues, les heures et les consignes.`, short)
       : dist?.avis
-        ? describe(`🇷🇪 Aucune coupure d'eau annoncée par ${dist.nom} ${where} (974) à ${at}. Restrictions sécheresse, qualité de l'eau du robinet et contact du distributeur.`, short)
+        ? describe(`Aucune coupure d'eau annoncée par ${dist.nom} ${where} (974) à ${at}. Restrictions sécheresse, qualité de l'eau du robinet et contact du distributeur.`, short)
         : short;
   const trail = {
     "@context": "https://schema.org",

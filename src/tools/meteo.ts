@@ -2,6 +2,7 @@ import type { Cache, Cached } from "../cache.js";
 import { distanceKm, versant } from "../geo.js";
 import { resolvePlace, type Resolution } from "../places/resolve.js";
 import * as meteofrance from "../providers/meteofrance.js";
+import { STATIONS_EN_SERVICE } from "../providers/meteofrance-stations.js";
 import * as metar from "../providers/metar.js";
 import * as pioupiou from "../providers/pioupiou.js";
 import * as radar from "../providers/radar.js";
@@ -29,7 +30,7 @@ export function providers(): Provider[] {
 
 export function coverage(): string {
   return meteofrance.enabled()
-    ? "Les quelque 56 stations Météo-France de l'île, de la côte aux sommets et dans les cirques (mesures toutes les " +
+    ? `Les quelque ${STATIONS_EN_SERVICE} stations Météo-France de l'île, de la côte aux sommets et dans les cirques (mesures toutes les ` +
         "6 min, publiées 5 à 10 min après : température, pluie, et pour une partie d'entre elles humidité et vent), " +
         "les observations des 2 aéroports (METAR, état du ciel) et 1 balise de vent (Cambaie, Saint-Paul)."
     : "Version 0.1 : seules les sources ouvertes sans clé sont branchées, soit les 2 stations des aéroports " +
@@ -37,7 +38,7 @@ export function coverage(): string {
         "Pas encore de pluviomètre en temps réel, ni de station dans les Hauts ou les cirques.";
 }
 
-// Without a place, the tour of the island: coast on every side, the Hauts and a cirque, not all 56 stations.
+// Without a place, the tour of the island: coast on every side, the Hauts and a cirque, not all of them.
 const TOUR_METEOFRANCE = [
   "97418110", // Saint-Denis Gillot
   "97407520", // Le Port
