@@ -735,8 +735,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Actualités de La Réunion en direct : manifestations, blocages, routes, faits divers",
       description:
         "Ce qui se passe en ce moment à La Réunion (974), d'après les médias de l'île (Réunion La 1ère, Clicanoo, Le Quotidien, Imaz Press et son direct, Freedom, " +
-        "Parallèle Sud, Témoignages) relus toutes les 5 minutes, et les communiqués de la préfecture : pour chaque information, l'heure, le média, " +
-        "le titre, la première phrase, les communes et lieux nommés, ce qu'elle dit du lieu demandé, le lien vers l'article. Par lieu (commune, quartier) " +
+        "Parallèle Sud, Témoignages) relus toutes les 5 minutes, et les communiqués de la préfecture : pour chaque information, l'heure (ou le jour seul quand le média ne donne pas l'heure), " +
+        "le média, le titre, la première phrase quand le média la donne, les communes et lieux nommés, ce qu'elle dit du lieu demandé, le lien vers l'article. Par lieu (commune, quartier) " +
         "et par sujet (manifestations et blocages, routes, météo, volcan, eau, faits divers, santé, politique, culture, sport). " +
         "Pour : « il y a des blocages à Saint-Pierre ? », « la manifestation se passe comment ? », « quoi de neuf à Saint-Benoît ? », « route fermée ? », " +
         "« dernières infos sur le cyclone ». / Live local news of Réunion Island: headlines of the local media and their live blogs, prefecture releases, by place and subject.",
