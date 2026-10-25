@@ -99,10 +99,10 @@ describe("the schools and the cyclone alert", () => {
     expect(calm).toContain("<h1>Cyclone : les écoles sont-elles fermées ?</h1>");
     expect(calm).toContain("Pas d&#39;alerte cyclonique en cours à La Réunion.");
     expect(calm).toContain("Ce que prévoit le plan ORSEC Cyclones</h2>");
-    expect(calm).toContain("Alerte orange cyclonique : crèches, écoles, collèges et lycées fermés pour l&#39;ensemble du département. La règle du plan ORSEC");
+    expect(calm).toContain("Alerte orange cyclonique\u00a0: crèches, écoles, collèges et lycées fermés pour l&#39;ensemble du département. La règle du plan ORSEC");
     const orange = page(map([[8, "2026-10-24T06:00:00"]]));
     expect(orange).toContain('selon le <a href="https://www.reunion.gouv.fr/Actions-de-l-Etat/');
-    expect(orange).toContain("🌀 Alerte orange à La Réunion (974) : crèches, écoles, collèges et lycées fermés, selon le plan ORSEC Cyclones de la préfecture.");
+    expect(orange).toContain("🌀 Alerte orange à La Réunion (974)\u00a0: crèches, écoles, collèges et lycées fermés, selon le plan ORSEC Cyclones de la préfecture.");
     const since = page(map([[7, "2026-10-24T06:00:00", "2026-10-24T13:00:00"], [8, "2026-10-24T13:00:00"]]));
     expect(since).toContain('en vigueur depuis le samedi 24/10 à 13:00 (<a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">bulletin de Météo-France</a>).');
     // On its own page, the banner does not link to it.
