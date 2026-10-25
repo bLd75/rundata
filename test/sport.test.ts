@@ -7,7 +7,7 @@ import { parseSportsregions } from "../src/providers/agenda.js";
 import { frenchDays, parisDay, parseGolf, parseLsar, parseNews, parseVolley } from "../src/providers/sport.js";
 import { avisIn, avisPresse, daysIn, parseLrvb } from "../src/providers/sport-avis.js";
 import { clubOf, clubsNamed, zoneOf } from "../src/sport/clubs.js";
-import { sportTool, window } from "../src/tools/sport.js";
+import { quand, sportTool, window } from "../src/tools/sport.js";
 import { sportPage } from "../src/web/domains.js";
 
 // The communes' sites read, as once they have agreed (test/autorisations.test.ts for what is said until then).
@@ -261,6 +261,22 @@ describe("sport", () => {
     // Not for another sport, nor for a commune (its place is not known yet).
     expect(body(await sportTool(ligue(), "handball", undefined, "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
     expect(body(await sportTool(ligue(), "volley", "Saint-Pierre", "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
+  });
+
+  it("says the tournaments and the clubs' events it has no young copy of, with why", async () => {
+    const store = new MemoryStore();
+    const at = NOW.getTime() - 49 * 3600_000;
+    const tournoi = { id: "Ligue réunionnaise de volley-ball:8790", titre: "King Saison 6 Solo étape 2", seances: [{ debut: "2026-11-01" }], lieu: "lieu à venir (voir la page de la Ligue)", categories: ["OUTDOOR"], lien: "https://lrvb.re/calendrier2/king-saison-6-solo-etape-2/", publie_par: "Ligue réunionnaise de volley-ball" };
+    // The league's copy read 49 hours ago, the clubs' calendar never read and its reading failed.
+    await store.put("agendas:planifies", { value: { "agenda:lrvb": { value: [tournoi], fetchedAt: at }, "echec:sportsregions": { value: true, fetchedAt: NOW.getTime() } }, fetchedAt: NOW.getTime() });
+    const b = body(await sportTool(new Cache(store, () => NOW.getTime()), "volley", undefined, "a_venir", NOW));
+    expect(b.a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
+    const since = `dernière lecture le ${quand(new Date(at + 4 * 3600_000).toISOString().slice(0, 16))}`;
+    const tried = `dernière lecture sans succès (${quand(new Date(NOW.getTime() + 4 * 3600_000).toISOString().slice(0, 16))})`;
+    expect(b.non_lus).toEqual([`Ligue réunionnaise de volley-ball : ${since}`, `Clubs sportifs (Sportsregions) : ${tried}`]);
+    // Handball: the clubs' calendar only. The Grand Raid: neither.
+    expect(body(await sportTool(new Cache(store, () => NOW.getTime()), "handball", undefined, "a_venir", NOW)).non_lus).toEqual([`Clubs sportifs (Sportsregions) : ${tried}`]);
+    expect(body(await sportTool(new Cache(store, () => NOW.getTime()), "grand_raid", undefined, undefined, NOW)).non_lus).toBeUndefined();
   });
 
   it("reads the scheduled event's copies from KV once, cold, within the budget", async () => {

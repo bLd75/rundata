@@ -78,6 +78,13 @@ const loading = (what: string) => `<p class="lead">${esc(what)} se charge : rech
 const sourcesNote = (list: { source: string; licence: string; attribution: string }[], data: Cached<unknown>) =>
   `<p class="note">Sources : ${credits(list)}. Mis à jour à ${hm(data.fetchedAt)}.</p>`;
 
+/**
+ * The agendas of the scheduled event not read lately (tools/agenda.ts, `non_lus`: « Ville de Saint-Leu : dernière
+ * lecture le … »), as one line of the card « À savoir ».
+ */
+export const sansLecture = (nonLus: string[] | undefined): string[] =>
+  nonLus?.length ? [`Agendas sans lecture récente : ${nonLus.map((x) => x.replace(/ : (?!.* : )/, ", ")).join("\u00a0; ")}. Leurs événements peuvent manquer ici.`] : [];
+
 const warnings = (list: string[]) =>
   list.length ? `<div class="card warn">${icon("alert")}<h3>À savoir</h3><ul class="plain">${list.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : "";
 
@@ -2288,7 +2295,10 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   ${list}
   ${d?.non_repris ? `<p>${esc(d.non_repris)}</p>` : ""}
   ${clubsLink()}
-  ${d?.indisponible?.length ? warnings([`Agendas non lus cette fois (en panne, trop lents, ou laissés à la visite suivante) : ${d.indisponible.join(", ")}. La liste peut être incomplète.`]) : ""}
+  ${warnings([
+    ...(d?.indisponible?.length ? [`Agendas non lus cette fois (sans réponse dans le délai, ou laissés à la visite suivante) : ${d.indisponible.join(", ")}. La liste peut être incomplète.`] : []),
+    ...sansLecture(d?.non_lus),
+  ])}
 </section>
 <section aria-labelledby="h-couv">
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p>

@@ -13,7 +13,7 @@ import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
 import { dayMonth, mention, mentionIle as ileMention } from "./non-repris.js";
-import { quand as dayText } from "./sport.js";
+import { quand as dayText, derniereLecture } from "./sport.js";
 
 const AHEAD_DAYS = 14;
 const SOON_DAYS = 30;
@@ -147,7 +147,8 @@ export function matcher(quoi: string | undefined): { nom?: string; test: (e: src
   return { nom: `« ${quoi!.trim()} »`, test: (e) => words.every((w) => normalize(body(e)).includes(w)) };
 }
 
-type Got = { agenda: src.Agenda; value?: Cached<src.Evenement[]> };
+// `nonServie`: an agenda of the scheduled event whose copy is not served, and why (src.nonServie).
+type Got = { agenda: src.Agenda; value?: Cached<src.Evenement[]>; nonServie?: ReturnType<typeof src.nonServie> };
 
 // An answer does not wait longer for the slowest of the agendas: one still loading is answered from its last copy, or
 // left out and named, and stored once it lands, after the response.
@@ -165,7 +166,7 @@ const PLANNED_FRESH_SECONDS = 3600;
 // it is not tried again before its next reading is due, rather than at each scheduled event, for a subrequest and up
 // to TIMEOUT_MS each time (Saint-Joseph's site does not answer Cloudflare's addresses). In the bundle, not in memory:
 // the scheduled events seldom run twice in the same isolate.
-const echec = (agenda: src.Agenda) => `echec:${agenda.id}`;
+const echec = src.echecPlanifie;
 
 /** An agenda this invocation has no subrequests left for, and of which no copy is kept. */
 class Postponed extends Error {}
@@ -186,11 +187,11 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
   // Once the agendas' share is set: this read is KEEP_LEFT's one more.
   const planifiees = await src.planifiees(cache);
   // The subrequests go first to the agendas without a copy, then to the oldest. Those of the scheduled event are never
-  // read here: their copy while young enough, else nothing, and nothing said (not this invocation's to read). Their
-  // copies are in KV (src.PLANIFIES), written by the scheduled event only.
+  // read here (not this invocation's to read): their copy while young enough, else nothing, and why said with the answer
+  // (`nonServie`). Their copies are in KV (src.PLANIFIES), written by the scheduled event only.
   const age = (a: src.Agenda) => bundle.peek(key(a))?.ageMs ?? Infinity;
   const order = src.AGENDAS.filter((a) => !a.planifie).sort((x, y) => age(y) - age(x));
-  const planned = src.AGENDAS.filter((a) => a.planifie).map((agenda): Got => ({ agenda, value: src.copiePlanifiee(planifiees, agenda) }));
+  const planned = src.AGENDAS.filter((a) => a.planifie).map((agenda): Got => ({ agenda, value: src.copiePlanifiee(planifiees, agenda), nonServie: src.nonServie(planifiees, agenda) }));
   const store = (a: src.Agenda): src.AgendaStore => ({
     get: <T>(k: string, freshSeconds: number, load: () => Promise<T>) => {
       const hit = bundle.peek(k);
@@ -494,6 +495,21 @@ export const CINEMAS = [
   { nom: "Cinepalmes (Sainte-Marie)", lien: "https://iccreunion.com/" },
   { nom: "Moulin à Café (Saint-Pierre, Ravine des Cabris)", lien: "https://www.saintpierre.re/culture/arts-visuels-et-cinema/cinema-moulin-cafe" },
 ];
+/**
+ * The agendas of the scheduled event whose copy is not served (src.nonServie), of the commune asked (`propre`) and of
+ * the whole island, each once, with why: never left out silently, nor said to publish nothing.
+ */
+function nonLus(got: Got[], commune: string | undefined): { nom: string; etat: string; propre: boolean }[] {
+  const named = new Map<string, { nom: string; etat: string; propre: boolean }>();
+  for (const g of got) {
+    if (!g.nonServie || named.has(g.agenda.nom)) continue;
+    const propre = !!commune && (g.agenda.commune === commune || !!g.agenda.couvre?.includes(commune));
+    if (commune && !propre && (g.agenda.commune || g.agenda.couvre)) continue;
+    named.set(g.agenda.nom, { nom: g.agenda.nom, etat: derniereLecture(g.nonServie), propre });
+  }
+  return [...named.values()];
+}
+
 const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publiés par l'organisateur : vérifier sur la page de l'événement avant de se déplacer (annulation, météo, places). Un événement annulé ou reporté reste dans la liste avec son statut\u00a0; « complet » : plus de places en vente. Une salle sans heure (TÉAT) donne l'heure sur la page du spectacle. Les matchs des clubs et les programmes sportifs des communes : l'outil sport.";
 
 /** `listed`: how many events at most (the page lists them all). */
@@ -510,6 +526,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   // for this, read once per invocation (the page asks twice), and after the agendas, so as not to take one's subrequest.
   const news = await perInvocation("agenda:actualites", () => cache.peek<Fil>("actualites:fil").catch(() => undefined));
   const failed = got.filter((g) => !g.value && !g.agenda.planifie).map((g) => g.agenda.nom);
+  const unread = nonLus(got, res?.lieu.commune);
   // The proposed events alone are not an agenda that answers: there may be none.
   if (got.every((g) => !g.value || (g.agenda.id === PROPOSITIONS_ID && !g.value.value.length))) {
     return { ...text({ erreur: "Les agendas ne répondent pas pour le moment.", indisponible: failed }), isError: true };
@@ -543,6 +560,8 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     commune && !n && all.length ? `${all.length} ailleurs sur l'île` : "",
     // Said in the summary, not only in `indisponible`: a partial list must not be read as the whole of it.
     failed.length ? `${failed.length} agenda${failed.length > 1 ? "s" : ""} non lu${failed.length > 1 ? "s" : ""} cette fois : ${failed.join(", ")} (liste peut-être incomplète, à redemander dans une minute)` : "",
+    // The commune's own agendas, where silence would read as « nothing »; the island's are in `non_lus`.
+    unread.some((x) => x.propre) ? `sans lecture récente : ${unread.filter((x) => x.propre).map((x) => `${x.nom}, ${x.etat}`).join("\u00a0; ")} (voir non_lus)` : "",
   ].filter(Boolean).join("\u00a0; ") + ".";
 
   const used = [...new Set(got.filter((g) => g.value && (g.agenda.id !== PROPOSITIONS_ID || g.value.value.length)).map((g) => g.agenda.source))] as SourceInfo[];
@@ -557,6 +576,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     ailleurs_sur_l_ile: commune && !n && all.length ? all.slice(0, ELSEWHERE_MAX).map((x) => eventRow(x.e, x.seances)) : undefined,
     cinemas: what?.nom?.includes("cinéma") || /cin[ée]|film/i.test(quoi ?? "") ? { seances: "Les séances des cinémas sont sur leurs sites :", salles: CINEMAS } : undefined,
     indisponible: failed.length ? failed : undefined,
+    non_lus: unread.length ? unread.map((x) => `${x.nom} : ${x.etat}`) : undefined,
     // Where a commune's site is not read until it agrees: to be said with the answer.
     non_repris: nonRepris,
     couverture: COUVERTURE,
