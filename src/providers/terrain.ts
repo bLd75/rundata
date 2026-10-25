@@ -55,7 +55,7 @@ export async function geocode(cache: Cache, q: string): Promise<Cached<Address |
   });
 }
 
-/** Up to five streets of a commune whose names come close to `q`, best first, without the postcode: « Rue Auguste Techer ». */
+/** Up to five streets of a commune whose names come close to `q`, best first, without the postcode: « Rue Juliette Dodu ». */
 export async function streets(cache: Cache, q: string, insee: string): Promise<Cached<string[]>> {
   const text = q.trim().slice(0, 200);
   return cache.get(`ban-voies:${insee}:${text.toLowerCase()}`, DAY, async () => {

@@ -54,14 +54,14 @@ describe("fiche terrain", () => {
   it("knows the street asked from another, by its name", () => {
     // Shortened, without accents, without the commune, with the quarter the address base adds, one letter off.
     for (const [asked, found] of [
-      ["rue Auguste Techer, Saint-Pierre", "Rue Auguste Techer"],
+      ["rue Étienne Regnault, Saint-Paul", "Rue Étienne Regnault"],
       ["7 rue de la Buse, Saint-Paul", "Rue de la Buse"],
       ["rue Juliette Dodu", "Rue Juliette Dodu"],
       ["rue juliette dodu saint denis", "Rue Juliette Dodu"],
       ["rue Leconte de Lisle, Saint-Denis", "Rue Charles Marie Leconte de Lisle"],
       ["rue Lecomte de Lisle", "Rue Leconte de Lisle"],
-      ["12 rue Beaudelaire, Saint-Pierre", "Rue Beaudelaire Ravine des Cabris"],
-      ["rue Auguste Techer Ravine des Cabris", "Rue Auguste Techer"],
+      ["12 rue Roland Garros, Saint-Paul", "Rue Roland Garros (Bois de Nèfles)"],
+      ["rue Roland Garros Bois de Nefles", "Rue Roland Garros"],
       ["av de la victoire, St-Denis", "Avenue de la Victoire"],
       ["rue du general de gaulle", "Rue du Général de Gaulle"],
       // Streets of the address base, asked the way people shorten them.
@@ -72,43 +72,45 @@ describe("fiche terrain", () => {
       ["rue phlibert", "Rue Philibert"],
     ]) expect(sameStreet(asked, found), `${asked} → ${found}`).toBe(true);
     for (const [asked, found] of [
-      ["rue Auguste Escher, Ravine des Cabris", "Rue Beaudelaire Ravine des Cabris"],
-      ["allée des Daturas, Ravine des Cabris", "Rue Beaudelaire Ravine des Cabris"],
-      ["allée des Daturas", "Impasse des Daturas"],
-      ["rue Auguste Escher", "Rue Auguste Techer"],
+      ["rue Roland Gaspard, Bois de Nèfles", "Rue Roland Garros (Bois de Nèfles)"],
+      ["allée des Rochers, Bois de Nèfles", "Rue Roland Garros (Bois de Nèfles)"],
+      ["allée des Rochers", "Impasse des Rochers (Bois de Nèfles)"],
+      ["rue Roland Gaspard", "Rue Roland Garros"],
     ]) expect(sameStreet(asked, found), `${asked} → ${found}`).toBe(false);
   });
 
   it("says when the address base finds another street, gives nothing of it, and names the streets close by", async () => {
-    // Real answers of 25/10/2026 (avis #12): the base's best match is another street of Ravine des Cabris.
-    files = { citycode: "voies-escher.json", geocodage: "geocode-escher.json" };
-    const r = await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Auguste Escher, Ravine des Cabris", NOW);
+    // Real answers of 25/10/2026: the base's best match is another street of the quarter named.
+    files = { citycode: "voies-gaspard.json", geocodage: "geocode-gaspard.json" };
+    const r = await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Roland Gaspard, Bois de Nèfles", NOW);
     expect(r.isError).toBe(true);
     const b = body(r);
-    expect(b.erreur).toBe("Voie introuvable dans la Base adresse nationale\u00a0: «\u00a0rue Auguste Escher, Ravine des Cabris\u00a0». Sa réponse la plus approchante, «\u00a0Rue Beaudelaire Ravine des Cabris\u00a0» (Saint-Pierre), est une autre voie\u00a0: pas de cadastre, de prix, d'urbanisme ni de risques pour une voie autre que celle demandée.");
-    expect(b.voies_proches[0]).toBe("Rue Auguste Techer, Saint-Pierre");
-    expect(b.conseil).toBe("Voies au nom proche à Saint-Pierre, d'après la Base adresse nationale\u00a0: Rue Auguste Techer, Rue Auguste Babet, Rue Auguste Langlois, Rue Auguste Toussaint, Rue Auguste Lacaussade. Demander à l'utilisateur laquelle est la bonne, puis redemander avec ce nom et la commune\u00a0; ne pas en choisir une à sa place.");
+    expect(b.erreur).toBe("Voie introuvable dans la Base adresse nationale\u00a0: «\u00a0rue Roland Gaspard, Bois de Nèfles\u00a0». Sa réponse la plus approchante, «\u00a0Rue Roland Garros (Bois de Nèfles)\u00a0» (Saint-Paul), est une autre voie\u00a0: pas de cadastre, de prix, d'urbanisme ni de risques pour une voie autre que celle demandée.");
+    // The same name in other quarters of the commune, without the one already found.
+    expect(b.voies_proches).toEqual(["Rue Roland Garros (St Paul Centre), Saint-Paul", "Rue Roland Garros (St Gilles les Bains), Saint-Paul"]);
+    expect(b.conseil).toBe("Voies au nom proche à Saint-Paul, d'après la Base adresse nationale\u00a0: Rue Roland Garros (St Paul Centre), Rue Roland Garros (St Gilles les Bains). Demander à l'utilisateur laquelle est la bonne, puis redemander avec ce nom et la commune\u00a0; ne pas en choisir une à sa place.");
     // Neither the parcel, nor the zone, nor the sales of the other street; one more call to the address base.
     expect(urls.every((u) => u.includes("geocodage"))).toBe(true);
     expect(urls).toHaveLength(2);
-    expect(urls[1]).toMatch(/citycode=97416&type=street/);
+    expect(urls[1]).toMatch(/citycode=97415&type=street/);
 
-    files = { citycode: "voies-daturas.json", geocodage: "geocode-daturas.json" };
-    const d = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "allée des Daturas, Ravine des Cabris", NOW));
-    expect(d.voies_proches).toEqual(["Impasse des Daturas, Saint-Pierre"]);
-    expect(d.conseil).toBe("Voie au nom proche à Saint-Pierre, d'après la Base adresse nationale\u00a0: Impasse des Daturas. Demander à l'utilisateur si c'est la bonne, puis redemander avec ce nom et la commune\u00a0; ne pas la choisir à sa place.");
+    // An alley asked, only an impasse of that name in the quarter: another street, and one close by elsewhere.
+    files = { citycode: "voies-rochers.json", geocodage: "geocode-rochers.json" };
+    const d = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "allée des Rochers, Bois de Nèfles", NOW));
+    expect(d.voies_proches).toEqual(["Impasse des Rochers (Grande Fontaine), Saint-Paul"]);
+    expect(d.conseil).toBe("Voie au nom proche à Saint-Paul, d'après la Base adresse nationale\u00a0: Impasse des Rochers (Grande Fontaine). Demander à l'utilisateur si c'est la bonne, puis redemander avec ce nom et la commune\u00a0; ne pas la choisir à sa place.");
     // Without a street close by.
-    files = { citycode: "voies-aucune.json", geocodage: "geocode-daturas.json" };
-    const none = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "allée des Daturas, Ravine des Cabris", NOW));
+    files = { citycode: "voies-aucune.json", geocodage: "geocode-rochers.json" };
+    const none = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "allée des Rochers, Bois de Nèfles", NOW));
     expect(none.voies_proches).toBeUndefined();
-    expect(none.conseil).toBe("Aucune voie au nom proche à Saint-Pierre dans la Base adresse nationale. Demander à l'utilisateur de vérifier le nom de la voie, puis redemander avec la commune, ou avec un lieu-dit.");
+    expect(none.conseil).toBe("Aucune voie au nom proche à Saint-Paul dans la Base adresse nationale. Demander à l'utilisateur de vérifier le nom de la voie, puis redemander avec la commune, ou avec un lieu-dit.");
     expect([d.cadastre, d.urbanisme, d.marche_immobilier, d.risques]).toEqual([undefined, undefined, undefined, undefined]);
   });
 
   it("still reads the street asked, written right", async () => {
-    files = { ...files, geocodage: "geocode-techer.json" };
-    const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Auguste Techer, Saint-Pierre", NOW));
-    expect(r.resume).toMatch(/^Rue Auguste Techer 97432 Saint-Pierre \(milieu de la rue\)\u00a0; /);
+    files = { ...files, geocodage: "geocode-regnault.json" };
+    const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "rue Étienne Regnault, Saint-Paul", NOW));
+    expect(r.resume).toMatch(/^Rue Étienne Regnault \(St Paul Centre\) 97460 Saint-Paul \(milieu de la rue\)\u00a0; /);
     expect(urls.filter((u) => u.includes("geocodage"))).toHaveLength(1);
   });
 
