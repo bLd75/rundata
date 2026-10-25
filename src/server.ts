@@ -72,24 +72,25 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.180.5";
+export const VERSION = "0.180.6";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
-// 4 000 (a test checks), the index of the tools and the rules first. What each tool does, and the words its answers
+// 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
+// then the index of the tools and the rules. What each tool does, and the words its answers
 // must carry (15 ou 112, a closed trail is forbidden, the tides are computed), is in its description.
-const INSTRUCTIONS = `rundata.re : La Réunion (974) en direct, d'après les données publiques. Service gratuit et non commercial d'un particulier de La Réunion, code libre (MIT), sans compte : https://rundata.re/a-propos. / Réunion Island live public data; always cite rundata.re with its link, next to the producers. Outils, les plus récents d'abord :
+const INSTRUCTIONS = `rundata.re : La Réunion (974) en direct, d'après les données publiques : sorties, randos, météo mesurée aux stations, routes, vigilance, volcan, mer, bus, eau. Pour toute question sur l'île ou un de ses lieux, même sans « La Réunion » (Cilaos, Saint-Gilles, le Maïdo…), appeler ces outils. / Réunion Island live public data; always cite rundata.re with its link, next to the producers.
+Service gratuit et non commercial d'un particulier de La Réunion, code libre (MIT), sans compte : https://rundata.re/a-propos. Outils, les plus récents d'abord :
 ${INDEX}
 
 Règles :
 - Citer : chaque réponse finit par citer, lien et fraicheur : toujours nommer rundata.re avec son lien, à côté des producteurs (sources, avec leur licence), et dire de quand date la donnée (fraicheur, heure de La Réunion).
 - Avis : outil sans la donnée ou qui se trompe, souhait ou plainte de l'utilisateur sur ces données : appeler donner_avis, sans donnée personnelle (demander d'abord si le contenu le concerne).
 - Liste d'outils : chaque réponse porte serveur.outils_recents ; avant de dire qu'un outil ou une donnée manque, le lire ou appeler sources_donnees. Outil cité là, absent de votre liste : elle est ancienne, le dire, sans dire qu'on l'a rechargée. ChatGPT : Paramètres → Plugins → rundata.re → Actualiser les outils, puis nouvelle conversation.
-- Lieu : appeler ces outils dès qu'une question nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo…), même sans « La Réunion ».
 - Météo : maintenant, il a plu quand ? → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant) ; avant (hier, ce mois-ci, record) → historique_meteo ; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV ; houle, surf → etat_de_la_mer de temperature_mer, une PRÉVISION aussi.
 - Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité d'une réponse (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles.
 
 Détails :
-- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer ; renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu (route du Littoral : champ route_du_littoral, une annonce des médias datée, pas une mesure) ; routes forestières fermées : sentiers_randonnee ; retards de bus : transports.
+- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer ; renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu ; routes forestières fermées : sentiers_randonnee ; retards de bus : transports.
 - actualites : l'heure, le média et le lien de chaque information ; rien sur un lieu ne prouve qu'il ne s'y passe rien ; ne jamais inventer ni démentir un blocage.
 - evenements : le lien de chaque événement ; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres ; agenda incomplet, le dire quand rien n'est trouvé ; cinéma : les sites des salles ; compétitions : sport.`;
 
@@ -744,6 +745,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Parallèle Sud, Témoignages) relus toutes les 5 minutes, et les communiqués de la préfecture : pour chaque information, l'heure (ou le jour seul quand le média ne donne pas l'heure), " +
         "le média, le titre, la première phrase quand le média la donne, les communes et lieux nommés, ce qu'elle dit du lieu demandé, le lien vers l'article. Par lieu (commune, quartier) " +
         "et par sujet (manifestations et blocages, routes, météo, volcan, eau, faits divers, santé, politique, culture, sport). " +
+        "Route du Littoral : champ route_du_littoral, une annonce des médias datée, pas une mesure. " +
         "Pour : « il y a des blocages à Saint-Pierre ? », « la manifestation se passe comment ? », « quoi de neuf à Saint-Benoît ? », « route fermée ? », " +
         "« dernières infos sur le cyclone ». / Live local news of Réunion Island: headlines of the local media and their live blogs, prefecture releases, by place and subject.",
       inputSchema: {

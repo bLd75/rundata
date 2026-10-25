@@ -69,11 +69,14 @@ describe("the server's instructions", () => {
     // Claude Code cuts them near 4 000 characters: everything must fit before that.
     expect(text.length).toBeLessThan(4000);
     expect(INDEX.length).toBeLessThan(1500);
-    // Who makes the service, in the first line, before the index; the English line with it.
-    const first = text.slice(0, text.indexOf("\n"));
-    expect(first).toContain("https://rundata.re/a-propos");
-    expect(first).toMatch(/Réunion Island live public data/);
-    expect(text.indexOf("- donner_avis :")).toBeLessThan(600);
+    // ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it, any place of the island named
+    // without « La Réunion » (cam-change 255); the English line with it.
+    const head = text.slice(0, 512);
+    for (const must of ["La Réunion (974) en direct", "mesurée", "même sans « La Réunion »", "Cilaos", "Réunion Island live public data"]) expect(head).toContain(must);
+    expect(text.slice(0, text.indexOf("\n"))).not.toContain("Outils");
+    // Who makes the service, then the index, early.
+    expect(text.indexOf("https://rundata.re/a-propos")).toBeLessThan(text.indexOf("\n- "));
+    expect(text.indexOf("- donner_avis :")).toBeLessThan(700);
     for (const must of ["rundata.re avec son lien", "donner_avis", "serveur.outils_recents", "sources_donnees", "PRÉVISION", "15 ou 112", "Actualiser les outils"]) expect(text).toContain(must);
     // The words the tools' own answers must carry are in their descriptions, not here.
     const tools: { name: string; description: string }[] = (await rpcResult("tools/list")).tools;
