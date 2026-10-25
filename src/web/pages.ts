@@ -650,6 +650,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .card>details>summary{cursor:pointer;list-style:none}.card>details>summary::-webkit-details-marker{display:none}
 .card>details>summary h3{display:inline}.card>details>summary::after{content:" ▸";color:var(--muted)}.card>details[open]>summary::after{content:" ▾"}
 .rows.eau .score{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.autour{margin:1rem 0}.autour>.note{margin-top:.6rem}.autour .rows a{display:block;margin-top:.25rem;font-weight:700}.rows.dae li>span:last-child{max-width:9.5rem;text-align:right}.map.autour-on .mk,.mapcard:has(.autour-on) figcaption{display:none}.map .nr{fill:#2b8a3e;stroke:#fff;stroke-width:2px;vector-effect:non-scaling-stroke}.map .me{fill:#339af0;stroke:#fff;stroke-width:3px;vector-effect:non-scaling-stroke}
 .rows.eau .q-bonne{color:#2b8a3e;font-weight:700}.rows.eau .q-moyenne{color:#e8590c;font-weight:700}.rows.eau .q-mauvaise{color:var(--lave);font-weight:700}.rows.eau .q-none{color:var(--muted)}
 .lvl{display:inline-block;padding:.1rem .55rem;border-radius:1rem;font:700 .8rem system-ui,sans-serif;background:var(--c);color:#14202b}
 .table-wrap{overflow-x:auto}

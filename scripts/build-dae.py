@@ -5,10 +5,13 @@ From Géo'DAE, the national base of automated external defibrillators (ministry 
 data.gouv.fr): the devices of the island declared working, without the duplicates and the mobile ones (in a vehicle),
 with where each one is, whether it is outside or freely reachable, its floor and its hours when declared.
 Most devices carry « Mo-Su off » as hours, the form's default: read as « not said », not as « never ».
-Licence Ouverte 2.0. Usage: python3 -I scripts/build-dae.py [--csv geodae.csv]
+Also the compact list that the « Autour de moi » button of /defibrillateurs loads on the phone (public/dae/,
+src/dae/liste.json): served by Cloudflare before the Worker runs, its name changes with its content.
+Licence Ouverte 2.0. Usage: python3 -I scripts/build-dae.py [--csv geodae.csv | --from-bundle]
 """
 import argparse
 import csv
+import hashlib
 import io
 import math
 import json
@@ -76,7 +79,11 @@ def name(r):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--csv", help="the national file, already downloaded")
+    ap.add_argument("--from-bundle", action="store_true", help="only the compact list, from src/dae/dae.json as it is")
     args = ap.parse_args()
+    if args.from_bundle:
+        compact(json.loads((ROOT / "src/dae/dae.json").read_text())["defibrillateurs"])
+        return
     src = open(args.csv, encoding="utf-8", newline="") if args.csv else io.TextIOWrapper(opened(csv_url()), encoding="utf-8", newline="")
     head = src.readline()
     delim = ";" if head.count(";") > head.count(",") else ","
@@ -123,6 +130,33 @@ def main():
         "defibrillateurs": out,
     }, ensure_ascii=False, separators=(",", ":")) + "\n")
     print(f"{target.relative_to(ROOT)} : {len(out)} défibrillateurs, {target.stat().st_size // 1024} Ko")
+    compact(out)
+
+
+def reach(d):
+    """0 outside, 1 open day and night, 2 free access at the place's hours, 3 reserved: as src/tools/dae.ts."""
+    return 0 if d["exterieur"] else 1 if d.get("horaires") == "24 h/24, 7 j/7" else 2 if d["acces_libre"] else 3
+
+
+def compact(devices):
+    """[lat, lon, name, reach, address, commune's index, place, hours, floor], the empty ends left out."""
+    communes = sorted({d["commune"] for d in devices})
+    rows = []
+    for d in devices:
+        r = [d["lat"], d["lon"], d["nom"], reach(d), d["adresse"], communes.index(d["commune"]), d.get("emplacement", ""),
+             d.get("horaires", "") if reach(d) >= 2 else "", d.get("etage", "")]
+        while r[-1] == "":
+            r.pop()
+        rows.append(r)
+    body = json.dumps({"communes": communes, "d": rows}, ensure_ascii=False, separators=(",", ":")).encode()
+    folder = ROOT / "public/dae"
+    folder.mkdir(exist_ok=True)
+    for old in folder.glob("dae.*.json"):
+        old.unlink()
+    name = f"dae.{hashlib.sha256(body).hexdigest()[:10]}.json"
+    (folder / name).write_bytes(body)
+    (ROOT / "src/dae/liste.json").write_text(json.dumps({"path": f"/dae/{name}"}) + "\n")
+    print(f"public/dae/{name} : {len(body) // 1024} Ko")
 
 
 if __name__ == "__main__":
