@@ -85,7 +85,7 @@ Règles :
 - Avis : outil sans la donnée ou qui se trompe, souhait ou plainte de l'utilisateur sur ces données : appeler donner_avis, sans donnée personnelle (demander d'abord si le contenu le concerne).
 - Liste d'outils : chaque réponse porte un bloc serveur (version, outils_recents). Avant de conclure qu'un outil ou une donnée n'existe pas, lire serveur.outils_recents d'une réponse récente ou appeler sources_donnees ; un outil qui y figure mais manque à votre liste : votre liste est ancienne, le dire, sans dire qu'on l'a rechargée.
 - Lieu : appeler ces outils dès qu'une question nomme un lieu de l'île (Saint-Gilles, Cilaos, le Maïdo…), même sans « La Réunion ».
-- Météo : maintenant → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant) ; avant (hier, cette nuit, ce mois-ci, record) → historique_meteo ; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV ; houle, vagues, surf → temperature_mer, etat_de_la_mer, une PRÉVISION aussi.
+- Météo : maintenant, et la pluie depuis 24 h (il a plu quand ?) → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements) ; avant (hier, ce mois-ci, record) → historique_meteo ; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV ; houle, vagues, surf → temperature_mer, etat_de_la_mer, une PRÉVISION aussi.
 - Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité d'une réponse (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles.
 
 Détails :
@@ -158,13 +158,16 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Météo MESURÉE maintenant à La Réunion (974) : température de l'air, pluie (6 dernières minutes et dernière heure), " +
         "humidité, vent et rafales, pression, temps présent, à la station la plus représentative du lieu demandé, " +
         "et la pluie vue par le radar de Météo-France au lieu même (utile là où il n'y a pas de pluviomètre : Mafate, cirques, Hauts). " +
+        "Avec un lieu, aussi la pluie des dernières heures au pluviomètre le plus proche (pluie_recente) : heure par heure sur 12 à 24 h, " +
+        "l'heure de la dernière pluie et le cumul depuis minuit, pour « il a plu quand à Saint-Joseph ? », « combien est-il tombé cette nuit ? ». " +
         "Pour toute question sur le temps qu'il fait en ce moment : « quel temps fait-il à Saint-Denis ? », " +
         "« il fait chaud à la plage de l'Hermitage ? », « il pleut à Cilaos ? », « y a-t-il du vent à Saint-Pierre ? », « il fait froid au Maïdo ? ». " +
         "Renvoie des mesures datées avec la station, sa distance, son altitude, et un avertissement " +
         "quand le lieu a un autre microclimat (altitude, versant au vent ou sous le vent). " +
         "Pour plus tard (demain, ce soir, ce week-end), utiliser prevision_meteo. " +
         "/ Current MEASURED weather in Réunion Island (air temperature, rain, humidity, wind, pressure, present weather) " +
-        "at the most representative station for a place. Use for 'what is the weather like now in <place in Réunion>'; " +
+        "at the most representative station for a place, and with a place the rain of the last 12 to 24 hours hour by hour, " +
+        "the time of the last rain and the total since midnight. Use for 'what is the weather like now in <place in Réunion>', 'when did it last rain'; " +
         "for later today or the coming days, use prevision_meteo.",
       inputSchema: { lieu },
       annotations: { title: "Météo mesurée à La Réunion", ...READ_ONLY },

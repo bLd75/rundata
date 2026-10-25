@@ -7,6 +7,7 @@ import * as metar from "../providers/metar.js";
 import * as pioupiou from "../providers/pioupiou.js";
 import * as radar from "../providers/radar.js";
 import { radarAt } from "./radar.js";
+import { recentRainBlock } from "./pluie-recente.js";
 import { type Observation, type SourceInfo, why } from "../types.js";
 import { fit } from "./representativeness.js";
 import { credits, fr, notFound, placeBlock, show, text, when } from "./format.js";
@@ -138,7 +139,11 @@ export async function islandTour(cache: Cache, now = new Date()) {
   return { tour, down, sources: list.map((p) => p.source) };
 }
 
-export async function meteoActuelle(cache: Cache, lieu: string | undefined, now = new Date()) {
+// A METAR's sky now, its trend (TEMPO, BECMG) left out: broken or overcast clouds, drizzle, rain or showers nearby.
+const LOADED_SKY = /\b(BKN|OVC)\d{3}|(^|\s)[-+]?(DZ|RA|SHRA)\b|\bVCSH\b/;
+
+/** With a place, the rain of the last hours at its nearest gauge (`recent`, left out of the place pages' build). */
+export async function meteoActuelle(cache: Cache, lieu: string | undefined, now = new Date(), recent = true) {
   if (!lieu?.trim()) {
     const { tour, down, sources } = await islandTour(cache, now);
     return text({
@@ -182,6 +187,19 @@ export async function meteoActuelle(cache: Cache, lieu: string | undefined, now 
   // Named, since the warning often concerns the second station only.
   const warnings = [...new Set(shown.filter((x) => x.f.pertinence !== "bonne" && x.f.avertissements[0])
     .map((x) => `${x.o.station.nom} : ${x.f.avertissements[0].replace(/^La station est/, "station")}`))];
+  // The rain of the last hours at the best-placed gauge.
+  const recentRain = recent && meteofrance.enabled() ? await meteofrance.recentRain(cache, now) : undefined;
+  const gauge = recentRain && ranked.find((x) => x.o.station.source === "meteofrance" && recentRain.hourly.rr[x.o.station.id]);
+  // Nothing in the hour under way nor in the newest full hour.
+  const dry = (id: string) => recentRain!.slots(id).every((x) => !x.rr) && recentRain!.hourly.rr[id][0] === 0;
+  const sky = obs.some(({ o }) =>
+    o.station.source === "metar" && o.brut && fit(r.lieu, o.station).versant === versant(r.lieu.lon, r.lieu.lat) &&
+    LOADED_SKY.test(o.brut.split(/\b(TEMPO|BECMG|NOSIG)\b/)[0]));
+  // The drizzle note: nothing at the gauge nor on the radar at the place, under a loaded sky or rain on the radar nearby.
+  const drizzle = Boolean(gauge && dry(gauge.o.station.id) && (!rain || rain.bloc.au_lieu_mm_h === 0) &&
+    (sky || Number(rain?.bloc.max_3km_mm_h ?? 0) > 0));
+  const pluie = gauge ? recentRainBlock(recentRain!, { id: gauge.o.station.id, nom: gauge.o.station.nom, fit: gauge.f }, r.lieu.nom, now, drizzle) : undefined;
+
   const resume = shown.length
     ? `Mesures les plus proches de ${r.lieu.nom} — ` +
       shown
@@ -189,7 +207,7 @@ export async function meteoActuelle(cache: Cache, lieu: string | undefined, now 
         .join(" ; ") +
       (warnings.length ? `. Attention : ${warnings.join(" ")}` : "")
     : "Aucune mesure disponible pour le moment.";
-  const resumeAll = rain ? `${resume} ${rain.resume}` : resume;
+  const resumeAll = [resume, rain?.resume, pluie?.resume].filter(Boolean).join(" ");
 
   return text({
     lieu: placeBlock(lieu, r),
@@ -200,6 +218,7 @@ export async function meteoActuelle(cache: Cache, lieu: string | undefined, now 
       return { ...block, ...rest, avertissements: [...avertissements, ...block.avertissements] };
     }),
     radar: rain?.bloc,
+    pluie_recente: pluie && (({ resume: _, ...block }) => block)(pluie),
     sources_indisponibles: indisponibles,
     couverture: coverage(),
     sources,

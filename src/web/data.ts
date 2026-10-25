@@ -276,7 +276,7 @@ function answer<T>(r: { content: { text: string }[]; isError?: boolean }): T | u
 /** Measurements, then the sea, then the forecast, which sizes its downloads from the subrequests left. */
 export async function buildPlace(cache: Cache, p: PlacePage, now = new Date()): Promise<PlaceData> {
   const out: PlaceData = {};
-  out.meteo = answer<MeteoAnswer>(await meteoActuelle(cache, p.lieu, now));
+  out.meteo = answer<MeteoAnswer>(await meteoActuelle(cache, p.lieu, now, false));
   if (coastal(p)) out.mer = answer<MerAnswer>(await temperatureMer(cache, p.lieu, now));
   if (left() >= FORECAST_MIN_LEFT) {
     try {
