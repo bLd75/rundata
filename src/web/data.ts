@@ -377,6 +377,8 @@ export interface VolcanAnswer {
     derniers: { heure: string; magnitude: number; profondeur_km: number; lieu: string }[];
     note: string;
   };
+  /** The OVPF-IPGP's site listed as silent on /sites-sans-reponse, in a sentence (tools/volcan.ts `ipgpMuet`). */
+  injoignable?: string;
   avertissements: string[];
   sources: Credit[];
 }

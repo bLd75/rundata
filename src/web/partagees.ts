@@ -52,7 +52,7 @@ export interface Shared {
 // in the event's logs at 21:20, 25 October 2026, its 8 bus stations' timetables read together (2 reads of D1 instead
 // of 16 to 32: 31 at 4 o'clock before), plus one, rounded up; the tests counted 19, their cache counting none of the
 // reads of the buses' feeds in real time. The volcano's: its four sources, each a
-// read, a fetch and a write, plus one. The power cuts': one fetch per mairie and one for Saint-André's PDF letters, plus one.
+// read, a fetch and a write, plus one, and the list of the silent sites (sans-reponse.ts: a read, 2 of D1 and a write). The power cuts': one fetch per mairie and one for Saint-André's PDF letters, plus one.
 // The sea's: 18 when it read the satellites, less the 5 they took (13 against 8 in the same test, 25 October 2026): the
 // grids are their own copy. The grids': ACSPO's four files, a read and a write, MODIS's three more where ACSPO sees
 // nothing near a beach, plus one.
@@ -75,7 +75,7 @@ export const SHARED: Shared[] = [
     const v = await buildVolcan(cache, now);
     await unmeasured(() => ovpfPdf.readNewest(cache, now.getTime()));
     return v;
-  }, every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 13, cpu: 110, range: { usual: 30, shortest: 5 }, offset: 15 },
+  }, every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 17, cpu: 110, range: { usual: 30, shortest: 5 }, offset: 15 },
   // Every 2 hours; every 30 minutes while a mairie followed did not answer, so that its notices come back soon after
   // its site does. The page of electricity carries this copy (web/data.ts): built after it.
   { key: "web:courant", build: buildCourant, every: (last) => ((last as CourantAnswer | undefined)?.indisponibles?.some(followed) ? 30 : 2 * 60), cold: 7, cpu: 30, range: { usual: 2 * 60, shortest: 30 }, offset: 20, before: ["web:electricite"] },

@@ -91,6 +91,8 @@ const SHARED_FROM: Record<string, string[]> = {
 // about 23), as the D1 analytics count them.
 const SHARED_D1: Record<string, Pick<Run, "d1Calls" | "d1RowsRead">> = {
   "web:trafic": { d1Calls: 2, d1RowsRead: 840 },
+  // The state of the OVPF-IPGP's site (tools/volcan.ts), in the copy of /sites-sans-reponse.
+  "web:volcan": SANS_REPONSE_D1,
 };
 
 // Never built alone over MEASURED: their CPU is that of the page that shows them.
@@ -239,7 +241,8 @@ const METEO = ["src/tools/meteo.ts", "src/tools/prevision.ts", "src/tools/vigila
 /** Every page of DOMAINS (web/site.ts), by its path. */
 const DOMAIN_PAGES: Record<string, Page> = {
   "/meteo": { subrequests: 41, cpuMs: 80, from: METEO },
-  "/volcan": { subrequests: 39, cpuMs: 60, from: ["src/tools/volcan.ts"] },
+  // Measured 39, before it read the list of the silent sites (a read of the data center's cache, 2 of D1, a write).
+  "/volcan": { subrequests: 43, cpuMs: 60, from: ["src/tools/volcan.ts"], d1: SANS_REPONSE_D1 },
   "/air": { subrequests: 14, cpuMs: 40, from: ["src/tools/air.ts"] },
   "/electricite": { subrequests: 17, cpuMs: 30, from: ["src/tools/electricite.ts"] },
   "/calendrier": { subrequests: 18, cpuMs: 40, from: ["src/tools/calendrier.ts"] },
@@ -309,7 +312,8 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   meteo_actuelle: { subrequests: 36, cpuMs: 120, file: "meteo" },
   evenements: { subrequests: 34, cpuMs: 190, file: "agenda" },
   sport: { subrequests: 34, cpuMs: 160, file: "sport" },
-  volcan_seismes: { subrequests: 26, cpuMs: 90, file: "volcan" },
+  // Measured 26, before it read the list of the silent sites, as /volcan.
+  volcan_seismes: { subrequests: 30, cpuMs: 90, file: "volcan", d1: SANS_REPONSE_D1 },
   fiche_terrain: { subrequests: 24, cpuMs: 70, file: "terrain" },
   prevision_meteo: { subrequests: 20, cpuMs: 100, file: "prevision" },
   qualite_eau: { subrequests: 15, cpuMs: 90, file: "eau" },
