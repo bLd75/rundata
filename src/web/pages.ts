@@ -32,6 +32,7 @@ import { logo } from "./logo.js";
 import { esc, islandMap, type Marker, type ZoneLink } from "./map.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
+import { FORMS_CSS } from "./formulaires-style.js";
 import { INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 import { bathingBlock } from "./baignade.js";
@@ -664,7 +665,7 @@ footer.foot .brand{color:var(--on-night);margin-bottom:.8rem}
 footer.foot p+p{margin-top:.6rem}
 footer.foot h3{color:var(--on-night);font-size:1rem;margin-bottom:.4rem}
 footer.foot .slogan{font-size:1rem;padding-left:calc(1.55rem + .6rem)}
-`.replace(/\n/g, "") + AVIS_CSS + PWA_CSS;
+`.replace(/\n/g, "") + AVIS_CSS + FORMS_CSS + PWA_CSS;
 
 interface Head {
   title: string;
@@ -679,6 +680,8 @@ interface Head {
   rss?: { href: string; title: string; link: string; hint: string };
   /** The offline page, kept on phones until the service worker changes: no banner of the moment, nothing to send. */
   shell?: boolean;
+  /** A page that is a form itself (/associations/proposer): no feedback form below, where an event could be typed by mistake. */
+  sansAvis?: boolean;
   /** The page shows the volcano's alert itself (the home page's card, /volcan's heading): no volcano banner above it. */
   volcan?: boolean;
 }
@@ -877,7 +880,7 @@ ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
 ${body}
 </main>
 ${head.shell ? "" : `${share(origin, head)}
-${avisForm(head.path)}`}
+${head.sansAvis ? "" : avisForm(head.path)}`}
 <footer class="foot"><div class="wrap">
   <div>
     <a class="brand" href="/">${logo()}<span>rundata.re</span></a>

@@ -20,6 +20,8 @@ import * as feux from "./providers/feux.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
+import * as propositions from "./propositions.js";
+import * as formulaires from "./web/propositions.js";
 import { refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
@@ -77,6 +79,10 @@ interface Env {
   AVIS?: D1Database;
   /** Optional: the salt of the feedback senders' fingerprints (src/avis.ts). */
   AVIS_SEL?: string;
+  /** Optional: the secret key of the Turnstile widget of the clubs' forms (web/propositions.ts). */
+  TURNSTILE_SECRET?: string;
+  /** Cloudflare Email Sending: the confirmation of the events the clubs propose (src/propositions.ts). */
+  EMAIL?: propositions.EmailBinding;
 }
 
 /** The part of a D1 binding used here. */
@@ -171,7 +177,12 @@ function setup(env: Env): Cache {
   );
   // The feedback of the tool donner_avis and of the site's form: one row each (scripts/avis.sql).
   const avisDb = env.AVIS;
-  avis.configure(avisDb && (async (sql: string, ...params: unknown[]) => (await avisDb.prepare(sql).bind(...params).run()).meta.changes), env.AVIS_SEL);
+  const avisRun = avisDb && (async (sql: string, ...params: unknown[]) => (await avisDb.prepare(sql).bind(...params).run()).meta.changes);
+  avis.configure(avisRun, env.AVIS_SEL);
+  // The links and events the clubs send, in the same database (scripts/propositions.sql); a proposal's link is e-mailed
+  // through Cloudflare, and without the binding a proposal is refused rather than kept unconfirmable.
+  propositions.configure(avisRun, env.EMAIL && propositions.envoiCloudflare(env.EMAIL));
+  formulaires.configure(env.TURNSTILE_SECRET);
   // Without the KV binding, the bundles stay in the data center's cache like everything else.
   // The page copies shared by every data center are read from KV when the data center's cache has none (web/partagees.ts).
   const edge = env.STORE ? new SharedFallback(new EdgeStore(), env.STORE) : new EdgeStore();

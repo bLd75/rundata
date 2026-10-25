@@ -1,0 +1,308 @@
+/**
+ * What the clubs and associations send through /associations (marketing's spec, espace-associations.md §3 and §4):
+ * the link of their agenda (« Nous donner votre lien ») and the events they propose themselves (« Proposer un
+ * événement »). One row each in the D1 tables `liens` and `propositions` (scripts/propositions.sql), next to the
+ * feedback (src/avis.ts), read with a script by whoever moderates.
+ *
+ * A proposal waits for its author to click the link sent to the e-mail address given (never published), then for a
+ * moderator; nothing shows before. The link carries a secret drawn here; only its hash is kept, so a copy of the table
+ * cannot act for the author. The address is wiped 30 days after the event's last date, a proposal never confirmed
+ * after 48 hours, the sender's fingerprint after a day (triggers in the SQL).
+ *
+ * Against a flood: the same fingerprint as the feedback (a salted hash of the address and the day), at most
+ * PROPOSITIONS_PAR_JOUR proposals and LIENS_PAR_JOUR links a day from one sender, and a cap for everyone together;
+ * Turnstile in front (web/propositions.ts). The e-mail goes through `Envoi`, plugged by worker.ts once a way to send
+ * is chosen: without one, a proposal is refused as « indisponible », never kept unconfirmable.
+ */
+import { empreinte, nettoie, type Run } from "./avis.js";
+
+export const LIENS_PAR_JOUR = 5;
+export const LIENS_EN_TOUT_JOUR = 50;
+export const PROPOSITIONS_PAR_JOUR = 5;
+export const PROPOSITIONS_EN_TOUT_JOUR = 100;
+/** How far ahead an event may be proposed, and how long a weekly or monthly one may repeat from the day it is sent. */
+export const JOURS_AVANT_MAX = 365;
+export const REPETITION_MOIS_MAX = 3;
+
+export const NOM_MAX = 120;
+export const LIEN_MAX = 500;
+export const CONTACT_MAX = 120;
+export const DESCRIPTION_MAX = 300;
+export const PRIX_MAX = 60;
+export const EMAIL_MAX = 254;
+
+/** « Nous donner votre lien ». */
+export interface Lien {
+  nom: string;
+  commune: string;
+  lien: string;
+  /** The organisation's e-mail or phone, to warn it when the link stops answering; never published. */
+  contact?: string;
+  /** The page of the form. */
+  page: string;
+}
+
+export type Repetition = "semaine" | "mois";
+
+/** « Proposer un événement », as checked by `lireProposition`. */
+export interface Proposition {
+  titre: string;
+  /** Local day « 2026-11-14 », and times « 18:00 ». */
+  date: string;
+  debut: string;
+  fin?: string;
+  repete?: Repetition;
+  /** The last day of a repeated event. */
+  jusqu_au?: string;
+  commune: string;
+  lieu: string;
+  organisateur: string;
+  description: string;
+  /** « gratuit », or the price as written (« 5 €, gratuit pour les enfants »). */
+  prix: string;
+  lien?: string;
+  email: string;
+  /**
+   * The contact shown with the event, only when its author asks (the user, 25/10): the e-mail above, or another
+   * (the club's address or phone). Wiped with the e-mail, 30 days after the event.
+   */
+  contact_public?: string;
+}
+
+let run: Run | undefined;
+
+/** The send of one e-mail; true once accepted. */
+export type Envoi = (m: { to: string; subject: string; text: string }) => Promise<boolean>;
+let envoi: Envoi | undefined;
+
+/** Who the confirmations come from; an answer goes to the address people already write to. */
+export const EXPEDITEUR = { email: "evenements@rundata.re", name: "rundata.re" };
+export const REPONSE = "contact@rundata.re";
+
+/** The part of Cloudflare's send_email binding used here (Email Sending, Workers Paid). */
+export interface EmailBinding {
+  send(m: { from: { email: string; name?: string }; to: string; subject: string; text: string; replyTo?: string }): Promise<{ messageId: string }>;
+}
+
+/**
+ * Sending through Cloudflare. A refusal is logged by its code only (« E_RECIPIENT_SUPPRESSED »): its message may name
+ * the address, and the logs leave Cloudflare (Loki).
+ */
+export const envoiCloudflare = (binding: EmailBinding): Envoi => async (m) => {
+  try {
+    await binding.send({ from: EXPEDITEUR, to: m.to, subject: m.subject, text: m.text, replyTo: REPONSE });
+    return true;
+  } catch (err) {
+    console.error("propositions : e-mail refusé", String((err as { code?: unknown })?.code ?? "sans code"));
+    return false;
+  }
+};
+
+/** `db`: the D1 tables' door (worker.ts, the feedback's database); `send`: how the confirmation is sent, when chosen. */
+export function configure(db: Run | undefined, send?: Envoi) {
+  run = db;
+  envoi = send;
+}
+
+export const enabled = () => !!run;
+export const canSend = () => !!run && !!envoi;
+
+const localDay = (now: Date) => new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
+const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
+/** The same day `n` months later, or the month's last when it has no such day (31/01 + 1 → 28/02). */
+export function addMonths(day: string, n: number): string {
+  const [y, m, d] = day.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m - 1 + n, Math.min(d, last))).toISOString().slice(0, 10);
+}
+
+/** A real day « 2026-11-14 » (not « 2026-02-30 »). */
+const isDay = (s: string) => /^\d{4}-\d\d-\d\d$/.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
+const isTime = (s: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
+
+/** An http(s) address with a host, as given; undefined otherwise. */
+export function httpLink(s: string | null | undefined): string | undefined {
+  const t = (s ?? "").trim();
+  if (!t || t.length > LIEN_MAX) return undefined;
+  try {
+    const u = new URL(t);
+    return (u.protocol === "https:" || u.protocol === "http:") && u.hostname.includes(".") && !u.username && !u.password ? u.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** One e-mail address, in a plain spelling; undefined otherwise. */
+export function emailOf(s: string | null | undefined): string | undefined {
+  const t = (s ?? "").trim();
+  return t.length <= EMAIL_MAX && /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[a-z]{2,}$/i.test(t) ? t : undefined;
+}
+
+/** A phone number as people write it (« 0262 12 34 56 », « +262 692 12 34 56 »): 9 to 15 digits. */
+const isPhone = (s: string) => /^\+?[\d\s.()-]{9,20}$/.test(s) && (s.match(/\d/g) ?? []).length >= 9 && (s.match(/\d/g) ?? []).length <= 15;
+
+/** A text field: cleaned like the feedback (no control characters, no phone or address in it), on one line. */
+const texte = (s: string | null, max: number) => {
+  const raw = (s ?? "").replace(/\s+/g, " ");
+  return raw.length <= max * 2 ? nettoie(raw, max) : undefined;
+};
+
+/** The fields of « Nous donner votre lien »; the names of the missing or wrong ones otherwise. */
+export function lireLien(f: URLSearchParams, communes: readonly string[], page: string): { lien: Lien } | { erreurs: string[] } {
+  const erreurs: string[] = [];
+  const nom = texte(f.get("nom"), NOM_MAX);
+  if (!nom || nom.length < 2) erreurs.push("nom");
+  const commune = f.get("commune") ?? "";
+  if (!communes.includes(commune)) erreurs.push("commune");
+  const lien = httpLink(f.get("lien"));
+  if (!lien) erreurs.push("lien");
+  // The organisation's address or phone, kept as given: it is what the field asks for, and is never shown.
+  const c = (f.get("contact") ?? "").replace(/\s+/g, " ").trim();
+  if (c.length > CONTACT_MAX) erreurs.push("contact");
+  if (f.get("agit") !== "oui") erreurs.push("agit");
+  return erreurs.length ? { erreurs } : { lien: { nom: nom!, commune, lien: lien!, contact: c || undefined, page } };
+}
+
+/** The fields of « Proposer un événement », checked against the day; the names of the missing or wrong ones otherwise. */
+export function lireProposition(f: URLSearchParams, communes: readonly string[], now: Date): { proposition: Proposition } | { erreurs: string[] } {
+  const erreurs: string[] = [];
+  const today = localDay(now);
+  const titre = texte(f.get("titre"), NOM_MAX);
+  if (!titre || titre.length < 3) erreurs.push("titre");
+  const date = (f.get("date") ?? "").trim();
+  if (!isDay(date) || date < today || date > addDays(today, JOURS_AVANT_MAX)) erreurs.push("date");
+  const debut = (f.get("debut") ?? "").trim();
+  if (!isTime(debut)) erreurs.push("debut");
+  const fin = (f.get("fin") ?? "").trim();
+  if (fin && !isTime(fin)) erreurs.push("fin");
+  const r = f.get("repete") ?? "";
+  const repete = r === "semaine" || r === "mois" ? r : undefined;
+  if (r && !repete) erreurs.push("repete");
+  const jusqu = (f.get("jusqu_au") ?? "").trim();
+  // A repeated event says until when, three months at most from today: then its author's address can be wiped.
+  if (repete && (!isDay(jusqu) || jusqu <= date || jusqu > addMonths(today, REPETITION_MOIS_MAX))) erreurs.push("jusqu_au");
+  const commune = f.get("commune") ?? "";
+  if (!communes.includes(commune)) erreurs.push("commune");
+  const lieu = texte(f.get("lieu"), NOM_MAX);
+  if (!lieu || lieu.length < 2) erreurs.push("lieu");
+  const organisateur = texte(f.get("organisateur"), NOM_MAX);
+  if (!organisateur || organisateur.length < 2) erreurs.push("organisateur");
+  const description = texte(f.get("description"), DESCRIPTION_MAX);
+  if (!description || description.length < 3) erreurs.push("description");
+  const prix = f.get("gratuit") === "oui" ? "gratuit" : texte(f.get("prix"), PRIX_MAX);
+  if (!prix) erreurs.push("prix");
+  const given = (f.get("lien") ?? "").trim();
+  const lien = httpLink(given);
+  if (given && !lien) erreurs.push("lien");
+  const email = emailOf(f.get("email"));
+  if (!email) erreurs.push("email");
+  // A contact to show with the event: another one given, or the e-mail when its box is ticked; none by default.
+  const autre = (f.get("contact_public") ?? "").replace(/\s+/g, " ").trim();
+  const contact_public = autre ? (autre.length <= CONTACT_MAX && (emailOf(autre) || isPhone(autre)) ? autre : undefined) : f.get("email_public") === "oui" ? email : undefined;
+  if (autre && !contact_public) erreurs.push("contact_public");
+  if (f.get("accord") !== "oui") erreurs.push("accord");
+  // The form is for non-profit associations only, for now (the user, 25/10): a business or a public body is sent to
+  // the guide before anything else.
+  const qui = f.get("vous_etes");
+  if (qui === "commerce" || qui === "public") return { erreurs: ["hors_perimetre"] };
+  if (qui !== "association") erreurs.unshift("vous_etes");
+  if (erreurs.length) return { erreurs };
+  return {
+    proposition: { titre: titre!, date, debut, fin: fin || undefined, repete, jusqu_au: repete ? jusqu : undefined, commune, lieu: lieu!, organisateur: organisateur!, description: description!, prix: prix!, lien, email: email!, contact_public },
+  };
+}
+
+export type Issue = "ok" | "limite" | "indisponible";
+
+const INSERT_LIEN = `INSERT INTO liens (t, nom, commune, lien, contact, page, source)
+SELECT ?, ?, ?, ?, ?, ?, ?
+WHERE (SELECT COUNT(*) FROM liens WHERE source = ? AND t > ?) < ? AND (SELECT COUNT(*) FROM liens WHERE t > ?) < ?`;
+
+/** Writes one link, refused in the same statement when its sender, or everyone together, sent too many today. */
+export async function enregistrerLien(l: Lien, adresse: string, now = new Date()): Promise<Issue> {
+  if (!run) return "indisponible";
+  const t = Math.floor(now.getTime() / 1000);
+  const source = await empreinte(adresse, now);
+  try {
+    const changed = await run(INSERT_LIEN, t, l.nom, l.commune, l.lien, l.contact ?? null, l.page, source, source, t - 86400, LIENS_PAR_JOUR, t - 86400, LIENS_EN_TOUT_JOUR);
+    return changed > 0 ? "ok" : "limite";
+  } catch (err) {
+    console.error("liens : écriture impossible", err instanceof Error ? err.message : String(err));
+    return "indisponible";
+  }
+}
+
+/** 128 random bits, written for an address (base64url). */
+export function jetonNeuf(): string {
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** What the table keeps of a secret: its SHA-256, in hex. */
+export async function empreinteJeton(jeton: string): Promise<string> {
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(jeton)));
+  return Array.from(h, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** The day after which the author's address is no longer needed: the event's last date. */
+export const derniereDate = (p: Pick<Proposition, "date" | "jusqu_au">) => p.jusqu_au ?? p.date;
+
+const INSERT_PROPOSITION = `INSERT INTO propositions (t, etat, jeton, titre, date, debut, fin, repete, jusqu_au, commune, lieu, organisateur, description, prix, lien, email, contact_public, derniere_date, source)
+SELECT ?, 'a_confirmer', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+WHERE (SELECT COUNT(*) FROM propositions WHERE source = ? AND t > ?) < ? AND (SELECT COUNT(*) FROM propositions WHERE t > ?) < ?`;
+
+/** « 2026-11-07 » → « 07/11/2026 ». */
+const jour = (day: string) => day.split("-").reverse().join("/");
+
+/** The confirmation e-mail of a proposal: what it is, the link, and what happens next. */
+export function messageConfirmation(p: Proposition, lien: string): { subject: string; text: string } {
+  return {
+    subject: `Confirmez votre événement «\u00a0${p.titre}\u00a0» sur rundata.re`,
+    text: [
+      "Bonjour,",
+      "",
+      `Vous avez proposé cet événement sur rundata.re\u00a0: «\u00a0${p.titre}\u00a0», le ${jour(p.date)}${p.repete ? `, chaque ${p.repete} jusqu'au ${jour(p.jusqu_au!)}` : ""} à ${p.debut}, ${p.lieu} (${p.commune}).`,
+      "",
+      "Pour le confirmer, ouvrez ce lien\u00a0:",
+      lien,
+      "",
+      "Nous le relisons ensuite, en général sous 24 heures, avant qu'il s'affiche. Gardez ce message\u00a0: le même lien vous permet ensuite de corriger l'événement, de l'annuler ou de le reporter.",
+      "",
+      "Ce n'est pas vous\u00a0? Ignorez ce message\u00a0: sans confirmation, la proposition et votre adresse sont effacées sous 48 heures.",
+      "",
+      "L'équipe rundata.re",
+      "rundata.re · https://rundata.re/associations",
+    ].join("\n"),
+  };
+}
+
+/**
+ * Writes one proposal waiting for its confirmation and sends the link to its author, `base` followed by the secret.
+ * Refused in the same statement when its sender, or everyone together, sent too many today. A proposal whose e-mail
+ * could not be sent stays unconfirmed, and goes after 48 hours like any other.
+ */
+export async function enregistrerProposition(p: Proposition, adresse: string, base: string, now = new Date()): Promise<Issue> {
+  if (!run || !envoi) return "indisponible";
+  const t = Math.floor(now.getTime() / 1000);
+  const source = await empreinte(adresse, now);
+  const jeton = jetonNeuf();
+  try {
+    const changed = await run(
+      INSERT_PROPOSITION,
+      t, await empreinteJeton(jeton), p.titre, p.date, p.debut, p.fin ?? null, p.repete ?? null, p.jusqu_au ?? null, p.commune, p.lieu, p.organisateur, p.description, p.prix, p.lien ?? null, p.email, p.contact_public ?? null, derniereDate(p), source,
+      source, t - 86400, PROPOSITIONS_PAR_JOUR, t - 86400, PROPOSITIONS_EN_TOUT_JOUR,
+    );
+    if (changed === 0) return "limite";
+  } catch (err) {
+    console.error("propositions : écriture impossible", err instanceof Error ? err.message : String(err));
+    return "indisponible";
+  }
+  try {
+    const m = messageConfirmation(p, `${base}${jeton}`);
+    return (await envoi({ to: p.email, ...m })) ? "ok" : "indisponible";
+  } catch {
+    // Never the error's text: it may hold the address.
+    console.error("propositions : e-mail de confirmation impossible");
+    return "indisponible";
+  }
+}
