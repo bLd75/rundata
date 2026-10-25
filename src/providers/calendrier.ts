@@ -24,9 +24,11 @@ export const HOLIDAYS: SourceInfo = {
   url: "https://calendrier.api.gouv.fr/jours-feries/",
 };
 
+// The latest first: the API gives 100 rows at most, and the years kept must be the current one and the next, not the
+// oldest (59 rows in October 2026, five or six more each year). breaks() puts them back in order.
 const SCHOOL_URL =
   "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-calendrier-scolaire/records" +
-  "?where=location%3D%22R%C3%A9union%22&order_by=start_date&limit=100&select=description,start_date,end_date,annee_scolaire";
+  "?where=location%3D%22R%C3%A9union%22&order_by=start_date%20desc&limit=100&select=description,start_date,end_date,annee_scolaire";
 const DAY_SECONDS = 24 * 3600;
 
 export interface SchoolBreak {
