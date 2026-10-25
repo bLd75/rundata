@@ -97,6 +97,11 @@ export const SOCIAL: Social[] = [
     url: "https://www.instagram.com/rundata.re/",
     svg: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>`,
   },
+  {
+    nom: "WhatsApp",
+    url: "https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q",
+    svg: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3.5 20.5l1.3-4.3a8.5 8.5 0 1 1 3.1 3.1Z"/><path d="M8.7 7.6c.3-.3.8-.3 1 .1l.9 1.5c.2.3.1.7-.1.9l-.5.5c.5 1.1 1.3 1.9 2.4 2.4l.5-.5c.2-.2.6-.3.9-.1l1.5.9c.4.2.4.7.1 1l-.6.6c-.6.6-1.4.7-2.1.4a8.6 8.6 0 0 1-4.5-4.5c-.3-.7-.2-1.5.4-2.1Z" fill="currentColor" stroke="none"/></svg>`,
+  },
 ];
 
 /** The accounts that have an address. */
@@ -109,10 +114,13 @@ const fromSite = (url: string) => `${url}${url.includes("?") ? "&" : "?"}ref=sit
 const accountLinks = (list = SOCIAL, logoOnly = false) =>
   followed(list).map((s) => `<a href="${esc(fromSite(s.url))}" rel="noopener" aria-label="rundata.re sur ${esc(s.nom)}">${s.svg}${logoOnly ? "" : esc(s.nom)}</a>`);
 
-/** « Suivre rundata.re » and each account, with its logo and its name; nothing when none has an address. */
+/**
+ * « Suivre rundata.re » and each account, with its logo and its name; nothing when none has an address. The accounts
+ * go together, under the words when they do not fit beside them (a phone), rather than one left alone on a line.
+ */
 export function follow(list = SOCIAL, cls = "social"): string {
   const links = accountLinks(list);
-  return links.length ? `<p class="${cls}">Suivre rundata.re : ${links.join("")}</p>` : "";
+  return links.length ? `<p class="${cls}">Suivre rundata.re : <span>${links.join("")}</span></p>` : "";
 }
 
 // Search engines cut (and Bing flags) a meta description over 160 characters.
@@ -224,6 +232,7 @@ border-bottom:1px solid rgb(255 255 255/.08);box-shadow:0 30px 60px -20px rgb(0 
 .follow-top a:hover{color:#fff;background:rgb(255 255 255/.08)}.follow-top svg{width:24px;height:24px}}
 .follow-top a:focus-visible,.social a:focus-visible{outline:2px solid var(--sun);outline-offset:2px;border-radius:6px}
 .sheet .social{gap:.5rem 1.4rem}.sheet .social a{color:var(--on-night);font-weight:600;text-decoration:none}.sheet .social svg{width:24px;height:24px}
+@media (max-width:30rem){.sheet .social{gap:.5rem .9rem}.sheet .social a{font-size:.95rem}.sheet .social svg{width:22px;height:22px}}
 .grid{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(6.4rem,1fr));gap:.6rem}
 .grid a{display:grid;justify-items:center;gap:.45rem;padding:.85rem .4rem .75rem;border-radius:18px;text-decoration:none;color:var(--on-night);
 font-size:.88rem;font-weight:600;background:#0d2135;border:1px solid rgb(255 255 255/.07);transition:background .15s,transform .15s}
@@ -645,7 +654,7 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 /* The text read in an image of the OVPF, quoted apart from the card's own words (providers/ovpf-ocr.ts). */
 .posts details>summary{cursor:pointer}.posts details>p{margin:.6rem 0 0;padding-left:.8rem;border-left:3px solid var(--line)}
 .warn ul{padding:0}
-.social{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem 1rem}.social a{display:inline-flex;align-items:center;gap:.35rem}.social svg{width:1.1rem;height:1.1rem;flex:none}
+.social,.social>span{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem 1rem}.social a{display:inline-flex;align-items:center;gap:.35rem}.social svg{width:1.1rem;height:1.1rem;flex:none}
 .pages{list-style:none;padding:0;margin-top:1rem;display:flex;flex-wrap:wrap;gap:.4rem}.pages a{display:block;padding:.3rem .75rem;border-radius:999px;background:rgb(255 255 255/.06);border:1px solid rgb(255 255 255/.1);text-decoration:none;font-size:.86rem}
 footer.foot{background:var(--night);color:var(--on-night-muted);font-size:.86rem;line-height:1.55;padding-block:2.5rem 3rem;border-top:1px solid rgb(255 255 255/.06)}
 footer.foot .wrap{display:grid;gap:1.5rem}
@@ -749,14 +758,23 @@ export function hook(path: string): string | undefined {
 /**
  * Above the feedback form: send the page on WhatsApp, the island's first channel with Facebook (a plain link, no
  * script of theirs; `?ref=wa` counts the visits it brings, src/metrics.ts), follow rundata.re's accounts, and put the
- * site on the home screen (web/pwa.ts).
+ * site on the home screen (web/pwa.ts). The accounts say what each brings: a useful fact every morning, the weekend's
+ * outings on Friday on the WhatsApp channel, named « chaîne WhatsApp » so as not to read as the share link.
  */
 function share(origin: string, head: Head): string {
   const text = `${head.title.replace(/ · 974$/, "")} : ${origin}${head.path}?ref=wa`;
-  const accounts = followed();
+  const link = (s: Social, label = s.nom) => `<a href="${esc(fromSite(s.url))}" rel="noopener">${esc(label)}</a>`;
+  const daily = followed().filter((s) => s.nom !== "WhatsApp").map((s) => link(s));
+  const channel = followed().find((s) => s.nom === "WhatsApp");
+  // « Facebook ou Instagram ».
+  const morning = daily.length > 1 ? `${daily.slice(0, -1).join(", ")} ou ${daily.at(-1)}` : daily[0];
+  const weekend = channel && `les sorties du week-end le vendredi sur notre ${link(channel, "chaîne WhatsApp")}`;
+  const sentence = morning && weekend
+    ? `Une info utile chaque matin sur ${morning}, et ${weekend}.`
+    : morning ? `Une info utile chaque matin sur ${morning}.` : weekend ? `${weekend[0].toUpperCase()}${weekend.slice(1)}.` : "";
   return `<aside class="share wrap" aria-label="Partager et suivre"><div class="card">
   <a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp ${EXTERNAL}</a>
-  ${accounts.length ? `<p>Une info utile chaque matin : suivez rundata.re sur ${accounts.map((s) => `<a href="${esc(fromSite(s.url))}" rel="noopener">${esc(s.nom)}</a>`).join(" ou ")}.</p>` : ""}
+  ${sentence ? `<p>${sentence}</p>` : ""}
 </div>
 ${INSTALL}
 </aside>`;

@@ -8,6 +8,7 @@ import { pageOf } from "../src/web/places.js";
 import { manifest, site } from "../src/web/site.js";
 import { LOGO_PETIT_SVG } from "../src/web/logo.js";
 import { sentiersPage } from "../src/web/domains.js";
+import { textOf } from "../src/providers/avis-eau.js";
 
 const NOW = new Date("2026-10-24T04:00:00Z");
 const O = "https://rundata.re";
@@ -77,12 +78,28 @@ describe("each page's hook", () => {
 });
 
 describe("sharing and following", () => {
-  it("puts a WhatsApp link with the page's title and ?ref=wa, and the Facebook Page, above the feedback form", () => {
+  it("puts a WhatsApp link with the page's title and ?ref=wa, and rundata.re's accounts, above the feedback form", () => {
     const html = placePage(O, pageOf("cilaos")!, null, NOW);
     const text = "Météo Cilaos en direct et prévisions : https://rundata.re/meteo/cilaos?ref=wa";
     expect(html).toContain(`<a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp`);
-    expect(html).toContain(`suivez rundata.re sur <a href="https://www.facebook.com/1432704299917309?ref=site" rel="noopener">Facebook</a> ou <a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener">Instagram</a>.`);
+    expect(html).toContain(`<p>Une info utile chaque matin sur <a href="https://www.facebook.com/1432704299917309?ref=site" rel="noopener">Facebook</a> ou <a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener">Instagram</a>, et les sorties du week-end le vendredi sur notre <a href="https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q?ref=site" rel="noopener">chaîne WhatsApp</a>.</p>`);
     expect(html.indexOf('class="share wrap"')).toBeLessThan(html.indexOf('id="avis"'));
+  });
+
+  it("leaves out of that sentence an account without an address", () => {
+    const sentence = () => textOf(placePage(O, pageOf("cilaos")!, null, NOW).match(/class="share wrap"[^]*?<p>(.*?)<\/p>/)![1]);
+    const urls = SOCIAL.map((s) => s.url);
+    const only = (...noms: string[]) => SOCIAL.forEach((s, k) => (s.url = noms.includes(s.nom) ? urls[k] : ""));
+    try {
+      only("Facebook", "Instagram");
+      expect(sentence()).toBe("Une info utile chaque matin sur Facebook ou Instagram.");
+      only("WhatsApp");
+      expect(sentence()).toBe("Les sorties du week-end le vendredi sur notre chaîne WhatsApp.");
+      only("Facebook", "WhatsApp");
+      expect(sentence()).toBe("Une info utile chaque matin sur Facebook, et les sorties du week-end le vendredi sur notre chaîne WhatsApp.");
+    } finally {
+      SOCIAL.forEach((s, k) => (s.url = urls[k]));
+    }
   });
 });
 
@@ -92,9 +109,10 @@ describe("rundata.re's accounts", () => {
   it("are in every footer, with their logo, their name and ?ref=site", () => {
     const html = placePage(O, pageOf("cilaos")!, null, NOW);
     const foot = html.slice(html.indexOf('<footer class="foot">'));
-    expect(foot).toContain(`<p class="social">Suivre rundata.re : <a href="https://www.facebook.com/1432704299917309?ref=site" rel="noopener" aria-label="rundata.re sur Facebook"><svg`);
+    expect(foot).toContain(`<p class="social">Suivre rundata.re : <span><a href="https://www.facebook.com/1432704299917309?ref=site" rel="noopener" aria-label="rundata.re sur Facebook"><svg`);
     expect(foot).toContain(`<a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener" aria-label="rundata.re sur Instagram"><svg`);
-    expect(foot).toMatch(/<\/svg>Facebook<\/a><a [^>]+><svg[^]*?<\/svg>Instagram<\/a><\/p>/);
+    expect(foot).toContain(`<a href="https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q?ref=site" rel="noopener" aria-label="rundata.re sur WhatsApp"><svg`);
+    expect(foot).toMatch(/<\/svg>Facebook<\/a><a [^>]+><svg[^]*?<\/svg>Instagram<\/a><a [^>]+><svg[^]*?<\/svg>WhatsApp<\/a><\/span><\/p>/);
   });
 
   it("show nothing for an account without an address", () => {
@@ -108,7 +126,7 @@ describe("rundata.re's accounts", () => {
     const page = homePage(O, null, NOW);
     const ld = JSON.parse(page.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)![1]);
     const org = ld.find((x: { "@type": string }) => x["@type"] === "Organization");
-    expect(org.sameAs.slice(0, 2)).toEqual(["https://www.facebook.com/1432704299917309", "https://www.instagram.com/rundata.re/"]);
+    expect(org.sameAs.slice(0, 3)).toEqual(["https://www.facebook.com/1432704299917309", "https://www.instagram.com/rundata.re/", "https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q"]);
     expect(org.sameAs).toHaveLength(SOCIAL.filter((s) => s.url).length + 3);
     // The reuse's slug since 25/10 (the old one 301s).
     expect(org.sameAs).toContain("https://www.data.gouv.fr/reuses/rundata-re-la-reunion-974-en-direct-pour-vous-et-votre-assistant-ia");
