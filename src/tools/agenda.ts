@@ -391,6 +391,10 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     propose: e.propose ? `Proposé par l'organisateur sur rundata.re le ${e.propose.le.split("-").reverse().join("/")}` : undefined,
     /** The contact its author chose to show, only then. */
     contact: e.propose?.contact,
+    /** Who organises it, as the site's agenda names them. */
+    organise_par: e.organise_par,
+    /** OpenAgenda's picture under the Licence Ouverte, for the search engines (JSON-LD of the pages). */
+    image: e.image,
   };
 }
 export type EventRow = ReturnType<typeof eventRow>;

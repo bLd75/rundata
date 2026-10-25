@@ -2207,9 +2207,10 @@ export function eventSummary(r: AgendaRow): string {
 
 /**
  * The events as schema.org `Event`s, which search engines show in their own box. Only those with a commune and a
- * date: a place and a start are what they require. Nothing the source does not give: no price, and no picture, the
- * sources giving none (search engines want one of the event itself, not the site's); the organiser only when the
- * event comes from its hall's own programme.
+ * date: a place and a start are what they require. Nothing the source does not give, and no end guessed: the price as
+ * the source writes it; the picture only OpenAgenda's, under the Licence Ouverte (never a town hall's, a hall's or
+ * reunion.fr's); the organiser as the site's agenda names it, else the hall whose own programme it is, never the town
+ * hall that publishes it.
  */
 export function agendaEvents(rows: AgendaRow[]): object[] {
   const iso = (local: string) => (local.length > 10 ? `${local}:00+04:00` : local);
@@ -2229,12 +2230,28 @@ export function agendaEvents(rows: AgendaRow[]): object[] {
       },
       ...(r.lien ? { url: r.lien } : {}),
       description: eventSummary(r),
-      // An event its organiser proposed here is theirs: the association, and its price as they gave it.
-      ...(HALLS.has(r.publie_par) || r.propose ? { organizer: { "@type": "Organization", name: r.publie_par } } : {}),
-      ...(r.propose && r.prix ? { offers: offer(r.prix, r.lien) } : {}),
+      ...organizer(r),
+      ...(r.prix && PRICED.test(r.prix) ? { offers: offer(r.prix, r.lien) } : {}),
+      ...(r.image ? { image: { "@type": "ImageObject", url: r.image.url, author: { "@type": "Organization", name: r.image.auteur }, license: LICENCE_OUVERTE } } : {}),
     };
   });
 }
+
+// The licence of OpenAgenda's pictures (rights.license of each event, providers/agenda.ts).
+const LICENCE_OUVERTE = "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0/";
+
+/**
+ * Who organises it: those the site's agenda names; else the hall whose programme it is, or the association that
+ * proposed it here. Never the town hall that publishes an agenda listing what associations put on.
+ */
+function organizer(r: AgendaRow): { organizer?: object | object[] } {
+  const named = r.organise_par?.map((name) => ({ "@type": "Organization", name }));
+  if (named?.length) return { organizer: named.length === 1 ? named[0] : named };
+  return HALLS.has(r.publie_par) || r.propose ? { organizer: { "@type": "Organization", name: r.publie_par } } : {};
+}
+
+// A price is an amount or « gratuit »: a condition of entry (« Sur inscription ») is not one, and makes no Offer.
+const PRICED = /\d\s*(?:€|euros?\b)|gratuit/i;
 
 /** A price as its organiser wrote it: « gratuit » is 0 €, « 5 € » is 5 €; any other text, no amount. */
 function offer(prix: string, url?: string): object {

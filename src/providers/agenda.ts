@@ -137,6 +137,13 @@ export interface Evenement {
   organisateur?: { nom: string; commune?: string; sport?: string; site?: string };
   /** A session for the club's members (« Jeu libre », a weekly outing): told only to who says they are one. */
   reserve_adherents?: boolean;
+  /** Who organises it, as the site's own agenda names them (The Events Calendar): never the town hall that publishes it. */
+  organise_par?: string[];
+  /**
+   * The event's own picture, only from OpenAgenda under the Licence Ouverte 2.0, with its author (the picture's credits,
+   * else the agenda that licenses it): for the search engines' box (JSON-LD), never shown on the page.
+   */
+  image?: { url: string; auteur: string };
   /**
    * Proposed by its organiser on rundata.re (src/providers/agenda-propositions.ts): the day it was, and the contact its
    * author chose to show, if any. Never « checked ».
@@ -277,6 +284,7 @@ interface TribeEvent {
   cost: string;
   categories: { name: string }[];
   venue: { venue?: string; address?: string; city?: string } | unknown[];
+  organizer?: { organizer?: string }[] | unknown;
 }
 
 /**
@@ -289,6 +297,12 @@ const tribeTime = (s: string, allDay: boolean) => (allDay ? s.slice(0, 10) : s.s
 function awayAt(title: string): string | undefined {
   const at = /(?:>|&gt;)\s*([^<>]+)$/.exec(title)?.[1];
   return at ? resolvePlace(at)?.lieu.commune : undefined;
+}
+
+/** The organisers the site names, each once; nothing when it names none. */
+function organisers(o: TribeEvent["organizer"]): { organise_par?: string[] } {
+  const names = Array.isArray(o) ? [...new Set(o.map((x) => clean((x as { organizer?: string })?.organizer ?? "")).filter(Boolean))] : [];
+  return names.length ? { organise_par: names } : {};
 }
 
 export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune: string | undefined, home?: string): Evenement[] {
@@ -309,6 +323,7 @@ export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune:
       lieu: [venue.venue, venue.address].map((x) => x && clean(x)).filter(Boolean).join(", ") || home,
       commune: communeOf(venue.city) ?? awayAt(e.title) ?? commune,
       prix: clean(e.cost ?? "") || undefined,
+      ...organisers(e.organizer),
       categories: e.categories.map((c) => clean(c.name)),
       ...extrait(description),
       lien: e.url,
@@ -345,6 +360,16 @@ interface OaEvent {
   canonicalUrl: string;
   /** 1 scheduled, 2 rescheduled, 3 moved online, 4 postponed, 5 full, 6 cancelled. */
   status?: number;
+  image?: { base?: string; filename?: string } | null;
+  imageCredits?: string | null;
+  rights?: { license?: { id?: string }; licensor?: { name?: string } } | null;
+}
+
+/** The event's picture when its rights are the Licence Ouverte 2.0, with its credits or else its licensor as author. */
+function oaImage(e: OaEvent): { image?: { url: string; auteur: string } } {
+  const url = e.image?.base && e.image.filename ? httpUrl(`${e.image.base}${e.image.filename}`) : undefined;
+  const auteur = clean(e.imageCredits ?? "") || clean(e.rights?.licensor?.name ?? "");
+  return url && auteur && e.rights?.license?.id === "etalab-2.0" ? { image: { url, auteur } } : {};
 }
 
 const fr = (m: Record<string, string> | null | undefined) => (m ? m.fr ?? Object.values(m)[0] : undefined);
@@ -371,6 +396,7 @@ export function parseOpenAgenda(body: { events: OaEvent[] }, nom: string): Evene
       ...extrait(clean(fr(e.description) ?? "")),
       lien: e.canonicalUrl,
       publie_par: nom,
+      ...oaImage(e),
     };
   });
 }

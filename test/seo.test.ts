@@ -117,6 +117,33 @@ describe("events as schema.org Events", () => {
     expect(hall).not.toHaveProperty("image");
   });
 
+  it("give the price, OpenAgenda's picture and the organisers as their source gives them, nothing guessed", () => {
+    const [paid, pictured, named, many, bare] = agendaEvents([
+      row({ commune: "Saint-Leu", prix: "10€ à 14€", lien: "https://www.lesechoir.com/evenement/x/" }),
+      row({ commune: "Saint-Denis", publie_par: "Office de tourisme du Nord", image: { url: "https://img.openagenda.com/main/abc.base.image.jpg", auteur: "OTI NORD" } }),
+      row({ commune: "Saint-Paul", publie_par: "Mairie de Saint-Paul", organise_par: ["Association Lèv la tèt"] }),
+      row({ commune: "Saint-Leu", publie_par: "Le Séchoir", organise_par: ["Le Séchoir", "Cie Bivouac"] }),
+      row({ commune: "Saint-Paul", publie_par: "Mairie de Saint-Paul" }),
+    ]) as any[];
+    // Any price the source gives, as offer() reads it: a text without one amount stays a description.
+    expect(paid.offers).toEqual({ "@type": "Offer", description: "10€ à 14€", url: "https://www.lesechoir.com/evenement/x/" });
+    expect(pictured.image).toEqual({
+      "@type": "ImageObject",
+      url: "https://img.openagenda.com/main/abc.base.image.jpg",
+      author: { "@type": "Organization", name: "OTI NORD" },
+      license: "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0/",
+    });
+    // The organiser the site names, even on a town hall's agenda; never the town hall in its place.
+    expect(named.organizer).toEqual({ "@type": "Organization", name: "Association Lèv la tèt" });
+    expect(many.organizer).toEqual([{ "@type": "Organization", name: "Le Séchoir" }, { "@type": "Organization", name: "Cie Bivouac" }]);
+    for (const k of ["organizer", "offers", "image", "performer", "endDate"]) expect(bare, k).not.toHaveProperty(k);
+    // A condition of entry is not a price: no Offer. An amount among other words, or « gratuit », is one.
+    const offers = (prix: string) => (agendaEvents([row({ commune: "Saint-Denis", prix })])[0] as any).offers;
+    expect(offers("Sur inscription")).toBeUndefined();
+    expect(offers("Gratuit")).toMatchObject({ price: 0, priceCurrency: "EUR" });
+    expect(offers("Tarif plein : 5€ | Tarif réduit : 3€")).toMatchObject({ description: "Tarif plein : 5€ | Tarif réduit : 3€" });
+  });
+
   it("leave out an event without a commune or a date, and are on the page", () => {
     expect(agendaEvents([row({}), row({ commune: "Saint-Paul", date: "bientôt" })])).toEqual([]);
     const d = { resume: "", nombre: 1, evenements: [row({ commune: "Saint-Paul" })], couverture: "", a_savoir: "", sources: [], ce_week_end: [] } as AgendaAnswer;
