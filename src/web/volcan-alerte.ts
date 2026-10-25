@@ -11,6 +11,7 @@ import { esc } from "./map.js";
 import { DESCRIPTION_MAX } from "./pages.js";
 import { type Hausse, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
+import { OVPF, OVPF_FACEBOOK } from "../providers/volcan.js";
 
 export interface VolcanAlerte {
   /** « Alerte 1 », « Alerte 2-1 »… as the plan names it; undefined when only the eruption is known. */
@@ -190,11 +191,13 @@ export function tileLive(a: VolcanAlerte): { valeur: string; detail: string; sou
 
 // --- /volcan during an alert -----------------------------------------------------------------------------------------
 
+// The IPGP took its site offline after two security flaws (the OVPF's director, 25/10/2026): no link to it until it is back.
 export const OVPF_LINKS = [
-  { nom: "Le site de l'OVPF (IPGP)", url: "https://www.ipgp.fr/fr/ovpf/actualites-ovpf" },
+  { nom: "Bluesky : ovpf.bsky.social", url: OVPF.url },
+  { nom: "Facebook : ObsVolcanoPitonFournaise", url: OVPF_FACEBOOK },
   { nom: "X : @obsfournaise", url: "https://x.com/obsfournaise" },
-  { nom: "Facebook : ObsVolcanoPitonFournaise", url: "https://www.facebook.com/ObsVolcanoPitonFournaise" },
 ];
+export const IPGP_INDISPONIBLE = "Le site de l'OVPF (IPGP) est momentanément indisponible : ses annonces restent publiées sur ses réseaux.";
 
 const ABOUT_VOLCANO = /fournaise|volcan|enclos|[ée]ruption/i;
 
@@ -214,7 +217,7 @@ export function alertSections(a: VolcanAlerte, news: ActualitesAnswer | undefine
       `<p><a href="${esc(a.communique.lien)}">${esc(a.communique.titre)}</a></p></div>`
     : "";
   const ovpf = `<div class="card"><h3>Les annonces de l'Observatoire volcanologique (OVPF)</h3><ul class="plain">` +
-    OVPF_LINKS.map((l) => `<li><a href="${esc(l.url)}">${esc(l.nom)}</a></li>`).join("") + `</ul></div>`;
+    OVPF_LINKS.map((l) => `<li><a href="${esc(l.url)}">${esc(l.nom)}</a></li>`).join("") + `</ul><p class="note">${esc(IPGP_INDISPONIBLE)}</p></div>`;
   const heads = mediaHeadlines(news);
   const media = `<section aria-labelledby="h-medias"><div class="sec-h"><h2 id="h-medias">Ce que disent les médias de l'île</h2>` +
     `<p>Titres repris tels quels, avec leur heure : selon les médias, pas une source officielle.</p></div>` +

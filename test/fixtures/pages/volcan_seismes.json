@@ -96,9 +96,9 @@
   "En cas d'éruption ou d'alerte, seules comptent les consignes de la préfecture (reunion.gouv.fr) et de l'OVPF-IPGP. L'accès à l'Enclos est réglementé par arrêté préfectoral : le vérifier avant de partir."
  ],
  "consulter": [
-  "https://www.ipgp.fr/observation/observatoires/ovpf/",
   "https://www.reunion.gouv.fr",
-  "https://bsky.app/profile/ovpf.bsky.social"
+  "https://bsky.app/profile/ovpf.bsky.social",
+  "https://www.facebook.com/ObsVolcanoPitonFournaise"
  ],
  "sources": [
   {
