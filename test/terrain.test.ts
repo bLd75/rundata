@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { latestAct, planOf } from "../src/providers/terrain.js";
+import { latestAct, planOf, SOURCES } from "../src/providers/terrain.js";
+import { SOURCES as TRACES } from "../src/providers/traces.js";
 import { ficheLieu, market, riskLine } from "../src/tools/terrain.js";
 
 // Real answers of 23/10/2026 for 7 rue de la Buse, Saint-Paul: parcel BO 552, zone U1c, 115 sales since 2021.
@@ -27,6 +28,11 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("fiche terrain", () => {
+  it("names the IGN's altitudes as the trails do: one definition, the same text everywhere", () => {
+    expect(SOURCES.alti).toBe(TRACES.ign);
+    expect(SOURCES.alti).toMatchObject({ id: "ign_altimetrie", nom: "Altitudes du sol (RGE ALTI, service d'altimétrie de la Géoplateforme)", attribution: "IGN, RGE ALTI" });
+  });
+
   it("gives medians only, houses and flats sold alone", () => {
     const sales = JSON.parse(raw("dvf.json")).features.map(({ properties: p }: { properties: Record<string, string> }) => ({
       annee: Number(p.anneemut), type: p.libtypbien, code: p.codtypbien, valeur: Number(p.valeurfonc),

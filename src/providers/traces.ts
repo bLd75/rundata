@@ -11,6 +11,7 @@ import type { Cache, Cached } from "../cache.js";
 import { distanceKm } from "../geo.js";
 import { getJson, postJson } from "../http.js";
 import type { SourceInfo } from "../types.js";
+import { ALTIMETRIE } from "./ign.js";
 import data from "../traces/traces.json" with { type: "json" };
 import { SOURCE as ONF_SOURCE, type Statut } from "./sentiers.js";
 
@@ -23,14 +24,7 @@ export const SOURCES = {
     attribution: "© les contributeurs d'OpenStreetMap",
     url: "https://www.openstreetmap.org/copyright",
   },
-  ign: {
-    id: "ign_altimetrie",
-    nom: "Altitudes du sol (RGE ALTI, service d'altimétrie de la Géoplateforme)",
-    organisme: "IGN",
-    licence: "Licence Ouverte Etalab 2.0",
-    attribution: "IGN, RGE ALTI",
-    url: "https://geoservices.ign.fr/documentation/services/services-geoplateforme/altimetrie",
-  },
+  ign: ALTIMETRIE,
 } satisfies Record<string, SourceInfo>;
 
 const SERVICE = "https://services1.arcgis.com/Y4HgaQpzkE7kenlE/arcgis/rest/services/Sentiers_La_Reunion_public/FeatureServer/5/query";
