@@ -87,6 +87,11 @@ describe("coupures d'eau", () => {
     expect(operatorOf("Runéo informe ses clients de BRAS-PANON")).toBe("runéo");
     expect(operatorOf("O2LEST informe ses abonnés")).toBe("O2LEST");
     expect(operatorOf("La CIREST informe les habitants")).toBeUndefined();
+    // The one that signs it first, then the first named.
+    expect(operatorOf("Suite à une casse sur le réseau de runéo, CISE Réunion informe ses abonnés de Bras-Panon…")).toBe("CISE Réunion");
+    expect(operatorOf("Après une intervention de CISE Réunion, runéo vous informe que…")).toBe("runéo");
+    expect(operatorOf("Saint-Benoît : casse sur le réseau de runéo", "CISE Réunion informe ses abonnés…")).toBe("CISE Réunion");
+    expect(operatorOf("Les équipes de CISE Réunion vont réaliser des travaux", "Saint-Benoît")).toBe("CISE Réunion");
   });
 
   it("reads the hours of CISE Réunion's notices, the end in the sentence of the return of the water", () => {
