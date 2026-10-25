@@ -233,7 +233,8 @@ async function tileCopies(cache: Cache, keys: string[], background: Background, 
   // One read each, as long as the invocation has subrequests left: a tile past them waits for the next view.
   const budget = left();
   const copies = await Promise.all(keys.map((k, i) => (i < budget ? cache.peek<any>(k, now.getTime() - FRESH_SECONDS * 1000) : Promise.resolve(undefined))));
-  const age = (c: Cached<unknown> | null | undefined) => (c ? now.getTime() - c.fetchedAt.getTime() : Infinity);
+  // A copy of another version is shown until its turn, which comes first (cache.ts, `outdated`).
+  const age = (c: Cached<unknown> | null | undefined) => (c && !c.outdated ? now.getTime() - c.fetchedAt.getTime() : Infinity);
   const due = keys.map((key, i) => ({ key, age: age(copies[i]), cost: copies[i]?.cost })).sort((a, b) => b.age - a.age)[0];
   // Only when what the tile's build took last time (here, or where its copy was built) is left: otherwise its page or
   // a later visit brings it up to date.

@@ -17,7 +17,7 @@ import { noteLecture } from "./lectures.js";
  * the shared copies in KV (worker.ts, web/partagees.ts). Raised only by a change that makes the new code unable to read
  * an entry the old code wrote (a field renamed, removed, or newly required): a deploy then starts from empty stores.
  * Any other deploy keeps them, so that the data centers stay warm. A copy that still breaks a page is caught there
- * (web/site.ts) and built again.
+ * (web/site.ts) and built again. A page's copy is built again after any deploy, at its first view (`outdated`).
  */
 export const CACHE_FORMAT = "2";
 
@@ -26,7 +26,23 @@ export interface CacheEntry {
   fetchedAt: number;
   /** For a page's copy: the subrequests its build took (budget.ts), for the isolates that have not built it yet. */
   cost?: number;
+  /** For a page's copy: the version of the code that built it (`outdated`). */
+  version?: string;
 }
+
+/**
+ * A page's copy (web/data.ts): the answer of the code that built it, wording and links included. A deploy keeps the
+ * stores, so such a copy outlives the code that built it.
+ */
+export const isCopy = (key: string) => key.startsWith("web:");
+
+/**
+ * Whether `entry`, kept under `key`, is a page's copy built by another version than `version` (cam-change 285): due at
+ * once, whatever its age, so that a page shows what its code says from the first view after a deploy. It stays the copy
+ * served if its build fails. A copy written before the versions were kept has none: built again once.
+ */
+export const outdated = (key: string, entry: { version?: string } | undefined, version: string | undefined) =>
+  version != null && entry != null && isCopy(key) && entry.version !== version;
 
 /** Where entries live: process memory on Node; memory in front of the Cloudflare cache in the Worker. */
 export interface CacheStore {
@@ -81,6 +97,8 @@ export interface Cached<T> {
   stale: boolean;
   /** What its build took, when it was measured (`peek` only). */
   cost?: number;
+  /** A page's copy built by another version of the code (`outdated`, `peek` only). */
+  outdated?: boolean;
 }
 
 const FAILURE_BACKOFF_SECONDS = 60;
@@ -123,12 +141,14 @@ export class Cache {
    * awaiting a fetch started by another request fails if that other request is cancelled first.
    * `durable` holds the bundles that must outlive the data center's cache (the Worker's KV: written by the
    * scheduled prefetch in one data center, read by questions in all of them).
+   * `version`: the code's (server.ts), written with each page's copy; a copy of another version is built again (`outdated`).
    */
   constructor(
     private store: CacheStore = new MemoryStore(),
     private now: () => number = Date.now,
     private dedupe = true,
     private durable: CacheStore = store,
+    readonly version?: string,
   ) {}
 
   /** `backoffSeconds`: how long a failure is remembered (in this process) before the source is asked again. */
@@ -142,7 +162,7 @@ export class Cache {
    * served if fresh enough, else loaded, the entry being the copy served if the source fails.
    */
   async getFrom<T>(key: string, have: Cached<T> | undefined, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>> {
-    const hit = have && { value: have.value, fetchedAt: have.fetchedAt.getTime(), ...(have.cost != null && { cost: have.cost }) };
+    const hit = have && { value: have.value, fetchedAt: have.fetchedAt.getTime(), ...(have.cost != null && { cost: have.cost }), ...(!have.outdated && { version: this.version }) };
     return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e)));
   }
 
@@ -159,7 +179,7 @@ export class Cache {
    */
   async peek<T>(key: string, freshAfter?: number): Promise<Cached<T> | undefined> {
     const hit = await this.store.get(key, freshAfter);
-    return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.cost != null && { cost: hit.cost }) };
+    return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.cost != null && { cost: hit.cost }), ...(outdated(key, hit, this.version) && { outdated: true }) };
   }
 
   /** The value kept under `key` in the durable store (the Worker's KV), however old: what must outlive a deploy. */
@@ -226,7 +246,7 @@ export class Cache {
     put: (e: CacheEntry) => Promise<void>,
     backoffSeconds = FAILURE_BACKOFF_SECONDS,
   ): Promise<Cached<T>> {
-    if (hit && this.now() - hit.fetchedAt < freshSeconds * 1000) {
+    if (hit && this.now() - hit.fetchedAt < freshSeconds * 1000 && !outdated(key, hit, this.version)) {
       cacheTally().hits++;
       return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false };
     }
@@ -254,7 +274,7 @@ export class Cache {
       const value = await load();
       // A page's build is measured under its key (budget.ts `measured`): what it took goes with its copy.
       const cost = costOf(key);
-      const entry: CacheEntry = cost == null ? { value, fetchedAt: this.now() } : { value, fetchedAt: this.now(), cost };
+      const entry: CacheEntry = { value, fetchedAt: this.now(), ...(cost != null && { cost }), ...(this.version != null && isCopy(key) && { version: this.version }) };
       await put(entry);
       this.failures.delete(key);
       return { value, fetchedAt: new Date(entry.fetchedAt), stale: false };

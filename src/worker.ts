@@ -10,6 +10,7 @@ import { failed, handle } from "./app.js";
 import { WORKER_BUDGET, count, counted, later, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
+import { VERSION } from "./server.js";
 import { audience, device, language, point, TEAM, teamVisit, visitor, type Hit } from "./metrics.js";
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
@@ -189,8 +190,9 @@ function setup(env: Env): Cache {
   formulaires.configure(env.TURNSTILE_SECRET);
   // Without the KV binding, the bundles stay in the data center's cache like everything else.
   // The page copies shared by every data center are read from KV when the data center's cache has none (web/partagees.ts).
-  const edge = env.STORE ? new SharedFallback(new EdgeStore(), env.STORE) : new EdgeStore();
-  return (cache ??= new Cache(new TieredStore(new MemoryStore(), edge), Date.now, false, env.STORE && new KvStore(env.STORE)));
+  // Each page's copy says which version built it: one of another version is built again at its first view (cache.ts).
+  const edge = env.STORE ? new SharedFallback(new EdgeStore(), env.STORE, Date.now, VERSION) : new EdgeStore();
+  return (cache ??= new Cache(new TieredStore(new MemoryStore(), edge), Date.now, false, env.STORE && new KvStore(env.STORE), VERSION));
 }
 
 export default {

@@ -395,6 +395,8 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
       (copies as Record<string, unknown>)[name] = copy;
       // The answer says how fresh it is from what it was served (tools/fraicheur.ts): these copies.
       noteLecture({ key: c.key, fetchedAt: copy.fetchedAt.getTime(), stale: false, freshSeconds: FRESH_SECONDS });
+      // Built by another version: used, and brought up to date first (cache.ts, `outdated`).
+      if (copy.outdated && !(name in held)) due.push({ c, age: Infinity, cost: copy.cost });
       return;
     }
     leftOut.push({ partie: c.nom, raison: copy ? `copie de ${localTime(copy.fetchedAt)}, trop ancienne` : "pas de copie récente", outil: c.outil, page: `${SITE_URL}${c.page}` });

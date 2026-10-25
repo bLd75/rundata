@@ -249,6 +249,24 @@ describe("reading the copies", () => {
     expect(meteo.used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
+  it("uses a recent copy built by the previous version, and brings it up to date first (cam-change 285)", async () => {
+    await counted(WORKER_BUDGET, () => measured(KEYS.air, () => buildAir(isolate(new EdgeLike()), NOW)).catch(() => undefined));
+    const edge = new EdgeLike();
+    for (const [part, c] of Object.entries(COPIES)) {
+      await edge.put(KEYS[part], { value: c.value, fetchedAt: c.fetchedAt.getTime(), version: part === "air" ? "1.0.0" : "2.0.0" });
+    }
+    const cache = new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false, new MemoryStore(), "2.0.0");
+    const pending: Promise<unknown>[] = [];
+    const run = await counted(WORKER_BUDGET, async () => {
+      const r = await readCopies(cache, SAINT_PAUL, SAINT_PAUL, NOW, (p) => pending.push(p));
+      await Promise.all(pending);
+      return r;
+    });
+    expect(run.value.copies.air).toBeTruthy();
+    expect(run.value.leftOut.find((x) => x.partie === "qualité de l'air")).toBeUndefined();
+    expect(run.value.refreshed).toBe(KEYS.air);
+  });
+
   it("answers through the tool within the budget, naming the commune of the place asked", async () => {
     const pending: Promise<unknown>[] = [];
     const run = await counted(WORKER_BUDGET, async () => {

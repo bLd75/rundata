@@ -128,3 +128,66 @@ describe("peek with a freshness", () => {
   });
 });
 
+
+describe("a page's copy after a deploy (cam-change 285)", () => {
+  it("is written with the version that built it, a source's entry without", async () => {
+    const store = new MemoryStore();
+    const cache = new Cache(store, undefined, false, undefined, "2.0.0");
+    await cache.get("web:agenda", 300, async () => "liste");
+    await cache.get("agenda:petite_ile", 300, async () => "lue");
+    expect((await store.get("web:agenda"))!.version).toBe("2.0.0");
+    expect((await store.get("agenda:petite_ile"))!.version).toBeUndefined();
+  });
+
+  it("is built again at its first view when another version built it, however fresh", async () => {
+    const c = clock();
+    const store = new MemoryStore();
+    await new Cache(store, c.now, false, undefined, "1.0.0").get("web:agenda", 300, async () => "ancienne");
+    // A source's entry is the source's, whatever the code: kept.
+    await new Cache(store, c.now, false, undefined, "1.0.0").get("agenda:petite_ile", 300, async () => "lue");
+    c.advance(10);
+    const cache = new Cache(store, c.now, false, undefined, "2.0.0");
+    let builds = 0;
+    expect((await cache.get("web:agenda", 300, async () => (builds++, "nouvelle"))).value).toBe("nouvelle");
+    expect((await cache.get("web:agenda", 300, async () => (builds++, "encore"))).value).toBe("nouvelle");
+    expect(builds).toBe(1);
+    expect((await cache.get("agenda:petite_ile", 300, async () => "relue")).value).toBe("lue");
+  });
+
+  it("stays the copy served when its build fails", async () => {
+    const c = clock();
+    const store = new MemoryStore();
+    await new Cache(store, c.now, false, undefined, "1.0.0").get("web:volcan", 300, async () => "ancienne");
+    const cache = new Cache(store, c.now, false, undefined, "2.0.0");
+    expect(await cache.get("web:volcan", 300, async () => { throw new Error("source muette"); })).toMatchObject({ value: "ancienne", stale: true });
+  });
+
+  it("is said to be of another version by peek, and built again by getFrom from it", async () => {
+    const c = clock();
+    const store = new MemoryStore();
+    await new Cache(store, c.now, false, undefined, "1.0.0").get("web:lieu:saint-pierre", 300, async () => "ancienne");
+    const cache = new Cache(store, c.now, false, undefined, "2.0.0");
+    const seen = await cache.peek<string>("web:lieu:saint-pierre");
+    expect(seen!.outdated).toBe(true);
+    // As web/data.ts `snapshot` asks: any copy of the last 24 hours will do, but not this one.
+    expect((await cache.getFrom("web:lieu:saint-pierre", seen, 24 * 3600, async () => "nouvelle")).value).toBe("nouvelle");
+    expect((await cache.peek("web:lieu:saint-pierre"))!.outdated).toBeUndefined();
+  });
+
+  it("written before the versions were kept, is built again once", async () => {
+    const store = new MemoryStore();
+    const cache = new Cache(store, undefined, false, undefined, "2.0.0");
+    await store.put("web:air", { value: "sans version", fetchedAt: Date.now() });
+    expect((await cache.peek("web:air"))!.outdated).toBe(true);
+    expect((await cache.get("web:air", 300, async () => "avec")).value).toBe("avec");
+    expect((await store.get("web:air"))!.version).toBe("2.0.0");
+  });
+
+  it("is never said outdated where the code has no version (Node, tests)", async () => {
+    const store = new MemoryStore();
+    await store.put("web:air", { value: 1, fetchedAt: Date.now(), version: "1.0.0" });
+    const cache = new Cache(store);
+    expect((await cache.peek("web:air"))!.outdated).toBeUndefined();
+    expect((await cache.get("web:air", 300, async () => 2)).value).toBe(1);
+  });
+});
