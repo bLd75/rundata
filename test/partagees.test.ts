@@ -155,8 +155,9 @@ describe("the scheduled refresh of the shared copies", () => {
     // The volcano's copy goes every 5 minutes during an alert: its quickest rate bounds it.
     for (const s of SHARED) expect(kv.writes.get(kvKey(s.key)), s.key).toBeLessThanOrEqual(perDay(typeof s.every === "number" ? s.every : 5));
     const total = [...kv.writes.values()].reduce((a, b) => a + b, 0);
-    // The volcano's copy, quiet here, every 30 minutes like four others (about 280 a day, partagees.ts).
-    expect(total).toBeLessThanOrEqual(290);
+    // The volcano's copy, quiet here, every 30 minutes like four others, and the satellites' grids every 3 hours (about
+    // 300 a day, partagees.ts).
+    expect(total).toBeLessThanOrEqual(300);
     expect(total).toBeGreaterThanOrEqual(265);
   });
 

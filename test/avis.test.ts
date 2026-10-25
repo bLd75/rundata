@@ -8,7 +8,7 @@ import { parseAscii, parseCsv } from "../src/providers/acspo.js";
 import { inReunionBeacons } from "../src/providers/pioupiou.js";
 import { AVIS_HINT, cite } from "../src/tools/citer.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
-import { temperatureMer } from "../src/tools/mer.js";
+import { SATELLITES, temperatureMer } from "../src/tools/mer.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
 const NOW = new Date("2026-10-18T19:20:00Z");
@@ -27,7 +27,7 @@ async function offlineCache() {
     { source: "acspo", jours: [parseAscii(fixture("acspo.ascii"), "2026-10-16")], lu: at },
     { source: "modis", jours: parseCsv(fixture("modis.csv"), "sstMasked"), lu: at },
   ];
-  await store.put("web:mer", { value: { plages: [], sources: [], satellites }, fetchedAt: at });
+  await store.put(SATELLITES, { value: satellites, fetchedAt: at });
   return new Cache(store, () => at);
 }
 
