@@ -38,12 +38,14 @@ export interface Address {
 }
 
 /** The best address match in La Réunion (postcodes 974xx), or null. */
-export async function geocode(cache: Cache, q: string): Promise<Cached<Address | null>> {
+// With the commune named in the question, only that commune's answers: otherwise the base may put the same street name of
+// another commune first.
+export async function geocode(cache: Cache, q: string, insee?: string): Promise<Cached<Address | null>> {
   const text = q.trim().slice(0, 200);
-  return cache.get(`ban:${text.toLowerCase()}`, DAY, async () => {
+  return cache.get(`ban:${insee ? `${insee}:` : ""}${text.toLowerCase()}`, DAY, async () => {
     const r = await getJson<{ features: { geometry: { coordinates: [number, number] }; properties: Record<string, string | number> }[] }>(
       SOURCES.ban.id,
-      `https://data.geopf.fr/geocodage/search?q=${encodeURIComponent(`${text} La Réunion`)}&limit=5`,
+      `https://data.geopf.fr/geocodage/search?q=${encodeURIComponent(`${text} La Réunion`)}&limit=5${insee ? `&citycode=${insee}` : ""}`,
     );
     const f = r.features.find((x) => String(x.properties.postcode ?? "").startsWith("974"));
     if (!f) return null;
