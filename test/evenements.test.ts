@@ -70,7 +70,7 @@ describe("the weekend's events", () => {
     const html = weekendPage("https://rundata.re", data(ROWS), TUESDAY);
     expect(html).toContain("<title>Que faire ce week-end à La Réunion ? · 974</title>");
     expect(html).toContain("<h1>Ce week-end à La Réunion</h1>");
-    expect(html).toContain(`content="🇷🇪 Samedi 31 octobre et dimanche 1er novembre (Toussaint) : 4 sorties à La Réunion (974), concerts, fêtes, marchés et spectacles, commune par commune.`);
+    expect(html).toContain(`content="Samedi 31 octobre et dimanche 1er novembre (Toussaint) : 4 sorties à La Réunion (974), concerts, fêtes, marchés et spectacles, commune par commune.`);
     expect(html).toContain(`<li><a href="/evenements">Événements</a></li><li aria-current="page">Ce week-end</li>`);
     expect(html).toContain(`"position":3,"name":"Ce week-end","item":"https://rundata.re/evenements/ce-week-end"`);
     expect(html).toContain("Vendredi 30 octobre soir");
@@ -101,7 +101,7 @@ describe("the concerts", () => {
     expect(html).not.toContain("Fête du chouchou");
     expect(html).toContain("Aujourd&#39;hui, mardi 27 octobre");
     expect(html.match(/"@type":"Event"/g)).toHaveLength(2);
-    expect(html).toMatch(/<meta name="description" content="🇷🇪 Les 2 prochains concerts à La Réunion \(974\) : TÉAT, Cité des Arts/);
+    expect(html).toMatch(/<meta name="description" content="Les 2 prochains concerts à La Réunion \(974\) : TÉAT, Cité des Arts/);
   });
 
   it("point to the halls' programmes when the agendas have none", () => {

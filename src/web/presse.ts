@@ -7,7 +7,7 @@ import type { Cache } from "../cache.js";
 import { DAES } from "../providers/dae.js";
 import { IDS as CHARGE_POINTS, STATIONS as CHARGE_STATIONS } from "../providers/irve.js";
 import { SITES as BATHING_SITES } from "../providers/baignades.js";
-import { STATIONS_974 } from "../providers/meteofrance-stations.js";
+import { STATIONS_EN_SERVICE } from "../providers/meteofrance-stations.js";
 import { RANDONNEES, SENTIERS } from "../providers/traces.js";
 import { GROUPS as STOP_GROUPS, NETWORKS } from "../providers/transit.js";
 import { createServer } from "../server.js";
@@ -54,8 +54,8 @@ export async function pressFigures(cache: Cache): Promise<Figure[]> {
   const figures: Figure[] = [
     { valeur: toolCount(cache), label: "outils dans le connecteur pour les assistants IA", detail: "météo, volcan, bus, eau, sentiers, terrain…" },
     { valeur: COMMUNES.length, label: "communes, chacune avec sa page" },
-    { valeur: STATIONS_974.length, label: "stations Météo-France à La Réunion", detail: "celles en service publient toutes les 6 minutes" },
-    { valeur: STOP_GROUPS.length, label: "arrêts de bus et de car", detail: `${Object.keys(NETWORKS).length} réseaux, prochains départs en direct` },
+    { valeur: STATIONS_EN_SERVICE, label: "stations Météo-France en direct", detail: "une mesure toutes les 6 minutes, du littoral aux sommets" },
+    { valeur: STOP_GROUPS.length, label: "arrêts de bus et de car", detail: `${Object.keys(NETWORKS).length} réseaux, prochains départs, et les retards quand le réseau les publie` },
     { valeur: CHARGE_POINTS.size, label: "points de recharge pour voiture électrique", detail: `dans ${CHARGE_STATIONS.length} stations, libres ou occupés en direct` },
     { valeur: DAES.length, label: "défibrillateurs", detail: "avec leur accès et leurs horaires" },
     { valeur: RANDONNEES.length, label: "itinéraires de randonnée avec leur trace GPS" },
@@ -72,7 +72,7 @@ const link = (url: string) => `<a href="${url}">${url.replace(/^https:\/\//, "")
 const RELEASE = `<p class="eyebrow">Communiqué de presse · La Réunion, le 24 octobre 2026</p>
 <h2 id="h-communique">Toute La Réunion en direct, sur une seule page… et dans votre assistant IA</h2>
 <p><b>rundata.re, un site gratuit, sans compte et sans publicité, rassemble en un seul endroit les données publiques de l'île au moment où on les consulte : la météo mesurée aux stations, la vigilance, le volcan, les bus, les sentiers ouverts ou fermés, la qualité de l'eau, les coupures, les événements du week-end, les informations des médias de l'île. Et il les met dans ChatGPT, Claude ou Le Chat, qui répondent alors avec de vraies mesures, datées et sourcées.</b></p>
-<p>Il pleut à Cilaos en ce moment ? Le sentier du Piton des Neiges est-il ouvert ? Que faire ce week-end ? Le prochain car jaune passe à quelle heure ? Jusqu'ici, chaque réponse se cherchait sur un site différent : Météo-France, l'ONF, l'ARS, les réseaux de bus, les mairies, l'observatoire du volcan… rundata.re les réunit sur une même page, mise à jour toutes les cinq minutes, commune par commune.</p>
+<p>Il pleut à Cilaos en ce moment ? Le sentier du Piton des Neiges est-il ouvert ? Que faire ce week-end ? Le prochain car jaune passe à quelle heure ? Jusqu'ici, chaque réponse se cherchait sur un site différent : Météo-France, l'ONF, l'ARS, les réseaux de bus, les mairies, l'observatoire du volcan… rundata.re les réunit sur une même page, commune par commune, mise à jour en continu, chaque donnée avec son heure.</p>
 <h3>Des mesures, pas des modèles</h3>
 <p>À La Réunion, on passe du niveau de la mer à 3 000 m en vingt kilomètres : une application météo nationale qui donne « 28 °C » pour tout un secteur ne dit rien de Cilaos ou du Maïdo. rundata.re affiche ce que mesure la station Météo-France la plus proche et la plus représentative, avec l'heure de la mesure, la distance et l'altitude de la station. La pluie vue par le radar est donnée au lieu même. Les prévisions existent aussi, mais toujours séparées et étiquetées comme telles. Et pour un cyclone, le site renvoie toujours à la vigilance officielle de Météo-France et aux consignes de la préfecture.</p>
 <h3>Ce qu'on y trouve</h3>
@@ -93,7 +93,7 @@ const RELEASE = `<p class="eyebrow">Communiqué de presse · La Réunion, le 24 
 <p>Ce connecteur suit un protocole ouvert, le MCP (Model Context Protocol), que comprennent désormais la plupart des assistants IA : c'est une façon concrète de mettre les données publiques d'un territoire entier à la portée de ces outils.</p>
 <h3>Gratuit, ouvert, fait pour l'île</h3>
 <p>Le site n'a ni publicité ni cookie (les statistiques de visite sont anonymes). Toutes les données viennent d'organismes publics (Météo-France, ONF, ARS, OVPF-IPGP, EDF, Atmo Réunion, réseaux de bus, mairies…) ou de projets ouverts comme OpenStreetMap, et chaque chiffre est cité avec sa source. Le code est libre (licence MIT). rundata.re est un projet indépendant : il n'est rattaché à aucun de ces organismes et ne remplace pas leurs canaux officiels.</p>
-<p>« Réunir tout ce qui se passe sur l'île sur une même appli, c'est le top », résume un des premiers utilisateurs.</p>
+<p>« Nous voulions qu'on puisse répondre en un coup d'œil aux questions de tous les jours, avec la source officielle à côté de chaque chiffre », explique l'équipe de rundata.re.</p>
 <h3>Liens</h3>
 <ul>
 <li>Le site : ${link("https://rundata.re")}</li>

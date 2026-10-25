@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { DAES } from "../src/providers/dae.js";
+import { STATIONS_EN_SERVICE } from "../src/providers/meteofrance-stations.js";
 import { IDS } from "../src/providers/irve.js";
 import icons from "../src/web/icons.json" with { type: "json" };
 import visuals from "../src/web/presse.json" with { type: "json" };
@@ -27,6 +28,11 @@ describe("press page", () => {
     expect(html).toContain("<li><b>Actualités</b>\u00a0: les informations des médias de l'île");
     expect(html).toContain("les stations Météo-France de la côte aux sommets, relevées toutes les 6 minutes");
     expect(html).not.toContain("D'autres rubriques arrivent");
+    // The team speaks, not an unnamed user; the site is « en continu », not every five minutes.
+    expect(html).toContain("explique l'équipe de rundata.re.</p>");
+    expect(html).not.toContain("premiers utilisateurs");
+    expect(html).toContain("commune par commune, mise à jour en continu, chaque donnée avec son heure.");
+    expect(html).not.toContain("cinq minutes");
     expect(html).toContain(`<link rel="canonical" href="https://rundata.re/presse">`);
   });
 
@@ -35,6 +41,9 @@ describe("press page", () => {
     expect(html).toContain(`<span class="fig">${fr(DAES.length)}</span><span>défibrillateurs`);
     expect(html).toContain(`<span class="fig">${fr(IDS.size)}</span><span>points de recharge`);
     expect(html).toMatch(/<span class="fig">\d+<\/span><span>outils dans le connecteur/);
+    // The stations that publish, the count the connector gives too.
+    expect(html).toContain(`<span class="fig">${STATIONS_EN_SERVICE}</span><span>stations Météo-France en direct`);
+    expect(html).toContain("et les retards quand le réseau les publie");
     // The counts of the day only once this data center has them: nothing is fetched for this page.
     expect(html).not.toContain("événements dans les deux semaines");
     expect(html).not.toContain("fermés aujourd");
@@ -77,5 +86,12 @@ describe("press page", () => {
     expect(home.slice(0, home.indexOf(`<footer class="foot">`))).not.toContain(`href="/presse"`);
     const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), cache())).text();
     expect(map).toContain("<loc>https://rundata.re/presse</loc>");
+  });
+});
+
+describe("the stations in service", () => {
+  it("are those of a recorded 6-minute packet, the count meteo_actuelle and sources_donnees give", () => {
+    const csv = readFileSync(new URL("./fixtures/meteofrance_6min.csv", import.meta.url), "utf8");
+    expect(new Set(csv.match(/^[^;\n]*;[^;\n]*;974\d{5}(?=;)/gm)!.map((l) => l.split(";")[2])).size).toBe(STATIONS_EN_SERVICE);
   });
 });

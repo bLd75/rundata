@@ -78,7 +78,7 @@ describe("out of an alert, whether it erupts only with its source", () => {
 
   it("describes /volcan and heads it in marketing's words", async () => {
     const page = volcanPage(O, { value: await answer(), fetchedAt: NOW, stale: false }, NOW);
-    expect(page).toContain(`<meta name="description" content="🇷🇪 Piton de la Fournaise (974) : pas d&#39;éruption en cours selon pitonlive.com. Niveau ORSEC, accès à l&#39;Enclos et séismes localisés par l&#39;OVPF, en direct.">`);
+    expect(page).toContain(`<meta name="description" content="Piton de la Fournaise (974) : pas d&#39;éruption en cours selon pitonlive.com. Niveau ORSEC, accès à l&#39;Enclos et séismes localisés par l&#39;OVPF, en direct.">`);
     expect(page).toContain(`<p class="big">Pas d'éruption en cours selon pitonlive.com</p>`);
   });
 

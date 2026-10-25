@@ -97,7 +97,7 @@ export const PASSES: Passe[] = [
       auteur: ARCHIVE,
       url: "https://web.archive.org/web/20240518073707/http://pluiesextremes.meteo.fr/lareunion/2007-Gamede.html",
     },
-    meta: "🇷🇪 Cyclone Gamède (février 2007) à La Réunion (974) : pluie et vent mesurés, records de station, records mondiaux de pluie en 72 et 96 h selon Météo-France.",
+    meta: "Cyclone Gamède (février 2007) à La Réunion (974) : pluie et vent mesurés, records de station, records mondiaux de pluie en 72 et 96 h selon Météo-France.",
     extraits: {
       titre: "Records mondiaux, selon Météo-France",
       intro: "Cumuls de pluie de Gamède, selon la page de Météo-France :",

@@ -30,7 +30,7 @@ const gustCount = (p: Passe) => {
 export const titleOf = (p: Passe) => `Cyclone ${p.nom} ${p.annee} : ${gustCount(p) < RAIN_ONLY ? "pluie mesurée" : "pluie et vent mesurés"} · Réunion 974`;
 export const metaOf = (p: Passe) =>
   p.meta ??
-  `🇷🇪 Cyclone ${p.nom} (${p.mois}) à La Réunion (974) : ${gustCount(p) < RAIN_ONLY ? "pluie mesurée" : "pluie et rafales mesurées"} station par station par Météo-France${records(p).length ? ", et les records de station" : ""}.`;
+  `Cyclone ${p.nom} (${p.mois}) à La Réunion (974) : ${gustCount(p) < RAIN_ONLY ? "pluie mesurée" : "pluie et rafales mesurées"} station par station par Météo-France${records(p).length ? ", et les records de station" : ""}.`;
 
 /** 1385 → « 1 385 », 52.3 → « 52,3 ». */
 const num = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 1 });

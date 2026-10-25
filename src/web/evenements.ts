@@ -173,8 +173,8 @@ export function weekendPage(origin: string, data: Cached<AgendaAnswer> | null, n
       : `<p class="card">Aucun événement trouvé dans les agendas lus pour ce week-end. Voir <a href="/evenements">les deux semaines qui viennent</a>.</p>`;
 
   const title = "Que faire ce week-end à La Réunion ? · 974";
-  const short = "🇷🇪 Que faire ce week-end à La Réunion (974) : concerts, fêtes, marchés et spectacles, commune par commune, avec le lien vers chaque organisateur.";
-  const base = `🇷🇪 ${when} : ${count(n, "sortie")} à La Réunion (974), concerts, fêtes, marchés et spectacles`;
+  const short = "Que faire ce week-end à La Réunion (974) : concerts, fêtes, marchés et spectacles, commune par commune, avec le lien vers chaque organisateur.";
+  const base = `${when} : ${count(n, "sortie")} à La Réunion (974), concerts, fêtes, marchés et spectacles`;
   const description = (d && [", commune par commune, avec le lien vers chaque organisateur.", ", commune par commune.", "."].map((t) => base + t).find((x) => x.length <= DESCRIPTION_MAX)) || short;
   const { bar, jsonld } = trail(origin, "Ce week-end", path);
 
@@ -241,8 +241,8 @@ export function concertsPage(origin: string, data: Cached<AgendaAnswer> | null, 
 
   const title = "Concerts à La Réunion : ce soir et ce week-end · 974";
   const programmes = "TÉAT, Cité des Arts, Kabardock, Séchoir et les autres salles, ce soir et ce week-end.";
-  const short = `🇷🇪 Les prochains concerts à La Réunion (974) : ${programmes}`;
-  const description = d && n ? describe(`🇷🇪 ${n > 1 ? `Les ${n} prochains concerts` : "Le prochain concert"} à La Réunion (974) : ${programmes}`, short) : short;
+  const short = `Les prochains concerts à La Réunion (974) : ${programmes}`;
+  const description = d && n ? describe(`${n > 1 ? `Les ${n} prochains concerts` : "Le prochain concert"} à La Réunion (974) : ${programmes}`, short) : short;
   const { bar, jsonld } = trail(origin, "Concerts", path);
 
   const band = `${bar}

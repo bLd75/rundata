@@ -90,9 +90,9 @@ export function secteurPage(origin: string, s: Secteur, data: Cached<RandonneesA
 
   const long = `Randonnée ${s.nom} : traces GPS et sentiers ouverts · 974`;
   const title = long.length <= TITLE_MAX ? long : `Randonnée ${s.nom} : traces GPS · 974`;
-  const short = `🇷🇪 Randonnée ${s.dans} (La Réunion, 974) : sentiers de l'ONF et itinéraires avec trace GPS (GPX), leur état du jour et la météo.`;
+  const short = `Randonnée ${s.dans} (La Réunion, 974) : sentiers de l'ONF et itinéraires avec trace GPS (GPX), leur état du jour et la météo.`;
   const description = d
-    ? describe(`🇷🇪 ${s.nom} (La Réunion, 974) : ${trails.length} sentiers de l'ONF et ${plural(routes.length, "itinéraire")} avec trace GPS (GPX), leur état du jour (${closed.length} fermé${closed.length > 1 ? "s" : ""} en ce moment) et la météo.`, short)
+    ? describe(`${s.nom} (La Réunion, 974) : ${trails.length} sentiers de l'ONF et ${plural(routes.length, "itinéraire")} avec trace GPS (GPX), leur état du jour (${closed.length} fermé${closed.length > 1 ? "s" : ""} en ce moment) et la météo.`, short)
     : short;
   const { bar, jsonld } = sectorTrail(origin, s);
   const list = routes.length
