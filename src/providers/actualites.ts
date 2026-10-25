@@ -33,7 +33,7 @@ export const SOURCES = {
     id: "prefecture_communiques",
     nom: "Communiqués de presse de la préfecture de La Réunion",
     organisme: "Préfecture de La Réunion",
-    licence: "Licence Ouverte (informations publiques de l'État)",
+    licence: "Licence Ouverte Etalab 2.0",
     attribution: "Préfecture de La Réunion",
     url: "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse",
   },

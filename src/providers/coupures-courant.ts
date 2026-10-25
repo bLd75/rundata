@@ -34,7 +34,7 @@ const listed = names.length > 1 ? `${names.slice(0, -1).join(", ")} et ${names.a
 export const SOURCE: SourceInfo = {
   id: "mairies_edf",
   nom: `Avis de coupure d'électricité d'EDF Réunion relayés par les mairies (${names.join(", ")})`,
-  organisme: "Communes de La Réunion, d'après EDF Réunion",
+  organisme: `EDF Réunion, avis relayés par ${names.length > 1 ? "les mairies" : "la mairie"} de ${listed}`,
   licence: "Information publique : seuls les faits (jours, heures, secteurs) sont repris, avec le lien de l'avis",
   attribution: `${names.length > 1 ? "Mairies" : "Mairie"} de ${listed}`,
   url: `${MAIRIES[0]?.site ?? LISIBLES[0].site}/`,

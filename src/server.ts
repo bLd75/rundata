@@ -1,5 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as courantMairies from "./providers/coupures-courant.js";
+import * as carburantsPrix from "./providers/carburants.js";
+import * as radarMf from "./providers/radar.js";
+import * as tcoDecheteries from "./providers/tco.js";
+import * as meteofranceStations from "./providers/meteofrance.js";
+import * as santeSources from "./sante/etablissements.js";
+import * as collecteTco from "./vie/collecte.js";
+import * as lieuxEnfants from "./vie/enfants.js";
+import * as marchesOsm from "./vie/marches.js";
 import { z } from "zod";
 import type { Cache } from "./cache.js";
 import type { Recorder } from "./metrics.js";
@@ -74,7 +82,7 @@ import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.190.13";
+export const VERSION = "0.190.14";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -139,8 +147,14 @@ const lieu = z
  * waitUntil), for resume_du_jour to bring a page copy up to date; without it (stdio, tests) nothing is left to run.
  */
 /** Every source the server reads, each once (sources_donnees' list, and the sites that do not answer: sans-reponse.ts). */
-export const toutesLesSources = () =>
-  oncePerId([...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(feux.enabled() ? [feux.SOURCE] : [])]);
+/**
+ * Every source read, for sources_donnees and the sites that do not answer. `inactives`: those of a base or a key this
+ * Worker lacks as well (Node, the tests), for the registry of producers and licences (producteurs.ts).
+ */
+export const toutesLesSources = (inactives = false) =>
+  oncePerId([...weatherProviders().map((p) => p.source), ...(inactives ? [meteofranceStations.SOURCE] : []), ...(inactives || vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(inactives || transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(inactives || climat.enabled() ? [climat.SOURCE] : []), ...(inactives || climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(inactives || arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(inactives || feux.enabled() ? [feux.SOURCE] : []),
+    // The vie pratique's and the power cuts' (annuaire_services_publics, electricite).
+    carburantsPrix.SOURCE, radarMf.SOURCE, courantMairies.SOURCE, tcoDecheteries.SOURCE, santeSources.FINESS, santeSources.ARS_GARDE, santeSources.SANTE_FR, collecteTco.SOURCE, ...Object.values(lieuxEnfants.SOURCES), marchesOsm.OSM]);
 /** A source's name from its id, for one served from its last copy (fraicheur.ts). */
 export const nomDeSource = (id: string) => toutesLesSources().find((s) => s.id === id)?.nom;
 
