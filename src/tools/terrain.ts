@@ -78,10 +78,14 @@ export const MEDIANE_MIN = 3;
 
 /**
  * Aggregates only: DVF's terms forbid re-identifying people, so no single sale, address or parcel is given out.
- * Houses and flats sold alone, with a built surface, for a median price and a median price per m².
+ * Houses and flats sold alone, with a built surface, for a median price and a median price per m². As on the street: a
+ * house or a flat sold with its outbuildings counts (Cerema's types 111 and 121 leave them out), off plan too, and
+ * exchanges and expropriations are no sales. Unlike the street, a sale DVF records twice stays twice: Cerema gives no lot
+ * numbers to tell it from two flats of one building sold at one price.
  */
 export function market(sales: terrain.Sale[]) {
-  const pick = (code: string) => sales.filter((s) => s.code === code && s.lots === 1 && s.surface_bati >= 15);
+  const sold = sales.filter((s) => !terrain.NOT_SALES.has(s.nature));
+  const pick = (code: string) => sold.filter((s) => s.code === code && s.surface_bati >= 15);
   const sum = (list: terrain.Sale[]) =>
     list.length < 3
       ? { ventes: list.length, note: "trop peu de ventes pour une médiane" }
@@ -91,12 +95,12 @@ export function market(sales: terrain.Sale[]) {
           prix_m2_median: `${nombre(Math.round(median(list.map((s) => s.valeur / s.surface_bati))! / 10) * 10)}\u00a0€/m²`,
           surface_mediane_m2: Math.round(median(list.map((s) => s.surface_bati))!),
         };
-  const land = sales.filter((s) => s.code.startsWith("2") && s.surface_terrain > 0 && s.surface_bati === 0);
+  const land = sold.filter((s) => s.code.startsWith("2") && s.surface_terrain > 0 && s.surface_bati === 0);
   return {
     maisons: sum(pick("111")),
     appartements: sum(pick("121")),
     terrains_nus: land.length >= 3 ? { ventes: land.length, prix_m2_median: `${nombre(Math.round(median(land.map((s) => s.valeur / s.surface_terrain))!))}\u00a0€/m²` } : { ventes: land.length },
-    toutes_ventes: sales.length,
+    toutes_ventes: sold.length,
   };
 }
 
@@ -132,7 +136,7 @@ export function streetMarket(nom: string, depuis: number, sales: terrain.StreetS
 const enregistrees = (n: number) => `${n} vente${n > 1 ? "s enregistrées" : " enregistrée"}`;
 
 /** The street's line of the summary, named as the address base writes it (marketing's words, 25/10). */
-function streetLine(v: ReturnType<typeof streetMarket>): string {
+export function streetLine(v: ReturnType<typeof streetMarket>): string {
   const voie = `sur la voie (${v.voie})`;
   if (!v.ventes) return `${voie}, aucune vente enregistrée dans DVF depuis ${v.depuis}`;
   if (v.note !== undefined) return `${voie}, ${enregistrees(v.ventes)} dans DVF depuis ${v.depuis}, trop peu pour une médiane`;

@@ -136,6 +136,8 @@ export interface Sale {
   surface_bati: number;
   surface_terrain: number;
   lots: number;
+  /** DVF's nature: « Vente », « Echange »… */
+  nature: string;
 }
 
 /** Sales within about `halfSideM` metres since `fromYear`, without geometry nor parcel ids (aggregated by the tool). */
@@ -143,7 +145,8 @@ export async function sales(cache: Cache, lon: number, lat: number, fromYear: nu
   const dLat = halfSideM / 111_320;
   const dLon = halfSideM / (111_320 * Math.cos((lat * Math.PI) / 180));
   const bbox = [lon - dLon, lat - dLat, lon + dLon, lat + dLat].map((v) => v.toFixed(5)).join(",");
-  return cache.get(`dvf:${bbox}:${fromYear}`, 7 * DAY, async () => {
+  // v2: with the nature of each sale (an older entry has none).
+  return cache.get(`dvf:v2:${bbox}:${fromYear}`, 7 * DAY, async () => {
     const r = await getJson<{ features: { properties: Record<string, string | number> }[] }>(
       SOURCES.dvf.id,
       `https://apidf-preprod.cerema.fr/dvf_opendata/geomutations/?in_bbox=${bbox}&anneemut_min=${fromYear}&page_size=500`,
@@ -158,6 +161,7 @@ export async function sales(cache: Cache, lon: number, lat: number, fromYear: nu
         surface_bati: Number(p.sbati),
         surface_terrain: Number(p.sterr),
         lots: Number(p.nblocmut),
+        nature: String(p.libnatmut),
       }))
       .filter((s) => s.valeur > 0 && String(s.code) !== "undefined");
   });
@@ -175,7 +179,7 @@ export interface StreetSale {
 /** The yearly files of DVF géolocalisées, one per commune; the years that have one. */
 const GEO_DVF = (year: number, insee: string) => `https://files.data.gouv.fr/geo-dvf/latest/csv/${year}/communes/974/${insee}.csv`;
 // Not sales, though DVF records them.
-const NOT_SALES = new Set(["Echange", "Expropriation"]);
+export const NOT_SALES = new Set(["Echange", "Expropriation"]);
 
 /** One line of a CSV file of geo-dvf, its quoted fields included. */
 function cells(line: string): string[] {
@@ -198,7 +202,8 @@ function cells(line: string): string[] {
 
 /**
  * The sales of one year file on the street `voie` (its FANTOIR code), each sale once with all its lines, those on other
- * streets included (a house on this street sold with a field elsewhere is one sale, at one price).
+ * streets included (a house on this street sold with a field elsewhere is one sale, at one price). DVF may record one
+ * sale twice: two of the same value on exactly the same parcels and lots count once.
  */
 export function streetSales(csv: string, voie: string): StreetSale[] {
   const lines = csv.split("\n");
@@ -217,10 +222,14 @@ export function streetSales(csv: string, voie: string): StreetSale[] {
     const id = line.slice(0, line.indexOf(","));
     if (ids.has(id)) rows.set(id, [...(rows.get(id) ?? []), cells(line)]);
   }
+  const seen = new Set<string>();
   return [...rows.values()].flatMap((r) => {
     const first = r[0];
     const valeur = Number(first[VALEUR]);
     if (NOT_SALES.has(first[NATURE]) || !(valeur > 0)) return [];
+    const same = `${valeur}|${[...new Set(r.map((c) => `${c[PARCELLE]}:${c[LOT]}`))].sort().join(",")}`;
+    if (seen.has(same)) return [];
+    seen.add(same);
     // A building is on as many lines as its parcel has kinds of land, and a kind of land on as many as the parcel has
     // buildings: each counted once, per parcel, lot, kind and surface, and per parcel and kind of land.
     const locals = new Map<string, { type: string; bati: number }>();
@@ -247,7 +256,8 @@ export function streetSales(csv: string, voie: string): StreetSale[] {
  * year without a file yet (404) is left out; `annees` says which were read.
  */
 export async function salesOnStreet(cache: Cache, insee: string, voie: string, fromYear: number, toYear: number): Promise<Cached<{ ventes: StreetSale[]; annees: number[] }>> {
-  return cache.get(`dvf-voie:${insee}:${voie}:${fromYear}-${toYear}`, 7 * DAY, async () => {
+  // v2: DVF's double records counted once (an older entry may hold them twice).
+  return cache.get(`dvf-voie:v2:${insee}:${voie}:${fromYear}-${toYear}`, 7 * DAY, async () => {
     const years = Array.from({ length: toYear - fromYear + 1 }, (_, i) => fromYear + i);
     const files = await Promise.all(years.map((y) => getText(SOURCES.dvfVoie.id, GEO_DVF(y, insee), 25_000).catch((err) => {
       if (err instanceof UpstreamError && err.status === 404) return undefined;
