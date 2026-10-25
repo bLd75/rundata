@@ -624,10 +624,41 @@ export function calendrierLive(data: Cached<CalendrierAnswer> | null): Live | un
 
 // ---------------------------------------------------------------- bus
 
-const waitText = (min: number, heure: string) =>
+export const waitText = (min: number, heure: string) =>
   heure.startsWith("demain") ? heure : min < 1 ? "maintenant" : min < 90 ? `dans ${fr(min)} min` : `à ${heure}`;
 
 type Row = BusData["gares"][number]["departs"][number];
+
+const LOCAL_MS = 4 * 3600_000;
+const DAY_MS = 86_400_000;
+
+/**
+ * A copy's time (« 4h30 », or « demain 4h30 » when the copy was built before midnight) as said at the view: « demain »
+ * only when it falls on the day after this one at La Réunion. The clock is taken on the day that puts it closest to
+ * `near`, the moment of the departure or of the copy.
+ */
+export function saidNow(heure: string, near: number, now: Date): string {
+  const clock = heure.replace(/^demain /, "");
+  const [h, m] = clock.split("h").map(Number);
+  const local = near + LOCAL_MS;
+  let at = local - (((local % DAY_MS) + DAY_MS) % DAY_MS) + (h * 60 + m) * 60_000;
+  if (at - local > DAY_MS / 2) at -= DAY_MS;
+  else if (local - at > DAY_MS / 2) at += DAY_MS;
+  return Math.floor(at / DAY_MS) > Math.floor((now.getTime() + LOCAL_MS) / DAY_MS) ? `demain ${clock}` : clock;
+}
+
+/** « à 4h30 », « demain à 4h30 ». */
+export const atDay = (heure: string) => (heure.startsWith("demain ") ? `demain à ${heure.slice("demain ".length)}` : `à ${heure}`);
+
+/** The departures of a copy still to come: their wait counted again from now, their time (the announced one first) said as of now. */
+export function stillToCome(list: Row[], fetchedAt: Date, now: Date): { x: Row; at: number; min: number; heure: string }[] {
+  return list
+    .map((x) => {
+      const at = fetchedAt.getTime() + x.dans_min * 60_000;
+      return { x, at, min: Math.round((at - now.getTime()) / 60_000), heure: saidNow(x.heure_annoncee ?? x.heure, at, now) };
+    })
+    .filter(({ min }) => min >= 0);
+}
 
 /** What the real-time feed says of a departure, HTML: « +5 min », « à l'heure », « 1 min d'avance », « ne passe pas à cet arrêt ». */
 export function liveText(x: Row): string {
@@ -659,12 +690,15 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
     : "";
 
   const gares = d?.gares.length
-    ? `<ul class="zones">${d.gares.map((g) => `<li class="card"><h3>Gare ${esc(de(g.commune))}</h3>` +
+    ? `<ul class="zones">${d.gares.map((g) => {
+        const left = stillToCome(g.departs, data!.fetchedAt, now);
+        return `<li class="card"><h3>Gare ${esc(de(g.commune))}</h3>` +
         `<p class="note">${g.arrets.map((a) => `${esc(a.reseau)} : ${esc(a.nom)}`).join(" · ")}</p>` +
-        (g.departs.length
-          ? `<ul class="rows">${g.departs.map((x) => departureLi(x, waitText(x.dans_min, x.heure_annoncee ?? x.heure))).join("")}</ul>`
+        (left.length
+          ? `<ul class="rows">${left.map(({ x, min, heure }) => departureLi(x, waitText(min, heure))).join("")}</ul>`
           : `<p>Pas de départ prévu dans les prochaines heures.</p>`) +
-        `</li>`).join("")}</ul>` +
+        `</li>`;
+      }).join("")}</ul>` +
       `<p class="note">${d!.temps_reel?.length ? `${esc(d!.temps_reel.map((t) => t.reseau).join(", "))} : heures annoncées en direct par le réseau quand le bus y figure (flux de ${esc(d!.temps_reel[0].heure)}). ` : ""}` +
       `Sinon, horaires théoriques publiés par chaque réseau, sans les retards ni les déviations. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
     : `<p class="card">Les prochains départs à n'importe quel arrêt de l'île sont donnés par le connecteur : demandez à votre assistant « le prochain bus à la gare de Saint-Pierre ? ».</p>`;
@@ -697,14 +731,14 @@ ${connectorCta("transports", "les bus de l'île")}
   return layout(origin, { title, description, path: "/bus", jsonld: [crumbs(origin, "Bus", "/bus"), webPage(origin, "/bus", title, description, data)], alerte }, band, body);
 }
 
-export function busLive(data: Cached<BusData> | null): Live | undefined {
+export function busLive(data: Cached<BusData> | null, now = new Date()): Live | undefined {
   const d = data?.value;
-  const g = d?.gares.find((x) => x.departs.length);
+  const g = d?.gares.find((x) => stillToCome(x.departs, data!.fetchedAt, now).length);
   if (!d || !g) return undefined;
-  const x = g.departs[0];
+  const { x, heure } = stillToCome(g.departs, data!.fetchedAt, now)[0];
   return {
     // A time rather than « dans 3 min »: the page may be a few minutes old.
-    valeur: esc(x.heure_annoncee ?? x.heure),
+    valeur: esc(heure),
     detail: `prochain départ de la gare ${esc(de(g.commune))} : ligne ${esc(x.ligne)} vers ${esc(x.direction)} (${esc(x.reseau)})`,
   };
 }
@@ -1174,7 +1208,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
       : `<div class="card">${icon("bus")}<h3>Retards des bus au départ des gares</h3>
   <p class="note">Retards des bus, pas une mesure des bouchons : un car en retard l'est souvent depuis sa course précédente.</p>
   ${b.retards.length
-    ? `<ul class="rows eau">${b.retards.slice(0, 12).map((r) => `<li><span>${esc(r.reseau)} ${esc(r.ligne)} vers ${esc(r.direction)}<small>gare ${esc(de(r.gare))}, départ prévu à ${esc(r.heure)}</small></span><span class="score">${r.retard_min} min</span></li>`).join("")}</ul>`
+    ? `<ul class="rows eau">${b.retards.slice(0, 12).map((r) => `<li><span>${esc(r.reseau)} ${esc(r.ligne)} vers ${esc(r.direction)}<small>gare ${esc(de(r.gare))}, départ prévu ${esc(atDay(saidNow(r.heure, data!.fetchedAt.getTime(), now)))}</small></span><span class="score">${r.retard_min} min</span></li>`).join("")}</ul>`
     : `<p>${b.suivis ? `Aucun des ${b.suivis} départs suivis en direct n'a plus de ${LATE_MIN} min de retard.` : "Pas de départ suivi en direct en ce moment."}</p>`}
   ${b.alertes.length ? `<h4>Déviations et avis des réseaux</h4>${alertList(b.alertes)}` : ""}
   ${b.temps_reel.length ? `<p class="note">Flux en direct : ${b.temps_reel.map((t) => `${esc(t.reseau)} à ${esc(t.heure)}`).join(", ")}. <a href="/bus">Les prochains départs</a>.</p>` : `<p class="note"><a href="/bus">Les prochains départs</a>.</p>`}</div>`;

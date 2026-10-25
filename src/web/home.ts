@@ -9,7 +9,7 @@ import { PATH as A_PROPOS, QUI } from "./a-propos.js";
 import icons from "./icons.json" with { type: "json" };
 import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from "./categories.js";
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
-import { actualitesLive, airLive, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive } from "./domains.js";
+import { actualitesLive, airLive, atDay, bornesLive, busLive, coupuresLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive, saidNow, stillToCome } from "./domains.js";
 import { de } from "../tools/format.js";
 import { enImagesApres, enImagesLuesAilleurs, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
@@ -74,7 +74,7 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
     vigilance: vigilanceLive(h?.vigilance ?? null, now),
     mer: merLive(h?.meteo ?? null),
     volcan: volcanLive(h?.volcan ?? null),
-    bus: busLive(h?.bus ?? null),
+    bus: busLive(h?.bus ?? null, now),
     trafic: traficLive(h?.trafic ?? null),
     velos: velosLive(h?.velos ?? null),
     bornes: bornesLive(h?.bornes ?? null),
@@ -142,13 +142,15 @@ export function demos(h: HomeLive | null, now: Date): Demo[] {
         (q ? ` L'observatoire a localisé ${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} sous le volcan en 7 jours.` : ""),
     });
   }
-  const g = h?.bus?.value.gares.find((x) => x.departs.length >= 2);
-  if (g) {
-    const [a, b] = g.departs;
+  const bus = h?.bus;
+  const next = bus?.value.gares.map((g) => ({ g, left: stillToCome(g.departs, bus.fetchedAt, now) })).find(({ left }) => left.length >= 2);
+  if (next) {
+    const { g } = next;
+    const [a, b] = next.left.map(({ x, at }) => ({ ...x, heure: atDay(saidNow(x.heure, at, now)) }));
     out.push({
       question: `Le prochain bus à la gare ${esc(de(g.commune))} ?`,
       call: `transports(arret: "gare routière ${esc(g.commune)}")`,
-      answer: `Ligne ${esc(a.ligne)} vers ${esc(a.direction)} à ${esc(a.heure)}, puis ligne ${esc(b.ligne)} vers ${esc(b.direction)} à ${esc(b.heure)} (${esc(a.reseau)}${b.reseau !== a.reseau ? `, ${esc(b.reseau)}` : ""}), d'après les horaires publiés.`,
+      answer: `Ligne ${esc(a.ligne)} vers ${esc(a.direction)} ${esc(a.heure)}, puis ligne ${esc(b.ligne)} vers ${esc(b.direction)} ${esc(b.heure)} (${esc(a.reseau)}${b.reseau !== a.reseau ? `, ${esc(b.reseau)}` : ""}), d'après les horaires publiés.`,
     });
   }
   const p = h?.electricite?.value.production;
