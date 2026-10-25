@@ -86,6 +86,9 @@ function checked(c: calc.Constants): string | undefined {
 // Below this range from the turn before or after, the tide is weak (neaps): its turning time is flat and less sure.
 const WEAK_RANGE_M = 0.4;
 
+/** Where the computation stops: « 27/10 16:51 ». */
+const until = (now: Date) => localTime(new Date(now.getTime() + NEXT_HOURS * 3600_000));
+
 /** The next high and low waters at a gauge, computed: never measured, never the SHOM's. */
 export function nextTides(g: GaugeNow, now: Date) {
   const c = calc.constantsOf(g.gauge.id);
@@ -98,7 +101,7 @@ export function nextTides(g: GaugeNow, now: Date) {
   return {
     nature: "calcul",
     avertissement: `${calc.LABEL} ; ${precision(c)}.`,
-    horizon: `calculé jusqu'au ${localTime(new Date((from + NEXT_HOURS * 3600) * 1000))} heure de La Réunion ; au-delà, les prédictions officielles du SHOM : ${SHOM}`,
+    horizon: `calculé jusqu'au ${until(now)} heure de La Réunion ; au-delà, les prédictions officielles du SHOM : ${SHOM}`,
     ...(checked(c) ? { controle: checked(c) } : {}),
     ...(g.offset != null
       ? { recalage: `hauteurs recalées de ${offset >= 0 ? "+" : ""}${fr(Math.round(offset * 100))} cm sur le niveau mesuré des ${OFFSET_HOURS} dernières heures` }
@@ -136,9 +139,9 @@ export function tidesAt(gauge: mg.Gauge, now: Date, rows: { maregraphe: string; 
   return next && { gauge, nom: label(gauge), minutes: minutes(c), next };
 }
 
-/** « pleine mer vers 14:35 (0,85 m), basse mer vers 20:50 (0,3 m) ». */
-export function nextText(n: NonNullable<ReturnType<typeof nextTides>>): string {
-  return n.liste.slice(0, 2).map((e) => `${e.type} ${e.heure} (${m(e.hauteur_m)}${"note" in e ? ", heure plus incertaine, marée faible" : ""})`).join(", ");
+/** « pleine mer vers 14:35 (0,85 m), basse mer vers 20:50 (0,3 m) »: the first `count`. */
+export function nextText(n: NonNullable<ReturnType<typeof nextTides>>, count = 2): string {
+  return n.liste.slice(0, count).map((e) => `${e.type} ${e.heure} (${m(e.hauteur_m)}${"note" in e ? ", heure plus incertaine, marée faible" : ""})`).join(", ");
 }
 
 /** « 0,5 m, marée descendante ; dernière pleine mer vers 00:04 (0,86 m), dernière basse mer vers 17:41 (0,39 m) ». */
@@ -187,14 +190,19 @@ const COMMON = {
     "la houle et le vent comptent souvent plus pour la mer au bord.",
 };
 
-/** What a gauge says: measured if it answers, then the computed tides to come. */
-function sentence(g: GaugeNow, now: Date): string {
+/**
+ * What a gauge says: measured if it answers, then the computed tides to come, and where the computation stops, so that
+ * a summary read alone leaves nothing to extrapolate. For a place, those of today and tomorrow (« la marée basse
+ * demain »); for the whole island, the next two of each gauge.
+ */
+function sentence(g: GaugeNow, now: Date, both = false): string {
   const next = nextTides(g, now);
   const measured = g.reading ? state(g.reading) : "marégraphe muet pour le moment";
   const c = calc.constantsOf(g.gauge.id)!;
-  return next?.liste.length
-    ? `${measured} ; prochaines marées, ${calc.LABEL}, à environ ${minutes(c)} min près : ${nextText(next)}`
-    : measured;
+  if (!next?.liste.length) return measured;
+  const count = both ? 2 : next.liste.filter((e) => /^(?:vers|demain) /.test(e.heure)).length;
+  return `${measured} ; prochaines marées, ${calc.LABEL}, à environ ${minutes(c)} min près : ${nextText(next, count)} ; ` +
+    `${next.liste.length} marées calculées jusqu'au ${until(now)} (prochaines_marees), au-delà les prédictions officielles du SHOM (${SHOM})`;
 }
 
 function row(g: GaugeNow, now: Date, km?: number) {
@@ -212,7 +220,7 @@ export async function maree(cache: Cache, lieu: string | undefined, now = new Da
 
   if (!lieu?.trim()) {
     return text({
-      resume: all.map((g) => `${label(g.gauge)} : ${sentence(g, now)}`).join(". ") + ".",
+      resume: all.map((g) => `${label(g.gauge)} : ${sentence(g, now, true)}`).join(". ") + ".",
       maregraphes: all.map((g) => row(g, now)),
       ...COMMON,
       sources,

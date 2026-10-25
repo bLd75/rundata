@@ -57,6 +57,12 @@ describe("tide gauges", () => {
     expect(next.horizon).toMatch(/^calculé jusqu'au 26\/10 03:4\d heure de La Réunion ; au-delà, les prédictions officielles du SHOM : https:\/\/maree\.shom\.fr$/);
     // Never a time to the minute.
     for (const e of next.liste) expect(e.heure).toMatch(/vers \d\d:[0-5][05]$/);
+    // The summary read alone: today's and tomorrow's tides, and where the computation stops, with the SHOM beyond.
+    const listed = r.resume.split(" près : ")[1].split(" ; ")[0].split(/, (?=pleine|basse)/);
+    expect(listed.length).toBe(next.liste.filter((e: { heure: string }) => !/^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche) /.test(e.heure)).length);
+    expect(listed.length).toBeGreaterThanOrEqual(6);
+    expect(listed.at(-1)).toMatch(/^(?:basse|pleine) mer demain vers \d\d:[0-5][05] \(0,\d+ m/);
+    expect(r.resume).toMatch(new RegExp(` ; ${next.liste.length} marées calculées jusqu'au 26/10 03:4\\d \\(prochaines_marees\\), au-delà les prédictions officielles du SHOM \\(https://maree\\.shom\\.fr\\)\\.$`));
     // Sainte-Marie has its own precision.
     expect(r.maregraphes[1].prochaines_marees.avertissement).toContain("heures à environ 20 min près");
     expect(r.sources[0].attribution).toBe("REFMAR. http://dx.doi.org/10.17183/REFMAR#RONIM");
@@ -76,6 +82,9 @@ describe("tide gauges", () => {
     const quiet = series("832").filter((p) => p.t <= Date.parse("2026-10-23T22:30:00Z"));
     const r = body(await maree(cache({ "110": series("110"), "832": quiet }), undefined, NOW));
     expect(r.maregraphes).toHaveLength(2);
+    // The whole island: the next two of each gauge, and the horizon.
+    expect(r.resume.match(/marées calculées jusqu'au 26\/10 03:4\d \(prochaines_marees\)/g)).toHaveLength(2);
+    expect(r.resume.split(". ")[0].split(" près : ")[1].split(" ; ")[0].split(/, (?=pleine|basse)/)).toHaveLength(2);
     expect(r.maregraphes[1].avertissement).toMatch(/n'a rien envoyé depuis/);
     expect(r.sources[0].attribution).toMatch(/REFMAR/);
   });
