@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
+import { UpstreamError } from "../src/types.js";
 import { familyOf, RENDU_REVISION } from "../src/web/revisions.js";
 
 function clock() {
@@ -34,6 +35,27 @@ describe("Cache", () => {
     expect(await cache.get("k", 60, failing)).toMatchObject({ value: "ok", stale: true });
     expect(await cache.get("k", 60, failing)).toMatchObject({ value: "ok", stale: true });
     expect(calls).toBe(1); // second question within the back-off did not hit the source
+  });
+
+  it("says which source did not answer with its last copy, and logs a read of ours that failed", async () => {
+    const c = clock();
+    const cache = new Cache(undefined, c.now);
+    await cache.get("metar", 60, async () => "ok");
+    await cache.get("page", 60, async () => "ok");
+    c.advance(120);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const silent = async () => { throw new UpstreamError("metar", "HTTP 502", 502); };
+    // The source's id, from its error, also within the back-off.
+    expect(await cache.get("metar", 60, silent)).toMatchObject({ stale: true, source: "metar" });
+    expect(await cache.get("metar", 60, silent)).toMatchObject({ stale: true, source: "metar" });
+    expect(log).not.toHaveBeenCalled();
+    // Our read failed (the page changed shape): no source said, a line in the logs with its key.
+    const r = await cache.get("page", 60, async () => { throw new Error("tableau introuvable"); });
+    expect(r).toMatchObject({ stale: true });
+    expect(r.source).toBeUndefined();
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0][0]).toBe("lecture sans aboutir : page");
+    log.mockRestore();
   });
 
   it("remembers a failure as long as the source asks, but not one of the invocation's budget", async () => {

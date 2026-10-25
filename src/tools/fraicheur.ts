@@ -96,8 +96,64 @@ function ageFrom(data: Dated, at: number, now: Date): string {
   return data.cle === "run_du_modele" ? `modèle calculé ${age} : l'âge du calcul, pas de la prévision, qui porte sur les heures à venir` : age;
 }
 
-/** `donnee`: false leaves `donnee_du` out (an answer made of many dated parts, each saying its own). */
-export function fraicheur(p: Payload, lectures: Lecture[], now: Date, opts: { donnee?: boolean } = {}) {
+/** A source served from its last copy (`source`, its name), or a part whose read did not succeed (no name). */
+export interface CopieDeSecours {
+  source?: string;
+  lue_le: string;
+}
+
+/**
+ * The parts served from their last copy, each source once with its oldest copy, the oldest first: named when the
+ * source did not answer (its error said which, cache.ts), not when our read of it failed.
+ */
+function copies(pool: Lecture[], nom: (id: string) => string | undefined): CopieDeSecours[] {
+  const oldest = new Map<string, { source?: string; at: number }>();
+  for (const l of pool.filter((l) => l.stale)) {
+    const source = l.source && nom(l.source);
+    // A part without a name is said for each copy: one key, one read.
+    const k = source ?? `#${l.key}`;
+    if (!oldest.has(k) || l.fetchedAt < oldest.get(k)!.at) oldest.set(k, { source, at: l.fetchedAt });
+  }
+  return [...oldest.values()].sort((a, b) => a.at - b.at).map((c) => ({ ...(c.source && { source: c.source }), lue_le: localTime(new Date(c.at)) }));
+}
+
+// « 25/10 22:22 » as said in a sentence: « 25/10 à 22:22 », the day again only when it changes (« et à 22:22 »).
+const dits = (reads: string[]) => {
+  const said = reads.map((r, i) => (i && r.slice(0, 5) === reads[i - 1].slice(0, 5) ? `à ${r.slice(6)}` : `du ${r.replace(" ", " à ")}`));
+  return said.length > 1 ? `${said.slice(0, -1).join(", ")} et ${said.at(-1)}` : said[0];
+};
+const quoted = (s: string) => `« ${s} »`;
+
+/**
+ * Marketing's words: the sources that did not answer named, each with its last read, then the parts whose read did
+ * not succeed, without a cause; « le reste » only when every other part was read at its own pace.
+ */
+function avertissement(list: CopieDeSecours[], rest: boolean): string {
+  const named = list.filter((c) => c.source);
+  const parts = [...new Set(list.filter((c) => !c.source).map((c) => c.lue_le))];
+  const restText = " Le reste de la réponse est à jour.";
+  const out: string[] = [];
+  if (named.length === 1) out.push(`La source ${quoted(named[0].source!)} n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture ${dits([named[0].lue_le])}.`);
+  if (named.length > 1) {
+    const each = named.map((c) => `${quoted(c.source!)}, lue le ${c.lue_le.replace(" ", " à ")}`).join(" ; ");
+    // Alone, « le reste » closes the same sentence (marketing).
+    const close = rest && !parts.length ? " ; le reste de la réponse est à jour." : ".";
+    out.push(`Ces sources n'ont pas répondu à notre dernière lecture : ${each}. Ce qui vient d'elles date de ces lectures${close}`);
+  }
+  if (parts.length) {
+    const another = named.length ? (parts.length === 1 ? "Une autre partie date" : "D'autres parties datent") : parts.length === 1 ? "Une partie de cette réponse date" : "Des parties de cette réponse datent";
+    const next = parts.length === 1 ? "la lecture suivante n'a pas abouti" : "les lectures suivantes n'ont pas abouti";
+    out.push(`${another} de ${parts.length === 1 ? "notre lecture" : "nos lectures"} ${dits(parts)} : ${next}.`);
+  }
+  const closed = named.length > 1 && !parts.length;
+  return out.join(" ") + (rest && !closed ? restText : "");
+}
+
+/**
+ * `donnee`: false leaves `donnee_du` out (an answer made of many dated parts, each saying its own). `nom`: a source's
+ * name from its id, for the one served from its last copy.
+ */
+export function fraicheur(p: Payload, lectures: Lecture[], now: Date, opts: { donnee?: boolean; nom?: (id: string) => string | undefined } = {}) {
   const live = lectures.filter((l) => l.freshSeconds < REFERENCE_SECONDS);
   const pool = live.length ? live : lectures;
   // The oldest read: the answer is at least this fresh. Without any, the data is rundata.re's own copy, read now.
@@ -108,13 +164,17 @@ export function fraicheur(p: Payload, lectures: Lecture[], now: Date, opts: { do
   // the date was read after it: the newest read, or the date itself, never later than now.
   if (at != null && at > read) read = Math.min(Math.max(...pool.map((l) => l.fetchedAt), at), now.getTime());
   const when = new Date(read);
-  const stale = lectures.filter((l) => l.stale).sort((a, b) => a.fetchedAt - b.fetchedAt)[0];
+  // Only those the answer is about: a list of stations kept from yesterday says nothing of the measurement.
+  const secours = copies(pool, opts.nom ?? (() => undefined));
+  // « Le reste est à jour » only when every other entry read was within its freshness, and there is one.
+  const others = pool.filter((l) => !l.stale);
+  const rest = others.length > 0 && others.every((l) => now.getTime() - l.fetchedAt <= l.freshSeconds * 1000 + 60_000);
   return {
     donnee_du: data?.du,
     lue_a: localTime(when),
     fuseau: FUSEAU,
     age: data?.age ?? (data && at != null ? ageFrom(data, at, now) : ageMinutes(when, now) < 1 ? "à l'instant" : ageText(ageMinutes(when, now))),
-    copie_de_secours: stale ? true : undefined,
-    avertissement: stale ? `Source injoignable : dernière valeur connue, lue le ${localTime(new Date(stale.fetchedAt))}.` : undefined,
+    copies_de_secours: secours.length ? secours : undefined,
+    avertissement: secours.length ? avertissement(secours, rest) : undefined,
   };
 }

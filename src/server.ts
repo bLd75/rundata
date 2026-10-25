@@ -141,6 +141,8 @@ const lieu = z
 /** Every source the server reads, each once (sources_donnees' list, and the sites that do not answer: sans-reponse.ts). */
 export const toutesLesSources = () =>
   oncePerId([...weatherProviders().map((p) => p.source), ...(vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(climat.enabled() ? [climat.SOURCE] : []), ...(climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(feux.enabled() ? [feux.SOURCE] : [])]);
+/** A source's name from its id, for one served from its last copy (fraicheur.ts). */
+export const nomDeSource = (id: string) => toutesLesSources().find((s) => s.id === id)?.nom;
 
 /** The symbol of rundata.re (web/logo.ts), for the clients that show a server's icon; the same in server.json. */
 export const SERVER_ICONS = [
@@ -166,7 +168,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       // Every answer says how to cite it, error or not (tools/citer.ts); the feedback tool's thanks already names rundata.re.
       const now = new Date();
       // The day's summary has a dozen dated parts: no single « donnee_du » for it, each part says its own.
-      return name === "donner_avis" ? r : cite(name, r, { lectures, now, serveur: serveur(VERSION, tools, now), donnee: name !== "resume_du_jour" });
+      return name === "donner_avis" ? r : cite(name, r, { lectures, now, serveur: serveur(VERSION, tools, now), donnee: name !== "resume_du_jour", nom: nomDeSource });
     };
   };
 
