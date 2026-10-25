@@ -115,7 +115,7 @@ describe("departures in real time", () => {
     };
     const r = body(await transports("gare routière Saint-Pierre", undefined, NOW, withFeed(feed)));
     expect(r.resume).toMatch(/\(dans \d+ min, retard de 5 min annoncé en direct\)/);
-    expect(r.resume).toMatch(/d'après les annonces en direct des réseaux et les horaires publiés : /);
+    expect(r.resume).toMatch(/d'après les annonces en direct des réseaux et les horaires publiés\u00a0: /);
     expect(r.departs.find((x: { retard_min?: number }) => x.retard_min === 5)).toBeTruthy();
     expect(r.info_trafic.map((a: { titre: string }) => a.titre)).toEqual(["Déviation à Saint-Pierre"]);
     expect(r.horaires).toMatch(/^Car Jaune : heures annoncées en direct par le réseau \(flux de \d\d:\d\d\)/);

@@ -98,7 +98,7 @@ const hm = (s: number) => `${s >= 86400 ? "demain " : ""}${clock(s)}`;
 const atTime = (s: number) => `${s >= 86400 ? "demain " : ""}à ${clock(s)}`;
 const minutes = (d: Departure) => Math.max(0, Math.round(expected(d) / 60));
 /** « dans 4 min », « dans 11 h 15 ». */
-const wait = (min: number) => (min < 90 ? `dans ${fr(min)} min` : `dans ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}`);
+const wait = (min: number) => (min < 90 ? `dans ${fr(min)} min` : `dans ${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`);
 
 /** Local day as YYYYMMDD and Monday-first weekday, `back` days before `now`. */
 function day(now: Date, back = 0) {
@@ -405,18 +405,24 @@ async function stopAnswer(asked: string, ligne: string | undefined, now: Date, c
     distance_m: near.find((x) => x.g === g) ? Math.round(near.find((x) => x.g === g)!.m / 10) * 10 : undefined,
   }));
   const where = stops.map((s) => `${s.nom} (${s.commune}, ${s.reseau})`).join(", ");
-  const resume = shown.length
-    ? `Prochains départs à ${where}, d'après ${live.length ? "les annonces en direct des réseaux et " : ""}les horaires publiés : ` + shown.slice(0, 5).map(said).join(" ; ") + "." +
-      (alertes.length ? ` Info trafic : ${alertes.map((a) => `${a.lignes ? `ligne ${a.lignes.join(", ")}, ` : ""}${a.titre}`).join(" ; ")}.` : "")
-    : `Aucun départ prévu dans les prochaines heures à ${where}, d'après les horaires publiés.` + (await quiet(groups, now, cache));
-  const used = live.length > 0 || alertes.length > 0;
+  // Nothing left today: whether anything of the stop runs today at all, which reads its passes again.
+  const off = shown.every((d) => d.at >= 86400) ? await quiet(groups, where, feeds, now, cache) : undefined;
+  const told = new Set(off?.alertes?.map((a) => a.titre));
+  const others = alertes.filter((a) => !told.has(a.titre));
+  // After the stop's opening, which says where and by what, the departures alone.
+  const next = shown.length
+    ? (off ? `Prochains départs${NBSP}: ` : `Prochains départs à ${where}, d'après ${live.length ? "les annonces en direct des réseaux et " : ""}les horaires publiés${NBSP}: `) + shown.slice(0, 5).map(said).join(" ; ") + "." +
+      (others.length ? ` Info trafic : ${others.map((a) => `${a.lignes ? `ligne ${a.lignes.join(", ")}, ` : ""}${a.titre}`).join(" ; ")}.` : "")
+    : off ? "" : `Aucun départ prévu dans les prochaines heures à ${where}, d'après les horaires publiés.`;
+  const resume = [off?.text, next].filter(Boolean).join(" ");
+  const used = live.length > 0 || alertes.length > 0 || !!off?.alertes;
   return text({
     resume,
     arrets: stops,
     ...(near.length ? { note: `Arrêts les plus proches de « ${asked} » : préciser le nom de l'arrêt pour un résultat exact.` } : {}),
     ...(ligne ? { ligne_introuvable: `Aucune ligne « ${ligne} » dans les horaires publiés : tous les départs sont donnés.` } : {}),
     departs: shown.map(toolRow),
-    ...(alertes.length ? { info_trafic: alertes } : {}),
+    ...(alertes.length || off?.alertes ? { info_trafic: [...(off?.alertes ?? []), ...others] } : {}),
     horaires: timetables(live, feeds),
     reseaux: networksOf(groups.map((g) => g.reseau)),
     sources: credits([transit.SOURCE, ...(used ? [rt.SOURCE] : [])]),
@@ -434,22 +440,61 @@ const netOf = (pattern: number) => transit.ROUTES[transit.ENDS[pattern][0]][0];
 /** Whether a trip of this pattern runs on that day, by the services in the bundle. */
 const runsOn = (pattern: number, d: Day) => transit.servicesOf(pattern).some((sv) => transit.serviceRuns(netOf(pattern), sv, d.ymd, d.weekday));
 
+/** A holiday named by its date only (« 11 novembre ») would say the date twice. */
+const DATE_ONLY = /^\d{1,2}(?:er)? \p{L}+$/u;
+const NBSP = "\u00a0";
+
 /**
- * Why nothing runs on that day: a public holiday (the State's calendar), a weekday the lines never run on, or a date the
- * networks' calendars leave out. « », when there is nothing to say.
+ * What the timetables say beside a day with no departure, never as its cause: a public holiday (the State's calendar),
+ * with its name unless it is only a date; a weekday they run on no week of the published timetables; else nothing.
  */
-async function whyNot(patterns: number[], d: Day, cache?: Cache): Promise<string> {
+async function offDay(patterns: number[], d: Day, cache?: Cache): Promise<{ ferie: string } | { weekday: true } | undefined> {
   if (cache) {
     try {
       const name = (await holidays(cache, Math.floor(d.ymd / 10000))).value[iso(d)];
-      if (name) return `, jour férié (${name})`;
+      if (name) return { ferie: DATE_ONLY.test(name) ? "jour férié" : `jour férié (${name})` };
     } catch (err) {
       console.error("jours fériés indisponibles :", why(err));
     }
   }
-  // The same weekday in the next three weeks: a line that never runs on it, or only this date left out.
-  const weeks = [1, 2, 3].map((w) => ({ ymd: addDays(d.ymd, 7 * w), weekday: d.weekday }));
-  return weeks.some((w) => patterns.some((p) => runsOn(p, w))) ? ", un jour sans service au calendrier du réseau" : `, elle ne circule pas le ${WEEKDAYS[d.weekday]}`;
+  // The same weekday on the other weeks, a year on each side: the services' own dates bound the published timetables.
+  const others = Array.from({ length: 104 }, (_, i) => ({ ymd: addDays(d.ymd, 7 * (i < 52 ? i - 52 : i - 51)), weekday: d.weekday }));
+  return others.some((w) => patterns.some((p) => runsOn(p, w))) ? undefined : { weekday: true };
+}
+
+/** The live alerts in force about these lines, by network, the network's words quoted: « Info trafic de Car Jaune (flux de 07:29) : « … ». ». */
+function linesAlerts(routes: number[], feeds: Map<string, rt.Realtime>, now: Date) {
+  const alertes: { reseau: string; lignes: string[]; titre: string; detail?: string }[] = [];
+  const said: string[] = [];
+  for (const [net, f] of feeds) {
+    const n = transit.NETWORKS[net];
+    const mine = routes.filter((r) => transit.ROUTES[r][0] === net);
+    const names = new Map(mine.map((r) => [gtfsRoute(n, r), lineName(r).ligne]));
+    const found = f.alerts.filter((a) => rt.active(a, now.getTime() / 1000) && a.lignes.some((x) => names.has(x)))
+      .filter((a, i, all) => all.findIndex((b) => b.titre === a.titre) === i);
+    if (!found.length) continue;
+    for (const a of found) alertes.push({ reseau: n.nom, lignes: [...new Set(a.lignes.filter((x) => names.has(x)).map((x) => names.get(x)!))], titre: a.titre, ...(a.texte ? { detail: a.texte } : {}) });
+    said.push(`Info trafic de ${n.nom} (flux de ${localTime(new Date(f.at * 1000)).split(" ")[1]})${NBSP}: ${found.map((a) => `«${NBSP}${a.titre.trim().replace(/\.$/, "")}${NBSP}»`).join(`${NBSP}; `)}.`);
+  }
+  return { alertes, text: said.join(" ") };
+}
+
+/**
+ * The opening of a line's answer on a day it does not run: the fact, then what the timetables say beside it, else, for a
+ * date its network's calendar leaves out, the network's live alert about the line when its feed has one.
+ */
+async function notToday(line: string, net: string, routes: number[], patterns: number[], d: Day, now: Date, cache?: Cache) {
+  const head = `Ligne ${line}${NBSP}: aucun départ aujourd'hui, ${dayName(d)}`;
+  const off = await offDay(patterns, d, cache);
+  if (off && "ferie" in off) return { text: `${head}, ${off.ferie}, d'après les horaires publiés.` };
+  const weekday = WEEKDAYS[d.weekday];
+  if (off) return { text: `${head}. D'après les horaires publiés, elle ne circule pas le ${weekday}.` };
+  const feeds = cache && transit.NETWORKS[net].temps_reel ? await realtimeFeeds([net], cache, now) : new Map<string, rt.Realtime>();
+  const { alertes, text: told } = linesAlerts(routes, feeds, now);
+  return {
+    text: `${head}, d'après les horaires publiés, alors qu'elle circule le ${weekday} les autres semaines. ${told || `Les horaires ne disent pas pourquoi${NBSP}: voir l'info trafic du réseau.`}`,
+    ...(alertes.length ? { alertes } : {}),
+  };
 }
 
 /** YYYYMMDD plus `n` days. */
@@ -458,13 +503,21 @@ function addDays(ymd: number, n: number): number {
   return Number(new Date(t).toISOString().slice(0, 10).replace(/-/g, ""));
 }
 
-/** For a stop with no departure in the next hours: that nothing of it runs today, and why. « » otherwise. */
-async function quiet(groups: transit.StopGroup[], now: Date, cache?: Cache): Promise<string> {
+/**
+ * For a stop with nothing of it running today: the fact, then what the timetables say beside it for all its lines, else
+ * the live alerts about them. Undefined when some of it runs today.
+ */
+async function quiet(groups: transit.StopGroup[], where: string, feeds: Map<string, rt.Realtime>, now: Date, cache?: Cache) {
   const ids = groups.flatMap((g) => g.ids);
   const pats = [...new Set((await transit.passes(ids)).map((p) => p.pattern))];
   const today = day(now);
-  if (!pats.length || pats.some((p) => runsOn(p, today))) return "";
-  return ` Aucune ligne ne s'y arrête aujourd'hui, ${dayName(today)}${await whyNot(pats, today, cache)}.`;
+  if (!pats.length || pats.some((p) => runsOn(p, today))) return undefined;
+  const head = `Arrêt${groups.length > 1 ? "s" : ""} ${where}${NBSP}: aucun départ aujourd'hui, ${dayName(today)}`;
+  const off = await offDay(pats, today, cache);
+  if (off && "ferie" in off) return { text: `${head}, ${off.ferie}, d'après les horaires publiés.` };
+  if (off) return { text: `${head}. D'après les horaires publiés, aucune des lignes qui le desservent ne circule le ${WEEKDAYS[today.weekday]}.` };
+  const { alertes, text: told } = linesAlerts([...new Set(pats.map((p) => transit.ENDS[p][0]))], feeds, now);
+  return { text: `${head}, d'après les horaires publiés.${told ? ` ${told}` : ""}`, ...(alertes.length ? { alertes } : {}) };
 }
 
 const TRANCHES: [number, number, string][] = [
@@ -598,14 +651,15 @@ async function lineAnswer(ligne: string, asked: string, now: Date, cache?: Cache
   if (sens.length === 2 && sens[0].names && sens[1].names && reversed(sens[0].names, sens[1].names)) {
     sens[1].out.arrets = "les mêmes arrêts, dans l'ordre inverse";
   }
-  const when = ahead ? `le ${dayName(d)}` : "aujourd'hui";
-  let resume = ahead
-    ? `La ligne ${said_line} ne circule pas aujourd'hui, ${dayName(today)}${await whyNot(pats, today, cache)}, d'après les horaires publiés. Sa prochaine journée, ${dayName(d)} : `
+  const off = ahead ? await notToday(`${name.ligne} (${[name.nom_ligne, name.reseau].filter(Boolean).join(", ")})`, net, routes, pats, today, now, cache) : undefined;
+  let resume = off
+    ? `${off.text} Prochaine journée de service, ${dayName(d)}\u00a0: `
     : `Ligne ${said_line}, d'après les horaires publiés : `;
   resume += sens.map(({ out }) => {
     const s = out.departs_du_jour as ReturnType<typeof daySummary>;
-    return `${out.direction}${out.nombre_arrets ? `, ${out.nombre_arrets} arrêts` : ""}, ${s.nombre} départ${s.nombre > 1 ? "s" : ""} ${when}${s.nombre ? `, de ${s.premier} à ${s.dernier}` : ""}`;
-  }).join(" ; ") + ".";
+    const range = s.nombre ? `${off ? "" : ","} de ${s.premier} à ${s.dernier}` : "";
+    return `${out.direction}${out.nombre_arrets ? `, ${out.nombre_arrets} arrêts` : ""}, ${s.nombre} départ${s.nombre > 1 ? "s" : ""}${off ? "" : " aujourd'hui"}${range}`;
+  }).join(off ? "\u00a0; " : " ; ") + ".";
   if (!stopsOf) resume += " La liste de ses arrêts n'est pas disponible pour le moment.";
 
   // Its buses on the road now, when the network's feed gives their positions: by their trip, which says the direction,
@@ -660,10 +714,10 @@ async function lineAnswer(ligne: string, asked: string, now: Date, cache?: Cache
     }
     if (groups.length) {
       shownAt = await stopDepartures(groups, now, cache, (x) => routes.includes(x.route));
-      if (shownAt.shown.length) resume += ` Prochains départs à ${groups[0].nom} : ${shownAt.shown.slice(0, 4).map(said).join(" ; ")}.`;
+      if (shownAt.shown.length) resume += ` Prochains départs à ${groups[0].nom}${NBSP}: ${shownAt.shown.slice(0, 4).map(said).join(" ; ")}.`;
     }
   }
-  const used = !!buses?.length || (!!shownAt && (shownAt.live.length > 0 || shownAt.alertes.length > 0));
+  const used = !!buses?.length || !!off?.alertes || (!!shownAt && (shownAt.live.length > 0 || shownAt.alertes.length > 0));
   return text({
     resume,
     ligne: name,
@@ -673,7 +727,7 @@ async function lineAnswer(ligne: string, asked: string, now: Date, cache?: Cache
     ...(stopsOf ? {} : { note: "Liste des arrêts indisponible pour le moment : seuls les terminus et les horaires sont donnés." }),
     ...(place ? { arret: place } : {}),
     ...(shownAt?.shown.length ? { departs: shownAt.shown.map(toolRow) } : {}),
-    ...(shownAt?.alertes.length ? { info_trafic: shownAt.alertes } : {}),
+    ...(shownAt?.alertes.length ? { info_trafic: shownAt.alertes } : off?.alertes ? { info_trafic: off.alertes } : {}),
     ...(hour === undefined ? { detail: "Les heures de départ une par une : redemander avec l'heure voulue (« après 17 h »)." } : {}),
     horaires: shownAt ? timetables(shownAt.live, shownAt.feeds) : timetables([], new Map()),
     reseaux: networksOf([net]),

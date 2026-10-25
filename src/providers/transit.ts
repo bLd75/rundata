@@ -54,10 +54,12 @@ const ORDER = Object.values(NETWORKS).sort((a, b) => a.first_stop - b.first_stop
 /** The network that a stop (or a pattern) of the island-wide numbering belongs to. */
 const owner = (id: number, first: (n: Network) => number) => ORDER.reduce((found, n) => (first(n) <= id ? n : found), ORDER[0]);
 const byFeed = new Map(ORDER.map((n) => [n.feed, n]));
+/** A name as people read it: some feeds put two spaces between words (« Pointe  Tremblet »). */
+const tidy = (name: string) => name.replace(/\s{2,}/g, " ");
 /** [network, short name, long name] by route index. */
-export const ROUTES = network.routes as unknown as [string, string, string][];
+export const ROUTES = (network.routes as unknown as [string, string, string][]).map(([net, short, long]) => [net, tidy(short), tidy(long)] as [string, string, string]);
 /** [network, name, lat, lon, commune] by stop index. */
-const STOPS = network.stops as unknown as [string, string, number, number, string][];
+const STOPS = (network.stops as unknown as [string, string, number, number, string][]).map(([net, name, ...rest]) => [net, tidy(name), ...rest] as [string, string, number, number, string]);
 /** [days Monday first as 7 bits, first day, last day, added days, removed days], days as YYYYMMDD. */
 const SERVICES = network.services as unknown as Record<string, [number, number, number, number[], number[]][]>;
 /** [first start, last start, services…] of each pattern's trips, by pattern index: what it runs, without reading it. */
@@ -178,7 +180,7 @@ export async function patterns(ids: number[]): Promise<Map<number, Pattern>> {
     rows.map((r) => {
       const n = byFeed.get(r.feed)!;
       const id = n.first_pattern + r.id;
-      return [id, { id, route: n.first_route + r.route, headsign: r.headsign, trips: JSON.parse(r.trips) }];
+      return [id, { id, route: n.first_route + r.route, headsign: tidy(r.headsign), trips: JSON.parse(r.trips) }];
     }),
   );
 }

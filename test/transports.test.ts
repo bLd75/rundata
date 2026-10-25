@@ -62,7 +62,7 @@ describe("finding the stop", () => {
 describe("transports", () => {
   it("lists the next departures of every network at the station, line by line", async () => {
     const r = body(await transports("gare routière Saint-Pierre", undefined, NOW));
-    expect(r.resume).toMatch(/^Prochains départs à Gare de St-Pierre \(Saint-Pierre, Car Jaune\)/);
+    expect(r.resume).toMatch(/^Prochains départs à Gare de St-Pierre \(Saint-Pierre, Car Jaune\).*, d'après (les annonces en direct des réseaux et )?les horaires publiés\u00a0: /);
     expect(r.departs.length).toBeGreaterThan(5);
     expect(r.departs[0].dans_min).toBeLessThanOrEqual(r.departs[1].dans_min);
     expect(new Set(r.departs.map((d: { reseau: string }) => d.reseau)).size).toBeGreaterThan(1);
@@ -184,17 +184,70 @@ describe("a line", () => {
     expect(r.arret).toBeUndefined();
   });
 
-  it("says when it does not run, why, and gives its next day", async () => {
+  it("says when it does not run, what the timetables say beside it, and gives its next day of service", async () => {
     // Sunday 25/10/2026: the E1 runs on weekdays only.
     const sunday = body(await transports(undefined, "E1", new Date("2026-10-25T03:30:00Z")));
-    expect(sunday.resume).toMatch(/^La ligne E1 \(St-Denis \/ St-Benoît\), Car Jaune ne circule pas aujourd'hui, dimanche 25 octobre, elle ne circule pas le dimanche, d'après les horaires publiés\. Sa prochaine journée, lundi 26 octobre : /);
+    expect(sunday.resume).toMatch(/^Ligne E1 \(St-Denis \/ St-Benoît, Car Jaune\)\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\. D'après les horaires publiés, elle ne circule pas le dimanche\. Prochaine journée de service, lundi 26 octobre\u00a0: [^;]+, \d+ arrêts, \d+ départs de \d+h\d\d à \d+h\d\d\u00a0; /);
+    expect(sunday.resume).not.toMatch(/le lundi 26 octobre|aujourd'hui,? de/);
     expect(sunday.jour).toBe("lundi 26 octobre");
-    // Wednesday 11/11/2026, a public holiday, by the State's calendar when it is at hand.
-    const cache = { get: async () => ({ value: { "2026-11-11": "11 novembre" }, fetchedAt: new Date() }) } as unknown as Cache;
-    const holiday = body(await transports(undefined, "E1", new Date("2026-11-11T03:30:00Z"), cache));
-    expect(holiday.resume).toMatch(/ne circule pas aujourd'hui, mercredi 11 novembre, jour férié \(11 novembre\)/);
-    const unknown = body(await transports(undefined, "E1", new Date("2026-11-11T03:30:00Z")));
-    expect(unknown.resume).toMatch(/mercredi 11 novembre, un jour sans service au calendrier du réseau/);
+    // Wednesday 11/11/2026, a public holiday, by the State's calendar when it is at hand: its name, never its date again.
+    const WED = new Date("2026-11-11T03:30:00Z");
+    const feries = (name: string) => ({ get: async () => ({ value: { "2026-11-11": name }, fetchedAt: new Date() }) }) as unknown as Cache;
+    expect(body(await transports(undefined, "E1", WED, feries("Armistice 1918"))).resume)
+      .toMatch(/^Ligne E1 \(St-Denis \/ St-Benoît, Car Jaune\)\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, jour férié \(Armistice 1918\), d'après les horaires publiés\. Prochaine journée de service, jeudi 12 novembre\u00a0: /);
+    expect(body(await transports(undefined, "E1", WED, feries("11 novembre"))).resume)
+      .toMatch(/^Ligne E1 \(St-Denis \/ St-Benoît, Car Jaune\)\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, jour férié, d'après les horaires publiés\. Prochaine/);
+    // Without the calendar: a Wednesday its network's calendar leaves out, while it runs on the other Wednesdays.
+    const unknown = body(await transports(undefined, "E1", WED));
+    expect(unknown.resume).toMatch(/^Ligne E1 \(St-Denis \/ St-Benoît, Car Jaune\)\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, d'après les horaires publiés, alors qu'elle circule le mercredi les autres semaines\. Les horaires ne disent pas pourquoi\u00a0: voir l'info trafic du réseau\. Prochaine journée de service, jeudi 12 novembre\u00a0: /);
+    // The network's live alert about the line, when its feed has one, with the feed's time.
+    const cj = transit.NETWORKS.carjaune;
+    const [e1] = linesNamed("E1", "carjaune");
+    const store = new MemoryStore();
+    store.put("calendrier:feries:2026", { value: {}, fetchedAt: WED.getTime() });
+    const alert = { titre: "Grève : lignes E1 et S2 non assurées", lignes: [cj.temps_reel!.lignes[e1 - cj.first_route]], arrets: [], periodes: [[null, null]] };
+    store.put("rt:carjaune", { value: { at: WED.getTime() / 1000 - 30, trips: {}, cancelled: [], alerts: [alert], vehicles: [] }, fetchedAt: WED.getTime() });
+    const told = body(await transports(undefined, "E1", WED, new Cache(store, () => WED.getTime(), false)));
+    expect(told.resume).toMatch(/alors qu'elle circule le mercredi les autres semaines\. Info trafic de Car Jaune \(flux de 07:29\)\u00a0: «\u00a0Grève : lignes E1 et S2 non assurées\u00a0»\. Prochaine journée de service, jeudi 12 novembre\u00a0: /);
+    expect(told.info_trafic).toEqual([{ reseau: "Car Jaune", lignes: ["E1"], titre: alert.titre }]);
+  });
+
+  it("at a stop with nothing running today, says so for all its lines, and what the timetables say beside it", async () => {
+    // A stop served by the E1 alone: its first stop, with the passes of the E1's patterns only.
+    const cj = transit.NETWORKS.carjaune;
+    const [e1] = linesNamed("E1", "carjaune");
+    const pats = transit.patternsOf(e1);
+    const g = transit.GROUPS.find((x) => x.reseau === "carjaune" && x.ids.includes(transit.ENDS[pats[0]][1]))!;
+    transit.configure({
+      all: async <T>(sql: string, keys: unknown) => /FROM passes/.test(sql)
+        ? g.ids.map((id) => ({ feed: cj.feed, id: id - cj.first_stop, passes: JSON.stringify(pats.map((p) => [p - cj.first_pattern, 0])) })) as T[]
+        : fake.all<T>(sql, keys),
+    });
+    const asked = `${g.nom} car jaune`;
+    const where = `${g.nom} \\(${g.commune}, Car Jaune\\)`;
+    const sunday = body(await transports(asked, undefined, new Date("2026-10-25T06:00:00Z")));
+    expect(sunday.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\\. D'après les horaires publiés, aucune des lignes qui le desservent ne circule le dimanche\\. Prochains départs\u00a0: E1 vers St-(Denis|Benoît) demain à 5h00 \\(dans 19 h\\) ; `));
+    const WED = new Date("2026-11-11T06:00:00Z");
+    const feries = { get: async () => ({ value: { "2026-11-11": "11 novembre" }, fetchedAt: new Date() }) } as unknown as Cache;
+    expect(body(await transports(asked, undefined, WED, feries)).resume)
+      .toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, jour férié, d'après les horaires publiés\\. Prochains départs\u00a0: E1 `));
+    expect(body(await transports(asked, undefined, WED)).resume)
+      .toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, d'après les horaires publiés\\. Prochains départs\u00a0: E1 `));
+    // With the network's live alerts about its lines, quoted, two of them.
+    const store = new MemoryStore();
+    store.put("calendrier:feries:2026", { value: {}, fetchedAt: WED.getTime() });
+    const line = cj.temps_reel!.lignes[e1 - cj.first_route];
+    const alerts = [{ titre: "Grève : lignes E1 et S2 non assurées.", lignes: [line], arrets: [], periodes: [] }, { titre: "Travaux à Sainte-Suzanne", lignes: [line], arrets: [], periodes: [] }];
+    store.put("rt:carjaune", { value: { at: WED.getTime() / 1000 - 30, trips: {}, cancelled: [], alerts, vehicles: [] }, fetchedAt: WED.getTime() });
+    const told = body(await transports(asked, undefined, WED, new Cache(store, () => WED.getTime(), false)));
+    expect(told.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, d'après les horaires publiés\\. Info trafic de Car Jaune \\(flux de 09:59\\)\u00a0: «\u00a0Grève : lignes E1 et S2 non assurées\u00a0»\u00a0; «\u00a0Travaux à Sainte-Suzanne\u00a0»\\. Prochains départs\u00a0: [^.]+\\.$`));
+    expect(told.info_trafic).toHaveLength(2);
+  });
+
+  it("gives line and stop names with single spaces, as some feeds have two", () => {
+    expect(transit.ROUTES.some(([, s, l]) => /\s{2}/.test(s + l))).toBe(false);
+    expect(transit.ROUTES.some(([net, s, l]) => net === "carsud" && s === "STD" && l === "Pointe Tremblet -Langevin - Gare St Joseph")).toBe(true);
+    expect(transit.GROUPS.some((g) => /\s{2}/.test(g.nom))).toBe(false);
   });
 
   it("without its stops in the database, gives its termini and its hours, and says the list is missing", async () => {
