@@ -204,7 +204,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   const unknown = !!state && !phase && !/^Alerte/i.test(state.status.alert_level_display);
   if (!state && !posts && !quakes && !phase) {
     return {
-      ...text({ erreur: "Les sources sur le volcan ne répondent pas pour le moment.", consulter: [seismes.SOURCE.url, volcan.OVPF.url] }),
+      ...text({ erreur: "Les sources sur le volcan ne répondent pas pour le moment.", consulter: [volcan.OVPF.url, volcan.OVPF_FACEBOOK] }),
       isError: true,
     };
   }
@@ -340,7 +340,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     publications_ovpf: posts ? posts.slice(0, 3).map(({ pdf: _, ...p }) => ({ ...p, date: `${localTime(new Date(p.date))} heure de La Réunion` })) : "indisponible",
     seismes: q ?? "indisponible",
     avertissements: [OFFICIAL],
-    consulter: ["https://www.ipgp.fr/observation/observatoires/ovpf/", "https://www.reunion.gouv.fr", volcan.OVPF.url],
+    // The IPGP's site is offline (25/10/2026): the OVPF's own accounts instead.
+    consulter: ["https://www.reunion.gouv.fr", volcan.OVPF.url, volcan.OVPF_FACEBOOK],
     sources: credits(sources),
   });
 }

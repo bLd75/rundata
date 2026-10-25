@@ -28,6 +28,9 @@ export const OVPF: SourceInfo = {
   url: "https://bsky.app/profile/ovpf.bsky.social",
 };
 
+/** The OVPF's Facebook page, the one the prefecture's alert releases give (« Page Officielle » on it). */
+export const OVPF_FACEBOOK = "https://www.facebook.com/ObsVolcanoPitonFournaise";
+
 export const PITONLIVE: SourceInfo = {
   id: "pitonlive",
   nom: "État du volcan et accès à l'Enclos (pitonlive.com)",
