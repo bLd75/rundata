@@ -24,7 +24,7 @@ MANIFEST = os.path.join(ROOT, "src", "web", "presse.json")
 VISUALS = [
     ("randonnees-ordi", "presse-randonnees-ordi.jpg", None, 1600, 800),
     ("accueil-ordi", "presse-accueil-ordi.jpg", None, 1600, 800),
-    ("piton-des-neiges-ordi", "piton-des-neiges-ordi.png", (2560, 1250), 1600, 800),
+    ("piton-des-neiges-ordi", "piton-des-neiges-ordi.png", (2560, 1620), 1600, 800),
     ("accueil", "accueil.png", (780, 1300), 780, 400),
     ("cilaos", "cilaos.png", (780, 1300), 780, 400),
     ("randonnees", "randonnees.png", (780, 1300), 780, 400),
