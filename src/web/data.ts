@@ -51,7 +51,7 @@ import { routeRow, secteur, SECTEURS, sentiersRandonnee, trailSecteur } from "..
 import { pathOf } from "./map.js";
 import { restrictionsEau } from "../tools/secheresse.js";
 import * as daeSource from "../providers/dae.js";
-import { access as daeAccess, byCommune as daeByCommune, daeRow, URGENCE as DAE_URGENCE } from "../tools/dae.js";
+import { anyHour, byCommune as daeByCommune, daeRow, URGENCE as DAE_URGENCE } from "../tools/dae.js";
 import { coupuresEau, type FluxMuet, type noticeRow } from "../tools/coupures.js";
 import { lues } from "../eau/distributeurs.js";
 import { type CourantAnswer, type courantBlock, courantCopy } from "../tools/courant.js";
@@ -1104,7 +1104,7 @@ export async function buildDae(): Promise<DaeAnswer> {
       lon: list.reduce((n, d) => n + d.lon, 0) / list.length,
       lat: list.reduce((n, d) => n + d.lat, 0) / list.length,
       nombre: list.length,
-      toute_heure: list.filter((d) => daeAccess(d).includes("toute heure") || daeAccess(d).includes("24 h")).length,
+      toute_heure: list.filter(anyHour).length,
       liste: list.slice(0, DAE_LISTED).map((d) => daeRow(d)),
     })),
     urgence: DAE_URGENCE,

@@ -24,7 +24,7 @@ import { communeEvents, communeHikes } from "./liens.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, stillToCome, volcanLive, waitText } from "./domains.js";
 import { enfantsLive } from "./enfants.js";
 import { esc, islandMap } from "./map.js";
-import { anchorId, ask, connector, credits, cycloneVg, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
+import { anchorId, ask, connector, credits, cycloneVg, dayMonth, deg, empty, fit, hm, icon, ISLAND, layout, type Live, metres, readAt, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { RSS_HINT, rssLink, rssPath, rssTitle } from "./rss.js";
@@ -67,18 +67,22 @@ interface Tile {
 
 function tile(t: Tile): string {
   const head = t.href ? `<h3><a href="${t.href}">${esc(t.nom)}</a></h3>` : `<h3>${esc(t.nom)}</h3>`;
-  const body = t.live
+  const body = t.live?.vide
+    ? `<p class="td">${t.live.detail}</p>`
+    : t.live
     ? `<p class="tv">${t.live.valeur}</p><p class="td"${t.live.title ? ` title="${esc(t.live.title)}"` : ""}>${t.live.detail}</p>`
     : t.question
       ? `<p class="tq">« ${esc(t.question)} »</p>`
+      // No copy at all: the read is under way (a copy with nothing to show says so, `vide`).
       : `<p class="td">Se met à jour : rechargez la page dans quelques secondes.</p>`;
   const foot = t.foot ?? (t.href ? `<span class="go" aria-hidden="true">Voir →</span>` : "");
   return `<li class="tile${t.wide ? " wide" : ""}">${icon(t.icon)}${head}${body}${t.more ?? ""}${foot ? `<p class="tf"><span></span>${foot}</p>` : ""}</li>`;
 }
 
-function weather(data: Cached<PlaceData> | null, now: Date): Live | undefined {
-  const s = data?.value.meteo?.stations.find((x) => x.mesures.temperature);
-  if (!s) return undefined;
+function weather(p: PlacePage, data: Cached<PlaceData> | null, now: Date): Live | undefined {
+  if (!data) return undefined;
+  const s = data.value.meteo?.stations.find((x) => x.mesures.temperature);
+  if (!s) return empty(`Aucune température près de ${p.nom} dans la lecture ${readAt(data.fetchedAt, now).de}.`);
   // In the evening, tomorrow's forecast rather than what is left of today.
   const evening = new Date(now.getTime() + 4 * 3600_000).getUTCHours() >= 17;
   const jours = data!.value.prevision?.jours ?? [];
@@ -114,9 +118,10 @@ function vigilance(p: PlacePage, data: Cached<mf.Vigilance> | null | undefined, 
 
 const airOf = (p: PlacePage, data: Cached<AirAnswer> | null | undefined) => data?.value.communes?.find((x) => normalize(x.commune) === normalize(p.nom));
 
-function air(p: PlacePage, data: Cached<AirAnswer> | null | undefined): Live | undefined {
+function air(p: PlacePage, data: Cached<AirAnswer> | null | undefined, now: Date): Live | undefined {
+  if (!data) return undefined;
   const c = airOf(p, data);
-  if (!c) return undefined;
+  if (!c) return empty(`${p.nom} n'est pas dans l'indice ATMO lu ${readAt(data.fetchedAt, now).a}.`);
   return { valeur: aq(c.niveau), detail: `indice ATMO du jour${c.polluants.length ? ` (${esc(c.polluants.join(", "))})` : ""}, d'Atmo Réunion` };
 }
 
@@ -142,14 +147,18 @@ function sea(p: PlacePage, mer: Cached<SeaData> | null | undefined, place: Cache
   }
   const m = place?.value.mer?.mesure;
   if (m) return { valeur: esc(thin(m.temperature_eau)), detail: `au large, par satellite le ${esc(dayMonth(m.jour_mesure))}${prevue}${tide}` };
-  return swell ? { valeur: esc(thin(swell)), detail: `houle prévue au large (prévision d'un modèle, pas une mesure)${tide}` } : undefined;
+  if (swell) return { valeur: esc(thin(swell)), detail: `houle prévue au large (prévision d'un modèle, pas une mesure)${tide}` };
+  const read = mer ?? place;
+  return read ? empty(`Pas de mesure satellite au large ${de(p.nom)} dans la lecture ${readAt(read.fetchedAt, now).de}.`) : undefined;
 }
 
 /** The departures still to come: the copy is up to a few minutes old, its waits are counted again from now. */
 function buses(p: PlacePage, data: Cached<CommuneData> | null | undefined, now: Date): { live?: Live; more?: string } {
-  const b = data?.value.bus;
-  if (!b) return {};
-  const left = stillToCome(b.departs, data!.fetchedAt, now).slice(0, 4);
+  if (!data) return {};
+  const b = data.value.bus;
+  // Its departures not read (the source failed, or no stop was found): never « pas de départ », which would be wrong.
+  if (!b) return { live: empty(`Horaires des bus absents de la lecture ${readAt(data.fetchedAt, now).de}.`) };
+  const left = stillToCome(b.departs, data.fetchedAt, now).slice(0, 4);
   const where = b.gare ? `à la gare ${esc(de(p.nom))}` : `près du centre, arrêt ${esc(b.arrets[0].nom)}`;
   if (!left.length) return { live: { valeur: "Pas de départ", detail: `${where} dans les prochaines heures, d'après les horaires publiés` } };
   const first = left.find(({ x }) => !x.temps_reel) ?? left[0];
@@ -217,14 +226,14 @@ function sunTimes(p: PlacePage, calendrier: Cached<CalendrierAnswer> | null | un
   const t = (d: Date) => localTime(d).split(" ")[1].replace(":", "h");
   // The island's calendar, without its sunrise and sunset (those of Saint-Denis).
   const c = calendrierLive(calendrier ?? null);
-  const rest = c ? [c.valeur, ...c.detail.split(" · ").filter((x) => !x.startsWith("soleil"))].join(" · ") : "";
+  const rest = c && !c.vide ? [c.valeur, ...c.detail.split(" · ").filter((x) => !x.startsWith("soleil"))].join(" · ") : "";
   return { valeur: `${t(s.lever)} – ${t(s.coucher)}`, detail: `lever et coucher du soleil aujourd'hui${rest ? ` · ${rest}` : ""}` };
 }
 
 export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = new Date(), alerte?: Alerte): string {
   const place = p.place;
   const url = `${origin}${hub(p)}`;
-  const w = weather(l.place, now);
+  const w = weather(p, l.place, now);
   const bus = buses(p, l.commune, now);
   const velos = bikes(l.commune);
   const mairie = townHall(l.commune, now);
@@ -234,7 +243,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const tiles: Tile[] = [
     { icon: "thermo", nom: "Météo", href: `/meteo/${p.slug}`, live: w },
     { icon: "alert", nom: "Vigilance", href: "/vigilance", live: vigilance(p, l.vigilance, now) },
-    { icon: "air", nom: "Air", href: "/air", live: air(p, l.air) },
+    { icon: "air", nom: "Air", href: "/air", live: air(p, l.air, now) },
     ...(coastal(p) ? [{ icon: "wave", nom: "Mer", href: "/mer", live: sea(p, l.mer, l.place, now) }] : []),
     { icon: "drop", nom: "Eau", href: `/coupures-eau/${p.slug}`, live: waterLive(p, { coupures: l.coupures ?? null, secheresse: l.secheresse, eau: l.eau }) },
     { icon: "bus", nom: "Bus", href: "/bus", ...bus, wide: true },
@@ -255,14 +264,14 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     { icon: "map", nom: "Terrain et risques", question: `Mon adresse à ${p.nom} est-elle en zone inondable ?`, foot: `<a href="/#assistant">Demandez à votre IA →</a>`, wide: true },
   ];
   const island: Tile[] = [
-    { icon: "volcano", nom: "Volcan", href: "/volcan", live: volcanLive(l.volcan ?? null) },
-    { icon: "bolt", nom: "Électricité", href: "/electricite", live: electriciteLive(l.electricite ?? null) },
+    { icon: "volcano", nom: "Volcan", href: "/volcan", live: volcanLive(l.volcan ?? null, now) },
+    { icon: "bolt", nom: "Électricité", href: "/electricite", live: electriciteLive(l.electricite ?? null, now) },
   ];
 
   const s = l.place?.value.meteo?.stations.find((x) => x.mesures.temperature);
   const headline = s
     ? `<div class="now"><span class="big">${esc(thin(s.mesures.temperature!))}</span>` +
-      `<p>mesurés à <b>${esc(s.heure_mesure.split(" ")[1] ?? s.heure_mesure)}</b> par la station <b>${esc(s.station)}</b>${mairie ? `. Mairie <b>${mairie.valeur.toLowerCase()}</b>` : ""}${bus.live && bus.live.valeur !== "Pas de départ" ? `, prochain bus à <b>${bus.live.valeur}</b>` : ""}.</p></div>`
+      `<p>mesurés à <b>${esc(s.heure_mesure.split(" ")[1] ?? s.heure_mesure)}</b> par la station <b>${esc(s.station)}</b>${mairie ? `. Mairie <b>${mairie.valeur.toLowerCase()}</b>` : ""}${bus.live && !bus.live.vide && bus.live.valeur !== "Pas de départ" ? `, prochain bus à <b>${bus.live.valeur}</b>` : ""}.</p></div>`
     : "";
 
   const title = `${p.nom} 974 en direct : météo, bus, air, mairie`;
