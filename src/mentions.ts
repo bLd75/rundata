@@ -19,7 +19,7 @@ interface Mention {
 
 const APOSTROPHE = "(?:'|’|&#39;)";
 const MENTIONS: Readonly<Record<string, Mention>> = {
-  "letangsale.fr": { mots: "site de la ville de L'Étang-Salé", nomme: new RegExp(`\\bsite de la (?:ville|mairie|commune) de L${APOSTROPHE}Étang-Salé`, "i") },
+  "letangsale.fr": { mots: "site de la ville de L'Étang-Salé", nomme: new RegExp(`site de la (?:ville|mairie|commune) de L${APOSTROPHE}Étang-Salé`, "i") },
 };
 
 // Any of the hosts in a text, as a quick test before a closer look: most answers and pages have none.
@@ -78,7 +78,8 @@ export function mentionLinks(html: string): string {
     const inLine = li > html.lastIndexOf("</li>", start);
     const close = inLine ? html.indexOf("</li>", end) : -1;
     const line = inLine && close > 0 ? html.slice(li, close) : a[0];
-    if (m.nomme.test(line) || (inLine && done.has(li))) continue;
+    // Its words without the tags: nobreak() puts « Étang-Salé » in a <span> of its own.
+    if (m.nomme.test(line.replace(/<[^>]*>/g, "")) || (inLine && done.has(li))) continue;
     if (inLine) done.add(li);
     const small = close > 0 ? html.slice(end, close).indexOf("</small>") : -1;
     if (small >= 0) at.push([end + small, ` · ${esc(m.mots)}`]);

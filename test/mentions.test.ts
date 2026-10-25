@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { mentionLinks, mentionOf, withMentions } from "../src/mentions.js";
 import { enfantsAnswer } from "../src/tools/enfants.js";
 import { text } from "../src/tools/format.js";
+import { coupuresCommunePage } from "../src/web/coupures.js";
 import { enfantsPage } from "../src/web/enfants.js";
+import { pageOf } from "../src/web/places.js";
 
 const SITE = "https://www.letangsale.fr/index.php/bibliotheque-municipale.html";
 const MOTS = "site de la ville de L'Étang-Salé";
@@ -47,6 +49,8 @@ describe("the sites that ask for their name with each link", () => {
       `<p><a href="https://www.letangsale.fr/">Le site de la mairie de L&#39;Étang-Salé →</a></p>`,
       `<li><a href="${SITE}">Agenda</a><small>site de la commune de L&#39;Étang-Salé</small></li>`,
       `<li><a href="https://example.re/">A</a><small>x</small></li>`,
+      // The name kept on one line by a tag of its own (nobreak).
+      `<p><a href="https://www.letangsale.fr/">Le site de la mairie de L&#39;<span style="white-space:nowrap">Étang-Salé</span> →</a></p>`,
     ])
       expect(mentionLinks(html)).toBe(html);
   });
@@ -59,5 +63,11 @@ describe("the sites that ask for their name with each link", () => {
     const b = body(enfantsAnswer("médiathèque", "L'Étang-Salé", NOW));
     const lieu = b.lieux.flatMap((l: { lieux?: unknown[] }) => l.lieux ?? [l]).find((l: { lien?: string }) => l.lien === SITE);
     expect(lieu).toMatchObject({ lien: SITE, lien_mention: MOTS });
+  });
+
+  it("are not repeated after « Le site de la mairie de L'Étang-Salé » on its water cuts page", () => {
+    const html = coupuresCommunePage("https://rundata.re", pageOf("l-etang-sale")!, {}, NOW);
+    expect(html).toContain(`<a href="https://www.letangsale.fr/" rel="noopener">Le site de la mairie de L&#39;`);
+    expect(html).not.toContain(HTML_MOTS);
   });
 });
