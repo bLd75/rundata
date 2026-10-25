@@ -21,7 +21,7 @@ import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, De
 import { LINK } from "./aujourdhui.js";
 import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
-import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
+import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, stillToCome, volcanLive, waitText } from "./domains.js";
 import { enfantsLive } from "./enfants.js";
 import { esc, islandMap } from "./map.js";
 import { anchorId, ask, connector, credits, cycloneVg, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
@@ -149,17 +149,13 @@ function sea(p: PlacePage, mer: Cached<SeaData> | null | undefined, place: Cache
 function buses(p: PlacePage, data: Cached<CommuneData> | null | undefined, now: Date): { live?: Live; more?: string } {
   const b = data?.value.bus;
   if (!b) return {};
-  const left = b.departs
-    .map((x) => ({ x, min: Math.round((data!.fetchedAt.getTime() + x.dans_min * 60_000 - now.getTime()) / 60_000) }))
-    .filter(({ min }) => min >= 0)
-    .slice(0, 4);
+  const left = stillToCome(b.departs, data!.fetchedAt, now).slice(0, 4);
   const where = b.gare ? `à la gare ${esc(de(p.nom))}` : `près du centre, arrêt ${esc(b.arrets[0].nom)}`;
   if (!left.length) return { live: { valeur: "Pas de départ", detail: `${where} dans les prochaines heures, d'après les horaires publiés` } };
-  const wait = (min: number, heure: string) => (heure.startsWith("demain") ? heure : min < 1 ? "maintenant" : min < 90 ? `dans ${fr(min)} min` : `à ${heure}`);
   const first = left.find(({ x }) => !x.temps_reel) ?? left[0];
   return {
-    live: { valeur: esc(first.x.heure_annoncee ?? first.x.heure), detail: `prochain départ ${where} : ligne ${esc(first.x.ligne)} vers ${esc(first.x.direction)} (${esc(first.x.reseau)})` },
-    more: `<ul class="rows">${left.map(({ x, min }) => departureLi(x, wait(min, x.heure_annoncee ?? x.heure))).join("")}</ul>` +
+    live: { valeur: esc(first.heure), detail: `prochain départ ${where} : ligne ${esc(first.x.ligne)} vers ${esc(first.x.direction)} (${esc(first.x.reseau)})` },
+    more: `<ul class="rows">${left.map(({ x, min, heure }) => departureLi(x, waitText(min, heure))).join("")}</ul>` +
       (b.alertes?.length ? `<div class="note">Info trafic : ${alertList(b.alertes)}</div>` : ""),
   };
 }
