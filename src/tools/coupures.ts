@@ -1,9 +1,11 @@
 import type { Cache } from "../cache.js";
-import { distributeur, LIENS, lues } from "../eau/distributeurs.js";
+import { distributeur, LIENS, lues, SOURCE as DISTRIBUTEURS } from "../eau/distributeurs.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as notices from "../providers/avis-eau.js";
 import { BACK } from "../providers/avis-eau.js";
+import * as potable from "../providers/eaupotable.js";
 import { why } from "../types.js";
+import { slugify } from "../web/places.js";
 import { a, credits, enumeration, notFound, placeBlock, text } from "./format.js";
 
 const RECENT_DAYS = 5;
@@ -94,12 +96,17 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
   const mine = live.filter((n) => n.communes.includes(commune));
   const dry = doNotDrink(all, commune);
   // Its distributor's notices are read (src/eau/distributeurs.ts), or some notice names it.
-  const covered = !!distributeur(commune)?.avis || all.some((n) => n.communes.includes(commune));
+  const dist = distributeur(commune);
+  const covered = !!dist?.avis || all.some((n) => n.communes.includes(commune));
+  // Not read: the distributor the ARS names, as on the commune's page (worded by marketing); none named, the plain sentence.
+  const unread = covered ? undefined : dist;
   const resume = [
     dry ? `EAU À NE PAS BOIRE ${a(commune)} (secteurs dans l'avis), d'après l'avis du ${published(dry)} : « ${dry.titre} ».` : "",
     mine.length
       ? `${mine.length} avis récent${mine.length > 1 ? "s" : ""} ou à venir ${a(commune)} : ${mine.slice(0, 3).map((n) => n.titre).join("\u00a0; ")}.`
-      : covered ? `Aucun avis de coupure récent ou à venir ${a(commune)}.` : `Pas d'avis en ligne lisible pour ${commune} : voir la mairie ou le distributeur d'eau.`,
+      : covered ? `Aucun avis de coupure récent ou à venir ${a(commune)}.`
+      : unread ? `Pas d'avis en ligne lisible pour ${commune} : ${unread.nom}, qui y distribue l'eau, ne publie pas ses avis de coupure dans un flux que rundata.re peut lire. Voir ${unread.nom} ou la mairie.`
+      : `Pas d'avis en ligne lisible pour ${commune} : voir la mairie ou le distributeur d'eau.`,
   ].filter(Boolean).join(" ");
   return text({
     lieu: placeBlock(lieu, res),
@@ -107,7 +114,11 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
     ne_pas_boire: dry ? noticeRow(dry, now) : undefined,
     // A mairie only linked to (src/eau/distributeurs.ts): where its notices are, nothing taken from them.
     mairie: !covered && LIENS[commune] ? { libelle: LIENS[commune].libelle, lien: LIENS[commune].site } : undefined,
+    distributeur: unread ? { nom: unread.nom, d_apres: DISTRIBUTEURS } : undefined,
+    contact: covered ? undefined : `Le numéro d'urgence du distributeur (fuite, coupure non annoncée) est sur la facture d'eau\u00a0; la mairie : https://rundata.re/communes/${slugify(commune)}`,
     avis: mine.map((n) => noticeRow(n, now, n === dry)),
     ...common,
+    // The distributor named is the ARS's sanitary control's (src/eau/distributeurs.json), credited as the page does.
+    ...(unread ? { sources: credits([notices.SOURCE, potable.SOURCE]) } : {}),
   });
 }
