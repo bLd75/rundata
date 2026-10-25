@@ -210,13 +210,26 @@ describe("coupures d'eau", () => {
     expect(list[3].ne_pas_boire).toBe(false);
   });
 
-  it("says when a commune's distributor publishes nothing read here", async () => {
+  it("says when a commune's distributor publishes nothing read here, and names it as the page does", async () => {
     const b = body(await coupuresEau(cache(), "Le Tampon", NOW));
-    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Le Tampon : voir la mairie ou le distributeur d'eau.");
+    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Le Tampon : Sudéau, qui y distribue l'eau, ne publie pas ses avis de coupure dans un flux que rundata.re peut lire. Voir Sudéau ou la mairie.");
+    expect(b.distributeur).toEqual({ nom: "Sudéau", d_apres: "ARS La Réunion, contrôle sanitaire des eaux distribuées (Hub'Eau), Licence Ouverte 2.0" });
+    expect(b.contact).toBe("Le numéro d'urgence du distributeur (fuite, coupure non annoncée) est sur la facture d'eau\u00a0; la mairie : https://rundata.re/communes/le-tampon");
+    // The distributor named is the ARS's: its sanitary control is credited beside the notices.
+    expect(b.sources.map((s: { source: string }) => s.source)).toEqual(["Avis des distributeurs d'eau : coupures, travaux, eau non potable (Dionéo, runéo, Eaux de La Possession, La Créole, CIREST, ville de Sainte-Marie, commune de Saint-Leu)", "Contrôle sanitaire de l'eau du robinet (ARS La Réunion, via Hub'Eau)"]);
+    // No distributor named by the ARS (L'Étang-Salé): the plain sentence, the contact still.
+    const es = body(await coupuresEau(cache(), "L'Étang-Salé", NOW));
+    expect(es.resume).toBe("Pas d'avis en ligne lisible pour L'Étang-Salé : voir la mairie ou le distributeur d'eau.");
+    expect(es.distributeur).toBeUndefined();
+    expect(es.contact).toMatch(/la mairie : https:\/\/rundata\.re\/communes\/l-etang-sale$/);
     const sp = body(await coupuresEau(cache(), "Saint-Paul", NOW));
     expect(sp.resume).toBe("1 avis récent ou à venir à Saint-Paul : Interruption nocturne de la distribution du 23/10/2026.");
     expect(sp.avis[0]).toMatchObject({ publie_le: "23/10/2026", coupure: { de: "vendredi 23/10 à 22:00" } });
     expect(sp.avis[0].ne_pas_boire).toBeUndefined();
+    // Its notices are read: neither the distributor nor the contact, and only the notices credited.
+    expect(sp.distributeur).toBeUndefined();
+    expect(sp.contact).toBeUndefined();
+    expect(sp.sources).toHaveLength(1);
     // runéo's feed is read: no notice for Saint-Pierre is no cut announced.
     expect(body(await coupuresEau(cache(), "Saint-Pierre", NOW)).resume).toBe("Aucun avis de coupure récent ou à venir à Saint-Pierre.");
   });
@@ -346,7 +359,7 @@ describe("coupures d'eau", () => {
 
   it("gives, for a commune whose mairie is only linked to, where its notices are", async () => {
     const b = body(await coupuresEau(cache(), "Cilaos", NOW));
-    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Cilaos : voir la mairie ou le distributeur d'eau.");
+    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Cilaos : RECIL, qui y distribue l'eau, ne publie pas ses avis de coupure dans un flux que rundata.re peut lire. Voir RECIL ou la mairie.");
     expect(b.mairie).toEqual({ libelle: "Les avis de coupure d'eau sur le site de la ville de Cilaos", lien: "https://ville-cilaos.fr/?s=coupure+d%27eau" });
     expect(body(await coupuresEau(cache(), "Saint-Leu", NOW)).mairie).toBeUndefined();
   });
