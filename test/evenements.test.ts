@@ -110,6 +110,23 @@ describe("the concerts", () => {
     expect(html).toContain(`href="https://kabardock.com/"`);
   });
 
+  it("says, under an event from a commune's site, that site and when it was read; a link to its home page in a new window", () => {
+    const html = agendaPage("https://rundata.re", data([
+      row("Fête des lettres", "2026-10-30T18:00", "vendredi 30/10 à 18:00", { commune: "Le Tampon", publie_par: "Ville du Tampon", lu_le: "mardi 27/10 à 08:00", source: "site de la commune du Tampon, lu le mardi 27/10 à 08:00", lien: "https://letampon.fr/" }),
+      row("Semaine créole", "2026-10-30", "vendredi 30/10", { commune: "Petite-Île", publie_par: "Ville de Petite-Île", lu_le: "mardi 27/10 à 08:00", source: "site de la commune de Petite-Île, lu le mardi 27/10 à 08:00", lien: "https://www.petite-ile.re/" }),
+      row("Kabar", "2026-10-30T20:00", "vendredi 30/10 à 20:00", { publie_par: "Kabardock", lu_le: "mardi 27/10 à 08:00" }),
+    ]), TUESDAY);
+    expect(html).toContain("Source\u00a0: site de la commune du Tampon, lu le mardi 27/10 à 08:00");
+    expect(html).not.toContain("Ville du Tampon, lu");
+    expect(html).toContain("Kabardock, lu le mardi 27/10 à 08:00");
+    expect(html).toContain(`<a href="https://www.petite-ile.re/" rel="noopener" target="_blank">Semaine créole</a>`);
+    expect(html).not.toContain(`Kabar")}" rel="noopener" target`);
+    // In the weekend's tile too.
+    const tampon = row("Fête des lettres", "2026-10-30T18:00", "vendredi 30/10 à 18:00", { commune: "Le Tampon", publie_par: "Ville du Tampon", source: "site de la commune du Tampon, lu le mardi 27/10 à 08:00" });
+    const tile = agendaPage("https://rundata.re", { value: { ...data([tampon]).value, ce_week_end: [tampon] }, fetchedAt: TUESDAY }, TUESDAY);
+    expect(tile).toContain("Fête des lettres <span class=\"note\" style=\"color:var(--on-night-muted)\">(Le Tampon) · Source\u00a0: site de la commune du Tampon, lu le mardi 27/10 à 08:00</span>");
+  });
+
   it("are linked from the events page", () => {
     const html = agendaPage("https://rundata.re", data(ROWS), TUESDAY);
     expect(html).toContain(`<a href="/evenements/concerts">Concerts</a>`);

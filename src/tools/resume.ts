@@ -324,7 +324,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
       : undefined,
     evenements_du_jour: l.agenda
       ? {
-          liste: events.slice(0, EVENTS_MAX).map((r) => ({ titre: r.titre, quand: r.quand, lieu: r.lieu, prix: r.prix, statut: r.statut, lien: r.lien })),
+          liste: events.slice(0, EVENTS_MAX).map((r) => ({ titre: r.titre, quand: r.quand, lieu: r.lieu, prix: r.prix, statut: r.statut, lien: r.lien, source: r.source })),
           autres: events.length > EVENTS_MAX ? events.length - EVENTS_MAX : undefined,
         }
       : undefined,

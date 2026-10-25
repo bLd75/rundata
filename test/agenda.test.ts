@@ -452,6 +452,12 @@ describe("agenda", () => {
       const b = body(await agenda(c, "Saint-Philippe", undefined, undefined, NOW));
       expect(b.resume).toContain("Saint-Philippe : seuls les événements annoncés dans les actualités de la Mairie de Saint-Philippe sont lus, ce n'est pas un agenda complet");
       expect(b.evenements.map((e: { titre: string }) => e.titre)).toContain("« Union » : repas de partage et séance poétique le 25 octobre");
+      // Its site's terms ask for an authorisation: the facts, without the sentence of the article, and where they come from.
+      const union = b.evenements.find((e: { titre: string }) => e.titre.startsWith("« Union »"));
+      expect(parseWpNews(JSON.parse(fixture("actus_saint-philippe.json")), "Mairie de Saint-Philippe", "Saint-Philippe", NOW).find((e) => e.titre.startsWith("« Union »"))?.description).toBeTruthy();
+      expect(union.description).toBeUndefined();
+      expect(union.source).toBe("site de la commune de Saint-Philippe, lu le samedi 24/10 à 08:00");
+      expect(union.lien).toContain("saintphilippe.re/");
       expect(COUVERTURE).toContain("Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : Saint-Philippe, Cilaos, Saint-Joseph.");
       expect(MAIRIES_LUES).not.toContain("Saint-Philippe");
       expect(ACTUS_MAIRIES.every((a) => a.planifie && AGENDAS.includes(a))).toBe(true);
@@ -601,6 +607,30 @@ describe("agenda", () => {
     expect(asked).toHaveLength(30);
   });
 
+  it("says which commune's site each event of a mairie comes from and when it was read, keeping what each site's terms allow", async () => {
+    const all = body(await agenda(cache(), undefined, undefined, undefined, NOW, 300));
+    type Row = { publie_par: string; source?: string; description?: string; lien?: string };
+    const by = (p: string): Row[] => all.evenements.filter((e: Row) => e.publie_par === p);
+    const tampon = by("Ville du Tampon");
+    expect(tampon.length).toBeGreaterThan(0);
+    // Its terms ask for an authorisation, and allow a link to the home page only.
+    expect(tampon.every((e) => e.source === "site de la commune du Tampon, lu le samedi 24/10 à 08:00" && !e.description && e.lien === "https://letampon.fr/")).toBe(true);
+    // Le Port's allow reproducing them, with « www.ville-port.re », never cut from its « © ».
+    expect(by("Ville du Port").every((e) => e.source === "site de la commune du Port (©\u00a0www.ville-port.re), lu le samedi 24/10 à 08:00")).toBe(true);
+    expect(by("Ville du Port").some((e) => e.description)).toBe(true);
+    expect(by("Mairie de Saint-Paul")[0].source).toBe("site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00");
+    for (const [p, commune] of [["Ville de Saint-André", "de Saint-André"], ["Ville de L'Étang-Salé", "de L'Étang-Salé"], ["Ville de La Possession", "de La Possession"], ["Ville de Petite-Île", "de Petite-Île"], ["Ville de Bras-Panon", "de Bras-Panon"], ["Ville de Saint-Benoît", "de Saint-Benoît"]]) {
+      expect(by(p).length, p).toBeGreaterThan(0);
+      expect(by(p).every((e) => !e.description && e.source === `site de la commune ${commune}, lu le samedi 24/10 à 08:00`), p).toBe(true);
+    }
+    expect(by("Ville de Petite-Île").every((e) => e.lien === "https://www.petite-ile.re/")).toBe(true);
+    expect(by("Ville de Saint-Benoît").every((e) => e.lien === "https://www.saint-benoit.re/")).toBe(true);
+    // Bras-Panon's terms say nothing of links: each its own page.
+    expect(by("Ville de Bras-Panon").every((e) => e.lien?.startsWith("https://www.braspanon.re/fr/ev/"))).toBe(true);
+    // Not a commune's site: no such line.
+    expect(all.evenements.filter((e: Row) => ["reunion.fr", "CINOR", "TÉAT La Réunion", "OTI EST REUNION — Droits réservés"].includes(e.publie_par)).every((e: Row) => e.source === undefined)).toBe(true);
+  });
+
   it("leaves the communes' sports programmes to the sport tool, not the sports events", async () => {
     for (const t of ["Agenda sportif", "Agenda sportif du 22 au 24 octobre", "Planning des compétitions sportives du 23 au 25 octobre 2026", "Programme sportif du week-end", "Le calendrier sportif de novembre", "Planning des rencontres sportives"]) {
       expect(programmeSportif({ titre: t }), t).toBe(true);
@@ -619,6 +649,10 @@ describe("agenda", () => {
       ["la_possession", "Agenda sportif du 22 au 24 octobre", [{ debut: "2026-10-22", fin: "2026-10-24" }]],
       ["saint_benoit", "Agenda sportif", [{ debut: "2026-10-23", fin: "2026-10-25" }]],
     ]);
+    // By the same rules as the agenda tool: Saint-Benoît's links to its home page, no sentence of the text.
+    const programmes = await programmesSportifs(c);
+    expect(programmes.find(({ agenda }) => agenda.id === "saint_benoit")?.e.lien).toBe("https://www.saint-benoit.re/");
+    expect(programmes.every(({ e }) => !e.description)).toBe(true);
   });
 
   it("answers tonight, with the hours", async () => {

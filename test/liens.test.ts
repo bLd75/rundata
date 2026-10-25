@@ -57,6 +57,9 @@ describe("links between the weather, the hikes and the communes", () => {
     const agenda = { value: { resume: "", nombre: 1, evenements: rows, couverture: "", a_savoir: "", sources: [], ce_week_end: [] } as unknown as AgendaAnswer, fetchedAt: NOW };
     expect(communeEvents(pageOf("saint-paul")!, agenda)).toMatchObject({ valeur: "1 événement" });
     expect(communeEvents(pageOf("cilaos")!, agenda)).toMatchObject({ valeur: "Rien d'annoncé" });
+    // From a commune's site: said with the event.
+    const fromSite = { value: { ...agenda.value, evenements: [{ ...rows[0], source: "site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00" }] } as unknown as AgendaAnswer, fetchedAt: NOW };
+    expect(communeEvents(pageOf("saint-paul")!, fromSite)?.detail).toBe("d'ici quinze jours ; le prochain : Kabar, samedi 31/10 à 19:00 (Source\u00a0: site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00)");
     expect(forecastLinks(["Saint-Paul", "Saint-Paul", undefined])).toBe(`<p class="note">Prévision météo : <a href="/meteo/saint-paul">Saint-Paul</a>.</p>`);
     expect(weekendPage(O, agenda, NOW)).toContain(`Prévision météo : <a href="/meteo/saint-paul">Saint-Paul</a>`);
   });

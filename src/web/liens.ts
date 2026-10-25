@@ -144,5 +144,5 @@ export function communeEvents(p: PlacePage, agenda: Cached<AgendaAnswer> | null 
   if (!agenda) return undefined;
   const rows = (agenda.value.evenements ?? []).filter((r) => r.commune === p.nom);
   if (!rows.length) return { valeur: "Rien d'annoncé", detail: "d'ici quinze jours dans les agendas lus" };
-  return { valeur: `${rows.length} événement${rows.length > 1 ? "s" : ""}`, detail: `d'ici quinze jours ; le prochain : ${esc(rows[0].titre)}, ${esc(rows[0].quand)}` };
+  return { valeur: `${rows.length} événement${rows.length > 1 ? "s" : ""}`, detail: `d'ici quinze jours ; le prochain : ${esc(rows[0].titre)}, ${esc(rows[0].quand)}${rows[0].source ? ` (Source\u00a0: ${esc(rows[0].source)})` : ""}` };
 }
