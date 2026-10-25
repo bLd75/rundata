@@ -260,14 +260,14 @@ const DOMAIN_PAGES: Record<string, Page> = {
   "/secheresse": { subrequests: 12, cpuMs: 70, from: ["src/tools/secheresse.ts"] },
   "/coupures-eau": { subrequests: 20, cpuMs: 100, from: ["src/tools/coupures.ts"] },
   "/defibrillateurs": { subrequests: 6, cpuMs: 40, from: ["src/tools/dae.ts"] },
-  "/sport": { subrequests: 43, cpuMs: 120, from: ["src/tools/sport.ts"] },
+  "/sport": { subrequests: 42, cpuMs: 120, from: ["src/tools/sport.ts"] },
   "/decheteries": { subrequests: 12, cpuMs: 30, from: ["src/tools/decheteries.ts"] },
   "/cyclones": { subrequests: 27, cpuMs: 50, from: ["src/tools/cyclones.ts"] },
   "/historique": { subrequests: 15, cpuMs: 70, from: ["src/tools/historique.ts"] },
   "/evenements": { subrequests: 55, cpuMs: 200, from: ["src/tools/agenda.ts"] },
   "/evenements/ce-week-end": { subrequests: 37, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
   "/evenements/concerts": { subrequests: 37, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
-  "/actualites": { subrequests: 22, cpuMs: 160, from: ["src/tools/actualites.ts"] },
+  "/actualites": { subrequests: 20, cpuMs: 160, from: ["src/tools/actualites.ts"] },
   "/enfants": { subrequests: 38, cpuMs: 350, from: ["src/tools/agenda.ts"] },
 };
 
@@ -320,7 +320,7 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   resume_du_jour: { subrequests: 59, cpuMs: 130, file: "resume" },
   meteo_actuelle: { subrequests: 36, cpuMs: 120, file: "meteo" },
   evenements: { subrequests: 34, cpuMs: 190, file: "agenda" },
-  sport: { subrequests: 34, cpuMs: 160, file: "sport" },
+  sport: { subrequests: 33, cpuMs: 160, file: "sport" },
   // Measured 26, before it read the list of the silent sites, as /volcan.
   volcan_seismes: { subrequests: 30, cpuMs: 90, file: "volcan", d1: SANS_REPONSE_D1 },
   // 24 measured, and the street's sales from the code: for a street not copied yet, one file a year of DVF géolocalisées
@@ -331,7 +331,7 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   temperature_mer: { subrequests: 14, cpuMs: 50, file: "mer" },
   transports: { subrequests: 13, cpuMs: 80, file: "transports", d1: BUS_D1 },
   cyclones: { subrequests: 13, cpuMs: 70, file: "cyclones" },
-  actualites: { subrequests: 12, cpuMs: 180, file: "actualites" },
+  actualites: { subrequests: 10, cpuMs: 180, file: "actualites" },
   historique_meteo: { subrequests: 10, cpuMs: 60, file: "historique", d1: { d1Calls: 3, d1RowsRead: 300 } },
   sentiers_randonnee: { subrequests: 10, cpuMs: 60, file: "sentiers" },
   vigilance_meteo: { subrequests: 10, cpuMs: 50, file: "vigilance" },

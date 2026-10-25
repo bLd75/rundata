@@ -5,6 +5,7 @@ import { localTime } from "../geo.js";
 import { why } from "../types.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
 import { mediasNonLus } from "./injoignable.js";
+import { mentionLa1ere } from "./non-repris.js";
 import * as littoral from "./littoral.js";
 
 const DEFAULT_HOURS = 24;
@@ -14,7 +15,7 @@ const LIVE_MAX = 8;
 const PREFECTURE_DAYS = 3;
 
 export const COUVERTURE =
-  "Médias lus toutes les 5 minutes : Réunion La 1ère, Clicanoo (Le Journal de l'île), Le Quotidien de La Réunion, Imaz Press (et son direct « l'actu en continu » les jours de mobilisation, " +
+  "Médias lus toutes les 5 minutes : Clicanoo (Le Journal de l'île), Le Quotidien de La Réunion, Imaz Press (et son direct « l'actu en continu » les jours de mobilisation, " +
   "de cyclone ou d'éruption), Freedom, Parallèle Sud, Témoignages, et les communiqués de la préfecture. Linfo.re et Zinfos974 ne se laissent pas lire " +
   "par un programme : ils n'y sont pas.";
 export const A_SAVOIR =
@@ -151,6 +152,8 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
     indisponible: data.indisponible.length ? data.indisponible : undefined,
     couverture: COUVERTURE,
     a_savoir: A_SAVOIR,
+    // Réunion La 1ère, not read (tools/non-repris.ts): said in an answer for the whole island.
+    non_repris: res ? undefined : mentionLa1ere("actualites"),
     sources: credits([src.SOURCES.medias, src.SOURCES.prefecture]),
   });
 }

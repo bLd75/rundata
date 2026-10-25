@@ -67,3 +67,38 @@ export const nonAutorisees = (famille: string): Autorisation[] =>
 
 /** A commune's source of that kind, while it has not agreed. */
 export const nonAutorisee = (famille: string, commune: string | undefined) => nonAutorisees(famille).find((a) => a.commune === commune);
+
+/**
+ * A medium whose site's terms forbid reading it by a program, its titles included: not read at all, and said instead
+ * where it was (tools/non-repris.ts). France Télévisions' terms (franceinfo.fr/cgu.html, art. 13.2 and 13.3), read on
+ * 26/10/2026, forbid any automated access to extract or reuse the content of its sites, metadata included.
+ */
+export interface MediaNonRepris {
+  nom: string;
+  /** Who sets the terms. */
+  organisme: string;
+  /** The day its terms were read, « 2026-10-26 », and where they are; the day its reading stopped. */
+  lues_le: string;
+  conditions: string;
+  non_lue_depuis: string;
+  /** Where its information is, for the reader: its site, and its sport. */
+  site: string;
+  site_sport?: string;
+  /** « a_demander » while no letter has gone: nothing is said of a request. */
+  etat: "a_demander" | "demandee" | "accordee" | "refusee";
+  /** The day the letter went, as given by who sent it: never guessed. */
+  demandee_le?: string;
+}
+
+export const MEDIAS: Record<string, MediaNonRepris> = {
+  "media:la1ere": {
+    nom: "Réunion La 1ère",
+    organisme: "France Télévisions",
+    lues_le: "2026-10-26",
+    conditions: "https://www.franceinfo.fr/cgu.html",
+    non_lue_depuis: "2026-10-26",
+    site: "https://la1ere.franceinfo.fr/reunion/",
+    site_sport: "https://la1ere.franceinfo.fr/reunion/sport/",
+    etat: "a_demander",
+  },
+};

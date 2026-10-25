@@ -7,7 +7,7 @@ import { coupures, LISIBLES as MAIRIES_LISIBLES, MAIRIES, parsePosts, SOURCE as 
 import { agenda, COUVERTURE, MAIRIES_LUES, mentionCommune, mentionIle, mentionCourte, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
 import { type CourantAnswer, courantBlock, courantCopy, honesty } from "../src/tools/courant.js";
 import { electricite } from "../src/tools/electricite.js";
-import { mention, mentionIle as ileMention } from "../src/tools/non-repris.js";
+import { mention, mentionIle as ileMention, mentionLa1ere } from "../src/tools/non-repris.js";
 import { resume } from "../src/tools/resume.js";
 import { mentionProgrammes, sportTool } from "../src/tools/sport.js";
 import { aujourdhuiPage } from "../src/web/aujourdhui.js";
@@ -209,7 +209,8 @@ describe("the communes whose site's terms ask for their authorisation, until the
     vi.stubGlobal("fetch", async (url: string) => (url.includes("ffgolf") ? new Response(readFileSync(new URL("./fixtures/sport/ffgolf.json", import.meta.url))) : new Response("", { status: 503 })));
     const c = await cacheWith({ "agenda:la_possession": kept([{ ...event("Agenda sportif du 22 au 24 octobre", "La Possession"), seances: [{ debut: "2026-10-22", fin: "2026-10-26" }] }]) });
     const b = body(await sportTool(c, undefined, undefined, "a_venir", NOW));
-    expect([b.non_repris, b.programmes_communes]).toEqual([three, undefined]);
+    // For the whole island, Réunion La 1ère's sport news not read is said first (test/la1ere.test.ts).
+    expect([b.non_repris, b.programmes_communes]).toEqual([`${mentionLa1ere("sport")} ${three}`, undefined]);
     expect(body(await sportTool(c, "golf", undefined, "a_venir", NOW)).non_repris).toBeUndefined();
     const html = sportPage("https://rundata.re", { value: { ...b, classements: [] }, fetchedAt: NOW, stale: false }, NOW);
     const section = html.slice(html.indexOf('id="h-prog"'));

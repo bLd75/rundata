@@ -62,7 +62,7 @@ export interface Shared {
 // of the half hour but the first, which the hourly agendas and the AROME grids take (BUDGET.md, the busiest event);
 // the electricity's power cuts with the electricity, which embeds them.
 export const SHARED: Shared[] = [
-  { key: "web:actualites", build: buildActualites, every: 30, cold: 12, cpu: 190, offset: 10 },
+  { key: "web:actualites", build: buildActualites, every: 30, cold: 10, cpu: 190, offset: 10 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160, offset: 5 },
   { key: "web:electricite", build: buildElectricite, every: 30, cold: 7, cpu: 80, offset: 20 },
   { key: "web:coupures", build: buildCoupures, every: 30, cold: 7, cpu: 60, offset: 25 },

@@ -2,15 +2,14 @@
  * What is happening on the island now, from its newsrooms: the headlines of the local media, the live blogs they run
  * on a day of mobilisation, a cyclone or an eruption, and the press releases of the prefecture. Headlines, the first
  * sentence and the link only, as a news aggregator does: the articles stay on the media's sites.
- * - Réunion La 1ère: its Google News sitemap (every article of the last two days) and the RSS of its society section
- *   for the first lines;
  * - Clicanoo (Le Journal de l'île), Freedom, Parallèle Sud: their RSS;
  * - Imaz Press and Témoignages: their Google News sitemap (Imaz Press keeps its RSS from robots); Imaz Press's live
  *   blogs (« l'actu en continu »), read from the article page, each entry with its time;
  * - Le Quotidien de La Réunion: its home page (no feed, and a sitemap without titles), the time to the minute only when
  *   it says « il y a N minutes »;
  * - the prefecture: the list of its press releases.
- * Linfo.re and Zinfos974 refuse automated readers: they are not read.
+ * Linfo.re and Zinfos974 refuse automated readers: they are not read. Réunion La 1ère neither: France Télévisions'
+ * terms forbid reading its sites by a program, its titles included (src/providers/autorisations.ts, MEDIAS).
  * Everything is read in one go every few minutes and kept as one entry, so a question costs at most a dozen requests.
  */
 import type { Cache, Cached } from "../cache.js";
@@ -23,11 +22,11 @@ import { strip } from "./avis-eau.js";
 export const SOURCES = {
   medias: {
     id: "medias_locaux",
-    nom: "Titres des médias de La Réunion : Réunion La 1ère, Clicanoo, Le Quotidien, Imaz Press, Freedom, Parallèle Sud, Témoignages",
+    nom: "Titres des médias de La Réunion : Clicanoo, Le Quotidien, Imaz Press, Freedom, Parallèle Sud, Témoignages",
     organisme: "Rédactions de La Réunion",
     licence: "Titres, première phrase quand le média la donne, et lien seulement\u00a0; les articles sont sur le site de chaque média",
-    attribution: "Réunion La 1ère, Clicanoo (Le Journal de l'île), Le Quotidien de La Réunion, Imaz Press Réunion, Freedom, Parallèle Sud, Témoignages",
-    url: "https://la1ere.franceinfo.fr/reunion/",
+    attribution: "Clicanoo (Le Journal de l'île), Le Quotidien de La Réunion, Imaz Press Réunion, Freedom, Parallèle Sud, Témoignages",
+    url: "https://www.clicanoo.re/",
   },
   prefecture: {
     id: "prefecture_communiques",
@@ -493,8 +492,6 @@ interface Feed {
 }
 
 const FEEDS: Feed[] = [
-  { media: "Réunion La 1ère", url: "https://la1ere.franceinfo.fr/reunion/googlenews.xml", parse: (b) => parseNewsSitemap(b, "Réunion La 1ère") },
-  { media: "Réunion La 1ère", url: "https://la1ere.franceinfo.fr/reunion/societe/rss", parse: (b) => parseRss(b, "Réunion La 1ère") },
   { media: "Clicanoo", url: "https://www.clicanoo.re/rss", parse: (b) => parseRss(b, "Clicanoo") },
   { media: "Imaz Press", url: "https://imazpress.com/sitemap-news.xml", parse: (b) => parseNewsSitemap(b, "Imaz Press", /\/france-monde\//) },
   { media: "Freedom", url: "https://freedom.fr/feed/", parse: (b) => parseRss(b, "Freedom", /jeux|podcast|actus radio/i) },
@@ -513,7 +510,7 @@ export function liveCandidates(items: Info[], now: Date): string[] {
     .map((i) => i.lien);
 }
 
-/** Two copies of the same article from one medium (La 1ère's sitemap and its RSS): the one with a summary. */
+/** Two copies of the same article from one medium: the one with a summary. */
 function oncePerLink(list: Info[]): Info[] {
   const by = new Map<string, Info>();
   for (const i of list) {

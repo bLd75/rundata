@@ -27,6 +27,7 @@ import * as avis from "./avis.js";
 import { withLectures } from "./lectures.js";
 import { catalogue, INDEX, serveur } from "./nouveautes.js";
 import { cite, SITE_URL } from "./tools/citer.js";
+import { FICHE_LA1ERE } from "./tools/non-repris.js";
 import { resumeDuJour } from "./tools/resume.js";
 import { text } from "./tools/format.js";
 import { temperatureMer, COVERAGE as SEA_COVERAGE } from "./tools/mer.js";
@@ -83,7 +84,7 @@ import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.192.2";
+export const VERSION = "0.192.3";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -651,8 +652,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "les matchs annulés ou reportés (avis de la Ligue de volley, actualité locale), classements, régates de voile, compétitions de golf, " +
         "rallyes et sport automobile (calendrier de la Ligue), Grand Raid (courses, partants, abandons, podiums), les programmes sportifs publiés par les communes " +
         "(le lien du document de la mairie, sans son contenu), les événements publiés par les clubs sur Sportsregions (tir à l'arc, triathlon, golf, badminton…, " +
-        "avec le club qui organise\u00a0; les séances réservées aux adhérents seulement si l'utilisateur dit en être), et l'actualité sportive " +
-        "de Réunion La 1ère (titres et liens, dont le football et le basket). " +
+        "avec le club qui organise\u00a0; les séances réservées aux adhérents seulement si l'utilisateur dit en être). " +
         "Pour : « match de volley dimanche dans le sud ? », « match de hand ce week-end à Saint-Pierre ? », « le TGV joue quand ? », " +
         "« foot ou basket ce week-end ? », « tournoi de badminton ce week-end ? », « résultats du volley à Saint-Leu ? », « classement du handball ? », « prochaine régate ? », " +
         "« prochain rallye ? », « qui a gagné le Grand Raid ? ». / Sport in Réunion Island: fixtures, results, cancellations, standings, Grand Raid.",
@@ -767,7 +767,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
     {
       title: "Actualités de La Réunion en direct : manifestations, blocages, routes, faits divers",
       description:
-        "Ce qui se passe en ce moment à La Réunion (974), d'après les médias de l'île (Réunion La 1ère, Clicanoo, Le Quotidien, Imaz Press et son direct, Freedom, " +
+        "Ce qui se passe en ce moment à La Réunion (974), d'après les médias de l'île (Clicanoo, Le Quotidien, Imaz Press et son direct, Freedom, " +
         "Parallèle Sud, Témoignages) relus toutes les 5 minutes, et les communiqués de la préfecture : pour chaque information, l'heure (ou le jour seul quand le média ne donne pas l'heure), " +
         "le média, le titre, la première phrase quand le média la donne, les communes et lieux nommés, ce qu'elle dit du lieu demandé, le lien vers l'article. Par lieu (commune, quartier) " +
         "et par sujet (manifestations et blocages, routes, météo, volcan, eau, faits divers, santé, politique, culture, sport). " +
@@ -884,6 +884,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       return text({
         resume: resumeChiffres(c),
         sources,
+        // The media whose terms forbid reading them by a program, titles included: not read (tools/non-repris.ts).
+        non_reprises: [FICHE_LA1ERE],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage(), evenements: AGENDA_COVERAGE },
         chiffres: c,

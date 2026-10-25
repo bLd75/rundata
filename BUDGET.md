@@ -17,7 +17,7 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 298 | 500 |
+| pire passage planifié, sous-requêtes | 296 | 500 |
 | pire passage planifié, appels KV et D1 | 29 | 1 000 |
 | pire passage planifié, CPU (ms) | 1 612 | 30 000 |
 | passage le plus chargé (cadences les plus courtes), sous-requêtes | 82 | 500 |
@@ -28,15 +28,15 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
 - Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 64 sous-requêtes (arome:veille, arome:grilles, partagees:liste, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
 - Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 82 sous-requêtes (arome:veille, arome:grilles, partagees:liste, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 276 sous-requêtes à 00:00 UTC.
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 274 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 78. Question la plus chère : resume_du_jour, 59. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 298 | 2 | 17 | 10 | 922 | 31 | 1 612 |
-| tâche planifiée, par jour | 7 267 | 576 | 660 | 387 | 44 732 | 31 | 45 603 |
-| tâche planifiée, par jour, cadences les plus courtes | 13 455 | 576 | 996 | 867 | 49 772 | 31 | 81 483 |
-| tâche planifiée, par mois (30 jours) | 218 010 | 17 280 | 19 800 | 11 610 | 1 341 960 | 930 | 1 368 090 |
+| pire passage planifié | 296 | 2 | 17 | 10 | 922 | 31 | 1 612 |
+| tâche planifiée, par jour | 7 171 | 576 | 660 | 387 | 44 732 | 31 | 45 603 |
+| tâche planifiée, par jour, cadences les plus courtes | 13 359 | 576 | 996 | 867 | 49 772 | 31 | 81 483 |
+| tâche planifiée, par mois (30 jours) | 215 130 | 17 280 | 19 800 | 11 610 | 1 341 960 | 930 | 1 368 090 |
 | tâches GitHub, par jour | 0 |  | 101 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 3 030 | 60 |  | 861 000 |  |
 
@@ -49,7 +49,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | arome:veille | AROME : le dernier run publié, et les grilles qu'il reste à lire | 5 min | 00:00 | 3 | 1 |  |  |  |  | 15 | mesuré |
 | arome:grilles | AROME : les grilles d'un nouveau run, 40 au plus par passage, 3 de relief | 180 min | 00:00 | 43 |  | 2 |  |  |  | 60 | code |
 | partagees:liste | copies partagées : la liste des clés KV, une pour les copies et celles d'après | 5 min | 00:00 | 1 |  | 1 |  |  |  |  | code |
-| web:actualites | copie partagée (KV) | 30 min | 00:10 | 13 |  | 1 |  |  |  | 190 | mesuré |
+| web:actualites | copie partagée (KV) | 30 min | 00:10 | 11 |  | 1 |  |  |  | 190 | mesuré |
 | web:trafic | copie partagée (KV) | 30 min | 00:05 | 31 |  | 1 | 2 | 840 |  | 160 | mesuré |
 | web:electricite | copie partagée (KV) | 30 min | 00:20 | 8 |  | 1 |  |  |  | 80 | mesuré |
 | web:coupures | copie partagée (KV) | 30 min | 00:25 | 8 |  | 1 |  |  |  | 60 | mesuré |
@@ -122,14 +122,14 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /secheresse | la page /secheresse | à chaque vue |  | 12 |  |  |  |  |  | 70 | mesuré |
 | /coupures-eau | la page /coupures-eau | à chaque vue |  | 20 | 1 |  |  |  |  | 100 | mesuré |
 | /defibrillateurs | la page /defibrillateurs | à chaque vue |  | 6 |  |  |  |  |  | 40 | mesuré |
-| /sport | la page /sport | à chaque vue |  | 43 |  |  |  |  |  | 120 | mesuré |
+| /sport | la page /sport | à chaque vue |  | 42 |  |  |  |  |  | 120 | mesuré |
 | /decheteries | la page /decheteries | à chaque vue |  | 12 |  |  |  |  |  | 30 | mesuré |
 | /cyclones | la page /cyclones | à chaque vue |  | 27 |  |  |  |  |  | 50 | mesuré |
 | /historique | la page /historique | à chaque vue |  | 15 |  |  |  |  |  | 70 | mesuré |
 | /evenements | la page /evenements | à chaque vue |  | 55 |  |  |  |  |  | 200 | mesuré |
 | /evenements/ce-week-end | comme /evenements, une partie de sa copie | à chaque vue |  | 37 |  |  |  |  |  | 230 | mesuré |
 | /evenements/concerts | comme /evenements, une partie de sa copie | à chaque vue |  | 37 |  |  |  |  |  | 230 | mesuré |
-| /actualites | la page /actualites | à chaque vue |  | 22 | 1 |  |  |  |  | 160 | mesuré |
+| /actualites | la page /actualites | à chaque vue |  | 20 | 1 |  |  |  |  | 160 | mesuré |
 | /enfants | la page /enfants | à chaque vue |  | 38 |  |  |  |  |  | 350 | mesuré |
 
 ## Questions
@@ -139,7 +139,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | resume_du_jour | l'outil resume_du_jour | à chaque vue |  | 59 |  |  |  |  |  | 130 | mesuré |
 | meteo_actuelle | l'outil meteo_actuelle | à chaque vue |  | 36 |  |  |  |  |  | 120 | mesuré |
 | evenements | l'outil evenements | à chaque vue |  | 34 |  |  |  |  |  | 190 | mesuré |
-| sport | l'outil sport | à chaque vue |  | 34 |  |  |  |  |  | 160 | mesuré |
+| sport | l'outil sport | à chaque vue |  | 33 |  |  |  |  |  | 160 | mesuré |
 | volcan_seismes | l'outil volcan_seismes | à chaque vue |  | 30 |  |  | 2 | 21 |  | 90 | mesuré |
 | fiche_terrain | l'outil fiche_terrain | à chaque vue |  | 36 |  |  |  |  |  | 80 | estimé |
 | prevision_meteo | l'outil prevision_meteo | à chaque vue |  | 20 |  |  |  |  |  | 100 | mesuré |
@@ -147,7 +147,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | temperature_mer | l'outil temperature_mer | à chaque vue |  | 14 |  |  |  |  |  | 50 | mesuré |
 | transports | l'outil transports | à chaque vue |  | 13 |  |  | 2 | 840 |  | 80 | mesuré |
 | cyclones | l'outil cyclones | à chaque vue |  | 13 |  |  |  |  |  | 70 | mesuré |
-| actualites | l'outil actualites | à chaque vue |  | 12 |  |  |  |  |  | 180 | mesuré |
+| actualites | l'outil actualites | à chaque vue |  | 10 |  |  |  |  |  | 180 | mesuré |
 | historique_meteo | l'outil historique_meteo | à chaque vue |  | 10 |  |  | 3 | 300 |  | 60 | mesuré |
 | sentiers_randonnee | l'outil sentiers_randonnee | à chaque vue |  | 10 |  |  |  |  |  | 60 | mesuré |
 | vigilance_meteo | l'outil vigilance_meteo | à chaque vue |  | 10 |  |  |  |  |  | 50 | mesuré |
