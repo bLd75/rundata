@@ -8,7 +8,7 @@ import { ACCUEILS } from "../providers/agenda.js";
 import { mentionCourte } from "../tools/agenda.js";
 import { type Resume, UPDATING } from "../tools/resume.js";
 import type { Alerte } from "./data.js";
-import { connectorCta, courantItem, webPage } from "./domains.js";
+import { connectorCta, courantItem, silentItem, webPage } from "./domains.js";
 import { esc } from "./map.js";
 import { a, de } from "../tools/format.js";
 import { ask, credits, icon, layout, SITE, thin } from "./pages.js";
@@ -109,6 +109,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
   const dFresh = d?.sites.filter((x) => x.accepte) ?? [];
   const dGreen = dFresh.filter((x) => x.accepte!.includes("déchets verts")).length;
   const practical = [
+    ...(r.coupures_electricite?.injoignable ? [silentItem(r.coupures_electricite.injoignable)] : []),
     ...(r.coupures_electricite?.avis ?? []).map(courantItem),
     ...(r.marches_du_jour?.liste ?? []).map((x) => `<li>Marché aujourd'hui : <a href="${esc(x.carte)}" rel="noopener"><b>${esc(x.nom)}</b></a> <span class="note">${esc(x.horaires_aujourd_hui)}${x.adresse ? `, ${esc(x.adresse)}` : ""}</span></li>`),
     d

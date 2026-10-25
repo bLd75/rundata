@@ -5,14 +5,15 @@
  * post: never the notice's text, worded by EDF. Read by the scheduled event into a shared copy (web/partagees.ts).
  */
 import { getJson } from "../http.js";
-import type { SourceInfo } from "../types.js";
+import { type SourceInfo, why } from "../types.js";
 import { strip } from "./avis-eau.js";
+import { autorisee } from "./autorisations.js";
 
 /**
  * The mairies that relay EDF's notices through an open API, checked on 24/10/2026. `pdf`: the mairie puts EDF's
  * letters online as PDF files, listed by its media API; none is read, only the day their name gives.
  */
-export const MAIRIES: { commune: string; site: string; pdf?: true }[] = [
+export const LISIBLES: { commune: string; site: string; pdf?: true }[] = [
   { commune: "Sainte-Marie", site: "https://www.ville-saintemarie.re" },
   { commune: "Saint-Philippe", site: "https://saintphilippe.re" },
   { commune: "Cilaos", site: "https://ville-cilaos.fr" },
@@ -20,13 +21,23 @@ export const MAIRIES: { commune: string; site: string; pdf?: true }[] = [
   { commune: "Sainte-Suzanne", site: "https://ville-saintesuzanne.re" },
 ];
 
+/**
+ * The mairies read: not those whose site's terms ask their authorisation, until it is given
+ * (src/providers/autorisations.ts, `courant:<commune>`). One left out is not read, and its notices, already kept, are
+ * not said (tools/courant.ts).
+ */
+export const MAIRIES = LISIBLES.filter((m) => autorisee(`courant:${m.commune}`));
+
+const names = MAIRIES.map((m) => m.commune);
+const listed = names.length > 1 ? `${names.slice(0, -1).join(", ")} et ${names.at(-1)}` : names.join("");
+
 export const SOURCE: SourceInfo = {
   id: "mairies_edf",
-  nom: "Avis de coupure d'électricité d'EDF Réunion relayés par les mairies (Sainte-Marie, Saint-Philippe, Cilaos, Saint-André, Sainte-Suzanne)",
+  nom: `Avis de coupure d'électricité d'EDF Réunion relayés par les mairies (${names.join(", ")})`,
   organisme: "Communes de La Réunion, d'après EDF Réunion",
   licence: "Information publique : seuls les faits (jours, heures, secteurs) sont repris, avec le lien de l'avis",
-  attribution: "Mairies de Sainte-Marie, Saint-Philippe, Cilaos, Saint-André et Sainte-Suzanne",
-  url: "https://www.ville-saintemarie.re/",
+  attribution: `${names.length > 1 ? "Mairies" : "Mairie"} de ${listed}`,
+  url: `${MAIRIES[0]?.site ?? LISIBLES[0].site}/`,
 };
 
 // The facts of each notice beside its title and link. False: the title, the date and the link only.
@@ -219,8 +230,8 @@ export function parsePosts(posts: Post[], commune: string): AvisCourant[] {
 }
 
 /**
- * Every mairie's notices, each mairie once; one that does not answer is named in `indisponibles`, unless all fail.
- * Not kept apart: the shared copy that holds them is the cache (web:courant).
+ * Every mairie's notices, each mairie once; one that does not answer is named in `indisponibles`, even when all fail:
+ * the copy that holds them (web:courant, tools/courant.ts) then keeps its notices read before, or says its read failed.
  */
 export async function coupures(): Promise<{ avis: AvisCourant[]; lues: string[]; indisponibles: string[] }> {
   const parts = await Promise.allSettled(
@@ -233,7 +244,7 @@ export async function coupures(): Promise<{ avis: AvisCourant[]; lues: string[];
       return [...parsePosts(posts, m.commune), ...parseMedia(media, m.commune)].sort((x, y) => y.publie.localeCompare(x.publie)).slice(0, PER_COMMUNE);
     }),
   );
-  if (parts.every((p) => p.status === "rejected")) throw (parts[0] as PromiseRejectedResult).reason;
+  parts.forEach((p, i) => p.status === "rejected" && console.error(`source ${SOURCE.id} indisponible (${MAIRIES[i].commune}):`, why(p.reason)));
   return {
     avis: parts.flatMap((p) => (p.status === "fulfilled" ? p.value : [])),
     lues: MAIRIES.filter((_, i) => parts[i].status === "fulfilled").map((m) => m.commune),

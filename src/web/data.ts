@@ -887,7 +887,8 @@ export async function buildCoupures(cache: Cache, now = new Date()): Promise<Cou
 
 export type { CourantAnswer };
 /** The power cuts relayed by the mairies: only the scheduled event builds it, into KV (web/partagees.ts). */
-export const buildCourant = (): Promise<CourantAnswer> => courantCopy();
+export const buildCourant = async (cache?: Cache): Promise<CourantAnswer> =>
+  courantCopy(cache && (await cache.peek<CourantAnswer>("web:courant").catch(() => undefined)));
 
 export interface SportAnswer {
   resume: string;

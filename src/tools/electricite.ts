@@ -5,7 +5,7 @@ import { resolvePlace } from "../places/resolve.js";
 import * as cc from "../providers/coupures-courant.js";
 import * as edf from "../providers/edf.js";
 import { why } from "../types.js";
-import { type CourantAnswer, courantBlock, courantCopy } from "./courant.js";
+import { type CourantAnswer, courantBlock, courantCopy, nonReprisCourt } from "./courant.js";
 import { credits, fr, notFound, placeBlock, text } from "./format.js";
 
 const SOURCES: [keyof edf.Mix, string, boolean][] = [
@@ -115,7 +115,13 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
         "réseau tendu, décaler les gros usages. La recharge conseillée est la part de la puissance de recharge d'un véhicule électrique.",
     };
   }
-  if (res) parts.unshift(coupures.avis?.length ? coupures.avis[0].texte : coupures.note ?? "");
+  // A mairie's site that did not answer: in a few words, the whole of it in coupures_annoncees.injoignable.
+  const silent = (coupures.injoignable ?? []).map((s) => `Avis de coupure d'électricité de ${s.commune} : ${s.court}, voir injoignable.`);
+  if (res) parts.unshift(coupures.avis?.length ? coupures.avis[0].texte : coupures.note ?? "", ...silent);
+  else parts.push(...silent);
+  // The island: the mairies not read until they agree, in a few words, the whole of it in coupures_annoncees.non_repris.
+  const short = res ? undefined : nonReprisCourt();
+  if (short) parts.push(`${short[0].toUpperCase()}${short.slice(1)}.`);
   return text({
     ...(res ? { lieu: placeBlock(lieu!, res) } : {}),
     resume: parts.filter(Boolean).join(" "),

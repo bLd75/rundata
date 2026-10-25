@@ -406,6 +406,10 @@ export function airLive(data: Cached<AirAnswer> | null): Live | undefined {
 
 // ---------------------------------------------------------------- électricité
 
+/** A mairie's site that did not answer (tools/courant.ts), « son site » linked to it. */
+const silentText = (s: { texte: string; site: string }) => esc(s.texte).replace(/voir son site\.$/, `voir <a href="${esc(s.site)}/" rel="noopener">son site</a>.`);
+export const silentItem = (s: { texte: string; site: string }) => `<li><span class="note">${silentText(s)}</span></li>`;
+
 /**
  * One notice of power cut, its link after it. A PDF letter's sentence ends on its link (marketing's words): « l'avis
  * publié par la mairie (PDF) → », « dans l'avis (PDF) → », a target tall enough for a finger.
@@ -448,10 +452,11 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
   const cuts = c
     ? `<section id="coupures" aria-labelledby="h-coupures">
   <div class="sec-h"><h2 id="h-coupures">Coupures d'électricité annoncées par les mairies</h2>
-  ${c.a_savoir ? `<p>${esc(c.a_savoir)}</p>` : ""}${c.depannage ? `<p><b>${esc(c.depannage)}</b></p>` : ""}</div>
+  ${c.a_savoir ? `<p>${esc(c.a_savoir)}</p>` : ""}${c.non_repris ? `<p>${esc(c.non_repris)}</p>` : ""}${c.depannage ? `<p><b>${esc(c.depannage)}</b></p>` : ""}</div>
+  ${(c.injoignable ?? []).map((s) => `<p class="note">${silentText(s)}</p>`).join("")}
   ${c.avis?.length
     ? `<div class="card"><ul class="plain">${c.avis.map(courantItem).join("")}</ul></div>`
-    : `<p class="card">${esc(c.indisponible ?? "Aucun avis relayé par les mairies suivies.")}</p>`}
+    : c.injoignable?.length ? "" : `<p class="card">${esc(c.indisponible ?? "Aucun avis relayé par les mairies suivies.")}</p>`}
 </section>`
     : "";
 

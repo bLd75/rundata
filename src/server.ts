@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import * as courantMairies from "./providers/coupures-courant.js";
 import { z } from "zod";
 import type { Cache } from "./cache.js";
 import type { Recorder } from "./metrics.js";
@@ -72,7 +73,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.187.1";
+export const VERSION = "0.188.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -284,9 +285,9 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "« météo de l'électricité » d'EDF pour les jours qui viennent (heures de pointe, réseau contraint, recharge conseillée " +
         "d'un véhicule électrique). Pour : « d'où vient l'électricité ? », « quelle part de renouvelable ? », " +
         "« quand recharger ma voiture électrique ? », « risque de délestage ? ». " +
-        "Coupures de courant (électricité, pas l'eau : coupures_eau) : les avis d'EDF que relaient les mairies (Sainte-Marie, Saint-Philippe, Cilaos, Saint-André, Sainte-Suzanne), " +
-        "jours, heures et secteurs, avec le lien de l'avis\u00a0; ailleurs, la mairie ne les publie pas et l'outil le dit. " +
-        "Pour : « coupure de courant à Sainte-Marie ? », « coupure EDF prévue à Cilaos ? ». " +
+        `Coupures de courant (électricité, pas l'eau : coupures_eau) : les avis d'EDF que relaient les mairies dont le site ne l'interdit pas (${courantMairies.MAIRIES.map((m) => m.commune).join(", ")}), ` +
+        "jours, heures et secteurs, avec le lien de l'avis\u00a0; ailleurs, l'outil dit pourquoi : la mairie ne les publie pas, ou ses mentions légales en interdisent la reprise. " +
+        "Pour : « coupure de courant à Sainte-Marie ? », « coupure EDF prévue dans ma commune ? ». " +
         "/ Réunion Island electricity right now: production mix, renewable share, EDF's grid signal, and the power cuts some town halls relay.",
       inputSchema: { lieu },
       annotations: { title: "Électricité à La Réunion", ...READ_ONLY },
