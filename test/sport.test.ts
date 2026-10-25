@@ -239,6 +239,23 @@ describe("sport", () => {
     expect(body(await sportTool(cache(), undefined, undefined, undefined, NOW)).programmes_communes).toBeUndefined();
   });
 
+  it("gives the volley league's tournaments from the agendas' copy, their place as the league says", async () => {
+    const store = new MemoryStore();
+    const at = NOW.getTime() - 3600_000;
+    const tournoi = { id: "Ligue réunionnaise de volley-ball:8790", titre: "King Saison 6 Solo étape 2", seances: [{ debut: "2026-11-01" }], lieu: "lieu à venir (voir la page de la Ligue)", categories: ["OUTDOOR"], lien: "https://lrvb.re/calendrier2/king-saison-6-solo-etape-2/", publie_par: "Ligue réunionnaise de volley-ball" };
+    await store.put("agendas", { value: { "agenda:lrvb": { value: [tournoi], fetchedAt: at } }, fetchedAt: at });
+    const ligue = () => new Cache(store, () => NOW.getTime());
+    const b = body(await sportTool(ligue(), "volley", undefined, "a_venir", NOW));
+    expect(b.a_venir.find((r: { epreuve: string }) => r.epreuve === "King Saison 6 Solo étape 2")).toEqual({
+      sport: "volley-ball", quand: "dimanche 01/11", epreuve: "King Saison 6 Solo étape 2", detail: "Ligue réunionnaise de volley-ball",
+      lieu: "lieu à venir (voir la page de la Ligue)", lien: "https://lrvb.re/calendrier2/king-saison-6-solo-etape-2/",
+    });
+    expect(b.sources.map((s: { source: string }) => s.source)).toContain("Volley-ball : tournois ouverts de la Ligue réunionnaise (King, Green 3X3)");
+    // Not for another sport, nor for a commune (its place is not known yet).
+    expect(body(await sportTool(ligue(), "handball", undefined, "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
+    expect(body(await sportTool(ligue(), "volley", "Saint-Pierre", "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
+  });
+
   it("gives the last handball round and the standings", async () => {
     const b = body(await sportTool(cache(), "handball", undefined, "resultats", NOW));
     expect(b.a_venir).toBeUndefined();

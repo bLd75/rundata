@@ -2,10 +2,10 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKER_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { AGENDAS, COVERED, OTI_EST, SOURCES_LUES, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseTribe } from "../src/providers/agenda.js";
+import { AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseTribe } from "../src/providers/agenda.js";
 import { extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
-import { agenda, gather, periode } from "../src/tools/agenda.js";
+import { agenda, gather, periode, refreshPlanned } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
 
 // The agendas on Saturday 24/10/2026 in the morning: the Fête de l'ail at Petite-Île (23 to 25), a concert tonight at
@@ -33,6 +33,7 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("mairie-saintpaul")) return "tribe_saint-paul.json";
   if (url.includes("ville-port")) return "tribe_le-port.json";
   if (url.includes("trois-bassins")) return "tribe_trois-bassins.json";
+  if (url.includes("lrvb.re")) return "tribe_lrvb.json";
   if (url.includes("letampon")) return "rss_le-tampon.xml";
   if (url.includes("saintlouis")) return "rss_saint-louis.xml";
   if (url.includes("lapossession")) return "rss_la-possession.xml";
@@ -80,6 +81,114 @@ describe("agenda", () => {
     expect(e.seances).toEqual([{ debut: "2026-10-27T08:00", fin: "2026-10-27T12:00" }]);
     expect(communeOf("TROIS BASSINS")).toBe("Les Trois-Bassins");
     expect(communeOf("St Paul")).toBe("Saint-Paul");
+  });
+
+  it("reads the volley league's tournaments, their place « à venir » as the league says", async () => {
+    const { value } = await LIGUE_VOLLEY.load(cache(), NOW);
+    expect(value.map((e) => [e.titre, e.seances, e.lieu, e.commune, e.publie_par])).toEqual([
+      ["King Saison 6 Solo étape 2", [{ debut: "2026-11-01" }], "lieu à venir (voir la page de la Ligue)", undefined, "Ligue réunionnaise de volley-ball"],
+      ["Green 3X3 Etape 4", [{ debut: "2026-11-08" }], "lieu à venir (voir la page de la Ligue)", undefined, "Ligue réunionnaise de volley-ball"],
+      ["King Saison 6 Duo étape 2", [{ debut: "2026-12-06" }], "lieu à venir (voir la page de la Ligue)", undefined, "Ligue réunionnaise de volley-ball"],
+    ]);
+    expect(value[0].lien).toBe("https://lrvb.re/calendrier2/king-saison-6-solo-etape-2/");
+    // An agenda of the whole island: it covers no commune.
+    expect(AGENDAS).toContain(LIGUE_VOLLEY);
+    expect(COVERED).not.toContain(undefined);
+  });
+
+  describe("an agenda read by the scheduled event (the volley league)", () => {
+    let urls: string[];
+    let league: () => Response;
+    const KING = "King Saison 6 Solo étape 2";
+    const titles = (b: { evenements?: { titre: string }[] }) => (b.evenements ?? []).map((e) => e.titre);
+    const entry = async (store: MemoryStore) => ((await store.get("agendas"))?.value as Record<string, CacheEntry> | undefined)?.["agenda:lrvb"];
+    beforeEach(() => {
+      urls = [];
+      league = () => new Response(bytes("tribe_lrvb.json"));
+      vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+        urls.push(url);
+        if (url.includes("lrvb.re")) return league();
+        const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+        return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+      });
+    });
+
+    it("is read there only, once an hour, and its copy served to the questions for 48 hours", async () => {
+      let t = NOW.getTime();
+      const store = new MemoryStore();
+      const at = () => new Cache(store, () => t);
+      // A question never reads it, and says nothing of it while there is no copy.
+      const before = body(await agenda(at(), undefined, undefined, undefined, NOW));
+      expect(urls.some((u) => u.includes("lrvb.re"))).toBe(false);
+      expect(before.indisponible).toBeUndefined();
+      expect(titles(before)).not.toContain(KING);
+      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["lrvb"], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(urls.filter((u) => u.includes("lrvb.re"))).toHaveLength(1);
+      // Another isolate serves it, with the time it was read.
+      const after = body(await agenda(at(), undefined, undefined, "King", NOW));
+      expect(after.evenements.find((e: { titre: string }) => e.titre === KING)).toMatchObject({ lieu: "lieu à venir (voir la page de la Ligue)", lu_le: expect.stringContaining("08:00") });
+      // Not again within the hour.
+      t += 30 * 60_000;
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(urls.filter((u) => u.includes("lrvb.re"))).toHaveLength(1);
+      // Past 48 hours unread, it is not served any more, and still not named.
+      t = NOW.getTime() + 49 * 3600_000;
+      const late = body(await agenda(at(), undefined, undefined, "King", new Date(t)));
+      expect(titles(late)).not.toContain(KING);
+      expect(late.indisponible).toBeUndefined();
+    });
+
+    it("keeps its copy and its time when the reading fails or finds nothing", async () => {
+      let t = NOW.getTime();
+      const store = new MemoryStore();
+      const at = () => new Cache(store, () => t);
+      await refreshPlanned(at(), NOW);
+      const first = await entry(store);
+      expect((first?.value as unknown[]).length).toBe(3);
+      t += 2 * 3600_000;
+      league = () => new Response("", { status: 503 });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
+      expect(await entry(store)).toEqual(first);
+      league = () => new Response(JSON.stringify({ events: [] }));
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
+      expect(await entry(store)).toEqual(first);
+      // Still failing two days on: the copy, no longer served, is said too old in the scheduled event's log.
+      t += 48 * 3600_000;
+      league = () => new Response("", { status: 503 });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
+      expect(await entry(store)).toEqual(first);
+    });
+
+    it("reads nothing and writes nothing when the invocation cannot pay for its reading and the write", async () => {
+      class Counting extends MemoryStore {
+        puts = 0;
+        async put(key: string, e: CacheEntry) {
+          this.puts++;
+          return super.put(key, e);
+        }
+      }
+      const store = new Counting();
+      const { value } = await counted(WORKER_BUDGET, async () => {
+        count(left() - 5); // what the scheduled event did before: 5 left, KEEP_LEFT 4 of them
+        return refreshPlanned(new Cache(store, () => NOW.getTime()), NOW);
+      });
+      expect(value).toEqual({ lus: [], gardes: [], reportes: ["lrvb"], trop_vieilles: [] });
+      expect(urls).toEqual([]);
+      expect(store.puts).toBe(0);
+    });
+
+    it("is written back as it was by a question that writes the bundle", async () => {
+      const store = new MemoryStore();
+      const at = NOW.getTime() - 3 * 3600_000;
+      const copy = [{ id: "Ligue réunionnaise de volley-ball:8790", titre: KING, seances: [{ debut: "2026-11-01" }], lieu: "lieu à venir (voir la page de la Ligue)", categories: [], lien: "https://lrvb.re/calendrier2/king-saison-6-solo-etape-2/", publie_par: "Ligue réunionnaise de volley-ball" }];
+      await store.put("agendas", { value: { "agenda:lrvb": { value: copy, fetchedAt: at } }, fetchedAt: at });
+      // A cold question reads every other agenda and writes the bundle.
+      const b = body(await agenda(new Cache(store, () => NOW.getTime()), undefined, undefined, "King", NOW));
+      expect(titles(b)).toContain(KING);
+      const written = (await store.get("agendas"))?.value as Record<string, CacheEntry>;
+      expect(Object.keys(written).length).toBeGreaterThan(10);
+      expect(written["agenda:lrvb"]).toEqual({ value: copy, fetchedAt: at });
+    });
   });
 
   it("reads reunion.fr's agenda from its page", () => {

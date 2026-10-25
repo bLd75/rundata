@@ -1,7 +1,7 @@
 import type { Cache, Cached } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
-import { programmesSportifs } from "../providers/agenda.js";
+import { type Evenement, type programmesSportifs, sportDesAgendas } from "../providers/agenda.js";
 import * as src from "../providers/sport.js";
 import * as avis from "../providers/sport-avis.js";
 import { type Club, clubOf, clubsNamed, type ClubSport, zoneOf } from "../sport/clubs.js";
@@ -226,7 +226,7 @@ export interface SportData {
 /** What `sport` needs, read in parallel; a source that fails is left out and named. */
 export async function gather(cache: Cache, sport: Sport | undefined, now: Date): Promise<SportData> {
   const want = (s: Sport) => !sport || sport === s;
-  const [grandRaid, handball, volley, voile, golfs, auto, actualite, notices, presse, programmes] = await Promise.all([
+  const [grandRaid, handball, volley, voile, golfs, auto, actualite, notices, presse, agendas] = await Promise.all([
     want("grand_raid") ? attempt(src.SOURCES.livetrail, () => src.grandRaid(cache, now)) : undefined,
     want("handball") ? attempt(src.SOURCES.ffhb, () => src.championnats(cache, "handball")) : undefined,
     want("volley") ? attempt(src.SOURCES.ffvb, () => src.championnats(cache, "volley")) : undefined,
@@ -236,18 +236,41 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date):
     attempt(src.SOURCES.la1ere, () => src.actualite(cache)),
     want("volley") ? attempt(avis.SOURCE, () => avis.avisLigue(cache, now)) : undefined,
     want("volley") || want("handball") ? cache.peek<Fil>("actualites:fil").catch(() => undefined) : undefined,
-    // Of every sport: read only when none is asked.
-    !sport ? programmesSportifs(cache).catch((err) => (console.error("programmes sportifs : copie des agendas illisible", why(err)), undefined)) : undefined,
+    // The communes' programmes, of every sport, only when none is asked; the volley league's tournaments.
+    !sport || want("volley")
+      ? sportDesAgendas(cache, !sport).catch((err) => (console.error("programmes sportifs : copie des agendas illisible", why(err)), undefined))
+      : undefined,
   ]);
+  const ligue = agendas?.tournois;
   return {
     grandRaid,
     championnats: [handball, volley].filter((x): x is Got<src.Championnat[]> => !!x),
-    epreuves: [voile, golfs, auto].filter((x): x is Got<src.Epreuve[]> => !!x),
+    epreuves: [
+      voile,
+      golfs,
+      auto,
+      ligue ? { source: src.SOURCES.lrvb_tournois, value: { ...ligue, value: ligue.value.flatMap(tournoi) } } : undefined,
+    ].filter((x): x is Got<src.Epreuve[]> => !!x),
     actualite,
     avis: notices,
     presse,
-    programmes,
+    programmes: agendas?.programmes,
   };
+}
+
+/** A tournament of the volley league, as `evenements` read it: its place as the league gives it, or « à venir ». */
+function tournoi(e: Evenement): src.Epreuve[] {
+  return e.seances.slice(0, 1).map((s) => ({
+    sport: "volley-ball" as const,
+    nom: e.titre,
+    debut: s.debut.slice(0, 10),
+    fin: (s.fin ?? s.debut).slice(0, 10),
+    lieu: e.lieu,
+    commune: e.commune,
+    detail: "Ligue réunionnaise de volley-ball",
+    etat: e.statut === "annulé" ? ("annulée" as const) : e.statut === "reporté" ? ("reportée" as const) : undefined,
+    lien: e.lien,
+  }));
 }
 
 /** The Grand Raid is told around its dates (a week before to a fortnight after), or when asked. */

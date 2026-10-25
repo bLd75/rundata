@@ -6,6 +6,8 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Volley-ball : les tournois en plein air de la Ligue réunionnaise, avec leur date et le lien de la Ligue.
+- Volley-ball : les tournois de beach et de green volley de la Ligue réunionnaise et ses championnats jeunes, avec le lien de la Ligue.
 - Il a plu quand à Saint-Joseph ? Dans votre IA, la pluie heure par heure et depuis minuit au pluviomètre Météo-France le plus proche.
 - Marée : les pleines et basses mers calculées pour les deux prochains jours, avec le lien du SHOM au-delà.
 - Mairies, associations, organisateurs : un guide gratuit pour publier votre agenda en flux ouvert, 8 tutos, du plus simple au plus avancé.
