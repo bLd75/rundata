@@ -62,7 +62,7 @@ describe("finding the stop", () => {
 describe("transports", () => {
   it("lists the next departures of every network at the station, line by line", async () => {
     const r = body(await transports("gare routière Saint-Pierre", undefined, NOW));
-    expect(r.resume).toMatch(/^Prochains départs à Gare de St-Pierre \(Saint-Pierre, Car Jaune\)/);
+    expect(r.resume).toMatch(/^Prochains départs à Gare de St-Pierre \(Saint-Pierre, Car Jaune\).*, d'après (les annonces en direct des réseaux et )?les horaires publiés\u00a0: /);
     expect(r.departs.length).toBeGreaterThan(5);
     expect(r.departs[0].dans_min).toBeLessThanOrEqual(r.departs[1].dans_min);
     expect(new Set(r.departs.map((d: { reseau: string }) => d.reseau)).size).toBeGreaterThan(1);
@@ -226,13 +226,13 @@ describe("a line", () => {
     const asked = `${g.nom} car jaune`;
     const where = `${g.nom} \\(${g.commune}, Car Jaune\\)`;
     const sunday = body(await transports(asked, undefined, new Date("2026-10-25T06:00:00Z")));
-    expect(sunday.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\\. D'après les horaires publiés, aucune des lignes qui le desservent ne circule le dimanche\\. Prochains départs à ${where}, d'après les horaires publiés : E1 vers St-(Denis|Benoît) demain à 5h00`));
+    expect(sunday.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\\. D'après les horaires publiés, aucune des lignes qui le desservent ne circule le dimanche\\. Prochains départs\u00a0: E1 vers St-(Denis|Benoît) demain à 5h00 \\(dans 19 h\\) ; `));
     const WED = new Date("2026-11-11T06:00:00Z");
     const feries = { get: async () => ({ value: { "2026-11-11": "11 novembre" }, fetchedAt: new Date() }) } as unknown as Cache;
     expect(body(await transports(asked, undefined, WED, feries)).resume)
-      .toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, jour férié, d'après les horaires publiés\\. Prochains départs à `));
+      .toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, jour férié, d'après les horaires publiés\\. Prochains départs\u00a0: E1 `));
     expect(body(await transports(asked, undefined, WED)).resume)
-      .toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, d'après les horaires publiés\\. Prochains départs à `));
+      .toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, d'après les horaires publiés\\. Prochains départs\u00a0: E1 `));
     // With the network's live alerts about its lines, quoted, two of them.
     const store = new MemoryStore();
     store.put("calendrier:feries:2026", { value: {}, fetchedAt: WED.getTime() });
@@ -240,7 +240,7 @@ describe("a line", () => {
     const alerts = [{ titre: "Grève : lignes E1 et S2 non assurées.", lignes: [line], arrets: [], periodes: [] }, { titre: "Travaux à Sainte-Suzanne", lignes: [line], arrets: [], periodes: [] }];
     store.put("rt:carjaune", { value: { at: WED.getTime() / 1000 - 30, trips: {}, cancelled: [], alerts, vehicles: [] }, fetchedAt: WED.getTime() });
     const told = body(await transports(asked, undefined, WED, new Cache(store, () => WED.getTime(), false)));
-    expect(told.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, d'après les horaires publiés\\. Info trafic de Car Jaune \\(flux de 09:59\\)\u00a0: «\u00a0Grève : lignes E1 et S2 non assurées\u00a0»\u00a0; «\u00a0Travaux à Sainte-Suzanne\u00a0»\\. Prochains départs à ${where}, d'après les horaires publiés : [^.]+\\.$`));
+    expect(told.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, mercredi 11 novembre, d'après les horaires publiés\\. Info trafic de Car Jaune \\(flux de 09:59\\)\u00a0: «\u00a0Grève : lignes E1 et S2 non assurées\u00a0»\u00a0; «\u00a0Travaux à Sainte-Suzanne\u00a0»\\. Prochains départs\u00a0: [^.]+\\.$`));
     expect(told.info_trafic).toHaveLength(2);
   });
 

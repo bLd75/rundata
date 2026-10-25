@@ -98,7 +98,7 @@ const hm = (s: number) => `${s >= 86400 ? "demain " : ""}${clock(s)}`;
 const atTime = (s: number) => `${s >= 86400 ? "demain " : ""}à ${clock(s)}`;
 const minutes = (d: Departure) => Math.max(0, Math.round(expected(d) / 60));
 /** « dans 4 min », « dans 11 h 15 ». */
-const wait = (min: number) => (min < 90 ? `dans ${fr(min)} min` : `dans ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}`);
+const wait = (min: number) => (min < 90 ? `dans ${fr(min)} min` : `dans ${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`);
 
 /** Local day as YYYYMMDD and Monday-first weekday, `back` days before `now`. */
 function day(now: Date, back = 0) {
@@ -409,8 +409,9 @@ async function stopAnswer(asked: string, ligne: string | undefined, now: Date, c
   const off = shown.every((d) => d.at >= 86400) ? await quiet(groups, where, feeds, now, cache) : undefined;
   const told = new Set(off?.alertes?.map((a) => a.titre));
   const others = alertes.filter((a) => !told.has(a.titre));
+  // After the stop's opening, which says where and by what, the departures alone.
   const next = shown.length
-    ? `Prochains départs à ${where}, d'après ${live.length ? "les annonces en direct des réseaux et " : ""}les horaires publiés : ` + shown.slice(0, 5).map(said).join(" ; ") + "." +
+    ? (off ? `Prochains départs${NBSP}: ` : `Prochains départs à ${where}, d'après ${live.length ? "les annonces en direct des réseaux et " : ""}les horaires publiés${NBSP}: `) + shown.slice(0, 5).map(said).join(" ; ") + "." +
       (others.length ? ` Info trafic : ${others.map((a) => `${a.lignes ? `ligne ${a.lignes.join(", ")}, ` : ""}${a.titre}`).join(" ; ")}.` : "")
     : off ? "" : `Aucun départ prévu dans les prochaines heures à ${where}, d'après les horaires publiés.`;
   const resume = [off?.text, next].filter(Boolean).join(" ");
@@ -713,7 +714,7 @@ async function lineAnswer(ligne: string, asked: string, now: Date, cache?: Cache
     }
     if (groups.length) {
       shownAt = await stopDepartures(groups, now, cache, (x) => routes.includes(x.route));
-      if (shownAt.shown.length) resume += ` Prochains départs à ${groups[0].nom} : ${shownAt.shown.slice(0, 4).map(said).join(" ; ")}.`;
+      if (shownAt.shown.length) resume += ` Prochains départs à ${groups[0].nom}${NBSP}: ${shownAt.shown.slice(0, 4).map(said).join(" ; ")}.`;
     }
   }
   const used = !!buses?.length || !!off?.alertes || (!!shownAt && (shownAt.live.length > 0 || shownAt.alertes.length > 0));
