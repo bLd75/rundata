@@ -82,21 +82,28 @@ describe("sharing and following", () => {
     const html = placePage(O, pageOf("cilaos")!, null, NOW);
     const text = "Météo Cilaos en direct et prévisions : https://rundata.re/meteo/cilaos?ref=wa";
     expect(html).toContain(`<a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp`);
-    expect(html).toContain(`<p>Une info utile chaque matin sur <a href="https://www.facebook.com/1432704299917309?ref=site" rel="noopener">Facebook</a> ou <a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener">Instagram</a>, et les sorties du week-end le vendredi sur notre <a href="https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q?ref=site" rel="noopener">chaîne WhatsApp</a>.</p>`);
+    expect(html).toContain(`<p>Suivez rundata.re sur <a href="https://www.facebook.com/1432704299917309?ref=site" rel="noopener">Facebook</a> (une info utile chaque matin) ou <a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener">Instagram</a>, et les sorties du week-end le vendredi sur notre <a href="https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q?ref=site" rel="noopener">chaîne WhatsApp</a>.</p>`);
     expect(html.indexOf('class="share wrap"')).toBeLessThan(html.indexOf('id="avis"'));
   });
 
-  it("leaves out of that sentence an account without an address", () => {
+  it("leaves out of that sentence an account without an address, and says « chaque matin » of Facebook only", () => {
     const sentence = () => textOf(placePage(O, pageOf("cilaos")!, null, NOW).match(/class="share wrap"[^]*?<p>(.*?)<\/p>/)![1]);
     const urls = SOCIAL.map((s) => s.url);
     const only = (...noms: string[]) => SOCIAL.forEach((s, k) => (s.url = noms.includes(s.nom) ? urls[k] : ""));
     try {
+      only("Facebook");
+      expect(sentence()).toBe("Suivez rundata.re sur Facebook (une info utile chaque matin).");
       only("Facebook", "Instagram");
-      expect(sentence()).toBe("Une info utile chaque matin sur Facebook ou Instagram.");
-      only("WhatsApp");
-      expect(sentence()).toBe("Les sorties du week-end le vendredi sur notre chaîne WhatsApp.");
+      expect(sentence()).toBe("Suivez rundata.re sur Facebook (une info utile chaque matin) ou Instagram.");
       only("Facebook", "WhatsApp");
-      expect(sentence()).toBe("Une info utile chaque matin sur Facebook, et les sorties du week-end le vendredi sur notre chaîne WhatsApp.");
+      expect(sentence()).toBe("Suivez rundata.re sur Facebook (une info utile chaque matin), et les sorties du week-end le vendredi sur notre chaîne WhatsApp.");
+      // No rhythm is promised for Instagram.
+      only("Instagram", "WhatsApp");
+      expect(sentence()).toBe("Suivez rundata.re sur Instagram, et les sorties du week-end le vendredi sur notre chaîne WhatsApp.");
+      only("WhatsApp");
+      expect(sentence()).toBe("Suivez les sorties du week-end le vendredi sur notre chaîne WhatsApp.");
+      only();
+      expect(placePage(O, pageOf("cilaos")!, null, NOW).match(/<aside class="share wrap"[^]*?<\/aside>/)![0]).not.toContain("Suivez");
     } finally {
       SOCIAL.forEach((s, k) => (s.url = urls[k]));
     }
