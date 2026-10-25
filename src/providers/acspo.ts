@@ -6,7 +6,7 @@
 import type { Cache } from "../cache.js";
 import { BBOX, distanceKm } from "../geo.js";
 import { getText } from "../http.js";
-import type { SourceInfo } from "../types.js";
+import { type SourceInfo, why } from "../types.js";
 
 export const SOURCE: SourceInfo = {
   id: "acspo",
@@ -27,6 +27,10 @@ const TIMEOUT_MS = 12_000;
 // CoastWatch's servers have been down for days at a time: once they fail, MODIS answers for half an hour before they are
 // asked again, instead of each page waiting for them and then lacking the subrequests MODIS needs.
 const BACKOFF_SECONDS = 30 * 60;
+// A day the server has can be missing from what came, when it took longer than TIMEOUT_MS: on 25 October 2026 the grid
+// read at 16:09 Réunion time stopped at the 22nd, the 24th published at 03:42 UTC, and was kept three hours. Such a grid
+// is asked again after half an hour.
+const RETRY_SECONDS = 30 * 60;
 
 // The daily files of the global 0.02° grid: rows from 89.99° N southwards, columns from 179.99° W eastwards. The ERDDAP
 // dataset that served them as one table (noaacwLEOACSPOSSTL3SnrtCDaily) is gone from CoastWatch since October 2026.
@@ -136,21 +140,28 @@ export function nearest(days: SstDay[], lon: number, lat: number, maxKm = 12): S
   return null;
 }
 
-/** The last DAYS days before `now` (UTC) that the server has, newest first; fails only if none of them comes. */
+/** The newest day the server should have at `now`: a day is published the next morning, before 06:00 UTC. */
+export const due = (now: Date) => new Date(now.getTime() - 30 * 3600_000).toISOString().slice(0, 10);
+
+/**
+ * The last DAYS days before `now` (UTC) that came, newest first, a day without a clear pixel included; fails only if
+ * none of them comes. Without the day `due`, asked again after RETRY_SECONDS instead of FRESH_SECONDS.
+ */
 export async function grid(cache: Cache, now = new Date()) {
-  return cache.get(
-    "acspo",
-    FRESH_SECONDS,
-    async () => {
-      const dates = Array.from({ length: DAYS }, (_, k) =>
-        new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1 - k)).toISOString().slice(0, 10),
-      );
-      // The day before is missing until the morning (UTC) it is published: the others answer for it.
-      const got = await Promise.allSettled(dates.map(async (d) => parseAscii(await getText(SOURCE.id, dayUrl(d), TIMEOUT_MS), d)));
-      const days = got.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
-      if (!days.length) throw (got[0] as PromiseRejectedResult).reason;
-      return days.filter((d) => d.pixels.length);
-    },
-    BACKOFF_SECONDS,
-  );
+  const load = async () => {
+    const dates = Array.from({ length: DAYS }, (_, k) =>
+      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1 - k)).toISOString().slice(0, 10),
+    );
+    // The day before is missing until the morning (UTC) it is published: the others answer for it.
+    const got = await Promise.allSettled(dates.map(async (d) => parseAscii(await getText(SOURCE.id, dayUrl(d), TIMEOUT_MS), d)));
+    const days = got.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+    if (!days.length) throw (got[0] as PromiseRejectedResult).reason;
+    // The days due and newer than those that came: said, since the answer then gives an older day.
+    got.forEach((r, k) => {
+      if (r.status === "rejected" && dates[k] <= due(now) && dates[k] > days[0].date) console.error(`source acspo : jour ${dates[k]} manquant:`, why(r.reason));
+    });
+    return days;
+  };
+  const c = await cache.get("acspo", FRESH_SECONDS, load, BACKOFF_SECONDS);
+  return (c.value[0]?.date ?? "") >= due(now) ? c : cache.get("acspo", RETRY_SECONDS, load, BACKOFF_SECONDS);
 }
