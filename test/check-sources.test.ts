@@ -46,6 +46,10 @@ describe("the daily check of the sources", () => {
       .toEqual(["niveau ORSEC inconnu (« non lu par rundata.re, à vérifier sur reunion.gouv.fr »)"]);
     expect(motifs("volcan", { etat: { niveau_orsec: "Alerte 1" }, fraicheur: {} })).toEqual(["niveau Alerte 1 sans communiqué de la préfecture lu"]);
     expect(motifs("volcan", { etat: { niveau_orsec: "Vigilance" }, fraicheur: {} })).toEqual([]);
+    // An alert 2 with no eruption read is flagged, unless the OVPF said the eruption stopped (the level stays until the next release).
+    const alerte2 = { niveau_orsec: "Alerte 2-2", eruption_en_cours: false, communique_prefecture: { niveau: "Alerte 2-2" } };
+    expect(motifs("volcan", { etat: alerte2, fraicheur: {} })).toEqual(["Alerte 2 sans éruption en cours dans l'état lu"]);
+    expect(motifs("volcan", { etat: { ...alerte2, eruption_ovpf: { en_cours: false, date: "2026-04-12T19:10:00Z", lien: "https://bsky.app/x" } }, fraicheur: {} })).toEqual([]);
   });
 
   it("checks the buses' real time and the month's fuel prices", () => {

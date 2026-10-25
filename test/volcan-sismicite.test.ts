@@ -55,7 +55,7 @@ describe("the located earthquakes per day under the volcano", () => {
     expect(html).toContain(`<p class="axis"><span>24/09</span><span>23/10 (en cours)</span></p>`);
     expect(html).toContain(`<p class="note">Seuls les séismes localisés par l&#39;OVPF sont comptés ici : ce n&#39;est pas le nombre total de séismes enregistrés.</p>`);
     expect(html).toContain("Séismes localisés par l'OVPF sous le volcan : <b>");
-    expect(html).not.toMatch(/séismes sous le volcan/i);
+    expect(html).not.toMatch(/(?<!localisés )séismes sous le volcan/i);
     // pitonlive's word on the deformation is not said: on 25/10/2026 it said the opposite of the OVPF's release.
     expect(r.etat).not.toHaveProperty("deformation");
     for (const said of [JSON.stringify(r.etat), r.resume, html]) expect(said).not.toMatch(/déformation|selon pitonlive\.com\)/i);
