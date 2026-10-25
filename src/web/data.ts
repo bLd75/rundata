@@ -28,7 +28,7 @@ import { qualiteAir } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
 import { electricite } from "../tools/electricite.js";
 import * as houle from "../providers/houle.js";
-import { BEACHES, gridCopy, type GridCopy, PRODUCTS as SEA_PRODUCTS, seaTour, TOUR as SEA_TOUR, temperatureMer, waveLine, wavesNow } from "../tools/mer.js";
+import { BEACHES, PRODUCTS as SEA_PRODUCTS, seaTour, TOUR as SEA_TOUR, temperatureMer, waveLine, wavesNow } from "../tools/mer.js";
 import { gaugeRow, gauges } from "../tools/maree.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
@@ -258,32 +258,41 @@ export interface SeaData {
   plages: BeachNow[];
   /** The two tide gauges; missing on a copy made before they were read. */
   maree?: ReturnType<typeof gaugeRow>[];
-  /** The satellites' grids, for temperature_mer anywhere on the coast (tools/mer.ts); missing on a copy made before. */
-  satellites?: GridCopy[];
   sources: Credit[];
 }
 
 export async function buildSea(cache: Cache, now = new Date()): Promise<SeaData> {
   const [t, tide, w] = await Promise.all([seaTour(cache, now, BEACHES), gauges(cache, now), wavesNow(cache)]);
   if (!t && !w) throw new Error("ni mesure satellite de la mer, ni prévision des vagues");
+  // Without the satellites' grids (before the scheduled event first shares them, or a day after they last came): the
+  // last copy's readings, each with its day, rather than a copy without the water's temperature that the home page
+  // would keep 3 hours, or the scheduled event write to KV. A copy older code wrote may lack them.
+  const last = t ? undefined : (await cache.peek<SeaData>("web:mer").catch(() => undefined))?.value;
+  const satellites = SEA_PRODUCTS.map((p) => p.source.nom);
   const read = tide.some((g) => g.reading);
   return {
     plages: BEACHES.map((n, i) => {
       const p = resolvePlace(n)!.lieu;
       const r = t?.readings[i].r;
+      const before = last?.plages?.find((b) => b.nom === p.nom && b.valeur != null);
       const l = w ? waveLine(w.value, p.lon, p.lat, now) : null;
       return {
         nom: p.nom,
         commune: p.commune,
         lon: p.lon,
         lat: p.lat,
-        ...(r ? { valeur: r.valeur, jour: r.mesure.jour_mesure, distance_km: r.mesure.distance_km } : {}),
+        ...(r
+          ? { valeur: r.valeur, jour: r.mesure.jour_mesure, distance_km: r.mesure.distance_km }
+          : before ? { valeur: before.valeur, jour: before.jour, distance_km: before.distance_km } : {}),
         ...(l ? { houle: { hauteur_m: l.hauteur_m, maintenant: l.maintenant, heure: l.heure, max: l.max, max_jour: l.max_jour } } : {}),
       };
     }),
     ...(read ? { maree: tide.map((g) => gaugeRow(g, now)) } : {}),
-    ...(t ? { satellites: t.grids.map(gridCopy) } : {}),
-    sources: [...(t?.used.map((g) => credit(g.source)) ?? []), ...(w ? [credit(houle.SOURCE)] : []), ...(read ? [credit(maregraphes.SOURCE)] : [])],
+    sources: [
+      ...(t ? t.used.map((g) => credit(g.source)) : (last?.sources?.filter((s) => satellites.includes(s.source)) ?? [])),
+      ...(w ? [credit(houle.SOURCE)] : []),
+      ...(read ? [credit(maregraphes.SOURCE)] : []),
+    ],
   };
 }
 

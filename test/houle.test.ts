@@ -5,7 +5,7 @@ import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.j
 import * as acspo from "../src/providers/acspo.js";
 import * as houle from "../src/providers/houle.js";
 import * as uv from "../src/providers/uv.js";
-import { temperatureMer } from "../src/tools/mer.js";
+import { SATELLITES, temperatureMer } from "../src/tools/mer.js";
 import { previsionMeteo } from "../src/tools/prevision.js";
 
 // Recorded from Open-Meteo for 22 to 25/10/2026: the ECMWF wave model at the beaches of the page /mer, and the CAMS
@@ -38,11 +38,11 @@ class EdgeLike extends MemoryStore {
 
 const isolate = (edge = new EdgeLike()) => new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false);
 
-/** An isolate whose data center holds the copy of /mer the scheduled event wrote: temperature_mer reads the satellites there. */
+/** An isolate whose data center holds the satellites' grids the scheduled event shared: temperature_mer reads them there. */
 async function withSea() {
   const edge = new EdgeLike();
   const satellites = [{ source: "acspo", jours: [acspo.parseAscii(String(fixture("acspo.ascii")), "2026-10-21")], lu: NOW.getTime() }];
-  await edge.put("web:mer", { value: { plages: [], sources: [], satellites }, fetchedAt: NOW.getTime() });
+  await edge.put(SATELLITES, { value: satellites, fetchedAt: NOW.getTime() });
   return isolate(edge);
 }
 

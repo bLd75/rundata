@@ -5,7 +5,7 @@ import * as acspo from "../providers/acspo.js";
 import * as houle from "../providers/houle.js";
 import * as modis from "../providers/modis.js";
 import * as requin from "../eau/requin.js";
-import { left } from "../budget.js";
+import { later, left } from "../budget.js";
 import { type SourceInfo, why } from "../types.js";
 import { credits, fr, notFound, placeBlock, text } from "./format.js";
 import { dayLabel, localDate, localHour } from "./prevision.js";
@@ -50,7 +50,7 @@ interface Grid {
   cached: Cached<acspo.SstDay[]>;
 }
 
-/** A product's grid as the copy of /mer keeps it (web/data.ts buildSea), in JSON: `lu` is when it was read. */
+/** A product's grid as the shared copy keeps it, in JSON: `lu` is when it was read. */
 export interface GridCopy {
   source: string;
   jours: acspo.SstDay[];
@@ -58,23 +58,43 @@ export interface GridCopy {
   stale?: boolean;
 }
 
-export const gridCopy = (g: Grid): GridCopy =>
+const gridCopy = (g: Grid): GridCopy =>
   ({ source: g.source.id, jours: g.cached.value, lu: g.cached.fetchedAt.getTime(), ...(g.cached.stale ? { stale: true } : {}) });
 
-// The copy of /mer, which the scheduled event refreshes every 3 hours (web/partagees.ts).
-const COPY = "web:mer";
-
 /**
- * The grids in the copy of /mer, however old: the day of each reading says its age. An answer never asks the
- * satellites itself: their servers can take more than 10 s to answer, or not answer (cam-change 273).
+ * The satellites' grids, a shared copy (web/partagees.ts) that only the scheduled event builds: the copy of /mer, the
+ * pages and the answers read it, however old, and never ask the satellites themselves. Their servers can take more
+ * than 10 s to answer, or not answer (cam-change 273).
  */
+export const SATELLITES = "mer:satellites";
+
+/** Minutes until the grids are read again: half an hour while ACSPO lacks the day it should have (acspo.due), else 3 hours. */
+export function satellitesEvery(last: unknown, now = new Date()): number {
+  if (!Array.isArray(last)) return 3 * 60;
+  const a = (last as GridCopy[]).find((g) => g.source === acspo.SOURCE.id);
+  return (a?.jours[0]?.date ?? "") >= acspo.due(now) ? 3 * 60 : 30;
+}
+
+/** The scheduled event's build: ACSPO, and MODIS when ACSPO is down, or sees nothing near a beach of /mer. */
+export async function buildSatellites(cache: Cache, now = new Date()): Promise<GridCopy[]> {
+  const gs = await grids(cache, now);
+  if (!gs.length) throw new Error("aucune grille satellite");
+  const blind = tourOf(gs, now, BEACHES).readings.some((x) => !x.r);
+  return (blind && gs.length < PRODUCTS.length ? await withFallback(cache, gs, now) : gs).map(gridCopy);
+}
+
+/** The shared copy of the grids, however old: the day of each reading says its age. */
 async function copiedGrids(cache: Cache, now: Date): Promise<Grid[]> {
-  // One in memory from the last 3 hours will do: the stores are asked only for a newer one (one read each).
-  let copy = await cache.peek<{ satellites?: GridCopy[] }>(COPY, now.getTime() - 3 * HOUR).catch(() => undefined);
-  // A copy made before it kept the grids (before 0.182.18), as the scheduled event wrote it at 19:10 on 25 October 2026:
-  // the stores are asked for a newer one, which a page may have made since, rather than keep it 3 hours.
-  if (copy && !copy.value.satellites) copy = (await cache.peek<{ satellites?: GridCopy[] }>(COPY).catch(() => undefined)) ?? copy;
-  return (copy?.value.satellites ?? []).flatMap((s) => {
+  // One in memory from the last half hour will do, the quickest the copy is renewed: the stores are asked only for a
+  // newer one (one read each). Longer, an isolate would keep an old copy hours after a newer one is there.
+  const hit = await cache.peek<GridCopy[]>(SATELLITES, now.getTime() - 30 * 60_000).catch(() => undefined);
+  // Outside the Worker (Node), where no scheduled event runs and nothing is limited, a missing or old copy is brought up
+  // to date after the answer, as the ensemble's (providers/ensemble.ts).
+  const every = satellitesEvery(hit?.value, now);
+  if (left() === Infinity && (!hit || now.getTime() - hit.fetchedAt.getTime() >= every * 60_000)) {
+    later(cache.get(SATELLITES, every * 60, () => buildSatellites(cache, now)).catch((err) => console.error("grilles satellite indisponibles:", why(err))));
+  }
+  return (hit?.value ?? []).flatMap((s) => {
     const p = PRODUCTS.find((x) => x.source.id === s.source);
     return p ? [{ source: p.source, cached: { value: s.jours, fetchedAt: new Date(s.lu), stale: !!s.stale } }] : [];
   });
@@ -148,16 +168,13 @@ function staleWarning(g: Grid | undefined) {
 function tourOf(gs: Grid[], now: Date, names = TOUR) {
   const readings = names.map((n) => resolvePlace(n)!.lieu).map((p) => ({ p, r: reading(p, gs, now) }));
   const used = [...new Set(readings.flatMap((x) => (x.r ? [x.r.grid] : [])))];
-  return { readings, used, grids: gs };
+  return { readings, used };
 }
 
-/** The tour of the coast from the satellites themselves, for the copy of /mer: `grids` are all the products read. */
+/** The tour of `names` from the shared copy of the grids, for the copy of /mer; null without it. */
 export async function seaTour(cache: Cache, now = new Date(), names = TOUR) {
-  const gs = await grids(cache, now);
-  if (!gs.length) return null;
-  const t = tourOf(gs, now, names);
-  // The fallback is only fetched if some point of the tour needs it.
-  return t.readings.some((x) => !x.r) && gs.length < PRODUCTS.length ? tourOf(await withFallback(cache, gs, now), now, names) : t;
+  const gs = await copiedGrids(cache, now);
+  return gs.length ? tourOf(gs, now, names) : null;
 }
 
 // --- Waves: a forecast, kept apart from the measurement ---------------------------------------------------------

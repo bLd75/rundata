@@ -6,7 +6,8 @@ import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.j
 import { configure } from "../src/providers/mf-auth.js";
 import * as mf from "../src/providers/vigilance.js";
 import * as feux from "../src/providers/feux.js";
-import { alerteOf, buildPlace, buildSea, snapshot, withoutForecast } from "../src/web/data.js";
+import { alerteOf, buildPlace, buildSea, type SeaData, snapshot, withoutForecast } from "../src/web/data.js";
+import { buildSatellites, SATELLITES } from "../src/tools/mer.js";
 import { homePage } from "../src/web/home.js";
 import { communesPage } from "../src/web/commune.js";
 import { VERSION } from "../src/server.js";
@@ -190,23 +191,60 @@ describe("home page", () => {
     expect(bare.text).toContain("Piton Maïdo");
     expect(bare.text).not.toContain("Par satellite, le");
     expect(satellites()).toEqual([]);
-    // The copy the scheduled event wrote three hours ago, Saint-Leu's reading of 19 October.
-    const sea = (await counted(WORKER_BUDGET, () => buildSea(isolate(), NOW))).value;
+    // The grids the scheduled event shared, and the copy of /mer it made from them three hours ago: Saint-Leu's reading
+    // of 19 October.
+    const edge = new EdgeLike();
+    await edge.put(SATELLITES, { value: (await counted(WORKER_BUDGET, () => buildSatellites(isolate(), NOW))).value, fetchedAt: NOW.getTime() - 3600_000 });
+    asked.length = 0;
+    const sea = (await counted(WORKER_BUDGET, () => buildSea(isolate(edge), NOW))).value;
+    expect(satellites()).toEqual([]);
     const leu = sea.plages.find((b) => b.nom === "Saint-Leu")!;
     Object.assign(leu, { valeur: 26.4, jour: "2026-10-19" });
     for (const b of sea.plages) if (b !== leu && b.jour) b.jour = "2026-10-18";
-    const edge = new EdgeLike();
     await edge.put("web:mer", { value: sea, fetchedAt: NOW.getTime() - 3 * 3600_000 });
-    asked.length = 0;
     const { text } = await serve(isolate(edge), "/meteo");
     expect(text).toMatch(/<li><span>Saint-Leu<\/span><b>26,4[^<]*°C<\/b><\/li>/);
     expect(text).toContain("Par satellite, le 19/10.");
     expect(satellites()).toEqual([]);
-    // The copy carries the satellites' grids: the page of a place on the coast reads its sea there too.
-    expect(sea.satellites?.map((s) => s.source)).toContain("acspo");
+    // The page of a place on the coast reads the shared grids too.
     const place = await serve(isolate(edge), "/meteo/saint-leu");
     expect(place.text).toMatch(/Au large, le \d\d\/10/);
     expect(satellites()).toEqual([]);
+  });
+
+  it("never asks the satellites from /mer either, when its copy is rebuilt after a view (cam-change 273)", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      overLimit();
+      asked.push(String(url));
+      return upstream(String(url));
+    });
+    const satellites = () => asked.filter((u) => u.includes("/thredds/") || u.includes("/erddap/"));
+    // Without the shared grids, and with them three hours old beside a copy of /mer as old: the page is rebuilt from them.
+    expect((await serve(isolate(), "/mer")).text).toContain("Boucan-Canot");
+    expect(satellites()).toEqual([]);
+    const grids = (await counted(WORKER_BUDGET, () => buildSatellites(isolate(), NOW))).value;
+    asked.length = 0;
+    const edge = new EdgeLike();
+    await edge.put(SATELLITES, { value: grids, fetchedAt: NOW.getTime() - 3 * 3600_000 });
+    await edge.put("web:mer", { value: { plages: [], sources: [] }, fetchedAt: NOW.getTime() - 3 * 3600_000 });
+    const cache = isolate(edge);
+    await serve(cache, "/mer");
+    expect((await cache.peek<SeaData>("web:mer"))!.value.plages.some((b) => b.valeur != null)).toBe(true);
+    expect(satellites()).toEqual([]);
+  });
+
+  it("keeps the last copy's readings, with their day, while the satellites' grids are not shared yet", async () => {
+    // Right after the deploy that shares them: the scheduled event has not built them yet, and a view rebuilds /mer.
+    const edge = new EdgeLike();
+    const old: SeaData = { plages: [{ nom: "Saint-Leu", commune: "Saint-Leu", lon: 55.28, lat: -21.17, valeur: 25.1, jour: "2026-10-20", distance_km: 0.3 }], sources: [{ source: "Température de surface de la mer par satellite (NOAA ACSPO L3S)", licence: "Domaine public (NOAA)", attribution: "NOAA" }] };
+    await edge.put("web:mer", { value: old, fetchedAt: NOW.getTime() - 3 * 3600_000 });
+    const cache = isolate(edge);
+    await serve(cache, "/mer");
+    const sea = (await cache.peek<SeaData>("web:mer"))!;
+    expect(sea.fetchedAt.getTime()).toBe(NOW.getTime());
+    expect(sea.value.plages.find((b) => b.nom === "Saint-Leu")).toMatchObject({ valeur: 25.1, jour: "2026-10-20", houle: expect.anything() });
+    expect(sea.value.sources.map((s) => s.source)).toContain(old.sources[0].source);
   });
 
   it("reads no tile from the data center's cache on a warm isolate whose copies are fresh", async () => {
@@ -566,7 +604,10 @@ describe("vigilance and sea pages", () => {
   });
 
   it("gives the sea temperature beach by beach, and the swell forecast apart", async () => {
-    const cache = isolate();
+    // The satellites' grids, which the scheduled event shares.
+    const edge = new EdgeLike();
+    await edge.put(SATELLITES, { value: (await counted(WORKER_BUDGET, () => buildSatellites(isolate(), NOW))).value, fetchedAt: NOW.getTime() });
+    const cache = isolate(edge);
     const { text, used } = await serve(cache, "/mer");
     expect(text).toContain("Température de la mer et houle <span class=\"n974\">974</span>");
     expect(text).toMatch(/<title>Mer Réunion\u00a0: houle, température de l(&#39;|')eau et marée · 974<\/title>/);

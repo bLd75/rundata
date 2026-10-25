@@ -12,6 +12,7 @@ import * as ovpfPdf from "../providers/ovpf-pdf.js";
 import { why } from "../types.js";
 import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildCourant, buildElectricite, buildSea, buildTrafic, buildVolcan, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
 import { alerteVolcan } from "./volcan-alerte.js";
+import { buildSatellites, SATELLITES, satellitesEvery } from "../tools/mer.js";
 
 /** The part of a KV namespace binding used here. */
 export interface Kv {
@@ -29,20 +30,24 @@ export interface Shared {
   cold?: number;
 }
 
-// About 290 KV writes a day in all: 48 a day for each of the five every 30 minutes, 24 for the air, 12 for the power
-// cuts the mairies relay, 8 for the sea, 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
+// About 300 KV writes a day in all: 48 a day for each of the five every 30 minutes, 24 for the air, 12 for the power
+// cuts the mairies relay, 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
 // of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
 // The cold costs: each build measured alone with `wrangler dev` from an empty cache, plus one, and the traffic's from
 // the event's logs, a little dearer than in `wrangler dev` (24 October 2026). The volcano's: its four sources, each a
 // read, a fetch and a write, plus one. The power cuts': one fetch per mairie and one for Saint-André's PDF letters, plus one.
-// The sea's: three more since ACSPO is read one file a day.
+// The sea's: 18 when it read the satellites, less the 5 they took (13 against 8 in the same test, 25 October 2026): the
+// grids are their own copy. The grids': ACSPO's four files, a read and a write, MODIS's three more where ACSPO sees
+// nothing near a beach, plus one.
 export const SHARED: Shared[] = [
   { key: "web:actualites", build: buildActualites, every: 30, cold: 12 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 27 },
   { key: "web:electricite", build: buildElectricite, every: 30, cold: 7 },
   { key: "web:coupures", build: buildCoupures, every: 30, cold: 7 },
   { key: "web:air", build: buildAir, every: 60, cold: 4 },
-  { key: "web:mer", build: buildSea, every: 3 * 60, cold: 18 },
+  // Built only here: the copy of /mer, the pages and temperature_mer read it, never the satellites (cam-change 273).
+  { key: SATELLITES, build: buildSatellites, every: (last) => satellitesEvery(last), cold: 10 },
+  { key: "web:mer", build: buildSea, every: 3 * 60, cold: 13 },
   { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8 },
   // The PDF of the OVPF's newest release, read here only (providers/ovpf-pdf.ts), once the copy is built and outside its
   // cost: three more, with what is left, when there is a new one or a failed one to ask again.

@@ -1,11 +1,11 @@
-import { counted } from "../src/budget.js";
+import { WORKER_BUDGET, counted } from "../src/budget.js";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore, TieredStore } from "../src/cache.js";
 import { parseAscii, parseCsv } from "../src/providers/acspo.js";
 import * as meteofrance from "../src/providers/meteofrance.js";
 import { inReunionBeacons } from "../src/providers/pioupiou.js";
-import { temperatureMer } from "../src/tools/mer.js";
+import { SATELLITES, satellitesEvery, temperatureMer } from "../src/tools/mer.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
@@ -20,13 +20,13 @@ async function offlineCache({ acspoCached = true, acspoDay = "2026-10-16", copyA
   await store.put("metar", { value: JSON.parse(fixture("metar.json")), fetchedAt: at });
   await store.put("pioupiou:all", { value: beacons, fetchedAt: at });
   await store.put("pioupiou:live", { value: live, fetchedAt: at });
-  // The copy of /mer the scheduled event wrote (web/data.ts buildSea): temperature_mer reads the satellites' grids there.
+  // The satellites' grids as the scheduled event shares them (tools/mer.ts SATELLITES): temperature_mer reads them there.
   const lu = at - copyAgeMs;
   const satellites = [
     ...(acspoCached ? [{ source: "acspo", jours: [parseAscii(fixture("acspo.ascii"), acspoDay)], lu }] : []),
     { source: "modis", jours: parseCsv(fixture("modis.csv"), "sstMasked"), lu },
   ];
-  await store.put("web:mer", { value: { plages: [], sources: [], satellites }, fetchedAt: lu });
+  await store.put(SATELLITES, { value: satellites, fetchedAt: lu });
   return new Cache(store, () => at);
 }
 
@@ -108,31 +108,56 @@ describe("temperature_mer", () => {
       throw new Error("offline");
     });
     const satellites = () => asked.filter((u) => u.includes("/thredds/") || u.includes("/erddap/"));
-    // A copy of 7 hours: the scheduled event has not refreshed it since.
+    // In the Worker, where the scheduled event shares the grids; a copy of 7 hours: it has not refreshed it since.
+    const inWorker = async <T,>(f: () => Promise<T>) => (await counted(WORKER_BUDGET, f)).value;
     const cache = await offlineCache({ copyAgeMs: 7 * 3600_000 });
-    const place = body(await temperatureMer(cache, "Saint-Leu", NOW));
+    const place = body(await inWorker(() => temperatureMer(cache, "Saint-Leu", NOW)));
     expect(place.mesure).toMatchObject({ nature: "mesure_satellite", jour_mesure: "2026-10-16" });
-    const tour = body(await temperatureMer(cache, undefined, NOW));
+    const tour = body(await inWorker(() => temperatureMer(cache, undefined, NOW)));
     expect(tour.resume).toMatch(/^Eau de mer, MESURÉE par satellite : Plage de Boucan-Canot : \d+(,\d)? °C \(le 16\/10, il y a 2 jours\)/);
     expect(tour.mis_a_jour).toBe("18/10 16:20");
     // Without a copy, no measure rather than a wait on NOAA.
     const bare = new Cache(new MemoryStore(), () => NOW.getTime());
-    expect((await temperatureMer(bare, "Saint-Leu", NOW)).isError).toBe(true);
+    expect((await inWorker(() => temperatureMer(bare, "Saint-Leu", NOW))).isError).toBe(true);
     expect(satellites()).toEqual([]);
   });
 
-  it("asks the stores again for a copy of /mer made before it kept the grids, rather than keep it 3 hours", async () => {
+  it("asks the stores again for grids kept in memory over half an hour, rather than keep them 3 hours", async () => {
     const at = NOW.getTime();
-    // In this isolate's memory, the copy of 20 minutes ago without the grids; in the data center's cache, a page's newer one.
+    // In this isolate's memory, the grids of 40 minutes ago; in the data center's cache, the newer ones the scheduled
+    // event shared since. (On 25 October 2026 an isolate kept a copy of 19:10 without the grids until 19:38.)
     const memory = new MemoryStore();
     const edge = new MemoryStore();
-    await memory.put("web:mer", { value: { plages: [], sources: [] }, fetchedAt: at - 20 * 60_000 });
-    const satellites = [{ source: "acspo", jours: [parseAscii(fixture("acspo.ascii"), "2026-10-16")], lu: at - 60_000 }];
-    await edge.put("web:mer", { value: { plages: [], sources: [], satellites }, fetchedAt: at - 60_000 });
-    const r = body(await temperatureMer(new Cache(new TieredStore(memory, edge), () => at, false), "Saint-Leu", NOW));
+    const grids = (day: string, lu: number) => ({ value: [{ source: "acspo", jours: [parseAscii(fixture("acspo.ascii"), day)], lu }], fetchedAt: lu });
+    await memory.put(SATELLITES, grids("2026-10-15", at - 40 * 60_000));
+    await edge.put(SATELLITES, grids("2026-10-16", at - 60_000));
+    const cache = new Cache(new TieredStore(memory, edge), () => at, false);
+    const r = body((await counted(WORKER_BUDGET, () => temperatureMer(cache, "Saint-Leu", NOW))).value);
     expect(r.mesure).toMatchObject({ nature: "mesure_satellite", jour_mesure: "2026-10-16" });
-    // The newer one is kept in memory: the next answers ask no store.
-    expect(((await memory.get("web:mer"))!.value as { satellites?: unknown[] }).satellites).toHaveLength(1);
+    // The newer ones are kept in memory: the next answers ask no store for half an hour.
+    expect((await memory.get(SATELLITES))!.fetchedAt).toBe(at - 60_000);
+  });
+
+  it("brings the grids up to date after the answer outside the Worker, where no scheduled event runs (Node)", async () => {
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (String(url).includes("/thredds/")) return new Response(fixture("acspo.ascii"));
+      throw new Error("offline");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const cache = new Cache(new MemoryStore(), () => NOW.getTime());
+    expect(body(await temperatureMer(cache, "Saint-Leu", NOW)).mesure).toBeUndefined();
+    await vi.waitFor(async () => expect(await cache.peek(SATELLITES)).toBeDefined());
+    expect(body(await temperatureMer(cache, "Saint-Leu", NOW)).mesure).toMatchObject({ nature: "mesure_satellite" });
+  });
+
+  it("reads the grids again after half an hour while ACSPO lacks the day it should have, else after 3 hours", () => {
+    const at = new Date("2026-10-25T12:09:00Z"); // the 24th is due
+    const acspoDay = (date: string) => [{ source: "acspo", jours: [{ date, pixels: [] }], lu: at.getTime() }];
+    expect(satellitesEvery(acspoDay("2026-10-24"), at)).toBe(180);
+    expect(satellitesEvery(acspoDay("2026-10-22"), at)).toBe(30);
+    // ACSPO down when they were read: MODIS alone.
+    expect(satellitesEvery([{ source: "modis", jours: [{ date: "2026-10-24", pixels: [] }], lu: at.getTime() }], at)).toBe(30);
+    expect(satellitesEvery(undefined, at)).toBe(180);
   });
 
   it("does not invent a sea temperature for Cilaos", async () => {
