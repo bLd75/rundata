@@ -170,12 +170,12 @@ const eventRow = (e: src.Epreuve): Row => ({
 /** The sports of the tool a club's event on Sportsregions may be of (its JSON-LD `sport`). */
 const SPORT_DU_CLUB: [RegExp, Sport][] = [[/^golf/i, "golf"], [/^volley/i, "volley"], [/^hand/i, "handball"], [/^voile/i, "voile"], [/^(?:sport )?auto/i, "sport_auto"]];
 const sportDuClub = (s: string | undefined) => (s ? SPORT_DU_CLUB.find(([re]) => re.test(s))?.[1] : undefined);
-// Sportsregions gives the club's address, not the event's: its place is not said.
+// Sportsregions gives the event's place only when the club gave one; else the club's address, not said as its place.
 const LIEU_CLUB = "non précisé (voir la page de l'événement)";
 
 /**
- * An event a club publishes on Sportsregions: who organises it, never its place, unknown. In a commune only when its
- * title names it (the club's address is not where it is played).
+ * An event a club publishes on Sportsregions: who organises it, and its place when the club gave one. Else in a commune
+ * only when its title names it (the club's address is not where it is played).
  */
 const clubRow = (e: Evenement): Row[] =>
   e.seances.slice(0, 1).map((s) => ({
@@ -185,7 +185,7 @@ const clubRow = (e: Evenement): Row[] =>
     fin: s.fin,
     epreuve: e.titre,
     detail: e.description,
-    lieu: LIEU_CLUB,
+    lieu: e.lieu ?? LIEU_CLUB,
     commune: e.commune,
     etat: e.statut === "annulé" ? "annulée" : e.statut === "reporté" ? "reportée" : undefined,
     lien: e.lien,

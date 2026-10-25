@@ -1108,13 +1108,13 @@ interface SportsEventLd {
   name?: string;
   startDate?: string;
   endDate?: string;
-  location?: { address?: { addressLocality?: string; postalCode?: string } };
+  location?: { name?: string; address?: { streetAddress?: string; addressLocality?: string; postalCode?: string } };
   organizer?: { name?: string; url?: string };
   sport?: string;
   url?: string;
 }
 
-// The portal's pages read at most (30 events each: about two months).
+// The portal's pages read at most, 30 events each (on 25/10/2026, the whole calendar on four: 109 events, eleven months).
 const SR_PAGES = 5;
 // The members' sessions (« Jeu libre - Adultes », « Entraînement jeunes »): not open to the public, kept for the members.
 const CRENEAU = /\b(?:jeux? libres?|entra[iî]nements?|cr[ée]neaux?|s[ée]ances?)\b/i;
@@ -1126,6 +1126,12 @@ export const reserve = (e: Pick<Evenement, "organisateur" | "publie_par">) => `r
 
 /** Sportsregions' times are the club's wall-clock ones, marked « Z » all the same; 00:00 is the whole day. */
 const srTime = (s: string) => (s.length < 16 || s.slice(11, 16) === "00:00" ? s.slice(0, 10) : s.slice(0, 16));
+
+/**
+ * The event's own place, when its club gave one: then the portal names it « Localisation », its address the event's
+ * (« Gîte Bec a li, 4 chemin des Framboises », Cilaos). Else it is the club's address, named after the club.
+ */
+const lieuSaisi = (e: SportsEventLd) => !!e.location?.name && clean(e.location.name) !== clean(e.organizer?.name ?? "");
 
 /** The commune a title names: « Journée 1 interclubs - Saint-Paul », « FITA Salle St André », « Compétition au Port ». */
 function communeDuTitre(titre: string): string | undefined {
@@ -1157,10 +1163,14 @@ export function parseSportsregions(pages: string[]): { evenements: Evenement[]; 
   const members = (e: SportsEventLd) => CRENEAU.test(e.name!) || times.get(key(e))! >= CRENEAU_FOIS;
   const evenements = here.map((e): Evenement => {
     const titre = clean(e.name!);
+    const address = e.location?.address;
+    const saisi = lieuSaisi(e);
     const debut = srTime(e.startDate!);
     const fin = e.endDate ? srTime(e.endDate) : undefined;
     const nom = club(e) || "un club";
-    const commune = communeOf(e.location?.address?.addressLocality);
+    const commune = communeOf(address?.addressLocality);
+    const lieu = saisi ? [clean(e.location!.name!), clean(address?.streetAddress ?? "")].filter((x) => x && !/^localisation$/i.test(x)).join(", ") : "";
+    const duClub = saisi ? undefined : commune;
     const sport = e.sport && !/^divers$/i.test(e.sport.trim()) ? clean(e.sport) : undefined;
     const statut = statusOf(titre);
     const site = httpUrl(e.organizer?.url);
@@ -1170,12 +1180,13 @@ export function parseSportsregions(pages: string[]): { evenements: Evenement[]; 
       id: `sportsregions:${e.url}`,
       titre,
       seances: [{ debut, fin: fin && fin !== debut && fin !== debut.slice(0, 10) ? fin : undefined }],
-      commune: communeDuTitre(titre),
+      ...(lieu ? { lieu } : {}),
+      commune: (saisi ? commune : undefined) ?? communeDuTitre(titre),
       categories: ["Sport", ...(sport ? [sport] : [])],
-      description: `Organisé par ${nom}${commune ? ` (${commune})` : ""}`,
+      description: `Organisé par ${nom}${duClub ? ` (${duClub})` : ""}`,
       lien: e.url!,
       publie_par: nom,
-      organisateur: { nom, commune, sport, ...(site ? { site } : {}) },
+      organisateur: { nom, ...(duClub ? { commune: duClub } : {}), sport, ...(site ? { site } : {}) },
     };
   });
   return { evenements, adherents: evenements.filter((e) => e.reserve_adherents).length, ailleurs: all.filter((e) => !e.location?.address?.postalCode?.startsWith("974")).length };
@@ -1184,8 +1195,8 @@ export function parseSportsregions(pages: string[]): { evenements: Evenement[]; 
 /**
  * The calendar of the clubs of La Réunion on Sportsregions, the platform many clubs keep their site on: what each one
  * publishes in its « Événements » (competitions, open days, galas), 30 to a page, each in its JSON-LD (SportsEvent).
- * Its place (`location`) is always the club's address, never the event's: the event's place is not said, only who
- * organises it, and its commune only when its title names one. The members' sessions are kept, marked, and told only
+ * Its place (`location`) is the event's when the club gave one (lieuSaisi), else the club's address, never said as the
+ * event's place: then only who organises it, and the event's commune only when its title names one. The members' sessions are kept, marked, and told only
  * to who says they are a member (tools/agenda.ts, tools/sport.ts: `adherent`). Read by the scheduled event every six
  * hours, its pages one after the other; the portal's RSS feed is not to be read (robots.txt), its pages are.
  */

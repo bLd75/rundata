@@ -285,7 +285,7 @@ describe("sport", () => {
     expect(kv.reads).toBe(1);
   });
 
-  it("gives the clubs' events from the agendas' copy, their place not said, of the sport asked", async () => {
+  it("gives the clubs' events from the agendas' copy, their place only when the club gave one, of the sport asked", async () => {
     const store = new MemoryStore();
     const at = NOW.getTime() - 3600_000;
     const pages = [1, 2, 3, 4].map((n) => readFileSync(new URL(`./fixtures/agenda/sportsregions_${n}.html`, import.meta.url), "utf8"));
@@ -311,6 +311,8 @@ describe("sport", () => {
     expect(epreuves(body(await sportTool(clubs(), "golf", "Le Tampon", "a_venir", NOW)))).not.toContain("GRAND PRIX LRGR DE BOURBON");
     expect(epreuves(body(await sportTool(clubs(), undefined, "Saint-André", "a_venir", NOW)))).not.toContain("Triathlon TRI SALAZES");
     expect(epreuves(body(await sportTool(clubs(), undefined, "Saint-Denis", "a_venir", NOW)))).not.toContain("Tir en salle du Port");
+    // The event's own place when the club gave one, and its commune with it.
+    expect(body(await sportTool(clubs(), undefined, "Cilaos", "a_venir", NOW)).a_venir.find((r: { epreuve: string }) => r.epreuve === "Week-end PREPA 0-3000")).toMatchObject({ lieu: "Gîte Bec a li, 4 chemin des Framboises", detail: "Organisé par Leu Triathlon" });
     // The members' sessions: not told by default; to a member, said reserved, with the club's site.
     const libre = (b: { a_venir?: { epreuve: string }[] }) => (b.a_venir ?? []).filter((r) => r.epreuve.startsWith("Jeu libre"));
     expect(libre(body(await sportTool(clubs(), undefined, undefined, "a_venir", NOW)))).toEqual([]);
