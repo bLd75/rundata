@@ -34,6 +34,11 @@ export interface Shared {
   /** When `every` depends on the last copy: its usual value and its shortest, in minutes (src/registre.ts). */
   range?: { usual: number; shortest: number };
   /**
+   * Where its refreshes fall, in minutes after midnight UTC, modulo `every` (0 if not said): at the events where the
+   * minutes since midnight UTC, less this, are a multiple of `every`. The copies of one rate go in different events.
+   */
+  offset?: number;
+  /**
    * Copies whose build embeds this one: when both are due in the same event, this one is built first, else they would
    * carry its previous copy until their next build.
    */
@@ -51,26 +56,29 @@ export interface Shared {
 // The sea's: 18 when it read the satellites, less the 5 they took (13 against 8 in the same test, 25 October 2026): the
 // grids are their own copy. The grids': ACSPO's four files, a read and a write, MODIS's three more where ACSPO sees
 // nothing near a beach, plus one.
+// Their offsets (minutes after midnight UTC) spread them over the events: the five every 30 minutes one in each event
+// of the half hour but the first, which the hourly agendas and the AROME grids take (BUDGET.md, the busiest event);
+// the electricity's power cuts with the electricity, which embeds them.
 export const SHARED: Shared[] = [
-  { key: "web:actualites", build: buildActualites, every: 30, cold: 12, cpu: 190 },
-  { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160 },
-  { key: "web:electricite", build: buildElectricite, every: 30, cold: 7, cpu: 80 },
-  { key: "web:coupures", build: buildCoupures, every: 30, cold: 7, cpu: 60 },
-  { key: "web:air", build: buildAir, every: 60, cold: 4, cpu: 40 },
+  { key: "web:actualites", build: buildActualites, every: 30, cold: 12, cpu: 190, offset: 10 },
+  { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160, offset: 5 },
+  { key: "web:electricite", build: buildElectricite, every: 30, cold: 7, cpu: 80, offset: 20 },
+  { key: "web:coupures", build: buildCoupures, every: 30, cold: 7, cpu: 60, offset: 25 },
+  { key: "web:air", build: buildAir, every: 60, cold: 4, cpu: 40, offset: 40 },
   // Built only here: the copy of /mer, the pages and temperature_mer read it, never the satellites.
-  { key: SATELLITES, build: buildSatellites, every: (last) => satellitesEvery(last), cold: 10, cpu: 110, range: { usual: 3 * 60, shortest: 30 } },
-  { key: "web:mer", build: buildSea, every: 3 * 60, cold: 13, cpu: 110 },
-  { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8, cpu: 40 },
+  { key: SATELLITES, build: buildSatellites, every: (last) => satellitesEvery(last), cold: 10, cpu: 110, range: { usual: 3 * 60, shortest: 30 }, offset: 55 },
+  { key: "web:mer", build: buildSea, every: 3 * 60, cold: 13, cpu: 110, offset: 75 },
+  { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8, cpu: 40, offset: 130 },
   // The PDF of the OVPF's newest release, read here only (providers/ovpf-pdf.ts), once the copy is built and outside its
   // cost: three more, with what is left, when there is a new one or a failed one to ask again.
   { key: "web:volcan", build: async (cache, now) => {
     const v = await buildVolcan(cache, now);
     await unmeasured(() => ovpfPdf.readNewest(cache, now.getTime()));
     return v;
-  }, every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 13, cpu: 110, range: { usual: 30, shortest: 5 } },
+  }, every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 13, cpu: 110, range: { usual: 30, shortest: 5 }, offset: 15 },
   // Every 2 hours; every 30 minutes while a mairie followed did not answer, so that its notices come back soon after
   // its site does. The page of electricity carries this copy (web/data.ts): built after it.
-  { key: "web:courant", build: buildCourant, every: (last) => ((last as CourantAnswer | undefined)?.indisponibles?.some(followed) ? 30 : 2 * 60), cold: 7, cpu: 30, range: { usual: 2 * 60, shortest: 30 }, before: ["web:electricite"] },
+  { key: "web:courant", build: buildCourant, every: (last) => ((last as CourantAnswer | undefined)?.indisponibles?.some(followed) ? 30 : 2 * 60), cold: 7, cpu: 30, range: { usual: 2 * 60, shortest: 30 }, offset: 20, before: ["web:electricite"] },
 ];
 /**
  * Warmed after SHARED, with what it left, so that they never go short for these: the confidence of the forecast
@@ -78,7 +86,7 @@ export const SHARED: Shared[] = [
  */
 export const SHARED_AFTER: Shared[] = [
   // Its run time and the ensemble, plus one.
-  { key: ensemble.KEY, build: () => ensemble.build(), every: 3 * 60, cold: 3, cpu: 40 },
+  { key: ensemble.KEY, build: () => ensemble.build(), every: 3 * 60, cold: 3, cpu: 40, offset: 100 },
 ];
 const KEYS = new Set([...SHARED, ...SHARED_AFTER].map((s) => s.key));
 // The calendar's copy, the least often refreshed, outlives its next refresh by far.
@@ -90,6 +98,8 @@ const LOOKUP = 2;
 // Left to the agendas read after the copies (worker.ts) by a copy due only because another revision built it: on a day
 // of deploys a few minutes apart, every event would otherwise spend its whole budget on them.
 export const AFTER_DEPLOY_RESERVE = 12;
+// The scheduled event's period (wrangler.jsonc, every 5 minutes): the first event of a slot is the one this soon after it.
+const EVENT_MS = 5 * 60_000;
 // Past its time by this much, a copy is tried at its cold cost, and said to be late when it is left again.
 const LATE_MINUTES = 60;
 
@@ -191,6 +201,12 @@ const wrote = new Map<string, KvMeta>();
 /** « 75 min », « 16 h ». */
 const ago = (ms: number) => (ms < 2 * 3600_000 ? `${Math.round(ms / 60_000)} min` : `${Math.floor(ms / 3600_000)} h`);
 
+/** When the slot `now` falls in began (ms): a copy's refreshes fall at its offset plus multiples of its rate. */
+export function slotStart(now: number, every: number, offset = 0): number {
+  const period = every * 60_000;
+  return now - ((((now - offset * 60_000) % period) + period) % period);
+}
+
 /** How often `s` is refreshed, given its copy's value. */
 const everyOf = (s: Shared, value: unknown) => (typeof s.every === "number" ? s.every : s.every(value));
 
@@ -210,8 +226,16 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
   // go the oldest first, over as many events as their builds take within the budget, less what the agendas keep.
   const due = ages
     .map(({ s, at, kept, every, old }) => {
-      const byRate = at == null ? Infinity : now.getTime() - at - every * 60_000;
-      return { s, at, kept, over: old && byRate < 0 ? now.getTime() - at! : byRate, version: old && byRate < 0 };
+      const age = at == null ? Infinity : now.getTime() - at;
+      // Due in the first event of its slot as well, once half its rate has gone by: written a few seconds into the event
+      // of its last slot, a copy is a few seconds short of its rate at the next one, and went an event late each time
+      // (the volcano's, every 5 minutes in an alert, went every 10). Half its rate keeps one built off its slots (after a
+      // deploy, or left for the budget) from going twice in a row; it is back on them at its next refresh.
+      const slot = slotStart(now.getTime(), every, s.offset);
+      const onSlot = at != null && age >= every * 30_000 && at < slot && now.getTime() - slot < EVENT_MS;
+      // A copy of another revision is due anyway, for its version, with the agendas' reserve.
+      const byRate = onSlot && !old ? Math.max(0, age - every * 60_000) : age - every * 60_000;
+      return { s, at, kept, over: old && byRate < 0 ? age : byRate, version: old && byRate < 0 };
     })
     .filter((x) => x.over >= 0)
     // Not by subtraction: the copies never written are all overdue by Infinity, and Infinity - Infinity is NaN.
@@ -241,7 +265,9 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
       continue;
     }
     try {
-      const got = await cache.get(s.key, FRESH_SECONDS, () => measured(s.key, () => s.build(cache, now)));
+      // Never the data center's copy that KV already has: at 5 minutes, the one of the last event would still be fresh.
+      const fresh = at == null ? FRESH_SECONDS : Math.min(FRESH_SECONDS, Math.floor((now.getTime() - at) / 1000) - 1);
+      const got = await cache.get(s.key, fresh, () => measured(s.key, () => s.build(cache, now)));
       // The source failed and the cache served its last copy: not worth spreading.
       if (got.stale) {
         leave("copie de secours");

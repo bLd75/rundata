@@ -20,14 +20,15 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 | pire passage planifié, sous-requêtes | 212 | 500 |
 | pire passage planifié, appels KV et D1 | 24 | 1 000 |
 | pire passage planifié, CPU (ms) | 1 352 | 30 000 |
-| passage le plus chargé (cadences les plus courtes), sous-requêtes | 190 | 500 |
+| passage le plus chargé (cadences les plus courtes), sous-requêtes | 79 | 500 |
 | vue la plus chère, sous-requêtes | 78 | 200 |
 | question la plus chère, sous-requêtes | 59 | 200 |
 | construction de copie la plus chère, sous-requêtes | 30 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
-- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 190 sous-requêtes (arome:veille, arome:grilles, partagees:liste, web:actualites, web:trafic, web:electricite, web:coupures, web:air, mer:satellites, web:mer, web:calendrier, web:volcan, web:courant, ens:ile, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
-- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 190 sous-requêtes (arome:veille, arome:grilles, partagees:liste, web:actualites, web:trafic, web:electricite, web:coupures, web:air, mer:satellites, web:mer, web:calendrier, web:volcan, web:courant, ens:ile, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
+- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 65 sous-requêtes (arome:veille, arome:grilles, partagees:liste, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
+- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 79 sous-requêtes (arome:veille, arome:grilles, partagees:liste, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 190 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 78. Question la plus chère : resume_du_jour, 59. Construction la plus chère : web:trafic, 30.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
@@ -48,17 +49,17 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | arome:veille | AROME : le dernier run publié, et les grilles qu'il reste à lire | 5 min | 00:00 | 3 | 1 |  |  |  |  | 15 | mesuré |
 | arome:grilles | AROME : les grilles d'un nouveau run, 40 au plus par passage, 3 de relief | 180 min | 00:00 | 43 |  | 2 |  |  |  | 60 | code |
 | partagees:liste | copies partagées : la liste des clés KV, une fois pour les copies, une fois pour celles d'après | 5 min | 00:00 | 2 |  | 2 |  |  |  |  | code |
-| web:actualites | copie partagée (KV) | 30 min | 00:00 | 13 |  | 1 |  |  |  | 190 | mesuré |
-| web:trafic | copie partagée (KV) | 30 min | 00:00 | 31 |  | 1 | 2 | 840 |  | 160 | mesuré |
-| web:electricite | copie partagée (KV) | 30 min | 00:00 | 8 |  | 1 |  |  |  | 80 | mesuré |
-| web:coupures | copie partagée (KV) | 30 min | 00:00 | 8 |  | 1 |  |  |  | 60 | mesuré |
-| web:air | copie partagée (KV) | 60 min | 00:00 | 5 |  | 1 |  |  |  | 40 | mesuré |
-| mer:satellites | copie partagée (KV) | 180 min (30 au plus court) | 00:00 | 11 |  | 1 |  |  |  | 110 | estimé |
-| web:mer | copie partagée (KV) | 180 min | 00:00 | 14 |  | 1 |  |  |  | 110 | mesuré |
-| web:calendrier | copie partagée (KV) | 360 min | 00:00 | 9 |  | 1 |  |  |  | 40 | estimé |
-| web:volcan | copie partagée (KV) | 30 min (5 au plus court) | 00:00 | 14 |  | 1 |  |  |  | 110 | mesuré |
-| web:courant | copie partagée (KV) | 120 min (30 au plus court) | 00:00 | 8 |  | 1 |  |  |  | 30 | mesuré |
-| ens:ile | copie partagée, avec ce que les autres ont laissé | 180 min | 00:00 | 4 |  | 1 |  |  |  | 40 | mesuré |
+| web:actualites | copie partagée (KV) | 30 min | 00:10 | 13 |  | 1 |  |  |  | 190 | mesuré |
+| web:trafic | copie partagée (KV) | 30 min | 00:05 | 31 |  | 1 | 2 | 840 |  | 160 | mesuré |
+| web:electricite | copie partagée (KV) | 30 min | 00:20 | 8 |  | 1 |  |  |  | 80 | mesuré |
+| web:coupures | copie partagée (KV) | 30 min | 00:25 | 8 |  | 1 |  |  |  | 60 | mesuré |
+| web:air | copie partagée (KV) | 60 min | 00:40 | 5 |  | 1 |  |  |  | 40 | mesuré |
+| mer:satellites | copie partagée (KV) | 180 min (30 au plus court) | 00:55 | 11 |  | 1 |  |  |  | 110 | estimé |
+| web:mer | copie partagée (KV) | 180 min | 01:15 | 14 |  | 1 |  |  |  | 110 | mesuré |
+| web:calendrier | copie partagée (KV) | 360 min | 02:10 | 9 |  | 1 |  |  |  | 40 | estimé |
+| web:volcan | copie partagée (KV) | 30 min (5 au plus court) | 00:15 | 14 |  | 1 |  |  |  | 110 | mesuré |
+| web:courant | copie partagée (KV) | 120 min (30 au plus court) | 00:20 | 8 |  | 1 |  |  |  | 30 | mesuré |
+| ens:ile | copie partagée, avec ce que les autres ont laissé | 180 min | 01:40 | 4 |  | 1 |  |  |  | 40 | mesuré |
 | agendas:planifies | agendas lus par la tâche planifiée : leur copie commune (KV), lue à chaque passage, écrite après une lecture | 5 min | 00:00 | 1 | 1 |  |  |  |  |  | code |
 | agendas:planifies:ecriture | agendas lus par la tâche planifiée : l'écriture de leur copie commune | 60 min | 00:00 | 1 |  | 1 |  |  |  |  | code |
 | agenda:salazie | agenda lu par la tâche planifiée : Ville de Salazie | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
