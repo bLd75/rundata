@@ -191,7 +191,10 @@ describe("the communes whose site's terms ask for their authorisation, until the
     const value = { resume: "", nombre: 1, evenements: [{ titre: "Concert", date: "2026-10-25T20:00", quand: "dimanche 25/10 à 20:00", genres: [], commune: "Saint-Denis", lien: "https://example.re", publie_par: "CINOR" }], non_repris: "", couverture: "", a_savoir: "", sources: [], ce_week_end: [] } as unknown as AgendaAnswer;
     const page = (slug: string) => PAGES.find((p) => p.slug === slug)!;
     expect(communeEvents(page("saint-denis"), { value, fetchedAt: NOW, stale: false })).toMatchObject({ valeur: "1 événement", detail: "Actualités communales non reprises · le prochain : Concert, dimanche 25/10 à 20:00" });
-    expect(communeEvents(page("saint-pierre"), { value, fetchedAt: NOW, stale: false })).toMatchObject({ valeur: "Agenda non repris" });
+    // An agenda and news: their own words (marketing).
+    expect(communeEvents(page("saint-pierre"), { value, fetchedAt: NOW, stale: false })).toMatchObject({ valeur: "Agenda et actualités non repris" });
+    expect(communeEvents(page("sainte-rose"), { value: { ...value, evenements: [{ ...value.evenements![0], commune: "Sainte-Rose" }] }, fetchedAt: NOW, stale: false })).toMatchObject({ detail: "Site communal non repris · le prochain : Concert, dimanche 25/10 à 20:00" });
+    expect(mentionCourte("Saint-Pierre")).toMatchObject({ resume: "agenda et actualités du site de la commune non repris, ses mentions légales l'interdisent sans son accord (voir non_repris)", ligne: "Agenda et actualités du site de la commune non repris : ses mentions légales l'interdisent sans son accord." });
     // Saint-Pierre: the reason of its absence is now the mention, not its empty agenda page.
     expect(COUVERTURE).not.toContain("la page agenda de la mairie de Saint-Pierre est vide");
   });
