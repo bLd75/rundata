@@ -111,6 +111,30 @@ describe("events' state and kind", () => {
     expect(e.statut).toBe("annulé");
   });
 
+  it("keeps OpenAgenda's picture only under the Licence Ouverte, its credits or else its licensor as author", () => {
+    const at = { uid: 1, title: { fr: "Bal" }, timings: [{ begin: "2026-10-24T18:00:00+04:00", end: "2026-10-24T23:00:00+04:00" }], canonicalUrl: "https://o/1" };
+    const image = { base: "https://img.openagenda.com/main/", filename: "abc.base.image.jpg" };
+    const rights = (id: string) => ({ license: { id }, licensor: { name: "CINOR - Communauté intercommunale du Nord de La Réunion" } });
+    const [credited, licensed, other, none] = parseOpenAgenda({ events: [
+      { ...at, image, imageCredits: "OTI NORD", rights: rights("etalab-2.0") },
+      { ...at, image, imageCredits: null, rights: rights("etalab-2.0") },
+      { ...at, image, imageCredits: "X", rights: rights("cc-by-nc-4.0") },
+      { ...at, image: null, rights: rights("etalab-2.0") },
+    ] }, "CINOR");
+    expect(credited.image).toEqual({ url: "https://img.openagenda.com/main/abc.base.image.jpg", auteur: "OTI NORD" });
+    expect(licensed.image).toEqual({ url: "https://img.openagenda.com/main/abc.base.image.jpg", auteur: "CINOR - Communauté intercommunale du Nord de La Réunion" });
+    expect(other.image).toBeUndefined();
+    expect(none.image).toBeUndefined();
+  });
+
+  it("names the organisers The Events Calendar gives, and none when it gives none", () => {
+    const events = parseTribe(JSON.parse(utf8("sechoir.json")), "Le Séchoir", "Saint-Leu");
+    expect(events.find((e) => e.titre === "BOUCHES COUSUES")?.organise_par).toEqual(["Le Séchoir"]);
+    expect(events.find((e) => e.titre.startsWith("DKLO"))?.organise_par).toBeUndefined();
+    // A town hall's agenda names no organiser: none is put in its place.
+    expect(parseTribe(JSON.parse(utf8("tribe_saint-paul.json")), "Mairie de Saint-Paul", "Saint-Paul").every((e) => !e.organise_par)).toBe(true);
+  });
+
   it("labels the genre from the title and the source's category, not the hall's name", () => {
     expect(genres(ev("Yannick Noah", "2026-10-29", { lieu: "Théâtre Luc Donat" }))).toEqual([]);
     expect(genres(ev("Malandain Ballet Biarritz", "2026-11-17"))).toEqual(["danse"]);
