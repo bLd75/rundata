@@ -91,6 +91,20 @@ describe("a failed read", () => {
   });
 });
 
+describe("the page's and the tool's copy", () => {
+  it("does not keep a missing table: the rows show a minute after it is created, not 15", async () => {
+    const { db } = database(false);
+    let t = MORNING.getTime();
+    const cache = new Cache(undefined, () => t);
+    expect((await sr.etat(cache)).lignes).toEqual([]);
+    db.exec(SQL);
+    t += 30_000;
+    expect((await sr.etat(cache)).lignes).toEqual([]);
+    t += 31_000;
+    expect((await sr.etat(cache)).lignes.map((l) => l.hote)).toContain("ipgp.fr");
+  });
+});
+
 describe("the morning's recheck", () => {
   const row = (statut: sr.Statut, extra: Partial<sr.Ligne> = {}): sr.Ligne => ({
     hote: "exemple.re", url: "https://exemple.re/", nom: null, theme: null, manque: null, page: null, sources: [], statut,

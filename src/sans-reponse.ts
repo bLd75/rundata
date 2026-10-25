@@ -218,14 +218,19 @@ const ligne = (r: Row): Ligne => {
 
 /** Every row; none when there is no table or no database. */
 export async function lignes(): Promise<Ligne[]> {
-  if (!all) return [];
   try {
-    count(1, "read");
-    return (await all<Row>("SELECT * FROM sans_reponse")).map(ligne);
+    return await toutes();
   } catch (err) {
     if (!absente(err)) throw err;
     return [];
   }
+}
+
+/** Every row; a missing table throws. */
+async function toutes(): Promise<Ligne[]> {
+  if (!all) return [];
+  count(1, "read");
+  return (await all<Row>("SELECT * FROM sans_reponse")).map(ligne);
 }
 
 /** When the last recheck ran (Unix seconds), or undefined. */
@@ -375,10 +380,19 @@ export function statutEnMots(l: Public): string {
 
 const FRAIS_S = 900;
 
-/** The rows and the last recheck, read at most every 15 minutes by each data center (the page and the tool alike). */
+/**
+ * The rows and the last recheck, read at most every 15 minutes by each data center (the page and the tool alike). A
+ * missing table is not kept as an empty list: the cache asks again a minute later (its failure backoff, cache.ts), so
+ * that the rows show within a minute of the table's creation, not 15.
+ */
 export async function etat(cache: Pick<Cache, "get">): Promise<{ lignes: Ligne[]; passage?: number; lu: Date }> {
-  const c = await cache.get("sans-reponse", FRAIS_S, async () => ({ lignes: await lignes(), passage: await dernierPassage() }));
-  return { ...c.value, lu: c.fetchedAt };
+  try {
+    const c = await cache.get("sans-reponse", FRAIS_S, async () => ({ lignes: await toutes(), passage: await dernierPassage() }));
+    return { ...c.value, lu: c.fetchedAt };
+  } catch (err) {
+    if (!absente(err)) throw err;
+    return { lignes: [], lu: new Date() };
+  }
 }
 
 /**
