@@ -1,0 +1,26 @@
+# Trial only, never merged: can GitHub's runners read Saint-Joseph's RSS, which does not answer Cloudflare's
+# addresses? Three reads, 20 s at most each; the code, the times and the size are printed. No secret.
+name: Essai Saint-Joseph
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/essai-saint-joseph.yml
+
+permissions: {}
+
+jobs:
+  curl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Saint-Joseph's RSS from a runner
+        run: |
+          curl -s -o /dev/null -w 'runner ip=%{local_ip}\n' https://api.ipify.org || true
+          for i in 1 2 3; do
+            curl -s -o rss.xml -m 20 -A 'rundata.re (contact@rundata.re)' \
+              -w "essai $i : code=%{http_code} connect=%{time_connect}s ttfb=%{time_starttransfer}s total=%{time_total}s taille=%{size_download} ip=%{remote_ip}\n" \
+              'https://saintjoseph.re/spip.php?page=backend' || echo "essai $i : échec curl (code $?)"
+            grep -c '<item' rss.xml 2>/dev/null | sed "s/^/essai $i : items=/" || true
+            sleep 5
+          done
