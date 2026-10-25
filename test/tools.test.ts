@@ -12,7 +12,7 @@ const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.me
 const NOW = new Date("2026-10-18T19:20:00Z");
 
 /** A cache already holding the recorded upstream answers, so that no test touches the network. */
-async function offlineCache({ acspoCached = true } = {}) {
+async function offlineCache({ acspoCached = true, acspoDay = "2026-10-16" } = {}) {
   const store = new MemoryStore();
   const at = NOW.getTime();
   const beacons = inReunionBeacons(JSON.parse(fixture("pioupiou_all.json")).data);
@@ -20,7 +20,7 @@ async function offlineCache({ acspoCached = true } = {}) {
   await store.put("metar", { value: JSON.parse(fixture("metar.json")), fetchedAt: at });
   await store.put("pioupiou:all", { value: beacons, fetchedAt: at });
   await store.put("pioupiou:live", { value: live, fetchedAt: at });
-  if (acspoCached) await store.put("acspo", { value: [parseAscii(fixture("acspo.ascii"), "2026-10-16")], fetchedAt: at });
+  if (acspoCached) await store.put("acspo", { value: [parseAscii(fixture("acspo.ascii"), acspoDay)], fetchedAt: at });
   await store.put("modis", { value: parseCsv(fixture("modis.csv"), "sstMasked"), fetchedAt: at });
   return new Cache(store, () => at);
 }
@@ -64,7 +64,27 @@ describe("temperature_mer", () => {
   it("gives the satellite reading with its date and its caveats", async () => {
     const r = body(await temperatureMer(await offlineCache(), "Hermitage", NOW));
     expect(r.mesure).toMatchObject({ nature: "mesure_satellite", jour_mesure: "2026-10-16", age_jours: 2 });
-    expect(r.avertissements.join(" ")).toMatch(/2 jours de retard/);
+    expect(r.resume).toMatch(/^Eau de mer près de Plage de l'Ermitage-les-Bains\u00a0: \d+(,\d)? °C, mesurée par satellite le 16\/10, il y a 2 jours \(moyenne du jour, point de mesure à \d+(,\d)? km\)\./);
+    expect(r.avertissements).toContain(
+      "Mesure du 16/10, il y a 2 jours\u00a0: ce n'est pas la température d'aujourd'hui. Une mesure par satellite paraît le lendemain, " +
+        "et les jours de nuages il n'y en a pas\u00a0: la dernière peut donc dater de plusieurs jours.",
+    );
+  });
+
+  it("counts the age in calendar days at La Réunion, and says « hier » for yesterday's", async () => {
+    // 16 October read on the 19th at 01:00, La Réunion: three days, though less than 72 hours.
+    const night = new Date("2026-10-18T21:00:00Z");
+    const late = body(await temperatureMer(await offlineCache(), "Hermitage", night));
+    expect(late.resume).toContain("mesurée par satellite le 16/10, il y a 3 jours (");
+    // The 17th read on the 18th: yesterday's, without the clouds.
+    const r = body(await temperatureMer(await offlineCache({ acspoDay: "2026-10-17" }), "Hermitage", NOW));
+    expect(r.resume).toContain("mesurée par satellite hier, 17/10 (");
+    expect(r.avertissements).toContain("Mesure d'hier (17/10)\u00a0: ce n'est pas la température d'aujourd'hui. Une mesure par satellite paraît le lendemain.");
+  });
+
+  it("gives each point of the coast its day and age", async () => {
+    const r = body(await temperatureMer(await offlineCache(), undefined, NOW));
+    expect(r.resume).toMatch(/^Eau de mer, MESURÉE par satellite\u00a0: Plage de Boucan-Canot\u00a0: \d+(,\d)? °C \(le 16\/10, il y a 2 jours\)\u00a0; /);
   });
 
   it("falls back to MODIS when the NOAA CoastWatch server is down", async () => {

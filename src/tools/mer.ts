@@ -87,6 +87,28 @@ function reading(place: Place, gs: Grid[], now: Date) {
   return null;
 }
 
+/** Calendar days at La Réunion from the day of a measure to `now`: one on the morning after, whatever the hour. */
+function daysSince(day: string, now: Date): number {
+  return Math.round((Date.parse(localDate(now)) - Date.parse(day)) / 86_400_000);
+}
+
+const shortDay = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
+
+/** « le 22/10, il y a 3 jours », or « hier, 24/10 » (marketing). A day is published the next morning at the earliest. */
+function measuredOn(day: string, now: Date): string {
+  const n = daysSince(day, now);
+  return n <= 1 ? `hier, ${shortDay(day)}` : `le ${shortDay(day)}, il y a ${n} jours`;
+}
+
+/** What the day of the measure means for the reader, the clouds said when it is older than yesterday's (marketing). */
+function ageWarning(day: string, now: Date): string {
+  const n = daysSince(day, now);
+  return n <= 1
+    ? `Mesure d'hier (${shortDay(day)})\u00a0: ce n'est pas la température d'aujourd'hui. Une mesure par satellite paraît le lendemain.`
+    : `Mesure du ${shortDay(day)}, il y a ${n} jours\u00a0: ce n'est pas la température d'aujourd'hui. Une mesure par satellite paraît le lendemain, ` +
+      "et les jours de nuages il n'y en a pas\u00a0: la dernière peut donc dater de plusieurs jours.";
+}
+
 function staleWarning(g: Grid | undefined) {
   return g?.cached.stale ? ["Source momentanément injoignable : dernière valeur connue."] : [];
 }
@@ -241,11 +263,11 @@ export async function temperatureMer(cache: Cache, lieu: string | undefined, now
       const v = w ? wavesAt(w.value, p.lon, p.lat, now) : null;
       return { lieu: p.nom, ...t?.readings[i].r?.mesure, ...(v ? { vagues_prevision: waveWords(v.now) } : {}) };
     });
-    const measured = points.filter((p) => "temperature_eau" in p).map((p) => `${p.lieu} : ${p.temperature_eau} (le ${p.jour_mesure})`);
+    const measured = points.filter((p) => "temperature_eau" in p).map((p) => `${p.lieu}\u00a0: ${p.temperature_eau} (${measuredOn(p.jour_mesure!, now)})`);
     const waves = points.filter((p) => p.vagues_prevision).map((p) => `${p.lieu} ${p.vagues_prevision}`);
     return text({
       resume: [
-        measured.length ? `Eau de mer, MESURÉE par satellite : ${measured.join("\u00a0; ")}.` : "Pas de mesure satellite de l'eau pour le moment.",
+        measured.length ? `Eau de mer, MESURÉE par satellite\u00a0: ${measured.join("\u00a0; ")}.` : "Pas de mesure satellite de l'eau pour le moment.",
         ...(waves.length ? [`Vagues PRÉVUES maintenant (modèle ${houle.MODEL.nom}, pas une mesure) : ${waves.join("\u00a0; ")}.`] : []),
       ].join(" "),
       points,
@@ -268,8 +290,8 @@ export async function temperatureMer(cache: Cache, lieu: string | undefined, now
   }
   const v = w ? waveBlock(w, r.lieu, now) : null;
   const temperature = m
-    ? `Eau de mer près de ${r.lieu.nom} : ${m.mesure.temperature_eau}, mesurée par satellite le ${m.mesure.jour_mesure} ` +
-      `(moyenne du jour, à ${fr(m.mesure.distance_km)} km).`
+    ? `Eau de mer près de ${r.lieu.nom}\u00a0: ${m.mesure.temperature_eau}, mesurée par satellite ${measuredOn(m.mesure.jour_mesure, now)} ` +
+      `(moyenne du jour, point de mesure à ${fr(m.mesure.distance_km)} km).`
     : gs.length
       ? `Pas de mesure satellite exploitable à moins de 12 km de ${r.lieu.nom} sur les derniers jours ` +
         "(nuages, ou lieu trop loin de la mer)."
@@ -288,7 +310,7 @@ export async function temperatureMer(cache: Cache, lieu: string | undefined, now
       ? {
           avertissements: [
             ...CAVEATS,
-            `Le satellite a environ 2 jours de retard : c'est la température du ${m.mesure.jour_mesure}, pas celle d'aujourd'hui.`,
+            ageWarning(m.mesure.jour_mesure, now),
             ...staleWarning(m.grid),
           ],
         }
