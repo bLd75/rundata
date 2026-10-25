@@ -472,7 +472,7 @@ def main():
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(json.dumps({
         "construit": date.today().isoformat(),
-        "attribution": "Itinéraires © les contributeurs d'OpenStreetMap (ODbL) ; sentiers ONF La Réunion ; altitudes IGN, RGE ALTI (Licence Ouverte 2.0)",
+        "attribution": "Itinéraires © les contributeurs d'OpenStreetMap (ODbL)\u00a0; sentiers ONF La Réunion\u00a0; altitudes IGN, RGE ALTI (Licence Ouverte 2.0)",
         "sentiers": sentiers,
         "randonnees": randonnees,
     }, ensure_ascii=False, separators=(",", ":")))

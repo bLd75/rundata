@@ -1,5 +1,5 @@
 {
-  "_source": "Noms officiels des clubs : pages « Programme et Résultats du Club » de la FFVB et compétitions de la FFHB ; commune du club d'après son nom ou sa salle. Salles d'après les calendriers de la FFVB.",
+  "_source": "Noms officiels des clubs : pages « Programme et Résultats du Club » de la FFVB et compétitions de la FFHB ; commune du club d'après son nom ou sa salle. Salles d'après les calendriers de la FFVB.",
   "volley": [
     { "sigle": "VBSP", "nom": "Volley-Ball de Saint-Pierre", "commune": "Saint-Pierre", "salle": "gymnase Axel Ablancourt (Ravine des Cabris)" },
     { "sigle": "TGV", "nom": "Tampon Gecko Volley", "commune": "Le Tampon", "salle": "gymnase du 12e Km", "alias": ["gecko", "tampon gecko"] },

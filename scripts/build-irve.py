@@ -65,7 +65,7 @@ def hours(text):
         else:
             label = ", ".join(DAY_NAMES[d] for d in days)
         parts.append(f"{label} {span}")
-    return " ; ".join(parts)
+    return "\u00a0; ".join(parts)
 
 
 def address(text):

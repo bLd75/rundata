@@ -273,7 +273,7 @@ def main():
     dest = ROOT / "src/vie/enfants.json"
     dest.write_text(json.dumps({
         "construit": date.today().isoformat(),
-        "sources": "© les contributeurs d'OpenStreetMap (ODbL) ; Data ES (ministère des Sports) et Basilic (ministère de la Culture), Licence Ouverte",
+        "sources": "© les contributeurs d'OpenStreetMap (ODbL)\u00a0; Data ES (ministère des Sports) et Basilic (ministère de la Culture), Licence Ouverte",
         "lieux": places,
     }, ensure_ascii=False, separators=(",", ":")) + "\n")
     counts = {}

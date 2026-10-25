@@ -347,7 +347,7 @@ def main():
         "source": "Marégraphes du SHOM à La Réunion (réseau RONIM), hauteurs horaires validées",
         "citation": CITATION,
         "licence": "Licence Ouverte 2.0 (Etalab)",
-        "methode": "analyse harmonique par moindres carrés, corrections nodales de Schureman ; scripts/build-maree.py",
+        "methode": "analyse harmonique par moindres carrés, corrections nodales de Schureman\u00a0; scripts/build-maree.py",
         "reference": "zéro hydrographique (zéro des cartes marines), en mètres",
         "calcule_le": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "maregraphes": {},

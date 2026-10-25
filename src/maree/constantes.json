@@ -2,7 +2,7 @@
  "source": "Marégraphes du SHOM à La Réunion (réseau RONIM), hauteurs horaires validées",
  "citation": "REFMAR. http://dx.doi.org/10.17183/REFMAR#RONIM",
  "licence": "Licence Ouverte 2.0 (Etalab)",
- "methode": "analyse harmonique par moindres carrés, corrections nodales de Schureman ; scripts/build-maree.py",
+ "methode": "analyse harmonique par moindres carrés, corrections nodales de Schureman ; scripts/build-maree.py",
  "reference": "zéro hydrographique (zéro des cartes marines), en mètres",
  "calcule_le": "2026-10-24",
  "maregraphes": {

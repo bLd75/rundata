@@ -52,7 +52,7 @@ def hours(text):
         span = f"de {hour(m.group(2))} à {hour(m.group(3))}" + (f" et de {hour(m.group(4))} à {hour(m.group(5))}" if m.group(4) else "")
         d = days(m.group(1))
         out.append(f"{'le ' if ',' not in m.group(1) and '-' not in m.group(1) else ''}{d} {span}")
-    return " ; ".join(out)
+    return "\u00a0; ".join(out)
 
 
 def main():

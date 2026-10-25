@@ -13,8 +13,16 @@ const PUBLISHED = "2026-10-26";
 const PLAIN = /[^;] ;(?=[ "'`])/;
 const COMMENT = /^\s*(?:\/\/|\/\*|\*)/;
 
-const sources = (dir: string): string[] =>
-  readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? sources(join(dir, e.name)) : e.name.endsWith(".ts") ? [join(dir, e.name)] : []));
+const files = (dir: string, ext: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(join(dir, e.name), ext) : e.name.endsWith(ext) ? [join(dir, e.name)] : []));
+const sources = (dir: string) => files(dir, ".ts");
+
+/** The strings of a JSON value with « ; » after an ordinary space, as « path:key ». */
+const plainIn = (path: string, value: unknown, key = ""): string[] =>
+  typeof value === "string" ? (/ ;/.test(value) ? [`${path}:${key}`] : [])
+  : Array.isArray(value) ? value.flatMap((v) => plainIn(path, v, key))
+  : value && typeof value === "object" ? Object.entries(value).flatMap(([k, v]) => [...plainIn(path, k, key), ...plainIn(path, v, k)])
+  : [];
 
 /** The lines of `path` with « ; » after an ordinary space, as « path:line ». */
 function plain(path: string): string[] {
@@ -33,10 +41,19 @@ describe("a no-break space before « ; »", () => {
     expect(said.flatMap(plain)).toEqual([]);
   });
 
+  // The bundled data the tools quote, written by scripts/build-*.py: the sources, the attributions, the opening hours.
+  it("is in every text of the data bundled with the server", () => {
+    const data = files("src", ".json");
+    expect(data.length).toBeGreaterThan(10);
+    expect(data.flatMap((p) => plainIn(p, JSON.parse(readFileSync(p, "utf8"))))).toEqual([]);
+  });
+
   it("would catch an ordinary one again", () => {
     expect(PLAIN.test("Pluie à Gillot ; 2 mm")).toBe(true);
     expect(PLAIN.test(`list.join(" ; ")`)).toBe(true);
     expect(PLAIN.test(`"Pluie à Gillot ;" + rest`)).toBe(true);
+    expect(plainIn("x.json", { attribution: "© OpenStreetMap (ODbL) ; IGN" })).toEqual(["x.json:attribution"]);
+    expect(plainIn("x.json", [{ horaires: "lundi\u00a0; mardi" }])).toEqual([]);
     expect(PLAIN.test("Pluie à Gillot ; 2 mm")).toBe(false);
     expect(PLAIN.test("const r = d.find((x) => x.ok) ;")).toBe(false);
     expect(PLAIN.test("for (let runs = 1; ; runs++) {")).toBe(false);
