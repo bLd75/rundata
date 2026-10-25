@@ -102,7 +102,7 @@ const sharedEntry = (s: Shared, after: boolean): Entry => ({
   what: after ? "copie partagée, avec ce que les autres ont laissé" : "copie partagée (KV)",
   every: typeof s.every === "number" ? s.every : s.range?.usual,
   ...(typeof s.every !== "number" && s.range && { shortest: s.range.shortest }),
-  offset: 0,
+  offset: s.offset ?? 0,
   run: { subrequests: (s.cold ?? 0) + COPY_WRITE, kvWrites: COPY_WRITE, ...SHARED_D1[s.key], cpuMs: s.cpu ?? 0 },
   from: SHARED_FROM[s.key] ?? [],
   basis: SHARED_ESTIMATED.has(s.key) ? "estimé" : "mesuré",
@@ -475,6 +475,8 @@ export function budget(entries = REGISTRY): string {
   const worst = worstEvent(entries);
   const usual = busiestEvent(entries);
   const short = busiestEvent(entries, true);
+  // The same without the shared copies' offsets: all in the event of 00:00 UTC, as before they had any.
+  const together = busiestEvent(entries.map((e) => (SHARED_KEYS.has(e.id) ? { ...e, offset: 0 } : e)), true);
   const day = perDay("planifiée", entries);
   const dayShort = perDay("planifiée", entries, true);
   const actions = perDay("actions", entries);
@@ -496,6 +498,7 @@ export function budget(entries = REGISTRY): string {
     `- Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).\n` +
     `- Passage le plus chargé selon les décalages, cadences habituelles : ${hhmm(usual.minute)} UTC, ${n(usual.run.subrequests)} sous-requêtes (${usual.ids.join(", ")}).\n` +
     `- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : ${hhmm(short.minute)} UTC, ${n(short.run.subrequests)} sous-requêtes (${short.ids.join(", ")}).\n` +
+    `- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : ${n(together.run.subrequests)} sous-requêtes à ${hhmm(together.minute)} UTC.\n` +
     `- Vue la plus chère : ${view.id}, ${n(view.run.subrequests)}. Question la plus chère : ${ask.id}, ${n(ask.run.subrequests)}. Construction la plus chère : ${build.key}, ${n(build.cold)}.\n\n` +
     TOTAL_HEAD + "\n" +
     totalRow("pire passage planifié", worst) + "\n" +

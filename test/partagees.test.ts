@@ -4,7 +4,7 @@ import { Cache, CACHE_FORMAT, type CacheEntry, isCopy, MemoryStore, stampOf, Tie
 import { VERSION } from "../src/server.js";
 import { SATELLITES as SATELLITES_KEY } from "../src/tools/mer.js";
 import { FRESH_SECONDS } from "../src/web/data.js";
-import { AFTER_DEPLOY_RESERVE, type Kv, kvKey, SHARED, SHARED_AFTER, SharedFallback, type Shared, warmShared } from "../src/web/partagees.js";
+import { AFTER_DEPLOY_RESERVE, type Kv, kvKey, SHARED, SHARED_AFTER, SharedFallback, type Shared, slotStart, warmShared } from "../src/web/partagees.js";
 import { MAX_NEW_GRIDS } from "../src/providers/arome.js";
 
 // An event short of subrequests (the former budget): what is left out, and why, when the budget does not hold all.
@@ -268,6 +268,50 @@ describe("the scheduled refresh of the shared copies", () => {
     // 300 a day, partagees.ts).
     expect(total).toBeLessThanOrEqual(300);
     expect(total).toBeGreaterThanOrEqual(265);
+  });
+
+  it("refreshes a copy at each of its slots, though written a few seconds into the event before", async () => {
+    // As in the Worker: each event a second past its minute, each build two seconds long. The volcano's copy in an
+    // alert, every 5 minutes, went every 10: a few seconds short of its rate, and its last copy still fresh in the cache.
+    const kv = new FakeKv();
+    let now = T0 + 1000;
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => now, false);
+    const list: Shared[] = [{ key: "web:essai-alerte", build: async () => ((now += 2000), count(2), {}), every: 5 }];
+    for (let i = 0; i < 12; i++) {
+      now = T0 + i * 5 * 60_000 + 1000;
+      await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    }
+    expect(kv.writes.get(kvKey("web:essai-alerte"))).toBe(12);
+  });
+
+  it("refreshes each copy in the events of its offset, the copies of one rate in different events", async () => {
+    const kv = new FakeKv();
+    let now = T0 + 1000;
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => now, false);
+    const built: Record<string, number[]> = {};
+    const copy = (key: string, offset: number): Shared =>
+      ({ key, offset, every: 30, build: async () => ((built[key] ??= []).push(new Date(now).getUTCMinutes()), (now += 2000), count(2), {}) });
+    const list = [copy("web:essai-5", 5), copy("web:essai-10", 10), copy("web:essai-25", 25)];
+    // None in KV: all built in the first event, then each at its own minutes, every 30 minutes. Not at 00:05 nor 00:10,
+    // only 5 and 10 minutes after the first build, under half their rate; the one at 10 goes at 00:35 by its rate (never
+    // older than it), then at its own minutes.
+    for (let i = 0; i < 36; i++) {
+      now = T0 + i * 5 * 60_000 + 1000;
+      await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    }
+    expect(built["web:essai-5"]).toEqual([0, 35, 5, 35, 5, 35]);
+    expect(built["web:essai-10"]).toEqual([0, 35, 10, 40, 10, 40]);
+    expect(built["web:essai-25"]).toEqual([0, 25, 55, 25, 55, 25, 55]);
+    expect(slotStart(T0 + 47 * 60_000, 30, 10)).toBe(T0 + 40 * 60_000);
+    expect(slotStart(T0 + 7 * 60_000, 30, 10)).toBe(T0 - 20 * 60_000);
+  });
+
+  it("gives every copy of the real list an offset within its rate, a multiple of the events' 5 minutes", () => {
+    for (const s of [...SHARED, ...SHARED_AFTER]) {
+      const every = typeof s.every === "number" ? s.every : s.range!.usual;
+      expect(s.offset, s.key).toBeDefined();
+      expect(s.offset! % 5 === 0 && s.offset! >= 0 && s.offset! < every, s.key).toBe(true);
+    }
   });
 
   it("builds the power cuts' copy before the page that carries it, and reads them again sooner while a mairie is silent", async () => {
