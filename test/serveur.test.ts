@@ -132,6 +132,13 @@ describe("the serveur block", () => {
     expect(r.nouveautes[0].date).toMatch(/^\d\d\/\d\d \d\d:\d\d$/);
     expect(r.toutes_les_nouveautes).toBe("https://rundata.re/nouveautes");
   });
+
+  it("sources_donnees names each source once", async () => {
+    const ids: string[] = body(await rpcResult("tools/call", { name: "sources_donnees", arguments: {} })).sources.map((s: { id: string }) => s.id);
+    expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+    // Given by two modules each (cam-change 258), listed once.
+    for (const id of ["lrvb_tournois", "sportsregions", "ign_altimetrie"]) expect(ids).toContain(id);
+  });
 });
 
 describe("fraicheur", () => {
