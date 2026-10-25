@@ -17,6 +17,7 @@ let sent: { to: string; subject: string; text: string }[];
 function plug(send: propositions.Envoi | null = async (m) => (sent.push(m), true)) {
   db = new DatabaseSync(":memory:");
   db.exec(readFileSync(new URL("../scripts/propositions.sql", import.meta.url), "utf8"));
+  db.exec(readFileSync(new URL("../scripts/propositions-b.sql", import.meta.url), "utf8"));
   propositions.configure(
     async (sql, ...params) => Number(db.prepare(sql).run(...(params as (string | number | null)[])).changes),
     send ?? undefined,
@@ -365,7 +366,7 @@ describe("the secret link: what its author can change (src/propositions.ts)", ()
     expect(await propositions.agir(single, { kind: "prolonger", jusqu_au: "2026-12-01" }, NOW)).toBe(false);
   });
 
-  it("removes the public contact at once; corrects into the moderation again, out of sight, the address kept", async () => {
+  it("removes the public contact at once; keeps a correction aside for the moderation, the published version shown", async () => {
     const secret = await propose({ contact_public: "0262 12 34 56" });
     await propositions.agir(secret, { kind: "confirmer" }, NOW);
     publish();
@@ -375,8 +376,22 @@ describe("the secret link: what its author can change (src/propositions.ts)", ()
     const fixed = propositions.lireProposition(new URLSearchParams({ ...PROPOSITION, titre: "Grand tournoi de pétanque", email: "", accord: "", vous_etes: "" }), formulaires.COMMUNES, NOW, { email: "club@example.org" });
     expect(fixed).toHaveProperty("proposition.titre", "Grand tournoi de pétanque");
     expect(await propositions.agir(secret, { kind: "corriger", p: (fixed as { proposition: propositions.Proposition }).proposition }, NOW)).toBe(true);
-    expect(rows("SELECT etat, titre, email FROM propositions")).toEqual([{ etat: "a_moderer", titre: "Grand tournoi de pétanque", email: "club@example.org" }]);
-    expect(await propositions.visibles(NOW)).toEqual([]);
+    const [row] = rows<{ etat: string; titre: string; email: string; correction: string }>("SELECT etat, titre, email, correction FROM propositions");
+    expect(row).toMatchObject({ etat: "publie", titre: "Tournoi de pétanque du club", email: "club@example.org" });
+    expect(JSON.parse(row.correction)).toMatchObject({ titre: "Grand tournoi de pétanque", derniere_date: "2026-11-07" });
+    expect(row.correction).not.toContain("club@example.org");
+    expect((await propositions.visibles(NOW)).map((l) => l.titre)).toEqual(["Tournoi de pétanque du club"]);
+    // Calling off drops the correction waiting: nothing left to read.
+    expect(await propositions.agir(secret, { kind: "annuler" }, NOW)).toBe(true);
+    expect(rows("SELECT etat, correction FROM propositions")).toEqual([{ etat: "annule", correction: null }]);
+  });
+
+  it("changes a proposal not published yet in place, still waiting for the moderation", async () => {
+    const secret = await propose();
+    await propositions.agir(secret, { kind: "confirmer" }, NOW);
+    const fixed = read({ ...PROPOSITION, titre: "Grand tournoi" }) as { proposition: propositions.Proposition };
+    expect(await propositions.agir(secret, { kind: "corriger", p: fixed.proposition }, NOW)).toBe(true);
+    expect(rows("SELECT etat, titre, correction FROM propositions")).toEqual([{ etat: "a_moderer", titre: "Grand tournoi", correction: null }]);
   });
 
   it("changes nothing once the event's last date is past", async () => {
@@ -397,8 +412,25 @@ describe("the secret link: what its author can change (src/propositions.ts)", ()
     // 40 days after the event: the unconfirmed one gone, the address and fingerprint wiped, the event kept.
     expect(await propositions.purger(new Date("2026-12-17T06:00:00Z"))).toBeGreaterThan(0);
     expect(rows("SELECT titre, email, source FROM propositions")).toEqual([{ titre: "Tournoi de pétanque du club", email: null, source: null }]);
-    expect(await propositions.purger(new Date("2027-10-30T06:00:00Z"))).toBe(1);
+    // A year after its last date (07/11/2026), not after its proposal.
+    expect(await propositions.purger(new Date("2027-11-06T06:00:00Z"))).toBe(0);
+    expect(await propositions.purger(new Date("2027-11-08T06:00:00Z"))).toBe(1);
     expect(rows("SELECT * FROM propositions")).toEqual([]);
+  });
+
+  it("keeps a repeated event extended over a year while it goes on", async () => {
+    const secret = await propose({ repete: "semaine", jusqu_au: "2027-01-28" });
+    await propositions.agir(secret, { kind: "confirmer" }, NOW);
+    publish();
+    let now = NOW;
+    for (let i = 0; i < 5; i++) {
+      now = new Date(now.getTime() + 85 * 86400_000);
+      expect(await propositions.agir(secret, { kind: "prolonger", jusqu_au: propositions.addMonths(new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10), 3) }, now)).toBe(true);
+    }
+    // More than a year after its proposal, through a new proposal's trigger and the daily purge.
+    await propose({ titre: "Autre", date: new Date(now.getTime() + 10 * 86400_000).toISOString().slice(0, 10) }, now);
+    await propositions.purger(now);
+    expect(rows("SELECT titre FROM propositions ORDER BY id")).toEqual([{ titre: "Tournoi de pétanque du club" }, { titre: "Autre" }]);
   });
 });
 
@@ -482,7 +514,7 @@ describe("the open feed (web/flux-associations.ts)", () => {
     expect(ics.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n")).toBe(true);
     expect(ics).toContain("DTSTART:20261107T100000Z\r\nDTEND:20261107T140000Z");
     expect(ics).toContain("STATUS:CANCELLED");
-    expect(ics).toContain("SUMMARY:ANNULÉ : Loto annulé");
+    expect(ics).toContain("SUMMARY:ANNULÉ\u00a0: Loto annulé");
     expect(ics.replace(/\r\n /g, "")).toContain("buvette\\, grillades.");
     expect(ics.replace(/\r\n /g, "")).toContain("Licence Ouverte 2.0 (Etalab)");
     for (const line of ics.split("\r\n")) expect(new TextEncoder().encode(line).length).toBeLessThanOrEqual(75);
@@ -518,6 +550,10 @@ describe("the secret link's page (web/propositions.ts)", () => {
     expect(html).toContain('<input type="hidden" name="action" value="confirmer"><button type="submit">Confirmer l\'événement</button>');
     expect(html).toContain('<meta name="robots" content="noindex">');
     expect(html).not.toMatch(new RegExp(`(canonical|og:url)[^>]*${secret}`));
+    expect(html).toContain('<meta name="referrer" content="no-referrer">');
+    // Nothing to share: a volunteer would think they share their link.
+    expect(html).not.toContain("Partager sur WhatsApp");
+    expect(html).toContain('<span class="badge ambre">À confirmer</span> le 07/11/2026, de 14:00 à 18:00, Boulodrome de Terre-Sainte (Saint-Pierre).');
     expect((await page("x".repeat(22))).status).toBe(404);
   });
 
@@ -560,6 +596,12 @@ describe("the secret link's page (web/propositions.ts)", () => {
     expect(wrong.status).toBe(422);
     expect(await wrong.text()).toContain('id="faux-date"');
     expect((await act(secret, { ...fields, action: "corriger", titre: "Grand tournoi" })).status).toBe(303);
-    expect(rows("SELECT etat, titre, email FROM propositions")).toEqual([{ etat: "a_moderer", titre: "Grand tournoi", email: "club@example.org" }]);
+    expect(rows("SELECT etat, titre, email FROM propositions")).toEqual([{ etat: "publie", titre: "Tournoi de pétanque du club", email: "club@example.org" }]);
+    const html = plain(await (await page(secret, "?fait=corriger")).text());
+    expect(html).toContain('<span class="badge vert">Publié</span>');
+    expect(html).toContain("Votre correction attend la relecture, en général sous 24 heures ; en attendant, la version ci-dessus reste affichée.");
+    expect(html).toContain("En attendant, la version actuelle reste affichée.");
+    // The form shows the correction waiting, to go on from it.
+    expect(html).toContain('name="titre" value="Grand tournoi"');
   });
 });

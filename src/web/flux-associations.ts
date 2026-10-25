@@ -83,7 +83,7 @@ export function icsFeed(lignes: propositions.Ligne[], now: Date): string {
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `X-WR-CALNAME:${text("Clubs et associations · rundata.re")}`,
-    `X-WR-CALDESC:${text(`Événements proposés par les clubs et associations de La Réunion sur rundata.re (${PAGE}). ${LICENCE.nom}, ${LICENCE.url} : ${ATTRIBUTION}`)}`,
+    `X-WR-CALDESC:${text(`Événements proposés par les clubs et associations de La Réunion sur rundata.re (${PAGE}). ${LICENCE.nom}, ${LICENCE.url}\u00a0: ${ATTRIBUTION[0].toLowerCase()}${ATTRIBUTION.slice(1)}`)}`,
     "X-WR-TIMEZONE:Indian/Reunion",
     "REFRESH-INTERVAL;VALUE=DURATION:PT1H",
   ];
@@ -91,9 +91,9 @@ export function icsFeed(lignes: propositions.Ligne[], now: Date): string {
     const e = evenement(l);
     const about = [
       e.description,
-      `Prix : ${e.prix}.`,
+      `Prix\u00a0: ${e.prix}.`,
       `Organisé par ${e.publie_par}.`,
-      e.propose!.contact ? `Contact : ${e.propose!.contact}.` : "",
+      e.propose!.contact ? `Contact\u00a0: ${e.propose!.contact}.` : "",
       `Proposé par l'organisateur sur rundata.re le ${jour(e.propose!.le)}.`,
       `${LICENCE.nom}.`,
     ].filter(Boolean).join("\n");
@@ -104,7 +104,8 @@ export function icsFeed(lignes: propositions.Ligne[], now: Date): string {
         `DTSTAMP:${stamp}`,
         `DTSTART:${utc(s.debut)}`,
         ...(s.fin ? [`DTEND:${utc(s.fin)}`] : []),
-        `SUMMARY:${text(e.statut ? `${e.statut.toUpperCase()} : ${e.titre}` : e.titre)}`,
+        // « ANNULÉ : », « REPORTÉ : » (at its new date) before the title, as calendars show no status.
+        `SUMMARY:${text(e.statut ? `${e.statut.toUpperCase()}\u00a0: ${e.titre}` : e.titre)}`,
         `LOCATION:${text(`${e.lieu}, ${e.commune}`)}`,
         `DESCRIPTION:${text(about)}`,
         ...(e.lien ? [`URL:${e.lien}`] : []),

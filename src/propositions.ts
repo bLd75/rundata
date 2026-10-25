@@ -346,9 +346,14 @@ export interface Ligne {
   derniere_date: string;
   motif: string | null;
   reporte_au: string | null;
+  /** A correction of the published event waiting for the moderation, as JSON (`Correction`); scripts/propositions-b.sql. */
+  correction: string | null;
 }
 
-const COLONNES = "id, t, etat, titre, date, debut, fin, repete, jusqu_au, commune, lieu, organisateur, description, prix, lien, email, contact_public, derniere_date, motif, reporte_au";
+/** The fields of a correction kept aside while the published version stays shown. */
+export type Correction = Omit<Proposition, "email"> & { derniere_date: string };
+
+const COLONNES = "id, t, etat, titre, date, debut, fin, repete, jusqu_au, commune, lieu, organisateur, description, prix, lien, email, contact_public, derniere_date, motif, reporte_au, correction";
 /** What the public sees: published, and called off or postponed after it, until its last date. */
 export const VISIBLES: readonly EtatProposition[] = ["publie", "annule", "reporte"];
 
@@ -383,9 +388,10 @@ export const visibleAussitot = (a: Action) => a.kind !== "confirmer" && a.kind !
 
 /**
  * One change by the author, in one statement that also checks the state it starts from: a confirmation sends the
- * proposal to the moderation; a correction too, out of sight until read again; calling off, postponing, extending a
- * repeated event and removing the public contact show at once. False when the state did not allow it (already
- * confirmed, past, refused…).
+ * proposal to the moderation; a correction of a published event waits for it aside, the published version shown
+ * meanwhile (one not published yet is simply changed); calling off, postponing, extending a repeated event and
+ * removing the public contact show at once, and drop a correction waiting (calling off, postponing) or its contact.
+ * False when the state did not allow it (already confirmed, past, refused…).
  */
 export async function agir(jeton: string, a: Action, now = new Date()): Promise<boolean> {
   if (!run || !/^[\w-]{22}$/.test(jeton)) return false;
@@ -402,13 +408,13 @@ export async function agir(jeton: string, a: Action, now = new Date()): Promise<
       break;
     case "annuler":
       // Not published yet: withdrawn, never shown; published: shown called off, so that no one goes for nothing.
-      sql = `UPDATE propositions SET etat = CASE etat WHEN 'a_moderer' THEN 'retire' ELSE 'annule' END, modifie_le = ? WHERE ${open} AND etat <> 'a_confirmer'`;
+      sql = `UPDATE propositions SET etat = CASE etat WHEN 'a_moderer' THEN 'retire' ELSE 'annule' END, correction = NULL, modifie_le = ? WHERE ${open} AND etat <> 'a_confirmer'`;
       params = [t, h, today];
       break;
     case "reporter":
       if (!isDay(a.date) || a.date < today || a.date > addDays(today, JOURS_AVANT_MAX)) return false;
       // A postponed repeated event becomes a single date: its new one.
-      sql = `UPDATE propositions SET etat = CASE etat WHEN 'publie' THEN 'reporte' ELSE etat END, reporte_au = ?, repete = NULL, jusqu_au = NULL, derniere_date = ?, modifie_le = ? WHERE ${open} AND etat IN ('publie', 'reporte', 'a_moderer')`;
+      sql = `UPDATE propositions SET etat = CASE etat WHEN 'publie' THEN 'reporte' ELSE etat END, reporte_au = ?, repete = NULL, jusqu_au = NULL, derniere_date = ?, correction = NULL, modifie_le = ? WHERE ${open} AND etat IN ('publie', 'reporte', 'a_moderer')`;
       params = [a.date, a.date, t, h, today];
       break;
     case "prolonger":
@@ -417,12 +423,19 @@ export async function agir(jeton: string, a: Action, now = new Date()): Promise<
       params = [a.jusqu_au, a.jusqu_au, t, h, today, a.jusqu_au];
       break;
     case "retirer_contact":
-      sql = `UPDATE propositions SET contact_public = NULL, modifie_le = ? WHERE jeton = ? AND contact_public IS NOT NULL`;
+      sql = `UPDATE propositions SET contact_public = NULL, correction = json_remove(correction, '$.contact_public'), modifie_le = ? WHERE jeton = ? AND (contact_public IS NOT NULL OR json_extract(correction, '$.contact_public') IS NOT NULL)`;
       params = [t, h];
       break;
     case "corriger": {
       const p = a.p;
-      sql = `UPDATE propositions SET etat = 'a_moderer', titre = ?, date = ?, debut = ?, fin = ?, repete = ?, jusqu_au = ?, commune = ?, lieu = ?, organisateur = ?, description = ?, prix = ?, lien = ?, contact_public = ?, derniere_date = ?, reporte_au = NULL, modifie_le = ? WHERE ${open} AND etat <> 'a_confirmer'`;
+      const aside: Correction = { titre: p.titre, date: p.date, debut: p.debut, fin: p.fin, repete: p.repete, jusqu_au: p.jusqu_au, commune: p.commune, lieu: p.lieu, organisateur: p.organisateur, description: p.description, prix: p.prix, lien: p.lien, contact_public: p.contact_public, derniere_date: derniereDate(p) };
+      try {
+        if ((await run(`UPDATE propositions SET correction = ?, motif = NULL, modifie_le = ? WHERE ${open} AND etat IN ('publie', 'reporte')`, JSON.stringify(aside), t, h, today)) > 0) return true;
+      } catch (err) {
+        console.error("propositions : changement impossible", err instanceof Error ? err.message : String(err));
+        return false;
+      }
+      sql = `UPDATE propositions SET etat = 'a_moderer', titre = ?, date = ?, debut = ?, fin = ?, repete = ?, jusqu_au = ?, commune = ?, lieu = ?, organisateur = ?, description = ?, prix = ?, lien = ?, contact_public = ?, derniere_date = ?, reporte_au = NULL, modifie_le = ? WHERE ${open} AND etat = 'a_moderer'`;
       params = [p.titre, p.date, p.debut, p.fin ?? null, p.repete ?? null, p.jusqu_au ?? null, p.commune, p.lieu, p.organisateur, p.description, p.prix, p.lien ?? null, p.contact_public ?? null, derniereDate(p), t, h, today];
       break;
     }
@@ -436,18 +449,19 @@ export async function agir(jeton: string, a: Action, now = new Date()): Promise<
 }
 
 /**
- * The deletions of the table's trigger, for the days nothing is proposed: run once a day by the scheduled event.
- * Returns the rows changed.
+ * The deletions of the table's trigger (scripts/propositions-b.sql), for the days nothing is proposed: run once a day
+ * by the scheduled event. Returns the rows changed.
  */
 export async function purger(now = new Date()): Promise<number> {
   if (!run) return 0;
   const t = Math.floor(now.getTime() / 1000);
-  const cutoff = addDays(localDay(now), -30);
+  const today = localDay(now);
   let n = 0;
   n += await run("UPDATE propositions SET source = NULL WHERE source IS NOT NULL AND t < ?", t - 86400);
   n += await run("DELETE FROM propositions WHERE etat = 'a_confirmer' AND t < ?", t - 172800);
-  n += await run("UPDATE propositions SET email = NULL, contact_public = NULL WHERE (email IS NOT NULL OR contact_public IS NOT NULL) AND derniere_date < ?", cutoff);
-  n += await run("DELETE FROM propositions WHERE t < ?", t - 31536000);
+  n += await run("UPDATE propositions SET email = NULL, contact_public = NULL, correction = NULL WHERE (email IS NOT NULL OR contact_public IS NOT NULL OR correction IS NOT NULL) AND derniere_date < ?", addDays(today, -30));
+  // A year after the event's last date, not after its proposal: a weekly training extended stays while it goes on.
+  n += await run("DELETE FROM propositions WHERE derniere_date < ?", addMonths(today, -12));
   n += await run("UPDATE liens SET source = NULL WHERE source IS NOT NULL AND t < ?", t - 86400);
   n += await run("DELETE FROM liens WHERE t < ?", t - 31536000);
   return n;

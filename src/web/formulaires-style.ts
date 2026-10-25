@@ -19,4 +19,7 @@ export const FORMS_CSS = `.fo{max-width:44rem}
 .fo .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .fo .msg{display:none;font-weight:700;border-radius:10px;padding:.6rem .8rem;background:var(--warn-bg);color:var(--lave)}
 .fo .msg.ok{background:var(--surface-2);color:var(--ink);border-left:4px solid var(--ren)}
-.fo .msg:target,.fo .msg.vu{display:block}`.replace(/\n/g, "");
+.fo .msg:target,.fo .msg.vu{display:block}
+.badge.vert{background:#e2f3e6;color:#1d6b33}
+.badge.ambre{background:#fff0c7;color:#7a4a00}
+@media (prefers-color-scheme:dark){.badge.vert{background:#11301b;color:#86dca0}.badge.ambre{background:#3a2c0a;color:#ffd47a}}`.replace(/\n/g, "");
