@@ -98,10 +98,18 @@ export const envoiCloudflare = (binding: EmailBinding): Envoi => async (m) => {
   }
 };
 
-/** `db`: the D1 tables' door (worker.ts, the feedback's database); `send`: how the confirmation is sent, when chosen. */
-export function configure(db: Run | undefined, send?: Envoi) {
+/** Reads rows. */
+export type All = <T>(sql: string, ...params: unknown[]) => Promise<T[]>;
+let all: All | undefined;
+
+/**
+ * `db` and `select`: the D1 tables' doors (worker.ts, the feedback's database), to write and to read; `send`: how the
+ * confirmation is sent.
+ */
+export function configure(db: Run | undefined, send?: Envoi, select?: All) {
   run = db;
   envoi = send;
+  all = select;
 }
 
 export const enabled = () => !!run;
@@ -163,8 +171,12 @@ export function lireLien(f: URLSearchParams, communes: readonly string[], page: 
   return erreurs.length ? { erreurs } : { lien: { nom: nom!, commune, lien: lien!, contact: c || undefined, page } };
 }
 
-/** The fields of « Proposer un événement », checked against the day; the names of the missing or wrong ones otherwise. */
-export function lireProposition(f: URLSearchParams, communes: readonly string[], now: Date): { proposition: Proposition } | { erreurs: string[] } {
+/**
+ * The fields of « Proposer un événement », checked against the day; the names of the missing or wrong ones otherwise.
+ * A correction through the secret link (`correction`) keeps the author's address and asks again neither who they are
+ * nor their consent.
+ */
+export function lireProposition(f: URLSearchParams, communes: readonly string[], now: Date, correction?: { email: string }): { proposition: Proposition } | { erreurs: string[] } {
   const erreurs: string[] = [];
   const today = localDay(now);
   const titre = texte(f.get("titre"), NOM_MAX);
@@ -194,18 +206,18 @@ export function lireProposition(f: URLSearchParams, communes: readonly string[],
   const given = (f.get("lien") ?? "").trim();
   const lien = httpLink(given);
   if (given && !lien) erreurs.push("lien");
-  const email = emailOf(f.get("email"));
+  const email = correction ? correction.email : emailOf(f.get("email"));
   if (!email) erreurs.push("email");
   // A contact to show with the event: another one given, or the e-mail when its box is ticked; none by default.
   const autre = (f.get("contact_public") ?? "").replace(/\s+/g, " ").trim();
   const contact_public = autre ? (autre.length <= CONTACT_MAX && (emailOf(autre) || isPhone(autre)) ? autre : undefined) : f.get("email_public") === "oui" ? email : undefined;
   if (autre && !contact_public) erreurs.push("contact_public");
-  if (f.get("accord") !== "oui") erreurs.push("accord");
+  if (!correction && f.get("accord") !== "oui") erreurs.push("accord");
   // The form is for non-profit associations only, for now (the user, 25/10): a business or a public body is sent to
   // the guide before anything else.
   const qui = f.get("vous_etes");
-  if (qui === "commerce" || qui === "public") return { erreurs: ["hors_perimetre"] };
-  if (qui !== "association") erreurs.unshift("vous_etes");
+  if (!correction && (qui === "commerce" || qui === "public")) return { erreurs: ["hors_perimetre"] };
+  if (!correction && qui !== "association") erreurs.unshift("vous_etes");
   if (erreurs.length) return { erreurs };
   return {
     proposition: { titre: titre!, date, debut, fin: fin || undefined, repete, jusqu_au: repete ? jusqu : undefined, commune, lieu: lieu!, organisateur: organisateur!, description: description!, prix: prix!, lien, email: email!, contact_public },
@@ -305,4 +317,138 @@ export async function enregistrerProposition(p: Proposition, adresse: string, ba
     console.error("propositions : e-mail de confirmation impossible");
     return "indisponible";
   }
+}
+
+// ---------------------------------------------------------------- after the form: the secret link, the moderation
+
+/** `retire`: withdrawn by its author before it was published, never shown. */
+export type EtatProposition = "a_confirmer" | "a_moderer" | "publie" | "refuse" | "annule" | "reporte" | "retire";
+
+/** A proposal as kept, without its secret, its sender's fingerprint nor, past its use, its author's address. */
+export interface Ligne {
+  id: number;
+  t: number;
+  etat: EtatProposition;
+  titre: string;
+  date: string;
+  debut: string;
+  fin: string | null;
+  repete: Repetition | null;
+  jusqu_au: string | null;
+  commune: string;
+  lieu: string;
+  organisateur: string;
+  description: string;
+  prix: string;
+  lien: string | null;
+  email: string | null;
+  contact_public: string | null;
+  derniere_date: string;
+  motif: string | null;
+  reporte_au: string | null;
+}
+
+const COLONNES = "id, t, etat, titre, date, debut, fin, repete, jusqu_au, commune, lieu, organisateur, description, prix, lien, email, contact_public, derniere_date, motif, reporte_au";
+/** What the public sees: published, and called off or postponed after it, until its last date. */
+export const VISIBLES: readonly EtatProposition[] = ["publie", "annule", "reporte"];
+
+/** Whether the proposals can be read (the Worker with its database). */
+export const lisible = () => !!all;
+
+/** The proposal a secret leads to, if any. */
+export async function parJeton(jeton: string): Promise<Ligne | undefined> {
+  if (!all || !/^[\w-]{22}$/.test(jeton)) return undefined;
+  return (await all<Ligne>(`SELECT ${COLONNES} FROM propositions WHERE jeton = ?`, await empreinteJeton(jeton)))[0];
+}
+
+/** The proposals the public sees, from today on; [] without the database. */
+export async function visibles(now: Date): Promise<Ligne[]> {
+  if (!all) return [];
+  return all<Ligne>(`SELECT ${COLONNES} FROM propositions WHERE etat IN ('publie', 'annule', 'reporte') AND derniere_date >= ? ORDER BY coalesce(reporte_au, date), debut, id`, localDay(now));
+}
+
+/** Whether a proposal can still be changed by its author: not refused, not called off, its last date not past. */
+export const modifiable = (l: Ligne, now: Date) => !["refuse", "annule", "retire"].includes(l.etat) && l.derniere_date >= localDay(now);
+
+export type Action =
+  | { kind: "confirmer" }
+  | { kind: "annuler" }
+  | { kind: "reporter"; date: string }
+  | { kind: "prolonger"; jusqu_au: string }
+  | { kind: "retirer_contact" }
+  | { kind: "corriger"; p: Proposition };
+
+/** Whether the change shows at once (the public sees it) rather than after the moderation. */
+export const visibleAussitot = (a: Action) => a.kind !== "confirmer" && a.kind !== "corriger";
+
+/**
+ * One change by the author, in one statement that also checks the state it starts from: a confirmation sends the
+ * proposal to the moderation; a correction too, out of sight until read again; calling off, postponing, extending a
+ * repeated event and removing the public contact show at once. False when the state did not allow it (already
+ * confirmed, past, refused…).
+ */
+export async function agir(jeton: string, a: Action, now = new Date()): Promise<boolean> {
+  if (!run || !/^[\w-]{22}$/.test(jeton)) return false;
+  const t = Math.floor(now.getTime() / 1000);
+  const h = await empreinteJeton(jeton);
+  const today = localDay(now);
+  const open = `jeton = ? AND derniere_date >= ? AND etat NOT IN ('refuse', 'annule', 'retire')`;
+  let sql: string;
+  let params: unknown[];
+  switch (a.kind) {
+    case "confirmer":
+      sql = `UPDATE propositions SET etat = 'a_moderer', confirme_le = ? WHERE jeton = ? AND etat = 'a_confirmer'`;
+      params = [t, h];
+      break;
+    case "annuler":
+      // Not published yet: withdrawn, never shown; published: shown called off, so that no one goes for nothing.
+      sql = `UPDATE propositions SET etat = CASE etat WHEN 'a_moderer' THEN 'retire' ELSE 'annule' END, modifie_le = ? WHERE ${open} AND etat <> 'a_confirmer'`;
+      params = [t, h, today];
+      break;
+    case "reporter":
+      if (!isDay(a.date) || a.date < today || a.date > addDays(today, JOURS_AVANT_MAX)) return false;
+      // A postponed repeated event becomes a single date: its new one.
+      sql = `UPDATE propositions SET etat = CASE etat WHEN 'publie' THEN 'reporte' ELSE etat END, reporte_au = ?, repete = NULL, jusqu_au = NULL, derniere_date = ?, modifie_le = ? WHERE ${open} AND etat IN ('publie', 'reporte', 'a_moderer')`;
+      params = [a.date, a.date, t, h, today];
+      break;
+    case "prolonger":
+      if (!isDay(a.jusqu_au) || a.jusqu_au > addMonths(today, REPETITION_MOIS_MAX)) return false;
+      sql = `UPDATE propositions SET jusqu_au = ?, derniere_date = ?, modifie_le = ? WHERE ${open} AND repete IS NOT NULL AND jusqu_au < ?`;
+      params = [a.jusqu_au, a.jusqu_au, t, h, today, a.jusqu_au];
+      break;
+    case "retirer_contact":
+      sql = `UPDATE propositions SET contact_public = NULL, modifie_le = ? WHERE jeton = ? AND contact_public IS NOT NULL`;
+      params = [t, h];
+      break;
+    case "corriger": {
+      const p = a.p;
+      sql = `UPDATE propositions SET etat = 'a_moderer', titre = ?, date = ?, debut = ?, fin = ?, repete = ?, jusqu_au = ?, commune = ?, lieu = ?, organisateur = ?, description = ?, prix = ?, lien = ?, contact_public = ?, derniere_date = ?, reporte_au = NULL, modifie_le = ? WHERE ${open} AND etat <> 'a_confirmer'`;
+      params = [p.titre, p.date, p.debut, p.fin ?? null, p.repete ?? null, p.jusqu_au ?? null, p.commune, p.lieu, p.organisateur, p.description, p.prix, p.lien ?? null, p.contact_public ?? null, derniereDate(p), t, h, today];
+      break;
+    }
+  }
+  try {
+    return (await run(sql, ...params)) > 0;
+  } catch (err) {
+    console.error("propositions : changement impossible", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
+/**
+ * The deletions of the table's trigger, for the days nothing is proposed: run once a day by the scheduled event.
+ * Returns the rows changed.
+ */
+export async function purger(now = new Date()): Promise<number> {
+  if (!run) return 0;
+  const t = Math.floor(now.getTime() / 1000);
+  const cutoff = addDays(localDay(now), -30);
+  let n = 0;
+  n += await run("UPDATE propositions SET source = NULL WHERE source IS NOT NULL AND t < ?", t - 86400);
+  n += await run("DELETE FROM propositions WHERE etat = 'a_confirmer' AND t < ?", t - 172800);
+  n += await run("UPDATE propositions SET email = NULL, contact_public = NULL WHERE (email IS NOT NULL OR contact_public IS NOT NULL) AND derniere_date < ?", cutoff);
+  n += await run("DELETE FROM propositions WHERE t < ?", t - 31536000);
+  n += await run("UPDATE liens SET source = NULL WHERE source IS NOT NULL AND t < ?", t - 86400);
+  n += await run("DELETE FROM liens WHERE t < ?", t - 31536000);
+  return n;
 }

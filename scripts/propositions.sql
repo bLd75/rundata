@@ -26,12 +26,12 @@ BEGIN
 END;
 
 -- propositions: « Proposer un événement ». etat: a_confirmer (the author has not clicked the e-mailed link yet),
--- a_moderer, publie, refuse, annule, reporte. jeton: the SHA-256 of the link's secret, never the secret. date, jusqu_au,
--- derniere_date: local days « 2026-11-14 »; debut, fin: « 18:00 »; repete: semaine, mois or NULL. email: the author's,
--- never published, wiped 30 days after derniere_date. contact_public: the contact shown with the event, only when its
--- author asked (the e-mail, or the club's address or phone), wiped with the e-mail. confirme_le, modere_le,
--- modifie_le: Unix times; motif: why a proposal was refused, in a few words, never about the author; reporte_au: the
--- new day of a postponed event.
+-- a_moderer, publie, refuse, annule, reporte, retire (withdrawn by its author before it was published). jeton: the
+-- SHA-256 of the link's secret, never the secret. date, jusqu_au, derniere_date: local days « 2026-11-14 »; debut, fin:
+-- « 18:00 »; repete: semaine, mois or NULL. email: the author's, never published, wiped 30 days after derniere_date.
+-- contact_public: the contact shown with the event, only when its author asked (the e-mail, or the club's address or
+-- phone), wiped with the e-mail. confirme_le, modere_le, modifie_le: Unix times; motif: why a proposal was refused, in
+-- a few words, never about the author; reporte_au: the new day of a postponed event.
 CREATE TABLE IF NOT EXISTS propositions (
   id INTEGER PRIMARY KEY,
   t INTEGER NOT NULL,

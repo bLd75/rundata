@@ -2123,7 +2123,7 @@ export function agendaHours(q: string): string {
 
 function agendaRow(r: AgendaRow): string {
   const lieu = r.lieu && r.lieu.length > 80 ? `${r.lieu.slice(0, 79)}…` : r.lieu;
-  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.publie_par && r.lu_le ? `${r.publie_par}, lu ${r.lu_le}` : r.publie_par]
+  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.publie_par && r.lu_le ? `${r.publie_par}, lu ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
     .filter(Boolean).map((x) => esc(x!)).join(" · ");
   // Cancelled or postponed stays listed, said first: people look for it.
   const badge = r.statut ? `<span class="badge${r.statut === "complet" ? " m" : ""}">${esc(r.statut)}</span> ` : "";
@@ -2191,9 +2191,17 @@ export function agendaEvents(rows: AgendaRow[]): object[] {
       },
       ...(r.lien ? { url: r.lien } : {}),
       description: eventSummary(r),
-      ...(HALLS.has(r.publie_par) ? { organizer: { "@type": "Organization", name: r.publie_par } } : {}),
+      // An event its organiser proposed here is theirs: the association, and its price as they gave it.
+      ...(HALLS.has(r.publie_par) || r.propose ? { organizer: { "@type": "Organization", name: r.publie_par } } : {}),
+      ...(r.propose && r.prix ? { offers: offer(r.prix, r.lien) } : {}),
     };
   });
+}
+
+/** A price as its organiser wrote it: « gratuit » is 0 €, « 5 € » is 5 €; any other text, no amount. */
+function offer(prix: string, url?: string): object {
+  const amount = /^gratuit/i.test(prix) ? 0 : /^\s*(\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?)\s*$/i.exec(prix)?.[1]?.replace(",", ".");
+  return { "@type": "Offer", ...(amount !== undefined ? { price: Number(amount), priceCurrency: "EUR" } : { description: prix }), ...(url ? { url } : {}) };
 }
 
 // The kinds a visitor can keep, in the order of the select; only those in the list are offered.

@@ -29,6 +29,7 @@ import { communesIn, strip } from "./avis-eau.js";
 import { annonceEvenement, extrait, lead, monthOf, statusOf, type Statut } from "./agenda-mots.js";
 import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
 import { SOURCES as SPORT_SOURCES } from "./sport.js";
+import { PROPOSITIONS } from "./agenda-propositions.js";
 
 export { communesIn, lead, monthOf, statusOf, type Statut };
 
@@ -116,6 +117,11 @@ export interface Evenement {
   organisateur?: { nom: string; commune?: string; sport?: string; site?: string };
   /** A session for the club's members (« Jeu libre », a weekly outing): told only to who says they are one. */
   reserve_adherents?: boolean;
+  /**
+   * Proposed by its organiser on rundata.re (src/providers/agenda-propositions.ts): the day it was, and the contact its
+   * author chose to show, if any. Never « checked ».
+   */
+  propose?: { le: string; contact?: string };
 }
 
 /**
@@ -1224,6 +1230,7 @@ export const AGENDAS: Agenda[] = [
   SPORTSREGIONS,
   reunionFr,
   ...SALLES,
+  PROPOSITIONS,
 ];
 
 /**

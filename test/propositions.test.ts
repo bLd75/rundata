@@ -17,7 +17,11 @@ let sent: { to: string; subject: string; text: string }[];
 function plug(send: propositions.Envoi | null = async (m) => (sent.push(m), true)) {
   db = new DatabaseSync(":memory:");
   db.exec(readFileSync(new URL("../scripts/propositions.sql", import.meta.url), "utf8"));
-  propositions.configure(async (sql, ...params) => Number(db.prepare(sql).run(...(params as (string | number | null)[])).changes), send ?? undefined);
+  propositions.configure(
+    async (sql, ...params) => Number(db.prepare(sql).run(...(params as (string | number | null)[])).changes),
+    send ?? undefined,
+    async <T>(sql: string, ...params: unknown[]) => db.prepare(sql).all(...(params as (string | number | null)[])) as T[],
+  );
 }
 /** A page's text as written here, before the site's French typography (web/typo.ts). */
 const plain = (html: string) => html.replace(/’/g, "'").replace(/[\u00a0\u202f]/g, " ");
@@ -288,5 +292,274 @@ describe("the forms on the site (web/propositions.ts)", () => {
     for (const id of ["lien-merci", "lien-limite", "lien-erreur"]) expect(html).toContain(`id="${id}"`);
     expect(FORMS_CSS).toContain(".fo .msg:target");
     expect(html).toContain("Merci. Nous vérifions que votre lien se lit bien ; vos événements apparaissent ensuite sur rundata.re, en général sous 48 h.");
+  });
+});
+
+/** A proposal kept through the form's path; its secret, as e-mailed. */
+async function propose(fields: Record<string, string> = {}, now = NOW): Promise<string> {
+  const r = read({ ...PROPOSITION, ...fields }, now) as { proposition: propositions.Proposition };
+  expect(await propositions.enregistrerProposition(r.proposition, "203.0.113.7", "https://rundata.re/associations/proposition/", now)).toBe("ok");
+  return /\/associations\/proposition\/([\w-]{22})\n/.exec(sent.at(-1)!.text)![1];
+}
+const publish = () => db.exec("UPDATE propositions SET etat = 'publie' WHERE etat = 'a_moderer'");
+const etat = () => rows<{ etat: string }>("SELECT etat FROM propositions ORDER BY id").map((r) => r.etat);
+
+describe("the secret link: what its author can change (src/propositions.ts)", () => {
+  it("finds the proposal by its secret only, and confirms it once, into the moderation", async () => {
+    const secret = await propose();
+    expect(await propositions.parJeton("x".repeat(22))).toBeUndefined();
+    expect(await propositions.parJeton("pas un secret")).toBeUndefined();
+    const l = await propositions.parJeton(secret);
+    expect(l).toMatchObject({ etat: "a_confirmer", titre: "Tournoi de pétanque du club" });
+    expect(l).not.toHaveProperty("jeton");
+    expect(l).not.toHaveProperty("source");
+    expect(await propositions.agir(secret, { kind: "confirmer" }, later(1))).toBe(true);
+    expect(await propositions.agir(secret, { kind: "confirmer" }, later(2))).toBe(false);
+    expect(etat()).toEqual(["a_moderer"]);
+    expect(await propositions.visibles(NOW)).toEqual([]);
+  });
+
+  it("withdraws a proposal not yet published, never shown; calls off a published one, shown « annulé »", async () => {
+    const first = await propose();
+    await propositions.agir(first, { kind: "confirmer" }, NOW);
+    // Cancelling before the confirmation: nothing to call off yet.
+    const second = await propose({ titre: "Loto du club" });
+    expect(await propositions.agir(second, { kind: "annuler" }, NOW)).toBe(false);
+    expect(await propositions.agir(first, { kind: "annuler" }, NOW)).toBe(true);
+    expect(etat()).toEqual(["retire", "a_confirmer"]);
+    expect(await propositions.visibles(NOW)).toEqual([]);
+    const third = await propose({ titre: "Kermesse" });
+    await propositions.agir(third, { kind: "confirmer" }, NOW);
+    publish();
+    expect(await propositions.agir(third, { kind: "annuler" }, NOW)).toBe(true);
+    expect((await propositions.visibles(NOW)).map((l) => [l.titre, l.etat])).toEqual([["Kermesse", "annule"]]);
+    // Called off is final.
+    expect(await propositions.agir(third, { kind: "reporter", date: "2026-11-21" }, NOW)).toBe(false);
+  });
+
+  it("postpones to a day within the year, a repeated event becoming a single one", async () => {
+    const secret = await propose({ repete: "semaine", jusqu_au: "2026-12-26" });
+    await propositions.agir(secret, { kind: "confirmer" }, NOW);
+    publish();
+    expect(await propositions.agir(secret, { kind: "reporter", date: "2026-10-28" }, NOW)).toBe(false);
+    expect(await propositions.agir(secret, { kind: "reporter", date: "2026-11-31" }, NOW)).toBe(false);
+    expect(await propositions.agir(secret, { kind: "reporter", date: "2026-11-21" }, NOW)).toBe(true);
+    expect(rows("SELECT etat, date, reporte_au, repete, jusqu_au, derniere_date FROM propositions")).toEqual([
+      { etat: "reporte", date: "2026-11-07", reporte_au: "2026-11-21", repete: null, jusqu_au: null, derniere_date: "2026-11-21" },
+    ]);
+  });
+
+  it("extends a repeated event up to three months from the day it is asked, never shortens it", async () => {
+    const secret = await propose({ repete: "semaine", jusqu_au: "2026-12-26" });
+    await propositions.agir(secret, { kind: "confirmer" }, NOW);
+    publish();
+    expect(await propositions.agir(secret, { kind: "prolonger", jusqu_au: "2026-12-12" }, NOW)).toBe(false);
+    expect(await propositions.agir(secret, { kind: "prolonger", jusqu_au: "2027-01-30" }, NOW)).toBe(false);
+    expect(await propositions.agir(secret, { kind: "prolonger", jusqu_au: "2027-01-29" }, NOW)).toBe(true);
+    // A month later, three months from then.
+    expect(await propositions.agir(secret, { kind: "prolonger", jusqu_au: "2027-02-27" }, later(24 * 30))).toBe(true);
+    expect(rows("SELECT jusqu_au, derniere_date FROM propositions")).toEqual([{ jusqu_au: "2027-02-27", derniere_date: "2027-02-27" }]);
+    // Not a single event.
+    const single = await propose({ titre: "Loto" });
+    await propositions.agir(single, { kind: "confirmer" }, NOW);
+    expect(await propositions.agir(single, { kind: "prolonger", jusqu_au: "2026-12-01" }, NOW)).toBe(false);
+  });
+
+  it("removes the public contact at once; corrects into the moderation again, out of sight, the address kept", async () => {
+    const secret = await propose({ contact_public: "0262 12 34 56" });
+    await propositions.agir(secret, { kind: "confirmer" }, NOW);
+    publish();
+    expect((await propositions.visibles(NOW))[0].contact_public).toBe("0262 12 34 56");
+    expect(await propositions.agir(secret, { kind: "retirer_contact" }, NOW)).toBe(true);
+    expect((await propositions.visibles(NOW))[0].contact_public).toBeNull();
+    const fixed = propositions.lireProposition(new URLSearchParams({ ...PROPOSITION, titre: "Grand tournoi de pétanque", email: "", accord: "", vous_etes: "" }), formulaires.COMMUNES, NOW, { email: "club@example.org" });
+    expect(fixed).toHaveProperty("proposition.titre", "Grand tournoi de pétanque");
+    expect(await propositions.agir(secret, { kind: "corriger", p: (fixed as { proposition: propositions.Proposition }).proposition }, NOW)).toBe(true);
+    expect(rows("SELECT etat, titre, email FROM propositions")).toEqual([{ etat: "a_moderer", titre: "Grand tournoi de pétanque", email: "club@example.org" }]);
+    expect(await propositions.visibles(NOW)).toEqual([]);
+  });
+
+  it("changes nothing once the event's last date is past", async () => {
+    const secret = await propose();
+    await propositions.agir(secret, { kind: "confirmer" }, NOW);
+    publish();
+    const after = new Date("2026-11-08T06:00:00Z");
+    expect(await propositions.agir(secret, { kind: "annuler" }, after)).toBe(false);
+    expect(await propositions.agir(secret, { kind: "reporter", date: "2026-11-21" }, after)).toBe(false);
+    expect(await propositions.visibles(after)).toEqual([]);
+  });
+
+  it("forgets on time without a new proposal: the daily purge runs the trigger's deletions", async () => {
+    const secret = await propose();
+    await propose({ titre: "Jamais confirmé" });
+    await propositions.agir(secret, { kind: "confirmer" }, NOW);
+    publish();
+    // 40 days after the event: the unconfirmed one gone, the address and fingerprint wiped, the event kept.
+    expect(await propositions.purger(new Date("2026-12-17T06:00:00Z"))).toBeGreaterThan(0);
+    expect(rows("SELECT titre, email, source FROM propositions")).toEqual([{ titre: "Tournoi de pétanque du club", email: null, source: null }]);
+    expect(await propositions.purger(new Date("2027-10-30T06:00:00Z"))).toBe(1);
+    expect(rows("SELECT * FROM propositions")).toEqual([]);
+  });
+});
+
+describe("the published proposals as an agenda (providers/agenda-propositions.ts)", () => {
+  const ligne = (over: Partial<propositions.Ligne> = {}): propositions.Ligne => ({
+    id: 3, t: Date.parse("2026-10-25T08:00:00Z") / 1000, etat: "publie", titre: "Soirée dansante", date: "2026-11-07", debut: "20:00", fin: "02:00",
+    repete: null, jusqu_au: null, commune: "Saint-Paul", lieu: "Salle polyvalente", organisateur: "Association Lèv la tèt", description: "Bal maloya.",
+    prix: "5 €", lien: null, email: "x@example.org", contact_public: null, derniere_date: "2026-11-07", motif: null, reporte_au: null, ...over,
+  });
+
+  it("tells each occurrence, an end past midnight on the next day, the author's address never", async () => {
+    const { evenement } = await import("../src/providers/agenda-propositions.js");
+    const e = evenement(ligne());
+    expect(e).toMatchObject({ id: "proposition-3", publie_par: "Association Lèv la tèt", lien: "", seances: [{ debut: "2026-11-07T20:00", fin: "2026-11-08T02:00" }], propose: { le: "2026-10-25" } });
+    expect(JSON.stringify(e)).not.toContain("x@example.org");
+    const weekly = evenement(ligne({ repete: "semaine", jusqu_au: "2026-11-28", fin: null }));
+    expect(weekly.seances.map((s) => s.debut)).toEqual(["2026-11-07T20:00", "2026-11-14T20:00", "2026-11-21T20:00", "2026-11-28T20:00"]);
+    const monthly = evenement(ligne({ date: "2026-10-31", repete: "mois", jusqu_au: "2027-01-31", fin: null }));
+    expect(monthly.seances.map((s) => s.debut.slice(0, 10))).toEqual(["2026-10-31", "2026-11-30", "2026-12-31", "2027-01-31"]);
+    expect(evenement(ligne({ etat: "reporte", reporte_au: "2026-11-21" }))).toMatchObject({ statut: "reporté", reporte_au: "2026-11-21", seances: [{ debut: "2026-11-21T20:00" }] });
+    expect(evenement(ligne({ etat: "annule", contact_public: "0262 00 00 00" }))).toMatchObject({ statut: "annulé", propose: { contact: "0262 00 00 00" } });
+  });
+
+  it("says « Proposé par l'organisateur sur rundata.re » with the day, never when it was read, and the contact only if chosen", async () => {
+    const { evenement } = await import("../src/providers/agenda-propositions.js");
+    const { eventRow } = await import("../src/tools/agenda.js");
+    const e = { ...evenement(ligne({ contact_public: "contact@lev.re" })), lu_le: "2026-10-29T10:00" };
+    const row = eventRow(e, e.seances);
+    expect(row).toMatchObject({ publie_par: "Association Lèv la tèt", propose: "Proposé par l'organisateur sur rundata.re le 25/10/2026", contact: "contact@lev.re", lu_le: undefined, lien: undefined });
+    expect(JSON.stringify(row)).not.toMatch(/vérifié/i);
+    expect(eventRow(evenement(ligne()), evenement(ligne()).seances).contact).toBeUndefined();
+  });
+
+  it("gives search engines the association as organiser, and its price", async () => {
+    const { evenement } = await import("../src/providers/agenda-propositions.js");
+    const { eventRow } = await import("../src/tools/agenda.js");
+    const { agendaEvents } = await import("../src/web/domains.js");
+    const row = (l: propositions.Ligne) => eventRow(evenement(l), evenement(l).seances);
+    const [paid, free, other] = agendaEvents([row(ligne()), row(ligne({ prix: "gratuit" })), row(ligne({ prix: "5 € adultes, gratuit enfants" }))]) as Record<string, unknown>[];
+    expect(paid).toMatchObject({ organizer: { "@type": "Organization", name: "Association Lèv la tèt" }, offers: { "@type": "Offer", price: 5, priceCurrency: "EUR" } });
+    expect(free).toMatchObject({ offers: { price: 0, priceCurrency: "EUR" } });
+    expect(other).toMatchObject({ offers: { description: "5 € adultes, gratuit enfants" } });
+  });
+
+  it("is read from the table once a quarter of an hour, counted as one read", async () => {
+    const { PROPOSITIONS } = await import("../src/providers/agenda-propositions.js");
+    const { AGENDAS, COVERED } = await import("../src/providers/agenda.js");
+    expect(AGENDAS).toContain(PROPOSITIONS);
+    expect(COVERED).not.toContain(undefined);
+    const secret = await propose();
+    await propositions.agir(secret, { kind: "confirmer" }, NOW);
+    publish();
+    const got = await PROPOSITIONS.load(new Cache(), NOW);
+    expect(got.value.map((e) => e.titre)).toEqual(["Tournoi de pétanque du club"]);
+  });
+});
+
+describe("the open feed (web/flux-associations.ts)", () => {
+  async function published() {
+    const a = await propose({ contact_public: "0262 12 34 56", description: "Tournoi en doublettes, ouvert à tous ; buvette, grillades." });
+    const b = await propose({ titre: "Loto annulé", email_public: "oui" });
+    for (const s of [a, b]) await propositions.agir(s, { kind: "confirmer" }, NOW);
+    publish();
+    await propositions.agir(b, { kind: "annuler" }, NOW);
+    return propositions.visibles(NOW);
+  }
+
+  it("writes the licence in the JSON, the public contact only if chosen, the author's address never", async () => {
+    const { jsonFeed } = await import("../src/web/flux-associations.js");
+    const feed = jsonFeed(await published(), NOW) as { licence: { nom: string }; evenements: Record<string, unknown>[] };
+    expect(feed.licence.nom).toBe("Licence Ouverte 2.0 (Etalab)");
+    expect(feed.evenements[0]).toMatchObject({ titre: "Tournoi de pétanque du club", seances: [{ debut: "2026-11-07T14:00:00+04:00", fin: "2026-11-07T18:00:00+04:00" }], organisateur: "Pétanque club de Terre-Sainte", contact: "0262 12 34 56", propose_le: "2026-10-29" });
+    // The author asked for their address as the public contact: shown as that, never as the author's.
+    expect(feed.evenements[1]).toMatchObject({ statut: "annulé", contact: "club@example.org" });
+    expect(Object.keys(feed.evenements[1])).not.toContain("email");
+  });
+
+  it("writes a calendar any app reads: UTC times, escaped text, folded lines, a call-off said", async () => {
+    const { icsFeed } = await import("../src/web/flux-associations.js");
+    const ics = icsFeed(await published(), NOW);
+    expect(ics.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n")).toBe(true);
+    expect(ics).toContain("DTSTART:20261107T100000Z\r\nDTEND:20261107T140000Z");
+    expect(ics).toContain("STATUS:CANCELLED");
+    expect(ics).toContain("SUMMARY:ANNULÉ : Loto annulé");
+    expect(ics.replace(/\r\n /g, "")).toContain("buvette\\, grillades.");
+    expect(ics.replace(/\r\n /g, "")).toContain("Licence Ouverte 2.0 (Etalab)");
+    for (const line of ics.split("\r\n")) expect(new TextEncoder().encode(line).length).toBeLessThanOrEqual(75);
+  });
+
+  it("answers at its stable address once the page is out, for anyone", async () => {
+    await published();
+    expect((await handle(new Request("https://rundata.re/associations/evenements.json"), new Cache())).status).toBe(404);
+    formulaires.ouvrir(true);
+    const r = await handle(new Request("https://rundata.re/associations/evenements.json"), new Cache());
+    expect(r.status).toBe(200);
+    expect(r.headers.get("access-control-allow-origin")).toBe("*");
+    expect(((await r.json()) as { evenements: unknown[] }).evenements).toHaveLength(2);
+    const ics = await handle(new Request("https://rundata.re/associations/evenements.ics"), new Cache());
+    expect(ics.headers.get("content-type")).toBe("text/calendar; charset=utf-8");
+  });
+});
+
+describe("the secret link's page (web/propositions.ts)", () => {
+  const page = (secret: string, query = "") => handle(new Request(`https://rundata.re/associations/proposition/${secret}${query}`, { headers: { accept: "text/html" } }), new Cache());
+  const act = (secret: string, fields: Record<string, string>, cache = new Cache(), origin = "https://rundata.re") =>
+    handle(new Request(`https://rundata.re/associations/proposition/${secret}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin }, body: new URLSearchParams(fields).toString() }), cache);
+
+  it("changes nothing when opened (a mail scanner opens links), keeps the secret out of the canonical address and other sites", async () => {
+    formulaires.ouvrir(true);
+    const secret = await propose();
+    const r = await page(secret);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(r.headers.get("x-robots-tag")).toBe("noindex");
+    const html = plain(await r.text());
+    expect(etat()).toEqual(["a_confirmer"]);
+    expect(html).toContain('<input type="hidden" name="action" value="confirmer"><button type="submit">Confirmer l\'événement</button>');
+    expect(html).toContain('<meta name="robots" content="noindex">');
+    expect(html).not.toMatch(new RegExp(`(canonical|og:url)[^>]*${secret}`));
+    expect((await page("x".repeat(22))).status).toBe(404);
+  });
+
+  it("confirms by POST, then says so on the page it sends back to", async () => {
+    formulaires.ouvrir(true);
+    const secret = await propose();
+    expect((await act(secret, { action: "confirmer" }, new Cache(), "https://ailleurs.example")).status).toBe(403);
+    const r = await act(secret, { action: "confirmer" });
+    expect(r.status).toBe(303);
+    expect(r.headers.get("location")).toBe(`https://rundata.re/associations/proposition/${secret}?fait=confirmer`);
+    expect(etat()).toEqual(["a_moderer"]);
+    const html = plain(await (await page(secret, "?fait=confirmer")).text());
+    expect(html).toContain("Merci, l'événement est confirmé.");
+    expect(html).toContain("En cours de relecture");
+    expect(html).toContain("Retirer la proposition");
+    expect(html).toContain("Corriger l'événement");
+    expect(html).not.toContain('name="email"');
+  });
+
+  it("calls off only when its box is ticked, and writes the agendas' copy at once", async () => {
+    formulaires.ouvrir(true);
+    const secret = await propose();
+    await propositions.agir(secret, { kind: "confirmer" }, NOW);
+    publish();
+    expect((await act(secret, { action: "annuler" })).status).toBe(409);
+    const cache = new Cache();
+    expect((await act(secret, { action: "annuler", sur: "oui" }, cache)).status).toBe(303);
+    const { BUNDLE, BUNDLE_SYNC_SECONDS } = await import("../src/providers/agenda.js");
+    const copy = (await cache.bundle(BUNDLE, BUNDLE_SYNC_SECONDS)).peek("agenda:propositions");
+    expect((copy!.value as { statut?: string }[])[0].statut).toBe("annulé");
+  });
+
+  it("gives a correction back with its mistakes, and sends a right one to the moderation", async () => {
+    formulaires.ouvrir(true);
+    const secret = await propose();
+    await propositions.agir(secret, { kind: "confirmer" }, NOW);
+    publish();
+    const { email: _e, accord: _a, vous_etes: _v, ...fields } = PROPOSITION;
+    const wrong = await act(secret, { ...fields, action: "corriger", date: "2026-10-01" });
+    expect(wrong.status).toBe(422);
+    expect(await wrong.text()).toContain('id="faux-date"');
+    expect((await act(secret, { ...fields, action: "corriger", titre: "Grand tournoi" })).status).toBe(303);
+    expect(rows("SELECT etat, titre, email FROM propositions")).toEqual([{ etat: "a_moderer", titre: "Grand tournoi", email: "club@example.org" }]);
   });
 });

@@ -86,6 +86,8 @@ import { aujourdhuiPage } from "./aujourdhui.js";
 import { communeRss } from "./rss.js";
 import { FEUX_PATH, feuxPage } from "./feux.js";
 import * as feux from "../providers/feux.js";
+import { rafraichirPropositions } from "../tools/agenda.js";
+import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
 import { readCopies, resume } from "../tools/resume.js";
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, vigilancePage } from "./pages.js";
 import { OFFLINE_PATH, serviceWorker, SW_PATH } from "./pwa.js";
@@ -285,6 +287,8 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (formulaires.enLigne()) {
     if (path === formulaires.LIEN_PATH) return formulaires.lienPost(request, now);
     if (path === formulaires.PROPOSER_PATH || path === `${formulaires.PROPOSER_PATH}/`) return formulaires.proposer(request, now, await alerte(cache, background, now));
+    if (path === ICS_PATH || path === JSON_PATH) return flux(request, path, now);
+    if (path.startsWith(formulaires.PROPOSITION_PATH)) return formulaires.proposition(request, now, await alerte(cache, background, now), () => rafraichirPropositions(cache, now));
   }
   if (path === "/") {
     const [meteo, vigilance] = await Promise.all([
