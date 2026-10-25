@@ -35,6 +35,7 @@ describe("who makes rundata.re, the connector's page, the legal notice, the 404 
     for (const a of ["<h3>Claude</h3>", "<h3>ChatGPT</h3>", "<h3>Le Chat</h3>", 'datetime="2026-10-25"', 'href="/confidentialite"', 'href="/conditions"']) expect(page).toContain(a);
     expect(page.match(/<meta name="description" content="([^"]*)"/)![1].length).toBeLessThanOrEqual(DESCRIPTION_MAX);
     // ChatGPT answers with its own weather unless rundata.re is named: the card says to name it, no-break spaces as sent.
+    expect(page).toContain("<b>Plugins → Ajouter → Ajouter un serveur MCP personnalisé</b>.</p>");
     expect(page).toContain("<p><b>Ensuite\u00a0:</b> nommez rundata.re dans la question («\u00a0Avec rundata.re\u00a0: …\u00a0») ou tapez <b>@</b> et choisissez-le.</p></div>");
     expect(hits).toMatchObject([{ kind: "page", name: "/mcp", status: 200 }]);
     // HEAD from a link preview: the page too.
