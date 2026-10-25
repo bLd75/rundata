@@ -13,7 +13,7 @@ import { NETWORKS } from "./transit.js";
 
 export const SOURCE: SourceInfo = {
   id: "gtfs_rt_reunion",
-  nom: "Bus en temps réel de La Réunion (GTFS-RT)",
+  nom: "Bus en direct de La Réunion (GTFS-RT)",
   organisme: "Région Réunion (Car Jaune), CIVIS (Alternéo), CASUD (CarSud)",
   licence: "Licence Ouverte Etalab 2.0",
   attribution: "Réseaux de transport de La Réunion, via transport.data.gouv.fr",

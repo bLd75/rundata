@@ -333,10 +333,10 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      name: "rundata.re, connecteur MCP La Réunion en temps réel",
+      name: "rundata.re, connecteur MCP La Réunion en direct",
       description:
         "Serveur MCP (Model Context Protocol) gratuit qui donne à Claude, ChatGPT ou Le Chat les données publiques de La Réunion (974) " +
-        "en temps réel : sorties et événements, randonnée, mesures météo, prévisions, vigilance, routes, volcan, mer, électricité, qualité de l'air, services publics, horaires de bus, terrain et risques.",
+        "en direct : sorties et événements, randonnée, mesures météo, prévisions, vigilance, routes, volcan, mer, électricité, qualité de l'air, services publics, horaires de bus, terrain et risques.",
       url: `${origin}/mcp`,
       applicationCategory: "DeveloperApplication",
       operatingSystem: "Web",

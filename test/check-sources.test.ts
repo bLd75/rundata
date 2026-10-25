@@ -56,8 +56,8 @@ describe("the daily check of the sources", () => {
   });
 
   it("checks the buses' real time and the month's fuel prices", () => {
-    expect(motifs("transports", { horaires: "Car Jaune : heures annoncées en temps réel par le réseau (flux de 07:02) quand le bus y figure", fraicheur: {} })).toEqual([]);
-    expect(motifs("transports", { horaires: "Car Jaune : heures annoncées en temps réel par le réseau (flux de 05:40) quand le bus y figure", fraicheur: {} }))
+    expect(motifs("transports", { horaires: "Car Jaune : heures annoncées en direct par le réseau (flux de 07:02) quand le bus y figure", fraicheur: {} })).toEqual([]);
+    expect(motifs("transports", { horaires: "Car Jaune : heures annoncées en direct par le réseau (flux de 05:40) quand le bus y figure", fraicheur: {} }))
       .toEqual(["flux temps réel d'il y a 1,5 h (seuil 30 min)"]);
     expect(motifs("transports", { horaires: "théoriques, publiés par chaque réseau", fraicheur: {} })).toEqual(["pas de temps réel dans les départs"]);
     expect(motifs("carburants", { en_vigueur_depuis: "1er octobre 2026", fraicheur: {} })).toEqual([]);
@@ -71,7 +71,7 @@ describe("the daily check of the sources", () => {
     expect(checkPage(page("/vigilance"), 200, "public, max-age=60", fresh, NOW)).toEqual([]);
     expect(checkPage(page("/vigilance"), 200, "no-store", fresh, NOW)[0].motif).toBe("servie sans son bloc en direct");
     expect(checkPage(page("/vigilance"), 503, "", "", NOW)[0].motif).toBe("HTTP 503");
-    expect(checkPage(page("/trafic"), 200, "", fresh.replace("Rien à signaler.", "Le temps réel des bus ne répond pas pour le moment."), NOW).map((x) => x.motif)).toEqual(["dit « ne répond pas »"]);
+    expect(checkPage(page("/trafic"), 200, "", fresh.replace("Rien à signaler.", "Le flux en direct des bus ne répond pas pour le moment."), NOW).map((x) => x.motif)).toEqual(["dit « ne répond pas »"]);
     expect(checkPage(page("/vigilance"), 200, "", fresh.replace("2026-10-24T02", "2026-10-23T22"), NOW).map((x) => x.motif)).toEqual(["donnée d'il y a 4,4 h (seuil 2 h)"]);
     expect(checkPage(page("/carburants"), 200, "", "<h1>Prix des carburants à La Réunion, septembre 2026</h1>", NOW).map((x) => x.motif)).toEqual(["le titre ne dit pas octobre 2026"]);
     expect(checkPage(page("/volcan"), 200, "", `${fresh}<p>Accès à l'Enclos : à vérifier sur reunion.gouv.fr</p>`, NOW).map((x) => x.motif)).toEqual(["niveau ou accès à l'Enclos « à vérifier »"]);
