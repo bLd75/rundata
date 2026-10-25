@@ -1007,6 +1007,8 @@ export interface AgendaAnswer {
   evenements?: EventRow[];
   autres?: string;
   indisponible?: string[];
+  /** The agendas read by the scheduled event whose copy is not served, with why (tools/agenda.ts, nonLus). */
+  non_lus?: string[];
   /** The communes whose site is not read until they agree (tools/agenda.ts, mentionIle). */
   non_repris?: string;
   couverture: string;

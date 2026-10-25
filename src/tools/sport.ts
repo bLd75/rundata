@@ -2,7 +2,7 @@ import type { Cache, Cached } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
 import { httpUrl } from "../http.js";
-import { AGENDAS, type Evenement, LISIBLES, type programmesSportifs, reserve, sportDesAgendas } from "../providers/agenda.js";
+import { type Agenda, AGENDAS, type Evenement, LIGUE_VOLLEY, LISIBLES, type nonServie, type programmesSportifs, reserve, SPORTSREGIONS, sportDesAgendas } from "../providers/agenda.js";
 import { nonAutorisee } from "../providers/autorisations.js";
 import * as src from "../providers/sport.js";
 import * as avis from "../providers/sport-avis.js";
@@ -256,11 +256,15 @@ export interface SportData {
   presse?: Cached<Fil>;
   /** The communes' sports programmes, in the agendas as last read for `evenements`. */
   programmes?: Awaited<ReturnType<typeof programmesSportifs>>;
+  /** The tournaments and the clubs' events wanted whose copy is not served, with why (src.nonServie). */
+  nonLus: string[];
 }
 
 /** What `sport` needs, read in parallel; a source that fails is left out and named. */
 export async function gather(cache: Cache, sport: Sport | undefined, now: Date, adherent = false): Promise<SportData> {
   const want = (s: Sport) => !sport || sport === s;
+  const clubsWanted = !sport || SPORT_DU_CLUB.some(([, s]) => s === sport);
+  const agendasWanted = want("volley") || clubsWanted;
   const [grandRaid, handball, volley, voile, golfs, auto, actualite, notices, presse, agendas] = await Promise.all([
     want("grand_raid") ? attempt(src.SOURCES.livetrail, () => src.grandRaid(cache, now)) : undefined,
     want("handball") ? attempt(src.SOURCES.ffhb, () => src.championnats(cache, "handball")) : undefined,
@@ -273,7 +277,7 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date, 
     want("volley") || want("handball") ? cache.peek<Fil>("actualites:fil").catch(() => undefined) : undefined,
     // The communes' programmes, of every sport, only when none is asked; the volley league's tournaments; the clubs'
     // events.
-    !sport || want("volley") || SPORT_DU_CLUB.some(([, s]) => s === sport)
+    agendasWanted
       ? sportDesAgendas(cache, !sport).catch((err) => (console.error("programmes sportifs : copie des agendas illisible", why(err)), undefined))
       : undefined,
   ]);
@@ -293,7 +297,22 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date, 
     avis: notices,
     presse,
     programmes: agendas?.programmes,
+    nonLus: [
+      want("volley") ? nonLu(LIGUE_VOLLEY, agendas?.nonServies.tournois) : undefined,
+      clubsWanted ? nonLu(SPORTSREGIONS, agendas?.nonServies.clubs) : undefined,
+    ].filter((x): x is string => !!x),
   };
+}
+
+/** A copy of the scheduled event not served, said with why (« Clubs sportifs (Sportsregions) : … »), never left out. */
+function nonLu(agenda: Agenda, r: ReturnType<typeof nonServie>): string | undefined {
+  return r && `${agenda.nom} : ${derniereLecture(r)}`;
+}
+
+/** Why a copy of the scheduled event is not served (src.nonServie), in words: shared with `evenements`. */
+export function derniereLecture(r: NonNullable<ReturnType<typeof nonServie>>): string {
+  if ("depuis" in r) return `dernière lecture le ${quand(r.depuis)}`;
+  return r.essai ? `dernière lecture sans succès (${quand(r.essai)})` : "première lecture dans quelques minutes";
 }
 
 /** A tournament of the volley league, as `evenements` read it: its place as the league gives it, or « à venir ». */
@@ -541,6 +560,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     actualite: news.length ? news : undefined,
     mise_a_jour: freshness(got),
     indisponible: failed.length ? failed : undefined,
+    non_lus: data.nonLus.length ? data.nonLus : undefined,
     a_savoir: w
       ? "Matchs retenus : ceux qui se jouent dans le lieu demandé (commune du club qui reçoit) et ceux de ses clubs à l'extérieur (champ « deplacement »). Les clubs sont reconnus par leur sigle (VBSP = Volley-Ball de Saint-Pierre, TGV = Tampon Gecko Volley)."
       : undefined,

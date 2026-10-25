@@ -179,6 +179,22 @@ export function copiePlanifiee(bundle: Pick<Bundle, "peek">, agenda: Agenda): Ca
   return hit && hit.ageMs <= PLANIFIE_MAX_AGE_SECONDS * 1000 ? { value: servis(agenda, hit.value as Evenement[]), fetchedAt: new Date(hit.fetchedAt), stale: false } : undefined;
 }
 
+/** Beside its copy, when the last reading of an agenda read by the scheduled event failed (tools/agenda.ts). */
+export const echecPlanifie = (agenda: Agenda) => `echec:${agenda.id}`;
+
+/**
+ * Why the copy of an agenda read by the scheduled event is not served, to be said rather than nothing (La Réunion's
+ * times): its last good reading, when older than PLANIFIE_MAX_AGE_SECONDS; without a copy, its last reading that
+ * failed (`essai`), or none yet (just put online). Undefined when it is served.
+ */
+export function nonServie(bundle: Pick<Bundle, "peek">, agenda: Agenda): { depuis: string } | { essai?: string } | undefined {
+  const local = (t: number) => toLocal(new Date(t).toISOString());
+  const hit = bundle.peek(`agenda:${agenda.id}`);
+  if (hit) return hit.ageMs <= PLANIFIE_MAX_AGE_SECONDS * 1000 ? undefined : { depuis: local(hit.fetchedAt) };
+  const failed = bundle.peek(echecPlanifie(agenda));
+  return failed ? { essai: local(failed.fetchedAt) } : {};
+}
+
 /**
  * An agenda's events as they may be shown, from its copy whatever its age: without their sentence (`faits`), linking to
  * the home page (`accueil`). Applied where a copy is served, not where it is read, so that a copy read before its
@@ -1428,7 +1444,13 @@ export async function programmesSportifs(cache: Pick<Cache, "bundle">): Promise<
  */
 export async function sportDesAgendas(cache: Pick<Cache, "bundle">, programmes: boolean) {
   const [bundle, planned] = await Promise.all([cache.bundle(BUNDLE, BUNDLE_SYNC_SECONDS), planifiees(cache)]);
-  return { programmes: programmes ? programmesIn(bundle) : undefined, tournois: copiePlanifiee(planned, LIGUE_VOLLEY), clubs: copiePlanifiee(planned, SPORTSREGIONS) };
+  return {
+    programmes: programmes ? programmesIn(bundle) : undefined,
+    tournois: copiePlanifiee(planned, LIGUE_VOLLEY),
+    clubs: copiePlanifiee(planned, SPORTSREGIONS),
+    // Why either is not served, to be said.
+    nonServies: { tournois: nonServie(planned, LIGUE_VOLLEY), clubs: nonServie(planned, SPORTSREGIONS) },
+  };
 }
 
 function programmesIn(bundle: Pick<Bundle, "peek">): { e: Evenement; agenda: Agenda; fetchedAt: Date }[] {

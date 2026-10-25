@@ -2,11 +2,12 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PAGE_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems } from "../src/providers/agenda.js";
+import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
 import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
 import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
+import { quand } from "../src/tools/sport.js";
 
 // The communes' sites read, as once they have agreed (test/autorisations.test.ts for what is said until then).
 vi.mock("../src/providers/autorisations.js", () => import("./autorisees.js"));
@@ -140,10 +141,11 @@ describe("agenda", () => {
       let t = NOW.getTime();
       const store = new MemoryStore();
       const at = () => new Cache(store, () => t);
-      // A question never reads it, and says nothing of it while there is no copy.
+      // A question never reads it, and says it has not been read yet while there is no copy (just put online).
       const before = body(await agenda(at(), undefined, undefined, undefined, NOW));
       expect(urls.some(isLeague)).toBe(false);
       expect(before.indisponible).toBeUndefined();
+      expect(before.non_lus).toContain("Ligue réunionnaise de volley-ball : première lecture dans quelques minutes");
       expect(titles(before)).not.toContain(KING);
       expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["salazie", "lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
       expect(urls.filter(isLeague)).toHaveLength(1);
@@ -154,11 +156,35 @@ describe("agenda", () => {
       t += 30 * 60_000;
       expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: [], reportes: [], trop_vieilles: [] });
       expect(urls.filter(isLeague)).toHaveLength(1);
-      // Past 48 hours unread, it is not served any more, and still not named.
+      const read = body(await agenda(at(), undefined, undefined, undefined, NOW));
+      expect(read.non_lus).toBeUndefined();
+      expect(read.resume).not.toContain("sans lecture récente");
+      // Past 48 hours unread, it is not served any more, and said with the time of its last reading, never left out.
       t = NOW.getTime() + 49 * 3600_000;
       const late = body(await agenda(at(), undefined, undefined, "King", new Date(t)));
       expect(titles(late)).not.toContain(KING);
       expect(late.indisponible).toBeUndefined();
+      const since = `dernière lecture le ${quand(toLocal(NOW.toISOString()))}`;
+      expect(late.non_lus).toContain(`Ligue réunionnaise de volley-ball : ${since}`);
+      // In the summary, only a commune's own: the whole island's are in the field.
+      expect(late.resume).not.toContain("sans lecture récente");
+      // For a commune: its own agendas, said in the summary too, and those of the whole island, not the other communes'.
+      const leu = body(await agenda(at(), "Saint-Leu", undefined, undefined, new Date(t)));
+      expect(leu.non_lus).toEqual(expect.arrayContaining([`Ville de Saint-Leu : ${since}`, `Ligue réunionnaise de volley-ball : ${since}`]));
+      expect(leu.non_lus.some((x: string) => x.startsWith("Ville de Saint-Louis"))).toBe(false);
+      expect(leu.resume).toContain(`sans lecture récente : Ville de Saint-Leu, ${since} (voir non_lus).`);
+      // La Plaine-des-Palmistes' agenda and news, one source name: named once.
+      const plaine = body(await agenda(at(), "La Plaine-des-Palmistes", undefined, undefined, new Date(t)));
+      expect(plaine.non_lus.filter((x: string) => x.startsWith("Ville de La Plaine-des-Palmistes"))).toHaveLength(1);
+    });
+
+    it("says its last reading failed, and when, when it has no copy to keep", async () => {
+      const store = new MemoryStore();
+      const at = () => new Cache(store, () => NOW.getTime());
+      league = () => new Response("", { status: 503 });
+      expect((await refreshPlanned(at(), NOW)).gardes).toEqual(["lrvb"]);
+      const b = body(await agenda(at(), undefined, undefined, undefined, NOW));
+      expect(b.non_lus).toEqual([`Ligue réunionnaise de volley-ball : dernière lecture sans succès (${quand(toLocal(NOW.toISOString()))})`]);
     });
 
     it("keeps its copy and its time when the reading fails or finds nothing", async () => {
