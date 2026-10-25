@@ -136,6 +136,8 @@ export interface Around {
   serveur?: object;
   /** False: no single `donnee_du` for this answer (fraicheur.ts). */
   donnee?: boolean;
+  /** A source's name from its id, for one served from its last copy (fraicheur.ts). */
+  nom?: (id: string) => string | undefined;
 }
 
 /**
@@ -154,7 +156,7 @@ export function cite<R extends object>(tool: string, r: R, around: Around = {}):
   }
   if (!p || typeof p !== "object" || Array.isArray(p)) return r;
   const isError = "isError" in r && !!r.isError;
-  const extra: Payload = { citer: citation(p), lien: lien(tool, p), fraicheur: fraicheur(p, around.lectures ?? [], around.now ?? new Date(), { donnee: around.donnee }) };
+  const extra: Payload = { citer: citation(p), lien: lien(tool, p), fraicheur: fraicheur(p, around.lectures ?? [], around.now ?? new Date(), { donnee: around.donnee, nom: around.nom }) };
   if (wanting(p, isError)) extra.signaler = AVIS_HINT;
   if (around.serveur) extra.serveur = around.serveur;
   const fields = Object.entries(extra).map(([k, v]) => ` ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(",\n");

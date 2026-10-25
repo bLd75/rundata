@@ -27,8 +27,9 @@ describe("the daily check of the sources", () => {
     expect(checkAnswer(tool("vigilance"), { isError: true, content: [{ type: "text", text: "MCP error -32602" }] }, NOW)[0].motif).toMatch(/^erreur de l'outil : MCP error/);
     expect(motifs("vigilance", { emise: "24/10 06:25 heure de La Réunion", fraicheur: {} })).toEqual([]);
     expect(motifs("vigilance", { emise: "23/10 10:25 heure de La Réunion", fraicheur: {} })).toEqual(["bulletin d'il y a 20,8 h (seuil 18 h)"]);
-    expect(motifs("vigilance", { emise: "24/10 06:25", fraicheur: { copie_de_secours: true, avertissement: "Source injoignable : dernière valeur connue, lue le 23/10 18:00." } }))
-      .toEqual(["copie de secours : Source injoignable : dernière valeur connue, lue le 23/10 18:00."]);
+    const avertissement = "La source « Vigilance météo » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 23/10 à 18:00.";
+    expect(motifs("vigilance", { emise: "24/10 06:25", fraicheur: { copies_de_secours: [{ source: "Vigilance météo", lue_le: "23/10 18:00" }], avertissement } }))
+      .toEqual([`copie de secours : ${avertissement}`]);
     expect(motifs("meteo_actuelle", { stations: [{ heure_mesure: "24/10 02:30" }, { heure_mesure: "24/10 06:30" }], fraicheur: {} })).toEqual([]);
     expect(motifs("meteo_actuelle", { stations: [], fraicheur: {} })).toEqual(["mesure absente ou illisible"]);
     // The production's time is heure_mesure (electricite): fresh, three hours old and more, missing.

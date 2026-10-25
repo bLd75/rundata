@@ -182,7 +182,7 @@ export function checkAnswer(c: ToolCheck, result: { isError?: boolean; content?:
     return [{ point: c.point, motif: "réponse illisible" }];
   }
   const out: Probleme[] = [];
-  if (p.fraicheur?.copie_de_secours) out.push({ point: c.point, motif: `copie de secours : ${p.fraicheur.avertissement ?? "source injoignable"}` });
+  if (p.fraicheur?.copies_de_secours?.length) out.push({ point: c.point, motif: `copie de secours : ${p.fraicheur.avertissement}` });
   else if (p.fraicheur?.avertissement) out.push({ point: c.point, motif: String(p.fraicheur.avertissement) });
   return [...out, ...c.check(p, now)];
 }

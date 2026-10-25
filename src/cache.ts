@@ -11,6 +11,7 @@ import { costOf } from "./budget.js";
 import { cacheTally } from "./metrics.js";
 
 import { noteLecture } from "./lectures.js";
+import { UpstreamError, why } from "./types.js";
 import { familyOf, RENDU_REVISION } from "./web/revisions.js";
 
 /**
@@ -104,11 +105,17 @@ export class TieredStore implements CacheStore {
   }
 }
 
+/** The last good copy, served because `error` stopped its refresh: with the source that did not answer, if it said. */
+const lastCopy = <T>(hit: CacheEntry, error: unknown): Cached<T> =>
+  ({ value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true, ...(error instanceof UpstreamError && { source: error.source }) });
+
 export interface Cached<T> {
   value: T;
   fetchedAt: Date;
   /** True when the source failed and this is the last good copy. */
   stale: boolean;
+  /** With `stale`: the id of the source that did not answer, when its error said it (an UpstreamError). */
+  source?: string;
   /** What its build took, when it was measured (`peek` only). */
   cost?: number;
   /** A page's copy built by another version of the code (`outdated`, `peek` only). */
@@ -183,7 +190,7 @@ export class Cache {
 
   /** Tells the tool call being answered, if any, what it was served (lectures.ts): its answer says how fresh it is. */
   private noted<T>(key: string, freshSeconds: number, c: Cached<T>): Cached<T> {
-    noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds });
+    noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds, ...(c.source && { source: c.source }) });
     return c;
   }
 
@@ -268,7 +275,7 @@ export class Cache {
     cacheTally().loads++;
     const failed = this.failures.get(key);
     if (failed && this.now() - failed.at < backoffSeconds * 1000) {
-      if (hit) return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true };
+      if (hit) return lastCopy<T>(hit, failed.error);
       throw failed.error;
     }
     let pending = this.dedupe ? this.inflight.get(key) : undefined;
@@ -294,8 +301,12 @@ export class Cache {
       this.failures.delete(key);
       return { value, fetchedAt: new Date(entry.fetchedAt), stale: false };
     } catch (error) {
-      if (!OUT_OF_BUDGET.test(String((error as Error)?.message ?? error))) this.failures.set(key, { at: this.now(), error });
-      if (hit) return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true };
+      if (!OUT_OF_BUDGET.test(String((error as Error)?.message ?? error))) {
+        this.failures.set(key, { at: this.now(), error });
+        // The source answered, but reading it failed (its page changed shape…): ours to mend, said in the logs only.
+        if (!(error instanceof UpstreamError)) console.error(`lecture sans aboutir : ${key}`, why(error));
+      }
+      if (hit) return lastCopy<T>(hit, error);
       throw error;
     } finally {
       this.inflight.delete(key);

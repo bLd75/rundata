@@ -6,7 +6,7 @@ import { withLectures } from "../src/lectures.js";
 import { INDEX, NOUVEAUTES, OUTILS, outilsRecents, serveur } from "../src/nouveautes.js";
 import { inReunionBeacons } from "../src/providers/pioupiou.js";
 import { existsSync } from "node:fs";
-import { SERVER_ICONS, VERSION } from "../src/server.js";
+import { nomDeSource, SERVER_ICONS, VERSION } from "../src/server.js";
 import { cite } from "../src/tools/citer.js";
 import { dataDate, fraicheur, instantOf } from "../src/tools/fraicheur.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
@@ -155,7 +155,7 @@ describe("fraicheur", () => {
     expect(f.donnee_du).toBe(p.stations[0].heure_mesure);
     expect(f.age).toBe(p.stations[0].age_texte);
     expect(f.lue_a).toBe("18/10 23:19");
-    expect(f.copie_de_secours).toBeUndefined();
+    expect(f.copies_de_secours).toBeUndefined();
     expect(fetched).toEqual([]);
   });
 
@@ -163,9 +163,15 @@ describe("fraicheur", () => {
     const at = FIX.getTime() - 3 * 3600_000;
     const cache = await weatherCache(at, FIX.getTime());
     const { value, lectures } = await withLectures(() => meteoActuelle(cache, "Saint-Pierre", FIX));
-    const f = body(cite("meteo_actuelle", value, { lectures, now: FIX })).fraicheur;
-    expect(f.copie_de_secours).toBe(true);
-    expect(f.avertissement).toBe("Source injoignable : dernière valeur connue, lue le 18/10 20:20.");
+    const f = body(cite("meteo_actuelle", value, { lectures, now: FIX, nom: nomDeSource })).fraicheur;
+    // Each source named from its error (cache.ts) and its card (sources_donnees); every part a copy: no « reste ».
+    expect(f.copies_de_secours).toEqual([
+      { source: "Observations aéroport (METAR)", lue_le: "18/10 20:20" },
+      { source: "Balises de vent Pioupiou (OpenWindMap)", lue_le: "18/10 20:20" },
+    ]);
+    expect(f.avertissement).toBe(
+      "Ces sources n'ont pas répondu à notre dernière lecture : « Observations aéroport (METAR) », lue le 18/10 à 20:20\u00a0; « Balises de vent Pioupiou (OpenWindMap) », lue le 18/10 à 20:20. Ce qui vient d'elles date de ces lectures.",
+    );
   });
 
   it("is in the answer of every tool, next to the citation, errors included", async () => {
@@ -233,6 +239,47 @@ describe("fraicheur", () => {
     expect(fraicheur({ production: { heure_mesure: "25/10 10:55", age_min: 0 } }, read, new Date("2026-10-25T10:55:00+04:00")).age).toBe("à l'instant");
     // No single date for an answer made of many dated parts.
     expect(fraicheur({ vigilance: { emise: "24/10 15:25" } }, lectures, now, { donnee: false }).donnee_du).toBeUndefined();
+  });
+
+  it("names each source served from its last copy, in marketing's words, and the rest only when it is up to date", () => {
+    const now = new Date("2026-10-25T23:00:00+04:00");
+    const t = (hhmm: string) => Date.parse(`2026-10-25T${hhmm}:00+04:00`);
+    const nom = (id: string) => ({ la1ere: "Réunion La 1ère (actualité sportive)", ffhb: "FFHB" })[id];
+    const fresh = { key: "ffvb", fetchedAt: t("22:58"), stale: false, freshSeconds: 900 };
+    const la1ere = { key: "sport:actu", fetchedAt: t("22:22"), stale: true, freshSeconds: 1800, source: "la1ere" };
+    const ffhb = { key: "sport:hand", fetchedAt: t("21:51"), stale: true, freshSeconds: 3600, source: "ffhb" };
+    const ours = (key: string, hhmm: string) => ({ key, fetchedAt: t(hhmm), stale: true, freshSeconds: 3600 });
+    const said = (lectures: object[]) => fraicheur({}, lectures as never, now, { nom });
+    expect(said([fresh, la1ere])).toMatchObject({
+      copies_de_secours: [{ source: "Réunion La 1ère (actualité sportive)", lue_le: "25/10 22:22" }],
+      avertissement: "La source « Réunion La 1ère (actualité sportive) » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 22:22. Le reste de la réponse est à jour.",
+    });
+    // Every part a copy: no « reste ».
+    expect(said([la1ere]).avertissement).toBe("La source « Réunion La 1ère (actualité sportive) » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 22:22.");
+    expect(said([fresh, la1ere, ffhb]).avertissement).toBe(
+      "Ces sources n'ont pas répondu à notre dernière lecture : « FFHB », lue le 25/10 à 21:51\u00a0; « Réunion La 1ère (actualité sportive) », lue le 25/10 à 22:22. Ce qui vient d'elles date de ces lectures\u00a0; le reste de la réponse est à jour.",
+    );
+    // A read of ours that failed: a part, no source, no cause.
+    expect(said([fresh, ours("page", "22:22")])).toMatchObject({
+      copies_de_secours: [{ lue_le: "25/10 22:22" }],
+      avertissement: "Une partie de cette réponse date de notre lecture du 25/10 à 22:22 : la lecture suivante n'a pas abouti. Le reste de la réponse est à jour.",
+    });
+    expect(said([fresh, ours("a", "21:51"), ours("b", "22:22")]).avertissement).toBe(
+      "Des parties de cette réponse datent de nos lectures du 25/10 à 21:51 et à 22:22 : les lectures suivantes n'ont pas abouti. Le reste de la réponse est à jour.",
+    );
+    expect(said([fresh, la1ere, ffhb, ours("a", "21:51"), ours("b", "22:22")]).avertissement).toBe(
+      "Ces sources n'ont pas répondu à notre dernière lecture : « FFHB », lue le 25/10 à 21:51\u00a0; « Réunion La 1ère (actualité sportive) », lue le 25/10 à 22:22. Ce qui vient d'elles date de ces lectures. D'autres parties datent de nos lectures du 25/10 à 21:51 et à 22:22 : les lectures suivantes n'ont pas abouti. Le reste de la réponse est à jour.",
+    );
+    expect(said([fresh, la1ere, ours("a", "22:22")]).avertissement).toBe(
+      "La source « Réunion La 1ère (actualité sportive) » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 22:22. Une autre partie date de notre lecture du 25/10 à 22:22 : la lecture suivante n'a pas abouti. Le reste de la réponse est à jour.",
+    );
+    // Another part older than its pace for another reason: no « reste ».
+    const late = { key: "golf", fetchedAt: t("21:00"), stale: false, freshSeconds: 3600 };
+    expect(said([late, la1ere]).avertissement).not.toMatch(/reste/);
+    // A list kept from yesterday (reference data) is not what the answer is about.
+    const stations = { key: "stations", fetchedAt: t("05:00"), stale: true, freshSeconds: 86_400, source: "ffhb" };
+    expect(said([fresh, stations]).copies_de_secours).toBeUndefined();
+    expect(said([fresh]).avertissement).toBeUndefined();
   });
 
   it("gives the age of the data from its own date when the block states none, whatever the read", () => {

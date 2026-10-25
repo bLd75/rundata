@@ -12,6 +12,8 @@ export interface Lecture {
   stale: boolean;
   /** How long the entry is fresh: a day or more means reference data (stations, lists), not a measurement. */
   freshSeconds: number;
+  /** For a last copy: the id of the source that did not answer (`SourceInfo.id`), when its error said it. */
+  source?: string;
 }
 
 const current = new AsyncLocalStorage<Lecture[]>();
