@@ -216,19 +216,24 @@ export interface Urgent {
 // What serves the most people goes first: the events, the hikes, the weather; the sea and the buses after the rest.
 export const FIRST = ["agenda", "sentiers", "meteo"];
 const LAST = ["mer", "bus"];
+// What is first while in force; on the home page's tiles, before the sea and the buses when quiet.
+const URGENT = ["vigilance", "volcan"];
+// On the home page's tiles, before them: the traffic, which only sends to Waze and infotrafic.re until a real measure
+// of it exists.
+const TILES_LAST = ["trafic"];
 
 /** The vigilance and the volcano while in force, in that order, as keys. */
 export const urgentKeys = (u: Urgent) => [u.vigilance && "vigilance", u.volcan && "volcan"].filter((k): k is string => !!k);
 
 /**
  * `list` in the order of use: the vigilance and the volcano first while in force, then FIRST, the others as listed
- * (the vigilance and the volcano among them when quiet), the sea and the buses last.
+ * (the vigilance and the volcano among them when quiet), the sea and the buses last. With `quietLast` (the home page's
+ * tiles), the traffic, then a quiet vigilance and a quiet volcano go to the end too, before the sea and the buses.
  */
-export function byUse<T extends { key: string }>(list: T[], u: Urgent): T[] {
-  const rank = (key: string) => {
-    const top = [...urgentKeys(u), ...FIRST].indexOf(key);
-    return top >= 0 ? top - 100 : LAST.includes(key) ? 100 + LAST.indexOf(key) : 0;
-  };
+export function byUse<T extends { key: string }>(list: T[], u: Urgent, quietLast = false): T[] {
+  const top = [...urgentKeys(u), ...FIRST];
+  const last = quietLast ? [...TILES_LAST, ...URGENT.filter((k) => !top.includes(k)), ...LAST] : LAST;
+  const rank = (key: string) => (top.includes(key) ? top.indexOf(key) - 100 : last.includes(key) ? 100 + last.indexOf(key) : 0);
   // The sort is stable: the others keep their order.
   return [...list].sort((a, b) => rank(a.key) - rank(b.key));
 }
