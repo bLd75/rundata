@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WORKER_BUDGET, WORKER_FREE_LIMIT, costOf, count, counted, later, left, measured, spent } from "../src/budget.js";
+import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, SERVICE_OPS_LIMIT, SUBREQUEST_LIMIT, costOf, count, counted, later, left, measured, spent } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { KvStore, type KvBinding } from "../src/kv.js";
 import * as arome from "../src/providers/arome.js";
@@ -17,7 +17,7 @@ const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].tex
 
 // The platform's own refusal, past its limit (count() refuses before, at the budget).
 function overLimit() {
-  if (spent() > WORKER_FREE_LIMIT) throw new Error("Too many subrequests by single Worker invocation");
+  if (spent() > SUBREQUEST_LIMIT) throw new Error("Too many subrequests by single Worker invocation");
 }
 
 /** The data center's cache, counted as the Worker counts it (worker.ts EdgeStore): a read, a write. */
@@ -100,49 +100,51 @@ describe("subrequests of a cold question in the Worker", () => {
     ["meteo_actuelle, Cilaos", (c: Cache) => meteoActuelle(c, "Cilaos", NOW), 30],
     ["meteo_actuelle, tour of the island", (c: Cache) => meteoActuelle(c, undefined, NOW), 25],
     ["temperature_mer, Saint-Leu", (c: Cache) => temperatureMer(c, "Saint-Leu", NOW), 10],
-    ["prevision_meteo, Cilaos demain", (c: Cache) => previsionMeteo(c, "Cilaos", "demain", NOW), WORKER_BUDGET],
-    ["prevision_meteo, tour of the island", (c: Cache) => previsionMeteo(c, undefined, undefined, NOW), WORKER_BUDGET],
+    ["prevision_meteo, Cilaos demain", (c: Cache) => previsionMeteo(c, "Cilaos", "demain", NOW), PAGE_BUDGET],
+    ["prevision_meteo, tour of the island", (c: Cache) => previsionMeteo(c, undefined, undefined, NOW), PAGE_BUDGET],
   ])("%s stays within the limit", async (_, ask, most) => {
-    const { value, used } = await counted(WORKER_BUDGET, () => ask(isolate()));
+    const { value, used } = await counted(PAGE_BUDGET, () => ask(isolate()));
     expect(value.isError).toBeFalsy();
     expect(used).toBeLessThanOrEqual(most);
   });
 
-  it("forecasts cold from the ECMWF model, labelled, when no AROME grid is stored yet: the grids are the scheduled event's", async () => {
-    // Under the budget, the stations' share and the reserve for the ECMWF and the UV leave too few subrequests for
-    // one step of five grids: none is downloaded. The prefetch below fills them, after which questions are on AROME.
-    const { value, used } = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(), "Cilaos", "demain", NOW));
+  it("forecasts cold from the ECMWF model, labelled, when no AROME grid is stored yet and the invocation is short of subrequests", async () => {
+    // Under 40, the stations' share and the reserve for the ECMWF and the UV leave too few subrequests for one step of
+    // five grids: none is downloaded. The prefetch below fills them, after which questions are on AROME.
+    const { value, used } = await counted(40, () => previsionMeteo(isolate(), "Cilaos", "demain", NOW));
     expect(value.isError).toBeFalsy();
     // It says why: AROME is up, its grids not loaded yet.
     expect(body(value).resume).toMatch(/^PRÉVISION \(prévision AROME pas encore chargée, modèle IFS HRES du Centre européen \(ECMWF\), maille de 9 km, pas une mesure\)/);
     expect(coverages.length).toBe(0);
-    expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(used).toBeLessThanOrEqual(40);
     // The tour of the island says it too.
-    const tour = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(), undefined, undefined, NOW));
+    const tour = await counted(40, () => previsionMeteo(isolate(), undefined, undefined, NOW));
     expect(body(tour.value).resume).toMatch(/^PRÉVISION \(prévision AROME pas encore chargée, modèle IFS/);
   });
 
   it("does not say AROME is coming when it is not plugged in, nor beyond its 48 hours", async () => {
     configure({});
-    const off = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(), "Cilaos", "demain", NOW));
+    const off = await counted(PAGE_BUDGET, () => previsionMeteo(isolate(), "Cilaos", "demain", NOW));
     expect(body(off.value).resume).toMatch(/^PRÉVISION \(modèle IFS HRES/);
     configure({ applicationId: "test" });
-    const far = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(), "Cilaos", "dans 5 jours", NOW));
+    const far = await counted(PAGE_BUDGET, () => previsionMeteo(isolate(), "Cilaos", "dans 5 jours", NOW));
     expect(body(far.value).resume).not.toContain("AROME pas encore chargée");
   });
 
-  it("forecasts from AROME cold under the platform's own limit, not the budget: the grids' code, as many as allowed", async () => {
-    // The only case measured at WORKER_FREE_LIMIT: what an invocation could fetch if the budget were the platform's.
-    const { value, used } = await counted(WORKER_FREE_LIMIT, () => previsionMeteo(isolate(), "Cilaos", "demain", NOW));
+  it("forecasts from AROME cold within a page's budget, downloading no more grids than a question's share", async () => {
+    const { value, used } = await counted(PAGE_BUDGET, () => previsionMeteo(isolate(), "Cilaos", "demain", NOW));
     expect(body(value).resume).toMatch(/^PRÉVISION \(modèle AROME/);
-    expect(coverages.length).toBeGreaterThan(10);
-    expect(used).toBeLessThanOrEqual(WORKER_FREE_LIMIT);
+    // The rest of the run's grids are the scheduled prefetch's (providers/arome.ts QUESTION_NEW_GRIDS); the terrain's
+    // three, once per run, come apart.
+    expect(coverages.length).toBeGreaterThan(3);
+    expect(coverages.length).toBeLessThanOrEqual(arome.QUESTION_NEW_GRIDS + 3);
+    expect(used).toBeLessThanOrEqual(PAGE_BUDGET);
   });
 
   it("asks nothing again of a warm isolate", async () => {
     const c = isolate();
-    await counted(WORKER_BUDGET, () => meteoActuelle(c, "Cilaos", NOW));
-    const { used } = await counted(WORKER_BUDGET, () => meteoActuelle(c, "Saint-Pierre", NOW));
+    await counted(PAGE_BUDGET, () => meteoActuelle(c, "Cilaos", NOW));
+    const { used } = await counted(PAGE_BUDGET, () => meteoActuelle(c, "Saint-Pierre", NOW));
     expect(used).toBe(0);
   });
 });
@@ -154,8 +156,8 @@ describe("scheduled AROME prefetch", () => {
     for (;;) {
       runs++;
       const before = { reads: kv.reads, writes: kv.writes, grids: coverages.length };
-      const { value, used } = await counted(WORKER_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
-      expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
+      const { value, used } = await counted(PAGE_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
+      expect(used).toBeLessThanOrEqual(PAGE_BUDGET);
       // Each read and write of KV is a subrequest, counted with the grids.
       expect(kv.reads - before.reads + kv.writes - before.writes).toBeGreaterThan(0);
       expect(used).toBeGreaterThanOrEqual(kv.reads - before.reads + kv.writes - before.writes + coverages.length - before.grids);
@@ -165,12 +167,12 @@ describe("scheduled AROME prefetch", () => {
     const prefetched = coverages.length;
     expect(prefetched).toBeGreaterThan(60); // 14 steps of 5 fields left in the run, and the terrain
     const reads = kv.reads;
-    const r = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(kv), "Cilaos", "demain", NOW));
+    const r = await counted(PAGE_BUDGET, () => previsionMeteo(isolate(kv), "Cilaos", "demain", NOW));
     expect(coverages.length).toBe(prefetched);
     // The question in another data center reads the bundle from KV: counted too, within the budget.
     expect(kv.reads).toBeGreaterThan(reads);
     expect(r.used).toBeGreaterThanOrEqual(kv.reads - reads);
-    expect(r.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(r.used).toBeLessThanOrEqual(PAGE_BUDGET);
     expect(body(r.value).pas_de_3h.filter((s: { modele: string }) => s.modele.startsWith("AROME")).length).toBeGreaterThan(5);
   });
 });
@@ -182,8 +184,8 @@ describe("the cloud layer of the mornings in the AROME prefetch", () => {
     for (;;) {
       events++;
       // As the scheduled event runs it: its own isolate, the KV shared, the page budget.
-      const { value, used } = await counted(WORKER_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
-      expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
+      const { value, used } = await counted(PAGE_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
+      expect(used).toBeLessThanOrEqual(PAGE_BUDGET);
       if (!value?.later) break;
       expect(events).toBeLessThan(72); // the events between two runs, every 5 minutes for 6 hours
     }
@@ -231,25 +233,57 @@ describe("a run not all out yet, in the Worker", () => {
     ["Cilaos demain", (c: Cache) => previsionMeteo(c, "Cilaos", "demain", NOW)],
     ["tour of the island", (c: Cache) => previsionMeteo(c, undefined, undefined, NOW)],
   ])("%s cold stays within the limit", async (_, ask) => {
-    const { value, used } = await counted(WORKER_BUDGET, () => ask(isolate()));
+    const { value, used } = await counted(PAGE_BUDGET, () => ask(isolate()));
     expect(value.isError).toBeFalsy();
-    expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(used).toBeLessThanOrEqual(PAGE_BUDGET);
   });
 
   it("is filled by the prefetch from both runs, after which a question downloads nothing", async () => {
     const kv = new Namespace();
     for (let runs = 1; ; runs++) {
-      const { value, used } = await counted(WORKER_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
-      expect(used).toBeLessThanOrEqual(WORKER_BUDGET);
+      const { value, used } = await counted(PAGE_BUDGET, () => prefetchForecasts(isolate(kv), NOW));
+      expect(used).toBeLessThanOrEqual(PAGE_BUDGET);
       if (!value?.later) break;
       expect(runs).toBeLessThan(6);
     }
     const prefetched = coverages.length;
-    const r = await counted(WORKER_BUDGET, () => previsionMeteo(isolate(kv), "Cilaos", "demain", NOW));
+    const r = await counted(PAGE_BUDGET, () => previsionMeteo(isolate(kv), "Cilaos", "demain", NOW));
     expect(coverages.length).toBe(prefetched);
     const res = body(r.value);
     expect(res.resume).toMatch(/calcul de 22\/10 04:00, et de 21\/10 22:00 pour la suite/);
     expect(res.pas_de_3h.filter((s: { modele: string }) => s.modele.startsWith("AROME")).length).toBe(7);
+  });
+});
+
+describe("the budgets of each kind of invocation", () => {
+  it("are each under the platform's limits, the calls to KV and D1 included, and nested", () => {
+    for (const b of [SCHEDULED_BUDGET, PAGE_BUDGET, BUILD_BUDGET]) {
+      expect(b).toBeLessThan(SERVICE_OPS_LIMIT);
+      expect(b).toBeLessThan(SUBREQUEST_LIMIT);
+    }
+    expect(BUILD_BUDGET).toBeLessThan(PAGE_BUDGET);
+    expect(PAGE_BUDGET).toBeLessThan(SCHEDULED_BUDGET);
+  });
+
+  it("cut a build at its own budget, whatever the invocation has left, and the invocation goes on", async () => {
+    const { value, used } = await counted(SCHEDULED_BUDGET, async () => {
+      const cut = await measured("test:emballee", async () => {
+        for (;;) count();
+      }).catch((err) => String(err));
+      count(3); // the rest of the invocation
+      return cut;
+    });
+    expect(value).toMatch(new RegExp(`Too many subrequests: the budget of ${BUILD_BUDGET} is spent`));
+    expect(used).toBe(BUILD_BUDGET + 3);
+    // A job given more, as a page's own reads.
+    const more = await counted(SCHEDULED_BUDGET, () => measured("test:large", async () => (count(BUILD_BUDGET + 50), "ok"), BUILD_BUDGET * 2));
+    expect(more.value).toBe("ok");
+  });
+
+  it("refuse everything at a budget of 0", async () => {
+    const { value, used } = await counted(0, () => measured("test:zero", async () => (count(), "lu")).catch(() => "refusé"));
+    expect(value).toBe("refusé");
+    expect(used).toBe(0);
   });
 });
 
@@ -294,8 +328,8 @@ describe("the invocation's budget", () => {
     t += 60_000;
     const cold = new Cache(new TieredStore(new MemoryStore(), edge), () => t, false);
     let asked = 0;
-    const { value, used } = await counted(WORKER_BUDGET, async () => {
-      count(WORKER_BUDGET - 4); // the stations, the radar… : the sources' share is spent
+    const { value, used } = await counted(PAGE_BUDGET, async () => {
+      count(PAGE_BUDGET - PAGE_BUDGET / 10); // the stations, the radar… : the sources' share is spent
       return cold.get("x", 300, async () => {
         asked++;
         count();
@@ -304,7 +338,7 @@ describe("the invocation's budget", () => {
     });
     expect(value).toMatchObject({ value: "copie", stale: false });
     expect(asked).toBe(0);
-    expect(used).toBe(WORKER_BUDGET - 4 + 1);
+    expect(used).toBe(PAGE_BUDGET - PAGE_BUDGET / 10 + 1);
   });
 
   it("counts the work after the response against it", async () => {

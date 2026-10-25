@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { resolvePlace } from "../src/places/resolve.js";
-import { counted, WORKER_FREE_LIMIT } from "../src/budget.js";
+import { counted, PAGE_BUDGET } from "../src/budget.js";
 import * as ensemble from "../src/providers/ensemble.js";
 import * as openmeteo from "../src/providers/openmeteo.js";
 import { parsePeriod, previsionMeteo } from "../src/tools/prevision.js";
@@ -190,7 +190,7 @@ describe("confidence of the forecast days (ECMWF ensemble)", () => {
       urls.push(String(url));
       throw new Error("no network in tests");
     });
-    const { value } = await counted(WORKER_FREE_LIMIT, async () => previsionMeteo(await offlineCache(), "Cilaos", "dans 3 jours", NOW));
+    const { value } = await counted(PAGE_BUDGET, async () => previsionMeteo(await offlineCache(), "Cilaos", "dans 3 jours", NOW));
     expect(urls.filter((u) => u.includes("ensemble-api"))).toEqual([]);
     expect(body(value).jours.some((j: { confiance?: string }) => j.confiance)).toBe(false);
     expect(SHARED_AFTER.some((s) => s.key === ensemble.KEY)).toBe(true);

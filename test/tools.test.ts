@@ -1,4 +1,4 @@
-import { WORKER_BUDGET, counted } from "../src/budget.js";
+import { PAGE_BUDGET, counted } from "../src/budget.js";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore, TieredStore } from "../src/cache.js";
@@ -109,7 +109,7 @@ describe("temperature_mer", () => {
     });
     const satellites = () => asked.filter((u) => u.includes("/thredds/") || u.includes("/erddap/"));
     // In the Worker, where the scheduled event shares the grids; a copy of 7 hours: it has not refreshed it since.
-    const inWorker = async <T,>(f: () => Promise<T>) => (await counted(WORKER_BUDGET, f)).value;
+    const inWorker = async <T,>(f: () => Promise<T>) => (await counted(PAGE_BUDGET, f)).value;
     const cache = await offlineCache({ copyAgeMs: 7 * 3600_000 });
     const place = body(await inWorker(() => temperatureMer(cache, "Saint-Leu", NOW)));
     expect(place.mesure).toMatchObject({ nature: "mesure_satellite", jour_mesure: "2026-10-16" });
@@ -132,7 +132,7 @@ describe("temperature_mer", () => {
     await memory.put(SATELLITES, grids("2026-10-15", at - 40 * 60_000));
     await edge.put(SATELLITES, grids("2026-10-16", at - 60_000));
     const cache = new Cache(new TieredStore(memory, edge), () => at, false);
-    const r = body((await counted(WORKER_BUDGET, () => temperatureMer(cache, "Saint-Leu", NOW))).value);
+    const r = body((await counted(PAGE_BUDGET, () => temperatureMer(cache, "Saint-Leu", NOW))).value);
     expect(r.mesure).toMatchObject({ nature: "mesure_satellite", jour_mesure: "2026-10-16" });
     // The newer ones are kept in memory: the next answers ask no store for half an hour.
     expect((await memory.get(SATELLITES))!.fetchedAt).toBe(at - 60_000);

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { count, counted, measured, WORKER_BUDGET } from "../src/budget.js";
+import { count, counted, measured, PAGE_BUDGET } from "../src/budget.js";
 import { Cache, type CacheEntry, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
 import { readCopies, resume, resumeDuJour, UPDATING } from "../src/tools/resume.js";
@@ -213,26 +213,25 @@ afterEach(() => {
 
 describe("reading the copies", () => {
   it("keeps the recent ones, names the others with the tool to call, and reads nothing else", async () => {
-    const { value } = await counted(WORKER_BUDGET, () => readCopies(isolate(new EdgeLike()), SAINT_PAUL, SAINT_PAUL, NOW));
+    const { value } = await counted(PAGE_BUDGET, () => readCopies(isolate(new EdgeLike()), SAINT_PAUL, SAINT_PAUL, NOW));
     // Nothing at all: every part named, nothing refreshed without a way to finish after the answer.
     expect(value.leftOut.map((x) => x.outil)).toEqual(expect.arrayContaining(["meteo_actuelle et prevision_meteo", "coupures_eau", "evenements", "actualites"]));
     expect(value.refreshed).toBeUndefined();
 
-    const { value: v2 } = await counted(WORKER_BUDGET, async () => readCopies(isolate(await edgeWith(["coupures"])), SAINT_PAUL, SAINT_PAUL, NOW));
+    const { value: v2 } = await counted(PAGE_BUDGET, async () => readCopies(isolate(await edgeWith(["coupures"])), SAINT_PAUL, SAINT_PAUL, NOW));
     expect(v2.copies.coupures).toBeUndefined();
     expect(v2.copies.agenda).toBeTruthy();
     expect(v2.leftOut.find((x) => x.outil === "coupures_eau")).toEqual({ partie: "coupures d'eau", raison: "copie de 24/10 09:00, trop ancienne", outil: "coupures_eau", page: "https://rundata.re/coupures-eau/saint-paul" });
   });
 
   it("brings the oldest missing copy up to date after the answer, only within the invocation's subrequests", async () => {
-    // What each build takes, learnt as the site would (budget.ts keeps the most of it per isolate): the weather page's
-    // is more than what is left after the reads, the air's is not.
-    await counted(WORKER_BUDGET, () => measured(KEYS.meteo, () => buildPlace(isolate(new EdgeLike()), SAINT_PAUL, NOW)));
-    await counted(WORKER_BUDGET, () => measured(KEYS.air, () => buildAir(isolate(new EdgeLike()), NOW)).catch(() => undefined));
-    const once = async (missing: string) => {
+    // What each build takes, learnt as the site would (budget.ts keeps the most of it per isolate).
+    await counted(PAGE_BUDGET, () => measured(KEYS.meteo, () => buildPlace(isolate(new EdgeLike()), SAINT_PAUL, NOW)));
+    await counted(PAGE_BUDGET, () => measured(KEYS.air, () => buildAir(isolate(new EdgeLike()), NOW)).catch(() => undefined));
+    const once = async (missing: string, budget = PAGE_BUDGET) => {
       const pending: Promise<unknown>[] = [];
       const edge = await edgeWith([], [missing]);
-      const run = await counted(WORKER_BUDGET, async () => {
+      const run = await counted(budget, async () => {
         const r = await readCopies(isolate(edge), SAINT_PAUL, SAINT_PAUL, NOW, (p) => pending.push(p));
         await Promise.all(pending);
         return r;
@@ -241,23 +240,28 @@ describe("reading the copies", () => {
     };
     const air = await once("air");
     expect(air.refreshed).toBe(KEYS.air);
-    expect(air.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(air.used).toBeLessThanOrEqual(PAGE_BUDGET);
     expect(air.refused).toBe(0);
-    // Too costly to fit: left to the commune page, which brings it up to date on its own.
+    // The dearest, the weather page's, fits too.
     const meteo = await once("meteo");
-    expect(meteo.refreshed).toBeUndefined();
-    expect(meteo.used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect(meteo.refreshed).toBe(KEYS.meteo);
+    expect(meteo.used).toBeLessThanOrEqual(PAGE_BUDGET);
+    expect(meteo.refused).toBe(0);
+    // An invocation with less left: too costly to fit, left to the commune page, which brings it up to date on its own.
+    const short = await once("meteo", 40);
+    expect(short.refreshed).toBeUndefined();
+    expect(short.used).toBeLessThanOrEqual(40);
   });
 
   it("leaves out a recent copy built before its family's revision was raised, and brings it up to date first", async () => {
-    await counted(WORKER_BUDGET, () => measured(KEYS.air, () => buildAir(isolate(new EdgeLike()), NOW)).catch(() => undefined));
+    await counted(PAGE_BUDGET, () => measured(KEYS.air, () => buildAir(isolate(new EdgeLike()), NOW)).catch(() => undefined));
     const edge = new EdgeLike();
     for (const [part, c] of Object.entries(COPIES)) {
       await edge.put(KEYS[part], { value: c.value, fetchedAt: c.fetchedAt.getTime(), version: part === "air" ? "rendu-0" : stampOf(KEYS[part], "2.0.0") });
     }
     const cache = new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false, new MemoryStore(), "2.0.0");
     const pending: Promise<unknown>[] = [];
-    const run = await counted(WORKER_BUDGET, async () => {
+    const run = await counted(PAGE_BUDGET, async () => {
       const r = await readCopies(cache, SAINT_PAUL, SAINT_PAUL, NOW, (p) => pending.push(p));
       await Promise.all(pending);
       return r;
@@ -276,7 +280,7 @@ describe("reading the copies", () => {
       const edge = new EdgeLike();
       await edge.put(KEYS.agenda, { value: agenda, fetchedAt: ago(2).getTime(), version });
       const cache = new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false, new MemoryStore(), "2.0.0");
-      const { copies, leftOut } = await counted(WORKER_BUDGET, () => readCopies(cache, LE_TAMPON, LE_TAMPON, NOW)).then((r) => r.value);
+      const { copies, leftOut } = await counted(PAGE_BUDGET, () => readCopies(cache, LE_TAMPON, LE_TAMPON, NOW)).then((r) => r.value);
       return resume(LE_TAMPON, copies, NOW, leftOut);
     };
     // Of this revision, the copy is served, but not the event of a site no longer read (tools/agenda.ts, repris).
@@ -295,7 +299,7 @@ describe("reading the copies", () => {
 
   it("answers through the tool within the budget, naming the commune of the place asked", async () => {
     const pending: Promise<unknown>[] = [];
-    const run = await counted(WORKER_BUDGET, async () => {
+    const run = await counted(PAGE_BUDGET, async () => {
       const r = await resumeDuJour(isolate(await edgeWith()), "Boucan Canot", NOW, (p) => pending.push(p));
       await Promise.all(pending);
       return r;
@@ -304,7 +308,7 @@ describe("reading the copies", () => {
     expect(r.lieu.commune).toBe("Saint-Paul");
     expect(r.commune).toBe("Saint-Paul");
     expect(r.coupures_eau.avis).toHaveLength(1);
-    expect((await run.settled()).used).toBeLessThanOrEqual(WORKER_BUDGET);
+    expect((await run.settled()).used).toBeLessThanOrEqual(PAGE_BUDGET);
   });
 
   it("says when the place is not found", async () => {

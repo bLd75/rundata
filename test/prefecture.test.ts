@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Info } from "../src/providers/actualites.js";
 import * as pref from "../src/providers/prefecture.js";
 import * as mf from "../src/providers/vigilance.js";
-import { counted, WORKER_BUDGET } from "../src/budget.js";
+import { counted, PAGE_BUDGET } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { ecoles, withPrefecture } from "../src/tools/ecoles.js";
 import { ecolesPage } from "../src/web/ecoles.js";
@@ -93,13 +93,13 @@ describe("reading the prefecture, which can fail", () => {
         ? page([["Alerte rouge cyclonique : « Je me confine pour ne courir aucun risque »", "24/10/2026"]])
         : menu + page([["Alerte orange cyclonique : « Je m’organise pour être bien protégé »", "23/10/2026"]]));
     });
-    const run = await counted(WORKER_BUDGET, () => pref.cyclone(new Cache(new MemoryStore(), () => NOW.getTime()), NOW.getTime()));
+    const run = await counted(PAGE_BUDGET, () => pref.cyclone(new Cache(new MemoryStore(), () => NOW.getTime()), NOW.getTime()));
     expect(run.value.value?.decision).toMatchObject({ niveau: 4 });
     expect(asked).toEqual(["https://www.reunion.gouv.fr/Actualites/Communiques-de-presse", "https://www.reunion.gouv.fr/Actualites/Cyclone-Test"]);
     expect(run.used).toBe(2);
     // Without a section in the menu: the press releases only, one subrequest.
     vi.stubGlobal("fetch", async () => new Response(page([["Alerte orange cyclonique", "23/10/2026"]])));
-    expect((await counted(WORKER_BUDGET, () => pref.releases(new Cache(new MemoryStore(), () => NOW.getTime())))).used).toBe(1);
+    expect((await counted(PAGE_BUDGET, () => pref.releases(new Cache(new MemoryStore(), () => NOW.getTime())))).used).toBe(1);
     // The section fails: the press releases stand.
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.stubGlobal("fetch", async (url: string) => (String(url).includes("Cyclone-Test") ? new Response("", { status: 503 }) : new Response(menu + page([["Alerte orange cyclonique", "23/10/2026"]]))));
