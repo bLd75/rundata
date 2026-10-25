@@ -72,7 +72,7 @@ export const since = (iso: string | Date, now: Date) =>
 
 export const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-reunion-en-direct-meteo-mer-bus-velos-air-volcan-pour-vous-et-votre-assistant-ia";
 // Where else rundata.re lives, linked from every footer and named in the home page's structured data.
-export const GITHUB = "https://github.com/bLd75/rundata";
+export const GITHUB = "https://github.com/rundata-re/rundata";
 export const GLAMA = "https://glama.ai/mcp/servers/bLd75/rundata";
 
 /** An account of rundata.re: its name, its address, its logo drawn in the text colour. */
@@ -1686,7 +1686,7 @@ export function legalPage(origin: string, kind: "confidentialite" | "conditions"
 </section>`
     : `<section style="${PROSE}">
   <h2>Le service</h2>
-  <p>rundata.re est un service gratuit et non commercial : un site et un connecteur MCP (<code>${esc(origin)}/mcp</code>) qui réunissent les données publiques de La Réunion pour les personnes et leurs assistants IA. Il n'y a ni compte ni abonnement. Son code est libre, sous licence MIT, sur <a href="https://github.com/bLd75/rundata">GitHub</a>.</p>
+  <p>rundata.re est un service gratuit et non commercial : un site et un connecteur MCP (<code>${esc(origin)}/mcp</code>) qui réunissent les données publiques de La Réunion pour les personnes et leurs assistants IA. Il n'y a ni compte ni abonnement. Son code est libre, sous licence MIT, sur <a href="${GITHUB}">GitHub</a>.</p>
   <h2>Pas un service officiel, pas de garantie</h2>
   <p>Les données viennent d'organismes publics et de projets ouverts, cités dans chaque réponse. Elles sont données telles quelles, sans garantie d'exactitude, de fraîcheur ni de disponibilité. Pour un cyclone, de fortes pluies, une crue ou une éruption, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture. La fiche d'une adresse n'a aucune valeur juridique : le cadastre est un document fiscal, et l'état des risques obligatoire pour une vente ou une location reste à établir.</p>
   <h2>Usage raisonnable</h2>

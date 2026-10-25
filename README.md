@@ -120,7 +120,7 @@ La marée est faible à La Réunion (20 à 80 cm) : en mortes-eaux, la pleine ou
 
 ## Code source
 
-https://github.com/bLd75/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
+https://github.com/rundata-re/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 
 Ailleurs : la fiche de réutilisation sur [data.gouv.fr](https://www.data.gouv.fr/reuses/rundata-re-la-reunion-en-direct-meteo-mer-bus-velos-air-volcan-pour-vous-et-votre-assistant-ia), la fiche du serveur sur [Glama](https://glama.ai/mcp/servers/bLd75/rundata) et la page [Facebook](https://www.facebook.com/1432704299917309).
 
