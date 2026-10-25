@@ -16,14 +16,14 @@ const NOTICES = new Set(["sources", "serveur", "avis", "coupures_annoncees", "pu
 export const FUSEAU = "heure de La Réunion (UTC+4)";
 
 type Payload = Record<string, unknown>;
-type Dated = { du: string; age?: string };
+type Dated = { du: string; cle: string; age?: string };
 
 // The age the block states beside its date: its text, or its minutes (the production of electricite has only those).
 const ageOf = (o: Payload): string | undefined =>
   typeof o.age_texte === "string" ? o.age_texte : typeof o.age_min === "number" ? (o.age_min < 1 ? "à l'instant" : ageText(o.age_min)) : undefined;
 
 const dated = (o: Payload): Dated | undefined => {
-  for (const k of DATED) if (typeof o[k] === "string" && o[k]) return { du: o[k] as string, age: ageOf(o) };
+  for (const k of DATED) if (typeof o[k] === "string" && o[k]) return { du: o[k] as string, cle: k, age: ageOf(o) };
   return undefined;
 };
 
@@ -80,6 +80,19 @@ export function instantOf(du: string, now: Date): number | undefined {
   return !m[3] && t > now.getTime() + 2 * 86_400_000 ? at(year - 1) : t;
 }
 
+/**
+ * The age of the data from its own date, when the block states none: in days for a date without a time (« 18/08/2026 »
+ * says the day, not the hour). A model run is said as the age of the computation, not of the forecast it gives.
+ */
+function ageFrom(data: Dated, at: number, now: Date): string {
+  const minutes = ageMinutes(new Date(at), now);
+  const days = Math.floor((now.getTime() + 4 * 3600_000) / 86_400_000) - Math.floor((at + 4 * 3600_000) / 86_400_000);
+  const age = /\d\d[:h]\d\d/.test(data.du)
+    ? (minutes < 1 ? "à l'instant" : ageText(minutes))
+    : days < 1 ? "aujourd'hui" : days === 1 ? "hier" : `il y a ${days} jours`;
+  return data.cle === "run_du_modele" ? `modèle calculé ${age} : l'âge du calcul, pas de la prévision, qui porte sur les heures à venir` : age;
+}
+
 /** `donnee`: false leaves `donnee_du` out (an answer made of many dated parts, each saying its own). */
 export function fraicheur(p: Payload, lectures: Lecture[], now: Date, opts: { donnee?: boolean } = {}) {
   const live = lectures.filter((l) => l.freshSeconds < REFERENCE_SECONDS);
@@ -97,7 +110,7 @@ export function fraicheur(p: Payload, lectures: Lecture[], now: Date, opts: { do
     donnee_du: data?.du,
     lue_a: localTime(when),
     fuseau: FUSEAU,
-    age: data?.age ?? (ageMinutes(when, now) < 1 ? "à l'instant" : ageText(ageMinutes(when, now))),
+    age: data?.age ?? (data && at != null ? ageFrom(data, at, now) : ageMinutes(when, now) < 1 ? "à l'instant" : ageText(ageMinutes(when, now))),
     copie_de_secours: stale ? true : undefined,
     avertissement: stale ? `Source injoignable : dernière valeur connue, lue le ${localTime(new Date(stale.fetchedAt))}.` : undefined,
   };

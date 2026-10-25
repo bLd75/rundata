@@ -211,4 +211,25 @@ describe("fraicheur", () => {
     // No single date for an answer made of many dated parts.
     expect(fraicheur({ vigilance: { emise: "24/10 15:25" } }, lectures, now, { donnee: false }).donnee_du).toBeUndefined();
   });
+
+  it("gives the age of the data from its own date when the block states none, whatever the read", () => {
+    const now = new Date("2026-10-25T14:10:00+04:00");
+    // Read a minute ago: the age is the data's, never the read's.
+    const read = [{ key: "copie", fetchedAt: Date.parse("2026-10-25T14:09:00+04:00"), stale: false, freshSeconds: 300 }];
+    const age = (p: Record<string, unknown>) => fraicheur(p, read, now).age;
+    // A bulletin (vigilance), a sea forecast's update, a notice: each its own age.
+    expect(age({ emise: "25/10 06:25 heure de La Réunion" })).toBe("il y a 8 h");
+    expect(age({ etat_de_la_mer: { mis_a_jour: "25/10 13:40" } })).toBe("il y a 30 min");
+    expect(age({ avis: [{ publie_le: "23/10/2026 à 21:49" }] })).toBe("il y a 40 h");
+    // A notice dated by its day only: in days, never hours counted from midnight.
+    expect(age({ avis: [{ publie_le: "25/10/2026" }] })).toBe("aujourd'hui");
+    expect(age({ avis: [{ publie_le: "24/10/2026" }] })).toBe("hier");
+    expect(age({ avis: [{ publie_le: "18/08/2026" }] })).toBe("il y a 68 jours");
+    // A model run: the age of the computation, said as such, not of the forecast, which is about the hours to come.
+    const run = age({ modele: { nom: "AROME", run_du_modele: "25/10 10:00" }, jours: [] });
+    expect(run).toBe("modèle calculé il y a 4 h : l'âge du calcul, pas de la prévision, qui porte sur les heures à venir");
+    expect(run).not.toMatch(/^il y a/);
+    // Nothing dated: the read's age, as before.
+    expect(age({ resume: "rien de daté" })).toBe("il y a 1 min");
+  });
 });
