@@ -32,6 +32,7 @@ import { FLAG_INNER } from "./flag.js";
 import { logo } from "./logo.js";
 import { esc, islandMap, type Marker, type ZoneLink } from "./map.js";
 import { typo } from "./typo.js";
+import { mentionLinks } from "../mentions.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
 import { FORMS_CSS } from "./formulaires-style.js";
@@ -887,7 +888,7 @@ ${head.shell ? "" : `${banner(head.alerte, head.path)}
 ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
 <div class="band">${withHook(band, head.path)}</div>
 <main class="wrap">
-${body}
+${mentionLinks(body)}
 </main>
 ${head.shell ? "" : `${head.sansPartage ? "" : share(origin, head)}
 ${head.sansAvis ? "" : avisForm(head.path)}`}
