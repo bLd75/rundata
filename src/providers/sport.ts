@@ -57,7 +57,7 @@ export const SOURCES = {
   },
   lrvb_tournois: {
     id: "lrvb_tournois",
-    nom: "Volley-ball : tournois de la Ligue réunionnaise (beach, green volley, jeunes)",
+    nom: "Volley-ball : tournois ouverts de la Ligue réunionnaise (King, Green 3X3)",
     organisme: "Ligue réunionnaise de volley-ball (LRVB)",
     licence: "Information publique (calendrier officiel de la Ligue, cité avec son lien)",
     attribution: "LRVB",

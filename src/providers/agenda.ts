@@ -995,8 +995,8 @@ export function parseOtiEst(html: string, now: Date): Evenement[] {
 const NORD = ["Saint-Denis", "Sainte-Marie", "Sainte-Suzanne"];
 
 /**
- * The volley league's calendar: its open tournaments (beach and green volley, « King », « Green 3X3 ») and its youth
- * championships, all over the island. Their place is often not given yet (« Infos à venir »): said so, never guessed.
+ * The volley league's calendar: its open tournaments (« King Saison 6 » solo and duo, « Green 3X3 »), all over the
+ * island. Their place is often not given yet (« Infos à venir »): said so, never guessed.
  * Read by the scheduled event: the questions' subrequests all go to the communes' agendas.
  */
 export const LIGUE_VOLLEY: Agenda = {

@@ -225,8 +225,9 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
  * what is left pays for its reading and the bundle's write; the bundle written once, and only if one was read. A
  * reading that fails, or that finds nothing where the copy had events, keeps the copy and its time.
  */
-export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ lus: string[]; gardes: string[]; reportes: string[] }> {
-  const out = { lus: [] as string[], gardes: [] as string[], reportes: [] as string[] };
+export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ lus: string[]; gardes: string[]; reportes: string[]; trop_vieilles: string[] }> {
+  // `trop_vieilles`: not read again this time, and their copy, older than PLANIFIE_MAX_AGE_SECONDS, no longer served.
+  const out = { lus: [] as string[], gardes: [] as string[], reportes: [] as string[], trop_vieilles: [] as string[] };
   const planned = src.AGENDAS.filter((a) => a.planifie);
   // The bundle's read (unless this invocation has it already), one agenda's reading, the write.
   if (!planned.length || left() - KEEP_LEFT < 3) {
@@ -254,6 +255,13 @@ export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ 
     } catch (err) {
       console.error(`source ${agenda.source.id} (${agenda.id}) indisponible, la copie est gardée:`, why(err));
       out.gardes.push(agenda.id);
+    }
+  }
+  for (const agenda of planned) {
+    const old = bundle.peek(`agenda:${agenda.id}`);
+    if (!out.lus.includes(agenda.id) && old && old.ageMs > src.PLANIFIE_MAX_AGE_SECONDS * 1000) {
+      console.error(`source ${agenda.source.id} (${agenda.id}) : copie trop vieille (${Math.round(old.ageMs / 3600_000)} h), plus servie`);
+      out.trop_vieilles.push(agenda.id);
     }
   }
   if (out.lus.length) await bundle.save();

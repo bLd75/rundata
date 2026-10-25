@@ -250,7 +250,7 @@ describe("sport", () => {
       sport: "volley-ball", quand: "dimanche 01/11", epreuve: "King Saison 6 Solo étape 2", detail: "Ligue réunionnaise de volley-ball",
       lieu: "lieu à venir (voir la page de la Ligue)", lien: "https://lrvb.re/calendrier2/king-saison-6-solo-etape-2/",
     });
-    expect(b.sources.map((s: { source: string }) => s.source)).toContain("Volley-ball : tournois de la Ligue réunionnaise (beach, green volley, jeunes)");
+    expect(b.sources.map((s: { source: string }) => s.source)).toContain("Volley-ball : tournois ouverts de la Ligue réunionnaise (King, Green 3X3)");
     // Not for another sport, nor for a commune (its place is not known yet).
     expect(body(await sportTool(ligue(), "handball", undefined, "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
     expect(body(await sportTool(ligue(), "volley", "Saint-Pierre", "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");

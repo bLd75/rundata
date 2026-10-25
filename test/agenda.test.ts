@@ -122,14 +122,14 @@ describe("agenda", () => {
       expect(urls.some((u) => u.includes("lrvb.re"))).toBe(false);
       expect(before.indisponible).toBeUndefined();
       expect(titles(before)).not.toContain(KING);
-      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["lrvb"], gardes: [], reportes: [] });
+      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["lrvb"], gardes: [], reportes: [], trop_vieilles: [] });
       expect(urls.filter((u) => u.includes("lrvb.re"))).toHaveLength(1);
       // Another isolate serves it, with the time it was read.
       const after = body(await agenda(at(), undefined, undefined, "King", NOW));
       expect(after.evenements.find((e: { titre: string }) => e.titre === KING)).toMatchObject({ lieu: "lieu à venir (voir la page de la Ligue)", lu_le: expect.stringContaining("08:00") });
       // Not again within the hour.
       t += 30 * 60_000;
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: [], reportes: [] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: [], reportes: [], trop_vieilles: [] });
       expect(urls.filter((u) => u.includes("lrvb.re"))).toHaveLength(1);
       // Past 48 hours unread, it is not served any more, and still not named.
       t = NOW.getTime() + 49 * 3600_000;
@@ -147,10 +147,15 @@ describe("agenda", () => {
       expect((first?.value as unknown[]).length).toBe(3);
       t += 2 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
       expect(await entry(store)).toEqual(first);
       league = () => new Response(JSON.stringify({ events: [] }));
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
+      expect(await entry(store)).toEqual(first);
+      // Still failing two days on: the copy, no longer served, is said too old in the scheduled event's log.
+      t += 48 * 3600_000;
+      league = () => new Response("", { status: 503 });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
       expect(await entry(store)).toEqual(first);
     });
 
@@ -167,7 +172,7 @@ describe("agenda", () => {
         count(left() - 5); // what the scheduled event did before: 5 left, KEEP_LEFT 4 of them
         return refreshPlanned(new Cache(store, () => NOW.getTime()), NOW);
       });
-      expect(value).toEqual({ lus: [], gardes: [], reportes: ["lrvb"] });
+      expect(value).toEqual({ lus: [], gardes: [], reportes: ["lrvb"], trop_vieilles: [] });
       expect(urls).toEqual([]);
       expect(store.puts).toBe(0);
     });
