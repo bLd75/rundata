@@ -4,7 +4,7 @@ import { INSEE } from "../src/places/insee.js";
 import { CHILDREN, enfantsAnswer, kindAsked } from "../src/tools/enfants.js";
 import * as enfants from "../src/vie/enfants.js";
 import { communePage } from "../src/web/commune.js";
-import { enfantsPage, LEAD, TITLE } from "../src/web/enfants.js";
+import { ASK_FRANCAIS, ASK_KREOL, enfantsPage, LEAD, TITLE } from "../src/web/enfants.js";
 import { esc } from "../src/web/map.js";
 import { pageOf } from "../src/web/places.js";
 import { deadAnchors, doubleIds, mapLinks } from "./cartes.js";
@@ -146,6 +146,11 @@ describe("the children's page", () => {
     expect(html).toContain('<a href="https://monenfant.fr" rel="noopener">monenfant.fr</a>');
     expect(flat(html)).toContain(esc("Lieux : © les contributeurs d'OpenStreetMap (ODbL) ; recensement des équipements sportifs (Data ES, ministère des Sports)"));
     expect(flat(html)).toContain(esc("Les âges en gras viennent de l'organisateur ou de la carte."));
+    // The question to ask an AI, in Creole and in French, a no-break space before each « ? ».
+    expect(ASK_KREOL).toBe(`Kosa néna pou fé ek marmay sé wikenn la${NBSP}? Gèt si https://rundata.re/enfants é di amwin.`);
+    expect(ASK_FRANCAIS).toBe(`Où aller avec les enfants ce week-end à La Réunion${NBSP}? Lis https://rundata.re/enfants et propose-moi des lieux et des activités pour leur âge, près de chez moi.`);
+    expect(html).toContain(`<p class="askq">« ${esc(ASK_KREOL)} »</p>`);
+    expect(html).toContain(`https://claude.ai/new?q=${encodeURIComponent(ASK_FRANCAIS)}`);
     // Never all the places, never open without the source's hours.
     expect(html).not.toMatch(/tous les lieux|toutes les activités/i);
   });
