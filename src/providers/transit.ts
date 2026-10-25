@@ -39,6 +39,8 @@ export interface Network {
   valide_jusqu_au: string | null;
   /** Its rows in the database. */
   feed: string;
+  /** Its patterns' stops in the database (pattern_stops), under a fingerprint of their own; absent from an older build. */
+  stops_feed?: string;
   /** Where its stops, lines and patterns start in the island-wide numbering. */
   first_stop: number;
   first_route: number;
@@ -60,6 +62,28 @@ const STOPS = network.stops as unknown as [string, string, number, number, strin
 const SERVICES = network.services as unknown as Record<string, [number, number, number, number[], number[]][]>;
 /** [first start, last start, services…] of each pattern's trips, by pattern index: what it runs, without reading it. */
 const SPANS: number[][] = network.patterns;
+/** [route, first stop, last stop] of each pattern, by pattern index. */
+export const ENDS = network.ends as unknown as [number, number, number][];
+/** The patterns of each route. */
+const ROUTE_PATTERNS = new Map<number, number[]>();
+ENDS.forEach(([route], i) => ROUTE_PATTERNS.set(route, [...(ROUTE_PATTERNS.get(route) ?? []), i]));
+export const patternsOf = (route: number) => ROUTE_PATTERNS.get(route) ?? [];
+/** The services a pattern's trips run on, from the bundle. */
+export const servicesOf = (pattern: number) => (SPANS[pattern] ?? []).slice(2);
+
+export interface Stop {
+  id: number;
+  reseau: string;
+  nom: string;
+  commune: string;
+  lat: number;
+  lon: number;
+}
+/** A stop of the island-wide numbering, a bus station's bay named as the station. */
+export function stop(id: number): Stop {
+  const [reseau, name, lat, lon, commune] = STOPS[id];
+  return { id, reseau, nom: name.replace(/\s+quai\s+\S+$/i, ""), commune, lat, lon };
+}
 
 /** The stops of a network that share a name in one commune: both sides of the road, usually. */
 export interface StopGroup {
@@ -124,8 +148,8 @@ export interface Pattern {
 }
 
 /** [feed, local id] pairs, as the database knows them, for a query. */
-const keys = (ids: number[], first: (n: Network) => number) =>
-  JSON.stringify(ids.map((id) => { const n = owner(id, first); return [n.feed, id - first(n)]; }));
+const keys = (ids: number[], first: (n: Network) => number, feed = (n: Network) => n.feed) =>
+  JSON.stringify(ids.map((id) => { const n = owner(id, first); return [feed(n), id - first(n)]; }));
 
 const JOIN = "JOIN json_each(?) k ON t.feed = json_extract(k.value, '$[0]') AND t.id = json_extract(k.value, '$[1]')";
 
@@ -155,6 +179,42 @@ export async function patterns(ids: number[]): Promise<Map<number, Pattern>> {
       const n = byFeed.get(r.feed)!;
       const id = n.first_pattern + r.id;
       return [id, { id, route: n.first_route + r.route, headsign: r.headsign, trips: JSON.parse(r.trips) }];
+    }),
+  );
+}
+
+export interface PatternStops {
+  /** GTFS direction_id, when the network gives it. */
+  sens: number | null;
+  /** [stop (island-wide index), seconds after the trip's start], terminus included. */
+  stops: [number, number][];
+}
+
+/**
+ * The stops of these patterns in their order, or undefined when the database does not have them (a build older than
+ * the table, a network whose rows are not written): the caller then says it has no list, and does not fail.
+ */
+export async function patternStops(ids: number[]): Promise<Map<number, PatternStops> | undefined> {
+  if (!db) throw new Error("horaires indisponibles ici");
+  const wanted = ids.filter((id) => owner(id, (n) => n.first_pattern).stops_feed);
+  if (!wanted.length) return undefined;
+  count();
+  let rows: { feed: string; id: number; sens: number | null; stops: string }[];
+  try {
+    rows = await db.all(`SELECT t.feed, t.id, t.sens, t.stops FROM pattern_stops t ${JOIN}`, keys(wanted, (n) => n.first_pattern, (n) => n.stops_feed!));
+  } catch (err) {
+    // No such table: the database was not given it yet, or the deployment went back to an older one.
+    console.error("arrêts des parcours indisponibles :", err instanceof Error ? err.message : err);
+    return undefined;
+  }
+  if (!rows.length) return undefined;
+  const byStopsFeed = new Map(ORDER.filter((n) => n.stops_feed).map((n) => [n.stops_feed!, n]));
+  return new Map(
+    rows.flatMap((r) => {
+      const n = byStopsFeed.get(r.feed);
+      if (!n) return [];
+      const stops = (JSON.parse(r.stops) as [number, number][]).map(([st, o]) => [n.first_stop + st, o] as [number, number]);
+      return [[n.first_pattern + r.id, { sens: r.sens, stops }] as const];
     }),
   );
 }

@@ -4,13 +4,15 @@
 Two outputs, made from the same build so that their ids agree:
   - src/transit/network.json, bundled with the server: networks, lines, stops (name, place, commune) and service
     calendars, enough to find a stop and to know which services run on a given day; the hours and services of each
-    pattern; for the networks with a real-time feed, its address and the GTFS ids of their stops and lines;
+    pattern, and its line, first stop and last stop; for the networks with a real-time feed, its address and the GTFS ids
+    of their stops and lines;
   - dist/transit.sql, for the D1 database: for each stop, the patterns passing there with their time offset, and for
-    each pattern, its trips (service, start time). Trips sharing their stops and their running times form one pattern,
-    which keeps 880 000 stop times down to about 20 000 rows.
+    each pattern, its trips (service, start time) and, in pattern_stops, its stops in their order. Trips sharing their
+    stops and their running times form one pattern, which keeps 880 000 stop times down to about 23 000 rows.
 
-In the database, each network's rows carry ids local to that network and a fingerprint of their content (its feed). A
-network whose timetable has not changed keeps its feed, so its rows are already there and are not written again:
+In the database, each network's rows carry ids local to that network and a fingerprint of their content (its feed; the
+patterns' stops have one of their own, stops_feed). A network whose timetable has not changed keeps its feed, so its
+rows are already there and are not written again:
 with --d1, the feeds the database holds are left out of dist/transit.sql, and the run stops before writing anything
 when the import would take the account over D1's daily write quota. dist/transit-prune.sql deletes the feeds no
 longer in use; run it once the new build is deployed, on another day if the import was a large one.
@@ -120,10 +122,10 @@ def sql(v):
     return "'" + str(v).replace("'", "''") + "'"
 
 
-def feeds_in(database):
+def feeds_in(database, table="feeds"):
     """The feeds a D1 database holds in full (a read, which costs no write)."""
     out = subprocess.run(["npx", "wrangler", "d1", "execute", database, "--remote", "--json",
-                          "--command", "SELECT feed FROM feeds"],
+                          "--command", f"SELECT feed FROM {table}"],
                          cwd=ROOT, capture_output=True, text=True)
     if out.returncode != 0:
         if "no such table" in out.stdout + out.stderr:
@@ -186,6 +188,7 @@ def main():
     route_id, stop_id = {}, {}
     passes = defaultdict(list)  # stop index -> [[pattern, offset]]
     patterns = []  # [route index, headsign, [[service, start, trip id]]]
+    calls_of = []  # by pattern: [direction (GTFS direction_id, or None), [[stop index, offset], …] terminus included]
     pattern_id = {}
     digest = hashlib.sha256()
 
@@ -250,6 +253,8 @@ def main():
             if key not in pattern_id:
                 pattern_id[key] = len(patterns)
                 patterns.append([key[0], key[1], []])
+                direction = (info.get("direction_id") or "").strip()
+                calls_of.append([int(direction) if direction.isdigit() else None, [list(c) for c in key[2]]])
                 for i, (s, offset) in enumerate(key[2][:-1]):  # no departure from the terminus
                     passes[s].append([pattern_id[key], offset])
             for begin in every.get(trip) or [start]:
@@ -261,29 +266,41 @@ def main():
         print(f"{net}: {len(local_stop)} arrêts, {len(times)} courses", flush=True)
 
     # Named after what was built, not only what was downloaded: a change of this script changes the ids too.
-    digest.update(json.dumps([routes, stops, services, patterns, sorted(passes.items())], ensure_ascii=False).encode())
+    digest.update(json.dumps([routes, stops, services, patterns, sorted(passes.items()), calls_of], ensure_ascii=False).encode())
     build = digest.hexdigest()[:12]
     # The database rows of each network, with ids local to it, and their fingerprint.
     nets = list(networks)
     bounds = [(networks[n]["first_stop"], networks[n]["first_route"], networks[n]["first_pattern"]) for n in nets]
     nexts = bounds[1:] + [(len(stops), len(routes), len(patterns))]
     by_net = {}
+    stops_by_net = {}
     for net, (s0, r0, p0), (s1, _, p1) in zip(nets, bounds, nexts):
         own_passes = [(s - s0, [[p - p0, o] for p, o in passes[s]]) for s in range(s0, s1) if s in passes]
         own_patterns = [(i - p0, patterns[i][0] - r0, patterns[i][1], sorted(patterns[i][2], key=lambda t: t[1])) for i in range(p0, p1)]
         feed = hashlib.sha256(json.dumps([own_passes, own_patterns], ensure_ascii=False).encode()).hexdigest()[:12]
         networks[net]["feed"] = feed
         by_net[net] = (feed, own_passes, own_patterns)
+        # The stops of each pattern, in their order, under a fingerprint of their own: added to a database that already
+        # holds the network's passes and patterns, they cost their rows only, and a server that finds none still runs.
+        own_calls = [(i - p0, calls_of[i][0], [[st - s0, o] for st, o in calls_of[i][1]]) for i in range(p0, p1)]
+        stops_feed = hashlib.sha256(json.dumps(own_calls).encode()).hexdigest()[:12]
+        networks[net]["stops_feed"] = stops_feed
+        stops_by_net[net] = (stops_feed, own_calls)
 
     present = feeds_in(args.d1) if args.d1 else set()
+    present_stops = feeds_in(args.d1, "stops_feeds") if args.d1 else set()
     if args.d1:
         # Before anything is written: network.json must not name feeds the database will not get.
-        check_quota(sum(len(ps) + len(pt) + 1 for f, ps, pt in by_net.values() if f not in present))
+        check_quota(sum(len(ps) + len(pt) + 1 for f, ps, pt in by_net.values() if f not in present)
+                    + sum(len(c) + 1 for f, c in stops_by_net.values() if f not in present_stops))
 
     # For each pattern, the first and last start of its trips and their services: enough for the server to leave out,
     # before reading them, the patterns with no trip in the hours asked about (D1 counts every row read).
     spans = [[min(t[1] for t in p[2]), max(t[1] for t in p[2]), *sorted({t[0] for t in p[2]})] for p in patterns]
-    out = {"build": build, "networks": networks, "routes": routes, "stops": stops, "services": services, "patterns": spans}
+    # The line of each pattern, its first stop and its last: what a line is made of, and where a departure comes from and
+    # goes, without reading the database.
+    ends = [[p[0], calls_of[i][1][0][0], calls_of[i][1][-1][0]] for i, p in enumerate(patterns)]
+    out = {"build": build, "networks": networks, "routes": routes, "stops": stops, "services": services, "patterns": spans, "ends": ends}
     path = ROOT / "src" / "transit" / "network.json"
     path.parent.mkdir(exist_ok=True)
     path.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
@@ -294,6 +311,9 @@ def main():
         "CREATE TABLE IF NOT EXISTS patterns (feed TEXT NOT NULL, id INTEGER NOT NULL, route INTEGER NOT NULL, headsign TEXT NOT NULL, trips TEXT NOT NULL, PRIMARY KEY (feed, id)) WITHOUT ROWID;",
         # A feed is listed here once all its rows are written, so a run cut short is done again.
         "CREATE TABLE IF NOT EXISTS feeds (feed TEXT PRIMARY KEY) WITHOUT ROWID;",
+        # The stops of each pattern in their order (sens: GTFS direction_id), by the network's stops_feed.
+        "CREATE TABLE IF NOT EXISTS pattern_stops (feed TEXT NOT NULL, id INTEGER NOT NULL, sens INTEGER, stops TEXT NOT NULL, PRIMARY KEY (feed, id)) WITHOUT ROWID;",
+        "CREATE TABLE IF NOT EXISTS stops_feeds (feed TEXT PRIMARY KEY) WITHOUT ROWID;",
     ]
     def inserts(head, rows):
         # D1 refuses a statement over 100 KB: as many rows per INSERT as fit in 90 KB.
@@ -322,10 +342,22 @@ def main():
         lines.append(f"INSERT INTO feeds (feed) VALUES ({sql(feed)});")
         written += len(own_passes) + len(own_patterns)
         print(f"{net}: nouveau ({feed}), {len(own_passes) + len(own_patterns)} lignes à écrire")
+    for net, (feed, own_calls) in stops_by_net.items():
+        if feed in present_stops:
+            print(f"{net}: arrêts des parcours inchangés ({feed})")
+            continue
+        lines.append(f"DELETE FROM pattern_stops WHERE feed = {sql(feed)};")
+        inserts("INSERT INTO pattern_stops (feed, id, sens, stops) VALUES ",
+                [f"({sql(feed)},{i},{sql(d)},{sql(json.dumps(c, separators=(',', ':')))})" for i, d, c in own_calls])
+        lines.append(f"INSERT INTO stops_feeds (feed) VALUES ({sql(feed)});")
+        written += len(own_calls)
+        print(f"{net}: arrêts des parcours nouveaux ({feed}), {len(own_calls)} lignes à écrire")
 
     keep = ",".join(sql(f) for f, _, _ in by_net.values())
+    keep_stops = ",".join(sql(f) for f, _ in stops_by_net.values())
     prune = [f"DELETE FROM passes WHERE feed NOT IN ({keep});", f"DELETE FROM patterns WHERE feed NOT IN ({keep});",
              f"DELETE FROM feeds WHERE feed NOT IN ({keep});",
+             f"DELETE FROM pattern_stops WHERE feed NOT IN ({keep_stops});", f"DELETE FROM stops_feeds WHERE feed NOT IN ({keep_stops});",
              "DROP TABLE IF EXISTS stop_passes;", "DROP TABLE IF EXISTS pattern;"]
     (ROOT / "dist").mkdir(exist_ok=True)
     (ROOT / "dist" / "transit-prune.sql").write_text("\n".join(prune) + "\n")
@@ -333,7 +365,9 @@ def main():
     (ROOT / "dist" / "transit-rows.json").write_text(json.dumps(
         {f: {"passes": [{"id": i, "passes": json.dumps(p, separators=(",", ":"))} for i, p in ps],
              "patterns": [{"id": i, "route": r, "headsign": h, "trips": json.dumps(t, ensure_ascii=False, separators=(",", ":"))} for i, r, h, t in pt]}
-         for f, ps, pt in by_net.values()}, ensure_ascii=False))
+         for f, ps, pt in by_net.values()}
+        | {f: {"pattern_stops": [{"id": i, "sens": d, "stops": json.dumps(c, separators=(",", ":"))} for i, d, c in calls]}
+           for f, calls in stops_by_net.values()}, ensure_ascii=False))
 
     sql_path = ROOT / "dist" / "transit.sql"
     sql_path.parent.mkdir(exist_ok=True)
