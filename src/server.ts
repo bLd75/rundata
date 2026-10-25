@@ -72,7 +72,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.168.2";
+export const VERSION = "0.168.3";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks), the index of the tools and the rules first. What each tool does, and the words its answers
@@ -107,7 +107,9 @@ async function withVigilance<R extends { content: { type: "text"; text: string }
 /** What a tool's handler is told of the HTTP request (the MCP SDK's RequestHandlerExtra): its headers, on HTTP only. */
 type Extra = { requestInfo?: { headers?: Record<string, string | string[] | undefined> } };
 
-const READ_ONLY = { readOnlyHint: true, idempotentHint: true, openWorldHint: true } as const;
+// The three hints are said outright, destructiveHint too, though implied by readOnlyHint: the ChatGPT apps review asks
+// for them on every tool (test/serveur.test.ts checks it).
+const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
 
 const lieu = z
   .string()
