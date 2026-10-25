@@ -436,15 +436,20 @@ export function mentionCommune(commune: string | undefined): string | undefined 
 export function mentionCourte(commune: string): { valeur: string; detail: string; tete: string; resume: string; ligne: string } | undefined {
   if (autorisee(commune)) return undefined;
   const au = AUTORISATIONS[commune];
-  const news = au.publie === "actualités";
+  // In marketing's words for each kind: its agenda, its news, or both (« site communal » in the tile's few words).
+  const words = {
+    "événements": { valeur: "Agenda non repris", tete: "Agenda communal non repris", ce: "agenda du site de la commune non repris" },
+    "actualités": { valeur: "Actualités non reprises", tete: "Actualités communales non reprises", ce: "actualités du site de la commune non reprises" },
+    "événements et actualités": { valeur: "Agenda et actualités non repris", tete: "Site communal non repris", ce: "agenda et actualités du site de la commune non repris" },
+  }[au.publie];
   const asked = au.etat !== "demandee" ? "" : au.demandee_le ? `, demandé le ${dayMonth(au.demandee_le)}` : ", que nous lui avons demandé";
   const detail = au.etat === "refusee" ? `elle a refusé${au.refusee_le ? ` le ${dayMonth(au.refusee_le)}` : ""}` : `ses mentions légales l'interdisent sans son accord${asked}`;
   return {
-    valeur: news ? "Actualités non reprises" : "Agenda non repris",
+    valeur: words.valeur,
     detail,
-    tete: news ? "Actualités communales non reprises" : "Agenda communal non repris",
-    resume: `${news ? "actualités du site de la commune non reprises" : "agenda du site de la commune non repris"}, ${detail} (voir non_repris)`,
-    ligne: `${news ? "Actualités du site de la commune non reprises" : "Agenda du site de la commune non repris"} : ${detail}.`,
+    tete: words.tete,
+    resume: `${words.ce}, ${detail} (voir non_repris)`,
+    ligne: `${words.ce[0].toUpperCase()}${words.ce.slice(1)} : ${detail}.`,
   };
 }
 
@@ -458,7 +463,7 @@ export function mentionIle(): string[] {
   const lines: string[] = [];
   if (waiting.length === 1) lines.push(mentionCommune(waiting[0])!);
   else if (waiting.length) {
-    const kinds = ["événements", "actualités"].filter((k) => waiting.some((c) => AUTORISATIONS[c].publie === k)).join(" et ");
+    const kinds = ["événements", "actualités"].filter((k) => waiting.some((c) => AUTORISATIONS[c].publie.includes(k))).join(" et ");
     const days = new Set(waiting.map((c) => (AUTORISATIONS[c].etat === "demandee" ? AUTORISATIONS[c].demandee_le ?? "" : undefined)));
     const day = days.size === 1 ? [...days][0] : undefined;
     lines.push(`Les mentions légales des sites de ${waiting.length} communes interdisent d'en reprendre le contenu sans leur accord : ${enumeration(waiting)}. rundata.re n'affiche donc pas les ${kinds} qu'elles y publient.` +

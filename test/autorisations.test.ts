@@ -16,6 +16,8 @@ import { PAGES } from "../src/web/places.js";
 const NOW = new Date("2026-10-24T04:00:00Z");
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 const DIX = ["Bras-Panon", "Cilaos", "L'Étang-Salé", "La Possession", "Le Tampon", "Petite-Île", "Saint-André", "Saint-Benoît", "Saint-Joseph", "Saint-Philippe"];
+// The same rule for every commune: three more, whose site is not read at all.
+const TREIZE = ["Bras-Panon", "Cilaos", "L'Étang-Salé", "La Possession", "Le Tampon", "Petite-Île", "Saint-André", "Saint-Benoît", "Saint-Denis", "Saint-Joseph", "Saint-Philippe", "Saint-Pierre", "Sainte-Rose"];
 const SITES = ["braspanon.re", "ville-cilaos.fr", "letangsale.fr", "lapossession.re", "letampon.fr", "petite-ile.re", "saint-andre.re", "saint-benoit.re", "saintjoseph.re", "saintphilippe.re"];
 const TAMPON = "Les mentions légales du site de la commune du Tampon interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas les événements qu'elle y publie.";
 
@@ -39,13 +41,13 @@ describe("the communes whose site's terms ask for their authorisation, until the
     vi.stubGlobal("fetch", async (url: string) => (urls.push(url), new Response("", { status: 503 })));
   });
   afterEach(() => {
-    for (const c of DIX) AUTORISATIONS[c] = structuredClone(saved[c]);
+    for (const c of TREIZE) AUTORISATIONS[c] = structuredClone(saved[c]);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
   it("are the ten of their legal notices, none agreed yet", () => {
-    expect(Object.keys(AUTORISATIONS).sort()).toEqual(DIX);
+    expect(Object.keys(AUTORISATIONS)).toEqual(TREIZE);
     expect(Object.values(AUTORISATIONS).every((a) => a.etat === "a_demander" && !a.demandee_le)).toBe(true);
   });
 
@@ -89,15 +91,15 @@ describe("the communes whose site's terms ask for their authorisation, until the
   });
 
   it("are said in one block for the whole island, the day of the request when it is the same for all", () => {
-    const block = "Les mentions légales des sites de 10 communes interdisent d'en reprendre le contenu sans leur accord : Bras-Panon, Cilaos, L'Étang-Salé, La Possession, Le Tampon, Petite-Île, Saint-André, Saint-Benoît, Saint-Joseph et Saint-Philippe. rundata.re n'affiche donc pas les événements et actualités qu'elles y publient.";
+    const block = "Les mentions légales des sites de 13 communes interdisent d'en reprendre le contenu sans leur accord : Bras-Panon, Cilaos, L'Étang-Salé, La Possession, Le Tampon, Petite-Île, Saint-André, Saint-Benoît, Saint-Denis, Saint-Joseph, Saint-Philippe, Saint-Pierre et Sainte-Rose. rundata.re n'affiche donc pas les événements et actualités qu'elles y publient.";
     expect(mentionIle()).toEqual([block]);
-    for (const c of DIX) set(c, { etat: "demandee", demandee_le: "2026-10-26" });
+    for (const c of TREIZE) set(c, { etat: "demandee", demandee_le: "2026-10-26" });
     expect(mentionIle()).toEqual([`${block} Nous leur avons demandé cet accord le 26/10 et attendons leur réponse.`]);
     // Petite-Île not asked yet: the day on each commune's own line.
     set("Petite-Île", { etat: "a_demander", demandee_le: undefined });
     const lines = mentionIle();
     expect(lines[0]).toBe(block);
-    expect(lines).toHaveLength(10);
+    expect(lines).toHaveLength(13);
     expect(lines).toContain("Les mentions légales du site de la commune du Tampon interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas les événements qu'elle y publie. Nous lui avons demandé cet accord le 26/10 et attendons sa réponse.");
   });
 
@@ -105,7 +107,7 @@ describe("the communes whose site's terms ask for their authorisation, until the
     expect(MAIRIES_LUES).toBe("Saint-Paul, Le Port, Les Trois-Bassins, Saint-Louis");
     expect(COUVERTURE).not.toMatch(/Ville du Tampon|Ville de Saint-André|Actualités des mairies/);
     const without = /Sans agenda lu[^:]*: ([^.]*)\./.exec(COUVERTURE)![1];
-    expect(DIX.filter((c) => without.includes(c))).toEqual([]);
+    expect(TREIZE.filter((c) => without.includes(c))).toEqual([]);
     expect(COUVERTURE).toContain(mentionIle()[0]);
     const c = await cacheWith();
     const tampon = body(await agenda(c, "Le Tampon", undefined, undefined, NOW));
@@ -120,16 +122,16 @@ describe("the communes whose site's terms ask for their authorisation, until the
   it("are said on the page of the events and in the outings of the commune's page, never « rien d'annoncé »", () => {
     const value = { resume: "", nombre: 0, evenements: [], non_repris: mentionIle().join(" "), couverture: COUVERTURE, a_savoir: "", sources: [], ce_week_end: [] } as AgendaAnswer;
     const html = agendaPage("https://rundata.re", { value, fetchedAt: NOW, stale: false }, NOW);
-    expect(html).toContain("Les mentions légales des sites de 10 communes interdisent");
+    expect(html).toContain("Les mentions légales des sites de 13 communes interdisent");
     const page = (slug: string) => PAGES.find((p) => p.slug === slug)!;
     // Each keeps its page, its tile of outings and all that comes from elsewhere: only its site is not read.
-    expect(DIX.filter((c) => !PAGES.some((p) => p.commune && p.nom === c))).toEqual([]);
+    expect(TREIZE.filter((c) => !PAGES.some((p) => p.commune && p.nom === c))).toEqual([]);
     const copy = { value, fetchedAt: NOW, stale: false };
     expect(communeEvents(page("le-tampon"), copy)).toEqual({ valeur: "Agenda non repris", detail: "ses mentions légales l&#39;interdisent sans son accord", title: TAMPON });
     // With events from other sources (its theatre): their number, and the whole mention after the next one.
     const luc = { titre: "Spectacle", date: "2026-10-25T20:00", quand: "dimanche 25/10 à 20:00", genres: [], commune: "Le Tampon", lien: "https://example.re" } as unknown as NonNullable<AgendaAnswer["evenements"]>[number];
     expect(communeEvents(page("le-tampon"), { ...copy, value: { ...value, evenements: [luc] } })).toEqual({ valeur: "1 événement", detail: "Agenda communal non repris · le prochain : Spectacle, dimanche 25/10 à 20:00", title: TAMPON });
-    expect(communeEvents(page("saint-pierre"), copy)).toMatchObject({ valeur: "Rien d'annoncé" });
+    expect(communeEvents(page("saint-leu"), copy)).toMatchObject({ valeur: "Rien d'annoncé" });
   });
 
   it("are not served from a copy built before, whatever its age: the day's summary, the outings tile, the credits", () => {
@@ -178,5 +180,22 @@ describe("the communes whose site's terms ask for their authorisation, until the
     const section = html.slice(html.indexOf('id="h-prog"'));
     expect(section).toContain("Programmes sportifs des communes</h2>");
     expect(section).toContain("Les programmes sportifs de L&#39;Étang-Salé, de La Possession et de Saint-Benoît ne sont pas repris");
+  });
+
+  it("are said for the three communes whose site is not read at all, in marketing's words, their events from elsewhere kept", () => {
+    expect(mentionCommune("Saint-Pierre")).toBe("Les mentions légales du site de la commune de Saint-Pierre interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas les événements et actualités qu'elle y publie.");
+    expect(mentionCommune("Saint-Denis")).toBe("Les mentions légales du site de la commune de Saint-Denis interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas les actualités qu'elle y publie.");
+    expect(mentionCommune("Sainte-Rose")).toBe("Les mentions légales du site de la commune de Sainte-Rose interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas les événements et actualités qu'elle y publie.");
+    // Nothing of theirs was read: no agenda left out, the intercommunalities' and the halls' kept.
+    expect(LISIBLES.filter((a) => a.site_commune && ["Saint-Denis", "Saint-Pierre", "Sainte-Rose"].includes(a.commune!))).toEqual([]);
+    const value = { resume: "", nombre: 1, evenements: [{ titre: "Concert", date: "2026-10-25T20:00", quand: "dimanche 25/10 à 20:00", genres: [], commune: "Saint-Denis", lien: "https://example.re", publie_par: "CINOR" }], non_repris: "", couverture: "", a_savoir: "", sources: [], ce_week_end: [] } as unknown as AgendaAnswer;
+    const page = (slug: string) => PAGES.find((p) => p.slug === slug)!;
+    expect(communeEvents(page("saint-denis"), { value, fetchedAt: NOW, stale: false })).toMatchObject({ valeur: "1 événement", detail: "Actualités communales non reprises · le prochain : Concert, dimanche 25/10 à 20:00" });
+    // An agenda and news: their own words (marketing).
+    expect(communeEvents(page("saint-pierre"), { value, fetchedAt: NOW, stale: false })).toMatchObject({ valeur: "Agenda et actualités non repris" });
+    expect(communeEvents(page("sainte-rose"), { value: { ...value, evenements: [{ ...value.evenements![0], commune: "Sainte-Rose" }] }, fetchedAt: NOW, stale: false })).toMatchObject({ detail: "Site communal non repris · le prochain : Concert, dimanche 25/10 à 20:00" });
+    expect(mentionCourte("Saint-Pierre")).toMatchObject({ resume: "agenda et actualités du site de la commune non repris, ses mentions légales l'interdisent sans son accord (voir non_repris)", ligne: "Agenda et actualités du site de la commune non repris : ses mentions légales l'interdisent sans son accord." });
+    // Saint-Pierre: the reason of its absence is now the mention, not its empty agenda page.
+    expect(COUVERTURE).not.toContain("la page agenda de la mairie de Saint-Pierre est vide");
   });
 });
