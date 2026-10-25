@@ -45,9 +45,9 @@ function placeLi(l: enfants.Lieu, now: Date): string {
   return `<li data-b="${a.bands.join(" ")}" data-t="${l.type}"><span>${link ? `<a href="${esc(link)}" rel="noopener">${name}</a>` : name}${small ? `<small>${small}</small>` : ""}</span>${badge(a)}</li>`;
 }
 
-// The note of an indicated age on hover: once in the page, not on each of its hundreds of rows. The commune a link or
-// the map points to is opened; a filter opens the communes that have what it keeps.
-const FILTER_SCRIPT = `(()=>{document.querySelectorAll("#enf .age.n").forEach((e)=>{e.title=${JSON.stringify(enfants.INDICATIF_NOTE)}});
+// The note of an indicated age on hover: once in the page (#enf's data-note), not on each of its hundreds of rows. The
+// commune a link or the map points to is opened; a filter opens the communes that have what it keeps.
+const FILTER_SCRIPT = `(()=>{const note=document.getElementById("enf").dataset.note;document.querySelectorAll("#enf .age.n").forEach((e)=>{e.title=note});
 const open=()=>{const c=location.hash&&document.getElementById(location.hash.slice(1));const d=c&&c.querySelector("details");if(d)d.open=true};
 open();addEventListener("hashchange",open);
 const f=document.getElementById("kf");if(!f)return;f.hidden=false;
@@ -108,7 +108,7 @@ export function enfantsPage(origin: string, data: Cached<EnfantsAnswer> | null, 
   <figcaption class="note" style="color:var(--on-night-muted)">Nombre de lieux par commune.</figcaption></figure>
 </div>`;
 
-  const body = `<div id="enf">
+  const body = `<div id="enf" data-note="${esc(enfants.INDICATIF_NOTE)}">
 ${filter}
 <section aria-labelledby="h-act" data-k>
   <div class="sec-h"><p class="eyebrow">Ce week-end d'abord</p><h2 id="h-act">${ACTIVITIES}</h2></div>

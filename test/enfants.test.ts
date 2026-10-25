@@ -175,6 +175,11 @@ describe("the children's page", () => {
     expect(doubleIds(html)).toEqual([]);
     expect(html).toContain('<li class="card tgt" id="c-saint-leu" data-k><details><summary><h3>Saint-Leu');
     expect(html).toMatch(/<span class="age i n">3–12 ans · indicatif<\/span>/);
+    // The script builds no code from a text: the indicated ages' note is read from the page.
+    expect(html).toContain(`<div id="enf" data-note="${esc(enfants.INDICATIF_NOTE)}">`);
+    const script = html.indexOf("<script>(()=>{const note");
+    expect(script).toBeGreaterThan(0);
+    expect(html.slice(script, html.indexOf("</script>", script))).not.toContain("Indication de rundata.re");
   });
 
   it("counts a commune's places, which a filter turns into « 1 lieu sur 15 », and says where the hours come from", () => {
