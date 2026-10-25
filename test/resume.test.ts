@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { count, counted, measured, WORKER_BUDGET } from "../src/budget.js";
 import { Cache, type CacheEntry, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
-import { readCopies, resume, resumeDuJour } from "../src/tools/resume.js";
+import { readCopies, resume, resumeDuJour, UPDATING } from "../src/tools/resume.js";
 import { buildAir, buildPlace } from "../src/web/data.js";
 import { pageOf } from "../src/web/places.js";
 import { aujourdhuiPage } from "../src/web/aujourdhui.js";
@@ -249,7 +249,7 @@ describe("reading the copies", () => {
     expect(meteo.used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
-  it("uses a recent copy built before its family's revision was raised, and brings it up to date first", async () => {
+  it("leaves out a recent copy built before its family's revision was raised, and brings it up to date first", async () => {
     await counted(WORKER_BUDGET, () => measured(KEYS.air, () => buildAir(isolate(new EdgeLike()), NOW)).catch(() => undefined));
     const edge = new EdgeLike();
     for (const [part, c] of Object.entries(COPIES)) {
@@ -262,9 +262,32 @@ describe("reading the copies", () => {
       await Promise.all(pending);
       return r;
     });
-    expect(run.value.copies.air).toBeTruthy();
-    expect(run.value.leftOut.find((x) => x.partie === "qualité de l'air")).toBeUndefined();
+    expect(run.value.copies.air).toBeUndefined();
+    expect(run.value.leftOut.find((x) => x.partie === "qualité de l'air")).toMatchObject({ raison: UPDATING, outil: "qualite_air" });
+    expect(run.value.copies.coupures).toBeTruthy();
     expect(run.value.refreshed).toBe(KEYS.air);
+  });
+
+  it("never shows an event of an agenda no longer read from a copy built before, and says the events are updating", async () => {
+    const LE_TAMPON = pageOf("le-tampon")!;
+    const unread = { ...event("Fête des goyaviers", "Le Tampon", "2026-10-24T10:00", "samedi 24/10 à 10:00"), lien: "https://www.letampon.fr/agenda/fete", source: "site de la commune du Tampon, lu le samedi 24/10 à 08:00" };
+    const agenda = { ...COPIES.agenda.value, evenements: [unread] };
+    const summary = async (version: string) => {
+      const edge = new EdgeLike();
+      await edge.put(KEYS.agenda, { value: agenda, fetchedAt: ago(2).getTime(), version });
+      const cache = new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false, new MemoryStore(), "2.0.0");
+      const { copies, leftOut } = await counted(WORKER_BUDGET, () => readCopies(cache, LE_TAMPON, LE_TAMPON, NOW)).then((r) => r.value);
+      return resume(LE_TAMPON, copies, NOW, leftOut);
+    };
+    // Of this revision, the copy is served: the event is there, so the case below is the one the copy would show.
+    expect(JSON.stringify(await summary(stampOf(KEYS.agenda, "2.0.0")!))).toContain("Fête des goyaviers");
+    const r = await summary("rendu-0");
+    expect(JSON.stringify(r)).not.toContain("Fête des goyaviers");
+    expect(JSON.stringify(r)).not.toContain("letampon.fr");
+    expect(r.non_inclus).toContainEqual(expect.objectContaining({ partie: "événements du jour", raison: UPDATING, outil: "evenements" }));
+    const page = aujourdhuiPage("https://rundata.re", LE_TAMPON, r, null);
+    expect(page).toContain("Se met à jour : rechargez la page dans quelques minutes.");
+    expect(page).not.toContain("Fête des goyaviers");
   });
 
   it("answers through the tool within the budget, naming the commune of the place asked", async () => {

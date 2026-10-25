@@ -162,6 +162,12 @@ function fuelShort(p: { produits: { produit: string; prix_eur: number }[] }): st
 
 const NO_JAMS = "rundata.re ne mesure pas les bouchons : voir la carte Waze en direct, l'état des routes nationales sur infotrafic.re (Région Réunion) et https://rundata.re/trafic.";
 
+/**
+ * Why a part is left out when its copy was built by another revision (cache.ts, `outdated`): what it holds may be what
+ * the code no longer allows (an event of an agenda since left unread), so it is not served, and is built again.
+ */
+export const UPDATING = "se met à jour, réessayer dans quelques minutes";
+
 /** Whether a copy is recent enough for the summary of today. */
 function usable(c: Copy, copy: Cached<unknown> | null | undefined, now: Date): copy is Cached<unknown> {
   if (!copy) return false;
@@ -392,12 +398,16 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
   const due: { c: Copy; age: number; cost?: number }[] = [];
   parts.forEach(([name, c], i) => {
     const copy = peeked[i];
+    // Built by another revision: left out, however recent, and brought up to date first (`UPDATING`).
+    if (copy?.outdated) {
+      leftOut.push({ partie: c.nom, raison: UPDATING, outil: c.outil, page: `${SITE_URL}${c.page}` });
+      if (!(name in held)) due.push({ c, age: Infinity, cost: copy.cost });
+      return;
+    }
     if (usable(c, copy, now)) {
       (copies as Record<string, unknown>)[name] = copy;
       // The answer says how fresh it is from what it was served (tools/fraicheur.ts): these copies.
       noteLecture({ key: c.key, fetchedAt: copy.fetchedAt.getTime(), stale: false, freshSeconds: FRESH_SECONDS });
-      // Built by another revision: used, and brought up to date first (cache.ts, `outdated`).
-      if (copy.outdated && !(name in held)) due.push({ c, age: Infinity, cost: copy.cost });
       return;
     }
     leftOut.push({ partie: c.nom, raison: copy ? `copie de ${localTime(copy.fetchedAt)}, trop ancienne` : "pas de copie récente", outil: c.outil, page: `${SITE_URL}${c.page}` });
