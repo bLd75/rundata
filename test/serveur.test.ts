@@ -93,6 +93,16 @@ describe("the server's instructions", () => {
     // transports and vigilance_meteo need the Worker's database or a key, absent here.
     expect(known.filter((n) => !listed.includes(n))).toEqual(["transports", "vigilance_meteo"]);
   });
+
+  it("say on every tool whether it reads only, destroys and reaches outside, as the ChatGPT apps review asks", async () => {
+    const tools: { name: string; annotations?: Record<string, unknown> }[] = (await rpcResult("tools/list")).tools;
+    for (const t of tools) {
+      for (const hint of ["readOnlyHint", "destructiveHint", "openWorldHint"]) expect(typeof t.annotations?.[hint], `${t.name} ${hint}`).toBe("boolean");
+      expect(t.annotations!.destructiveHint, t.name).toBe(false);
+    }
+    expect(tools.find((t) => t.name === "donner_avis")!.annotations).toMatchObject({ readOnlyHint: false, openWorldHint: false });
+    expect(tools.find((t) => t.name === "meteo_actuelle")!.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: true });
+  });
 });
 
 describe("the serveur block", () => {
