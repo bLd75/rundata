@@ -280,6 +280,9 @@ const OTHER_PAGES: Record<string, Page> = {
   "/mer": { subrequests: 23, cpuMs: 120, from: ["src/tools/mer.ts", "src/tools/maree.ts"] },
   "/randonnees/*": { subrequests: 23, cpuMs: 130, from: ["src/tools/sentiers.ts"], what: "une randonnée et sa trace" },
   "/sentiers/*": { subrequests: 16, cpuMs: 30, from: ["src/tools/sentiers.ts"], what: "un sentier et sa trace" },
+  // Its pattern and its stops (2 reads of D1), the network's real-time feed while the bus is on the road, the header's
+  // vigilance and version. Measured 4 under wrangler dev without the sources (26/10): 2 of D1, 2 of the header.
+  "/bus/trajet/*": { subrequests: 11, cpuMs: 30, from: ["src/tools/transports.ts"], d1: { d1Calls: 2, d1RowsRead: 6 }, what: "le trajet d'un bus, arrêt par arrêt", basis: "code" },
   "/coupures-eau/*": { subrequests: 27, cpuMs: 70, from: ["src/tools/coupures.ts"], what: "les coupures d'une commune" },
   "/feux": { subrequests: 20, cpuMs: 90, from: ["src/tools/feux.ts"] },
   "/ecoles-cyclone": { subrequests: 12, cpuMs: 50, from: ["src/tools/ecoles.ts"] },

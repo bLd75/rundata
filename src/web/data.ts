@@ -33,7 +33,7 @@ import { gaugeRow, gauges } from "../tools/maree.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
 import { named } from "../tools/annuaire.js";
-import { alertsFor, applyRealtime, departureRow, departures, findStops, nearStops, realtimeFeeds, spread, stationDepartures } from "../tools/transports.js";
+import { alertsFor, applyRealtime, departures, findStops, nearStops, type PageRow, pageRow, realtimeFeeds, spread, stationDepartures } from "../tools/transports.js";
 import * as prefecture from "../providers/prefecture.js";
 import type { Cyclone } from "../providers/prefecture.js";
 import { ecoles, type ecolesBlock } from "../tools/ecoles.js";
@@ -202,7 +202,7 @@ function stationNow(o: Observation, stale: boolean): StationNow {
   };
 }
 
-const credit = (s: { nom: string; licence: string; attribution: string }): Credit => ({
+export const credit = (s: { nom: string; licence: string; attribution: string }): Credit => ({
   source: s.nom,
   licence: s.licence,
   attribution: s.attribution,
@@ -1182,7 +1182,7 @@ export interface GareNow {
   commune: string;
   /** The stop's name in each network that serves it. */
   arrets: { nom: string; reseau: string }[];
-  departs: ReturnType<typeof departureRow>[];
+  departs: PageRow[];
 }
 
 export interface BusData {
@@ -1225,7 +1225,7 @@ export async function buildBus(now = new Date(), cache?: Cache): Promise<BusData
     stations.forEach((groups, i) => gares.push({
       commune: groups[0].commune,
       arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })),
-      departs: spread(applyRealtime(lists[i], feeds, now), 8).map(departureRow),
+      departs: spread(applyRealtime(lists[i], feeds, now), 8).map(pageRow),
     }));
   }
   // Only the networks whose departures shown come from their feed.
@@ -1391,7 +1391,7 @@ export interface CommuneData {
     /** At the commune's bus station, or at the stops nearest its centre. */
     gare: boolean;
     arrets: { nom: string; reseau: string }[];
-    departs: ReturnType<typeof departureRow>[];
+    departs: PageRow[];
     alertes?: { reseau: string; lignes?: string[]; titre: string; detail?: string }[];
   };
   /** The commune's Altervélo stations, those with bikes first (Saint-Pierre, Saint-Louis, L'Étang-Salé). */
@@ -1431,7 +1431,7 @@ export async function buildCommune(cache: Cache, p: PlacePage, now = new Date())
       return {
         gare,
         arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })),
-        departs: shown.map(departureRow),
+        departs: shown.map(pageRow),
         ...(alertes.length ? { alertes } : {}),
       };
     })(),

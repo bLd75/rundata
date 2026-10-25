@@ -109,6 +109,9 @@ import { toutesLesSources } from "../server.js";
 import { etat as sansReponse } from "../sans-reponse.js";
 import { connecteurPage } from "./connecteur.js";
 import { typo, typoPage } from "./typo.js";
+import { tripGonePage, tripPage } from "./trajet.js";
+import { TRIP_PATH, tripRun } from "../tools/transports.js";
+import * as transit from "../providers/transit.js";
 
 const HTML = {
   "content-type": "text/html; charset=utf-8",
@@ -552,6 +555,32 @@ async function pages(request: Request, cache: Cache, background: Background, now
       ? communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets }, now, vigilance ? alerteOf(vigilance.value, now) : undefined)
       : communePage(origin, p, { place: null, commune: null, vigilance: null, air: null, mer: null, volcan: null, electricite: null, calendrier: null, coupures: null, secheresse: null, eau: null, randonnees: null, agenda: null, dechets: null }, now)),
     place, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now)), rebuild(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now))]);
+  }
+  // A bus's trip, from a departure: read from the timetables at each view, never kept (web/trajet.ts).
+  const trajet = path.startsWith(`${TRIP_PATH}/`) ? /^\/bus\/trajet\/([a-z]+)\/(\d+)\/([^/]+)\/?$/.exec(path) : null;
+  if (trajet || path.startsWith(`${TRIP_PATH}/`)) {
+    const net = trajet && transit.NETWORKS[trajet[1]] ? trajet[1] : undefined;
+    const jour = /^\d{8}$/.test(url.searchParams.get("jour") ?? "") ? Number(url.searchParams.get("jour")) : undefined;
+    const arret = /^\d+$/.test(url.searchParams.get("arret") ?? "") && net ? transit.NETWORKS[net].first_stop + Number(url.searchParams.get("arret")) : undefined;
+    // The address without the stop clicked on: one canonical page per trip and day.
+    const canonical = `${path}${jour !== undefined ? `?jour=${jour}` : ""}`;
+    const id = (() => {
+      try {
+        return trajet ? decodeURIComponent(trajet[3]) : undefined;
+      } catch {
+        return undefined;
+      }
+    })();
+    let trip: Awaited<ReturnType<typeof tripRun>>;
+    try {
+      trip = net && id && transit.enabled() ? await tripRun(net, Number(trajet![2]), id, jour, now, cache) : undefined;
+    } catch (err) {
+      console.error(`page ${path} : horaires indisponibles`, why(err));
+      return new Response(tripGonePage(origin, canonical, net, await alerte(cache, background, now), true), { status: 503, headers: { ...HTML, "cache-control": "no-store", "retry-after": "60" } });
+    }
+    const a = await alerte(cache, background, now);
+    if (!trip) return new Response(tripGonePage(origin, canonical, net, a), { status: 404, headers: HTML });
+    return new Response(tripPage(origin, canonical, trip, arret, now, a), { headers: HTML });
   }
   if (path === `/${INDEXNOW_KEY}.txt`) {
     return new Response(INDEXNOW_KEY, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });

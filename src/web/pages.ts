@@ -625,6 +625,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .rows{list-style:none;padding:0;display:grid}
 .rows li{display:grid;grid-template-columns:3.4rem minmax(0,1fr) auto;gap:.6rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--line)}
 .rows li:first-child{border-top:0}
+.rows.trajet li{grid-template-columns:auto minmax(0,1fr);scroll-margin-top:5rem}.rows.trajet .rt{display:block}.rows.trajet small{display:block;color:var(--muted);font-size:.82rem}.rows.trajet li.ici{background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:.4rem;padding-inline:.4rem}.rows.trajet li.ici small{color:inherit;font-weight:700}
 .rows.bikes li{grid-template-columns:minmax(0,1fr) auto}
 .rows.bornes li{grid-template-columns:minmax(0,1fr) auto}
 .rows.bornes small{display:block;color:var(--muted);font-size:.82rem}
