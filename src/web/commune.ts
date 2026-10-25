@@ -22,6 +22,7 @@ import { LINK } from "./aujourdhui.js";
 import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, volcanLive } from "./domains.js";
+import { enfantsLive } from "./enfants.js";
 import { esc, islandMap } from "./map.js";
 import { anchorId, ask, connector, credits, cycloneVg, dayMonth, deg, fit, hm, icon, ISLAND, layout, type Live, metres, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
@@ -200,10 +201,7 @@ function pharmacies(p: PlacePage): Live {
 /** The places to go with children (vie/enfants.ts): how many, and of which kinds. */
 function children(p: PlacePage): Live | undefined {
   const list = enfants.inCommune(p.nom);
-  if (!list.length) return undefined;
-  // The three kinds it has most of, the number first: « 4 aires de jeux · 2 parcs et jardins · 1 piscine · … ».
-  const kinds = enfants.TYPES.map((t) => [t.type, list.filter((l) => l.type === t.type).length] as const).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
-  return { valeur: `${list.length} lieu${list.length > 1 ? "x" : ""}`, detail: kinds.slice(0, 3).map(([k, n]) => enfants.counted(k, n)).join(" · ") + (kinds.length > 3 ? " · …" : "") };
+  return list.length ? enfantsLive(list) : undefined;
 }
 
 function townHall(data: Cached<CommuneData> | null | undefined, now: Date): Live | undefined {

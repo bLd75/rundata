@@ -13,6 +13,7 @@ import { actualitesLive, airLive, bornesLive, busLive, coupuresLive, eauLive, se
 import { de } from "../tools/format.js";
 import { enImagesApres, enImagesLuesAilleurs, hausseNiveau, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
+import { enfantsLive } from "./enfants.js";
 import { esc, islandMap, type Marker } from "./map.js";
 import {
   ask,
@@ -89,6 +90,9 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
     air: airLive(h?.air ?? null),
     electricite: electriciteLive(h?.electricite ?? null),
     calendrier: calendrierLive(h?.calendrier ?? null),
+    // The bundled places: always there, nothing to fetch. The playgrounds, parks and pools first, not the most numerous
+    // (the skateparks and city stadiums).
+    enfants: enfantsLive(undefined, ["aire_de_jeux", "parc", "piscine"]),
   };
 }
 

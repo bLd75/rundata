@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { WITH_PAGE } from "../src/web/categories.js";
+import * as enfants from "../src/vie/enfants.js";
 import type { Alerte } from "../src/web/data.js";
 import { homePage, type HomeLive } from "../src/web/home.js";
 import { meteoPage, SOCIAL } from "../src/web/pages.js";
@@ -22,7 +23,8 @@ describe("the order of the pages", () => {
     const page = meteoPage(O, null, NOW);
     expect(bar(page)).toEqual(["agenda", "sentiers", "meteo", "communes"]);
     expect(page).toContain('<a class="k-sentiers" href="/randonnees">');
-    expect(menu(page).slice(0, 3)).toEqual(["agenda", "sentiers", "meteo"]);
+    // The children's page right after the events in the menu, not in the bar.
+    expect(menu(page).slice(0, 4)).toEqual(["agenda", "enfants", "sentiers", "meteo"]);
     expect(menu(page).slice(-3)).toEqual(["communes", "mer", "bus"]);
   });
 
@@ -31,7 +33,7 @@ describe("the order of the pages", () => {
     expect(bar(withVolcan(VOLCAN, () => meteoPage(O, null, NOW)))).toEqual(["volcan", "agenda", "sentiers", "meteo", "communes"]);
     const both = withVolcan(VOLCAN, () => meteoPage(O, null, NOW, VIGILANCE));
     expect(bar(both)).toEqual(["vigilance", "volcan", "agenda", "sentiers", "meteo", "communes"]);
-    expect(menu(both).slice(0, 5)).toEqual(["vigilance", "volcan", "agenda", "sentiers", "meteo"]);
+    expect(menu(both).slice(0, 6)).toEqual(["vigilance", "volcan", "agenda", "enfants", "sentiers", "meteo"]);
     // The home page shows the volcano's alert itself, without the banner: the bar still has it first.
     expect(bar(withVolcan(VOLCAN, () => homePage(O, null, NOW)))[0]).toBe("volcan");
   });
@@ -45,7 +47,7 @@ describe("the order of the pages", () => {
 
   it("orders the home page's tiles as the menu, the traffic and a quiet vigilance and volcano with the sea and the buses at the end", () => {
     const quiet = homePage(O, null, NOW);
-    expect(tiles(quiet)).toEqual(["agenda", "sentiers", "meteo", "actualites", "historique", "cyclones", "velos", "bornes", "coupures", "dae",
+    expect(tiles(quiet)).toEqual(["agenda", "enfants", "sentiers", "meteo", "actualites", "historique", "cyclones", "velos", "bornes", "coupures", "dae",
       "secheresse", "sport", "eau", "air", "electricite", "calendrier", "trafic", "vigilance", "volcan", "mer", "bus", "services", "terrain"]);
     // Nothing hidden, and the menu keeps its order.
     expect([...tiles(quiet)].sort()).toEqual([...tiles(homePage(O, null, NOW, VIGILANCE))].sort());
@@ -54,14 +56,23 @@ describe("the order of the pages", () => {
 
   it("puts the home page's vigilance and volcano tiles back first while in force, the other one still at the end", () => {
     const vigilance = tiles(homePage(O, null, NOW, VIGILANCE));
-    expect(vigilance.slice(0, 4)).toEqual(["vigilance", "agenda", "sentiers", "meteo"]);
+    expect(vigilance.slice(0, 5)).toEqual(["vigilance", "agenda", "enfants", "sentiers", "meteo"]);
     expect(vigilance.slice(-6)).toEqual(["trafic", "volcan", "mer", "bus", "services", "terrain"]);
     const volcan = tiles(withVolcan(VOLCAN, () => homePage(O, null, NOW)));
-    expect(volcan.slice(0, 2)).toEqual(["volcan", "agenda"]);
+    expect(volcan.slice(0, 3)).toEqual(["volcan", "agenda", "enfants"]);
     expect(volcan.slice(-6)).toEqual(["trafic", "vigilance", "mer", "bus", "services", "terrain"]);
     const both = tiles(withVolcan(VOLCAN, () => homePage(O, null, NOW, VIGILANCE)));
     expect(both.slice(0, 3)).toEqual(["vigilance", "volcan", "agenda"]);
     expect(both.slice(-5)).toEqual(["trafic", "mer", "bus", "services", "terrain"]);
+  });
+
+  it("gives the children's tile the number of places, then the playgrounds, the parks and the pools, with nothing to fetch", () => {
+    const tile = homePage(O, null, NOW).match(/<li class="tile k-enfants">(.*?)<\/li>/s)![1];
+    expect(tile).toContain('<a href="/enfants">Enfants</a>');
+    expect(tile).toContain(`<p class="tv">${enfants.LIEUX.length} lieux</p>`);
+    const n = (k: string) => enfants.LIEUX.filter((l) => l.type === k).length;
+    expect(tile).toContain(`<p class="td">${n("aire_de_jeux")} aires de jeux · ${n("parc")} parcs et jardins · ${n("piscine")} piscines · …</p>`);
+    expect(tile).not.toContain("rechargez la page");
   });
 
   it("puts the events and the hikes in « En ce moment », the volcano only in alert, never the sea", () => {
