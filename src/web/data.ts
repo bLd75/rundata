@@ -328,7 +328,9 @@ export interface VolcanAnswer {
     pitonlive_non_officiel?: NonOfficiel;
     /** The OVPF's newest post is an image, newer than what the state comes from: the state may not account for it. */
     image_ovpf_plus_recente?: boolean;
-    derniere_eruption_fin?: string;
+    derniere_eruption?: { debut: string; fin: string; lien: string; source: string };
+    /** A newer end of an eruption posted by the OVPF than the last eruption's dates: they are to bring up to date. */
+    derniere_eruption_a_dater?: { date: string; lien: string };
     acces_enclos?: Enclos;
     /**
      * The prefecture's release, when its phase is the one given. `jour`: its day, « 2026-10-24 » (the hour is not

@@ -73,9 +73,8 @@ describe("out of an alert, whether it erupts only with the official texts", () =
       expect(all.length).toBeGreaterThan(3);
       for (const c of all) expect(c).toMatch(/^pas d'éruption annoncée/i);
       expect(v.resume.startsWith("L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus.")).toBe(true);
-      // The last eruption's end, pitonlive's until the OVPF's dated table, and the footer's credit left out.
-      const rest = texts.join(" ").replace(/Dernière éruption terminée le [^.]*selon pitonlive\.com[^.]*\./g, "").replace(/en dernier recours pitonlive\.com \(site non officiel\)/g, "")
-        .replace(/État du volcan \(pitonlive\.com, site non officiel\) \([^)]*\)/g, "");
+      // The footer's credit left out: pitonlive.com is said nowhere else, not even for the last eruption (the OVPF's).
+      const rest = texts.join(" ").replace(/en dernier recours pitonlive\.com \(site non officiel\)/g, "");
       expect(rest).not.toMatch(/pitonlive|« partiel »|2026-627/);
     }
   });
@@ -145,10 +144,10 @@ describe("the Enclos, as the official texts say it", () => {
     expect(page).toContain(`<p class="lead">Enclos : <b>« réouverture partielle »</b> selon le ${link}.</p>`);
     expect(page).toContain(`<h3>Accès à l&#39;Enclos</h3><p>Enclos : <b>« réouverture partielle »</b> selon le ${link}.</p></div>`);
     expect(trafic(v)).toContain("<p><b>« réouverture partielle »</b> (préfecture, 20/10).");
-    // Until the OVPF's dated last eruption (cam-change 251, PR2), pitonlive's, named as not official (marketing).
-    expect(page).toContain("</b> selon pitonlive.com, site non officiel.");
+    // The last eruption, the OVPF's dates (cam-change 251).
+    expect(page).toContain(`Dernière éruption : <b>du 13 février au 12 avril 2026</b>, selon l'<a href="https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g" rel="noopener">OVPF</a>.`);
     expect(v.resume).toContain("Accès à l'Enclos : « réouverture partielle » selon le communiqué de la préfecture du 20/10.");
-    for (const t of [page, trafic(v), v.resume, volcanLive(copyOf(v))!.detail]) expect(t.replace(/Dernière éruption terminée le [^.]*\./, "").replace(/<footer[\s\S]*<\/footer>|<p class="note">Sources : [\s\S]*?<\/p>/g, "")).not.toMatch(/pitonlive|« partiel »|partiellement ouvert/);
+    for (const t of [page, trafic(v), v.resume, volcanLive(copyOf(v))!.detail]) expect(t.replace(/<footer[\s\S]*<\/footer>|<p class="note">Sources : [\s\S]*?<\/p>/g, "")).not.toMatch(/pitonlive|« partiel »|partiellement ouvert/);
   });
 
   it("says the plan's rule in vigilance when the release's title says nothing of the Enclos, never pitonlive's word", async () => {

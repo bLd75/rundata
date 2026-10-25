@@ -39,7 +39,7 @@ const randonnees = copy({
 } as RandonneesAnswer);
 
 const volcan = (niveau_orsec: string, eruption_en_cours = false): Cached<VolcanAnswer> =>
-  copy({ resume: "Résumé de l'OVPF.", etat: { eruption_en_cours, niveau_orsec, derniere_eruption_fin: "2026-04-12T19:10:00+00:00", ...(eruption_en_cours && { communique_prefecture: { niveau: niveau_orsec, titre: "Piton de la Fournaise : passage en alerte 2", lien: "https://www.reunion.gouv.fr/x", jour: "2026-10-24" } }) }, avertissements: [], sources: [] });
+  copy({ resume: "Résumé de l'OVPF.", etat: { eruption_en_cours, niveau_orsec, derniere_eruption: { debut: "2026-02-13", fin: "2026-04-12", lien: "https://bsky.app/x", source: "OVPF-IPGP" }, ...(eruption_en_cours && { communique_prefecture: { niveau: niveau_orsec, titre: "Piton de la Fournaise : passage en alerte 2", lien: "https://www.reunion.gouv.fr/x", jour: "2026-10-24" } }) }, avertissements: [], sources: [] });
 
 describe("a commune's RSS feed", () => {
   it("has an item for each vigilance above green, whose guid holds while the episode lasts", () => {

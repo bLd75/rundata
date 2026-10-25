@@ -3,7 +3,7 @@
  "etat": {
   "eruption_en_cours": false,
   "niveau_orsec": "Vigilance",
-  "derniere_eruption_fin": "2026-04-12T19:10:00+00:00",
+  "derniere_eruption": { "debut": "2026-02-13", "fin": "2026-04-12", "lien": "https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g", "source": "OVPF-IPGP" },
   "acces_enclos": {
    "communique": {
     "mots": "réouverture partielle",

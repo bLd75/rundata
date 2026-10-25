@@ -147,7 +147,7 @@ function volcanoItems(v: VolcanAnswer): Item[] {
     description: v.resume,
     path: "/volcan",
     // The last eruption's end tells one alert from the next.
-    guid: `volcan/${e.niveau_orsec}/${e.eruption_en_cours ? `eruption/${start ?? ""}` : (e.derniere_eruption_fin ?? "")}`,
+    guid: `volcan/${e.niveau_orsec}/${e.eruption_en_cours ? `eruption/${start ?? ""}` : (e.derniere_eruption?.fin ?? "")}`,
     date: e.eruption_ovpf?.en_cours ? undefined : start ? new Date(`${start}T12:00:00+04:00`) : undefined,
   }];
 }

@@ -320,8 +320,11 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   if (piton2) parts.push(...pitonLines(piton2, unknown, volcan.OVPF.url));
   if (defini) parts.push(`Définition : ${defini}`);
   const monterAt = parts.length;
-  const ended = !o.eruption && piton?.value.last_eruption_ended_at;
-  if (ended) parts.push(`Dernière éruption terminée le ${day(ended)} selon pitonlive.com, site non officiel (il y a ${piton!.value.days_since_last_eruption} jours).`);
+  // The last eruption, the OVPF's dates (volcan-historique.ts), unless the OVPF has posted a newer end since: then
+  // nothing until the dates are brought up to date, and check-sources says so.
+  const newerEnd = posts?.find((x) => !x.image && Date.parse(x.date) > Date.parse(historique.DERNIERE_ERUPTION.publiee) && volcan.eruptionSaid(x.texte) === false);
+  const ended = !o.eruption && !newerEnd;
+  if (ended) parts.push(historique.derniereEruptionText());
   const du = given && dayOf(given.jour);
   if (unknown) parts.push(`Accès à l'Enclos : ${NIVEAU_INCONNU}, avant de partir.`);
   else if (enclos?.ovpf) parts.push(`${enclos.ovpf.niveau} selon l'OVPF : ${ORSEC_BAN}.`);
@@ -350,7 +353,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   parts.push(historique.resumeText());
 
   // pitonlive.com credited only when a line of it is said, last (marketing).
-  const pitonSaid = !!piton2 || !!ended;
+  const pitonSaid = !!piton2;
   const sources = [...(given ? [volcan.PREFECTURE] : []), ...(posts ? [volcan.OVPF] : []), ...(quakes ? [seismes.SOURCE] : []), ...(pitonSaid ? [volcan.PITONLIVE] : [])];
   // Right after whether it erupts and the level: the question of the hikers, first in the answer's fields too.
   parts.splice(monterAt, 0, `${monter.titre} ${monter.avant ? `${monter.avant} ` : ""}${monter.lignes.map(lineText).join(" ")} ${monter.pied}`);
@@ -367,7 +370,8 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
       ...(o.eruptionOvpf && { eruption_ovpf: { en_cours: o.eruptionOvpf.en_cours, ...pub(o.eruptionOvpf) } }),
       ...(piton2 && { pitonlive_non_officiel: piton2 }),
       ...(imageAfter && { image_ovpf_plus_recente: true }),
-      ...(ended && { derniere_eruption_fin: ended }),
+      ...(ended && { derniere_eruption: { debut: historique.DERNIERE_ERUPTION.debut, fin: historique.DERNIERE_ERUPTION.fin, lien: historique.DERNIERE_ERUPTION.lien, source: "OVPF-IPGP" } }),
+      ...(newerEnd && { derniere_eruption_a_dater: pub(newerEnd) }),
       // No word of pitonlive's on the Enclos, not even as a last resort (data-run): the release's, the plan's, or none.
       ...(enclos && { acces_enclos: enclos }),
       ...(given && { communique_prefecture: { niveau: given.niveau, titre: given.titre, lien: given.lien, jour: given.jour } }),

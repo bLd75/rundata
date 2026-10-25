@@ -32,10 +32,8 @@ const prefectureDown = () =>
     throw new Error(`unexpected ${url}`);
   });
 
-// The last eruption's end, still pitonlive's until the OVPF's dated table: left out of what is checked.
-// The page's list of sources names it for that line too.
-const lastEruptionOut = (s: string) =>
-  s.replace(/Dernière éruption terminée le (?:<b>)?[^<.]*(?:<\/b>)? selon pitonlive\.com[^.]*\./g, "").replace(/<p class="note">Sources : [\s\S]*?<\/p>/, "").replace(/<footer[\s\S]*<\/footer>/, "");
+// The page's list of sources and its footer, which credit pitonlive.com as a last resort, left out of what is checked.
+const lastEruptionOut = (s: string) => s.replace(/<p class="note">Sources : [\s\S]*?<\/p>/, "").replace(/<footer[\s\S]*<\/footer>/, "");
 
 const page = async (cache: Cache) => (await site(new Request("https://rundata.re/volcan"), cache, () => {}, NOW))!.text();
 
