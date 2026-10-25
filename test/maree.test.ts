@@ -2,10 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { parse, read } from "../src/providers/maregraphes.js";
-import { gaugeRow, gauges, maree } from "../src/tools/maree.js";
+import { gaugeRow, gauges, maree, NEAR_KM, nearest } from "../src/tools/maree.js";
 import { communePage } from "../src/web/commune.js";
 import { placePage, seaPage } from "../src/web/pages.js";
-import { PAGES } from "../src/web/places.js";
+import { coastal, PAGES } from "../src/web/places.js";
 
 // Fifteen hours of both SHOM tide gauges, 23/10/2026 from 08:40 to 23:40 UTC (12:40 to 03:40 in La Réunion).
 const series = (id: string) => parse(JSON.parse(readFileSync(new URL(`./fixtures/shom_${id}.json`, import.meta.url), "utf8")));
@@ -103,11 +103,68 @@ describe("tide gauges", () => {
   });
 
   it("gives the next tide on a coastal place's page and on its commune's tile, labelled", async () => {
-    const place = PAGES.find((x) => x.slug === "saint-leu")!;
+    const place = PAGES.find((x) => x.slug === "saint-paul")!;
     const data = { value: { mer: { resume: "Eau de mer…", sources: [] } }, fetchedAt: NOW, stale: false };
     const html = placePage("https://rundata.re", place, data as never, NOW);
     expect(html).toMatch(/<p>Marée à Pointe des Galets \(Le Port\), calcul de rundata d&#39;après les mesures, pas la prédiction officielle du SHOM, à environ 15 min près : basse mer vers 06:00 \(0,\d+[ \u202f]m\)/);
-    const tile = communePage("https://rundata.re", place, { mer: { value: { plages: [{ nom: "Saint-Leu", commune: "Saint-Leu", lon: 55.28, lat: -21.17, valeur: 25, jour: "2026-10-22" }], sources: [] }, fetchedAt: NOW, stale: false } } as never, NOW);
+    const tile = communePage("https://rundata.re", place, { mer: { value: { plages: [{ nom: "Saint-Paul", commune: "Saint-Paul", lon: 55.27, lat: -21.0, valeur: 25, jour: "2026-10-22" }], sources: [] }, fetchedAt: NOW, stale: false } } as never, NOW);
     expect(tile).toContain(" · basse mer vers 06:00 (marée calculée, pas le SHOM)");
+  });
+
+  // cam-change 276: along the coast the tide turns at other times than at the gauges.
+  it("keeps the computed times within 15 km of a gauge only", () => {
+    const near = PAGES.filter(coastal).filter((p) => nearest(p.place.lon, p.place.lat).km <= NEAR_KM).map((p) => p.nom).sort();
+    expect(near).toEqual(["La Possession", "Le Port", "Saint-Denis", "Saint-Gilles-les-Bains", "Saint-Paul", "Sainte-Marie", "Sainte-Suzanne"]);
+  });
+
+  it("gives no tide times away from the gauges, only the gauge's height and the SHOM's page", async () => {
+    const r = body(await maree(cache(), "Saint-Pierre", NOW));
+    expect(Object.keys(r).slice(0, 3)).toEqual(["lieu", "avertissement", "resume"]);
+    expect(r.avertissement).toBe("Ne donner aucune heure de marée pour Saint-Pierre : les heures calculées au marégraphe de Pointe des Galets (Le Port) n'y valent pas, la marée y arrive à une autre heure. Renvoyer aux horaires officiels du SHOM : https://maree.shom.fr/harbor/SAINT-PIERRE_LA_REUNION/hlt/0.");
+    expect(r.resume).toMatch(/^Pas d'heures de marée calculées pour Saint-Pierre : nous les calculons d'après les marégraphes du Port et de Sainte-Marie, et la marée n'arrive pas à la même heure partout sur la côte\. Hauteur mesurée au marégraphe de Pointe des Galets \(Le Port\), à 49 km : 0,\d+ m à 03:4\d \(au Port, pas à Saint-Pierre\)\. Horaires officiels de la marée à Saint-Pierre, par le SHOM : https:\/\/maree\.shom\.fr\/harbor\/SAINT-PIERRE_LA_REUNION\/hlt\/0\.$/);
+    expect(r.horaires_officiels).toBe("https://maree.shom.fr/harbor/SAINT-PIERRE_LA_REUNION/hlt/0");
+    const text = JSON.stringify(r);
+    expect(text).not.toMatch(/vers \d\d:\d\d|prochaines_marees|tendance|derniers_extremes|montante|descendante|étale/);
+    // The measurement stays, with its time, for the daily check of the sources.
+    expect(r.maregraphes[0]).toMatchObject({ maregraphe: "Pointe des Galets (Le Port)", distance_km: 49, reference: expect.stringMatching(/zéro hydrographique/) });
+    expect(r.maregraphes[0].heure_mesure).toMatch(/^24\/10 03:4\d$/);
+  });
+
+  it("links to the SHOM's site where it has no port, and says when the gauge is silent", async () => {
+    vi.stubGlobal("fetch", async () => { throw new Error("no network in tests"); });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = body(await maree(cache({}), "Saint-Joseph", NOW));
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    expect(r.resume).toContain("Le marégraphe de Sainte-Marie, à 55 km, ne transmet pas de mesure en ce moment. Horaires officiels de la marée : site du SHOM, https://maree.shom.fr.");
+    expect(r.avertissement).toMatch(/Renvoyer aux horaires officiels du SHOM : https:\/\/maree\.shom\.fr\.$/);
+  });
+
+  it("still gives the times at Saint-Gilles, within 15 km of Le Port", async () => {
+    const r = body(await maree(cache(), "Saint-Gilles-les-Bains", NOW));
+    expect(r.avertissement).toBeUndefined();
+    expect(r.resume).toMatch(/^Marée au marégraphe le plus proche de Saint-Gilles-les-Bains, Pointe des Galets \(Le Port, à 15 km\)/);
+    expect(r.maregraphes[0].prochaines_marees.liste.length).toBeGreaterThanOrEqual(7);
+  });
+
+  it("says, for the whole island and on the sea page, that the times hold near the gauges only", async () => {
+    const r = body(await maree(cache(), undefined, NOW));
+    expect(r.resume).toMatch(/\. Ces heures valent près des deux marégraphes, à 15 km au plus\. Plus loin, à Saint-Leu, à Saint-Pierre, dans le Sud et dans l'Est, la marée arrive à une autre heure : voir les horaires officiels du SHOM \(https:\/\/maree\.shom\.fr\)\.$/);
+    const rows = (await gauges(cache(), NOW)).map((g) => gaugeRow(g, NOW));
+    const html = seaPage("https://rundata.re", { value: { plages: [], maree: rows, sources: [] }, fetchedAt: NOW, stale: false }, NOW);
+    expect(html).toContain('Plus loin sur la côte, la marée arrive à une autre heure : horaires officiels du SHOM pour <a href="https://maree.shom.fr/harbor/SAINT-LEU/hlt/0">Saint-Leu</a> et <a href="https://maree.shom.fr/harbor/SAINT-PIERRE_LA_REUNION/hlt/0">Saint-Pierre</a>.');
+  });
+
+  it("gives no times on a coastal page away from the gauges, nor on its commune's tile", () => {
+    const place = PAGES.find((x) => x.slug === "saint-pierre")!;
+    const data = { value: { mer: { resume: "Eau de mer…", sources: [] } }, fetchedAt: NOW, stale: false };
+    const html = placePage("https://rundata.re", place, data as never, NOW);
+    expect(html).toMatch(/<p>Marée : pas d(&#39;|')heures calculées ici, la marée y arrive à une autre heure qu(&#39;|')au Port et à Sainte-Marie, nos deux marégraphes\. <a href="https:\/\/maree\.shom\.fr\/harbor\/SAINT-PIERRE_LA_REUNION\/hlt\/0">Horaires officiels du SHOM pour Saint-Pierre<\/a><\/p>/);
+    expect(html).not.toMatch(/Marée à Pointe des Galets/);
+    const elsewhere = placePage("https://rundata.re", PAGES.find((x) => x.slug === "saint-joseph")!, data as never, NOW);
+    expect(elsewhere).toContain('<a href="https://maree.shom.fr">Horaires officiels sur le site du SHOM</a></p>');
+    const tile = communePage("https://rundata.re", place, { mer: { value: { plages: [{ nom: "Saint-Pierre", commune: "Saint-Pierre", lon: 55.47, lat: -21.34, valeur: 25, jour: "2026-10-22" }], sources: [] }, fetchedAt: NOW, stale: false } } as never, NOW);
+    expect(tile).toContain("au large de la plage Saint-Pierre");
+    expect(tile).not.toMatch(/basse mer|pleine mer/);
   });
 });

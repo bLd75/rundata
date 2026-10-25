@@ -72,7 +72,7 @@ import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 
-export const VERSION = "0.182.25";
+export const VERSION = "0.183.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -425,8 +425,11 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Hauteur de la mer mesurée chaque minute par les marégraphes du SHOM au Port (Pointe des Galets) et à Sainte-Marie : niveau actuel, " +
         "marée montante ou descendante, dernières pleine et basse mer observées\u00a0; puis les prochaines pleines et basses mers sur deux jours, CALCULÉES par rundata " +
         "d'après les mesures (pas la prédiction officielle du SHOM), à environ 15 à 20 min et 5 cm près : le dire, avec la précision donnée, et au-delà de l'horizon renvoyer au SHOM. " +
+        "Les heures calculées ne valent que près des deux marégraphes, à 15 km au plus (Le Port, La Possession, Saint-Paul, Saint-Gilles-les-Bains, Saint-Denis, Sainte-Marie, Sainte-Suzanne). " +
+        "Plus loin, la marée arrive à une autre heure : l'outil donne alors la hauteur mesurée au marégraphe le plus proche, sans heures, et le lien vers les horaires officiels du SHOM. " +
         "Pour : « la marée monte ? », « c'est quand la marée basse demain ? », « niveau de la mer au Port ? ». " +
-        "/ Measured sea level and tide state at Réunion Island's two tide gauges, and the next tides computed from the measurements (not the SHOM's prediction).",
+        "/ Measured sea level and tide state at Réunion Island's two tide gauges, and the next tides computed from the measurements (not the SHOM's prediction). " +
+        "Computed times only within 15 km of a gauge; elsewhere, the gauge height and a link to the SHOM's official tide times.",
       inputSchema: {
         lieu: z
           .string()
