@@ -380,3 +380,13 @@ export async function etat(cache: Pick<Cache, "get">): Promise<{ lignes: Ligne[]
   const c = await cache.get("sans-reponse", FRAIS_S, async () => ({ lignes: await lignes(), passage: await dernierPassage() }));
   return { ...c.value, lu: c.fetchedAt };
 }
+
+/**
+ * One host's state as the page shows it (« ipgp.fr », « www.ipgp.fr » alike), for another answer to say its source is
+ * silent (the volcano's, ipgp.fr): undefined when the host is not listed, still « a_verifier » or never shown. Read from
+ * the same copy as the page, no call of its own.
+ */
+export async function etatHote(cache: Pick<Cache, "get">, hote: string): Promise<Public | undefined> {
+  const h = hoteDe(`https://${hote}/`);
+  return publiques((await etat(cache)).lignes).find((l) => l.hote === h);
+}

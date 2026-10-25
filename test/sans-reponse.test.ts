@@ -244,6 +244,13 @@ describe("what is shown", () => {
     expect(typo(sansReponsePage("https://rundata.re", [], undefined))).toContain("<p>Aucun site public sans réponse pour l'instant.</p>");
   });
 
+  it("gives another answer one host's state as the page shows it, none for a host still to check", async () => {
+    expect(await sr.etatHote(new Cache(), "www.ipgp.fr")).toMatchObject({ hote: "ipgp.fr", statut: "injoignable", premier_echec: 1792526400, nom: "l'OVPF-IPGP" });
+    expect(await sr.etatHote(new Cache(), "coastwatch.noaa.gov")).toMatchObject({ statut: "revenu" });
+    expect(await sr.etatHote(new Cache(), "coastwatch.pfeg.noaa.gov")).toBeUndefined();
+    expect(await sr.etatHote(new Cache(), "inconnu.re")).toBeUndefined();
+  });
+
   it("answers the tool with the whole list, or the sites a word names", async () => {
     const all = JSON.parse((await sitesSansReponse(new Cache(), undefined, MORNING)).content[0].text);
     expect(all.resume).toBe("1 site public sans réponse ce 26/10, revérifié chaque jour\u00a0; le plus ancien depuis le 21/10 (le site de l'OVPF-IPGP).");
