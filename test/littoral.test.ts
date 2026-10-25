@@ -134,12 +134,12 @@ describe("the route du Littoral as the media announce it", () => {
     // A fait divers at La Possession, an announcement older than 36 hours: neither is an announcement on the road.
     await store.put("actualites:fil", { value: fil([item("La Possession : un enfant percuté par un 4x4", 1, "Imaz Press"), item("Route du Littoral : basculement en 2x1 voies", 37, "Clicanoo")]), fetchedAt: NOW.getTime() });
     const cache = new Cache(store, () => NOW.getTime());
-    for (const [lieu, sujet] of [["route du Littoral", undefined], ["La Possession", undefined], ["Saint-Denis", undefined], [undefined, "circulation"]]) {
+    const asked = [["route du Littoral"], ["route littoral"], ["RN1"], ["la RN 1"], ["La Possession"], ["Saint-Denis"], [undefined, "circulation"]];
+    for (const [lieu, sujet] of asked) {
       const road = body(await actualites(cache, lieu, sujet, undefined, NOW)).route_du_littoral;
       expect(road, `${lieu ?? sujet}`).toEqual({
-        annonce: "Pas d'annonce des médias sur la route du Littoral depuis 36 h. L'état officiel, en direct, est sur infotrafic.re.",
+        annonce: "Pas d'annonce récente sur la route du Littoral dans les titres des médias et de la préfecture que nous avons lus. L'état officiel, en direct, est sur infotrafic.re.",
         aucune_annonce: true,
-        periode_lue: "les dernières 36 heures",
         etat_officiel: "https://www.infotrafic.re/",
       });
       expect(JSON.stringify(road)).not.toMatch(/ouverte|normale|rétabli/i);
@@ -157,6 +157,29 @@ describe("the route du Littoral as the media announce it", () => {
     expect(said("saint-denis", [item("La route du Littoral fermée", 13)])).toBeUndefined();
     expect(said("saint-paul", [item("Route du Littoral : basculement en 2x1 voies", 1)])).toBeUndefined();
     expect(forSummary(undefined, NOW)).toBeUndefined();
+  });
+
+  it("says in the summary of La Possession and Saint-Denis when no recent headline names it, only once the news read reach that far back", () => {
+    const answer = (infos: Info[]) => ({ value: { infos: infos.map((i) => infoRow(i, NOW)), en_direct: [], prefecture: [] } as unknown as ActualitesAnswer, fetchedAt: NOW, stale: false });
+    const said = (slug: string, infos: Info[]) => resume(pageOf(slug)!, { actualites: answer(infos) }, NOW).circulation.route_du_littoral;
+    const quiet = [item("La Possession : un enfant percuté par un 4x4", 1, "Imaz Press"), item("Saint-Denis : un concert", 14)];
+    for (const slug of ["la-possession", "saint-denis"]) expect(said(slug, quiet)).toBe(NONE);
+    expect(NONE).not.toMatch(/ouverte|normale|\d+ ?h\b/i);
+    // The news read go back 2 hours only: one could have been left out of the copy.
+    expect(said("la-possession", [item("Saint-Denis : un concert", 2)])).toBeUndefined();
+    // An announcement older than the summary's hours was read: not « none ».
+    expect(said("saint-denis", [...quiet, item("La route du Littoral fermée", 13)])).toBeUndefined();
+    expect(said("saint-paul", quiet)).toBeUndefined();
+  });
+
+  it("knows the road asked as « RN1 » or « route littoral », not the RN1 elsewhere", async () => {
+    expect(annonceOf(item("Route littoral : basculement en 2x1 voies", 1))?.etat).toBe("basculée");
+    expect(annonceOf(item("RN1 : la route fermée à Saint-Leu après un accident", 1))).toBeUndefined();
+    expect(annonceOf(item("Saint-Benoît : la route littorale fermée", 1))).toBeUndefined();
+    const store = new MemoryStore();
+    await store.put("actualites:fil", { value: fil([item("Saint-Pierre : un concert", 1)]), fetchedAt: NOW.getTime() });
+    const cache = new Cache(store, () => NOW.getTime());
+    for (const lieu of ["RN1 Saint-Leu", "Saint-Leu", "RN2"]) expect(body(await actualites(cache, lieu, undefined, undefined, NOW)).route_du_littoral, lieu).toBeUndefined();
   });
 });
 

@@ -77,7 +77,7 @@ export function sujetMatcher(sujet: string | undefined): { nom: string; test: (i
 export async function actualites(cache: Cache, lieu?: string, sujet?: string, heures?: number, now = new Date()) {
   let res: ReturnType<typeof resolvePlace> = null;
   // « route du Littoral » asked as a place: the island's news on the roads, and the road's last announcement.
-  const road = !!lieu && littoral.NAMED.test(normalize(lieu));
+  const road = !!lieu && littoral.asked(lieu);
   if (road) {
     lieu = undefined;
     sujet ??= "route";
