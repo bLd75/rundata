@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { count, counted, measured, WORKER_BUDGET } from "../src/budget.js";
-import { Cache, CACHE_FORMAT, type CacheEntry, MemoryStore, TieredStore } from "../src/cache.js";
+import { count, counted, left, measured, WORKER_BUDGET } from "../src/budget.js";
+import { Cache, CACHE_FORMAT, type CacheEntry, isCopy, MemoryStore, TieredStore } from "../src/cache.js";
 import { VERSION } from "../src/server.js";
+import { SATELLITES as SATELLITES_KEY } from "../src/tools/mer.js";
 import { FRESH_SECONDS } from "../src/web/data.js";
-import { type Kv, kvKey, SHARED, SHARED_AFTER, SharedFallback, type Shared, warmShared } from "../src/web/partagees.js";
+import { AFTER_DEPLOY_RESERVE, type Kv, kvKey, SHARED, SHARED_AFTER, SharedFallback, type Shared, warmShared } from "../src/web/partagees.js";
 
 /** A KV namespace in memory, counting its reads, its listings and its writes by key. */
 class FakeKv implements Kv {
@@ -110,6 +111,83 @@ describe("the shared copies, read from KV", () => {
     expect(got.value).toEqual({ n: 2 });
     expect(builds).toBe(0);
     expect((await cache.peek("web:actualites"))!.value).toEqual({ n: 2 });
+  });
+});
+
+describe("the shared copies after a deploy (cam-change 285)", () => {
+  it("are read from KV when the data center's copy is of another version, however fresh", async () => {
+    const kv = new FakeKv();
+    const edge = new CountingStore();
+    const store = new SharedFallback(edge, kv, () => T0, "2.0.0");
+    const old: CacheEntry = { value: { n: 1 }, fetchedAt: T0 - 60_000, version: "1.0.0" };
+    await edge.put("web:actualites", old);
+    // KV has none of this version yet: the data center's is served, for the cache to build again.
+    expect(await store.get("web:actualites")).toEqual(old);
+    // The scheduled event wrote one of this version, older than the data center's: it wins, and is put there.
+    const current: CacheEntry = { value: { n: 2 }, fetchedAt: T0 - 3 * 60_000, version: "2.0.0" };
+    await kv.put(kvKey("web:actualites"), JSON.stringify(current));
+    expect(await store.get("web:actualites")).toEqual(current);
+    expect(await edge.get("web:actualites")).toEqual(current);
+    // Then the data center's is fresh and of this version: KV is not asked.
+    const reads = kv.reads;
+    expect(await store.get("web:actualites")).toEqual(current);
+    expect(kv.reads).toBe(reads);
+  });
+
+  it("are all due at the first event, rebuilt the oldest first within the budget, over a few events", async () => {
+    const kv = new FakeKv();
+    let now = T0;
+    const edge = new CountedStore();
+    // Every copy in KV and in the data center's cache, written by the previous version, none due by its rate.
+    const list: Shared[] = SHARED.map((s) => ({ ...s, key: `${s.key}-version`, build: async () => (count(s.cold ?? 25), { at: now }) }));
+    const writtenAt = new Map<string, number>();
+    for (const [i, s] of list.entries()) {
+      const at = now - (i + 1) * 60_000;
+      writtenAt.set(s.key, at);
+      const entry = { value: {}, fetchedAt: at, cost: s.cold, version: "1.0.0" };
+      await kv.put(kvKey(s.key), JSON.stringify(entry), { metadata: { fetchedAt: at, cost: s.cold, every: typeof s.every === "number" ? s.every : 30, version: "1.0.0" } });
+      await edge.put(s.key, entry);
+    }
+    // The previous version's event: nothing due.
+    const quiet = await counted(WORKER_BUDGET, () => warmShared(new Cache(new TieredStore(new MemoryStore(), edge), () => now, false, undefined, "1.0.0"), kv, new Date(now), list));
+    expect(quiet.value).toEqual({ written: [], left: [] });
+    // The deploy: a new isolate, a new version.
+    const cache = new Cache(new TieredStore(new MemoryStore(), edge), () => now, false, undefined, "2.0.0");
+    const events: { written: string[]; used: number; rest: number; at: number }[] = [];
+    // The satellites' grids are a source's, not a page's: no version, kept.
+    const pages = list.filter((s) => isCopy(s.key));
+    expect(pages.length).toBe(list.length - 1);
+    const done = () => pages.every((s) => JSON.parse(kv.data.get(kvKey(s.key))!).version === "2.0.0");
+    while (events.length < 12 && !done()) {
+      const run = await counted(WORKER_BUDGET, async () => ({ warmed: await warmShared(cache, kv, new Date(now), list), rest: left() }));
+      expect(run.used).toBeLessThanOrEqual(WORKER_BUDGET);
+      for (const l of run.value.warmed.left) expect(l.why).toMatch(/^autre version, budget : /);
+      events.push({ written: run.value.warmed.written, used: run.used, rest: run.value.rest, at: now });
+      now += 5 * 60_000;
+    }
+    expect(done()).toBe(true);
+    // The oldest first: the last of the list was written the earliest.
+    expect(events[0].written[0]).toBe(list[list.length - 1].key);
+    expect(events[0].written.length).toBeGreaterThanOrEqual(2);
+    // From their cold costs, the agendas' share kept: 35 minutes at most after a deploy, every copy is of its version.
+    expect(events.length).toBeLessThanOrEqual(7);
+    // The agendas, read after the copies, keep their share of every event that built copies due only for their version,
+    // less the copies' two writes each (the data center's cache, KV), which go in the part of the budget kept for writes.
+    // A copy due by its rate meanwhile (the traffic's, every 30 minutes) is built as it always was.
+    const byRate = (key: string, at: number) => at - writtenAt.get(key)! >= 30 * 60_000;
+    for (const e of events.filter((e) => !e.written.some((k) => byRate(k, e.at)))) {
+      expect(e.rest + 2 * e.written.length).toBeGreaterThanOrEqual(AFTER_DEPLOY_RESERVE);
+    }
+    // Each written once more, with the new version in its metadata.
+    expect((kv.metadata.get(kvKey(`${SATELLITES_KEY}-version`)) as { version?: string }).version).not.toBe("2.0.0");
+    for (const s of pages) {
+      expect(kv.writes.get(kvKey(s.key)), s.key).toBe(2);
+      expect((kv.metadata.get(kvKey(s.key)) as { version?: string }).version).toBe("2.0.0");
+    }
+    // Then none is due for its version any more, only by its rate.
+    const after = await counted(WORKER_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    for (const k of after.value.written) expect(byRate(k, now), k).toBe(true);
+    expect(after.value.left.filter((l) => l.why.startsWith("autre version"))).toEqual([]);
   });
 });
 

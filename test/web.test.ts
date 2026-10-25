@@ -530,6 +530,20 @@ describe("page data", () => {
     expect((await snapshot(c, "k", slow, () => {}, NOW, 5))?.value).toBe(42);
   });
 
+  it("built by the previous version, is built again at the first view after a deploy, not served (cam-change 285)", async () => {
+    const store = new MemoryStore();
+    await new Cache(store, () => NOW.getTime() - 60_000, false, undefined, "1.0.0").get("web:agenda", 300, async () => "ancienne");
+    const c = new Cache(store, () => NOW.getTime(), false, undefined, "2.0.0");
+    expect((await snapshot(c, "web:agenda", async () => "nouvelle", () => {}, NOW))?.value).toBe("nouvelle");
+    // A build too long for the wait: the page goes without its live block, as one never built, and the next view has it.
+    await new Cache(store, () => NOW.getTime() - 60_000, false, undefined, "1.0.0").get("web:lieu:essai", 300, async () => "ancienne");
+    const later: Promise<unknown>[] = [];
+    const slow = () => new Promise<string>((r) => setTimeout(() => r("nouvelle"), 30));
+    expect(await snapshot(c, "web:lieu:essai", slow, (p) => later.push(p), NOW, 5)).toBeNull();
+    await Promise.all(later);
+    expect((await snapshot(c, "web:lieu:essai", slow, () => {}, NOW, 5))?.value).toBe("nouvelle");
+  });
+
   it("is waited for by the fetchers of AI assistants and search engines, not by people", () => {
     const ua = (a: string) => new Request("https://rundata.re/", { headers: { "user-agent": a } });
     expect(isReader(ua("Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot"))).toBe(true);

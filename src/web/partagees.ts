@@ -6,7 +6,7 @@
  * cache has no copy, and copies what it read there.
  */
 import { costOf, count, left, measured, spent, unmeasured } from "../budget.js";
-import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore } from "../cache.js";
+import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore, isCopy, outdated } from "../cache.js";
 import * as ensemble from "../providers/ensemble.js";
 import * as ovpfPdf from "../providers/ovpf-pdf.js";
 import { why } from "../types.js";
@@ -73,18 +73,23 @@ const KV_TTL_SECONDS = 24 * 3600;
 const COST_UNKNOWN = 25;
 // Besides the build: the data center's cache, then KV, asked for the copy before it is built (SharedFallback).
 const LOOKUP = 2;
+// Left to the agendas read after the copies (worker.ts) by a copy due only because another version built it: on a day
+// of deploys a few minutes apart, every event would otherwise spend its whole budget on them.
+export const AFTER_DEPLOY_RESERVE = 12;
 
 /** A copy in KV, with what its build took (`cost`), for the isolates that have not built it yet. */
 type KvEntry = CacheEntry & { cost?: number };
 
 /**
  * What the scheduled event needs of a copy, written as the KV key's metadata: when it was built, what its build took,
- * and how often it is refreshed given its value (`Shared.every`). One listing of the keys gives it for every copy.
+ * how often it is refreshed given its value (`Shared.every`), and by which version of the code. One listing of the keys
+ * gives it for every copy.
  */
 interface KvMeta {
   fetchedAt: number;
   cost?: number;
   every?: number;
+  version?: string;
 }
 
 /**
@@ -130,18 +135,19 @@ async function kvGet(kv: Kv, key: string): Promise<KvEntry | undefined> {
 }
 
 /**
- * The data center's cache, and KV behind it for the shared copies only: asked when the cache has none, or only one
- * older than FRESH_SECONDS (a data center that served the page once, then slept), at the cost of one read instead of
- * a build. The newer of the two is served, and KV's is put in the cache, so that the data center's next isolates find
- * it there. Never written to KV.
+ * The data center's cache, and KV behind it for the shared copies only: asked when the cache has none, only one older
+ * than FRESH_SECONDS (a data center that served the page once, then slept), or one of another version (`version`,
+ * cache.ts), at the cost of one read instead of a build. The newer of the two is served, one of this version before one
+ * of another, and KV's is put in the cache, so that the data center's next isolates find it there. Never written to KV.
  */
 export class SharedFallback implements CacheStore {
-  constructor(private edge: CacheStore, private kv: Kv, private now: () => number = Date.now) {}
+  constructor(private edge: CacheStore, private kv: Kv, private now: () => number = Date.now, private version?: string) {}
   async get(key: string, freshAfter?: number) {
     const e = await this.edge.get(key, freshAfter);
-    if (!KEYS.has(key) || (e && this.now() - e.fetchedAt <= FRESH_SECONDS * 1000)) return e;
+    const old = (x: CacheEntry) => outdated(key, x, this.version);
+    if (!KEYS.has(key) || (e && this.now() - e.fetchedAt <= FRESH_SECONDS * 1000 && !old(e))) return e;
     const shared = await kvGet(this.kv, key);
-    if (!shared || (e && shared.fetchedAt <= e.fetchedAt)) return e;
+    if (!shared || (e && (old(e) === old(shared) ? shared.fetchedAt <= e.fetchedAt : old(shared)))) return e;
     await this.edge.put(key, shared);
     return shared;
   }
@@ -173,26 +179,31 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
   // The ages and costs of all the copies from one listing; a copy read whole only when the listing has no metadata for
   // it (written before it was kept there), or when KV did not list.
   const listed = await kvList(kv);
-  const ages = await Promise.all(list.map(async (s): Promise<{ s: Shared; at?: number; kept?: number; every: number }> => {
+  const ages = await Promise.all(list.map(async (s): Promise<{ s: Shared; at?: number; kept?: number; every: number; old: boolean }> => {
     const k = kvKey(s.key);
     const meta = wrote.get(k) ?? listed?.get(k);
-    if (meta) return { s, at: meta.fetchedAt, kept: meta.cost, every: meta.every ?? everyOf(s, undefined) };
-    if (listed && !listed.has(k)) return { s, every: everyOf(s, undefined) };
+    if (meta) return { s, at: meta.fetchedAt, kept: meta.cost, every: meta.every ?? everyOf(s, undefined), old: outdated(s.key, meta, cache.version) };
+    if (listed && !listed.has(k)) return { s, every: everyOf(s, undefined), old: false };
     const e = await kvGet(kv, s.key);
-    return { s, at: e?.fetchedAt, kept: e?.cost, every: everyOf(s, e?.value) };
+    return { s, at: e?.fetchedAt, kept: e?.cost, every: everyOf(s, e?.value), old: outdated(s.key, e, cache.version) };
   }));
+  // A copy of another version (cache.ts, `outdated`) is due at once, by its age: after a deploy they are all due, and
+  // go the oldest first, over as many events as their builds take within the budget, less what the agendas keep.
   const due = ages
-    .map(({ s, at, kept, every }) => ({ s, at, kept, over: at == null ? Infinity : now.getTime() - at - every * 60_000 }))
+    .map(({ s, at, kept, every, old }) => {
+      const byRate = at == null ? Infinity : now.getTime() - at - every * 60_000;
+      return { s, at, kept, over: old && byRate < 0 ? now.getTime() - at! : byRate, version: old && byRate < 0 };
+    })
     .filter((x) => x.over >= 0)
     // Not by subtraction: the copies never written are all overdue by Infinity, and Infinity - Infinity is NaN.
     .sort((a, b) => (a.over === b.over ? 0 : a.over < b.over ? 1 : -1));
   const out: Warmed = { written: [], left: [] };
-  for (const { s, at, kept } of due) {
+  for (const { s, at, kept, version } of due) {
     // The copy looked up, then built, within what is left besides the writes; the writes (the data center's cache,
     // KV) go in the part kept for them.
     const cost = LOOKUP + expected(s, kept);
-    if (cost > left()) {
-      out.left.push({ key: s.key, why: `budget : ${spent()} faites, ${cost} prévues` });
+    if (cost > left() - (version ? AFTER_DEPLOY_RESERVE : 0)) {
+      out.left.push({ key: s.key, why: `${version ? "autre version, " : ""}budget : ${spent()} faites, ${cost} prévues` });
       continue;
     }
     try {
@@ -207,8 +218,9 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
         continue;
       }
       count(1, true);
-      const entry: KvEntry = { value: got.value, fetchedAt: got.fetchedAt.getTime(), cost: costOf(s.key) ?? kept };
-      const meta: KvMeta = { fetchedAt: entry.fetchedAt, cost: entry.cost, every: everyOf(s, got.value) };
+      const version = isCopy(s.key) ? cache.version : undefined;
+      const entry: KvEntry = { value: got.value, fetchedAt: got.fetchedAt.getTime(), cost: costOf(s.key) ?? kept, ...(version && { version }) };
+      const meta: KvMeta = { fetchedAt: entry.fetchedAt, cost: entry.cost, every: everyOf(s, got.value), ...(version && { version }) };
       await kv.put(kvKey(s.key), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS, metadata: meta });
       wrote.set(kvKey(s.key), meta);
       out.written.push(s.key);
