@@ -176,7 +176,7 @@ describe("home page", () => {
     expect(warm.used).toBeLessThanOrEqual(WORKER_BUDGET);
   });
 
-  it("takes the sea from the copy of /mer, however old, and never asks the satellites itself (cam-change 273)", async () => {
+  it("takes the sea from the copy of /mer, however old, and never asks the satellites itself, nor does a place on the coast (cam-change 273)", async () => {
     const asked: string[] = [];
     vi.stubGlobal("fetch", async (url: string) => {
       overLimit();
@@ -200,6 +200,11 @@ describe("home page", () => {
     const { text } = await serve(isolate(edge), "/meteo");
     expect(text).toMatch(/<li><span>Saint-Leu<\/span><b>26,4[^<]*°C<\/b><\/li>/);
     expect(text).toContain("Par satellite, le 19/10.");
+    expect(satellites()).toEqual([]);
+    // The copy carries the satellites' grids: the page of a place on the coast reads its sea there too.
+    expect(sea.satellites?.map((s) => s.source)).toContain("acspo");
+    const place = await serve(isolate(edge), "/meteo/saint-leu");
+    expect(place.text).toMatch(/Au large, le \d\d\/10/);
     expect(satellites()).toEqual([]);
   });
 

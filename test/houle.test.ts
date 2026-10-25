@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKER_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
+import * as acspo from "../src/providers/acspo.js";
 import * as houle from "../src/providers/houle.js";
 import * as uv from "../src/providers/uv.js";
 import { temperatureMer } from "../src/tools/mer.js";
@@ -36,6 +37,14 @@ class EdgeLike extends MemoryStore {
 }
 
 const isolate = (edge = new EdgeLike()) => new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false);
+
+/** An isolate whose data center holds the copy of /mer the scheduled event wrote: temperature_mer reads the satellites there. */
+async function withSea() {
+  const edge = new EdgeLike();
+  const satellites = [{ source: "acspo", jours: [acspo.parseAscii(String(fixture("acspo.ascii")), "2026-10-21")], lu: NOW.getTime() }];
+  await edge.put("web:mer", { value: { plages: [], sources: [], satellites }, fetchedAt: NOW.getTime() });
+  return isolate(edge);
+}
 
 let fetched: string[];
 let down: RegExp | null;
@@ -79,7 +88,7 @@ describe("houle.parse", () => {
 
 describe("the waves in temperature_mer", () => {
   it("answer « la houle à Saint-Leu ? » with a forecast labelled as such, apart from the measured temperature", async () => {
-    const r = body(await temperatureMer(isolate(), "Saint-Leu", NOW));
+    const r = body(await temperatureMer(await withSea(), "Saint-Leu", NOW));
     expect(r.resume).toMatch(/Vagues PRÉVUES près de Saint-Leu \(modèle WAM du Centre européen \(ECMWF\), pas une mesure\) : \d+(,\d)? m (du |de l')[a-z-]+, période \d+ s vers 9h\u00a0; jusqu'à \d+(,\d)? m/);
     const s = r.etat_de_la_mer;
     expect(s.nature).toBe("prevision");
@@ -102,8 +111,7 @@ describe("the waves in temperature_mer", () => {
     expect(r.sources.map((x: { source: string }) => x.source)).not.toContain(houle.SOURCE.nom);
   });
 
-  it("still answer when the satellites are down", async () => {
-    down = /coastwatch|erddap|noaacw|erdMH1/;
+  it("still answer without the satellites' copy", async () => {
     const r = await temperatureMer(isolate(), "Saint-Leu", NOW);
     expect(r.isError).toBeUndefined();
     const b = body(r);
@@ -113,7 +121,7 @@ describe("the waves in temperature_mer", () => {
   });
 
   it("go with each point of the tour of the island", async () => {
-    const r = body(await temperatureMer(isolate(), undefined, NOW));
+    const r = body(await temperatureMer(await withSea(), undefined, NOW));
     expect(r.points.every((p: { vagues_prevision?: string }) => /^\d+(,\d)? m /.test(p.vagues_prevision ?? ""))).toBe(true);
     expect(r.resume).toMatch(/Eau de mer, MESURÉE par satellite\u00a0: .* Vagues PRÉVUES maintenant \(modèle WAM .*pas une mesure\) : Plage de Boucan-Canot \d/);
   });
