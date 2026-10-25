@@ -25,7 +25,7 @@ const CONTACT = "contact@rundata.re";
 const CAPTIONS: Record<keyof typeof visuals, string> = {
   "randonnees-ordi": "La page Randonnée : les itinéraires et les sentiers de l'ONF sur la carte de l'île, colorés selon leur état du jour.",
   "accueil-ordi": "L'accueil : les températures mesurées en ce moment autour de l'île, la vigilance, le volcan, la mer.",
-  "piton-des-neiges-ordi": "Le sentier du Piton des Neiges : sa trace GPS, sa longueur, son dénivelé et son profil.",
+  "piton-des-neiges-ordi": "Le sentier du Piton des Neiges : sa trace GPS, sa longueur et son dénivelé.",
   accueil: "L'accueil sur un téléphone.",
   cilaos: "La météo mesurée à Cilaos, avec l'heure de la mesure et la station.",
   randonnees: "La page Randonnée sur un téléphone.",
@@ -101,8 +101,7 @@ const RELEASE = `<p class="eyebrow">Communiqué de presse · La Réunion, le 24 
 <li>Exemples : ${["meteo/cilaos", "randonnees", "evenements", "historique"].map((p) => link(`https://rundata.re/${p}`)).join(" · ")}</li>
 <li>Visuels : <a href="#visuels">plus bas sur cette page</a>, utilisation libre avec la mention rundata.re.</li>
 </ul>
-<p><b>Contact presse : <a href="mailto:${CONTACT}">${CONTACT}</a></b></p>
-<p>L'équipe rundata.re</p>`;
+<p><b>Contact presse : Benjamin, pour l'équipe rundata.re — <a href="mailto:${CONTACT}">${CONTACT}</a></b></p>`;
 
 const kb = (octets: number) => `${n(Math.round(octets / 1024))} Ko`;
 
@@ -142,7 +141,7 @@ export function pressePage(origin: string, figures: Figure[]): string {
   const release = `<section aria-labelledby="h-communique"><article class="card release">${RELEASE}</article></section>`;
 
   const gallery = `<section id="visuels" aria-labelledby="h-visuels">
-  <div class="sec-h"><p class="eyebrow">Captures du 24 octobre 2026</p><h2 id="h-visuels">Visuels</h2>
+  <div class="sec-h"><p class="eyebrow">Captures du 25 octobre 2026, pendant l'alerte 1 du Piton de la Fournaise.</p><h2 id="h-visuels">Visuels</h2>
   <p><b>Utilisation libre des visuels avec la mention rundata.re.</b> Cliquez sur une image pour l'ouvrir en grand.</p></div>
   <div class="vis-grid">${wide.map(visual).join("")}</div>
   <div class="vis-grid phones">${phones.map(visual).join("")}</div>
