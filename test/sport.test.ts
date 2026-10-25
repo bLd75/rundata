@@ -4,7 +4,7 @@ import { PAGE_BUDGET, count, counted } from "../src/budget.js";
 import { Cache, MemoryStore, type CacheEntry } from "../src/cache.js";
 import { parseRss, type Info } from "../src/providers/actualites.js";
 import { parseSportsregions } from "../src/providers/agenda.js";
-import { frenchDays, parisDay, parseGolf, parseLsar, parseNews, parseVolley } from "../src/providers/sport.js";
+import { frenchDays, parisDay, parseGolf, parseLsar, parseVolley } from "../src/providers/sport.js";
 import { avisIn, avisPresse, daysIn, parseLrvb } from "../src/providers/sport-avis.js";
 import { clubOf, clubsNamed, zoneOf } from "../src/sport/clubs.js";
 import { quand, sportTool, window } from "../src/tools/sport.js";
@@ -60,7 +60,6 @@ function file(url: string): string | undefined {
   if (url.includes("ffvoile")) return "ffvoile.json";
   if (url.includes("ffgolf")) return "ffgolf.json";
   if (url.includes("lsar")) return "lsar.json";
-  if (url.includes("la1ere")) return "la1ere_sport.xml";
 }
 
 describe("sport", () => {
@@ -199,16 +198,13 @@ describe("sport", () => {
     expect(avisPresse([info("Football : tous les matchs de samedi sont annulés", "2026-10-24T02:00:00Z")], NOW).avis).toEqual([]);
   });
 
-  it("parses the golf, motor sport and news sources", () => {
+  it("parses the golf and motor sport sources", () => {
     const g = parseGolf(JSON.parse(fixture("ffgolf.json").toString()));
     expect(g[1]).toMatchObject({ nom: "TROPHEES ROSES 2026 - ODYSSEA", debut: "2026-10-25", fin: "2026-10-25", commune: "L'Étang-Salé" });
     const l = JSON.parse(fixture("lsar.json").toString());
     const auto = parseLsar(l.content.rendered, l.link);
     expect(auto.find((e) => e.nom.startsWith("Rallye National Ronde"))).toMatchObject({ debut: "2026-09-05", fin: "2026-09-06", etat: "annulée", detail: "Rallyes" });
     expect(auto.find((e) => /1000 KM/.test(e.nom))).toMatchObject({ debut: "2026-12-05", fin: "2026-12-06" });
-    const n = parseNews(fixture("la1ere_sport.xml").toString());
-    expect(n).toHaveLength(30);
-    expect(n[0]).toMatchObject({ titre: "Les cyclistes de l'île Maurice brillent au Kenya pour les championnats d'Afrique 2026", rubrique: "cyclisme" });
   });
 
   it("gives what is on and the latest results across the island, and the Grand Raid in its season", async () => {
@@ -360,13 +356,13 @@ describe("sport", () => {
     expect(here.some((r: { epreuve: string }) => r.epreuve === "VB2CO – SVB")).toBe(true);
   });
 
-  it("says basket has no official source and gives the news", async () => {
+  it("says basket has no official source", async () => {
     const b = body(await sportTool(cache(), "basket", undefined, undefined, NOW));
     expect(b.resume).toMatch(/^Le calendrier et les résultats officiels du basket \(FFBB\) ne sont pas encore lus/);
     expect(b.periode).toBeUndefined();
   });
 
-  it("says football has no official source and gives the news", async () => {
+  it("says football has no official source", async () => {
     const b = body(await sportTool(cache(), "football", undefined, undefined, NOW));
     expect(b.resume).toMatch(/^Les résultats officiels du football \(FFF, Ligue réunionnaise\) ne sont pas lisibles par ce service\./);
     expect(b.a_venir).toBeUndefined();

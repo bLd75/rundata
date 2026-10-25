@@ -15,8 +15,6 @@ const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
 
 function file(url: string): string | undefined {
   if (new URL(url).hostname === "www.lequotidien.re") return "quotidien.html";
-  if (url.includes("googlenews")) return "la1ere_googlenews.xml";
-  if (url.includes("la1ere") && url.includes("/rss")) return "la1ere_societe.xml";
   if (url.includes("clicanoo")) return "clicanoo.xml";
   if (url.includes("imazpress.com/sitemap-news")) return "imaz_news.xml";
   if (url.includes("imazpress.com/selection-de-la-redaction")) return "imaz_live.html";

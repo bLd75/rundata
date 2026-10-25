@@ -42,6 +42,7 @@ import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
 import { tapNote } from "../tools/eau.js";
+import { noteLa1ere } from "../tools/non-repris.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
 // What a search engine shows of a title.
@@ -1927,13 +1928,6 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
 </section>`
     : "";
 
-  const news = d?.actualite?.length
-    ? `<section aria-labelledby="h-actu">
-  <div class="sec-h"><p class="eyebrow">Réunion La 1ère</p><h2 id="h-actu">L'actualité du sport</h2>
-  <p>Les derniers articles de la rédaction sport de Réunion La 1ère, dont les comptes rendus du football régional.</p></div>
-  <ul class="card plain">${d.actualite.map((n) => `<li><a href="${esc(n.lien)}" rel="noopener">${esc(n.titre)}</a> <span class="note">${esc(n.publie_le)}</span></li>`).join("")}</ul>
-</section>`
-    : "";
 
   const title = "Sport Réunion : matchs, résultats, Grand Raid · 974";
   const description = "Sport à La Réunion (974) : matchs à venir et résultats du handball et du volley régionaux, classements, régates, golf, rallyes et podiums du Grand Raid.";
@@ -1972,10 +1966,10 @@ ${standings ? `<section aria-labelledby="h-class">
   ${standings}
 </section>` : ""}
 ${raid}
-${news}
 <section aria-labelledby="h-src">
   <div class="sec-h"><h2 id="h-src">Ce qui n'est pas couvert</h2><p>${d ? esc(d.non_couvert) : ""}</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
+  <p class="note">${noteLa1ere("sport")}</p>
 </section>
 ${connectorCta("sport", "le sport")}`;
 
@@ -2513,6 +2507,7 @@ ${pref}
 <section aria-labelledby="h-couv">
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
+  <p class="note">${noteLa1ere("actualites")}</p>
 </section>
 ${connectorCta("actualites", "l'actualité de l'île")}
 <script>${NEWS_SCRIPT}</script>`;

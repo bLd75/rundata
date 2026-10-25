@@ -11,8 +11,8 @@
  * - Sailing: the regattas of the league from the FFVoile's API (calendar, results published or not).
  * - Golf: the club competitions of the three courses from ffgolf's search.
  * - Motor sport: the calendar of the Ligue du sport automobile de La Réunion (rallies, karting, acceleration).
- * - The sport news of Réunion La 1ère (titles and links only): the only open source on football, whose results the
- *   FFF does not let be read.
+ * Not Réunion La 1ère's sport news, which gave football's reports: France Télévisions' terms forbid reading its sites
+ * by a program, its titles included (src/providers/autorisations.ts, MEDIAS).
  *
  * Several publish local hours with a Paris offset (« 20:30+01:00 » for a match at 20:30 in La Réunion): the clock time
  * is kept, the offset dropped.
@@ -95,14 +95,6 @@ export const SOURCES = {
     licence: "Information publique (calendrier officiel)",
     attribution: "LSAR",
     url: "https://lsar.re/calendrier2026/",
-  },
-  la1ere: {
-    id: "la1ere_sport",
-    nom: "Actualité sportive de Réunion La 1ère (titres et liens)",
-    organisme: "France Télévisions, Réunion La 1ère",
-    licence: "Titres et liens seulement\u00a0; articles sur le site de Réunion La 1ère",
-    attribution: "Réunion La 1ère",
-    url: "https://la1ere.franceinfo.fr/reunion/sport/",
   },
 } satisfies Record<string, SourceInfo>;
 
@@ -522,34 +514,4 @@ export async function sportAuto(cache: Cache): Promise<Cached<Epreuve[]>> {
     const page = await getJson<{ link: string; content: { rendered: string } }>(SOURCES.lsar.id, "https://lsar.re/wp-json/wp/v2/posts/15268?_fields=link,content", 12_000);
     return parseLsar(page.content.rendered, page.link);
   });
-}
-
-// ---------------------------------------------------------------- news
-
-export interface Article {
-  titre: string;
-  lien: string;
-  /** ISO. */
-  publie: string;
-  /** « football », « cyclisme »… when the newsroom files it so. */
-  rubrique?: string;
-}
-
-const NOT_A_SPORT = /^(sport|monde|océan indien|afrique|outre-mer|la réunion|réunion|france)$/i;
-
-export function parseNews(xml: string): Article[] {
-  return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(([, item]) => {
-    const tag = (t: string) => clean((new RegExp(`<${t}>([\\s\\S]*?)</${t}>`).exec(item)?.[1] ?? "").replace(/^<!\[CDATA\[([\s\S]*)\]\]>$/, "$1"));
-    const cats = [...item.matchAll(/<category domain="https:\/\/la1ere\.franceinfo\.fr\/sport\/([^"]+)">([^<]*)<\/category>/g)].map((m) => clean(m[2]));
-    return {
-      titre: tag("title"),
-      lien: tag("link"),
-      publie: new Date(tag("pubDate")).toISOString(),
-      rubrique: cats.find((c) => !NOT_A_SPORT.test(c))?.toLowerCase(),
-    };
-  });
-}
-
-export async function actualite(cache: Cache): Promise<Cached<Article[]>> {
-  return cache.get("sport:actu", 30 * 60, async () => parseNews(await getText(SOURCES.la1ere.id, "https://la1ere.franceinfo.fr/reunion/sport/rss", 12_000)));
 }

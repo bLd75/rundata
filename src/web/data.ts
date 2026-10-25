@@ -58,7 +58,7 @@ import { type CourantAnswer, type courantBlock, courantCopy } from "../tools/cou
 import { type NonOfficiel, volcanSeismes } from "../tools/volcan.js";
 import type { Acces } from "../tools/volcan-acces.js";
 import * as sportSource from "../providers/sport.js";
-import { grandRaidRow, sportTool, type SportRow } from "../tools/sport.js";
+import { grandRaidRow, mentionProgrammes, sportTool, type SportRow } from "../tools/sport.js";
 import * as gdacs from "../providers/cyclones.js";
 import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
 import { historiqueMeteo } from "../tools/historique.js";
@@ -898,7 +898,6 @@ export interface SportAnswer {
   resume: string;
   a_venir?: SportRow[];
   resultats?: SportRow[];
-  actualite?: { titre: string; publie_le: string; lien: string }[];
   indisponible?: string[];
   non_couvert: string;
   sources: Credit[];
@@ -925,7 +924,8 @@ export async function buildSport(cache: Cache, now = new Date()): Promise<SportA
     const muet = c.muet ? a.injoignable?.find((x) => x.competition.toLowerCase() === competition.toLowerCase()) : undefined;
     return { competition, lignes: c.classement, lien: c.lien, ...(muet && { muet: { texte: muet.texte, site: muet.site } }) };
   });
-  return { ...a, classements, grand_raid: gr ? grandRaidRow(gr.value) : undefined };
+  // The page says Réunion La 1ère's apart, under its sources (tools/non-repris.ts): the programmes' here.
+  return { ...a, non_repris: mentionProgrammes(), classements, grand_raid: gr ? grandRaidRow(gr.value) : undefined };
 }
 
 export interface CyclonesAnswer {

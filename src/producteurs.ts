@@ -60,7 +60,6 @@ const ARS = "Agence régionale de santé La Réunion";
 const PREFECTURE = "Préfecture de La Réunion";
 const MTE = "Ministère de la Transition écologique";
 const OSM = "contributeurs d'OpenStreetMap";
-const LA1ERE = "Réunion La 1ère";
 
 export const FICHES: Record<string, Fiche> = {
   // Weather, sea, volcano.
@@ -144,9 +143,8 @@ export const FICHES: Record<string, Fiche> = {
   lsar: { famille: "information_publique", producteurs: ["Ligue du sport automobile de La Réunion"] },
   // A platform: the clubs it names, from its last copy, counted live.
   sportsregions: { famille: "information_publique", producteurs: [] },
-  la1ere_sport: { famille: "information_publique", producteurs: [LA1ERE] },
   // News and events.
-  medias_locaux: { famille: "information_publique", producteurs: [LA1ERE, "Clicanoo", "Le Quotidien de La Réunion", "Imaz Press Réunion", "Freedom", "Parallèle Sud", "Témoignages"] },
+  medias_locaux: { famille: "information_publique", producteurs: ["Clicanoo", "Le Quotidien de La Réunion", "Imaz Press Réunion", "Freedom", "Parallèle Sud", "Témoignages"] },
   prefecture_communiques: { famille: "licence_ouverte", producteurs: [PREFECTURE] },
   openagenda: { famille: "licence_ouverte", producteurs: ["CINOR", "Office de tourisme intercommunal du Nord"] },
   agenda_oti_est: { famille: "information_publique", producteurs: ["Office de tourisme intercommunal de l'Est"] },

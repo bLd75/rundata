@@ -10,6 +10,7 @@ import * as avis from "../providers/sport-avis.js";
 import { type Club, clubOf, clubsNamed, type ClubSport, zoneOf } from "../sport/clubs.js";
 import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
+import { mentionLa1ere } from "./non-repris.js";
 import { injoignable } from "./injoignable.js";
 
 export type Sport = "grand_raid" | "handball" | "volley" | "basket" | "voile" | "golf" | "sport_auto" | "football";
@@ -27,18 +28,7 @@ const NAMES: Record<Sport, string> = {
   sport_auto: "sport automobile",
   football: "football",
 };
-// The news of a sport, by the newsroom's section or the title.
-const NEWS: Record<Sport, RegExp> = {
-  grand_raid: /grand raid|diagonale|trail/i,
-  handball: /hand/i,
-  volley: /volley/i,
-  basket: /basket/i,
-  voile: /voile|régate|regate|nautisme/i,
-  golf: /golf/i,
-  sport_auto: /rallye|auto|karting|sport mécanique/i,
-  football: /foot|régionale 1|\bR1\b|coupe de france/i,
-};
-// Sports with no official source read: the news only.
+// Sports with no official source read.
 const NEWS_ONLY: Partial<Record<Sport, string>> = {
   football: "Les résultats officiels du football (FFF, Ligue réunionnaise) ne sont pas lisibles par ce service.",
   basket: "Le calendrier et les résultats officiels du basket (FFBB) ne sont pas encore lus par ce service.",
@@ -50,7 +40,6 @@ const BACK_DAYS = 7;
 const BACK_DAYS_ONE = 30;
 const UPCOMING_MAX = 40;
 const RESULTS_MAX = 30;
-const NEWS_MAX = 6;
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 
 const localDay = (now: Date) => new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
@@ -251,7 +240,6 @@ export interface SportData {
   epreuves: Got<src.Epreuve[]>[];
   /** The clubs' events (Sportsregions), as the scheduled event last read them, of the sport asked. */
   clubs?: Got<Evenement[]>;
-  actualite: Got<src.Article[]>;
   /** The league's notices (volley). */
   avis?: Got<avis.Avis[]>;
   /** The news as last read for `actualites`, not read again for this. */
@@ -267,14 +255,13 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date, 
   const want = (s: Sport) => !sport || sport === s;
   const clubsWanted = !sport || SPORT_DU_CLUB.some(([, s]) => s === sport);
   const agendasWanted = want("volley") || clubsWanted;
-  const [grandRaid, handball, volley, voile, golfs, auto, actualite, notices, presse, agendas] = await Promise.all([
+  const [grandRaid, handball, volley, voile, golfs, auto, notices, presse, agendas] = await Promise.all([
     want("grand_raid") ? attempt(src.SOURCES.livetrail, () => src.grandRaid(cache, now)) : undefined,
     want("handball") ? attempt(src.SOURCES.ffhb, () => src.championnats(cache, "handball")) : undefined,
     want("volley") ? attempt(src.SOURCES.ffvb, () => src.championnats(cache, "volley")) : undefined,
     want("voile") ? attempt(src.SOURCES.ffvoile, () => src.regates(cache, now)) : undefined,
     want("golf") ? attempt(src.SOURCES.ffgolf, () => src.golf(cache, now)) : undefined,
     want("sport_auto") ? attempt(src.SOURCES.lsar, () => src.sportAuto(cache)) : undefined,
-    attempt(src.SOURCES.la1ere, () => src.actualite(cache)),
     want("volley") ? attempt(avis.SOURCE, () => avis.avisLigue(cache, now)) : undefined,
     want("volley") || want("handball") ? cache.peek<Fil>("actualites:fil").catch(() => undefined) : undefined,
     // The communes' programmes, of every sport, only when none is asked; the volley league's tournaments; the clubs'
@@ -295,7 +282,6 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date, 
       ligue ? { source: src.SOURCES.lrvb_tournois, value: { ...ligue, value: ligue.value.flatMap(tournoi) } } : undefined,
     ].filter((x): x is Got<src.Epreuve[]> => !!x),
     clubs: ofSport?.length ? { source: src.SOURCES.sportsregions, value: { ...agendas!.clubs!, value: ofSport } } : undefined,
-    actualite,
     avis: notices,
     presse,
     programmes: agendas?.programmes,
@@ -393,8 +379,7 @@ const PROGRAMMES =
 
 const COMMON = {
   non_couvert:
-    "Football (Régionale 1 et coupes), basket, rugby, tennis et courses à pied : pas de source ouverte lisible en direct\u00a0; " +
-    "l'actualité de Réunion La 1ère en donne les comptes rendus. Les heures sont celles de La Réunion.",
+    "Football (Régionale 1 et coupes), basket, rugby, tennis et courses à pied : pas de source ouverte lisible en direct. Les heures sont celles de La Réunion.",
 };
 const CALLED_OFF =
   "Annulations et reports : les pages de résultats des fédérations ne les montrent pas\u00a0; ils viennent des avis de la Ligue réunionnaise de volley-ball (lrvb.re) " +
@@ -426,9 +411,10 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     if (w.kind === "clubs" && w.sport) sport ??= w.sport;
   }
   const data = await gather(cache, sport, now, adherent);
-  const got = ([data.grandRaid, ...data.championnats, ...data.epreuves, data.clubs, data.avis, data.actualite] as (Got<unknown> | undefined)[]).filter((x): x is Got<unknown> => !!x);
+  const got = ([data.grandRaid, ...data.championnats, ...data.epreuves, data.clubs, data.avis] as (Got<unknown> | undefined)[]).filter((x): x is Got<unknown> => !!x);
   const failed = got.filter((g) => !g.value).map((g) => g.source.nom);
-  if (got.every((g) => !g.value)) {
+  // Football and basket have no source read: their answer says so, not that the sources do not answer.
+  if (got.length && got.every((g) => !g.value)) {
     return { ...text({ erreur: "Les sources du sport ne répondent pas pour le moment.", indisponible: failed }), isError: true };
   }
 
@@ -498,11 +484,6 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
   const gr = data.grandRaid?.value?.value;
   const showRaid = gr && (sport === "grand_raid" || (!sport && !w && grandRaidNow(gr, now)));
 
-  const news = (data.actualite.value?.value ?? [])
-    .filter((n) => !sport || NEWS[sport].test(`${n.rubrique ?? ""} ${n.titre}`))
-    .slice(0, NEWS_MAX)
-    .map((n) => ({ titre: n.titre, publie_le: quand(new Date(new Date(n.publie).getTime() + 4 * 3600_000).toISOString().slice(0, 16)), lien: n.lien }));
-
   const what = sport ? NAMES[sport] : "sport";
   const place = w ? w.label : " à La Réunion";
   const ahead = q === "aujourd_hui" || q === "demain" || q === "samedi" || q === "dimanche"
@@ -528,7 +509,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     site: c.lien,
   })));
   const resume = sport && NEWS_ONLY[sport]
-    ? `${NEWS_ONLY[sport]} ${news.length ? `Les ${news.length} derniers articles de Réunion La 1ère qui en parlent sont ci-dessous.` : `Aucun article récent de Réunion La 1ère sur le ${NAMES[sport]}.`}`
+    ? NEWS_ONLY[sport]
     : sport === "grand_raid"
       ? gr ? `${gr.edition} : ${gr.courses.map((c) => `${c.nom} ${c.statut}${c.podium[0] ? `, vainqueur ${c.podium[0].nom} en ${c.podium[0].temps}` : ""}`).join("\u00a0; ")}.` : "Le suivi du Grand Raid ne répond pas pour le moment."
       : [
@@ -562,11 +543,14 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     a_verifier: check.length ? check : undefined,
     programmes_communes: programmes.length ? programmes.map(({ date: _d, agenda: _a, ...p }) => p) : undefined,
     programmes_a_savoir: programmes.length ? PROGRAMMES : undefined,
-    // The programmes of the communes whose site is not read until they agree, where programmes are given.
-    non_repris: sport || q === "resultats" || (w && w.kind !== "communes") ? undefined : mentionProgrammes(w?.kind === "communes" ? w.communes : undefined),
+    // Réunion La 1ère's sport news, not read (tools/non-repris.ts), for the whole island or the sports it covered; the
+    // programmes of the communes whose site is not read until they agree, where programmes are given.
+    non_repris: [
+      (sport && NEWS_ONLY[sport]) || (!sport && !w) ? mentionLa1ere("sport") : undefined,
+      sport || q === "resultats" || (w && w.kind !== "communes") ? undefined : mentionProgrammes(w?.kind === "communes" ? w.communes : undefined),
+    ].filter(Boolean).join(" ") || undefined,
     classements: standings,
     grand_raid: showRaid ? grandRaidRow(gr) : undefined,
-    actualite: news.length ? news : undefined,
     mise_a_jour: freshness(got),
     injoignable: silent.length ? silent.map(({ competition, texte, site }) => ({ competition, texte, site })) : undefined,
     indisponible: failed.length ? failed : undefined,
