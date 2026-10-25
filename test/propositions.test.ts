@@ -633,6 +633,7 @@ describe("the clubs' and associations' space (web/associations.ts)", () => {
     expect(html).toContain('<input type="hidden" name="page" value="/associations">');
     expect(html).toContain('href="/associations/evenements.ics"');
     expect(html).toContain('"@type":"HowTo"');
+    expect(html).toMatch(/<meta property="og:image" content="https:\/\/rundata\.re\/og\/associations\.[0-9a-f]{10}\.png">/);
     // No figure before there are ten clubs; the empty list says what to do.
     expect(html).not.toContain("clubs et associations lus par rundata.re");
     expect(html).toContain("Les premiers événements de clubs et d'associations arrivent : ");
@@ -693,7 +694,11 @@ describe("the clubs' and associations' space (web/associations.ts)", () => {
     expect(closed).toContain("<p>rundata.re ne demande ni compte, ni nom, ni adresse électronique. Le site");
     expect(plain(await (await get("/conditions")).text())).not.toContain('id="evenements-proposes"');
     expect(plain(await (await get("/publier")).text())).not.toContain('id="lien"');
+    expect(plain(await (await get("/presse")).text())).not.toContain("Clubs et associations : comment");
     formulaires.ouvrir(true);
+    // Under the dated press release, never inside it.
+    const presse = plain(await (await get("/presse")).text());
+    expect(presse).toContain('</article><p>Clubs et associations : comment ils publient leurs événements sur rundata.re, gratuitement et en données ouvertes, <a href="https://rundata.re/associations">rundata.re/associations</a></p></section>');
     const privacy = plain(await (await get("/confidentialite")).text());
     expect(privacy).toContain('<li><a href="/associations">Clubs et associations</a></li>');
     expect(privacy).toContain('<h2 id="associations-donnees">');

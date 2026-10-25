@@ -13,6 +13,7 @@ import { GROUPS as STOP_GROUPS, NETWORKS } from "../providers/transit.js";
 import { createServer } from "../server.js";
 import { COMMUNES } from "./commune.js";
 import type { AgendaAnswer, RandonneesAnswer } from "./data.js";
+import { enLigne } from "./associations-drapeau.js";
 import { esc } from "./map.js";
 import icons from "./icons.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
@@ -138,7 +139,9 @@ export function pressePage(origin: string, figures: Figure[]): string {
   <ul class="figs">${figures.map((f) => `<li class="card"><span class="fig">${n(f.valeur)}</span><span>${esc(f.label)}${f.detail ? `<small>${esc(f.detail)}</small>` : ""}</span></li>`).join("")}</ul>
 </section>`;
 
-  const release = `<section aria-labelledby="h-communique"><article class="card release">${RELEASE}</article></section>`;
+  // After the dated release, never in it: the clubs' space came out after it.
+  const clubs = enLigne() ? `<p>Clubs et associations\u00a0: comment ils publient leurs événements sur rundata.re, gratuitement et en données ouvertes, ${link("https://rundata.re/associations")}</p>` : "";
+  const release = `<section aria-labelledby="h-communique"><article class="card release">${RELEASE}</article>${clubs}</section>`;
 
   const gallery = `<section id="visuels" aria-labelledby="h-visuels">
   <div class="sec-h"><p class="eyebrow">Captures du 25 octobre 2026, pendant l'alerte 1 du Piton de la Fournaise.</p><h2 id="h-visuels">Visuels</h2>
