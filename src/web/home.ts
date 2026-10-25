@@ -14,7 +14,7 @@ import { de } from "../tools/format.js";
 import { enImagesApres, enImagesLuesAilleurs, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
 import { enfantsLive } from "./enfants.js";
-import { esc, islandMap, type Marker } from "./map.js";
+import { esc, fenetre, islandMap, type Marker } from "./map.js";
 import {
   ask,
   chip,
@@ -253,7 +253,7 @@ function happening(h: HomeLive | null, now: Date): string {
     .filter((r) => r.publie >= since).sort((x, y) => (x.publie < y.publie ? 1 : x.publie > y.publie ? -1 : 0)).slice(0, NOW_MAX);
   if (!rows.length) return "";
   return `<div class="card warn now-news"><h3>${icon("news")} En ce moment sur l'île</h3><ul class="plain">${rows.map((r) =>
-    `<li><b>${hm(r.publie)}</b> <a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a> <span class="note">${esc(r.media)}${r.communes?.length ? ` · ${esc(r.communes.join(", "))}` : ""}</span></li>`).join("")}</ul>` +
+    `<li><b>${hm(r.publie)}</b> <a href="${esc(r.lien)}" rel="noopener"${fenetre(r.lien)}>${esc(r.titre)}</a> <span class="note">${esc(r.media)}${r.communes?.length ? ` · ${esc(r.communes.join(", "))}` : ""}</span></li>`).join("")}</ul>` +
     `<p class="note"><a href="/actualites">Toute l'actualité, commune par commune →</a></p></div>`;
 }
 
