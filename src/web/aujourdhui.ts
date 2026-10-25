@@ -5,7 +5,7 @@
  */
 import type { Cached } from "../cache.js";
 import { ACCUEILS } from "../providers/agenda.js";
-import type { Resume } from "../tools/resume.js";
+import { type Resume, UPDATING } from "../tools/resume.js";
 import type { Alerte } from "./data.js";
 import { connectorCta, courantItem, webPage } from "./domains.js";
 import { esc } from "./map.js";
@@ -114,9 +114,13 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
     r.collecte_dechets ? `<li>Collecte des déchets : le jour de votre rue sur <a href="${esc(r.collecte_dechets.page.replace(/^https:\/\/rundata\.re/, ""))}">rundata.re${esc(r.collecte_dechets.page.replace(/^https:\/\/rundata\.re/, ""))}</a>.</li>` : "",
     `<li>Pharmacie de garde (nuits, dimanches, jours fériés) : <a href="${esc(r.pharmacie_de_garde.site)}" rel="noopener"><b>3237.fr</b></a>, ou le 32 37 (payant)</li>`,
   ].filter(Boolean).join("");
-  const missing = r.non_inclus?.length
-    ? `<p class="note">Pas de copie récente pour : ${r.non_inclus.map((x) => `<a href="${esc(x.page.replace(/^https:\/\/rundata\.re/, ""))}">${esc(x.partie)}</a>`).join(", ")}. Ces pages les donnent à jour.</p>`
-    : "";
+  // A part whose copy is being built again (tools/resume.ts, `UPDATING`) says so, as the other tiles.
+  const link = (x: { partie: string; page: string }) => `<a href="${esc(x.page.replace(/^https:\/\/rundata\.re/, ""))}">${esc(x.partie)}</a>`;
+  const updating = r.non_inclus?.filter((x) => x.raison === UPDATING) ?? [];
+  const old = r.non_inclus?.filter((x) => x.raison !== UPDATING) ?? [];
+  const missing =
+    (old.length ? `<p class="note">Pas de copie récente pour : ${old.map(link).join(", ")}. Ces pages les donnent à jour.</p>` : "") +
+    (updating.length ? `<p class="note">${updating.map(link).join(", ")}. Se met à jour : rechargez la page dans quelques minutes.</p>` : "");
 
   const title = titleOf(p);
   const description = descriptionOf(p, r);
