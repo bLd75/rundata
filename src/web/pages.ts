@@ -771,14 +771,13 @@ export function hook(path: string): string | undefined {
 function share(origin: string, head: Head): string {
   const text = `${head.title.replace(/ · 974$/, "")} : ${origin}${head.path}?ref=wa`;
   const link = (s: Social, label = s.nom) => `<a href="${esc(fromSite(s.url))}" rel="noopener">${esc(label)}</a>`;
-  const daily = followed().filter((s) => s.nom !== "WhatsApp").map((s) => link(s));
+  // The info of each morning is Facebook's; Instagram posts less often, so it is named without a rhythm (marketing).
+  const accounts = followed().filter((s) => s.nom !== "WhatsApp").map((s) => link(s) + (s.nom === "Facebook" ? " (une info utile chaque matin)" : ""));
   const channel = followed().find((s) => s.nom === "WhatsApp");
-  // « Facebook ou Instagram ».
-  const morning = daily.length > 1 ? `${daily.slice(0, -1).join(", ")} ou ${daily.at(-1)}` : daily[0];
+  // « Facebook (une info utile chaque matin) ou Instagram ».
+  const on = accounts.length > 1 ? `${accounts.slice(0, -1).join(", ")} ou ${accounts.at(-1)}` : accounts[0];
   const weekend = channel && `les sorties du week-end le vendredi sur notre ${link(channel, "chaîne WhatsApp")}`;
-  const sentence = morning && weekend
-    ? `Une info utile chaque matin sur ${morning}, et ${weekend}.`
-    : morning ? `Une info utile chaque matin sur ${morning}.` : weekend ? `${weekend[0].toUpperCase()}${weekend.slice(1)}.` : "";
+  const sentence = on ? `Suivez rundata.re sur ${on}${weekend ? `, et ${weekend}` : ""}.` : weekend ? `Suivez ${weekend}.` : "";
   return `<aside class="share wrap" aria-label="Partager et suivre"><div class="card">
   <a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp ${EXTERNAL}</a>
   ${sentence ? `<p>${sentence}</p>` : ""}
