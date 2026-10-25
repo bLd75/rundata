@@ -4,7 +4,7 @@ import { INSEE } from "../places/insee.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as terrain from "../providers/terrain.js";
 import { why } from "../types.js";
-import { credits, fr, text } from "./format.js";
+import { credits, nombre, text } from "./format.js";
 
 // What a PLU zone letter means (code de l'urbanisme, articles R151-18 to R151-25).
 const ZONE_TYPES: Record<string, string> = {
@@ -68,7 +68,7 @@ const median = (v: number[]) => {
   const s = [...v].sort((a, b) => a - b);
   return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
 };
-const euros = (n: number) => `${fr(Math.round(n / 1000) * 1000).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} €`;
+const euros = (n: number) => `${nombre(Math.round(n / 1000) * 1000)}\u00a0€`;
 
 /**
  * Below this many sales of one kind on the street, their count alone: DVF's terms forbid making people identifiable
@@ -88,14 +88,14 @@ export function market(sales: terrain.Sale[]) {
       : {
           ventes: list.length,
           prix_median: euros(median(list.map((s) => s.valeur))!),
-          prix_m2_median: `${fr(Math.round(median(list.map((s) => s.valeur / s.surface_bati))! / 10) * 10)} €/m²`,
+          prix_m2_median: `${nombre(Math.round(median(list.map((s) => s.valeur / s.surface_bati))! / 10) * 10)}\u00a0€/m²`,
           surface_mediane_m2: Math.round(median(list.map((s) => s.surface_bati))!),
         };
   const land = sales.filter((s) => s.code.startsWith("2") && s.surface_terrain > 0 && s.surface_bati === 0);
   return {
     maisons: sum(pick("111")),
     appartements: sum(pick("121")),
-    terrains_nus: land.length >= 3 ? { ventes: land.length, prix_m2_median: `${fr(Math.round(median(land.map((s) => s.valeur / s.surface_terrain))!))} €/m²` } : { ventes: land.length },
+    terrains_nus: land.length >= 3 ? { ventes: land.length, prix_m2_median: `${nombre(Math.round(median(land.map((s) => s.valeur / s.surface_terrain))!))}\u00a0€/m²` } : { ventes: land.length },
     toutes_ventes: sales.length,
   };
 }
@@ -115,7 +115,7 @@ export function streetMarket(nom: string, depuis: number, sales: terrain.StreetS
     const list = sales.filter((s) => s.type === type && s.surface_bati >= 15);
     return list.length < MEDIANE_MIN
       ? { ventes: sales.filter((s) => s.type === type).length }
-      : { ventes: list.length, prix_median: euros(median(list.map((s) => s.valeur))!), prix_m2_median: `${fr(Math.round(median(list.map((s) => s.valeur / s.surface_bati))! / 10) * 10)} €/m²` };
+      : { ventes: list.length, prix_median: euros(median(list.map((s) => s.valeur))!), prix_m2_median: `${nombre(Math.round(median(list.map((s) => s.valeur / s.surface_bati))! / 10) * 10)}\u00a0€/m²` };
   };
   const land = sales.filter((s) => s.type === "terrain" && s.surface_terrain > 0);
   return {
@@ -124,7 +124,7 @@ export function streetMarket(nom: string, depuis: number, sales: terrain.StreetS
     ventes: n,
     maisons: built("maison"),
     appartements: built("appartement"),
-    terrains_nus: land.length >= MEDIANE_MIN ? { ventes: land.length, prix_m2_median: `${fr(Math.round(median(land.map((s) => s.valeur / s.surface_terrain))!))} €/m²` } : { ventes: sales.filter((s) => s.type === "terrain").length },
+    terrains_nus: land.length >= MEDIANE_MIN ? { ventes: land.length, prix_m2_median: `${nombre(Math.round(median(land.map((s) => s.valeur / s.surface_terrain))!))}\u00a0€/m²` } : { ventes: sales.filter((s) => s.type === "terrain").length },
     autres_ventes: sales.filter((s) => s.type === "autre").length,
   };
 }
@@ -232,8 +232,8 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
   ]);
 
   const parts = [`${where.label} (${where.precision})`];
-  if (alt != null) parts.push(`altitude ${alt} m`);
-  if (p) parts.push(`parcelle cadastrale ${p.section} ${p.numero} (${fr(p.contenance_m2)} m²)`);
+  if (alt != null) parts.push(`altitude ${nombre(alt)}\u00a0m`);
+  if (p) parts.push(`parcelle cadastrale ${p.section} ${p.numero} (${nombre(p.contenance_m2)}\u00a0m²)`);
   const zt = z ? ZONE_TYPES[z.typezone] ?? (z.typezone ? `zone ${z.typezone}` : undefined) : undefined;
   if (z) parts.push(`zone ${z.libelle} du PLU${zt ? `, ${zt}` : ""}`);
   const m = s ? market(s) : null;

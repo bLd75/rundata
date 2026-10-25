@@ -21,7 +21,7 @@ import { SUJETS } from "../providers/actualites.js";
 import * as littoral from "../tools/littoral.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
-import { de, fr } from "../tools/format.js";
+import { de, fr, nombre } from "../tools/format.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
@@ -984,7 +984,8 @@ export function eauLive(data: Cached<EauAnswer> | null): Live | undefined {
 // ---------------------------------------------------------------- sentiers de randonnée
 
 const kmFr = (n: number) => String(n).replace(".", ",");
-const meters = (n: number) => n.toLocaleString("fr-FR").replace(/\u202f|\u00a0/g, " ");
+// With its unit: « 2\u202f450\u00a0m ».
+const meters = (n: number) => `${nombre(n)}\u00a0m`;
 
 /** The fires seen by satellite, on the island's map: orange, apart from the closed trails. */
 export const fireMarkers = (f: feux.Feux | undefined, now: Date): Marker[] =>
@@ -1285,7 +1286,7 @@ function hikeCard(h: HikeCard): string {
       : `<p class="note">État non suivi par l'ONF : se renseigner avant de partir.</p>`;
   // Never counted as open: said apart.
   const unknown = etat !== "i" && h.inconnus.length ? `<p class="note">${plural(h.inconnus.length, "tronçon hors gestion ONF", "tronçons hors gestion ONF")} : état non connu.</p>` : "";
-  const facts = [`${kmFr(h.km)} km`, `+${meters(h.dplus)} m`, h.alt_max != null ? `jusqu'à ${meters(h.alt_max)} m` : "", h.boucle ? "boucle" : "", h.secteur].filter(Boolean).join(" · ");
+  const facts = [`${kmFr(h.km)} km`, `+${meters(h.dplus)}`, h.alt_max != null ? `jusqu'à ${meters(h.alt_max)}` : "", h.boucle ? "boucle" : "", h.secteur].filter(Boolean).join(" · ");
   return `<li class="card hike${h.fermes.length ? " closed" : ""}" ${dataOf(h, etat)}>
 <h3><a href="/randonnees/${esc(h.slug)}">${esc(h.nom)}</a></h3><p class="note">${esc(facts)}</p>${state}${unknown}
 <p class="links"><a href="/randonnees/${esc(h.slug)}">Carte et profil</a><a href="/randonnees/${esc(h.slug)}.gpx" download>GPX</a></p></li>`;
@@ -1295,7 +1296,7 @@ function trailLi(t: TrailItem): string {
   const e = t.etat === "fermé" ? "f" : t.etat === "ouvert" ? "o" : "i";
   const cls = e === "f" ? "q-mauvaise" : e === "o" ? "q-bonne" : "q-none";
   const label = e === "f" ? (t.partiel ? "fermé en partie" : "fermé") : e === "o" ? "ouvert" : "état inconnu";
-  const small = [`${t.commune ? `${esc(t.commune)} · ` : ""}${kmFr(t.km)} km${t.dplus != null ? ` · +${meters(t.dplus)} m` : ""}${t.boucle ? " · boucle" : ""}`, why_(t)].filter(Boolean).join(" · ");
+  const small = [`${t.commune ? `${esc(t.commune)} · ` : ""}${kmFr(t.km)} km${t.dplus != null ? ` · +${meters(t.dplus)}` : ""}${t.boucle ? " · boucle" : ""}`, why_(t)].filter(Boolean).join(" · ");
   const on = t.randonnees.length ? `<small>Sur : ${t.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}</small>` : "";
   return `<li ${dataOf(t, e)}><span>${t.slug ? `<a href="/sentiers/${esc(t.slug)}">${esc(t.nom)}</a>` : esc(t.nom)}<small>${small}</small>${on}</span><span class="${cls}">${label}</span></li>`;
 }
@@ -1478,8 +1479,8 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
 
   const facts = d
     ? `<dl class="facts"><div><dt>${d.boucle ? "En boucle" : "Longueur"}</dt><dd>${kmFr(d.km)} km</dd></div>` +
-      (d.dplus != null ? `<div><dt>Dénivelé positif</dt><dd>${meters(d.dplus)} m</dd></div><div><dt>Dénivelé négatif</dt><dd>${meters(d.dmoins ?? 0)} m</dd></div>` : "") +
-      (d.alt_max != null ? `<div><dt>Altitudes</dt><dd>${meters(d.alt_min ?? 0)} – ${meters(d.alt_max)} m</dd></div>` : "") + `</dl>`
+      (d.dplus != null ? `<div><dt>Dénivelé positif</dt><dd>${meters(d.dplus)}</dd></div><div><dt>Dénivelé négatif</dt><dd>${meters(d.dmoins ?? 0)}</dd></div>` : "") +
+      (d.alt_max != null ? `<div><dt>Altitudes</dt><dd>${nombre(d.alt_min ?? 0)} – ${meters(d.alt_max)}</dd></div>` : "") + `</dl>`
     : loading("La trace");
 
   const state = d ? `<p class="lead">${d.ferme ? "<b>" : ""}${esc(d.etat)}${d.ferme ? "</b>" : ""}</p>` : "";
