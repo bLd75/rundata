@@ -122,7 +122,7 @@ La marée est faible à La Réunion (20 à 80 cm) : en mortes-eaux, la pleine ou
 
 https://github.com/rundata-re/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 
-Ailleurs : la fiche de réutilisation sur [data.gouv.fr](https://www.data.gouv.fr/reuses/rundata-re-la-reunion-974-en-direct-pour-vous-et-votre-assistant-ia), la fiche du serveur sur [Glama](https://glama.ai/mcp/servers/bLd75/rundata) et la page [Facebook](https://www.facebook.com/1432704299917309).
+Ailleurs : la fiche de réutilisation sur [data.gouv.fr](https://www.data.gouv.fr/reuses/rundata-re-la-reunion-974-en-direct-pour-vous-et-votre-assistant-ia), la fiche du serveur sur [Glama](https://glama.ai/mcp/servers/bLd75/rundata) et les comptes [Facebook](https://www.facebook.com/1432704299917309), [Instagram](https://www.instagram.com/rundata.re/) et [WhatsApp](https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q) (la chaîne).
 
 Chaque pull request fusionnée est mise en ligne sur rundata.re dès que les tests passent (`.github/workflows/deploy.yml`). Quand un réseau de bus publie de nouveaux horaires, ils sont importés dans D1 avant la fusion (`scripts/build-transit.py --d1 rundata-transports`) : sans eux, le déploiement s'arrête avant de mettre en ligne.
 
@@ -167,7 +167,7 @@ Les pages sont rendues par le serveur, données comprises, pour les moteurs de r
 - en bas de chaque page, un formulaire « Un avis, une donnée qui manque ? » (`src/web/avis.ts`) : un formulaire HTML simple, sans script, envoyé à `POST /avis`, qui renvoie à la page avec un merci. Les avis du site et de l'outil `donner_avis` vont dans la table `avis` de D1 (`scripts/avis.sql`), sans adresse IP, effacés au bout de 12 mois ;
 - `/robots.txt`, `/sitemap.xml`, `/og.png` (aperçu Facebook, WhatsApp…, `scripts/build-og.py`), `/favicon.svg` et `/favicon.ico` (le symbole de rundata.re, le « Point chaud », en SVG et en PNG de 48 px), `/manifest.webmanifest` (le site gardé sur l'écran d'accueil d'un téléphone, ouvert sur `/?ref=pwa`, avec les raccourcis Météo, Vigilance et Randonnées ; icônes `public/icons/`, symbole et logos `public/logo/`, repris du kit de la marque par `scripts/build-icons.py`), `/sw.js` (le service worker : réseau d'abord, et sans réseau la dernière copie de chaque page ouverte, sous un bandeau qui en donne la date ; rien de `/mcp`, de `?maj=`, des flux ni des traces), `/hors-ligne` (la page d'une adresse jamais ouverte sans réseau, avec les pages gardées sur le téléphone).
 
-Sous le titre de chaque page, une phrase dit à quoi elle sert ; au bas de chaque page, au-dessus du formulaire d'avis, un lien « Partager sur WhatsApp » (`?ref=wa`) et l'appel à suivre la Page Facebook (`?ref=site`).
+Sous le titre de chaque page, une phrase dit à quoi elle sert ; au bas de chaque page, au-dessus du formulaire d'avis, un lien « Partager sur WhatsApp » (`?ref=wa`) et l'appel à suivre rundata.re sur Facebook, Instagram ou WhatsApp (`?ref=site`).
 
 ## English
 
