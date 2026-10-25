@@ -37,7 +37,7 @@ import { alertsFor, applyRealtime, departureRow, departures, findStops, nearStop
 import * as prefecture from "../providers/prefecture.js";
 import type { Cyclone } from "../providers/prefecture.js";
 import { ecoles, type ecolesBlock } from "../tools/ecoles.js";
-import { cyclone, cycloneLevel, highest, raised } from "../tools/vigilance.js";
+import { current, cyclone, cycloneLevel, highest, raised } from "../tools/vigilance.js";
 import { COMMUNES as BIKE_COMMUNES, velosLibreService } from "../tools/velos.js";
 import { bornesRecharge, count as countPoints, stationRow } from "../tools/bornes.js";
 import { ile, type Ile } from "../eau/ile.js";
@@ -1462,6 +1462,11 @@ export interface Alerte {
   ecoles?: boolean;
   /** The cyclone pré-alerte: a banner without colour (pages.ts cycloneVg). */
   neutre?: boolean;
+  /**
+   * What the banner's line on a phone says (pages.ts `vigilanceLigne`): the cyclone alert's level and whether it is
+   * only announced, or the worst colour with its phenomena and zones, as Météo-France names them.
+   */
+  court: { cyclone: number; prevue: boolean } | { couleur: string; phenomenes: string[]; zones: string[] };
 }
 
 export const BANNER_WAIT_MS = 1500;
@@ -1470,12 +1475,16 @@ export function alerteOf(v: mf.Vigilance, now: Date): Alerte | undefined {
   const periods = v.zones[mf.ISLAND]?.[mf.CYCLONE];
   if (periods && highest(periods) >= 2) {
     const c = cycloneLevel(periods, now);
-    return { couleur: c, texte: `Météo-France : ${cyclone(v, now)}`, ecoles: ecoles(v, now).fermees || undefined, neutre: c === 2 || undefined };
+    return { couleur: c, texte: `Météo-France : ${cyclone(v, now)}`, ecoles: ecoles(v, now).fermees || undefined, neutre: c === 2 || undefined, court: { cyclone: c, prevue: current(periods, now) < 2 } };
   }
   const r = raised(v);
   if (!r.length) return undefined;
   const list = r.slice(0, 3).map((x) => `${x.couleur_max} ${x.phenomene.toLowerCase()} (${x.zone.split(" :")[0]})`);
-  return { couleur: r[0].max, texte: `Vigilance Météo-France : ${list.join(", ")}${r.length > 3 ? "…" : ""}.` };
+  // The worst colour's phenomena and zones, each once.
+  const worst = r.filter((x) => x.max === r[0].max);
+  const once = (xs: string[]) => [...new Set(xs)];
+  const court = { couleur: r[0].couleur_max, phenomenes: once(worst.map((x) => x.phenomene)), zones: once(worst.map((x) => x.zone)) };
+  return { couleur: r[0].max, texte: `Vigilance Météo-France : ${list.join(", ")}${r.length > 3 ? "…" : ""}.`, court };
 }
 
 /**

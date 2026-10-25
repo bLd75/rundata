@@ -9,7 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { Cache } from "../cache.js";
 import type { ActualitesAnswer, VolcanAnswer } from "./data.js";
 import { esc } from "./map.js";
-import { DESCRIPTION_MAX } from "./pages.js";
+import { DESCRIPTION_MAX, ligne } from "./pages.js";
 import { givenAt as postAt, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
 import { OVPF, OVPF_FACEBOOK } from "../providers/volcan.js";
@@ -116,10 +116,22 @@ export function bannerText(a: VolcanAlerte): string {
     : `🌋 Piton de la Fournaise : ${level(a)}${by(a)}${a.arret ? `. ${arretSaid(a)}` : plan(a) ? `, « ${plan(a)} » (dispositif ORSEC Volcan)` : ""}. ${ENCLOS}`;
 }
 
+// The banner's line on a phone and the home page's card there (pages.ts `ligne`), marketing's: the eruption or the
+// level always with whose it is, « Enclos interdit » always, no date (the release is on /volcan, one touch away).
+export function volcanLigne(a: VolcanAlerte): string {
+  const said = a.eruption
+    ? `Éruption selon ${a.niveau && !a.ovpf ? "le préfet" : "l'OVPF"}`
+    : a.arret
+    ? "Éruption arrêtée selon l'OVPF"
+    : `Volcan\u00a0: ${nb(level(a))} ${a.ovpf ? "selon l'OVPF" : "du préfet"}`;
+  return `${said} · Enclos interdit`;
+}
+
 export function bannerHtml(a: VolcanAlerte | undefined, path: string): string {
   if (!a) return "";
   const more = path === "/volcan" ? "" : ` <a href="/volcan">${FOLLOW}</a>`;
-  return `<div class="alerte volcan" role="status"><div class="wrap"><span>${esc(bannerText(a))}</span>${more}</div></div>`;
+  const short = path === "/volcan" ? "" : ligne("/volcan", "🌋", volcanLigne(a));
+  return `<div class="alerte volcan"${short ? " data-court" : ""} role="status">${short}<div class="wrap"><span>${esc(bannerText(a))}</span>${more}</div></div>`;
 }
 
 export const volcanTitle = (a: VolcanAlerte) =>
@@ -156,7 +168,7 @@ export function homeCard(a: VolcanAlerte): string {
   const [h, lead] = a.eruption
     ? ["Éruption en cours au Piton de la Fournaise", `${a.niveau ? `${nb(a.niveau)}${by(a)}. ` : ""}${ENCLOS}`]
     : [`Piton de la Fournaise : ${nb(level(a))}`, `${nb(a.niveau!)}${by(a)}${a.arret ? `. ${arretSaid(a)}` : planSaid(a)}. ${ENCLOS}`];
-  return `<div class="wrap volcan-une"><a class="card" href="/volcan"><h2>🌋 ${esc(h)}</h2><p class="lead">${esc(lead)} <b>${FOLLOW}</b></p></a></div>`;
+  return `<div class="wrap volcan-une" data-court>${ligne("/volcan", "🌋", volcanLigne(a))}<a class="card" href="/volcan"><h2>🌋 ${esc(h)}</h2><p class="lead">${esc(lead)} <b>${FOLLOW}</b></p></a></div>`;
 }
 
 /** The home tile's figure and line during an alert. */

@@ -9,6 +9,7 @@ import { volcanLive, volcanPage } from "../src/web/domains.js";
 import { SHARED } from "../src/web/partagees.js";
 import { site } from "../src/web/site.js";
 import { demos, homePage, type HomeLive } from "../src/web/home.js";
+import { esc } from "../src/web/map.js";
 import { NIVEAUX } from "../src/tools/volcan-acces.js";
 import { DESCRIPTION_MAX, meteoPage } from "../src/web/pages.js";
 import { alertSections, alerteVolcan, bannerText, homeCard, mediaHeadlines, tileLive, type VolcanAlerte, volcanMeta, withVolcan } from "../src/web/volcan-alerte.js";
@@ -157,7 +158,8 @@ describe("the volcano put forward during an alert", () => {
       const copy = { value: v, fetchedAt: NOW, stale: false };
       const home = withVolcan(a, () => homePage(O, { volcan: copy } as unknown as HomeLive, NOW));
       expect(home).not.toContain('class="alerte volcan"');
-      expect(home).toContain(`<div class="wrap volcan-une"><a class="card" href="/volcan">`);
+      expect(home).toContain(`<div class="wrap volcan-une" data-court><a class="ligne" href="/volcan">`);
+      expect(home).toContain(`</a><a class="card" href="/volcan">`);
       expect(home).toContain(card);
       // The home page's copy missing: the card from the banner's read, still alone.
       const bare = withVolcan(a, () => homePage(O, null, NOW));
@@ -168,7 +170,26 @@ describe("the volcano put forward during an alert", () => {
       expect(other).toContain('class="alerte volcan"');
       expect(other).toContain('<a href="/volcan">Suivre en direct\u00a0→</a>');
       expect(other).not.toContain('class="wrap volcan-une"');
+      // On a phone, the card and the banner are one line to /volcan; none on /volcan itself.
+      const line = `<a class="ligne" href="/volcan"><span aria-hidden="true">🌋</span><span class="txt">${titre === ALERT_1 ? "Volcan\u00a0: alerte\u00a01 du préfet" : "Éruption selon le préfet"} <span class="nw">· Enclos interdit</span></span>`;
+      expect(home).toContain(line);
+      expect(other).toContain(`<div class="alerte volcan" data-court role="status">${line}`);
+      expect(withVolcan(a, () => volcanPage(O, copy, NOW))).not.toContain('class="ligne"');
     }
+  });
+
+  it("says on a phone's line whose the level or the eruption is, and « Enclos interdit », without a date (marketing)", () => {
+    const said = (a: VolcanAlerte) => /<a class="ligne" href="\/volcan"><span aria-hidden="true">🌋<\/span><span class="txt">(.*?)<\/span><span aria-hidden="true">→/.exec(withVolcan(a, () => meteoPage("https://rundata.re", null, NOW)))![1];
+    // Compared as HTML, never with the tags taken out: the last part in its own span, the apostrophe escaped.
+    const line = (head: string) => `${esc(head)} <span class="nw">· Enclos interdit</span>`;
+    const ovpf = { date: "25/10 08:00 heure de La Réunion", lien: "https://www.ipgp.fr/" };
+    expect(said({ niveau: "Alerte 1", eruption: false })).toBe(line("Volcan\u00a0: alerte\u00a01 du préfet"));
+    expect(said({ niveau: "Alerte 2-1", eruption: false })).toBe(line("Volcan\u00a0: alerte\u00a02-1 du préfet"));
+    expect(said({ niveau: "Alerte 1", eruption: false, ovpf })).toBe(line("Volcan\u00a0: alerte\u00a01 selon l'OVPF"));
+    expect(said({ niveau: "Alerte 2-1", eruption: true })).toBe(line("Éruption selon le préfet"));
+    expect(said({ niveau: "Alerte 2-1", eruption: true, ovpf })).toBe(line("Éruption selon l'OVPF"));
+    expect(said({ eruption: true })).toBe(line("Éruption selon l'OVPF"));
+    expect(said({ niveau: "Alerte 2-1", eruption: false, arret: ovpf })).toBe(line("Éruption arrêtée selon l'OVPF"));
   });
 
   it("describes /volcan within DESCRIPTION_MAX at every level and every month, the plan's words whole or not at all", () => {

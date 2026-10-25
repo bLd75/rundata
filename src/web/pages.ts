@@ -585,6 +585,13 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .volcan-une .card{display:block;background:#8c2410;color:#fff;text-decoration:none}
 .volcan-une h2{color:#fff;margin-bottom:.3rem}
 .volcan-une .lead{color:#fff}
+.ligne{display:none}
+@media (max-width:599.98px){
+[data-court]>.wrap,[data-court]>.card{display:none}
+[data-court]>.ligne{display:flex;align-items:center;gap:.45rem;padding:.5rem 16px;color:inherit;font-size:.95rem;font-weight:700;line-height:1.3;text-decoration:none}
+.ligne .txt{flex:1;min-width:0}.ligne .nw{white-space:nowrap}
+.volcan-une[data-court]{padding:0;max-width:none}
+.volcan-une>.ligne{background:#8c2410;color:#fff}}
 .vg{display:inline-block;font-weight:700;font-size:.9rem;border-radius:8px;padding:.1rem .6rem;color:#fff;background:var(--vg0)}
 .vg1{background:var(--vg1);color:#fff}.vg2{background:var(--vg2);color:#1a1500}.vg3{background:var(--vg3);color:#1a0d00}
 .vg4{background:var(--vg4);color:#fff}.vg5{background:var(--vg5);color:#fff}
@@ -693,11 +700,45 @@ interface Head {
   volcan?: boolean;
 }
 
+/**
+ * An alert on one line, for a phone (below 600 px), two in a rare case: the whole line leads to the page that details
+ * it. Never cut with « … », which could cut whose the alert is or « Enclos interdit » (marketing). The banner's sentence
+ * stays on wider screens, and on the page the line would lead to.
+ */
+export function ligne(href: string, picto: string, text: string): string {
+  // The last part (the zones, « Enclos interdit ») kept whole: on two lines, the line breaks before its « · ».
+  const i = text.lastIndexOf(" · ");
+  const said = i < 0 ? esc(text) : `${esc(text.slice(0, i))} <span class="nw">· ${esc(text.slice(i + 3))}</span>`;
+  return `<a class="ligne" href="${href}">${picto ? `<span aria-hidden="true">${picto}</span>` : ""}<span class="txt">${said}</span><span aria-hidden="true">→</span></a>`;
+}
+
+// The words of the line, marketing's: the phenomena by a short name, two at most; the zones named while one or two,
+// counted beyond, « toute l'île » or « toutes les côtes » when all are.
+const SHORT: Record<string, string> = { "Fortes pluies / orages": "pluies-orages", "Vents forts": "vents forts", "Vagues - submersion": "vagues-submersion" };
+const COASTS = Object.values(mf.ZONES).filter((z) => z.startsWith("Zone côtière")).length;
+function zonesSaid(zones: string[]): string {
+  const coast = zones.filter((z) => z.startsWith("Zone côtière"));
+  const land = zones.filter((z) => !coast.includes(z)).map((z) => z.split(" :")[0]);
+  const parts = [
+    land.length === LAND.length ? "toute l'île" : land.length > 2 ? `${land.length} zones` : land.join(", "),
+    coast.length === COASTS ? "toutes les côtes" : coast.length ? `${coast.length} ${coast.length > 1 ? "zones côtières" : "zone côtière"}` : "",
+  ];
+  return parts.filter(Boolean).join(", ");
+}
+
+// The cyclone alert is the prefect's, which Météo-France publishes: the line says whose it is (marketing).
+function vigilanceLigne(a: Alerte): string {
+  const c = a.court;
+  if ("cyclone" in c) return c.prevue ? "Alerte cyclonique prévue par le préfet" : `${cycloneHead(c.cyclone)} du préfet`;
+  return `Vigilance ${feminine(c.couleur)} ${c.phenomenes.slice(0, 2).map((p) => SHORT[p] ?? p.toLowerCase()).join(", ")} · ${zonesSaid(c.zones)}`;
+}
+
 function banner(a: Alerte | undefined, path: string): string {
   if (!a) return "";
   const more = path === "/vigilance" ? "" : ` <a href="/vigilance">Voir la vigilance zone par zone →</a>`;
   const schools = a.ecoles && path !== "/ecoles-cyclone" ? ` <a href="/ecoles-cyclone">Écoles fermées →</a>` : "";
-  return `<div class="alerte vg ${a.neutre ? "vgpre" : `vg${a.couleur}`}" role="status"><div class="wrap"><span>⚠ ${esc(a.texte)}</span>${schools}${more}</div></div>`;
+  const short = path === "/vigilance" ? "" : ligne("/vigilance", "⚠", vigilanceLigne(a)) + (a.ecoles && path !== "/ecoles-cyclone" ? ligne("/ecoles-cyclone", "", "Écoles et crèches fermées") : "");
+  return `<div class="alerte vg ${a.neutre ? "vgpre" : `vg${a.couleur}`}"${short ? " data-court" : ""} role="status">${short}<div class="wrap"><span>⚠ ${esc(a.texte)}</span>${schools}${more}</div></div>`;
 }
 
 /**
