@@ -23,8 +23,11 @@ async function offlineCache() {
   await store.put("metar", { value: JSON.parse(fixture("metar.json")), fetchedAt: at });
   await store.put("pioupiou:all", { value: beacons, fetchedAt: at });
   await store.put("pioupiou:live", { value: live, fetchedAt: at });
-  await store.put("acspo", { value: [parseAscii(fixture("acspo.ascii"), "2026-10-16")], fetchedAt: at });
-  await store.put("modis", { value: parseCsv(fixture("modis.csv"), "sstMasked"), fetchedAt: at });
+  const satellites = [
+    { source: "acspo", jours: [parseAscii(fixture("acspo.ascii"), "2026-10-16")], lu: at },
+    { source: "modis", jours: parseCsv(fixture("modis.csv"), "sstMasked"), lu: at },
+  ];
+  await store.put("web:mer", { value: { plages: [], sources: [], satellites }, fetchedAt: at });
   return new Cache(store, () => at);
 }
 

@@ -12,7 +12,7 @@ const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.me
 const NOW = new Date("2026-10-18T19:20:00Z");
 
 /** A cache already holding the recorded upstream answers, so that no test touches the network. */
-async function offlineCache({ acspoCached = true, acspoDay = "2026-10-16" } = {}) {
+async function offlineCache({ acspoCached = true, acspoDay = "2026-10-16", copyAgeMs = 0 } = {}) {
   const store = new MemoryStore();
   const at = NOW.getTime();
   const beacons = inReunionBeacons(JSON.parse(fixture("pioupiou_all.json")).data);
@@ -20,8 +20,13 @@ async function offlineCache({ acspoCached = true, acspoDay = "2026-10-16" } = {}
   await store.put("metar", { value: JSON.parse(fixture("metar.json")), fetchedAt: at });
   await store.put("pioupiou:all", { value: beacons, fetchedAt: at });
   await store.put("pioupiou:live", { value: live, fetchedAt: at });
-  if (acspoCached) await store.put("acspo", { value: [parseAscii(fixture("acspo.ascii"), acspoDay)], fetchedAt: at });
-  await store.put("modis", { value: parseCsv(fixture("modis.csv"), "sstMasked"), fetchedAt: at });
+  // The copy of /mer the scheduled event wrote (web/data.ts buildSea): temperature_mer reads the satellites' grids there.
+  const lu = at - copyAgeMs;
+  const satellites = [
+    ...(acspoCached ? [{ source: "acspo", jours: [parseAscii(fixture("acspo.ascii"), acspoDay)], lu }] : []),
+    { source: "modis", jours: parseCsv(fixture("modis.csv"), "sstMasked"), lu },
+  ];
+  await store.put("web:mer", { value: { plages: [], sources: [], satellites }, fetchedAt: lu });
   return new Cache(store, () => at);
 }
 
@@ -87,13 +92,33 @@ describe("temperature_mer", () => {
     expect(r.resume).toMatch(/^Eau de mer, MESURÉE par satellite\u00a0: Plage de Boucan-Canot\u00a0: \d+(,\d)? °C \(le 16\/10, il y a 2 jours\)\u00a0; /);
   });
 
-  it("falls back to MODIS when the NOAA CoastWatch server is down", async () => {
+  it("falls back to MODIS when the copy was made with the NOAA CoastWatch server down", async () => {
     vi.stubGlobal("fetch", async () => {
       throw new Error("down");
     });
     const r = body(await temperatureMer(await offlineCache({ acspoCached: false }), "Saint-Leu", NOW));
     expect(r.mesure).toMatchObject({ nature: "mesure_satellite", source: expect.stringMatching(/MODIS/) });
     expect(r.sources[0].source).toMatch(/MODIS/);
+  });
+
+  it("answers from the copy of /mer however old, and never asks the satellites itself (cam-change 273)", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      asked.push(String(url));
+      throw new Error("offline");
+    });
+    const satellites = () => asked.filter((u) => u.includes("/thredds/") || u.includes("/erddap/"));
+    // A copy of 7 hours: the scheduled event has not refreshed it since.
+    const cache = await offlineCache({ copyAgeMs: 7 * 3600_000 });
+    const place = body(await temperatureMer(cache, "Saint-Leu", NOW));
+    expect(place.mesure).toMatchObject({ nature: "mesure_satellite", jour_mesure: "2026-10-16" });
+    const tour = body(await temperatureMer(cache, undefined, NOW));
+    expect(tour.resume).toMatch(/^Eau de mer, MESURÉE par satellite : Plage de Boucan-Canot : \d+(,\d)? °C \(le 16\/10, il y a 2 jours\)/);
+    expect(tour.mis_a_jour).toBe("18/10 16:20");
+    // Without a copy, no measure rather than a wait on NOAA.
+    const bare = new Cache(new MemoryStore(), () => NOW.getTime());
+    expect((await temperatureMer(bare, "Saint-Leu", NOW)).isError).toBe(true);
+    expect(satellites()).toEqual([]);
   });
 
   it("does not invent a sea temperature for Cilaos", async () => {

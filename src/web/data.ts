@@ -28,7 +28,7 @@ import { qualiteAir } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
 import { electricite } from "../tools/electricite.js";
 import * as houle from "../providers/houle.js";
-import { BEACHES, PRODUCTS as SEA_PRODUCTS, seaTour, TOUR as SEA_TOUR, temperatureMer, waveLine, wavesNow } from "../tools/mer.js";
+import { BEACHES, gridCopy, type GridCopy, PRODUCTS as SEA_PRODUCTS, seaTour, TOUR as SEA_TOUR, temperatureMer, waveLine, wavesNow } from "../tools/mer.js";
 import { gaugeRow, gauges } from "../tools/maree.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
@@ -258,6 +258,8 @@ export interface SeaData {
   plages: BeachNow[];
   /** The two tide gauges; missing on a copy made before they were read. */
   maree?: ReturnType<typeof gaugeRow>[];
+  /** The satellites' grids, for temperature_mer anywhere on the coast (tools/mer.ts); missing on a copy made before. */
+  satellites?: GridCopy[];
   sources: Credit[];
 }
 
@@ -280,6 +282,7 @@ export async function buildSea(cache: Cache, now = new Date()): Promise<SeaData>
       };
     }),
     ...(read ? { maree: tide.map((g) => gaugeRow(g, now)) } : {}),
+    ...(t ? { satellites: t.grids.map(gridCopy) } : {}),
     sources: [...(t?.used.map((g) => credit(g.source)) ?? []), ...(w ? [credit(houle.SOURCE)] : []), ...(read ? [credit(maregraphes.SOURCE)] : [])],
   };
 }

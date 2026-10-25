@@ -49,6 +49,33 @@ interface Grid {
   cached: Cached<acspo.SstDay[]>;
 }
 
+/** A product's grid as the copy of /mer keeps it (web/data.ts buildSea), in JSON: `lu` is when it was read. */
+export interface GridCopy {
+  source: string;
+  jours: acspo.SstDay[];
+  lu: number;
+  stale?: boolean;
+}
+
+export const gridCopy = (g: Grid): GridCopy =>
+  ({ source: g.source.id, jours: g.cached.value, lu: g.cached.fetchedAt.getTime(), ...(g.cached.stale ? { stale: true } : {}) });
+
+// The copy of /mer, which the scheduled event refreshes every 3 hours (web/partagees.ts).
+const COPY = "web:mer";
+
+/**
+ * The grids in the copy of /mer, however old: the day of each reading says its age. An answer never asks the
+ * satellites itself: their servers can take more than 10 s to answer, or not answer (cam-change 273).
+ */
+async function copiedGrids(cache: Cache, now: Date): Promise<Grid[]> {
+  // One in memory from the last 3 hours will do: the stores are asked only for a newer one (one read each).
+  const copy = await cache.peek<{ satellites?: GridCopy[] }>(COPY, now.getTime() - 3 * HOUR).catch(() => undefined);
+  return (copy?.value.satellites ?? []).flatMap((s) => {
+    const p = PRODUCTS.find((x) => x.source.id === s.source);
+    return p ? [{ source: p.source, cached: { value: s.jours, fetchedAt: new Date(s.lu), stale: !!s.stale } }] : [];
+  });
+}
+
 /** The products that answer, in order of preference. A product that fails is skipped. */
 async function grids(cache: Cache, now: Date): Promise<Grid[]> {
   const out: Grid[] = [];
@@ -113,18 +140,20 @@ function staleWarning(g: Grid | undefined) {
   return g?.cached.stale ? ["Source momentanément injoignable : dernière valeur connue."] : [];
 }
 
-/** The tour of the coast, without a place: one reading per stretch of `names`, null where no product has one. */
-export async function seaTour(cache: Cache, now = new Date(), names = TOUR) {
-  let gs = await grids(cache, now);
-  if (!gs.length) return null;
-  // The fallback is only fetched if some point of the tour needs it.
-  let readings = names.map((n) => resolvePlace(n)!.lieu).map((p) => ({ p, r: reading(p, gs, now) }));
-  if (readings.some((x) => !x.r) && gs.length < PRODUCTS.length) {
-    gs = await withFallback(cache, gs, now);
-    readings = readings.map((x) => ({ p: x.p, r: reading(x.p, gs, now) }));
-  }
+/** One reading per stretch of `names`, null where no product has one, from the grids `gs`. */
+function tourOf(gs: Grid[], now: Date, names = TOUR) {
+  const readings = names.map((n) => resolvePlace(n)!.lieu).map((p) => ({ p, r: reading(p, gs, now) }));
   const used = [...new Set(readings.flatMap((x) => (x.r ? [x.r.grid] : [])))];
-  return { readings, used };
+  return { readings, used, grids: gs };
+}
+
+/** The tour of the coast from the satellites themselves, for the copy of /mer: `grids` are all the products read. */
+export async function seaTour(cache: Cache, now = new Date(), names = TOUR) {
+  const gs = await grids(cache, now);
+  if (!gs.length) return null;
+  const t = tourOf(gs, now, names);
+  // The fallback is only fetched if some point of the tour needs it.
+  return t.readings.some((x) => !x.r) && gs.length < PRODUCTS.length ? tourOf(await withFallback(cache, gs, now), now, names) : t;
 }
 
 // --- Waves: a forecast, kept apart from the measurement ---------------------------------------------------------
@@ -257,7 +286,8 @@ function unavailable() {
 
 export async function temperatureMer(cache: Cache, lieu: string | undefined, now = new Date()) {
   if (!lieu?.trim()) {
-    const [t, w] = await Promise.all([seaTour(cache, now), wavesNow(cache)]);
+    const [gs, w] = await Promise.all([copiedGrids(cache, now), wavesNow(cache)]);
+    const t = gs.length ? tourOf(gs, now) : null;
     if (!t && !w) return unavailable();
     const points = TOUR.map((n) => resolvePlace(n)!.lieu).map((p, i) => {
       const v = w ? wavesAt(w.value, p.lon, p.lat, now) : null;
@@ -281,13 +311,9 @@ export async function temperatureMer(cache: Cache, lieu: string | undefined, now
 
   const r = resolvePlace(lieu);
   if (!r) return notFound(lieu);
-  let [gs, w] = await Promise.all([grids(cache, now), wavesNow(cache)]);
+  const [gs, w] = await Promise.all([copiedGrids(cache, now), wavesNow(cache)]);
   if (!gs.length && !w) return unavailable();
-  let m = gs.length ? reading(r.lieu, gs, now) : null;
-  if (gs.length && !m && gs.length < PRODUCTS.length) {
-    gs = await withFallback(cache, gs, now);
-    m = reading(r.lieu, gs, now);
-  }
+  const m = gs.length ? reading(r.lieu, gs, now) : null;
   const v = w ? waveBlock(w, r.lieu, now) : null;
   const temperature = m
     ? `Eau de mer près de ${r.lieu.nom}\u00a0: ${m.mesure.temperature_eau}, mesurée par satellite ${measuredOn(m.mesure.jour_mesure, now)} ` +
