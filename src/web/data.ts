@@ -28,7 +28,7 @@ import { qualiteAir } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
 import { electricite } from "../tools/electricite.js";
 import * as houle from "../providers/houle.js";
-import { BEACHES, seaTour, temperatureMer, waveLine, wavesNow } from "../tools/mer.js";
+import { BEACHES, PRODUCTS as SEA_PRODUCTS, seaTour, TOUR as SEA_TOUR, temperatureMer, waveLine, wavesNow } from "../tools/mer.js";
 import { gaugeRow, gauges } from "../tools/maree.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
@@ -208,8 +208,25 @@ const credit = (s: { nom: string; licence: string; attribution: string }): Credi
   attribution: s.attribution,
 });
 
+/**
+ * The sea of the tour, from the copy of /mer that the scheduled event refreshes every 3 hours (partagees.ts), however
+ * old: the day of each reading says its age. The page never asks the satellites itself: their servers can take more
+ * than 10 s to answer, or not answer, which held the copy's refresh and those who wait for it (cam-change 273).
+ */
+async function seaOfTour(cache: Cache, now: Date): Promise<{ mer: SeaNow[]; sources: Credit[] } | null> {
+  // One in memory from the last 3 hours will do: the stores are asked only for a newer one (one read each).
+  const copy = await cache.peek<SeaData>("web:mer", now.getTime() - 3 * 3600_000);
+  if (!copy) return null;
+  const mer = SEA_TOUR.flatMap((n) => {
+    const b = copy.value.plages.find((x) => x.nom === resolvePlace(n)!.lieu.nom);
+    return b?.valeur != null && b.jour && b.distance_km != null ? [{ nom: b.nom, valeur: b.valeur, jour: b.jour, distance_km: b.distance_km }] : [];
+  });
+  const satellites = SEA_PRODUCTS.map((p) => p.source.nom);
+  return mer.length ? { mer, sources: copy.value.sources.filter((s) => satellites.includes(s.source)) } : null;
+}
+
 export async function buildHome(cache: Cache, now = new Date()): Promise<HomeData> {
-  const [air, sea] = await Promise.allSettled([islandTour(cache, now), seaTour(cache, now)]);
+  const [air, sea] = await Promise.allSettled([islandTour(cache, now), seaOfTour(cache, now)]);
   const out: HomeData = { stations: [], mer: [], sources: [], indisponibles: [] };
   if (air.status === "fulfilled") {
     out.stations = air.value.tour.map(({ o, stale }) => stationNow(o, stale));
@@ -217,10 +234,8 @@ export async function buildHome(cache: Cache, now = new Date()): Promise<HomeDat
     out.indisponibles.push(...air.value.down);
   } else console.error("page : tour de l'île indisponible", why(air.reason));
   if (sea.status === "fulfilled" && sea.value) {
-    for (const { p, r } of sea.value.readings) {
-      if (r) out.mer.push({ nom: p.nom, valeur: r.valeur, jour: r.mesure.jour_mesure, distance_km: r.mesure.distance_km });
-    }
-    out.sources.push(...sea.value.used.map((g) => credit(g.source)));
+    out.mer = sea.value.mer;
+    out.sources.push(...sea.value.sources);
   } else out.indisponibles.push("Température de la mer par satellite");
   if (!out.stations.length && !out.mer.length) throw new Error("aucune donnée pour la page d'accueil");
   return out;

@@ -10,8 +10,9 @@ import { type SourceInfo, why } from "../types.js";
 import { credits, fr, notFound, placeBlock, text } from "./format.js";
 import { dayLabel, localDate, localHour } from "./prevision.js";
 
-// Answer for the whole island when no place is given: one spot per stretch of coast people swim on.
-const TOUR = ["Plage de Boucan-Canot", "Plage de l'Ermitage-les-Bains", "Saint-Leu", "Plage de Saint-Pierre",
+// Answer for the whole island when no place is given: one spot per stretch of coast people swim on. All are BEACHES too:
+// the home page takes them from the copy of /mer.
+export const TOUR = ["Plage de Boucan-Canot", "Plage de l'Ermitage-les-Bains", "Saint-Leu", "Plage de Saint-Pierre",
   "Saint-Denis", "Saint-Benoît"];
 
 // The page /mer: every stretch of coast with a beach or a bathing spot, clockwise from Saint-Denis.
@@ -22,7 +23,7 @@ export const BEACHES = ["Saint-Denis", "Sainte-Marie", "Saint-Benoît", "Anse de
 // Best first: ACSPO merges several satellites at 2 km; MODIS (one satellite, 4 km) stands in when ACSPO is
 // down or clouded out near the place.
 // `cost`: the subrequests of a product not in memory (budget.ts).
-const PRODUCTS: { source: SourceInfo; cost: number; grid: (c: Cache, now: Date) => Promise<Cached<acspo.SstDay[]>> }[] = [
+export const PRODUCTS: { source: SourceInfo; cost: number; grid: (c: Cache, now: Date) => Promise<Cached<acspo.SstDay[]>> }[] = [
   { source: acspo.SOURCE, cost: acspo.COST, grid: acspo.grid },
   { source: modis.SOURCE, cost: modis.COST, grid: modis.grid },
 ];
