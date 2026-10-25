@@ -67,7 +67,7 @@ describe("fiche terrain", () => {
     expect(streetMarket("Chemin Rangama", 2021, [house(250_000)]).note).toBe("1 vente enregistrée dans DVF sur la voie depuis 2021, trop peu pour une médiane");
     expect(streetMarket("Chemin Rangama", 2021, []).note).toBe("aucune vente enregistrée dans DVF sur la voie depuis 2021");
     const three = streetMarket("Rue de la Buse", 2021, [250_000, 300_000, 320_000].map(house));
-    expect(three.maisons).toEqual({ ventes: 3, prix_median: "300 000 €", prix_m2_median: "3000 €/m²" });
+    expect(three.maisons).toEqual({ ventes: 3, prix_median: "300\u202f000\u00a0€", prix_m2_median: "3\u202f000\u00a0€/m²" });
     expect(three.appartements).toEqual({ ventes: 0 });
     // Three sales in all, of three kinds: the count, no median of one sale.
     const mixed = streetMarket("Rue de la Buse", 2021, [house(250_000), { ...house(200_000), type: "appartement" }, { annee: 2022, type: "terrain", valeur: 90_000, surface_bati: 0, surface_terrain: 600 }]);
@@ -84,12 +84,15 @@ describe("fiche terrain", () => {
 
   it("reads an address: parcel, PLU zone, altitude, market", async () => {
     const r = body(await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "7 rue de la Buse, Saint-Paul", NOW));
-    expect(r.resume).toMatch(/^7 Rue de la Buse 97460 Saint-Paul \(adresse exacte\)\u00a0; altitude 5 m\u00a0; parcelle cadastrale BO 0552 \(2416 m²\)\u00a0; zone U1c du PLU, zone urbaine/);
+    expect(r.resume).toMatch(/^7 Rue de la Buse 97460 Saint-Paul \(adresse exacte\)\u00a0; altitude 5\u00a0m\u00a0; parcelle cadastrale BO 0552 \(2\u202f416\u00a0m²\)\u00a0; zone U1c du PLU, zone urbaine/);
+    // The thousands and the unit held to the number (marketing's kit, « Nombres »); the parcel's number untouched.
+    expect(r.marche_immobilier.maisons.prix_m2_median).toMatch(/^\d{1,3}\u202f\d{3}\u00a0€\/m²$/);
+    expect(r.marche_immobilier.maisons.prix_median).toMatch(/^\d{1,3}(\u202f\d{3})+\u00a0€$/);
     expect(r.urbanisme.approuve_le).toBe("27/09/2012");
     expect(urls[0]).toContain("geocodage");
     // The street's own sales first, then the area's, named before its figures.
-    expect(r.resume).toContain("\u00a0; sur la voie (Rue de la Buse) depuis 2021 : maisons 2500 €/m² en médiane (7 ventes)\u00a0; dans le secteur alentour (environ 600 m sur 600 m), maisons vendues depuis 2021 : ");
-    expect(r.marche_immobilier.sur_la_voie).toMatchObject({ voie: "Rue de la Buse", depuis: 2021, ventes: 10, maisons: { ventes: 7, prix_m2_median: "2500 €/m²" }, appartements: { ventes: 2 } });
+    expect(r.resume).toContain("\u00a0; sur la voie (Rue de la Buse) depuis 2021 : maisons 2\u202f500\u00a0€/m² en médiane (7 ventes)\u00a0; dans le secteur alentour (environ 600 m sur 600 m), maisons vendues depuis 2021 : ");
+    expect(r.marche_immobilier.sur_la_voie).toMatchObject({ voie: "Rue de la Buse", depuis: 2021, ventes: 10, maisons: { ventes: 7, prix_m2_median: "2\u202f500\u00a0€/m²" }, appartements: { ventes: 2 } });
     // One file a year of the commune, from 2021; none of a sale, its parcel or its price alone in the answer.
     expect(urls.filter((u) => u.includes("geo-dvf"))).toEqual([2021, 2022, 2023, 2024, 2025, 2026].map((y) => `https://files.data.gouv.fr/geo-dvf/latest/csv/${y}/communes/974/97415.csv`));
     expect(JSON.stringify(r.marche_immobilier)).not.toMatch(/BO00|420 000|T7/);

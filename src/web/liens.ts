@@ -9,6 +9,7 @@ import * as traces from "../providers/traces.js";
 import * as fire from "../tools/feux.js";
 import { mentionCommune, mentionCourte, repris, silentOf } from "../tools/agenda.js";
 import { secteur } from "../tools/sentiers.js";
+import { nombre } from "../tools/format.js";
 import { secteurNamed } from "../traces/secteurs.js";
 import type { AgendaAnswer, RandonneesAnswer } from "./data.js";
 import { esc } from "./map.js";
@@ -51,7 +52,7 @@ export function hikesAround(p: PlacePage, hikes: Cached<RandonneesAnswer> | null
     return h.fermes.length ? `<span class="q-mauvaise">${h.fermes.length} tronçon${h.fermes.length > 1 ? "s" : ""} fermé${h.fermes.length > 1 ? "s" : ""}</span>` : h.onf > h.inconnus.length ? `<span class="q-bonne">ouvert</span>` : `<span class="q-none">état non suivi</span>`;
   };
   const list = near.length
-    ? `<ul class="rows eau">${near.map(({ r, km }) => `<li><span><a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a><small>${kmFr(r.km)} km · +${r.dplus.toLocaleString("fr-FR").replace(/\u202f|\u00a0/g, " ")} m · passe à ${kmFr(km)} km</small></span>${state(r.slug)}</li>`).join("")}</ul>`
+    ? `<ul class="rows eau">${near.map(({ r, km }) => `<li><span><a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a><small>${kmFr(r.km)} km · +${nombre(r.dplus)}\u00a0m · passe à ${kmFr(km)} km</small></span>${state(r.slug)}</li>`).join("")}</ul>`
     : "";
   return `<section aria-labelledby="h-rando">
   <h2 id="h-rando">Randonner autour de ${esc(p.nom)}</h2>

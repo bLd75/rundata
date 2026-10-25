@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { coupuresPage } from "../src/web/domains.js";
+import { nombre } from "../src/tools/format.js";
+import type { HikeCard } from "../src/web/data.js";
+import { coupuresPage, hikeCard } from "../src/web/domains.js";
 import { homePage } from "../src/web/home.js";
 import { esc } from "../src/web/map.js";
 import { layout } from "../src/web/pages.js";
@@ -104,5 +106,19 @@ describe("French typography on the pages", () => {
     for (let i = 0; i < 100; i++) typo(html);
     // About 0.3 ms on a 120 kB page (a regular expression took twice as long): a tenfold margin for slower machines.
     expect((performance.now() - t) / 100).toBeLessThan(3);
+  });
+});
+
+describe("numbers", () => {
+  it("separates the thousands from 4 digits with a narrow no-break space, as toLocaleString fr-FR", () => {
+    expect([999, 1000, 3210, 12_500.5, 410_000].map(nombre)).toEqual(["999", "1\u202f000", "3\u202f210", "12\u202f500,5", "410\u202f000"]);
+  });
+
+  it("holds a trail's climb and its top to their unit", () => {
+    const card = { k: "pdn", nom: "Piton des Neiges", slug: "piton-des-neiges", km: 15.2, dplus: 1720, dmoins: 1720, alt_max: 3070, boucle: false, secteur: "Cilaos", fermes: [], inconnus: [], onf: 3 } as unknown as HikeCard;
+    const html = hikeCard(card);
+    expect(html).toContain("+1\u202f720\u00a0m");
+    expect(html).toContain("jusqu&#39;à 3\u202f070\u00a0m");
+    expect(html).not.toMatch(/\d \d{3}/);
   });
 });
