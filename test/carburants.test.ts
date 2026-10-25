@@ -48,6 +48,33 @@ describe("the prefect's fuel prices", () => {
     expect(carburants.headerDay("1-déc.-26")).toBe("2026-12-01");
   });
 
+  it("are read from the prefecture's site one page at a time, with the pause asked between two pages", async () => {
+    const list = `<a href="/Actualites/Communiques-de-presse/Prix-des-carburants-sans-tableau">x</a><a href="/Actualites/Communiques-de-presse/Prix-des-carburants-en-octobre">y</a>`;
+    const asked: [string, number][] = [];
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", async (url: string) => {
+      asked.push([url, Date.now()]);
+      return new Response(url.endsWith("sans-tableau") ? "<h1>Prix des carburants</h1>" : url.endsWith("en-octobre") ? fixture("carburants_octobre.html") : list);
+    });
+    try {
+      const got = carburants.gather(NOW, 1, 60_000);
+      await vi.advanceTimersByTimeAsync(130_000);
+      expect((await got)?.lien).toBe(LIEN);
+      const t0 = asked[0][1];
+      expect(asked.map(([u, t]) => [u.replace("https://www.reunion.gouv.fr/Actualites/Communiques-de-presse", ""), t - t0])).toEqual([
+        ["", 0],
+        ["/Prix-des-carburants-sans-tableau", 60_000],
+        ["/Prix-des-carburants-en-octobre", 120_000],
+      ]);
+      // Without a pause asked (the Worker), no timer at all.
+      asked.length = 0;
+      await carburants.gather(NOW, 1);
+      expect(asked.map(([, t]) => t - asked[0][1])).toEqual([0, 0, 0]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("are what the public services tool answers about fuel, from the stored copy", async () => {
     const prix = carburants.parseRelease(fixture("carburants_octobre.html"), LIEN, NOW)!;
     carburants.configure(async () => prix);

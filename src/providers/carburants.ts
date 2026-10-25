@@ -128,12 +128,21 @@ export const label = (produit: string) => (/^supercarburant$/i.test(produit) ? "
 /** « octobre 2026 ». */
 export const monthOf = (day: string) => `${MONTH_NAMES[Number(day.slice(5, 7)) - 1]} ${day.slice(0, 4)}`;
 
-/** The newest release with a table of prices, from the first pages of the list. */
-export async function gather(now = new Date(), pages = 4): Promise<Prix | undefined> {
+/**
+ * The newest release with a table of prices, from the first pages of the list. `pauseMs` is waited between two pages
+ * of the prefecture's site, never a burst of them (scripts/carburants.ts: a minute); none in the Worker, which reads
+ * the site only while the store has no copy.
+ */
+export async function gather(now = new Date(), pages = 4, pauseMs = 0): Promise<Prix | undefined> {
+  let asked = 0;
+  const read = async (url: string) => {
+    if (asked++ && pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
+    return getText(SOURCE.id, url, 20_000, HEADERS);
+  };
   for (let i = 0; i < pages; i++) {
-    const list = await getText(SOURCE.id, i ? `${LIST}/(offset)/${i * 10}` : LIST, 20_000, HEADERS);
+    const list = await read(i ? `${LIST}/(offset)/${i * 10}` : LIST);
     for (const lien of releases(list)) {
-      const p = parseRelease(await getText(SOURCE.id, lien, 20_000, HEADERS), lien, now);
+      const p = parseRelease(await read(lien), lien, now);
       if (p) return p;
     }
   }
