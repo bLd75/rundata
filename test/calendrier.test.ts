@@ -77,7 +77,7 @@ describe("calendar", () => {
     expect(html).toContain("<title>Vacances scolaires Réunion 2026-2027, jours fériés · 974</title>");
     expect(html).toContain("<h1>Vacances scolaires et jours fériés à La Réunion</h1>");
     expect(html).toContain(`<h2 id="h-vac-0">Vacances scolaires 2026-2027 (académie de La Réunion)</h2>`);
-    expect(html).toContain(`content="Vacances scolaires 2026-2027 à La Réunion (974), calendrier austral : vacances en cours du 10 octobre au 25 octobre. Jours fériés dont le 20 décembre.">`);
+    expect(html).toContain(`content="Vacances scolaires 2026-2027 à La Réunion (974), calendrier austral\u00a0: vacances en cours du 10 octobre au 25 octobre. Jours fériés dont le 20 décembre.">`);
     expect(html).toMatch(/Vacances après 1ère période <span class="badge m">en cours<\/span><\/th><td>samedi 10 octobre 2026<\/td><td>lundi 26 octobre 2026<\/td>/);
     expect(html).toContain("Vacances d&#39;Été austral");
   });

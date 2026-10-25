@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { coupuresPage } from "../src/web/domains.js";
 import { homePage } from "../src/web/home.js";
+import { esc } from "../src/web/map.js";
+import { layout } from "../src/web/pages.js";
 import { site } from "../src/web/site.js";
 import { typo } from "../src/web/typo.js";
 
@@ -56,7 +58,32 @@ describe("French typography on the pages", () => {
     }
   });
 
-  it("serves /coupures-eau without an ordinary space before « : », its JSON-LD and metas untouched", async () => {
+  it("puts the descriptions of the metas and of the JSON-LD in French typography, the no-break space itself, never the titles", () => {
+    // As describe() gives it for /coupures-eau/la-plaine-des-palmistes (rundata.re, 25/10 18:17), under 160 characters.
+    const title = "Coupure d'eau La Plaine-des-Palmistes : avis en cours · 974";
+    const description = "La Plaine-des-Palmistes (974) : eau à ne pas boire ; 5 avis de CIREST / CISE Réunion en cours ou à venir, avec les rues, les heures et les consignes.";
+    const jsonld = [{ "@type": "WebPage", name: title, description, url: "https://rundata.re/x?a=1&b=2", about: { "@type": "Place", description: "Est : la côte au vent" } }];
+    const html = layout(ORIGIN, { title, description, path: "/coupures-eau/la-plaine-des-palmistes", jsonld }, "", "");
+    const said = "La Plaine-des-Palmistes (974)\u00a0: eau à ne pas boire\u00a0; 5 avis de CIREST / CISE Réunion en cours ou à venir, avec les rues, les heures et les consignes.";
+    for (const meta of ["name=\"description\"", "property=\"og:description\"", "name=\"twitter:description\""]) {
+      const content = new RegExp(`<meta ${meta} content="([^"]*)">`).exec(html)![1];
+      expect(content, meta).toBe(said);
+      expect(content.length, meta).toBe(esc(description).length);
+    }
+    expect(html).not.toContain("&nbsp;");
+    const ld = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)![1];
+    expect(ld).not.toContain("&nbsp;");
+    const page = JSON.parse(ld);
+    expect(page.description).toBe(said);
+    expect(page.about.description).toBe("Est\u00a0: la côte au vent");
+    // The titles keep their ordinary space, the same in the JSON-LD as in <title>; the other values are as written.
+    expect(page.name).toBe(title);
+    expect(page.url).toBe("https://rundata.re/x?a=1&b=2");
+    expect(html).toContain(`<title>${esc(title)}</title>`);
+    expect(html).toContain(`<meta property="og:title" content="${esc(title)}">`);
+  });
+
+  it("serves /coupures-eau without an ordinary space before « : », the titles of its JSON-LD and metas as written", async () => {
     vi.stubGlobal("fetch", async () => {
       throw new Error("hors ligne");
     });
@@ -67,6 +94,7 @@ describe("French typography on the pages", () => {
     // The title's words as written in the JSON-LD and in the metas, with their ordinary space.
     expect(jsonld(html)).toMatch(/ : /);
     expect(html).toMatch(/<meta property="og:title" content="[^"]* : [^"]*">/);
+    expect(html).not.toMatch(/<meta name="description" content="[^"]* [:;?!][^"]*">/);
   });
 
   it("takes a fraction of a millisecond on a page of the site", () => {

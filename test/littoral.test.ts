@@ -96,7 +96,7 @@ describe("the route du Littoral as the media announce it", () => {
     expect(html).toMatch(/<b>Basculée sur 2×1 voies, côté montagne<\/b>, selon Clicanoo, <a href="https:\/\/exemple\.re\/[^"]+" rel="noopener">article<\/a> publié aujourd&#39;hui à 18:00\./);
     expect(html).toContain(`Ce que publient les médias, pas une mesure : l&#39;état officiel, en direct, est sur <a href="https://www.infotrafic.re/">infotrafic.re</a>.`);
     const description = /<meta name="description" content="([^"]*)"/.exec(html)![1];
-    expect(description).toBe("Route du Littoral : basculée sur 2×1 voies selon Clicanoo (18:00). Bouchons à La Réunion (974) : carte Waze, état officiel sur infotrafic.re.");
+    expect(description).toBe("Route du Littoral\u00a0: basculée sur 2×1 voies selon Clicanoo (18:00). Bouchons à La Réunion (974)\u00a0: carte Waze, état officiel sur infotrafic.re.");
     expect(description.length).toBeLessThanOrEqual(160);
     // Older than 6 hours: the last one found, not the state of now.
     expect(page(fil([item("La route du Littoral fermée", 8)]))).toContain("Dernière annonce, il y a 8 h : <b>Fermée</b>, selon Freedom");
@@ -107,7 +107,7 @@ describe("the route du Littoral as the media announce it", () => {
     // None: the card stays, and says nothing it could only guess.
     const none = page(fil([item("Saint-Denis : le rond-point du Chaudron bloqué", 1)]));
     expect(none).toContain(NONE.replace("infotrafic.re.", `<a href="https://www.infotrafic.re/">infotrafic.re</a>.`).replace(/'/g, "&#39;"));
-    expect(/<meta name="description" content="([^"]*)"/.exec(none)![1]).toBe("Circulation à La Réunion (974) : carte Waze des bouchons, route du Littoral selon les médias, état officiel sur infotrafic.re, retards des bus.");
+    expect(/<meta name="description" content="([^"]*)"/.exec(none)![1]).toBe("Circulation à La Réunion (974)\u00a0: carte Waze des bouchons, route du Littoral selon les médias, état officiel sur infotrafic.re, retards des bus.");
     for (const h of [html, none]) {
       const card = h.slice(h.indexOf('id="route-du-littoral"'), h.indexOf('id="h-officiel"'));
       expect(card).not.toMatch(/circulation normale|\bouverte\b|en temps réel|mesuré/i);

@@ -82,7 +82,7 @@ describe("out of an alert, whether it erupts only with the official texts", () =
   it("describes /volcan and heads it in marketing's words", async () => {
     const page = volcanPage(O, { value: await answer(), fetchedAt: NOW, stale: false }, NOW);
     // Timeless: a search engine keeps it for days.
-    expect(page).toContain(`<meta name="description" content="Piton de la Fournaise en direct : niveau d&#39;alerte d&#39;après la préfecture, publications de l&#39;OVPF, accès à l&#39;Enclos, séismes localisés sous le volcan. · 974">`);
+    expect(page).toContain(`<meta name="description" content="Piton de la Fournaise en direct\u00a0: niveau d&#39;alerte d&#39;après la préfecture, publications de l&#39;OVPF, accès à l&#39;Enclos, séismes localisés sous le volcan. · 974">`);
     expect(page).toContain("<title>Piton de la Fournaise : vigilance, pas d&#39;éruption annoncée · 974</title>");
     expect(page).toContain("<h1>Piton de la Fournaise : vigilance, pas d&#39;éruption annoncée</h1>");
     expect(page).toContain("Niveau du dispositif ORSEC volcan : <b>Vigilance</b>.");
