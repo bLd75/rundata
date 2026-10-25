@@ -69,7 +69,10 @@ const COPY = "web:mer";
  */
 async function copiedGrids(cache: Cache, now: Date): Promise<Grid[]> {
   // One in memory from the last 3 hours will do: the stores are asked only for a newer one (one read each).
-  const copy = await cache.peek<{ satellites?: GridCopy[] }>(COPY, now.getTime() - 3 * HOUR).catch(() => undefined);
+  let copy = await cache.peek<{ satellites?: GridCopy[] }>(COPY, now.getTime() - 3 * HOUR).catch(() => undefined);
+  // A copy made before it kept the grids (before 0.182.18), as the scheduled event wrote it at 19:10 on 25 October 2026:
+  // the stores are asked for a newer one, which a page may have made since, rather than keep it 3 hours.
+  if (copy && !copy.value.satellites) copy = (await cache.peek<{ satellites?: GridCopy[] }>(COPY).catch(() => undefined)) ?? copy;
   return (copy?.value.satellites ?? []).flatMap((s) => {
     const p = PRODUCTS.find((x) => x.source.id === s.source);
     return p ? [{ source: p.source, cached: { value: s.jours, fetchedAt: new Date(s.lu), stale: !!s.stale } }] : [];
