@@ -7,10 +7,10 @@
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
 import { failed, handle } from "./app.js";
-import { PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, spent } from "./budget.js";
+import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
-import { VERSION } from "./server.js";
+import { toutesLesSources, VERSION } from "./server.js";
 import { audience, device, language, point, TEAM, teamVisit, visitor, type Hit } from "./metrics.js";
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
@@ -22,6 +22,8 @@ import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
 import * as propositions from "./propositions.js";
+import * as sansReponse from "./sans-reponse.js";
+import { whenFailed } from "./http.js";
 import * as formulaires from "./web/propositions.js";
 import { refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
@@ -87,8 +89,14 @@ interface Env {
 }
 
 /** The part of a D1 binding used here. */
+interface D1Statement {
+  all<T>(): Promise<{ results: T[] }>;
+  run(): Promise<{ meta: { changes: number } }>;
+}
 interface D1Database {
-  prepare(sql: string): { bind(...values: unknown[]): { all<T>(): Promise<{ results: T[] }>; run(): Promise<{ meta: { changes: number } }> } };
+  prepare(sql: string): { bind(...values: unknown[]): D1Statement };
+  /** Several statements in one call, in one transaction. */
+  batch(statements: D1Statement[]): Promise<unknown[]>;
 }
 
 /** The part of a Workers Analytics Engine binding used here. */
@@ -189,6 +197,18 @@ function setup(env: Env): Cache {
     avisDb && (async <T>(sql: string, ...params: unknown[]) => (count(), (await avisDb.prepare(sql).bind(...params).all<T>()).results)),
   );
   formulaires.configure(env.TURNSTILE_SECRET);
+  // The public sites that do not answer, in the same database (scripts/sans-reponse.sql): a failed read is written
+  // after the response, and only when it changes the host's state (sans-reponse.ts counts its own calls).
+  sansReponse.configure(
+    avisDb && (async (sql: string, ...params: unknown[]) => (await avisDb.prepare(sql).bind(...params).run()).meta.changes),
+    avisDb && (async <T>(sql: string, ...params: unknown[]) => (await avisDb.prepare(sql).bind(...params).all<T>()).results),
+    avisDb && (async (statements) => void (await avisDb.batch(statements.map((x) => avisDb.prepare(x.sql).bind(...x.params))))),
+  );
+  sansReponse.inscrire(toutesLesSources());
+  whenFailed((source, url, err) => {
+    const constat = sansReponse.constatDe(err);
+    if (constat) later(sansReponse.noter(source, url, constat));
+  });
   // Without the KV binding, the bundles stay in the data center's cache like everything else.
   // The page copies shared by every data center are read from KV when the data center's cache has none (web/partagees.ts).
   // Each page's copy says which version built it: one of another version is built again at its first view (cache.ts).
@@ -228,7 +248,8 @@ export default {
         // Last, with what is left: the agendas read only here.
         const agendas = kv ? await refreshPlanned(c).catch((err) => (console.error("agendas planifiés impossibles", why(err)), null)) : null;
         return { arome, aromeUsed, copies, agendas };
-      })
+        // What a read hands over after it (a failed read written down) finishes within the event.
+      }, (p) => ctx.waitUntil(p))
         .then(({ value, used }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +
           (value.copies.written.length ? ` ; copies partagées : ${value.copies.written.join(", ")}` : "") +
           (value.copies.left.length ? ` ; reportées : ${value.copies.left.map((x) => `${x.key} (${x.why})`).join(", ")}` : "") +
@@ -236,9 +257,15 @@ export default {
           (value.copies.written.length || value.copies.left.length || value.agendas?.lus.length ? `, sous-requêtes en tout : ${used}` : "")))
         .catch((err) => console.error("préchargement impossible", why(err))),
     );
+    const now = new Date();
+    // Once a day, at 06:00 in La Réunion: each public site that did not answer asked again (sans-reponse.ts).
+    if (sansReponse.heureDuPassage(now)) {
+      ctx.waitUntil(counted(BUILD_BUDGET, () => sansReponse.reverifier(now))
+        .then(({ value, used }) => value && console.log(`sites sans réponse : ${value.essayes} revérifiés${value.changes.length ? `, ${value.changes.join(", ")}` : ""}, sous-requêtes : ${used}`))
+        .catch((err) => console.error("sites sans réponse : revérification impossible", why(err))));
+    }
     // Once a day, at 04:00 in La Réunion (the run between 00:00 and 00:05 UTC): what the clubs sent is forgotten on
     // time even on the days nothing new is proposed (scripts/propositions.sql).
-    const now = new Date();
     if (now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
       ctx.waitUntil(propositions.purger(now)
         .then((n) => console.log(`propositions : purge quotidienne, ${n} lignes`))

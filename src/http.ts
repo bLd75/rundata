@@ -41,6 +41,12 @@ class Places {
   }
 }
 
+/** Told of each failed read (worker.ts: the sites that do not answer, sans-reponse.ts); the refused budget is not one. */
+let onFailure: ((source: string, url: string, err: UpstreamError) => void) | undefined;
+export function whenFailed(f: typeof onFailure) {
+  onFailure = f;
+}
+
 async function get<T>(
   source: string,
   url: string,
@@ -62,11 +68,15 @@ async function get<T>(
         signal,
       });
     } catch (err) {
-      throw new UpstreamError(source, err instanceof Error ? err.message : String(err));
+      const failed = new UpstreamError(source, err instanceof Error ? err.message : String(err));
+      onFailure?.(source, url, failed);
+      throw failed;
     }
     if (!res.ok) {
       await res.body?.cancel().catch(() => {});
-      throw new UpstreamError(source, `HTTP ${res.status}`, res.status);
+      const failed = new UpstreamError(source, `HTTP ${res.status}`, res.status);
+      onFailure?.(source, url, failed);
+      throw failed;
     }
     return await read(res);
   } finally {

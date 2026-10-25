@@ -18,11 +18,13 @@ export interface Outil {
   depuis: string;
 }
 
-// Newest first: the index of the instructions and the `serveur` block read them in this order.
+// Newest first: the index of the instructions and the `serveur` block read them in this order. Except sites_sans_reponse,
+// after donner_avis, which stays within the instructions' first 700 characters (test/serveur.test.ts).
 export const OUTILS: Outil[] = [
   { nom: "annuaire_services_publics", ligne: "mairies, santé, carburants, déchets, enfants", depuis: "2026-10-25T14:00:00+04:00" },
   { nom: "resume_du_jour", ligne: "la journée d'une commune en un appel", depuis: "2026-10-24T15:45:00+04:00" },
   { nom: "donner_avis", ligne: "donnée manquante ou fausse, souhait", depuis: "2026-10-24T14:15:00+04:00" },
+  { nom: "sites_sans_reponse", ligne: "sites publics sans réponse", depuis: "2026-10-25T22:47:00+04:00" },
   { nom: "actualites", ligne: "blocages, routes, faits divers, en direct", depuis: "2026-10-24T12:32:00+04:00" },
   { nom: "evenements", ligne: "concerts, spectacles, fêtes, marchés", depuis: "2026-10-24T11:13:00+04:00" },
   { nom: "historique_meteo", ligne: "météo mesurée passée, records", depuis: "2026-10-24T10:58:00+04:00" },
@@ -53,6 +55,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-25T22:47:00+04:00", texte: "Sites sans réponse\u00a0: une page liste les sites publics de l'île qui ne répondent pas, depuis quand, et ce qui manque donc ici." },
   { date: "2026-10-25T22:29:00+04:00", texte: "Coupures d'électricité\u00a0: avis de Cilaos, Saint-André, Saint-Philippe et Sainte-Suzanne retirés, leurs mentions légales l'interdisent." },
   { date: "2026-10-25T22:17:00+04:00", texte: "Événements\u00a0: nous lisons tout l'agenda de Saint-Louis, et les événements que Saint-Leu et La Plaine-des-Palmistes annoncent avec leur date." },
   { date: "2026-10-25T22:09:00+04:00", texte: "Événements\u00a0: même règle pour 3 communes de plus, Saint-Denis, Saint-Pierre et Sainte-Rose, dont les mentions légales interdisent la reprise." },
