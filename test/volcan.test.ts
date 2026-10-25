@@ -135,11 +135,11 @@ describe("volcano", () => {
     // On /volcan: under the lead, the link; the card says what it is and where to see it. And the home page's demo.
     const v = await buildVolcan(cache, now);
     const html = volcanPage("https://rundata.re", { value: v, fetchedAt: now, stale: false }, now).replace(/&#39;/g, "'");
-    expect(html).toContain(`La dernière publication de l'OVPF, le 25/10 à 08:02, est en images, que nous ne lisons pas : <a href="${lien}">la voir</a>.</p>`);
+    expect(html).toContain(`La dernière publication de l'OVPF, le 25/10 à 08:02, est en images, que nous ne lisons pas : <a href="${lien}">la voir sur Bluesky ↗</a>, ou suivre <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">l'OVPF sur Facebook ↗</a>.</p><p class="lead">L'OVPF publie aussi sur Facebook, que nous ne lisons pas : <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">suivre sa page officielle ↗</a></p>`);
     expect(html).not.toContain("peut ne pas en tenir compte");
     expect(html).toContain(`<p>Publication en 3 images, sans texte</p><p><a href="${lien}">Voir les images sur Bluesky →</a></p>`);
     const demo = demos({ volcan: { value: v, fetchedAt: now, stale: false } } as unknown as HomeLive, now).find((d) => d.call === "volcan_seismes()")!;
-    expect(demo.answer.replace(/&#39;/g, "'")).toContain(`dans les textes que nous avons lus. La dernière publication de l'OVPF, le 25/10 à 08:02, est en images, que nous ne lisons pas : <a href="${lien}">la voir</a>. Le volcan est en alerte 1`);
+    expect(demo.answer.replace(/&#39;/g, "'")).toContain(`dans les textes que nous avons lus. La dernière publication de l'OVPF, le 25/10 à 08:02, est en images, que nous ne lisons pas : <a href="${lien}">la voir sur Bluesky ↗</a>, ou suivre <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">l'OVPF sur Facebook ↗</a>. Le volcan est en alerte 1`);
   });
 
   it("keeps a release in images with a word or two as such, its words quoted, and a gallery counted", () => {

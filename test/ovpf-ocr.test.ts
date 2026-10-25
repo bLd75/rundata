@@ -123,12 +123,12 @@ describe("the text read, in the answers", () => {
 
     const v = await buildVolcan(c, now);
     const html = volcanPage("https://rundata.re", { value: v, fetchedAt: now, stale: false }, now).replace(/&#39;/g, "'");
-    expect(html).toContain(`${enImagesLuesApres("25/10", "08:02")} : <a href="${lien}">la voir</a>.</p>`);
+    expect(html).toContain(`${enImagesLuesApres("25/10", "08:02")} : <a href="${lien}">la voir sur Bluesky ↗</a>, ou suivre <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">l'OVPF sur Facebook ↗</a>.</p><p class="lead">L'OVPF publie aussi sur Facebook, que nous ne lisons pas : <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">suivre sa page officielle ↗</a></p>`);
     expect(html).toContain(`<p>Publication en 3 images, sans légende</p><details><summary>${LU_DANS_L_IMAGE}</summary><p>Retour sur l’intrusion du 24 octobre 2026.`);
     expect(html).toContain(`<p>Niveau d'alerte en cours : Alerte 1</p></details><p><a href="${lien}">Voir les images sur Bluesky →</a></p>`);
     const demo = demos({ volcan: { value: v, fetchedAt: now, stale: false } } as unknown as HomeLive, now).find((d) => d.call === "volcan_seismes()")!;
     // The demo does not quote the text: where it is.
-    expect(demo.answer.replace(/&#39;/g, "'")).toContain(`${enImagesLuesAilleurs("25/10", "08:02")} : <a href="${lien}">la voir</a>.`);
+    expect(demo.answer.replace(/&#39;/g, "'")).toContain(`${enImagesLuesAilleurs("25/10", "08:02")} : <a href="${lien}">la voir sur Bluesky ↗</a>, ou suivre <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">l'OVPF sur Facebook ↗</a>.`);
   });
 
   it("is quoted after what the post is, out of an alert, cut at a word", async () => {
