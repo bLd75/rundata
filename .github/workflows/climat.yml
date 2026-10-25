@@ -10,7 +10,10 @@ on:
   schedule:
     # 07:45 UTC, 11:45 at La Réunion: after Météo-France's files of the day, seen at 05:56 UTC for the daily ones and
     # 06:52 UTC for the hourly ones (24 and 25 October 2026). At 05:30 the job read the files of the day before.
+    # 09:45 UTC, 13:45 at La Réunion, again: on 25 October the daily file came at 06:56 UTC, an hour later than the day
+    # before. When the first run had it, this one writes 0 rows: the upsert leaves an unchanged row alone.
     - cron: "45 7 * * *"
+    - cron: "45 9 * * *"
   workflow_dispatch:
 
 permissions:
