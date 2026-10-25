@@ -255,7 +255,22 @@ describe("agenda", () => {
       expect([gp.seances, gp.commune]).toEqual([[{ debut: "2026-10-31", fin: "2026-11-01" }], undefined]);
       expect(evenements.find((e) => e.titre === "Compétition au Port (18m)")!.commune).toBe("Le Port");
       expect(evenements.find((e) => e.titre === "FITA Salle St André (25m-18m)")!.commune).toBe("Saint-André");
-      expect(evenements.every((e) => e.lieu === undefined)).toBe(true);
+      // The event's own place, when the club gave one (« Localisation »): its commune too, the club's then unknown.
+      expect(evenements.find((e) => e.titre === "Week-end PREPA 0-3000")).toMatchObject({
+        lieu: "Gîte Bec a li, 4 chemin des Framboises",
+        commune: "Cilaos",
+        description: "Organisé par Leu Triathlon",
+        organisateur: { nom: "Leu Triathlon", sport: "Triathlon", site: "https://leu-triathlon.sportsregions.fr" },
+      });
+      expect(evenements.find((e) => e.titre === "Week-end PREPA 0-3000")!.organisateur).not.toHaveProperty("commune");
+      expect(evenements.filter((e) => e.lieu).map((e) => [e.lieu, e.commune])).toEqual([
+        ["Gîte Bec a li, 4 chemin des Framboises", "Cilaos"],
+        ["Parc du colosse", "Saint-André"],
+        ["Stade Sarda Garriga", "Saint-André"],
+        ["Parc du Colosse", "Saint-André"],
+      ]);
+      // Else the club's address is never said as the event's place.
+      expect(evenements.filter((e) => e.lieu === undefined)).toHaveLength(105);
     });
 
     it("leaves out the clubs of elsewhere, and marks a title of the same club three times or more", () => {
@@ -270,6 +285,9 @@ describe("agenda", () => {
       expect([adherents, ailleurs]).toEqual([4, 1]);
       // The same event on two pages is one.
       expect(parseSportsregions([twice[0], twice[0]]).evenements).toHaveLength(1);
+      // A place named otherwise than the club: the event's, its name kept.
+      const salle = ld("Tournoi d'automne", "2026-11-21T08:00:00Z", "BC Sud").replace('"name":"BC Sud","address":{"@type":"PostalAddress",', '"name":"Gymnase Paul-Julius-Bénard","address":{"@type":"PostalAddress","streetAddress":"rue Hubert Delisle",');
+      expect(parseSportsregions([salle]).evenements[0]).toMatchObject({ lieu: "Gymnase Paul-Julius-Bénard, rue Hubert Delisle", commune: "Saint-Pierre", description: "Organisé par BC Sud" });
       // A block that is not an event, or not JSON, is passed over.
       expect(parseSportsregions(['<script type="application/ld+json">{ "@type": "BreadcrumbList" }</script><script type="application/ld+json">{ oops</script>']).evenements).toEqual([]);
     });
