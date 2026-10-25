@@ -13,7 +13,7 @@ export const SOURCE: SourceInfo = {
   id: "refmar",
   nom: "Marégraphes du SHOM à La Réunion (réseau RONIM)",
   organisme: "SHOM",
-  licence: "Licence Ouverte 2.0 (Etalab)",
+  licence: "Licence Ouverte Etalab 2.0",
   attribution: "REFMAR. http://dx.doi.org/10.17183/REFMAR#RONIM",
   url: "https://data.shom.fr/donnees/refmar",
 };

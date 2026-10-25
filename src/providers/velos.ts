@@ -14,7 +14,7 @@ export const SOURCE: SourceInfo = {
   id: "altervelo",
   nom: "Altervélo, vélos en libre-service de la CIVIS (flux GBFS)",
   organisme: "CIVIS, exploité par Ecovélo",
-  licence: "Licence Ouverte 2.0 (Etalab)",
+  licence: "Licence Ouverte Etalab 2.0",
   attribution: "Altervélo, CIVIS / Ecovélo, via transport.data.gouv.fr",
   url: "https://transport.data.gouv.fr/datasets/velos-a-assistance-electrique-en-libre-service-saint-pierre-la-reunion-civis-altervelo",
 };

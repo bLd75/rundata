@@ -16,7 +16,7 @@ export const SOURCE: SourceInfo = {
   id: "eau_potable",
   nom: "Contrôle sanitaire de l'eau du robinet (ARS La Réunion, via Hub'Eau)",
   organisme: "Agence régionale de santé La Réunion\u00a0; Hub'Eau (Office français de la biodiversité, BRGM)",
-  licence: "Licence Ouverte 2.0",
+  licence: "Licence Ouverte Etalab 2.0",
   attribution: "ARS La Réunion, données Hub'Eau",
   url: "https://hubeau.eaufrance.fr/page/api-qualite-eau-potable",
 };

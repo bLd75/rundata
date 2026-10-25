@@ -14,7 +14,7 @@ export const SOURCE: SourceInfo = {
   id: "vigieau",
   nom: "Restrictions d'eau en cas de sécheresse (VigiEau, arrêtés préfectoraux)",
   organisme: "Ministère de la Transition écologique (VigiEau)\u00a0; préfecture de La Réunion",
-  licence: "Licence Ouverte 2.0",
+  licence: "Licence Ouverte Etalab 2.0",
   attribution: "VigiEau, préfecture de La Réunion",
   url: "https://vigieau.gouv.fr",
 };

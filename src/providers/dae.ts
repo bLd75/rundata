@@ -13,7 +13,7 @@ export const SOURCE: SourceInfo = {
   id: "geodae",
   nom: "Géo'DAE, base nationale des défibrillateurs",
   organisme: "Ministère chargé de la santé",
-  licence: "Licence Ouverte 2.0",
+  licence: "Licence Ouverte Etalab 2.0",
   attribution: "Géo'DAE (ministère chargé de la santé)",
   url: "https://www.data.gouv.fr/datasets/geodae-base-nationale-des-defibrillateurs",
 };
