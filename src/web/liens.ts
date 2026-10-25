@@ -7,6 +7,7 @@ import type { Cached } from "../cache.js";
 import { distanceKm } from "../geo.js";
 import * as traces from "../providers/traces.js";
 import * as fire from "../tools/feux.js";
+import { mentionCommune, mentionCourte } from "../tools/agenda.js";
 import { secteur } from "../tools/sentiers.js";
 import { secteurNamed } from "../traces/secteurs.js";
 import type { AgendaAnswer, RandonneesAnswer } from "./data.js";
@@ -143,6 +144,11 @@ export function communeHikes(p: PlacePage, hikes: Cached<RandonneesAnswer> | nul
 export function communeEvents(p: PlacePage, agenda: Cached<AgendaAnswer> | null | undefined): Live | undefined {
   if (!agenda) return undefined;
   const rows = (agenda.value.evenements ?? []).filter((r) => r.commune === p.nom);
-  if (!rows.length) return { valeur: "Rien d'annoncé", detail: "d'ici quinze jours dans les agendas lus" };
-  return { valeur: `${rows.length} événement${rows.length > 1 ? "s" : ""}`, detail: `d'ici quinze jours ; le prochain : ${esc(rows[0].titre)}, ${esc(rows[0].quand)}${rows[0].source ? ` (Source\u00a0: ${esc(rows[0].source)})` : ""}` };
+  // Its site not read until it agrees: said first, in short, the whole of it in the title; and never « rien d'annoncé »,
+  // which would be wrong (marketing).
+  const mention = mentionCourte(p.nom);
+  const title = mentionCommune(p.nom);
+  if (!rows.length) return mention ? { valeur: mention.valeur, detail: esc(mention.detail), title } : { valeur: "Rien d'annoncé", detail: "d'ici quinze jours dans les agendas lus" };
+  const next = `le prochain : ${esc(rows[0].titre)}, ${esc(rows[0].quand)}${rows[0].source ? ` (Source\u00a0: ${esc(rows[0].source)})` : ""}`;
+  return { valeur: `${rows.length} événement${rows.length > 1 ? "s" : ""}`, detail: mention ? `${mention.tete} · ${next}` : `d'ici quinze jours ; ${next}`, title };
 }

@@ -1004,6 +1004,8 @@ export interface AgendaAnswer {
   evenements?: EventRow[];
   autres?: string;
   indisponible?: string[];
+  /** The communes whose site is not read until they agree (tools/agenda.ts, mentionIle). */
+  non_repris?: string;
   couverture: string;
   a_savoir: string;
   sources: Credit[];

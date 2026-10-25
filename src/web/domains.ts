@@ -2280,6 +2280,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   <p>Chaque événement renvoie à la page de celui qui le publie. Heures de La Réunion ; un événement de plusieurs jours est rangé au jour où il commence, ou à aujourd'hui s'il a déjà commencé. Un événement annulé ou reporté reste affiché, avec son statut.</p></div>
   ${agendaTabs("/evenements")}
   ${list}
+  ${d?.non_repris ? `<p>${esc(d.non_repris)}</p>` : ""}
   ${clubsLink()}
   ${d?.indisponible?.length ? warnings([`Agendas non lus cette fois (en panne, trop lents, ou laissés à la visite suivante) : ${d.indisponible.join(", ")}. La liste peut être incomplète.`]) : ""}
 </section>

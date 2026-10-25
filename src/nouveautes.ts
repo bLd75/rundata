@@ -53,6 +53,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-25T21:43:00+04:00", texte: "Événements\u00a0: ceux que publient 10 communes dont les mentions légales interdisent la reprise ne sont plus repris\u00a0; la page dit lesquelles." },
   { date: "2026-10-25T20:05:00+04:00", texte: "Marée\u00a0: à Saint-Leu, Saint-Pierre, dans le Sud et l'Est, le lien vers les horaires officiels du SHOM remplace nos heures calculées." },
   { date: "2026-10-25T16:25:00+04:00", texte: "Nouvel espace clubs et associations\u00a0: proposez vos événements en 2 minutes, gratuitement et sans compte, sur rundata.re/associations." },
   { date: "2026-10-25T16:13:00+04:00", texte: "Volcan\u00a0: le niveau d'alerte et l'accès à l'Enclos sont tirés des textes de la préfecture et de l'OVPF, cités avec leur date." },

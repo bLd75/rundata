@@ -8,6 +8,9 @@ import { parseBisik } from "../src/providers/salles.js";
 import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
 
+// The communes' sites read, as once they have agreed (test/autorisations.test.ts for what is said until then).
+vi.mock("../src/providers/autorisations.js", () => import("./autorisees.js"));
+
 // The agendas on Saturday 24/10/2026 in the morning: the Fête de l'ail at Petite-Île (23 to 25), a concert tonight at
 // Les Trois-Bassins, the Dragon Boat festival tomorrow at Le Port, the Koupe Kartié next Saturday at Saint-Gilles.
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/agenda/${f}`, import.meta.url), "utf8");
