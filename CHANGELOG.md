@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Événements : ceux que publient 10 communes dont les mentions légales interdisent la reprise ne sont plus repris ; la page dit lesquelles.
 - Marée : à Saint-Leu, Saint-Pierre, dans le Sud et l'Est, le lien vers les horaires officiels du SHOM remplace nos heures calculées.
 - Nouvel espace clubs et associations : proposez vos événements en 2 minutes, gratuitement et sans compte, sur rundata.re/associations.
 - Volcan : le niveau d'alerte et l'accès à l'Enclos sont tirés des textes de la préfecture et de l'OVPF, cités avec leur date.
