@@ -168,7 +168,9 @@ describe("the last eruption, the OVPF's dates", () => {
   it("says its days in words, the year on both when they differ, with the OVPF's post (marketing)", () => {
     expect(derniereEruptionText()).toBe("Dernière éruption : du 13 février au 12 avril 2026, selon l'OVPF (https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g).");
     expect(derniereEruptionDates({ debut: "2026-12-28", fin: "2027-01-03" })).toBe("du 28 décembre 2026 au 3 janvier 2027");
-    expect(derniereEruptionDates({ debut: "2026-11-01", fin: "2026-11-01" })).toBe("du 1 novembre au 1 novembre 2026");
+    expect(derniereEruptionDates({ debut: "2026-04-03", fin: "2026-04-12" })).toBe("du 3 au 12 avril 2026");
+    expect(derniereEruptionDates({ debut: "2026-04-03", fin: "2026-04-03" })).toBe("le 3 avril 2026");
+    expect(derniereEruptionDates({ debut: "2026-10-30", fin: "2026-11-01" })).toBe("du 30 octobre au 1er novembre 2026");
     // The end post is newer than the end it tells of: posted the next morning.
     expect(Date.parse(DERNIERE_ERUPTION.publiee)).toBeGreaterThan(Date.parse(`${DERNIERE_ERUPTION.fin}T00:00:00+04:00`));
   });

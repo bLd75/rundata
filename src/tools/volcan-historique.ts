@@ -246,10 +246,19 @@ export const DERNIERE_ERUPTION = {
   publiee: "2026-04-13T02:10:39Z",
 };
 
-// « 13 février », « 12 avril 2026 ».
-const jourMois = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" });
-/** « du 13 février au 12 avril 2026 », the year on both days when they differ. */
-export const derniereEruptionDates = (e: { debut: string; fin: string } = DERNIERE_ERUPTION) =>
-  `du ${jourMois(e.debut)}${e.debut.slice(0, 4) === e.fin.slice(0, 4) ? "" : ` ${e.debut.slice(0, 4)}`} au ${jourMois(e.fin)} ${e.fin.slice(0, 4)}`;
+// « 13 », « 1er ».
+const jour = (iso: string) => (iso.slice(8) === "01" ? "1er" : String(Number(iso.slice(8))));
+const mois = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { month: "long", timeZone: "UTC" });
+/**
+ * « du 13 février au 12 avril 2026 », « du 3 au 12 avril 2026 » within a month, « le 3 avril 2026 » on one day, the year
+ * on both days when they differ (marketing).
+ */
+export function derniereEruptionDates(e: { debut: string; fin: string } = DERNIERE_ERUPTION): string {
+  const [d, f] = [e.debut, e.fin];
+  const fin = `${jour(f)} ${mois(f)} ${f.slice(0, 4)}`;
+  if (d === f) return `le ${fin}`;
+  if (d.slice(0, 7) === f.slice(0, 7)) return `du ${jour(d)} au ${fin}`;
+  return `du ${jour(d)} ${mois(d)}${d.slice(0, 4) === f.slice(0, 4) ? "" : ` ${d.slice(0, 4)}`} au ${fin}`;
+}
 /** For the AI: « Dernière éruption : du 13 février au 12 avril 2026, selon l'OVPF (lien). » (marketing). */
 export const derniereEruptionText = (e = DERNIERE_ERUPTION) => `Dernière éruption : ${derniereEruptionDates(e)}, selon l'OVPF (${e.lien}).`;
