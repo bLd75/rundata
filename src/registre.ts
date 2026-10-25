@@ -138,10 +138,10 @@ const SCHEDULED: Entry[] = [
   {
     id: "partagees:liste",
     trigger: "planifiée",
-    what: "copies partagées : la liste des clés KV, une fois pour les copies, une fois pour celles d'après",
+    what: "copies partagées : la liste des clés KV, une pour les copies et celles d'après",
     every: EVENT_MINUTES,
     offset: 0,
-    run: { subrequests: 2, kvLists: 2, cpuMs: 0 },
+    run: { subrequests: 1, kvLists: 1, cpuMs: 0 },
     from: [],
     basis: "code",
   },

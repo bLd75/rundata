@@ -4,7 +4,7 @@ import { Cache, CACHE_FORMAT, type CacheEntry, isCopy, MemoryStore, stampOf, Tie
 import { VERSION } from "../src/server.js";
 import { SATELLITES as SATELLITES_KEY } from "../src/tools/mer.js";
 import { FRESH_SECONDS } from "../src/web/data.js";
-import { AFTER_DEPLOY_RESERVE, type Kv, kvKey, SHARED, SHARED_AFTER, SharedFallback, type Shared, slotStart, warmShared } from "../src/web/partagees.js";
+import { AFTER_DEPLOY_RESERVE, type Kv, kvKey, listShared, SHARED, SHARED_AFTER, SharedFallback, type Shared, slotStart, warmShared } from "../src/web/partagees.js";
 import { MAX_NEW_GRIDS } from "../src/providers/arome.js";
 
 // An event short of subrequests (the former budget): what is left out, and why, when the budget does not hold all.
@@ -494,6 +494,20 @@ describe("the scheduled refresh of the shared copies", () => {
     const again = await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), [...list, other]));
     expect(again.value).toEqual({ written: [], left: [] });
     expect(kv.reads).toBe(0);
+  });
+
+  it("lists KV once for the event's two calls, the copies and those after", async () => {
+    const kv = new FakeKv();
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);
+    const build = (s: Shared): Shared => ({ ...s, key: `${s.key}-une-liste`, build: async () => (count(2), {}) });
+    const run = await counted(SCHEDULED_BUDGET, async () => {
+      const listing = listShared(kv);
+      const first = await warmShared(cache, kv, new Date(T0), SHARED.map(build), listing);
+      const after = await warmShared(cache, kv, new Date(T0), SHARED_AFTER.map(build), listing);
+      return [...first.written, ...after.written].length;
+    });
+    expect(run.value).toBe(SHARED.length + SHARED_AFTER.length);
+    expect(kv.lists).toBe(1);
   });
 
   it("reads a copy whole when its key has no metadata yet, or when KV does not list", async () => {
