@@ -57,8 +57,12 @@ const siteverify = (secret: string): Verif => async (token, adresse) => {
   }
 };
 
+/** The widget, and under it what it keeps in the browser (cf.turnstile.u, in local storage: /confidentialite#abus). */
 const widget = () =>
-  TURNSTILE_SITEKEY ? `<div class="cf-turnstile" data-sitekey="${esc(TURNSTILE_SITEKEY)}" data-language="fr" data-size="flexible"></div>` : "";
+  TURNSTILE_SITEKEY
+    ? `<div class="cf-turnstile" data-sitekey="${esc(TURNSTILE_SITEKEY)}" data-language="fr" data-size="flexible"></div>
+  <p class="note">La vérification anti-robot de Cloudflare garde une donnée dans votre navigateur (pas un cookie)\u00a0: <a href="/confidentialite#abus">ce que c'est</a>.</p>`
+    : "";
 /** Cloudflare's script, once on a page with a form. */
 export const TURNSTILE_SCRIPT = TURNSTILE_SITEKEY ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : "";
 
