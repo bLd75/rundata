@@ -170,7 +170,7 @@ describe("fraicheur", () => {
       { source: "Balises de vent Pioupiou (OpenWindMap)", lue_le: "18/10 20:20" },
     ]);
     expect(f.avertissement).toBe(
-      "Ces sources n'ont pas répondu à notre dernière lecture : « Observations aéroport (METAR) », lue le 18/10 à 20:20 ; « Balises de vent Pioupiou (OpenWindMap) », lue le 18/10 à 20:20. Ce qui vient d'elles date de ces lectures.",
+      "Ces sources n'ont pas répondu à notre dernière lecture : « Observations aéroport (METAR) », lue le 18/10 à 20:20\u00a0; « Balises de vent Pioupiou (OpenWindMap) », lue le 18/10 à 20:20. Ce qui vient d'elles date de ces lectures.",
     );
   });
 
@@ -257,7 +257,7 @@ describe("fraicheur", () => {
     // Every part a copy: no « reste ».
     expect(said([la1ere]).avertissement).toBe("La source « Réunion La 1ère (actualité sportive) » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 22:22.");
     expect(said([fresh, la1ere, ffhb]).avertissement).toBe(
-      "Ces sources n'ont pas répondu à notre dernière lecture : « FFHB », lue le 25/10 à 21:51 ; « Réunion La 1ère (actualité sportive) », lue le 25/10 à 22:22. Ce qui vient d'elles date de ces lectures ; le reste de la réponse est à jour.",
+      "Ces sources n'ont pas répondu à notre dernière lecture : « FFHB », lue le 25/10 à 21:51\u00a0; « Réunion La 1ère (actualité sportive) », lue le 25/10 à 22:22. Ce qui vient d'elles date de ces lectures\u00a0; le reste de la réponse est à jour.",
     );
     // A read of ours that failed: a part, no source, no cause.
     expect(said([fresh, ours("page", "22:22")])).toMatchObject({
@@ -268,7 +268,7 @@ describe("fraicheur", () => {
       "Des parties de cette réponse datent de nos lectures du 25/10 à 21:51 et à 22:22 : les lectures suivantes n'ont pas abouti. Le reste de la réponse est à jour.",
     );
     expect(said([fresh, la1ere, ffhb, ours("a", "21:51"), ours("b", "22:22")]).avertissement).toBe(
-      "Ces sources n'ont pas répondu à notre dernière lecture : « FFHB », lue le 25/10 à 21:51 ; « Réunion La 1ère (actualité sportive) », lue le 25/10 à 22:22. Ce qui vient d'elles date de ces lectures. D'autres parties datent de nos lectures du 25/10 à 21:51 et à 22:22 : les lectures suivantes n'ont pas abouti. Le reste de la réponse est à jour.",
+      "Ces sources n'ont pas répondu à notre dernière lecture : « FFHB », lue le 25/10 à 21:51\u00a0; « Réunion La 1ère (actualité sportive) », lue le 25/10 à 22:22. Ce qui vient d'elles date de ces lectures. D'autres parties datent de nos lectures du 25/10 à 21:51 et à 22:22 : les lectures suivantes n'ont pas abouti. Le reste de la réponse est à jour.",
     );
     expect(said([fresh, la1ere, ours("a", "22:22")]).avertissement).toBe(
       "La source « Réunion La 1ère (actualité sportive) » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 22:22. Une autre partie date de notre lecture du 25/10 à 22:22 : la lecture suivante n'a pas abouti. Le reste de la réponse est à jour.",

@@ -135,9 +135,9 @@ function avertissement(list: CopieDeSecours[], rest: boolean): string {
   const out: string[] = [];
   if (named.length === 1) out.push(`La source ${quoted(named[0].source!)} n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture ${dits([named[0].lue_le])}.`);
   if (named.length > 1) {
-    const each = named.map((c) => `${quoted(c.source!)}, lue le ${c.lue_le.replace(" ", " à ")}`).join(" ; ");
+    const each = named.map((c) => `${quoted(c.source!)}, lue le ${c.lue_le.replace(" ", " à ")}`).join("\u00a0; ");
     // Alone, « le reste » closes the same sentence (marketing).
-    const close = rest && !parts.length ? " ; le reste de la réponse est à jour." : ".";
+    const close = rest && !parts.length ? "\u00a0; le reste de la réponse est à jour." : ".";
     out.push(`Ces sources n'ont pas répondu à notre dernière lecture : ${each}. Ce qui vient d'elles date de ces lectures${close}`);
   }
   if (parts.length) {
