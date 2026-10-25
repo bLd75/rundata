@@ -1171,17 +1171,16 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   <a id="wz-open" class="wz-open" href="${esc(wazeLink(first))}">Ouvrir dans Waze ↗</a></figcaption></figure>`;
 
   const band = `${crumbBar("Circulation")}
-<div class="wrap intro">
+<div class="wrap intro solo">
   <div class="pitch">
-    <p class="pill"><span class="dot"></span>Bouchons : Waze · état des routes : la Région</p>
+    <p class="pill"><span class="dot"></span>Bouchons, accidents, travaux : infotrafic.re</p>
     <h1>Bouchons et circulation à La Réunion <span class="n974">974</span></h1>
-    <p class="lead">Les bouchons en direct sont sur la carte de Waze, l'état officiel des routes nationales sur <a href="${INFOTRAFIC}">infotrafic.re</a>, le site de la Région. rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant.</p>
+    <p class="lead">Les bouchons, accidents et travaux en direct sont sur la carte officielle d'<a href="${INFOTRAFIC}">infotrafic.re</a>, le site de la Région, qui ne s'affiche que chez elle. Plus bas, la carte de Waze les montre aussi. rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant.</p>
     <p class="lead">La route du Littoral est basculée ou fermée ? L'état officiel est sur <a href="${INFOTRAFIC}">infotrafic.re</a>.</p>
-    <p class="hero-cta"><a class="btn sun" href="${INFOTRAFIC}">${icon("car")}État des routes (Région)</a><a class="btn glass" href="${esc(wazeLink(first))}">${icon("map")}Ouvrir Waze</a></p>
+    <p class="hero-cta"><a class="btn sun" href="${INFOTRAFIC}">${icon("car")}Carte officielle (infotrafic.re) ↗</a></p>
     ${ask(`Lé bouché si la kat-voi astèr ? Gèt si ${url} é di amwin sak ou koné, é ousa mi pé gèt lo trafik.`,
       `Ça bouchonne sur la quatre-voies en ce moment ? Lis ${url} : dis-moi ce que tu sais (bus, routes forestières, vigilance) et où regarder le trafic en direct.`)}
   </div>
-  ${waze}
 </div>`;
 
   // The route du Littoral as the media announce it, never as a measure: the card stays when none did, for those who look for it.
@@ -1267,17 +1266,18 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   const why = `<section aria-labelledby="h-pourquoi"><div class="card warn">${icon("alert")}<h3 id="h-pourquoi">Pourquoi pas les bouchons ici</h3>
   <p>rundata.re n'a pas la mesure des bouchons : la Région ne la rend pas réutilisable pour l'instant, et aucune autre source ouverte ne mesure le trafic à La Réunion. Waze et Google ne permettent pas de reprendre leurs données. D'où la carte de Waze, chargée à votre demande, et le lien vers infotrafic.re.</p></div></section>`;
 
-  const title = "Bouchons Réunion : carte Waze et état des routes · 974";
-  const short = "Circulation à La Réunion (974) : carte Waze des bouchons en direct, état officiel des routes sur infotrafic.re, retards des bus et routes forestières fermées.";
+  const title = "Info trafic Réunion : bouchons, routes, bus en direct · 974";
+  const short = "Circulation à La Réunion (974) : carte officielle des bouchons, accidents et travaux sur infotrafic.re, retards des bus et routes forestières fermées.";
   // An announcement of the last hours leads the description; otherwise, what the page has.
   const fresh = lit && lit.annonces.length === 1 && lit.age_h < littoral.RECENT_HOURS ? lit.annonces[0] : undefined;
   const announced = fresh &&
-    `Route du Littoral : ${littoral.etatShort(fresh)} selon ${fresh.media} (${littoral.publieText(fresh, now).replace(/^aujourd'hui à /, "")}). Bouchons à La Réunion (974) : carte Waze, état officiel sur infotrafic.re.`;
+    `Route du Littoral : ${littoral.etatShort(fresh)} selon ${fresh.media} (${littoral.publieText(fresh, now).replace(/^aujourd'hui à /, "")}). Bouchons à La Réunion (974) : carte officielle sur infotrafic.re.`;
   const description = announced
     ? describe(announced, describe(announced.replace(" (974)", ""), short))
-    : "Circulation à La Réunion (974) : carte Waze des bouchons, route du Littoral selon les médias, état officiel sur infotrafic.re, retards des bus.";
+    : "Circulation à La Réunion (974) : carte officielle des bouchons sur infotrafic.re, route du Littoral selon les médias, retards des bus.";
   const body = `${littoralCard}
 ${official}
+${waze}
 ${ours}
 ${why}
 ${connectorCta("transports", "les bus en direct")}
@@ -1289,7 +1289,7 @@ export function traficLive(data: Cached<TraficAnswer> | null): Live | undefined 
   const d = data?.value;
   if (!d) return undefined;
   const n = d.routes_forestieres?.interdites.length ?? 0;
-  return { valeur: "Waze en direct", detail: `et l'état des routes sur infotrafic.re ; ${n} route${n > 1 ? "s" : ""} forestière${n > 1 ? "s" : ""} fermée${n > 1 ? "s" : ""}` };
+  return { valeur: "Carte officielle", detail: `bouchons, accidents et travaux : infotrafic.re ; ${n} route${n > 1 ? "s" : ""} forestière${n > 1 ? "s" : ""} fermée${n > 1 ? "s" : ""}` };
 }
 
 // ---------------------------------------------------------------- randonnée: the hikers' page

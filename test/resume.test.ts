@@ -87,7 +87,9 @@ describe("the summary of a day", () => {
     expect(r.electricite).toMatchObject({ renouvelable_pct: 38 });
     // The roads: never a measure of the traffic jams; the news of the commune's roads, the island's apart.
     expect(r.circulation.mesure_des_bouchons).toMatch(/ne mesure pas les bouchons/);
-    expect(r.circulation.waze).toMatch(/^https:\/\/www\.waze\.com\/ul\?ll=/);
+    // The Région's official map first; Waze only on /trafic, beside its own map.
+    expect(r.circulation.carte_officielle).toBe("https://www.infotrafic.re/");
+    expect(JSON.stringify(r)).not.toMatch(/waze/i);
     expect(r.circulation.infos_routes!.map((i) => i.titre)).toEqual(["Barrage filtrant au rond-point de Savanna"]);
     expect(r.circulation.routes_ile![0].titre).toBe("Bouchons sur la route des Tamarins");
     // The other news of the commune, of the last hours only.

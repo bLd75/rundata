@@ -81,7 +81,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
     (c.infos_routes?.length ? `<ul class="plain">${c.infos_routes.map(li).join("")}</ul>` : c.infos_routes ? `<p>Aucune information des médias sur les routes ou des blocages ${esc(aCommune(p.nom))} ces dernières heures.</p>` : "") +
     (c.routes_ile?.length ? `<p class="note">Ailleurs sur l'île :</p><ul class="plain">${c.routes_ile.map((x) => li({ titre: x.titre, lien: x.lien, media: x.source, quand: x.heure })).join("")}</ul>` : "") +
     (c.bus?.length ? `<p class="note">Info trafic des bus : ${c.bus.map((x) => esc(`${x.reseau} : ${x.titre}`)).join(" ; ")}</p>` : "") +
-    `<p class="note">rundata.re ne mesure pas les bouchons : <a href="${esc(c.waze)}" rel="noopener">la carte Waze autour de ${esc(p.nom)}</a>, <a href="https://www.infotrafic.re/" rel="noopener">infotrafic.re</a>, et <a href="/trafic">la page circulation</a>.</p>`,
+    `<p class="note">rundata.re ne mesure pas les bouchons : <a href="${esc(c.carte_officielle)}" rel="noopener">la carte officielle sur infotrafic.re ↗</a>, et <a href="/trafic">la page circulation</a>.</p>`,
     "/trafic");
 
   const news = r.actualites

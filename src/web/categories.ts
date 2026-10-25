@@ -88,7 +88,7 @@ export const CATEGORIES: Category[] = [
     path: "/trafic",
     icon: "car",
     tools: ["transports", "sentiers_randonnee"],
-    about: "Les bouchons en direct sur la carte de Waze, l'état officiel des routes sur infotrafic.re, et ce que rundata.re lit : retards et déviations des bus, routes forestières fermées, vigilance.",
+    about: "La carte officielle des bouchons, accidents et travaux sur infotrafic.re, et ce que rundata.re lit : retards et déviations des bus, routes forestières fermées, vigilance.",
   },
   {
     key: "velos",

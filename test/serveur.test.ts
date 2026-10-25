@@ -68,6 +68,7 @@ describe("the server's instructions", () => {
     const text: string = r.instructions;
     // Claude Code cuts them near 4 000 characters: everything must fit before that.
     expect(text.length).toBeLessThan(4000);
+    expect(text).not.toMatch(/waze/i);
     expect(INDEX.length).toBeLessThan(1500);
     // ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it, any place of the island named
     // without « La Réunion »; the English line with it.

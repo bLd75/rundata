@@ -83,7 +83,7 @@ import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.192.1";
+export const VERSION = "0.192.2";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -101,7 +101,7 @@ Règles :
 - Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité d'une réponse (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles.
 
 Détails :
-- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer\u00a0; renvoyer à la carte Waze, à infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu\u00a0; routes forestières fermées : sentiers_randonnee.
+- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer\u00a0; renvoyer à la carte officielle d'infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu\u00a0; routes forestières fermées : sentiers_randonnee.
 - actualites : l'heure, le média et le lien de chaque information\u00a0; rien sur un lieu ne prouve qu'il ne s'y passe rien\u00a0; ne jamais inventer ni démentir un blocage.
 - evenements : le lien de chaque événement\u00a0; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres\u00a0; agenda incomplet, le dire quand rien n'est trouvé\u00a0; cinéma : les sites des salles.`;
 

@@ -38,7 +38,7 @@ describe("circulation", () => {
     carburants.configure(undefined);
   });
 
-  it("says plainly it has no traffic data, and points to Waze and to the Région", async () => {
+  it("says plainly it has no traffic data, and points to the Région's official map first, Waze's only below it", async () => {
     const res = await handle(new Request("https://rundata.re/trafic", BOT), cache());
     expect(res.status).toBe(200);
     const page = await res.text();
@@ -52,6 +52,18 @@ describe("circulation", () => {
     expect(page).toContain(`<button type="button" id="wz-go"`);
     expect(page.match(/href="https:\/\/www\.waze\.com\/ul\?ll=-?[\d.]+,[\d.]+&amp;zoom=\d+"/g)!.length).toBeGreaterThanOrEqual(5);
     expect(page).toContain("embed.waze.com/fr/iframe?zoom=");
+    // The official map first, in the band; Waze's below it, before what rundata.re reads, and named nowhere else but
+    // in the lead that says so and in the box that says why.
+    expect(page).toContain(`<a class="btn sun" href="https://www.infotrafic.re/">`);
+    expect(page).toContain("Carte officielle (infotrafic.re) ↗</a>");
+    const map = page.indexOf(`<figure class="card mapcard wz">`);
+    expect(page.indexOf('id="h-officiel"')).toBeLessThan(map);
+    expect(map).toBeLessThan(page.indexOf('id="h-nous"'));
+    const why = page.indexOf('<section aria-labelledby="h-pourquoi">');
+    const below = "Plus bas, la carte de Waze les montre aussi.";
+    expect(page).toContain(below);
+    const rest = page.slice(0, map) + page.slice(page.indexOf("</figure>", map), why) + page.slice(page.indexOf("</section>", why), page.indexOf("<script>", why));
+    expect(rest.replace(below, "")).not.toMatch(/waze/i);
   });
 
   it("gives what is open: the forest roads closed, the main ones, the buses' delays", async () => {
