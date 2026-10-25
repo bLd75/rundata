@@ -55,6 +55,16 @@ describe("GTFS-RT feed", () => {
     expect(rt.active(barachois, barachois.periodes[0][1]! + 1)).toBe(false);
   });
 
+  it("reads where the buses that send their position are, without their plate", () => {
+    const f = rt.decode(FEED);
+    expect(f.vehicles).toHaveLength(2);
+    const [v] = f.vehicles!;
+    expect(v).toMatchObject({ trip: "7-218169484", route: "13", stop: "514", status: 2, at: 1792774552 });
+    expect(v.lat).toBeCloseTo(-20.88168, 4);
+    expect(v.lon).toBeCloseTo(55.45491, 4);
+    expect(JSON.stringify(f.vehicles)).not.toMatch(/DQ-032-PH/);
+  });
+
   it("is fetched for the networks that have one, and left out once it stopped", async () => {
     vi.stubGlobal("fetch", async () => new Response(FEED));
     const at = new Date(rt.decode(FEED).at * 1000);

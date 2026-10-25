@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Dimanche 25 octobre 2026
 
+- Bus : votre IA dit où est le Car Jaune ou le bus CarSud en ce moment, près de quel arrêt, avec l'heure de sa position.
 - Saint-Philippe, Cilaos, Saint-Joseph : les événements annoncés dans les actualités de la mairie s'affichent, avec le lien de l'article.
 - Nouvelle page Enfants : aires de jeux, parcs, piscines, médiathèques et activités du week-end, de 0 à 17 ans, commune par commune.
 - ChatGPT : des outils de rundata.re manquent ? Le tutoriel dit comment actualiser la liste dans les paramètres.

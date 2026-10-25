@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as transit from "../src/providers/transit.js";
-import type { Cache } from "../src/cache.js";
-import { findStops, linesNamed, parseQuery, transports } from "../src/tools/transports.js";
+import type * as rt from "../src/providers/gtfsrt.js";
+import { Cache, MemoryStore } from "../src/cache.js";
+import { departures, findStops, linesNamed, parseQuery, transports } from "../src/tools/transports.js";
 
 // Rows of the D1 database for the stations of Saint-Pierre, the cable car at Bancoul and Hell-Bourg, from the
 // networks' GTFS of 23/10/2026 (scripts/build-transit.py).
@@ -217,3 +218,50 @@ describe("a line", () => {
   });
 });
 
+describe("where the bus is", () => {
+  const T0 = NOW.getTime() / 1000;
+  const cj = transit.NETWORKS.carjaune;
+  const gtfsStop = (nom: string) => cj.temps_reel!.arrets[transit.GROUPS.find((g) => g.reseau === "carjaune" && g.nom === nom)!.ids[0] - cj.first_stop];
+  const [s1] = linesNamed("S1", "carjaune");
+  /** A cache already holding this Car Jaune feed, as read a moment ago. */
+  const withFeed = (vehicles: rt.Vehicle[]) => {
+    const store = new MemoryStore();
+    store.put("rt:carjaune", { value: { at: T0 - 30, trips: {}, cancelled: [], alerts: [], vehicles }, fetchedAt: NOW.getTime() });
+    return new Cache(store, () => NOW.getTime(), false);
+  };
+  /** The next S1 at Manapany les Bains, whose bus is on its way. */
+  const nextS1 = async () => (await departures(findStops("Manapany les Bains").groups, NOW)).filter((d) => d.route === s1)[0];
+
+  beforeEach(() => vi.stubGlobal("fetch", async () => new Response("down", { status: 503 })));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("is given with a departure and with the line, always with the time of its position", async () => {
+    const d = await nextS1();
+    const at = transit.stop(transit.GROUPS.find((g) => g.reseau === "carjaune" && g.nom === "Église Vincendo")!.ids[0]);
+    const cache = withFeed([{ trip: d.trip, route: cj.temps_reel!.lignes[s1 - cj.first_route], lat: at.lat, lon: at.lon, at: T0 - 90, stop: gtfsStop("Église Vincendo"), status: 2 }]);
+    const r = body(await transports("Manapany", "S1", NOW, cache));
+    const row = r.departs.find((x: { position_du_bus?: unknown }) => x.position_du_bus);
+    expect(row.position_du_bus).toMatchObject({ ou: "en route vers Église Vincendo (Saint-Joseph)", heure_de_la_position: "7h28" });
+    expect(r.resume).toMatch(/position du bus à 7h28 : en route vers Église Vincendo \(Saint-Joseph\)/);
+    expect(r.bus_en_circulation).toHaveLength(1);
+    expect(r.bus_en_circulation[0].vers).toMatch(/^Gare de St-(Benoît|Pierre)$/);
+    expect(r.resume).toMatch(/En ce moment, 1 bus de la ligne donne sa position : vers Gare de St-(Benoît|Pierre), en route vers Église Vincendo \(Saint-Joseph\) à 7h28\./);
+    expect(JSON.stringify(r.sources)).toMatch(/GTFS-RT/);
+  });
+
+  it("naming no stop, is said near the nearest one", async () => {
+    const d = await nextS1();
+    const at = transit.stop(transit.GROUPS.find((g) => g.reseau === "carjaune" && g.nom === "Manapany les Bains")!.ids[0]);
+    const r = body(await transports(undefined, "S1", NOW, withFeed([{ trip: d.trip, lat: at.lat + 0.001, lon: at.lon, at: T0 - 60 }])));
+    expect(r.bus_en_circulation[0]).toMatchObject({ ou: "près de Manapany les Bains (Saint-Joseph)", heure_de_la_position: "7h29" });
+  });
+
+  it("is not given when its position is more than 10 minutes old", async () => {
+    const d = await nextS1();
+    const cache = withFeed([{ trip: d.trip, lat: -21.37, lon: 55.6, at: T0 - 11 * 60, stop: gtfsStop("Église Vincendo"), status: 2 }]);
+    const r = body(await transports("Manapany", "S1", NOW, cache));
+    expect(r.departs.some((x: { position_du_bus?: unknown }) => x.position_du_bus)).toBe(false);
+    expect(r.bus_en_circulation).toBeUndefined();
+    expect(r.resume).toMatch(/Aucun bus de la ligne ne donne sa position en ce moment, ce qui ne veut pas dire qu'aucun ne circule\./);
+  });
+});
