@@ -159,6 +159,13 @@ const KEEP_LEFT = 4;
 // How often the scheduled event reads its agendas again, unless an agenda says otherwise (`relecture`).
 const PLANNED_FRESH_SECONDS = 3600;
 
+// When a planned agenda last failed (or found nothing where its copy had events), in this isolate: it is not tried
+// again before its next reading is due, rather than at each scheduled event, for a subrequest and up to TIMEOUT_MS
+// each time (Saint-Joseph's site does not answer Cloudflare's addresses).
+const echecs = new Map<string, number>();
+/** For the tests: each starts as a new isolate. */
+export const oublierEchecs = () => echecs.clear();
+
 /** An agenda this invocation has no subrequests left for, and of which no copy is kept. */
 class Postponed extends Error {}
 
@@ -228,7 +235,7 @@ async function read(cache: Cache, now: Date, deadlineMs: number): Promise<Got[]>
  * The scheduled event's last part: the agendas read only there (`planifie`) whose copy is an hour old (or as old as
  * their `relecture`), each only if what is left pays for its reading and the bundle's write; the bundle (in KV,
  * src.PLANIFIES) written once, and only if one was read. A reading that fails, or that finds nothing where the copy had
- * events, keeps the copy and its time.
+ * events, keeps the copy and its time, and is not tried again before the agenda's next reading is due.
  */
 export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ lus: string[]; gardes: string[]; reportes: string[]; trop_vieilles: string[] }> {
   // `trop_vieilles`: not read again this time, and their copy, older than PLANIFIE_MAX_AGE_SECONDS, no longer served.
@@ -243,7 +250,10 @@ export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ 
   const direct: src.AgendaStore = { get: async (_k, _s, load) => ({ value: await load(), fetchedAt: now, stale: false }) };
   for (const agenda of planned) {
     const old = bundle.peek(`agenda:${agenda.id}`);
-    if (old && old.ageMs < (agenda.relecture ?? PLANNED_FRESH_SECONDS) * 1000) continue;
+    const every = (agenda.relecture ?? PLANNED_FRESH_SECONDS) * 1000;
+    if (old && old.ageMs < every) continue;
+    const failed = echecs.get(agenda.id);
+    if (failed !== undefined && now.getTime() - failed < every) continue;
     if (left() - KEEP_LEFT - 1 < (agenda.requetes ?? 1)) {
       out.reportes.push(agenda.id);
       continue;
@@ -253,13 +263,16 @@ export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ 
       if (!value.length && (old?.value as src.Evenement[] | undefined)?.length) {
         console.error(`source ${agenda.source.id} (${agenda.id}) : aucun événement, la copie est gardée`);
         out.gardes.push(agenda.id);
+        echecs.set(agenda.id, now.getTime());
         continue;
       }
       bundle.set(`agenda:${agenda.id}`, value);
       out.lus.push(agenda.id);
+      echecs.delete(agenda.id);
     } catch (err) {
       console.error(`source ${agenda.source.id} (${agenda.id}) indisponible, la copie est gardée:`, why(err));
       out.gardes.push(agenda.id);
+      echecs.set(agenda.id, now.getTime());
     }
   }
   for (const agenda of planned) {
