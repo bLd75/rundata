@@ -120,6 +120,44 @@ export const GROUPS: StopGroup[] = (() => {
   return [...by.values()];
 })();
 
+/** A name in an address: « Gare de St-Pierre » → « gare-de-saint-pierre ». */
+const slug = (s: string) => expand(s).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/** The stops of a page /bus/arret/<commune>/<name>: those of every network with that name in that commune. */
+export interface StopPage {
+  /** « saint-pierre/gare-de-saint-pierre ». */
+  slug: string;
+  nom: string;
+  commune: string;
+  groups: StopGroup[];
+  /** Busy enough for search engines (scripts/build-transit.py): at least 2 lines and 60 buses on a Tuesday. */
+  indexe: boolean;
+}
+
+/** The stops of the indexed pages, from the build; none in an older bundle. */
+const INDEXED = new Set<number>((network as { indexes?: number[] }).indexes ?? []);
+
+let pages: Map<string, StopPage> | undefined;
+/** The stop pages by their slug, built at their first use: some 4 900 of them. */
+export function stopPages(): Map<string, StopPage> {
+  if (pages) return pages;
+  pages = new Map();
+  for (const g of GROUPS) {
+    const key = `${slug(g.commune)}/${slug(g.nom)}`;
+    const p = pages.get(key);
+    if (p) p.groups.push(g);
+    else pages.set(key, { slug: key, nom: g.nom, commune: g.commune, groups: [g], indexe: false });
+  }
+  for (const p of pages.values()) p.indexe = p.groups.some((g) => g.ids.some((id) => INDEXED.has(id)));
+  return pages;
+}
+/** The page of a stop (island-wide index); none for a number no stop has (an old link's). */
+export function pageOfStop(id: number): StopPage | undefined {
+  if (!Number.isInteger(id) || id < 0 || id >= STOPS.length) return undefined;
+  const s = stop(id);
+  return stopPages().get(`${slug(s.commune)}/${slug(s.nom)}`);
+}
+
 export function serviceRuns(net: string, service: number, day: number, weekday: number): boolean {
   const s = SERVICES[net]?.[service];
   if (!s) return false;

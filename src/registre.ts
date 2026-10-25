@@ -283,6 +283,10 @@ const OTHER_PAGES: Record<string, Page> = {
   "/sentiers/*": { subrequests: 16, cpuMs: 30, from: ["src/tools/sentiers.ts"], what: "un sentier et sa trace" },
   // Its pattern and its stops (2 reads of D1), the network's real-time feed while the bus is on the road, the header's
   // vigilance and version. Measured 4 under wrangler dev without the sources (26/10): 2 of D1, 2 of the header.
+  // Its passes, the patterns of the next hours (one read more when they are few), the real-time feeds of its networks,
+  // the header's vigilance and version. Measured 10 under wrangler dev on Saint-Pierre's bus station (26/10), without
+  // the header's sources. The search (/bus/arret?q=) reads the bundled stops only: as "*".
+  "/bus/arret/*": { subrequests: 16, cpuMs: 60, from: ["src/tools/transports.ts"], d1: { d1Calls: 3, d1RowsRead: 150 }, what: "la page d'un arrêt de bus : ses prochains départs", basis: "code" },
   "/bus/trajet/*": { subrequests: 11, cpuMs: 30, from: ["src/tools/transports.ts"], d1: { d1Calls: 2, d1RowsRead: 6 }, what: "le trajet d'un bus, arrêt par arrêt", basis: "code" },
   "/coupures-eau/*": { subrequests: 27, cpuMs: 70, from: ["src/tools/coupures.ts"], what: "les coupures d'une commune" },
   "/feux": { subrequests: 20, cpuMs: 90, from: ["src/tools/feux.ts"] },

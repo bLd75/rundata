@@ -23,8 +23,9 @@ describe("search engines", () => {
   it("skip the copies made for the assistants, which still read them", async () => {
     const robots = await get("/robots.txt");
     const groups = robots.split("\n\n");
-    expect(groups[0]).toBe("User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nAllow: /");
-    expect(groups[1]).toBe("User-agent: *\nAllow: /");
+    // Nor the searches for a stop: a page per query typed, each stop has its own.
+    expect(groups[0]).toBe("User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: /bus/arret?q=\nAllow: /");
+    expect(groups[1]).toBe("User-agent: *\nDisallow: /bus/arret?q=\nAllow: /");
     expect(robots).toContain(`Sitemap: ${O}/sitemap.xml`);
   });
 

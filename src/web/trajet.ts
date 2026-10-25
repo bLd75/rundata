@@ -8,7 +8,7 @@ import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
 import { fr } from "../tools/format.js";
 import { dayName, type TripRun, type TripStop } from "../tools/transports.js";
-import { crumbBar, crumbs, saidNow } from "./domains.js";
+import { crumbBar, crumbs, saidNow, STOP_PATH } from "./domains.js";
 import { esc } from "./map.js";
 import { type Alerte, credit } from "./data.js";
 import { credits, DESCRIPTION_MAX, layout, SITE } from "./pages.js";
@@ -86,11 +86,13 @@ export function tripPage(origin: string, path: string, t: TripRun, chosen: numbe
   const stops = t.arrets
     ? `<ol class="rows trajet">${t.arrets.map((s) => {
         const here = s.id === chosen;
+        // Each stop leads to its page: the way to the next bus there, and how search engines find the stops.
+        const page = transit.pageOfStop(s.id);
         const at = esc(timeOf(s.at, now));
         return `<li id="arret-${s.id - transit.NETWORKS[t.reseau].first_stop}"${here ? ` class="ici" aria-current="location"` : ""}>` +
           `<span class="note">${t.supprime ? `<s>${at}</s>` : at}</span>` +
           // What the feed says goes under the name: beside it, it leaves the name a few letters a line on a phone.
-          `<span>${esc(s.nom)}<small>${esc(s.commune)}${here ? " · arrêt choisi" : ""}</small>${t.supprime ? "" : liveAt(s, now)}</span></li>`;
+          `<span>${page ? `<a href="${STOP_PATH}/${esc(page.slug)}">${esc(s.nom)}</a>` : esc(s.nom)}<small>${esc(s.commune)}${here ? " · arrêt choisi" : ""}</small>${t.supprime ? "" : liveAt(s, now)}</span></li>`;
       }).join("")}</ol>`
     : `<p class="card">Liste des arrêts indisponible pour le moment.</p>`;
   const sources = [credit(transit.SOURCE), ...(t.direct && t.direct.etat !== "muet" ? [credit(rt.SOURCE)] : [])];
@@ -106,12 +108,12 @@ export function tripPage(origin: string, path: string, t: TripRun, chosen: numbe
 }
 
 /** A trip that the timetables no longer have, or that they could not say: said, with the way to the next departures. 404, so that engines forget the link. */
-export function tripGonePage(origin: string, path: string, net: string | undefined, alerte?: Alerte, down = false): string {
+export function tripGonePage(origin: string, path: string, net: string | undefined, alerte?: Alerte, down = false, stop?: transit.StopPage): string {
   const n = net ? transit.NETWORKS[net]?.nom : undefined;
   // The timetables that do not answer (the tool's words): the trip may well be there.
   const said = down
     ? "Les horaires de bus ne répondent pas pour le moment. Réessayer dans un instant."
     : n ? `Ce départ ne figure plus dans les horaires publiés par ${n}.` : "Ce départ ne figure plus dans les horaires publiés des réseaux.";
   return layout(origin, { title: `Page introuvable · ${SITE}`, description: said, path, noindex: true, jsonld: [], alerte },
-    `${crumbBar("Page introuvable", { name: "Bus", path: "/bus" })}<div class="wrap intro"><div class="pitch"><h1>Page introuvable</h1><p class="lead">${esc(said)}</p><p><a href="/bus">Prochains départs dans les gares →</a></p></div></div>`, "");
+    `${crumbBar("Page introuvable", { name: "Bus", path: "/bus" })}<div class="wrap intro"><div class="pitch"><h1>Page introuvable</h1><p class="lead">${esc(said)}</p><p>${stop ? `<a href="${STOP_PATH}/${esc(stop.slug)}">Prochains bus à ${esc(stop.nom)} →</a>` : `<a href="/bus">Prochains départs dans les gares →</a>`}</p></div></div>`, "");
 }

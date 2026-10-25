@@ -110,7 +110,9 @@ import { etat as sansReponse } from "../sans-reponse.js";
 import { connecteurPage } from "./connecteur.js";
 import { typo, typoPage } from "./typo.js";
 import { tripGonePage, tripPage } from "./trajet.js";
-import { TRIP_PATH, tripRun } from "../tools/transports.js";
+import { searchStops, stopPageDepartures, TRIP_PATH, tripRun } from "../tools/transports.js";
+import { searchPage, stopPage } from "./arret.js";
+import { STOP_PATH } from "./domains.js";
 import * as transit from "../providers/transit.js";
 
 const HTML = {
@@ -131,7 +133,7 @@ const GPX = { "content-type": "application/gpx+xml; charset=utf-8", "cache-contr
  * would spend the few pages a day a search engine reads on a new site. The assistants' fetchers still read them.
  */
 const ROBOTS = (origin: string) =>
-  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nAllow: /\n\nUser-agent: *\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
+  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: ${STOP_PATH}?q=\nAllow: /\n\nUser-agent: *\nDisallow: ${STOP_PATH}?q=\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
 
 /** IndexNow (Bing, Yandex, Seznam, Naver): the key that proves rundata.re's submissions are ours. Public by design. */
 export const INDEXNOW_KEY = "9cb4a2d427093776313488cb4d39b24a";
@@ -271,6 +273,8 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
   const trace = (u: string): Url => [u, undefined, "daily"];
   // The defibrillators are a list bundled with the server: their page changes when it is rebuilt.
   const urls: Url[] = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/alerte-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), fixed("/kit-cyclone"), fixed("/publier"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)),
+    // The busiest stops only (scripts/build-transit.py): the others' pages are not indexed.
+    ...[...transit.stopPages().values()].filter((p) => p.indexe).map((p) => live(`${STOP_PATH}/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
     ...(formulaires.enLigne() ? [live(ASSOCIATIONS_PATH), fixed(formulaires.PROPOSER_PATH)] : []),
@@ -556,6 +560,29 @@ async function pages(request: Request, cache: Cache, background: Background, now
       : communePage(origin, p, { place: null, commune: null, vigilance: null, air: null, mer: null, volcan: null, electricite: null, calendrier: null, coupures: null, secheresse: null, eau: null, randonnees: null, agenda: null, dechets: null }, now)),
     place, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now)), rebuild(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now))]);
   }
+  // A stop's page, and the search for one: read from the timetables at each view, never kept (web/arret.ts).
+  if (path === STOP_PATH || path === `${STOP_PATH}/`) {
+    const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
+    if (!q) return new Response(null, { status: 302, headers: { location: "/bus", "cache-control": "no-store" } });
+    // The stops are bundled: the search reads nothing.
+    const found = searchStops(q);
+    // One stop: its page at once.
+    if (found.length === 1) return new Response(null, { status: 302, headers: { location: `${STOP_PATH}/${found[0].slug}`, "cache-control": "public, max-age=300" } });
+    return new Response(searchPage(origin, q, found, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=300" } });
+  }
+  if (path.startsWith(`${STOP_PATH}/`)) {
+    const p = transit.stopPages().get(path.slice(STOP_PATH.length + 1).replace(/\/$/, ""));
+    if (!p) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
+    let d: Awaited<ReturnType<typeof stopPageDepartures>>;
+    try {
+      if (!transit.enabled()) throw new Error("horaires indisponibles ici");
+      d = await stopPageDepartures(p.groups, now, cache);
+    } catch (err) {
+      console.error(`page ${path} : horaires indisponibles`, why(err));
+      return new Response(tripGonePage(origin, path, undefined, await alerte(cache, background, now), true), { status: 503, headers: { ...HTML, "cache-control": "no-store", "retry-after": "60" } });
+    }
+    return new Response(stopPage(origin, p, d, now, await alerte(cache, background, now)), { headers: HTML });
+  }
   // A bus's trip, from a departure: read from the timetables at each view, never kept (web/trajet.ts).
   const trajet = path.startsWith(`${TRIP_PATH}/`) ? /^\/bus\/trajet\/([a-z]+)\/(\d+)\/([^/]+)\/?$/.exec(path) : null;
   if (trajet || path.startsWith(`${TRIP_PATH}/`)) {
@@ -579,7 +606,9 @@ async function pages(request: Request, cache: Cache, background: Background, now
       return new Response(tripGonePage(origin, canonical, net, await alerte(cache, background, now), true), { status: 503, headers: { ...HTML, "cache-control": "no-store", "retry-after": "60" } });
     }
     const a = await alerte(cache, background, now);
-    if (!trip) return new Response(tripGonePage(origin, canonical, net, a), { status: 404, headers: HTML });
+    // An old link names its stop by its number then: its page, if that number is still a stop of the trip's network.
+    const named = arret !== undefined ? transit.pageOfStop(arret) : undefined;
+    if (!trip) return new Response(tripGonePage(origin, canonical, net, a, false, named?.groups.some((g) => g.reseau === net && g.ids.includes(arret!)) ? named : undefined), { status: 404, headers: HTML });
     return new Response(tripPage(origin, canonical, trip, arret, now, a), { headers: HTML });
   }
   if (path === `/${INDEXNOW_KEY}.txt`) {

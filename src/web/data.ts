@@ -1180,8 +1180,8 @@ export const GARES = [
 
 export interface GareNow {
   commune: string;
-  /** The stop's name in each network that serves it. */
-  arrets: { nom: string; reseau: string }[];
+  /** The stop's name in each network that serves it, and its page (/bus/arret/<page>). */
+  arrets: { nom: string; reseau: string; page?: string }[];
   departs: PageRow[];
 }
 
@@ -1224,7 +1224,7 @@ export async function buildBus(now = new Date(), cache?: Cache): Promise<BusData
     const lists = await stationDepartures(stations, now);
     stations.forEach((groups, i) => gares.push({
       commune: groups[0].commune,
-      arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })),
+      arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau, ...(transit.pageOfStop(g.ids[0]) ? { page: transit.pageOfStop(g.ids[0])!.slug } : {}) })),
       departs: spread(applyRealtime(lists[i], feeds, now), 8).map(pageRow),
     }));
   }

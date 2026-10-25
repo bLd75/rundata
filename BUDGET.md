@@ -98,6 +98,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /mer | la page /mer | à chaque vue |  | 23 |  |  |  |  |  | 120 | mesuré |
 | /randonnees/* | une randonnée et sa trace | à chaque vue |  | 23 |  |  |  |  |  | 130 | mesuré |
 | /sentiers/* | un sentier et sa trace | à chaque vue |  | 16 |  |  |  |  |  | 30 | mesuré |
+| /bus/arret/* | la page d'un arrêt de bus : ses prochains départs | à chaque vue |  | 16 |  |  | 3 | 150 |  | 60 | code |
 | /bus/trajet/* | le trajet d'un bus, arrêt par arrêt | à chaque vue |  | 11 |  |  | 2 | 6 |  | 30 | code |
 | /coupures-eau/* | les coupures d'une commune | à chaque vue |  | 27 |  |  |  |  |  | 70 | mesuré |
 | /feux | la page /feux | à chaque vue |  | 20 |  |  |  |  |  | 90 | mesuré |
@@ -205,6 +206,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | /mer | providers/acspo, providers/arome, providers/ensemble, providers/houle, providers/maregraphes, providers/mf-auth, providers/modis, providers/openmeteo, providers/uv |
 | /randonnees/* | providers/feux, providers/sentiers, providers/traces |
 | /sentiers/* | providers/feux, providers/sentiers, providers/traces |
+| /bus/arret/* | providers/calendrier, providers/gtfsrt |
 | /bus/trajet/* | providers/calendrier, providers/gtfsrt |
 | /coupures-eau/* | providers/avis-eau, providers/eaupotable |
 | /feux | providers/feux |

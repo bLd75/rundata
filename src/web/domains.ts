@@ -687,6 +687,12 @@ export function liveText(x: Row): string {
 export const departureLi = (x: Row, wait: string) =>
   `<li><b>${esc(x.ligne)}</b><span>${x.trajet ? `<a href="${esc(x.trajet)}">vers ${esc(x.direction)}</a>` : `vers ${esc(x.direction)}`} <span class="note">(${esc(x.reseau)})</span></span><span class="note">${esc(wait)}${liveText(x)}</span></li>`;
 
+export const STOP_PATH = "/bus/arret";
+
+/** The search for a stop (/bus/arret?q=): a form, which needs no script. */
+export const stopSearch = (q = "") =>
+  `<form class="card filter" role="search" action="${STOP_PATH}" method="get"><label class="q">Arrêt de bus <input name="q" type="search" placeholder="Mairie, Le Tampon" autocomplete="off" required value="${esc(q)}"></label><button class="btn sun" type="submit">Chercher</button></form>`;
+
 /** The traffic alerts of the networks with a real-time feed. */
 export const alertList = (list: { reseau: string; lignes?: string[]; titre: string; detail?: string }[]) =>
   `<ul class="plain">${list.map((a) => `<li><b>${esc(a.reseau)}${a.lignes ? `, ligne ${esc(a.lignes.join(", "))}` : ""}</b> : ${esc(a.titre)}${a.detail && a.detail !== a.titre ? `<p class="note">${esc(a.detail)}</p>` : ""}</li>`).join("")}</ul>`;
@@ -708,7 +714,7 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
     ? `<ul class="zones">${d.gares.map((g) => {
         const left = stillToCome(g.departs, data!.fetchedAt, now);
         return `<li class="card"><h3>Gare ${esc(de(g.commune))}</h3>` +
-        `<p class="note">${g.arrets.map((a) => `${esc(a.reseau)} : ${esc(a.nom)}`).join(" · ")}</p>` +
+        `<p class="note">${g.arrets.map((a) => `${esc(a.reseau)} : ${a.page ? `<a href="${STOP_PATH}/${esc(a.page)}">${esc(a.nom)}</a>` : esc(a.nom)}`).join(" · ")}</p>` +
         (left.length
           ? `<ul class="rows">${left.map(({ x, min, heure }) => departureLi(x, waitText(min, heure))).join("")}</ul>`
           : `<p>Pas de départ prévu dans les prochaines heures.</p>`) +
@@ -727,6 +733,7 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
     <p class="pill"><span class="dot"></span>Horaires du jour</p>
     <h1>Bus et cars <span class="n974">974</span></h1>
     ${status}
+    ${stopSearch()}
     ${ask(`Kansa i pas lo prochin bis la gar Sin-Pyèr ? Gèt si ${url} é di amwin.`,
       `Quand passe le prochain bus à la gare routière de Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
   </div>

@@ -140,6 +140,14 @@ describe("the page of a trip", () => {
     expect(old.supprime).toBeUndefined();
     expect(tripPage(ORIGIN, "/x", old, undefined, NOW)).toContain("Le flux en direct de Car Jaune ne répond pas pour le moment : horaires publiés seulement.");
 
+    // Hours before its run, the feed is read but says nothing of it yet: its times of another run are not applied.
+    store.put("rt:carjaune", { value: { at: t0 - 30, trips: { [d.trip]: { [stopId(d.stop)]: t0 + d.in + 5 * 60 } }, cancelled: [], alerts: [], vehicles: [] }, fetchedAt: NOW.getTime() });
+    const early = new Date(NOW.getTime() + d.in * 1000 - 3 * 3600_000);
+    const before = (await tripRun("carjaune", local, d.trip, 20261023, early, new Cache(store)))!;
+    expect(before.direct).toEqual({ etat: "absent", flux: t0 - 30 });
+    expect(before.arrets!.some((s) => s.annonce !== undefined)).toBe(false);
+    expect(tripPage(ORIGIN, "/x", before, undefined, early)).toContain("Ce bus ne figure pas dans le flux en direct de Car Jaune (flux de ");
+
     // Cancelled: said above the stops, their times struck.
     store.put("rt:carjaune", { value: { at: t0 - 30, trips: {}, cancelled: [d.trip], alerts: [], vehicles: [] }, fetchedAt: NOW.getTime() });
     const cut = (await tripRun("carjaune", local, d.trip, 20261023, NOW, new Cache(store)))!;

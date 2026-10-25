@@ -21,6 +21,9 @@ Usage: python3 -I scripts/build-transit.py [--cache DIR] [--d1 rundata-transport
 Then: npx wrangler d1 execute rundata-transports --remote --file dist/transit.sql, and deploy.
 """
 import argparse
+import re
+import unicodedata
+from datetime import date, timedelta
 import csv
 import hashlib
 import io
@@ -177,6 +180,43 @@ def check_quota(new_rows):
                          "(4 h à La Réunion), quand le quota repart à zéro. Rien n'a été modifié.")
 
 
+# The stop pages (/bus/arret/…) that search engines may index: those with at least 2 lines and 60 buses on an ordinary
+# Tuesday, about 730 of some 4 900, under the 1 000 the sitemap may hold (test/arret.test.ts). The others have their page
+# too, not indexed: thousands of pages with a few buses a day would read as thin content.
+INDEX_LINES, INDEX_PASSES = 2, 60
+
+
+def name_key(name):
+    """A stop's name as the server groups it (src/providers/transit.ts, `expand`): normalized, « St » and « Ste » in full."""
+    s = unicodedata.normalize("NFD", re.sub(r"\s+quai\s+\S+$", "", " ".join(name.split()), flags=re.I).lower())
+    s = re.sub(r"[\W_]+", " ", "".join(c for c in s if not unicodedata.category(c).startswith("M"))).strip()
+    return re.sub(r"\bste\b", "sainte", re.sub(r"\bst\b", "saint", s))
+
+
+def indexed_stops(stops, services, patterns, calls_of, day):
+    """The stops of the groups (name and commune, all networks) busy enough to be indexed, by their buses on `day`."""
+    ymd, weekday = int(day.strftime("%Y%m%d")), day.weekday()
+
+    def runs(net, service):
+        days, first, last, added, removed = services[net][service]
+        if ymd in removed:
+            return False
+        return ymd in added or (first <= ymd <= last and (days >> (6 - weekday)) & 1 == 1)
+
+    lines, buses = defaultdict(set), defaultdict(int)
+    for i, (route, _, trips) in enumerate(patterns):
+        net = stops[calls_of[i][1][0][0]][0]
+        n = sum(1 for service, _, _ in trips if runs(net, service))
+        if not n:
+            continue  # a line that does not run that day does not serve the stop
+        for stop, _ in calls_of[i][1]:
+            key = (name_key(stops[stop][1]), stops[stop][4])
+            lines[key].add(route)
+            buses[key] += n
+    busy = {k for k in lines if len(lines[k]) >= INDEX_LINES and buses[k] >= INDEX_PASSES}
+    return sorted(i for i, s in enumerate(stops) if (name_key(s[1]), s[4]) in busy), len(busy)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache", default=tempfile.mkdtemp(prefix="transit-"))
@@ -300,7 +340,11 @@ def main():
     # The line of each pattern, its first stop and its last: what a line is made of, and where a departure comes from and
     # goes, without reading the database.
     ends = [[p[0], calls_of[i][1][0][0], calls_of[i][1][-1][0]] for i, p in enumerate(patterns)]
-    out = {"build": build, "networks": networks, "routes": routes, "stops": stops, "services": services, "patterns": spans, "ends": ends}
+    # A Tuesday, the first after the build: a working day, with the timetables of the season.
+    today = date.today()
+    tuesday = today + timedelta(days=(1 - today.weekday()) % 7 or 7)
+    indexed, pages = indexed_stops(stops, services, patterns, calls_of, tuesday)
+    out = {"build": build, "networks": networks, "routes": routes, "stops": stops, "services": services, "patterns": spans, "ends": ends, "indexes": indexed}
     path = ROOT / "src" / "transit" / "network.json"
     path.parent.mkdir(exist_ok=True)
     path.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
@@ -374,7 +418,8 @@ def main():
     sql_path.write_text("\n".join(lines) + "\n")
     print(f"build {build} : {len(stops)} arrêts, {len(routes)} lignes, {len(patterns)} parcours, "
           f"{len(passes)} arrêts desservis ; {path.stat().st_size // 1024} Ko bundlés, {sql_path.stat().st_size // 1024} Ko de SQL, "
-          f"environ {written} lignes écrites dans D1 ({time.strftime('%Y-%m-%d')})")
+          f"environ {written} lignes écrites dans D1 ({time.strftime('%Y-%m-%d')}) ; "
+          f"{pages} pages d'arrêt indexables ({len(indexed)} arrêts), d'après le mardi {tuesday.isoformat()}")
 
 
 if __name__ == "__main__":
