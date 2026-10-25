@@ -115,10 +115,10 @@ describe("the communes whose site's terms ask for their authorisation, until the
   });
 
   it("are left out of the agendas read and of those without one, and said in the coverage and the answer", async () => {
-    expect(MAIRIES_LUES).toBe("Saint-Paul, Le Port, Les Trois-Bassins, Saint-Louis");
+    expect(MAIRIES_LUES).toBe("Saint-Paul, Le Port, Les Trois-Bassins, Sainte-Marie, Salazie, Saint-Louis");
     expect(COUVERTURE).not.toMatch(/Ville du Tampon|Ville de Saint-André/);
-    // The mairies' news read are only those of the communes whose terms allow it.
-    expect(COUVERTURE).toContain("(pas un agenda complet) : Saint-Louis, Saint-Leu, La Plaine-des-Palmistes.");
+    // The mairies' news read are only those of the communes whose terms allow it, or whose site writes no condition.
+    expect(COUVERTURE).toContain("(pas un agenda complet) : Saint-Louis, Saint-Leu, La Plaine-des-Palmistes, Sainte-Marie, Salazie.");
     const without = /Sans agenda lu[^:]*: ([^.]*)\./.exec(COUVERTURE)![1];
     expect(TREIZE.filter((c) => without.includes(c))).toEqual([]);
     expect(COUVERTURE).toContain(mentionIle()[0]);

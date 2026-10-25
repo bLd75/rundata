@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PAGE_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSpipNews, parseSportsregions, parseTribe, parseWpNews } from "../src/providers/agenda.js";
+import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems } from "../src/providers/agenda.js";
 import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
 import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned } from "../src/tools/agenda.js";
@@ -39,6 +39,11 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("lrvb.re")) return "tribe_lrvb.json";
   if (url.includes("saintphilippe.re")) return "actus_saint-philippe.json";
   if (url.includes("ville-cilaos.fr")) return "actus_cilaos.json";
+  // Sainte-Marie and Salazie on Sunday 25/10/2026 at 22:03: nothing to come, in their agendas as in their news.
+  if (url.includes("ville-saintemarie.re/wp-json/tribe")) return "tribe_sainte-marie.json";
+  if (url.includes("ville-saintemarie.re/wp-json/wp")) return "actus_sainte-marie.json";
+  if (url.includes("ville-salazie.fr/category/10-agenda")) return "salazie_agenda.html";
+  if (url.includes("ville-salazie.fr/category/actualites")) return "salazie_actus.html";
   if (url.includes("saintjoseph.re")) return "rss_saint-joseph.xml";
   if (url.includes("letampon")) return "rss_le-tampon.xml";
   if (url.includes("saintlouis.re/actualites")) return "rss_saint-louis-actus.xml";
@@ -115,8 +120,8 @@ describe("agenda", () => {
     let urls: string[];
     let league: () => Response;
     const KING = "King Saison 6 Solo étape 2";
-    // The mairies' news, read by the scheduled event too: their sites answer.
-    const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph", "saint_louis_actus", "saint_leu", "plaine_des_palmistes_agenda", "plaine_des_palmistes_actus"];
+    // The mairies' news, read by the scheduled event too, and Salazie's agenda before the league: their sites answer.
+    const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph", "saint_louis_actus", "saint_leu", "plaine_des_palmistes_agenda", "plaine_des_palmistes_actus", "sainte_marie_actus", "salazie_actus"];
     const titles = (b: { evenements?: { titre: string }[] }) => (b.evenements ?? []).map((e) => e.titre);
     const entry = async (store: MemoryStore) => ((await store.get("agendas:planifies"))?.value as Record<string, CacheEntry> | undefined)?.["agenda:lrvb"];
     const isLeague = (u: string) => new URL(u).hostname === "lrvb.re";
@@ -140,7 +145,7 @@ describe("agenda", () => {
       expect(urls.some(isLeague)).toBe(false);
       expect(before.indisponible).toBeUndefined();
       expect(titles(before)).not.toContain(KING);
-      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["salazie", "lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
       expect(urls.filter(isLeague)).toHaveLength(1);
       // Another isolate serves it, with the time it was read.
       const after = body(await agenda(at(), undefined, undefined, "King", NOW));
@@ -165,7 +170,7 @@ describe("agenda", () => {
       expect((first?.value as unknown[]).length).toBe(3);
       t += 2 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: MAIRIES, gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", ...MAIRIES], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
       expect(await entry(store)).toEqual(first);
       // Not tried again at each scheduled event: only once its next reading is due, an hour after the failure.
       const tries = urls.filter(isLeague).length;
@@ -174,14 +179,14 @@ describe("agenda", () => {
       expect(urls.filter(isLeague)).toHaveLength(tries);
       t += 5 * 60_000;
       league = () => new Response(JSON.stringify({ events: [] }));
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: MAIRIES, gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", ...MAIRIES], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
       expect(await entry(store)).toEqual(first);
       // Finding nothing counts as a failure too: not read again within the hour; past it, read, and the copy replaced.
       t += 30 * 60_000;
       league = () => new Response(bytes("tribe_lrvb.json"));
       expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [], gardes: [], reportes: [], trop_vieilles: [] });
       t += 30 * 60_000;
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["lrvb", ...MAIRIES], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", "lrvb", ...MAIRIES], gardes: [], reportes: [], trop_vieilles: [] });
       const second = await entry(store);
       expect(second?.fetchedAt).toBe(t);
       // Still failing two days on: the copy, no longer served, is said too old in the scheduled event's log (the clubs'
@@ -189,7 +194,7 @@ describe("agenda", () => {
       // kept the same way.
       t += 49 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [...MAIRIES.filter((m) => m !== "saint_leu"), "sportsregions"], gardes: ["lrvb", "saint_leu"], reportes: [], trop_vieilles: ["lrvb", "saint_leu"] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", ...MAIRIES.filter((m) => m !== "saint_leu"), "sportsregions"], gardes: ["lrvb", "saint_leu"], reportes: [], trop_vieilles: ["lrvb", "saint_leu"] });
       expect(await entry(store)).toEqual(second);
     });
 
@@ -246,7 +251,7 @@ describe("agenda", () => {
         count(left() - 5); // what the scheduled event did before: 5 left, KEEP_LEFT 4 of them
         return refreshPlanned(new Cache(store, () => NOW.getTime()), NOW);
       });
-      expect(value).toEqual({ lus: [], gardes: [], reportes: ["lrvb", ...MAIRIES, "sportsregions"], trop_vieilles: [] });
+      expect(value).toEqual({ lus: [], gardes: [], reportes: ["salazie", "lrvb", ...MAIRIES, "sportsregions"], trop_vieilles: [] });
       expect(urls).toEqual([]);
       expect(store.puts).toBe(0);
     });
@@ -278,8 +283,8 @@ describe("agenda", () => {
   });
 
   describe("the clubs' calendar (Sportsregions), read by the scheduled event", () => {
-    // The mairies' news, read by the scheduled event before it.
-    const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph", "saint_louis_actus", "saint_leu", "plaine_des_palmistes_agenda", "plaine_des_palmistes_actus"];
+    // Salazie's agenda and the mairies' news, read by the scheduled event before it.
+    const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph", "saint_louis_actus", "saint_leu", "plaine_des_palmistes_agenda", "plaine_des_palmistes_actus", "sainte_marie_actus", "salazie_actus"];
     const pages = [1, 2, 3, 4].map((n) => fixture(`sportsregions_${n}.html`));
     let urls: string[];
     beforeEach(() => {
@@ -411,22 +416,22 @@ describe("agenda", () => {
           return super.put(key, e);
         }
       }
-      // 19 left: the bundle's read, the league's page, the mairies' seven readings, the four pages, the write, and
-      // KEEP_LEFT (4) still left.
+      // 22 left: the bundle's read, Salazie's agenda, the league's page, the mairies' nine readings, the four pages, the
+      // write, and KEEP_LEFT (4) still left.
       const both = await counted(PAGE_BUDGET, async () => {
-        count(left() - 19);
+        count(left() - 22);
         const out = await refreshPlanned(new Cache(new Kv(), () => NOW.getTime()), NOW);
         return { out, left: left() };
       });
-      expect(both.value.out).toEqual({ lus: ["lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(both.value.out).toEqual({ lus: ["salazie", "lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
       expect(both.value.left).toBe(5);
       // One fewer: the league and the mairies only, the clubs' calendar at a later run (its copy served meanwhile).
       urls = [];
       const one = await counted(PAGE_BUDGET, async () => {
-        count(left() - 18);
+        count(left() - 21);
         return refreshPlanned(new Cache(new Kv(), () => NOW.getTime()), NOW);
       });
-      expect(one.value).toEqual({ lus: ["lrvb", ...MAIRIES], gardes: [], reportes: ["sportsregions"], trop_vieilles: [] });
+      expect(one.value).toEqual({ lus: ["salazie", "lrvb", ...MAIRIES], gardes: [], reportes: ["sportsregions"], trop_vieilles: [] });
       expect(urls.filter((u) => u.includes("sportsregions"))).toEqual([]);
       vi.mocked(console.log).mockRestore();
     });
@@ -496,6 +501,37 @@ describe("agenda", () => {
       expect(of("La Plaine-des-Palmistes").map((a) => a.source.nom)).toEqual(["Agenda de la Ville de La Plaine-des-Palmistes (événements annoncés avec leur date)", "Actualités de la Ville de La Plaine-des-Palmistes (événements annoncés)"]);
     });
 
+    it("reads Sainte-Marie's news and Salazie's pages, which had nothing to come on 25/10/2026", () => {
+      // Not the two calls for applications for the stalls of the brocante de Beauséjour (« … jusqu'au 26 octobre 8h00 »):
+      // their day is a deadline.
+      expect(parseWpNews(JSON.parse(fixture("actus_sainte-marie.json")), "Ville de Sainte-Marie", "Sainte-Marie", NOW)).toEqual([]);
+      // No feed and no API on Salazie's site: its posts as its category pages list them, each linked by its id.
+      const items = salazieItems(fixture("salazie_agenda.html"));
+      expect(items).toHaveLength(6);
+      expect(items.find((i) => i.titre === "Rando tec tec carte de la réunion")).toEqual({ id: "1023", titre: "Rando tec tec carte de la réunion", texte: "Date de l’événement: 14/11/22", lien: "https://ville-salazie.fr/?p=1023" });
+      expect(parseSalazie(fixture("salazie_agenda.html"), NOW)).toEqual([]);
+      // Its day as the page writes it, an event while it is to come: on 01/11/2022, the four of them still to come.
+      const before = parseSalazie(fixture("salazie_agenda.html"), new Date("2022-11-01T04:00:00Z"));
+      expect(before.map((e) => e.seances[0].debut)).toEqual(["2022-11-14", "2024-02-26", "2024-06-18", "2025-02-21"]);
+      expect([before[0].titre, before[0].lien, before[0].commune, before[0].publie_par]).toEqual(["Rando tec tec carte de la réunion", "https://ville-salazie.fr/?p=1023", "Salazie", "Ville de Salazie"]);
+      expect(parseSalazieNews(fixture("salazie_actus.html"), NOW)).toEqual([]);
+      // A news item is an event when its title gives its day with the year: the page dates no post, so a day without
+      // its year is never placed in one.
+      const post = (titre: string) => `<div class="elementor e-loop-item post-9"><h1 class="elementor-heading-title">${titre}</h1><div class="elementor-widget" data-widget_type="theme-post-excerpt.default"><p>Ouvert à tous.</p></div></div>`;
+      expect(parseSalazieNews(post("Concert de la Fête du chouchou le 14 novembre 2026"), NOW).map((e) => [e.titre, e.seances, e.lien])).toEqual([["Concert de la Fête du chouchou le 14 novembre 2026", [{ debut: "2026-11-14" }], "https://ville-salazie.fr/?p=9"]]);
+      expect(parseSalazieNews(post("Concert de la Fête du chouchou le 14 novembre"), NOW)).toEqual([]);
+    });
+
+    it("credits Sainte-Marie's and Salazie's sites without saying they allow it, and keeps their facts only", () => {
+      for (const id of ["sainte_marie", "salazie", "sainte_marie_actus", "salazie_actus"]) {
+        const a = AGENDAS.find((x) => x.id === id)!;
+        expect(a.source.licence).toMatch(/^Information publique \((?:agenda|actualités) municipa(?:l|les)\)\u00a0; aucune condition de reprise écrite sur le site$/);
+        expect(a).toMatchObject({ faits: true, site_commune: expect.stringMatching(/^site de la commune de (?:Sainte-Marie|Salazie)$/) });
+      }
+      // Salazie's are read by the scheduled event; Sainte-Marie's agenda by the questions, one subrequest.
+      expect(AGENDAS.filter((x) => ["sainte_marie", "salazie"].includes(x.id)).map((x) => [x.id, !!x.planifie])).toEqual([["sainte_marie", false], ["salazie", true]]);
+    });
+
     it("says it is no full agenda, in the answer for the commune and in the coverage", async () => {
       const c = cache();
       await refreshPlanned(c, NOW);
@@ -508,7 +544,7 @@ describe("agenda", () => {
       expect(union.description).toBeUndefined();
       expect(union.source).toBe("site de la commune de Saint-Philippe, lu le samedi 24/10 à 08:00");
       expect(union.lien).toContain("saintphilippe.re/");
-      expect(COUVERTURE).toContain("Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : Saint-Philippe, Cilaos, Saint-Joseph, Saint-Louis, Saint-Leu, La Plaine-des-Palmistes.");
+      expect(COUVERTURE).toContain("Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : Saint-Philippe, Cilaos, Saint-Joseph, Saint-Louis, Saint-Leu, La Plaine-des-Palmistes, Sainte-Marie, Salazie.");
       expect(MAIRIES_LUES).not.toContain("Saint-Philippe");
       expect(ACTUS_MAIRIES.every((a) => a.planifie && AGENDAS.includes(a))).toBe(true);
     });
@@ -653,8 +689,8 @@ describe("agenda", () => {
     // Last year's posts of Saint-Louis are past; nothing of theirs.
     expect(b.evenements.some((e: { publie_par: string }) => e.publie_par === "Ville de Saint-Louis")).toBe(false);
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
-    // Twenty-six agendas (two pages for Bras-Panon), and the pages of the four shows on both TÉAT stages.
-    expect(asked).toHaveLength(30);
+    // Twenty-seven agendas (two pages for Bras-Panon), and the pages of the four shows on both TÉAT stages.
+    expect(asked).toHaveLength(31);
   });
 
   it("says which commune's site each event of a mairie comes from and when it was read, keeping what each site's terms allow", async () => {

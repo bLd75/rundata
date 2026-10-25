@@ -77,6 +77,12 @@ function mairie(id: string, nom: string, url: string, licence = "Information pub
  */
 const REPRISE_INFORMATION = "Reprise autorisée à des fins d'information, sans usage commercial (mentions légales du site)";
 
+/**
+ * The licence of a commune's site that writes no condition of reuse (Sainte-Marie, Salazie, as read on 25/10/2026):
+ * never said to allow it, only that it writes nothing (marketing, 25/10).
+ */
+const SANS_CONDITION = "\u00a0; aucune condition de reprise écrite sur le site";
+
 // The sites are asked who is reading: some answer an unnamed robot with an error page.
 const HEADERS = { "User-Agent": "rundata.re (contact@rundata.re)" };
 const FRESH_SECONDS = 3600;
@@ -588,6 +594,43 @@ export function parseSpipNews(xml: string, nom: string, commune: string, now: Da
   });
 }
 
+/**
+ * Salazie's site lists its categories « Agenda » and « Actualités » as pages: its feeds lead back to them and its
+ * robots.txt forbids /wp-json/. Each post is a loop item: its id, its title, its excerpt. Its page is `?p=<id>`, which
+ * the site sends on to the post.
+ */
+export function salazieItems(html: string): { id: string; titre: string; texte: string; lien: string }[] {
+  return html.split(/(?=<div[^>]*\be-loop-item\b)/).filter((part) => part.startsWith("<div")).flatMap((item) => {
+    const id = /\bpost-(\d+)\b/.exec(item)?.[1];
+    const titre = /<h1[^>]*elementor-heading-title[^>]*>([\s\S]*?)<\/h1>/.exec(item)?.[1];
+    if (!id || !titre) return [];
+    const texte = /theme-post-excerpt\.default">([\s\S]*?)<\/div>/.exec(item)?.[1] ?? "";
+    return [{ id, titre: clean(titre), texte: clean(texte).replace(/\s*\[(?:…|&hellip;)\]\s*$/u, ""), lien: `${SALAZIE}/?p=${id}` }];
+  });
+}
+
+/** Salazie's « Agenda »: the day as data, « Date de l'événement: 14/11/22 », today or later. */
+export function parseSalazie(html: string, now: Date): Evenement[] {
+  const today = localDay(now);
+  return salazieItems(html).flatMap((it) => {
+    const d = /Date de l[’']événement\s*:\s*(\d{1,2})\/(\d{1,2})\/(\d{2}(?:\d{2})?)/u.exec(it.texte);
+    if (!d) return [];
+    const debut = `${d[3].length === 2 ? `20${d[3]}` : d[3]}-${d[2].padStart(2, "0")}-${d[1].padStart(2, "0")}`;
+    if (debut < today) return [];
+    const texte = it.texte.slice(d.index + d[0].length).trim();
+    const statut = statusOf(it.titre, texte);
+    return [{ ...(statut ? { statut } : {}), id: it.lien, titre: it.titre, seances: [{ debut }], commune: "Salazie", categories: [], ...extrait(texte), lien: it.lien, publie_par: "Ville de Salazie" }];
+  });
+}
+
+/**
+ * Salazie's « Actualités »: an event only when its title or its first sentence gives its day (newsEvent). Its page dates
+ * no post: a day without its year is not placed in one (an epoch's publication puts it in the past), never guessed.
+ */
+export function parseSalazieNews(html: string, now: Date): Evenement[] {
+  return salazieItems(html).flatMap((it) => newsEvent(it.titre, it.texte, `${it.titre} ${lead(it.texte)}`, it.lien, new Date(0), now, "Ville de Salazie", "Salazie"));
+}
+
 function news(id: string, nom: string, site: string, url: string, commune: string, parse: (body: string, now: Date) => Evenement[], licence = "Information publique (actualités municipales)"): Agenda {
   const source: SourceInfo = {
     id: `actus_${id}`,
@@ -609,6 +652,7 @@ function news(id: string, nom: string, site: string, url: string, commune: strin
 }
 
 const WP_NEWS = "/wp-json/wp/v2/posts?per_page=20&_fields=date,link,title,excerpt";
+const SALAZIE = "https://ville-salazie.fr";
 export const ACTUS_MAIRIES: Agenda[] = [
   { ...news("saint_philippe", "Mairie de Saint-Philippe", "https://saintphilippe.re/", `https://saintphilippe.re${WP_NEWS}`, "Saint-Philippe",
     (body, now) => parseWpNews(JSON.parse(body), "Mairie de Saint-Philippe", "Saint-Philippe", now)), site_commune: "site de la commune de Saint-Philippe", faits: true },
@@ -639,6 +683,11 @@ export const ACTUS_MAIRIES: Agenda[] = [
       site_commune: "site de la commune de La Plaine-des-Palmistes (©\u00a0https://www.ville-plainedespalmistes.fr)",
     };
   }),
+  // No condition written on their sites: their facts only all the same, as for the others (marketing, 25/10).
+  { ...news("sainte_marie_actus", "Ville de Sainte-Marie", "https://www.ville-saintemarie.re/", `https://www.ville-saintemarie.re${WP_NEWS}`, "Sainte-Marie",
+    (body, now) => parseWpNews(JSON.parse(body), "Ville de Sainte-Marie", "Sainte-Marie", now), `Information publique (actualités municipales)${SANS_CONDITION}`), site_commune: "site de la commune de Sainte-Marie", faits: true },
+  { ...news("salazie_actus", "Ville de Salazie", `${SALAZIE}/`, `${SALAZIE}/category/actualites/`, "Salazie", parseSalazieNews, `Information publique (actualités municipales)${SANS_CONDITION}`),
+    site_commune: "site de la commune de Salazie", faits: true },
 ];
 
 // ---------------------------------------------------------------- IntraMuros (La Possession)
@@ -976,6 +1025,19 @@ const LA_POSSESSION = mairie("la_possession", "Ville de La Possession", "https:/
 const PETITE_ILE = mairie("petite_ile", "Ville de Petite-Île", "https://www.petite-ile.re/");
 const PETITE_ILE_AGENDA = "https://www.petite-ile.re/actualites/agenda/";
 
+const SAINTE_MARIE = mairie("sainte_marie", "Ville de Sainte-Marie", "https://www.ville-saintemarie.re/agenda/", `Information publique (agenda municipal)${SANS_CONDITION}`);
+const SALAZIE_AGENDA = mairie("salazie", "Ville de Salazie", `${SALAZIE}/category/10-agenda/`, `Information publique (agenda municipal)${SANS_CONDITION}`);
+
+/** Read by the scheduled event: it publishes seldom (its last event, 21/02/2025, as read on 25/10/2026). */
+const salazie: Agenda = {
+  id: "salazie",
+  nom: "Ville de Salazie",
+  source: SALAZIE_AGENDA,
+  commune: "Salazie",
+  planifie: true,
+  load: (cache, now) => cache.get("agenda:salazie", FRESH_SECONDS, async () => parseSalazie(await getText(SALAZIE_AGENDA.id, SALAZIE_AGENDA.url, TIMEOUT_MS, HEADERS), now)),
+};
+
 const BRAS_PANON = mairie("bras_panon", "Ville de Bras-Panon", "https://www.braspanon.re/fr/ev/2512733/agenda-1634");
 const SAINT_BENOIT = mairie("saint_benoit", "Ville de Saint-Benoît", "https://www.saint-benoit.re/");
 const SAINT_BENOIT_AGENDA = "https://www.saint-benoit.re/evenements/general";
@@ -1298,6 +1360,8 @@ export const LISIBLES: Agenda[] = [
   // Its terms ask for « www.ville-port.re » on what is taken from it.
   { ...tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port"), site_commune: "site de la commune du Port (©\u00a0www.ville-port.re)" },
   { ...tribe("trois_bassins", "Mairie des Trois-Bassins", "https://trois-bassins.re", "Les Trois-Bassins"), site_commune: "site de la commune des Trois-Bassins" },
+  { ...tribe("sainte_marie", "Ville de Sainte-Marie", "https://www.ville-saintemarie.re", "Sainte-Marie", SAINTE_MARIE), site_commune: "site de la commune de Sainte-Marie", faits: true },
+  { ...salazie, site_commune: "site de la commune de Salazie", faits: true },
   { ...rss("le_tampon", "Ville du Tampon", "https://letampon.fr/agenda/feed/", "Le Tampon"), site_commune: "site de la commune du Tampon", faits: true, accueil: "https://letampon.fr/" },
   // Its whole agenda, all its categories: « /agenda/evenements » has had nothing to come since September 2026.
   { ...rss("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda?format=feed&type=rss", "Saint-Louis", SAINT_LOUIS), site_commune: "site de la commune de Saint-Louis" },
