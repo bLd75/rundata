@@ -270,6 +270,38 @@ describe("the scheduled refresh of the shared copies", () => {
     expect(total).toBeGreaterThanOrEqual(265);
   });
 
+  it("builds the power cuts' copy before the page that carries it, and reads them again sooner while a mairie is silent", async () => {
+    const kv = new FakeKv();
+    let now = T0;
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => now, false);
+    const order: string[] = [];
+    let silent = true;
+    const courant = SHARED.find((s) => s.key === "web:courant")!;
+    const electricite = SHARED.find((s) => s.key === "web:electricite")!;
+    // Keys of their own: the copies the tests before wrote are remembered by the module.
+    expect(courant.before).toEqual([electricite.key]);
+    const [C, E] = ["web:courant-ordre", "web:electricite-ordre"];
+    const list: Shared[] = [
+      { ...electricite, key: E, build: async () => (order.push(E), count(2), {}) },
+      { ...courant, key: C, before: [E], build: async () => (order.push(C), count(2), { indisponibles: silent ? ["Sainte-Marie"] : [] }) },
+    ];
+    // The page's copy more overdue than the power cuts': built after them all the same.
+    await kv.put(kvKey(C), JSON.stringify({ value: {}, fetchedAt: T0 - 3 * 3600_000 }), { metadata: { fetchedAt: T0 - 3 * 3600_000, every: 120 } });
+    await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    expect(order).toEqual([C, E]);
+    // Sainte-Marie silent: read again 30 minutes later; once it answers, every 2 hours.
+    now += 30 * 60_000;
+    await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    expect(kv.writes.get(kvKey(C))).toBe(3);
+    silent = false;
+    now += 30 * 60_000;
+    await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    expect(kv.writes.get(kvKey(C))).toBe(4);
+    now += 30 * 60_000;
+    await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    expect(kv.writes.get(kvKey(C))).toBe(4);
+  });
+
   it("short of subrequests, leaves a build that would not fit after a full AROME prefetch to a later event, and says why", async () => {
     const kv = new FakeKv();
     const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);

@@ -372,6 +372,21 @@ describe("sport", () => {
     expect(b.a_venir).toBeUndefined();
   });
 
+  it("keeps a championship whose page did not answer, said with the hour it was read, never left out", async () => {
+    let t = NOW.getTime();
+    const c = new Cache(new MemoryStore(), () => t);
+    await sportTool(c, "handball", undefined, undefined, NOW);
+    // Past its three hours the women's D1 does not answer: its standings of 08:00 stay, said.
+    t += 3 * 3600_000 + 60_000;
+    down = /feminin/;
+    const b = body(await sportTool(c, "handball", undefined, undefined, new Date(t)));
+    expect(b.injoignable).toEqual([{ competition: "handball, D1 féminine", texte: "Lu aujourd'hui à 08:00 : le site de la Fédération française de handball n'a pas répondu depuis. Ce qui suit peut avoir changé : voir son site.", site: expect.stringContaining("feminin") }]);
+    expect(b.resume).toContain("Championnat de handball D1 féminine : lu aujourd'hui à 08:00, sans réponse depuis (voir injoignable).");
+    // Nothing read before: its read said failed.
+    const b2 = body(await sportTool(cache(), "handball", undefined, undefined, NOW));
+    expect(b2.injoignable[0].texte).toBe("Le site de la Fédération française de handball n'a pas répondu à notre dernière lecture (aujourd'hui à 08:00) : nous ne savons pas ce qu'il annonce en ce moment.");
+  });
+
   it("answers without a source that is down, and names it", async () => {
     down = /ffhandball/;
     const b = body(await sportTool(cache(), undefined, undefined, undefined, NOW));

@@ -4,10 +4,10 @@
  * from the bundled traces and places, and from the copies of the pages already there: nothing is fetched.
  */
 import type { Cached } from "../cache.js";
-import { distanceKm } from "../geo.js";
+import { distanceKm, localTime } from "../geo.js";
 import * as traces from "../providers/traces.js";
 import * as fire from "../tools/feux.js";
-import { mentionCommune, mentionCourte, repris } from "../tools/agenda.js";
+import { mentionCommune, mentionCourte, repris, silentOf } from "../tools/agenda.js";
 import { secteur } from "../tools/sentiers.js";
 import { secteurNamed } from "../traces/secteurs.js";
 import type { AgendaAnswer, RandonneesAnswer } from "./data.js";
@@ -141,14 +141,23 @@ export function communeHikes(p: PlacePage, hikes: Cached<RandonneesAnswer> | nul
 }
 
 /** The commune's page's tile of outings: what its agendas announce in the two weeks. */
-export function communeEvents(p: PlacePage, agenda: Cached<AgendaAnswer> | null | undefined): Live | undefined {
+export function communeEvents(p: PlacePage, agenda: Cached<AgendaAnswer> | null | undefined, now = new Date()): Live | undefined {
   if (!agenda) return undefined;
   const rows = (agenda.value.evenements ?? []).filter((r) => r.commune === p.nom && repris(r));
   // Its site not read until it agrees: said first, in short, the whole of it in the title; and never « rien d'annoncé »,
   // which would be wrong (marketing).
   const mention = mentionCourte(p.nom);
   const title = mentionCommune(p.nom);
+  // Its own agendas that did not answer this time: their site, in short, first in the detail, the whole of it in the
+  // title; the value follows the other sources, which answered (marketing; tools/injoignable.ts).
+  const at = localTime(agenda.fetchedAt);
+  const silent = silentOf(agenda.value.indisponible, p.nom, at, now);
+  const hour = at.split(" ")[0] === localTime(now).split(" ")[0] ? at.split(" ")[1] : at;
+  const said = silent.length > 1 ? `${silent.length} sites sans réponse (${hour})` : silent.length ? `${silent[0].site.replace(/^le /, "")} sans réponse (${hour})` : undefined;
+  const whole = silent.length ? silent.map((x) => x.texte).join(" ") : undefined;
+  if (!rows.length && said) return { valeur: "Rien d'annoncé", detail: esc(said), title: whole };
   if (!rows.length) return mention ? { valeur: mention.valeur, detail: esc(mention.detail), title } : { valeur: "Rien d'annoncé", detail: "d'ici quinze jours dans les agendas lus" };
   const next = `le prochain : ${esc(rows[0].titre)}, ${esc(rows[0].quand)}${rows[0].source ? ` (Source\u00a0: ${esc(rows[0].source)})` : ""}`;
-  return { valeur: `${rows.length} événement${rows.length > 1 ? "s" : ""}`, detail: mention ? `${mention.tete} · ${next}` : `d'ici quinze jours ; ${next}`, title };
+  const head = mention ? mention.tete : said ? esc(said) : undefined;
+  return { valeur: `${rows.length} événement${rows.length > 1 ? "s" : ""}`, detail: head ? `${head} · ${next}` : `d'ici quinze jours ; ${next}`, title: title ?? whole };
 }

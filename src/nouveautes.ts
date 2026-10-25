@@ -55,6 +55,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-25T23:19:00+04:00", texte: "Quand le site d'une source ne répond pas, la page le dit, avec l'heure de la dernière lecture, au lieu de rien." },
   { date: "2026-10-25T22:47:00+04:00", texte: "Sites sans réponse\u00a0: une page liste les sites publics de l'île qui ne répondent pas, depuis quand, et ce qui manque donc ici." },
   { date: "2026-10-25T22:29:00+04:00", texte: "Coupures d'électricité\u00a0: avis de Cilaos, Saint-André, Saint-Philippe et Sainte-Suzanne retirés, leurs mentions légales l'interdisent." },
   { date: "2026-10-25T22:17:00+04:00", texte: "Événements\u00a0: nous lisons tout l'agenda de Saint-Louis, et les événements que Saint-Leu et La Plaine-des-Palmistes annoncent avec leur date." },

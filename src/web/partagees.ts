@@ -12,6 +12,7 @@ import * as ovpfPdf from "../providers/ovpf-pdf.js";
 import { why } from "../types.js";
 import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildCourant, buildElectricite, buildSea, buildTrafic, buildVolcan, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
 import { alerteVolcan } from "./volcan-alerte.js";
+import { type CourantAnswer, followed } from "../tools/courant.js";
 import { buildSatellites, SATELLITES, satellitesEvery } from "../tools/mer.js";
 
 /** The part of a KV namespace binding used here. */
@@ -27,11 +28,15 @@ export interface Shared {
   /** How often its copy in KV is refreshed, in minutes: each refresh is one KV write. Given the last copy, if it depends on it. */
   every: number | ((last: unknown) => number);
   /** The subrequests its build takes from a cold cache, as measured: what an isolate that has not built it yet expects. */
-  cold?: number;
+  cold?: number;  /**
+   * Copies whose build embeds this one: when both are due in the same event, this one is built first, else they would
+   * carry its previous copy until their next build.
+   */
+  before?: string[];
 }
 
 // About 300 KV writes a day in all: 48 a day for each of the five every 30 minutes, 24 for the air, 12 for the power
-// cuts the mairies relay, 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
+// cuts the mairies relay (48 while the site of one of them does not answer), 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
 // of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
 // The cold costs: each build measured alone with `wrangler dev` from an empty cache, plus one. The traffic's: about 28
 // in the event's logs at 21:20, 25 October 2026, its 8 bus stations' timetables read together (2 reads of D1 instead
@@ -58,7 +63,9 @@ export const SHARED: Shared[] = [
     await unmeasured(() => ovpfPdf.readNewest(cache, now.getTime()));
     return v;
   }, every: (last) => (alerteVolcan(last as VolcanAnswer | undefined) ? 5 : 30), cold: 13 },
-  { key: "web:courant", build: buildCourant, every: 2 * 60, cold: 7 },
+  // Every 2 hours; every 30 minutes while a mairie followed did not answer, so that its notices come back soon after
+  // its site does. The page of electricity carries this copy (web/data.ts): built after it.
+  { key: "web:courant", build: buildCourant, every: (last) => ((last as CourantAnswer | undefined)?.indisponibles?.some(followed) ? 30 : 2 * 60), cold: 7, before: ["web:electricite"] },
 ];
 /**
  * Warmed after SHARED, with what it left, so that they never go short for these: the confidence of the forecast
@@ -204,6 +211,11 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
     .filter((x) => x.over >= 0)
     // Not by subtraction: the copies never written are all overdue by Infinity, and Infinity - Infinity is NaN.
     .sort((a, b) => (a.over === b.over ? 0 : a.over < b.over ? 1 : -1));
+  // A copy that others embed goes before them, whatever their delays.
+  for (const x of [...due]) {
+    const [i, first] = [due.indexOf(x), due.findIndex((y) => x.s.before?.includes(y.s.key))];
+    if (first >= 0 && first < i) due.splice(first, 0, ...due.splice(i, 1));
+  }
   const out: Warmed = { written: [], left: [] };
   for (const { s, at, kept, over, version } of due) {
     // An hour past its time, a copy is expected at its cold cost: what it took at a dearer hour, kept with its last

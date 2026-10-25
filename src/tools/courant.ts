@@ -7,6 +7,7 @@ import type { Cached } from "../cache.js";
 import { localTime } from "../geo.js";
 import * as cc from "../providers/coupures-courant.js";
 import { a as at, credits, de, enumeration } from "./format.js";
+import { injoignable as siteSilent } from "./injoignable.js";
 import { mention, mentionIle } from "./non-repris.js";
 
 export interface CourantAnswer {
@@ -83,40 +84,20 @@ export function honesty(): string {
   return `EDF ne publie pas ses avis de coupure dans un format que nous pouvons lire. Nous reprenons ceux que relaient les mairies dont le site ne l'interdit pas${read.length ? ` : aujourd'hui ${list(read)}, quand ${read.length > 1 ? "leurs" : "ses"} avis sont lisibles` : ""}.`;
 }
 
-/** « 24/10 10:00 » → « aujourd'hui à 10:00 » the same day at La Réunion, else « le 24/10 à 10:00 » (marketing, as lu_le). */
-const when = (at: string, now: Date) => {
-  const [day, hour] = at.split(" ");
-  return day === localTime(now).split(" ")[0] ? `aujourd'hui à ${hour}` : `le ${day} à ${hour}`;
-};
 /**
- * The subject when a mairie's site does not answer: its site, as the source shows its name, never the mairie alone,
- * which would read as ignoring a request.
- */
-const siteOf = (commune: string) => `le site de ${mairie(commune)}`;
-
-/**
- * A mairie followed whose site did not answer at the last read, in marketing's words (rule « a site that does not
- * answer is neither gone nor empty »): with its notices kept, the hour they were read; without, that its read failed.
- * Never « publishes none ». `court` goes in a summary, `texte` in the field `injoignable`.
+ * A mairie followed whose site did not answer at the last read (tools/injoignable.ts): with its notices kept, the hour
+ * they were read; without, that its read failed. Never « publishes none ». `court` goes in a summary, `texte` in the
+ * field `injoignable`.
  */
 export function injoignable(c: CourantAnswer, commune: string, readAt: string, now: Date) {
   if (!followed(commune) || !c.indisponibles.includes(commune)) return undefined;
-  const site = cc.LISIBLES.find((m) => m.commune === commune)!.site;
-  const kept = c.gardes?.find((g) => g.commune === commune);
-  if (kept) {
-    const at = when(kept.lu_a, now);
-    return { commune, texte: `Lu ${at} : ${siteOf(commune)} n'a pas répondu depuis. Ce qui suit peut avoir changé : voir son site.`, court: `lu ${at}, sans réponse depuis`, site };
-  }
-  const hour = when(readAt, now);
-  return {
-    commune,
-    texte: `${capital(siteOf(commune))} n'a pas répondu à notre dernière lecture (${hour}) : nous ne savons pas ce qu'il annonce en ce moment.`,
-    court: `site sans réponse à notre dernière lecture (${hour.startsWith("aujourd'hui") ? readAt.split(" ")[1] : readAt})`,
-    site,
-  };
+  const site = `${cc.LISIBLES.find((m) => m.commune === commune)!.site}/`;
+  const said = siteSilent(`le site de ${mairie(commune)}`, c.gardes?.find((g) => g.commune === commune)?.lu_a, readAt, now);
+  return { commune, ...said, site };
 }
 
-export const none = (commune: string) => `${capital(mairie(commune))} ne publie pas les avis d'EDF dans un format lisible : nous ne savons pas si une coupure est prévue.`;
+export const none = (commune: string) =>
+  `rundata.re ${followed(commune) ? "n'a lu aucun avis" : "ne lit pas d'avis"} de coupure d'électricité pour ${commune} : nous ne savons pas si une coupure est prévue.`;
 export const panne = () => (EDF_DEPANNAGE ? `Panne chez vous ? Le service dépannage d'EDF Réunion répond au ${EDF_DEPANNAGE} (numéro vert).` : undefined);
 
 const ends = (s: cc.Creneau) => s.au ?? s.jour;

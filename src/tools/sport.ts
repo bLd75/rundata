@@ -1,4 +1,5 @@
 import type { Cache, Cached } from "../cache.js";
+import { localTime } from "../geo.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
 import { httpUrl } from "../http.js";
@@ -9,6 +10,7 @@ import * as avis from "../providers/sport-avis.js";
 import { type Club, clubOf, clubsNamed, type ClubSport, zoneOf } from "../sport/clubs.js";
 import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
+import { injoignable } from "./injoignable.js";
 
 export type Sport = "grand_raid" | "handball" | "volley" | "basket" | "voile" | "golf" | "sport_auto" | "football";
 export type Quand = "aujourd_hui" | "demain" | "samedi" | "dimanche" | "ce_week_end" | "a_venir" | "resultats";
@@ -519,6 +521,12 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
       : `${off.length} annulé${off.length > 1 ? "s" : ""} ou reporté${off.length > 1 ? "s" : ""} d'après ${offBy}`,
     check.length ? "des reports sont annoncés dans l'actualité : vérifier auprès du club" : "",
   ].filter(Boolean).join("\u00a0; ");
+  // A competition whose page did not answer: what was read before, said with its hour, or that its read failed.
+  const silent = data.championnats.flatMap((g) => (g.value?.value ?? []).filter((c) => c.muet).map((c) => ({
+    competition: `${NAMES[c.sport]}, ${c.nom}`,
+    ...injoignable(`le site de la ${g.source.organisme}`, c.lu_a, localTime(g.value!.fetchedAt), now),
+    site: c.lien,
+  })));
   const resume = sport && NEWS_ONLY[sport]
     ? `${NEWS_ONLY[sport]} ${news.length ? `Les ${news.length} derniers articles de Réunion La 1ère qui en parlent sont ci-dessous.` : `Aucun article récent de Réunion La 1ère sur le ${NAMES[sport]}.`}`
     : sport === "grand_raid"
@@ -527,6 +535,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
           q === "resultats" ? "" : upcomingText,
           results.length ? `${results.length} résultat${results.length > 1 ? "s" : ""} depuis le ${quand(du)}` : q === "resultats" ? `Aucun résultat de ${what}${place} depuis le ${quand(du)}` : "",
           programmes.length ? `${programmes.length} programme${programmes.length > 1 ? "s" : ""} sportif${programmes.length > 1 ? "s" : ""} de commune (${programmes.map((p) => p.commune).join(", ")}), en lien seulement` : "",
+          ...silent.map((x) => `Championnat de ${x.competition.replace(", ", " ")} : ${x.court} (voir injoignable)`),
         ].filter(Boolean).join(". ") + ".";
 
   // The notices behind the matches called off, once each.
@@ -559,6 +568,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     grand_raid: showRaid ? grandRaidRow(gr) : undefined,
     actualite: news.length ? news : undefined,
     mise_a_jour: freshness(got),
+    injoignable: silent.length ? silent.map(({ competition, texte, site }) => ({ competition, texte, site })) : undefined,
     indisponible: failed.length ? failed : undefined,
     non_lus: data.nonLus.length ? data.nonLus : undefined,
     a_savoir: w

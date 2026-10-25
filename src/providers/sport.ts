@@ -18,8 +18,9 @@
  * is kept, the offset dropped.
  */
 import type { Cache, Cached } from "../cache.js";
+import { localTime } from "../geo.js";
 import { getBytes, getJson, getText } from "../http.js";
-import type { SourceInfo } from "../types.js";
+import { type SourceInfo, why } from "../types.js";
 import { textOf } from "./avis-eau.js";
 
 export const SOURCES = {
@@ -267,6 +268,12 @@ export interface Championnat {
   matchs: Match[];
   classement: Rang[];
   lien: string;
+  /**
+   * Its page did not answer at the last read: its matches and standings are those of the read before, read at `lu_a`,
+   * or none (no `lu_a`). Never « no match » (tools/injoignable.ts).
+   */
+  muet?: true;
+  lu_a?: string;
 }
 
 /** The value of a smartfire component of the FFHB's pages (JSON, HTML-escaped in an attribute). */
@@ -365,9 +372,20 @@ async function volleyOne(c: (typeof VOLLEY)[number]): Promise<Championnat> {
 export async function championnats(cache: Cache, which: "handball" | "volley"): Promise<Cached<Championnat[]>> {
   // Volley: an hour, for a match moved or called off at the last minute.
   return cache.get(`sport:${which}`, which === "volley" ? 3600 : 3 * 3600, async () => {
-    const parts = await Promise.allSettled(which === "handball" ? HANDBALL.map(handballOne) : VOLLEY.map(volleyOne));
-    if (parts.every((p) => p.status === "rejected")) throw (parts[0] as PromiseRejectedResult).reason;
-    return parts.flatMap((p) => (p.status === "fulfilled" ? [p.value] : []));
+    const key = `sport:${which}`;
+    const before = await cache.peek<Championnat[]>(key).catch(() => undefined);
+    const list = which === "handball" ? HANDBALL.map((c) => ({ nom: c.nom, lien: `${HB_BASE}/${c.slug}/`, read: () => handballOne(c) })) : VOLLEY.map((c) => ({ nom: c.nom, lien: VB_BASE + c.poule, read: () => volleyOne(c) }));
+    const parts = await Promise.allSettled(list.map((c) => c.read()));
+    // A competition whose page did not answer keeps what was read before, said with its hour; never left out.
+    const all = list.map((c, i): Championnat => {
+      const r = parts[i];
+      if (r.status === "fulfilled") return r.value;
+      console.error(`source ${which === "handball" ? SOURCES.ffhb.id : SOURCES.ffvb.id} indisponible (${c.nom}):`, why(r.reason));
+      const was = before?.value.find((x) => x.nom === c.nom && (x.matchs.length || x.classement.length));
+      return was ? { ...was, muet: true, lu_a: was.muet ? was.lu_a : localTime(before!.fetchedAt) } : { sport: which, nom: c.nom, matchs: [], classement: [], lien: c.lien, muet: true };
+    });
+    if (parts.every((p) => p.status === "rejected") && !all.some((c) => c.lu_a)) throw (parts[0] as PromiseRejectedResult).reason;
+    return all;
   });
 }
 

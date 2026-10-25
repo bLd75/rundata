@@ -152,6 +152,17 @@ describe("actualités", () => {
     expect((await actualites(cache(), undefined, undefined, undefined, NOW)).isError).toBe(true);
   });
 
+  it("says the media that did not answer, and never « aucune information » when none of them answered", async () => {
+    down = /^(?!.*reunion\.gouv\.fr)/;
+    const b = body(await actualites(cache(), "Saint-Pierre", undefined, undefined, NOW));
+    expect(b.resume).not.toMatch(/Aucune information/);
+    expect(b.resume).toMatch(/Non lus cette fois : .*Clicanoo.*Freedom.*\. Leur site n'a pas répondu à notre dernière lecture \(aujourd'hui à 12:05\) : nous ne savons pas ce qu'ils annoncent en ce moment\./);
+    const html = actualitesPage("https://rundata.re", { value: await buildActualites(cache(), NOW), fetchedAt: NOW, stale: false }, NOW);
+    expect(html).not.toContain("Aucune information des médias lus");
+    expect(html).toMatch(/Non lus cette fois(\u00a0|&nbsp;| ): [^<]*Clicanoo/);
+    expect(html).not.toContain("Ne répondent pas en ce moment");
+  });
+
   it("makes a page of it, with the live blog first", async () => {
     const data = await buildActualites(cache(), NOW);
     expect(data.chaud).toBe(true);

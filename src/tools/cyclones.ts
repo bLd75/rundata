@@ -111,7 +111,9 @@ async function alert(cache: Cache, now: Date) {
     // The prefecture's last decision beside the bulletin: never more than the bulletin's wait, and none when it fails.
     const decision = prefecture.cyclone(cache).then((x) => x.value).catch(() => null);
     const [v, c] = await Promise.all([mf.vigilance(cache).then((x) => x.value), Promise.race([decision, new Promise<null>((r) => setTimeout(() => r(null), PREFECTURE_WAIT_MS))])]);
-    return { texte: cycloneAlert(v, now), ecoles: ecolesBlock(v, now, c), vie_quotidienne: quotidienLine(v, now) };
+    // The cyclone's section of the prefecture not read: a decision may be missing, said beside the alert.
+    const silent = await prefecture.rubriqueNonLue(cache, now).catch(() => undefined);
+    return { texte: cycloneAlert(v, now), ecoles: ecolesBlock(v, now, c), vie_quotidienne: quotidienLine(v, now), injoignable: silent };
   } catch (err) {
     console.error(`source ${mf.SOURCE.id} indisponible:`, why(err));
     return undefined;
@@ -186,7 +188,7 @@ export async function cyclones(cache: Cache, lieu: string | undefined, now = new
     console.error(`source ${gdacs.SOURCE.id} indisponible:`, why(err));
     const a = await alert(cache, now);
     return {
-      ...text({ erreur: "Le suivi des systèmes tropicaux (GDACS) ne répond pas pour le moment.", alerte_cyclonique: a?.texte, ecoles: a?.ecoles, consulter: OFFICIAL, sources: credits([gdacs.SOURCE]) }),
+      ...text({ erreur: "Le suivi des systèmes tropicaux (GDACS) ne répond pas pour le moment.", alerte_cyclonique: a?.texte, injoignable: a?.injoignable, ecoles: a?.ecoles, consulter: OFFICIAL, sources: credits([gdacs.SOURCE]) }),
       isError: true,
     };
   }
@@ -202,6 +204,7 @@ export async function cyclones(cache: Cache, lieu: string | undefined, now = new
 
   const parts: string[] = [];
   if (alerte) parts.push(alerte);
+  if (a?.injoignable) parts.push(a.injoignable);
   if (rows.length) {
     parts.push(`${rows.length} système${rows.length > 1 ? "s" : ""} tropical${rows.length > 1 ? "aux" : ""} actif${rows.length > 1 ? "s" : ""} dans le sud-ouest de l'océan Indien.`);
     for (const r of rows) {
@@ -229,6 +232,7 @@ export async function cyclones(cache: Cache, lieu: string | undefined, now = new
     lieu: place,
     resume: parts.join(" "),
     alerte_cyclonique: alerte,
+    injoignable: a?.injoignable,
     vie_quotidienne: a?.vie_quotidienne,
     ecoles: a?.ecoles,
     systemes_actifs: rows.length ? rows.map(({ trajectoire: _, ...r }) => r) : undefined,

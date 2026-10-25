@@ -129,10 +129,10 @@ describe("the concerts", () => {
 
   it("say, in one card, the agendas that did not answer and those not read lately", () => {
     const d = data(ROWS);
-    const notes = { ...d, value: { ...d.value, indisponible: ["CINOR"], non_lus: ["Ville de Saint-Leu : dernière lecture le jeudi 22/10 à 10:00", "Ligue réunionnaise de volley-ball : dernière lecture sans succès (dimanche 25/10 à 22:05)"] } };
+    const notes = { ...d, value: { ...d.value, indisponible: ["CINOR", "Ville du Port"], remises: ["Ville du Port"], non_lus: ["Ville de Saint-Leu : dernière lecture le jeudi 22/10 à 10:00", "Ligue réunionnaise de volley-ball : dernière lecture sans succès (dimanche 25/10 à 22:05)"] } };
     for (const html of [agendaPage("https://rundata.re", notes, TUESDAY), weekendPage("https://rundata.re", notes, TUESDAY), concertsPage("https://rundata.re", notes, TUESDAY)]) {
       expect(html).toContain("<li>Agendas sans lecture récente : Ville de Saint-Leu, dernière lecture le jeudi 22/10 à 10:00\u00a0; Ligue réunionnaise de volley-ball, dernière lecture sans succès (dimanche 25/10 à 22:05). Leurs événements peuvent manquer ici.</li>");
-      expect(html).toContain("<li>Agendas non lus cette fois (sans réponse dans le délai, ou laissés à la visite suivante) : CINOR. La liste peut être incomplète.</li>");
+      expect(html).toContain("<li>Sans réponse à notre dernière lecture (aujourd&#39;hui à 10:00) : CINOR. Lecture remise à la suivante : Ville du Port. Leurs événements peuvent manquer ici.</li>");
       expect(html.match(/<h3>À savoir<\/h3>/g)).toHaveLength(1);
     }
     expect(agendaPage("https://rundata.re", data(ROWS), TUESDAY)).not.toContain("sans lecture récente");

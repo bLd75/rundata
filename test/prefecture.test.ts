@@ -97,13 +97,21 @@ describe("reading the prefecture, which can fail", () => {
     expect(run.value.value?.decision).toMatchObject({ niveau: 4 });
     expect(asked).toEqual(["https://www.reunion.gouv.fr/Actualites/Communiques-de-presse", "https://www.reunion.gouv.fr/Actualites/Cyclone-Test"]);
     expect(run.used).toBe(2);
+    expect(await pref.rubriqueNonLue(new Cache(new MemoryStore(), () => NOW.getTime()), NOW)).toBeUndefined();
     // Without a section in the menu: the press releases only, one subrequest.
     vi.stubGlobal("fetch", async () => new Response(page([["Alerte orange cyclonique", "23/10/2026"]])));
     expect((await counted(PAGE_BUDGET, () => pref.releases(new Cache(new MemoryStore(), () => NOW.getTime())))).used).toBe(1);
     // The section fails: the press releases stand.
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.stubGlobal("fetch", async (url: string) => (String(url).includes("Cyclone-Test") ? new Response("", { status: 503 }) : new Response(menu + page([["Alerte orange cyclonique", "23/10/2026"]]))));
-    expect((await pref.cyclone(new Cache(new MemoryStore(), () => NOW.getTime()), NOW.getTime())).value?.decision).toMatchObject({ niveau: 3 });
+    const c = new Cache(new MemoryStore(), () => NOW.getTime());
+    expect((await pref.cyclone(c, NOW.getTime())).value?.decision).toMatchObject({ niveau: 3 });
+    // Never a silent fallback: a decision may be missing, said beside it.
+    const said = "La rubrique cyclone du site de la préfecture n'a pas répondu à notre dernière lecture (aujourd'hui à 14:00) : une décision publiée depuis peut manquer ici.";
+    expect(await pref.rubriqueNonLue(c, NOW)).toBe(said);
+    expect(ecolesPage("https://rundata.re", null, NOW, undefined, null, said)).not.toContain("décision publiée depuis");
+    const v = { value: bulletin([[8, "2026-10-24T06:00:00"]]), fetchedAt: NOW, stale: false };
+    expect(ecolesPage("https://rundata.re", v, NOW, undefined, null, said).replace(/&#39;/g, "'")).toMatch(/La rubrique cyclone du site de la préfecture n'a pas répondu à notre dernière lecture \(aujourd'hui à 14(:|\u00a0:|&nbsp;:)00\)/);
     logged.mockRestore();
   });
 
