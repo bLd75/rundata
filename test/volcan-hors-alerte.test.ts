@@ -88,6 +88,12 @@ describe("out of an alert, whether it erupts only with its source", () => {
     const source = `(source : <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-reouverture-partielle-de-l-enclos">Préfecture de La Réunion, arrêté n° 2026-627 du 7 mai 2026</a>)`;
     expect(page).toContain(`Enclos : <b>« partiel »</b> selon pitonlive.com ${source}.`);
     expect(page).toContain("<h3>Enclos : « partiel » selon pitonlive.com</h3>");
+    // Under it, pitonlive's summary whole, in quotes: its words. /trafic gives pitonlive's word alone and sends to this card.
+    const trafic = traficPage(O, { value: { enclos: v.etat!.acces_enclos, bus: null, routes_forestieres: null, sources: [] } as unknown as TraficAnswer, fetchedAt: NOW }, NOW);
+    expect(trafic).toContain(`<h3>Volcan : accès à l'Enclos</h3><p><b>« partiel »</b> selon pitonlive.com. Les sentiers autorisés et interdits, avec l'arrêté de la préfecture, sont sur <a href="/volcan#enclos">la page Volcan</a>.</p></div>`);
+    expect(trafic).not.toContain("Réouverture PARTIELLE");
+    expect(page).toContain(`<div class="card" id="enclos">`);
+    expect(page).toContain("<p>Résumé de pitonlive.com : « Réouverture PARTIELLE de l&#39;enclos (retour en phase de vigilance ORSEC depuis le 7 mai 2026).");
     expect(page).not.toContain("partiellement ouvert");
     expect(volcanLive({ value: v, fetchedAt: NOW, stale: false })).toEqual({
       valeur: "Pas d'éruption",
