@@ -40,7 +40,8 @@ export const PITONLIVE: SourceInfo = {
   url: "https://pitonlive.com",
 };
 
-const FEED =
+// Also read by the collector of the releases given in images (scripts/ovpf-ocr.ts).
+export const FEED =
   "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=did:plc:qzdltnkksm37jcg5jr6rkuas&limit=30&filter=posts_no_replies";
 const STATE = "https://pitonlive.com/api/v1/public/state";
 const FRESH_SECONDS = 10 * 60;

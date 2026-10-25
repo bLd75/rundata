@@ -14,6 +14,7 @@ import { audience, device, language, point, TEAM, teamVisit, visitor, type Hit }
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
+import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as feux from "./providers/feux.js";
 import * as transit from "./providers/transit.js";
@@ -153,6 +154,11 @@ function setup(env: Env): Cache {
   carburants.configure(kv && (async () => {
     count();
     return (await kv.get("carburants:prix", "json")) as carburants.Prix | null;
+  }));
+  // The text of the OVPF's releases given in images, read by a collector outside the Worker (scripts/ovpf-ocr.ts).
+  ovpfOcr.configure(kv && (async (key: string) => {
+    count();
+    return (await kv.get(key, "json")) as ovpfOcr.Stocke | null;
   }));
   transit.configure(d1 && { all: async <T>(sql: string, ...params: unknown[]) => (await d1.prepare(sql).bind(...params).all<T>()).results });
   const climatDb = env.CLIMAT;

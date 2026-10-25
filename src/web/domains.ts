@@ -5,7 +5,7 @@
  * its tile on the home page.
  */
 import { PREFECTURE } from "../providers/volcan.js";
-import { enclosWord, enImagesApres, hausseNiveau, IMAGE_APRES, LOCALISES, ORSEC_BAN, sourceName } from "../tools/volcan.js";
+import { enclosWord, enImagesApres, enImagesLuesApres, hausseNiveau, IMAGE_APRES, IMAGE_LUE_APRES, LOCALISES, LU_DANS_L_IMAGE, ORSEC_BAN, sourceName } from "../tools/volcan.js";
 import { type Ligne, libelle, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { alertSections, alerteVolcan, CONSIGNES, releaseDay, ENCLOS, tileLive, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
@@ -138,6 +138,9 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   // on the texts read; IMAGE_APRES is then not said (marketing).
   const p0 = d?.publications_ovpf?.[0];
   const folded = !!a && !a.eruption && !!e && !e.ecart_prefecture && !!e.image_ovpf_plus_recente && !!p0?.lien;
+  // Its text read in the first image: said so, the text on its card (providers/ovpf-ocr.ts).
+  const lu = !!p0?.texte_lu_dans_l_image;
+  const apres = lu ? IMAGE_LUE_APRES : IMAGE_APRES;
 
   const status = !d
     ? loading("L'état du volcan")
@@ -147,7 +150,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
           // pitonlive higher than the release: both levels, nothing of ours on the eruption (marketing).
           ? `<p class="lead"><b>${esc(hausseNiveau(e.ecart_prefecture))}</b></p>`
           : a
-          ? `<p class="lead"><b>${esc(volcanLead(a))}</b>${folded ? ` ${esc(enImagesApres(...(p0!.date.split(" ") as [string, string])))} : <a href="${esc(p0!.lien!)}">la voir</a>.` : ""}</p>`
+          ? `<p class="lead"><b>${esc(volcanLead(a))}</b>${folded ? ` ${esc((lu ? enImagesLuesApres : enImagesApres)(...(p0!.date.split(" ") as [string, string])))} : <a href="${esc(p0!.lien!)}">la voir</a>.` : ""}</p>`
           : e.niveau_inconnu && !e.eruption_en_cours ? "" : `<p class="big">${e.eruption_en_cours ? "Éruption en cours" : "Pas d'éruption en cours selon pitonlive.com"}</p>`) +
           (e.ecart_prefecture ? "<p class=\"lead\">" : e.niveau_inconnu
             // The prefecture's phase not read, none kept: the level is not given (tools/volcan.ts), and why (marketing).
@@ -164,7 +167,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
               ? `<p class="lead">${releaseSaid(e.acces_enclos.communique, `communiqué du ${dd(e.acces_enclos.communique.jour)}`)} : vérifiez sur ${GOUV} avant de monter.</p>`
               : `<p class="lead">${releaseSaid(e.acces_enclos.communique, `communiqué de la préfecture du ${dd(e.acces_enclos.communique.jour)}`)}. Vérifiez sur ${GOUV} avant de monter.</p>`)
             : a ? `<p class="lead"><b>${esc(ENCLOS)}</b></p>` : e.niveau_inconnu ? `<p class="lead">Accès à l'Enclos : à vérifier sur ${GOUV}, avant de partir.</p>` : e.acces_enclos ? `<p class="lead">${enclosSaid(e.acces_enclos)}</p>` : "") +
-          (e.image_ovpf_plus_recente && !folded ? `<p class="lead">${esc(IMAGE_APRES)}</p>` : "")
+          (e.image_ovpf_plus_recente && !folded ? `<p class="lead">${esc(apres)}</p>` : "")
         : `<p class="lead">${esc(d.resume)}</p>`) +
       (q ? `<p class="lead">Séismes localisés par l'OVPF sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
       `</div>`;
@@ -183,7 +186,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
 
   const quakes = q
     ? `<div class="card">${icon("gauge")}<h3>Séismes localisés par l'OVPF</h3>` +
-      quakeDays(q.par_jour_sous_le_volcan, !!e?.image_ovpf_plus_recente && !folded) +
+      quakeDays(q.par_jour_sous_le_volcan, e?.image_ovpf_plus_recente && !folded ? apres : undefined) +
       `<p class="facts"><span>Sous le volcan : <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
       `<span>Ailleurs sur l'île : <b>${q.ailleurs_sur_l_ile["30_jours"]}</b>, magnitude max ${md(q.ailleurs_sur_l_ile.magnitude_max_30j)}</span></p>` +
       (q.derniers.length
@@ -208,10 +211,12 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   <p class="note">${esc(historique.NOTE)}</p></section>
 `;
 
+  // The text read in a post's first image, folded under what it is (draft, marketing).
+  const readText = (t: string) => `<details><summary>${esc(LU_DANS_L_IMAGE)}</summary>${t.split("\n\n").map((x) => `<p>${esc(x)}</p>`).join("")}</details>`;
   const posts = d?.publications_ovpf?.length
     ? `<section aria-labelledby="h-ovpf"><div class="sec-h"><p class="eyebrow">L'observatoire</p><h2 id="h-ovpf">Ce que publie l'OVPF</h2>
   <p>Les derniers messages de l'Observatoire volcanologique du Piton de la Fournaise (IPGP), repris tels quels.</p></div>
-  <ul class="posts">${d.publications_ovpf.slice(0, 4).map((p) => `<li class="card"><p class="note">${esc(p.date)}</p><p>${esc(p.texte)}</p>${p.lien ? `<p><a href="${esc(p.lien)}">${p.image ? "Voir les images sur Bluesky" : "Lire le message"} →</a></p>` : ""}</li>`).join("")}</ul></section>`
+  <ul class="posts">${d.publications_ovpf.slice(0, 4).map((p) => `<li class="card"><p class="note">${esc(p.date)}</p><p>${esc(p.texte)}</p>${p.texte_lu_dans_l_image ? readText(p.texte_lu_dans_l_image) : ""}${p.lien ? `<p><a href="${esc(p.lien)}">${p.image ? "Voir les images sur Bluesky" : "Lire le message"} →</a></p>` : ""}</li>`).join("")}</ul></section>`
     : "";
 
   // In vigilance as the prefecture or pitonlive gives it (never an unread level), the level and the plan's words; the
@@ -269,7 +274,7 @@ const DAYS_SCALE_MIN = 10;
  * The events located under the summit per day, as bars from 0, today marked « en cours » (data-run, marketing); each
  * bar says its day and count to screen readers, and the line under it today's, yesterday's and the highest.
  */
-function quakeDays(days: NonNullable<VolcanAnswer["seismes"]>["par_jour_sous_le_volcan"], imageAfter: boolean): string {
+function quakeDays(days: NonNullable<VolcanAnswer["seismes"]>["par_jour_sous_le_volcan"], imageAfter: string | undefined): string {
   if (!days?.length) return "";
   const dd = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
   const scale = Math.max(DAYS_SCALE_MIN, ...days.map((j) => j.nombre));
@@ -284,7 +289,7 @@ function quakeDays(days: NonNullable<VolcanAnswer["seismes"]>["par_jour_sous_le_
   return `<figure class="qdays"><figcaption>Sous le volcan, par jour (heure de La Réunion)</figcaption>` +
     `<ol>${bars}</ol><p class="axis"><span>${dd(days[0].jour)}</span><span>${dd(today.jour)} (en cours)</span></p></figure>` +
     `<p>${facts}</p><p class="note">${esc(LOCALISES)}</p>` +
-    (imageAfter ? `<p class="note">${esc(IMAGE_APRES)}</p>` : "");
+    (imageAfter ? `<p class="note">${esc(imageAfter)}</p>` : "");
 }
 
 export function volcanLive(data: Cached<VolcanAnswer> | null): Live | undefined {
