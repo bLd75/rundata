@@ -138,7 +138,7 @@ describe("the page /chiffres", () => {
   it("says marketing's words, and each figure leads to its page", () => {
     expect(html).toContain("<h1>rundata.re en chiffres</h1>");
     expect(html).toContain("<title>rundata.re en chiffres\u00a0: sources, producteurs, licences · rundata.re</title>");
-    for (const h of ["L'essentiel", "Par domaine", "Sur le terrain", "En ce moment", "Les licences", "Ce qui manque", "Depuis le début"]) expect(html).toContain(`>${h.replace("'", "'")}</h2>`);
+    for (const h of ["L'essentiel", "Par domaine", "Sur le terrain", "En ce moment", "Les licences", "Ce qui manque", "Depuis le début"]) expect(html).toContain(`>${h}</h2>`);
     expect(html).toContain("communes, une page du jour pour chacune");
     expect(html).toContain('href="/sentiers">351</a>');
     expect(html).toMatch(/sources sont publiées sous une licence ouverte \(Licence Ouverte, ODbL, CC BY, domaine public\)\. Pour les autres, des informations publiques, rundata\.re ne reprend que les faits, avec le lien de la source\./);
