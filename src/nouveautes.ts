@@ -20,7 +20,7 @@ export interface Outil {
 
 // Newest first: the index of the instructions and the `serveur` block read them in this order.
 export const OUTILS: Outil[] = [
-  { nom: "annuaire_services_publics", ligne: "vie pratique : mairies, santé, carburants, déchets, enfants", depuis: "2026-10-25T14:00:00+04:00" },
+  { nom: "annuaire_services_publics", ligne: "mairies, santé, carburants, déchets, enfants", depuis: "2026-10-25T14:00:00+04:00" },
   { nom: "resume_du_jour", ligne: "la journée d'une commune en un appel", depuis: "2026-10-24T15:45:00+04:00" },
   { nom: "donner_avis", ligne: "donnée manquante ou fausse, souhait", depuis: "2026-10-24T14:15:00+04:00" },
   { nom: "actualites", ligne: "blocages, routes, faits divers, en direct", depuis: "2026-10-24T12:32:00+04:00" },
