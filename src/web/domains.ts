@@ -670,7 +670,7 @@ export function liveText(x: Row): string {
 
 /** One departure as a row: line, direction, wait (from the real-time feed when there is one). */
 export const departureLi = (x: Row, wait: string) =>
-  `<li><b>${esc(x.ligne)}</b><span>vers ${esc(x.direction)} <span class="note">(${esc(x.reseau)})</span></span><span class="note">${esc(wait)}${liveText(x)}</span></li>`;
+  `<li><b>${esc(x.ligne)}</b><span>${x.trajet ? `<a href="${esc(x.trajet)}">vers ${esc(x.direction)}</a>` : `vers ${esc(x.direction)}`} <span class="note">(${esc(x.reseau)})</span></span><span class="note">${esc(wait)}${liveText(x)}</span></li>`;
 
 /** The traffic alerts of the networks with a real-time feed. */
 export const alertList = (list: { reseau: string; lignes?: string[]; titre: string; detail?: string }[]) =>

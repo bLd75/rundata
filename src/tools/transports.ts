@@ -120,6 +120,8 @@ export interface Departure {
   stop: number;
   /** Its pattern (island-wide index): where the trip comes from and goes. */
   pattern: number;
+  /** The day of its service (YYYYMMDD): yesterday's for a bus after midnight. */
+  jour?: number;
   /** From the real-time feed: seconds late (early when negative) at this stop, or that the bus will not stop. */
   retard?: number;
   supprime?: boolean;
@@ -163,7 +165,7 @@ function listed(pass: Pass[], pats: Map<number, transit.Pattern>, stopGroup: Map
         const dt = t - shift - secs;
         if (dt >= -60 && dt <= horizon && transit.serviceRuns(g.reseau, service, d.ymd, d.weekday)) {
           // A terminus named after its bay: « Gare Routière Du Tampon Quai Q » is the bus station.
-          out.push({ in: dt, at: t - shift, route: pat.route, headsign: pat.headsign.replace(/\s+quai\s+\S+$/i, ""), reseau: g.reseau, arret: g.nom, trip, stop: p.stop, pattern: p.pattern });
+          out.push({ in: dt, at: t - shift, route: pat.route, headsign: pat.headsign.replace(/\s+quai\s+\S+$/i, ""), reseau: g.reseau, arret: g.nom, trip, stop: p.stop, pattern: p.pattern, jour: d.ymd });
         }
       }
     }
@@ -364,6 +366,21 @@ export const departureRow = (d: Departure): DepartureRow => ({
   ...(d.supprime ? { temps_reel: "ne passe pas à cet arrêt" } : d.retard !== undefined ? { heure_annoncee: hm(d.at + d.retard), retard_min: delayMinutes(d) } : {}),
 });
 
+export const TRIP_PATH = "/bus/trajet";
+/** The page of a departure's trip (web/trajet.ts): its pattern and its stop numbered within its network, and the day of its service. */
+export function tripPath(d: Departure): string | undefined {
+  const n = transit.NETWORKS[d.reseau];
+  if (!n || d.jour === undefined) return undefined;
+  return `${TRIP_PATH}/${d.reseau}/${d.pattern - n.first_pattern}/${encodeURIComponent(d.trip)}?jour=${d.jour}&arret=${d.stop - n.first_stop}#arret-${d.stop - n.first_stop}`;
+}
+
+/** A departure as the pages keep it: the tool's row, and the page of its trip. */
+export type PageRow = DepartureRow & { trajet?: string };
+export const pageRow = (d: Departure): PageRow => {
+  const trajet = tripPath(d);
+  return { ...departureRow(d), ...(trajet ? { trajet } : {}) };
+};
+
 /** « à l'heure », « 5 min de retard », « 2 min d'avance ». */
 // marketing's words, the participle agreeing with the noun before it.
 const delayText = (m: number) => (m === 0 ? "à l'heure, annoncé en direct" : m > 0 ? `retard de ${fr(m)} min annoncé en direct` : `avance de ${fr(-m)} min annoncée en direct`);
@@ -475,7 +492,7 @@ const WEEKDAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "
 const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 type Day = ReturnType<typeof day>;
 /** « dimanche 25 octobre », « dimanche 1er novembre ». */
-const dayName = (d: Day) => `${WEEKDAYS[d.weekday]} ${d.ymd % 100 === 1 ? "1er" : d.ymd % 100} ${MONTHS[(Math.floor(d.ymd / 100) % 100) - 1]}`;
+export const dayName = (d: Day) => `${WEEKDAYS[d.weekday]} ${d.ymd % 100 === 1 ? "1er" : d.ymd % 100} ${MONTHS[(Math.floor(d.ymd / 100) % 100) - 1]}`;
 const iso = (d: Day) => `${Math.floor(d.ymd / 10000)}-${String(Math.floor(d.ymd / 100) % 100).padStart(2, "0")}-${String(d.ymd % 100).padStart(2, "0")}`;
 
 const netOf = (pattern: number) => transit.ROUTES[transit.ENDS[pattern][0]][0];
@@ -794,4 +811,118 @@ function reversed(a: string[], b: string[]): boolean {
   if (Math.abs(a.length - b.length) > Math.max(1, a.length / 10)) return false;
   const back = new Set(b);
   return a.filter((x) => back.has(x)).length >= 0.9 * a.length && a[0] === b[b.length - 1] && a[a.length - 1] === b[0];
+}
+
+export interface TripStop {
+  id: number;
+  nom: string;
+  commune: string;
+  /** As scheduled, in ms since 1970. */
+  at: number;
+  /** As the real-time feed expects it, in ms since 1970. */
+  annonce?: number;
+  /** The real-time feed says the bus will not stop there. */
+  saute?: boolean;
+}
+
+export interface TripRun {
+  reseau: string;
+  ligne: string;
+  nom_ligne?: string;
+  nom_reseau: string;
+  /** Its first stop, and the way it shows (its headsign). */
+  origine: string;
+  direction: string;
+  /** The day of its service (YYYYMMDD). */
+  jour: number;
+  /** Its stops in order; undefined when the database does not have them (`transit.patternStops`). */
+  arrets?: TripStop[];
+  /** First and last time of the trip, in ms since 1970, as scheduled: what the page says without its stops. */
+  depart: number;
+  arrivee?: number;
+  /** Where its network has a real-time feed and the trip is on the road: whether the feed speaks of it, and the feed's time. */
+  direct?: { etat: "suivi" | "absent"; flux: number } | { etat: "muet" };
+  /** The real-time feed says the trip will not run. */
+  supprime?: boolean;
+}
+
+/** Local midnight of a day YYYYMMDD, in ms since 1970. */
+const midnight = (ymd: number) => Date.UTC(Math.floor(ymd / 10000), (Math.floor(ymd / 100) % 100) - 1, ymd % 100) - 4 * 3600_000;
+const weekdayOf = (ymd: number) => (new Date(midnight(ymd) + 4 * 3600_000).getUTCDay() + 6) % 7;
+/** Within this much of its times, a trip is the one the real-time feed speaks of. */
+const LIVE_AROUND_MS = 3600_000;
+
+/**
+ * A trip of a pattern (numbered within its network) on the day of its service, else its run still to come: yesterday's
+ * while it is on the road after midnight, today's, or the next day it runs within two weeks. Its stops with their times,
+ * and what the real-time feed says of it while it is on the road. Undefined when the network, the pattern or the trip is
+ * not in the timetables, or the trip does not run that day: a link from before they were published again.
+ */
+export async function tripRun(net: string, local: number, trip: string, jour: number | undefined, now: Date, cache?: Cache): Promise<TripRun | undefined> {
+  const n = transit.NETWORKS[net];
+  if (!n || !Number.isInteger(local) || local < 0) return undefined;
+  const pattern = n.first_pattern + local;
+  const ends = transit.ENDS[pattern];
+  if (!ends || transit.ROUTES[ends[0]][0] !== net) return undefined;
+  const [pats, stopsOf] = await Promise.all([transit.patterns([pattern]), transit.patternStops([pattern])]);
+  const pat = pats.get(pattern);
+  const found = pat?.trips.find(([, , id]) => id === trip);
+  if (!pat || !found) return undefined;
+  const [service, start] = found;
+  const stops = stopsOf?.get(pattern)?.stops;
+  const last = stops?.length ? stops[stops.length - 1][1] : 0;
+  const runs = (ymd: number) => transit.serviceRuns(net, service, ymd, weekdayOf(ymd));
+  let ymd = jour;
+  if (ymd === undefined) {
+    // Yesterday's run still on the road, today's, or the next one.
+    for (let back = 1; back >= -14 && ymd === undefined; back--) {
+      const d = day(now, back).ymd;
+      if (runs(d) && (back < 0 || midnight(d) + (start + last) * 1000 >= now.getTime() - 60_000)) ymd = d;
+    }
+    if (ymd === undefined) return undefined;
+  } else if (!runs(ymd)) return undefined;
+  const base = midnight(ymd) + start * 1000;
+  const arrets = stops?.map(([id, offset]) => {
+    const s = transit.stop(id);
+    return { id, nom: s.nom, commune: s.commune, at: base + offset * 1000 } as TripStop;
+  });
+  const line = lineName(ends[0]);
+  const out: TripRun = {
+    reseau: net,
+    ligne: line.ligne,
+    ...(line.nom_ligne ? { nom_ligne: line.nom_ligne } : {}),
+    nom_reseau: line.reseau,
+    origine: transit.stop(ends[1]).nom,
+    direction: pat.headsign.replace(/\s+quai\s+\S+$/i, ""),
+    jour: ymd,
+    ...(arrets ? { arrets } : {}),
+    depart: base,
+    ...(stops?.length ? { arrivee: base + last * 1000 } : {}),
+  };
+  // The feed speaks of a trip id's run on the road now, not of its runs of other days.
+  const t = now.getTime();
+  if (cache && n.temps_reel && t >= base - LIVE_AROUND_MS && t <= base + last * 1000 + LIVE_AROUND_MS) {
+    let f: rt.Realtime | undefined;
+    try {
+      f = (await rt.realtime(cache, net))?.value;
+    } catch (err) {
+      console.error(`source ${rt.SOURCE.id} (${net}) indisponible:`, why(err));
+    }
+    // A feed too old says nothing of now: as one that does not answer.
+    if (!f || t / 1000 - f.at >= rt.MAX_AGE_SECONDS) out.direct = { etat: "muet" };
+    else {
+      const told = f.trips[trip];
+      out.supprime = f.cancelled.includes(trip) || undefined;
+      if (told && arrets) {
+        for (const a of arrets) {
+          const v = told[gtfsStop(n, a.id)];
+          if (v === rt.SKIPPED) a.saute = true;
+          else if (v !== undefined) a.annonce = v * 1000;
+        }
+      }
+      out.direct = { etat: told || out.supprime ? "suivi" : "absent", flux: f.at };
+      if (!out.supprime) delete out.supprime;
+    }
+  }
+  return out;
 }
