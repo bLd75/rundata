@@ -95,7 +95,7 @@ export function period(now: Date, jours?: number, du?: string, au?: string, toda
     if (!from || !to) return { erreur: "Date non comprise : écrire « 2026-10-01 », « 01/10/2026 », « 2026-10 » (un mois) ou « 2006 » (une année)." };
     const p = from <= to ? { du: from, au: to } : { du: to, au: from };
     if (p.au > last) p.au = last;
-    if (p.du > p.au) return { erreur: `Pas encore de mesure publiée pour cette date : le dernier jour publié est hier (${frDate(yesterday)}). Pour aujourd'hui, voir meteo_actuelle.` };
+    if (p.du > p.au) return { erreur: `Pas encore de mesure pour cette date : ${LOADED}. Pour aujourd'hui, voir meteo_actuelle.` };
     if (+p.au.slice(0, 4) - +p.du.slice(0, 4) >= YEARS_MAX) return { erreur: `Période trop longue : ${YEARS_MAX} ans au plus par question.` };
     return p;
   }
@@ -312,25 +312,62 @@ async function recordsOf(s: Series, months: number[], now: Date) {
   };
 }
 
-// Nothing measured over the period asked. Up to a few days back it is most often the morning's publication not yet
-// in: Météo-France publishes a day's measurements the next morning, and rundata loads them then. Said as such, never
-// as « no station », which is false for a town with a station and would send the model to donner_avis for nothing.
-const RECENT_DAYS = 3;
-export function nothing(where: string, p: Period, now: Date): string {
+/**
+ * When a day's measurements reach rundata.re: Météo-France publishes them the next morning (its files seen at 09:56 for
+ * the days, 10:52 for the hours, 24 and 25 October 2026), and .github/workflows/climat.yml loads them at 11:45.
+ */
+const LOADED = "Météo-France publie les mesures d'un jour le lendemain matin, et rundata.re les charge chaque jour vers midi (heure de La Réunion)";
+
+/** The last day the stations read have a rain or a temperature for, up to `yesterday`: what the archive has now. */
+export function lastDay(read: Map<string, Map<number, Year>>, yesterday: string): string | undefined {
+  let last: string | undefined;
+  for (const ys of read.values())
+    for (const [year, y] of ys)
+      for (const col of [y.RR, y.TX]) {
+        let i = (col?.length ?? 0) - 1;
+        while (i >= 0 && col![i] == null) i--;
+        const d = i >= 0 ? iso(Date.UTC(year, 0, 1) + i * DAY_MS) : undefined;
+        if (d && d <= yesterday && (!last || d > last)) last = d;
+      }
+  return last;
+}
+
+/** The days of the period after the last day loaded: « 24/10/2026 », « 23/10/2026 au 24/10/2026 »; none when all are. */
+function pending(p: Period, now: Date, last: string | undefined): string | undefined {
   const yesterday = iso(now.getTime() + 4 * 3600_000 - DAY_MS);
-  const recent = p.au >= yesterday && Math.round((Date.parse(p.au) - Date.parse(p.du)) / DAY_MS) < RECENT_DAYS;
+  const au = p.au < yesterday ? p.au : yesterday;
+  if (!last || last >= au) return undefined;
+  const du = p.du > last ? p.du : iso(Date.parse(last) + DAY_MS);
+  return `${frDate(du)}${du !== au ? ` au ${frDate(au)}` : ""}`;
+}
+
+/** Said after the figures when the period's last days are not loaded yet. */
+export function notYet(p: Period, now: Date, last: string | undefined): string {
+  const days = pending(p, now, last);
+  return days ? ` Les mesures du ${days} ne sont pas encore disponibles : ${LOADED}. Dernier jour disponible : ${frDate(last!)}.` : "";
+}
+
+// Nothing measured over the period asked. Its days not loaded yet are said as such, with the last day loaded; never as
+// « no station », which is false for a town with a station and would send the model to donner_avis for nothing.
+const RECENT_DAYS = 3;
+export function nothing(where: string, p: Period, now: Date, last?: string): string {
+  const days = pending(p, now, last);
+  if (days) return `Les mesures du ${days} ne sont pas encore disponibles : ${LOADED}. Dernier jour disponible : ${frDate(last!)}. Pour maintenant, meteo_actuelle.`;
+  // Nothing read at all: the archive cannot say its last day.
+  const yesterday = iso(now.getTime() + 4 * 3600_000 - DAY_MS);
+  const recent = !last && p.au >= yesterday && Math.round((Date.parse(p.au) - Date.parse(p.du)) / DAY_MS) < RECENT_DAYS;
   return recent
-    ? `Les mesures du ${frDate(p.du)}${p.du !== p.au ? ` au ${frDate(p.au)}` : ""} ne sont pas encore publiées : Météo-France publie chaque jour le matin, le plus souvent avant 10 h (heure de La Réunion). Réessayer plus tard ; pour maintenant, meteo_actuelle.`
+    ? `Les mesures du ${frDate(p.du)}${p.du !== p.au ? ` au ${frDate(p.au)}` : ""} ne sont peut-être pas encore disponibles : ${LOADED}. Réessayer plus tard ; pour maintenant, meteo_actuelle.`
     : `Aucune station ne mesurait ${a(where)} ou près de là sur cette période.`;
 }
 
 const COMMON = {
   nature: "mesure",
   a_savoir: [
-    "Mesures quotidiennes des stations Météo-France, publiées chaque matin avec la veille, le plus souvent avant 10 h (heure de La Réunion) : le dernier jour disponible est hier une fois publié, avant-hier sinon. Pour aujourd'hui, voir meteo_actuelle ; pour les jours à venir, prevision_meteo.",
+    "Mesures quotidiennes des stations Météo-France, chargées chaque jour vers midi (heure de La Réunion) avec la veille : le dernier jour disponible est hier après le chargement, avant-hier avant. Pour aujourd'hui, voir meteo_actuelle ; pour les jours à venir, prevision_meteo.",
     "La pluie d'un jour est celle tombée de 10 h ce jour-là à 10 h le lendemain (heure de La Réunion), comme Météo-France la compte.",
     `Normales : moyennes 1991-2020 de la station, calculées sur les mesures de Météo-France (au moins 10 années).`,
-    `Heure par heure (depuis 2000) : donné pour ${HOURLY_AUTO} jours ou moins, et jusqu'à ${HOURLY_MAX} jours avec detail « heure » ; publié chaque matin avec la nuit qui vient de finir, si bien que les premières heures d'aujourd'hui y sont.`,
+    `Heure par heure (depuis 2000) : donné pour ${HOURLY_AUTO} jours ou moins, et jusqu'à ${HOURLY_MAX} jours avec detail « heure » ; chargé chaque jour vers midi (heure de La Réunion) avec la nuit qui vient de finir, si bien qu'après midi les premières heures d'aujourd'hui y sont.`,
   ],
 };
 
@@ -546,7 +583,8 @@ export async function historiqueMeteo(
       const t = (r as { temperatures?: { maximales_moyenne?: number } }).temperatures;
       return `${r.station} : ${pl ? `${fr(pl.total_mm)} mm${pl.normale_mm != null ? ` (normale ${pl.normale_mm})` : ""}` : "pluie non mesurée"}${t?.maximales_moyenne != null ? `, max ${fr(t.maximales_moyenne)} °C` : ""}`;
     }).join(" ; ");
-    return text({ resume: `La Réunion du ${frDate(p.du)} au ${frDate(p.au)} — ${resume}.`, stations: rows, ...common });
+    const last = lastDay(read, iso(now.getTime() + 4 * 3600_000 - DAY_MS));
+    return text({ resume: `La Réunion du ${frDate(p.du)} au ${frDate(p.au)} — ${resume}.${notYet(p, now, last)}`, stations: rows, ...common });
   }
 
   const res = resolvePlace(lieu);
@@ -588,11 +626,12 @@ export async function historiqueMeteo(
     }
   }
   const daily = rain || temp ? sentence(`${place.nom}`, p, s, names) : "";
+  const last = lastDay(read, iso(now.getTime() + 4 * 3600_000 - DAY_MS));
   return text({
     lieu: placeBlock(lieu, res),
     resume: [daily, hh ? `Heure par heure (station ${hh.ou}) — ${hh.texte}.` : ""].filter(Boolean).join(" ") +
       (warn.length ? ` Attention : ${[...new Set(warn)].join(" ")}` : "") +
-      (!rain && !temp && !hh ? ` ${nothing(place.nom, p, now)}` : ""),
+      (!rain && !temp && !hh ? ` ${nothing(place.nom, p, now, last)}` : rain || temp ? notYet(p, now, last) : ""),
     stations: stationsUsed(place, [[rain, "pluie"], [temp, "températures et rafales"], [sun, "ensoleillement"]]),
     ...s,
     ...shape(rain, temp, sun),

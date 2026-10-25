@@ -171,14 +171,34 @@ describe("station names", () => {
 
 describe("nothing measured", () => {
   const now = new Date("2026-10-25T02:27:00+04:00");
-  it("says that yesterday is not published yet, never that no station measured", () => {
-    expect(nothing("Saint-Denis", { du: "2026-10-24", au: "2026-10-24" }, now)).toBe(
-      "Les mesures du 24/10/2026 ne sont pas encore publiées : Météo-France publie chaque jour le matin, le plus souvent avant 10 h (heure de La Réunion). Réessayer plus tard ; pour maintenant, meteo_actuelle.",
+  const LOADED = "Météo-France publie les mesures d'un jour le lendemain matin, et rundata.re les charge chaque jour vers midi (heure de La Réunion)";
+  it("says that yesterday is not loaded yet, with the last day loaded, never that no station measured", () => {
+    expect(nothing("Saint-Denis", { du: "2026-10-24", au: "2026-10-24" }, now, "2026-10-23")).toBe(
+      `Les mesures du 24/10/2026 ne sont pas encore disponibles : ${LOADED}. Dernier jour disponible : 23/10/2026. Pour maintenant, meteo_actuelle.`,
     );
-    expect(nothing("Saint-Denis", { du: "2026-10-22", au: "2026-10-24" }, now)).toMatch(/^Les mesures du 22\/10\/2026 au 24\/10\/2026 ne sont pas encore publiées/);
+    expect(nothing("Saint-Denis", { du: "2026-10-22", au: "2026-10-24" }, now, "2026-10-22")).toMatch(/^Les mesures du 23\/10\/2026 au 24\/10\/2026 ne sont pas encore disponibles .* Dernier jour disponible : 22\/10\/2026\./);
+    // Nothing read at all: no last day to give, and no « no station » either.
+    expect(nothing("Saint-Denis", { du: "2026-10-24", au: "2026-10-24" }, now)).toBe(
+      `Les mesures du 24/10/2026 ne sont peut-être pas encore disponibles : ${LOADED}. Réessayer plus tard ; pour maintenant, meteo_actuelle.`,
+    );
   });
-  it("says that no station measured over an older or longer period", () => {
-    expect(nothing("Mafate", { du: "2026-10-01", au: "2026-10-20" }, now)).toBe("Aucune station ne mesurait à Mafate ou près de là sur cette période.");
+  it("says that no station measured over an older or longer period, or when the days asked are loaded", () => {
+    expect(nothing("Mafate", { du: "2026-10-01", au: "2026-10-20" }, now, "2026-10-24")).toBe("Aucune station ne mesurait à Mafate ou près de là sur cette période.");
     expect(nothing("Mafate", { du: "2026-09-25", au: "2026-10-24" }, now)).toMatch(/^Aucune station/);
+    expect(nothing("Mafate", { du: "2026-10-24", au: "2026-10-24" }, now, "2026-10-24")).toMatch(/^Aucune station/);
+  });
+  it("answers « hier » before the day is loaded: the last day, no hint to donner_avis", async () => {
+    const queries = plug();
+    const a = json(await historiqueMeteo(new Cache(), "Saint-Denis", { du: "2026-10-24" }, now));
+    expect(a.resume.trim()).toBe(`Les mesures du 24/10/2026 ne sont pas encore disponibles : ${LOADED}. Dernier jour disponible : 23/10/2026. Pour maintenant, meteo_actuelle.`);
+    expect(a.signaler).toBeUndefined();
+    // The last day comes from the rows already read: no query more.
+    expect(queries()).toBe(2);
+    // Three days up to yesterday: the two loaded, and the third said pending.
+    const b = json(await historiqueMeteo(new Cache(), "Saint-Denis", { jours: 3 }, now));
+    expect(b.jours.map((d: { date: string }) => d.date)).toEqual(["22/10/2026", "23/10/2026", "24/10/2026"]);
+    expect(b.resume).toMatch(/ Les mesures du 24\/10\/2026 ne sont pas encore disponibles : .* Dernier jour disponible : 23\/10\/2026\.$/);
+    // Today: never « hier » as the last day published.
+    expect(period(now, undefined, "2026-10-25")).toEqual({ erreur: `Pas encore de mesure pour cette date : ${LOADED}. Pour aujourd'hui, voir meteo_actuelle.` });
   });
 });
