@@ -47,8 +47,19 @@ describe("the communes whose site's terms ask for their authorisation, until the
   });
 
   it("are the ten of their legal notices, none agreed yet", () => {
-    expect(Object.keys(AUTORISATIONS)).toEqual(TREIZE);
-    expect(Object.values(AUTORISATIONS).every((a) => a.etat === "a_demander" && !a.demandee_le)).toBe(true);
+    expect(Object.keys(AUTORISATIONS).filter((c) => AUTORISATIONS[c].etat !== "permise")).toEqual(TREIZE);
+    expect(TREIZE.every((c) => AUTORISATIONS[c].etat === "a_demander" && !AUTORISATIONS[c].demandee_le)).toBe(true);
+  });
+
+  it("are not those whose terms allow it on conditions: read, and nothing said instead", () => {
+    const PERMISES = ["La Plaine-des-Palmistes", "Saint-Leu", "Saint-Louis"];
+    expect(Object.keys(AUTORISATIONS).filter((c) => AUTORISATIONS[c].etat === "permise").sort()).toEqual(PERMISES);
+    for (const c of PERMISES) {
+      expect(AGENDAS.some((a) => a.commune === c && a.site_commune)).toBe(true);
+      expect(mentionCommune(c)).toBeUndefined();
+      expect(mentionCourte(c)).toBeUndefined();
+    }
+    expect(mentionIle().join(" ")).not.toMatch(/Saint-Leu|Saint-Louis|Plaine-des-Palmistes/);
   });
 
   it("are not read: no agenda nor news of their site, no fetch to it", async () => {
@@ -105,7 +116,9 @@ describe("the communes whose site's terms ask for their authorisation, until the
 
   it("are left out of the agendas read and of those without one, and said in the coverage and the answer", async () => {
     expect(MAIRIES_LUES).toBe("Saint-Paul, Le Port, Les Trois-Bassins, Saint-Louis");
-    expect(COUVERTURE).not.toMatch(/Ville du Tampon|Ville de Saint-André|Actualités des mairies/);
+    expect(COUVERTURE).not.toMatch(/Ville du Tampon|Ville de Saint-André/);
+    // The mairies' news read are only those of the communes whose terms allow it.
+    expect(COUVERTURE).toContain("(pas un agenda complet) : Saint-Louis, Saint-Leu, La Plaine-des-Palmistes.");
     const without = /Sans agenda lu[^:]*: ([^.]*)\./.exec(COUVERTURE)![1];
     expect(TREIZE.filter((c) => without.includes(c))).toEqual([]);
     expect(COUVERTURE).toContain(mentionIle()[0]);
@@ -145,8 +158,8 @@ describe("the communes whose site's terms ask for their authorisation, until the
     expect(r.evenements_du_jour!.liste.map((e) => e.titre)).toEqual(["Spectacle"]);
     expect(JSON.stringify(r)).not.toMatch(/letampon\.fr|du Tampon, de Saint-Louis/);
     expect(communeEvents(page, { value: old as unknown as AgendaAnswer, fetchedAt: NOW, stale: false })).toMatchObject({ valeur: "1 événement" });
-    // Named after the mairies read.
-    expect([SOURCES.mairies.nom, SOURCES.mairies.attribution]).toEqual(["Agendas des mairies de Saint-Paul, du Port, des Trois-Bassins et de Saint-Louis", "Villes de Saint-Paul, Le Port, Les Trois-Bassins et Saint-Louis"]);
+    // Named after the mairies read: not Saint-Louis, credited apart with its terms' clause.
+    expect([SOURCES.mairies.nom, SOURCES.mairies.attribution]).toEqual(["Agendas des mairies de Saint-Paul, du Port et des Trois-Bassins", "Villes de Saint-Paul, Le Port et Les Trois-Bassins"]);
     expect(sourcesServies(old.sources)!.map((c) => c.source)).toEqual([SOURCES.mairies.nom]);
   });
 

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PAGE_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSpipNews, parseSportsregions, parseTribe, parseWpNews } from "../src/providers/agenda.js";
-import { extrait } from "../src/providers/agenda-mots.js";
+import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
 import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
@@ -41,7 +41,11 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("ville-cilaos.fr")) return "actus_cilaos.json";
   if (url.includes("saintjoseph.re")) return "rss_saint-joseph.xml";
   if (url.includes("letampon")) return "rss_le-tampon.xml";
+  if (url.includes("saintlouis.re/actualites")) return "rss_saint-louis-actus.xml";
   if (url.includes("saintlouis")) return "rss_saint-louis.xml";
+  if (url.includes("saintleu.re")) return "actus_saint-leu.json";
+  if (url.includes("plainedespalmistes.fr/wp-json/wp/v2/agenda")) return "agenda_plaine-des-palmistes.json";
+  if (url.includes("plainedespalmistes.fr/wp-json/wp/v2/actus")) return "actus_plaine-des-palmistes.json";
   if (url.includes("lapossession")) return "rss_la-possession.xml";
   if (url.includes("letangsale")) return "rss_etang-sale.xml";
   if (url.includes("petite-ile")) return "petite-ile.html";
@@ -112,7 +116,7 @@ describe("agenda", () => {
     let league: () => Response;
     const KING = "King Saison 6 Solo étape 2";
     // The mairies' news, read by the scheduled event too: their sites answer.
-    const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph"];
+    const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph", "saint_louis_actus", "saint_leu", "plaine_des_palmistes_agenda", "plaine_des_palmistes_actus"];
     const titles = (b: { evenements?: { titre: string }[] }) => (b.evenements ?? []).map((e) => e.titre);
     const entry = async (store: MemoryStore) => ((await store.get("agendas:planifies"))?.value as Record<string, CacheEntry> | undefined)?.["agenda:lrvb"];
     const isLeague = (u: string) => new URL(u).hostname === "lrvb.re";
@@ -181,10 +185,11 @@ describe("agenda", () => {
       const second = await entry(store);
       expect(second?.fetchedAt).toBe(t);
       // Still failing two days on: the copy, no longer served, is said too old in the scheduled event's log (the clubs'
-      // calendar, read every six hours, is read again).
+      // calendar, read every six hours, is read again). Saint-Leu's news, its one event past by then, find nothing:
+      // kept the same way.
       t += 49 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [...MAIRIES, "sportsregions"], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: [...MAIRIES.filter((m) => m !== "saint_leu"), "sportsregions"], gardes: ["lrvb", "saint_leu"], reportes: [], trop_vieilles: ["lrvb", "saint_leu"] });
       expect(await entry(store)).toEqual(second);
     });
 
@@ -274,7 +279,7 @@ describe("agenda", () => {
 
   describe("the clubs' calendar (Sportsregions), read by the scheduled event", () => {
     // The mairies' news, read by the scheduled event before it.
-    const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph"];
+    const MAIRIES = ["saint_philippe", "cilaos", "saint_joseph", "saint_louis_actus", "saint_leu", "plaine_des_palmistes_agenda", "plaine_des_palmistes_actus"];
     const pages = [1, 2, 3, 4].map((n) => fixture(`sportsregions_${n}.html`));
     let urls: string[];
     beforeEach(() => {
@@ -406,10 +411,10 @@ describe("agenda", () => {
           return super.put(key, e);
         }
       }
-      // 15 left: the bundle's read, the league's page, the three mairies' news, the four pages, the write, and KEEP_LEFT (4)
-      // still left.
+      // 19 left: the bundle's read, the league's page, the mairies' seven readings, the four pages, the write, and
+      // KEEP_LEFT (4) still left.
       const both = await counted(PAGE_BUDGET, async () => {
-        count(left() - 15);
+        count(left() - 19);
         const out = await refreshPlanned(new Cache(new Kv(), () => NOW.getTime()), NOW);
         return { out, left: left() };
       });
@@ -418,7 +423,7 @@ describe("agenda", () => {
       // One fewer: the league and the mairies only, the clubs' calendar at a later run (its copy served meanwhile).
       urls = [];
       const one = await counted(PAGE_BUDGET, async () => {
-        count(left() - 14);
+        count(left() - 18);
         return refreshPlanned(new Cache(new Kv(), () => NOW.getTime()), NOW);
       });
       expect(one.value).toEqual({ lus: ["lrvb", ...MAIRIES], gardes: [], reportes: ["sportsregions"], trop_vieilles: [] });
@@ -447,6 +452,48 @@ describe("agenda", () => {
         ["Safran en fête 2026 : cinq jours de festivités à la Plaine des Grègues", [{ debut: "2026-11-07", fin: "2026-11-11" }]],
         ["La Caravane Santé fait étape à Saint-Joseph le 24 octobre 2026", [{ debut: "2026-10-24T09:00", fin: "2026-10-24T15:00" }]],
       ]);
+      // Saint-Louis's news (Joomla, a feed of the same shape), on 25/10/2026: calls for traders and applicants only
+      // (« Forum des associations 2026 : appel aux professionnels de la restauration rapide », its day the forum's),
+      // never an event's announcement to the public.
+      expect(parseSpipNews(fixture("rss_saint-louis-actus.xml"), "Ville de Saint-Louis", "Saint-Louis", NOW)).toEqual([]);
+      expect(["Toussaint : appel à candidatures pour la vente de fleurs le 31 octobre", "Kermesse du 10 octobre : appel aux forains", "Brocante du 8 novembre : avis de publicité"].filter(annonceEvenement)).toEqual([]);
+      expect(annonceEvenement("Fête de la musique le 21 juin : concerts au parc")).toBe(true);
+      // Saint-Leu's « Actualité »: the one event with its days in its title; not the Grand Raid's reception, whose day
+      // is only in the article.
+      expect(seen(parseWpNews(JSON.parse(fixture("actus_saint-leu.json")), "Ville de Saint-Leu", "Saint-Leu", NOW))).toEqual([
+        ["La Fête des Artichauts et du Terroir revient au Plate du 23 au 25 octobre 2026", [{ debut: "2026-10-23", fin: "2026-10-25" }]],
+      ]);
+      // La Plaine-des-Palmistes's agenda and news, on 25/10/2026: nothing with its day in its title.
+      expect(parseWpNews(JSON.parse(fixture("agenda_plaine-des-palmistes.json")), "Ville de La Plaine-des-Palmistes", "La Plaine-des-Palmistes", NOW)).toEqual([]);
+      expect(parseWpNews(JSON.parse(fixture("actus_plaine-des-palmistes.json")), "Ville de La Plaine-des-Palmistes", "La Plaine-des-Palmistes", NOW)).toEqual([]);
+    });
+
+    it("reads Saint-Louis's whole agenda, whose events keep their title as the commune writes it", () => {
+      expect(parseRss(fixture("rss_saint-louis-agenda.xml"), "Ville de Saint-Louis", "Saint-Louis", true).map((e) => [e.titre, e.seances, e.lien])).toEqual([
+        ["Mois des séniors : Saint-Louis y mèt ses gramounes en lèr", [{ debut: "2026-10-02", fin: "2026-10-28" }], "https://saintlouis.re/agenda-menu/3107-mois-des-seniors-saint-louis-y-met-ses-gramounes-en-ler"],
+      ]);
+      const saintLouis = AGENDAS.filter((a) => a.commune === "Saint-Louis");
+      expect(saintLouis.map((a) => a.id)).toEqual(["saint_louis", "saint_louis_actus"]);
+      expect(saintLouis.every((a) => a.source.licence === "Reprise autorisée à des fins d'information, sans usage commercial (mentions légales du site)" && a.site_commune === "site de la commune de Saint-Louis")).toBe(true);
+    });
+
+    it("says what else is read in Saint-Leu, its news being no full agenda: Le Séchoir's programme", async () => {
+      const b = body(await agenda(cache(), "Saint-Leu", undefined, undefined, NOW));
+      expect(b.resume).toContain("Saint-Leu : seuls les événements annoncés dans les actualités de la Ville de Saint-Leu sont lus, ce n'est pas un agenda complet\u00a0; s'y ajoutent le programme du Séchoir et les grands événements de reunion.fr");
+      expect(body(await agenda(cache(), "Saint-Philippe", undefined, undefined, NOW)).resume).toContain("ce n'est pas un agenda complet, avec les grands événements de reunion.fr");
+    });
+
+    it("credits Saint-Leu and La Plaine-des-Palmistes as their terms ask, « © https://www.ville-plainedespalmistes.fr » included", () => {
+      const of = (c: string) => AGENDAS.filter((a) => a.commune === c && a.site_commune);
+      expect(of("Saint-Leu").map((a) => [a.id, a.site_commune])).toEqual([["saint_leu", "site de la commune de Saint-Leu"]]);
+      expect(of("La Plaine-des-Palmistes").map((a) => [a.id, a.site_commune])).toEqual([
+        ["plaine_des_palmistes_agenda", "site de la commune de La Plaine-des-Palmistes (©\u00a0https://www.ville-plainedespalmistes.fr)"],
+        ["plaine_des_palmistes_actus", "site de la commune de La Plaine-des-Palmistes (©\u00a0https://www.ville-plainedespalmistes.fr)"],
+      ]);
+      expect([...of("Saint-Leu"), ...of("La Plaine-des-Palmistes")].every((a) => a.planifie && /^Reprise autorisée à des fins d'information/.test(a.source.licence))).toBe(true);
+      // Saint-Leu's terms keep its texts: its events without their sentence. La Plaine-des-Palmistes's allow them.
+      expect([...of("Saint-Leu"), ...of("La Plaine-des-Palmistes")].map((a) => !!a.faits)).toEqual([true, false, false]);
+      expect(of("La Plaine-des-Palmistes").map((a) => a.source.nom)).toEqual(["Agenda de la Ville de La Plaine-des-Palmistes (événements annoncés avec leur date)", "Actualités de la Ville de La Plaine-des-Palmistes (événements annoncés)"]);
     });
 
     it("says it is no full agenda, in the answer for the commune and in the coverage", async () => {
@@ -461,7 +508,7 @@ describe("agenda", () => {
       expect(union.description).toBeUndefined();
       expect(union.source).toBe("site de la commune de Saint-Philippe, lu le samedi 24/10 à 08:00");
       expect(union.lien).toContain("saintphilippe.re/");
-      expect(COUVERTURE).toContain("Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : Saint-Philippe, Cilaos, Saint-Joseph.");
+      expect(COUVERTURE).toContain("Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : Saint-Philippe, Cilaos, Saint-Joseph, Saint-Louis, Saint-Leu, La Plaine-des-Palmistes.");
       expect(MAIRIES_LUES).not.toContain("Saint-Philippe");
       expect(ACTUS_MAIRIES.every((a) => a.planifie && AGENDAS.includes(a))).toBe(true);
     });
