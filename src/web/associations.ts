@@ -133,10 +133,10 @@ function howTo(origin: string) {
 
 function preuveSection(p: Preuve): string {
   const count = p.clubs >= CLUBS_MIN
-    ? `<p class="lead">${p.clubs} clubs et associations lus par rundata.re ; ${p.evenements} de leurs événements dans les deux prochaines semaines.</p>`
+    ? `<p>${p.clubs} clubs et associations lus par rundata.re ; ${p.evenements} de leurs événements dans les deux prochaines semaines.</p>`
     : "";
   const list = p.prochains.length
-    ? `<ul class="rows">${p.prochains.map(({ e, quand }) => `<li><span>${e.lien ? `<a href="${esc(e.lien)}" rel="noopener">${esc(e.titre)}</a>` : esc(e.titre)}<small>${[e.commune, e.publie_par].filter(Boolean).map((x) => esc(x!)).join(" · ")}</small></span><span>${esc(quand)}</span></li>`).join("")}</ul>`
+    ? `<ul class="rows eau">${p.prochains.map(({ e, quand }) => `<li><span>${e.lien ? `<a href="${esc(e.lien)}" rel="noopener">${esc(e.titre)}</a>` : esc(e.titre)}<small>${[e.commune, e.publie_par].filter(Boolean).map((x) => esc(x!)).join(" · ")}</small></span><span>${esc(quand)}</span></li>`).join("")}</ul>`
     : `<p>Les premiers événements de clubs et d'associations arrivent : <a href="${PROPOSER_PATH}">proposez le vôtre</a>.</p>`;
   return `<section aria-labelledby="h-preuve">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-preuve">Les prochains événements de clubs et d'associations</h2></div>
