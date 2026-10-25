@@ -92,6 +92,7 @@ import { OFFLINE_PATH, serviceWorker, SW_PATH } from "./pwa.js";
 import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures } from "./presse.js";
 import { avisPost } from "./avis.js";
+import * as formulaires from "./propositions.js";
 import * as dae from "../providers/dae.js";
 import * as traces from "../providers/traces.js";
 import { SECTEURS, secteurOf } from "../traces/secteurs.js";
@@ -280,6 +281,11 @@ async function pages(request: Request, cache: Cache, background: Background, now
 
   // The feedback form at the bottom of every page (web/avis.ts).
   if (path === "/avis") return avisPost(request, now);
+  // The clubs' and associations' forms (web/propositions.ts), once their page goes out.
+  if (formulaires.enLigne()) {
+    if (path === formulaires.LIEN_PATH) return formulaires.lienPost(request, now);
+    if (path === formulaires.PROPOSER_PATH || path === `${formulaires.PROPOSER_PATH}/`) return formulaires.proposer(request, now, await alerte(cache, background, now));
+  }
   if (path === "/") {
     const [meteo, vigilance] = await Promise.all([
       snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
