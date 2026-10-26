@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { count, perInvocation } from "./budget.js";
 import { noteSource } from "./lectures.js";
 import { UpstreamError } from "./types.js";
@@ -46,6 +47,17 @@ class Places {
   }
 }
 
+// Told when a fetch of the work it runs gets its place (`whenPlaced`).
+const placed = new AsyncLocalStorage<() => void>();
+
+/**
+ * Runs `work`, calling `held` each time one of its fetches gets its place: tools/agenda.ts counts an agenda's delay
+ * from then, in the scheduled event, rather than from its call.
+ */
+export function whenPlaced<T>(work: () => T, held: () => void): T {
+  return placed.run(held, work);
+}
+
 /** This invocation's fetches holding a place and waiting for one, now (web/mesure.ts). */
 export const places = () => perInvocation("http:places", () => new Places()).now();
 
@@ -73,6 +85,7 @@ async function get<T>(
   noteSource(source);
   const places = perInvocation("http:places", () => new Places());
   await places.take();
+  placed.getStore()?.();
   try {
     let res: Response;
     const signal = AbortSignal.timeout(timeoutMs);

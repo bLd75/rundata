@@ -1,6 +1,6 @@
-import { later, left, perInvocation } from "../budget.js";
+import { isScheduled, later, left, perInvocation } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
-import { httpUrl, places } from "../http.js";
+import { httpUrl, places, whenPlaced } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
@@ -163,7 +163,10 @@ type Got = {
 const DEADLINE_MS = 5_000;
 // An agenda with a copy kept is waited for only that long: past it, its copy is served, with the time it was read, and
 // its reading lands after the response, for the next view. One slow site (Le Séchoir, reunion.fr) made each cold view
-// wait the whole DEADLINE_MS, 6 to 7 s. An agenda without a copy is still waited for up to DEADLINE_MS.
+// wait the whole DEADLINE_MS, 6 to 7 s. An agenda without a copy is still waited for up to DEADLINE_MS, unless its last
+// reading failed (`echec`): a site that keeps failing made each cold view wait for its failure, 2.6 s on /enfants.
+// In the scheduled event, which nobody waits for, both count from when the agenda's first fetch gets its place
+// (http.ts): the agendas queued behind five slow ones were cut there at 5 s without having been asked.
 const GRACE_MS = 1_000;
 // The subrequests not to be spent on the agendas: what follows them (the news's copy, the bundle's write, the page's
 // copy) and one more, within the invocation's budget (budget.ts); for a question, that one is the read of the scheduled
@@ -177,7 +180,8 @@ const PLANNED_FRESH_SECONDS = 3600;
 // When a planned agenda last failed (or found nothing where its copy had events), kept in the bundle beside its copy:
 // it is not tried again before its next reading is due, rather than at each scheduled event, for a subrequest and up
 // to TIMEOUT_MS each time (Saint-Joseph's site does not answer Cloudflare's addresses). In the bundle, not in memory:
-// the scheduled events seldom run twice in the same isolate.
+// the scheduled events seldom run twice in the same isolate. An agenda read by the questions has the same mark in
+// theirs, set on the first failure only and dropped by the first reading that lands.
 const echec = src.echecPlanifie;
 
 /** An agenda this invocation has no subrequests left for, and of which no copy is kept. */
@@ -218,19 +222,35 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
     },
   });
   const pending: Promise<unknown>[] = [];
+  // A failure written once, not at each view; a reading that lands drops it (with its own write, already due).
+  const failed = (a: src.Agenda) => {
+    if (!bundle.has(echec(a))) bundle.set(echec(a), true);
+  };
+  const landed = (a: src.Agenda) => bundle.drop((k) => k !== echec(a));
+  const fromPlace = isScheduled();
   const m = mesure();
   const agendasFrom = Date.now();
   m.avant = agendasFrom - started;
   const got = await Promise.all(order.map(async (agenda): Promise<Got> => {
-    const loading = agenda.load(store(agenda), now);
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const wait = last(key(agenda)) ? Math.min(graceMs, deadlineMs) : deadlineMs;
-    const late = new Promise<"late">((resolve) => (timer = setTimeout(() => resolve("late"), wait)));
+    let done = false;
+    let start = () => {};
+    const placed = new Promise<void>((resolve) => (start = resolve));
+    const loading = fromPlace ? whenPlaced(() => agenda.load(store(agenda), now), start) : agenda.load(store(agenda), now);
+    if (!fromPlace) start();
+    const wait = last(key(agenda)) || bundle.has(echec(agenda)) ? Math.min(graceMs, deadlineMs) : deadlineMs;
+    const late = new Promise<"late">((resolve) => void placed.then(() => done || (timer = setTimeout(() => resolve("late"), wait))));
     try {
       const got = await Promise.race([loading, late]);
-      if (got !== "late") return { agenda, value: got };
+      if (got !== "late") {
+        landed(agenda);
+        return { agenda, value: got };
+      }
       // Still stored once it lands: the next question has it.
-      pending.push(loading.catch((err) => console.error(`source ${agenda.source.id} (${agenda.id}) indisponible:`, why(err))));
+      pending.push(loading.then(() => landed(agenda), (err) => {
+        failed(agenda);
+        console.error(`source ${agenda.source.id} (${agenda.id}) indisponible:`, why(err));
+      }));
       const old = last(key(agenda));
       console.error(`source ${agenda.source.id} (${agenda.id}) trop lente${old ? " : dernière copie" : ""}`);
       return { agenda, value: old };
@@ -239,9 +259,11 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
         console.error(`source ${agenda.source.id} (${agenda.id}) remise à plus tard : plus assez de sous-requêtes`);
         return { agenda, remise: true };
       }
+      failed(agenda);
       console.error(`source ${agenda.source.id} (${agenda.id}) indisponible:`, why(err));
       return { agenda };
     } finally {
+      done = true;
       clearTimeout(timer);
     }
   }));
@@ -249,7 +271,7 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
   m.enCours = pending.length;
   m.places = places();
   // An agenda no longer read here is not kept (nor the scheduled event's copies, once kept in this bundle).
-  bundle.drop((k) => src.AGENDAS.some((a) => !a.planifie && key(a) === k));
+  bundle.drop((k) => src.AGENDAS.some((a) => !a.planifie && (key(a) === k || echec(a) === k)));
   const save = () => bundle.save().catch((err) => console.error("agendas : copie impossible", why(err)));
   if (pending.length) later(Promise.allSettled(pending).then(save));
   else await save();

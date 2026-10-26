@@ -175,6 +175,16 @@ export function left(): number {
   return t ? t.limit - kept(t) - t.used : Infinity;
 }
 
+const SCHEDULED = "budget:planifie";
+
+/** Marks this invocation as the scheduled event's (worker.ts): nobody waits for its answer. */
+export function scheduled(): void {
+  current.getStore()?.shared.set(SCHEDULED, true);
+}
+
+/** Whether this invocation is the scheduled event's; outside a counted invocation, not. */
+export const isScheduled = () => current.getStore()?.shared.get(SCHEDULED) === true;
+
 /** One `make()` per invocation under `key`; outside a counted invocation, a new one each call. */
 export function perInvocation<T>(key: string, make: () => T): T {
   const t = current.getStore();
