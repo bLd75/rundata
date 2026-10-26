@@ -89,7 +89,7 @@ export function parse(csv: string, satellite: string): Detection[] {
 }
 
 async function island(cache: Cache): Promise<Cached<Feux>> {
-  return cache.get("feux:ile", FRESH_SECONDS, async () => {
+  return cache.island("feux:ile", FRESH_SECONDS, async () => {
     const lists = await Promise.allSettled(Object.entries(SATELLITES).map(async ([id, nom]) => parse(await getText(SOURCE.id, `${API}/${mapKey}/${id}/${AREA}/1`), nom)));
     const ok = lists.flatMap((r, i) => (r.status === "fulfilled" ? [{ nom: Object.values(SATELLITES)[i], list: r.value }] : []));
     if (!ok.length) throw (lists[0] as PromiseRejectedResult).reason ?? new UpstreamError(SOURCE.id, "aucun satellite");

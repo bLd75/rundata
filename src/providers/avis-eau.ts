@@ -432,7 +432,7 @@ const FLUX = "avis-eau:flux";
 
 /** Every feed's read, the notices of one that did not answer kept from the read before; throws only when all fail with nothing kept. */
 export async function lecture(cache: Cache): Promise<Cached<Flux[]>> {
-  return cache.get(FLUX, FRESH_SECONDS, async () => {
+  return cache.island(FLUX, FRESH_SECONDS, async () => {
     const before = await cache.peek<Flux[]>(FLUX).catch(() => undefined);
     const parts = await Promise.allSettled(PARTS.map((p) => p.load()));
     const flux = PARTS.map((p, i): Flux => {

@@ -40,7 +40,7 @@ const KEY = "prefecture:communiques:rubrique";
  * leaves the press releases alone, and is noted (`rubrique_non_lue`): never a silent fallback.
  */
 async function communiques(cache: Cache): Promise<Cached<Communiques>> {
-  return cache.get(KEY, 5 * 60, async () => {
+  return cache.island(KEY, 5 * 60, async () => {
     const html = await getText(SOURCE.id, SOURCE.url, 12_000, HEADERS);
     const list = parsePrefecture(html);
     if (!list.length) throw new UpstreamError(SOURCE.id, "liste des communiqués vide");

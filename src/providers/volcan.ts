@@ -181,11 +181,11 @@ export interface PitonState {
 }
 
 export async function posts(cache: Cache): Promise<Cached<Post[]>> {
-  return cache.get("volcan:ovpf", FRESH_SECONDS, async () => activityPosts(await getJson<FeedJson>(OVPF.id, FEED)));
+  return cache.island("volcan:ovpf", FRESH_SECONDS, async () => activityPosts(await getJson<FeedJson>(OVPF.id, FEED)));
 }
 
 export async function state(cache: Cache): Promise<Cached<PitonState>> {
-  const got = await cache.get("volcan:pitonlive", FRESH_SECONDS, async () => {
+  const got = await cache.island("volcan:pitonlive", FRESH_SECONDS, async () => {
     const s = await getJson<PitonState>(PITONLIVE.id, STATE);
     // Keep what the tool shows; the full answer carries a daily seismic series and the air quality too.
     return { status: s.status, eruption: s.eruption, last_eruption_ended_at: s.last_eruption_ended_at, days_since_last_eruption: s.days_since_last_eruption, access: s.access };

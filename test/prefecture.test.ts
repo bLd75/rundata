@@ -79,9 +79,10 @@ describe("reading the prefecture, which can fail", () => {
     const first = await pref.cyclone(new Cache(new MemoryStore(), () => NOW.getTime(), true, durable), NOW.getTime());
     expect(first.value?.decision).toMatchObject({ niveau: 3 });
     await new Promise((r) => setTimeout(r, 10));
-    // A new isolate, the prefecture down: the kept decision, said as old.
+    // A new isolate, past the list's freshness (its copy in KV fresh before: cache.ts `island`), the prefecture down:
+    // the kept decision, said as old.
     vi.stubGlobal("fetch", async () => { throw new TypeError("fetch failed"); });
-    const down = await pref.cyclone(new Cache(new MemoryStore(), () => NOW.getTime(), true, durable), NOW.getTime());
+    const down = await pref.cyclone(new Cache(new MemoryStore(), () => NOW.getTime() + 6 * 60_000, true, durable), NOW.getTime());
     expect(down).toMatchObject({ stale: true, value: { decision: { niveau: 3 } } });
   });
 

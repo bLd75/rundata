@@ -98,7 +98,8 @@ export class TieredStore implements CacheStore {
     let from = 0;
     for (let i = 0; i < this.stores.length; i++) {
       const e = await this.stores[i].get(key, freshAfter);
-      if (e && (!newest || e.fetchedAt > newest.fetchedAt)) {
+      // The same copy in two stores: the one that says a later failed refresh (`echec`), so that the breaker holds.
+      if (e && (!newest || e.fetchedAt > newest.fetchedAt || (e.fetchedAt === newest.fetchedAt && (e.echec?.at ?? 0) > (newest.echec?.at ?? 0)))) {
         newest = e;
         from = i;
       }
@@ -109,6 +110,17 @@ export class TieredStore implements CacheStore {
   }
   async put(key: string, entry: CacheEntry) {
     await Promise.all(this.stores.map((s) => s.put(key, entry)));
+  }
+}
+
+/** `store`'s entries under `prefix`: kept apart from the other entries of the same store (the Worker's KV). */
+class Prefixed implements CacheStore {
+  constructor(private store: CacheStore, private prefix: string) {}
+  get(key: string, freshAfter?: number) {
+    return this.store.get(`${this.prefix}${key}`, freshAfter);
+  }
+  put(key: string, entry: CacheEntry) {
+    return this.store.put(`${this.prefix}${key}`, entry);
   }
 }
 
@@ -181,6 +193,8 @@ export class Cache {
   private inflight = new Map<string, Promise<Cached<unknown>>>();
   private failures = new Map<string, { at: number; error: unknown }>();
   private bundles = new Map<string, BundleState>();
+  /** The stores, then `durable` behind them (`island`). */
+  private wide: CacheStore;
 
   /**
    * `dedupe` lets concurrent questions share one upstream request. The Worker turns it off: there, a request
@@ -196,12 +210,28 @@ export class Cache {
     private dedupe = true,
     private durable: CacheStore = store,
     readonly version?: string,
-  ) {}
+  ) {
+    this.wide = durable === store ? store : new TieredStore(store, new Prefixed(durable, "lecture:"));
+  }
 
   /** `backoffSeconds`: how long a failure is remembered (in this process) before the source is asked again. */
   async get<T>(key: string, freshSeconds: number, load: () => Promise<T>, backoffSeconds = FAILURE_BACKOFF_SECONDS): Promise<Cached<T>> {
     const hit = await this.store.get(key, this.now() - freshSeconds * 1000);
     return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e), backoffSeconds));
+  }
+
+  /**
+   * As `get`, for a source read whole for the island under one key, with the durable store (the Worker's KV), which
+   * every data center reads, behind memory and the data center's cache: what is read goes there, and a failed refresh
+   * (`echec`) too. An isolate or a data center that has not read it yet (a scheduled event, a question) takes the copy
+   * another one read rather than asking the source again, and a source that does not answer is left alone by all of
+   * them until its breaker closes, not only by the data center that found it silent (26/10/2026, in 50 minutes: NASA
+   * FIRMS's fires read 8 times for 30 minutes of freshness, CAMS's UV 8 times for an hour, the prefecture's list 3
+   * times in one minute).
+   */
+  async island<T>(key: string, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>> {
+    const hit = await this.wide.get(key, this.now() - freshSeconds * 1000);
+    return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.wide.put(key, e)));
   }
 
   /**
