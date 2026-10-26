@@ -27,6 +27,7 @@ import * as ensemble from "./providers/ensemble.js";
 import * as feux from "./providers/feux.js";
 import * as avis from "./avis.js";
 import { withLectures } from "./lectures.js";
+import { withVide } from "./vide.js";
 import { catalogue, INDEX, serveur } from "./nouveautes.js";
 import { cite, SITE_URL } from "./tools/citer.js";
 import { marquerTiers, OUTILS_TIERS } from "./tools/tiers.js";
@@ -91,7 +92,7 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.30";
+export const VERSION = "0.203.31";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -131,7 +132,7 @@ function spaced<R extends object>(r: R): R {
 }
 
 /** What a tool's handler is told of the HTTP request (the MCP SDK's RequestHandlerExtra): its headers, on HTTP only. */
-type Extra = { requestInfo?: { headers?: Record<string, string | string[] | undefined> } };
+type Extra = { requestId?: string | number; requestInfo?: { headers?: Record<string, string | string[] | undefined> } };
 
 // The three hints are said outright, destructiveHint too, though implied by readOnlyHint: the ChatGPT apps review asks
 // for them on every tool (test/serveur.test.ts checks it).
@@ -204,9 +205,10 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
   const track = <A extends object, R extends object>(name: string, run: (args: A, extra: Extra) => Promise<R>) => {
     tools++; // one per tool registered
     return async (args: A, extra: Extra = {}): Promise<R> => {
-      const { value: r, lectures } = await withLectures(() => run(args, extra), TOOL_WAIT_MS);
+      const { value: { value: r, vide }, lectures } = await withLectures(() => withVide(name, () => run(args, extra)), TOOL_WAIT_MS);
       const lieu = "lieu" in args && typeof args.lieu === "string" ? args.lieu : undefined;
-      record({ kind: "mcp", name, detail: lieu?.trim().slice(0, 60) || undefined, ok: !("isError" in r && r.isError) });
+      // A call that found nothing (vide.ts) is told with its id, for the transport's record of it (usage.ts).
+      record({ kind: "mcp", name, detail: lieu?.trim().slice(0, 60) || undefined, ok: !("isError" in r && r.isError), ...(vide && { outcome: "vide", id: extra.requestId }) });
       // Every answer says how to cite it, error or not (tools/citer.ts); the feedback tool's thanks already names rundata.re.
       const now = new Date();
       // The day's summary has a dozen dated parts: no single « donnee_du » for it, each part says its own.

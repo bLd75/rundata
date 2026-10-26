@@ -5,6 +5,7 @@ import { firstSentence, merge, parseImazLive, parseNewsSitemap, parsePrefecture,
 import { actualites, quand } from "../src/tools/actualites.js";
 import { actualitesPage } from "../src/web/domains.js";
 import { buildActualites } from "../src/web/data.js";
+import { withVide } from "../src/vide.js";
 
 // Saturday 24/10/2026 at 12:05 in La Réunion, the morning of a day of mobilisation (gilets jaunes, « vie chère »): Imaz
 // Press runs a live blog, the prefecture has published its report of the night.
@@ -134,7 +135,10 @@ describe("actualités", () => {
   });
 
   it("says when nothing names a place, without saying nothing happens there", async () => {
-    const b = body(await actualites(cache(), "Cilaos", undefined, undefined, NOW));
+    const { value, vide } = await withVide("actualites", () => actualites(cache(), "Cilaos", undefined, undefined, NOW));
+    const b = body(value);
+    // Counted as a question left without an answer (vide.ts).
+    expect(vide).toBe(true);
     expect(b.resume).toMatch(/^Aucune information des médias lus ne mentionne Cilaos depuis hier à 12:05\./);
     expect(b.infos).toEqual([]);
     expect(b.a_savoir).toMatch(/ne prouve pas qu'il ne s'y passe rien/);

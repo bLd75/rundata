@@ -118,9 +118,10 @@ export async function handle(request: Request, cache: Cache, background: Backgro
       watching.done(405, "Method not allowed.");
       return withCors(notAllowed());
     }
-    // Tool calls are recorded by `watching`, with more than the server knows.
+    // Tool calls are recorded by `watching`, with more than the server knows; the server says which found nothing.
     const server = createServer(cache, (hit) => {
       if (hit.kind !== "mcp") record(hit);
+      else if (hit.outcome === "vide" && hit.id !== undefined) watching.vide(hit.id);
     }, background);
     // The tools never change while the server runs, and a stateless server could not send the notification anyway.
     server.server.registerCapabilities({ tools: { listChanged: false } });

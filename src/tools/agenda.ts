@@ -16,6 +16,7 @@ import { a, credits, de, enumeration, notFound, placeBlock, text } from "./forma
 import { type Injoignable, injoignable } from "./injoignable.js";
 import { dayMonth, mention, mentionIle as ileMention, mentionReunionFr, mentionSalles, mentionSports, RESUME_REUNION_FR } from "./non-repris.js";
 import { quand as dayText, derniereLecture } from "./sport.js";
+import { rienTrouve } from "../vide.js";
 
 const AHEAD_DAYS = 14;
 const SOON_DAYS = 30;
@@ -682,6 +683,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const where = commune ? a(commune) : "à La Réunion";
   const kind = what?.nom ? ` (${what.nom})` : "";
   const n = mine.length;
+  if (!n) rienTrouve("evenements");
   const covered = !commune || src.COVERED.includes(commune);
   // A commune read only through its mairie's news: said, so that a short list is not taken for its whole agenda.
   const partly = commune ? partial.find((x) => x.commune === commune && !towns.some((y) => (y.couvre ?? [y.commune]).includes(commune))) : undefined;

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { office } from "../src/providers/annuaire.js";
 import { annuaireTool, hoursText, named, openNow } from "../src/tools/annuaire.js";
+import { withVide } from "../src/vide.js";
 
 // A search for « mairie » in the 974 entries of service-public.fr's directory, 23/10/2026.
 const offices = JSON.parse(readFileSync(new URL("./fixtures/annuaire_mairie.json", import.meta.url), "utf8")).results.map(office);
@@ -48,5 +49,17 @@ describe("public services directory", () => {
     const cache = new Cache(store, () => now.getTime());
     expect(body(await annuaireTool(cache, "défibrillateur", undefined, now)).page).toBe("https://rundata.re/defibrillateurs");
     expect(body(await annuaireTool(cache, "mairie", undefined, now)).page).toBeUndefined();
+  });
+
+  it("counts a word that finds no service as a question left without an answer, and only that", async () => {
+    const now = new Date("2026-10-22T06:00:00Z");
+    const store = new MemoryStore();
+    void store.put("annuaire:974:observatoire", { value: [], fetchedAt: now.getTime() });
+    void store.put("annuaire:974:mairie", { value: offices, fetchedAt: now.getTime() });
+    const cache = new Cache(store, () => now.getTime());
+    const none = await withVide("annuaire_services_publics", () => annuaireTool(cache, "observatoire", undefined, now));
+    expect(body(none.value).resume).toBe("Aucun service public trouvé à La Réunion pour « observatoire ».");
+    expect(none.vide).toBe(true);
+    expect((await withVide("annuaire_services_publics", () => annuaireTool(cache, "mairie", undefined, now))).vide).toBe(false);
   });
 });

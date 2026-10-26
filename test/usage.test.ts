@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { counted } from "../src/budget.js";
-import { Cache } from "../src/cache.js";
-import { audience, category, device, feedReader, language, point, teamVisit, visitor, type Hit } from "../src/metrics.js";
+import { Cache, MemoryStore } from "../src/cache.js";
+import { audience, category, device, feedReader, FROM_SITE, language, origin, point, teamVisit, visitor, type Hit } from "../src/metrics.js";
 import { answer, asked, understood } from "../src/usage.js";
+import { rienTrouve, withVide } from "../src/vide.js";
 
 const post = (body: unknown, headers: Record<string, string> = {}) =>
   new Request("https://rundata.re/mcp", {
@@ -98,6 +99,18 @@ describe("MCP endpoint, as recorded", () => {
     expect(garbage.hits).toMatchObject([{ kind: "rpc", name: "POST", outcome: "http 400", message: "Parse error: Invalid JSON" }]);
   });
 
+  it("records « vide » a call that found nothing, still answered without error", async () => {
+    const store = new MemoryStore();
+    void store.put("annuaire:974:observatoire", { value: [], fetchedAt: Date.now() });
+    const call = (id: number, quoi: string) => post({ jsonrpc: "2.0", id, method: "tools/call", params: { name: "annuaire_services_publics", arguments: { quoi } } });
+    const hits: Hit[] = [];
+    await handle(call(4, "observatoire"), new Cache(store), () => {}, (h) => hits.push(h));
+    expect(hits).toMatchObject([{ kind: "mcp", name: "annuaire_services_publics", outcome: "vide", ok: true }]);
+    // The server's word is joined to the call by its id; it is not a hit of its own.
+    expect(hits).toHaveLength(1);
+    expect(hits[0].id).toBeUndefined();
+  });
+
   it("answers GET with 405 at once, and records it", async () => {
     const { hits, response } = await hitsOf(new Request("https://rundata.re/mcp", { headers: { accept: "text/event-stream" } }));
     expect(response.status).toBe(405);
@@ -113,7 +126,33 @@ describe("MCP endpoint, as recorded", () => {
   });
 });
 
+describe("Questions left without an answer", () => {
+  it("counts the mark of the tool called only, never one of a tool it gathers", async () => {
+    const gathering = await withVide("resume_du_jour", async () => {
+      rienTrouve("evenements");
+      return 1;
+    });
+    expect(gathering).toEqual({ value: 1, vide: false });
+    expect((await withVide("evenements", async () => rienTrouve("evenements"))).vide).toBe(true);
+    // A page built from the same code: nothing to mark, nothing thrown.
+    expect(() => rienTrouve("evenements")).not.toThrow();
+  });
+});
+
 describe("Page views and the data point", () => {
+  it("writes where a page view came from: the campaign's channel, a page of the site, another site", () => {
+    const page = new URL("https://rundata.re/meteo");
+    expect(origin("https://www.google.com/", page)).toBe("www.google.com");
+    // From a page of the site: the visit's next page, never its way in.
+    expect(origin("https://rundata.re/", page)).toBe(FROM_SITE);
+    expect(FROM_SITE).toBe("interne");
+    expect(origin(null, page)).toBe("");
+    expect(origin("pas une adresse", page)).toBe("");
+    // The channel of a shared link wins over the referer, cleaned of what is not a word.
+    expect(origin("https://m.facebook.com/", new URL("https://rundata.re/?ref=fbg-radar974"))).toBe("ref:fbg-radar974");
+    expect(origin("https://rundata.re/", new URL("https://rundata.re/?ref=fb%3Cx%3E"))).toBe("ref:fbx");
+  });
+
   it("tells a person from a script dressed as a browser", () => {
     const chrome = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36";
     expect(audience(new Headers({ "user-agent": chrome, "accept-language": "fr-FR,fr;q=0.9", "sec-fetch-mode": "navigate" }))).toBe("humain");

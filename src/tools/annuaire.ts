@@ -12,6 +12,7 @@ import { decheteriesAnswer, WASTE } from "./decheteries.js";
 import { CHILDREN, enfantsAnswer } from "./enfants.js";
 import { MARKET, marchesAnswer } from "./marches.js";
 import { EMERGENCY, PHARMACY, pharmaciesAnswer, urgencesAnswer } from "./sante.js";
+import { rienTrouve } from "../vide.js";
 
 // Asked of the annuaire, a defibrillator is not an office: its link is the page of the devices.
 const DEFIBRILLATOR = /d[ée]fibrillateur|\bdae\b/i;
@@ -90,6 +91,7 @@ export async function annuaireTool(cache: Cache, quoi: string, lieu: string | un
     return { ...text({ erreur: "L'annuaire de l'administration ne répond pas pour le moment.", consulter: annuaire.SOURCE.url }), isError: true };
   }
   if (!found.length) {
+    rienTrouve("annuaire_services_publics");
     return text({
       resume: `Aucun service public trouvé à La Réunion pour « ${quoi} ».`,
       conseil: "Essayer un autre mot : mairie, CAF, préfecture, impôts, France Travail, tribunal, CPAM…",

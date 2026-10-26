@@ -11,7 +11,7 @@ import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, rea
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
 import { toutesLesSources, VERSION } from "./server.js";
-import { audience, device, language, point, TEAM, teamVisit, visitor, type Hit } from "./metrics.js";
+import { audience, device, language, origin, point, TEAM, teamVisit, visitor, type Hit } from "./metrics.js";
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
@@ -123,14 +123,8 @@ function recorder(env: Env, request: Request) {
   const team = teamVisit(headers, new URL(request.url));
   const who = team ? TEAM : visitor(headers.get("user-agent") ?? "");
   const country = String((request as { cf?: { country?: unknown } }).cf?.country ?? "");
-  let from = "";
-  try {
-    const ref = new URL(headers.get("referer") ?? "");
-    if (ref.host !== new URL(request.url).host) from = ref.host;
-  } catch {}
-  // A link shared by the campaign carries its channel (« ?ref=fb », « ?ref=presse-zinfos »): it wins over the referer.
-  const tag = new URL(request.url).searchParams.get("ref")?.replace(/[^\w.-]/g, "").slice(0, 40);
-  if (tag) from = `ref:${tag}`;
+  // The campaign's channel, a page of the site (« interne ») or the referring site (metrics.ts, origin).
+  const from = origin(headers.get("referer"), new URL(request.url));
   return (hit: Hit) => {
     if (hit.kind === "mcp" || hit.kind === "rpc") console.log(logLine(hit, who, country));
     if (!usage) return;

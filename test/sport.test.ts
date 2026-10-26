@@ -10,6 +10,7 @@ import { clubOf, clubsNamed, zoneOf } from "../src/sport/clubs.js";
 import { quand, sportTool, window } from "../src/tools/sport.js";
 import { sportPage } from "../src/web/domains.js";
 import type { SportAnswer } from "../src/web/data.js";
+import { withVide } from "../src/vide.js";
 
 // The communes' sites read, as once they have agreed (test/autorisations.test.ts for what is said until then).
 vi.mock("../src/providers/autorisations.js", () => import("./autorisees.js"));
@@ -143,7 +144,10 @@ describe("sport", () => {
     });
     expect(b.a_venir.find((r: { epreuve: string }) => r.epreuve === "TGV – VBSP")).toMatchObject({ commune: "Le Tampon", deplacement: "club de Saint-Pierre en déplacement au Tampon" });
     // « volley dimanche dans le sud »: none is played in the south; the Tampon plays at Saint-Paul and Saint-Denis.
-    const s = body(await sportTool(cache(), "volley", "le sud", "dimanche", NOW));
+    const away = await withVide("sport", () => sportTool(cache(), "volley", "le sud", "dimanche", NOW));
+    const s = body(away.value);
+    // Its clubs playing away are an answer: not counted as a question left without one (vide.ts).
+    expect(away.vide).toBe(false);
     expect(s.resume).toBe("Aucun rendez-vous de volley-ball trouvé dans le Sud dimanche 25/10\u00a0; 2 matchs de clubs du Sud à l'extérieur.");
     expect(s.a_venir.map((r: { epreuve: string; commune: string }) => `${r.epreuve} (${r.commune})`)).toEqual(["USAB 3 – TGV 2 (Saint-Paul)", "SDOVB 2 – TGV 2A (Saint-Denis)"]);
     const club = body(await sportTool(cache(), undefined, "VBSP", "a_venir", NOW));
