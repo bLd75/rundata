@@ -1091,16 +1091,15 @@ export function cruesLive(data: Cached<CruesAnswer> | null, now: Date): Live | u
   const d = data?.value;
   if (!d) return undefined;
   const raised = floodRaised(d);
-  if (raised.length) return lue({ valeur: vg(FLOOD_VG[raised[0].couleur]), detail: esc(`${raised.slice(0, 2).map((r) => r.nom).join(", ")}${raised.length > 2 ? "…" : ""}, d'après Vigicrues Réunion`) }, data!, now);
+  if (raised.length) return lue({ valeur: vg(FLOOD_VG[raised[0].couleur]), detail: esc(`${raised.slice(0, 2).map((r) => r.nom).join(", ")}${raised.length > 2 ? "…" : ""}`) }, data!, now);
   const fresh = d.stations.filter(upToDate);
   const rising = fresh.filter((s) => s.tendance_30_min === "en hausse");
   const levels = !fresh.length
-    ? "aucune station n'a de mesure récente"
+    ? "Aucune station n'a de mesure récente"
     : rising.length
-      ? `en hausse : ${rising.slice(0, 2).map((s) => s.station).join(", ")}${rising.length > 2 ? "…" : ""}`
-      : `aucune des ${fresh.length} stations à jour en hausse`;
-  if (!d.vigilance_crues) return lue({ valeur: "Vigilance non lue", detail: esc(levels.charAt(0).toUpperCase() + levels.slice(1)) }, data!, now);
-  return lue({ valeur: vg(1), detail: esc(`D'après Vigicrues Réunion\u00a0; ${levels}`) }, data!, now);
+      ? `En hausse : ${rising.slice(0, 2).map((s) => s.station).join(", ")}${rising.length > 2 ? "…" : ""}`
+      : `Aucune des ${fresh.length} stations à jour en hausse`;
+  return lue({ valeur: d.vigilance_crues ? vg(1) : "Vigilance non lue", detail: esc(levels) }, data!, now);
 }
 
 // ---------------------------------------------------------------- bornes de recharge
