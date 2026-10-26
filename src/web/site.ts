@@ -108,6 +108,8 @@ import * as traces from "../providers/traces.js";
 import { SECTEURS, secteurOf } from "../traces/secteurs.js";
 import { secteurPage } from "./randonnees.js";
 import { aProposPage, llmsTxt } from "./a-propos.js";
+import { PATH as VALEURS, valeursPage } from "./valeurs.js";
+import { ouvrirDonneesPage, PATH as GUIDE } from "./ouvrir-donnees.js";
 import { PATH as SANS_REPONSE, sansReponsePage } from "./sans-reponse.js";
 import { chiffres, type Copie, KEY as CHIFFRES_KEY, PATH as CHIFFRES } from "../chiffres.js";
 import { chiffresPage } from "./chiffres.js";
@@ -301,7 +303,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
     // The busiest stops only (scripts/build-transit.py): the others' pages are not indexed.
     ...[...transit.stopPages().values()].filter((p) => p.indexe).map((p) => live(`${STOP_PATH}/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
-    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
+    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", VALEURS, GUIDE, "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
     ...(formulaires.enLigne() ? [live(ASSOCIATIONS_PATH), fixed(formulaires.PROPOSER_PATH)] : []),
     ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], [SANS_REPONSE, undefined, "daily"], live(CHIFFRES), ["/carburants", fuelDay ? (fuelDay < today ? fuelDay : today) : undefined, "daily"],
     // The fires' page only once FIRMS's key is there: before, it says the detection is not active.
@@ -545,6 +547,14 @@ async function pages(request: Request, cache: Cache, background: Background, now
   // Who makes the site, and the connector's page for a browser (app.ts sends only those here): nothing read but the vigilance's banner.
   if (path === "/a-propos" || path === "/a-propos/") {
     return new Response(aProposPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
+  // What rundata.re stands for: nothing read but the vigilance's banner, as /a-propos.
+  if (path === VALEURS || path === `${VALEURS}/`) {
+    return new Response(valeursPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
+  // The guide to publishing one's information openly: the same.
+  if (path === GUIDE || path === `${GUIDE}/`) {
+    return new Response(ouvrirDonneesPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
   // rundata.re en chiffres: what the code counts, and the last copy of what the sources do (chiffres.ts); never a source.
   if (path === CHIFFRES || path === `${CHIFFRES}/`) {

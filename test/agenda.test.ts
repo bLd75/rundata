@@ -886,7 +886,7 @@ describe("agenda", () => {
     expect(copy.resume).not.toContain("reunion.fr");
     expect(copy.non_repris).toBeUndefined();
     const html = agendaPage("https://rundata.re", { value: copy, fetchedAt: NOW, stale: false }, NOW);
-    expect(html).toContain(`<p class="note">${noteReunionFr()}</p>`);
+    expect(html).toContain(`<p class="note">${noteReunionFr()}\u00a0·\u00a0<a href="/ouvrir-ses-donnees#licence">Comment permettre la reprise</a></p>`);
     expect(html.match(/<meta name="description" content="([^"]*)">/)![1]).not.toContain("reunion.fr");
     // A copy built before: its events and its credit left out.
     expect(repris({ publie_par: "reunion.fr" })).toBe(false);

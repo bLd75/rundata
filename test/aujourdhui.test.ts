@@ -67,7 +67,7 @@ describe("the page of a commune's day", () => {
     const said = mention("courant", p.nom)!;
     expect(said).toMatch(/^Les mentions légales du site de la commune de Sainte-Suzanne .* avis de coupure d'électricité/);
     const html = aujourdhuiPage("https://rundata.re", p, resume(p, full(p.nom) as never, NOW), null);
-    expect(html).toContain(`(payant)</li></ul><p class="note">${esc(said)}</p></div>`);
+    expect(html).toContain(`(payant)</li></ul><p class="note">${esc(said)} <a href="/ouvrir-ses-donnees#licence">Comment permettre la reprise</a></p></div>`);
     const paul = pageOf("saint-paul")!;
     expect(mention("courant", paul.nom)).toBeUndefined();
     expect(aujourdhuiPage("https://rundata.re", paul, resume(paul, full(paul.nom) as never, NOW), null)).not.toContain("avis de coupure d&#39;électricité");
