@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { firstSentence, merge, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
+import { firstSentence, merge, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
 import { actualites, quand } from "../src/tools/actualites.js";
 import { actualitesPage } from "../src/web/domains.js";
 import { buildActualites } from "../src/web/data.js";
@@ -26,6 +26,14 @@ function file(url: string): string | undefined {
 }
 
 describe("actualités", () => {
+  it("puts the volcano's « phase de vigilance » under the volcano, not the weather, unless a word of the weather says it too", () => {
+    // Freedom, 26/10 at 16:45, its title and summary.
+    expect(sujetsOf("Piton de la Fournaise : réouverture partielle de l’Enclos et retour en phase de vigilance ce lundi Constatant une nette diminution de l’activité sous le massif du Piton de la Fournaise, la préfecture de La Réunion a acté l’assouplissement du dispositif ORSEC Volcan.")).toEqual(["volcan", "politique"]);
+    expect(sujetsOf("Cratère Dolomieu : retour en phase de vigilance")).toEqual(["volcan"]);
+    expect(sujetsOf("Vigilance orange fortes pluies dans l'Est")).toEqual(["meteo"]);
+    expect(sujetsOf("Volcan : vigilance, et fortes pluies attendues sur l'Enclos")).toEqual(["meteo", "volcan"]);
+  });
+
   let down: RegExp | undefined;
   let asked: string[];
   beforeEach(() => {

@@ -20,6 +20,17 @@ describe("air quality", () => {
     expect(new Set(list.map((x) => x.insee)).size).toBe(24);
   });
 
+  it("names each commune as the site does, by its INSEE code: the layer's « Petite-Ile » with its accent", async () => {
+    const names = [...new Set(list.map((x) => x.commune))];
+    expect(names).toContain("Petite-Île");
+    expect(names).toContain("L'Étang-Salé");
+    expect(names).toContain("La Plaine-des-Palmistes");
+    expect(names.filter((n) => /Petite-Ile|Etang|Plaine-Des/.test(n))).toEqual([]);
+    expect(body(await qualiteAir(cache(), "Petite-Île", NOW)).resume).toMatch(/^Qualité de l'air aujourd'hui à Petite-Île : /);
+    // A code not in the table keeps the layer's name.
+    expect(parse({ features: [{ properties: { code_zone: "97499", lib_zone: "Ailleurs", date_ech: "2026-10-23", code_qual: 2, date_maj: "" } }] })[0].commune).toBe("Ailleurs");
+  });
+
   it("answers for a place's commune, accents and articles aside", async () => {
     const r = body(await qualiteAir(cache(), "plage de l'Étang-Salé", NOW));
     expect(r.resume).toMatch(/^Qualité de l'air aujourd'hui à L'Étang-Salé : moyen \(2\/6\), surtout ozone/);
