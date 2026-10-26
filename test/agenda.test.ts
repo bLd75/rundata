@@ -218,12 +218,52 @@ describe("agenda", () => {
       const second = await entry(store);
       expect(second?.fetchedAt).toBe(t);
       // Still failing two days on: the copy, no longer served, is said too old in the scheduled event's log (the clubs'
-      // calendar, read every six hours, is read again). Saint-Leu's news, its one event past by then, find nothing:
-      // kept the same way.
+      // calendar, read every six hours, is read again). Saint-Leu's news, its one event past by then, find nothing in
+      // its list of articles: a reading, which replaces their copy.
       t += 49 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", ...MAIRIES.filter((m) => m !== "saint_leu"), "sportsregions"], gardes: ["lrvb", "saint_leu"], reportes: [], trop_vieilles: ["lrvb", "saint_leu"] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", ...MAIRIES, "sportsregions"], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
       expect(await entry(store)).toEqual(second);
+    });
+
+    it("serves a mairie's news an hour and fifty minutes, and replaces them with a reading of its list that finds no event", async () => {
+      let t = NOW.getTime();
+      const store = new MemoryStore();
+      const at = () => new Cache(store, () => t);
+      const CILAOS = ACTUS_MAIRIES.find((a) => a.id === "cilaos")!;
+      const AVC = "Journée de prévention de l’AVC à Cilaos le 28 octobre 2026";
+      const copy = async () => ((await store.get("agendas:planifies"))?.value as Record<string, CacheEntry> | undefined)?.["agenda:cilaos"];
+      const said = async () => body(await agenda(at(), "Cilaos", undefined, undefined, new Date(t)));
+      let site: (() => Response) | undefined;
+      const base = globalThis.fetch;
+      vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => (new URL(url).hostname === "ville-cilaos.fr" && site ? site() : base(url, init)));
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      await refreshPlanned(at(), NOW);
+      expect(titles(await said())).toContain(AVC);
+      // Its site down: served for an hour and fifty minutes after its last reading, then no longer, said with that
+      // reading, never kept for 48 hours.
+      site = () => new Response("", { status: 503 });
+      t += 65 * 60_000;
+      expect((await refreshPlanned(at(), new Date(t))).gardes).toEqual(["cilaos"]);
+      t += 40 * 60_000;
+      expect(titles(await said())).toContain(AVC);
+      t += 10 * 60_000;
+      const late = await said();
+      expect(titles(late)).not.toContain(AVC);
+      expect(late.non_lus).toContain(`${CILAOS.nom} : dernière lecture le ${quand(toLocal(NOW.toISOString()))}`);
+      // A page that is not its list of articles (a maintenance page) is no reading: the copy kept.
+      site = () => new Response("<html><body>Site en maintenance</body></html>");
+      t += 10 * 60_000;
+      expect((await refreshPlanned(at(), new Date(t))).gardes).toEqual(["cilaos"]);
+      expect(((await copy())?.value as unknown[]).length).toBe(1);
+      // Its list read again, the article taken off: the copy replaced at once, nothing served, nothing said missing.
+      site = () => Response.json([]);
+      t += 65 * 60_000;
+      expect((await refreshPlanned(at(), new Date(t))).lus).toContain("cilaos");
+      expect([((await copy())?.value as unknown[]).length, (await copy())?.fetchedAt]).toEqual([0, t]);
+      const after = await said();
+      expect(titles(after)).not.toContain(AVC);
+      expect(after.non_lus ?? []).not.toContainEqual(expect.stringContaining(CILAOS.nom));
     });
 
     it("writes when it failed even if it read nothing else, so that the next scheduled events, in other isolates, do not try again", async () => {
