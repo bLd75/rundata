@@ -29,7 +29,10 @@ function withCors(r: Response): Response {
   return new Response(r.body, { status: r.status, statusText: r.statusText, headers });
 }
 
-const CHECKER = /^rundata-check\//;
+// The team's scripts: the daily check (bin/check-sources.ts, « rundata-check/1 »), and the team's own reads, asked to send
+// « rundata-check/<name> » but often written « rundata-check », « rundata-verif » or « Mozilla/5.0 rundata-check ».
+// « rundata-interne » is a team visit, counted apart as such (metrics.ts), not one of these.
+const CHECKER = /(?:^|[\s(;])rundata-(?!interne)/i;
 
 /**
  * Short addresses for the links shared on a channel (Instagram's bio sends no referer): each sends the visitor to the
@@ -81,7 +84,7 @@ export async function handle(request: Request, cache: Cache, background: Backgro
   // « /ig », « /ig/ » and « /IG » alike: typed by hand as often as clicked.
   const shortcut = SHORTCUTS[url.pathname.replace(/(.)\/$/, "$1").toLowerCase()];
   if (shortcut) return new Response(null, { status: 302, headers: { location: `/?ref=${shortcut}` } });
-  // The daily check of the sources (bin/check-sources.ts) is not a visitor: not counted.
+  // The team's scripts are not visitors: not counted.
   if (CHECKER.test(request.headers.get("user-agent") ?? "")) record = () => {};
   // A browser opening the connector's address gets the page that explains it (web/connecteur.ts); the clients, the endpoint.
   if (url.pathname === "/mcp" && !wantsPage(request)) {
