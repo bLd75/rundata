@@ -1498,14 +1498,16 @@ const KEPT_VIGILANCE_MS = 3600_000;
  */
 export async function vigilanceNow(cache: Cache, background: Background, waitMs: number, now = new Date()): Promise<Cached<mf.Vigilance> | null> {
   if (!mf.enabled()) return null;
+  const started = Date.now();
   const work = mf.vigilance(cache);
   try {
     const got = await within(work, waitMs);
     if (got) return got;
-    background(work.catch(() => undefined));
     const since = now.getTime() - KEPT_VIGILANCE_MS;
-    const kept = await cache.peek<mf.Vigilance>(mf.KEY, since).catch(() => undefined);
-    return kept && kept.fetchedAt.getTime() > since ? { ...kept, stale: true } : null;
+    const peeked = await cache.peek<mf.Vigilance>(mf.KEY, since).catch(() => undefined);
+    const kept = peeked && peeked.fetchedAt.getTime() > since ? peeked : undefined;
+    background(lateRead(mf.SOURCE.id, work, started, waitMs, kept?.fetchedAt));
+    return kept ? { ...kept, stale: true } : null;
   } catch (err) {
     console.error(`source ${mf.SOURCE.id} indisponible:`, why(err));
     return null;
@@ -1517,12 +1519,14 @@ export async function vigilanceNow(cache: Cache, background: Background, waitMs:
  * being served meanwhile, as old as it is: it says its day. Null without one.
  */
 export async function cycloneDecisionNow(cache: Cache, background: Background, waitMs: number): Promise<Cyclone | null> {
+  const started = Date.now();
   const work = prefecture.cyclone(cache);
   try {
     const got = await within(work, waitMs);
     if (got) return got.value;
-    background(work.catch(() => undefined));
-    return (await prefecture.keptCyclone(cache))?.value ?? null;
+    const kept = await prefecture.keptCyclone(cache);
+    background(lateRead(prefecture.SOURCE.id, work, started, waitMs, kept?.value ? kept.fetchedAt : undefined));
+    return kept?.value ?? null;
   } catch (err) {
     console.error(`source ${prefecture.SOURCE.id} indisponible:`, why(err));
     return null;
@@ -1539,6 +1543,20 @@ export async function alerte(cache: Cache, background: Background, now = new Dat
     console.error("vigilance : bandeau impossible", why(err));
     return undefined;
   }
+}
+
+/**
+ * The line that says a source was later than a page waited for it (`waitMs`), what the page was given instead (the
+ * read kept from `kept`, or nothing), and how long the source took in the end: to count how often a kept read stands in.
+ */
+function lateRead(source: string, work: Promise<unknown>, started: number, waitMs: number, kept: Date | undefined): Promise<void> {
+  const served = kept ? `lecture gardée du ${localTime(kept)} servie` : "aucune lecture gardée servie";
+  const line = (end: string) => `source ${source} trop lente : ${served}, ${end} après ${Date.now() - started} ms (attente ${waitMs} ms)`;
+  // A source that fails with a read kept answers that read, stale.
+  return work.then(
+    (got) => console.warn(line((got as { stale?: boolean } | null)?.stale ? "échec" : "lue")),
+    (err) => console.warn(line("échec"), why(err)),
+  );
 }
 
 /** `work`, or null if it takes longer than `ms`. */

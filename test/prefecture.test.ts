@@ -218,6 +218,7 @@ describe("the day of the prefecture's cyclone release, never an hour made up", (
       throw new Error("timeout");
     });
     vi.spyOn(console, "error").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const late = async (durable: MemoryStore) => {
       const pending: Promise<unknown>[] = [];
       const got = await cycloneDecisionNow(new Cache(new MemoryStore(), () => NOW.getTime(), true, durable), (p) => void pending.push(p), 50);
@@ -228,6 +229,9 @@ describe("the day of the prefecture's cyclone release, never an hour made up", (
     await durable.put("cyclone:prefecture:derniere-decision", { value: kept, fetchedAt: NOW.getTime() - 26 * 3600_000 });
     // A day old and more: served all the same, since it says its day.
     expect(await late(durable)).toEqual(kept);
+    // The prefecture failed in the end: said, with the decision kept that stood in.
+    expect(String(warn.mock.calls[0][0])).toMatch(/^source prefecture_communiques trop lente : lecture gardée du 23\/10 12:00 servie, échec après \d+ ms \(attente 50 ms\)$/);
     expect(await late(new MemoryStore())).toBeNull();
+    expect(String(warn.mock.calls[1][0])).toMatch(/^source prefecture_communiques trop lente : aucune lecture gardée servie, échec après/);
   });
 });
