@@ -265,7 +265,7 @@ const DOMAIN_PAGES: Record<string, Page> = {
   "/decheteries": { subrequests: 12, cpuMs: 30, from: ["src/tools/decheteries.ts"] },
   "/cyclones": { subrequests: 27, cpuMs: 50, from: ["src/tools/cyclones.ts"] },
   // The tool without a place: the vigilance, the levels and the flows of every gauge, three posts.
-  "/crues": { subrequests: 9, cpuMs: 30, from: ["src/tools/crues.ts"] },
+  "/crues": { subrequests: 9, cpuMs: 30, from: ["src/tools/crues.ts"], basis: "estimé" },
   "/historique": { subrequests: 15, cpuMs: 70, from: ["src/tools/historique.ts"] },
   "/evenements": { subrequests: 54, cpuMs: 200, from: ["src/tools/agenda.ts"] },
   "/evenements/ce-week-end": { subrequests: 36, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },

@@ -903,7 +903,7 @@ export function velosLive(data: Cached<VelosAnswer> | null, now = new Date()): L
 
 // Vigicrues Réunion's colours, the worst first; « indisponible » last.
 const FLOOD_ORDER = ["rouge", "orange", "jaune", "vert", "indisponible"];
-const FLOOD_COLOR: Record<string, string> = { rouge: "#f03e3e", orange: "#ff922b", jaune: "#ffd43b", vert: "#2b8a3e" };
+const FLOOD_COLOR: Record<string, string> = { rouge: "#f03e3e", orange: "#ff922b", jaune: "#ffd43b", vert: "#69db7c" };
 // The map's markers: what the gauge measured, never the vigilance (its red and yellow are left to it).
 const GAUGE_COLOR = { hausse: "#e8590c", calme: "#1c7ed6", muette: "#868e96" };
 const floodBadge = (c: string) => `<span class="lvl" style="--c:${FLOOD_COLOR[c] ?? "#868e96"}">${esc(c)}</span>`;
@@ -970,13 +970,13 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
   // The rivers under vigilance, the worst first; Vigicrues Réunion's order within a colour.
   const rivers = [...(v?.rivieres ?? [])].sort((a, b) => FLOOD_ORDER.indexOf(a.couleur) - FLOOD_ORDER.indexOf(b.couleur));
   const riverLi = (r: { nom: string; couleur: string; precedente: string }) =>
-    `<li><span>${esc(r.nom)}</span><span>${floodBadge(r.couleur)}${r.couleur !== r.precedente ? ` <span class="note">(${esc(r.precedente)} au bulletin précédent)</span>` : ""}</span></li>`;
+    `<li><span>${esc(r.nom)}${r.couleur !== r.precedente ? `<small>(${esc(r.precedente)} au bulletin précédent)</small>` : ""}</span><span>${floodBadge(r.couleur)}</span></li>`;
   const allGreen = rivers.length > 0 && rivers.every((r) => r.couleur === "vert");
   const riverList = !rivers.length
     ? ""
     : allGreen
-      ? `<details class="card"><summary>Les ${rivers.length} rivières suivies, toutes au vert d'après Vigicrues Réunion</summary><ul class="rows">${rivers.map(riverLi).join("")}</ul></details>`
-      : `<div class="card"><ul class="rows">${rivers.map(riverLi).join("")}</ul></div>`;
+      ? `<details class="card"><summary>Les ${rivers.length} rivières suivies, toutes au vert d'après Vigicrues Réunion</summary><ul class="rows eau">${rivers.map(riverLi).join("")}</ul></details>`
+      : `<div class="card"><ul class="rows eau">${rivers.map(riverLi).join("")}</ul></div>`;
 
   // A group's colour, only when every river of the vigilance with that name agrees (the grande and the petite rivière
   // Saint-Jean have one gauge between them) and it is not green.
@@ -989,7 +989,7 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
   const gauges = d
     ? `<ul class="zones">${groups.map((g) => {
         const c = colourOf(g.riviere);
-        return `<li class="card"><h3>${esc(g.riviere)}${c ? ` ${floodBadge(c)}` : ""}</h3><ul class="rows">${g.stations.map((s) => gaugeRow(s, read)).join("")}</ul></li>`;
+        return `<li class="card"><h3>${esc(g.riviere)}${c ? ` ${floodBadge(c)}` : ""}</h3><ul class="rows eau">${g.stations.map((s) => gaugeRow(s, read)).join("")}</ul></li>`;
       }).join("")}</ul>`
     : "";
 

@@ -80,7 +80,7 @@ describe("the /crues page", () => {
     expect(w).toContain("Vigilance crues orange pour rivière des Galets, d'après Vigicrues Réunion (bulletin n° 3 du 24/10 à 03:30).");
     expect(w).toContain("Ce que dit le bulletin : « Fortes pluies sur l'ouest. »");
     expect(w).toContain("À venir : « Hausse attendue cet après-midi. »");
-    expect(w).toContain("rivière des Galets orange (vert au bulletin précédent)");
+    expect(w).toContain("rivière des Galets (vert au bulletin précédent) orange");
     expect(w).toMatch(/rivière des Galets orange [^]*?Galets/);
     expect(w).not.toContain("toutes au vert");
   });

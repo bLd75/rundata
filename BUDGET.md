@@ -126,6 +126,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /sport | la page /sport | à chaque vue |  | 42 |  |  |  |  |  | 120 | mesuré |
 | /decheteries | la page /decheteries | à chaque vue |  | 12 |  |  |  |  |  | 30 | mesuré |
 | /cyclones | la page /cyclones | à chaque vue |  | 27 |  |  |  |  |  | 50 | mesuré |
+| /crues | la page /crues | à chaque vue |  | 9 |  |  |  |  |  | 30 | estimé |
 | /historique | la page /historique | à chaque vue |  | 15 |  |  |  |  |  | 70 | mesuré |
 | /evenements | la page /evenements | à chaque vue |  | 54 |  |  |  |  |  | 200 | mesuré |
 | /evenements/ce-week-end | comme /evenements, une partie de sa copie | à chaque vue |  | 36 |  |  |  |  |  | 230 | mesuré |
@@ -232,6 +233,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | /sport | providers/agenda, providers/avis-eau, providers/salles, providers/sport-avis, providers/sport |
 | /decheteries | providers/tco |
 | /cyclones | providers/actualites, providers/avis-eau, providers/cyclones, providers/feux, providers/mf-auth, providers/prefecture, providers/vigilance |
+| /crues | providers/vigicrues |
 | /historique |  |
 | /evenements | providers/actualites, providers/agenda, providers/avis-eau, providers/salles, providers/sport-avis, providers/sport |
 | /evenements/ce-week-end | providers/actualites, providers/agenda, providers/avis-eau, providers/salles, providers/sport-avis, providers/sport |
