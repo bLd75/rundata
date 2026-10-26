@@ -127,7 +127,7 @@ describe("the halls and the sports sites whose terms forbid taking their informa
     expect([golf.resume, golf.non_repris, golf.a_venir, golf.non_lus]).toEqual([GOLF, CLUBS, undefined, undefined]);
     const all = body(await sportTool(c, undefined, undefined, "a_venir", NOW));
     expect(all.non_repris).toContain(TROIS);
-    expect(sportPage("https://rundata.re", { value: { ...all, classements: [] }, fetchedAt: NOW, stale: false }, NOW)).toContain(`<p class="note">${TROIS.replace(/'/g, "&#39;")}</p>`);
+    expect(sportPage("https://rundata.re", { value: { ...all, classements: [] }, fetchedAt: NOW, stale: false }, NOW)).toContain(`<p class="note">${TROIS.replace(/'/g, "&#39;")} <a href="/ouvrir-ses-donnees#licence">Comment permettre la reprise</a></p>`);
     expect(urls.filter((u) => /teat|citedesarts|kabardock|bisik|theatrelucdonat|cdnoi|lespas|sportsregions|ffgolf|ffvoile/.test(u))).toEqual([]);
   });
 

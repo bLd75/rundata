@@ -36,6 +36,7 @@ import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, fenetre, hikesMap, islandMap, type Marker, oceanMap, profile, traceMap, type ZoneLink } from "./map.js";
+import { reprise } from "./ouvrir-donnees.js";
 import { cloudSeaLink, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
@@ -537,7 +538,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
   const cuts = c
     ? `<section id="coupures" aria-labelledby="h-coupures">
   <div class="sec-h"><h2 id="h-coupures">Coupures d'électricité annoncées par les mairies</h2>
-  ${c.a_savoir ? `<p>${esc(c.a_savoir)}</p>` : ""}${c.non_repris ? `<p>${esc(c.non_repris)}</p>` : ""}${c.depannage ? `<p><b>${esc(c.depannage)}</b></p>` : ""}</div>
+  ${c.a_savoir ? `<p>${esc(c.a_savoir)}</p>` : ""}${c.non_repris ? `<p>${esc(c.non_repris)}${reprise(c.non_repris)}</p>` : ""}${c.depannage ? `<p><b>${esc(c.depannage)}</b></p>` : ""}</div>
   ${(c.injoignable ?? []).map((s) => `<p class="note">${silentText(s)}</p>`).join("")}
   ${c.avis?.length
     ? `<div class="card"><ul class="plain">${c.avis.map(courantItem).join("")}</ul></div>`
@@ -2293,7 +2294,7 @@ ${d?.programmes_communes?.length || d?.non_repris ? `<section aria-labelledby="h
   ${d.programmes_communes?.length ? `<p>${esc(d.programmes_a_savoir ?? "")}</p>` : ""}</div>
   ${d.programmes_communes?.length ? `<ul class="zones"><li class="card"><ul class="rows eau">${d.programmes_communes.map((p) =>
     `<li><span><a href="${esc(p.lien)}" rel="noopener"${ACCUEILS.has(p.lien) ? ' target="_blank"' : ""}>${esc(p.titre)}</a><small>${esc([p.commune, `Source\u00a0: ${p.source}`].filter(Boolean).join(" · "))}</small></span><span class="q-none">${esc(shortWhen(p.dates))}</span></li>`).join("")}</ul></li></ul>` : ""}
-  ${d.non_repris ? `<p class="card">${esc(d.non_repris)}</p>` : ""}
+  ${d.non_repris ? `<p class="card">${esc(d.non_repris)}${reprise(d.non_repris)}</p>` : ""}
 </section>` : ""}
 ${d?.resultats?.length ? `<section aria-labelledby="h-res">
   <div class="sec-h"><p class="eyebrow">Sept derniers jours</p><h2 id="h-res">Derniers résultats</h2></div>
@@ -2308,7 +2309,7 @@ ${raid}
   <div class="sec-h"><h2 id="h-src">Ce qui n'est pas couvert</h2><p>${d ? esc(d.non_couvert) : ""}</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
   <p class="note">${noteLa1ere("sport")}</p>
-  ${mentionSports(undefined, true).map((x) => `<p class="note">${esc(x)}</p>`).join("")}
+  ${mentionSports(undefined, true).map((x) => `<p class="note">${esc(x)}${reprise(x)}</p>`).join("")}
 </section>
 ${connectorCta("sport", "le sport")}`;
 
@@ -2718,7 +2719,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   <p>Chaque événement renvoie à la page de celui qui le publie. Heures de La Réunion ; un événement de plusieurs jours est rangé au jour où il commence, ou à aujourd'hui s'il a déjà commencé. Un événement annulé ou reporté reste affiché, avec son statut.</p></div>
   ${agendaTabs("/evenements")}
   ${list}
-  ${d?.non_repris ? `<p>${esc(d.non_repris)}</p>` : ""}
+  ${d?.non_repris ? `<p>${esc(d.non_repris)}${reprise(d.non_repris)}</p>` : ""}
   ${clubsLink()}
   ${warnings(agendaNotes(data, now))}
 </section>
@@ -2726,7 +2727,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p>
   <p>Les séances de cinéma sont sur les sites des salles : ${CINEMAS.map((c) => `<a href="${esc(c.lien)}" rel="noopener">${esc(c.nom)}</a>`).join(", ")}.</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
-  <p class="note">${noteReunionFr()}</p>
+  <p class="note">${noteReunionFr()}${reprise(noteReunionFr())}</p>
 </section>
 ${connectorCta("evenements", "les événements de l'île")}`;
 
