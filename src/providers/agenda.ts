@@ -22,10 +22,10 @@
  * and its coverage at once.
  */
 import type { Bundle, Cache, Cached } from "../cache.js";
-import { getBytes, getText, httpUrl } from "../http.js";
+import { getBytes, getJsonHidden, getText, httpUrl, postForm } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
-import type { SourceInfo } from "../types.js";
+import { UpstreamError, type SourceInfo } from "../types.js";
 import { communesIn, strip } from "./avis-eau.js";
 import { annonceEvenement, extrait, lead, monthOf, statusOf, type Statut } from "./agenda-mots.js";
 import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
@@ -116,6 +116,8 @@ export interface Evenement {
   reporte_au?: string;
   /** Where to book, when it is not the event's own page. */
   billetterie?: string;
+  /** The words of its booking link, when not « billets » (Weezevent's, named as its agreement asks). */
+  billetterie_texte?: string;
   /** When rundata.re read it, in local time: set by the tool from the agenda's copy, not by the source. */
   lu_le?: string;
   /** « site de la commune du Tampon », when it comes from a commune's site: set by the tool from its agenda. */
@@ -227,6 +229,8 @@ export interface Agenda {
   planifie?: boolean;
   /** For an agenda read by the scheduled event: the seconds its copy is served, when not PLANIFIE_MAX_AGE_SECONDS. */
   garde?: number;
+  /** For one read with an account (Weezevent): false until it is configured, then neither read nor said unread. */
+  actif?: () => boolean;
   /**
    * For an agenda read by the scheduled event: a reading that finds no event replaces the copy, its loader throwing
    * when the page is not read (a mairie's news: its list of articles read, none announcing an event any more).
@@ -1346,6 +1350,148 @@ export const SPORTSREGIONS: Agenda = {
     }),
 };
 
+// ---------------------------------------------------------------- Weezevent: the organisers' calendar
+
+/**
+ * Weezevent's agenda API, read with rundata.re's own account by Weezevent's written agreement (26/10/2026): the public
+ * events each organiser chooses to share there (opt-in). Conditions of that agreement: Weezevent named, its ticketing
+ * link with `ref=rundata`, no buyer's data. Not under an open licence: never in the open data (web/flux-associations.ts).
+ */
+export const WEEZEVENT_SOURCE = {
+  id: "weezevent",
+  nom: "Weezevent, agenda des organisateurs",
+  organisme: "Weezevent",
+  licence: "Pas sous licence ouverte\u00a0: événements publics que chaque organisateur choisit de diffuser dans l'agenda de Weezevent, repris avec l'accord écrit de Weezevent. Ils ne font pas partie de nos données ouvertes.",
+  attribution: "un organisateur, via Weezevent",
+  url: "https://www.weezevent.com/",
+} satisfies SourceInfo;
+
+const WZ_API = "https://api.weezevent.com";
+/** The events asked at most: the doc has no pages, only this cap. */
+const WZ_MAX = 500;
+/** What its events are said to be published by: the API does not name the organiser, and Weezevent only shares them. */
+export const WZ_PUBLIE_PAR = "un organisateur, via Weezevent";
+export const WZ_BILLETTERIE = "Billets et infos sur Weezevent";
+/** Who publishes an event as the site writes it: Weezevent's with its capital, the others as they are (« reunion.fr »). */
+export const parQui = (p: string) => (p === WZ_PUBLIE_PAR ? `${p[0].toUpperCase()}${p.slice(1)}` : p);
+
+interface WzEvent {
+  id: number | string;
+  title?: string;
+  description?: string | null;
+  category?: { name?: string } | null;
+  period?: { start?: string; end?: string } | null;
+  price?: { min?: number | string | null; max?: number | string | null } | null;
+  venue?: { name?: string; address?: string; zip_code?: string; city?: string; coordinates?: { long?: number | string; lat?: number | string } } | null;
+  extras?: { minisite_url?: string } | null;
+}
+
+/** rundata.re's account (Worker secrets); its token, persistent, kept as long as the isolate. */
+let wzCompte: { username: string; password: string; apiKey: string } | undefined;
+let wzJeton: string | undefined;
+
+export function configureWeezevent(c: { username?: string; password?: string; apiKey?: string }) {
+  const next = c.username?.trim() && c.password && c.apiKey?.trim() ? { username: c.username.trim(), password: c.password, apiKey: c.apiKey.trim() } : undefined;
+  if (next?.username !== wzCompte?.username || next?.apiKey !== wzCompte?.apiKey || next?.password !== wzCompte?.password) wzJeton = undefined;
+  wzCompte = next;
+}
+
+export const weezeventEnabled = () => !!wzCompte;
+
+/** « 2026-10-30 21:00:00 », the organiser's wall clock; with an offset, converted to La Réunion's. */
+const wzTime = (s: string) => (/(?:Z|[+-]\d\d:?\d\d)$/.test(s.trim()) ? toLocal(s.trim().replace(" ", "T")) : s.trim().replace(" ", "T").slice(0, 16));
+const euros = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2).replace(".", ",")}\u00a0€`;
+/** Its range of prices, as given; nothing when it gives none, never « gratuit » from a 0. */
+function wzPrix(p: WzEvent["price"]): string | undefined {
+  const min = p?.min == null || p.min === "" ? NaN : Number(p.min);
+  const max = p?.max == null || p.max === "" ? NaN : Number(p.max);
+  if (!(max > 0)) return undefined;
+  return min >= 0 && min < max ? `de ${euros(min)} à ${euros(max)}` : euros(max);
+}
+/** The ticketing page with Weezevent's `ref=rundata`, as its agreement asks. */
+export const avecRef = (url: string) => `${url}${url.includes("?") ? "&" : "?"}ref=rundata`;
+const inReunion = (lon: number, lat: number) => lon > 55.1 && lon < 56 && lat > -21.5 && lat < -20.8;
+
+/** The events of La Réunion (postal code 974) in what `/event/search/` answers. */
+export function parseWeezevent(body: { events?: WzEvent[] | null }): { evenements: Evenement[]; ailleurs: number } {
+  const all = body.events ?? [];
+  const here = all.filter((e) => String(e.venue?.zip_code ?? "").trim().startsWith("974"));
+  const evenements = here.flatMap((e): Evenement[] => {
+    const page = httpUrl(e.extras?.minisite_url);
+    const titre = clean(e.title ?? "");
+    if (!page || !titre || !e.period?.start) return [];
+    const lien = avecRef(page);
+    const debut = wzTime(e.period.start);
+    const fin = e.period.end ? wzTime(e.period.end) : undefined;
+    const v = e.venue!;
+    const lieu = [clean(v.name ?? ""), clean(v.address ?? "")].filter(Boolean).join(", ");
+    const lon = Number(v.coordinates?.long);
+    const lat = Number(v.coordinates?.lat);
+    const prix = wzPrix(e.price);
+    return [{
+      id: `weezevent:${e.id}`,
+      titre,
+      seances: [{ debut, ...(fin && fin !== debut ? { fin } : {}) }],
+      ...(lieu ? { lieu } : {}),
+      commune: communeOf(v.city) ?? communeOf(v.zip_code ? `${v.zip_code} ${v.city ?? ""}` : undefined),
+      ...(inReunion(lon, lat) ? { lon, lat } : {}),
+      ...(prix ? { prix } : {}),
+      categories: e.category?.name ? [clean(e.category.name)] : [],
+      ...extrait(clean(e.description ?? "")),
+      lien,
+      billetterie: lien,
+      billetterie_texte: WZ_BILLETTERIE,
+      publie_par: WZ_PUBLIE_PAR,
+    }];
+  });
+  return { evenements, ailleurs: all.length - here.length };
+}
+
+/** The token of rundata.re's account: asked once, then kept (the API's fair use). */
+async function wzAcces(): Promise<string> {
+  if (wzJeton) return wzJeton;
+  const c = wzCompte!;
+  const r = await postForm<{ accessToken?: string }>(WEEZEVENT_SOURCE.id, `${WZ_API}/auth/access_token`, { username: c.username, password: c.password, api_key: c.apiKey }, TIMEOUT_MS);
+  if (!r.accessToken) throw new Error("weezevent : pas de jeton");
+  return (wzJeton = r.accessToken);
+}
+
+/**
+ * The organisers' calendar on Weezevent: the events they choose to share, those of La Réunion kept. Read by the
+ * scheduled event every six hours: two requests (the token, kept afterwards, and the search). The key and the token
+ * go in the query string: the hooks see the address without them (http.ts, `getJsonHidden`). Without the account
+ * (Node, the tests), nothing is read.
+ */
+export const WEEZEVENT: Agenda = {
+  id: "weezevent",
+  nom: "Billetterie Weezevent (organisateurs de l'île)",
+  source: WEEZEVENT_SOURCE,
+  requetes: 2,
+  planifie: true,
+  relecture: 6 * 3600,
+  actif: weezeventEnabled,
+  load: (cache, now) =>
+    cache.get("agenda:weezevent", 6 * 3600, async () => {
+      if (!wzCompte) return [];
+      const jeton = await wzAcces();
+      const query = new URLSearchParams({ country: "RE", date_start: localDay(now), max_result: String(WZ_MAX) });
+      const shown = `${WZ_API}/event/search/?${query}`;
+      query.set("api_key", wzCompte.apiKey);
+      query.set("access_token", jeton);
+      let body: { events?: WzEvent[] | null };
+      try {
+        body = await getJsonHidden(WEEZEVENT_SOURCE.id, `${WZ_API}/event/search/?${query}`, shown, TIMEOUT_MS);
+      } catch (err) {
+        // A token no longer accepted is asked again at the next reading.
+        if (err instanceof UpstreamError && (err.status === 401 || err.status === 403)) wzJeton = undefined;
+        throw err;
+      }
+      const { evenements, ailleurs } = parseWeezevent(body);
+      console.log(`agenda weezevent : ${evenements.length} événements à La Réunion, ${ailleurs} ailleurs`);
+      return evenements;
+    }),
+};
+
 // The terms of each commune's site, read on 25/10/2026: those that ask for an authorisation to reproduce it (`faits`),
 // those that allow a link to their home page only (`accueil`).
 /** Every agenda that can be read, before the communes' authorisations (AGENDAS). */
@@ -1372,6 +1518,7 @@ export const LISIBLES: Agenda[] = [
   LIGUE_VOLLEY,
   ...ACTUS_MAIRIES,
   SPORTSREGIONS,
+  WEEZEVENT,
   ...SALLES,
   PROPOSITIONS,
 ];
@@ -1381,6 +1528,9 @@ export const LISIBLES: Agenda[] = [
  * (src/providers/autorisations.ts, `agenda:<id>`). One left out is not read, and its copies, already kept, are not served.
  */
 export const AGENDAS: Agenda[] = LISIBLES.filter((a) => autorisee(`agenda:${a.id}`));
+
+/** The agendas the scheduled event reads, those that need an account once it is configured (`actif`). */
+export const planifies = () => AGENDAS.filter((a) => a.planifie && (a.actif?.() ?? true));
 
 // The mairies' agendas credited by name: those read only, one left out until it agrees no longer named.
 const mairiesLues = AGENDAS.filter((a) => a.source === SOURCES.mairies).map((a) => a.commune!);

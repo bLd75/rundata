@@ -225,7 +225,7 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
   // (`nonServie`). Their copies are in KV (src.PLANIFIES), written by the scheduled event only.
   const age = (a: src.Agenda) => bundle.peek(key(a))?.ageMs ?? Infinity;
   const order = src.AGENDAS.filter((a) => !a.planifie).sort((x, y) => age(y) - age(x));
-  const planned = src.AGENDAS.filter((a) => a.planifie).map((agenda): Got => ({ agenda, value: src.copiePlanifiee(planifiees, agenda), nonServie: src.nonServie(planifiees, agenda) }));
+  const planned = src.planifies().map((agenda): Got => ({ agenda, value: src.copiePlanifiee(planifiees, agenda), nonServie: src.nonServie(planifiees, agenda) }));
   // The keys each agenda reads, so that one more try forgets the failures remembered under them (cache.ts).
   const keys = new Map<src.Agenda, Set<string>>();
   const store = (a: src.Agenda): src.AgendaStore => ({
@@ -315,7 +315,8 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
   else await save();
   // As their sites' terms ask (the scheduled event's copies are already, by src.copiePlanifiee).
   const served = got.map((g) => (g.value ? { ...g, value: { ...g.value, value: src.servis(g.agenda, g.value.value) } } : g));
-  return src.AGENDAS.map((a) => [...served, ...planned].find((g) => g.agenda === a)!);
+  // In AGENDAS' order, without an agenda whose account is not configured (`actif`).
+  return src.AGENDAS.flatMap((a) => [...served, ...planned].filter((g) => g.agenda === a));
 }
 
 /**
@@ -328,7 +329,7 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
 export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ lus: string[]; gardes: string[]; reportes: string[]; trop_vieilles: string[] }> {
   // `trop_vieilles`: not read again this time, and their copy, older than their `garde`, no longer served.
   const out = { lus: [] as string[], gardes: [] as string[], reportes: [] as string[], trop_vieilles: [] as string[] };
-  const planned = src.AGENDAS.filter((a) => a.planifie);
+  const planned = src.planifies();
   // The bundle's read (unless this invocation has it already), one agenda's reading, the write.
   if (!planned.length || left() - KEEP_LEFT < 3) {
     out.reportes = planned.map((a) => a.id);
@@ -450,6 +451,8 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     site_du_club: e.reserve_adherents ? httpUrl(e.organisateur?.site) : undefined,
     reporte_au: e.reporte_au ? dayText(e.reporte_au) : undefined,
     billetterie: httpUrl(e.billetterie),
+    /** The words of that link on the site, when not « billets ». */
+    billetterie_texte: e.billetterie_texte,
     description: e.description,
     /** The children's ages the organiser gives, in its words: « dès 10 ans ». */
     age: e.age,
@@ -603,7 +606,7 @@ export const COUVERTURE =
   `${Object.entries(src.SANS_AGENDA).filter(([c]) => without.includes(c)).map(([, why]) => `\u00a0; ${why}`).join("")}. ` +
   (mentionIle().length ? `${mentionIle().join(" ")} ` : "") +
   "Aussi : les événements que les clubs et associations proposent sur rundata.re (https://rundata.re/associations), relus avant publication. " +
-  "Pas encore lus : les bars et les clubs, les billetteries privées. Un événement absent ici peut quand même avoir lieu (voir le site ou la " +
+  "Lus en partie seulement\u00a0: les bars, les clubs et les billetteries privées (seul l'agenda de Weezevent est lu). Un événement absent ici peut quand même avoir lieu (voir le site ou la " +
   "page Facebook de la salle ou de la mairie). Chaque événement dit qui le publie, renvoie à sa page et dit quand rundata.re l'a lu.";
 /** The cinemas' showtimes are on their own sites, not here. */
 export const CINEMAS = [

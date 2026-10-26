@@ -13,7 +13,7 @@ import { SOMMET } from "../providers/seismes.js";
 import * as vigicrues from "../providers/vigicrues.js";
 import { ANNONCERONT, alerteVolcan, BLUESKY_SEUL, ENCLOS, followOvpf, levelSaid, mediaSection, releaseCard, tileLive, type VolcanAlerte, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
-import { ACCUEILS, AGENDAS } from "../providers/agenda.js";
+import { ACCUEILS, AGENDAS, parQui } from "../providers/agenda.js";
 import { SOURCE as SALLES_SOURCE } from "../providers/salles.js";
 import type { Cached } from "../cache.js";
 import * as historique from "../tools/volcan-historique.js";
@@ -2536,11 +2536,11 @@ export function agendaHours(q: string): string {
 
 function agendaRow(r: AgendaRow): string {
   const lieu = r.lieu && r.lieu.length > 80 ? `${r.lieu.slice(0, 79)}…` : r.lieu;
-  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.source ? `Source\u00a0: ${r.source}` : r.publie_par && r.lu_le ? `${r.publie_par}, lu le ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
+  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.source ? `Source\u00a0: ${r.source}` : r.publie_par && r.lu_le ? `${parQui(r.publie_par)}, lu le ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
     .filter(Boolean).map((x) => esc(x!)).join(" · ");
   // Cancelled or postponed stays listed, said first: people look for it.
   const badge = r.statut ? `<span class="badge${r.statut === "complet" ? " m" : ""}">${esc(r.statut)}</span> ` : "";
-  const book = r.billetterie && r.billetterie !== r.lien ? ` · <a href="${esc(r.billetterie)}" rel="noopener">billets</a>` : "";
+  const book = r.billetterie && (r.billetterie !== r.lien || r.billetterie_texte) ? ` · <a href="${esc(r.billetterie)}" rel="noopener">${esc(r.billetterie_texte ?? "billets")}</a>` : "";
   // Said by the news before the organiser's page: who said it, to check.
   const news = r.statut_d_apres
     ? `<small class="said">${esc(r.statut!.toLowerCase())}${r.reporte_au ? ` au ${esc(r.reporte_au)}` : ""} d'après <a href="${esc(r.statut_d_apres.lien)}" rel="noopener"${fenetre(r.statut_d_apres.lien)}>${esc(r.statut_d_apres.media)}</a></small>`

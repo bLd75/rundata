@@ -91,6 +91,7 @@ async function get<T>(
   read: (res: Response) => Promise<T>,
   headers: Record<string, string> = {},
   body?: URLSearchParams | string,
+  shown = url,
 ): Promise<T> {
   count();
   noteSource(source);
@@ -100,7 +101,7 @@ async function get<T>(
   try {
     let res: Response;
     const signal = AbortSignal.timeout(Math.max(timeoutMs, patience.getStore() ?? 0));
-    onRead?.(url);
+    onRead?.(shown);
     try {
       res = await fetch(url, {
         ...(body ? { method: "POST", body } : {}),
@@ -109,13 +110,13 @@ async function get<T>(
       });
     } catch (err) {
       const failed = new UpstreamError(source, err instanceof Error ? err.message : String(err));
-      onFailure?.(source, url, failed);
+      onFailure?.(source, shown, failed);
       throw failed;
     }
     if (!res.ok) {
       await res.body?.cancel().catch(() => {});
       const failed = new UpstreamError(source, `HTTP ${res.status}`, res.status);
-      onFailure?.(source, url, failed);
+      onFailure?.(source, shown, failed);
       throw failed;
     }
     return await read(res);
@@ -144,6 +145,14 @@ export async function getBytes(
   headers?: Record<string, string>,
 ): Promise<ArrayBuffer> {
   return get(source, url, timeoutMs, (res) => res.arrayBuffer(), headers);
+}
+
+/**
+ * JSON from an API whose key goes in the query string (Weezevent's): `shown`, the address without it, is all the hooks
+ * see, so that no key reaches the table of the sites without an answer (sans-reponse.ts) nor the logs.
+ */
+export async function getJsonHidden<T>(source: string, url: string, shown: string, timeoutMs = 15_000): Promise<T> {
+  return get(source, url, timeoutMs, (res) => res.json() as Promise<T>, {}, undefined, shown);
 }
 
 /** A form posted as a web page's own script would, for the sites whose data has no other door (Vigicrues Réunion). */
