@@ -96,7 +96,7 @@ export const DOMAINES: Domaine[] = [
   { categorie: "services", sources: ids("annuaire_administration", "prefecture_carburants", "tco_decheteries", "tco_collecte", "finess", "ars_garde", "sante_fr_urgences", "osm_marches"), cadence: { minutes: 30, de: "tco_decheteries" } },
   // The fixed speed cameras: the ministry's yearly list, bundled.
   { categorie: "trafic", sources: ids("radars_fixes") },
-  { categorie: "terrain", sources: ids("ban_geocodage", "cadastre_apicarto", "gpu_zone_urba", "gpu_ppr", "georisques", "dvf_cerema", "dvf_etalab", "ign_altimetrie"), question: true },
+  { categorie: "terrain", sources: ids("ban_geocodage", "cadastre_apicarto", "gpu_zone_urba", "gpu_ppr", "georisques", "dvf_cerema", "dvf_etalab", "ign_altimetrie", "anil_loyers"), question: true },
 ];
 
 /** Counted, never named here: pitonlive.com, an unofficial site, said only beside the official sources (marketing). */
