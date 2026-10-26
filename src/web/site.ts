@@ -38,6 +38,7 @@ import {
   buildTrail,
   routeGpx,
   trailGpx,
+  buildCrues,
   buildCyclones,
   buildHistorique,
   buildDae,
@@ -56,7 +57,7 @@ import {
   type VolcanAnswer,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
-import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
+import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cruesPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
 import { concertsPage, weekendPage } from "./evenements.js";
 import { enfantsPage } from "./enfants.js";
 import { coupuresCommunePage } from "./coupures.js";
@@ -215,6 +216,7 @@ export const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: D
   "/sport": { key: "web:sport", build: buildSport, page: sportPage },
   "/decheteries": { key: "web:dechets", build: (cache) => buildDechets(cache), page: decheteriesPage },
   "/cyclones": { key: "web:cyclones", build: buildCyclones, page: cyclonesPage },
+  "/crues": { key: "web:crues", build: buildCrues, page: cruesPage },
   "/historique": { key: "web:historique", build: buildHistorique, page: historiquePage },
   "/evenements": { key: "web:agenda", build: buildAgenda, page: agendaPage },
   // Parts of the events page's copy, with their own title for what people search.

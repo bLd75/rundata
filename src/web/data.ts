@@ -51,6 +51,7 @@ import { routeRow, secteur, SECTEURS, sentiersRandonnee, trailSecteur } from "..
 import { pathOf } from "./map.js";
 import { MESURES, mesure } from "./mesure.js";
 import { restrictionsEau } from "../tools/secheresse.js";
+import { crues } from "../tools/crues.js";
 import * as daeSource from "../providers/dae.js";
 import { anyHour, byCommune as daeByCommune, daeRow, URGENCE as DAE_URGENCE } from "../tools/dae.js";
 import { coupuresEau, type FluxMuet, type noticeRow } from "../tools/coupures.js";
@@ -418,6 +419,40 @@ export interface VelosAnswer {
 }
 
 export const buildVelos = async (cache: Cache) => needed<VelosAnswer>(await velosLibreService(cache, undefined), "velos");
+
+/** A gauge as the tool gives it (tools/crues.ts, levelRow). */
+export interface CruesStation {
+  station: string;
+  riviere: string;
+  commune: string;
+  hauteur_m: number | null;
+  tendance_30_min?: "en hausse" | "en baisse" | "stable";
+  heure_mesure?: string;
+  debit_m3s?: number;
+  crues_de_reference?: { nom: string; hauteur_m: number; debit_m3s: number | null }[];
+  /** Measured more than half an hour ago. */
+  avertissement?: string;
+}
+
+export interface CruesAnswer {
+  resume: string;
+  /** Absent when Vigicrues Réunion's vigilance could not be read (`indisponible`). */
+  vigilance_crues?: {
+    active: boolean;
+    bulletin?: number;
+    date?: string;
+    observations?: string;
+    anticipation?: string;
+    aucun_bulletin_depuis?: string;
+    rivieres: { nom: string; couleur: string; precedente: string }[];
+  };
+  stations: CruesStation[];
+  indisponible?: string;
+  sources: Credit[];
+}
+
+/** The island's rivers: the tool's answer without a place, every gauge. */
+export const buildCrues = async (cache: Cache, now = new Date()) => needed<CruesAnswer>(await crues(cache, undefined, now), "crues");
 
 export type BorneStation = ReturnType<typeof stationRow> & { lon: number; lat: number; libres: number; total: number };
 
