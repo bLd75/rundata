@@ -79,6 +79,9 @@ describe("what a club sends: the fields read", () => {
     expect(read({ ...PROPOSITION, repete: "chaque jour", jusqu_au: "2026-12-01" })).toEqual({ erreurs: ["repete"] });
     expect(read({ ...PROPOSITION, email: "club@", accord: "", commune: "Paris", lien: "javascript:alert(1)", prix: "", debut: "25:00" })).toEqual({ erreurs: ["debut", "commune", "prix", "lien", "email", "accord"] });
     expect(read({})).toEqual({ erreurs: ["vous_etes", "titre", "date", "debut", "commune", "lieu", "organisateur", "description", "prix", "email", "accord"] });
+    // One address however it is typed: trimmed, in lower case.
+    expect((read({ ...PROPOSITION, email: "  Club@Example.ORG " }) as { proposition: propositions.Proposition }).proposition.email).toBe("club@example.org");
+    expect(propositions.emailOf("Club@Example.ORG")).toBe("club@example.org");
   });
 
   it("shows no contact unless asked: the e-mail when its box is ticked, or another contact given", () => {
