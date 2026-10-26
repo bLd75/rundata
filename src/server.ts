@@ -1,6 +1,7 @@
 import { chiffres, type Copie, KEY as CHIFFRES, resume as resumeChiffres } from "./chiffres.js";
 import { comptee } from "./producteurs.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ListToolsRequestSchema, type ListToolsResult } from "@modelcontextprotocol/sdk/types.js";
 import * as courantMairies from "./providers/coupures-courant.js";
 import * as carburantsPrix from "./providers/carburants.js";
 import * as radarMf from "./providers/radar.js";
@@ -93,7 +94,7 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.53";
+export const VERSION = "0.203.54";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -190,6 +191,21 @@ export const SERVER_ICONS = [
  */
 export const TOOL_WAIT_MS = 5_000;
 
+/**
+ * A tools/list answer without the "$schema" of each inputSchema (the JSON Schema draft, which clients do not read) and
+ * without "execution" when it says the default, { taskSupport: "forbidden" }.
+ */
+export function listeAllegee(liste: ListToolsResult): ListToolsResult {
+  return {
+    ...liste,
+    tools: liste.tools.map(({ execution, ...tool }) => {
+      const inputSchema = { ...tool.inputSchema };
+      delete inputSchema.$schema;
+      return { ...tool, inputSchema, ...(execution && execution.taskSupport !== "forbidden" ? { execution } : {}) };
+    }),
+  };
+}
+
 export function createServer(cache: Cache, record: Recorder = () => {}, background?: Background): McpServer {
   const server = new McpServer(
     { name: "reunion-temps-reel", title: "rundata.re · La Réunion 974 en direct", version: VERSION, icons: SERVER_ICONS },
@@ -199,6 +215,11 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
   const register = server.registerTool.bind(server);
   server.registerTool = ((name: string, config: { description?: string }, cb: never) =>
     register(name, { ...config, description: config.description && insecables(config.description) }, cb)) as typeof server.registerTool;
+  // The list of the tools without what the SDK adds to each tool for no client: about 2 500 characters of each conversation.
+  type Handler = (request: unknown, extra: unknown) => unknown;
+  const setHandler = server.server.setRequestHandler.bind(server.server) as (schema: unknown, handler: Handler) => void;
+  server.server.setRequestHandler = ((schema: unknown, handler: Handler) =>
+    setHandler(schema, schema === ListToolsRequestSchema ? async (request, extra) => listeAllegee((await handler(request, extra)) as ListToolsResult) : handler)) as typeof server.server.setRequestHandler;
   // Records the place asked (a commune, a beach…), never a street address: fiche_terrain's stays out of the metrics.
   // Ends each answer with its citation and the link to rundata.re.
   // Each answer also says how fresh it is, from the cache entries the call read, and which tools are new.
