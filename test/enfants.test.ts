@@ -267,12 +267,26 @@ describe("a commune's children's page", () => {
     expect(enfantsCommunePage(O, pageOf("les-avirons")!, null, NOW)).toContain("agenda des enfants se charge");
   });
 
+  it("says marketing's words, with French spacing", () => {
+    const n = enfants.inCommune("Saint-Denis").length;
+    expect(html).toContain(`<title>Avec les enfants à Saint-Denis${NBSP}: aires de jeux, parcs, piscines · 974</title>`);
+    expect(flat(html)).toContain(`Aires de jeux, parcs, piscines, médiathèques : les ${n} lieux où aller avec les enfants à Saint-Denis, sur une carte, et les activités du week-end.`);
+    expect(html).toContain(`<p class="lead">Les ${n} lieux pour les enfants de Saint-Denis, sur la carte${NBSP}: choisissez un type, ou un point pour voir sa fiche.</p>`);
+    expect(html).toContain('aria-label="Choisir un type de lieu"');
+    expect(html).toMatch(/value="mediatheque"> <i class="ksw f-culture"><\/i>Médiathèques <span class="n">/);
+    expect(html).toContain(`aria-label="Voir sur la carte${NBSP}: `);
+    expect(html).toContain("<span><i class=\"ksw f-culture\"></i>Livres et musées</span>");
+    const none = flat(enfantsCommunePage(O, pageOf("les-avirons")!, data, NOW));
+    expect(none).toContain(`Les agendas que nous lisons n'annoncent pas d'activité pour les enfants aux Avirons dans les deux semaines qui viennent. Ils ne disent pas tout : voyez aussi <a href="/enfants">les activités dans toute l'île</a>.`);
+    expect(html).toContain('<p><a href="/enfants">Les 24 communes →</a></p>');
+  });
+
   it("gives each commune its own « à » and « de », and a short button back to the whole commune", () => {
     const port = flat(enfantsCommunePage(O, pageOf("le-port")!, data, NOW));
     const avirons = flat(enfantsCommunePage(O, pageOf("les-avirons")!, data, NOW));
     expect(port).toContain("Avec les enfants au Port");
     expect(avirons).toContain("Avec les enfants aux Avirons");
-    expect(avirons).toContain("lieux des Avirons");
+    expect(avirons).toContain("pour les enfants des Avirons, sur la carte");
     for (const page of [port, avirons]) expect(page).not.toMatch(/\b(à|de) Les? /);
     expect(html).toMatch(/<button type="button" data-z="0" aria-label="[^"]*Recentrer sur toute la commune">[^<]*Recentrer<\/button>/);
   });

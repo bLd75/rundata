@@ -158,45 +158,57 @@ const pathOf = (commune: string) => {
 };
 
 /**
- * The words of a commune's page, to be marketing's (marketing/enfants-textes.md) before the page goes out. A commune
- * takes its own « à » and « de » (« au Port », « des Avirons »), and a commune with a single place is said in the
- * singular.
+ * The words of a commune's page, marketing's. A commune takes its own « à » and « de » (« au Port », « des Avirons »),
+ * and a commune with a single place is said in the singular.
  */
 const MOTS = {
-  title: (c: string) => `{à valider} Avec les enfants ${aCommune(c)} : la carte des lieux · 974`,
+  title: (c: string) => typo(`Avec les enfants ${aCommune(c)} : aires de jeux, parcs, piscines · 974`),
   description: (c: string, n: number) =>
-    n === 1
-      ? `{à valider} Le lieu où aller avec les enfants ${aCommune(c)} sur une carte, et les activités du week-end.`
-      : `{à valider} Les ${n} lieux où aller avec les enfants ${aCommune(c)} sur une carte : aires de jeux, parcs, piscines, médiathèques, et les activités du week-end.`,
-  h1: (c: string) => `{à valider} Avec les enfants ${aCommune(c)}`,
+    typo(`Aires de jeux, parcs, piscines, médiathèques : ${n === 1 ? "le lieu" : `les ${n} lieux`} où aller avec les enfants ${aCommune(c)}, sur une carte, et les activités du week-end.`),
+  h1: (c: string) => `Avec les enfants ${aCommune(c)}`,
   lead: (c: string, n: number) =>
-    n === 1
-      ? `{à valider} Le lieu pour les enfants ${deCommune(c)} sur la carte : touchez son point pour sa fiche.`
-      : `{à valider} Les ${n} lieux ${deCommune(c)} sur la carte : touchez un point pour sa fiche, ou choisissez un type.`,
-  carte: (c: string) => `{à valider} Carte des lieux pour les enfants ${aCommune(c)}, La Réunion`,
-  tous: "{à valider} Tous",
-  filtre: "{à valider} Filtrer les lieux par type",
-  zoomIn: "{à valider} Rapprocher",
-  zoomOut: "{à valider} Éloigner",
-  recadrer: "{à valider} Recentrer",
-  recadrerAria: "{à valider} Recentrer sur toute la commune",
-  surCarte: "{à valider} Voir sur la carte",
-  dansListe: "{à valider} Voir dans la liste",
-  fermer: "{à valider} Fermer la fiche",
-  activites: (c: string) => `{à valider} Activités et spectacles ${aCommune(c)}`,
-  aucune: (c: string) => `{à valider} Les agendas que nous lisons n'annoncent pas d'activité pour les enfants ${esc(aCommune(c))} dans les deux semaines qui viennent. Toute l'île : <a href="/enfants">les activités pour les enfants</a>.`,
-  lieux: "{à valider} Les lieux, type par type",
-  ile: "{à valider} Toutes les communes",
-  versPage: (c: string) => `{à valider} La carte des lieux ${deCommune(c)}`,
+    typo(n === 1
+      ? `Le lieu pour les enfants ${deCommune(c)}, sur la carte : choisissez son point pour voir sa fiche.`
+      : `Les ${n} lieux pour les enfants ${deCommune(c)}, sur la carte : choisissez un type, ou un point pour voir sa fiche.`),
+  carte: (c: string) => `Carte des lieux pour les enfants ${aCommune(c)}, La Réunion`,
+  tous: "Tous",
+  filtre: "Choisir un type de lieu",
+  zoomIn: "Rapprocher",
+  zoomOut: "Éloigner",
+  recadrer: "Recentrer",
+  recadrerAria: "Recentrer sur toute la commune",
+  surCarte: (nom: string) => typo(`Voir sur la carte : ${nom}`),
+  dansListe: "Voir dans la liste",
+  fermer: "Fermer la fiche",
+  activites: (c: string) => `Activités et spectacles ${aCommune(c)}`,
+  aucune: (c: string) => typo(`Les agendas que nous lisons n'annoncent pas d'activité pour les enfants ${esc(aCommune(c))} dans les deux semaines qui viennent. Ils ne disent pas tout : voyez aussi <a href="/enfants">les activités dans toute l'île</a>.`),
+  lieux: "Les lieux, type par type",
+  ile: "Les 24 communes",
+  versPage: (c: string) => `La carte des lieux ${deCommune(c)}`,
+};
+
+/** A filter's words, a kind's plural: marketing's. */
+const FILTRES: Record<enfants.Kind, string> = {
+  aire_de_jeux: "Aires de jeux",
+  parc: "Parcs et jardins",
+  piscine: "Piscines",
+  mediatheque: "Médiathèques",
+  musee: "Musées",
+  animaux: "Zoos et aquariums",
+  loisirs: "Parcs de loisirs",
+  salle_jeux: "Salles de jeux",
+  ludotheque: "Ludothèques",
+  sport: "Skateparks et city-stades",
+  escalade: "Escalade",
 };
 
 /** The families of kinds, a colour each on the map (the legend's): what the eye sorts first. */
 const FAMILLES: { f: string; nom: string; types: enfants.Kind[] }[] = [
-  { f: "jeux", nom: "{à valider} Jeux et loisirs", types: ["aire_de_jeux", "salle_jeux", "ludotheque", "loisirs"] },
-  { f: "nature", nom: "{à valider} Parcs et animaux", types: ["parc", "animaux"] },
-  { f: "eau", nom: "{à valider} Piscines", types: ["piscine"] },
-  { f: "culture", nom: "{à valider} Livres et musées", types: ["mediatheque", "musee"] },
-  { f: "sport", nom: "{à valider} Sport", types: ["sport", "escalade"] },
+  { f: "jeux", nom: "Jeux et loisirs", types: ["aire_de_jeux", "salle_jeux", "ludotheque", "loisirs"] },
+  { f: "nature", nom: "Parcs et animaux", types: ["parc", "animaux"] },
+  { f: "eau", nom: "Piscines", types: ["piscine"] },
+  { f: "culture", nom: "Livres et musées", types: ["mediatheque", "musee"] },
+  { f: "sport", nom: "Sport", types: ["sport", "escalade"] },
 ];
 const familleOf = (k: enfants.Kind) => FAMILLES.find((x) => x.types.includes(k))!;
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -237,7 +249,7 @@ function communeLi(l: enfants.Lieu, i: number, now: Date): string {
   const name = esc(enfants.nameOf(l));
   return `<li id="lieu-${i}" class="tgt" data-i="${i}" data-t="${l.type}" data-n="${esc(capital(enfants.typeOf(l.type).un))}"${l.quartier ? ` data-q="${esc(l.quartier)}"` : ""}>` +
     `<span><span class="nm">${link ? `<a href="${esc(link)}" rel="noopener">${name}</a>` : name}</span>${small ? `<small>${small}</small>` : ""}</span>` +
-    `<span class="end">${badge(a)}<button type="button" class="tomap f-${familleOf(l.type).f}" hidden aria-label="${esc(`${MOTS.surCarte} : ${enfants.nameOf(l)}`)}">${icon("pin")}</button></span></li>`;
+    `<span class="end">${badge(a)}<button type="button" class="tomap f-${familleOf(l.type).f}" hidden aria-label="${esc(MOTS.surCarte(enfants.nameOf(l)))}">${icon("pin")}</button></span></li>`;
 }
 
 /** The children's places of a commune on its map, the list beside it, and the agenda's activities in the commune. */
@@ -254,7 +266,7 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
 
   const chips = `<form id="ecf" class="kchips" hidden role="search" aria-label="${esc(MOTS.filtre)}">` +
     `<label class="chip"><input type="radio" name="t" value="" checked> ${esc(MOTS.tous)} <span class="n">${list.length}</span></label>` +
-    kinds.map((t) => `<label class="chip"><input type="radio" name="t" value="${t.type}"> <i class="ksw f-${familleOf(t.type).f}"></i>${esc(capital(t.court))} <span class="n">${list.filter((l) => l.type === t.type).length}</span></label>`).join("") +
+    kinds.map((t) => `<label class="chip"><input type="radio" name="t" value="${t.type}"> <i class="ksw f-${familleOf(t.type).f}"></i>${esc(FILTRES[t.type])} <span class="n">${list.filter((l) => l.type === t.type).length}</span></label>`).join("") +
     `</form>`;
   const zoom = `<div id="ecz" class="kzoom" hidden><button type="button" data-z="+" aria-label="${esc(MOTS.zoomIn)}">+</button><button type="button" data-z="-" aria-label="${esc(MOTS.zoomOut)}">−</button><button type="button" data-z="0" aria-label="${esc(MOTS.recadrerAria)}">${esc(MOTS.recadrer)}</button></div>`;
   const legend = `<p class="klegend note">${families.map((x) => `<span><i class="ksw f-${x.f}"></i>${esc(x.nom)}</span>`).join("")}</p>`;
