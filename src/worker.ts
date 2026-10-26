@@ -21,6 +21,8 @@ import * as feux from "./providers/feux.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
+import * as chiffre from "./connecteurs/chiffre.js";
+import * as connexions from "./connecteurs/connexions.js";
 import * as propositions from "./propositions.js";
 import * as sansReponse from "./sans-reponse.js";
 import { whenFailed, whenRead } from "./http.js";
@@ -84,6 +86,8 @@ interface Env {
   AVIS_SEL?: string;
   /** Optional: the secret key of the Turnstile widget of the clubs' forms (web/propositions.ts). */
   TURNSTILE_SECRET?: string;
+  /** Optional: the key that encrypts the secrets of the associations' platforms (src/connecteurs/chiffre.ts), 32 bytes in base64. */
+  CONNECTEURS_CLE?: string;
   /** Cloudflare Email Sending: the confirmation of the events the clubs propose (src/propositions.ts). */
   EMAIL?: propositions.EmailBinding;
 }
@@ -197,6 +201,14 @@ function setup(env: Env): Cache {
     avisDb && (async <T>(sql: string, ...params: unknown[]) => (count(), (await avisDb.prepare(sql).bind(...params).all<T>()).results)),
   );
   formulaires.configure(env.TURNSTILE_SECRET);
+  // The associations' links to their platform, in the same database (scripts/connecteurs.sql): the platform's secret
+  // encrypted with CONNECTEURS_CLE, the link e-mailed like a proposal's. Without the key, nothing is linked.
+  chiffre.configure(env.CONNECTEURS_CLE);
+  connexions.configure(
+    avisRun,
+    avisDb && (async <T>(sql: string, ...params: unknown[]) => (count(), (await avisDb.prepare(sql).bind(...params).all<T>()).results)),
+    env.EMAIL && propositions.envoiCloudflare(env.EMAIL),
+  );
   // The public sites that do not answer, in the same database (scripts/sans-reponse.sql): a failed read is written
   // after the response, and only when it changes the host's state (sans-reponse.ts counts its own calls).
   sansReponse.configure(

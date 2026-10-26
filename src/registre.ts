@@ -332,6 +332,12 @@ const OTHER_PAGES: Record<string, Page> = {
   "/ecoles-cyclone": { subrequests: 12, cpuMs: 50, from: ["src/tools/ecoles.ts"] },
   "/carburants": { subrequests: 13, cpuMs: 30, from: ["src/tools/carburants.ts"] },
   "/associations": { subrequests: 10, cpuMs: 40, from: ["src/web/propositions.ts"], what: "l'espace des associations et leurs propositions (D1)" },
+  // The header's reads as /associations, then Turnstile, HelloAsso's token and the association its keys administer
+  // (connecteurs/helloasso.ts), and whether it is linked already (D1). « C'est bien nous » writes the row and sends the
+  // e-mail instead of asking HelloAsso.
+  "/associations/relier": { subrequests: 14, cpuMs: 40, from: ["src/web/connecteurs.ts"], d1: { d1Calls: 2, d1RowsRead: 2 }, what: "relier sa plateforme : les clés vérifiées par HelloAsso, puis la connexion écrite (D1) et l'e-mail", basis: "code" },
+  // The link found by its hash, then confirmed or withdrawn: a replaced or withdrawn link takes its events with it.
+  "/associations/connexion/*": { subrequests: 14, cpuMs: 30, from: ["src/web/connecteurs.ts"], d1: { d1Calls: 4, d1RowsRead: 4 }, what: "le lien reçu par e-mail : confirmer ou retirer la connexion (D1), et l'e-mail qui le dit", basis: "code" },
   "/sites-sans-reponse": { subrequests: 9, cpuMs: 40, from: ["src/sans-reponse.ts"], d1: SANS_REPONSE_D1, what: "les sites publics sans réponse (D1), avec la vigilance et la version de l'en-tête", basis: "code" },
   // The copy of its counts (the data center's cache, else KV): never a source.
   "/chiffres": { subrequests: 9, cpuMs: 40, from: [], what: "rundata.re en chiffres : la copie de ses comptes, avec la vigilance et la version de l'en-tête", basis: "code" },

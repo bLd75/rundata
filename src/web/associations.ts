@@ -11,6 +11,7 @@ import { evenements as proposes, ID as PROPOSITIONS_ID } from "../providers/agen
 import { lisible } from "../propositions.js";
 import { inPeriod, periode, when } from "../tools/agenda.js";
 import type { Alerte } from "./data.js";
+import * as connecteurs from "./connecteurs.js";
 import { crumbBar, crumbs, webPage } from "./domains.js";
 import { ICS_PATH, JSON_PATH } from "./flux-associations.js";
 import { esc } from "./map.js";
@@ -171,6 +172,7 @@ export function associationsPage(origin: string, p: Preuve, alerte?: Alerte): st
   <p>Un match, une kermesse, une sortie, un concert\u00a0? Remplissez le formulaire, avec ou sans page Facebook, sans compte. Nous le relisons, puis il s'affiche sur rundata.re et dans les assistants IA, avec le nom de votre association.</p>
   <p><a class="btn sun" href="${PROPOSER_PATH}">Proposer un événement</a></p>
 </section>
+${connecteurs.enLigne() ? connecteurs.carte() : ""}
 ${preuveSection(p)}
 <section aria-labelledby="h-outils">
   <div class="sec-h"><h2 id="h-outils">Votre club utilise déjà un agenda\u00a0?</h2><p>Pour ne plus rien saisir deux fois\u00a0: ce qu'il faut faire, selon l'outil.</p></div>
