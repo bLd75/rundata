@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Lundi 26 octobre 2026
 
+- Nouvelle page Nos valeurs : un site sans compte, un code ouvert, des données sourcées, et ce que coûte une information enfermée.
 - Loyers d'annonce (ANIL) et part des logements éligibles à la fibre (Arcep), sur chaque page commune et dans les réponses des IA.
 - Prévision météo : le ciel de la nuit, de 18 h à 6 h, dégagé ou couvert, et, dans les Hauts, au-dessus des nuages ou dedans.
 - La Lune dans le calendrier, calculée au lieu demandé : phase, part éclairée, lever, coucher et prochaines phases.
