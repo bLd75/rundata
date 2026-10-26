@@ -51,7 +51,7 @@ class FakeCaches {
 type Listener = (e: any) => void;
 
 /** The service worker run against a fake browser: its network, its caches, its windows, its timer. */
-function worker(opts: { net?: (r: Request) => Promise<Response>; slow?: boolean } = {}) {
+function worker(opts: { net?: (r: Request) => Promise<Response>; slow?: boolean; shell?: string[] } = {}) {
   const on = new Map<string, Listener>();
   const caches = new FakeCaches();
   const asked: Request[] = [];
@@ -70,7 +70,7 @@ function worker(opts: { net?: (r: Request) => Promise<Response>; slow?: boolean 
   };
   // The page's wait for a slow network: at once when the test asks for it, never otherwise.
   const timer = (f: () => void) => (opts.slow ? queueMicrotask(f) : undefined);
-  new Function("self", "caches", "fetch", "setTimeout", serviceWorker(["/font.woff2", "/favicon.svg"]))(self, caches, fetch, timer);
+  new Function("self", "caches", "fetch", "setTimeout", serviceWorker(opts.shell ?? ["/font.woff2", "/favicon.svg"]))(self, caches, fetch, timer);
 
   const extend = async (type: string, extra: object = {}) => {
     const waits: Promise<unknown>[] = [];
@@ -112,6 +112,15 @@ describe("the service worker", () => {
     await w.extend("activate");
     expect(await w.caches.keys()).not.toContain("coquille-ancienne");
     expect(w.calls.claim).toBe(1);
+  });
+
+  it("gives a page kept from an earlier version the shell's stylesheet, offline, whatever its old address", async () => {
+    const w = worker({ net: offline, shell: ["/style-neuf.css", "/font.woff2"] });
+    await w.extend("install");
+    const ask = (path: string) => w.extend("fetch", { request: new Request(`${O}${path}`) });
+    expect(await (await ask("/style-ancien.css"))!.text()).toBe("shell /style-neuf.css");
+    expect(await (await ask("/style-neuf.css"))!.text()).toBe("shell /style-neuf.css");
+    expect(await ask("/autre.css")).toBeUndefined();
   });
 
   it("changes its text only with the files it keeps", () => {
@@ -247,7 +256,7 @@ describe("the site's part", () => {
     const sw = await site(new Request(`${O}/sw.js`), cache(), () => {}, NOW);
     expect(sw!.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
     expect(sw!.headers.get("cache-control")).toBe("no-cache");
-    expect(await sw!.text()).toMatch(/const SHELL=\["\/hors-ligne","\/font\/titres-1\.woff2","\/relief-\w+\.webp","\/favicon\.svg","\/icons\/logo-192\.[0-9a-f]{10}\.png"\]/);
+    expect(await sw!.text()).toMatch(/const SHELL=\["\/hors-ligne","\/style-\w+\.css","\/font\/titres-1\.woff2","\/relief-\w+\.webp","\/favicon\.svg","\/icons\/logo-192\.[0-9a-f]{10}\.png"\]/);
     const off = await site(new Request(`${O}/hors-ligne`), cache(), () => {}, NOW);
     const html = await off!.text();
     expect(html).toContain("<title>Hors ligne · rundata.re</title>");

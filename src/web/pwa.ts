@@ -33,7 +33,8 @@ const SLOW_MS = 12_000;
 // 2: the symbol of the brand (/favicon.svg, the offline page's header).
 const REVISION = 2;
 
-const hash = (s: string) => {
+/** A short mark of a text, for a name that changes with it (the shell's cache, the stylesheet's address). */
+export const hash = (s: string) => {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
   return h.toString(36);
@@ -55,6 +56,7 @@ export function serviceWorker(shell: string[]): string {
   const files = [OFFLINE_PATH, ...shell.filter((f) => f !== OFFLINE_PATH)];
   return `// rundata.re : la lecture hors ligne (src/web/pwa.ts).
 const SHELL=${JSON.stringify(files)};
+const STYLE=SHELL.find((f)=>/^\\/style-\\w+\\.css$/.test(f));
 const SHELL_CACHE="coquille-${hash(JSON.stringify(files) + REVISION)}";
 const PAGES="pages",STATE="etat",KEEP=${KEPT_PAGES},SLOW_MS=${SLOW_MS},OFFLINE=${JSON.stringify(OFFLINE_PATH)};
 const AFTER=${JSON.stringify(OFFLINE_AFTER)},AFTER_DEFAULT=${JSON.stringify(OFFLINE_DEFAULT)};
@@ -99,7 +101,9 @@ try{return await Promise.race([got,slow])}catch{const c=await copy();return c?fr
 self.addEventListener("fetch",(e)=>{const r=e.request;if(r.method!=="GET")return;const u=new URL(r.url);
 if(u.origin!==self.location.origin||SKIP.test(u.pathname)||u.searchParams.has("maj"))return;
 if(r.mode==="navigate")return e.respondWith(page(e,u));
-if(SHELL.includes(u.pathname))e.respondWith(caches.match(u.pathname,{cacheName:SHELL_CACHE}).then((hit)=>hit||fetch(r)))});
+// A page kept from an earlier version asks for its stylesheet by its old address: it gets the shell's.
+const p=STYLE&&/^\\/style-\\w+\\.css$/.test(u.pathname)?STYLE:u.pathname;
+if(SHELL.includes(p))e.respondWith(caches.match(p,{cacheName:SHELL_CACHE}).then((hit)=>hit||fetch(r)))});
 `;
 }
 

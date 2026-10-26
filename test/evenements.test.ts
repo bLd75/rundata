@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { Cache } from "../src/cache.js";
 import type { AgendaAnswer } from "../src/web/data.js";
 import { agendaPage } from "../src/web/domains.js";
 import { concertsPage, holidays, inWeekend, occurrences, weekend, weekendPage, weekendText } from "../src/web/evenements.js";
+import { STYLE_PATH } from "../src/web/pages.js";
+import { site } from "../src/web/site.js";
 
 type Row = NonNullable<AgendaAnswer["evenements"]>[number];
 const row = (titre: string, date: string, quand: string, more: Partial<Row> = {}): Row =>
@@ -138,11 +141,14 @@ describe("the concerts", () => {
     expect(agendaPage("https://rundata.re", data(ROWS), TUESDAY)).not.toContain("sans lecture récente");
   });
 
-  it("put the end of an event of several days under its title on a phone, its hours beside it otherwise", () => {
+  it("put the end of an event of several days under its title on a phone, its hours beside it otherwise", async () => {
     const html = agendaPage("https://rundata.re", data(ROWS), TUESDAY);
     expect(html).toContain(`<span class="q-none fin">jusqu&#39;au lundi 02/11</span>`);
     expect(html).toContain(`<span class="q-none">20:00</span>`);
-    expect(html).toContain("@media (max-width:30rem){.rows.eau li>.fin{grid-column:1/-1}}");
+    // The rule is in the stylesheet the page links to.
+    expect(html).toContain(`<link rel="stylesheet" href="${STYLE_PATH}">`);
+    const style = await site(new Request(`https://rundata.re${STYLE_PATH}`), new Cache(), () => {});
+    expect(await style!.text()).toContain("@media (max-width:30rem){.rows.eau li>.fin{grid-column:1/-1}}");
   });
 
   it("are linked from the events page", () => {
