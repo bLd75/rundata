@@ -111,7 +111,8 @@ export async function handle(request: Request, cache: Cache, background: Backgro
   // What a page's browser tells the statistics (web/signaux.ts): a point each, never a page view.
   if (url.pathname === SIGNAL_PATH) return signal(request, record);
   // A browser opening the connector's address gets the page that explains it (web/connecteur.ts); the clients, the endpoint.
-  if (url.pathname === "/mcp" && !wantsPage(request)) {
+  // « /mcp/ » alike, answered in place: a client may not follow a redirect on a POST.
+  if ((url.pathname === "/mcp" || url.pathname === "/mcp/") && !wantsPage(request)) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     const watching = watch(request, record);
     // Stateless and answering in JSON, the endpoint has no stream to send anything on: GET (the stream a client
