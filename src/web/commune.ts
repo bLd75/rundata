@@ -74,7 +74,7 @@ function tile(t: Tile): string {
     : t.question
       ? `<p class="tq">« ${esc(t.question)} »</p>`
       // No copy at all: the read is under way (a copy with nothing to show says so, `vide`).
-      : `<p class="td">Se met à jour : rechargez la page dans quelques secondes.</p>`;
+      : `<p class="td all">Se met à jour : rechargez la page dans quelques secondes.</p>`;
   const foot = t.foot ?? (t.href ? `<span class="go" aria-hidden="true">Voir →</span>` : "");
   return `<li class="tile${t.wide ? " wide" : ""}">${icon(t.icon)}${head}${body}${t.more ?? ""}${foot ? `<p class="tf"><span></span>${foot}</p>` : ""}</li>`;
 }

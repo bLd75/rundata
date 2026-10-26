@@ -315,7 +315,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/") {
     const [meteo, vigilance] = await Promise.all([
       snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
-      vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
+      vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now),
     ]);
     const [actualites, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda] = await tileCopies(cache, HOME_TILES, background, meteo, now);
     return page(path, (live) => (live
@@ -339,7 +339,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     return new Response(passePage(origin, c, a), { headers: HTML });
   }
   if (path === "/vigilance" || path === "/vigilance/") {
-    const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS);
+    const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS, now);
     return page(path, (live) => (live ? vigilancePage(origin, data, now, data ? alerteOf(data.value, now) : undefined) : vigilancePage(origin, null, now)), data, background);
   }
   // The guide for those who publish, written once: nothing read but the vigilance's banner.
@@ -357,7 +357,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/alerte-cyclone" || path === "/alerte-cyclone/") {
     const [data, decision] = await Promise.all([
-      vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
+      vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS, now),
       cycloneDecisionNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
     ]);
     const rubrique = await prefecture.rubriqueNonLue(cache, now).catch(() => undefined);
@@ -365,7 +365,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/ecoles-cyclone" || path === "/ecoles-cyclone/") {
     const [data, decision] = await Promise.all([
-      vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
+      vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS, now),
       cycloneDecisionNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
     ]);
     const rubrique = await prefecture.rubriqueNonLue(cache, now).catch(() => undefined);
@@ -403,7 +403,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === FEUX_PATH || path === `${FEUX_PATH}/`) {
     const [fires, vigilance, [sentiers]] = await Promise.all([
       feux.feuxNow(cache, now),
-      vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
+      vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now),
       tileCopies(cache, ["web:sentiers"], background, undefined, now),
     ]);
     const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
@@ -523,7 +523,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const p = pageOf(path.slice("/aujourdhui/".length).replace(/\/$/, ""));
     if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     // The weather is built when it has no copy, as on the commune's page; the rest only read (tools/resume.ts).
-    const vigilance = vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS);
+    const vigilance = vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now);
     const place = await snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request), withoutForecast);
     // The weather's copy as the snapshot gave it: not read again (the read could be one subrequest too many).
     const { copies, leftOut } = await readCopies(cache, p, p, now, background, vigilance, { meteo: place });
@@ -537,7 +537,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const p = pageOf(feed[1]);
     if (!p?.commune) return new Response("Flux inconnu : voir https://rundata.re/communes", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
     const [vigilance, [coupures, randonnees, volcan]] = await Promise.all([
-      vigilanceNow(cache, background, BANNER_WAIT_MS),
+      vigilanceNow(cache, background, BANNER_WAIT_MS, now),
       tileCopies(cache, RSS_TILES, background, undefined, now),
     ]);
     // Without one of its copies, the feed says less than it should: kept a minute only.
@@ -550,7 +550,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const [place, commune, vigilance] = await Promise.all([
       snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request), withoutForecast),
       snapshot(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now), background, now, waitFor(request), isReader(request)),
-      vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS),
+      vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now),
     ]);
     // The West's communes have their déchèteries' tile too (the TCO publishes them).
     const tiles = TCO_COMMUNES.includes(p.nom) ? [...COMMUNE_TILES, "web:dechets"] : COMMUNE_TILES;

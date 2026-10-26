@@ -140,8 +140,11 @@ export function parse(map: MapJson, texts?: TextsJson): Vigilance {
   return { emise: map.update_time, zones, suivi };
 }
 
+/** Where the last reading is kept (web/data.ts serves it while Météo-France is late). */
+export const KEY = "vigilance";
+
 export async function vigilance(cache: Cache): Promise<Cached<Vigilance>> {
-  return cache.get("vigilance", FRESH_SECONDS, async () => {
+  return cache.get(KEY, FRESH_SECONDS, async () => {
     const zip = await download(URL, session(SOURCE.id), getBytes, 20_000);
     const files = await unzip(zip, (name) => name === MAP || name === TEXTS);
     const map = files.get(MAP);
