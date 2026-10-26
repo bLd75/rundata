@@ -312,6 +312,8 @@ const OTHER_PAGES: Record<string, Page> = {
   "/bus/arret/*": { subrequests: 16, cpuMs: 60, from: ["src/tools/transports.ts"], d1: { d1Calls: 3, d1RowsRead: 150 }, what: "la page d'un arrêt de bus : ses prochains départs", basis: "code" },
   "/bus/trajet/*": { subrequests: 11, cpuMs: 30, from: ["src/tools/transports.ts"], d1: { d1Calls: 2, d1RowsRead: 6 }, what: "le trajet d'un bus, arrêt par arrêt", basis: "code" },
   "/coupures-eau/*": { subrequests: 27, cpuMs: 70, from: ["src/tools/coupures.ts"], what: "les coupures d'une commune" },
+  // The copy of /enfants, its agenda kept to the commune: the same reads as /enfants when it builds it.
+  "/enfants/*": { subrequests: 37, cpuMs: 350, from: ["src/tools/agenda.ts"], what: "les lieux pour les enfants d'une commune, sur sa carte", basis: "code" },
   "/feux": { subrequests: 20, cpuMs: 90, from: ["src/tools/feux.ts"] },
   "/ecoles-cyclone": { subrequests: 12, cpuMs: 50, from: ["src/tools/ecoles.ts"] },
   "/carburants": { subrequests: 13, cpuMs: 30, from: ["src/tools/carburants.ts"] },

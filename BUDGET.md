@@ -106,6 +106,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /bus/arret/* | la page d'un arrêt de bus : ses prochains départs | à chaque vue |  | 16 |  |  | 3 | 150 |  | 60 | code |
 | /bus/trajet/* | le trajet d'un bus, arrêt par arrêt | à chaque vue |  | 11 |  |  | 2 | 6 |  | 30 | code |
 | /coupures-eau/* | les coupures d'une commune | à chaque vue |  | 27 |  |  |  |  |  | 70 | mesuré |
+| /enfants/* | les lieux pour les enfants d'une commune, sur sa carte | à chaque vue |  | 37 |  |  |  |  |  | 350 | code |
 | /feux | la page /feux | à chaque vue |  | 20 |  |  |  |  |  | 90 | mesuré |
 | /ecoles-cyclone | la page /ecoles-cyclone | à chaque vue |  | 12 |  |  |  |  |  | 50 | mesuré |
 | /carburants | la page /carburants | à chaque vue |  | 13 |  |  |  |  |  | 30 | mesuré |
@@ -218,6 +219,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | /bus/arret/* | providers/calendrier, providers/gtfsrt |
 | /bus/trajet/* | providers/calendrier, providers/gtfsrt |
 | /coupures-eau/* | providers/avis-eau, providers/eaupotable |
+| /enfants/* | providers/actualites, providers/agenda, providers/avis-eau, providers/salles, providers/sport-avis, providers/sport |
 | /feux | providers/feux |
 | /ecoles-cyclone | providers/feux, providers/mf-auth, providers/vigilance |
 | /carburants | providers/carburants |

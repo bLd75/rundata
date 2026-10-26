@@ -4,7 +4,7 @@ import { INSEE } from "../src/places/insee.js";
 import { CHILDREN, enfantsAnswer, kindAsked } from "../src/tools/enfants.js";
 import * as enfants from "../src/vie/enfants.js";
 import { communePage } from "../src/web/commune.js";
-import { ASK_FRANCAIS, ASK_KREOL, enfantsPage, LEAD, TITLE } from "../src/web/enfants.js";
+import { ASK_FRANCAIS, ASK_KREOL, enfantsCommunePage, enfantsPage, LEAD, TITLE } from "../src/web/enfants.js";
 import { esc } from "../src/web/map.js";
 import { pageOf } from "../src/web/places.js";
 import { deadAnchors, doubleIds, mapLinks } from "./cartes.js";
@@ -204,7 +204,7 @@ describe("the children's page", () => {
 
   it("is on the commune's page: the number first, its three biggest kinds", () => {
     const leu = communePage(O, pageOf("saint-leu")!, { place: null }, NOW);
-    expect(leu).toContain('href="/enfants#c-saint-leu"');
+    expect(leu).toContain('href="/enfants/saint-leu"');
     expect(leu).toContain("6 skateparks et city-stades · 4 aires de jeux · 4 musées · …");
   });
 
@@ -220,5 +220,82 @@ describe("the children's page", () => {
     expect(page).toContain(`Source\u00a0: site de la commune de Petite-Île, lu le samedi 24/10 à 08:00`);
     expect(page).not.toContain("Ville de Petite-Île");
     expect(page).toContain(`<a href="https://www.petite-ile.re/" rel="noopener" target="_blank">Atelier contes</a>`);
+  });
+});
+
+describe("a commune's children's page", () => {
+  const row = (titre: string, commune: string, date: string) =>
+    ({ titre, quand: "samedi 24/10 de 10:00 à 11:00", date, commune, lieu: "Médiathèque", genres: ["enfants"], lien: "https://example.re/", publie_par: commune }) as any;
+  const data = { value: { ce_week_end: [row("Heure du conte", "Saint-Denis", "2026-10-24T10:00")], evenements: [row("Heure du conte", "Saint-Denis", "2026-10-24T10:00"), row("Marionnettes", "Saint-Leu", "2026-10-28T15:00")] }, fetchedAt: NOW } as any;
+  const html = enfantsCommunePage(O, pageOf("saint-denis")!, data, NOW);
+  const map = html.slice(html.indexOf('<svg id="ecm"'), html.indexOf("</svg>", html.indexOf('<svg id="ecm"')));
+
+  it("puts each of the commune's places on its map, a dot leading to its row, each id once", () => {
+    const n = enfants.inCommune("Saint-Denis").length;
+    expect(n).toBe(118);
+    const dots = [...map.matchAll(/<a class="sp" href="#lieu-(\d+)" data-i="(\d+)" data-t="([a-z_]+)"><title>/g)];
+    expect(dots).toHaveLength(n);
+    for (const [, href, i, t] of dots) {
+      expect(href).toBe(i);
+      expect(html).toContain(`<li id="lieu-${i}" class="tgt" data-i="${i}" data-t="${t}"`);
+    }
+    expect(doubleIds(html)).toEqual([]);
+    // Framed on the commune, its outline marked; the relief from the site's own image, no tiles from elsewhere.
+    expect(map).toMatch(/viewBox="[\d. ]+" data-box="[\d. ]+"/);
+    expect(map).toContain('<path class="hl" d="');
+    expect(map).not.toMatch(/https?:\/\//);
+  });
+
+  it("filters by the kinds the commune has, each with its count, and works without its script", () => {
+    expect(html).toContain('<form id="ecf" class="kchips" hidden role="search"');
+    expect(html).toMatch(/<input type="radio" name="t" value="piscine"> <i class="ksw f-eau"><\/i>Piscines <span class="n">9<\/span><\/label>/);
+    expect(html).not.toContain('value="escalade"');
+    // Hidden until the script shows them: without it, the dots are links to the rows, the list is whole.
+    expect(html).toContain('<div id="ecz" class="kzoom" hidden>');
+    expect(html).toContain('<div id="ecs" class="card ksheet" hidden aria-live="polite">');
+    expect(html).toMatch(/<button type="button" class="tomap f-[a-z]+" hidden aria-label="/);
+  });
+
+  it("keeps the agenda to the commune, from the copy of /enfants", () => {
+    expect(html).toContain("Heure du conte");
+    expect(html).not.toContain("Marionnettes");
+    const leu = enfantsCommunePage(O, pageOf("saint-leu")!, data, NOW);
+    expect(leu).toContain("Marionnettes");
+    expect(leu).not.toContain("Heure du conte");
+    const none = enfantsCommunePage(O, pageOf("les-avirons")!, data, NOW);
+    expect(none).toContain('<a href="/enfants">');
+    expect(enfantsCommunePage(O, pageOf("les-avirons")!, null, NOW)).toContain("agenda des enfants se charge");
+  });
+
+  it("says marketing's words, with French spacing", () => {
+    const n = enfants.inCommune("Saint-Denis").length;
+    expect(html).toContain(`<title>Avec les enfants à Saint-Denis${NBSP}: aires de jeux, parcs, piscines · 974</title>`);
+    expect(flat(html)).toContain(`Aires de jeux, parcs, piscines, médiathèques : les ${n} lieux où aller avec les enfants à Saint-Denis, sur une carte, et les activités du week-end.`);
+    expect(html).toContain(`<p class="lead">Les ${n} lieux pour les enfants de Saint-Denis, sur la carte${NBSP}: choisissez un type, ou un point pour voir sa fiche.</p>`);
+    expect(html).toContain('aria-label="Choisir un type de lieu"');
+    expect(html).toMatch(/value="mediatheque"> <i class="ksw f-culture"><\/i>Médiathèques <span class="n">/);
+    expect(html).toContain(`aria-label="Voir sur la carte${NBSP}: `);
+    expect(html).toContain("<span><i class=\"ksw f-culture\"></i>Livres et musées</span>");
+    const none = flat(enfantsCommunePage(O, pageOf("les-avirons")!, data, NOW));
+    expect(none).toContain(`Les agendas que nous lisons n'annoncent pas d'activité pour les enfants aux Avirons dans les deux semaines qui viennent. Ils ne disent pas tout : voyez aussi <a href="/enfants">les activités dans toute l'île</a>.`);
+    expect(html).toContain('<p><a href="/enfants">Les 24 communes →</a></p>');
+  });
+
+  it("gives each commune its own « à » and « de », and a short button back to the whole commune", () => {
+    const port = flat(enfantsCommunePage(O, pageOf("le-port")!, data, NOW));
+    const avirons = flat(enfantsCommunePage(O, pageOf("les-avirons")!, data, NOW));
+    expect(port).toContain("Avec les enfants au Port");
+    expect(avirons).toContain("Avec les enfants aux Avirons");
+    expect(avirons).toContain("pour les enfants des Avirons, sur la carte");
+    for (const page of [port, avirons]) expect(page).not.toMatch(/\b(à|de) Les? /);
+    expect(html).toMatch(/<button type="button" data-z="0" aria-label="[^"]*Recentrer sur toute la commune">[^<]*Recentrer<\/button>/);
+  });
+
+  it("is where /enfants takes each commune, by its map and its card", () => {
+    const all = enfantsPage(O, data, NOW);
+    for (const p of ["saint-denis", "les-avirons", "l-etang-sale"]) expect(all).toContain(`href="/enfants/${p}"`);
+    expect(mapLinks(all).filter((l) => l.href.startsWith("/enfants/"))).toHaveLength(24);
+    expect(flat(all)).toContain("La carte des lieux du Port");
+    expect(flat(all)).toContain("La carte des lieux des Avirons");
   });
 });
