@@ -14,6 +14,7 @@ import type { Cache, Cached } from "./cache.js";
 import { localTime } from "./geo.js";
 import { INSEE } from "./places/insee.js";
 import { normalize } from "./places/resolve.js";
+import { PROPOSITIONS } from "./providers/agenda-propositions.js";
 import { AGENDAS, copiePlanifiee, planifiees, SOURCES_LUES, SPORTSREGIONS, type Evenement } from "./providers/agenda.js";
 import { DAES } from "./providers/dae.js";
 import { IDS as POINTS_DE_CHARGE, STATIONS as BORNES } from "./providers/irve.js";
@@ -26,7 +27,7 @@ import * as velos from "./providers/velos.js";
 import { NOUVEAUTES } from "./nouveautes.js";
 import { compte, FAMILLES, FICHES, producteursDe, type Famille } from "./producteurs.js";
 import { etat, publiques } from "./sans-reponse.js";
-import { agenda } from "./tools/agenda.js";
+import { agenda, ofAgenda } from "./tools/agenda.js";
 import { ahead, type CourantAnswer, followed } from "./tools/courant.js";
 import { providers as weatherProviders } from "./tools/meteo.js";
 import { type SourceInfo, why } from "./types.js";
@@ -125,18 +126,24 @@ export interface Copie {
   coupures_electricite?: Compte;
   /** The public sites that do not answer, and the last daily recheck (seconds). */
   sans_reponse?: Compte & { passage?: number };
-  evenements?: Compte;
+  /** `sans`: the one or two agendas that did not answer, the count made without them (SANS_MAX). */
+  evenements?: Compte & { sans?: string[] };
+  /** The last count made from a whole list: said, with its hour, while more than SANS_MAX agendas are missing. */
+  evenements_complet?: Compte;
   /** The clubs of Sportsregions that are not producers already: never their names. */
   clubs?: Compte;
   /** When this copy was built (ISO): a count of another hour was kept from the copy before, or from another copy. */
   construite_le?: string;
 }
 
-/** The events' copy; `sans`: the agendas that did not answer, when the list is in part or missing (never counted). */
+/** The events' copy; `sans`: the agendas that did not answer, when the list is in part or missing. */
 export interface EvenementsCopie {
   nombre?: number;
   sans?: string[];
 }
+
+/** At most this many agendas missing, the events are counted without them, and the page names them; past it, the last whole count. */
+export const SANS_MAX = 2;
 
 /** Every 6 hours; every hour while the last list was in part, rather than at every event of 5 minutes. */
 export const evenementsEvery = (last: unknown) => ((last as EvenementsCopie | undefined)?.sans?.length ? 60 : 6 * 60);
@@ -171,8 +178,9 @@ async function stationsMeteo(cache: Cache, now: Date): Promise<number | undefine
 
 /**
  * The events of the next two weeks on the whole island, as /evenements counts them. An agenda that does not answer
- * leaves the list in part: the copy says which, is never counted (the count before is kept with its hour), and is
- * tried again an hour later (`evenementsEvery`). Not written, it would be due again at every event.
+ * leaves the list in part: the copy says which, is counted only without SANS_MAX agendas at most (else the last whole
+ * count is said, with its hour), and is tried again an hour later (`evenementsEvery`). Not written, it would be due
+ * again at every event.
  */
 export async function buildEvenements(cache: Cache, now = new Date()): Promise<EvenementsCopie> {
   const r = await agenda(cache, undefined, undefined, undefined, now, 1);
@@ -225,8 +233,16 @@ export async function buildChiffres(cache: Cache, now = new Date()): Promise<Cop
     const e = await etat(cache);
     return { nombre: publiques(e.lignes).filter((l) => l.statut === "injoignable" || l.statut === "bloque").length, ...(e.passage ? { passage: e.passage } : {}) };
   });
-  // Its own copy, every 6 hours, built before this one when both are due (web/partagees.ts).
-  out.evenements = (await copie<EvenementsCopie>(EVENEMENTS_KEY, (v) => (v.sans?.length ? undefined : v.nombre))) ?? before.evenements;
+  // Its own copy, every 6 hours, built before this one when both are due (web/partagees.ts). An agenda read twice (its
+  // agenda and its news) is named once. Past SANS_MAX missing, or none answering, no count of this list: the last whole
+  // one is said. No copy to read: the count before, with its hour.
+  const ev = await cache.peek<EvenementsCopie>(EVENEMENTS_KEY).catch(() => undefined);
+  const fresh = ev && !ev.stale ? ev : undefined;
+  const sans = [...new Set(fresh?.value.sans ?? [])];
+  const lu = fresh?.value.nombre !== undefined ? { nombre: fresh.value.nombre, le: fresh.fetchedAt.toISOString() } : undefined;
+  out.evenements = lu && sans.length <= SANS_MAX ? { ...lu, ...(sans.length ? { sans } : {}) } : fresh ? undefined : before.evenements;
+  // A copy of before this field: its count, when it was whole.
+  out.evenements_complet = (lu && !sans.length ? lu : undefined) ?? before.evenements_complet ?? (before.evenements && !before.evenements.sans?.length ? before.evenements : undefined);
   out.clubs = await recompte("clubs", async () => {
     const c = copiePlanifiee(await planifiees(cache), SPORTSREGIONS);
     return c ? { nombre: clubs(c.value) } : undefined;
@@ -240,6 +256,22 @@ export async function buildChiffres(cache: Cache, now = new Date()): Promise<Cop
 export const aLHeure = (d: Date) => localTime(d).replace(" ", " à ");
 
 const nombre = (c: Compte | undefined) => (c ? { nombre: c.nombre, compte_le: aLHeure(new Date(c.le)) } : undefined);
+
+/**
+ * The words after « {N} événements dans les deux semaines qui viennent, », marketing's (26/10): the one or two agendas
+ * counted without, the events proposed on rundata.re apart (« dont le site n'a pas répondu » would be false for them).
+ */
+export function sansAgendas(noms: string[]): string {
+  const sites = noms.filter((x) => x !== PROPOSITIONS.nom);
+  const lus = sites.length
+    ? `sans ${sites.length > 1 ? "les agendas" : "l'agenda"} ${sites.map(ofAgenda).join(" et ")}, dont ${sites.length > 1 ? "les sites n'ont" : "le site n'a"} pas répondu à notre dernière lecture`
+    : "";
+  if (sites.length === noms.length) return lus;
+  return lus ? `${lus}, ni les événements proposés sur rundata.re pour le moment` : "sans les événements proposés sur rundata.re pour le moment";
+}
+
+/** Past SANS_MAX agendas missing: « d'après notre dernier compte complet, le 26/10 à 06:00 » (marketing, 26/10). */
+const dernierComplet = (c: Compte) => `d'après notre dernier compte complet, le ${aLHeure(new Date(c.le))}`;
 
 /**
  * Everything counted, as sources_donnees gives it and the page shows it. `sources`: those read (server.ts,
@@ -286,7 +318,9 @@ export function chiffres(sources: SourceInfo[], copie: Cached<Copie> | undefined
       randonnees_gps: RANDONNEES.length,
     },
     en_ce_moment: {
-      evenements_deux_semaines: nombre(k.evenements),
+      evenements_deux_semaines: k.evenements
+        ? { ...nombre(k.evenements)!, ...(k.evenements.sans?.length ? { incomplet: sansAgendas(k.evenements.sans) } : {}) }
+        : k.evenements_complet ? { ...nombre(k.evenements_complet)!, incomplet: dernierComplet(k.evenements_complet) } : undefined,
       avis_coupure_eau: nombre(k.coupures_eau),
       avis_coupure_electricite: nombre(k.coupures_electricite),
     },

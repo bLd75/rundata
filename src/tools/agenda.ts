@@ -571,6 +571,19 @@ export function sourcesServies<T extends { source: string }>(cs: T[] | undefined
 const halls = src.AGENDAS.filter((x) => x.source === SALLES_SOURCE);
 /** « du Séchoir », « de la Cité des Arts », « de Léspas ». */
 const ofHall = (nom: string) => nom.replace(/^Le /, "du ").replace(/^La /, "de la ").replace(/^Les /, "des ").replace(/^(?!du |de la |des )/, /^[AEIOUYÉÈÊÀÂ]/iu.test(nom) ? "de l'" : "de ");
+// The names whose article their own words do not give: a body known by its initials, a hall, the clubs (marketing, 26/10).
+const OF_AGENDA: Record<string, string> = {
+  CINOR: "de la CINOR",
+  "Ligue réunionnaise de volley-ball": "de la Ligue réunionnaise de volley-ball",
+  "Clubs sportifs (Sportsregions)": "des clubs sportifs (Sportsregions)",
+  "TÉAT Champ Fleuri et Plein Air": "du TÉAT Champ Fleuri et Plein Air",
+  "Cité des Arts": "de la Cité des Arts",
+  Kabardock: "du Kabardock",
+  "Théâtre Luc Donat": "du Théâtre Luc Donat",
+  CDNOI: "du CDNOI",
+};
+/** After « l'agenda »: « de la mairie de Saint-Paul », « de la Ville du Port », « du Séchoir », « de l'Office de tourisme de l'Est ». */
+export const ofAgenda = (nom: string) => OF_AGENDA[nom] ?? (/^Mairie /.test(nom) ? `de la m${nom.slice(1)}` : /^Ville /.test(nom) ? `de la ${nom}` : ofHall(nom));
 /** What a commune read only through its mairie's news has besides (marketing): its halls' programmes. */
 function besides(commune: string): string {
   const its = halls.filter((h) => h.commune === commune).map((h) => ofHall(h.nom));
