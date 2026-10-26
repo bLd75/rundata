@@ -79,10 +79,72 @@ const PEAKS = [
   { name: "Piton de la Fournaise", alt: "2 632 m", lon: 55.7083, lat: -21.2444 },
 ];
 
-function marker(m: Marker, hit = HIT): string {
-  const [x, y] = project(m.lon, m.lat);
+/** A pill's width for its label, and its height. */
+const pillW = (m: Marker) => Math.max(64, m.label.length * 19 + 24);
+const PILL_H = 48;
+// Between two pills moved apart (their white edges never touch), and from a pill to the map's edge.
+const GAP = 16;
+
+/**
+ * Where to draw each marker so that no pill covers another (`apart`): those that would are pushed apart, each the
+ * least, along the shorter way out, and kept inside the map; round markers stay where they are. The same markers, the
+ * same places.
+ */
+function apart(markers: Marker[]): [number, number][] {
+  const p = markers.map((m) => project(m.lon, m.lat));
+  const w = markers.map(pillW);
+  const pill = markers.map((m) => !m.round);
+  for (let round = 0; round < 200; round++) {
+    let moved = false;
+    for (let i = 0; i < p.length; i++) {
+      for (let j = i + 1; j < p.length; j++) {
+        if (!pill[i] || !pill[j]) continue;
+        const dx = p[j][0] - p[i][0];
+        const dy = p[j][1] - p[i][1];
+        const ox = (w[i] + w[j]) / 2 + GAP - Math.abs(dx);
+        const oy = PILL_H + GAP - Math.abs(dy);
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        // Half each; two at the same height or column apart in their order.
+        if (ox < oy) {
+          const s = dx < 0 ? -1 : 1;
+          p[i][0] -= (s * ox) / 2;
+          p[j][0] += (s * ox) / 2;
+        } else {
+          const s = dy < 0 ? -1 : 1;
+          p[i][1] -= (s * oy) / 2;
+          p[j][1] += (s * oy) / 2;
+        }
+      }
+    }
+    for (let i = 0; i < p.length; i++) {
+      if (!pill[i]) continue;
+      p[i][0] = Math.min(W - w[i] / 2 - GAP, Math.max(w[i] / 2 + GAP, p[i][0]));
+      p[i][1] = Math.min(H - PILL_H / 2 - GAP, Math.max(PILL_H / 2 + GAP, p[i][1]));
+    }
+    if (!moved) break;
+  }
+  return p.map(([x, y]) => [Math.round(x), Math.round(y)]);
+}
+
+/** For each pill moved from its place (apart()), a dot at the place and a line to the pill: under every pill. */
+function ties(markers: Marker[], at: [number, number][]): string {
+  const out = markers.map((m, i) => {
+    const [x0, y0] = project(m.lon, m.lat);
+    const [x, y] = at[i];
+    const fill = m.color ?? "var(--ink)";
+    return Math.hypot(x - x0, y - y0) > 2
+      ? `<line x1="${x0}" y1="${y0}" x2="${x}" y2="${y}" stroke="${fill}" stroke-width="4"/><circle cx="${x0}" cy="${y0}" r="10" fill="${fill}" stroke="#fff" stroke-width="4"/>`
+      : "";
+  }).join("");
+  return out ? `<g class="ties" aria-hidden="true">${out}</g>` : "";
+}
+
+/** `at`: where it is drawn, when moved from its place (apart()). */
+function marker(m: Marker, hit = HIT, at?: [number, number]): string {
+  const [x, y] = at ?? project(m.lon, m.lat);
   const fill = m.color ?? "var(--ink)";
-  const w = Math.max(64, m.label.length * 19 + 24);
+  const w = pillW(m);
   const shape = m.round
     ? m.hollow
       ? `<circle class="sh" cx="${x}" cy="${y}" r="30" style="fill:#fff;stroke:${fill};stroke-width:8"/>`
@@ -130,6 +192,8 @@ export function islandMap(opts: {
   relief?: boolean;
   /** Drawn over the land, under the markers: lines. */
   overlay?: string;
+  /** Pills that would cover each other moved apart, each tied to its place (apart()). */
+  apart?: boolean;
   label: string;
 }): string {
   const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
@@ -143,7 +207,8 @@ export function islandMap(opts: {
   const role = linked ? `role="group"` : `role="img"`;
   const zones = opts.links ? zoneLinks(opts.links) : "";
   const radii = hitRadii(opts.markers ?? []);
-  const markers = (opts.markers ?? []).map((m, i) => marker(m, radii[i])).join("");
+  const at = opts.apart ? apart(opts.markers ?? []) : undefined;
+  const markers = (at ? ties(opts.markers!, at) : "") + (opts.markers ?? []).map((m, i) => marker(m, radii[i], at?.[i])).join("");
   let extra = "";
   if (hl) extra += `<path class="hl" d="${hl.d}"/>`;
   if (opts.peaks) {

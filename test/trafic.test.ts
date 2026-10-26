@@ -6,6 +6,7 @@ import * as carburants from "../src/providers/carburants.js";
 import type { Fil, Info } from "../src/providers/actualites.js";
 import { buildTrafic, roadNewsNow, withRoadNews } from "../src/web/data.js";
 import { traficPage } from "../src/web/domains.js";
+import { islandMap } from "../src/web/map.js";
 
 // The ONF's map of 24/10/2026 (test/fixtures/onf): 4 forest roads closed. The buses' timetables live in D1, absent here.
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/onf/${f}`, import.meta.url), "utf8");
@@ -96,6 +97,35 @@ describe("circulation", () => {
     expect(map).not.toContain('class="mn"');
     expect(card).toContain("fichier du 30/12/2025, mise à jour une fois par an");
     expect(card).not.toMatch(/mobiles? (?!n)|attention|évite|ralenti|flash|piège/i);
+  });
+
+  it("draws no camera's pill over another's: those too close moved apart, each tied to its place by a dot and a line", () => {
+    const mapOf = (page: string) => {
+      const card = page.slice(page.indexOf('<div class="card" id="radars">'));
+      return card.slice(card.indexOf('<svg class="map'), card.indexOf("</svg>", card.indexOf('<svg class="map')));
+    };
+    const map = mapOf(traficPage("https://rundata.re", null, NOW));
+    const pills = [...map.matchAll(/<rect class="sh" x="(-?[\d.]+)" y="(-?[\d.]+)" width="([\d.]+)" height="48"/g)].map((m) => ({ x: +m[1], y: +m[2], w: +m[3] }));
+    expect(pills).toHaveLength(24);
+    const over = pills.flatMap((a, i) => pills.slice(i + 1).filter((b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + 48 && b.y < a.y + 48).map((b) => [a, b]));
+    expect(over).toEqual([]);
+    expect(pills.every((p) => p.x >= 0 && p.x + p.w <= 1000 && p.y >= 0 && p.y + 48 <= 896)).toBe(true);
+    // Saint-Denis's six within a few hundred metres, and the pairs of the South and the West: under every pill, a dot
+    // at each moved one's place, a line to its pill.
+    const ties = map.slice(map.indexOf('<g class="ties"'), map.indexOf('<g class="mk">'));
+    expect(map.indexOf('<g class="ties" aria-hidden="true">')).toBeGreaterThan(0);
+    const lines = [...ties.matchAll(/<line x1="\d+" y1="\d+" x2="(\d+)" y2="(\d+)"/g)].map((m) => [+m[1], +m[2]]);
+    expect(lines.length).toBeGreaterThanOrEqual(6);
+    expect(ties.match(/<circle /g)).toHaveLength(lines.length);
+    expect(lines.every(([x, y]) => pills.some((p) => p.x + p.w / 2 === x && p.y + 24 === y))).toBe(true);
+    // The same places at each build.
+    expect(mapOf(traficPage("https://rundata.re", null, NOW))).toBe(map);
+  });
+
+  it("leaves the other maps' markers where they are", () => {
+    const two = [{ lon: 55.45, lat: -20.88, label: "70", name: "a" }, { lon: 55.4505, lat: -20.8801, label: "90", name: "b" }];
+    expect(islandMap({ markers: two, label: "x" })).not.toContain('class="ties"');
+    expect(islandMap({ markers: two, label: "x", apart: true })).toContain('<g class="ties" aria-hidden="true"><line ');
   });
 
   it("still answers when the ONF does not", async () => {
