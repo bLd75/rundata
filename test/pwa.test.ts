@@ -301,6 +301,8 @@ describe("the site's part", () => {
     const html = legalPage(O, "confidentialite");
     expect(html).toContain("Installation et lecture hors ligne : elles n'utilisent aucun cookie.");
     expect(html).toContain("si la page est ouverte depuis l'application installée sur l'écran d'accueil");
+    // The language of the ready-made question (pages.ts, « askl ») is kept the same way.
+    expect(html).toContain("Votre choix «\u00a0Plus tard\u00a0» est gardé de la même façon, comme la langue choisie, kréol ou français, pour la question toute prête à poser à votre IA. Ces données restent sur le téléphone");
   });
 
   it("counts a page view in the app in blob11, « app » or nothing", () => {
