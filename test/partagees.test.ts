@@ -268,10 +268,11 @@ describe("the scheduled refresh of the shared copies", () => {
     // The volcano's copy goes every 5 minutes during an alert: its quickest rate bounds it.
     for (const s of SHARED) expect(kv.writes.get(kvKey(s.key)), s.key).toBeLessThanOrEqual(perDay(typeof s.every === "number" ? s.every : 5));
     const total = [...kv.writes.values()].reduce((a, b) => a + b, 0);
-    // The vigilance every 5 minutes, the volcano's copy, quiet here, every 30 minutes like four others, the counts of
-    // /chiffres every hour, and the satellites' grids every 3 hours (about 620 a day, partagees.ts).
-    expect(total).toBeLessThanOrEqual(620);
-    expect(total).toBeGreaterThanOrEqual(581);
+    // The vigilance every 5 minutes, the rivers every 15, quiet here, the volcano's copy, quiet too, every 30 minutes
+    // like four others, the counts of /chiffres every hour, and the satellites' grids every 3 hours (about 720 a day,
+    // partagees.ts).
+    expect(total).toBeLessThanOrEqual(720);
+    expect(total).toBeGreaterThanOrEqual(677);
   });
 
   it("refreshes a copy at each of its slots, though written a few seconds into the event before", async () => {
@@ -410,8 +411,9 @@ describe("the scheduled refresh of the shared copies", () => {
     expect(run.value.after.left).toEqual([]);
     expect(run.value.first.written.length + run.value.after.written.length).toBe(SHARED.length + SHARED_AFTER.length);
     // What the planned agendas may take after them, at the most: far more than they need (the 5 pages of Sportsregions
-    // the dearest), the counts of /chiffres and their events, 85 with their lookups, built too.
-    expect(run.value.rest).toBeGreaterThan(150);
+    // the dearest, 17 when all are due together, BUDGET.md), the counts of /chiffres and their events, 85 with their
+    // lookups, built too.
+    expect(run.value.rest).toBeGreaterThan(140);
     expect(run.used).toBeLessThanOrEqual(SCHEDULED_BUDGET);
   });
 

@@ -76,6 +76,7 @@ const COPY_WRITE = 1;
 // Where each shared copy's build reads from (web/data.ts builds them from these tools and sources).
 const SHARED_FROM: Record<string, string[]> = {
   vigilance: ["src/providers/vigilance.ts"],
+  "web:crues": ["src/tools/crues.ts"],
   "web:actualites": ["src/tools/actualites.ts"],
   "web:trafic": ["src/tools/transports.ts", "src/tools/littoral.ts", "src/providers/transit.ts"],
   "web:electricite": ["src/tools/electricite.ts"],
@@ -100,8 +101,8 @@ const SHARED_D1: Record<string, Pick<Run, "d1Calls" | "d1RowsRead">> = {
   "web:chiffres": SANS_REPONSE_D1,
 };
 
-// Never built alone over MEASURED: their CPU is that of the page that shows them; the vigilance's, measured in Node.
-const SHARED_ESTIMATED = new Set(["vigilance", "mer:satellites", "web:calendrier", "web:chiffres", "web:chiffres:evenements"]);
+// Never built alone over MEASURED: their CPU is that of the page that shows them; the vigilance's and the rivers', measured in Node.
+const SHARED_ESTIMATED = new Set(["vigilance", "web:crues", "mer:satellites", "web:calendrier", "web:chiffres", "web:chiffres:evenements"]);
 
 const sharedEntry = (s: Shared, after: boolean): Entry => ({
   id: s.key,
