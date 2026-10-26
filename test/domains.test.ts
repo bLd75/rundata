@@ -125,7 +125,7 @@ describe("home page tiles", () => {
     expect(tile("Calendrier")).toContain(`<p class="tv">Vacances scolaires</p>`);
     expect(tile("Calendrier")).toContain("Toussaint dans 9 j");
     // The Région's official map; Waze only on /trafic, beside its own map.
-    expect(tile("Circulation").replaceAll("\u00a0", " ")).toContain(`<p class="tv">Carte officielle</p><p class="td">bouchons, accidents et travaux : infotrafic.re ; 1 route forestière fermée</p>`);
+    expect(tile("Circulation").replaceAll("\u00a0", " ")).toContain(`<p class="tv">Carte officielle</p><p class="td all">bouchons, accidents et travaux : infotrafic.re ; 1 route forestière fermée</p>`);
     expect(page).not.toMatch(/waze/i);
     // A time, not « dans 3 min »: the page may be a few minutes old.
     expect(tile("Bus")).toMatch(/<p class="tv">(demain )?\d+h\d\d<\/p><p class="td">prochain départ de la gare de Saint-/);

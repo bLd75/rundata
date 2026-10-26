@@ -1305,7 +1305,8 @@ export function traficLive(data: Cached<TraficAnswer> | null): Live | undefined 
   const d = data?.value;
   if (!d) return undefined;
   const n = d.routes_forestieres?.interdites.length ?? 0;
-  return { valeur: "Carte officielle", detail: `bouchons, accidents et travaux : infotrafic.re ; ${n} route${n > 1 ? "s" : ""} forestière${n > 1 ? "s" : ""} fermée${n > 1 ? "s" : ""}` };
+  // Said in full on a phone: the number of forest roads closed is at its end.
+  return { valeur: "Carte officielle", detail: `bouchons, accidents et travaux : infotrafic.re ; ${n} route${n > 1 ? "s" : ""} forestière${n > 1 ? "s" : ""} fermée${n > 1 ? "s" : ""}`, entier: true };
 }
 
 // ---------------------------------------------------------------- randonnée: the hikers' page
