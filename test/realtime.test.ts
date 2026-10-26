@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import * as rt from "../src/providers/gtfsrt.js";
 import * as transit from "../src/providers/transit.js";
-import { applyRealtime, departureRow, departures, findStops, realtimeFeeds, transports } from "../src/tools/transports.js";
+import { applyRealtime, departureRow, departures, findStops, realtimeFeeds, transports, withPositions } from "../src/tools/transports.js";
 
 // 40 trips, 2 vehicles and the 3 alerts of the Car Jaune feed of 23/10/2026 at 20:55 (La Réunion).
 const FEED = new Uint8Array(readFileSync(new URL("./fixtures/gtfs_rt_carjaune.pb", import.meta.url)));
@@ -97,6 +97,29 @@ describe("departures in real time", () => {
     expect(row.heure_annoncee).not.toBe(row.heure);
     expect(departureRow(out[0]).temps_reel).toBe("ne passe pas à cet arrêt");
     expect(out[1].supprime).toBe(true);
+  });
+
+  it("leave out a time far from the timetable: half an hour early, an hour late, or half an hour late with no bus seen", async () => {
+    const list = (await departures(findStops("gare routière Saint-Pierre").groups, NOW)).filter((d) => d.reseau === "carjaune");
+    // Due in an hour at least: 55 minutes early would still be to come.
+    const d = list.find((x) => x.in >= 3600)!;
+    const bus: rt.Vehicle = { trip: d.trip, lat: -21.274, lon: 55.505, at: T0 - 20 };
+    const at = (late: number, vehicles: rt.Vehicle[]) => {
+      const feeds = new Map([["carjaune", { at: T0 - 20, trips: { [d.trip]: { [gtfsStop(d.stop)]: T0 + d.in + late } }, cancelled: [], alerts: [], vehicles } as rt.Realtime]]);
+      return withPositions(applyRealtime([d], feeds, NOW), feeds, NOW)[0];
+    };
+    // Car Jaune, 26/10/2026: a second bus given the next run's trip, its 11h32 announced at 10h37. Its bus is not this run's.
+    const early = at(-55 * 60, [bus]);
+    expect(departureRow(early)).not.toHaveProperty("heure_annoncee");
+    expect(early.bus).toBeUndefined();
+    const late = at(35 * 60, [bus]);
+    expect(departureRow(late).retard_min).toBe(35);
+    expect(late.bus).toBeDefined();
+    expect(departureRow(at(35 * 60, []))).not.toHaveProperty("heure_annoncee");
+    expect(departureRow(at(59 * 60, []))).not.toHaveProperty("heure_annoncee");
+    const later = at(65 * 60, [bus]);
+    expect(departureRow(later)).not.toHaveProperty("heure_annoncee");
+    expect(later.bus).toBeUndefined();
   });
 
   it("are given by the tool with the alerts about these lines, and say so", async () => {
