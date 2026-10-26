@@ -113,7 +113,7 @@ describe("what a club sends: the fields read", () => {
 });
 
 describe("what is kept, and for how long (scripts/propositions.sql)", () => {
-  const proposition = () => (read(PROPOSITION) as { proposition: propositions.Proposition }).proposition;
+  const proposition = (over: Partial<propositions.Proposition> = {}) => ({ ...(read(PROPOSITION) as { proposition: propositions.Proposition }).proposition, ...over });
 
   it("keeps a proposal waiting for its confirmation, its secret only as a hash, and mails the link to its author", async () => {
     expect(await propositions.enregistrerProposition(proposition(), "203.0.113.7", "https://rundata.re/associations/proposition/", NOW)).toBe("ok");
@@ -125,8 +125,11 @@ describe("what is kept, and for how long (scripts/propositions.sql)", () => {
     const secret = /https:\/\/rundata\.re\/associations\/proposition\/([\w-]{22})\n/.exec(sent[0].text)![1];
     expect(row.jeton).toBe(await propositions.empreinteJeton(secret));
     expect(row.jeton).not.toContain(secret);
-    expect(sent[0].text).toContain("sur rundata.re\u00a0: «\u00a0Tournoi de pétanque du club\u00a0», le 07/11/2026 à 14:00, Boulodrome de Terre-Sainte (Saint-Pierre).");
-    expect(sent[0].subject).toBe("Confirmez votre événement «\u00a0Tournoi de pétanque du club\u00a0» sur rundata.re");
+    // Nothing the sender wrote, before the address is shown to be theirs: the day, the hour, the commune, the link.
+    expect(sent[0].text).toContain("Un événement a été proposé sur rundata.re avec cette adresse, pour le 07/11/2026 à 14:00 à Saint-Pierre.\n");
+    expect(sent[0].subject).toBe("Confirmez votre événement sur rundata.re");
+    expect(sent[0].text).toContain("Pour le voir et le confirmer, ouvrez ce lien\u00a0:");
+    for (const free of ["Tournoi", "Boulodrome", "Pétanque club"]) expect(`${sent[0].subject}\n${sent[0].text}`).not.toContain(free);
     expect(sent[0].text).toContain("\nL'équipe rundata.re\nrundata.re · https://rundata.re/associations");
   });
 
@@ -137,10 +140,21 @@ describe("what is kept, and for how long (scripts/propositions.sql)", () => {
   });
 
   it("takes five proposals a day from one sender, then refuses; another sender still gets through", async () => {
-    for (let i = 0; i < propositions.PROPOSITIONS_PAR_JOUR; i++) expect(await propositions.enregistrerProposition(proposition(), "203.0.113.7", "https://rundata.re/x/", later(i))).toBe("ok");
-    expect(await propositions.enregistrerProposition(proposition(), "203.0.113.7", "https://rundata.re/x/", later(6))).toBe("limite");
-    expect(await propositions.enregistrerProposition(proposition(), "198.51.100.2", "https://rundata.re/x/", later(6))).toBe("ok");
+    const to = (i: number) => proposition({ email: `club${i}@example.org` });
+    for (let i = 0; i < propositions.PROPOSITIONS_PAR_JOUR; i++) expect(await propositions.enregistrerProposition(to(i), "203.0.113.7", "https://rundata.re/x/", later(i))).toBe("ok");
+    expect(await propositions.enregistrerProposition(to(9), "203.0.113.7", "https://rundata.re/x/", later(6))).toBe("limite");
+    expect(await propositions.enregistrerProposition(to(9), "198.51.100.2", "https://rundata.re/x/", later(6))).toBe("ok");
     expect(sent).toHaveLength(propositions.PROPOSITIONS_PAR_JOUR + 1);
+  });
+
+  it("sends three confirmation e-mails a day at most to one address, whoever asks; another address still gets through", async () => {
+    const senders = ["203.0.113.7", "198.51.100.2", "192.0.2.10", "192.0.2.11"];
+    for (let i = 0; i < propositions.PROPOSITIONS_PAR_ADRESSE_JOUR; i++) expect(await propositions.enregistrerProposition(proposition(), senders[i], "https://rundata.re/x/", later(i))).toBe("ok");
+    expect(await propositions.enregistrerProposition(proposition(), senders[3], "https://rundata.re/x/", later(4))).toBe("limite");
+    expect(await propositions.enregistrerProposition(proposition({ email: "autre@example.org" }), senders[3], "https://rundata.re/x/", later(4))).toBe("ok");
+    // The next day, the address again.
+    expect(await propositions.enregistrerProposition(proposition(), senders[3], "https://rundata.re/x/", later(25))).toBe("ok");
+    expect(sent.map((m) => m.to).filter((x) => x === "club@example.org")).toHaveLength(propositions.PROPOSITIONS_PAR_ADRESSE_JOUR + 1);
   });
 
   it("forgets a proposal never confirmed after 48 hours, and the author's address 30 days after the event", async () => {
@@ -167,7 +181,7 @@ describe("what is kept, and for how long (scripts/propositions.sql)", () => {
     db.exec("UPDATE propositions SET etat = 'publie'");
     await propositions.enregistrerProposition(proposition(), "198.51.100.2", "https://rundata.re/x/", new Date("2027-02-19T06:00:00Z"));
     expect(rows("SELECT derniere_date, email FROM propositions WHERE id = 1")).toEqual([{ derniere_date: "2027-01-20", email: "club@example.org" }]);
-    expect(sent[0].text).toContain(", le 07/11/2026, chaque semaine jusqu'au 20/01/2027 à 14:00,");
+    expect(sent[0].text).toContain("pour le 07/11/2026, chaque semaine jusqu'au 20/01/2027, à 14:00 à Saint-Pierre.\n");
   });
 
   it("takes five links a day from one sender", async () => {
