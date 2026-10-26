@@ -32,6 +32,7 @@ import { refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { listShared, SHARED, SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
 import { why } from "./types.js";
+import { configure as metaWebhookSecrets } from "./meta-webhook.js";
 
 // How long the edge keeps an entry. Much longer than any freshness window: an old copy is what gets served,
 // marked as such, while a source is down.
@@ -87,6 +88,9 @@ interface Env {
   AVIS_SEL?: string;
   /** Optional: the secret key of the Turnstile widget of the clubs' forms (web/propositions.ts). */
   TURNSTILE_SECRET?: string;
+  /** Optional, both or nothing: the verify token chosen for Meta's webhook, and the Meta app's secret (src/meta-webhook.ts). */
+  META_VERIFY_TOKEN?: string;
+  META_APP_SECRET?: string;
   /** Optional: the key that encrypts the secrets of the associations' platforms (src/connecteurs/chiffre.ts), 32 bytes in base64. */
   CONNECTEURS_CLE?: string;
   /** Cloudflare Email Sending: the confirmation of the events the clubs propose (src/propositions.ts). */
@@ -202,6 +206,7 @@ function setup(env: Env): Cache {
     avisDb && (async <T>(sql: string, ...params: unknown[]) => (count(), (await avisDb.prepare(sql).bind(...params).all<T>()).results)),
   );
   formulaires.configure(env.TURNSTILE_SECRET);
+  metaWebhookSecrets(env.META_VERIFY_TOKEN, env.META_APP_SECRET);
   // The associations' links to their platform, in the same database (scripts/connecteurs.sql): the platform's secret
   // encrypted with CONNECTEURS_CLE, the link e-mailed like a proposal's. Without the key, nothing is linked.
   chiffre.configure(env.CONNECTEURS_CLE);
