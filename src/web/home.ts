@@ -231,7 +231,7 @@ function tile(c: Category, l: Live | undefined, odd = false): string {
     : c.exemple
       ? `<p class="tq">« ${esc(c.exemple)} »</p>`
       // No copy at all: the read is under way (a copy with nothing to show says so, `vide`).
-      : `<p class="td">Se met à jour : rechargez la page dans quelques secondes.</p>`;
+      : `<p class="td all">Se met à jour : rechargez la page dans quelques secondes.</p>`;
   const more = c.path ? `<span class="go" aria-hidden="true">→</span>` : "";
   const foot = c.path ? "" : `<a class="tl" href="#assistant">Demandez à votre IA →</a>`;
   return `<li class="tile k-${c.key}${c.path ? "" : " wide"}${odd ? " odd" : ""}"><div class="th"><span class="kb">${icon(c.icon)}</span>${name}${more}</div>${now}` +

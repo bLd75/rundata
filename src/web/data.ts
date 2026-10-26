@@ -1487,17 +1487,25 @@ export function alerteOf(v: mf.Vigilance, now: Date): Alerte | undefined {
   return { couleur: r[0].max, texte: `Vigilance Météo-France : ${list.join(", ")}${r.length > 3 ? "…" : ""}.`, court };
 }
 
+// The age up to which the last vigilance kept is served while Météo-France is late: the tile and the banner do not say
+// the time of their read, and an older copy could show a level that has changed since.
+const KEPT_VIGILANCE_MS = 3600_000;
+
 /**
- * Météo-France's vigilance, waited for at most `waitMs` (then left to finish in the background for the next page).
- * Null when the key is missing, the source fails with nothing in cache, or it is late.
+ * Météo-France's vigilance, waited for at most `waitMs` (then left to finish in the background for the next page),
+ * the last one kept being served meanwhile if younger than KEPT_VIGILANCE_MS. Null when the key is missing, the source
+ * fails with nothing in cache, or it is late with no recent copy kept.
  */
-export async function vigilanceNow(cache: Cache, background: Background, waitMs: number): Promise<Cached<mf.Vigilance> | null> {
+export async function vigilanceNow(cache: Cache, background: Background, waitMs: number, now = new Date()): Promise<Cached<mf.Vigilance> | null> {
   if (!mf.enabled()) return null;
   const work = mf.vigilance(cache);
   try {
     const got = await within(work, waitMs);
-    if (!got) background(work.catch(() => undefined));
-    return got;
+    if (got) return got;
+    background(work.catch(() => undefined));
+    const since = now.getTime() - KEPT_VIGILANCE_MS;
+    const kept = await cache.peek<mf.Vigilance>(mf.KEY, since).catch(() => undefined);
+    return kept && kept.fetchedAt.getTime() > since ? { ...kept, stale: true } : null;
   } catch (err) {
     console.error(`source ${mf.SOURCE.id} indisponible:`, why(err));
     return null;
@@ -1519,7 +1527,7 @@ export async function cycloneDecisionNow(cache: Cache, background: Background, w
 
 /** The banner for a page: never throws, never holds a page more than a second and a half. */
 export async function alerte(cache: Cache, background: Background, now = new Date()): Promise<Alerte | undefined> {
-  const v = await vigilanceNow(cache, background, BANNER_WAIT_MS);
+  const v = await vigilanceNow(cache, background, BANNER_WAIT_MS, now);
   try {
     return v ? alerteOf(v.value, now) : undefined;
   } catch (err) {
