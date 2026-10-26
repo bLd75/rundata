@@ -84,14 +84,25 @@ const pillW = (m: Marker) => Math.max(64, m.label.length * 19 + 24);
 const PILL_H = 48;
 // Between two pills moved apart (their white edges never touch), and from a pill to the map's edge.
 const GAP = 16;
+// From a pill's edge to the centre of a place's dot (ties()): the dot with its white ring (12), the pill's white edge
+// (2), and a little air.
+const DOT = 18;
+
+/** A pill at `at` still over its own place, the place's dot hidden under it whole: it stands on its place, untied. */
+const onPlace = (m: Marker, at: [number, number]) => {
+  const [x0, y0] = project(m.lon, m.lat);
+  return Math.abs(at[0] - x0) <= pillW(m) / 2 - 12 && Math.abs(at[1] - y0) <= PILL_H / 2 - 12;
+};
 
 /**
  * Where to draw each marker so that no pill covers another (`apart`): those that would are pushed apart, each the
- * least, along the shorter way out, and kept inside the map; round markers stay where they are. The same markers, the
- * same places.
+ * least, along the shorter way out, and kept inside the map; round markers stay where they are. No pill covers a place's
+ * dot either, another's or its own once it has left it: half under a pill, a dot reads as a smudge (Saint-Denis's).
+ * The same markers, the same places.
  */
 function apart(markers: Marker[]): [number, number][] {
-  const p = markers.map((m) => project(m.lon, m.lat));
+  const places = markers.map((m) => project(m.lon, m.lat));
+  const p = places.map(([x, y]): [number, number] => [x, y]);
   const w = markers.map(pillW);
   const pill = markers.map((m) => !m.round);
   for (let round = 0; round < 200; round++) {
@@ -117,6 +128,22 @@ function apart(markers: Marker[]): [number, number][] {
         }
       }
     }
+    // A place stays where it is: the pill alone goes, all the way out, the shorter way that stays inside the map (a
+    // place by the coast, at the top, sends it below or beside, never above).
+    for (let i = 0; i < p.length; i++) {
+      for (let j = 0; j < p.length; j++) {
+        if (!pill[i] || !pill[j] || (i === j && onPlace(markers[i], p[i]))) continue;
+        const [qx, qy] = places[j];
+        const [hw, hh] = [w[i] / 2 + DOT, PILL_H / 2 + DOT];
+        if (Math.abs(qx - p[i][0]) >= hw || Math.abs(qy - p[i][1]) >= hh) continue;
+        const ways: [number, number][] = [[qx - hw, p[i][1]], [qx + hw, p[i][1]], [p[i][0], qy - hh], [p[i][0], qy + hh]];
+        const inside = ways.filter(([x, y]) => x >= w[i] / 2 + GAP && x <= W - w[i] / 2 - GAP && y >= PILL_H / 2 + GAP && y <= H - PILL_H / 2 - GAP);
+        const far = ([x, y]: [number, number]) => Math.abs(x - p[i][0]) + Math.abs(y - p[i][1]);
+        const to = (inside.length ? inside : ways).reduce((a, b) => (far(b) < far(a) ? b : a));
+        p[i] = [to[0], to[1]];
+        moved = true;
+      }
+    }
     for (let i = 0; i < p.length; i++) {
       if (!pill[i]) continue;
       p[i][0] = Math.min(W - w[i] / 2 - GAP, Math.max(w[i] / 2 + GAP, p[i][0]));
@@ -127,13 +154,13 @@ function apart(markers: Marker[]): [number, number][] {
   return p.map(([x, y]) => [Math.round(x), Math.round(y)]);
 }
 
-/** For each pill moved from its place (apart()), a dot at the place and a line to the pill: under every pill. */
+/** For each pill moved off its place (apart()), a dot at the place and a line to the pill: under every pill. */
 function ties(markers: Marker[], at: [number, number][]): string {
   const out = markers.map((m, i) => {
     const [x0, y0] = project(m.lon, m.lat);
     const [x, y] = at[i];
     const fill = m.color ?? "var(--ink)";
-    return Math.hypot(x - x0, y - y0) > 2
+    return !m.round && !onPlace(m, at[i])
       ? `<line x1="${x0}" y1="${y0}" x2="${x}" y2="${y}" stroke="${fill}" stroke-width="4"/><circle cx="${x0}" cy="${y0}" r="10" fill="${fill}" stroke="#fff" stroke-width="4"/>`
       : "";
   }).join("");
