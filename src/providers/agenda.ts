@@ -452,7 +452,13 @@ export function scriptArray(html: string, name: string): unknown[] | null {
 
 export function parseReunionFr(html: string): Evenement[] {
   const items = scriptArray(html, "itemsData");
-  if (!items) throw new Error("agenda de reunion.fr : liste absente de la page");
+  if (!items) {
+    // The page as it is, its list empty (« var itemsData = ""; », a total of 0): the site publishes none, not a list we
+    // no longer find. Said apart in the logs, with the hour the site gave its page (« Generated at », its own clock).
+    const vide = /var itemsData = "";/.test(html);
+    const genere = html.match(/<!-- Generated at ([0-9-]+ [0-9:]+) -->/)?.[1];
+    throw new Error(vide ? `agenda de reunion.fr : liste vide publiée (page générée le ${genere ?? "?"})` : "agenda de reunion.fr : liste absente de la page");
+  }
   return (items as IrtItem[]).filter((it) => !it.bordereau || it.bordereau === "FMA").map((it) => {
     const time = (d?: string | null) => (d && /^\d\d:\d\d/.test(d) ? `T${d.slice(0, 5)}` : "");
     const seances = (it.dates ?? []).filter((d) => d.start?.startDate).map((d) => {
