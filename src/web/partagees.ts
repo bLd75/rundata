@@ -9,6 +9,7 @@ import { costOf, count, left, measured, spent, unmeasured } from "../budget.js";
 import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore, outdated, stampOf } from "../cache.js";
 import * as ensemble from "../providers/ensemble.js";
 import * as ovpfPdf from "../providers/ovpf-pdf.js";
+import * as mf from "../providers/vigilance.js";
 import { why } from "../types.js";
 import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildCourant, buildElectricite, buildSea, buildTrafic, buildVolcan, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
 import { alerteVolcan } from "./volcan-alerte.js";
@@ -46,7 +47,7 @@ export interface Shared {
   before?: string[];
 }
 
-// About 330 KV writes a day in all: 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
+// About 620 KV writes a day in all: 288 for the vigilance, every 5 minutes, 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
 // of /chiffres (4 more for their events, 24 while an agenda does not answer), 12 for the power
 // cuts the mairies relay (48 while the site of one of them does not answer), 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
 // of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
@@ -62,6 +63,11 @@ export interface Shared {
 // of the half hour but the first, which the hourly agendas and the AROME grids take (BUDGET.md, the busiest event);
 // the electricity's power cuts with the electricity, which embeds them.
 export const SHARED: Shared[] = [
+  // Météo-France's vigilance, every 5 minutes, in every event: the banner and the vigilance tile of every page read it,
+  // and a data center's own copy, kept while Météo-France was late, could be hours old where no one had asked
+  // (26 October 2026). Its cold cost: the token and the zip, plus one. Its CPU: unzipping and parsing La Réunion's two
+  // files, 63 ms the first time in Node and 6 ms after, rounded up.
+  { key: mf.KEY, build: () => mf.read(), every: 5, cold: 3, cpu: 70, offset: 0 },
   { key: "web:actualites", build: buildActualites, every: 30, cold: 10, cpu: 190, offset: 10 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160, offset: 5 },
   { key: "web:electricite", build: buildElectricite, every: 30, cold: 7, cpu: 80, offset: 20 },

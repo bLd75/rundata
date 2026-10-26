@@ -160,9 +160,9 @@ describe("the shared copies after a deploy", () => {
     // The deploy: a new isolate, a new version.
     const cache = new Cache(new TieredStore(new MemoryStore(), edge), () => now, false, undefined, "2.0.0");
     const events: { written: string[]; used: number; rest: number; at: number }[] = [];
-    // The satellites' grids are a source's, not a page's: no version, kept.
+    // The satellites' grids and the vigilance are a source's, not a page's: no version, kept.
     const pages = list.filter((s) => isCopy(s.key));
-    expect(pages.length).toBe(list.length - 1);
+    expect(pages.length).toBe(list.length - 2);
     const done = () => pages.every((s) => JSON.parse(kv.data.get(kvKey(s.key))!).version === "2.0.0");
     while (events.length < 12 && !done()) {
       const run = await counted(SCHEDULED_BUDGET, async () => ({ warmed: await warmShared(cache, kv, new Date(now), list), rest: left() }));
@@ -179,8 +179,10 @@ describe("the shared copies after a deploy", () => {
     expect(events.length).toBeLessThanOrEqual(7);
     // The agendas, read after the copies, keep their share of every event that built copies due only for their version,
     // less the copies' two writes each (the data center's cache, KV), which go in the part of the budget kept for writes.
-    // A copy due by its rate meanwhile (the traffic's, every 30 minutes) is built as it always was.
-    const byRate = (key: string, at: number) => at - writtenAt.get(key)! >= 30 * 60_000;
+    // A copy due by its rate meanwhile (the traffic's, every 30 minutes; the vigilance, at every event) is built as it
+    // always was.
+    const everyEvent = new Set(list.filter((s) => s.every === 5).map((s) => s.key));
+    const byRate = (key: string, at: number) => everyEvent.has(key) || at - writtenAt.get(key)! >= 30 * 60_000;
     for (const e of events.filter((e) => !e.written.some((k) => byRate(k, e.at)))) {
       expect(e.rest + 2 * e.written.length).toBeGreaterThanOrEqual(AFTER_DEPLOY_RESERVE);
     }
@@ -266,10 +268,10 @@ describe("the scheduled refresh of the shared copies", () => {
     // The volcano's copy goes every 5 minutes during an alert: its quickest rate bounds it.
     for (const s of SHARED) expect(kv.writes.get(kvKey(s.key)), s.key).toBeLessThanOrEqual(perDay(typeof s.every === "number" ? s.every : 5));
     const total = [...kv.writes.values()].reduce((a, b) => a + b, 0);
-    // The volcano's copy, quiet here, every 30 minutes like four others, the counts of /chiffres every hour, and the
-    // satellites' grids every 3 hours (about 330 a day, partagees.ts).
-    expect(total).toBeLessThanOrEqual(330);
-    expect(total).toBeGreaterThanOrEqual(293);
+    // The vigilance every 5 minutes, the volcano's copy, quiet here, every 30 minutes like four others, the counts of
+    // /chiffres every hour, and the satellites' grids every 3 hours (about 620 a day, partagees.ts).
+    expect(total).toBeLessThanOrEqual(620);
+    expect(total).toBeGreaterThanOrEqual(581);
   });
 
   it("refreshes a copy at each of its slots, though written a few seconds into the event before", async () => {
@@ -500,7 +502,8 @@ describe("the scheduled refresh of the shared copies", () => {
     const kv = new FakeKv();
     let now = T0;
     const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => now, false);
-    const list: Shared[] = SHARED.map((s) => ({ ...s, key: `${s.key}-liste`, cold: 2, build: async () => (count(2), { at: now }) }));
+    // Without the vigilance, due at every event.
+    const list: Shared[] = SHARED.filter((s) => s.every !== 5).map((s) => ({ ...s, key: `${s.key}-liste`, cold: 2, build: async () => (count(2), { at: now }) }));
     await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
     expect(kv.data.size).toBe(list.length);
     // Each copy written with what the event needs as its key's metadata.
