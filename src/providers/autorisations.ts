@@ -111,6 +111,7 @@ export const MEDIAS: Record<string, MediaNonRepris> = {
     conditions: "https://www.reunion.fr/mentions-legales/",
     non_lue_depuis: "2026-10-26",
     site: "https://www.reunion.fr/organisez/actualites-de-l-ile/agenda/",
-    etat: "a_demander",
+    etat: "demandee",
+    demandee_le: "2026-10-26",
   },
 };

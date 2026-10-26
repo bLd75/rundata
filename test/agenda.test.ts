@@ -825,8 +825,8 @@ describe("agenda", () => {
     expect(paul.resume).not.toContain("reunion.fr");
     expect(body(await agenda(cache(), "Petite-Île", undefined, "fête", NOW)).non_repris).toBe(mentionReunionFr());
 
-    expect(mentionReunionFr()).toBe("Les mentions légales de reunion.fr, le site d'Île de La Réunion Tourisme, lues le 26/10, interdisent d'en reprendre le contenu sans l'accord écrit du Comité Réunionnais du Tourisme : rundata.re n'affiche donc pas l'agenda touristique du site. Son adresse : https://www.reunion.fr/organisez/actualites-de-l-ile/agenda/.");
-    expect(noteReunionFr()).toBe("Les mentions légales de reunion.fr, le site d'Île de La Réunion Tourisme, lues le 26/10, interdisent d'en reprendre le contenu sans l'accord écrit du Comité Réunionnais du Tourisme\u00a0: rundata.re n'affiche donc pas l'agenda touristique du site. <a href=\"https://www.reunion.fr/organisez/actualites-de-l-ile/agenda/\" rel=\"noopener\">Son agenda sur reunion.fr ↗</a>");
+    expect(mentionReunionFr()).toBe("Les mentions légales de reunion.fr, le site d'Île de La Réunion Tourisme, lues le 26/10, interdisent d'en reprendre le contenu sans l'accord écrit du Comité Réunionnais du Tourisme : rundata.re n'affiche donc pas l'agenda touristique du site. Nous lui avons demandé cet accord le 26/10 et attendons sa réponse. Son adresse : https://www.reunion.fr/organisez/actualites-de-l-ile/agenda/.");
+    expect(noteReunionFr()).toBe("Les mentions légales de reunion.fr, le site d'Île de La Réunion Tourisme, lues le 26/10, interdisent d'en reprendre le contenu sans l'accord écrit du Comité Réunionnais du Tourisme\u00a0: rundata.re n'affiche donc pas l'agenda touristique du site. Nous lui avons demandé cet accord le 26/10 et attendons sa réponse. <a href=\"https://www.reunion.fr/organisez/actualites-de-l-ile/agenda/\" rel=\"noopener\">Son agenda sur reunion.fr ↗</a>");
     expect(RESUME_REUNION_FR).toBe("agenda touristique de reunion.fr non repris, ses mentions légales l'interdisent sans accord écrit (voir non_repris)");
     expect(FICHE_REUNION_FR).toEqual({
       nom: "Agenda de reunion.fr (Île de La Réunion Tourisme)",
