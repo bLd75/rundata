@@ -380,7 +380,7 @@ describe("coupures d'eau", () => {
     expect(sl).toContain("les avis de coupure publiés sur <a href=\"https://www.saintleu.re/?s=eau\" rel=\"noopener\">le site de la commune de Saint-Leu</a>");
     expect(coupures.value.communes_suivies).toContain("Saint-Leu");
     expect(page("cilaos")).toContain(`<a href="https://ville-cilaos.fr/?s=coupure+d%27eau" rel="noopener">Les avis de coupure d&#39;eau sur le site de la ville de Cilaos →</a>`);
-    expect(page("petite-ile")).toContain(`<a href="https://www.petite-ile.re/actualites/news" rel="noopener">Les avis « Coupure d&#39;eau » sur le site de la ville de <span style="white-space:nowrap">Petite-Île</span> →</a>`);
+    expect(page("petite-ile")).toContain(`<a href="https://www.petite-ile.re/" rel="noopener" target="_blank">Les avis « Coupure d&#39;eau » sur le site de la ville de <span style="white-space:nowrap">Petite-Île</span> →</a>`);
     const es = page("l-etang-sale");
     expect(es).toContain("Le distributeur de la commune n'est pas connu ici : voir la mairie. <a href=\"https://www.letangsale.fr/\" rel=\"noopener\">Le site de la mairie de L&#39;<span style=\"white-space:nowrap\">Étang-Salé</span> →</a>");
     expect(es).not.toContain("Coupure d’eau");

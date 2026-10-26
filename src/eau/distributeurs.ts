@@ -39,14 +39,14 @@ const MAIRIES: Record<string, { par: string; site: string }> = {
  * - Petite-Île (petite-ile.re/mentions-legales): « Les reproductions, les transmissions, les modifications, les
  *   réutilisations dudit site et de ses œuvres ne sont autorisées que dans le respect des dispositions de l'article L122-5
  *   du code de la propriété intellectuelle. » and « La mise en place de liens hypertexte pour tous les sites Internet
- *   devra faire l'objet d'une autorisation préalable de la Mairie. » Its « Coupure d'eau » news are linked to, as its
- *   agenda already is (src/providers/agenda.ts); the mairie may be asked for more.
+ *   devra faire l'objet d'une autorisation préalable de la Mairie. » Linked by its home page only, as its agenda's events
+ *   are (src/providers/agenda.ts, ACCUEILS), until it answers our letter; never a page of its site.
  * - Cilaos (ville-cilaos.fr/mentions-legales): viewing only, copying needs express authorisation.
  * - L'Étang-Salé (letangsale.fr): no notice of cuts found on its site, whose legal notice excludes use « d'information »;
  *   its distributor is not identified (the ARS names none).
  */
 export const LIENS: Record<string, { par: string; site: string; libelle: string }> = {
-  "Petite-Île": { par: "la ville de Petite-Île", site: "https://www.petite-ile.re/actualites/news", libelle: "Les avis « Coupure d'eau » sur le site de la ville de Petite-Île" },
+  "Petite-Île": { par: "la ville de Petite-Île", site: "https://www.petite-ile.re/", libelle: "Les avis « Coupure d'eau » sur le site de la ville de Petite-Île" },
   Cilaos: { par: "la ville de Cilaos", site: "https://ville-cilaos.fr/?s=coupure+d%27eau", libelle: "Les avis de coupure d'eau sur le site de la ville de Cilaos" },
   "L'Étang-Salé": { par: "la mairie de L'Étang-Salé", site: "https://www.letangsale.fr/", libelle: "Le site de la mairie de L'Étang-Salé" },
 };
