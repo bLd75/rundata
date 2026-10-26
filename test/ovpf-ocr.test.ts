@@ -5,7 +5,7 @@ import type { Info } from "../src/providers/actualites.js";
 import * as ocr from "../src/providers/ovpf-ocr.js";
 import { parse } from "../src/providers/seismes.js";
 import { activityPosts, phaseOf } from "../src/providers/volcan.js";
-import { A_LIRE, A_LIRE_LU, enImagesLuesAilleurs, enImagesLuesApres, IMAGE_LUE_APRES, LU_DANS_L_IMAGE, volcanSeismes } from "../src/tools/volcan.js";
+import { A_LIRE, A_LIRE_LU, enImages, enImagesLuesAilleurs, enImagesLuesApres, IMAGE_LUE_APRES, LU_DANS_L_IMAGE, volcanSeismes } from "../src/tools/volcan.js";
 import { buildVolcan } from "../src/web/data.js";
 import { volcanPage } from "../src/web/domains.js";
 import { demos, type HomeLive } from "../src/web/home.js";
@@ -123,8 +123,10 @@ describe("the text read, in the answers", () => {
 
     const v = await buildVolcan(c, now);
     const html = volcanPage("https://rundata.re", { value: v, fetchedAt: now, stale: false }, now).replace(/&#39;/g, "'");
-    expect(html).toContain(`${enImagesLuesApres("25/10", "08:02")} : <a href="${lien}">la voir sur Bluesky ↗</a>, ou suivre <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">l'OVPF sur Facebook ↗</a>.</p><p class="lead">L'OVPF publie aussi sur Facebook, que nous ne lisons pas : <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">suivre sa page officielle ↗</a></p>`);
-    expect(html).toContain(`<p>Publication en 3 images, sans légende</p><details><summary>${LU_DANS_L_IMAGE}</summary><p>Retour sur l’intrusion du 24 octobre 2026.`);
+    // The top of the page leads to the text, open on the post's card; Facebook once, in « Suivre l'OVPF ».
+    expect(html).toContain(`<p class="note">${enImages("25/10", "08:02")}\u00a0: <a href="#ovpf">son texte, lu automatiquement, plus bas ↓</a></p>`);
+    expect(html.split("facebook.com/ObsVolcano")).toHaveLength(2);
+    expect(html).toContain(`<p>Publication en 3 images, sans légende</p><details open><summary>${LU_DANS_L_IMAGE}</summary><p>Retour sur l’intrusion du 24 octobre 2026.`);
     expect(html).toContain(`<p>Niveau d'alerte en cours : Alerte 1</p></details><p><a href="${lien}">Voir les images sur Bluesky →</a></p>`);
     const demo = demos({ volcan: { value: v, fetchedAt: now, stale: false } } as unknown as HomeLive, now).find((d) => d.call === "volcan_seismes()")!;
     // The demo does not quote the text: where it is.

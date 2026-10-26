@@ -640,6 +640,11 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .rows.bornes small{display:block;color:var(--muted);font-size:.82rem}
 .rows.bornes .busy{color:var(--muted)}
 .rows.eau li{grid-template-columns:minmax(0,1fr) auto}
+/* /volcan during an alert: the earthquakes one line each, the media's time and name above the headline. */
+.rows.seismes li,.rows.medias li{display:block;font-size:.92rem}
+.rows.seismes li{font-size:.86rem}.rows.seismes b{font-size:inherit}
+.rows.medias a{display:block;margin-top:.15rem;font-size:1rem}
+@media (max-width:37.49rem){.mapcard.nophone{display:none}}
 .rows.eau small{display:block;color:var(--muted);font-size:.82rem}
 .rows small.said{color:var(--lave);font-weight:700}
 .rows .age{font-weight:700;font-size:.85rem;text-align:right;max-width:8.5rem}.rows .age.i{font-weight:400;color:var(--muted)}
@@ -855,9 +860,9 @@ ${INSTALL}
 </aside>`;
 }
 
-/** The hook goes right under the page's title. */
-const withHook = (band: string, path: string) => {
-  const h = hook(path);
+/** The hook goes right under the page's title; not on /volcan during an alert, whose heading and lines say it (marketing). */
+const withHook = (band: string, path: string, volcan?: boolean) => {
+  const h = volcan && path === "/volcan" ? undefined : hook(path);
   return h ? band.replace("</h1>", `</h1>\n    <p class="hook">${esc(h)}</p>`) : band;
 };
 
@@ -952,7 +957,7 @@ ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head
 ${header(head.path, origin, urgent(head))}
 ${head.shell ? "" : `${banner(head.alerte, head.path)}
 ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
-<div class="band">${withHook(band, head.path)}</div>
+<div class="band">${withHook(band, head.path, head.volcan)}</div>
 <main class="wrap">
 ${mentionLinks(body)}
 </main>

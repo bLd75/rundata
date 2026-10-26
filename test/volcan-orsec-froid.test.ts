@@ -56,7 +56,8 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     expect(v.etat?.niveau_orsec).toBe("Alerte 1");
     expect(v.resume).not.toContain("Vigilance");
     const html = await page(cold(durable).cache);
-    expect(html).toContain("Niveau du dispositif ORSEC volcan\u00a0: <b>Alerte 1</b>");
+    // Whose the level is, at the top: the prefecture's release kept.
+    expect(html).toContain("Alerte\u00a01 du préfet, communiqué du 24\u00a0octobre.");
     expect(html).not.toMatch(/ORSEC[^<]*<b>Vigilance/);
   });
 
@@ -109,7 +110,7 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
       expect(lastEruptionOut(said)).not.toContain("pitonlive");
       expect(said).not.toContain("partiellement");
     }
-    expect(html).toContain("Niveau du dispositif ORSEC volcan : <b>Alerte 1</b>.");
+    expect(html).toContain("Alerte\u00a01 du préfet, communiqué du 17\u00a0octobre.");
     vi.restoreAllMocks();
   });
 });

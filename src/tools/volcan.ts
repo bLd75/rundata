@@ -28,6 +28,8 @@ export const IMAGE_APRES = "La dernière publication de l'OVPF est une image que
  * After NON_ANNONCEE when the newest post is in images and newer than the release: « the texts we read » leaves it out,
  * and its time tells it is newer (marketing). Followed by « : la voir », the link. IMAGE_APRES is then not said.
  */
+/** « La dernière publication de l'OVPF, le 25/10 à 08:02, est en images », on /volcan before the way to its text read. */
+export const enImages = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images`;
 export const enImagesApres = (jour: string, heure: string) => `La dernière publication de l'OVPF, le ${jour} à ${heure}, est en images, que nous ne lisons pas`;
 /**
  * The same, the text of its first image read by rundata.re (providers/ovpf-ocr.ts) and quoted beside: read by a
