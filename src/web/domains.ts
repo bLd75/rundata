@@ -2329,7 +2329,9 @@ function agendaRow(r: AgendaRow): string {
     ? `<small class="said">${esc(r.statut!.toLowerCase())}${r.reporte_au ? ` au ${esc(r.reporte_au)}` : ""} d'après <a href="${esc(r.statut_d_apres.lien)}" rel="noopener"${fenetre(r.statut_d_apres.lien)}>${esc(r.statut_d_apres.media)}</a></small>`
     : "";
   const blank = r.lien && ACCUEILS.has(r.lien) ? ' target="_blank"' : "";
-  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${book}</small></span><span class="q-none">${esc(agendaHours(r.quand))}</span></li>`;
+  // « jusqu'au vendredi 11/12 » goes under the title on a phone (.fin): beside it, it left the title a word a line.
+  const hours = agendaHours(r.quand);
+  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${book}</small></span><span class="q-none${hours.startsWith("jusqu'au") ? " fin" : ""}">${esc(hours)}</span></li>`;
 }
 
 /** A row's end, local, from its hours: « samedi 24/10 de 09:00 à 16:00 », « du vendredi 23/10 au dimanche 01/11 ». */
