@@ -29,6 +29,7 @@ import * as avis from "./avis.js";
 import { withLectures } from "./lectures.js";
 import { catalogue, INDEX, serveur } from "./nouveautes.js";
 import { cite, SITE_URL } from "./tools/citer.js";
+import { marquerTiers, OUTILS_TIERS } from "./tools/tiers.js";
 import { FICHE_LA1ERE, FICHE_REUNION_FR } from "./tools/non-repris.js";
 import { resumeDuJour } from "./tools/resume.js";
 import { text } from "./tools/format.js";
@@ -89,7 +90,7 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.24";
+export const VERSION = "0.203.25";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -205,7 +206,9 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       // Every answer says how to cite it, error or not (tools/citer.ts); the feedback tool's thanks already names rundata.re.
       const now = new Date();
       // The day's summary has a dozen dated parts: no single « donnee_du » for it, each part says its own.
-      const said = name === "donner_avis" ? r : cite(name, r, { lectures, now, serveur: serveur(VERSION, tools, now), donnee: name !== "resume_du_jour", nom: nomDeSource });
+      // The answers that quote third parties say so (tools/tiers.ts).
+      const marked = OUTILS_TIERS.has(name) ? marquerTiers(r) : r;
+      const said = name === "donner_avis" ? r : cite(name, marked, { lectures, now, serveur: serveur(VERSION, tools, now), donnee: name !== "resume_du_jour", nom: nomDeSource });
       return spaced(said);
     };
   };
