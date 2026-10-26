@@ -12,7 +12,7 @@ import { cacheTally } from "./metrics.js";
 
 import { callDeadline, noteLecture, withSource } from "./lectures.js";
 import { UpstreamError, why } from "./types.js";
-import { familyOf, RENDU_REVISION } from "./web/revisions.js";
+import { familyOf, RENDU_REVISION, sourceRevision } from "./web/revisions.js";
 
 /**
  * The shape of what the stores keep (a source's answer, a page's copy), in the keys of the data center's cache and of
@@ -29,7 +29,7 @@ export interface CacheEntry {
   fetchedAt: number;
   /** For a page's copy: the subrequests its build took (budget.ts), for the isolates that have not built it yet. */
   cost?: number;
-  /** For a page's copy: the revision of the code that built it (`stampOf`). */
+  /** For a page's copy or a listed source's entry: the revision of the code that built it (`stampOf`). */
   version?: string;
   /** The source it was read from, when it was one (lectures.ts `withSource`). */
   from?: string;
@@ -48,18 +48,22 @@ export const isCopy = (key: string) => key.startsWith("web:");
 
 /**
  * What a page's copy built by the code of `version` (server.ts) is stamped with: its family's revision
- * (web/revisions.ts, #272), or the version itself for a family not listed there. Nothing for another key, or
- * when the code has no version (tests, Node).
+ * (web/revisions.ts, #272), or the version itself for a family not listed there. A source's entry: its source's
+ * revision (SOURCE_REVISION), nothing for a source not listed. Nothing when the code has no version (tests, Node).
  */
 export const stampOf = (key: string, version: string | undefined) => {
-  if (version == null || !isCopy(key)) return undefined;
+  if (version == null) return undefined;
+  if (!isCopy(key)) {
+    const revision = sourceRevision(key);
+    return revision != null ? `source-${revision}` : undefined;
+  }
   const revision = RENDU_REVISION[familyOf(key)];
   return revision != null ? `rendu-${revision}` : version;
 };
 
 /**
- * Whether `entry`, kept under `key`, is a page's copy stamped otherwise than the code of `version` stamps it
- * (#269, #272): due at once, whatever its age, so that a page shows what its code says from the first view
+ * Whether `entry`, kept under `key`, is a page's copy or a source's entry stamped otherwise than the code of `version`
+ * stamps it (#269, #272): due at once, whatever its age, so that a page shows what its code says from the first view
  * after the deploy that changed it. It stays the copy served if its build fails. A copy written before the stamps were
  * kept has none: built again once.
  */

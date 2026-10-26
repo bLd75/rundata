@@ -1,11 +1,13 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { firstSentence, merge, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
+import { fil, firstSentence, merge, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
 import { actualites, quand } from "../src/tools/actualites.js";
 import { actualitesPage } from "../src/web/domains.js";
 import { buildActualites } from "../src/web/data.js";
 import { withVide } from "../src/vide.js";
+import { SOURCE_REVISION } from "../src/web/revisions.js";
 
 // Saturday 24/10/2026 at 12:05 in La Réunion, the morning of a day of mobilisation (gilets jaunes, « vie chère »): Imaz
 // Press runs a live blog, the prefecture has published its report of the night.
@@ -220,5 +222,19 @@ describe("actualités", () => {
     // Le Quotidien gives neither a first sentence nor always an hour: the page does not promise them.
     expect(html).toContain("Le titre de chaque article, sa première phrase quand le média la donne, son média, les communes qu'il nomme et son heure (heure de La Réunion), ou son jour seulement quand le média ne donne pas l'heure.");
     expect(html).toContain("Titres des articles, avec leur première phrase quand le média la donne, et leur lien");
+  });
+
+  // What the feed keeps from the same pages, at each revision of actualites:fil (web/revisions.ts), the last one now.
+  // A change that keeps something else (a link, a field, a medium, a filter) changes it: add its fingerprint here and
+  // raise SOURCE_REVISION["actualites:fil"] (and RENDU_REVISION.actualites), so that the entry read by the old code is
+  // read again after the deploy. A fixture changed alone: add its fingerprint and raise the number all the same.
+  const FIL = ["b7e88ffb49a93884"];
+
+  it("keeps, from the same pages, what its revision says: one fingerprint per revision of actualites:fil", async () => {
+    const { value } = await fil(cache(), NOW);
+    const now = createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
+    expect(FIL).toHaveLength(SOURCE_REVISION["actualites:fil"]);
+    expect(new Set(FIL).size).toBe(FIL.length);
+    expect(now, "ce que garde actualites:fil a changé : ajoute son empreinte à FIL et monte SOURCE_REVISION").toBe(FIL.at(-1));
   });
 });
