@@ -472,6 +472,12 @@ describe("what crawlers and previews fetch", () => {
     }
   });
 
+  it("says the service is free, not that it is non-commercial, in the terms", async () => {
+    const html = await (await handle(new Request("https://rundata.re/conditions"), isolate())).text();
+    expect(html).toContain("rundata.re est un service gratuit\u00a0: un site et un connecteur MCP");
+    expect(html).not.toContain("non commercial");
+  });
+
   // Files of public/, served by Cloudflare before the Worker (no request billed), with the headers of public/_headers.
   const asset = (path: string) => new Uint8Array(readFileSync(new URL(`../public${path}`, import.meta.url)));
   const headers = readFileSync(new URL("../public/_headers", import.meta.url), "utf8");
