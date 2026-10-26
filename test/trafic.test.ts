@@ -83,9 +83,9 @@ describe("circulation", () => {
     const page = traficPage("https://rundata.re", { value: await buildTrafic(cache(), NOW), fetchedAt: NOW }, NOW);
     const card = page.slice(page.indexOf('<div class="card" id="radars">'), page.indexOf("</div>", page.indexOf('id="radars"')));
     expect(card).toContain("<h3>Radars fixes</h3>");
-    expect(card).toContain("24 radars fixes à La Réunion, d&#39;après la liste publiée par le ministère de l&#39;Intérieur (fichier du 30/12/2025).");
+    expect(card).toContain("24 radars fixes à La Réunion, d'après la liste publiée par le ministère de l'Intérieur (fichier du 30/12/2025).");
     expect(card).toMatch(/<li><span>Saint-Denis<small>70\u00a0km\/h, 90\u00a0km\/h<\/small><\/span><span class="score">6<\/span><\/li>/);
-    expect(card).toMatch(/<li>Saint-Denis, 70\u00a0km\/h\u00a0: <a href="https:\/\/www\.openstreetmap\.org\/[^"]+" rel="noopener">la carte ↗<\/a><\/li>/);
+    expect(card).toMatch(/<li>Saint-Denis, 70\u00a0km\/h[ \u00a0]: <a href="https:\/\/www\.openstreetmap\.org\/[^"]+" rel="noopener">la carte ↗<\/a><\/li>/);
     expect(card.match(/rel="noopener">la carte ↗<\/a>/g)).toHaveLength(24);
     expect(card).not.toContain("près de");
     expect(card).toContain("fichier du 30/12/2025, mise à jour une fois par an");

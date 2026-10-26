@@ -154,9 +154,10 @@ describe("actualités", () => {
       carte: expect.stringMatching(/^https:\/\/www\.openstreetmap\.org\/\?mlat=-21\.\d+&mlon=55\.\d+/),
     });
     expect(sp.radars_fixes.a_savoir).toBe("Liste des radars fixes publiée par le ministère de l'Intérieur, fichier du 30/12/2025, mise à jour une fois par an : un radar installé depuis, ou absent du fichier, n'y figure pas. Les contrôles mobiles n'y sont pas.");
-    expect(sp.sources.map((x: { source: string }) => x.source).join()).toContain("Ministère de l'Intérieur");
+    expect(sp.sources.map((x: { source: string }) => x.source).join()).toContain("Radars fixes (ministère de l'Intérieur)");
     // A commune without one, said as the list says it; the island by commune; nothing on a question that is not about the roads.
-    expect(body(await actualites(cache(), "Cilaos", "radar", undefined, NOW)).radars_fixes).toMatchObject({ resume: "Aucun radar fixe à Cilaos dans la liste du ministère de l'Intérieur (fichier du 30/12/2025).", radars: undefined });
+    const cilaos = body(await actualites(cache(), "Cilaos", "radar", undefined, NOW)).radars_fixes;
+    expect([cilaos.resume, "radars" in cilaos]).toEqual(["Aucun radar fixe à Cilaos dans la liste du ministère de l'Intérieur (fichier du 30/12/2025).", false]);
     expect(body(await actualites(cache(), "Saint-Leu", "route", undefined, NOW)).radars_fixes.resume).toBe("1 radar fixe à Saint-Leu dans la liste du ministère de l'Intérieur (fichier du 30/12/2025), limité à 80\u00a0km/h.");
     const ile = body(await actualites(cache(), undefined, "circulation", undefined, NOW)).radars_fixes;
     expect([ile.resume, ile.par_commune[0]]).toEqual(["24 radars fixes à La Réunion dans la liste du ministère de l'Intérieur (fichier du 30/12/2025).", { commune: "Saint-Denis", nombre: 6, vitesses_max: ["70\u00a0km/h", "90\u00a0km/h"] }]);
