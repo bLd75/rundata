@@ -1,6 +1,6 @@
 /**
  * Calendars of La Réunion, no key: school holidays of the académie de La Réunion (data.education.gouv.fr) and public
- * holidays, 20 December included (calendrier.api.gouv.fr). Sunrise and sunset are computed here.
+ * holidays, 20 December included (calendrier.api.gouv.fr). Sunrise and sunset, and the Moon, are computed here.
  */
 import type { Cache, Cached } from "../cache.js";
 import { getJson } from "../http.js";
@@ -97,4 +97,137 @@ export function sun(date: string, lon: number, lat: number, altitude_m = 0): { l
   const w = Math.acos(Math.max(-1, Math.min(1, cosW))) / RAD;
   const toDate = (j: number) => new Date((j - 2440587.5) * 86_400_000);
   return { lever: toDate(transit - w / 360), coucher: toDate(transit + w / 360) };
+}
+
+// ---------------------------------------------------------------- the Moon
+
+const DEG = (x: number) => x * RAD;
+const wrap = (x: number) => ((x % 360) + 360) % 360;
+const J2000 = Date.UTC(2000, 0, 1, 12);
+const days = (t: Date) => (t.getTime() - J2000) / 86_400_000;
+
+/** The Sun's apparent ecliptic longitude (°), from the equinox of the date as the Moon's (Meeus, chapter 25). */
+function sunLongitude(d: number): number {
+  const m = DEG(357.52911 + 0.98560028 * d);
+  const c = 1.914602 * Math.sin(m) + 0.019993 * Math.sin(2 * m) + 0.000289 * Math.sin(3 * m);
+  return wrap(280.46646 + 0.98564736 * d + c - 0.00569);
+}
+
+// The largest periodic terms of the Moon's longitude (°), on D, M (the Sun's anomaly), M' and F (Meeus, Astronomical
+// Algorithms, table 47.A): those above 0.004°.
+const LONGITUDE: [number, number, number, number, number][] = [
+  [0, 0, 1, 0, 6.288774], [2, 0, -1, 0, 1.274027], [2, 0, 0, 0, 0.658314], [0, 0, 2, 0, 0.213618], [0, 1, 0, 0, -0.185116],
+  [0, 0, 0, 2, -0.114332], [2, 0, -2, 0, 0.058793], [2, -1, -1, 0, 0.057066], [2, 0, 1, 0, 0.053322], [2, -1, 0, 0, 0.045758],
+  [0, 1, -1, 0, -0.040923], [1, 0, 0, 0, -0.03472], [0, 1, 1, 0, -0.030383], [2, 0, 0, -2, 0.015327], [0, 0, 1, 2, -0.012528],
+  [0, 0, 1, -2, 0.01098], [4, 0, -1, 0, 0.010675], [0, 0, 3, 0, 0.010034], [4, 0, -2, 0, 0.008548], [2, 1, -1, 0, -0.007888],
+  [2, 1, 0, 0, -0.006766], [1, 0, -1, 0, -0.005163], [1, 1, 0, 0, 0.004987], [2, -1, 1, 0, 0.004036],
+];
+
+/**
+ * The Moon's ecliptic longitude and latitude (°) and distance (km), by the largest terms of its theory (Meeus, chapter
+ * 47): the main phases within a few minutes, its rising and setting within a minute or two.
+ */
+export function moonPosition(t: Date): { lon: number; lat: number; km: number } {
+  const d = days(t);
+  const l = 218.3164477 + 13.17639648 * d;
+  const e = DEG(297.8501921 + 12.19074912 * d);
+  const ms = DEG(357.5291092 + 0.98560028 * d);
+  const m = DEG(134.9633964 + 13.06499295 * d);
+  const f = DEG(93.272095 + 13.22935024 * d);
+  let lon = l;
+  for (const [cd, cms, cm, cf, a] of LONGITUDE) lon += a * Math.sin(cd * e + cms * ms + cm * m + cf * f);
+  const lat = 5.128122 * Math.sin(f) + 0.280602 * Math.sin(m + f) + 0.277693 * Math.sin(m - f) + 0.173237 * Math.sin(2 * e - f);
+  const km = 385000.56 - 20905.355 * Math.cos(m) - 3699.111 * Math.cos(2 * e - m) - 2955.968 * Math.cos(2 * e);
+  return { lon: wrap(lon), lat, km };
+}
+
+/** The Moon's height above the horizon (°) at a place, seen from the Earth's centre. */
+function moonHeight(t: Date, lon: number, lat: number): { h: number; km: number } {
+  const p = moonPosition(t);
+  const eps = DEG(23.4397);
+  const l = DEG(p.lon);
+  const b = DEG(p.lat);
+  const ra = Math.atan2(Math.sin(l) * Math.cos(eps) - Math.tan(b) * Math.sin(eps), Math.cos(l));
+  const dec = Math.asin(Math.sin(b) * Math.cos(eps) + Math.cos(b) * Math.sin(eps) * Math.sin(l));
+  const hour = DEG(280.46061837 + 360.98564736629 * days(t) + lon) - ra;
+  const h = Math.asin(Math.sin(DEG(lat)) * Math.sin(dec) + Math.cos(DEG(lat)) * Math.cos(dec) * Math.cos(hour)) / RAD;
+  return { h, km: p.km };
+}
+
+/** How much of the Moon's disc is lit (0 to 1), and its age as the angle from the Sun (0 new, 180 full). */
+export function moonLight(t: Date): { fraction: number; angle: number } {
+  const d = days(t);
+  const p = moonPosition(t);
+  const angle = wrap(p.lon - sunLongitude(d));
+  const elong = Math.acos(Math.cos(DEG(p.lat)) * Math.cos(DEG(angle)));
+  const phase = Math.atan2(149_598_000 * Math.sin(elong), p.km - 149_598_000 * Math.cos(elong));
+  return { fraction: (1 + Math.cos(phase)) / 2, angle };
+}
+
+/**
+ * Moonrise and moonset (upper limb, with refraction and the Moon's parallax) on a local date at a place, or null for the
+ * one that does not happen that day (about once a month each). `altitude_m` lowers the horizon a little, as for the Sun.
+ */
+export function moon(date: string, lon: number, lat: number, altitude_m = 0): { lever: Date | null; coucher: Date | null } {
+  const start = Date.parse(`${date}T00:00:00+04:00`);
+  const dip = (2.076 * Math.sqrt(Math.max(0, altitude_m))) / 60;
+  // Above the horizon by more than this, the upper limb shows: parallax less semi-diameter and refraction.
+  const above = (t: number) => {
+    const { h, km } = moonHeight(new Date(t), lon, lat);
+    return h - (0.7275 * Math.asin(6378.14 / km) / RAD - 0.5667 - dip);
+  };
+  const STEP = 10 * 60_000;
+  let lever: Date | null = null;
+  let coucher: Date | null = null;
+  let t0 = start;
+  let v0 = above(t0);
+  for (let t1 = start + STEP; t1 <= start + 24 * 3600_000; t1 += STEP) {
+    const v1 = above(t1);
+    if ((v0 < 0) !== (v1 < 0)) {
+      // A crossing within these 10 minutes, found to the second.
+      let [a, b, va] = [t0, t1, v0];
+      while (b - a > 1000) {
+        const mid = (a + b) / 2;
+        const vm = above(mid);
+        if ((vm < 0) === (va < 0)) [a, va] = [mid, vm];
+        else b = mid;
+      }
+      if (v0 < 0) lever ??= new Date(b);
+      else coucher ??= new Date(b);
+    }
+    [t0, v0] = [t1, v1];
+  }
+  return { lever, coucher };
+}
+
+export type MoonPhase = "nouvelle lune" | "premier quartier" | "pleine lune" | "dernier quartier";
+const PHASES: MoonPhase[] = ["nouvelle lune", "premier quartier", "pleine lune", "dernier quartier"];
+
+/** The next `n` main phases after `from`, to the minute or so. */
+export function nextPhases(from: Date, n: number): { phase: MoonPhase; at: Date }[] {
+  const out: { phase: MoonPhase; at: Date }[] = [];
+  const STEP = 6 * 3600_000;
+  const quarter = (t: number) => Math.floor(moonLight(new Date(t)).angle / 90);
+  let t0 = from.getTime();
+  let q0 = quarter(t0);
+  while (out.length < n) {
+    const t1 = t0 + STEP;
+    const q1 = quarter(t1);
+    if (q1 !== q0) {
+      let [a, b] = [t0, t1];
+      while (b - a > 30_000) {
+        const mid = (a + b) / 2;
+        if (quarter(mid) === q0) a = mid;
+        else b = mid;
+      }
+      out.push({ phase: PHASES[q1], at: new Date(Math.round(b / 60_000) * 60_000) });
+    }
+    [t0, q0] = [t1, q1];
+  }
+  return out;
+}
+
+/** The Moon between the main phases, from its angle to the Sun. */
+export function between(angle: number): string {
+  return angle < 90 ? "premier croissant" : angle < 180 ? "gibbeuse croissante" : angle < 270 ? "gibbeuse décroissante" : "dernier croissant";
 }
