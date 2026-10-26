@@ -104,9 +104,13 @@ describe("the volcano put forward during an alert", () => {
     const rows = main.match(/<ul class="rows seismes">(.*?)<\/ul>/)![1].match(/<li>.*?<\/li>/g)!;
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.length).toBeLessThanOrEqual(5);
-    for (const r of rows) expect(r).toMatch(/^<li>\d\d\/\d\d \d\d:\d\d · magnitude <b>[\d,—]+<\/b> · [^<]+, [\d,]+ km<\/li>$/);
+    for (const r of rows) expect(r).toMatch(/^<li>\d\d\/\d\d \d\d:\d\d · magnitude\u00a0<b>[\d,—]+<\/b> · [^<]+,[ \u00a0][\d,]+\u00a0km<\/li>$/);
+    // « sommet, 0 km » never broken inside: the line breaks before it, whole (marketing, seen at 390 px).
+    const summit = rows.filter((r) => r.includes("· sommet,"));
+    expect(summit.length).toBeGreaterThan(0);
+    for (const r of summit) expect(r).toMatch(/· sommet,\u00a0[\d,]+\u00a0km<\/li>$/);
     expect(main).not.toContain("sous le sommet du Piton de la Fournaise");
-    expect(main.split("ce n&#39;est pas le nombre total")).toHaveLength(2);
+    expect(main.split("ne localise qu&#39;une partie des séismes")).toHaveLength(2);
     expect(main).toContain("<h2 id=\"h-volcan\">Séismes sous le volcan</h2>");
     expect(page).toContain("Le communiqué de la préfecture");
     expect(page).toContain('href="https://x.com/obsfournaise"');

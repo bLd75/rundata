@@ -40,7 +40,7 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   sport: 8,
   trafic: 1,
   velos: 1,
-  volcan: 2,
+  volcan: 3,
 };
 
 /** `web:lieu:le-port` → `lieu`. */

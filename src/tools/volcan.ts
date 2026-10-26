@@ -89,7 +89,8 @@ export function ipgpMuet(l: Public, lus: { bluesky: boolean; prefecture: boolean
 }
 
 // Worded by marketing, under the counts: the catalogue holds the located events only, far fewer in a seismic crisis.
-export const LOCALISES = "Seuls les séismes localisés par l'OVPF sont comptés ici : ce n'est pas le nombre total de séismes enregistrés.";
+// What the counts are, never compared with a figure read in an image (marketing, 26/10/2026).
+export const LOCALISES = "L'OVPF ne localise qu'une partie des séismes qu'il enregistre\u00a0: ses bulletins donnent le nombre enregistré, nos chiffres comptent ceux qu'il a localisés, d'après son catalogue.";
 const BAR_DAYS = 30;
 const localDay = (t: number) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);

@@ -242,9 +242,14 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
 
   // During an alert, five at most, one line each at 390 px: « 24/10 16:55 · magnitude 1,2 · sommet, 0 km », the
   // section saying « sous le volcan » already (marketing).
+  // « sommet, 0,1 km » kept whole, the line breaking before it, never inside (marketing); a longer place breaks as words.
+  const where = (s: NonNullable<typeof q>["derniers"][number]) => {
+    const at = `${s.lieu === SOMMET ? "sommet" : s.lieu}, ${fr(Math.max(0, s.profondeur_km))}\u00a0km`;
+    return at.length <= PLACE_WHOLE ? at.replace(/ /g, "\u00a0") : at;
+  };
   const quakeRow = (s: NonNullable<typeof q>["derniers"][number]) =>
     a
-      ? `<li>${esc(s.heure.replace(" heure de La Réunion", ""))} · magnitude\u00a0<b>${esc(md(s.magnitude))}</b> · ${esc(s.lieu === SOMMET ? "sommet" : s.lieu)}, ${esc(fr(Math.max(0, s.profondeur_km)))}\u00a0km</li>`
+      ? `<li>${esc(s.heure.replace(" heure de La Réunion", ""))} · magnitude\u00a0<b>${esc(md(s.magnitude))}</b> · ${esc(where(s))}</li>`
       : `<li><b>${esc(md(s.magnitude))}</b><span>${esc(s.lieu)}, ${esc(fr(Math.max(0, s.profondeur_km)))} km de profondeur</span><span class="note">${esc(s.heure.replace(" heure de La Réunion", ""))}</span></li>`;
   const quakes = q
     ? `<div class="card">${icon("gauge")}<h3>Séismes localisés par l'OVPF</h3>` +
@@ -344,6 +349,8 @@ ${connectorCta("volcan_seismes", "le volcan")}`;
   return layout(origin, { title, description, path: "/volcan", jsonld: [crumbs(origin, "Volcan", "/volcan"), webPage(origin, "/volcan", title, description, data)], alerte, volcan: !!a }, band, body);
 }
 
+// A place of an earthquake row this long or shorter never breaks inside: about a third of a line at 390 px.
+const PLACE_WHOLE = 20;
 // Below this many a day, the bars keep their scale: one event must not fill the chart (data-run: no scale that
 // magnifies a small number, the axis at 0).
 const DAYS_SCALE_MIN = 10;

@@ -56,6 +56,8 @@ const R = {
   aout2023: { jour: "2023-09-06", titre: "Piton de la Fournaise – réouverture totale de l’enclos", copie: copy("20240528000717", `${GOUV}/Actualites/Communique-de-presse/Piton-de-la-Fournaise-reouverture-totale-de-l-enclos`), mis_a_jour: true as const },
   janv2026a1: { jour: "2026-01-01", titre: "Piton de la Fournaise : passage en alerte 1 - fermeture de l’enclos", copie: copy("20260101111021", `${GOUV}/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-passage-en-alerte-1-fermeture-de-l-enclos4`) },
   janv2026v: { jour: "2026-01-02", titre: "Piton de la Fournaise : retour en phase de vigilance", copie: copy("20260102112551", `${GOUV}/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-retour-en-phase-de-vigilance`) },
+  // Its archived address carries the query it was saved with: the Wayback Machine keeps the copy under it alone.
+  fev2026a21: { jour: "2026-02-13", titre: "Piton de la Fournaise : éruption dans l’enclos", copie: copy("20260215235752", `${GOUV}/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-eruption-dans-l-enclos2?utm_source=chatgpt.com`) },
   janv2026a21: { jour: "2026-01-18", titre: "Piton de la Fournaise : éruption dans l’enclos", copie: copy("20260118182615", `${GOUV}/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-eruption-dans-l-enclos`) },
   janv2026v2: { jour: "2026-01-27", titre: "Piton de la Fournaise : passage en phase de vigilance", copie: copy("20260129081540", `${GOUV}/Actualites/Communiques-de-presse/Acces-a-l-enclos-avec-restrictions`) },
   mai2026: { jour: "2026-05-07", titre: "Piton de la Fournaise : réouverture partielle de l’enclos", copie: copy("20260507190343", `${GOUV}/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-reouverture-partielle-de-l-enclos`) },
@@ -94,8 +96,8 @@ const R = {
 /** Newest first. */
 export const EPISODES: Episode[] = [
   {
-    // The start of the eruption, not of an alert: no level read for that day, the release of 13/02 not found (data-run).
-    debut: [{ jour: "2026-02-13", quoi: "éruption débutée", selon: "selon le communiqué du 07/05/2026", dit: "Suite à la fin de l'éruption volcanique débutée le 13 février 2026", communique: R.mai2026 }],
+    // The release of the day, its opening sentence as written (« OPVF » included); never the end's release (tested).
+    debut: [{ jour: "2026-02-13", quoi: "alerte 2-1", dit: "L’observatoire volcanologique du piton de la Fournaise (OPVF) a enregistré à 09h25 une crise sismique, le trémor volcanique synonyme d’arrivée du magma à proximité de la surface a été enregistré depuis 10h00 (heure locale).", communique: R.fev2026a21 }],
     fin: { jour: "2026-05-07", quoi: "retour en phase de vigilance", dit: "Retour en phase de vigilance à partir de 15h", communique: R.mai2026 },
   },
   {
@@ -200,7 +202,8 @@ export const avant2021 = (e: Episode) => e.debut[0].jour < PLAN_2021;
 export const TITRE = "Les alertes précédentes";
 export const CHAPEAU =
   "Voici, depuis 2016, les épisodes dont le début et la fin sont chacun écrits dans un communiqué de la préfecture que nous avons retrouvé. " +
-  "Les phrases sont citées telles quelles. Ce n'est pas un historique complet\u00a0: un épisode dont il manque l'un des deux communiqués n'y figure pas.";
+  "Les phrases sont citées telles quelles. Leur fin est celle de la préfecture, qui lève l'alerte par un communiqué, parfois des semaines après l'arrêt de l'éruption annoncé par l'OVPF. " +
+  "Ce n'est pas un historique complet\u00a0: un épisode dont il manque l'un des deux communiqués n'y figure pas.";
 export const NOTE = "Liens vers les copies des communiqués conservées par la Wayback Machine (archive.org).";
 export const avantTitre = (n: number) => `De 2016 à novembre 2021 (${n}\u00a0épisodes)`;
 export const PUIS = "Le même jour, nouvelle";
