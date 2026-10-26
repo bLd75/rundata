@@ -5,9 +5,11 @@
  * words.
  *
  * The plan: « Disposition spécifique ORSEC Volcan Piton de la Fournaise », annexed to the prefect's order n° 2242 of
- * 08/11/2021, read on 24/10/2026 in its Wayback Machine copy of 05/04/2025
- * (https://web.archive.org/web/20250405151006/https://www.reunion.gouv.fr/contenu/telechargement/31585/227969/file/dso_volcan_2021.pdf):
- * reunion.gouv.fr refuses our machines. To check again for a newer version once the prefecture answers.
+ * 08/11/2021, read on 24/10/2026 in its Wayback Machine copy of 05/04/2025, reunion.gouv.fr then not answering our
+ * reads (https://web.archive.org/web/20250405151006/https://www.reunion.gouv.fr/contenu/telechargement/31585/227969/file/dso_volcan_2021.pdf).
+ * Read again on 26/10/2026 at the prefecture's own address
+ * (https://www.reunion.gouv.fr/contenu/telechargement/31585/227969/file/dso_volcan_2021.pdf): the same size as the copy,
+ * 5 192 173 bytes. To check again there for a newer version.
  */
 import type { Cached } from "../cache.js";
 import { localTime } from "../geo.js";
