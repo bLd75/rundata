@@ -507,9 +507,12 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     : stepStarts([...new Set(period.slots.map((s) => s.jour))], now, (jour, h) => period.slots.some((s) => s.jour === jour && h >= s.de && h < s.a));
   // The cloud sea of the day asked (today's or tomorrow's morning), or of the coming morning by default.
   const cloudDay = period.defaut ? undefined : [...period.slots.map((s) => s.jour)].sort()[0];
-  const starts = hauts
-    ? [...new Map([...shown, ...nuages.morningStarts(now, cloudDay)].map((t) => [t.getTime(), t])).values()].sort((a, b) => a.getTime() - b.getTime())
-    : shown;
+  // The sky of the night: tonight's by default, else that of the evening asked, or of the night a morning ends.
+  const evening = period.slots.find((s) => s.a > 18)?.jour ?? period.slots.filter((s) => s.de < 6).map((s) => addDays(s.jour, -1))[0];
+  const nightWanted = period.defaut || evening !== undefined;
+  const nightDay = period.defaut ? undefined : evening;
+  const starts = [...new Map([...shown, ...(hauts ? nuages.morningStarts(now, cloudDay) : []), ...(nightWanted ? nuages.nightStarts(now, nightDay) : [])]
+    .map((t) => [t.getTime(), t])).values()].sort((a, b) => a.getTime() - b.getTime());
   const { results, uv: u, ens, aromeDown, aromeLater } = await forecasts(cache, [r.lieu], starts, now);
   const uvOf = uvAt(u, r.lieu);
   const confOf = confAt(ens, r.lieu, now);
@@ -565,6 +568,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     if (hauts && inRange.some((s) => s.jour > addDays(today, 2))) avertissements.push(nuages.BEYOND);
   }
   const mer = hauts ? nuages.merDeNuages(f, r.lieu, now, { jour: cloudDay }) : null;
+  const ciel = nightWanted ? nuages.cielDeNuit(f, r.lieu, now, { jour: nightDay }) : null;
 
   const uvShown = jours.some((j) => j.indice_uv_max) ? u : null;
   const ensShown = jours.some((j) => j.confiance) ? ens : null;
@@ -574,10 +578,11 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     lieu: placeBlock(lieu, r),
     periode: period.libelle,
     // The cloud sea after the days, labelled: a forecast of the model's cell.
-    resume: mer ? `${resume} Mer de nuages, ${nuages.LABEL} : ${mer.resume}` : resume,
+    resume: `${resume}${mer ? ` Mer de nuages, ${nuages.LABEL} : ${mer.resume}` : ""}${ciel ? ` Ciel de nuit, ${nuages.LABEL} : ${ciel.resume}` : ""}`,
     jours,
     pas_de_3h: pas,
     ...(mer ? { mer_de_nuages: mer } : {}),
+    ...(ciel ? { ciel_de_nuit: ciel } : {}),
     modele: modelBlock(c),
     avertissements,
     couverture: coverage(),

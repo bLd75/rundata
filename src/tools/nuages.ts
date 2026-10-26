@@ -3,6 +3,9 @@
  * the AROME model's cloud base and top over its cell (providers/arome.ts). « Est-ce dégagé au Maïdo demain matin ? »
  * The cloud sea forms in the morning and rises: the morning is told as two windows, 6–9 h and 9–12 h, which are two
  * steps of the forecast. A forecast, never a measurement, said on every surface with its caveat. Marketing's words.
+ *
+ * The sky of the night too, from 18 h to 6 h, for everyone: below the Hauts by the cloud cover over the place, in the
+ * Hauts against the cloud layer, as in the morning (« le ciel sera dégagé ce soir au Maïdo pour les étoiles ? »).
  */
 import type { Place } from "../places/resolve.js";
 import type { Forecast, ForecastHour } from "../types.js";
@@ -158,4 +161,86 @@ export function softened(mn: MerDeNuages, now: Date, station: { nom: string; hum
     : `au-dessus de la mer de nuages selon le modèle, mais ${said} : vous pourriez être dans les nuages`;
   const swap = (s: string) => s.replace(w.texte, texte);
   return { ...mn, ligne: swap(mn.ligne), resume: swap(mn.resume), fenetres: mn.fenetres.map((x) => (x === w ? { ...x, texte } : x)) };
+}
+
+// ---------------------------------------------------------------- the sky of the night
+
+/**
+ * The night told now: tonight from 18 h to 6 h (only what is left of it), or the night under way before 6 h. With
+ * `jour`, the night that starts that evening if it is today's or tomorrow's; none for another day (AROME's 48 hours).
+ */
+export interface Night {
+  libelle: "ce soir et cette nuit" | "cette nuit" | "demain soir et la nuit suivante";
+  /** UTC starts of the night's steps still to come. */
+  starts: Date[];
+}
+
+const NIGHT_HOURS = [18, 21, 24, 27];
+
+export function night(now: Date, jour?: string): Night | null {
+  const h = localHour(now);
+  const today = localDate(now);
+  const yesterday = localDate(new Date(now.getTime() - 24 * HOUR));
+  const tomorrow = localDate(new Date(now.getTime() + 24 * HOUR));
+  const evening = jour ?? (h < 6 ? yesterday : today);
+  if (![yesterday, today, tomorrow].includes(evening) || (evening === yesterday && h >= 6)) return null;
+  const libelle = evening === tomorrow ? "demain soir et la nuit suivante" : evening === yesterday || h >= 21 ? "cette nuit" : "ce soir et cette nuit";
+  const midnight = Date.parse(`${evening}T00:00:00+04:00`);
+  const starts = NIGHT_HOURS.map((x) => new Date(midnight + x * HOUR)).filter((t) => t.getTime() + 3 * HOUR > now.getTime());
+  return starts.length ? { libelle, starts } : null;
+}
+
+/** The forecast steps the night needs (their UTC starts), to ask AROME for them. */
+export const nightStarts = (now: Date, jour?: string): Date[] => night(now, jour)?.starts ?? [];
+
+/** The sky of one night step at a place: over the Hauts where it stands against the clouds, below by the cloud cover. */
+export function nightSky(h: ForecastHour, altitude: number): { etat: Etat | "pluie" | "nuageux" | "couvert"; texte: string } | null {
+  if (h.nuages_base_m === undefined || h.nuages_pct == null) return null; // not a step of AROME
+  if (h.pluie_mm != null && h.pluie_mm >= 0.3) return { etat: "pluie", texte: "pluie prévue" };
+  const e = altitude >= HAUTS_MIN_M ? etat(h, altitude) : null;
+  if (e) return e;
+  if (h.nuages_pct < CLEAR_PCT) return { etat: "degage", texte: "dégagé" };
+  return h.nuages_pct < 70 ? { etat: "nuageux", texte: "partiellement nuageux" } : { etat: "couvert", texte: "couvert" };
+}
+
+export interface CielDeNuit {
+  titre: string;
+  /** « De 18 h à minuit, … ; de minuit à 6 h, …. », for a card under the place's name. */
+  ligne: string;
+  /** The same with the place and its altitude in front, for a list or an answer. */
+  resume: string;
+  fenetres: { de: number; a: number; etat: string; texte: string }[];
+  prevision: string;
+  mise_en_garde: string;
+}
+
+const hourName = (x: number) => (x % 24 === 0 ? "minuit" : `${x % 24} h`);
+
+/**
+ * The sky of `place`'s night from its forecast, step by step, the same state on steps in a row said once; null without
+ * AROME for each step left (half a night would mislead).
+ */
+export function cielDeNuit(f: Forecast, place: Place, now: Date, o: { nom?: string; jour?: string } = {}): CielDeNuit | null {
+  const nt = night(now, o.jour);
+  if (!nt) return null;
+  const altitude = place.altitude_m ?? 0;
+  const fenetres: CielDeNuit["fenetres"] = [];
+  for (const t of nt.starts) {
+    const h = f.hours.find((x) => x.time.getTime() === t.getTime());
+    const s = h && nightSky(h, altitude);
+    if (!s) return null;
+    const de = localHour(t);
+    const last = fenetres[fenetres.length - 1];
+    if (last && last.texte === s.texte) last.a = de + 3;
+    else fenetres.push({ de, a: de + 3, ...s });
+  }
+  const tail = `${fenetres.map((w) => `de ${hourName(w.de)} à ${hourName(w.a)}, ${w.texte}`).join(" ; ")}.`;
+  return {
+    titre: `Ciel ${nt.libelle}`,
+    ligne: cap(tail),
+    resume: `${o.nom ?? place.nom} (${m(altitude)}), ${nt.libelle} : ${tail}`,
+    fenetres,
+    prevision: LABEL,
+    mise_en_garde: CAVEAT,
+  };
 }
