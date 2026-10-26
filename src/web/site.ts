@@ -100,6 +100,7 @@ import { OFFLINE_PATH, serviceWorker, SW_PATH } from "./pwa.js";
 import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures, toolCount } from "./presse.js";
 import { avisPost } from "./avis.js";
+import * as connecteurs from "./connecteurs.js";
 import * as formulaires from "./propositions.js";
 import * as dae from "../providers/dae.js";
 import * as traces from "../providers/traces.js";
@@ -321,6 +322,12 @@ async function pages(request: Request, cache: Cache, background: Background, now
     if (path === formulaires.PROPOSER_PATH || path === `${formulaires.PROPOSER_PATH}/`) return formulaires.proposer(request, now, await alerte(cache, background, now));
     if (path === ICS_PATH || path === JSON_PATH) return flux(request, path, now);
     if (path.startsWith(formulaires.PROPOSITION_PATH)) return formulaires.proposition(request, now, await alerte(cache, background, now), () => rafraichirPropositions(cache, now));
+    // « Relier votre plateforme » (web/connecteurs.ts), once the associations' platforms are read.
+    if (connecteurs.enLigne()) {
+      if (path === connecteurs.RELIER_PATH || path === `${connecteurs.RELIER_PATH}/`) return connecteurs.relier(request, now, await alerte(cache, background, now));
+      if (path === connecteurs.CONFIRMER_PATH) return connecteurs.confirmerRelier(request, now, await alerte(cache, background, now));
+      if (path.startsWith(connecteurs.CONNEXION_PATH)) return connecteurs.connexion(request, now, await alerte(cache, background, now));
+    }
   }
   if (path === "/") {
     const [meteo, vigilance] = await Promise.all([

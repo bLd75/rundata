@@ -58,7 +58,7 @@ const siteverify = (secret: string): Verif => async (token, adresse) => {
 };
 
 /** The widget, and under it what it keeps in the browser (cf.turnstile.u, in local storage: /confidentialite#abus). */
-const widget = () =>
+export const widget = () =>
   TURNSTILE_SITEKEY
     ? `<div class="cf-turnstile" data-sitekey="${esc(TURNSTILE_SITEKEY)}" data-language="fr" data-size="flexible"></div>
   <p class="note">La vérification anti-robot de Cloudflare garde une donnée dans votre navigateur (pas un cookie)\u00a0: <a href="/confidentialite#abus">ce que c'est</a>.</p>`
@@ -70,7 +70,7 @@ export const TURNSTILE_SCRIPT = TURNSTILE_SITEKEY ? `<script src="https://challe
 
 const options = (values: readonly string[], chosen: string, first: string) =>
   `<option value="">${esc(first)}</option>${values.map((v) => `<option${v === chosen ? " selected" : ""}>${esc(v)}</option>`).join("")}`;
-const hp = `<div class="hp" aria-hidden="true"><label>Ne pas remplir <input name="site_web" tabindex="-1" autocomplete="off"></label></div>`;
+export const hp = `<div class="hp" aria-hidden="true"><label>Ne pas remplir <input name="site_web" tabindex="-1" autocomplete="off"></label></div>`;
 
 // ---------------------------------------------------------------- « Nous donner votre lien »
 
@@ -102,7 +102,7 @@ const plain = (status: number, text: string, headers: Record<string, string> = {
   new Response(text, { status, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", ...headers } });
 
 /** The checks both forms share; the form's fields, or the answer that refuses it. */
-async function received(request: Request, what: string): Promise<URLSearchParams | Response> {
+export async function received(request: Request, what: string): Promise<URLSearchParams | Response> {
   if (request.method !== "POST") return plain(405, `${what} est sur https://rundata.re/associations\u00a0; cette adresse ne reçoit que ses envois.`, { allow: "POST" });
   const url = new URL(request.url);
   const from = request.headers.get("origin");
@@ -114,7 +114,7 @@ async function received(request: Request, what: string): Promise<URLSearchParams
 }
 
 /** Whether Turnstile lets the form through: never without its key. */
-const human = async (f: URLSearchParams, adresse: string) => !!verif && (await verif(f.get("cf-turnstile-response") ?? "", adresse));
+export const human = async (f: URLSearchParams, adresse: string) => !!verif && (await verif(f.get("cf-turnstile-response") ?? "", adresse));
 
 /** POST /associations/lien: writes the link and sends the browser back to its page. */
 export async function lienPost(request: Request, now = new Date()): Promise<Response> {
@@ -399,7 +399,7 @@ export function gererPage(origin: string, l: propositions.Ligne | undefined, act
   return layout(origin, { title: GERER_TITLE, description: GERER_META, path: PROPOSER_PATH, jsonld: [], alerte, sansAvis: true, sansPartage: true, noindex: true, referrer: "no-referrer" }, band, body);
 }
 
-const SECRET_HEADERS = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "x-robots-tag": "noindex" };
+export const SECRET_HEADERS = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "x-robots-tag": "noindex" };
 
 /**
  * GET /associations/proposition/<secret>: the proposal and what its author can do, never a change (a mail scanner
