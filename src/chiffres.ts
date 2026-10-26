@@ -15,6 +15,7 @@ import { localTime } from "./geo.js";
 import { INSEE } from "./places/insee.js";
 import { normalize } from "./places/resolve.js";
 import { PROPOSITIONS } from "./providers/agenda-propositions.js";
+import { autorisee } from "./providers/autorisations.js";
 import { AGENDAS, copiePlanifiee, planifiees, SOURCES_LUES, SPORTSREGIONS, type Evenement } from "./providers/agenda.js";
 import { DAES } from "./providers/dae.js";
 import { IDS as POINTS_DE_CHARGE, STATIONS as BORNES } from "./providers/irve.js";
@@ -245,7 +246,8 @@ export async function buildChiffres(cache: Cache, now = new Date()): Promise<Cop
   out.evenements = lu && sans.length <= SANS_MAX ? { ...lu, ...(sans.length ? { sans } : {}) } : fresh ? undefined : before.evenements;
   // A copy of before this field: its count, when it was whole.
   out.evenements_complet = (lu && !sans.length ? lu : undefined) ?? before.evenements_complet ?? (before.evenements && !before.evenements.sans?.length ? before.evenements : undefined);
-  out.clubs = await recompte("clubs", async () => {
+  // Not counted while Sportsregions is not read (src/providers/autorisations.ts): nor is the count of before kept.
+  out.clubs = !autorisee(`agenda:${SPORTSREGIONS.id}`) ? undefined : await recompte("clubs", async () => {
     const c = copiePlanifiee(await planifiees(cache), SPORTSREGIONS);
     return c ? { nombre: clubs(c.value) } : undefined;
   });

@@ -30,7 +30,7 @@ import { withLectures } from "./lectures.js";
 import { catalogue, INDEX, serveur } from "./nouveautes.js";
 import { cite, SITE_URL } from "./tools/citer.js";
 import { marquerTiers, OUTILS_TIERS } from "./tools/tiers.js";
-import { FICHE_LA1ERE, FICHE_REUNION_FR } from "./tools/non-repris.js";
+import { FICHE_LA1ERE, FICHE_REUNION_FR, fichesNonReprises } from "./tools/non-repris.js";
 import { resumeDuJour } from "./tools/resume.js";
 import { text } from "./tools/format.js";
 import { temperatureMer, COVERAGE as SEA_COVERAGE } from "./tools/mer.js";
@@ -82,7 +82,8 @@ import { cyclones, PASSES_LIST } from "./tools/cyclones.js";
 import * as climat from "./providers/climat.js";
 import { historiqueMeteo } from "./tools/historique.js";
 import * as agendaSources from "./providers/agenda.js";
-import { agenda, COUVERTURE as AGENDA_COVERAGE, MAIRIES_LUES } from "./tools/agenda.js";
+import { autorisee } from "./providers/autorisations.js";
+import { agenda, COUVERTURE as AGENDA_COVERAGE, MAIRIES_LUES, PROGRAMMES_SALLES } from "./tools/agenda.js";
 import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
@@ -90,7 +91,7 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.28";
+export const VERSION = "0.203.29";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -146,6 +147,8 @@ const ADHERENT = z
   .boolean()
   .optional()
   .describe("L'utilisateur dit être adhérent ou membre d'un club : montrer aussi les séances réservées aux adhérents. / The user says they are a club member: also show members-only sessions.");
+// Only Sportsregions' events are for members: the argument is offered while it is read (providers/autorisations.ts).
+const ADHERENT_SI_LU: Record<string, typeof ADHERENT> = autorisee("agenda:sportsregions") ? { adherent: ADHERENT } : {};
 
 const lieu = z
   .string()
@@ -163,10 +166,11 @@ const lieu = z
 /** Every source the server reads, each once (sources_donnees' list, and the sites that do not answer: sans-reponse.ts). */
 /**
  * Every source read, for sources_donnees and the sites that do not answer. `inactives`: those of a base or a key this
- * Worker lacks as well (Node, the tests), for the registry of producers and licences (producteurs.ts).
+ * Worker lacks as well (Node, the tests), and the sports sites not read until they agree (providers/autorisations.ts),
+ * for the registry of producers and licences (producteurs.ts).
  */
 export const toutesLesSources = (inactives = false) =>
-  oncePerId([...weatherProviders().map((p) => p.source), ...(inactives ? [meteofranceStations.SOURCE] : []), ...(inactives || vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(inactives || transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, airesOnf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(inactives || climat.enabled() ? [climat.SOURCE] : []), ...(inactives || climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(inactives || arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(inactives || feux.enabled() ? [feux.SOURCE] : []),
+  oncePerId([...weatherProviders().map((p) => p.source), ...(inactives ? [meteofranceStations.SOURCE] : []), ...(inactives || vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(inactives || transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, airesOnf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES).filter((x) => inactives || (autorisee(`sport:${x.id}`) && autorisee(`agenda:${x.id}`))), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(inactives || climat.enabled() ? [climat.SOURCE] : []), ...(inactives || climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(inactives || arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(inactives || feux.enabled() ? [feux.SOURCE] : []),
     // The vie pratique's and the power cuts' (annuaire_services_publics, electricite).
     carburantsPrix.SOURCE, radarMf.SOURCE, radarsFixes.SOURCE, courantMairies.SOURCE, tcoDecheteries.SOURCE, santeSources.FINESS, santeSources.ARS_GARDE, santeSources.SANTE_FR, collecteTco.SOURCE, ...Object.values(lieuxEnfants.SOURCES), marchesOsm.OSM, loyersAnil.SOURCE, internetArcep.SOURCE]);
 /** A source's name from its id, for one served from its last copy (fraicheur.ts). */
@@ -679,12 +683,13 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       description:
         "Sport à La Réunion (974) : matchs à venir et derniers résultats officiels des championnats régionaux de handball (D1) et de volley " +
         "(R1 et R2, hommes et femmes, toutes les poules), avec les clubs en toutes lettres (VBSP = Volley-Ball de Saint-Pierre) et la commune où l'on joue, " +
-        "les matchs annulés ou reportés (avis de la Ligue de volley, actualité locale), classements, régates de voile, compétitions de golf, " +
+        "les matchs annulés ou reportés (avis de la Ligue de volley, actualité locale), classements, " +
         "rallyes et sport automobile (calendrier de la Ligue), Grand Raid (courses, partants, abandons, podiums), les programmes sportifs publiés par les communes " +
-        "(le lien du document de la mairie, sans son contenu), les événements publiés par les clubs sur Sportsregions (tir à l'arc, triathlon, golf, badminton…, " +
-        "avec le club qui organise\u00a0; les séances réservées aux adhérents seulement si l'utilisateur dit en être). " +
+        "(le lien du document de la mairie, sans son contenu). " +
+        // Said while neither federation is read (providers/autorisations.ts), so that the answer's mention is read (marketing).
+        (!autorisee("sport:ffvoile") && !autorisee("sport:ffgolf") ? "Les régates et le golf ne sont pas repris : la réponse dit pourquoi. " : "") +
         "Pour : « match de volley dimanche dans le sud ? », « match de hand ce week-end à Saint-Pierre ? », « le TGV joue quand ? », " +
-        "« foot ou basket ce week-end ? », « tournoi de badminton ce week-end ? », « résultats du volley à Saint-Leu ? », « classement du handball ? », « prochaine régate ? », " +
+        "« foot ou basket ce week-end ? », « résultats du volley à Saint-Leu ? », « classement du handball ? », " +
         "« prochain rallye ? », « qui a gagné le Grand Raid ? ». / Sport in Réunion Island: fixtures, results, cancellations, standings, Grand Raid.",
       inputSchema: {
         sport: z
@@ -699,7 +704,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           .enum(QUANDS as [Quand, ...Quand[]])
           .optional()
           .describe("« aujourd_hui », « demain », « samedi » ou « dimanche » (le prochain), « ce_week_end », « a_venir » (14 jours) ou « resultats »\u00a0; vide = les deux. / Today, tomorrow, next Saturday or Sunday, this weekend, upcoming or results; empty = both."),
-        adherent: ADHERENT,
+        ...ADHERENT_SI_LU,
       },
       annotations: { title: "Sport", ...READ_ONLY },
     },
@@ -765,13 +770,12 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Événements à La Réunion : concerts, spectacles, fêtes, festivals, marchés",
       description:
         "Événements à venir à La Réunion (974) : concerts, théâtre, danse, humour, cirque, soirées, fêtes, festivals, marchés, cinéma en " +
-        "plein air, animations municipales. D'après les programmes des salles (TÉAT Champ Fleuri et Plein Air, Cité des Arts et Palaxa, " +
-        "CDNOI, Kabardock, Le Séchoir, Léspas, Bisik, Théâtre Luc Donat), les agendas des mairies (" +
-        `${MAIRIES_LUES}), de la CINOR et de l'office de tourisme du Nord (OpenAgenda) et les clubs sportifs (Sportsregions). Chaque événement : ` +
+        `plein air, animations municipales. D'après ${PROGRAMMES_SALLES}, les agendas des mairies (` +
+        `${MAIRIES_LUES}), de la CINOR et de l'office de tourisme du Nord (OpenAgenda). Chaque événement : ` +
         "titre, date et heures (heure de La Réunion), salle, commune, genre, prix et lien de billetterie quand ils sont donnés, statut " +
         "(ANNULÉ, REPORTÉ, complet), y compris quand c'est un média de l'île qui l'annonce avant l'organisateur (statut_d_apres). " +
         "Pour : « que faire ce week-end à Saint-Paul ? », « concert ce soir ? », « spectacle à Saint-Denis samedi ? », « marché forain demain ? », « c'est quand la fête de l'ail ? ». " +
-        "/ Upcoming events in Réunion Island (concerts, shows, theatre, festivals, markets) from venues, town halls, OpenAgenda and sports clubs.",
+        "/ Upcoming events in Réunion Island (concerts, shows, theatre, festivals, markets) from venues, town halls and OpenAgenda.",
       inputSchema: {
         lieu: z
           .string()
@@ -785,7 +789,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           .string()
           .optional()
           .describe("Le genre (« concert », « spectacle », « théâtre », « danse », « humour », « soirée », « festival », « marché », « cinéma », « enfants », « sport », « exposition ») ou des mots du titre ou de la salle (« ail », « dragon boat », « Kabardock »)\u00a0; vide = tout. / Kind, or words of the title or venue; empty = all."),
-        adherent: ADHERENT,
+        ...ADHERENT_SI_LU,
       },
       annotations: { title: "Événements", ...READ_ONLY },
     },
@@ -915,8 +919,9 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       return text({
         resume: resumeChiffres(c),
         sources,
-        // The media and sites whose terms forbid reading them by a program: not read (tools/non-repris.ts).
-        non_reprises: [FICHE_LA1ERE, FICHE_REUNION_FR],
+        // The media and sites whose terms forbid reading them by a program, the halls and sports sites whose terms forbid
+        // taking their information without their accord: not read (tools/non-repris.ts).
+        non_reprises: [FICHE_LA1ERE, FICHE_REUNION_FR, ...fichesNonReprises()],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage(), evenements: AGENDA_COVERAGE },
         chiffres: c,

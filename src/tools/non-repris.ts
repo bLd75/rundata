@@ -1,4 +1,4 @@
-import { type Autorisation, MEDIAS, nonAutorisee, nonAutorisees } from "../providers/autorisations.js";
+import { type Autorisation, MEDIAS, nonAutorisee, nonAutorisees, nonReprises, type SourceNonReprise } from "../providers/autorisations.js";
 import { de, enumeration } from "./format.js";
 
 /**
@@ -105,3 +105,53 @@ export const FICHE_REUNION_FR = {
   texte: `Non repris depuis le ${dayMonth(REUNION_FR.non_lue_depuis)} : les mentions légales de reunion.fr, lues le ${dayMonth(REUNION_FR.lues_le)}, interdisent toute reprise du site ou de ses éléments sans l'autorisation écrite et préalable du Comité Réunionnais du Tourisme.`,
   conditions: REUNION_FR.conditions,
 };
+
+// ---------------------------------------------------------------- the halls and the sports sites, not read
+
+// The communes' words (above), for a hall or a sports site (src/providers/autorisations.ts, NON_REPRISES), in marketing's
+// words (projects/rundata/marketing, 26/10): one site alone, or several in one block, each with its article.
+const upper = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+
+function phraseNonReprise(x: SourceNonReprise): string {
+  if (x.etat === "refusee") {
+    return `${upper(x.cite)} a refusé${x.refusee_le ? `, le ${dayMonth(x.refusee_le)},` : ""} que rundata.re reprenne le contenu de son site : ${x.publie} ${x.publie.startsWith("les ") ? "ne s'affichent" : "ne s'affiche"} donc pas ici.`;
+  }
+  const first = `Les ${x.textes} ${x.du_site} interdisent ${x.interdit ?? "d'en reprendre le contenu sans son accord"} : rundata.re n'affiche donc pas ${x.publie}.`;
+  return x.etat === "demandee" ? `${first} Nous lui avons demandé cet accord${x.demandee_le ? ` le ${dayMonth(x.demandee_le)}` : ""} et attendons sa réponse.` : first;
+}
+
+/**
+ * Several sites in one block for those still waiting (with the day they were asked when it is the same for all), then
+ * a line for each one asked on another day, and for each one that refused; one site alone, its own line.
+ */
+function bloc(sites: SourceNonReprise[], groupe: (waiting: SourceNonReprise[]) => string): string[] {
+  const waiting = sites.filter((x) => x.etat !== "refusee");
+  const lines: string[] = [];
+  if (waiting.length === 1) lines.push(phraseNonReprise(waiting[0]));
+  else if (waiting.length) {
+    const days = new Set(waiting.map((x) => (x.etat === "demandee" ? x.demandee_le ?? "" : undefined)));
+    const day = days.size === 1 ? [...days][0] : undefined;
+    lines.push(groupe(waiting) + (day !== undefined ? ` Nous leur avons demandé cet accord${day ? ` le ${dayMonth(day)}` : ""} et attendons leur réponse.` : ""));
+    if (day === undefined) lines.push(...waiting.filter((x) => x.etat === "demandee").map(phraseNonReprise));
+  }
+  return [...lines, ...sites.filter((x) => x.etat === "refusee").map(phraseNonReprise)];
+}
+
+/** The halls not read, for the whole island or a commune's. */
+export function mentionSalles(commune?: string): string[] {
+  return bloc(nonReprises("salle").filter((x) => !commune || x.communes?.includes(commune)), (w) =>
+    `Les mentions légales des sites de ${w.length} salles interdisent d'en reprendre le contenu sans accord : ${enumeration(w.map((x) => x.cite))}. rundata.re n'affiche donc pas leurs programmes.`);
+}
+
+/** The sports sites not read: the federations of the sports asked (all of them when undefined), the clubs' calendar when `clubs`. */
+export function mentionSports(sports: string[] | undefined, clubs: boolean): string[] {
+  return bloc(nonReprises("sport").filter((x) => (x.sport ? !sports || sports.includes(x.sport) : clubs)), (w) => {
+    const textes = new Set(w.map((x) => x.textes));
+    return `${textes.size > 1 ? "Les conditions d'utilisation ou les mentions légales" : `Les ${[...textes][0]}`} de ${w.length} sites interdisent d'en reprendre le contenu sans leur accord : ` +
+      `${enumeration(w.map((x) => `${x.cite} (${x.publie})`))}. rundata.re n'affiche donc pas ces rendez-vous.`;
+  });
+}
+
+/** Their entries in sources_donnees, beside the media not read: each one's own line. */
+export const fichesNonReprises = () =>
+  [...nonReprises("salle"), ...nonReprises("sport")].map((x) => ({ nom: x.nom, statut: "non repris", texte: phraseNonReprise(x), conditions: x.conditions }));

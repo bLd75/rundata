@@ -175,6 +175,8 @@ export const gardeMs = (agenda: Agenda) => (agenda.garde ?? PLANIFIE_MAX_AGE_SEC
 
 /** The copy of an agenda read by the scheduled event, if young enough to be served, with the time it was read. */
 export function copiePlanifiee(bundle: Pick<Bundle, "peek">, agenda: Agenda): Cached<Evenement[]> | undefined {
+  // One not read until it agrees (src/providers/autorisations.ts): its copy, read before, is not served either.
+  if (!autorisee(`agenda:${agenda.id}`)) return undefined;
   const hit = bundle.peek(`agenda:${agenda.id}`);
   return hit && hit.ageMs <= gardeMs(agenda) ? { value: servis(agenda, hit.value as Evenement[]), fetchedAt: new Date(hit.fetchedAt), stale: false } : undefined;
 }
@@ -1382,8 +1384,9 @@ export const LISIBLES: Agenda[] = [
 ];
 
 /**
- * The agendas read: not those of a commune's site whose terms ask its authorisation, until it is given
- * (src/providers/autorisations.ts, `agenda:<id>`). One left out is not read, and its copies, already kept, are not served.
+ * The agendas read: not those of a commune's site, a hall's or the clubs' calendar whose terms ask its authorisation,
+ * until it is given (src/providers/autorisations.ts, `agenda:<id>`). One left out is not read, and its copies, already
+ * kept, are not served.
  */
 export const AGENDAS: Agenda[] = LISIBLES.filter((a) => autorisee(`agenda:${a.id}`));
 
@@ -1393,6 +1396,13 @@ const ofCommune = (c: string) => c.replace(/^Le /, "du ").replace(/^Les /, "des 
 const listed = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} et ${xs.at(-1)}` : xs.join(""));
 SOURCES.mairies.nom = `Agendas des mairies ${listed(mairiesLues.map(ofCommune))}`;
 SOURCES.mairies.attribution = `Villes de ${listed(mairiesLues)}`;
+// The same for the halls: those read only.
+const sallesLues = AGENDAS.filter((a) => a.source === SALLES_SOURCE).map((a) => a.nom);
+// One hall: « Programme du Séchoir » (marketing).
+SALLES_SOURCE.nom = sallesLues.length === 1 ? `Programme ${sallesLues[0].replace(/^Le /, "du ").replace(/^La /, "de la ").replace(/^(?!du |de la )/, "de ")}` : `Programmes des salles : ${sallesLues.join(", ")}`;
+SALLES_SOURCE.attribution = sallesLues.join(", ");
+// Its link, the TÉAT's programme, is Le Séchoir's site while the TÉAT is not read.
+if (!AGENDAS.some((a) => a.id === "teat")) SALLES_SOURCE.url = "https://www.lesechoir.com";
 
 /**
  * The home pages some events link to instead of their own page (`accueil`): opened in a new window, as the terms of

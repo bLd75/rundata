@@ -58,8 +58,61 @@ export const AUTORISATIONS: Record<string, Autorisation> = {
   "courant:Sainte-Suzanne": { commune: "Sainte-Suzanne", publie: "avis de coupure d'électricité", etat: "demandee", demandee_le: "2026-10-26" },
 };
 
+/**
+ * The halls and the sports sites whose terms forbid taking their information without their written authorisation, as
+ * read at the source on 26/10/2026: six halls' legal notices (the TÉAT, the Théâtre Luc Donat and the CDNOI on the same
+ * model, the Cité des Arts, the Kabardock, Léspas), Bisik's (its texts « ne sauraient être reproduits librement sans
+ * l'autorisation de leur auteur »), ffgolf's terms (IV), FFVoile's legal notice, Sportsregions' terms (7.2). Le
+ * Séchoir's site has no legal notice: it is read. Until one agrees, nothing is read of it, and what was kept of it is
+ * no longer served: the answers say so instead (tools/non-repris.ts).
+ */
+export interface SourceNonReprise {
+  /** As said: « Cité des Arts », « ffgolf ». */
+  nom: string;
+  /** With its article, in a list or before « a refusé » (marketing): « la Cité des Arts », « le TÉAT (Champ Fleuri et Plein Air) », « Bisik ». */
+  cite: string;
+  /** After « Les mentions légales »: « du site de la Cité des Arts », « du site de la ffgolf ». */
+  du_site: string;
+  /** What its terms forbid, when not « d'en reprendre le contenu sans son accord » (Bisik's speak of its authors'). */
+  interdit?: string;
+  /** What its terms are called on its site. */
+  textes: "mentions légales" | "conditions d'utilisation";
+  famille: "salle" | "sport";
+  /** After « rundata.re n'affiche donc pas », for it alone: « son programme », « les compétitions des golfs de La Réunion ». */
+  publie: string;
+  /** A hall's communes: its mention is said for them. */
+  communes?: string[];
+  /** The sport tool's sport whose answer says it; none for the clubs of every sport (Sportsregions). */
+  sport?: "golf" | "voile";
+  /** The day its terms were read, and where they are. */
+  lues_le: string;
+  conditions: string;
+  etat: "a_demander" | "demandee" | "accordee" | "refusee";
+  /** The day the letter went, as given by who sent it: never guessed. */
+  demandee_le?: string;
+  refusee_le?: string;
+}
+
+/** By source: `agenda:<id>` for a hall's programme or the clubs' calendar (providers/agenda.ts, LISIBLES), `sport:<id>`. */
+export const NON_REPRISES: Record<string, SourceNonReprise> = {
+  "agenda:teat": { nom: "TÉAT Champ Fleuri et Plein Air", cite: "le TÉAT (Champ Fleuri et Plein Air)", du_site: "du site du TÉAT", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Saint-Denis", "Saint-Paul"], lues_le: "2026-10-26", conditions: "https://www.teat.re/articles/mentions-legales,6.htm", etat: "a_demander" },
+  "agenda:cite_des_arts": { nom: "Cité des Arts", cite: "la Cité des Arts", du_site: "du site de la Cité des Arts", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Saint-Denis"], lues_le: "2026-10-26", conditions: "https://www.citedesarts.re/Mentions-legales", etat: "a_demander" },
+  "agenda:kabardock": { nom: "Kabardock", cite: "le Kabardock", du_site: "du site du Kabardock", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Le Port"], lues_le: "2026-10-26", conditions: "https://kabardock.com/mentions-legales/", etat: "a_demander" },
+  "agenda:bisik": { nom: "Bisik", cite: "Bisik", interdit: "d'en reproduire les textes sans l'accord de leurs auteurs", du_site: "du site de Bisik", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Saint-Benoît"], lues_le: "2026-10-26", conditions: "https://bisik.re/mentions-legales/", etat: "a_demander" },
+  "agenda:luc_donat": { nom: "Théâtre Luc Donat", cite: "le Théâtre Luc Donat", du_site: "du site du Théâtre Luc Donat", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Le Tampon"], lues_le: "2026-10-26", conditions: "https://www.theatrelucdonat.re/articles/mentions-legales,6.html", etat: "a_demander" },
+  "agenda:cdnoi": { nom: "CDNOI", cite: "le CDNOI", du_site: "du site du CDNOI", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Saint-Denis"], lues_le: "2026-10-26", conditions: "https://www.cdnoi.re/articles/mentions-legales,7.htm", etat: "a_demander" },
+  "agenda:lespas": { nom: "Léspas", cite: "Léspas", du_site: "du site de Léspas", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Saint-Paul"], lues_le: "2026-10-26", conditions: "https://lespas.re/mentions-legales/", etat: "a_demander" },
+  "sport:ffgolf": { nom: "ffgolf", cite: "la ffgolf", du_site: "du site de la ffgolf", textes: "conditions d'utilisation", famille: "sport", publie: "les compétitions des golfs de La Réunion", sport: "golf", lues_le: "2026-10-26", conditions: "https://www.ffgolf.org/conditions-generales-d-utilisation", etat: "a_demander" },
+  "sport:ffvoile": { nom: "FFVoile", cite: "la FFVoile", du_site: "du site de la FFVoile", textes: "mentions légales", famille: "sport", publie: "les régates de la Ligue de voile de La Réunion", sport: "voile", lues_le: "2026-10-26", conditions: "https://www.ffvoile.fr/ffv/web/infoslegales.asp", etat: "a_demander" },
+  "agenda:sportsregions": { nom: "Sportsregions", cite: "Sportsregions", du_site: "de Sportsregions", textes: "conditions d'utilisation", famille: "sport", publie: "les événements que les clubs y publient", lues_le: "2026-10-26", conditions: "https://www.sportsregions.fr/informations-legales", etat: "a_demander" },
+};
+
 /** Whether a source may be read: yes for one whose site asks nothing, or allows it. */
-export const autorisee = (source: string) => ["accordee", "permise"].includes(AUTORISATIONS[source]?.etat ?? "accordee");
+export const autorisee = (source: string) => ["accordee", "permise"].includes(AUTORISATIONS[source]?.etat ?? NON_REPRISES[source]?.etat ?? "accordee");
+
+/** The halls or the sports sites not read until they agree, in the list's order. */
+export const nonReprises = (famille: SourceNonReprise["famille"]): SourceNonReprise[] =>
+  Object.entries(NON_REPRISES).filter(([k, x]) => x.famille === famille && !autorisee(k)).map(([, x]) => x);
 
 /** The sources of a kind (`agenda`, `courant`) not read until they agree, in the list's order. */
 export const nonAutorisees = (famille: string): Autorisation[] =>

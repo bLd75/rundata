@@ -92,12 +92,6 @@ const OUTILS: { nom: string; faire: string; temps: string; lu: boolean }[] = [
     lu: true,
   },
   {
-    nom: "Sportsregions (le site du club)",
-    faire: `<p>Remplissez la rubrique <b>Événements</b> de votre site Sportsregions\u00a0: la date, l'heure et le champ «\u00a0Lieu de l'événement\u00a0». Laissez l'événement public. C'est tout\u00a0: rundata.re lit le calendrier Sportsregions Réunion plusieurs fois par jour. Les entraînements et créneaux réservés aux adhérents ne s'affichent pas pour le public. Votre événement n'apparaît pas sous 48\u00a0h\u00a0? Donnez-nous le lien de sa page avec le formulaire <a href="#lien">«\u00a0Nous donner votre lien\u00a0»</a>\u00a0: nous regardons pourquoi.</p>`,
-    temps: "2 min par événement",
-    lu: true,
-  },
-  {
     nom: "Facebook ou Instagram",
     faire: `<p>Nous ne pouvons pas lire Facebook ni Instagram. Gardez-les pour votre public, et <a href="${PROPOSER_PATH}">proposez chaque événement avec le formulaire</a>, en collant le lien de votre événement Facebook\u00a0: 2 minutes.</p>`,
     temps: "2 min par événement",
@@ -110,7 +104,8 @@ const OUTILS: { nom: string; faire: string; temps: string; lu: boolean }[] = [
     lu: false,
   },
   {
-    nom: "AssoConnect, Wix, e-monsite, Google Sites",
+    // Sportsregions is not read while its terms forbid it without its accord (src/providers/autorisations.ts).
+    nom: "AssoConnect, Sportsregions, Wix, e-monsite, Google Sites",
     faire: `<p><a href="${PROPOSER_PATH}">Proposez l'événement avec le formulaire</a> et collez le lien de votre page.</p>`,
     temps: "2 min par événement",
     lu: false,
