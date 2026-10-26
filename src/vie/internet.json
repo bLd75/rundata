@@ -1,0 +1,144 @@
+{
+"construit": "2026-10-26",
+"au": "2026-06-30",
+"source": "Ma connexion internet, ARCEP, Licence Ouverte 2.0",
+"communes": {
+"97401": {
+"locaux": 6788,
+"fibre": 6492,
+"4g_fixe": 296
+},
+"97402": {
+"locaux": 6760,
+"fibre": 6561,
+"cuivre_30": 5,
+"4g_fixe": 193,
+"satellite": 1
+},
+"97403": {
+"locaux": 3935,
+"fibre": 3802,
+"4g_fixe": 130,
+"satellite": 3
+},
+"97404": {
+"locaux": 9112,
+"fibre": 8677,
+"cuivre_30": 95,
+"4g_fixe": 340
+},
+"97405": {
+"locaux": 7482,
+"fibre": 7385,
+"cuivre_30": 5,
+"4g_fixe": 92
+},
+"97406": {
+"locaux": 4324,
+"fibre": 4280,
+"4g_fixe": 44
+},
+"97407": {
+"locaux": 17027,
+"fibre": 15789,
+"cuivre_30": 27,
+"4g_fixe": 1211
+},
+"97408": {
+"locaux": 23931,
+"fibre": 22453,
+"4g_fixe": 1478
+},
+"97409": {
+"locaux": 28618,
+"fibre": 28097,
+"cuivre_30": 142,
+"4g_fixe": 379
+},
+"97410": {
+"locaux": 23910,
+"fibre": 23392,
+"cuivre_30": 63,
+"4g_fixe": 455
+},
+"97411": {
+"locaux": 96059,
+"fibre": 93292,
+"4g_fixe": 2767
+},
+"97412": {
+"locaux": 21115,
+"fibre": 20693,
+"cuivre_30": 84,
+"4g_fixe": 338
+},
+"97413": {
+"locaux": 22280,
+"fibre": 19371,
+"4g_fixe": 2909
+},
+"97414": {
+"locaux": 27738,
+"fibre": 26825,
+"cuivre_30": 31,
+"4g_fixe": 882
+},
+"97415": {
+"locaux": 65308,
+"fibre": 62108,
+"cuivre_30": 547,
+"4g_fixe": 2611
+},
+"97416": {
+"locaux": 61520,
+"fibre": 59312,
+"cuivre_30": 508,
+"4g_fixe": 1700
+},
+"97417": {
+"locaux": 2846,
+"fibre": 2715,
+"4g_fixe": 131
+},
+"97418": {
+"locaux": 19895,
+"fibre": 19090,
+"cuivre_30": 51,
+"4g_fixe": 749,
+"satellite": 5
+},
+"97419": {
+"locaux": 3326,
+"fibre": 3213,
+"4g_fixe": 113
+},
+"97420": {
+"locaux": 12163,
+"fibre": 11827,
+"cuivre_30": 23,
+"4g_fixe": 313
+},
+"97421": {
+"locaux": 3919,
+"fibre": 3756,
+"4g_fixe": 163
+},
+"97422": {
+"locaux": 45883,
+"fibre": 42993,
+"4g_fixe": 2890
+},
+"97423": {
+"locaux": 3950,
+"fibre": 3814,
+"cuivre_30": 6,
+"4g_fixe": 130
+},
+"97424": {
+"locaux": 3583,
+"fibre": 3455,
+"4g_fixe": 127,
+"satellite": 1
+}
+}
+}

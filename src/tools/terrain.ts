@@ -3,9 +3,10 @@ import { distanceKm } from "../geo.js";
 import { INSEE } from "../places/insee.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as terrain from "../providers/terrain.js";
+import * as internet from "../vie/internet.js";
 import * as loyers from "../vie/loyers.js";
 import { why } from "../types.js";
-import { a, credits, nombre, text } from "./format.js";
+import { a, credits, de, nombre, text } from "./format.js";
 
 // What a PLU zone letter means (code de l'urbanisme, articles R151-18 to R151-25).
 const ZONE_TYPES: Record<string, string> = {
@@ -170,6 +171,32 @@ export function rents(insee: string) {
   };
 }
 
+// The internet's words: marketing's (26/10). « Éligible » never without « ce qui ne veut pas dire raccordés ».
+const INTERNET = {
+  techno: { fibre: "fibre optique", cable: "câble", cuivre_30: "cuivre (ADSL, VDSL2) à 30 Mbit/s ou plus", thd_radio: "très haut débit radio", cuivre_8: "cuivre (ADSL, VDSL2) de 8 à 30 Mbit/s", "4g_fixe": "4G fixe", hd_radio: "haut débit radio", satellite: "satellite" } as Record<internet.Techno, string>,
+  ligne: (commune: string, part: string) => `${part} des logements et locaux professionnels ${commune === "Entre-Deux" ? "de l'Entre-Deux" : de(commune)} sont éligibles à la fibre au ${internet.date()}, ce qui ne veut pas dire raccordés (Arcep)`,
+  note: `Logements et locaux professionnels de la commune, comptés selon la meilleure technologie à laquelle ils sont éligibles, d'après les déclarations des opérateurs à l'Arcep au ${internet.date()}. Éligible ne veut pas dire raccordé. Pour une adresse précise\u00a0: https://maconnexioninternet.arcep.fr`,
+};
+
+/** How the commune's premises can be connected (vie/internet.ts): the fibre's share, and each best technology's. */
+export function connexion(insee: string) {
+  const c = internet.ofInsee(insee);
+  const commune = Object.keys(INSEE).find((n) => INSEE[n] === insee);
+  if (!c || !commune) return undefined;
+  const fibre = internet.pct(internet.part(c, "fibre"));
+  return {
+    ligne: INTERNET.ligne(commune, fibre),
+    bloc: {
+      commune,
+      au: internet.date(),
+      locaux: c.locaux,
+      eligibles_a_la_fibre: fibre,
+      meilleure_technologie: Object.fromEntries(internet.TECHNOS.filter((t) => c[t]).map((t) => [INTERNET.techno[t], internet.pct(internet.part(c, t))])),
+      note: INTERNET.note,
+    },
+  };
+}
+
 /** The street's line of the summary, named as the address base writes it (marketing's words, 25/10). */
 export function streetLine(v: ReturnType<typeof streetMarket>): string {
   const voie = `sur la voie (${v.voie})`;
@@ -284,6 +311,8 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
   if (m && "prix_m2_median" in m.appartements) parts.push(`${"prix_m2_median" in m.maisons ? "" : `${SECTEUR}, `}appartements : ${m.appartements.prix_m2_median} (${m.appartements.ventes} ventes)`);
   const r = insee ? rents(insee) : undefined;
   if (r?.ligne) parts.push(r.ligne);
+  const net = insee ? connexion(insee) : undefined;
+  if (net) parts.push(net.ligne);
 
   const used = [
     terrain.SOURCES.ban,
@@ -295,6 +324,7 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
     ...(ppr ? [terrain.SOURCES.ppr] : []),
     ...(cat || mvt ? [terrain.SOURCES.georisques] : []),
     ...(r ? [loyers.SOURCE] : []),
+    ...(net ? [internet.SOURCE] : []),
   ];
   return text({
     resume: `${parts.join("\u00a0; ")}.`,
@@ -321,6 +351,7 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
         }
       : DOWN,
     ...(r ? { loyers_d_annonce: r.bloc } : {}),
+    ...(net ? { internet_dans_la_commune: net.bloc } : {}),
     risques: risksBlock(lon, lat, insee, ppr, cat, mvt),
     avertissements: [
       "Le cadastre est un document fiscal : il ne prouve pas la propriété ni les limites exactes (bornage par un géomètre).",

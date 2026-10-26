@@ -135,9 +135,13 @@ describe("fiche terrain", () => {
     expect(r.marche_immobilier.sur_la_voie).toMatchObject({ voie: "Rue de la Buse", depuis: 2021, ventes: 10, maisons: { ventes: 7, prix_m2_median: "2\u202f500\u00a0€/m²" }, appartements: { ventes: 2 } });
     expect(r.resume).toContain(" : 5\u202f130\u00a0€/m² en médiane (16 ventes)\u00a0; appartements : 5\u202f120\u00a0€/m² (63 ventes)\u00a0; ");
     // Then the commune's rents asked in ads, from the bundled map of rents.
-    expect(r.resume).toContain("\u00a0; loyer d'annonce d'un appartement type à Saint-Paul\u00a0: 18,86\u00a0€/m² charges comprises, d'après les annonces du 3e trimestre 2025 (Estimations ANIL, à partir des données du Groupe SeLoger et de leboncoin).");
+    expect(r.resume).toContain("\u00a0; loyer d'annonce d'un appartement type à Saint-Paul\u00a0: 18,86\u00a0€/m² charges comprises, d'après les annonces du 3e trimestre 2025 (Estimations ANIL, à partir des données du Groupe SeLoger et de leboncoin)\u00a0; 95,1\u00a0% des logements");
     expect(r.loyers_d_annonce).toMatchObject({ commune: "Saint-Paul", millesime: 2025, maison: { loyer_m2_charges_comprises: "15,57\u00a0€/m²" } });
     expect(r.sources.map((x: { attribution: string }) => x.attribution)).toContain("Estimations ANIL, à partir des données du Groupe SeLoger et de leboncoin");
+    // Then the commune's fibre, from the bundled statistics of the Arcep.
+    expect(r.resume).toContain("\u00a0; 95,1\u00a0% des logements et locaux professionnels de Saint-Paul sont éligibles à la fibre au 30/06/2026, ce qui ne veut pas dire raccordés (Arcep).");
+    expect(r.internet_dans_la_commune).toMatchObject({ commune: "Saint-Paul", eligibles_a_la_fibre: "95,1\u00a0%" });
+    expect(r.sources.map((x: { source: string }) => x.source)).toContain("Ma connexion internet (statistiques d'éligibilité par commune)");
     // One file a year of the commune, from 2021; none of a sale, its parcel or its price alone in the answer.
     expect(urls.filter((u) => u.includes("geo-dvf"))).toEqual([2021, 2022, 2023, 2024, 2025, 2026].map((y) => `https://files.data.gouv.fr/geo-dvf/latest/csv/${y}/communes/974/97415.csv`));
     expect(JSON.stringify(r.marche_immobilier)).not.toMatch(/BO00|420 000|T7/);

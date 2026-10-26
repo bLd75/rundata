@@ -12,6 +12,7 @@ import * as mf from "../providers/vigilance.js";
 import * as sante from "../sante/etablissements.js";
 import * as enfants from "../vie/enfants.js";
 import * as dech from "../vie/decheteries.js";
+import * as internet from "../vie/internet.js";
 import * as loyers from "../vie/loyers.js";
 import { anchorOf } from "./decheteries.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
@@ -221,6 +222,23 @@ function rents(p: PlacePage): Live | undefined {
     detail: `appartement type de ${loyers.SURFACE.appartement}\u00a0m², non meublé, charges comprises, d'après les annonces du 3e trimestre ${loyers.MILLESIME}` +
       `${c.maison ? ` · maison type ${esc(loyers.m2(c.maison.loyer_m2))}` : ""} · ${esc(loyers.SOURCE.attribution)}` +
       `${f.zone ? " · estimé avec des communes voisines, faute d'annonces assez nombreuses" : ""}${loyers.fragile(f) ? " · à prendre avec prudence, selon l'ANIL" : ""}`,
+    // Never cut to three lines: the ANIL's mention must be read wherever a rent is.
+    entier: true,
+  };
+}
+
+/** How the premises can be connected (vie/internet.ts): the fibre's share; one release a quarter, never live. */
+function connexion(p: PlacePage): Live | undefined {
+  const c = internet.ofCommune(p.nom);
+  if (!c) return undefined;
+  const next = internet.TECHNOS.filter((t) => t !== "fibre" && c[t]).sort((x, y) => c[y]! - c[x]!)[0];
+  // Marketing's words (26/10): « éligible » with « ce qui ne veut pas dire raccordés », never « fibré » nor « couvert ».
+  return {
+    valeur: esc(internet.pct(internet.part(c, "fibre"))),
+    detail: `des logements et locaux professionnels sont éligibles à la fibre au ${internet.dateLongue()}, ce qui ne veut pas dire raccordés` +
+      `${next === "4g_fixe" ? ` · 4G fixe au mieux pour ${esc(internet.pct(internet.part(c, next)))}` : ""} · Arcep, Ma connexion internet`,
+    // Never cut to three lines: « ce qui ne veut pas dire raccordés » must be read.
+    entier: true,
   };
 }
 
@@ -281,6 +299,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   // Figures of a year or a quarter, out of the grid that says « en ce moment » (marketing, 26/10).
   const habiter: Tile[] = [
     ...(rents(p) ? [{ icon: "key", nom: "Loyers d'annonce", live: rents(p), foot: `<a href="${loyers.SOURCE.url}" rel="noopener">La carte des loyers de l'ANIL</a>` }] : []),
+    ...(connexion(p) ? [{ icon: "wifi", nom: "Fibre", live: connexion(p), foot: `<a href="https://maconnexioninternet.arcep.fr/" rel="noopener">Votre adresse sur Ma connexion internet</a>` }] : []),
   ];
   const island: Tile[] = [
     { icon: "volcano", nom: "Volcan", href: "/volcan", live: volcanLive(l.volcan ?? null, now) },
@@ -345,7 +364,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   <figure class="card mapcard">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
 </div>`;
 
-  const sources = [...(l.commune?.value.sources ?? []), ...(l.place?.value.meteo?.sources ?? []), ...(l.air?.value.sources ?? []), ...(rents(p) ? [{ source: loyers.SOURCE.nom, licence: loyers.SOURCE.licence, attribution: loyers.SOURCE.attribution }] : [])];
+  const sources = [...(l.commune?.value.sources ?? []), ...(l.place?.value.meteo?.sources ?? []), ...(l.air?.value.sources ?? []), ...(rents(p) ? [{ source: loyers.SOURCE.nom, licence: loyers.SOURCE.licence, attribution: loyers.SOURCE.attribution }] : []), ...(connexion(p) ? [{ source: internet.SOURCE.nom, licence: internet.SOURCE.licence, attribution: internet.SOURCE.attribution }] : [])];
   const body = `<section id="en-ce-moment" aria-labelledby="h-now">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-now">${esc(p.nom)} en ce moment</h2>
   <p>Chaque catégorie a sa page pour toute l'île ; ici, ce qui concerne ${esc(p.nom)}. Mise à jour en continu, chaque donnée avec son heure et sa source.</p></div>
