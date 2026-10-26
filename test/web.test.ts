@@ -566,6 +566,24 @@ describe("page data", () => {
     expect(isReader(ua("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1"))).toBe(false);
   });
 
+  it("is waited for by the assistants' fetchers and their search robots, not by the crawlers that train a model", () => {
+    const ua = (a: string) => new Request("https://rundata.re/", { headers: { "user-agent": a } });
+    for (const a of [
+      "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-User/1.0; +Claude-User@anthropic.com)",
+      "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-SearchBot/1.0; +Claude-SearchBot@anthropic.com)",
+      "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; OAI-SearchBot/1.0; +https://openai.com/searchbot",
+      "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot",
+      "meta-externalfetcher/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)",
+    ])
+      expect(isReader(ua(a)), a).toBe(true);
+    for (const a of [
+      "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)",
+      "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.1; +https://openai.com/gptbot)",
+      "meta-externalagent/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)",
+    ])
+      expect(isReader(ua(a)), a).toBe(false);
+  });
+
   it("is refreshed before the answer for an AI assistant, after it for a person", async () => {
     let t = NOW.getTime();
     const c = new Cache(new MemoryStore(), () => t);

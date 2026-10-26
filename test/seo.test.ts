@@ -25,9 +25,23 @@ describe("search engines", () => {
     const robots = await get("/robots.txt");
     const groups = robots.split("\n\n");
     // Nor the searches for a stop: a page per query typed, each stop has its own.
-    expect(groups[0]).toBe("User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: /bus/arret?q=\nAllow: /");
-    expect(groups[1]).toBe("User-agent: *\nDisallow: /bus/arret?q=\nAllow: /");
+    // Nor a trip: an address per stop and per day, not indexed.
+    expect(groups[0]).toBe("User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: /bus/arret?q=\nDisallow: /bus/trajet/\nAllow: /");
+    expect(groups[1]).toBe("User-agent: *\nDisallow: /bus/arret?q=\nDisallow: /bus/trajet/\nAllow: /");
     expect(robots).toContain(`Sitemap: ${O}/sitemap.xml`);
+  });
+
+  it("follow a stop's page, and not the trips it links", async () => {
+    const robots = await get("/robots.txt");
+    // A rule's path matches from the start of the address, `*` matching anything (RFC 9309).
+    const rules = (group: string) => group.split("\n").filter((l) => l.startsWith("Disallow: ")).map((l) => new RegExp(`^${l.slice(10).replace(/[.?+()]/g, "\\$&").replace(/\*/g, ".*")}`));
+    const blocked = (group: string, path: string) => rules(group).some((r) => r.test(path));
+    for (const group of robots.split("\n\n").slice(0, 2)) {
+      expect(blocked(group, "/bus/arret/gare-routiere-de-saint-denis")).toBe(false);
+      expect(blocked(group, "/bus/arret")).toBe(false);
+      expect(blocked(group, "/bus/trajet/carjaune/767/5-33685532?jour=20261026&arret=12")).toBe(true);
+      expect(blocked(group, "/bus/arret?q=gare")).toBe(true);
+    }
   });
 
   it("find no ?maj= address in the pages: the time is added on the click, to a link they do not follow", () => {
