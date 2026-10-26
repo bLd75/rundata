@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { breakerMs, Cache, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
 import { noteSource, withLectures } from "../src/lectures.js";
 import { UpstreamError } from "../src/types.js";
-import { familyOf, RENDU_REVISION } from "../src/web/revisions.js";
+import { familyOf, RENDU_REVISION, SOURCE_REVISION, sourceRevision } from "../src/web/revisions.js";
 
 function clock() {
   let t = 1_000_000;
@@ -377,3 +377,64 @@ describe("a page's copy kept across the deploys that leave its family's revision
     expect(familyOf("web:randonnees:cap-noir")).toBe("randonnees");
   });
 });
+
+// The news feed's entry, read by the old code a few minutes before a deploy that changed one of its links, made the
+// page built again after it show the old links until its next turn (26/10/2026, Freedom's).
+describe("a source's entry listed in SOURCE_REVISION, after a deploy", () => {
+  const fil = "actualites:fil";
+  const n = SOURCE_REVISION[fil];
+
+  it("is stamped with its source's revision, whatever the version; a source not listed is not stamped", async () => {
+    const store = new MemoryStore();
+    const cache = new Cache(store, undefined, false, undefined, "2.0.0");
+    await cache.get(fil, 300, async () => "lu");
+    await cache.get("agenda:petite_ile", 300, async () => "lue");
+    expect((await store.get(fil))!.version).toBe(`source-${n}`);
+    expect((await store.get("agenda:petite_ile"))!.version).toBeUndefined();
+    expect(stampOf(fil, "2.0.0")).toBe(stampOf(fil, "1.0.0"));
+    expect(stampOf(fil, undefined)).toBeUndefined();
+  });
+
+  it("is named by its key, or by the first part of its key", () => {
+    expect(sourceRevision(fil)).toBe(n);
+    expect(sourceRevision("actualites:autre")).toBeUndefined();
+    expect(sourceRevision("agenda:petite_ile")).toBeUndefined();
+  });
+
+  it("is kept across a deploy that leaves its number, and read again at its first ask after one that raises it, once", async () => {
+    const c = clock();
+    const store = new MemoryStore();
+    await new Cache(store, c.now, false, undefined, "1.0.0").get(fil, 300, async () => "ancien");
+    await new Cache(store, c.now, false, undefined, "1.0.0").get("agenda:petite_ile", 300, async () => "lue");
+    c.advance(10);
+    let reads = 0;
+    const next = new Cache(store, c.now, false, undefined, "2.0.0");
+    expect((await next.get(fil, 300, async () => (reads++, "nouveau"))).value).toBe("ancien");
+    expect(reads).toBe(0);
+    // Read by the code before the one that raised the number.
+    await store.put(fil, { value: "avant", fetchedAt: c.now(), version: `source-${n - 1}` });
+    expect((await next.peek(fil))!.outdated).toBe(true);
+    expect((await next.get(fil, 300, async () => (reads++, "nouveau"))).value).toBe("nouveau");
+    expect((await next.get(fil, 300, async () => (reads++, "encore"))).value).toBe("nouveau");
+    expect(reads).toBe(1);
+    // A source not listed: its entry, however written, is kept.
+    expect((await next.get("agenda:petite_ile", 300, async () => (reads++, "relue"))).value).toBe("lue");
+    expect(reads).toBe(1);
+  });
+
+  it("stays the entry served, dated, when its source does not answer: never nothing", async () => {
+    const c = clock();
+    const store = new MemoryStore();
+    await store.put(fil, { value: "avant", fetchedAt: c.now(), version: `source-${n - 1}` });
+    c.advance(10);
+    const cache = new Cache(store, c.now, false, undefined, "2.0.0");
+    const silent = async (): Promise<string> => {
+      throw new UpstreamError("medias_locaux", "pas de réponse");
+    };
+    expect(await cache.get(fil, 300, silent)).toMatchObject({ value: "avant", stale: true });
+    // Asked again within the breaker: the same copy, not an error.
+    expect(await cache.get(fil, 300, silent)).toMatchObject({ value: "avant", stale: true });
+    expect(await new Cache(store, c.now, false, undefined, "2.0.0").get(fil, 300, async () => { throw new Error("page changée"); })).toMatchObject({ value: "avant", stale: true });
+  });
+});
+
