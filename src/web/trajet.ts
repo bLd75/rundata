@@ -50,7 +50,8 @@ function liveAt(s: TripStop, now: Date): string {
 /** The note under the stops: what is scheduled and what is announced, by the network's feed or without one. */
 function liveNote(t: TripRun): string {
   const n = t.nom_reseau;
-  if (!t.direct) return `Horaires publiés par ${n}, sans les retards ni les déviations.`;
+  // Without a feed, or with only times of it too far from the timetable to be believed.
+  if (!t.direct || t.direct.etat === "ecarte") return `Horaires publiés par ${n}, sans les retards ni les déviations.`;
   if (t.direct.etat === "muet") return `Le flux en direct de ${n} ne répond pas pour le moment${NBSP}: horaires publiés seulement.`;
   const at = feedTime(t.direct.flux);
   return t.direct.etat === "suivi"

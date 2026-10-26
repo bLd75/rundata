@@ -169,8 +169,14 @@ describe("the page of a trip", () => {
     store.put("rt:carjaune", feed(-55 * 60));
     const early = (await tripRun("carjaune", local, d.trip, 20261023, NOW, new Cache(store)))!;
     expect(early.arrets!.some((s) => s.annonce !== undefined)).toBe(false);
+    // All its times left out: the timetable alone, as without a feed, not « Annoncé » over no time.
+    expect(early.direct).toEqual({ etat: "ecarte", flux: t0 - 30 });
+    const page = tripPage(ORIGIN, "/x", early, d.stop, NOW);
+    expect(page).toContain("Horaires publiés par Car Jaune, sans les retards ni les déviations.");
+    expect(page).not.toContain("Annoncé");
     store.put("rt:carjaune", feed(35 * 60));
     const late = (await tripRun("carjaune", local, d.trip, 20261023, NOW, new Cache(store)))!;
+    expect(late.direct).toEqual({ etat: "suivi", flux: t0 - 30 });
     expect(tripPage(ORIGIN, "/x", late, d.stop, NOW)).toMatch(/annoncé \d+h\d\d \(\+35 min\)<\/b>/);
   });
 
