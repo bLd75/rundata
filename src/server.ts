@@ -88,7 +88,7 @@ import { actualites } from "./tools/actualites.js";
 import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.203.10";
+export const VERSION = "0.203.11";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,

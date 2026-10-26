@@ -131,6 +131,12 @@ describe("the prefect's fuel prices", () => {
     expect(early).toContain("Les prix maximum de novembre 2026 ne sont pas encore publiés ou pas encore lus : voici ceux en vigueur depuis le 1er octobre 2026.");
   });
 
+  it("unread, say so on their page in the tool's words, with the prefecture's link, never « se charge »", () => {
+    const page = render("https://rundata.re", null, NOW);
+    expect(page).toContain(`<p class="lead">Les prix des carburants ne sont pas disponibles pour le moment : voir la préfecture (<a href="${carburants.SOURCE.url}" rel="noopener">reunion.gouv.fr</a>).</p>`);
+    expect(page).not.toMatch(/se charge|rechargez/);
+  });
+
   it("are served at /carburants and dated in the sitemap by the prefect's order", async () => {
     const prix = carburants.parseRelease(fixture("carburants_octobre.html"), LIEN, NOW)!;
     carburants.configure(async () => prix);

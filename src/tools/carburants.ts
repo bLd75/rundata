@@ -68,13 +68,16 @@ export function fuelSay(p: carburants.Prix, now: Date) {
   };
 }
 
+/** Said by the tool and the page when the prices cannot be read (src/providers/carburants.ts `prix`). */
+export const INDISPONIBLE = "Les prix des carburants ne sont pas disponibles pour le moment.";
+
 export async function carburantsAnswer(cache: Cache, now = new Date()) {
   let got;
   try {
     got = await carburants.prix(cache, now);
   } catch (err) {
     console.error(`source ${carburants.SOURCE.id} indisponible:`, why(err));
-    return { ...text({ erreur: "Les prix des carburants ne sont pas disponibles pour le moment.", consulter: carburants.SOURCE.url, sources: credits([carburants.SOURCE]) }), isError: true };
+    return { ...text({ erreur: INDISPONIBLE, consulter: carburants.SOURCE.url, sources: credits([carburants.SOURCE]) }), isError: true };
   }
   const p = got.value;
   const local = carburants.localDay(now);
