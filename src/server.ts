@@ -1,4 +1,5 @@
 import { chiffres, type Copie, KEY as CHIFFRES, resume as resumeChiffres } from "./chiffres.js";
+import { comptee } from "./producteurs.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as courantMairies from "./providers/coupures-courant.js";
 import * as carburantsPrix from "./providers/carburants.js";
@@ -92,7 +93,7 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.37";
+export const VERSION = "0.203.38";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -920,7 +921,10 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       const c = chiffres(sources, await cache.peek<Copie>(CHIFFRES).catch(() => undefined), new Date(), tools);
       return text({
         resume: resumeChiffres(c),
-        sources,
+        // The sources counted, so that the list and its count (chiffres.sources) say the same number; apart, what
+        // rundata.re is sent rather than reads (the clubs' proposals), with its licence and attribution all the same.
+        sources: sources.filter(comptee),
+        envoyees_a_rundata: sources.filter((s) => !comptee(s)),
         // The media and sites whose terms forbid reading them by a program, the halls and sports sites whose terms forbid
         // taking their information without their accord: not read (tools/non-repris.ts).
         non_reprises: [FICHE_LA1ERE, FICHE_REUNION_FR, ...fichesNonReprises()],

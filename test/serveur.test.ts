@@ -155,6 +155,17 @@ describe("the serveur block", () => {
     // Not read until it agrees (src/providers/autorisations.ts): listed with those not read, not with those read.
     expect(ids).not.toContain("sportsregions");
   });
+
+  it("sources_donnees counts the very sources it lists, and lists apart what rundata.re is sent", async () => {
+    const r = body(await rpcResult("tools/call", { name: "sources_donnees", arguments: {} }));
+    expect(r.chiffres.sources).toBe(r.sources.length);
+    expect(r.resume).toContain(`rundata.re lit ${r.sources.length} sources publiques`);
+    const ids = (l: { id: string }[]) => l.map((s) => s.id);
+    // The clubs' proposals: sent to rundata.re, not read from a public site; still listed, with their licence.
+    expect(ids(r.sources)).not.toContain("propositions_associations");
+    expect(ids(r.envoyees_a_rundata)).toEqual(["propositions_associations"]);
+    expect(r.envoyees_a_rundata[0].licence).toBe("Licence Ouverte Etalab 2.0");
+  });
 });
 
 describe("fraicheur", () => {
