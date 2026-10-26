@@ -48,7 +48,7 @@ export const OUTILS: Outil[] = [
   { nom: "electricite", ligne: "électricité, renouvelable, coupures de courant", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "calendrier", ligne: "vacances, jours fériés, soleil", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "qualite_air", ligne: "qualité de l'air", depuis: "2026-10-23T16:09:00+04:00" },
-  { nom: "fiche_terrain", ligne: "cadastre, PLU, prix, risques", depuis: "2026-10-23T16:09:00+04:00" },
+  { nom: "fiche_terrain", ligne: "cadastre, PLU, prix, loyers, fibre, risques", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "sources_donnees", ligne: "sources, licences, outils, nouveautés", depuis: "2026-10-23T16:09:00+04:00" },
 ];
 
