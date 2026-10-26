@@ -11,6 +11,7 @@ import { why } from "../types.js";
 import {
   alerte,
   alerteLue,
+  type ReaderWaits,
   BANNER_WAIT_MS,
   buildAir,
   buildBus,
@@ -93,6 +94,7 @@ import * as feux from "../providers/feux.js";
 import * as prefecture from "../providers/prefecture.js";
 import { rafraichirPropositions } from "../tools/agenda.js";
 import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
+import { scheduledEvery } from "./partagees.js";
 import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
 import { readCopies, refresh, resume } from "../tools/resume.js";
 import { FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, vigilancePage } from "./pages.js";
@@ -166,6 +168,21 @@ export const isReader = (request: Request) => READERS.test(request.headers.get("
 
 /** How long to wait for a page's data that this data center has never built, or has an old copy of (web/data.ts). */
 const waitFor = (request: Request) => (isReader(request) ? READER_WAIT_MS : undefined);
+
+// The scheduled event refreshes the shared copies at their rate (web/partagees.ts): a reader gets such a copy at once
+// while it is within that rate, and two events more (one a few minutes late, one left for the budget), its refresh
+// going on behind. Waiting for it held Googlebot or ChatGPT-User up to 25 s on /crues, kept every 15 min
+// (26/10/2026). Past that, the scheduled event has fallen behind: the reader waits for the refresh, as before. The
+// daily check of the sources waits always: it must see the data, not a copy.
+const SCHEDULED_SLACK_MS = 10 * 60_000;
+const CHECK = /rundata-check\//i;
+const readerWaits: ReaderWaits = (key, value, ageMs) => {
+  const every = scheduledEvery(key, value);
+  return every == null || ageMs > every * 60_000 + SCHEDULED_SLACK_MS;
+};
+/** Whether `request`'s reader waits for a page's old copy to be refreshed (web/data.ts `snapshot`). */
+export const readerOf = (request: Request): boolean | ReaderWaits =>
+  isReader(request) && (CHECK.test(request.headers.get("user-agent") ?? "") || readerWaits);
 
 /** A page without its live block is not kept: the next load should have it. */
 const htmlFor = (data: unknown) => (data ? HTML : { ...HTML, "cache-control": "no-store" });
@@ -332,7 +349,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/") {
     const [meteo, vigilance] = await Promise.all([
-      snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), readerOf(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now),
     ]);
     const [actualites, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, crues] = await tileCopies(cache, HOME_TILES, background, meteo, now);
@@ -391,7 +408,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/mer" || path === "/mer/") {
     const [data, a] = await Promise.all([
-      snapshot(cache, "web:mer", () => buildSea(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, "web:mer", () => buildSea(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     return page(path, (live) => seaPage(origin, live ? data : null, now, a), data, background, [rebuild(cache, "web:mer", () => buildSea(cache, now))]);
@@ -399,7 +416,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   // The traffic page's copy lasts minutes; the media's headlines on the roads are those of the view.
   if (path === "/trafic" || path === "/trafic/") {
     const [data, a, news] = await Promise.all([
-      snapshot(cache, "web:trafic", () => buildTrafic(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, "web:trafic", () => buildTrafic(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
       roadNewsNow(cache, background, now),
     ]);
@@ -408,7 +425,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   // The rivers' copy lasts minutes; the headlines on the fords are those of the view, as on /trafic.
   if (path === "/crues" || path === "/crues/") {
     const [data, a, news] = await Promise.all([
-      snapshot(cache, "web:crues", () => buildCrues(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, "web:crues", () => buildCrues(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
       roadNewsRead(cache, background, now),
     ]);
@@ -421,7 +438,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const p = pageOf(kids[1]);
     if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     const [data, a] = await Promise.all([
-      snapshot(cache, DOMAINS["/enfants"].key, () => buildEnfants(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, DOMAINS["/enfants"].key, () => buildEnfants(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     return page(path, (live) => enfantsCommunePage(origin, p, live ? data : null, now, a), data, background, [rebuild(cache, DOMAINS["/enfants"].key, () => buildEnfants(cache, now))]);
@@ -432,7 +449,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const p = pageOf(water[1]);
     if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     const [coupures, a] = await Promise.all([
-      snapshot(cache, "web:coupures", () => buildCoupures(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, "web:coupures", () => buildCoupures(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     const [secheresse, eau] = await tileCopies(cache, ["web:secheresse", "web:eau"], background, coupures, now);
@@ -453,7 +470,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/agenda" || path === "/agenda/") return Response.redirect(`${origin}/evenements`, 301);
   if (path === "/volcan" || path === "/volcan/") {
     const [data, a] = await Promise.all([
-      snapshot(cache, "web:volcan", () => buildVolcan(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, "web:volcan", () => buildVolcan(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     // During an alert, what the media say of it: their copy as it is, never built for this page.
@@ -463,7 +480,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   const domain = DOMAINS[path.replace(/(.)\/$/, "$1")];
   if (domain) {
     const [data, a] = await Promise.all([
-      snapshot(cache, domain.key, () => domain.build(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, domain.key, () => domain.build(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     const t = Date.now();
@@ -478,7 +495,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (s) {
     // The hikers' page's copy, and the weather page's as it is: a sector's page builds nothing of its own.
     const [data, a, meteo] = await Promise.all([
-      snapshot(cache, DOMAINS["/randonnees"].key, () => buildRandonnees(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, DOMAINS["/randonnees"].key, () => buildRandonnees(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
       s.meteo ? cache.peek<PlaceData>(`web:lieu:${s.meteo}`, now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined) : undefined,
     ]);
@@ -499,7 +516,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       }
     }
     const [data, a] = await Promise.all([
-      snapshot(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     // A summit's trail links to the morning's cloud sea there, only while the page it leads to tells it: its last copy,
@@ -557,7 +574,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const p = pageOf(slug);
     if (!p) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     const [data, a] = await Promise.all([
-      snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request), withoutForecast),
+      snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), readerOf(request), withoutForecast),
       alerte(cache, background, now),
     ]);
     // The state of the hikes around: the hikers' page's last copy, as it is, never built for this page.
@@ -572,7 +589,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     // The weather is built when it has no copy, as on the commune's page; the rest only read (tools/resume.ts).
     const vigilance = vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now);
-    const place = await snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request), withoutForecast);
+    const place = await snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), readerOf(request), withoutForecast);
     // The weather's copy as the snapshot gave it: not read again (the read could be one subrequest too many).
     const { copies, leftOut } = await readCopies(cache, p, p, now, background, vigilance, { meteo: place });
     return page(path, (live) => (live
@@ -596,8 +613,8 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const p = pageOf(path.slice("/communes/".length).replace(/\/$/, ""));
     if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     const [place, commune, vigilance] = await Promise.all([
-      snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request), withoutForecast),
-      snapshot(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), readerOf(request), withoutForecast),
+      snapshot(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now), background, now, waitFor(request), readerOf(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now),
     ]);
     // The West's communes have their déchèteries' tile too (the TCO publishes them).
