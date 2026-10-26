@@ -15,7 +15,7 @@ const ORIGIN = "https://rundata.re";
 // The rule as marketing wrote it, the slow way: what is kept as written, then the prose between.
 const KEPT = /<(script|style|pre|code|textarea)\b(?:[^>"']|"[^"]*"|'[^']*')*>[\s\S]*?<\/\1\s*>|<!--[\s\S]*?-->|<(?:[^>"']|"[^"]*"|'[^']*')*>/g;
 const reference = (html: string) =>
-  html.replace(new RegExp(`${KEPT.source}|( )(?=[:;?!»])|(« )`, "g"), (m, _raw, sp, open) => (sp ? " " : open ? "« " : m));
+  html.replace(new RegExp(`${KEPT.source}|( )(?=[:;?!»])|(« )|(?<!\\p{L})([àÀ]) (?=\\d)`, "gu"), (m, _raw, sp, open, a) => (sp ? "\u00a0" : open ? "«\u00a0" : a ? `${a}\u00a0` : m));
 const kept = (html: string) => html.match(KEPT) ?? [];
 const prose = (html: string) => html.replace(KEPT, "<>");
 const jsonld = (html: string) => /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)![1];
@@ -28,8 +28,21 @@ describe("French typography on the pages", () => {
     expect(typo("<p>Il pleut ? Oui ! Ici ; là.</p>")).toBe("<p>Il pleut ? Oui ! Ici ; là.</p>");
     // A quotation keeps its words: only the spaces inside the marks change.
     expect(typo("<p>Le préfet dit « ne montez pas ! » ce soir.</p>")).toBe("<p>Le préfet dit « ne montez pas ! » ce soir.</p>");
-    // Hours, URLs and the spaces already written by hand stay as they are.
-    expect(typo("<p>Ouvert à 6:00, voir https://rundata.re/mer?ref=wa, 25 km, Titre : déjà.</p>")).toBe("<p>Ouvert à 6:00, voir https://rundata.re/mer?ref=wa, 25 km, Titre : déjà.</p>");
+    // The colon of an hour, URLs and the spaces already written by hand stay as they are.
+    expect(typo("<p>Ouvert à 6:00, voir https://rundata.re/mer?ref=wa, 25\u202fkm, Titre\u00a0: déjà.</p>")).toBe("<p>Ouvert à\u00a06:00, voir https://rundata.re/mer?ref=wa, 25\u202fkm, Titre\u00a0: déjà.</p>");
+  });
+
+  it("holds « à » to the figure after it: an hour, a distance, an altitude, a capital « À » too", () => {
+    expect(typo("<p>Lu le samedi 24/10 à 08:00.</p>")).toBe("<p>Lu le samedi 24/10 à\u00a008:00.</p>");
+    expect(typo("<p>Station à 3 km, sommet à 2\u202f000 m.</p>")).toBe("<p>Station à\u00a03 km, sommet à\u00a02\u202f000 m.</p>");
+    expect(typo("<p>À 14:00, coupure.</p>")).toBe("<p>À\u00a014:00, coupure.</p>");
+    // Already no-break (U+00A0 or U+202F): left as it is, never doubled.
+    expect(typo("<p>à\u00a008:00, à\u202f9:00</p>")).toBe("<p>à\u00a008:00, à\u202f9:00</p>");
+    // Not the end of a word (« voilà 3 »), not before a word (« à pied »), and never in a tag or its attributes.
+    expect(typo("<p>voilà 3 fois, à pied</p>")).toBe("<p>voilà 3 fois, à pied</p>");
+    const tag = `<a href="/x?q=à 3" title="à 08:00" aria-label="à 3 km"><img alt="à 2 000 m"></a>`;
+    expect(typo(tag)).toBe(tag);
+    expect(typo(`<script>const s = "à 08:00";</script>`)).toBe(`<script>const s = "à 08:00";</script>`);
   });
 
   it("leaves the tags, their attributes, the comments, the scripts and the code as written", () => {

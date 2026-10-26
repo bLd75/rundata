@@ -225,7 +225,7 @@ describe("the fires' page", () => {
     expect(html).toContain("<title>Feux de forêt Réunion\u00a0: détections satellite 24 h · 974</title>");
     expect(html).toContain("<h1>Feux de végétation à La Réunion, vus par satellite</h1>");
     expect(html).not.toContain("noindex");
-    expect(html).toContain('<meta name="description" content="2 feux vus par satellite en 24 h à La Réunion (974), le dernier à 06:30 près de');
+    expect(html).toContain('<meta name="description" content="2 feux vus par satellite en 24 h à La Réunion (974), le dernier à\u00a006:30 près de');
     expect(html).toContain('<h2 id="h-feux">Les feux des dernières 24 h</h2>');
     expect(html).toContain("Feu détecté près de");
     expect(html).toContain(`<h2 id="h-sentiers">Les sentiers fermés par l'ONF</h2>`);

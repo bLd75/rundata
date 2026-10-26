@@ -126,7 +126,7 @@ describe("circulation", () => {
       ]);
       expect(d.sources.map((s) => s.source)).toEqual(expect.arrayContaining(["Communiqués de presse de la préfecture de La Réunion"]));
       const page = await (await handle(new Request("https://rundata.re/trafic", BOT), c)).text();
-      expect(page).toContain(`<h3>Signalé par les médias</h3><ul class="plain"><li><a href="https://www.reunion.gouv.fr/a" rel="noopener">Violences urbaines\u00a0: bilan de la nuit</a> <span class="note">Préfecture de La Réunion, aujourd&#39;hui</span></li><li><a href="https://imazpress.com/0.5" rel="noopener">Barrage levé au rond-point des Casernes</a> <span class="note">Imaz Press, en direct, aujourd&#39;hui à 07:30</span>`);
+      expect(page).toContain(`<h3>Signalé par les médias</h3><ul class="plain"><li><a href="https://www.reunion.gouv.fr/a" rel="noopener">Violences urbaines\u00a0: bilan de la nuit</a> <span class="note">Préfecture de La Réunion, aujourd&#39;hui</span></li><li><a href="https://imazpress.com/0.5" rel="noopener">Barrage levé au rond-point des Casernes</a> <span class="note">Imaz Press, en direct, aujourd&#39;hui à\u00a007:30</span>`);
       for (const no of ["Route du Littoral basculée", "Rentrez vos poubelles", "rassemblements sportifs", "Fête de la science", "Interdiction de manifester"]) expect(page).not.toContain(no);
       // The news is fresh: its feeds are not asked again for this page.
       expect(asked.some((u) => feeds.test(u))).toBe(false);
