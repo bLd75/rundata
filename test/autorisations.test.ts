@@ -66,17 +66,16 @@ describe("the setting, by source", () => {
     expect(QUATRE.filter((c) => !MAIRIES_LISIBLES.some((m) => m.commune === c))).toEqual([]);
   });
 
-  it("says the day of the request on the line of each commune asked, the others in the block without it", () => {
+  it("says the communes asked, and the day, in one sentence after the block: each commune named once", () => {
     const agendas = mentionIle();
-    expect(agendas[0]).toMatch(/^Les mentions légales des sites de 13 communes [^]*qu'elles y publient\.$/);
-    expect(agendas.slice(1).map((l) => /de la commune (?:de |du |de la )?(.+?) interdisent/.exec(l)![1])).toEqual(["La Possession", "Tampon", "Petite-Île", "Saint-André", "Saint-Benoît", "Saint-Joseph", "Saint-Philippe", "Saint-Pierre"]);
-    expect(agendas.slice(1).every((l) => l.endsWith(" Nous lui avons demandé cet accord le 26/10 et attendons sa réponse."))).toBe(true);
+    expect(agendas).toHaveLength(1);
+    expect(agendas[0]).toMatch(/^Les mentions légales des sites de 13 communes [^]*qu'elles y publient\. Nous avons demandé cet accord le 26\/10 à La Possession, au Tampon, à Petite-Île, à Saint-André, à Saint-Benoît, à Saint-Joseph, à Saint-Philippe et à Saint-Pierre, et attendons leur réponse\.$/);
+    // Named in the block, and again in the sentence only when asked.
+    const asked = (c: string) => DEMANDEES.some((k) => k.startsWith("agenda:") && AUTORISATIONS[k].commune === c);
+    for (const c of TREIZE) expect([c, agendas[0].split(c.replace(/^Le /, "")).length - 1]).toEqual([c, asked(c) ? 2 : 1]);
     expect(mentionCourte("Le Tampon")?.detail).toBe("ses mentions légales l'interdisent sans son accord, demandé le 26/10");
     expect(mentionCourte("Cilaos")?.detail).toBe("ses mentions légales l'interdisent sans son accord");
-    const courant = ileMention("courant");
-    expect(courant).toHaveLength(4);
-    expect(courant[0]).toMatch(/^Les mentions légales des sites de 4 communes [^]*Ils restent consultables sur leurs sites\.$/);
-    expect(courant[3]).toBe("Les mentions légales du site de la commune de Sainte-Suzanne interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas les avis de coupure d'électricité qu'elle y publie. Ils restent consultables sur son site. Nous lui avons demandé cet accord le 26/10 et attendons sa réponse.");
+    expect(ileMention("courant")).toEqual([expect.stringMatching(/^Les mentions légales des sites de 4 communes [^]*Ils restent consultables sur leurs sites\. Nous avons demandé cet accord le 26\/10 à Saint-André, à Saint-Philippe et à Sainte-Suzanne, et attendons leur réponse\.$/)]);
   });
 });
 
@@ -149,12 +148,18 @@ describe("the communes whose site's terms ask for their authorisation, until the
     expect(mentionIle()).toEqual([block]);
     for (const c of TREIZE) set(c, { etat: "demandee", demandee_le: "2026-10-26" });
     expect(mentionIle()).toEqual([`${block} Nous leur avons demandé cet accord le 26/10 et attendons leur réponse.`]);
-    // Petite-Île not asked yet: the day on each commune's own line.
-    set("Petite-Île", { etat: "a_demander", demandee_le: undefined });
-    const lines = mentionIle();
-    expect(lines[0]).toBe(block);
-    expect(lines).toHaveLength(13);
-    expect(lines).toContain("Les mentions légales du site de la commune du Tampon interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas les événements qu'elle y publie. Nous lui avons demandé cet accord le 26/10 et attendons sa réponse.");
+    // Not all asked: those asked in one sentence after the block, each commune said once (marketing, 26/10).
+    restore();
+    expect(mentionIle()).toEqual([`${block} Nous avons demandé cet accord le 26/10 à La Possession, au Tampon, à Petite-Île, à Saint-André, à Saint-Benoît, à Saint-Joseph, à Saint-Philippe et à Saint-Pierre, et attendons leur réponse.`]);
+    expect(COUVERTURE.match(/au Tampon|du Tampon/g)).toEqual(["au Tampon"]);
+    unasked();
+    set("Le Tampon", { etat: "demandee", demandee_le: "2026-10-26" });
+    expect(mentionIle()).toEqual([`${block} Nous avons demandé cet accord le 26/10 au Tampon et attendons sa réponse.`]);
+    // On several days: each day after its communes, from the oldest.
+    for (const c of ["Cilaos", "Saint-Pierre"]) set(c, { etat: "demandee", demandee_le: "2026-10-22" });
+    expect(mentionIle()).toEqual([`${block} Nous avons demandé cet accord à Cilaos et à Saint-Pierre le 22/10 et au Tampon le 26/10, et attendons leur réponse.`]);
+    set("Bras-Panon", { etat: "demandee", demandee_le: "2026-10-20" });
+    expect(mentionIle()[0]).toMatch(/ Nous avons demandé cet accord à Bras-Panon le 20\/10, à Cilaos et à Saint-Pierre le 22\/10 et au Tampon le 26\/10, et attendons leur réponse\.$/);
   });
 
   it("are left out of the agendas read and of those without one, and said in the coverage and the answer", async () => {
@@ -314,8 +319,10 @@ describe("the notices of power cuts of the mairies whose site's terms ask for th
     for (const c of QUATRE) set(c, { etat: "demandee", demandee_le: "2026-10-26" }, "courant");
     expect(ileMention("courant")).toEqual([`${BLOC} Nous leur avons demandé cet accord le 26/10 et attendons leur réponse.`]);
     set("Sainte-Suzanne", { demandee_le: "2026-10-27" }, "courant");
-    const lines = ileMention("courant");
-    expect([lines[0], lines.length]).toEqual([BLOC, 5]);
+    expect(ileMention("courant")).toEqual([`${BLOC} Nous avons demandé cet accord à Cilaos, à Saint-André et à Saint-Philippe le 26/10 et à Sainte-Suzanne le 27/10, et attendons leur réponse.`]);
+    // As they are: Cilaos not asked yet.
+    restore();
+    expect(ileMention("courant")).toEqual([`${BLOC} Nous avons demandé cet accord le 26/10 à Saint-André, à Saint-Philippe et à Sainte-Suzanne, et attendons leur réponse.`]);
   });
 
   it("are no longer said from the copy kept before: the commune's mention instead, not « publishes nothing »", () => {

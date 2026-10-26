@@ -1,5 +1,5 @@
 import { type Autorisation, MEDIAS, nonAutorisee, nonAutorisees, nonReprises, type SourceNonReprise } from "../providers/autorisations.js";
-import { de, enumeration } from "./format.js";
+import { a as aLieu, de, enumeration } from "./format.js";
 
 /**
  * What is said instead of a source not read until it agrees (src/providers/autorisations.ts), in marketing's words
@@ -25,9 +25,22 @@ function phrase(au: Autorisation): string {
 }
 
 /**
- * The same for the whole island: one block for the communes still waiting (with the day they were asked when it is the
- * same for all), then a line for each one asked on another day, and for each one that refused.
+ * The accord asked of those of a block, in one sentence after it (marketing, 26/10): the day once when all were asked
+ * that day; otherwise the ones asked, in the block's order, after their day, or before each day from the oldest.
  */
+function demandees<T extends { etat: string; demandee_le?: string }>(waiting: T[], to: (x: T) => string): string {
+  const asked = waiting.filter((x) => x.etat === "demandee");
+  const days = [...new Set(asked.map((x) => x.demandee_le ?? ""))].sort();
+  const on = (day: string) => (day ? ` le ${dayMonth(day)}` : "");
+  if (!asked.length) return "";
+  if (asked.length === waiting.length && days.length === 1) return ` Nous leur avons demandé cet accord${on(days[0])} et attendons leur réponse.`;
+  const whom = days.length === 1
+    ? `${on(days[0])} ${enumeration(asked.map(to))}`
+    : ` ${enumeration(days.map((d) => `${enumeration(asked.filter((x) => (x.demandee_le ?? "") === d).map(to))}${on(d)}`))}`;
+  return ` Nous avons demandé cet accord${whom}${asked.length > 1 ? "," : ""} et attendons ${asked.length > 1 ? "leur" : "sa"} réponse.`;
+}
+
+/** The same for the whole island: one block for the communes still waiting, with those asked, then a line for each one that refused. */
 export function mentionIle(famille: string): string[] {
   const waiting = nonAutorisees(famille).filter((a) => a.etat !== "refusee");
   const refused = nonAutorisees(famille).filter((a) => a.etat === "refusee");
@@ -35,11 +48,8 @@ export function mentionIle(famille: string): string[] {
   if (waiting.length === 1) lines.push(phrase(waiting[0]));
   else if (waiting.length) {
     const kinds = (["événements", "actualités", "avis de coupure d'électricité"] as const).filter((k) => waiting.some((a) => a.publie.includes(k))).join(" et ");
-    const days = new Set(waiting.map((a) => (a.etat === "demandee" ? a.demandee_le ?? "" : undefined)));
-    const day = days.size === 1 ? [...days][0] : undefined;
     lines.push(`Les mentions légales des sites de ${waiting.length} communes interdisent d'en reprendre le contenu sans leur accord : ${enumeration(waiting.map((a) => a.commune))}. rundata.re n'affiche donc pas les ${kinds} qu'elles y publient.${still(waiting[0], true)}` +
-      (day !== undefined ? ` Nous leur avons demandé cet accord${day ? ` le ${dayMonth(day)}` : ""} et attendons leur réponse.` : ""));
-    if (day === undefined) lines.push(...waiting.filter((a) => a.etat === "demandee").map(phrase));
+      demandees(waiting, (a) => aLieu(a.commune)));
   }
   return [...lines, ...refused.map(phrase)];
 }
@@ -120,20 +130,15 @@ function phraseNonReprise(x: SourceNonReprise): string {
   return x.etat === "demandee" ? `${first} Nous lui avons demandé cet accord${x.demandee_le ? ` le ${dayMonth(x.demandee_le)}` : ""} et attendons sa réponse.` : first;
 }
 
-/**
- * Several sites in one block for those still waiting (with the day they were asked when it is the same for all), then
- * a line for each one asked on another day, and for each one that refused; one site alone, its own line.
- */
+// « au TÉAT », « à la Cité des Arts », « à Bisik »: its short name when its citation has more.
+const aSite = (x: SourceNonReprise) => (x.court ?? x.cite).replace(/^le /, "au ").replace(/^les /, "aux ").replace(/^(?!au |aux )/, "à ");
+
+/** Several sites in one block for those still waiting, with those asked, then a line for each one that refused; one site alone, its own line. */
 function bloc(sites: SourceNonReprise[], groupe: (waiting: SourceNonReprise[]) => string): string[] {
   const waiting = sites.filter((x) => x.etat !== "refusee");
   const lines: string[] = [];
   if (waiting.length === 1) lines.push(phraseNonReprise(waiting[0]));
-  else if (waiting.length) {
-    const days = new Set(waiting.map((x) => (x.etat === "demandee" ? x.demandee_le ?? "" : undefined)));
-    const day = days.size === 1 ? [...days][0] : undefined;
-    lines.push(groupe(waiting) + (day !== undefined ? ` Nous leur avons demandé cet accord${day ? ` le ${dayMonth(day)}` : ""} et attendons leur réponse.` : ""));
-    if (day === undefined) lines.push(...waiting.filter((x) => x.etat === "demandee").map(phraseNonReprise));
-  }
+  else if (waiting.length) lines.push(groupe(waiting) + demandees(waiting, aSite));
   return [...lines, ...sites.filter((x) => x.etat === "refusee").map(phraseNonReprise)];
 }
 
