@@ -291,6 +291,21 @@ describe("a commune's children's page", () => {
     expect(html).toMatch(/<button type="button" data-z="0" aria-label="[^"]*Recentrer sur toute la commune">[^<]*Recentrer<\/button>/);
   });
 
+  it("names a place without a name of its own by its kind and where it is, and says no more on its sheet", () => {
+    const page = enfantsCommunePage(O, pageOf("entre-deux")!, data, NOW);
+    // « Aire de jeux » on the map is a kind, not a name: the commune stands in for the missing district.
+    const generic = enfants.inCommune("Entre-Deux").find((l) => l.nom === "Aire de jeux" && !l.quartier)!;
+    expect(enfants.named(generic)).toBe(false);
+    expect(enfants.nameOf(generic)).toBe("Aire de jeux");
+    expect(page).toMatch(/<li id="lieu-\d+" class="tgt" data-i="\d+" data-t="aire_de_jeux"><span><span class="nm">(<a [^>]+>)?Aire de jeux, Entre-Deux</);
+    expect(page).toMatch(/<li id="lieu-\d+" class="tgt" data-i="\d+" data-t="aire_de_jeux"><span><span class="nm">(<a [^>]+>)?Aire de jeux, Bras Long</);
+    expect(page).toContain("<title>Aire de jeux, Entre-Deux</title>");
+    expect(page).not.toContain('data-n="Aire de jeux"');
+    // A named place keeps its kind and district on its sheet.
+    expect(html).toMatch(/data-t="piscine" data-n="Piscine"/);
+    expect(page).toContain("tp.hidden=!k");
+  });
+
   it("is where /enfants takes each commune, by its map and its card", () => {
     const all = enfantsPage(O, data, NOW);
     for (const p of ["saint-denis", "les-avirons", "l-etang-sale"]) expect(all).toContain(`href="/enfants/${p}"`);
