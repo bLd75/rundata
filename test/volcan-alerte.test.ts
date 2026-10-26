@@ -12,7 +12,7 @@ import { demos, homePage, type HomeLive } from "../src/web/home.js";
 import { esc } from "../src/web/map.js";
 import { NIVEAUX } from "../src/tools/volcan-acces.js";
 import { DESCRIPTION_MAX, meteoPage } from "../src/web/pages.js";
-import { alertSections, alerteVolcan, bannerText, homeCard, mediaHeadlines, tileLive, type VolcanAlerte, volcanMeta, withVolcan } from "../src/web/volcan-alerte.js";
+import { alerteVolcan, bannerText, homeCard, mediaHeadlines, mediaSection, tileLive, type VolcanAlerte, volcanMeta, withVolcan } from "../src/web/volcan-alerte.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
 // The prefecture's release of the 24th, after pitonlive's last status (still « Vigilance », Enclos partly open).
@@ -72,11 +72,42 @@ describe("the volcano put forward during an alert", () => {
     expect(page).toContain(`<meta name="description" content="Alerte\u00a01 du préfet (communiqué du 24\u00a0octobre)\u00a0: «\u00a0éruption probable ou imminente\u00a0». Accès à l&#39;Enclos interdit. Communiqués de l&#39;OVPF en direct · 974">`);
     // The plan's words only, never a release's of the day nor ours.
     expect(page).not.toContain("très brève");
-    expect(page).toContain("<b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus. Seuls l&#39;OVPF et la préfecture l&#39;annonceront : leurs communiqués s&#39;affichent ici dès que nous les avons lus.</b>");
+    // The top: no eruption announced (whose words), the Enclos and the way to the detail, whose the level is, the OVPF's
+    // accounts; each fact once (marketing, 26/10/2026). The hook is not said: the heading and these lines say it.
+    expect(page).toContain("<p class=\"lead\"><b>L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus.</b></p>");
+    expect(page).toContain("<p class=\"lead\"><b>Accès à l&#39;Enclos interdit.</b> <a href=\"#monter\">Routes et sentiers, lieu par lieu ↓</a></p>");
+    expect(page).toContain("<p class=\"note\">Alerte\u00a01 du préfet, communiqué du 24\u00a0octobre.</p>");
+    expect(page).toContain(`<p class="note">Suivre l'OVPF\u00a0: <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">Facebook ↗</a> · <a href="https://bsky.app/profile/ovpf.bsky.social">Bluesky ↗</a> · <a href="https://x.com/obsfournaise">X ↗</a></p>`);
+    expect(page).not.toContain("Éruption ou pas, Enclos ouvert ou fermé");
+    expect(page).not.toContain("Niveau du dispositif ORSEC volcan");
+    // « Seuls l'OVPF et la préfecture… » heads the official texts, below.
+    expect(page).toContain("<h2 id=\"h-officiel\">Les annonces officielles</h2><p>Seuls l&#39;OVPF et la préfecture annonceront une éruption : leurs textes s&#39;affichent ici dès que nous les avons lus. L&#39;OVPF publie aussi sur Facebook et X, que nous ne lisons pas : ses messages ci-dessous viennent de Bluesky.</p>");
     expect(page).not.toMatch(/pas (encore )?commencé/);
-    expect(page).toContain("<b>Accès à l&#39;Enclos interdit. Seules comptent les consignes de la préfecture et de l&#39;OVPF.</b>");
-    // The Enclos card: its title, then the sentence without the title's words again (marketing).
-    expect(page).toContain("<h3>Accès à l&#39;Enclos interdit.</h3><p>Seules comptent les consignes de la préfecture et de l&#39;OVPF.</p>");
+    // Each once in the page's body: the Enclos forbidden at the top (its detail in « Puis-je monter au volcan ? »),
+    // Facebook in « Suivre l'OVPF »; no « Seules comptent », no « À savoir » (the foot of « Puis-je monter » says it).
+    const main = page.slice(page.indexOf("<body"));
+    expect(main.split("Accès à l&#39;Enclos interdit")).toHaveLength(2);
+    expect(main.split("facebook.com/ObsVolcano")).toHaveLength(2);
+    expect(main).not.toContain("Seules comptent");
+    expect(main).not.toContain("À savoir");
+    expect(main).not.toContain("Alerte en cours");
+    // In the order of the questions: may I go up, the official texts, what is measured, the media, before, then the
+    // question to an assistant and the connector.
+    const at = (s: string) => main.indexOf(s);
+    const order = ['id="monter"', 'id="annonces"', 'id="seismes"', 'id="h-medias"', 'id="alertes-precedentes"', 'class="askbox"', 'id="h-ia"'].map(at);
+    expect(order.every((x) => x > 0)).toBe(true);
+    expect([...order].sort((x, y) => x - y)).toEqual(order);
+    // /trafic's link to #enclos lands on « Puis-je monter au volcan ? ».
+    expect(main).toMatch(/<section id="monter"[^]*?<div class="card" id="enclos">/);
+    expect(main).toContain('<figure class="card mapcard nophone">');
+    // The earthquakes: five at most, one line each, « sommet » for the summit; the note on located events once.
+    const rows = main.match(/<ul class="rows seismes">(.*?)<\/ul>/)![1].match(/<li>.*?<\/li>/g)!;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.length).toBeLessThanOrEqual(5);
+    for (const r of rows) expect(r).toMatch(/^<li>\d\d\/\d\d \d\d:\d\d · magnitude <b>[\d,—]+<\/b> · [^<]+, [\d,]+ km<\/li>$/);
+    expect(main).not.toContain("sous le sommet du Piton de la Fournaise");
+    expect(main.split("ce n&#39;est pas le nombre total")).toHaveLength(2);
+    expect(main).toContain("<h2 id=\"h-volcan\">Séismes sous le volcan</h2>");
     expect(page).toContain("Le communiqué de la préfecture");
     expect(page).toContain('href="https://x.com/obsfournaise"');
     // The OVPF's Bluesky and Facebook, and no link to ipgp.fr; whether its site answers is said by /sites-sans-reponse's
@@ -133,6 +164,8 @@ describe("the volcano put forward during an alert", () => {
       en_direct: [row("La 1ère", "Éruption imminente : l'Enclos fermé", "2026-10-24T13:30:00Z")],
     } as unknown as ActualitesAnswer;
     expect(mediaHeadlines(news).map((i) => i.media)).toEqual(["La 1ère", "Imaz Press"]);
+    // The time and the media on a line above the headline, never beside it (it overlapped the headline at 390 px).
+    expect(mediaSection(news)).toContain(`<ul class="rows medias"><li><span class="note">18:10 · La 1ère</span><a href="https://example.org/a"`);
   });
 
   it("puts the banner on every page, from the copy of /volcan", async () => {

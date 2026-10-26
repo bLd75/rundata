@@ -62,10 +62,12 @@ const COMMUNES = (gazetteer as { places: { nom: string; type: string; lon: numbe
 
 const DIRECTIONS = ["au nord", "au nord-est", "à l'est", "au sud-est", "au sud", "au sud-ouest", "à l'ouest", "au nord-ouest"];
 
+/** Where an event under the summit is said to be; /volcan says « sommet » in its section « sous le volcan ». */
+export const SOMMET = "sous le sommet du Piton de la Fournaise";
 /** Where an event is, in words: the summit, the Enclos, or a distance and direction from the nearest commune. */
 export function where(lon: number, lat: number): string {
   const summit = distanceKm(SUMMIT.lon, SUMMIT.lat, lon, lat);
-  if (summit <= 3) return "sous le sommet du Piton de la Fournaise";
+  if (summit <= 3) return SOMMET;
   if (summit <= 8) return `sous le massif du Piton de la Fournaise, à ${Math.round(summit)} km du sommet`;
   let best = COMMUNES[0];
   let d = Infinity;

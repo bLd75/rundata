@@ -120,8 +120,8 @@ describe("the Enclos, as the official texts say it", () => {
     expect(v.resume).not.toContain("interdit selon le communiqué");
     // The short form: forbidden, the release's day (marketing).
     expect(trafic(v)).toContain(`<h3>Volcan : accès à l'Enclos</h3><p><b>Interdit</b> (préfecture, 23/10). <a href="/volcan#monter">Puis-je monter au volcan ? →</a></p></div>`);
-    // What the alert's level says, with its own attribution: unchanged.
-    expect(volcanPage(O, copyOf(v), NOW)).toContain("<h3>Accès à l&#39;Enclos interdit.</h3>");
+    // What the alert's level says, once at the top of the page; the release's words in « Puis-je monter au volcan ? ».
+    expect(volcanPage(O, copyOf(v), NOW)).toContain("<p class=\"lead\"><b>Accès à l&#39;Enclos interdit.</b>");
     expect(v.puis_je_monter!.lignes.find((l) => l.lieu === "Enclos")!.texte).toMatch(/^Enclos : interdit\b/);
   });
 

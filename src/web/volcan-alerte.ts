@@ -107,8 +107,9 @@ const plan = (a: VolcanAlerte) => libelle(a.niveau) ?? "";
 const planSaid = (a: VolcanAlerte) => (plan(a) ? ` : « ${plan(a)} », selon le dispositif ORSEC Volcan` : "");
 
 export const ENCLOS = "Accès à l'Enclos interdit.";
-export const SEULES = "Seules comptent les consignes de la préfecture et de l'OVPF.";
-export const CONSIGNES = `${ENCLOS} ${SEULES}`;
+// The head of « Les annonces officielles » on /volcan (marketing, 26/10/2026): who announces, then whose posts are read.
+export const ANNONCERONT = "Seuls l'OVPF et la préfecture annonceront une éruption : leurs textes s'affichent ici dès que nous les avons lus.";
+export const BLUESKY_SEUL = "L'OVPF publie aussi sur Facebook et X, que nous ne lisons pas : ses messages ci-dessous viennent de Bluesky.";
 
 export function bannerText(a: VolcanAlerte): string {
   return a.eruption
@@ -184,11 +185,18 @@ export function tileLive(a: VolcanAlerte): { valeur: string; detail: string; sou
 // --- /volcan during an alert -----------------------------------------------------------------------------------------
 
 // The IPGP took its site offline after two security flaws (the OVPF's director, 25/10/2026): no link to it until it is back.
+// Facebook first, the page's only link to it (the user, 26/10/2026).
 export const OVPF_LINKS = [
-  { nom: "Bluesky : ovpf.bsky.social", url: OVPF.url },
-  { nom: "Facebook : ObsVolcanoPitonFournaise", url: OVPF_FACEBOOK },
-  { nom: "X : @obsfournaise", url: "https://x.com/obsfournaise" },
+  { nom: "Facebook", url: OVPF_FACEBOOK },
+  { nom: "Bluesky", url: OVPF.url },
+  { nom: "X", url: "https://x.com/obsfournaise" },
 ];
+/** « Suivre l'OVPF : Facebook ↗ · Bluesky ↗ · X ↗ », at the top of /volcan during an alert (marketing). */
+export const followOvpf = () => `Suivre l'OVPF\u00a0: ${OVPF_LINKS.map((l) => `<a href="${esc(l.url)}">${esc(l.nom)} ↗</a>`).join(" · ")}`;
+
+/** Whose the level is, in the banner's words: « Alerte 1 du préfet, communiqué du 24 octobre. » (marketing). */
+export const levelSaid = (a: VolcanAlerte) =>
+  a.niveau ? `${nb(a.niveau)}${a.ovpf ? ` selon l'OVPF, publication du ${postAt(a.ovpf.date)}` : ` du préfet${a.communique ? `, ${dated(a)}` : ""}`}.` : "";
 
 const ABOUT_VOLCANO = /fournaise|volcan|enclos|[ée]ruption/i;
 
@@ -201,21 +209,20 @@ export function mediaHeadlines(news: ActualitesAnswer | undefined, max = 8) {
     .slice(0, max);
 }
 
-/** The blocks at the top of /volcan: the prefecture's release, the safety line, the OVPF, the media. */
-export function alertSections(a: VolcanAlerte, news: ActualitesAnswer | undefined): string {
-  const release = a.communique
+/** The prefecture's release, the only link to it on /volcan. */
+export const releaseCard = (a: VolcanAlerte) =>
+  a.communique
     ? `<div class="card"><h3>Le communiqué de la préfecture</h3><p class="note">publié le ${esc(day(a.communique.jour))}</p>` +
       `<p><a href="${esc(a.communique.lien)}">${esc(a.communique.titre)}</a></p></div>`
     : "";
-  const ovpf = `<div class="card"><h3>Les annonces de l'Observatoire volcanologique (OVPF)</h3><ul class="plain">` +
-    OVPF_LINKS.map((l) => `<li><a href="${esc(l.url)}">${esc(l.nom)}</a></li>`).join("") + `</ul></div>`;
+
+/** What the media say, their time and name above each headline (a line of its own at 390 px). */
+export function mediaSection(news: ActualitesAnswer | undefined): string {
   const heads = mediaHeadlines(news);
-  const media = `<section aria-labelledby="h-medias"><div class="sec-h"><h2 id="h-medias">Ce que disent les médias de l'île</h2>` +
+  return `<section aria-labelledby="h-medias"><div class="sec-h"><h2 id="h-medias">Ce que disent les médias de l'île</h2>` +
     `<p>Titres repris tels quels, avec leur heure : selon les médias, pas une source officielle.</p></div>` +
     (heads.length
-      ? `<ul class="rows">${heads.map((i) => `<li><span class="note">${esc(i.quand)}</span><span>${esc(i.media)}</span><a href="${esc(i.lien)}"${fenetre(i.lien)}>${esc(i.titre)}</a></li>`).join("")}</ul>`
+      ? `<ul class="rows medias">${heads.map((i) => `<li><span class="note">${esc(i.quand)} · ${esc(i.media)}</span><a href="${esc(i.lien)}"${fenetre(i.lien)}>${esc(i.titre)}</a></li>`).join("")}</ul>`
       : `<p class="card">Pas encore d'article des médias de l'île sur cette alerte. Les annonces officielles sont ci-dessus.</p>`) +
     `</section>`;
-  return `<section aria-labelledby="h-officiel"><div class="sec-h"><p class="eyebrow">Alerte en cours</p><h2 id="h-officiel">Les annonces officielles</h2></div>` +
-    `<p class="card warn"><b>${esc(CONSIGNES)}</b></p><div class="two">${release}${ovpf}</div></section>${media}`;
 }
