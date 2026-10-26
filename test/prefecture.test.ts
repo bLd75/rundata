@@ -6,6 +6,7 @@ import { counted, PAGE_BUDGET } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { ecoles, withPrefecture } from "../src/tools/ecoles.js";
 import { ecolesPage } from "../src/web/ecoles.js";
+import { cycloneDecisionNow } from "../src/web/data.js";
 
 // Saturday 24 October 2026, 14:00 at La Réunion.
 const NOW = new Date("2026-10-24T10:00:00Z");
@@ -207,5 +208,26 @@ describe("the day of the prefecture's cyclone release, never an hour made up", (
       decision: { niveau: "levee", titre: "Levée de l'alerte cyclonique", lien: "https://www.reunion.gouv.fr/x/levee", jour: "2026-10-24" },
       reouverture: { titre: "Réouverture des écoles lundi", lien: "https://www.reunion.gouv.fr/x/ecoles", jour: "2026-10-24" },
     });
+  });
+
+  it("gives a page the decision kept while the prefecture is slower than it waits, else nothing", async () => {
+    const kept = { decision: { niveau: 3, titre: "Alerte orange cyclonique à compter de 5h", lien: "https://www.reunion.gouv.fr/x/orange", jour: "2026-10-23" } };
+    // The prefecture answers, but after the page has stopped waiting.
+    vi.stubGlobal("fetch", async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      throw new Error("timeout");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const late = async (durable: MemoryStore) => {
+      const pending: Promise<unknown>[] = [];
+      const got = await cycloneDecisionNow(new Cache(new MemoryStore(), () => NOW.getTime(), true, durable), (p) => void pending.push(p), 50);
+      await Promise.all(pending);
+      return got;
+    };
+    const durable = new MemoryStore();
+    await durable.put("cyclone:prefecture:derniere-decision", { value: kept, fetchedAt: NOW.getTime() - 26 * 3600_000 });
+    // A day old and more: served all the same, since it says its day.
+    expect(await late(durable)).toEqual(kept);
+    expect(await late(new MemoryStore())).toBeNull();
   });
 });
