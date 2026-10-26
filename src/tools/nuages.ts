@@ -46,12 +46,14 @@ export function etat(h: ForecastHour, altitude: number): { etat: Etat; texte: st
   // A veil of cirrus: the view stays open, the sunrise less so.
   if (base != null && base > HIGH_M) return { etat: "degage", texte: "dégagé sous des nuages élevés" };
   if (base == null) return null; // cloudy, yet no layer over the cell: nothing to say of it
+  // A layer thinner than the rounding (base and top the same hundred) is said at one height, never « entre 1 900 et 1 900 m ».
+  const span = top != null && r100(base) === r100(top) ? `vers ${m(r100(top))}` : top != null ? `entre ${n(r100(base))} et ${m(r100(top))}` : null;
   if (top != null && top <= altitude - EDGE_M) {
-    return { etat: "dessus", texte: `au-dessus de la mer de nuages (nuages entre ${n(r100(base))} et ${m(r100(top))})` };
+    return { etat: "dessus", texte: `au-dessus de la mer de nuages (nuages ${span})` };
   }
   if (top != null && top < altitude) return { etat: "bord", texte: `au bord de la mer de nuages (nuages jusqu'à ${m(r100(top))})` };
   if (base <= altitude) {
-    return { etat: "dans", texte: top != null ? `dans les nuages (entre ${n(r100(base))} et ${m(r100(top))})` : `dans les nuages (à partir de ${m(r100(base))})` };
+    return { etat: "dans", texte: span ? `dans les nuages (${span})` : `dans les nuages (à partir de ${m(r100(base))})` };
   }
   return { etat: "sous", texte: `sous les nuages (à partir de ${m(r100(base))})` };
 }
