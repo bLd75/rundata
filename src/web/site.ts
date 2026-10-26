@@ -481,6 +481,10 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/mentions-legales" || path === "/mentions-legales/") {
     return new Response(null, { status: 301, headers: { location: "/conditions#mentions-legales", "cache-control": STATIC } });
   }
+  // The English address, typed or guessed by those who look for who makes a site.
+  if (path === "/about" || path === "/about/") {
+    return new Response(null, { status: 301, headers: { location: "/a-propos", "cache-control": STATIC } });
+  }
   // Who makes the site, and the connector's page for a browser (app.ts sends only those here): nothing read but the vigilance's banner.
   if (path === "/a-propos" || path === "/a-propos/") {
     return new Response(aProposPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });

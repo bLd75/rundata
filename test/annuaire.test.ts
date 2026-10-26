@@ -37,5 +37,16 @@ describe("public services directory", () => {
     const r = body(await annuaireTool(new Cache(store, () => now.getTime()), "mairie", "Saint-Gilles-les-Bains", now));
     expect(r.resume).toMatch(/^Mairie - Saint-Paul, Place du Général-de-Gaulle, 97460 Saint-Paul \(à [\d,]+ km de Saint-Gilles/);
     expect(r.resume).toContain("Ouvert en ce moment");
+    expect(r.page).toBe("https://rundata.re/communes/saint-paul");
+  });
+
+  it("gives a defibrillator asked of it the page of the devices, and no page without a place", async () => {
+    const now = new Date("2026-10-22T06:00:00Z");
+    const store = new MemoryStore();
+    void store.put("annuaire:974:défibrillateur", { value: [], fetchedAt: now.getTime() });
+    void store.put("annuaire:974:mairie", { value: offices, fetchedAt: now.getTime() });
+    const cache = new Cache(store, () => now.getTime());
+    expect(body(await annuaireTool(cache, "défibrillateur", undefined, now)).page).toBe("https://rundata.re/defibrillateurs");
+    expect(body(await annuaireTool(cache, "mairie", undefined, now)).page).toBeUndefined();
   });
 });
