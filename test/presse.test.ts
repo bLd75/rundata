@@ -8,6 +8,7 @@ import { IDS } from "../src/providers/irve.js";
 import icons from "../src/web/icons.json" with { type: "json" };
 import visuals from "../src/web/presse.json" with { type: "json" };
 import { homePage } from "../src/web/home.js";
+import { insecables } from "../src/typographie.js";
 
 const NOW = new Date("2026-10-24T04:00:00Z");
 const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
@@ -62,7 +63,7 @@ describe("press page", () => {
 
   it("counts its key figures in the data it serves", async () => {
     const html = await page();
-    expect(html).toContain(`<span class="fig">${fr(DAES.length)}</span><span>défibrillateurs`);
+    expect(html).toContain(`<span class="fig">${insecables(fr(DAES.length))}</span><span>défibrillateurs`);
     expect(html).toContain(`<span class="fig">${fr(IDS.size)}</span><span>points de recharge`);
     expect(html).toMatch(/<span class="fig">\d+<\/span><span>outils dans le connecteur/);
     // The stations that publish, the count the connector gives too.

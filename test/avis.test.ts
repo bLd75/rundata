@@ -9,6 +9,7 @@ import { inReunionBeacons } from "../src/providers/pioupiou.js";
 import { AVIS_HINT, cite } from "../src/tools/citer.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
 import { SATELLITES, temperatureMer } from "../src/tools/mer.js";
+import { insecables } from "../src/typographie.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
 const NOW = new Date("2026-10-18T19:20:00Z");
@@ -75,7 +76,7 @@ describe("citation", () => {
     const r = await call("defibrillateurs", { lieu: "Tombouctou" });
     expect(r.isError).toBe(true);
     const p = JSON.parse(r.text);
-    expect(p).toMatchObject({ citer: "rundata.re", lien: "https://rundata.re/defibrillateurs?ref=mcp", signaler: AVIS_HINT });
+    expect(p).toMatchObject({ citer: "rundata.re", lien: "https://rundata.re/defibrillateurs?ref=mcp", signaler: insecables(AVIS_HINT) });
   });
 
   it("points to donner_avis only when nothing was found", () => {

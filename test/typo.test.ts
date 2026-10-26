@@ -14,8 +14,15 @@ const ORIGIN = "https://rundata.re";
 
 // The rule as marketing wrote it, the slow way: what is kept as written, then the prose between.
 const KEPT = /<(script|style|pre|code|textarea)\b(?:[^>"']|"[^"]*"|'[^']*')*>[\s\S]*?<\/\1\s*>|<!--[\s\S]*?-->|<(?:[^>"']|"[^"]*"|'[^']*')*>/g;
-const reference = (html: string) =>
-  html.replace(new RegExp(`${KEPT.source}|( )(?=[:;?!»])|(« )|(?<!\\p{L})([àÀ]) (?=\\d)`, "gu"), (m, _raw, sp, open, a) => (sp ? "\u00a0" : open ? "«\u00a0" : a ? `${a}\u00a0` : m));
+// typographie.ts' units, and its thousands: 1 to 3 figures not starting with 0, not after a decimal, a date, an hour, a
+// « + », a letter or another figure (« 0 800 333 », « 2025 100 »).
+const UNITS = "%|‰|°C|°|km\\/h|km²|km|m²|m³|mm|cm|m|GWh|MWh|MW|kWh|kW|hPa|€|h|min|nœuds|ha|µg\\/m³";
+const slow = (t: string) =>
+  t
+    .replace(/(?<![\d,./:+\p{L}]|\d[ \u202f])[1-9]\d{0,2}(?:[ \u202f]\d{3})+(?!\d)/gu, (n) => n.replace(/ /g, "\u202f"))
+    .replace(/ (?=[:;?!»])|(?<=«) |(?<=(?<!\p{L})[àÀ]) (?=\d)/gu, "\u00a0")
+    .replace(new RegExp(`(?<=\\d) (?=(?:${UNITS})(?![\\p{L}\\d]))`, "gu"), "\u00a0");
+const reference = (html: string) => html.replace(new RegExp(`${KEPT.source}|[^<]+`, "g"), (m) => (m.startsWith("<") ? m : slow(m)));
 const kept = (html: string) => html.match(KEPT) ?? [];
 const prose = (html: string) => html.replace(KEPT, "<>");
 const jsonld = (html: string) => /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)![1];
@@ -34,7 +41,7 @@ describe("French typography on the pages", () => {
 
   it("holds « à » to the figure after it: an hour, a distance, an altitude, a capital « À » too", () => {
     expect(typo("<p>Lu le samedi 24/10 à 08:00.</p>")).toBe("<p>Lu le samedi 24/10 à\u00a008:00.</p>");
-    expect(typo("<p>Station à 3 km, sommet à 2\u202f000 m.</p>")).toBe("<p>Station à\u00a03 km, sommet à\u00a02\u202f000 m.</p>");
+    expect(typo("<p>Station à 3 km, sommet à 2\u202f000 m.</p>")).toBe("<p>Station à\u00a03\u00a0km, sommet à\u00a02\u202f000\u00a0m.</p>");
     expect(typo("<p>À 14:00, coupure.</p>")).toBe("<p>À\u00a014:00, coupure.</p>");
     // Already no-break (U+00A0 or U+202F): left as it is, never doubled.
     expect(typo("<p>à\u00a008:00, à\u202f9:00</p>")).toBe("<p>à\u00a008:00, à\u202f9:00</p>");
@@ -68,7 +75,7 @@ describe("French typography on the pages", () => {
       expect(out).toBe(reference(html));
       expect(kept(out)).toEqual(kept(html));
       expect(jsonld(out)).toBe(jsonld(html));
-      expect(out.replace(/ /g, " ")).toBe(html.replace(/ /g, " "));
+      expect(out.replace(/[\u00a0\u202f]/g, " ")).toBe(html.replace(/[\u00a0\u202f]/g, " "));
       expect(prose(out)).not.toMatch(/ [:;?!»]|« /);
     }
   });

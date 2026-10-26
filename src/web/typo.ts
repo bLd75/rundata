@@ -1,28 +1,17 @@
 /**
- * French typography on the page as sent: the ordinary space before « : ; ? ! » » and after « « » becomes a no-break
- * space (U+00A0), so that a phone never starts a line with « : », and so does the one between the word « à » and a
- * number, so that « à 08:00 », « à 3 km » never end a line on « à ». Only the text between the tags: the tags themselves
- * (their attributes, URLs, the metas), the comments and the inside of <script> (the JSON-LD with it), <style>, <pre>,
- * <code> and <textarea> are left as written. The assistants' text (the MCP tools) never goes through here.
+ * French typography on the page as sent (typographie.ts, the same rule as the assistants' answers): only the text
+ * between the tags. The tags themselves (their attributes, URLs, the metas), the comments and the inside of <script>
+ * (the JSON-LD with it), <style>, <pre>, <code> and <textarea> are left as written.
  *
  * One pass, character by character: a regular expression over the whole page took twice as long as the page's render.
  */
+import { spaceAt } from "../typographie.js";
 import { enTetes } from "./securite.js";
 
 // The elements whose inside is not prose, skipped up to their closing tag.
 const RAW = /^<(script|style|pre|code|textarea)\b/;
 const LT = 60;
 const SPACE = 32;
-const OPEN = 171; // «
-const BEFORE = new Set([58, 59, 63, 33, 187]); // : ; ? ! »
-const A = new Set([224, 192]); // à À
-const LETTER = /\p{L}/u;
-
-/** The space at `i` is after the word « à » (not the end of « voilà ») and before a figure. */
-const afterA = (html: string, i: number) => {
-  const next = html.charCodeAt(i + 1);
-  return next >= 48 && next <= 57 && A.has(html.charCodeAt(i - 1)) && !LETTER.test(html.charAt(i - 2));
-};
 
 /** Where the tag, comment or raw element that starts at `i` ends (its last « > »); esc() writes no « > » in attributes. */
 function skip(html: string, i: number): number {
@@ -40,9 +29,10 @@ export function typo(html: string): string {
     const c = html.charCodeAt(i);
     if (c === LT) {
       i = skip(html, i);
-    } else if (c === SPACE ? BEFORE.has(html.charCodeAt(i + 1)) || afterA(html, i) : c === OPEN && html.charCodeAt(i + 1) === SPACE) {
-      if (c === OPEN) i++;
-      out += `${html.slice(from, i)} `;
+    } else if (c === SPACE) {
+      const kept = spaceAt(html, i);
+      if (kept === " ") continue;
+      out += html.slice(from, i) + kept;
       from = i + 1;
     }
   }

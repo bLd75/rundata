@@ -107,7 +107,7 @@ describe("prevision_meteo with AROME", () => {
     expect(w).toMatch(/pas une mesure/);
     expect(w).toMatch(/microclimats/);
     expect(w).toMatch(/vigilance officielle/);
-    expect(w).toMatch(/relief du modèle est à 1\d{3} m : les températures sont ramenées à l'altitude de Cilaos \(1209 m\)/);
+    expect(w).toMatch(/relief du modèle est à 1\d{3} m : les températures sont ramenées à l'altitude de Cilaos \(1\u202f209 m\)/);
     expect(r.jours[0].modeles).toMatch(/AROME outre-mer de Météo-France de 12h à 15h/);
     // The UV index comes from its own forecast, credited and explained apart.
     expect(r.jours[0].indice_uv_max).toMatch(/^\d+ \((faible|modéré|élevé|très élevé|extrême)\)$/);
