@@ -6,6 +6,7 @@
 import type { Cache, Cached } from "../cache.js";
 import { getJson } from "../http.js";
 import type { SourceInfo } from "../types.js";
+import { INSEE } from "../places/insee.js";
 
 export const SOURCE: SourceInfo = {
   id: "atmo_indice",
@@ -45,10 +46,13 @@ export interface Index {
 
 type Props = { code_zone: string; lib_zone: string; date_ech: string; code_qual: number; date_maj: string } & Record<string, unknown>;
 
+// The commune's name from its INSEE code, as everywhere on the site: the layer writes « Petite-Ile », without its accent.
+const NAMES = Object.fromEntries(Object.entries(INSEE).map(([nom, code]) => [code, nom]));
+
 export function parse(json: { features: { properties: Props }[] }): Index[] {
   return json.features.map(({ properties: p }) => ({
     insee: p.code_zone,
-    commune: p.lib_zone,
+    commune: NAMES[p.code_zone] ?? p.lib_zone,
     jour: p.date_ech.slice(0, 10),
     niveau: p.code_qual,
     sous_indices: Object.fromEntries(Object.keys(POLLUTANTS).map((k) => [k, Number(p[k])])),

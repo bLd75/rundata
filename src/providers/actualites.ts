@@ -239,12 +239,16 @@ function places(found: ReturnType<typeof hits>): { communes: string[]; lieux: st
   return { communes: [...communes], lieux: named.filter((l) => !named.some((o) => o !== l && normalize(o).startsWith(normalize(l)))) };
 }
 
+// The weather's own words; « vigilance » apart, as the volcano has its phase of vigilance too (ORSEC Volcan).
+const WEATHER = String.raw`meteo\w*|pluies?|orages?|cyclon\w*|tempete|depression tropicale|houle|vents? forts?|inondation\w*|crues?`;
+const WEATHER_WORD = new RegExp(`\\b(?:${WEATHER})\\b`);
+
 /** The subjects, for the questions people ask on a day like this. */
 export const SUJETS: { id: string; nom: string; re: RegExp }[] = [
   { id: "mobilisation", nom: "manifestations et blocages", re: /\b(?:barrages?|blocages?|bloqu\w*|manifest\w*|mobilis\w*|gilets? jaunes?|rassemblement\w*|greve\w*|cortege|violences urbaines|couvre feu|emeute\w*|affrontement\w*)\b/ },
   { id: "route", nom: "routes et circulation", re: /\b(?:routes?|circulation|trafic|bouchons?|embouteillage\w*|accidents?|rn ?\d+|quatre voies|littoral|basculement|radiers?|deviation|chaussee|inforoutes?)\b/ },
-  { id: "meteo", nom: "météo et cyclones", re: /\b(?:meteo\w*|pluies?|orages?|vigilance|cyclon\w*|tempete|depression tropicale|houle|vents? forts?|inondation\w*|crues?)\b/ },
-  { id: "volcan", nom: "volcan et séismes", re: /\b(?:volcan\w*|eruption\w*|fournaise|seisme\w*|sismi\w*|enclos)\b/ },
+  { id: "meteo", nom: "météo et cyclones", re: new RegExp(`\\b(?:${WEATHER}|vigilance)\\b`) },
+  { id: "volcan", nom: "volcan et séismes", re: /\b(?:volcan\w*|eruption\w*|fournaise|dolomieu|seisme\w*|sismi\w*|enclos)\b/ },
   { id: "eau", nom: "eau et électricité", re: /\b(?:eau potable|coupures?|robinet|citernes?|secheresse|ne buvez pas|ne pas boire|edf|electricite|delestage\w*|panne\w*)\b/ },
   { id: "securite", nom: "faits divers et sécurité", re: /\b(?:incendi\w*|feux|police\w*|gendarm\w*|interpell\w*|tribunal|proces|agression\w*|vols?|meurtre\w*|enquete|secours|pompiers|braconnage)\b/ },
   { id: "sante", nom: "santé", re: /\b(?:sante|chu|hopita\w*|ars|epidemie|dengue|chikungunya|leptospirose|vaccin\w*|cancer)\b/ },
@@ -255,7 +259,9 @@ export const SUJETS: { id: string; nom: string; re: RegExp }[] = [
 
 export function sujetsOf(text: string): string[] {
   const t = normalize(text);
-  return SUJETS.filter((s) => s.re.test(t)).map((s) => s.id);
+  const ids = SUJETS.filter((s) => s.re.test(t)).map((s) => s.id);
+  // « Retour en phase de vigilance » of the volcano: not the weather, unless a word of the weather says it too.
+  return ids.includes("volcan") && ids.includes("meteo") && !WEATHER_WORD.test(t) ? ids.filter((id) => id !== "meteo") : ids;
 }
 
 const cut = (s: string) => (s.length > SUMMARY_MAX ? `${s.slice(0, SUMMARY_MAX - 1).replace(/\s+\S*$/, "")}…` : s);
