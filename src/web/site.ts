@@ -113,6 +113,7 @@ import { chiffresPage } from "./chiffres.js";
 import { toutesLesSources } from "../server.js";
 import { etat as sansReponse } from "../sans-reponse.js";
 import { connecteurPage } from "./connecteur.js";
+import { enTetes } from "./securite.js";
 import { typo, typoPage } from "./typo.js";
 import { tripGonePage, tripPage } from "./trajet.js";
 import { searchStops, stopPageDepartures, TRIP_PATH, tripRun } from "../tools/transports.js";
@@ -744,6 +745,7 @@ export function manifest() {
 }
 
 /** Any other address a browser asks for: a page that leads back to the communes. */
-export function notFound(request: Request): Response {
-  return new Response(typo(notFoundPage(new URL(request.url).origin, new URL(request.url).pathname)), { status: 404, headers: HTML });
+export async function notFound(request: Request): Promise<Response> {
+  const html = typo(notFoundPage(new URL(request.url).origin, new URL(request.url).pathname));
+  return new Response(html, { status: 404, headers: { ...HTML, ...(await enTetes(html)) } });
 }

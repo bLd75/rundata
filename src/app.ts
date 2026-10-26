@@ -14,6 +14,7 @@ import type { Background } from "./web/data.js";
 import { notFound, site } from "./web/site.js";
 import { wantsPage } from "./web/connecteur.js";
 import { OFFLINE_PATH } from "./web/pwa.js";
+import { CADRE, CSP_RAPPORT, rapport } from "./web/securite.js";
 
 // Browser-based clients (MCP Inspector, web chat apps) call the endpoint cross-origin.
 const CORS = {
@@ -92,7 +93,7 @@ function notAllowed(): Response {
 export function failed(path: string, err: unknown): Response {
   console.error(`erreur : ${path} (version ${VERSION})`, why(err));
   const body = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Page indisponible · rundata.re</title></head><body style="font-family:system-ui,sans-serif;max-width:36rem;margin:3rem auto;padding:0 1rem;line-height:1.5"><h1>Page indisponible pour un instant</h1><p>Une erreur est survenue en la préparant. Réessayer dans une minute, ou repartir de <a href="/">l'accueil de rundata.re</a>.</p></body></html>`;
-  return new Response(body, { status: 500, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+  return new Response(body, { status: 500, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...CADRE } });
 }
 
 /**
@@ -143,6 +144,8 @@ export async function handle(request: Request, cache: Cache, background: Backgro
     watching.done(response.status);
     return withCors(response);
   }
+  // What the browsers would block under the policy in observation (web/securite.ts): one log line, not a view.
+  if (url.pathname === CSP_RAPPORT) return rapport(request);
   const accept = request.headers.get("accept") ?? "";
   if (url.pathname === "/" && !accept.includes("text/html") && CLI.test(request.headers.get("user-agent") ?? "")) {
     return new Response(

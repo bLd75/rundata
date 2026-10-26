@@ -7,6 +7,7 @@
  *
  * One pass, character by character: a regular expression over the whole page took twice as long as the page's render.
  */
+import { enTetes } from "./securite.js";
 
 // The elements whose inside is not prose, skipped up to their closing tag.
 const RAW = /^<(script|style|pre|code|textarea)\b/;
@@ -48,8 +49,14 @@ export function typo(html: string): string {
   return out + html.slice(from);
 }
 
-/** A response of the site: its HTML through `typo`, anything else (feeds, files, redirects) as it is. */
+/**
+ * A response of the site: its HTML through `typo`, anything else (feeds, files, redirects) as it is. The final HTML is
+ * here, so the page's security headers are set here too, its inline scripts hashed (web/securite.ts).
+ */
 export async function typoPage(r: Response | null): Promise<Response | null> {
   if (!r?.body || !(r.headers.get("content-type") ?? "").startsWith("text/html")) return r;
-  return new Response(typo(await r.text()), { status: r.status, statusText: r.statusText, headers: r.headers });
+  const html = typo(await r.text());
+  const headers = new Headers(r.headers);
+  for (const [k, v] of Object.entries(await enTetes(html))) headers.set(k, v);
+  return new Response(html, { status: r.status, statusText: r.statusText, headers });
 }
