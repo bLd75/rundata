@@ -113,7 +113,6 @@ export function configure(db: Run | undefined, send?: Envoi, select?: All) {
 }
 
 export const enabled = () => !!run;
-export const canSend = () => !!run && !!envoi;
 
 const localDay = (now: Date) => new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
 const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);

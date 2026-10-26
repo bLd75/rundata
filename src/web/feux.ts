@@ -73,7 +73,6 @@ function vigilance(v: Cached<mf.Vigilance> | null | undefined, now: Date): strin
 }
 
 export function feuxPage(origin: string, l: FeuxLive, now = new Date(), alerte?: Alerte): string {
-  const url = `${origin}${FEUX_PATH}`;
   const on = feux.enabled();
   const description = on ? feuxDescription(l.fires, now) : BLIND_META;
   const markers = [

@@ -94,7 +94,6 @@ export function ipgpMuet(l: Public, lus: { bluesky: boolean; prefecture: boolean
 export const LOCALISES = "L'OVPF ne localise qu'une partie des séismes qu'il enregistre\u00a0: ses bulletins donnent le nombre enregistré, nos chiffres comptent ceux qu'il a localisés, d'après son catalogue.";
 const BAR_DAYS = 30;
 const localDay = (t: number) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
-const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 /** The first words of a text read in images, cut at a word: « … » quoted in the summary. */
 const extrait = (paras: string[]) => {
   const t = paras.join(" ");

@@ -36,7 +36,7 @@ import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
 import { esc, fenetre, hikesMap, islandMap, type Marker, oceanMap, profile, traceMap, type ZoneLink } from "./map.js";
-import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./liens.js";
+import { cloudSeaLink, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
 import { BUILT as DAE_BUILT, DAES } from "../providers/dae.js";

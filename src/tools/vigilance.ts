@@ -22,7 +22,6 @@ export const CYCLONE_STEPS: Record<number, string> = {
   6: "phase de sauvegarde : le cyclone s'éloigne, le danger demeure",
 };
 
-const hm = (iso: string) => localTime(new Date(iso)).split(" ")[1];
 const day = (iso: string) => localTime(new Date(iso));
 
 /** The colour in force at `now`: the first period when `now` is before them all, -1 when there is none. */

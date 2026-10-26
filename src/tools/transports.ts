@@ -1,7 +1,7 @@
 import type { Cache } from "../cache.js";
 import { distanceKm, localTime } from "../geo.js";
 import { INSEE } from "../places/insee.js";
-import { normalize, resolvePlace } from "../places/resolve.js";
+import { resolvePlace } from "../places/resolve.js";
 import { holidays } from "../providers/calendrier.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
