@@ -12,6 +12,7 @@ import { decheteriesAnswer, WASTE } from "./decheteries.js";
 import { CHILDREN, enfantsAnswer } from "./enfants.js";
 import { MARKET, marchesAnswer } from "./marches.js";
 import { EMERGENCY, PHARMACY, pharmaciesAnswer, urgencesAnswer } from "./sante.js";
+import { sansLien } from "../liens.js";
 import { rienTrouve } from "../vide.js";
 
 // Asked of the annuaire, a defibrillator is not an office: its link is the page of the devices.
@@ -133,7 +134,8 @@ export async function annuaireTool(cache: Cache, quoi: string, lieu: string | un
       note_horaires: o.note_horaires,
       telephone: o.telephone,
       courriel: o.courriel,
-      site: o.site,
+      // Not a site that submits any link to its agreement (Saint-Benoît's town hall).
+      site: sansLien(o.site) ? undefined : o.site,
       fiche: o.fiche || undefined,
     })),
     avertissements: ["Horaires publiés par chaque service sur service-public.fr : jours fériés et fermetures exceptionnelles non pris en compte."],
