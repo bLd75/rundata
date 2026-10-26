@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { counted, PAGE_BUDGET } from "../src/budget.js";
-import { getText, IN_FLIGHT } from "../src/http.js";
+import { getText, IN_FLIGHT, patiently } from "../src/http.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -77,6 +77,15 @@ describe("the fetches of an invocation", () => {
       return { failed: bad.filter((r) => r.status === "rejected").length, read: good.length };
     });
     expect(value).toEqual({ failed: IN_FLIGHT * 2, read: IN_FLIGHT * 2 });
+  });
+
+  it("are given at least the patient delay inside `patiently`, their own delay elsewhere", async () => {
+    // A site that answers in 150 ms, read with a 50 ms delay.
+    platform(150);
+    const read = () => getText("agenda", "https://lent.example/", 50).then(() => "lu", (err: Error) => err.message);
+    const { value } = await counted(PAGE_BUDGET, async () => [await read(), await patiently(1_000, read)]);
+    expect(value[0]).toMatch(/timeout/);
+    expect(value[1]).toBe("lu");
   });
 
   it("do not wait outside a counted invocation (Node)", async () => {

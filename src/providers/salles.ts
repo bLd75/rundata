@@ -10,7 +10,6 @@
  * - Théâtre Luc Donat (Le Tampon), CDNOI (Saint-Denis), Léspas (Saint-Paul): their season, with the hours.
  * The TÉAT, Luc Donat and the CDNOI pages are in ISO-8859-1.
  */
-import { isScheduled } from "../budget.js";
 import { getBytes, getText, postBytes } from "../http.js";
 import { normalize } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
@@ -33,11 +32,6 @@ const FRESH_SECONDS = 6 * 3600;
 // A hall's site that takes longer is left out of this answer (its last copy is served when there is one): the
 // question should not wait for the slowest of nineteen sites.
 export const TIMEOUT_MS = 6_000;
-// In the scheduled event, which nobody waits for, a hall's site is given twice as long: Le Séchoir's API ran past 6 s
-// at every hourly reading of 26/10 from the data center where the event runs (1.6 to 4.9 s from La Réunion).
-export const SCHEDULED_TIMEOUT_MS = 12_000;
-/** A hall's delay, longer in the scheduled event. */
-export const timeoutMs = () => (isScheduled() ? SCHEDULED_TIMEOUT_MS : TIMEOUT_MS);
 
 // ---------------------------------------------------------------- reading a page
 
@@ -232,14 +226,14 @@ const teat: Agenda = {
   load: (cache: AgendaStore, now: Date) =>
     cache.get("agenda:teat", FRESH_SECONDS, async () => {
       const lists = await Promise.all(TEAT_VENUES.map(async (v) =>
-        parseTeat(latin1(await postBytes(SOURCE.id, "https://www.teat.re/programmation/", v.form, timeoutMs(), HEADERS)), v, now)));
+        parseTeat(latin1(await postBytes(SOURCE.id, "https://www.teat.re/programmation/", v.form, TIMEOUT_MS, HEADERS)), v, now)));
       const soon = new Date(now.getTime() + TEAT_AHEAD_DAYS * 86400_000).toISOString().slice(0, 10);
       const both = lists[0].filter((e) => lists[1].some((x) => x.lien === e.lien) && e.seances[0].debut <= soon)
         .sort((x, y) => x.seances[0].debut.localeCompare(y.seances[0].debut)).slice(0, TEAT_PAGES);
       const dates = new Map<string, TeatDates>();
       await Promise.all(both.map(async (e) => {
         try {
-          dates.set(e.lien, parseTeatDates(decode(await getBytes(SOURCE.id, e.lien, timeoutMs(), HEADERS)), now));
+          dates.set(e.lien, parseTeatDates(decode(await getBytes(SOURCE.id, e.lien, TIMEOUT_MS, HEADERS)), now));
         } catch {
           // Without its page, the show is told with both stages.
         }
@@ -314,7 +308,7 @@ const citeDesArts: Agenda = {
   requetes: 2,
   load: (cache) =>
     cache.get("agenda:cite_des_arts", FRESH_SECONDS, async () => {
-      const pages = await Promise.all(["", "?debut_programmation=6"].map((q) => getText(SOURCE.id, `https://www.citedesarts.re/Programmation${q}`, timeoutMs(), HEADERS)));
+      const pages = await Promise.all(["", "?debut_programmation=6"].map((q) => getText(SOURCE.id, `https://www.citedesarts.re/Programmation${q}`, TIMEOUT_MS, HEADERS)));
       return pages.flatMap(parseCiteDesArts);
     }),
 };
@@ -377,7 +371,7 @@ const kabardock: Agenda = {
   nom: "Kabardock",
   source: SOURCE,
   commune: "Le Port",
-  load: (cache, now) => cache.get("agenda:kabardock", FRESH_SECONDS, async () => parseKabardock(await getText(SOURCE.id, "https://kabardock.com/", timeoutMs(), HEADERS), now)),
+  load: (cache, now) => cache.get("agenda:kabardock", FRESH_SECONDS, async () => parseKabardock(await getText(SOURCE.id, "https://kabardock.com/", TIMEOUT_MS, HEADERS), now)),
 };
 
 // ---------------------------------------------------------------- Bisik
@@ -444,7 +438,7 @@ const bisik: Agenda = {
   nom: "Bisik",
   source: SOURCE,
   commune: "Saint-Benoît",
-  load: (cache) => cache.get("agenda:bisik", FRESH_SECONDS, async () => parseBisik(await getText(SOURCE.id, "https://bisik.re/agenda/", timeoutMs(), HEADERS))),
+  load: (cache) => cache.get("agenda:bisik", FRESH_SECONDS, async () => parseBisik(await getText(SOURCE.id, "https://bisik.re/agenda/", TIMEOUT_MS, HEADERS))),
 };
 
 // ---------------------------------------------------------------- Théâtre Luc Donat
@@ -491,7 +485,7 @@ const lucDonat: Agenda = {
   nom: "Théâtre Luc Donat",
   source: SOURCE,
   commune: "Le Tampon",
-  load: (cache, now) => cache.get("agenda:luc_donat", FRESH_SECONDS, async () => parseLucDonat(latin1(await getBytes(SOURCE.id, "https://www.theatrelucdonat.re/tld_agenda", timeoutMs(), HEADERS)), now)),
+  load: (cache, now) => cache.get("agenda:luc_donat", FRESH_SECONDS, async () => parseLucDonat(latin1(await getBytes(SOURCE.id, "https://www.theatrelucdonat.re/tld_agenda", TIMEOUT_MS, HEADERS)), now)),
 };
 
 // ---------------------------------------------------------------- CDNOI
@@ -538,7 +532,7 @@ const cdnoi: Agenda = {
   nom: "CDNOI",
   source: SOURCE,
   commune: "Saint-Denis",
-  load: (cache, now) => cache.get("agenda:cdnoi", FRESH_SECONDS, async () => parseCdnoi(latin1(await getBytes(SOURCE.id, "https://www.cdnoi.re/programmation/", timeoutMs(), HEADERS)), now)),
+  load: (cache, now) => cache.get("agenda:cdnoi", FRESH_SECONDS, async () => parseCdnoi(latin1(await getBytes(SOURCE.id, "https://www.cdnoi.re/programmation/", TIMEOUT_MS, HEADERS)), now)),
 };
 
 // ---------------------------------------------------------------- Léspas
@@ -591,7 +585,7 @@ const lespas: Agenda = {
   nom: "Léspas",
   source: SOURCE,
   commune: "Saint-Paul",
-  load: (cache, now) => cache.get("agenda:lespas", FRESH_SECONDS, async () => parseLespas(await getText(SOURCE.id, "https://lespas.re/category/la-saison/", timeoutMs(), HEADERS), now)),
+  load: (cache, now) => cache.get("agenda:lespas", FRESH_SECONDS, async () => parseLespas(await getText(SOURCE.id, "https://lespas.re/category/la-saison/", TIMEOUT_MS, HEADERS), now)),
 };
 
 export const SALLES: Agenda[] = [teat, citeDesArts, kabardock, bisik, lucDonat, cdnoi, lespas];

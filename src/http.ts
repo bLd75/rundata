@@ -58,6 +58,17 @@ export function whenPlaced<T>(work: () => T, held: () => void): T {
   return placed.run(held, work);
 }
 
+// The least delay of the fetches of the work it runs (`patiently`).
+const patience = new AsyncLocalStorage<number>();
+
+/**
+ * Runs `work`, each of its fetches given at least `ms` (from its place) whatever its own delay: tools/agenda.ts gives
+ * the scheduled event's agendas, which nobody waits for, as long as a slow site takes.
+ */
+export function patiently<T>(ms: number, work: () => T): T {
+  return patience.run(ms, work);
+}
+
 /** This invocation's fetches holding a place and waiting for one, now (web/mesure.ts). */
 export const places = () => perInvocation("http:places", () => new Places()).now();
 
@@ -88,7 +99,7 @@ async function get<T>(
   placed.getStore()?.();
   try {
     let res: Response;
-    const signal = AbortSignal.timeout(timeoutMs);
+    const signal = AbortSignal.timeout(Math.max(timeoutMs, patience.getStore() ?? 0));
     onRead?.(url);
     try {
       res = await fetch(url, {
