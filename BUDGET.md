@@ -127,11 +127,11 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /decheteries | la page /decheteries | à chaque vue |  | 12 |  |  |  |  |  | 30 | mesuré |
 | /cyclones | la page /cyclones | à chaque vue |  | 27 |  |  |  |  |  | 50 | mesuré |
 | /historique | la page /historique | à chaque vue |  | 15 |  |  |  |  |  | 70 | mesuré |
-| /evenements | la page /evenements | à chaque vue |  | 55 |  |  |  |  |  | 200 | mesuré |
-| /evenements/ce-week-end | comme /evenements, une partie de sa copie | à chaque vue |  | 37 |  |  |  |  |  | 230 | mesuré |
-| /evenements/concerts | comme /evenements, une partie de sa copie | à chaque vue |  | 37 |  |  |  |  |  | 230 | mesuré |
+| /evenements | la page /evenements | à chaque vue |  | 54 |  |  |  |  |  | 200 | mesuré |
+| /evenements/ce-week-end | comme /evenements, une partie de sa copie | à chaque vue |  | 36 |  |  |  |  |  | 230 | mesuré |
+| /evenements/concerts | comme /evenements, une partie de sa copie | à chaque vue |  | 36 |  |  |  |  |  | 230 | mesuré |
 | /actualites | la page /actualites | à chaque vue |  | 20 | 1 |  |  |  |  | 160 | mesuré |
-| /enfants | la page /enfants | à chaque vue |  | 38 |  |  |  |  |  | 350 | mesuré |
+| /enfants | la page /enfants | à chaque vue |  | 37 |  |  |  |  |  | 350 | mesuré |
 
 ## Questions
 
@@ -139,7 +139,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
 | resume_du_jour | l'outil resume_du_jour | à chaque vue |  | 59 |  |  |  |  |  | 130 | mesuré |
 | meteo_actuelle | l'outil meteo_actuelle | à chaque vue |  | 36 |  |  |  |  |  | 120 | mesuré |
-| evenements | l'outil evenements | à chaque vue |  | 34 |  |  |  |  |  | 190 | mesuré |
+| evenements | l'outil evenements | à chaque vue |  | 33 |  |  |  |  |  | 190 | mesuré |
 | sport | l'outil sport | à chaque vue |  | 33 |  |  |  |  |  | 160 | mesuré |
 | volcan_seismes | l'outil volcan_seismes | à chaque vue |  | 30 |  |  | 2 | 21 |  | 90 | mesuré |
 | fiche_terrain | l'outil fiche_terrain | à chaque vue |  | 36 |  |  |  |  |  | 80 | estimé |

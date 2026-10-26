@@ -265,11 +265,11 @@ const DOMAIN_PAGES: Record<string, Page> = {
   "/decheteries": { subrequests: 12, cpuMs: 30, from: ["src/tools/decheteries.ts"] },
   "/cyclones": { subrequests: 27, cpuMs: 50, from: ["src/tools/cyclones.ts"] },
   "/historique": { subrequests: 15, cpuMs: 70, from: ["src/tools/historique.ts"] },
-  "/evenements": { subrequests: 55, cpuMs: 200, from: ["src/tools/agenda.ts"] },
-  "/evenements/ce-week-end": { subrequests: 37, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
-  "/evenements/concerts": { subrequests: 37, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
+  "/evenements": { subrequests: 54, cpuMs: 200, from: ["src/tools/agenda.ts"] },
+  "/evenements/ce-week-end": { subrequests: 36, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
+  "/evenements/concerts": { subrequests: 36, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
   "/actualites": { subrequests: 20, cpuMs: 160, from: ["src/tools/actualites.ts"] },
-  "/enfants": { subrequests: 38, cpuMs: 350, from: ["src/tools/agenda.ts"] },
+  "/enfants": { subrequests: 37, cpuMs: 350, from: ["src/tools/agenda.ts"] },
 };
 
 /** The other pages that read sources. */
@@ -324,7 +324,7 @@ const VISITS: Entry[] = [
 const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string; d1?: Pick<Run, "d1Calls" | "d1RowsRead" | "d1RowsWritten">; basis?: Basis; from?: string[] }> = {
   resume_du_jour: { subrequests: 59, cpuMs: 130, file: "resume" },
   meteo_actuelle: { subrequests: 36, cpuMs: 120, file: "meteo" },
-  evenements: { subrequests: 34, cpuMs: 190, file: "agenda" },
+  evenements: { subrequests: 33, cpuMs: 190, file: "agenda" },
   sport: { subrequests: 33, cpuMs: 160, file: "sport" },
   // Measured 26, before it read the list of the silent sites, as /volcan.
   volcan_seismes: { subrequests: 30, cpuMs: 90, file: "volcan", d1: SANS_REPONSE_D1 },

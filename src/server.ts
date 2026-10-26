@@ -27,7 +27,7 @@ import * as avis from "./avis.js";
 import { withLectures } from "./lectures.js";
 import { catalogue, INDEX, serveur } from "./nouveautes.js";
 import { cite, SITE_URL } from "./tools/citer.js";
-import { FICHE_LA1ERE } from "./tools/non-repris.js";
+import { FICHE_LA1ERE, FICHE_REUNION_FR } from "./tools/non-repris.js";
 import { resumeDuJour } from "./tools/resume.js";
 import { text } from "./tools/format.js";
 import { temperatureMer, COVERAGE as SEA_COVERAGE } from "./tools/mer.js";
@@ -84,7 +84,7 @@ import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.194.17";
+export const VERSION = "0.194.18";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -737,11 +737,11 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Événements à venir à La Réunion (974) : concerts, théâtre, danse, humour, cirque, soirées, fêtes, festivals, marchés, cinéma en " +
         "plein air, animations municipales. D'après les programmes des salles (TÉAT Champ Fleuri et Plein Air, Cité des Arts et Palaxa, " +
         "CDNOI, Kabardock, Le Séchoir, Léspas, Bisik, Théâtre Luc Donat), les agendas des mairies (" +
-        `${MAIRIES_LUES}), de la CINOR et de l'office de tourisme du Nord (OpenAgenda), reunion.fr et les clubs sportifs (Sportsregions). Chaque événement : ` +
+        `${MAIRIES_LUES}), de la CINOR et de l'office de tourisme du Nord (OpenAgenda) et les clubs sportifs (Sportsregions). Chaque événement : ` +
         "titre, date et heures (heure de La Réunion), salle, commune, genre, prix et lien de billetterie quand ils sont donnés, statut " +
         "(ANNULÉ, REPORTÉ, complet), y compris quand c'est un média de l'île qui l'annonce avant l'organisateur (statut_d_apres). " +
         "Pour : « que faire ce week-end à Saint-Paul ? », « concert ce soir ? », « spectacle à Saint-Denis samedi ? », « marché forain demain ? », « c'est quand la fête de l'ail ? ». " +
-        "/ Upcoming events in Réunion Island (concerts, shows, theatre, festivals, markets) from venues, town halls, OpenAgenda and the tourist board.",
+        "/ Upcoming events in Réunion Island (concerts, shows, theatre, festivals, markets) from venues, town halls, OpenAgenda and sports clubs.",
       inputSchema: {
         lieu: z
           .string()
@@ -884,8 +884,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       return text({
         resume: resumeChiffres(c),
         sources,
-        // The media whose terms forbid reading them by a program, titles included: not read (tools/non-repris.ts).
-        non_reprises: [FICHE_LA1ERE],
+        // The media and sites whose terms forbid reading them by a program: not read (tools/non-repris.ts).
+        non_reprises: [FICHE_LA1ERE, FICHE_REUNION_FR],
         lieux: GAZETTEER_ATTRIBUTION,
         couverture: { meteo: weatherCoverage(), mer: SEA_COVERAGE, previsions: forecastCoverage(), evenements: AGENDA_COVERAGE },
         chiffres: c,

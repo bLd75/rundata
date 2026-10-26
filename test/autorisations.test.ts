@@ -7,7 +7,7 @@ import { coupures, LISIBLES as MAIRIES_LISIBLES, MAIRIES, parsePosts, SOURCE as 
 import { agenda, COUVERTURE, MAIRIES_LUES, mentionCommune, mentionIle, mentionCourte, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
 import { type CourantAnswer, courantBlock, courantCopy, honesty } from "../src/tools/courant.js";
 import { electricite } from "../src/tools/electricite.js";
-import { mention, mentionIle as ileMention, mentionLa1ere } from "../src/tools/non-repris.js";
+import { mention, mentionIle as ileMention, mentionLa1ere, mentionReunionFr } from "../src/tools/non-repris.js";
 import { resume } from "../src/tools/resume.js";
 import { mentionProgrammes, sportTool } from "../src/tools/sport.js";
 import { aujourdhuiPage } from "../src/web/aujourdhui.js";
@@ -149,9 +149,10 @@ describe("the communes whose site's terms ask for their authorisation, until the
     expect(tampon.non_repris).toBe(TAMPON);
     expect(tampon.resume).toContain("; agenda du site de la commune non repris, ses mentions légales l'interdisent sans son accord (voir non_repris)");
     const ile = body(await agenda(c, undefined, undefined, undefined, NOW));
-    expect(ile.non_repris).toBe(mentionIle().join(" "));
+    // The communes, then reunion.fr (not a commune: a line apart).
+    expect(ile.non_repris).toBe(`${mentionIle().join(" ")} ${mentionReunionFr()}`);
     // Petite-Île: no other source there.
-    expect(body(await agenda(c, "Petite-Île", undefined, undefined, NOW)).resume).toContain("seuls les grands événements de reunion.fr y figurent");
+    expect(body(await agenda(c, "Petite-Île", undefined, undefined, NOW)).resume).not.toContain("reunion.fr");
   });
 
   it("are said on the page of the events and in the outings of the commune's page, never « rien d'annoncé »", () => {

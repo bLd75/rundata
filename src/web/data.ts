@@ -63,7 +63,8 @@ import { grandRaidRow, mentionProgrammes, sportTool, type SportRow } from "../to
 import * as gdacs from "../providers/cyclones.js";
 import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
 import { historiqueMeteo } from "../tools/historique.js";
-import { agenda, type EventRow } from "../tools/agenda.js";
+import { agenda, type EventRow, mentionIle as agendaNonRepris } from "../tools/agenda.js";
+import { RESUME_REUNION_FR } from "../tools/non-repris.js";
 import * as actuSource from "../providers/actualites.js";
 import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, quand as newsTime, type InfoRow } from "../tools/actualites.js";
 import { littoral, type Littoral } from "../tools/littoral.js";
@@ -1033,7 +1034,9 @@ const PAGE_EVENTS = 300;
 export async function buildAgenda(cache: Cache, now = new Date()): Promise<AgendaAnswer> {
   const a = needed<Omit<AgendaAnswer, "ce_week_end">>(await agenda(cache, undefined, undefined, undefined, now, PAGE_EVENTS), "agenda");
   const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", undefined, now));
-  return { ...a, ce_week_end: weekend?.evenements ?? [] };
+  // reunion.fr's agenda, not read, is the page's own note under its sources (noteReunionFr): not in its description.
+  const resume = a.resume.replace(`\u00a0; ${RESUME_REUNION_FR}`, "");
+  return { ...a, resume, non_repris: agendaNonRepris().join(" ") || undefined, ce_week_end: weekend?.evenements ?? [] };
 }
 
 export interface EnfantsAnswer {
