@@ -77,7 +77,7 @@ export function levelRow(l: Level, now: Date, km?: number) {
       : { hauteur_m: null }),
     ...(l.debit ? { debit_m3s: Math.round(l.debit.v * 1000) / 1000 } : {}),
     ...(s.crues.length ? { crues_de_reference: s.crues } : {}),
-    ...(age != null && age > LATE_MINUTES ? { avertissement: `Pas de mesure depuis ${ageText(age)}.` } : {}),
+    ...(age != null && age > LATE_MINUTES ? { avertissement: `Dernière mesure ${ageText(age)}.` } : {}),
   };
 }
 
@@ -161,10 +161,16 @@ export async function crues(cache: Cache, lieu: string | undefined, now = new Da
     const { say, common } = context(v, failed);
     const levels = vc.STATIONS.map((s) => level(s, h, q));
     const rising = levels.filter((l) => l.hauteur?.tendance === "en hausse");
-    const at = measuredAt(levels);
-    const moving = rising.length ? `En hausse sur la dernière demi-heure : ${rising.map(sentence).join("\u00a0; ")}` : "Aucune rivière suivie n'est en hausse sur la dernière demi-heure";
+    // A station without a recent measurement is not « not rising »: counted apart, by name (marketing).
+    const fresh = levels.filter((l) => l.hauteur && ageMinutes(new Date(l.hauteur.t), now) <= LATE_MINUTES);
+    const silent = levels.filter((l) => !fresh.includes(l));
+    const at = measuredAt(rising.length ? levels : fresh);
+    const apart = silent.length ? `\u00a0; ${silent.length} sans mesure récente\u00a0: ${silent.map((l) => l.station.nom).join(", ")}` : "";
+    const moving = rising.length
+      ? `En hausse sur la dernière demi-heure : ${rising.map(sentence).join("\u00a0; ")}${at ? ` (${at})` : ""}`
+      : `Aucune des ${fresh.length} stations à jour n'est en hausse sur la dernière demi-heure${at ? ` (${at})` : ""}${apart}`;
     return text({
-      resume: say(`${moving}${at ? ` (${at})` : ""}.`),
+      resume: say(`${moving}.`),
       ...(v ? { vigilance_crues: vigilanceBlock(v) } : {}),
       stations: levels.map((l) => levelRow(l, now)),
       ...common,

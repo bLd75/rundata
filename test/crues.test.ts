@@ -56,6 +56,28 @@ describe("Vigicrues Réunion", () => {
     expect(r.stations).toHaveLength(STATIONS.length);
   });
 
+  it("counts apart, by name, the stations without a recent measurement, never as not rising", async () => {
+    const id = (nom: string) => STATIONS.find((s) => s.nom === nom)!.id;
+    const h = JSON.parse(fixture("vigicrues_hauteur.json")) as Record<string, [number, number][]>;
+    // Cabris flat again, Saint-Gilles stopped an hour before the others, Mât - Escalier with no reading at all.
+    h[id("Cabris - RN3")] = h[id("Cabris - RN3")].map(([t]) => [t, 0.05]);
+    const end = Math.max(...h[id("Saint-Gilles - RN1a")].map(([t]) => t));
+    h[id("Saint-Gilles - RN1a")] = h[id("Saint-Gilles - RN1a")].filter(([t]) => t <= end - 3600_000);
+    delete h[id("Mât - Escalier")];
+    vi.stubGlobal("fetch", async (url: string, init?: { body?: URLSearchParams }) => {
+      const mesure = init?.body?.get("mesure");
+      const json = url.endsWith("vigilance.php") ? fixture("vigicrues_vigilance.json") : mesure === "hauteur" ? JSON.stringify(h) : fixture(`vigicrues_${mesure}.json`);
+      return new Response(json, { headers: { "content-type": "application/json" } });
+    });
+    const r = body(await crues(cache(), undefined, NOW));
+    const silent = r.stations.filter((s: { avertissement?: string; hauteur_m: number | null }) => s.avertissement || s.hauteur_m === null);
+    const names = silent.map((s: { station: string }) => s.station);
+    expect(names).toEqual(expect.arrayContaining(["Saint-Gilles - RN1a", "Mât - Escalier"]));
+    expect(r.resume).toMatch(new RegExp(`^Aucune des ${STATIONS.length - silent.length} stations à jour n'est en hausse sur la dernière demi-heure \\(mesures de 03:45\\) ; ${silent.length} sans mesure récente : `));
+    for (const n of names) expect(r.resume).toContain(n);
+    expect(r.stations.find((s: { station: string }) => s.station === "Saint-Gilles - RN1a").avertissement).toBe("Dernière mesure il y a 82 min.");
+  });
+
   it("asks only for the gauges near the place", async () => {
     const r = body(await crues(cache(), "Saint-Gilles", NOW));
     expect(r.stations[0]).toMatchObject({ station: "Saint-Gilles - RN1a", riviere: "ravine Saint-Gilles", hauteur_m: 0.177, tendance_30_min: "stable" });
