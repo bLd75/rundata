@@ -1859,7 +1859,7 @@ ${enLigne() ? `<h2 id="associations-donnees">Ce que les clubs et associations en
 </section>`
     : `<section style="${PROSE}">
   <h2>Le service</h2>
-  <p>rundata.re est un service gratuit et non commercial : un site et un connecteur MCP (<code>${esc(origin)}/mcp</code>) qui réunissent les données publiques de La Réunion pour les personnes et leurs assistants IA. Il n'y a ni compte ni abonnement. Son code est libre, sous licence MIT, sur <a href="${GITHUB}">GitHub</a>.</p>
+  <p>rundata.re est un service gratuit\u00a0: un site et un connecteur MCP (<code>${esc(origin)}/mcp</code>) qui réunissent les données publiques de La Réunion pour les personnes et leurs assistants IA. Il n'y a ni compte ni abonnement. Son code est libre, sous licence MIT, sur <a href="${GITHUB}">GitHub</a>.</p>
   <h2>Pas un service officiel, pas de garantie</h2>
   <p>Les données viennent d'organismes publics et de projets ouverts, cités dans chaque réponse. Elles sont données telles quelles, sans garantie d'exactitude, de fraîcheur ni de disponibilité. Pour un cyclone, de fortes pluies, une crue ou une éruption, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture. La fiche d'une adresse n'a aucune valeur juridique : le cadastre est un document fiscal, et l'état des risques obligatoire pour une vente ou une location reste à établir.</p>
   <h2>Usage raisonnable</h2>
