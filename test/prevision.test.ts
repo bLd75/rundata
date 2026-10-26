@@ -80,14 +80,14 @@ describe("prevision_meteo", () => {
     expect(r.resume).toMatch(/Cilaos, demain \(vendredi 23\/10\)/);
     expect(r.jours).toHaveLength(1);
     expect(r.pas_de_3h).toHaveLength(8);
-    expect(r.pas_de_3h[0].heures).toBe("vendredi 23/10 0h–3h");
+    expect(r.pas_de_3h[0].heures).toBe("vendredi 23/10 0\u00a0h–3\u00a0h");
     expect(r.avertissements.join(" ")).toMatch(/altitude de Cilaos \(1\u202f209 m\)/);
   });
 
   it("gives the next 24 hours and the following days without a time", async () => {
     const r = body(await previsionMeteo(await offlineCache(), "Cilaos", undefined, NOW));
     always(r);
-    expect(r.pas_de_3h[0].heures).toBe("jeudi 22/10 9h–12h"); // the step under way at 10:00
+    expect(r.pas_de_3h[0].heures).toBe("jeudi 22/10 9\u00a0h–12\u00a0h"); // the step under way at 10:00
     expect(r.pas_de_3h).toHaveLength(9);
     expect(r.jours.map((j: { jour: string }) => j.jour)).toEqual([
       "jeudi 22/10", "vendredi 23/10", "samedi 24/10", "dimanche 25/10", "lundi 26/10", "mardi 27/10", "mercredi 28/10",

@@ -89,11 +89,11 @@ describe("houle.parse", () => {
 describe("the waves in temperature_mer", () => {
   it("answer « la houle à Saint-Leu ? » with a forecast labelled as such, apart from the measured temperature", async () => {
     const r = body(await temperatureMer(await withSea(), "Saint-Leu", NOW));
-    expect(r.resume).toMatch(/Vagues PRÉVUES près de Saint-Leu \(modèle WAM du Centre européen \(ECMWF\), pas une mesure\) : \d+(,\d)? m (du |de l')[a-z-]+, période \d+ s vers 9h\u00a0; jusqu'à \d+(,\d)? m/);
+    expect(r.resume).toMatch(/Vagues PRÉVUES près de Saint-Leu \(modèle WAM du Centre européen \(ECMWF\), pas une mesure\) : \d+(,\d)? m (du |de l')[a-z-]+, période \d+ s vers 9\u00a0h\u00a0; jusqu'à \d+(,\d)? m/);
     const s = r.etat_de_la_mer;
     expect(s.nature).toBe("prevision");
     expect(s.point_du_modele.distance_km).toBeLessThan(10);
-    expect(s.maintenant).toMatchObject({ heures: "jeudi 22/10 9h", hauteur: expect.stringMatching(/ m$/), periode: expect.stringMatching(/ s$/) });
+    expect(s.maintenant).toMatchObject({ heures: "jeudi 22/10 9\u00a0h", hauteur: expect.stringMatching(/ m$/), periode: expect.stringMatching(/ s$/) });
     expect(s.jours.map((d: { jour: string }) => d.jour)).toEqual(["jeudi 22/10", "vendredi 23/10", "samedi 24/10", "dimanche 25/10"]);
     expect(s.pas_de_3h).toHaveLength(8);
     expect(s.avertissements.join(" ")).toMatch(/PRÉVISION d'un modèle numérique de vagues, pas une mesure.*lagon/);

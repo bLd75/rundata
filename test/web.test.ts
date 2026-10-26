@@ -684,7 +684,7 @@ describe("vigilance and sea pages", () => {
     const swell = text.match(/<section aria-labelledby="h-houle">[^]*?<\/section>/)![0];
     expect(swell).toContain("Prévision, pas une mesure");
     expect(swell.match(/<li>/g)).toHaveLength(14);
-    expect(swell).toMatch(/<b>\d+(,\d)?\u202fm<\/b><span>(du |de l')[a-z-]+, période \d+ s, vers \d+h<\/span><span>jusqu'à\u00a0\d+(,\d)?\u202fm /);
+    expect(swell).toMatch(/<b>\d+(,\d)?\u202fm<\/b><span>(du |de l')[a-z-]+, période \d+ s, vers \d+\u00a0h<\/span><span>jusqu'à\u00a0\d+(,\d)?\u202fm /);
     expect(used).toBeLessThanOrEqual(PAGE_BUDGET);
     // A coastal commune's tile says it too, from the same copy.
     const saintLeu = await serve(cache, "/communes/saint-leu");
