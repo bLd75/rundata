@@ -185,12 +185,16 @@ export interface StreetSale {
   valeur: number;
   surface_bati: number;
   surface_terrain: number;
+  /** Sold off plan, as a new home (DVF's nature « Vente en l'état futur d'achèvement »). */
+  vefa: boolean;
 }
 
 /** The yearly files of DVF géolocalisées, one per commune; the years that have one. */
 const GEO_DVF = (year: number, insee: string) => `https://files.data.gouv.fr/geo-dvf/latest/csv/${year}/communes/974/${insee}.csv`;
 // Not sales, though DVF records them.
 export const NOT_SALES = new Set(["Echange", "Expropriation"]);
+/** DVF's nature of a sale off plan, a new home: counted apart (tools/terrain.ts). A new home sold once built is a « Vente ». */
+export const VEFA = "Vente en l'état futur d'achèvement";
 
 /** One line of a CSV file of geo-dvf, its quoted fields included. */
 function cells(line: string): string[] {
@@ -258,6 +262,7 @@ export function streetSales(csv: string, voie: string): StreetSale[] {
       valeur,
       surface_bati: type === "maison" ? maisons[0].bati : type === "appartement" ? apparts[0].bati : 0,
       surface_terrain: [...land.values()].reduce((a, b) => a + b, 0),
+      vefa: first[NATURE] === VEFA,
     }];
   });
 }
@@ -267,8 +272,8 @@ export function streetSales(csv: string, voie: string): StreetSale[] {
  * year without a file yet (404) is left out; `annees` says which were read.
  */
 export async function salesOnStreet(cache: Cache, insee: string, voie: string, fromYear: number, toYear: number): Promise<Cached<{ ventes: StreetSale[]; annees: number[] }>> {
-  // v2: DVF's double records counted once (an older entry may hold them twice).
-  return cache.get(`dvf-voie:v2:${insee}:${voie}:${fromYear}-${toYear}`, 7 * DAY, async () => {
+  // v3: each sale says whether it is off plan (an older entry does not).
+  return cache.get(`dvf-voie:v3:${insee}:${voie}:${fromYear}-${toYear}`, 7 * DAY, async () => {
     const years = Array.from({ length: toYear - fromYear + 1 }, (_, i) => fromYear + i);
     const files = await Promise.all(years.map((y) => getText(SOURCES.dvfVoie.id, GEO_DVF(y, insee), 25_000).catch((err) => {
       if (err instanceof UpstreamError && err.status === 404) return undefined;
