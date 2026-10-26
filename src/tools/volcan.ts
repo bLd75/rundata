@@ -54,7 +54,7 @@ export const A_LIRE = "Le contenu de cette publication est dans ses images, que 
  */
 export function enclosOfRelease(p: volcan.Phase): { mots?: string; niveau?: string } | undefined {
   if (!p.enclos) return undefined;
-  const mots = volcan.enclosWords(p.titre);
+  const mots = volcan.enclosWordsOf(p);
   return mots ? { mots } : /^Alerte/.test(p.niveau) && p.enclos === "ferme" ? { niveau: p.niveau } : undefined;
 }
 

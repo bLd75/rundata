@@ -23,7 +23,7 @@ function cacheWith(posts = activityPosts(JSON.parse(fixture("ovpf_bluesky.json")
   void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
   void store.put("volcan:ovpf", { value: posts, fetchedAt: old.includes("volcan:ovpf") ? t - 2 * 86_400_000 : t });
   void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
-  void store.put("volcan:prefecture", { value: null, fetchedAt: t });
+  void store.put("volcan:prefecture:phase", { value: null, fetchedAt: t });
   // The last phase the prefecture declared, kept: back to vigilance in May, before pitonlive's status of October.
   const may = { titre: "Piton de la Fournaise : retour en vigilance, réouverture partielle de l'enclos", lien: "https://www.reunion.gouv.fr/x", publie: "2026-05-07T08:00:00.000Z" } as Info;
   void store.put("volcan:prefecture:derniere-phase", { value: phaseOf([may]), fetchedAt: t });
@@ -118,7 +118,7 @@ describe("volcano", () => {
     void store.put("volcan:ovpf", { value: posts, fetchedAt: t });
     void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
     const alerte = { titre: "Piton de la Fournaise : passage en alerte 1, fermeture de l’enclos", lien: "https://www.reunion.gouv.fr/x", publie: "2026-10-24T13:00:00.000Z" } as Info;
-    void store.put("volcan:prefecture", { value: phaseOf([alerte]), fetchedAt: t });
+    void store.put("volcan:prefecture:phase", { value: phaseOf([alerte]), fetchedAt: t });
     const cache = new Cache(store, () => t);
     const r = body(await volcanSeismes(cache, now));
     expect(r.resume).toContain(`L'OVPF et la préfecture n'ont pas annoncé d'éruption dans les textes que nous avons lus. La dernière publication de l'OVPF, le 25/10 à 08:02, est en images, que nous ne lisons pas : la voir, ${lien}.`);

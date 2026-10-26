@@ -71,7 +71,7 @@ describe("the day of the prefecture's release, never an hour made up", () => {
     void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
     // pitonlive at alert 1 at 18:00 the same day: the prefecture's release keeps its day.
     void store.put("volcan:pitonlive", { value: piton("Alerte 1", "2026-10-24T14:00:00Z"), fetchedAt: t });
-    void store.put("volcan:prefecture", { value: ALERT_1, fetchedAt: t });
+    void store.put("volcan:prefecture:phase", { value: ALERT_1, fetchedAt: t });
     vi.stubGlobal("fetch", async () => new Response(PAGE));
     vi.spyOn(console, "log").mockImplementation(() => {});
     const v = await buildVolcan(new Cache(store, () => t, true, new MemoryStore()), now);
@@ -91,7 +91,7 @@ describe("the day of the prefecture's release, never an hour made up", () => {
     void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
     void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
     void store.put("volcan:pitonlive", { value: piton("Alerte 1 - eruption probable ou imminente", "2026-10-25T04:02:38.225000Z"), fetchedAt: t });
-    void store.put("volcan:prefecture", { value: ALERT_1, fetchedAt: t });
+    void store.put("volcan:prefecture:phase", { value: ALERT_1, fetchedAt: t });
     vi.stubGlobal("fetch", async () => new Response(PAGE));
     vi.spyOn(console, "log").mockImplementation(() => {});
     const v = await buildVolcan(new Cache(store, () => t, true, new MemoryStore()), now);

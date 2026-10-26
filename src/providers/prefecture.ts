@@ -102,6 +102,23 @@ const DECLARES = new RegExp(
   "iu",
 );
 const ABOUT_VOLCANO = /fournaise|volcan|enclos|[ée]ruption/i;
+/**
+ * A release about the volcano, by its title or its address: the volcano's plan has a phase de sauvegarde too, and its
+ * titles do not always name it (« Retour en phase de vigilance », 26/10/2026, about the Enclos).
+ */
+const aboutVolcano = (r: Info) => ABOUT_VOLCANO.test(r.titre) || ABOUT_VOLCANO.test(slugWords(r.lien));
+
+/** The words of a release's address: « retour en phase de vigilance ». */
+export function slugWords(lien: string): string {
+  const last = lien.replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop() ?? "";
+  let words = last;
+  try {
+    words = decodeURIComponent(last);
+  } catch {
+    // A malformed escape: the address as written.
+  }
+  return words.replace(/[-_]+/g, " ");
+}
 
 function declared(r: Info): Decision | undefined {
   const t = r.titre;
@@ -127,7 +144,7 @@ function declared(r: Info): Decision | undefined {
 
 /** The decision of the newest release about the cyclone alert that declares one. */
 export function decisionOf(list: Info[]): Decision | undefined {
-  for (const r of list.filter((x) => ABOUT_CYCLONE.test(x.titre) && !ABOUT_VOLCANO.test(x.titre)).sort((a, b) => b.publie.localeCompare(a.publie))) {
+  for (const r of list.filter((x) => ABOUT_CYCLONE.test(x.titre) && !aboutVolcano(x)).sort((a, b) => b.publie.localeCompare(a.publie))) {
     const d = declared(r);
     if (d) return d;
   }

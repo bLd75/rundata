@@ -131,7 +131,7 @@ describe("« Puis-je monter au volcan ? » in the answer and on /volcan", () => 
     void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
     void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
     void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
-    void store.put("volcan:prefecture", { value: ALERT_1, fetchedAt: t });
+    void store.put("volcan:prefecture:phase", { value: ALERT_1, fetchedAt: t });
     void store.put("onf:sentiers", { value: carte().value, fetchedAt: carte().fetchedAt.getTime() });
     return new Cache(store, () => t, true, durable);
   }

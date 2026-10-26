@@ -19,7 +19,7 @@ function cacheWith(posts = activityPosts(JSON.parse(fixture("ovpf_bluesky.json")
   void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
   void store.put("volcan:ovpf", { value: posts, fetchedAt: t });
   void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
-  void store.put("volcan:prefecture", { value: null, fetchedAt: t });
+  void store.put("volcan:prefecture:phase", { value: null, fetchedAt: t });
   const may = { titre: "Piton de la Fournaise : retour en vigilance, réouverture partielle de l'enclos", lien: "https://www.reunion.gouv.fr/x", publie: "2026-05-07T08:00:00.000Z" } as Info;
   void store.put("volcan:prefecture:derniere-phase", { value: phaseOf([may]), fetchedAt: t });
   return new Cache(store, () => t);

@@ -23,7 +23,7 @@ async function answer(phase: unknown = null): Promise<VolcanAnswer> {
   void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
   void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
   void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
-  void store.put("volcan:prefecture", { value: phase, fetchedAt: t });
+  void store.put("volcan:prefecture:phase", { value: phase, fetchedAt: t });
   // The last phase the prefecture declared, kept: back to vigilance in May, before pitonlive's status of October.
   void store.put("volcan:prefecture:derniere-phase", { value: MAY, fetchedAt: t });
   return buildVolcan(new Cache(store, () => t), NOW);

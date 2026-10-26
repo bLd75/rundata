@@ -99,7 +99,7 @@ describe("the text read, in the answers", () => {
     void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky_2026-10-25.json"))), fetchedAt: t });
     void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
     const titre = alerte ? "Piton de la Fournaise : passage en alerte 1, fermeture de l’enclos" : "Piton de la Fournaise : retour en vigilance, réouverture partielle de l'enclos";
-    void store.put("volcan:prefecture", { value: phaseOf([{ titre, lien: "https://www.reunion.gouv.fr/x", publie: "2026-10-24T13:00:00.000Z" } as Info]), fetchedAt: t });
+    void store.put("volcan:prefecture:phase", { value: phaseOf([{ titre, lien: "https://www.reunion.gouv.fr/x", publie: "2026-10-24T13:00:00.000Z" } as Info]), fetchedAt: t });
     return new Cache(store, () => t);
   }
 
