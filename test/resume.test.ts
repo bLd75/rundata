@@ -218,7 +218,7 @@ describe("reading the copies", () => {
     const { value } = await counted(PAGE_BUDGET, () => readCopies(isolate(new EdgeLike()), SAINT_PAUL, SAINT_PAUL, NOW));
     // Nothing at all: every part named, nothing refreshed without a way to finish after the answer.
     expect(value.leftOut.map((x) => x.outil)).toEqual(expect.arrayContaining(["meteo_actuelle et prevision_meteo", "coupures_eau", "evenements", "actualites"]));
-    expect(value.refreshed).toBeUndefined();
+    expect(value.refreshed).toEqual([]);
 
     const { value: v2 } = await counted(PAGE_BUDGET, async () => readCopies(isolate(await edgeWith(["coupures"])), SAINT_PAUL, SAINT_PAUL, NOW));
     expect(v2.copies.coupures).toBeUndefined();
@@ -241,17 +241,17 @@ describe("reading the copies", () => {
       return { refreshed: run.value.refreshed, ...(await run.settled()) };
     };
     const air = await once("air");
-    expect(air.refreshed).toBe(KEYS.air);
+    expect(air.refreshed).toEqual([KEYS.air]);
     expect(air.used).toBeLessThanOrEqual(PAGE_BUDGET);
     expect(air.refused).toBe(0);
     // The dearest, the weather page's, fits too.
     const meteo = await once("meteo");
-    expect(meteo.refreshed).toBe(KEYS.meteo);
+    expect(meteo.refreshed).toEqual([KEYS.meteo]);
     expect(meteo.used).toBeLessThanOrEqual(PAGE_BUDGET);
     expect(meteo.refused).toBe(0);
     // An invocation with less left: too costly to fit, left to the commune page, which brings it up to date on its own.
     const short = await once("meteo", 40);
-    expect(short.refreshed).toBeUndefined();
+    expect(short.refreshed).toEqual([]);
     expect(short.used).toBeLessThanOrEqual(40);
   });
 
@@ -271,7 +271,37 @@ describe("reading the copies", () => {
     expect(run.value.copies.air).toBeUndefined();
     expect(run.value.leftOut.find((x) => x.partie === "qualité de l'air")).toMatchObject({ raison: UPDATING, outil: "qualite_air" });
     expect(run.value.copies.coupures).toBeTruthy();
-    expect(run.value.refreshed).toBe(KEYS.air);
+    expect(run.value.refreshed).toContain(KEYS.air);
+  });
+
+  it("after a deploy that raised several revisions, brings all their copies up to date at once, as far as the subrequests go", async () => {
+    // The copies of the electricity and of the events built by the code before; what their builds took, with them.
+    const view = async (costs: Record<string, number>, budget = PAGE_BUDGET) => {
+      const edge = new EdgeLike();
+      for (const [part, c] of Object.entries(COPIES)) {
+        const cost = costs[part];
+        await edge.put(KEYS[part], { value: c.value, fetchedAt: c.fetchedAt.getTime(), version: cost ? "rendu-0" : stampOf(KEYS[part], "2.0.0"), ...(cost ? { cost } : {}) });
+      }
+      const cache = new Cache(new TieredStore(new MemoryStore(), edge), () => NOW.getTime(), false, new MemoryStore(), "2.0.0");
+      const pending: Promise<unknown>[] = [];
+      const run = await counted(budget, async () => {
+        const r = await readCopies(cache, SAINT_PAUL, SAINT_PAUL, NOW, (p) => pending.push(p));
+        await Promise.all(pending);
+        return r;
+      });
+      return run.value.refreshed;
+    };
+    // Before any build of theirs in this isolate, what their copies say they took is what counts. The second past
+    // what is left once the first is counted: it waits for the next view, which has room for it.
+    const first = await view({ electricite: 60, agenda: 120 });
+    expect(first).toContain(KEYS.electricite);
+    expect(first).not.toContain(KEYS.agenda);
+    expect(await view({ agenda: 120 })).toContain(KEYS.agenda);
+    // Both within what is left (what their builds took here, since): in the same view, not one at this view and the
+    // other at the next.
+    const both = await view({ electricite: 30, agenda: 30 });
+    expect(both).toContain(KEYS.electricite);
+    expect(both).toContain(KEYS.agenda);
   });
 
   it("never shows an event of an agenda no longer read from a copy built before, and says the events are updating", async () => {
