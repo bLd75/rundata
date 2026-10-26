@@ -92,6 +92,9 @@ describe("bus page", () => {
     const page = busPage(ORIGIN, cached(data), NOW);
     expect(page).toContain("Gare de Saint-Pierre");
     expect(page).toContain("Horaires théoriques");
+    // The wait under the direction, as on a stop's page: beside it, a delay announced left the direction 85 px on a phone.
+    expect(page).toContain(`<ul class="rows departs"><li><b>`);
+    expect(page).not.toContain(`<ul class="rows"><li><b>`);
   });
 
   it("without the timetables, sends people to the connector", async () => {
