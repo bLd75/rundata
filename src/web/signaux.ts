@@ -13,7 +13,8 @@
  *   the first visit, it is wiped and the visit counts as the first (the CNIL's condition for an audience measure
  *   without consent: « ne doit pas être prolongée automatiquement lors des nouvelles visites »).
  *
- * The rest of the page keeps nothing in the browser for these measures.
+ * The rest of the page keeps nothing in the browser for these measures. A device of the team, which the page knows by
+ * its own mark (`team`, web/pwa.ts: `?interne=1`), says so with each signal, written « interne » like its pages.
  */
 import { bodyText } from "../http.js";
 import type { Recorder } from "../metrics.js";
@@ -45,7 +46,7 @@ const n=Math.round((Date.parse(j)-Date.parse(m.d))/864e5);return[n===0?"j":n===1
  * The page's part of the shared script (pages.ts): `sig` for the copy button too. The class leaves only once the mark
  * is written, so that a browser that keeps nothing does not count each of its visits as a first one.
  */
-export const SIGNAL_SCRIPT = `const sig=(e,v,x)=>{try{navigator.sendBeacon("${SIGNAL_PATH}",new URLSearchParams({e,v:v||"",p:location.pathname,...(x||{})}))}catch{}};
+export const SIGNAL_SCRIPT = `const sig=(e,v,x)=>{try{navigator.sendBeacon("${SIGNAL_PATH}",new URLSearchParams({e,v:v||"",p:location.pathname,...(typeof team!=="undefined"&&team?{i:"1"}:{}),...(x||{})}))}catch{}};
 let lcp=0;try{new PerformanceObserver((l)=>{for(const e of l.getEntries())lcp=e.startTime}).observe({type:"largest-contentful-paint",buffered:true})}catch{}
 let vu=false;const affiche=()=>{if(vu)return;vu=true;try{const n=performance.getEntriesByType("navigation")[0];if(n)sig("a","",{t:Math.round(n.responseStart),l:Math.round(lcp)})}catch{}};
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")affiche()});addEventListener("pagehide",affiche);
@@ -68,13 +69,14 @@ export function aide(): string {
 </aside>`;
 }
 
-/** A signal as read from the page: the event, the page, its value, and for « affichage » its two times in ms. */
+/** A signal as read from the page: the event, the page, its value, for « affichage » its two times in ms, and a team's device. */
 export interface Signal {
   event: string;
   path: string;
   value: string;
   ttfb?: number;
   lcp?: number;
+  team?: true;
 }
 
 const PATH = /^\/(?!\/)[\w\-./%]{0,200}$/;
@@ -88,6 +90,11 @@ export function lire(body: string): Signal | undefined {
   const path = f.get("p") ?? "";
   const v = f.get("v") ?? "";
   if (!event || !PATH.test(path)) return undefined;
+  const s = read(f, event, path, v);
+  return s && f.get("i") === "1" ? { ...s, team: true } : s;
+}
+
+function read(f: URLSearchParams, event: string, path: string, v: string): Signal | undefined {
   switch (f.get("e")) {
     case "a":
       return v ? undefined : { event, path, value: "", ttfb: ms(f.get("t")), lcp: ms(f.get("l")) };
@@ -110,6 +117,6 @@ export async function signal(request: Request, record: Recorder): Promise<Respon
   if ((site && site !== "same-origin") || (from && from !== new URL(request.url).origin)) return done;
   const body = await bodyText(request, BODY_MAX);
   const s = body === undefined ? undefined : lire(body);
-  if (s) record({ kind: "signal", name: s.path, detail: s.event, value: s.value, ok: true, ms: s.ttfb, lcp: s.lcp });
+  if (s) record({ kind: "signal", name: s.path, detail: s.event, value: s.value, ok: true, ms: s.ttfb, lcp: s.lcp, ...(s.team && { team: true }) });
   return done;
 }

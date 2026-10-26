@@ -59,6 +59,20 @@ describe("POST /signal, as recorded", () => {
     expect(shown.hits[0]).toMatchObject({ kind: "signal", detail: "affichage", ms: 380, lcp: 1200 });
   });
 
+  it("writes « interne » the signals of a device of the team, as its pages are", async () => {
+    expect(lire("e=o&v=oui&p=%2F&i=1")).toEqual({ event: "aide", path: "/", value: "oui", team: true });
+    expect(lire("e=o&v=oui&p=%2F&i=0")).toEqual({ event: "aide", path: "/", value: "oui" });
+    const { hits } = await hitsOf(beacon("e=r&v=l&p=%2Fmeteo&i=1"));
+    expect(hits).toEqual([{ kind: "signal", name: "/meteo", detail: "retour", value: "lendemain", ok: true, ms: undefined, lcp: undefined, team: true }]);
+    const p = point(hits[0], { who: "navigateur", country: "RE", from: "", audience: "humain", language: "fr", device: "mobile" });
+    expect([p.blobs[3], p.blobs[8]]).toEqual(["interne", "interne"]);
+    // The page knows it by the mark of web/pwa.ts, set before its signals.
+    const html = legalPage(O, "confidentialite");
+    expect(SIGNAL_SCRIPT).toContain('...(typeof team!=="undefined"&&team?{i:"1"}:{})');
+    expect(html.indexOf("let team=false")).toBeGreaterThan(0);
+    expect(html.indexOf("let team=false")).toBeLessThan(html.indexOf("const sig="));
+  });
+
   it("records nothing from another site, a script of the team, a body too long or a GET", async () => {
     const other = await hitsOf(beacon("e=o&v=oui&p=%2F", { ...BROWSER, "sec-fetch-site": "cross-site", origin: "https://example.org" }));
     expect(other.response.status).toBe(204);

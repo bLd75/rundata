@@ -64,6 +64,8 @@ export interface Hit {
   /** Signal: its value (« oui », « non », the class of a visit), and for « affichage » the LCP in ms (TTFB in `ms`). */
   value?: string;
   lcp?: number;
+  /** Signal: sent from a device of the team, which its page knows (web/pwa.ts): written « interne », as its pages are. */
+  team?: boolean;
 }
 
 export type Recorder = (hit: Hit) => void;
@@ -269,10 +271,10 @@ export function point(hit: Hit, v: Visit): { indexes: string[]; blobs: string[];
   const page = hit.kind === "page" || hit.kind === "flux" || signal;
   const seen = hit.kind === "page" || signal;
   const blobs = [
-    hit.kind, hit.name, hit.detail ?? "", hit.reader ?? v.who, v.country, signal ? "" : v.from,
+    hit.kind, hit.name, hit.detail ?? "", hit.team ? TEAM : hit.reader ?? v.who, v.country, signal ? "" : v.from,
     page ? category(hit.name) : hit.method ?? "",
     page ? v.language : hit.client ?? "",
-    page ? v.audience : hit.clientVersion ?? "",
+    page ? (hit.team ? TEAM : v.audience) : hit.clientVersion ?? "",
     signal ? hit.value ?? "" : page ? String(hit.status ?? "") : hit.protocol ?? "",
     seen ? v.mode ?? "" : hit.outcome ?? "", seen ? v.device ?? "" : hit.message ?? "", hit.args ?? "", hit.place ?? "", hit.commune ?? "",
   ];
