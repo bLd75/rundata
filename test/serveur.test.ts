@@ -8,7 +8,7 @@ import { inReunionBeacons } from "../src/providers/pioupiou.js";
 import { existsSync } from "node:fs";
 import { nomDeSource, SERVER_ICONS, VERSION } from "../src/server.js";
 import { cite } from "../src/tools/citer.js";
-import { dataDate, fraicheur, instantOf } from "../src/tools/fraicheur.js";
+import { dataDate, fraicheur, instantOf, sourceMuette } from "../src/tools/fraicheur.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
@@ -318,6 +318,35 @@ describe("fraicheur", () => {
     const stations = { key: "stations", fetchedAt: t("05:00"), stale: true, freshSeconds: 86_400, source: "ffhb" };
     expect(said([fresh, stations]).copies_de_secours).toBeUndefined();
     expect(said([fresh]).avertissement).toBeUndefined();
+  });
+
+  it("says a source too slow for the answer as late, not as silent, in the user's words", () => {
+    const now = new Date("2026-10-25T23:00:00+04:00");
+    const t = (hhmm: string) => Date.parse(`2026-10-25T${hhmm}:00+04:00`);
+    const nom = (id: string) => ({ la1ere: "Réunion La 1ère (actualité sportive)", ffhb: "FFHB", metar: "METAR" })[id];
+    const fresh = { key: "ffvb", fetchedAt: t("22:58"), stale: false, freshSeconds: 900 };
+    const slow = { key: "sport:actu", fetchedAt: t("22:22"), stale: true, freshSeconds: 1800, source: "la1ere", tardive: true };
+    const ffhb = { key: "sport:hand", fetchedAt: t("21:51"), stale: true, freshSeconds: 3600, source: "ffhb" };
+    const metar = { key: "metar", fetchedAt: t("21:00"), stale: true, freshSeconds: 600, source: "metar" };
+    const said = (lectures: object[]) => fraicheur({}, lectures as never, now, { nom });
+    // The mark stays out of the answer: only the sentence changes.
+    expect(said([fresh, slow])).toEqual(expect.objectContaining({
+      copies_de_secours: [{ source: "Réunion La 1ère (actualité sportive)", lue_le: "25/10 22:22" }],
+      avertissement: "La source « Réunion La 1ère (actualité sportive) » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 22:22. Le reste de la réponse est à jour.",
+    }));
+    expect(said([slow]).avertissement).toBe("La source « Réunion La 1ère (actualité sportive) » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 22:22.");
+    // After those that did not answer, one sentence each; « le reste » after them all.
+    expect(said([fresh, slow, ffhb]).avertissement).toBe(
+      "La source « FFHB » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 21:51. La source « Réunion La 1ère (actualité sportive) » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 22:22. Le reste de la réponse est à jour.",
+    );
+    expect(said([fresh, slow, ffhb, metar]).avertissement).toBe(
+      "Ces sources n'ont pas répondu à notre dernière lecture : « METAR », lue le 25/10 à 21:00\u00a0; « FFHB », lue le 25/10 à 21:51. Ce qui vient d'elles date de ces lectures. La source « Réunion La 1ère (actualité sportive) » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 22:22. Le reste de la réponse est à jour.",
+    );
+    // Slow for one part, silent for another: it did not answer.
+    expect(said([fresh, slow, { ...slow, key: "sport:actu:2", fetchedAt: t("22:40"), tardive: undefined }]).avertissement).toMatch(/^La source « Réunion La 1ère \(actualité sportive\) » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25\/10 à 22:22\./);
+    // A page's copy (volcan.ts) says it too.
+    expect(sourceMuette("FFHB", new Date(t("21:51")), true)).toBe("La source « FFHB » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 21:51.");
+    expect(sourceMuette("FFHB", new Date(t("21:51")))).toMatch(/n'a pas répondu/);
   });
 
   it("gives the age of the data from its own date when the block states none, whatever the read", () => {
