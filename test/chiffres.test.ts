@@ -154,8 +154,8 @@ describe("the counts (chiffres.ts)", () => {
     const c = chiffres(sources, late, NOW, OUTILS_ICI);
     expect(c.compte_le).toBe("26/10 à 08:00");
     const html = typo(chiffresPage("https://rundata.re", c));
-    expect(html).not.toContain("(compté le 26/10 à 08:00)");
-    expect(html).toContain("(compté le 26/10 à 06:00)");
+    expect(html).not.toContain("(compté le 26/10 à\u00a008:00)");
+    expect(html).toContain("(compté le 26/10 à\u00a006:00)");
     // A copy written before the build's hour was kept: its write's hour, as before.
     expect(chiffres(sources, copie, NOW, OUTILS_ICI).compte_le).toBe("26/10 à 08:00");
   });
@@ -172,11 +172,11 @@ describe("the page /chiffres", () => {
     expect(html).toContain('href="/sentiers">351</a>');
     expect(html).toMatch(/sources sont publiées sous une licence ouverte \(Licence Ouverte, ODbL, CC BY, domaine public\)\. Pour les autres, des informations publiques, rundata\.re ne reprend que les faits, avec le lien de la source\./);
     expect(html).toContain('3 sites publics ne répondent pas en ce moment\u00a0: <a href="/sites-sans-reponse">voir les sites sans réponse</a>.');
-    expect(html).toContain("Compté le 26/10 à 08:00, à partir des sources que lit rundata.re. Une source manque\u00a0? Dites-le avec le formulaire en bas de page.");
+    expect(html).toContain("Compté le 26/10 à\u00a008:00, à partir des sources que lit rundata.re. Une source manque\u00a0? Dites-le avec le formulaire en bas de page.");
   });
 
   it("says the hour of a count kept from an earlier copy, and never shows a count not made", () => {
-    expect(html).toContain("(compté le 26/10 à 06:00)");
+    expect(html).toContain("(compté le 26/10 à\u00a006:00)");
     const bare = typo(chiffresPage("https://rundata.re", chiffres(sources, undefined, NOW, OUTILS_ICI)));
     expect(bare).not.toContain("stations météo lues");
     expect(bare).not.toContain("En ce moment");

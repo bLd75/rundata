@@ -250,7 +250,7 @@ describe("coupures d'eau", () => {
     expect(pdp).toContain("les avis de la CIREST");
     // runéo's feed is read, and has nothing for Saint-Pierre: said with the time of the copy.
     expect(page("saint-pierre")).toContain("Aucun avis de coupure publié par runéo à Saint-Pierre à 08:00.");
-    expect(page("saint-pierre")).toContain(`content="Aucune coupure d&#39;eau annoncée par runéo à Saint-Pierre (974) à 08:00.`);
+    expect(page("saint-pierre")).toContain(`content="Aucune coupure d&#39;eau annoncée par runéo à Saint-Pierre (974) à\u00a008:00.`);
     // La Créole's page is read: its notice, dated to the day without an hour.
     const sp = page("saint-paul");
     expect(sp).toContain("Interruption nocturne de la distribution du 23/10/2026");
@@ -389,12 +389,12 @@ describe("coupures d'eau", () => {
     const later = new Date("2026-10-24T04:00:00Z");
     const now = { value: await buildCoupures(cache(), later), fetchedAt: later };
     expect(coupuresCommunePage("https://rundata.re", pageOf("saint-leu")!, { coupures: now }, later)).toMatch(/Aucun avis de coupure publié par la commune de Saint-Leu à \d\d:\d\d\./);
-    expect(coupuresCommunePage("https://rundata.re", pageOf("saint-leu")!, { coupures: now }, later)).toMatch(/content="Aucune coupure d&#39;eau annoncée par la commune de Saint-Leu \(974\) à \d\d:\d\d\./);
+    expect(coupuresCommunePage("https://rundata.re", pageOf("saint-leu")!, { coupures: now }, later)).toMatch(/content="Aucune coupure d&#39;eau annoncée par la commune de Saint-Leu \(974\) à\u00a0\d\d:\d\d\./);
     // The east: the CIREST publishes the notices read, not O2LEST, which the ARS names as the distributor.
     const sa = coupuresCommunePage("https://rundata.re", pageOf("saint-andre")!, { coupures: now }, later);
-    expect(sa).toMatch(/content="Aucune coupure d&#39;eau annoncée par la CIREST à Saint-André \(974\) à \d\d:\d\d\./);
+    expect(sa).toMatch(/content="Aucune coupure d&#39;eau annoncée par la CIREST à Saint-André \(974\) à\u00a0\d\d:\d\d\./);
     expect(sa).toContain("<b>O2LEST</b> distribue l'eau à Saint-André, d'après le contrôle sanitaire de l'ARS.");
-    expect(coupuresCommunePage("https://rundata.re", pageOf("sainte-marie")!, { coupures: now }, later)).toMatch(/content="Aucune coupure d&#39;eau annoncée par la ville de Sainte-Marie \(974\) à \d\d:\d\d\./);
+    expect(coupuresCommunePage("https://rundata.re", pageOf("sainte-marie")!, { coupures: now }, later)).toMatch(/content="Aucune coupure d&#39;eau annoncée par la ville de Sainte-Marie \(974\) à\u00a0\d\d:\d\d\./);
   });
 
   it("gives, for a commune whose mairie is only linked to, where its notices are", async () => {
