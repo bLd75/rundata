@@ -1528,8 +1528,13 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
     : "";
   // The fixed speed cameras, from the ministry's yearly list bundled with the site: where they stand, never the mobile checks.
   const cameras = radars.byCommune();
+  const radarsLead = `${radars.RADARS.length} radars fixes à La Réunion, d'après la liste publiée par le ministère de l'Intérieur (fichier du ${radars.fichierDu()}).`;
+  // Each camera at its place, its speed limit inside, its commune in the tooltip: the map says no more than the list.
+  const radarMarkers: Marker[] = radars.radars().map((r) => ({ lon: r.lon, lat: r.lat, label: r.vma_kmh != null ? String(r.vma_kmh) : "",
+    name: r.vma_kmh != null ? `${r.commune}, ${r.vma_kmh}\u00a0km/h` : r.commune, quiet: true }));
   const radarsCard = `<div class="card" id="radars">${icon("car")}<h3>Radars fixes</h3>
-  <p>${radars.RADARS.length} radars fixes à La Réunion, d'après la liste publiée par le ministère de l'Intérieur (fichier du ${esc(radars.fichierDu())}).</p>
+  <p>${radarsLead}</p>
+  ${islandMap({ markers: radarMarkers, label: radarsLead })}
   <ul class="rows eau">${cameras.map((c) => `<li><span>${esc(c.commune)}<small>${esc(radars.vitesses(c.radars).join(", "))}</small></span><span class="score">${c.radars.length}</span></li>`).join("")}</ul>
   <details><summary>Où ils sont</summary><ul class="plain">${cameras.flatMap((c) => c.radars.map((r) => `<li>${esc(c.commune)}${r.vma_kmh != null ? `, ${r.vma_kmh}\u00a0km/h` : ""} : <a href="${esc(radars.carte(r))}" rel="noopener">la carte ↗</a></li>`)).join("")}</ul></details>
   <p class="note">${esc(radars.RESERVE())}</p></div>`;

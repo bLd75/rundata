@@ -88,6 +88,12 @@ describe("circulation", () => {
     expect(card).toMatch(/<li>Saint-Denis, 70\u00a0km\/h[ \u00a0]: <a href="https:\/\/www\.openstreetmap\.org\/[^"]+" rel="noopener">la carte ↗<\/a><\/li>/);
     expect(card.match(/rel="noopener">la carte ↗<\/a>/g)).toHaveLength(24);
     expect(card).not.toContain("près de");
+    const map = card.slice(card.indexOf('<svg class="map'), card.indexOf("</svg>", card.indexOf('<svg class="map')));
+    expect(map).toContain('aria-label="24 radars fixes à La Réunion, d&#39;après la liste publiée par le ministère de l&#39;Intérieur (fichier du 30/12/2025)."');
+    expect(map.match(/<g class="mk">/g)).toHaveLength(24);
+    expect(map).toMatch(/<title>Saint-Denis, 70\u00a0km\/h<\/title><rect [^>]+\/><text [^>]+class="mv">70<\/text><\/g>/);
+    expect(map).toMatch(/class="mv">110<\/text>/);
+    expect(map).not.toContain('class="mn"');
     expect(card).toContain("fichier du 30/12/2025, mise à jour une fois par an");
     expect(card).not.toMatch(/mobiles? (?!n)|attention|évite|ralenti|flash|piège/i);
   });
