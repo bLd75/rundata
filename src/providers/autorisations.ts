@@ -69,7 +69,7 @@ export const nonAutorisees = (famille: string): Autorisation[] =>
 export const nonAutorisee = (famille: string, commune: string | undefined) => nonAutorisees(famille).find((a) => a.commune === commune);
 
 /**
- * A medium whose site's terms forbid reading it by a program, its titles included: not read at all, and said instead
+ * A medium or a site whose terms forbid reading it by a program, its titles included: not read at all, and said instead
  * where it was (tools/non-repris.ts). France Télévisions' terms (franceinfo.fr/cgu.html, art. 13.2 and 13.3), read on
  * 26/10/2026, forbid any automated access to extract or reuse the content of its sites, metadata included.
  */
@@ -99,6 +99,18 @@ export const MEDIAS: Record<string, MediaNonRepris> = {
     non_lue_depuis: "2026-10-26",
     site: "https://la1ere.franceinfo.fr/reunion/",
     site_sport: "https://la1ere.franceinfo.fr/reunion/sport/",
+    etat: "a_demander",
+  },
+  // The tourist board's site (Île de La Réunion Tourisme): its legal notice, dated 01/10/2026 and read on 26/10, forbids
+  // reproducing the site or any of its elements without the prior written authorisation of the Comité Réunionnais du
+  // Tourisme. Its agenda of the big fêtes and festivals is no longer read.
+  "site:reunion_fr": {
+    nom: "reunion.fr",
+    organisme: "Comité Réunionnais du Tourisme",
+    lues_le: "2026-10-26",
+    conditions: "https://www.reunion.fr/mentions-legales/",
+    non_lue_depuis: "2026-10-26",
+    site: "https://www.reunion.fr/organisez/actualites-de-l-ile/agenda/",
     etat: "a_demander",
   },
 };

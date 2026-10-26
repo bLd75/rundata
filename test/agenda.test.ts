@@ -2,11 +2,13 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PAGE_BUDGET, count, counted, left } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseReunionFr, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
+import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
 import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
-import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned } from "../src/tools/agenda.js";
-import { agendaHours } from "../src/web/domains.js";
+import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
+import { FICHE_REUNION_FR, mentionReunionFr, noteReunionFr, RESUME_REUNION_FR } from "../src/tools/non-repris.js";
+import { buildAgenda } from "../src/web/data.js";
+import { agendaHours, agendaPage } from "../src/web/domains.js";
 import { mesure } from "../src/web/mesure.js";
 import { quand } from "../src/tools/sport.js";
 
@@ -61,7 +63,6 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("reunionest")) return "oti-est.html";
   if (url.includes("50316469")) return "openagenda_cinor.json";
   if (url.includes("32570974")) return "openagenda_otnord.json";
-  if (url.includes("reunion.fr")) return "irt_agenda.html";
   // The clubs' calendar on Sunday 25/10/2026: four pages.
   if (url.includes("sportsregions")) return `sportsregions_${/[?&]page=(\d+)/.exec(url)?.[1] ?? "1"}.html`;
 }
@@ -517,8 +518,11 @@ describe("agenda", () => {
 
     it("says what else is read in Saint-Leu, its news being no full agenda: Le Séchoir's programme", async () => {
       const b = body(await agenda(cache(), "Saint-Leu", undefined, undefined, NOW));
-      expect(b.resume).toContain("Saint-Leu : seuls les événements annoncés dans les actualités de la Ville de Saint-Leu sont lus, ce n'est pas un agenda complet\u00a0; s'y ajoutent le programme du Séchoir et les grands événements de reunion.fr");
-      expect(body(await agenda(cache(), "Saint-Philippe", undefined, undefined, NOW)).resume).toContain("ce n'est pas un agenda complet, avec les grands événements de reunion.fr");
+      expect(b.resume).toContain("Saint-Leu : seuls les événements annoncés dans les actualités de la Ville de Saint-Leu sont lus, ce n'est pas un agenda complet\u00a0; s'y ajoutent le programme du Séchoir");
+      // reunion.fr no longer read: nothing said of it in a commune's summary.
+      const philippe = body(await agenda(cache(), "Saint-Philippe", undefined, undefined, NOW)).resume;
+      expect(philippe).toContain("ce n'est pas un agenda complet");
+      expect(philippe).not.toContain("reunion.fr");
     });
 
     it("credits Saint-Leu and La Plaine-des-Palmistes as their terms ask, « © https://www.ville-plainedespalmistes.fr » included", () => {
@@ -583,18 +587,6 @@ describe("agenda", () => {
     });
   });
 
-  it("reads reunion.fr's agenda from its page", () => {
-    const list = parseReunionFr(fixture("irt_agenda.html"));
-    expect(list.map((e) => [e.titre, e.commune, e.seances])).toEqual([
-      ["Dan Ron Mafate", "Saint-Paul", [{ debut: "2026-10-23", fin: "2026-10-24" }]],
-      ["Fête de l'ail", "Petite-Île", [{ debut: "2026-10-23", fin: "2026-10-25" }]],
-    ]);
-    expect(() => parseReunionFr("<html></html>")).toThrow("agenda de reunion.fr : liste absente de la page");
-    // The page as reunion.fr published it from 25/10/2026: its list empty, not missing.
-    expect(() => parseReunionFr(`<!-- Generated at 2026-10-26 01:35:09 --> <script> var itemsData = ""; var playlistData = {"total":0}; </script>`))
-      .toThrow("agenda de reunion.fr : liste vide publiée (page générée le 2026-10-26 01:35:09)");
-  });
-
   it("reads La Possession's agenda, each date as data", () => {
     const list = parseIntraMuros(fixture("rss_la-possession.xml"), "Ville de La Possession", "La Possession");
     expect(list).toHaveLength(16);
@@ -640,7 +632,6 @@ describe("agenda", () => {
       parseTribe(JSON.parse(fixture("sechoir.json")), "Le Séchoir", "Saint-Leu"),
       parseOpenAgenda(JSON.parse(fixture("openagenda_cinor.json")), "CINOR"),
       parseRss(fixture("rss_le-tampon.xml"), "Ville du Tampon", "Le Tampon"),
-      parseReunionFr(fixture("irt_agenda.html")),
       parseBisik(fixture("bisik.html")),
     ];
     for (const events of read) {
@@ -710,23 +701,23 @@ describe("agenda", () => {
   it("gives the island's next two weeks, the same event once, from every agenda", async () => {
     const c = cache();
     const b = body(await agenda(c, undefined, undefined, undefined, NOW));
-    expect(b.resume).toBe("40 événements à La Réunion dans les deux semaines qui viennent (du samedi 24/10 au samedi 07/11).".replace("40", String(b.nombre)));
+    expect(b.resume).toBe(`40 événements à La Réunion dans les deux semaines qui viennent (du samedi 24/10 au samedi 07/11)\u00a0; ${RESUME_REUNION_FR}.`.replace("40", String(b.nombre)));
     // Without the sports programmes of La Possession, L'Étang-Salé and Saint-Benoît: the sport tool's.
-    expect(b.nombre).toBe(101);
+    expect(b.nombre).toBe(100);
     expect(b.evenements).toHaveLength(40);
     expect(b.evenements.filter((e: { titre: string }) => e.titre === "Visite guidée de la Maison Carrère")).toHaveLength(1);
-    // Published by reunion.fr and by Petite-Île, told once: the commune's, which gives the place.
+    // Petite-Île's, which gives the place.
     expect(b.evenements.find((e: { titre: string }) => /^Fête de l'ail/.test(e.titre))).toMatchObject({ titre: "Fête de l'ail 2026", quand: "du vendredi 23/10 au dimanche 25/10", lieu: "Domaine du Relais", commune: "Petite-Île", publie_par: "Ville de Petite-Île", lu_le: "samedi 24/10 à 08:00" });
     expect(b.evenements.filter((e: { titre: string }) => /^Fête de l'ail/.test(e.titre))).toHaveLength(1);
     const all = body(await agenda(c, undefined, undefined, undefined, NOW, 300));
-    expect(new Set(all.evenements.map((e: { publie_par: string }) => e.publie_par))).toEqual(new Set(["reunion.fr", "Ville du Tampon", "Ville du Port", "Mairie des Trois-Bassins", "CINOR", "Mairie de Saint-Paul", "Ville de Saint-André",
+    expect(new Set(all.evenements.map((e: { publie_par: string }) => e.publie_par))).toEqual(new Set(["Ville du Tampon", "Ville du Port", "Mairie des Trois-Bassins", "CINOR", "Mairie de Saint-Paul", "Ville de Saint-André",
       "Le Séchoir", "TÉAT La Réunion", "Cité des Arts", "Kabardock", "Bisik", "Théâtre Luc Donat", "CDNOI", "Léspas", "Ville de La Possession", "Ville de L'Étang-Salé",
       "Ville de Petite-Île", "Ville de Bras-Panon", "Ville de Saint-Benoît", "OTI EST REUNION — Droits réservés"]));
     // Last year's posts of Saint-Louis are past; nothing of theirs.
     expect(b.evenements.some((e: { publie_par: string }) => e.publie_par === "Ville de Saint-Louis")).toBe(false);
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
-    // Twenty-seven agendas (two pages for Bras-Panon), and the pages of the four shows on both TÉAT stages.
-    expect(asked).toHaveLength(31);
+    // Twenty-six agendas (two pages for Bras-Panon), and the pages of the four shows on both TÉAT stages.
+    expect(asked).toHaveLength(30);
   });
 
   it("says which commune's site each event of a mairie comes from and when it was read, keeping what each site's terms allow", async () => {
@@ -750,7 +741,7 @@ describe("agenda", () => {
     // Bras-Panon's terms say nothing of links: each its own page.
     expect(by("Ville de Bras-Panon").every((e) => e.lien?.startsWith("https://www.braspanon.re/fr/ev/"))).toBe(true);
     // Not a commune's site: no such line.
-    expect(all.evenements.filter((e: Row) => ["reunion.fr", "CINOR", "TÉAT La Réunion", "OTI EST REUNION — Droits réservés"].includes(e.publie_par)).every((e: Row) => e.source === undefined)).toBe(true);
+    expect(all.evenements.filter((e: Row) => ["CINOR", "TÉAT La Réunion", "OTI EST REUNION — Droits réservés"].includes(e.publie_par)).every((e: Row) => e.source === undefined)).toBe(true);
   });
 
   it("leaves the communes' sports programmes to the sport tool, not the sports events", async () => {
@@ -779,7 +770,7 @@ describe("agenda", () => {
 
   it("answers tonight, with the hours", async () => {
     const b = body(await agenda(cache(), undefined, "ce_soir", "concert", NOW));
-    expect(b.resume).toBe("5 événements (concerts et musique) à La Réunion ce soir.");
+    expect(b.resume).toBe(`5 événements (concerts et musique) à La Réunion ce soir\u00a0; ${RESUME_REUNION_FR}.`);
     // A day without hours may be tonight: the musical of the East is.
     // The DKLO at Tan Rouge says « Cirque et musique » only after its first sentence: that text is not kept, the genre
     // it names is (`themes`), so the search still finds it.
@@ -800,19 +791,60 @@ describe("agenda", () => {
 
   it("says when a commune publishes no agenda, and what there is elsewhere", async () => {
     const b = body(await agenda(cache(), "Saint-Pierre", "ce_week_end", undefined, NOW));
-    expect(b.resume).toMatch(/^Aucun événement trouvé à Saint-Pierre ce week-end .*la page agenda de la mairie de Saint-Pierre est vide et le Kerveguen n'est pas encore lu : seuls les grands événements de reunion.fr y figurent.* ailleurs sur l'île\.$/);
+    expect(b.resume).toMatch(/^Aucun événement trouvé à Saint-Pierre ce week-end .*la page agenda de la mairie de Saint-Pierre est vide et le Kerveguen n'est pas encore lu\u00a0;.* ailleurs sur l'île\.$/);
     expect(b.ailleurs_sur_l_ile.length).toBeGreaterThan(0);
   });
 
   it("answers without the agendas that fail, and names them", async () => {
-    down = /reunion\.fr|openagenda/;
+    down = /openagenda/;
     const b = body(await agenda(cache(), undefined, "ce_week_end", undefined, NOW));
-    expect(b.indisponible).toEqual(["CINOR", "Office de tourisme du Nord", "reunion.fr"]);
+    expect(b.indisponible).toEqual(["CINOR", "Office de tourisme du Nord"]);
     expect(b.remises).toBeUndefined();
-    expect(b.resume).toContain("3 agendas non lus cette fois : CINOR, Office de tourisme du Nord, reunion.fr (liste peut-être incomplète, à redemander dans une minute).");
+    expect(b.resume).toContain("2 agendas non lus cette fois : CINOR, Office de tourisme du Nord (liste peut-être incomplète, à redemander dans une minute).");
     expect(b.evenements.length).toBeGreaterThan(0);
     down = /./;
     expect((await agenda(cache(), undefined, undefined, undefined, NOW)).isError).toBe(true);
+  });
+
+  it("no longer reads reunion.fr, its terms forbid it: said for the whole island and the big fêtes, in marketing's words", async () => {
+    const hosts: string[] = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      hosts.push(new URL(url).hostname);
+      const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+      return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+    });
+    const island = body(await agenda(cache(), undefined, undefined, undefined, NOW));
+    expect(hosts.length).toBeGreaterThan(20);
+    expect(hosts.filter((h) => h === "www.reunion.fr" || h === "reunion.fr")).toEqual([]);
+    expect(island.non_repris).toBe(mentionReunionFr());
+    expect(island.resume).toContain(`\u00a0; ${RESUME_REUNION_FR}`);
+    expect(island.couverture).not.toContain("reunion.fr");
+    // Not in every answer on a commune; in one on the big fêtes and festivals.
+    const paul = body(await agenda(cache(), "Saint-Paul", undefined, undefined, NOW));
+    expect(paul.non_repris).toBeUndefined();
+    expect(paul.resume).not.toContain("reunion.fr");
+    expect(body(await agenda(cache(), "Petite-Île", undefined, "fête", NOW)).non_repris).toBe(mentionReunionFr());
+
+    expect(mentionReunionFr()).toBe("Les mentions légales de reunion.fr, le site d'Île de La Réunion Tourisme, lues le 26/10, interdisent d'en reprendre le contenu sans l'accord écrit du Comité Réunionnais du Tourisme : rundata.re n'affiche donc pas l'agenda touristique du site. Son adresse : https://www.reunion.fr/organisez/actualites-de-l-ile/agenda/.");
+    expect(noteReunionFr()).toBe("Les mentions légales de reunion.fr, le site d'Île de La Réunion Tourisme, lues le 26/10, interdisent d'en reprendre le contenu sans l'accord écrit du Comité Réunionnais du Tourisme\u00a0: rundata.re n'affiche donc pas l'agenda touristique du site. <a href=\"https://www.reunion.fr/organisez/actualites-de-l-ile/agenda/\" rel=\"noopener\">Son agenda sur reunion.fr ↗</a>");
+    expect(RESUME_REUNION_FR).toBe("agenda touristique de reunion.fr non repris, ses mentions légales l'interdisent sans accord écrit (voir non_repris)");
+    expect(FICHE_REUNION_FR).toEqual({
+      nom: "Agenda de reunion.fr (Île de La Réunion Tourisme)",
+      statut: "non repris",
+      texte: "Non repris depuis le 26/10 : les mentions légales de reunion.fr, lues le 26/10, interdisent toute reprise du site ou de ses éléments sans l'autorisation écrite et préalable du Comité Réunionnais du Tourisme.",
+      conditions: "https://www.reunion.fr/mentions-legales/",
+    });
+
+    // The page: a note under its sources, its description left without it.
+    const copy = await buildAgenda(cache(), NOW);
+    expect(copy.resume).not.toContain("reunion.fr");
+    expect(copy.non_repris).toBeUndefined();
+    const html = agendaPage("https://rundata.re", { value: copy, fetchedAt: NOW, stale: false }, NOW);
+    expect(html).toContain(`<p class="note">${noteReunionFr()}</p>`);
+    expect(html.match(/<meta name="description" content="([^"]*)">/)![1]).not.toContain("reunion.fr");
+    // A copy built before: its events and its credit left out.
+    expect(repris({ publie_par: "reunion.fr" })).toBe(false);
+    expect(sourcesServies([{ source: "Agenda de reunion.fr, site officiel du tourisme de La Réunion" }])).toEqual([]);
   });
 
   it("does not wait for a slow agenda: its last copy, or nothing", async () => {

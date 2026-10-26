@@ -44,7 +44,7 @@ import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
 import { tapNote } from "../tools/eau.js";
-import { noteLa1ere } from "../tools/non-repris.js";
+import { noteLa1ere, noteReunionFr } from "../tools/non-repris.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
 // What a search engine shows of a title.
@@ -2373,8 +2373,7 @@ export function eventSummary(r: AgendaRow): string {
 /**
  * The events as schema.org `Event`s, which search engines show in their own box. Only those with a commune and a
  * date: a place and a start are what they require. Nothing the source does not give, and no end guessed: the price as
- * the source writes it; the picture only OpenAgenda's, under the Licence Ouverte (never a town hall's, a hall's or
- * reunion.fr's); the organiser as the site's agenda names it, else the hall whose own programme it is, never the town
+ * the source writes it; the picture only OpenAgenda's, under the Licence Ouverte (never a town hall's or a hall's); the organiser as the site's agenda names it, else the hall whose own programme it is, never the town
  * hall that publishes it.
  */
 export function agendaEvents(rows: AgendaRow[]): object[] {
@@ -2494,6 +2493,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p>
   <p>Les séances de cinéma sont sur les sites des salles : ${CINEMAS.map((c) => `<a href="${esc(c.lien)}" rel="noopener">${esc(c.nom)}</a>`).join(", ")}.</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
+  <p class="note">${noteReunionFr()}</p>
 </section>
 ${connectorCta("evenements", "les événements de l'île")}`;
 

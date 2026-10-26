@@ -4,8 +4,6 @@
  * - Saint-Paul, Le Port and Les Trois-Bassins run The Events Calendar on WordPress, whose REST API gives each event
  *   with its hours, place and price;
  * - the CINOR (Saint-Denis, Sainte-Marie, Sainte-Suzanne) and the tourist office of the North publish on OpenAgenda;
- * - the agenda of reunion.fr, the island's tourist board, lists the big fêtes and festivals: its page carries the
- *   list as data (`itemsData`), dates and commune included;
  * - Le Tampon, Saint-Louis, Saint-André and L'Étang-Salé publish an RSS feed of their agenda whose dates are in the
  *   text (« Du 5 au 10 octobre 2026 », « 19 et 20 désanm »);
  * - La Possession publishes its agenda (IntraMuros) as an RSS feed with each date as data;
@@ -54,14 +52,6 @@ export const SOURCES = {
     licence: "Licence Ouverte Etalab 2.0",
     attribution: "CINOR, Office de Tourisme Intercommunal du Nord de La Réunion, via OpenAgenda",
     url: "https://openagenda.com/cinor-territoire-du-nord-de-la-reunion",
-  },
-  reunionfr: {
-    id: "reunion_fr",
-    nom: "Agenda de reunion.fr, site officiel du tourisme de La Réunion",
-    organisme: "Île de La Réunion Tourisme",
-    licence: "Information publique (agenda touristique)",
-    attribution: "Île de La Réunion Tourisme, reunion.fr",
-    url: "https://www.reunion.fr/organisez/actualites-de-l-ile/agenda/",
   },
 } satisfies Record<string, SourceInfo>;
 
@@ -116,7 +106,7 @@ export interface Evenement {
   /** The children's ages its text gives, in its words (« de 6 mois à 6 ans », « dès 10 ans »): never guessed. */
   age?: string;
   lien: string;
-  /** Who publishes it: « Mairie de Saint-Paul », « reunion.fr ». */
+  /** Who publishes it: « Mairie de Saint-Paul », « CINOR ». */
   publie_par: string;
   /** When the source says so; « reporté » keeps the dates the source gives (the new ones, when it has them). */
   statut?: Statut;
@@ -415,80 +405,6 @@ function openAgenda(id: string, nom: string, uid: number, couvre: string[]): Age
       }),
   };
 }
-
-// ---------------------------------------------------------------- reunion.fr
-
-interface IrtItem {
-  sheetId: string;
-  bordereau?: string;
-  title: string;
-  link: string;
-  town?: string;
-  gps?: { latitude?: string; longitude?: string } | null;
-  dates?: { start?: { startDate?: string; startTime?: string | null }; end?: { endDate?: string } }[] | null;
-  desc?: string | null;
-}
-
-/** The JSON array a page's script assigns to `name` (« var itemsData = [...]; »), read bracket by bracket. */
-export function scriptArray(html: string, name: string): unknown[] | null {
-  const at = html.indexOf(`var ${name} = [`);
-  if (at < 0) return null;
-  const from = html.indexOf("[", at);
-  let depth = 0;
-  let quoted = false;
-  for (let i = from; i < html.length; i++) {
-    const ch = html[i];
-    if (quoted) {
-      if (ch === "\\") i++;
-      else if (ch === '"') quoted = false;
-    } else if (ch === '"') quoted = true;
-    else if (ch === "[" || ch === "{") depth++;
-    else if (ch === "]" || ch === "}") {
-      if (--depth === 0) return JSON.parse(html.slice(from, i + 1)) as unknown[];
-    }
-  }
-  return null;
-}
-
-export function parseReunionFr(html: string): Evenement[] {
-  const items = scriptArray(html, "itemsData");
-  if (!items) {
-    // The page as it is, its list empty (« var itemsData = ""; », a total of 0): the site publishes none, not a list we
-    // no longer find. Said apart in the logs, with the hour the site gave its page (« Generated at », its own clock).
-    const vide = /var itemsData = "";/.test(html);
-    const genere = html.match(/<!-- Generated at ([0-9-]+ [0-9:]+) -->/)?.[1];
-    throw new Error(vide ? `agenda de reunion.fr : liste vide publiée (page générée le ${genere ?? "?"})` : "agenda de reunion.fr : liste absente de la page");
-  }
-  return (items as IrtItem[]).filter((it) => !it.bordereau || it.bordereau === "FMA").map((it) => {
-    const time = (d?: string | null) => (d && /^\d\d:\d\d/.test(d) ? `T${d.slice(0, 5)}` : "");
-    const seances = (it.dates ?? []).filter((d) => d.start?.startDate).map((d) => {
-      const debut = toLocal(d.start!.startDate!).slice(0, 10);
-      const fin = d.end?.endDate ? toLocal(d.end.endDate).slice(0, 10) : undefined;
-      return { debut: debut + time(d.start!.startTime), fin: fin && fin !== debut ? fin : undefined };
-    });
-    const lat = Number(it.gps?.latitude);
-    const lon = Number(it.gps?.longitude);
-    return {
-      id: `reunion.fr:${it.sheetId}`,
-      titre: clean(it.title),
-      seances,
-      commune: communeOf(it.town),
-      lon: Number.isFinite(lon) && lon ? lon : undefined,
-      lat: Number.isFinite(lat) && lat ? lat : undefined,
-      categories: [],
-      ...extrait(clean(it.desc ?? "")),
-      lien: it.link,
-      publie_par: "reunion.fr",
-    };
-  });
-}
-
-const reunionFr: Agenda = {
-  id: "reunion_fr",
-  nom: "reunion.fr",
-  source: SOURCES.reunionfr,
-  load: (cache) => cache.get("agenda:reunion_fr", FRESH_SECONDS, async () => parseReunionFr(await getText(SOURCES.reunionfr.id, SOURCES.reunionfr.url, TIMEOUT_MS, HEADERS))),
-};
 
 // ---------------------------------------------------------------- RSS with the dates in the text
 
@@ -1430,7 +1346,6 @@ export const LISIBLES: Agenda[] = [
   LIGUE_VOLLEY,
   ...ACTUS_MAIRIES,
   SPORTSREGIONS,
-  reunionFr,
   ...SALLES,
   PROPOSITIONS,
 ];
@@ -1455,8 +1370,7 @@ SOURCES.mairies.attribution = `Villes de ${listed(mairiesLues)}`;
 export const ACCUEILS = new Set(LISIBLES.flatMap((a) => (a.accueil ? [a.accueil] : [])));
 
 /**
- * The communes whose own agenda is read (the CINOR's for the North), or that have a hall whose programme is, besides
- * reunion.fr for the whole island.
+ * The communes whose own agenda is read (the CINOR's for the North), or that have a hall whose programme is.
  */
 export const COVERED: string[] = [...new Set(AGENDAS.flatMap((a) => a.couvre ?? (a.commune ? [a.commune] : [])))];
 

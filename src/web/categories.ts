@@ -152,7 +152,7 @@ export const CATEGORIES: Category[] = [
     path: "/evenements",
     icon: "music",
     tools: ["evenements"],
-    about: "Les concerts, spectacles, fêtes, festivals et marchés des prochains jours, d'après les programmes des salles, les agendas des mairies et reunion.fr.",
+    about: "Les concerts, spectacles, fêtes, festivals et marchés des prochains jours, d'après les programmes des salles et les agendas des mairies.",
   },
   {
     key: "enfants",

@@ -148,7 +148,6 @@ export const FICHES: Record<string, Fiche> = {
   prefecture_communiques: { famille: "licence_ouverte", producteurs: [PREFECTURE] },
   openagenda: { famille: "licence_ouverte", producteurs: ["CINOR", "Office de tourisme intercommunal du Nord"] },
   agenda_oti_est: { famille: "information_publique", producteurs: ["Office de tourisme intercommunal de l'Est"] },
-  reunion_fr: { famille: "information_publique", producteurs: ["Île de La Réunion Tourisme"] },
   agenda_mairies: { famille: "information_publique", agendas: true },
   agenda_sainte_marie: { famille: "information_publique", agendas: true },
   agenda_salazie: { famille: "information_publique", agendas: true },

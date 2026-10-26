@@ -78,3 +78,30 @@ export const FICHE_LA1ERE = {
 };
 
 export { dayMonth };
+
+// ---------------------------------------------------------------- reunion.fr's agenda, not read
+
+// The tourist board's site (src/providers/autorisations.ts, MEDIAS), in marketing's words (projects/rundata/marketing/
+// reunion-fr-et-nuages.md): Île de La Réunion Tourisme, whose site it is, and the Comité Réunionnais du Tourisme, whom
+// its terms name. Nothing said of its agenda's state there, only the link; nothing of a request before one has gone.
+const REUNION_FR = MEDIAS["site:reunion_fr"];
+const TERMS_IRT = `es mentions légales de reunion.fr, le site d'Île de La Réunion Tourisme, lues le ${dayMonth(REUNION_FR.lues_le)}, interdisent d'en reprendre le contenu sans l'accord écrit du Comité Réunionnais du Tourisme`;
+const askedIrt = () => (REUNION_FR.etat !== "demandee" ? "" : ` Nous lui avons demandé cet accord${REUNION_FR.demandee_le ? ` le ${dayMonth(REUNION_FR.demandee_le)}` : ""} et attendons sa réponse.`);
+
+/** The tools' line (`non_repris` of evenements): for the whole island, or the big fêtes and festivals. */
+export const mentionReunionFr = () => `L${TERMS_IRT} : rundata.re n'affiche donc pas l'agenda touristique du site.${askedIrt()} Son adresse : ${REUNION_FR.site}.`;
+
+/** The page's note under the sources (/evenements), in HTML. */
+export const noteReunionFr = () =>
+  `L${TERMS_IRT} : rundata.re n'affiche donc pas l'agenda touristique du site.${askedIrt()} <a href="${REUNION_FR.site}" rel="noopener">Son agenda sur reunion.fr ↗</a>`;
+
+/** In the tool's summary, between « ; ». */
+export const RESUME_REUNION_FR = "agenda touristique de reunion.fr non repris, ses mentions légales l'interdisent sans accord écrit (voir non_repris)";
+
+/** Its entry in sources_donnees: since the day its reading stopped. */
+export const FICHE_REUNION_FR = {
+  nom: "Agenda de reunion.fr (Île de La Réunion Tourisme)",
+  statut: "non repris",
+  texte: `Non repris depuis le ${dayMonth(REUNION_FR.non_lue_depuis)} : les mentions légales de reunion.fr, lues le ${dayMonth(REUNION_FR.lues_le)}, interdisent toute reprise du site ou de ses éléments sans l'autorisation écrite et préalable du Comité Réunionnais du Tourisme.`,
+  conditions: REUNION_FR.conditions,
+};
