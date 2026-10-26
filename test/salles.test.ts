@@ -75,6 +75,34 @@ describe("halls' programmes", () => {
     expect(list[1]).toMatchObject({ lieu: "Salle Guy Agénor", commune: "La Plaine-des-Palmistes", prix: "Tarif unique : 15€" });
   });
 
+  it("keeps no link but http(s): a show linked to « javascript: » is left out, a booking link so written dropped", () => {
+    // Each link of `html` that leads to `url` (relative or not, as the page writes it) replaced by `by`.
+    const trap = (html: string, base: string, url: string, by = "javascript:alert(1)") =>
+      html.replace(/href="([^"]*)"/g, (all, href: string) => {
+        try {
+          return new URL(href.replace(/&amp;/g, "&"), base).toString() === url ? `href="${by}"` : all;
+        } catch {
+          return all;
+        }
+      });
+    const cases: [string, string, (html: string) => Evenement[]][] = [
+      [iso88591("teat_champ-fleuri.html"), "https://www.teat.re/", (h) => parseTeat(h, TEAT_VENUES[0], NOW)],
+      [utf8("citedesarts_1.html"), "https://www.citedesarts.re/", (h) => parseCiteDesArts(h)],
+      [iso88591("luc-donat.html"), "https://www.theatrelucdonat.re/", (h) => parseLucDonat(h, NOW)],
+      [iso88591("cdnoi.html"), "https://www.cdnoi.re/", (h) => parseCdnoi(h, NOW)],
+    ];
+    for (const [html, base, parse] of cases) {
+      const before = parse(html);
+      const after = parse(trap(html, base, before[0].lien));
+      expect(after.map((e) => e.lien)).toEqual(before.slice(1).map((e) => e.lien));
+      for (const e of after) expect(e.lien).toMatch(/^https?:\/\//);
+    }
+    const donat = iso88591("luc-donat.html");
+    const billets = parseLucDonat(donat, NOW).find((e) => e.billetterie)!;
+    const trapped = parseLucDonat(trap(donat, "https://www.theatrelucdonat.re/", billets.billetterie!, "javascript:void(0)"), NOW).find((e) => e.lien === billets.lien)!;
+    expect(trapped.billetterie).toBeUndefined();
+  });
+
   it("reads the Théâtre Luc Donat without its school performances", () => {
     const list = parseLucDonat(iso88591("luc-donat.html"), NOW);
     const killt = list.find((e) => e.titre.startsWith("KiLLT"));

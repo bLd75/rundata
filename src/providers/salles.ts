@@ -108,7 +108,15 @@ export function dayOf(day: number, month: number, today: string): string {
   return iso(iso(y, month, day) < before ? y + 1 : y, month, day);
 }
 const hm = (h: string, m?: string) => `${h.padStart(2, "0")}:${m ?? "00"}`;
-const abs = (base: string, href: string) => (/^https?:/.test(href) ? href : new URL(href, base).toString());
+/** A link of a venue's page as an absolute http(s) address; undefined for anything else (`javascript:`, `data:`, `mailto:`). */
+const abs = (base: string, href: string): string | undefined => {
+  try {
+    const u = new URL(href, base);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+};
 const DAYS = /^(?:lun|mar|mer|jeu|ven|sam|dim)\w*\.?$/i;
 
 function event(e: Omit<Evenement, "categories" | "publie_par"> & Partial<Pick<Evenement, "categories">>, nom: string): Evenement {
@@ -143,7 +151,7 @@ export function parseTeat(html: string, venue: (typeof TEAT_VENUES)[number], now
     }
     if (x.t && TEAT_GENRES.test(x.t) && t[i + 1]?.href && t[i + 2]?.t && days.length) {
       const lien = abs("https://www.teat.re/", t[i + 1].href!);
-      out.push(event({
+      if (lien) out.push(event({
         id: `teat:${lien}`,
         titre: t[i + 2].t!.trim(),
         seances: days.map((debut) => ({ debut })),
@@ -290,6 +298,8 @@ export function parseCiteDesArts(html: string): Evenement[] {
     const venue = CDA_VENUES.find((v) => words.includes(v));
     const genre = g.replace(/\s*\/\/$/, "").trim();
     const where = /^À (.+)$/.exec(genre)?.[1];
+    const lien = abs("https://www.citedesarts.re/", link);
+    if (!lien) continue;
     out.push(event({
       id: `citedesarts:${link}`,
       titre,
@@ -299,7 +309,7 @@ export function parseCiteDesArts(html: string): Evenement[] {
       categories: where ? [] : [genre.replace(/\s*\[COMPLET\]/i, "")],
       prix: words.includes("Gratuit") ? "Gratuit" : undefined,
       statut: /\[COMPLET\]/i.test(genre) ? "complet" : undefined,
-      lien: abs("https://www.citedesarts.re/", link),
+      lien,
     }, "Cité des Arts"));
   }
   return out;
@@ -471,12 +481,13 @@ export function parseLucDonat(html: string, now: Date): Evenement[] {
     let billets: string | undefined;
     for (; k < t.length && k < j + 6 && !/^(?:lun|mar|mer|jeu|ven|sam|dim)\./i.test(t[k].t ?? ""); k++) {
       if (t[k].t === "Scolaire") scolaire = true;
-      if (t[k].href && /billetterie/.test(t[k].href!)) billets = t[k].href;
+      if (t[k].href && /billetterie/.test(t[k].href!)) billets = abs("https://www.theatrelucdonat.re/", t[k].href!);
     }
     if (scolaire) continue;
     const titre = words[words.length - 1];
     const lieu = words.length > 1 ? words[0] : "Théâtre Luc Donat";
     const lien = abs("https://www.theatrelucdonat.re/", link);
+    if (!lien) continue;
     const seance: Seance = { debut: `${dayOf(Number(m[1]), month, today)}T${hm(m[3], m[4])}` };
     const same = shows.get(lien);
     if (same) same.seances.push(seance);
@@ -518,6 +529,7 @@ export function parseCdnoi(html: string, now: Date): Evenement[] {
       .filter((x) => !(Number(x.debut.slice(11, 13)) < 11 && ![0, 6].includes(new Date(`${x.debut.slice(0, 10)}T12:00:00Z`).getUTCDay())));
     if (!seances.length) continue;
     const lien = abs("https://www.cdnoi.re/", link);
+    if (!lien) continue;
     out.push(event({
       id: `cdnoi:${lien}`,
       titre,
