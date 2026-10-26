@@ -10,8 +10,9 @@
  * after 48 hours, the sender's fingerprint after a day (triggers in the SQL).
  *
  * Against a flood: the same fingerprint as the feedback (a salted hash of the address and the day), at most
- * PROPOSITIONS_PAR_JOUR proposals and LIENS_PAR_JOUR links a day from one sender, and a cap for everyone together;
- * Turnstile in front (web/propositions.ts). The e-mail goes through `Envoi`, plugged by worker.ts once a way to send
+ * PROPOSITIONS_PAR_JOUR proposals and LIENS_PAR_JOUR links a day from one sender, PROPOSITIONS_PAR_ADRESSE_JOUR to one
+ * e-mail address, and a cap for everyone together; Turnstile in front (web/propositions.ts). The confirmation e-mail
+ * holds nothing the sender wrote, only the day, the commune and the link: it cannot carry a stranger's message. The e-mail goes through `Envoi`, plugged by worker.ts once a way to send
  * is chosen: without one, a proposal is refused as « indisponible », never kept unconfirmable.
  */
 import { empreinte, nettoie, type Run } from "./avis.js";
@@ -19,6 +20,8 @@ import { empreinte, nettoie, type Run } from "./avis.js";
 export const LIENS_PAR_JOUR = 5;
 export const LIENS_EN_TOUT_JOUR = 50;
 export const PROPOSITIONS_PAR_JOUR = 5;
+/** To the same address, from anyone: the confirmation e-mails one inbox gets in a day. */
+export const PROPOSITIONS_PAR_ADRESSE_JOUR = 3;
 export const PROPOSITIONS_EN_TOUT_JOUR = 100;
 /** How far ahead an event may be proposed, and how long a weekly or monthly one may repeat from the day it is sent. */
 export const JOURS_AVANT_MAX = 365;
@@ -260,21 +263,26 @@ export const derniereDate = (p: Pick<Proposition, "date" | "jusqu_au">) => p.jus
 
 const INSERT_PROPOSITION = `INSERT INTO propositions (t, etat, jeton, titre, date, debut, fin, repete, jusqu_au, commune, lieu, organisateur, description, prix, lien, email, contact_public, derniere_date, source)
 SELECT ?, 'a_confirmer', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-WHERE (SELECT COUNT(*) FROM propositions WHERE source = ? AND t > ?) < ? AND (SELECT COUNT(*) FROM propositions WHERE t > ?) < ?`;
+WHERE (SELECT COUNT(*) FROM propositions WHERE source = ? AND t > ?) < ? AND (SELECT COUNT(*) FROM propositions WHERE email = ? AND t > ?) < ?
+  AND (SELECT COUNT(*) FROM propositions WHERE t > ?) < ?`;
 
 /** « 2026-11-07 » → « 07/11/2026 ». */
 const jour = (day: string) => day.split("-").reverse().join("/");
 
-/** The confirmation e-mail of a proposal: what it is, the link, and what happens next. */
+/**
+ * The confirmation e-mail of a proposal: when and where, the link, and what happens next. Sent before anyone has shown
+ * the address is theirs, it holds nothing the sender wrote (neither title nor place): the day and hour are checked, the
+ * commune one of the list; the rest shows on the link's page.
+ */
 export function messageConfirmation(p: Proposition, lien: string): { subject: string; text: string } {
   return {
-    subject: `Confirmez votre événement «\u00a0${p.titre}\u00a0» sur rundata.re`,
+    subject: "Confirmez votre événement sur rundata.re",
     text: [
       "Bonjour,",
       "",
-      `Vous avez proposé cet événement sur rundata.re\u00a0: «\u00a0${p.titre}\u00a0», le ${jour(p.date)}${p.repete ? `, chaque ${p.repete} jusqu'au ${jour(p.jusqu_au!)}` : ""} à ${p.debut}, ${p.lieu} (${p.commune}).`,
+      `Un événement a été proposé sur rundata.re avec cette adresse, pour le ${jour(p.date)}${p.repete ? `, chaque ${p.repete} jusqu'au ${jour(p.jusqu_au!)},` : ""} à ${p.debut} à ${p.commune}.`,
       "",
-      "Pour le confirmer, ouvrez ce lien\u00a0:",
+      "Pour le voir et le confirmer, ouvrez ce lien\u00a0:",
       lien,
       "",
       "Nous le relisons ensuite, en général sous 24 heures, avant qu'il s'affiche. Gardez ce message\u00a0: le même lien vous permet ensuite de corriger l'événement, de l'annuler ou de le reporter.",
@@ -289,7 +297,7 @@ export function messageConfirmation(p: Proposition, lien: string): { subject: st
 
 /**
  * Writes one proposal waiting for its confirmation and sends the link to its author, `base` followed by the secret.
- * Refused in the same statement when its sender, or everyone together, sent too many today. A proposal whose e-mail
+ * Refused in the same statement when its sender, its address, or everyone together, got too many today. A proposal whose e-mail
  * could not be sent stays unconfirmed, and goes after 48 hours like any other.
  */
 export async function enregistrerProposition(p: Proposition, adresse: string, base: string, now = new Date()): Promise<Issue> {
@@ -301,7 +309,7 @@ export async function enregistrerProposition(p: Proposition, adresse: string, ba
     const changed = await run(
       INSERT_PROPOSITION,
       t, await empreinteJeton(jeton), p.titre, p.date, p.debut, p.fin ?? null, p.repete ?? null, p.jusqu_au ?? null, p.commune, p.lieu, p.organisateur, p.description, p.prix, p.lien ?? null, p.email, p.contact_public ?? null, derniereDate(p), source,
-      source, t - 86400, PROPOSITIONS_PAR_JOUR, t - 86400, PROPOSITIONS_EN_TOUT_JOUR,
+      source, t - 86400, PROPOSITIONS_PAR_JOUR, p.email, t - 86400, PROPOSITIONS_PAR_ADRESSE_JOUR, t - 86400, PROPOSITIONS_EN_TOUT_JOUR,
     );
     if (changed === 0) return "limite";
   } catch (err) {
