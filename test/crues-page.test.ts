@@ -117,9 +117,11 @@ describe("the /crues page", () => {
     const { data } = await page();
     const quiet = cruesLive(data, NOW)!;
     expect(quiet.valeur).toBe('<span class="vg vg1">vert</span>');
-    expect(quiet.detail.replace(/\u00a0/g, " ").replace(/&#39;/g, "'")).toBe("D'après Vigicrues Réunion ; en hausse : Cabris - RN3");
+    expect(quiet.detail).toBe("En hausse : Cabris - RN3");
     const calm = { ...data.value, stations: data.value.stations.map((s) => ({ ...s, tendance_30_min: "stable" as const })) };
-    expect(cruesLive({ ...data, value: calm }, NOW)!.detail.replace(/\u00a0/g, " ").replace(/&#39;/g, "'")).toMatch(/^D'après Vigicrues Réunion ; aucune des \d+ stations à jour en hausse$/);
+    expect(cruesLive({ ...data, value: calm }, NOW)!.detail).toMatch(/^Aucune des \d+ stations à jour en hausse$/);
+    const silent = { ...data.value, stations: data.value.stations.map((s) => ({ ...s, hauteur_m: null })) };
+    expect(cruesLive({ ...data, value: silent }, NOW)!.detail).toBe("Aucune station n&#39;a de mesure récente");
     expect(cruesLive({ ...data, value: { ...data.value, vigilance_crues: undefined } }, NOW)).toMatchObject({ valeur: "Vigilance non lue", detail: "En hausse : Cabris - RN3" });
     // Read more than 15 minutes ago: said, as on the vigilance's tile.
     expect(cruesLive(data, new Date(NOW.getTime() + 30 * 60_000))!.detail).toMatch(/ · lue à 03:51$/);
@@ -176,7 +178,7 @@ describe("the /crues page", () => {
     orange.find((r: unknown[]) => r[0] === "rivière des Galets")[1] = 3;
     vigilance = JSON.stringify(orange);
     const { data } = await page();
-    expect(cruesLive(data, NOW)).toMatchObject({ valeur: '<span class="vg vg3">orange</span>', detail: "rivière des Galets, d&#39;après Vigicrues Réunion" });
+    expect(cruesLive(data, NOW)).toMatchObject({ valeur: '<span class="vg vg3">orange</span>', detail: "rivière des Galets" });
     expect(tiles(homePage(ORIGIN, { meteo: null, crues: data }, NOW))[0]).toBe("crues");
   });
 });

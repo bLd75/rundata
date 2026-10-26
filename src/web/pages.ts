@@ -208,7 +208,7 @@ p,ul,ol,table,figure{margin:0}
 .ic{width:1.4em;height:1.4em;flex:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-.k-meteo{--k:#ff9f43}.k-vigilance{--k:#ffc927}.k-actualites{--k:#ff8787}.k-mer{--k:#22b8cf}.k-volcan{--k:#ff6b4a}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-secheresse{--k:#ff922b}.k-coupures{--k:#74c0fc}.k-dae{--k:#ff6b6b}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-cyclones{--k:#9775fa}.k-historique{--k:#e599f7}.k-agenda{--k:#da77f2}.k-enfants{--k:#f06595}
+.k-meteo{--k:#ff9f43}.k-vigilance{--k:#ffc927}.k-actualites{--k:#ff8787}.k-mer{--k:#22b8cf}.k-crues{--k:#5c7cfa}.k-volcan{--k:#ff6b4a}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-secheresse{--k:#ff922b}.k-coupures{--k:#74c0fc}.k-dae{--k:#ff6b6b}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-cyclones{--k:#9775fa}.k-historique{--k:#e599f7}.k-agenda{--k:#da77f2}.k-enfants{--k:#f06595}
 .k-air{--k:#38d9a9}.k-electricite{--k:#fab005}.k-calendrier{--k:#b197fc}.k-communes{--k:#f783ac}.k-services{--k:#74c0fc}.k-terrain{--k:#d8a65a}
 .kb{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:14px;flex:none;color:var(--k);
 background:color-mix(in srgb,var(--k) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k) 30%,transparent)}

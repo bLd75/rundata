@@ -38,7 +38,7 @@ export const CATEGORIES: Category[] = [
     key: "crues",
     nom: "Crues",
     path: "/crues",
-    icon: "wave",
+    icon: "gauge",
     tools: ["crues_rivieres"],
     about: "La vigilance crues de Vigicrues Réunion rivière par rivière, et la hauteur et le débit mesurés aux stations des rivières, avec leur tendance sur la dernière demi-heure.",
   },
