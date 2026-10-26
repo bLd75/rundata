@@ -20,7 +20,7 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 |---|---:|---:|
 | pire passage planifié, sous-requêtes | 307 | 500 |
 | pire passage planifié, appels KV et D1 | 32 | 1 000 |
-| pire passage planifié, CPU (ms) | 1 832 | 30 000 |
+| pire passage planifié, CPU (ms) | 2 032 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
 | passage le plus chargé (cadences les plus courtes), sous-requêtes | 91 | 500 |
 | vue la plus chère, sous-requêtes | 78 | 200 |
@@ -36,12 +36,12 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 307 | 2 | 20 | 10 | 922 | 31 | 1 832 |
-| tâche planifiée, par jour | 8 995 | 576 | 1 140 | 387 | 44 732 | 31 | 80 163 |
-| tâche planifiée, par jour, cadences les plus courtes | 16 143 | 576 | 1 668 | 867 | 49 772 | 31 | 125 643 |
-| tâche planifiée, par mois (30 jours) | 269 850 | 17 280 | 34 200 | 11 610 | 1 341 960 | 930 | 2 404 890 |
-| tâches GitHub, par jour | 0 |  | 101 | 2 |  | 28 700 |  |
-| tâches GitHub, par mois (30 jours) | 0 |  | 3 030 | 60 |  | 861 000 |  |
+| pire passage planifié | 307 | 2 | 20 | 10 | 922 | 31 | 2 032 |
+| tâche planifiée, par jour | 8 995 | 576 | 1 140 | 387 | 44 732 | 31 | 99 363 |
+| tâche planifiée, par jour, cadences les plus courtes | 16 143 | 576 | 1 668 | 867 | 49 772 | 31 | 144 843 |
+| tâche planifiée, par mois (30 jours) | 269 850 | 17 280 | 34 200 | 11 610 | 1 341 960 | 930 | 2 980 890 |
+| tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
+| tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
 Les visites et les questions sont comptées par vue : leur total dépend du trafic.
 
@@ -80,14 +80,13 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | agenda:sportsregions | agenda lu par la tâche planifiée : Clubs sportifs (Sportsregions) | 360 min | 00:00 | 5 |  |  |  |  |  | 30 | mesuré |
 | sans-reponse:echecs | sites sans réponse : l'état des sites relu quand une lecture échoue (D1), au plus toutes les 10 minutes par isolat, après la réponse aussi pour une vue ou une question ; une écriture de plus pour un site qui entre dans la liste | 10 min | 00:00 | 1 |  |  | 1 | 20 |  | 2 | estimé |
 | sans-reponse:reverification | sites sans réponse : la revérification quotidienne, une lecture par site (D1 et sites), à 06:00 heure de La Réunion | 1440 min | 02:00 | 22 |  |  | 2 | 20 | 21 | 30 | estimé |
-| irve:etat | bornes de recharge : la part de La Réunion du fichier national (environ 9 Mo), écrite dans KV après les autres lectures | 15 min | 00:05 | 2 |  | 1 |  |  |  | 100 | estimé |
+| irve:etat | bornes de recharge : la part de La Réunion du fichier national (environ 9 Mo), écrite dans KV après les autres lectures | 15 min | 00:05 | 2 |  | 1 |  |  |  | 300 | estimé |
 | propositions:purge | propositions des clubs : la purge quotidienne (D1), à 04:00 heure de La Réunion | 1440 min | 00:00 | 1 |  |  | 1 |  | 10 | 5 | estimé |
 
 ## Tâches GitHub
 
 | entrée | ce que c'est | cadence | décalage (UTC) | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) | d'où |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| actions:irve | bornes de recharge : l'état de chaque borne (KV) | 15 min | 00:00 | 0 |  | 1 |  |  |  |  | code |
 | actions:eau | eau de l'île : la copie des avis (KV) | 360 min | 00:17 | 0 |  | 1 |  |  |  |  | code |
 | actions:carburants | carburants : les prix (KV), 4 fois par jour en fin de mois | 1440 min (360 au plus court) | 03:41 | 0 |  | 1 |  |  |  |  | code |
 | actions:climat | climat : les mesures de l'année en cours (D1, deux bases), une seconde fois à 09:45 UTC si besoin | 1440 min (720 au plus court) | 07:45 | 0 |  |  | 2 |  | 28 700 |  | mesuré |
