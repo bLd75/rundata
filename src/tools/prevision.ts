@@ -197,7 +197,8 @@ export function merge(e: Forecast | null, a: Forecast | null): Forecast | null {
 /**
  * Today from the hours still to come only, in La Réunion time: the rain of the morning is no forecast at 15h, and a
  * total from midnight said « aujourd'hui » would announce it as to come. The stretch under way counts for the part of it
- * left, its rain shared out evenly. The other days are left as the model gives them.
+ * left, its rain shared out evenly. The lowest and highest temperatures stay the whole day's, as one expects of a day.
+ * The other days are left as the model gives them.
  */
 function ahead(f: Forecast, now: Date): Forecast {
   const today = localDate(now);
@@ -210,7 +211,7 @@ function ahead(f: Forecast, now: Date): Forecast {
     if (start >= t || h.pluie_mm == null) return [h];
     return [{ ...h, pluie_mm: (h.pluie_mm * (end - t)) / (end - start) }];
   });
-  return { ...f, days: f.days.map((d) => (d.date === today ? dayFromHours(today, hours) : d)) };
+  return { ...f, days: f.days.map((d) => (d.date === today ? { ...dayFromHours(today, hours), tmin: d.tmin, tmax: d.tmax } : d)) };
 }
 
 interface Got {

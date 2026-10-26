@@ -138,6 +138,10 @@ describe("today, from the hours still to come", () => {
     expect(r.resume).toContain("aujourd'hui : ciel dégagé, ");
     expect(r.resume).toContain(", 1,6 mm de pluie");
     expect(r.resume).not.toMatch(/11,2 mm|averses/);
+    // The day's lowest and highest temperatures, the night's included.
+    const dry = body(await previsionMeteo(await offlineCache(), "Cilaos", undefined, NOW)).jours[0];
+    expect([r.jours[0].temperature_min, r.jours[0].temperature_max]).toEqual([dry.temperature_min, dry.temperature_max]);
+    expect(dry.temperature_min).toMatch(/^11 /);
     // Tomorrow is the model's day, untouched.
     expect(r.jours[1].pluie).toBe(body(await previsionMeteo(await offlineCache(), "Cilaos", "demain", NOW)).jours[0].pluie);
   });
