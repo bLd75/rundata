@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, type Cached, MemoryStore } from "../src/cache.js";
 import { buildCrues, type CruesAnswer } from "../src/web/data.js";
-import { cruesPage } from "../src/web/domains.js";
+import { cruesLive, cruesPage } from "../src/web/domains.js";
+import { homePage } from "../src/web/home.js";
 import { deadAnchors, doubleIds } from "./cartes.js";
 
 // Vigicrues Réunion on 23/10/2026 at 23:45 UTC (03:45 in La Réunion), as in crues.test.ts: no flood vigilance, the
@@ -110,5 +111,32 @@ describe("the /crues page", () => {
     const w = words(cruesPage(ORIGIN, { ...data, value: { ...data.value, vigilance_crues: undefined, stations: silent } }, NOW));
     expect(w).toContain("Vigilance crues absente de notre lecture de 03:51 : voir vigicrues-reunion.re ↗.");
     expect(w).toContain("Aucune des 29 stations n'a de mesure de moins de 30 minutes dans notre lecture de 03:51 : nous ne savons pas pour l'instant si les rivières montent.");
+  });
+
+  it("gives the home page its tile: the vigilance's colour, then what the gauges measured lately", async () => {
+    const { data } = await page();
+    const quiet = cruesLive(data, NOW)!;
+    expect(quiet.valeur).toBe('<span class="vg vg1">vert</span>');
+    expect(quiet.detail.replace(/\u00a0/g, " ").replace(/&#39;/g, "'")).toBe("D'après Vigicrues Réunion ; en hausse : Cabris - RN3");
+    const calm = { ...data.value, stations: data.value.stations.map((s) => ({ ...s, tendance_30_min: "stable" as const })) };
+    expect(cruesLive({ ...data, value: calm }, NOW)!.detail.replace(/\u00a0/g, " ").replace(/&#39;/g, "'")).toMatch(/^D'après Vigicrues Réunion ; aucune des \d+ stations à jour en hausse$/);
+    expect(cruesLive({ ...data, value: { ...data.value, vigilance_crues: undefined } }, NOW)).toMatchObject({ valeur: "Vigilance non lue", detail: "En hausse : Cabris - RN3" });
+    // Read more than 15 minutes ago: said, as on the vigilance's tile.
+    expect(cruesLive(data, new Date(NOW.getTime() + 30 * 60_000))!.detail).toMatch(/ · lue à 03:51$/);
+    expect(cruesLive(null, NOW)).toBeUndefined();
+  });
+
+  it("puts the tile first on the home page in a flood vigilance, and with the quiet vigilance at the end otherwise", async () => {
+    const tiles = (html: string) => [...html.matchAll(/<li class="tile k-([a-z]+)/g)].map((m) => m[1]);
+    const quiet = await page();
+    const calm = tiles(homePage(ORIGIN, { meteo: null, crues: quiet.data }, NOW));
+    expect(calm.slice(calm.indexOf("vigilance"), calm.indexOf("vigilance") + 3)).toEqual(["vigilance", "crues", "volcan"]);
+    const orange = JSON.parse(vigilance);
+    orange[0] = [true, 3, "2026-10-24 03:30:00", "", "", "", "", 0];
+    orange.find((r: unknown[]) => r[0] === "rivière des Galets")[1] = 3;
+    vigilance = JSON.stringify(orange);
+    const { data } = await page();
+    expect(cruesLive(data, NOW)).toMatchObject({ valeur: '<span class="vg vg3">orange</span>', detail: "rivière des Galets, d&#39;après Vigicrues Réunion" });
+    expect(tiles(homePage(ORIGIN, { meteo: null, crues: data }, NOW))[0]).toBe("crues");
   });
 });

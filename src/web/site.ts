@@ -233,7 +233,7 @@ const BUILDS: Record<string, (cache: Cache, now: Date) => Promise<unknown>> = {
 };
 // The home page's tiles besides the weather and the vigilance; a commune page's besides its own.
 // The news first: on a day of mobilisation its headlines go above the tiles.
-export const HOME_TILES = ["web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
+export const HOME_TILES = ["web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda", "web:crues"];
 // A commune's feed: the copies besides the vigilance (web/rss.ts).
 const RSS_TILES = ["web:coupures", "web:randonnees", "web:volcan"];
 export const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier", "web:coupures", "web:secheresse", "web:eau", "web:randonnees", "web:agenda"];
@@ -320,9 +320,9 @@ async function pages(request: Request, cache: Cache, background: Background, now
       snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now),
     ]);
-    const [actualites, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda] = await tileCopies(cache, HOME_TILES, background, meteo, now);
+    const [actualites, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, crues] = await tileCopies(cache, HOME_TILES, background, meteo, now);
     return page(path, (live) => (live
-      ? homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, actualites }, now, alerteLue(vigilance, now))
+      ? homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, actualites, crues }, now, alerteLue(vigilance, now))
       : homePage(origin, null, now)), meteo, background, [rebuild(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now))]);
   }
   // The bins' days: the bundled calendars and the day, nothing read but the vigilance's banner.

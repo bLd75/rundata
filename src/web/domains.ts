@@ -40,7 +40,7 @@ import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
 import { BUILT as DAE_BUILT, DAES } from "../providers/dae.js";
 import DAE_LIST from "../dae/liste.json" with { type: "json" };
-import { anchorId, ask, credits, dayMonth, DESCRIPTION_MAX, empty, hm, icon, ISLAND, layout, type Live, readAt, SITE } from "./pages.js";
+import { anchorId, ask, credits, dayMonth, DESCRIPTION_MAX, empty, hm, icon, ISLAND, layout, type Live, lue, readAt, SITE, vg } from "./pages.js";
 import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
@@ -1052,6 +1052,29 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
 ${connectorCta("crues_rivieres", "les rivières de l'île")}`;
 
   return layout(origin, { title, description, path: "/crues", jsonld: [crumbs(origin, "Crues", "/crues"), webPage(origin, "/crues", title, description, data)], alerte }, band, body);
+}
+
+/** The rivers under a flood vigilance yellow or above, the worst first. */
+export const floodRaised = (d: CruesAnswer | undefined) =>
+  d?.vigilance_crues?.active ? [...d.vigilance_crues.rivieres].filter((r) => FLOOD_VG[r.couleur] >= 2).sort((a, b) => FLOOD_VG[b.couleur] - FLOOD_VG[a.couleur]) : [];
+// Vigicrues Réunion's colours on Météo-France's scale, for the tile's colour chip (pages.ts, `vg`).
+const FLOOD_VG: Record<string, number> = { vert: 1, jaune: 2, orange: 3, rouge: 4 };
+
+/** The home page's tile: the vigilance's colour, then what it covers or what the gauges measured lately. */
+export function cruesLive(data: Cached<CruesAnswer> | null, now: Date): Live | undefined {
+  const d = data?.value;
+  if (!d) return undefined;
+  const raised = floodRaised(d);
+  if (raised.length) return lue({ valeur: vg(FLOOD_VG[raised[0].couleur]), detail: esc(`${raised.slice(0, 2).map((r) => r.nom).join(", ")}${raised.length > 2 ? "…" : ""}, d'après Vigicrues Réunion`) }, data!, now);
+  const fresh = d.stations.filter(upToDate);
+  const rising = fresh.filter((s) => s.tendance_30_min === "en hausse");
+  const levels = !fresh.length
+    ? "aucune station n'a de mesure récente"
+    : rising.length
+      ? `en hausse : ${rising.slice(0, 2).map((s) => s.station).join(", ")}${rising.length > 2 ? "…" : ""}`
+      : `aucune des ${fresh.length} stations à jour en hausse`;
+  if (!d.vigilance_crues) return lue({ valeur: "Vigilance non lue", detail: esc(levels.charAt(0).toUpperCase() + levels.slice(1)) }, data!, now);
+  return lue({ valeur: vg(1), detail: esc(`D'après Vigicrues Réunion\u00a0; ${levels}`) }, data!, now);
 }
 
 // ---------------------------------------------------------------- bornes de recharge
