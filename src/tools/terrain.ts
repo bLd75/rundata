@@ -3,8 +3,9 @@ import { distanceKm } from "../geo.js";
 import { INSEE } from "../places/insee.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as terrain from "../providers/terrain.js";
+import * as loyers from "../vie/loyers.js";
 import { why } from "../types.js";
-import { credits, nombre, text } from "./format.js";
+import { a, credits, nombre, text } from "./format.js";
 
 // What a PLU zone letter means (code de l'urbanisme, articles R151-18 to R151-25).
 const ZONE_TYPES: Record<string, string> = {
@@ -135,6 +136,40 @@ export function streetMarket(nom: string, depuis: number, sales: terrain.StreetS
 
 const enregistrees = (n: number) => `${n} vente${n > 1 ? "s enregistrées" : " enregistrée"}`;
 
+// The rents' words: marketing's (26/10). Never « médian », « moyen » nor « signé »: a rent asked in an ad, for a
+// reference home, with the ANIL's mention word for word.
+const ANIL = loyers.SOURCE.attribution;
+const T3 = `3e trimestre ${loyers.MILLESIME}`;
+const LOYERS = {
+  type: { appartement: "appartement type", appartement_1_2_pieces: "appartement de 1 ou 2 pièces", appartement_3_pieces_et_plus: "appartement de 3 pièces et plus", maison: "maison type" } as Record<loyers.Kind, string>,
+  ligne: (commune: string, loyer: string) => `loyer d'annonce d'un appartement type ${commune === "Entre-Deux" ? "à l'Entre-Deux" : a(commune)}\u00a0: ${loyer} charges comprises, d'après les annonces du ${T3} (${ANIL})`,
+  zone: (n: number) => `estimé avec des communes voisines, faute d'annonces assez nombreuses dans la commune (${nombre(n)} annonces pour l'ensemble de ces communes)`,
+  fragile: "indicateur peu fiable selon l'ANIL (moins de 30 annonces dans la commune, ou modèle peu ajusté)\u00a0: à prendre avec prudence",
+  note: `Loyers demandés dans les annonces de logements non meublés, charges comprises, estimés par l'ANIL pour un logement type d'après les annonces du ${T3}. Ce ne sont ni des loyers signés, ni des loyers médians ou moyens. L'intervalle est celui que l'ANIL donne à 95\u00a0%\u00a0: le loyer estimé a 95 chances sur 100 d'y être. Le découpage de la carte change chaque année\u00a0: ne pas comparer deux années entre elles. ${ANIL}.`,
+};
+
+/** The commune's rents asked in ads (vie/loyers.ts), each kind of home with its interval and its ads. */
+export function rents(insee: string) {
+  const c = loyers.ofInsee(insee);
+  const commune = Object.keys(INSEE).find((n) => INSEE[n] === insee);
+  if (!c || !commune) return undefined;
+  const kinds = loyers.KINDS.filter((k) => c[k]).map((k) => {
+    const l = c[k]!;
+    return [k, {
+      logement: `${LOYERS.type[k]}, ${loyers.SURFACE[k]}\u00a0m²`,
+      loyer_m2_charges_comprises: loyers.m2(l.loyer_m2),
+      intervalle_95: `${loyers.m2(l.bas)} à ${loyers.m2(l.haut)}`,
+      annonces_dans_la_commune: l.annonces,
+      ...(l.zone ? { estimation: LOYERS.zone(l.annonces_zone!) } : {}),
+      ...(loyers.fragile(l) ? { prudence: LOYERS.fragile } : {}),
+    }] as const;
+  });
+  return {
+    ligne: c.appartement ? LOYERS.ligne(commune, loyers.m2(c.appartement.loyer_m2)) : undefined,
+    bloc: { commune, millesime: loyers.MILLESIME, ...Object.fromEntries(kinds), note: LOYERS.note },
+  };
+}
+
 /** The street's line of the summary, named as the address base writes it (marketing's words, 25/10). */
 export function streetLine(v: ReturnType<typeof streetMarket>): string {
   const voie = `sur la voie (${v.voie})`;
@@ -247,6 +282,8 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
   if (onStreet) parts.push(streetLine(onStreet));
   if (m && "prix_m2_median" in m.maisons) parts.push(`${SECTEUR}, maisons vendues depuis ${fromYear} : ${m.maisons.prix_m2_median} en médiane (${m.maisons.ventes} ventes)`);
   if (m && "prix_m2_median" in m.appartements) parts.push(`${"prix_m2_median" in m.maisons ? "" : `${SECTEUR}, `}appartements : ${m.appartements.prix_m2_median} (${m.appartements.ventes} ventes)`);
+  const r = insee ? rents(insee) : undefined;
+  if (r?.ligne) parts.push(r.ligne);
 
   const used = [
     terrain.SOURCES.ban,
@@ -257,6 +294,7 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
     ...(onStreet ? [terrain.SOURCES.dvfVoie] : []),
     ...(ppr ? [terrain.SOURCES.ppr] : []),
     ...(cat || mvt ? [terrain.SOURCES.georisques] : []),
+    ...(r ? [loyers.SOURCE] : []),
   ];
   return text({
     resume: `${parts.join("\u00a0; ")}.`,
@@ -282,6 +320,7 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
           note: "Médianes des ventes enregistrées (DVF), maisons et appartements vendus seuls. Aucune vente individuelle n'est donnée.",
         }
       : DOWN,
+    ...(r ? { loyers_d_annonce: r.bloc } : {}),
     risques: risksBlock(lon, lat, insee, ppr, cat, mvt),
     avertissements: [
       "Le cadastre est un document fiscal : il ne prouve pas la propriété ni les limites exactes (bornage par un géomètre).",

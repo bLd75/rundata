@@ -12,13 +12,14 @@ import * as mf from "../providers/vigilance.js";
 import * as sante from "../sante/etablissements.js";
 import * as enfants from "../vie/enfants.js";
 import * as dech from "../vie/decheteries.js";
+import * as loyers from "../vie/loyers.js";
 import { anchorOf } from "./decheteries.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
 import { tidesNear } from "../tools/maree.js";
 import { current, cyclone, cycloneLevel, highest, raised } from "../tools/vigilance.js";
 import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, DechetsAnswer, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
-import { LINK } from "./aujourdhui.js";
+import { aCommune, LINK } from "./aujourdhui.js";
 import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, stillToCome, volcanLive, waitText } from "./domains.js";
@@ -209,6 +210,20 @@ function children(p: PlacePage): Live | undefined {
   return list.length ? enfantsLive(list) : undefined;
 }
 
+/** The rents asked in the ads (vie/loyers.ts): a reference flat's per m², and a house's; one vintage a year. */
+function rents(p: PlacePage): Live | undefined {
+  const c = loyers.ofCommune(p.nom);
+  const f = c?.appartement;
+  if (!f) return undefined;
+  // Marketing's words (26/10), the ANIL's mention word for word.
+  return {
+    valeur: esc(loyers.m2(f.loyer_m2)),
+    detail: `appartement type de ${loyers.SURFACE.appartement}\u00a0m², non meublé, charges comprises, d'après les annonces du 3e trimestre ${loyers.MILLESIME}` +
+      `${c.maison ? ` · maison type ${esc(loyers.m2(c.maison.loyer_m2))}` : ""} · ${esc(loyers.SOURCE.attribution)}` +
+      `${f.zone ? " · estimé avec des communes voisines, faute d'annonces assez nombreuses" : ""}${loyers.fragile(f) ? " · à prendre avec prudence, selon l'ANIL" : ""}`,
+  };
+}
+
 function townHall(data: Cached<CommuneData> | null | undefined, now: Date): Live | undefined {
   const o = data?.value.mairie;
   if (!o) return undefined;
@@ -262,6 +277,10 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     ...(children(p) ? [{ icon: "kids", nom: "Enfants", href: enfantsPath(p), live: children(p) }] : []),
     { icon: "calendar", nom: "Soleil et calendrier", href: "/calendrier", live: sunTimes(p, l.calendrier, now) },
     { icon: "map", nom: "Terrain et risques", question: `Mon adresse à ${p.nom} est-elle en zone inondable ?`, foot: `<a href="/#assistant">Demandez à votre IA →</a>`, wide: true },
+  ];
+  // Figures of a year or a quarter, out of the grid that says « en ce moment » (marketing, 26/10).
+  const habiter: Tile[] = [
+    ...(rents(p) ? [{ icon: "key", nom: "Loyers d'annonce", live: rents(p), foot: `<a href="${loyers.SOURCE.url}" rel="noopener">La carte des loyers de l'ANIL</a>` }] : []),
   ];
   const island: Tile[] = [
     { icon: "volcano", nom: "Volcan", href: "/volcan", live: volcanLive(l.volcan ?? null, now) },
@@ -326,7 +345,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   <figure class="card mapcard">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
 </div>`;
 
-  const sources = [...(l.commune?.value.sources ?? []), ...(l.place?.value.meteo?.sources ?? []), ...(l.air?.value.sources ?? [])];
+  const sources = [...(l.commune?.value.sources ?? []), ...(l.place?.value.meteo?.sources ?? []), ...(l.air?.value.sources ?? []), ...(rents(p) ? [{ source: loyers.SOURCE.nom, licence: loyers.SOURCE.licence, attribution: loyers.SOURCE.attribution }] : [])];
   const body = `<section id="en-ce-moment" aria-labelledby="h-now">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-now">${esc(p.nom)} en ce moment</h2>
   <p>Chaque catégorie a sa page pour toute l'île ; ici, ce qui concerne ${esc(p.nom)}. Mise à jour en continu, chaque donnée avec son heure et sa source.</p></div>
@@ -334,7 +353,12 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   ${sources.length ? `<p class="note">Sources : ${credits(sources)}. Bus : horaires théoriques publiés par les réseaux, sans les retards. Mairie : horaires publiés sur service-public.fr, sans les fermetures exceptionnelles.</p>` : ""}
   ${coastal(p) ? `<p class="or">${BAIGNADE_LINE}</p>` : ""}
 </section>
-<section aria-labelledby="h-ile">
+${habiter.length ? `<section aria-labelledby="h-habiter">
+  <div class="sec-h"><h2 id="h-habiter">Habiter ${esc(aCommune(p.nom))}</h2>
+  <p>Des chiffres publiés une fois par an ou par trimestre, chacun avec sa date.</p></div>
+  <ul class="tiles" aria-label="Habiter ${esc(aCommune(p.nom))}">${habiter.map(tile).join("")}</ul>
+</section>
+` : ""}<section aria-labelledby="h-ile">
   <h2 id="h-ile">Et pour toute l'île</h2>
   <ul class="tiles" aria-label="Toute l'île">${island.map(tile).join("")}</ul>
 </section>

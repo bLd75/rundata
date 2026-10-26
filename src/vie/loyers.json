@@ -1,0 +1,769 @@
+{
+"construit": "2026-10-26",
+"millesime": 2025,
+"source": "Carte des loyers, ANIL pour le ministère chargé du logement, Licence Ouverte 2.0",
+"communes": {
+"97401": {
+"appartement": {
+"loyer_m2": 15.13,
+"bas": 11.39,
+"haut": 20.09,
+"annonces": 527,
+"r2": 0.7
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 16.92,
+"bas": 12.85,
+"haut": 22.28,
+"annonces": 285,
+"r2": 0.61
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 13.86,
+"bas": 10.03,
+"haut": 19.16,
+"annonces": 243,
+"r2": 0.45
+},
+"maison": {
+"loyer_m2": 14.93,
+"bas": 9.71,
+"haut": 22.93,
+"annonces": 479,
+"r2": 0.59
+}
+},
+"97402": {
+"appartement": {
+"loyer_m2": 13.12,
+"bas": 10.66,
+"haut": 16.13,
+"annonces": 383,
+"r2": 0.73
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 15.16,
+"bas": 11.95,
+"haut": 19.24,
+"annonces": 130,
+"r2": 0.57
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 11.29,
+"bas": 9.15,
+"haut": 13.93,
+"annonces": 253,
+"r2": 0.58
+},
+"maison": {
+"loyer_m2": 11.82,
+"bas": 8.99,
+"haut": 15.53,
+"annonces": 238,
+"r2": 0.67
+}
+},
+"97403": {
+"appartement": {
+"loyer_m2": 13.93,
+"bas": 10.54,
+"haut": 18.41,
+"annonces": 157,
+"r2": 0.72
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 14.73,
+"bas": 11.74,
+"haut": 18.48,
+"annonces": 48,
+"r2": 0.61,
+"zone": "maille",
+"annonces_zone": 486
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 12.14,
+"bas": 9.23,
+"haut": 15.98,
+"annonces": 105,
+"r2": 0.54
+},
+"maison": {
+"loyer_m2": 12.73,
+"bas": 8.68,
+"haut": 18.67,
+"annonces": 279,
+"r2": 0.63
+}
+},
+"97404": {
+"appartement": {
+"loyer_m2": 16.16,
+"bas": 12.22,
+"haut": 21.39,
+"annonces": 412,
+"r2": 0.7
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 18.03,
+"bas": 13.69,
+"haut": 23.73,
+"annonces": 204,
+"r2": 0.61
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 14.93,
+"bas": 10.79,
+"haut": 20.68,
+"annonces": 212,
+"r2": 0.45
+},
+"maison": {
+"loyer_m2": 16.85,
+"bas": 10.96,
+"haut": 25.9,
+"annonces": 509,
+"r2": 0.59
+}
+},
+"97405": {
+"appartement": {
+"loyer_m2": 13.93,
+"bas": 10.55,
+"haut": 18.41,
+"annonces": 277,
+"r2": 0.72
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 17.96,
+"bas": 13.73,
+"haut": 23.49,
+"annonces": 80,
+"r2": 0.57,
+"zone": "maille",
+"annonces_zone": 2421
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 11.94,
+"bas": 9.07,
+"haut": 15.71,
+"annonces": 200,
+"r2": 0.54
+},
+"maison": {
+"loyer_m2": 12.11,
+"bas": 8.95,
+"haut": 16.37,
+"annonces": 619,
+"r2": 0.69
+}
+},
+"97406": {
+"appartement": {
+"loyer_m2": 13.04,
+"bas": 10.29,
+"haut": 16.51,
+"annonces": 24,
+"r2": 0.8,
+"zone": "maille",
+"annonces_zone": 3519
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 15.53,
+"bas": 12.23,
+"haut": 19.71,
+"annonces": 0,
+"r2": 0.64,
+"zone": "maille",
+"annonces_zone": 2499
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 11.16,
+"bas": 8.92,
+"haut": 13.96,
+"annonces": 24,
+"r2": 0.54,
+"zone": "maille",
+"annonces_zone": 1483
+},
+"maison": {
+"loyer_m2": 10.79,
+"bas": 7.97,
+"haut": 14.6,
+"annonces": 322,
+"r2": 0.64
+}
+},
+"97407": {
+"appartement": {
+"loyer_m2": 15.33,
+"bas": 10.54,
+"haut": 22.28,
+"annonces": 485,
+"r2": 0.6
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 17.69,
+"bas": 12.55,
+"haut": 24.92,
+"annonces": 209,
+"r2": 0.47
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 13.63,
+"bas": 9.18,
+"haut": 20.24,
+"annonces": 277,
+"r2": 0.45
+},
+"maison": {
+"loyer_m2": 14.31,
+"bas": 8.66,
+"haut": 23.65,
+"annonces": 165,
+"r2": 0.6
+}
+},
+"97408": {
+"appartement": {
+"loyer_m2": 15.45,
+"bas": 12.27,
+"haut": 19.46,
+"annonces": 1702,
+"r2": 0.79
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 18.58,
+"bas": 14.76,
+"haut": 23.38,
+"annonces": 818,
+"r2": 0.64
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 13.54,
+"bas": 10.81,
+"haut": 16.96,
+"annonces": 885,
+"r2": 0.62
+},
+"maison": {
+"loyer_m2": 16.33,
+"bas": 10.84,
+"haut": 24.59,
+"annonces": 1172,
+"r2": 0.68
+}
+},
+"97409": {
+"appartement": {
+"loyer_m2": 13.01,
+"bas": 10.57,
+"haut": 16.0,
+"annonces": 1828,
+"r2": 0.73
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 14.93,
+"bas": 11.79,
+"haut": 18.9,
+"annonces": 601,
+"r2": 0.57
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 11.34,
+"bas": 9.44,
+"haut": 13.64,
+"annonces": 1220,
+"r2": 0.55
+},
+"maison": {
+"loyer_m2": 11.7,
+"bas": 8.9,
+"haut": 15.39,
+"annonces": 1972,
+"r2": 0.67
+}
+},
+"97410": {
+"appartement": {
+"loyer_m2": 12.05,
+"bas": 9.58,
+"haut": 15.16,
+"annonces": 952,
+"r2": 0.71
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 13.67,
+"bas": 10.9,
+"haut": 17.15,
+"annonces": 414,
+"r2": 0.61
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 10.67,
+"bas": 8.66,
+"haut": 13.13,
+"annonces": 536,
+"r2": 0.58
+},
+"maison": {
+"loyer_m2": 11.32,
+"bas": 8.62,
+"haut": 14.86,
+"annonces": 987,
+"r2": 0.65
+}
+},
+"97411": {
+"appartement": {
+"loyer_m2": 15.09,
+"bas": 11.47,
+"haut": 19.86,
+"annonces": 14748,
+"r2": 0.84
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 17.11,
+"bas": 13.39,
+"haut": 21.87,
+"annonces": 8878,
+"r2": 0.72
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 14.14,
+"bas": 10.33,
+"haut": 19.37,
+"annonces": 5924,
+"r2": 0.63
+},
+"maison": {
+"loyer_m2": 14.92,
+"bas": 10.14,
+"haut": 21.96,
+"annonces": 2880,
+"r2": 0.74
+}
+},
+"97412": {
+"appartement": {
+"loyer_m2": 13.84,
+"bas": 11.18,
+"haut": 17.12,
+"annonces": 1195,
+"r2": 0.75
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 15.77,
+"bas": 12.43,
+"haut": 20.01,
+"annonces": 449,
+"r2": 0.64
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 11.75,
+"bas": 9.63,
+"haut": 14.33,
+"annonces": 744,
+"r2": 0.57
+},
+"maison": {
+"loyer_m2": 11.42,
+"bas": 8.72,
+"haut": 14.96,
+"annonces": 1405,
+"r2": 0.63
+}
+},
+"97413": {
+"appartement": {
+"loyer_m2": 16.49,
+"bas": 11.78,
+"haut": 23.09,
+"annonces": 1565,
+"r2": 0.6
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 18.78,
+"bas": 13.71,
+"haut": 25.72,
+"annonces": 649,
+"r2": 0.4
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 14.86,
+"bas": 10.72,
+"haut": 20.6,
+"annonces": 908,
+"r2": 0.45
+},
+"maison": {
+"loyer_m2": 15.79,
+"bas": 9.94,
+"haut": 25.09,
+"annonces": 1435,
+"r2": 0.54
+}
+},
+"97414": {
+"appartement": {
+"loyer_m2": 14.47,
+"bas": 11.69,
+"haut": 17.91,
+"annonces": 968,
+"r2": 0.72
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 17.63,
+"bas": 13.48,
+"haut": 23.06,
+"annonces": 312,
+"r2": 0.57
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 12.29,
+"bas": 10.05,
+"haut": 15.03,
+"annonces": 658,
+"r2": 0.63
+},
+"maison": {
+"loyer_m2": 12.18,
+"bas": 9.04,
+"haut": 16.42,
+"annonces": 1618,
+"r2": 0.62
+}
+},
+"97415": {
+"appartement": {
+"loyer_m2": 18.86,
+"bas": 13.06,
+"haut": 27.26,
+"annonces": 4503,
+"r2": 0.6
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 21.94,
+"bas": 15.6,
+"haut": 30.86,
+"annonces": 2151,
+"r2": 0.47
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 16.69,
+"bas": 11.36,
+"haut": 24.51,
+"annonces": 2356,
+"r2": 0.45
+},
+"maison": {
+"loyer_m2": 15.57,
+"bas": 9.42,
+"haut": 25.72,
+"annonces": 3322,
+"r2": 0.6
+}
+},
+"97416": {
+"appartement": {
+"loyer_m2": 15.81,
+"bas": 11.98,
+"haut": 20.87,
+"annonces": 4127,
+"r2": 0.72
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 18.91,
+"bas": 14.46,
+"haut": 24.73,
+"annonces": 2029,
+"r2": 0.57
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 13.65,
+"bas": 10.38,
+"haut": 17.96,
+"annonces": 2092,
+"r2": 0.54
+},
+"maison": {
+"loyer_m2": 14.29,
+"bas": 9.75,
+"haut": 20.96,
+"annonces": 3289,
+"r2": 0.63
+}
+},
+"97417": {
+"appartement": {
+"loyer_m2": 13.41,
+"bas": 10.83,
+"haut": 16.61,
+"annonces": 40,
+"r2": 0.75,
+"zone": "maille",
+"annonces_zone": 1235
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 15.53,
+"bas": 12.23,
+"haut": 19.71,
+"annonces": 18,
+"r2": 0.64,
+"zone": "maille",
+"annonces_zone": 2499
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 11.52,
+"bas": 9.44,
+"haut": 14.06,
+"annonces": 22,
+"r2": 0.57,
+"zone": "maille",
+"annonces_zone": 780
+},
+"maison": {
+"loyer_m2": 10.73,
+"bas": 8.17,
+"haut": 14.1,
+"annonces": 150,
+"r2": 0.63
+}
+},
+"97418": {
+"appartement": {
+"loyer_m2": 13.46,
+"bas": 10.5,
+"haut": 17.25,
+"annonces": 1205,
+"r2": 0.77
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 15.16,
+"bas": 12.04,
+"haut": 19.08,
+"annonces": 489,
+"r2": 0.69
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 12.81,
+"bas": 9.95,
+"haut": 16.49,
+"annonces": 712,
+"r2": 0.49
+},
+"maison": {
+"loyer_m2": 14.42,
+"bas": 10.09,
+"haut": 20.62,
+"annonces": 1169,
+"r2": 0.64
+}
+},
+"97419": {
+"appartement": {
+"loyer_m2": 12.17,
+"bas": 9.68,
+"haut": 15.32,
+"annonces": 18,
+"r2": 0.71,
+"zone": "maille",
+"annonces_zone": 998
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 14.73,
+"bas": 11.74,
+"haut": 18.48,
+"annonces": 4,
+"r2": 0.61,
+"zone": "maille",
+"annonces_zone": 486
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 11.52,
+"bas": 9.44,
+"haut": 14.06,
+"annonces": 14,
+"r2": 0.57,
+"zone": "maille",
+"annonces_zone": 780
+},
+"maison": {
+"loyer_m2": 10.55,
+"bas": 8.03,
+"haut": 13.85,
+"annonces": 88,
+"r2": 0.65,
+"zone": "maille",
+"annonces_zone": 1205
+}
+},
+"97420": {
+"appartement": {
+"loyer_m2": 14.34,
+"bas": 11.57,
+"haut": 17.76,
+"annonces": 594,
+"r2": 0.68
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 15.08,
+"bas": 12.0,
+"haut": 18.95,
+"annonces": 203,
+"r2": 0.69
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 12.01,
+"bas": 9.3,
+"haut": 15.5,
+"annonces": 394,
+"r2": 0.49
+},
+"maison": {
+"loyer_m2": 15.05,
+"bas": 11.18,
+"haut": 20.26,
+"annonces": 814,
+"r2": 0.7
+}
+},
+"97421": {
+"appartement": {
+"loyer_m2": 12.17,
+"bas": 9.68,
+"haut": 15.32,
+"annonces": 28,
+"r2": 0.71,
+"zone": "maille",
+"annonces_zone": 998
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 14.73,
+"bas": 11.74,
+"haut": 18.48,
+"annonces": 15,
+"r2": 0.61,
+"zone": "maille",
+"annonces_zone": 486
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 10.9,
+"bas": 9.06,
+"haut": 13.1,
+"annonces": 15,
+"r2": 0.55,
+"zone": "maille",
+"annonces_zone": 1235
+},
+"maison": {
+"loyer_m2": 9.82,
+"bas": 7.48,
+"haut": 12.89,
+"annonces": 130,
+"r2": 0.65
+}
+},
+"97422": {
+"appartement": {
+"loyer_m2": 13.52,
+"bas": 10.67,
+"haut": 17.13,
+"annonces": 3495,
+"r2": 0.8
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 15.98,
+"bas": 12.6,
+"haut": 20.27,
+"annonces": 2032,
+"r2": 0.64
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 11.57,
+"bas": 9.25,
+"haut": 14.47,
+"annonces": 1459,
+"r2": 0.54
+},
+"maison": {
+"loyer_m2": 11.89,
+"bas": 8.79,
+"haut": 16.1,
+"annonces": 3052,
+"r2": 0.64
+}
+},
+"97423": {
+"appartement": {
+"loyer_m2": 15.15,
+"bas": 10.81,
+"haut": 21.23,
+"annonces": 125,
+"r2": 0.6
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 18.2,
+"bas": 13.28,
+"haut": 24.92,
+"annonces": 47,
+"r2": 0.4,
+"zone": "maille",
+"annonces_zone": 696
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 14.64,
+"bas": 9.95,
+"haut": 21.56,
+"annonces": 75,
+"r2": 0.45,
+"zone": "maille",
+"annonces_zone": 2708
+},
+"maison": {
+"loyer_m2": 14.08,
+"bas": 8.85,
+"haut": 22.4,
+"annonces": 212,
+"r2": 0.54
+}
+},
+"97424": {
+"appartement": {
+"loyer_m2": 13.85,
+"bas": 11.18,
+"haut": 17.15,
+"annonces": 17,
+"r2": 0.72,
+"zone": "maille",
+"annonces_zone": 985
+},
+"appartement_1_2_pieces": {
+"loyer_m2": 14.73,
+"bas": 11.74,
+"haut": 18.48,
+"annonces": 5,
+"r2": 0.61,
+"zone": "maille",
+"annonces_zone": 486
+},
+"appartement_3_pieces_et_plus": {
+"loyer_m2": 11.75,
+"bas": 9.6,
+"haut": 14.39,
+"annonces": 12,
+"r2": 0.63,
+"zone": "maille",
+"annonces_zone": 670
+},
+"maison": {
+"loyer_m2": 11.25,
+"bas": 8.32,
+"haut": 15.21,
+"annonces": 80,
+"r2": 0.62,
+"zone": "maille",
+"annonces_zone": 1698
+}
+}
+}
+}

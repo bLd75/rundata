@@ -8,6 +8,7 @@ import * as meteofranceStations from "./providers/meteofrance.js";
 import * as santeSources from "./sante/etablissements.js";
 import * as collecteTco from "./vie/collecte.js";
 import * as lieuxEnfants from "./vie/enfants.js";
+import * as loyersAnil from "./vie/loyers.js";
 import * as marchesOsm from "./vie/marches.js";
 import { z } from "zod";
 import type { Cache } from "./cache.js";
@@ -85,7 +86,7 @@ import { actualites } from "./tools/actualites.js";
 import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.200.0";
+export const VERSION = "0.201.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -157,7 +158,7 @@ const lieu = z
 export const toutesLesSources = (inactives = false) =>
   oncePerId([...weatherProviders().map((p) => p.source), ...(inactives ? [meteofranceStations.SOURCE] : []), ...(inactives || vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(inactives || transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(inactives || climat.enabled() ? [climat.SOURCE] : []), ...(inactives || climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(inactives || arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(inactives || feux.enabled() ? [feux.SOURCE] : []),
     // The vie pratique's and the power cuts' (annuaire_services_publics, electricite).
-    carburantsPrix.SOURCE, radarMf.SOURCE, radarsFixes.SOURCE, courantMairies.SOURCE, tcoDecheteries.SOURCE, santeSources.FINESS, santeSources.ARS_GARDE, santeSources.SANTE_FR, collecteTco.SOURCE, ...Object.values(lieuxEnfants.SOURCES), marchesOsm.OSM]);
+    carburantsPrix.SOURCE, radarMf.SOURCE, radarsFixes.SOURCE, courantMairies.SOURCE, tcoDecheteries.SOURCE, santeSources.FINESS, santeSources.ARS_GARDE, santeSources.SANTE_FR, collecteTco.SOURCE, ...Object.values(lieuxEnfants.SOURCES), marchesOsm.OSM, loyersAnil.SOURCE]);
 /** A source's name from its id, for one served from its last copy (fraicheur.ts). */
 export const nomDeSource = (id: string) => toutesLesSources().find((s) => s.id === id)?.nom;
 
@@ -388,11 +389,11 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       description:
         "Ce que disent les registres officiels d'une adresse ou d'un lieu de La Réunion (974) : parcelle cadastrale (section, numéro, " +
         "surface), zone du plan local d'urbanisme (U, AU, A, N : constructible ou non), altitude du sol, prix médians des maisons, " +
-        "appartements et terrains vendus autour, et sur la voie demandée, depuis 5 ans (DVF), et risques : plan de prévention des risques (PPR inondation, " +
+        "appartements et terrains vendus autour, et sur la voie demandée, depuis 5 ans (DVF), loyers d'annonce de la commune pour un logement type (carte des loyers de l'ANIL), et risques : plan de prévention des risques (PPR inondation, " +
         "mouvements de terrain, littoral) au point, arrêtés de catastrophe naturelle de la commune, glissements et éboulements recensés " +
         "à moins de 500 m, sismicité, radon. Pour : « cette parcelle est constructible ? », « dans quelle zone du PLU est le 12 rue X " +
-        "à Saint-Paul ? », « prix au m² des maisons à l'Hermitage ? », « cette maison est en zone inondable ? », « quels risques à cette adresse ? ». " +
-        "/ Cadastral parcel, zoning (PLU), altitude, median property prices and natural hazards (risk plans, disasters, landslides) at an address in Réunion Island.",
+        "à Saint-Paul ? », « prix au m² des maisons à l'Hermitage ? », « loyer au m² d'un appartement à Saint-Pierre ? », « cette maison est en zone inondable ? », « quels risques à cette adresse ? ». " +
+        "/ Cadastral parcel, zoning (PLU), altitude, median property prices, the commune's advertised rents and natural hazards (risk plans, disasters, landslides) at an address in Réunion Island.",
       inputSchema: {
         adresse: z.string().describe("Adresse (« 7 rue de la Buse, Saint-Paul »), lieu-dit (« Bois de Nèfles ») ou coordonnées « -21.0, 55.27 ». / Address, place or 'lat, lon'."),
       },
