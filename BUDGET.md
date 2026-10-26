@@ -11,21 +11,24 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 - 10 000 sous-requêtes par invocation, et 1 000 appels à KV, D1 et aux autres services liés, ensemble.
 - 5 lectures en vol à la fois par invocation (src/http.ts), sur les 6 connexions que la plateforme ouvre ensemble.
 - Tâche planifiée : toutes les 5 minutes, 500 sous-requêtes, 30 000 ms de CPU.
+- Mémoire : 128 Mo par isolat, pour toutes les invocations qu'il sert ensemble.
 - Une visite ou une question : 200 sous-requêtes. Une construction de copie : 100.
 
 ## Totaux
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 305 | 500 |
-| pire passage planifié, appels KV et D1 | 31 | 1 000 |
-| pire passage planifié, CPU (ms) | 1 732 | 30 000 |
+| pire passage planifié, sous-requêtes | 307 | 500 |
+| pire passage planifié, appels KV et D1 | 32 | 1 000 |
+| pire passage planifié, CPU (ms) | 1 832 | 30 000 |
+| pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
 | passage le plus chargé (cadences les plus courtes), sous-requêtes | 91 | 500 |
 | vue la plus chère, sous-requêtes | 78 | 200 |
 | question la plus chère, sous-requêtes | 59 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
+- Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
 - Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 68 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
 - Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 91 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, web:crues, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
 - Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 283 sous-requêtes à 00:00 UTC.
@@ -33,10 +36,10 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 305 | 2 | 19 | 10 | 922 | 31 | 1 732 |
-| tâche planifiée, par jour | 8 803 | 576 | 1 044 | 387 | 44 732 | 31 | 70 563 |
-| tâche planifiée, par jour, cadences les plus courtes | 15 951 | 576 | 1 572 | 867 | 49 772 | 31 | 116 043 |
-| tâche planifiée, par mois (30 jours) | 264 090 | 17 280 | 31 320 | 11 610 | 1 341 960 | 930 | 2 116 890 |
+| pire passage planifié | 307 | 2 | 20 | 10 | 922 | 31 | 1 832 |
+| tâche planifiée, par jour | 8 995 | 576 | 1 140 | 387 | 44 732 | 31 | 80 163 |
+| tâche planifiée, par jour, cadences les plus courtes | 16 143 | 576 | 1 668 | 867 | 49 772 | 31 | 125 643 |
+| tâche planifiée, par mois (30 jours) | 269 850 | 17 280 | 34 200 | 11 610 | 1 341 960 | 930 | 2 404 890 |
 | tâches GitHub, par jour | 0 |  | 101 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 3 030 | 60 |  | 861 000 |  |
 
@@ -77,6 +80,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | agenda:sportsregions | agenda lu par la tâche planifiée : Clubs sportifs (Sportsregions) | 360 min | 00:00 | 5 |  |  |  |  |  | 30 | mesuré |
 | sans-reponse:echecs | sites sans réponse : l'état des sites relu quand une lecture échoue (D1), au plus toutes les 10 minutes par isolat, après la réponse aussi pour une vue ou une question ; une écriture de plus pour un site qui entre dans la liste | 10 min | 00:00 | 1 |  |  | 1 | 20 |  | 2 | estimé |
 | sans-reponse:reverification | sites sans réponse : la revérification quotidienne, une lecture par site (D1 et sites), à 06:00 heure de La Réunion | 1440 min | 02:00 | 22 |  |  | 2 | 20 | 21 | 30 | estimé |
+| irve:etat | bornes de recharge : la part de La Réunion du fichier national (environ 9 Mo), écrite dans KV après les autres lectures | 15 min | 00:05 | 2 |  | 1 |  |  |  | 100 | estimé |
 | propositions:purge | propositions des clubs : la purge quotidienne (D1), à 04:00 heure de La Réunion | 1440 min | 00:00 | 1 |  |  | 1 |  | 10 | 5 | estimé |
 
 ## Tâches GitHub
@@ -204,6 +208,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | agenda:sportsregions | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | sans-reponse:echecs | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | sans-reponse:reverification | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
+| irve:etat | providers/irve |
 | / | providers/arome, providers/ensemble, providers/feux, providers/metar, providers/meteofrance, providers/mf-auth, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /communes/* | providers/acspo, providers/arome, providers/ensemble, providers/feux, providers/houle, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /aujourdhui/* | providers/acspo, providers/actualites, providers/agenda, providers/annuaire, providers/arome, providers/atmo, providers/avis-eau, providers/baignades, providers/calendrier, providers/carburants, providers/coupures-courant, providers/cyclones, providers/eaupotable, providers/edf, providers/ensemble, providers/feux, providers/gtfsrt, providers/houle, providers/irve, providers/maregraphes, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/prefecture, providers/radar, providers/salles, providers/seismes, providers/sentiers, providers/sport-avis, providers/sport, providers/tco, providers/terrain, providers/traces, providers/uv, providers/velos, providers/vigicrues, providers/vigieau, providers/vigilance, providers/volcan |

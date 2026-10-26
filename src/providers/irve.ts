@@ -4,8 +4,8 @@
  * file of the same access point, transport.data.gouv.fr. Licence Ouverte.
  *
  * The live file covers all of France (about 9 Mo, 125 000 points). The Worker reads La Réunion's part only, filtered
- * every 15 minutes by a GitHub Actions workflow (.github/workflows/irve.yml, scripts/irve-live.ts) and written to its
- * KV store under `irve:etat`. The Node server, given no reader, reads the national file itself.
+ * every 15 minutes by its scheduled event (`refresh`, worker.ts) and written to its KV store under `irve:etat`. The
+ * Node server, given no reader, reads the national file itself.
  *
  * A point's time is when its status last changed, not when it was last checked: a point free since yesterday is
  * simply still free.
@@ -25,8 +25,13 @@ export const SOURCE: SourceInfo = {
 };
 
 export const LIVE_URL = "https://proxy.transport.data.gouv.fr/resource/consolidation-nationale-irve-dynamique";
-// The workflow writes every 15 minutes; each data center reads its copy again after this.
+// The scheduled event writes every 15 minutes; each data center reads its copy again after this.
 const LIVE_SECONDS = 120;
+/** The scheduled event writes La Réunion's part every 15 minutes, at 5, 20, 35 and 50 past the hour (UTC). */
+export const REFRESH_EVERY = 15;
+export const REFRESH_OFFSET = 5;
+/** Kept 6 hours in KV: past that, the pages say the status is unknown rather than show an old one. */
+export const LIVE_TTL_SECONDS = 6 * 3600;
 
 export interface Point {
   id: string;
@@ -121,9 +126,27 @@ export function parseLive(csv: string, ids: Set<string> = IDS, now = new Date())
   return { lu: now.toISOString(), points };
 }
 
+/** La Réunion's part of the national file; fails when it lists too few of the island's points: better the last good copy than none. */
+export function reunionPart(csv: string, now = new Date()): Live {
+  const live = parseLive(csv, IDS, now);
+  const n = Object.keys(live.points).length;
+  if (n < IDS.size / 2) throw new Error(`seulement ${n} points de La Réunion sur ${IDS.size} dans le fichier national`);
+  return live;
+}
+
+/** Whether the scheduled event at `now` (every 5 minutes) is one of those that write La Réunion's part. */
+export const refreshDue = (now: Date) => (((now.getUTCMinutes() - REFRESH_OFFSET) % REFRESH_EVERY) + REFRESH_EVERY) % REFRESH_EVERY < 5;
+
+/** In the Worker's scheduled event: La Réunion's part read from the national file and handed to `write`; its points. */
+export async function refresh(write: (live: Live) => Promise<void>, now = new Date()): Promise<number> {
+  const live = reunionPart(await getText(SOURCE.id, LIVE_URL, 60_000), now);
+  await write(live);
+  return Object.keys(live.points).length;
+}
+
 let reader: (() => Promise<Live | null>) | undefined;
 
-/** In the Worker: read La Réunion's part from the KV store, where the workflow writes it. */
+/** In the Worker: read La Réunion's part from the KV store, where the scheduled event writes it. */
 export function configure(read: (() => Promise<Live | null>) | undefined) {
   reader = read;
 }

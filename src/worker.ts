@@ -155,7 +155,7 @@ function setup(env: Env): Cache {
   feux.configure(env.FIRMS_MAP_KEY);
   const d1 = env.TRANSIT;
   const kv = env.STORE;
-  // Filtered from the national file by .github/workflows/irve.yml (src/providers/irve.ts).
+  // Filtered from the national file by the scheduled event below (src/providers/irve.ts).
   irve.configure(kv && (async () => {
     count();
     return (await kv.get("irve:etat", "json")) as irve.Live | null;
@@ -261,6 +261,16 @@ export default {
       .catch((err) => console.error("préchargement impossible", why(err)));
     ctx.waitUntil(reads);
     const now = new Date();
+    // Every 15 minutes, at 5, 20, 35 and 50 past the hour: La Réunion's part of the national file of the charging points
+    // (about 9 Mo), once the reads above are done, so that the file is never in memory with their copies.
+    if (kv && irve.refreshDue(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => irve.refresh(async (live) => {
+        count(1, true);
+        await kv.put("irve:etat", JSON.stringify(live), { expirationTtl: irve.LIVE_TTL_SECONDS });
+      }, now)))
+        .then(({ value, used }) => console.log(`bornes de recharge : ${value} points de La Réunion, sous-requêtes : ${used}`))
+        .catch((err) => console.error("bornes de recharge : état impossible", why(err))));
+    }
     // Once a day, at 06:00 in La Réunion: each public site that did not answer asked again (sans-reponse.ts), once the
     // reads above are done, so that its one GET is never part of a run of ours.
     if (sansReponse.heureDuPassage(now)) {
