@@ -14,6 +14,20 @@ import { bodyText } from "../http.js";
 
 export const CSP_RAPPORT = "/csp-rapport";
 
+/**
+ * Whom to tell of a security flaw (RFC 9116), served at SECURITY_TXT. Its Expires is written here, less than a year
+ * ahead as the RFC recommends: a test fails 30 days before it, so that it is moved forward before it passes.
+ */
+export const SECURITY_TXT = "/.well-known/security.txt";
+export const SECURITY_EXPIRES = "2027-09-01T00:00:00.000Z";
+export const SECURITY_TEXT = [
+  "Contact: mailto:contact@rundata.re",
+  `Expires: ${SECURITY_EXPIRES}`,
+  "Preferred-Languages: fr, en",
+  `Canonical: https://rundata.re${SECURITY_TXT}`,
+  "",
+].join("\n");
+
 /** Applied at once on every page. */
 export const CADRE: Record<string, string> = { "content-security-policy": "frame-ancestors 'none'", "x-frame-options": "DENY" };
 
