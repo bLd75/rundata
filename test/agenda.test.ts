@@ -583,7 +583,10 @@ describe("agenda", () => {
       ["Dan Ron Mafate", "Saint-Paul", [{ debut: "2026-10-23", fin: "2026-10-24" }]],
       ["Fête de l'ail", "Petite-Île", [{ debut: "2026-10-23", fin: "2026-10-25" }]],
     ]);
-    expect(() => parseReunionFr("<html></html>")).toThrow();
+    expect(() => parseReunionFr("<html></html>")).toThrow("agenda de reunion.fr : liste absente de la page");
+    // The page as reunion.fr published it from 25/10/2026: its list empty, not missing.
+    expect(() => parseReunionFr(`<!-- Generated at 2026-10-26 01:35:09 --> <script> var itemsData = ""; var playlistData = {"total":0}; </script>`))
+      .toThrow("agenda de reunion.fr : liste vide publiée (page générée le 2026-10-26 01:35:09)");
   });
 
   it("reads La Possession's agenda, each date as data", () => {
