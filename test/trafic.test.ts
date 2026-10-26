@@ -118,6 +118,11 @@ describe("circulation", () => {
     expect(lines.length).toBeGreaterThanOrEqual(6);
     expect(ties.match(/<circle /g)).toHaveLength(lines.length);
     expect(lines.every(([x, y]) => pills.some((p) => p.x + p.w / 2 === x && p.y + 24 === y))).toBe(true);
+    // Every dot in the open, its white ring included: none under a pill, its own or another's, even in part.
+    const dots = [...ties.matchAll(/<circle cx="(\d+)" cy="(\d+)" r="10"/g)].map((m) => [+m[1], +m[2]]);
+    expect(dots).toHaveLength(lines.length);
+    const under = dots.filter(([x, y]) => pills.some((p) => x > p.x - 14 && x < p.x + p.w + 14 && y > p.y - 14 && y < p.y + 48 + 14));
+    expect(under).toEqual([]);
     // The same places at each build.
     expect(mapOf(traficPage("https://rundata.re", null, NOW))).toBe(map);
   });
