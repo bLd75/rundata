@@ -1,0 +1,138 @@
+/**
+ * The security headers of the site's pages, and where browsers report what they would block.
+ *
+ * - No page of rundata.re is ever shown in another site's frame (`frame-ancestors 'none'`, and X-Frame-Options for
+ *   the older browsers): applied at once. None of our own pages is framed by another of ours; the only frames are
+ *   Cloudflare's check on the forms and Waze's map on /trafic, which are theirs.
+ * - A Content-Security-Policy, in report-only for now: the browsers block nothing, they report to POST /csp-rapport
+ *   what they would block. Its scripts are this site's, Cloudflare's Turnstile, and the inline ones of the page, each
+ *   allowed by its SHA-256 (computed from the page itself, so that a new script is never forgotten). Styles stay
+ *   inline (the pages have `style` attributes); the frames are Turnstile's and Waze's. Once a day passes without a
+ *   report, the same policy becomes the blocking one.
+ */
+import { bodyText } from "../http.js";
+
+export const CSP_RAPPORT = "/csp-rapport";
+
+/** Applied at once on every page. */
+export const CADRE: Record<string, string> = { "content-security-policy": "frame-ancestors 'none'", "x-frame-options": "DENY" };
+
+const TURNSTILE = "https://challenges.cloudflare.com";
+const WAZE = "https://embed.waze.com";
+
+/** The policy, with the hashes of the page's inline scripts. */
+export function politique(hashes: readonly string[]): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' ${TURNSTILE}${hashes.map((h) => ` 'sha256-${h}'`).join("")}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self'",
+    "font-src 'self'",
+    "connect-src 'self'",
+    `frame-src ${TURNSTILE} ${WAZE}`,
+    "worker-src 'self'",
+    "manifest-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    `report-uri ${CSP_RAPPORT}`,
+  ].join("; ");
+}
+
+/**
+ * The text of each inline script that runs: not one with `src`, nor a data block (JSON-LD). Read by position, not by
+ * a pattern: the text hashed must be exactly the browser's, between `<script…>` and `</script`.
+ */
+export function scriptsEnLigne(html: string): string[] {
+  const out: string[] = [];
+  const lower = html.toLowerCase();
+  for (let at = lower.indexOf("<script"); at >= 0; at = lower.indexOf("<script", at + 1)) {
+    const open = lower.indexOf(">", at);
+    if (open < 0) break;
+    const close = lower.indexOf("</script", open);
+    if (close < 0) break;
+    const tag = lower.slice(at, open);
+    const type = /\btype\s*=\s*["']?([^"'\s>]+)/.exec(tag)?.[1];
+    const runs = !type || type === "module" || /^(?:text|application)\/(?:java|ecma)script$/.test(type);
+    if (runs && !/\bsrc\s*=/.test(tag)) out.push(html.slice(open + 1, close));
+    at = close;
+  }
+  return out;
+}
+
+// The inline scripts are the code's constants: each hashed once per isolate. Bounded, in case one ever carries data.
+const known = new Map<string, string>();
+const KNOWN_MAX = 200;
+
+async function sha256(text: string): Promise<string> {
+  let h = known.get(text);
+  if (h) return h;
+  const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
+  h = btoa(String.fromCharCode(...d));
+  if (known.size >= KNOWN_MAX) known.clear();
+  known.set(text, h);
+  return h;
+}
+
+/** The headers of a page, from its final HTML. */
+export async function enTetes(html: string): Promise<Record<string, string>> {
+  const hashes = [...new Set(await Promise.all(scriptsEnLigne(html).map(sha256)))];
+  return { ...CADRE, "content-security-policy-report-only": politique(hashes) };
+}
+
+// ---------------------------------------------------------------- The reports
+
+const RAPPORT_MAX = 8192;
+// One line per directive and blocked host, per isolate and per hour: a flood of reports never fills the logs.
+const UNE_HEURE = 3600_000;
+const vus = new Map<string, number>();
+const VUS_MAX = 500;
+
+// The links e-mailed to the clubs carry their secret in the path: never written down.
+const SECRET = /^(\/associations\/(?:proposition|connexion)\/).+$/;
+
+const court = (v: unknown, n: number) => (typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, n) : "");
+
+/** « inline », « eval », « data », or the host of what was blocked. */
+function bloque(v: string): string {
+  if (!v || /^(?:inline|eval|wasm-eval|trusted-types-[\w-]+)$/.test(v)) return v || "?";
+  try {
+    const u = new URL(v);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.host : u.protocol.replace(/:$/, "");
+  } catch {
+    return court(v, 40);
+  }
+}
+
+function page(v: string): string {
+  try {
+    return new URL(v).pathname.replace(SECRET, "$1…").slice(0, 120);
+  } catch {
+    return "?";
+  }
+}
+
+/** POST /csp-rapport: one report of a browser, said in one short line of the Worker's log; nothing kept. */
+export async function rapport(request: Request, now = Date.now()): Promise<Response> {
+  if (request.method !== "POST") return new Response("Reçoit seulement les rapports CSP des navigateurs.", { status: 405, headers: { allow: "POST", "content-type": "text/plain; charset=utf-8" } });
+  const text = await bodyText(request, RAPPORT_MAX);
+  let r: Record<string, unknown> = {};
+  try {
+    const body = text === undefined ? undefined : JSON.parse(text);
+    const inner = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>)["csp-report"] : undefined;
+    if (inner && typeof inner === "object") r = inner as Record<string, unknown>;
+  } catch {}
+  const directive = court(r["effective-directive"] || r["violated-directive"], 40).split(" ")[0];
+  if (!directive) return new Response(null, { status: 204 });
+  const what = bloque(court(r["blocked-uri"], 300));
+  const key = `${directive} ${what}`;
+  const last = vus.get(key);
+  if (last === undefined || now - last >= UNE_HEURE) {
+    if (vus.size >= VUS_MAX) vus.clear();
+    vus.set(key, now);
+    const where = court(r["source-file"], 200) ? ` (${bloque(court(r["source-file"], 200))}${typeof r["line-number"] === "number" ? `, ligne ${r["line-number"]}` : ""})` : "";
+    const sample = court(r["script-sample"], 40);
+    console.warn(`csp (observation) : ${directive} bloquerait ${what} sur ${page(court(r["document-uri"], 300))}${where}${sample ? ` « ${sample} »` : ""}`);
+  }
+  return new Response(null, { status: 204 });
+}
