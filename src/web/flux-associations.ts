@@ -3,6 +3,7 @@
  * ouvertes »): all of them, as published, in ICS for calendars and in JSON for anyone who reuses them, the licence
  * written in both. Never the author's address; the public contact only when its author asked for one.
  */
+import { count } from "../budget.js";
 import { evenement } from "../providers/agenda-propositions.js";
 import * as propositions from "../propositions.js";
 
@@ -14,6 +15,10 @@ const ATTRIBUTION = "Réutilisation libre, y compris commerciale, en citant l'as
 const PAGE = "https://rundata.re/associations";
 // Read again at most every quarter of an hour, like the agenda's copy.
 const MAX_AGE = 900;
+// Kept this long by the data center (Cache API, s-maxage): a loop of requests costs one D1 read per data center and
+// format in that time, not one per request. A change shows there 5 minutes later at most, then in the apps at their
+// own pace (max-age, REFRESH-INTERVAL).
+const EDGE_SECONDS = 300;
 
 /** « 2026-11-07T18:00 », La Réunion's time, as ISO with its offset. */
 const iso = (local: string) => `${local}:00+04:00`;
@@ -118,12 +123,35 @@ export function icsFeed(lignes: propositions.Ligne[], now: Date): string {
   return lines.map(fold).join("\r\n") + "\r\n";
 }
 
-/** GET /associations/evenements.ics or .json: the published events, from today on. */
+/** The data center's cache, none outside a Worker (tests); a cache problem must never cost an answer. */
+async function edge(): Promise<Cache | undefined> {
+  try {
+    return typeof caches === "undefined" ? undefined : await caches.open("flux-associations");
+  } catch {
+    return undefined;
+  }
+}
+
+/** GET /associations/evenements.ics or .json: the published events, from today on, kept EDGE_SECONDS by the data center. */
 export async function flux(request: Request, path: string, now = new Date()): Promise<Response> {
   if (request.method !== "GET" && request.method !== "HEAD") return new Response("GET seulement.", { status: 405, headers: { allow: "GET, HEAD" } });
+  // Without the query: a query added to each request does not get round the copy.
+  const key = new Request(`https://rundata.re${path}`);
+  const cache = await edge();
+  const kept = await cache?.match(key).then((r) => (count(1, "read"), r)).catch(() => undefined);
+  if (kept) return kept;
   const lignes = await propositions.visibles(now);
-  const headers = { "cache-control": `public, max-age=${MAX_AGE}`, "access-control-allow-origin": "*", "x-content-type-options": "nosniff" };
-  return path === ICS_PATH
+  const headers = { "cache-control": `public, max-age=${MAX_AGE}, s-maxage=${EDGE_SECONDS}`, "access-control-allow-origin": "*", "x-content-type-options": "nosniff" };
+  const r = path === ICS_PATH
     ? new Response(icsFeed(lignes, now), { headers: { ...headers, "content-type": "text/calendar; charset=utf-8" } })
     : new Response(JSON.stringify(jsonFeed(lignes, now), null, 1), { headers: { ...headers, "content-type": "application/json; charset=utf-8" } });
+  if (cache) {
+    try {
+      count(1, true);
+      await cache.put(key, r.clone());
+    } catch {
+      // same
+    }
+  }
+  return r;
 }

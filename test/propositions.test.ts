@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache } from "../src/cache.js";
 import * as propositions from "../src/propositions.js";
@@ -559,6 +559,37 @@ describe("the open feed (web/flux-associations.ts)", () => {
     expect(((await r.json()) as { evenements: unknown[] }).evenements).toHaveLength(2);
     const ics = await handle(new Request("https://rundata.re/associations/evenements.ics"), new Cache());
     expect(ics.headers.get("content-type")).toBe("text/calendar; charset=utf-8");
+  });
+
+  it("is read from D1 once per data center and format for 5 minutes, whatever the query, and answers without the cache", async () => {
+    await published();
+    formulaires.ouvrir(true);
+    let reads = 0;
+    propositions.configure(
+      async (sql, ...params) => Number(db.prepare(sql).run(...(params as (string | number | null)[])).changes),
+      undefined,
+      async <T>(sql: string, ...params: unknown[]) => (reads++, db.prepare(sql).all(...(params as (string | number | null)[])) as T[]),
+    );
+    // The data center's cache, as the Worker has it.
+    const kept = new Map<string, Response>();
+    vi.stubGlobal("caches", { open: async () => ({ match: async (k: Request) => kept.get(k.url)?.clone(), put: async (k: Request, r: Response) => void kept.set(k.url, r) }) });
+    try {
+      const get = (path: string) => handle(new Request(`https://rundata.re${path}`), new Cache());
+      const first = await get("/associations/evenements.json");
+      expect(first.headers.get("cache-control")).toBe("public, max-age=900, s-maxage=300");
+      expect(reads).toBe(1);
+      for (const q of ["", "?v=2", "?nocache=1"]) expect(((await (await get(`/associations/evenements.json${q}`)).json()) as { evenements: unknown[] }).evenements).toHaveLength(2);
+      expect(reads).toBe(1);
+      await get("/associations/evenements.ics");
+      await get("/associations/evenements.ics?x");
+      expect([reads, [...kept.keys()]]).toEqual([2, ["https://rundata.re/associations/evenements.json", "https://rundata.re/associations/evenements.ics"]]);
+      // A cache that fails costs a read, never the answer.
+      vi.stubGlobal("caches", { open: async () => { throw new Error("cache"); } });
+      expect((await get("/associations/evenements.json")).status).toBe(200);
+      expect(reads).toBe(3);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
