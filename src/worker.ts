@@ -21,6 +21,7 @@ import * as feux from "./providers/feux.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
+import * as limite from "./limite.js";
 import * as chiffre from "./connecteurs/chiffre.js";
 import * as connexions from "./connecteurs/connexions.js";
 import * as propositions from "./propositions.js";
@@ -90,6 +91,9 @@ interface Env {
   CONNECTEURS_CLE?: string;
   /** Cloudflare Email Sending: the confirmation of the events the clubs propose (src/propositions.ts). */
   EMAIL?: propositions.EmailBinding;
+  /** Rate Limiting: the calls to /mcp and the forms' sends, per address and per minute (src/limite.ts). */
+  LIMITE_MCP?: limite.Limiteur;
+  LIMITE_FORMULAIRES?: limite.Limiteur;
 }
 
 /** The part of a D1 binding used here. */
@@ -233,6 +237,9 @@ function setup(env: Env): Cache {
 
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
+    // A connection past its threshold is answered before anything is read or built.
+    const trop = await limite.refuse(request, { mcp: env.LIMITE_MCP, formulaire: env.LIMITE_FORMULAIRES });
+    if (trop) return trop;
     const c = setup(env);
     // A page served from its last copy refreshes it after the response (web/data.ts); an agenda too slow for the
     // answer is still stored (tools/agenda.ts).
