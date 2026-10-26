@@ -67,7 +67,7 @@ export function parse(raw: AirJson | AirJson[]): UvCell[] {
 }
 
 export async function island(cache: Cache): Promise<Cached<UvCell[]>> {
-  return cache.get("uv:ile", FRESH_SECONDS, async () => parse(await getJson<AirJson | AirJson[]>(SOURCE.id, url())));
+  return cache.island("uv:ile", FRESH_SECONDS, async () => parse(await getJson<AirJson | AirJson[]>(SOURCE.id, url())));
 }
 
 /** The cell over a place. */
