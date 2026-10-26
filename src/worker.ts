@@ -129,7 +129,8 @@ function recorder(env: Env, request: Request) {
     if (hit.kind === "mcp" || hit.kind === "rpc") console.log(logLine(hit, who, country));
     if (!usage) return;
     try {
-      const page = hit.kind === "page";
+      // A signal comes from a page's browser: read as a page view is (web/signaux.ts).
+      const page = hit.kind === "page" || hit.kind === "signal";
       usage.writeDataPoint(point(hit, { who, country, from, audience: page ? (team ? TEAM : audience(headers)) : "", language: page ? language(headers.get("accept-language")) : "", mode: page && headers.get("rundata-mode") === "app" ? "app" : "", device: page ? device(headers) : "" }));
     } catch (err) {
       console.error("analytics : écriture impossible", why(err));

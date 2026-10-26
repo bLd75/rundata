@@ -55,6 +55,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-27T00:02:00+04:00", texte: "Bouton «\u00a0Cette page vous a aidé\u00a0?\u00a0» en bas des pages, pour nous dire en un clic si une page a servi. Sans compte ni cookie." },
   { date: "2026-10-26T23:57:00+04:00", texte: "Nouvelle page Nos valeurs\u00a0: un site sans compte, un code ouvert, des données sourcées, et ce que coûte une information enfermée." },
   { date: "2026-10-26T18:44:00+04:00", texte: "Loyers d'annonce (ANIL) et part des logements éligibles à la fibre (Arcep), sur chaque page commune et dans les réponses des IA." },
   { date: "2026-10-26T18:40:00+04:00", texte: "Prévision météo\u00a0: le ciel de la nuit, de 18\u00a0h à 6\u00a0h, dégagé ou couvert, et, dans les Hauts, au-dessus des nuages ou dedans." },

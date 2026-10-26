@@ -15,6 +15,7 @@ import { notFound, site } from "./web/site.js";
 import { wantsPage } from "./web/connecteur.js";
 import { OFFLINE_PATH } from "./web/pwa.js";
 import { CADRE, CSP_RAPPORT, rapport } from "./web/securite.js";
+import { signal, SIGNAL_PATH } from "./web/signaux.js";
 
 // Browser-based clients (MCP Inspector, web chat apps) call the endpoint cross-origin.
 const CORS = {
@@ -107,6 +108,8 @@ export async function handle(request: Request, cache: Cache, background: Backgro
   if (shortcut) return new Response(null, { status: 302, headers: { location: `/?ref=${shortcut}` } });
   // The team's scripts are not visitors: not counted.
   if (CHECKER.test(request.headers.get("user-agent") ?? "")) record = () => {};
+  // What a page's browser tells the statistics (web/signaux.ts): a point each, never a page view.
+  if (url.pathname === SIGNAL_PATH) return signal(request, record);
   // A browser opening the connector's address gets the page that explains it (web/connecteur.ts); the clients, the endpoint.
   if (url.pathname === "/mcp" && !wantsPage(request)) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
