@@ -1,9 +1,10 @@
 import type { Cache } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as src from "../providers/actualites.js";
+import * as radars from "../routes/radars.js";
 import { localTime } from "../geo.js";
 import { why } from "../types.js";
-import { credits, notFound, placeBlock, text } from "./format.js";
+import { a, credits, notFound, placeBlock, text } from "./format.js";
 import { mediasNonLus } from "./injoignable.js";
 import { mentionLa1ere } from "./non-repris.js";
 import * as littoral from "./littoral.js";
@@ -138,11 +139,14 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
     prefecture.length ? `Dernier communiqué de la préfecture, ${quand(prefecture[0], now)} : « ${prefecture[0].titre} ».` : "",
   ].filter(Boolean).join(" ");
 
-  const roadAsked = road || littoral.ENDS.includes(commune ?? "") || /\b(?:routes?|circulation|trafic|littoral)\b/.test(normalize(sujet ?? ""));
+  const roadAsked = road || littoral.ENDS.includes(commune ?? "") || /\b(?:routes?|circulation|trafic|littoral|radars?)\b/.test(normalize(sujet ?? ""));
+  // The fixed speed cameras, public information, beside the news of the roads: the commune's, or the island's.
+  const cameras = roadAsked || /\bradars?\b/.test(normalize(sujet ?? "")) ? radars.forTool(commune, commune && a(commune)) : undefined;
   return text({
     lieu: res && lieu ? placeBlock(lieu, res) : undefined,
     resume,
     route_du_littoral: roadAsked ? littoral.forTool(littoral.littoral(data, now), now) : undefined,
+    radars_fixes: cameras,
     periode: `les dernières ${h} heures`,
     infos: mine.filter((i) => !res || !i.direct).slice(0, ARTICLES_MAX).map((i) => infoRow(i, now, commune)),
     en_direct: live.length ? live.map((i) => ({ ...infoRow(i, now, commune), mentionne_le_lieu: res ? names(i) : undefined })) : undefined,
@@ -154,6 +158,6 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
     a_savoir: A_SAVOIR,
     // Réunion La 1ère, not read (tools/non-repris.ts): said in an answer for the whole island.
     non_repris: res ? undefined : mentionLa1ere("actualites"),
-    sources: credits([src.SOURCES.medias, src.SOURCES.prefecture]),
+    sources: credits([src.SOURCES.medias, src.SOURCES.prefecture, ...(cameras ? [radars.SOURCE] : [])]),
   });
 }

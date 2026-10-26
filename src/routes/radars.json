@@ -1,0 +1,199 @@
+{
+"fichier_du": "2025-12-30",
+"source": "Ministère de l'Intérieur, « Liste des radars fixes en France », Licence Ouverte 2.0",
+"page": "https://www.data.gouv.fr/datasets/liste-des-radars-fixes-en-france",
+"radars": [
+{
+"numero": "50401",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 70,
+"mis_en_service": "2021-05-04",
+"lon": 55.48891,
+"lat": -20.88672
+},
+{
+"numero": "50403",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 90,
+"mis_en_service": "2020-12-30",
+"lon": 55.50131,
+"lat": -21.30237
+},
+{
+"numero": "50404",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 70,
+"mis_en_service": "2020-12-28",
+"lon": 55.46356,
+"lat": -20.88228
+},
+{
+"numero": "50405",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 70,
+"mis_en_service": "2021-04-12",
+"lon": 55.48366,
+"lat": -20.88635
+},
+{
+"numero": "50406",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 90,
+"mis_en_service": "2021-04-09",
+"lon": 55.25272,
+"lat": -21.03179
+},
+{
+"numero": "50408",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 80,
+"mis_en_service": "2020-12-16",
+"lon": 55.30029,
+"lat": -21.23431
+},
+{
+"numero": "50409",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 110,
+"mis_en_service": "2021-04-14",
+"lon": 55.46488,
+"lat": -21.33213
+},
+{
+"numero": "50414",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 50,
+"mis_en_service": "2022-05-31",
+"lon": 55.5767,
+"lat": -21.36933
+},
+{
+"numero": "50418",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 50,
+"mis_en_service": "2022-06-02",
+"lon": 55.71929,
+"lat": -21.37096
+},
+{
+"numero": "50419",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 110,
+"mis_en_service": "2020-12-29",
+"lon": 55.6573,
+"lat": -20.9569
+},
+{
+"numero": "50420",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 110,
+"mis_en_service": "2020-12-16",
+"lon": 55.42568,
+"lat": -21.30191
+},
+{
+"numero": "50421",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 110,
+"mis_en_service": "2020-12-23",
+"lon": 55.31394,
+"lat": -21.23691
+},
+{
+"numero": "50422",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 110,
+"mis_en_service": "2020-12-17",
+"lon": 55.4401,
+"lat": -21.3148
+},
+{
+"numero": "50424",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 50,
+"mis_en_service": "2025-01-30",
+"lon": 55.68439,
+"lat": -20.99903
+},
+{
+"numero": "50425",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 70,
+"mis_en_service": "2024-08-02",
+"lon": 55.64388,
+"lat": -21.11972
+},
+{
+"numero": "50438",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 50,
+"mis_en_service": "2022-06-01",
+"lon": 55.59199,
+"lat": -21.00121
+},
+{
+"numero": "50439",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 50,
+"mis_en_service": "2022-06-01",
+"lon": 55.62686,
+"lat": -20.98437
+},
+{
+"numero": "50447",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 90,
+"mis_en_service": "2022-06-02",
+"lon": 55.49496,
+"lat": -20.88615
+},
+{
+"numero": "50448",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 70,
+"mis_en_service": "2025-10-23",
+"lon": 55.46069,
+"lat": -20.8801
+},
+{
+"numero": "50449",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 90,
+"mis_en_service": "2024-06-13",
+"lon": 55.5008,
+"lat": -20.88916
+},
+{
+"numero": "50461",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 110,
+"mis_en_service": "2022-05-31",
+"lon": 55.29393,
+"lat": -20.98128
+},
+{
+"numero": "50475",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 110,
+"mis_en_service": "2022-06-02",
+"lon": 55.50982,
+"lat": -21.29482
+},
+{
+"numero": "50479",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 110,
+"mis_en_service": "2020-12-21",
+"lon": 55.54945,
+"lat": -20.90268
+},
+{
+"numero": "50483",
+"type": "radar vitesse fixe de nouvelle génération",
+"vma_kmh": 50,
+"mis_en_service": "2024-06-07",
+"lon": 55.8006,
+"lat": -21.13045
+}
+]
+}

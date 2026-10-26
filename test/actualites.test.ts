@@ -140,6 +140,20 @@ describe("actualités", () => {
     expect(b.a_savoir).toMatch(/ne prouve pas qu'il ne s'y passe rien/);
   });
 
+  it("gives the fixed speed cameras of the ministry's list with the roads, never the mobile checks", async () => {
+    const sp = body(await actualites(cache(), "Saint-Pierre", "route", undefined, NOW));
+    expect(sp.radars_fixes.resume).toBe("4 radars fixes à Saint-Pierre dans la liste du ministère de l'Intérieur (90 km/h, 110 km/h).");
+    expect(sp.radars_fixes.radars).toHaveLength(4);
+    expect(sp.radars_fixes.radars[0]).toMatchObject({ commune: "Saint-Pierre", vitesse_max_kmh: 90, carte: expect.stringMatching(/^https:\/\/www\.openstreetmap\.org\/\?mlat=-21\.\d+&mlon=55\.\d+/) });
+    expect(sp.radars_fixes.a_savoir).toBe("Liste des radars fixes publiée par le ministère de l'Intérieur, fichier du 30/12/2025, mise à jour une fois par an : un radar installé depuis, ou absent du fichier, n'y figure pas. Les contrôles mobiles n'y sont pas.");
+    expect(sp.sources.map((x: { source: string }) => x.source).join()).toContain("Ministère de l'Intérieur");
+    // A commune without one, said as the list says it; the island by commune; nothing on a question that is not about the roads.
+    expect(body(await actualites(cache(), "Cilaos", "radar", undefined, NOW)).radars_fixes).toMatchObject({ resume: "Aucun radar fixe à Cilaos dans la liste du ministère de l'Intérieur.", radars: undefined });
+    const ile = body(await actualites(cache(), undefined, "circulation", undefined, NOW)).radars_fixes;
+    expect([ile.resume, ile.par_commune[0]]).toEqual(["24 radars fixes à La Réunion dans la liste du ministère de l'Intérieur.", { commune: "Saint-Denis", nombre: 6, vitesses_max: ["70 km/h", "90 km/h"] }]);
+    expect(body(await actualites(cache(), "Saint-Pierre", undefined, undefined, NOW)).radars_fixes).toBeUndefined();
+  });
+
   it("filters by subject, and answers without the media that fail", async () => {
     down = /clicanoo|freedom/;
     const b = body(await actualites(cache(), undefined, "blocages", undefined, NOW));
