@@ -158,6 +158,9 @@ function avertissement(list: CopieDeSecours[], rest: boolean): string {
   return out.join(" ") + (rest && !closed ? restText : "");
 }
 
+/** The sentence of `avertissement` for one source served from its last copy, read at `at`: for a page's copy. */
+export const sourceMuette = (source: string, at: Date) => avertissement([{ source, lue_le: localTime(at) }], false);
+
 /**
  * `donnee`: false leaves `donnee_du` out (an answer made of many dated parts, each saying its own). `nom`: a source's
  * name from its id, for the one served from its last copy.

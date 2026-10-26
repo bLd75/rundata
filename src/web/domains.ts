@@ -263,7 +263,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
           `<span>Ailleurs sur l'île : <b>${q.ailleurs_sur_l_ile["30_jours"]}</b>, magnitude max ${md(q.ailleurs_sur_l_ile.magnitude_max_30j)}</span></p>`) +
       (q.derniers.length ? `<ul class="rows${a ? " seismes" : ""}">${q.derniers.slice(0, a ? 5 : undefined).map(quakeRow).join("")}</ul>` : "") +
       // LOCALISES once, under the day counts (marketing).
-      `<p class="note">${esc(q.note.replace(` ${LOCALISES}`, ""))}</p></div>`
+      `<p class="note">${q.copie ? `${esc(q.copie)} ` : ""}${esc(q.note.replace(` ${LOCALISES}`, ""))}</p></div>`
     : "";
 
   // The alerts before this one, from the releases (tools/volcan-historique.ts): the same list whatever the copy says.

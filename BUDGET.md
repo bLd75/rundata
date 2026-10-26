@@ -18,9 +18,9 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 322 | 500 |
-| pire passage planifié, appels KV et D1 | 35 | 1 000 |
-| pire passage planifié, CPU (ms) | 2 052 | 30 000 |
+| pire passage planifié, sous-requêtes | 330 | 500 |
+| pire passage planifié, appels KV et D1 | 37 | 1 000 |
+| pire passage planifié, CPU (ms) | 2 102 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
 | passage le plus chargé (cadences les plus courtes), sous-requêtes | 106 | 500 |
 | vue la plus chère, sous-requêtes | 78 | 200 |
@@ -31,15 +31,15 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 - Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
 - Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 83 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, connecteurs:lecture, propositions:purge).
 - Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 106 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, web:crues, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, connecteurs:lecture, propositions:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 298 sous-requêtes à 00:00 UTC.
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 306 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 78. Question la plus chère : resume_du_jour, 59. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 322 | 2 | 20 | 13 | 1 123 | 42 | 2 052 |
-| tâche planifiée, par jour | 13 315 | 576 | 1 140 | 1 251 | 102 620 | 3 199 | 105 123 |
-| tâche planifiée, par jour, cadences les plus courtes | 20 463 | 576 | 1 668 | 1 731 | 107 660 | 3 199 | 150 603 |
-| tâche planifiée, par mois (30 jours) | 399 450 | 17 280 | 34 200 | 37 530 | 3 078 600 | 95 970 | 3 153 690 |
+| pire passage planifié | 330 | 2 | 22 | 13 | 1 123 | 42 | 2 102 |
+| tâche planifiée, par jour | 13 867 | 576 | 1 308 | 1 251 | 102 620 | 3 199 | 107 523 |
+| tâche planifiée, par jour, cadences les plus courtes | 21 015 | 576 | 1 836 | 1 731 | 107 660 | 3 199 | 153 003 |
+| tâche planifiée, par mois (30 jours) | 416 010 | 17 280 | 39 240 | 37 530 | 3 078 600 | 95 970 | 3 225 690 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -62,6 +62,8 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | mer:satellites | copie partagée (KV) | 180 min (30 au plus court) | 00:55 | 11 |  | 1 |  |  |  | 110 | estimé |
 | web:mer | copie partagée (KV) | 180 min | 01:15 | 14 |  | 1 |  |  |  | 110 | mesuré |
 | web:calendrier | copie partagée (KV) | 360 min | 02:10 | 9 |  | 1 |  |  |  | 40 | estimé |
+| seismes | copie partagée (KV) | 10 min | 00:05 | 3 |  | 1 |  |  |  | 10 | estimé |
+| onf:sentiers | copie partagée (KV) | 60 min | 00:45 | 5 |  | 1 |  |  |  | 40 | estimé |
 | web:volcan | copie partagée (KV) | 30 min (5 au plus court) | 00:15 | 18 |  | 1 | 2 | 21 |  | 110 | mesuré |
 | web:courant | copie partagée (KV) | 120 min (30 au plus court) | 00:20 | 8 |  | 1 |  |  |  | 30 | mesuré |
 | web:chiffres | copie partagée (KV) | 60 min | 00:50 | 26 |  | 1 | 2 | 21 |  | 60 | estimé |
@@ -195,6 +197,8 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | mer:satellites | providers/acspo, providers/modis |
 | web:mer | providers/acspo, providers/arome, providers/ensemble, providers/houle, providers/mf-auth, providers/modis, providers/openmeteo, providers/uv |
 | web:calendrier | providers/calendrier |
+| seismes | providers/seismes |
+| onf:sentiers | providers/sentiers |
 | web:volcan | providers/actualites, providers/agenda, providers/avis-eau, providers/ovpf-pdf, providers/prefecture, providers/salles, providers/seismes, providers/sentiers, providers/sport, providers/traces, providers/volcan |
 | web:courant | providers/avis-eau, providers/coupures-courant |
 | web:chiffres | providers/agenda, providers/avis-eau, providers/metar, providers/meteofrance, providers/mf-auth, providers/pioupiou, providers/radar, providers/salles, providers/sentiers, providers/sport, providers/velos |

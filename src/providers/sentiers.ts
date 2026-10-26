@@ -122,19 +122,25 @@ const query = (layer: number, fields: string) =>
     f: "json",
   })}`;
 
+/** Shared through KV (web/partagees.ts): /volcan's copy, built by the scheduled event, read a data center's own map. */
+export const KEY = "onf:sentiers";
+
+/** The ONF's map, read now. */
+export async function lire(): Promise<Carte> {
+  const [trails, roads, meta] = await Promise.all([
+    getJson<{ features: Feature[] }>(SOURCE.id, query(TRAILS, "WS_NomIti,WS_Statut,WS_InfCaus,WS_InfDate,WS_LongM"), 25_000),
+    getJson<{ features: Feature[] }>(SOURCE.id, query(ROADS, "WR_NomRF,WR_Circ,WR_InfCaus,WR_InfDate,WR_InfVMax,WR_IntRegl,WR_LongKm"), 25_000),
+    getJson<{ editingInfo?: { dataLastEditDate?: number } }>(SOURCE.id, `${SERVICE}/${TRAILS}?f=json`, 15_000).catch(() => null),
+  ]);
+  if (!trails.features?.length) throw new Error("carte des sentiers vide");
+  const edited = meta?.editingInfo?.dataLastEditDate;
+  return {
+    sentiers: parseTrails(trails.features),
+    routes: parseRoads(roads.features ?? []),
+    mise_a_jour: edited ? new Date(edited).toISOString() : undefined,
+  };
+}
+
 export async function carte(cache: Cache): Promise<Cached<Carte>> {
-  return cache.get("onf:sentiers", FRESH_SECONDS, async () => {
-    const [trails, roads, meta] = await Promise.all([
-      getJson<{ features: Feature[] }>(SOURCE.id, query(TRAILS, "WS_NomIti,WS_Statut,WS_InfCaus,WS_InfDate,WS_LongM"), 25_000),
-      getJson<{ features: Feature[] }>(SOURCE.id, query(ROADS, "WR_NomRF,WR_Circ,WR_InfCaus,WR_InfDate,WR_InfVMax,WR_IntRegl,WR_LongKm"), 25_000),
-      getJson<{ editingInfo?: { dataLastEditDate?: number } }>(SOURCE.id, `${SERVICE}/${TRAILS}?f=json`, 15_000).catch(() => null),
-    ]);
-    if (!trails.features?.length) throw new Error("carte des sentiers vide");
-    const edited = meta?.editingInfo?.dataLastEditDate;
-    return {
-      sentiers: parseTrails(trails.features),
-      routes: parseRoads(roads.features ?? []),
-      mise_a_jour: edited ? new Date(edited).toISOString() : undefined,
-    };
-  });
+  return cache.get(KEY, FRESH_SECONDS, lire);
 }
