@@ -142,10 +142,13 @@ export function httpLink(s: string | null | undefined): string | undefined {
   }
 }
 
-/** One e-mail address, in a plain spelling; undefined otherwise. */
+/**
+ * One e-mail address, in a plain spelling, in lower case (« Club@Example.org » and « club@example.org » are one
+ * address for the limit per address, and for every inbox in use); undefined otherwise.
+ */
 export function emailOf(s: string | null | undefined): string | undefined {
-  const t = (s ?? "").trim();
-  return t.length <= EMAIL_MAX && /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[a-z]{2,}$/i.test(t) ? t : undefined;
+  const t = (s ?? "").trim().toLowerCase();
+  return t.length <= EMAIL_MAX && /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[a-z]{2,}$/.test(t) ? t : undefined;
 }
 
 /** A phone number as people write it (« 0262 12 34 56 », « +262 692 12 34 56 »): 9 to 15 digits. */
