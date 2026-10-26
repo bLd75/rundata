@@ -15,6 +15,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, SERVICE_OPS_LIMIT, SUBREQUEST_LIMIT } from "./budget.js";
+import { DETAILS_MAX as CONNECTEUR_DETAILS, PAGES_MAX as CONNECTEUR_PAGES } from "./connecteurs/helloasso.js";
 import { IN_FLIGHT } from "./http.js";
 import { AGENDAS } from "./providers/agenda.js";
 import { MAX_NEW_GRIDS } from "./providers/arome.js";
@@ -222,6 +223,19 @@ const SCHEDULED: Entry[] = [
     offset: IRVE_OFFSET,
     run: { subrequests: 2, kvWrites: 1, cpuMs: 300, memoryMb: 30 },
     from: ["src/providers/irve.ts"],
+    basis: "estimé",
+  },
+  // One association's platform per run, the one read the longest ago (each every 6 hours while there are fewer than
+  // 72): the token (1), its list of events (up to CONNECTEUR_PAGES pages) and the details of the new or changed ones (up
+  // to CONNECTEUR_DETAILS). Usually 2 or 3 subrequests: the details are read again only when the platform says the event
+  // changed. D1: the link and its events, the new secret, the events changed.
+  {
+    id: "connecteurs:lecture",
+    trigger: "planifiée",
+    what: "plateformes des associations (HelloAsso) : les événements publics d'une association reliée, relus toutes les 6 h, une association par passage",
+    every: EVENT_MINUTES,
+    run: { subrequests: 1 + CONNECTEUR_PAGES + CONNECTEUR_DETAILS, d1Calls: 3, d1RowsRead: 1 + CONNECTEUR_PAGES * 50, d1RowsWritten: 1 + CONNECTEUR_DETAILS, cpuMs: 20 },
+    from: ["src/connecteurs/helloasso.ts"],
     basis: "estimé",
   },
   {
