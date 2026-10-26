@@ -4,9 +4,10 @@ import { communeAt, normalize, resolvePlace } from "../places/resolve.js";
 import * as feux from "../providers/feux.js";
 import * as onf from "../providers/sentiers.js";
 import * as traces from "../providers/traces.js";
+import * as aires from "../traces/aires.js";
 import { why } from "../types.js";
 import * as fire from "./feux.js";
-import { a, credits, notFound, placeBlock, text } from "./format.js";
+import { a, credits, de, notFound, placeBlock, text } from "./format.js";
 
 const NEAR_KM = 4;
 // A fire this close to the place asked is said first.
@@ -34,6 +35,9 @@ export const fits = (f: Filtre | undefined, km: number, dplus?: number) =>
   !filtering(f) ||
   ((f.longueur_min_km == null || km >= f.longueur_min_km) && (f.longueur_max_km == null || km <= f.longueur_max_km) && (f.denivele_max_m == null || (dplus != null && dplus <= f.denivele_max_m)));
 const PROPOSALS_MAX = 15;
+// The ONF's reception areas said with a zone or a trail: the nearest, at most this many; along a trail, this close.
+const AIRES_MAX = 10;
+const AIRES_TRAIL_KM = 0.3;
 
 /**
  * The hiking areas of the island, for a list of its trails: the three cirques, the volcano, then the rest by communes.
@@ -226,6 +230,21 @@ const COMMON = {
   ],
 };
 
+/**
+ * The ONF's reception areas of a zone or along a trail (traces/aires.ts), the nearest first, in marketing's words: each
+ * under the ONF's name, codes and all, never said to be for camping or a picnic unless its name says so. `ou`: where,
+ * as the summary says it (« à moins de 4 km de Maïdo », « dans la commune de Saint-Paul »).
+ */
+export function airesBlock(list: (aires.Aire & { distance_km?: number })[], ou: string, rayon_km?: number) {
+  return {
+    ou,
+    rayon_km,
+    nombre: list.length,
+    aires: list.slice(0, AIRES_MAX).map((x) => ({ nom: x.nom, distance_km: x.distance_km, carte: aires.carte(x) })),
+    a_savoir: `Aires d'accueil de l'ONF, sous le nom que leur donne sa carte des sentiers${aires.MISE_A_JOUR ? ` (mise à jour le ${day(aires.MISE_A_JOUR)})` : ""}, codes compris : « RF » désigne une route forestière, et « pk » le point kilométrique sur cette route. La carte ne dit pas ce qu'on trouve sur chaque aire, ni ce qu'on a le droit d'y faire (camper, faire du feu) : se renseigner auprès de l'ONF.`,
+  };
+}
+
 export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, now = new Date(), filtre?: Filtre) {
   let carte: onf.Carte;
   // The fires seen by satellite, beside the trails: nothing without FIRMS's key (providers/feux.ts).
@@ -328,6 +347,17 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
       : `${named.length} sentiers portent ce nom : ${shut.length ? `${shut.length} fermé${shut.length > 1 ? "s" : ""} (${shut.map((s) => s.nom).join(", ")})` : "aucun fermé"}.`);
   }
   let zoneOut: Record<string, unknown> | undefined;
+  // The ONF's reception areas of the zone, else along the trail asked by its name.
+  const reception = cirque
+    ? airesBlock(aires.near(cirque.lon, cirque.lat, cirque.km), `dans ${cirque.nom}`, cirque.km)
+    : res?.lieu.type === "commune"
+      ? airesBlock(aires.inCommune(res.lieu.commune), `dans la commune ${de(res.lieu.commune)}`)
+      : zone?.from
+        ? airesBlock(aires.near(zone.from.lon, zone.from.lat, NEAR_KM), `à moins de ${NEAR_KM} km de ${res!.lieu.nom}`, NEAR_KM)
+        : named.length
+          ? airesBlock(aires.along(named.flatMap((s) => s.points), AIRES_TRAIL_KM), `à moins de ${AIRES_TRAIL_KM * 1000} m ${named.length > 1 ? "de ces sentiers" : "du sentier"}`, AIRES_TRAIL_KM)
+          : undefined;
+  const receptionSaid = reception?.nombre ? `${reception.nombre} aire${reception.nombre > 1 ? "s" : ""} d'accueil de l'ONF ${reception.ou} (voir aires_accueil).` : undefined;
   if (zone) {
     const zClosed = zone.sentiers.filter((s) => s.statut === "fermé");
     const zOpen = zone.sentiers.filter((s) => s.statut === "ouvert").length;
@@ -337,6 +367,7 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
       ? `${zone.dans} : ${zClosed.length} sentier${zClosed.length > 1 ? "s" : ""} fermé${zClosed.length > 1 ? "s" : ""}, ${zOpen} ouvert${zOpen > 1 ? "s" : ""}` +
         (zOther ? `, ${zOther} hors gestion ONF (état non connu)` : "") + (zRoads.length ? `\u00a0; ${zRoads.length} route${zRoads.length > 1 ? "s" : ""} forestière${zRoads.length > 1 ? "s" : ""} interdite${zRoads.length > 1 ? "s" : ""}` : "") + "."
       : `${zone.dans} : aucun sentier suivi par l'ONF.`);
+    if (receptionSaid) parts.push(receptionSaid);
     if (filtering(filtre)) {
       const n = around.length;
       parts.push(n ? `${n} itinéraire${n > 1 ? "s" : ""} complet${n > 1 ? "s" : ""} avec trace GPS correspond${n > 1 ? "ent" : ""} à la longueur ou au dénivelé demandés.` : "Aucun itinéraire complet avec trace ne correspond à la longueur ou au dénivelé demandés : voir les sentiers ouverts de la zone, à combiner.");
@@ -355,6 +386,7 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
     };
   }
 
+  if (receptionSaid && !zone) parts.push(receptionSaid);
   return text({
     ...(warn ? { avertissement: { message: warn.message, sentiers_fermes: warn.sentiers_fermes } } : {}),
     lieu: res ? placeBlock(lieu, res) : undefined,
@@ -362,7 +394,9 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
     randonnees: hikes.length ? hikes.map((h) => routeRow(h, carte)) : undefined,
     sentiers_nommes: named.length ? named.map((s) => trailRow(s)) : undefined,
     ...(zoneOut ? { autour: zoneOut } : {}),
+    aires_accueil: reception?.nombre ? reception : undefined,
     ...common,
     feux_detectes: fires ? fire.block(fires, now, center ?? undefined) : undefined,
+    sources: credits([onf.SOURCE, ...(reception?.nombre ? [aires.SOURCE] : []), ...(fires ? [feux.SOURCE] : [])]),
   });
 }

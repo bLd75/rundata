@@ -65,6 +65,7 @@ import * as requin from "./eau/requin.js";
 import * as eauPotable from "./providers/eaupotable.js";
 import { qualiteEau } from "./tools/eau.js";
 import * as onf from "./providers/sentiers.js";
+import * as airesOnf from "./traces/aires.js";
 import { sentiersRandonnee } from "./tools/sentiers.js";
 import * as vigieau from "./providers/vigieau.js";
 import { restrictionsEau } from "./tools/secheresse.js";
@@ -86,7 +87,7 @@ import { actualites } from "./tools/actualites.js";
 import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.201.1";
+export const VERSION = "0.202.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -156,7 +157,7 @@ const lieu = z
  * Worker lacks as well (Node, the tests), for the registry of producers and licences (producteurs.ts).
  */
 export const toutesLesSources = (inactives = false) =>
-  oncePerId([...weatherProviders().map((p) => p.source), ...(inactives ? [meteofranceStations.SOURCE] : []), ...(inactives || vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(inactives || transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(inactives || climat.enabled() ? [climat.SOURCE] : []), ...(inactives || climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(inactives || arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(inactives || feux.enabled() ? [feux.SOURCE] : []),
+  oncePerId([...weatherProviders().map((p) => p.source), ...(inactives ? [meteofranceStations.SOURCE] : []), ...(inactives || vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(inactives || transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, airesOnf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(inactives || climat.enabled() ? [climat.SOURCE] : []), ...(inactives || climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(inactives || arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(inactives || feux.enabled() ? [feux.SOURCE] : []),
     // The vie pratique's and the power cuts' (annuaire_services_publics, electricite).
     carburantsPrix.SOURCE, radarMf.SOURCE, radarsFixes.SOURCE, courantMairies.SOURCE, tcoDecheteries.SOURCE, santeSources.FINESS, santeSources.ARS_GARDE, santeSources.SANTE_FR, collecteTco.SOURCE, ...Object.values(lieuxEnfants.SOURCES), marchesOsm.OSM, loyersAnil.SOURCE]);
 /** A source's name from its id, for one served from its last copy (fraicheur.ts). */
@@ -554,6 +555,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "« on peut randonner à Bélouve ? », « la trace GPS du Piton des Neiges ? », « dénivelé du GR R2 ? », « une rando de 10 km à Cilaos ? » " +
         "(longueur_min_km, longueur_max_km, denivele_max_m filtrent les itinéraires et sentiers proposés). Dès qu'un sentier de l'ONF d'un " +
         "itinéraire est fermé, la réponse porte un champ avertissement, à donner en premier. " +
+        "Avec un lieu ou un sentier, aussi les aires d'accueil de l'ONF autour (champ aires_accueil), sous le nom que leur donne l'ONF. " +
         (feux.enabled() ? "Avec les feux de végétation détectés par satellite (NASA FIRMS) ces dernières 24 h, dans feux_detectes : faux positifs possibles, un jour sans détection ne prouve pas qu'il n'y a pas de feu\u00a0; toujours donner « Vous voyez un feu ? Appelez le 18 ou le 112. ». " : "") +
         "/ Hiking in Réunion Island: open and closed trails (ONF), GPX traces, distance and elevation gain, hikes by length; closure warnings.",
       inputSchema: {

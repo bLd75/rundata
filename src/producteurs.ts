@@ -134,6 +134,7 @@ export const FICHES: Record<string, Fiche> = {
   // The operators of La Réunion's stations, from the copy of the national base bundled with the site (irve/stations.json).
   irve: { famille: "licence_ouverte", producteurs: operateurs() },
   onf_sentiers: { famille: "information_publique", producteurs: ["ONF"] },
+  onf_aires_accueil: { famille: "information_publique", producteurs: ["ONF"] },
   osm_randonnees: { famille: "odbl", producteurs: [OSM] },
   // Sport.
   livetrail: { famille: "information_publique", producteurs: ["Association Grand Raid", "Livetrail"] },
