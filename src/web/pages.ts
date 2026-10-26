@@ -44,7 +44,8 @@ import { bathingBlock } from "./baignade.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 
 export const SITE = "rundata.re";
-// The headings' typeface (scripts/build-font.py). Bump the number when the font changes: browsers keep it a year.
+// The headings' typeface (scripts/build-font.py), a file of public/. Bump the number when the font changes: browsers
+// keep it a year.
 export const FONT_PATH = "/font/titres-1.woff2";
 // The tagline, in Réunion Creole (« l'île en direct »); also on the og:image (scripts/build-og.py).
 export const SLOGAN = `<p class="slogan" lang="${brand.slogan_lang}">${esc(brand.slogan)}</p>`;

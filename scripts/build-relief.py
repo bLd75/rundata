@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build src/web/relief.json: the island in relief, a WebP image base64 in a JSON file (like og.json), laid under the
+"""Build public/relief-<fingerprint>.webp (its name in src/web/relief.json): the island in relief, laid under the
 markers of the home page's map (src/web/map.ts). Colours by altitude, shaded by the slopes as if lit from the
 north-west, with the relief exaggerated so that the cirques and the volcano read at a few hundred pixels across.
 
@@ -10,7 +10,6 @@ Source: IGN, RGE ALTI (Licence Ouverte 2.0), from the Géoplateforme WMS as raw 
 Rasterised by ImageMagick (`convert`). Usage: python3 -I scripts/build-relief.py
 """
 import array
-import base64
 import hashlib
 import json
 import math
@@ -118,13 +117,14 @@ def main():
         subprocess.run(["convert", str(src), "-resize", f"{OUT_W}x", "-quality", "82", "-define", "webp:alpha-quality=90",
                         str(dst)], check=True)
         data = dst.read_bytes()
+    # The picture, a file of public/ named by its fingerprint; its name and attribution in src/web/relief.json.
+    v = hashlib.sha256(data).hexdigest()[:8]
+    for old in (ROOT / "public").glob("relief-*.webp"):
+        old.unlink()
+    (ROOT / f"public/relief-{v}.webp").write_bytes(data)
     target = ROOT / "src/web/relief.json"
-    target.write_text(json.dumps({
-        "attribution": "Relief : IGN, RGE ALTI (Licence Ouverte 2.0)",
-        "v": hashlib.sha256(data).hexdigest()[:8],
-        "webp": base64.b64encode(data).decode(),
-    }) + "\n")
-    print(f"{target.relative_to(ROOT)}: {len(data) // 1024} Ko")
+    target.write_text(json.dumps({"attribution": "Relief : IGN, RGE ALTI (Licence Ouverte 2.0)", "v": v}) + "\n")
+    print(f"public/relief-{v}.webp: {len(data) // 1024} Ko")
 
 
 if __name__ == "__main__":

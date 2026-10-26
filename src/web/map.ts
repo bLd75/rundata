@@ -11,9 +11,8 @@ import { ACCUEILS } from "../providers/accueils-medias.js";
 const [LON0, LAT0, LON1, LAT1] = island.bbox;
 export const W = island.w;
 export const H = island.h;
-/** The island in relief (scripts/build-relief.py), served by src/web/site.ts; its address changes with its content. */
+/** The island in relief (scripts/build-relief.py), a file of public/; its address changes with its content. */
 export const RELIEF_PATH = `/relief-${relief.v}.webp`;
-export const reliefImage = () => relief.webp;
 
 export function project(lon: number, lat: number): [number, number] {
   return [Math.round(((lon - LON0) / (LON1 - LON0)) * W), Math.round(((LAT1 - lat) / (LAT1 - LAT0)) * H)];

@@ -2,7 +2,8 @@
  * The web side of the server: the home page, one page per category (weather, vigilance, sea, volcano, buses, air,
  * electricity, calendar), one per commune with all of them (/communes/<commune>), one per commune or place for the
  * weather (/meteo/<lieu>), and what crawlers and link previews ask for
- * (robots.txt, sitemap.xml, the og:image, the favicon). Null for any other path.
+ * (robots.txt, sitemap.xml, the favicon). Null for any other path: the og:image, the relief and the font are files of
+ * public/, served before the Worker.
  */
 import { alerteVolcan, volcanNow, withVolcan } from "./volcan-alerte.js";
 import { left, measured } from "../budget.js";
@@ -67,11 +68,9 @@ import { coupuresCommunePage } from "./coupures.js";
 import { cloudSeaTold, hikesNear, summitOf } from "./liens.js";
 import { LOGO_PETIT_SVG } from "./logo.js";
 import { homePage } from "./home.js";
-import { RELIEF_PATH, reliefImage } from "./map.js";
+import { RELIEF_PATH } from "./map.js";
 import { ligne, mesure } from "./mesure.js";
-import font from "./font.json" with { type: "json" };
 import icons from "./icons.json" with { type: "json" };
-import og from "./og.json" with { type: "json" };
 import { NOUVEAUTES } from "../nouveautes.js";
 import { nouveautesPage } from "./nouveautes.js";
 import { bathingPage, PATH as BAIGNADE } from "./baignade.js";
@@ -215,11 +214,8 @@ const inAlert = (v: VolcanAnswer) => {
 const rebuild = (cache: Cache, key: string, build: () => Promise<unknown>) => () => cache.get(key, 0, () => measured(key, build));
 
 const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-let ogBytes: Uint8Array<ArrayBuffer> | undefined;
 let icoBytes: Uint8Array<ArrayBuffer> | undefined;
-let fontBytes: Uint8Array<ArrayBuffer> | undefined;
 let swText: string | undefined;
-let reliefBytes: Uint8Array<ArrayBuffer> | undefined;
 
 /** The domain pages: built from a tool's answer, kept like the other pages (web/data.ts). */
 export const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) => Promise<any>; page: (origin: string, data: Cached<any> | null, now: Date, alerte?: Alerte) => string }> = {
@@ -692,20 +688,6 @@ async function pages(request: Request, cache: Cache, background: Background, now
     // before its 1st changes the page the day it is read, not on its 1st: never a day ahead of today.
     const fuel = await cache.peek<carburants.Prix>("carburants:prix").catch(() => undefined);
     return new Response(sitemap(origin, now, fuel?.value.depuis), { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
-  }
-  if (path === "/og.png") {
-    return new Response((ogBytes ??= bytes(og.png)), { headers: { "content-type": "image/png", "cache-control": STATIC } });
-  }
-  if (path === RELIEF_PATH) {
-    return new Response((reliefBytes ??= bytes(reliefImage())), {
-      headers: { "content-type": "image/webp", "cache-control": "public, max-age=31536000, immutable" },
-    });
-  }
-  if (path === FONT_PATH) {
-    // Its address changes with its content (see pages.ts), so browsers may keep it for good.
-    return new Response((fontBytes ??= bytes(font.woff2)), {
-      headers: { "content-type": "font/woff2", "cache-control": "public, max-age=31536000, immutable" },
-    });
   }
   if (path === SW_PATH) {
     // Checked again at each visit: a new version reaches the phones at once (web/pwa.ts).
