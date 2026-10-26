@@ -23,6 +23,10 @@ const TROIS = "Les conditions d'utilisation ou les mentions légales de 3 sites 
 
 const saved = structuredClone(NON_REPRISES);
 const set = (source: string, x: Partial<SourceNonReprise>) => Object.assign(NON_REPRISES[source], x);
+/** Every one as before any request went, for the tests of the words of each step. */
+const unasked = () => {
+  for (const x of Object.values(NON_REPRISES)) Object.assign(x, { etat: "a_demander", demandee_le: undefined });
+};
 
 /** A cache with copies kept before: a hall's in the questions' bundle, the clubs' calendar in the scheduled event's. */
 async function cacheWith() {
@@ -42,11 +46,14 @@ describe("the halls and the sports sites whose terms forbid taking their informa
     vi.restoreAllMocks();
   });
 
-  it("are seven halls, the clubs' calendar and two federations, none asked yet; Le Séchoir, whose site writes nothing, still read", () => {
-    expect(Object.entries(NON_REPRISES).filter(([, x]) => x.etat === "a_demander").map(([k]) => k)).toEqual([
+  it("are seven halls, the clubs' calendar and two federations, five halls and the federations asked on 26/10; Le Séchoir, whose site writes nothing, still read", () => {
+    expect(Object.keys(NON_REPRISES)).toEqual([
       "agenda:teat", "agenda:cite_des_arts", "agenda:kabardock", "agenda:bisik", "agenda:luc_donat", "agenda:cdnoi", "agenda:lespas",
       "sport:ffgolf", "sport:ffvoile", "agenda:sportsregions",
     ]);
+    // Bisik's, Léspas' and Sportsregions' are forms the user sends: not yet.
+    const NON = ["agenda:bisik", "agenda:lespas", "agenda:sportsregions"];
+    for (const [k, x] of Object.entries(NON_REPRISES)) expect([k, x.etat, x.demandee_le]).toEqual(NON.includes(k) ? [k, "a_demander", undefined] : [k, "demandee", "2026-10-26"]);
     // Each one an agenda that would be read, or a federation of the sport tool.
     for (const k of Object.keys(NON_REPRISES).filter((k) => k.startsWith("agenda:"))) expect(LISIBLES.some((a) => `agenda:${a.id}` === k)).toBe(true);
     expect(AGENDAS.filter((a) => a.source === SALLES).map((a) => a.nom)).toEqual(["Le Séchoir"]);
@@ -58,6 +65,7 @@ describe("the halls and the sports sites whose terms forbid taking their informa
   });
 
   it("are said in the same words as the communes, the halls in one block, the day of the request once it has gone", () => {
+    unasked();
     expect(mentionSalles()).toEqual([SEPT]);
     expect(mentionSalles("Saint-Denis")).toEqual(["Les mentions légales des sites de 3 salles interdisent d'en reprendre le contenu sans accord : le TÉAT (Champ Fleuri et Plein Air), la Cité des Arts et le CDNOI. rundata.re n'affiche donc pas leurs programmes."]);
     expect(mentionSalles("Le Port")).toEqual(["Les mentions légales du site du Kabardock interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas son programme."]);
@@ -84,7 +92,22 @@ describe("the halls and the sports sites whose terms forbid taking their informa
     expect(mentionSports([], true)).toEqual([`${CLUBS} Nous lui avons demandé cet accord le 27/10 et attendons sa réponse.`]);
   });
 
+  it("are said once each when only some were asked: those asked in one sentence after the block (marketing, 26/10)", () => {
+    expect(mentionSalles()).toEqual([`${SEPT} Nous avons demandé cet accord le 26/10 au TÉAT, à la Cité des Arts, au Kabardock, au Théâtre Luc Donat et au CDNOI, et attendons leur réponse.`]);
+    expect(mentionSalles("Saint-Paul")).toEqual(["Les mentions légales des sites de 2 salles interdisent d'en reprendre le contenu sans accord : le TÉAT (Champ Fleuri et Plein Air) et Léspas. rundata.re n'affiche donc pas leurs programmes. Nous avons demandé cet accord le 26/10 au TÉAT et attendons sa réponse."]);
+    expect(mentionSports(undefined, true)).toEqual([`${TROIS} Nous avons demandé cet accord le 26/10 à la ffgolf et à la FFVoile, et attendons leur réponse.`]);
+    expect(mentionSports(["golf"], false)).toEqual([`${GOLF} Nous lui avons demandé cet accord le 26/10 et attendons sa réponse.`]);
+    // On two days: each after its sites, from the oldest; one refused, its own line.
+    set("agenda:cdnoi", { demandee_le: "2026-10-22" });
+    set("agenda:kabardock", { etat: "refusee", refusee_le: "2026-11-03" });
+    expect(mentionSalles()).toEqual([
+      "Les mentions légales des sites de 6 salles interdisent d'en reprendre le contenu sans accord : le TÉAT (Champ Fleuri et Plein Air), la Cité des Arts, Bisik, le Théâtre Luc Donat, le CDNOI et Léspas. rundata.re n'affiche donc pas leurs programmes. Nous avons demandé cet accord au CDNOI le 22/10 et au TÉAT, à la Cité des Arts et au Théâtre Luc Donat le 26/10, et attendons leur réponse.",
+      "Le Kabardock a refusé, le 03/11, que rundata.re reprenne le contenu de son site : son programme ne s'affiche donc pas ici.",
+    ]);
+  });
+
   it("are not read, and what was kept of them is not served: the events, the day's copies, the credits", async () => {
+    unasked();
     const urls: string[] = [];
     // Only the motor sport league answers.
     vi.stubGlobal("fetch", async (url: string) => (urls.push(String(url)), url.includes("lsar") ? new Response(readFileSync(new URL("./fixtures/sport/lsar.json", import.meta.url))) : new Response("", { status: 503 })));
@@ -109,6 +132,7 @@ describe("the halls and the sports sites whose terms forbid taking their informa
   });
 
   it("are listed apart in sources_donnees, each with its terms, and not with the sources read", () => {
+    unasked();
     const ids = toutesLesSources().map((s) => s.id);
     for (const id of ["ffgolf", "ffvoile", "sportsregions"]) expect(ids).not.toContain(id);
     expect(ids).toContain("salles_spectacle");
