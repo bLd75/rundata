@@ -4,7 +4,7 @@ import { PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, left, scheduled } from "
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
 import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
-import { parseBisik } from "../src/providers/salles.js";
+import { parseBisik, timeoutMs as sallesTimeoutMs } from "../src/providers/salles.js";
 import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
 import { FICHE_REUNION_FR, mentionReunionFr, noteReunionFr, RESUME_REUNION_FR } from "../src/tools/non-repris.js";
 import { buildAgenda } from "../src/web/data.js";
@@ -1037,6 +1037,40 @@ describe("agenda", () => {
       const planned = await cut(true);
       expect(view.length).toBeGreaterThan(planned.length);
       expect(view).toEqual(expect.arrayContaining(planned));
+    });
+
+    it("in the scheduled event, waits for an agenda without a copy that answers in 8 s, where a view gives up at 5 s", async () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+          if (url.includes("lesechoir")) await new Promise((r) => setTimeout(r, 8_000));
+          const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+          return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+        });
+        const sechoir = async (planned: boolean) => {
+          const run = counted(SCHEDULED_BUDGET, async () => {
+            if (planned) scheduled();
+            return gather(isolate(), NOW);
+          });
+          await vi.advanceTimersByTimeAsync(8_000);
+          const { value, settled } = await run;
+          await settled();
+          return value.find((g) => g.agenda.id === "sechoir")?.value;
+        };
+        expect(await sechoir(false)).toBeUndefined();
+        expect((await sechoir(true))?.value.length).toBeGreaterThan(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("gives a hall's site 12 s in the scheduled event, 6 s elsewhere", async () => {
+      expect(sallesTimeoutMs()).toBe(6_000);
+      const { value } = await counted(SCHEDULED_BUDGET, async () => {
+        scheduled();
+        return sallesTimeoutMs();
+      });
+      expect(value).toBe(12_000);
     });
 
     it("measures how long the agendas took, and what is still in flight when they are given up on", async () => {

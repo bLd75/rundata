@@ -166,7 +166,10 @@ const DEADLINE_MS = 5_000;
 // wait the whole DEADLINE_MS, 6 to 7 s. An agenda without a copy is still waited for up to DEADLINE_MS, unless its last
 // reading failed (`echec`): a site that keeps failing made each cold view wait for its failure, 2.6 s on /enfants.
 // In the scheduled event, which nobody waits for, both count from when the agenda's first fetch gets its place
-// (http.ts): the agendas queued behind five slow ones were cut there at 5 s without having been asked.
+// (http.ts): the agendas queued behind five slow ones were cut there at 5 s without having been asked. There, an agenda
+// without a copy is not cut at all, its reading's own delay bounds it: its copy is kept in the data center where the
+// event runs, not where the views are, and Le Séchoir, cut at 5 s at every hourly reading of 26/10, never had one
+// there, so the count of the events (chiffres.ts) went without it.
 const GRACE_MS = 1_000;
 // The subrequests not to be spent on the agendas: what follows them (the news's copy, the bundle's write, the page's
 // copy) and one more, within the invocation's budget (budget.ts); for a question, that one is the read of the scheduled
@@ -238,8 +241,11 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
     const placed = new Promise<void>((resolve) => (start = resolve));
     const loading = fromPlace ? whenPlaced(() => agenda.load(store(agenda), now), start) : agenda.load(store(agenda), now);
     if (!fromPlace) start();
-    const wait = last(key(agenda)) || bundle.has(echec(agenda)) ? Math.min(graceMs, deadlineMs) : deadlineMs;
-    const late = new Promise<"late">((resolve) => void placed.then(() => done || (timer = setTimeout(() => resolve("late"), wait))));
+    const kept = last(key(agenda));
+    const wait = kept || bundle.has(echec(agenda)) ? Math.min(graceMs, deadlineMs) : deadlineMs;
+    const late = fromPlace && !kept
+      ? new Promise<"late">(() => {})
+      : new Promise<"late">((resolve) => void placed.then(() => done || (timer = setTimeout(() => resolve("late"), wait))));
     try {
       const got = await Promise.race([loading, late]);
       if (got !== "late") {

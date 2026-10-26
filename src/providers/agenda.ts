@@ -28,7 +28,7 @@ import { normalize, resolvePlace } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
 import { communesIn, strip } from "./avis-eau.js";
 import { annonceEvenement, extrait, lead, monthOf, statusOf, type Statut } from "./agenda-mots.js";
-import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
+import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, timeoutMs as sallesTimeoutMs, tokens } from "./salles.js";
 import { SOURCES as SPORT_SOURCES } from "./sport.js";
 import { PROPOSITIONS } from "./agenda-propositions.js";
 import { autorisee } from "./autorisations.js";
@@ -332,7 +332,7 @@ function tribe(id: string, nom: string, site: string, commune: string | undefine
       cache.get(`agenda:${id}`, FRESH_SECONDS, async () => {
         const day = localDay(now);
         const url = `${site}/wp-json/tribe/events/v1/events?start_date=${day}&end_date=${addDays(day, AHEAD_DAYS)}&per_page=50`;
-        return parseTribe(JSON.parse(await getText(source.id, url, TIMEOUT_MS, HEADERS)), nom, commune, home);
+        return parseTribe(JSON.parse(await getText(source.id, url, source === SALLES_SOURCE ? sallesTimeoutMs() : TIMEOUT_MS, HEADERS)), nom, commune, home);
       }),
   };
 }
