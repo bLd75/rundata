@@ -138,6 +138,13 @@ describe("the concerts", () => {
     expect(agendaPage("https://rundata.re", data(ROWS), TUESDAY)).not.toContain("sans lecture récente");
   });
 
+  it("put the end of an event of several days under its title on a phone, its hours beside it otherwise", () => {
+    const html = agendaPage("https://rundata.re", data(ROWS), TUESDAY);
+    expect(html).toContain(`<span class="q-none fin">jusqu&#39;au lundi 02/11</span>`);
+    expect(html).toContain(`<span class="q-none">20:00</span>`);
+    expect(html).toContain("@media (max-width:30rem){.rows.eau li>.fin{grid-column:1/-1}}");
+  });
+
   it("are linked from the events page", () => {
     const html = agendaPage("https://rundata.re", data(ROWS), TUESDAY);
     expect(html).toContain(`<a href="/evenements/concerts">Concerts</a>`);

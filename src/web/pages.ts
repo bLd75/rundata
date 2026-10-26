@@ -640,6 +640,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .rows.bornes small{display:block;color:var(--muted);font-size:.82rem}
 .rows.bornes .busy{color:var(--muted)}
 .rows.eau li{grid-template-columns:minmax(0,1fr) auto}
+@media (max-width:30rem){.rows.eau li>.fin{grid-column:1/-1}}
 /* /volcan during an alert: the earthquakes one line each, the media's time and name above the headline. */
 .rows.seismes li,.rows.medias li{display:block;font-size:.92rem}
 .rows.seismes li{font-size:.86rem}.rows.seismes b{font-size:inherit}
