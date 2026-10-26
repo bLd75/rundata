@@ -44,7 +44,7 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     const durable = new MemoryStore();
     // An isolate reads the prefecture's alert 1: the phase is kept, after the answer.
     const warm = cold(durable);
-    void warm.store.put("volcan:prefecture", { value: ALERT_1, fetchedAt: NOW.getTime() });
+    void warm.store.put("volcan:prefecture:phase", { value: ALERT_1, fetchedAt: NOW.getTime() });
     expect((await phase(warm.cache, NOW.getTime())).value).toMatchObject({ niveau: "Alerte 1" });
     await new Promise((r) => setTimeout(r, 0));
     expect((await durable.get("volcan:prefecture:derniere-phase"))?.value).toMatchObject({ niveau: "Alerte 1" });
@@ -65,7 +65,7 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     const durable = new MemoryStore();
     void durable.put("volcan:prefecture:derniere-phase", { value: ALERT_1, fetchedAt: NOW.getTime() - 3600_000 });
     const { store, cache } = cold(durable);
-    void store.put("volcan:prefecture", { value: null, fetchedAt: NOW.getTime() });
+    void store.put("volcan:prefecture:phase", { value: null, fetchedAt: NOW.getTime() });
     expect((await buildVolcan(cache, NOW)).etat?.niveau_orsec).toBe("Alerte 1");
   });
 
@@ -94,7 +94,7 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     const { store, cache } = cold(durable);
     // The prefecture's alert 1 of the 17th; pitonlive at « Vigilance » since the 19th; now the 24th.
     const alert = phaseOf([{ titre: "Piton de la Fournaise : passage en alerte 1", lien: "https://www.reunion.gouv.fr/x", publie: new Date("2026-10-17T12:00:00+04:00").toISOString() } as unknown as Info])!;
-    void store.put("volcan:prefecture", { value: alert, fetchedAt: NOW.getTime() });
+    void store.put("volcan:prefecture:phase", { value: alert, fetchedAt: NOW.getTime() });
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const v = await buildVolcan(cache, NOW);
     expect(v.etat?.niveau_orsec).toBe("Alerte 1");

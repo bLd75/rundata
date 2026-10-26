@@ -39,9 +39,9 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   secheresse: 1,
   sentiers: 1,
   sport: 9,
-  trafic: 1,
+  trafic: 2,
   velos: 1,
-  volcan: 3,
+  volcan: 4,
 };
 
 /** `web:lieu:le-port` → `lieu`. */
