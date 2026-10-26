@@ -185,6 +185,18 @@ describe("actualités", () => {
     expect(html).not.toContain("Ne répondent pas en ce moment");
   });
 
+  it("gives on the page the same total as the tool, and says when the list keeps only the newest", async () => {
+    const data = await buildActualites(cache(), NOW);
+    const told = /^(\d+) informations? des médias de La Réunion depuis 24 h/.exec(body(await actualites(cache(), undefined, undefined, undefined, NOW)).resume);
+    expect(told).not.toBeNull();
+    expect(data.total).toBe(Number(told![1]));
+    const html = actualitesPage("https://rundata.re", { value: data, fetchedAt: NOW, stale: false }, NOW);
+    expect(html).toContain(`<span class="big">${data.total}</span><p>informations des médias de l'île depuis 24 h`);
+    // 26/10/2026: 103 in the tool, the page listing its 40 newest.
+    const many = actualitesPage("https://rundata.re", { value: { ...data, total: 103 }, fetchedAt: NOW, stale: false }, NOW);
+    expect(many).toContain(`<span class="big">103</span><p>informations des médias de l'île depuis 24 h\u00a0; les ${data.infos.length} plus récentes ci-dessous`);
+  });
+
   it("makes a page of it, with the live blog first", async () => {
     const data = await buildActualites(cache(), NOW);
     expect(data.chaud).toBe(true);

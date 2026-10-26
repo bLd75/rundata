@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { parseRoads, parseTrails } from "../src/providers/sentiers.js";
 import { sentiersRandonnee, trailsNamed } from "../src/tools/sentiers.js";
+import type { SentiersAnswer } from "../src/web/data.js";
+import { closedTrails, randonneesLive, sentiersPage } from "../src/web/domains.js";
 
 // The ONF's map of the trails on 24/10/2026, last edited on 20/10: 56 trails closed out of 351 (389 pieces).
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/onf/${f}`, import.meta.url), "utf8");
@@ -86,5 +88,23 @@ describe("sentiers de randonnée", () => {
     expect(ile.aires_accueil).toBeUndefined();
     // Camping is named only to say the map does not tell it (a forest road's « circulation autorisée » is not ours).
     for (const x of [b, cilaos, paul]) expect(JSON.stringify([x.aires_accueil, x.resume]).replace(x.aires_accueil.a_savoir, "")).not.toMatch(/bivouac|camping|camper|autoris/i);
+  });
+});
+
+describe("the count of closed trails on the pages", () => {
+  // The ONF's map cuts some trails in several pieces, each a point on the map: counted by name, as the tool counts them
+  // (26/10/2026: 62 points, 56 trails on /sentiers's description and the home page's tile, 56 in sentiers_randonnee).
+  const answer = {
+    resume: "", fermes_par_commune: [], routes_forestieres_fermees: [], a_savoir: [], sources: [], suivis: 351, randonnees: [],
+    points: [{ nom: "Sentier A", lon: 55.5, lat: -21.1 }, { nom: "Sentier A", lon: 55.51, lat: -21.11 }, { nom: "Sentier B", lon: 55.6, lat: -21.2 }],
+  } as unknown as SentiersAnswer;
+  const copy = { value: answer, fetchedAt: NOW, stale: false };
+
+  it("are the trails, not the pieces of the map, on /sentiers and the tiles", () => {
+    const html = sentiersPage("https://rundata.re", copy, NOW);
+    expect(html).toContain(`<span class="big">2</span><p>sentiers fermés sur <b>351</b>`);
+    expect(html).not.toMatch(/\b3 sentiers fermés/);
+    expect(randonneesLive(copy)?.valeur).toBe("2 sentiers fermés");
+    expect(closedTrails(answer)).toBe(2);
   });
 });

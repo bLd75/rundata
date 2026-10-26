@@ -23,7 +23,7 @@ import { SUJETS } from "../providers/actualites.js";
 import * as littoral from "../tools/littoral.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
-import { a, de, fr, nombre } from "../tools/format.js";
+import { a, de, enumeration, fr, nombre } from "../tools/format.js";
 import * as radars from "../routes/radars.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
@@ -1332,10 +1332,16 @@ export function firesSection(f: feux.Feux | undefined, now: Date): string {
 </section>`;
 }
 
+/**
+ * The trails closed, by name, as sentiers_randonnee counts them: the ONF's map cuts some in several pieces, each a point
+ * on the map (26/10/2026: 62 points, 56 trails).
+ */
+export const closedTrails = (d: SentiersAnswer) => new Set(d.points.map((p) => p.nom)).size;
+
 export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/sentiers`;
-  const closed = d?.points.length ?? 0;
+  const closed = d ? closedTrails(d) : 0;
 
   const status = !d
     ? loading("L'état des sentiers")
@@ -1770,7 +1776,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export function randonneesLive(data: Cached<SentiersAnswer> | null): Live | undefined {
   const d = data?.value;
   if (!d) return undefined;
-  const n = d.points.length;
+  const n = closedTrails(d);
   return { valeur: `${n} sentier${n > 1 ? "s" : ""} fermé${n > 1 ? "s" : ""}`, detail: `sur ${d.suivis} suivis par l'ONF ; traces GPS, distance et dénivelé de ${d.randonnees.length} randonnées et de chaque sentier` };
 }
 
@@ -2192,7 +2198,9 @@ ${connectorCta("defibrillateurs", "les défibrillateurs")}
 // ---------------------------------------------------------------- sport
 
 const SPORT_LISTED = 8;
-const SPORT_ORDER = ["handball", "volley-ball", "voile", "golf", "sport auto"];
+const SPORT_ORDER = ["handball", "volley-ball", "voile", "golf", "sport auto", "triathlon"];
+// The sports in the sentence of the count, as the page always named them.
+const SPORT_SAID: Record<string, string> = { "volley-ball": "volley", "sport auto": "sport automobile" };
 const sportName = (s: string) => (s === "sport auto" ? "Sport automobile" : s.charAt(0).toUpperCase() + s.slice(1));
 
 /** « vendredi 30/10 à 20:30 » → « ven. 30/10, 20:30 » ; « du samedi 24/10 au dimanche 25/10 » → « 24/10 → 25/10 ». */
@@ -2223,10 +2231,17 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
   const url = `${origin}/sport`;
   const upcoming = (d?.a_venir ?? []).filter((r) => r.etat !== "annulée");
   const soon = upcoming.slice(0, 7);
+  const listedRows = d?.a_venir?.length ?? 0;
+  const total = d?.a_venir_en_tout ?? listedRows;
+  const there = new Set(d?.sports_a_venir ?? (d?.a_venir ?? []).map((r) => r.sport));
+  const said = [...SPORT_ORDER.filter((s) => there.has(s)), ...[...there].filter((s) => !SPORT_ORDER.includes(s))].map((s) => SPORT_SAID[s] ?? s);
 
   const status = !d
     ? loading("Le calendrier du sport")
-    : `<div class="now"><span class="big">${upcoming.length}</span><p>rendez-vous officiels dans les quinze prochains jours : handball, volley, voile, golf et sport automobile.</p></div>`;
+    // As sport counts them: all of them, cancelled ones included, with the sports there are (26/10/2026: 39 here for 77,
+    // the triathlon left out and the motor sport said without any).
+    : `<div class="now"><span class="big">${total}</span><p>rendez-vous officiels dans les quinze prochains jours${said.length ? `\u00a0: ${enumeration(said)}` : ""}` +
+      `${listedRows < total ? `\u00a0; les ${listedRows} premiers ci-dessous` : ""}.</p></div>`;
 
   const next = soon.length
     ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Les prochains rendez-vous</h3><ul class="plain">${soon.map((r) =>
@@ -2773,7 +2788,9 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
 
   const status = !d
     ? loading("L'actualité")
-    : `<div class="now"><span class="big">${d.infos.length}</span><p>informations des médias de l'île depuis 24 h` +
+    // All of them, as actualites counts them; the list keeps the newest (26/10/2026: 40 here, 103 in the tool).
+    : `<div class="now"><span class="big">${d.total ?? d.infos.length}</span><p>informations des médias de l'île depuis 24 h` +
+      `${(d.total ?? 0) > d.infos.length ? `\u00a0; les ${d.infos.length} plus récentes ci-dessous` : ""}` +
       `${d.en_direct.length ? ` ; <b>${esc(d.en_direct[0].media)} suit la journée en direct</b> (dernière entrée à ${esc(newsTime(d.en_direct[0]))})` : ""}.</p></div>`;
 
   const top = d ? (d.en_direct.length ? d.en_direct : d.infos).slice(0, 6) : [];

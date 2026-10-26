@@ -9,6 +9,7 @@ import { avisIn, avisPresse, daysIn, parseLrvb } from "../src/providers/sport-av
 import { clubOf, clubsNamed, zoneOf } from "../src/sport/clubs.js";
 import { quand, sportTool, window } from "../src/tools/sport.js";
 import { sportPage } from "../src/web/domains.js";
+import type { SportAnswer } from "../src/web/data.js";
 
 // The communes' sites read, as once they have agreed (test/autorisations.test.ts for what is said until then).
 vi.mock("../src/providers/autorisations.js", () => import("./autorisees.js"));
@@ -392,5 +393,27 @@ describe("sport", () => {
     expect(v.indisponible).toEqual(["Volley-ball : avis de la Ligue réunionnaise (annulations, reports)"]);
     expect(v.a_venir).toHaveLength(10);
     expect(b.a_venir.some((r: { sport: string }) => r.sport === "volley-ball")).toBe(true);
+  });
+});
+
+describe("the count of /sport", () => {
+  // 26/10/2026: « 39 » on the page for the 77 the tool counted, the triathlon left out and the motor sport named without any.
+  const row = (sport: string, epreuve: string) => ({ sport, epreuve, quand: "samedi 31/10 à 18:00", competition: "Championnat" });
+  const answer = {
+    resume: "", non_couvert: "", sources: [], classements: [],
+    a_venir: [row("volley-ball", "Match A"), { ...row("handball", "Match B"), etat: "annulée" }, row("triathlon", "Triathlon de Saint-Paul")],
+    a_venir_en_tout: 77,
+  } as unknown as SportAnswer;
+
+  it("is the tool's, with the sports there are, and says the list keeps the first", () => {
+    const page = sportPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
+    expect(page).toContain(`<span class="big">77</span><p>rendez-vous officiels dans les quinze prochains jours : handball, volley et triathlon ; les 3 premiers ci-dessous.</p>`);
+    expect(page).toContain("Triathlon de Saint-Paul");
+    // All of them listed: the count alone.
+    // A sport only beyond the first: named too.
+    const beyond = sportPage("https://rundata.re", { value: { ...answer, sports_a_venir: ["volley-ball", "handball", "triathlon", "golf"] }, fetchedAt: NOW, stale: false }, NOW);
+    expect(beyond).toContain("quinze prochains jours\u00a0: handball, volley, golf et triathlon\u00a0; les 3 premiers ci-dessous.");
+    const few = sportPage("https://rundata.re", { value: { ...answer, a_venir_en_tout: undefined }, fetchedAt: NOW, stale: false }, NOW);
+    expect(few).toContain(`<span class="big">3</span><p>rendez-vous officiels dans les quinze prochains jours : handball, volley et triathlon.</p>`);
   });
 });
