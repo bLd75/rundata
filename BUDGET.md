@@ -118,7 +118,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /chiffres | rundata.re en chiffres : la copie de ses comptes, avec la vigilance et la version de l'en-tête | à chaque vue |  | 9 | 1 |  |  |  |  | 40 | code |
 | * | toute autre adresse : la vigilance et la version, lues pour l'en-tête | à chaque vue |  | 7 |  |  |  |  |  | 70 | mesuré |
 | /meteo | la page /meteo | à chaque vue |  | 41 |  |  |  |  |  | 80 | mesuré |
-| /volcan | la page /volcan | à chaque vue |  | 53 | 1 |  | 2 | 21 |  | 60 | mesuré |
+| /volcan | la page /volcan | à chaque vue |  | 49 | 1 |  | 2 | 21 |  | 60 | mesuré |
 | /air | la page /air | à chaque vue |  | 14 | 1 |  |  |  |  | 40 | mesuré |
 | /electricite | la page /electricite | à chaque vue |  | 17 | 1 |  |  |  |  | 30 | mesuré |
 | /calendrier | la page /calendrier | à chaque vue |  | 18 | 1 |  |  |  |  | 40 | mesuré |
@@ -151,7 +151,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | meteo_actuelle | l'outil meteo_actuelle | à chaque vue |  | 36 |  |  |  |  |  | 120 | mesuré |
 | evenements | l'outil evenements | à chaque vue |  | 33 |  |  |  |  |  | 190 | mesuré |
 | sport | l'outil sport | à chaque vue |  | 33 |  |  |  |  |  | 160 | mesuré |
-| volcan_seismes | l'outil volcan_seismes | à chaque vue |  | 40 |  |  | 2 | 21 |  | 90 | mesuré |
+| volcan_seismes | l'outil volcan_seismes | à chaque vue |  | 36 |  |  | 2 | 21 |  | 90 | mesuré |
 | fiche_terrain | l'outil fiche_terrain | à chaque vue |  | 36 |  |  |  |  |  | 80 | estimé |
 | prevision_meteo | l'outil prevision_meteo | à chaque vue |  | 20 |  |  |  |  |  | 100 | mesuré |
 | qualite_eau | l'outil qualite_eau | à chaque vue |  | 15 |  |  |  |  |  | 90 | mesuré |

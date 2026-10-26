@@ -12,6 +12,7 @@
 import { later } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { getJson, getText } from "../http.js";
+import { noteLecture } from "../lectures.js";
 import { type SourceInfo, UpstreamError } from "../types.js";
 import { decodeText, textOf } from "./avis-eau.js";
 import { type Info, SOURCES as NEWS } from "./actualites.js";
@@ -420,32 +421,87 @@ export function pageTitle(html: string): string | undefined {
   return t || undefined;
 }
 
-/** A release's page, read every half hour: its title and its sentences. */
-async function releasePage(cache: Cache, lien: string): Promise<Cached<Page>> {
-  return cache.get(`volcan:communique:page:${lien}`, RELEASE_SECONDS, async () => {
-    const html = await getText(PREFECTURE.id, lien, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" });
-    const phrases = releaseSentences(html);
-    if (!phrases.length) throw new UpstreamError(PREFECTURE.id, "communiqué sans texte");
-    const titre = pageTitle(html);
-    // What is read, to check it on the real pages (the extraction is built on one capture).
-    console.log(`volcan : communiqué lu (${lien}) : ${phrases.length} phrases : ${phrases.map((x) => `« ${x} »`).join(" ")}, titre de la page : « ${titre ?? ""} »`);
-    return { ...(titre && { titre }), phrases };
-  });
+/** What is kept of a release's page in the durable store: the page as last read, and when. */
+interface PageKept {
+  page?: Page;
+  /** When the page was read (ms); before the last try when that try failed. */
+  lu?: number;
 }
 
-// Whether a release is about the volcano does not change: its page read once a week at most for that.
+// reunion.gouv.fr bans our address on bursts. The scheduled event runs in a new isolate each time, often in another
+// data center, so neither the isolate's memory nor the data center's cache sees the page read five minutes before
+// (26/10/2026: the release in force read 187 times in 24 h, for 48 at most). What was read is kept in the durable
+// store (the Worker's KV), with the time of the last try in its entry: the page is asked again only once that try is
+// older than the freshness asked, whichever isolate or data center asks, a failure as well as a read.
+const PAGE_KEY = (lien: string) => `volcan:communique:page:${lien}`;
+type Known = PageKept & { essai: number };
+// What this isolate knows of each page, with the time of the last try: KV is asked again only once that is old. Two
+// questions at once share one try.
+const pagesKnown = new WeakMap<Cache, Map<string, Known | Promise<Known>>>();
+
+/** A release's page, its title and its sentences: read again only once the last try is `freshSeconds` old. */
+async function releasePage(cache: Cache, lien: string, now: number, freshSeconds = RELEASE_SECONDS): Promise<Cached<Page>> {
+  const key = PAGE_KEY(lien);
+  let mine = pagesKnown.get(cache);
+  if (!mine) pagesKnown.set(cache, (mine = new Map()));
+  // A failed try is tried again after the half hour, whatever the freshness asked (the subject: a week).
+  const fresh = (k: Known | undefined) => !!k && now - k.essai < (k.page ? freshSeconds : Math.min(freshSeconds, RELEASE_SECONDS)) * 1000;
+  let error: unknown;
+  const known = mine.get(key);
+  let k = known instanceof Promise ? await known : known;
+  if (!fresh(k)) {
+    const had = k;
+    const trying = (async (): Promise<Known> => {
+      const kept = await cache.kept<PageKept>(key).catch(() => undefined);
+      const last = kept && (!had || kept.fetchedAt.getTime() > had.essai) ? { ...kept.value, essai: kept.fetchedAt.getTime() } : had;
+      if (last && fresh(last)) return last;
+      let tried: Known;
+      try {
+        tried = { page: await readReleasePage(lien), lu: now, essai: now };
+      } catch (err) {
+        error = err;
+        tried = { ...last, essai: now };
+      }
+      // After the answer: the answer never waits for the durable store.
+      later(cache.keep(key, { ...(tried.page && { page: tried.page, lu: tried.lu }) } satisfies PageKept).catch((err) => console.error("volcan : page du communiqué non gardée", err)));
+      return tried;
+    })();
+    mine.set(key, trying);
+    k = await trying;
+    mine.set(key, k);
+  }
+  if (!k?.page) throw error ?? new UpstreamError(PREFECTURE.id, "communiqué non lu à la dernière tentative");
+  // The last try failed: the page as last read, said so.
+  const stale = k.lu !== k.essai;
+  noteLecture({ key, fetchedAt: k.lu ?? k.essai, stale, freshSeconds, ...(stale && { source: PREFECTURE.id }), from: PREFECTURE.id });
+  return { value: k.page, fetchedAt: new Date(k.lu ?? k.essai), stale, ...(stale && { source: PREFECTURE.id }), from: PREFECTURE.id };
+}
+
+/** Reads a release's page: its title and its sentences. */
+async function readReleasePage(lien: string): Promise<Page> {
+  const html = await getText(PREFECTURE.id, lien, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" });
+  const phrases = releaseSentences(html);
+  if (!phrases.length) throw new UpstreamError(PREFECTURE.id, "communiqué sans texte");
+  const titre = pageTitle(html);
+  // What is read, to check it on the real pages (the extraction is built on one capture).
+  console.log(`volcan : communiqué lu (${lien}) : ${phrases.length} phrases : ${phrases.map((x) => `« ${x} »`).join(" ")}, titre de la page : « ${titre ?? ""} »`);
+  return { ...(titre && { titre }), phrases };
+}
+
+// Whether a release is about the volcano does not change: its page read once a week at most for that (once in the
+// durable store's days, kv.ts, when it is not the release in force, whose page is read every half hour).
 const SUBJECT_SECONDS = 7 * 24 * 3600;
 
 /** The page of a release whose list says nothing of the volcano when it is about it, else null. */
-async function volcanicRelease(cache: Cache, lien: string): Promise<Page | null> {
-  const about = await cache.get(`volcan:communique:sujet:${lien}`, SUBJECT_SECONDS, async () => volcanicPage((await releasePage(cache, lien)).value));
-  return about.value ? (await releasePage(cache, lien)).value : null;
+async function volcanicRelease(cache: Cache, lien: string, now: number): Promise<Page | null> {
+  const page = (await releasePage(cache, lien, now, SUBJECT_SECONDS)).value;
+  return volcanicPage(page) ? page : null;
 }
 
 /** The sentences of the release `p`, read from its page every half hour; those kept with the phase if it does not answer. */
 export async function releaseText(cache: Cache, p: Phase, now = Date.now()): Promise<string[] | undefined> {
   try {
-    const c = await releasePage(cache, p.lien);
+    const c = await releasePage(cache, p.lien, now);
     const value = c.value.phrases;
     if (!c.stale) later(keepPhase(cache, { ...p, phrases: value }, now).catch((err) => console.error("volcan : communiqué non gardé", err)));
     return value;
@@ -460,7 +516,7 @@ export async function releaseText(cache: Cache, p: Phase, now = Date.now()): Pro
 // alone names the volcano), so that the phase a former version read is not served after the deploy.
 export const PHASE_KEY = "volcan:prefecture:phase";
 
-async function readPhase(cache: Cache): Promise<Cached<Phase | null>> {
+async function readPhase(cache: Cache, now: number): Promise<Cached<Phase | null>> {
   return cache.get(PHASE_KEY, 5 * 60, async () => {
     const releases = (await prefecture.releases(cache)).value;
     // A page without its list (an error page served as 200, a maintenance page) must not replace the last phase read.
@@ -469,7 +525,7 @@ async function readPhase(cache: Cache): Promise<Cached<Phase | null>> {
     // (the last one kept is said with its day), rather than an older release's taken for the latest.
     const pages = new Map<string, Page>();
     for (const r of doubtful(releases)) {
-      const page = await volcanicRelease(cache, r.lien);
+      const page = await volcanicRelease(cache, r.lien, now);
       if (page) pages.set(r.lien, page);
     }
     const p = phaseOf(releases, pages);
@@ -483,7 +539,7 @@ async function readPhase(cache: Cache): Promise<Cached<Phase | null>> {
  * `officiel` lets a newer, higher level of the OVPF's texts win over it). Throws only when neither is there.
  */
 export async function phase(cache: Cache, now = Date.now()): Promise<Cached<Phase | null>> {
-  const read = await readPhase(cache).catch((err: unknown) => ({ err }));
+  const read = await readPhase(cache, now).catch((err: unknown) => ({ err }));
   if ("value" in read && read.value) {
     const p = withDay(read.value);
     // After the answer: the answer never waits for the durable store.
