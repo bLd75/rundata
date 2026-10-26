@@ -386,9 +386,43 @@ export function placeOf(lieu: string): { commune: PlacePage; place: PlacePage; r
   return { commune, place: own ?? commune, res };
 }
 
+/** A copy a view may bring up to date after its answer. */
+export interface Stale {
+  key: string;
+  build: () => Promise<unknown>;
+  /** Its age, ms; Infinity without a copy. */
+  age: number;
+  /** Built by another revision of its family (cache.ts, `outdated`). */
+  outdated?: boolean;
+  /** What its build took where it was built, from its copy. */
+  cost?: number;
+}
+
 /**
- * Reads the copies of the commune's summary, keeps those recent enough, names the others, and brings the oldest of
- * those up to date after the answer when `background` is given and what its build took is left. `vigilance`: the
+ * Brings these copies up to date after the answer: every one of another revision, then the oldest of the others. After
+ * a deploy that raised several families, a page seldom seen would otherwise take a view for each: on 26/10/2026, the
+ * first view of /aujourdhui/le-tampon after the deploy rebuilt the electricity's copy, and the events stayed « Se met à
+ * jour » until the next one, eleven minutes later. Each only while what its build took last time (`costOf`, else its
+ * copy's, else `unknown`) is left, counted with the builds started before it: one that does not fit waits for a later
+ * view. The keys of the builds started.
+ */
+export function refresh(cache: Cache, stale: Stale[], background: Background, unknown: number): string[] {
+  const oldest = stale.filter((s) => !s.outdated).sort((a, b) => b.age - a.age)[0];
+  let room = left();
+  const started: string[] = [];
+  for (const s of [...stale.filter((x) => x.outdated), ...(oldest ? [oldest] : [])]) {
+    const cost = costOf(s.key) ?? s.cost ?? unknown;
+    if (cost > room) continue;
+    room -= cost;
+    started.push(s.key);
+    background(cache.get(s.key, FRESH_SECONDS, () => measured(s.key, s.build)).catch((err) => console.error(`page ${s.key} : rafraîchissement impossible`, why(err))));
+  }
+  return started;
+}
+
+/**
+ * Reads the copies of the commune's summary, keeps those recent enough, names the others, and brings them up to date
+ * after the answer when `background` is given (`refresh`). `vigilance`: the
  * vigilance as the caller has it already (a page waits for it only a moment), else it is read here. `held`: the
  * copies the caller has already (a page builds its weather), neither read again nor refreshed here.
  */
@@ -403,13 +437,13 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
   ]);
   const copies: ResumeCopies = { vigilance: vig };
   const leftOut: LeftOut[] = [];
-  const due: { c: Copy; age: number; cost?: number }[] = [];
+  const due: Stale[] = [];
   parts.forEach(([name, c], i) => {
     const copy = peeked[i];
     // Built by another revision: left out, however recent, and brought up to date first (`UPDATING`).
     if (copy?.outdated) {
       leftOut.push({ partie: c.nom, raison: UPDATING, outil: c.outil, page: `${SITE_URL}${c.page}` });
-      if (!(name in held)) due.push({ c, age: Infinity, cost: copy.cost });
+      if (!(name in held)) due.push({ key: c.key, build: () => c.build(cache, now), age: Infinity, outdated: true, cost: copy.cost });
       return;
     }
     if (usable(c, copy, now)) {
@@ -419,15 +453,10 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
       return;
     }
     leftOut.push({ partie: c.nom, raison: copy ? `copie de ${localTime(copy.fetchedAt)}, trop ancienne` : "pas de copie récente", outil: c.outil, page: `${SITE_URL}${c.page}` });
-    if (!(name in held)) due.push({ c, age: copy ? now.getTime() - copy.fetchedAt.getTime() : Infinity, cost: copy?.cost });
+    if (!(name in held)) due.push({ key: c.key, build: () => c.build(cache, now), age: copy ? now.getTime() - copy.fetchedAt.getTime() : Infinity, cost: copy?.cost });
   });
   if (!vig) leftOut.push({ partie: "vigilance", raison: mf.enabled() ? "Météo-France ne répond pas" : "vigilance non branchée", outil: "vigilance_meteo", page: `${SITE_URL}/vigilance` });
-  const oldest = due.sort((x, y) => y.age - x.age)[0];
-  const refresh = !!background && !!oldest && left() >= (costOf(oldest.c.key) ?? oldest.cost ?? COST_UNKNOWN);
-  if (refresh) {
-    background(cache.get(oldest.c.key, FRESH_SECONDS, () => measured(oldest.c.key, () => oldest.c.build(cache, now))).catch((err) => console.error(`page ${oldest.c.key} : rafraîchissement impossible`, why(err))));
-  }
-  return { copies, leftOut, refreshed: refresh ? oldest.c.key : undefined };
+  return { copies, leftOut, refreshed: background ? refresh(cache, due, background, COST_UNKNOWN) : [] };
 }
 
 export async function resumeDuJour(cache: Cache, lieu: string, now = new Date(), background?: Background) {
