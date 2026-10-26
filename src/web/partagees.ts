@@ -364,7 +364,8 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
       }
       count(1, true);
       const version = stampOf(s.key, cache.version);
-      const entry: KvEntry = { value: got.value, fetchedAt: got.fetchedAt.getTime(), cost: costOf(s.key) ?? kept, ...(version && { version }) };
+      // With the source it was read from: its last copy, served in another data center, says whose it is (fraicheur.ts).
+      const entry: KvEntry = { value: got.value, fetchedAt: got.fetchedAt.getTime(), cost: costOf(s.key) ?? kept, ...(version && { version }), ...(got.from && { from: got.from }) };
       const meta: KvMeta = { fetchedAt: entry.fetchedAt, cost: entry.cost, every: everyOf(s, got.value), ...(version && { version }) };
       await kv.put(kvKey(s.key), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS, metadata: meta });
       wrote.set(kvKey(s.key), meta);

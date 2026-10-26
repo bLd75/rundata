@@ -69,6 +69,8 @@ describe("the earthquakes and the ONF's map, kept by the scheduled event", () =>
     const got = await seismes.seismes(there, NOW);
     expect(got.fetchedAt.getTime()).toBe(at.getTime());
     expect(got.value).toHaveLength(18);
+    // With the source it was read from, as KV keeps it: a last copy of it says whose it is (fraicheur.ts).
+    expect(got.from).toBe(seismes.SOURCE.id);
     expect((await there.peek<onf.Carte>(onf.KEY))?.value.mise_a_jour).toBe(map.mise_a_jour);
     expect(asked).toBe(0);
   });
