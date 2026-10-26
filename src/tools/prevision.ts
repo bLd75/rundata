@@ -7,7 +7,7 @@ import * as ensemble from "../providers/ensemble.js";
 import * as openmeteo from "../providers/openmeteo.js";
 import * as uv from "../providers/uv.js";
 import { type Forecast, type ForecastDay, type ForecastHour, why } from "../types.js";
-import { credits, fr, nombre, notFound, placeBlock, text } from "./format.js";
+import { credits, fr, nombre, notFound, paire, placeBlock, text, tranche } from "./format.js";
 import * as nuages from "./nuages.js";
 
 const TOUR = ["Saint-Denis", "Saint-Pierre", "Saint-Gilles-les-Bains", "Saint-Benoît", "Cilaos", "Plaine des Cafres"];
@@ -173,7 +173,7 @@ function dayFromHours(date: string, hours: ForecastHour[]): ForecastDay {
     tmax: temps.length ? Math.max(...temps) : null,
     pluie_mm: rains.length ? Math.round(rains.reduce((a, b) => a + b, 0) * 10) / 10 : null,
     rafales_max_kmh: gusts.length ? Math.max(...gusts) : null,
-    modeles: segments.length > 1 ? segments.map((x) => `${x.nom} de ${x.de}h à ${x.a}h`).join(", puis ") : undefined,
+    modeles: segments.length > 1 ? segments.map((x) => `${x.nom} de ${paire(x.de * 60, x.a * 60).join(" à ")}`).join(", puis ") : undefined,
   };
 }
 
@@ -348,7 +348,7 @@ function stepBlock(hours: ForecastHour[], mixed: boolean) {
     ? (hours.some((h) => h.rafales_kmh != null) ? `rafales ${gust} km/h` : undefined)
     : `${first.vent_dir == null ? "" : `${compass(first.vent_dir)} `}${Math.round(first.vent_kmh)} km/h, rafales ${gust} km/h`;
   return {
-    heures: `${dayLabel(localDate(first.time))} ${localHour(first.time)}h–${localHour(end) || 24}h`,
+    heures: `${dayLabel(localDate(first.time))} ${tranche(localHour(first.time) * 60, (localHour(end) || 24) * 60)}`,
     ciel: sky(stepCode(codes)),
     temperature: deg(first.temperature),
     pluie: rain(Math.round(sum * 10) / 10),
@@ -467,7 +467,7 @@ function uvWarnings(u: Cached<uv.UvCell[]> | null): string[] {
   return [
     `Indice UV : PRÉVISION du service européen Copernicus (${uv.MODEL.nom}, maille d'environ ${uv.MODEL.maille_km} km), ` +
       "nuages compris, au plus fort de la journée (vers midi)\u00a0; pas une mesure. Il est plus fort en altitude, d'environ 10 % " +
-      "par 1 000 m. Dès 3, se protéger\u00a0; à 8 et plus, éviter le soleil de 11h à 15h (échelle de l'OMS).",
+      "par 1 000 m. Dès 3, se protéger\u00a0; à 8 et plus, éviter le soleil de 11\u00a0h à 15\u00a0h (échelle de l'OMS).",
     ...(u.stale ? ["Indice UV : service momentanément injoignable, prévision précédente."] : []),
   ];
 }

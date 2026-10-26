@@ -67,14 +67,14 @@ describe("the rain of the last hours", () => {
     const rain = { hourly: HOURLY, slots: () => [] };
     const b = recentRainBlock(rain, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", NOW, false)!;
     // The value dated 08:00Z (12 h in Réunion) is the rain from 11 h to 12 h.
-    expect(b.par_heure.slice(0, 3)).toEqual(["11 h–12 h : 2,6 mm", "10 h–11 h : 9,1 mm", "9 h–10 h : 0,6 mm"]);
+    expect(b.par_heure.slice(0, 3)).toEqual(["11\u00a0h–12\u00a0h : 2,6 mm", "10\u00a0h–11\u00a0h : 9,1 mm", "9\u00a0h–10\u00a0h : 0,6 mm"]);
     expect(b.convention).toBe(CONVENTION);
-    expect(b.derniere_pluie).toBe("aujourd'hui entre 11 h et 12 h");
+    expect(b.derniere_pluie).toBe("aujourd'hui entre 11\u00a0h et 12\u00a0h");
     // Midnight to noon: 2.6 + 9.1 + 0.6 (the 0.2 of yesterday 20 h–21 h left out).
-    expect(b.cumul_depuis_minuit).toBe("12,3 mm de 0 h à 12 h");
+    expect(b.cumul_depuis_minuit).toBe("12,3 mm de 0\u00a0h à 12\u00a0h");
     // Twelve hours, the ones of yesterday named so.
     expect(b.par_heure).toHaveLength(12);
-    expect(b.par_heure.at(-1)).toBe("0 h–1 h : 0");
+    expect(b.par_heure.at(-1)).toBe("0\u00a0h–1\u00a0h : 0 mm");
   });
 
   it("says the hours not read when the hourly package is stuck on an old copy, never as the hour under way", () => {
@@ -83,34 +83,34 @@ describe("the rain of the last hours", () => {
     const slots = Array.from({ length: 9 }, (_, k) => ({ time: iso(Date.parse("2026-10-25T13:24:00Z") - k * SLOT), rr: 0 }));
     const b = recentRainBlock({ hourly: HOURLY, slots: () => slots }, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", now, false)!;
     expect(b.par_heure.slice(0, 3)).toEqual([
-      "16 h 30–17 h 24 : 0 (dernières mesures lues, toutes les 6 minutes)",
-      "12 h–16 h 30 : non lue (notre lecture n'a pas abouti)",
-      "11 h–12 h : 2,6 mm",
+      "16:30–17:24 : 0 mm (dernières mesures lues, toutes les 6 minutes)",
+      "12:00–16:30 : non lue (notre lecture n'a pas abouti)",
+      "11\u00a0h–12\u00a0h : 2,6 mm",
     ]);
     // The last rain read is before the hours not read: it may have rained since.
-    expect(b.derniere_pluie).toBe("aujourd'hui entre 11 h et 12 h (de 12 h à 16 h 30, non lue : il a pu pleuvoir pendant ce temps)");
+    expect(b.derniere_pluie).toBe("aujourd'hui entre 11\u00a0h et 12\u00a0h (de 12:00 à 16:30, non lue : il a pu pleuvoir pendant ce temps)");
     // Rain measured after them is the last rain: said as it is.
     const wet = slots.map((x, k) => (k === 2 ? { ...x, rr: 0.2 } : x));
-    expect(recentRainBlock({ hourly: HOURLY, slots: () => wet }, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", now, false)!.derniere_pluie).toBe("aujourd'hui entre 17 h 06 et 17 h 12");
+    expect(recentRainBlock({ hourly: HOURLY, slots: () => wet }, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", now, false)!.derniere_pluie).toBe("aujourd'hui entre 17:06 et 17:12");
     // Midnight to 17 h 24 with four hours and a half not read: a floor.
-    expect(b.cumul_depuis_minuit).toBe("au moins 12,3 mm de 0 h à 17 h 24");
+    expect(b.cumul_depuis_minuit).toBe("au moins 12,3 mm de 00:00 à 17:24");
     // Dry in every hour read: not « since yesterday », the hours between were not read.
     const dry = { ...HOURLY, rr: { ...HOURLY.rr, "97412356": HOURLY.rr["97412356"].map((v) => (v == null ? v : 0)) } };
     expect(recentRainBlock({ hourly: dry, slots: () => slots }, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", now, false)!.derniere_pluie).toBe(
-      "pas de pluie mesurée dans les heures disponibles (de 12 h à 16 h 30, non lue)",
+      "pas de pluie mesurée dans les heures disponibles (de 12:00 à 16:30, non lue)",
     );
     // An hour late only (the next one not published yet): still the hour under way.
     const late = new Date("2026-10-25T09:20:00Z");
     const recent = Array.from({ length: 13 }, (_, k) => ({ time: iso(Date.parse("2026-10-25T09:18:00Z") - k * SLOT), rr: 0 }));
-    expect(recentRainBlock({ hourly: HOURLY, slots: () => recent }, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", late, false)!.par_heure[0]).toBe("12 h–13 h 18 : 0 (heure en cours)");
+    expect(recentRainBlock({ hourly: HOURLY, slots: () => recent }, { id: "97412356", nom: "La Crête", fit: near }, "Saint-Joseph", late, false)!.par_heure[0]).toBe("12:00–13:18 : 0 mm (heure en cours)");
   });
 
   it("goes back 24 hours when the last rain is older than 12 hours, yesterday's hours named", () => {
     const b = recentRainBlock({ hourly: HOURLY, slots: () => [] }, { id: "97422440", nom: "Plaine des Cafres", fit: near }, "Plaine des Cafres", NOW, false)!;
     expect(b.par_heure).toHaveLength(24);
-    expect(b.par_heure).toContain("hier 22 h–23 h : 0,2 mm");
-    expect(b.derniere_pluie).toBe("hier entre 22 h et 23 h");
-    expect(b.cumul_depuis_minuit).toBe("0 de 0 h à 12 h");
+    expect(b.par_heure).toContain("hier 22\u00a0h–23\u00a0h : 0,2 mm");
+    expect(b.derniere_pluie).toBe("hier entre 22\u00a0h et 23\u00a0h");
+    expect(b.cumul_depuis_minuit).toBe("0 mm de 0\u00a0h à 12\u00a0h");
   });
 
   it("answers « il a plu quand ? » at Saint-Joseph to the 6 minutes, the hour under way included", async () => {
@@ -119,13 +119,13 @@ describe("the rain of the last hours", () => {
       station: "Saint-Joseph",
       pertinence: "bonne",
       nature: "mesure (pluviomètre Météo-France)",
-      derniere_pluie: "aujourd'hui entre 12 h 24 et 12 h 30",
-      cumul_depuis_minuit: "0,4 mm de 0 h à 12 h 54",
+      derniere_pluie: "aujourd'hui entre 12:24 et 12:30",
+      cumul_depuis_minuit: "0,4 mm de 00:00 à 12:54",
     });
-    expect(r.pluie_recente.par_heure[0]).toBe("12 h–12 h 54 : 0,4 mm (heure en cours)");
-    expect(r.pluie_recente.par_heure[1]).toBe("11 h–12 h : 0");
+    expect(r.pluie_recente.par_heure[0]).toBe("12:00–12:54 : 0,4 mm (heure en cours)");
+    expect(r.pluie_recente.par_heure[1]).toBe("11\u00a0h–12\u00a0h : 0 mm");
     expect(r.resume).toContain("Pluie à Saint-Joseph (pluviomètre, ");
-    expect(r.resume).toContain("dernière pluie aujourd'hui entre 12 h 24 et 12 h 30\u00a0; 0,4 mm de 0 h à 12 h 54 (depuis minuit).");
+    expect(r.resume).toContain("dernière pluie aujourd'hui entre 12:24 et 12:30\u00a0; 0,4 mm de 00:00 à 12:54 (depuis minuit).");
     expect(r.pluie_recente.bruine).toBeUndefined();
   });
 
@@ -138,7 +138,7 @@ describe("the rain of the last hours", () => {
 
   it("warns that a light drizzle may not be measured when the gauge and the radar see nothing under a loaded sky", async () => {
     // 24 hours back from 12 h.
-    const dry = "pas de pluie mesurée depuis hier 12 h";
+    const dry = "pas de pluie mesurée depuis hier 12\u00a0h";
     const loaded = body(await meteoActuelle(await cache({}, "METAR FMEP 250830Z AUTO 13017KT 9000 FEW009 SCT013 BKN019 24/21 Q1018 TEMPO 3000 SHRA BKN010TCU"), "Saint-Joseph", NOW));
     expect(loaded.pluie_recente.derniere_pluie).toBe(dry);
     expect(loaded.pluie_recente.bruine).toMatch(/une bruine ou une pluie très faible peut leur échapper \(un pluviomètre compte la pluie par 0,2 mm\)/);
@@ -152,10 +152,10 @@ describe("the rain of the last hours", () => {
       const at = async (now: string, hourly = true) =>
         body(await meteoActuelle(await cache({}, undefined, new Date(now), hourly), "Saint-Joseph", new Date(now)));
       // 09:10Z: the 09:00Z hour is not due before 09:15Z, the 08:00Z one in hand is enough.
-      expect((await at("2026-10-25T09:10:00Z")).pluie_recente.par_heure[1]).toBe("11 h–12 h : 0");
+      expect((await at("2026-10-25T09:10:00Z")).pluie_recente.par_heure[1]).toBe("11\u00a0h–12\u00a0h : 0 mm");
       expect(calls).toBe(0);
       // 09:20Z: due, asked again; unreadable here, so the hours in hand.
-      expect((await at("2026-10-25T09:20:00Z")).pluie_recente.par_heure[1]).toBe("11 h–12 h : 0");
+      expect((await at("2026-10-25T09:20:00Z")).pluie_recente.par_heure[1]).toBe("11\u00a0h–12\u00a0h : 0 mm");
       expect(calls).toBe(1);
       // Never read: the answer goes without the block.
       const r = await at("2026-10-25T09:20:00Z", false);

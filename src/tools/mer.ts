@@ -7,7 +7,7 @@ import * as modis from "../providers/modis.js";
 import * as requin from "../eau/requin.js";
 import { later, left } from "../budget.js";
 import { type SourceInfo, why } from "../types.js";
-import { credits, fr, notFound, placeBlock, text } from "./format.js";
+import { credits, fr, heure, notFound, placeBlock, text } from "./format.js";
 import { dayLabel, localDate, localHour } from "./prevision.js";
 
 // Answer for the whole island when no place is given: one spot per stretch of coast people swim on. All are BEACHES too:
@@ -214,7 +214,7 @@ function stepOf(w: houle.Waves, p: houle.WavePoint, i: number): WaveStep | null 
 
 function stepText(s: WaveStep) {
   return {
-    heures: `${dayLabel(localDate(s.time))} ${localHour(s.time)}h`,
+    heures: `${dayLabel(localDate(s.time))} ${heure(localHour(s.time) * 60)}`,
     hauteur: metres(s.hauteur),
     periode: s.periode == null ? undefined : `${Math.round(s.periode)} s`,
     venant: from(s.direction),
@@ -261,7 +261,7 @@ export function waveLine(w: houle.Waves, lon: number, lat: number, now: Date) {
     at,
     hauteur_m: at.now.hauteur,
     maintenant: waveWords(at.now),
-    heure: `${localHour(at.now.time)}h`,
+    heure: heure(localHour(at.now.time) * 60),
     max: metres(top.hauteur),
     max_jour: localDate(top.time) === localDate(now) ? "aujourd'hui" : dayLabel(localDate(top.time)),
   };

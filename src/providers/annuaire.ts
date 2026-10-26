@@ -50,8 +50,8 @@ export function office(r: Row): Office {
   const addrs = json<Record<string, string>[]>(r.adresse, []);
   const a = addrs.find((x) => x.type_adresse === "Adresse") ?? addrs[0] ?? {};
   const hours = json<Record<string, string>[]>(r.plage_ouverture, []);
-  // "08:00:00" → "8h00", kept comparable as text by the open-now check.
-  const hm = (t: string) => t.slice(0, 5).replace(":", "h");
+  // "08:00:00" → "08:00", kept comparable as text by the open-now check.
+  const hm = (t: string) => t.slice(0, 5);
   return {
     nom: String(r.nom),
     insee: String(r.code_insee_commune ?? ""),

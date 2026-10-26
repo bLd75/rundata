@@ -7,7 +7,7 @@ import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
 import { why } from "../types.js";
 import { asksCrossing, T as FERRY } from "./ferries.js";
-import { credits, fr, text } from "./format.js";
+import { credits, fr, heure, text } from "./format.js";
 import { rienTrouve } from "../vide.js";
 
 // Words of a question that say nothing about which stop: « prochain bus à l'arrêt X pour Y ». « Routière » too:
@@ -89,13 +89,10 @@ export function nearStops(lon: number, lat: number, reseau?: string): { g: trans
   return (close.length ? close : all).slice(0, 3);
 }
 
-const clock = (s: number) => {
-  const t = ((s % 86400) + 86400) % 86400;
-  return `${Math.floor(t / 3600)}h${String(Math.floor((t % 3600) / 60)).padStart(2, "0")}`;
-};
-/** « 7h05 », or « demain 5h51 » for a departure after midnight. */
+const clock = (s: number) => heure(Math.floor((((s % 86400) + 86400) % 86400) / 60));
+/** « 07:05 », or « demain 05:51 » for a departure after midnight. */
 const hm = (s: number) => `${s >= 86400 ? "demain " : ""}${clock(s)}`;
-/** « à 7h05 », « demain à 5h51 ». */
+/** « à 07:05 », « demain à 05:51 ». */
 const atTime = (s: number) => `${s >= 86400 ? "demain " : ""}à ${clock(s)}`;
 const minutes = (d: Departure) => Math.max(0, Math.round(expected(d) / 60));
 /** « dans 4 min », « dans 11 h 15 ». */

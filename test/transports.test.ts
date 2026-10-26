@@ -82,7 +82,7 @@ describe("transports", () => {
   it("runs the cable car every minute from its frequencies, each departure once", async () => {
     const r = body(await transports("téléphérique Bancoul", undefined, NOW));
     const mer = r.departs.filter((d: { direction: string }) => d.direction === "MER");
-    expect(mer.map((d: { heure: string }) => d.heure)).toEqual(["7h29", "7h30", "7h31"]);
+    expect(mer.map((d: { heure: string }) => d.heure)).toEqual(["07:29", "07:30", "07:31"]);
   });
 
   it("looks further ahead in a cirque where buses are rare", async () => {
@@ -94,9 +94,9 @@ describe("transports", () => {
   it("gives the next morning's buses after the last one of the evening", async () => {
     // Friday 23/10/2026, 18h30: no more buses at Hell-Bourg until Saturday.
     const r = body(await transports("Hell-Bourg", undefined, new Date("2026-10-23T14:30:00Z")));
-    expect(r.departs[0].heure).toBe("demain 5h51");
+    expect(r.departs[0].heure).toBe("demain 05:51");
     expect(r.departs[0].dans_min).toBeGreaterThan(11 * 60);
-    expect(r.resume).toMatch(/vers GARE SAINT ANDRE demain à 5h51 \(dans 11 h \d\d\)/);
+    expect(r.resume).toMatch(/vers GARE SAINT ANDRE demain à 05:51 \(dans 11 h \d\d\)/);
   });
 
   it("reads only the patterns that may stop at the station in the next hours", async () => {
@@ -170,7 +170,7 @@ describe("a line", () => {
 
   it("alone, gives its stops in order for each direction and its day's departures in a few figures", async () => {
     const r = body(await transports(undefined, "S1", NOW));
-    expect(r.resume).toMatch(/^Ligne S1 \(St-Benoît \/ St-Pierre par le Grand Brûlé\), Car Jaune, d'après les horaires publiés : Gare de St-Benoît → Gare de St-Pierre, 31 arrêts, \d+ départs aujourd'hui, de \d+h\d\d à \d+h\d\d/);
+    expect(r.resume).toMatch(/^Ligne S1 \(St-Benoît \/ St-Pierre par le Grand Brûlé\), Car Jaune, d'après les horaires publiés : Gare de St-Benoît → Gare de St-Pierre, 31 arrêts, \d+ départs aujourd'hui, de (\d\d:\d\d|\d+\u00a0h) à (\d\d:\d\d|\d+\u00a0h)/);
     const sens = r.sens as Sens[];
     expect(sens).toHaveLength(2);
     expect(sens[0].arrets).toContain("Saint-Joseph : Église Vincendo, Centre Multiservices, Gare de St-Joseph, Lycée Agricole, Manapany les Bains");
@@ -201,17 +201,17 @@ describe("a line", () => {
   });
 
   it("gives its departures one by one after the hour asked", async () => {
-    const r = body(await transports("après 17 h", "S1", NOW));
+    const r = body(await transports("après 17h", "S1", NOW));
     const times = (r.sens as Sens[])[0].departs_apres_l_heure_demandee!;
     expect(times.length).toBeGreaterThan(0);
-    expect(times.every((t) => Number(t.split("h")[0]) >= 17)).toBe(true);
+    expect(times.every((t) => Number(t.split(/[:\u00a0]/)[0]) >= 17)).toBe(true);
     expect(r.arret).toBeUndefined();
   });
 
   it("says when it does not run, what the timetables say beside it, and gives its next day of service", async () => {
     // Sunday 25/10/2026: the E1 runs on weekdays only.
     const sunday = body(await transports(undefined, "E1", new Date("2026-10-25T03:30:00Z")));
-    expect(sunday.resume).toMatch(/^Ligne E1 \(St-Denis \/ St-Benoît, Car Jaune\)\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\. D'après les horaires publiés, elle ne circule pas le dimanche\. Prochaine journée de service, lundi 26 octobre\u00a0: [^;]+, \d+ arrêts, \d+ départs de \d+h\d\d à \d+h\d\d\u00a0; /);
+    expect(sunday.resume).toMatch(/^Ligne E1 \(St-Denis \/ St-Benoît, Car Jaune\)\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\. D'après les horaires publiés, elle ne circule pas le dimanche\. Prochaine journée de service, lundi 26 octobre\u00a0: [^;]+, \d+ arrêts, \d+ départs de (\d\d:\d\d|\d+\u00a0h) à (\d\d:\d\d|\d+\u00a0h)\u00a0; /);
     expect(sunday.resume).not.toMatch(/le lundi 26 octobre|aujourd'hui,? de/);
     expect(sunday.jour).toBe("lundi 26 octobre");
     // Wednesday 11/11/2026, a public holiday, by the State's calendar when it is at hand: its name, never its date again.
@@ -250,7 +250,7 @@ describe("a line", () => {
     const asked = `${g.nom} car jaune`;
     const where = `${g.nom} \\(${g.commune}, Car Jaune\\)`;
     const sunday = body(await transports(asked, undefined, new Date("2026-10-25T06:00:00Z")));
-    expect(sunday.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\\. D'après les horaires publiés, aucune des lignes qui le desservent ne circule le dimanche\\. Prochains départs\u00a0: E1 vers St-(Denis|Benoît) demain à 5h00 \\(dans 19 h\\)\u00a0; `));
+    expect(sunday.resume).toMatch(new RegExp(`^Arrêt ${where}\u00a0: aucun départ aujourd'hui, dimanche 25 octobre\\. D'après les horaires publiés, aucune des lignes qui le desservent ne circule le dimanche\\. Prochains départs\u00a0: E1 vers St-(Denis|Benoît) demain à 5\u00a0h \\(dans 19 h\\)\u00a0; `));
     const WED = new Date("2026-11-11T06:00:00Z");
     const feries = { get: async () => ({ value: { "2026-11-11": "11 novembre" }, fetchedAt: new Date() }) } as unknown as Cache;
     expect(body(await transports(asked, undefined, WED, feries)).resume)
@@ -318,11 +318,11 @@ describe("where the bus is", () => {
     const cache = withFeed([{ trip: d.trip, route: cj.temps_reel!.lignes[s1 - cj.first_route], lat: at.lat, lon: at.lon, at: T0 - 90, stop: gtfsStop("Église Vincendo"), status: 2 }]);
     const r = body(await transports("Manapany", "S1", NOW, cache));
     const row = r.departs.find((x: { position_du_bus?: unknown }) => x.position_du_bus);
-    expect(row.position_du_bus).toMatchObject({ ou: "en route vers Église Vincendo (Saint-Joseph)", heure_de_la_position: "7h28" });
-    expect(r.resume).toMatch(/position du bus à 7h28 : en route vers Église Vincendo \(Saint-Joseph\)/);
+    expect(row.position_du_bus).toMatchObject({ ou: "en route vers Église Vincendo (Saint-Joseph)", heure_de_la_position: "07:28" });
+    expect(r.resume).toMatch(/position du bus à 07:28 : en route vers Église Vincendo \(Saint-Joseph\)/);
     expect(r.bus_en_circulation).toHaveLength(1);
     expect(r.bus_en_circulation[0].vers).toMatch(/^Gare de St-(Benoît|Pierre)$/);
-    expect(r.resume).toMatch(/En ce moment, 1 bus de la ligne donne sa position : vers Gare de St-(Benoît|Pierre), en route vers Église Vincendo \(Saint-Joseph\) à 7h28\./);
+    expect(r.resume).toMatch(/En ce moment, 1 bus de la ligne donne sa position : vers Gare de St-(Benoît|Pierre), en route vers Église Vincendo \(Saint-Joseph\) à 07:28\./);
     expect(JSON.stringify(r.sources)).toMatch(/GTFS-RT/);
   });
 
@@ -330,7 +330,7 @@ describe("where the bus is", () => {
     const d = await nextS1();
     const at = transit.stop(transit.GROUPS.find((g) => g.reseau === "carjaune" && g.nom === "Manapany les Bains")!.ids[0]);
     const r = body(await transports(undefined, "S1", NOW, withFeed([{ trip: d.trip, lat: at.lat + 0.001, lon: at.lon, at: T0 - 60 }])));
-    expect(r.bus_en_circulation[0]).toMatchObject({ ou: "près de Manapany les Bains (Saint-Joseph)", heure_de_la_position: "7h29" });
+    expect(r.bus_en_circulation[0]).toMatchObject({ ou: "près de Manapany les Bains (Saint-Joseph)", heure_de_la_position: "07:29" });
   });
 
   it("is not given when its position is more than 10 minutes old", async () => {

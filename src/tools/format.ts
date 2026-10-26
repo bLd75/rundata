@@ -3,6 +3,25 @@ import type { Resolution } from "../places/resolve.js";
 import { withMentions } from "../mentions.js";
 import type { Reading, SourceInfo } from "../types.js";
 
+/**
+ * A time of day, in minutes since midnight, as every answer writes it: « 19:12 » with its minutes, « 18\u00a0h » on the
+ * hour (« 24\u00a0h » for the end of a day). Never « 18h », nor « 19 h 12 ».
+ */
+export function heure(minutes: number): string {
+  const [h, m] = [Math.floor(minutes / 60), minutes % 60];
+  return m ? `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}` : `${h}\u00a0h`;
+}
+
+/** Two times said together (a span, « entre … et … »): « 18\u00a0h » and « 21\u00a0h », or both « 12:00 », « 12:54 » when one has minutes. */
+export function paire(de: number, a: number): [string, string] {
+  if (!(de % 60) && !(a % 60)) return [heure(de), heure(a)];
+  const hm = (x: number) => `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
+  return [hm(de), hm(a)];
+}
+
+/** A span: « 18\u00a0h–21\u00a0h », « 08:30–12:00 ». */
+export const tranche = (de: number, a: number) => paire(de, a).join("–");
+
 /** One reading as a short string a model can quote: "24 °C", "ESE (112°)", "65 % (calculée)". */
 /** A number written the French way: 24,6. */
 export function fr(n: number): string {

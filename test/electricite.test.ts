@@ -24,7 +24,7 @@ describe("electricity", () => {
 
   it("runs the strained hours together", () => {
     const c = constraints(hours());
-    expect(c[0]).toEqual({ quand: "vendredi 23/10 de 18h à 22h", signal: "heures de pointe", recharge_conseillee_pct: 50 });
+    expect(c[0]).toEqual({ quand: "vendredi 23/10 de 18\u00a0h à 22\u00a0h", signal: "heures de pointe", recharge_conseillee_pct: 50 });
   });
 
   it("answers from cached EDF data", async () => {
@@ -34,6 +34,6 @@ describe("electricity", () => {
     const r = body(await electricite(new Cache(store, () => NOW.getTime()), NOW));
     expect(r.resume).toMatch(/^Production d'électricité à 03:\d\d \(il y a \d+ min\) : \d+ MW, dont [\d,]+ % renouvelable\./);
     expect(r.resume).toContain("Météo de l'électricité EDF en ce moment : optimal.");
-    expect(r.resume).toContain("vendredi 23/10 de 18h à 22h (heures de pointe)");
+    expect(r.resume).toContain("vendredi 23/10 de 18\u00a0h à 22\u00a0h (heures de pointe)");
   });
 });
