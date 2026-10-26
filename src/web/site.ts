@@ -116,7 +116,7 @@ import { chiffresPage } from "./chiffres.js";
 import { toutesLesSources } from "../server.js";
 import { etat as sansReponse } from "../sans-reponse.js";
 import { connecteurPage } from "./connecteur.js";
-import { enTetes } from "./securite.js";
+import { enTetes, SECURITY_TEXT, SECURITY_TXT } from "./securite.js";
 import { typo, typoPage } from "./typo.js";
 import { tripGonePage, tripPage } from "./trajet.js";
 import { searchStops, stopPageDepartures, TRIP_PATH, tripRun } from "../tools/transports.js";
@@ -687,6 +687,13 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/.well-known/mcp-registry-auth") {
     return new Response(MCP_REGISTRY_AUTH, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });
+  }
+  // Whom to tell of a security flaw (web/securite.ts); the older address at the root leads to it (RFC 9116, §3).
+  if (path === SECURITY_TXT) {
+    return new Response(SECURITY_TEXT, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" } });
+  }
+  if (path === "/security.txt") {
+    return new Response(null, { status: 301, headers: { location: SECURITY_TXT, "cache-control": "public, max-age=3600" } });
   }
   if (path === "/robots.txt") {
     return new Response(ROBOTS(origin), {

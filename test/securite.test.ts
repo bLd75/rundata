@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { failed, handle } from "../src/app.js";
 import { Cache } from "../src/cache.js";
-import { CSP_RAPPORT, enTetes, politique, rapport, scriptsEnLigne } from "../src/web/securite.js";
+import { CSP_RAPPORT, enTetes, politique, rapport, scriptsEnLigne, SECURITY_EXPIRES } from "../src/web/securite.js";
 
 const sha = (s: string) => createHash("sha256").update(s, "utf8").digest("base64");
 
@@ -59,5 +59,32 @@ describe("the browsers' reports, POST /csp-rapport", () => {
     expect((await handle(new Request(`https://rundata.re${CSP_RAPPORT}`, { method: "POST", body: "pas du json" }), new Cache())).status).toBe(204);
     expect((await rapport(new Request(`https://rundata.re${CSP_RAPPORT}`, { method: "POST", body: JSON.stringify({ "csp-report": { "effective-directive": "img-src", "blocked-uri": "x".repeat(9000) } }) }))).status).toBe(204);
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("whom to tell of a security flaw, /.well-known/security.txt (RFC 9116)", () => {
+  it("says the contact, the languages and its own address, in plain text kept an hour", async () => {
+    const r = await handle(new Request("https://rundata.re/.well-known/security.txt"), new Cache());
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(r.headers.get("cache-control")).toBe("public, max-age=3600");
+    expect(await r.text()).toBe(
+      `Contact: mailto:contact@rundata.re\nExpires: ${SECURITY_EXPIRES}\nPreferred-Languages: fr, en\nCanonical: https://rundata.re/.well-known/security.txt\n`,
+    );
+  });
+
+  it("expires in less than a year, and this test fails 30 days before it does: move SECURITY_EXPIRES forward", () => {
+    expect(SECURITY_EXPIRES).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    const left = Date.parse(SECURITY_EXPIRES) - Date.now();
+    const day = 86_400_000;
+    expect(left).toBeGreaterThan(30 * day);
+    expect(left).toBeLessThan(365 * day);
+  });
+
+  it("is where the older address at the root leads, for good", async () => {
+    const r = await handle(new Request("https://rundata.re/security.txt"), new Cache());
+    expect(r.status).toBe(301);
+    expect(r.headers.get("location")).toBe("/.well-known/security.txt");
+    expect(r.headers.get("cache-control")).toBe("public, max-age=3600");
   });
 });
