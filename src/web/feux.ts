@@ -11,7 +11,7 @@ import { listLine, QUIET, URGENCE, when } from "../tools/feux.js";
 import { credits as creditOf } from "../tools/format.js";
 import { cyclone, raised } from "../tools/vigilance.js";
 import type { Alerte, SentiersAnswer } from "./data.js";
-import { closedMarkers, connectorCta, crumbBar, crumbs, fireId, fireMarkers, sourcesNote, webPage } from "./domains.js";
+import { closedMarkers, closedTrails, connectorCta, crumbBar, crumbs, fireId, fireMarkers, sourcesNote, webPage } from "./domains.js";
 import { esc, islandMap } from "./map.js";
 import { ask, credits, DESCRIPTION_MAX, hm, layout } from "./pages.js";
 
@@ -58,7 +58,7 @@ function firesList(fires: feux.Feux | null, now: Date): string {
 function trails(s: Cached<SentiersAnswer> | null | undefined): string {
   const d = s?.value;
   if (!d) return `<p>L'état des sentiers se charge : <a href="/sentiers">voir les sentiers fermés</a>.</p>`;
-  const closed = d.points.length;
+  const closed = closedTrails(d);
   return `<p><b>${closed}</b> sentier${closed > 1 ? "s" : ""} fermé${closed > 1 ? "s" : ""} sur ${d.suivis} suivis par l'ONF${d.carte_mise_a_jour ? `, d'après sa carte mise à jour le ${esc(d.carte_mise_a_jour.replace(" (ONF)", ""))}` : ""}.</p>` +
     (d.fermes_par_commune.length ? `<ul class="chips">${d.fermes_par_commune.map((c) => `<li>${esc(c.commune)} (${c.sentiers_fermes.length})</li>`).join("")}</ul>` : "") +
     `<p class="note"><a href="/sentiers">Tous les sentiers fermés, commune par commune →</a></p>`;

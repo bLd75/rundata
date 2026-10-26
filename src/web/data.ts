@@ -936,6 +936,10 @@ export const buildCourant = async (cache?: Cache): Promise<CourantAnswer> =>
 export interface SportAnswer {
   resume: string;
   a_venir?: SportRow[];
+  /** When `a_venir` lists only the first: how many there are. */
+  a_venir_en_tout?: number;
+  /** And the sports of all of them. */
+  sports_a_venir?: string[];
   resultats?: SportRow[];
   indisponible?: string[];
   non_couvert: string;
@@ -1094,8 +1098,10 @@ export async function buildEnfants(cache: Cache, now = new Date()): Promise<Enfa
 }
 
 export interface ActualitesAnswer {
-  /** The last 24 hours, newest first, the live entries apart. */
+  /** The last 24 hours, newest first, the live entries apart: the NEWS_LISTED newest. */
   infos: InfoRow[];
+  /** How many there are in the last 24 hours, the live entries apart, as actualites counts them: more than `infos` lists. */
+  total?: number;
   en_direct: InfoRow[];
   prefecture: InfoRow[];
   /** Whether people are in the streets or roads blocked: a live blog, or news of it in the last hours. */
@@ -1116,8 +1122,10 @@ export async function buildActualites(cache: Cache, now = new Date()): Promise<A
   const since = new Date(now.getTime() - NEWS_HOURS * 3600_000).toISOString();
   const recent = new Date(now.getTime() - HOT_HOURS * 3600_000).toISOString();
   const day = f.infos.filter((i) => i.publie >= since);
+  const articles = day.filter((i) => !i.direct);
   return {
-    infos: day.filter((i) => !i.direct).slice(0, NEWS_LISTED).map((i) => infoRow(i, now)),
+    infos: articles.slice(0, NEWS_LISTED).map((i) => infoRow(i, now)),
+    total: articles.length,
     en_direct: day.filter((i) => i.direct).slice(0, 12).map((i) => infoRow(i, now)),
     prefecture: f.prefecture.slice(0, 4).map((i) => infoRow(i, now)),
     chaud: day.some((i) => i.publie >= recent && (i.direct || i.sujets.includes("mobilisation"))),

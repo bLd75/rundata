@@ -489,13 +489,14 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
   const ahead = q === "aujourd_hui" || q === "demain" || q === "samedi" || q === "dimanche"
     ? quand(au)
     : q === "ce_week_end" ? `ce week-end (${du === au ? quand(au) : `du ${quand(du)} au ${quand(au)}`})` : `d'ici le ${quand(au)}`;
-  const away = upcoming.filter((i) => i.deplacement).length;
-  const here = upcoming.length - away;
+  // All of them, not only the UPCOMING_MAX listed: the number the page gives too (26/10/2026: « 40 » said for 77).
+  const away = aheadAll.filter((i) => i.deplacement).length;
+  const here = aheadAll.length - away;
   const off = upcoming.filter((i) => i.competition && (i.etat === "annulée" || i.etat === "reportée"));
   const offBy = [...new Set(off.map((i) => i.selon!.split(",")[0]))].join(", ");
   const upcomingText = [
     (here ? `${here} rendez-vous de ${what}${place} ${ahead}` : `Aucun rendez-vous de ${what} trouvé${place} ${ahead}`) +
-      (aheadAll.length > upcoming.length ? ` (${aheadAll.length} en tout, les ${upcoming.length} premiers ci-dessous)` : ""),
+      (aheadAll.length > upcoming.length ? ` (les ${upcoming.length} premiers ci-dessous)` : ""),
     away ? `${away} match${away > 1 ? "s" : ""} de club${away > 1 ? "s" : ""}${w?.kind === "communes" ? ` ${w.zone ? ZONE_DE[w.zone] : de(w.communes[0])}` : ""} à l'extérieur` : "",
     !off.length ? "" : off.length === upcoming.length && off.length > 1
       ? `tous annulés ou reportés d'après ${offBy}`
@@ -538,6 +539,10 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     resume,
     periode: sport === "grand_raid" || (sport && NEWS_ONLY[sport]) ? undefined : { du: quand(du), au: quand(au) },
     a_venir: upcoming.length ? upcoming.map(strip) : undefined,
+    // When it lists only the first: how many there are, the page's count.
+    a_venir_en_tout: aheadAll.length > upcoming.length ? aheadAll.length : undefined,
+    // And their sports, those beyond the first too: the ones the page names.
+    sports_a_venir: aheadAll.length > upcoming.length ? [...new Set(aheadAll.map((i) => i.sport))] : undefined,
     resultats: results.length ? results.map(strip) : undefined,
     avis: cited.length ? cited : undefined,
     a_verifier: check.length ? check : undefined,

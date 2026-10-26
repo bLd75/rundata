@@ -14,7 +14,7 @@
  * is settled. A change that makes the new code unable to read an old copy raises `CACHE_FORMAT` instead (cache.ts).
  */
 export const RENDU_REVISION: Readonly<Record<string, number>> = {
-  actualites: 4,
+  actualites: 5,
   agenda: 14,
   air: 2,
   bornes: 1,
@@ -38,7 +38,7 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   randonnees: 2,
   secheresse: 1,
   sentiers: 1,
-  sport: 9,
+  sport: 10,
   trafic: 2,
   velos: 1,
   volcan: 5,
