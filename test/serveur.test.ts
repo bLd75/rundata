@@ -6,7 +6,7 @@ import { withLectures } from "../src/lectures.js";
 import { INDEX, NOUVEAUTES, OUTILS, outilsRecents, serveur } from "../src/nouveautes.js";
 import { inReunionBeacons } from "../src/providers/pioupiou.js";
 import { existsSync } from "node:fs";
-import { nomDeSource, SERVER_ICONS, VERSION } from "../src/server.js";
+import { listeAllegee, nomDeSource, SERVER_ICONS, VERSION } from "../src/server.js";
 import { cite } from "../src/tools/citer.js";
 import { dataDate, fraicheur, instantOf, sourceMuette } from "../src/tools/fraicheur.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
@@ -98,6 +98,25 @@ describe("the server's instructions", () => {
     // 54 846 characters on 26/10/2026, about 16 000 tokens: lowered as the descriptions are made shorter.
     expect(JSON.stringify(tools).length).toBeLessThanOrEqual(56_000);
     for (const t of tools) expect(t.description.length, t.name).toBeLessThanOrEqual(2_000);
+  });
+
+  it("list the tools without the SDK's \"$schema\" and default \"execution\", each inputSchema still a JSON Schema object", async () => {
+    const tools: { name: string; inputSchema: Record<string, unknown> }[] = (await rpcResult("tools/list")).tools;
+    for (const t of tools) {
+      expect(t.inputSchema.type, t.name).toBe("object");
+      expect(t.inputSchema.properties, t.name).toBeTypeOf("object");
+      expect(t.inputSchema, t.name).not.toHaveProperty("$schema");
+      expect(t, t.name).not.toHaveProperty("execution");
+    }
+    const schema = (n: string) => tools.find((t) => t.name === n)!.inputSchema;
+    expect(schema("fiche_terrain").required).toEqual(["adresse"]);
+    expect(schema("donner_avis").required).toEqual(["type", "message"]);
+    expect(schema("prevision_meteo").properties).toMatchObject({ lieu: { type: "string" }, quand: { type: "string" } });
+    // A tool whose execution is not the default keeps it.
+    const inputSchema = { type: "object" as const, $schema: "http://json-schema.org/draft-07/schema#" };
+    expect(listeAllegee({ tools: [{ name: "x", inputSchema, execution: { taskSupport: "optional" } }] }).tools).toEqual([
+      { name: "x", inputSchema: { type: "object" }, execution: { taskSupport: "optional" } },
+    ]);
   });
 
   it("index every tool the server has", async () => {
