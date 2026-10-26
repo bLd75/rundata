@@ -29,6 +29,37 @@ async function settle<T>(source: string, p: Promise<{ value: T }>): Promise<T | 
   }
 }
 
+/**
+ * The Moon on the local day `day` at a place: its phase now (the main phase when it falls that day), how much is lit,
+ * its rising and setting that day in the order they come, and the next main phases. Computed, never read anywhere.
+ */
+export function moonOf(day: string, now: Date, lon: number, lat: number, altitude_m: number) {
+  const hm = (d: Date) => localTime(d).split(" ")[1];
+  const localDay = (d: Date) => today(d);
+  const { lever, coucher } = cal.moon(day, lon, lat, altitude_m);
+  const lit = Math.round(cal.moonLight(now).fraction * 100);
+  const next = cal.nextPhases(new Date(Date.parse(`${day}T00:00:00+04:00`)), 4);
+  const main = next.find((x) => localDay(x.at) === day);
+  const phase = main ? `${main.phase} à ${hm(main.at)}` : cal.between(cal.moonLight(now).angle);
+  const events = [
+    ...(lever ? [{ at: lever, texte: `lever à ${hm(lever)}` }] : []),
+    ...(coucher ? [{ at: coucher, texte: `coucher à ${hm(coucher)}` }] : []),
+  ].sort((a, b) => a.at.getTime() - b.at.getTime());
+  return {
+    phrase: `Lune : ${phase}, éclairée à ${lit} %${events.length ? `, ${events.map((e) => e.texte).join(", ")}` : ""} (calcul astronomique).`,
+    champs: {
+      phase,
+      eclairee_pct: lit,
+      lever: lever ? hm(lever) : "pas de lever de Lune ce jour",
+      coucher: coucher ? hm(coucher) : "pas de coucher de Lune ce jour",
+      prochaines_phases: next.filter((x) => x !== main && x.at > now).slice(0, 3).map((x) => ({ phase: x.phase, date: longDate(localDay(x.at)), heure: hm(x.at) })),
+      note:
+        "Calculé, pas mesuré : position de la Lune par les formules astronomiques usuelles, à quelques minutes près, pour " +
+        "l'horizon dégagé. Dans les cirques et les ravines, le relief la cache plus longtemps : elle s'y lève plus tard et s'y couche plus tôt.",
+    },
+  };
+}
+
 export async function calendrier(cache: Cache, lieu: string | undefined, now = new Date()) {
   const res = lieu?.trim() ? resolvePlace(lieu) : resolvePlace("Saint-Denis");
   if (!res) return notFound(lieu!);
@@ -73,6 +104,8 @@ export async function calendrier(cache: Cache, lieu: string | undefined, now = n
   const hm = (d: Date) => localTime(d).split(" ")[1];
   const length = Math.round((s.coucher.getTime() - s.lever.getTime()) / 60_000);
   parts.push(`À ${p.nom}, lever du soleil à ${hm(s.lever)}, coucher à ${hm(s.coucher)}.`);
+  const lune = moonOf(day, now, p.lon, p.lat, p.altitude_m ?? 0);
+  parts.push(lune.phrase);
 
   return text({
     resume: parts.join(" "),
@@ -85,6 +118,7 @@ export async function calendrier(cache: Cache, lieu: string | undefined, now = n
       duree_du_jour: `${Math.floor(length / 60)} h ${String(length % 60).padStart(2, "0")}`,
       note: "Calculé pour l'horizon dégagé\u00a0; dans les cirques et les ravines, le relief cache le soleil plus tôt.",
     },
+    lune: { lieu: p.nom, ...lune.champs },
     sources: credits([...(feries ? [cal.HOLIDAYS] : []), ...(schools ? [cal.SCHOOL] : [])]),
   });
 }

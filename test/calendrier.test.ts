@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { breaks, parisDate, schoolBreaks, sun } from "../src/providers/calendrier.js";
+import { breaks, moon, moonLight, nextPhases, parisDate, schoolBreaks, sun } from "../src/providers/calendrier.js";
 import { calendrier, longDate } from "../src/tools/calendrier.js";
 import { buildCalendrier } from "../src/web/data.js";
 import { calendrierPage } from "../src/web/domains.js";
@@ -57,6 +57,66 @@ describe("calendar", () => {
     const s = sun("2026-10-23", 55.45, -20.88);
     expect(s.lever.toISOString().slice(11, 16)).toBe("01:41");
     expect(s.coucher.toISOString().slice(11, 16)).toBe("14:23");
+  });
+
+  // The Moon by PyEphem 4.2 (full theory, 1010 hPa, 25 °C), local times: rising, setting, % lit at local noon.
+  const EPHEM: [string, number, number, string, string, number][] = [
+    ["2026-10-26", 55.4481, -20.8789, "18:49", "05:23", 99.81],
+    ["2026-10-30", 55.4481, -20.8789, "23:12", "09:05", 77.6],
+    ["2026-11-03", 55.4481, -20.8789, "01:36", "13:19", 33.91],
+    ["2026-11-09", 55.4481, -20.8789, "05:11", "18:47", 0.19],
+    ["2026-11-15", 55.4481, -20.8789, "10:08", "23:42", 30.18],
+    ["2026-11-20", 55.4481, -20.8789, "14:31", "02:01", 77.42],
+    ["2027-01-14", 55.4481, -20.8789, "11:06", "23:05", 34.55],
+    ["2027-06-21", 55.4481, -20.8789, "19:50", "08:40", 95.21],
+    ["2026-10-30", 55.4781, -21.3393, "23:13", "09:04", 77.6],
+    ["2026-11-15", 55.4781, -21.3393, "10:07", "23:43", 30.18],
+    ["2027-06-21", 55.4781, -21.3393, "19:49", "08:41", 95.21],
+  ];
+  const minutes = (d: Date) => (d.getTime() + 4 * 3600_000) / 60_000 % 1440;
+  const hhmm = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3));
+
+  it("computes moonrise, moonset and how much is lit within two minutes and a point of an ephemeris", () => {
+    for (const [day, lon, lat, lever, coucher, lit] of EPHEM) {
+      const m = moon(day, lon, lat);
+      expect(Math.abs(minutes(m.lever!) - hhmm(lever)), `${day} lever`).toBeLessThanOrEqual(2);
+      expect(Math.abs(minutes(m.coucher!) - hhmm(coucher)), `${day} coucher`).toBeLessThanOrEqual(2);
+      expect(Math.abs(moonLight(new Date(`${day}T12:00:00+04:00`)).fraction * 100 - lit)).toBeLessThan(1);
+    }
+  });
+
+  it("says when the Moon does not rise or set that day", () => {
+    expect(moon("2026-10-31", 55.4481, -20.8789).lever).toBeNull();
+    expect(moon("2026-11-16", 55.4481, -20.8789).coucher).toBeNull();
+  });
+
+  it("finds the main phases of the Moon within five minutes of an ephemeris", () => {
+    const ephem = [
+      ["dernier quartier", "2026-10-03T13:24Z"], ["nouvelle lune", "2026-10-10T15:50Z"], ["premier quartier", "2026-10-18T16:12Z"],
+      ["pleine lune", "2026-10-26T04:11Z"], ["dernier quartier", "2026-11-01T20:28Z"], ["nouvelle lune", "2026-11-09T07:02Z"],
+      ["premier quartier", "2026-11-17T11:47Z"], ["pleine lune", "2026-11-24T14:53Z"], ["dernier quartier", "2026-12-01T06:08Z"],
+      ["nouvelle lune", "2026-12-09T00:51Z"], ["premier quartier", "2026-12-17T05:42Z"], ["pleine lune", "2026-12-24T01:28Z"],
+    ];
+    const got = nextPhases(new Date("2026-10-01T00:00:00Z"), 12);
+    got.forEach((p, i) => {
+      expect(p.phase).toBe(ephem[i][0]);
+      expect(Math.abs(p.at.getTime() - Date.parse(ephem[i][1])) / 60_000).toBeLessThanOrEqual(5);
+    });
+  });
+
+  it("tells the Moon of the day, computed, with the next phases", async () => {
+    const now = new Date("2026-10-26T14:10:00Z");
+    const r = body(await calendrier(cacheAt(now), "Saint-Denis", now));
+    // Saint-Denis at 34 m: its horizon a little lower than the sea level of the ephemeris above.
+    expect(r.resume).toContain("Lune : pleine lune à 08:13, éclairée à 100 %, coucher à 05:24, lever à 18:48 (calcul astronomique).");
+    expect(r.lune).toMatchObject({ lieu: "Saint-Denis", phase: "pleine lune à 08:13", eclairee_pct: 100, lever: "18:48", coucher: "05:24" });
+    expect(r.lune.prochaines_phases[0]).toEqual({ phase: "dernier quartier", date: "lundi 2 novembre 2026", heure: "00:30" });
+    expect(r.lune.note).toMatch(/^Calculé, pas mesuré : .* elle s'y lève plus tard et s'y couche plus tôt\.$/);
+    // No rising that day: said, and left out of the summary.
+    const later = new Date("2026-10-31T08:00:00Z");
+    const l = body(await calendrier(cacheAt(later), "Saint-Denis", later));
+    expect(l.lune.lever).toBe("pas de lever de Lune ce jour");
+    expect(l.resume).toMatch(/Lune : Lune décroissante, éclairée à \d+ %, coucher à 10:1\d \(calcul astronomique\)\./);
   });
 
   it("says holidays under way, the next public holiday and the sun", async () => {

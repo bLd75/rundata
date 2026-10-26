@@ -85,7 +85,7 @@ import { actualites } from "./tools/actualites.js";
 import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.197.0";
+export const VERSION = "0.198.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -322,13 +322,15 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
   server.registerTool(
     "calendrier",
     {
-      title: "Vacances, jours fériés et soleil à La Réunion",
+      title: "Vacances, jours fériés, soleil et Lune à La Réunion",
       description:
         "Calendrier de La Réunion (974) : vacances scolaires de l'académie de La Réunion (calendrier austral, différent de la " +
-        "métropole), jours fériés (dont le 20 décembre, Fèt Kaf), date du jour, et heures de lever et de coucher du soleil " +
-        "au lieu demandé. Pour : « c'est quand les vacances ? », « la rentrée c'est quand ? », « le 20 décembre est férié ? », " +
-        "« prochain jour férié ? », « à quelle heure se lève le soleil au Maïdo ? ». " +
-        "/ Réunion Island school holidays (austral calendar), public holidays (incl. 20 December) and sunrise/sunset times.",
+        "métropole), jours fériés (dont le 20 décembre, Fèt Kaf), date du jour, heures de lever et de coucher du soleil " +
+        "au lieu demandé, et la Lune : phase, part éclairée, lever et coucher, prochaines phases (calculés). Pour : « c'est quand " +
+        "les vacances ? », « la rentrée c'est quand ? », « le 20 décembre est férié ? », « prochain jour férié ? », « à quelle " +
+        "heure se lève le soleil au Maïdo ? », « c'est quand la pleine lune ? », « la Lune se lève à quelle heure ce soir ? ». " +
+        "/ Réunion Island school holidays (austral calendar), public holidays (incl. 20 December), sunrise/sunset, and the " +
+        "Moon (phase, rise, set), computed.",
       inputSchema: { lieu },
       annotations: { title: "Calendrier de La Réunion", ...READ_ONLY },
     },
