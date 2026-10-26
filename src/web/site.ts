@@ -96,7 +96,7 @@ import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
 import { scheduledEvery } from "./partagees.js";
 import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
 import { readCopies, refresh, resume } from "../tools/resume.js";
-import { FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, vigilancePage } from "./pages.js";
+import { CSS, FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, STYLE_PATH, vigilancePage } from "./pages.js";
 import { OFFLINE_PATH, serviceWorker, SW_PATH } from "./pwa.js";
 import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures, toolCount } from "./presse.js";
@@ -315,8 +315,24 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
 
 /** The site's pages, each with the volcano's banner while the volcano is in alert (web/volcan-alerte.ts), in French typography (web/typo.ts). */
 export async function site(request: Request, cache: Cache, background: Background, now = new Date()): Promise<Response | null> {
+  // Nothing of the moment in it: answered before the volcano's state is read.
+  const style = stylesheet(new URL(request.url).pathname);
+  if (style) return style;
   const volcan = await volcanNow(cache, now);
   return typoPage(await withVolcan(volcan, () => pages(request, cache, background, now)));
+}
+
+const STYLE_FILE = /^\/style-\w+\.css$/;
+
+/**
+ * The pages' stylesheet (web/pages.ts), kept a year at its address. Another address, asked by a page of an earlier
+ * version (a copy kept offline, a version still rolling out), gets today's for a few minutes only.
+ */
+function stylesheet(path: string): Response | null {
+  if (!STYLE_FILE.test(path)) return null;
+  return new Response(CSS, {
+    headers: { "content-type": "text/css; charset=utf-8", "cache-control": path === STYLE_PATH ? "public, max-age=31536000, immutable" : "public, max-age=300", "x-content-type-options": "nosniff" },
+  });
 }
 
 async function pages(request: Request, cache: Cache, background: Background, now: Date): Promise<Response | null> {
@@ -708,7 +724,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === SW_PATH) {
     // Checked again at each visit: a new version reaches the phones at once (web/pwa.ts).
-    return new Response((swText ??= serviceWorker([FONT_PATH, RELIEF_PATH, "/favicon.svg", icons["192"]])), {
+    return new Response((swText ??= serviceWorker([STYLE_PATH, FONT_PATH, RELIEF_PATH, "/favicon.svg", icons["192"]])), {
       headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache", "x-content-type-options": "nosniff" },
     });
   }

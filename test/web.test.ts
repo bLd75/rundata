@@ -13,7 +13,7 @@ import { homePage } from "../src/web/home.js";
 import { communesPage } from "../src/web/commune.js";
 import { VERSION } from "../src/server.js";
 import { COVERAGE as SEA_COVERAGE } from "../src/tools/mer.js";
-import { DESCRIPTION_MAX, FONT_PATH, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
+import { CSS, DESCRIPTION_MAX, FONT_PATH, meteoPage, placePage, seaPage, STYLE_PATH, vigilancePage } from "../src/web/pages.js";
 import { PAGES, pageOf } from "../src/web/places.js";
 import { isReader, site } from "../src/web/site.js";
 import { unzip } from "../src/zip.js";
@@ -511,6 +511,25 @@ describe("what crawlers and previews fetch", () => {
     expect(woff2.length).toBeLessThan(80_000);
     expect(headers).toContain("/font/*\n  Cache-Control: public, max-age=31536000, immutable\n");
     expect(await site(new Request(`https://rundata.re${FONT_PATH}`), new Cache(), () => {})).toBeNull();
+  });
+
+  it("serves the stylesheet apart, kept a year at its address, and no page copies it any more", async () => {
+    const page = homePage("https://rundata.re", null);
+    expect(page).toContain(`<link rel="stylesheet" href="${STYLE_PATH}">`);
+    expect(page).not.toContain("<style");
+    expect(STYLE_PATH).toMatch(/^\/style-[0-9a-z]+\.css$/);
+    const res = await handle(new Request(`https://rundata.re${STYLE_PATH}`), isolate());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/css; charset=utf-8");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(await res.text()).toBe(CSS);
+    // A page of an earlier version (a copy kept offline, a version still rolling out) gets today's, a few minutes only.
+    const old = await site(new Request("https://rundata.re/style-0.css"), new Cache(), () => {});
+    expect(old!.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(await old!.text()).toBe(CSS);
+    // Its only address, the font's, is absolute: read the same from the file as from the page.
+    expect([...CSS.matchAll(/url\(([^)]*)\)/g)].map((m) => m[1])).toEqual([FONT_PATH]);
   });
 
   it("gives command-line clients one line and crawlers the page", async () => {

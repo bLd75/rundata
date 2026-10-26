@@ -39,7 +39,7 @@ import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
 import { aide, AIDE_CSS, SIGNAL_SCRIPT } from "./signaux.js";
 import { FORMS_CSS } from "./formulaires-style.js";
-import { INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
+import { hash, INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 import { bathingBlock } from "./baignade.js";
 import { PASSES } from "../historique/cyclones-passes.js";
@@ -187,7 +187,7 @@ const ICON: Record<string, string> = {
 export const icon = (name: string) =>
   `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[name]}</svg>`;
 
-const CSS = `
+export const CSS = `
 @font-face{font-family:"Bricolage";src:url(${FONT_PATH}) format("woff2");font-weight:600 800;font-display:swap}
 :root{--bg:#f6f2ea;--surface:#fff;--surface-2:#fbf8f2;--ink:#14202b;--muted:#5a6672;--line:#e6dece;--link:#1d4ea6;
 --accent:#1d4ea6;--accent-ink:#fff;--sun:#ffcf1f;--sun-ink:#1a1500;--lave:#c0321f;--night:#0b1f36;--night-2:#15406b;
@@ -716,6 +716,11 @@ footer.foot p+p{margin-top:.6rem}
 footer.foot h3{color:var(--on-night);font-size:1rem;margin-bottom:.4rem}
 footer.foot .slogan{font-size:1rem;padding-left:calc(1.55rem + .6rem)}
 `.replace(/\n/g, "") + AVIS_CSS + AIDE_CSS + FORMS_CSS + PWA_CSS;
+/**
+ * The stylesheet, a file of its own (web/site.ts) rather than copied into every page: its address changes with its
+ * content, so that browsers keep it a year and fetch it again only once it changes.
+ */
+export const STYLE_PATH = `/style-${hash(CSS)}.css`;
 
 interface Head {
   title: string;
@@ -975,7 +980,7 @@ ${head.rss ? `<link rel="alternate" type="application/rss+xml" title="${esc(head
 <meta name="twitter:description" content="${d}">
 <meta name="twitter:image" content="${esc(image.src)}">
 <meta name="twitter:image:alt" content="${esc(image.alt)}">
-${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head.jsonld.length === 1 ? head.jsonld[0] : head.jsonld, frenchDescriptions).replace(/</g, "\\u003c")}</script>\n` : ""}<style>${CSS}</style>
+${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head.jsonld.length === 1 ? head.jsonld[0] : head.jsonld, frenchDescriptions).replace(/</g, "\\u003c")}</script>\n` : ""}<link rel="stylesheet" href="${STYLE_PATH}">
 </head>
 <body>
 ${header(head.path, origin, urgent(head))}
