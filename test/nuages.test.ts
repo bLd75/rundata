@@ -46,6 +46,13 @@ describe("where a place stands against the cloud sea", () => {
     expect(etat(hour(SIX, 80, 2400, 2900), 2190)).toEqual({ etat: "sous", texte: "sous les nuages (à partir de 2 400 m)" });
   });
 
+  it("says a layer thinner than the rounding at one height, never « entre 1 900 et 1 900 m »", () => {
+    expect(etat(hour(SIX, 80, 1860, 1940), 2190)).toEqual({ etat: "dessus", texte: "au-dessus de la mer de nuages (nuages vers 1 900 m)" });
+    expect(etat(hour(SIX, 80, 1860, 1940), 1900)).toEqual({ etat: "dans", texte: "dans les nuages (vers 1 900 m)" });
+    // A hundred apart once rounded: still from one to the other.
+    expect(etat(hour(SIX, 80, 1840, 1960), 2190)?.texte).toBe("au-dessus de la mer de nuages (nuages entre 1 800 et 2 000 m)");
+  });
+
   it("says nothing of a step without AROME's layer, and keeps high clouds out of the cloud sea", () => {
     const ifs = { ...hour(SIX, 80, null, null) };
     delete ifs.nuages_base_m;
