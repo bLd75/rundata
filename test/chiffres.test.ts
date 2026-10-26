@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { buildChiffres, buildEvenements, cadenceEnMots, chiffres, cle, clubs, type Copie, DOMAINES, EVENEMENTS_KEY, evenementsEvery, KEY, resume } from "../src/chiffres.js";
+import { buildChiffres, buildEvenements, cadenceEnMots, chiffres, cle, clubs, type Copie, DOMAINES, EVENEMENTS_KEY, evenementsEvery, KEY, resume, SANS_MAX, sansAgendas } from "../src/chiffres.js";
 import { compte, FICHES, producteursDe } from "../src/producteurs.js";
+import { AGENDAS } from "../src/providers/agenda.js";
+import { PROPOSITIONS } from "../src/providers/agenda-propositions.js";
 import { STATIONS as BORNES } from "../src/providers/irve.js";
 import { createServer, toutesLesSources } from "../src/server.js";
 import { CATEGORIES } from "../src/web/categories.js";
@@ -132,7 +134,7 @@ describe("the counts (chiffres.ts)", () => {
     expect(got.construite_le).toBe(NOW.toISOString());
   });
 
-  it("count the events only from a whole list: one in part keeps the count before, and is read again an hour later, not at every event", async () => {
+  it("count the events without one or two agendas, else keep the last whole count, and read the list again an hour later, not at every event", async () => {
     // No network in the tests: the agendas do not answer, the list is in part.
     const partial = await buildEvenements(new Cache(new MemoryStore(), () => NOW.getTime()), NOW);
     expect(partial.sans?.length).toBeGreaterThan(0);
@@ -143,10 +145,20 @@ describe("the counts (chiffres.ts)", () => {
       const store = new MemoryStore();
       await store.put(KEY, { value: COPIE, fetchedAt: NOW.getTime() - 3600_000 });
       await store.put(EVENEMENTS_KEY, { value, fetchedAt: NOW.getTime() - 60_000 });
-      return (await buildChiffres(new Cache(store, () => NOW.getTime()), NOW)).evenements;
+      const got = await buildChiffres(new Cache(store, () => NOW.getTime()), NOW);
+      return [got.evenements, got.evenements_complet];
     };
-    expect(await withEvents({ nombre: 99, sans: ["Le Séchoir"] })).toEqual(COPIE.evenements);
-    expect(await withEvents({ nombre: 120 })).toEqual({ nombre: 120, le: new Date(NOW.getTime() - 60_000).toISOString() });
+    const le = new Date(NOW.getTime() - 60_000).toISOString();
+    expect(await withEvents({ nombre: 120 })).toEqual([{ nombre: 120, le }, { nombre: 120, le }]);
+    // The copy before's count was whole: the last whole count, until a list is whole again.
+    expect(await withEvents({ nombre: 99, sans: ["Le Séchoir"] })).toEqual([{ nombre: 99, le, sans: ["Le Séchoir"] }, COPIE.evenements]);
+    // An agenda read twice (its agenda and its news) is one agenda missing.
+    expect(await withEvents({ nombre: 98, sans: ["Ville de Saint-Louis", "Ville de Saint-Louis", "Léspas"] })).toEqual([{ nombre: 98, le, sans: ["Ville de Saint-Louis", "Léspas"] }, COPIE.evenements]);
+    expect(SANS_MAX).toBe(2);
+    expect(await withEvents({ nombre: 90, sans: ["Le Séchoir", "Léspas", "Kabardock"] })).toEqual([undefined, COPIE.evenements]);
+    expect(await withEvents({ nombre: 90, sans: ["Le Séchoir", "Léspas", PROPOSITIONS.nom] })).toEqual([undefined, COPIE.evenements]);
+    // No agenda answered: no list, no count of it.
+    expect(await withEvents({ sans: ["agenda"] })).toEqual([undefined, COPIE.evenements]);
   });
 
   it("date the copy by its build, not its write: a build that ends the minute after marks only the counts kept", () => {
@@ -173,6 +185,36 @@ describe("the page /chiffres", () => {
     expect(html).toMatch(/sources sont publiées sous une licence ouverte \(Licence Ouverte, ODbL, CC BY, domaine public\)\. Pour les autres, des informations publiques, rundata\.re ne reprend que les faits, avec le lien de la source\./);
     expect(html).toContain('3 sites publics ne répondent pas en ce moment\u00a0: <a href="/sites-sans-reponse">voir les sites sans réponse</a>.');
     expect(html).toContain("Compté le 26/10 à\u00a008:00, à partir des sources que lit rundata.re. Une source manque\u00a0? Dites-le avec le formulaire en bas de page.");
+  });
+
+  it("names the one or two agendas the events were counted without, or says the last whole count, in marketing's words", () => {
+    const page = (value: Copie) => typo(chiffresPage("https://rundata.re", chiffres(sources, { ...copie, value }, NOW, OUTILS_ICI)));
+    const sans = (noms: string[]) => page({ ...COPIE, evenements: { ...COPIE.evenements!, sans: noms } });
+    const fig = 'href="/evenements">214</a><span>événements dans les deux semaines qui viennent, ';
+    expect(sans(["Mairie de Saint-Paul"])).toContain(`${fig}sans l&#39;agenda de la mairie de Saint-Paul, dont le site n&#39;a pas répondu à notre dernière lecture. <small>(compté le 26/10 à`);
+    expect(sans(["Mairie de Saint-Paul", "Le Séchoir"])).toContain(`${fig}sans les agendas de la mairie de Saint-Paul et du Séchoir, dont les sites n&#39;ont pas répondu à notre dernière lecture. <small>`);
+    // rundata.re's own base: « dont le site n'a pas répondu » would be false for it.
+    expect(sans([PROPOSITIONS.nom])).toContain(`${fig}sans les événements proposés sur rundata.re pour le moment. <small>`);
+    expect(sans(["Mairie de Saint-Paul", PROPOSITIONS.nom])).toContain(`${fig}sans l&#39;agenda de la mairie de Saint-Paul, dont le site n&#39;a pas répondu à notre dernière lecture, ni les événements proposés sur rundata.re pour le moment. <small>`);
+    expect(html).toContain("événements dans les deux semaines qui viennent <small>");
+    // Past two missing: the last whole count, its hour said once.
+    const complet = page({ ...COPIE, evenements: undefined, evenements_complet: COPIE.evenements });
+    expect(complet).toMatch(/href="\/evenements">214<\/a><span>événements dans les deux semaines qui viennent, d&#39;après notre dernier compte complet, le 26\/10 à\s04:50\.<\/span>/);
+    const c = (value: Copie) => chiffres(sources, { ...copie, value }, NOW, OUTILS_ICI).en_ce_moment.evenements_deux_semaines;
+    expect(c({ ...COPIE, evenements: { ...COPIE.evenements!, sans: ["CINOR"] } })).toEqual({ nombre: 214, compte_le: "26/10 à 04:50", incomplet: "sans l'agenda de la CINOR, dont le site n'a pas répondu à notre dernière lecture" });
+    expect(c({ ...COPIE, evenements: undefined, evenements_complet: COPIE.evenements })).toEqual({ nombre: 214, compte_le: "26/10 à 04:50", incomplet: "d'après notre dernier compte complet, le 26/10 à 04:50" });
+    expect(c(COPIE)).not.toHaveProperty("incomplet");
+  });
+
+  it("gives every agenda read its article after « l'agenda », never « de Le » nor « de Les »", () => {
+    for (const a of AGENDAS.filter((x) => x !== PROPOSITIONS)) expect(sansAgendas([a.nom]), a.id).toMatch(/^sans l'agenda (de la (?!Mairie )|de l'|du |des |de (?!Le |La |Les |Clubs |Ville |Mairie ))\S/);
+    const de = (nom: string) => sansAgendas([nom]).replace(/^sans l'agenda /, "").replace(/, dont .*$/, "");
+    expect(de("Le Port")).toBe("du Port");
+    expect(de("Les Avirons")).toBe("des Avirons");
+    expect(de("Mairie des Trois-Bassins")).toBe("de la mairie des Trois-Bassins");
+    expect(de("Ville du Port")).toBe("de la Ville du Port");
+    expect(de("Office de tourisme de l'Est")).toBe("de l'Office de tourisme de l'Est");
+    expect(sansAgendas(["Clubs sportifs (Sportsregions)", "Ville du Port"])).toBe("sans les agendas des clubs sportifs (Sportsregions) et de la Ville du Port, dont les sites n'ont pas répondu à notre dernière lecture");
   });
 
   it("says the hour of a count kept from an earlier copy, and never shows a count not made", () => {

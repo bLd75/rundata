@@ -20,7 +20,7 @@ const n = (x: number) => x.toLocaleString("fr-FR").replace(/\s/g, "\u00a0");
 
 /** A count made from the copy, with its hour when it is older than the copy's own (kept when its source did not answer). */
 type Dated = { nombre: number; compte_le: string } | undefined;
-const kept = (c: Chiffres, d: Dated) => (d && d.compte_le !== c.compte_le ? ` <small>(compté le ${esc(d.compte_le)})</small>` : "");
+const kept = (c: Chiffres, d: Dated, mots = "") => (d && d.compte_le !== c.compte_le && !mots.includes(d.compte_le) ? ` <small>(compté le ${esc(d.compte_le)})</small>` : "");
 
 /** One figure of a list: its number, its words, its page. */
 const item = (valeur: number, mots: string, page: string, after = "") =>
@@ -61,8 +61,10 @@ export function chiffresPage(origin: string, c: Chiffres, alerte?: Alerte): stri
   ].filter(Boolean);
 
   const m = c.en_ce_moment;
+  const ev: (Dated & { incomplet?: string }) | undefined = m.evenements_deux_semaines;
   const moment = [
-    m.evenements_deux_semaines && item(m.evenements_deux_semaines.nombre, "événements dans les deux semaines qui viennent", "/evenements", kept(c, m.evenements_deux_semaines)),
+    // Counted without one or two agendas that did not answer, named, or the last whole count with its hour (chiffres.ts, SANS_MAX).
+    ev && item(ev.nombre, `événements dans les deux semaines qui viennent${ev.incomplet ? `, ${esc(ev.incomplet)}.` : ""}`, "/evenements", kept(c, ev, ev.incomplet)),
     m.avis_coupure_eau && item(m.avis_coupure_eau.nombre, "avis de coupure d'eau en cours ou à venir", "/coupures-eau", kept(c, m.avis_coupure_eau)),
     m.avis_coupure_electricite && item(m.avis_coupure_electricite.nombre, "avis de coupure d'électricité en cours ou à venir", "/electricite#coupures", kept(c, m.avis_coupure_electricite)),
   ].filter(Boolean);
