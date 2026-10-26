@@ -12,7 +12,7 @@
 import { later } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { getJson, getText } from "../http.js";
-import { noteLecture } from "../lectures.js";
+import { noteLecture, noteSource } from "../lectures.js";
 import { type SourceInfo, UpstreamError } from "../types.js";
 import { decodeText, textOf } from "./avis-eau.js";
 import { type Info, SOURCES as NEWS } from "./actualites.js";
@@ -518,6 +518,8 @@ export const PHASE_KEY = "volcan:prefecture:phase";
 
 async function readPhase(cache: Cache, now: number): Promise<Cached<Phase | null>> {
   return cache.get(PHASE_KEY, 5 * 60, async () => {
+    // Read from the prefecture's releases, through their own keys: named so that its copy says whose it is.
+    noteSource(PREFECTURE.id);
     const releases = (await prefecture.releases(cache)).value;
     // A page without its list (an error page served as 200, a maintenance page) must not replace the last phase read.
     if (!releases.length) throw new UpstreamError(PREFECTURE.id, "liste des communiqués vide");

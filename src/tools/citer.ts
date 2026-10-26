@@ -142,8 +142,9 @@ export interface Around {
 }
 
 /**
- * The answer with `citer`, `lien`, `fraicheur`, `signaler` when it found nothing, and `serveur` at the end. Left as is if
- * it is not JSON.
+ * The answer with `citer`, `lien`, `fraicheur`, `signaler` when it found nothing, and `serveur` at the end; `fraicheur`
+ * first instead when part of the answer is a last copy, so that its warning is read before the data. Left as is if it is
+ * not JSON.
  */
 export function cite<R extends object>(tool: string, r: R, around: Around = {}): R {
   const content = (r as { content?: { type: string; text: string }[] }).content;
@@ -160,7 +161,13 @@ export function cite<R extends object>(tool: string, r: R, around: Around = {}):
   const extra: Payload = { citer: citation(p), lien: lien(tool, p), fraicheur: fraicheur(p, around.lectures ?? [], around.now ?? new Date(), { donnee: around.donnee, nom: around.nom }) };
   if (wanting(p, isError)) extra.signaler = AVIS_HINT;
   if (around.serveur) extra.serveur = around.serveur;
-  const fields = Object.entries(extra).map(([k, v]) => ` ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(",\n");
-  const text = /\n}$/.test(t) ? `${t.slice(0, -2)},\n${fields}\n}` : JSON.stringify({ ...p, ...extra }, null, 1);
+  // A last copy in the answer: its freshness first, the rest at the end as always.
+  const { fraicheur: f, ...after } = extra;
+  const warned = !!(f as { avertissement?: string }).avertissement;
+  const field = ([k, v]: [string, unknown]) => ` ${JSON.stringify(k)}: ${JSON.stringify(v)}`;
+  const fields = Object.entries(warned ? after : extra).map(field).join(",\n");
+  const body = /\n}$/.test(t) && (!warned || /^{\n\s*"/.test(t)) ? t.slice(0, -2) : undefined;
+  const opened = warned && body ? `{\n${field(["fraicheur", f])},\n${body.slice(2)}` : body;
+  const text = opened != null ? `${opened},\n${fields}\n}` : JSON.stringify(warned ? { fraicheur: f, ...p, ...after } : { ...p, ...extra }, null, 1);
   return { ...r, content: [{ ...content![0], text }, ...content!.slice(1)] };
 }

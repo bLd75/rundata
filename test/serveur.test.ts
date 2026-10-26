@@ -164,7 +164,11 @@ describe("fraicheur", () => {
     const at = FIX.getTime() - 3 * 3600_000;
     const cache = await weatherCache(at, FIX.getTime());
     const { value, lectures } = await withLectures(() => meteoActuelle(cache, "Saint-Pierre", FIX));
-    const f = body(cite("meteo_actuelle", value, { lectures, now: FIX, nom: nomDeSource })).fraicheur;
+    const answer = body(cite("meteo_actuelle", value, { lectures, now: FIX, nom: nomDeSource }));
+    const f = answer.fraicheur;
+    // A last copy in the answer: its freshness comes first, before the data, the citation still at the end.
+    expect(Object.keys(answer)[0]).toBe("fraicheur");
+    expect(Object.keys(answer).slice(-2)).toEqual(["citer", "lien"]);
     // Each source named from its error (cache.ts) and its card (sources_donnees); every part a copy: no « reste ».
     expect(f.copies_de_secours).toEqual([
       { source: "Observations aéroport (METAR)", lue_le: "18/10 20:20" },

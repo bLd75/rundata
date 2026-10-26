@@ -140,6 +140,9 @@ const BREAKER_MAX_SECONDS = 15 * 60;
 /** How long a failed refresh is left alone: as long as the entry is fresh, within the back-off and the longest above. */
 export const breakerMs = (freshSeconds: number, backoffSeconds = FAILURE_BACKOFF_SECONDS) =>
   Math.max(backoffSeconds, Math.min(BREAKER_MAX_SECONDS, freshSeconds)) * 1000;
+// The warnings (Météo-France's vigilance, the cyclones): never served from a copy only because their source was slow for
+// a tool call's time (lectures.ts); the answer waits for them, so that a copy is only ever one of a source that failed.
+const ALWAYS_WAITED = (key: string) => key === "vigilance" || key.startsWith("cyclones:");
 // The invocation ran out of subrequests: not the source's fault, so not remembered against it.
 const OUT_OF_BUDGET = /Too many subrequests/;
 // Bundles kept in memory per process; older ones (an AROME run replaced by the next) are dropped.
@@ -309,7 +312,7 @@ export class Cache {
     }
     // A tool call past its time (lectures.ts) does not wait for a source it has a copy of: the copy is its answer, said
     // as such, and the read ends after it, its result stored for the next question.
-    const until = hit && callDeadline();
+    const until = hit && !ALWAYS_WAITED(key) ? callDeadline() : undefined;
     if (until == null) return pending as Promise<Cached<T>>;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const late = new Promise<undefined>((resolve) => (timer = setTimeout(() => resolve(undefined), Math.max(0, until - Date.now()))));
