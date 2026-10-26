@@ -24,11 +24,11 @@ export const RETRY_AFTER_S = 60;
 
 const FORMULAIRES = /^\/(?:avis|associations\/.+)$/;
 
-/** What a request counts against, if anything: a POST to /mcp, or a form sent. */
+/** What a request counts against, if anything: a POST to /mcp (or /mcp/), or a form sent. */
 export function sorteDe(request: Request): Sorte | undefined {
   if (request.method !== "POST") return undefined;
   const path = new URL(request.url).pathname;
-  if (path === "/mcp") return "mcp";
+  if (path === "/mcp" || path === "/mcp/") return "mcp";
   return FORMULAIRES.test(path) ? "formulaire" : undefined;
 }
 

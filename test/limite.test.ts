@@ -22,9 +22,9 @@ describe("the rate limit, per address", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("counts the calls to /mcp and the forms' sends, nothing else", () => {
-    expect(sorteDe(req("/mcp"))).toBe("mcp");
+    for (const p of ["/mcp", "/mcp/"]) expect(sorteDe(req(p))).toBe("mcp");
     for (const p of ["/avis", "/associations/lien", "/associations/proposer", "/associations/relier/confirmer", "/associations/proposition/AbC"]) expect(sorteDe(req(p))).toBe("formulaire");
-    for (const r of [req("/mcp", "GET"), req("/avis", "GET"), req("/associations"), req("/csp-rapport"), req("/volcan", "GET")]) expect(sorteDe(r)).toBeUndefined();
+    for (const r of [req("/mcp", "GET"), req("/mcp/", "GET"), req("/avis", "GET"), req("/associations"), req("/csp-rapport"), req("/volcan", "GET")]) expect(sorteDe(r)).toBeUndefined();
   });
 
   it("answers 429 with Retry-After past the threshold: JSON-RPC with CORS on /mcp, a sentence on a form", async () => {

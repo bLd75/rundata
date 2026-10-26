@@ -566,7 +566,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const [e, a] = await Promise.all([sansReponse(cache).catch(() => undefined), alerte(cache, background, now)]);
     return new Response(sansReponsePage(origin, e?.lignes ?? [], e?.passage, a), { headers: { ...HTML, "cache-control": "public, max-age=900" } });
   }
-  if (path === "/mcp") {
+  if (path === "/mcp" || path === "/mcp/") {
     return new Response(connecteurPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600", vary: "accept" } });
   }
   if (path === "/llms.txt") {

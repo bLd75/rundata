@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { batchRefused, handle, MAX_BATCH } from "../src/app.js";
 import { bodyText } from "../src/http.js";
 import { Cache } from "../src/cache.js";
-import { visitor, type Hit } from "../src/metrics.js";
+import { teamVisit, visitor, type Hit } from "../src/metrics.js";
 
 const mcp = (body: unknown) =>
   new Request("http://x/mcp", {
@@ -24,6 +24,32 @@ describe("HTTP endpoint", () => {
       "qualite_air",
       "annuaire_services_publics",
       "fiche_terrain", "velos_libre_service", "maree", "crues_rivieres", "bornes_recharge", "qualite_eau", "sentiers_randonnee", "restrictions_eau", "coupures_eau", "resume_du_jour", "defibrillateurs", "sport", "cyclones", "historique_meteo", "evenements", "actualites", "donner_avis", "sites_sans_reponse", "sources_donnees"]);
+  });
+
+  it("answers on /mcp/ as on /mcp, in place and counted the same, and shows browsers the same page", async () => {
+    const hits: Hit[] = [];
+    const call = (path: string) => new Request(`https://rundata.re${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "sources_donnees", arguments: {} } }),
+    });
+    for (const path of ["/mcp", "/mcp/", "/mcp/?interne=1"]) {
+      const r = await handle(call(path), new Cache(), () => {}, (h) => hits.push(h));
+      expect(r.status, path).toBe(200);
+      expect(r.headers.get("access-control-allow-origin"), path).toBe("*");
+      expect((await r.json()).result.isError, path).toBeFalsy();
+    }
+    expect(hits).toMatchObject([1, 2, 3].map(() => ({ kind: "mcp", name: "sources_donnees", ok: true, method: "tools/call" })));
+    expect(teamVisit(new Headers(), new URL("https://rundata.re/mcp/?interne=1"))).toBe(true);
+    for (const [method, status] of [["OPTIONS", 204], ["GET", 405], ["DELETE", 405]] as const) {
+      expect((await handle(new Request("https://rundata.re/mcp/", { method }), new Cache())).status, method).toBe(status);
+    }
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("offline");
+    });
+    const page = await handle(new Request("https://rundata.re/mcp/", { headers: { accept: "text/html" } }), new Cache());
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain("https://rundata.re/mcp");
   });
 
   it("answers CORS preflight and unknown paths", async () => {
