@@ -5,7 +5,7 @@ import { resolvePlace } from "../src/places/resolve.js";
 import * as arome from "../src/providers/arome.js";
 import { configure } from "../src/providers/mf-auth.js";
 import * as openmeteo from "../src/providers/openmeteo.js";
-import { BEYOND, CAVEAT, LABEL, etat, merDeNuages, morning, morningStarts, softened } from "../src/tools/nuages.js";
+import { BEYOND, CAVEAT, LABEL, cielDeNuit, etat, merDeNuages, morning, morningStarts, night, nightStarts, softened } from "../src/tools/nuages.js";
 import { previsionMeteo } from "../src/tools/prevision.js";
 import type { Forecast, ForecastHour } from "../src/types.js";
 import { randonneesPage } from "../src/web/domains.js";
@@ -114,6 +114,47 @@ describe("where a place stands against the cloud sea", () => {
   });
 });
 
+describe("the sky of the night", () => {
+  // Saturday 24/10 in La Réunion: 18 h, 18 h, 21 h, midnight, 3 h.
+  const steps = ["2026-10-24T14:00:00Z", "2026-10-24T17:00:00Z", "2026-10-24T20:00:00Z", "2026-10-24T23:00:00Z"];
+  const SAINT_PAUL = resolvePlace("Saint-Paul")!.lieu;
+
+  it("tells tonight from 18 h to 6 h, only what is left of it, the night under way before 6 h, and tomorrow's when asked", () => {
+    expect(night(EVENING)).toEqual({ libelle: "ce soir et cette nuit", starts: steps.map((s) => new Date(s)) });
+    expect(night(new Date("2026-10-24T18:30:00Z"))?.libelle).toBe("cette nuit");
+    expect(nightStarts(new Date("2026-10-24T22:10:00Z"))).toEqual([new Date(steps[2]), new Date(steps[3])]);
+    expect(night(EVENING, "2026-10-25")?.libelle).toBe("demain soir et la nuit suivante");
+    // AROME's two days: no night told further.
+    expect(night(EVENING, "2026-10-27")).toBeNull();
+  });
+
+  it("says the Hauts above, in or under the clouds, and below them the cloud cover, the same state in a row once", () => {
+    const f = forecast([hour(steps[0], 80, 1200, 1800), hour(steps[1], 10, null, null), hour(steps[2], 10, null, null), hour(steps[3], 90, 1500, 2600)]);
+    const hauts = cielDeNuit(f, MAIDO, EVENING)!;
+    expect(hauts.fenetres.map((w) => w.etat)).toEqual(["dessus", "degage", "dans"]);
+    // The words of the cloud sea, as etat() says them (thousands and unit with non-breaking spaces).
+    const over = etat(hour(steps[0], 80, 1200, 1800), 2190)!.texte;
+    const inside = etat(hour(steps[3], 90, 1500, 2600), 2190)!.texte;
+    expect(hauts.ligne).toBe(`De 18\u00a0h à 21\u00a0h, ${over}\u00a0; de 21\u00a0h à 3\u00a0h, dégagé\u00a0; de 3\u00a0h à 6\u00a0h, ${inside}.`);
+    expect(inside).toMatch(/^dans les nuages \(entre 1.500 et 2.600.m\)$/);
+    expect(hauts.titre).toBe("Ciel ce soir et cette nuit");
+    const bas = cielDeNuit(f, SAINT_PAUL, EVENING)!;
+    expect(bas.ligne).toBe("De 18\u00a0h à 21\u00a0h, couvert\u00a0; de 21\u00a0h à 3\u00a0h, dégagé\u00a0; de 3\u00a0h à 6\u00a0h, couvert.");
+    expect(bas.resume).toMatch(/^Saint-Paul \(\d+\u00a0m\), ce soir et cette nuit : de 18/);
+    expect(bas.prevision).toBe(LABEL);
+    expect(bas.mise_en_garde).toBe(CAVEAT);
+  });
+
+  it("says rain, and nothing for a night with a step out of AROME", () => {
+    const wet = { ...hour(steps[1], 100, 600, 3000), pluie_mm: 2.4 };
+    const f = forecast([hour(steps[0], 50, 900, 1500), wet, hour(steps[2], 10, null, null), hour(steps[3], 10, null, null)]);
+    expect(cielDeNuit(f, SAINT_PAUL, EVENING)!.fenetres.map((w) => w.texte)).toEqual(["partiellement nuageux", "pluie prévue", "dégagé"]);
+    const ifs = { ...hour(steps[3], 10, null, null) };
+    delete ifs.nuages_base_m;
+    expect(cielDeNuit(forecast([hour(steps[0], 10, null, null), hour(steps[1], 10, null, null), hour(steps[2], 10, null, null), ifs]), SAINT_PAUL, EVENING)).toBeNull();
+  });
+});
+
 describe("prevision_meteo in the Hauts", () => {
   // Grids recorded from the AROME run of 24/10/2026 06:00 UTC, for Sunday 25 at 7 h and 10 h in La Réunion.
   const RUN = new Date("2026-10-24T06:00:00Z");
@@ -128,7 +169,9 @@ describe("prevision_meteo in the Hauts", () => {
     await store.put("arome:calculs", { value: { liste: { value: [RUN.toISOString()], fetchedAt: at } }, fetchedAt: at });
     const relief = arome.relief(arome.parseGrid(tif("ps")), arome.parseGrid(tif("pmsl")), arome.parseGrid(tif("t2m0")));
     const bundle: Record<string, { value: unknown; fetchedAt: number }> = { relief: { value: arome.pack(relief), fetchedAt: at } };
-    for (const [start, hh] of [[SIX, "03"], [NINE, "06"]] as const) {
+    // Tonight's steps, 18 h to 6 h, with the same recorded fields (what matters here is that the answer reads them).
+    const nights = [["2026-10-24T14:00:00Z", "03"], ["2026-10-24T17:00:00Z", "03"], ["2026-10-24T20:00:00Z", "06"], ["2026-10-24T23:00:00Z", "06"]] as const;
+    for (const [start, hh] of [[SIX, "03"], [NINE, "06"], ...nights] as const) {
       const t = new Date(start).getTime();
       const put = (field: string, file: string, h: number) =>
         (bundle[arome.gridKey(field, new Date(t + h * H))] = { value: arome.pack(arome.parseGrid(tif(file))), fetchedAt: at });
@@ -156,6 +199,20 @@ describe("prevision_meteo in the Hauts", () => {
     expect(r.mer_de_nuages.ligne).toMatch(/^De 6 h à 9 h, dégagé\u00a0; de 9 h à 12 h, dans les nuages \(à partir de 2 \d00 m\)\. La vue se ferme/);
     expect(r.resume).toContain(`Mer de nuages, ${LABEL} : Maïdo (2\u202f197\u00a0m), demain matin : de 6\u00a0h à 9\u00a0h, dégagé`);
     expect(r.mer_de_nuages.mise_en_garde).toBe(CAVEAT);
+  });
+
+  it("answers « dégagé ce soir au Maïdo ? » with the sky of the night, labelled, without asking for anything", async () => {
+    configure({ token: "test" });
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("no network in tests");
+    });
+    const r = body(await previsionMeteo(await offline(), "Maïdo", "ce soir", EVENING));
+    expect(r.ciel_de_nuit.titre).toBe("Ciel ce soir et cette nuit");
+    expect(r.ciel_de_nuit.fenetres.length).toBeGreaterThan(0);
+    expect(r.ciel_de_nuit.fenetres.at(-1).a).toBe(6);
+    expect(r.resume).toContain(`Ciel de nuit, ${LABEL} : Maïdo (2\u202f197\u00a0m), ce soir et cette nuit : de 18\u00a0h à `);
+    // Not for a morning.
+    expect(body(await previsionMeteo(await offline(), "Maïdo", "demain matin", EVENING)).ciel_de_nuit).toBeUndefined();
   });
 
   it("says the cloud sea is not forecast beyond AROME's two days", async () => {

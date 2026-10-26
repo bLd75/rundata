@@ -85,7 +85,7 @@ import { actualites } from "./tools/actualites.js";
 import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.198.0";
+export const VERSION = "0.199.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -225,6 +225,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "« il fera beau cet après-midi à l'Hermitage ? », « prévisions pour la Plaine des Cafres samedi ». " +
         "Dans les Hauts (au-dessus de 800 m) : la mer de nuages du matin, de 6 h à 9 h et de 9 h à 12 h (bloc mer_de_nuages), " +
         "pour « est-ce dégagé au Maïdo demain matin ? », « on sera au-dessus des nuages au Piton des Neiges ? ». " +
+        "Partout, le ciel de la nuit, de 18 h à 6 h, dégagé ou couvert, et dans les Hauts au-dessus ou dans les nuages (bloc ciel_de_nuit), " +
+        "pour « le ciel sera dégagé ce soir pour voir les étoiles au Maïdo ? ». " +
         "Chaque réponse est étiquetée « prévision » avec ses limites (le modèle ne voit pas les microclimats de l'île)\u00a0; " +
         "pour un cyclone, renvoie à la vigilance officielle de Météo-France. Pour le temps qu'il fait maintenant, utiliser meteo_actuelle. " +
         "/ Weather FORECAST (numerical model, not a measurement) for a place in Réunion Island, up to 7 days: " +

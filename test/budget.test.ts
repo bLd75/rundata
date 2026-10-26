@@ -177,7 +177,7 @@ describe("scheduled AROME prefetch", () => {
   });
 });
 
-describe("the cloud layer of the mornings in the AROME prefetch", () => {
+describe("the cloud layer of the mornings and nights in the AROME prefetch", () => {
   it("fills a run with it, within each event's budget, long before the next run", async () => {
     const kv = new Namespace();
     let events = 0;
@@ -192,9 +192,11 @@ describe("the cloud layer of the mornings in the AROME prefetch", () => {
     // Complete within half an hour of the run being listed.
     expect(events).toBeLessThanOrEqual(6);
     const layer = coverages.map(decodeURIComponent).filter((u) => /PRESSURE__(BASE_CLOUD|LEVEL_OF_CLOUD_TOP)/.test(u));
-    // The morning steps only (6–9 h and 9–12 h in La Réunion, read at 7 h and 10 h): 03:00 and 06:00 UTC.
+    // The morning steps (6–9 h and 9–12 h in La Réunion, read at 7 h and 10 h: 03:00 and 06:00 UTC) and those of the
+    // night (18 h, 21 h, midnight and 3 h, read an hour later: 15:00, 18:00, 21:00 and 00:00 UTC), no other.
     expect(layer.length).toBeGreaterThanOrEqual(4);
-    expect(layer.every((u) => /time\(\d{4}-\d\d-\d\dT0[36]:00:00Z\)/.test(u))).toBe(true);
+    expect(layer.every((u) => /time\(\d{4}-\d\d-\d\dT(00|03|06|15|18|21):00:00Z\)/.test(u))).toBe(true);
+    expect(layer.some((u) => /T(15|18|21|00):00:00Z/.test(u))).toBe(true);
   });
 });
 

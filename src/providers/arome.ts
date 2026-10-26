@@ -103,9 +103,10 @@ const FIELDS: Record<FieldName, { id: string; suffix?: string; height?: number; 
 };
 const NAMES = Object.keys(FIELDS) as FieldName[];
 const CORE = NAMES.filter((f) => f !== "base" && f !== "sommet");
-// The cloud layer only for the steps of the morning, 6–9 h and 9–12 h in La Réunion: those the cloud sea is told of
-// (tools/nuages.ts). Two steps a day of two grids more, rather than two more grids for every step.
-const LAYER_HOURS = new Set([6, 9]);
+// The cloud layer only for the steps of the morning, 6–9 h and 9–12 h in La Réunion, those the cloud sea is told of, and
+// of the night, 18 h to 6 h, whose sky is told over the Hauts (tools/nuages.ts). Six steps a day of two grids more,
+// rather than two more grids for all eight.
+const LAYER_HOURS = new Set([6, 9, 18, 21, 0, 3]);
 const fieldsOf = (start: Date): FieldName[] => (LAYER_HOURS.has((start.getUTCHours() + 4) % 24) ? NAMES : CORE);
 
 export interface Grid {
