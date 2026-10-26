@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { RANDONNEES } from "../src/providers/traces.js";
@@ -6,6 +6,7 @@ import type { AgendaAnswer } from "../src/web/data.js";
 import { agendaEvents, eventSummary, agendaPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, historiquePage, sportPage, tracePage, traficPage } from "../src/web/domains.js";
 import { feuxPage } from "../src/web/feux.js";
 import { homePage } from "../src/web/home.js";
+import og from "../src/web/og.json" with { type: "json" };
 import rubriques from "../src/web/og-rubriques.json" with { type: "json" };
 import { meteoPage, placePage } from "../src/web/pages.js";
 import { pageOf, PAGES } from "../src/web/places.js";
@@ -177,6 +178,18 @@ describe("link previews", () => {
   it("have every picture they name in public/og/, /enfants's ready for its page", () => {
     for (const r of rubriques) expect(existsSync(new URL(`../public${r.png}`, import.meta.url)), r.png).toBe(true);
     expect(rubriques.find((r) => r.pages.includes("/enfants"))).toMatchObject({ png: expect.stringMatching(/^\/og\/enfants\.[0-9a-f]{10}\.png$/), alt: expect.stringContaining("Enfants 974") });
+  });
+
+  it("have a 4:5 picture for the posts on Instagram, beside each, that no page links", () => {
+    // The home page's, from its share picture.
+    for (const r of [...rubriques, { png: "/og/accueil.png", png_4x5: og.png_4x5 }]) {
+      const key = r.png.slice("/og/".length).split(".")[0];
+      expect(r.png_4x5).toMatch(new RegExp(`^/og/${key}-4x5\\.[0-9a-f]{10}\\.png$`));
+      // Width and height, in the PNG's header.
+      const png = readFileSync(new URL(`../public${r.png_4x5}`, import.meta.url));
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)], r.png_4x5).toEqual([1080, 1350]);
+    }
+    for (const html of [agendaPage(O, null, NOW), cyclonesPage(O, null, NOW), daePage(O, null, NOW), homePage(O, null, NOW)]) expect(html).not.toContain("-4x5");
   });
 });
 
