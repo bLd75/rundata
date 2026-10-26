@@ -164,9 +164,9 @@ describe("home page", () => {
     // The hero's island carries the temperatures measured now.
     // Each temperature leads to its station's row on the weather page.
     expect(cold.text).toMatch(/<figure class="hero-map"><svg class="map relief" viewBox="[^"]+" role="group"[^]*?<a class="mk" href="\/meteo#st-[a-z0-9-]+" aria-label="[^"]+ : \d+ °C, voir le détail"><circle class="hit"[^>]+\/><title>[^<]+<\/title><circle class="sh"/);
-    expect(cold.text).toMatch(/meteo_actuelle\(lieu: "[^"]+"\)<\/p>\s*<p class="bubble ai">\d+(,\d)?\u202f°C, mesurés à \d\d:\d\d/);
+    expect(cold.text).toMatch(/meteo_actuelle\(lieu: "[^"]+"\)<\/p>\s*<p class="bubble ai">\d+(,\d)?\u202f°C, mesurés à\u00a0\d\d:\d\d/);
     expect(cold.text).toContain("Piton Maïdo");
-    expect(cold.text).toMatch(/mesuré à \d\d:\d\d/);
+    expect(cold.text).toMatch(/mesuré à\u00a0\d\d:\d\d/);
     // The badge says when the stations measured, never « en direct » at a time already past; the script counts the age
     // again in the browser, from the time of the data.
     expect(cold.text).not.toContain("En direct · <b>");
@@ -395,7 +395,7 @@ describe("commune pages", () => {
     expect(cold.text).toContain('<link rel="canonical" href="https://rundata.re/aujourdhui/saint-leu">');
     expect(cold.text).toContain('href="/communes/saint-leu"');
     // The weather is built at once; the rest only read, and named with its page while it has no copy.
-    expect(cold.text).toMatch(/mesurés à \d\d:\d\d par la station/);
+    expect(cold.text).toMatch(/mesurés à\u00a0\d\d:\d\d par la station/);
     expect(cold.text).toContain("rundata.re ne mesure pas les bouchons");
     expect(cold.text).toMatch(/Pas de copie récente pour\u00a0: .*<a href="\/coupures-eau\/saint-leu">coupures d&#39;eau<\/a>/);
     expect(cold.used).toBeLessThanOrEqual(PAGE_BUDGET);
@@ -654,7 +654,7 @@ describe("vigilance and sea pages", () => {
     const swell = text.match(/<section aria-labelledby="h-houle">[^]*?<\/section>/)![0];
     expect(swell).toContain("Prévision, pas une mesure");
     expect(swell.match(/<li>/g)).toHaveLength(14);
-    expect(swell).toMatch(/<b>\d+(,\d)?\u202fm<\/b><span>(du |de l')[a-z-]+, période \d+ s, vers \d+h<\/span><span>jusqu'à \d+(,\d)?\u202fm /);
+    expect(swell).toMatch(/<b>\d+(,\d)?\u202fm<\/b><span>(du |de l')[a-z-]+, période \d+ s, vers \d+h<\/span><span>jusqu'à\u00a0\d+(,\d)?\u202fm /);
     expect(used).toBeLessThanOrEqual(PAGE_BUDGET);
     // A coastal commune's tile says it too, from the same copy.
     const saintLeu = await serve(cache, "/communes/saint-leu");
