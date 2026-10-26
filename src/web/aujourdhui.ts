@@ -110,6 +110,8 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
   const d = r.decheteries;
   const dFresh = d?.sites.filter((x) => x.accepte) ?? [];
   const dGreen = dFresh.filter((x) => x.accepte!.includes("déchets verts")).length;
+  // Its notices of power cuts not read until it agrees: said under the list, as the agenda's under the outings.
+  const powerNotRead = r.coupures_electricite?.non_repris;
   const practical = [
     ...(r.coupures_electricite?.injoignable ? [silentItem(r.coupures_electricite.injoignable)] : []),
     ...(r.coupures_electricite?.avis ?? []).map(courantItem),
@@ -155,7 +157,7 @@ ${cuts || events ? `<section aria-labelledby="h-eau-sorties"><div class="sec-h">
   <div class="two">${cuts}${events}</div>
 </section>` : ""}
 <section aria-labelledby="h-pratique"><div class="sec-h"><h2 id="h-pratique">Vie pratique</h2></div>
-  <div class="card"><ul class="plain">${practical}</ul></div>
+  <div class="card"><ul class="plain">${practical}</ul>${powerNotRead ? `<p class="note">${esc(powerNotRead)}</p>` : ""}</div>
 </section>
 <section>${missing}
   <p class="note"><a href="/communes/${p.slug}">${esc(p.nom)} en direct : les bus, la mairie, toutes les rubriques →</a></p>

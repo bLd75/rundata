@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { mention } from "../src/tools/non-repris.js";
 import { resume } from "../src/tools/resume.js";
 import { aCommune, aujourdhuiPage, descriptionOf, H1, HOOK, LINK, titleOf } from "../src/web/aujourdhui.js";
+import { esc } from "../src/web/map.js";
 import { pageOf, PAGES } from "../src/web/places.js";
 
 const NOW = new Date("2026-10-24T11:10:00Z");
@@ -58,5 +60,16 @@ describe("the page of a commune's day", () => {
     expect(html).not.toContain("Carburants :");
     const tampon = pageOf("le-tampon")!;
     expect(aujourdhuiPage("https://rundata.re", tampon, resume(tampon, full(tampon.nom) as never, NOW), null)).not.toContain("Déchèteries :");
+  });
+
+  it("says under the practical side that a mairie's notices of power cuts are not read until it agrees, in the words of /electricite", () => {
+    const p = pageOf("sainte-suzanne")!;
+    const said = mention("courant", p.nom)!;
+    expect(said).toMatch(/^Les mentions légales du site de la commune de Sainte-Suzanne .* avis de coupure d'électricité/);
+    const html = aujourdhuiPage("https://rundata.re", p, resume(p, full(p.nom) as never, NOW), null);
+    expect(html).toContain(`(payant)</li></ul><p class="note">${esc(said)}</p></div>`);
+    const paul = pageOf("saint-paul")!;
+    expect(mention("courant", paul.nom)).toBeUndefined();
+    expect(aujourdhuiPage("https://rundata.re", paul, resume(paul, full(paul.nom) as never, NOW), null)).not.toContain("avis de coupure d&#39;électricité");
   });
 });
