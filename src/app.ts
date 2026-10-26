@@ -7,6 +7,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import type { Cache } from "./cache.js";
 import { feedReader, stopwatch, type Recorder } from "./metrics.js";
 import { bodyText } from "./http.js";
+import { metaWebhook, PATH as META_WEBHOOK } from "./meta-webhook.js";
 import { createServer, VERSION } from "./server.js";
 import { why } from "./types.js";
 import { watch } from "./usage.js";
@@ -151,6 +152,11 @@ export async function handle(request: Request, cache: Cache, background: Backgro
   }
   // What the browsers would block under the policy in observation (web/securite.ts): one log line, not a view.
   if (url.pathname === CSP_RAPPORT) return rapport(request);
+  // What Meta tells of the Page and the Instagram account: nothing without its secrets, then the site's 404.
+  if (url.pathname === META_WEBHOOK) {
+    const r = await metaWebhook(request);
+    if (r) return r;
+  }
   const accept = request.headers.get("accept") ?? "";
   if (url.pathname === "/" && !accept.includes("text/html") && CLI.test(request.headers.get("user-agent") ?? "")) {
     return new Response(
