@@ -744,7 +744,8 @@ describe("agenda", () => {
     const b = body(await agenda(c, undefined, undefined, undefined, NOW));
     expect(b.resume).toBe(`40 événements à La Réunion dans les deux semaines qui viennent (du samedi 24/10 au samedi 07/11)\u00a0; ${RESUME_REUNION_FR}.`.replace("40", String(b.nombre)));
     // Without the sports programmes of La Possession, L'Étang-Salé and Saint-Benoît: the sport tool's.
-    expect(b.nombre).toBe(100);
+    // Nor Saint-Benoît's 7, whose site is never linked (src/liens.ts).
+    expect(b.nombre).toBe(93);
     expect(b.evenements).toHaveLength(40);
     expect(b.evenements.filter((e: { titre: string }) => e.titre === "Visite guidée de la Maison Carrère")).toHaveLength(1);
     // Petite-Île's, which gives the place.
@@ -753,7 +754,7 @@ describe("agenda", () => {
     const all = body(await agenda(c, undefined, undefined, undefined, NOW, 300));
     expect(new Set(all.evenements.map((e: { publie_par: string }) => e.publie_par))).toEqual(new Set(["Ville du Tampon", "Ville du Port", "Mairie des Trois-Bassins", "CINOR", "Mairie de Saint-Paul", "Ville de Saint-André",
       "Le Séchoir", "TÉAT La Réunion", "Cité des Arts", "Kabardock", "Bisik", "Théâtre Luc Donat", "CDNOI", "Léspas", "Ville de La Possession", "Ville de L'Étang-Salé",
-      "Ville de Petite-Île", "Ville de Bras-Panon", "Ville de Saint-Benoît", "OTI EST REUNION — Droits réservés"]));
+      "Ville de Petite-Île", "Ville de Bras-Panon", "OTI EST REUNION — Droits réservés"]));
     // Last year's posts of Saint-Louis are past; nothing of theirs.
     expect(b.evenements.some((e: { publie_par: string }) => e.publie_par === "Ville de Saint-Louis")).toBe(false);
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
@@ -773,12 +774,14 @@ describe("agenda", () => {
     expect(by("Ville du Port").every((e) => e.source === "site de la commune du Port (©\u00a0www.ville-port.re), lu le samedi 24/10 à 08:00")).toBe(true);
     expect(by("Ville du Port").some((e) => e.description)).toBe(true);
     expect(by("Mairie de Saint-Paul")[0].source).toBe("site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00");
-    for (const [p, commune] of [["Ville de Saint-André", "de Saint-André"], ["Ville de L'Étang-Salé", "de L'Étang-Salé"], ["Ville de La Possession", "de La Possession"], ["Ville de Petite-Île", "de Petite-Île"], ["Ville de Bras-Panon", "de Bras-Panon"], ["Ville de Saint-Benoît", "de Saint-Benoît"]]) {
+    for (const [p, commune] of [["Ville de Saint-André", "de Saint-André"], ["Ville de L'Étang-Salé", "de L'Étang-Salé"], ["Ville de La Possession", "de La Possession"], ["Ville de Petite-Île", "de Petite-Île"], ["Ville de Bras-Panon", "de Bras-Panon"]]) {
       expect(by(p).length, p).toBeGreaterThan(0);
       expect(by(p).every((e) => !e.description && e.source === `site de la commune ${commune}, lu le samedi 24/10 à 08:00`), p).toBe(true);
     }
     expect(by("Ville de Petite-Île").every((e) => e.lien === "https://www.petite-ile.re/")).toBe(true);
-    expect(by("Ville de Saint-Benoît").every((e) => e.lien === "https://www.saint-benoit.re/")).toBe(true);
+    // Saint-Benoît submits any link to its site to its agreement (src/liens.ts): its events, each shown with its link, are not.
+    expect(by("Ville de Saint-Benoît")).toEqual([]);
+    expect(JSON.stringify(all)).not.toContain("saint-benoit.re");
     // Bras-Panon's terms say nothing of links: each its own page.
     expect(by("Ville de Bras-Panon").every((e) => e.lien?.startsWith("https://www.braspanon.re/fr/ev/"))).toBe(true);
     // Not a commune's site: no such line.
@@ -801,11 +804,10 @@ describe("agenda", () => {
     expect((await programmesSportifs(c)).map(({ e, agenda }) => [agenda.id, e.titre, e.seances])).toEqual([
       ["etang_sale", "Planning des compétitions sportives du 23 au 25 octobre 2026", [{ debut: "2026-10-23", fin: "2026-10-25" }]],
       ["la_possession", "Agenda sportif du 22 au 24 octobre", [{ debut: "2026-10-22", fin: "2026-10-24" }]],
-      ["saint_benoit", "Agenda sportif", [{ debut: "2026-10-23", fin: "2026-10-25" }]],
     ]);
-    // By the same rules as the agenda tool: Saint-Benoît's links to its home page, no sentence of the text.
+    // By the same rules as the agenda tool: none of Saint-Benoît's, whose site is never linked; no sentence of the text.
     const programmes = await programmesSportifs(c);
-    expect(programmes.find(({ agenda }) => agenda.id === "saint_benoit")?.e.lien).toBe("https://www.saint-benoit.re/");
+    expect(programmes.some(({ agenda }) => agenda.id === "saint_benoit")).toBe(false);
     expect(programmes.every(({ e }) => !e.description)).toBe(true);
   });
 

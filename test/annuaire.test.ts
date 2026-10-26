@@ -41,6 +41,18 @@ describe("public services directory", () => {
     expect(r.page).toBe("https://rundata.re/communes/saint-paul");
   });
 
+  it("gives no link to the site of Saint-Benoît's town hall, whose terms submit any link to its agreement", async () => {
+    const now = new Date("2026-10-22T06:00:00Z");
+    const store = new MemoryStore();
+    void store.put("annuaire:97410:mairie", { value: offices.filter((o: { insee: string }) => o.insee === "97410"), fetchedAt: now.getTime() });
+    const r = body(await annuaireTool(new Cache(store, () => now.getTime()), "mairie", "Saint-Benoît", now));
+    // The directory gives it; the answer does not.
+    expect(offices.find((o: { nom: string }) => o.nom === "Mairie - Saint-Benoît").site).toBe("https://www.saint-benoit.re/");
+    expect(r.resultats[0]).toMatchObject({ nom: "Mairie - Saint-Benoît", telephone: expect.any(String) });
+    expect(r.resultats[0].site).toBeUndefined();
+    expect(JSON.stringify(r)).not.toContain("saint-benoit.re");
+  });
+
   it("gives a defibrillator asked of it the page of the devices, and no page without a place", async () => {
     const now = new Date("2026-10-22T06:00:00Z");
     const store = new MemoryStore();

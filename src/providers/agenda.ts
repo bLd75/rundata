@@ -32,6 +32,7 @@ import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js
 import { SOURCES as SPORT_SOURCES } from "./sport.js";
 import { PROPOSITIONS } from "./agenda-propositions.js";
 import { autorisee } from "./autorisations.js";
+import { sansLien } from "../liens.js";
 
 export { communesIn, lead, monthOf, statusOf, type Statut };
 
@@ -199,12 +200,14 @@ export function nonServie(bundle: Pick<Bundle, "peek">, agenda: Agenda): { depui
 
 /**
  * An agenda's events as they may be shown, from its copy whatever its age: without their sentence (`faits`), linking to
- * the home page (`accueil`). Applied where a copy is served, not where it is read, so that a copy read before its
- * site's terms were known is served as they ask too.
+ * the home page (`accueil`), and none whose link would lead to a site that submits any link to its agreement
+ * (src/liens.ts, Saint-Benoît's), since an event is shown with its link. Applied where a copy is served, not where it is
+ * read, so that a copy read before its site's terms were known is served as they ask too.
  */
 export function servis(agenda: Agenda, events: Evenement[]): Evenement[] {
-  if (!agenda.faits && !agenda.accueil) return events;
-  return events.map((e) => {
+  const linked = events.filter((e) => !sansLien(agenda.accueil ?? e.lien));
+  if (!agenda.faits && !agenda.accueil) return linked;
+  return linked.map((e) => {
     const out = { ...e };
     if (agenda.faits) delete out.description;
     if (agenda.accueil) out.lien = agenda.accueil;
@@ -1034,8 +1037,9 @@ const salazie: Agenda = {
 };
 
 const BRAS_PANON = mairie("bras_panon", "Ville de Bras-Panon", "https://www.braspanon.re/fr/ev/2512733/agenda-1634");
-const SAINT_BENOIT = mairie("saint_benoit", "Ville de Saint-Benoît", "https://www.saint-benoit.re/");
+// Its terms submit any link to its site to its agreement, its home page's too (src/liens.ts): the address read only.
 const SAINT_BENOIT_AGENDA = "https://www.saint-benoit.re/evenements/general";
+const SAINT_BENOIT = mairie("saint_benoit", "Ville de Saint-Benoît", SAINT_BENOIT_AGENDA);
 const OTI_EST_SOURCE: SourceInfo = {
   id: "agenda_oti_est",
   nom: "Agenda de l'Office de tourisme intercommunal de l'Est (Côté Est Réunion)",
@@ -1372,7 +1376,7 @@ export const LISIBLES: Agenda[] = [
   { ...intraMuros("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda/rss", "La Possession", LA_POSSESSION), site_commune: "site de la commune de La Possession", faits: true, programmes: true },
   { ...petiteIle, site_commune: "site de la commune de Petite-Île", faits: true, accueil: PETITE_ILE.url },
   { ...brasPanon, site_commune: "site de la commune de Bras-Panon", faits: true },
-  { ...saintBenoit, site_commune: "site de la commune de Saint-Benoît", faits: true, accueil: SAINT_BENOIT.url, programmes: true },
+  { ...saintBenoit, site_commune: "site de la commune de Saint-Benoît", faits: true, programmes: true },
   otiEst,
   openAgenda("cinor", "CINOR", 50316469, NORD),
   openAgenda("oti_nord", "Office de tourisme du Nord", 32570974, NORD),
@@ -1406,7 +1410,7 @@ if (!AGENDAS.some((a) => a.id === "teat")) SALLES_SOURCE.url = "https://www.lese
 
 /**
  * The home pages some events link to instead of their own page (`accueil`): opened in a new window, as the terms of
- * Petite-Île's and Saint-Benoît's sites ask.
+ * Le Tampon's and Petite-Île's sites ask.
  */
 export const ACCUEILS = new Set(LISIBLES.flatMap((a) => (a.accueil ? [a.accueil] : [])));
 
