@@ -43,26 +43,47 @@ const set = (commune: string, a: Partial<Autorisation>, famille = "agenda") =>
 const restore = () => {
   for (const k of Object.keys(saved)) AUTORISATIONS[k] = structuredClone(saved[k]);
 };
+/** Every source as before any request went, for the tests of the words of each step. */
+const unasked = () => {
+  for (const a of Object.values(AUTORISATIONS)) if (a.etat !== "permise") Object.assign(a, { etat: "a_demander", demandee_le: undefined });
+};
+// Asked on 26/10: the agendas or news of eight communes, the notices of power cuts of three.
+const DEMANDEES = ["agenda:la_possession", "agenda:le_tampon", "agenda:petite_ile", "agenda:saint_andre", "agenda:saint_benoit", "agenda:saint_joseph", "agenda:saint_philippe", "agenda:saint_pierre", "courant:Saint-André", "courant:Saint-Philippe", "courant:Sainte-Suzanne"];
 
 describe("the setting, by source", () => {
-  it("lists the agendas and news of thirteen communes, and the notices of power cuts of four, none agreed yet", () => {
+  it("lists the agendas and news of thirteen communes, and the notices of power cuts of four, none agreed yet, nine asked on 26/10", () => {
     // Those whose terms allow it on conditions (« permise ») apart: they are read.
     const asked = Object.entries(AUTORISATIONS).filter(([, a]) => a.etat !== "permise");
     const of = (famille: string) => asked.filter(([k]) => k.startsWith(`${famille}:`)).map(([, a]) => a.commune);
     expect(of("agenda")).toEqual(TREIZE);
     expect(of("courant").sort()).toEqual(QUATRE);
     expect(Object.keys(AUTORISATIONS).filter((k) => !/^(agenda|courant):/.test(k))).toEqual([]);
-    expect(asked.every(([, a]) => a.etat === "a_demander" && !a.demandee_le)).toBe(true);
+    expect(asked.filter(([, a]) => a.etat === "demandee").map(([k]) => k).sort()).toEqual(DEMANDEES);
+    expect(asked.every(([k, a]) => (DEMANDEES.includes(k) ? a.etat === "demandee" && a.demandee_le === "2026-10-26" : a.etat === "a_demander" && !a.demandee_le))).toBe(true);
     // Each agenda's key is the id of an agenda read when it agrees, but for the three whose site is not read at all.
     const ids = asked.map(([k]) => k).filter((k) => k.startsWith("agenda:")).map((k) => k.slice(7));
     expect(ids.filter((id) => !LISIBLES.some((a) => a.id === id && a.site_commune))).toEqual(["saint_denis", "saint_pierre", "sainte_rose"]);
     expect(QUATRE.filter((c) => !MAIRIES_LISIBLES.some((m) => m.commune === c))).toEqual([]);
+  });
+
+  it("says the day of the request on the line of each commune asked, the others in the block without it", () => {
+    const agendas = mentionIle();
+    expect(agendas[0]).toMatch(/^Les mentions légales des sites de 13 communes [^]*qu'elles y publient\.$/);
+    expect(agendas.slice(1).map((l) => /de la commune (?:de |du |de la )?(.+?) interdisent/.exec(l)![1])).toEqual(["La Possession", "Tampon", "Petite-Île", "Saint-André", "Saint-Benoît", "Saint-Joseph", "Saint-Philippe", "Saint-Pierre"]);
+    expect(agendas.slice(1).every((l) => l.endsWith(" Nous lui avons demandé cet accord le 26/10 et attendons sa réponse."))).toBe(true);
+    expect(mentionCourte("Le Tampon")?.detail).toBe("ses mentions légales l'interdisent sans son accord, demandé le 26/10");
+    expect(mentionCourte("Cilaos")?.detail).toBe("ses mentions légales l'interdisent sans son accord");
+    const courant = ileMention("courant");
+    expect(courant).toHaveLength(4);
+    expect(courant[0]).toMatch(/^Les mentions légales des sites de 4 communes [^]*Ils restent consultables sur leurs sites\.$/);
+    expect(courant[3]).toBe("Les mentions légales du site de la commune de Sainte-Suzanne interdisent d'en reprendre le contenu sans son accord : rundata.re n'affiche donc pas les avis de coupure d'électricité qu'elle y publie. Ils restent consultables sur son site. Nous lui avons demandé cet accord le 26/10 et attendons sa réponse.");
   });
 });
 
 describe("the communes whose site's terms ask for their authorisation, until they give it", () => {
   let urls: string[];
   beforeEach(() => {
+    unasked();
     urls = [];
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.stubGlobal("fetch", async (url: string) => (urls.push(url), new Response("", { status: 503 })));
@@ -205,7 +226,7 @@ describe("the communes whose site's terms ask for their authorisation, until the
     expect(mentionProgrammes()).toBe(`${three} Nous leur avons demandé cet accord le 26/10 et attendons leur réponse.`);
     set("Saint-Benoît", { etat: "refusee", refusee_le: "2026-11-03" });
     expect(mentionProgrammes(["Saint-Benoît"])).toBe("La commune de Saint-Benoît a refusé, le 03/11, que rundata.re reprenne le contenu de son site : le programme sportif qu'elle y publie ne s'affiche donc pas ici.");
-    restore();
+    unasked();
     // The golf league answers; La Possession's programme still in the copy kept before: not served.
     vi.stubGlobal("fetch", async (url: string) => (url.includes("ffgolf") ? new Response(readFileSync(new URL("./fixtures/sport/ffgolf.json", import.meta.url))) : new Response("", { status: 503 })));
     const c = await cacheWith({ "agenda:la_possession": kept([{ ...event("Agenda sportif du 22 au 24 octobre", "La Possession"), seances: [{ debut: "2026-10-22", fin: "2026-10-26" }] }]) });
@@ -246,6 +267,7 @@ describe("the notices of power cuts of the mairies whose site's terms ask for th
   const ci = parsePosts([post("2026-10-21T14:33:00", "Travaux sur le réseau électrique à Cilaos", "<p>Du <strong>26 au 30 octobre 2026</strong>, travaux sur le réseau électrique à Mare Sèche.</p><p>Des coupures d'électricité ponctuelles sont possibles.</p>")], "Cilaos");
   const before: CourantAnswer = { avis: [...sm, ...ci], lues: ["Sainte-Marie", "Cilaos"], indisponibles: ["Sainte-Suzanne"], sources: [] };
   const kept = { value: before, fetchedAt: NOW, stale: false };
+  beforeEach(unasked);
   afterEach(() => {
     restore();
     vi.unstubAllGlobals();
