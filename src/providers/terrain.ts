@@ -9,6 +9,7 @@
  * - natural disaster decrees of the commune and landslides recorded around: Géorisques API v1 (BRGM).
  */
 import type { Cache, Cached } from "../cache.js";
+import { distanceKm } from "../geo.js";
 import { getJson, getText } from "../http.js";
 import { UpstreamError, type SourceInfo } from "../types.js";
 import { ALTIMETRIE } from "./ign.js";
@@ -26,7 +27,15 @@ export const SOURCES: Record<"ban" | "cadastre" | "gpu" | "alti" | "dvf" | "dvfV
 
 const DAY = 24 * 3600;
 const point = (lon: number, lat: number) => encodeURIComponent(JSON.stringify({ type: "Point", coordinates: [lon, lat] }));
+// What is read at the point (its parcel, its zone of the PLU, its risk prevention plans, its altitude) is kept to
+// about a metre (5 decimals): a parcel in town can be a few metres wide, and rounding further would give the
+// neighbour's. What is read around it (the sales, the landslides) does not depend on the metre: its centre is snapped
+// to about 10 m (4 decimals), so that points a few metres apart share it, and the parcel and the commune do not change.
 const key = (lon: number, lat: number) => `${lon.toFixed(5)},${lat.toFixed(5)}`;
+const AROUND_DECIMALS = 4;
+const snap = (v: number) => Math.round(v * 10 ** AROUND_DECIMALS) / 10 ** AROUND_DECIMALS;
+// The farthest a snapped centre lies from the point, in metres (half the diagonal of a cell of 4 decimals), rounded up.
+export const SNAP_M = 8;
 
 export interface Address {
   label: string;
@@ -142,6 +151,8 @@ export interface Sale {
 
 /** Sales within about `halfSideM` metres since `fromYear`, without geometry nor parcel ids (aggregated by the tool). */
 export async function sales(cache: Cache, lon: number, lat: number, fromYear: number, halfSideM = 300): Promise<Cached<Sale[]>> {
+  // About 600 m × 600 m around the point (tools/terrain.ts): moved 8 m at most by the snapping.
+  [lon, lat] = [snap(lon), snap(lat)];
   const dLat = halfSideM / 111_320;
   const dLon = halfSideM / (111_320 * Math.cos((lat * Math.PI) / 180));
   const bbox = [lon - dLon, lat - dLat, lon + dLon, lat + dLat].map((v) => v.toFixed(5)).join(",");
@@ -380,8 +391,12 @@ export interface Landslide {
 
 /** Landslides, rockfalls and the like recorded within `radiusM` (BDMvt). */
 export async function landslides(cache: Cache, lon: number, lat: number, radiusM = 500): Promise<Cached<Landslide[]>> {
-  return cache.get(`mvt:${key(lon, lat)}:${radiusM}`, 7 * DAY, async () => {
-    const r = await georisques<{ data: Record<string, string | number | null>[] }>(`https://www.georisques.gouv.fr/api/v1/mvt?latlon=${lon},${lat}&rayon=${radiusM}&page_size=100`);
+  // Asked around the snapped centre, SNAP_M farther, then kept within `radiusM` of the point itself: the same as asked
+  // around the point.
+  const [cLon, cLat] = [snap(lon), snap(lat)];
+  const wide = radiusM + SNAP_M;
+  const got = await cache.get(`mvt:${key(cLon, cLat)}:${wide}`, 7 * DAY, async () => {
+    const r = await georisques<{ data: Record<string, string | number | null>[] }>(`https://www.georisques.gouv.fr/api/v1/mvt?latlon=${cLon},${cLat}&rayon=${wide}&page_size=100`);
     return r.data.map((d) => ({
       type: String(d.type),
       date: d.date_debut ? String(d.date_debut) : undefined,
@@ -390,6 +405,7 @@ export async function landslides(cache: Cache, lon: number, lat: number, radiusM
       fiabilite: String(d.fiabilite ?? ""),
     }));
   });
+  return { ...got, value: got.value.filter((x) => distanceKm(lon, lat, x.lon, x.lat) * 1000 <= radiusM) };
 }
 
 /**

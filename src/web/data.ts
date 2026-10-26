@@ -1648,10 +1648,14 @@ async function within<T>(work: Promise<T>, ms: number): Promise<T | null> {
  * FRESH_SECONDS. Null when there is none yet and it takes more than a few seconds to build.
  *
  * `reader`: the fetcher of an AI assistant, which reads the page once and answers from it. It waits up to `waitMs`
- * for an old copy to be refreshed instead of getting it as it is.
+ * for an old copy to be refreshed instead of getting it as it is; when it is a function, only if that says so
+ * (`ReaderWaits`).
  *
  * `incomplete`: whether a copy lacks part of what it should show; such a copy is due after INCOMPLETE_RETRY_SECONDS.
  */
+/** Whether a reader waits for the refresh of the copy of `key`, `ageMs` old, rather than get it as it is. */
+export type ReaderWaits = (key: string, value: unknown, ageMs: number) => boolean;
+
 export async function snapshot<T>(
   cache: Cache,
   key: string,
@@ -1659,7 +1663,7 @@ export async function snapshot<T>(
   background: Background,
   now = new Date(),
   waitMs = WAIT_MS,
-  reader = false,
+  reader: boolean | ReaderWaits = false,
   incomplete?: (value: T) => boolean,
 ): Promise<Cached<T> | null> {
   // Each build is measured: a tile is brought up to date only when what it took last time is left (web/site.ts).
@@ -1693,10 +1697,11 @@ export async function snapshot<T>(
     return null;
   }
   const freshFor = incomplete?.(got.value) ? INCOMPLETE_RETRY_SECONDS : FRESH_SECONDS;
-  if (now.getTime() - got.fetchedAt.getTime() > freshFor * 1000) {
+  const age = now.getTime() - got.fetchedAt.getTime();
+  if (age > freshFor * 1000) {
     const fresh = written(cache.getFrom(key, got, freshFor, run));
     const logged = fresh.catch((err) => console.error(`page ${key} : rafraîchissement impossible`, why(err)));
-    if (reader) {
+    if (typeof reader === "function" ? reader(key, got.value, age) : reader) {
       const newer = await within(logged, waitMs);
       if (newer) return newer;
     }

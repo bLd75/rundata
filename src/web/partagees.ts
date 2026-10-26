@@ -113,6 +113,15 @@ export const SHARED_AFTER: Shared[] = [
   { key: ensemble.KEY, build: () => ensemble.build(), every: 3 * 60, cold: 3, cpu: 40, offset: 100 },
 ];
 const KEYS = new Set([...SHARED, ...SHARED_AFTER].map((s) => s.key));
+
+/**
+ * How often the scheduled event refreshes the copy of `key`, in minutes, given that copy; undefined for a copy it does
+ * not keep (a page's own, built by its views).
+ */
+export function scheduledEvery(key: string, value: unknown): number | undefined {
+  const s = [...SHARED, ...SHARED_AFTER].find((x) => x.key === key);
+  return s && everyOf(s, value);
+}
 // The calendar's copy, the least often refreshed, outlives its next refresh by far.
 const KV_TTL_SECONDS = 24 * 3600;
 // A build whose cost is known nowhere is taken to cost this much (web/site.ts does the same).
