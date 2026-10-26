@@ -155,6 +155,7 @@ export const FICHES: Record<string, Fiche> = {
   openagenda: { famille: "licence_ouverte", producteurs: ["CINOR", "Office de tourisme intercommunal du Nord"] },
   agenda_oti_est: { famille: "information_publique", producteurs: ["Office de tourisme intercommunal de l'Est"] },
   agenda_mairies: { famille: "information_publique", agendas: true },
+  agenda_le_port: { famille: "information_publique", agendas: true },
   agenda_sainte_marie: { famille: "information_publique", agendas: true },
   agenda_salazie: { famille: "information_publique", agendas: true },
   agenda_saint_louis: { famille: "information_publique", agendas: true },
