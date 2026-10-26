@@ -91,7 +91,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 
 | entrée | ce que c'est | cadence | décalage (UTC) | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) | d'où |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| / | accueil : sa météo, ses tuiles, et la plus vieille refaite après la réponse | à chaque vue |  | 75 | 7 |  | 2 | 840 |  | 110 | mesuré |
+| / | accueil : sa météo, ses tuiles, et la plus vieille refaite après la réponse | à chaque vue |  | 76 | 7 |  | 2 | 840 |  | 110 | mesuré |
 | /communes/* | page d'une commune : sa météo, ses tuiles, et la plus vieille refaite après la réponse | à chaque vue |  | 78 | 6 |  |  |  |  | 160 | mesuré |
 | /aujourdhui/* | la journée d'une commune (resume_du_jour) | à chaque vue |  | 62 | 8 |  |  |  |  | 130 | mesuré |
 | /meteo/* | la météo d'un lieu | à chaque vue |  | 50 |  |  |  |  |  | 130 | mesuré |
@@ -126,6 +126,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /sport | la page /sport | à chaque vue |  | 42 |  |  |  |  |  | 120 | mesuré |
 | /decheteries | la page /decheteries | à chaque vue |  | 12 |  |  |  |  |  | 30 | mesuré |
 | /cyclones | la page /cyclones | à chaque vue |  | 27 |  |  |  |  |  | 50 | mesuré |
+| /crues | la page /crues | à chaque vue |  | 30 |  |  |  |  |  | 120 | estimé |
 | /historique | la page /historique | à chaque vue |  | 15 |  |  |  |  |  | 70 | mesuré |
 | /evenements | la page /evenements | à chaque vue |  | 54 |  |  |  |  |  | 200 | mesuré |
 | /evenements/ce-week-end | comme /evenements, une partie de sa copie | à chaque vue |  | 36 |  |  |  |  |  | 230 | mesuré |
@@ -232,6 +233,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | /sport | providers/agenda, providers/avis-eau, providers/salles, providers/sport-avis, providers/sport |
 | /decheteries | providers/tco |
 | /cyclones | providers/actualites, providers/avis-eau, providers/cyclones, providers/feux, providers/mf-auth, providers/prefecture, providers/vigilance |
+| /crues | providers/actualites, providers/avis-eau, providers/vigicrues |
 | /historique |  |
 | /evenements | providers/actualites, providers/agenda, providers/avis-eau, providers/salles, providers/sport-avis, providers/sport |
 | /evenements/ce-week-end | providers/actualites, providers/agenda, providers/avis-eau, providers/salles, providers/sport-avis, providers/sport |

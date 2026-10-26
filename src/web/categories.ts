@@ -35,6 +35,14 @@ export const CATEGORIES: Category[] = [
     about: "La vigilance de Météo-France zone par zone et l'alerte cyclonique, signalées d'office dès qu'elles dépassent le vert.",
   },
   {
+    key: "crues",
+    nom: "Crues",
+    path: "/crues",
+    icon: "wave",
+    tools: ["crues_rivieres"],
+    about: "La vigilance crues de Vigicrues Réunion rivière par rivière, et la hauteur et le débit mesurés aux stations des rivières, avec leur tendance sur la dernière demi-heure.",
+  },
+  {
     key: "actualites",
     nom: "Actualités",
     path: "/actualites",
@@ -218,6 +226,8 @@ export const WITH_PAGE = CATEGORIES.filter((c): c is Category & { path: string }
 /** What is in force now and goes first everywhere: Météo-France's vigilance above green, the volcano in alert or erupting. */
 export interface Urgent {
   vigilance?: boolean;
+  /** A flood vigilance yellow or above (Vigicrues Réunion). */
+  crues?: boolean;
   volcan?: boolean;
 }
 
@@ -227,13 +237,13 @@ export const FIRST = ["agenda", "sentiers", "meteo"];
 const LEADING = [FIRST[0], "enfants", ...FIRST.slice(1)];
 const LAST = ["mer", "bus"];
 // What is first while in force; on the home page's tiles, before the sea and the buses when quiet.
-const URGENT = ["vigilance", "volcan"];
+const URGENT = ["vigilance", "crues", "volcan"];
 // On the home page's tiles, before them: the traffic, which only sends to Waze and infotrafic.re until a real measure
 // of it exists.
 const TILES_LAST = ["trafic"];
 
 /** The vigilance and the volcano while in force, in that order, as keys. */
-export const urgentKeys = (u: Urgent) => [u.vigilance && "vigilance", u.volcan && "volcan"].filter((k): k is string => !!k);
+export const urgentKeys = (u: Urgent) => [u.vigilance && "vigilance", u.crues && "crues", u.volcan && "volcan"].filter((k): k is string => !!k);
 
 /**
  * `list` in the order of use: the vigilance and the volcano first while in force, then FIRST with the children's page

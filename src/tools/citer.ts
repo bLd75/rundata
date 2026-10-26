@@ -42,6 +42,7 @@ const PAGES: Record<string, string> = {
   defibrillateurs: "/defibrillateurs",
   sport: "/sport",
   cyclones: "/cyclones",
+  crues_rivieres: "/crues",
   historique_meteo: "/historique",
   evenements: "/evenements",
   actualites: "/actualites",

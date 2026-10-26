@@ -35,6 +35,8 @@ export interface Marker {
   color?: string;
   /** Round for a temperature, a pill for anything else. */
   round?: boolean;
+  /** A ring rather than a disc (round only): nothing measured lately. */
+  hollow?: boolean;
   /** Its name in the tooltip only: for a crowded map where only a few markers need saying. */
   quiet?: boolean;
   /** Where a tap on it leads: the row of the page that details it, or the place's page. */
@@ -79,7 +81,9 @@ function marker(m: Marker, hit = HIT): string {
   const fill = m.color ?? "var(--ink)";
   const w = Math.max(64, m.label.length * 19 + 24);
   const shape = m.round
-    ? `<circle class="sh" cx="${x}" cy="${y}" r="34" fill="${fill}"/>`
+    ? m.hollow
+      ? `<circle class="sh" cx="${x}" cy="${y}" r="30" style="fill:#fff;stroke:${fill};stroke-width:8"/>`
+      : `<circle class="sh" cx="${x}" cy="${y}" r="34" fill="${fill}"/>`
     : `<rect class="sh" x="${x - w / 2}" y="${y - 24}" width="${w}" height="48" rx="24" fill="${fill}"/>`;
   const inner = `<title>${esc(m.name)}</title>${shape}` +
     `<text x="${x}" y="${y + 11}" class="mv">${esc(m.label)}</text>` +

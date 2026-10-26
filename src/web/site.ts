@@ -25,7 +25,9 @@ import {
   buildEau,
   buildSentiers,
   buildTrafic,
+  fordNews,
   roadNewsNow,
+  roadNewsRead,
   withRoadNews,
   buildRandonnees,
   buildSecheresse,
@@ -38,6 +40,7 @@ import {
   buildTrail,
   routeGpx,
   trailGpx,
+  buildCrues,
   buildCyclones,
   buildHistorique,
   buildDae,
@@ -56,7 +59,7 @@ import {
   type VolcanAnswer,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
-import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
+import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cruesPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
 import { concertsPage, weekendPage } from "./evenements.js";
 import { enfantsPage } from "./enfants.js";
 import { coupuresCommunePage } from "./coupures.js";
@@ -215,6 +218,7 @@ export const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: D
   "/sport": { key: "web:sport", build: buildSport, page: sportPage },
   "/decheteries": { key: "web:dechets", build: (cache) => buildDechets(cache), page: decheteriesPage },
   "/cyclones": { key: "web:cyclones", build: buildCyclones, page: cyclonesPage },
+  "/crues": { key: "web:crues", build: buildCrues, page: cruesPage },
   "/historique": { key: "web:historique", build: buildHistorique, page: historiquePage },
   "/evenements": { key: "web:agenda", build: buildAgenda, page: agendaPage },
   // Parts of the events page's copy, with their own title for what people search.
@@ -231,7 +235,7 @@ const BUILDS: Record<string, (cache: Cache, now: Date) => Promise<unknown>> = {
 };
 // The home page's tiles besides the weather and the vigilance; a commune page's besides its own.
 // The news first: on a day of mobilisation its headlines go above the tiles.
-export const HOME_TILES = ["web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda"];
+export const HOME_TILES = ["web:actualites", "web:volcan", "web:air", "web:electricite", "web:calendrier", "web:bus", "web:trafic", "web:velos", "web:bornes", "web:eau", "web:sentiers", "web:secheresse", "web:coupures", "web:sport", "web:cyclones", "web:historique", "web:agenda", "web:crues"];
 // A commune's feed: the copies besides the vigilance (web/rss.ts).
 const RSS_TILES = ["web:coupures", "web:randonnees", "web:volcan"];
 export const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier", "web:coupures", "web:secheresse", "web:eau", "web:randonnees", "web:agenda"];
@@ -318,9 +322,9 @@ async function pages(request: Request, cache: Cache, background: Background, now
       snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now),
     ]);
-    const [actualites, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda] = await tileCopies(cache, HOME_TILES, background, meteo, now);
+    const [actualites, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, crues] = await tileCopies(cache, HOME_TILES, background, meteo, now);
     return page(path, (live) => (live
-      ? homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, actualites }, now, alerteLue(vigilance, now))
+      ? homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, actualites, crues }, now, alerteLue(vigilance, now))
       : homePage(origin, null, now)), meteo, background, [rebuild(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now))]);
   }
   // The bins' days: the bundled calendars and the day, nothing read but the vigilance's banner.
@@ -387,6 +391,16 @@ async function pages(request: Request, cache: Cache, background: Background, now
       roadNewsNow(cache, background, now),
     ]);
     return page(path, (live) => traficPage(origin, live && data ? { ...data, value: withRoadNews(data.value, news, now) } : null, now, a), data, background, [rebuild(cache, "web:trafic", () => buildTrafic(cache, now))]);
+  }
+  // The rivers' copy lasts minutes; the headlines on the fords are those of the view, as on /trafic.
+  if (path === "/crues" || path === "/crues/") {
+    const [data, a, news] = await Promise.all([
+      snapshot(cache, "web:crues", () => buildCrues(cache, now), background, now, waitFor(request), isReader(request)),
+      alerte(cache, background, now),
+      roadNewsRead(cache, background, now),
+    ]);
+    const fords = news && { annonces: fordNews(news.value, now), lue: news.fetchedAt };
+    return page(path, (live) => cruesPage(origin, live ? data : null, now, a, fords), data, background, [rebuild(cache, "web:crues", () => buildCrues(cache, now))]);
   }
   // A commune's water: the copy of /coupures-eau, and the last ones of /secheresse and /eau as they are.
   const water = /^\/coupures-eau\/([a-z-]+)\/?$/.exec(path);

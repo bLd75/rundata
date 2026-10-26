@@ -264,6 +264,9 @@ const DOMAIN_PAGES: Record<string, Page> = {
   "/sport": { subrequests: 42, cpuMs: 120, from: ["src/tools/sport.ts"] },
   "/decheteries": { subrequests: 12, cpuMs: 30, from: ["src/tools/decheteries.ts"] },
   "/cyclones": { subrequests: 27, cpuMs: 50, from: ["src/tools/cyclones.ts"] },
+  // The tool without a place (the vigilance, the levels and the flows of every gauge, three posts), and the news read
+  // again after the response when it is old, as on /trafic, for the headlines on the fords.
+  "/crues": { subrequests: 30, cpuMs: 120, from: ["src/tools/crues.ts", "src/tools/actualites.ts"], basis: "estimé" },
   "/historique": { subrequests: 15, cpuMs: 70, from: ["src/tools/historique.ts"] },
   "/evenements": { subrequests: 54, cpuMs: 200, from: ["src/tools/agenda.ts"] },
   "/evenements/ce-week-end": { subrequests: 36, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
@@ -274,7 +277,8 @@ const DOMAIN_PAGES: Record<string, Page> = {
 
 /** The other pages that read sources. */
 const OTHER_PAGES: Record<string, Page> = {
-  "/": { subrequests: 75, cpuMs: 110, from: METEO, what: "accueil : sa météo, ses tuiles, et la plus vieille refaite après la réponse", d1: BUS_D1 },
+  // 75 measured, and one more read for the tile of the rivers (/crues).
+  "/": { subrequests: 76, cpuMs: 110, from: METEO, what: "accueil : sa météo, ses tuiles, et la plus vieille refaite après la réponse", d1: BUS_D1 },
   "/communes/*": { subrequests: 78, cpuMs: 160, from: [...METEO, "src/tools/mer.ts"], what: "page d'une commune : sa météo, ses tuiles, et la plus vieille refaite après la réponse" },
   "/aujourdhui/*": { subrequests: 62, cpuMs: 130, from: ["src/tools/resume.ts"], what: "la journée d'une commune (resume_du_jour)" },
   "/meteo/*": { subrequests: 50, cpuMs: 130, from: [...METEO, "src/tools/mer.ts"], what: "la météo d'un lieu" },

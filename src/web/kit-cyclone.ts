@@ -77,6 +77,6 @@ export function kitPage(origin: string, alerte?: Alerte): string {
   const vital = `<section aria-labelledby="h-vital"><div class="card"><h2 id="h-vital">Personnes à haut risque vital</h2>
   <p>${esc(VITAL)} <a href="${PDF}#page=24" rel="noopener">→ PDF</a></p></div></section>`;
   const foot = `<section><p class="note">Extraits du <a href="${ORSEC.lien}" rel="noopener">dispositif ORSEC Cyclones</a> (arrêté préfectoral 2026-182, document mis à jour le ${esc(ORSEC.mis_a_jour)}). Le plan ne donne pas de liste plus complète du kit : rundata.re n'ajoute rien.</p>
-<p><a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a> · <a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/vigilance">La vigilance zone par zone →</a></p></section>`;
+<p><a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a> · <a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/vigilance">La vigilance zone par zone →</a> · <a href="/crues">Les rivières, station par station →</a></p></section>`;
   return layout(origin, { title: TITLE, description: META, path, jsonld: [crumbs(origin, "Kit cyclone", path), webPage(origin, path, TITLE, META, null)], alerte }, band, `${sections}\n${vital}\n${foot}`);
 }

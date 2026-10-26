@@ -8,8 +8,8 @@ import type * as mf from "../providers/vigilance.js";
 import { PATH as A_PROPOS, QUI } from "./a-propos.js";
 import icons from "./icons.json" with { type: "json" };
 import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from "./categories.js";
-import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
-import { actualitesLive, airLive, atDay, bornesLive, imageLinks, busLive, coupuresLive, daeLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive, saidNow, stillToCome } from "./domains.js";
+import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, CruesAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
+import { actualitesLive, airLive, atDay, bornesLive, cruesLive, floodRaised, imageLinks, busLive, coupuresLive, daeLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive, saidNow, stillToCome } from "./domains.js";
 import { de } from "../tools/format.js";
 import { enImagesApres, enImagesLuesAilleurs, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
@@ -66,12 +66,14 @@ export interface HomeLive {
   historique?: Cached<HistoriqueAnswer> | null;
   agenda?: Cached<AgendaAnswer> | null;
   actualites?: Cached<ActualitesAnswer> | null;
+  crues?: Cached<CruesAnswer> | null;
 }
 
 function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> {
   return {
     meteo: meteoLive(h?.meteo ?? null, now),
     vigilance: vigilanceLive(h?.vigilance ?? null, now),
+    crues: cruesLive(h?.crues ?? null, now),
     mer: merLive(h?.meteo ?? null, now),
     volcan: volcanLive(h?.volcan ?? null, now),
     bus: busLive(h?.bus ?? null, now),
@@ -356,7 +358,7 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
   // An alert at the volcano goes first, above the weather, in place of the banner of the other pages; the banner's own
   // read when the home page's copy of /volcan is missing.
   const fire = alerteVolcan(h?.volcan?.value) ?? volcanBanner();
-  const u = { vigilance: !!alerte, volcan: !!fire };
+  const u = { vigilance: !!alerte, crues: floodRaised(h?.crues?.value).length > 0, volcan: !!fire };
   const band = `${fire ? homeCard(fire) : ""}<div class="hero sky-${sky(now)}"><div class="wrap hero-in">
   <div class="hero-txt">
     ${livePill(at, now)}

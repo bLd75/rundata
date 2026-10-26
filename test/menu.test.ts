@@ -49,7 +49,7 @@ describe("the order of the pages", () => {
   it("orders the home page's tiles as the menu, the traffic and a quiet vigilance and volcano with the sea and the buses at the end", () => {
     const quiet = homePage(O, null, NOW);
     expect(tiles(quiet)).toEqual(["agenda", "enfants", "sentiers", "meteo", "actualites", "historique", "cyclones", "velos", "bornes", "coupures", "dae",
-      "secheresse", "sport", "eau", "air", "electricite", "calendrier", "trafic", "vigilance", "volcan", "mer", "bus", "services", "terrain"]);
+      "secheresse", "sport", "eau", "air", "electricite", "calendrier", "trafic", "vigilance", "crues", "volcan", "mer", "bus", "services", "terrain"]);
     // Nothing hidden, and the menu keeps its order.
     expect([...tiles(quiet)].sort()).toEqual([...tiles(homePage(O, null, NOW, VIGILANCE))].sort());
     expect(menu(quiet).slice(-3)).toEqual(["communes", "mer", "bus"]);
@@ -58,13 +58,13 @@ describe("the order of the pages", () => {
   it("puts the home page's vigilance and volcano tiles back first while in force, the other one still at the end", () => {
     const vigilance = tiles(homePage(O, null, NOW, VIGILANCE));
     expect(vigilance.slice(0, 5)).toEqual(["vigilance", "agenda", "enfants", "sentiers", "meteo"]);
-    expect(vigilance.slice(-6)).toEqual(["trafic", "volcan", "mer", "bus", "services", "terrain"]);
+    expect(vigilance.slice(-7)).toEqual(["trafic", "crues", "volcan", "mer", "bus", "services", "terrain"]);
     const volcan = tiles(withVolcan(VOLCAN, () => homePage(O, null, NOW)));
     expect(volcan.slice(0, 3)).toEqual(["volcan", "agenda", "enfants"]);
-    expect(volcan.slice(-6)).toEqual(["trafic", "vigilance", "mer", "bus", "services", "terrain"]);
+    expect(volcan.slice(-7)).toEqual(["trafic", "vigilance", "crues", "mer", "bus", "services", "terrain"]);
     const both = tiles(withVolcan(VOLCAN, () => homePage(O, null, NOW, VIGILANCE)));
     expect(both.slice(0, 3)).toEqual(["vigilance", "volcan", "agenda"]);
-    expect(both.slice(-5)).toEqual(["trafic", "mer", "bus", "services", "terrain"]);
+    expect(both.slice(-6)).toEqual(["trafic", "crues", "mer", "bus", "services", "terrain"]);
   });
 
   it("gives the children's tile the number of places, then the playgrounds, the parks and the pools, with nothing to fetch", () => {
