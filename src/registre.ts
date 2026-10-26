@@ -278,10 +278,10 @@ const METEO = ["src/tools/meteo.ts", "src/tools/prevision.ts", "src/tools/vigila
 /** Every page of DOMAINS (web/site.ts), by its path. */
 const DOMAIN_PAGES: Record<string, Page> = {
   "/meteo": { subrequests: 41, cpuMs: 80, from: METEO },
-  // Measured 39, before it read the list of the silent sites (a read of the data center's cache, 2 of D1, a write); 10
+  // Measured 39, before it read the list of the silent sites (a read of the data center's cache, 2 of D1, a write); 6
   // more for the pages of two releases whose list does not name the volcano (providers/volcan.ts, `doubtful`): each a
-  // read and a write of its subject, a read and a write of its page, and the page, once a week.
-  "/volcan": { subrequests: 53, cpuMs: 60, from: ["src/tools/volcan.ts"], d1: SANS_REPONSE_D1 },
+  // read of KV, the page and a write of KV, once a week.
+  "/volcan": { subrequests: 49, cpuMs: 60, from: ["src/tools/volcan.ts"], d1: SANS_REPONSE_D1 },
   "/air": { subrequests: 14, cpuMs: 40, from: ["src/tools/air.ts"] },
   "/electricite": { subrequests: 17, cpuMs: 30, from: ["src/tools/electricite.ts"] },
   "/calendrier": { subrequests: 18, cpuMs: 40, from: ["src/tools/calendrier.ts"] },
@@ -373,8 +373,8 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   meteo_actuelle: { subrequests: 36, cpuMs: 120, file: "meteo" },
   evenements: { subrequests: 33, cpuMs: 190, file: "agenda" },
   sport: { subrequests: 33, cpuMs: 160, file: "sport" },
-  // Measured 26, before it read the list of the silent sites, as /volcan; 10 more for two releases' pages, as /volcan.
-  volcan_seismes: { subrequests: 40, cpuMs: 90, file: "volcan", d1: SANS_REPONSE_D1 },
+  // Measured 26, before it read the list of the silent sites, as /volcan; 6 more for two releases' pages, as /volcan.
+  volcan_seismes: { subrequests: 36, cpuMs: 90, file: "volcan", d1: SANS_REPONSE_D1 },
   // 24 measured, and the street's sales from the code: for a street not copied yet, one file a year of DVF géolocalisées
   // (6, each redirected once to its storage) and about 10 ms to read them; copied 7 days.
   fiche_terrain: { subrequests: 36, cpuMs: 80, file: "terrain", basis: "estimé" },
