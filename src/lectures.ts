@@ -20,13 +20,23 @@ export interface Lecture {
 
 const current = new AsyncLocalStorage<Lecture[]>();
 const asked = new AsyncLocalStorage<Set<string>>();
+// When the tool call being answered stops waiting for a source that has a copy (`withLectures`), in ms (Date.now).
+const until = new AsyncLocalStorage<number>();
 
-/** Runs `fn`, and returns with its value the entries the cache served it. */
-export async function withLectures<T>(fn: () => Promise<T>): Promise<{ value: T; lectures: Lecture[] }> {
+/**
+ * Runs `fn`, and returns with its value the entries the cache served it. `waitMs`: past that much time from now, a
+ * source with a copy is no longer waited for: its copy is served, said as such, and its read ends after the answer
+ * (cache.ts).
+ */
+export async function withLectures<T>(fn: () => Promise<T>, waitMs?: number): Promise<{ value: T; lectures: Lecture[] }> {
   const lectures: Lecture[] = [];
-  const value = await current.run(lectures, fn);
+  const run = () => current.run(lectures, fn);
+  const value = await (waitMs == null ? run() : until.run(Date.now() + waitMs, run));
   return { value, lectures };
 }
+
+/** When the tool call being answered stops waiting for a source that has a copy; nothing outside one that set it. */
+export const callDeadline = () => until.getStore();
 
 /** Called by the cache for each entry it serves; nothing outside a tool call. */
 export function noteLecture(l: Lecture) {

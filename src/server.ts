@@ -88,7 +88,7 @@ import { actualites } from "./tools/actualites.js";
 import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.203.4";
+export const VERSION = "0.203.5";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -170,6 +170,12 @@ export const SERVER_ICONS = [
   { src: `https://rundata.re${icons["symbole-svg"]}`, mimeType: "image/svg+xml", sizes: ["any"] },
 ];
 
+/**
+ * How long a tool call waits for the sources it has a copy of: past it, each such source's copy is the answer, with its
+ * time and said late (cache.ts), rather than a client kept waiting 20 s for a site that does not answer.
+ */
+export const TOOL_WAIT_MS = 5_000;
+
 export function createServer(cache: Cache, record: Recorder = () => {}, background?: Background): McpServer {
   const server = new McpServer(
     { name: "reunion-temps-reel", title: "rundata.re · La Réunion 974 en direct", version: VERSION, icons: SERVER_ICONS },
@@ -182,7 +188,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
   const track = <A extends object, R extends object>(name: string, run: (args: A, extra: Extra) => Promise<R>) => {
     tools++; // one per tool registered
     return async (args: A, extra: Extra = {}): Promise<R> => {
-      const { value: r, lectures } = await withLectures(() => run(args, extra));
+      const { value: r, lectures } = await withLectures(() => run(args, extra), TOOL_WAIT_MS);
       const lieu = "lieu" in args && typeof args.lieu === "string" ? args.lieu : undefined;
       record({ kind: "mcp", name, detail: lieu?.trim().slice(0, 60) || undefined, ok: !("isError" in r && r.isError) });
       // Every answer says how to cite it, error or not (tools/citer.ts); the feedback tool's thanks already names rundata.re.

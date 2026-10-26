@@ -87,6 +87,7 @@ export function underSummit(s: Seisme): boolean {
 export async function seismes(cache: Cache, now = new Date()): Promise<Cached<Seisme[]>> {
   return cache.get("seismes", FRESH_SECONDS, async () => {
     const start = new Date(now.getTime() - DAYS * 86_400_000).toISOString().slice(0, 19);
-    return parse(await getText(SOURCE.id, `${URL}?${BOX}&format=text&orderby=time&starttime=${start}`, 20_000));
+    // A few seconds: past them the observatory is down, not slow (26/10, nothing in 40 s), and its copy serves (cache.ts).
+    return parse(await getText(SOURCE.id, `${URL}?${BOX}&format=text&orderby=time&starttime=${start}`, 8_000));
   });
 }
