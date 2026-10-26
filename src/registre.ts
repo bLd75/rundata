@@ -211,15 +211,16 @@ const SCHEDULED: Entry[] = [
     from: ["src/sans-reponse.ts"],
     basis: "estimé",
   },
-  // The national file (about 9 Mo, 125 000 lines), read after the event's other reads. Measured in Node on the real file
-  // (26/10): 20 to 53 ms of CPU, doubled here; 9 to 17 Mo held besides its 9 Mo of text.
+  // The national file (about 9 Mo, 125 000 lines), read after the event's other reads. In the Worker's logs (26/10, its
+  // first four runs against the sixteen runs of the same minutes before): about 160 ms of CPU more on average, 260 at
+  // most, rounded up here; 9 to 17 Mo held besides its 9 Mo of text (measured in Node on the real file).
   {
     id: "irve:etat",
     trigger: "planifiée",
     what: "bornes de recharge : la part de La Réunion du fichier national (environ 9 Mo), écrite dans KV après les autres lectures",
     every: IRVE_EVERY,
     offset: IRVE_OFFSET,
-    run: { subrequests: 2, kvWrites: 1, cpuMs: 100, memoryMb: 30 },
+    run: { subrequests: 2, kvWrites: 1, cpuMs: 300, memoryMb: 30 },
     from: ["src/providers/irve.ts"],
     basis: "estimé",
   },
@@ -238,7 +239,6 @@ const SCHEDULED: Entry[] = [
 // --- The GitHub workflows that write to KV or D1 (.github/workflows) -----------------------------------------------
 
 const ACTIONS: Entry[] = [
-  { id: "actions:irve", trigger: "actions", what: "bornes de recharge : l'état de chaque borne (KV)", every: 15, offset: 0, run: { subrequests: 0, kvWrites: 1, cpuMs: 0 }, from: [], basis: "code" },
   { id: "actions:eau", trigger: "actions", what: "eau de l'île : la copie des avis (KV)", every: 6 * 60, offset: 17, run: { subrequests: 0, kvWrites: 1, cpuMs: 0 }, from: [], basis: "code" },
   { id: "actions:carburants", trigger: "actions", what: "carburants : les prix (KV), 4 fois par jour en fin de mois", every: 24 * 60, shortest: 6 * 60, offset: 3 * 60 + 41, run: { subrequests: 0, kvWrites: 1, cpuMs: 0 }, from: [], basis: "code" },
   // About 28 700 rows written on 24 October 2026, per the D1 analytics.
