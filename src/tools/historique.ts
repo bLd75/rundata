@@ -21,6 +21,7 @@ import type { Station } from "../types.js";
 import { why } from "../types.js";
 import { a, credits, fr, notFound, placeBlock, text } from "./format.js";
 import { fit } from "./representativeness.js";
+import { rienTrouve } from "../vide.js";
 
 /** Up to this many days, one row per day; up to 2 years one per month; beyond, one per year. */
 const DAILY_MAX = 62;
@@ -627,6 +628,8 @@ export async function historiqueMeteo(
   }
   const daily = rain || temp ? sentence(`${place.nom}`, p, s, names) : "";
   const last = lastDay(read, iso(now.getTime() + 4 * 3600_000 - DAY_MS));
+  // No measure of the period, at no station near: its days not loaded yet, or none measuring there.
+  if (!rain && !temp && !sun && !hh) rienTrouve("historique_meteo");
   return text({
     lieu: placeBlock(lieu, res),
     resume: [daily, hh ? `Heure par heure (station ${hh.ou}) — ${hh.texte}.` : ""].filter(Boolean).join(" ") +

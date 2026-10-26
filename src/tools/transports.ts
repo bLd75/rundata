@@ -8,6 +8,7 @@ import * as transit from "../providers/transit.js";
 import { why } from "../types.js";
 import { asksCrossing, T as FERRY } from "./ferries.js";
 import { credits, fr, text } from "./format.js";
+import { rienTrouve } from "../vide.js";
 
 // Words of a question that say nothing about which stop: « prochain bus à l'arrêt X pour Y ». « Routière » too:
 // each network names the same bus station « Gare de St-Pierre », « Gare De Saint Pierre » or « Gare Routière… ».
@@ -462,7 +463,10 @@ export async function transports(asked: string | undefined, ligne: string | unde
     if (ligne?.trim()) {
       const answer = await lineAnswer(ligne.trim(), q, now, cache);
       if (answer) return answer;
-      if (!q) return text({ resume: `Aucune ligne « ${ligne} » dans les horaires publiés des réseaux de La Réunion.`, conseil: "Donner le nom de la ligne comme le réseau l'écrit (« S1 », « O1X », « 2 ») et son réseau (« Car Jaune »).", sources: credits([transit.SOURCE]) });
+      if (!q) {
+        rienTrouve("transports");
+        return text({ resume: `Aucune ligne « ${ligne} » dans les horaires publiés des réseaux de La Réunion.`, conseil: "Donner le nom de la ligne comme le réseau l'écrit (« S1 », « O1X », « 2 ») et son réseau (« Car Jaune »).", sources: credits([transit.SOURCE]) });
+      }
     }
     return await stopAnswer(q, ligne?.trim() || undefined, now, cache);
   } catch (err) {
@@ -475,6 +479,7 @@ export async function transports(asked: string | undefined, ligne: string | unde
 async function stopAnswer(asked: string, ligne: string | undefined, now: Date, cache?: Cache) {
   const { groups, near } = findStops(asked);
   if (!groups.length) {
+    rienTrouve("transports");
     return text({ resume: `Aucun arrêt de bus trouvé pour « ${asked} ».`, conseil: STOP_HELP, sources: credits([transit.SOURCE]) });
   }
   const { shown, feeds, alertes, live } = await stopDepartures(groups, now, cache);

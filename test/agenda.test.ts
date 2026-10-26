@@ -11,6 +11,7 @@ import { buildAgenda } from "../src/web/data.js";
 import { agendaHours, agendaPage } from "../src/web/domains.js";
 import { mesure } from "../src/web/mesure.js";
 import { quand } from "../src/tools/sport.js";
+import { withVide } from "../src/vide.js";
 
 // The communes' sites read, as once they have agreed (test/autorisations.test.ts for what is said until then).
 vi.mock("../src/providers/autorisations.js", () => import("./autorisees.js"));
@@ -823,14 +824,19 @@ describe("agenda", () => {
   });
 
   it("answers for a commune, with what its agenda gives", async () => {
-    const b = body(await agenda(cache(), "Saint-Gilles", "a_venir", undefined, NOW));
+    const { value, vide } = await withVide("evenements", () => agenda(cache(), "Saint-Gilles", "a_venir", undefined, NOW));
+    const b = body(value);
+    expect(vide).toBe(false);
     expect(b.lieu.commune).toBe("Saint-Paul");
     expect(b.evenements.map((e: { titre: string }) => e.titre)).toContain("La Koupe Kartié – Saint-Gilles-les-Bains");
     expect(b.evenements.every((e: { commune: string }) => e.commune === "Saint-Paul")).toBe(true);
   });
 
   it("says when a commune publishes no agenda, and what there is elsewhere", async () => {
-    const b = body(await agenda(cache(), "Saint-Pierre", "ce_week_end", undefined, NOW));
+    const { value, vide } = await withVide("evenements", () => agenda(cache(), "Saint-Pierre", "ce_week_end", undefined, NOW));
+    const b = body(value);
+    // Nothing found where asked, whatever there is elsewhere: a question left without an answer (vide.ts).
+    expect(vide).toBe(true);
     expect(b.resume).toMatch(/^Aucun événement trouvé à Saint-Pierre ce week-end .*la page agenda de la mairie de Saint-Pierre est vide et le Kerveguen n'est pas encore lu\u00a0;.* ailleurs sur l'île\.$/);
     expect(b.ailleurs_sur_l_ile.length).toBeGreaterThan(0);
   });

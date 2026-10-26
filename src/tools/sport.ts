@@ -12,6 +12,7 @@ import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
 import { mentionLa1ere, mentionSports } from "./non-repris.js";
 import { injoignable } from "./injoignable.js";
+import { rienTrouve } from "../vide.js";
 
 export type Sport = "grand_raid" | "handball" | "volley" | "basket" | "voile" | "golf" | "sport_auto" | "football";
 export type Quand = "aujourd_hui" | "demain" | "samedi" | "dimanche" | "ce_week_end" | "a_venir" | "resultats";
@@ -489,6 +490,8 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
 
   const gr = data.grandRaid?.value?.value;
   const showRaid = gr && (sport === "grand_raid" || (!sport && !w && grandRaidNow(gr, now)));
+  // No match, event, result or programme: a club playing away, or a sport given by the news alone, is an answer.
+  if (!aheadAll.length && !results.length && !programmes.length && !showRaid && sport !== "grand_raid" && !(sport && NEWS_ONLY[sport])) rienTrouve("sport");
 
   const what = sport ? NAMES[sport] : "sport";
   const place = w ? w.label : " à La Réunion";

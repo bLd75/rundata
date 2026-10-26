@@ -93,6 +93,8 @@ export function watch(request: Request, record: Recorder) {
   const measure = stopwatch();
   const header = request.headers.get("mcp-protocol-version")?.slice(0, 20) || undefined;
   const answers = new Map<string | number, Answer>();
+  // The calls that found nothing, as the server tells them (vide.ts).
+  const empty = new Set<string | number>();
   let messages: Asked[] = [];
   let failure: string | undefined;
   return {
@@ -113,6 +115,10 @@ export function watch(request: Request, record: Recorder) {
         onerror?.(err);
       };
     },
+    /** The server's word that the call `id` found nothing: recorded « vide » rather than « ok ». */
+    vide(id: string | number) {
+      empty.add(id);
+    },
     done(status: number, message?: string) {
       const refused = status >= 400;
       const error = refused ? (message ?? failure) : undefined;
@@ -126,12 +132,14 @@ export function watch(request: Request, record: Recorder) {
         const place = m.lieu ? understood(m.lieu) : {};
         let outcome = a?.outcome ?? (refused ? `http ${status}` : "ok");
         if (outcome === "erreur" && place.place === "inconnu") outcome = "lieu inconnu";
+        if (outcome === "ok" && m.id !== undefined && empty.has(m.id)) outcome = "vide";
         const { ms, subrequests, cacheHits, cacheLoads } = a ?? measure();
         record({
           kind: m.method === "tools/call" ? "mcp" : "rpc",
           name: m.tool ?? m.method,
           ...place,
-          ok: outcome === "ok",
+          // An answer without anything found is still an answer, not an error (double1).
+          ok: outcome === "ok" || outcome === "vide",
           method: m.method,
           client: m.client,
           clientVersion: m.clientVersion,
