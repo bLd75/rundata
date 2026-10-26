@@ -16,6 +16,23 @@ export function httpUrl(raw: string | undefined): string | undefined {
 }
 
 /**
+ * Whether a link found in a third party's page may be followed: in https, to one of `hosts`. A page of that site gone
+ * bad (a hacked site, a link planted in it) must never send the Worker to read elsewhere. A link refused is said in the
+ * log, by its host only.
+ */
+export function permis(source: string, lien: string, hosts: readonly string[]): boolean {
+  let u: URL;
+  try {
+    u = new URL(lien);
+  } catch {
+    return false;
+  }
+  if (u.protocol === "https:" && hosts.includes(u.host)) return true;
+  console.warn(`${source} : lien hors de ${hosts.join(", ")} ignoré (${u.protocol === "https:" ? u.host : u.protocol})`);
+  return false;
+}
+
+/**
  * A request's body as text, read up to `max` bytes; undefined past them, the rest left unread. `content-length` is
  * only a first check: a body sent in chunks has none, and is counted as it comes.
  */

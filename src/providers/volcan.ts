@@ -11,7 +11,7 @@
  */
 import { later } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
-import { getJson, getText } from "../http.js";
+import { getJson, getText, permis } from "../http.js";
 import { noteLecture, noteSource } from "../lectures.js";
 import { type SourceInfo, UpstreamError } from "../types.js";
 import { decodeText, textOf } from "./avis-eau.js";
@@ -19,6 +19,7 @@ import { type Info, SOURCES as NEWS } from "./actualites.js";
 import * as prefecture from "./prefecture.js";
 
 export const PREFECTURE: SourceInfo = NEWS.prefecture;
+const PREFECTURE_HOST = "www.reunion.gouv.fr";
 
 export const OVPF: SourceInfo = {
   id: "ovpf_bluesky",
@@ -479,6 +480,8 @@ async function releasePage(cache: Cache, lien: string, now: number, freshSeconds
 
 /** Reads a release's page: its title and its sentences. */
 async function readReleasePage(lien: string): Promise<Page> {
+  // Only the prefecture's own pages: a link planted in its list is never read.
+  if (!permis(PREFECTURE.id, lien, [PREFECTURE_HOST])) throw new UpstreamError(PREFECTURE.id, "communiqué hors du site de la préfecture");
   const html = await getText(PREFECTURE.id, lien, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" });
   const phrases = releaseSentences(html);
   if (!phrases.length) throw new UpstreamError(PREFECTURE.id, "communiqué sans texte");

@@ -10,7 +10,7 @@
  * - Théâtre Luc Donat (Le Tampon), CDNOI (Saint-Denis), Léspas (Saint-Paul): their season, with the hours.
  * The TÉAT, Luc Donat and the CDNOI pages are in ISO-8859-1.
  */
-import { getBytes, getText, postBytes } from "../http.js";
+import { getBytes, getText, permis, postBytes } from "../http.js";
 import { normalize } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
 import type { Agenda, AgendaStore, Evenement, Seance } from "./agenda.js";
@@ -117,6 +117,9 @@ function event(e: Omit<Evenement, "categories" | "publie_par"> & Partial<Pick<Ev
 }
 
 // ---------------------------------------------------------------- TÉAT
+
+// A show's page: on teat.re, or at the theatres' ticket office (See Tickets, formerly Digitick), as its programme links.
+export const TEAT_HOSTS = ["www.teat.re", "billetterie.seetickets.fr", "web.digitick.com"];
 
 const TEAT_GENRES = /^(?:Musique|Théâtre|Danse|Cirque|Humour|Jeune public|Spectacle|Conte|Opéra|Comédie musicale|Magie|Lecture|Exposition)$/i;
 export const TEAT_VENUES = [
@@ -233,6 +236,8 @@ const teat: Agenda = {
       const dates = new Map<string, TeatDates>();
       await Promise.all(both.map(async (e) => {
         try {
+          // Only those pages: a link planted in its programme is never read.
+          if (!permis(SOURCE.id, e.lien, TEAT_HOSTS)) return;
           dates.set(e.lien, parseTeatDates(decode(await getBytes(SOURCE.id, e.lien, TIMEOUT_MS, HEADERS)), now));
         } catch {
           // Without its page, the show is told with both stages.
