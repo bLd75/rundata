@@ -192,6 +192,11 @@ export class Cache {
     return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e)));
   }
 
+  /** Forgets the failure remembered under `key`, so that it is asked again at once (tools/agenda.ts: one more try). */
+  forget(key: string): void {
+    this.failures.delete(key);
+  }
+
   /** Tells the tool call being answered, if any, what it was served (lectures.ts): its answer says how fresh it is. */
   private noted<T>(key: string, freshSeconds: number, c: Cached<T>): Cached<T> {
     noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds, ...(c.source && { source: c.source }), ...(c.from && { from: c.from }) });

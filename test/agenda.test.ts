@@ -4,7 +4,7 @@ import { PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, left, scheduled } from "
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
 import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
-import { parseBisik, timeoutMs as sallesTimeoutMs } from "../src/providers/salles.js";
+import { parseBisik } from "../src/providers/salles.js";
 import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
 import { FICHE_REUNION_FR, mentionReunionFr, noteReunionFr, RESUME_REUNION_FR } from "../src/tools/non-repris.js";
 import { buildAgenda } from "../src/web/data.js";
@@ -1064,13 +1064,63 @@ describe("agenda", () => {
       }
     });
 
-    it("gives a hall's site 12 s in the scheduled event, 6 s elsewhere", async () => {
-      expect(sallesTimeoutMs()).toBe(6_000);
-      const { value } = await counted(SCHEDULED_BUDGET, async () => {
-        scheduled();
-        return sallesTimeoutMs();
+    it("in the scheduled event, tries a reading cut by its delay or a server's error once more, and says so", async () => {
+      const calls: Record<string, number> = {};
+      vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+        const site = url.includes("lesechoir") ? "sechoir" : url.includes("kabardock") ? "kabardock" : url.includes("bisik") ? "bisik" : undefined;
+        if (site) calls[site] = (calls[site] ?? 0) + 1;
+        // Le Séchoir cut by its delay, the Kabardock in a server's error, then both back; Bisik refuses (404), not tried again.
+        if (site === "sechoir" && calls.sechoir === 1) throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+        if (site === "kabardock" && calls.kabardock === 1) return new Response("", { status: 503 });
+        if (site === "bisik") return new Response("", { status: 404 });
+        const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+        return f ? new Response(bytes(f)) : new Response("", { status: 503 });
       });
-      expect(value).toBe(12_000);
+      const logs = vi.spyOn(console, "log").mockImplementation(() => {});
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const read = async (planned: boolean) => {
+        for (const k of Object.keys(calls)) delete calls[k];
+        const run = await counted(SCHEDULED_BUDGET, async () => {
+          if (planned) scheduled();
+          return gather(isolate(), NOW);
+        });
+        await run.settled();
+        const has = (id: string) => (run.value.find((g) => g.agenda.id === id)?.value?.value.length ?? 0) > 0;
+        return { sechoir: has("sechoir"), kabardock: has("kabardock"), bisik: has("bisik"), calls: { ...calls } };
+      };
+      // A view does not try again.
+      expect(await read(false)).toEqual({ sechoir: false, kabardock: false, bisik: false, calls: { sechoir: 1, kabardock: 1, bisik: 1 } });
+      expect(await read(true)).toEqual({ sechoir: true, kabardock: true, bisik: false, calls: { sechoir: 2, kabardock: 2, bisik: 1 } });
+      const lines = logs.mock.calls.map(([l]) => String(l)).filter((l) => l.includes("nouvelle tentative"));
+      expect(lines).toEqual(expect.arrayContaining([expect.stringMatching(/\(sechoir\) : nouvelle tentative après échec \(.*timeout\), lue/), expect.stringMatching(/\(kabardock\) : nouvelle tentative après échec \(.*HTTP 503\), lue/)]));
+      vi.restoreAllMocks();
+    });
+
+    it("tries no reading again past two minutes after the agendas began", async () => {
+      vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+      try {
+        let calls = 0;
+        vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+          if (url.includes("lesechoir")) {
+            calls++;
+            vi.setSystemTime(Date.now() + 121_000);
+            throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+          }
+          const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+          return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+        });
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        const run = await counted(SCHEDULED_BUDGET, async () => {
+          scheduled();
+          return gather(isolate(), NOW);
+        });
+        await run.settled();
+        expect(run.value.find((g) => g.agenda.id === "sechoir")?.value).toBeUndefined();
+        expect(calls).toBe(1);
+      } finally {
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+      }
     });
 
     it("measures how long the agendas took, and what is still in flight when they are given up on", async () => {

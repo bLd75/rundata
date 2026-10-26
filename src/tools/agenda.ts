@@ -1,6 +1,6 @@
 import { isScheduled, later, left, perInvocation } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
-import { httpUrl, places, whenPlaced } from "../http.js";
+import { httpUrl, patiently, places, whenPlaced } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
@@ -10,7 +10,7 @@ import { names, THEMES, W } from "../providers/agenda-mots.js";
 import { withNews } from "../providers/agenda-presse.js";
 import { evenements as proposes, ID as PROPOSITIONS_ID } from "../providers/agenda-propositions.js";
 import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
-import { type SourceInfo, why } from "../types.js";
+import { type SourceInfo, UpstreamError, why } from "../types.js";
 import { mesure } from "../web/mesure.js";
 import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
 import { type Injoignable, injoignable } from "./injoignable.js";
@@ -171,6 +171,13 @@ const DEADLINE_MS = 5_000;
 // event runs, not where the views are, and Le Séchoir, cut at 5 s at every hourly reading of 26/10, never had one
 // there, so the count of the events (chiffres.ts) went without it.
 const GRACE_MS = 1_000;
+// In the scheduled event, which nobody waits for, each fetch of an agenda is given that long whatever its own delay
+// (http.ts, `patiently`): having the data matters more than the time. A slow site holds one of the five places that
+// long at most; the others wait for their turn without being cut, their delay counting from their place.
+const PATIENT_MS = 30_000;
+// There too, a reading cut by its delay or by a server's error (5xx) is tried once more, but none past that long after
+// the agendas began: the event must end before the next one, 5 minutes on (2 to 3 minutes at worst, ten sites down).
+const RETRY_WINDOW_MS = 120_000;
 // The subrequests not to be spent on the agendas: what follows them (the news's copy, the bundle's write, the page's
 // copy) and one more, within the invocation's budget (budget.ts); for a question, that one is the read of the scheduled
 // event's copies in KV, once a minute. An agenda past them is answered from its last copy, or named, and read by a
@@ -189,6 +196,13 @@ const echec = src.echecPlanifie;
 
 /** An agenda this invocation has no subrequests left for, and of which no copy is kept. */
 class Postponed extends Error {}
+
+/** A reading cut by its delay, or a server's error (5xx): worth one more try. A refusal (4xx), a page misread, are not. */
+function retryable(err: unknown): boolean {
+  if (err instanceof UpstreamError && err.status) return err.status >= 500;
+  // Cut while waiting for the headers (an UpstreamError without status), or while reading the body (the bare error).
+  return err instanceof Error && (err.name === "TimeoutError" || /timeout/i.test(err.message));
+}
 
 /** Every agenda, read in parallel, once per invocation; one that fails, is too slow or is left for later is named. */
 export function gather(cache: Cache, now: Date, deadlineMs = DEADLINE_MS, graceMs = GRACE_MS): Promise<Got[]> {
@@ -212,8 +226,11 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
   const age = (a: src.Agenda) => bundle.peek(key(a))?.ageMs ?? Infinity;
   const order = src.AGENDAS.filter((a) => !a.planifie).sort((x, y) => age(y) - age(x));
   const planned = src.AGENDAS.filter((a) => a.planifie).map((agenda): Got => ({ agenda, value: src.copiePlanifiee(planifiees, agenda), nonServie: src.nonServie(planifiees, agenda) }));
+  // The keys each agenda reads, so that one more try forgets the failures remembered under them (cache.ts).
+  const keys = new Map<src.Agenda, Set<string>>();
   const store = (a: src.Agenda): src.AgendaStore => ({
     get: <T>(k: string, freshSeconds: number, load: () => Promise<T>) => {
+      keys.set(a, (keys.get(a) ?? new Set()).add(k));
       const hit = bundle.peek(k);
       if (hit && hit.ageMs < freshSeconds * 1000) return bundle.get(k, freshSeconds, load);
       if ((a.requetes ?? 1) <= allowed) {
@@ -234,12 +251,27 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
   const m = mesure();
   const agendasFrom = Date.now();
   m.avant = agendasFrom - started;
+  // The scheduled event's reading: patient, and tried once more if it is cut or the server fails; each try in the logs.
+  const patient = (agenda: src.Agenda) => {
+    const load = () => patiently(PATIENT_MS, () => agenda.load(store(agenda), now));
+    return load().catch((err) => {
+      if (!retryable(err) || Date.now() - agendasFrom > RETRY_WINDOW_MS) throw err;
+      for (const k of keys.get(agenda) ?? []) cache.forget(`${src.BUNDLE}|${k}`);
+      return load().then(
+        (got) => (console.log(`source ${agenda.source.id} (${agenda.id}) : nouvelle tentative après échec (${why(err)}), lue`), got),
+        (again) => {
+          console.error(`source ${agenda.source.id} (${agenda.id}) : nouvelle tentative après échec (${why(err)}), encore en échec (${why(again)})`);
+          throw again;
+        },
+      );
+    });
+  };
   const got = await Promise.all(order.map(async (agenda): Promise<Got> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let done = false;
     let start = () => {};
     const placed = new Promise<void>((resolve) => (start = resolve));
-    const loading = fromPlace ? whenPlaced(() => agenda.load(store(agenda), now), start) : agenda.load(store(agenda), now);
+    const loading = fromPlace ? whenPlaced(() => patient(agenda), start) : agenda.load(store(agenda), now);
     if (!fromPlace) start();
     const kept = last(key(agenda));
     const wait = kept || bundle.has(echec(agenda)) ? Math.min(graceMs, deadlineMs) : deadlineMs;
