@@ -1392,10 +1392,14 @@ export const SPORTSREGIONS: Agenda = {
     cache.get("agenda:sportsregions", 6 * 3600, async () => {
       const url = SPORT_SOURCES.sportsregions.url;
       const pages = [await getText(SPORT_SOURCES.sportsregions.id, url, TIMEOUT_MS, HEADERS)];
-      const last = Math.min(SR_PAGES, Math.max(1, ...[...pages[0].matchAll(/[?&]page=(\d+)/g)].map((m) => +m[1])));
+      // The last page the first one links to: past SR_PAGES, the calendar's end is not read, and the log says so (a
+      // line to watch: /associations promises the clubs « sous 48 h », true only while the calendar fits).
+      const linked = Math.max(1, ...[...pages[0].matchAll(/[?&]page=(\d+)/g)].map((m) => +m[1]));
+      const last = Math.min(SR_PAGES, linked);
       for (let n = 2; n <= last; n++) pages.push(await getText(SPORT_SOURCES.sportsregions.id, `${url}?page=${n}`, TIMEOUT_MS, HEADERS));
       const { evenements, adherents, ailleurs } = parseSportsregions(pages);
-      console.log(`agenda sportsregions : ${pages.length} pages, ${evenements.length} événements dont ${adherents} réservés aux adhérents, ${ailleurs} hors de La Réunion`);
+      console.log(`agenda sportsregions : ${pages.length} pages sur ${linked} liées, ${evenements.length} événements dont ${adherents} réservés aux adhérents, ${ailleurs} hors de La Réunion`);
+      if (linked > SR_PAGES) console.warn(`agenda sportsregions : arrêt à ${SR_PAGES} pages (SR_PAGES), le calendrier en lie ${linked} : ses derniers événements ne sont pas lus`);
       return evenements;
     }),
 };

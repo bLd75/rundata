@@ -22,7 +22,7 @@ export const OSM: SourceInfo = {
   id: "osm_marches",
   nom: "Marchés cartographiés dans OpenStreetMap",
   organisme: "Les contributeurs d'OpenStreetMap",
-  licence: "ODbL",
+  licence: "ODbL 1.0",
   attribution: "© les contributeurs d'OpenStreetMap",
   url: "https://www.openstreetmap.org/",
 };
