@@ -315,8 +315,10 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
       // Never the data center's copy that KV already has: at 5 minutes, the one of the last event would still be fresh.
       const fresh = at == null ? FRESH_SECONDS : Math.min(FRESH_SECONDS, Math.floor((now.getTime() - at) / 1000) - 1);
       const got = await cache.get(s.key, fresh, () => measured(s.key, () => s.build(cache, now)));
-      // The source failed and the cache served its last copy: not worth spreading.
-      if (got.stale) {
+      // The source failed and the cache served its last copy: spread all the same when KV has none as new, so that
+      // every data center serves the same last copy (26/10/2026: the IPGP's catalogue silent, /volcan said the copy of
+      // 17:59 kept where the event falls, volcan_seismes the one of the day before, kept where the assistant asked).
+      if (got.stale && at != null && got.fetchedAt.getTime() <= at) {
         leave("copie de secours");
         continue;
       }

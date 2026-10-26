@@ -72,6 +72,27 @@ describe("the earthquakes and the ONF's map, kept by the scheduled event", () =>
     expect((await there.peek<onf.Carte>(onf.KEY))?.value.mise_a_jour).toBe(map.mise_a_jour);
     expect(asked).toBe(0);
   });
+
+  it("are the same last copy everywhere when the IPGP does not answer: the event's, not another data center's of the day before", async () => {
+    vi.stubGlobal("fetch", async () => new Response("", { status: 503 }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const kv = new FakeKv();
+    // A day after the test above: what this isolate wrote to KV then is older (partagees.ts, `wrote`).
+    const now = new Date(NOW.getTime() + 86_400_000);
+    const read = now.getTime() - 2 * 3600_000;
+    // Where the event falls: the copy read 2 hours ago, the catalogue silent since.
+    const here = new MemoryStore();
+    await here.put(seismes.KEY, { value: seismes.parse(fixture("ipgp_seismes.txt")), fetchedAt: read });
+    const quakes = { ...entry(seismes.KEY), build: (_c: Cache, at: Date) => seismes.read(at) };
+    const warmed = await counted(SCHEDULED_BUDGET, () => warmShared(center(here, kv, now), kv, now, [quakes]));
+    expect(warmed.value).toEqual({ written: [seismes.KEY], left: [] });
+    // Where the assistant asks: a copy of the day before, KV's served instead.
+    const there = new MemoryStore();
+    await there.put(seismes.KEY, { value: [], fetchedAt: now.getTime() - 86_400_000 });
+    const got = await seismes.seismes(center(there, kv, now), now);
+    expect(got.fetchedAt.getTime()).toBe(read);
+    expect(got.value).toHaveLength(18);
+  });
 });
 
 describe("/volcan when the IPGP's catalogue does not answer", () => {

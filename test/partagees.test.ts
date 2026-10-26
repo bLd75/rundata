@@ -576,13 +576,19 @@ describe("the scheduled refresh of the shared copies", () => {
     expect(settled.used).toBeLessThanOrEqual(2 + BUILD_BUDGET + 2);
   });
 
-  it("says when the source failed and only the last copy was there", async () => {
+  it("spreads the last copy when the source failed, once, and says so after", async () => {
     const kv = new FakeKv();
     let now = T0;
     const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => now, false);
     await cache.get("web:essai-panne", 60, async () => ({ n: 1 }));
     now += 3600_000;
     const list: Shared[] = [{ key: "web:essai-panne", build: async () => { throw new Error("source muette"); }, every: 30 }];
+    // KV has none: the last copy goes there, with its time, the one every data center then serves.
+    const first = await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    expect(first.value).toEqual({ written: ["web:essai-panne"], left: [] });
+    expect(JSON.parse(kv.data.get(kvKey("web:essai-panne"))!)).toMatchObject({ value: { n: 1 }, fetchedAt: T0 });
+    // KV has it: not written again.
+    now += 3600_000;
     const run = await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
     expect(run.value).toEqual({ written: [], left: [{ key: "web:essai-panne", why: "copie de secours" }] });
   });
