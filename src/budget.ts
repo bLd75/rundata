@@ -51,6 +51,8 @@ interface Tally {
   /** The work left to finish after the response, and how to keep the invocation alive for it (the Worker's waitUntil). */
   later: Promise<unknown>[];
   keep?: (work: Promise<unknown>) => void;
+  /** The reads of each source (http.ts), by its id: logged with the subrequests (worker.ts), to see how often each is asked. */
+  reads: Map<string, number>;
 }
 
 /** A part of the invocation whose subrequests are measured (a page's build), within the ones it is part of. */
@@ -84,8 +86,8 @@ export async function counted<T>(
   limit: number,
   fn: () => Promise<T>,
   keep?: (work: Promise<unknown>) => void,
-): Promise<{ value: T; used: number; settled: () => Promise<{ used: number; refused: number }> }> {
-  const tally: Tally = { used: 0, refused: 0, limit, shared: new Map<string, unknown>(), later: [], keep };
+): Promise<{ value: T; used: number; reads: Map<string, number>; settled: () => Promise<{ used: number; refused: number; reads: Map<string, number> }> }> {
+  const tally: Tally = { used: 0, refused: 0, limit, shared: new Map<string, unknown>(), later: [], keep, reads: new Map() };
   const value = await current.run(tally, fn);
   const settled = async () => {
     // Work done later may hand over more work.
@@ -93,9 +95,9 @@ export async function counted<T>(
       n = tally.later.length;
       await Promise.allSettled(tally.later);
     }
-    return { used: tally.used, refused: tally.refused };
+    return { used: tally.used, refused: tally.refused, reads: tally.reads };
   };
-  return { value, used: tally.used, settled };
+  return { value, used: tally.used, reads: tally.reads, settled };
 }
 
 /**
@@ -134,6 +136,16 @@ export function count(n = 1, kind: boolean | "read" = false) {
   }
   if (refused) throw new OutOfBudget(over!);
 }
+
+/** Counts a read of `source` (its id), once its subrequest is counted: nothing outside a counted invocation. */
+export function countRead(source: string) {
+  const t = current.getStore();
+  if (t) t.reads.set(source, (t.reads.get(source) ?? 0) + 1);
+}
+
+/** « , lectures : prefecture_communiques 2, ipgp_ovpf_seismes 1 »: the reads of each source, the most read first; "" without one. */
+export const readsSaid = (reads: Map<string, number>) =>
+  reads.size ? `, lectures : ${[...reads].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([s, n]) => `${s} ${n}`).join(", ")}` : "";
 
 /**
  * Runs `fn` as the job `key` (a page's build) and remembers how many subrequests it took, so that it is started again
