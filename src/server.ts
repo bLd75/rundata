@@ -82,9 +82,10 @@ import { agenda, COUVERTURE as AGENDA_COVERAGE, MAIRIES_LUES } from "./tools/age
 import * as traceSources from "./providers/traces.js";
 import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
+import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 
-export const VERSION = "0.196.1";
+export const VERSION = "0.197.0";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -156,7 +157,7 @@ const lieu = z
 export const toutesLesSources = (inactives = false) =>
   oncePerId([...weatherProviders().map((p) => p.source), ...(inactives ? [meteofranceStations.SOURCE] : []), ...(inactives || vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(inactives || transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES), gdacs.SOURCE, ...agendaSources.SOURCES_LUES, ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(inactives || climat.enabled() ? [climat.SOURCE] : []), ...(inactives || climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(inactives || arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(inactives || feux.enabled() ? [feux.SOURCE] : []),
     // The vie pratique's and the power cuts' (annuaire_services_publics, electricite).
-    carburantsPrix.SOURCE, radarMf.SOURCE, courantMairies.SOURCE, tcoDecheteries.SOURCE, santeSources.FINESS, santeSources.ARS_GARDE, santeSources.SANTE_FR, collecteTco.SOURCE, ...Object.values(lieuxEnfants.SOURCES), marchesOsm.OSM]);
+    carburantsPrix.SOURCE, radarMf.SOURCE, radarsFixes.SOURCE, courantMairies.SOURCE, tcoDecheteries.SOURCE, santeSources.FINESS, santeSources.ARS_GARDE, santeSources.SANTE_FR, collecteTco.SOURCE, ...Object.values(lieuxEnfants.SOURCES), marchesOsm.OSM]);
 /** A source's name from its id, for one served from its last copy (fraicheur.ts). */
 export const nomDeSource = (id: string) => toutesLesSources().find((s) => s.id === id)?.nom;
 
@@ -772,6 +773,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "le média, le titre, la première phrase quand le média la donne, les communes et lieux nommés, ce qu'elle dit du lieu demandé, le lien vers l'article. Par lieu (commune, quartier) " +
         "et par sujet (manifestations et blocages, routes, météo, volcan, eau, faits divers, santé, politique, culture, sport). " +
         "Route du Littoral : champ route_du_littoral, une annonce des médias datée, pas une mesure. " +
+        "Radars fixes (champ radars_fixes) : la liste publiée par le ministère de l'Intérieur, avec la vitesse limite de chacun, pour une question sur les routes ou les radars. Jamais les contrôles mobiles. " +
         "Pour : « il y a des blocages à Saint-Pierre ? », « la manifestation se passe comment ? », « quoi de neuf à Saint-Benoît ? », « route fermée ? », " +
         "« dernières infos sur le cyclone ». / Live local news of Réunion Island: headlines of the local media and their live blogs, prefecture releases, by place and subject.",
       inputSchema: {

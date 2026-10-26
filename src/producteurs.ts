@@ -114,6 +114,7 @@ export const FICHES: Record<string, Fiche> = {
   // The same sales, by street: the DGFiP's, placed on the map by Etalab.
   dvf_etalab: { famille: "licence_ouverte", producteurs: ["DGFiP", "Etalab"] },
   prefecture_carburants: { famille: "licence_ouverte", producteurs: [PREFECTURE] },
+  radars_fixes: { famille: "licence_ouverte", producteurs: ["Ministère de l'Intérieur"] },
   tco_decheteries: { famille: "licence_ouverte", producteurs: ["TCO"] },
   tco_collecte: { famille: "licence_ouverte", producteurs: ["TCO"] },
   osm_enfants: { famille: "odbl", producteurs: [OSM] },

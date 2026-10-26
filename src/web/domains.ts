@@ -24,6 +24,7 @@ import * as littoral from "../tools/littoral.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
 import { a, de, fr, nombre } from "../tools/format.js";
+import * as radars from "../routes/radars.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
@@ -1525,10 +1526,17 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
       (s.annonce ? `<p>${esc(keep(s.annonce))}.</p>${s.jusquau ? `<p>${esc(keep(s.jusquau))}.</p>` : ""}` : `<p>${esc(keep(`${s.depuis}, fixés par le préfet : ${s.lignes}`))}.</p>`) +
       `<p class="note">Les mêmes dans toute l'île : une station peut vendre moins cher. <a href="/carburants">Tous les prix du mois →</a></p></div>`
     : "";
+  // The fixed speed cameras, from the ministry's yearly list bundled with the site: where they stand, never the mobile checks.
+  const cameras = radars.byCommune();
+  const radarsCard = `<div class="card" id="radars">${icon("car")}<h3>Radars fixes</h3>
+  <p>${radars.RADARS.length} radars fixes à La Réunion, d'après la liste publiée par le ministère de l'Intérieur (fichier du ${esc(radars.fichierDu())}).</p>
+  <ul class="rows eau">${cameras.map((c) => `<li><span>${esc(c.commune)}<small>${esc(radars.vitesses(c.radars).join(", "))}</small></span><span class="score">${c.radars.length}</span></li>`).join("")}</ul>
+  <details><summary>Où ils sont</summary><ul class="plain">${cameras.flatMap((c) => c.radars.map((r) => `<li>${esc(c.commune)}${r.vma_kmh != null ? `, ${r.vma_kmh}\u00a0km/h` : ""} : <a href="${esc(radars.carte(r))}" rel="noopener">la carte ↗</a></li>`)).join("")}</ul></details>
+  <p class="note">${esc(radars.RESERVE())}</p></div>`;
   const ours = `<section aria-labelledby="h-nous">
   <div class="sec-h"><p class="eyebrow">Données ouvertes, en direct</p><h2 id="h-nous">Ce que rundata.re lit</h2>
   <p>Pas les bouchons : autour d'eux. La vigilance, les retards et déviations des bus, les routes forestières, le volcan, et ce que les médias signalent sur les routes.</p></div>
-  <div class="two">${medias}${vigilance}${busCard}${roadsCard}${enclos}${fuel}</div>
+  <div class="two">${medias}${vigilance}${busCard}${roadsCard}${enclos}${fuel}${radarsCard}</div>
   ${d && data && d.sources.length ? sourcesNote(d.sources, data) : ""}
 </section>`;
 
