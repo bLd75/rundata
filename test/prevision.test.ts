@@ -81,7 +81,7 @@ describe("prevision_meteo", () => {
     expect(r.jours).toHaveLength(1);
     expect(r.pas_de_3h).toHaveLength(8);
     expect(r.pas_de_3h[0].heures).toBe("vendredi 23/10 0h–3h");
-    expect(r.avertissements.join(" ")).toMatch(/altitude de Cilaos \(1209 m\)/);
+    expect(r.avertissements.join(" ")).toMatch(/altitude de Cilaos \(1\u202f209 m\)/);
   });
 
   it("gives the next 24 hours and the following days without a time", async () => {

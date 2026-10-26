@@ -87,8 +87,9 @@ import * as actuSources from "./providers/actualites.js";
 import { actualites } from "./tools/actualites.js";
 import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
+import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.18";
+export const VERSION = "0.203.19";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -119,6 +120,12 @@ async function withVigilance<R extends { content: { type: "text"; text: string }
   if (!warnings.length || r.isError) return r;
   const payload = JSON.parse(r.content[0].text) as Record<string, unknown>;
   return { ...r, content: [{ type: "text", text: JSON.stringify({ vigilance: warnings, ...payload }, null, 1) }] };
+}
+
+/** An answer's texts with their no-break spaces: none of JSON's own spaces is before « : » or after a figure. */
+function spaced<R extends object>(r: R): R {
+  if (!("content" in r) || !Array.isArray(r.content)) return r;
+  return { ...r, content: r.content.map((c: { type: string; text?: string }) => (c.type === "text" && c.text ? { ...c, text: insecables(c.text) } : c)) };
 }
 
 /** What a tool's handler is told of the HTTP request (the MCP SDK's RequestHandlerExtra): its headers, on HTTP only. */
@@ -179,8 +186,12 @@ export const TOOL_WAIT_MS = 5_000;
 export function createServer(cache: Cache, record: Recorder = () => {}, background?: Background): McpServer {
   const server = new McpServer(
     { name: "reunion-temps-reel", title: "rundata.re · La Réunion 974 en direct", version: VERSION, icons: SERVER_ICONS },
-    { instructions: INSTRUCTIONS },
+    { instructions: insecables(INSTRUCTIONS) },
   );
+  // The descriptions and the answers as said, with their no-break spaces (typographie.ts), like the pages.
+  const register = server.registerTool.bind(server);
+  server.registerTool = ((name: string, config: { description?: string }, cb: never) =>
+    register(name, { ...config, description: config.description && insecables(config.description) }, cb)) as typeof server.registerTool;
   // Records the place asked (a commune, a beach…), never a street address: fiche_terrain's stays out of the metrics.
   // Ends each answer with its citation and the link to rundata.re.
   // Each answer also says how fresh it is, from the cache entries the call read, and which tools are new.
@@ -194,7 +205,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       // Every answer says how to cite it, error or not (tools/citer.ts); the feedback tool's thanks already names rundata.re.
       const now = new Date();
       // The day's summary has a dozen dated parts: no single « donnee_du » for it, each part says its own.
-      return name === "donner_avis" ? r : cite(name, r, { lectures, now, serveur: serveur(VERSION, tools, now), donnee: name !== "resume_du_jour", nom: nomDeSource });
+      const said = name === "donner_avis" ? r : cite(name, r, { lectures, now, serveur: serveur(VERSION, tools, now), donnee: name !== "resume_du_jour", nom: nomDeSource });
+      return spaced(said);
     };
   };
 

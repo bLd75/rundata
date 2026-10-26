@@ -65,7 +65,10 @@ describe("the server's instructions", () => {
 
   it("start with the index of the tools and the rules, and are shorter", async () => {
     const r = await rpcResult("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
-    const text: string = r.instructions;
+    const said: string = r.instructions;
+    // Said with their no-break spaces (typographie.ts); read here with ordinary ones.
+    expect(said).not.toMatch(/ [:;?!»]|« /);
+    const text = said.replace(/[\u00a0\u202f]/g, " ");
     // Claude Code cuts them near 4 000 characters: everything must fit before that.
     expect(text.length).toBeLessThan(4000);
     expect(text).not.toMatch(/waze/i);

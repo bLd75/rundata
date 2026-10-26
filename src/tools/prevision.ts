@@ -7,7 +7,7 @@ import * as ensemble from "../providers/ensemble.js";
 import * as openmeteo from "../providers/openmeteo.js";
 import * as uv from "../providers/uv.js";
 import { type Forecast, type ForecastDay, type ForecastHour, why } from "../types.js";
-import { credits, fr, notFound, placeBlock, text } from "./format.js";
+import { credits, fr, nombre, notFound, placeBlock, text } from "./format.js";
 import * as nuages from "./nuages.js";
 
 const TOUR = ["Saint-Denis", "Saint-Pierre", "Saint-Gilles-les-Bains", "Saint-Benoît", "Cilaos", "Plaine des Cafres"];
@@ -360,7 +360,7 @@ function warnings(f: Forecast, place?: Place): string[] {
   if (f.model === arome.MODEL) {
     const altitude = place
       ? `À cet endroit, le relief du modèle est à ${f.relief_m ?? "?"} m : les températures sont ramenées à l'altitude de ` +
-        `${place.nom} (${f.altitude_m} m).`
+        `${place.nom} (${nombre(f.altitude_m)} m).`
       : "Les températures sont ramenées à l'altitude de chaque lieu.";
     out.push(
       "AROME calcule sur des carrés d'environ 2,5 km : il voit le relief de l'île bien mieux qu'un modèle mondial, mais pas " +
@@ -381,7 +381,7 @@ function warnings(f: Forecast, place?: Place): string[] {
     }
   } else {
     const altitude = place
-      ? `Les températures sont ramenées à l'altitude de ${place.nom} (${f.altitude_m} m)\u00a0; la pluie, le vent et les nuages ` +
+      ? `Les températures sont ramenées à l'altitude de ${place.nom} (${nombre(f.altitude_m)} m)\u00a0; la pluie, le vent et les nuages ` +
         "sont ceux de tout le carré."
       : "Les températures sont ramenées à l'altitude de chaque lieu\u00a0; la pluie, le vent et les nuages sont ceux de tout le carré.";
     out.push(
