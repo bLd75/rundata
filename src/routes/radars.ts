@@ -5,7 +5,8 @@
  * mobile checks, nor anything to dodge a camera.
  */
 import { distanceKm } from "../geo.js";
-import { placeAt } from "../places/resolve.js";
+import { communeAt } from "../places/resolve.js";
+import { enumeration } from "../tools/format.js";
 import type { SourceInfo } from "../types.js";
 import data from "./radars.json" with { type: "json" };
 
@@ -20,8 +21,10 @@ export const SOURCE: SourceInfo = {
 
 export interface Radar {
   numero: string;
-  /** « radar vitesse fixe de nouvelle génération », as the dataset's page defines its type. */
+  /** « ETT ». */
   type: string;
+  /** Its type as the dataset's page defines it, word for word; none for a type it does not define. */
+  definition: string | null;
   /** The speed limit it checks, km/h. */
   vma_kmh: number | null;
   /** « 2021-05-04 ». */
@@ -34,19 +37,18 @@ export const RADARS = data.radars as Radar[];
 /** The day the ministry put its file online: « 2025-12-30 ». */
 export const FICHIER_DU: string = data.fichier_du;
 
+/**
+ * A camera with its commune, that of the nearest place of the gazetteer. Never that place itself: a beach named for a
+ * camera on a boulevard would be repeated as where it stands (marketing, 26/10).
+ */
 export interface RadarPlace extends Radar {
   commune: string;
-  /** The nearest place of the gazetteer: « Bois de Nèfles ». */
-  pres_de: string;
 }
 
 let placed: RadarPlace[] | undefined;
-/** Each camera with its commune and the nearest place, worked out once per isolate. */
+/** Each camera with its commune, worked out once per isolate. */
 export function radars(): RadarPlace[] {
-  placed ??= RADARS.map((r) => {
-    const p = placeAt(r.lon, r.lat);
-    return { ...r, commune: p.commune, pres_de: p.nom };
-  });
+  placed ??= RADARS.map((r) => ({ ...r, commune: communeAt(r.lon, r.lat) }));
   return placed;
 }
 
@@ -69,20 +71,20 @@ export const carte = (r: Pick<Radar, "lon" | "lat">) => `https://www.openstreetm
 /** « 30/12/2025 ». */
 export const fichierDu = () => FICHIER_DU.split("-").reverse().join("/");
 
-/** What is said with the list, wherever it is shown (words to be checked by marketing). */
+/** What is said with the list, wherever it is shown (marketing, 26/10). « Once a year »: the dataset's page says so. */
 export const RESERVE = () =>
   `Liste des radars fixes publiée par le ministère de l'Intérieur, fichier du ${fichierDu()}, mise à jour une fois par an : un radar installé depuis, ou absent du fichier, n'y figure pas. Les contrôles mobiles n'y sont pas.`;
 
 const fixes = (n: number) => `${n} ${n > 1 ? "radars fixes" : "radar fixe"}`;
-const kmh = (list: Radar[]) => [...new Set(list.map((r) => r.vma_kmh).filter((v): v is number => v != null))].sort((x, y) => x - y).map((v) => `${v} km/h`);
+/** The speed limits of these cameras, the lowest first: « 70\u00a0km/h ». */
+export const vitesses = (list: Radar[]) => [...new Set(list.map((r) => r.vma_kmh).filter((v): v is number => v != null))].sort((x, y) => x - y).map((v) => `${v}\u00a0km/h`);
 
 /** One camera in a tool's answer. */
 export const row = (r: RadarPlace) => ({
   numero: r.numero,
-  type: r.type,
+  type: r.definition ? `${r.type} : ${r.definition}` : r.type,
   vitesse_max_kmh: r.vma_kmh ?? undefined,
   commune: r.commune,
-  lieu_le_plus_proche: r.pres_de,
   mis_en_service: r.mis_en_service?.split("-").reverse().join("/"),
   carte: carte(r),
 });
@@ -90,15 +92,17 @@ export const row = (r: RadarPlace) => ({
 /** The field `radars_fixes` of actualites: a commune's cameras, or the island's by commune. `dans`: « à Saint-Denis ». */
 export function forTool(commune?: string, dans?: string) {
   const list = commune ? inCommune(commune) : radars();
+  const liste = `dans la liste du ministère de l'Intérieur (fichier du ${fichierDu()})`;
+  const limits = vitesses(list);
   const resume = commune
     ? list.length
-      ? `${fixes(list.length)} ${dans} dans la liste du ministère de l'Intérieur (${kmh(list).join(", ")}).`
-      : `Aucun radar fixe ${dans} dans la liste du ministère de l'Intérieur.`
-    : `${fixes(list.length)} à La Réunion dans la liste du ministère de l'Intérieur.`;
+      ? `${fixes(list.length)} ${dans} ${liste}${limits.length ? `, limité${list.length > 1 ? "s" : ""} à ${enumeration(limits)}` : ""}.`
+      : `Aucun radar fixe ${dans} ${liste}.`
+    : `${fixes(list.length)} à La Réunion ${liste}.`;
   return {
     resume,
     radars: commune && list.length ? list.map(row) : undefined,
-    par_commune: commune ? undefined : byCommune().map((c) => ({ commune: c.commune, nombre: c.radars.length, vitesses_max: kmh(c.radars) })),
+    par_commune: commune ? undefined : byCommune().map((c) => ({ commune: c.commune, nombre: c.radars.length, vitesses_max: vitesses(c.radars) })),
     a_savoir: RESERVE(),
     page: "https://rundata.re/trafic#radars",
   };

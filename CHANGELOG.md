@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Lundi 26 octobre 2026
 
+- Radars fixes : les 24 de la liste du ministère de l'Intérieur, avec leur vitesse, sur /trafic et dans les réponses des IA.
 - Avec les enfants : une carte par commune, avec les aires de jeux, parcs, piscines et médiathèques, et l'agenda de leurs activités.
 - Bus : chaque départ s'ouvre sur tous ses arrêts, avec l'heure de passage à chacun, et chaque arrêt a sa page, à chercher sur rundata.re/bus.
 - rundata.re en chiffres : une page compte les sources publiques lues, leurs producteurs, leurs licences, et ce qui manque encore.

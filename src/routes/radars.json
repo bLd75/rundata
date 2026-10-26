@@ -5,7 +5,8 @@
 "radars": [
 {
 "numero": "50401",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 70,
 "mis_en_service": "2021-05-04",
 "lon": 55.48891,
@@ -13,7 +14,8 @@
 },
 {
 "numero": "50403",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 90,
 "mis_en_service": "2020-12-30",
 "lon": 55.50131,
@@ -21,7 +23,8 @@
 },
 {
 "numero": "50404",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 70,
 "mis_en_service": "2020-12-28",
 "lon": 55.46356,
@@ -29,7 +32,8 @@
 },
 {
 "numero": "50405",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 70,
 "mis_en_service": "2021-04-12",
 "lon": 55.48366,
@@ -37,7 +41,8 @@
 },
 {
 "numero": "50406",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 90,
 "mis_en_service": "2021-04-09",
 "lon": 55.25272,
@@ -45,7 +50,8 @@
 },
 {
 "numero": "50408",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 80,
 "mis_en_service": "2020-12-16",
 "lon": 55.30029,
@@ -53,7 +59,8 @@
 },
 {
 "numero": "50409",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 110,
 "mis_en_service": "2021-04-14",
 "lon": 55.46488,
@@ -61,7 +68,8 @@
 },
 {
 "numero": "50414",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 50,
 "mis_en_service": "2022-05-31",
 "lon": 55.5767,
@@ -69,7 +77,8 @@
 },
 {
 "numero": "50418",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 50,
 "mis_en_service": "2022-06-02",
 "lon": 55.71929,
@@ -77,7 +86,8 @@
 },
 {
 "numero": "50419",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 110,
 "mis_en_service": "2020-12-29",
 "lon": 55.6573,
@@ -85,7 +95,8 @@
 },
 {
 "numero": "50420",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 110,
 "mis_en_service": "2020-12-16",
 "lon": 55.42568,
@@ -93,7 +104,8 @@
 },
 {
 "numero": "50421",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 110,
 "mis_en_service": "2020-12-23",
 "lon": 55.31394,
@@ -101,7 +113,8 @@
 },
 {
 "numero": "50422",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 110,
 "mis_en_service": "2020-12-17",
 "lon": 55.4401,
@@ -109,7 +122,8 @@
 },
 {
 "numero": "50424",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 50,
 "mis_en_service": "2025-01-30",
 "lon": 55.68439,
@@ -117,7 +131,8 @@
 },
 {
 "numero": "50425",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 70,
 "mis_en_service": "2024-08-02",
 "lon": 55.64388,
@@ -125,7 +140,8 @@
 },
 {
 "numero": "50438",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 50,
 "mis_en_service": "2022-06-01",
 "lon": 55.59199,
@@ -133,7 +149,8 @@
 },
 {
 "numero": "50439",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 50,
 "mis_en_service": "2022-06-01",
 "lon": 55.62686,
@@ -141,7 +158,8 @@
 },
 {
 "numero": "50447",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 90,
 "mis_en_service": "2022-06-02",
 "lon": 55.49496,
@@ -149,7 +167,8 @@
 },
 {
 "numero": "50448",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 70,
 "mis_en_service": "2025-10-23",
 "lon": 55.46069,
@@ -157,7 +176,8 @@
 },
 {
 "numero": "50449",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 90,
 "mis_en_service": "2024-06-13",
 "lon": 55.5008,
@@ -165,7 +185,8 @@
 },
 {
 "numero": "50461",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 110,
 "mis_en_service": "2022-05-31",
 "lon": 55.29393,
@@ -173,7 +194,8 @@
 },
 {
 "numero": "50475",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 110,
 "mis_en_service": "2022-06-02",
 "lon": 55.50982,
@@ -181,7 +203,8 @@
 },
 {
 "numero": "50479",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 110,
 "mis_en_service": "2020-12-21",
 "lon": 55.54945,
@@ -189,7 +212,8 @@
 },
 {
 "numero": "50483",
-"type": "radar vitesse fixe de nouvelle génération",
+"type": "ETT",
+"definition": "radar vitesse fixe de nouvelle génération, doté de fonctionnalités plus avancées de détection des infractions pour contrôler les excès de vitesse ou franchissement",
 "vma_kmh": 50,
 "mis_en_service": "2024-06-07",
 "lon": 55.8006,

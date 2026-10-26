@@ -773,7 +773,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "le média, le titre, la première phrase quand le média la donne, les communes et lieux nommés, ce qu'elle dit du lieu demandé, le lien vers l'article. Par lieu (commune, quartier) " +
         "et par sujet (manifestations et blocages, routes, météo, volcan, eau, faits divers, santé, politique, culture, sport). " +
         "Route du Littoral : champ route_du_littoral, une annonce des médias datée, pas une mesure. " +
-        "Radars fixes : champ radars_fixes, la liste annuelle du ministère de l'Intérieur (jamais les contrôles mobiles), avec une question sur les routes ou le sujet « radar ». " +
+        "Radars fixes (champ radars_fixes) : la liste publiée par le ministère de l'Intérieur, avec la vitesse limite de chacun, pour une question sur les routes ou les radars. Jamais les contrôles mobiles. " +
         "Pour : « il y a des blocages à Saint-Pierre ? », « la manifestation se passe comment ? », « quoi de neuf à Saint-Benoît ? », « route fermée ? », " +
         "« dernières infos sur le cyclone ». / Live local news of Réunion Island: headlines of the local media and their live blogs, prefecture releases, by place and subject.",
       inputSchema: {
