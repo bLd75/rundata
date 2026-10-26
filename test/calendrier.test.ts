@@ -108,15 +108,15 @@ describe("calendar", () => {
     const now = new Date("2026-10-26T14:10:00Z");
     const r = body(await calendrier(cacheAt(now), "Saint-Denis", now));
     // Saint-Denis at 34 m: its horizon a little lower than the sea level of the ephemeris above.
-    expect(r.resume).toContain("Lune : pleine lune à 08:13, éclairée à 100 %, coucher à 05:24, lever à 18:48 (calcul).");
+    expect(r.resume).toContain("Lune : pleine lune à 08:13, éclairée à 100 %, coucher à 05:24, lever à 18:48 (calcul astronomique).");
     expect(r.lune).toMatchObject({ lieu: "Saint-Denis", phase: "pleine lune à 08:13", eclairee_pct: 100, lever: "18:48", coucher: "05:24" });
     expect(r.lune.prochaines_phases[0]).toEqual({ phase: "dernier quartier", date: "lundi 2 novembre 2026", heure: "00:30" });
-    expect(r.lune.note).toMatch(/^Calculé, pas mesuré/);
+    expect(r.lune.note).toMatch(/^Calculé, pas mesuré : .* elle s'y lève plus tard et s'y couche plus tôt\.$/);
     // No rising that day: said, and left out of the summary.
     const later = new Date("2026-10-31T08:00:00Z");
     const l = body(await calendrier(cacheAt(later), "Saint-Denis", later));
     expect(l.lune.lever).toBe("pas de lever de Lune ce jour");
-    expect(l.resume).toMatch(/Lune : gibbeuse décroissante, éclairée à \d+ %, coucher à 10:1\d \(calcul\)\./);
+    expect(l.resume).toMatch(/Lune : Lune décroissante, éclairée à \d+ %, coucher à 10:1\d \(calcul astronomique\)\./);
   });
 
   it("says holidays under way, the next public holiday and the sun", async () => {

@@ -227,7 +227,7 @@ export function nextPhases(from: Date, n: number): { phase: MoonPhase; at: Date 
   return out;
 }
 
-/** The Moon between the main phases, from its angle to the Sun. */
+/** The Moon between the main phases, from its angle to the Sun: waxing or waning, said with how much is lit. */
 export function between(angle: number): string {
-  return angle < 90 ? "premier croissant" : angle < 180 ? "gibbeuse croissante" : angle < 270 ? "gibbeuse décroissante" : "dernier croissant";
+  return angle < 180 ? "Lune croissante" : "Lune décroissante";
 }

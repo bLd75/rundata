@@ -46,7 +46,7 @@ export function moonOf(day: string, now: Date, lon: number, lat: number, altitud
     ...(coucher ? [{ at: coucher, texte: `coucher à ${hm(coucher)}` }] : []),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
   return {
-    phrase: `Lune : ${phase}, éclairée à ${lit} %${events.length ? `, ${events.map((e) => e.texte).join(", ")}` : ""} (calcul).`,
+    phrase: `Lune : ${phase}, éclairée à ${lit} %${events.length ? `, ${events.map((e) => e.texte).join(", ")}` : ""} (calcul astronomique).`,
     champs: {
       phase,
       eclairee_pct: lit,
@@ -54,8 +54,8 @@ export function moonOf(day: string, now: Date, lon: number, lat: number, altitud
       coucher: coucher ? hm(coucher) : "pas de coucher de Lune ce jour",
       prochaines_phases: next.filter((x) => x !== main && x.at > now).slice(0, 3).map((x) => ({ phase: x.phase, date: longDate(localDay(x.at)), heure: hm(x.at) })),
       note:
-        "Calculé, pas mesuré\u00a0: position de la Lune par les formules astronomiques usuelles, à quelques minutes près, " +
-        "pour l'horizon dégagé\u00a0; dans les cirques et les ravines, le relief cache la Lune plus tôt.",
+        "Calculé, pas mesuré : position de la Lune par les formules astronomiques usuelles, à quelques minutes près, pour " +
+        "l'horizon dégagé. Dans les cirques et les ravines, le relief la cache plus longtemps : elle s'y lève plus tard et s'y couche plus tôt.",
     },
   };
 }

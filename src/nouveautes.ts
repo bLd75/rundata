@@ -55,6 +55,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-26T18:37:00+04:00", texte: "La Lune dans le calendrier, calculée au lieu demandé\u00a0: phase, part éclairée, lever, coucher et prochaines phases." },
   { date: "2026-10-26T18:27:00+04:00", texte: "Radars fixes\u00a0: les 24 de la liste du ministère de l'Intérieur, avec leur vitesse, sur /trafic et dans les réponses des IA." },
   { date: "2026-10-26T15:54:00+04:00", texte: "Avec les enfants\u00a0: une carte par commune, avec les aires de jeux, parcs, piscines et médiathèques, et l'agenda de leurs activités." },
   { date: "2026-10-26T03:52:00+04:00", texte: "Bus\u00a0: chaque départ s'ouvre sur tous ses arrêts, avec l'heure de passage à chacun, et chaque arrêt a sa page, à chercher sur rundata.re/bus." },
