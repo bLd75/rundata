@@ -497,7 +497,7 @@ const FEEDS: Feed[] = [
   { media: "Clicanoo", url: "https://www.clicanoo.re/rss", parse: (b) => parseRss(b, "Clicanoo") },
   { media: "Imaz Press", url: "https://imazpress.com/sitemap-news.xml", parse: (b) => parseNewsSitemap(b, "Imaz Press", /\/france-monde\//) },
   { media: "Freedom", url: "https://freedom.fr/feed/", parse: (b) => parseRss(b, "Freedom", /jeux|podcast|actus radio/i) },
-  { media: "Parallèle Sud", url: "https://www.parallelesud.com/feed/", parse: (b) => parseRss(b, "Parallèle Sud") },
+  { media: "Parallèle Sud", url: "https://parallelesud.com/feed/", parse: (b) => parseRss(b, "Parallèle Sud") },
   { media: "Témoignages", url: "https://www.temoignages.re/spip.php?page=sitemap-news-fr.xml", parse: (b) => parseNewsSitemap(b, "Témoignages") },
   { media: "Le Quotidien", url: "https://www.lequotidien.re/", parse: (b, now) => parseQuotidien(b, now) },
 ];
