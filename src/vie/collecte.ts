@@ -34,7 +34,6 @@ interface Calendar {
 export const CALENDARS = data.calendriers as Calendar[];
 export const YEAR = data.annee;
 export const UPDATED = data.mis_a_jour;
-export const SOURCE_URL = data.source;
 export interface Street {
   nom: string;
   commune: string;

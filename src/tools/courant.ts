@@ -75,7 +75,6 @@ const list = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} e
 
 /** « La mairie de Sainte-Marie », « la mairie du Port ». */
 export const mairie = (commune: string) => `la mairie ${de(commune)}`;
-const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * Whether a mairie's notices are read: not those of a mairie that has not agreed, even from a copy kept before
