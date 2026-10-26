@@ -8,6 +8,8 @@
 -- http_403, flux_vide. nom, theme, manque, page: how the page names the site, the part it is listed in, what is missing
 -- on rundata.re and the page that would show it; NULL takes them from the sources read (sources_donnees). verifier:
 -- for a site that answers with an empty feed, {"url", "date" (a regular expression, group 1 an ISO date), "age_max_h"}.
+-- url: the page the recheck asks; for a row a failed read wrote, the site's root only, never the read's own address
+-- (scripts/sans-reponse-origine.sql cuts the older ones).
 -- WITHOUT ROWID: one write per row changed, not two.
 CREATE TABLE IF NOT EXISTS sans_reponse (
   hote TEXT PRIMARY KEY,

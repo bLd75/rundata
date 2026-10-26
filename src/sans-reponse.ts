@@ -95,6 +95,19 @@ export const hoteDe = (url: string) => {
   }
 };
 
+/**
+ * What a failed read leaves of its address: the site's root only. The rest may hold what a person asked (an address
+ * given to fiche_terrain, in the geocoder's query; coordinates in a path) or a key (FIRMS's is in its path), and is
+ * never written.
+ */
+export const origineDe = (url: string) => {
+  try {
+    return `${new URL(url).origin}/`;
+  } catch {
+    return undefined;
+  }
+};
+
 /** When this isolate last read each host (http.ts, worker.ts). */
 const lectures = new Map<string, number>();
 export function lu(url: string, t = Date.now()) {
@@ -145,8 +158,9 @@ ON CONFLICT (hote) DO UPDATE SET statut = 'a_verifier', url = excluded.url, prem
 WHERE sans_reponse.statut = 'revenu'`;
 
 /**
- * A read of `url` (source `source`) failed: the host enters « a_verifier » if it was unknown or had come back. Written
- * once per change of state: a host already listed writes nothing. Never throws.
+ * A read of `url` (source `source`) failed: the host enters « a_verifier » if it was unknown or had come back, with its
+ * root as address (origineDe), never the read's own. Written once per change of state: a host already listed writes
+ * nothing. Never throws.
  */
 export async function noter(source: string, url: string, constat: string, now = new Date()): Promise<void> {
   const hote = hoteDe(url);
@@ -157,7 +171,7 @@ export async function noter(source: string, url: string, constat: string, now = 
     if (!etats || (etat && etat !== "revenu")) return;
     etats.set(hote, "a_verifier");
     count(1, true);
-    await run(ENTRER, hote, url, JSON.stringify([source]), Math.floor(now.getTime() / 1000), constat);
+    await run(ENTRER, hote, origineDe(url), JSON.stringify([source]), Math.floor(now.getTime() / 1000), constat);
   } catch (err) {
     if (!absente(err)) console.error(`sites sans réponse : ${hote} non noté`, err instanceof Error ? err.message : String(err));
   }
@@ -177,7 +191,10 @@ export async function essayer(l: Pick<Ligne, "url" | "verifier">, now: Date, fet
     return { issue: "echec", constat: constatDe({ message: err instanceof Error ? `${err.name} ${err.message}` : String(err) }) ?? "connexion" };
   }
   if (res.status === 403 || res.status === 429) return { issue: "bloque", constat: `http_${res.status}` };
-  if (!res.ok) return { issue: "echec", constat: `http_${res.status}` };
+  // A site's root, where a failed read leaves its host (origineDe), may have no page: an API's often answers 404. There
+  // the site answers; only the network, the delay and a 5xx count, as for the reads (constatDe).
+  const racine = !l.verifier && new URL(l.url).pathname === "/";
+  if (!res.ok && !(racine && res.status < 500)) return { issue: "echec", constat: `http_${res.status}` };
   const body = await res.text().catch(() => "");
   if (MAINTENANCE.test(body.slice(0, 65_536))) return { issue: "echec", constat: "maintenance" };
   if (l.verifier) {
