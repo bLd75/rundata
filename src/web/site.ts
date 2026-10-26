@@ -10,7 +10,7 @@ import type { Cache, Cached } from "../cache.js";
 import { why } from "../types.js";
 import {
   alerte,
-  alerteOf,
+  alerteLue,
   BANNER_WAIT_MS,
   buildAir,
   buildBus,
@@ -320,7 +320,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     ]);
     const [actualites, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda] = await tileCopies(cache, HOME_TILES, background, meteo, now);
     return page(path, (live) => (live
-      ? homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, actualites }, now, vigilance ? alerteOf(vigilance.value, now) : undefined)
+      ? homePage(origin, { meteo, vigilance, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, actualites }, now, alerteLue(vigilance, now))
       : homePage(origin, null, now)), meteo, background, [rebuild(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now))]);
   }
   // The bins' days: the bundled calendars and the day, nothing read but the vigilance's banner.
@@ -341,7 +341,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/vigilance" || path === "/vigilance/") {
     const data = await vigilanceNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS, now);
-    return page(path, (live) => (live ? vigilancePage(origin, data, now, data ? alerteOf(data.value, now) : undefined) : vigilancePage(origin, null, now)), data, background);
+    return page(path, (live) => (live ? vigilancePage(origin, data, now, alerteLue(data, now)) : vigilancePage(origin, null, now)), data, background);
   }
   // The guide for those who publish, written once: nothing read but the vigilance's banner.
   if (path === "/publier" || path === "/publier/") {
@@ -362,7 +362,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       cycloneDecisionNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
     ]);
     const rubrique = await prefecture.rubriqueNonLue(cache, now).catch(() => undefined);
-    return page(path, (live) => (live ? alertePage(origin, data, now, data ? alerteOf(data.value, now) : undefined, decision, rubrique) : alertePage(origin, null, now)), data, background);
+    return page(path, (live) => (live ? alertePage(origin, data, now, alerteLue(data, now), decision, rubrique) : alertePage(origin, null, now)), data, background);
   }
   if (path === "/ecoles-cyclone" || path === "/ecoles-cyclone/") {
     const [data, decision] = await Promise.all([
@@ -370,7 +370,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       cycloneDecisionNow(cache, background, waitFor(request) ?? VIGILANCE_WAIT_MS),
     ]);
     const rubrique = await prefecture.rubriqueNonLue(cache, now).catch(() => undefined);
-    return page(path, (live) => (live ? ecolesPage(origin, data, now, data ? alerteOf(data.value, now) : undefined, decision, rubrique) : ecolesPage(origin, null, now)), data, background);
+    return page(path, (live) => (live ? ecolesPage(origin, data, now, alerteLue(data, now), decision, rubrique) : ecolesPage(origin, null, now)), data, background);
   }
   if (path === "/mer" || path === "/mer/") {
     const [data, a] = await Promise.all([
@@ -407,7 +407,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now),
       tileCopies(cache, ["web:sentiers"], background, undefined, now),
     ]);
-    const a = vigilance ? alerteOf(vigilance.value, now) : undefined;
+    const a = alerteLue(vigilance, now);
     // Without what the satellites saw, the page is not kept: the next view should have it.
     return new Response(feuxPage(origin, { fires, sentiers, vigilance }, now, a), { headers: htmlFor(fires ?? (feux.enabled() ? null : true)) });
   }
@@ -538,7 +538,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     // The weather's copy as the snapshot gave it: not read again (the read could be one subrequest too many).
     const { copies, leftOut } = await readCopies(cache, p, p, now, background, vigilance, { meteo: place });
     return page(path, (live) => (live
-      ? aujourdhuiPage(origin, p, resume(p, copies, now, leftOut), copies.meteo ?? place, copies.vigilance ? alerteOf(copies.vigilance.value, now) : undefined)
+      ? aujourdhuiPage(origin, p, resume(p, copies, now, leftOut), copies.meteo ?? place, alerteLue(copies.vigilance, now))
       : aujourdhuiPage(origin, p, resume(p, {}, now, leftOut), null)), place, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now))]);
   }
   // A commune's alerts as RSS: the copies of the pages, never a build of its own (web/rss.ts).
@@ -566,7 +566,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const tiles = TCO_COMMUNES.includes(p.nom) ? [...COMMUNE_TILES, "web:dechets"] : COMMUNE_TILES;
     const [air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets] = await tileCopies(cache, tiles, background, place, now);
     return page(path, (live) => (live
-      ? communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets }, now, vigilance ? alerteOf(vigilance.value, now) : undefined)
+      ? communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets }, now, alerteLue(vigilance, now))
       : communePage(origin, p, { place: null, commune: null, vigilance: null, air: null, mer: null, volcan: null, electricite: null, calendrier: null, coupures: null, secheresse: null, eau: null, randonnees: null, agenda: null, dechets: null }, now)),
     place, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now)), rebuild(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now))]);
   }

@@ -24,7 +24,7 @@ import { communeEvents, communeHikes } from "./liens.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, stillToCome, volcanLive, waitText } from "./domains.js";
 import { enfantsLive } from "./enfants.js";
 import { esc, islandMap } from "./map.js";
-import { anchorId, ask, connector, credits, cycloneVg, dayMonth, deg, empty, fit, hm, icon, ISLAND, layout, type Live, metres, readAt, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
+import { anchorId, ask, connector, credits, cycloneVg, dayMonth, deg, empty, fit, hm, icon, ISLAND, layout, type Live, lue, metres, readAt, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { RSS_HINT, rssLink, rssPath, rssTitle } from "./rss.js";
@@ -102,18 +102,18 @@ function vigilance(p: PlacePage, data: Cached<mf.Vigilance> | null | undefined, 
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   if (highest(cyc) >= 2) {
     const c = Math.max(2, cycloneLevel(cyc, now));
-    return { valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) };
+    return lue({ valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) }, data!, now);
   }
   const zone = mf.ZONE_OF_COMMUNE[p.nom];
   const name = (mf.ZONES[zone] ?? "").split(" :")[0];
   const c = zone ? zoneNow(v, zone, now) : -1;
   const up = zone ? [12, 1].filter((id) => current(v.zones[zone]?.[id] ?? [], now) >= 2).map((id) => mf.PHENOMENA[id].toLowerCase()) : [];
   const waves = coastal(p) ? raised(v).filter((x) => x.phenomene === mf.PHENOMENA[WAVES]) : [];
-  return {
+  return lue({
     valeur: vg(c >= 1 ? c : 1),
     detail: esc(up.length ? `${up.join(", ")} pour la zone ${name}` : `pas de vigilance particulière pour la zone ${name}`) +
       (waves.length ? ` · vagues-submersion sur le littoral : ${vg(waves[0].max)}` : ""),
-  };
+  }, data!, now);
 }
 
 const airOf = (p: PlacePage, data: Cached<AirAnswer> | null | undefined) => data?.value.communes?.find((x) => normalize(x.commune) === normalize(p.nom));
