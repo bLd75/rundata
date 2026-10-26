@@ -135,9 +135,11 @@ const GPX = { "content-type": "application/gpx+xml; charset=utf-8", "cache-contr
 /**
  * The search engines skip the addresses with `?maj=` (pages/ask): copies of a page made for the assistants, which
  * would spend the few pages a day a search engine reads on a new site. The assistants' fetchers still read them.
+ * No robot follows a trip (web/trajet.ts): its page is not indexed, and it has an address per stop and per day, which
+ * a stop's page links for each of its buses and which links back to each stop: a crawler went round them, 1 300 an hour.
  */
 const ROBOTS = (origin: string) =>
-  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: ${STOP_PATH}?q=\nAllow: /\n\nUser-agent: *\nDisallow: ${STOP_PATH}?q=\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
+  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nAllow: /\n\nUser-agent: *\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
 
 /** IndexNow (Bing, Yandex, Seznam, Naver): the key that proves rundata.re's submissions are ours. Public by design. */
 export const INDEXNOW_KEY = "9cb4a2d427093776313488cb4d39b24a";
@@ -146,10 +148,12 @@ const MCP_REGISTRY_AUTH = "v=MCPv1; k=ed25519; p=FTzDdb5aS1w9JIe6rHUyRBhGknTv/Rh
 
 /**
  * The fetchers of AI assistants and search engines. A person gets a page without its live block rather than wait
- * more than a few seconds; these read the page once and answer from it, so they wait for the measurements.
+ * more than a few seconds; these read the page once and answer from it, so they wait for the measurements. Not the
+ * crawlers that gather pages to train a model (ClaudeBot, GPTBot, meta-externalagent): what they read is kept as it
+ * was, and the copy does for them.
  */
 // rundata-check: the daily check of the sources (bin/check-sources.ts), which must see the data, not the cache.
-const READERS = /rundata-check\/|ChatGPT-User|OAI-SearchBot|GPTBot|Claude-User|Claude-SearchBot|ClaudeBot|Perplexity|MistralAI|meta-external|facebookexternalhit|Googlebot|Google-Extended|bingbot|Applebot|DuckAssistBot/i;
+const READERS = /rundata-check\/|ChatGPT-User|OAI-SearchBot|Claude-User|Claude-SearchBot|Perplexity|MistralAI|meta-externalfetcher|facebookexternalhit|Googlebot|bingbot|Applebot|DuckAssistBot/i;
 const READER_WAIT_MS = 25_000;
 // The vigilance page waits longer than a banner for Météo-France: it is the page's whole content.
 const VIGILANCE_WAIT_MS = 8000;
