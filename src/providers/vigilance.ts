@@ -25,8 +25,10 @@ export const SOURCE: SourceInfo = {
 };
 
 const URL = "https://public-api.meteofrance.fr/public/DPVigilance/v1/vigilanceom/flux/dernier";
-// The zip changes every minute but the vigilance a few times a day, more often during an event.
-const FRESH_SECONDS = 5 * 60;
+// The zip changes every minute but the vigilance a few times a day, more often during an event. The scheduled event
+// writes a copy to KV every 5 minutes (web/partagees.ts), which every data center reads: fresh for 7, its 5 plus the
+// minute KV takes to reach a data center and one of margin, so that no page waits for Météo-France while it holds.
+const FRESH_SECONDS = 7 * 60;
 const MAP = "CDPV95_FMEE_.txt";
 const TEXTS = "CDPV96_FMEE_.txt";
 
@@ -143,13 +145,17 @@ export function parse(map: MapJson, texts?: TextsJson): Vigilance {
 /** Where the last reading is kept (web/data.ts serves it while Météo-France is late). */
 export const KEY = "vigilance";
 
+/** Météo-France's vigilance as it is now: one download (the scheduled event's copy, web/partagees.ts). */
+export async function read(): Promise<Vigilance> {
+  const zip = await download(URL, session(SOURCE.id), getBytes, 20_000);
+  const files = await unzip(zip, (name) => name === MAP || name === TEXTS);
+  const map = files.get(MAP);
+  if (!map) throw new Error(`vigilance : ${MAP} absent de l'archive`);
+  const texts = files.get(TEXTS);
+  return parse(JSON.parse(map) as MapJson, texts ? (JSON.parse(texts) as TextsJson) : undefined);
+}
+
+/** The copy of the scheduled event when fresh (from any data center, through KV), else read here. */
 export async function vigilance(cache: Cache): Promise<Cached<Vigilance>> {
-  return cache.get(KEY, FRESH_SECONDS, async () => {
-    const zip = await download(URL, session(SOURCE.id), getBytes, 20_000);
-    const files = await unzip(zip, (name) => name === MAP || name === TEXTS);
-    const map = files.get(MAP);
-    if (!map) throw new Error(`vigilance : ${MAP} absent de l'archive`);
-    const texts = files.get(TEXTS);
-    return parse(JSON.parse(map) as MapJson, texts ? (JSON.parse(texts) as TextsJson) : undefined);
-  });
+  return cache.get(KEY, FRESH_SECONDS, read);
 }

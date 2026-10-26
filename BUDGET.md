@@ -17,26 +17,26 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 296 | 500 |
-| pire passage planifié, appels KV et D1 | 29 | 1 000 |
-| pire passage planifié, CPU (ms) | 1 612 | 30 000 |
-| passage le plus chargé (cadences les plus courtes), sous-requêtes | 82 | 500 |
+| pire passage planifié, sous-requêtes | 300 | 500 |
+| pire passage planifié, appels KV et D1 | 30 | 1 000 |
+| pire passage planifié, CPU (ms) | 1 682 | 30 000 |
+| passage le plus chargé (cadences les plus courtes), sous-requêtes | 86 | 500 |
 | vue la plus chère, sous-requêtes | 78 | 200 |
 | question la plus chère, sous-requêtes | 59 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
-- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 64 sous-requêtes (arome:veille, arome:grilles, partagees:liste, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
-- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 82 sous-requêtes (arome:veille, arome:grilles, partagees:liste, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 274 sous-requêtes à 00:00 UTC.
+- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 68 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
+- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 86 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 278 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 78. Question la plus chère : resume_du_jour, 59. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 296 | 2 | 17 | 10 | 922 | 31 | 1 612 |
-| tâche planifiée, par jour | 7 171 | 576 | 660 | 387 | 44 732 | 31 | 45 603 |
-| tâche planifiée, par jour, cadences les plus courtes | 13 359 | 576 | 996 | 867 | 49 772 | 31 | 81 483 |
-| tâche planifiée, par mois (30 jours) | 215 130 | 17 280 | 19 800 | 11 610 | 1 341 960 | 930 | 1 368 090 |
+| pire passage planifié | 300 | 2 | 18 | 10 | 922 | 31 | 1 682 |
+| tâche planifiée, par jour | 8 323 | 576 | 948 | 387 | 44 732 | 31 | 65 763 |
+| tâche planifiée, par jour, cadences les plus courtes | 14 511 | 576 | 1 284 | 867 | 49 772 | 31 | 101 643 |
+| tâche planifiée, par mois (30 jours) | 249 690 | 17 280 | 28 440 | 11 610 | 1 341 960 | 930 | 1 972 890 |
 | tâches GitHub, par jour | 0 |  | 101 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 3 030 | 60 |  | 861 000 |  |
 
@@ -49,6 +49,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | arome:veille | AROME : le dernier run publié, et les grilles qu'il reste à lire | 5 min | 00:00 | 3 | 1 |  |  |  |  | 15 | mesuré |
 | arome:grilles | AROME : les grilles d'un nouveau run, 40 au plus par passage, 3 de relief | 180 min | 00:00 | 43 |  | 2 |  |  |  | 60 | code |
 | partagees:liste | copies partagées : la liste des clés KV, une pour les copies et celles d'après | 5 min | 00:00 | 1 |  | 1 |  |  |  |  | code |
+| vigilance | copie partagée (KV) | 5 min | 00:00 | 4 |  | 1 |  |  |  | 70 | estimé |
 | web:actualites | copie partagée (KV) | 30 min | 00:10 | 11 |  | 1 |  |  |  | 190 | mesuré |
 | web:trafic | copie partagée (KV) | 30 min | 00:05 | 31 |  | 1 | 2 | 840 |  | 160 | mesuré |
 | web:electricite | copie partagée (KV) | 30 min | 00:20 | 8 |  | 1 |  |  |  | 80 | mesuré |
@@ -176,6 +177,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 |---|---|
 | arome:veille | providers/arome, providers/mf-auth |
 | arome:grilles | providers/arome, providers/mf-auth |
+| vigilance | providers/mf-auth, providers/vigilance |
 | web:actualites | providers/actualites, providers/avis-eau |
 | web:trafic | providers/actualites, providers/avis-eau, providers/calendrier, providers/gtfsrt |
 | web:electricite | providers/avis-eau, providers/coupures-courant, providers/edf |
