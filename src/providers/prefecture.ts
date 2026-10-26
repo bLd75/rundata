@@ -188,8 +188,14 @@ export async function cyclone(cache: Cache, now = Date.now()): Promise<Cached<Cy
     }
     return read;
   }
-  const kept = await cache.kept<Cyclone>(LAST).catch(() => undefined);
-  if (kept) return { ...kept, value: kept.value && withDay(kept.value) };
+  const kept = await keptCyclone(cache);
+  if (kept) return kept;
   if ("err" in read) throw read.err;
   return read;
+}
+
+/** The last decision kept, as old as it is (it says its day), without reading the prefecture: for a page that cannot wait for it. */
+export async function keptCyclone(cache: Cache): Promise<Cached<Cyclone | null> | undefined> {
+  const kept = await cache.kept<Cyclone>(LAST).catch(() => undefined);
+  return kept && { ...kept, value: kept.value && withDay(kept.value) };
 }

@@ -1512,13 +1512,17 @@ export async function vigilanceNow(cache: Cache, background: Background, waitMs:
   }
 }
 
-/** The prefecture's last decision on the cyclone alert, waited for at most `waitMs` like the vigilance; null without one. */
+/**
+ * The prefecture's last decision on the cyclone alert, waited for at most `waitMs` like the vigilance, the last one kept
+ * being served meanwhile, as old as it is: it says its day. Null without one.
+ */
 export async function cycloneDecisionNow(cache: Cache, background: Background, waitMs: number): Promise<Cyclone | null> {
   const work = prefecture.cyclone(cache);
   try {
     const got = await within(work, waitMs);
-    if (!got) background(work.catch(() => undefined));
-    return got?.value ?? null;
+    if (got) return got.value;
+    background(work.catch(() => undefined));
+    return (await prefecture.keptCyclone(cache))?.value ?? null;
   } catch (err) {
     console.error(`source ${prefecture.SOURCE.id} indisponible:`, why(err));
     return null;
