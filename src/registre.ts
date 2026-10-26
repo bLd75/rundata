@@ -91,6 +91,8 @@ const SHARED_FROM: Record<string, string[]> = {
   "mer:satellites": ["src/providers/acspo.ts", "src/providers/modis.ts"],
   "web:mer": ["src/tools/mer.ts"],
   "web:calendrier": ["src/tools/calendrier.ts"],
+  seismes: ["src/providers/seismes.ts"],
+  "onf:sentiers": ["src/providers/sentiers.ts"],
   "web:volcan": ["src/tools/volcan.ts", "src/providers/ovpf-pdf.ts"],
   "web:courant": ["src/tools/courant.ts"],
   "ens:ile": ["src/providers/ensemble.ts"],
@@ -107,8 +109,8 @@ const SHARED_D1: Record<string, Pick<Run, "d1Calls" | "d1RowsRead">> = {
   "web:chiffres": SANS_REPONSE_D1,
 };
 
-// Never built alone over MEASURED: their CPU is that of the page that shows them; the vigilance's and the rivers', measured in Node.
-const SHARED_ESTIMATED = new Set(["vigilance", "web:crues", "mer:satellites", "web:calendrier", "web:chiffres", "web:chiffres:evenements"]);
+// Never built alone over MEASURED: their CPU is that of the page that shows them; the vigilance's and the rivers', measured in Node; the earthquakes' and the ONF's map's, estimated from /volcan's and /sentiers's.
+const SHARED_ESTIMATED = new Set(["vigilance", "seismes", "onf:sentiers", "web:crues", "mer:satellites", "web:calendrier", "web:chiffres", "web:chiffres:evenements"]);
 
 const sharedEntry = (s: Shared, after: boolean): Entry => ({
   id: s.key,

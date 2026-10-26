@@ -9,6 +9,8 @@ import { costOf, count, left, measured, spent, unmeasured } from "../budget.js";
 import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore, outdated, stampOf } from "../cache.js";
 import * as ensemble from "../providers/ensemble.js";
 import * as ovpfPdf from "../providers/ovpf-pdf.js";
+import * as seismes from "../providers/seismes.js";
+import * as onf from "../providers/sentiers.js";
 import * as mf from "../providers/vigilance.js";
 import { why } from "../types.js";
 import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildCourant, buildCrues, buildElectricite, buildSea, buildTrafic, buildVolcan, type CruesAnswer, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
@@ -48,7 +50,7 @@ export interface Shared {
   before?: string[];
 }
 
-// About 720 KV writes a day in all: 288 for the vigilance, every 5 minutes, 96 for the rivers, every 15 minutes (288 while a river is in yellow flood vigilance or above), 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
+// About 890 KV writes a day in all: 288 for the vigilance, every 5 minutes, 144 for the earthquakes, every 10 minutes, 96 for the rivers, every 15 minutes (288 while a river is in yellow flood vigilance or above), 24 for the ONF's map, 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
 // of /chiffres (4 more for their events, 24 while an agenda does not answer), 12 for the power
 // cuts the mairies relay (48 while the site of one of them does not answer), 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
 // of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
@@ -84,6 +86,14 @@ export const SHARED: Shared[] = [
   { key: SATELLITES, build: buildSatellites, every: (last) => satellitesEvery(last), cold: 10, cpu: 110, range: { usual: 3 * 60, shortest: 30 }, offset: 55 },
   { key: "web:mer", build: buildSea, every: 3 * 60, cold: 13, cpu: 110, offset: 75 },
   { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8, cpu: 40, offset: 130 },
+  // The earthquakes and the ONF's map, which /volcan's copy embeds: built in the data center of the event, it read that
+  // data center's own copies, which no view had brought up to date (26 October 2026: 8 earthquakes in 7 days and the
+  // map of 07:35 on the page at 19:21, 10 and the map of 19:25 in volcan_seismes at 19:26). The earthquakes every 10
+  // minutes, their freshness, in the volcano's events; the map every hour, its freshness, before the volcano's and
+  // /chiffres's. Their cold costs: the catalogue, plus one; the map's two layers and its date, plus one. Their CPU:
+  // parsing them, estimated from /sentiers's.
+  { key: seismes.KEY, build: (_cache, now) => seismes.read(now), every: 10, cold: 2, cpu: 10, offset: 5, before: ["web:volcan"] },
+  { key: onf.KEY, build: () => onf.lire(), every: 60, cold: 4, cpu: 40, offset: 45, before: ["web:volcan", CHIFFRES] },
   // The PDF of the OVPF's newest release, read here only (providers/ovpf-pdf.ts), once the copy is built and outside its
   // cost: three more, with what is left, when there is a new one or a failed one to ask again.
   { key: "web:volcan", build: async (cache, now) => {

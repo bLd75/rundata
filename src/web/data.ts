@@ -379,6 +379,8 @@ export interface VolcanAnswer {
     par_jour_sous_le_volcan?: { jour: string; nombre: number; en_cours?: true }[];
     derniers: { heure: string; magnitude: number; profondeur_km: number; lieu: string }[];
     note: string;
+    /** Served from the last copy, the catalogue not answering: the sentence that says from which read. */
+    copie?: string;
   };
   /** The OVPF-IPGP's site listed as silent on /sites-sans-reponse, in a sentence (tools/volcan.ts `ipgpMuet`). */
   injoignable?: string;

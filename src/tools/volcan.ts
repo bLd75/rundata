@@ -1,13 +1,14 @@
 import type { Cache, Cached } from "../cache.js";
 import { localTime } from "../geo.js";
 import * as seismes from "../providers/seismes.js";
-import type * as onf from "../providers/sentiers.js";
+import * as onf from "../providers/sentiers.js";
 import * as historique from "./volcan-historique.js";
 import * as ocr from "../providers/ovpf-ocr.js";
 import * as volcan from "../providers/volcan.js";
 import { etatHote, jour as jourDe, jourHeure, type Public } from "../sans-reponse.js";
 import { why } from "../types.js";
 import { credits, fr, text } from "./format.js";
+import { sourceMuette } from "./fraicheur.js";
 import { acces, definition, libelle, lineText } from "./volcan-acces.js";
 
 const DAY = 86_400_000;
@@ -277,7 +278,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   // Said while it is listed, until the recheck finds it back; the table absent, nothing.
   const ipgp = silent && silent.statut !== "revenu" ? ipgpMuet(silent, { bluesky: !!read && !read.stale, prefecture: !!given0 && !given0.stale }, now) : undefined;
   // The ONF's map as another page last read it, never built here (a read).
-  const carte = await cache.peek<onf.Carte>("onf:sentiers").catch(() => undefined);
+  const carte = await cache.peek<onf.Carte>(onf.KEY).catch(() => undefined);
   if (!piton && !posts && !quakes && !phase) {
     return {
       ...text({ erreur: "Les sources sur le volcan ne répondent pas pour le moment.", consulter: [volcan.OVPF.url, volcan.OVPF_FACEBOOK] }),
@@ -414,7 +415,9 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
             : { a_lire: A_LIRE })),
         }))
       : "indisponible",
-    seismes: q ?? "indisponible",
+    // Its catalogue not answering: from which read they come, in the copy of /volcan too (its page says nothing of the
+    // answer's `fraicheur`).
+    seismes: q ? { ...q, ...(seen?.stale && { copie: sourceMuette(seismes.SOURCE.nom, seen.fetchedAt) }) } : "indisponible",
     ...(ipgp && { injoignable: ipgp }),
     avertissements: [OFFICIAL],
     // The IPGP's site is offline (25/10/2026): the OVPF's own accounts instead.
