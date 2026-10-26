@@ -49,6 +49,7 @@ import * as onf from "../providers/sentiers.js";
 import * as feux from "../providers/feux.js";
 import { routeRow, secteur, SECTEURS, sentiersRandonnee, trailSecteur } from "../tools/sentiers.js";
 import { pathOf } from "./map.js";
+import { MESURES, mesure } from "./mesure.js";
 import { restrictionsEau } from "../tools/secheresse.js";
 import * as daeSource from "../providers/dae.js";
 import { anyHour, byCommune as daeByCommune, daeRow, URGENCE as DAE_URGENCE } from "../tools/dae.js";
@@ -1590,11 +1591,24 @@ export async function snapshot<T>(
   incomplete?: (value: T) => boolean,
 ): Promise<Cached<T> | null> {
   // Each build is measured: a tile is brought up to date only when what it took last time is left (web/site.ts).
-  const run = () => measured(key, build);
+  // The agendas' pages are also timed step by step, their copy's write included (web/mesure.ts).
+  const m = MESURES.has(key) ? mesure() : undefined;
+  const run = async () => {
+    const t = Date.now();
+    try {
+      return await measured(key, build);
+    } finally {
+      if (m) [m.construction, m.finConstruction] = [Date.now() - t, Date.now()];
+    }
+  };
+  const written = <C>(p: Promise<C>) => {
+    if (m) p.then(() => m.finConstruction != null && (m.ecriture ??= Date.now() - m.finConstruction), () => undefined);
+    return p;
+  };
   // One read of the stores: a copy fresh in memory, else the newest there is (the data center's cache, KV behind it
   // for the shared copies); its refresh below starts from it rather than reading them again.
   const seen = await cache.peek<T>(key, now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined);
-  const any = cache.getFrom(key, seen, KEEP_SECONDS, run);
+  const any = written(cache.getFrom(key, seen, KEEP_SECONDS, run));
   let got: Cached<T> | null;
   try {
     got = await within(any, waitMs);
@@ -1608,7 +1622,7 @@ export async function snapshot<T>(
   }
   const freshFor = incomplete?.(got.value) ? INCOMPLETE_RETRY_SECONDS : FRESH_SECONDS;
   if (now.getTime() - got.fetchedAt.getTime() > freshFor * 1000) {
-    const fresh = cache.getFrom(key, got, freshFor, run);
+    const fresh = written(cache.getFrom(key, got, freshFor, run));
     const logged = fresh.catch((err) => console.error(`page ${key} : rafraîchissement impossible`, why(err)));
     if (reader) {
       const newer = await within(logged, waitMs);

@@ -7,6 +7,7 @@ import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
 import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned } from "../src/tools/agenda.js";
 import { agendaHours } from "../src/web/domains.js";
+import { mesure } from "../src/web/mesure.js";
 import { quand } from "../src/tools/sport.js";
 
 // The communes' sites read, as once they have agreed (test/autorisations.test.ts for what is said until then).
@@ -932,6 +933,25 @@ describe("agenda", () => {
       const kabardock = other.value.find((g) => g.agenda.id === "kabardock")?.value;
       expect(kabardock?.stale).toBe(false);
       expect(kabardock?.value.length).toBeGreaterThan(0);
+    });
+
+    it("measures how long the agendas took, and what is still in flight when they are given up on", async () => {
+      vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+        if (url.includes("kabardock")) await new Promise((r) => setTimeout(r, 300));
+        const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+        return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+      });
+      const { value: m, settled } = await counted(PAGE_BUDGET, async () => {
+        await gather(isolate(new EdgeLike()), NOW, 100);
+        return mesure();
+      });
+      expect(m.agendas).toBeGreaterThanOrEqual(90);
+      expect(m.agendas).toBeLessThan(300);
+      expect(m.avant).toBeGreaterThanOrEqual(0);
+      // The Kabardock, still loading, holds its place.
+      expect(m.enCours).toBe(1);
+      expect(m.places).toEqual({ taken: 1, waiting: 0 });
+      await settled();
     });
   });
 

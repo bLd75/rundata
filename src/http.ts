@@ -40,7 +40,14 @@ class Places {
     if (next) next();
     else this.busy--;
   }
+  /** The places taken and the fetches waiting for one, now. */
+  now() {
+    return { taken: this.busy, waiting: this.waiting.length };
+  }
 }
+
+/** This invocation's fetches holding a place and waiting for one, now (web/mesure.ts). */
+export const places = () => perInvocation("http:places", () => new Places()).now();
 
 /** Told of each failed read (worker.ts: the sites that do not answer, sans-reponse.ts); the refused budget is not one. */
 let onFailure: ((source: string, url: string, err: UpstreamError) => void) | undefined;

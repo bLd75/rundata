@@ -1,6 +1,6 @@
 import { later, left, perInvocation } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
-import { httpUrl } from "../http.js";
+import { httpUrl, places } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
@@ -11,6 +11,7 @@ import { withNews } from "../providers/agenda-presse.js";
 import { evenements as proposes, ID as PROPOSITIONS_ID } from "../providers/agenda-propositions.js";
 import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
 import { type SourceInfo, why } from "../types.js";
+import { mesure } from "../web/mesure.js";
 import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
 import { type Injoignable, injoignable } from "./injoignable.js";
 import { dayMonth, mention, mentionIle as ileMention } from "./non-repris.js";
@@ -188,6 +189,7 @@ export function gather(cache: Cache, now: Date, deadlineMs = DEADLINE_MS, graceM
 }
 
 async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number): Promise<Got[]> {
+  const started = Date.now();
   const bundle = await cache.bundle(src.BUNDLE, src.BUNDLE_SYNC_SECONDS);
   const key = (a: src.Agenda) => `agenda:${a.id}`;
   const last = (k: string): Cached<src.Evenement[]> | undefined => {
@@ -216,6 +218,9 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
     },
   });
   const pending: Promise<unknown>[] = [];
+  const m = mesure();
+  const agendasFrom = Date.now();
+  m.avant = agendasFrom - started;
   const got = await Promise.all(order.map(async (agenda): Promise<Got> => {
     const loading = agenda.load(store(agenda), now);
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -240,6 +245,9 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
       clearTimeout(timer);
     }
   }));
+  m.agendas = Date.now() - agendasFrom;
+  m.enCours = pending.length;
+  m.places = places();
   // An agenda no longer read here is not kept (nor the scheduled event's copies, once kept in this bundle).
   bundle.drop((k) => src.AGENDAS.some((a) => !a.planifie && key(a) === k));
   const save = () => bundle.save().catch((err) => console.error("agendas : copie impossible", why(err)));
@@ -558,7 +566,12 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const got = await gather(cache, now);
   // The news already read (the page /actualites, the tool actualites), for the cancellations it reports: never fetched
   // for this, read once per invocation (the page asks twice), and after the agendas, so as not to take one's subrequest.
-  const news = await perInvocation("agenda:actualites", () => cache.peek<Fil>("actualites:fil").catch(() => undefined));
+  const news = await perInvocation("agenda:actualites", async () => {
+    const t = Date.now();
+    const fil = await cache.peek<Fil>("actualites:fil").catch(() => undefined);
+    mesure().actualites = Date.now() - t;
+    return fil;
+  });
   const failed = got.filter((g) => !g.value && !g.agenda.planifie).map((g) => g.agenda.nom);
   const unread = nonLus(got, res?.lieu.commune);
   // The proposed events alone are not an agenda that answers: there may be none.
