@@ -61,13 +61,17 @@ const HIT = 66;
  * between them goes to the closer; never under the marker's own size.
  */
 function hitRadii(markers: Marker[]): number[] {
-  const at = markers.map((m) => project(m.lon, m.lat));
+  return spaced(markers.map((m) => project(m.lon, m.lat)), markers.map((m) => !!m.href), HIT, 34).map(Math.floor).map((r) => Math.max(34, r));
+}
+
+/** The same in any unit: at most `max`, at most half the way to the nearest other linked point, never under `min`. */
+function spaced(at: number[][], linked: boolean[], max: number, min: number): number[] {
   return at.map(([x, y], i) => {
-    let r = HIT;
+    let r = max;
     at.forEach(([x2, y2], j) => {
-      if (j !== i && markers[j].href) r = Math.min(r, Math.hypot(x2 - x, y2 - y) / 2);
+      if (j !== i && linked[j]) r = Math.min(r, Math.hypot(x2 - x, y2 - y) / 2);
     });
-    return Math.max(34, Math.floor(r));
+    return Math.max(min, r);
   });
 }
 
@@ -289,6 +293,73 @@ export function traceMap(opts: { lines: TraceLine[]; label: string; minKm?: numb
     `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
     opts.lines.map((l) => `<path class="trk-halo" d="${d(l)}"/><path class="trk ${esc(l.etat)}" d="${d(l)}"/>`).join("") +
     `<circle class="trk-start" cx="${sx}" cy="${sy}" r="${Math.round(r * 100) / 100}"/></svg>`;
+}
+
+// ---------------------------------------------------------------- a commune, close up
+
+/** The bounds of a commune's outline, in the map's units: its path is « M » then relative « l » steps. */
+function boundsOf(d: string): [number, number, number, number] {
+  let x = 0, y = 0;
+  let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const [, c, a, b] of d.matchAll(/([Ml])(-?[\d.]+)[, ]?(-?[\d.]+)/g)) {
+    [x, y] = c === "M" ? [+a, +b] : [x + +a, y + +b];
+    [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
+  }
+  return [x0, y0, x1, y1];
+}
+
+export interface Spot {
+  lon: number;
+  lat: number;
+  /** Its row in the page (`#<href>`), which the page's script also finds by `data-i`. */
+  i: number;
+  /** Its kind, which the page's filter hides by. */
+  t: string;
+  /** Its family, its colour (the legend's). */
+  f: string;
+  /** What it is, said aloud and on hover. */
+  name: string;
+}
+
+/** The width the map is drawn at on a phone of 390 px, in its card: what a finger's 44 px are worth in the map's units. */
+const PHONE_PX = 340;
+
+/**
+ * A commune close up (the children's page of a commune): the relief and the coast as on the island's map, the other
+ * communes dimmed, its outline marked, and a dot per spot. The dots keep their size on screen when the page's script
+ * zooms (a stroke that does not scale); each is a link to its row, its hit area as wide as a finger on a phone and no
+ * wider than half the way to the next one. The frame is the commune's and its spots', 1:1 to 4:3, in `data-box`.
+ */
+export function communeMap(opts: { commune: string; spots: Spot[]; label: string; id?: string }): string {
+  const shape = island.paths.find((p) => p.nom === opts.commune);
+  if (!shape) return "";
+  // A tenth of the map's unit is 7 m: enough for a dot.
+  const at = opts.spots.map((s) => exact(s.lon, s.lat).map((v) => Math.round(v * 10) / 10));
+  let [x0, y0, x1, y1] = boundsOf(shape.d);
+  for (const [x, y] of at) [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
+  let w = (x1 - x0) * 1.08;
+  let h = (y1 - y0) * 1.08;
+  if (w / h < 1) w = h;
+  else if (w / h > 4 / 3) h = (w * 3) / 4;
+  const box = [(x0 + x1) / 2 - w / 2, (y0 + y1) / 2 - h / 2, w, h].map((v) => Math.round(v * 100) / 100);
+  const unit = w / PHONE_PX;
+  const radii = spaced(at, at.map(() => true), 22 * unit, 9 * unit);
+  const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  const dots = opts.spots.map((s, k) => {
+    const [x, y] = at[k];
+    // Its title names the link, aloud and on hover.
+    return `<a class="sp" href="#lieu-${s.i}" data-i="${s.i}" data-t="${esc(s.t)}"><title>${esc(s.name)}</title>` +
+      `<circle class="hit" cx="${x}" cy="${y}" r="${r2(radii[k])}"/><path class="rg" d="M${x} ${y}h0"/><path class="pt f-${esc(s.f)}" d="M${x} ${y}h0"/></a>`;
+  }).join("");
+  return `<svg${opts.id ? ` id="${opts.id}"` : ""} class="map terrain zoom commune" viewBox="${box.join(" ")}" data-box="${box.join(" ")}" role="group" aria-label="${esc(opts.label)}">` +
+    `<defs><g id="isl">${paths}</g><clipPath id="isl-clip">${paths}</clipPath><clipPath id="com-clip"><path d="${shape.d}"/></clipPath></defs>` +
+    `<rect class="sea" x="${r2(box[0] - w)}" y="${r2(box[1] - h)}" width="${r2(w * 3)}" height="${r2(h * 3)}"/>` +
+    `<use href="#isl" class="coast"/><use href="#isl" class="land"/>` +
+    `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
+    // The island dimmed, then the commune's relief again over it, clear.
+    `<use href="#isl" class="dim"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#com-clip)"/>` +
+    `<path class="hl" d="${shape.d}"/><g class="spots">${dots}</g></svg>`;
 }
 
 /** The altitude along the trail: an area, the axes in km and m. */
