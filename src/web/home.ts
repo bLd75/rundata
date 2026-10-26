@@ -91,7 +91,7 @@ function lives(h: HomeLive | null, now: Date): Record<string, Live | undefined> 
     actualites: actualitesLive(h?.actualites ?? null),
     air: airLive(h?.air ?? null, now),
     electricite: electriciteLive(h?.electricite ?? null, now),
-    calendrier: calendrierLive(h?.calendrier ?? null),
+    calendrier: calendrierLive(h?.calendrier ?? null, now),
     // The bundled places: always there, nothing to fetch. The playgrounds, parks and pools first, not the most numerous
     // (the skateparks and city stadiums).
     enfants: enfantsLive(undefined, ["aire_de_jeux", "parc", "piscine"]),

@@ -7,6 +7,7 @@ import type { Cached } from "../cache.js";
 import * as traces from "../providers/traces.js";
 import type { Secteur } from "../traces/secteurs.js";
 import type { Alerte, PlaceData, RandonneesAnswer } from "./data.js";
+import { joursDuJour } from "./data.js";
 import { closedLi, connectorCta, describe, hikeCard, loading, plural, sectorLinks, sectorTrail, sourcesNote, trailLi, webPage } from "./domains.js";
 import { esc, hikesMap } from "./map.js";
 import { ask, icon, layout, thin } from "./pages.js";
@@ -24,12 +25,12 @@ export const routesIn = (d: RandonneesAnswer, s: Secteur) => {
 const MAP_SCRIPT = `(()=>{const m=document.getElementById("hmap");if(m)m.addEventListener("click",(e)=>{const k=e.target.dataset?.k,a=k&&document.querySelector('li[data-k="'+k+'"] a');if(a)location.href=a.href})})();`;
 
 /** The weather of the sector's page: the measure and the next days' forecast, from that page's last copy. */
-function weather(s: Secteur, data: Cached<PlaceData> | null): string {
+function weather(s: Secteur, data: Cached<PlaceData> | null, now: Date): string {
   const p = s.meteo ? pageOf(s.meteo) : undefined;
   if (!p) return `<div class="card">${icon("mountain")}<h3>La météo</h3><p>Voir <a href="/meteo">la météo de l'île</a>, station par station, et <a href="/vigilance">la vigilance</a>.</p></div>`;
   // A station far below or on the other side says little of the hikes: only one that stands for the place.
   const st = data?.value.meteo?.stations.find((x) => x.mesures.temperature && x.pertinence !== "faible");
-  const days = data?.value.prevision?.jours?.slice(0, 2) ?? [];
+  const days = data ? joursDuJour(data.value.prevision?.jours, data.fetchedAt, now).slice(0, 2) : [];
   const range = (lo?: string, hi?: string) => (lo && hi ? `${thin(lo)} / ${thin(hi)}` : "");
   return `<div class="card">${icon("mountain")}<h3>Météo ${esc(p.nom)}</h3>` +
     (st ? `<p><b>${esc(thin(st.mesures.temperature!))}</b> mesurés à ${esc(st.heure_mesure.split(" ")[1] ?? st.heure_mesure)} par la station ${esc(st.station)} (${st.altitude_m.toLocaleString("fr-FR")} m${st.distance_km != null ? `, à ${String(st.distance_km).replace(".", ",")} km` : ""})${st.mesures.pluie_1h ? `, pluie sur une heure ${esc(thin(st.mesures.pluie_1h))}` : ""}.</p>` : "") +
@@ -80,7 +81,7 @@ export function secteurPage(origin: string, s: Secteur, data: Cached<RandonneesA
 
   const access = `<section aria-labelledby="h-acces"><div class="sec-h"><h2 id="h-acces">Y aller</h2></div>
   <div class="two"><div class="card">${icon("pin")}<h3>Accès</h3><p>${esc(s.acces)}</p></div>
-  ${weather(s, meteo)}</div>
+  ${weather(s, meteo, now)}</div>
   ${s.rappel ? `<div class="card warn">${icon("alert")}<h3>À savoir</h3><p>${esc(s.rappel)}</p></div>` : ""}
 </section>`;
 

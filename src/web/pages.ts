@@ -18,7 +18,7 @@ import { fr } from "../tools/format.js";
 import * as mf from "../providers/vigilance.js";
 import { current, cyclone, cycloneHead, cycloneLevel, highest, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, StationAnswer, StationNow } from "./data.js";
-import { vigilanceLue } from "./data.js";
+import { joursDuJour, vigilanceLue } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import * as traces from "../providers/traces.js";
@@ -1418,7 +1418,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
       `pas celle du lagon ni du bord.${d.mer.etat_de_la_mer ? " Vagues : prévision d'un modèle, au large, pas une mesure." : ""}${tides ? ` Marée : calculée d'après les mesures des marégraphes, hauteurs à environ 5 cm près, <a href="/mer">détail sur la page mer</a>.` : ""} Source : ${credits(d.mer.sources)}${tides ? `, ${esc(TIDE_CITATION)}` : ""}.</p></div></section>`
     : "";
 
-  const f = d?.prevision;
+  const f = d?.prevision && { ...d.prevision, jours: joursDuJour(d.prevision.jours, data!.fetchedAt, now) };
   // Why a day is not sure, in plain sight and short (a phone shows no title, a card is half its width). A sure day
   // says nothing more.
   const whyNot = (why?: string) => {
