@@ -6,6 +6,7 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { Cache } from "./cache.js";
 import { feedReader, stopwatch, type Recorder } from "./metrics.js";
+import { bodyText } from "./http.js";
 import { createServer, VERSION } from "./server.js";
 import { why } from "./types.js";
 import { watch } from "./usage.js";
@@ -43,21 +44,40 @@ const SHORTCUTS: Record<string, string> = { "/ig": "insta", "/fb": "fb" };
 // Crawlers often send « Accept: */* » too: only these get the plain line instead of the page.
 const CLI = /^(curl|wget|httpie|python-requests|python-urllib|go-http-client|node-fetch|undici)/i;
 
-// The transport's own limit, which it does not check on a body it is handed already parsed.
+// The transport's own limit, which it does not check on a body it is handed already parsed: here it is checked on the
+// bytes read, whatever `content-length` says (a body sent in chunks has none).
 const MAX_BODY = 4 * 1024 * 1024;
 
+// A batch runs every message it holds, for one request: at most this many, and none from the version that dropped them.
+export const MAX_BATCH = 10;
+const NO_BATCH_FROM = "2025-06-18";
+
 /**
- * The body of a POST, parsed once for both the metrics and the transport. A body that is not JSON (or too large) goes
- * to the transport as it came, for its own answer.
+ * The body of a POST, parsed once for both the metrics and the transport. A body that is not JSON goes to the
+ * transport as it came, for its own answer; one too large is refused here, without being read further.
  */
-async function readBody(request: Request): Promise<{ request: Request; body?: unknown }> {
+async function readBody(request: Request): Promise<{ request: Request; body?: unknown } | { tooLarge: true }> {
   const type = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
-  if (type !== "application/json" || Number(request.headers.get("content-length")) > MAX_BODY) return { request };
-  const text = await request.text();
+  if (type !== "application/json") return { request };
+  const text = await bodyText(request, MAX_BODY);
+  if (text === undefined) return { tooLarge: true };
   try {
-    if (text.length <= MAX_BODY) return { request, body: JSON.parse(text) };
+    return { request, body: JSON.parse(text) };
   } catch {}
   return { request: new Request(request.url, { method: "POST", headers: request.headers, body: text }) };
+}
+
+/** Why a batch is refused, if it is: the protocol it claims has none, or it holds more than MAX_BATCH messages. */
+export function batchRefused(version: string | null, body: unknown): string | undefined {
+  if (!Array.isArray(body)) return undefined;
+  if (version && version >= NO_BATCH_FROM) return `Batches are not part of protocol ${version.slice(0, 20)}: send one message per request.`;
+  if (body.length > MAX_BATCH) return `At most ${MAX_BATCH} messages per batch.`;
+  return undefined;
+}
+
+/** A refusal before the transport, in its own shape. */
+function rpcError(status: number, message: string): Response {
+  return Response.json({ jsonrpc: "2.0", error: { code: status === 413 ? -32000 : -32600, message }, id: null }, { status });
 }
 
 /** No stream to offer (see below): what the transport answers to a method it does not know, with the right Allow. */
@@ -107,6 +127,17 @@ export async function handle(request: Request, cache: Cache, background: Backgro
     await server.connect(transport);
     watching.attach(transport);
     const read = await readBody(request);
+    if ("tooLarge" in read) {
+      const message = `Request body larger than ${MAX_BODY} bytes.`;
+      watching.done(413, message);
+      return withCors(rpcError(413, message));
+    }
+    const refused = "body" in read ? batchRefused(request.headers.get("mcp-protocol-version"), read.body) : undefined;
+    if (refused) {
+      // Recorded as one refused request, not as the messages it held.
+      watching.done(400, refused);
+      return withCors(rpcError(400, refused));
+    }
     if ("body" in read) watching.read(read.body);
     const response = await transport.handleRequest(read.request, "body" in read ? { parsedBody: read.body } : undefined);
     watching.done(response.status);

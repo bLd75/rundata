@@ -203,6 +203,33 @@ describe("the forms on the site (web/propositions.ts)", () => {
     handle(new Request(`https://rundata.re${path}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", ...headers }, body: new URLSearchParams(fields).toString() }), new Cache());
   const human = () => formulaires.configure(undefined, async (token) => token === "jeton-turnstile");
 
+  it("count a Turnstile token only if Cloudflare made it for this site and this form", async () => {
+    const answers: Record<string, unknown>[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async () => Response.json(answers.shift())) as typeof fetch;
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      formulaires.configure("secret");
+      const f = new URLSearchParams({ "cf-turnstile-response": "jeton" });
+      const attendu = { hostname: "rundata.re", action: "proposer" } as const;
+      answers.push({ success: true, hostname: "rundata.re", action: "proposer" });
+      expect(await formulaires.human(f, "203.0.113.7", attendu)).toBe(true);
+      answers.push({ success: true, hostname: "autre-site.example", action: "proposer" });
+      expect(await formulaires.human(f, "203.0.113.7", attendu)).toBe(false);
+      answers.push({ success: true, hostname: "rundata.re", action: "lien" });
+      expect(await formulaires.human(f, "203.0.113.7", attendu)).toBe(false);
+      answers.push({ success: false, hostname: "rundata.re", action: "proposer" });
+      expect(await formulaires.human(f, "203.0.113.7", attendu)).toBe(false);
+    } finally {
+      globalThis.fetch = real;
+      console.warn = warn;
+      formulaires.configure(undefined);
+    }
+    // Each form tells Cloudflare which it is.
+    expect(formulaires.widget("lien")).toContain('data-action="lien"');
+  });
+
   it("are out, and answer nothing while the space is closed", async () => {
     expect(formulaires.ASSOCIATIONS_EN_LIGNE).toBe(true);
     expect((await handle(new Request("https://rundata.re/associations/proposer", { headers: { accept: "text/html" } }), new Cache())).status).toBe(404);
