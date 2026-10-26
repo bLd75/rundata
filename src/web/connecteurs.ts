@@ -99,7 +99,7 @@ function formulaire(e: Formulaire): string {
   </div>
   <p class="note">Un événement laissé «\u00a0privé\u00a0» sur HelloAsso n'est pas repris. <a href="${DEPOT}">Le code de rundata.re est libre</a>\u00a0: chacun peut vérifier ce qu'il lit.</p>
   ${hp}
-  ${widget()}
+  ${widget("relier")}
   <button type="submit">Vérifier mes clés</button>
 </form>`;
 }
@@ -162,7 +162,7 @@ export async function relier(request: Request, now = new Date(), alerte?: Alerte
   const email = emailOf(f.get("email"));
   if (!email) faux.push("email");
   if (faux.length) return form({ f, faux }, 422);
-  if (!(await human(f, avis.adresseOf(request.headers)))) return form({ f, erreur: "indisponible" }, 503);
+  if (!(await human(f, avis.adresseOf(request.headers), { hostname: new URL(request.url).hostname, action: "relier" }))) return form({ f, erreur: "indisponible" }, 503);
   const plateforme = f.get("plateforme") === "helloasso" ? "helloasso" : "";
   const v = await connexions.verifier(plateforme, cles, email!, now);
   if (v.issue !== "ok") return form({ f, erreur: v.issue }, v.issue === "indisponible" ? 503 : 422);

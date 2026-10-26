@@ -15,6 +15,35 @@ export function httpUrl(raw: string | undefined): string | undefined {
   }
 }
 
+/**
+ * A request's body as text, read up to `max` bytes; undefined past them, the rest left unread. `content-length` is
+ * only a first check: a body sent in chunks has none, and is counted as it comes.
+ */
+export async function bodyText(request: Request, max: number): Promise<string | undefined> {
+  if (Number(request.headers.get("content-length") ?? 0) > max) return undefined;
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => {});
+      return undefined;
+    }
+    parts.push(value);
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) {
+    all.set(p, at);
+    at += p.byteLength;
+  }
+  return new TextDecoder().decode(all);
+}
+
 export const USER_AGENT = "reunion-temps-reel/0.2 (open source MCP server, real-time data for Reunion Island)"; // header values must be ASCII
 
 /**
