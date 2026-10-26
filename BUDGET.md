@@ -18,28 +18,28 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 307 | 500 |
-| pire passage planifié, appels KV et D1 | 32 | 1 000 |
-| pire passage planifié, CPU (ms) | 2 032 | 30 000 |
+| pire passage planifié, sous-requêtes | 322 | 500 |
+| pire passage planifié, appels KV et D1 | 35 | 1 000 |
+| pire passage planifié, CPU (ms) | 2 052 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
-| passage le plus chargé (cadences les plus courtes), sous-requêtes | 91 | 500 |
+| passage le plus chargé (cadences les plus courtes), sous-requêtes | 106 | 500 |
 | vue la plus chère, sous-requêtes | 78 | 200 |
 | question la plus chère, sous-requêtes | 59 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
 - Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
-- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 68 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
-- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 91 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, web:crues, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, propositions:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 283 sous-requêtes à 00:00 UTC.
+- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 83 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, connecteurs:lecture, propositions:purge).
+- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 106 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, web:crues, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, connecteurs:lecture, propositions:purge).
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 298 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 78. Question la plus chère : resume_du_jour, 59. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 307 | 2 | 20 | 10 | 922 | 31 | 2 032 |
-| tâche planifiée, par jour | 8 995 | 576 | 1 140 | 387 | 44 732 | 31 | 99 363 |
-| tâche planifiée, par jour, cadences les plus courtes | 16 143 | 576 | 1 668 | 867 | 49 772 | 31 | 144 843 |
-| tâche planifiée, par mois (30 jours) | 269 850 | 17 280 | 34 200 | 11 610 | 1 341 960 | 930 | 2 980 890 |
+| pire passage planifié | 322 | 2 | 20 | 13 | 1 123 | 42 | 2 052 |
+| tâche planifiée, par jour | 13 315 | 576 | 1 140 | 1 251 | 102 620 | 3 199 | 105 123 |
+| tâche planifiée, par jour, cadences les plus courtes | 20 463 | 576 | 1 668 | 1 731 | 107 660 | 3 199 | 150 603 |
+| tâche planifiée, par mois (30 jours) | 399 450 | 17 280 | 34 200 | 37 530 | 3 078 600 | 95 970 | 3 153 690 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -81,6 +81,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | sans-reponse:echecs | sites sans réponse : l'état des sites relu quand une lecture échoue (D1), au plus toutes les 10 minutes par isolat, après la réponse aussi pour une vue ou une question ; une écriture de plus pour un site qui entre dans la liste | 10 min | 00:00 | 1 |  |  | 1 | 20 |  | 2 | estimé |
 | sans-reponse:reverification | sites sans réponse : la revérification quotidienne, une lecture par site (D1 et sites), à 06:00 heure de La Réunion | 1440 min | 02:00 | 22 |  |  | 2 | 20 | 21 | 30 | estimé |
 | irve:etat | bornes de recharge : la part de La Réunion du fichier national (environ 9 Mo), écrite dans KV après les autres lectures | 15 min | 00:05 | 2 |  | 1 |  |  |  | 300 | estimé |
+| connecteurs:lecture | plateformes des associations (HelloAsso) : les événements publics d'une association reliée, relus toutes les 6 h, une association par passage | 5 min | 00:00 | 15 |  |  | 3 | 201 | 11 | 20 | estimé |
 | propositions:purge | propositions des clubs : la purge quotidienne (D1), à 04:00 heure de La Réunion | 1440 min | 00:00 | 1 |  |  | 1 |  | 10 | 5 | estimé |
 
 ## Tâches GitHub
@@ -209,6 +210,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | sans-reponse:echecs | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | sans-reponse:reverification | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | irve:etat | providers/irve |
+| connecteurs:lecture | connecteurs/helloasso |
 | / | providers/arome, providers/ensemble, providers/feux, providers/metar, providers/meteofrance, providers/mf-auth, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /communes/* | providers/acspo, providers/arome, providers/ensemble, providers/feux, providers/houle, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /aujourdhui/* | providers/acspo, providers/actualites, providers/agenda, providers/annuaire, providers/arome, providers/atmo, providers/avis-eau, providers/baignades, providers/calendrier, providers/carburants, providers/coupures-courant, providers/cyclones, providers/eaupotable, providers/edf, providers/ensemble, providers/feux, providers/gtfsrt, providers/houle, providers/irve, providers/maregraphes, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/prefecture, providers/radar, providers/salles, providers/seismes, providers/sentiers, providers/sport-avis, providers/sport, providers/tco, providers/terrain, providers/traces, providers/uv, providers/velos, providers/vigicrues, providers/vigieau, providers/vigilance, providers/volcan |
