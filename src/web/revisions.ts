@@ -32,7 +32,7 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   electricite: 6,
   enfants: 8,
   historique: 1,
-  lieu: 2,
+  lieu: 3,
   mer: 1,
   meteo: 1,
   randonnees: 2,
