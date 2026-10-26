@@ -4,8 +4,9 @@
  * read, quoted as written (data-run, marketing): not a complete history, and said so. Before the ORSEC plan of
  * 08/11/2021, the levels of the plan then, word for word. No duration nor share computed from them.
  *
- * The releases as read on 24/10/2026 in their Wayback Machine copies (reunion.gouv.fr refuses our machines); the copies
- * are the tests' fixtures (test/fixtures/volcan-historique), each quote checked there. Left out: the alert of April
+ * The releases as read on 24/10/2026 in their Wayback Machine copies, reunion.gouv.fr then not answering our reads
+ * (it answers again since 26/10/2026: the links stay these copies, where each quote was checked). The copies are the
+ * tests' fixtures (test/fixtures/volcan-historique), each quote checked there. Left out: the alert of April
  * 2023, its page updated after the alert was lifted (no day for its start); the alerts of 18/10/2021, 22/12/2021 and
  * 07/09/2022, no release of their end found. Before 2021, the copies of the old site read from 2016: left out the
  * eruption of 27/04/2018, the alerts of 07/07/2020, 28/09/2020, 04/12/2020 and 09/04/2021, no

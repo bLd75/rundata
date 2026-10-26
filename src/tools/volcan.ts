@@ -141,8 +141,8 @@ export function quakeSummary(list: seismes.Seisme[], now: Date) {
 // The ORSEC levels, lowest first, the alerts 2 by their sub-level (« Alerte 2 » unspecified as the lowest of them).
 // Sauvegarde is the phase after an eruption, the Enclos still closed (DSO ORSEC « Volcan Piton de la Fournaise », 2021,
 // p. 22 and 27): below the alerts, above vigilance. The plan as read on 24/10/2026 in its Wayback Machine copy of
-// 05/04/2025, the prefecture refusing our machines (https://web.archive.org/web/20250405151006/https://www.reunion.gouv.fr/contenu/telechargement/31585/227969/file/dso_volcan_2021.pdf):
-// to check again for a newer version once it answers (volcan-acces.ts).
+// 05/04/2025, the same size as the file at the prefecture's address read on 26/10/2026 (both addresses in
+// volcan-acces.ts).
 const ORDER: Record<string, number> = { Vigilance: 0, "Vigilance renforcée": 1, Sauvegarde: 2, "Alerte 1": 3, "Alerte 2": 4, "Alerte 2-1": 4, "Alerte 2-2": 5, "Alerte 2-3": 6 };
 const rank = (niveau: string) => ORDER[volcan.levelOf(niveau) ?? ""] ?? -1;
 // The level as the release's title writes it, « alerte 1 » of « passage en alerte 1 » (marketing).
