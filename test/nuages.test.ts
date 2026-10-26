@@ -132,7 +132,11 @@ describe("the sky of the night", () => {
     const f = forecast([hour(steps[0], 80, 1200, 1800), hour(steps[1], 10, null, null), hour(steps[2], 10, null, null), hour(steps[3], 90, 1500, 2600)]);
     const hauts = cielDeNuit(f, MAIDO, EVENING)!;
     expect(hauts.fenetres.map((w) => w.etat)).toEqual(["dessus", "degage", "dans"]);
-    expect(hauts.ligne).toBe("De 18\u00a0h à 21\u00a0h, au-dessus de la mer de nuages (nuages entre 1 200 et 1 800 m)\u00a0; de 21\u00a0h à 3\u00a0h, dégagé\u00a0; de 3\u00a0h à 6\u00a0h, dans les nuages (entre 1 500 et 2 600 m).");
+    // The words of the cloud sea, as etat() says them (thousands and unit with non-breaking spaces).
+    const over = etat(hour(steps[0], 80, 1200, 1800), 2190)!.texte;
+    const inside = etat(hour(steps[3], 90, 1500, 2600), 2190)!.texte;
+    expect(hauts.ligne).toBe(`De 18\u00a0h à 21\u00a0h, ${over}\u00a0; de 21\u00a0h à 3\u00a0h, dégagé\u00a0; de 3\u00a0h à 6\u00a0h, ${inside}.`);
+    expect(inside).toMatch(/^dans les nuages \(entre 1.500 et 2.600.m\)$/);
     expect(hauts.titre).toBe("Ciel ce soir et cette nuit");
     const bas = cielDeNuit(f, SAINT_PAUL, EVENING)!;
     expect(bas.ligne).toBe("De 18\u00a0h à 21\u00a0h, couvert\u00a0; de 21\u00a0h à 3\u00a0h, dégagé\u00a0; de 3\u00a0h à 6\u00a0h, couvert.");

@@ -198,12 +198,12 @@ describe("a run listed before all its hours are out", () => {
     const r = body(await previsionMeteo(await cacheAt(clock), "Cilaos", "demain", new Date(START)));
     expect(r.resume).toMatch(/^PRÉVISION \(modèle AROME outre-mer de Météo-France, maille de 2,5 km, calcul de 22\/10 04:00, et de 21\/10 22:00 pour la suite/);
     expect(r.modele.calculs_suivants).toEqual([{ run_du_modele: "21/10 22:00", a_partir_de: "23/10 06:00" }]);
-    // Midnight to 6h from the newest run, then the run before, then ECMWF. Cold, the question's 40 grids reach 18h:
-    // the morning's steps take two more each for the cloud layer (the prefetch fills the rest, up to 22h).
+    // Midnight to 6h from the newest run, then the run before, then ECMWF. Cold, the question's 40 grids reach 15h:
+    // the steps of the night and of the morning take two more each for the cloud layer (the prefetch fills the rest).
     const models = r.pas_de_3h.map((s: { heures: string; modele: string }) => s.modele);
     expect(models).toHaveLength(8);
-    expect(models.slice(0, 6).every((m: string) => m.startsWith("AROME"))).toBe(true);
-    expect(models.slice(6).every((m: string) => /^IFS/.test(m))).toBe(true);
+    expect(models.slice(0, 5).every((m: string) => m.startsWith("AROME"))).toBe(true);
+    expect(models.slice(5).every((m: string) => /^IFS/.test(m))).toBe(true);
     expect(r.avertissements.join(" ")).toMatch(/calcul d'AROME de 22\/10 04:00 n'est pas encore entièrement publié .* à partir de 23\/10 06:00, les valeurs viennent du calcul de 21\/10 22:00/);
     expect(asked.some((a) => a.run === BEFORE)).toBe(true);
   });
@@ -222,7 +222,7 @@ describe("a run listed before all its hours are out", () => {
     const before = asked.length;
     await previsionMeteo(c, "Cilaos", "demain", new Date(clock.now));
     expect(late()).toBe(first); // the missing hours not tried again
-    expect(asked.length - before).toBeLessThanOrEqual(7); // at most the step the first question had no room for
+    expect(asked.length - before).toBeLessThanOrEqual(12); // at most the steps the first question had no room for, 15h and 18h
 
     clock.now = START + 30 * 60_000;
     await previsionMeteo(c, "Cilaos", "demain", new Date(clock.now));
