@@ -1,7 +1,7 @@
 /**
  * French typography on the page as sent: the ordinary space before « : ; ? ! » » and after « « » becomes a no-break
  * space (U+00A0), so that a phone never starts a line with « : », and so does the one between the word « à » and a
- * number, so that « à 08:00 », « à 3 km » never end a line on « à » (marketing). Only the text between the tags: the tags themselves
+ * number, so that « à 08:00 », « à 3 km » never end a line on « à ». Only the text between the tags: the tags themselves
  * (their attributes, URLs, the metas), the comments and the inside of <script> (the JSON-LD with it), <style>, <pre>,
  * <code> and <textarea> are left as written. The assistants' text (the MCP tools) never goes through here.
  *
