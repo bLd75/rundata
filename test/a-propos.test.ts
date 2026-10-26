@@ -85,6 +85,14 @@ describe("who makes rundata.re, the connector's page, the legal notice, the 404 
     expect(page).toContain("enregistré auprès de l'AFNIC (.re)");
   });
 
+  it("sends /about to /a-propos", async () => {
+    for (const path of ["/about", "/about/"]) {
+      const r = await handle(get(path, BROWSER), new Cache());
+      expect(r.status).toBe(301);
+      expect(r.headers.get("location")).toBe("/a-propos");
+    }
+  });
+
   it("answers an unknown address with the site's page, still a 404, unless the client asks for something else", async () => {
     for (const accept of [BROWSER, "*/*", undefined]) {
       const r = await handle(get("/qui-sommes-nous", accept), new Cache());

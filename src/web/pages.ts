@@ -86,7 +86,7 @@ export const since = (iso: string | Date, now: Date) =>
 export const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-reunion-974-en-direct-pour-vous-et-votre-assistant-ia";
 // Where else rundata.re lives, linked from every footer and named in the home page's structured data.
 export const GITHUB = "https://github.com/rundata-re/rundata";
-export const GLAMA = "https://glama.ai/mcp/servers/bLd75/rundata";
+export const GLAMA = "https://glama.ai/mcp/servers/rundata-re/rundata";
 
 /** An account of rundata.re: its name, its address, its logo drawn in the text colour. */
 export interface Social {

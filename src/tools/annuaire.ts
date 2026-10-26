@@ -4,6 +4,7 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as annuaire from "../providers/annuaire.js";
 import { why } from "../types.js";
+import { pageOf, slugify } from "../web/places.js";
 import { carburantsAnswer, FUEL } from "./carburants.js";
 import { credits, de, fr, notFound, text } from "./format.js";
 import { COLLECTION, collecteAnswer } from "./collecte.js";
@@ -11,6 +12,9 @@ import { decheteriesAnswer, WASTE } from "./decheteries.js";
 import { CHILDREN, enfantsAnswer } from "./enfants.js";
 import { MARKET, marchesAnswer } from "./marches.js";
 import { EMERGENCY, PHARMACY, pharmaciesAnswer, urgencesAnswer } from "./sante.js";
+
+// Asked of the annuaire, a defibrillator is not an office: its link is the page of the devices.
+const DEFIBRILLATOR = /d[ée]fibrillateur|\bdae\b/i;
 
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 
@@ -86,7 +90,12 @@ export async function annuaireTool(cache: Cache, quoi: string, lieu: string | un
     return { ...text({ erreur: "L'annuaire de l'administration ne répond pas pour le moment.", consulter: annuaire.SOURCE.url }), isError: true };
   }
   if (!found.length) {
-    return text({ resume: `Aucun service public trouvé à La Réunion pour « ${quoi} ».`, conseil: "Essayer un autre mot : mairie, CAF, préfecture, impôts, France Travail, tribunal, CPAM…", sources: credits([annuaire.SOURCE]) });
+    return text({
+      resume: `Aucun service public trouvé à La Réunion pour « ${quoi} ».`,
+      conseil: "Essayer un autre mot : mairie, CAF, préfecture, impôts, France Travail, tribunal, CPAM…",
+      page: DEFIBRILLATOR.test(quoi) ? "https://rundata.re/defibrillateurs" : undefined,
+      sources: credits([annuaire.SOURCE]),
+    });
   }
   // Same commune first, then the nearest, then the search's own order.
   const p = res?.lieu;
@@ -96,6 +105,8 @@ export async function annuaireTool(cache: Cache, quoi: string, lieu: string | un
     .sort((a, b) => (p ? Number(b.same) - Number(a.same) || (a.d ?? 1e9) - (b.d ?? 1e9) : 0) || a.i - b.i)
     .slice(0, 5);
   const best = ranked[0];
+  // The page of the place's commune, as the answers that carry their place link to it (citer.ts).
+  const town = p && pageOf(slugify(p.commune));
   const h = hoursText(best.o);
   const open = openNow(best.o, now);
   return text({
@@ -119,6 +130,7 @@ export async function annuaireTool(cache: Cache, quoi: string, lieu: string | un
       fiche: o.fiche || undefined,
     })),
     avertissements: ["Horaires publiés par chaque service sur service-public.fr : jours fériés et fermetures exceptionnelles non pris en compte."],
+    page: town?.commune ? `https://rundata.re/communes/${town.slug}` : undefined,
     sources: credits([annuaire.SOURCE]),
   });
 }
