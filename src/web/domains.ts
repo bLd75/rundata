@@ -765,7 +765,7 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
         return `<li class="card"><h3>Gare ${esc(de(g.commune))}</h3>` +
         `<p class="note">${g.arrets.map((a) => `${esc(a.reseau)} : ${a.page ? `<a href="${STOP_PATH}/${esc(a.page)}">${esc(a.nom)}</a>` : esc(a.nom)}`).join(" · ")}</p>` +
         (left.length
-          ? `<ul class="rows">${left.map(({ x, min, heure }) => departureLi(x, waitText(min, heure))).join("")}</ul>`
+          ? `<ul class="rows departs">${left.map(({ x, min, heure }) => departureLi(x, waitText(min, heure))).join("")}</ul>`
           : `<p>Pas de départ prévu dans les prochaines heures.</p>`) +
         `</li>`;
       }).join("")}</ul>` +

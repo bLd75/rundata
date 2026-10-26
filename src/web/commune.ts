@@ -164,7 +164,7 @@ function buses(p: PlacePage, data: Cached<CommuneData> | null | undefined, now: 
   const first = left.find(({ x }) => !x.temps_reel) ?? left[0];
   return {
     live: { valeur: esc(first.heure), detail: `prochain départ ${where} : ligne ${esc(first.x.ligne)} vers ${esc(first.x.direction)} (${esc(first.x.reseau)})` },
-    more: `<ul class="rows">${left.map(({ x, min, heure }) => departureLi(x, waitText(min, heure))).join("")}</ul>` +
+    more: `<ul class="rows departs">${left.map(({ x, min, heure }) => departureLi(x, waitText(min, heure))).join("")}</ul>` +
       (b.alertes?.length ? `<div class="note">Info trafic : ${alertList(b.alertes)}</div>` : ""),
   };
 }
