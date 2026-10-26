@@ -772,7 +772,7 @@ describe("the clubs' and associations' space (web/associations.ts)", () => {
     formulaires.ouvrir(true);
     const privacy = plain(await (await get("/confidentialite")).text());
     expect(privacy).toContain('<p id="abus"><b>Contre les abus</b>');
-    expect(privacy).toContain('(voir <a href="#retours">« Les retours »</a>). Seule la vérification anti-robot des deux formulaires des clubs et associations garde une donnée dans le navigateur (voir <a href="#abus">« Contre les abus »</a>).');
+    expect(privacy).toContain('(voir <a href="#retours">« Les retours »</a>). La vérification anti-robot des deux formulaires des clubs et associations y garde aussi une donnée (voir <a href="#abus">« Contre les abus »</a>).');
     expect(privacy).toContain("C'est du stockage local du navigateur, pas un cookie.");
     const note = '<p class="note">La vérification anti-robot de Cloudflare garde une donnée dans votre navigateur (pas un cookie) : <a href="/confidentialite#abus">ce que c\'est</a>.</p>';
     // Right under the widget, on the event form and on the link form (/associations, /publier).
