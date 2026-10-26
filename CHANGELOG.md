@@ -4,6 +4,10 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 <!-- Généré à partir de src/nouveautes.ts par `npm run changelog` : modifier la liste là-bas. -->
 
+## Mardi 27 octobre 2026
+
+- Bouton « Cette page vous a aidé ? » en bas des pages, pour nous dire en un clic si une page a servi. Sans compte ni cookie.
+
 ## Lundi 26 octobre 2026
 
 - Nouvelle page Nos valeurs : un site sans compte, un code ouvert, des données sourcées, et ce que coûte une information enfermée.

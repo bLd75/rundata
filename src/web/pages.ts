@@ -37,6 +37,7 @@ import { typo } from "./typo.js";
 import { mentionLinks } from "../mentions.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
+import { aide, AIDE_CSS, SIGNAL_SCRIPT } from "./signaux.js";
 import { FORMS_CSS } from "./formulaires-style.js";
 import { INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
@@ -714,7 +715,7 @@ footer.foot .brand{color:var(--on-night);margin-bottom:.8rem}
 footer.foot p+p{margin-top:.6rem}
 footer.foot h3{color:var(--on-night);font-size:1rem;margin-bottom:.4rem}
 footer.foot .slogan{font-size:1rem;padding-left:calc(1.55rem + .6rem)}
-`.replace(/\n/g, "") + AVIS_CSS + FORMS_CSS + PWA_CSS;
+`.replace(/\n/g, "") + AVIS_CSS + AIDE_CSS + FORMS_CSS + PWA_CSS;
 
 interface Head {
   title: string;
@@ -793,7 +794,7 @@ addEventListener("pageshow",(e)=>{if(e.persisted)again()});document.addEventList
 
 const SCRIPT = `const menu=document.querySelector("details.menu");if(menu)document.addEventListener("click",(e)=>{if(menu.open&&!menu.contains(e.target))menu.open=false});
 document.querySelectorAll("[data-copy]").forEach((b)=>b.addEventListener("click",async()=>{const t=document.getElementById(b.dataset.copy);
-const o=b.textContent;try{await navigator.clipboard.writeText(t.textContent);b.textContent="Copié ✓";setTimeout(()=>b.textContent=o,2500)}catch{getSelection().selectAllChildren(t)}}));
+const o=b.textContent;if(b.dataset.signal&&location.pathname==="/mcp")sig("c");try{await navigator.clipboard.writeText(t.textContent);b.textContent="Copié ✓";setTimeout(()=>b.textContent=o,2500)}catch{getSelection().selectAllChildren(t)}}));
 const f=document.getElementById("filtre");if(f){const n=(s)=>s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
 f.addEventListener("input",()=>{const q=n(f.value.trim());let any=false;document.querySelectorAll(".places li").forEach((li)=>{const ok=n(li.textContent).includes(q);li.hidden=!ok;any||=ok});
 document.querySelectorAll(".places h3").forEach((h)=>{h.hidden=![...h.nextElementSibling.children].some((li)=>!li.hidden)});document.getElementById("rien").hidden=any})}
@@ -810,7 +811,8 @@ e.textContent="il y a "+(m<90?m+" min":m<2880?Math.round(m/60)+" h":Math.round(m
 document.querySelectorAll("[data-js]").forEach((e)=>{e.hidden=false});document.querySelectorAll("[data-nojs]").forEach((e)=>{e.hidden=true});
 tick();setInterval(tick,3e4);
 ${RELOAD_SCRIPT}
-${PWA_SCRIPT}`;
+${PWA_SCRIPT}
+${SIGNAL_SCRIPT}`;
 
 /** Whether a page belongs to a category: /meteo/cilaos is in the weather. */
 const inCategory = (path: string, category: string) => path === category || path.startsWith(`${category}/`);
@@ -984,7 +986,8 @@ ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
 ${mentionLinks(body)}
 </main>
 ${head.shell ? "" : `${head.sansPartage ? "" : share(origin, head)}
-${head.sansAvis ? "" : avisForm(head.path)}`}
+${head.sansAvis ? "" : `${aide()}
+${avisForm(head.path)}`}`}
 <footer class="foot"><div class="wrap">
   <div>
     <a class="brand" href="/">${logo()}<span>rundata.re</span></a>
@@ -1093,7 +1096,7 @@ export function ask(kreol: string, francais: string): string {
 
 /** The connector's address with its copy button; `id` keeps several on one page apart. */
 export function connector(origin: string, id: string): string {
-  return `<div class="connect"><code id="${id}">${esc(`${origin}/mcp`)}</code><button type="button" data-copy="${id}" aria-label="Copier l'adresse du connecteur">Copier</button></div>`;
+  return `<div class="connect"><code id="${id}">${esc(`${origin}/mcp`)}</code><button type="button" data-copy="${id}" data-signal aria-label="Copier l'adresse du connecteur">Copier</button></div>`;
 }
 
 export const withTemp = (data: Cached<HomeData> | null) => data?.value.stations.filter((x) => x.temperature != null && !x.stale) ?? [];
@@ -1832,11 +1835,12 @@ export function legalPage(origin: string, kind: "confidentialite" | "conditions"
   const body = privacy
     ? `<section style="${PROSE}">
   <h2>En bref</h2>
-  <p>${enLigne() ? `Pour consulter le site ou l'utiliser depuis un assistant IA, rundata.re ne demande ni compte, ni nom, ni adresse électronique. Seuls les ${connecteursEnLigne() ? "trois" : "deux"} formulaires des clubs et associations demandent une adresse électronique (voir <a href="#associations-donnees">«\u00a0Ce que les clubs et associations envoient\u00a0»</a>${connecteursEnLigne() ? ` et <a href="#plateformes-donnees">«\u00a0Les associations reliées à une plateforme\u00a0»</a>` : ""}).` : "rundata.re ne demande ni compte, ni nom, ni adresse électronique."} Le site ne pose aucun cookie et ne contient aucun traceur publicitaire.${enLigne() ? ` Seule la vérification anti-robot des ${connecteursEnLigne() ? "trois" : "deux"} formulaires des clubs et associations garde une donnée dans le navigateur (voir <a href="#abus">«\u00a0Contre les abus\u00a0»</a>).` : ""} Rien n'est vendu ni partagé à des fins commerciales.</p>
+  <p>${enLigne() ? `Pour consulter le site ou l'utiliser depuis un assistant IA, rundata.re ne demande ni compte, ni nom, ni adresse électronique. Seuls les ${connecteursEnLigne() ? "trois" : "deux"} formulaires des clubs et associations demandent une adresse électronique (voir <a href="#associations-donnees">«\u00a0Ce que les clubs et associations envoient\u00a0»</a>${connecteursEnLigne() ? ` et <a href="#plateformes-donnees">«\u00a0Les associations reliées à une plateforme\u00a0»</a>` : ""}).` : "rundata.re ne demande ni compte, ni nom, ni adresse électronique."} Le site ne pose aucun cookie et ne contient aucun traceur publicitaire. Pour savoir si le site sert d'un jour à l'autre, il garde dans votre navigateur la date de votre première et de votre dernière visite, sans rien envoyer d'autre qu'une catégorie (voir <a href="#retours">«\u00a0Les retours\u00a0»</a>).${enLigne() ? ` Seule la vérification anti-robot des ${connecteursEnLigne() ? "trois" : "deux"} formulaires des clubs et associations garde une donnée dans le navigateur (voir <a href="#abus">«\u00a0Contre les abus\u00a0»</a>).` : ""} Rien n'est vendu ni partagé à des fins commerciales.</p>
   <h2>Ce que le site compte</h2>
-  <p>Pour savoir quelles pages et quels outils servent, et les améliorer, chaque page vue et chaque message reçu par le connecteur ajoutent une ligne anonyme aux statistiques : la page et sa rubrique, ou l'outil appelé avec le nom des paramètres donnés (pas leur valeur) ; le lieu demandé quand c'en est un, tel que le site l'a compris (une commune, une plage…), ou le texte demandé, coupé à 60 caractères, quand il ne l'a pas compris, pour apprendre à le comprendre ; le nom et la version de l'application de l'assistant (par exemple « claude-ai ») ; si la réponse a réussi, son temps et sa taille ; le pays déduit par Cloudflare, la langue du navigateur, si la page est ouverte depuis l'application installée sur l'écran d'accueil, le site d'où vient le visiteur et son type (une personne, un assistant, ou le nom du robot d'un assistant ou d'un moteur de recherche). Chaque lecture d'un flux RSS de commune ajoute aussi une ligne, à part : le flux, le nom de l'application qui le lit (Feedly, Inoreader…) et le nombre d'abonnés qu'elle annonce, sans rien sur les abonnés eux-mêmes. Ni adresse IP, ni identifiant, ni cookie. Des coordonnées ne sont jamais gardées, seulement leur commune. Depuis le 24 octobre 2026, un texte non compris qui ressemble à une adresse (un numéro suivi d'une rue, d'un chemin, d'une impasse, d'un lotissement…) n'est plus gardé tel qu'écrit, ni dans les statistiques ni dans le journal : seulement le mot « adresse ». Un nom de rue sans numéro peut encore être gardé, coupé à 60 caractères, comme tout lieu non compris. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée, pas plus que les autres paramètres (un arrêt de bus, un sujet…). Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
+  <p>Pour savoir quelles pages et quels outils servent, et les améliorer, chaque page vue et chaque message reçu par le connecteur ajoutent une ligne anonyme aux statistiques : la page et sa rubrique, ou l'outil appelé avec le nom des paramètres donnés (pas leur valeur) ; le lieu demandé quand c'en est un, tel que le site l'a compris (une commune, une plage…), ou le texte demandé, coupé à 60 caractères, quand il ne l'a pas compris, pour apprendre à le comprendre ; le nom et la version de l'application de l'assistant (par exemple « claude-ai ») ; si la réponse a réussi, son temps et sa taille ; le pays déduit par Cloudflare, la langue du navigateur, si la page est ouverte depuis l'application installée sur l'écran d'accueil, le site d'où vient le visiteur et son type (une personne, un assistant, ou le nom du robot d'un assistant ou d'un moteur de recherche). Chaque lecture d'un flux RSS de commune ajoute aussi une ligne, à part : le flux, le nom de l'application qui le lit (Feedly, Inoreader…) et le nombre d'abonnés qu'elle annonce, sans rien sur les abonnés eux-mêmes. Ni adresse IP, ni identifiant, ni cookie. Des coordonnées ne sont jamais gardées, seulement leur commune. Depuis le 24 octobre 2026, un texte non compris qui ressemble à une adresse (un numéro suivi d'une rue, d'un chemin, d'une impasse, d'un lotissement…) n'est plus gardé tel qu'écrit, ni dans les statistiques ni dans le journal : seulement le mot « adresse ». Un nom de rue sans numéro peut encore être gardé, coupé à 60 caractères, comme tout lieu non compris. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée, pas plus que les autres paramètres (un arrêt de bus, un sujet…). La page envoie aussi, sans identifiant, le temps qu'elle a mis à s'afficher sur votre appareil\u00a0; sur la page du connecteur, le fait que son adresse a été copiée\u00a0; et votre réponse au bouton «\u00a0Cette page vous a aidé\u00a0?\u00a0» (la page, et oui ou non). Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
   <p>Installation et lecture hors ligne : elles n'utilisent aucun cookie. Pour afficher les pages sans réseau, le site garde sur votre téléphone une copie des pages que vous ouvrez (le cache du navigateur, géré par un « service worker »). Votre choix « Plus tard » est gardé de la même façon. Ces données restent sur le téléphone et ne sont envoyées à personne. Elles s'effacent depuis les réglages du navigateur (données du site rundata.re).</p>
   <p>Les visites de l'équipe. Pour que les statistiques ne comptent pas ceux qui font le site, leurs appareils portent un repère, gardé dans le navigateur de la même façon (sans cookie). Leurs pages vues sont notées « interne » et laissées hors des chiffres. Rien ne change pour les autres visiteurs.</p>
+  <p id="retours">Les retours. Pour savoir si le site sert d'un jour à l'autre, votre navigateur garde deux dates\u00a0: celle de votre première visite et celle de votre dernière, le jour seulement, sans l'heure. Ce n'est pas un cookie, mais le stockage local du navigateur, sur votre appareil. À chaque visite, la page n'envoie aux statistiques qu'une catégorie, jamais les dates\u00a0: première visite, le même jour, le lendemain, dans la semaine, ou plus tard. Ce repère ne sert qu'à cette mesure\u00a0: aucun autre site ne le lit, et il n'est recoupé avec rien. Il s'efface 13 mois après votre première visite et n'est jamais prolongé. Vous pouvez l'effacer à tout moment depuis les réglages du navigateur (données du site rundata.re). Selon les règles de la CNIL, une telle mesure d'audience ne demande pas de consentement («\u00a0Cookies\u00a0: solutions pour les outils de mesure d'audience\u00a0», <a href="https://www.cnil.fr/fr/cookies-et-autres-traceurs/regles/cookies-solutions-pour-les-outils-de-mesure-daudience">cnil.fr</a>).</p>
   <h2>Journaux techniques</h2>
   <p>Comme tout hébergeur, Cloudflare garde quelques jours les journaux du service (adresse demandée, erreurs, durée). Pour chaque message du connecteur, ils reprennent les éléments des statistiques ci-dessus, sans rien de plus. Une copie sans aucune adresse IP est conservée un an au plus, pour comprendre les pannes. Votre conversation n'y figure jamais.</p>
   <h2 id="avis-donnees">Les avis que vous laissez</h2>

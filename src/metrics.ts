@@ -11,14 +11,16 @@ import { left, perInvocation } from "./budget.js";
 export interface Hit {
   /**
    * « mcp »: a tools/call; « rpc »: any other MCP message (initialize, tools/list…) or a refused request; « page »;
-   * « flux »: a commune's RSS feed fetched by a reader (web/rss.ts), kept apart from the page views.
+   * « flux »: a commune's RSS feed fetched by a reader (web/rss.ts), kept apart from the page views; « signal »: what a
+   * page's browser tells (web/signaux.ts), never a page view.
    */
-  kind: "mcp" | "rpc" | "page" | "flux";
+  kind: "mcp" | "rpc" | "page" | "flux" | "signal";
   /** The tool; the JSON-RPC method (or the HTTP method of a request without one); the page's path. */
   name: string;
   /**
    * Tool: the place asked for, as the gazetteer understood it (« Saint-Pierre », « coordonnées »), or the text asked,
-   * cut to 60 characters, when it did not. Page: « bouton » when opened from a « Domann out IA » question.
+   * cut to 60 characters, when it did not. Page: « bouton » when opened from a « Domann out IA » question. Signal:
+   * its event (« affichage », « adresse copiée », « aide », « retour »).
    */
   detail?: string;
   ok: boolean;
@@ -59,6 +61,9 @@ export interface Hit {
   cacheLoads?: number;
   /** Tool: characters of text in the answer. */
   size?: number;
+  /** Signal: its value (« oui », « non », the class of a visit), and for « affichage » the LCP in ms (TTFB in `ms`). */
+  value?: string;
+  lcp?: number;
 }
 
 export type Recorder = (hit: Hit) => void;
@@ -227,10 +232,15 @@ export interface Visit {
  * A feed (« flux ») is written as a page, but for blob1, blob4 (the reader) and double6 (its subscribers). Readers per
  * feed per day: for each feed and reader, the day's largest double6; then their sum.
  *
+ * A signal (web/signaux.ts) is written as a page too, but for blob1 (« signal »), blob3 (its event), blob6 (empty:
+ * its referer is always the page), blob10 (its value: oui, non, première, même jour, lendemain, dans la semaine, plus
+ * tard), double2 (« affichage »: the TTFB seen by the browser, ms) and double6 (« affichage »: the LCP, ms, 0 where the
+ * browser does not give it). A visit's class (« retour ») leaves with the page the visit came in by.
+ *
  * | column  | mcp, rpc                                   | page                                   |
  * |---------|--------------------------------------------|----------------------------------------|
  * | index1  | kind                                       | kind                                   |
- * | blob1   | kind: mcp (tools/call) or rpc (the rest)   | page, or flux                          |
+ * | blob1   | kind: mcp (tools/call) or rpc (the rest)   | page, flux, or signal                  |
  * | blob2   | tool, or JSON-RPC method, or HTTP method   | path                                   |
  * | blob3   | place understood, or text not understood   | « bouton » (opened from a question)    |
  * | blob4   | visitor, from the User-Agent; « interne » for the team (teamVisit) | visitor; for a feed, its reader |
@@ -255,16 +265,18 @@ export interface Visit {
  * Analytics Engine keeps points three months.
  */
 export function point(hit: Hit, v: Visit): { indexes: string[]; blobs: string[]; doubles: number[] } {
-  const page = hit.kind === "page" || hit.kind === "flux";
+  const signal = hit.kind === "signal";
+  const page = hit.kind === "page" || hit.kind === "flux" || signal;
+  const seen = hit.kind === "page" || signal;
   const blobs = [
-    hit.kind, hit.name, hit.detail ?? "", hit.reader ?? v.who, v.country, v.from,
+    hit.kind, hit.name, hit.detail ?? "", hit.reader ?? v.who, v.country, signal ? "" : v.from,
     page ? category(hit.name) : hit.method ?? "",
     page ? v.language : hit.client ?? "",
     page ? v.audience : hit.clientVersion ?? "",
-    page ? String(hit.status ?? "") : hit.protocol ?? "",
-    hit.kind === "page" ? v.mode ?? "" : hit.outcome ?? "", hit.kind === "page" ? v.device ?? "" : hit.message ?? "", hit.args ?? "", hit.place ?? "", hit.commune ?? "",
+    signal ? hit.value ?? "" : page ? String(hit.status ?? "") : hit.protocol ?? "",
+    seen ? v.mode ?? "" : hit.outcome ?? "", seen ? v.device ?? "" : hit.message ?? "", hit.args ?? "", hit.place ?? "", hit.commune ?? "",
   ];
-  const doubles = [hit.ok ? 1 : 0, hit.ms ?? 0, hit.subrequests ?? 0, hit.cacheHits ?? 0, hit.cacheLoads ?? 0, hit.kind === "flux" ? hit.subscribers ?? 1 : hit.size ?? 0];
+  const doubles = [hit.ok ? 1 : 0, hit.ms ?? 0, hit.subrequests ?? 0, hit.cacheHits ?? 0, hit.cacheLoads ?? 0, hit.kind === "flux" ? hit.subscribers ?? 1 : signal ? hit.lcp ?? 0 : hit.size ?? 0];
   return { indexes: [hit.kind], blobs, doubles };
 }
 
