@@ -49,7 +49,7 @@ describe("sentiers de randonnée", () => {
     const b = body(await sentiersRandonnee(cache(), "sentiers fermés à Mafate", NOW));
     // A hike of the cirque crosses a closed trail: said first.
     expect(b.resume).toBe("ATTENTION : PR25 emprunte 1 sentier fermé : La Nouvelle - Maison Laclos par PR (Éboulement). Un sentier fermé est interdit : ne pas s'y engager, prendre une variante ouverte ou renoncer. " +
-      "Dans le cirque de Mafate : 5 sentiers fermés, 84 ouverts, 9 hors gestion ONF (état non connu).");
+      "Dans le cirque de Mafate : 5 sentiers fermés, 84 ouverts, 9 hors gestion ONF (état non connu). 50 aires d'accueil de l'ONF dans le cirque de Mafate (voir aires_accueil).");
     expect(b.avertissement.sentiers_fermes).toEqual([expect.objectContaining({ sentier: "La Nouvelle - Maison Laclos par PR", cause: "Éboulement", randonnees: ["PR25"] })]);
     expect(b.sentiers_nommes).toBeUndefined();
     expect(b.autour.sentiers_fermes.map((t: { sentier: string }) => t.sentier)).toContain("Piste DFCI de la Glacière");
@@ -61,5 +61,30 @@ describe("sentiers de randonnée", () => {
     // The closed trail asked by its name is in the warning too, with no hike.
     expect(b.avertissement.sentiers_fermes).toContainEqual(expect.objectContaining({ sentier: "Sentier de la Tamarinaie de Bélouve", randonnees: [] }));
     expect(b.autour.sentiers_fermes[0].distance_km).toBeTypeOf("number");
+  });
+
+  it("gives the ONF's reception areas of a zone, or along a trail asked by its name, under the ONF's names only", async () => {
+    const b = body(await sentiersRandonnee(cache(), "Maïdo", NOW));
+    expect(b.resume).toContain(" 48 aires d'accueil de l'ONF à moins de 4 km de Maïdo (voir aires_accueil).");
+    expect(b.aires_accueil).toMatchObject({ ou: "à moins de 4 km de Maïdo", rayon_km: 4, nombre: 48 });
+    expect(b.aires_accueil.aires).toHaveLength(10);
+    expect(b.aires_accueil.aires[0]).toEqual({ nom: "Site du Maïdo", distance_km: 0.2, carte: expect.stringMatching(/^https:\/\/www\.openstreetmap\.org\/\?mlat=-21\.\d+&mlon=55\.\d+/) });
+    expect(b.aires_accueil.a_savoir).toBe("Aires d'accueil de l'ONF, sous le nom que leur donne sa carte des sentiers (mise à jour le 20/05/2026), codes compris : « RF » désigne une route forestière, et « pk » le point kilométrique sur cette route. La carte ne dit pas ce qu'on trouve sur chaque aire, ni ce qu'on a le droit d'y faire (camper, faire du feu) : se renseigner auprès de l'ONF.");
+    expect(b.sources.map((s: { source: string }) => s.source).join()).toContain("Aires d'accueil des forêts (ONF La Réunion)");
+    // A commune: those of the commune (Cilaos, a cirque, takes the cirque's).
+    const paul = body(await sentiersRandonnee(cache(), "Saint-Paul", NOW));
+    expect(paul.aires_accueil).toMatchObject({ ou: "dans la commune de Saint-Paul", nombre: 55 });
+    expect(paul.aires_accueil).not.toHaveProperty("rayon_km");
+    expect(paul.resume).toContain(" 55 aires d'accueil de l'ONF dans la commune de Saint-Paul (voir aires_accueil).");
+    const cilaos = body(await sentiersRandonnee(cache(), "Cilaos", NOW));
+    expect(cilaos.aires_accueil).toMatchObject({ ou: "dans le cirque de Cilaos", rayon_km: 6, nombre: 29 });
+    // A trail asked by its name, with no place: those within 300 m of it.
+    const trail = body(await sentiersRandonnee(cache(), "le sentier de la Roche Pendue est ouvert ?", NOW));
+    if (trail.aires_accueil) expect([trail.aires_accueil.ou, trail.aires_accueil.rayon_km]).toEqual(["à moins de 300 m du sentier", 0.3]);
+    // The island: none, and never a word of what a place allows.
+    const ile = body(await sentiersRandonnee(cache(), undefined, NOW));
+    expect(ile.aires_accueil).toBeUndefined();
+    // Camping is named only to say the map does not tell it (a forest road's « circulation autorisée » is not ours).
+    for (const x of [b, cilaos, paul]) expect(JSON.stringify([x.aires_accueil, x.resume]).replace(x.aires_accueil.a_savoir, "")).not.toMatch(/bivouac|camping|camper|autoris/i);
   });
 });

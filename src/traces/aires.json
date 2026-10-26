@@ -1,0 +1,1676 @@
+{
+"mise_a_jour": "2026-05-20",
+"source": "ONF La Réunion, couche « Aires d'accueil » de la carte des sentiers",
+"aires": [
+{
+"nom": "Affouches - Kiosque Lataniers",
+"lon": 55.39937,
+"lat": -20.96119
+},
+{
+"nom": "Affouches - Kiosque entonnoir pk15",
+"lon": 55.419,
+"lat": -20.96383
+},
+{
+"nom": "Affouches - Pique-nique pk14.4",
+"lon": 55.41485,
+"lat": -20.96278
+},
+{
+"nom": "Affouches - RF20 - Kiosque pk10.3",
+"lon": 55.40308,
+"lat": -20.94813
+},
+{
+"nom": "Affouches - RF20 - Kiosque pk10.7",
+"lon": 55.40455,
+"lat": -20.95167
+},
+{
+"nom": "Affouches - RF20 - Kiosque pk12.3",
+"lon": 55.40966,
+"lat": -20.95944
+},
+{
+"nom": "Affouches - RF20 - Kiosque pk7.6",
+"lon": 55.40699,
+"lat": -20.93945
+},
+{
+"nom": "Affouches - RF20 - Pique-nique pk10.1",
+"lon": 55.40395,
+"lat": -20.94833
+},
+{
+"nom": "Affouches - RF20 - Pique-nique pk8.4",
+"lon": 55.40604,
+"lat": -20.94073
+},
+{
+"nom": "Affouches - RF20 - Pique-nique pk9.1",
+"lon": 55.40379,
+"lat": -20.94453
+},
+{
+"nom": "Affouches - RF20 - Pique-nique pk9.2",
+"lon": 55.40431,
+"lat": -20.94564
+},
+{
+"nom": "Affouches pk14.6",
+"lon": 55.41626,
+"lat": -20.96354
+},
+{
+"nom": "Affouches pk15.2",
+"lon": 55.41708,
+"lat": -20.96428
+},
+{
+"nom": "Anse des Cascades - Gros Piton - P F04",
+"lon": 55.82887,
+"lat": -21.1795
+},
+{
+"nom": "Anse des Cascades - P D04 E04 001 002",
+"lon": 55.82831,
+"lat": -21.18483
+},
+{
+"nom": "Aurère 1",
+"lon": 55.42229,
+"lat": -21.01924
+},
+{
+"nom": "Aurère 2",
+"lon": 55.42321,
+"lat": -21.01968
+},
+{
+"nom": "Aurère 3",
+"lon": 55.42377,
+"lat": -21.01898
+},
+{
+"nom": "Aurère 4",
+"lon": 55.42437,
+"lat": -21.01876
+},
+{
+"nom": "Aurère 5",
+"lon": 55.42496,
+"lat": -21.01922
+},
+{
+"nom": "Aurère 6",
+"lon": 55.42625,
+"lat": -21.02026
+},
+{
+"nom": "Aurère point de vue au sud",
+"lon": 55.42444,
+"lat": -21.02182
+},
+{
+"nom": "Basse Vallée - Départ sentier Puys Ramond",
+"lon": 55.7064,
+"lat": -21.33986
+},
+{
+"nom": "Basse Vallée - RF des Camphriers PK 2000",
+"lon": 55.70904,
+"lat": -21.34093
+},
+{
+"nom": "Bois Blanc - La Source P C04",
+"lon": 55.82426,
+"lat": -21.19186
+},
+{
+"nom": "Bois de Bourg Murat",
+"lon": 55.57566,
+"lat": -21.20419
+},
+{
+"nom": "Bourse",
+"lon": 55.43051,
+"lat": -21.04349
+},
+{
+"nom": "Bélouve - Grand parking Côteau Monique",
+"lon": 55.54294,
+"lat": -21.07784
+},
+{
+"nom": "Bélouve - Gîte",
+"lon": 55.53629,
+"lat": -21.06075
+},
+{
+"nom": "Bélouve - Relais de télévision",
+"lon": 55.53218,
+"lat": -21.06471
+},
+{
+"nom": "Cap Méchant",
+"lon": 55.71009,
+"lat": -21.37508
+},
+{
+"nom": "Cayenne",
+"lon": 55.4049,
+"lat": -21.03922
+},
+{
+"nom": "Cilaos - Bras Sec - Puits Maillot (Bras de Benjoin)",
+"lon": 55.48527,
+"lat": -21.13712
+},
+{
+"nom": "Cilaos - Carbet sentier des Porteurs",
+"lon": 55.47104,
+"lat": -21.13
+},
+{
+"nom": "Cilaos - Gîte Piton des Neiges",
+"lon": 55.49617,
+"lat": -21.10999
+},
+{
+"nom": "Cilaos - Jonction Palmiste Rouge (Gros Galet)",
+"lon": 55.48467,
+"lat": -21.16821
+},
+{
+"nom": "Cilaos - Le Bloc - La Dalle",
+"lon": 55.48635,
+"lat": -21.11825
+},
+{
+"nom": "Cilaos - Le Bloc - Petit Matarum",
+"lon": 55.48775,
+"lat": -21.11375
+},
+{
+"nom": "Cilaos - RD241 - Entrée parcours Trial VTT inexistant",
+"lon": 55.48179,
+"lat": -21.12754
+},
+{
+"nom": "Cilaos - RD241 - Grand Matarum",
+"lon": 55.48139,
+"lat": -21.1228
+},
+{
+"nom": "Cilaos - RD241 - Le Bloc",
+"lon": 55.48285,
+"lat": -21.12329
+},
+{
+"nom": "Cilaos - RD241 Mare à Joseph - P03",
+"lon": 55.49698,
+"lat": -21.13431
+},
+{
+"nom": "Cilaos - RD241 Mare à Joseph - P04 - centre",
+"lon": 55.49561,
+"lat": -21.1314
+},
+{
+"nom": "Cilaos - RD241 Mare à Joseph - P04 - nord",
+"lon": 55.4954,
+"lat": -21.13088
+},
+{
+"nom": "Cilaos - RD241 Mare à Joseph - P04 - sud",
+"lon": 55.49637,
+"lat": -21.13273
+},
+{
+"nom": "Cilaos - RD241 Mare à Joseph - P05 - nord",
+"lon": 55.49457,
+"lat": -21.12869
+},
+{
+"nom": "Cilaos - RD241 Mare à Joseph - P05 - sud",
+"lon": 55.49495,
+"lat": -21.12941
+},
+{
+"nom": "Cilaos - RD242 - Anciens Thermes",
+"lon": 55.4675,
+"lat": -21.12965
+},
+{
+"nom": "Cilaos - RD242 - Bras Rouge",
+"lon": 55.45113,
+"lat": -21.1173
+},
+{
+"nom": "Cilaos - RD242 - Ravine Ferrière",
+"lon": 55.45997,
+"lat": -21.12659
+},
+{
+"nom": "Cilaos - RD242 - Ravine Fleurs Jaunes",
+"lon": 55.44651,
+"lat": -21.12987
+},
+{
+"nom": "Cilaos - RF de la Roche Merveilleuse - Parc à Boeufs nord",
+"lon": 55.47245,
+"lat": -21.12114
+},
+{
+"nom": "Cilaos - RF de la Roche Merveilleuse - Parc à Boeufs sud",
+"lon": 55.47272,
+"lat": -21.12236
+},
+{
+"nom": "Cilaos - RF de la Roche Merveilleuse - Plateau des Chênes",
+"lon": 55.47426,
+"lat": -21.1265
+},
+{
+"nom": "Cilaos - RF de la Roche Merveilleuse - Roche Merveilleuse",
+"lon": 55.47922,
+"lat": -21.12593
+},
+{
+"nom": "Cilaos - RF de la Roche Merveilleuse - Tournant Z",
+"lon": 55.4762,
+"lat": -21.12444
+},
+{
+"nom": "Cilaos - RF de la source du Grand Ruisseau (Route du Gros Ruisseau)",
+"lon": 55.48915,
+"lat": -21.13063
+},
+{
+"nom": "Cilaos - RN5 - Bras de Benjoin",
+"lon": 55.4769,
+"lat": -21.15061
+},
+{
+"nom": "Cilaos - Vue Piton des Neiges",
+"lon": 55.49534,
+"lat": -21.13284
+},
+{
+"nom": "Dimitile - table d'orientation",
+"lon": 55.47845,
+"lat": -21.18895
+},
+{
+"nom": "Dos d'Ane - Cap Noir",
+"lon": 55.38975,
+"lat": -20.99297
+},
+{
+"nom": "Départ sentier Grand Coude - Morne Langevin",
+"lon": 55.63077,
+"lat": -21.27481
+},
+{
+"nom": "ETS - Jardin d'Oiseaux",
+"lon": 55.35484,
+"lat": -21.26751
+},
+{
+"nom": "ETS - Kiosque de la Forêt",
+"lon": 55.36286,
+"lat": -21.2785
+},
+{
+"nom": "ETS - Le Gouffre",
+"lon": 55.34087,
+"lat": -21.27989
+},
+{
+"nom": "ETS - Petit Bon Dieu",
+"lon": 55.3422,
+"lat": -21.26055
+},
+{
+"nom": "ETS - RD17 - Tamarin Velour",
+"lon": 55.33919,
+"lat": -21.25294
+},
+{
+"nom": "Etang St-Paul - rive droite - La Cocoteraie",
+"lon": 55.28302,
+"lat": -20.98532
+},
+{
+"nom": "Etang St-Paul - rive gauche",
+"lon": 55.28274,
+"lat": -20.98828
+},
+{
+"nom": "Forêt departementale de Dioré 3 emplacements",
+"lon": 55.60237,
+"lat": -20.99438
+},
+{
+"nom": "Grand Etang - Puy de l'Etang",
+"lon": 55.64587,
+"lat": -21.09448
+},
+{
+"nom": "Grand Etang - RF15",
+"lon": 55.65406,
+"lat": -21.09661
+},
+{
+"nom": "Grand Place 3",
+"lon": 55.41119,
+"lat": -21.04289
+},
+{
+"nom": "Grand Place 4",
+"lon": 55.41055,
+"lat": -21.03857
+},
+{
+"nom": "Grand parking - RN03 - Col de Bellevue",
+"lon": 55.58899,
+"lat": -21.16595
+},
+{
+"nom": "Grand parking Pas de Bellecombe",
+"lon": 55.68443,
+"lat": -21.22509
+},
+{
+"nom": "Grand parking de la Messe - RF du Maido",
+"lon": 55.37544,
+"lat": -21.06157
+},
+{
+"nom": "Grand parking du Maïdo (3 niches)",
+"lon": 55.38617,
+"lat": -21.07199
+},
+{
+"nom": "Grande Anse - barre d'attache pour chevaux",
+"lon": 55.55086,
+"lat": -21.37089
+},
+{
+"nom": "Grande Anse - point de vue sur Cap Petite Ile",
+"lon": 55.55278,
+"lat": -21.37226
+},
+{
+"nom": "Grande Anse - point de vue sur la plage de Grande Anse",
+"lon": 55.55088,
+"lat": -21.37229
+},
+{
+"nom": "HSV - Grande Terre - Vaudeville - P556",
+"lon": 55.35888,
+"lat": -21.17943
+},
+{
+"nom": "HSV - Ilet Alcide",
+"lon": 55.38277,
+"lat": -21.01353
+},
+{
+"nom": "HSV - La Glacière",
+"lon": 55.39728,
+"lat": -21.10825
+},
+{
+"nom": "HSV - PF 1800m Nord",
+"lon": 55.37259,
+"lat": -21.05903
+},
+{
+"nom": "HSV - Piton Rouge",
+"lon": 55.39038,
+"lat": -21.13482
+},
+{
+"nom": "HSV - RF des Cryptomérias pk1.1",
+"lon": 55.35085,
+"lat": -21.04312
+},
+{
+"nom": "HSV - RF des Cryptomérias pk1.2",
+"lon": 55.35134,
+"lat": -21.04251
+},
+{
+"nom": "HSV - RF des Cryptomérias pk1.5",
+"lon": 55.35161,
+"lat": -21.04124
+},
+{
+"nom": "HSV - RF des Cryptomérias pk1.8",
+"lon": 55.35252,
+"lat": -21.03969
+},
+{
+"nom": "HSV - RF des Cryptomérias pk3",
+"lon": 55.35676,
+"lat": -21.0343
+},
+{
+"nom": "HSV - RF des Cryptomérias pk5.4",
+"lon": 55.36702,
+"lat": -21.02057
+},
+{
+"nom": "HSV - Ravine Laforge",
+"lon": 55.35192,
+"lat": -21.04423
+},
+{
+"nom": "La Montagne - Cap Bernard",
+"lon": 55.4338,
+"lat": -20.87818
+},
+{
+"nom": "La Montagne - Les 3 bancs",
+"lon": 55.43672,
+"lat": -20.8889
+},
+{
+"nom": "La Nouvelle point de vue Nord",
+"lon": 55.42072,
+"lat": -21.07395
+},
+{
+"nom": "La Nouvelle près du terrain de foot",
+"lon": 55.42299,
+"lat": -21.07743
+},
+{
+"nom": "La Nouvelle sud du cimetierre",
+"lon": 55.42401,
+"lat": -21.07665
+},
+{
+"nom": "La Nouvelle sud-est du cimetierre",
+"lon": 55.42435,
+"lat": -21.07677
+},
+{
+"nom": "La Petite Plaine - pk0.6",
+"lon": 55.59367,
+"lat": -21.14837
+},
+{
+"nom": "La Petite Plaine - pk0.7",
+"lon": 55.59166,
+"lat": -21.14838
+},
+{
+"nom": "La Petite Plaine - pk0.9",
+"lon": 55.59119,
+"lat": -21.1477
+},
+{
+"nom": "La Petite Plaine - pk1.1",
+"lon": 55.58974,
+"lat": -21.14605
+},
+{
+"nom": "La Petite Plaine - pk1.5",
+"lon": 55.5887,
+"lat": -21.14397
+},
+{
+"nom": "La Petite Plaine - pk1.6",
+"lon": 55.58884,
+"lat": -21.14289
+},
+{
+"nom": "La Providence - Kiosque GR Mercure",
+"lon": 55.45293,
+"lat": -20.90058
+},
+{
+"nom": "La Providence - P1 aire d'accueil",
+"lon": 55.4553,
+"lat": -20.89748
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Laverdure - P48 pk0.7",
+"lon": 55.43846,
+"lat": -20.94549
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Laverdure - P50 pk1",
+"lon": 55.43855,
+"lat": -20.94774
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Laverdure - P50 pk1.1",
+"lon": 55.43922,
+"lat": -20.94801
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Laverdure - P50 pk1.2",
+"lon": 55.44,
+"lat": -20.94793
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Laverdure - P50 pk1.4",
+"lon": 55.43994,
+"lat": -20.94917
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Laverdure - P50 pk1.5",
+"lon": 55.44112,
+"lat": -20.94867
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Laverdure - P50 pk2",
+"lon": 55.44246,
+"lat": -20.94699
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Laverdure - P51 pk2.6",
+"lon": 55.44531,
+"lat": -20.94582
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Maniquet - P35 et 41 pk0.1",
+"lon": 55.43099,
+"lat": -20.94243
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Maniquet - P35 et P40 pk0.7",
+"lon": 55.42724,
+"lat": -20.94023
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Maniquet - P35 pk0.3",
+"lon": 55.43007,
+"lat": -20.94201
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Maniquet - P35 pk0.9",
+"lon": 55.42778,
+"lat": -20.94191
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Maniquet - P37 et P39 pk1",
+"lon": 55.42813,
+"lat": -20.94231
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Maniquet - P37 pk1.4",
+"lon": 55.42674,
+"lat": -20.94354
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Roche Ecrite - P42",
+"lon": 55.43278,
+"lat": -20.94735
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Roche Ecrite - P48",
+"lon": 55.43656,
+"lat": -20.95116
+},
+{
+"nom": "Le Brûlé - Mamode camp - RF Roche Ecrite - parking terminus départ sentier Roche Ecrite - P44",
+"lon": 55.43747,
+"lat": -20.95231
+},
+{
+"nom": "Le Brûlé - Mamode camp - RFs de l'aire - P41 et P47",
+"lon": 55.43409,
+"lat": -20.94801
+},
+{
+"nom": "Le Brûlé - Mamode camp - chemin Morin - P42",
+"lon": 55.43519,
+"lat": -20.95098
+},
+{
+"nom": "Le Brûlé - Mamode camp - chemin Morin - P44",
+"lon": 55.43584,
+"lat": -20.95169
+},
+{
+"nom": "Le Brûlé - Mamode camp - chemin Prévallée - P40 et P42",
+"lon": 55.43055,
+"lat": -20.9468
+},
+{
+"nom": "Mafate - Roche Plate église",
+"lon": 55.4058,
+"lat": -21.06919
+},
+{
+"nom": "Malheur",
+"lon": 55.42768,
+"lat": -21.02578
+},
+{
+"nom": "Malheur les Hauts 1",
+"lon": 55.42827,
+"lat": -21.03212
+},
+{
+"nom": "Malheur les Hauts 2",
+"lon": 55.42801,
+"lat": -21.03268
+},
+{
+"nom": "Mare Longue - Sentier botanique PK 4000",
+"lon": 55.73895,
+"lat": -21.35214
+},
+{
+"nom": "Mare Longue - parking sentier botanique PK 2910",
+"lon": 55.73999,
+"lat": -21.35535
+},
+{
+"nom": "Marla",
+"lon": 55.4346,
+"lat": -21.10367
+},
+{
+"nom": "Marla point de vue",
+"lon": 55.43061,
+"lat": -21.10071
+},
+{
+"nom": "ND Paix - Belvédère",
+"lon": 55.60138,
+"lat": -21.26425
+},
+{
+"nom": "ND Paix - CD36 PK150m",
+"lon": 55.60045,
+"lat": -21.26576
+},
+{
+"nom": "Nez de Bœuf - Belvédère Nez de Bœuf PK 6300 m sur RF Volcan",
+"lon": 55.6167,
+"lat": -21.2083
+},
+{
+"nom": "Nez de Bœuf - Le Vieux Rouleau - PK 5480 m sur RF Volcan",
+"lon": 55.61277,
+"lat": -21.21287
+},
+{
+"nom": "Nez de Bœuf - Plateau du Nez de Bœuf PK 6700 m sur RF Volcan",
+"lon": 55.61807,
+"lat": -21.2058
+},
+{
+"nom": "Nez de Bœuf - Plateau du Nez de Bœuf PK 6950 m sur RF Volcan",
+"lon": 55.61862,
+"lat": -21.20418
+},
+{
+"nom": "Nez de Bœuf - Plateau du Nez de Bœuf PK 7500 m sur RF Volcan",
+"lon": 55.62087,
+"lat": -21.20107
+},
+{
+"nom": "Nez de Bœuf - Plateau du Nez de Bœuf PK 7900 m sur RF Volcan",
+"lon": 55.62286,
+"lat": -21.20264
+},
+{
+"nom": "Nez de Bœuf - Plateau du Nez de Bœuf PK 8050 m sur RF Volcan",
+"lon": 55.62517,
+"lat": -21.20159
+},
+{
+"nom": "Nez de Bœuf - Plateau du Nez de Bœuf PK 8600 m sur RF Volcan",
+"lon": 55.62689,
+"lat": -21.19815
+},
+{
+"nom": "Nez de Bœuf - Plateau du Nez de Bœuf PK 9450 m sur RF Volcan",
+"lon": 55.63295,
+"lat": -21.19413
+},
+{
+"nom": "Nez de Bœuf - Sortie forêt de Grande Ferme à belvédère Nez de Bœuf PK 5600 m sur RF Volcan",
+"lon": 55.61327,
+"lat": -21.21347
+},
+{
+"nom": "Nez de Bœuf - Sortie forêt de Grande Ferme à belvédère Nez de Bœuf PK 5800 m sur RF Volcan",
+"lon": 55.61437,
+"lat": -21.21089
+},
+{
+"nom": "Nez de Bœuf - Sortie forêt de Grande Ferme à belvédère Nez de Bœuf PK 6000 m sur RF Volcan",
+"lon": 55.61476,
+"lat": -21.2103
+},
+{
+"nom": "Pic Adam",
+"lon": 55.46774,
+"lat": -20.93815
+},
+{
+"nom": "Piton Papangue - Grand Fond",
+"lon": 55.63495,
+"lat": -21.07058
+},
+{
+"nom": "Piton Sec - RF Piton Guichard",
+"lon": 55.6059,
+"lat": -21.20319
+},
+{
+"nom": "Piton Sec - RF Piton Guichard",
+"lon": 55.60761,
+"lat": -21.20137
+},
+{
+"nom": "Piton Sec - RF Piton Guichard",
+"lon": 55.60767,
+"lat": -21.20037
+},
+{
+"nom": "Piton Sec - RF Piton Guichard - Tamarin Dodo",
+"lon": 55.60862,
+"lat": -21.19934
+},
+{
+"nom": "Piton Textor PK 10100 m sur RF Volcan",
+"lon": 55.63522,
+"lat": -21.19157
+},
+{
+"nom": "Plaine des Grègues - Le Rond",
+"lon": 55.6073,
+"lat": -21.30917
+},
+{
+"nom": "Plaine des Palmistes - Cabris Haut",
+"lon": 55.64062,
+"lat": -21.15464
+},
+{
+"nom": "Plaine des Palmistes - Grande Montée",
+"lon": 55.62762,
+"lat": -21.16204
+},
+{
+"nom": "Plaine des Palmistes - Grande Montée",
+"lon": 55.62856,
+"lat": -21.16187
+},
+{
+"nom": "RC St-Benoit - Chemin de Ceinture",
+"lon": 55.68487,
+"lat": -21.07741
+},
+{
+"nom": "RF Bébour - pk5 - Col de Bébour",
+"lon": 55.57442,
+"lat": -21.13082
+},
+{
+"nom": "RF Bébour - pk5.7 - entrée piste Duvernay",
+"lon": 55.56782,
+"lat": -21.13169
+},
+{
+"nom": "RF Bébour - pk6 - grande aire face à la route de l'ancien gîte",
+"lon": 55.56956,
+"lat": -21.12939
+},
+{
+"nom": "RF Bébour - pk7.6 - parking empierré Bras Chansons",
+"lon": 55.56705,
+"lat": -21.11914
+},
+{
+"nom": "RF Bélouve - pk15 - Côteau Monique",
+"lon": 55.54298,
+"lat": -21.07794
+},
+{
+"nom": "RF Duvernay - pk0.3",
+"lon": 55.56858,
+"lat": -21.13261
+},
+{
+"nom": "RF Duvernay - pk0.5",
+"lon": 55.56702,
+"lat": -21.1337
+},
+{
+"nom": "RF Duvernay - pk0.6",
+"lon": 55.56594,
+"lat": -21.13431
+},
+{
+"nom": "RF Duvernay - pk0.7",
+"lon": 55.56524,
+"lat": -21.13455
+},
+{
+"nom": "RF Duvernay - pk0.8",
+"lon": 55.56373,
+"lat": -21.13471
+},
+{
+"nom": "RF Duvernay - pk0.9",
+"lon": 55.56294,
+"lat": -21.13453
+},
+{
+"nom": "RF Duvernay - pk1.1",
+"lon": 55.56085,
+"lat": -21.13429
+},
+{
+"nom": "RF Duvernay - pk1.2",
+"lon": 55.5605,
+"lat": -21.13437
+},
+{
+"nom": "RF Tévelave - RF des Tamarins - P605",
+"lon": 55.37669,
+"lat": -21.17526
+},
+{
+"nom": "RF de Jacques Payet PK 3650",
+"lon": 55.67944,
+"lat": -21.32852
+},
+{
+"nom": "RF de Plaine des Fougères pk1.3",
+"lon": 55.51868,
+"lat": -20.97583
+},
+{
+"nom": "RF de Plaine des Fougères pk1.3",
+"lon": 55.5194,
+"lat": -20.97586
+},
+{
+"nom": "RF de Plaine des Fougères pk1.5",
+"lon": 55.51973,
+"lat": -20.97731
+},
+{
+"nom": "RF de Plaine des Fougères pk2.3",
+"lon": 55.52195,
+"lat": -20.98199
+},
+{
+"nom": "RF de Plaine des Fougères pk2.6",
+"lon": 55.52035,
+"lat": -20.982
+},
+{
+"nom": "RF de Plaine des Fougères pk2.8",
+"lon": 55.51898,
+"lat": -20.98212
+},
+{
+"nom": "RF de Plaine des Fougères pk3.4",
+"lon": 55.5159,
+"lat": -20.98372
+},
+{
+"nom": "RF de Plaine des Fougères pk3.7",
+"lon": 55.51394,
+"lat": -20.98351
+},
+{
+"nom": "RF de Timour - P415 pk0.2",
+"lon": 55.35388,
+"lat": -21.1163
+},
+{
+"nom": "RF de Timour - P417 pk1",
+"lon": 55.35256,
+"lat": -21.11556
+},
+{
+"nom": "RF de Timour - P423 pk3",
+"lon": 55.34375,
+"lat": -21.11853
+},
+{
+"nom": "RF de l'Eden pk0.8",
+"lon": 55.61091,
+"lat": -21.02877
+},
+{
+"nom": "RF de l'Eden pk1",
+"lon": 55.61132,
+"lat": -21.03032
+},
+{
+"nom": "RF de l'Eden pk1.8",
+"lon": 55.61722,
+"lat": -21.02771
+},
+{
+"nom": "RF de l'Eden pk2",
+"lon": 55.61876,
+"lat": -21.02838
+},
+{
+"nom": "RF de l'Eden pk2.3",
+"lon": 55.62039,
+"lat": -21.02859
+},
+{
+"nom": "RF de l'Eden pk2.4",
+"lon": 55.62036,
+"lat": -21.02949
+},
+{
+"nom": "RF de la Scierie PK 4500",
+"lon": 55.41068,
+"lat": -21.18562
+},
+{
+"nom": "RF des Makes - Camp 2000",
+"lon": 55.40811,
+"lat": -21.17447
+},
+{
+"nom": "RF des Makes - pk3 - Aire d'accueil de l'Accrobranche",
+"lon": 55.42643,
+"lat": -21.19336
+},
+{
+"nom": "RF des Makes - pk4.5 - départ descente VTT",
+"lon": 55.43168,
+"lat": -21.19029
+},
+{
+"nom": "RF des Makes - pk5.6",
+"lon": 55.42931,
+"lat": -21.18634
+},
+{
+"nom": "RF des Makes - pk5.7",
+"lon": 55.42988,
+"lat": -21.18597
+},
+{
+"nom": "RF des Makes - pk5.8",
+"lon": 55.4308,
+"lat": -21.18623
+},
+{
+"nom": "RF des Makes - pk5.9 - piste Mapou",
+"lon": 55.43174,
+"lat": -21.18534
+},
+{
+"nom": "RF des Makes - terminus - La Fenêtre des Makes",
+"lon": 55.43278,
+"lat": -21.18532
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 01",
+"lon": 55.3622,
+"lat": -21.15113
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 02",
+"lon": 55.36223,
+"lat": -21.15178
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 03",
+"lon": 55.36184,
+"lat": -21.1523
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 04",
+"lon": 55.3614,
+"lat": -21.15261
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 05",
+"lon": 55.36085,
+"lat": -21.15263
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 06",
+"lon": 55.36113,
+"lat": -21.15203
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 07",
+"lon": 55.36074,
+"lat": -21.1512
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 08",
+"lon": 55.36117,
+"lat": -21.15081
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 09",
+"lon": 55.36167,
+"lat": -21.1507
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 10",
+"lon": 55.36161,
+"lat": -21.15043
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 11",
+"lon": 55.36196,
+"lat": -21.15043
+},
+{
+"nom": "RF des Tamarins - Bras Mahot - 12",
+"lon": 55.36228,
+"lat": -21.15007
+},
+{
+"nom": "RF des Tamarins - Camélias - P508",
+"lon": 55.36502,
+"lat": -21.16633
+},
+{
+"nom": "RF des Tamarins - Croisée Timour - P400",
+"lon": 55.35706,
+"lat": -21.1155
+},
+{
+"nom": "RF des Tamarins - Croisée Timour - P400",
+"lon": 55.35774,
+"lat": -21.11555
+},
+{
+"nom": "RF des Tamarins - Croisée Timour - P400",
+"lon": 55.35823,
+"lat": -21.11562
+},
+{
+"nom": "RF des Tamarins - Fond Persil pk4",
+"lon": 55.35965,
+"lat": -21.09578
+},
+{
+"nom": "RF des Tamarins - Fond Persil pk5.3",
+"lon": 55.35954,
+"lat": -21.09712
+},
+{
+"nom": "RF des Tamarins - Fond Persil pk5.4",
+"lon": 55.3595,
+"lat": -21.09789
+},
+{
+"nom": "RF des Tamarins - Gite des Tamarins en face",
+"lon": 55.36213,
+"lat": -21.10655
+},
+{
+"nom": "RF des Tamarins - Gite des Tamarins ravine",
+"lon": 55.36267,
+"lat": -21.10761
+},
+{
+"nom": "RF des Tamarins - Parking",
+"lon": 55.3664,
+"lat": -21.05994
+},
+{
+"nom": "RF des Tamarins - Ravine St-Gilles",
+"lon": 55.35922,
+"lat": -21.09176
+},
+{
+"nom": "RF des Tamarins - Sentier Grand Fond",
+"lon": 55.36061,
+"lat": -21.13512
+},
+{
+"nom": "RF des Tamarins - pk0.1",
+"lon": 55.36603,
+"lat": -21.06066
+},
+{
+"nom": "RF des Tamarins - pk0.2",
+"lon": 55.36568,
+"lat": -21.06118
+},
+{
+"nom": "RF des Tamarins - pk0.4",
+"lon": 55.36597,
+"lat": -21.0628
+},
+{
+"nom": "RF des Tamarins - pk0.6",
+"lon": 55.36593,
+"lat": -21.0635
+},
+{
+"nom": "RF des Tamarins - pk0.7",
+"lon": 55.36455,
+"lat": -21.06377
+},
+{
+"nom": "RF des Tamarins - pk10.4 P403",
+"lon": 55.36465,
+"lat": -21.12229
+},
+{
+"nom": "RF des Tamarins - pk11.2 P407",
+"lon": 55.3639,
+"lat": -21.12677
+},
+{
+"nom": "RF des Tamarins - pk13.5 P414",
+"lon": 55.36172,
+"lat": -21.14501
+},
+{
+"nom": "RF des Tamarins - pk13.5 P419",
+"lon": 55.36136,
+"lat": -21.14476
+},
+{
+"nom": "RF des Tamarins - pk2.3",
+"lon": 55.36102,
+"lat": -21.07546
+},
+{
+"nom": "RF des Tamarins - pk2.4",
+"lon": 55.36108,
+"lat": -21.07599
+},
+{
+"nom": "RF des Tamarins - pk2.45",
+"lon": 55.36145,
+"lat": -21.07632
+},
+{
+"nom": "RF des Tamarins - pk2.5",
+"lon": 55.36107,
+"lat": -21.07656
+},
+{
+"nom": "RF des Tamarins - pk2.7",
+"lon": 55.36092,
+"lat": -21.07779
+},
+{
+"nom": "RF des Tamarins - pk3 P205",
+"lon": 55.35936,
+"lat": -21.08227
+},
+{
+"nom": "RF des Tamarins - pk4.5",
+"lon": 55.35915,
+"lat": -21.09044
+},
+{
+"nom": "RF des Tamarins - pk4.55",
+"lon": 55.3594,
+"lat": -21.09056
+},
+{
+"nom": "RF des Tamarins - pk4.6 P211",
+"lon": 55.35932,
+"lat": -21.09119
+},
+{
+"nom": "RF des Tamarins - pk4.8",
+"lon": 55.35928,
+"lat": -21.09336
+},
+{
+"nom": "RF des Tamarins - pk5.8",
+"lon": 55.36127,
+"lat": -21.10102
+},
+{
+"nom": "RF des Tamarins - pk6",
+"lon": 55.36215,
+"lat": -21.10262
+},
+{
+"nom": "RF des Tamarins - pk6.8 P309",
+"lon": 55.36218,
+"lat": -21.10987
+},
+{
+"nom": "RF des Tamarins - pk6.9 P308",
+"lon": 55.36141,
+"lat": -21.1117
+},
+{
+"nom": "RF des Tamarins - pk7 P310",
+"lon": 55.3601,
+"lat": -21.11289
+},
+{
+"nom": "RF des Tamarins - pk8.9 P400",
+"lon": 55.36105,
+"lat": -21.11829
+},
+{
+"nom": "RF du Haut Mafate - Bord Martin pk3.7",
+"lon": 55.45502,
+"lat": -21.05303
+},
+{
+"nom": "RF du Haut Mafate - Bord Martin pk4.2",
+"lon": 55.45284,
+"lat": -21.05323
+},
+{
+"nom": "RF du Haut Mafate - Bord Martin pk5",
+"lon": 55.45245,
+"lat": -21.05628
+},
+{
+"nom": "RF du Haut Mafate - Bord Martin pk5.2",
+"lon": 55.45335,
+"lat": -21.05531
+},
+{
+"nom": "RF du Haut Mafate - Le Bélier pk1.5",
+"lon": 55.4572,
+"lat": -21.04651
+},
+{
+"nom": "RF du Haut Mafate - Le Bélier pk1.6",
+"lon": 55.45725,
+"lat": -21.04758
+},
+{
+"nom": "RF du Haut Mafate - Le Bélier pk1.9",
+"lon": 55.45718,
+"lat": -21.04933
+},
+{
+"nom": "RF du Haut Mafate - Le Bélier pk2",
+"lon": 55.45656,
+"lat": -21.0498
+},
+{
+"nom": "RF du Haut Mafate - Le Bélier pk2.2",
+"lon": 55.45579,
+"lat": -21.04727
+},
+{
+"nom": "RF du Haut Mafate - Petit Col kiosques",
+"lon": 55.45098,
+"lat": -21.06098
+},
+{
+"nom": "RF du Maido - pk10.9",
+"lon": 55.3746,
+"lat": -21.05995
+},
+{
+"nom": "RF du Maido - pk11.3",
+"lon": 55.37553,
+"lat": -21.06197
+},
+{
+"nom": "RF du Maido - pk11.5",
+"lon": 55.37656,
+"lat": -21.0611
+},
+{
+"nom": "RF du Maido - pk11.6",
+"lon": 55.37774,
+"lat": -21.06189
+},
+{
+"nom": "RF du Maido - pk11.7",
+"lon": 55.37852,
+"lat": -21.06186
+},
+{
+"nom": "RF du Maido - pk12",
+"lon": 55.37837,
+"lat": -21.06482
+},
+{
+"nom": "RF du Maido - pk12.5",
+"lon": 55.37913,
+"lat": -21.06615
+},
+{
+"nom": "RF du Maido - pk12.8",
+"lon": 55.37823,
+"lat": -21.06855
+},
+{
+"nom": "RF du Maido - pk13.1",
+"lon": 55.37926,
+"lat": -21.07106
+},
+{
+"nom": "RF du Maido - pk13.5",
+"lon": 55.37892,
+"lat": -21.07303
+},
+{
+"nom": "RF du Maido - pk13.6",
+"lon": 55.37941,
+"lat": -21.07363
+},
+{
+"nom": "RF du Maido - pk13.7",
+"lon": 55.38001,
+"lat": -21.07325
+},
+{
+"nom": "RF du Maido - pk9.1",
+"lon": 55.3683,
+"lat": -21.0586
+},
+{
+"nom": "RF du Maido - pk9.2",
+"lon": 55.36855,
+"lat": -21.05866
+},
+{
+"nom": "RF du Maido - pk9.3",
+"lon": 55.36919,
+"lat": -21.05898
+},
+{
+"nom": "RF du Maido - pk9.4",
+"lon": 55.36931,
+"lat": -21.05952
+},
+{
+"nom": "RF du Maido - pk9.6",
+"lon": 55.37023,
+"lat": -21.05981
+},
+{
+"nom": "RF du Maido - pk9.7",
+"lon": 55.37087,
+"lat": -21.0597
+},
+{
+"nom": "RF du Tévelave - pk0.6 P655",
+"lon": 55.35418,
+"lat": -21.20412
+},
+{
+"nom": "RF du Tévelave - pk0.9",
+"lon": 55.35558,
+"lat": -21.20401
+},
+{
+"nom": "RF du Tévelave - pk1.2",
+"lon": 55.35706,
+"lat": -21.20264
+},
+{
+"nom": "RF du Tévelave - pk1.25",
+"lon": 55.35687,
+"lat": -21.20231
+},
+{
+"nom": "RF du Tévelave - pk1.3",
+"lon": 55.35695,
+"lat": -21.20145
+},
+{
+"nom": "RF du Tévelave - pk1.6 P655",
+"lon": 55.35706,
+"lat": -21.19981
+},
+{
+"nom": "RF du Tévelave - pk1.7 P655",
+"lon": 55.35689,
+"lat": -21.1995
+},
+{
+"nom": "RF du Tévelave - pk1.8 P655",
+"lon": 55.35643,
+"lat": -21.19926
+},
+{
+"nom": "RF du Tévelave - pk2.1 P654",
+"lon": 55.35582,
+"lat": -21.19892
+},
+{
+"nom": "RF du Tévelave - pk2.5 P654",
+"lon": 55.35658,
+"lat": -21.19707
+},
+{
+"nom": "RF du Tévelave - pk3.2 P655",
+"lon": 55.35983,
+"lat": -21.19548
+},
+{
+"nom": "RF du Tévelave - pk3.5 P653",
+"lon": 55.35923,
+"lat": -21.19415
+},
+{
+"nom": "RF du Tévelave - pk4.1 P652",
+"lon": 55.361,
+"lat": -21.19358
+},
+{
+"nom": "RF du Tévelave - pk4.3 P652 - Kiosque blanc",
+"lon": 55.36096,
+"lat": -21.19222
+},
+{
+"nom": "RF05 - Bois Ozoux PK 12600 m sur RF Volcan",
+"lon": 55.64628,
+"lat": -21.19782
+},
+{
+"nom": "RF05 - Cratère Commerson PK 14050 m sur RF Volcan",
+"lon": 55.64395,
+"lat": -21.20735
+},
+{
+"nom": "RF05 - Forêt de Grande Ferme PK 2750 m sur RF Volcan",
+"lon": 55.60253,
+"lat": -21.20119
+},
+{
+"nom": "RF05 - Forêt de Grande Ferme PK 3300 m sur RF Volcan",
+"lon": 55.60467,
+"lat": -21.20356
+},
+{
+"nom": "RF05 - Forêt de Grande Ferme PK 3600 m sur RF Volcan",
+"lon": 55.60642,
+"lat": -21.2056
+},
+{
+"nom": "RF05 - Forêt de Grande Ferme PK 3900 m sur RF Volcan",
+"lon": 55.60709,
+"lat": -21.20724
+},
+{
+"nom": "RF05 - Forêt de Grande Ferme PK 4100 m sur RF Volcan",
+"lon": 55.60787,
+"lat": -21.20798
+},
+{
+"nom": "RF05 - Pas de Bellecombe PK 23000 m sur RF Volcan",
+"lon": 55.68508,
+"lat": -21.22545
+},
+{
+"nom": "RF05 - Pas des Sables PK 17500 m sur RF Volcan",
+"lon": 55.64865,
+"lat": -21.23156
+},
+{
+"nom": "RF34 - Puits Arabe",
+"lon": 55.80367,
+"lat": -21.34027
+},
+{
+"nom": "RN03 - Col de Bellevue",
+"lon": 55.58903,
+"lat": -21.16613
+},
+{
+"nom": "RN2 - Point de vue sur coulée 2007",
+"lon": 55.79554,
+"lat": -21.28159
+},
+{
+"nom": "RN2 - Pointe du Tremblet",
+"lon": 55.79919,
+"lat": -21.29513
+},
+{
+"nom": "RN3 - Pont de Trente",
+"lon": 55.57945,
+"lat": -21.17787
+},
+{
+"nom": "Rivière Langevin - Cap Blanc PK 7500",
+"lon": 55.64603,
+"lat": -21.29454
+},
+{
+"nom": "Roche Plate - Départ sentier",
+"lon": 55.37888,
+"lat": -21.06219
+},
+{
+"nom": "Roche Plate bancs le long du sentier",
+"lon": 55.3999,
+"lat": -21.06938
+},
+{
+"nom": "Roche Plate pied du Bronchard",
+"lon": 55.40955,
+"lat": -21.06786
+},
+{
+"nom": "Roche Écrite - Caverne basse",
+"lon": 55.44492,
+"lat": -20.98783
+},
+{
+"nom": "Route Vaudeville - pk12.500 P424",
+"lon": 55.33986,
+"lat": -21.12253
+},
+{
+"nom": "Route Vaudeville - pk12.510 P426",
+"lon": 55.33955,
+"lat": -21.1223
+},
+{
+"nom": "Route Vaudeville - pk12.530 P424",
+"lon": 55.3397,
+"lat": -21.12186
+},
+{
+"nom": "Route Vaudeville - pk12.8 P415",
+"lon": 55.33991,
+"lat": -21.12063
+},
+{
+"nom": "Route Vaudeville - pk12.9 P426",
+"lon": 55.33944,
+"lat": -21.11971
+},
+{
+"nom": "Route Vaudeville - pk13.8 P332",
+"lon": 55.33883,
+"lat": -21.11178
+},
+{
+"nom": "Route Vaudeville - pk14.3 Grande Ravine",
+"lon": 55.33863,
+"lat": -21.10818
+},
+{
+"nom": "Route Vaudeville - pk14.9",
+"lon": 55.33916,
+"lat": -21.10285
+},
+{
+"nom": "Salazie - Hell Bourg - RF14 de Terre Plate",
+"lon": 55.52611,
+"lat": -21.06774
+},
+{
+"nom": "Salazie - Hell Bourg - départ du sentier vers Bélouve (MF)",
+"lon": 55.52488,
+"lat": -21.06581
+},
+{
+"nom": "Salazie - Ravine Blanche",
+"lon": 55.47338,
+"lat": -21.01409
+},
+{
+"nom": "Salazie - Terre Plate",
+"lon": 55.51933,
+"lat": -21.07504
+},
+{
+"nom": "Sentier Bord Salazie Dioré St André",
+"lon": 55.59263,
+"lat": -20.99406
+},
+{
+"nom": "Sentier de Piton Cabris - kiosque octogonal",
+"lon": 55.43731,
+"lat": -21.18984
+},
+{
+"nom": "Sentier de Piton Cabris - point de vue (la Vraie Fenêtre des Makes)",
+"lon": 55.437,
+"lat": -21.18629
+},
+{
+"nom": "Sentier du Vieux Port du Tremblet PK 1270",
+"lon": 55.8045,
+"lat": -21.29681
+},
+{
+"nom": "Site du Maïdo",
+"lon": 55.38669,
+"lat": -21.07022
+},
+{
+"nom": "Takamaka - RD63 - Grand Fond - belvédère",
+"lon": 55.61991,
+"lat": -21.09128
+},
+{
+"nom": "Takamaka - Téléphérique",
+"lon": 55.58271,
+"lat": -21.09805
+},
+{
+"nom": "Tévelave - Observatoire des Papangues - P652",
+"lon": 55.36042,
+"lat": -21.19078
+},
+{
+"nom": "Volcan - Gite",
+"lon": 55.68635,
+"lat": -21.21772
+}
+]
+}

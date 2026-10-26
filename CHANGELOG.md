@@ -8,6 +8,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 - Prévision météo : le ciel de la nuit, de 18 h à 6 h, dégagé ou couvert, et, dans les Hauts, au-dessus des nuages ou dedans.
 - La Lune dans le calendrier, calculée au lieu demandé : phase, part éclairée, lever, coucher et prochaines phases.
+- Randonnée : les aires d'accueil de l'ONF autour d'un lieu ou le long d'un sentier, dans les réponses des IA.
 - Radars fixes : les 24 de la liste du ministère de l'Intérieur, avec leur vitesse, sur /trafic et dans les réponses des IA.
 - Avec les enfants : une carte par commune, avec les aires de jeux, parcs, piscines et médiathèques, et l'agenda de leurs activités.
 - Bus : chaque départ s'ouvre sur tous ses arrêts, avec l'heure de passage à chacun, et chaque arrêt a sa page, à chercher sur rundata.re/bus.

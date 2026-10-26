@@ -82,7 +82,7 @@ export const DOMAINES: Domaine[] = [
   { categorie: "secheresse", sources: ids("vigieau"), cadence: { minutes: 60, de: "vigieau" } },
   // The tap water every 6 hours (providers/eaupotable.ts, and the workflow of /eau); the shark decree is bundled.
   { categorie: "eau", sources: ids("eau_potable", "eaux_baignade", "risque_requin"), cadence: { minutes: 6 * 60, de: "eau_potable" } },
-  { categorie: "sentiers", sources: ids("onf_sentiers", "osm_randonnees", "nasa_firms"), cadence: { minutes: 60, de: "onf_sentiers" } },
+  { categorie: "sentiers", sources: ids("onf_sentiers", "onf_aires_accueil", "osm_randonnees", "nasa_firms"), cadence: { minutes: 60, de: "onf_sentiers" } },
   // The Grand Raid's runners every 30 minutes (providers/sport.ts).
   { categorie: "sport", sources: () => Object.values(SPORT_SOURCES).map((s) => s.id), cadence: { minutes: 30, de: "livetrail" } },
   // Every agenda read (providers/agenda.ts), the scheduled ones every hour.
