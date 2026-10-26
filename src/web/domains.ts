@@ -1553,7 +1553,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
     name: r.vma_kmh != null ? `${r.commune}, ${r.vma_kmh}\u00a0km/h` : r.commune, quiet: true }));
   const radarsCard = `<div class="card" id="radars">${icon("car")}<h3>Radars fixes</h3>
   <p>${radarsLead}</p>
-  ${islandMap({ markers: radarMarkers, label: radarsLead })}
+  ${islandMap({ markers: radarMarkers, label: radarsLead, apart: true })}
   <ul class="rows eau">${cameras.map((c) => `<li><span>${esc(c.commune)}<small>${esc(radars.vitesses(c.radars).join(", "))}</small></span><span class="score">${c.radars.length}</span></li>`).join("")}</ul>
   <details><summary>Où ils sont</summary><ul class="plain">${cameras.flatMap((c) => c.radars.map((r) => `<li>${esc(c.commune)}${r.vma_kmh != null ? `, ${r.vma_kmh}\u00a0km/h` : ""} : <a href="${esc(radars.carte(r))}" rel="noopener">la carte ↗</a></li>`)).join("")}</ul></details>
   <p class="note">${esc(radars.RESERVE())}</p></div>`;
