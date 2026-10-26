@@ -35,6 +35,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   configure({});
 });
 
@@ -43,17 +44,21 @@ async function late(ageMin?: number) {
   const store = new MemoryStore();
   if (ageMin != null) await store.put(mf.KEY, { value: await yellow(), fetchedAt: NOW.getTime() - ageMin * 60_000 });
   const cache = new Cache(store, () => NOW.getTime(), false);
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const pending: Promise<unknown>[] = [];
   const background = (p: Promise<unknown>) => void pending.push(p);
   const [v, a] = await Promise.all([vigilanceNow(cache, background, BANNER_WAIT_MS, NOW), alerte(cache, background, NOW)]);
   await Promise.all(pending);
-  return { v, a, tile: vigilanceTile(homePage(ORIGIN, { meteo: null, vigilance: v }, NOW, a)) };
+  return { v, a, tile: vigilanceTile(homePage(ORIGIN, { meteo: null, vigilance: v }, NOW, a)), logs: warn.mock.calls.map((c) => String(c[0])) };
 }
 
 describe("the vigilance while Météo-France is late", () => {
   it("serves the last reading kept within the hour: tile and banner", async () => {
-    const { v, a, tile } = await late(10);
+    const { v, a, tile, logs } = await late(10);
     expect(v?.stale).toBe(true);
+    // One line for each page that stopped waiting (the tile's, the banner's), once Météo-France has answered.
+    expect(logs).toHaveLength(2);
+    for (const l of logs) expect(l).toMatch(/^source mf_vigilance trop lente : lecture gardée du 26\/10 04:00 servie, lue après \d+ ms \(attente 1500 ms\)$/);
     expect(v?.fetchedAt).toEqual(new Date(NOW.getTime() - 10 * 60_000));
     expect(a?.texte).toBe("Vigilance Météo-France : jaune fortes pluies / orages (Est).");
     expect(tile).toContain("jaune");
@@ -61,8 +66,9 @@ describe("the vigilance while Météo-France is late", () => {
   });
 
   it("does not serve a reading kept more than an hour ago, which does not say its time", async () => {
-    const { v, a, tile } = await late(120);
+    const { v, a, tile, logs } = await late(120);
     expect(v).toBeNull();
+    expect(logs[0]).toMatch(/^source mf_vigilance trop lente : aucune lecture gardée servie, lue après/);
     expect(a).toBeUndefined();
     expect(tile).toContain(WAIT);
   });
