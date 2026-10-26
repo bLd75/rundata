@@ -95,8 +95,10 @@ describe("the server's instructions", () => {
 
   it("keep the list of the tools from growing: it is sent to the model at the start of each conversation", async () => {
     const tools: { name: string; description: string }[] = (await rpcResult("tools/list")).tools;
-    // 54 846 characters on 26/10/2026, about 16 000 tokens: lowered as the descriptions are made shorter.
-    expect(JSON.stringify(tools).length).toBeLessThanOrEqual(56_000);
+    // 54 846 characters on 26/10/2026, about 16 000 tokens' worth; here (no keys, so 27 tools) 48 514 after #404, and
+    // 39 074 once the English and the extra examples were left out: lowered as the descriptions are made shorter.
+    // 40 262 with main's words back in meteo_actuelle and prevision_meteo, 37 778 once the SDK's "$schema" and "execution" are out of the list.
+    expect(JSON.stringify(tools).length).toBeLessThanOrEqual(40_000);
     for (const t of tools) expect(t.description.length, t.name).toBeLessThanOrEqual(2_000);
   });
 
