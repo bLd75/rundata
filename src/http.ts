@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { count, perInvocation } from "./budget.js";
+import { count, countRead, perInvocation } from "./budget.js";
 import { noteSource } from "./lectures.js";
 import { UpstreamError } from "./types.js";
 
@@ -122,6 +122,7 @@ async function get<T>(
   body?: URLSearchParams | string,
 ): Promise<T> {
   count();
+  countRead(source);
   noteSource(source);
   const places = perInvocation("http:places", () => new Places());
   await places.take();

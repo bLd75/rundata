@@ -297,7 +297,7 @@ describe("the invocation's budget", () => {
       expect(() => count()).toThrow(/Too many subrequests/);
       expect(left()).toBe(0);
     });
-    expect(await settled()).toEqual({ used: 3, refused: 1 });
+    expect(await settled()).toMatchObject({ used: 3, refused: 1 });
   });
 
   it("keeps a tenth of it for writing to the cache what was read", async () => {
@@ -308,7 +308,7 @@ describe("the invocation's budget", () => {
       count(4, true);
       expect(() => count(1, true)).toThrow(/Too many subrequests/);
     });
-    expect(await settled()).toEqual({ used: 40, refused: 2 });
+    expect(await settled()).toMatchObject({ used: 40, refused: 2 });
   });
 
   it("lets a read of a copy already stored use half of that tenth", async () => {
@@ -319,7 +319,7 @@ describe("the invocation's budget", () => {
       expect(() => count(1, "read")).toThrow(/Too many subrequests/);
       count(2, true);
     });
-    expect(await settled()).toEqual({ used: 40, refused: 2 });
+    expect(await settled()).toMatchObject({ used: 40, refused: 2 });
   });
 
   it("serves a question late in its budget the copy the data center's cache has, instead of failing", async () => {

@@ -7,7 +7,7 @@
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
 import { failed, handle } from "./app.js";
-import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, scheduled, spent } from "./budget.js";
+import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, readsSaid, scheduled, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
 import { toutesLesSources, VERSION } from "./server.js";
@@ -242,7 +242,7 @@ export default {
     ctx.waitUntil(settled().then((total) => {
       const after = total.used > used ? `, dont ${total.used - used} après la réponse` : "";
       const refused = total.refused ? `, ${total.refused} refusées (budget de ${PAGE_BUDGET})` : "";
-      if (total.used) console.log(`sous-requêtes : ${total.used} (${path})${after}${refused}`);
+      if (total.used) console.log(`sous-requêtes : ${total.used} (${path})${after}${refused}${readsSaid(total.reads)}`);
     }));
     return value;
   },
@@ -267,11 +267,13 @@ export default {
       return { arome, aromeUsed, copies, agendas };
       // What a read hands over after it (a failed read written down) finishes within the event.
     }, (p) => ctx.waitUntil(p))
-      .then(({ value, used }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +
+      .then(({ value, used, reads }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +
         (value.copies.written.length ? ` ; copies partagées : ${value.copies.written.join(", ")}` : "") +
         (value.copies.left.length ? ` ; reportées : ${value.copies.left.map((x) => `${x.key} (${x.why})`).join(", ")}` : "") +
         (value.agendas?.lus.length || value.agendas?.gardes.length || value.agendas?.trop_vieilles.length ? ` ; agendas planifiés : ${JSON.stringify(value.agendas)}` : "") +
-        (value.copies.written.length || value.copies.left.length || value.agendas?.lus.length ? `, sous-requêtes en tout : ${used}` : "")))
+        (value.copies.written.length || value.copies.left.length || value.agendas?.lus.length ? `, sous-requêtes en tout : ${used}` : "") +
+        // Each source's reads in the event: one read more often than its freshness says its copy did not carry over.
+        readsSaid(reads)))
       .catch((err) => console.error("préchargement impossible", why(err)));
     ctx.waitUntil(reads);
     const now = new Date();
@@ -282,14 +284,14 @@ export default {
         count(1, true);
         await kv.put("irve:etat", JSON.stringify(live), { expirationTtl: irve.LIVE_TTL_SECONDS });
       }, now)))
-        .then(({ value, used }) => console.log(`bornes de recharge : ${value} points de La Réunion, sous-requêtes : ${used}`))
+        .then(({ value, used, reads }) => console.log(`bornes de recharge : ${value} points de La Réunion, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("bornes de recharge : état impossible", why(err))));
     }
     // Once a day, at 06:00 in La Réunion: each public site that did not answer asked again (sans-reponse.ts), once the
     // reads above are done, so that its one GET is never part of a run of ours.
     if (sansReponse.heureDuPassage(now)) {
       ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => sansReponse.reverifier(now)))
-        .then(({ value, used }) => value && console.log(`sites sans réponse : ${value.essayes} revérifiés${value.changes.length ? `, ${value.changes.join(", ")}` : ""}, sous-requêtes : ${used}`))
+        .then(({ value, used, reads }) => value && console.log(`sites sans réponse : ${value.essayes} revérifiés${value.changes.length ? `, ${value.changes.join(", ")}` : ""}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("sites sans réponse : revérification impossible", why(err))));
     }
     // Once a day, at 04:00 in La Réunion (the run between 00:00 and 00:05 UTC): what the clubs sent is forgotten on
