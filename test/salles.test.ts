@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { statusOf } from "../src/providers/agenda-mots.js";
 import { parseOpenAgenda, type Evenement } from "../src/providers/agenda.js";
-import { latin1, mergeTeat, parseBisik, parseCdnoi, parseCiteDesArts, parseKabardock, parseLespas, parseLucDonat, parseTeat, parseTeatDates, TEAT_VENUES, tokens } from "../src/providers/salles.js";
+import { latin1, mergeTeat, parseBisik, parseCdnoi, parseCiteDesArts, parseKabardock, parseLespas, parseLucDonat, parseTeat, parseTeatDates, TEAT_HOSTS, TEAT_VENUES, tokens } from "../src/providers/salles.js";
 import { parseTribe } from "../src/providers/agenda.js";
 import { genres, matcher, unique } from "../src/tools/agenda.js";
 
@@ -22,6 +22,8 @@ describe("halls' programmes", () => {
 
   it("reads the two TÉAT, a show on both stages told once", () => {
     const list = mergeTeat(TEAT_VENUES.map((v, i) => parseTeat(iso88591(i ? "teat_plein-air.html" : "teat_champ-fleuri.html"), v, NOW)));
+    // Every show's page is on a host its page may be read from (http.ts, permis): teat.re or the ticket office.
+    for (const e of list) expect(TEAT_HOSTS).toContain(new URL(e.lien).host);
     expect(list).toHaveLength(18);
     expect(list.find((e) => e.titre === "CALOGERO")).toMatchObject({
       seances: [{ debut: "2026-10-22" }, { debut: "2026-10-23" }, { debut: "2026-10-24" }], lieu: "TÉAT Plein Air", commune: "Saint-Paul", categories: ["Musique"],

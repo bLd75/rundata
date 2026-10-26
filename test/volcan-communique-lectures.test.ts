@@ -55,6 +55,19 @@ describe("the page of a release, read at most every half hour whichever isolate 
     expect((await durable.get(`volcan:communique:page:${ALERTE_LIEN}`))?.fetchedAt).toBe(T0 + 30 * MIN);
   });
 
+  it("never reads a release outside the prefecture's site, nor in http", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    for (const lien of ["https://pirate.example/Piton-de-la-Fournaise", "http://www.reunion.gouv.fr/Actualites/x", "https://www.reunion.gouv.fr.pirate.example/x"]) {
+      await releaseText(run(T0), { ...ALERTE, lien }, T0).catch(() => undefined);
+    }
+    expect(reads).toEqual([]);
+    expect(warn.mock.calls.map((c) => String(c[0]))).toEqual([
+      "prefecture_communiques : lien hors de www.reunion.gouv.fr ignoré (pirate.example)",
+      "prefecture_communiques : lien hors de www.reunion.gouv.fr ignoré (http:)",
+      "prefecture_communiques : lien hors de www.reunion.gouv.fr ignoré (www.reunion.gouv.fr.pirate.example)",
+    ]);
+  });
+
   it("reads it once for two questions at once in one isolate", async () => {
     const c = run(T0);
     const [a, b] = await Promise.all([releaseText(c, ALERTE, T0), releaseText(c, ALERTE, T0)]);

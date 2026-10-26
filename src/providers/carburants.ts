@@ -5,7 +5,7 @@
  * (scripts/carburants.ts) into the Worker's KV store, where the Worker reads them; elsewhere, from the prefecture.
  */
 import type { Cache, Cached } from "../cache.js";
-import { getText } from "../http.js";
+import { getText, permis } from "../http.js";
 import type { SourceInfo } from "../types.js";
 
 export const SOURCE: SourceInfo = {
@@ -48,6 +48,7 @@ export interface Mois {
 }
 
 const ORIGIN = "https://www.reunion.gouv.fr";
+const HOST = new URL(ORIGIN).host;
 const LIST = `${ORIGIN}/Actualites/Communiques-de-presse`;
 const HEADERS = { "User-Agent": "rundata.re (contact@rundata.re)" };
 const MONTHS = ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"];
@@ -73,7 +74,9 @@ export function headerDay(s: string): string | undefined {
 
 /** The links to the monthly releases on a page of the list of press releases, newest first. */
 export function releases(html: string): string[] {
-  return [...new Set([...html.matchAll(/href="([^"]*Communiques-de-presse\/Prix-des-carburants[^"]*)"/gi)].map((m) => new URL(m[1], ORIGIN).toString()))];
+  const all = [...html.matchAll(/href="([^"]*Communiques-de-presse\/Prix-des-carburants[^"]*)"/gi)].map((m) => new URL(m[1], ORIGIN).toString());
+  // Only the prefecture's own pages: a link planted in its list is never read.
+  return [...new Set(all)].filter((lien) => permis(SOURCE.id, lien, [HOST]));
 }
 
 /** The table of a release: the product, the previous month's price, this month's (the second and third columns). */

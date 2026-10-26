@@ -44,6 +44,11 @@ describe("the prefect's fuel prices", () => {
     const list = `<a class="fr-card__link" href="/Actualites/Communiques-de-presse/Prix-des-carburants-en-octobre">x</a>
       <a href="/Actualites/Communiques-de-presse/Secheresse">y</a><a href="/Actualites/Communiques-de-presse/Prix-des-carburants-au-1er-septembre-2026">z</a>`;
     expect(carburants.releases(list)).toEqual([LIEN, "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Prix-des-carburants-au-1er-septembre-2026"]);
+    // A link planted in the list, to another site or in http, is never read.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(carburants.releases(`<a href="https://pirate.example/Communiques-de-presse/Prix-des-carburants-en-octobre">x</a><a href="http://www.reunion.gouv.fr/Communiques-de-presse/Prix-des-carburants">y</a>${list}`)).toEqual(carburants.releases(list));
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
     expect(carburants.headerDay("01/10/2026")).toBe("2026-10-01");
     expect(carburants.headerDay("1-déc.-26")).toBe("2026-12-01");
   });
