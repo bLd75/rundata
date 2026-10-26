@@ -86,4 +86,30 @@ describe("the daily check of the sources", () => {
     await get("Mozilla/5.0");
     expect(hits).toHaveLength(1);
   });
+
+  it("leaves out the team's other reads too, however they write their User-Agent, but not a team visit nor a stranger", async () => {
+    const hits: Hit[] = [];
+    const page = (ua: string) => handle(new Request("https://rundata.re/nouveautes", { headers: { accept: "text/html", "user-agent": ua } }), new Cache(), () => {}, (h) => hits.push(h));
+    const call = (ua: string) =>
+      handle(
+        new Request("https://rundata.re/mcp", {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18", "user-agent": ua },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+        }),
+        new Cache(),
+        () => {},
+        (h) => hits.push(h),
+      );
+    // Read in the Worker's logs, 24-26/10/2026.
+    for (const ua of ["rundata-check", "rundata-check/ship", "rundata-verif", "Mozilla/5.0 rundata-check", "Mozilla/5.0 (compatible; rundata-audit)", "curl/8.5 rundata-audit", "rundata-banc"]) {
+      await page(ua);
+      await call(ua);
+    }
+    expect(hits).toEqual([]);
+    await page("Mozilla/5.0 rundata-interne");
+    await page("rundata.re (contact@rundata.re)");
+    await page("Mozilla/5.0 (X11; Linux x86_64) mon-rundata-perso");
+    expect(hits.map((h) => h.kind)).toEqual(["page", "page", "page"]);
+  });
 });
