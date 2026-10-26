@@ -7,7 +7,7 @@
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
 import { failed, handle } from "./app.js";
-import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, spent } from "./budget.js";
+import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, scheduled, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
 import { toutesLesSources, VERSION } from "./server.js";
@@ -240,6 +240,7 @@ export default {
     // forecast's ensemble with what they left.
     // Its own budget, enough for every copy that is due: past it a subrequest is refused here (budget.ts).
     const reads = counted(SCHEDULED_BUDGET, async () => {
+      scheduled();
       const arome = await prefetchForecasts(c).catch((err) => (console.error("préchargement AROME impossible", why(err)), null));
       const aromeUsed = spent();
       // One listing of KV for both.

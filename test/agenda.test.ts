@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PAGE_BUDGET, count, counted, left } from "../src/budget.js";
+import { PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, left, scheduled } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
 import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
@@ -974,6 +974,69 @@ describe("agenda", () => {
       const kabardock = other.value.find((g) => g.agenda.id === "kabardock")?.value;
       expect(kabardock?.stale).toBe(false);
       expect(kabardock?.value.length).toBeGreaterThan(0);
+    });
+
+    it("waits only the short time for an agenda without a copy whose last reading failed, writes that once, and drops it once a reading lands", async () => {
+      const edge = new EdgeLike();
+      const marked = async () => (await isolate(edge).bundle("agendas", 0)).has("echec:kabardock");
+      const writes = vi.spyOn(edge, "put");
+      const bundleWrites = () => writes.mock.calls.filter(([k]) => k.includes("agendas")).length;
+      const slow = (ms: number, down: boolean) => vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+        if (url.includes("kabardock")) {
+          await new Promise((r) => setTimeout(r, ms));
+          if (down) return new Response("", { status: 503 });
+        }
+        const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+        return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+      });
+      const view = async () => {
+        const run = await counted(PAGE_BUDGET, () => gather(isolate(edge), NOW, 2_000, 50));
+        await run.settled();
+        return run.value.find((g) => g.agenda.id === "kabardock");
+      };
+      // The Kabardock fails: no copy, the mark written with the others' copies.
+      slow(0, true);
+      expect((await view())?.value).toBeUndefined();
+      expect(await marked()).toBe(true);
+      // It fails again, slowly: waited for only the short time, and nothing written, the mark being there.
+      slow(300, true);
+      const before = bundleWrites();
+      let started = Date.now();
+      const again = await counted(PAGE_BUDGET, () => gather(isolate(edge), NOW, 2_000, 50));
+      expect(Date.now() - started).toBeLessThan(300);
+      expect(again.value.find((g) => g.agenda.id === "kabardock")?.value).toBeUndefined();
+      await again.settled();
+      expect(bundleWrites()).toBe(before);
+      // Back, slowly: given up on after the short time, then stored after the response, the mark dropped.
+      slow(300, false);
+      started = Date.now();
+      const run = await counted(PAGE_BUDGET, () => gather(isolate(edge), NOW, 2_000, 50));
+      expect(Date.now() - started).toBeLessThan(300);
+      expect(run.value.find((g) => g.agenda.id === "kabardock")?.value).toBeUndefined();
+      await run.settled();
+      expect(await marked()).toBe(false);
+      expect((await view())?.value?.value.length).toBeGreaterThan(0);
+    });
+
+    it("in the scheduled event, counts an agenda's delay from its place, so that none is cut while it waits for its turn", async () => {
+      vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+        await new Promise((r) => setTimeout(r, 40));
+        const f = file(url, typeof init?.body === "string" ? init.body : undefined);
+        return f ? new Response(bytes(f)) : new Response("", { status: 503 });
+      });
+      const cut = async (planned: boolean) => {
+        const run = await counted(SCHEDULED_BUDGET, async () => {
+          if (planned) scheduled();
+          return gather(isolate(), NOW, 120, 120);
+        });
+        await run.settled();
+        return run.value.filter((g) => !g.agenda.planifie && !g.value && !g.remise).map((g) => g.agenda.id);
+      };
+      // A view gives up on those still queued behind five others at 120 ms; the scheduled event on none of those that answer.
+      const view = await cut(false);
+      const planned = await cut(true);
+      expect(view.length).toBeGreaterThan(planned.length);
+      expect(view).toEqual(expect.arrayContaining(planned));
     });
 
     it("measures how long the agendas took, and what is still in flight when they are given up on", async () => {
