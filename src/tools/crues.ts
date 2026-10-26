@@ -55,7 +55,7 @@ function landmark(s: vc.Station): string | undefined {
 
 /**
  * « Mât - Escalier (rivière du Mât, Salazie) : 0,42 m, stable, 3,1 m³/s »; a station late at `now`, its last level and
- * its time, never a trend, which dates from before it (marketing): « … : 0,18 m à 04:00, pas de mesure plus récente ».
+ * its time, never a trend, which dates from before it: « … : 0,18 m à 04:00, pas de mesure plus récente ».
  */
 export function sentence(l: Level, now?: Date): string {
   const s = l.station;
@@ -136,7 +136,7 @@ const COMMON = {
 const NAMED_SILENT = 5;
 
 /**
- * The island's levels in marketing's words: only the stations measured within LATE_MINUTES are said rising or not;
+ * The island's levels: only the stations measured within LATE_MINUTES are said rising or not;
  * the others, « sans mesure récente », named or counted in a sentence of their own, their trend never said. With none
  * measured lately, the time of our read and that we do not know.
  */
