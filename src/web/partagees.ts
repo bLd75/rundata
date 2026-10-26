@@ -203,11 +203,37 @@ async function kvGet(kv: Kv, key: string): Promise<KvEntry | undefined> {
   }
 }
 
+// A shared copy's last failed refresh, apart from the copies (not listed with them): no use past the longest breaker.
+const failureKey = (key: string) => `copie-echec:${key}`;
+const FAILURE_TTL_SECONDS = 3600;
+
+async function kvFailure(kv: Kv, key: string): Promise<CacheEntry["echec"]> {
+  try {
+    count(1, "read");
+    const f = (await kv.get(failureKey(key), "json")) as CacheEntry["echec"] | null;
+    return typeof f?.at === "number" ? f : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function kvPutFailure(kv: Kv, key: string, echec: NonNullable<CacheEntry["echec"]>): Promise<void> {
+  try {
+    count(1, true);
+    await kv.put(failureKey(key), JSON.stringify(echec), { expirationTtl: FAILURE_TTL_SECONDS });
+  } catch (err) {
+    console.error("KV : échec de la copie partagée non écrit", why(err));
+  }
+}
+
 /**
  * The data center's cache, and KV behind it for the shared copies only: asked when the cache has none, only one older
  * than FRESH_SECONDS (a data center that served the page once, then slept), or one of another revision (`outdated`,
  * cache.ts), at the cost of one read instead of a build. The newer of the two is served, one of this revision before one
- * of another, and KV's is put in the cache, so that the data center's next isolates find it there. Never written to KV.
+ * of another, and KV's is put in the cache, so that the data center's next isolates find it there. KV's copy is written
+ * by the scheduled event only; here, only a failed refresh (`echec`), so that a source that does not answer is left
+ * alone by every data center until its breaker closes, the scheduled event too (26/10/2026: the IPGP's catalogue silent
+ * from 18:56, asked by every event and by each data center's readers, 15 times in 50 minutes, each waiting 8 seconds).
  */
 export class SharedFallback implements CacheStore {
   constructor(private edge: CacheStore, private kv: Kv, private now: () => number = Date.now, private version?: string) {}
@@ -216,12 +242,22 @@ export class SharedFallback implements CacheStore {
     const old = (x: CacheEntry) => outdated(key, x, this.version);
     if (!KEYS.has(key) || (e && this.now() - e.fetchedAt <= FRESH_SECONDS * 1000 && !old(e))) return e;
     const shared = await kvGet(this.kv, key);
-    if (!shared || (e && (old(e) === old(shared) ? shared.fetchedAt <= e.fetchedAt : old(shared)))) return e;
-    await this.edge.put(key, shared);
-    return shared;
+    const got = !shared || (e && (old(e) === old(shared) ? shared.fetchedAt <= e.fetchedAt : old(shared))) ? e : shared;
+    if (shared && got === shared) await this.edge.put(key, shared);
+    // A copy late for its refresh, and too old for the caller: its source may have been found silent elsewhere. Read
+    // only then, one read more.
+    if (!got || freshAfter == null || got.fetchedAt >= freshAfter || !this.late(key, got)) return got;
+    const failed = await kvFailure(this.kv, key);
+    return failed && failed.at > got.fetchedAt && failed.at > (got.echec?.at ?? 0) ? { ...got, echec: failed } : got;
   }
-  put(key: string, entry: CacheEntry) {
-    return this.edge.put(key, entry);
+  async put(key: string, entry: CacheEntry) {
+    await this.edge.put(key, entry);
+    if (KEYS.has(key) && entry.echec && entry.echec.at > entry.fetchedAt) await kvPutFailure(this.kv, key, entry.echec);
+  }
+  /** Past its rate and one event: the scheduled event did not refresh it. */
+  private late(key: string, e: CacheEntry): boolean {
+    const every = scheduledEvery(key, e.value);
+    return every != null && this.now() - e.fetchedAt > every * 60_000 + EVENT_MS;
   }
 }
 

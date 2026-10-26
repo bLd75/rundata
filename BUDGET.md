@@ -18,28 +18,28 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 338 | 500 |
-| pire passage planifié, appels KV et D1 | 45 | 1 000 |
+| pire passage planifié, sous-requêtes | 340 | 500 |
+| pire passage planifié, appels KV et D1 | 47 | 1 000 |
 | pire passage planifié, CPU (ms) | 2 102 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
-| passage le plus chargé (cadences les plus courtes), sous-requêtes | 112 | 500 |
+| passage le plus chargé (cadences les plus courtes), sous-requêtes | 114 | 500 |
 | vue la plus chère, sous-requêtes | 82 | 200 |
 | question la plus chère, sous-requêtes | 65 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
 - Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
-- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 83 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, connecteurs:lecture, propositions:purge).
-- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 112 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, web:crues, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, connecteurs:lecture, propositions:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 314 sous-requêtes à 00:00 UTC.
+- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 85 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, copies:echecs, connecteurs:lecture, propositions:purge).
+- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 114 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, web:crues, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, sans-reponse:echecs, copies:echecs, connecteurs:lecture, propositions:purge).
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 316 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 82. Question la plus chère : resume_du_jour, 65. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 338 | 6 | 26 | 13 | 1 123 | 42 | 2 102 |
-| tâche planifiée, par jour | 14 251 | 768 | 1 500 | 1 251 | 102 620 | 3 199 | 107 523 |
-| tâche planifiée, par jour, cadences les plus courtes | 22 839 | 1 488 | 2 748 | 1 731 | 107 660 | 3 199 | 153 003 |
-| tâche planifiée, par mois (30 jours) | 427 530 | 23 040 | 45 000 | 37 530 | 3 078 600 | 95 970 | 3 225 690 |
+| pire passage planifié | 340 | 7 | 27 | 13 | 1 123 | 42 | 2 102 |
+| tâche planifiée, par jour | 14 827 | 1 056 | 1 788 | 1 251 | 102 620 | 3 199 | 107 523 |
+| tâche planifiée, par jour, cadences les plus courtes | 23 415 | 1 776 | 3 036 | 1 731 | 107 660 | 3 199 | 153 003 |
+| tâche planifiée, par mois (30 jours) | 444 810 | 31 680 | 53 640 | 37 530 | 3 078 600 | 95 970 | 3 225 690 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -81,6 +81,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | agenda:salazie_actus | agenda lu par la tâche planifiée : Ville de Salazie | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
 | agenda:sportsregions | agenda lu par la tâche planifiée : Clubs sportifs (Sportsregions) | 360 min | 00:00 | 5 |  |  |  |  |  | 30 | mesuré |
 | sans-reponse:echecs | sites sans réponse : l'état des sites relu quand une lecture échoue (D1), au plus toutes les 10 minutes par isolat, après la réponse aussi pour une vue ou une question ; une écriture de plus pour un site qui entre dans la liste | 10 min | 00:00 | 1 |  |  | 1 | 20 |  | 2 | estimé |
+| copies:echecs | copies partagées : l'échec d'une copie en retard, lu avec elle et écrit après un essai manqué (KV), au plus une fois toutes les 5 minutes par copie pour tous les centres de données, seulement quand sa source ne répond pas | 5 min | 00:00 | 2 | 1 | 1 |  |  |  |  | code |
 | sans-reponse:reverification | sites sans réponse : la revérification quotidienne, une lecture par site (D1 et sites), à 06:00 heure de La Réunion | 1440 min | 02:00 | 22 |  |  | 2 | 20 | 21 | 30 | estimé |
 | irve:etat | bornes de recharge : la part de La Réunion du fichier national (environ 9 Mo), écrite dans KV après les autres lectures | 15 min | 00:05 | 2 |  | 1 |  |  |  | 300 | estimé |
 | connecteurs:lecture | plateformes des associations (HelloAsso) : les événements publics d'une association reliée, relus toutes les 6 h, une association par passage | 5 min | 00:00 | 15 |  |  | 3 | 201 | 11 | 20 | estimé |

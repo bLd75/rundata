@@ -203,6 +203,19 @@ const SCHEDULED: Entry[] = [
     from: ["src/sans-reponse.ts"],
     basis: "estimé",
   },
+  // A shared copy late for its refresh (web/partagees.ts SharedFallback): its last failure read with it, and written
+  // after a failed try, at most once per breaker for all the data centers; only while its source does not answer.
+  {
+    id: "copies:echecs",
+    trigger: "planifiée",
+    what: "copies partagées : l'échec d'une copie en retard, lu avec elle et écrit après un essai manqué (KV), au plus une fois toutes les 5 minutes par copie pour tous les centres de données, seulement quand sa source ne répond pas",
+    every: 5,
+    offset: 0,
+    run: { subrequests: 2, kvReads: 1, kvWrites: 1, cpuMs: 0 },
+    // KV only: its file's imports reach every source.
+    from: [],
+    basis: "code",
+  },
   // Its own budget (BUILD_BUDGET), after the event's reads: one GET per site not come back, the writes in one batch.
   {
     id: "sans-reponse:reverification",
