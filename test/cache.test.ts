@@ -159,6 +159,19 @@ describe("Cache", () => {
     expect(await cache.get("k", 60, async () => "autre")).toMatchObject({ value: "neuf", stale: false });
   });
 
+  it("waits for the vigilance and the cyclones, even past a tool call's time", async () => {
+    const c = clock();
+    const cache = new Cache(undefined, c.now);
+    const slow = (v: string) => () => new Promise<string>((resolve) => setTimeout(() => resolve(v), 60));
+    for (const key of ["vigilance", "cyclones:liste", "cyclones:trajectoire:1:2"]) {
+      await cache.get(key, 60, async () => "vieux");
+      c.advance(120);
+      const { value, lectures } = await withLectures(() => cache.get(key, 60, slow("neuf")), 10);
+      expect(value, key).toMatchObject({ value: "neuf", stale: false });
+      expect(lectures, key).toMatchObject([{ key, stale: false }]);
+    }
+  });
+
   it("waits for a slow source it has no copy of, and outside a tool call that set a time", async () => {
     const c = clock();
     const cache = new Cache(undefined, c.now);

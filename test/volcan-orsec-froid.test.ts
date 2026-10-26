@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import type { Info } from "../src/providers/actualites.js";
 import { parse } from "../src/providers/seismes.js";
-import { activityPosts, phase, phaseOf } from "../src/providers/volcan.js";
+import { activityPosts, PHASE_KEY, PREFECTURE, phase, phaseOf } from "../src/providers/volcan.js";
 import { buildVolcan } from "../src/web/data.js";
 import { volcanPage } from "../src/web/domains.js";
 import { site } from "../src/web/site.js";
@@ -38,6 +38,17 @@ const lastEruptionOut = (s: string) => s.replace(/<p class="note">Sources : [\s\
 const page = async (cache: Cache) => (await site(new Request("https://rundata.re/volcan"), cache, () => {}, NOW))!.text();
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe("the phase read from the prefecture's releases", () => {
+  it("is stored as the prefecture's, so that its copy says whose it is", async () => {
+    const store = new MemoryStore();
+    const t = NOW.getTime();
+    const release = { titre: "Piton de la Fournaise : passage en alerte 1, fermeture de l’enclos", lien: "https://www.reunion.gouv.fr/x", publie: new Date("2026-10-24T12:00:00+04:00").toISOString(), media: "Préfecture de La Réunion", heure: false, communes: [], lieux: [], sujets: [] };
+    void store.put("prefecture:communiques:rubrique", { value: { liste: [release] }, fetchedAt: t });
+    expect((await phase(new Cache(store, () => t, true, new MemoryStore()), t)).value).toMatchObject({ niveau: "Alerte 1" });
+    expect((await store.get(PHASE_KEY))?.from).toBe(PREFECTURE.id);
+  });
+});
 
 describe("the ORSEC level of a cold copy, the prefecture not read in time", () => {
   it("keeps the phase read, and says it after a deploy while the prefecture does not answer", async () => {
