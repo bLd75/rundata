@@ -49,7 +49,7 @@ export const SOURCES: Record<Lieu["source"], SourceInfo> = {
     id: "osm_enfants",
     nom: "Aires de jeux, parcs, zoos, musées et bibliothèques cartographiés dans OpenStreetMap",
     organisme: "Les contributeurs d'OpenStreetMap",
-    licence: "ODbL",
+    licence: "ODbL 1.0",
     attribution: "© les contributeurs d'OpenStreetMap",
     url: "https://www.openstreetmap.org/",
   },

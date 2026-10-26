@@ -11,7 +11,7 @@ export const SOURCE: SourceInfo = {
   id: "atmo_indice",
   nom: "Indice ATMO de la qualité de l'air par commune (Atmo Réunion, via Atmo France)",
   organisme: "Atmo Réunion, observatoire agréé de la qualité de l'air",
-  licence: "ODbL",
+  licence: "ODbL 1.0",
   attribution: "Atmo Réunion / Atmo France",
   url: "https://www.atmo-reunion.net",
 };

@@ -390,11 +390,17 @@ describe("agenda", () => {
       const { value } = await SPORTSREGIONS.load(cache(), NOW);
       expect(urls).toEqual([PORTAIL, `${PORTAIL}?page=2`, `${PORTAIL}?page=3`, `${PORTAIL}?page=4`]);
       expect(value).toHaveLength(109);
-      expect(log).toHaveBeenCalledWith("agenda sportsregions : 4 pages, 109 événements dont 61 réservés aux adhérents, 0 hors de La Réunion");
+      expect(log).toHaveBeenCalledWith("agenda sportsregions : 4 pages sur 4 liées, 109 événements dont 61 réservés aux adhérents, 0 hors de La Réunion");
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      expect(warn).not.toHaveBeenCalled();
       urls = [];
       vi.stubGlobal("fetch", async (url: string) => (urls.push(url), new Response(`${pages[0]}<a href="/reunion/calendrier-clubs-sportifs-en-reunion?page=9">9</a>`)));
       await SPORTSREGIONS.load(cache(), NOW);
       expect(urls).toHaveLength(SPORTSREGIONS.requetes!);
+      // Stopped at five: said, with the last page linked, for an alert on the logs.
+      expect(log).toHaveBeenLastCalledWith(expect.stringMatching(/^agenda sportsregions : 5 pages sur 9 liées, /));
+      expect(warn).toHaveBeenCalledWith("agenda sportsregions : arrêt à 5 pages (SR_PAGES), le calendrier en lie 9 : ses derniers événements ne sont pas lus");
+      warn.mockRestore();
       log.mockRestore();
     });
 

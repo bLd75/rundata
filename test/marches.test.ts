@@ -17,7 +17,7 @@ describe("the markets of OpenStreetMap", () => {
     const r = body(marchesAnswer("Saint-Paul"));
     expect(r.resume).toMatch(/^Marchés à Saint-Paul d'après OpenStreetMap : .*Marché forain de Saint-Paul \(le vendredi de 8 h à 18 h\u00a0; le samedi de 8 h à 12 h\)/);
     expect(r.avertissements[0]).toMatch(/tous les marchés n'y sont pas/);
-    expect(r.sources[0].licence).toBe("ODbL");
+    expect(r.sources[0].licence).toBe("ODbL 1.0");
     // A commune with none mapped: the nearest, with their distance.
     const without = Object.keys(INSEE).find((c) => !MARCHES().some((m) => m.commune === c))!;
     const w = body(marchesAnswer(without));
