@@ -160,6 +160,25 @@ describe("Cache", () => {
     expect(await cache.get("k", 60, async () => "autre")).toMatchObject({ value: "neuf", stale: false });
   });
 
+  it("says a slow source whose last read failed as not answering, not as slow", async () => {
+    const c = clock();
+    const cache = new Cache(undefined, c.now);
+    await cache.get("k", 60, async () => "vieux");
+    c.advance(120);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await cache.get("k", 60, async () => { throw new UpstreamError("ipgp", "délai dépassé"); });
+    // Past the breaker and the backoff: asked again, slow again.
+    c.advance(3600);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const slow = () => new Promise<string>((resolve) => setTimeout(() => resolve("neuf"), 100));
+    const { value } = await withLectures(() => cache.get("k", 60, slow), 10);
+    expect(value).toMatchObject({ value: "vieux", stale: true, source: "ipgp" });
+    expect(value).not.toHaveProperty("tardive");
+    log.mockRestore();
+    vi.restoreAllMocks();
+    await new Promise((r) => setTimeout(r, 150));
+  });
+
   it("waits for the vigilance and the cyclones, even past a tool call's time", async () => {
     const c = clock();
     const cache = new Cache(undefined, c.now);

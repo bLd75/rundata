@@ -356,7 +356,8 @@ export class Cache {
     if (got) return got;
     later(pending.catch(() => undefined));
     console.log(`lecture trop lente pour la réponse : ${key}, copie du ${new Date(hit!.fetchedAt).toISOString()} servie`);
-    return copyOf<T>(hit!, hit!.from, true);
+    // Slow, unless its last read already failed: a source silent for hours is said not to answer (26/10, the IPGP's).
+    return copyOf<T>(hit!, hit!.echec?.source ?? hit!.from, !hit!.echec);
   }
 
   private async refresh<T>(

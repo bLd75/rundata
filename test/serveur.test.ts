@@ -347,6 +347,23 @@ describe("fraicheur", () => {
     // A page's copy (volcan.ts) says it too.
     expect(sourceMuette("FFHB", new Date(t("21:51")), true)).toBe("La source « FFHB » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 21:51.");
     expect(sourceMuette("FFHB", new Date(t("21:51")))).toMatch(/n'a pas répondu/);
+    // Partly fresh, partly too slow: the user's words, for that part only.
+    const slowPart = { ...slow, from: "la1ere" };
+    expect(said([{ ...fresh, key: "sport:actu:hier", from: "la1ere" }, slowPart]).avertissement).toBe(
+      "La source « Réunion La 1ère (actualité sportive) » a tardé à répondre pour une partie de ce qui vient d'elle : cette partie date de notre lecture du 25/10 à 22:22. Le reste de la réponse est à jour.",
+    );
+    // Parts without a source too slow: « a tardé », one sentence; after a failed one, « une autre partie ».
+    const ours = (key: string, hhmm: string, tardive?: true) => ({ key, fetchedAt: t(hhmm), stale: true, freshSeconds: 3600, ...(tardive && { tardive }) });
+    expect(said([fresh, ours("a", "22:22", true)]).avertissement).toBe("Une partie de cette réponse date de notre lecture du 25/10 à 22:22 : la lecture suivante a tardé. Le reste de la réponse est à jour.");
+    expect(said([fresh, ours("a", "21:51", true), ours("b", "22:22", true)]).avertissement).toBe(
+      "Des parties de cette réponse datent de nos lectures du 25/10 à 21:51 et à 22:22 : les lectures suivantes ont tardé. Le reste de la réponse est à jour.",
+    );
+    expect(said([fresh, ours("a", "21:51"), ours("b", "22:22", true)]).avertissement).toBe(
+      "Une partie de cette réponse date de notre lecture du 25/10 à 21:51 : la lecture suivante n'a pas abouti. Une autre partie date de notre lecture du 25/10 à 22:22 : la lecture suivante a tardé. Le reste de la réponse est à jour.",
+    );
+    expect(said([fresh, ffhb, ours("b", "22:22", true)]).avertissement).toBe(
+      "La source « FFHB » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 21:51. Une autre partie date de notre lecture du 25/10 à 22:22 : la lecture suivante a tardé. Le reste de la réponse est à jour.",
+    );
   });
 
   it("gives the age of the data from its own date when the block states none, whatever the read", () => {

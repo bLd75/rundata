@@ -140,30 +140,36 @@ const quoted = (s: string) => `« ${s} »`;
 /**
  * Marketing's words: the sources that did not answer named, each with its last read; then those too slow for the
  * answer, each in a sentence of its own; then each source only part of which is old, in a sentence of its own (it did
- * answer for the rest); then the parts whose read did not succeed, without a cause; « le reste » only when every other
- * part was read at its own pace.
+ * answer for the rest), or too slow for the answer for a part of it; then the parts whose read did not succeed, without
+ * a cause, then those too slow; « le reste » only when every other part was read at its own pace.
  */
 function avertissement(list: Copie[], rest: boolean): string {
   const named = list.filter((c) => c.source && !c.partielle && !c.tardive);
   const tardy = list.filter((c) => c.source && !c.partielle && c.tardive);
   const partial = list.filter((c) => c.partielle);
-  const parts = [...new Set(list.filter((c) => !c.source).map((c) => c.lue_le))];
   const restText = " Le reste de la réponse est à jour.";
   const out: string[] = [];
   if (named.length === 1) out.push(`La source ${quoted(named[0].source!)} n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture ${dits([named[0].lue_le])}.`);
   // Alone, « le reste » closes the sentence of the sources (marketing).
-  const closed = named.length > 1 && !tardy.length && !partial.length && !parts.length;
+  const closed = named.length > 1 && !tardy.length && !partial.length && list.every((c) => c.source);
   if (named.length > 1) {
     const each = named.map((c) => `${quoted(c.source!)}, lue le ${c.lue_le.replace(" ", " à ")}`).join("\u00a0; ");
     out.push(`Ces sources n'ont pas répondu à notre dernière lecture : ${each}. Ce qui vient d'elles date de ces lectures${closed && rest ? "\u00a0; le reste de la réponse est à jour." : "."}`);
   }
   for (const c of tardy) out.push(`La source ${quoted(c.source!)} a tardé à répondre : ce qui vient d'elle date de notre lecture ${dits([c.lue_le])}.`);
-  for (const c of partial) out.push(`Une partie de ce qui vient de la source ${quoted(c.source!)} date de notre lecture ${dits([c.lue_le])} : la lecture suivante n'a pas abouti.`);
-  if (parts.length) {
-    const before = named.length + tardy.length + partial.length > 0;
-    const another = before ? (parts.length === 1 ? "Une autre partie date" : "D'autres parties datent") : parts.length === 1 ? "Une partie de cette réponse date" : "Des parties de cette réponse datent";
-    const next = parts.length === 1 ? "la lecture suivante n'a pas abouti" : "les lectures suivantes n'ont pas abouti";
-    out.push(`${another} de ${parts.length === 1 ? "notre lecture" : "nos lectures"} ${dits(parts)} : ${next}.`);
+  for (const c of partial) {
+    out.push(c.tardive
+      ? `La source ${quoted(c.source!)} a tardé à répondre pour une partie de ce qui vient d'elle : cette partie date de notre lecture ${dits([c.lue_le])}.`
+      : `Une partie de ce qui vient de la source ${quoted(c.source!)} date de notre lecture ${dits([c.lue_le])} : la lecture suivante n'a pas abouti.`);
+  }
+  // The parts without a source, those whose read failed, then those too slow for the answer, a sentence each.
+  for (const late of [false, true]) {
+    const these = [...new Set(list.filter((c) => !c.source && !!c.tardive === late).map((c) => c.lue_le))];
+    if (!these.length) continue;
+    const one = these.length === 1;
+    const another = out.length ? (one ? "Une autre partie date" : "D'autres parties datent") : one ? "Une partie de cette réponse date" : "Des parties de cette réponse datent";
+    const next = late ? (one ? "la lecture suivante a tardé" : "les lectures suivantes ont tardé") : one ? "la lecture suivante n'a pas abouti" : "les lectures suivantes n'ont pas abouti";
+    out.push(`${another} de ${one ? "notre lecture" : "nos lectures"} ${dits(these)} : ${next}.`);
   }
   return out.join(" ") + (rest && !closed ? restText : "");
 }
