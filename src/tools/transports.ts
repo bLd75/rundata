@@ -862,8 +862,11 @@ export interface TripRun {
   /** First and last time of the trip, in ms since 1970, as scheduled: what the page says without its stops. */
   depart: number;
   arrivee?: number;
-  /** Where its network has a real-time feed: whether the feed speaks of this run (only while it is on the road), and the feed's time. */
-  direct?: { etat: "suivi" | "absent"; flux: number } | { etat: "muet" };
+  /**
+   * Where its network has a real-time feed: whether the feed speaks of this run (only while it is on the road), or
+   * speaks of it with only times too far from its timetable to be believed (`credible`), and the feed's time.
+   */
+  direct?: { etat: "suivi" | "absent" | "ecarte"; flux: number } | { etat: "muet" };
   /** The real-time feed says the trip will not run. */
   supprime?: boolean;
 }
@@ -938,15 +941,19 @@ export async function tripRun(net: string, local: number, trip: string, jour: nu
     else {
       const told = f.trips[trip];
       out.supprime = f.cancelled.includes(trip) || undefined;
+      let doubtful = false;
       if (told && arrets) {
         const seen = seenTrips(f, t / 1000).has(trip);
         for (const a of arrets) {
           const v = told[gtfsStop(n, a.id)];
           if (v === rt.SKIPPED) a.saute = true;
           else if (v !== undefined && credible(v - a.at / 1000, seen)) a.annonce = v * 1000;
+          else if (v !== undefined) doubtful = true;
         }
       }
-      out.direct = { etat: told || out.supprime ? "suivi" : "absent", flux: f.at };
+      // All its times left out: the page says the timetable alone, not « Annoncé » over no time.
+      const none = doubtful && !out.supprime && !arrets!.some((a) => a.annonce !== undefined || a.saute);
+      out.direct = { etat: none ? "ecarte" : told || out.supprime ? "suivi" : "absent", flux: f.at };
       if (!out.supprime) delete out.supprime;
     }
   }
