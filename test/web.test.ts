@@ -13,7 +13,7 @@ import { homePage } from "../src/web/home.js";
 import { communesPage } from "../src/web/commune.js";
 import { VERSION } from "../src/server.js";
 import { COVERAGE as SEA_COVERAGE } from "../src/tools/mer.js";
-import { DESCRIPTION_MAX, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
+import { DESCRIPTION_MAX, FONT_PATH, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
 import { PAGES, pageOf } from "../src/web/places.js";
 import { isReader, site } from "../src/web/site.js";
 import { unzip } from "../src/zip.js";
@@ -472,13 +472,18 @@ describe("what crawlers and previews fetch", () => {
     }
   });
 
-  it("serves a 1200×630 PNG for link previews, and the flag as favicon", async () => {
-    const r = await handle(new Request("https://rundata.re/og.png"), isolate());
-    const png = new Uint8Array(await r.arrayBuffer());
-    expect(r.headers.get("content-type")).toBe("image/png");
+  // Files of public/, served by Cloudflare before the Worker (no request billed), with the headers of public/_headers.
+  const asset = (path: string) => new Uint8Array(readFileSync(new URL(`../public${path}`, import.meta.url)));
+  const headers = readFileSync(new URL("../public/_headers", import.meta.url), "utf8");
+
+  it("has a 1200×630 PNG for link previews, and the flag as favicon", async () => {
+    const png = asset("/og.png");
     expect(png.length).toBeLessThan(300_000);
     const view = new DataView(png.buffer);
-    expect([view.getUint32(16), view.getUint32(20)]).toEqual([1200, 630]);
+    expect([view.getUint32(0), view.getUint32(16), view.getUint32(20)]).toEqual([0x89504e47, 1200, 630]);
+    expect(headers).toContain("/og.png\n  Cache-Control: public, max-age=604800\n");
+    // Not in the Worker any more: Cloudflare answers before it.
+    expect(await site(new Request("https://rundata.re/og.png"), new Cache(), () => {})).toBeNull();
     const icon = await handle(new Request("https://rundata.re/favicon.svg"), isolate());
     expect(await icon.text()).toContain("#e3262d");
   });
@@ -487,12 +492,19 @@ describe("what crawlers and previews fetch", () => {
     const page = homePage("https://rundata.re", null);
     const path = page.match(/<image href="(\/relief-[0-9a-f]{8}\.webp)"/)?.[1];
     expect(path).toBeDefined();
-    const r = await handle(new Request(`https://rundata.re${path}`), isolate());
-    const webp = new Uint8Array(await r.arrayBuffer());
-    expect(r.headers.get("content-type")).toBe("image/webp");
-    expect(r.headers.get("cache-control")).toContain("immutable");
+    const webp = asset(path!);
     expect(new TextDecoder().decode(webp.slice(8, 12))).toBe("WEBP");
     expect(webp.length).toBeLessThan(250_000);
+    expect(headers).toContain("/relief-*\n  Cache-Control: public, max-age=31536000, immutable\n");
+    expect(await site(new Request(`https://rundata.re${path}`), new Cache(), () => {})).toBeNull();
+  });
+
+  it("has the headings' font where the pages ask for it, kept for good", async () => {
+    const woff2 = asset(FONT_PATH);
+    expect(new TextDecoder().decode(woff2.slice(0, 4))).toBe("wOF2");
+    expect(woff2.length).toBeLessThan(80_000);
+    expect(headers).toContain("/font/*\n  Cache-Control: public, max-age=31536000, immutable\n");
+    expect(await site(new Request(`https://rundata.re${FONT_PATH}`), new Cache(), () => {})).toBeNull();
   });
 
   it("gives command-line clients one line and crawlers the page", async () => {

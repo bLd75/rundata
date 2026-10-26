@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Build src/web/og.json: the 1200×630 PNG shown in link previews (Facebook, WhatsApp, X…), base64 in a JSON file
-so that the Worker and the Node server bundle it alike. Facebook ignores SVG, hence a PNG.
+"""Build public/og.png: the 1200×630 PNG shown in link previews (Facebook, WhatsApp, X…), served by Cloudflare before
+the Worker, its fingerprint in src/web/og.json. Facebook ignores SVG, hence a PNG.
 
 And one picture per section of the site (RUBRIQUES), so that a link to the hikes and a link to the events do not look
 the same. Those go to public/og/, served by Cloudflare beside the Worker like the press visuals, named after their
@@ -11,9 +11,9 @@ Instagram: the same template, the title above the map; and one of the share pict
 No page links them in its meta tags.
 
 Drawn on the brand kit's template A (marketing: identite/kit.html, formats « partage » and « rubrique »): the night
-gradient of the site's band, Bricolage Grotesque (src/web/font.json) and Inter (scripts/og/inter.woff2, SIL Open Font
-License 1.1), the lockup of the symbol (public/logo/, scripts/build-icons.py) at the top left, and the map: the
-island in relief (src/web/relief.json on src/places/island.json), in a card for a section, the Piton de la Fournaise
+gradient of the site's band, Bricolage Grotesque (public/font/titres-1.woff2) and Inter (scripts/og/inter.woff2,
+SIL Open Font License 1.1), the lockup of the symbol (public/logo/, scripts/build-icons.py) at the top left, and the
+map: the island in relief (public/relief-*.webp on src/places/island.json), in a card for a section, the Piton de la Fournaise
 for the volcano (scripts/og/fournaise.webp: relief IGN RGE ALTI, Licence Ouverte 2.0; ramparts, RN 2, Pas de
 Bellecombe © OpenStreetMap contributors, ODbL). Each page is an HTML page shot by headless Chrome, then cut to the
 exact size and saved on a palette of 256 colours, dithered, by libvips: a third of the size, the gradient unchanged to
@@ -22,7 +22,6 @@ Needs libvips (`vips`, Ubuntu package libvips-tools).
 Usage: python3 -I scripts/build-og.py
   Chrome is $CHROME, else Playwright's Chromium.
 """
-import base64
 import hashlib
 import json
 import os
@@ -74,9 +73,9 @@ OUT = ROOT / "public/og"
 def assets(tmp):
     """The fonts, the symbol and the maps, as files beside the pages."""
     files = {
-        "bricolage.woff2": base64.b64decode(json.loads((ROOT / "src/web/font.json").read_text())["woff2"]),
+        "bricolage.woff2": (ROOT / "public/font/titres-1.woff2").read_bytes(),
         "inter.woff2": (ROOT / "scripts/og/inter.woff2").read_bytes(),
-        "relief.webp": base64.b64decode(json.loads((ROOT / "src/web/relief.json").read_text())["webp"]),
+        "relief.webp": (ROOT / f"public/relief-{json.loads((ROOT / 'src/web/relief.json').read_text())['v']}.webp").read_bytes(),
         "fournaise.webp": (ROOT / "scripts/og/fournaise.webp").read_bytes(),
         "symbole.svg": (ROOT / ("public" + json.loads((ROOT / "src/web/icons.json").read_text())["symbole-svg"])).read_bytes(),
     }
@@ -227,8 +226,9 @@ def main():
         out = ROOT / "src/web/og.json"
         # The page links the picture by its fingerprint: a new picture is a new address, which Facebook and the others
         # fetch again instead of showing the one they keep.
-        out.write_text(json.dumps({"v": hashlib.sha256(data).hexdigest()[:8], "png": base64.b64encode(data).decode(), "png_4x5": f"/og/{file_4x5}"}))
-        print(out, f"{len(data) // 1024} KB PNG,", OUT / file_4x5, f"{len(tall) // 1024} KB PNG")
+        (ROOT / "public/og.png").write_bytes(data)
+        out.write_text(json.dumps({"v": hashlib.sha256(data).hexdigest()[:8], "png_4x5": f"/og/{file_4x5}"}))
+        print(ROOT / "public/og.png", f"{len(data) // 1024} KB PNG,", OUT / file_4x5, f"{len(tall) // 1024} KB PNG")
 
 
 if __name__ == "__main__":
