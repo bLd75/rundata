@@ -34,7 +34,7 @@ describe("search engines", () => {
   it("follow a stop's page, and not the trips it links", async () => {
     const robots = await get("/robots.txt");
     // A rule's path matches from the start of the address, `*` matching anything (RFC 9309).
-    const rules = (group: string) => group.split("\n").filter((l) => l.startsWith("Disallow: ")).map((l) => new RegExp(`^${l.slice(10).replace(/[.?+()]/g, "\\$&").replace(/\*/g, ".*")}`));
+    const rules = (group: string) => group.split("\n").filter((l) => l.startsWith("Disallow: ")).map((l) => new RegExp(`^${l.slice(10).replace(/[\\^$.|?+()[\]{}]/g, "\\$&").replace(/\*/g, ".*")}`));
     const blocked = (group: string, path: string) => rules(group).some((r) => r.test(path));
     for (const group of robots.split("\n\n").slice(0, 2)) {
       expect(blocked(group, "/bus/arret/gare-routiere-de-saint-denis")).toBe(false);
