@@ -114,7 +114,7 @@ describe("Weezevent's agenda (providers/agenda.ts, WEEZEVENT)", () => {
       whenFailed((_s, url) => seen.push(`échec ${url}`));
       vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
         calls.push({ url, init });
-        if (url.endsWith("/auth/access_token")) return Response.json({ accessToken: "f4b6b917cee00f13d57e3c84f56656b9" });
+        if (url.endsWith("/auth/access_token")) return Response.json({ accessToken: "jeton-de-test" });
         return search();
       });
     });
@@ -140,7 +140,7 @@ describe("Weezevent's agenda (providers/agenda.ts, WEEZEVENT)", () => {
       expect(calls[0].url).toBe("https://api.weezevent.com/auth/access_token");
       expect(String(calls[0].init?.body)).toBe("username=compte&password=mot+de+passe&api_key=cle-api");
       const q = new URL(calls[1].url).searchParams;
-      expect(Object.fromEntries(q)).toEqual({ country: "RE", date_start: "2026-10-26", max_result: "500", api_key: "cle-api", access_token: "f4b6b917cee00f13d57e3c84f56656b9" });
+      expect(Object.fromEntries(q)).toEqual({ country: "RE", date_start: "2026-10-26", max_result: "500", api_key: "cle-api", access_token: "jeton-de-test" });
       // Kept: the next reading asks no token.
       await WEEZEVENT.load(direct, NOW);
       expect(calls.map((c) => new URL(c.url).pathname)).toEqual(["/auth/access_token", "/event/search/", "/event/search/"]);
@@ -148,7 +148,7 @@ describe("Weezevent's agenda (providers/agenda.ts, WEEZEVENT)", () => {
       search = () => new Response("", { status: 503 });
       await expect(WEEZEVENT.load(direct, NOW)).rejects.toThrow(/HTTP 503/);
       expect(seen.length).toBe(5);
-      expect(seen.join(" ")).not.toMatch(/cle-api|f4b6b917|mot/);
+      expect(seen.join(" ")).not.toMatch(/cle-api|jeton-de-test|mot/);
       expect(seen.at(-1)).toBe("échec https://api.weezevent.com/event/search/?country=RE&date_start=2026-10-26&max_result=500");
     });
 
