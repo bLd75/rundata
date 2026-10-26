@@ -1,7 +1,8 @@
 /**
  * The daily check of the sources, through rundata.re itself (scripts/check-sources.ts, run by
  * .github/workflows/sources.yml): a few tools called on /mcp and a few pages, each failing when what it shows is
- * older than its source should allow, says a source did not answer, or gives the volcano's ORSEC level as unknown.
+ * older than its source should allow, says a source did not answer, gives the volcano's ORSEC level as unknown, or
+ * when an answer has grown past its size.
  * Nothing here asks a source directly: what is checked is what a visitor gets.
  */
 import { decodeText, textOf } from "../providers/avis-eau.js";
@@ -169,9 +170,43 @@ export const TOOLS: ToolCheck[] = [
     },
   },
   { point: "coupures_eau", tool: "coupures_eau", args: {}, check: none },
+  // The heaviest answers, checked for their size only (and the copies every answer is checked for).
+  { point: "sources_donnees", tool: "sources_donnees", args: {}, check: none },
+  { point: "sentiers_randonnee (Mafate)", tool: "sentiers_randonnee", args: { lieu: "Mafate" }, check: none },
+  { point: "sport", tool: "sport", args: {}, check: none },
+  { point: "evenements", tool: "evenements", args: {}, check: none },
+  { point: "resume_du_jour (Saint-Paul)", tool: "resume_du_jour", args: { lieu: "Saint-Paul" }, check: none },
 ];
 
-/** What every answer is checked for: an error, a last copy served for a source that did not answer. */
+/**
+ * How big each answer may grow, in bytes of its text: the whole answer enters the model's context. Set on the sizes
+ * of 26/10/2026 (rundata.re 0.203.17) plus a quarter, 10 000 at least, rounded up; lowered when an answer is made
+ * lighter. None for the vigilance and the cyclones: their length follows the alert in force, and a long answer during
+ * a cyclone is what it must be.
+ */
+export const MAX_BYTES: Record<string, number> = {
+  volcan_seismes: 36_000, // 28 460
+  "meteo_actuelle (Saint-Denis)": 10_000, // 6 166
+  "prevision_meteo (Saint-Denis)": 16_000, // 12 253
+  "temperature_mer (Saint-Gilles)": 10_000, // 7 552
+  qualite_air: 10_000, // 4 325
+  electricite: 10_000, // 6 940
+  crues_rivieres: 24_000, // 19 049
+  "maree (Saint-Pierre)": 10_000, // 2 922
+  "transports (gare de Saint-Denis)": 10_000, // 5 300
+  "actualites (routes)": 10_000, // 7 540
+  carburants: 10_000, // 2 976
+  coupures_eau: 17_000, // 13 077
+  sources_donnees: 62_000, // 49 130
+  "sentiers_randonnee (Mafate)": 34_000, // 26 787
+  sport: 34_000, // 26 842
+  evenements: 43_000, // 33 818
+  "resume_du_jour (Saint-Paul)": 26_000, // 20 569
+};
+
+const ko = (bytes: number) => `${(bytes / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}\u00a0Ko`;
+
+/** What every answer is checked for: an error, a last copy served for a source that did not answer, its size. */
 export function checkAnswer(c: ToolCheck, result: { isError?: boolean; content?: { type: string; text?: string }[] } | undefined, now: Date): Probleme[] {
   const text = result?.content?.[0]?.text ?? "";
   if (!result || result.isError) return [{ point: c.point, motif: `erreur de l'outil : ${text.slice(0, 160) || "réponse vide"}` }];
@@ -184,6 +219,9 @@ export function checkAnswer(c: ToolCheck, result: { isError?: boolean; content?:
   const out: Probleme[] = [];
   if (p.fraicheur?.copies_de_secours?.length) out.push({ point: c.point, motif: `copie de secours : ${p.fraicheur.avertissement}` });
   else if (p.fraicheur?.avertissement) out.push({ point: c.point, motif: String(p.fraicheur.avertissement) });
+  const bytes = new TextEncoder().encode(text).length;
+  const max = MAX_BYTES[c.point];
+  if (max != null && bytes > max) out.push({ point: c.point, motif: `réponse de ${ko(bytes)}, au-delà de ${ko(max)}` });
   return [...out, ...c.check(p, now)];
 }
 

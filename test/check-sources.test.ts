@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache } from "../src/cache.js";
-import { AGENT, checkAnswer, checkPage, PAGES, parseTime, TOOLS } from "../src/bin/check-sources.js";
+import { AGENT, checkAnswer, checkPage, MAX_BYTES, PAGES, parseTime, TOOLS } from "../src/bin/check-sources.js";
 import type { Hit } from "../src/metrics.js";
 
 // Saturday 24 October 2026, 07:11 in Réunion.
@@ -65,6 +65,17 @@ describe("the daily check of the sources", () => {
     expect(motifs("carburants", { en_vigueur_depuis: "1er octobre 2026", fraicheur: {} }, new Date("2026-11-03T03:11:00Z"))).toEqual(["prix en vigueur depuis « 1er octobre 2026 », pas novembre 2026"]);
     // The 1st and the 2nd, the new order may not be read yet.
     expect(motifs("carburants", { en_vigueur_depuis: "1er octobre 2026", fraicheur: {} }, new Date("2026-11-02T03:11:00Z"))).toEqual([]);
+  });
+
+  it("checks the size of each answer, the vigilance and the cyclones apart", () => {
+    expect(Object.keys(MAX_BYTES).filter((k) => !TOOLS.some((c) => c.point === k))).toEqual([]);
+    expect(TOOLS.filter((c) => !(c.point in MAX_BYTES)).map((c) => c.point)).toEqual(["vigilance_meteo", "cyclones"]);
+    const big = { resume: "x".repeat(40_000) };
+    expect(motifs("volcan_seismes", big)).toContain("réponse de 40\u00a0Ko, au-delà de 36\u00a0Ko");
+    expect(motifs("volcan_seismes", { resume: "x".repeat(30_000) }).some((m) => m.startsWith("réponse de"))).toBe(false);
+    // Counted in bytes, as it travels: an accented letter weighs two.
+    expect(motifs("electricite", { resume: "é".repeat(5_500) }).some((m) => m.startsWith("réponse de"))).toBe(true);
+    expect(motifs("cyclones", big)).toEqual([]);
   });
 
   it("checks a page: its live block, no source down, its data's day", () => {

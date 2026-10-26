@@ -93,6 +93,13 @@ describe("the server's instructions", () => {
     expect(d("crues_rivieres")).toContain("radier submergé");
   });
 
+  it("keep the list of the tools from growing: it is sent to the model at the start of each conversation", async () => {
+    const tools: { name: string; description: string }[] = (await rpcResult("tools/list")).tools;
+    // 54 846 characters on 26/10/2026, about 16 000 tokens: lowered as the descriptions are made shorter.
+    expect(JSON.stringify(tools).length).toBeLessThanOrEqual(56_000);
+    for (const t of tools) expect(t.description.length, t.name).toBeLessThanOrEqual(2_000);
+  });
+
   it("index every tool the server has", async () => {
     const listed: string[] = (await rpcResult("tools/list")).tools.map((t: { name: string }) => t.name);
     const known = OUTILS.map((o) => o.nom);
