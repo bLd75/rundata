@@ -169,11 +169,13 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get("eau:ile", "json")) as eauIle.Ile | null;
   }));
-  // Read once a day from the prefecture by .github/workflows/carburants.yml (src/providers/carburants.ts).
-  carburants.configure(kv && (async () => {
+  // Read once a day from the prefecture by .github/workflows/carburants.yml (src/providers/carburants.ts): never by the
+  // Worker, even without the store.
+  carburants.configure(async () => {
+    if (!kv) return null;
     count();
     return (await kv.get("carburants:prix", "json")) as carburants.Prix | null;
-  }));
+  });
   // The text of the OVPF's releases given in images, read by a collector outside the Worker (scripts/ovpf-ocr.ts).
   ovpfOcr.configure(kv && (async (key: string) => {
     count();

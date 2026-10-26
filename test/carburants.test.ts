@@ -75,6 +75,22 @@ describe("the prefect's fuel prices", () => {
     }
   });
 
+  it("are never read from the prefecture by the Worker: an empty store leaves them unavailable", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => (asked.push(String(url)), new Response("", { status: 500 })));
+    try {
+      carburants.configure(async () => null);
+      await expect(carburants.prix(new Cache(), NOW)).rejects.toThrow(/absents du stockage/);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const r = await annuaireTool(new Cache(), "prix de l'essence", undefined, NOW);
+      expect(body(r).erreur).toBe("Les prix des carburants ne sont pas disponibles pour le moment.");
+      expect(asked.filter((u) => u.includes("reunion.gouv.fr"))).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+  });
+
   it("are what the public services tool answers about fuel, from the stored copy", async () => {
     const prix = carburants.parseRelease(fixture("carburants_octobre.html"), LIEN, NOW)!;
     carburants.configure(async () => prix);
