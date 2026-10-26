@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { codeVoie, latestAct, planOf, SOURCES, streetSales } from "../src/providers/terrain.js";
+import { codeVoie, latestAct, planOf, SOURCES, streetSales, VEFA as VEFA_NATURE } from "../src/providers/terrain.js";
 import { SOURCES as TRACES } from "../src/providers/traces.js";
 import { communeOf, ficheLieu, market, riskLine, sameStreet, streetLine, streetMarket } from "../src/tools/terrain.js";
 
@@ -47,6 +47,9 @@ describe("fiche terrain", () => {
     expect(m.maisons).toMatchObject({ ventes: 16, prix_m2_median: "5\u202f130\u00a0€/m²" });
     // Sold with a parking or a cellar, and off plan: 63 flats, where the parcel's lot alone kept 3.
     expect(m.appartements).toMatchObject({ ventes: 63, prix_m2_median: "5\u202f120\u00a0€/m²" });
+    // 30 of them sold off plan: the median of the 33 others beside, 1 300 €/m² lower. No house sold off plan.
+    expect(m.appartements).toMatchObject({ dont_vefa: 30, ventes_hors_vefa: 33, prix_m2_median_hors_vefa: "3\u202f810\u00a0€/m²" });
+    expect(m.maisons).not.toHaveProperty("dont_vefa");
     expect(JSON.stringify(m)).not.toMatch(/BO|0552|rue/i);
   });
 
@@ -59,7 +62,7 @@ describe("fiche terrain", () => {
     // A house on two lines (two kinds of land) is one sale; an exchange is none; a house sold with a field on another
     // street is one sale, at its one price.
     expect(sales.map((x) => x.type).sort()).toEqual(["appartement", "appartement", "maison", "maison", "maison", "maison", "maison", "maison", "maison", "terrain"]);
-    expect(sales.filter((x) => x.valeur === 420_000)).toEqual([{ annee: 2024, type: "maison", valeur: 420_000, surface_bati: 130, surface_terrain: 3500 }]);
+    expect(sales.filter((x) => x.valeur === 420_000)).toEqual([{ annee: 2024, type: "maison", valeur: 420_000, surface_bati: 130, surface_terrain: 3500, vefa: false }]);
     expect(sales.find((x) => x.valeur === 200_000)).toMatchObject({ surface_bati: 100, surface_terrain: 600 });
   });
 
@@ -92,9 +95,11 @@ describe("fiche terrain", () => {
     const sales = streetSales(csv, "0999");
     // Off plan or not, one median of the flats: 7 sales, the one recorded twice counted once (8 gave 6 740 €/m²).
     expect(sales.map((s) => s.type)).toEqual(Array(7).fill("appartement"));
+    expect(sales.filter((s) => s.vefa)).toHaveLength(5);
     const v = streetMarket("Rue des Tamarins", 2021, sales);
-    expect(v.appartements).toEqual({ ventes: 7, prix_median: "340\u202f000\u00a0€", prix_m2_median: "6\u202f550\u00a0€/m²" });
-    expect(streetLine(v)).toBe("sur la voie (Rue des Tamarins) depuis 2021 : appartements 6\u202f550\u00a0€/m² en médiane (7 ventes)");
+    // 5 of them off plan: said, but 2 others are too few for a median of their own.
+    expect(v.appartements).toEqual({ ventes: 7, prix_median: "340\u202f000\u00a0€", prix_m2_median: "6\u202f550\u00a0€/m²", dont_vefa: 5, ventes_hors_vefa: 2 });
+    expect(streetLine(v)).toBe("sur la voie (Rue des Tamarins) depuis 2021 : appartements 6\u202f550\u00a0€/m² en médiane (7 ventes dont 5 de neuf sur plan)");
     // Another price for the same lots is another sale.
     expect(streetSales(csv.replace(/2021-B3,(.*?),788000/g, "2021-B3,$1,790000"), "0999")).toHaveLength(8);
   });
@@ -112,6 +117,35 @@ describe("fiche terrain", () => {
     // Three sales in all, of three kinds: the count, no median of one sale.
     const mixed = streetMarket("Rue de la Buse", 2021, [house(250_000), { ...house(200_000), type: "appartement" }, { annee: 2022, type: "terrain", valeur: 90_000, surface_bati: 0, surface_terrain: 600 }]);
     expect([mixed.maisons, mixed.appartements, mixed.terrains_nus]).toEqual([{ ventes: 1 }, { ventes: 1 }, { ventes: 1 }]);
+  });
+
+  it("counts the sales off plan apart, the median of the others only from 3 of each", () => {
+    const flat = (valeur: number, vefa: boolean) => ({ annee: 2023, type: "appartement" as const, valeur, surface_bati: 50, surface_terrain: 0, vefa });
+    const others = [150_000, 160_000, 170_000].map((x) => flat(x, false));
+    const offPlan = [300_000, 320_000, 340_000].map((x) => flat(x, true));
+    const mixed = streetMarket("Rue des Tamarins", 2021, [...others, ...offPlan]);
+    expect(mixed.appartements).toEqual({ ventes: 6, prix_median: "235\u202f000\u00a0€", prix_m2_median: "4\u202f700\u00a0€/m²", dont_vefa: 3, ventes_hors_vefa: 3, prix_m2_median_hors_vefa: "3\u202f200\u00a0€/m²" });
+    expect(streetLine(mixed)).toBe("sur la voie (Rue des Tamarins) depuis 2021 : appartements 4\u202f700\u00a0€/m² en médiane (6 ventes dont 3 de neuf sur plan, 3\u202f200\u00a0€/m² sans elles)");
+    expect(streetLine(streetMarket("Rue des Tamarins", 2021, offPlan))).toBe("sur la voie (Rue des Tamarins) depuis 2021 : appartements 6\u202f400\u00a0€/m² en médiane (3 ventes, toutes de neuf sur plan)");
+    // None off plan: nothing more said.
+    expect(streetMarket("Rue des Tamarins", 2021, others).appartements).toEqual({ ventes: 3, prix_median: "160\u202f000\u00a0€", prix_m2_median: "3\u202f200\u00a0€/m²" });
+  });
+
+  it("never gives the median of the others with one or two sales off plan: one sale's price would follow by difference", () => {
+    const flat = (valeur: number, vefa: boolean) => ({ annee: 2023, type: "appartement" as const, valeur, surface_bati: 50, surface_terrain: 0, vefa });
+    const others = [150_000, 160_000, 170_000, 180_000].map((x) => flat(x, false));
+    for (const offPlan of [[flat(330_000, true)], [flat(320_000, true), flat(340_000, true)]]) {
+      const v = streetMarket("Rue des Tamarins", 2021, [...others, ...offPlan]);
+      expect(v.appartements).toMatchObject({ dont_vefa: offPlan.length, ventes_hors_vefa: 4 });
+      expect(JSON.stringify(v)).not.toContain("prix_m2_median_hors_vefa");
+      expect(streetLine(v)).toMatch(new RegExp(`\\(${4 + offPlan.length} ventes dont ${offPlan.length} de neuf sur plan\\)$`));
+      expect(streetLine(v)).not.toContain("sans elles");
+    }
+    // The same rule around: 2 flats off plan among 5, the count alone.
+    const sale = (valeur: number, nature: string) => ({ annee: 2023, type: "Un appartement", code: "121", valeur, surface_bati: 50, surface_terrain: 0, lots: 1, nature });
+    const m = market([...[150_000, 160_000, 170_000].map((x) => sale(x, "Vente")), sale(320_000, VEFA_NATURE), sale(340_000, VEFA_NATURE)]);
+    expect(m.appartements).toMatchObject({ ventes: 5, dont_vefa: 2, ventes_hors_vefa: 3 });
+    expect(m.appartements).not.toHaveProperty("prix_m2_median_hors_vefa");
   });
 
   it("says a street's few sales as a count, attributed to DVF, before the area's figures", async () => {
@@ -133,7 +167,8 @@ describe("fiche terrain", () => {
     // The street's own sales first, then the area's, named before its figures.
     expect(r.resume).toContain("\u00a0; sur la voie (Rue de la Buse) depuis 2021 : maisons 2\u202f500\u00a0€/m² en médiane (7 ventes)\u00a0; dans le secteur alentour (environ 600 m sur 600 m), maisons vendues depuis 2021 : ");
     expect(r.marche_immobilier.sur_la_voie).toMatchObject({ voie: "Rue de la Buse", depuis: 2021, ventes: 10, maisons: { ventes: 7, prix_m2_median: "2\u202f500\u00a0€/m²" }, appartements: { ventes: 2 } });
-    expect(r.resume).toContain(" : 5\u202f130\u00a0€/m² en médiane (16 ventes)\u00a0; appartements : 5\u202f120\u00a0€/m² (63 ventes)\u00a0; ");
+    expect(r.resume).toContain(" : 5\u202f130\u00a0€/m² en médiane (16 ventes)\u00a0; appartements : 5\u202f120\u00a0€/m² (63 ventes dont 30 de neuf sur plan, 3\u202f810\u00a0€/m² sans elles)\u00a0; ");
+    expect(r.marche_immobilier.note).toBe("Médianes des ventes enregistrées (DVF), maisons et appartements vendus seuls. Aucune vente individuelle n'est donnée.");
     // Then the commune's rents asked in ads, from the bundled map of rents.
     expect(r.resume).toContain("\u00a0; loyer d'annonce d'un appartement type à Saint-Paul\u00a0: 18,86\u00a0€/m² charges comprises, d'après les annonces du 3e trimestre 2025 (Estimations ANIL, à partir des données du Groupe SeLoger et de leboncoin)\u00a0; 95,1\u00a0% des logements");
     expect(r.loyers_d_annonce).toMatchObject({ commune: "Saint-Paul", millesime: 2025, maison: { loyer_m2_charges_comprises: "15,57\u00a0€/m²" } });

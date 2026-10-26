@@ -71,12 +71,39 @@ const median = (v: number[]) => {
   return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
 };
 const euros = (n: number) => `${nombre(Math.round(n / 1000) * 1000)}\u00a0€`;
+/** The median price per built m², to the nearest 10 €. */
+const m2 = (list: { valeur: number; surface_bati: number }[]) => `${nombre(Math.round(median(list.map((s) => s.valeur / s.surface_bati))! / 10) * 10)}\u00a0€/m²`;
 
 /**
  * Below this many sales of one kind on the street, their count alone: DVF's terms forbid making people identifiable
  * again. The same threshold as the area around (`market`), decided on 26/10.
  */
 export const MEDIANE_MIN = 3;
+
+/**
+ * A kind's new homes sold off plan (DVF's VEFA), on the street as around: their count, and the median of the other
+ * sales beside. One new building can make a street's median: 7 flats at 6 550 €/m², 5 of them off plan, where the area
+ * around sells at 2 910 €/m². That median only from MEDIANE_MIN sales off plan and MEDIANE_MIN others: with one or two
+ * off plan, the two medians together would give one sale's price away (twice the median of 4, less that of the 3 others).
+ */
+function vefa(list: { valeur: number; surface_bati: number; vefa: boolean }[]) {
+  const n = list.filter((s) => s.vefa).length;
+  const others = list.filter((s) => !s.vefa);
+  if (!n) return {};
+  return { dont_vefa: n, ventes_hors_vefa: others.length, ...(n >= MEDIANE_MIN && others.length >= MEDIANE_MIN ? { prix_m2_median_hors_vefa: m2(others) } : {}) };
+}
+
+/**
+ * « 12 ventes dont 5 de neuf sur plan, 3 600 €/m² sans elles », inside the summary's parentheses. marketing's words (27/10):
+ * « neuf sur plan », never « ancien » nor « hors neuf » (a new home sold once built is a plain « Vente » in DVF), and no
+ * « ; » inside the parentheses, the summary's own separator. The figures only, no note (the user's choice, 27/10).
+ */
+const ventes = (k: { ventes: number; dont_vefa?: number; prix_m2_median_hors_vefa?: string }) =>
+  !k.dont_vefa
+    ? `${k.ventes} ventes`
+    : k.dont_vefa === k.ventes
+      ? `${k.ventes} ventes, toutes de neuf sur plan`
+      : `${k.ventes} ventes dont ${k.dont_vefa} de neuf sur plan${k.prix_m2_median_hors_vefa ? `, ${k.prix_m2_median_hors_vefa} sans elles` : ""}`;
 
 /**
  * Aggregates only: DVF's terms forbid re-identifying people, so no single sale, address or parcel is given out.
@@ -87,15 +114,16 @@ export const MEDIANE_MIN = 3;
  */
 export function market(sales: terrain.Sale[]) {
   const sold = sales.filter((s) => !terrain.NOT_SALES.has(s.nature));
-  const pick = (code: string) => sold.filter((s) => s.code === code && s.surface_bati >= 15);
-  const sum = (list: terrain.Sale[]) =>
+  const pick = (code: string) => sold.filter((s) => s.code === code && s.surface_bati >= 15).map((s) => ({ ...s, vefa: s.nature === terrain.VEFA }));
+  const sum = (list: (terrain.Sale & { vefa: boolean })[]) =>
     list.length < 3
       ? { ventes: list.length, note: "trop peu de ventes pour une médiane" }
       : {
           ventes: list.length,
           prix_median: euros(median(list.map((s) => s.valeur))!),
-          prix_m2_median: `${nombre(Math.round(median(list.map((s) => s.valeur / s.surface_bati))! / 10) * 10)}\u00a0€/m²`,
+          prix_m2_median: m2(list),
           surface_mediane_m2: Math.round(median(list.map((s) => s.surface_bati))!),
+          ...vefa(list),
         };
   const land = sold.filter((s) => s.code.startsWith("2") && s.surface_terrain > 0 && s.surface_bati === 0);
   return {
@@ -121,7 +149,7 @@ export function streetMarket(nom: string, depuis: number, sales: terrain.StreetS
     const list = sales.filter((s) => s.type === type && s.surface_bati >= 15);
     return list.length < MEDIANE_MIN
       ? { ventes: sales.filter((s) => s.type === type).length }
-      : { ventes: list.length, prix_median: euros(median(list.map((s) => s.valeur))!), prix_m2_median: `${nombre(Math.round(median(list.map((s) => s.valeur / s.surface_bati))! / 10) * 10)}\u00a0€/m²` };
+      : { ventes: list.length, prix_median: euros(median(list.map((s) => s.valeur))!), prix_m2_median: m2(list), ...vefa(list) };
   };
   const land = sales.filter((s) => s.type === "terrain" && s.surface_terrain > 0);
   return {
@@ -202,7 +230,7 @@ export function streetLine(v: ReturnType<typeof streetMarket>): string {
   const voie = `sur la voie (${v.voie})`;
   if (!v.ventes) return `${voie}, aucune vente enregistrée dans DVF depuis ${v.depuis}`;
   if (v.note !== undefined) return `${voie}, ${enregistrees(v.ventes)} dans DVF depuis ${v.depuis}, trop peu pour une médiane`;
-  const kind = (name: string, k: { ventes: number; prix_m2_median?: string } | undefined) => (k?.prix_m2_median ? `${name} ${k.prix_m2_median} en médiane (${k.ventes} ventes)` : undefined);
+  const kind = (name: string, k: { ventes: number; prix_m2_median?: string; dont_vefa?: number } | undefined) => (k?.prix_m2_median ? `${name} ${k.prix_m2_median} en médiane (${ventes(k)})` : undefined);
   const kinds = [kind("maisons", v.maisons), kind("appartements", v.appartements), kind("terrains nus", v.terrains_nus)].filter(Boolean);
   return kinds.length
     ? `${voie} depuis ${v.depuis} : ${kinds.join(", ")}`
@@ -307,8 +335,8 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
   if (risks) parts.push(risks);
   const onStreet = voie && sv ? streetMarket(voie.nom, fromYear, sv.ventes) : undefined;
   if (onStreet) parts.push(streetLine(onStreet));
-  if (m && "prix_m2_median" in m.maisons) parts.push(`${SECTEUR}, maisons vendues depuis ${fromYear} : ${m.maisons.prix_m2_median} en médiane (${m.maisons.ventes} ventes)`);
-  if (m && "prix_m2_median" in m.appartements) parts.push(`${"prix_m2_median" in m.maisons ? "" : `${SECTEUR}, `}appartements : ${m.appartements.prix_m2_median} (${m.appartements.ventes} ventes)`);
+  if (m && "prix_m2_median" in m.maisons) parts.push(`${SECTEUR}, maisons vendues depuis ${fromYear} : ${m.maisons.prix_m2_median} en médiane (${ventes(m.maisons)})`);
+  if (m && "prix_m2_median" in m.appartements) parts.push(`${"prix_m2_median" in m.maisons ? "" : `${SECTEUR}, `}appartements : ${m.appartements.prix_m2_median} (${ventes(m.appartements)})`);
   const r = insee ? rents(insee) : undefined;
   if (r?.ligne) parts.push(r.ligne);
   const net = insee ? connexion(insee) : undefined;
