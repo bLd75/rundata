@@ -18,7 +18,9 @@ import { mapLinks } from "./cartes.js";
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/avis-eau/${f}`, import.meta.url), "utf8");
 const NOW = new Date("2026-10-24T04:00:00Z");
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
-const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
+const cache = (now = NOW) => new Cache(new MemoryStore(), () => now.getTime());
+// The night of La Créole's cut, the 23rd at 22:00 to the 24th at 06:00: 02:00 on the 24th.
+const NIGHT = new Date("2026-10-23T22:00:00Z");
 
 describe("coupures d'eau", () => {
   beforeEach(() => {
@@ -173,12 +175,16 @@ describe("coupures d'eau", () => {
     const [n, ...more] = parseCreole(fixture("lacreole.html"));
     expect(more).toHaveLength(0);
     expect(n).toMatchObject({ distributeur: "La Créole", titre: "Interruption nocturne de la distribution du 23/10/2026", communes: ["Saint-Paul"], jour: true, debut: "2026-10-23T22:00", ne_pas_boire: false, lien: "https://lacreole.re/flash-infos" });
-    // « jusqu'à 6h00 demain matin »: no end is guessed.
-    expect(n.fin).toBeUndefined();
+    // « ce soir vendredi 23/10/2026 à partir de 22h00 et jusqu'à 6h00 demain matin »: the day after the start.
+    expect(n.fin).toBe("2026-10-24T06:00");
     expect(n.texte).toMatch(/^La régie La Créole informe ses abonnés/);
     const li = (text: string, title = "Information générale") => `<div id="infos-flash"><ul><li>24/10/2026 - <i>x</i> <br><span class="text-uppercase">${title}</span><br><span>${text}</span></li></ul>`;
     expect(parseCreole(li("Suite à une pollution, ne pas boire l'eau du robinet à Saint-Paul.", "Qualité de l'eau"))[0]).toMatchObject({ ne_pas_boire: true, communes: ["Saint-Paul"] });
     expect(parseCreole(li("Respectez les restrictions d'usage prévues par l'arrêté préfectoral."))[0].ne_pas_boire).toBe(false);
+    // « demain » without a start's date: the day after the notice's (24/10), across a month's end too; no other end guessed.
+    expect(parseCreole(li("Coupure ce soir de 21h à jusqu’à 5h30 demain matin à Saint-Paul."))[0].fin).toBe("2026-10-25T05:30");
+    expect(parseCreole(li("Interruption le 31/10/2026 à partir de 23h00 et jusqu'à 6h demain."))[0]).toMatchObject({ debut: "2026-10-31T23:00", fin: "2026-11-01T06:00" });
+    expect(parseCreole(li("Interruption le 31/10/2026 à partir de 23h00, remise en eau en fin de matinée."))[0].fin).toBeUndefined();
   });
 
   it("puts a La Créole notice under the commune of its place, or under both when the place does not say", () => {
@@ -223,9 +229,11 @@ describe("coupures d'eau", () => {
     expect(es.resume).toBe("Pas d'avis en ligne lisible pour L'Étang-Salé : voir la mairie ou le distributeur d'eau.");
     expect(es.distributeur).toBeUndefined();
     expect(es.contact).toMatch(/la mairie : https:\/\/rundata\.re\/communes\/l-etang-sale$/);
-    const sp = body(await coupuresEau(cache(), "Saint-Paul", NOW));
+    const sp = body(await coupuresEau(cache(NIGHT), "Saint-Paul", NIGHT));
     expect(sp.resume).toBe("1 avis récent ou à venir à Saint-Paul : Interruption nocturne de la distribution du 23/10/2026.");
-    expect(sp.avis[0]).toMatchObject({ publie_le: "23/10/2026", coupure: { de: "vendredi 23/10 à 22:00" } });
+    expect(sp.avis[0]).toMatchObject({ publie_le: "23/10/2026", coupure: { de: "vendredi 23/10 à 22:00", a: "samedi 24/10 à 06:00", etat: "en cours" } });
+    // Over at 06:00: no longer said in the morning.
+    expect(body(await coupuresEau(cache(), "Saint-Paul", NOW)).resume).toBe("Aucun avis de coupure récent ou à venir à Saint-Paul.");
     expect(sp.avis[0].ne_pas_boire).toBeUndefined();
     // Its notices are read: neither the distributor nor the contact, and only the notices credited.
     expect(sp.distributeur).toBeUndefined();
@@ -251,11 +259,12 @@ describe("coupures d'eau", () => {
     // runéo's feed is read, and has nothing for Saint-Pierre: said with the time of the copy.
     expect(page("saint-pierre")).toContain("Aucun avis de coupure publié par runéo à Saint-Pierre à 08:00.");
     expect(page("saint-pierre")).toContain(`content="Aucune coupure d&#39;eau annoncée par runéo à Saint-Pierre (974) à\u00a008:00.`);
-    // La Créole's page is read: its notice, dated to the day without an hour.
-    const sp = page("saint-paul");
+    // La Créole's page is read: its notice, dated to the day without an hour, during the night of its cut.
+    const night = { value: await buildCoupures(cache(NIGHT), NIGHT), fetchedAt: NIGHT };
+    const sp = coupuresCommunePage("https://rundata.re", pageOf("saint-paul")!, { coupures: night }, NIGHT);
     expect(sp).toContain("Interruption nocturne de la distribution du 23/10/2026");
     expect(sp).toContain("La Créole, publié le 23/10/2026</span>");
-    expect(sp).toContain("<b>À partir du vendredi 23/10 à 22:00</b>");
+    expect(sp).toContain("<b>vendredi 23/10 à 22:00 → samedi 24/10 à 06:00</b>");
     expect(sp).toContain(`les avis de <a href="https://lacreole.re/flash-infos" rel="noopener">la page « flash infos » de La Créole</a> : ils s'affichent en haut de cette page.`);
     expect(sp).not.toContain("Il ne publie pas ses avis de coupure");
     // Sudéau publishes nothing read: the page says so rather than « no cut ».
@@ -264,9 +273,9 @@ describe("coupures d'eau", () => {
     expect(lt).not.toContain("Aucune coupure d&#39;eau annoncée");
     expect(page("le-port")).toContain("<h1>Coupures d'eau au Port</h1>");
     expect(waterLive(pageOf("salazie")!, { coupures })).toMatchObject({ valeur: "Eau à ne pas boire" });
-    expect(waterLive(pageOf("saint-paul")!, { coupures })).toMatchObject({ valeur: "1 avis de coupure" });
+    expect(waterLive(pageOf("saint-paul")!, { coupures: night })).toMatchObject({ valeur: "1 avis de coupure" });
     // The notice of the 23rd is in Saint-Paul: not on Les Trois-Bassins' page.
-    expect(waterLive(pageOf("les-trois-bassins")!, { coupures })).toMatchObject({ valeur: "Pas de coupure annoncée" });
+    expect(waterLive(pageOf("les-trois-bassins")!, { coupures: night })).toMatchObject({ valeur: "Pas de coupure annoncée" });
     expect(waterLive(pageOf("le-tampon")!, { coupures })).toMatchObject({ valeur: "Coupures non publiées" });
   });
 

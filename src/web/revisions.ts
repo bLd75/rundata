@@ -22,7 +22,7 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   calendrier: 1,
   chiffres: 7,
   commune: 3,
-  coupures: 2,
+  coupures: 3,
   courant: 4,
   crues: 1,
   cyclones: 2,
