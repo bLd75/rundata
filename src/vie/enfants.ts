@@ -109,8 +109,16 @@ export const typeOf = (k: Kind) => TYPES.find((t) => t.type === k)!;
 /** « 1 piscine », « 4 aires de jeux ». */
 export const counted = (k: Kind, n: number) => `${n} ${n > 1 ? typeOf(k).court : typeOf(k).un}`;
 
-/** The name of an unnamed playground: « Aire de jeux, Bérive », or « Aire de jeux » without a district. */
-export const nameOf = (l: Lieu) => l.nom || `Aire de jeux${l.quartier ? `, ${l.quartier}` : ""}`;
+/** Whether a place has a name of its own: « Aire de jeux » on the map only says its kind. */
+export const named = (l: Lieu) => !!l.nom && l.nom.toLowerCase() !== typeOf(l.type).un;
+/**
+ * The name of an unnamed place, its kind and where it is: « Aire de jeux, Bérive », or « Aire de jeux » without a
+ * district, unless a page gives another place (a commune's page, the commune).
+ */
+export const nameOf = (l: Lieu, where = l.quartier) => {
+  const un = typeOf(l.type).un;
+  return named(l) ? l.nom! : `${un.charAt(0).toUpperCase()}${un.slice(1)}${where ? `, ${where}` : ""}`;
+};
 
 /** The bands a range of ages overlaps: « 6 mois – 6 ans » is in 0–3 and 3–6, not in 6–12. */
 export const bandsOf = (r: { min?: number; max?: number }): Band[] =>

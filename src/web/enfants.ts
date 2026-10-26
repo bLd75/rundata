@@ -232,7 +232,7 @@ svg.addEventListener("wheel",(e)=>{if(!e.ctrlKey&&!svg.classList.contains("zoome
 document.getElementById("ecz").addEventListener("click",(e)=>{const z=e.target.closest("button")?.dataset.z;if(z==="+")zoom(1.6);else if(z==="-")zoom(1/1.6);else if(z==="0"){v=B.slice();put()}});
 const pick=(i,show)=>{svg.querySelectorAll(".sp.on").forEach((a)=>a.classList.remove("on"));document.querySelectorAll("#ecl li.on").forEach((l)=>l.classList.remove("on"));
 const a=svg.querySelector('.sp[data-i="'+i+'"]'),li=document.getElementById("lieu-"+i);if(!a||!li)return;a.classList.add("on");a.parentNode.appendChild(a);li.classList.add("on");
-sheet.querySelector(".nm").innerHTML=li.querySelector(".nm").innerHTML;sheet.querySelector(".tp").textContent=li.dataset.n+(li.dataset.q?" · "+li.dataset.q:"");sheet.querySelector(".go").href="#lieu-"+i;sheet.hidden=false;
+sheet.querySelector(".nm").innerHTML=li.querySelector(".nm").innerHTML;const tp=sheet.querySelector(".tp"),k=[li.dataset.n,li.dataset.q].filter(Boolean).join(" · ");tp.textContent=k;tp.hidden=!k;sheet.querySelector(".go").href="#lieu-"+i;sheet.hidden=false;
 if(show){const c=a.querySelector(".hit"),x=+c.getAttribute("cx"),y=+c.getAttribute("cy");if(x<v[0]||x>v[0]+v[2]||y<v[1]||y>v[1]+v[3]){v[0]=x-v[2]/2;v[1]=y-v[3]/2;clamp()}svg.scrollIntoView({block:"center",behavior:"smooth"})}};
 svg.addEventListener("click",(e)=>{const a=e.target.closest(".sp");if(!a)return;e.preventDefault();if(moved>8)return;pick(a.dataset.i,false)});
 document.getElementById("ecl").addEventListener("click",(e)=>{const b=e.target.closest(".tomap");if(b)pick(b.closest("li").dataset.i,true)});
@@ -240,16 +240,20 @@ sheet.querySelector(".x").addEventListener("click",()=>{sheet.hidden=true;svg.qu
 const run=()=>{const t=f.t.value;svg.querySelectorAll(".sp").forEach((a)=>a.classList.toggle("off",!!t&&a.dataset.t!==t));document.querySelectorAll("#ecl li[data-i]").forEach((l)=>{l.hidden=!!t&&l.dataset.t!==t});
 document.querySelectorAll("#ecl [data-k]").forEach((g)=>{g.hidden=!g.querySelector("li[data-i]:not([hidden])")})};f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefault())})();`;
 
+/** A place's name on its commune's page: an unnamed one by its kind and its district, else its commune. */
+const nomOf = (l: enfants.Lieu) => enfants.nameOf(l, l.quartier || l.commune);
+
 function communeLi(l: enfants.Lieu, i: number, now: Date): string {
   const a = enfants.ageOf(l);
   const today = enfants.hoursToday(l, now);
   const link = l.site ?? l.lien;
-  // An unnamed playground has its district in its name already.
-  const small = [l.nom ? l.quartier : undefined, l.detail, l.adresse, mentionOf(link), today ? `aujourd'hui ${today}` : undefined].filter(Boolean).map((x) => esc(x!)).join(" · ");
-  const name = esc(enfants.nameOf(l));
-  return `<li id="lieu-${i}" class="tgt" data-i="${i}" data-t="${l.type}" data-n="${esc(capital(enfants.typeOf(l.type).un))}"${l.quartier ? ` data-q="${esc(l.quartier)}"` : ""}>` +
+  // An unnamed place has its kind and its district in its name already: its sheet says nothing more.
+  const named = enfants.named(l);
+  const small = [named ? l.quartier : undefined, l.detail, l.adresse, mentionOf(link), today ? `aujourd'hui ${today}` : undefined].filter(Boolean).map((x) => esc(x!)).join(" · ");
+  const name = esc(nomOf(l));
+  return `<li id="lieu-${i}" class="tgt" data-i="${i}" data-t="${l.type}"${named ? ` data-n="${esc(capital(enfants.typeOf(l.type).un))}"` : ""}${named && l.quartier ? ` data-q="${esc(l.quartier)}"` : ""}>` +
     `<span><span class="nm">${link ? `<a href="${esc(link)}" rel="noopener">${name}</a>` : name}</span>${small ? `<small>${small}</small>` : ""}</span>` +
-    `<span class="end">${badge(a)}<button type="button" class="tomap f-${familleOf(l.type).f}" hidden aria-label="${esc(MOTS.surCarte(enfants.nameOf(l)))}">${icon("pin")}</button></span></li>`;
+    `<span class="end">${badge(a)}<button type="button" class="tomap f-${familleOf(l.type).f}" hidden aria-label="${esc(MOTS.surCarte(nomOf(l)))}">${icon("pin")}</button></span></li>`;
 }
 
 /** The children's places of a commune on its map, the list beside it, and the agenda's activities in the commune. */
@@ -260,7 +264,7 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
   const list = enfants.TYPES.flatMap((t) => enfants.inCommune(c).filter((l) => l.type === t.type));
   const title = MOTS.title(c);
   const description = MOTS.description(c, list.length);
-  const spots: Spot[] = list.map((l, i) => ({ lon: l.lon, lat: l.lat, i, t: l.type, f: familleOf(l.type).f, name: `${enfants.nameOf(l)} (${enfants.typeOf(l.type).un})` }));
+  const spots: Spot[] = list.map((l, i) => ({ lon: l.lon, lat: l.lat, i, t: l.type, f: familleOf(l.type).f, name: enfants.named(l) ? `${l.nom} (${enfants.typeOf(l.type).un})` : nomOf(l) }));
   const kinds = enfants.TYPES.filter((t) => list.some((l) => l.type === t.type));
   const families = FAMILLES.filter((x) => list.some((l) => x.types.includes(l.type)));
 
