@@ -170,10 +170,13 @@ export const planifiees = (cache: Pick<Cache, "bundle">) => cache.bundle(PLANIFI
 /** How long the copy of an agenda read by the scheduled event is served: past it, a tournament may have been called off. */
 export const PLANIFIE_MAX_AGE_SECONDS = 48 * 3600;
 
+/** How long the copy of this agenda is served: its own `garde`, else PLANIFIE_MAX_AGE_SECONDS. */
+export const gardeMs = (agenda: Agenda) => (agenda.garde ?? PLANIFIE_MAX_AGE_SECONDS) * 1000;
+
 /** The copy of an agenda read by the scheduled event, if young enough to be served, with the time it was read. */
 export function copiePlanifiee(bundle: Pick<Bundle, "peek">, agenda: Agenda): Cached<Evenement[]> | undefined {
   const hit = bundle.peek(`agenda:${agenda.id}`);
-  return hit && hit.ageMs <= PLANIFIE_MAX_AGE_SECONDS * 1000 ? { value: servis(agenda, hit.value as Evenement[]), fetchedAt: new Date(hit.fetchedAt), stale: false } : undefined;
+  return hit && hit.ageMs <= gardeMs(agenda) ? { value: servis(agenda, hit.value as Evenement[]), fetchedAt: new Date(hit.fetchedAt), stale: false } : undefined;
 }
 
 /** Beside its copy, when the last reading of an agenda read by the scheduled event failed (tools/agenda.ts). */
@@ -181,13 +184,13 @@ export const echecPlanifie = (agenda: Agenda) => `echec:${agenda.id}`;
 
 /**
  * Why the copy of an agenda read by the scheduled event is not served, to be said rather than nothing (La Réunion's
- * times): its last good reading, when older than PLANIFIE_MAX_AGE_SECONDS; without a copy, its last reading that
+ * times): its last good reading, when older than its `garde`; without a copy, its last reading that
  * failed (`essai`), or none yet (just put online). Undefined when it is served.
  */
 export function nonServie(bundle: Pick<Bundle, "peek">, agenda: Agenda): { depuis: string } | { essai?: string } | undefined {
   const local = (t: number) => toLocal(new Date(t).toISOString());
   const hit = bundle.peek(`agenda:${agenda.id}`);
-  if (hit) return hit.ageMs <= PLANIFIE_MAX_AGE_SECONDS * 1000 ? undefined : { depuis: local(hit.fetchedAt) };
+  if (hit) return hit.ageMs <= gardeMs(agenda) ? undefined : { depuis: local(hit.fetchedAt) };
   const failed = bundle.peek(echecPlanifie(agenda));
   return failed ? { essai: local(failed.fetchedAt) } : {};
 }
@@ -219,9 +222,16 @@ export interface Agenda {
   requetes?: number;
   /**
    * Read by the scheduled event only (tools/agenda.ts, `refreshPlanned`), never by a question, its copy kept in KV
-   * (PLANIFIES): a question serves it while it is younger than PLANIFIE_MAX_AGE_SECONDS, else goes without it.
+   * (PLANIFIES): a question serves it while it is younger than its `garde`, else goes without it.
    */
   planifie?: boolean;
+  /** For an agenda read by the scheduled event: the seconds its copy is served, when not PLANIFIE_MAX_AGE_SECONDS. */
+  garde?: number;
+  /**
+   * For an agenda read by the scheduled event: a reading that finds no event replaces the copy, its loader throwing
+   * when the page is not read (a mairie's news: its list of articles read, none announcing an event any more).
+   */
+  videLu?: true;
   /** What is read of the commune when it is not an agenda (a mairie's news): said in the answer for that commune. */
   partiel?: string;
   /** For an agenda read by the scheduled event: the seconds between two readings, when not an hour. */
@@ -595,6 +605,16 @@ export function parseSalazieNews(html: string, now: Date): Evenement[] {
   return salazieItems(html).flatMap((it) => newsEvent(it.titre, it.texte, `${it.titre} ${lead(it.texte)}`, it.lien, new Date(0), now, "Ville de Salazie", "Salazie"));
 }
 
+/**
+ * A mairie's news, read again every hour: its copy is served an hour and fifty minutes, not 48 hours, so that an article
+ * changed or taken off its site is so here within two hours, or its site said silent (asked by the mairie of Cilaos,
+ * 26/10/2026). The list of its articles read, an empty reading is one: the last article announcing an event taken off.
+ */
+export const NEWS_GARDE_SECONDS = 110 * 60;
+
+/** Whether a page of news is its list of articles: WordPress's JSON, a feed, Salazie's loop of posts. */
+export const listeLue = (body: string) => /^\s*\[/.test(body) || /<(?:rss|feed)\b/.test(body) || /\be-loop-item\b/.test(body);
+
 function news(id: string, nom: string, site: string, url: string, commune: string, parse: (body: string, now: Date) => Evenement[], licence = "Information publique (actualités municipales)"): Agenda {
   const source: SourceInfo = {
     id: `actus_${id}`,
@@ -610,8 +630,14 @@ function news(id: string, nom: string, site: string, url: string, commune: strin
     source,
     commune,
     planifie: true,
+    garde: NEWS_GARDE_SECONDS,
+    videLu: true,
     partiel: `seuls les événements annoncés dans les actualités de la ${nom} sont lus, ce n'est pas un agenda complet`,
-    load: (cache, now) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => parse(await getText(source.id, url, TIMEOUT_MS, HEADERS), now)),
+    load: (cache, now) => cache.get(`agenda:${id}`, FRESH_SECONDS, async () => {
+      const body = await getText(source.id, url, TIMEOUT_MS, HEADERS);
+      if (!listeLue(body)) throw new Error("liste des articles illisible");
+      return parse(body, now);
+    }),
   };
 }
 

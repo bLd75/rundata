@@ -15,24 +15,37 @@ export interface CourantAnswer {
   /** The mairies read at the last refresh, and those that did not answer. */
   lues: string[];
   indisponibles: string[];
-  /** A mairie that did not answer: its notices as last read, and when (« 25/10 19:50 »). */
-  gardes?: { commune: string; lu_a: string }[];
+  /**
+   * A mairie that did not answer: when its notices were last read (« 25/10 19:50 », and `lu_le` in ISO), and those
+   * notices while they are younger than GARDE_MS.
+   */
+  gardes?: { commune: string; lu_a: string; lu_le?: string }[];
   sources: ReturnType<typeof credits>;
 }
 
 /**
- * The copy shared by the tool and the pages (web/partagees.ts). A mairie that does not answer keeps its notices of the
- * copy before, said with the hour they were read: one failed read does not make its notices vanish, nor its commune
- * read as one that publishes none.
+ * How long the notices of a mairie that does not answer are kept: under two hours, so that a notice changed or taken off
+ * its site is so here within two hours (the copy is refreshed every 30 minutes while it does not answer), as the
+ * mairie of Cilaos asked on 26/10/2026. Past it, only when they were read is said.
  */
-export async function courantCopy(before?: Cached<CourantAnswer>): Promise<CourantAnswer> {
+export const GARDE_MS = 110 * 60_000;
+
+/**
+ * The copy shared by the tool and the pages (web/partagees.ts). A mairie that does not answer keeps its notices of the
+ * copy before, said with the hour they were read, for GARDE_MS: one failed read does not make its notices vanish, nor
+ * its commune read as one that publishes none.
+ */
+export async function courantCopy(before?: Cached<CourantAnswer>, now = new Date()): Promise<CourantAnswer> {
   const read = await cc.coupures();
   const was = before?.value;
-  const kept = read.indisponibles.filter((x) => followed(x) && was?.avis.some((a) => a.commune === x));
+  const since = (x: string) => was?.gardes?.find((g) => g.commune === x);
+  const kept = read.indisponibles.filter((x) => followed(x) && (was?.avis.some((a) => a.commune === x) || !!since(x)));
+  const gardes = kept.map((x) => ({ commune: x, lu_a: since(x)?.lu_a ?? localTime(before!.fetchedAt), lu_le: since(x)?.lu_le ?? before!.fetchedAt.toISOString() }));
+  const young = new Set(gardes.filter((g) => now.getTime() - Date.parse(g.lu_le) < GARDE_MS).map((g) => g.commune));
   return {
     ...read,
-    avis: [...read.avis, ...(was?.avis ?? []).filter((a) => kept.includes(a.commune))],
-    gardes: kept.length ? kept.map((x) => ({ commune: x, lu_a: was!.gardes?.find((g) => g.commune === x)?.lu_a ?? localTime(before!.fetchedAt) })) : undefined,
+    avis: [...read.avis, ...(was?.avis ?? []).filter((a) => young.has(a.commune))],
+    gardes: gardes.length ? gardes : undefined,
     sources: credits([cc.SOURCE]),
   };
 }
@@ -92,7 +105,8 @@ export function honesty(): string {
 export function injoignable(c: CourantAnswer, commune: string, readAt: string, now: Date) {
   if (!followed(commune) || !c.indisponibles.includes(commune)) return undefined;
   const site = `${cc.LISIBLES.find((m) => m.commune === commune)!.site}/`;
-  const said = siteSilent(`le site de ${mairie(commune)}`, c.gardes?.find((g) => g.commune === commune)?.lu_a, readAt, now);
+  // Its notices no longer kept: when they were read, without « ce qui suit ».
+  const said = siteSilent(`le site de ${mairie(commune)}`, c.gardes?.find((g) => g.commune === commune)?.lu_a, readAt, now, c.avis.some((a) => a.commune === commune));
   return { commune, ...said, site };
 }
 

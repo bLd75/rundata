@@ -283,7 +283,7 @@ describe("the notices of power cuts of the mairies whose site's terms ask for th
     // Sainte-Marie, the only one read, does not answer: its notices kept from the copy before, not a failed copy.
     vi.stubGlobal("fetch", async () => new Response("", { status: 503 }));
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const copy = await courantCopy(kept);
+    const copy = await courantCopy(kept, NOW);
     expect([copy.indisponibles, copy.gardes?.map((g) => g.commune), copy.avis.map((a) => a.commune)]).toEqual([["Sainte-Marie"], ["Sainte-Marie"], ["Sainte-Marie"]]);
     expect((await courantCopy()).indisponibles).toEqual(["Sainte-Marie"]);
     vi.restoreAllMocks();

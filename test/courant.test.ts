@@ -134,15 +134,25 @@ describe("a mairie that does not answer", () => {
     vi.stubGlobal("fetch", async (url: string) => (String(url).includes("saintemarie") ? new Response("", { status: 503 }) : Response.json([])));
     vi.spyOn(console, "error").mockImplementation(() => {});
     const before = { value: { avis: parsePosts(POSTS["ville-saintemarie.re"], "Sainte-Marie"), lues: ["Sainte-Marie"], indisponibles: [], sources: [] } as CourantAnswer, fetchedAt: new Date("2026-10-24T06:00:00Z"), stale: false };
-    const now = await courantCopy(before);
-    expect([now.indisponibles, now.gardes]).toEqual([["Sainte-Marie"], [{ commune: "Sainte-Marie", lu_a: "24/10 10:00" }]]);
+    // An hour after that read: its notices kept.
+    const now = await courantCopy(before, new Date("2026-10-24T07:00:00Z"));
+    const kept = { commune: "Sainte-Marie", lu_a: "24/10 10:00", lu_le: "2026-10-24T06:00:00.000Z" };
+    expect([now.indisponibles, now.gardes]).toEqual([["Sainte-Marie"], [kept]]);
     const block = courantBlock({ value: now, fetchedAt: NOW, stale: false }, "Sainte-Marie", NOW);
     expect(block.avis!.map((x) => x.publie_le)).toEqual(["21/10 10:00"]);
     // Read this morning: « aujourd'hui », the site as subject, never the mairie.
     expect(block.injoignable).toEqual([{ commune: "Sainte-Marie", texte: "Lu aujourd'hui à 10:00 : le site de la mairie de Sainte-Marie n'a pas répondu depuis. Ce qui suit peut avoir changé : voir son site.", court: "lu aujourd'hui à 10:00, sans réponse depuis", site: "https://www.ville-saintemarie.re/" }]);
     expect(injoignable(now, "Sainte-Marie", "25/10 14:00", new Date("2026-10-25T10:00:00Z"))?.texte).toMatch(/^Lu le 24\/10 à 10:00 : /);
     // Kept again at the next failure, with the hour of the read, not of the copy that kept them.
-    expect((await courantCopy({ value: now, fetchedAt: NOW, stale: false })).gardes).toEqual([{ commune: "Sainte-Marie", lu_a: "24/10 10:00" }]);
+    const again = await courantCopy({ value: now, fetchedAt: new Date("2026-10-24T07:30:00Z"), stale: false }, new Date("2026-10-24T07:45:00Z"));
+    expect([again.gardes, again.avis.some((a) => a.commune === "Sainte-Marie")]).toEqual([[kept], true]);
+    // Two hours after that read, its notices no longer: a notice changed or taken off its site meanwhile is not shown.
+    // Only when they were read is said, without « ce qui suit », then at each failure after.
+    const late = await courantCopy({ value: again, fetchedAt: new Date("2026-10-24T07:45:00Z"), stale: false }, new Date("2026-10-24T08:00:00Z"));
+    expect([late.gardes, late.avis.some((a) => a.commune === "Sainte-Marie")]).toEqual([[kept], false]);
+    const lateBlock = courantBlock({ value: late, fetchedAt: new Date("2026-10-24T08:00:00Z"), stale: false }, "Sainte-Marie", new Date("2026-10-24T08:00:00Z"));
+    expect([lateBlock.avis, lateBlock.injoignable?.[0].texte]).toEqual([[], "Lu aujourd'hui à 10:00 : le site de la mairie de Sainte-Marie n'a pas répondu depuis."]);
+    expect((await courantCopy({ value: late, fetchedAt: new Date("2026-10-24T08:00:00Z"), stale: false }, new Date("2026-10-24T08:30:00Z"))).gardes).toEqual([kept]);
     // Island: its notices still there, and said kept.
     const ile = courantBlock({ value: now, fetchedAt: NOW, stale: false }, undefined, NOW);
     expect(ile.avis!.some((x) => x.commune === "Sainte-Marie")).toBe(true);
