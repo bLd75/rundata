@@ -11,7 +11,8 @@ import * as ensemble from "../providers/ensemble.js";
 import * as ovpfPdf from "../providers/ovpf-pdf.js";
 import * as mf from "../providers/vigilance.js";
 import { why } from "../types.js";
-import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildCourant, buildElectricite, buildSea, buildTrafic, buildVolcan, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
+import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildCourant, buildCrues, buildElectricite, buildSea, buildTrafic, buildVolcan, type CruesAnswer, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
+import { floodRaised } from "./domains.js";
 import { alerteVolcan } from "./volcan-alerte.js";
 import { type CourantAnswer, followed } from "../tools/courant.js";
 import { buildSatellites, SATELLITES, satellitesEvery } from "../tools/mer.js";
@@ -47,7 +48,7 @@ export interface Shared {
   before?: string[];
 }
 
-// About 620 KV writes a day in all: 288 for the vigilance, every 5 minutes, 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
+// About 720 KV writes a day in all: 288 for the vigilance, every 5 minutes, 96 for the rivers, every 15 minutes (288 while a river is in yellow flood vigilance or above), 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
 // of /chiffres (4 more for their events, 24 while an agenda does not answer), 12 for the power
 // cuts the mairies relay (48 while the site of one of them does not answer), 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
 // of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
@@ -68,6 +69,12 @@ export const SHARED: Shared[] = [
   // (26 October 2026). Its cold cost: the token and the zip, plus one. Its CPU: unzipping and parsing La Réunion's two
   // files, 63 ms the first time in Node and 6 ms after, rounded up.
   { key: mf.KEY, build: () => mf.read(), every: 5, cold: 3, cpu: 70, offset: 0 },
+  // The rivers, every 15 minutes, every 5 while a river is in yellow flood vigilance or above: the home page's tile
+  // read a data center's own copy, which no view had brought up to date for two hours while Vigicrues Réunion answered
+  // (26 October 2026). Its cold cost: Vigicrues' vigilance, heights and flows, plus one. Its CPU: parsing them, 43 ms
+  // the first time in Node and 4 ms after, rounded up. At minutes 10, 25, 40 and 55, with the news, the water cuts, the
+  // air and the satellites' grids: the lightest of the three series of events a rate of 15 minutes can take.
+  { key: "web:crues", build: buildCrues, every: (last) => (floodRaised(last as CruesAnswer | undefined).length ? 5 : 15), cold: 4, cpu: 50, range: { usual: 15, shortest: 5 }, offset: 10 },
   { key: "web:actualites", build: buildActualites, every: 30, cold: 10, cpu: 190, offset: 10 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160, offset: 5 },
   { key: "web:electricite", build: buildElectricite, every: 30, cold: 7, cpu: 80, offset: 20 },
