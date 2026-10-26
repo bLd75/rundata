@@ -149,8 +149,9 @@ describe("Cache", () => {
     const slow = () => new Promise<string>((resolve) => setTimeout(() => { landed = true; resolve("neuf"); }, 150));
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const { value, lectures } = await withLectures(() => cache.get("k", 60, slow), 20);
-    expect(value).toMatchObject({ value: "vieux", stale: true });
-    expect(lectures).toMatchObject([{ key: "k", stale: true }]);
+    // Slow, not failed: its warning says so (fraicheur.ts).
+    expect(value).toMatchObject({ value: "vieux", stale: true, tardive: true });
+    expect(lectures).toMatchObject([{ key: "k", stale: true, tardive: true }]);
     expect(landed).toBe(false);
     expect(log.mock.calls[0][0]).toMatch(/^lecture trop lente pour la réponse : k, copie du /);
     log.mockRestore();

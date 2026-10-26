@@ -416,7 +416,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
       : "indisponible",
     // Its catalogue not answering: from which read they come, in the copy of /volcan too (its page says nothing of the
     // answer's `fraicheur`).
-    seismes: q ? { ...q, ...(seen?.stale && { copie: sourceMuette(seismes.SOURCE.nom, seen.fetchedAt) }) } : "indisponible",
+    seismes: q ? { ...q, ...(seen?.stale && { copie: sourceMuette(seismes.SOURCE.nom, seen.fetchedAt, seen.tardive) }) } : "indisponible",
     ...(ipgp && { injoignable: ipgp }),
     avertissements: [OFFICIAL],
     // The IPGP's site is offline (25/10/2026): the OVPF's own accounts instead.

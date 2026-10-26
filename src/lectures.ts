@@ -14,6 +14,8 @@ export interface Lecture {
   freshSeconds: number;
   /** For a last copy: the id of the source that did not answer (`SourceInfo.id`), when its error said it. */
   source?: string;
+  /** For a last copy: its source did not fail, it was too slow for the answer (`callDeadline`). */
+  tardive?: true;
   /** The source the entry was read from (`SourceInfo.id`), when it was one, fresh or not (`withSource`). */
   from?: string;
 }

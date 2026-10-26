@@ -114,9 +114,12 @@ export class TieredStore implements CacheStore {
 
 /** The last good copy, served because `error` stopped its refresh: with the source that did not answer, if it said. */
 const lastCopy = <T>(hit: CacheEntry, error: unknown): Cached<T> => copyOf(hit, error instanceof UpstreamError ? error.source : undefined);
-/** The last good copy, served with `source` said as the one that did not answer (or was too slow for the answer). */
-const copyOf = <T>(hit: CacheEntry, source?: string): Cached<T> =>
-  ({ value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true, ...(source && { source }) });
+/**
+ * The last good copy, served with `source` said as the one that did not answer, or, `tardive`, that was too slow for
+ * the answer (its read goes on after it).
+ */
+const copyOf = <T>(hit: CacheEntry, source?: string, tardive?: boolean): Cached<T> =>
+  ({ value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true, ...(source && { source }), ...(tardive && { tardive: true as const }) });
 
 export interface Cached<T> {
   value: T;
@@ -125,6 +128,8 @@ export interface Cached<T> {
   stale: boolean;
   /** With `stale`: the id of the source that did not answer, when its error said it (an UpstreamError). */
   source?: string;
+  /** With `stale`: the source did not fail, it was too slow for the tool call's time (lectures.ts `callDeadline`). */
+  tardive?: true;
   /** The source it was read from, when it was one: a fresh copy and a last copy of the same source tell their parts apart. */
   from?: string;
   /** What its build took, when it was measured (`peek` only). */
@@ -215,7 +220,7 @@ export class Cache {
 
   /** Tells the tool call being answered, if any, what it was served (lectures.ts): its answer says how fresh it is. */
   private noted<T>(key: string, freshSeconds: number, c: Cached<T>): Cached<T> {
-    noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds, ...(c.source && { source: c.source }), ...(c.from && { from: c.from }) });
+    noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds, ...(c.source && { source: c.source }), ...(c.tardive && { tardive: true }), ...(c.from && { from: c.from }) });
     return c;
   }
 
@@ -321,7 +326,7 @@ export class Cache {
     if (got) return got;
     later(pending.catch(() => undefined));
     console.log(`lecture trop lente pour la réponse : ${key}, copie du ${new Date(hit!.fetchedAt).toISOString()} servie`);
-    return copyOf<T>(hit!, hit!.from);
+    return copyOf<T>(hit!, hit!.from, true);
   }
 
   private async refresh<T>(
