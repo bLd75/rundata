@@ -17,6 +17,7 @@ import { fr } from "../tools/format.js";
 import * as mf from "../providers/vigilance.js";
 import { current, cyclone, cycloneHead, cycloneLevel, highest, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, StationAnswer, StationNow } from "./data.js";
+import { vigilanceLue } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import * as traces from "../providers/traces.js";
@@ -723,13 +724,14 @@ interface Head {
 /**
  * An alert on one line, for a phone (below 600 px), two in a rare case: the whole line leads to the page that details
  * it. Never cut with « … », which could cut whose the alert is or « Enclos interdit » (marketing). The banner's sentence
- * stays on wider screens, and on the page the line would lead to.
+ * stays on wider screens, and on the page the line would lead to. `after`: said after it, free to break (the time of a
+ * vigilance kept).
  */
-export function ligne(href: string, picto: string, text: string): string {
+export function ligne(href: string, picto: string, text: string, after?: string): string {
   // The last part (the zones, « Enclos interdit ») kept whole: on two lines, the line breaks before its « · ».
   const i = text.lastIndexOf(" · ");
   const said = i < 0 ? esc(text) : `${esc(text.slice(0, i))} <span class="nw">· ${esc(text.slice(i + 3))}</span>`;
-  return `<a class="ligne" href="${href}">${picto ? `<span aria-hidden="true">${picto}</span>` : ""}<span class="txt">${said}</span><span aria-hidden="true">→</span></a>`;
+  return `<a class="ligne" href="${href}">${picto ? `<span aria-hidden="true">${picto}</span>` : ""}<span class="txt">${said}${after ? ` · ${esc(after)}` : ""}</span><span aria-hidden="true">→</span></a>`;
 }
 
 // The words of the line, marketing's: the phenomena by a short name, two at most; the zones named while one or two,
@@ -757,8 +759,8 @@ function banner(a: Alerte | undefined, path: string): string {
   if (!a) return "";
   const more = path === "/vigilance" ? "" : ` <a href="/vigilance">Voir la vigilance zone par zone →</a>`;
   const schools = a.ecoles && path !== "/ecoles-cyclone" ? ` <a href="/ecoles-cyclone">Écoles fermées →</a>` : "";
-  const short = path === "/vigilance" ? "" : ligne("/vigilance", "⚠", vigilanceLigne(a)) + (a.ecoles && path !== "/ecoles-cyclone" ? ligne("/ecoles-cyclone", "", "Écoles et crèches fermées") : "");
-  return `<div class="alerte vg ${a.neutre ? "vgpre" : `vg${a.couleur}`}"${short ? " data-court" : ""} role="status">${short}<div class="wrap"><span>⚠ ${esc(a.texte)}</span>${schools}${more}</div></div>`;
+  const short = path === "/vigilance" ? "" : ligne("/vigilance", "⚠", vigilanceLigne(a), a.lue) + (a.ecoles && path !== "/ecoles-cyclone" ? ligne("/ecoles-cyclone", "", "Écoles et crèches fermées") : "");
+  return `<div class="alerte vg ${a.neutre ? "vgpre" : `vg${a.couleur}`}"${short ? " data-court" : ""} role="status">${short}<div class="wrap"><span>⚠ ${esc(a.texte)}${a.lue ? ` · ${esc(a.lue)}` : ""}</span>${schools}${more}</div></div>`;
 }
 
 /**
@@ -1183,14 +1185,20 @@ export function vigilanceLive(data: Cached<mf.Vigilance> | null, now: Date): Liv
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   if (highest(cyc) >= 2) {
     const c = Math.max(2, cycloneLevel(cyc, now));
-    return { valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) };
+    return lue({ valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) }, data!, now);
   }
   const r = raised(v);
-  if (!r.length) return { valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" };
-  return {
+  if (!r.length) return lue({ valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" }, data!, now);
+  return lue({
     valeur: vg(r[0].max),
     detail: esc(r.slice(0, 2).map((x) => `${x.phenomene.toLowerCase()} (${x.zone.split(" :")[0]})`).join(", ") + (r.length > 2 ? "…" : "")),
-  };
+  }, data!, now);
+}
+
+/** A vigilance tile's line, with when it was read once more than 15 min ago (`vigilanceLue`), said in full at its end. */
+export function lue(l: Live, data: Cached<unknown>, now: Date): Live {
+  const when = vigilanceLue(data.fetchedAt, now);
+  return when ? { ...l, detail: `${l.detail} · ${esc(when)}`, entier: true } : l;
 }
 
 /** The island's weather: every station, from the coast to the summits, the sea, and a page per commune or place. */

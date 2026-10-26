@@ -1471,6 +1471,8 @@ export interface Alerte {
    * only announced, or the worst colour with its phenomena and zones, as Météo-France names them.
    */
   court: { cyclone: number; prevue: boolean } | { couleur: string; phenomenes: string[]; zones: string[] };
+  /** When the vigilance was read, said after the banner's words once more than 15 min ago (`vigilanceLue`). */
+  lue?: string;
 }
 
 export const BANNER_WAIT_MS = 1500;
@@ -1491,14 +1493,24 @@ export function alerteOf(v: mf.Vigilance, now: Date): Alerte | undefined {
   return { couleur: r[0].max, texte: `Vigilance Météo-France : ${list.join(", ")}${r.length > 3 ? "…" : ""}.`, court };
 }
 
-// The age up to which the last vigilance kept is served while Météo-France is late: the tile and the banner do not say
-// the time of their read, and an older copy could show a level that has changed since.
-const KEPT_VIGILANCE_MS = 3600_000;
+// The last vigilance kept is served however old while Météo-France is late or fails: the tile and the banner say when
+// it was read once that is more than 15 min ago, and that Météo-France has not answered since beyond an hour (marketing).
+const LUE_AFTER_MS = 15 * 60_000;
+const SANS_REPONSE_AFTER_MS = 3600_000;
+
+/** « lue à 04:10 », then « lue à 04:10, sans réponse depuis », with the day when not today's; nothing within 15 min. */
+export function vigilanceLue(at: Date, now: Date): string | undefined {
+  const age = now.getTime() - at.getTime();
+  if (age <= LUE_AFTER_MS) return undefined;
+  const [day, time] = localTime(at).split(" ");
+  const when = day === localTime(now).split(" ")[0] ? `à ${time}` : `le ${day} à ${time}`;
+  return `lue ${when}${age > SANS_REPONSE_AFTER_MS ? ", sans réponse depuis" : ""}`;
+}
 
 /**
  * Météo-France's vigilance, waited for at most `waitMs` (then left to finish in the background for the next page),
- * the last one kept being served meanwhile if younger than KEPT_VIGILANCE_MS. Null when the key is missing, the source
- * fails with nothing in cache, or it is late with no recent copy kept.
+ * the last one kept being served meanwhile, however old: the page says when it was read (`vigilanceLue`). Null when
+ * the key is missing, or nothing was ever read.
  */
 export async function vigilanceNow(cache: Cache, background: Background, waitMs: number, now = new Date()): Promise<Cached<mf.Vigilance> | null> {
   if (!mf.enabled()) return null;
@@ -1507,9 +1519,8 @@ export async function vigilanceNow(cache: Cache, background: Background, waitMs:
   try {
     const got = await within(work, waitMs);
     if (got) return got;
-    const since = now.getTime() - KEPT_VIGILANCE_MS;
-    const peeked = await cache.peek<mf.Vigilance>(mf.KEY, since).catch(() => undefined);
-    const kept = peeked && peeked.fetchedAt.getTime() > since ? peeked : undefined;
+    // A copy in memory recent enough to need no time said will do; else the data center's may be newer.
+    const kept = await cache.peek<mf.Vigilance>(mf.KEY, now.getTime() - LUE_AFTER_MS).catch(() => undefined);
     background(lateRead(mf.SOURCE.id, work, started, waitMs, kept?.fetchedAt));
     return kept ? { ...kept, stale: true } : null;
   } catch (err) {
@@ -1537,11 +1548,18 @@ export async function cycloneDecisionNow(cache: Cache, background: Background, w
   }
 }
 
+/** The banner of a vigilance read (`alerteOf`), with when it was read once that is more than 15 min ago. */
+export function alerteLue(v: Cached<mf.Vigilance> | null | undefined, now: Date): Alerte | undefined {
+  const a = v ? alerteOf(v.value, now) : undefined;
+  const lue = a && vigilanceLue(v!.fetchedAt, now);
+  return lue ? { ...a, lue } : a;
+}
+
 /** The banner for a page: never throws, never holds a page more than a second and a half. */
 export async function alerte(cache: Cache, background: Background, now = new Date()): Promise<Alerte | undefined> {
   const v = await vigilanceNow(cache, background, BANNER_WAIT_MS, now);
   try {
-    return v ? alerteOf(v.value, now) : undefined;
+    return alerteLue(v, now);
   } catch (err) {
     // A copy the code can no longer read must not cost every page its answer (web/site.ts).
     console.error("vigilance : bandeau impossible", why(err));
