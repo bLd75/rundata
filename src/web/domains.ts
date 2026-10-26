@@ -904,8 +904,9 @@ export function velosLive(data: Cached<VelosAnswer> | null, now = new Date()): L
 // Vigicrues Réunion's colours, the worst first; « indisponible » last.
 const FLOOD_ORDER = ["rouge", "orange", "jaune", "vert", "indisponible"];
 const FLOOD_COLOR: Record<string, string> = { rouge: "#f03e3e", orange: "#ff922b", jaune: "#ffd43b", vert: "#69db7c" };
-// The map's markers: what the gauge measured, never the vigilance (its red and yellow are left to it).
-const GAUGE_COLOR = { hausse: "#e8590c", calme: "#1c7ed6", muette: "#868e96" };
+// The map's markers: what the gauge measured, in the site's colours, never the vigilance's (orange would read as one);
+// the shape says it as much as the colour. The map is drawn light in both themes: its day colours.
+const GAUGE_COLOR = { hausse: "#14202b", calme: "#8aaab2", muette: "#5a6672" };
 const floodBadge = (c: string) => `<span class="lvl" style="--c:${FLOOD_COLOR[c] ?? "#868e96"}">${esc(c)}</span>`;
 const metres = (v: number) => `${fr(Math.round(v * 100) / 100)} m`;
 const flow = (v: number) => `${fr(Math.round(v * 100) / 100)} m³/s`;
@@ -915,6 +916,11 @@ const upToDate = (s: CruesStation) => s.hauteur_m != null && !s.avertissement;
 const dayAt = (d: Date) => localTime(d).replace(" ", " à ");
 /** A river's name to match the vigilance's to the gauges': « rivière des Galets » → « galets ». */
 const riverCore = (r: string) => normalize(r).replace(/^(grande |petite )?(riviere|ravine|bras|etang) (de la |des |du |de |d )?/, "");
+
+/** A marker of the map as the legend shows it: filled, with its sign, or a ring. */
+const gaugeKey = (kind: keyof typeof GAUGE_COLOR, sign = "") =>
+  `<span aria-hidden="true" style="display:inline-block;width:1.1em;height:1.1em;box-sizing:border-box;border-radius:50%;vertical-align:-.2em;text-align:center;line-height:1em;font-size:.85em;font-weight:700;color:#fff;` +
+  `${kind === "muette" ? `border:2px solid ${GAUGE_COLOR[kind]};background:#fff` : `border:2px solid #fff;background:${GAUGE_COLOR[kind]}`}">${sign}</span>`;
 
 /** The vigilance in the page's status, from Vigicrues Réunion; `readAt`: our read, when it could not be read. */
 function floodVigilance(v: CruesAnswer["vigilance_crues"], read: string): string {
@@ -935,8 +941,8 @@ function floodVigilance(v: CruesAnswer["vigilance_crues"], read: string): string
 function floodLevels(stations: CruesStation[], read: string): string {
   const fresh = stations.filter(upToDate);
   if (!fresh.length) return `<p class="lead">Aucune des ${stations.length} stations n'a de mesure de moins de 30 minutes dans notre lecture ${esc(read)} : nous ne savons pas pour l'instant si les rivières montent.</p>`;
-  const others = stations.length - fresh.length;
-  const end = others ? ` Les ${others} autres n'ont pas de mesure récente.` : "";
+  const others = stations.filter((s) => !upToDate(s));
+  const end = others.length > 1 ? ` Les ${others.length} autres n'ont pas de mesure récente.` : others.length ? ` Une station n'a pas de mesure récente : ${esc(others[0].station)}.` : "";
   const at = fresh.map(measuredHm).sort().at(-1);
   const rising = fresh.filter((s) => s.tendance_30_min === "en hausse");
   if (rising.length) return `<p class="lead">En hausse sur la dernière demi-heure (mesures de ${at}) : ${rising.map((s) => `${esc(s.station)} (${esc(s.riviere)}, ${esc(s.commune)}), ${metres(s.hauteur_m!)}`).join(" ; ")}.${end}</p>`;
@@ -944,13 +950,18 @@ function floodLevels(stations: CruesStation[], read: string): string {
   return `<p class="lead">Mesures de ${at} : aucune des ${fresh.length} stations à jour n'est en hausse sur la dernière demi-heure.${end}</p>`;
 }
 
-/** A gauge's line in its river's group: up to date, late, or without a level in our read. */
-function gaugeRow(s: CruesStation, read: string): string {
-  const value = s.hauteur_m == null
-    ? `Pas de mesure dans notre lecture ${esc(read)}.`
+/** What a gauge measured, as its line says it (text, not HTML); without a level, null. */
+const gaugeValue = (s: CruesStation): string | null =>
+  s.hauteur_m == null
+    ? null
     : s.avertissement
       ? `${metres(s.hauteur_m)} à ${measuredHm(s)} · pas de mesure plus récente`
-      : [`${metres(s.hauteur_m)}, ${esc(s.tendance_30_min ?? "")}`, ...(s.debit_m3s != null ? [flow(s.debit_m3s)] : []), `mesurée à ${measuredHm(s)}`].join(" · ");
+      : [`${metres(s.hauteur_m)}, ${s.tendance_30_min ?? ""}`, ...(s.debit_m3s != null ? [flow(s.debit_m3s)] : []), `mesurée à ${measuredHm(s)}`].join(" · ");
+
+/** A gauge's line in its river's group: up to date, late, or without a level in our read. */
+function gaugeRow(s: CruesStation, read: string): string {
+  const said = gaugeValue(s);
+  const value = said == null ? `Pas de mesure dans notre lecture ${esc(read)}.` : esc(said);
   const floods = [...(s.crues_de_reference ?? [])].sort((a, b) => b.hauteur_m - a.hauteur_m);
   const marks = floods.length
     ? `<details><summary>Crues de référence</summary><ul class="plain">${floods.map((c) => `<li>${[metres(c.hauteur_m), ...(c.debit_m3s != null ? [flow(c.debit_m3s)] : []), esc(c.nom)].join(" · ")}</li>`).join("")}</ul></details>`
@@ -965,7 +976,7 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
   const v = d?.vigilance_crues;
 
   const status = !d ? loading("La vigilance crues") : floodVigilance(v, read) + floodLevels(d.stations, read);
-  const advice = `<p class="note">Pluies fortes ou crue : ne jamais traverser un radier submergé ni une ravine en eau, à pied ou en voiture. Vigilance pluies : <a href="/vigilance">Météo-France</a>, sur /vigilance.</p>`;
+  const advice = `<p class="note">Pluies fortes ou crue : ne jamais traverser un radier submergé ni une ravine en eau, à pied ou en voiture. Vigilance pluies de Météo-France : <a href="/vigilance">la vigilance zone par zone</a>.</p>`;
 
   // The rivers under vigilance, the worst first; Vigicrues Réunion's order within a colour.
   const rivers = [...(v?.rivieres ?? [])].sort((a, b) => FLOOD_ORDER.indexOf(a.couleur) - FLOOD_ORDER.indexOf(b.couleur));
@@ -998,9 +1009,10 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
     const at = place.get(s.station);
     if (!at) return [];
     const kind = !upToDate(s) ? "muette" : s.tendance_30_min === "en hausse" ? "hausse" : "calme";
-    const line = s.hauteur_m == null ? `pas de mesure dans notre lecture ${read}` : s.avertissement ? `${metres(s.hauteur_m)} à ${measuredHm(s)}, pas de mesure plus récente` : `${metres(s.hauteur_m)}, ${s.tendance_30_min ?? ""}`;
-    return [{ lon: at.lon, lat: at.lat, label: kind === "hausse" ? "↑" : "", name: `${s.station} : ${line}`, round: true, color: GAUGE_COLOR[kind], quiet: true,
-      place: s.station, say: line, href: `#${anchorId("s", s.station)}` }];
+    const line = gaugeValue(s) ?? `pas de mesure dans notre lecture ${read}`;
+    const where = `${s.station} · ${s.commune}`;
+    return [{ lon: at.lon, lat: at.lat, label: kind === "hausse" ? "↑" : "", name: `${where} : ${line}`, round: true, hollow: kind === "muette", color: GAUGE_COLOR[kind], quiet: true,
+      place: where, say: line, href: `#${anchorId("s", s.station)}` }];
   });
 
   const title = "Crues Réunion en direct : rivières et vigilance · 974";
@@ -1019,7 +1031,7 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
       `La rivière monte-t-elle à Saint-Benoît ? Lis ${url} et dis-moi si l'eau monte.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les stations de mesure des rivières de la DEAL" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Stations de la DEAL : <span style="color:${GAUGE_COLOR.hausse}">orange</span> en hausse, <span style="color:${GAUGE_COLOR.calme}">bleu</span> stable ou en baisse, <span style="color:${GAUGE_COLOR.muette}">gris</span> sans mesure récente.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">Stations de la DEAL : ${gaugeKey("hausse", "↑")} en hausse · ${gaugeKey("calme")} stable ou en baisse · ${gaugeKey("muette")} sans mesure récente.</figcaption></figure>
 </div>`;
 
   const sources = d && data
@@ -1036,7 +1048,8 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
   <p>La hauteur est lue à l'échelle de chaque station. C'est un repère propre à la station, pas la profondeur, et une valeur négative est normale. Le débit dit combien d'eau passe, en m³/s. Mesures de la DEAL Réunion, toutes les 5 minutes.</p></div>
   ${gauges}
   ${sources}
-</section>`;
+</section>
+${connectorCta("crues_rivieres", "les rivières de l'île")}`;
 
   return layout(origin, { title, description, path: "/crues", jsonld: [crumbs(origin, "Crues", "/crues"), webPage(origin, "/crues", title, description, data)], alerte }, band, body);
 }
@@ -1416,7 +1429,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
 
   const vigilance = `<div class="card">${icon("alert")}<h3>Vigilance météo</h3>
   ${alerte ? `<p><span class="vg ${alerte.neutre ? "vgpre" : `vg${alerte.couleur}`}">${esc(alerte.texte)}</span></p><p>Par fortes pluies, des routes et des radiers ferment : la préfecture et la Région l'annoncent.</p>` : "<p>Pas de vigilance au-dessus du vert signalée en ce moment.</p>"}
-  <p><a href="/vigilance">La vigilance zone par zone</a> · <a href="/meteo">la météo</a></p></div>`;
+  <p><a href="/vigilance">La vigilance zone par zone</a> · <a href="/meteo">la météo</a> · <a href="/crues">les rivières</a></p></div>`;
 
   const b = d?.bus;
   const busCard = !d

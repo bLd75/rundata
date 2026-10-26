@@ -35,6 +35,14 @@ export const CATEGORIES: Category[] = [
     about: "La vigilance de Météo-France zone par zone et l'alerte cyclonique, signalées d'office dès qu'elles dépassent le vert.",
   },
   {
+    key: "crues",
+    nom: "Crues",
+    path: "/crues",
+    icon: "wave",
+    tools: ["crues_rivieres"],
+    about: "La vigilance crues de Vigicrues Réunion rivière par rivière, et la hauteur et le débit mesurés aux stations des rivières, avec leur tendance sur la dernière demi-heure.",
+  },
+  {
     key: "actualites",
     nom: "Actualités",
     path: "/actualites",

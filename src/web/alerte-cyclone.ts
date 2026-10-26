@@ -192,7 +192,7 @@ export function alertePage(origin: string, data: Cached<mf.Vigilance> | null, no
 ${FAQ.map((f) => `<div class="card"><h3>${esc(f.q)}</h3><ul class="plain">${f.a.map(lineHtml).join("")}</ul></div>`).join("\n")}
 </section>`;
   const foot = `<section><p class="note">Résumé du <a href="${ORSEC.lien}" rel="noopener">dispositif ORSEC Cyclones</a> (arrêté préfectoral 2026-182, document mis à jour le ${esc(ORSEC.mis_a_jour)}), avec le lien vers reunion.gouv.fr. rundata.re n'ajoute aucune consigne.</p>
-<p><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/cyclones">Les cyclones du bassin →</a> · <a href="/vigilance">La vigilance zone par zone →</a></p></section>`;
+<p><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/cyclones">Les cyclones du bassin →</a> · <a href="/vigilance">La vigilance zone par zone →</a> · <a href="/crues">Les rivières, station par station →</a></p></section>`;
   const body = `${steps}\n${vital}\n${faq}\n${foot}`;
   return layout(origin, { title: TITLE, description: META, path, jsonld: [crumbs(origin, "Alerte cyclonique", path), webPage(origin, path, TITLE, META, data)], alerte }, band, body);
 }

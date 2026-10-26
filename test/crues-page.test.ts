@@ -36,14 +36,14 @@ describe("the /crues page", () => {
     expect(w).toMatch(/Crues des rivières 974/);
     expect(w).toContain("Pas de vigilance crues en cours d'après Vigicrues Réunion : toutes les rivières suivies sont au vert.");
     expect(w).toContain("Dernier bulletin le 07/08 à 06:22 : Vigicrues Réunion n'en publie qu'en vigilance jaune ou plus.");
-    expect(w).toMatch(/En hausse sur la dernière demi-heure \(mesures de 03:45\) : Cabris - RN3 \(ravine des Cabris, Saint-Pierre\), 0,06 m[^.]*\. Les \d+ autres n'ont pas de mesure récente\./);
+    expect(w).toMatch(/En hausse sur la dernière demi-heure \(mesures de 03:45\) : Cabris - RN3 \(ravine des Cabris, Saint-Pierre\), 0,06 m[^.]*\. Les 2 autres n'ont pas de mesure récente\./);
     // Never said of the rivers by the page itself.
     expect(w).not.toMatch(/pas de crue|aucune rivière en crue|en panne|hors ligne|ne répond pas/i);
   });
 
   it("gives the advice on fords always, and the Creole question", async () => {
     const w = words((await page()).html);
-    expect(w).toContain("Pluies fortes ou crue : ne jamais traverser un radier submergé ni une ravine en eau, à pied ou en voiture. Vigilance pluies : Météo-France, sur /vigilance.");
+    expect(w).toContain("Pluies fortes ou crue : ne jamais traverser un radier submergé ni une ravine en eau, à pied ou en voiture. Vigilance pluies de Météo-France : la vigilance zone par zone.");
     expect(w).toContain("Larivyèr i mont Sin-Bénoi ? Gèt si https://rundata.re/crues é di amwin.");
     expect(w).toContain("La rivière monte-t-elle à Saint-Benoît ? Lis https://rundata.re/crues et dis-moi si l'eau monte.");
     expect(words(cruesPage(ORIGIN, null, NOW))).toContain("Pluies fortes ou crue : ne jamais traverser un radier submergé");
@@ -60,6 +60,25 @@ describe("the /crues page", () => {
     expect(w).toContain("Sources : Vigicrues Réunion (vigilance crues, hauteurs et débits des rivières), © VIGICRUES, DEAL Réunion (Licence Ouverte Etalab). Lu le 24/10 à 03:51. Le site officiel : vigicrues-reunion.re ↗.");
     expect(deadAnchors(html)).toEqual([]);
     expect(doubleIds(html)).toEqual([]);
+  });
+
+  it("names the one gauge without a recent measurement", async () => {
+    const { data } = await page();
+    const silent = data.value.stations.filter((s) => s.hauteur_m == null);
+    const [one, ...others] = silent;
+    const stations = data.value.stations.map((s) => (others.includes(s) ? { ...s, hauteur_m: 0.2, tendance_30_min: "stable" as const, heure_mesure: "24/10 03:45" } : s));
+    const w = words(cruesPage(ORIGIN, { ...data, value: { ...data.value, stations } }, NOW));
+    expect(w).toMatch(new RegExp(`0,06 m[^.]*\\. Une station n'a pas de mesure récente : ${one.station}\\.`));
+  });
+
+  it("draws each gauge on the map, a ring for one without a recent measurement, and says its line aloud", async () => {
+    const { html, data } = await page();
+    const silent = data.value.stations.find((s) => s.hauteur_m == null)!;
+    expect(html).toContain(`aria-label="${silent.station} · ${silent.commune} : pas de mesure dans notre lecture de 03:51, voir le détail"`);
+    expect(html).toMatch(/aria-label="Cabris - RN3 · Saint-Pierre : 0,06\u00a0m, en hausse · 0\u00a0m³\/s · mesurée à 03:45, voir le détail"/);
+    expect(html.match(/style="fill:#fff;stroke:#5a6672;stroke-width:8"/g)).toHaveLength(data.value.stations.filter((s) => s.hauteur_m == null || s.avertissement).length);
+    expect(words(html)).toContain("Stations de la DEAL : ↑ en hausse · stable ou en baisse · sans mesure récente.");
+    expect(words(html)).toContain("Votre IA, branchée sur les rivières de l'île");
   });
 
   it("says a late gauge's last level with its time, never its trend", async () => {

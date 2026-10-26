@@ -48,7 +48,7 @@ describe("the order of the pages", () => {
 
   it("orders the home page's tiles as the menu, the traffic and a quiet vigilance and volcano with the sea and the buses at the end", () => {
     const quiet = homePage(O, null, NOW);
-    expect(tiles(quiet)).toEqual(["agenda", "enfants", "sentiers", "meteo", "actualites", "historique", "cyclones", "velos", "bornes", "coupures", "dae",
+    expect(tiles(quiet)).toEqual(["agenda", "enfants", "sentiers", "meteo", "crues", "actualites", "historique", "cyclones", "velos", "bornes", "coupures", "dae",
       "secheresse", "sport", "eau", "air", "electricite", "calendrier", "trafic", "vigilance", "volcan", "mer", "bus", "services", "terrain"]);
     // Nothing hidden, and the menu keeps its order.
     expect([...tiles(quiet)].sort()).toEqual([...tiles(homePage(O, null, NOW, VIGILANCE))].sort());
