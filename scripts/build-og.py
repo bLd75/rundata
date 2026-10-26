@@ -6,6 +6,10 @@ And one picture per section of the site (RUBRIQUES), so that a link to the hikes
 the same. Those go to public/og/, served by Cloudflare beside the Worker like the press visuals, named after their
 content; src/web/og-rubriques.json says which pages show which.
 
+And for each section a 4:5 picture (1080×1350, `<key>-4x5.<hash>.png`, `png_4x5` in the manifest) for the posts on
+Instagram: the same template, the title above the map; and one of the share picture (`png_4x5` in src/web/og.json).
+No page links them in its meta tags.
+
 Drawn on the brand kit's template A (marketing: identite/kit.html, formats « partage » and « rubrique »): the night
 gradient of the site's band, Bricolage Grotesque (src/web/font.json) and Inter (scripts/og/inter.woff2, SIL Open Font
 License 1.1), the lockup of the symbol (public/logo/, scripts/build-icons.py) at the top left, and the map: the
@@ -29,6 +33,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 W, H = 1200, 630
+# The 4:5 picture of a post on Instagram.
+W45, H45 = 1080, 1350
 CHROME = os.environ.get("CHROME") or str(Path.home() / ".cache/ms-playwright/chromium-1140/chrome-linux/chrome")
 # The kit's texts (marketing: identite/kit.md).
 ACCROCHE = 'La Réunion <span class="n">974</span><br>en direct'
@@ -95,12 +101,12 @@ def lockup(size, page=""):
             f'<span>rundata<span class="tld">.re</span>{suffix}</span></div>')
 
 
-def page(body):
+def page(body, w=W, h=H):
     return f'''<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
 @font-face {{ font-family: "Bricolage"; src: url("bricolage.woff2") format("woff2"); font-weight: 600 800; }}
 @font-face {{ font-family: "Inter"; src: url("inter.woff2") format("woff2"); font-weight: 400 800; }}
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-html, body {{ width: {W}px; height: {H}px; overflow: hidden; }}
+html, body {{ width: {w}px; height: {h}px; overflow: hidden; }}
 body {{ background: linear-gradient(160deg, #0b1f36 0%, #15406b 100%); color: #f1f5f9; font: 500 26px/1.3 "Inter", sans-serif;
   -webkit-font-smoothing: antialiased; position: relative; }}
 .abs {{ position: absolute; }}
@@ -114,6 +120,8 @@ body {{ background: linear-gradient(160deg, #0b1f36 0%, #15406b 100%); color: #f
 .fit {{ white-space: nowrap; width: max-content; }}
 svg, img {{ display: block; }}
 .carte {{ border-radius: 28px; overflow: hidden; background: #0d2236; }}
+.ile {{ position: relative; }}
+.ile svg {{ position: absolute; inset: 6%; width: 88%; height: 88%; }}
 </style></head><body>{body}
 <script>
 // A title or a line wider than its column (data-max) set smaller until it fits: never cut, never wrapped.
@@ -154,14 +162,40 @@ def rubrique(key, name, line, path):
                 f'<div class="slogan fit" data-max="528" style="font-size:40px;margin-top:24px;font-style:normal">{lines(line)}</div>{info}</div>')
 
 
-def shoot(tmp, name, html):
+def rubrique_4x5(key, name, line, path):
+    """The same, the title and its line above the map, which takes the height left, for a post on Instagram (1080×1350)."""
+    carte = ('<div class="carte" style="flex:1;background:#0d2236 url(fournaise.webp) 50% 100%/936px auto no-repeat"></div>'
+             if key == "volcan" else
+             f'<div class="carte ile" style="flex:1;display:grid;place-items:center">{island(620, 8)}</div>')
+    head, num = name.rsplit(" ", 1) if name[-1].isdigit() else (name, "")
+    info = f'<div class="info fit" data-max="936" style="font-size:28px;margin-top:20px">{escape(INFO[key])}</div>' if key in INFO else ""
+    return colonne(lockup(40, path),
+                   f'<div class="titre fit" data-max="936" style="font-size:112px">{lines(head)}{f' <span class="n">{num}</span>' if num else ""}</div>'
+                   f'<div class="slogan fit" data-max="936" style="font-size:44px;margin-top:24px;font-style:normal">{lines(line)}</div>{info}', carte)
+
+
+def partage_4x5():
+    """The share picture's title and slogan above the island, for the posts on Instagram that link the home page."""
+    return colonne(lockup(40),
+                   f'<div class="titre" style="font-size:112px">{ACCROCHE}</div>'
+                   f'<div class="slogan fit" data-max="936" style="font-size:44px;margin-top:24px">{escape(json.loads((ROOT / "src/web/brand.json").read_text())["slogan"])}</div>',
+                   f'<div class="carte ile" style="flex:1;display:grid;place-items:center">{island(620, 8)}</div>')
+
+
+def colonne(marque, textes, carte):
+    """The 4:5 layout: the lockup, the texts, then the map in the height left, 72 px from the edges."""
+    return page(f'<div style="display:flex;flex-direction:column;height:100%;padding:72px">{marque}'
+                f'<div style="margin:56px 0 48px">{textes}</div>{carte}</div>', W45, H45)
+
+
+def shoot(tmp, name, html, w=W, h=H):
     src, raw, png = Path(tmp) / f"{name}.html", Path(tmp) / f"{name}-brut.png", Path(tmp) / f"{name}.png"
     src.write_text(html)
     # The window is taller than the picture: headless Chrome takes its own bar out of the window's height.
     subprocess.run([CHROME, "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
-                    f"--user-data-dir={Path(tmp) / 'profil'}", f"--window-size={W},{H + 200}", "--virtual-time-budget=5000",
+                    f"--user-data-dir={Path(tmp) / 'profil'}", f"--window-size={w},{h + 200}", "--virtual-time-budget=5000",
                     f"--screenshot={raw}", src.as_uri()], check=True, capture_output=True)
-    subprocess.run(["vips", "crop", str(raw), f"{png}[palette,Q=100,dither=1,effort=10,strip]", "0", "0", str(W), str(H)], check=True)
+    subprocess.run(["vips", "crop", str(raw), f"{png}[palette,Q=100,dither=1,effort=10,strip]", "0", "0", str(w), str(h)], check=True)
     return png.read_bytes()
 
 
@@ -179,15 +213,21 @@ def main():
             what = "relief du Piton de la Fournaise" if key == "volcan" else "relief de l'île"
             said = line.replace("|", " ")
             alt = ALT.get(key) or f"Symbole rundata.re et {what}\u00a0: {name}, {said[0].lower()}{said[1:]}"
-            manifest.append({"pages": pages, "png": f"/og/{file}", "alt": alt})
-            print(OUT / file, f"{len(data) // 1024} KB PNG")
+            tall = shoot(tmp, f"{key}-4x5", rubrique_4x5(key, name, line, pages[0]), W45, H45)
+            file_4x5 = f"{key}-4x5.{hashlib.sha256(tall).hexdigest()[:10]}.png"
+            (OUT / file_4x5).write_bytes(tall)
+            manifest.append({"pages": pages, "png": f"/og/{file}", "png_4x5": f"/og/{file_4x5}", "alt": alt})
+            print(OUT / file, f"{len(data) // 1024} KB PNG,", OUT / file_4x5, f"{len(tall) // 1024} KB PNG")
         (ROOT / "src/web/og-rubriques.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n")
         data = shoot(tmp, "og", partage())
+        tall = shoot(tmp, "accueil-4x5", partage_4x5(), W45, H45)
+        file_4x5 = f"accueil-4x5.{hashlib.sha256(tall).hexdigest()[:10]}.png"
+        (OUT / file_4x5).write_bytes(tall)
         out = ROOT / "src/web/og.json"
         # The page links the picture by its fingerprint: a new picture is a new address, which Facebook and the others
         # fetch again instead of showing the one they keep.
-        out.write_text(json.dumps({"v": hashlib.sha256(data).hexdigest()[:8], "png": base64.b64encode(data).decode()}))
-        print(out, f"{len(data) // 1024} KB PNG")
+        out.write_text(json.dumps({"v": hashlib.sha256(data).hexdigest()[:8], "png": base64.b64encode(data).decode(), "png_4x5": f"/og/{file_4x5}"}))
+        print(out, f"{len(data) // 1024} KB PNG,", OUT / file_4x5, f"{len(tall) // 1024} KB PNG")
 
 
 if __name__ == "__main__":
