@@ -151,7 +151,9 @@ describe("the serveur block", () => {
     const ids: string[] = body(await rpcResult("tools/call", { name: "sources_donnees", arguments: {} })).sources.map((s: { id: string }) => s.id);
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
     // Given by two modules each, listed once.
-    for (const id of ["lrvb_tournois", "sportsregions", "ign_altimetrie"]) expect(ids).toContain(id);
+    for (const id of ["lrvb_tournois", "ign_altimetrie"]) expect(ids).toContain(id);
+    // Not read until it agrees (src/providers/autorisations.ts): listed with those not read, not with those read.
+    expect(ids).not.toContain("sportsregions");
   });
 });
 

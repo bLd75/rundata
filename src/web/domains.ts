@@ -46,7 +46,7 @@ import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
 import { tapNote } from "../tools/eau.js";
-import { noteLa1ere, noteReunionFr } from "../tools/non-repris.js";
+import { mentionSports, noteLa1ere, noteReunionFr } from "../tools/non-repris.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
 // What a search engine shows of a title.
@@ -2268,7 +2268,7 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
 
 
   const title = "Sport Réunion : matchs, résultats, Grand Raid · 974";
-  const description = "Sport à La Réunion (974) : matchs à venir et résultats du handball et du volley régionaux, classements, régates, golf, rallyes et podiums du Grand Raid.";
+  const description = "Sport à La Réunion (974) : matchs à venir et résultats du handball et du volley régionaux, classements, rallyes et podiums du Grand Raid.";
 
   const band = `${crumbBar("Sport")}
 <div class="wrap intro">
@@ -2284,7 +2284,7 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
 
   const body = `<section aria-labelledby="h-venir">
   <div class="sec-h"><p class="eyebrow">Quinze prochains jours</p><h2 id="h-venir">À venir</h2>
-  <p>Les matchs des championnats régionaux de handball (D1) et de volley (R1), les régates de la Ligue de voile, les compétitions des trois golfs et le calendrier de la Ligue du sport automobile. Heures de La Réunion.</p></div>
+  <p>Les matchs des championnats régionaux de handball (D1) et de volley (R1) et le calendrier de la Ligue du sport automobile. Heures de La Réunion.</p></div>
   ${d ? (d.a_venir?.length ? bySport(d.a_venir, false) : `<p class="card">Aucun rendez-vous trouvé dans les quinze prochains jours.</p>`) : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
   ${clubsLink()}
 </section>
@@ -2308,6 +2308,7 @@ ${raid}
   <div class="sec-h"><h2 id="h-src">Ce qui n'est pas couvert</h2><p>${d ? esc(d.non_couvert) : ""}</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
   <p class="note">${noteLa1ere("sport")}</p>
+  ${mentionSports(undefined, true).map((x) => `<p class="note">${esc(x)}</p>`).join("")}
 </section>
 ${connectorCta("sport", "le sport")}`;
 

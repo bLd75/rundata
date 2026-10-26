@@ -4,13 +4,13 @@ import { normalize, resolvePlace } from "../places/resolve.js";
 import type { Fil } from "../providers/actualites.js";
 import { httpUrl } from "../http.js";
 import { type Agenda, AGENDAS, type Evenement, LIGUE_VOLLEY, LISIBLES, type nonServie, type programmesSportifs, reserve, SPORTSREGIONS, sportDesAgendas } from "../providers/agenda.js";
-import { nonAutorisee } from "../providers/autorisations.js";
+import { autorisee, nonAutorisee } from "../providers/autorisations.js";
 import * as src from "../providers/sport.js";
 import * as avis from "../providers/sport-avis.js";
 import { type Club, clubOf, clubsNamed, type ClubSport, zoneOf } from "../sport/clubs.js";
 import { type SourceInfo, why } from "../types.js";
 import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
-import { mentionLa1ere } from "./non-repris.js";
+import { mentionLa1ere, mentionSports } from "./non-repris.js";
 import { injoignable } from "./injoignable.js";
 
 export type Sport = "grand_raid" | "handball" | "volley" | "basket" | "voile" | "golf" | "sport_auto" | "football";
@@ -28,6 +28,8 @@ const NAMES: Record<Sport, string> = {
   sport_auto: "sport automobile",
   football: "football",
 };
+// The sports read from a federation's site, by the key of src/providers/autorisations.ts.
+const FEDERATION: Partial<Record<Sport, string>> = { voile: "ffvoile", golf: "ffgolf" };
 // Sports with no official source read.
 const NEWS_ONLY: Partial<Record<Sport, string>> = {
   football: "Les résultats officiels du football (FFF, Ligue réunionnaise) ne sont pas lisibles par ce service.",
@@ -252,8 +254,9 @@ export interface SportData {
 
 /** What `sport` needs, read in parallel; a source that fails is left out and named. */
 export async function gather(cache: Cache, sport: Sport | undefined, now: Date, adherent = false): Promise<SportData> {
-  const want = (s: Sport) => !sport || sport === s;
-  const clubsWanted = !sport || SPORT_DU_CLUB.some(([, s]) => s === sport);
+  // A federation's site not read until it agrees (src/providers/autorisations.ts): nor is its sport here.
+  const want = (s: Sport) => (!sport || sport === s) && autorisee(`sport:${FEDERATION[s] ?? s}`);
+  const clubsWanted = clubsDe(sport);
   const agendasWanted = want("volley") || clubsWanted;
   const [grandRaid, handball, volley, voile, golfs, auto, notices, presse, agendas] = await Promise.all([
     want("grand_raid") ? attempt(src.SOURCES.livetrail, () => src.grandRaid(cache, now)) : undefined,
@@ -287,10 +290,13 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date, 
     programmes: agendas?.programmes,
     nonLus: [
       want("volley") ? nonLu(LIGUE_VOLLEY, agendas?.nonServies.tournois) : undefined,
-      clubsWanted ? nonLu(SPORTSREGIONS, agendas?.nonServies.clubs) : undefined,
+      clubsWanted && autorisee(`agenda:${SPORTSREGIONS.id}`) ? nonLu(SPORTSREGIONS, agendas?.nonServies.clubs) : undefined,
     ].filter((x): x is string => !!x),
   };
 }
+
+/** Whether the clubs' events (Sportsregions) are of the answer: for every sport, or one of a club's. */
+const clubsDe = (sport: Sport | undefined) => !sport || SPORT_DU_CLUB.some(([, s]) => s === sport);
 
 /** A copy of the scheduled event not served, said with why (« Clubs sportifs (Sportsregions) : … »), never left out. */
 function nonLu(agenda: Agenda, r: ReturnType<typeof nonServie>): string | undefined {
@@ -509,7 +515,11 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     ...injoignable(`le site de la ${g.source.organisme}`, c.lu_a, localTime(g.value!.fetchedAt), now),
     site: c.lien,
   })));
-  const resume = sport && NEWS_ONLY[sport]
+  // The sport of a federation not read (golf, voile): its answer is the mention (tools/non-repris.ts).
+  const federation = sport && FEDERATION[sport] && !autorisee(`sport:${FEDERATION[sport]}`) ? mentionSports([sport], false).join(" ") : undefined;
+  const resume = federation
+    ? federation
+    : sport && NEWS_ONLY[sport]
     ? NEWS_ONLY[sport]
     : sport === "grand_raid"
       ? gr ? `${gr.edition} : ${gr.courses.map((c) => `${c.nom} ${c.statut}${c.podium[0] ? `, vainqueur ${c.podium[0].nom} en ${c.podium[0].temps}` : ""}`).join("\u00a0; ")}.` : "Le suivi du Grand Raid ne répond pas pour le moment."
@@ -537,7 +547,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
   return text({
     lieu: w?.kind === "communes" && w.res && lieu ? placeBlock(lieu, w.res) : w && lieu ? { demande: lieu, trouve: w.label.trim(), communes: w.kind === "communes" ? w.communes : undefined } : undefined,
     resume,
-    periode: sport === "grand_raid" || (sport && NEWS_ONLY[sport]) ? undefined : { du: quand(du), au: quand(au) },
+    periode: sport === "grand_raid" || federation || (sport && NEWS_ONLY[sport]) ? undefined : { du: quand(du), au: quand(au) },
     a_venir: upcoming.length ? upcoming.map(strip) : undefined,
     // When it lists only the first: how many there are, the page's count.
     a_venir_en_tout: aheadAll.length > upcoming.length ? aheadAll.length : undefined,
@@ -553,6 +563,8 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     non_repris: [
       (sport && NEWS_ONLY[sport]) || (!sport && !w) ? mentionLa1ere("sport") : undefined,
       sport || q === "resultats" || (w && w.kind !== "communes") ? undefined : mentionProgrammes(w?.kind === "communes" ? w.communes : undefined),
+      // The federations and the clubs' calendar not read until they agree, of the sport asked or all of them.
+      ...mentionSports(federation ? [] : sport ? [sport] : undefined, clubsDe(sport)),
     ].filter(Boolean).join(" ") || undefined,
     classements: standings,
     grand_raid: showRaid ? grandRaidRow(gr) : undefined,

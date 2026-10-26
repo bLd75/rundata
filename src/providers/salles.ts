@@ -17,6 +17,7 @@ import type { Agenda, AgendaStore, Evenement, Seance } from "./agenda.js";
 import { extrait, monthOf, statusOf } from "./agenda-mots.js";
 import { communesIn } from "./avis-eau.js";
 
+/** Its name, credit and link are those of the halls read, once their authorisations are known (providers/agenda.ts). */
 export const SOURCE: SourceInfo = {
   id: "salles_spectacle",
   nom: "Programmes des salles : TÉAT Champ Fleuri et Plein Air, Cité des Arts, Kabardock, Le Séchoir, Bisik, Théâtre Luc Donat, CDNOI, Léspas",

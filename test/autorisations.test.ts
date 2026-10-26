@@ -7,7 +7,7 @@ import { coupures, LISIBLES as MAIRIES_LISIBLES, MAIRIES, parsePosts, SOURCE as 
 import { agenda, COUVERTURE, MAIRIES_LUES, mentionCommune, mentionIle, mentionCourte, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
 import { type CourantAnswer, courantBlock, courantCopy, honesty } from "../src/tools/courant.js";
 import { electricite } from "../src/tools/electricite.js";
-import { mention, mentionIle as ileMention, mentionLa1ere, mentionReunionFr } from "../src/tools/non-repris.js";
+import { mention, mentionIle as ileMention, mentionLa1ere, mentionReunionFr, mentionSalles, mentionSports } from "../src/tools/non-repris.js";
 import { resume } from "../src/tools/resume.js";
 import { mentionProgrammes, sportTool } from "../src/tools/sport.js";
 import { aujourdhuiPage } from "../src/web/aujourdhui.js";
@@ -167,11 +167,12 @@ describe("the communes whose site's terms ask for their authorisation, until the
     expect(COUVERTURE).toContain(mentionIle()[0]);
     const c = await cacheWith();
     const tampon = body(await agenda(c, "Le Tampon", undefined, undefined, NOW));
-    expect(tampon.non_repris).toBe(TAMPON);
+    // Its theatre, not read either until it agrees (test/non-reprises.test.ts).
+    expect(tampon.non_repris).toBe(`${TAMPON} ${mentionSalles("Le Tampon").join(" ")}`);
     expect(tampon.resume).toContain("; agenda du site de la commune non repris, ses mentions légales l'interdisent sans son accord (voir non_repris)");
     const ile = body(await agenda(c, undefined, undefined, undefined, NOW));
-    // The communes, then reunion.fr (not a commune: a line apart).
-    expect(ile.non_repris).toBe(`${mentionIle().join(" ")} ${mentionReunionFr()}`);
+    // The communes, the halls, then reunion.fr (not a commune: a line apart).
+    expect(ile.non_repris).toBe(`${mentionIle().join(" ")} ${mentionSalles().join(" ")} ${mentionReunionFr()}`);
     // Petite-Île: no other source there.
     expect(body(await agenda(c, "Petite-Île", undefined, undefined, NOW)).resume).not.toContain("reunion.fr");
   });
@@ -194,7 +195,7 @@ describe("the communes whose site's terms ask for their authorisation, until the
   it("are not served from a copy built before, whatever its age: the day's summary, the outings tile, the credits", () => {
     // A copy of the events page built by the revision before, as some data centers still hold it.
     const tampon = { titre: "Ateliers des Conseillers numériques", commune: "Le Tampon", date: "2026-10-24T09:00", quand: "samedi 24/10 à 09:00", lien: "https://letampon.fr/agenda/ateliers-des-conseillers-numeriques-1026/", publie_par: "Ville du Tampon", source: "site de la commune du Tampon, lu le samedi 24/10 à 08:00" };
-    const luc = { titre: "Spectacle", commune: "Le Tampon", date: "2026-10-24T20:00", quand: "samedi 24/10 à 20:00", lien: "https://example.re", publie_par: "Théâtre Luc Donat" };
+    const luc = { titre: "Spectacle", commune: "Le Tampon", date: "2026-10-24T20:00", quand: "samedi 24/10 à 20:00", lien: "https://example.re", publie_par: "Une compagnie du Tampon" };
     const old = { resume: "", nombre: 2, couverture: "", a_savoir: "", ce_week_end: [], evenements: [tampon, luc], sources: [{ source: "Agendas des mairies de Saint-Paul, du Port, des Trois-Bassins, du Tampon, de Saint-Louis et de Saint-André", licence: "Information publique (agendas municipaux)", attribution: "Villes de Saint-Paul, Le Port, Les Trois-Bassins, Le Tampon, Saint-Louis et Saint-André" }] };
     expect([repris(tampon), repris(luc), repris({ publie_par: "Mairie de Saint-Philippe" }), repris({ source: "site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00" })]).toEqual([false, true, false, true]);
     const page = PAGES.find((p) => p.slug === "le-tampon")!;
@@ -227,13 +228,15 @@ describe("the communes whose site's terms ask for their authorisation, until the
     set("Saint-Benoît", { etat: "refusee", refusee_le: "2026-11-03" });
     expect(mentionProgrammes(["Saint-Benoît"])).toBe("La commune de Saint-Benoît a refusé, le 03/11, que rundata.re reprenne le contenu de son site : le programme sportif qu'elle y publie ne s'affiche donc pas ici.");
     unasked();
-    // The golf league answers; La Possession's programme still in the copy kept before: not served.
-    vi.stubGlobal("fetch", async (url: string) => (url.includes("ffgolf") ? new Response(readFileSync(new URL("./fixtures/sport/ffgolf.json", import.meta.url))) : new Response("", { status: 503 })));
+    // The motor sport league answers; La Possession's programme still in the copy kept before: not served.
+    vi.stubGlobal("fetch", async (url: string) => (url.includes("lsar") ? new Response(readFileSync(new URL("./fixtures/sport/lsar.json", import.meta.url))) : new Response("", { status: 503 })));
     const c = await cacheWith({ "agenda:la_possession": kept([{ ...event("Agenda sportif du 22 au 24 octobre", "La Possession"), seances: [{ debut: "2026-10-22", fin: "2026-10-26" }] }]) });
     const b = body(await sportTool(c, undefined, undefined, "a_venir", NOW));
     // For the whole island, Réunion La 1ère's sport news not read is said first (test/la1ere.test.ts).
-    expect([b.non_repris, b.programmes_communes]).toEqual([`${mentionLa1ere("sport")} ${three}`, undefined]);
-    expect(body(await sportTool(c, "golf", undefined, "a_venir", NOW)).non_repris).toBeUndefined();
+    // Then the sports sites not read until they agree (test/non-reprises.test.ts).
+    expect([b.non_repris, b.programmes_communes]).toEqual([`${mentionLa1ere("sport")} ${three} ${mentionSports(undefined, true).join(" ")}`, undefined]);
+    // No programme said for a sport.
+    expect(body(await sportTool(c, "handball", undefined, "a_venir", NOW)).non_repris).toBeUndefined();
     const html = sportPage("https://rundata.re", { value: { ...b, classements: [] }, fetchedAt: NOW, stale: false }, NOW);
     const section = html.slice(html.indexOf('id="h-prog"'));
     expect(section).toContain("Programmes sportifs des communes</h2>");

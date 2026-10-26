@@ -65,7 +65,7 @@ import * as gdacs from "../providers/cyclones.js";
 import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
 import { historiqueMeteo } from "../tools/historique.js";
 import { agenda, type EventRow, mentionIle as agendaNonRepris } from "../tools/agenda.js";
-import { RESUME_REUNION_FR } from "../tools/non-repris.js";
+import { mentionSalles, RESUME_REUNION_FR } from "../tools/non-repris.js";
 import * as actuSource from "../providers/actualites.js";
 import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, quand as newsTime, type InfoRow } from "../tools/actualites.js";
 import { littoral, type Littoral } from "../tools/littoral.js";
@@ -1060,7 +1060,7 @@ export interface AgendaAnswer {
   remises?: string[];
   /** The agendas read by the scheduled event whose copy is not served, with why (tools/agenda.ts, nonLus). */
   non_lus?: string[];
-  /** The communes whose site is not read until they agree (tools/agenda.ts, mentionIle). */
+  /** The communes and the halls whose site is not read until they agree (tools/agenda.ts, mentionIle; mentionSalles). */
   non_repris?: string;
   couverture: string;
   a_savoir: string;
@@ -1077,7 +1077,7 @@ export async function buildAgenda(cache: Cache, now = new Date()): Promise<Agend
   const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", undefined, now));
   // reunion.fr's agenda, not read, is the page's own note under its sources (noteReunionFr): not in its description.
   const resume = a.resume.replace(`\u00a0; ${RESUME_REUNION_FR}`, "");
-  return { ...a, resume, non_repris: agendaNonRepris().join(" ") || undefined, ce_week_end: weekend?.evenements ?? [] };
+  return { ...a, resume, non_repris: [...agendaNonRepris(), ...mentionSalles()].join(" ") || undefined, ce_week_end: weekend?.evenements ?? [] };
 }
 
 export interface EnfantsAnswer {

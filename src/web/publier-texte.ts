@@ -308,8 +308,6 @@ export const GUIDE = [
   "- **Ville du Tampon**, **Ville de Saint-Louis**, **Ville de Saint-André** et **Ville de L'Étang-Salé** : flux RSS de leur agenda (tutoriel 5) ;",
   "- **Ville de La Possession** : flux RSS d'IntraMuros, avec les dates rangées dans des champs (tutoriel 5).",
   "",
-  "Votre club a un site Sportsregions ? Remplissez sa rubrique Événements : rundata.re lit le calendrier des clubs de La Réunion sur Sportsregions.",
-  "",
   "Votre commune n'y est pas ? Montrez-lui ce guide.",
   "",
   "## Les mots du guide [#glossaire]",

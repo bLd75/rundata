@@ -124,10 +124,10 @@ describe("events as schema.org Events", () => {
 
   it("name the organizer only when the event comes from the venue's own programme, never the town hall relaying it", () => {
     const [hall, mairie] = agendaEvents([
-      row({ commune: "Le Port", lieu: "Kabardock", publie_par: "Kabardock" }),
-      row({ commune: "Le Port", lieu: "Kabardock", publie_par: "Agenda de la mairie du Port" }),
+      row({ commune: "Saint-Leu", lieu: "Le Séchoir", publie_par: "Le Séchoir" }),
+      row({ commune: "Saint-Leu", lieu: "Le Séchoir", publie_par: "Agenda de la mairie de Saint-Leu" }),
     ]) as any[];
-    expect(hall.organizer).toEqual({ "@type": "Organization", name: "Kabardock" });
+    expect(hall.organizer).toEqual({ "@type": "Organization", name: "Le Séchoir" });
     expect(mairie).not.toHaveProperty("organizer");
     // No picture of rundata.re's own in place of the event's.
     expect(hall).not.toHaveProperty("image");

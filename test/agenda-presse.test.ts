@@ -7,6 +7,9 @@ import { annonces, distinctive, withNews } from "../src/providers/agenda-presse.
 import { parseKabardock } from "../src/providers/salles.js";
 import { agenda } from "../src/tools/agenda.js";
 
+// The Kabardock read as if it had agreed (test/non-reprises.test.ts says what is said until it does).
+vi.mock("../src/providers/autorisations.js", () => import("./autorisees.js"));
+
 // Saturday 24/10/2026, a day of mobilisation: Imaz Press's live blog says « À Saint-Pierre, le Festival Mizik O Marmay
 // est annulé, tandis qu'au Port, le concert de Cédric "Analyse" est reporté au 5 décembre » (entry of 10:27).
 const NOW = new Date("2026-10-24T08:05:00Z");

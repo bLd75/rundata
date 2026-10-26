@@ -97,7 +97,7 @@ export function lienForm(path: string): string {
   <p class="msg" id="lien-erreur" role="status">Le lien n'a pas pu être enregistré\u00a0: vérifiez les champs (un lien commence par https://), ou écrivez à contact@rundata.re.</p>
   <div class="f"><label for="lien-nom">Nom de l'organisation</label><input id="lien-nom" name="nom" required minlength="2" maxlength="${propositions.NOM_MAX}" autocomplete="organization"></div>
   <div class="f"><label for="lien-commune">Commune</label><select id="lien-commune" name="commune" required>${options(COMMUNES, "", "Choisir")}</select></div>
-  <div class="f"><label for="lien-lien">Lien de votre agenda, de votre flux ou de votre site Sportsregions</label><input id="lien-lien" name="lien" type="url" required maxlength="${propositions.LIEN_MAX}" placeholder="https://" inputmode="url"></div>
+  <div class="f"><label for="lien-lien">Lien de votre agenda ou de votre flux</label><input id="lien-lien" name="lien" type="url" required maxlength="${propositions.LIEN_MAX}" placeholder="https://" inputmode="url"></div>
   <div class="f"><label for="lien-contact">E-mail ou téléphone de l'organisation <span class="aide">(facultatif, jamais publié\u00a0: pour vous prévenir si le lien ne répond plus)</span></label><input id="lien-contact" name="contact" maxlength="${propositions.CONTACT_MAX}"></div>
   <label class="case"><input type="checkbox" name="agit" value="oui" required> J'agis pour cette organisation, et j'accepte que ce lien et les événements qu'on y lit soient publiés sous Licence Ouverte 2.0.</label>
   <input type="hidden" name="page" value="${esc(path)}">

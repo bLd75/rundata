@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { fil } from "../src/providers/actualites.js";
 import { actualites } from "../src/tools/actualites.js";
-import { FICHE_LA1ERE, mentionLa1ere, noteLa1ere } from "../src/tools/non-repris.js";
+import { FICHE_LA1ERE, mentionLa1ere, mentionSports, noteLa1ere } from "../src/tools/non-repris.js";
 import { sportTool } from "../src/tools/sport.js";
 import { buildActualites } from "../src/web/data.js";
 import { actualitesPage, sportPage } from "../src/web/domains.js";
@@ -61,7 +61,8 @@ describe("Réunion La 1ère, not read", () => {
     expect(body(await actualites(c(), "Saint-Pierre", undefined, undefined, NOW)).non_repris).toBeUndefined();
     expect(body(await sportTool(c(), "football", undefined, undefined, NOW)).non_repris).toBe(mentionLa1ere("sport"));
     expect(body(await sportTool(c(), "basket", "Saint-Pierre", undefined, NOW)).non_repris).toBe(mentionLa1ere("sport"));
-    expect(body(await sportTool(c(), "volley", undefined, undefined, NOW)).non_repris).toBeUndefined();
+    // Volley: only the clubs' calendar not read (test/non-reprises.test.ts), not La 1ère.
+    expect(body(await sportTool(c(), "volley", undefined, undefined, NOW)).non_repris).toBe(mentionSports([], true).join(" "));
     const island = body(await sportTool(c(), undefined, undefined, undefined, NOW));
     expect(island.non_repris.startsWith(mentionLa1ere("sport"))).toBe(true);
     expect(island).not.toHaveProperty("actualite");

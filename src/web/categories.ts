@@ -152,7 +152,7 @@ export const CATEGORIES: Category[] = [
     path: "/sport",
     icon: "trophy",
     tools: ["sport"],
-    about: "Les matchs à venir et les derniers résultats du handball et du volley régionaux, les classements, les régates, le golf, les rallyes et le Grand Raid.",
+    about: "Les matchs à venir et les derniers résultats du handball et du volley régionaux, les classements, les rallyes et le Grand Raid.",
   },
   {
     key: "agenda",

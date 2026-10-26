@@ -101,7 +101,7 @@ describe("the concerts", () => {
     expect(html).not.toContain("Fête du chouchou");
     expect(html).toContain("Aujourd&#39;hui, mardi 27 octobre");
     expect(html.match(/"@type":"Event"/g)).toHaveLength(2);
-    expect(html).toMatch(/<meta name="description" content="Les 2 prochains concerts à La Réunion \(974\)\u00a0: TÉAT, Cité des Arts/);
+    expect(html).toMatch(/<meta name="description" content="Les 2 prochains concerts à La Réunion \(974\), ce soir et ce week-end\u00a0: le Séchoir, les agendas des mairies et des offices de tourisme/);
   });
 
   it("point to the halls' programmes when the agendas have none", () => {
