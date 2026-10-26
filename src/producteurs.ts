@@ -115,6 +115,8 @@ export const FICHES: Record<string, Fiche> = {
   dvf_etalab: { famille: "licence_ouverte", producteurs: ["DGFiP", "Etalab"] },
   // The ANIL's estimates, from the ads of SeLoger and leboncoin, which write ads, not the rents.
   anil_loyers: { famille: "licence_ouverte", producteurs: ["ANIL"] },
+  // The operators declare, the Arcep counts the premises and publishes.
+  arcep_connexion: { famille: "licence_ouverte", producteurs: ["Arcep"] },
   prefecture_carburants: { famille: "licence_ouverte", producteurs: [PREFECTURE] },
   radars_fixes: { famille: "licence_ouverte", producteurs: ["Ministère de l'Intérieur"] },
   tco_decheteries: { famille: "licence_ouverte", producteurs: ["TCO"] },
