@@ -20,6 +20,7 @@ import { de, fr } from "../tools/format.js";
 import { tidesNear } from "../tools/maree.js";
 import { current, cyclone, cycloneLevel, highest, raised } from "../tools/vigilance.js";
 import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, DechetsAnswer, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
+import { joursDuJour } from "./data.js";
 import { aCommune, LINK } from "./aujourdhui.js";
 import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
@@ -85,9 +86,9 @@ function weather(p: PlacePage, data: Cached<PlaceData> | null, now: Date): Live 
   if (!data) return undefined;
   const s = data.value.meteo?.stations.find((x) => x.mesures.temperature);
   if (!s) return empty(`Aucune température près de ${p.nom} dans la lecture ${readAt(data.fetchedAt, now).de}.`);
-  // In the evening, tomorrow's forecast rather than what is left of today.
+  // In the evening, tomorrow's forecast rather than what is left of today; from today's, whenever the copy was made.
   const evening = new Date(now.getTime() + 4 * 3600_000).getUTCHours() >= 17;
-  const jours = data!.value.prevision?.jours ?? [];
+  const jours = joursDuJour(data!.value.prevision?.jours, data.fetchedAt, now);
   const f = (evening && jours[1]) || jours[0];
   return {
     valeur: esc(thin(s.mesures.temperature!)),
@@ -258,7 +259,7 @@ function sunTimes(p: PlacePage, calendrier: Cached<CalendrierAnswer> | null | un
   const s = cal.sun(day, p.place.lon, p.place.lat, p.place.altitude_m ?? 0);
   const t = (d: Date) => localTime(d).split(" ")[1].replace(":", "h");
   // The island's calendar, without its sunrise and sunset (those of Saint-Denis).
-  const c = calendrierLive(calendrier ?? null);
+  const c = calendrierLive(calendrier ?? null, now);
   const rest = c && !c.vide ? [c.valeur, ...c.detail.split(" · ").filter((x) => !x.startsWith("soleil"))].join(" · ") : "";
   return { valeur: `${t(s.lever)} – ${t(s.coucher)}`, detail: `lever et coucher du soleil aujourd'hui${rest ? ` · ${rest}` : ""}` };
 }

@@ -29,7 +29,7 @@ import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
 import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CruesAnswer, type CruesStation, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type Enclos, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
-import { localTime } from "../geo.js";
+import { daysApart, localTime } from "../geo.js";
 import { agendasNonLus, mediasNonLus } from "../tools/injoignable.js";
 import { FAST_KW } from "../tools/bornes.js";
 import { fuelSay, keep } from "../tools/carburants.js";
@@ -588,10 +588,22 @@ export function electriciteLive(data: Cached<ElectriciteAnswer> | null, now = ne
 
 // ---------------------------------------------------------------- calendrier
 
+/**
+ * The public holidays of a copy counted again from today: the copy, made every six hours, may be from the day before
+ * (« Toussaint dans 6 j » the day after). A day reached is today's holiday; one past is left out.
+ */
+export function feriesDuJour(data: Cached<CalendrierAnswer> | null, now: Date): CalendrierAnswer["jours_feries"] {
+  const f = data?.value.jours_feries;
+  const late = f ? daysApart(data!.fetchedAt, now) : 0;
+  if (!f || late <= 0) return f;
+  const counted = f.prochains.map((x) => ({ ...x, dans_jours: x.dans_jours - late })).filter((x) => x.dans_jours >= 0);
+  return { ...f, aujourd_hui: counted.find((x) => x.dans_jours === 0)?.nom ?? null, prochains: counted.filter((x) => x.dans_jours > 0) };
+}
+
 export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const v = d?.vacances_scolaires;
-  const f = d?.jours_feries;
+  const f = feriesDuJour(data, now);
   const next = f?.prochains[0];
   const url = `${origin}/calendrier`;
   const today = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Indian/Reunion" });
@@ -670,11 +682,11 @@ ${connectorCta("calendrier", "le calendrier de l'île")}`;
   return layout(origin, { title, description, path: "/calendrier", jsonld: [crumbs(origin, "Calendrier", "/calendrier"), webPage(origin, "/calendrier", title, description, data)], alerte }, band, body);
 }
 
-export function calendrierLive(data: Cached<CalendrierAnswer> | null): Live | undefined {
+export function calendrierLive(data: Cached<CalendrierAnswer> | null, now = new Date()): Live | undefined {
   const d = data?.value;
   if (!d) return undefined;
   const v = d.vacances_scolaires?.en_cours;
-  const f = d.jours_feries;
+  const f = feriesDuJour(data, now);
   const next = f?.prochains[0];
   const valeur = f?.aujourd_hui ? `Férié : ${esc(f.aujourd_hui)}` : v ? "Vacances scolaires" : next ? `${esc(next.nom)} dans ${next.dans_jours} j` : undefined;
   // The date is enough here: the year's list runs out at its end, before the next one is loaded.

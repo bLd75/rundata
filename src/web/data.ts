@@ -10,7 +10,7 @@ import * as nuages from "../tools/nuages.js";
 import type { MerDeNuages } from "../tools/nuages.js";
 import * as arome from "../providers/arome.js";
 import { left, measured } from "../budget.js";
-import { distanceKm, localTime } from "../geo.js";
+import { daysApart, distanceKm, localTime } from "../geo.js";
 import type { Cache, Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
@@ -158,6 +158,16 @@ export interface MerAnswer {
   mesure?: { temperature_eau: string; jour_mesure: string; distance_km: number };
   etat_de_la_mer?: { maintenant: { heures: string; hauteur: string; periode?: string; venant?: string }; jours: { jour: string; hauteur_max: string }[] };
   sources: Credit[];
+}
+
+/**
+ * A copy's forecast days from today's on, by their date (« mardi 27/10 »): a copy made the day before starts with a
+ * day that is over. Days that carry no date of today are kept only from a copy made today.
+ */
+export function joursDuJour<J extends { jour: string }>(jours: J[] | undefined, fetchedAt: Date, now: Date): J[] {
+  const local = new Date(now.getTime() + 4 * 3600_000).toISOString();
+  const from = (jours ?? []).findIndex((j) => j.jour.endsWith(` ${local.slice(8, 10)}/${local.slice(5, 7)}`));
+  return from >= 0 ? jours!.slice(from) : daysApart(fetchedAt, now) === 0 ? (jours ?? []) : [];
 }
 
 export interface PrevisionAnswer {

@@ -45,6 +45,7 @@ import {
   type DechetsAnswer,
   type ElectriciteAnswer,
   FRESH_SECONDS,
+  joursDuJour,
   type PlaceData,
   type SeaData,
   type TraficAnswer,
@@ -176,11 +177,12 @@ function usable(c: Copy, copy: Cached<unknown> | null | undefined, now: Date): c
   return !c.sameDay || localDay(copy.fetchedAt) === localDay(now);
 }
 
-function weather(d: PlaceData, now: Date) {
+function weather(d: PlaceData, fetchedAt: Date, now: Date) {
   const stations = d.meteo?.stations.filter((s) => s.mesures.temperature) ?? [];
   // A station far below or on the other side says little of the place: one that stands for it, when there is one.
   const s = stations.find((x) => x.pertinence !== "faible") ?? stations[0];
-  const jours = d.prevision?.jours ?? [];
+  // From today's, a copy of before midnight starting with yesterday (web/data.ts).
+  const jours = joursDuJour(d.prevision?.jours, fetchedAt, now);
   // In the evening, tomorrow too: what is left of today is short.
   const evening = new Date(now.getTime() + 4 * 3600_000).getUTCHours() >= 17;
   if (!s && !jours.length) return undefined;
@@ -242,7 +244,7 @@ export type Resume = ReturnType<typeof resume>;
 export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: LeftOut[] = []) {
   const today = localDay(now);
   const nom = commune.nom;
-  const meteo = l.meteo ? weather(l.meteo.value, now) : undefined;
+  const meteo = l.meteo ? weather(l.meteo.value, l.meteo.fetchedAt, now) : undefined;
   const news = [...(l.actualites?.value.en_direct ?? []), ...(l.actualites?.value.infos ?? [])]
     .filter((i) => i.communes?.includes(nom) && now.getTime() - Date.parse(i.publie) < NEWS_HOURS * 3600_000);
   const roads = news.filter((i) => i.sujets?.some((s) => ROADS.includes(s)));
