@@ -1346,14 +1346,30 @@ export function roadNews(news: actuSource.Fil | undefined, now: Date): NonNullab
  * The news as last read (for /actualites, the tool, the home page's tile), without reading the feeds for this view.
  * When there is none (a new version, a data center that never read it) or it is old, it is read again afterwards.
  */
-export async function roadNewsNow(cache: Cache, background: Background, now = new Date()): Promise<actuSource.Fil | undefined> {
+export async function roadNewsRead(cache: Cache, background: Background, now = new Date()): Promise<Cached<actuSource.Fil> | undefined> {
   const got = await cache.peek<actuSource.Fil>("actualites:fil", now.getTime() - ROAD_NEWS_STALE_SECONDS * 1000).catch(() => undefined);
   const old = !got || now.getTime() - got.fetchedAt.getTime() > ROAD_NEWS_STALE_SECONDS * 1000;
   if (old && now.getTime() - roadNewsAsked > ROAD_NEWS_RETRY_MS && left() >= ROAD_NEWS_MIN_LEFT) {
     roadNewsAsked = now.getTime();
     background(actuSource.fil(cache, now).catch((err) => console.error("trafic : actualités indisponibles", why(err))));
   }
-  return got?.value;
+  return got;
+}
+export const roadNewsNow = async (cache: Cache, background: Background, now = new Date()) => (await roadNewsRead(cache, background, now))?.value;
+
+// The headlines on the fords, for /crues: by their title only, the préfecture's of the last day, then the media's of the
+// last hours. An announcement, never the state of a ford: that is on infotrafic.re, which nothing here reads.
+const FORD_TITLE = /\bradiers?\b/;
+const FORD_MAX = 6;
+
+/** The headlines of the préfecture and the media that name a ford, with their source and their time. */
+export function fordNews(news: actuSource.Fil | undefined, now: Date): { titre: string; lien: string; source: string; heure: string }[] {
+  const after = (h: number) => new Date(now.getTime() - h * 3600_000).toISOString();
+  const onFords = (i: actuSource.Info) => FORD_TITLE.test(normalize(i.titre));
+  const row = (i: actuSource.Info) => ({ titre: i.titre, lien: i.lien, source: `${i.media}${i.direct ? ", en direct" : ""}`, heure: newsTime(i, now).replace(/^aujourd'hui à /, "") });
+  const prefecture = (news?.prefecture ?? []).filter((i) => i.publie >= after(PREFECTURE_HOURS) && onFords(i)).slice(0, PREFECTURE_MAX);
+  const medias = (news?.infos ?? []).filter((i) => i.publie >= after(ROAD_NEWS_HOURS) && onFords(i)).slice(0, FORD_MAX);
+  return [...prefecture, ...medias].map(row);
 }
 
 /** The page's data with the headlines of now: the page's copy lasts minutes, a blockade should not wait for it. */

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, type Cached, MemoryStore } from "../src/cache.js";
-import { buildCrues, type CruesAnswer } from "../src/web/data.js";
+import { buildCrues, type CruesAnswer, fordNews } from "../src/web/data.js";
 import { cruesLive, cruesPage } from "../src/web/domains.js";
 import { homePage } from "../src/web/home.js";
 import { deadAnchors, doubleIds } from "./cartes.js";
@@ -124,6 +124,46 @@ describe("the /crues page", () => {
     // Read more than 15 minutes ago: said, as on the vigilance's tile.
     expect(cruesLive(data, new Date(NOW.getTime() + 30 * 60_000))!.detail).toMatch(/ · lue à 03:51$/);
     expect(cruesLive(null, NOW)).toBeUndefined();
+  });
+
+  it("gives the préfecture's instruction on the fords word for word, then the headlines that name a ford, with their source and time", async () => {
+    const { data } = await page();
+    const at = (iso: string) => new Date(iso).toISOString();
+    const info = (titre: string, publie: string, media = "Clicanoo", heure = true) => ({ titre, media, lien: `https://example.re/${encodeURIComponent(titre)}`, publie: at(publie), heure, communes: [], lieux: [], sujets: ["route"] });
+    const news = {
+      infos: [
+        info("Fortes pluies : le radier du Ouaki fermé à la circulation", "2026-10-23T23:30:00Z"),
+        info("Saint-Benoît : les radiers de la rivière des Marsouins submergés", "2026-10-23T22:10:00Z", "Imaz Press"),
+        info("Bouchons sur la quatre voies", "2026-10-23T23:40:00Z"),
+        // Too old for the media's hours.
+        info("Radier submergé à Saint-Paul", "2026-10-23T12:00:00Z"),
+      ],
+      prefecture: [info("Fermeture des radiers en vigilance orange", "2026-10-23T20:00:00Z", "Préfecture de La Réunion", false)],
+      indisponible: [],
+    };
+    const annonces = fordNews(news, NOW);
+    expect(annonces.map((a) => [a.heure, a.source, a.titre])).toEqual([
+      ["aujourd'hui", "Préfecture de La Réunion", "Fermeture des radiers en vigilance orange"],
+      ["03:30", "Clicanoo", "Fortes pluies : le radier du Ouaki fermé à la circulation"],
+      ["02:10", "Imaz Press", "Saint-Benoît : les radiers de la rivière des Marsouins submergés"],
+    ]);
+    const lue = new Date(NOW.getTime() - 120_000);
+    const w = words(cruesPage(ORIGIN, data, NOW, undefined, { annonces, lue }));
+    expect(w).toContain("Par fortes pluies Les radiers L'état officiel des routes et des radiers est sur la carte d'infotrafic.re, le site de la Région, qui ne s'affiche que chez elle. Ici, les annonces de la préfecture et des médias qui parlent d'un radier, avec leur heure.");
+    expect(w).toContain("Consigne de la préfecture en vigilance fortes pluies : « Je ne tente jamais de franchir, à pied ou en voiture, les ravines et les rivières en crue, ou qui peuvent l'être soudainement, ainsi que les radiers submergés ». Communiqué du 02/04/2026 ↗");
+    expect(w).toContain("03:30 · Clicanoo : Fortes pluies : le radier du Ouaki fermé à la circulation ↗");
+    expect(w).toContain("Carte officielle (infotrafic.re) ↗");
+    const html = cruesPage(ORIGIN, data, NOW, undefined, { annonces, lue });
+    expect(html).toContain('<a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Vigilance-orange-fortes-pluies-orages-a-partir-de-12h" rel="noopener">Communiqué du 02/04/2026 ↗</a>');
+    expect(html).toContain('href="https://www.infotrafic.re/"');
+    // Nothing announced: never « open », the official state where it is.
+    const none = words(cruesPage(ORIGIN, data, NOW, undefined, { annonces: [], lue }));
+    expect(none).toContain("Aucune annonce de la préfecture ni des médias sur un radier dans notre lecture de 03:50. Cela ne dit pas qu'ils sont ouverts : l'état officiel est sur infotrafic.re.");
+    expect(none).not.toMatch(/radiers? (sont )?ouverts?\b|pas de radier fermé|Nous avons demandé à la Région/i);
+    // The news not read: the instruction and the link, no « aucune annonce ».
+    const unread = words(cruesPage(ORIGIN, data, NOW));
+    expect(unread).toContain("Consigne de la préfecture en vigilance fortes pluies");
+    expect(unread).not.toContain("Aucune annonce");
   });
 
   it("puts the tile first on the home page in a flood vigilance, and with the quiet vigilance at the end otherwise", async () => {

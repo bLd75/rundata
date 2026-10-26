@@ -969,7 +969,32 @@ function gaugeRow(s: CruesStation, read: string): string {
   return `<li class="tgt" id="${anchorId("s", s.station)}"><span>${esc(s.station)} · ${esc(s.commune)}<small>${value}</small>${marks}</span><span></span></li>`;
 }
 
-export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now = new Date(), alerte?: Alerte): string {
+// The fords (marketing): the préfecture's instruction in heavy rain, word for word with its communiqué, then the
+// announcements that name a ford, each with its source and its time; their state is on infotrafic.re, of which only the
+// link is given.
+const FORD_RULE = "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Vigilance-orange-fortes-pluies-orages-a-partir-de-12h";
+
+/** The headlines on the fords as the page shows them, and when the news was read; absent when it was not. */
+export interface Fords {
+  annonces: { titre: string; lien: string; source: string; heure: string }[];
+  lue: Date;
+}
+
+function fordsSection(f: Fords | undefined, now: Date): string {
+  const rule = `<p>Consigne de la préfecture en vigilance fortes pluies : «\u00a0Je ne tente jamais de franchir, à pied ou en voiture, les ravines et les rivières en crue, ou qui peuvent l'être soudainement, ainsi que les radiers submergés\u00a0». <a href="${FORD_RULE}" rel="noopener">Communiqué du 02/04/2026 ↗</a></p>`;
+  const said = !f
+    ? ""
+    : f.annonces.length
+      ? `<ul class="plain">${f.annonces.map((a) => `<li>${esc(a.heure)} · ${esc(a.source)} : <a href="${esc(a.lien)}" rel="noopener"${fenetre(a.lien)}>${esc(a.titre)} ↗</a></li>`).join("")}</ul>`
+      : `<p>Aucune annonce de la préfecture ni des médias sur un radier dans notre lecture ${readAt(f.lue, now).de}. Cela ne dit pas qu'ils sont ouverts : l'état officiel est sur infotrafic.re.</p>`;
+  return `<section aria-labelledby="h-radiers">
+  <div class="sec-h"><p class="eyebrow">Par fortes pluies</p><h2 id="h-radiers">Les radiers</h2>
+  <p>L'état officiel des routes et des radiers est sur la carte d'infotrafic.re, le site de la Région, qui ne s'affiche que chez elle. Ici, les annonces de la préfecture et des médias qui parlent d'un radier, avec leur heure.</p></div>
+  <div class="card">${icon("car")}${rule}${said}<p class="hero-cta"><a class="btn sun" href="${INFOTRAFIC}">${icon("car")}Carte officielle (infotrafic.re) ↗</a></p></div>
+</section>`;
+}
+
+export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now = new Date(), alerte?: Alerte, fords?: Fords): string {
   const d = data?.value;
   const url = `${origin}/crues`;
   const read = data ? readAt(data.fetchedAt, now).de : "";
@@ -1049,6 +1074,7 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
   ${gauges}
   ${sources}
 </section>
+${fordsSection(fords, now)}
 ${connectorCta("crues_rivieres", "les rivières de l'île")}`;
 
   return layout(origin, { title, description, path: "/crues", jsonld: [crumbs(origin, "Crues", "/crues"), webPage(origin, "/crues", title, description, data)], alerte }, band, body);

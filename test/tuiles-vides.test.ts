@@ -30,7 +30,7 @@ const EMPTY: HomeLive = {
   historique: cached({ stations: [] }),
 };
 // The categories whose copy is not given above: they wait for it.
-const NO_COPY = ["vigilance", "trafic", "sentiers", "secheresse", "coupures", "sport", "cyclones", "agenda", "actualites"];
+const NO_COPY = ["vigilance", "trafic", "sentiers", "secheresse", "coupures", "sport", "cyclones", "agenda", "actualites", "crues"];
 // Nothing to fetch: the lists bundled with the server.
 const BUNDLED = ["dae", "enfants"];
 // From the weather's copy.

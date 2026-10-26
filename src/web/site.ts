@@ -25,7 +25,9 @@ import {
   buildEau,
   buildSentiers,
   buildTrafic,
+  fordNews,
   roadNewsNow,
+  roadNewsRead,
   withRoadNews,
   buildRandonnees,
   buildSecheresse,
@@ -389,6 +391,16 @@ async function pages(request: Request, cache: Cache, background: Background, now
       roadNewsNow(cache, background, now),
     ]);
     return page(path, (live) => traficPage(origin, live && data ? { ...data, value: withRoadNews(data.value, news, now) } : null, now, a), data, background, [rebuild(cache, "web:trafic", () => buildTrafic(cache, now))]);
+  }
+  // The rivers' copy lasts minutes; the headlines on the fords are those of the view, as on /trafic.
+  if (path === "/crues" || path === "/crues/") {
+    const [data, a, news] = await Promise.all([
+      snapshot(cache, "web:crues", () => buildCrues(cache, now), background, now, waitFor(request), isReader(request)),
+      alerte(cache, background, now),
+      roadNewsRead(cache, background, now),
+    ]);
+    const fords = news && { annonces: fordNews(news.value, now), lue: news.fetchedAt };
+    return page(path, (live) => cruesPage(origin, live ? data : null, now, a, fords), data, background, [rebuild(cache, "web:crues", () => buildCrues(cache, now))]);
   }
   // A commune's water: the copy of /coupures-eau, and the last ones of /secheresse and /eau as they are.
   const water = /^\/coupures-eau\/([a-z-]+)\/?$/.exec(path);
