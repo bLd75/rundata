@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { parseVigilance, STATIONS, type Vigilance } from "../src/providers/vigicrues.js";
-import { crues, riverAsked, vigilanceText } from "../src/tools/crues.js";
+import { crues, islandLevels, levelRow, riverAsked, sentence, vigilanceText } from "../src/tools/crues.js";
 
 // Vigicrues Réunion on 23/10/2026 at 23:45 UTC (03:45 in La Réunion): no flood vigilance, the ravine des Cabris
 // rising a few centimetres from dry.
@@ -47,7 +47,7 @@ describe("Vigicrues Réunion", () => {
 
   it("sums up the island: the levels measured and their time first, then the vigilance and why no bulletin is out", async () => {
     const r = body(await crues(cache(), undefined, NOW));
-    expect(r.resume).toMatch(/^En hausse sur la dernière demi-heure : Cabris - RN3 \(ravine des Cabris, Saint-Pierre\) : 0,06 m, en hausse.* \(mesures de 03:45\)\. Pas de vigilance crues en cours/);
+    expect(r.resume).toMatch(/^En hausse sur la dernière demi-heure \(mesures de 03:45\)\u00a0: Cabris - RN3 \(ravine des Cabris, Saint-Pierre\) : 0,06 m, en hausse[^]*?\. (Sans mesure récente\u00a0: [^.]+\. )?Pas de vigilance crues en cours/);
     // The last bulletin is the end of the last episode, never the levels' date: Vigicrues Réunion publishes in vigilance only.
     expect(r.resume).toMatch(/Pas de vigilance crues en cours : toutes les rivières suivies sont au vert\. Aucun bulletin de vigilance depuis le 07\/08 à 06:22 : Vigicrues Réunion n'en publie que lorsqu'au moins une rivière est en vigilance jaune ou plus\.$/);
     expect(r.resume).not.toMatch(/dernier bulletin/);
@@ -56,26 +56,36 @@ describe("Vigicrues Réunion", () => {
     expect(r.stations).toHaveLength(STATIONS.length);
   });
 
-  it("counts apart, by name, the stations without a recent measurement, never as not rising", async () => {
-    const id = (nom: string) => STATIONS.find((s) => s.nom === nom)!.id;
-    const h = JSON.parse(fixture("vigicrues_hauteur.json")) as Record<string, [number, number][]>;
-    // Cabris flat again, Saint-Gilles stopped an hour before the others, Mât - Escalier with no reading at all.
-    h[id("Cabris - RN3")] = h[id("Cabris - RN3")].map(([t]) => [t, 0.05]);
-    const end = Math.max(...h[id("Saint-Gilles - RN1a")].map(([t]) => t));
-    h[id("Saint-Gilles - RN1a")] = h[id("Saint-Gilles - RN1a")].filter(([t]) => t <= end - 3600_000);
-    delete h[id("Mât - Escalier")];
-    vi.stubGlobal("fetch", async (url: string, init?: { body?: URLSearchParams }) => {
-      const mesure = init?.body?.get("mesure");
-      const json = url.endsWith("vigilance.php") ? fixture("vigicrues_vigilance.json") : mesure === "hauteur" ? JSON.stringify(h) : fixture(`vigicrues_${mesure}.json`);
-      return new Response(json, { headers: { "content-type": "application/json" } });
-    });
-    const r = body(await crues(cache(), undefined, NOW));
-    const silent = r.stations.filter((s: { avertissement?: string; hauteur_m: number | null }) => s.avertissement || s.hauteur_m === null);
-    const names = silent.map((s: { station: string }) => s.station);
-    expect(names).toEqual(expect.arrayContaining(["Saint-Gilles - RN1a", "Mât - Escalier"]));
-    expect(r.resume).toMatch(new RegExp(`^Aucune des ${STATIONS.length - silent.length} stations à jour n'est en hausse sur la dernière demi-heure \\(mesures de 03:45\\) ; ${silent.length} sans mesure récente : `));
-    for (const n of names) expect(r.resume).toContain(n);
-    expect(r.stations.find((s: { station: string }) => s.station === "Saint-Gilles - RN1a").avertissement).toBe("Dernière mesure il y a 82 min.");
+  it("says the island's levels from the stations measured lately only, the others apart, their trend never said", () => {
+    const at = (hhmm: string) => Date.parse(`2026-10-23T${hhmm}:00+04:00`);
+    const now = new Date(at("03:50"));
+    type T = "en hausse" | "stable";
+    const lvl = (i: number, hhmm?: string, tendance: T = "stable", v = 0.18) => ({ station: STATIONS[i], ...(hhmm ? { hauteur: { t: at(hhmm), v, tendance, max3h: v } } : {}) });
+    const name = (i: number) => STATIONS[i].nom;
+    const read = at("03:48");
+    // n = 0: the time of our read, and that we do not know.
+    expect(islandLevels([lvl(0, "03:00"), lvl(1)], now, read)).toBe("Aucune des 2 stations n'a de mesure de moins de 30 minutes dans notre lecture de 03:48\u00a0: nous ne savons pas pour l'instant si les rivières montent.");
+    // n = 1: the station and its river, then the others named.
+    expect(islandLevels([lvl(0, "03:45"), lvl(1, "03:00", "en hausse"), lvl(2)], now, read)).toBe(
+      `La seule station à jour, ${name(0)} (${STATIONS[0].riviere}), n'est pas en hausse sur la dernière demi-heure (mesure de 03:45). Sans mesure récente\u00a0: ${name(1)}, ${name(2)}.`,
+    );
+    // n ≥ 2, none silent: no ending.
+    expect(islandLevels([lvl(0, "03:40"), lvl(1, "03:45")], now, read)).toBe("Aucune des 2 stations à jour n'est en hausse sur la dernière demi-heure (mesures de 03:45).");
+    // A rise: only the stations measured lately; a late one rising is not said rising, only without a recent measurement.
+    const rise = islandLevels([lvl(0, "03:45", "en hausse", 0.42), lvl(1, "03:45"), lvl(2, "03:00", "en hausse")], now, read);
+    expect(rise).toBe(`En hausse sur la dernière demi-heure (mesures de 03:45)\u00a0: ${name(0)} (${STATIONS[0].riviere}, ${STATIONS[0].commune}) : 0,42 m, en hausse. Sans mesure récente\u00a0: ${name(2)}.`);
+    // More than five silent: counted, not named.
+    const many = islandLevels([lvl(0, "03:40"), lvl(1, "03:45"), ...[2, 3, 4, 5, 6, 7].map((i) => lvl(i))], now, read);
+    expect(many).toBe("Aucune des 2 stations à jour n'est en hausse sur la dernière demi-heure (mesures de 03:45). Sans mesure récente\u00a0: 6 stations.");
+    expect(many).not.toContain(name(2));
+  });
+
+  it("says a late station's last level with its time, never its trend, and « Dernière mesure il y a … »", () => {
+    const now = new Date(Date.parse("2026-10-23T05:22:00+04:00"));
+    const l = { station: STATIONS[0], hauteur: { t: Date.parse("2026-10-23T04:00:00+04:00"), v: 0.18, tendance: "en hausse" as const, max3h: 0.2 } };
+    expect(sentence(l, now)).toBe(`${STATIONS[0].nom} (${STATIONS[0].riviere}, ${STATIONS[0].commune}) : 0,18 m à 04:00, pas de mesure plus récente`);
+    expect(sentence(l, new Date(Date.parse("2026-10-23T04:10:00+04:00")))).toMatch(/: 0,18 m, en hausse$/);
+    expect(levelRow(l, now).avertissement).toBe("Dernière mesure il y a 82 min.");
   });
 
   it("asks only for the gauges near the place", async () => {

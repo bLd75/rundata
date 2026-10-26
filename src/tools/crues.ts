@@ -44,15 +44,22 @@ export function level(station: vc.Station, h: vc.Readings, q: vc.Readings): Leve
   return out;
 }
 
+/** Measured more than LATE_MINUTES ago: its level is said with its time, its trend never. */
+const late = (l: Level, now: Date) => !!l.hauteur && ageMinutes(new Date(l.hauteur.t), now) > LATE_MINUTES;
+
 /** The smallest flood the DEAL keeps as a landmark: « 1,5 m lors du cyclone Dumile (janvier 2013) ». */
 function landmark(s: vc.Station): string | undefined {
   const c = [...s.crues].sort((a, b) => a.hauteur_m - b.hauteur_m)[0];
   return c ? `${fr(c.hauteur_m)} m (${c.nom})` : undefined;
 }
 
-/** « Mât - Escalier (rivière du Mât, Salazie) : 0,42 m, stable, 3,1 m³/s ». */
-export function sentence(l: Level): string {
+/**
+ * « Mât - Escalier (rivière du Mât, Salazie) : 0,42 m, stable, 3,1 m³/s »; a station late at `now`, its last level and
+ * its time, never a trend, which dates from before it (marketing): « … : 0,18 m à 04:00, pas de mesure plus récente ».
+ */
+export function sentence(l: Level, now?: Date): string {
   const s = l.station;
+  if (l.hauteur && now && late(l, now)) return `${s.nom} (${s.riviere}, ${s.commune}) : ${fr(Math.round(l.hauteur.v * 100) / 100)} m à ${hm(l.hauteur.t)}, pas de mesure plus récente`;
   const parts = l.hauteur ? [`${fr(Math.round(l.hauteur.v * 100) / 100)} m, ${l.hauteur.tendance}`] : ["pas de mesure récente"];
   if (l.debit) parts.push(`${fr(Math.round(l.debit.v * 100) / 100)} m³/s`);
   return `${s.nom} (${s.riviere}, ${s.commune}) : ${parts.join(", ")}`;
@@ -125,10 +132,31 @@ const COMMON = {
   site: vc.SOURCE.url,
 };
 
+// Up to this many stations without a recent measurement are named; beyond, counted.
+const NAMED_SILENT = 5;
+
+/**
+ * The island's levels in marketing's words: only the stations measured within LATE_MINUTES are said rising or not;
+ * the others, « sans mesure récente », named or counted in a sentence of their own, their trend never said. With none
+ * measured lately, the time of our read and that we do not know.
+ */
+export function islandLevels(levels: Level[], now: Date, readAt: number): string {
+  const fresh = levels.filter((l) => l.hauteur && !late(l, now));
+  if (!fresh.length) return `Aucune des ${levels.length} stations n'a de mesure de moins de ${LATE_MINUTES} minutes dans notre lecture de ${hm(readAt)}\u00a0: nous ne savons pas pour l'instant si les rivières montent.`;
+  const silent = levels.filter((l) => !fresh.includes(l));
+  const end = !silent.length ? "" : ` Sans mesure récente\u00a0: ${silent.length <= NAMED_SILENT ? silent.map((l) => l.station.nom).join(", ") : `${silent.length} stations`}.`;
+  const at = hm(Math.max(...fresh.map((l) => l.hauteur!.t)));
+  const rising = fresh.filter((l) => l.hauteur!.tendance === "en hausse");
+  if (rising.length) return `En hausse sur la dernière demi-heure (mesures de ${at})\u00a0: ${rising.map((l) => sentence(l)).join("\u00a0; ")}.${end}`;
+  if (fresh.length === 1) return `La seule station à jour, ${fresh[0].station.nom} (${fresh[0].station.riviere}), n'est pas en hausse sur la dernière demi-heure (mesure de ${at}).${end}`;
+  return `Aucune des ${fresh.length} stations à jour n'est en hausse sur la dernière demi-heure (mesures de ${at}).${end}`;
+}
+
 async function read(cache: Cache, ids: string[] | undefined, now: Date) {
   let v: vc.Vigilance | null = null;
   let h: vc.Readings = {};
   let q: vc.Readings = {};
+  let readAt = now.getTime();
   const failed: string[] = [];
   const lost = (what: string) => (err: unknown) => {
     console.error(`source ${vc.SOURCE.id} indisponible (${what}):`, why(err));
@@ -136,10 +164,10 @@ async function read(cache: Cache, ids: string[] | undefined, now: Date) {
   };
   await Promise.all([
     vc.vigilance(cache).then((r) => void (v = r.value), lost("vigilance")),
-    vc.readings(cache, "hauteur", ids, now).then((r) => void (h = r.value), lost("hauteurs")),
+    vc.readings(cache, "hauteur", ids, now).then((r) => void ((h = r.value), (readAt = r.fetchedAt.getTime())), lost("hauteurs")),
     vc.readings(cache, "debit", ids, now).then((r) => void (q = r.value), lost("débits")),
   ]);
-  return { v: v as vc.Vigilance | null, h, q, failed };
+  return { v: v as vc.Vigilance | null, h, q, failed, readAt };
 }
 
 export async function crues(cache: Cache, lieu: string | undefined, now = new Date()) {
@@ -156,21 +184,12 @@ export async function crues(cache: Cache, lieu: string | undefined, now = new Da
   };
 
   if (!lieu?.trim()) {
-    const { v, h, q, failed } = await read(cache, undefined, now);
+    const { v, h, q, failed, readAt } = await read(cache, undefined, now);
     if (!v && !Object.keys(h).length) return down();
     const { say, common } = context(v, failed);
     const levels = vc.STATIONS.map((s) => level(s, h, q));
-    const rising = levels.filter((l) => l.hauteur?.tendance === "en hausse");
-    // A station without a recent measurement is not « not rising »: counted apart, by name (marketing).
-    const fresh = levels.filter((l) => l.hauteur && ageMinutes(new Date(l.hauteur.t), now) <= LATE_MINUTES);
-    const silent = levels.filter((l) => !fresh.includes(l));
-    const at = measuredAt(rising.length ? levels : fresh);
-    const apart = silent.length ? `\u00a0; ${silent.length} sans mesure récente\u00a0: ${silent.map((l) => l.station.nom).join(", ")}` : "";
-    const moving = rising.length
-      ? `En hausse sur la dernière demi-heure : ${rising.map(sentence).join("\u00a0; ")}${at ? ` (${at})` : ""}`
-      : `Aucune des ${fresh.length} stations à jour n'est en hausse sur la dernière demi-heure${at ? ` (${at})` : ""}${apart}`;
     return text({
-      resume: say(`${moving}.`),
+      resume: say(islandLevels(levels, now, readAt)),
       ...(v ? { vigilance_crues: vigilanceBlock(v) } : {}),
       stations: levels.map((l) => levelRow(l, now)),
       ...common,
@@ -186,7 +205,7 @@ export async function crues(cache: Cache, lieu: string | undefined, now = new Da
     const ref = landmark(river[0]);
     const at = measuredAt(mine);
     return text({
-      resume: say(`${mine.map(sentence).join("\u00a0; ")}${at ? ` (${at})` : ""}.${ref ? ` Pour repère, la plus petite crue de référence à ${river[0].nom} : ${ref}.` : ""}`),
+      resume: say(`${mine.map((l) => sentence(l, now)).join("\u00a0; ")}${at ? ` (${at})` : ""}.${ref ? ` Pour repère, la plus petite crue de référence à ${river[0].nom} : ${ref}.` : ""}`),
       ...(v ? { vigilance_crues: vigilanceBlock(v) } : {}),
       stations: mine.map((l) => levelRow(l, now)),
       ...common,
@@ -208,7 +227,7 @@ export async function crues(cache: Cache, lieu: string | undefined, now = new Da
   return text({
     lieu: placeBlock(lieu, res),
     resume: say(
-      `Rivières suivies près ${de(p.nom)}${at ? `, ${at}` : ""} : ${shown.map((x, i) => `${sentence(levels[i])} (à ${fr(Math.round(x.km))} km)`).join("\u00a0; ")}.` +
+      `Rivières suivies près ${de(p.nom)}${at ? `, ${at}` : ""} : ${shown.map((x, i) => `${sentence(levels[i], now)} (à ${fr(Math.round(x.km))} km)`).join("\u00a0; ")}.` +
         (ref ? ` Pour repère, la plus petite crue de référence à ${shown[0].s.nom} : ${ref}.` : ""),
     ),
     ...(v ? { vigilance_crues: vigilanceBlock(v) } : {}),
