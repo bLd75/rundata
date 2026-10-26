@@ -74,7 +74,7 @@ export const DOMAINES: Domaine[] = [
   // The buses' delays every minute (providers/gtfsrt.ts).
   { categorie: "bus", sources: ids("gtfs_reunion", "gtfs_rt_reunion"), cadence: { minutes: 1, de: "gtfs_rt_reunion" } },
   { categorie: "velos", sources: ids("altervelo"), cadence: { minutes: 1, de: "altervelo" } },
-  // The workflow writes the charge points' states every 15 minutes (.github/workflows/irve.yml).
+  // The scheduled event writes the charge points' states every 15 minutes (providers/irve.ts, refresh).
   { categorie: "bornes", sources: ids("irve"), cadence: { minutes: 15, de: "irve" } },
   { categorie: "coupures", sources: ids("avis_eau"), cadence: { minutes: 15, de: "avis_eau" } },
   { categorie: "dae", sources: ids("geodae") },

@@ -18,6 +18,7 @@ import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, SERVICE_OPS_LIMIT, SUBREQU
 import { IN_FLIGHT } from "./http.js";
 import { AGENDAS } from "./providers/agenda.js";
 import { MAX_NEW_GRIDS } from "./providers/arome.js";
+import { REFRESH_EVERY as IRVE_EVERY, REFRESH_OFFSET as IRVE_OFFSET } from "./providers/irve.js";
 import { SHARED, SHARED_AFTER, type Shared } from "./web/partagees.js";
 import { COMMUNE_TILES, DOMAINS, HOME_TILES } from "./web/site.js";
 
@@ -28,6 +29,8 @@ export const MEASURED = "du 23/10/2026 23:07 au 25/10/2026 23:07, heure de La R�
 export const EVENT_MINUTES = 5;
 /** The CPU a scheduled event may take, ms: fixed for a cron that runs more often than hourly. */
 export const SCHEDULED_CPU_MS = 30_000;
+/** The memory of an isolate, Mo: every invocation it serves at once shares it. */
+export const ISOLATE_MEMORY_MB = 128;
 
 export type Trigger = "planifiée" | "visite" | "question" | "actions";
 /** `mesuré`: over MEASURED; `code`: read in the code (a bound, a count); `estimé`: from a neighbour's measure. */
@@ -46,6 +49,8 @@ export interface Run {
   d1RowsWritten?: number;
   /** ms; for a workflow, nothing (it runs on GitHub, not in the Worker). */
   cpuMs: number;
+  /** Mo held at once at its peak, declared by the reads of a file of several Mo; left out by the others. */
+  memoryMb?: number;
 }
 
 export interface Entry {
@@ -204,6 +209,18 @@ const SCHEDULED: Entry[] = [
     offset: 2 * 60,
     run: { subrequests: SANS_REPONSE_HOSTS + 2, d1Calls: 2, d1RowsRead: SANS_REPONSE_HOSTS, d1RowsWritten: SANS_REPONSE_HOSTS + 1, cpuMs: 30 },
     from: ["src/sans-reponse.ts"],
+    basis: "estimé",
+  },
+  // The national file (about 9 Mo, 125 000 lines), read after the event's other reads. Measured in Node on the real file
+  // (26/10): 20 to 53 ms of CPU, doubled here; 9 to 17 Mo held besides its 9 Mo of text.
+  {
+    id: "irve:etat",
+    trigger: "planifiée",
+    what: "bornes de recharge : la part de La Réunion du fichier national (environ 9 Mo), écrite dans KV après les autres lectures",
+    every: IRVE_EVERY,
+    offset: IRVE_OFFSET,
+    run: { subrequests: 2, kvWrites: 1, cpuMs: 100, memoryMb: 30 },
+    from: ["src/providers/irve.ts"],
     basis: "estimé",
   },
   {
@@ -427,6 +444,7 @@ const sum = (runs: Run[]): Run => runs.reduce<Run>((a, r) => ({
   d1RowsRead: (a.d1RowsRead ?? 0) + (r.d1RowsRead ?? 0),
   d1RowsWritten: (a.d1RowsWritten ?? 0) + (r.d1RowsWritten ?? 0),
   cpuMs: a.cpuMs + r.cpuMs,
+  memoryMb: (a.memoryMb ?? 0) + (r.memoryMb ?? 0),
 }), { subrequests: 0, cpuMs: 0 });
 
 const scheduled = (entries = REGISTRY) => entries.filter((e) => e.trigger === "planifiée");
@@ -467,7 +485,7 @@ export const dearest = (trigger: "visite" | "question", entries = REGISTRY) =>
 /** The dearest build of a shared copy, against BUILD_BUDGET. */
 export const dearestBuild = () => [...SHARED, ...SHARED_AFTER].reduce((a, s) => ((s.cold ?? 0) > (a.cold ?? 0) ? s : a));
 
-export const LIMITS = { SUBREQUEST_LIMIT, SERVICE_OPS_LIMIT, SCHEDULED_BUDGET, PAGE_BUDGET, BUILD_BUDGET, IN_FLIGHT, SCHEDULED_CPU_MS };
+export const LIMITS = { SUBREQUEST_LIMIT, SERVICE_OPS_LIMIT, SCHEDULED_BUDGET, PAGE_BUDGET, BUILD_BUDGET, IN_FLIGHT, SCHEDULED_CPU_MS, ISOLATE_MEMORY_MB };
 
 /** Each total against its limit: what the test checks and BUDGET.md shows. */
 export function checks(entries = REGISTRY): { what: string; value: number; limit: number }[] {
@@ -477,6 +495,7 @@ export function checks(entries = REGISTRY): { what: string; value: number; limit
     { what: "pire passage planifié, sous-requêtes", value: worst.subrequests, limit: SCHEDULED_BUDGET },
     { what: "pire passage planifié, appels KV et D1", value: serviceOps(worst), limit: SERVICE_OPS_LIMIT },
     { what: "pire passage planifié, CPU (ms)", value: worst.cpuMs, limit: SCHEDULED_CPU_MS },
+    { what: "pire passage planifié, mémoire déclarée (Mo)", value: worst.memoryMb ?? 0, limit: ISOLATE_MEMORY_MB },
     { what: "passage le plus chargé (cadences les plus courtes), sous-requêtes", value: busy.run.subrequests, limit: SCHEDULED_BUDGET },
     { what: "vue la plus chère, sous-requêtes", value: dearest("visite", entries).run.subrequests, limit: PAGE_BUDGET },
     { what: "question la plus chère, sous-requêtes", value: dearest("question", entries).run.subrequests, limit: PAGE_BUDGET },
@@ -518,11 +537,13 @@ export function budget(entries = REGISTRY): string {
     `- ${n(SUBREQUEST_LIMIT)} sous-requêtes par invocation, et ${n(SERVICE_OPS_LIMIT)} appels à KV, D1 et aux autres services liés, ensemble.\n` +
     `- ${IN_FLIGHT} lectures en vol à la fois par invocation (src/http.ts), sur les 6 connexions que la plateforme ouvre ensemble.\n` +
     `- Tâche planifiée : toutes les ${EVENT_MINUTES} minutes, ${n(SCHEDULED_BUDGET)} sous-requêtes, ${n(SCHEDULED_CPU_MS)} ms de CPU.\n` +
+    `- Mémoire : ${n(ISOLATE_MEMORY_MB)} Mo par isolat, pour toutes les invocations qu'il sert ensemble.\n` +
     `- Une visite ou une question : ${n(PAGE_BUDGET)} sous-requêtes. Une construction de copie : ${n(BUILD_BUDGET)}.\n\n` +
     `## Totaux\n\n` +
     `| contrôle | valeur | limite |\n|---|---:|---:|\n` +
     checks(entries).map((c) => `| ${c.what} | ${n(c.value)} | ${n(c.limit)} |`).join("\n") + `\n\n` +
     `- Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).\n` +
+    `- Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (${scheduled(entries).filter((e) => e.run.memoryMb).map((e) => `${e.id}, ${n(e.run.memoryMb)} Mo au pic`).join(", ")}), face aux ${n(ISOLATE_MEMORY_MB)} Mo d'un isolat\u00a0; les autres ne la déclarent pas.\n` +
     `- Passage le plus chargé selon les décalages, cadences habituelles : ${hhmm(usual.minute)} UTC, ${n(usual.run.subrequests)} sous-requêtes (${usual.ids.join(", ")}).\n` +
     `- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : ${hhmm(short.minute)} UTC, ${n(short.run.subrequests)} sous-requêtes (${short.ids.join(", ")}).\n` +
     `- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : ${n(together.run.subrequests)} sous-requêtes à ${hhmm(together.minute)} UTC.\n` +

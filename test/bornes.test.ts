@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { configure, IDS, parseLive, STATIONS, timeOf, type Live } from "../src/providers/irve.js";
+import { configure, IDS, parseLive, refresh, refreshDue, STATIONS, timeOf, type Live } from "../src/providers/irve.js";
 import { bornesRecharge } from "../src/tools/bornes.js";
 import { bornesPage } from "../src/web/domains.js";
 import { buildBornes } from "../src/web/data.js";
@@ -19,7 +19,7 @@ function cache(live: Live | null) {
   return new Cache(new MemoryStore(), () => NOW.getTime());
 }
 
-afterEach(() => configure(undefined));
+afterEach(() => (configure(undefined), vi.unstubAllGlobals()));
 
 describe("bornes de recharge", () => {
   it("keeps La Réunion's points only, their times in UTC", () => {
@@ -30,6 +30,20 @@ describe("bornes de recharge", () => {
     expect(timeOf("2026-12-24 02:12:04")).toBe("2026-12-24T01:12:04.000Z");
     expect(timeOf("2026-10-23 06:18:11.896000+00:00")).toBe("2026-10-23T06:18:11.896Z");
     expect(Object.values(LIVE.points).every(([, , at]) => at < NOW.toISOString())).toBe(true);
+  });
+
+  it("writes La Réunion's part every 15 minutes, at 5, 20, 35 and 50 past the hour, never a part that lost its points", async () => {
+    const due = Array.from({ length: 12 }, (_, i) => i * 5).filter((m) => refreshDue(new Date(Date.UTC(2026, 9, 26, 8, m, 2))));
+    expect(due).toEqual([5, 20, 35, 50]);
+    let written: Live | undefined;
+    const write = async (live: Live) => void (written = live);
+    vi.stubGlobal("fetch", async () => new Response(CSV));
+    expect(await refresh(write, NOW)).toBe(407);
+    expect(written).toEqual({ lu: NOW.toISOString(), points: LIVE.points });
+    written = undefined;
+    vi.stubGlobal("fetch", async () => new Response(CSV.split("\n").slice(0, 100).join("\n")));
+    await expect(refresh(write, NOW)).rejects.toThrow(new RegExp(`seulement \\d+ points de La Réunion sur ${IDS.size}`));
+    expect(written).toBeUndefined();
   });
 
   it("knows every station's commune and each point's power", () => {
