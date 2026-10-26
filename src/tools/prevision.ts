@@ -194,6 +194,25 @@ export function merge(e: Forecast | null, a: Forecast | null): Forecast | null {
   };
 }
 
+/**
+ * Today from the hours still to come only, in La Réunion time: the rain of the morning is no forecast at 15h, and a
+ * total from midnight said « aujourd'hui » would announce it as to come. The stretch under way counts for the part of it
+ * left, its rain shared out evenly. The other days are left as the model gives them.
+ */
+function ahead(f: Forecast, now: Date): Forecast {
+  const today = localDate(now);
+  if (!f.days.some((d) => d.date === today)) return f;
+  const t = now.getTime();
+  const hours = f.hours.flatMap((h) => {
+    const start = h.time.getTime();
+    const end = start + h.duree_h * HOUR;
+    if (end <= t) return [];
+    if (start >= t || h.pluie_mm == null) return [h];
+    return [{ ...h, pluie_mm: (h.pluie_mm * (end - t)) / (end - start) }];
+  });
+  return { ...f, days: f.days.map((d) => (d.date === today ? dayFromHours(today, hours) : d)) };
+}
+
 interface Got {
   results: PromiseSettledResult<Cached<Forecast>>[];
   /** The UV index of the island, a forecast of its own (CAMS); missing when it does not answer. */
@@ -235,7 +254,7 @@ async function forecasts(cache: Cache, places: Place[], starts: Date[], now: Dat
     const e = ecmwf[i].status === "fulfilled" ? ecmwf[i].value : null;
     const f = merge(e?.value ?? null, data ? arome.atPlace(data, p) : null);
     if (!f) return ecmwf[i] as PromiseRejectedResult;
-    return { status: "fulfilled", value: { value: f, fetchedAt: e?.fetchedAt ?? now, stale: e?.stale ?? false } };
+    return { status: "fulfilled", value: { value: ahead(f, now), fetchedAt: e?.fetchedAt ?? now, stale: e?.stale ?? false } };
   });
   return { results, uv: uvi, ens, aromeDown: a instanceof Error ? a.message : undefined, aromeLater: wanted.length > 0 && a === null && arome.enabled() };
 }
@@ -254,10 +273,11 @@ export async function prefetchForecasts(cache: Cache, now = new Date()) {
 
 /**
  * The day's sky from its daytime hours, not from the model's daily code: that one is the "worst" hour of the day,
- * and the night-time low cloud of the Hauts turns most days into "brouillard".
+ * and the night-time low cloud of the Hauts turns most days into "brouillard". Today's from its hours still to come
+ * (ahead()), the day's own code only when none is left.
  */
-function daySky(f: Forecast, date: string): string | undefined {
-  const day = f.hours.filter((h) => localDate(h.time) === date && localHour(h.time) >= 6 && localHour(h.time) < 18);
+function daySky(f: Forecast, date: string, now: Date): string | undefined {
+  const day = f.hours.filter((h) => localDate(h.time) === date && localHour(h.time) >= 6 && localHour(h.time) < 18 && h.time.getTime() + h.duree_h * HOUR > now.getTime());
   const wet = day.map((h) => h.code).filter((c): c is number => c != null && c >= 51);
   if (wet.length) return sky(Math.max(...wet));
   const clouds = day.map((h) => h.nuages_pct).filter((c): c is number => c != null);
@@ -283,12 +303,12 @@ function confAt(e: ensemble.Ensemble | null, place: Place, now: Date): ConfOf {
   return ensemble.confidenceAt(e, place.lon, place.lat, now);
 }
 
-function dayBlock(f: Forecast, d: ForecastDay, uvOf?: UvOf, confOf?: ConfOf) {
+function dayBlock(f: Forecast, d: ForecastDay, now: Date, uvOf?: UvOf, confOf?: ConfOf) {
   const u = uvOf?.(d.date);
   const c = confOf?.(d.date);
   return {
     jour: dayLabel(d.date),
-    ciel_en_journee: daySky(f, d.date),
+    ciel_en_journee: daySky(f, d.date, now),
     temperature_min: deg(d.tmin),
     temperature_max: deg(d.tmax),
     pluie: rain(d.pluie_mm),
@@ -300,8 +320,8 @@ function dayBlock(f: Forecast, d: ForecastDay, uvOf?: UvOf, confOf?: ConfOf) {
   };
 }
 
-function daySentence(f: Forecast, d: ForecastDay, uvOf?: UvOf, confOf?: ConfOf): string {
-  const parts = [daySky(f, d.date), d.tmin != null && d.tmax != null ? `${fr(d.tmin)} à ${fr(d.tmax)} °C` : undefined, rain(d.pluie_mm)];
+function daySentence(f: Forecast, d: ForecastDay, now: Date, uvOf?: UvOf, confOf?: ConfOf): string {
+  const parts = [daySky(f, d.date, now), d.tmin != null && d.tmax != null ? `${fr(d.tmin)} à ${fr(d.tmax)} °C` : undefined, rain(d.pluie_mm)];
   if (d.rafales_max_kmh != null) parts.push(`rafales jusqu'à ${Math.round(d.rafales_max_kmh)} km/h`);
   const u = uvOf?.(d.date);
   if (u != null) parts.push(`UV ${uvText(u)}`);
@@ -477,7 +497,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     const lieux = ok.map(({ p, c }) => ({
       lieu: p.nom,
       altitude_m: p.altitude_m ?? undefined,
-      jours: c.value.days.filter((d) => wanted.includes(d.date)).map((d) => dayBlock(c.value, d, uvAt(u, p), confAt(ens, p, now))),
+      jours: c.value.days.filter((d) => wanted.includes(d.date)).map((d) => dayBlock(c.value, d, now, uvAt(u, p), confAt(ens, p, now))),
     }));
     const shown = lieux.some((l) => l.jours.some((j) => j.indice_uv_max)) ? u : null;
     const ensShown = lieux.some((l) => l.jours.some((j) => j.confiance)) ? ens : null;
@@ -488,7 +508,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
       resume:
         `${header(ok[0].c.value, aromeLater)}, tour de l'île — ` +
         ok.map(({ p, c }) => `${p.nom} : ` + c.value.days.filter((d) => wanted.includes(d.date))
-          .map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} ${daySentence(c.value, d, uvAt(u, p), confAt(ens, p, now))}`).join("\u00a0; ")).join(" | "),
+          .map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} ${daySentence(c.value, d, now, uvAt(u, p), confAt(ens, p, now))}`).join("\u00a0; ")).join(" | "),
       periode: period.defaut ? "aujourd'hui et demain" : period.libelle,
       lieux,
       modele: modelBlock(ok[0].c),
@@ -536,9 +556,9 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
     const horizon = now.getTime() + 24 * HOUR;
     pas = steps(f, (h) => h.time.getTime() < horizon, now);
     const days = f.days.filter((d) => d.date >= today);
-    jours = days.map((d) => dayBlock(f, d, uvOf, confOf));
+    jours = days.map((d) => dayBlock(f, d, now, uvOf, confOf));
     resume = `${HEADER} pour ${r.lieu.nom} — ` +
-      days.map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} : ${daySentence(f, d, uvOf, confOf)}`).join("\u00a0; ") + ".";
+      days.map((d) => `${d.date === today ? "aujourd'hui" : dayLabel(d.date)} : ${daySentence(f, d, now, uvOf, confOf)}`).join("\u00a0; ") + ".";
   } else {
     const inRange = period.slots.filter((s) => s.jour <= last);
     if (!inRange.length) {
@@ -553,7 +573,7 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
       });
     }
     const days = f.days.filter((d) => inRange.some((s) => s.jour === d.date));
-    jours = days.map((d) => dayBlock(f, d, uvOf, confOf));
+    jours = days.map((d) => dayBlock(f, d, now, uvOf, confOf));
     pas = steps(f, (h) => inRange.some((s) => s.jour === localDate(h.time) && localHour(h.time) >= s.de && localHour(h.time) < s.a), now);
     const partial = inRange.some((s) => s.de > 0 || s.a < 24);
     resume = partial && pas.length
@@ -561,9 +581,9 @@ export async function previsionMeteo(cache: Cache, lieu: string | undefined, qua
         pas.map((s) => `${s.heures.split(" ").pop()} ${[s.ciel, s.temperature, s.pluie].filter(Boolean).join(", ")}`).join("\u00a0; ") + "."
       : days.length === 1
         ? `${HEADER} pour ${r.lieu.nom}, ${period.libelle === dayLabel(days[0].date) ? period.libelle : `${period.libelle} (${dayLabel(days[0].date)})`} : ` +
-          `${daySentence(f, days[0], uvOf, confOf)}.`
+          `${daySentence(f, days[0], now, uvOf, confOf)}.`
         : `${HEADER} pour ${r.lieu.nom}, ${period.libelle} — ` +
-          days.map((d) => `${dayLabel(d.date)} : ${daySentence(f, d, uvOf, confOf)}`).join("\u00a0; ") + ".";
+          days.map((d) => `${dayLabel(d.date)} : ${daySentence(f, d, now, uvOf, confOf)}`).join("\u00a0; ") + ".";
     if (inRange.length < period.slots.length) avertissements.push(`Le modèle ne va que jusqu'au ${dayLabel(last)}.`);
     if (hauts && inRange.some((s) => s.jour > addDays(today, 2))) avertissements.push(nuages.BEYOND);
   }
