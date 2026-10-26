@@ -156,6 +156,24 @@ describe("the page of a trip", () => {
     expect(page).toContain("<s>");
   });
 
+  it("leaves out the times of a bus far ahead of its run, which the network has given the next run's trip", async () => {
+    const d = await departure();
+    const local = d.pattern - CJ.first_pattern;
+    const t0 = NOW.getTime() / 1000;
+    const stopId = (id: number) => CJ.temps_reel!.arrets[id - CJ.first_stop];
+    const store = new MemoryStore();
+    const feed = (late: number) => ({
+      value: { at: t0 - 30, trips: { [d.trip]: { [stopId(d.stop)]: t0 + d.in + late } }, cancelled: [], alerts: [], vehicles: [{ trip: d.trip, lat: -21.274, lon: 55.505, at: t0 - 30 }] },
+      fetchedAt: NOW.getTime(),
+    });
+    store.put("rt:carjaune", feed(-55 * 60));
+    const early = (await tripRun("carjaune", local, d.trip, 20261023, NOW, new Cache(store)))!;
+    expect(early.arrets!.some((s) => s.annonce !== undefined)).toBe(false);
+    store.put("rt:carjaune", feed(35 * 60));
+    const late = (await tripRun("carjaune", local, d.trip, 20261023, NOW, new Cache(store)))!;
+    expect(tripPage(ORIGIN, "/x", late, d.stop, NOW)).toMatch(/annoncé \d+h\d\d \(\+35 min\)<\/b>/);
+  });
+
   it("says a trip the timetables no longer have, with the way to the bus stations", () => {
     const html = tripGonePage(ORIGIN, "/bus/trajet/carjaune/1/x", "carjaune");
     expect(html).toContain("Ce départ ne figure plus dans les horaires publiés par Car Jaune.");

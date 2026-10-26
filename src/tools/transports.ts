@@ -125,6 +125,8 @@ export interface Departure {
   /** From the real-time feed: seconds late (early when negative) at this stop, or that the bus will not stop. */
   retard?: number;
   supprime?: boolean;
+  /** The feed's time for it was doubtful (`credible`), and is left out: its timetable is shown, without its bus. */
+  douteux?: boolean;
   /** Where its bus is, when it sends its position. */
   bus?: BusPosition;
 }
@@ -236,11 +238,27 @@ export async function realtimeFeeds(nets: string[], cache: Cache, now: Date): Pr
 const gtfsStop = (n: transit.Network, stop: number) => n.temps_reel!.arrets[stop - n.first_stop];
 const gtfsRoute = (n: transit.Network, route: number) => n.temps_reel!.lignes[route - n.first_route];
 
+/**
+ * How far from its timetable a time of the feed is believed. A run half an hour early is not that run: the network has
+ * given a second bus, close behind the first, the trip of the next run (Car Jaune, on 26/10/2026: the S3 of 11h32 at
+ * Saint-Pierre announced at 10h37, its bus a few stops behind the one of 10h32). A false large delay makes one miss a
+ * bus that comes on time, the worst for the rider: beyond 30 minutes late, it is believed only while a bus sends its
+ * position under that trip, and never beyond an hour.
+ */
+const EARLY_MAX = 30 * 60;
+const LATE_UNSEEN_MAX = 30 * 60;
+const LATE_MAX = 60 * 60;
+/** Whether a delay of the feed (seconds, early when negative) is believed, its trip's bus seen sending its position or not. */
+const credible = (late: number, seen: boolean) => late >= -EARLY_MAX && late <= (seen ? LATE_MAX : LATE_UNSEEN_MAX);
+/** The trips of a feed whose bus sends its position, at most 10 minutes old. */
+const seenTrips = (f: rt.Realtime, t0: number) => new Set((f.vehicles ?? []).filter((v) => t0 - v.at <= POSITION_MAX_AGE).map((v) => v.trip));
+
 /** The departures with what the real-time feeds say about them, in the order the buses are now expected. */
 export function applyRealtime(list: Departure[], feeds: Map<string, rt.Realtime>, now: Date): Departure[] {
   if (!feeds.size) return list;
   const t0 = now.getTime() / 1000;
   const cancelled = new Map([...feeds].map(([n, f]) => [n, new Set(f.cancelled)]));
+  const seen = new Map([...feeds].map(([n, f]) => [n, seenTrips(f, t0)]));
   return list
     .map((d) => {
       const f = feeds.get(d.reseau);
@@ -248,7 +266,9 @@ export function applyRealtime(list: Departure[], feeds: Map<string, rt.Realtime>
       if (cancelled.get(d.reseau)!.has(d.trip)) return { ...d, supprime: true };
       const v = f.trips[d.trip]?.[gtfsStop(transit.NETWORKS[d.reseau], d.stop)];
       if (v === undefined) return d;
-      return v === rt.SKIPPED ? { ...d, supprime: true } : { ...d, retard: Math.round(v - (t0 + d.in)) };
+      if (v === rt.SKIPPED) return { ...d, supprime: true };
+      const late = v - (t0 + d.in);
+      return credible(late, seen.get(d.reseau)!.has(d.trip)) ? { ...d, retard: Math.round(late) } : { ...d, douteux: true };
     })
     .filter((d) => d.supprime || expected(d) >= -60)
     .sort((a, b) => expected(a) - expected(b));
@@ -304,7 +324,8 @@ export function withPositions(list: Departure[], feeds: Map<string, rt.Realtime>
   const byTrip = new Map([...feeds].flatMap(([net, f]) => (f.vehicles ?? []).map((v) => [`${net}|${v.trip}`, v] as const)));
   if (!byTrip.size) return list;
   return list.map((d) => {
-    const v = d.supprime ? undefined : byTrip.get(`${d.reseau}|${d.trip}`);
+    // The bus of a doubtful departure is another run's.
+    const v = d.supprime || d.douteux ? undefined : byTrip.get(`${d.reseau}|${d.trip}`);
     const bus = v && position(d.reseau, v, now);
     return bus ? { ...d, bus } : d;
   });
@@ -918,10 +939,11 @@ export async function tripRun(net: string, local: number, trip: string, jour: nu
       const told = f.trips[trip];
       out.supprime = f.cancelled.includes(trip) || undefined;
       if (told && arrets) {
+        const seen = seenTrips(f, t / 1000).has(trip);
         for (const a of arrets) {
           const v = told[gtfsStop(n, a.id)];
           if (v === rt.SKIPPED) a.saute = true;
-          else if (v !== undefined) a.annonce = v * 1000;
+          else if (v !== undefined && credible(v - a.at / 1000, seen)) a.annonce = v * 1000;
         }
       }
       out.direct = { etat: told || out.supprime ? "suivi" : "absent", flux: f.at };
