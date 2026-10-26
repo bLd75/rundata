@@ -53,7 +53,7 @@ describe("the located earthquakes per day under the volcano", () => {
     expect(html.match(/<figure class="qdays">[\s\S]*?<\/ol>/)![0].match(/<li/g)).toHaveLength(30);
     expect(html).toContain(`<li class="now" aria-label="23/10 (en cours) : `);
     expect(html).toContain(`<p class="axis"><span>24/09</span><span>23/10 (en cours)</span></p>`);
-    expect(html).toContain(`<p class="note">Seuls les séismes localisés par l&#39;OVPF sont comptés ici : ce n&#39;est pas le nombre total de séismes enregistrés.</p>`);
+    expect(html).toContain(`<p class="note">L&#39;OVPF ne localise qu&#39;une partie des séismes qu&#39;il enregistre\u00a0: ses bulletins donnent le nombre enregistré, nos chiffres comptent ceux qu&#39;il a localisés, d&#39;après son catalogue.</p>`);
     expect(html).toContain("Séismes localisés par l'OVPF sous le volcan : <b>");
     expect(html).not.toMatch(/(?<!localisés )séismes sous le volcan/i);
     // pitonlive's word on the deformation is not said: on 25/10/2026 it said the opposite of the OVPF's release.

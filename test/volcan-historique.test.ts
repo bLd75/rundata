@@ -16,6 +16,7 @@ const FIXTURES: Record<string, string> = {
   "Piton-de-la-Fournaise-passage-en-alerte-1-fermeture-de-l-enclos4": "2026-01-01-alerte-1.html",
   "Piton-de-la-Fournaise-retour-en-phase-de-vigilance": "2026-01-02-vigilance.html",
   "Piton-de-la-Fournaise-eruption-dans-l-enclos": "2026-01-18-alerte-2-1.html",
+  "Piton-de-la-Fournaise-eruption-dans-l-enclos2?utm_source=chatgpt.com": "2026-02-13-alerte-2-1.html",
   "Acces-a-l-enclos-avec-restrictions": "2026-01-27-vigilance.html",
   "Piton-de-la-Fournaise-reouverture-partielle-de-l-enclos": "2026-05-07-vigilance.html",
   // The site before 2022: the breadcrumb with its title, and the article.
@@ -94,12 +95,22 @@ describe("the alerts before this one", () => {
     expect(EPISODES.map((e) => e.debut[0].jour)).toEqual([...EPISODES.map((e) => e.debut[0].jour)].sort().reverse());
   });
 
-  it("dates the eruption of February 2026 by the release of its end, and reads no level for that day", () => {
+  it("dates the eruption of February 2026 by the release of its day, quoted as written", () => {
     const feb = EPISODES[0];
-    expect(feb.debut).toEqual([expect.objectContaining({ jour: "2026-02-13", quoi: "éruption débutée", selon: "selon le communiqué du 07/05/2026", dit: "Suite à la fin de l'éruption volcanique débutée le 13 février 2026" })]);
-    expect(feb.debut[0].communique.copie).toBe(feb.fin.communique.copie);
-    expect(feb.debut[0].quoi).not.toMatch(/alerte/i);
-    expect(page(feb.fin.communique)).toContain("Suite à la fin de l'éruption volcanique débutée le 13 février 2026 et aux reconnaissances opérées les 30 avril et 6 mai 2026");
+    expect(feb.debut).toEqual([expect.objectContaining({ jour: "2026-02-13", quoi: "alerte 2-1", communique: expect.objectContaining({ jour: "2026-02-13" }) })]);
+    // The source's typo kept: a quote, not our words.
+    expect(feb.debut[0].dit).toContain("(OPVF)");
+    expect(feb.debut[0].selon).toBeUndefined();
+    expect(page(feb.debut[0].communique)).toContain("Déclenchement du passage en alerte 2.1");
+  });
+
+  it("never dates a start by the release of its end, nor by a release published after the end", () => {
+    for (const e of EPISODES) {
+      for (const m of e.debut) {
+        expect(m.communique.copie, m.jour).not.toBe(e.fin.communique.copie);
+        expect(m.communique.jour <= e.fin.jour, `${m.jour} : ${m.communique.copie}`).toBe(true);
+      }
+    }
   });
 
   it("names the levels before 2021 as the releases of then write them, and the end as the first release out of the alert", () => {
@@ -128,10 +139,10 @@ describe("the alerts before this one", () => {
     const p = precedentes();
     expect(p.note).toContain("Ce n'est pas un historique complet");
     expect(p.note).toContain(AVANT_2021);
-    expect(p.episodes[0].debut[0]).toBe("13/02/2026, éruption débutée (selon le communiqué du 07/05/2026) : « Suite à la fin de l'éruption volcanique débutée le 13 février 2026 » (communiqué du 07/05/2026 : https://web.archive.org/web/20260507190343/https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-reouverture-partielle-de-l-enclos)");
+    expect(p.episodes[0].debut[0]).toBe("13/02/2026, alerte 2-1 : « L’observatoire volcanologique du piton de la Fournaise (OPVF) a enregistré à 09h25 une crise sismique, le trémor volcanique synonyme d’arrivée du magma à proximité de la surface a été enregistré depuis 10h00 (heure locale). » (communiqué du 13/02/2026 : https://web.archive.org/web/20260215235752/https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Piton-de-la-Fournaise-eruption-dans-l-enclos2?utm_source=chatgpt.com)");
     expect(resumeText()).toBe(
       "Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis 2016\u00a0; avant novembre 2021, les niveaux du plan précédent) : " +
-        "13/02/2026 éruption débutée (selon le communiqué du 07/05/2026) → 07/05/2026 retour en phase de vigilance\u00a0; 18/01/2026 alerte 2-1 → 27/01/2026 réouverture des sentiers\u00a0; " +
+        "13/02/2026 alerte 2-1 → 07/05/2026 retour en phase de vigilance\u00a0; 18/01/2026 alerte 2-1 → 27/01/2026 réouverture des sentiers\u00a0; " +
         "01/01/2026 alerte 1 → 02/01/2026 retour en phase de vigilance\u00a0; 02/07/2023 alerte 1, 02/07/2023 alerte 2-1 → 31/08/2023 Enclos accessible au public\u00a0; " +
         "19/09/2022 alerte 1, 19/09/2022 alerte 2-1 → 05/10/2022 éruption arrêtée\u00a0; " +
         "02/04/2020 alerte 2-2 → 06/04/2020 passage en phase de sauvegarde\u00a0; 25/10/2019 alerte 2-2 → 28/10/2019 passage en phase de sauvegarde\u00a0; " +
@@ -143,10 +154,12 @@ describe("the alerts before this one", () => {
     );
     const html = volcanPage("https://rundata.re", { value: { resume: "", sources: [], avertissements: [] } as unknown as VolcanAnswer, fetchedAt: NOW, stale: false }, NOW);
     expect(html).toContain(`<h2 id="h-alertes">Les alertes précédentes</h2><p>${CHAPEAU.replace(/'/g, "&#39;")}</p>`);
+    // Whose the end is: the prefecture's release, often weeks after the stop the OVPF announces (marketing).
+    expect(CHAPEAU).toContain("Les phrases sont citées telles quelles. Leur fin est celle de la préfecture, qui lève l'alerte par un communiqué, parfois des semaines après l'arrêt de l'éruption annoncé par l'OVPF. Ce n'est pas");
     expect(html).toContain(`<li><b>05/10/2022</b>, éruption arrêtée\u00a0: «\u00a0Éruption arrêtée mais enclos toujours fermé\u00a0» <a href="https://web.archive.org/web/20221005174746/https://www.reunion.gouv.fr/piton-de-la-fournaise-eruption-arretee-mais-enclos-a9951.html">communiqué du 05/10/2022 →</a></li>`);
     expect(html).toContain("communiqué mis à jour le 06/09/2023 →");
-    // On the card, the link tells which release dates the eruption of February: no « selon » twice.
-    expect(html).toContain(`<li><b>13/02/2026</b>, éruption débutée\u00a0: «\u00a0Suite à la fin`);
+    // February 2026 dated by the release of its day, quoted as written: no « selon », never the end's release.
+    expect(html).toContain(`<li><b>13/02/2026</b>, alerte 2-1\u00a0: «\u00a0L’observatoire volcanologique du piton de la Fournaise (OPVF)`);
     expect(html).not.toContain("selon le communiqué du 07/05/2026");
     // Before 2021, folded under the note, after the five since the plan.
     const section = html.slice(html.indexOf(`<section id="alertes-precedentes"`), html.indexOf("</section>", html.indexOf(`<section id="alertes-precedentes"`)));
