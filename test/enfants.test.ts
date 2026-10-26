@@ -267,9 +267,21 @@ describe("a commune's children's page", () => {
     expect(enfantsCommunePage(O, pageOf("les-avirons")!, null, NOW)).toContain("agenda des enfants se charge");
   });
 
+  it("gives each commune its own « à » and « de », and a short button back to the whole commune", () => {
+    const port = flat(enfantsCommunePage(O, pageOf("le-port")!, data, NOW));
+    const avirons = flat(enfantsCommunePage(O, pageOf("les-avirons")!, data, NOW));
+    expect(port).toContain("Avec les enfants au Port");
+    expect(avirons).toContain("Avec les enfants aux Avirons");
+    expect(avirons).toContain("lieux des Avirons");
+    for (const page of [port, avirons]) expect(page).not.toMatch(/\b(à|de) Les? /);
+    expect(html).toMatch(/<button type="button" data-z="0" aria-label="[^"]*Recentrer sur toute la commune">[^<]*Recentrer<\/button>/);
+  });
+
   it("is where /enfants takes each commune, by its map and its card", () => {
     const all = enfantsPage(O, data, NOW);
     for (const p of ["saint-denis", "les-avirons", "l-etang-sale"]) expect(all).toContain(`href="/enfants/${p}"`);
     expect(mapLinks(all).filter((l) => l.href.startsWith("/enfants/"))).toHaveLength(24);
+    expect(flat(all)).toContain("La carte des lieux du Port");
+    expect(flat(all)).toContain("La carte des lieux des Avirons");
   });
 });

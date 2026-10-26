@@ -8,6 +8,7 @@ import { mentionOf } from "../mentions.js";
 import { ACCUEILS } from "../providers/agenda.js";
 import * as enfants from "../vie/enfants.js";
 import { PAGES, type PlacePage } from "./places.js";
+import { aCommune, deCommune } from "./aujourdhui.js";
 import type { Alerte, EnfantsAnswer } from "./data.js";
 import { agendaHours, connectorCta, crumbBar, crumbs, loading, webPage } from "./domains.js";
 import { communeMap, esc, islandMap, type Spot } from "./map.js";
@@ -156,26 +157,37 @@ const pathOf = (commune: string) => {
   return p && communePath(p);
 };
 
-/** The words of a commune's page, to be marketing's (marketing/enfants-textes.md) before the page goes out. */
+/**
+ * The words of a commune's page, to be marketing's (marketing/enfants-textes.md) before the page goes out. A commune
+ * takes its own « à » and « de » (« au Port », « des Avirons »), and a commune with a single place is said in the
+ * singular.
+ */
 const MOTS = {
-  title: (c: string) => `{à valider} Avec les enfants à ${c} : la carte des lieux · 974`,
-  description: (c: string, n: number) => `{à valider} Les ${n} lieux où aller avec les enfants à ${c} sur une carte : aires de jeux, parcs, piscines, médiathèques, et les activités du week-end.`,
-  h1: (c: string) => `{à valider} Avec les enfants à ${c}`,
-  lead: (c: string, n: number) => `{à valider} Les ${n} lieux de ${c} sur la carte : touchez un point pour sa fiche, ou choisissez un type.`,
-  carte: (c: string) => `{à valider} Carte de ${c} (La Réunion) : les lieux pour les enfants`,
+  title: (c: string) => `{à valider} Avec les enfants ${aCommune(c)} : la carte des lieux · 974`,
+  description: (c: string, n: number) =>
+    n === 1
+      ? `{à valider} Le lieu où aller avec les enfants ${aCommune(c)} sur une carte, et les activités du week-end.`
+      : `{à valider} Les ${n} lieux où aller avec les enfants ${aCommune(c)} sur une carte : aires de jeux, parcs, piscines, médiathèques, et les activités du week-end.`,
+  h1: (c: string) => `{à valider} Avec les enfants ${aCommune(c)}`,
+  lead: (c: string, n: number) =>
+    n === 1
+      ? `{à valider} Le lieu pour les enfants ${deCommune(c)} sur la carte : touchez son point pour sa fiche.`
+      : `{à valider} Les ${n} lieux ${deCommune(c)} sur la carte : touchez un point pour sa fiche, ou choisissez un type.`,
+  carte: (c: string) => `{à valider} Carte des lieux pour les enfants ${aCommune(c)}, La Réunion`,
   tous: "{à valider} Tous",
   filtre: "{à valider} Filtrer les lieux par type",
   zoomIn: "{à valider} Rapprocher",
   zoomOut: "{à valider} Éloigner",
-  recadrer: "{à valider} Toute la commune",
+  recadrer: "{à valider} Recentrer",
+  recadrerAria: "{à valider} Recentrer sur toute la commune",
   surCarte: "{à valider} Voir sur la carte",
   dansListe: "{à valider} Voir dans la liste",
   fermer: "{à valider} Fermer la fiche",
-  activites: "{à valider} Activités et spectacles dans la commune",
-  aucune: (c: string) => `{à valider} Les agendas que nous lisons n'annoncent pas d'activité pour les enfants à ${c} dans les deux semaines qui viennent. Toute l'île : <a href="/enfants">les activités pour les enfants</a>.`,
+  activites: (c: string) => `{à valider} Activités et spectacles ${aCommune(c)}`,
+  aucune: (c: string) => `{à valider} Les agendas que nous lisons n'annoncent pas d'activité pour les enfants ${esc(aCommune(c))} dans les deux semaines qui viennent. Toute l'île : <a href="/enfants">les activités pour les enfants</a>.`,
   lieux: "{à valider} Les lieux, type par type",
   ile: "{à valider} Toutes les communes",
-  versPage: (c: string) => `{à valider} La carte des lieux de ${c}`,
+  versPage: (c: string) => `{à valider} La carte des lieux ${deCommune(c)}`,
 };
 
 /** The families of kinds, a colour each on the map (the legend's): what the eye sorts first. */
@@ -244,7 +256,7 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
     `<label class="chip"><input type="radio" name="t" value="" checked> ${esc(MOTS.tous)} <span class="n">${list.length}</span></label>` +
     kinds.map((t) => `<label class="chip"><input type="radio" name="t" value="${t.type}"> <i class="ksw f-${familleOf(t.type).f}"></i>${esc(capital(t.court))} <span class="n">${list.filter((l) => l.type === t.type).length}</span></label>`).join("") +
     `</form>`;
-  const zoom = `<div id="ecz" class="kzoom" hidden><button type="button" data-z="+" aria-label="${esc(MOTS.zoomIn)}">+</button><button type="button" data-z="-" aria-label="${esc(MOTS.zoomOut)}">−</button><button type="button" data-z="0">${esc(MOTS.recadrer)}</button></div>`;
+  const zoom = `<div id="ecz" class="kzoom" hidden><button type="button" data-z="+" aria-label="${esc(MOTS.zoomIn)}">+</button><button type="button" data-z="-" aria-label="${esc(MOTS.zoomOut)}">−</button><button type="button" data-z="0" aria-label="${esc(MOTS.recadrerAria)}">${esc(MOTS.recadrer)}</button></div>`;
   const legend = `<p class="klegend note">${families.map((x) => `<span><i class="ksw f-${x.f}"></i>${esc(x.nom)}</span>`).join("")}</p>`;
   const sheet = `<div id="ecs" class="card ksheet" hidden aria-live="polite"><button type="button" class="x" aria-label="${esc(MOTS.fermer)}">×</button><p class="nm"></p><p class="note tp"></p><p><a class="go" href="#">${esc(MOTS.dansListe)}</a></p></div>`;
 
@@ -262,7 +274,7 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
     ? loading("L'agenda des enfants")
     : soon.length || later.length
       ? `<ul class="rows eau card">${[...soon, ...later].map(eventLi).join("")}</ul>`
-      : `<p class="card">${MOTS.aucune(esc(c))}</p>`;
+      : `<p class="card">${MOTS.aucune(c)}</p>`;
 
   const band = `${crumbBar(c, { name: "Enfants", path: "/enfants" })}
 <div class="wrap intro">
@@ -284,7 +296,7 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
   ${places}
 </section>
 <section aria-labelledby="h-act">
-  <div class="sec-h"><h2 id="h-act">${esc(MOTS.activites)}</h2></div>
+  <div class="sec-h"><h2 id="h-act">${esc(MOTS.activites(c))}</h2></div>
   ${activities}
 </section>
 <p><a href="/enfants">${esc(MOTS.ile)} →</a></p>
