@@ -202,8 +202,8 @@ describe("the communes whose site's terms ask for their authorisation, until the
     expect(r.evenements_du_jour!.liste.map((e) => e.titre)).toEqual(["Spectacle"]);
     expect(JSON.stringify(r)).not.toMatch(/letampon\.fr|du Tampon, de Saint-Louis/);
     expect(communeEvents(page, { value: old as unknown as AgendaAnswer, fetchedAt: NOW, stale: false })).toMatchObject({ valeur: "1 événement" });
-    // Named after the mairies read: not Saint-Louis, credited apart with its terms' clause.
-    expect([SOURCES.mairies.nom, SOURCES.mairies.attribution]).toEqual(["Agendas des mairies de Saint-Paul, du Port et des Trois-Bassins", "Villes de Saint-Paul, Le Port et Les Trois-Bassins"]);
+    // Named after the mairies read: not Saint-Louis nor Le Port, credited apart with their terms' clause.
+    expect([SOURCES.mairies.nom, SOURCES.mairies.attribution]).toEqual(["Agendas des mairies de Saint-Paul et des Trois-Bassins", "Villes de Saint-Paul et Les Trois-Bassins"]);
     expect(sourcesServies(old.sources)!.map((c) => c.source)).toEqual([SOURCES.mairies.nom]);
   });
 

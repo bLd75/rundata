@@ -1011,6 +1011,9 @@ export function parsePetiteIle(html: string, now: Date, nom = "Ville de Petite-�
 const SAINT_LOUIS = mairie("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda", REPRISE_INFORMATION);
 const ETANG_SALE = mairie("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations");
 const LA_POSSESSION = mairie("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda");
+// Its terms: « à des fins d'information et en aucune manière à des fins commerciales », « ne pas modifier », and its
+// copyright on every copy (`site_commune`).
+const LE_PORT = mairie("le_port", "Ville du Port", "https://www.ville-port.re/agenda/", REPRISE_INFORMATION);
 // Credited by their home page, the only page their terms allow a link to; their agenda page is read.
 const PETITE_ILE = mairie("petite_ile", "Ville de Petite-Île", "https://www.petite-ile.re/");
 const PETITE_ILE_AGENDA = "https://www.petite-ile.re/actualites/agenda/";
@@ -1035,7 +1038,9 @@ const OTI_EST_SOURCE: SourceInfo = {
   id: "agenda_oti_est",
   nom: "Agenda de l'Office de tourisme intercommunal de l'Est (Côté Est Réunion)",
   organisme: "OTI EST REUNION",
-  licence: "Reproduction autorisée avec la source, sans modification (mentions légales de reunionest.fr)",
+  // Its legal notice: electronic reproduction with the source and « Droits réservés », no commercial use; « sans
+  // modification » is the condition of paper (re-read on 26/10/2026).
+  licence: "Reproduction électronique autorisée avec la source et la mention «\u00a0Droits réservés\u00a0», sans usage commercial (mentions légales de reunionest.fr)",
   attribution: OTI_EST,
   url: "https://www.reunionest.fr/agenda-et-evenements",
 };
@@ -1352,7 +1357,7 @@ export const SPORTSREGIONS: Agenda = {
 export const LISIBLES: Agenda[] = [
   { ...tribe("saint_paul", "Mairie de Saint-Paul", "https://www.mairie-saintpaul.re", "Saint-Paul"), site_commune: "site de la commune de Saint-Paul" },
   // Its terms ask for « www.ville-port.re » on what is taken from it.
-  { ...tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port"), site_commune: "site de la commune du Port (©\u00a0www.ville-port.re)" },
+  { ...tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port", LE_PORT), site_commune: "site de la commune du Port (©\u00a0www.ville-port.re)" },
   { ...tribe("trois_bassins", "Mairie des Trois-Bassins", "https://trois-bassins.re", "Les Trois-Bassins"), site_commune: "site de la commune des Trois-Bassins" },
   { ...tribe("sainte_marie", "Ville de Sainte-Marie", "https://www.ville-saintemarie.re", "Sainte-Marie", SAINTE_MARIE), site_commune: "site de la commune de Sainte-Marie", faits: true },
   { ...salazie, site_commune: "site de la commune de Salazie", faits: true },
