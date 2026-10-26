@@ -64,6 +64,7 @@ import { cloudSeaTold, hikesNear, summitOf } from "./liens.js";
 import { LOGO_PETIT_SVG } from "./logo.js";
 import { homePage } from "./home.js";
 import { RELIEF_PATH, reliefImage } from "./map.js";
+import { ligne, mesure } from "./mesure.js";
 import font from "./font.json" with { type: "json" };
 import icons from "./icons.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
@@ -427,7 +428,12 @@ async function pages(request: Request, cache: Cache, background: Background, now
       snapshot(cache, domain.key, () => domain.build(cache, now), background, now, waitFor(request), isReader(request)),
       alerte(cache, background, now),
     ]);
-    return page(path, (live) => domain.page(origin, live ? data : null, now, a), data, background, [rebuild(cache, domain.key, () => domain.build(cache, now))]);
+    const t = Date.now();
+    const res = page(path, (live) => domain.page(origin, live ? data : null, now, a), data, background, [rebuild(cache, domain.key, () => domain.build(cache, now))]);
+    // The agendas' cold views, step by step (web/mesure.ts).
+    const said = ligne(domain.key, mesure(), Date.now() - t);
+    if (said) console.log(said);
+    return res;
   }
   const sector = /^\/randonnees\/([a-z-]+)\/?$/.exec(path);
   const s = sector ? secteurOf(sector[1]) : undefined;
