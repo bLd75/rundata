@@ -269,6 +269,7 @@ font-size:.88rem;font-weight:600;background:#0d2135;border:1px solid rgb(255 255
 .grid a[aria-current]{background:color-mix(in srgb,var(--k) 18%,transparent);border-color:color-mix(in srgb,var(--k) 45%,transparent)}
 .sheet .connect{background:rgb(255 255 255/.06);border-color:rgb(255 255 255/.1);box-shadow:none}
 .sheet .connect code{color:var(--on-night)}
+.sheet .sheet-app{color:var(--on-night);font-weight:600}
 
 .band{position:relative;overflow:hidden;color:var(--on-night);
 background:linear-gradient(160deg,var(--night) 0%,var(--night-2) 100%)}
@@ -742,6 +743,8 @@ interface Head {
   sansAvis?: boolean;
   /** Nothing to share nor follow below (the secret link of a proposed event: its author would think they share it). */
   sansPartage?: boolean;
+  /** The sharing below without the install block: /application, whose steps are the page itself. */
+  sansInstallation?: boolean;
   /** The page's referrer policy, besides the header: « no-referrer » where the address holds a secret. */
   referrer?: string;
   /** The page shows the volcano's alert itself (the home page's card, /volcan's heading): no volcano banner above it. */
@@ -891,7 +894,7 @@ function share(origin: string, head: Head): string {
   <a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp ${EXTERNAL}</a>
   ${sentence ? `<p>${sentence}</p>` : ""}
 </div>
-${INSTALL}
+${head.sansInstallation ? "" : INSTALL}
 </aside>`;
 }
 
@@ -932,6 +935,8 @@ function header(path: string, origin: string, u: Urgent): string {
       ${sheet.length ? `<p class="sheet-h">Suivre rundata.re</p>\n      <p class="social sheet-follow">${paired(sheet)}</p>` : ""}
       <p class="sheet-h">Le connecteur pour votre IA</p>
       ${connector(origin, "mcp-url-menu")}
+      <p class="sheet-h">Sur votre téléphone</p>
+      <p><a class="sheet-app" href="/application">Mettre rundata.re sur l'écran d'accueil →</a></p>
     </div></nav>
   </details>
 </div></header>`;
@@ -1005,7 +1010,7 @@ ${avisForm(head.path)}`}`}
     ${SLOGAN}
     <p>La Réunion 974 en direct, pour vous et votre assistant IA.</p>
     ${head.rss ? `<p><a href="${esc(head.rss.href)}" title="${esc(head.rss.hint)}">${esc(head.rss.link)}</a></p>` : ""}
-    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · <a href="/valeurs">nos valeurs</a> · <a href="/ouvrir-ses-donnees">ouvrir ses données</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/a-propos">qui fait rundata.re ?</a> · <a href="/chiffres">rundata.re en chiffres</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · <a href="/publier">publier vos données</a> · contact@rundata.re</p>
+    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · <a href="/valeurs">nos valeurs</a> · <a href="/application">sur votre écran d'accueil</a> · <a href="/ouvrir-ses-donnees">ouvrir ses données</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/a-propos">qui fait rundata.re ?</a> · <a href="/chiffres">rundata.re en chiffres</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · <a href="/publier">publier vos données</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP.</p>
     ${follow()}
     <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li>${enLigne() ? `<li><a href="/associations">Clubs et associations</a></li>` : ""}</ul>

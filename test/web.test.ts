@@ -442,7 +442,7 @@ describe("what crawlers and previews fetch", () => {
     // The pages, the 24 communes, their water, their day and their places for children, a page per hike and per ONF trail with its GPS trace, and per past
     // cyclone, and the busiest bus stops.
     const stops = [...stopPages().values()].filter((p) => p.indexe);
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 53 + 24 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length + stops.length);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 54 + 24 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length + stops.length);
     expect(map).toContain(`<loc>https://rundata.re/bus/arret/${stops[0].slug}</loc>`);
     expect(map).toContain("<loc>https://rundata.re/enfants</loc>");
     expect(map).toContain("<loc>https://rundata.re/sites-sans-reponse</loc>");
