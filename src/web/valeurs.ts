@@ -42,6 +42,7 @@ export function valeursPage(origin: string, alerte?: Alerte): string {
   <p>Toutes les pages se lisent sans compte, sans nom et sans adresse électronique. Le site n'affiche aucune publicité, ne dépose aucun cookie et ne vend aucune donnée. Il est gratuit, et il l'est à vie pour les associations à but non lucratif.</p>
   <h2 id="code">Un code ouvert</h2>
   <p>Le code de rundata.re est public, sous licence MIT\u00a0: chacun peut le lire, vérifier ce qu'il fait et le reprendre. <a href="${GITHUB}">Le code sur GitHub</a></p>
+  <p>Les contributions sont les bienvenues. Vous aimez les données, le code ou La Réunion, et vous voulez faire avancer le numérique de l'île\u00a0? Proposez une source, une correction ou une amélioration sur <a href="${GITHUB}">GitHub</a>, ou écrivez à <a href="mailto:contact@rundata.re">contact@rundata.re</a>. Chaque proposition est relue avant d'être mise en ligne.</p>
   <h2 id="donnees">Des données ouvertes, et sourcées</h2>
   <p>Chaque donnée affiche sa source, sa licence et son heure. Vous pouvez la reprendre à votre tour, aux conditions de sa licence\u00a0: <a href="/conditions#reutiliser">réutiliser les données</a>. Le même contenu se lit aussi depuis un assistant IA (ChatGPT, Claude, Le Chat), sans compte\u00a0: <a href="/mcp">le connecteur rundata.re</a>.</p>
   <h2 id="ferme">Ce qui est fermé, nous ne le contournons pas</h2>

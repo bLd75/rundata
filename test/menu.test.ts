@@ -129,7 +129,7 @@ describe("the order of the pages", () => {
     const sheet = header.match(/<nav class="sheet"[^>]*>(.*?)<\/nav>/s)![1];
     const hero = homePage(O, null, NOW).match(/<p class="social hero-follow">(.*?)<\/p>/s)![1];
     for (const s of SOCIAL) {
-      const link = `<a href="${s.url}?ref=site" rel="noopener" aria-label="rundata.re sur ${s.nom}">`;
+      const link = `<a href="${s.nom === "GitHub" ? s.url : `${s.url}?ref=site`}" rel="noopener" aria-label="rundata.re sur ${s.nom}">`;
       expect(top).toContain(`${link}${s.svg}</a>`);
       expect(sheet).toContain(`${link}${s.svg}${s.nom}</a>`);
       expect(hero).toContain(`${link}${s.svg}${s.nom}</a>`);
