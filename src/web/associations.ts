@@ -7,6 +7,7 @@
  */
 import type { Cache } from "../cache.js";
 import { AGENDAS, BUNDLE, BUNDLE_SYNC_SECONDS, copiePlanifiee, type Evenement, planifiees } from "../providers/agenda.js";
+import { ID as CONNECTEURS_ID } from "../providers/agenda-connecteurs.js";
 import { evenements as proposes, ID as PROPOSITIONS_ID } from "../providers/agenda-propositions.js";
 import { lisible } from "../propositions.js";
 import { inPeriod, periode, when } from "../tools/agenda.js";
@@ -54,7 +55,8 @@ export async function preuve(cache: Pick<Cache, "bundle">, now: Date): Promise<P
     const hit = agenda.planifie ? copiePlanifiee(planned, agenda)?.value : (bundle.peek(`agenda:${agenda.id}`)?.value as Evenement[] | undefined);
     const list = hit ?? (agenda.id === PROPOSITIONS_ID && lisible() ? await proposes(now) : undefined);
     if (!list) continue;
-    if (!list.length && agenda.id !== PROPOSITIONS_ID) empty++;
+    // The agendas read from the database are no club of their own: empty, they count none.
+    if (!list.length && agenda.id !== PROPOSITIONS_ID && agenda.id !== CONNECTEURS_ID) empty++;
     // The members' sessions (Sportsregions' « Jeu libre », trainings) are not shown to the public: not counted either.
     const open = list.filter((e) => !e.reserve_adherents);
     for (const e of open) names.add(e.publie_par.trim().toLowerCase());

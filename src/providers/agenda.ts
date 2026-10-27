@@ -31,6 +31,7 @@ import { annonceEvenement, extrait, lead, monthOf, statusOf, type Statut } from 
 import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
 import { SOURCES as SPORT_SOURCES } from "./sport.js";
 import { PROPOSITIONS } from "./agenda-propositions.js";
+import { CONNECTEURS } from "./agenda-connecteurs.js";
 import { autorisee, NON_REPRISES } from "./autorisations.js";
 import { sansLien } from "../liens.js";
 
@@ -142,6 +143,11 @@ export interface Evenement {
    * author chose to show, if any. Never « checked ».
    */
   propose?: { le: string; contact?: string };
+  /**
+   * Read on the platform its association linked to rundata.re (src/providers/agenda-connecteurs.ts): the platform
+   * (« HelloAsso »), its last successful reading (local, « 2026-10-24T08:00 »), and whether it did not answer since.
+   */
+  via?: { plateforme: string; lu: string; sans_reponse?: true };
 }
 
 /**
@@ -1392,6 +1398,7 @@ export const LISIBLES: Agenda[] = [
   SPORTSREGIONS,
   ...SALLES,
   PROPOSITIONS,
+  CONNECTEURS,
 ];
 
 /**

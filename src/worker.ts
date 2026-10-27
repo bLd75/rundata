@@ -27,11 +27,12 @@ import * as avis from "./avis.js";
 import * as limite from "./limite.js";
 import * as chiffre from "./connecteurs/chiffre.js";
 import * as connexions from "./connecteurs/connexions.js";
+import * as lecture from "./connecteurs/lecture.js";
 import * as propositions from "./propositions.js";
 import * as sansReponse from "./sans-reponse.js";
 import { whenFailed, whenRead } from "./http.js";
 import * as formulaires from "./web/propositions.js";
-import { refreshPlanned } from "./tools/agenda.js";
+import { rafraichirConnecteurs, refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { listShared, SHARED, SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
 import { why } from "./types.js";
@@ -357,11 +358,19 @@ export default {
         .catch((err) => console.error("veille : cumul impossible", why(err))));
     }
     // Once a day, at 04:00 in La Réunion (the run between 00:00 and 00:05 UTC): what the clubs sent is forgotten on
-    // time even on the days nothing new is proposed (scripts/propositions.sql).
+    // time even on the days nothing new is proposed (scripts/propositions.sql), and their links to a platform the same
+    // (scripts/connecteurs.sql).
     if (now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
       ctx.waitUntil(propositions.purger(now)
         .then((n) => console.log(`propositions : purge quotidienne, ${n} lignes`))
         .catch((err) => console.error("propositions : purge impossible", why(err))));
+      ctx.waitUntil(connexions.purger(now)
+        .then((n) => console.log(`connecteurs : purge quotidienne, ${n} lignes`))
+        .catch((err) => console.error("connecteurs : purge impossible", why(err))));
     }
+    // At each run, once the reads above are done: the one association's platform due, if any (every 6 hours each).
+    ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => lecture.lireUne(now, () => rafraichirConnecteurs(c, now))))
+      .then(({ value, used }) => value && console.log(`connecteurs : ${JSON.stringify(value)}, sous-requêtes : ${used}`))
+      .catch((err) => console.error("connecteurs : lecture impossible", why(err))));
   },
 };

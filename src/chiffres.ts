@@ -14,6 +14,7 @@ import type { Cache, Cached } from "./cache.js";
 import { localTime } from "./geo.js";
 import { INSEE } from "./places/insee.js";
 import { normalize } from "./places/resolve.js";
+import { CONNECTEURS } from "./providers/agenda-connecteurs.js";
 import { PROPOSITIONS } from "./providers/agenda-propositions.js";
 import { autorisee } from "./providers/autorisations.js";
 import { AGENDAS, copiePlanifiee, planifiees, SOURCES_LUES, SPORTSREGIONS, type Evenement } from "./providers/agenda.js";
@@ -264,8 +265,10 @@ const nombre = (c: Compte | undefined) => (c ? { nombre: c.nombre, compte_le: aL
 /**
  * The words after « {N} événements dans les deux semaines qui viennent, », marketing's (26/10): the one or two agendas
  * counted without, the events proposed on rundata.re apart (« dont le site n'a pas répondu » would be false for them).
+ * The linked associations' agenda, read from the database too, is not named: no site of theirs was asked.
  */
 export function sansAgendas(noms: string[]): string {
+  noms = noms.filter((x) => x !== CONNECTEURS.nom);
   const sites = noms.filter((x) => x !== PROPOSITIONS.nom);
   const lus = sites.length
     ? `sans ${sites.length > 1 ? "les agendas" : "l'agenda"} ${sites.map(ofAgenda).join(" et ")}, dont ${sites.length > 1 ? "les sites n'ont" : "le site n'a"} pas répondu à notre dernière lecture`
