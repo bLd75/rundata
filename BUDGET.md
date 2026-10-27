@@ -18,9 +18,9 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 347 | 500 |
-| pire passage planifié, appels KV et D1 | 53 | 1 000 |
-| pire passage planifié, CPU (ms) | 2 072 | 30 000 |
+| pire passage planifié, sous-requêtes | 352 | 500 |
+| pire passage planifié, appels KV et D1 | 55 | 1 000 |
+| pire passage planifié, CPU (ms) | 2 082 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
 | passage le plus chargé (cadences les plus courtes), sous-requêtes | 125 | 500 |
 | vue la plus chère, sous-requêtes | 82 | 200 |
@@ -36,10 +36,10 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 347 | 10 | 30 | 13 | 1 123 | 42 | 2 072 |
-| tâche planifiée, par jour | 15 959 | 1 344 | 2 076 | 1 251 | 102 620 | 3 199 | 107 403 |
-| tâche planifiée, par jour, cadences les plus courtes | 26 851 | 2 640 | 3 900 | 1 731 | 107 660 | 3 199 | 152 883 |
-| tâche planifiée, par mois (30 jours) | 478 770 | 40 320 | 62 280 | 37 530 | 3 078 600 | 95 970 | 3 222 090 |
+| pire passage planifié | 352 | 11 | 31 | 13 | 1 123 | 42 | 2 082 |
+| tâche planifiée, par jour | 16 199 | 1 392 | 2 124 | 1 251 | 102 620 | 3 199 | 107 883 |
+| tâche planifiée, par jour, cadences les plus courtes | 27 091 | 2 688 | 3 948 | 1 731 | 107 660 | 3 199 | 153 363 |
+| tâche planifiée, par mois (30 jours) | 485 970 | 41 760 | 63 720 | 37 530 | 3 078 600 | 95 970 | 3 236 490 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -83,6 +83,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | copies:echecs | copies partagées : l'échec d'une copie en retard, lu avec elle et écrit après un essai manqué (KV), au plus une fois toutes les 5 minutes par copie pour tous les centres de données, seulement quand sa source ne répond pas | 5 min | 00:00 | 2 | 1 | 1 |  |  |  |  | code |
 | sans-reponse:reverification | sites sans réponse : la revérification quotidienne, une lecture par site (D1 et sites), à 06:00 heure de La Réunion | 1440 min | 02:00 | 22 |  |  | 2 | 20 | 21 | 30 | estimé |
 | irve:etat | bornes de recharge : la part de La Réunion du fichier national (environ 9 Mo), écrite dans KV après les autres lectures | 15 min | 00:05 | 2 |  | 1 |  |  |  | 300 | estimé |
+| candhis:etat | bouées Candhis du Cerema : la dernière mesure de chaque bouée de La Réunion, une requête par type de bouée, gardée dans KV | 30 min | 00:10 | 5 | 1 | 1 |  |  |  | 10 | code |
 | connecteurs:lecture | plateformes des associations (HelloAsso) : les événements publics d'une association reliée, relus toutes les 6 h, une association par passage | 5 min | 00:00 | 15 |  |  | 3 | 201 | 11 | 20 | estimé |
 | propositions:purge | propositions des clubs : la purge quotidienne (D1), à 04:00 heure de La Réunion | 1440 min | 00:00 | 1 |  |  | 1 |  | 10 | 5 | estimé |
 
@@ -216,6 +217,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | sans-reponse:echecs | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | sans-reponse:reverification | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | irve:etat | providers/irve |
+| candhis:etat | providers/candhis |
 | connecteurs:lecture | connecteurs/helloasso |
 | / | providers/arome, providers/ensemble, providers/feux, providers/metar, providers/meteofrance, providers/mf-auth, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /communes/* | providers/acspo, providers/arome, providers/ensemble, providers/feux, providers/houle, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |

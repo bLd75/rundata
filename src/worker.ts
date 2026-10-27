@@ -17,6 +17,7 @@ import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
 import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
+import * as candhis from "./providers/candhis.js";
 import * as feux from "./providers/feux.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
@@ -78,6 +79,8 @@ interface Env {
   METEOFRANCE_API_KEY?: string;
   /** Optional: NASA FIRMS's MAP_KEY, for the fires seen by satellite (src/providers/feux.ts). */
   FIRMS_MAP_KEY?: string;
+  /** Optional: the Cerema's key to the Candhis buoys, asked by the scheduled event (src/providers/candhis.ts). */
+  CANDHIS_API_KEY?: string;
   STORE?: KvNamespace;
   USAGE?: AnalyticsDataset;
   TRANSIT?: D1Database;
@@ -162,6 +165,11 @@ function setup(env: Env): Cache {
   feux.configure(env.FIRMS_MAP_KEY);
   const d1 = env.TRANSIT;
   const kv = env.STORE;
+  // Asked by the scheduled event below and kept in KV (src/providers/candhis.ts): without KV, the key is not used.
+  candhis.configure(kv && env.CANDHIS_API_KEY, kv && (async () => {
+    count();
+    return (await kv.get(candhis.KEY, "json")) as candhis.Etat | null;
+  }));
   // Filtered from the national file by the scheduled event below (src/providers/irve.ts).
   irve.configure(kv && (async () => {
     count();
@@ -297,6 +305,20 @@ export default {
       }, now)))
         .then(({ value, used, reads }) => console.log(`bornes de recharge : ${value} points de La Réunion, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("bornes de recharge : état impossible", why(err))));
+    }
+    // Every 30 minutes, at 10 and 40 past the hour: the Candhis buoys' last half hour, one request per type of buoy,
+    // kept in KV (src/providers/candhis.ts), once the reads above are done. Nothing without the key.
+    if (kv && candhis.configured() && candhis.refreshDue(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, async () => {
+        count();
+        const before = (await kv.get(candhis.KEY, "json")) as candhis.Etat | null;
+        return candhis.refresh(before, async (etat) => {
+          count(1, true);
+          await kv.put(candhis.KEY, JSON.stringify(etat), { expirationTtl: candhis.TTL_SECONDS });
+        }, now);
+      }))
+        .then(({ value, used, reads }) => console.log(`bouées Candhis : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("bouées Candhis : lecture impossible", why(err))));
     }
     // Once a day, at 06:00 in La Réunion: each public site that did not answer asked again (sans-reponse.ts), once the
     // reads above are done, so that its one GET is never part of a run of ours.
