@@ -16,7 +16,7 @@ import { ageMinutes, ageText, localTime, versant } from "../geo.js";
 import { VERSION } from "../server.js";
 import { fr } from "../tools/format.js";
 import * as mf from "../providers/vigilance.js";
-import { current, cyclone, cycloneHead, cycloneLevel, highest, NONE_ISSUED, raised, spans } from "../tools/vigilance.js";
+import { current, cyclone, cycloneHead, cycloneLevel, highest, islandGreen, NONE_ISSUED, NONE_ISSUED_SAID, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, StationAnswer, StationNow } from "./data.js";
 import { joursDuJour, vigilanceLue } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
@@ -1228,7 +1228,13 @@ export function vigilanceLive(data: Cached<mf.Vigilance> | null, now: Date): Liv
     return officielLive(lue({ valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) }, data!, now), mf.OFFICIEL_CYCLONE);
   }
   const r = raised(v);
-  if (!r.length) return officielLive(lue({ valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" }, data!, now), mf.OFFICIEL_VIGILANCE);
+  if (!r.length) {
+    // Green only when Météo-France issued it for the whole island, never in place of a bulletin without it.
+    const l = islandGreen(v, now)
+      ? { valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" }
+      : { valeur: esc(NONE_ISSUED_SAID), detail: esc(cyclone(v, now).replace(/\.$/, "")) };
+    return officielLive(lue(l, data!, now), mf.OFFICIEL_VIGILANCE);
+  }
   return officielLive(lue({
     valeur: vg(r[0].max),
     detail: esc(r.slice(0, 2).map((x) => `${x.phenomene.toLowerCase()} (${x.zone.split(" :")[0]})`).join(", ") + (r.length > 2 ? "…" : "")),
@@ -1600,7 +1606,9 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
       : `<p class="big">Pas d'alerte cyclonique</p>`;
     const rest = r.length
       ? `<p class="lead">Vigilances au-dessus du vert : ${r.map((x) => `${vg(x.max)} ${esc(x.phenomene.toLowerCase())} (${esc(x.zone.split(" :")[0])})`).join(", ")}.</p>`
-      : `<p class="lead">${vg(1)} Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</p>`;
+      : islandGreen(v, now)
+        ? `<p class="lead">${vg(1)} Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</p>`
+        : `<p class="lead">${esc(NONE_ISSUED_SAID)}.</p>`;
     status = `<div class="status">${head}${rest}<p class="lead"><b>${officielHtml(mf.OFFICIEL_VIGILANCE)}</b></p><p class="lead"><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a></p><p class="note" style="color:var(--on-night-muted)">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p></div>`;
   }
 

@@ -13,7 +13,7 @@ import { homePage } from "../src/web/home.js";
 import { communesPage } from "../src/web/commune.js";
 import { VERSION } from "../src/server.js";
 import { COVERAGE as SEA_COVERAGE } from "../src/tools/mer.js";
-import { CSS, DESCRIPTION_MAX, FONT_PATH, meteoPage, placePage, seaPage, STYLE_PATH, vigilancePage } from "../src/web/pages.js";
+import { CSS, DESCRIPTION_MAX, FONT_PATH, meteoPage, placePage, seaPage, STYLE_PATH, vigilanceLive, vigilancePage } from "../src/web/pages.js";
 import { PAGES, pageOf } from "../src/web/places.js";
 import { isReader, site } from "../src/web/site.js";
 import { unzip } from "../src/zip.js";
@@ -846,6 +846,15 @@ describe("the maps lead to what they show", () => {
     // Its 5 land zones, phenomenon by phenomenon.
     const cards = ids(page);
     for (const z of ["z-nord", "z-est", "z-sud-est", "z-sud", "z-ouest"]) expect(cards.has(z)).toBe(true);
+    // Green said only when Météo-France issued it on all the land, on the page and the home page's tile.
+    expect(page).toContain("Aucune vigilance particulière à La Réunion");
+    expect(vigilanceLive({ value: v, fetchedAt: NOW, stale: false }, NOW)?.valeur).toContain("vert");
+    const bare = structuredClone(v);
+    for (const z of ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"]) delete bare.zones[z];
+    const none = vigilancePage("https://rundata.re", { value: bare, fetchedAt: NOW, stale: false }, NOW);
+    expect(none).not.toContain("Aucune vigilance particulière");
+    expect(none).toContain('<p class="lead">Pas de vigilance émise.</p>');
+    expect(vigilanceLive({ value: bare, fetchedAt: NOW, stale: false }, NOW)).toMatchObject({ valeur: "Pas de vigilance émise" });
 
     const communes = communesPage("https://rundata.re");
     const links = anchors(communes, "/communes/");

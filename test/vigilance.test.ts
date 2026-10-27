@@ -101,4 +101,12 @@ describe("vigilance Météo-France", () => {
     expect(sud.resume).toContain("zone Sud (où se trouve Cilaos) : pas de vigilance émise.");
     expect(sud.niveaux.map((n: { maintenant: string }) => n.maintenant)).toEqual(["pas de vigilance émise", "pas de vigilance émise"]);
   });
+
+  it("never says green for the island when Météo-France issued nothing on land", async () => {
+    const v = structuredClone(await sample());
+    for (const z of ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"]) delete v.zones[z];
+    const r = body(await vigilanceMeteo(cacheWith(v), undefined, NOW));
+    expect(r.resume).toContain("Pas d'alerte cyclonique en cours. Pas de vigilance émise.");
+    expect(r.resume).not.toMatch(/vert|particulière/);
+  });
 });

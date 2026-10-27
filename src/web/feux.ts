@@ -9,7 +9,7 @@ import * as feux from "../providers/feux.js";
 import * as mf from "../providers/vigilance.js";
 import { listLine, QUIET, URGENCE, when } from "../tools/feux.js";
 import { credits as creditOf } from "../tools/format.js";
-import { cyclone, raised } from "../tools/vigilance.js";
+import { cyclone, islandGreen, NONE_ISSUED_SAID, raised } from "../tools/vigilance.js";
 import type { Alerte, SentiersAnswer } from "./data.js";
 import { closedMarkers, closedTrails, connectorCta, crumbBar, crumbs, fireId, fireMarkers, sourcesNote, webPage } from "./domains.js";
 import { esc, islandMap } from "./map.js";
@@ -68,7 +68,7 @@ function vigilance(v: Cached<mf.Vigilance> | null | undefined, now: Date): strin
   if (!v) return `<p><a href="/vigilance">La vigilance de Météo-France</a> se charge.</p>`;
   const r = raised(v.value);
   const c = cyclone(v.value, now);
-  const up = r.length ? `<ul class="plain">${r.map((x) => `<li>${esc(`${x.couleur_max} ${x.phenomene.toLowerCase()} : ${x.zone.split(" :")[0]}`)}</li>`).join("")}</ul>` : `<p>Pas de vigilance particulière à La Réunion (tout est vert).</p>`;
+  const up = r.length ? `<ul class="plain">${r.map((x) => `<li>${esc(`${x.couleur_max} ${x.phenomene.toLowerCase()} : ${x.zone.split(" :")[0]}`)}</li>`).join("")}</ul>` : islandGreen(v.value, now) ? `<p>Pas de vigilance particulière à La Réunion (tout est vert).</p>` : `<p>${NONE_ISSUED_SAID}.</p>`;
   return `${c.startsWith("Pas d'") ? "" : `<p><b>${esc(c)}</b></p>`}${up}<p>${officielHtml(mf.OFFICIEL_VIGILANCE)}</p><p class="note"><a href="/vigilance">La vigilance zone par zone →</a></p>`;
 }
 

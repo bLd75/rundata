@@ -120,6 +120,20 @@ export function zoneLevels(v: mf.Vigilance, zone: string | undefined, now: Date)
   return { above: levels.filter((x) => x.couleur >= 2), issued: levels.some((x) => x.couleur >= 1) };
 }
 
+/** The 5 land zones of Météo-France. */
+const LAND_ZONES = [...new Set(Object.values(mf.ZONE_OF_COMMUNE))];
+
+/**
+ * Green for the whole island: every land zone has each land phenomenon issued, none above green. Else, with nothing
+ * above green, « pas de vigilance émise »: never a green Météo-France did not issue.
+ */
+export function islandGreen(v: mf.Vigilance, now: Date): boolean {
+  return raised(v).length === 0 && LAND_ZONES.every((z) => LAND_PHENOMENA.every((id) => current(v.zones[z]?.[id] ?? [], now) >= 1));
+}
+
+/** « Pas de vigilance émise », to begin a sentence. */
+export const NONE_ISSUED_SAID = NONE_ISSUED.charAt(0).toUpperCase() + NONE_ISSUED.slice(1);
+
 /** « jaune fortes pluies / orages, orange vents forts », « vert », or « pas de vigilance émise » (marketing). */
 export function zoneText(v: mf.Vigilance, zone: string | undefined, now: Date): string {
   const { above, issued } = zoneLevels(v, zone, now);
@@ -180,7 +194,9 @@ export async function vigilanceMeteo(cache: Cache, lieu: string | undefined, now
     const resume = r.length
       ? `${common.alerte_cyclonique} Vigilances au-dessus du vert : ` +
         r.map((x) => `${x.couleur_max} ${x.phenomene.toLowerCase()} pour ${x.zone}`).join("\u00a0; ") + "."
-      : `${common.alerte_cyclonique} Aucune vigilance particulière à La Réunion (tout est vert) dans les 24 h du bulletin.`;
+      : islandGreen(v, now)
+        ? `${common.alerte_cyclonique} Aucune vigilance particulière à La Réunion (tout est vert) dans les 24 h du bulletin.`
+        : `${common.alerte_cyclonique} ${NONE_ISSUED_SAID}.`;
     return text({ resume: `${resume} ${link}`, ...common, vigilances: r.map(({ max: _, ...x }) => x) });
   }
 
