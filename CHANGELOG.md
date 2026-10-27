@@ -4,6 +4,10 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 <!-- Généré à partir de src/nouveautes.ts par `npm run changelog` : modifier la liste là-bas. -->
 
+## Mercredi 28 octobre 2026
+
+- Routes forestières : leur état de circulation selon l'ONF, pour toute l'île ou une route (« RF20 »), dans les réponses des IA.
+
 ## Mardi 27 octobre 2026
 
 - Sorties : le programme du Théâtre Luc Donat, au Tampon, est de retour, avec l'accord écrit du théâtre et un lien vers chaque date.

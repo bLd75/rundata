@@ -57,6 +57,54 @@ describe("sentiers de randonnée", () => {
     expect(b.autour.sentiers_fermes.map((t: { sentier: string }) => t.sentier)).toContain("Piste DFCI de la Glacière");
   });
 
+  it("answers for the forest roads of the island, or one by its code or its name, never a place not found", async () => {
+    const shut = "Route Forestière de la Plaine d'Affouches (RF20), Route Forestière de la Scierie (RF58), Route Forestière de la Vallée Heureuse (RF37), Route Forestière du Vieux Port du Tremblet (RF17)";
+    for (const lieu of ["route forestière", "routes forestières", "RF", "routes forestières fermées", "quelles routes forestières de l'ONF sont fermées ?"]) {
+      const b = body(await sentiersRandonnee(cache(), lieu, NOW));
+      expect(b.erreur, lieu).toBeUndefined();
+      expect(b.resume, lieu).toBe(`Routes forestières sur la carte de l'ONF : 36, dont 4 en circulation interdite : ${shut}. L'état de chacune est dans routes_forestieres.`);
+      expect(b.routes_forestieres_fermees.map((r: { route: string }) => r.route).join(", ")).toBe(shut);
+      // The pieces in the same state are one row; a road in two states, two.
+      expect(b.routes_forestieres).toHaveLength(38);
+      expect(b.consulter).toBeDefined();
+    }
+    const affouches = body(await sentiersRandonnee(cache(), "la RF 20 est ouverte ?", NOW));
+    expect(affouches.resume).toBe("Route Forestière de la Plaine d'Affouches (RF20) : Circulation interdite (Sécurité, décision n°18/2025).");
+    expect(affouches.routes_forestieres).toEqual([expect.objectContaining({ route: "Route Forestière de la Plaine d'Affouches (RF20)", circulation: "Circulation interdite", longueur_km: expect.any(Number), commune: expect.any(String) })]);
+    expect(affouches.routes_forestieres_fermees).toBeUndefined();
+    expect(body(await sentiersRandonnee(cache(), "RF8", NOW)).resume).toBe("Route Forestière du Maïdo (RF08) : Circulation autorisée.");
+    // A road in pieces of different states: each piece with its length, in the map's order.
+    expect(body(await sentiersRandonnee(cache(), "route forestière du Tévelave", NOW)).resume)
+      .toBe("Route Forestière du Tévelave (RF06), en 2 tronçons : Circulation autorisée sur 5,6 km\u00a0; Circulation autorisée de 5h à 22h sur 4,8 km.");
+    // In pieces of the same state, one sentence a name.
+    expect(body(await sentiersRandonnee(cache(), "RF05", NOW)).resume)
+      .toBe("Route Forestière du Volcan (RF05) de Piton Sec au Pas des Sables : Circulation autorisée. Route Forestière du Volcan (RF05) du Pas des Sables au terminus : Circulation autorisée.");
+    const none = body(await sentiersRandonnee(cache(), "RF99", NOW));
+    expect(none.resume).toBe("Pas de route forestière « RF99 » sur la carte de l'ONF. L'état des 36 routes est dans routes_forestieres.");
+    expect(none.routes_forestieres).toHaveLength(38);
+    expect(body(await sentiersRandonnee(cache(), "route forestière de Zzyzx", NOW)).resume).toMatch(/^Pas de route forestière « Zzyzx » sur la carte/);
+    // No road of that name, but a place: the place, as before.
+    const cilaos = body(await sentiersRandonnee(cache(), "routes forestières à Cilaos", NOW));
+    expect(cilaos.resume).toContain("Dans le cirque de Cilaos : ");
+  });
+
+  it("says a forest road closed on a piece only, and never « aucune » without the map's roads", async () => {
+    const roads = JSON.parse(fixture("routes.json"));
+    const piece = roads.features.find((f: { attributes: { WR_NomRF: string; WR_Circ: string } }) => f.attributes.WR_NomRF === "Route Forestière de Bébour Bélouve (RF02)" && f.attributes.WR_Circ === "Circulation autorisé");
+    piece.attributes.WR_Circ = "Circulation interdite";
+    const serve = (routes: unknown) => vi.stubGlobal("fetch", async (url: string) =>
+      new Response(new URL(url).pathname.endsWith("/4/query") ? JSON.stringify(routes) : fixture(new URL(url).pathname.endsWith("/5/query") ? "sentiers.json" : "couche.json"), { headers: { "content-type": "application/json" } }));
+    serve(roads);
+    expect(body(await sentiersRandonnee(cache(), "route forestière", NOW)).resume).toMatch(/^Routes forestières sur la carte de l'ONF : 36, dont 5 en circulation interdite : Route Forestière de Bébour Bélouve \(RF02, sur une partie\), Route Forestière de la Plaine/);
+    roads.features = roads.features.filter((f: { attributes: { WR_Circ: string } }) => f.attributes.WR_Circ !== "Circulation interdite");
+    serve(roads);
+    expect(body(await sentiersRandonnee(cache(), "route forestière", NOW)).resume).toBe("Routes forestières sur la carte de l'ONF : 32, aucune en circulation interdite. L'état de chacune est dans routes_forestieres.");
+    serve({ features: [] });
+    const empty = await sentiersRandonnee(cache(), "route forestière", NOW);
+    expect(empty.isError).toBe(true);
+    expect(body(empty).erreur).toBe("La carte des sentiers de l'ONF ne répond pas pour le moment.");
+  });
+
   it("looks around a place, with the trails named after it", async () => {
     const b = body(await sentiersRandonnee(cache(), "Bélouve", NOW));
     expect(b.resume).toMatch(/^ATTENTION : Sentier de l'École normale emprunte 1 sentier fermé : Sentier de l'École Normale\u00a0; .+\. 4 sentiers portent ce nom : 1 fermé \(Sentier de la Tamarinaie de Bélouve\)\. À moins de 4 km de Bélouve : \d+ sentiers fermés/);
