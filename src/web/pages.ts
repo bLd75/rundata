@@ -694,6 +694,7 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .qdays li{height:100%;display:flex;align-items:flex-end}
 .qdays i{display:block;width:100%;background:var(--vg0);border-radius:2px 2px 0 0}
 .qdays li.now i{background:var(--accent);opacity:.6}
+.qdays li.nolu{background:repeating-linear-gradient(135deg,var(--line) 0 1px,transparent 1px 4px);opacity:.7}
 .qdays .axis{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted);margin:.2rem 0 0}
 .bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.2rem .6rem;font-size:.92rem}
 .band .bars li{color:var(--on-night)}

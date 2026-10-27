@@ -8,6 +8,7 @@
  */
 import * as nuages from "../tools/nuages.js";
 import type { MerDeNuages } from "../tools/nuages.js";
+import type { Jour } from "../tools/volcan.js";
 import * as arome from "../providers/arome.js";
 import { left, measured } from "../budget.js";
 import { daysApart, distanceKm, localTime } from "../geo.js";
@@ -384,8 +385,13 @@ export interface VolcanAnswer {
   seismes?: {
     sous_le_volcan: { "30_jours": number; "7_jours": number; magnitude_max_30j: number | null };
     ailleurs_sur_l_ile: { "30_jours": number; magnitude_max_30j: number | null };
-    /** Day of La Réunion « 2026-10-24 », oldest first; today `en_cours`. */
-    par_jour_sous_le_volcan?: { jour: string; nombre: number; en_cours?: true }[];
+    /**
+     * Day of La Réunion « 2026-10-24 », oldest first; today `en_cours`. The catalogue silent: the day of its last read
+     * counted `jusqu_a` its time, the days after `non_lu`, without a count (tools/volcan.ts `perDay`).
+     */
+    par_jour_sous_le_volcan?: Jour[];
+    /** Served from the last copy: the counts end at that read, « 26/10 à 19:00 ». */
+    lus_jusqu_au?: string;
     derniers: { heure: string; magnitude: number; profondeur_km: number; lieu: string }[];
     note: string;
     /** Served from the last copy, the catalogue not answering: the sentence that says from which read. */

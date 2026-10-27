@@ -11,7 +11,7 @@ import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, CruesAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
 import { actualitesLive, airLive, atDay, bornesLive, cruesLive, floodRaised, imageLinks, busLive, coupuresLive, daeLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive, saidNow, stillToCome } from "./domains.js";
 import { de } from "../tools/format.js";
-import { enImagesApres, enImagesLuesAilleurs, NON_ANNONCEE } from "../tools/volcan.js";
+import { enImagesApres, enImagesLuesAilleurs, jusquALecture, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
 import { enfantsLive } from "./enfants.js";
 import { esc, fenetre, islandMap, type Marker } from "./map.js";
@@ -141,7 +141,7 @@ export function demos(h: HomeLive | null, now: Date): Demo[] {
         ? `Oui, le Piton de la Fournaise est en éruption (niveau ORSEC : ${esc(e.niveau_orsec)}).`
         // What the texts read say, with when, never « Non » on our word nor pitonlive's (marketing).
         : `Pas d'éruption annoncée par l'OVPF ni par la préfecture dans les textes que nous avons lus (${hm(h!.volcan!.fetchedAt)}).${e.niveau_inconnu ? "" : ` Niveau ORSEC : ${esc(e.niveau_orsec)}.`}`) +
-        (q ? ` L'observatoire a localisé ${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} sous le volcan en 7 jours.` : ""),
+        (q ? ` L'observatoire a localisé ${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} sous le volcan en 7 jours${q.lus_jusqu_au ? `, ${esc(jusquALecture(q.lus_jusqu_au))}` : ""}.` : ""),
     });
   }
   const bus = h?.bus;

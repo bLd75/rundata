@@ -6,7 +6,7 @@
  */
 import { enLigne } from "./associations-drapeau.js";
 import { OVPF, OVPF_FACEBOOK, PREFECTURE } from "../providers/volcan.js";
-import { enImages, enImagesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, LOCALISES, LU_DANS_L_IMAGE, NIVEAU_ILLISIBLE, NON_ANNONCEE, ORSEC_BAN, ovpfNiveau, pitonLines, VIGILANCE_ENCLOS } from "../tools/volcan.js";
+import { enImages, enImagesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, JOURS_SUIVANTS, type Jour, jusquALecture, LOCALISES, LU_DANS_L_IMAGE, NIVEAU_ILLISIBLE, NON_ANNONCEE, NON_LU, ORSEC_BAN, ovpfNiveau, pitonLines, VIGILANCE_ENCLOS } from "../tools/volcan.js";
 import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { PATH as SANS_REPONSE } from "./sans-reponse.js";
 import { SOMMET } from "../providers/seismes.js";
@@ -176,6 +176,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   const e = d?.etat;
   // « indisponible » when the OVPF's catalogue did not answer (tools/volcan.ts).
   const q = typeof d?.seismes === "object" ? d.seismes : undefined;
+  // The catalogue silent: the counts are of its last copy, said with the time of that read.
+  const jusqua = q?.lus_jusqu_au ? `, ${jusquALecture(q.lus_jusqu_au)}` : "";
   const url = `${origin}/volcan`;
   // Under an alert, the OVPF's newest post in images, newer than the release: said once, with its time, at the top;
   // IMAGE_APRES is then not said (marketing).
@@ -232,7 +234,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
           `<p class="lead">${enclosSaid(e.acces_enclos ?? {})}</p>` +
           (e.image_ovpf_plus_recente ? `<p class="lead">${esc(apres)}</p>` : "")
         : `<p class="lead">${esc(d.resume)}</p>`) +
-      (q && !a ? `<p class="lead">Séismes localisés par l'OVPF sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
+      (q && !a ? `<p class="lead">Séismes localisés par l'OVPF sous le volcan${esc(jusqua)} : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
       `</div>`;
 
   // Out of an alert, the Enclos as the texts say it, on its card; during one, in « Puis-je monter au volcan ? », whose
@@ -259,9 +261,9 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     ? `<div class="card">${icon("gauge")}<h3>Séismes localisés par l'OVPF</h3>` +
       quakeDays(q.par_jour_sous_le_volcan, e?.image_ovpf_plus_recente && !folded && !a ? apres : undefined) +
       (a
-        ? `<p class="facts"><span>Sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
+        ? `<p class="facts"><span>Sous le volcan${esc(jusqua)} : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
           `<span>Ailleurs sur l'île : <b>${q.ailleurs_sur_l_ile["30_jours"]}</b> en 30 jours, magnitude max ${md(q.ailleurs_sur_l_ile.magnitude_max_30j)}</span></p>`
-        : `<p class="facts"><span>Sous le volcan : <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
+        : `<p class="facts"><span>Sous le volcan${esc(jusqua)} : <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
           `<span>Ailleurs sur l'île : <b>${q.ailleurs_sur_l_ile["30_jours"]}</b>, magnitude max ${md(q.ailleurs_sur_l_ile.magnitude_max_30j)}</span></p>`) +
       (q.derniers.length ? `<ul class="rows${a ? " seismes" : ""}">${q.derniers.slice(0, a ? 5 : undefined).map(quakeRow).join("")}</ul>` : "") +
       // LOCALISES once, under the day counts (marketing).
@@ -361,22 +363,30 @@ const DAYS_SCALE_MIN = 10;
 
 /**
  * The events located under the summit per day, as bars from 0, today marked « en cours » (data-run, marketing); each
- * bar says its day and count to screen readers, and the line under it today's, yesterday's and the highest.
+ * bar says its day and count to screen readers, and the line under it today's, yesterday's and the highest. The
+ * catalogue silent: the day of its last read « jusqu'à » that time, the days after it hatched, « non lu », no bar.
  */
-function quakeDays(days: NonNullable<VolcanAnswer["seismes"]>["par_jour_sous_le_volcan"], imageAfter: string | undefined): string {
+function quakeDays(days: Jour[] | undefined, imageAfter: string | undefined): string {
   if (!days?.length) return "";
   const dd = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
-  const scale = Math.max(DAYS_SCALE_MIN, ...days.map((j) => j.nombre));
-  const bars = days.map((j) =>
-    `<li${j.en_cours ? ` class="now"` : ""} aria-label="${dd(j.jour)}${j.en_cours ? " (en cours)" : ""} : ${j.nombre}"><i style="height:${Math.round((j.nombre / scale) * 100)}%"></i></li>`).join("");
+  const read = days.filter((j) => !("non_lu" in j)) as Exclude<Jour, { non_lu: true }>[];
+  const scale = Math.max(DAYS_SCALE_MIN, ...read.map((j) => j.nombre));
+  const bars = days.map((j) => "non_lu" in j
+    ? `<li class="nolu" aria-label="${dd(j.jour)} : ${NON_LU}"></li>`
+    : `<li${j.en_cours ? ` class="now"` : ""} aria-label="${dd(j.jour)}${j.en_cours ? " (en cours)" : j.jusqu_a ? ` (jusqu'à ${j.jusqu_a})` : ""} : ${j.nombre}"><i style="height:${Math.round((j.nombre / scale) * 100)}%"></i></li>`).join("");
   const today = days.at(-1)!;
-  const yesterday = days.at(-2);
-  const top = days.reduce((a, j) => (j.nombre > a.nombre ? j : a), days[0]);
+  const last = read.at(-1);
+  const top = read.reduce<typeof last>((a, j) => (!a || j.nombre > a.nombre ? j : a), undefined);
+  // The day before today, counted whole: only when today is.
+  const yesterday = "en_cours" in today ? read.at(-2) : undefined;
   // « Le plus en un jour »: not to be read as a total over the 30 days (marketing).
-  const facts = `Aujourd'hui (en cours) : <b>${today.nombre}</b>${yesterday ? `, hier : <b>${yesterday.nombre}</b>` : ""}.` +
-    (top.nombre ? ` Le plus en un jour sur 30 jours : <b>${top.nombre}</b>, le ${dd(top.jour)}.` : "");
+  const facts = ("en_cours" in today
+    ? `Aujourd'hui (en cours) : <b>${today.nombre}</b>${yesterday ? `, hier : <b>${yesterday.nombre}</b>` : ""}.`
+    : `${last?.jusqu_a ? `Le ${dd(last.jour)} jusqu'à ${last.jusqu_a} : <b>${last.nombre}</b>. ` : ""}${JOURS_SUIVANTS}`) +
+    (top?.nombre ? ` Le plus en un jour sur ${"en_cours" in today ? "" : "ces "}30 jours : <b>${top.nombre}</b>, le ${dd(top.jour)}.` : "");
+  const end = `${dd(today.jour)}${"en_cours" in today ? " (en cours)" : "non_lu" in today ? ` (${NON_LU})` : ""}`;
   return `<figure class="qdays"><figcaption>Sous le volcan, par jour (heure de La Réunion)</figcaption>` +
-    `<ol>${bars}</ol><p class="axis"><span>${dd(days[0].jour)}</span><span>${dd(today.jour)} (en cours)</span></p></figure>` +
+    `<ol>${bars}</ol><p class="axis"><span>${dd(days[0].jour)}</span><span>${end}</span></p></figure>` +
     `<p>${facts}</p><p class="note">${esc(LOCALISES)}</p>` +
     (imageAfter ? `<p class="note">${esc(imageAfter)}</p>` : "");
 }
@@ -397,7 +407,7 @@ export function volcanLive(data: Cached<VolcanAnswer> | null, now = new Date()):
     detail: [
       esc(lus),
       esc(`Enclos : ${enclos.valeur} (${enclos.source})`),
-      q ? `${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} localisé${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} par l'OVPF sous le volcan en 7 jours` : undefined,
+      q ? `${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} localisé${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} par l'OVPF sous le volcan en 7 jours${q.lus_jusqu_au ? `, ${jusquALecture(q.lus_jusqu_au)}` : ""}` : undefined,
     ].filter(Boolean).join(" · "),
     // In the hero, where the detail is not shown; on a line of its own, never cut with the value.
     source: esc(lus),
