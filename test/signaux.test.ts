@@ -153,4 +153,13 @@ describe("The pages' part", () => {
     expect(html).toContain("Passé 13 mois après votre première visite, il est effacé dès votre visite suivante, avant tout envoi\u00a0; il n'est jamais prolongé. Sans nouvelle visite, il reste sur votre appareil, sans être lu ni envoyé.");
     expect(html).toContain('(« Cookies : solutions pour les outils de mesure d\'audience », <a href="https://www.cnil.fr/fr/cookies-et-autres-traceurs/regles/cookies-solutions-pour-les-outils-de-mesure-daudience">cnil.fr</a>).</p>');
   });
+
+  it("says on /confidentialite what Cloudflare Web Analytics measures, after our own statistics", () => {
+    const html = legalPage(O, "confidentialite");
+    expect(html).toContain("Une mesure de Cloudflare, sans cookie, compte aussi les pages vues et leur vitesse d'affichage (voir <a href=\"#mesure-cloudflare\">«\u00a0La mesure de Cloudflare\u00a0»</a>). Rien n'est vendu");
+    expect(html).toContain("trois mois au plus.</p>\n  <p id=\"mesure-cloudflare\">La mesure de Cloudflare. Chaque page charge aussi un petit script de Cloudflare Web Analytics");
+    expect(html).toContain("Comme pour toute page, Cloudflare reçoit votre adresse IP\u00a0; selon sa documentation, il ne s'en sert pas, ni d'aucune autre donnée, pour suivre les visiteurs dans le temps ou d'un site à l'autre.");
+    expect(html).toContain("Cloudflare garde chaque mesure 7 jours, puis un échantillon d'environ un dixième, que nous pouvons consulter pendant six mois.");
+    expect(html).toContain("Mise à jour\u00a0: 28 octobre 2026.");
+  });
 });
