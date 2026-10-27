@@ -117,10 +117,14 @@ export interface Zone {
   document: string;
 }
 
+// API Carto's Géoportail de l'urbanisme answers in 1 to 2 s, or gives up by itself after about 11 s with a 500 (26/10):
+// waiting longer only held the fiche, up to the 25 s of a read that never came back, for neither the zone nor the plans.
+const GPU_MS = 12_000;
+
 export async function zone(cache: Cache, lon: number, lat: number): Promise<Cached<Zone | null>> {
   return cache.get(`gpu:${key(lon, lat)}`, DAY, async () => {
     const r = await getJson<{ features: { properties: Record<string, string | null> }[] }>(
-      SOURCES.gpu.id, `https://apicarto.ign.fr/api/gpu/zone-urba?geom=${point(lon, lat)}`, 25_000);
+      SOURCES.gpu.id, `https://apicarto.ign.fr/api/gpu/zone-urba?geom=${point(lon, lat)}`, GPU_MS);
     const p = r.features[0]?.properties;
     return p ? { libelle: p.libelle ?? "", libelong: p.libelong ?? "", typezone: p.typezone ?? "", date: p.datvalid ?? "", document: p.partition ?? "" } : null;
   });
@@ -337,7 +341,7 @@ export function planOf(p: Record<string, string | null>): Plan | null {
 export async function plans(cache: Cache, lon: number, lat: number): Promise<Cached<Plan[]>> {
   return cache.get(`ppr:${key(lon, lat)}`, 7 * DAY, async () => {
     const r = await getJson<{ features: { properties: Record<string, string | null> }[] }>(
-      SOURCES.ppr.id, `https://apicarto.ign.fr/api/gpu/assiette-sup-s?geom=${point(lon, lat)}`, 25_000);
+      SOURCES.ppr.id, `https://apicarto.ign.fr/api/gpu/assiette-sup-s?geom=${point(lon, lat)}`, GPU_MS);
     const seen = new Set<string>();
     return r.features.flatMap(({ properties }) => {
       const plan = planOf(properties);
