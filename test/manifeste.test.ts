@@ -116,10 +116,13 @@ describe("rundata.re's accounts", () => {
   it("are in every footer, with their logo, their name and ?ref=site", () => {
     const html = placePage(O, pageOf("cilaos")!, null, NOW);
     const foot = html.slice(html.indexOf('<footer class="foot">'));
-    expect(foot).toContain(`<p class="social">Suivre rundata.re : <span><a href="https://www.facebook.com/1432704299917309?ref=site" rel="noopener" aria-label="rundata.re sur Facebook"><svg`);
+    expect(foot).toContain(`<p class="social">Suivre rundata.re : <span><span class="pair"><a href="https://www.facebook.com/1432704299917309?ref=site" rel="noopener" aria-label="rundata.re sur Facebook"><svg`);
     expect(foot).toContain(`<a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener" aria-label="rundata.re sur Instagram"><svg`);
     expect(foot).toContain(`<a href="https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q?ref=site" rel="noopener" aria-label="rundata.re sur WhatsApp"><svg`);
-    expect(foot).toMatch(/<\/svg>Facebook<\/a><a [^>]+><svg[^]*?<\/svg>Instagram<\/a><a [^>]+><svg[^]*?<\/svg>WhatsApp<\/a><\/span><\/p>/);
+    // The code last, with no ?ref=site: GitHub brings no visit back to count.
+    expect(foot).toContain(`<a href="https://github.com/rundata-re/rundata" rel="noopener" aria-label="rundata.re sur GitHub"><svg`);
+    // Two by two, so that a narrow line never leaves one alone.
+    expect(foot).toMatch(/<\/svg>Facebook<\/a><a [^>]+><svg[^]*?<\/svg>Instagram<\/a><\/span><span class="pair"><a [^>]+><svg[^]*?<\/svg>WhatsApp<\/a><a [^>]+><svg[^]*?<\/svg>GitHub<\/a><\/span><\/span><\/p>/);
   });
 
   it("show nothing for an account without an address", () => {
@@ -134,7 +137,10 @@ describe("rundata.re's accounts", () => {
     const ld = JSON.parse(page.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)![1]);
     const org = ld.find((x: { "@type": string }) => x["@type"] === "Organization");
     expect(org.sameAs.slice(0, 3)).toEqual(["https://www.facebook.com/1432704299917309", "https://www.instagram.com/rundata.re/", "https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q"]);
-    expect(org.sameAs).toHaveLength(SOCIAL.filter((s) => s.url).length + 3);
+    // The accounts, GitHub among them, then the data.gouv.fr reuse and Glama, each once.
+    expect(org.sameAs).toHaveLength(SOCIAL.filter((s) => s.url).length + 2);
+    expect(new Set(org.sameAs).size).toBe(org.sameAs.length);
+    expect(org.sameAs).toContain("https://github.com/rundata-re/rundata");
     // The reuse's slug since 25/10 (the old one 301s).
     expect(org.sameAs).toContain("https://www.data.gouv.fr/reuses/rundata-re-la-reunion-974-en-direct-pour-vous-et-votre-assistant-ia");
     expect(org.logo).toMatch(/^https:\/\/[^/]+\/icons\/logo-512\.[0-9a-f]{10}\.png$/);

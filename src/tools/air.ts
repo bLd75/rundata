@@ -45,7 +45,7 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
       resume: todays.length
         ? `Qualité de l'air aujourd'hui à La Réunion : au pire ${atmo.LEVELS[worst]} (${worst}/6)` +
           (atWorst.length < todays.length ? `, à ${atWorst.join(", ")}` : " dans toutes les communes") + "."
-        : "L'indice du jour n'est pas encore publié (vers 12h30).",
+        : "L'indice du jour n'est pas encore publié (vers 12:30).",
       communes: todays.map((x) => ({ commune: x.commune, niveau: x.niveau, qualite: atmo.LEVELS[x.niveau], polluants: drivers(x) })),
       ...common,
     });

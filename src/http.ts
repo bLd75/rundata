@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { count, perInvocation } from "./budget.js";
+import { count, countRead, perInvocation } from "./budget.js";
 import { noteSource } from "./lectures.js";
 import { UpstreamError } from "./types.js";
 
@@ -13,6 +13,52 @@ export function httpUrl(raw: string | undefined): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Whether a link found in a third party's page may be followed: in https, to one of `hosts`. A page of that site gone
+ * bad (a hacked site, a link planted in it) must never send the Worker to read elsewhere. A link refused is said in the
+ * log, by its host only.
+ */
+export function permis(source: string, lien: string, hosts: readonly string[]): boolean {
+  let u: URL;
+  try {
+    u = new URL(lien);
+  } catch {
+    return false;
+  }
+  if (u.protocol === "https:" && hosts.includes(u.host)) return true;
+  console.warn(`${source} : lien hors de ${hosts.join(", ")} ignoré (${u.protocol === "https:" ? u.host : u.protocol})`);
+  return false;
+}
+
+/**
+ * A request's body as text, read up to `max` bytes; undefined past them, the rest left unread. `content-length` is
+ * only a first check: a body sent in chunks has none, and is counted as it comes.
+ */
+export async function bodyText(request: Request, max: number): Promise<string | undefined> {
+  if (Number(request.headers.get("content-length") ?? 0) > max) return undefined;
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => {});
+      return undefined;
+    }
+    parts.push(value);
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) {
+    all.set(p, at);
+    at += p.byteLength;
+  }
+  return new TextDecoder().decode(all);
 }
 
 export const USER_AGENT = "reunion-temps-reel/0.2 (open source MCP server, real-time data for Reunion Island)"; // header values must be ASCII
@@ -94,6 +140,7 @@ async function get<T>(
   shown = url,
 ): Promise<T> {
   count();
+  countRead(source);
   noteSource(source);
   const places = perInvocation("http:places", () => new Places());
   await places.take();

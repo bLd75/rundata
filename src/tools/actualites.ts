@@ -8,6 +8,7 @@ import { a, credits, notFound, placeBlock, text } from "./format.js";
 import { mediasNonLus } from "./injoignable.js";
 import { mentionLa1ere } from "./non-repris.js";
 import * as littoral from "./littoral.js";
+import { rienTrouve } from "../vide.js";
 
 const DEFAULT_HOURS = 24;
 const MAX_HOURS = 72;
@@ -117,7 +118,6 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
   const prefecture = data.prefecture.filter((i) => i.publie >= new Date(now.getTime() - PREFECTURE_DAYS * 86_400_000).toISOString() && (!what || what.test(i))).slice(0, 3);
 
   const kind = what ? ` (${what.nom})` : "";
-  const newest = mine[0];
   const latest = (i: src.Info) => `${quand(i, now)} (${i.media}${i.direct ? ", en direct" : ""}) : « ${i.titre} »`;
   // What a text says of the place asked for, when it says it past its first sentence.
   const about = (i: src.Info) => i.extraits?.find((e) => e.communes.includes(commune!))?.texte ?? (i.resume && src.placesIn(i.resume).communes.includes(commune!) ? i.resume : undefined);
@@ -125,6 +125,8 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
   // answer is neither gone nor empty).
   const silent = data.indisponible.length ? mediasNonLus(data.indisponible, localTime(readAt), now) : "";
   const blind = !data.infos.length && !!silent;
+  // Nothing naming the place, or nothing at all: not that nothing happens there (a media that did not answer is said apart).
+  if (!blind && !(res ? mine.length : pool.length)) rienTrouve("actualites");
   const resume = [
     blind ? "" : res
       ? mine.length

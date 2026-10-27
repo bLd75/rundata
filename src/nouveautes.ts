@@ -28,7 +28,7 @@ export const OUTILS: Outil[] = [
   { nom: "actualites", ligne: "blocages, routes, faits divers, en direct", depuis: "2026-10-24T12:32:00+04:00" },
   { nom: "evenements", ligne: "concerts, spectacles, fêtes, marchés", depuis: "2026-10-24T11:13:00+04:00" },
   { nom: "historique_meteo", ligne: "météo mesurée passée, records", depuis: "2026-10-24T10:58:00+04:00" },
-  { nom: "cyclones", ligne: "cyclones actifs, prévision du CMRS", depuis: "2026-10-24T10:45:00+04:00" },
+  { nom: "cyclones", ligne: "cyclones actifs, stade du CMRS", depuis: "2026-10-24T10:45:00+04:00" },
   { nom: "sport", ligne: "matchs, résultats, programmes des communes, Grand Raid", depuis: "2026-10-24T10:43:00+04:00" },
   { nom: "defibrillateurs", ligne: "défibrillateur le plus proche", depuis: "2026-10-24T10:22:00+04:00" },
   { nom: "coupures_eau", ligne: "coupures d'eau, eau non potable", depuis: "2026-10-24T10:20:00+04:00" },
@@ -48,13 +48,20 @@ export const OUTILS: Outil[] = [
   { nom: "electricite", ligne: "électricité, renouvelable, coupures de courant", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "calendrier", ligne: "vacances, jours fériés, soleil", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "qualite_air", ligne: "qualité de l'air", depuis: "2026-10-23T16:09:00+04:00" },
-  { nom: "fiche_terrain", ligne: "cadastre, PLU, prix, risques", depuis: "2026-10-23T16:09:00+04:00" },
+  { nom: "fiche_terrain", ligne: "cadastre, PLU, prix, loyers, fibre, risques", depuis: "2026-10-23T16:09:00+04:00" },
   { nom: "sources_donnees", ligne: "sources, licences, outils, nouveautés", depuis: "2026-10-23T16:09:00+04:00" },
 ];
 
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-28T01:39:00+04:00", texte: "Page /application\u00a0: les étapes pour mettre rundata.re sur l'écran d'accueil avec Safari, Chrome, Firefox, Edge ou Samsung Internet." },
+  { date: "2026-10-28T01:31:00+04:00", texte: "Vigilance\u00a0: la carte officielle de Météo-France, sans retouche, avec l'accord écrit de Météo-France La Réunion." },
+  { date: "2026-10-28T01:20:00+04:00", texte: "Baignade\u00a0: les zones du GIP Centre Sécurité Requin, avec son accord et ses corrections, dont les ZONEX de Boucan-Canot à L'Étang-Salé." },
+  { date: "2026-10-28T01:12:00+04:00", texte: "Routes forestières\u00a0: leur état de circulation selon l'ONF, pour toute l'île ou une route («\u00a0RF20\u00a0»), dans les réponses des IA." },
+  { date: "2026-10-27T10:23:00+04:00", texte: "Sorties\u00a0: le programme du Théâtre Luc Donat, au Tampon, est de retour, avec l'accord écrit du théâtre et un lien vers chaque date." },
+  { date: "2026-10-27T00:02:00+04:00", texte: "Bouton «\u00a0Cette page vous a aidé\u00a0?\u00a0» en bas des pages, pour nous dire en un clic si une page a servi. Sans compte ni cookie." },
+  { date: "2026-10-26T23:57:00+04:00", texte: "Nouvelle page Nos valeurs\u00a0: un site sans compte, un code ouvert, des données sourcées, et ce que coûte une information enfermée." },
   { date: "2026-10-26T18:44:00+04:00", texte: "Loyers d'annonce (ANIL) et part des logements éligibles à la fibre (Arcep), sur chaque page commune et dans les réponses des IA." },
   { date: "2026-10-26T18:40:00+04:00", texte: "Prévision météo\u00a0: le ciel de la nuit, de 18\u00a0h à 6\u00a0h, dégagé ou couvert, et, dans les Hauts, au-dessus des nuages ou dedans." },
   { date: "2026-10-26T18:37:00+04:00", texte: "La Lune dans le calendrier, calculée au lieu demandé\u00a0: phase, part éclairée, lever, coucher et prochaines phases." },

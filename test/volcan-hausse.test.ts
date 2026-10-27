@@ -33,7 +33,7 @@ async function answer(state: PitonState) {
   void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
   void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
   void store.put("volcan:pitonlive", { value: state, fetchedAt: t });
-  void store.put("volcan:prefecture", { value: ALERT_1, fetchedAt: t });
+  void store.put("volcan:prefecture:phase", { value: ALERT_1, fetchedAt: t });
   vi.stubGlobal("fetch", async () => new Response(PAGE));
   vi.spyOn(console, "log").mockImplementation(() => {});
   return buildVolcan(new Cache(store, () => t, true, new MemoryStore()), NOW);

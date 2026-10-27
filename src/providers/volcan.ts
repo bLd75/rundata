@@ -11,13 +11,15 @@
  */
 import { later } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
-import { getJson, getText } from "../http.js";
+import { getJson, getText, permis } from "../http.js";
+import { noteLecture, noteSource } from "../lectures.js";
 import { type SourceInfo, UpstreamError } from "../types.js";
 import { decodeText, textOf } from "./avis-eau.js";
 import { type Info, SOURCES as NEWS } from "./actualites.js";
 import * as prefecture from "./prefecture.js";
 
 export const PREFECTURE: SourceInfo = NEWS.prefecture;
+const PREFECTURE_HOST = "www.reunion.gouv.fr";
 
 export const OVPF: SourceInfo = {
   id: "ovpf_bluesky",
@@ -179,11 +181,11 @@ export interface PitonState {
 }
 
 export async function posts(cache: Cache): Promise<Cached<Post[]>> {
-  return cache.get("volcan:ovpf", FRESH_SECONDS, async () => activityPosts(await getJson<FeedJson>(OVPF.id, FEED)));
+  return cache.island("volcan:ovpf", FRESH_SECONDS, async () => activityPosts(await getJson<FeedJson>(OVPF.id, FEED)));
 }
 
 export async function state(cache: Cache): Promise<Cached<PitonState>> {
-  const got = await cache.get("volcan:pitonlive", FRESH_SECONDS, async () => {
+  const got = await cache.island("volcan:pitonlive", FRESH_SECONDS, async () => {
     const s = await getJson<PitonState>(PITONLIVE.id, STATE);
     // Keep what the tool shows; the full answer carries a daily seismic series and the air quality too.
     return { status: s.status, eruption: s.eruption, last_eruption_ended_at: s.last_eruption_ended_at, days_since_last_eruption: s.days_since_last_eruption, access: s.access };
@@ -226,9 +228,31 @@ export interface Phase {
   jour: string;
   /** The sentences of the release's page, as written (`releaseText`), kept with the phase. */
   phrases?: string[];
+  /**
+   * The title of the release's page, as written, when its title in the list does not name the volcano: « Retour en
+   * phase de vigilance » in the list, « Piton de la Fournaise : réouverture partielle de l'enclos » on its page (26/10/2026).
+   */
+  page?: string;
+}
+
+/** A release's page: its title and its sentences, as written. */
+export interface Page {
+  titre?: string;
+  phrases: string[];
 }
 
 const ABOUT_VOLCANO = /fournaise|volcan|enclos|[ée]ruption/i;
+// What a release about another plan says: the cyclone's (« Retour en phase de vigilance » after a cyclone too), the
+// weather's (« Vigilance orange fortes pluies »), whose colours the volcano's plan does not use.
+const OTHER_PLAN = /cyclon|pr[ée][\s-]?alerte|\b(?:jaune|orange|rouge|violette)\b|pluie|orage|\bvents?\b|houle|vague|canicule|s[ée]cheresse|m[ée]t[ée]o/i;
+/** Whether a release is about the volcano by what its list gives: its title, or its address. */
+const volcanicByList = (r: Info) => ABOUT_VOLCANO.test(r.titre) || ABOUT_VOLCANO.test(prefecture.slugWords(r.lien));
+/**
+ * Whether a release's page is about the volcano: its title names it, or its sentences do and none names another plan
+ * (a cyclone's release may name the volcano's trails among others).
+ */
+export const volcanicPage = (p: Page) =>
+  (!!p.titre && ABOUT_VOLCANO.test(p.titre)) || (p.phrases.some((x) => ABOUT_VOLCANO.test(x)) && !OTHER_PLAN.test(p.titre ?? "") && !p.phrases.some((x) => OTHER_PLAN.test(x)));
 
 // What a release's title says of the Enclos, longest first: quoted as written, never a status mapped to words.
 const ENCLOS_WORDS = /r[ée]?ouverture partielle|partiellement r[ée]?ouvert\p{L}*|partiellement ferm\p{L}*|r[ée]?ouverture|fermeture|interdiction|interdit\p{L}*|r[ée]?ouvert\p{L}*|ferm[ée]\p{L}*/iu;
@@ -238,32 +262,74 @@ export function enclosWords(titre: string): string | undefined {
   return ENCLOS_WORDS.exec(titre)?.[0];
 }
 
-/** The phase the newest release about the volcano declares, or undefined when it declares none. */
-export function phaseOf(releases: Info[]): Phase | undefined {
+/** The words of the phase's release on the Enclos: its title's in the list, else its page's. */
+export const enclosWordsOf = (p: Phase): string | undefined => enclosWords(p.titre) ?? (p.page ? enclosWords(p.page) : undefined);
+
+/**
+ * The phase the newest release about the volcano declares, or undefined when it declares none. `pages`: the pages read
+ * of the releases whose list says nothing of the volcano (`doubtful`), by their link.
+ */
+export function phaseOf(releases: Info[], pages: ReadonlyMap<string, Page> = new Map()): Phase | undefined {
   // The newest release that declares a phase: a later one about the volcano may declare none (a visit, a reminder).
-  for (const r of releases.filter((x) => ABOUT_VOLCANO.test(x.titre)).sort((a, b) => b.publie.localeCompare(a.publie))) {
-    const p = declared(r);
+  const about = (r: Info) => volcanicByList(r) || (pages.has(r.lien) && volcanicPage(pages.get(r.lien)!));
+  for (const r of releases.filter(about).sort((a, b) => b.publie.localeCompare(a.publie))) {
+    const p = declared(r, pages.get(r.lien));
     if (p) return p;
   }
   return undefined;
 }
 
-function declared(r: Info): Phase | undefined {
+// The pages of releases read at most at each reading of the list, to know whether they are about the volcano.
+const DOUBTFUL_MAX = 2;
+
+/**
+ * The releases, newer than the newest one the list says is about the volcano and declares a phase, whose title
+ * declares a phase without naming the volcano nor another plan (« Retour en phase de vigilance », 26/10/2026): only
+ * their page says what they are about. Newest first, `DOUBTFUL_MAX` at most.
+ */
+export function doubtful(releases: Info[]): Info[] {
+  const out: Info[] = [];
+  for (const r of [...releases].sort((a, b) => b.publie.localeCompare(a.publie))) {
+    if (volcanicByList(r)) {
+      if (declared(r)) break;
+      continue;
+    }
+    if (declared(r) && !OTHER_PLAN.test(r.titre)) out.push(r);
+    if (out.length === DOUBTFUL_MAX) break;
+  }
+  return out;
+}
+
+/** What words say of the Enclos: reopened in part, reopened, closed; undefined when they say none of it. */
+function enclosIn(t: string): Phase["enclos"] {
+  return /r[ée]?ouverture partielle|partiellement/i.test(t) ? "partiel" : /r[ée]?ouvert/i.test(t) ? "ouvert" : /fermeture|ferm[ée]/i.test(t) ? "ferme" : undefined;
+}
+
+/**
+ * What the sentences of a release say of the Enclos: « L'accès à l'enclos du volcan est de nouveau autorisé […] sous
+ * réserve du respect des restrictions suivantes » (26/10/2026) is a partial reopening. Undefined when none says.
+ */
+export function enclosInText(phrases: string[]): Phase["enclos"] {
+  const said = phrases.filter((x) => /enclos/i.test(x));
+  if (said.some((x) => /r[ée]?ouverture partielle|partiellement/i.test(x))) return "partiel";
+  const open = said.find((x) => /autoris|r[ée]?ouvert/i.test(x) && !/interdit|ferm/i.test(x));
+  if (open) return /sous r[ée]serve|uniquement|restriction/i.test(open) || said.some((x) => /interdit|ferm/i.test(x)) ? "partiel" : "ouvert";
+  return said.some((x) => /interdit|ferm/i.test(x)) ? "ferme" : undefined;
+}
+
+function declared(r: Info, page?: Page): Phase | undefined {
   const t = r.titre;
   // The end of the alert names it (« fin de l'alerte 1 ») and is a return to vigilance: read first.
   const niveau = /\b(fin|lev[ée]e)\s+(de\s+l['’]\s*|d['’]\s*)alerte/i.test(t) ? "Vigilance" : levelOf(t);
   if (!niveau) return undefined;
   const eruption = /^Alerte 2/.test(niveau) || /[ée]ruption en cours|d[ée]but d.[ée]ruption/i.test(t);
-  // In alert the Enclos is closed by order; a release may say otherwise in its own words.
-  const enclos = /r[ée]?ouverture partielle|partiellement/i.test(t)
-    ? "partiel"
-    : /r[ée]?ouvert/i.test(t)
-      ? "ouvert"
-      // Sauvegarde too: the eruption over, the Enclos stays closed until an order reopens it (DSO 2021, p. 27).
-      : /fermeture|ferm[ée]/i.test(t) || /^(Alerte|Sauvegarde)/.test(niveau)
-        ? "ferme"
-        : undefined;
-  return { niveau, eruption, enclos, titre: t, lien: r.lien, jour: localDay(r.publie) };
+  // The title's words, else its page's when it was read, title then text; in alert the Enclos is closed by order.
+  // Sauvegarde too: the eruption over, the Enclos stays closed until an order reopens it (DSO 2021, p. 27).
+  const enclos =
+    enclosIn(t) ??
+    (page && ((page.titre && enclosIn(page.titre)) || enclosInText(page.phrases))) ??
+    (/^(Alerte|Sauvegarde)/.test(niveau) ? "ferme" : undefined);
+  return { niveau, eruption, enclos, titre: t, lien: r.lien, jour: localDay(r.publie), ...(page?.titre && !volcanicByList(r) && { page: page.titre }) };
 }
 
 /** The day of La Réunion of an instant, « 2026-10-24 ». */
@@ -349,18 +415,99 @@ function dropBlocks(html: string): string {
   return out;
 }
 
+/** The title of a release's page, as written: « Piton de la Fournaise : réouverture partielle de l'enclos ». */
+export function pageTitle(html: string): string | undefined {
+  const m = /<h1(?:\s[^>]*)?>([\s\S]*?)<\/h1>/i.exec(html);
+  const t = m && decodeText(textOf(m[1])).replace(/\s+/g, " ").trim();
+  return t || undefined;
+}
+
+/** What is kept of a release's page in the durable store: the page as last read, and when. */
+interface PageKept {
+  page?: Page;
+  /** When the page was read (ms); before the last try when that try failed. */
+  lu?: number;
+}
+
+// reunion.gouv.fr bans our address on bursts. The scheduled event runs in a new isolate each time, often in another
+// data center, so neither the isolate's memory nor the data center's cache sees the page read five minutes before
+// (26/10/2026: the release in force read 187 times in 24 h, for 48 at most). What was read is kept in the durable
+// store (the Worker's KV), with the time of the last try in its entry: the page is asked again only once that try is
+// older than the freshness asked, whichever isolate or data center asks, a failure as well as a read.
+const PAGE_KEY = (lien: string) => `volcan:communique:page:${lien}`;
+type Known = PageKept & { essai: number };
+// What this isolate knows of each page, with the time of the last try: KV is asked again only once that is old. Two
+// questions at once share one try.
+const pagesKnown = new WeakMap<Cache, Map<string, Known | Promise<Known>>>();
+
+/** A release's page, its title and its sentences: read again only once the last try is `freshSeconds` old. */
+async function releasePage(cache: Cache, lien: string, now: number, freshSeconds = RELEASE_SECONDS): Promise<Cached<Page>> {
+  const key = PAGE_KEY(lien);
+  let mine = pagesKnown.get(cache);
+  if (!mine) pagesKnown.set(cache, (mine = new Map()));
+  // A failed try is tried again after the half hour, whatever the freshness asked (the subject: a week).
+  const fresh = (k: Known | undefined) => !!k && now - k.essai < (k.page ? freshSeconds : Math.min(freshSeconds, RELEASE_SECONDS)) * 1000;
+  let error: unknown;
+  const known = mine.get(key);
+  let k = known instanceof Promise ? await known : known;
+  if (!fresh(k)) {
+    const had = k;
+    const trying = (async (): Promise<Known> => {
+      const kept = await cache.kept<PageKept>(key).catch(() => undefined);
+      const last = kept && (!had || kept.fetchedAt.getTime() > had.essai) ? { ...kept.value, essai: kept.fetchedAt.getTime() } : had;
+      if (last && fresh(last)) return last;
+      let tried: Known;
+      try {
+        tried = { page: await readReleasePage(lien), lu: now, essai: now };
+      } catch (err) {
+        error = err;
+        tried = { ...last, essai: now };
+      }
+      // After the answer: the answer never waits for the durable store.
+      later(cache.keep(key, { ...(tried.page && { page: tried.page, lu: tried.lu }) } satisfies PageKept).catch((err) => console.error("volcan : page du communiqué non gardée", err)));
+      return tried;
+    })();
+    mine.set(key, trying);
+    k = await trying;
+    mine.set(key, k);
+  }
+  if (!k?.page) throw error ?? new UpstreamError(PREFECTURE.id, "communiqué non lu à la dernière tentative");
+  // The last try failed: the page as last read, said so.
+  const stale = k.lu !== k.essai;
+  noteLecture({ key, fetchedAt: k.lu ?? k.essai, stale, freshSeconds, ...(stale && { source: PREFECTURE.id }), from: PREFECTURE.id });
+  return { value: k.page, fetchedAt: new Date(k.lu ?? k.essai), stale, ...(stale && { source: PREFECTURE.id }), from: PREFECTURE.id };
+}
+
+/** Reads a release's page: its title and its sentences. */
+async function readReleasePage(lien: string): Promise<Page> {
+  // Only the prefecture's own pages: a link planted in its list is never read.
+  if (!permis(PREFECTURE.id, lien, [PREFECTURE_HOST])) throw new UpstreamError(PREFECTURE.id, "communiqué hors du site de la préfecture");
+  const html = await getText(PREFECTURE.id, lien, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" });
+  const phrases = releaseSentences(html);
+  if (!phrases.length) throw new UpstreamError(PREFECTURE.id, "communiqué sans texte");
+  const titre = pageTitle(html);
+  // What is read, to check it on the real pages (the extraction is built on one capture).
+  console.log(`volcan : communiqué lu (${lien}) : ${phrases.length} phrases : ${phrases.map((x) => `« ${x} »`).join(" ")}, titre de la page : « ${titre ?? ""} »`);
+  return { ...(titre && { titre }), phrases };
+}
+
+// Whether a release is about the volcano does not change: its page read once a week at most for that (once in the
+// durable store's days, kv.ts, when it is not the release in force, whose page is read every half hour).
+const SUBJECT_SECONDS = 7 * 24 * 3600;
+
+/** The page of a release whose list says nothing of the volcano when it is about it, else null. */
+async function volcanicRelease(cache: Cache, lien: string, now: number): Promise<Page | null> {
+  const page = (await releasePage(cache, lien, now, SUBJECT_SECONDS)).value;
+  return volcanicPage(page) ? page : null;
+}
+
 /** The sentences of the release `p`, read from its page every half hour; those kept with the phase if it does not answer. */
 export async function releaseText(cache: Cache, p: Phase, now = Date.now()): Promise<string[] | undefined> {
   try {
-    const c = await cache.get(`volcan:communique:${p.lien}`, RELEASE_SECONDS, async () => {
-      const phrases = releaseSentences(await getText(PREFECTURE.id, p.lien, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" }));
-      if (!phrases.length) throw new UpstreamError(PREFECTURE.id, "communiqué sans texte");
-      // What is read, to check it on the real pages (the extraction is built on one capture).
-      console.log(`volcan : communiqué lu (${p.lien}) : ${phrases.length} phrases : ${phrases.map((x) => `« ${x} »`).join(" ")}`);
-      return phrases;
-    });
-    if (!c.stale) later(keepPhase(cache, { ...p, phrases: c.value }, now).catch((err) => console.error("volcan : communiqué non gardé", err)));
-    return c.value;
+    const c = await releasePage(cache, p.lien, now);
+    const value = c.value.phrases;
+    if (!c.stale) later(keepPhase(cache, { ...p, phrases: value }, now).catch((err) => console.error("volcan : communiqué non gardé", err)));
+    return value;
   } catch {
     if (p.phrases) return p.phrases;
     const k = await keptPhase(cache, now);
@@ -368,12 +515,25 @@ export async function releaseText(cache: Cache, p: Phase, now = Date.now()): Pro
   }
 }
 
-async function readPhase(cache: Cache): Promise<Cached<Phase | null>> {
-  return cache.get("volcan:prefecture", 5 * 60, async () => {
+// The phase read from the list, five minutes. Named anew when what is read changes (26/10/2026: a release whose page
+// alone names the volcano), so that the phase a former version read is not served after the deploy.
+export const PHASE_KEY = "volcan:prefecture:phase";
+
+async function readPhase(cache: Cache, now: number): Promise<Cached<Phase | null>> {
+  return cache.get(PHASE_KEY, 5 * 60, async () => {
+    // Read from the prefecture's releases, through their own keys: named so that its copy says whose it is.
+    noteSource(PREFECTURE.id);
     const releases = (await prefecture.releases(cache)).value;
     // A page without its list (an error page served as 200, a maintenance page) must not replace the last phase read.
     if (!releases.length) throw new UpstreamError(PREFECTURE.id, "liste des communiqués vide");
-    const p = phaseOf(releases);
+    // A release whose list says nothing of the volcano, its page read to know; unread, the phase is not read either
+    // (the last one kept is said with its day), rather than an older release's taken for the latest.
+    const pages = new Map<string, Page>();
+    for (const r of doubtful(releases)) {
+      const page = await volcanicRelease(cache, r.lien, now);
+      if (page) pages.set(r.lien, page);
+    }
+    const p = phaseOf(releases, pages);
     if (!p) console.log(`volcan : aucune phase ORSEC dans les ${releases.length} communiqués de la préfecture`);
     return p ?? null;
   });
@@ -384,7 +544,7 @@ async function readPhase(cache: Cache): Promise<Cached<Phase | null>> {
  * `officiel` lets a newer, higher level of the OVPF's texts win over it). Throws only when neither is there.
  */
 export async function phase(cache: Cache, now = Date.now()): Promise<Cached<Phase | null>> {
-  const read = await readPhase(cache).catch((err: unknown) => ({ err }));
+  const read = await readPhase(cache, now).catch((err: unknown) => ({ err }));
   if ("value" in read && read.value) {
     const p = withDay(read.value);
     // After the answer: the answer never waits for the durable store.

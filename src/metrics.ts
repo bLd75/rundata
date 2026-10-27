@@ -11,14 +11,16 @@ import { left, perInvocation } from "./budget.js";
 export interface Hit {
   /**
    * « mcp »: a tools/call; « rpc »: any other MCP message (initialize, tools/list…) or a refused request; « page »;
-   * « flux »: a commune's RSS feed fetched by a reader (web/rss.ts), kept apart from the page views.
+   * « flux »: a commune's RSS feed fetched by a reader (web/rss.ts), kept apart from the page views; « signal »: what a
+   * page's browser tells (web/signaux.ts), never a page view.
    */
-  kind: "mcp" | "rpc" | "page" | "flux";
+  kind: "mcp" | "rpc" | "page" | "flux" | "signal";
   /** The tool; the JSON-RPC method (or the HTTP method of a request without one); the page's path. */
   name: string;
   /**
    * Tool: the place asked for, as the gazetteer understood it (« Saint-Pierre », « coordonnées »), or the text asked,
-   * cut to 60 characters, when it did not. Page: « bouton » when opened from a « Domann out IA » question.
+   * cut to 60 characters, when it did not. Page: « bouton » when opened from a « Domann out IA » question. Signal:
+   * its event (« affichage », « adresse copiée », « aide », « retour »).
    */
   detail?: string;
   ok: boolean;
@@ -29,8 +31,13 @@ export interface Hit {
   clientVersion?: string;
   /** MCP: the protocol version asked (initialize) or sent in the mcp-protocol-version header. */
   protocol?: string;
-  /** MCP: « ok », « erreur » (the tool answered isError), « lieu inconnu » (isError, place not understood), « rpc <code> », « http <status> ». */
+  /**
+   * MCP: « ok », « vide » (the tool answered but found nothing: vide.ts), « erreur » (the tool answered isError),
+   * « lieu inconnu » (isError, place not understood), « rpc <code> », « http <status> ».
+   */
   outcome?: string;
+  /** Tool, as the server tells it: the JSON-RPC id of the call, for the transport's record of it (usage.ts). */
+  id?: string | number;
   /** MCP: the protocol error's message (JSON-RPC error or refused request). Never a tool's own answer. */
   message?: string;
   /** MCP: the names of the arguments given, sorted (« lieu,quand »); never their values. */
@@ -54,6 +61,11 @@ export interface Hit {
   cacheLoads?: number;
   /** Tool: characters of text in the answer. */
   size?: number;
+  /** Signal: its value (« oui », « non », the class of a visit), and for « affichage » the LCP in ms (TTFB in `ms`). */
+  value?: string;
+  lcp?: number;
+  /** Signal: sent from a device of the team, which its page knows (web/pwa.ts): written « interne », as its pages are. */
+  team?: boolean;
 }
 
 export type Recorder = (hit: Hit) => void;
@@ -167,6 +179,26 @@ export function language(acceptLanguage: string | null): string {
   return /^\s*([a-z]{2,3})\b/i.exec(acceptLanguage ?? "")?.[1].toLowerCase() ?? "";
 }
 
+/** blob6 of a page opened from another page of the site: the visit's next page, not its way in. */
+export const FROM_SITE = "interne";
+
+/**
+ * Where the request came from: « ref:<canal> » for a link shared by the campaign (« ?ref=fb », « ?ref=presse-zinfos »),
+ * which wins over the referer; FROM_SITE from a page of the site; else the referring site, or empty without one.
+ * A visit is then a page view of a person whose blob6 is not FROM_SITE, as Simple Analytics counts them: nothing kept,
+ * nothing read from the browser but its referer.
+ */
+export function origin(referer: string | null, url: URL): string {
+  const tag = url.searchParams.get("ref")?.replace(/[^\w.-]/g, "").slice(0, 40);
+  if (tag) return `ref:${tag}`;
+  try {
+    const host = new URL(referer ?? "").host;
+    return host === url.host ? FROM_SITE : host;
+  } catch {
+    return "";
+  }
+}
+
 /** The kind of page: « accueil », the first part of the path (« vigilance », « meteo »), with « /* » below it (« meteo/* »). */
 export function category(path: string): string {
   const parts = path.split("/").filter(Boolean);
@@ -184,7 +216,7 @@ export interface Visit {
   /** visitor() of its User-Agent. */
   who: string;
   country: string;
-  /** The referring site, or « ref:<canal> ». */
+  /** origin(): « ref:<canal> », « interne », the referring site, or empty. */
   from: string;
   /** For pages: audience() and language(). */
   audience: string;
@@ -202,25 +234,30 @@ export interface Visit {
  * A feed (« flux ») is written as a page, but for blob1, blob4 (the reader) and double6 (its subscribers). Readers per
  * feed per day: for each feed and reader, the day's largest double6; then their sum.
  *
+ * A signal (web/signaux.ts) is written as a page too, but for blob1 (« signal »), blob3 (its event), blob6 (empty:
+ * its referer is always the page), blob10 (its value: oui, non, première, même jour, lendemain, dans la semaine, plus
+ * tard), double2 (« affichage »: the TTFB seen by the browser, ms) and double6 (« affichage »: the LCP, ms, 0 where the
+ * browser does not give it). A visit's class (« retour ») leaves with the page the visit came in by.
+ *
  * | column  | mcp, rpc                                   | page                                   |
  * |---------|--------------------------------------------|----------------------------------------|
  * | index1  | kind                                       | kind                                   |
- * | blob1   | kind: mcp (tools/call) or rpc (the rest)   | page, or flux                          |
+ * | blob1   | kind: mcp (tools/call) or rpc (the rest)   | page, flux, or signal                  |
  * | blob2   | tool, or JSON-RPC method, or HTTP method   | path                                   |
  * | blob3   | place understood, or text not understood   | « bouton » (opened from a question)    |
  * | blob4   | visitor, from the User-Agent; « interne » for the team (teamVisit) | visitor; for a feed, its reader |
  * | blob5   | country                                    | country                                |
- * | blob6   | referring site or « ref:<canal> »          | same                                   |
+ * | blob6   | referring site, « ref:<canal> », or « interne » from a page of the site (origin) | same |
  * | blob7   | JSON-RPC method                            | category: accueil, meteo/*…            |
  * | blob8   | client name (initialize)                   | language: fr, en…                      |
  * | blob9   | client version (initialize)                | audience: humain, assistant, robot…, interne |
  * | blob10  | protocol version                           | HTTP status                            |
- * | blob11  | outcome: ok, erreur, lieu inconnu, rpc …, http … | « app » in the installed app, else empty |
+ * | blob11  | outcome: ok, vide, erreur, lieu inconnu, rpc …, http … | « app » in the installed app, else empty |
  * | blob12  | protocol error message                     | device: mobile, tablette, ordinateur; empty for a robot |
  * | blob13  | argument names                             | —                                      |
  * | blob14  | place: résolu, inconnu, coordonnées        | —                                      |
  * | blob15  | commune of the place                       | —                                      |
- * | double1 | 1 if answered without error                | 1 if served without error              |
+ * | double1 | 1 if answered without error (« vide » too) | 1 if served without error              |
  * | double2 | milliseconds                               | milliseconds                           |
  * | double3 | subrequests                                | subrequests                            |
  * | double4 | cache entries served fresh                 | same                                   |
@@ -230,16 +267,18 @@ export interface Visit {
  * Analytics Engine keeps points three months.
  */
 export function point(hit: Hit, v: Visit): { indexes: string[]; blobs: string[]; doubles: number[] } {
-  const page = hit.kind === "page" || hit.kind === "flux";
+  const signal = hit.kind === "signal";
+  const page = hit.kind === "page" || hit.kind === "flux" || signal;
+  const seen = hit.kind === "page" || signal;
   const blobs = [
-    hit.kind, hit.name, hit.detail ?? "", hit.reader ?? v.who, v.country, v.from,
+    hit.kind, hit.name, hit.detail ?? "", hit.team ? TEAM : hit.reader ?? v.who, v.country, signal ? "" : v.from,
     page ? category(hit.name) : hit.method ?? "",
     page ? v.language : hit.client ?? "",
-    page ? v.audience : hit.clientVersion ?? "",
-    page ? String(hit.status ?? "") : hit.protocol ?? "",
-    hit.kind === "page" ? v.mode ?? "" : hit.outcome ?? "", hit.kind === "page" ? v.device ?? "" : hit.message ?? "", hit.args ?? "", hit.place ?? "", hit.commune ?? "",
+    page ? (hit.team ? TEAM : v.audience) : hit.clientVersion ?? "",
+    signal ? hit.value ?? "" : page ? String(hit.status ?? "") : hit.protocol ?? "",
+    seen ? v.mode ?? "" : hit.outcome ?? "", seen ? v.device ?? "" : hit.message ?? "", hit.args ?? "", hit.place ?? "", hit.commune ?? "",
   ];
-  const doubles = [hit.ok ? 1 : 0, hit.ms ?? 0, hit.subrequests ?? 0, hit.cacheHits ?? 0, hit.cacheLoads ?? 0, hit.kind === "flux" ? hit.subscribers ?? 1 : hit.size ?? 0];
+  const doubles = [hit.ok ? 1 : 0, hit.ms ?? 0, hit.subrequests ?? 0, hit.cacheHits ?? 0, hit.cacheLoads ?? 0, hit.kind === "flux" ? hit.subscribers ?? 1 : signal ? hit.lcp ?? 0 : hit.size ?? 0];
   return { indexes: [hit.kind], blobs, doubles };
 }
 

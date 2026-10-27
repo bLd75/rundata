@@ -5,6 +5,7 @@
  */
 import type { Cached } from "../cache.js";
 import { CIREST, distributeur, LIENS, MAIRIE_SAINT_LEU, MAIRIE_SAINTE_MARIE, SOURCE as DISTRIBUTEURS } from "../eau/distributeurs.js";
+import { ACCUEILS } from "../providers/agenda.js";
 import { CREOLE } from "../providers/avis-eau.js";
 import { muetPour } from "../tools/coupures.js";
 import { a } from "../tools/format.js";
@@ -68,7 +69,8 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
   // Who publishes the notices read (the CIREST, a mairie), else the distributor; a mairie only linked to (LIENS).
   const publisher = dist?.par ?? dist?.nom;
   const lien = LIENS[p.nom];
-  const lienA = lien ? ` <a href="${esc(lien.site)}" rel="noopener">${nobreak(lien.libelle)} →</a>` : "";
+  // A home page only (ACCUEILS): opened in a new window, as that site's terms ask.
+  const lienA = lien ? ` <a href="${esc(lien.site)}" rel="noopener"${ACCUEILS.has(lien.site) ? ' target="_blank"' : ""}>${nobreak(lien.libelle)} →</a>` : "";
 
   // Its feed silent: what was read before, said with its hour, the site linked; or that its read failed.
   const silent = x.muet ? `<p class="note">${silentText(x.muet)}</p>` : "";

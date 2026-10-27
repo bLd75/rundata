@@ -13,3 +13,16 @@
 /dae/*
   Cache-Control: public, max-age=31536000, immutable
   X-Content-Type-Options: nosniff
+/og.png
+  Cache-Control: public, max-age=604800
+  X-Content-Type-Options: nosniff
+/relief-*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/font/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/pdfjs/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+  X-Robots-Tag: noindex

@@ -5,12 +5,13 @@ import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.j
 import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
 import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
-import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
+import { agenda, COUVERTURE, type EventRow, gather, MAIRIES_LUES, periode, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
 import { FICHE_REUNION_FR, mentionReunionFr, noteReunionFr, RESUME_REUNION_FR } from "../src/tools/non-repris.js";
 import { buildAgenda } from "../src/web/data.js";
 import { agendaHours, agendaPage } from "../src/web/domains.js";
 import { mesure } from "../src/web/mesure.js";
 import { quand } from "../src/tools/sport.js";
+import { withVide } from "../src/vide.js";
 
 // The communes' sites read, as once they have agreed (test/autorisations.test.ts for what is said until then).
 vi.mock("../src/providers/autorisations.js", () => import("./autorisees.js"));
@@ -32,7 +33,7 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("citedesarts")) return url.includes("debut_programmation") ? "citedesarts_2.html" : "citedesarts_1.html";
   if (url.includes("kabardock")) return "kabardock.html";
   if (url.includes("bisik")) return "bisik.html";
-  if (url.includes("theatrelucdonat")) return "luc-donat.html";
+  if (url.includes("theatrelucdonat")) return url.endsWith("/prog") ? "luc-donat-saison.html" : "luc-donat.html";
   if (url.includes("cdnoi")) return "cdnoi.html";
   if (url.includes("lespas")) return "lespas.html";
   if (url.includes("lesechoir")) return "sechoir.json";
@@ -738,12 +739,25 @@ describe("agenda", () => {
     expect(periode("n'importe quand", NOW)).toMatchObject({ du: "2026-10-24", au: "2026-11-07", incompris: true });
   });
 
+  it("tells each date of the Théâtre Luc Donat as its agreement asks: its facts, its genre, its link, « Source : » and the hour read", async () => {
+    const b = body(await agenda(cache(), "Le Tampon", undefined, undefined, NOW, 300));
+    const donat = b.evenements.filter((e: EventRow) => e.publie_par === "Théâtre Luc Donat");
+    expect(donat.length).toBeGreaterThan(0);
+    for (const e of donat) {
+      expect(e.source).toMatch(/^Théâtre Luc Donat \(site lu le \p{L}+ \d\d\/\d\d à \d\d:\d\d\)$/u);
+      expect(e.lien).toMatch(/^https:\/\/www\.theatrelucdonat\.re\/prog\//);
+      expect([e.description, e.billetterie, e.image]).toEqual([undefined, undefined, undefined]);
+    }
+    expect(donat.find((e: EventRow) => e.titre === "Le journal des voleurs")).toMatchObject({ categories: ["Danse"], genres: ["danse"], lieu: "Théâtre Luc Donat" });
+  });
+
   it("gives the island's next two weeks, the same event once, from every agenda", async () => {
     const c = cache();
     const b = body(await agenda(c, undefined, undefined, undefined, NOW));
     expect(b.resume).toBe(`40 événements à La Réunion dans les deux semaines qui viennent (du samedi 24/10 au samedi 07/11)\u00a0; ${RESUME_REUNION_FR}.`.replace("40", String(b.nombre)));
     // Without the sports programmes of La Possession, L'Étang-Salé and Saint-Benoît: the sport tool's.
-    expect(b.nombre).toBe(100);
+    // Nor Saint-Benoît's 7, whose site is never linked (src/liens.ts).
+    expect(b.nombre).toBe(93);
     expect(b.evenements).toHaveLength(40);
     expect(b.evenements.filter((e: { titre: string }) => e.titre === "Visite guidée de la Maison Carrère")).toHaveLength(1);
     // Petite-Île's, which gives the place.
@@ -752,12 +766,13 @@ describe("agenda", () => {
     const all = body(await agenda(c, undefined, undefined, undefined, NOW, 300));
     expect(new Set(all.evenements.map((e: { publie_par: string }) => e.publie_par))).toEqual(new Set(["Ville du Tampon", "Ville du Port", "Mairie des Trois-Bassins", "CINOR", "Mairie de Saint-Paul", "Ville de Saint-André",
       "Le Séchoir", "TÉAT La Réunion", "Cité des Arts", "Kabardock", "Bisik", "Théâtre Luc Donat", "CDNOI", "Léspas", "Ville de La Possession", "Ville de L'Étang-Salé",
-      "Ville de Petite-Île", "Ville de Bras-Panon", "Ville de Saint-Benoît", "OTI EST REUNION — Droits réservés"]));
+      "Ville de Petite-Île", "Ville de Bras-Panon", "OTI EST REUNION — Droits réservés"]));
     // Last year's posts of Saint-Louis are past; nothing of theirs.
     expect(b.evenements.some((e: { publie_par: string }) => e.publie_par === "Ville de Saint-Louis")).toBe(false);
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
-    // Twenty-six agendas (two pages for Bras-Panon), and the pages of the four shows on both TÉAT stages.
-    expect(asked).toHaveLength(30);
+    // Twenty-six agendas (two pages for Bras-Panon and for the Théâtre Luc Donat), and the pages of the four shows on both
+    // TÉAT stages.
+    expect(asked).toHaveLength(31);
   });
 
   it("says which commune's site each event of a mairie comes from and when it was read, keeping what each site's terms allow", async () => {
@@ -772,12 +787,14 @@ describe("agenda", () => {
     expect(by("Ville du Port").every((e) => e.source === "site de la commune du Port (©\u00a0www.ville-port.re), lu le samedi 24/10 à 08:00")).toBe(true);
     expect(by("Ville du Port").some((e) => e.description)).toBe(true);
     expect(by("Mairie de Saint-Paul")[0].source).toBe("site de la commune de Saint-Paul, lu le samedi 24/10 à 08:00");
-    for (const [p, commune] of [["Ville de Saint-André", "de Saint-André"], ["Ville de L'Étang-Salé", "de L'Étang-Salé"], ["Ville de La Possession", "de La Possession"], ["Ville de Petite-Île", "de Petite-Île"], ["Ville de Bras-Panon", "de Bras-Panon"], ["Ville de Saint-Benoît", "de Saint-Benoît"]]) {
+    for (const [p, commune] of [["Ville de Saint-André", "de Saint-André"], ["Ville de L'Étang-Salé", "de L'Étang-Salé"], ["Ville de La Possession", "de La Possession"], ["Ville de Petite-Île", "de Petite-Île"], ["Ville de Bras-Panon", "de Bras-Panon"]]) {
       expect(by(p).length, p).toBeGreaterThan(0);
       expect(by(p).every((e) => !e.description && e.source === `site de la commune ${commune}, lu le samedi 24/10 à 08:00`), p).toBe(true);
     }
     expect(by("Ville de Petite-Île").every((e) => e.lien === "https://www.petite-ile.re/")).toBe(true);
-    expect(by("Ville de Saint-Benoît").every((e) => e.lien === "https://www.saint-benoit.re/")).toBe(true);
+    // Saint-Benoît submits any link to its site to its agreement (src/liens.ts): its events, each shown with its link, are not.
+    expect(by("Ville de Saint-Benoît")).toEqual([]);
+    expect(JSON.stringify(all)).not.toContain("saint-benoit.re");
     // Bras-Panon's terms say nothing of links: each its own page.
     expect(by("Ville de Bras-Panon").every((e) => e.lien?.startsWith("https://www.braspanon.re/fr/ev/"))).toBe(true);
     // Not a commune's site: no such line.
@@ -800,11 +817,10 @@ describe("agenda", () => {
     expect((await programmesSportifs(c)).map(({ e, agenda }) => [agenda.id, e.titre, e.seances])).toEqual([
       ["etang_sale", "Planning des compétitions sportives du 23 au 25 octobre 2026", [{ debut: "2026-10-23", fin: "2026-10-25" }]],
       ["la_possession", "Agenda sportif du 22 au 24 octobre", [{ debut: "2026-10-22", fin: "2026-10-24" }]],
-      ["saint_benoit", "Agenda sportif", [{ debut: "2026-10-23", fin: "2026-10-25" }]],
     ]);
-    // By the same rules as the agenda tool: Saint-Benoît's links to its home page, no sentence of the text.
+    // By the same rules as the agenda tool: none of Saint-Benoît's, whose site is never linked; no sentence of the text.
     const programmes = await programmesSportifs(c);
-    expect(programmes.find(({ agenda }) => agenda.id === "saint_benoit")?.e.lien).toBe("https://www.saint-benoit.re/");
+    expect(programmes.some(({ agenda }) => agenda.id === "saint_benoit")).toBe(false);
     expect(programmes.every(({ e }) => !e.description)).toBe(true);
   });
 
@@ -823,14 +839,19 @@ describe("agenda", () => {
   });
 
   it("answers for a commune, with what its agenda gives", async () => {
-    const b = body(await agenda(cache(), "Saint-Gilles", "a_venir", undefined, NOW));
+    const { value, vide } = await withVide("evenements", () => agenda(cache(), "Saint-Gilles", "a_venir", undefined, NOW));
+    const b = body(value);
+    expect(vide).toBe(false);
     expect(b.lieu.commune).toBe("Saint-Paul");
     expect(b.evenements.map((e: { titre: string }) => e.titre)).toContain("La Koupe Kartié – Saint-Gilles-les-Bains");
     expect(b.evenements.every((e: { commune: string }) => e.commune === "Saint-Paul")).toBe(true);
   });
 
   it("says when a commune publishes no agenda, and what there is elsewhere", async () => {
-    const b = body(await agenda(cache(), "Saint-Pierre", "ce_week_end", undefined, NOW));
+    const { value, vide } = await withVide("evenements", () => agenda(cache(), "Saint-Pierre", "ce_week_end", undefined, NOW));
+    const b = body(value);
+    // Nothing found where asked, whatever there is elsewhere: a question left without an answer (vide.ts).
+    expect(vide).toBe(true);
     expect(b.resume).toMatch(/^Aucun événement trouvé à Saint-Pierre ce week-end .*la page agenda de la mairie de Saint-Pierre est vide et le Kerveguen n'est pas encore lu\u00a0;.* ailleurs sur l'île\.$/);
     expect(b.ailleurs_sur_l_ile.length).toBeGreaterThan(0);
   });
@@ -880,7 +901,7 @@ describe("agenda", () => {
     expect(copy.resume).not.toContain("reunion.fr");
     expect(copy.non_repris).toBeUndefined();
     const html = agendaPage("https://rundata.re", { value: copy, fetchedAt: NOW, stale: false }, NOW);
-    expect(html).toContain(`<p class="note">${noteReunionFr()}</p>`);
+    expect(html).toContain(`<p class="note">${noteReunionFr()}\u00a0·\u00a0<a href="/ouvrir-ses-donnees#licence">Comment permettre la reprise</a></p>`);
     expect(html.match(/<meta name="description" content="([^"]*)">/)![1]).not.toContain("reunion.fr");
     // A copy built before: its events and its credit left out.
     expect(repris({ publie_par: "reunion.fr" })).toBe(false);

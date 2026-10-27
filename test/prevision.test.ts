@@ -80,14 +80,14 @@ describe("prevision_meteo", () => {
     expect(r.resume).toMatch(/Cilaos, demain \(vendredi 23\/10\)/);
     expect(r.jours).toHaveLength(1);
     expect(r.pas_de_3h).toHaveLength(8);
-    expect(r.pas_de_3h[0].heures).toBe("vendredi 23/10 0h–3h");
-    expect(r.avertissements.join(" ")).toMatch(/altitude de Cilaos \(1209 m\)/);
+    expect(r.pas_de_3h[0].heures).toBe("vendredi 23/10 0\u00a0h–3\u00a0h");
+    expect(r.avertissements.join(" ")).toMatch(/altitude de Cilaos \(1\u202f209 m\)/);
   });
 
   it("gives the next 24 hours and the following days without a time", async () => {
     const r = body(await previsionMeteo(await offlineCache(), "Cilaos", undefined, NOW));
     always(r);
-    expect(r.pas_de_3h[0].heures).toBe("jeudi 22/10 9h–12h"); // the step under way at 10:00
+    expect(r.pas_de_3h[0].heures).toBe("jeudi 22/10 9\u00a0h–12\u00a0h"); // the step under way at 10:00
     expect(r.pas_de_3h).toHaveLength(9);
     expect(r.jours.map((j: { jour: string }) => j.jour)).toEqual([
       "jeudi 22/10", "vendredi 23/10", "samedi 24/10", "dimanche 25/10", "lundi 26/10", "mardi 27/10", "mercredi 28/10",
@@ -111,6 +111,54 @@ describe("prevision_meteo", () => {
     const r = await previsionMeteo(await offlineCache(), "Saint-Denis", "demain", NOW);
     expect(r.isError).toBe(true);
     expect(body(r).nature).toBe("prevision");
+  });
+});
+
+describe("today, from the hours still to come", () => {
+  // Cilaos's forecast of the fixture, with 9,6 mm in the night (2h–5h, showers at 6h), 1,2 mm at 10h and 0,4 mm at 15h:
+  // the model's total for the day says 11,2 mm. Open-Meteo gives each hour's rain on the next one (openmeteo.parse).
+  async function wetCache(at: Date) {
+    const j = fixture("openmeteo_cilaos.json");
+    for (const i of [3, 4, 5]) j.hourly.precipitation[i] = 3.2;
+    j.hourly.precipitation[11] = 1.2;
+    j.hourly.precipitation[16] = 0.4;
+    j.hourly.weather_code[6] = 81;
+    j.daily.precipitation_sum[0] = 11.2;
+    j.daily.weather_code[0] = 81;
+    const store = new MemoryStore();
+    await store.put(openmeteo.cacheKey(resolvePlace("Cilaos")!.lieu), { value: j, fetchedAt: at.getTime() });
+    await store.put("openmeteo:meta", { value: fixture("openmeteo_meta.json"), fetchedAt: at.getTime() });
+    return new Cache(store, () => at.getTime());
+  }
+
+  it("leaves out the rain already fallen, in the day and in the summary", async () => {
+    const at = new Date("2026-10-22T06:00:00Z"); // 10:00 in La Réunion
+    const r = body(await previsionMeteo(await wetCache(at), "Cilaos", undefined, at));
+    expect(r.jours[0]).toMatchObject({ jour: "jeudi 22/10", pluie: "1,6 mm de pluie", ciel_en_journee: "ciel dégagé" });
+    expect(r.resume).toContain("aujourd'hui : ciel dégagé, ");
+    expect(r.resume).toContain(", 1,6 mm de pluie");
+    expect(r.resume).not.toMatch(/11,2 mm|averses/);
+    // The day's lowest and highest temperatures, the night's included.
+    const dry = body(await previsionMeteo(await offlineCache(), "Cilaos", undefined, NOW)).jours[0];
+    expect([r.jours[0].temperature_min, r.jours[0].temperature_max]).toEqual([dry.temperature_min, dry.temperature_max]);
+    expect(dry.temperature_min).toMatch(/^11 /);
+    // Tomorrow is the model's day, untouched.
+    expect(r.jours[1].pluie).toBe(body(await previsionMeteo(await offlineCache(), "Cilaos", "demain", NOW)).jours[0].pluie);
+  });
+
+  it("counts the hour under way for the part left of it", async () => {
+    const at = new Date("2026-10-22T06:30:00Z"); // 10:30: half of 10h–11h's 1,2 mm is still to come
+    const r = body(await previsionMeteo(await wetCache(at), "Cilaos", "aujourd'hui", at));
+    expect(r.jours[0].pluie).toBe("1 mm de pluie");
+    const late = new Date("2026-10-22T12:00:00Z"); // 16:00: nothing left
+    expect(body(await previsionMeteo(await wetCache(late), "Cilaos", "aujourd'hui", late)).jours[0].pluie).toBe("pas de pluie prévue");
+  });
+
+  it("does the same on the tour of the island", async () => {
+    const at = new Date("2026-10-22T06:00:00Z");
+    const r = body(await previsionMeteo(await wetCache(at), undefined, undefined, at));
+    expect(r.lieux[0].jours[0].pluie).toBe("1,6 mm de pluie");
+    expect(r.resume).toContain("Cilaos : aujourd'hui ciel dégagé, ");
   });
 });
 

@@ -1,13 +1,14 @@
 import type { Cache, Cached } from "../cache.js";
 import { localTime } from "../geo.js";
 import * as seismes from "../providers/seismes.js";
-import type * as onf from "../providers/sentiers.js";
+import * as onf from "../providers/sentiers.js";
 import * as historique from "./volcan-historique.js";
 import * as ocr from "../providers/ovpf-ocr.js";
 import * as volcan from "../providers/volcan.js";
 import { etatHote, jour as jourDe, jourHeure, type Public } from "../sans-reponse.js";
 import { why } from "../types.js";
 import { credits, fr, text } from "./format.js";
+import { sourceMuette } from "./fraicheur.js";
 import { acces, definition, libelle, lineText } from "./volcan-acces.js";
 
 const DAY = 86_400_000;
@@ -54,7 +55,7 @@ export const A_LIRE = "Le contenu de cette publication est dans ses images, que 
  */
 export function enclosOfRelease(p: volcan.Phase): { mots?: string; niveau?: string } | undefined {
   if (!p.enclos) return undefined;
-  const mots = volcan.enclosWords(p.titre);
+  const mots = volcan.enclosWordsOf(p);
   return mots ? { mots } : /^Alerte/.test(p.niveau) && p.enclos === "ferme" ? { niveau: p.niveau } : undefined;
 }
 
@@ -92,31 +93,53 @@ export function ipgpMuet(l: Public, lus: { bluesky: boolean; prefecture: boolean
 // What the counts are, never compared with a figure read in an image (marketing, 26/10/2026).
 export const LOCALISES = "L'OVPF ne localise qu'une partie des séismes qu'il enregistre\u00a0: ses bulletins donnent le nombre enregistré, nos chiffres comptent ceux qu'il a localisés, d'après son catalogue.";
 const BAR_DAYS = 30;
+// The catalogue silent: the counts end at its last read, the days after it are not read (marketing).
+/** « jusqu'à notre lecture du 26/10 à 19:00 », of `lus_jusqu_au` « 26/10 à 19:00 ». */
+export const jusquALecture = (lu: string) => `jusqu'à notre lecture du ${lu}`;
+/** After the counts of the last copy, so that an AI never takes the days after it for zeros. */
+export const JOURS_NON_COMPTES = "Les jours suivants ne sont pas comptés.";
+export const NON_LU = "non lu";
+/** Under the bars, after the count of the last day read. */
+export const JOURS_SUIVANTS = "Les jours suivants ne sont pas lus.";
+/** A day of `perDay` in the summary: « 0 », « 0 (jour en cours) », « 0 (jusqu'à 19:00) », « non lu ». */
+export const jourDit = (j: Jour) =>
+  "non_lu" in j ? NON_LU : `${j.nombre}${j.en_cours ? " (jour en cours)" : j.jusqu_a ? ` (jusqu'à ${j.jusqu_a})` : ""}`;
 const localDay = (t: number) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
-const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 /** The first words of a text read in images, cut at a word: « … » quoted in the summary. */
 const extrait = (paras: string[]) => {
   const t = paras.join(" ");
   return t.length <= EXTRAIT ? t : `${t.slice(0, t.lastIndexOf(" ", EXTRAIT))}…`;
 };
 
+/** One day of `perDay`: its count, or `non_lu` after the last read of a catalogue that no longer answers. */
+export type Jour = { jour: string; nombre: number; en_cours?: true; jusqu_a?: string } | { jour: string; non_lu: true };
+
 /**
  * The events located under the summit, per day of La Réunion, the last 30 days up to today, today « en cours »: the
- * catalogue is read over 30 days back from now, so the oldest day shown is a whole one.
+ * catalogue is read over 30 days back from now, so the oldest day shown is a whole one. `lu`: the catalogue served from
+ * its last copy, read then. Its day is counted up to that time (`jusqu_a`), the days after it were not read: `non_lu`,
+ * never a count of 0: a site that does not answer has not said there was none.
  */
-export function perDay(volcano: seismes.Seisme[], now: Date) {
+export function perDay(volcano: seismes.Seisme[], now: Date, lu?: Date): Jour[] {
   const counts = new Map<string, number>();
   for (const s of volcano) counts.set(localDay(Date.parse(s.time)), (counts.get(localDay(Date.parse(s.time))) ?? 0) + 1);
   const today = localDay(now.getTime());
-  return Array.from({ length: BAR_DAYS }, (_, i) => {
+  const readDay = lu && localDay(lu.getTime());
+  return Array.from({ length: BAR_DAYS }, (_, i): Jour => {
     const jour = localDay(now.getTime() - (BAR_DAYS - 1 - i) * DAY);
+    if (readDay && jour > readDay) return { jour, non_lu: true };
+    if (readDay && jour === readDay) return { jour, nombre: counts.get(jour) ?? 0, jusqu_a: localTime(lu).split(" ")[1] };
     return { jour, nombre: counts.get(jour) ?? 0, ...(jour === today && { en_cours: true as const }) };
   });
 }
 
-/** Counts and the most notable events of the last 30 days, under the volcano and elsewhere. */
-export function quakeSummary(list: seismes.Seisme[], now: Date) {
-  const recent = (s: seismes.Seisme, days: number) => now.getTime() - Date.parse(s.time) <= days * DAY;
+/**
+ * Counts and the most notable events of the last 30 days, under the volcano and elsewhere. `lu`: served from the last
+ * copy, read then: the counts are of the 7 and 30 days before that read, `lus_jusqu_au` says it.
+ */
+export function quakeSummary(list: seismes.Seisme[], now: Date, lu?: Date) {
+  const at = (lu ?? now).getTime();
+  const recent = (s: seismes.Seisme, days: number) => at - Date.parse(s.time) <= days * DAY;
   const volcano = list.filter(seismes.underSummit);
   const elsewhere = list.filter((s) => !seismes.underSummit(s));
   const max = (l: seismes.Seisme[]) => (l.length ? Math.max(...l.map((s) => s.magnitude)) : null);
@@ -129,7 +152,8 @@ export function quakeSummary(list: seismes.Seisme[], now: Date) {
   return {
     sous_le_volcan: { "30_jours": volcano.length, "7_jours": volcano.filter((s) => recent(s, 7)).length, magnitude_max_30j: max(volcano) },
     ailleurs_sur_l_ile: { "30_jours": elsewhere.length, magnitude_max_30j: max(elsewhere) },
-    par_jour_sous_le_volcan: perDay(volcano, now),
+    par_jour_sous_le_volcan: perDay(volcano, now, lu),
+    ...(lu && { lus_jusqu_au: atTime(lu.toISOString()) }),
     derniers: list.slice(0, 8).map(one),
     // Nothing of what the counts may announce: only the OVPF's or the prefecture's words say that (marketing).
     note:
@@ -277,7 +301,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   // Said while it is listed, until the recheck finds it back; the table absent, nothing.
   const ipgp = silent && silent.statut !== "revenu" ? ipgpMuet(silent, { bluesky: !!read && !read.stale, prefecture: !!given0 && !given0.stale }, now) : undefined;
   // The ONF's map as another page last read it, never built here (a read).
-  const carte = await cache.peek<onf.Carte>("onf:sentiers").catch(() => undefined);
+  const carte = await cache.peek<onf.Carte>(onf.KEY).catch(() => undefined);
   if (!piton && !posts && !quakes && !phase) {
     return {
       ...text({ erreur: "Les sources sur le volcan ne répondent pas pour le moment.", consulter: [volcan.OVPF.url, volcan.OVPF_FACEBOOK] }),
@@ -365,13 +389,15 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
       : `Dernière publication de l'OVPF sur l'activité (${day(last.date)}) : « ${last.texte.slice(0, 220)}${last.texte.length > 220 ? "…" : ""} »`);
     if (imageAfter) parts.push(lu ? IMAGE_LUE_APRES : IMAGE_APRES);
   } else if (lu) parts.push(`${LU_DANS_L_IMAGE} : « ${extrait(lu)} »`);
-  const q = quakes ? quakeSummary(quakes, now) : null;
+  // The catalogue silent: its counts are of its last copy, said with the time of that read.
+  const q = quakes ? quakeSummary(quakes, now, seen?.stale ? seen.fetchedAt : undefined) : null;
   if (q) {
+    const max = q.sous_le_volcan.magnitude_max_30j != null ? ` (magnitude max ${fr(Math.round(q.sous_le_volcan.magnitude_max_30j * 10) / 10)})` : "";
     parts.push(
-      `Séismes localisés par l'OVPF en 30 jours : ${q.sous_le_volcan["30_jours"]} sous le volcan` +
-        (q.sous_le_volcan.magnitude_max_30j != null ? ` (magnitude max ${fr(Math.round(q.sous_le_volcan.magnitude_max_30j * 10) / 10)})` : "") +
-        `, dont ${q.sous_le_volcan["7_jours"]} ces 7 derniers jours\u00a0; ${q.ailleurs_sur_l_ile["30_jours"]} ailleurs sur l'île.`,
-      `Séismes localisés par l'OVPF sous le volcan, par jour (heure de La Réunion) : ${q.par_jour_sous_le_volcan.slice(-7).map((j) => `${day(`${j.jour}T12:00:00+04:00`)} ${j.nombre}${j.en_cours ? " (jour en cours)" : ""}`).join(", ")}.`,
+      q.lus_jusqu_au
+        ? `Séismes localisés par l'OVPF ${jusquALecture(q.lus_jusqu_au)} : ${q.sous_le_volcan["7_jours"]} sous le volcan en 7 jours et ${q.sous_le_volcan["30_jours"]} en 30 jours${max}\u00a0; ${q.ailleurs_sur_l_ile["30_jours"]} ailleurs sur l'île en 30 jours. ${JOURS_NON_COMPTES}`
+        : `Séismes localisés par l'OVPF en 30 jours : ${q.sous_le_volcan["30_jours"]} sous le volcan${max}, dont ${q.sous_le_volcan["7_jours"]} ces 7 derniers jours\u00a0; ${q.ailleurs_sur_l_ile["30_jours"]} ailleurs sur l'île.`,
+      `Séismes localisés par l'OVPF sous le volcan, par jour (heure de La Réunion) : ${q.par_jour_sous_le_volcan.slice(-7).map((j) => `${day(`${j.jour}T12:00:00+04:00`)} ${jourDit(j)}`).join(", ")}.`,
       LOCALISES,
     );
   }
@@ -414,7 +440,9 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
             : { a_lire: A_LIRE })),
         }))
       : "indisponible",
-    seismes: q ?? "indisponible",
+    // Its catalogue not answering: from which read they come, in the copy of /volcan too (its page says nothing of the
+    // answer's `fraicheur`).
+    seismes: q ? { ...q, ...(seen?.stale && { copie: sourceMuette(seismes.SOURCE.nom, seen.fetchedAt, seen.tardive) }) } : "indisponible",
     ...(ipgp && { injoignable: ipgp }),
     avertissements: [OFFICIAL],
     // The IPGP's site is offline (25/10/2026): the OVPF's own accounts instead.

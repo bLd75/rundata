@@ -1,5 +1,5 @@
-import { type Autorisation, MEDIAS, nonAutorisee, nonAutorisees } from "../providers/autorisations.js";
-import { de, enumeration } from "./format.js";
+import { type Autorisation, MEDIAS, nonAutorisee, nonAutorisees, nonReprises, type SourceNonReprise } from "../providers/autorisations.js";
+import { a as aLieu, de, enumeration } from "./format.js";
 
 /**
  * What is said instead of a source not read until it agrees (src/providers/autorisations.ts), in marketing's words
@@ -25,9 +25,22 @@ function phrase(au: Autorisation): string {
 }
 
 /**
- * The same for the whole island: one block for the communes still waiting (with the day they were asked when it is the
- * same for all), then a line for each one asked on another day, and for each one that refused.
+ * The accord asked of those of a block, in one sentence after it (marketing, 26/10): the day once when all were asked
+ * that day; otherwise the ones asked, in the block's order, after their day, or before each day from the oldest.
  */
+function demandees<T extends { etat: string; demandee_le?: string }>(waiting: T[], to: (x: T) => string): string {
+  const asked = waiting.filter((x) => x.etat === "demandee");
+  const days = [...new Set(asked.map((x) => x.demandee_le ?? ""))].sort();
+  const on = (day: string) => (day ? ` le ${dayMonth(day)}` : "");
+  if (!asked.length) return "";
+  if (asked.length === waiting.length && days.length === 1) return ` Nous leur avons demandé cet accord${on(days[0])} et attendons leur réponse.`;
+  const whom = days.length === 1
+    ? `${on(days[0])} ${enumeration(asked.map(to))}`
+    : ` ${enumeration(days.map((d) => `${enumeration(asked.filter((x) => (x.demandee_le ?? "") === d).map(to))}${on(d)}`))}`;
+  return ` Nous avons demandé cet accord${whom}${asked.length > 1 ? "," : ""} et attendons ${asked.length > 1 ? "leur" : "sa"} réponse.`;
+}
+
+/** The same for the whole island: one block for the communes still waiting, with those asked, then a line for each one that refused. */
 export function mentionIle(famille: string): string[] {
   const waiting = nonAutorisees(famille).filter((a) => a.etat !== "refusee");
   const refused = nonAutorisees(famille).filter((a) => a.etat === "refusee");
@@ -35,11 +48,8 @@ export function mentionIle(famille: string): string[] {
   if (waiting.length === 1) lines.push(phrase(waiting[0]));
   else if (waiting.length) {
     const kinds = (["événements", "actualités", "avis de coupure d'électricité"] as const).filter((k) => waiting.some((a) => a.publie.includes(k))).join(" et ");
-    const days = new Set(waiting.map((a) => (a.etat === "demandee" ? a.demandee_le ?? "" : undefined)));
-    const day = days.size === 1 ? [...days][0] : undefined;
     lines.push(`Les mentions légales des sites de ${waiting.length} communes interdisent d'en reprendre le contenu sans leur accord : ${enumeration(waiting.map((a) => a.commune))}. rundata.re n'affiche donc pas les ${kinds} qu'elles y publient.${still(waiting[0], true)}` +
-      (day !== undefined ? ` Nous leur avons demandé cet accord${day ? ` le ${dayMonth(day)}` : ""} et attendons leur réponse.` : ""));
-    if (day === undefined) lines.push(...waiting.filter((a) => a.etat === "demandee").map(phrase));
+      demandees(waiting, (a) => aLieu(a.commune)));
   }
   return [...lines, ...refused.map(phrase)];
 }
@@ -105,3 +115,48 @@ export const FICHE_REUNION_FR = {
   texte: `Non repris depuis le ${dayMonth(REUNION_FR.non_lue_depuis)} : les mentions légales de reunion.fr, lues le ${dayMonth(REUNION_FR.lues_le)}, interdisent toute reprise du site ou de ses éléments sans l'autorisation écrite et préalable du Comité Réunionnais du Tourisme.`,
   conditions: REUNION_FR.conditions,
 };
+
+// ---------------------------------------------------------------- the halls and the sports sites, not read
+
+// The communes' words (above), for a hall or a sports site (src/providers/autorisations.ts, NON_REPRISES), in marketing's
+// words (projects/rundata/marketing, 26/10): one site alone, or several in one block, each with its article.
+const upper = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+
+function phraseNonReprise(x: SourceNonReprise): string {
+  if (x.etat === "refusee") {
+    return `${upper(x.cite)} a refusé${x.refusee_le ? `, le ${dayMonth(x.refusee_le)},` : ""} que rundata.re reprenne le contenu de son site : ${x.publie} ${x.publie.startsWith("les ") ? "ne s'affichent" : "ne s'affiche"} donc pas ici.`;
+  }
+  const first = `Les ${x.textes} ${x.du_site} interdisent ${x.interdit ?? "d'en reprendre le contenu sans son accord"} : rundata.re n'affiche donc pas ${x.publie}.`;
+  return x.etat === "demandee" ? `${first} Nous lui avons demandé cet accord${x.demandee_le ? ` le ${dayMonth(x.demandee_le)}` : ""} et attendons sa réponse.` : first;
+}
+
+// « au TÉAT », « à la Cité des Arts », « à Bisik »: its short name when its citation has more.
+const aSite = (x: SourceNonReprise) => (x.court ?? x.cite).replace(/^le /, "au ").replace(/^les /, "aux ").replace(/^(?!au |aux )/, "à ");
+
+/** Several sites in one block for those still waiting, with those asked, then a line for each one that refused; one site alone, its own line. */
+function bloc(sites: SourceNonReprise[], groupe: (waiting: SourceNonReprise[]) => string): string[] {
+  const waiting = sites.filter((x) => x.etat !== "refusee");
+  const lines: string[] = [];
+  if (waiting.length === 1) lines.push(phraseNonReprise(waiting[0]));
+  else if (waiting.length) lines.push(groupe(waiting) + demandees(waiting, aSite));
+  return [...lines, ...sites.filter((x) => x.etat === "refusee").map(phraseNonReprise)];
+}
+
+/** The halls not read, for the whole island or a commune's. */
+export function mentionSalles(commune?: string): string[] {
+  return bloc(nonReprises("salle").filter((x) => !commune || x.communes?.includes(commune)), (w) =>
+    `Les mentions légales des sites de ${w.length} salles interdisent d'en reprendre le contenu sans accord : ${enumeration(w.map((x) => x.cite))}. rundata.re n'affiche donc pas leurs programmes.`);
+}
+
+/** The sports sites not read: the federations of the sports asked (all of them when undefined), the clubs' calendar when `clubs`. */
+export function mentionSports(sports: string[] | undefined, clubs: boolean): string[] {
+  return bloc(nonReprises("sport").filter((x) => (x.sport ? !sports || sports.includes(x.sport) : clubs)), (w) => {
+    const textes = new Set(w.map((x) => x.textes));
+    return `${textes.size > 1 ? "Les conditions d'utilisation ou les mentions légales" : `Les ${[...textes][0]}`} de ${w.length} sites interdisent d'en reprendre le contenu sans leur accord : ` +
+      `${enumeration(w.map((x) => `${x.cite} (${x.publie})`))}. rundata.re n'affiche donc pas ces rendez-vous.`;
+  });
+}
+
+/** Their entries in sources_donnees, beside the media not read: each one's own line. */
+export const fichesNonReprises = () =>
+  [...nonReprises("salle"), ...nonReprises("sport")].map((x) => ({ nom: x.nom, statut: "non repris", texte: phraseNonReprise(x), conditions: x.conditions }));

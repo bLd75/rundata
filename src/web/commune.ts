@@ -18,15 +18,16 @@ import { anchorOf } from "./decheteries.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr } from "../tools/format.js";
 import { tidesNear } from "../tools/maree.js";
-import { current, cyclone, cycloneLevel, highest, raised } from "../tools/vigilance.js";
+import { coastText, cyclone, cycloneLevel, highest, NONE_ISSUED, zoneLevels, zoneShort } from "../tools/vigilance.js";
 import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, DechetsAnswer, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
+import { joursDuJour } from "./data.js";
 import { aCommune, LINK } from "./aujourdhui.js";
 import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
 import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, stillToCome, volcanLive, waitText } from "./domains.js";
 import { communePath as enfantsPath, enfantsLive } from "./enfants.js";
 import { esc, islandMap } from "./map.js";
-import { ask, connector, credits, cycloneVg, dayMonth, deg, empty, fit, hm, icon, ISLAND, layout, type Live, lue, metres, readAt, seaName, SITE, SLOGAN, thin, vg, zoneNow } from "./pages.js";
+import { ask, connector, credits, cycloneVg, dayMonth, deg, empty, fit, hm, icon, ISLAND, layout, type Live, lue, metres, officielLive, readAt, seaName, SITE, SLOGAN, thin, vg } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { RSS_HINT, rssLink, rssPath, rssTitle } from "./rss.js";
@@ -85,9 +86,9 @@ function weather(p: PlacePage, data: Cached<PlaceData> | null, now: Date): Live 
   if (!data) return undefined;
   const s = data.value.meteo?.stations.find((x) => x.mesures.temperature);
   if (!s) return empty(`Aucune température près de ${p.nom} dans la lecture ${readAt(data.fetchedAt, now).de}.`);
-  // In the evening, tomorrow's forecast rather than what is left of today.
+  // In the evening, tomorrow's forecast rather than what is left of today; from today's, whenever the copy was made.
   const evening = new Date(now.getTime() + 4 * 3600_000).getUTCHours() >= 17;
-  const jours = data!.value.prevision?.jours ?? [];
+  const jours = joursDuJour(data!.value.prevision?.jours, data.fetchedAt, now);
   const f = (evening && jours[1]) || jours[0];
   return {
     valeur: esc(thin(s.mesures.temperature!)),
@@ -96,26 +97,24 @@ function weather(p: PlacePage, data: Cached<PlaceData> | null, now: Date): Live 
   };
 }
 
-const WAVES = 9;
-
 function vigilance(p: PlacePage, data: Cached<mf.Vigilance> | null | undefined, now: Date): Live | undefined {
   const v = data?.value;
   if (!v) return undefined;
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   if (highest(cyc) >= 2) {
     const c = Math.max(2, cycloneLevel(cyc, now));
-    return lue({ valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) }, data!, now);
+    return officielLive(lue({ valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) }, data!, now), mf.OFFICIEL_CYCLONE);
   }
+  // The zone of Météo-France, as its own, the commune only said to be in it: never a colour given to a commune.
   const zone = mf.ZONE_OF_COMMUNE[p.nom];
-  const name = (mf.ZONES[zone] ?? "").split(" :")[0];
-  const c = zone ? zoneNow(v, zone, now) : -1;
-  const up = zone ? [12, 1].filter((id) => current(v.zones[zone]?.[id] ?? [], now) >= 2).map((id) => mf.PHENOMENA[id].toLowerCase()) : [];
-  const waves = coastal(p) ? raised(v).filter((x) => x.phenomene === mf.PHENOMENA[WAVES]) : [];
-  return lue({
-    valeur: vg(c >= 1 ? c : 1),
-    detail: esc(up.length ? `${up.join(", ")} pour la zone ${name}` : `pas de vigilance particulière pour la zone ${name}`) +
-      (waves.length ? ` · vagues-submersion sur le littoral : ${vg(waves[0].max)}` : ""),
-  }, data!, now);
+  const name = zoneShort(zone);
+  const { above, issued } = zoneLevels(v, zone, now);
+  const said = above.length ? above.map((x) => `${vg(x.couleur)} ${esc(x.phenomene.toLowerCase())}`).join(", ") : issued ? vg(1) : esc(NONE_ISSUED);
+  const coast = coastal(p) ? coastText(v) : undefined;
+  return officielLive(lue({
+    valeur: `Zone ${esc(name)} de Météo-France : ${said}`,
+    detail: esc(`${p.nom} est dans la zone ${name}`) + (coast ? ` · ${esc(coast)}` : ""),
+  }, data!, now), mf.OFFICIEL_VIGILANCE);
 }
 
 const airOf = (p: PlacePage, data: Cached<AirAnswer> | null | undefined) => data?.value.communes?.find((x) => normalize(x.commune) === normalize(p.nom));
@@ -258,7 +257,7 @@ function sunTimes(p: PlacePage, calendrier: Cached<CalendrierAnswer> | null | un
   const s = cal.sun(day, p.place.lon, p.place.lat, p.place.altitude_m ?? 0);
   const t = (d: Date) => localTime(d).split(" ")[1].replace(":", "h");
   // The island's calendar, without its sunrise and sunset (those of Saint-Denis).
-  const c = calendrierLive(calendrier ?? null);
+  const c = calendrierLive(calendrier ?? null, now);
   const rest = c && !c.vide ? [c.valeur, ...c.detail.split(" · ").filter((x) => !x.startsWith("soleil"))].join(" · ") : "";
   return { valeur: `${t(s.lever)} – ${t(s.coucher)}`, detail: `lever et coucher du soleil aujourd'hui${rest ? ` · ${rest}` : ""}` };
 }

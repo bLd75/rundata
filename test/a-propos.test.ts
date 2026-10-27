@@ -63,12 +63,14 @@ describe("who makes rundata.re, the connector's page, the legal notice, the 404 
     for (const s of ["projet personnel et bénévole", "habitant de l'île, développeur", "Cloudflare", "Il est gratuit, n'affiche aucune publicité et ne vend aucune donnée.", "Pour les associations à but non lucratif, il est gratuit à vie.", "contact@rundata.re", 'href="/conditions#mentions-legales"', 'href="/presse"', '"@type":"AboutPage"']) expect(page).toContain(s);
     for (const s of ["aucun revenu", "offres gratuites", "restera gratuit"]) expect(page).not.toContain(s);
     const main = aProposPage("https://rundata.re").split("<footer")[0];
-    expect(main).not.toMatch(/bLd75|github/i);
-    // About 250 words: the title, its sentence and the four sections.
+    // No personal account: GitHub only as the project's own repository, in the bar and in the contributions sentence.
+    expect(main).not.toMatch(/bLd75/i);
+    expect(main.match(/github\.com\/[^"]*/gi)?.every((u) => u.startsWith("github.com/rundata-re/rundata"))).toBe(true);
+    // About 300 words: the title, its sentence and the four sections, the contributions sentence among them (27/10).
     const text = (from: string, to: string) => main.slice(main.indexOf(from), main.indexOf(to, main.indexOf(from)));
     const words = (text("<h1>", "</div></div>") + text("<section style=", "</section>")).replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
     expect(words).toBeGreaterThan(200);
-    expect(words).toBeLessThan(300);
+    expect(words).toBeLessThan(360);
     expect(page).toContain('<a href="/a-propos">qui fait rundata.re\u00a0?</a>');
   });
 

@@ -34,8 +34,8 @@ describe("the guide for those who publish (/publier)", () => {
     // Tutorials 1 to 5, in the table and under their title, never « rundata.re : Déjà lu par rundata.re ».
     expect(page.match(/<span class="etat lu">Déjà lu<\/span>/g)).toHaveLength(10);
     expect(page).not.toContain("Déjà lu par rundata.re");
-    // The clubs' events on Sportsregions, read from the portal's calendar.
-    expect(page).toContain("Votre club a un site Sportsregions\u00a0? Remplissez sa rubrique Événements\u00a0: rundata.re lit le calendrier des clubs de La Réunion sur Sportsregions.");
+    // The clubs' calendar on Sportsregions is not read until it agrees (src/providers/autorisations.ts): not offered.
+    expect(page).not.toContain("Sportsregions");
     expect(page.match(/>Sur demande : écrivez-nous</g)).toHaveLength(3);
     expect(page).toContain(`<a class="etat demande" href="${MAILTO}">`);
     expect(MAILTO).toBe("mailto:contact@rundata.re?subject=Flux%20%C3%A0%20r%C3%A9f%C3%A9rencer");

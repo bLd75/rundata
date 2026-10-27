@@ -64,7 +64,7 @@ export const CATEGORIES: Category[] = [
     path: "/cyclones",
     icon: "cyclone",
     tools: ["cyclones"],
-    about: "Les systèmes tropicaux actifs du sud-ouest de l'océan Indien : position, stade, distance de La Réunion, déplacement et prévision du CMRS de Météo-France.",
+    about: "Les systèmes tropicaux actifs du sud-ouest de l'océan Indien et leur stade selon le CMRS de Météo-France, avec le lien vers son site officiel.",
   },
   {
     key: "mer",
@@ -152,7 +152,7 @@ export const CATEGORIES: Category[] = [
     path: "/sport",
     icon: "trophy",
     tools: ["sport"],
-    about: "Les matchs à venir et les derniers résultats du handball et du volley régionaux, les classements, les régates, le golf, les rallyes et le Grand Raid.",
+    about: "Les matchs à venir et les derniers résultats du handball et du volley régionaux, les classements, les rallyes et le Grand Raid.",
   },
   {
     key: "agenda",

@@ -44,6 +44,11 @@ describe("the prefect's fuel prices", () => {
     const list = `<a class="fr-card__link" href="/Actualites/Communiques-de-presse/Prix-des-carburants-en-octobre">x</a>
       <a href="/Actualites/Communiques-de-presse/Secheresse">y</a><a href="/Actualites/Communiques-de-presse/Prix-des-carburants-au-1er-septembre-2026">z</a>`;
     expect(carburants.releases(list)).toEqual([LIEN, "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Prix-des-carburants-au-1er-septembre-2026"]);
+    // A link planted in the list, to another site or in http, is never read.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(carburants.releases(`<a href="https://pirate.example/Communiques-de-presse/Prix-des-carburants-en-octobre">x</a><a href="http://www.reunion.gouv.fr/Communiques-de-presse/Prix-des-carburants">y</a>${list}`)).toEqual(carburants.releases(list));
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
     expect(carburants.headerDay("01/10/2026")).toBe("2026-10-01");
     expect(carburants.headerDay("1-déc.-26")).toBe("2026-12-01");
   });
@@ -72,6 +77,22 @@ describe("the prefect's fuel prices", () => {
       expect(asked.map(([, t]) => t - asked[0][1])).toEqual([0, 0, 0]);
     } finally {
       vi.unstubAllGlobals();
+    }
+  });
+
+  it("are never read from the prefecture by the Worker: an empty store leaves them unavailable", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => (asked.push(String(url)), new Response("", { status: 500 })));
+    try {
+      carburants.configure(async () => null);
+      await expect(carburants.prix(new Cache(), NOW)).rejects.toThrow(/absents du stockage/);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const r = await annuaireTool(new Cache(), "prix de l'essence", undefined, NOW);
+      expect(body(r).erreur).toBe("Les prix des carburants ne sont pas disponibles pour le moment.");
+      expect(asked.filter((u) => u.includes("reunion.gouv.fr"))).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
     }
   });
 
@@ -113,6 +134,12 @@ describe("the prefect's fuel prices", () => {
     const early = render("https://rundata.re", at, new Date("2026-11-02T06:00:00Z"));
     expect(early).toContain("<h1>Prix des carburants à La Réunion, octobre 2026</h1>");
     expect(early).toContain("Les prix maximum de novembre 2026 ne sont pas encore publiés ou pas encore lus : voici ceux en vigueur depuis le 1er octobre 2026.");
+  });
+
+  it("unread, say so on their page in the tool's words, with the prefecture's link, never « se charge »", () => {
+    const page = render("https://rundata.re", null, NOW);
+    expect(page).toContain(`<p class="lead">Les prix des carburants ne sont pas disponibles pour le moment : voir la préfecture (<a href="${carburants.SOURCE.url}" rel="noopener">reunion.gouv.fr</a>).</p>`);
+    expect(page).not.toMatch(/se charge|rechargez/);
   });
 
   it("are served at /carburants and dated in the sitemap by the prefect's order", async () => {

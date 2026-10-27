@@ -1,10 +1,13 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { firstSentence, merge, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
+import { fil, firstSentence, merge, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
 import { actualites, quand } from "../src/tools/actualites.js";
 import { actualitesPage } from "../src/web/domains.js";
 import { buildActualites } from "../src/web/data.js";
+import { withVide } from "../src/vide.js";
+import { SOURCE_REVISION } from "../src/web/revisions.js";
 
 // Saturday 24/10/2026 at 12:05 in La Réunion, the morning of a day of mobilisation (gilets jaunes, « vie chère »): Imaz
 // Press runs a live blog, the prefecture has published its report of the night.
@@ -25,6 +28,14 @@ function file(url: string): string | undefined {
 }
 
 describe("actualités", () => {
+  it("puts the volcano's « phase de vigilance » under the volcano, not the weather, unless a word of the weather says it too", () => {
+    // Freedom, 26/10 at 16:45, its title and summary.
+    expect(sujetsOf("Piton de la Fournaise : réouverture partielle de l’Enclos et retour en phase de vigilance ce lundi Constatant une nette diminution de l’activité sous le massif du Piton de la Fournaise, la préfecture de La Réunion a acté l’assouplissement du dispositif ORSEC Volcan.")).toEqual(["volcan", "politique"]);
+    expect(sujetsOf("Cratère Dolomieu : retour en phase de vigilance")).toEqual(["volcan"]);
+    expect(sujetsOf("Vigilance orange fortes pluies dans l'Est")).toEqual(["meteo"]);
+    expect(sujetsOf("Volcan : vigilance, et fortes pluies attendues sur l'Enclos")).toEqual(["meteo", "volcan"]);
+  });
+
   let down: RegExp | undefined;
   let asked: string[];
   beforeEach(() => {
@@ -134,7 +145,10 @@ describe("actualités", () => {
   });
 
   it("says when nothing names a place, without saying nothing happens there", async () => {
-    const b = body(await actualites(cache(), "Cilaos", undefined, undefined, NOW));
+    const { value, vide } = await withVide("actualites", () => actualites(cache(), "Cilaos", undefined, undefined, NOW));
+    const b = body(value);
+    // Counted as a question left without an answer (vide.ts).
+    expect(vide).toBe(true);
     expect(b.resume).toMatch(/^Aucune information des médias lus ne mentionne Cilaos depuis hier à 12:05\./);
     expect(b.infos).toEqual([]);
     expect(b.a_savoir).toMatch(/ne prouve pas qu'il ne s'y passe rien/);
@@ -185,6 +199,18 @@ describe("actualités", () => {
     expect(html).not.toContain("Ne répondent pas en ce moment");
   });
 
+  it("gives on the page the same total as the tool, and says when the list keeps only the newest", async () => {
+    const data = await buildActualites(cache(), NOW);
+    const told = /^(\d+) informations? des médias de La Réunion depuis 24 h/.exec(body(await actualites(cache(), undefined, undefined, undefined, NOW)).resume);
+    expect(told).not.toBeNull();
+    expect(data.total).toBe(Number(told![1]));
+    const html = actualitesPage("https://rundata.re", { value: data, fetchedAt: NOW, stale: false }, NOW);
+    expect(html).toContain(`<span class="big">${data.total}</span><p>informations des médias de l'île depuis 24 h`);
+    // 26/10/2026: 103 in the tool, the page listing its 40 newest.
+    const many = actualitesPage("https://rundata.re", { value: { ...data, total: 103 }, fetchedAt: NOW, stale: false }, NOW);
+    expect(many).toContain(`<span class="big">103</span><p>informations des médias de l'île depuis 24 h\u00a0; les ${data.infos.length} plus récentes ci-dessous`);
+  });
+
   it("makes a page of it, with the live blog first", async () => {
     const data = await buildActualites(cache(), NOW);
     expect(data.chaud).toBe(true);
@@ -196,5 +222,19 @@ describe("actualités", () => {
     // Le Quotidien gives neither a first sentence nor always an hour: the page does not promise them.
     expect(html).toContain("Le titre de chaque article, sa première phrase quand le média la donne, son média, les communes qu'il nomme et son heure (heure de La Réunion), ou son jour seulement quand le média ne donne pas l'heure.");
     expect(html).toContain("Titres des articles, avec leur première phrase quand le média la donne, et leur lien");
+  });
+
+  // What the feed keeps from the same pages, at each revision of actualites:fil (web/revisions.ts), the last one now.
+  // A change that keeps something else (a link, a field, a medium, a filter) changes it: add its fingerprint here and
+  // raise SOURCE_REVISION["actualites:fil"] (and RENDU_REVISION.actualites), so that the entry read by the old code is
+  // read again after the deploy. A fixture changed alone: add its fingerprint and raise the number all the same.
+  const FIL = ["b7e88ffb49a93884"];
+
+  it("keeps, from the same pages, what its revision says: one fingerprint per revision of actualites:fil", async () => {
+    const { value } = await fil(cache(), NOW);
+    const now = createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
+    expect(FIL).toHaveLength(SOURCE_REVISION["actualites:fil"]);
+    expect(new Set(FIL).size).toBe(FIL.length);
+    expect(now, "ce que garde actualites:fil a changé : ajoute son empreinte à FIL et monte SOURCE_REVISION").toBe(FIL.at(-1));
   });
 });

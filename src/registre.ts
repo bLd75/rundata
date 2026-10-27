@@ -19,6 +19,7 @@ import { DETAILS_MAX as CONNECTEUR_DETAILS, PAGES_MAX as CONNECTEUR_PAGES } from
 import { IN_FLIGHT } from "./http.js";
 import { AGENDAS } from "./providers/agenda.js";
 import { MAX_NEW_GRIDS } from "./providers/arome.js";
+import { KINDS as CANDHIS_KINDS, REFRESH_EVERY as CANDHIS_EVERY, REFRESH_OFFSET as CANDHIS_OFFSET } from "./providers/candhis.js";
 import { REFRESH_EVERY as IRVE_EVERY, REFRESH_OFFSET as IRVE_OFFSET } from "./providers/irve.js";
 import { SHARED, SHARED_AFTER, type Shared } from "./web/partagees.js";
 import { COMMUNE_TILES, DOMAINS, HOME_TILES } from "./web/site.js";
@@ -91,6 +92,8 @@ const SHARED_FROM: Record<string, string[]> = {
   "mer:satellites": ["src/providers/acspo.ts", "src/providers/modis.ts"],
   "web:mer": ["src/tools/mer.ts"],
   "web:calendrier": ["src/tools/calendrier.ts"],
+  seismes: ["src/providers/seismes.ts"],
+  "onf:sentiers": ["src/providers/sentiers.ts"],
   "web:volcan": ["src/tools/volcan.ts", "src/providers/ovpf-pdf.ts"],
   "web:courant": ["src/tools/courant.ts"],
   "ens:ile": ["src/providers/ensemble.ts"],
@@ -107,8 +110,8 @@ const SHARED_D1: Record<string, Pick<Run, "d1Calls" | "d1RowsRead">> = {
   "web:chiffres": SANS_REPONSE_D1,
 };
 
-// Never built alone over MEASURED: their CPU is that of the page that shows them; the vigilance's and the rivers', measured in Node.
-const SHARED_ESTIMATED = new Set(["vigilance", "web:crues", "mer:satellites", "web:calendrier", "web:chiffres", "web:chiffres:evenements"]);
+// Never built alone over MEASURED: their CPU is that of the page that shows them; the vigilance's and the rivers', measured in Node; the earthquakes' and the ONF's map's, estimated from /volcan's and /sentiers's.
+const SHARED_ESTIMATED = new Set(["vigilance", "seismes", "onf:sentiers", "web:crues", "mer:satellites", "web:calendrier", "web:chiffres", "web:chiffres:evenements"]);
 
 const sharedEntry = (s: Shared, after: boolean): Entry => ({
   id: s.key,
@@ -159,6 +162,29 @@ const SCHEDULED: Entry[] = [
   },
   ...SHARED.map((s) => sharedEntry(s, false)),
   ...SHARED_AFTER.map((s) => sharedEntry(s, true)),
+  // Météo-France's official map (providers/vigilance-carte.ts), in the vigilance's copy, outside its cost: its state read
+  // at each of its builds; a new bulletin kept (its time of issue read in the PDF, 40 ms in Node, the PDF and the state
+  // written); a picture by Cloudflare's browser (the call, the picture and the state written), 24 a day at most.
+  {
+    id: "vigilance:carte",
+    trigger: "planifiée",
+    what: "carte officielle de la vigilance : son état (KV), lu à chaque copie de la vigilance",
+    every: EVENT_MINUTES,
+    offset: 0,
+    run: { subrequests: 1, kvReads: 1, cpuMs: 0 },
+    from: ["src/providers/vigilance-carte.ts"],
+    basis: "code",
+  },
+  {
+    id: "vigilance:carte:bulletin",
+    trigger: "planifiée",
+    what: "carte officielle de la vigilance : un nouveau bulletin gardé (le PDF et l'état, KV), puis son image par le navigateur de Cloudflare (l'image et l'état), 24 images par jour au plus",
+    every: 60,
+    offset: 0,
+    run: { subrequests: 5, kvWrites: 4, cpuMs: 40 },
+    from: ["src/providers/vigilance-carte.ts"],
+    basis: "code",
+  },
   {
     id: "agendas:planifies",
     trigger: "planifiée",
@@ -201,6 +227,19 @@ const SCHEDULED: Entry[] = [
     from: ["src/sans-reponse.ts"],
     basis: "estimé",
   },
+  // A shared copy late for its refresh (web/partagees.ts SharedFallback): its last failure read with it, and written
+  // after a failed try, at most once per breaker for all the data centers; only while its source does not answer.
+  {
+    id: "copies:echecs",
+    trigger: "planifiée",
+    what: "copies partagées : l'échec d'une copie en retard, lu avec elle et écrit après un essai manqué (KV), au plus une fois toutes les 5 minutes par copie pour tous les centres de données, seulement quand sa source ne répond pas",
+    every: 5,
+    offset: 0,
+    run: { subrequests: 2, kvReads: 1, kvWrites: 1, cpuMs: 0 },
+    // KV only: its file's imports reach every source.
+    from: [],
+    basis: "code",
+  },
   // Its own budget (BUILD_BUDGET), after the event's reads: one GET per site not come back, the writes in one batch.
   {
     id: "sans-reponse:reverification",
@@ -225,6 +264,19 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/irve.ts"],
     basis: "estimé",
   },
+  // Only with the Cerema's key. The state read from KV, one getCampListeTR request per type of active buoy (at most
+  // the three types; one when the island's buoys are all of one type), the state written. Every 30 days, and the first
+  // time, the list of the active buoys besides: one request per type, three more subrequests in that run.
+  {
+    id: "candhis:etat",
+    trigger: "planifiée",
+    what: "bouées Candhis du Cerema : la dernière mesure de chaque bouée de La Réunion, une requête par type de bouée, gardée dans KV",
+    every: CANDHIS_EVERY,
+    offset: CANDHIS_OFFSET,
+    run: { subrequests: 2 + Object.keys(CANDHIS_KINDS).length, kvReads: 1, kvWrites: 1, cpuMs: 10 },
+    from: ["src/providers/candhis.ts"],
+    basis: "code",
+  },
   // One association's platform per run, the one read the longest ago (each every 6 hours while there are fewer than
   // 72): the token (1), its list of events (up to CONNECTEUR_PAGES pages) and the details of the new or changed ones (up
   // to CONNECTEUR_DETAILS). Usually 2 or 3 subrequests: the details are read again only when the platform says the event
@@ -236,6 +288,19 @@ const SCHEDULED: Entry[] = [
     every: EVENT_MINUTES,
     run: { subrequests: 1 + CONNECTEUR_PAGES + CONNECTEUR_DETAILS, d1Calls: 3, d1RowsRead: 1 + CONNECTEUR_PAGES * 50, d1RowsWritten: 1 + CONNECTEUR_DETAILS, cpuMs: 20 },
     from: ["src/connecteurs/helloasso.ts"],
+    basis: "estimé",
+  },
+  // The day before at each Météo-France station (providers/meteofrance.ts keepVeille): the hourly package of the 974
+  // (about 900 kB), read once a day at 00:20 in La Réunion and again at 00:35 only when its last hour was not out yet
+  // (then with one read of KV first). Here the pass of 00:20: the token, the package, one write to KV.
+  {
+    id: "meteofrance:veille",
+    trigger: "planifiée",
+    what: "météo de la veille\u00a0: la pluie et les températures de 0\u00a0h à 24\u00a0h de chaque station Météo-France (paquet horaire, environ 900 ko), écrites dans KV à 00:20 heure de La Réunion, relues à 00:35 si la dernière heure manquait",
+    every: 24 * 60,
+    offset: 20 * 60 + 20,
+    run: { subrequests: 3, kvWrites: 1, cpuMs: 40 },
+    from: ["src/providers/meteofrance.ts"],
     basis: "estimé",
   },
   {
@@ -278,8 +343,10 @@ const METEO = ["src/tools/meteo.ts", "src/tools/prevision.ts", "src/tools/vigila
 /** Every page of DOMAINS (web/site.ts), by its path. */
 const DOMAIN_PAGES: Record<string, Page> = {
   "/meteo": { subrequests: 41, cpuMs: 80, from: METEO },
-  // Measured 39, before it read the list of the silent sites (a read of the data center's cache, 2 of D1, a write).
-  "/volcan": { subrequests: 43, cpuMs: 60, from: ["src/tools/volcan.ts"], d1: SANS_REPONSE_D1 },
+  // Measured 39, before it read the list of the silent sites (a read of the data center's cache, 2 of D1, a write); 6
+  // more for the pages of two releases whose list does not name the volcano (providers/volcan.ts, `doubtful`): each a
+  // read of KV, the page and a write of KV, once a week.
+  "/volcan": { subrequests: 49, cpuMs: 60, from: ["src/tools/volcan.ts"], d1: SANS_REPONSE_D1 },
   "/air": { subrequests: 14, cpuMs: 40, from: ["src/tools/air.ts"] },
   "/electricite": { subrequests: 17, cpuMs: 30, from: ["src/tools/electricite.ts"] },
   "/calendrier": { subrequests: 18, cpuMs: 40, from: ["src/tools/calendrier.ts"] },
@@ -300,7 +367,8 @@ const DOMAIN_PAGES: Record<string, Page> = {
   // The tool without a place (the vigilance, the levels and the flows of every gauge, three posts), and the news read
   // again after the response when it is old, as on /trafic, for the headlines on the fords.
   "/crues": { subrequests: 30, cpuMs: 120, from: ["src/tools/crues.ts", "src/tools/actualites.ts"], basis: "estimé" },
-  "/historique": { subrequests: 15, cpuMs: 70, from: ["src/tools/historique.ts"] },
+  // 15 measured, and before noon the day before kept by the scheduled event, read with the hours of Saint-Denis (KV).
+  "/historique": { subrequests: 16, cpuMs: 70, from: ["src/tools/historique.ts"], basis: "estimé" },
   "/evenements": { subrequests: 54, cpuMs: 200, from: ["src/tools/agenda.ts"] },
   "/evenements/ce-week-end": { subrequests: 36, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
   "/evenements/concerts": { subrequests: 36, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
@@ -338,6 +406,9 @@ const OTHER_PAGES: Record<string, Page> = {
   "/associations/relier": { subrequests: 14, cpuMs: 40, from: ["src/web/connecteurs.ts"], d1: { d1Calls: 2, d1RowsRead: 2 }, what: "relier sa plateforme : les clés vérifiées par HelloAsso, puis la connexion écrite (D1) et l'e-mail", basis: "code" },
   // The link found by its hash, then confirmed or withdrawn: a replaced or withdrawn link takes its events with it.
   "/associations/connexion/*": { subrequests: 14, cpuMs: 30, from: ["src/web/connecteurs.ts"], d1: { d1Calls: 4, d1RowsRead: 4 }, what: "le lien reçu par e-mail : confirmer ou retirer la connexion (D1), et l'e-mail qui le dit", basis: "code" },
+  // The open feeds: the data center's copy (Cache API), else the published proposals (D1, one row each) and the copy
+  // written, kept 5 minutes; no header, no source.
+  "/associations/evenements.*": { subrequests: 3, cpuMs: 20, from: ["src/web/flux-associations.ts"], d1: { d1Calls: 1, d1RowsRead: 100 }, what: "les flux ouverts des événements proposés (JSON, ICS) : la copie du centre de données, sinon les propositions publiées (D1), 5 minutes", basis: "estimé" },
   "/sites-sans-reponse": { subrequests: 9, cpuMs: 40, from: ["src/sans-reponse.ts"], d1: SANS_REPONSE_D1, what: "les sites publics sans réponse (D1), avec la vigilance et la version de l'en-tête", basis: "code" },
   // The copy of its counts (the data center's cache, else KV): never a source.
   "/chiffres": { subrequests: 9, cpuMs: 40, from: [], what: "rundata.re en chiffres : la copie de ses comptes, avec la vigilance et la version de l'en-tête", basis: "code" },
@@ -371,8 +442,8 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   meteo_actuelle: { subrequests: 36, cpuMs: 120, file: "meteo" },
   evenements: { subrequests: 33, cpuMs: 190, file: "agenda" },
   sport: { subrequests: 33, cpuMs: 160, file: "sport" },
-  // Measured 26, before it read the list of the silent sites, as /volcan.
-  volcan_seismes: { subrequests: 30, cpuMs: 90, file: "volcan", d1: SANS_REPONSE_D1 },
+  // Measured 26, before it read the list of the silent sites, as /volcan; 6 more for two releases' pages, as /volcan.
+  volcan_seismes: { subrequests: 36, cpuMs: 90, file: "volcan", d1: SANS_REPONSE_D1 },
   // 24 measured, and the street's sales from the code: for a street not copied yet, one file a year of DVF géolocalisées
   // (6, each redirected once to its storage) and about 10 ms to read them; copied 7 days.
   fiche_terrain: { subrequests: 36, cpuMs: 80, file: "terrain", basis: "estimé" },
@@ -382,7 +453,8 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   transports: { subrequests: 13, cpuMs: 80, file: "transports", d1: BUS_D1 },
   cyclones: { subrequests: 13, cpuMs: 70, file: "cyclones" },
   actualites: { subrequests: 10, cpuMs: 180, file: "actualites" },
-  historique_meteo: { subrequests: 10, cpuMs: 60, file: "historique", d1: { d1Calls: 3, d1RowsRead: 300 } },
+  // 10 measured, and before noon the day before kept by the scheduled event (one read of KV).
+  historique_meteo: { subrequests: 11, cpuMs: 60, file: "historique", d1: { d1Calls: 3, d1RowsRead: 300 }, basis: "estimé" },
   sentiers_randonnee: { subrequests: 10, cpuMs: 60, file: "sentiers" },
   vigilance_meteo: { subrequests: 10, cpuMs: 50, file: "vigilance" },
   coupures_eau: { subrequests: 9, cpuMs: 110, file: "coupures" },
@@ -412,7 +484,7 @@ const QUESTIONS: Entry[] = Object.entries(TOOLS).map(([tool, t]) => ({
   basis: t.basis ?? "mesuré",
 }));
 
-export const REGISTRY: Entry[] = [...SCHEDULED, ...ACTIONS, ...VISITS, ...QUESTIONS];
+const ENTRIES: Entry[] = [...SCHEDULED, ...ACTIONS, ...VISITS, ...QUESTIONS];
 export const TOOL_NAMES = Object.keys(TOOLS);
 export const PAGE_PATHS = { domains: Object.keys(DOMAIN_PAGES), others: Object.keys(OTHER_PAGES) };
 
@@ -451,6 +523,28 @@ export function reached(from: string[]): string[] {
   while (todo.length) for (const d of imports.get(todo.pop()!) ?? []) if (!seen.has(d)) (seen.add(d), todo.push(d));
   return FETCHING.filter((f) => seen.has(f));
 }
+
+/**
+ * The sources read for the whole island (cache.ts `island`: NASA FIRMS's fires, CAMS's UV, the OVPF's posts, Piton
+ * Live, the water notices, the prefecture's list, Vigicrues Réunion's vigilance, heights and flows) that each entry reads, from the imports of its files (not their
+ * helpers'). From cold, each is asked of KV as well and written there, beyond what the entry measured: a read and a
+ * write more, two subrequests.
+ */
+export const ISLAND_READS: Record<string, number> = {
+  "web:volcan": 3, "/volcan": 3, volcan_seismes: 3,
+  resume_du_jour: 3, "/aujourdhui/*": 3,
+  "/": 2, "/communes/*": 2, "/meteo": 2, "/meteo/*": 2,
+  cyclones: 1, "/cyclones": 1, "/ecoles-cyclone": 1,
+  "/feux": 1, sentiers_randonnee: 1, "/sentiers": 1, "/sentiers/*": 1, "/randonnees": 1, "/randonnees/*": 1, vigilance_meteo: 1,
+  prevision_meteo: 1,
+  "web:crues": 3, crues_rivieres: 3, "/crues": 3,
+  "web:coupures": 1, coupures_eau: 1, "/coupures-eau": 1, "/coupures-eau/*": 1, qualite_eau: 1, "/eau": 1,
+};
+const withIsland = (e: Entry): Entry => {
+  const n = ISLAND_READS[e.id] ?? 0;
+  return n ? { ...e, run: { ...e.run, subrequests: e.run.subrequests + 2 * n, kvReads: (e.run.kvReads ?? 0) + n, kvWrites: (e.run.kvWrites ?? 0) + n } } : e;
+};
+export const REGISTRY: Entry[] = ENTRIES.map(withIsland);
 
 // --- The totals ----------------------------------------------------------------------------------------------------
 

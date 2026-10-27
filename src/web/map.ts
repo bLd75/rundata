@@ -1,19 +1,16 @@
 /**
  * The island as an inline SVG: coastline and communes from src/places/island.json (scripts/build-island.py), with
- * markers placed by the same projection; and, for the cyclones, the ocean around it (src/web/ocean.json,
- * scripts/build-ocean.py). Colours come from the page's CSS, so the maps follow its light and dark themes.
+ * markers placed by the same projection. Colours come from the page's CSS, so the maps follow its light and dark themes.
  */
 import island from "../places/island.json" with { type: "json" };
 import relief from "./relief.json" with { type: "json" };
-import ocean from "./ocean.json" with { type: "json" };
 import { ACCUEILS } from "../providers/accueils-medias.js";
 
 const [LON0, LAT0, LON1, LAT1] = island.bbox;
 export const W = island.w;
 export const H = island.h;
-/** The island in relief (scripts/build-relief.py), served by src/web/site.ts; its address changes with its content. */
+/** The island in relief (scripts/build-relief.py), a file of public/; its address changes with its content. */
 export const RELIEF_PATH = `/relief-${relief.v}.webp`;
-export const reliefImage = () => relief.webp;
 
 export function project(lon: number, lat: number): [number, number] {
   return [Math.round(((lon - LON0) / (LON1 - LON0)) * W), Math.round(((LAT1 - lat) / (LAT1 - LAT0)) * H)];
@@ -80,10 +77,99 @@ const PEAKS = [
   { name: "Piton de la Fournaise", alt: "2 632 m", lon: 55.7083, lat: -21.2444 },
 ];
 
-function marker(m: Marker, hit = HIT): string {
-  const [x, y] = project(m.lon, m.lat);
+/** A pill's width for its label, and its height. */
+const pillW = (m: Marker) => Math.max(64, m.label.length * 19 + 24);
+const PILL_H = 48;
+// Between two pills moved apart (their white edges never touch), and from a pill to the map's edge.
+const GAP = 16;
+// From a pill's edge to the centre of a place's dot (ties()): the dot with its white ring (12), the pill's white edge
+// (2), and a little air.
+const DOT = 18;
+
+/** A pill at `at` still over its own place, the place's dot hidden under it whole: it stands on its place, untied. */
+const onPlace = (m: Marker, at: [number, number]) => {
+  const [x0, y0] = project(m.lon, m.lat);
+  return Math.abs(at[0] - x0) <= pillW(m) / 2 - 12 && Math.abs(at[1] - y0) <= PILL_H / 2 - 12;
+};
+
+/**
+ * Where to draw each marker so that no pill covers another (`apart`): those that would are pushed apart, each the
+ * least, along the shorter way out, and kept inside the map; round markers stay where they are. No pill covers a place's
+ * dot either, another's or its own once it has left it: half under a pill, a dot reads as a smudge (Saint-Denis's).
+ * The same markers, the same places.
+ */
+function apart(markers: Marker[]): [number, number][] {
+  const places = markers.map((m) => project(m.lon, m.lat));
+  const p = places.map(([x, y]): [number, number] => [x, y]);
+  const w = markers.map(pillW);
+  const pill = markers.map((m) => !m.round);
+  for (let round = 0; round < 200; round++) {
+    let moved = false;
+    for (let i = 0; i < p.length; i++) {
+      for (let j = i + 1; j < p.length; j++) {
+        if (!pill[i] || !pill[j]) continue;
+        const dx = p[j][0] - p[i][0];
+        const dy = p[j][1] - p[i][1];
+        const ox = (w[i] + w[j]) / 2 + GAP - Math.abs(dx);
+        const oy = PILL_H + GAP - Math.abs(dy);
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        // Half each; two at the same height or column apart in their order.
+        if (ox < oy) {
+          const s = dx < 0 ? -1 : 1;
+          p[i][0] -= (s * ox) / 2;
+          p[j][0] += (s * ox) / 2;
+        } else {
+          const s = dy < 0 ? -1 : 1;
+          p[i][1] -= (s * oy) / 2;
+          p[j][1] += (s * oy) / 2;
+        }
+      }
+    }
+    // A place stays where it is: the pill alone goes, all the way out, the shorter way that stays inside the map (a
+    // place by the coast, at the top, sends it below or beside, never above).
+    for (let i = 0; i < p.length; i++) {
+      for (let j = 0; j < p.length; j++) {
+        if (!pill[i] || !pill[j] || (i === j && onPlace(markers[i], p[i]))) continue;
+        const [qx, qy] = places[j];
+        const [hw, hh] = [w[i] / 2 + DOT, PILL_H / 2 + DOT];
+        if (Math.abs(qx - p[i][0]) >= hw || Math.abs(qy - p[i][1]) >= hh) continue;
+        const ways: [number, number][] = [[qx - hw, p[i][1]], [qx + hw, p[i][1]], [p[i][0], qy - hh], [p[i][0], qy + hh]];
+        const inside = ways.filter(([x, y]) => x >= w[i] / 2 + GAP && x <= W - w[i] / 2 - GAP && y >= PILL_H / 2 + GAP && y <= H - PILL_H / 2 - GAP);
+        const far = ([x, y]: [number, number]) => Math.abs(x - p[i][0]) + Math.abs(y - p[i][1]);
+        const to = (inside.length ? inside : ways).reduce((a, b) => (far(b) < far(a) ? b : a));
+        p[i] = [to[0], to[1]];
+        moved = true;
+      }
+    }
+    for (let i = 0; i < p.length; i++) {
+      if (!pill[i]) continue;
+      p[i][0] = Math.min(W - w[i] / 2 - GAP, Math.max(w[i] / 2 + GAP, p[i][0]));
+      p[i][1] = Math.min(H - PILL_H / 2 - GAP, Math.max(PILL_H / 2 + GAP, p[i][1]));
+    }
+    if (!moved) break;
+  }
+  return p.map(([x, y]) => [Math.round(x), Math.round(y)]);
+}
+
+/** For each pill moved off its place (apart()), a dot at the place and a line to the pill: under every pill. */
+function ties(markers: Marker[], at: [number, number][]): string {
+  const out = markers.map((m, i) => {
+    const [x0, y0] = project(m.lon, m.lat);
+    const [x, y] = at[i];
+    const fill = m.color ?? "var(--ink)";
+    return !m.round && !onPlace(m, at[i])
+      ? `<line x1="${x0}" y1="${y0}" x2="${x}" y2="${y}" stroke="${fill}" stroke-width="4"/><circle cx="${x0}" cy="${y0}" r="10" fill="${fill}" stroke="#fff" stroke-width="4"/>`
+      : "";
+  }).join("");
+  return out ? `<g class="ties" aria-hidden="true">${out}</g>` : "";
+}
+
+/** `at`: where it is drawn, when moved from its place (apart()). */
+function marker(m: Marker, hit = HIT, at?: [number, number]): string {
+  const [x, y] = at ?? project(m.lon, m.lat);
   const fill = m.color ?? "var(--ink)";
-  const w = Math.max(64, m.label.length * 19 + 24);
+  const w = pillW(m);
   const shape = m.round
     ? m.hollow
       ? `<circle class="sh" cx="${x}" cy="${y}" r="30" style="fill:#fff;stroke:${fill};stroke-width:8"/>`
@@ -131,6 +217,8 @@ export function islandMap(opts: {
   relief?: boolean;
   /** Drawn over the land, under the markers: lines. */
   overlay?: string;
+  /** Pills that would cover each other moved apart, each tied to its place (apart()). */
+  apart?: boolean;
   label: string;
 }): string {
   const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
@@ -144,7 +232,8 @@ export function islandMap(opts: {
   const role = linked ? `role="group"` : `role="img"`;
   const zones = opts.links ? zoneLinks(opts.links) : "";
   const radii = hitRadii(opts.markers ?? []);
-  const markers = (opts.markers ?? []).map((m, i) => marker(m, radii[i])).join("");
+  const at = opts.apart ? apart(opts.markers ?? []) : undefined;
+  const markers = (at ? ties(opts.markers!, at) : "") + (opts.markers ?? []).map((m, i) => marker(m, radii[i], at?.[i])).join("");
   let extra = "";
   if (hl) extra += `<path class="hl" d="${hl.d}"/>`;
   if (opts.peaks) {
@@ -387,95 +476,4 @@ export function profile(points: { km: number; ele: number }[], label: string): s
     ticksX.map((k) => `<text class="ax" x="${f(x(k))}" y="${PH - 8}" text-anchor="middle">${String(k).replace(".", ",")}</text>`).join("") +
     `<path class="fill" d="${area}"/><path class="line" d="${line}"/>` +
     `<text class="ax" x="${PW - pad.r}" y="${PH - 8}" text-anchor="end">km</text><text class="ax" x="${pad.l - 6}" y="12" text-anchor="end">m</text></svg>`;
-}
-
-// ---------------------------------------------------------------- the ocean around, for the cyclones
-
-/** Small islands drawn as dots: too small for the coastline at this scale. */
-const ISLETS = [
-  { name: "Maurice", lon: 57.55, lat: -20.25 },
-  { name: "Rodrigues", lon: 63.42, lat: -19.72 },
-  { name: "Mayotte", lon: 45.15, lat: -12.82 },
-  { name: "Comores", lon: 43.33, lat: -11.7 },
-  { name: "Seychelles", lon: 55.45, lat: -4.62 },
-];
-const OW = 1000;
-const KX = Math.cos((20 * Math.PI) / 180);
-
-export interface Track {
-  name: string;
-  /** [lon, lat] observed so far, the last one being the system now. */
-  past: [number, number][];
-  /** [lon, lat] forecast by the RSMC. */
-  forecast: [number, number][];
-  /** The label at its last position: its stage, or its dates for a system over. */
-  label: string;
-  active: boolean;
-}
-
-/**
- * The south-west Indian Ocean, framed on the tracks and La Réunion, with rings at 500 and 1 000 km from the island:
- * the distances the cyclone bulletins speak in.
- */
-export function oceanMap(opts: { tracks: Track[]; label: string; home: { lon: number; lat: number } }): string {
-  const pts = [[opts.home.lon, opts.home.lat], ...opts.tracks.flatMap((t) => [...t.past, ...t.forecast])];
-  let [lon0, lon1] = [Math.min(...pts.map((p) => p[0])) - 4, Math.max(...pts.map((p) => p[0])) + 4];
-  let [lat0, lat1] = [Math.min(...pts.map((p) => p[1])) - 4, Math.max(...pts.map((p) => p[1])) + 4];
-  // At least the island's neighbourhood, and the proportions of the frame.
-  const grow = (a: number, b: number, span: number) => (b - a < span ? [(a + b) / 2 - span / 2, (a + b) / 2 + span / 2] : [a, b]);
-  [lon0, lon1] = grow(lon0, lon1, 24);
-  [lat0, lat1] = grow(lat0, lat1, 16);
-  const ratio = 0.68;
-  const wDeg = (lon1 - lon0) * KX;
-  if ((lat1 - lat0) / wDeg < ratio) [lat0, lat1] = grow(lat0, lat1, wDeg * ratio);
-  else [lon0, lon1] = grow(lon0, lon1, (lat1 - lat0) / ratio / KX);
-  const H = Math.round(OW * ratio);
-  const xy = (lon: number, lat: number) => [Math.round(((lon - lon0) / (lon1 - lon0)) * OW), Math.round(((lat1 - lat) / (lat1 - lat0)) * H)];
-  const line = (p: number[][]) => p.map(([lon, lat], i) => `${i ? "L" : "M"}${xy(lon, lat).join(" ")}`).join("");
-
-  const land = ocean.rings.map((r) => `${line(r)}Z`).join("");
-  let grid = "";
-  for (let lon = Math.ceil(lon0 / 10) * 10; lon < lon1; lon += 10) {
-    const [x] = xy(lon, 0);
-    grid += `<path class="grat" d="M${x} 0V${H}"/><text class="gl" x="${x + 8}" y="${H - 12}">${lon}° E</text>`;
-  }
-  for (let lat = Math.ceil(lat0 / 10) * 10; lat < lat1; lat += 10) {
-    const [, y] = xy(0, lat);
-    grid += `<path class="grat" d="M0 ${y}H${OW}"/><text class="gl" x="12" y="${y - 8}" style="text-anchor:start">${-lat}° S</text>`;
-  }
-  const [hx, hy] = xy(opts.home.lon, opts.home.lat);
-  const kmPerPx = ((lat1 - lat0) * 111.2) / H;
-  const rings = [500, 1000]
-    .map((km) => `<circle class="ring" cx="${hx}" cy="${hy}" r="${Math.round(km / kmPerPx)}"/><text class="rl" x="${hx}" y="${hy - Math.round(km / kmPerPx) - 8}">${km === 1000 ? "1 000" : km} km</text>`)
-    .join("");
-  // Not along the edges, where their names would be cut.
-  const islets = ISLETS.map((i) => ({ ...i, at: xy(i.lon, i.lat) }))
-    .filter(({ at: [x, y] }) => x > 60 && x < OW - 60 && y > 20 && y < H - 40)
-    .map(({ name, at: [x, y] }) => `<g class="islet"><circle cx="${x}" cy="${y}" r="5"/><text x="${x}" y="${y - 12}">${esc(name)}</text></g>`)
-    .join("");
-  // The island's name on the side of the nearest system, the system's on the other: +1 when it is east of the island.
-  const nearest = opts.tracks.map((t) => t.past.at(-1)).filter((p): p is [number, number] => !!p)
-    .sort((a, b) => Math.hypot(a[0] - opts.home.lon, a[1] - opts.home.lat) - Math.hypot(b[0] - opts.home.lon, b[1] - opts.home.lat))[0];
-  const homeSide = nearest && nearest[0] > opts.home.lon ? 1 : -1;
-  const away = (x: number) => (x >= hx ? 1 : -1);
-  const tracks = opts.tracks
-    .map((t) => {
-      const now = t.past.at(-1);
-      if (!now) return "";
-      const [x, y] = xy(now[0], now[1]);
-      const fc = t.forecast.length ? [now, ...t.forecast] : [];
-      return `<g class="trk${t.active ? " on" : ""}"><title>${esc(t.name)}</title>` +
-        `<path class="past" d="${line(t.past)}"/>` +
-        (fc.length ? `<path class="fc" d="${line(fc)}"/>${t.forecast.map(([lon, lat]) => { const [fx, fy] = xy(lon, lat); return `<circle class="fp" cx="${fx}" cy="${fy}" r="6"/>`; }).join("")}` : "") +
-        `<circle class="eye" cx="${x}" cy="${y}" r="${t.active ? 16 : 10}"/>` +
-        // Its names on the side away from the island, whose own name is on the other side.
-        `<text class="tn" x="${x + 28 * away(x)}" y="${y - 4}" style="text-anchor:${away(x) > 0 ? "start" : "end"}">${esc(t.name)}</text>` +
-        `<text class="ts" x="${x + 28 * away(x)}" y="${y + 22}" style="text-anchor:${away(x) > 0 ? "start" : "end"}">${esc(t.label)}</text></g>`;
-    })
-    .join("");
-  return `<svg class="map ocean" viewBox="0 0 ${OW} ${H}" role="img" aria-label="${esc(opts.label)}">` +
-    `<rect class="sea" width="${OW}" height="${H}" rx="28"/>${grid}<path class="land" d="${land}"/><path class="shore" d="${land}"/>` +
-    rings + islets +
-    `<g class="home"><circle cx="${hx}" cy="${hy}" r="9"/><text x="${hx - 18 * homeSide}" y="${hy + 7}" style="text-anchor:${homeSide > 0 ? "end" : "start"}">La Réunion</text></g>` +
-    tracks + `</svg>`;
 }

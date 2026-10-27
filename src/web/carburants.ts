@@ -5,8 +5,8 @@
  */
 import type { Cached } from "../cache.js";
 import * as carburants from "../providers/carburants.js";
-import { eve, firstOf, fuelSay, keep } from "../tools/carburants.js";
-import { connectorCta, crumbBar, crumbs, loading, webPage } from "./domains.js";
+import { eve, firstOf, fuelSay, INDISPONIBLE, keep } from "../tools/carburants.js";
+import { connectorCta, crumbBar, crumbs, webPage } from "./domains.js";
 import type { Alerte } from "./data.js";
 import { esc } from "./map.js";
 import { credits, DESCRIPTION_MAX, icon, layout } from "./pages.js";
@@ -42,7 +42,8 @@ export function carburantsPage(origin: string, data: Cached<carburants.Prix> | n
   const description = descriptionOf(p);
   // The month in force: before the 1st, not the announced one.
   const h1 = s?.vigueur ? `Prix des carburants à La Réunion, ${carburants.monthOf(s.vigueur.depuis)}` : "Prix des carburants à La Réunion";
-  const lead = !s ? loading("Les prix du mois")
+  // The prices unread (none in the store, the only place the Worker reads them): the tool's words, with the prefecture's link.
+  const lead = !s ? `<p class="lead">${esc(INDISPONIBLE.slice(0, -1))}\u00a0: voir la préfecture (<a href="${esc(carburants.SOURCE.url)}" rel="noopener">reunion.gouv.fr</a>).</p>`
     : s.annonce ? `<p class="lead">${say(s.annonce)}.</p>${s.jusquau ? `<p class="lead">${say(s.jusquau)}.</p>` : ""}`
     : `<p class="lead">${say(`${s.depuis} : ${s.lignes}`)}.</p>${pending}`;
 

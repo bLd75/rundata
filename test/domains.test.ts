@@ -131,7 +131,7 @@ describe("home page tiles", () => {
     expect(tile("Circulation").replaceAll("\u00a0", " ")).toContain(`<p class="tv">Carte officielle</p><p class="td all">bouchons, accidents et travaux : infotrafic.re ; 1 route forestière fermée</p>`);
     expect(page).not.toMatch(/waze/i);
     // A time, not « dans 3 min »: the page may be a few minutes old.
-    expect(tile("Bus")).toMatch(/<p class="tv">(demain )?\d+h\d\d<\/p><p class="td">prochain départ de la gare de Saint-/);
+    expect(tile("Bus")).toMatch(/<p class="tv">(demain )?(\d\d:\d\d|\d+\u00a0h)<\/p><p class="td">prochain départ de la gare de Saint-/);
     // Those without a page give a question to ask.
     expect(page).toContain("« La mairie de Saint-Paul est ouverte ? »");
     // The sample exchange takes its answer from the data of the moment.
@@ -162,19 +162,19 @@ describe("commune page", () => {
 
   it("says the air of the commune, its town hall open or closed now, and the departures still to come", () => {
     const departs: NonNullable<CommuneData["bus"]>["departs"] = [
-      { heure: "18h30", dans_min: -11, ligne: "S1", direction: "Gare du Tampon", reseau: "Car Jaune", arret: "Gare de St-Pierre" },
-      { heure: "18h50", dans_min: 11, ligne: "S2", direction: "St-Joseph", reseau: "Car Jaune", arret: "Gare de St-Pierre" },
+      { heure: "18:30", dans_min: -11, ligne: "S1", direction: "Gare du Tampon", reseau: "Car Jaune", arret: "Gare de St-Pierre" },
+      { heure: "18:50", dans_min: 11, ligne: "S2", direction: "St-Joseph", reseau: "Car Jaune", arret: "Gare de St-Pierre" },
     ];
     const velos = [
-      { nom: "ZAC Maxime Rivière", commune: "Saint-Pierre", velos_electriques: 6, places_libres: 4, maj: "18h38" },
-      { nom: "IUT", commune: "Saint-Pierre", velos_electriques: 0, places_libres: 8, maj: "18h38" },
+      { nom: "ZAC Maxime Rivière", commune: "Saint-Pierre", velos_electriques: 6, places_libres: 4, maj: "18:38" },
+      { nom: "IUT", commune: "Saint-Pierre", velos_electriques: 0, places_libres: 8, maj: "18:38" },
     ];
-    const mairie = { ...mairies[0], horaires: [{ de: "lundi", a: "vendredi", plages: [["08h00", "16h00"]] as [string, string][] }] };
+    const mairie = { ...mairies[0], horaires: [{ de: "lundi", a: "vendredi", plages: [["08:00", "16:00"]] as [string, string][] }] };
     const page = communePage(ORIGIN, p, live({ mairie, bus: { gare: true, arrets: [], departs }, velos, sources: [] }), NOW);
     expect(tile(page, "Air")).toContain(`<span class="aq aq2">moyen</span>`);
     // 18h40 on a Friday.
-    expect(tile(page, "Mairie")).toContain(`<p class="tv">Fermée</p><p class="td">aujourd'hui 8h-16h`);
-    expect(tile(page, "Bus")).toContain(`<p class="tv">18h50</p>`);
+    expect(tile(page, "Mairie")).toContain(`<p class="tv">Fermée</p><p class="td">aujourd'hui 8\u00a0h–16\u00a0h`);
+    expect(tile(page, "Bus")).toContain(`<p class="tv">18:50</p>`);
     expect(tile(page, "Bus")).toContain("dans 10 min"); // built a minute ago
     expect(tile(page, "Bus")).not.toContain("S1");
     expect(tile(page, "Vélos")).toContain(`<p class="tv">6 vélos</p>`);

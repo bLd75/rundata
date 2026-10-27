@@ -187,7 +187,6 @@ export interface Normales {
   tx_ans?: number;
   inst_ans?: number;
 }
-export const NORMALES_PERIODE = normales.periode;
 const NORMALES = normales.stations as Record<string, Normales>;
 export const normalesOf = (poste: string): Normales | undefined => NORMALES[poste];
 

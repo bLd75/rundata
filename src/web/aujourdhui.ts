@@ -4,14 +4,16 @@
  * the page that has it.
  */
 import type { Cached } from "../cache.js";
+import * as mf from "../providers/vigilance.js";
 import { ACCUEILS } from "../providers/agenda.js";
 import { mentionCourte } from "../tools/agenda.js";
 import { type Resume, UPDATING } from "../tools/resume.js";
 import type { Alerte } from "./data.js";
 import { connectorCta, courantItem, silentItem, silentText, webPage } from "./domains.js";
 import { esc, fenetre } from "./map.js";
+import { reprise } from "./ouvrir-donnees.js";
 import { a, de } from "../tools/format.js";
-import { ask, credits, icon, layout, SITE, thin } from "./pages.js";
+import { ask, credits, icon, layout, officielHtml, SITE, thin } from "./pages.js";
 import type { PlacePage } from "./places.js";
 
 const TITLE_MAX = 60;
@@ -64,7 +66,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
     : "";
   const v = r.vigilance;
   const vigil = v
-    ? card("alert", "Vigilance", `<p>${esc(v.maintenant.replace(/^\p{L}/u, (c) => c.toUpperCase()))}${v.zone ? ` (zone ${esc(v.zone)})` : ""}${v.vagues_submersion ? ` · vagues-submersion : ${esc(v.vagues_submersion)}` : ""}.</p>${v.alerte_cyclonique ? `<p><b>${esc(v.alerte_cyclonique)}</b></p>` : ""}${v.ecoles ? `<p><a href="/ecoles-cyclone">${esc(v.ecoles)}</a></p>` : ""}`, "/vigilance", v.alerte_cyclonique || v.maintenant !== "pas de vigilance particulière" ? " warn" : "")
+    ? card("alert", "Vigilance", `<p>${esc(v.maintenant)}${v.vagues_submersion ? ` ${esc(v.vagues_submersion)}.` : ""}</p>${v.alerte_cyclonique ? `<p><b>${esc(v.alerte_cyclonique)}</b></p>` : ""}${v.ecoles ? `<p><a href="/ecoles-cyclone">${esc(v.ecoles)}</a></p>` : ""}<p>${officielHtml(v.alerte_cyclonique ? mf.OFFICIEL_CYCLONE : mf.OFFICIEL_VIGILANCE)}</p>`, "/vigilance", v.alerte_cyclonique || v.au_dessus_du_vert ? " warn" : "")
     : "";
   const small = [
     r.mer ? `<li>Mer : <b>${esc(thin(r.mer.temperature_eau))}</b> <span class="note">${esc(r.mer.mesure)}</span> · <a href="/mer">la mer →</a></li>` : "",
@@ -104,7 +106,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
           ? `<ul class="plain">${ev.liste.map((e) => `<li>${e.statut ? `<b>${esc(e.statut)}</b> · ` : ""}${e.lien && ACCUEILS.has(e.lien) ? `<a href="${esc(e.lien)}" rel="noopener" target="_blank">${esc(e.titre)}</a>` : li({ titre: e.titre, lien: e.lien }).slice(4, -5)} <span class="note">${esc([e.quand, e.lieu, e.prix, e.source && `Source\u00a0: ${e.source}`].filter(Boolean).join(" · "))}</span></li>`).join("")}</ul>${ev.autres ? `<p class="note">Et ${plural(ev.autres, "autre")}.</p>` : ""}`
           : `<p>Rien d'annoncé aujourd'hui ${esc(aCommune(p.nom))} dans les agendas lus.</p>`) +
         // Its site not read until it agrees: said under them, in marketing's words.
-        (notRead ? `<p class="note">${esc(notRead.ligne)}</p>` : ""),
+        (notRead ? `<p class="note">${esc(notRead.ligne)}${reprise(notRead.ligne)}</p>` : ""),
         "/evenements")
     : "";
   const d = r.decheteries;
@@ -157,7 +159,7 @@ ${cuts || events ? `<section aria-labelledby="h-eau-sorties"><div class="sec-h">
   <div class="two">${cuts}${events}</div>
 </section>` : ""}
 <section aria-labelledby="h-pratique"><div class="sec-h"><h2 id="h-pratique">Vie pratique</h2></div>
-  <div class="card"><ul class="plain">${practical}</ul>${powerNotRead ? `<p class="note">${esc(powerNotRead)}</p>` : ""}</div>
+  <div class="card"><ul class="plain">${practical}</ul>${powerNotRead ? `<p class="note">${esc(powerNotRead)}${reprise(powerNotRead)}</p>` : ""}</div>
 </section>
 <section>${missing}
   <p class="note"><a href="/communes/${p.slug}">${esc(p.nom)} en direct : les bus, la mairie, toutes les rubriques →</a></p>

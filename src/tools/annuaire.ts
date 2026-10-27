@@ -6,25 +6,31 @@ import * as annuaire from "../providers/annuaire.js";
 import { why } from "../types.js";
 import { pageOf, slugify } from "../web/places.js";
 import { carburantsAnswer, FUEL } from "./carburants.js";
-import { credits, de, fr, notFound, text } from "./format.js";
+import { credits, de, fr, notFound, text, tranche } from "./format.js";
 import { COLLECTION, collecteAnswer } from "./collecte.js";
 import { decheteriesAnswer, WASTE } from "./decheteries.js";
 import { CHILDREN, enfantsAnswer } from "./enfants.js";
 import { MARKET, marchesAnswer } from "./marches.js";
 import { EMERGENCY, PHARMACY, pharmaciesAnswer, urgencesAnswer } from "./sante.js";
+import { sansLien } from "../liens.js";
+import { rienTrouve } from "../vide.js";
 
 // Asked of the annuaire, a defibrillator is not an office: its link is the page of the devices.
 const DEFIBRILLATOR = /d[ée]fibrillateur|\bdae\b/i;
 
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 
-const short = (t: string) => t.replace(/^0/, "").replace(/h00$/, "h");
+/** A published span, « 08:00 » to « 16:00 »: « 8\u00a0h–16\u00a0h », « 08:30–12:00 » (format.ts). */
+const span = (d: string, f: string) => {
+  const m = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  return tranche(m(d), m(f));
+};
 
-/** « lundi au jeudi 8h-16h ; vendredi 8h-15h ». */
+/** « lundi au jeudi 8\u00a0h–16\u00a0h ; vendredi 8\u00a0h–15\u00a0h ». */
 export function hoursText(o: annuaire.Office): string | undefined {
   if (!o.horaires.length) return undefined;
   return o.horaires
-    .map((h) => `${h.de === h.a ? h.de : `${h.de} au ${h.a}`} ${h.plages.map(([d, f]) => `${short(d)}-${short(f)}`).join(" et ")}${h.note ? ` (${h.note})` : ""}`)
+    .map((h) => `${h.de === h.a ? h.de : `${h.de} au ${h.a}`} ${h.plages.map(([d, f]) => span(d, f)).join(" et ")}${h.note ? ` (${h.note})` : ""}`)
     .join("\u00a0; ");
 }
 
@@ -33,12 +39,13 @@ export function openNow(o: annuaire.Office, now: Date): boolean | null {
   if (!o.horaires.length) return null;
   const local = new Date(now.getTime() + 4 * 3600_000);
   const day = local.getUTCDay();
-  const hm = `${String(local.getUTCHours()).padStart(2, "0")}h${String(local.getUTCMinutes()).padStart(2, "0")}`;
+  const hm = `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
   return o.horaires.some((h) => {
     const [d0, d1] = [DAYS.indexOf(h.de), DAYS.indexOf(h.a)];
     if (d0 < 0 || d1 < 0) return false;
     const inRange = d0 <= d1 ? day >= d0 && day <= d1 : day >= d0 || day <= d1;
-    return inRange && h.plages.some(([d, f]) => hm >= d && hm < f);
+    // A copy stored before 27/10/2026 writes « 08h00 »: read the same.
+    return inRange && h.plages.some(([d, f]) => hm >= d.replace("h", ":") && hm < f.replace("h", ":"));
   });
 }
 
@@ -49,7 +56,7 @@ export function hoursOn(o: annuaire.Office, now: Date): string | undefined {
     const [d0, d1] = [DAYS.indexOf(x.de), DAYS.indexOf(x.a)];
     return d0 >= 0 && d1 >= 0 && (d0 <= d1 ? day >= d0 && day <= d1 : day >= d0 || day <= d1);
   });
-  return h?.plages.length ? h.plages.map(([d, f]) => `${short(d)}-${short(f)}`).join(" et ") : undefined;
+  return h?.plages.length ? h.plages.map(([d, f]) => span(d, f)).join(" et ") : undefined;
 }
 
 /**
@@ -90,6 +97,7 @@ export async function annuaireTool(cache: Cache, quoi: string, lieu: string | un
     return { ...text({ erreur: "L'annuaire de l'administration ne répond pas pour le moment.", consulter: annuaire.SOURCE.url }), isError: true };
   }
   if (!found.length) {
+    rienTrouve("annuaire_services_publics");
     return text({
       resume: `Aucun service public trouvé à La Réunion pour « ${quoi} ».`,
       conseil: "Essayer un autre mot : mairie, CAF, préfecture, impôts, France Travail, tribunal, CPAM…",
@@ -126,7 +134,8 @@ export async function annuaireTool(cache: Cache, quoi: string, lieu: string | un
       note_horaires: o.note_horaires,
       telephone: o.telephone,
       courriel: o.courriel,
-      site: o.site,
+      // Not a site that submits any link to its agreement (Saint-Benoît's town hall).
+      site: sansLien(o.site) ? undefined : o.site,
       fiche: o.fiche || undefined,
     })),
     avertissements: ["Horaires publiés par chaque service sur service-public.fr : jours fériés et fermetures exceptionnelles non pris en compte."],

@@ -13,7 +13,7 @@
 import * as avis from "../avis.js";
 import { INSEE } from "../places/insee.js";
 import * as propositions from "../propositions.js";
-import { postForm } from "../http.js";
+import { bodyText, postForm } from "../http.js";
 import type { Alerte } from "./data.js";
 import { crumbBar, crumbs, webPage } from "./domains.js";
 import { esc } from "./map.js";
@@ -37,8 +37,16 @@ export const COMMUNES = Object.keys(INSEE).sort((a, b) => a.localeCompare(b, "fr
 export const TURNSTILE_SITEKEY = "0x4AAAAAAFlHv_IRLDHVZqlo";
 const SITEVERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
-/** Whether Cloudflare says the token comes from a person on this site; one subrequest. */
-export type Verif = (token: string, adresse: string) => Promise<boolean>;
+/** The form a widget is on, given to Cloudflare as its action (`data-action`) and checked back with the token. */
+export type FormAction = "lien" | "proposer" | "relier";
+/** What the token must have been made for: this site's host, and the form it is posted with. */
+export interface Attendu {
+  hostname: string;
+  action: FormAction;
+}
+
+/** Whether Cloudflare says the token comes from a person on this site, on this form; one subrequest. */
+export type Verif = (token: string, adresse: string, attendu: Attendu) => Promise<boolean>;
 let verif: Verif | undefined;
 
 /** `secret`: the widget's secret key (Worker secret TURNSTILE_SECRET); `check` replaces Cloudflare's, for the tests. */
@@ -46,11 +54,17 @@ export function configure(secret: string | undefined, check?: Verif) {
   verif = check ?? (secret ? siteverify(secret) : undefined);
 }
 
-const siteverify = (secret: string): Verif => async (token, adresse) => {
+const siteverify = (secret: string): Verif => async (token, adresse, attendu) => {
   if (!token || token.length > 2048) return false;
   try {
-    const r = await postForm<{ success?: boolean }>("turnstile", SITEVERIFY, { secret, response: token, ...(adresse ? { remoteip: adresse } : {}) }, 8000);
-    return r.success === true;
+    const r = await postForm<{ success?: boolean; hostname?: string; action?: string }>("turnstile", SITEVERIFY, { secret, response: token, ...(adresse ? { remoteip: adresse } : {}) }, 8000);
+    if (r.success !== true) return false;
+    // A token solved on another site that uses the same key, or on another of these forms, does not count.
+    if (r.hostname !== attendu.hostname || r.action !== attendu.action) {
+      console.warn(`turnstile : jeton refusé, fait pour ${String(r.action).slice(0, 20)} sur ${String(r.hostname).slice(0, 60)}`);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("turnstile : vérification impossible", err instanceof Error ? err.message : String(err));
     return false;
@@ -58,9 +72,9 @@ const siteverify = (secret: string): Verif => async (token, adresse) => {
 };
 
 /** The widget, and under it what it keeps in the browser (cf.turnstile.u, in local storage: /confidentialite#abus). */
-export const widget = () =>
+export const widget = (action: FormAction) =>
   TURNSTILE_SITEKEY
-    ? `<div class="cf-turnstile" data-sitekey="${esc(TURNSTILE_SITEKEY)}" data-language="fr" data-size="flexible"></div>
+    ? `<div class="cf-turnstile" data-sitekey="${esc(TURNSTILE_SITEKEY)}" data-action="${action}" data-language="fr" data-size="flexible"></div>
   <p class="note">La vérification anti-robot de Cloudflare garde une donnée dans votre navigateur (pas un cookie)\u00a0: <a href="/confidentialite#abus">ce que c'est</a>.</p>`
     : "";
 /** Cloudflare's script, once on a page with a form. */
@@ -83,12 +97,12 @@ export function lienForm(path: string): string {
   <p class="msg" id="lien-erreur" role="status">Le lien n'a pas pu être enregistré\u00a0: vérifiez les champs (un lien commence par https://), ou écrivez à contact@rundata.re.</p>
   <div class="f"><label for="lien-nom">Nom de l'organisation</label><input id="lien-nom" name="nom" required minlength="2" maxlength="${propositions.NOM_MAX}" autocomplete="organization"></div>
   <div class="f"><label for="lien-commune">Commune</label><select id="lien-commune" name="commune" required>${options(COMMUNES, "", "Choisir")}</select></div>
-  <div class="f"><label for="lien-lien">Lien de votre agenda, de votre flux ou de votre site Sportsregions</label><input id="lien-lien" name="lien" type="url" required maxlength="${propositions.LIEN_MAX}" placeholder="https://" inputmode="url"></div>
+  <div class="f"><label for="lien-lien">Lien de votre agenda ou de votre flux</label><input id="lien-lien" name="lien" type="url" required maxlength="${propositions.LIEN_MAX}" placeholder="https://" inputmode="url"></div>
   <div class="f"><label for="lien-contact">E-mail ou téléphone de l'organisation <span class="aide">(facultatif, jamais publié\u00a0: pour vous prévenir si le lien ne répond plus)</span></label><input id="lien-contact" name="contact" maxlength="${propositions.CONTACT_MAX}"></div>
   <label class="case"><input type="checkbox" name="agit" value="oui" required> J'agis pour cette organisation, et j'accepte que ce lien et les événements qu'on y lit soient publiés sous Licence Ouverte 2.0.</label>
   <input type="hidden" name="page" value="${esc(path)}">
   ${hp}
-  ${widget()}
+  ${widget("lien")}
   <button type="submit">Envoyer le lien</button>
 </form>`;
 }
@@ -107,14 +121,13 @@ export async function received(request: Request, what: string): Promise<URLSearc
   const url = new URL(request.url);
   const from = request.headers.get("origin");
   if (from && from !== url.origin) return plain(403, "Formulaire d'un autre site refusé.");
-  if (Number(request.headers.get("content-length") ?? 0) > BODY_MAX) return plain(413, "Envoi trop long.");
-  const raw = await request.text();
-  if (raw.length > BODY_MAX) return plain(413, "Envoi trop long.");
+  const raw = await bodyText(request, BODY_MAX);
+  if (raw === undefined) return plain(413, "Envoi trop long.");
   return new URLSearchParams(raw);
 }
 
 /** Whether Turnstile lets the form through: never without its key. */
-export const human = async (f: URLSearchParams, adresse: string) => !!verif && (await verif(f.get("cf-turnstile-response") ?? "", adresse));
+export const human = async (f: URLSearchParams, adresse: string, attendu: Attendu) => !!verif && (await verif(f.get("cf-turnstile-response") ?? "", adresse, attendu));
 
 /** POST /associations/lien: writes the link and sends the browser back to its page. */
 export async function lienPost(request: Request, now = new Date()): Promise<Response> {
@@ -128,7 +141,7 @@ export async function lienPost(request: Request, now = new Date()): Promise<Resp
   const read = propositions.lireLien(f, COMMUNES, page);
   if ("erreurs" in read) return back("erreur");
   const adresse = avis.adresseOf(request.headers);
-  if (!(await human(f, adresse))) return back("erreur");
+  if (!(await human(f, adresse, { hostname: new URL(request.url).hostname, action: "lien" }))) return back("erreur");
   const issue = await propositions.enregistrerLien(read.lien, adresse, now);
   return back(issue === "ok" ? "merci" : issue === "limite" ? "limite" : "erreur");
 }
@@ -214,7 +227,7 @@ function proposerForm(e: Etat, now: Date, correction?: { action: string; f: URLS
   ${correction ? `<button type="submit">Envoyer la correction</button>
 </form>` : `<label class="case"><input type="checkbox" name="accord" value="oui" required${f.get("accord") === "oui" ? " checked" : ""}${bad("accord")}> J'agis pour cette association, cet événement est ouvert au public, et je le publie sous Licence Ouverte 2.0\u00a0: tout le monde pourra le réutiliser librement, en citant l'association.</label>${note("accord")}
   ${hp}
-  ${widget()}
+  ${widget("proposer")}
   <button type="submit">Proposer l'événement</button>
   <p class="note">Votre e-mail sert seulement à confirmer, relire et modifier l'événement. Il n'est publié que si vous le demandez, et il est effacé 30 jours après la dernière date de l'événement, comme le contact public. <a href="/confidentialite#associations-donnees">Ce qui est gardé</a>.</p>
 </form>`}`;
@@ -257,7 +270,7 @@ export async function proposer(request: Request, now = new Date(), alerte?: Aler
   const read = propositions.lireProposition(f, COMMUNES, now);
   if ("erreurs" in read) return read.erreurs[0] === "hors_perimetre" ? html({ kind: "hors_perimetre" }) : html({ kind: "faux", f, erreurs: read.erreurs }, 422);
   const adresse = avis.adresseOf(request.headers);
-  if (!(await human(f, adresse))) return html({ kind: "indisponible", f }, 503);
+  if (!(await human(f, adresse, { hostname: new URL(request.url).hostname, action: "proposer" }))) return html({ kind: "indisponible", f }, 503);
   const issue = await propositions.enregistrerProposition(read.proposition, adresse, `${origin}${PROPOSITION_PATH}`, now);
   return issue === "ok" ? html({ kind: "envoye" }) : issue === "limite" ? html({ kind: "limite", f }, 429) : html({ kind: "indisponible", f }, 503);
 }

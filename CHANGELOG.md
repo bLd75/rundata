@@ -4,8 +4,21 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 <!-- Généré à partir de src/nouveautes.ts par `npm run changelog` : modifier la liste là-bas. -->
 
+## Mercredi 28 octobre 2026
+
+- Page /application : les étapes pour mettre rundata.re sur l'écran d'accueil avec Safari, Chrome, Firefox, Edge ou Samsung Internet.
+- Vigilance : la carte officielle de Météo-France, sans retouche, avec l'accord écrit de Météo-France La Réunion.
+- Baignade : les zones du GIP Centre Sécurité Requin, avec son accord et ses corrections, dont les ZONEX de Boucan-Canot à L'Étang-Salé.
+- Routes forestières : leur état de circulation selon l'ONF, pour toute l'île ou une route (« RF20 »), dans les réponses des IA.
+
+## Mardi 27 octobre 2026
+
+- Sorties : le programme du Théâtre Luc Donat, au Tampon, est de retour, avec l'accord écrit du théâtre et un lien vers chaque date.
+- Bouton « Cette page vous a aidé ? » en bas des pages, pour nous dire en un clic si une page a servi. Sans compte ni cookie.
+
 ## Lundi 26 octobre 2026
 
+- Nouvelle page Nos valeurs : un site sans compte, un code ouvert, des données sourcées, et ce que coûte une information enfermée.
 - Loyers d'annonce (ANIL) et part des logements éligibles à la fibre (Arcep), sur chaque page commune et dans les réponses des IA.
 - Prévision météo : le ciel de la nuit, de 18 h à 6 h, dégagé ou couvert, et, dans les Hauts, au-dessus des nuages ou dedans.
 - La Lune dans le calendrier, calculée au lieu demandé : phase, part éclairée, lever, coucher et prochaines phases.

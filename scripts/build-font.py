@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build src/web/font.json: the headings' typeface, served by the site itself at /font/titres.woff2.
+"""Build public/font/titres-<n>.woff2: the headings' typeface, served by the site itself (FONT_PATH in src/web/pages.ts).
 
 Bricolage Grotesque (Mathieu Triay, SIL Open Font License 1.1), from Google Fonts, cut down to the weights 600–800,
 the optical sizes 36–96 and the glyphs of French: about 55 KB. Served from rundata.re rather than from Google, so
@@ -8,8 +8,7 @@ that the pages make no request elsewhere.
 Needs fonttools and brotli: python3 -m venv /tmp/ft && /tmp/ft/bin/pip install fonttools brotli
 Usage: /tmp/ft/bin/python -I scripts/build-font.py
 """
-import base64
-import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -34,8 +33,10 @@ def main():
         subprocess.run([py, "-m", "fontTools.subset", str(inst), f"--unicodes={UNICODES}",
                         "--layout-features=kern,liga,calt", "--flavor=woff2", f"--output-file={out}"], check=True)
         data = out.read_bytes()
-    target = ROOT / "src" / "web" / "font.json"
-    target.write_text(json.dumps({"woff2": base64.b64encode(data).decode()}))
+    # The number in its name is bumped by hand in src/web/pages.ts when the font changes: browsers keep it a year.
+    name = re.search(r'FONT_PATH = "(/font/[^"]+)"', (ROOT / "src/web/pages.ts").read_text()).group(1)
+    target = ROOT / "public" / name.lstrip("/")
+    target.write_bytes(data)
     print(target, f"{len(data) // 1024} KB")
 
 

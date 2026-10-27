@@ -1,8 +1,8 @@
 /**
  * /baignade and the « Baignade et requins » block of /mer and of the coastal places' pages: the prefect's shark
- * rule and the zones of the Centre Sécurité Requin, from the package (src/eau/requin.ts), with no request.
+ * rule and the zones of the GIP Centre Sécurité Requin, from the package (src/eau/requin.ts), with no request.
  */
-import { ARRETE, CSR_URL, noneLine, ruleText, SOURCE, T, ZONES, zoneLine, zonesNear, inForce } from "../eau/requin.js";
+import { ARRETE, CSR, CSR_URL, noneLine, ruleText, saysBsan, SOURCE, STORIES, T, ZONES, zoneLine, zonesNear, inForce } from "../eau/requin.js";
 import { esc } from "./map.js";
 import { layout, SITE } from "./pages.js";
 
@@ -15,8 +15,18 @@ export const LINE = `${esc(T.h2)} : <a href="${PATH}">${esc(T.lien.charAt(0).toL
 const keep = (s: string) => s.replace(/(n°|art\.) (\d)/g, "$1\u00a0$2").replace(/(\d) m(?!\p{L})/gu, "$1\u00a0m");
 const say = (s: string) => esc(keep(s));
 
+/** Where the GIP Centre Sécurité Requin announces the day's zones, with the links on « Instagram » and « Facebook ». */
+const STORIES_HTML = esc(T.stories)
+  .replace("Instagram", `<a href="${STORIES.instagram}">Instagram</a>`)
+  .replace("Facebook", `<a href="${STORIES.facebook}">Facebook</a>`);
+
+/** « Source : » and the GIP's name, linked to its map, as its agreement asks. */
+const SOURCE_HTML = esc(T.source).replace(esc(CSR), `<a href="${CSR_URL}">${esc(CSR)}</a>`);
+
+const bsan = (zones: typeof ZONES, now: Date) => (saysBsan(zones, now) ? `<p>${esc(T.bsan)}</p>` : "");
+
 function zonesHtml(zones: typeof ZONES, now: Date): string {
-  return `<p>${say(T.intro)}</p><ul>${zones.map((z) => `<li>${say(zoneLine(z, now))}</li>`).join("")}</ul><p>${say(T.ouverture)}</p>`;
+  return `<p>${say(T.intro)}</p><ul>${zones.map((z) => `<li>${say(zoneLine(z, now))}</li>`).join("")}</ul>${bsan(zones, now)}<p>${say(T.ouverture)}</p><p>${STORIES_HTML}</p>`;
 }
 
 /** The block of a page: near a place (its zones, or none), or for the whole island (every zone). */
@@ -26,14 +36,14 @@ export function bathingBlock(now: Date, near?: { nom: string; lon: number; lat: 
     `<p>${say(ruleText(now))}</p>` +
     (zones.length ? zonesHtml(zones, now) : `<p>${say(noneLine(near!.nom, now))}</p>`) +
     `<p>${say(T.drapeaux)}</p>` +
-    `<p class="note">${esc(T.source)} ${LINK}</p></div></section>`;
+    `<p class="note">${SOURCE_HTML}. ${LINK}</p></div></section>`;
 }
 
 const fr = (iso: string) => iso.split("-").reverse().join("/");
 
 export function bathingPage(origin: string, now = new Date()): string {
   // Along the coast, from the west to the south, as the zones lie.
-  const communes = ["Saint-Paul", "Saint-Leu", "L'Étang-Salé", "Saint-Pierre", "Petite-Île", "Saint-Joseph", "Saint-Philippe"];
+  const communes = ["Saint-Paul", "Les Trois-Bassins", "Saint-Leu", "L'Étang-Salé", "Saint-Pierre", "Petite-Île", "Saint-Joseph", "Saint-Philippe"];
   const title = "Baignade et requins à La Réunion : où se baigner · 974";
   const description =
     "Requins : baignade et surf interdits à moins de 300 m du rivage, sauf lagons, bassins, filets et ZONEX surveillés. Zones, drapeaux et arrêté en vigueur.";
@@ -46,8 +56,10 @@ export function bathingPage(origin: string, now = new Date()): string {
 <section aria-labelledby="h-zones"><h2 id="h-zones">Les zones</h2><div class="card">
   <p>${esc(T.intro)}</p>
   ${communes.map((c) => `<h3>${esc(c)}</h3><ul>${ZONES.filter((z) => z.commune === c).map((z) => `<li>${say(zoneLine(z, now))}</li>`).join("")}</ul>`).join("\n  ")}
+  ${bsan(ZONES, now)}
   <p>${esc(T.autres)}</p>
   <p>${esc(T.ouverture)}</p>
+  <p>${STORIES_HTML}</p>
 </div></section>
 <section aria-labelledby="h-drapeaux"><h2 id="h-drapeaux">Les drapeaux</h2><div class="card"><p>${say(T.drapeaux)}</p></div></section>
 <section aria-labelledby="h-qualite"><h2 id="h-qualite">Qualité de l'eau de baignade</h2>
@@ -56,7 +68,7 @@ export function bathingPage(origin: string, now = new Date()): string {
 <section aria-labelledby="h-src"><h2 id="h-src">Sources</h2>
   <p class="note">${inForce(now)
     ? `<a href="${esc(ARRETE.url)}">Arrêté préfectoral n°\u00a0${ARRETE.numero} du ${fr(ARRETE.signe)}</a> (${say(ARRETE.recueil)}), applicable du ${fr(ARRETE.du)} au ${fr(ARRETE.au)}.`
-    : `<a href="https://www.reunion.gouv.fr">reunion.gouv.fr</a>.`} ${esc(T.source)} <a href="${CSR_URL}">securite-requin.re</a>. ${esc(SOURCE.licence)}.</p>
+    : `<a href="https://www.reunion.gouv.fr">reunion.gouv.fr</a>.`} ${SOURCE_HTML}. ${esc(SOURCE.licence)}.</p>
 </section>`;
   const jsonld = [
     {

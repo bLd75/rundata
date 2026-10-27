@@ -206,7 +206,7 @@ describe("the release's PDF of the newest post, read in the scheduled refresh on
     const store = new MemoryStore();
     void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
     void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
-    void store.put("volcan:prefecture", { value: null, fetchedAt: t });
+    void store.put("volcan:prefecture:phase", { value: null, fetchedAt: t });
     void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
     const fetch = vi.fn(async () => new Response(bytes()));
     vi.stubGlobal("fetch", fetch);

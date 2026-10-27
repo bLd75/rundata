@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { counted, PAGE_BUDGET } from "../src/budget.js";
-import { getText, IN_FLIGHT, patiently } from "../src/http.js";
+import { getText, IN_FLIGHT, patiently, permis } from "../src/http.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -92,5 +92,19 @@ describe("the fetches of an invocation", () => {
     const p = platform(10);
     await Promise.all(sites.map((u) => getText("agenda", u, 1_000)));
     expect(p.most()).toBe(6);
+  });
+});
+
+describe("a link found in a third party's page", () => {
+  it("is followed only in https, to one of its site's hosts, and a refusal says the host alone", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(permis("s", "https://www.teat.re/spectacle/x?y=1", ["www.teat.re", "billetterie.seetickets.fr"])).toBe(true);
+    expect(permis("s", "https://billetterie.seetickets.fr/event/x", ["www.teat.re", "billetterie.seetickets.fr"])).toBe(true);
+    for (const lien of ["http://www.teat.re/x", "https://teat.re.pirate.example/x", "https://pirate.example/www.teat.re", "https://www.teat.re:8443/x", "javascript:alert(1)", "/relatif", ""]) {
+      expect(permis("s", lien, ["www.teat.re"])).toBe(false);
+    }
+    expect(String(warn.mock.calls[1][0])).toBe("s : lien hors de www.teat.re ignoré (teat.re.pirate.example)");
+    expect(warn.mock.calls.map((c) => String(c[0])).join(" ")).not.toContain("/x");
+    warn.mockRestore();
   });
 });

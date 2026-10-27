@@ -6,7 +6,7 @@
  */
 import { enLigne } from "./associations-drapeau.js";
 import { OVPF, OVPF_FACEBOOK, PREFECTURE } from "../providers/volcan.js";
-import { enImages, enImagesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, LOCALISES, LU_DANS_L_IMAGE, NIVEAU_ILLISIBLE, NON_ANNONCEE, ORSEC_BAN, ovpfNiveau, pitonLines, VIGILANCE_ENCLOS } from "../tools/volcan.js";
+import { enImages, enImagesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, JOURS_SUIVANTS, type Jour, jusquALecture, LOCALISES, LU_DANS_L_IMAGE, NIVEAU_ILLISIBLE, NON_ANNONCEE, NON_LU, ORSEC_BAN, ovpfNiveau, pitonLines, VIGILANCE_ENCLOS } from "../tools/volcan.js";
 import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { PATH as SANS_REPONSE } from "./sans-reponse.js";
 import { SOMMET } from "../providers/seismes.js";
@@ -23,20 +23,22 @@ import { SUJETS } from "../providers/actualites.js";
 import * as littoral from "../tools/littoral.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
-import { a, de, fr, nombre } from "../tools/format.js";
+import { a, de, enumeration, fr, nombre } from "../tools/format.js";
 import * as radars from "../routes/radars.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
 import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CruesAnswer, type CruesStation, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type Enclos, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
-import { localTime } from "../geo.js";
+import { daysApart, localTime } from "../geo.js";
 import { agendasNonLus, mediasNonLus } from "../tools/injoignable.js";
 import { FAST_KW } from "../tools/bornes.js";
 import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
-import { esc, fenetre, hikesMap, islandMap, type Marker, oceanMap, profile, traceMap, type ZoneLink } from "./map.js";
-import { cloudSeaLink, forecastLinks, type Summit, weatherForTrace } from "./liens.js";
+import * as mf from "../providers/vigilance.js";
+import { esc, fenetre, hikesMap, islandMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
+import { reprise } from "./ouvrir-donnees.js";
+import { cloudSeaLink, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
 import { BUILT as DAE_BUILT, DAES } from "../providers/dae.js";
@@ -46,7 +48,7 @@ import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
 import { tapNote } from "../tools/eau.js";
-import { noteLa1ere, noteReunionFr } from "../tools/non-repris.js";
+import { mentionSports, noteLa1ere, noteReunionFr } from "../tools/non-repris.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
 // What a search engine shows of a title.
@@ -174,6 +176,8 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
   const e = d?.etat;
   // « indisponible » when the OVPF's catalogue did not answer (tools/volcan.ts).
   const q = typeof d?.seismes === "object" ? d.seismes : undefined;
+  // The catalogue silent: the counts are of its last copy, said with the time of that read.
+  const jusqua = q?.lus_jusqu_au ? `, ${jusquALecture(q.lus_jusqu_au)}` : "";
   const url = `${origin}/volcan`;
   // Under an alert, the OVPF's newest post in images, newer than the release: said once, with its time, at the top;
   // IMAGE_APRES is then not said (marketing).
@@ -230,7 +234,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
           `<p class="lead">${enclosSaid(e.acces_enclos ?? {})}</p>` +
           (e.image_ovpf_plus_recente ? `<p class="lead">${esc(apres)}</p>` : "")
         : `<p class="lead">${esc(d.resume)}</p>`) +
-      (q && !a ? `<p class="lead">Séismes localisés par l'OVPF sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
+      (q && !a ? `<p class="lead">Séismes localisés par l'OVPF sous le volcan${esc(jusqua)} : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours.</p>` : "") +
       `</div>`;
 
   // Out of an alert, the Enclos as the texts say it, on its card; during one, in « Puis-je monter au volcan ? », whose
@@ -257,13 +261,13 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     ? `<div class="card">${icon("gauge")}<h3>Séismes localisés par l'OVPF</h3>` +
       quakeDays(q.par_jour_sous_le_volcan, e?.image_ovpf_plus_recente && !folded && !a ? apres : undefined) +
       (a
-        ? `<p class="facts"><span>Sous le volcan : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
+        ? `<p class="facts"><span>Sous le volcan${esc(jusqua)} : <b>${q.sous_le_volcan["7_jours"]}</b> en 7 jours, <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
           `<span>Ailleurs sur l'île : <b>${q.ailleurs_sur_l_ile["30_jours"]}</b> en 30 jours, magnitude max ${md(q.ailleurs_sur_l_ile.magnitude_max_30j)}</span></p>`
-        : `<p class="facts"><span>Sous le volcan : <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
+        : `<p class="facts"><span>Sous le volcan${esc(jusqua)} : <b>${q.sous_le_volcan["30_jours"]}</b> en 30 jours, magnitude max ${md(q.sous_le_volcan.magnitude_max_30j)}</span>` +
           `<span>Ailleurs sur l'île : <b>${q.ailleurs_sur_l_ile["30_jours"]}</b>, magnitude max ${md(q.ailleurs_sur_l_ile.magnitude_max_30j)}</span></p>`) +
       (q.derniers.length ? `<ul class="rows${a ? " seismes" : ""}">${q.derniers.slice(0, a ? 5 : undefined).map(quakeRow).join("")}</ul>` : "") +
       // LOCALISES once, under the day counts (marketing).
-      `<p class="note">${esc(q.note.replace(` ${LOCALISES}`, ""))}</p></div>`
+      `<p class="note">${q.copie ? `${esc(q.copie)} ` : ""}${esc(q.note.replace(` ${LOCALISES}`, ""))}</p></div>`
     : "";
 
   // The alerts before this one, from the releases (tools/volcan-historique.ts): the same list whatever the copy says.
@@ -359,22 +363,30 @@ const DAYS_SCALE_MIN = 10;
 
 /**
  * The events located under the summit per day, as bars from 0, today marked « en cours » (data-run, marketing); each
- * bar says its day and count to screen readers, and the line under it today's, yesterday's and the highest.
+ * bar says its day and count to screen readers, and the line under it today's, yesterday's and the highest. The
+ * catalogue silent: the day of its last read « jusqu'à » that time, the days after it hatched, « non lu », no bar.
  */
-function quakeDays(days: NonNullable<VolcanAnswer["seismes"]>["par_jour_sous_le_volcan"], imageAfter: string | undefined): string {
+function quakeDays(days: Jour[] | undefined, imageAfter: string | undefined): string {
   if (!days?.length) return "";
   const dd = (jour: string) => `${jour.slice(8, 10)}/${jour.slice(5, 7)}`;
-  const scale = Math.max(DAYS_SCALE_MIN, ...days.map((j) => j.nombre));
-  const bars = days.map((j) =>
-    `<li${j.en_cours ? ` class="now"` : ""} aria-label="${dd(j.jour)}${j.en_cours ? " (en cours)" : ""} : ${j.nombre}"><i style="height:${Math.round((j.nombre / scale) * 100)}%"></i></li>`).join("");
+  const read = days.filter((j) => !("non_lu" in j)) as Exclude<Jour, { non_lu: true }>[];
+  const scale = Math.max(DAYS_SCALE_MIN, ...read.map((j) => j.nombre));
+  const bars = days.map((j) => "non_lu" in j
+    ? `<li class="nolu" aria-label="${dd(j.jour)} : ${NON_LU}"></li>`
+    : `<li${j.en_cours ? ` class="now"` : ""} aria-label="${dd(j.jour)}${j.en_cours ? " (en cours)" : j.jusqu_a ? ` (jusqu'à ${j.jusqu_a})` : ""} : ${j.nombre}"><i style="height:${Math.round((j.nombre / scale) * 100)}%"></i></li>`).join("");
   const today = days.at(-1)!;
-  const yesterday = days.at(-2);
-  const top = days.reduce((a, j) => (j.nombre > a.nombre ? j : a), days[0]);
+  const last = read.at(-1);
+  const top = read.reduce<typeof last>((a, j) => (!a || j.nombre > a.nombre ? j : a), undefined);
+  // The day before today, counted whole: only when today is.
+  const yesterday = "en_cours" in today ? read.at(-2) : undefined;
   // « Le plus en un jour »: not to be read as a total over the 30 days (marketing).
-  const facts = `Aujourd'hui (en cours) : <b>${today.nombre}</b>${yesterday ? `, hier : <b>${yesterday.nombre}</b>` : ""}.` +
-    (top.nombre ? ` Le plus en un jour sur 30 jours : <b>${top.nombre}</b>, le ${dd(top.jour)}.` : "");
+  const facts = ("en_cours" in today
+    ? `Aujourd'hui (en cours) : <b>${today.nombre}</b>${yesterday ? `, hier : <b>${yesterday.nombre}</b>` : ""}.`
+    : `${last?.jusqu_a ? `Le ${dd(last.jour)} jusqu'à ${last.jusqu_a} : <b>${last.nombre}</b>. ` : ""}${JOURS_SUIVANTS}`) +
+    (top?.nombre ? ` Le plus en un jour sur ${"en_cours" in today ? "" : "ces "}30 jours : <b>${top.nombre}</b>, le ${dd(top.jour)}.` : "");
+  const end = `${dd(today.jour)}${"en_cours" in today ? " (en cours)" : "non_lu" in today ? ` (${NON_LU})` : ""}`;
   return `<figure class="qdays"><figcaption>Sous le volcan, par jour (heure de La Réunion)</figcaption>` +
-    `<ol>${bars}</ol><p class="axis"><span>${dd(days[0].jour)}</span><span>${dd(today.jour)} (en cours)</span></p></figure>` +
+    `<ol>${bars}</ol><p class="axis"><span>${dd(days[0].jour)}</span><span>${end}</span></p></figure>` +
     `<p>${facts}</p><p class="note">${esc(LOCALISES)}</p>` +
     (imageAfter ? `<p class="note">${esc(imageAfter)}</p>` : "");
 }
@@ -395,7 +407,7 @@ export function volcanLive(data: Cached<VolcanAnswer> | null, now = new Date()):
     detail: [
       esc(lus),
       esc(`Enclos : ${enclos.valeur} (${enclos.source})`),
-      q ? `${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} localisé${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} par l'OVPF sous le volcan en 7 jours` : undefined,
+      q ? `${q.sous_le_volcan["7_jours"]} séisme${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} localisé${q.sous_le_volcan["7_jours"] > 1 ? "s" : ""} par l'OVPF sous le volcan en 7 jours${q.lus_jusqu_au ? `, ${jusquALecture(q.lus_jusqu_au)}` : ""}` : undefined,
     ].filter(Boolean).join(" · "),
     // In the hero, where the detail is not shown; on a line of its own, never cut with the value.
     source: esc(lus),
@@ -537,7 +549,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
   const cuts = c
     ? `<section id="coupures" aria-labelledby="h-coupures">
   <div class="sec-h"><h2 id="h-coupures">Coupures d'électricité annoncées par les mairies</h2>
-  ${c.a_savoir ? `<p>${esc(c.a_savoir)}</p>` : ""}${c.non_repris ? `<p>${esc(c.non_repris)}</p>` : ""}${c.depannage ? `<p><b>${esc(c.depannage)}</b></p>` : ""}</div>
+  ${c.a_savoir ? `<p>${esc(c.a_savoir)}</p>` : ""}${c.non_repris ? `<p>${esc(c.non_repris)}${reprise(c.non_repris)}</p>` : ""}${c.depannage ? `<p><b>${esc(c.depannage)}</b></p>` : ""}</div>
   ${(c.injoignable ?? []).map((s) => `<p class="note">${silentText(s)}</p>`).join("")}
   ${c.avis?.length
     ? `<div class="card"><ul class="plain">${c.avis.map(courantItem).join("")}</ul></div>`
@@ -587,10 +599,22 @@ export function electriciteLive(data: Cached<ElectriciteAnswer> | null, now = ne
 
 // ---------------------------------------------------------------- calendrier
 
+/**
+ * The public holidays of a copy counted again from today: the copy, made every six hours, may be from the day before
+ * (« Toussaint dans 6 j » the day after). A day reached is today's holiday; one past is left out.
+ */
+export function feriesDuJour(data: Cached<CalendrierAnswer> | null, now: Date): CalendrierAnswer["jours_feries"] {
+  const f = data?.value.jours_feries;
+  const late = f ? daysApart(data!.fetchedAt, now) : 0;
+  if (!f || late <= 0) return f;
+  const counted = f.prochains.map((x) => ({ ...x, dans_jours: x.dans_jours - late })).filter((x) => x.dans_jours >= 0);
+  return { ...f, aujourd_hui: counted.find((x) => x.dans_jours === 0)?.nom ?? null, prochains: counted.filter((x) => x.dans_jours > 0) };
+}
+
 export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const v = d?.vacances_scolaires;
-  const f = d?.jours_feries;
+  const f = feriesDuJour(data, now);
   const next = f?.prochains[0];
   const url = `${origin}/calendrier`;
   const today = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Indian/Reunion" });
@@ -669,11 +693,11 @@ ${connectorCta("calendrier", "le calendrier de l'île")}`;
   return layout(origin, { title, description, path: "/calendrier", jsonld: [crumbs(origin, "Calendrier", "/calendrier"), webPage(origin, "/calendrier", title, description, data)], alerte }, band, body);
 }
 
-export function calendrierLive(data: Cached<CalendrierAnswer> | null): Live | undefined {
+export function calendrierLive(data: Cached<CalendrierAnswer> | null, now = new Date()): Live | undefined {
   const d = data?.value;
   if (!d) return undefined;
   const v = d.vacances_scolaires?.en_cours;
-  const f = d.jours_feries;
+  const f = feriesDuJour(data, now);
   const next = f?.prochains[0];
   const valeur = f?.aujourd_hui ? `Férié : ${esc(f.aujourd_hui)}` : v ? "Vacances scolaires" : next ? `${esc(next.nom)} dans ${next.dans_jours} j` : undefined;
   // The date is enough here: the year's list runs out at its end, before the next one is loaded.
@@ -1332,10 +1356,16 @@ export function firesSection(f: feux.Feux | undefined, now: Date): string {
 </section>`;
 }
 
+/**
+ * The trails closed, by name, as sentiers_randonnee counts them: the ONF's map cuts some in several pieces, each a point
+ * on the map (26/10/2026: 62 points, 56 trails).
+ */
+export const closedTrails = (d: SentiersAnswer) => new Set(d.points.map((p) => p.nom)).size;
+
 export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/sentiers`;
-  const closed = d?.points.length ?? 0;
+  const closed = d ? closedTrails(d) : 0;
 
   const status = !d
     ? loading("L'état des sentiers")
@@ -1534,7 +1564,7 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
     name: r.vma_kmh != null ? `${r.commune}, ${r.vma_kmh}\u00a0km/h` : r.commune, quiet: true }));
   const radarsCard = `<div class="card" id="radars">${icon("car")}<h3>Radars fixes</h3>
   <p>${radarsLead}</p>
-  ${islandMap({ markers: radarMarkers, label: radarsLead })}
+  ${islandMap({ markers: radarMarkers, label: radarsLead, apart: true })}
   <ul class="rows eau">${cameras.map((c) => `<li><span>${esc(c.commune)}<small>${esc(radars.vitesses(c.radars).join(", "))}</small></span><span class="score">${c.radars.length}</span></li>`).join("")}</ul>
   <details><summary>Où ils sont</summary><ul class="plain">${cameras.flatMap((c) => c.radars.map((r) => `<li>${esc(c.commune)}${r.vma_kmh != null ? `, ${r.vma_kmh}\u00a0km/h` : ""} : <a href="${esc(radars.carte(r))}" rel="noopener">la carte ↗</a></li>`)).join("")}</ul></details>
   <p class="note">${esc(radars.RESERVE())}</p></div>`;
@@ -1770,7 +1800,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export function randonneesLive(data: Cached<SentiersAnswer> | null): Live | undefined {
   const d = data?.value;
   if (!d) return undefined;
-  const n = d.points.length;
+  const n = closedTrails(d);
   return { valeur: `${n} sentier${n > 1 ? "s" : ""} fermé${n > 1 ? "s" : ""}`, detail: `sur ${d.suivis} suivis par l'ONF ; traces GPS, distance et dénivelé de ${d.randonnees.length} randonnées et de chaque sentier` };
 }
 
@@ -2192,7 +2222,9 @@ ${connectorCta("defibrillateurs", "les défibrillateurs")}
 // ---------------------------------------------------------------- sport
 
 const SPORT_LISTED = 8;
-const SPORT_ORDER = ["handball", "volley-ball", "voile", "golf", "sport auto"];
+const SPORT_ORDER = ["handball", "volley-ball", "voile", "golf", "sport auto", "triathlon"];
+// The sports in the sentence of the count, as the page always named them.
+const SPORT_SAID: Record<string, string> = { "volley-ball": "volley", "sport auto": "sport automobile" };
 const sportName = (s: string) => (s === "sport auto" ? "Sport automobile" : s.charAt(0).toUpperCase() + s.slice(1));
 
 /** « vendredi 30/10 à 20:30 » → « ven. 30/10, 20:30 » ; « du samedi 24/10 au dimanche 25/10 » → « 24/10 → 25/10 ». */
@@ -2223,10 +2255,17 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
   const url = `${origin}/sport`;
   const upcoming = (d?.a_venir ?? []).filter((r) => r.etat !== "annulée");
   const soon = upcoming.slice(0, 7);
+  const listedRows = d?.a_venir?.length ?? 0;
+  const total = d?.a_venir_en_tout ?? listedRows;
+  const there = new Set(d?.sports_a_venir ?? (d?.a_venir ?? []).map((r) => r.sport));
+  const said = [...SPORT_ORDER.filter((s) => there.has(s)), ...[...there].filter((s) => !SPORT_ORDER.includes(s))].map((s) => SPORT_SAID[s] ?? s);
 
   const status = !d
     ? loading("Le calendrier du sport")
-    : `<div class="now"><span class="big">${upcoming.length}</span><p>rendez-vous officiels dans les quinze prochains jours : handball, volley, voile, golf et sport automobile.</p></div>`;
+    // As sport counts them: all of them, cancelled ones included, with the sports there are (26/10/2026: 39 here for 77,
+    // the triathlon left out and the motor sport said without any).
+    : `<div class="now"><span class="big">${total}</span><p>rendez-vous officiels dans les quinze prochains jours${said.length ? `\u00a0: ${enumeration(said)}` : ""}` +
+      `${listedRows < total ? `\u00a0; les ${listedRows} premiers ci-dessous` : ""}.</p></div>`;
 
   const next = soon.length
     ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Les prochains rendez-vous</h3><ul class="plain">${soon.map((r) =>
@@ -2253,7 +2292,7 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
 
 
   const title = "Sport Réunion : matchs, résultats, Grand Raid · 974";
-  const description = "Sport à La Réunion (974) : matchs à venir et résultats du handball et du volley régionaux, classements, régates, golf, rallyes et podiums du Grand Raid.";
+  const description = "Sport à La Réunion (974) : matchs à venir et résultats du handball et du volley régionaux, classements, rallyes et podiums du Grand Raid.";
 
   const band = `${crumbBar("Sport")}
 <div class="wrap intro">
@@ -2269,7 +2308,7 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
 
   const body = `<section aria-labelledby="h-venir">
   <div class="sec-h"><p class="eyebrow">Quinze prochains jours</p><h2 id="h-venir">À venir</h2>
-  <p>Les matchs des championnats régionaux de handball (D1) et de volley (R1), les régates de la Ligue de voile, les compétitions des trois golfs et le calendrier de la Ligue du sport automobile. Heures de La Réunion.</p></div>
+  <p>Les matchs des championnats régionaux de handball (D1) et de volley (R1) et le calendrier de la Ligue du sport automobile. Heures de La Réunion.</p></div>
   ${d ? (d.a_venir?.length ? bySport(d.a_venir, false) : `<p class="card">Aucun rendez-vous trouvé dans les quinze prochains jours.</p>`) : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
   ${clubsLink()}
 </section>
@@ -2278,7 +2317,7 @@ ${d?.programmes_communes?.length || d?.non_repris ? `<section aria-labelledby="h
   ${d.programmes_communes?.length ? `<p>${esc(d.programmes_a_savoir ?? "")}</p>` : ""}</div>
   ${d.programmes_communes?.length ? `<ul class="zones"><li class="card"><ul class="rows eau">${d.programmes_communes.map((p) =>
     `<li><span><a href="${esc(p.lien)}" rel="noopener"${ACCUEILS.has(p.lien) ? ' target="_blank"' : ""}>${esc(p.titre)}</a><small>${esc([p.commune, `Source\u00a0: ${p.source}`].filter(Boolean).join(" · "))}</small></span><span class="q-none">${esc(shortWhen(p.dates))}</span></li>`).join("")}</ul></li></ul>` : ""}
-  ${d.non_repris ? `<p class="card">${esc(d.non_repris)}</p>` : ""}
+  ${d.non_repris ? `<p class="card">${esc(d.non_repris)}${reprise(d.non_repris)}</p>` : ""}
 </section>` : ""}
 ${d?.resultats?.length ? `<section aria-labelledby="h-res">
   <div class="sec-h"><p class="eyebrow">Sept derniers jours</p><h2 id="h-res">Derniers résultats</h2></div>
@@ -2293,6 +2332,7 @@ ${raid}
   <div class="sec-h"><h2 id="h-src">Ce qui n'est pas couvert</h2><p>${d ? esc(d.non_couvert) : ""}</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
   <p class="note">${noteLa1ere("sport")}</p>
+  ${mentionSports(undefined, true).map((x) => `<p class="note">${esc(x)}${reprise(x)}</p>`).join("")}
 </section>
 ${connectorCta("sport", "le sport")}`;
 
@@ -2311,27 +2351,17 @@ export function sportLive(data: Cached<SportAnswer> | null): Live | undefined {
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** A system as the RSMC's last advisory names it: its stage and the advisory's time, nothing computed. */
 function activeCard(r: NonNullable<CyclonesAnswer["systemes_actifs"]>[number]): string {
-  const facts = [
-    ["Position", `${r.situation}, ${r.position.heure}`],
-    ["Vent moyen", r.vent_moyen_kmh ? `${r.vent_moyen_kmh} km/h${r.rafales_kmh ? `, rafales ${r.rafales_kmh} km/h` : ""}` : undefined],
-    ["Pression", r.pression_hpa ? `${r.pression_hpa} hPa` : undefined],
-    ["Déplacement", r.deplacement],
-    ["Au plus près", r.au_plus_pres_selon_la_prevision ? `${r.au_plus_pres_selon_la_prevision.distance_km} km, ${r.au_plus_pres_selon_la_prevision.heure} (${r.au_plus_pres_selon_la_prevision.stade}), selon la prévision du CMRS` : r.s_eloigne ? "maintenant : la prévision du CMRS l'éloigne de l'île" : undefined],
-  ].filter((f): f is [string, string] => !!f[1]);
-  const forecast = r.prevision_cmrs?.length
-    ? `<div class="table-wrap"><table class="drought"><thead><tr><th>Prévision du CMRS</th><th>Stade</th><th>Vent moyen</th><th>Distance de l'île</th></tr></thead><tbody>${r.prevision_cmrs.map((p) =>
-        `<tr><th scope="row">${esc(p.heure)}</th><td>${esc(p.stade)}</td><td>${p.vent_moyen_kmh} km/h</td><td>${p.distance_km} km ${esc(p.situation)}</td></tr>`).join("")}</tbody></table></div>`
-    : "";
-  return `<article class="card"><h3>${esc(capital(r.nom))} <span class="note">${esc(r.stade)}</span></h3>` +
-    `<div class="table-wrap"><table class="drought"><tbody>${facts.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}</tbody></table></div>${forecast}` +
-    `<p class="note">Vent le plus fort atteint : ${r.vent_max_atteint_kmh ?? "—"} km/h. Bulletins : ${esc(r.centre)}, <a href="${esc(r.rapport)}" rel="noopener">fiche GDACS</a>.</p></article>`;
+  return `<article class="card"><h3>${esc(capital(r.nom))}${r.stade ? ` <span class="note">${esc(r.stade)}</span>` : ""}</h3>` +
+    `<p>Dernier avis du CMRS : ${esc(r.dernier_avis)}.</p>` +
+    `<p class="note">Bulletins : ${esc(r.centre)}, <a href="${esc(r.rapport)}" rel="noopener">fiche GDACS</a>.</p></article>`;
 }
 
 function seasonTable(s: CyclonesAnswer["saison_en_cours"]): string {
   return s.systemes.length
-    ? `<div class="card table-wrap"><table class="drought"><thead><tr><th>Système</th><th>Dates</th><th>Au plus fort</th><th>Vent moyen max.</th></tr></thead><tbody>${s.systemes.map((x) =>
-        `<tr><th scope="row"><a href="${esc(x.rapport)}" rel="noopener">${esc(capital(x.nom))}</a></th><td>${esc(x.du)} – ${esc(x.au)}</td><td>${esc(x.stade_max ?? "—")}</td><td>${x.vent_max_kmh ? `${x.vent_max_kmh} km/h` : "—"}</td></tr>`).join("")}</tbody></table></div>`
+    ? `<div class="card table-wrap"><table class="drought"><thead><tr><th>Système</th><th>Dates</th></tr></thead><tbody>${s.systemes.map((x) =>
+        `<tr><th scope="row"><a href="${esc(x.rapport)}" rel="noopener">${esc(capital(x.nom))}</a></th><td>${esc(x.du)} – ${esc(x.au)}</td></tr>`).join("")}</tbody></table></div>`
     : `<p class="card">Aucun système pour le moment.</p>`;
 }
 
@@ -2342,16 +2372,12 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
 
   const status = !d
     ? loading("Le suivi des cyclones")
-    : `<div class="now"><span class="big">${active.length}</span><p>système${active.length > 1 ? "s" : ""} tropica${active.length > 1 ? "ux" : "l"} actif${active.length > 1 ? "s" : ""} dans le sud-ouest de l'océan Indien${active.length ? `, le plus proche ${esc(active[0].situation)}` : ""}.</p></div>`;
+    : `<div class="now"><span class="big">${active.length}</span><p>système${active.length > 1 ? "s" : ""} tropica${active.length > 1 ? "ux" : "l"} actif${active.length > 1 ? "s" : ""} dans le sud-ouest de l'océan Indien.</p></div>`;
+  // No map of ours: the official one is on Météo-France's site.
+  const official = `<p class="lead">Trajectoire et bulletins officiels : <a href="${mf.OFFICIEL_CYCLONE}" rel="noopener">consulter le site officiel de Météo-France</a>.</p>`;
 
-  const tracks = (d?.traces ?? []).map((t) => ({ name: capital(t.nom), past: t.observee, forecast: t.prevue, label: t.etiquette, active: t.actif }));
-  const map = d
-    ? `<figure class="card mapcard">${oceanMap({ tracks, home: { lon: 55.536, lat: -21.115 }, label: active.length ? "Carte du sud-ouest de l'océan Indien : trajectoire et prévision des systèmes tropicaux actifs autour de La Réunion" : "Carte du sud-ouest de l'océan Indien : la trajectoire du dernier système tropical" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">${active.length ? "Trajectoire observée (trait plein) et prévue par le CMRS de La Réunion (pointillés)." : tracks.length ? `Aucun système actif. Trajectoire du dernier système, ${esc(tracks[0].name)}.` : "Aucun système actif."} Cercles à 500 et 1 000 km de l'île.</figcaption></figure>`
-    : "";
-
-  const title = "Cyclone Réunion en ce moment : trajectoire, alerte · 974";
-  const short = "Cyclones autour de La Réunion (974) : systèmes tropicaux actifs, trajectoire et prévision du CMRS de Météo-France, distance de l'île, alerte cyclonique et saisons passées.";
+  const title = "Cyclone Réunion en ce moment : systèmes actifs, alerte · 974";
+  const short = "Cyclones autour de La Réunion (974) : systèmes actifs et leur stade selon le CMRS de Météo-France, alerte cyclonique, saisons passées, lien officiel.";
   const description = d ? describe(`${d.resume}`, short) : short;
 
   const band = `${crumbBar("Cyclones")}
@@ -2360,12 +2386,12 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
     <p class="pill"><span class="dot"></span>Bulletins du CMRS de La Réunion</p>
     <h1>Cyclones <span class="n974">974</span></h1>
     ${status}
+    ${official}
     ${d?.alerte_cyclonique ? `<p class="lead"><b>${esc(d.alerte_cyclonique)}</b></p>` : ""}
     ${d && (d.ecoles?.niveau ?? -1) <= 2 ? `<p class="lead"><a href="/kit-cyclone">Se préparer : le kit d'urgence du plan →</a></p>` : ""}
-    ${ask(`Néna in siklone pa loin La Rényon ? Gèt si ${url} é di amwin ousa li lé.`,
-      `Y a-t-il un cyclone près de La Réunion ? Lis ${url} et dis-moi où il est et où il va.`)}
+    ${ask(`Néna in siklone pa loin La Rényon ? Gèt si ${url} é di amwin sak Météo-France é la préfektir i di.`,
+      `Y a-t-il un cyclone près de La Réunion ? Lis ${url} et dis-moi ce qu'en disent Météo-France et la préfecture.`)}
   </div>
-  ${map}
 </div>`;
 
   const body = `<section aria-labelledby="h-actifs">
@@ -2390,8 +2416,7 @@ ${d ? `<section aria-labelledby="h-saison">
   ${seasonTable(d.saison_en_cours)}
 </section>` : ""}
 ${d?.saison_precedente ? `<section aria-labelledby="h-saison-prec">
-  <div class="sec-h"><p class="eyebrow">Saison passée</p><h2 id="h-saison-prec">Saison ${esc(d.saison_precedente.nom)}</h2>
-  <p>Les systèmes du bassin et le stade atteint au plus fort, d'après le vent moyen sur 10 minutes.</p></div>
+  <div class="sec-h"><p class="eyebrow">Saison passée</p><h2 id="h-saison-prec">Saison ${esc(d.saison_precedente.nom)}</h2></div>
   ${seasonTable(d.saison_precedente)}
 </section>` : ""}
 <section aria-labelledby="h-passes">
@@ -2413,7 +2438,7 @@ export function cyclonesLive(data: Cached<CyclonesAnswer> | null): Live | undefi
   const plan = d.vie_quotidienne ? ` · <a href="/alerte-cyclone">Ce qui ferme, ce qui continue →</a>` : "";
   if (active.length) {
     const r = active[0];
-    return { valeur: `${active.length} système${active.length > 1 ? "s" : ""} actif${active.length > 1 ? "s" : ""}`, detail: `${esc(capital(r.nom))}, ${esc(r.stade)}, ${esc(r.situation)}${plan}` };
+    return { valeur: `${active.length} système${active.length > 1 ? "s" : ""} actif${active.length > 1 ? "s" : ""}`, detail: `${esc(capital(r.nom))}${r.stade ? `, ${esc(r.stade)}` : ""}${plan}` };
   }
   const last = d.saison_en_cours.systemes[0] ?? d.saison_precedente?.systemes[0];
   return { valeur: "aucun système actif", detail: `saison ${esc(d.saison_en_cours.nom)}${last ? ` ; dernier : ${esc(capital(last.nom))} (${esc(last.du)} – ${esc(last.au)})` : ""}` };
@@ -2453,7 +2478,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
   const table = rows.length
     ? `<div class="card table-wrap"><table class="drought histo"><thead><tr><th>Station</th><th>Pluie, 30 jours</th><th>Maximales</th><th>Minimales</th><th>Soleil</th></tr></thead><tbody>${rows.map((r) => {
         const e = r.ensoleillement;
-        return `<tr><th scope="row" class="tgt" id="${anchorId("s", r.station)}">${esc(r.station)}<small class="note">${esc(r.zone)}, ${r.altitude_m} m</small></th>` +
+        return `<tr><th scope="row" class="tgt" id="${anchorId("s", r.station)}">${esc(r.station)}<small class="note">${esc(r.zone)}, ${nombre(r.altitude_m)} m</small></th>` +
           `<td>${r.pluie ? rainBar(r.pluie.total_mm, r.pluie.normale_mm) : "—"}</td>` +
           `<td>${vsNormal(r.temperatures?.maximales_moyenne, r.temperatures?.maximales_normale)}</td>` +
           `<td>${vsNormal(r.temperatures?.minimales_moyenne, r.temperatures?.minimales_normale)}</td>` +
@@ -2612,8 +2637,9 @@ export function agendaEvents(rows: AgendaRow[]): object[] {
       ...(r.lien ? { url: r.lien } : {}),
       description: eventSummary(r),
       ...organizer(r),
-      ...(r.prix && PRICED.test(r.prix) ? { offers: offer(r.prix, r.lien) } : {}),
-      ...(r.image ? { image: { "@type": "ImageObject", url: r.image.url, author: { "@type": "Organization", name: r.image.auteur }, license: LICENCE_OUVERTE } } : {}),
+      ...offer(r.prix, r.lien),
+      // The credit OpenAgenda gives, as its creator and its credit line; no copyright notice nor licence page it does not give.
+      ...(r.image ? { image: { "@type": "ImageObject", url: r.image.url, author: { "@type": "Organization", name: r.image.auteur }, creator: { "@type": "Organization", name: r.image.auteur }, creditText: r.image.auteur, license: LICENCE_OUVERTE } } : {}),
     };
   });
 }
@@ -2631,13 +2657,15 @@ function organizer(r: AgendaRow): { organizer?: object | object[] } {
   return HALLS.has(r.publie_par) || r.propose ? { organizer: { "@type": "Organization", name: r.publie_par } } : {};
 }
 
-// A price is an amount or « gratuit »: a condition of entry (« Sur inscription ») is not one, and makes no Offer.
-const PRICED = /\d\s*(?:€|euros?\b)|gratuit/i;
-
-/** A price as its organiser wrote it: « gratuit » is 0 €, « 5 € » is 5 €; any other text, no amount. */
-function offer(prix: string, url?: string): object {
+/**
+ * An Offer only for one amount read in the source: « gratuit » is 0 €, « 5 € » is 5 €. A range, several prices or a
+ * condition of entry (« Sur inscription ») make none, as an Offer without its price is what search engines warn of.
+ * No availability nor sale date: no source gives them.
+ */
+function offer(prix: string | undefined, url?: string): { offers?: object } {
+  if (!prix) return {};
   const amount = /^gratuit/i.test(prix) ? 0 : /^\s*(\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?)\s*$/i.exec(prix)?.[1]?.replace(",", ".");
-  return { "@type": "Offer", ...(amount !== undefined ? { price: Number(amount), priceCurrency: "EUR" } : { description: prix }), ...(url ? { url } : {}) };
+  return amount === undefined ? {} : { offers: { "@type": "Offer", price: Number(amount), priceCurrency: "EUR", ...(url ? { url } : {}) } };
 }
 
 // The kinds a visitor can keep, in the order of the select; only those in the list are offered.
@@ -2702,7 +2730,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   <p>Chaque événement renvoie à la page de celui qui le publie. Heures de La Réunion ; un événement de plusieurs jours est rangé au jour où il commence, ou à aujourd'hui s'il a déjà commencé. Un événement annulé ou reporté reste affiché, avec son statut.</p></div>
   ${agendaTabs("/evenements")}
   ${list}
-  ${d?.non_repris ? `<p>${esc(d.non_repris)}</p>` : ""}
+  ${d?.non_repris ? `<p>${esc(d.non_repris)}${reprise(d.non_repris)}</p>` : ""}
   ${clubsLink()}
   ${warnings(agendaNotes(data, now))}
 </section>
@@ -2710,7 +2738,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   <div class="sec-h"><h2 id="h-couv">Ce qui est couvert</h2><p>${d ? esc(d.couverture) : ""}</p><p>${d ? esc(d.a_savoir) : ""}</p>
   <p>Les séances de cinéma sont sur les sites des salles : ${CINEMAS.map((c) => `<a href="${esc(c.lien)}" rel="noopener">${esc(c.nom)}</a>`).join(", ")}.</p></div>
   ${d && data ? sourcesNote(d.sources, data) : ""}
-  <p class="note">${noteReunionFr()}</p>
+  <p class="note">${noteReunionFr()}${reprise(noteReunionFr())}</p>
 </section>
 ${connectorCta("evenements", "les événements de l'île")}`;
 
@@ -2773,7 +2801,9 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
 
   const status = !d
     ? loading("L'actualité")
-    : `<div class="now"><span class="big">${d.infos.length}</span><p>informations des médias de l'île depuis 24 h` +
+    // All of them, as actualites counts them; the list keeps the newest (26/10/2026: 40 here, 103 in the tool).
+    : `<div class="now"><span class="big">${d.total ?? d.infos.length}</span><p>informations des médias de l'île depuis 24 h` +
+      `${(d.total ?? 0) > d.infos.length ? `\u00a0; les ${d.infos.length} plus récentes ci-dessous` : ""}` +
       `${d.en_direct.length ? ` ; <b>${esc(d.en_direct[0].media)} suit la journée en direct</b> (dernière entrée à ${esc(newsTime(d.en_direct[0]))})` : ""}.</p></div>`;
 
   const top = d ? (d.en_direct.length ? d.en_direct : d.infos).slice(0, 6) : [];

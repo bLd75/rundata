@@ -96,8 +96,8 @@ describe("prevision_meteo with AROME", () => {
     expect(r.nature).toBe("prevision");
     expect(r.resume).toMatch(/^PRÉVISION \(modèle AROME outre-mer de Météo-France, maille de 2,5 km, calcul de 21\/10 22:00, relayé ensuite par IFS/);
     expect(r.pas_de_3h.map((s: { heures: string; modele: string }) => [s.heures, s.modele])).toEqual([
-      ["jeudi 22/10 12h–15h", "AROME outre-mer de Météo-France"],
-      ["jeudi 22/10 15h–18h", "IFS HRES du Centre européen (ECMWF)"],
+      ["jeudi 22/10 12\u00a0h–15\u00a0h", "AROME outre-mer de Météo-France"],
+      ["jeudi 22/10 15\u00a0h–18\u00a0h", "IFS HRES du Centre européen (ECMWF)"],
     ]);
     // Brought down from the model's terrain (about 1 600 m there) to the village, 1 209 m: warmer than the raw grid.
     const t = Number(r.pas_de_3h[0].temperature.replace(",", ".").replace(" °C", ""));
@@ -107,8 +107,8 @@ describe("prevision_meteo with AROME", () => {
     expect(w).toMatch(/pas une mesure/);
     expect(w).toMatch(/microclimats/);
     expect(w).toMatch(/vigilance officielle/);
-    expect(w).toMatch(/relief du modèle est à 1\d{3} m : les températures sont ramenées à l'altitude de Cilaos \(1209 m\)/);
-    expect(r.jours[0].modeles).toMatch(/AROME outre-mer de Météo-France de 12h à 15h/);
+    expect(w).toMatch(/relief du modèle est à 1\d{3} m : les températures sont ramenées à l'altitude de Cilaos \(1\u202f209 m\)/);
+    expect(r.jours[0].modeles).toMatch(/AROME outre-mer de Météo-France de 12\u00a0h à 15\u00a0h/);
     // The UV index comes from its own forecast, credited and explained apart.
     expect(r.jours[0].indice_uv_max).toMatch(/^\d+ \((faible|modéré|élevé|très élevé|extrême)\)$/);
     expect(w).toMatch(/Indice UV : PRÉVISION du service européen Copernicus/);
@@ -130,7 +130,7 @@ describe("prevision_meteo with AROME", () => {
     expect(urls.length).toBeGreaterThan(arome.MAX_NEW_GRIDS - 7);
     // The step under way (9h) and the next ones; 12h was cached already.
     expect(urls.some((u) => u.includes("time(2026-10-22T05:00:00Z)"))).toBe(true);
-    expect(r.pas_de_3h[0]).toMatchObject({ heures: "jeudi 22/10 9h–12h", modele: "AROME outre-mer de Météo-France" });
+    expect(r.pas_de_3h[0]).toMatchObject({ heures: "jeudi 22/10 9\u00a0h–12\u00a0h", modele: "AROME outre-mer de Météo-France" });
     expect(r.resume).toMatch(/^PRÉVISION \(modèle AROME/);
   });
 

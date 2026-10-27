@@ -5,7 +5,7 @@ import * as enfants from "../src/vie/enfants.js";
 import type { Alerte } from "../src/web/data.js";
 import { homePage, type HomeLive } from "../src/web/home.js";
 import { esc } from "../src/web/map.js";
-import { meteoPage, SOCIAL } from "../src/web/pages.js";
+import { CSS, meteoPage, SOCIAL, STYLE_PATH } from "../src/web/pages.js";
 import { type VolcanAlerte, withVolcan } from "../src/web/volcan-alerte.js";
 
 const O = "https://rundata.re";
@@ -94,14 +94,14 @@ describe("the order of the pages", () => {
   });
 
   it("gives the boxes of « En ce moment » one height, their content centred, a box alone on the last row the grid's width", () => {
-    const page = homePage(O, null, NOW);
-    expect(page).toContain(".facts-live{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;");
-    expect(page).toContain(".facts-live li{display:flex}.facts-live a{flex:1;display:grid;");
-    expect(page).toContain("align-content:center;");
-    expect(page).toContain(".facts-live li:last-child:nth-child(odd){grid-column:1/-1}");
+    expect(homePage(O, null, NOW)).toContain(`<link rel="stylesheet" href="${STYLE_PATH}">`);
+    expect(CSS).toContain(".facts-live{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;");
+    expect(CSS).toContain(".facts-live li{display:flex}.facts-live a{flex:1;display:grid;");
+    expect(CSS).toContain("align-content:center;");
+    expect(CSS).toContain(".facts-live li:last-child:nth-child(odd){grid-column:1/-1}");
     // Lower on a phone (80 px at 390 px, measured): less padding, a smaller icon, label and detail.
-    expect(page).toContain("@media (max-width:599.98px){.facts-live a{padding:.45rem .6rem;column-gap:.45rem}.facts-live .ic{width:1.2rem;height:1.2rem}");
-    expect(page).toContain(".facts-live a>span{font-size:.7rem}.facts-live small{font-size:.7rem;line-height:1.2}}");
+    expect(CSS).toContain("@media (max-width:599.98px){.facts-live a{padding:.45rem .6rem;column-gap:.45rem}.facts-live .ic{width:1.2rem;height:1.2rem}");
+    expect(CSS).toContain(".facts-live a>span{font-size:.7rem}.facts-live small{font-size:.7rem;line-height:1.2}}");
   });
 
   it("puts the air of the day last in « En ce moment », as on its tile, for an even number of boxes", () => {
@@ -129,7 +129,7 @@ describe("the order of the pages", () => {
     const sheet = header.match(/<nav class="sheet"[^>]*>(.*?)<\/nav>/s)![1];
     const hero = homePage(O, null, NOW).match(/<p class="social hero-follow">(.*?)<\/p>/s)![1];
     for (const s of SOCIAL) {
-      const link = `<a href="${s.url}?ref=site" rel="noopener" aria-label="rundata.re sur ${s.nom}">`;
+      const link = `<a href="${s.nom === "GitHub" ? s.url : `${s.url}?ref=site`}" rel="noopener" aria-label="rundata.re sur ${s.nom}">`;
       expect(top).toContain(`${link}${s.svg}</a>`);
       expect(sheet).toContain(`${link}${s.svg}${s.nom}</a>`);
       expect(hero).toContain(`${link}${s.svg}${s.nom}</a>`);
@@ -155,29 +155,29 @@ describe("the alerts on a phone", () => {
     const home = withVolcan(VOLCAN, () => homePage(O, null, NOW, VIGILANCE));
     const lines = [...home.matchAll(/<a class="ligne" href="([^"]+)"><span aria-hidden="true">([^<]+)<\/span><span class="txt">(.*?)<\/span><span aria-hidden="true">→<\/span>/g)].map((m) => [m[1], m[2], m[3]]);
     expect(lines).toEqual([
-      ["/vigilance", "⚠", frag("Vigilance orange pluies-orages · Est")],
+      ["/vigilance", "⚠", frag("Météo-France : vigilance orange pluies-orages · Est")],
       ["/volcan", "🌋", frag("Volcan\u00a0: alerte\u00a01 du préfet · Enclos interdit")],
     ]);
     // The sentences stay on wider screens: only below 600 px the line replaces them, never cut with « … ».
-    expect(home).toContain(".ligne{display:none}");
-    expect(home).toContain("@media (max-width:599.98px){[data-court]>.wrap,[data-court]>.card{display:none}");
-    expect(home).toContain(".ligne .txt{flex:1;min-width:0}");
-    expect(home).not.toContain("text-overflow:ellipsis");
+    expect(CSS).toContain(".ligne{display:none}");
+    expect(CSS).toContain("@media (max-width:599.98px){[data-court]>.wrap,[data-court]>.card{display:none}");
+    expect(CSS).toContain(".ligne .txt{flex:1;min-width:0}");
+    expect(CSS).not.toContain("text-overflow:ellipsis");
     // On two lines, the break comes before the last « · », never inside « Sud-Est » nor « Enclos interdit ».
-    expect(home).toContain('<span class="txt">Vigilance orange pluies-orages <span class="nw">· Est</span></span>');
-    expect(home).toContain(".ligne .nw{white-space:nowrap}");
-    expect(home).toContain(".volcan-une[data-court]{padding:0;max-width:none}");
+    expect(home).toContain('<span class="txt">Météo-France : vigilance orange pluies-orages <span class="nw">· Est</span></span>');
+    expect(CSS).toContain(".ligne .nw{white-space:nowrap}");
+    expect(CSS).toContain(".volcan-une[data-court]{padding:0;max-width:none}");
   });
 
   it("say the vigilance's colour, two phenomena at most by their short names, and the zones named, counted or whole (marketing)", () => {
-    expect(said(vigilance("jaune", ["Fortes pluies / orages"], ["Sud-Est : Saint-Joseph, Saint-Philippe"]))).toEqual(frags(["Vigilance jaune pluies-orages · Sud-Est"]));
-    expect(said(vigilance("orange", ["Vents forts"], LAND))).toEqual(frags(["Vigilance orange vents forts · toute l'île"]));
-    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(2, 4)))).toEqual(frags(["Vigilance jaune pluies-orages · Sud-Est, Sud"]));
-    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(0, 3)))).toEqual(frags(["Vigilance jaune pluies-orages · 3 zones"]));
-    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(3)))).toEqual(frags(["Vigilance jaune vagues-submersion · 3 zones côtières"]));
-    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(1)))).toEqual(frags(["Vigilance jaune vagues-submersion · 1 zone côtière"]));
-    expect(said(vigilance("orange", ["Vagues - submersion"], coasts(8)))).toEqual(frags(["Vigilance orange vagues-submersion · toutes les côtes"]));
-    expect(said(vigilance("orange", ["Fortes pluies / orages", "Vents forts", "Vagues - submersion"], [LAND[1], ...coasts(2)]))).toEqual(frags(["Vigilance orange pluies-orages, vents forts · Est, 2 zones côtières"]));
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], ["Sud-Est : Saint-Joseph, Saint-Philippe"]))).toEqual(frags(["Météo-France : vigilance jaune pluies-orages · Sud-Est"]));
+    expect(said(vigilance("orange", ["Vents forts"], LAND))).toEqual(frags(["Météo-France : vigilance orange vents forts · toute l'île"]));
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(2, 4)))).toEqual(frags(["Météo-France : vigilance jaune pluies-orages · Sud-Est, Sud"]));
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(0, 3)))).toEqual(frags(["Météo-France : vigilance jaune pluies-orages · 3 zones"]));
+    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(3)))).toEqual(frags(["Météo-France : vigilance jaune vagues-submersion · 3 zones côtières"]));
+    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(1)))).toEqual(frags(["Météo-France : vigilance jaune vagues-submersion · 1 zone côtière"]));
+    expect(said(vigilance("orange", ["Vagues - submersion"], coasts(8)))).toEqual(frags(["Météo-France : vigilance orange vagues-submersion · toutes les côtes"]));
+    expect(said(vigilance("orange", ["Fortes pluies / orages", "Vents forts", "Vagues - submersion"], [LAND[1], ...coasts(2)]))).toEqual(frags(["Météo-France : vigilance orange pluies-orages, vents forts · Est, 2 zones côtières"]));
   });
 
   it("give the cyclone alert to the prefect, with the schools closed on a line of their own (marketing)", () => {

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, SERVICE_OPS_LIMIT, SUBREQUEST_LIMIT, costOf, count, counted, later, left, measured, spent } from "../src/budget.js";
+import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, SERVICE_OPS_LIMIT, SUBREQUEST_LIMIT, costOf, count, counted, later, left, measured, reserve, spent } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { KvStore, type KvBinding } from "../src/kv.js";
 import * as arome from "../src/providers/arome.js";
@@ -297,7 +297,7 @@ describe("the invocation's budget", () => {
       expect(() => count()).toThrow(/Too many subrequests/);
       expect(left()).toBe(0);
     });
-    expect(await settled()).toEqual({ used: 3, refused: 1 });
+    expect(await settled()).toMatchObject({ used: 3, refused: 1 });
   });
 
   it("keeps a tenth of it for writing to the cache what was read", async () => {
@@ -308,7 +308,7 @@ describe("the invocation's budget", () => {
       count(4, true);
       expect(() => count(1, true)).toThrow(/Too many subrequests/);
     });
-    expect(await settled()).toEqual({ used: 40, refused: 2 });
+    expect(await settled()).toMatchObject({ used: 40, refused: 2 });
   });
 
   it("lets a read of a copy already stored use half of that tenth", async () => {
@@ -319,7 +319,7 @@ describe("the invocation's budget", () => {
       expect(() => count(1, "read")).toThrow(/Too many subrequests/);
       count(2, true);
     });
-    expect(await settled()).toEqual({ used: 40, refused: 2 });
+    expect(await settled()).toMatchObject({ used: 40, refused: 2 });
   });
 
   it("serves a question late in its budget the copy the data center's cache has, instead of failing", async () => {
@@ -393,5 +393,24 @@ describe("the invocation's budget", () => {
     // Outside a counted invocation nothing is measured.
     await measured(`${key}-node`, async () => count());
     expect(costOf(`${key}-node`)).toBeUndefined();
+  });
+});
+
+describe("subrequests set aside for work running beside the rest", () => {
+  it("are left out of what is left until released, once", async () => {
+    const run = await counted(SCHEDULED_BUDGET, async () => {
+      const base = left();
+      const release = reserve(17);
+      const during = left();
+      release();
+      release();
+      return { base, during, after: left() };
+    });
+    expect(run.value).toEqual({ base: run.value.base, during: run.value.base - 17, after: run.value.base });
+  });
+
+  it("change nothing outside a counted invocation", () => {
+    reserve(17)();
+    expect(left()).toBe(Infinity);
   });
 });

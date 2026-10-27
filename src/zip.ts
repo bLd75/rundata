@@ -1,5 +1,5 @@
 /**
- * Reads some files out of a zip archive, as text. Only what Météo-France's archives use: files stored or deflated,
+ * Reads some files out of a zip archive, as text or as bytes. Only what Météo-France's archives use: files stored or deflated,
  * no zip64, no encryption. Inflating goes through the platform's DecompressionStream (Workers and Node alike), so the
  * Worker carries no library and spends little CPU on it.
  */
@@ -8,13 +8,19 @@ const EOCD = 0x06054b50;
 const CENTRAL = 0x02014b50;
 const LOCAL = 0x04034b50;
 
-async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-  return new Response(stream).text();
+  return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-/** The files whose name `wanted` accepts, by name. Throws on anything that is not a zip this code can read. */
+/** The files whose name `wanted` accepts, by name, as text. Throws on anything that is not a zip this code can read. */
 export async function unzip(data: ArrayBuffer, wanted: (name: string) => boolean): Promise<Map<string, string>> {
+  const text = new TextDecoder();
+  return new Map([...(await unzipBytes(data, wanted))].map(([name, body]) => [name, text.decode(body)]));
+}
+
+/** As `unzip`, the files as they are: a PDF. */
+export async function unzipBytes(data: ArrayBuffer, wanted: (name: string) => boolean): Promise<Map<string, Uint8Array<ArrayBuffer>>> {
   const view = new DataView(data);
   const bytes = new Uint8Array(data);
   let end = -1;
@@ -29,7 +35,7 @@ export async function unzip(data: ArrayBuffer, wanted: (name: string) => boolean
   const entries = view.getUint16(end + 10, true);
   let p = view.getUint32(end + 16, true);
   const names = new TextDecoder();
-  const out = new Map<string, string>();
+  const out = new Map<string, Uint8Array<ArrayBuffer>>();
   for (let n = 0; n < entries; n++) {
     if (view.getUint32(p, true) !== CENTRAL) throw new Error("zip : répertoire central illisible");
     const method = view.getUint16(p + 10, true);
@@ -43,7 +49,7 @@ export async function unzip(data: ArrayBuffer, wanted: (name: string) => boolean
     if (view.getUint32(local, true) !== LOCAL) throw new Error(`zip : en-tête de ${name} illisible`);
     const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
     const body = bytes.subarray(start, start + size);
-    if (method === 0) out.set(name, new TextDecoder().decode(body));
+    if (method === 0) out.set(name, body.slice());
     else if (method === 8) out.set(name, await inflate(body));
     else throw new Error(`zip : méthode ${method} non prise en charge (${name})`);
   }

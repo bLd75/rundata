@@ -222,11 +222,11 @@ describe("the fires' page", () => {
     const r = (await page("/feux"))!;
     const html = await r.text();
     expect(r.headers.get("cache-control")).toBe("public, max-age=60");
-    expect(html).toContain("<title>Feux de forêt Réunion\u00a0: détections satellite 24 h · 974</title>");
+    expect(html).toContain("<title>Feux de forêt Réunion\u00a0: détections satellite 24\u00a0h · 974</title>");
     expect(html).toContain("<h1>Feux de végétation à La Réunion, vus par satellite</h1>");
     expect(html).not.toContain("noindex");
-    expect(html).toContain('<meta name="description" content="2 feux vus par satellite en 24 h à La Réunion (974), le dernier à\u00a006:30 près de');
-    expect(html).toContain('<h2 id="h-feux">Les feux des dernières 24 h</h2>');
+    expect(html).toContain('<meta name="description" content="2 feux vus par satellite en 24\u00a0h à La Réunion (974), le dernier à\u00a006:30 près de');
+    expect(html).toContain('<h2 id="h-feux">Les feux des dernières 24\u00a0h</h2>');
     expect(html).toContain("Feu détecté près de");
     expect(html).toContain(`<h2 id="h-sentiers">Les sentiers fermés par l'ONF</h2>`);
     expect(html).toContain('<h2 id="h-vigilance">La vigilance Météo-France</h2>');

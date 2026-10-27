@@ -7,21 +7,24 @@
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
 import { failed, handle } from "./app.js";
-import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, scheduled, spent } from "./budget.js";
+import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, readsSaid, scheduled, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
 import { toutesLesSources, VERSION } from "./server.js";
-import { audience, device, language, point, TEAM, teamVisit, visitor, type Hit } from "./metrics.js";
+import { audience, device, language, origin, point, TEAM, teamVisit, visitor, type Hit } from "./metrics.js";
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
 import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
+import * as candhis from "./providers/candhis.js";
+import * as vigilanceCarte from "./providers/vigilance-carte.js";
 import * as feux from "./providers/feux.js";
 import { configureWeezevent } from "./providers/agenda.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
+import * as limite from "./limite.js";
 import * as chiffre from "./connecteurs/chiffre.js";
 import * as connexions from "./connecteurs/connexions.js";
 import * as propositions from "./propositions.js";
@@ -32,6 +35,7 @@ import { refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { listShared, SHARED, SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
 import { why } from "./types.js";
+import { configure as metaWebhookSecrets } from "./meta-webhook.js";
 
 // How long the edge keeps an entry. Much longer than any freshness window: an old copy is what gets served,
 // marked as such, while a source is down.
@@ -67,7 +71,8 @@ class EdgeStore implements CacheStore {
 /** The part of a KV namespace binding used here. */
 interface KvNamespace {
   get(key: string, type: "json"): Promise<unknown>;
-  put(key: string, value: string, options?: { expirationTtl?: number; metadata?: unknown }): Promise<void>;
+  get(key: string, type: "arrayBuffer"): Promise<ArrayBuffer | null>;
+  put(key: string, value: string | ArrayBuffer, options?: { expirationTtl?: number; metadata?: unknown }): Promise<void>;
   list(options: { prefix: string; cursor?: string }): Promise<{ keys: { name: string; metadata?: unknown }[]; list_complete: boolean; cursor?: string }>;
 }
 
@@ -81,6 +86,8 @@ interface Env {
   WEEZEVENT_USERNAME?: string;
   WEEZEVENT_PASSWORD?: string;
   WEEZEVENT_API_KEY?: string;
+  /** Optional: the Cerema's key to the Candhis buoys, asked by the scheduled event (src/providers/candhis.ts). */
+  CANDHIS_API_KEY?: string;
   STORE?: KvNamespace;
   USAGE?: AnalyticsDataset;
   TRANSIT?: D1Database;
@@ -91,10 +98,18 @@ interface Env {
   AVIS_SEL?: string;
   /** Optional: the secret key of the Turnstile widget of the clubs' forms (web/propositions.ts). */
   TURNSTILE_SECRET?: string;
+  /** Optional, both or nothing: the verify token chosen for Meta's webhook, and the Meta app's secret (src/meta-webhook.ts). */
+  META_VERIFY_TOKEN?: string;
+  META_APP_SECRET?: string;
   /** Optional: the key that encrypts the secrets of the associations' platforms (src/connecteurs/chiffre.ts), 32 bytes in base64. */
   CONNECTEURS_CLE?: string;
   /** Cloudflare Email Sending: the confirmation of the events the clubs propose (src/propositions.ts). */
   EMAIL?: propositions.EmailBinding;
+  /** Browser Rendering: the picture of Météo-France's official map of the vigilance (src/providers/vigilance-carte.ts). */
+  BROWSER?: vigilanceCarte.Browser;
+  /** Rate Limiting: the calls to /mcp and the forms' sends, per address and per minute (src/limite.ts). */
+  LIMITE_MCP?: limite.Limiteur;
+  LIMITE_FORMULAIRES?: limite.Limiteur;
 }
 
 /** The part of a D1 binding used here. */
@@ -124,19 +139,14 @@ function recorder(env: Env, request: Request) {
   const team = teamVisit(headers, new URL(request.url));
   const who = team ? TEAM : visitor(headers.get("user-agent") ?? "");
   const country = String((request as { cf?: { country?: unknown } }).cf?.country ?? "");
-  let from = "";
-  try {
-    const ref = new URL(headers.get("referer") ?? "");
-    if (ref.host !== new URL(request.url).host) from = ref.host;
-  } catch {}
-  // A link shared by the campaign carries its channel (« ?ref=fb », « ?ref=presse-zinfos »): it wins over the referer.
-  const tag = new URL(request.url).searchParams.get("ref")?.replace(/[^\w.-]/g, "").slice(0, 40);
-  if (tag) from = `ref:${tag}`;
+  // The campaign's channel, a page of the site (« interne ») or the referring site (metrics.ts, origin).
+  const from = origin(headers.get("referer"), new URL(request.url));
   return (hit: Hit) => {
     if (hit.kind === "mcp" || hit.kind === "rpc") console.log(logLine(hit, who, country));
     if (!usage) return;
     try {
-      const page = hit.kind === "page";
+      // A signal comes from a page's browser: read as a page view is (web/signaux.ts).
+      const page = hit.kind === "page" || hit.kind === "signal";
       usage.writeDataPoint(point(hit, { who, country, from, audience: page ? (team ? TEAM : audience(headers)) : "", language: page ? language(headers.get("accept-language")) : "", mode: page && headers.get("rundata-mode") === "app" ? "app" : "", device: page ? device(headers) : "" }));
     } catch (err) {
       console.error("analytics : écriture impossible", why(err));
@@ -165,6 +175,11 @@ function setup(env: Env): Cache {
   configureWeezevent({ username: env.WEEZEVENT_USERNAME, password: env.WEEZEVENT_PASSWORD, apiKey: env.WEEZEVENT_API_KEY });
   const d1 = env.TRANSIT;
   const kv = env.STORE;
+  // Asked by the scheduled event below and kept in KV (src/providers/candhis.ts): without KV, the key is not used.
+  candhis.configure(kv && env.CANDHIS_API_KEY, kv && (async () => {
+    count();
+    return (await kv.get(candhis.KEY, "json")) as candhis.Etat | null;
+  }));
   // Filtered from the national file by the scheduled event below (src/providers/irve.ts).
   irve.configure(kv && (async () => {
     count();
@@ -175,11 +190,19 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get("eau:ile", "json")) as eauIle.Ile | null;
   }));
-  // Read once a day from the prefecture by .github/workflows/carburants.yml (src/providers/carburants.ts).
-  carburants.configure(kv && (async () => {
+  // Read once a day from the prefecture by .github/workflows/carburants.yml (src/providers/carburants.ts): never by the
+  // Worker, even without the store.
+  carburants.configure(async () => {
+    if (!kv) return null;
     count();
     return (await kv.get("carburants:prix", "json")) as carburants.Prix | null;
-  }));
+  });
+  // Météo-France's official map of the vigilance: its bulletin and its picture kept by the scheduled event.
+  vigilanceCarte.configure(kv && {
+    json: (key) => kv.get(key, "json"),
+    bytes: (key) => kv.get(key, "arrayBuffer"),
+    put: (key, value, ttl) => kv.put(key, value, ttl ? { expirationTtl: ttl } : undefined),
+  }, env.BROWSER);
   // The text of the OVPF's releases given in images, read by a collector outside the Worker (scripts/ovpf-ocr.ts).
   ovpfOcr.configure(kv && (async (key: string) => {
     count();
@@ -207,6 +230,7 @@ function setup(env: Env): Cache {
     avisDb && (async <T>(sql: string, ...params: unknown[]) => (count(), (await avisDb.prepare(sql).bind(...params).all<T>()).results)),
   );
   formulaires.configure(env.TURNSTILE_SECRET);
+  metaWebhookSecrets(env.META_VERIFY_TOKEN, env.META_APP_SECRET);
   // The associations' links to their platform, in the same database (scripts/connecteurs.sql): the platform's secret
   // encrypted with CONNECTEURS_CLE, the link e-mailed like a proposal's. Without the key, nothing is linked.
   chiffre.configure(env.CONNECTEURS_CLE);
@@ -237,6 +261,9 @@ function setup(env: Env): Cache {
 
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
+    // A connection past its threshold is answered before anything is read or built.
+    const trop = await limite.refuse(request, { mcp: env.LIMITE_MCP, formulaire: env.LIMITE_FORMULAIRES });
+    if (trop) return trop;
     const c = setup(env);
     // A page served from its last copy refreshes it after the response (web/data.ts); an agenda too slow for the
     // answer is still stored (tools/agenda.ts).
@@ -246,7 +273,7 @@ export default {
     ctx.waitUntil(settled().then((total) => {
       const after = total.used > used ? `, dont ${total.used - used} après la réponse` : "";
       const refused = total.refused ? `, ${total.refused} refusées (budget de ${PAGE_BUDGET})` : "";
-      if (total.used) console.log(`sous-requêtes : ${total.used} (${path})${after}${refused}`);
+      if (total.used) console.log(`sous-requêtes : ${total.used} (${path})${after}${refused}${readsSaid(total.reads)}`);
     }));
     return value;
   },
@@ -263,19 +290,25 @@ export default {
       const aromeUsed = spent();
       // One listing of KV for both.
       const listing = kv ? listShared(kv) : undefined;
-      const first = kv ? await warmShared(c, kv, new Date(), SHARED, listing) : { written: [], left: [] };
-      const after = kv ? await warmShared(c, kv, new Date(), SHARED_AFTER, listing) : { written: [], left: [] };
-      const copies = { written: [...first.written, ...after.written], left: [...first.left, ...after.left] };
+      // The copies built alongside (the rivers', minutes long), waited for after everything else: never before it.
+      const held: Promise<void>[] = [];
+      const hold = (work: Promise<void>) => void held.push(work);
+      const first = kv ? await warmShared(c, kv, new Date(), SHARED, listing, hold) : { written: [], left: [] };
+      const after = kv ? await warmShared(c, kv, new Date(), SHARED_AFTER, listing, hold) : { written: [], left: [] };
       // Last, with what is left: the agendas read only here.
       const agendas = kv ? await refreshPlanned(c).catch((err) => (console.error("agendas planifiés impossibles", why(err)), null)) : null;
+      await Promise.all(held);
+      const copies = { written: [...first.written, ...after.written], left: [...first.left, ...after.left] };
       return { arome, aromeUsed, copies, agendas };
       // What a read hands over after it (a failed read written down) finishes within the event.
     }, (p) => ctx.waitUntil(p))
-      .then(({ value, used }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +
+      .then(({ value, used, reads }) => console.log(`préchargement AROME : ${JSON.stringify(value.arome)}, sous-requêtes : ${value.aromeUsed}` +
         (value.copies.written.length ? ` ; copies partagées : ${value.copies.written.join(", ")}` : "") +
         (value.copies.left.length ? ` ; reportées : ${value.copies.left.map((x) => `${x.key} (${x.why})`).join(", ")}` : "") +
         (value.agendas?.lus.length || value.agendas?.gardes.length || value.agendas?.trop_vieilles.length ? ` ; agendas planifiés : ${JSON.stringify(value.agendas)}` : "") +
-        (value.copies.written.length || value.copies.left.length || value.agendas?.lus.length ? `, sous-requêtes en tout : ${used}` : "")))
+        (value.copies.written.length || value.copies.left.length || value.agendas?.lus.length ? `, sous-requêtes en tout : ${used}` : "") +
+        // Each source's reads in the event: one read more often than its freshness says its copy did not carry over.
+        readsSaid(reads)))
       .catch((err) => console.error("préchargement impossible", why(err)));
     ctx.waitUntil(reads);
     const now = new Date();
@@ -286,15 +319,37 @@ export default {
         count(1, true);
         await kv.put("irve:etat", JSON.stringify(live), { expirationTtl: irve.LIVE_TTL_SECONDS });
       }, now)))
-        .then(({ value, used }) => console.log(`bornes de recharge : ${value} points de La Réunion, sous-requêtes : ${used}`))
+        .then(({ value, used, reads }) => console.log(`bornes de recharge : ${value} points de La Réunion, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("bornes de recharge : état impossible", why(err))));
+    }
+    // Every 30 minutes, at 10 and 40 past the hour: the Candhis buoys' last half hour, one request per type of buoy,
+    // kept in KV (src/providers/candhis.ts), once the reads above are done. Nothing without the key.
+    if (kv && candhis.configured() && candhis.refreshDue(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, async () => {
+        count();
+        const before = (await kv.get(candhis.KEY, "json")) as candhis.Etat | null;
+        return candhis.refresh(before, async (etat) => {
+          count(1, true);
+          await kv.put(candhis.KEY, JSON.stringify(etat), { expirationTtl: candhis.TTL_SECONDS });
+        }, now);
+      }))
+        .then(({ value, used, reads }) => console.log(`bouées Candhis : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("bouées Candhis : lecture impossible", why(err))));
     }
     // Once a day, at 06:00 in La Réunion: each public site that did not answer asked again (sans-reponse.ts), once the
     // reads above are done, so that its one GET is never part of a run of ours.
     if (sansReponse.heureDuPassage(now)) {
       ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => sansReponse.reverifier(now)))
-        .then(({ value, used }) => value && console.log(`sites sans réponse : ${value.essayes} revérifiés${value.changes.length ? `, ${value.changes.join(", ")}` : ""}, sous-requêtes : ${used}`))
+        .then(({ value, used, reads }) => value && console.log(`sites sans réponse : ${value.essayes} revérifiés${value.changes.length ? `, ${value.changes.join(", ")}` : ""}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("sites sans réponse : revérification impossible", why(err))));
+    }
+    // Once a day, at 00:20 in La Réunion (and 00:35 when the day's last hour was not out yet): the day before at each
+    // Météo-France station, from the hourly package, kept in KV for historique_meteo until the daily file is loaded at
+    // noon, once the reads above are done.
+    if (kv && meteofrance.enabled() && meteofrance.veilleDue(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => meteofrance.keepVeille(c, now)))
+        .then(({ value, used, reads }) => value && console.log(`veille : ${value.jour}, ${Object.keys(value.stations).length} stations${value.complet ? "" : " (dernière heure absente)"}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("veille : cumul impossible", why(err))));
     }
     // Once a day, at 04:00 in La Réunion (the run between 00:00 and 00:05 UTC): what the clubs sent is forgotten on
     // time even on the days nothing new is proposed (scripts/propositions.sql).

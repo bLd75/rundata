@@ -9,18 +9,11 @@
  */
 import type { Bundle, Cache, Cached } from "../cache.js";
 import { getText } from "../http.js";
-import type { Observation, Reading, SourceInfo, Station } from "../types.js";
+import type { Observation, Reading, Station } from "../types.js";
 import { download, session, type Session } from "./mf-auth.js";
-import { STATIONS_974 } from "./meteofrance-stations.js";
+import { SOURCE, STATIONS_974, VEILLE, type Veille } from "./meteofrance-stations.js";
 
-export const SOURCE: SourceInfo = {
-  id: "meteofrance",
-  nom: "Stations Météo-France (mesures toutes les 6 minutes)",
-  organisme: "Météo-France",
-  licence: "Licence Ouverte Etalab 2.0",
-  attribution: "Météo-France",
-  url: "https://portail-api.meteofrance.fr/",
-};
+export { SOURCE, VEILLE, type Veille } from "./meteofrance-stations.js";
 
 const BASE = "https://public-api.meteofrance.fr/public/DPPaquetObs/v2/paquet/stations/infrahoraire-6m";
 const SLOT_MS = 6 * 60_000;
@@ -136,37 +129,91 @@ export interface HourlyRain {
 
 /**
  * The stations' hourly rain (rr1) over the HOURS_KEPT hours up to the newest one in the package, at most `newest`.
- * The package holds several days: each line is only looked at for its time, and only its station and its rain are
- * read when it is wanted, since a regex or a split of the whole of it takes the Worker's CPU time of a request.
  */
 export function parseHourly(csv: string, newest: number): HourlyRain {
-  const head = csv.slice(0, csv.indexOf("\n")).trim().split(";");
-  const [id, time, rr1] = ["geo_id_insee", "validity_time", "rr1"].map((c) => head.indexOf(c));
   let end = Math.floor(newest / HOUR_MS) * HOUR_MS;
   while (end > newest - 6 * HOUR_MS && !csv.includes(`;${iso(end)};`)) end -= HOUR_MS;
   const hours = new Map(Array.from({ length: HOURS_KEPT }, (_, k) => [iso(end - k * HOUR_MS), k]));
   const rr: HourlyRain["rr"] = {};
-  const last = Math.max(id, rr1) + 1;
+  scanHours(csv, hours, ["rr1"], (station, k, [value]) => {
+    rr[station] ??= Array(HOURS_KEPT).fill(null);
+    // The two airports write -0.1 now and then: no rain counted.
+    if (value) rr[station][k] = Math.max(0, Number(value));
+  });
+  return { end: iso(end), rr };
+}
+
+/**
+ * Each Réunion line of the hourly package whose time is one of `hours`: its station, the index of its hour, and the
+ * text of the columns `cols` ("" when empty). Each line is only looked at up to its time, and read further only when
+ * it is wanted, since a regex or a split of the whole of it takes the Worker's CPU time of a request.
+ */
+function scanHours(csv: string, hours: Map<string, number>, cols: string[], each: (station: string, k: number, values: string[]) => void) {
+  const head = csv.slice(0, csv.indexOf("\n")).trim().split(";");
+  const [id, time] = ["geo_id_insee", "validity_time"].map((c) => head.indexOf(c));
+  const wanted = cols.map((c) => head.indexOf(c));
+  const last = Math.max(id, ...wanted) + 1;
   for (let from = csv.indexOf("\n") + 1; from > 0 && from < csv.length; ) {
     let to = csv.indexOf("\n", from);
     if (to < 0) to = csv.length;
-    // The start of each field: up to the time on every line, up to the rain on the wanted ones only.
+    // The start of each field: up to the time on every line, up to the last column wanted on the wanted ones only.
     const at = [from];
     for (let n = 1; n <= time + 1; n++) at.push(csv.indexOf(";", at[n - 1]) + 1);
     const k = hours.get(csv.slice(at[time], at[time] + 20));
     if (k != null) {
       for (let n = at.length; n <= last; n++) at.push(csv.indexOf(";", at[n - 1]) + 1);
       const station = csv.slice(at[id], at[id + 1] - 1);
-      const value = at[rr1 + 1] > 0 && at[rr1 + 1] <= to + 1 ? csv.slice(at[rr1], at[rr1 + 1] - 1) : "";
       if (station.startsWith("974")) {
-        rr[station] ??= Array(HOURS_KEPT).fill(null);
-        // The two airports write -0.1 now and then: no rain counted.
-        if (value) rr[station][k] = Math.max(0, Number(value));
+        each(station, k, wanted.map((c) => (c >= 0 && at[c + 1] > 0 && at[c + 1] <= to + 1 ? csv.slice(at[c], at[c + 1] - 1) : "")));
       }
     }
     from = to + 1;
   }
-  return { end: iso(end), rr };
+}
+
+/** The day `jour` (YYYY-MM-DD at La Réunion, UTC+4) at each station: only what it measured every hour of the 24. */
+export function parseDay(csv: string, jour: string): Veille {
+  // Météo-France dates an hour by its end: the day's first hour ends at 01:00, 21:00 UTC the day before.
+  const start = Date.parse(`${jour}T00:00:00Z`) - 4 * HOUR_MS;
+  const hours = new Map(Array.from({ length: 24 }, (_, k) => [iso(start + (k + 1) * HOUR_MS), k]));
+  const got = new Map<string, { rr: (number | null)[]; tn: (number | null)[]; tx: (number | null)[] }>();
+  scanHours(csv, hours, ["rr1", "tn", "tx"], (station, k, [rr, tn, tx]) => {
+    let s = got.get(station);
+    if (!s) got.set(station, (s = { rr: Array(24).fill(null), tn: Array(24).fill(null), tx: Array(24).fill(null) }));
+    // The two airports write -0.1 now and then: no rain counted.
+    if (rr) s.rr[k] = Math.max(0, Number(rr));
+    if (tn) s.tn[k] = Number(tn);
+    if (tx) s.tx[k] = Number(tx);
+  });
+  const all = (xs: (number | null)[]): xs is number[] => xs.every((x) => x != null && Number.isFinite(x));
+  const stations: Veille["stations"] = {};
+  for (const [id, s] of got) {
+    const v = {
+      ...(all(s.rr) && { rr: r1(s.rr.reduce((a, b) => a + b, 0)) }),
+      ...(all(s.tn) && { tn: celsius(Math.min(...s.tn)) }),
+      ...(all(s.tx) && { tx: celsius(Math.max(...s.tx)) }),
+    };
+    if (Object.keys(v).length) stations[id] = v;
+  }
+  return { jour, complet: csv.includes(`;${iso(start + 24 * HOUR_MS)};`), stations };
+}
+
+/** The passes that keep the day before: 00:20 at La Réunion (20:20 UTC), and 00:35 when its last hour was not out yet. */
+export function veilleDue(now: Date): boolean {
+  const m = now.getUTCMinutes();
+  return now.getUTCHours() === 20 && ((m >= 20 && m < 25) || (m >= 35 && m < 40));
+}
+
+/** At a pass of `veilleDue`: the day that just ended, read from the hourly package and kept, unless kept whole already. */
+export async function keepVeille(cache: Cache, now = new Date()): Promise<Veille | undefined> {
+  const jour = iso(now.getTime() + 4 * HOUR_MS - 24 * HOUR_MS).slice(0, 10);
+  if (now.getUTCMinutes() >= 35) {
+    const kept = (await cache.kept<Veille>(VEILLE))?.value;
+    if (kept?.jour === jour && kept.complet) return undefined;
+  }
+  const v = parseDay(await download(HOURLY_URL, session(SOURCE.id), getText), jour);
+  await cache.keep(VEILLE, v);
+  return v;
 }
 
 /** The rain of the last hours: every station's hour by hour, and a station's 6-minute slots since the newest hour. */

@@ -10,13 +10,14 @@
  * - Théâtre Luc Donat (Le Tampon), CDNOI (Saint-Denis), Léspas (Saint-Paul): their season, with the hours.
  * The TÉAT, Luc Donat and the CDNOI pages are in ISO-8859-1.
  */
-import { getBytes, getText, postBytes } from "../http.js";
+import { getBytes, getText, permis, postBytes } from "../http.js";
 import { normalize } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
 import type { Agenda, AgendaStore, Evenement, Seance } from "./agenda.js";
 import { extrait, monthOf, statusOf } from "./agenda-mots.js";
 import { communesIn } from "./avis-eau.js";
 
+/** Its name, credit and link are those of the halls read, once their authorisations are known (providers/agenda.ts). */
 export const SOURCE: SourceInfo = {
   id: "salles_spectacle",
   nom: "Programmes des salles : TÉAT Champ Fleuri et Plein Air, Cité des Arts, Kabardock, Le Séchoir, Bisik, Théâtre Luc Donat, CDNOI, Léspas",
@@ -108,7 +109,15 @@ export function dayOf(day: number, month: number, today: string): string {
   return iso(iso(y, month, day) < before ? y + 1 : y, month, day);
 }
 const hm = (h: string, m?: string) => `${h.padStart(2, "0")}:${m ?? "00"}`;
-const abs = (base: string, href: string) => (/^https?:/.test(href) ? href : new URL(href, base).toString());
+/** A link of a venue's page as an absolute http(s) address; undefined for anything else (`javascript:`, `data:`, `mailto:`). */
+const abs = (base: string, href: string): string | undefined => {
+  try {
+    const u = new URL(href, base);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+};
 const DAYS = /^(?:lun|mar|mer|jeu|ven|sam|dim)\w*\.?$/i;
 
 function event(e: Omit<Evenement, "categories" | "publie_par"> & Partial<Pick<Evenement, "categories">>, nom: string): Evenement {
@@ -117,6 +126,9 @@ function event(e: Omit<Evenement, "categories" | "publie_par"> & Partial<Pick<Ev
 }
 
 // ---------------------------------------------------------------- TÉAT
+
+// A show's page: on teat.re, or at the theatres' ticket office (See Tickets, formerly Digitick), as its programme links.
+export const TEAT_HOSTS = ["www.teat.re", "billetterie.seetickets.fr", "web.digitick.com"];
 
 const TEAT_GENRES = /^(?:Musique|Théâtre|Danse|Cirque|Humour|Jeune public|Spectacle|Conte|Opéra|Comédie musicale|Magie|Lecture|Exposition)$/i;
 export const TEAT_VENUES = [
@@ -140,7 +152,7 @@ export function parseTeat(html: string, venue: (typeof TEAT_VENUES)[number], now
     }
     if (x.t && TEAT_GENRES.test(x.t) && t[i + 1]?.href && t[i + 2]?.t && days.length) {
       const lien = abs("https://www.teat.re/", t[i + 1].href!);
-      out.push(event({
+      if (lien) out.push(event({
         id: `teat:${lien}`,
         titre: t[i + 2].t!.trim(),
         seances: days.map((debut) => ({ debut })),
@@ -233,6 +245,8 @@ const teat: Agenda = {
       const dates = new Map<string, TeatDates>();
       await Promise.all(both.map(async (e) => {
         try {
+          // Only those pages: a link planted in its programme is never read.
+          if (!permis(SOURCE.id, e.lien, TEAT_HOSTS)) return;
           dates.set(e.lien, parseTeatDates(decode(await getBytes(SOURCE.id, e.lien, TIMEOUT_MS, HEADERS)), now));
         } catch {
           // Without its page, the show is told with both stages.
@@ -285,6 +299,8 @@ export function parseCiteDesArts(html: string): Evenement[] {
     const venue = CDA_VENUES.find((v) => words.includes(v));
     const genre = g.replace(/\s*\/\/$/, "").trim();
     const where = /^À (.+)$/.exec(genre)?.[1];
+    const lien = abs("https://www.citedesarts.re/", link);
+    if (!lien) continue;
     out.push(event({
       id: `citedesarts:${link}`,
       titre,
@@ -294,7 +310,7 @@ export function parseCiteDesArts(html: string): Evenement[] {
       categories: where ? [] : [genre.replace(/\s*\[COMPLET\]/i, "")],
       prix: words.includes("Gratuit") ? "Gratuit" : undefined,
       statut: /\[COMPLET\]/i.test(genre) ? "complet" : undefined,
-      lien: abs("https://www.citedesarts.re/", link),
+      lien,
     }, "Cité des Arts"));
   }
   return out;
@@ -445,7 +461,8 @@ const bisik: Agenda = {
 
 /**
  * « sam. 24 oct. à 20H00 | [Médiathèque Centre-ville |] Mariaz Tangaz | Plus d'informations | [link] | … Scolaire »:
- * one line per performance; the school ones are left out.
+ * one line per performance; the school ones are left out. Only what its agreement covers: title, day, hour, hall and the
+ * link to its page (the genre is on its season's page, `parseLucDonatGenres`).
  */
 export function parseLucDonat(html: string, now: Date): Evenement[] {
   const t = tokens(html);
@@ -460,24 +477,32 @@ export function parseLucDonat(html: string, now: Date): Evenement[] {
     for (; j < t.length && t[j].t !== "Plus d'informations" && words.length < 4; j++) if (t[j].t) words.push(t[j].t!);
     const link = t[j + 1]?.href;
     if (!link || !words.length) continue;
-    // What follows the performance, up to the next one: « Scolaire », or a booking link.
-    let k = j + 2;
+    // What follows the performance, up to the next one: « Scolaire » for a school one.
     let scolaire = false;
-    let billets: string | undefined;
-    for (; k < t.length && k < j + 6 && !/^(?:lun|mar|mer|jeu|ven|sam|dim)\./i.test(t[k].t ?? ""); k++) {
-      if (t[k].t === "Scolaire") scolaire = true;
-      if (t[k].href && /billetterie/.test(t[k].href!)) billets = t[k].href;
-    }
+    for (let k = j + 2; k < t.length && k < j + 6 && !/^(?:lun|mar|mer|jeu|ven|sam|dim)\./i.test(t[k].t ?? ""); k++) if (t[k].t === "Scolaire") scolaire = true;
     if (scolaire) continue;
     const titre = words[words.length - 1];
     const lieu = words.length > 1 ? words[0] : "Théâtre Luc Donat";
     const lien = abs("https://www.theatrelucdonat.re/", link);
+    if (!lien) continue;
     const seance: Seance = { debut: `${dayOf(Number(m[1]), month, today)}T${hm(m[3], m[4])}` };
     const same = shows.get(lien);
     if (same) same.seances.push(seance);
-    else shows.set(lien, event({ id: `lucdonat:${lien}`, titre, seances: [seance], lieu, commune: "Le Tampon", billetterie: billets, lien }, "Théâtre Luc Donat"));
+    else shows.set(lien, event({ id: `lucdonat:${lien}`, titre, seances: [seance], lieu, commune: "Le Tampon", lien }, "Théâtre Luc Donat"));
   }
   return [...shows.values()];
+}
+
+/** Its season's page: each show's genre (« Musique », « Théâtre & Humour »), by the link to its page. */
+export function parseLucDonatGenres(html: string): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const block of html.split('class="spectacle').slice(1)) {
+    const href = /href=\s*"([^"]+)"/.exec(block)?.[1];
+    const type = /class="type">([^<]*)</.exec(block)?.[1];
+    const lien = href && abs("https://www.theatrelucdonat.re/", unescape(href));
+    if (lien && type) out.set(lien, unescape(type).split(/\s*[&,]\s*/).map((g) => g.trim()).filter(Boolean));
+  }
+  return out;
 }
 
 const lucDonat: Agenda = {
@@ -485,7 +510,22 @@ const lucDonat: Agenda = {
   nom: "Théâtre Luc Donat",
   source: SOURCE,
   commune: "Le Tampon",
-  load: (cache, now) => cache.get("agenda:luc_donat", FRESH_SECONDS, async () => parseLucDonat(latin1(await getBytes(SOURCE.id, "https://www.theatrelucdonat.re/tld_agenda", TIMEOUT_MS, HEADERS)), now)),
+  // Its written agreement of 27/10/2026 (providers/autorisations.ts): each date with « Source : Théâtre Luc Donat ».
+  credit: "Théâtre Luc Donat",
+  faits: true,
+  // Its agenda, then its season's page for the genres.
+  requetes: 2,
+  load: (cache, now) =>
+    cache.get("agenda:luc_donat", FRESH_SECONDS, async () => {
+      const [agenda, saison] = await Promise.allSettled([
+        getBytes(SOURCE.id, "https://www.theatrelucdonat.re/tld_agenda", TIMEOUT_MS, HEADERS),
+        getBytes(SOURCE.id, "https://www.theatrelucdonat.re/prog", TIMEOUT_MS, HEADERS),
+      ]);
+      if (agenda.status === "rejected") throw agenda.reason;
+      // Without its season's page, the dates are told without their genre.
+      const genres = saison.status === "fulfilled" ? parseLucDonatGenres(latin1(saison.value)) : new Map<string, string[]>();
+      return parseLucDonat(latin1(agenda.value), now).map((e) => ({ ...e, categories: genres.get(e.lien) ?? e.categories }));
+    }),
 };
 
 // ---------------------------------------------------------------- CDNOI
@@ -513,6 +553,7 @@ export function parseCdnoi(html: string, now: Date): Evenement[] {
       .filter((x) => !(Number(x.debut.slice(11, 13)) < 11 && ![0, 6].includes(new Date(`${x.debut.slice(0, 10)}T12:00:00Z`).getUTCDay())));
     if (!seances.length) continue;
     const lien = abs("https://www.cdnoi.re/", link);
+    if (!lien) continue;
     out.push(event({
       id: `cdnoi:${lien}`,
       titre,

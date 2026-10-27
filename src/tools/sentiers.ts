@@ -209,6 +209,79 @@ function roadRow(r: onf.Route) {
   return { route: r.nom, circulation: r.circulation, cause: r.cause, precision: r.info, vitesse_max: r.vitesse_max };
 }
 
+// A question about forest roads: their words, or the ONF's code (« RF », « RF20 », « RF 5 »).
+const ROAD = /\b(routes? forestieres?|rfs? ?\d*)\b/;
+// Words that ask for nothing more than the forest roads: such a question is about all of them, on the island.
+const ROADS_ONLY = new Set(["forestieres", "rf", "rfs", "onf", "fermee", "fermees", "ouverte", "ouvertes", "interdite", "interdites", "circulation", "etat", "toutes", "quelles", "sont", "sur", "en", "ile", "reunion", "acces", "liste"]);
+
+type RoadsAsked = { toutes: true } | { routes: onf.Route[] } | { introuvable: string; code: boolean };
+
+/**
+ * The forest roads a question asks for: all of them for « route forestière » or « RF » alone, those its code or its words
+ * name otherwise, or the code or name that no road of the map has. Undefined when the question is not about them.
+ */
+export function roadsAsked(routes: onf.Route[], lieu: string): RoadsAsked | undefined {
+  const q = normalize(lieu);
+  if (!ROAD.test(q)) return undefined;
+  const code = q.match(/\brf ?(\d+)\b/)?.[1];
+  const w = words(lieu).filter((t) => !ROADS_ONLY.has(t));
+  if (!code && !w.length) return { toutes: true };
+  const hit = routes.filter((r) => code ? new RegExp(`\\(RF0*${Number(code)}\\)`).test(r.nom) : w.every((t) => normalize(r.nom).split(" ").includes(t)));
+  if (hit.length) return { routes: hit };
+  // Said as asked, without the words that only say it is a forest road.
+  const name = lieu.replace(/^\s*(?:(?:les?|la)\s+)?routes?\s+foresti[eè]res?\s+(?:de\s+la|de\s+l'|des|du|de|d')?\s*/i, "").replace(/\s*\?\s*$/, "").trim();
+  return { introuvable: code ? `RF${code}` : name || lieu.trim(), code: !!code };
+}
+
+const km = (x: number) => String(x).replace(".", ",");
+const state = (r: onf.Route) => `${r.circulation}${r.cause ? ` (${r.cause})` : ""}`;
+
+/**
+ * The forest roads asked, in marketing's words: the island counts roads, not the
+ * pieces of the map; a road asked by its name gives each piece with its length when they are not in the same state.
+ */
+function roadsAnswer(asked: RoadsAsked, routes: onf.Route[], common: Record<string, unknown>, fireSentence: string) {
+  // The map answered without its roads: never « aucune ».
+  if (!routes.length) return { ...text({ erreur: "La carte des sentiers de l'ONF ne répond pas pour le moment.", consulter: onf.SOURCE.url }), isError: true };
+  const seen = new Set<string>();
+  // One row per road and state: the ONF's map cuts some roads in several pieces.
+  const rows = routes.filter((r) => {
+    const k = `${r.nom}|${state(r)}`;
+    return !seen.has(k) && !!seen.add(k);
+  });
+  const shut = (r: onf.Route) => /interdit/i.test(r.circulation);
+  const where = (r: onf.Route) => (r.points.length ? communeAt(...mid(r)) : undefined);
+  const all = rows.map((r) => ({ ...roadRow(r), commune: where(r) }));
+  const n = unique(rows.map((r) => r.nom)).length;
+  if ("introuvable" in asked) {
+    return text({ resume: `Pas de route forestière « ${asked.introuvable} » sur la carte de l'ONF. L'état des ${n} routes est dans routes_forestieres.`, routes_forestieres: all, ...common });
+  }
+  if ("toutes" in asked) {
+    const names = unique(rows.filter(shut).map((r) => r.nom)).map((nom) =>
+      // Closed on a piece only: said so after its code.
+      rows.some((r) => r.nom === nom && !shut(r)) ? (nom.endsWith(")") ? `${nom.slice(0, -1)}, sur une partie)` : `${nom} (sur une partie)`) : nom);
+    return text({
+      resume: `Routes forestières sur la carte de l'ONF : ${n}, ` +
+        (names.length ? `dont ${names.length} en circulation interdite : ${names.join(", ")}.` : "aucune en circulation interdite.") +
+        " L'état de chacune est dans routes_forestieres." + fireSentence,
+      routes_forestieres_fermees: rows.filter(shut).map(roadRow),
+      routes_forestieres: all,
+      ...common,
+    });
+  }
+  const said = unique(asked.routes.map((r) => r.nom)).map((nom) => {
+    const pieces = asked.routes.filter((r) => r.nom === nom);
+    return unique(pieces.map(state)).length === 1
+      ? `${nom} : ${state(pieces[0])}.`
+      : `${nom}, en ${pieces.length} tronçons : ${pieces.map((r) => `${state(r)} sur ${km(r.longueur_km)} km`).join("\u00a0; ")}.`;
+  });
+  return text({
+    resume: said.join(" "),
+    routes_forestieres: asked.routes.map((r) => ({ ...roadRow(r), longueur_km: r.longueur_km, commune: where(r) })),
+    ...common,
+  });
+}
+
 /** The closed trails by commune (where their middle is), the communes with the most first. */
 export function closedByCommune(sentiers: onf.Sentier[]) {
   const by = new Map<string, onf.Sentier[]>();
@@ -297,6 +370,10 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
     });
   }
 
+  // The forest roads, all or named; a name that no road has may still be a place (« routes forestières à Cilaos »).
+  const asked = roadsAsked(carte.routes, lieu);
+  if (asked && !("introuvable" in asked && !asked.code)) return roadsAnswer(asked, carte.routes, common, fireSentence);
+
   const q = normalize(lieu);
   const cirque = Object.entries(CIRQUES).find(([k]) => q.split(" ").includes(k))?.[1];
   const res = cirque ? null : resolvePlace(lieu);
@@ -304,7 +381,7 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
   const wide = !!cirque || res?.lieu.type === "commune";
   const named = wide && !/\bsentier\b/.test(q) ? [] : trailsNamed(carte.sentiers, lieu).slice(0, NAMED_MAX);
   const hikes = wide && !/\b(sentier|trace|gpx|gr)\b/.test(q) ? [] : routesNamed(lieu).slice(0, NAMED_MAX);
-  if (!cirque && !res && !named.length && !hikes.length) return notFound(lieu);
+  if (!cirque && !res && !named.length && !hikes.length) return asked ? roadsAnswer(asked, carte.routes, common, fireSentence) : notFound(lieu);
 
   let zone: { nom: string; dans: string; sentiers: onf.Sentier[]; routes: onf.Route[]; from?: { lon: number; lat: number } } | null = null;
   if (cirque) {

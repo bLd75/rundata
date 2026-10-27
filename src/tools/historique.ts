@@ -16,11 +16,13 @@ import type { Cache } from "../cache.js";
 import { type Place, resolvePlace } from "../places/resolve.js";
 import * as climat from "../providers/climat.js";
 import { type Field, type HourField, type Month, type Poste, type PosteHoraire, type Year } from "../providers/climat.js";
+import { SOURCE as METEOFRANCE, STATIONS_974, VEILLE, type Veille } from "../providers/meteofrance-stations.js";
 import { compass } from "../geo.js";
 import type { Station } from "../types.js";
 import { why } from "../types.js";
 import { a, credits, fr, notFound, placeBlock, text } from "./format.js";
 import { fit } from "./representativeness.js";
+import { rienTrouve } from "../vide.js";
 
 /** Up to this many days, one row per day; up to 2 years one per month; beyond, one per year. */
 const DAILY_MAX = 62;
@@ -541,6 +543,42 @@ async function hourly(cache: Cache, place: Place, p: Period, now: Date) {
   };
 }
 
+/**
+ * Yesterday 0 h to 24 h at the best Météo-France station near the place that measured its rain every hour, as kept at
+ * 00:20 by the scheduled event (providers/meteofrance.ts keepVeille): said until the daily file is loaded at noon.
+ */
+async function provisoire(cache: Cache, place: Place, jour: string) {
+  let kept;
+  try {
+    kept = (await cache.kept<Veille>(VEILLE))?.value;
+  } catch (err) {
+    console.error("veille indisponible", why(err));
+    return undefined;
+  }
+  if (kept?.jour !== jour) return undefined;
+  const best = STATIONS_974.filter(([id]) => kept.stations[id]?.rr != null)
+    .map(([id, nom, lat, lon, altitude_m]): Station => ({ source: "meteofrance", id, nom, lat, lon, altitude_m, variables: [] }))
+    .map((s) => ({ s, f: fit(place, s) })).sort((u, v) => u.f.score - v.f.score)[0];
+  if (!best) return undefined;
+  const v = kept.stations[best.s.id];
+  const temps = v.tn != null && v.tx != null ? `, températures de ${fr(v.tn)} °C à ${fr(v.tx)} °C` : "";
+  return {
+    etiquette: `Provisoire, ${frDate(jour)} 0 h–24 h (heure de La Réunion), relevés horaires Météo-France : pluie ${fr(v.rr!)} mm${temps}.`,
+    bloc: {
+      jour: frDate(jour),
+      periode: "0 h–24 h, heure de La Réunion",
+      nature: "mesure provisoire",
+      pluie_mm: v.rr,
+      temperature_min: v.tn,
+      temperature_max: v.tx,
+      station: best.s.nom,
+      distance_km: best.f.distance_km,
+      altitude_m: best.s.altitude_m,
+      avertissements: best.f.avertissements.length ? best.f.avertissements : undefined,
+    },
+  };
+}
+
 export async function historiqueMeteo(
   cache: Cache,
   lieu: string | undefined,
@@ -626,18 +664,25 @@ export async function historiqueMeteo(
     }
   }
   const daily = rain || temp ? sentence(`${place.nom}`, p, s, names) : "";
-  const last = lastDay(read, iso(now.getTime() + 4 * 3600_000 - DAY_MS));
+  const yesterday = iso(now.getTime() + 4 * 3600_000 - DAY_MS);
+  const last = lastDay(read, yesterday);
+  // Yesterday asked and not loaded yet: the day as the scheduled event kept it from the hourly package.
+  const veille = p.au >= yesterday && (!last || last < yesterday) ? await provisoire(cache, place, yesterday) : undefined;
+  // No measure of the period, at no station near: its days not loaded yet, or none measuring there.
+  if (!rain && !temp && !sun && !hh && !veille) rienTrouve("historique_meteo");
   return text({
     lieu: placeBlock(lieu, res),
     resume: [daily, hh ? `Heure par heure (station ${hh.ou}) — ${hh.texte}.` : ""].filter(Boolean).join(" ") +
       (warn.length ? ` Attention : ${[...new Set(warn)].join(" ")}` : "") +
-      (!rain && !temp && !hh ? ` ${nothing(place.nom, p, now, last)}` : rain || temp ? notYet(p, now, last) : ""),
+      (!rain && !temp && !hh ? ` ${nothing(place.nom, p, now, last)}` : rain || temp ? notYet(p, now, last) : "") +
+      (veille ? ` ${veille.etiquette}` : ""),
     stations: stationsUsed(place, [[rain, "pluie"], [temp, "températures et rafales"], [sun, "ensoleillement"]]),
     ...s,
     ...shape(rain, temp, sun),
+    hier_provisoire: veille?.bloc,
     heure_par_heure: hh?.bloc,
     records: recs,
     ...common,
-    ...(hh ? { sources: credits([climat.SOURCE, climat.SOURCE_HORAIRE]) } : {}),
+    ...(hh || veille ? { sources: credits([climat.SOURCE, ...(hh ? [climat.SOURCE_HORAIRE] : []), ...(veille ? [METEOFRANCE] : [])]) } : {}),
   });
 }

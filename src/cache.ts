@@ -7,12 +7,12 @@
  * stays down for days) so that an outage does not turn every question into a new request against a server that is
  * already struggling.
  */
-import { costOf } from "./budget.js";
+import { costOf, isScheduled, later } from "./budget.js";
 import { cacheTally } from "./metrics.js";
 
-import { noteLecture, withSource } from "./lectures.js";
+import { callDeadline, noteLecture, withSource } from "./lectures.js";
 import { UpstreamError, why } from "./types.js";
-import { familyOf, RENDU_REVISION } from "./web/revisions.js";
+import { familyOf, RENDU_REVISION, sourceRevision } from "./web/revisions.js";
 
 /**
  * The shape of what the stores keep (a source's answer, a page's copy), in the keys of the data center's cache and of
@@ -29,10 +29,15 @@ export interface CacheEntry {
   fetchedAt: number;
   /** For a page's copy: the subrequests its build took (budget.ts), for the isolates that have not built it yet. */
   cost?: number;
-  /** For a page's copy: the revision of the code that built it (`stampOf`). */
+  /** For a page's copy or a listed source's entry: the revision of the code that built it (`stampOf`). */
   version?: string;
   /** The source it was read from, when it was one (lectures.ts `withSource`). */
   from?: string;
+  /**
+   * When its refresh last failed, and the source that did not answer, if it said: until the breaker closes (`breakerMs`),
+   * this copy is served at once, by every process that reads the store, rather than the source being asked again.
+   */
+  echec?: { at: number; source?: string };
 }
 
 /**
@@ -43,18 +48,22 @@ export const isCopy = (key: string) => key.startsWith("web:");
 
 /**
  * What a page's copy built by the code of `version` (server.ts) is stamped with: its family's revision
- * (web/revisions.ts, #272), or the version itself for a family not listed there. Nothing for another key, or
- * when the code has no version (tests, Node).
+ * (web/revisions.ts, #272), or the version itself for a family not listed there. A source's entry: its source's
+ * revision (SOURCE_REVISION), nothing for a source not listed. Nothing when the code has no version (tests, Node).
  */
 export const stampOf = (key: string, version: string | undefined) => {
-  if (version == null || !isCopy(key)) return undefined;
+  if (version == null) return undefined;
+  if (!isCopy(key)) {
+    const revision = sourceRevision(key);
+    return revision != null ? `source-${revision}` : undefined;
+  }
   const revision = RENDU_REVISION[familyOf(key)];
   return revision != null ? `rendu-${revision}` : version;
 };
 
 /**
- * Whether `entry`, kept under `key`, is a page's copy stamped otherwise than the code of `version` stamps it
- * (#269, #272): due at once, whatever its age, so that a page shows what its code says from the first view
+ * Whether `entry`, kept under `key`, is a page's copy or a source's entry stamped otherwise than the code of `version`
+ * stamps it (#269, #272): due at once, whatever its age, so that a page shows what its code says from the first view
  * after the deploy that changed it. It stays the copy served if its build fails. A copy written before the stamps were
  * kept has none: built again once.
  */
@@ -93,7 +102,8 @@ export class TieredStore implements CacheStore {
     let from = 0;
     for (let i = 0; i < this.stores.length; i++) {
       const e = await this.stores[i].get(key, freshAfter);
-      if (e && (!newest || e.fetchedAt > newest.fetchedAt)) {
+      // The same copy in two stores: the one that says a later failed refresh (`echec`), so that the breaker holds.
+      if (e && (!newest || e.fetchedAt > newest.fetchedAt || (e.fetchedAt === newest.fetchedAt && (e.echec?.at ?? 0) > (newest.echec?.at ?? 0)))) {
         newest = e;
         from = i;
       }
@@ -107,9 +117,25 @@ export class TieredStore implements CacheStore {
   }
 }
 
+/** `store`'s entries under `prefix`: kept apart from the other entries of the same store (the Worker's KV). */
+class Prefixed implements CacheStore {
+  constructor(private store: CacheStore, private prefix: string) {}
+  get(key: string, freshAfter?: number) {
+    return this.store.get(`${this.prefix}${key}`, freshAfter);
+  }
+  put(key: string, entry: CacheEntry) {
+    return this.store.put(`${this.prefix}${key}`, entry);
+  }
+}
+
 /** The last good copy, served because `error` stopped its refresh: with the source that did not answer, if it said. */
-const lastCopy = <T>(hit: CacheEntry, error: unknown): Cached<T> =>
-  ({ value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true, ...(error instanceof UpstreamError && { source: error.source }) });
+const lastCopy = <T>(hit: CacheEntry, error: unknown): Cached<T> => copyOf(hit, error instanceof UpstreamError ? error.source : undefined);
+/**
+ * The last good copy, served with `source` said as the one that did not answer, or, `tardive`, that was too slow for
+ * the answer (its read goes on after it).
+ */
+const copyOf = <T>(hit: CacheEntry, source?: string, tardive?: boolean): Cached<T> =>
+  ({ value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: true, ...(source && { source }), ...(tardive && { tardive: true as const }) });
 
 export interface Cached<T> {
   value: T;
@@ -118,6 +144,8 @@ export interface Cached<T> {
   stale: boolean;
   /** With `stale`: the id of the source that did not answer, when its error said it (an UpstreamError). */
   source?: string;
+  /** With `stale`: the source did not fail, it was too slow for the tool call's time (lectures.ts `callDeadline`). */
+  tardive?: true;
   /** The source it was read from, when it was one: a fresh copy and a last copy of the same source tell their parts apart. */
   from?: string;
   /** What its build took, when it was measured (`peek` only). */
@@ -127,6 +155,15 @@ export interface Cached<T> {
 }
 
 const FAILURE_BACKOFF_SECONDS = 60;
+// The longest a source that failed with a copy in the stores is left alone (its copy served at once): a source fresh for
+// less is asked again as often as it is fresh, one fresh for longer (a list, a day's file) no later than this.
+const BREAKER_MAX_SECONDS = 15 * 60;
+/** How long a failed refresh is left alone: as long as the entry is fresh, within the back-off and the longest above. */
+export const breakerMs = (freshSeconds: number, backoffSeconds = FAILURE_BACKOFF_SECONDS) =>
+  Math.max(backoffSeconds, Math.min(BREAKER_MAX_SECONDS, freshSeconds)) * 1000;
+// The warnings (Météo-France's vigilance, the cyclones): never served from a copy only because their source was slow for
+// a tool call's time (lectures.ts); the answer waits for them, so that a copy is only ever one of a source that failed.
+const ALWAYS_WAITED = (key: string) => key === "vigilance" || key.startsWith("cyclones:");
 // The invocation ran out of subrequests: not the source's fault, so not remembered against it.
 const OUT_OF_BUDGET = /Too many subrequests/;
 // Bundles kept in memory per process; older ones (an AROME run replaced by the next) are dropped.
@@ -160,6 +197,8 @@ export class Cache {
   private inflight = new Map<string, Promise<Cached<unknown>>>();
   private failures = new Map<string, { at: number; error: unknown }>();
   private bundles = new Map<string, BundleState>();
+  /** The stores, then `durable` behind them (`island`). */
+  private wide: CacheStore;
 
   /**
    * `dedupe` lets concurrent questions share one upstream request. The Worker turns it off: there, a request
@@ -175,12 +214,43 @@ export class Cache {
     private dedupe = true,
     private durable: CacheStore = store,
     readonly version?: string,
-  ) {}
+  ) {
+    this.wide = durable === store ? store : new TieredStore(store, new Prefixed(durable, "lecture:"));
+  }
 
   /** `backoffSeconds`: how long a failure is remembered (in this process) before the source is asked again. */
   async get<T>(key: string, freshSeconds: number, load: () => Promise<T>, backoffSeconds = FAILURE_BACKOFF_SECONDS): Promise<Cached<T>> {
     const hit = await this.store.get(key, this.now() - freshSeconds * 1000);
     return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e), backoffSeconds));
+  }
+
+  /**
+   * As `get`, for a source read whole for the island under one key, with the durable store (the Worker's KV), which
+   * every data center reads, behind memory and the data center's cache: what is read goes there, and a failed refresh
+   * (`echec`) too. An isolate or a data center that has not read it yet (a scheduled event, a question) takes the copy
+   * another one read rather than asking the source again, and a source that does not answer is left alone by all of
+   * them until its breaker closes, not only by the data center that found it silent (26/10/2026, in 50 minutes: NASA
+   * FIRMS's fires read 8 times for 30 minutes of freshness, CAMS's UV 8 times for an hour, the prefecture's list 3
+   * times in one minute).
+   */
+  async island<T>(key: string, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>> {
+    const hit = await this.wide.get(key, this.now() - freshSeconds * 1000);
+    return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.wide.put(key, e)));
+  }
+
+  /**
+   * As `island`, for a source too slow to be read while someone waits (Vigicrues Réunion's 29 gauges, 15 s and more):
+   * only the scheduled event reads it. Every other invocation is served the copy it left in the stores, however old,
+   * with its time, and as the copy of a silent source when that read failed; the source is asked there only when the
+   * stores have none. `load` is given the copy it replaces, for what a read in parts did not bring back.
+   */
+  async islandRead<T>(key: string, freshSeconds: number, load: (before?: T) => Promise<T>): Promise<Cached<T>> {
+    const hit = await this.wide.get(key, this.now() - freshSeconds * 1000);
+    if (hit && !isScheduled()) {
+      cacheTally().hits++;
+      return this.noted(key, freshSeconds, hit.echec ? copyOf<T>(hit, hit.echec.source ?? hit.from) : { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.from && { from: hit.from }) });
+    }
+    return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, () => load(hit?.value as T | undefined), (e) => this.wide.put(key, e)));
   }
 
   /**
@@ -199,7 +269,7 @@ export class Cache {
 
   /** Tells the tool call being answered, if any, what it was served (lectures.ts): its answer says how fresh it is. */
   private noted<T>(key: string, freshSeconds: number, c: Cached<T>): Cached<T> {
-    noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds, ...(c.source && { source: c.source }), ...(c.from && { from: c.from }) });
+    noteLecture({ key, fetchedAt: c.fetchedAt.getTime(), stale: c.stale, freshSeconds, ...(c.source && { source: c.source }), ...(c.tardive && { tardive: true }), ...(c.from && { from: c.from }) });
     return c;
   }
 
@@ -282,6 +352,8 @@ export class Cache {
       return { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.from && { from: hit.from }) };
     }
     cacheTally().loads++;
+    // The breaker: another process found the source silent a moment ago and wrote it in the stores.
+    if (hit?.echec && this.now() - hit.echec.at < breakerMs(freshSeconds, backoffSeconds)) return copyOf<T>(hit, hit.echec.source ?? hit.from);
     const failed = this.failures.get(key);
     if (failed && this.now() - failed.at < backoffSeconds * 1000) {
       if (hit) return lastCopy<T>(hit, failed.error);
@@ -292,7 +364,19 @@ export class Cache {
       pending = this.refresh(key, hit, load, put);
       if (this.dedupe) this.inflight.set(key, pending);
     }
-    return pending as Promise<Cached<T>>;
+    // A tool call past its time (lectures.ts) does not wait for a source it has a copy of: the copy is its answer, said
+    // as such, and the read ends after it, its result stored for the next question.
+    const until = hit && !ALWAYS_WAITED(key) ? callDeadline() : undefined;
+    if (until == null) return pending as Promise<Cached<T>>;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<undefined>((resolve) => (timer = setTimeout(() => resolve(undefined), Math.max(0, until - Date.now()))));
+    const got = await Promise.race([pending as Promise<Cached<T>>, late]);
+    clearTimeout(timer);
+    if (got) return got;
+    later(pending.catch(() => undefined));
+    console.log(`lecture trop lente pour la réponse : ${key}, copie du ${new Date(hit!.fetchedAt).toISOString()} servie`);
+    // Slow, unless its last read already failed: a source silent for hours is said not to answer (26/10, the IPGP's).
+    return copyOf<T>(hit!, hit!.echec?.source ?? hit!.from, !hit!.echec);
   }
 
   private async refresh<T>(
@@ -314,6 +398,9 @@ export class Cache {
         this.failures.set(key, { at: this.now(), error });
         // The source answered, but reading it failed (its page changed shape…): ours to mend, said in the logs only.
         if (!(error instanceof UpstreamError)) console.error(`lecture sans aboutir : ${key}`, why(error));
+        // A copy to fall back on: the breaker opens for every process of the store (`serve`), said once in the logs.
+        else if (hit) console.error(`source ${error.source} sans réponse : ${key}, copie du ${new Date(hit.fetchedAt).toISOString()} servie`, why(error));
+        if (hit) await put({ ...hit, echec: { at: this.now(), ...(error instanceof UpstreamError && { source: error.source }) } }).catch(() => undefined);
       }
       if (hit) return lastCopy<T>(hit, error);
       throw error;

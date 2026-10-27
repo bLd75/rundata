@@ -5,7 +5,7 @@ import type { Hit } from "../src/metrics.js";
 import { point } from "../src/metrics.js";
 import { legalPage, offlinePage, placePage } from "../src/web/pages.js";
 import { pageOf } from "../src/web/places.js";
-import { KEPT_PAGES, serviceWorker } from "../src/web/pwa.js";
+import { INSTALL, KEPT_PAGES, KIND_OF, KINDS, SECTIONS, serviceWorker, SHOWN } from "../src/web/pwa.js";
 import { manifest, site } from "../src/web/site.js";
 import { withVolcan } from "../src/web/volcan-alerte.js";
 
@@ -51,7 +51,7 @@ class FakeCaches {
 type Listener = (e: any) => void;
 
 /** The service worker run against a fake browser: its network, its caches, its windows, its timer. */
-function worker(opts: { net?: (r: Request) => Promise<Response>; slow?: boolean } = {}) {
+function worker(opts: { net?: (r: Request) => Promise<Response>; slow?: boolean; shell?: string[] } = {}) {
   const on = new Map<string, Listener>();
   const caches = new FakeCaches();
   const asked: Request[] = [];
@@ -70,7 +70,7 @@ function worker(opts: { net?: (r: Request) => Promise<Response>; slow?: boolean 
   };
   // The page's wait for a slow network: at once when the test asks for it, never otherwise.
   const timer = (f: () => void) => (opts.slow ? queueMicrotask(f) : undefined);
-  new Function("self", "caches", "fetch", "setTimeout", serviceWorker(["/font.woff2", "/favicon.svg"]))(self, caches, fetch, timer);
+  new Function("self", "caches", "fetch", "setTimeout", serviceWorker(opts.shell ?? ["/font.woff2", "/favicon.svg"]))(self, caches, fetch, timer);
 
   const extend = async (type: string, extra: object = {}) => {
     const waits: Promise<unknown>[] = [];
@@ -112,6 +112,15 @@ describe("the service worker", () => {
     await w.extend("activate");
     expect(await w.caches.keys()).not.toContain("coquille-ancienne");
     expect(w.calls.claim).toBe(1);
+  });
+
+  it("gives a page kept from an earlier version the shell's stylesheet, offline, whatever its old address", async () => {
+    const w = worker({ net: offline, shell: ["/style-neuf.css", "/font.woff2"] });
+    await w.extend("install");
+    const ask = (path: string) => w.extend("fetch", { request: new Request(`${O}${path}`) });
+    expect(await (await ask("/style-ancien.css"))!.text()).toBe("shell /style-neuf.css");
+    expect(await (await ask("/style-neuf.css"))!.text()).toBe("shell /style-neuf.css");
+    expect(await ask("/autre.css")).toBeUndefined();
   });
 
   it("changes its text only with the files it keeps", () => {
@@ -247,7 +256,7 @@ describe("the site's part", () => {
     const sw = await site(new Request(`${O}/sw.js`), cache(), () => {}, NOW);
     expect(sw!.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
     expect(sw!.headers.get("cache-control")).toBe("no-cache");
-    expect(await sw!.text()).toMatch(/const SHELL=\["\/hors-ligne","\/font\/titres-1\.woff2","\/relief-\w+\.webp","\/favicon\.svg","\/icons\/logo-192\.[0-9a-f]{10}\.png"\]/);
+    expect(await sw!.text()).toMatch(/const SHELL=\["\/hors-ligne","\/style-\w+\.css","\/font\/titres-1\.woff2","\/relief-\w+\.webp","\/favicon\.svg","\/icons\/logo-192\.[0-9a-f]{10}\.png"\]/);
     const off = await site(new Request(`${O}/hors-ligne`), cache(), () => {}, NOW);
     const html = await off!.text();
     expect(html).toContain("<title>Hors ligne · rundata.re</title>");
@@ -283,10 +292,12 @@ describe("the site's part", () => {
     const html = placePage(O, pageOf("cilaos")!, null, NOW);
     expect(html).toContain(`<div class="card inst" id="inst" hidden>`);
     expect(html).toContain("rundata.re sur votre écran d'accueil");
-    expect(html).toContain(`<span data-inst="android">Pas de store, pas de compte.</span><span data-inst="ios safari">Pas d'App Store, pas de compte.</span>`);
-    expect(html).toContain('<li>Touchez Partager <svg class="partage" viewBox="0 0 24 24" aria-hidden="true">');
+    expect(html).toContain("pratique en randonnée. Pas de store, pas de compte.</p>");
+    expect(html).not.toContain("App Store");
+    expect(html).toContain('<ol data-inst="ios"><li>Touchez Partager <svg class="partage" viewBox="0 0 24 24" aria-hidden="true">');
+    expect(html).toContain(`<p><a href="/application">Autre téléphone ou autre navigateur\u00a0: les étapes pour chacun →</a></p>`);
+    expect(html).toContain('<button type="button" class="go" id="inst-go" data-inst="bouton">Installer</button>');
     expect(html).not.toContain("⎋");
-    expect(html).toContain("</svg> (sur les iPhone récents, il est dans le menu « ⋯ »).</li>");
     expect(html).toContain(`navigator.serviceWorker.register("/sw.js")`);
     expect(html).toContain(`localStorage.setItem("inst-plus-tard"`);
     expect(html.indexOf('id="inst"')).toBeLessThan(html.indexOf('id="avis"'));
@@ -301,11 +312,70 @@ describe("the site's part", () => {
     const html = legalPage(O, "confidentialite");
     expect(html).toContain("Installation et lecture hors ligne : elles n'utilisent aucun cookie.");
     expect(html).toContain("si la page est ouverte depuis l'application installée sur l'écran d'accueil");
+    // The language of the ready-made question (pages.ts, « askl ») is kept the same way.
+    expect(html).toContain("Votre choix «\u00a0Plus tard\u00a0» est gardé de la même façon, comme la langue choisie, kréol ou français, pour la question toute prête à poser à votre IA. Ces données restent sur le téléphone");
   });
 
   it("counts a page view in the app in blob11, « app » or nothing", () => {
     const v = { who: "navigateur", country: "RE", from: "", audience: "humain", language: "fr" };
     expect(point({ kind: "page", name: "/meteo", ok: true }, { ...v, mode: "app" }).blobs[10]).toBe("app");
     expect(point({ kind: "page", name: "/meteo", ok: true }, v).blobs[10]).toBe("");
+  });
+
+  // User agents as each browser sends them (iOS 18, Android 14, Windows, macOS); an iPad's Safari says « Macintosh ».
+  const kindOf = new Function(`${KIND_OF} return kindOf;`)() as (ua: string, touch: boolean) => string | null;
+  const IOS = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)";
+  const MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)";
+  const WIN = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
+
+  it("tells each browser apart by its user agent, for its own steps", () => {
+    const cases: [string, boolean, string | null][] = [
+      [`${IOS} Version/18.0 Mobile/15E148 Safari/604.1`, false, "ios"],
+      ["Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1", false, "ipad"],
+      [`${MAC} Version/18.0 Safari/605.1.15`, true, "ipad"],
+      [`${IOS} CriOS/130.0.6723.90 Mobile/15E148 Safari/604.1`, false, "ios-chrome"],
+      [`${IOS} FxiOS/132.0 Mobile/15E148 Safari/605.1.15`, false, "ios-firefox"],
+      [`${IOS} EdgiOS/130.0.2849.80 Mobile/15E148 Safari/605.1.15`, false, "ios-autre"],
+      [`${IOS} Version/18.0 Mobile/15E148 Safari/604.1 OPiOS/16.0.15`, false, "ios-autre"],
+      [`${IOS} Mobile/15E148 Instagram 357.0.0.25.101 (iPhone15,2; iOS 18_0; fr_FR)`, false, "app"],
+      [`${IOS} Mobile/15E148 [FBAN/FBIOS;FBAV/485.0.0.40.104;FBBV/123]`, false, "app"],
+      [`${IOS} Version/18.0 GSA/340.0.686617470 Mobile/15E148 Safari/604.1`, false, "app"],
+      [`${MAC} Version/18.0 Safari/605.1.15`, false, "mac-safari"],
+      [`${MAC} Version/16.6 Safari/605.1.15`, false, null],
+      ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36", false, null],
+      ["Mozilla/5.0 (Android 14; Mobile; rv:132.0) Gecko/132.0 Firefox/132.0", false, "android-firefox"],
+      ["Mozilla/5.0 (Linux; U; Android 9; fr-fr; Redmi Note 7) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1", false, "android-autre"],
+      ["Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP2A.240905.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.6723.86 Mobile Safari/537.36", false, "app"],
+      ["Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36", false, "telephone"],
+      ["Mozilla/5.0 (Linux; Android 14; SM-S921B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.0.0 Mobile Safari/537.36", false, "telephone"],
+      ["Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36 EdgA/130.0.0.0", false, "telephone"],
+      [`${WIN} AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36`, false, null],
+      [`${WIN} AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0`, false, null],
+      [`${WIN.slice(0, -1)}; rv:144.0) Gecko/20100101 Firefox/144.0`, false, null],
+    ];
+
+    expect(cases.map(([ua, touch]) => kindOf(ua, touch))).toEqual(cases.map((c) => c[2]));
+    for (const k of cases.map((c) => c[2])) if (k && k !== "telephone") expect(KINDS).toContain(k);
+  });
+
+  it("puts each browser's steps once in the block, tagged with its kind, and the others' on /application only", () => {
+    expect(SHOWN).toEqual(["ios", "ipad", "ios-chrome", "ios-firefox", "ios-autre", "app", "android-firefox", "android-autre"]);
+    expect(new Set(SECTIONS.map((s) => s.id)).size).toBe(SECTIONS.length);
+    for (const k of SHOWN) expect(INSTALL.split(`data-inst="${k}"`)).toHaveLength(2);
+    // Safari on a Mac: the user agent does not say whether macOS has « Ajouter au Dock » (Sonoma and after).
+    expect(INSTALL).not.toContain("Ajouter au Dock");
+    expect(INSTALL).not.toContain("Pas de bouton");
+    expect(INSTALL).not.toContain("Selon la version de Firefox");
+    expect(INSTALL).not.toContain("<h2");
+  });
+
+  it("gives marketing's steps for Safari, Chrome and Firefox, and general ones where no menu name was read", () => {
+    expect(INSTALL).toContain("</svg>. S'il n'est pas dans la barre, ouvrez d'abord le menu de la page (bouton «\u00a0⋯\u00a0»), puis touchez «\u00a0Partager\u00a0».</li><li>Faites défiler les options, puis touchez «\u00a0Sur l'écran d'accueil\u00a0».</li><li>Touchez «\u00a0Ajouter\u00a0».</li></ol>");
+    expect(INSTALL).toContain("<li>Touchez «\u00a0En voir plus\u00a0» (ou le bouton Plus, selon la version).</li>");
+    expect(INSTALL).toContain(`<p data-inst="ios-autre">Touchez Partager dans votre navigateur, puis cherchez «\u00a0Sur l'écran d'accueil\u00a0». Si l'option n'y est pas, ouvrez cette page dans Safari et suivez ses étapes.</p>`);
+    expect(INSTALL).toContain(`<p data-inst="app">Vous lisez cette page dans une application, comme Facebook ou Instagram.`);
+    expect(INSTALL).not.toContain("Ouvrir dans le navigateur");
+    expect(INSTALL).toContain(`<ol data-inst="ios-firefox"><li>Ouvrez le menu de Firefox.</li><li>Touchez «\u00a0Enregistrer\u00a0», puis «\u00a0Ajouter à l'écran d'accueil\u00a0».</li><li>Confirmez.</li></ol>`);
+    expect(INSTALL).toContain(`<ol data-inst="android-firefox"><li>Touchez ⋮, puis «\u00a0Plus\u00a0».</li><li>Touchez «\u00a0Ajouter l'application à l'écran d'accueil\u00a0» (ou «\u00a0Ajouter à l'écran d'accueil\u00a0»).</li><li>Touchez «\u00a0Ajouter\u00a0».</li></ol>`);
   });
 });

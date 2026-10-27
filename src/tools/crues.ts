@@ -1,3 +1,4 @@
+import { isScheduled } from "../budget.js";
 import type { Cache } from "../cache.js";
 import { ageMinutes, ageText, distanceKm, localTime } from "../geo.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
@@ -162,11 +163,15 @@ async function read(cache: Cache, ids: string[] | undefined, now: Date) {
     console.error(`source ${vc.SOURCE.id} indisponible (${what}):`, why(err));
     failed.push(what);
   };
-  await Promise.all([
-    vc.vigilance(cache).then((r) => void (v = r.value), lost("vigilance")),
-    vc.readings(cache, "hauteur", ids, now).then((r) => void ((h = r.value), (readAt = r.fetchedAt.getTime())), lost("hauteurs")),
-    vc.readings(cache, "debit", ids, now).then((r) => void (q = r.value), lost("débits")),
-  ]);
+  const reads = [
+    () => vc.vigilance(cache).then((r) => void (v = r.value), lost("vigilance")),
+    () => vc.readings(cache, "hauteur", ids, now).then((r) => void ((h = r.value), (readAt = r.fetchedAt.getTime())), lost("hauteurs")),
+    () => vc.readings(cache, "debit", ids, now).then((r) => void (q = r.value), lost("débits")),
+  ];
+  // The scheduled event, which nobody waits for, asks the site one thing at a time (vigicrues.ts): the vigilance, the
+  // heights, then the flows. A question asks for them together.
+  if (isScheduled()) for (const r of reads) await r();
+  else await Promise.all(reads.map((r) => r()));
   return { v: v as vc.Vigilance | null, h, q, failed, readAt };
 }
 

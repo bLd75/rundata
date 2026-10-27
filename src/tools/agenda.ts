@@ -14,8 +14,9 @@ import { type SourceInfo, UpstreamError, why } from "../types.js";
 import { mesure } from "../web/mesure.js";
 import { a, credits, de, enumeration, notFound, placeBlock, text } from "./format.js";
 import { type Injoignable, injoignable } from "./injoignable.js";
-import { dayMonth, mention, mentionIle as ileMention, mentionReunionFr, RESUME_REUNION_FR } from "./non-repris.js";
+import { dayMonth, mention, mentionIle as ileMention, mentionReunionFr, mentionSalles, mentionSports, RESUME_REUNION_FR } from "./non-repris.js";
 import { quand as dayText, derniereLecture } from "./sport.js";
+import { rienTrouve } from "../vide.js";
 
 const AHEAD_DAYS = 14;
 const SOON_DAYS = 30;
@@ -461,8 +462,11 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     publie_par: e.publie_par,
     /** When rundata.re read the agenda this comes from; not for an event its organiser proposed, never read elsewhere. */
     lu_le: e.lu_le && !e.propose ? dayText(e.lu_le) : undefined,
-    /** « site de la commune du Tampon, lu le samedi 24/10 à 08:00 », when it comes from a commune's site. */
-    source: e.site_commune && e.lu_le ? `${e.site_commune}, lu le ${dayText(e.lu_le)}` : undefined,
+    /**
+     * « site de la commune du Tampon, lu le samedi 24/10 à 08:00 », when it comes from a commune's site; « Théâtre Luc
+     * Donat (site lu le mardi 27/10 à 10:30) », when its agreement asks to name it (marketing).
+     */
+    source: !e.lu_le ? undefined : e.site_commune ? `${e.site_commune}, lu le ${dayText(e.lu_le)}` : e.credit ? `${e.credit} (site lu le ${dayText(e.lu_le)})` : undefined,
     /** Proposed by its organiser on rundata.re: said so, with the day, never « checked ». */
     propose: e.propose ? `Proposé par l'organisateur sur rundata.re le ${e.propose.le.split("-").reverse().join("/")}` : undefined,
     /** The contact its author chose to show, only then. */
@@ -558,16 +562,28 @@ const THEIRS_ONLY = new Set(NON_LUS.map((x) => x.source).filter((s) => !src.AGEN
 const RETIRE = { publie_par: "reunion.fr", source: "Agenda de reunion.fr, site officiel du tourisme de La Réunion" };
 THEIRS_ONLY.add(RETIRE.source);
 
+// The clubs' events are published by each club, on its own site of Sportsregions: told by their link.
+const clubsNonLus = NON_LUS.includes(src.SPORTSREGIONS);
+const hostOf = (lien: string | undefined) => {
+  try {
+    return lien ? new URL(lien).hostname : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 /**
  * Whether an event of a copy may be served: not one read on a site not read until its commune agrees, however old the
  * copy (one built before, by another revision, can still be served while it is rebuilt: tools/resume.ts, readCopies).
  */
-export const repris = (r: Pick<EventRow, "source" | "publie_par">) =>
-  r.publie_par !== RETIRE.publie_par && !NON_LUS.some((x) => r.publie_par === x.nom || (!!x.site_commune && !!r.source?.startsWith(`${x.site_commune}, `)));
+export const repris = (r: Pick<EventRow, "source" | "publie_par" | "lien">) =>
+  r.publie_par !== RETIRE.publie_par && !NON_LUS.some((x) => r.publie_par === x.nom || (!!x.site_commune && !!r.source?.startsWith(`${x.site_commune}, `))) &&
+  !(clubsNonLus && hostOf(r.lien)?.endsWith(".sportsregions.fr"));
 
-/** The credits of a copy, as they read now: none of a source not read, the mairies' agendas named as now (SOURCES). */
+/** The credits of a copy, as they read now: none of a source not read, the mairies' agendas and the halls named as now (SOURCES). */
 export function sourcesServies<T extends { source: string }>(cs: T[] | undefined): (T | ReturnType<typeof credits>[number])[] | undefined {
-  return cs?.filter((c) => !THEIRS_ONLY.has(c.source)).map((c) => (c.source.startsWith("Agendas des mairies") ? credits([src.SOURCES.mairies])[0] : c));
+  return cs?.filter((c) => !THEIRS_ONLY.has(c.source)).map((c) =>
+    c.source.startsWith("Agendas des mairies") ? credits([src.SOURCES.mairies])[0] : c.source.startsWith("Programmes des salles") ? credits([SALLES_SOURCE])[0] : c);
 }
 
 // Told from the agendas read: a source taken out of AGENDAS leaves this text too.
@@ -596,15 +612,18 @@ const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== P
 const partial = src.AGENDAS.filter((x) => x.partiel);
 // Not those whose site is not read until they agree: said apart (mentionIle).
 const without = Object.keys(INSEE).filter((c) => !src.COVERED.includes(c) && !nonAutorisee("agenda", c));
+/** The halls whose programme is read, for the tool's description: « le programme du Séchoir ». */
+export const PROGRAMMES_SALLES = `${halls.length > 1 ? "les programmes" : "le programme"} ${enumeration(halls.map((h) => ofAgenda(h.nom)))}`;
 /** The communes whose mairie's agenda is read, for the tool's description. */
 export const MAIRIES_LUES = towns.filter((x) => x.commune && !x.couvre).map((x) => x.commune).join(", ");
 export const COUVERTURE =
   `Agendas lus : ${towns.map((x) => (x.couvre ? `${x.nom} (${x.couvre.join(", ")})` : x.nom)).join(", ")}. ` +
-  `Programmes des salles : ${halls.map((x) => x.nom).join(", ")}. ` +
+  // One hall: « Programme du Séchoir » (marketing).
+  (halls.length > 1 ? `Programmes des salles : ${halls.map((x) => x.nom).join(", ")}. ` : halls.length ? `Programme ${ofAgenda(halls[0].nom)}. ` : "") +
   (partial.length ? `Actualités des mairies, pour les seuls événements qu'elles annoncent avec leur date (pas un agenda complet) : ${[...new Set(partial.map((x) => x.commune))].join(", ")}. ` : "") +
   `Sans agenda lu : ${without.join(", ")}` +
   `${Object.entries(src.SANS_AGENDA).filter(([c]) => without.includes(c)).map(([, why]) => `\u00a0; ${why}`).join("")}. ` +
-  (mentionIle().length ? `${mentionIle().join(" ")} ` : "") +
+  [...mentionIle(), ...mentionSalles(), ...mentionSports([], true)].map((x) => `${x} `).join("") +
   "Aussi : les événements que les clubs et associations proposent sur rundata.re (https://rundata.re/associations), relus avant publication. " +
   "Lus en partie seulement\u00a0: les bars, les clubs et les billetteries privées (seul l'agenda de Weezevent est lu). Un événement absent ici peut quand même avoir lieu (voir le site ou la " +
   "page Facebook de la salle ou de la mairie). Chaque événement dit qui le publie, renvoie à sa page et dit quand rundata.re l'a lu.";
@@ -629,7 +648,7 @@ function nonLus(got: Got[], commune: string | undefined): { nom: string; etat: s
   return [...named.values()];
 }
 
-const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publiés par l'organisateur : vérifier sur la page de l'événement avant de se déplacer (annulation, météo, places). Un événement annulé ou reporté reste dans la liste avec son statut\u00a0; « complet » : plus de places en vente. Une salle sans heure (TÉAT) donne l'heure sur la page du spectacle. Les matchs des clubs et les programmes sportifs des communes : l'outil sport.";
+const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publiés par l'organisateur : vérifier sur la page de l'événement avant de se déplacer (annulation, météo, places). Un événement annulé ou reporté reste dans la liste avec son statut\u00a0; « complet » : plus de places en vente. Les matchs des clubs et les programmes sportifs des communes : l'outil sport.";
 
 /** `listed`: how many events at most (the page lists them all). */
 /** `adherent`: the user says they are a club's member: its sessions for the members are told too, said so. */
@@ -659,7 +678,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const p = periode(quand, now);
   const what = matcher(quoi);
   // The communes' sports programmes go to the sport tool (src.programmesSportifs).
-  const all = withNews(unique(got.flatMap((g) => g.value ? g.value.value.filter((e) => !src.programmeSportif(e) && (adherent || !e.reserve_adherents)).map((e) => ({ ...e, lu_le: src.toLocal(g.value!.fetchedAt.toISOString()), site_commune: g.agenda.site_commune })) : [])), news?.value.infos, now)
+  const all = withNews(unique(got.flatMap((g) => g.value ? g.value.value.filter((e) => !src.programmeSportif(e) && (adherent || !e.reserve_adherents)).map((e) => ({ ...e, lu_le: src.toLocal(g.value!.fetchedAt.toISOString()), site_commune: g.agenda.site_commune, credit: g.agenda.credit })) : [])), news?.value.infos, now)
     .map((e) => ({ e, seances: inPeriod(e, p, now) }))
     .filter((x) => x.seances.length && (!what || what.test(x.e)))
     .sort((x, y) => Number(spanDays(x.seances[0]) > LONG_DAYS) - Number(spanDays(y.seances[0]) > LONG_DAYS) ||
@@ -670,13 +689,15 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const where = commune ? a(commune) : "à La Réunion";
   const kind = what?.nom ? ` (${what.nom})` : "";
   const n = mine.length;
+  if (!n) rienTrouve("evenements");
   const covered = !commune || src.COVERED.includes(commune);
   // A commune read only through its mairie's news: said, so that a short list is not taken for its whole agenda.
   const partly = commune ? partial.find((x) => x.commune === commune && !towns.some((y) => (y.couvre ?? [y.commune]).includes(commune))) : undefined;
   const off = mine.filter((x) => x.e.statut === "annulé" || x.e.statut === "reporté");
   // reunion.fr's agenda, not read (tools/non-repris.ts): said for the whole island and for the big fêtes and festivals.
   const irt = !commune || !!what?.nom?.includes("fêtes et festivals");
-  const nonRepris = [...(commune ? [mentionCommune(commune)] : mentionIle()), irt ? mentionReunionFr() : undefined].filter(Boolean).join(" ") || undefined;
+  // The halls not read (tools/non-repris.ts), the commune's or the island's.
+  const nonRepris = [...(commune ? [mentionCommune(commune)] : mentionIle()), ...mentionSalles(commune), irt ? mentionReunionFr() : undefined].filter(Boolean).join(" ") || undefined;
   const resume = [
     n ? `${n} événement${n > 1 ? "s" : ""}${kind} ${where} ${periodText}` : `Aucun événement${kind} trouvé ${where} ${periodText}`,
     off.length ? `ATTENTION : ${off.map((x) => `« ${x.e.titre} » ${x.e.statut}${x.e.reporte_au ? ` au ${dayText(x.e.reporte_au)}` : ""}${x.e.selon ? ` (d'après ${x.e.selon.media})` : ""}`).slice(0, 4).join(", ")}` : "",

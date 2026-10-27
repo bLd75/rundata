@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { handle } from "../src/app.js";
+import { batchRefused, handle, MAX_BATCH } from "../src/app.js";
+import { bodyText } from "../src/http.js";
 import { Cache } from "../src/cache.js";
-import { visitor, type Hit } from "../src/metrics.js";
+import { teamVisit, visitor, type Hit } from "../src/metrics.js";
 
 const mcp = (body: unknown) =>
   new Request("http://x/mcp", {
@@ -25,9 +26,79 @@ describe("HTTP endpoint", () => {
       "fiche_terrain", "velos_libre_service", "maree", "crues_rivieres", "bornes_recharge", "qualite_eau", "sentiers_randonnee", "restrictions_eau", "coupures_eau", "resume_du_jour", "defibrillateurs", "sport", "cyclones", "historique_meteo", "evenements", "actualites", "donner_avis", "sites_sans_reponse", "sources_donnees"]);
   });
 
+  it("answers on /mcp/ as on /mcp, in place and counted the same, and shows browsers the same page", async () => {
+    const hits: Hit[] = [];
+    const call = (path: string) => new Request(`https://rundata.re${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "sources_donnees", arguments: {} } }),
+    });
+    for (const path of ["/mcp", "/mcp/", "/mcp/?interne=1"]) {
+      const r = await handle(call(path), new Cache(), () => {}, (h) => hits.push(h));
+      expect(r.status, path).toBe(200);
+      expect(r.headers.get("access-control-allow-origin"), path).toBe("*");
+      expect((await r.json()).result.isError, path).toBeFalsy();
+    }
+    expect(hits).toMatchObject([1, 2, 3].map(() => ({ kind: "mcp", name: "sources_donnees", ok: true, method: "tools/call" })));
+    expect(teamVisit(new Headers(), new URL("https://rundata.re/mcp/?interne=1"))).toBe(true);
+    for (const [method, status] of [["OPTIONS", 204], ["GET", 405], ["DELETE", 405]] as const) {
+      expect((await handle(new Request("https://rundata.re/mcp/", { method }), new Cache())).status, method).toBe(status);
+    }
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("offline");
+    });
+    const page = await handle(new Request("https://rundata.re/mcp/", { headers: { accept: "text/html" } }), new Cache());
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain("https://rundata.re/mcp");
+  });
+
   it("answers CORS preflight and unknown paths", async () => {
     expect((await handle(new Request("http://x/mcp", { method: "OPTIONS" }), new Cache())).status).toBe(204);
     expect((await handle(new Request("http://x/nope"), new Cache())).status).toBe(404);
+  });
+
+  it("refuses batches in the protocol that dropped them, and more than MAX_BATCH messages in the older ones", async () => {
+    const ping = (id: number) => ({ jsonrpc: "2.0", id, method: "ping" });
+    const batch = (n: number, version?: string) => {
+      const r = mcp(Array.from({ length: n }, (_, i) => ping(i + 1)));
+      if (version) r.headers.set("mcp-protocol-version", version);
+      return r;
+    };
+    const seen: Hit[] = [];
+    const recent = await handle(batch(2, "2025-06-18"), new Cache(), undefined, (h) => seen.push(h));
+    expect(recent.status).toBe(400);
+    expect(recent.headers.get("access-control-allow-origin")).toBe("*");
+    expect((await recent.json()).error.message).toMatch(/one message per request/);
+    // One refused request in the metrics, not one per message.
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({ kind: "rpc", ok: false, outcome: "http 400" });
+    const many = await handle(batch(MAX_BATCH + 1, "2025-03-26"), new Cache());
+    expect(many.status).toBe(400);
+    expect((await many.json()).error.message).toBe(`At most ${MAX_BATCH} messages per batch.`);
+    const small = await handle(batch(2, "2025-03-26"), new Cache());
+    expect(small.status).toBe(200);
+    expect((await small.json()).map((m: { id: number }) => m.id)).toEqual([1, 2]);
+    expect(batchRefused(null, ping(1))).toBeUndefined();
+  });
+
+  it("stops reading a body past its limit, even sent in chunks without a length", async () => {
+    // A body that never ends: read whole, it would never answer.
+    const chunk = new TextEncoder().encode(" ".repeat(1024 * 1024));
+    let sent = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(c) {
+        sent++;
+        c.enqueue(chunk);
+      },
+    });
+    const r = new Request("http://x/mcp", { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body, duplex: "half" } as RequestInit);
+    expect(r.headers.get("content-length")).toBeNull();
+    const res = await handle(r, new Cache());
+    expect(res.status).toBe(413);
+    // Four chunks and the one past the limit, then the stream is let go.
+    expect(sent).toBeLessThanOrEqual(7);
+    expect(await bodyText(new Request("http://x/", { method: "POST", body: "é".repeat(4) }), 8)).toBe("éééé");
+    expect(await bodyText(new Request("http://x/", { method: "POST", body: "é".repeat(5) }), 8)).toBeUndefined();
   });
 
   it("sends a shortcut to the home page with its ref, before any page and without counting it", async () => {

@@ -6,9 +6,9 @@ import { withLectures } from "../src/lectures.js";
 import { INDEX, NOUVEAUTES, OUTILS, outilsRecents, serveur } from "../src/nouveautes.js";
 import { inReunionBeacons } from "../src/providers/pioupiou.js";
 import { existsSync } from "node:fs";
-import { nomDeSource, SERVER_ICONS, VERSION } from "../src/server.js";
+import { listeAllegee, nomDeSource, SERVER_ICONS, VERSION } from "../src/server.js";
 import { cite } from "../src/tools/citer.js";
-import { dataDate, fraicheur, instantOf } from "../src/tools/fraicheur.js";
+import { dataDate, fraicheur, instantOf, sourceMuette } from "../src/tools/fraicheur.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
@@ -65,7 +65,10 @@ describe("the server's instructions", () => {
 
   it("start with the index of the tools and the rules, and are shorter", async () => {
     const r = await rpcResult("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
-    const text: string = r.instructions;
+    const said: string = r.instructions;
+    // Said with their no-break spaces (typographie.ts); read here with ordinary ones.
+    expect(said).not.toMatch(/ [:;?!»]|« /);
+    const text = said.replace(/[\u00a0\u202f]/g, " ");
     // Claude Code cuts them near 4 000 characters: everything must fit before that.
     expect(text.length).toBeLessThan(4000);
     expect(text).not.toMatch(/waze/i);
@@ -88,6 +91,34 @@ describe("the server's instructions", () => {
     expect(d("cyclones")).toContain("jamais de trajectoire inventée");
     expect(d("qualite_eau")).toContain("sans requin");
     expect(d("crues_rivieres")).toContain("radier submergé");
+  });
+
+  it("keep the list of the tools from growing: it is sent to the model at the start of each conversation", async () => {
+    const tools: { name: string; description: string }[] = (await rpcResult("tools/list")).tools;
+    // 54 846 characters on 26/10/2026, about 16 000 tokens' worth; here (no keys, so 27 tools) 48 514 after #404, and
+    // 39 074 once the English and the extra examples were left out: lowered as the descriptions are made shorter.
+    // 40 262 with main's words back in meteo_actuelle and prevision_meteo, 37 778 once the SDK's "$schema" and "execution" are out of the list.
+    expect(JSON.stringify(tools).length).toBeLessThanOrEqual(40_000);
+    for (const t of tools) expect(t.description.length, t.name).toBeLessThanOrEqual(2_000);
+  });
+
+  it("list the tools without the SDK's \"$schema\" and default \"execution\", each inputSchema still a JSON Schema object", async () => {
+    const tools: { name: string; inputSchema: Record<string, unknown> }[] = (await rpcResult("tools/list")).tools;
+    for (const t of tools) {
+      expect(t.inputSchema.type, t.name).toBe("object");
+      expect(t.inputSchema.properties, t.name).toBeTypeOf("object");
+      expect(t.inputSchema, t.name).not.toHaveProperty("$schema");
+      expect(t, t.name).not.toHaveProperty("execution");
+    }
+    const schema = (n: string) => tools.find((t) => t.name === n)!.inputSchema;
+    expect(schema("fiche_terrain").required).toEqual(["adresse"]);
+    expect(schema("donner_avis").required).toEqual(["type", "message"]);
+    expect(schema("prevision_meteo").properties).toMatchObject({ lieu: { type: "string" }, quand: { type: "string" } });
+    // A tool whose execution is not the default keeps it.
+    const inputSchema = { type: "object" as const, $schema: "http://json-schema.org/draft-07/schema#" };
+    expect(listeAllegee({ tools: [{ name: "x", inputSchema, execution: { taskSupport: "optional" } }] }).tools).toEqual([
+      { name: "x", inputSchema: { type: "object" }, execution: { taskSupport: "optional" } },
+    ]);
   });
 
   it("index every tool the server has", async () => {
@@ -141,7 +172,20 @@ describe("the serveur block", () => {
     const ids: string[] = body(await rpcResult("tools/call", { name: "sources_donnees", arguments: {} })).sources.map((s: { id: string }) => s.id);
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
     // Given by two modules each, listed once.
-    for (const id of ["lrvb_tournois", "sportsregions", "ign_altimetrie"]) expect(ids).toContain(id);
+    for (const id of ["lrvb_tournois", "ign_altimetrie"]) expect(ids).toContain(id);
+    // Not read until it agrees (src/providers/autorisations.ts): listed with those not read, not with those read.
+    expect(ids).not.toContain("sportsregions");
+  });
+
+  it("sources_donnees counts the very sources it lists, and lists apart what rundata.re is sent", async () => {
+    const r = body(await rpcResult("tools/call", { name: "sources_donnees", arguments: {} }));
+    expect(r.chiffres.sources).toBe(r.sources.length);
+    expect(r.resume).toContain(`rundata.re lit ${r.sources.length} sources publiques`);
+    const ids = (l: { id: string }[]) => l.map((s) => s.id);
+    // The clubs' proposals: sent to rundata.re, not read from a public site; still listed, with their licence.
+    expect(ids(r.sources)).not.toContain("propositions_associations");
+    expect(ids(r.envoyees_a_rundata)).toEqual(["propositions_associations"]);
+    expect(r.envoyees_a_rundata[0].licence).toBe("Licence Ouverte Etalab 2.0");
   });
 });
 
@@ -164,7 +208,11 @@ describe("fraicheur", () => {
     const at = FIX.getTime() - 3 * 3600_000;
     const cache = await weatherCache(at, FIX.getTime());
     const { value, lectures } = await withLectures(() => meteoActuelle(cache, "Saint-Pierre", FIX));
-    const f = body(cite("meteo_actuelle", value, { lectures, now: FIX, nom: nomDeSource })).fraicheur;
+    const answer = body(cite("meteo_actuelle", value, { lectures, now: FIX, nom: nomDeSource }));
+    const f = answer.fraicheur;
+    // A last copy in the answer: its freshness comes first, before the data, the citation still at the end.
+    expect(Object.keys(answer)[0]).toBe("fraicheur");
+    expect(Object.keys(answer).slice(-2)).toEqual(["citer", "lien"]);
     // Each source named from its error (cache.ts) and its card (sources_donnees); every part a copy: no « reste ».
     expect(f.copies_de_secours).toEqual([
       { source: "Observations aéroport (METAR)", lue_le: "18/10 20:20" },
@@ -304,6 +352,52 @@ describe("fraicheur", () => {
     const stations = { key: "stations", fetchedAt: t("05:00"), stale: true, freshSeconds: 86_400, source: "ffhb" };
     expect(said([fresh, stations]).copies_de_secours).toBeUndefined();
     expect(said([fresh]).avertissement).toBeUndefined();
+  });
+
+  it("says a source too slow for the answer as late, not as silent, in the user's words", () => {
+    const now = new Date("2026-10-25T23:00:00+04:00");
+    const t = (hhmm: string) => Date.parse(`2026-10-25T${hhmm}:00+04:00`);
+    const nom = (id: string) => ({ la1ere: "Réunion La 1ère (actualité sportive)", ffhb: "FFHB", metar: "METAR" })[id];
+    const fresh = { key: "ffvb", fetchedAt: t("22:58"), stale: false, freshSeconds: 900 };
+    const slow = { key: "sport:actu", fetchedAt: t("22:22"), stale: true, freshSeconds: 1800, source: "la1ere", tardive: true };
+    const ffhb = { key: "sport:hand", fetchedAt: t("21:51"), stale: true, freshSeconds: 3600, source: "ffhb" };
+    const metar = { key: "metar", fetchedAt: t("21:00"), stale: true, freshSeconds: 600, source: "metar" };
+    const said = (lectures: object[]) => fraicheur({}, lectures as never, now, { nom });
+    // The mark stays out of the answer: only the sentence changes.
+    expect(said([fresh, slow])).toEqual(expect.objectContaining({
+      copies_de_secours: [{ source: "Réunion La 1ère (actualité sportive)", lue_le: "25/10 22:22" }],
+      avertissement: "La source « Réunion La 1ère (actualité sportive) » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 22:22. Le reste de la réponse est à jour.",
+    }));
+    expect(said([slow]).avertissement).toBe("La source « Réunion La 1ère (actualité sportive) » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 22:22.");
+    // After those that did not answer, one sentence each; « le reste » after them all.
+    expect(said([fresh, slow, ffhb]).avertissement).toBe(
+      "La source « FFHB » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 21:51. La source « Réunion La 1ère (actualité sportive) » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 22:22. Le reste de la réponse est à jour.",
+    );
+    expect(said([fresh, slow, ffhb, metar]).avertissement).toBe(
+      "Ces sources n'ont pas répondu à notre dernière lecture : « METAR », lue le 25/10 à 21:00\u00a0; « FFHB », lue le 25/10 à 21:51. Ce qui vient d'elles date de ces lectures. La source « Réunion La 1ère (actualité sportive) » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 22:22. Le reste de la réponse est à jour.",
+    );
+    // Slow for one part, silent for another: it did not answer.
+    expect(said([fresh, slow, { ...slow, key: "sport:actu:2", fetchedAt: t("22:40"), tardive: undefined }]).avertissement).toMatch(/^La source « Réunion La 1ère \(actualité sportive\) » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25\/10 à 22:22\./);
+    // A page's copy (volcan.ts) says it too.
+    expect(sourceMuette("FFHB", new Date(t("21:51")), true)).toBe("La source « FFHB » a tardé à répondre : ce qui vient d'elle date de notre lecture du 25/10 à 21:51.");
+    expect(sourceMuette("FFHB", new Date(t("21:51")))).toMatch(/n'a pas répondu/);
+    // Partly fresh, partly too slow: the user's words, for that part only.
+    const slowPart = { ...slow, from: "la1ere" };
+    expect(said([{ ...fresh, key: "sport:actu:hier", from: "la1ere" }, slowPart]).avertissement).toBe(
+      "La source « Réunion La 1ère (actualité sportive) » a tardé à répondre pour une partie de ce qui vient d'elle : cette partie date de notre lecture du 25/10 à 22:22. Le reste de la réponse est à jour.",
+    );
+    // Parts without a source too slow: « a tardé », one sentence; after a failed one, « une autre partie ».
+    const ours = (key: string, hhmm: string, tardive?: true) => ({ key, fetchedAt: t(hhmm), stale: true, freshSeconds: 3600, ...(tardive && { tardive }) });
+    expect(said([fresh, ours("a", "22:22", true)]).avertissement).toBe("Une partie de cette réponse date de notre lecture du 25/10 à 22:22 : la lecture suivante a tardé. Le reste de la réponse est à jour.");
+    expect(said([fresh, ours("a", "21:51", true), ours("b", "22:22", true)]).avertissement).toBe(
+      "Des parties de cette réponse datent de nos lectures du 25/10 à 21:51 et à 22:22 : les lectures suivantes ont tardé. Le reste de la réponse est à jour.",
+    );
+    expect(said([fresh, ours("a", "21:51"), ours("b", "22:22", true)]).avertissement).toBe(
+      "Une partie de cette réponse date de notre lecture du 25/10 à 21:51 : la lecture suivante n'a pas abouti. Une autre partie date de notre lecture du 25/10 à 22:22 : la lecture suivante a tardé. Le reste de la réponse est à jour.",
+    );
+    expect(said([fresh, ffhb, ours("b", "22:22", true)]).avertissement).toBe(
+      "La source « FFHB » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 25/10 à 21:51. Une autre partie date de notre lecture du 25/10 à 22:22 : la lecture suivante a tardé. Le reste de la réponse est à jour.",
+    );
   });
 
   it("gives the age of the data from its own date when the block states none, whatever the read", () => {

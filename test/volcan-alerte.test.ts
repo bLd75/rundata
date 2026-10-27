@@ -27,7 +27,7 @@ function sources(titre?: string) {
   void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
   void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
   void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
-  void store.put("volcan:prefecture", { value: titre ? phaseOf([release(titre, "2026-10-24")]) : null, fetchedAt: t });
+  void store.put("volcan:prefecture:phase", { value: titre ? phaseOf([release(titre, "2026-10-24")]) : null, fetchedAt: t });
   return new Cache(store, () => t);
 }
 
@@ -140,7 +140,7 @@ describe("the volcano put forward during an alert", () => {
     void store.put("seismes", { value: parse(fixture("ipgp_seismes.txt")), fetchedAt: t });
     void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
     void store.put("volcan:pitonlive", { value: JSON.parse(fixture("pitonlive_state.json")), fetchedAt: t });
-    void store.put("volcan:prefecture", { value: may, fetchedAt: t });
+    void store.put("volcan:prefecture:phase", { value: may, fetchedAt: t });
     const v = await buildVolcan(new Cache(store, () => t), NOW);
     const page = volcanPage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain("<title>Piton de la Fournaise : vigilance, pas d&#39;éruption annoncée · 974</title>");
@@ -282,7 +282,7 @@ describe("the volcano put forward during an alert", () => {
     const s = JSON.parse(fixture("pitonlive_state.json"));
     void store.put("volcan:ovpf", { value: activityPosts(JSON.parse(fixture("ovpf_bluesky.json"))), fetchedAt: t });
     void store.put("volcan:pitonlive", { value: { ...s, status: { ...s.status, alert_level_display: "Alerte 2-1", is_erupting: true, published_at: "2026-10-24T12:00:00Z" } }, fetchedAt: t });
-    void store.put("volcan:prefecture", { value: null, fetchedAt: t });
+    void store.put("volcan:prefecture:phase", { value: null, fetchedAt: t });
     const v = await buildVolcan(new Cache(store, () => t), NOW);
     expect(v.etat).toMatchObject({ eruption_en_cours: false, niveau_inconnu: true, pitonlive_non_officiel: { niveau: "Alerte 2-1", eruption: true, lu: "24/10 à 18:00" } });
     expect(alerteVolcan(v)).toBeUndefined();

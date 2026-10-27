@@ -5,10 +5,12 @@
  * KV, which every data center reads; it is the only writer. A page or the tool reads KV only when its data center's
  * cache has no copy, and copies what it read there.
  */
-import { costOf, count, left, measured, spent, unmeasured } from "../budget.js";
+import { costOf, count, left, measured, reserve, spent, unmeasured } from "../budget.js";
 import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore, outdated, stampOf } from "../cache.js";
 import * as ensemble from "../providers/ensemble.js";
 import * as ovpfPdf from "../providers/ovpf-pdf.js";
+import * as seismes from "../providers/seismes.js";
+import * as onf from "../providers/sentiers.js";
 import * as mf from "../providers/vigilance.js";
 import { why } from "../types.js";
 import { buildActualites, buildAir, buildCalendrier, buildCoupures, buildCourant, buildCrues, buildElectricite, buildSea, buildTrafic, buildVolcan, type CruesAnswer, FRESH_SECONDS, type VolcanAnswer } from "./data.js";
@@ -46,9 +48,14 @@ export interface Shared {
    * carry its previous copy until their next build.
    */
   before?: string[];
+  /**
+   * Built beside the copies after it rather than before them: a build that waits minutes on a slow site, which the others
+   * would otherwise wait for (warmShared's `hold`).
+   */
+  alongside?: boolean;
 }
 
-// About 720 KV writes a day in all: 288 for the vigilance, every 5 minutes, 96 for the rivers, every 15 minutes (288 while a river is in yellow flood vigilance or above), 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
+// About 890 KV writes a day in all: 288 for the vigilance, every 5 minutes, 144 for the earthquakes, every 10 minutes, 96 for the rivers, every 15 minutes (288 while a river is in yellow flood vigilance or above), 24 for the ONF's map, 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
 // of /chiffres (4 more for their events, 24 while an agenda does not answer), 12 for the power
 // cuts the mairies relay (48 while the site of one of them does not answer), 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
 // of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
@@ -67,14 +74,15 @@ export const SHARED: Shared[] = [
   // Météo-France's vigilance, every 5 minutes, in every event: the banner and the vigilance tile of every page read it,
   // and a data center's own copy, kept while Météo-France was late, could be hours old where no one had asked
   // (26 October 2026). Its cold cost: the token and the zip, plus one. Its CPU: unzipping and parsing La Réunion's two
-  // files, 63 ms the first time in Node and 6 ms after, rounded up.
+  // files, 63 ms the first time in Node and 6 ms after, rounded up. The official map's turn (providers/vigilance-carte.ts)
+  // is outside its cost, declared apart (src/registre.ts).
   { key: mf.KEY, build: () => mf.read(), every: 5, cold: 3, cpu: 70, offset: 0 },
   // The rivers, every 15 minutes, every 5 while a river is in yellow flood vigilance or above: the home page's tile
   // read a data center's own copy, which no view had brought up to date for two hours while Vigicrues Réunion answered
-  // (26 October 2026). Its cold cost: Vigicrues' vigilance, heights and flows, plus one. Its CPU: parsing them, 43 ms
+  // (26 October 2026). Its cold cost: Vigicrues' vigilance, and its heights and flows in 4 batches each, plus one. Its CPU: parsing them, 43 ms
   // the first time in Node and 4 ms after, rounded up. At minutes 10, 25, 40 and 55, with the news, the water cuts, the
   // air and the satellites' grids: the lightest of the three series of events a rate of 15 minutes can take.
-  { key: "web:crues", build: buildCrues, every: (last) => (floodRaised(last as CruesAnswer | undefined).length ? 5 : 15), cold: 4, cpu: 50, range: { usual: 15, shortest: 5 }, offset: 10 },
+  { key: "web:crues", build: buildCrues, every: (last) => (floodRaised(last as CruesAnswer | undefined).length ? 5 : 15), cold: 10, cpu: 50, range: { usual: 15, shortest: 5 }, offset: 10, alongside: true },
   { key: "web:actualites", build: buildActualites, every: 30, cold: 10, cpu: 190, offset: 10 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160, offset: 5 },
   { key: "web:electricite", build: buildElectricite, every: 30, cold: 7, cpu: 80, offset: 20 },
@@ -84,6 +92,14 @@ export const SHARED: Shared[] = [
   { key: SATELLITES, build: buildSatellites, every: (last) => satellitesEvery(last), cold: 10, cpu: 110, range: { usual: 3 * 60, shortest: 30 }, offset: 55 },
   { key: "web:mer", build: buildSea, every: 3 * 60, cold: 13, cpu: 110, offset: 75 },
   { key: "web:calendrier", build: buildCalendrier, every: 6 * 60, cold: 8, cpu: 40, offset: 130 },
+  // The earthquakes and the ONF's map, which /volcan's copy embeds: built in the data center of the event, it read that
+  // data center's own copies, which no view had brought up to date (26 October 2026: 8 earthquakes in 7 days and the
+  // map of 07:35 on the page at 19:21, 10 and the map of 19:25 in volcan_seismes at 19:26). The earthquakes every 10
+  // minutes, their freshness, in the volcano's events; the map every hour, its freshness, before the volcano's and
+  // /chiffres's. Their cold costs: the catalogue, plus one; the map's two layers and its date, plus one. Their CPU:
+  // parsing them, estimated from /sentiers's.
+  { key: seismes.KEY, build: (_cache, now) => seismes.read(now), every: 10, cold: 2, cpu: 10, offset: 5, before: ["web:volcan"] },
+  { key: onf.KEY, build: () => onf.lire(), every: 60, cold: 4, cpu: 40, offset: 45, before: ["web:volcan", CHIFFRES] },
   // The PDF of the OVPF's newest release, read here only (providers/ovpf-pdf.ts), once the copy is built and outside its
   // cost: three more, with what is left, when there is a new one or a failed one to ask again.
   { key: "web:volcan", build: async (cache, now) => {
@@ -113,6 +129,15 @@ export const SHARED_AFTER: Shared[] = [
   { key: ensemble.KEY, build: () => ensemble.build(), every: 3 * 60, cold: 3, cpu: 40, offset: 100 },
 ];
 const KEYS = new Set([...SHARED, ...SHARED_AFTER].map((s) => s.key));
+
+/**
+ * How often the scheduled event refreshes the copy of `key`, in minutes, given that copy; undefined for a copy it does
+ * not keep (a page's own, built by its views).
+ */
+export function scheduledEvery(key: string, value: unknown): number | undefined {
+  const s = [...SHARED, ...SHARED_AFTER].find((x) => x.key === key);
+  return s && everyOf(s, value);
+}
 // The calendar's copy, the least often refreshed, outlives its next refresh by far.
 const KV_TTL_SECONDS = 24 * 3600;
 // A build whose cost is known nowhere is taken to cost this much (web/site.ts does the same).
@@ -184,11 +209,37 @@ async function kvGet(kv: Kv, key: string): Promise<KvEntry | undefined> {
   }
 }
 
+// A shared copy's last failed refresh, apart from the copies (not listed with them): no use past the longest breaker.
+const failureKey = (key: string) => `copie-echec:${key}`;
+const FAILURE_TTL_SECONDS = 3600;
+
+async function kvFailure(kv: Kv, key: string): Promise<CacheEntry["echec"]> {
+  try {
+    count(1, "read");
+    const f = (await kv.get(failureKey(key), "json")) as CacheEntry["echec"] | null;
+    return typeof f?.at === "number" ? f : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function kvPutFailure(kv: Kv, key: string, echec: NonNullable<CacheEntry["echec"]>): Promise<void> {
+  try {
+    count(1, true);
+    await kv.put(failureKey(key), JSON.stringify(echec), { expirationTtl: FAILURE_TTL_SECONDS });
+  } catch (err) {
+    console.error("KV : échec de la copie partagée non écrit", why(err));
+  }
+}
+
 /**
  * The data center's cache, and KV behind it for the shared copies only: asked when the cache has none, only one older
  * than FRESH_SECONDS (a data center that served the page once, then slept), or one of another revision (`outdated`,
  * cache.ts), at the cost of one read instead of a build. The newer of the two is served, one of this revision before one
- * of another, and KV's is put in the cache, so that the data center's next isolates find it there. Never written to KV.
+ * of another, and KV's is put in the cache, so that the data center's next isolates find it there. KV's copy is written
+ * by the scheduled event only; here, only a failed refresh (`echec`), so that a source that does not answer is left
+ * alone by every data center until its breaker closes, the scheduled event too (26/10/2026: the IPGP's catalogue silent
+ * from 18:56, asked by every event and by each data center's readers, 15 times in 50 minutes, each waiting 8 seconds).
  */
 export class SharedFallback implements CacheStore {
   constructor(private edge: CacheStore, private kv: Kv, private now: () => number = Date.now, private version?: string) {}
@@ -197,12 +248,22 @@ export class SharedFallback implements CacheStore {
     const old = (x: CacheEntry) => outdated(key, x, this.version);
     if (!KEYS.has(key) || (e && this.now() - e.fetchedAt <= FRESH_SECONDS * 1000 && !old(e))) return e;
     const shared = await kvGet(this.kv, key);
-    if (!shared || (e && (old(e) === old(shared) ? shared.fetchedAt <= e.fetchedAt : old(shared)))) return e;
-    await this.edge.put(key, shared);
-    return shared;
+    const got = !shared || (e && (old(e) === old(shared) ? shared.fetchedAt <= e.fetchedAt : old(shared))) ? e : shared;
+    if (shared && got === shared) await this.edge.put(key, shared);
+    // A copy late for its refresh, and too old for the caller: its source may have been found silent elsewhere. Read
+    // only then, one read more.
+    if (!got || freshAfter == null || got.fetchedAt >= freshAfter || !this.late(key, got)) return got;
+    const failed = await kvFailure(this.kv, key);
+    return failed && failed.at > got.fetchedAt && failed.at > (got.echec?.at ?? 0) ? { ...got, echec: failed } : got;
   }
-  put(key: string, entry: CacheEntry) {
-    return this.edge.put(key, entry);
+  async put(key: string, entry: CacheEntry) {
+    await this.edge.put(key, entry);
+    if (KEYS.has(key) && entry.echec && entry.echec.at > entry.fetchedAt) await kvPutFailure(this.kv, key, entry.echec);
+  }
+  /** Past its rate and one event: the scheduled event did not refresh it. */
+  private late(key: string, e: CacheEntry): boolean {
+    const every = scheduledEvery(key, e.value);
+    return every != null && this.now() - e.fetchedAt > every * 60_000 + EVENT_MS;
   }
 }
 
@@ -237,7 +298,12 @@ const everyOf = (s: Shared, value: unknown) => (typeof s.every === "number" ? s.
 /** One listing of the copies in KV, for the event's two calls of warmShared (worker.ts): one subrequest, not two. */
 export const listShared = (kv: Kv) => kvList(kv);
 
-export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = SHARED, listing = listShared(kv)): Promise<Warmed> {
+/**
+ * Builds the copies of `list` that are due and writes them to KV. A copy built `alongside` is not waited for: its build is
+ * handed to `hold` (the scheduled event's, which waits for it after its other reads), or, without one, waited for at
+ * the end.
+ */
+export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = SHARED, listing = listShared(kv), hold?: (work: Promise<void>) => void): Promise<Warmed> {
   // The ages and costs of all the copies from one listing; a copy read whole only when the listing has no metadata for
   // it (written before it was kept there), or when KV did not list. The event's second call shares the first's: what
   // this isolate wrote since, `wrote` knows.
@@ -274,6 +340,7 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
     if (first >= 0 && first < i) due.splice(first, 0, ...due.splice(i, 1));
   }
   const out: Warmed = { written: [], left: [] };
+  const held: Promise<void>[] = [];
   for (const { s, at, kept, over, version } of due) {
     // An hour past its time, a copy is expected at its cold cost: what it took at a dearer hour, kept with its last
     // copy, must not hold it back until that copy expires (web:trafic, 31 at 04:00, never under 33 since).
@@ -292,29 +359,45 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
       leave(`${version ? "autre version, " : ""}budget : ${spent()} faites, ${cost} prévues`);
       continue;
     }
-    try {
-      // Never the data center's copy that KV already has: at 5 minutes, the one of the last event would still be fresh.
-      const fresh = at == null ? FRESH_SECONDS : Math.min(FRESH_SECONDS, Math.floor((now.getTime() - at) / 1000) - 1);
-      const got = await cache.get(s.key, fresh, () => measured(s.key, () => s.build(cache, now)));
-      // The source failed and the cache served its last copy: not worth spreading.
-      if (got.stale) {
-        leave("copie de secours");
-        continue;
-      }
-      if (at != null && got.fetchedAt.getTime() <= at) {
-        leave("pas plus récente que celle de KV");
-        continue;
-      }
-      count(1, true);
-      const version = stampOf(s.key, cache.version);
-      const entry: KvEntry = { value: got.value, fetchedAt: got.fetchedAt.getTime(), cost: costOf(s.key) ?? kept, ...(version && { version }) };
-      const meta: KvMeta = { fetchedAt: entry.fetchedAt, cost: entry.cost, every: everyOf(s, got.value), ...(version && { version }) };
-      await kv.put(kvKey(s.key), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS, metadata: meta });
-      wrote.set(kvKey(s.key), meta);
-      out.written.push(s.key);
-    } catch (err) {
-      leave(`erreur : ${why(err).slice(0, 80)}`);
+    if (!s.alongside) {
+      await warmOne(cache, kv, now, s, at, kept, out, leave);
+      continue;
     }
+    // What it is expected to take, set aside while it runs: the copies after it, and the agendas, size themselves on the rest.
+    const release = reserve(cost);
+    held.push(warmOne(cache, kv, now, s, at, kept, out, leave).finally(release));
   }
+  if (hold) held.forEach(hold);
+  else await Promise.all(held);
   return out;
+}
+
+/** One copy built and written to KV, or said left in `out`. */
+async function warmOne(cache: Cache, kv: Kv, now: Date, s: Shared, at: number | undefined, kept: number | undefined, out: Warmed, leave: (why: string) => void): Promise<void> {
+  try {
+    // Never the data center's copy that KV already has: at 5 minutes, the one of the last event would still be fresh.
+    const fresh = at == null ? FRESH_SECONDS : Math.min(FRESH_SECONDS, Math.floor((now.getTime() - at) / 1000) - 1);
+    const got = await cache.get(s.key, fresh, () => measured(s.key, () => s.build(cache, now)));
+    // The source failed and the cache served its last copy: spread all the same when KV has none as new, so that
+    // every data center serves the same last copy (26/10/2026: the IPGP's catalogue silent, /volcan said the copy of
+    // 17:59 kept where the event falls, volcan_seismes the one of the day before, kept where the assistant asked).
+    if (got.stale && at != null && got.fetchedAt.getTime() <= at) {
+      leave("copie de secours");
+      return;
+    }
+    if (at != null && got.fetchedAt.getTime() <= at) {
+      leave("pas plus récente que celle de KV");
+      return;
+    }
+    count(1, true);
+    const version = stampOf(s.key, cache.version);
+    // With the source it was read from: its last copy, served in another data center, says whose it is (fraicheur.ts).
+    const entry: KvEntry = { value: got.value, fetchedAt: got.fetchedAt.getTime(), cost: costOf(s.key) ?? kept, ...(version && { version }), ...(got.from && { from: got.from }) };
+    const meta: KvMeta = { fetchedAt: entry.fetchedAt, cost: entry.cost, every: everyOf(s, got.value), ...(version && { version }) };
+    await kv.put(kvKey(s.key), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS, metadata: meta });
+    wrote.set(kvKey(s.key), meta);
+    out.written.push(s.key);
+  } catch (err) {
+    leave(`erreur : ${why(err).slice(0, 80)}`);
+  }
 }

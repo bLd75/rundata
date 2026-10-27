@@ -2,7 +2,8 @@
  * The web side of the server: the home page, one page per category (weather, vigilance, sea, volcano, buses, air,
  * electricity, calendar), one per commune with all of them (/communes/<commune>), one per commune or place for the
  * weather (/meteo/<lieu>), and what crawlers and link previews ask for
- * (robots.txt, sitemap.xml, the og:image, the favicon). Null for any other path.
+ * (robots.txt, sitemap.xml, the favicon). Null for any other path: the og:image, the relief and the font are files of
+ * public/, served before the Worker.
  */
 import { alerteVolcan, volcanNow, withVolcan } from "./volcan-alerte.js";
 import { left, measured } from "../budget.js";
@@ -11,6 +12,7 @@ import { why } from "../types.js";
 import {
   alerte,
   alerteLue,
+  type ReaderWaits,
   BANNER_WAIT_MS,
   buildAir,
   buildBus,
@@ -66,11 +68,9 @@ import { coupuresCommunePage } from "./coupures.js";
 import { cloudSeaTold, hikesNear, summitOf } from "./liens.js";
 import { LOGO_PETIT_SVG } from "./logo.js";
 import { homePage } from "./home.js";
-import { RELIEF_PATH, reliefImage } from "./map.js";
+import { RELIEF_PATH } from "./map.js";
 import { ligne, mesure } from "./mesure.js";
-import font from "./font.json" with { type: "json" };
 import icons from "./icons.json" with { type: "json" };
-import og from "./og.json" with { type: "json" };
 import { NOUVEAUTES } from "../nouveautes.js";
 import { nouveautesPage } from "./nouveautes.js";
 import { bathingPage, PATH as BAIGNADE } from "./baignade.js";
@@ -93,9 +93,10 @@ import * as feux from "../providers/feux.js";
 import * as prefecture from "../providers/prefecture.js";
 import { rafraichirPropositions } from "../tools/agenda.js";
 import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
+import { scheduledEvery } from "./partagees.js";
 import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
 import { readCopies, refresh, resume } from "../tools/resume.js";
-import { FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, vigilancePage } from "./pages.js";
+import { CSS, FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, STYLE_PATH, vigilancePage } from "./pages.js";
 import { OFFLINE_PATH, serviceWorker, SW_PATH } from "./pwa.js";
 import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures, toolCount } from "./presse.js";
@@ -107,18 +108,24 @@ import * as traces from "../providers/traces.js";
 import { SECTEURS, secteurOf } from "../traces/secteurs.js";
 import { secteurPage } from "./randonnees.js";
 import { aProposPage, llmsTxt } from "./a-propos.js";
+import { PATH as VALEURS, valeursPage } from "./valeurs.js";
+import { applicationPage, PATH as APPLICATION } from "./application.js";
+import { ouvrirDonneesPage, PATH as GUIDE } from "./ouvrir-donnees.js";
 import { PATH as SANS_REPONSE, sansReponsePage } from "./sans-reponse.js";
 import { chiffres, type Copie, KEY as CHIFFRES_KEY, PATH as CHIFFRES } from "../chiffres.js";
 import { chiffresPage } from "./chiffres.js";
 import { toutesLesSources } from "../server.js";
 import { etat as sansReponse } from "../sans-reponse.js";
 import { connecteurPage } from "./connecteur.js";
+import { enTetes, SECURITY_TEXT, SECURITY_TXT } from "./securite.js";
 import { typo, typoPage } from "./typo.js";
 import { tripGonePage, tripPage } from "./trajet.js";
 import { searchStops, stopPageDepartures, TRIP_PATH, tripRun } from "../tools/transports.js";
 import { searchPage, stopPage } from "./arret.js";
 import { STOP_PATH } from "./domains.js";
 import * as transit from "../providers/transit.js";
+import { carteRoute } from "./vigilance-carte.js";
+import { RENDU_PATH } from "../providers/vigilance-carte.js";
 
 const HTML = {
   "content-type": "text/html; charset=utf-8",
@@ -138,9 +145,10 @@ const GPX = { "content-type": "application/gpx+xml; charset=utf-8", "cache-contr
  * would spend the few pages a day a search engine reads on a new site. The assistants' fetchers still read them.
  * No robot follows a trip (web/trajet.ts): its page is not indexed, and it has an address per stop and per day, which
  * a stop's page links for each of its buses and which links back to each stop: a crawler went round them, 1 300 an hour.
+ * The page that draws Météo-France's bulletin for Cloudflare's browser (web/vigilance-carte.ts) is not for anyone else.
  */
 const ROBOTS = (origin: string) =>
-  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nAllow: /\n\nUser-agent: *\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
+  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nDisallow: ${RENDU_PATH}\nAllow: /\n\nUser-agent: *\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nDisallow: ${RENDU_PATH}\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
 
 /** IndexNow (Bing, Yandex, Seznam, Naver): the key that proves rundata.re's submissions are ours. Public by design. */
 export const INDEXNOW_KEY = "9cb4a2d427093776313488cb4d39b24a";
@@ -165,6 +173,21 @@ export const isReader = (request: Request) => READERS.test(request.headers.get("
 
 /** How long to wait for a page's data that this data center has never built, or has an old copy of (web/data.ts). */
 const waitFor = (request: Request) => (isReader(request) ? READER_WAIT_MS : undefined);
+
+// The scheduled event refreshes the shared copies at their rate (web/partagees.ts): a reader gets such a copy at once
+// while it is within that rate, and two events more (one a few minutes late, one left for the budget), its refresh
+// going on behind. Waiting for it held Googlebot or ChatGPT-User up to 25 s on /crues, kept every 15 min
+// (26/10/2026). Past that, the scheduled event has fallen behind: the reader waits for the refresh, as before. The
+// daily check of the sources waits always: it must see the data, not a copy.
+const SCHEDULED_SLACK_MS = 10 * 60_000;
+const CHECK = /rundata-check\//i;
+const readerWaits: ReaderWaits = (key, value, ageMs) => {
+  const every = scheduledEvery(key, value);
+  return every == null || ageMs > every * 60_000 + SCHEDULED_SLACK_MS;
+};
+/** Whether `request`'s reader waits for a page's old copy to be refreshed (web/data.ts `snapshot`). */
+export const readerOf = (request: Request): boolean | ReaderWaits =>
+  isReader(request) && (CHECK.test(request.headers.get("user-agent") ?? "") || readerWaits);
 
 /** A page without its live block is not kept: the next load should have it. */
 const htmlFor = (data: unknown) => (data ? HTML : { ...HTML, "cache-control": "no-store" });
@@ -197,11 +220,8 @@ const inAlert = (v: VolcanAnswer) => {
 const rebuild = (cache: Cache, key: string, build: () => Promise<unknown>) => () => cache.get(key, 0, () => measured(key, build));
 
 const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-let ogBytes: Uint8Array<ArrayBuffer> | undefined;
 let icoBytes: Uint8Array<ArrayBuffer> | undefined;
-let fontBytes: Uint8Array<ArrayBuffer> | undefined;
 let swText: string | undefined;
-let reliefBytes: Uint8Array<ArrayBuffer> | undefined;
 
 /** The domain pages: built from a tool's answer, kept like the other pages (web/data.ts). */
 export const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) => Promise<any>; page: (origin: string, data: Cached<any> | null, now: Date, alerte?: Alerte) => string }> = {
@@ -287,7 +307,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
     // The busiest stops only (scripts/build-transit.py): the others' pages are not indexed.
     ...[...transit.stopPages().values()].filter((p) => p.indexe).map((p) => live(`${STOP_PATH}/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
-    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
+    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", VALEURS, APPLICATION, GUIDE, "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
     ...(formulaires.enLigne() ? [live(ASSOCIATIONS_PATH), fixed(formulaires.PROPOSER_PATH)] : []),
     ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], [SANS_REPONSE, undefined, "daily"], live(CHIFFRES), ["/carburants", fuelDay ? (fuelDay < today ? fuelDay : today) : undefined, "daily"],
     // The fires' page only once FIRMS's key is there: before, it says the detection is not active.
@@ -299,8 +319,24 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
 
 /** The site's pages, each with the volcano's banner while the volcano is in alert (web/volcan-alerte.ts), in French typography (web/typo.ts). */
 export async function site(request: Request, cache: Cache, background: Background, now = new Date()): Promise<Response | null> {
+  // Nothing of the moment in it: answered before the volcano's state is read.
+  const style = stylesheet(new URL(request.url).pathname);
+  if (style) return style;
   const volcan = await volcanNow(cache, now);
   return typoPage(await withVolcan(volcan, () => pages(request, cache, background, now)));
+}
+
+const STYLE_FILE = /^\/style-\w+\.css$/;
+
+/**
+ * The pages' stylesheet (web/pages.ts), kept a year at its address. Another address, asked by a page of an earlier
+ * version (a copy kept offline, a version still rolling out), gets today's for a few minutes only.
+ */
+function stylesheet(path: string): Response | null {
+  if (!STYLE_FILE.test(path)) return null;
+  return new Response(CSS, {
+    headers: { "content-type": "text/css; charset=utf-8", "cache-control": path === STYLE_PATH ? "public, max-age=31536000, immutable" : "public, max-age=300", "x-content-type-options": "nosniff" },
+  });
 }
 
 async function pages(request: Request, cache: Cache, background: Background, now: Date): Promise<Response | null> {
@@ -331,7 +367,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/") {
     const [meteo, vigilance] = await Promise.all([
-      snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, DOMAINS["/meteo"].key, () => buildHome(cache, now), background, now, waitFor(request), readerOf(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now),
     ]);
     const [actualites, volcan, air, electricite, calendrier, bus, trafic, velos, bornes, eau, sentiers, secheresse, coupures, sport, cyclones, historique, agenda, crues] = await tileCopies(cache, HOME_TILES, background, meteo, now);
@@ -390,7 +426,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/mer" || path === "/mer/") {
     const [data, a] = await Promise.all([
-      snapshot(cache, "web:mer", () => buildSea(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, "web:mer", () => buildSea(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     return page(path, (live) => seaPage(origin, live ? data : null, now, a), data, background, [rebuild(cache, "web:mer", () => buildSea(cache, now))]);
@@ -398,7 +434,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   // The traffic page's copy lasts minutes; the media's headlines on the roads are those of the view.
   if (path === "/trafic" || path === "/trafic/") {
     const [data, a, news] = await Promise.all([
-      snapshot(cache, "web:trafic", () => buildTrafic(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, "web:trafic", () => buildTrafic(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
       roadNewsNow(cache, background, now),
     ]);
@@ -407,7 +443,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   // The rivers' copy lasts minutes; the headlines on the fords are those of the view, as on /trafic.
   if (path === "/crues" || path === "/crues/") {
     const [data, a, news] = await Promise.all([
-      snapshot(cache, "web:crues", () => buildCrues(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, "web:crues", () => buildCrues(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
       roadNewsRead(cache, background, now),
     ]);
@@ -420,7 +456,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const p = pageOf(kids[1]);
     if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     const [data, a] = await Promise.all([
-      snapshot(cache, DOMAINS["/enfants"].key, () => buildEnfants(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, DOMAINS["/enfants"].key, () => buildEnfants(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     return page(path, (live) => enfantsCommunePage(origin, p, live ? data : null, now, a), data, background, [rebuild(cache, DOMAINS["/enfants"].key, () => buildEnfants(cache, now))]);
@@ -431,7 +467,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const p = pageOf(water[1]);
     if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     const [coupures, a] = await Promise.all([
-      snapshot(cache, "web:coupures", () => buildCoupures(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, "web:coupures", () => buildCoupures(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     const [secheresse, eau] = await tileCopies(cache, ["web:secheresse", "web:eau"], background, coupures, now);
@@ -452,7 +488,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/agenda" || path === "/agenda/") return Response.redirect(`${origin}/evenements`, 301);
   if (path === "/volcan" || path === "/volcan/") {
     const [data, a] = await Promise.all([
-      snapshot(cache, "web:volcan", () => buildVolcan(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, "web:volcan", () => buildVolcan(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     // During an alert, what the media say of it: their copy as it is, never built for this page.
@@ -462,7 +498,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   const domain = DOMAINS[path.replace(/(.)\/$/, "$1")];
   if (domain) {
     const [data, a] = await Promise.all([
-      snapshot(cache, domain.key, () => domain.build(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, domain.key, () => domain.build(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     const t = Date.now();
@@ -477,7 +513,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (s) {
     // The hikers' page's copy, and the weather page's as it is: a sector's page builds nothing of its own.
     const [data, a, meteo] = await Promise.all([
-      snapshot(cache, DOMAINS["/randonnees"].key, () => buildRandonnees(cache, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, DOMAINS["/randonnees"].key, () => buildRandonnees(cache, now), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
       s.meteo ? cache.peek<PlaceData>(`web:lieu:${s.meteo}`, now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined) : undefined,
     ]);
@@ -498,7 +534,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
       }
     }
     const [data, a] = await Promise.all([
-      snapshot(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     // A summit's trail links to the morning's cloud sea there, only while the page it leads to tells it: its last copy,
@@ -532,6 +568,18 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/a-propos" || path === "/a-propos/") {
     return new Response(aProposPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
+  // What rundata.re stands for: nothing read but the vigilance's banner, as /a-propos.
+  if (path === VALEURS || path === `${VALEURS}/`) {
+    return new Response(valeursPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
+  // How to put the site on the home screen, browser by browser: the same.
+  if (path === APPLICATION || path === `${APPLICATION}/`) {
+    return new Response(applicationPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
+  // The guide to publishing one's information openly: the same.
+  if (path === GUIDE || path === `${GUIDE}/`) {
+    return new Response(ouvrirDonneesPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
   // rundata.re en chiffres: what the code counts, and the last copy of what the sources do (chiffres.ts); never a source.
   if (path === CHIFFRES || path === `${CHIFFRES}/`) {
     const [copie, a] = await Promise.all([cache.peek<Copie>(CHIFFRES_KEY).catch(() => undefined), alerte(cache, background, now)]);
@@ -542,7 +590,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const [e, a] = await Promise.all([sansReponse(cache).catch(() => undefined), alerte(cache, background, now)]);
     return new Response(sansReponsePage(origin, e?.lignes ?? [], e?.passage, a), { headers: { ...HTML, "cache-control": "public, max-age=900" } });
   }
-  if (path === "/mcp") {
+  if (path === "/mcp" || path === "/mcp/") {
     return new Response(connecteurPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600", vary: "accept" } });
   }
   if (path === "/llms.txt") {
@@ -556,7 +604,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const p = pageOf(slug);
     if (!p) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     const [data, a] = await Promise.all([
-      snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request), withoutForecast),
+      snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), readerOf(request), withoutForecast),
       alerte(cache, background, now),
     ]);
     // The state of the hikes around: the hikers' page's last copy, as it is, never built for this page.
@@ -571,7 +619,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     // The weather is built when it has no copy, as on the commune's page; the rest only read (tools/resume.ts).
     const vigilance = vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now);
-    const place = await snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request), withoutForecast);
+    const place = await snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), readerOf(request), withoutForecast);
     // The weather's copy as the snapshot gave it: not read again (the read could be one subrequest too many).
     const { copies, leftOut } = await readCopies(cache, p, p, now, background, vigilance, { meteo: place });
     return page(path, (live) => (live
@@ -595,8 +643,8 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const p = pageOf(path.slice("/communes/".length).replace(/\/$/, ""));
     if (!p?.commune) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
     const [place, commune, vigilance] = await Promise.all([
-      snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), isReader(request), withoutForecast),
-      snapshot(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now), background, now, waitFor(request), isReader(request)),
+      snapshot(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now), background, now, waitFor(request), readerOf(request), withoutForecast),
+      snapshot(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now), background, now, waitFor(request), readerOf(request)),
       vigilanceNow(cache, background, waitFor(request) ?? BANNER_WAIT_MS, now),
     ]);
     // The West's communes have their déchèteries' tile too (the TCO publishes them).
@@ -664,6 +712,18 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/.well-known/mcp-registry-auth") {
     return new Response(MCP_REGISTRY_AUTH, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });
   }
+  // Whom to tell of a security flaw (web/securite.ts); the older address at the root leads to it (RFC 9116, §3).
+  if (path === SECURITY_TXT) {
+    return new Response(SECURITY_TEXT, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" } });
+  }
+  if (path === "/security.txt") {
+    return new Response(null, { status: 301, headers: { location: SECURITY_TXT, "cache-control": "public, max-age=3600" } });
+  }
+  // Météo-France's official map of the vigilance: its picture, its bulletin, the page of the browser (web/vigilance-carte.ts).
+  if (path.startsWith("/vigilance/")) {
+    const r = await carteRoute(path, url);
+    if (r) return r;
+  }
   if (path === "/robots.txt") {
     return new Response(ROBOTS(origin), {
       headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=86400" },
@@ -675,23 +735,9 @@ async function pages(request: Request, cache: Cache, background: Background, now
     const fuel = await cache.peek<carburants.Prix>("carburants:prix").catch(() => undefined);
     return new Response(sitemap(origin, now, fuel?.value.depuis), { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
   }
-  if (path === "/og.png") {
-    return new Response((ogBytes ??= bytes(og.png)), { headers: { "content-type": "image/png", "cache-control": STATIC } });
-  }
-  if (path === RELIEF_PATH) {
-    return new Response((reliefBytes ??= bytes(reliefImage())), {
-      headers: { "content-type": "image/webp", "cache-control": "public, max-age=31536000, immutable" },
-    });
-  }
-  if (path === FONT_PATH) {
-    // Its address changes with its content (see pages.ts), so browsers may keep it for good.
-    return new Response((fontBytes ??= bytes(font.woff2)), {
-      headers: { "content-type": "font/woff2", "cache-control": "public, max-age=31536000, immutable" },
-    });
-  }
   if (path === SW_PATH) {
     // Checked again at each visit: a new version reaches the phones at once (web/pwa.ts).
-    return new Response((swText ??= serviceWorker([FONT_PATH, RELIEF_PATH, "/favicon.svg", icons["192"]])), {
+    return new Response((swText ??= serviceWorker([STYLE_PATH, FONT_PATH, RELIEF_PATH, "/favicon.svg", icons["192"]])), {
       headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache", "x-content-type-options": "nosniff" },
     });
   }
@@ -744,6 +790,7 @@ export function manifest() {
 }
 
 /** Any other address a browser asks for: a page that leads back to the communes. */
-export function notFound(request: Request): Response {
-  return new Response(typo(notFoundPage(new URL(request.url).origin, new URL(request.url).pathname)), { status: 404, headers: HTML });
+export async function notFound(request: Request): Promise<Response> {
+  const html = typo(notFoundPage(new URL(request.url).origin, new URL(request.url).pathname));
+  return new Response(html, { status: 404, headers: { ...HTML, ...(await enTetes(html)) } });
 }

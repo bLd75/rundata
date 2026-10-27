@@ -8,9 +8,10 @@
  */
 import * as nuages from "../tools/nuages.js";
 import type { MerDeNuages } from "../tools/nuages.js";
+import type { Jour } from "../tools/volcan.js";
 import * as arome from "../providers/arome.js";
 import { left, measured } from "../budget.js";
-import { distanceKm, localTime } from "../geo.js";
+import { daysApart, distanceKm, localTime } from "../geo.js";
 import type { Cache, Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
@@ -61,11 +62,10 @@ import { type NonOfficiel, volcanSeismes } from "../tools/volcan.js";
 import type { Acces } from "../tools/volcan-acces.js";
 import * as sportSource from "../providers/sport.js";
 import { grandRaidRow, mentionProgrammes, sportTool, type SportRow } from "../tools/sport.js";
-import * as gdacs from "../providers/cyclones.js";
 import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
 import { historiqueMeteo } from "../tools/historique.js";
 import { agenda, type EventRow, mentionIle as agendaNonRepris } from "../tools/agenda.js";
-import { RESUME_REUNION_FR } from "../tools/non-repris.js";
+import { mentionSalles, RESUME_REUNION_FR } from "../tools/non-repris.js";
 import * as actuSource from "../providers/actualites.js";
 import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, quand as newsTime, type InfoRow } from "../tools/actualites.js";
 import { littoral, type Littoral } from "../tools/littoral.js";
@@ -158,6 +158,16 @@ export interface MerAnswer {
   mesure?: { temperature_eau: string; jour_mesure: string; distance_km: number };
   etat_de_la_mer?: { maintenant: { heures: string; hauteur: string; periode?: string; venant?: string }; jours: { jour: string; hauteur_max: string }[] };
   sources: Credit[];
+}
+
+/**
+ * A copy's forecast days from today's on, by their date (« mardi 27/10 »): a copy made the day before starts with a
+ * day that is over. Days that carry no date of today are kept only from a copy made today.
+ */
+export function joursDuJour<J extends { jour: string }>(jours: J[] | undefined, fetchedAt: Date, now: Date): J[] {
+  const local = new Date(now.getTime() + 4 * 3600_000).toISOString();
+  const from = (jours ?? []).findIndex((j) => j.jour.endsWith(` ${local.slice(8, 10)}/${local.slice(5, 7)}`));
+  return from >= 0 ? jours!.slice(from) : daysApart(fetchedAt, now) === 0 ? (jours ?? []) : [];
 }
 
 export interface PrevisionAnswer {
@@ -375,10 +385,17 @@ export interface VolcanAnswer {
   seismes?: {
     sous_le_volcan: { "30_jours": number; "7_jours": number; magnitude_max_30j: number | null };
     ailleurs_sur_l_ile: { "30_jours": number; magnitude_max_30j: number | null };
-    /** Day of La Réunion « 2026-10-24 », oldest first; today `en_cours`. */
-    par_jour_sous_le_volcan?: { jour: string; nombre: number; en_cours?: true }[];
+    /**
+     * Day of La Réunion « 2026-10-24 », oldest first; today `en_cours`. The catalogue silent: the day of its last read
+     * counted `jusqu_a` its time, the days after `non_lu`, without a count (tools/volcan.ts `perDay`).
+     */
+    par_jour_sous_le_volcan?: Jour[];
+    /** Served from the last copy: the counts end at that read, « 26/10 à 19:00 ». */
+    lus_jusqu_au?: string;
     derniers: { heure: string; magnitude: number; profondeur_km: number; lieu: string }[];
     note: string;
+    /** Served from the last copy, the catalogue not answering: the sentence that says from which read. */
+    copie?: string;
   };
   /** The OVPF-IPGP's site listed as silent on /sites-sans-reponse, in a sentence (tools/volcan.ts `ipgpMuet`). */
   injoignable?: string;
@@ -934,6 +951,10 @@ export const buildCourant = async (cache?: Cache): Promise<CourantAnswer> =>
 export interface SportAnswer {
   resume: string;
   a_venir?: SportRow[];
+  /** When `a_venir` lists only the first: how many there are. */
+  a_venir_en_tout?: number;
+  /** And the sports of all of them. */
+  sports_a_venir?: string[];
   resultats?: SportRow[];
   indisponible?: string[];
   non_couvert: string;
@@ -970,19 +991,18 @@ export interface CyclonesAnswer {
   alerte_cyclonique?: string;
   vie_quotidienne?: string;
   ecoles?: ReturnType<typeof ecolesBlock>;
-  systemes_actifs?: Omit<ReturnType<typeof activeRow>, "trajectoire">[];
+  systemes_actifs?: ReturnType<typeof activeRow>[];
   saison_en_cours: { nom: string; systemes: ReturnType<typeof seasonRow>[] };
   saison_precedente?: { nom: string; systemes: ReturnType<typeof seasonRow>[] };
   a_savoir: string;
   phases_alerte: string;
   saison: string;
+  /** « Consulter le site officiel de Météo-France : https://meteofrance.re/fr/cyclone ». */
+  officiel: string;
   consulter: Record<string, string>;
   sources: Credit[];
-  /** The tracks to draw: the active systems', or the last system's when none is active. */
-  traces: { nom: string; observee: [number, number][]; prevue: [number, number][]; etiquette: string; actif: boolean }[];
 }
 
-/** The tool's answer for the island, with the tracks it leaves out of its text. */
 /** The last 30 days at six stations, one per climate of the island, against their normal. */
 export interface HistoriqueAnswer {
   resume: string;
@@ -1025,23 +1045,9 @@ export async function buildHistorique(cache: Cache, now = new Date()): Promise<H
   return d;
 }
 
+/** The tool's answer for the island. */
 export async function buildCyclones(cache: Cache, now = new Date()): Promise<CyclonesAnswer> {
-  const a = needed<Omit<CyclonesAnswer, "traces">>(await cyclones(cache, undefined, now), "cyclones");
-  const list = (await gdacs.systemes(cache, now)).value.filter((s) => s.debut <= now.toISOString());
-  const active = await gdacs.actifs(cache, list, now);
-  const pair = (p: gdacs.Point): [number, number] => [p.lon, p.lat];
-  let traces: CyclonesAnswer["traces"] = active
-    .filter((x) => x.trajectoire?.observee.length)
-    .map(({ systeme, trajectoire: t }) => ({ nom: systeme.nom, observee: t!.observee.map(pair), prevue: t!.prevue.map(pair), etiquette: t!.observee.at(-1)!.stade, actif: true }));
-  const last = list[0];
-  if (!active.length && last) {
-    const t = await gdacs.trajectoire(cache, last).catch(() => undefined);
-    if (t?.value.observee.length) {
-      const d = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
-      traces = [{ nom: last.nom, observee: t.value.observee.map(pair), prevue: [], etiquette: `${d(last.debut)} – ${d(last.fin)}`, actif: false }];
-    }
-  }
-  return { ...a, traces };
+  return needed<CyclonesAnswer>(await cyclones(cache, undefined, now), "cyclones");
 }
 
 export interface AgendaAnswer {
@@ -1054,7 +1060,7 @@ export interface AgendaAnswer {
   remises?: string[];
   /** The agendas read by the scheduled event whose copy is not served, with why (tools/agenda.ts, nonLus). */
   non_lus?: string[];
-  /** The communes whose site is not read until they agree (tools/agenda.ts, mentionIle). */
+  /** The communes and the halls whose site is not read until they agree (tools/agenda.ts, mentionIle; mentionSalles). */
   non_repris?: string;
   couverture: string;
   a_savoir: string;
@@ -1071,7 +1077,7 @@ export async function buildAgenda(cache: Cache, now = new Date()): Promise<Agend
   const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", undefined, now));
   // reunion.fr's agenda, not read, is the page's own note under its sources (noteReunionFr): not in its description.
   const resume = a.resume.replace(`\u00a0; ${RESUME_REUNION_FR}`, "");
-  return { ...a, resume, non_repris: agendaNonRepris().join(" ") || undefined, ce_week_end: weekend?.evenements ?? [] };
+  return { ...a, resume, non_repris: [...agendaNonRepris(), ...mentionSalles()].join(" ") || undefined, ce_week_end: weekend?.evenements ?? [] };
 }
 
 export interface EnfantsAnswer {
@@ -1092,8 +1098,10 @@ export async function buildEnfants(cache: Cache, now = new Date()): Promise<Enfa
 }
 
 export interface ActualitesAnswer {
-  /** The last 24 hours, newest first, the live entries apart. */
+  /** The last 24 hours, newest first, the live entries apart: the NEWS_LISTED newest. */
   infos: InfoRow[];
+  /** How many there are in the last 24 hours, the live entries apart, as actualites counts them: more than `infos` lists. */
+  total?: number;
   en_direct: InfoRow[];
   prefecture: InfoRow[];
   /** Whether people are in the streets or roads blocked: a live blog, or news of it in the last hours. */
@@ -1114,8 +1122,10 @@ export async function buildActualites(cache: Cache, now = new Date()): Promise<A
   const since = new Date(now.getTime() - NEWS_HOURS * 3600_000).toISOString();
   const recent = new Date(now.getTime() - HOT_HOURS * 3600_000).toISOString();
   const day = f.infos.filter((i) => i.publie >= since);
+  const articles = day.filter((i) => !i.direct);
   return {
-    infos: day.filter((i) => !i.direct).slice(0, NEWS_LISTED).map((i) => infoRow(i, now)),
+    infos: articles.slice(0, NEWS_LISTED).map((i) => infoRow(i, now)),
+    total: articles.length,
     en_direct: day.filter((i) => i.direct).slice(0, 12).map((i) => infoRow(i, now)),
     prefecture: f.prefecture.slice(0, 4).map((i) => infoRow(i, now)),
     chaud: day.some((i) => i.publie >= recent && (i.direct || i.sujets.includes("mobilisation"))),
@@ -1648,10 +1658,14 @@ async function within<T>(work: Promise<T>, ms: number): Promise<T | null> {
  * FRESH_SECONDS. Null when there is none yet and it takes more than a few seconds to build.
  *
  * `reader`: the fetcher of an AI assistant, which reads the page once and answers from it. It waits up to `waitMs`
- * for an old copy to be refreshed instead of getting it as it is.
+ * for an old copy to be refreshed instead of getting it as it is; when it is a function, only if that says so
+ * (`ReaderWaits`).
  *
  * `incomplete`: whether a copy lacks part of what it should show; such a copy is due after INCOMPLETE_RETRY_SECONDS.
  */
+/** Whether a reader waits for the refresh of the copy of `key`, `ageMs` old, rather than get it as it is. */
+export type ReaderWaits = (key: string, value: unknown, ageMs: number) => boolean;
+
 export async function snapshot<T>(
   cache: Cache,
   key: string,
@@ -1659,7 +1673,7 @@ export async function snapshot<T>(
   background: Background,
   now = new Date(),
   waitMs = WAIT_MS,
-  reader = false,
+  reader: boolean | ReaderWaits = false,
   incomplete?: (value: T) => boolean,
 ): Promise<Cached<T> | null> {
   // Each build is measured: a tile is brought up to date only when what it took last time is left (web/site.ts).
@@ -1693,10 +1707,11 @@ export async function snapshot<T>(
     return null;
   }
   const freshFor = incomplete?.(got.value) ? INCOMPLETE_RETRY_SECONDS : FRESH_SECONDS;
-  if (now.getTime() - got.fetchedAt.getTime() > freshFor * 1000) {
+  const age = now.getTime() - got.fetchedAt.getTime();
+  if (age > freshFor * 1000) {
     const fresh = written(cache.getFrom(key, got, freshFor, run));
     const logged = fresh.catch((err) => console.error(`page ${key} : rafraîchissement impossible`, why(err)));
-    if (reader) {
+    if (typeof reader === "function" ? reader(key, got.value, age) : reader) {
       const newer = await within(logged, waitMs);
       if (newer) return newer;
     }

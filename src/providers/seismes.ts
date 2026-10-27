@@ -84,9 +84,16 @@ export function underSummit(s: Seisme): boolean {
   return distanceKm(SUMMIT.lon, SUMMIT.lat, s.lon, s.lat) <= 8;
 }
 
+/** Shared through KV (web/partagees.ts): a data center's own copy could be a day old where no one had asked. */
+export const KEY = "seismes";
+
+/** The last 30 days of the catalogue, read now. */
+export async function read(now = new Date()): Promise<Seisme[]> {
+  const start = new Date(now.getTime() - DAYS * 86_400_000).toISOString().slice(0, 19);
+  // A few seconds: past them the observatory is down, not slow (26/10, nothing in 40 s), and its copy serves (cache.ts).
+  return parse(await getText(SOURCE.id, `${URL}?${BOX}&format=text&orderby=time&starttime=${start}`, 8_000));
+}
+
 export async function seismes(cache: Cache, now = new Date()): Promise<Cached<Seisme[]>> {
-  return cache.get("seismes", FRESH_SECONDS, async () => {
-    const start = new Date(now.getTime() - DAYS * 86_400_000).toISOString().slice(0, 19);
-    return parse(await getText(SOURCE.id, `${URL}?${BOX}&format=text&orderby=time&starttime=${start}`, 20_000));
-  });
+  return cache.get(KEY, FRESH_SECONDS, () => read(now));
 }

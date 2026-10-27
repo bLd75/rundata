@@ -32,6 +32,15 @@
   // Cloudflare Email Sending (Workers Paid, domain rundata.re onboarded): the confirmation link of the events the clubs
   // propose, from evenements@rundata.re (src/propositions.ts).
   "send_email": [{ "name": "EMAIL" }],
+  // Browser Rendering (Workers Paid: 10 browser hours a month included): the picture of Météo-France's official map of
+  // the vigilance, at most 24 a day (src/providers/vigilance-carte.ts).
+  "browser": { "binding": "BROWSER" },
+  // How fast one address may call /mcp and send the forms, per Cloudflare location and per minute (src/limite.ts,
+  // PAR_MINUTE): far above any real client's. The namespaces are this account's own numbers.
+  "ratelimits": [
+    { "name": "LIMITE_MCP", "namespace_id": "974001", "simple": { "limit": 600, "period": 60 } },
+    { "name": "LIMITE_FORMULAIRES", "namespace_id": "974002", "simple": { "limit": 20, "period": 60 } }
+  ],
   // Usage counts (src/metrics.ts): one point per tool call and per page view, no address, no cookie.
   "analytics_engine_datasets": [{ "binding": "USAGE", "dataset": "rundata_usage" }]
 }

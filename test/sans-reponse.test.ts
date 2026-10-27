@@ -78,7 +78,16 @@ describe("a failed read", () => {
   it("brings a host that had come back to « a_verifier » again, with this failure's address", async () => {
     const { row } = database();
     await sr.noter("acspo", "https://coastwatch.noaa.gov/thredds/dodsC/x.ascii", "http_500", MORNING);
-    expect(row("coastwatch.noaa.gov")).toMatchObject({ statut: "a_verifier", constat: "http_500", revenu_le: null, url: "https://coastwatch.noaa.gov/thredds/dodsC/x.ascii", premier_echec: T });
+    expect(row("coastwatch.noaa.gov")).toMatchObject({ statut: "a_verifier", constat: "http_500", revenu_le: null, url: "https://coastwatch.noaa.gov/", premier_echec: T });
+  });
+
+  it("keeps only the site's root of a failed read: never what a person asked, nor a key in the path", async () => {
+    const { row } = database();
+    await sr.noter("ban_geocodage", "https://data.geopf.fr/geocodage/search?q=12%20rue%20des%20Lilas%20Saint-Paul%20La%20R%C3%A9union&limit=5", "delai", MORNING);
+    expect(row("data.geopf.fr")?.url).toBe("https://data.geopf.fr/");
+    await sr.noter("firms", "https://firms.modaps.eosdis.nasa.gov/api/area/csv/0123456789abcdef0123456789abcdef/VIIRS_NOAA20_NRT/55.2,-21.4,55.9,-20.8/1", "http_503", MORNING);
+    expect(row("firms.modaps.eosdis.nasa.gov")?.url).toBe("https://firms.modaps.eosdis.nasa.gov/");
+    expect(sr.origineDe("pas une adresse")).toBeUndefined();
   });
 
   it("does nothing without the table, nor without the database", async () => {
@@ -137,6 +146,11 @@ describe("the morning's recheck", () => {
     expect(await sr.essayer({ url: "https://a.re/", verifier: null }, MORNING, answers({ "a.re": html("<title>Accueil</title>") }))).toEqual({ issue: "repond" });
     expect(await sr.essayer({ url: "https://a.re/", verifier: null }, MORNING, answers({ "a.re": () => new Response("", { status: 403 }) }))).toEqual({ issue: "bloque", constat: "http_403" });
     expect(await sr.essayer({ url: "https://a.re/", verifier: null }, MORNING, answers({ "a.re": timeout }))).toEqual({ issue: "echec", constat: "delai" });
+    // At a site's root, a 404 is a site that answers; deeper, the page is gone; a 5xx fails anywhere.
+    const status = (n: number) => () => new Response("", { status: n });
+    expect(await sr.essayer({ url: "https://a.re/", verifier: null }, MORNING, answers({ "a.re": status(404) }))).toEqual({ issue: "repond" });
+    expect(await sr.essayer({ url: "https://a.re/", verifier: null }, MORNING, answers({ "a.re": status(502) }))).toEqual({ issue: "echec", constat: "http_502" });
+    expect(await sr.essayer({ url: "https://a.re/x.pdf", verifier: null }, MORNING, answers({ "a.re": status(404) }))).toEqual({ issue: "echec", constat: "http_404" });
     const verifier = { date: '"date_obs":"([^"]+)"', age_max_h: 48 };
     const feed = (d: string) => html(`{"data":[{"date_obs":"${d}"}]}`);
     expect(await sr.essayer({ url: "https://hubeau.eaufrance.fr/x", verifier }, MORNING, answers({ "hubeau.eaufrance.fr": feed("2026-10-01T00:00:00Z") }))).toEqual({ issue: "echec", constat: "flux_vide" });

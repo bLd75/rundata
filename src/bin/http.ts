@@ -51,16 +51,27 @@ async function send(res: ServerResponse, r: Response) {
 }
 
 // The static files Cloudflare serves beside the Worker (wrangler.jsonc, "assets"): the press page's visuals, the
-// pictures of the link previews, the home-screen icons and the symbol of the brand.
+// pictures of the link previews, the home-screen icons and the symbol of the brand, the island's relief, the headings'
+// font; each with its cache as in public/_headers.
 const PUBLIC = new URL("../../public/", import.meta.url);
-const TYPES: Record<string, string> = { jpg: "image/jpeg", webp: "image/webp", png: "image/png", svg: "image/svg+xml" };
+const TYPES: Record<string, string> = { jpg: "image/jpeg", webp: "image/webp", png: "image/png", svg: "image/svg+xml", woff2: "font/woff2" };
+const KEPT = "public, max-age=31536000, immutable";
+const ASSETS: [RegExp, string][] = [
+  [/^\/((?:presse|og|icons|logo)\/[\w-]+\.[0-9a-f]+\.(jpg|webp|png|svg))$/, KEPT],
+  [/^\/(relief-[0-9a-f]{8}\.(webp))$/, KEPT],
+  [/^\/(font\/titres-\d+\.(woff2))$/, KEPT],
+  // Linked with ?v= (its fingerprint), kept a week.
+  [/^\/(og\.(png))$/, "public, max-age=604800"],
+];
 
 async function asset(req: IncomingMessage): Promise<Response | null> {
-  const m = /^\/((?:presse|og|icons|logo)\/[\w-]+\.[0-9a-f]+\.(jpg|webp|png|svg))$/.exec(req.url ?? "");
-  if (!m || (req.method !== "GET" && req.method !== "HEAD")) return null;
+  const path = (req.url ?? "").split("?")[0];
+  const found = ASSETS.map(([re, cache]) => [re.exec(path), cache] as const).find(([m]) => m);
+  if (!found || (req.method !== "GET" && req.method !== "HEAD")) return null;
+  const [m, cache] = found;
   try {
-    const body = await readFile(new URL(m[1], PUBLIC));
-    return new Response(req.method === "HEAD" ? null : body, { headers: { "content-type": TYPES[m[2]], "cache-control": "public, max-age=31536000, immutable" } });
+    const body = await readFile(new URL(m![1], PUBLIC));
+    return new Response(req.method === "HEAD" ? null : body, { headers: { "content-type": TYPES[m![2]], "cache-control": cache } });
   } catch {
     return null;
   }

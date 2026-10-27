@@ -97,7 +97,7 @@ describe("« Relier votre plateforme »", () => {
     const conf = plain(await (await get("/confidentialite")).text());
     expect(conf).toContain("Les associations reliées à une plateforme (HelloAsso)");
     expect(conf).toContain("et <a href=\"#plateformes-donnees\">« Les associations reliées à une plateforme »</a>).");
-    expect(conf).toContain("Seule la vérification anti-robot des trois formulaires");
+    expect(conf).toContain("La vérification anti-robot des trois formulaires des clubs et associations y garde aussi une donnée");
     expect(conf).toContain("<b>Contre les abus</b>, pour les trois formulaires,");
   });
 

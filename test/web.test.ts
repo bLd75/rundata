@@ -13,7 +13,7 @@ import { homePage } from "../src/web/home.js";
 import { communesPage } from "../src/web/commune.js";
 import { VERSION } from "../src/server.js";
 import { COVERAGE as SEA_COVERAGE } from "../src/tools/mer.js";
-import { DESCRIPTION_MAX, meteoPage, placePage, seaPage, vigilancePage } from "../src/web/pages.js";
+import { CSS, DESCRIPTION_MAX, FONT_PATH, meteoPage, placePage, seaPage, STYLE_PATH, vigilanceLive, vigilancePage } from "../src/web/pages.js";
 import { PAGES, pageOf } from "../src/web/places.js";
 import { isReader, site } from "../src/web/site.js";
 import { unzip } from "../src/zip.js";
@@ -170,7 +170,7 @@ describe("home page", () => {
     // The badge says when the stations measured, never « en direct » at a time already past; the script counts the age
     // again in the browser, from the time of the data.
     expect(cold.text).not.toContain("En direct · <b>");
-    expect(cold.text).toMatch(/<span data-nojs>Mesures de <b>\d\d:\d\d<\/b> à La Réunion<\/span><span data-js hidden><b data-clock>\d\d:\d\d<\/b> à La Réunion · mesuré <span data-age="[\dT:.-]+Z">il y a \d+ (min|h)<\/span>/);
+    expect(cold.text).toMatch(/<span data-nojs>Mesures de <b>\d\d:\d\d<\/b> à La Réunion<\/span><span data-js hidden><b data-clock>\d\d:\d\d<\/b> à La Réunion · mesuré <span data-age="[\dT:.-]+Z">il y a \d+\u00a0(min|h)<\/span>/);
     expect(cold.used).toBeLessThanOrEqual(PAGE_BUDGET);
     // Another isolate of the same data center: the weather from the edge, and the oldest of the other tiles brought up
     // to date afterwards, still within the limit.
@@ -376,7 +376,7 @@ describe("commune pages", () => {
     expect(cold.r.status).toBe(200);
     expect(cold.text).toContain(`<h1>Saint-Leu <span class="n974">974</span> en direct</h1>`);
     expect(cold.text).toMatch(/<h3><a href="\/meteo\/saint-leu">Météo<\/a><\/h3><p class="tv">\d+(,\d)?\u202f°C<\/p>/);
-    expect(cold.text).toContain("pour la zone Ouest");
+    expect(cold.text).toContain("est dans la zone Ouest");
     expect(cold.text).toMatch(/<h3>Mairie<\/h3><p class="tv">(Ouverte|Fermée)<\/p>/);
     expect(cold.text).toContain("Mer"); // on the coast
     expect(cold.used).toBeLessThanOrEqual(PAGE_BUDGET);
@@ -442,7 +442,7 @@ describe("what crawlers and previews fetch", () => {
     // The pages, the 24 communes, their water, their day and their places for children, a page per hike and per ONF trail with its GPS trace, and per past
     // cyclone, and the busiest bus stops.
     const stops = [...stopPages().values()].filter((p) => p.indexe);
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 51 + 24 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length + stops.length);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 54 + 24 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length + stops.length);
     expect(map).toContain(`<loc>https://rundata.re/bus/arret/${stops[0].slug}</loc>`);
     expect(map).toContain("<loc>https://rundata.re/enfants</loc>");
     expect(map).toContain("<loc>https://rundata.re/sites-sans-reponse</loc>");
@@ -472,13 +472,24 @@ describe("what crawlers and previews fetch", () => {
     }
   });
 
-  it("serves a 1200×630 PNG for link previews, and the flag as favicon", async () => {
-    const r = await handle(new Request("https://rundata.re/og.png"), isolate());
-    const png = new Uint8Array(await r.arrayBuffer());
-    expect(r.headers.get("content-type")).toBe("image/png");
+  it("says the service is free, not that it is non-commercial, in the terms", async () => {
+    const html = await (await handle(new Request("https://rundata.re/conditions"), isolate())).text();
+    expect(html).toContain("rundata.re est un service gratuit\u00a0: un site et un connecteur MCP");
+    expect(html).not.toContain("non commercial");
+  });
+
+  // Files of public/, served by Cloudflare before the Worker (no request billed), with the headers of public/_headers.
+  const asset = (path: string) => new Uint8Array(readFileSync(new URL(`../public${path}`, import.meta.url)));
+  const headers = readFileSync(new URL("../public/_headers", import.meta.url), "utf8");
+
+  it("has a 1200×630 PNG for link previews, and the flag as favicon", async () => {
+    const png = asset("/og.png");
     expect(png.length).toBeLessThan(300_000);
     const view = new DataView(png.buffer);
-    expect([view.getUint32(16), view.getUint32(20)]).toEqual([1200, 630]);
+    expect([view.getUint32(0), view.getUint32(16), view.getUint32(20)]).toEqual([0x89504e47, 1200, 630]);
+    expect(headers).toContain("/og.png\n  Cache-Control: public, max-age=604800\n");
+    // Not in the Worker any more: Cloudflare answers before it.
+    expect(await site(new Request("https://rundata.re/og.png"), new Cache(), () => {})).toBeNull();
     const icon = await handle(new Request("https://rundata.re/favicon.svg"), isolate());
     expect(await icon.text()).toContain("#e3262d");
   });
@@ -487,12 +498,38 @@ describe("what crawlers and previews fetch", () => {
     const page = homePage("https://rundata.re", null);
     const path = page.match(/<image href="(\/relief-[0-9a-f]{8}\.webp)"/)?.[1];
     expect(path).toBeDefined();
-    const r = await handle(new Request(`https://rundata.re${path}`), isolate());
-    const webp = new Uint8Array(await r.arrayBuffer());
-    expect(r.headers.get("content-type")).toBe("image/webp");
-    expect(r.headers.get("cache-control")).toContain("immutable");
+    const webp = asset(path!);
     expect(new TextDecoder().decode(webp.slice(8, 12))).toBe("WEBP");
     expect(webp.length).toBeLessThan(250_000);
+    expect(headers).toContain("/relief-*\n  Cache-Control: public, max-age=31536000, immutable\n");
+    expect(await site(new Request(`https://rundata.re${path}`), new Cache(), () => {})).toBeNull();
+  });
+
+  it("has the headings' font where the pages ask for it, kept for good", async () => {
+    const woff2 = asset(FONT_PATH);
+    expect(new TextDecoder().decode(woff2.slice(0, 4))).toBe("wOF2");
+    expect(woff2.length).toBeLessThan(80_000);
+    expect(headers).toContain("/font/*\n  Cache-Control: public, max-age=31536000, immutable\n");
+    expect(await site(new Request(`https://rundata.re${FONT_PATH}`), new Cache(), () => {})).toBeNull();
+  });
+
+  it("serves the stylesheet apart, kept a year at its address, and no page copies it any more", async () => {
+    const page = homePage("https://rundata.re", null);
+    expect(page).toContain(`<link rel="stylesheet" href="${STYLE_PATH}">`);
+    expect(page).not.toContain("<style");
+    expect(STYLE_PATH).toMatch(/^\/style-[0-9a-z]+\.css$/);
+    const res = await handle(new Request(`https://rundata.re${STYLE_PATH}`), isolate());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/css; charset=utf-8");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(await res.text()).toBe(CSS);
+    // A page of an earlier version (a copy kept offline, a version still rolling out) gets today's, a few minutes only.
+    const old = await site(new Request("https://rundata.re/style-0.css"), new Cache(), () => {});
+    expect(old!.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(await old!.text()).toBe(CSS);
+    // Its only address, the font's, is absolute: read the same from the file as from the page.
+    expect([...CSS.matchAll(/url\(([^)]*)\)/g)].map((m) => m[1])).toEqual([FONT_PATH]);
   });
 
   it("gives command-line clients one line and crawlers the page", async () => {
@@ -672,7 +709,7 @@ describe("vigilance and sea pages", () => {
     const swell = text.match(/<section aria-labelledby="h-houle">[^]*?<\/section>/)![0];
     expect(swell).toContain("Prévision, pas une mesure");
     expect(swell.match(/<li>/g)).toHaveLength(14);
-    expect(swell).toMatch(/<b>\d+(,\d)?\u202fm<\/b><span>(du |de l')[a-z-]+, période \d+ s, vers \d+h<\/span><span>jusqu'à\u00a0\d+(,\d)?\u202fm /);
+    expect(swell).toMatch(/<b>\d+(,\d)?\u202fm<\/b><span>(du |de l')[a-z-]+, période \d+ s, vers \d+\u00a0h<\/span><span>jusqu'à\u00a0\d+(,\d)?\u202fm /);
     expect(used).toBeLessThanOrEqual(PAGE_BUDGET);
     // A coastal commune's tile says it too, from the same copy.
     const saintLeu = await serve(cache, "/communes/saint-leu");
@@ -797,18 +834,27 @@ describe("the maps lead to what they show", () => {
     expect(there.filter((a) => !rows.has(a.href.slice("/meteo#".length)))).toEqual([]);
   });
 
-  it("takes each commune of the vigilance map to the card of its zone, and each of /communes to its page", async () => {
+  it("shows the vigilance as Météo-France publishes it, without a map of the communes, and takes each of /communes to its page", async () => {
     const zip = fixture("vigilance_om.zip");
     const files = await unzip(zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength) as ArrayBuffer, (n) => n.endsWith("_FMEE_.txt"));
     const v = mf.parse(JSON.parse(files.get("CDPV95_FMEE_.txt")!), JSON.parse(files.get("CDPV96_FMEE_.txt")!));
     const page = vigilancePage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
-    const zones = anchors(page, "#");
-    expect(zones).toHaveLength(24);
+    // Météo-France's display as it publishes it: no map of ours coloured commune by commune, its link at the head of the page.
+    expect(page).not.toMatch(/<svg class="map/);
+    expect(anchors(page, "#")).toEqual([]);
+    expect(page.indexOf('<a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a>')).toBeLessThan(page.indexOf('id="h-zones"'));
+    // Its 5 land zones, phenomenon by phenomenon.
     const cards = ids(page);
-    expect(zones.filter((a) => !cards.has(a.href.slice(1)))).toEqual([]);
-    expect(new Set(zones.map((a) => a.href))).toEqual(new Set(["#z-nord", "#z-est", "#z-sud-est", "#z-sud", "#z-ouest"]));
-    expect(zones.find((a) => a.label.startsWith("Saint-Pierre :"))?.label).toMatch(/^Saint-Pierre : (vigilance \p{L}+|rien d'émis), zone Sud, voir le détail$/u);
-    expect(page).toMatch(/<svg class="map" viewBox="[^"]+" role="group"/);
+    for (const z of ["z-nord", "z-est", "z-sud-est", "z-sud", "z-ouest"]) expect(cards.has(z)).toBe(true);
+    // Green said only when Météo-France issued it on all the land, on the page and the home page's tile.
+    expect(page).toContain("Aucune vigilance particulière à La Réunion");
+    expect(vigilanceLive({ value: v, fetchedAt: NOW, stale: false }, NOW)?.valeur).toContain("vert");
+    const bare = structuredClone(v);
+    for (const z of ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"]) delete bare.zones[z];
+    const none = vigilancePage("https://rundata.re", { value: bare, fetchedAt: NOW, stale: false }, NOW);
+    expect(none).not.toContain("Aucune vigilance particulière");
+    expect(none).toContain('<p class="lead">Pas de vigilance émise.</p>');
+    expect(vigilanceLive({ value: bare, fetchedAt: NOW, stale: false }, NOW)).toMatchObject({ valeur: "Pas de vigilance émise" });
 
     const communes = communesPage("https://rundata.re");
     const links = anchors(communes, "/communes/");

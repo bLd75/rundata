@@ -107,7 +107,7 @@ export function acces(niveau: string | undefined, p: volcan.Phase | undefined, p
     const enclos = said.find((x) => /enclos/i.test(x) && /interdit|ferm|ouvert|accès/i.test(x));
     // The release's own words on the Enclos when its title has them (marketing), never a status put into words; closed,
     // « interdit », by order.
-    const mots = p.enclos === "ferme" ? undefined : volcan.enclosWords(p.titre);
+    const mots = p.enclos === "ferme" ? undefined : volcan.enclosWordsOf(p);
     const etat = mots ? `« ${mots} » selon le communiqué du ${dayOf(p.jour)}` : SAID[p.enclos ?? "ferme"] ?? p.enclos;
     lignes.push({ lieu: "Enclos", texte: `Enclos : ${etat}${enclos ? `. ${quote(enclos)}` : ""}`, ...release });
     // The sentence that says whether the road is open, before any other naming it (« S'aventurer depuis la RN2… »).

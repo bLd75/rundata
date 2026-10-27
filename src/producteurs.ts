@@ -94,7 +94,7 @@ export const FICHES: Record<string, Fiche> = {
   vigieau: { famille: "licence_ouverte", producteurs: [MTE, PREFECTURE] },
   // providers/avis-eau.ts: Dionéo, runéo, Eaux de La Possession, La Créole, the CIREST, Sainte-Marie and Saint-Leu.
   avis_eau: { famille: "information_publique", producteurs: ["Dionéo", "runéo", "Eaux de La Possession", "La Créole", "CIREST", commune("Sainte-Marie"), commune("Saint-Leu")] },
-  risque_requin: { famille: "information_publique", producteurs: [PREFECTURE, "Centre Sécurité Requin"] },
+  risque_requin: { famille: "information_publique", producteurs: [PREFECTURE, "GIP Centre Sécurité Requin"] },
   geodae: { famille: "licence_ouverte", producteurs: [SANTE] },
   finess: { famille: "licence_ouverte", producteurs: [SANTE] },
   // Santé.fr is the ministry's public service.
@@ -157,6 +157,7 @@ export const FICHES: Record<string, Fiche> = {
   openagenda: { famille: "licence_ouverte", producteurs: ["CINOR", "Office de tourisme intercommunal du Nord"] },
   agenda_oti_est: { famille: "information_publique", producteurs: ["Office de tourisme intercommunal de l'Est"] },
   agenda_mairies: { famille: "information_publique", agendas: true },
+  agenda_le_port: { famille: "information_publique", agendas: true },
   agenda_sainte_marie: { famille: "information_publique", agendas: true },
   agenda_salazie: { famille: "information_publique", agendas: true },
   agenda_saint_louis: { famille: "information_publique", agendas: true },
@@ -180,9 +181,12 @@ export function producteursDe(s: SourceInfo, agendas: Agenda[] = AGENDAS): strin
   return f.agendas ? [...new Set(agendas.filter((a) => a.source.id === s.id).map(producteurDe))] : (f.producteurs ?? []);
 }
 
+/** A source counted (it has its entry, and rundata.re reads it): the list sources_donnees gives is these alone. */
+export const comptee = (s: SourceInfo) => !!FICHES[s.id] && !FICHES[s.id].horsCompte;
+
 /** What the code alone counts of the sources: how many, by how many producers, under which licences. */
 export function compte(sources: SourceInfo[], agendas: Agenda[] = AGENDAS) {
-  const lues = sources.filter((s) => FICHES[s.id] && !FICHES[s.id].horsCompte);
+  const lues = sources.filter(comptee);
   const licences = {} as Record<Famille, number>;
   for (const s of lues) licences[FICHES[s.id].famille] = (licences[FICHES[s.id].famille] ?? 0) + 1;
   return {

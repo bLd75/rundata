@@ -309,7 +309,11 @@ function creoleCommunes(titre: string, texte: string): Pick<Avis, "communes" | "
   return { communes: CREOLE.communes, precision: `La Créole ne précise pas la commune${lieu ? ` (lieu écrit dans l'avis : ${lieu})` : ""}.` };
 }
 
-/** La Créole's page: each `<li>` is « 23/10/2026 - category », the title, then the text. Only the start written with its own date and hour (« 23/10/2026 à partir de 22h00 ») is read: « demain matin » would be a guess. */
+/**
+ * La Créole's page: each `<li>` is « 23/10/2026 - category », the title, then the text. The start is read when written
+ * with its own date and hour (« 23/10/2026 à partir de 22h00 »); the end when « jusqu'à 6h00 demain », the day after
+ * the start (else after the notice's date). No other end is guessed (« en fin de matinée »).
+ */
 export function parseCreole(html: string): Avis[] {
   const box = /<div id="infos-flash">([\s\S]*?)<\/ul>/.exec(html)?.[1] ?? "";
   return [...box.matchAll(/<li>([\s\S]*?)<\/li>/g)].flatMap(([, li]) => {
@@ -319,6 +323,8 @@ export function parseCreole(html: string): Avis[] {
     const body = lines(/<span>\s*([\s\S]*)<\/span>/.exec(li)?.[1] ?? "");
     const texte = body.replace(/\n+/g, " ");
     const start = /(\d\d\/\d\d\/\d{4}) à partir de (\d{1,2})h(\d\d)?/.exec(texte);
+    const tomorrow = /jusqu['’]à (\d{1,2})h(\d\d)? demain\b/.exec(texte);
+    const next = new Date(Date.parse(`${ddmmyyyy(start?.[1] ?? date)}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
     return [{
       distributeur: "La Créole",
       titre,
@@ -326,6 +332,7 @@ export function parseCreole(html: string): Avis[] {
       publie: new Date(`${ddmmyyyy(date)}T00:00:00+04:00`).toISOString(),
       jour: true,
       debut: start ? `${ddmmyyyy(start[1])}T${start[2].padStart(2, "0")}:${start[3] ?? "00"}` : undefined,
+      fin: tomorrow ? `${next}T${tomorrow[1].padStart(2, "0")}:${tomorrow[2] ?? "00"}` : undefined,
       // Its places are zones with their limits (« sa limite haute : le chemin de La Giroday … »), not a list of streets.
       secteurs: [],
       secteurs_complets: false,
@@ -432,7 +439,7 @@ const FLUX = "avis-eau:flux";
 
 /** Every feed's read, the notices of one that did not answer kept from the read before; throws only when all fail with nothing kept. */
 export async function lecture(cache: Cache): Promise<Cached<Flux[]>> {
-  return cache.get(FLUX, FRESH_SECONDS, async () => {
+  return cache.island(FLUX, FRESH_SECONDS, async () => {
     const before = await cache.peek<Flux[]>(FLUX).catch(() => undefined);
     const parts = await Promise.allSettled(PARTS.map((p) => p.load()));
     const flux = PARTS.map((p, i): Flux => {

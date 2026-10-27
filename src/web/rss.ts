@@ -62,7 +62,7 @@ function vigilanceItems(p: PlacePage, v: mf.Vigilance, now: Date): Item[] {
     const c = cycloneLevel(v.zones[mf.ISLAND]?.[mf.CYCLONE], now);
     items.push({
       title: `${cycloneHead(c)} à La Réunion`,
-      description: `${cyclone(v, now)} ${issued}`,
+      description: `${cyclone(v, now)} ${issued} ${mf.officiel(mf.OFFICIEL_CYCLONE)}`,
       path: "/vigilance",
       guid: `cyclone/${c}/${localDay(cyc.debut)}`,
       date: since(v, cyc.debut),
@@ -75,8 +75,8 @@ function vigilanceItems(p: PlacePage, v: mf.Vigilance, now: Date): Item[] {
     const e = episode(periods);
     if (!e) continue;
     items.push({
-      title: `Vigilance ${mf.colour(e.max)} ${mf.PHENOMENA[id].toLowerCase()} : zone ${name}`,
-      description: `${p.nom} est dans la zone ${name} : ${spans(periods).join(", ")}. ${issued}`,
+      title: `Vigilance ${mf.colour(e.max)} ${mf.PHENOMENA[id].toLowerCase()} : zone ${name} de Météo-France`,
+      description: `${p.nom} est dans la zone ${name} de Météo-France : ${spans(periods).join(", ")}. ${issued} ${mf.officiel(mf.OFFICIEL_VIGILANCE)}`,
       path: "/vigilance",
       guid: `vigilance/${zone}/${id}/${e.max}/${localDay(e.debut)}`,
       date: since(v, e.debut),
@@ -89,7 +89,7 @@ function vigilanceItems(p: PlacePage, v: mf.Vigilance, now: Date): Item[] {
       const where = raised(v).filter((x) => x.phenomene === mf.PHENOMENA[WAVES]).map((x) => `${x.zone} : ${x.periodes.join(", ")}`);
       items.push({
         title: `Vigilance ${mf.colour(e.max)} vagues-submersion sur le littoral`,
-        description: `${where.join("\u00a0; ")}. ${issued}`,
+        description: `${where.join("\u00a0; ")}. ${issued} ${mf.officiel(mf.OFFICIEL_VIGILANCE)}`,
         path: "/vigilance",
         guid: `vigilance/littoral/${WAVES}/${e.max}/${localDay(e.debut)}`,
         date: since(v, e.debut),

@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { counted, SCHEDULED_BUDGET } from "../src/budget.js";
+import { counted, SCHEDULED_BUDGET, scheduled } from "../src/budget.js";
 import { Cache, type CacheEntry, MemoryStore, TieredStore } from "../src/cache.js";
+import { readings, type Readings, STATIONS } from "../src/providers/vigicrues.js";
 import { buildCrues, type CruesAnswer, FRESH_SECONDS } from "../src/web/data.js";
 import { cruesLive } from "../src/web/domains.js";
 import { type Kv, kvKey, SHARED, SharedFallback, warmShared } from "../src/web/partagees.js";
@@ -45,6 +46,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 /** The rivers as Vigicrues gave them `ageMin` minutes ago. */
@@ -93,7 +95,8 @@ describe("the rivers kept by the scheduled event", () => {
   it("is read from Vigicrues as before when KV has no copy", async () => {
     const cache = center(new MemoryStore(), new FakeKv(), NOW);
     const r = await cache.get(KEY, FRESH_SECONDS, () => buildCrues(cache, NOW));
-    expect(asked).toBe(3);
+    // The vigilance, and the heights and the flows in 4 batches each.
+    expect(asked).toBe(9);
     expect(r.fetchedAt).toEqual(NOW);
   });
 
@@ -102,7 +105,8 @@ describe("the rivers kept by the scheduled event", () => {
     await kv.put(kvKey(KEY), JSON.stringify(await builtAgo(2 * 60)));
     const cache = center(new MemoryStore(), kv, NOW);
     const r = await cache.get(KEY, FRESH_SECONDS, () => buildCrues(cache, NOW));
-    expect(asked).toBe(3);
+    // The vigilance, and the heights and the flows in 4 batches each.
+    expect(asked).toBe(9);
     expect(r.fetchedAt).toEqual(NOW);
   });
 
@@ -116,5 +120,125 @@ describe("the rivers kept by the scheduled event", () => {
     vigilance = JSON.stringify(orange);
     expect(every((await builtAgo(0)).value)).toBe(5);
     expect(every(undefined)).toBe(15);
+  });
+});
+
+// 27/10/2026: from Cloudflare, the heights of the 29 gauges asked at once took more than the 34 s given to them, every
+// read since the evening before cut, and the copy of 20:58 served to every question for 15 hours.
+describe("the 29 gauges, read by the scheduled event in batches", () => {
+  // Each request answered with the recorded readings of the gauges it asked for, `bump` metres higher; a batch with a
+  // gauge of `silent` in it does not answer. `asks`: what each request was for, in order; `most`: the most at once.
+  let batches: string[][];
+  let asks: string[];
+  let most: number;
+  let bump: number;
+  let silent: string[];
+  beforeEach(() => {
+    [batches, asks, most, bump, silent] = [[], [], 0, 0, []];
+    let now = 0;
+    vi.stubGlobal("fetch", async (url: string, init?: { body?: URLSearchParams }) => {
+      most = Math.max(most, ++now);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      now--;
+      if (new URL(url).pathname.endsWith("vigilance.php")) {
+        asks.push("vigilance");
+        return new Response(vigilance);
+      }
+      const ids = Object.keys(JSON.parse(init?.body?.get("liste") ?? "{}"));
+      batches.push(ids);
+      asks.push(String(init?.body?.get("mesure")));
+      if (ids.some((id) => silent.includes(id))) throw new Error("The operation was aborted due to timeout");
+      const all = JSON.parse(fixture(`vigicrues_${init?.body?.get("mesure")}.json`)) as Record<string, [number, number][]>;
+      return Response.json(Object.fromEntries(ids.filter((id) => all[id]).map((id) => [id, all[id].map(([t, v]) => [t, v + bump])])));
+    });
+  });
+
+  // A data center, its own memory and cache, with the Worker's KV behind (worker.ts: the durable store).
+  const there = (kv: MemoryStore, at: Date) => new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => at.getTime(), false, kv);
+  const inEvent = (cache: Cache, at: Date) =>
+    counted(SCHEDULED_BUDGET, async () => {
+      scheduled();
+      return readings(cache, "hauteur", undefined, at);
+    });
+  const last = (r: Readings, id: string) => r[id]?.at(-1)?.[1];
+  // A gauge of the first batch and one of the last, both in the recording.
+  const recorded = Object.keys(JSON.parse(fixture("vigicrues_hauteur.json")));
+  const ids = STATIONS.map((s) => s.id).filter((id) => recorded.includes(id));
+  const [first, other] = [ids.find((id) => STATIONS.findIndex((s) => s.id === id) < 8)!, ids.findLast((id) => STATIONS.findIndex((s) => s.id === id) >= 24)!];
+
+  it("asks for 8 gauges at most at a time, one request at a time, 25 s each", async () => {
+    const timeouts = vi.spyOn(AbortSignal, "timeout");
+    const r = await inEvent(there(new MemoryStore(), NOW), NOW);
+    expect(batches.map((b) => b.length)).toEqual([8, 8, 8, 5]);
+    expect(new Set(batches.flat()).size).toBe(STATIONS.length);
+    expect(most).toBe(1);
+    expect(timeouts.mock.calls.map(([ms]) => ms)).toEqual([25_000, 25_000, 25_000, 25_000]);
+    expect(Object.keys(r.value.value).length).toBeGreaterThan(20);
+  });
+
+  it("says in the Worker's logs how long each batch took, and which did not answer", async () => {
+    silent = [other];
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await inEvent(there(new MemoryStore(), NOW), NOW);
+    const line = log.mock.calls.map(([l]) => String(l)).find((l) => l.startsWith("source vigicrues, hauteur"));
+    expect(line).toMatch(/^source vigicrues, hauteur : 4 lots, un à la fois : \d+,\d s, \d+,\d s, \d+,\d s, sans réponse après \d+,\d s$/);
+  });
+
+  it("in the scheduled event, asks the site one thing at a time: the vigilance, the heights, then the flows", async () => {
+    const r = await counted(SCHEDULED_BUDGET, async () => {
+      scheduled();
+      return buildCrues(there(new MemoryStore(), NOW), NOW);
+    });
+    expect(asks).toEqual(["vigilance", ...Array(4).fill("hauteur"), ...Array(4).fill("debit")]);
+    expect(most).toBe(1);
+    expect(r.value.stations.length).toBeGreaterThan(20);
+  });
+
+  it("for a question, asks for the vigilance, the heights and the flows together, two batches of each at once at most", async () => {
+    await buildCrues(there(new MemoryStore(), NOW), NOW);
+    expect(asks.filter((a) => a !== "vigilance").length).toBe(8);
+    expect(most).toBe(5);
+  });
+
+  it("serves a question, in another data center, the copy the scheduled event kept in KV, with its time, without asking", async () => {
+    const kv = new MemoryStore();
+    const at = new Date(NOW.getTime() - 14 * 60_000);
+    await inEvent(there(kv, at), at);
+    batches = [];
+    const r = await readings(there(kv, NOW), "hauteur", undefined, NOW);
+    expect(batches).toEqual([]);
+    expect(r).toMatchObject({ fetchedAt: at, stale: false });
+  });
+
+  it("asks Vigicrues for a question only when no copy is kept anywhere, as before: two batches at once, 13 s each", async () => {
+    const timeouts = vi.spyOn(AbortSignal, "timeout");
+    const r = await readings(there(new MemoryStore(), NOW), "hauteur", undefined, NOW);
+    expect(batches.length).toBe(4);
+    expect(most).toBe(2);
+    expect(timeouts.mock.calls.map(([ms]) => ms)).toEqual([13_000, 13_000, 13_000, 10_000]);
+    expect(r.fetchedAt).toEqual(NOW);
+  });
+
+  it("keeps, for the gauges of a batch that did not answer, their own readings from before, and the new ones of the others", async () => {
+    const kv = new MemoryStore();
+    const before = new Date(NOW.getTime() - 15 * 60_000);
+    const old = (await inEvent(there(kv, before), before)).value.value;
+    [bump, silent] = [1, [first]];
+    const r = (await inEvent(there(kv, NOW), NOW)).value;
+    expect(r.stale).toBe(false);
+    expect(r.value[first]).toEqual(old[first]);
+    expect(last(r.value, other)).toBeCloseTo(last(old, other)! + 1);
+  });
+
+  it("serves the copy before, said as Vigicrues' that did not answer, when no batch answered", async () => {
+    const kv = new MemoryStore();
+    const before = new Date(NOW.getTime() - 15 * 60_000);
+    await inEvent(there(kv, before), before);
+    silent = STATIONS.map((s) => s.id);
+    const r = (await inEvent(there(kv, NOW), NOW)).value;
+    expect(r).toMatchObject({ fetchedAt: before, stale: true, source: "vigicrues" });
+    // And a question after it: the same copy, said the same way.
+    expect(await readings(there(kv, NOW), "hauteur", undefined, NOW)).toMatchObject({ fetchedAt: before, stale: true, source: "vigicrues" });
   });
 });

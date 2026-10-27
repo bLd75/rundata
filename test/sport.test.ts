@@ -9,6 +9,8 @@ import { avisIn, avisPresse, daysIn, parseLrvb } from "../src/providers/sport-av
 import { clubOf, clubsNamed, zoneOf } from "../src/sport/clubs.js";
 import { quand, sportTool, window } from "../src/tools/sport.js";
 import { sportPage } from "../src/web/domains.js";
+import type { SportAnswer } from "../src/web/data.js";
+import { withVide } from "../src/vide.js";
 
 // The communes' sites read, as once they have agreed (test/autorisations.test.ts for what is said until then).
 vi.mock("../src/providers/autorisations.js", () => import("./autorisees.js"));
@@ -142,7 +144,10 @@ describe("sport", () => {
     });
     expect(b.a_venir.find((r: { epreuve: string }) => r.epreuve === "TGV – VBSP")).toMatchObject({ commune: "Le Tampon", deplacement: "club de Saint-Pierre en déplacement au Tampon" });
     // « volley dimanche dans le sud »: none is played in the south; the Tampon plays at Saint-Paul and Saint-Denis.
-    const s = body(await sportTool(cache(), "volley", "le sud", "dimanche", NOW));
+    const away = await withVide("sport", () => sportTool(cache(), "volley", "le sud", "dimanche", NOW));
+    const s = body(away.value);
+    // Its clubs playing away are an answer: not counted as a question left without one (vide.ts).
+    expect(away.vide).toBe(false);
     expect(s.resume).toBe("Aucun rendez-vous de volley-ball trouvé dans le Sud dimanche 25/10\u00a0; 2 matchs de clubs du Sud à l'extérieur.");
     expect(s.a_venir.map((r: { epreuve: string; commune: string }) => `${r.epreuve} (${r.commune})`)).toEqual(["USAB 3 – TGV 2 (Saint-Paul)", "SDOVB 2 – TGV 2A (Saint-Denis)"]);
     const club = body(await sportTool(cache(), undefined, "VBSP", "a_venir", NOW));
@@ -223,17 +228,17 @@ describe("sport", () => {
     expect(b.programmes_communes).toEqual([
       { type: "programme sportif de la commune", commune: "La Possession", titre: "Agenda sportif du 22 au 24 octobre", dates: "du jeudi 22/10 au samedi 24/10", lien: "https://www.lapossession.re/agenda/890500", source: "site de la commune de La Possession, lu le samedi 24/10 à 07:00", publie_par: "Ville de La Possession", lu_le: "samedi 24/10 à 07:00" },
       { type: "programme sportif de la commune", commune: "L'Étang-Salé", titre: "Planning des compétitions sportives du 23 au 25 octobre 2026", dates: "du vendredi 23/10 au dimanche 25/10", lien: "https://www.letangsale.fr/planning", source: "site de la commune de L'Étang-Salé, lu le samedi 24/10 à 07:00", publie_par: "Ville de L'Étang-Salé", lu_le: "samedi 24/10 à 07:00" },
-      { type: "programme sportif de la commune", commune: "Saint-Benoît", titre: "Agenda sportif", dates: "du vendredi 23/10 au dimanche 25/10", lien: "https://www.saint-benoit.re/", source: "site de la commune de Saint-Benoît, lu le samedi 24/10 à 07:00", publie_par: "Ville de Saint-Benoît", lu_le: "samedi 24/10 à 07:00" },
     ]);
     expect(b.programmes_a_savoir).toMatch(/ne lit pas ce document, il en donne seulement le lien/);
-    expect(b.resume).toContain("3 programmes sportifs de commune (La Possession, L'Étang-Salé, Saint-Benoît), en lien seulement");
-    expect(b.sources.map((s: { source: string }) => s.source)).toEqual(expect.arrayContaining(["Agenda de la Ville de La Possession", "Agenda de la Ville de L'Étang-Salé", "Agenda de la Ville de Saint-Benoît"]));
+    expect(b.resume).toContain("2 programmes sportifs de commune (La Possession, L'Étang-Salé), en lien seulement");
+    expect(b.sources.map((s: { source: string }) => s.source)).toEqual(expect.arrayContaining(["Agenda de la Ville de La Possession", "Agenda de la Ville de L'Étang-Salé"]));
+    // Not Saint-Benoît's, whose site is never linked (src/liens.ts), even from its agenda's copy.
+    expect(JSON.stringify(b)).not.toContain("saint-benoit.re");
     const page = sportPage("https://rundata.re", { value: { ...b, classements: [] }, fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain("Programmes sportifs des communes");
-    // Its site's terms allow a link to its home page only, in a new window.
-    expect(page).toContain(`<a href="https://www.saint-benoit.re/" rel="noopener" target="_blank">Agenda sportif</a><small>Saint-Benoît · Source\u00a0: site de la commune de Saint-Benoît, lu le samedi 24/10 à 07:00</small></span><span class="q-none">23/10 → 25/10</span>`);
+    expect(page).not.toContain("saint-benoit.re");
     // A commune's own; none for one sport, a club, or the results.
-    expect(body(await sportTool(withAgendas(), undefined, "Saint-Benoît", "ce_week_end", NOW)).programmes_communes.map((p: { commune: string }) => p.commune)).toEqual(["Saint-Benoît"]);
+    expect(body(await sportTool(withAgendas(), undefined, "La Possession", "ce_week_end", NOW)).programmes_communes.map((p: { commune: string }) => p.commune)).toEqual(["La Possession"]);
     expect(body(await sportTool(withAgendas(), "volley", undefined, undefined, NOW)).programmes_communes).toBeUndefined();
     expect(body(await sportTool(withAgendas(), undefined, "VBSP", "a_venir", NOW)).programmes_communes).toBeUndefined();
     expect(body(await sportTool(withAgendas(), undefined, undefined, "resultats", NOW)).programmes_communes).toBeUndefined();
@@ -392,5 +397,27 @@ describe("sport", () => {
     expect(v.indisponible).toEqual(["Volley-ball : avis de la Ligue réunionnaise (annulations, reports)"]);
     expect(v.a_venir).toHaveLength(10);
     expect(b.a_venir.some((r: { sport: string }) => r.sport === "volley-ball")).toBe(true);
+  });
+});
+
+describe("the count of /sport", () => {
+  // 26/10/2026: « 39 » on the page for the 77 the tool counted, the triathlon left out and the motor sport named without any.
+  const row = (sport: string, epreuve: string) => ({ sport, epreuve, quand: "samedi 31/10 à 18:00", competition: "Championnat" });
+  const answer = {
+    resume: "", non_couvert: "", sources: [], classements: [],
+    a_venir: [row("volley-ball", "Match A"), { ...row("handball", "Match B"), etat: "annulée" }, row("triathlon", "Triathlon de Saint-Paul")],
+    a_venir_en_tout: 77,
+  } as unknown as SportAnswer;
+
+  it("is the tool's, with the sports there are, and says the list keeps the first", () => {
+    const page = sportPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
+    expect(page).toContain(`<span class="big">77</span><p>rendez-vous officiels dans les quinze prochains jours : handball, volley et triathlon ; les 3 premiers ci-dessous.</p>`);
+    expect(page).toContain("Triathlon de Saint-Paul");
+    // All of them listed: the count alone.
+    // A sport only beyond the first: named too.
+    const beyond = sportPage("https://rundata.re", { value: { ...answer, sports_a_venir: ["volley-ball", "handball", "triathlon", "golf"] }, fetchedAt: NOW, stale: false }, NOW);
+    expect(beyond).toContain("quinze prochains jours\u00a0: handball, volley, golf et triathlon\u00a0; les 3 premiers ci-dessous.");
+    const few = sportPage("https://rundata.re", { value: { ...answer, a_venir_en_tout: undefined }, fetchedAt: NOW, stale: false }, NOW);
+    expect(few).toContain(`<span class="big">3</span><p>rendez-vous officiels dans les quinze prochains jours : handball, volley et triathlon.</p>`);
   });
 });

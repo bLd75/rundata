@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache } from "../src/cache.js";
 import * as propositions from "../src/propositions.js";
@@ -79,6 +79,9 @@ describe("what a club sends: the fields read", () => {
     expect(read({ ...PROPOSITION, repete: "chaque jour", jusqu_au: "2026-12-01" })).toEqual({ erreurs: ["repete"] });
     expect(read({ ...PROPOSITION, email: "club@", accord: "", commune: "Paris", lien: "javascript:alert(1)", prix: "", debut: "25:00" })).toEqual({ erreurs: ["debut", "commune", "prix", "lien", "email", "accord"] });
     expect(read({})).toEqual({ erreurs: ["vous_etes", "titre", "date", "debut", "commune", "lieu", "organisateur", "description", "prix", "email", "accord"] });
+    // One address however it is typed: trimmed, in lower case.
+    expect((read({ ...PROPOSITION, email: "  Club@Example.ORG " }) as { proposition: propositions.Proposition }).proposition.email).toBe("club@example.org");
+    expect(propositions.emailOf("Club@Example.ORG")).toBe("club@example.org");
   });
 
   it("shows no contact unless asked: the e-mail when its box is ticked, or another contact given", () => {
@@ -113,7 +116,7 @@ describe("what a club sends: the fields read", () => {
 });
 
 describe("what is kept, and for how long (scripts/propositions.sql)", () => {
-  const proposition = () => (read(PROPOSITION) as { proposition: propositions.Proposition }).proposition;
+  const proposition = (over: Partial<propositions.Proposition> = {}) => ({ ...(read(PROPOSITION) as { proposition: propositions.Proposition }).proposition, ...over });
 
   it("keeps a proposal waiting for its confirmation, its secret only as a hash, and mails the link to its author", async () => {
     expect(await propositions.enregistrerProposition(proposition(), "203.0.113.7", "https://rundata.re/associations/proposition/", NOW)).toBe("ok");
@@ -125,8 +128,11 @@ describe("what is kept, and for how long (scripts/propositions.sql)", () => {
     const secret = /https:\/\/rundata\.re\/associations\/proposition\/([\w-]{22})\n/.exec(sent[0].text)![1];
     expect(row.jeton).toBe(await propositions.empreinteJeton(secret));
     expect(row.jeton).not.toContain(secret);
-    expect(sent[0].text).toContain("sur rundata.re\u00a0: «\u00a0Tournoi de pétanque du club\u00a0», le 07/11/2026 à 14:00, Boulodrome de Terre-Sainte (Saint-Pierre).");
-    expect(sent[0].subject).toBe("Confirmez votre événement «\u00a0Tournoi de pétanque du club\u00a0» sur rundata.re");
+    // Nothing the sender wrote, before the address is shown to be theirs: the day, the hour, the commune, the link.
+    expect(sent[0].text).toContain("Un événement a été proposé sur rundata.re avec cette adresse, pour le 07/11/2026 à 14:00 à Saint-Pierre.\n");
+    expect(sent[0].subject).toBe("Confirmez votre événement sur rundata.re");
+    expect(sent[0].text).toContain("Pour le voir et le confirmer, ouvrez ce lien\u00a0:");
+    for (const free of ["Tournoi", "Boulodrome", "Pétanque club"]) expect(`${sent[0].subject}\n${sent[0].text}`).not.toContain(free);
     expect(sent[0].text).toContain("\nL'équipe rundata.re\nrundata.re · https://rundata.re/associations");
   });
 
@@ -137,10 +143,21 @@ describe("what is kept, and for how long (scripts/propositions.sql)", () => {
   });
 
   it("takes five proposals a day from one sender, then refuses; another sender still gets through", async () => {
-    for (let i = 0; i < propositions.PROPOSITIONS_PAR_JOUR; i++) expect(await propositions.enregistrerProposition(proposition(), "203.0.113.7", "https://rundata.re/x/", later(i))).toBe("ok");
-    expect(await propositions.enregistrerProposition(proposition(), "203.0.113.7", "https://rundata.re/x/", later(6))).toBe("limite");
-    expect(await propositions.enregistrerProposition(proposition(), "198.51.100.2", "https://rundata.re/x/", later(6))).toBe("ok");
+    const to = (i: number) => proposition({ email: `club${i}@example.org` });
+    for (let i = 0; i < propositions.PROPOSITIONS_PAR_JOUR; i++) expect(await propositions.enregistrerProposition(to(i), "203.0.113.7", "https://rundata.re/x/", later(i))).toBe("ok");
+    expect(await propositions.enregistrerProposition(to(9), "203.0.113.7", "https://rundata.re/x/", later(6))).toBe("limite");
+    expect(await propositions.enregistrerProposition(to(9), "198.51.100.2", "https://rundata.re/x/", later(6))).toBe("ok");
     expect(sent).toHaveLength(propositions.PROPOSITIONS_PAR_JOUR + 1);
+  });
+
+  it("sends three confirmation e-mails a day at most to one address, whoever asks; another address still gets through", async () => {
+    const senders = ["203.0.113.7", "198.51.100.2", "192.0.2.10", "192.0.2.11"];
+    for (let i = 0; i < propositions.PROPOSITIONS_PAR_ADRESSE_JOUR; i++) expect(await propositions.enregistrerProposition(proposition(), senders[i], "https://rundata.re/x/", later(i))).toBe("ok");
+    expect(await propositions.enregistrerProposition(proposition(), senders[3], "https://rundata.re/x/", later(4))).toBe("limite");
+    expect(await propositions.enregistrerProposition(proposition({ email: "autre@example.org" }), senders[3], "https://rundata.re/x/", later(4))).toBe("ok");
+    // The next day, the address again.
+    expect(await propositions.enregistrerProposition(proposition(), senders[3], "https://rundata.re/x/", later(25))).toBe("ok");
+    expect(sent.map((m) => m.to).filter((x) => x === "club@example.org")).toHaveLength(propositions.PROPOSITIONS_PAR_ADRESSE_JOUR + 1);
   });
 
   it("forgets a proposal never confirmed after 48 hours, and the author's address 30 days after the event", async () => {
@@ -167,7 +184,7 @@ describe("what is kept, and for how long (scripts/propositions.sql)", () => {
     db.exec("UPDATE propositions SET etat = 'publie'");
     await propositions.enregistrerProposition(proposition(), "198.51.100.2", "https://rundata.re/x/", new Date("2027-02-19T06:00:00Z"));
     expect(rows("SELECT derniere_date, email FROM propositions WHERE id = 1")).toEqual([{ derniere_date: "2027-01-20", email: "club@example.org" }]);
-    expect(sent[0].text).toContain(", le 07/11/2026, chaque semaine jusqu'au 20/01/2027 à 14:00,");
+    expect(sent[0].text).toContain("pour le 07/11/2026, chaque semaine jusqu'au 20/01/2027, à 14:00 à Saint-Pierre.\n");
   });
 
   it("takes five links a day from one sender", async () => {
@@ -202,6 +219,33 @@ describe("the forms on the site (web/propositions.ts)", () => {
   const post = (path: string, fields: Record<string, string>, headers: Record<string, string> = {}) =>
     handle(new Request(`https://rundata.re${path}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", ...headers }, body: new URLSearchParams(fields).toString() }), new Cache());
   const human = () => formulaires.configure(undefined, async (token) => token === "jeton-turnstile");
+
+  it("count a Turnstile token only if Cloudflare made it for this site and this form", async () => {
+    const answers: Record<string, unknown>[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async () => Response.json(answers.shift())) as typeof fetch;
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      formulaires.configure("secret");
+      const f = new URLSearchParams({ "cf-turnstile-response": "jeton" });
+      const attendu = { hostname: "rundata.re", action: "proposer" } as const;
+      answers.push({ success: true, hostname: "rundata.re", action: "proposer" });
+      expect(await formulaires.human(f, "203.0.113.7", attendu)).toBe(true);
+      answers.push({ success: true, hostname: "autre-site.example", action: "proposer" });
+      expect(await formulaires.human(f, "203.0.113.7", attendu)).toBe(false);
+      answers.push({ success: true, hostname: "rundata.re", action: "lien" });
+      expect(await formulaires.human(f, "203.0.113.7", attendu)).toBe(false);
+      answers.push({ success: false, hostname: "rundata.re", action: "proposer" });
+      expect(await formulaires.human(f, "203.0.113.7", attendu)).toBe(false);
+    } finally {
+      globalThis.fetch = real;
+      console.warn = warn;
+      formulaires.configure(undefined);
+    }
+    // Each form tells Cloudflare which it is.
+    expect(formulaires.widget("lien")).toContain('data-action="lien"');
+  });
 
   it("are out, and answer nothing while the space is closed", async () => {
     expect(formulaires.ASSOCIATIONS_EN_LIGNE).toBe(true);
@@ -474,7 +518,8 @@ describe("the published proposals as an agenda (providers/agenda-propositions.ts
     const [paid, free, other] = agendaEvents([row(ligne()), row(ligne({ prix: "gratuit" })), row(ligne({ prix: "5 € adultes, gratuit enfants" }))]) as Record<string, unknown>[];
     expect(paid).toMatchObject({ organizer: { "@type": "Organization", name: "Association Lèv la tèt" }, offers: { "@type": "Offer", price: 5, priceCurrency: "EUR" } });
     expect(free).toMatchObject({ offers: { price: 0, priceCurrency: "EUR" } });
-    expect(other).toMatchObject({ offers: { description: "5 € adultes, gratuit enfants" } });
+    // Two prices are not one amount: no Offer, rather than one without its price.
+    expect(other).not.toHaveProperty("offers");
   });
 
   it("is read from the table once a quarter of an hour, counted as one read", async () => {
@@ -532,6 +577,37 @@ describe("the open feed (web/flux-associations.ts)", () => {
     expect(((await r.json()) as { evenements: unknown[] }).evenements).toHaveLength(2);
     const ics = await handle(new Request("https://rundata.re/associations/evenements.ics"), new Cache());
     expect(ics.headers.get("content-type")).toBe("text/calendar; charset=utf-8");
+  });
+
+  it("is read from D1 once per data center and format for 5 minutes, whatever the query, and answers without the cache", async () => {
+    await published();
+    formulaires.ouvrir(true);
+    let reads = 0;
+    propositions.configure(
+      async (sql, ...params) => Number(db.prepare(sql).run(...(params as (string | number | null)[])).changes),
+      undefined,
+      async <T>(sql: string, ...params: unknown[]) => (reads++, db.prepare(sql).all(...(params as (string | number | null)[])) as T[]),
+    );
+    // The data center's cache, as the Worker has it.
+    const kept = new Map<string, Response>();
+    vi.stubGlobal("caches", { open: async () => ({ match: async (k: Request) => kept.get(k.url)?.clone(), put: async (k: Request, r: Response) => void kept.set(k.url, r) }) });
+    try {
+      const get = (path: string) => handle(new Request(`https://rundata.re${path}`), new Cache());
+      const first = await get("/associations/evenements.json");
+      expect(first.headers.get("cache-control")).toBe("public, max-age=900, s-maxage=300");
+      expect(reads).toBe(1);
+      for (const q of ["", "?v=2", "?nocache=1"]) expect(((await (await get(`/associations/evenements.json${q}`)).json()) as { evenements: unknown[] }).evenements).toHaveLength(2);
+      expect(reads).toBe(1);
+      await get("/associations/evenements.ics");
+      await get("/associations/evenements.ics?x");
+      expect([reads, [...kept.keys()]]).toEqual([2, ["https://rundata.re/associations/evenements.json", "https://rundata.re/associations/evenements.ics"]]);
+      // A cache that fails costs a read, never the answer.
+      vi.stubGlobal("caches", { open: async () => { throw new Error("cache"); } });
+      expect((await get("/associations/evenements.json")).status).toBe(200);
+      expect(reads).toBe(3);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
@@ -677,26 +753,23 @@ describe("the clubs' and associations' space (web/associations.ts)", () => {
     expect(p.prochains.map((x) => x.e.publie_par)).toEqual(["Ligue réunionnaise de volley-ball"]);
   });
 
-  it("counts the Sportsregions clubs, never their members' sessions; its card says « Déjà lu »", async () => {
+  it("counts no Sportsregions club while its calendar is not read, its copy kept or not; its card says « Pas lu »", async () => {
     const { preuve, associationsPage } = await import("../src/web/associations.js");
     const { PLANIFIES } = await import("../src/providers/agenda.js");
     const { evenement } = await import("../src/providers/agenda-propositions.js");
-    const clubs = [
-      { ...evenement(ligne(1, "Badminton Club de Saint-Pierre")), id: "sportsregions:a" },
-      { ...evenement(ligne(2, "Archers du Colosse")), id: "sportsregions:b", reserve_adherents: true },
-    ];
+    const clubs = [{ ...evenement(ligne(1, "Badminton Club de Saint-Pierre")), id: "sportsregions:a" }];
     const cache = {
       bundle: async (name: string) => ({
         peek: (k: string) => (name === PLANIFIES && k === "agenda:sportsregions" ? { value: clubs, ageMs: 0, fetchedAt: NOW.getTime() } : undefined),
       }),
     } as never;
     const p = await preuve(cache, NOW);
-    expect(p.clubs).toBe(1);
-    expect(p.prochains.map((x) => x.e.publie_par)).toEqual(["Badminton Club de Saint-Pierre"]);
+    expect([p.clubs, p.prochains]).toEqual([0, []]);
     const html = plain(associationsPage("https://rundata.re", p));
-    expect(html).toContain("<h3>Sportsregions (le site du club)</h3>");
-    expect(html).toContain("Votre événement n'apparaît pas sous 48 h ? Donnez-nous le lien de sa page avec le formulaire <a href=\"#lien\">« Nous donner votre lien »</a> : nous regardons pourquoi.");
-    expect(html.match(/<span class="etat lu">Déjà lu<\/span>/g)).toHaveLength(4);
+    // With the sites not read: the form.
+    expect(html).toContain("<h3>AssoConnect, Sportsregions, Wix, e-monsite, Google Sites</h3>");
+    expect(html).not.toContain("Sportsregions (le site du club)");
+    expect(html.match(/<span class="etat lu">Déjà lu<\/span>/g)).toHaveLength(3);
   });
 
   it("reads the proposed events from the table when the agendas' copy has none yet", async () => {
@@ -748,7 +821,7 @@ describe("the clubs' and associations' space (web/associations.ts)", () => {
     formulaires.ouvrir(true);
     const privacy = plain(await (await get("/confidentialite")).text());
     expect(privacy).toContain('<p id="abus"><b>Contre les abus</b>');
-    expect(privacy).toContain('Le site ne pose aucun cookie et ne contient aucun traceur publicitaire. Seule la vérification anti-robot des deux formulaires des clubs et associations garde une donnée dans le navigateur (voir <a href="#abus">« Contre les abus »</a>).');
+    expect(privacy).toContain('(voir <a href="#retours">« Les retours »</a>). La vérification anti-robot des deux formulaires des clubs et associations y garde aussi une donnée (voir <a href="#abus">« Contre les abus »</a>).');
     expect(privacy).toContain("C'est du stockage local du navigateur, pas un cookie.");
     const note = '<p class="note">La vérification anti-robot de Cloudflare garde une donnée dans votre navigateur (pas un cookie) : <a href="/confidentialite#abus">ce que c\'est</a>.</p>';
     // Right under the widget, on the event form and on the link form (/associations, /publier).

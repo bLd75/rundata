@@ -5,7 +5,7 @@
  * (scripts/carburants.ts) into the Worker's KV store, where the Worker reads them; elsewhere, from the prefecture.
  */
 import type { Cache, Cached } from "../cache.js";
-import { getText } from "../http.js";
+import { getText, permis } from "../http.js";
 import type { SourceInfo } from "../types.js";
 
 export const SOURCE: SourceInfo = {
@@ -48,6 +48,7 @@ export interface Mois {
 }
 
 const ORIGIN = "https://www.reunion.gouv.fr";
+const HOST = new URL(ORIGIN).host;
 const LIST = `${ORIGIN}/Actualites/Communiques-de-presse`;
 const HEADERS = { "User-Agent": "rundata.re (contact@rundata.re)" };
 const MONTHS = ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"];
@@ -73,7 +74,9 @@ export function headerDay(s: string): string | undefined {
 
 /** The links to the monthly releases on a page of the list of press releases, newest first. */
 export function releases(html: string): string[] {
-  return [...new Set([...html.matchAll(/href="([^"]*Communiques-de-presse\/Prix-des-carburants[^"]*)"/gi)].map((m) => new URL(m[1], ORIGIN).toString()))];
+  const all = [...html.matchAll(/href="([^"]*Communiques-de-presse\/Prix-des-carburants[^"]*)"/gi)].map((m) => new URL(m[1], ORIGIN).toString());
+  // Only the prefecture's own pages: a link planted in its list is never read.
+  return [...new Set(all)].filter((lien) => permis(SOURCE.id, lien, [HOST]));
 }
 
 /** The table of a release: the product, the previous month's price, this month's (the second and third columns). */
@@ -130,8 +133,8 @@ export const monthOf = (day: string) => `${MONTH_NAMES[Number(day.slice(5, 7)) -
 
 /**
  * The newest release with a table of prices, from the first pages of the list. `pauseMs` is waited between two pages
- * of the prefecture's site, never a burst of them (scripts/carburants.ts: a minute); none in the Worker, which reads
- * the site only while the store has no copy.
+ * of the prefecture's site, never a burst of them (scripts/carburants.ts: a minute); none for a local server. The
+ * Worker never reads the site (`prix`).
  */
 export async function gather(now = new Date(), pages = 4, pauseMs = 0): Promise<Prix | undefined> {
   let asked = 0;
@@ -151,7 +154,7 @@ export async function gather(now = new Date(), pages = 4, pauseMs = 0): Promise<
 
 let reader: (() => Promise<Prix | null>) | undefined;
 
-/** In the Worker: read the prices from the KV store, where the workflow writes them. */
+/** In the Worker: read the prices from the KV store, where the workflow writes them, and from nowhere else. */
 export function configure(read: (() => Promise<Prix | null>) | undefined) {
   reader = read;
 }
@@ -164,9 +167,11 @@ const EARLY_SECONDS = 15 * 60;
 
 export async function prix(cache: Cache, now = new Date()): Promise<Cached<Prix>> {
   const load = async () => {
-    // The stored copy; the prefecture itself before the workflow has stored one (a new store, an expired copy).
-    const v = (reader ? await reader() : null) ?? await gather(now, 2);
-    if (!v?.produits?.length) throw new Error("prix des carburants absents");
+    // The Worker reads the stored copy only, never the prefecture: its site bans our address on bursts, and an isolate
+    // finding the store empty would read up to 22 of its pages in a row (26/10/2026). The prices are then unavailable until
+    // the workflow stores them. Only a local server, with no store, reads the prefecture itself.
+    const v = reader ? await reader() : await gather(now, 2);
+    if (!v?.produits?.length) throw new Error(reader ? "prix des carburants absents du stockage" : "prix des carburants absents");
     return v;
   };
   const got = await cache.get("carburants:prix", FRESH_SECONDS, load);

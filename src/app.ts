@@ -6,6 +6,8 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { Cache } from "./cache.js";
 import { feedReader, stopwatch, type Recorder } from "./metrics.js";
+import { bodyText } from "./http.js";
+import { metaWebhook, PATH as META_WEBHOOK } from "./meta-webhook.js";
 import { createServer, VERSION } from "./server.js";
 import { why } from "./types.js";
 import { watch } from "./usage.js";
@@ -13,6 +15,8 @@ import type { Background } from "./web/data.js";
 import { notFound, site } from "./web/site.js";
 import { wantsPage } from "./web/connecteur.js";
 import { OFFLINE_PATH } from "./web/pwa.js";
+import { CADRE, CSP_RAPPORT, rapport } from "./web/securite.js";
+import { signal, SIGNAL_PATH } from "./web/signaux.js";
 
 // Browser-based clients (MCP Inspector, web chat apps) call the endpoint cross-origin.
 const CORS = {
@@ -23,7 +27,7 @@ const CORS = {
   "access-control-max-age": "86400",
 };
 
-function withCors(r: Response): Response {
+export function withCors(r: Response): Response {
   const headers = new Headers(r.headers);
   for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
   return new Response(r.body, { status: r.status, statusText: r.statusText, headers });
@@ -43,21 +47,40 @@ const SHORTCUTS: Record<string, string> = { "/ig": "insta", "/fb": "fb" };
 // Crawlers often send « Accept: */* » too: only these get the plain line instead of the page.
 const CLI = /^(curl|wget|httpie|python-requests|python-urllib|go-http-client|node-fetch|undici)/i;
 
-// The transport's own limit, which it does not check on a body it is handed already parsed.
+// The transport's own limit, which it does not check on a body it is handed already parsed: here it is checked on the
+// bytes read, whatever `content-length` says (a body sent in chunks has none).
 const MAX_BODY = 4 * 1024 * 1024;
 
+// A batch runs every message it holds, for one request: at most this many, and none from the version that dropped them.
+export const MAX_BATCH = 10;
+const NO_BATCH_FROM = "2025-06-18";
+
 /**
- * The body of a POST, parsed once for both the metrics and the transport. A body that is not JSON (or too large) goes
- * to the transport as it came, for its own answer.
+ * The body of a POST, parsed once for both the metrics and the transport. A body that is not JSON goes to the
+ * transport as it came, for its own answer; one too large is refused here, without being read further.
  */
-async function readBody(request: Request): Promise<{ request: Request; body?: unknown }> {
+async function readBody(request: Request): Promise<{ request: Request; body?: unknown } | { tooLarge: true }> {
   const type = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
-  if (type !== "application/json" || Number(request.headers.get("content-length")) > MAX_BODY) return { request };
-  const text = await request.text();
+  if (type !== "application/json") return { request };
+  const text = await bodyText(request, MAX_BODY);
+  if (text === undefined) return { tooLarge: true };
   try {
-    if (text.length <= MAX_BODY) return { request, body: JSON.parse(text) };
+    return { request, body: JSON.parse(text) };
   } catch {}
   return { request: new Request(request.url, { method: "POST", headers: request.headers, body: text }) };
+}
+
+/** Why a batch is refused, if it is: the protocol it claims has none, or it holds more than MAX_BATCH messages. */
+export function batchRefused(version: string | null, body: unknown): string | undefined {
+  if (!Array.isArray(body)) return undefined;
+  if (version && version >= NO_BATCH_FROM) return `Batches are not part of protocol ${version.slice(0, 20)}: send one message per request.`;
+  if (body.length > MAX_BATCH) return `At most ${MAX_BATCH} messages per batch.`;
+  return undefined;
+}
+
+/** A refusal before the transport, in its own shape. */
+function rpcError(status: number, message: string): Response {
+  return Response.json({ jsonrpc: "2.0", error: { code: status === 413 ? -32000 : -32600, message }, id: null }, { status });
 }
 
 /** No stream to offer (see below): what the transport answers to a method it does not know, with the right Allow. */
@@ -72,7 +95,7 @@ function notAllowed(): Response {
 export function failed(path: string, err: unknown): Response {
   console.error(`erreur : ${path} (version ${VERSION})`, why(err));
   const body = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Page indisponible · rundata.re</title></head><body style="font-family:system-ui,sans-serif;max-width:36rem;margin:3rem auto;padding:0 1rem;line-height:1.5"><h1>Page indisponible pour un instant</h1><p>Une erreur est survenue en la préparant. Réessayer dans une minute, ou repartir de <a href="/">l'accueil de rundata.re</a>.</p></body></html>`;
-  return new Response(body, { status: 500, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+  return new Response(body, { status: 500, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...CADRE } });
 }
 
 /**
@@ -86,8 +109,11 @@ export async function handle(request: Request, cache: Cache, background: Backgro
   if (shortcut) return new Response(null, { status: 302, headers: { location: `/?ref=${shortcut}` } });
   // The team's scripts are not visitors: not counted.
   if (CHECKER.test(request.headers.get("user-agent") ?? "")) record = () => {};
+  // What a page's browser tells the statistics (web/signaux.ts): a point each, never a page view.
+  if (url.pathname === SIGNAL_PATH) return signal(request, record);
   // A browser opening the connector's address gets the page that explains it (web/connecteur.ts); the clients, the endpoint.
-  if (url.pathname === "/mcp" && !wantsPage(request)) {
+  // « /mcp/ » alike, answered in place: a client may not follow a redirect on a POST.
+  if ((url.pathname === "/mcp" || url.pathname === "/mcp/") && !wantsPage(request)) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     const watching = watch(request, record);
     // Stateless and answering in JSON, the endpoint has no stream to send anything on: GET (the stream a client
@@ -97,9 +123,10 @@ export async function handle(request: Request, cache: Cache, background: Backgro
       watching.done(405, "Method not allowed.");
       return withCors(notAllowed());
     }
-    // Tool calls are recorded by `watching`, with more than the server knows.
+    // Tool calls are recorded by `watching`, with more than the server knows; the server says which found nothing.
     const server = createServer(cache, (hit) => {
       if (hit.kind !== "mcp") record(hit);
+      else if (hit.outcome === "vide" && hit.id !== undefined) watching.vide(hit.id);
     }, background);
     // The tools never change while the server runs, and a stateless server could not send the notification anyway.
     server.server.registerCapabilities({ tools: { listChanged: false } });
@@ -107,10 +134,28 @@ export async function handle(request: Request, cache: Cache, background: Backgro
     await server.connect(transport);
     watching.attach(transport);
     const read = await readBody(request);
+    if ("tooLarge" in read) {
+      const message = `Request body larger than ${MAX_BODY} bytes.`;
+      watching.done(413, message);
+      return withCors(rpcError(413, message));
+    }
+    const refused = "body" in read ? batchRefused(request.headers.get("mcp-protocol-version"), read.body) : undefined;
+    if (refused) {
+      // Recorded as one refused request, not as the messages it held.
+      watching.done(400, refused);
+      return withCors(rpcError(400, refused));
+    }
     if ("body" in read) watching.read(read.body);
     const response = await transport.handleRequest(read.request, "body" in read ? { parsedBody: read.body } : undefined);
     watching.done(response.status);
     return withCors(response);
+  }
+  // What the browsers would block under the policy in observation (web/securite.ts): one log line, not a view.
+  if (url.pathname === CSP_RAPPORT) return rapport(request);
+  // What Meta tells of the Page and the Instagram account: nothing without its secrets, then the site's 404.
+  if (url.pathname === META_WEBHOOK) {
+    const r = await metaWebhook(request);
+    if (r) return r;
   }
   const accept = request.headers.get("accept") ?? "";
   if (url.pathname === "/" && !accept.includes("text/html") && CLI.test(request.headers.get("user-agent") ?? "")) {

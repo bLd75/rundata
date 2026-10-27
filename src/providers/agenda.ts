@@ -31,7 +31,8 @@ import { annonceEvenement, extrait, lead, monthOf, statusOf, type Statut } from 
 import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
 import { SOURCES as SPORT_SOURCES } from "./sport.js";
 import { PROPOSITIONS } from "./agenda-propositions.js";
-import { autorisee } from "./autorisations.js";
+import { autorisee, NON_REPRISES } from "./autorisations.js";
+import { sansLien } from "../liens.js";
 
 export { communesIn, lead, monthOf, statusOf, type Statut };
 
@@ -122,6 +123,8 @@ export interface Evenement {
   lu_le?: string;
   /** « site de la commune du Tampon », when it comes from a commune's site: set by the tool from its agenda. */
   site_commune?: string;
+  /** « Théâtre Luc Donat », when its agreement asks to name it: set by the tool from its agenda (`credit`). */
+  credit?: string;
   /**
    * The club that publishes it, and the commune of its address (Sportsregions): for the sport tool, never said as the
    * event's place.
@@ -177,6 +180,8 @@ export const gardeMs = (agenda: Agenda) => (agenda.garde ?? PLANIFIE_MAX_AGE_SEC
 
 /** The copy of an agenda read by the scheduled event, if young enough to be served, with the time it was read. */
 export function copiePlanifiee(bundle: Pick<Bundle, "peek">, agenda: Agenda): Cached<Evenement[]> | undefined {
+  // One not read until it agrees (src/providers/autorisations.ts): its copy, read before, is not served either.
+  if (!autorisee(`agenda:${agenda.id}`)) return undefined;
   const hit = bundle.peek(`agenda:${agenda.id}`);
   return hit && hit.ageMs <= gardeMs(agenda) ? { value: servis(agenda, hit.value as Evenement[]), fetchedAt: new Date(hit.fetchedAt), stale: false } : undefined;
 }
@@ -199,12 +204,14 @@ export function nonServie(bundle: Pick<Bundle, "peek">, agenda: Agenda): { depui
 
 /**
  * An agenda's events as they may be shown, from its copy whatever its age: without their sentence (`faits`), linking to
- * the home page (`accueil`). Applied where a copy is served, not where it is read, so that a copy read before its
- * site's terms were known is served as they ask too.
+ * the home page (`accueil`), and none whose link would lead to a site that submits any link to its agreement
+ * (src/liens.ts, Saint-Benoît's), since an event is shown with its link. Applied where a copy is served, not where it is
+ * read, so that a copy read before its site's terms were known is served as they ask too.
  */
 export function servis(agenda: Agenda, events: Evenement[]): Evenement[] {
-  if (!agenda.faits && !agenda.accueil) return events;
-  return events.map((e) => {
+  const linked = events.filter((e) => !sansLien(agenda.accueil ?? e.lien));
+  if (!agenda.faits && !agenda.accueil) return linked;
+  return linked.map((e) => {
     const out = { ...e };
     if (agenda.faits) delete out.description;
     if (agenda.accueil) out.lien = agenda.accueil;
@@ -250,6 +257,11 @@ export interface Agenda {
    * read, and anything the site's terms ask to show with it (Le Port's « © www.ville-port.re »).
    */
   site_commune?: string;
+  /**
+   * Read with its written agreement, which asks each of its events to name it: « Théâtre Luc Donat », said as
+   * « Source : Théâtre Luc Donat (site lu le mardi 27/10 à 10:30) » (marketing; src/providers/autorisations.ts).
+   */
+  credit?: string;
   /** Its site's terms ask for an authorisation to reproduce it: its events keep their facts, without their sentence. */
   faits?: boolean;
   /** Its site's terms allow a link to its home page only: this page, for each of its events. */
@@ -1015,6 +1027,9 @@ export function parsePetiteIle(html: string, now: Date, nom = "Ville de Petite-�
 const SAINT_LOUIS = mairie("saint_louis", "Ville de Saint-Louis", "https://saintlouis.re/agenda", REPRISE_INFORMATION);
 const ETANG_SALE = mairie("etang_sale", "Ville de L'Étang-Salé", "https://www.letangsale.fr/mes-acces-rapides/telechargements/l-agenda-des-manifestations");
 const LA_POSSESSION = mairie("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda");
+// Its terms: « à des fins d'information et en aucune manière à des fins commerciales », « ne pas modifier », and its
+// copyright on every copy (`site_commune`).
+const LE_PORT = mairie("le_port", "Ville du Port", "https://www.ville-port.re/agenda/", REPRISE_INFORMATION);
 // Credited by their home page, the only page their terms allow a link to; their agenda page is read.
 const PETITE_ILE = mairie("petite_ile", "Ville de Petite-Île", "https://www.petite-ile.re/");
 const PETITE_ILE_AGENDA = "https://www.petite-ile.re/actualites/agenda/";
@@ -1033,13 +1048,16 @@ const salazie: Agenda = {
 };
 
 const BRAS_PANON = mairie("bras_panon", "Ville de Bras-Panon", "https://www.braspanon.re/fr/ev/2512733/agenda-1634");
-const SAINT_BENOIT = mairie("saint_benoit", "Ville de Saint-Benoît", "https://www.saint-benoit.re/");
+// Its terms submit any link to its site to its agreement, its home page's too (src/liens.ts): the address read only.
 const SAINT_BENOIT_AGENDA = "https://www.saint-benoit.re/evenements/general";
+const SAINT_BENOIT = mairie("saint_benoit", "Ville de Saint-Benoît", SAINT_BENOIT_AGENDA);
 const OTI_EST_SOURCE: SourceInfo = {
   id: "agenda_oti_est",
   nom: "Agenda de l'Office de tourisme intercommunal de l'Est (Côté Est Réunion)",
   organisme: "OTI EST REUNION",
-  licence: "Reproduction autorisée avec la source, sans modification (mentions légales de reunionest.fr)",
+  // Its legal notice: electronic reproduction with the source and « Droits réservés », no commercial use; « sans
+  // modification » is the condition of paper (re-read on 26/10/2026).
+  licence: "Reproduction électronique autorisée avec la source et la mention «\u00a0Droits réservés\u00a0», sans usage commercial (mentions légales de reunionest.fr)",
   attribution: OTI_EST,
   url: "https://www.reunionest.fr/agenda-et-evenements",
 };
@@ -1498,7 +1516,7 @@ export const WEEZEVENT: Agenda = {
 export const LISIBLES: Agenda[] = [
   { ...tribe("saint_paul", "Mairie de Saint-Paul", "https://www.mairie-saintpaul.re", "Saint-Paul"), site_commune: "site de la commune de Saint-Paul" },
   // Its terms ask for « www.ville-port.re » on what is taken from it.
-  { ...tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port"), site_commune: "site de la commune du Port (©\u00a0www.ville-port.re)" },
+  { ...tribe("le_port", "Ville du Port", "https://www.ville-port.re", "Le Port", LE_PORT), site_commune: "site de la commune du Port (©\u00a0www.ville-port.re)" },
   { ...tribe("trois_bassins", "Mairie des Trois-Bassins", "https://trois-bassins.re", "Les Trois-Bassins"), site_commune: "site de la commune des Trois-Bassins" },
   { ...tribe("sainte_marie", "Ville de Sainte-Marie", "https://www.ville-saintemarie.re", "Sainte-Marie", SAINTE_MARIE), site_commune: "site de la commune de Sainte-Marie", faits: true },
   { ...salazie, site_commune: "site de la commune de Salazie", faits: true },
@@ -1511,7 +1529,7 @@ export const LISIBLES: Agenda[] = [
   { ...intraMuros("la_possession", "Ville de La Possession", "https://www.lapossession.re/agenda/rss", "La Possession", LA_POSSESSION), site_commune: "site de la commune de La Possession", faits: true, programmes: true },
   { ...petiteIle, site_commune: "site de la commune de Petite-Île", faits: true, accueil: PETITE_ILE.url },
   { ...brasPanon, site_commune: "site de la commune de Bras-Panon", faits: true },
-  { ...saintBenoit, site_commune: "site de la commune de Saint-Benoît", faits: true, accueil: SAINT_BENOIT.url, programmes: true },
+  { ...saintBenoit, site_commune: "site de la commune de Saint-Benoît", faits: true, programmes: true },
   otiEst,
   openAgenda("cinor", "CINOR", 50316469, NORD),
   openAgenda("oti_nord", "Office de tourisme du Nord", 32570974, NORD),
@@ -1524,8 +1542,9 @@ export const LISIBLES: Agenda[] = [
 ];
 
 /**
- * The agendas read: not those of a commune's site whose terms ask its authorisation, until it is given
- * (src/providers/autorisations.ts, `agenda:<id>`). One left out is not read, and its copies, already kept, are not served.
+ * The agendas read: not those of a commune's site, a hall's or the clubs' calendar whose terms ask its authorisation,
+ * until it is given (src/providers/autorisations.ts, `agenda:<id>`). One left out is not read, and its copies, already
+ * kept, are not served.
  */
 export const AGENDAS: Agenda[] = LISIBLES.filter((a) => autorisee(`agenda:${a.id}`));
 
@@ -1538,10 +1557,20 @@ const ofCommune = (c: string) => c.replace(/^Le /, "du ").replace(/^Les /, "des 
 const listed = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} et ${xs.at(-1)}` : xs.join(""));
 SOURCES.mairies.nom = `Agendas des mairies ${listed(mairiesLues.map(ofCommune))}`;
 SOURCES.mairies.attribution = `Villes de ${listed(mairiesLues)}`;
+// The same for the halls: those read only.
+const sallesLues = AGENDAS.filter((a) => a.source === SALLES_SOURCE).map((a) => a.nom);
+// One hall: « Programme du Séchoir » (marketing).
+SALLES_SOURCE.nom = sallesLues.length === 1 ? `Programme ${sallesLues[0].replace(/^Le /, "du ").replace(/^La /, "de la ").replace(/^(?!du |de la )/, "de ")}` : `Programmes des salles : ${sallesLues.join(", ")}`;
+SALLES_SOURCE.attribution = sallesLues.join(", ");
+// Those read with their written agreement, each with its day (marketing).
+SALLES_SOURCE.licence += AGENDAS.filter((a) => a.source === SALLES_SOURCE && NON_REPRISES[`agenda:${a.id}`]?.accordee_le)
+  .map((a) => `\u00a0; ${a.nom} : repris avec son accord écrit du ${NON_REPRISES[`agenda:${a.id}`].accordee_le!.split("-").reverse().join("/")}`).join("");
+// Its link, the TÉAT's programme, is Le Séchoir's site while the TÉAT is not read.
+if (!AGENDAS.some((a) => a.id === "teat")) SALLES_SOURCE.url = "https://www.lesechoir.com";
 
 /**
  * The home pages some events link to instead of their own page (`accueil`): opened in a new window, as the terms of
- * Petite-Île's and Saint-Benoît's sites ask.
+ * Le Tampon's and Petite-Île's sites ask.
  */
 export const ACCUEILS = new Set(LISIBLES.flatMap((a) => (a.accueil ? [a.accueil] : [])));
 

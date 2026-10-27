@@ -18,28 +18,28 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 324 | 500 |
-| pire passage planifié, appels KV et D1 | 35 | 1 000 |
-| pire passage planifié, CPU (ms) | 2 082 | 30 000 |
+| pire passage planifié, sous-requêtes | 363 | 500 |
+| pire passage planifié, appels KV et D1 | 61 | 1 000 |
+| pire passage planifié, CPU (ms) | 2 192 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
-| passage le plus chargé (cadences les plus courtes), sous-requêtes | 108 | 500 |
-| vue la plus chère, sous-requêtes | 78 | 200 |
-| question la plus chère, sous-requêtes | 59 | 200 |
+| passage le plus chargé (cadences les plus courtes), sous-requêtes | 129 | 500 |
+| vue la plus chère, sous-requêtes | 82 | 200 |
+| question la plus chère, sous-requêtes | 65 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
 - Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
-- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 85 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, agenda:weezevent, sans-reponse:echecs, connecteurs:lecture, propositions:purge).
-- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 108 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, web:crues, web:volcan, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:sportsregions, agenda:weezevent, sans-reponse:echecs, connecteurs:lecture, propositions:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 300 sous-requêtes à 00:00 UTC.
-- Vue la plus chère : /communes/*, 78. Question la plus chère : resume_du_jour, 59. Construction la plus chère : web:chiffres:evenements, 56.
+- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 88 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:weezevent, sans-reponse:echecs, copies:echecs, connecteurs:lecture, propositions:purge).
+- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 129 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, web:crues, web:volcan, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, agenda:weezevent, sans-reponse:echecs, copies:echecs, connecteurs:lecture, propositions:purge).
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 331 sous-requêtes à 00:00 UTC.
+- Vue la plus chère : /communes/*, 82. Question la plus chère : resume_du_jour, 65. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 324 | 2 | 20 | 13 | 1 123 | 42 | 2 082 |
-| tâche planifiée, par jour | 13 323 | 576 | 1 140 | 1 251 | 102 620 | 3 199 | 105 243 |
-| tâche planifiée, par jour, cadences les plus courtes | 20 471 | 576 | 1 668 | 1 731 | 107 660 | 3 199 | 150 723 |
-| tâche planifiée, par mois (30 jours) | 399 690 | 17 280 | 34 200 | 37 530 | 3 078 600 | 95 970 | 3 157 290 |
+| pire passage planifié | 363 | 12 | 36 | 13 | 1 123 | 42 | 2 192 |
+| tâche planifiée, par jour | 16 618 | 1 680 | 2 221 | 1 251 | 102 620 | 3 199 | 109 003 |
+| tâche planifiée, par jour, cadences les plus courtes | 27 510 | 2 976 | 4 045 | 1 731 | 107 660 | 3 199 | 154 483 |
+| tâche planifiée, par mois (30 jours) | 498 540 | 50 400 | 66 630 | 37 530 | 3 078 600 | 95 970 | 3 270 090 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -53,20 +53,24 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | arome:grilles | AROME : les grilles d'un nouveau run, 40 au plus par passage, 3 de relief | 180 min | 00:00 | 43 |  | 2 |  |  |  | 60 | code |
 | partagees:liste | copies partagées : la liste des clés KV, une pour les copies et celles d'après | 5 min | 00:00 | 1 |  | 1 |  |  |  |  | code |
 | vigilance | copie partagée (KV) | 5 min | 00:00 | 4 |  | 1 |  |  |  | 70 | estimé |
-| web:crues | copie partagée (KV) | 15 min (5 au plus court) | 00:10 | 5 |  | 1 |  |  |  | 50 | estimé |
+| web:crues | copie partagée (KV) | 15 min (5 au plus court) | 00:10 | 17 | 3 | 4 |  |  |  | 50 | estimé |
 | web:actualites | copie partagée (KV) | 30 min | 00:10 | 11 |  | 1 |  |  |  | 190 | mesuré |
 | web:trafic | copie partagée (KV) | 30 min | 00:05 | 31 |  | 1 | 2 | 840 |  | 160 | mesuré |
 | web:electricite | copie partagée (KV) | 30 min | 00:20 | 8 |  | 1 |  |  |  | 80 | mesuré |
-| web:coupures | copie partagée (KV) | 30 min | 00:25 | 8 |  | 1 |  |  |  | 60 | mesuré |
+| web:coupures | copie partagée (KV) | 30 min | 00:25 | 10 | 1 | 2 |  |  |  | 60 | mesuré |
 | web:air | copie partagée (KV) | 60 min | 00:40 | 5 |  | 1 |  |  |  | 40 | mesuré |
 | mer:satellites | copie partagée (KV) | 180 min (30 au plus court) | 00:55 | 11 |  | 1 |  |  |  | 110 | estimé |
 | web:mer | copie partagée (KV) | 180 min | 01:15 | 14 |  | 1 |  |  |  | 110 | mesuré |
 | web:calendrier | copie partagée (KV) | 360 min | 02:10 | 9 |  | 1 |  |  |  | 40 | estimé |
-| web:volcan | copie partagée (KV) | 30 min (5 au plus court) | 00:15 | 18 |  | 1 | 2 | 21 |  | 110 | mesuré |
+| seismes | copie partagée (KV) | 10 min | 00:05 | 3 |  | 1 |  |  |  | 10 | estimé |
+| onf:sentiers | copie partagée (KV) | 60 min | 00:45 | 5 |  | 1 |  |  |  | 40 | estimé |
+| web:volcan | copie partagée (KV) | 30 min (5 au plus court) | 00:15 | 24 | 3 | 4 | 2 | 21 |  | 110 | mesuré |
 | web:courant | copie partagée (KV) | 120 min (30 au plus court) | 00:20 | 8 |  | 1 |  |  |  | 30 | mesuré |
 | web:chiffres | copie partagée (KV) | 60 min | 00:50 | 26 |  | 1 | 2 | 21 |  | 60 | estimé |
 | web:chiffres:evenements | copie partagée (KV) | 360 min (60 au plus court) | 00:30 | 57 |  | 1 |  |  |  | 200 | estimé |
 | ens:ile | copie partagée, avec ce que les autres ont laissé | 180 min | 01:40 | 4 |  | 1 |  |  |  | 40 | mesuré |
+| vigilance:carte | carte officielle de la vigilance : son état (KV), lu à chaque copie de la vigilance | 5 min | 00:00 | 1 | 1 |  |  |  |  |  | code |
+| vigilance:carte:bulletin | carte officielle de la vigilance : un nouveau bulletin gardé (le PDF et l'état, KV), puis son image par le navigateur de Cloudflare (l'image et l'état), 24 images par jour au plus | 60 min | 00:00 | 5 |  | 4 |  |  |  | 40 | code |
 | agendas:planifies | agendas lus par la tâche planifiée : leur copie commune (KV), lue à chaque passage, écrite après une lecture | 5 min | 00:00 | 1 | 1 |  |  |  |  |  | code |
 | agendas:planifies:ecriture | agendas lus par la tâche planifiée : l'écriture de leur copie commune | 60 min | 00:00 | 1 |  | 1 |  |  |  |  | code |
 | agenda:salazie | agenda lu par la tâche planifiée : Ville de Salazie | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
@@ -77,12 +81,14 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | agenda:plaine_des_palmistes_actus | agenda lu par la tâche planifiée : Ville de La Plaine-des-Palmistes | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
 | agenda:sainte_marie_actus | agenda lu par la tâche planifiée : Ville de Sainte-Marie | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
 | agenda:salazie_actus | agenda lu par la tâche planifiée : Ville de Salazie | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
-| agenda:sportsregions | agenda lu par la tâche planifiée : Clubs sportifs (Sportsregions) | 360 min | 00:00 | 5 |  |  |  |  |  | 30 | mesuré |
 | agenda:weezevent | agenda lu par la tâche planifiée : Billetterie Weezevent (organisateurs de l'île) | 360 min | 00:00 | 2 |  |  |  |  |  | 30 | mesuré |
 | sans-reponse:echecs | sites sans réponse : l'état des sites relu quand une lecture échoue (D1), au plus toutes les 10 minutes par isolat, après la réponse aussi pour une vue ou une question ; une écriture de plus pour un site qui entre dans la liste | 10 min | 00:00 | 1 |  |  | 1 | 20 |  | 2 | estimé |
+| copies:echecs | copies partagées : l'échec d'une copie en retard, lu avec elle et écrit après un essai manqué (KV), au plus une fois toutes les 5 minutes par copie pour tous les centres de données, seulement quand sa source ne répond pas | 5 min | 00:00 | 2 | 1 | 1 |  |  |  |  | code |
 | sans-reponse:reverification | sites sans réponse : la revérification quotidienne, une lecture par site (D1 et sites), à 06:00 heure de La Réunion | 1440 min | 02:00 | 22 |  |  | 2 | 20 | 21 | 30 | estimé |
 | irve:etat | bornes de recharge : la part de La Réunion du fichier national (environ 9 Mo), écrite dans KV après les autres lectures | 15 min | 00:05 | 2 |  | 1 |  |  |  | 300 | estimé |
+| candhis:etat | bouées Candhis du Cerema : la dernière mesure de chaque bouée de La Réunion, une requête par type de bouée, gardée dans KV | 30 min | 00:10 | 5 | 1 | 1 |  |  |  | 10 | code |
 | connecteurs:lecture | plateformes des associations (HelloAsso) : les événements publics d'une association reliée, relus toutes les 6 h, une association par passage | 5 min | 00:00 | 15 |  |  | 3 | 201 | 11 | 20 | estimé |
+| meteofrance:veille | météo de la veille : la pluie et les températures de 0 h à 24 h de chaque station Météo-France (paquet horaire, environ 900 ko), écrites dans KV à 00:20 heure de La Réunion, relues à 00:35 si la dernière heure manquait | 1440 min | 20:20 | 3 |  | 1 |  |  |  | 40 | estimé |
 | propositions:purge | propositions des clubs : la purge quotidienne (D1), à 04:00 heure de La Réunion | 1440 min | 00:00 | 1 |  |  | 1 |  | 10 | 5 | estimé |
 
 ## Tâches GitHub
@@ -98,28 +104,29 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 
 | entrée | ce que c'est | cadence | décalage (UTC) | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) | d'où |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| / | accueil : sa météo, ses tuiles, et la plus vieille refaite après la réponse | à chaque vue |  | 76 | 8 |  | 2 | 840 |  | 110 | mesuré |
-| /communes/* | page d'une commune : sa météo, ses tuiles, et la plus vieille refaite après la réponse | à chaque vue |  | 78 | 6 |  |  |  |  | 160 | mesuré |
-| /aujourdhui/* | la journée d'une commune (resume_du_jour) | à chaque vue |  | 62 | 9 |  |  |  |  | 130 | mesuré |
-| /meteo/* | la météo d'un lieu | à chaque vue |  | 50 |  |  |  |  |  | 130 | mesuré |
+| / | accueil : sa météo, ses tuiles, et la plus vieille refaite après la réponse | à chaque vue |  | 80 | 10 | 2 | 2 | 840 |  | 110 | mesuré |
+| /communes/* | page d'une commune : sa météo, ses tuiles, et la plus vieille refaite après la réponse | à chaque vue |  | 82 | 8 | 2 |  |  |  | 160 | mesuré |
+| /aujourdhui/* | la journée d'une commune (resume_du_jour) | à chaque vue |  | 68 | 12 | 3 |  |  |  | 130 | mesuré |
+| /meteo/* | la météo d'un lieu | à chaque vue |  | 54 | 2 | 2 |  |  |  | 130 | mesuré |
 | /mer | la page /mer | à chaque vue |  | 23 |  |  |  |  |  | 120 | mesuré |
-| /randonnees/* | une randonnée et sa trace | à chaque vue |  | 23 |  |  |  |  |  | 130 | mesuré |
-| /sentiers/* | un sentier et sa trace | à chaque vue |  | 16 |  |  |  |  |  | 30 | mesuré |
+| /randonnees/* | une randonnée et sa trace | à chaque vue |  | 25 | 1 | 1 |  |  |  | 130 | mesuré |
+| /sentiers/* | un sentier et sa trace | à chaque vue |  | 18 | 1 | 1 |  |  |  | 30 | mesuré |
 | /bus/arret/* | la page d'un arrêt de bus : ses prochains départs | à chaque vue |  | 16 |  |  | 3 | 150 |  | 60 | code |
 | /bus/trajet/* | le trajet d'un bus, arrêt par arrêt | à chaque vue |  | 11 |  |  | 2 | 6 |  | 30 | code |
-| /coupures-eau/* | les coupures d'une commune | à chaque vue |  | 27 |  |  |  |  |  | 70 | mesuré |
+| /coupures-eau/* | les coupures d'une commune | à chaque vue |  | 29 | 1 | 1 |  |  |  | 70 | mesuré |
 | /enfants/* | les lieux pour les enfants d'une commune, sur sa carte | à chaque vue |  | 37 |  |  |  |  |  | 350 | code |
-| /feux | la page /feux | à chaque vue |  | 20 |  |  |  |  |  | 90 | mesuré |
-| /ecoles-cyclone | la page /ecoles-cyclone | à chaque vue |  | 12 |  |  |  |  |  | 50 | mesuré |
+| /feux | la page /feux | à chaque vue |  | 22 | 1 | 1 |  |  |  | 90 | mesuré |
+| /ecoles-cyclone | la page /ecoles-cyclone | à chaque vue |  | 14 | 1 | 1 |  |  |  | 50 | mesuré |
 | /carburants | la page /carburants | à chaque vue |  | 13 |  |  |  |  |  | 30 | mesuré |
 | /associations | l'espace des associations et leurs propositions (D1) | à chaque vue |  | 10 |  |  |  |  |  | 40 | mesuré |
 | /associations/relier | relier sa plateforme : les clés vérifiées par HelloAsso, puis la connexion écrite (D1) et l'e-mail | à chaque vue |  | 14 |  |  | 2 | 2 |  | 40 | code |
 | /associations/connexion/* | le lien reçu par e-mail : confirmer ou retirer la connexion (D1), et l'e-mail qui le dit | à chaque vue |  | 14 |  |  | 4 | 4 |  | 30 | code |
+| /associations/evenements.* | les flux ouverts des événements proposés (JSON, ICS) : la copie du centre de données, sinon les propositions publiées (D1), 5 minutes | à chaque vue |  | 3 |  |  | 1 | 100 |  | 20 | estimé |
 | /sites-sans-reponse | les sites publics sans réponse (D1), avec la vigilance et la version de l'en-tête | à chaque vue |  | 9 |  |  | 2 | 21 |  | 40 | code |
 | /chiffres | rundata.re en chiffres : la copie de ses comptes, avec la vigilance et la version de l'en-tête | à chaque vue |  | 9 | 1 |  |  |  |  | 40 | code |
 | * | toute autre adresse : la vigilance et la version, lues pour l'en-tête | à chaque vue |  | 7 |  |  |  |  |  | 70 | mesuré |
-| /meteo | la page /meteo | à chaque vue |  | 41 |  |  |  |  |  | 80 | mesuré |
-| /volcan | la page /volcan | à chaque vue |  | 43 | 1 |  | 2 | 21 |  | 60 | mesuré |
+| /meteo | la page /meteo | à chaque vue |  | 45 | 2 | 2 |  |  |  | 80 | mesuré |
+| /volcan | la page /volcan | à chaque vue |  | 55 | 4 | 3 | 2 | 21 |  | 60 | mesuré |
 | /air | la page /air | à chaque vue |  | 14 | 1 |  |  |  |  | 40 | mesuré |
 | /electricite | la page /electricite | à chaque vue |  | 17 | 1 |  |  |  |  | 30 | mesuré |
 | /calendrier | la page /calendrier | à chaque vue |  | 18 | 1 |  |  |  |  | 40 | mesuré |
@@ -127,17 +134,17 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /trafic | la page /trafic | à chaque vue |  | 51 | 1 |  | 2 | 840 |  | 270 | mesuré |
 | /velos | la page /velos | à chaque vue |  | 14 |  |  |  |  |  | 50 | mesuré |
 | /bornes | la page /bornes | à chaque vue |  | 12 |  |  |  |  |  | 40 | mesuré |
-| /eau | la page /eau | à chaque vue |  | 11 |  |  |  |  |  | 30 | mesuré |
-| /randonnees | la page /randonnees | à chaque vue |  | 22 |  |  |  |  |  | 210 | mesuré |
-| /sentiers | la page /sentiers | à chaque vue |  | 19 |  |  |  |  |  | 60 | mesuré |
+| /eau | la page /eau | à chaque vue |  | 13 | 1 | 1 |  |  |  | 30 | mesuré |
+| /randonnees | la page /randonnees | à chaque vue |  | 24 | 1 | 1 |  |  |  | 210 | mesuré |
+| /sentiers | la page /sentiers | à chaque vue |  | 21 | 1 | 1 |  |  |  | 60 | mesuré |
 | /secheresse | la page /secheresse | à chaque vue |  | 12 |  |  |  |  |  | 70 | mesuré |
-| /coupures-eau | la page /coupures-eau | à chaque vue |  | 20 | 1 |  |  |  |  | 100 | mesuré |
+| /coupures-eau | la page /coupures-eau | à chaque vue |  | 22 | 2 | 1 |  |  |  | 100 | mesuré |
 | /defibrillateurs | la page /defibrillateurs ; « Autour de moi » charge au clic la liste compacte (public/dae/), servie par Cloudflare avant le Worker : 0 Worker, 0 KV, 0 D1 | à chaque vue |  | 6 |  |  |  |  |  | 40 | mesuré |
 | /sport | la page /sport | à chaque vue |  | 42 |  |  |  |  |  | 120 | mesuré |
 | /decheteries | la page /decheteries | à chaque vue |  | 12 |  |  |  |  |  | 30 | mesuré |
-| /cyclones | la page /cyclones | à chaque vue |  | 27 |  |  |  |  |  | 50 | mesuré |
-| /crues | la page /crues | à chaque vue |  | 30 | 1 |  |  |  |  | 120 | estimé |
-| /historique | la page /historique | à chaque vue |  | 15 |  |  |  |  |  | 70 | mesuré |
+| /cyclones | la page /cyclones | à chaque vue |  | 29 | 1 | 1 |  |  |  | 50 | mesuré |
+| /crues | la page /crues | à chaque vue |  | 36 | 4 | 3 |  |  |  | 120 | estimé |
+| /historique | la page /historique | à chaque vue |  | 16 |  |  |  |  |  | 70 | estimé |
 | /evenements | la page /evenements | à chaque vue |  | 54 |  |  |  |  |  | 200 | mesuré |
 | /evenements/ce-week-end | comme /evenements, une partie de sa copie | à chaque vue |  | 36 |  |  |  |  |  | 230 | mesuré |
 | /evenements/concerts | comme /evenements, une partie de sa copie | à chaque vue |  | 36 |  |  |  |  |  | 230 | mesuré |
@@ -148,24 +155,24 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 
 | entrée | ce que c'est | cadence | décalage (UTC) | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) | d'où |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| resume_du_jour | l'outil resume_du_jour | à chaque vue |  | 59 |  |  |  |  |  | 130 | mesuré |
+| resume_du_jour | l'outil resume_du_jour | à chaque vue |  | 65 | 3 | 3 |  |  |  | 130 | mesuré |
 | meteo_actuelle | l'outil meteo_actuelle | à chaque vue |  | 36 |  |  |  |  |  | 120 | mesuré |
 | evenements | l'outil evenements | à chaque vue |  | 33 |  |  |  |  |  | 190 | mesuré |
 | sport | l'outil sport | à chaque vue |  | 33 |  |  |  |  |  | 160 | mesuré |
-| volcan_seismes | l'outil volcan_seismes | à chaque vue |  | 30 |  |  | 2 | 21 |  | 90 | mesuré |
+| volcan_seismes | l'outil volcan_seismes | à chaque vue |  | 42 | 3 | 3 | 2 | 21 |  | 90 | mesuré |
 | fiche_terrain | l'outil fiche_terrain | à chaque vue |  | 36 |  |  |  |  |  | 80 | estimé |
-| prevision_meteo | l'outil prevision_meteo | à chaque vue |  | 20 |  |  |  |  |  | 100 | mesuré |
-| qualite_eau | l'outil qualite_eau | à chaque vue |  | 15 |  |  |  |  |  | 90 | mesuré |
+| prevision_meteo | l'outil prevision_meteo | à chaque vue |  | 22 | 1 | 1 |  |  |  | 100 | mesuré |
+| qualite_eau | l'outil qualite_eau | à chaque vue |  | 17 | 1 | 1 |  |  |  | 90 | mesuré |
 | temperature_mer | l'outil temperature_mer | à chaque vue |  | 14 |  |  |  |  |  | 50 | mesuré |
 | transports | l'outil transports | à chaque vue |  | 13 |  |  | 2 | 840 |  | 80 | mesuré |
-| cyclones | l'outil cyclones | à chaque vue |  | 13 |  |  |  |  |  | 70 | mesuré |
+| cyclones | l'outil cyclones | à chaque vue |  | 15 | 1 | 1 |  |  |  | 70 | mesuré |
 | actualites | l'outil actualites | à chaque vue |  | 10 |  |  |  |  |  | 180 | mesuré |
-| historique_meteo | l'outil historique_meteo | à chaque vue |  | 10 |  |  | 3 | 300 |  | 60 | mesuré |
-| sentiers_randonnee | l'outil sentiers_randonnee | à chaque vue |  | 10 |  |  |  |  |  | 60 | mesuré |
-| vigilance_meteo | l'outil vigilance_meteo | à chaque vue |  | 10 |  |  |  |  |  | 50 | mesuré |
-| coupures_eau | l'outil coupures_eau | à chaque vue |  | 9 |  |  |  |  |  | 110 | mesuré |
+| historique_meteo | l'outil historique_meteo | à chaque vue |  | 11 |  |  | 3 | 300 |  | 60 | estimé |
+| sentiers_randonnee | l'outil sentiers_randonnee | à chaque vue |  | 12 | 1 | 1 |  |  |  | 60 | mesuré |
+| vigilance_meteo | l'outil vigilance_meteo | à chaque vue |  | 12 | 1 | 1 |  |  |  | 50 | mesuré |
+| coupures_eau | l'outil coupures_eau | à chaque vue |  | 11 | 1 | 1 |  |  |  | 110 | mesuré |
 | electricite | l'outil electricite | à chaque vue |  | 9 |  |  |  |  |  | 60 | mesuré |
-| crues_rivieres | l'outil crues_rivieres | à chaque vue |  | 9 |  |  |  |  |  | 30 | mesuré |
+| crues_rivieres | l'outil crues_rivieres | à chaque vue |  | 15 | 3 | 3 |  |  |  | 30 | mesuré |
 | calendrier | l'outil calendrier | à chaque vue |  | 7 |  |  |  |  |  | 70 | mesuré |
 | velos_libre_service | l'outil velos_libre_service | à chaque vue |  | 6 |  |  |  |  |  | 30 | mesuré |
 | maree | l'outil maree | à chaque vue |  | 6 |  |  |  |  |  | 130 | mesuré |
@@ -196,11 +203,15 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | mer:satellites | providers/acspo, providers/modis |
 | web:mer | providers/acspo, providers/arome, providers/ensemble, providers/houle, providers/mf-auth, providers/modis, providers/openmeteo, providers/uv |
 | web:calendrier | providers/calendrier |
+| seismes | providers/seismes |
+| onf:sentiers | providers/sentiers |
 | web:volcan | providers/actualites, providers/agenda, providers/avis-eau, providers/ovpf-pdf, providers/prefecture, providers/salles, providers/seismes, providers/sentiers, providers/sport, providers/traces, providers/volcan |
 | web:courant | providers/avis-eau, providers/coupures-courant |
 | web:chiffres | providers/agenda, providers/avis-eau, providers/metar, providers/meteofrance, providers/mf-auth, providers/pioupiou, providers/radar, providers/salles, providers/sentiers, providers/sport, providers/velos |
 | web:chiffres:evenements | providers/actualites, providers/agenda, providers/avis-eau, providers/salles, providers/sport-avis, providers/sport |
 | ens:ile | providers/ensemble |
+| vigilance:carte |  |
+| vigilance:carte:bulletin |  |
 | agenda:salazie | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | agenda:lrvb | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | agenda:saint_louis_actus | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
@@ -209,12 +220,13 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | agenda:plaine_des_palmistes_actus | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | agenda:sainte_marie_actus | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | agenda:salazie_actus | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
-| agenda:sportsregions | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | agenda:weezevent | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | sans-reponse:echecs | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | sans-reponse:reverification | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | irve:etat | providers/irve |
+| candhis:etat | providers/candhis |
 | connecteurs:lecture | connecteurs/helloasso |
+| meteofrance:veille | providers/meteofrance, providers/mf-auth |
 | / | providers/arome, providers/ensemble, providers/feux, providers/metar, providers/meteofrance, providers/mf-auth, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /communes/* | providers/acspo, providers/arome, providers/ensemble, providers/feux, providers/houle, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /aujourdhui/* | providers/acspo, providers/actualites, providers/agenda, providers/annuaire, providers/arome, providers/atmo, providers/avis-eau, providers/baignades, providers/calendrier, providers/carburants, providers/coupures-courant, providers/cyclones, providers/eaupotable, providers/edf, providers/ensemble, providers/feux, providers/gtfsrt, providers/houle, providers/irve, providers/maregraphes, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/prefecture, providers/radar, providers/salles, providers/seismes, providers/sentiers, providers/sport-avis, providers/sport, providers/tco, providers/terrain, providers/traces, providers/uv, providers/velos, providers/vigicrues, providers/vigieau, providers/vigilance, providers/volcan |
@@ -232,6 +244,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | /associations | providers/acspo, providers/actualites, providers/agenda, providers/annuaire, providers/arome, providers/atmo, providers/avis-eau, providers/baignades, providers/calendrier, providers/carburants, providers/coupures-courant, providers/cyclones, providers/eaupotable, providers/edf, providers/ensemble, providers/feux, providers/gtfsrt, providers/houle, providers/irve, providers/maregraphes, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/prefecture, providers/radar, providers/salles, providers/seismes, providers/sentiers, providers/sport-avis, providers/sport, providers/tco, providers/terrain, providers/traces, providers/uv, providers/velos, providers/vigicrues, providers/vigieau, providers/vigilance, providers/volcan, web/propositions |
 | /associations/relier | connecteurs/helloasso, providers/acspo, providers/actualites, providers/agenda, providers/annuaire, providers/arome, providers/atmo, providers/avis-eau, providers/baignades, providers/calendrier, providers/carburants, providers/coupures-courant, providers/cyclones, providers/eaupotable, providers/edf, providers/ensemble, providers/feux, providers/gtfsrt, providers/houle, providers/irve, providers/maregraphes, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/prefecture, providers/radar, providers/salles, providers/seismes, providers/sentiers, providers/sport-avis, providers/sport, providers/tco, providers/terrain, providers/traces, providers/uv, providers/velos, providers/vigicrues, providers/vigieau, providers/vigilance, providers/volcan, web/propositions |
 | /associations/connexion/* | connecteurs/helloasso, providers/acspo, providers/actualites, providers/agenda, providers/annuaire, providers/arome, providers/atmo, providers/avis-eau, providers/baignades, providers/calendrier, providers/carburants, providers/coupures-courant, providers/cyclones, providers/eaupotable, providers/edf, providers/ensemble, providers/feux, providers/gtfsrt, providers/houle, providers/irve, providers/maregraphes, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/prefecture, providers/radar, providers/salles, providers/seismes, providers/sentiers, providers/sport-avis, providers/sport, providers/tco, providers/terrain, providers/traces, providers/uv, providers/velos, providers/vigicrues, providers/vigieau, providers/vigilance, providers/volcan, web/propositions |
+| /associations/evenements.* |  |
 | /sites-sans-reponse | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | /meteo | providers/arome, providers/ensemble, providers/feux, providers/metar, providers/meteofrance, providers/mf-auth, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /volcan | providers/actualites, providers/agenda, providers/avis-eau, providers/prefecture, providers/salles, providers/seismes, providers/sentiers, providers/sport, providers/traces, providers/volcan |

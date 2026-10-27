@@ -6,6 +6,7 @@
  * tool, and no form posted from another site.
  */
 import * as avis from "../avis.js";
+import { bodyText } from "../http.js";
 import { esc } from "./map.js";
 
 const BODY_MAX = 8192;
@@ -65,9 +66,8 @@ export async function avisPost(request: Request, now = new Date()): Promise<Resp
   }
   const from = request.headers.get("origin");
   if (from && from !== url.origin) return new Response("Formulaire d'un autre site refusé.", { status: 403, headers: { "content-type": "text/plain; charset=utf-8" } });
-  if (Number(request.headers.get("content-length") ?? 0) > BODY_MAX) return back("/", "erreur");
-  const raw = await request.text();
-  if (raw.length > BODY_MAX) return back("/", "erreur");
+  const raw = await bodyText(request, BODY_MAX);
+  if (raw === undefined) return back("/", "erreur");
   const f = new URLSearchParams(raw);
   const page = pageOf(f.get("page"));
   // Filled in by robots only: thanked, not kept.

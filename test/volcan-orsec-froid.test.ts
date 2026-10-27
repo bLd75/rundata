@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import type { Info } from "../src/providers/actualites.js";
 import { parse } from "../src/providers/seismes.js";
-import { activityPosts, phase, phaseOf } from "../src/providers/volcan.js";
+import { activityPosts, PHASE_KEY, PREFECTURE, phase, phaseOf } from "../src/providers/volcan.js";
 import { buildVolcan } from "../src/web/data.js";
 import { volcanPage } from "../src/web/domains.js";
 import { site } from "../src/web/site.js";
@@ -39,12 +39,23 @@ const page = async (cache: Cache) => (await site(new Request("https://rundata.re
 
 afterEach(() => vi.unstubAllGlobals());
 
+describe("the phase read from the prefecture's releases", () => {
+  it("is stored as the prefecture's, so that its copy says whose it is", async () => {
+    const store = new MemoryStore();
+    const t = NOW.getTime();
+    const release = { titre: "Piton de la Fournaise : passage en alerte 1, fermeture de l’enclos", lien: "https://www.reunion.gouv.fr/x", publie: new Date("2026-10-24T12:00:00+04:00").toISOString(), media: "Préfecture de La Réunion", heure: false, communes: [], lieux: [], sujets: [] };
+    void store.put("prefecture:communiques:rubrique", { value: { liste: [release] }, fetchedAt: t });
+    expect((await phase(new Cache(store, () => t, true, new MemoryStore()), t)).value).toMatchObject({ niveau: "Alerte 1" });
+    expect((await store.get(PHASE_KEY))?.from).toBe(PREFECTURE.id);
+  });
+});
+
 describe("the ORSEC level of a cold copy, the prefecture not read in time", () => {
   it("keeps the phase read, and says it after a deploy while the prefecture does not answer", async () => {
     const durable = new MemoryStore();
     // An isolate reads the prefecture's alert 1: the phase is kept, after the answer.
     const warm = cold(durable);
-    void warm.store.put("volcan:prefecture", { value: ALERT_1, fetchedAt: NOW.getTime() });
+    void warm.store.put("volcan:prefecture:phase", { value: ALERT_1, fetchedAt: NOW.getTime() });
     expect((await phase(warm.cache, NOW.getTime())).value).toMatchObject({ niveau: "Alerte 1" });
     await new Promise((r) => setTimeout(r, 0));
     expect((await durable.get("volcan:prefecture:derniere-phase"))?.value).toMatchObject({ niveau: "Alerte 1" });
@@ -65,7 +76,7 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     const durable = new MemoryStore();
     void durable.put("volcan:prefecture:derniere-phase", { value: ALERT_1, fetchedAt: NOW.getTime() - 3600_000 });
     const { store, cache } = cold(durable);
-    void store.put("volcan:prefecture", { value: null, fetchedAt: NOW.getTime() });
+    void store.put("volcan:prefecture:phase", { value: null, fetchedAt: NOW.getTime() });
     expect((await buildVolcan(cache, NOW)).etat?.niveau_orsec).toBe("Alerte 1");
   });
 
@@ -94,7 +105,7 @@ describe("the ORSEC level of a cold copy, the prefecture not read in time", () =
     const { store, cache } = cold(durable);
     // The prefecture's alert 1 of the 17th; pitonlive at « Vigilance » since the 19th; now the 24th.
     const alert = phaseOf([{ titre: "Piton de la Fournaise : passage en alerte 1", lien: "https://www.reunion.gouv.fr/x", publie: new Date("2026-10-17T12:00:00+04:00").toISOString() } as unknown as Info])!;
-    void store.put("volcan:prefecture", { value: alert, fetchedAt: NOW.getTime() });
+    void store.put("volcan:prefecture:phase", { value: alert, fetchedAt: NOW.getTime() });
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const v = await buildVolcan(cache, NOW);
     expect(v.etat?.niveau_orsec).toBe("Alerte 1");

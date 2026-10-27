@@ -59,6 +59,12 @@ export function localTime(d: Date): string {
   return LOCAL.format(d).replace(",", "").replace(" à ", " ");
 }
 
+/** Whole days from `a`'s day to `b`'s, in La Réunion: 1 from 23:59 to 00:00. */
+export function daysApart(a: Date, b: Date): number {
+  const day = (d: Date) => Date.parse(new Date(d.getTime() + 4 * 3600_000).toISOString().slice(0, 10));
+  return Math.round((day(b) - day(a)) / 86_400_000);
+}
+
 export function ageMinutes(d: Date, now: Date): number {
   return Math.max(0, Math.round((now.getTime() - d.getTime()) / 60_000));
 }

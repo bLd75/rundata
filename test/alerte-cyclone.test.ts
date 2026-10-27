@@ -106,7 +106,7 @@ describe("the pré-alerte has no colour", () => {
     expect(item.title).toBe("Pré-alerte cyclonique à La Réunion");
     expect(`${item.title} ${item.description}`).not.toMatch(/jaune/i);
     const vigilance = vigilancePage("https://rundata.re", { value: pre, fetchedAt: NOW, stale: false }, NOW);
-    expect(vigilance).toContain(`<span class="vg vgpre">pré-alerte</span><p>Pré-alerte cyclonique, « je m'informe »`);
+    expect(vigilance).toContain(`<span class="vg vgpre">pré-alerte</span></li>`);
     for (const html of [vigilance, page(pre)]) expect(html).not.toMatch(COLOUR);
   });
 

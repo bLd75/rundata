@@ -6,7 +6,7 @@ import * as cc from "../providers/coupures-courant.js";
 import * as edf from "../providers/edf.js";
 import { why } from "../types.js";
 import { type CourantAnswer, courantBlock, courantCopy, nonReprisCourt } from "./courant.js";
-import { credits, fr, notFound, placeBlock, text } from "./format.js";
+import { credits, fr, notFound, paire, placeBlock, text } from "./format.js";
 
 const SOURCES: [keyof edf.Mix, string, boolean][] = [
   ["photovoltaique", "solaire photovoltaïque", true],
@@ -45,9 +45,13 @@ export function constraints(hours: edf.Hour[]) {
   }
   return out.map((c) => {
     const d = new Date(Date.parse(c.debut) + 4 * 3600_000);
-    const [startHm, endHm] = [localTime(new Date(c.debut)).split(" ")[1], localTime(new Date(c.fin)).split(" ")[1]];
+    const m = (iso: string) => {
+      const [h, mn] = localTime(new Date(iso)).split(" ")[1].split(":").map(Number);
+      return h * 60 + mn;
+    };
+    const [start, end] = paire(m(c.debut), m(c.fin));
     return {
-      quand: `${WEEKDAYS[d.getUTCDay()]} ${localTime(new Date(c.debut)).split(" ")[0]} de ${startHm.replace(":00", "h")} à ${endHm.replace(":00", "h")}`,
+      quand: `${WEEKDAYS[d.getUTCDay()]} ${localTime(new Date(c.debut)).split(" ")[0]} de ${start} à ${end}`,
       signal: c.signal.toLowerCase(),
       recharge_conseillee_pct: c.recharge_conseillee_pct,
     };
@@ -111,7 +115,7 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
       jusqu_au: hours.length ? localTime(new Date(hours[hours.length - 1].dateheure)).split(" ")[0] : undefined,
       cyclone_en_cours: cyclone,
       explication:
-        "Signal horaire d'EDF : « optimal » = réseau à l'aise\u00a0; « heures de pointe » (souvent 18h-21h)\u00a0; « contraint » et « très contraint » = " +
+        "Signal horaire d'EDF : « optimal » = réseau à l'aise\u00a0; « heures de pointe » (souvent 18\u00a0h–21\u00a0h)\u00a0; « contraint » et « très contraint » = " +
         "réseau tendu, décaler les gros usages. La recharge conseillée est la part de la puissance de recharge d'un véhicule électrique.",
     };
   }

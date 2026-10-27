@@ -88,7 +88,7 @@ export function weekendText(w: Weekend, now: Date): string {
   return upper(days.length > 1 ? `${days.slice(0, -1).join(", ")} et ${days.at(-1)}` : days[0]);
 }
 
-// The halls whose programmes the agenda reads, for when it has no concert in its two weeks.
+// The halls, for when the agenda has no concert in its two weeks: their own sites, even those it does not read.
 const HALLS: [string, string][] = [
   ["TÉAT Champ Fleuri et Plein Air", "https://www.teat.re/programmation/"], ["Cité des Arts", "https://www.citedesarts.re/Programmation"],
   ["Kabardock", "https://kabardock.com/"], ["Le Séchoir", "https://www.lesechoir.com"], ["Bisik", "https://bisik.re/agenda/"],
@@ -241,9 +241,10 @@ export function concertsPage(origin: string, data: Cached<AgendaAnswer> | null, 
       : `<div class="card"><p>Aucun concert trouvé dans les agendas lus pour les deux semaines qui viennent. Les salles annoncent leurs dates plus loin sur leur site :</p>${halls}</div>`;
 
   const title = "Concerts à La Réunion : ce soir et ce week-end · 974";
-  const programmes = "TÉAT, Cité des Arts, Kabardock, Séchoir et les autres salles, ce soir et ce week-end.";
-  const short = `Les prochains concerts à La Réunion (974) : ${programmes}`;
-  const description = d && n ? describe(`${n > 1 ? `Les ${n} prochains concerts` : "Le prochain concert"} à La Réunion (974) : ${programmes}`, short) : short;
+  // Marketing's words (26/10), while Le Séchoir is the only hall read (src/providers/autorisations.ts).
+  const programmes = "ce soir et ce week-end : le Séchoir, les agendas des mairies et des offices de tourisme.";
+  const short = `Les prochains concerts à La Réunion (974), ${programmes}`;
+  const description = d && n ? describe(`${n > 1 ? `Les ${n} prochains concerts` : "Le prochain concert"} à La Réunion (974), ${programmes}`, short) : short;
   const { bar, jsonld } = trail(origin, "Concerts", path);
 
   const band = `${bar}

@@ -16,9 +16,10 @@ import { ageMinutes, ageText, localTime, versant } from "../geo.js";
 import { VERSION } from "../server.js";
 import { fr } from "../tools/format.js";
 import * as mf from "../providers/vigilance.js";
-import { current, cyclone, cycloneHead, cycloneLevel, highest, raised, spans } from "../tools/vigilance.js";
+import { carteHtml } from "./vigilance-carte.js";
+import { current, cyclone, cycloneHead, cycloneLevel, highest, islandGreen, NONE_ISSUED, NONE_ISSUED_SAID, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, StationAnswer, StationNow } from "./data.js";
-import { vigilanceLue } from "./data.js";
+import { joursDuJour, vigilanceLue } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
 import og from "./og.json" with { type: "json" };
 import * as traces from "../providers/traces.js";
@@ -32,19 +33,21 @@ import rubriques from "./og-rubriques.json" with { type: "json" };
 import { byUse, FIRST, type Urgent, urgentKeys, WITH_PAGE } from "./categories.js";
 import { FLAG_INNER } from "./flag.js";
 import { logo } from "./logo.js";
-import { esc, islandMap, type Marker, type ZoneLink } from "./map.js";
+import { esc, islandMap, type Marker } from "./map.js";
 import { typo } from "./typo.js";
 import { mentionLinks } from "../mentions.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
 import { AVIS_CSS, avisForm } from "./avis.js";
+import { aide, AIDE_CSS, SIGNAL_SCRIPT } from "./signaux.js";
 import { FORMS_CSS } from "./formulaires-style.js";
-import { INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
+import { hash, INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 import { bathingBlock } from "./baignade.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 
 export const SITE = "rundata.re";
-// The headings' typeface (scripts/build-font.py). Bump the number when the font changes: browsers keep it a year.
+// The headings' typeface (scripts/build-font.py), a file of public/. Bump the number when the font changes: browsers
+// keep it a year.
 export const FONT_PATH = "/font/titres-1.woff2";
 // The tagline, in Réunion Creole (« l'île en direct »); also on the og:image (scripts/build-og.py).
 export const SLOGAN = `<p class="slogan" lang="${brand.slogan_lang}">${esc(brand.slogan)}</p>`;
@@ -117,17 +120,26 @@ export const SOCIAL: Social[] = [
     url: "https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q",
     svg: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3.5 20.5l1.3-4.3a8.5 8.5 0 1 1 3.1 3.1Z"/><path d="M8.7 7.6c.3-.3.8-.3 1 .1l.9 1.5c.2.3.1.7-.1.9l-.5.5c.5 1.1 1.3 1.9 2.4 2.4l.5-.5c.2-.2.6-.3.9-.1l1.5.9c.4.2.4.7.1 1l-.6.6c-.6.6-1.4.7-2.1.4a8.6 8.6 0 0 1-4.5-4.5c-.3-.7-.2-1.5.4-2.1Z" fill="currentColor" stroke="none"/></svg>`,
   },
+  // The code, last: GitHub's mark (Primer Octicons, mark-github-24).
+  {
+    nom: "GitHub",
+    url: GITHUB,
+    svg: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M10.226 17.284c-2.965-.36-5.054-2.493-5.054-5.256 0-1.123.404-2.336 1.078-3.144-.292-.741-.247-2.314.09-2.965.898-.112 2.111.36 2.83 1.01.853-.269 1.752-.404 2.853-.404 1.1 0 1.999.135 2.807.382.696-.629 1.932-1.1 2.83-.988.315.606.36 2.179.067 2.942.72.854 1.101 2 1.101 3.167 0 2.763-2.089 4.852-5.098 5.234.763.494 1.28 1.572 1.28 2.807v2.336c0 .674.561 1.056 1.235.786 4.066-1.55 7.255-5.615 7.255-10.646C23.5 6.188 18.334 1 11.978 1 5.62 1 .5 6.188.5 12.545c0 4.986 3.167 9.12 7.435 10.669.606.225 1.19-.18 1.19-.786V20.63a2.9 2.9 0 0 1-1.078.224c-1.483 0-2.359-.808-2.987-2.313-.247-.607-.517-.966-1.034-1.033-.27-.023-.359-.135-.359-.27 0-.27.45-.471.898-.471.652 0 1.213.404 1.797 1.235.45.651.921.943 1.483.943.561 0 .92-.202 1.437-.719.382-.381.674-.718.944-.943"/></svg>`,
+  },
 ];
 
 /** The accounts that have an address. */
 export const followed = (list = SOCIAL) => list.filter((s) => s.url);
 
-/** Visits from the site's own links are counted apart (src/metrics.ts). */
-const fromSite = (url: string) => `${url}${url.includes("?") ? "&" : "?"}ref=site`;
+/** Visits from the site's own links are counted apart (src/metrics.ts); not on GitHub, which brings none back to count. */
+const fromSite = (url: string) => (url === GITHUB ? url : `${url}${url.includes("?") ? "&" : "?"}ref=site`);
 
 /** Each account as a link, its logo and its name; the logo alone in the bar, where its label names it. */
 const accountLinks = (list = SOCIAL, logoOnly = false) =>
   followed(list).map((s) => `<a href="${esc(fromSite(s.url))}" rel="noopener" aria-label="rundata.re sur ${esc(s.nom)}">${s.svg}${logoOnly ? "" : esc(s.nom)}</a>`);
+
+/** The links two by two, each pair kept on one line: four side by side or two and two, never one left alone. */
+const paired = (links: string[]) => links.map((l, k) => (k % 2 ? "" : `<span class="pair">${l}${links[k + 1] ?? ""}</span>`)).join("");
 
 /**
  * « Suivre rundata.re » and each account, with its logo and its name; nothing when none has an address. The accounts
@@ -135,7 +147,7 @@ const accountLinks = (list = SOCIAL, logoOnly = false) =>
  */
 export function follow(list = SOCIAL, cls = "social"): string {
   const links = accountLinks(list);
-  return links.length ? `<p class="${cls}">Suivre rundata.re : <span>${links.join("")}</span></p>` : "";
+  return links.length ? `<p class="${cls}">Suivre rundata.re : <span>${paired(links)}</span></p>` : "";
 }
 
 // Search engines cut (and Bing flags) a meta description over 160 characters.
@@ -185,7 +197,7 @@ const ICON: Record<string, string> = {
 export const icon = (name: string) =>
   `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[name]}</svg>`;
 
-const CSS = `
+export const CSS = `
 @font-face{font-family:"Bricolage";src:url(${FONT_PATH}) format("woff2");font-weight:600 800;font-display:swap}
 :root{--bg:#f6f2ea;--surface:#fff;--surface-2:#fbf8f2;--ink:#14202b;--muted:#5a6672;--line:#e6dece;--link:#1d4ea6;
 --accent:#1d4ea6;--accent-ink:#fff;--sun:#ffcf1f;--sun-ink:#1a1500;--lave:#c0321f;--night:#0b1f36;--night-2:#15406b;
@@ -257,6 +269,7 @@ font-size:.88rem;font-weight:600;background:#0d2135;border:1px solid rgb(255 255
 .grid a[aria-current]{background:color-mix(in srgb,var(--k) 18%,transparent);border-color:color-mix(in srgb,var(--k) 45%,transparent)}
 .sheet .connect{background:rgb(255 255 255/.06);border-color:rgb(255 255 255/.1);box-shadow:none}
 .sheet .connect code{color:var(--on-night)}
+.sheet .sheet-app{color:var(--on-night);font-weight:600}
 
 .band{position:relative;overflow:hidden;color:var(--on-night);
 background:linear-gradient(160deg,var(--night) 0%,var(--night-2) 100%)}
@@ -535,16 +548,6 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .tgt{scroll-margin-top:5.5rem}.tgt:target{animation:tgt 2.4s ease-out}
 @keyframes tgt{from,40%{box-shadow:0 0 0 3px var(--accent)}to{box-shadow:0 0 0 3px transparent}}
 @media (prefers-reduced-motion:reduce){.tgt:target{animation:none;box-shadow:0 0 0 3px var(--accent)}}
-.map.ocean .land{fill:var(--land)}.map.ocean .shore{fill:none;stroke:var(--coast);stroke-width:2;stroke-linejoin:round}
-.map.ocean .grat{stroke:var(--coast);stroke-width:1;opacity:.35}.map.ocean .gl{fill:var(--muted);font-size:18px;text-anchor:start}
-.map.ocean .ring{fill:none;stroke:var(--lave);stroke-width:2;stroke-dasharray:6 8;opacity:.6}.map.ocean .rl{fill:var(--lave);font-size:18px;opacity:.8}
-.map.ocean .islet circle{fill:var(--coast)}.map.ocean .islet text{fill:var(--muted);font-size:18px}
-.map.ocean .home circle{fill:var(--lave);stroke:#fff;stroke-width:3}.map.ocean .home text{fill:var(--ink);font-weight:700;font-size:22px;paint-order:stroke;stroke:var(--sea);stroke-width:6px}
-.map.ocean .trk .past{fill:none;stroke:#7048e8;stroke-width:5;stroke-linejoin:round;stroke-linecap:round}
-.map.ocean .trk .fc{fill:none;stroke:#7048e8;stroke-width:4;stroke-dasharray:10 9;stroke-linecap:round}.map.ocean .trk .fp{fill:var(--sea);stroke:#7048e8;stroke-width:3}
-.map.ocean .trk .eye{fill:#7048e8;stroke:#fff;stroke-width:4}.map.ocean .trk:not(.on) .past{stroke:var(--muted);opacity:.8}.map.ocean .trk:not(.on) .eye{fill:var(--muted)}
-.map.ocean .tn{fill:var(--ink);font-weight:800;font-size:26px;paint-order:stroke;stroke:var(--sea);stroke-width:7px}
-.map.ocean .ts{fill:var(--muted);font-size:19px;paint-order:stroke;stroke:var(--sea);stroke-width:6px}
 .legend{display:flex;align-items:center;gap:.6rem;font-size:.84rem;color:var(--muted)}
 .legend i{flex:1;max-width:12rem;height:.5rem;border-radius:1rem;background:linear-gradient(90deg,${STOPS.map(([, c]) => `rgb(${c.join(" ")})`).join(",")})}
 .stations{list-style:none;padding:0;display:grid}
@@ -687,10 +690,12 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .bars{list-style:none;padding:0;display:grid;gap:.7rem}
 .qdays{margin:.6rem 0}
 .qdays figcaption{font-size:.85rem;color:var(--muted)}
+.mf-carte{margin:1rem 0;max-width:40rem}.mf-carte img{display:block;width:100%;height:auto;background:#fff}.mf-carte figcaption{font-size:.92rem}.mf-carte p{margin:0}
 .qdays ol{list-style:none;padding:0;margin:.3rem 0 0;display:grid;grid-template-columns:repeat(30,minmax(0,1fr));gap:2px;align-items:end;height:5rem;border-bottom:1px solid var(--line)}
 .qdays li{height:100%;display:flex;align-items:flex-end}
 .qdays i{display:block;width:100%;background:var(--vg0);border-radius:2px 2px 0 0}
 .qdays li.now i{background:var(--accent);opacity:.6}
+.qdays li.nolu{background:repeating-linear-gradient(135deg,var(--line) 0 1px,transparent 1px 4px);opacity:.7}
 .qdays .axis{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted);margin:.2rem 0 0}
 .bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.2rem .6rem;font-size:.92rem}
 .band .bars li{color:var(--on-night)}
@@ -704,6 +709,7 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .posts details>summary{cursor:pointer}.posts details>p{margin:.6rem 0 0;padding-left:.8rem;border-left:3px solid var(--line)}
 .warn ul{padding:0}
 .social,.social>span{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem 1rem}.social a{display:inline-flex;align-items:center;gap:.35rem}.social svg{width:1.1rem;height:1.1rem;flex:none}
+.social .pair{display:inline-flex;align-items:center;gap:inherit}
 .pages{list-style:none;padding:0;margin-top:1rem;display:flex;flex-wrap:wrap;gap:.4rem}.pages a{display:block;padding:.3rem .75rem;border-radius:999px;background:rgb(255 255 255/.06);border:1px solid rgb(255 255 255/.1);text-decoration:none;font-size:.86rem}
 footer.foot{background:var(--night);color:var(--on-night-muted);font-size:.86rem;line-height:1.55;padding-block:2.5rem 3rem;border-top:1px solid rgb(255 255 255/.06)}
 footer.foot .wrap{display:grid;gap:1.5rem}
@@ -713,7 +719,12 @@ footer.foot .brand{color:var(--on-night);margin-bottom:.8rem}
 footer.foot p+p{margin-top:.6rem}
 footer.foot h3{color:var(--on-night);font-size:1rem;margin-bottom:.4rem}
 footer.foot .slogan{font-size:1rem;padding-left:calc(1.55rem + .6rem)}
-`.replace(/\n/g, "") + AVIS_CSS + FORMS_CSS + PWA_CSS;
+`.replace(/\n/g, "") + AVIS_CSS + AIDE_CSS + FORMS_CSS + PWA_CSS;
+/**
+ * The stylesheet, a file of its own (web/site.ts) rather than copied into every page: its address changes with its
+ * content, so that browsers keep it a year and fetch it again only once it changes.
+ */
+export const STYLE_PATH = `/style-${hash(CSS)}.css`;
 
 interface Head {
   title: string;
@@ -732,6 +743,8 @@ interface Head {
   sansAvis?: boolean;
   /** Nothing to share nor follow below (the secret link of a proposed event: its author would think they share it). */
   sansPartage?: boolean;
+  /** The sharing below without the install block: /application, whose steps are the page itself. */
+  sansInstallation?: boolean;
   /** The page's referrer policy, besides the header: « no-referrer » where the address holds a secret. */
   referrer?: string;
   /** The page shows the volcano's alert itself (the home page's card, /volcan's heading): no volcano banner above it. */
@@ -769,15 +782,17 @@ function zonesSaid(zones: string[]): string {
 function vigilanceLigne(a: Alerte): string {
   const c = a.court;
   if ("cyclone" in c) return c.prevue ? "Alerte cyclonique prévue par le préfet" : `${cycloneHead(c.cyclone)} du préfet`;
-  return `Vigilance ${feminine(c.couleur)} ${c.phenomenes.slice(0, 2).map((p) => SHORT[p] ?? p.toLowerCase()).join(", ")} · ${zonesSaid(c.zones)}`;
+  return `Météo-France : vigilance ${feminine(c.couleur)} ${c.phenomenes.slice(0, 2).map((p) => SHORT[p] ?? p.toLowerCase()).join(", ")} · ${zonesSaid(c.zones)}`;
 }
 
 function banner(a: Alerte | undefined, path: string): string {
   if (!a) return "";
   const more = path === "/vigilance" ? "" : ` <a href="/vigilance">Voir la vigilance zone par zone →</a>`;
   const schools = a.ecoles && path !== "/ecoles-cyclone" ? ` <a href="/ecoles-cyclone">Écoles fermées →</a>` : "";
+  // After « Voir la vigilance zone par zone → », where Météo-France says it: the cyclone's page for the cyclone alert.
+  const official = ` ${officielHtml("cyclone" in a.court ? mf.OFFICIEL_CYCLONE : mf.OFFICIEL_VIGILANCE)}`;
   const short = path === "/vigilance" ? "" : ligne("/vigilance", "⚠", vigilanceLigne(a), a.lue) + (a.ecoles && path !== "/ecoles-cyclone" ? ligne("/ecoles-cyclone", "", "Écoles et crèches fermées") : "");
-  return `<div class="alerte vg ${a.neutre ? "vgpre" : `vg${a.couleur}`}"${short ? " data-court" : ""} role="status">${short}<div class="wrap"><span>⚠ ${esc(a.texte)}${a.lue ? ` · ${esc(a.lue)}` : ""}</span>${schools}${more}</div></div>`;
+  return `<div class="alerte vg ${a.neutre ? "vgpre" : `vg${a.couleur}`}"${short ? " data-court" : ""} role="status">${short}<div class="wrap"><span>⚠ ${esc(a.texte)}${a.lue ? ` · ${esc(a.lue)}` : ""}</span>${schools}${more}${official}</div></div>`;
 }
 
 /**
@@ -792,7 +807,7 @@ addEventListener("pageshow",(e)=>{if(e.persisted)again()});document.addEventList
 
 const SCRIPT = `const menu=document.querySelector("details.menu");if(menu)document.addEventListener("click",(e)=>{if(menu.open&&!menu.contains(e.target))menu.open=false});
 document.querySelectorAll("[data-copy]").forEach((b)=>b.addEventListener("click",async()=>{const t=document.getElementById(b.dataset.copy);
-const o=b.textContent;try{await navigator.clipboard.writeText(t.textContent);b.textContent="Copié ✓";setTimeout(()=>b.textContent=o,2500)}catch{getSelection().selectAllChildren(t)}}));
+const o=b.textContent;if(b.dataset.signal&&location.pathname==="/mcp")sig("c");try{await navigator.clipboard.writeText(t.textContent);b.textContent="Copié ✓";setTimeout(()=>b.textContent=o,2500)}catch{getSelection().selectAllChildren(t)}}));
 const f=document.getElementById("filtre");if(f){const n=(s)=>s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
 f.addEventListener("input",()=>{const q=n(f.value.trim());let any=false;document.querySelectorAll(".places li").forEach((li)=>{const ok=n(li.textContent).includes(q);li.hidden=!ok;any||=ok});
 document.querySelectorAll(".places h3").forEach((h)=>{h.hidden=![...h.nextElementSibling.children].some((li)=>!li.hidden)});document.getElementById("rien").hidden=any})}
@@ -809,7 +824,8 @@ e.textContent="il y a "+(m<90?m+" min":m<2880?Math.round(m/60)+" h":Math.round(m
 document.querySelectorAll("[data-js]").forEach((e)=>{e.hidden=false});document.querySelectorAll("[data-nojs]").forEach((e)=>{e.hidden=true});
 tick();setInterval(tick,3e4);
 ${RELOAD_SCRIPT}
-${PWA_SCRIPT}`;
+${PWA_SCRIPT}
+${SIGNAL_SCRIPT}`;
 
 /** Whether a page belongs to a category: /meteo/cilaos is in the weather. */
 const inCategory = (path: string, category: string) => path === category || path.startsWith(`${category}/`);
@@ -841,7 +857,7 @@ const HOOKS: [string, string][] = [
   ["/defibrillateurs", "En cas d'arrêt cardiaque : le défibrillateur le plus proche, et s'il est accessible."],
   ["/sport", "Les matchs du week-end et les derniers résultats de l'île."],
   ["/evenements", "Ce week-end : concerts, fêtes et marchés, commune par commune."],
-  ["/cyclones", "Un cyclone approche ? Sa trajectoire et sa distance de l'île, d'après Météo-France."],
+  ["/cyclones", "Un cyclone dans l'océan Indien ? Son stade selon le CMRS de Météo-France, et le lien vers son site officiel."],
   ["/historique", "Normal pour la saison ? Le temps qu'il a fait, comparé à la normale."],
   ["/communes", "Tout ce qui compte aujourd'hui dans votre commune, sur une seule page."],
 ];
@@ -867,7 +883,8 @@ function share(origin: string, head: Head): string {
   const text = `${head.title.replace(/ · 974$/, "")} : ${origin}${head.path}?ref=wa`;
   const link = (s: Social, label = s.nom) => `<a href="${esc(fromSite(s.url))}" rel="noopener">${esc(label)}</a>`;
   // The info of each morning is Facebook's; Instagram posts less often, so it is named without a rhythm (marketing).
-  const accounts = followed().filter((s) => s.nom !== "WhatsApp").map((s) => link(s) + (s.nom === "Facebook" ? " (une info utile chaque matin)" : ""));
+  // The code is not an account to follow for news: GitHub stays out of this sentence.
+  const accounts = followed().filter((s) => s.nom !== "WhatsApp" && s.nom !== "GitHub").map((s) => link(s) + (s.nom === "Facebook" ? " (une info utile chaque matin)" : ""));
   const channel = followed().find((s) => s.nom === "WhatsApp");
   // « Facebook (une info utile chaque matin) ou Instagram ».
   const on = accounts.length > 1 ? `${accounts.slice(0, -1).join(", ")} ou ${accounts.at(-1)}` : accounts[0];
@@ -877,7 +894,7 @@ function share(origin: string, head: Head): string {
   <a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp ${EXTERNAL}</a>
   ${sentence ? `<p>${sentence}</p>` : ""}
 </div>
-${INSTALL}
+${head.sansInstallation ? "" : INSTALL}
 </aside>`;
 }
 
@@ -915,9 +932,11 @@ function header(path: string, origin: string, u: Urgent): string {
     <nav class="sheet" aria-label="Catégories"><div class="wrap">
       <p class="sheet-h">Toute l'île en direct</p>
       <ul class="grid">${grid}</ul>
-      ${sheet.length ? `<p class="sheet-h">Suivre rundata.re</p>\n      <p class="social sheet-follow">${sheet.join("")}</p>` : ""}
+      ${sheet.length ? `<p class="sheet-h">Suivre rundata.re</p>\n      <p class="social sheet-follow">${paired(sheet)}</p>` : ""}
       <p class="sheet-h">Le connecteur pour votre IA</p>
       ${connector(origin, "mcp-url-menu")}
+      <p class="sheet-h">Sur votre téléphone</p>
+      <p><a class="sheet-app" href="/application">Mettre rundata.re sur l'écran d'accueil →</a></p>
     </div></nav>
   </details>
 </div></header>`;
@@ -972,7 +991,7 @@ ${head.rss ? `<link rel="alternate" type="application/rss+xml" title="${esc(head
 <meta name="twitter:description" content="${d}">
 <meta name="twitter:image" content="${esc(image.src)}">
 <meta name="twitter:image:alt" content="${esc(image.alt)}">
-${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head.jsonld.length === 1 ? head.jsonld[0] : head.jsonld, frenchDescriptions).replace(/</g, "\\u003c")}</script>\n` : ""}<style>${CSS}</style>
+${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head.jsonld.length === 1 ? head.jsonld[0] : head.jsonld, frenchDescriptions).replace(/</g, "\\u003c")}</script>\n` : ""}<link rel="stylesheet" href="${STYLE_PATH}">
 </head>
 <body>
 ${header(head.path, origin, urgent(head))}
@@ -983,21 +1002,22 @@ ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
 ${mentionLinks(body)}
 </main>
 ${head.shell ? "" : `${head.sansPartage ? "" : share(origin, head)}
-${head.sansAvis ? "" : avisForm(head.path)}`}
+${head.sansAvis ? "" : `${aide()}
+${avisForm(head.path)}`}`}
 <footer class="foot"><div class="wrap">
   <div>
     <a class="brand" href="/">${logo()}<span>rundata.re</span></a>
     ${SLOGAN}
     <p>La Réunion 974 en direct, pour vous et votre assistant IA.</p>
     ${head.rss ? `<p><a href="${esc(head.rss.href)}" title="${esc(head.rss.hint)}">${esc(head.rss.link)}</a></p>` : ""}
-    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/a-propos">qui fait rundata.re ?</a> · <a href="/chiffres">rundata.re en chiffres</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · <a href="/publier">publier vos données</a> · contact@rundata.re</p>
+    <p>reunion-temps-reel ${VERSION} · <a href="${GITHUB}">code libre (MIT)</a> · <a href="/valeurs">nos valeurs</a> · <a href="/application">sur votre écran d'accueil</a> · <a href="/ouvrir-ses-donnees">ouvrir ses données</a> · aucun cookie, statistiques de visite anonymes · <a href="/confidentialite">confidentialité</a> · <a href="/conditions">conditions et mentions légales</a> · <a href="/a-propos">qui fait rundata.re ?</a> · <a href="/chiffres">rundata.re en chiffres</a> · <a href="/presse">presse</a> · <a href="/nouveautes">nouveautés</a> · <a href="/publier">publier vos données</a> · contact@rundata.re</p>
     <p>Référencé sur <a href="${DATAGOUV_REUSE}">data.gouv.fr</a>, la plateforme des données publiques françaises, et sur <a href="${GLAMA}">Glama</a>, l'annuaire des serveurs MCP.</p>
     ${follow()}
     <ul class="pages" aria-label="Catégories">${WITH_PAGE.map((c) => `<li><a href="${c.path}">${esc(c.nom)}</a></li>`).join("")}<li><a href="/communes">Communes</a></li><li><a href="/meteo#communes">Météo par commune</a></li>${enLigne() ? `<li><a href="/associations">Clubs et associations</a></li>` : ""}</ul>
   </div>
   <div>
     <h3>Sources</h3>
-    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS et ensemble ENS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Cyclones : CMRS de La Réunion (Météo-France), via GDACS ; côtes Natural Earth (domaine public). Historique : données climatologiques quotidiennes de Météo-France depuis 1900. Volcan : préfecture de La Réunion, OVPF-IPGP (CC BY 4.0), et en dernier recours <a href="https://pitonlive.com">pitonlive.com</a> (site non officiel). Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Randonnée : ONF La Réunion ; itinéraires et traces © contributeurs OpenStreetMap (ODbL). Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Relief : IGN, RGE ALTI. Police des titres : Bricolage Grotesque (SIL OFL).</p>
+    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS et ensemble ENS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Cyclones : CMRS de La Réunion (Météo-France), via GDACS. Historique : données climatologiques quotidiennes de Météo-France depuis 1900. Volcan : préfecture de La Réunion, OVPF-IPGP (CC BY 4.0), et en dernier recours <a href="https://pitonlive.com">pitonlive.com</a> (site non officiel). Électricité : EDF SEI. Air : Atmo Réunion. Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Randonnée : ONF La Réunion ; itinéraires et traces © contributeurs OpenStreetMap (ODbL). Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Relief : IGN, RGE ALTI. Police des titres : Bricolage Grotesque (SIL OFL).</p>
     <p>Ces données sont fournies telles quelles, sans garantie. Pour un cyclone ou de fortes pluies, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture.</p>
     <p><a href="/publier">Votre organisation publie un agenda ou des données ? Le guide pour les publier en flux ouvert →</a></p>
   </div>
@@ -1092,7 +1112,7 @@ export function ask(kreol: string, francais: string): string {
 
 /** The connector's address with its copy button; `id` keeps several on one page apart. */
 export function connector(origin: string, id: string): string {
-  return `<div class="connect"><code id="${id}">${esc(`${origin}/mcp`)}</code><button type="button" data-copy="${id}" aria-label="Copier l'adresse du connecteur">Copier</button></div>`;
+  return `<div class="connect"><code id="${id}">${esc(`${origin}/mcp`)}</code><button type="button" data-copy="${id}" data-signal aria-label="Copier l'adresse du connecteur">Copier</button></div>`;
 }
 
 export const withTemp = (data: Cached<HomeData> | null) => data?.value.stations.filter((x) => x.temperature != null && !x.stale) ?? [];
@@ -1203,14 +1223,25 @@ export function vigilanceLive(data: Cached<mf.Vigilance> | null, now: Date): Liv
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   if (highest(cyc) >= 2) {
     const c = Math.max(2, cycloneLevel(cyc, now));
-    return lue({ valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) }, data!, now);
+    return officielLive(lue({ valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) }, data!, now), mf.OFFICIEL_CYCLONE);
   }
   const r = raised(v);
-  if (!r.length) return lue({ valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" }, data!, now);
-  return lue({
+  if (!r.length) {
+    // Green only when Météo-France issued it for the whole island, never in place of a bulletin without it.
+    const l = islandGreen(v, now)
+      ? { valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" }
+      : { valeur: esc(NONE_ISSUED_SAID), detail: esc(cyclone(v, now).replace(/\.$/, "")) };
+    return officielLive(lue(l, data!, now), mf.OFFICIEL_VIGILANCE);
+  }
+  return officielLive(lue({
     valeur: vg(r[0].max),
     detail: esc(r.slice(0, 2).map((x) => `${x.phenomene.toLowerCase()} (${x.zone.split(" :")[0]})`).join(", ") + (r.length > 2 ? "…" : "")),
-  }, data!, now);
+  }, data!, now), mf.OFFICIEL_VIGILANCE);
+}
+
+/** A vigilance tile's line, then the link to Météo-France's own site, never cut. */
+export function officielLive(l: Live, href: string): Live {
+  return { ...l, detail: `${l.detail}. ${officielHtml(href)}`, entier: true };
 }
 
 /** A vigilance tile's line, with when it was read once more than 15 min ago (`vigilanceLue`), said in full at its end. */
@@ -1414,7 +1445,7 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
       `pas celle du lagon ni du bord.${d.mer.etat_de_la_mer ? " Vagues : prévision d'un modèle, au large, pas une mesure." : ""}${tides ? ` Marée : calculée d'après les mesures des marégraphes, hauteurs à environ 5 cm près, <a href="/mer">détail sur la page mer</a>.` : ""} Source : ${credits(d.mer.sources)}${tides ? `, ${esc(TIDE_CITATION)}` : ""}.</p></div></section>`
     : "";
 
-  const f = d?.prevision;
+  const f = d?.prevision && { ...d.prevision, jours: joursDuJour(d.prevision.jours, data!.fetchedAt, now) };
   // Why a day is not sure, in plain sight and short (a phone shows no title, a card is half its width). A sure day
   // says nothing more.
   const whyNot = (why?: string) => {
@@ -1531,6 +1562,8 @@ export function offlinePage(origin: string): string {
  * p. 9) and whose yellow the prefecture dropped (marketing).
  */
 export const cycloneVg = (c: number) => (c === 2 ? "vgpre" : `vg${c >= 1 && c <= 5 ? c : 0}`);
+/** The link to Météo-France's own site, in its words (providers/vigilance.ts). */
+export const officielHtml = (href: string) => `<a href="${href}" rel="noopener">${esc(mf.OFFICIEL)}</a>`;
 export const vg = (c: number) => `<span class="vg vg${c >= 1 && c <= 5 ? c : 0}">${esc(mf.colour(c))}</span>`;
 const zoneShort = (zone: string) => (mf.ZONES[zone] ?? zone).split(" :")[0];
 /** « vigilance verte »: the colours as Météo-France names them, agreed with the word. */
@@ -1542,26 +1575,17 @@ const LAND = ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-1
 const LAND_PHENOMENA = [12, 1];
 const COAST = 9;
 
-/** The worst colour in force now in a land zone, -1 when nothing is issued there. */
-export function zoneNow(v: mf.Vigilance, zone: string, now: Date): number {
-  return Math.max(-1, ...LAND_PHENOMENA.map((id) => current(v.zones[zone]?.[id] ?? [], now)));
-}
-
-// The colours of the vigilance (Météo-France) and the phases of the cyclone alert (préfecture de La Réunion).
-const SCALE = `<ul class="scale">
-  <li>${vg(1)}<p>Pas de vigilance particulière.</p></li>
-  <li>${vg(2)}<p>Soyez attentif : des phénomènes habituels dans la région mais occasionnellement dangereux sont prévus.</p></li>
-  <li>${vg(3)}<p>Soyez très vigilant : des phénomènes dangereux sont prévus. Suivez les conseils des autorités.</p></li>
-  <li>${vg(4)}<p>Vigilance absolue : des phénomènes dangereux d'intensité exceptionnelle sont prévus.</p></li>
-</ul>`;
+// The colours of the vigilance and the phases of the cyclone alert, by their names only: what each one means is
+// Météo-France's to say, on its own site (marketing).
+const SCALE = `<ul class="scale">${[1, 2, 3, 4].map((c) => `<li>${vg(c)}</li>`).join("")}</ul><p>${officielHtml(mf.OFFICIEL_VIGILANCE)}</p>`;
 
 const CYCLONE_SCALE = `<ul class="scale">
-  <li><span class="vg vgpre">pré-alerte</span><p>Pré-alerte cyclonique, « je m'informe » : un cyclone menace l'île dans les jours à venir.</p></li>
-  <li><span class="vg vg3">orange</span><p>Alerte orange, « je me prépare » : danger dans les 24 heures. Les écoles ferment, on fait ses réserves et on met à l'abri ce qui peut s'envoler.</p></li>
-  <li><span class="vg vg4">rouge</span><p>Alerte rouge, « je me confine » : danger imminent. Interdiction de circuler, sauf services autorisés.</p></li>
-  <li><span class="vg vg5">violette</span><p>Alerte violette : confinement strict, plus personne ne circule, secours compris.</p></li>
-  <li><span class="vg vg0">sauvegarde</span><p>Phase de sauvegarde : le cyclone s'éloigne mais le danger demeure (routes coupées, ravines en crue, fils électriques au sol). Restez prudent.</p></li>
-</ul>`;
+  <li><span class="vg vgpre">pré-alerte</span></li>
+  <li><span class="vg vg3">orange</span></li>
+  <li><span class="vg vg4">rouge</span></li>
+  <li><span class="vg vg5">violette</span></li>
+  <li><span class="vg vg0">sauvegarde</span></li>
+</ul><p>${officielHtml(mf.OFFICIEL_CYCLONE)}</p>`;
 
 export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null, now = new Date(), alerte?: Alerte): string {
   const v = data?.value;
@@ -1573,26 +1597,17 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
 
   let status: string;
   if (!v) {
-    status = `<p class="lead">La vigilance de Météo-France n'a pas pu être lue à l'instant. Consultez <a href="${mf.SOURCE.url}">vigilance.meteofrance.fr</a> ou rechargez la page.</p>`;
+    status = `<p class="lead">La vigilance de Météo-France n'a pas pu être lue à l'instant. Consultez <a href="${mf.SOURCE.url}">vigilance.meteofrance.fr</a> ou rechargez la page.</p><p class="lead">${officielHtml(mf.OFFICIEL_VIGILANCE)}</p>`;
   } else {
     const head = highest(cyc) >= 2
       ? `<p class="big">${cycNow >= 2 ? esc(cycloneHead(cycNow)) : "Alerte cyclonique prévue"}</p><p class="lead">${esc(cyclone(v, now))}</p>`
       : `<p class="big">Pas d'alerte cyclonique</p>`;
     const rest = r.length
       ? `<p class="lead">Vigilances au-dessus du vert : ${r.map((x) => `${vg(x.max)} ${esc(x.phenomene.toLowerCase())} (${esc(x.zone.split(" :")[0])})`).join(", ")}.</p>`
-      : `<p class="lead">${vg(1)} Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</p>`;
-    status = `<div class="status">${head}${rest}<p class="lead"><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a></p><p class="note" style="color:var(--on-night-muted)">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p></div>`;
-  }
-
-  const fills: Record<string, string> = {};
-  // Each commune leads to the card of its zone below, which says what is in force there and what is coming.
-  const links: Record<string, ZoneLink> = {};
-  if (v) {
-    for (const [commune, zone] of Object.entries(mf.ZONE_OF_COMMUNE)) {
-      const c = zoneNow(v, zone, now);
-      if (c >= 1) fills[commune] = `var(--vg${c})`;
-      links[commune] = { href: `#${zoneId(zone)}`, say: `${c >= 1 ? `vigilance ${feminine(mf.colour(c))}` : "rien d'émis"}, zone ${zoneShort(zone)}` };
-    }
+      : islandGreen(v, now)
+        ? `<p class="lead">${vg(1)} Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</p>`
+        : `<p class="lead">${esc(NONE_ISSUED_SAID)}.</p>`;
+    status = `<div class="status">${head}${rest}<p class="lead"><b>${officielHtml(mf.OFFICIEL_VIGILANCE)}</b></p><p class="lead"><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a></p><p class="note" style="color:var(--on-night-muted)">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p></div>`;
   }
 
   const zones = v
@@ -1601,7 +1616,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
           const periods = v.zones[zone]?.[id] ?? [];
           const c = current(periods, now);
           const later = spans(periods);
-          return `<li><b>${esc(mf.PHENOMENA[id])}</b> : ${c >= 1 ? vg(c) : "rien d'émis"}` +
+          return `<li><b>${esc(mf.PHENOMENA[id])}</b> : ${c >= 1 ? vg(c) : NONE_ISSUED}` +
             (later.length ? `<p>${esc(later.join(", "))}</p>` : "") + `</li>`;
         }).join("");
         return `<li class="card tgt" id="${zoneId(zone)}"><h3>${esc(zoneShort(zone))}</h3><p class="note">${esc((mf.ZONES[zone] ?? "").split(" : ")[1] ?? "")}</p><ul>${items}</ul></li>`;
@@ -1651,7 +1666,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
   ];
 
   const band = `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li aria-current="page">Vigilance</li></ol></nav></div>
-<div class="wrap intro">
+<div class="wrap intro solo">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Vigilance Météo-France en direct</p>
     <h1>Vigilance et alerte cyclonique <span class="n974">974</span></h1>
@@ -1659,15 +1674,14 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
     ${ask(`Siklone i ariv ? Na lékol domin ? Gèt si ${url} é di amwin sak Météo-France é la préfektir i di.`,
       `Y a-t-il une alerte cyclonique ou une vigilance météo en cours à La Réunion ? Lis ${url} et dis-moi ce que dit Météo-France, zone par zone.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) colorée par la vigilance en cours dans chaque zone" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Couleur en cours dans chaque zone, fortes pluies / orages et vents forts confondus.</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-zones">
   <div class="sec-h"><p class="eyebrow">Zone par zone</p><h2 id="h-zones">Vigilance dans les 5 zones de l'île</h2>
-  <p>Météo-France découpe l'île en 5 zones terrestres et 8 zones côtières. Pour chacune : la couleur en cours, puis ce qui est prévu dans les 24 heures du bulletin.</p></div>
+  <p>La vigilance telle que Météo-France la publie, zone par zone et phénomène par phénomène : 5 zones terrestres et 8 zones côtières. Pour chacune, la couleur en cours, puis ce qui est prévu dans les 24 heures du bulletin.</p></div>
   ${zones || `<p class="card">Pas de bulletin à afficher pour le moment : voir <a href="${mf.SOURCE.url}">vigilance.meteofrance.fr</a>.</p>`}
   ${littoral}
+  ${carteHtml(v?.carte, now)}
   <p><a href="/crues">La vigilance crues, rivière par rivière →</a></p>
 </section>
 ${suivi}
@@ -1831,11 +1845,13 @@ export function legalPage(origin: string, kind: "confidentialite" | "conditions"
   const body = privacy
     ? `<section style="${PROSE}">
   <h2>En bref</h2>
-  <p>${enLigne() ? `Pour consulter le site ou l'utiliser depuis un assistant IA, rundata.re ne demande ni compte, ni nom, ni adresse électronique. Seuls les ${connecteursEnLigne() ? "trois" : "deux"} formulaires des clubs et associations demandent une adresse électronique (voir <a href="#associations-donnees">«\u00a0Ce que les clubs et associations envoient\u00a0»</a>${connecteursEnLigne() ? ` et <a href="#plateformes-donnees">«\u00a0Les associations reliées à une plateforme\u00a0»</a>` : ""}).` : "rundata.re ne demande ni compte, ni nom, ni adresse électronique."} Le site ne pose aucun cookie et ne contient aucun traceur publicitaire.${enLigne() ? ` Seule la vérification anti-robot des ${connecteursEnLigne() ? "trois" : "deux"} formulaires des clubs et associations garde une donnée dans le navigateur (voir <a href="#abus">«\u00a0Contre les abus\u00a0»</a>).` : ""} Rien n'est vendu ni partagé à des fins commerciales.</p>
+  <p>${enLigne() ? `Pour consulter le site ou l'utiliser depuis un assistant IA, rundata.re ne demande ni compte, ni nom, ni adresse électronique. Seuls les ${connecteursEnLigne() ? "trois" : "deux"} formulaires des clubs et associations demandent une adresse électronique (voir <a href="#associations-donnees">«\u00a0Ce que les clubs et associations envoient\u00a0»</a>${connecteursEnLigne() ? ` et <a href="#plateformes-donnees">«\u00a0Les associations reliées à une plateforme\u00a0»</a>` : ""}).` : "rundata.re ne demande ni compte, ni nom, ni adresse électronique."} Le site ne pose aucun cookie et ne contient aucun traceur publicitaire. Dans votre navigateur, sans cookie, le site garde la date de votre première et de votre dernière visite, pour savoir s'il sert d'un jour à l'autre\u00a0; il n'en envoie qu'une catégorie (voir <a href="#retours">«\u00a0Les retours\u00a0»</a>).${enLigne() ? ` La vérification anti-robot des ${connecteursEnLigne() ? "trois" : "deux"} formulaires des clubs et associations y garde aussi une donnée (voir <a href="#abus">«\u00a0Contre les abus\u00a0»</a>).` : ""} Une mesure de Cloudflare, sans cookie, compte aussi les pages vues et leur vitesse d'affichage (voir <a href="#mesure-cloudflare">«\u00a0La mesure de Cloudflare\u00a0»</a>). Rien n'est vendu ni partagé à des fins commerciales.</p>
   <h2>Ce que le site compte</h2>
-  <p>Pour savoir quelles pages et quels outils servent, et les améliorer, chaque page vue et chaque message reçu par le connecteur ajoutent une ligne anonyme aux statistiques : la page et sa rubrique, ou l'outil appelé avec le nom des paramètres donnés (pas leur valeur) ; le lieu demandé quand c'en est un, tel que le site l'a compris (une commune, une plage…), ou le texte demandé, coupé à 60 caractères, quand il ne l'a pas compris, pour apprendre à le comprendre ; le nom et la version de l'application de l'assistant (par exemple « claude-ai ») ; si la réponse a réussi, son temps et sa taille ; le pays déduit par Cloudflare, la langue du navigateur, si la page est ouverte depuis l'application installée sur l'écran d'accueil, le site d'où vient le visiteur et son type (une personne, un assistant, ou le nom du robot d'un assistant ou d'un moteur de recherche). Chaque lecture d'un flux RSS de commune ajoute aussi une ligne, à part : le flux, le nom de l'application qui le lit (Feedly, Inoreader…) et le nombre d'abonnés qu'elle annonce, sans rien sur les abonnés eux-mêmes. Ni adresse IP, ni identifiant, ni cookie. Des coordonnées ne sont jamais gardées, seulement leur commune. Depuis le 24 octobre 2026, un texte non compris qui ressemble à une adresse (un numéro suivi d'une rue, d'un chemin, d'une impasse, d'un lotissement…) n'est plus gardé tel qu'écrit, ni dans les statistiques ni dans le journal : seulement le mot « adresse ». Un nom de rue sans numéro peut encore être gardé, coupé à 60 caractères, comme tout lieu non compris. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée, pas plus que les autres paramètres (un arrêt de bus, un sujet…). Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
-  <p>Installation et lecture hors ligne : elles n'utilisent aucun cookie. Pour afficher les pages sans réseau, le site garde sur votre téléphone une copie des pages que vous ouvrez (le cache du navigateur, géré par un « service worker »). Votre choix « Plus tard » est gardé de la même façon. Ces données restent sur le téléphone et ne sont envoyées à personne. Elles s'effacent depuis les réglages du navigateur (données du site rundata.re).</p>
+  <p>Pour savoir quelles pages et quels outils servent, et les améliorer, chaque page vue et chaque message reçu par le connecteur ajoutent une ligne anonyme aux statistiques : la page et sa rubrique, ou l'outil appelé avec le nom des paramètres donnés (pas leur valeur) ; le lieu demandé quand c'en est un, tel que le site l'a compris (une commune, une plage…), ou le texte demandé, coupé à 60 caractères, quand il ne l'a pas compris, pour apprendre à le comprendre ; le nom et la version de l'application de l'assistant (par exemple « claude-ai ») ; si la réponse a réussi, son temps et sa taille ; le pays déduit par Cloudflare, la langue du navigateur, si la page est ouverte depuis l'application installée sur l'écran d'accueil, le site d'où vient le visiteur et son type (une personne, un assistant, ou le nom du robot d'un assistant ou d'un moteur de recherche). Chaque lecture d'un flux RSS de commune ajoute aussi une ligne, à part : le flux, le nom de l'application qui le lit (Feedly, Inoreader…) et le nombre d'abonnés qu'elle annonce, sans rien sur les abonnés eux-mêmes. Ni adresse IP, ni identifiant, ni cookie. Des coordonnées ne sont jamais gardées, seulement leur commune. Depuis le 24 octobre 2026, un texte non compris qui ressemble à une adresse (un numéro suivi d'une rue, d'un chemin, d'une impasse, d'un lotissement…) n'est plus gardé tel qu'écrit, ni dans les statistiques ni dans le journal : seulement le mot « adresse ». Un nom de rue sans numéro peut encore être gardé, coupé à 60 caractères, comme tout lieu non compris. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée, pas plus que les autres paramètres (un arrêt de bus, un sujet…). La page envoie aussi, sans identifiant, le temps qu'elle a mis à s'afficher sur votre appareil\u00a0; sur la page du connecteur, le fait que son adresse a été copiée\u00a0; et votre réponse au bouton «\u00a0Cette page vous a aidé\u00a0?\u00a0» (la page, et oui ou non). Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
+  <p id="mesure-cloudflare">La mesure de Cloudflare. Chaque page charge aussi un petit script de Cloudflare Web Analytics, l'outil de mesure de notre hébergeur. À chaque page vue, il envoie à Cloudflare l'adresse de la page, le site d'où vous venez et des mesures de vitesse\u00a0: le temps qu'a mis la page à s'afficher, sa stabilité et sa réactivité sur votre appareil. Cloudflare y associe le pays, le navigateur, le système et le type d'appareil (ordinateur, téléphone, tablette). Ce script ne pose aucun cookie et ne garde rien dans votre navigateur. Comme pour toute page, Cloudflare reçoit votre adresse IP\u00a0; selon sa documentation, il ne s'en sert pas, ni d'aucune autre donnée, pour suivre les visiteurs dans le temps ou d'un site à l'autre. Cloudflare garde chaque mesure 7 jours, puis un échantillon d'environ un dixième, que nous pouvons consulter pendant six mois. Ces mesures nous servent à voir quelles pages sont lues et lesquelles s'affichent lentement, pour améliorer le site.</p>
+  <p>Installation et lecture hors ligne : elles n'utilisent aucun cookie. Pour afficher les pages sans réseau, le site garde sur votre téléphone une copie des pages que vous ouvrez (le cache du navigateur, géré par un « service worker »). Votre choix «\u00a0Plus tard\u00a0» est gardé de la même façon, comme la langue choisie, kréol ou français, pour la question toute prête à poser à votre IA. Ces données restent sur le téléphone et ne sont envoyées à personne. Elles s'effacent depuis les réglages du navigateur (données du site rundata.re).</p>
   <p>Les visites de l'équipe. Pour que les statistiques ne comptent pas ceux qui font le site, leurs appareils portent un repère, gardé dans le navigateur de la même façon (sans cookie). Leurs pages vues sont notées « interne » et laissées hors des chiffres. Rien ne change pour les autres visiteurs.</p>
+  <p id="retours">Les retours. Pour savoir si le site sert d'un jour à l'autre, votre navigateur garde deux dates\u00a0: celle de votre première visite et celle de votre dernière, le jour seulement, sans l'heure. Ce n'est pas un cookie, mais le stockage local du navigateur, sur votre appareil. À chaque visite, la page n'envoie aux statistiques qu'une catégorie, jamais les dates\u00a0: première visite, le même jour, le lendemain, dans la semaine, ou plus tard. Ce repère ne sert qu'à cette mesure\u00a0: aucun autre site ne le lit, et il n'est recoupé avec rien. Passé 13 mois après votre première visite, il est effacé dès votre visite suivante, avant tout envoi\u00a0; il n'est jamais prolongé. Sans nouvelle visite, il reste sur votre appareil, sans être lu ni envoyé. Vous pouvez l'effacer à tout moment depuis les réglages du navigateur (données du site rundata.re). Selon les règles de la CNIL, une telle mesure d'audience ne demande pas de consentement («\u00a0Cookies\u00a0: solutions pour les outils de mesure d'audience\u00a0», <a href="https://www.cnil.fr/fr/cookies-et-autres-traceurs/regles/cookies-solutions-pour-les-outils-de-mesure-daudience">cnil.fr</a>).</p>
   <h2>Journaux techniques</h2>
   <p>Comme tout hébergeur, Cloudflare garde quelques jours les journaux du service (adresse demandée, erreurs, durée). Pour chaque message du connecteur, ils reprennent les éléments des statistiques ci-dessus, sans rien de plus. Une copie sans aucune adresse IP est conservée un an au plus, pour comprendre les pannes. Votre conversation n'y figure jamais.</p>
   <h2 id="avis-donnees">Les avis que vous laissez</h2>
@@ -1850,16 +1866,16 @@ ${enLigne() ? `<h2 id="associations-donnees">Ce que les clubs et associations en
   <p>Votre assistant (ChatGPT, Claude, Le Chat…) n'envoie au connecteur que les paramètres de l'outil, par exemple « Saint-Paul » ou une adresse, jamais votre conversation. Pour répondre, rundata.re transmet ce paramètre aux services publics qui détiennent la donnée : par exemple, une adresse est envoyée au géocodeur de l'IGN, puis le point trouvé au cadastre, au Géoportail de l'urbanisme, à Géorisques et à l'API DVF du Cerema. Ce que fait votre assistant de la conversation relève de sa propre politique de confidentialité.</p>
   <h2>Vos droits</h2>
   <p>${enLigne() ? `Pour qui consulte le site, aucune donnée ne permet de l'identifier\u00a0: il n'y a rien à consulter ni à effacer à son nom (sauf ce qu'il aurait écrit lui-même dans un avis). Si vous avez proposé un événement ou donné un lien, vous pouvez le corriger, l'annuler ou le retirer avec le lien reçu par e-mail. Pour consulter ou faire effacer ce que nous gardons, écrivez à <b>contact@rundata.re</b>\u00a0: nous répondons sous un mois.` : "Aucune donnée ne permet de vous identifier, il n'y a donc rien à consulter ni à effacer à votre nom (sauf ce que vous auriez écrit vous-même dans un avis). Pour toute question\u00a0: <b>contact@rundata.re</b>."} Vous pouvez aussi saisir la <a href="https://www.cnil.fr/fr/plaintes">CNIL</a>.</p>
-  <p style="color:var(--muted)">Mise à jour\u00a0: 25 octobre 2026.</p>
+  <p style="color:var(--muted)">Mise à jour\u00a0: 28 octobre 2026.</p>
 </section>`
     : `<section style="${PROSE}">
   <h2>Le service</h2>
-  <p>rundata.re est un service gratuit et non commercial : un site et un connecteur MCP (<code>${esc(origin)}/mcp</code>) qui réunissent les données publiques de La Réunion pour les personnes et leurs assistants IA. Il n'y a ni compte ni abonnement. Son code est libre, sous licence MIT, sur <a href="${GITHUB}">GitHub</a>.</p>
+  <p>rundata.re est un service gratuit\u00a0: un site et un connecteur MCP (<code>${esc(origin)}/mcp</code>) qui réunissent les données publiques de La Réunion pour les personnes et leurs assistants IA. Il n'y a ni compte ni abonnement. Son code est libre, sous licence MIT, sur <a href="${GITHUB}">GitHub</a>.</p>
   <h2>Pas un service officiel, pas de garantie</h2>
   <p>Les données viennent d'organismes publics et de projets ouverts, cités dans chaque réponse. Elles sont données telles quelles, sans garantie d'exactitude, de fraîcheur ni de disponibilité. Pour un cyclone, de fortes pluies, une crue ou une éruption, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture. La fiche d'une adresse n'a aucune valeur juridique : le cadastre est un document fiscal, et l'état des risques obligatoire pour une vente ou une location reste à établir.</p>
   <h2>Usage raisonnable</h2>
   <p>Le service est fait pour répondre à des questions. Ne l'interrogez pas en masse de façon automatique : il peut limiter ou bloquer un usage qui gêne les autres ou les services publics qu'il interroge.</p>
-  <h2>Réutiliser les données</h2>
+  <h2 id="reutiliser">Réutiliser les données</h2>
   <p>Chaque donnée garde la licence de sa source : Licence Ouverte Etalab 2.0 pour la plupart, ODbL pour OpenStreetMap, CC BY 4.0 pour Open-Meteo et les séismes de l'IPGP. L'outil <code>sources_donnees</code> les liste avec l'attribution à citer.</p>
 ${enLigne() ? `<p id="evenements-proposes"><b>Événements proposés par les clubs et associations.</b> L'association qui propose un événement en est responsable\u00a0: elle garantit qu'il est ouvert au public, exact, et qu'elle a le droit de le publier. rundata.re relit chaque proposition avant de l'afficher. Il peut refuser ou retirer un événement, en donnant le motif à l'organisateur\u00a0: notamment un événement privé, une adresse de domicile, des données personnelles, de la politique électorale, une collecte d'argent sans organisme identifié ou de la publicité commerciale. Un événement faux ou qui pose problème peut être signalé à contact@rundata.re\u00a0; nous le retirons, en général dans la journée. La mention «\u00a0Proposé par l'organisateur\u00a0» signale que l'événement n'a pas été vérifié par rundata.re. Les événements publiés sont sous Licence Ouverte 2.0.</p>
   ` : ""}  <h2 id="mentions-legales">Mentions légales</h2>

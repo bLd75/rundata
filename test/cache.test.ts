@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { Cache, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
-import { noteSource } from "../src/lectures.js";
+import { breakerMs, Cache, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
+import { noteSource, withLectures } from "../src/lectures.js";
 import { UpstreamError } from "../src/types.js";
-import { familyOf, RENDU_REVISION } from "../src/web/revisions.js";
+import { familyOf, RENDU_REVISION, SOURCE_REVISION, sourceRevision } from "../src/web/revisions.js";
 
 function clock() {
   let t = 1_000_000;
@@ -38,7 +38,7 @@ describe("Cache", () => {
     expect(calls).toBe(1); // second question within the back-off did not hit the source
   });
 
-  it("says which source did not answer with its last copy, and logs a read of ours that failed", async () => {
+  it("says which source did not answer with its last copy, logs it once, and logs a read of ours that failed", async () => {
     const c = clock();
     const cache = new Cache(undefined, c.now);
     await cache.get("metar", 60, async () => "ok");
@@ -46,16 +46,17 @@ describe("Cache", () => {
     c.advance(120);
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const silent = async () => { throw new UpstreamError("metar", "HTTP 502", 502); };
-    // The source's id, from its error, also within the back-off.
+    // The source's id, from its error, also within the back-off; the failure in the logs once, with the copy served.
     expect(await cache.get("metar", 60, silent)).toMatchObject({ stale: true, source: "metar" });
     expect(await cache.get("metar", 60, silent)).toMatchObject({ stale: true, source: "metar" });
-    expect(log).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0][0]).toBe(`source metar sans réponse : metar, copie du ${new Date(1_000_000).toISOString()} servie`);
     // Our read failed (the page changed shape): no source said, a line in the logs with its key.
     const r = await cache.get("page", 60, async () => { throw new Error("tableau introuvable"); });
     expect(r).toMatchObject({ stale: true });
     expect(r.source).toBeUndefined();
-    expect(log).toHaveBeenCalledTimes(1);
-    expect(log.mock.calls[0][0]).toBe("lecture sans aboutir : page");
+    expect(log).toHaveBeenCalledTimes(2);
+    expect(log.mock.calls[1][0]).toBe("lecture sans aboutir : page");
     log.mockRestore();
   });
 
@@ -104,6 +105,102 @@ describe("Cache", () => {
     };
     await expect(cache.get("other", 60, limit, 1800)).rejects.toThrow("Too many");
     expect((await cache.get("other", 60, async () => "ok", 1800)).value).toBe("ok");
+  });
+
+  it("leaves a source that failed alone for every process of the store, as long as its entry is fresh", async () => {
+    const c = clock();
+    const store = new MemoryStore();
+    await new Cache(store, c.now).get("seismes", 600, async () => "ok");
+    c.advance(700);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    let calls = 0;
+    const silent = async () => { calls++; throw new UpstreamError("ovpf_seismes", "The operation was aborted due to timeout"); };
+    expect(await new Cache(store, c.now).get("seismes", 600, silent)).toMatchObject({ value: "ok", stale: true, source: "ovpf_seismes" });
+    expect(calls).toBe(1);
+    // Another process, a moment later: the copy at once, the source not asked, nothing more in the logs.
+    c.advance(30);
+    expect(await new Cache(store, c.now).get("seismes", 600, silent)).toMatchObject({ value: "ok", stale: true, source: "ovpf_seismes" });
+    c.advance(560);
+    expect(await new Cache(store, c.now).get("seismes", 600, silent)).toMatchObject({ value: "ok", stale: true });
+    expect(calls).toBe(1);
+    expect(log).toHaveBeenCalledTimes(1);
+    // Ten minutes after the failure (its entry's freshness), asked again; back, its answer closes the breaker.
+    c.advance(20);
+    expect(await new Cache(store, c.now).get("seismes", 600, async () => "neuf")).toMatchObject({ value: "neuf", stale: false });
+    c.advance(700);
+    expect(await new Cache(store, c.now).get("seismes", 600, silent)).toMatchObject({ value: "neuf", stale: true });
+    expect(calls).toBe(2);
+    log.mockRestore();
+  });
+
+  it("is left alone 15 minutes at most, and at least its back-off", () => {
+    expect(breakerMs(300)).toBe(300_000);
+    expect(breakerMs(24 * 3600)).toBe(15 * 60_000);
+    expect(breakerMs(10)).toBe(60_000);
+    expect(breakerMs(60, 1800)).toBe(1_800_000);
+  });
+
+  it("serves a tool call past its time the copy of a slow source, and stores the read when it lands", async () => {
+    const c = clock();
+    const cache = new Cache(undefined, c.now);
+    await cache.get("k", 60, async () => "vieux");
+    c.advance(120);
+    let landed = false;
+    const slow = () => new Promise<string>((resolve) => setTimeout(() => { landed = true; resolve("neuf"); }, 150));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { value, lectures } = await withLectures(() => cache.get("k", 60, slow), 20);
+    // Slow, not failed: its warning says so (fraicheur.ts).
+    expect(value).toMatchObject({ value: "vieux", stale: true, tardive: true });
+    expect(lectures).toMatchObject([{ key: "k", stale: true, tardive: true }]);
+    expect(landed).toBe(false);
+    expect(log.mock.calls[0][0]).toMatch(/^lecture trop lente pour la réponse : k, copie du /);
+    log.mockRestore();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(landed).toBe(true);
+    expect(await cache.get("k", 60, async () => "autre")).toMatchObject({ value: "neuf", stale: false });
+  });
+
+  it("says a slow source whose last read failed as not answering, not as slow", async () => {
+    const c = clock();
+    const cache = new Cache(undefined, c.now);
+    await cache.get("k", 60, async () => "vieux");
+    c.advance(120);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await cache.get("k", 60, async () => { throw new UpstreamError("ipgp", "délai dépassé"); });
+    // Past the breaker and the backoff: asked again, slow again.
+    c.advance(3600);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const slow = () => new Promise<string>((resolve) => setTimeout(() => resolve("neuf"), 100));
+    const { value } = await withLectures(() => cache.get("k", 60, slow), 10);
+    expect(value).toMatchObject({ value: "vieux", stale: true, source: "ipgp" });
+    expect(value).not.toHaveProperty("tardive");
+    log.mockRestore();
+    vi.restoreAllMocks();
+    await new Promise((r) => setTimeout(r, 150));
+  });
+
+  it("waits for the vigilance and the cyclones, even past a tool call's time", async () => {
+    const c = clock();
+    const cache = new Cache(undefined, c.now);
+    const slow = (v: string) => () => new Promise<string>((resolve) => setTimeout(() => resolve(v), 60));
+    for (const key of ["vigilance", "cyclones:liste", "cyclones:avis:1:2"]) {
+      await cache.get(key, 60, async () => "vieux");
+      c.advance(120);
+      const { value, lectures } = await withLectures(() => cache.get(key, 60, slow("neuf")), 10);
+      expect(value, key).toMatchObject({ value: "neuf", stale: false });
+      expect(lectures, key).toMatchObject([{ key, stale: false }]);
+    }
+  });
+
+  it("waits for a slow source it has no copy of, and outside a tool call that set a time", async () => {
+    const c = clock();
+    const cache = new Cache(undefined, c.now);
+    const slow = (v: string) => () => new Promise<string>((resolve) => setTimeout(() => resolve(v), 60));
+    expect((await withLectures(() => cache.get("rien", 60, slow("premier")), 10)).value).toMatchObject({ value: "premier", stale: false });
+    c.advance(120);
+    expect(await cache.get("rien", 60, slow("second"))).toMatchObject({ value: "second", stale: false });
+    c.advance(120);
+    expect((await withLectures(() => cache.get("rien", 60, slow("troisieme")))).value).toMatchObject({ value: "troisieme", stale: false });
   });
 
   it("throws when the source fails and nothing is cached", async () => {
@@ -280,3 +377,64 @@ describe("a page's copy kept across the deploys that leave its family's revision
     expect(familyOf("web:randonnees:cap-noir")).toBe("randonnees");
   });
 });
+
+// The news feed's entry, read by the old code a few minutes before a deploy that changed one of its links, made the
+// page built again after it show the old links until its next turn (26/10/2026, Freedom's).
+describe("a source's entry listed in SOURCE_REVISION, after a deploy", () => {
+  const fil = "actualites:fil";
+  const n = SOURCE_REVISION[fil];
+
+  it("is stamped with its source's revision, whatever the version; a source not listed is not stamped", async () => {
+    const store = new MemoryStore();
+    const cache = new Cache(store, undefined, false, undefined, "2.0.0");
+    await cache.get(fil, 300, async () => "lu");
+    await cache.get("agenda:petite_ile", 300, async () => "lue");
+    expect((await store.get(fil))!.version).toBe(`source-${n}`);
+    expect((await store.get("agenda:petite_ile"))!.version).toBeUndefined();
+    expect(stampOf(fil, "2.0.0")).toBe(stampOf(fil, "1.0.0"));
+    expect(stampOf(fil, undefined)).toBeUndefined();
+  });
+
+  it("is named by its key, or by the first part of its key", () => {
+    expect(sourceRevision(fil)).toBe(n);
+    expect(sourceRevision("actualites:autre")).toBeUndefined();
+    expect(sourceRevision("agenda:petite_ile")).toBeUndefined();
+  });
+
+  it("is kept across a deploy that leaves its number, and read again at its first ask after one that raises it, once", async () => {
+    const c = clock();
+    const store = new MemoryStore();
+    await new Cache(store, c.now, false, undefined, "1.0.0").get(fil, 300, async () => "ancien");
+    await new Cache(store, c.now, false, undefined, "1.0.0").get("agenda:petite_ile", 300, async () => "lue");
+    c.advance(10);
+    let reads = 0;
+    const next = new Cache(store, c.now, false, undefined, "2.0.0");
+    expect((await next.get(fil, 300, async () => (reads++, "nouveau"))).value).toBe("ancien");
+    expect(reads).toBe(0);
+    // Read by the code before the one that raised the number.
+    await store.put(fil, { value: "avant", fetchedAt: c.now(), version: `source-${n - 1}` });
+    expect((await next.peek(fil))!.outdated).toBe(true);
+    expect((await next.get(fil, 300, async () => (reads++, "nouveau"))).value).toBe("nouveau");
+    expect((await next.get(fil, 300, async () => (reads++, "encore"))).value).toBe("nouveau");
+    expect(reads).toBe(1);
+    // A source not listed: its entry, however written, is kept.
+    expect((await next.get("agenda:petite_ile", 300, async () => (reads++, "relue"))).value).toBe("lue");
+    expect(reads).toBe(1);
+  });
+
+  it("stays the entry served, dated, when its source does not answer: never nothing", async () => {
+    const c = clock();
+    const store = new MemoryStore();
+    await store.put(fil, { value: "avant", fetchedAt: c.now(), version: `source-${n - 1}` });
+    c.advance(10);
+    const cache = new Cache(store, c.now, false, undefined, "2.0.0");
+    const silent = async (): Promise<string> => {
+      throw new UpstreamError("medias_locaux", "pas de réponse");
+    };
+    expect(await cache.get(fil, 300, silent)).toMatchObject({ value: "avant", stale: true });
+    // Asked again within the breaker: the same copy, not an error.
+    expect(await cache.get(fil, 300, silent)).toMatchObject({ value: "avant", stale: true });
+    expect(await new Cache(store, c.now, false, undefined, "2.0.0").get(fil, 300, async () => { throw new Error("page changée"); })).toMatchObject({ value: "avant", stale: true });
+  });
+});
+
