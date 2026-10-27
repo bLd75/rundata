@@ -125,6 +125,7 @@ import { searchPage, stopPage } from "./arret.js";
 import { STOP_PATH } from "./domains.js";
 import * as transit from "../providers/transit.js";
 import { carteRoute } from "./vigilance-carte.js";
+import { carteRoute as cmrsRoute } from "./cmrs-carte.js";
 import { RENDU_PATH } from "../providers/vigilance-carte.js";
 
 const HTML = {
@@ -722,6 +723,11 @@ async function pages(request: Request, cache: Cache, background: Background, now
   // Météo-France's official map of the vigilance: its picture, its bulletin, the page of the browser (web/vigilance-carte.ts).
   if (path.startsWith("/vigilance/")) {
     const r = await carteRoute(path, url);
+    if (r) return r;
+  }
+  // The RSMC's forecast track map, by its fingerprint (web/cmrs-carte.ts).
+  if (path.startsWith("/cyclones/carte/")) {
+    const r = await cmrsRoute(path);
     if (r) return r;
   }
   if (path === "/robots.txt") {

@@ -193,6 +193,18 @@ export async function getBytes(
   return get(source, url, timeoutMs, (res) => res.arrayBuffer(), headers);
 }
 
+/** A file's bytes with the time it was written, as its server says it (Last-Modified), when it says it. */
+export async function getFile(
+  source: string,
+  url: string,
+  timeoutMs = 15_000,
+): Promise<{ bytes: ArrayBuffer; modifie?: string }> {
+  return get(source, url, timeoutMs, async (res) => {
+    const modifie = res.headers.get("last-modified") ?? undefined;
+    return { bytes: await res.arrayBuffer(), ...(modifie && { modifie }) };
+  });
+}
+
 /** A form posted as a web page's own script would, for the sites whose data has no other door (Vigicrues Réunion). */
 export async function postForm<T>(source: string, url: string, fields: Record<string, string>, timeoutMs = 15_000): Promise<T> {
   return get(source, url, timeoutMs, (res) => res.json() as Promise<T>, {}, new URLSearchParams(fields));
