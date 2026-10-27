@@ -1,14 +1,16 @@
 /**
- * The security headers of the site's pages, and where browsers report what they would block.
+ * The security headers of the site's pages, and where browsers report what they block.
  *
  * - No page of rundata.re is ever shown in another site's frame (`frame-ancestors 'none'`, and X-Frame-Options for
  *   the older browsers): applied at once. None of our own pages is framed by another of ours; the only frames are
  *   Cloudflare's check on the forms and Waze's map on /trafic, which are theirs.
- * - A Content-Security-Policy, in report-only for now: the browsers block nothing, they report to POST /csp-rapport
- *   what they would block. Its scripts are this site's, Cloudflare's Turnstile, and the inline ones of the page, each
- *   allowed by its SHA-256 (computed from the page itself, so that a new script is never forgotten). Styles stay
- *   inline (the pages have `style` attributes); the frames are Turnstile's and Waze's. Once a day passes without a
- *   report, the same policy becomes the blocking one.
+ * - A Content-Security-Policy, blocking since a day of reports (26-27/10) named none of the site's own scripts: the
+ *   browsers block what it does not allow and report it to POST /csp-rapport. Its scripts are this site's, Cloudflare's
+ *   Turnstile, and the inline ones of the page, each allowed by its SHA-256 (computed from the page itself, so that a
+ *   new script is never forgotten). Styles stay inline (the pages have `style` attributes); the frames are Turnstile's
+ *   and Waze's. Not allowed, so blocked: the Web Analytics beacon Cloudflare may insert (static.cloudflareinsights.com),
+ *   which the site does not use (its figures are its own, Analytics Engine), and what extensions or in-app browsers
+ *   add to the page.
  * - A Permissions-Policy, applied at once: no page and no frame may use the camera, the microphone, payment or USB
  *   devices, which the site never asks for. The position stays allowed for the site's own pages (the button « Autour
  *   de moi » of /defibrillateurs), and for no frame. The other features keep the browser's default: the clipboard of
@@ -35,7 +37,7 @@ export const SECURITY_TEXT = [
 /** What no page and no frame may use, and the position, for the site's own pages only. */
 export const PERMISSIONS = "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)";
 
-/** Applied at once on every page. */
+/** Applied at once on every page; on a page whose HTML is known, `enTetes` gives the whole policy instead. */
 export const CADRE: Record<string, string> = { "content-security-policy": "frame-ancestors 'none'", "x-frame-options": "DENY", "permissions-policy": PERMISSIONS };
 
 const TURNSTILE = "https://challenges.cloudflare.com";
@@ -56,6 +58,7 @@ export function politique(hashes: readonly string[]): string {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
+    "frame-ancestors 'none'",
     `report-uri ${CSP_RAPPORT}`,
   ].join("; ");
 }
@@ -98,7 +101,7 @@ async function sha256(text: string): Promise<string> {
 /** The headers of a page, from its final HTML. */
 export async function enTetes(html: string): Promise<Record<string, string>> {
   const hashes = [...new Set(await Promise.all(scriptsEnLigne(html).map(sha256)))];
-  return { ...CADRE, "content-security-policy-report-only": politique(hashes) };
+  return { ...CADRE, "content-security-policy": politique(hashes) };
 }
 
 // ---------------------------------------------------------------- The reports
@@ -153,7 +156,9 @@ export async function rapport(request: Request, now = Date.now()): Promise<Respo
     vus.set(key, now);
     const where = court(r["source-file"], 200) ? ` (${bloque(court(r["source-file"], 200))}${typeof r["line-number"] === "number" ? `, ligne ${r["line-number"]}` : ""})` : "";
     const sample = court(r["script-sample"], 40);
-    console.warn(`csp (observation) : ${directive} bloquerait ${what} sur ${page(court(r["document-uri"], 300))}${where}${sample ? ` « ${sample} »` : ""}`);
+    // « report » comes only from a page still under the report-only policy (a copy kept by a browser or a cache).
+    const said = r["disposition"] === "report" ? `csp (observation) : ${directive} bloquerait` : `csp : ${directive} a bloqué`;
+    console.warn(`${said} ${what} sur ${page(court(r["document-uri"], 300))}${where}${sample ? ` « ${sample} »` : ""}`);
   }
   return new Response(null, { status: 204 });
 }
