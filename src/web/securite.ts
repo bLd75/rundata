@@ -6,11 +6,11 @@
  *   Cloudflare's check on the forms and Waze's map on /trafic, which are theirs.
  * - A Content-Security-Policy, blocking since a day of reports (26-27/10) named none of the site's own scripts: the
  *   browsers block what it does not allow and report it to POST /csp-rapport. Its scripts are this site's, Cloudflare's
- *   Turnstile, and the inline ones of the page, each allowed by its SHA-256 (computed from the page itself, so that a
- *   new script is never forgotten). Styles stay inline (the pages have `style` attributes); the frames are Turnstile's
- *   and Waze's. Not allowed, so blocked: the Web Analytics beacon Cloudflare may insert (static.cloudflareinsights.com),
- *   which the site does not use (its figures are its own, Analytics Engine), and what extensions or in-app browsers
- *   add to the page.
+ *   Turnstile, Cloudflare's Web Analytics beacon, and the inline ones of the page, each allowed by its SHA-256 (computed
+ *   from the page itself, so that a new script is never forgotten). The beacon is inserted by Cloudflare into the pages
+ *   and is part of the site's figures, beside its own (Analytics Engine); it sends them to /cdn-cgi/rum, on this site
+ *   (`connect-src 'self'`). Styles stay inline (the pages have `style` attributes); the frames are Turnstile's and
+ *   Waze's. Not allowed, so blocked: what extensions or in-app browsers add to the page.
  * - A Permissions-Policy, applied at once: no page and no frame may use the camera, the microphone, payment or USB
  *   devices, which the site never asks for. The position stays allowed for the site's own pages (the button « Autour
  *   de moi » of /defibrillateurs), and for no frame. The other features keep the browser's default: the clipboard of
@@ -42,12 +42,14 @@ export const CADRE: Record<string, string> = { "content-security-policy": "frame
 
 const TURNSTILE = "https://challenges.cloudflare.com";
 const WAZE = "https://embed.waze.com";
+/** Cloudflare's Web Analytics beacon, which Cloudflare inserts into the pages. */
+const WEB_ANALYTICS = "https://static.cloudflareinsights.com";
 
 /** The policy, with the hashes of the page's inline scripts. */
 export function politique(hashes: readonly string[]): string {
   return [
     "default-src 'self'",
-    `script-src 'self' ${TURNSTILE}${hashes.map((h) => ` 'sha256-${h}'`).join("")}`,
+    `script-src 'self' ${TURNSTILE} ${WEB_ANALYTICS}${hashes.map((h) => ` 'sha256-${h}'`).join("")}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self'",
     "font-src 'self'",
