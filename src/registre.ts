@@ -19,6 +19,7 @@ import { DETAILS_MAX as CONNECTEUR_DETAILS, PAGES_MAX as CONNECTEUR_PAGES } from
 import { IN_FLIGHT } from "./http.js";
 import { AGENDAS } from "./providers/agenda.js";
 import { MAX_NEW_GRIDS } from "./providers/arome.js";
+import { KINDS as CANDHIS_KINDS, REFRESH_EVERY as CANDHIS_EVERY, REFRESH_OFFSET as CANDHIS_OFFSET } from "./providers/candhis.js";
 import { REFRESH_EVERY as IRVE_EVERY, REFRESH_OFFSET as IRVE_OFFSET } from "./providers/irve.js";
 import { SHARED, SHARED_AFTER, type Shared } from "./web/partagees.js";
 import { COMMUNE_TILES, DOMAINS, HOME_TILES } from "./web/site.js";
@@ -239,6 +240,19 @@ const SCHEDULED: Entry[] = [
     run: { subrequests: 2, kvWrites: 1, cpuMs: 300, memoryMb: 30 },
     from: ["src/providers/irve.ts"],
     basis: "estimé",
+  },
+  // Only with the Cerema's key. The state read from KV, one getCampListeTR request per type of active buoy (at most
+  // the three types; one when the island's buoys are all of one type), the state written. Every 30 days, and the first
+  // time, the list of the active buoys besides: one request per type, three more subrequests in that run.
+  {
+    id: "candhis:etat",
+    trigger: "planifiée",
+    what: "bouées Candhis du Cerema : la dernière mesure de chaque bouée de La Réunion, une requête par type de bouée, gardée dans KV",
+    every: CANDHIS_EVERY,
+    offset: CANDHIS_OFFSET,
+    run: { subrequests: 2 + Object.keys(CANDHIS_KINDS).length, kvReads: 1, kvWrites: 1, cpuMs: 10 },
+    from: ["src/providers/candhis.ts"],
+    basis: "code",
   },
   // One association's platform per run, the one read the longest ago (each every 6 hours while there are fewer than
   // 72): the token (1), its list of events (up to CONNECTEUR_PAGES pages) and the details of the new or changed ones (up
