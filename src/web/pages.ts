@@ -1235,7 +1235,7 @@ export function vigilanceLive(data: Cached<mf.Vigilance> | null, now: Date): Liv
   }, data!, now), mf.OFFICIEL_VIGILANCE);
 }
 
-/** A vigilance tile's line, then the link to Météo-France's own site, never cut (Météo-France asked for it). */
+/** A vigilance tile's line, then the link to Météo-France's own site, never cut. */
 export function officielLive(l: Live, href: string): Live {
   return { ...l, detail: `${l.detail}. ${officielHtml(href)}`, entier: true };
 }
@@ -1572,7 +1572,7 @@ const LAND_PHENOMENA = [12, 1];
 const COAST = 9;
 
 // The colours of the vigilance and the phases of the cyclone alert, by their names only: what each one means is
-// Météo-France's to say, on its own site (marketing, after Météo-France's mail of 27/10/2026).
+// Météo-France's to say, on its own site (marketing).
 const SCALE = `<ul class="scale">${[1, 2, 3, 4].map((c) => `<li>${vg(c)}</li>`).join("")}</ul><p>${officielHtml(mf.OFFICIEL_VIGILANCE)}</p>`;
 
 const CYCLONE_SCALE = `<ul class="scale">

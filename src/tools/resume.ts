@@ -196,7 +196,7 @@ function weather(d: PlaceData, fetchedAt: Date, now: Date) {
 }
 
 function vigilance(p: PlacePage, v: mf.Vigilance, now: Date) {
-  // The zone of Météo-France, as its own, the commune only said to be in it (Météo-France's mail of 27/10/2026).
+  // The zone of Météo-France, as its own, the commune only said to be in it: never a colour given to a commune.
   const zone = mf.ZONE_OF_COMMUNE[p.nom];
   const name = zoneShort(zone);
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];

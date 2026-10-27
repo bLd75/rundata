@@ -77,8 +77,8 @@ describe("the vigilance while Météo-France is late", () => {
     expect(a?.lue).toBeUndefined();
     expect(tile).toContain(`<p class="td all">fortes pluies / orages (Est). <a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a></p>`);
     for (const s of said("")) expect(banner).toContain(s);
-    // Then where Météo-France says it (its director's mail of 27/10/2026).
-    expect(banner).toContain(`Voir la vigilance zone par zone →</a> <a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a></div>`);
+    // Then the link to Météo-France's own site.
+    expect(banner).toContain(`Voir la vigilance zone par zone →</a> <a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a>`);
   });
 
   it("says when the reading kept was read beyond 15 min, in full on a phone", async () => {

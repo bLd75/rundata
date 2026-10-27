@@ -25,8 +25,8 @@ export const SOURCE: SourceInfo = {
 };
 
 /**
- * What every page and answer that speaks of the vigilance or a cyclone says beside it, as Météo-France asked (its
- * director's mail of 27/10/2026), and where it leads: the vigilance, or the cyclone alert and the cyclones.
+ * What every page and answer that speaks of the vigilance or a cyclone says beside it, in Météo-France's words, and
+ * where it leads: the vigilance, or the cyclone alert and the cyclones. Its display is official: shown as it publishes it.
  */
 export const OFFICIEL = "Consulter le site officiel de Météo-France";
 export const OFFICIEL_VIGILANCE = SOURCE.url;

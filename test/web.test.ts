@@ -839,7 +839,7 @@ describe("the maps lead to what they show", () => {
     const files = await unzip(zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength) as ArrayBuffer, (n) => n.endsWith("_FMEE_.txt"));
     const v = mf.parse(JSON.parse(files.get("CDPV95_FMEE_.txt")!), JSON.parse(files.get("CDPV96_FMEE_.txt")!));
     const page = vigilancePage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
-    // Météo-France asked (27/10/2026): no map of ours coloured commune by commune, its link at the head of the page.
+    // Météo-France's display as it publishes it: no map of ours coloured commune by commune, its link at the head of the page.
     expect(page).not.toMatch(/<svg class="map/);
     expect(anchors(page, "#")).toEqual([]);
     expect(page.indexOf('<a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a>')).toBeLessThan(page.indexOf('id="h-zones"'));

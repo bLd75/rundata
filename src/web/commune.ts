@@ -105,7 +105,7 @@ function vigilance(p: PlacePage, data: Cached<mf.Vigilance> | null | undefined, 
     const c = Math.max(2, cycloneLevel(cyc, now));
     return officielLive(lue({ valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) }, data!, now), mf.OFFICIEL_CYCLONE);
   }
-  // The zone of Météo-France, as its own, the commune only said to be in it (Météo-France's mail of 27/10/2026).
+  // The zone of Météo-France, as its own, the commune only said to be in it: never a colour given to a commune.
   const zone = mf.ZONE_OF_COMMUNE[p.nom];
   const name = zoneShort(zone);
   const { above, issued } = zoneLevels(v, zone, now);
