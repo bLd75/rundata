@@ -4,6 +4,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { counted } from "../src/budget.js";
 import { Cache } from "../src/cache.js";
 import * as climat from "../src/providers/climat.js";
+import { VEILLE, type Veille } from "../src/providers/meteofrance-stations.js";
 import { historiqueMeteo, nothing, parseDate, period } from "../src/tools/historique.js";
 
 // Real rows of the archive (scripts/build-climat.py): eight stations, the years 2006, 2025 and 2026 up to 23 October.
@@ -200,5 +201,47 @@ describe("nothing measured", () => {
     expect(b.resume).toMatch(/ Les mesures du 24\/10\/2026 ne sont pas encore disponibles : .* Dernier jour disponible : 23\/10\/2026\.$/);
     // Today: never « hier » as the last day published.
     expect(period(now, undefined, "2026-10-25")).toEqual({ erreur: `Pas encore de mesure pour cette date : ${LOADED}. Pour aujourd'hui, voir meteo_actuelle.` });
+  });
+
+  // The day before as the scheduled event kept it at 00:20 (providers/meteofrance.ts keepVeille).
+  const kept = async (stations: Veille["stations"], jour = "2026-10-24") => {
+    const c = new Cache();
+    await c.keep(VEILLE, { jour, complet: true, stations } satisfies Veille);
+    return c;
+  };
+
+  it("gives yesterday 0 h to 24 h from the hourly readings until the day is loaded, as provisional", async () => {
+    plug();
+    const c = await kept({ "97418110": { rr: 3.2, tn: 21.4, tx: 27.9 }, "97416463": { rr: 0 } });
+    const a = json(await historiqueMeteo(c, "Saint-Denis", { du: "2026-10-24" }, now));
+    expect(a.resume.trim()).toBe(
+      `Les mesures du 24/10/2026 ne sont pas encore disponibles : ${LOADED}. Dernier jour disponible : 23/10/2026. Pour maintenant, meteo_actuelle. ` +
+        "Provisoire, 24/10/2026 0 h–24 h (heure de La Réunion), relevés horaires Météo-France : pluie 3,2 mm, températures de 21,4 °C à 27,9 °C.",
+    );
+    expect(a.hier_provisoire).toMatchObject({
+      jour: "24/10/2026", periode: "0 h–24 h, heure de La Réunion", nature: "mesure provisoire",
+      pluie_mm: 3.2, temperature_min: 21.4, temperature_max: 27.9, station: "Saint-Denis Gillot (aéroport)", altitude_m: 8,
+    });
+    expect(a.signaler).toBeUndefined();
+    // Météo-France's own day, 10 h to 10 h, is said with it.
+    expect(a.a_savoir).toContain("La pluie d'un jour est celle tombée de 10 h ce jour-là à 10 h le lendemain (heure de La Réunion), comme Météo-France la compte.");
+    expect(a.sources.map((s: { source: string }) => s.source)).toContain("Stations Météo-France (mesures toutes les 6 minutes)");
+  });
+
+  it("says the rain alone when the station has not all the hours of its temperatures, and leaves them out", async () => {
+    plug();
+    const a = json(await historiqueMeteo(await kept({ "97418110": { rr: 0.4, tx: 28.1 } }), "Saint-Denis", { du: "2026-10-24" }, now));
+    expect(a.resume).toMatch(/relevés horaires Météo-France : pluie 0,4 mm\.$/);
+    expect(a.hier_provisoire).not.toHaveProperty("temperature_min");
+    expect(a.hier_provisoire.temperature_max).toBe(28.1);
+  });
+
+  it("gives no provisional day once yesterday is loaded, nor one kept for another day", async () => {
+    plug();
+    const loaded = json(await historiqueMeteo(await kept({ "97418110": { rr: 3.2 } }, "2026-10-23"), "Saint-Denis", { du: "2026-10-23" }, new Date("2026-10-24T08:00:00Z")));
+    expect(loaded.hier_provisoire).toBeUndefined();
+    const other = json(await historiqueMeteo(await kept({ "97418110": { rr: 3.2 } }, "2026-10-23"), "Saint-Denis", { du: "2026-10-24" }, now));
+    expect(other.hier_provisoire).toBeUndefined();
+    expect(other.resume).not.toMatch(/Provisoire/);
   });
 });

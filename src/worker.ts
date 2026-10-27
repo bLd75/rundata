@@ -327,6 +327,14 @@ export default {
         .then(({ value, used, reads }) => value && console.log(`sites sans réponse : ${value.essayes} revérifiés${value.changes.length ? `, ${value.changes.join(", ")}` : ""}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("sites sans réponse : revérification impossible", why(err))));
     }
+    // Once a day, at 00:20 in La Réunion (and 00:35 when the day's last hour was not out yet): the day before at each
+    // Météo-France station, from the hourly package, kept in KV for historique_meteo until the daily file is loaded at
+    // noon, once the reads above are done.
+    if (kv && meteofrance.enabled() && meteofrance.veilleDue(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => meteofrance.keepVeille(c, now)))
+        .then(({ value, used, reads }) => value && console.log(`veille : ${value.jour}, ${Object.keys(value.stations).length} stations${value.complet ? "" : " (dernière heure absente)"}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("veille : cumul impossible", why(err))));
+    }
     // Once a day, at 04:00 in La Réunion (the run between 00:00 and 00:05 UTC): what the clubs sent is forgotten on
     // time even on the days nothing new is proposed (scripts/propositions.sql).
     if (now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {

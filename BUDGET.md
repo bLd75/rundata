@@ -18,9 +18,9 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 352 | 500 |
-| pire passage planifié, appels KV et D1 | 55 | 1 000 |
-| pire passage planifié, CPU (ms) | 2 082 | 30 000 |
+| pire passage planifié, sous-requêtes | 355 | 500 |
+| pire passage planifié, appels KV et D1 | 56 | 1 000 |
+| pire passage planifié, CPU (ms) | 2 122 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
 | passage le plus chargé (cadences les plus courtes), sous-requêtes | 125 | 500 |
 | vue la plus chère, sous-requêtes | 82 | 200 |
@@ -36,10 +36,10 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 352 | 11 | 31 | 13 | 1 123 | 42 | 2 082 |
-| tâche planifiée, par jour | 16 199 | 1 392 | 2 124 | 1 251 | 102 620 | 3 199 | 107 883 |
-| tâche planifiée, par jour, cadences les plus courtes | 27 091 | 2 688 | 3 948 | 1 731 | 107 660 | 3 199 | 153 363 |
-| tâche planifiée, par mois (30 jours) | 485 970 | 41 760 | 63 720 | 37 530 | 3 078 600 | 95 970 | 3 236 490 |
+| pire passage planifié | 355 | 11 | 32 | 13 | 1 123 | 42 | 2 122 |
+| tâche planifiée, par jour | 16 202 | 1 392 | 2 125 | 1 251 | 102 620 | 3 199 | 107 923 |
+| tâche planifiée, par jour, cadences les plus courtes | 27 094 | 2 688 | 3 949 | 1 731 | 107 660 | 3 199 | 153 403 |
+| tâche planifiée, par mois (30 jours) | 486 060 | 41 760 | 63 750 | 37 530 | 3 078 600 | 95 970 | 3 237 690 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -85,6 +85,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | irve:etat | bornes de recharge : la part de La Réunion du fichier national (environ 9 Mo), écrite dans KV après les autres lectures | 15 min | 00:05 | 2 |  | 1 |  |  |  | 300 | estimé |
 | candhis:etat | bouées Candhis du Cerema : la dernière mesure de chaque bouée de La Réunion, une requête par type de bouée, gardée dans KV | 30 min | 00:10 | 5 | 1 | 1 |  |  |  | 10 | code |
 | connecteurs:lecture | plateformes des associations (HelloAsso) : les événements publics d'une association reliée, relus toutes les 6 h, une association par passage | 5 min | 00:00 | 15 |  |  | 3 | 201 | 11 | 20 | estimé |
+| meteofrance:veille | météo de la veille : la pluie et les températures de 0 h à 24 h de chaque station Météo-France (paquet horaire, environ 900 ko), écrites dans KV à 00:20 heure de La Réunion, relues à 00:35 si la dernière heure manquait | 1440 min | 20:20 | 3 |  | 1 |  |  |  | 40 | estimé |
 | propositions:purge | propositions des clubs : la purge quotidienne (D1), à 04:00 heure de La Réunion | 1440 min | 00:00 | 1 |  |  | 1 |  | 10 | 5 | estimé |
 
 ## Tâches GitHub
@@ -140,7 +141,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /decheteries | la page /decheteries | à chaque vue |  | 12 |  |  |  |  |  | 30 | mesuré |
 | /cyclones | la page /cyclones | à chaque vue |  | 29 | 1 | 1 |  |  |  | 50 | mesuré |
 | /crues | la page /crues | à chaque vue |  | 36 | 4 | 3 |  |  |  | 120 | estimé |
-| /historique | la page /historique | à chaque vue |  | 15 |  |  |  |  |  | 70 | mesuré |
+| /historique | la page /historique | à chaque vue |  | 16 |  |  |  |  |  | 70 | estimé |
 | /evenements | la page /evenements | à chaque vue |  | 54 |  |  |  |  |  | 200 | mesuré |
 | /evenements/ce-week-end | comme /evenements, une partie de sa copie | à chaque vue |  | 36 |  |  |  |  |  | 230 | mesuré |
 | /evenements/concerts | comme /evenements, une partie de sa copie | à chaque vue |  | 36 |  |  |  |  |  | 230 | mesuré |
@@ -163,7 +164,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | transports | l'outil transports | à chaque vue |  | 13 |  |  | 2 | 840 |  | 80 | mesuré |
 | cyclones | l'outil cyclones | à chaque vue |  | 15 | 1 | 1 |  |  |  | 70 | mesuré |
 | actualites | l'outil actualites | à chaque vue |  | 10 |  |  |  |  |  | 180 | mesuré |
-| historique_meteo | l'outil historique_meteo | à chaque vue |  | 10 |  |  | 3 | 300 |  | 60 | mesuré |
+| historique_meteo | l'outil historique_meteo | à chaque vue |  | 11 |  |  | 3 | 300 |  | 60 | estimé |
 | sentiers_randonnee | l'outil sentiers_randonnee | à chaque vue |  | 12 | 1 | 1 |  |  |  | 60 | mesuré |
 | vigilance_meteo | l'outil vigilance_meteo | à chaque vue |  | 12 | 1 | 1 |  |  |  | 50 | mesuré |
 | coupures_eau | l'outil coupures_eau | à chaque vue |  | 11 | 1 | 1 |  |  |  | 110 | mesuré |
@@ -219,6 +220,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | irve:etat | providers/irve |
 | candhis:etat | providers/candhis |
 | connecteurs:lecture | connecteurs/helloasso |
+| meteofrance:veille | providers/meteofrance, providers/mf-auth |
 | / | providers/arome, providers/ensemble, providers/feux, providers/metar, providers/meteofrance, providers/mf-auth, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /communes/* | providers/acspo, providers/arome, providers/ensemble, providers/feux, providers/houle, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /aujourdhui/* | providers/acspo, providers/actualites, providers/agenda, providers/annuaire, providers/arome, providers/atmo, providers/avis-eau, providers/baignades, providers/calendrier, providers/carburants, providers/coupures-courant, providers/cyclones, providers/eaupotable, providers/edf, providers/ensemble, providers/feux, providers/gtfsrt, providers/houle, providers/irve, providers/maregraphes, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/prefecture, providers/radar, providers/salles, providers/seismes, providers/sentiers, providers/sport-avis, providers/sport, providers/tco, providers/terrain, providers/traces, providers/uv, providers/velos, providers/vigicrues, providers/vigieau, providers/vigilance, providers/volcan |

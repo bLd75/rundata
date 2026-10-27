@@ -1,3 +1,5 @@
+import type { SourceInfo } from "../types.js";
+
 // Generated once from /liste-stations (DPPaquetObs v2), 2026-10-22; names rewritten for reading (accents, "_SAPC" partner suffix dropped).
 export const STATIONS_974: [id: string, nom: string, lat: number, lon: number, altitude_m: number][] = [
   ["97401520", "Le Tévelave", -21.211667, 55.361333, 908],
@@ -75,3 +77,28 @@ export const STATIONS_974: [id: string, nom: string, lat: number, lon: number, a
 // Those of the list that publish: the Réunion rows of a 6-minute packet (test/fixtures/meteofrance_6min.csv, 23/10).
 // The others are listed by Météo-France but closed or silent; the count moves a little from day to day.
 export const STATIONS_EN_SERVICE = 56;
+
+export const SOURCE: SourceInfo = {
+  id: "meteofrance",
+  nom: "Stations Météo-France (mesures toutes les 6 minutes)",
+  organisme: "Météo-France",
+  licence: "Licence Ouverte Etalab 2.0",
+  attribution: "Météo-France",
+  url: "https://portail-api.meteofrance.fr/",
+};
+
+/**
+ * The day before at each station, 0 h to 24 h at La Réunion, added up from the hourly package by the scheduled event
+ * (meteofrance.ts keepVeille) and kept in KV, so that historique_meteo has it before the daily file of Météo-France is
+ * loaded at noon. Here with the source and the stations, apart from the reads of meteofrance.ts: reading it fetches nothing.
+ */
+export const VEILLE = "meteofrance:veille";
+
+export interface Veille {
+  /** The day, at La Réunion: YYYY-MM-DD. */
+  jour: string;
+  /** Whether the package had the day's last hour: if not, the next pass reads it again. */
+  complet: boolean;
+  /** Each station with a value over all 24 hours: rain in mm, the lowest and the highest temperature in °C. */
+  stations: Record<string, { rr?: number; tn?: number; tx?: number }>;
+}

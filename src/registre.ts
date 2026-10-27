@@ -267,6 +267,19 @@ const SCHEDULED: Entry[] = [
     from: ["src/connecteurs/helloasso.ts"],
     basis: "estimé",
   },
+  // The day before at each Météo-France station (providers/meteofrance.ts keepVeille): the hourly package of the 974
+  // (about 900 kB), read once a day at 00:20 in La Réunion and again at 00:35 only when its last hour was not out yet
+  // (then with one read of KV first). Here the pass of 00:20: the token, the package, one write to KV.
+  {
+    id: "meteofrance:veille",
+    trigger: "planifiée",
+    what: "météo de la veille\u00a0: la pluie et les températures de 0\u00a0h à 24\u00a0h de chaque station Météo-France (paquet horaire, environ 900 ko), écrites dans KV à 00:20 heure de La Réunion, relues à 00:35 si la dernière heure manquait",
+    every: 24 * 60,
+    offset: 20 * 60 + 20,
+    run: { subrequests: 3, kvWrites: 1, cpuMs: 40 },
+    from: ["src/providers/meteofrance.ts"],
+    basis: "estimé",
+  },
   {
     id: "propositions:purge",
     trigger: "planifiée",
@@ -331,7 +344,8 @@ const DOMAIN_PAGES: Record<string, Page> = {
   // The tool without a place (the vigilance, the levels and the flows of every gauge, three posts), and the news read
   // again after the response when it is old, as on /trafic, for the headlines on the fords.
   "/crues": { subrequests: 30, cpuMs: 120, from: ["src/tools/crues.ts", "src/tools/actualites.ts"], basis: "estimé" },
-  "/historique": { subrequests: 15, cpuMs: 70, from: ["src/tools/historique.ts"] },
+  // 15 measured, and before noon the day before kept by the scheduled event, read with the hours of Saint-Denis (KV).
+  "/historique": { subrequests: 16, cpuMs: 70, from: ["src/tools/historique.ts"], basis: "estimé" },
   "/evenements": { subrequests: 54, cpuMs: 200, from: ["src/tools/agenda.ts"] },
   "/evenements/ce-week-end": { subrequests: 36, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
   "/evenements/concerts": { subrequests: 36, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
@@ -416,7 +430,8 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   transports: { subrequests: 13, cpuMs: 80, file: "transports", d1: BUS_D1 },
   cyclones: { subrequests: 13, cpuMs: 70, file: "cyclones" },
   actualites: { subrequests: 10, cpuMs: 180, file: "actualites" },
-  historique_meteo: { subrequests: 10, cpuMs: 60, file: "historique", d1: { d1Calls: 3, d1RowsRead: 300 } },
+  // 10 measured, and before noon the day before kept by the scheduled event (one read of KV).
+  historique_meteo: { subrequests: 11, cpuMs: 60, file: "historique", d1: { d1Calls: 3, d1RowsRead: 300 }, basis: "estimé" },
   sentiers_randonnee: { subrequests: 10, cpuMs: 60, file: "sentiers" },
   vigilance_meteo: { subrequests: 10, cpuMs: 50, file: "vigilance" },
   coupures_eau: { subrequests: 9, cpuMs: 110, file: "coupures" },
