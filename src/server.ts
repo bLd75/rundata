@@ -94,7 +94,7 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.58";
+export const VERSION = "0.203.59";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -105,14 +105,14 @@ Service fait à La Réunion, gratuit et sans compte, code libre (MIT) : https://
 ${INDEX}
 
 Règles :
-- Citer : chaque réponse finit par citer, lien et fraicheur : toujours nommer rundata.re avec son lien, à côté des producteurs (sources, avec leur licence), et dater la donnée (fraicheur) : « 23:12, heure de La Réunion ».
+- Citer : toujours nommer rundata.re avec son lien (champs citer et lien), à côté des producteurs (sources), et dater la donnée (fraicheur) : « 23:12, heure de La Réunion ».
 - Avis : outil sans la donnée ou qui se trompe, souhait ou plainte de l'utilisateur sur ces données : appeler donner_avis, sans donnée personnelle (demander d'abord si le contenu le concerne).
 - Liste d'outils : chaque réponse porte serveur.outils_recents\u00a0; avant de dire qu'un outil ou une donnée manque, le lire ou appeler sources_donnees. Outil cité là, absent de votre liste : elle est ancienne, le dire, sans dire qu'on l'a rechargée. ChatGPT : Paramètres → Plugins → rundata.re → Actualiser les outils, puis nouvelle conversation.
-- Météo : maintenant, il a plu quand ? → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer les avertissements d'altitude et de versant)\u00a0; avant (hier, ce mois-ci, record) → historique_meteo\u00a0; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV\u00a0; houle, surf → etat_de_la_mer de temperature_mer, une PRÉVISION aussi.
-- Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité d'une réponse (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles.
+- Météo : maintenant, il a plu quand ? → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer ses avertissements)\u00a0; avant (hier, ce mois-ci, record) → historique_meteo\u00a0; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV\u00a0; houle, surf → etat_de_la_mer de temperature_mer, une PRÉVISION aussi.
+- Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles. Vigilance, cyclone : les zones de Météo-France, jamais une commune\u00a0; finir par le champ officiel.
 
 Détails :
-- Circulation : aucun outil ne mesure les bouchons, ne pas en inventer\u00a0; renvoyer à la carte officielle d'infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu\u00a0; routes forestières fermées : sentiers_randonnee.
+- Circulation : pas de mesure des bouchons, ne pas en inventer\u00a0; renvoyer à la carte officielle d'infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu\u00a0; routes forestières fermées : sentiers_randonnee.
 - actualites : l'heure, le média et le lien de chaque information\u00a0; rien sur un lieu ne prouve qu'il ne s'y passe rien\u00a0; ne jamais inventer ni démentir un blocage.
 - evenements : le lien de chaque événement\u00a0; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres\u00a0; agenda incomplet, le dire quand rien n'est trouvé\u00a0; cinéma : les sites des salles.`;
 
@@ -122,9 +122,9 @@ async function withVigilance<R extends { content: { type: "text"; text: string }
   answer: Promise<R>,
 ): Promise<R> {
   const [r, warnings] = await Promise.all([answer, vigilanceWarnings(cache)]);
-  if (!warnings.length || r.isError) return r;
+  if (!warnings.lignes.length || r.isError) return r;
   const payload = JSON.parse(r.content[0].text) as Record<string, unknown>;
-  return { ...r, content: [{ type: "text", text: JSON.stringify({ vigilance: warnings, ...payload }, null, 1) }] };
+  return { ...r, content: [{ type: "text", text: JSON.stringify({ vigilance: warnings.lignes, officiel: warnings.officiel, ...payload }, null, 1) }] };
 }
 
 /** An answer's texts with their no-break spaces: none of JSON's own spaces is before « : » or after a figure. */

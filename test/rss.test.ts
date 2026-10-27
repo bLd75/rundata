@@ -44,8 +44,9 @@ const volcan = (niveau_orsec: string, eruption_en_cours = false): Cached<VolcanA
 describe("a commune's RSS feed", () => {
   it("has an item for each vigilance above green, whose guid holds while the episode lasts", () => {
     const items = rssItems(SAINT_PAUL, { vigilance: vigilance({ ...RAIN, ...WAVES }) }, NOW);
-    expect(items.map((i) => i.title)).toEqual(["Vigilance orange fortes pluies / orages : zone Ouest", "Vigilance jaune vagues-submersion sur le littoral"]);
-    expect(items[0].description).toContain("Saint-Paul est dans la zone Ouest : jaune du");
+    expect(items.map((i) => i.title)).toEqual(["Vigilance orange fortes pluies / orages : zone Ouest de Météo-France", "Vigilance jaune vagues-submersion sur le littoral"]);
+    expect(items[0].description).toContain("Saint-Paul est dans la zone Ouest de Météo-France : jaune du");
+    expect(items[0].description.endsWith("Consulter le site officiel de Météo-France : https://vigilance.meteofrance.fr/fr/la-reunion")).toBe(true);
     // The yellow starts after the bulletin: it is dated by the bulletin until it starts.
     expect(items[0].date).toEqual(new Date("2026-10-24T04:00:00Z"));
 

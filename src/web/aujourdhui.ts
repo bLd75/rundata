@@ -4,6 +4,7 @@
  * the page that has it.
  */
 import type { Cached } from "../cache.js";
+import * as mf from "../providers/vigilance.js";
 import { ACCUEILS } from "../providers/agenda.js";
 import { mentionCourte } from "../tools/agenda.js";
 import { type Resume, UPDATING } from "../tools/resume.js";
@@ -12,7 +13,7 @@ import { connectorCta, courantItem, silentItem, silentText, webPage } from "./do
 import { esc, fenetre } from "./map.js";
 import { reprise } from "./ouvrir-donnees.js";
 import { a, de } from "../tools/format.js";
-import { ask, credits, icon, layout, SITE, thin } from "./pages.js";
+import { ask, credits, icon, layout, officielHtml, SITE, thin } from "./pages.js";
 import type { PlacePage } from "./places.js";
 
 const TITLE_MAX = 60;
@@ -65,7 +66,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
     : "";
   const v = r.vigilance;
   const vigil = v
-    ? card("alert", "Vigilance", `<p>${esc(v.maintenant.replace(/^\p{L}/u, (c) => c.toUpperCase()))}${v.zone ? ` (zone ${esc(v.zone)})` : ""}${v.vagues_submersion ? ` · vagues-submersion : ${esc(v.vagues_submersion)}` : ""}.</p>${v.alerte_cyclonique ? `<p><b>${esc(v.alerte_cyclonique)}</b></p>` : ""}${v.ecoles ? `<p><a href="/ecoles-cyclone">${esc(v.ecoles)}</a></p>` : ""}`, "/vigilance", v.alerte_cyclonique || v.maintenant !== "pas de vigilance particulière" ? " warn" : "")
+    ? card("alert", "Vigilance", `<p>${esc(v.maintenant)}${v.vagues_submersion ? ` ${esc(v.vagues_submersion)}.` : ""}</p>${v.alerte_cyclonique ? `<p><b>${esc(v.alerte_cyclonique)}</b></p>` : ""}${v.ecoles ? `<p><a href="/ecoles-cyclone">${esc(v.ecoles)}</a></p>` : ""}<p>${officielHtml(v.alerte_cyclonique ? mf.OFFICIEL_CYCLONE : mf.OFFICIEL_VIGILANCE)}</p>`, "/vigilance", v.alerte_cyclonique || v.au_dessus_du_vert ? " warn" : "")
     : "";
   const small = [
     r.mer ? `<li>Mer : <b>${esc(thin(r.mer.temperature_eau))}</b> <span class="note">${esc(r.mer.mesure)}</span> · <a href="/mer">la mer →</a></li>` : "",

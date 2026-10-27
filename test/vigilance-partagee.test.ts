@@ -112,7 +112,7 @@ describe("the vigilance kept by the scheduled event", () => {
     expect(v?.fetchedAt).toEqual(at);
     expect(a?.lue).toBeUndefined();
     // Météo-France's own answer (green), not the yellow kept 13 hours ago in that data center.
-    expect(tile).toContain(`<p class="td">Pas d'alerte cyclonique ni de vigilance particulière</p>`);
+    expect(tile).toContain(`<p class="td all">Pas d'alerte cyclonique ni de vigilance particulière. <a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a></p>`);
     expect(banner).toBeUndefined();
     expect(tile).not.toContain("lue");
   });
@@ -122,7 +122,7 @@ describe("the vigilance kept by the scheduled event", () => {
     expect(asked).toBeGreaterThan(0);
     expect(v?.stale).toBe(false);
     expect(v?.fetchedAt).toEqual(NOW);
-    expect(tile).toContain(`<p class="td">Pas d'alerte cyclonique ni de vigilance particulière</p>`);
+    expect(tile).toContain(`<p class="td all">Pas d'alerte cyclonique ni de vigilance particulière. <a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a></p>`);
   });
 
   it("is read from Météo-France as before when the scheduled event no longer keeps it", async () => {
@@ -137,6 +137,6 @@ describe("the vigilance kept by the scheduled event", () => {
     const { v, asked, tile } = await view(new MemoryStore(), await keptInKv(2 * 60));
     expect(asked).toBeGreaterThan(0);
     expect(v?.stale).toBe(true);
-    expect(tile).toContain(`<p class="td all">fortes pluies / orages (Est) · lue à 06:48, sans réponse depuis</p>`);
+    expect(tile).toContain(`<p class="td all">fortes pluies / orages (Est) · lue à 06:48, sans réponse depuis. <a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a></p>`);
   });
 });

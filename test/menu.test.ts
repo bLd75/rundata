@@ -155,7 +155,7 @@ describe("the alerts on a phone", () => {
     const home = withVolcan(VOLCAN, () => homePage(O, null, NOW, VIGILANCE));
     const lines = [...home.matchAll(/<a class="ligne" href="([^"]+)"><span aria-hidden="true">([^<]+)<\/span><span class="txt">(.*?)<\/span><span aria-hidden="true">→<\/span>/g)].map((m) => [m[1], m[2], m[3]]);
     expect(lines).toEqual([
-      ["/vigilance", "⚠", frag("Vigilance orange pluies-orages · Est")],
+      ["/vigilance", "⚠", frag("Météo-France : vigilance orange pluies-orages · Est")],
       ["/volcan", "🌋", frag("Volcan\u00a0: alerte\u00a01 du préfet · Enclos interdit")],
     ]);
     // The sentences stay on wider screens: only below 600 px the line replaces them, never cut with « … ».
@@ -164,20 +164,20 @@ describe("the alerts on a phone", () => {
     expect(CSS).toContain(".ligne .txt{flex:1;min-width:0}");
     expect(CSS).not.toContain("text-overflow:ellipsis");
     // On two lines, the break comes before the last « · », never inside « Sud-Est » nor « Enclos interdit ».
-    expect(home).toContain('<span class="txt">Vigilance orange pluies-orages <span class="nw">· Est</span></span>');
+    expect(home).toContain('<span class="txt">Météo-France : vigilance orange pluies-orages <span class="nw">· Est</span></span>');
     expect(CSS).toContain(".ligne .nw{white-space:nowrap}");
     expect(CSS).toContain(".volcan-une[data-court]{padding:0;max-width:none}");
   });
 
   it("say the vigilance's colour, two phenomena at most by their short names, and the zones named, counted or whole (marketing)", () => {
-    expect(said(vigilance("jaune", ["Fortes pluies / orages"], ["Sud-Est : Saint-Joseph, Saint-Philippe"]))).toEqual(frags(["Vigilance jaune pluies-orages · Sud-Est"]));
-    expect(said(vigilance("orange", ["Vents forts"], LAND))).toEqual(frags(["Vigilance orange vents forts · toute l'île"]));
-    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(2, 4)))).toEqual(frags(["Vigilance jaune pluies-orages · Sud-Est, Sud"]));
-    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(0, 3)))).toEqual(frags(["Vigilance jaune pluies-orages · 3 zones"]));
-    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(3)))).toEqual(frags(["Vigilance jaune vagues-submersion · 3 zones côtières"]));
-    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(1)))).toEqual(frags(["Vigilance jaune vagues-submersion · 1 zone côtière"]));
-    expect(said(vigilance("orange", ["Vagues - submersion"], coasts(8)))).toEqual(frags(["Vigilance orange vagues-submersion · toutes les côtes"]));
-    expect(said(vigilance("orange", ["Fortes pluies / orages", "Vents forts", "Vagues - submersion"], [LAND[1], ...coasts(2)]))).toEqual(frags(["Vigilance orange pluies-orages, vents forts · Est, 2 zones côtières"]));
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], ["Sud-Est : Saint-Joseph, Saint-Philippe"]))).toEqual(frags(["Météo-France : vigilance jaune pluies-orages · Sud-Est"]));
+    expect(said(vigilance("orange", ["Vents forts"], LAND))).toEqual(frags(["Météo-France : vigilance orange vents forts · toute l'île"]));
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(2, 4)))).toEqual(frags(["Météo-France : vigilance jaune pluies-orages · Sud-Est, Sud"]));
+    expect(said(vigilance("jaune", ["Fortes pluies / orages"], LAND.slice(0, 3)))).toEqual(frags(["Météo-France : vigilance jaune pluies-orages · 3 zones"]));
+    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(3)))).toEqual(frags(["Météo-France : vigilance jaune vagues-submersion · 3 zones côtières"]));
+    expect(said(vigilance("jaune", ["Vagues - submersion"], coasts(1)))).toEqual(frags(["Météo-France : vigilance jaune vagues-submersion · 1 zone côtière"]));
+    expect(said(vigilance("orange", ["Vagues - submersion"], coasts(8)))).toEqual(frags(["Météo-France : vigilance orange vagues-submersion · toutes les côtes"]));
+    expect(said(vigilance("orange", ["Fortes pluies / orages", "Vents forts", "Vagues - submersion"], [LAND[1], ...coasts(2)]))).toEqual(frags(["Météo-France : vigilance orange pluies-orages, vents forts · Est, 2 zones côtières"]));
   });
 
   it("give the cyclone alert to the prefect, with the schools closed on a line of their own (marketing)", () => {

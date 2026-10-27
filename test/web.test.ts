@@ -13,7 +13,7 @@ import { homePage } from "../src/web/home.js";
 import { communesPage } from "../src/web/commune.js";
 import { VERSION } from "../src/server.js";
 import { COVERAGE as SEA_COVERAGE } from "../src/tools/mer.js";
-import { CSS, DESCRIPTION_MAX, FONT_PATH, meteoPage, placePage, seaPage, STYLE_PATH, vigilancePage } from "../src/web/pages.js";
+import { CSS, DESCRIPTION_MAX, FONT_PATH, meteoPage, placePage, seaPage, STYLE_PATH, vigilanceLive, vigilancePage } from "../src/web/pages.js";
 import { PAGES, pageOf } from "../src/web/places.js";
 import { isReader, site } from "../src/web/site.js";
 import { unzip } from "../src/zip.js";
@@ -376,7 +376,7 @@ describe("commune pages", () => {
     expect(cold.r.status).toBe(200);
     expect(cold.text).toContain(`<h1>Saint-Leu <span class="n974">974</span> en direct</h1>`);
     expect(cold.text).toMatch(/<h3><a href="\/meteo\/saint-leu">Météo<\/a><\/h3><p class="tv">\d+(,\d)?\u202f°C<\/p>/);
-    expect(cold.text).toContain("pour la zone Ouest");
+    expect(cold.text).toContain("est dans la zone Ouest");
     expect(cold.text).toMatch(/<h3>Mairie<\/h3><p class="tv">(Ouverte|Fermée)<\/p>/);
     expect(cold.text).toContain("Mer"); // on the coast
     expect(cold.used).toBeLessThanOrEqual(PAGE_BUDGET);
@@ -834,18 +834,27 @@ describe("the maps lead to what they show", () => {
     expect(there.filter((a) => !rows.has(a.href.slice("/meteo#".length)))).toEqual([]);
   });
 
-  it("takes each commune of the vigilance map to the card of its zone, and each of /communes to its page", async () => {
+  it("shows the vigilance as Météo-France publishes it, without a map of the communes, and takes each of /communes to its page", async () => {
     const zip = fixture("vigilance_om.zip");
     const files = await unzip(zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength) as ArrayBuffer, (n) => n.endsWith("_FMEE_.txt"));
     const v = mf.parse(JSON.parse(files.get("CDPV95_FMEE_.txt")!), JSON.parse(files.get("CDPV96_FMEE_.txt")!));
     const page = vigilancePage("https://rundata.re", { value: v, fetchedAt: NOW, stale: false }, NOW);
-    const zones = anchors(page, "#");
-    expect(zones).toHaveLength(24);
+    // Météo-France's display as it publishes it: no map of ours coloured commune by commune, its link at the head of the page.
+    expect(page).not.toMatch(/<svg class="map/);
+    expect(anchors(page, "#")).toEqual([]);
+    expect(page.indexOf('<a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a>')).toBeLessThan(page.indexOf('id="h-zones"'));
+    // Its 5 land zones, phenomenon by phenomenon.
     const cards = ids(page);
-    expect(zones.filter((a) => !cards.has(a.href.slice(1)))).toEqual([]);
-    expect(new Set(zones.map((a) => a.href))).toEqual(new Set(["#z-nord", "#z-est", "#z-sud-est", "#z-sud", "#z-ouest"]));
-    expect(zones.find((a) => a.label.startsWith("Saint-Pierre :"))?.label).toMatch(/^Saint-Pierre : (vigilance \p{L}+|rien d'émis), zone Sud, voir le détail$/u);
-    expect(page).toMatch(/<svg class="map" viewBox="[^"]+" role="group"/);
+    for (const z of ["z-nord", "z-est", "z-sud-est", "z-sud", "z-ouest"]) expect(cards.has(z)).toBe(true);
+    // Green said only when Météo-France issued it on all the land, on the page and the home page's tile.
+    expect(page).toContain("Aucune vigilance particulière à La Réunion");
+    expect(vigilanceLive({ value: v, fetchedAt: NOW, stale: false }, NOW)?.valeur).toContain("vert");
+    const bare = structuredClone(v);
+    for (const z of ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"]) delete bare.zones[z];
+    const none = vigilancePage("https://rundata.re", { value: bare, fetchedAt: NOW, stale: false }, NOW);
+    expect(none).not.toContain("Aucune vigilance particulière");
+    expect(none).toContain('<p class="lead">Pas de vigilance émise.</p>');
+    expect(vigilanceLive({ value: bare, fetchedAt: NOW, stale: false }, NOW)).toMatchObject({ valeur: "Pas de vigilance émise" });
 
     const communes = communesPage("https://rundata.re");
     const links = anchors(communes, "/communes/");

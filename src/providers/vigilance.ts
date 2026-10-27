@@ -24,6 +24,16 @@ export const SOURCE: SourceInfo = {
   url: "https://vigilance.meteofrance.fr/fr/la-reunion",
 };
 
+/**
+ * What every page and answer that speaks of the vigilance or a cyclone says beside it, in Météo-France's words, and
+ * where it leads: the vigilance, or the cyclone alert and the cyclones. Its display is official: shown as it publishes it.
+ */
+export const OFFICIEL = "Consulter le site officiel de Météo-France";
+export const OFFICIEL_VIGILANCE = SOURCE.url;
+export const OFFICIEL_CYCLONE = "https://meteofrance.re/fr/cyclone";
+/** The tools' `officiel` field: « Consulter le site officiel de Météo-France : https://… ». */
+export const officiel = (url: string) => `${OFFICIEL} : ${url}`;
+
 const URL = "https://public-api.meteofrance.fr/public/DPVigilance/v1/vigilanceom/flux/dernier";
 // The zip changes every minute but the vigilance a few times a day, more often during an event. The scheduled event
 // writes a copy to KV every 5 minutes (web/partagees.ts), which every data center reads: fresh for 7, its 5 plus the
