@@ -19,6 +19,7 @@ import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as candhis from "./providers/candhis.js";
 import * as vigilanceCarte from "./providers/vigilance-carte.js";
+import * as cmrsCarte from "./providers/cmrs-carte.js";
 import * as feux from "./providers/feux.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
@@ -192,11 +193,14 @@ function setup(env: Env): Cache {
     return (await kv.get("carburants:prix", "json")) as carburants.Prix | null;
   });
   // Météo-France's official map of the vigilance: its bulletin and its picture kept by the scheduled event.
-  vigilanceCarte.configure(kv && {
+  const cartes: vigilanceCarte.Store | undefined = kv && {
     json: (key) => kv.get(key, "json"),
     bytes: (key) => kv.get(key, "arrayBuffer"),
     put: (key, value, ttl) => kv.put(key, value, ttl ? { expirationTtl: ttl } : undefined),
-  }, env.BROWSER);
+  };
+  vigilanceCarte.configure(cartes, env.BROWSER);
+  // The RSMC's forecast track map, read by the scheduled event while a system is active.
+  cmrsCarte.configure(cartes);
   // The text of the OVPF's releases given in images, read by a collector outside the Worker (scripts/ovpf-ocr.ts).
   ovpfOcr.configure(kv && (async (key: string) => {
     count();
@@ -329,6 +333,13 @@ export default {
       }))
         .then(({ value, used, reads }) => console.log(`bouées Candhis : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("bouées Candhis : lecture impossible", why(err))));
+    }
+    // Every 30 minutes while GDACS has an active system: the RSMC's list of bulletins at 15 and 45 past the hour, its
+    // track map at 20 and 50, one request each, kept in KV (src/providers/cmrs-carte.ts), once the reads above are done.
+    if (kv && cmrsCarte.due(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => cmrsCarte.passage(c, now)))
+        .then(({ value, used, reads }) => console.log(`carte du CMRS : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("carte du CMRS : lecture impossible", why(err))));
     }
     // Once a day, at 06:00 in La Réunion: each public site that did not answer asked again (sans-reponse.ts), once the
     // reads above are done, so that its one GET is never part of a run of ours.

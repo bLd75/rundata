@@ -20,7 +20,7 @@ export const SOURCE: SourceInfo = {
   id: "gdacs_cyclones",
   nom: "Systèmes tropicaux du sud-ouest de l'océan Indien : noms, dates et stades du CMRS de La Réunion (via GDACS)",
   organisme: "CMRS de La Réunion (Météo-France), republié par GDACS (Commission européenne, Nations unies)",
-  licence: "Réutilisation libre en citant la source (conditions d'utilisation de GDACS)",
+  licence: "Réutilisation libre en citant la source (conditions d'utilisation de GDACS)\u00a0; Météo-France La Réunion : cartes de prévision de trajectoire du CMRS affichées telles quelles, avec son accord écrit du 27/10/2026",
   attribution: "Global Disaster Alert and Coordination System, GDACS\u00a0; CMRS de La Réunion (Météo-France)",
   url: "https://www.gdacs.org/Alerts/default.aspx",
 };

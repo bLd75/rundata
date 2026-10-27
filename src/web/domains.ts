@@ -36,6 +36,7 @@ import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
 import * as mf from "../providers/vigilance.js";
+import { carteHtml } from "./cmrs-carte.js";
 import { esc, fenetre, hikesMap, islandMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
 import { reprise } from "./ouvrir-donnees.js";
 import { cloudSeaLink, type Summit, weatherForTrace } from "./liens.js";
@@ -2398,6 +2399,7 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
   <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-actifs">Systèmes actifs</h2>
   <p>${d ? esc(d.resume) : ""}</p></div>
   ${d ? active.map(activeCard).join("") : `<p class="card">Le suivi se charge : rechargez la page dans quelques secondes.</p>`}
+  ${active.length ? carteHtml(d?.carte, now) : ""}
 </section>
 <section aria-labelledby="h-alerte">
   <div class="sec-h"><p class="eyebrow">Préfecture de La Réunion</p><h2 id="h-alerte">Les phases de l'alerte cyclonique</h2>
