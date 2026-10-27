@@ -141,23 +141,27 @@ describe("events as schema.org Events", () => {
       row({ commune: "Saint-Leu", publie_par: "Le Séchoir", organise_par: ["Le Séchoir", "Cie Bivouac"] }),
       row({ commune: "Saint-Paul", publie_par: "Mairie de Saint-Paul" }),
     ]) as any[];
-    // Any price the source gives, as offer() reads it: a text without one amount stays a description.
-    expect(paid.offers).toEqual({ "@type": "Offer", description: "10€ à 14€", url: "https://www.lesechoir.com/evenement/x/" });
+    // A range is not one amount: no Offer, rather than one without its price.
+    expect(paid).not.toHaveProperty("offers");
     expect(pictured.image).toEqual({
       "@type": "ImageObject",
       url: "https://img.openagenda.com/main/abc.base.image.jpg",
       author: { "@type": "Organization", name: "OTI NORD" },
+      creator: { "@type": "Organization", name: "OTI NORD" },
+      creditText: "OTI NORD",
       license: "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0/",
     });
     // The organiser the site names, even on a town hall's agenda; never the town hall in its place.
     expect(named.organizer).toEqual({ "@type": "Organization", name: "Association Lèv la tèt" });
     expect(many.organizer).toEqual([{ "@type": "Organization", name: "Le Séchoir" }, { "@type": "Organization", name: "Cie Bivouac" }]);
     for (const k of ["organizer", "offers", "image", "performer", "endDate"]) expect(bare, k).not.toHaveProperty(k);
-    // A condition of entry is not a price: no Offer. An amount among other words, or « gratuit », is one.
+    // A condition of entry is not a price: no Offer. One amount, or « gratuit », is one, with its currency; several, none.
     const offers = (prix: string) => (agendaEvents([row({ commune: "Saint-Denis", prix })])[0] as any).offers;
     expect(offers("Sur inscription")).toBeUndefined();
-    expect(offers("Gratuit")).toMatchObject({ price: 0, priceCurrency: "EUR" });
-    expect(offers("Tarif plein : 5€ | Tarif réduit : 3€")).toMatchObject({ description: "Tarif plein : 5€ | Tarif réduit : 3€" });
+    expect(offers("Gratuit")).toMatchObject({ "@type": "Offer", price: 0, priceCurrency: "EUR" });
+    expect(offers("12,50 €")).toMatchObject({ "@type": "Offer", price: 12.5, priceCurrency: "EUR" });
+    expect(offers("Gratuit")).not.toHaveProperty("description");
+    expect(offers("Tarif plein : 5€ | Tarif réduit : 3€")).toBeUndefined();
   });
 
   it("leave out an event without a commune or a date, and are on the page", () => {
