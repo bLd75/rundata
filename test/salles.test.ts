@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { statusOf } from "../src/providers/agenda-mots.js";
 import { parseOpenAgenda, type Evenement } from "../src/providers/agenda.js";
-import { latin1, mergeTeat, parseBisik, parseCdnoi, parseCiteDesArts, parseKabardock, parseLespas, parseLucDonat, parseTeat, parseTeatDates, TEAT_HOSTS, TEAT_VENUES, tokens } from "../src/providers/salles.js";
+import { latin1, mergeTeat, parseBisik, parseCdnoi, parseCiteDesArts, parseKabardock, parseLespas, parseLucDonat, parseLucDonatGenres, parseTeat, parseTeatDates, TEAT_HOSTS, TEAT_VENUES, tokens } from "../src/providers/salles.js";
 import { parseTribe } from "../src/providers/agenda.js";
 import { genres, matcher, unique } from "../src/tools/agenda.js";
 
@@ -97,10 +97,6 @@ describe("halls' programmes", () => {
       expect(after.map((e) => e.lien)).toEqual(before.slice(1).map((e) => e.lien));
       for (const e of after) expect(e.lien).toMatch(/^https?:\/\//);
     }
-    const donat = iso88591("luc-donat.html");
-    const billets = parseLucDonat(donat, NOW).find((e) => e.billetterie)!;
-    const trapped = parseLucDonat(trap(donat, "https://www.theatrelucdonat.re/", billets.billetterie!, "javascript:void(0)"), NOW).find((e) => e.lien === billets.lien)!;
-    expect(trapped.billetterie).toBeUndefined();
   });
 
   it("reads the Théâtre Luc Donat without its school performances", () => {
@@ -110,6 +106,18 @@ describe("halls' programmes", () => {
     // 9:30 and 13:30 are « Scolaire »: only the public ones.
     expect(killt?.seances.map((s) => s.debut)).toEqual(["2026-11-10T18:00", "2026-11-25T17:00"]);
     expect(list.find((e) => e.titre === "Le journal des voleurs")?.seances).toEqual([{ debut: "2026-11-07T20:00" }]);
+    // Only what its agreement covers: no text, no picture, no booking link.
+    expect(list.every((e) => !e.description && !e.image && !e.billetterie)).toBe(true);
+  });
+
+  it("reads each show's genre on the Théâtre Luc Donat's season page, by the link to its page", () => {
+    const genres = parseLucDonatGenres(iso88591("luc-donat-saison.html"));
+    expect(genres.get("https://www.theatrelucdonat.re/prog/yannick-noah,255.htm")).toEqual(["Musique"]);
+    expect(genres.get("https://www.theatrelucdonat.re/prog/killt-les-regles-du-jeu,264.htm")).toEqual(["Théâtre"]);
+    expect(genres.get("https://www.theatrelucdonat.re/prog/mariaz-tangaz,256.htm")).toEqual(["Théâtre", "Humour"]);
+    // Every date of its agenda finds its genre there.
+    const list = parseLucDonat(iso88591("luc-donat.html"), NOW);
+    expect(list.filter((e) => !genres.has(e.lien)).map((e) => e.titre)).toEqual([]);
   });
 
   it("reads the CDNOI's season, weekday mornings for schools left out", () => {

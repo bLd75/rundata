@@ -31,7 +31,7 @@ import { annonceEvenement, extrait, lead, monthOf, statusOf, type Statut } from 
 import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
 import { SOURCES as SPORT_SOURCES } from "./sport.js";
 import { PROPOSITIONS } from "./agenda-propositions.js";
-import { autorisee } from "./autorisations.js";
+import { autorisee, NON_REPRISES } from "./autorisations.js";
 import { sansLien } from "../liens.js";
 
 export { communesIn, lead, monthOf, statusOf, type Statut };
@@ -121,6 +121,8 @@ export interface Evenement {
   lu_le?: string;
   /** « site de la commune du Tampon », when it comes from a commune's site: set by the tool from its agenda. */
   site_commune?: string;
+  /** « Théâtre Luc Donat », when its agreement asks to name it: set by the tool from its agenda (`credit`). */
+  credit?: string;
   /**
    * The club that publishes it, and the commune of its address (Sportsregions): for the sport tool, never said as the
    * event's place.
@@ -251,6 +253,11 @@ export interface Agenda {
    * read, and anything the site's terms ask to show with it (Le Port's « © www.ville-port.re »).
    */
   site_commune?: string;
+  /**
+   * Read with its written agreement, which asks each of its events to name it: « Théâtre Luc Donat », said as
+   * « Source : Théâtre Luc Donat (site lu le mardi 27/10 à 10:30) » (marketing; src/providers/autorisations.ts).
+   */
+  credit?: string;
   /** Its site's terms ask for an authorisation to reproduce it: its events keep their facts, without their sentence. */
   faits?: boolean;
   /** Its site's terms allow a link to its home page only: this page, for each of its events. */
@@ -1405,6 +1412,9 @@ const sallesLues = AGENDAS.filter((a) => a.source === SALLES_SOURCE).map((a) => 
 // One hall: « Programme du Séchoir » (marketing).
 SALLES_SOURCE.nom = sallesLues.length === 1 ? `Programme ${sallesLues[0].replace(/^Le /, "du ").replace(/^La /, "de la ").replace(/^(?!du |de la )/, "de ")}` : `Programmes des salles : ${sallesLues.join(", ")}`;
 SALLES_SOURCE.attribution = sallesLues.join(", ");
+// Those read with their written agreement, each with its day (marketing).
+SALLES_SOURCE.licence += AGENDAS.filter((a) => a.source === SALLES_SOURCE && NON_REPRISES[`agenda:${a.id}`]?.accordee_le)
+  .map((a) => `\u00a0; ${a.nom} : repris avec son accord écrit du ${NON_REPRISES[`agenda:${a.id}`].accordee_le!.split("-").reverse().join("/")}`).join("");
 // Its link, the TÉAT's programme, is Le Séchoir's site while the TÉAT is not read.
 if (!AGENDAS.some((a) => a.id === "teat")) SALLES_SOURCE.url = "https://www.lesechoir.com";
 

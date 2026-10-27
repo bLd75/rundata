@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Mardi 27 octobre 2026
 
+- Sorties : le programme du Théâtre Luc Donat, au Tampon, est de retour, avec l'accord écrit du théâtre et un lien vers chaque date.
 - Bouton « Cette page vous a aidé ? » en bas des pages, pour nous dire en un clic si une page a servi. Sans compte ni cookie.
 
 ## Lundi 26 octobre 2026

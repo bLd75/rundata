@@ -172,8 +172,9 @@ describe("the communes whose site's terms ask for their authorisation, until the
     expect(COUVERTURE).toContain(mentionIle()[0]);
     const c = await cacheWith();
     const tampon = body(await agenda(c, "Le Tampon", undefined, undefined, NOW));
-    // Its theatre, not read either until it agrees (test/non-reprises.test.ts).
-    expect(tampon.non_repris).toBe(`${TAMPON} ${mentionSalles("Le Tampon").join(" ")}`);
+    // Its theatre agreed on 27/10 and is read again (test/non-reprises.test.ts): nothing said of it.
+    expect(mentionSalles("Le Tampon")).toEqual([]);
+    expect(tampon.non_repris).toBe(TAMPON);
     expect(tampon.resume).toContain("; agenda du site de la commune non repris, ses mentions légales l'interdisent sans son accord (voir non_repris)");
     const ile = body(await agenda(c, undefined, undefined, undefined, NOW));
     // The communes, the halls, then reunion.fr (not a commune: a line apart).
