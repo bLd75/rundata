@@ -94,7 +94,7 @@ export const FICHES: Record<string, Fiche> = {
   vigieau: { famille: "licence_ouverte", producteurs: [MTE, PREFECTURE] },
   // providers/avis-eau.ts: Dionéo, runéo, Eaux de La Possession, La Créole, the CIREST, Sainte-Marie and Saint-Leu.
   avis_eau: { famille: "information_publique", producteurs: ["Dionéo", "runéo", "Eaux de La Possession", "La Créole", "CIREST", commune("Sainte-Marie"), commune("Saint-Leu")] },
-  risque_requin: { famille: "information_publique", producteurs: [PREFECTURE, "Centre Sécurité Requin"] },
+  risque_requin: { famille: "information_publique", producteurs: [PREFECTURE, "GIP Centre Sécurité Requin"] },
   geodae: { famille: "licence_ouverte", producteurs: [SANTE] },
   finess: { famille: "licence_ouverte", producteurs: [SANTE] },
   // Santé.fr is the ministry's public service.
