@@ -299,6 +299,24 @@ describe("fiche terrain", () => {
     expect(riskLine([])).toMatch(/^hors des zones/);
   });
 
+  it("waits 12 s at most for the urban plan's zone and plans, as API Carto gives up by itself after about 11 s", async () => {
+    // The delay each read was given, by its address: the timeout is set just before its fetch leaves.
+    const delays = new Map<string, number>();
+    let last = 0;
+    const timeout = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => ((last = ms), timeout(ms)));
+    const inner = globalThis.fetch;
+    vi.stubGlobal("fetch", async (url: string) => (delays.set(String(url).split("?")[0], last), inner(url)));
+    try {
+      await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), "7 rue de la Buse, Saint-Paul", NOW);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(delays.get("https://apicarto.ign.fr/api/gpu/zone-urba")).toBe(12_000);
+    expect(delays.get("https://apicarto.ign.fr/api/gpu/assiette-sup-s")).toBe(12_000);
+    expect(delays.get("https://apicarto.ign.fr/api/cadastre/parcelle")).toBe(25_000);
+  });
+
   it("tries Géorisques again when a call fails, as about one in two does from a Worker", async () => {
     let fails = 2;
     const inner = globalThis.fetch;
