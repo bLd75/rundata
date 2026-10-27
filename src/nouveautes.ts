@@ -55,6 +55,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-28T01:20:00+04:00", texte: "Baignade\u00a0: les zones du GIP Centre Sécurité Requin, avec son accord et ses corrections, dont les ZONEX de Boucan-Canot à L'Étang-Salé." },
   { date: "2026-10-28T01:12:00+04:00", texte: "Routes forestières\u00a0: leur état de circulation selon l'ONF, pour toute l'île ou une route («\u00a0RF20\u00a0»), dans les réponses des IA." },
   { date: "2026-10-27T10:23:00+04:00", texte: "Sorties\u00a0: le programme du Théâtre Luc Donat, au Tampon, est de retour, avec l'accord écrit du théâtre et un lien vers chaque date." },
   { date: "2026-10-27T00:02:00+04:00", texte: "Bouton «\u00a0Cette page vous a aidé\u00a0?\u00a0» en bas des pages, pour nous dire en un clic si une page a servi. Sans compte ni cookie." },

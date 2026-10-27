@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Mercredi 28 octobre 2026
 
+- Baignade : les zones du GIP Centre Sécurité Requin, avec son accord et ses corrections, dont les ZONEX de Boucan-Canot à L'Étang-Salé.
 - Routes forestières : leur état de circulation selon l'ONF, pour toute l'île ou une route (« RF20 »), dans les réponses des IA.
 
 ## Mardi 27 octobre 2026
