@@ -24,7 +24,6 @@ import {
   deg,
   follow,
   followed,
-  GITHUB,
   GLAMA,
   hm,
   icon,
@@ -337,7 +336,7 @@ export function homePage(origin: string, h: HomeLive | null, now = new Date(), a
       areaServed: { "@type": "AdministrativeArea", name: "La Réunion" },
       publishingPrinciples: `${origin}${A_PROPOS}#engagements`,
       contactPoint: { "@type": "ContactPoint", email: "contact@rundata.re", contactType: "presse", availableLanguage: "fr" },
-      sameAs: [...followed().map((s) => s.url), GITHUB, DATAGOUV_REUSE, GLAMA],
+      sameAs: [...followed().map((s) => s.url), DATAGOUV_REUSE, GLAMA],
     },
     {
       "@context": "https://schema.org",

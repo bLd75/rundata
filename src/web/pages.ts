@@ -119,17 +119,26 @@ export const SOCIAL: Social[] = [
     url: "https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q",
     svg: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3.5 20.5l1.3-4.3a8.5 8.5 0 1 1 3.1 3.1Z"/><path d="M8.7 7.6c.3-.3.8-.3 1 .1l.9 1.5c.2.3.1.7-.1.9l-.5.5c.5 1.1 1.3 1.9 2.4 2.4l.5-.5c.2-.2.6-.3.9-.1l1.5.9c.4.2.4.7.1 1l-.6.6c-.6.6-1.4.7-2.1.4a8.6 8.6 0 0 1-4.5-4.5c-.3-.7-.2-1.5.4-2.1Z" fill="currentColor" stroke="none"/></svg>`,
   },
+  // The code, last: GitHub's mark (Primer Octicons, mark-github-24).
+  {
+    nom: "GitHub",
+    url: GITHUB,
+    svg: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M10.226 17.284c-2.965-.36-5.054-2.493-5.054-5.256 0-1.123.404-2.336 1.078-3.144-.292-.741-.247-2.314.09-2.965.898-.112 2.111.36 2.83 1.01.853-.269 1.752-.404 2.853-.404 1.1 0 1.999.135 2.807.382.696-.629 1.932-1.1 2.83-.988.315.606.36 2.179.067 2.942.72.854 1.101 2 1.101 3.167 0 2.763-2.089 4.852-5.098 5.234.763.494 1.28 1.572 1.28 2.807v2.336c0 .674.561 1.056 1.235.786 4.066-1.55 7.255-5.615 7.255-10.646C23.5 6.188 18.334 1 11.978 1 5.62 1 .5 6.188.5 12.545c0 4.986 3.167 9.12 7.435 10.669.606.225 1.19-.18 1.19-.786V20.63a2.9 2.9 0 0 1-1.078.224c-1.483 0-2.359-.808-2.987-2.313-.247-.607-.517-.966-1.034-1.033-.27-.023-.359-.135-.359-.27 0-.27.45-.471.898-.471.652 0 1.213.404 1.797 1.235.45.651.921.943 1.483.943.561 0 .92-.202 1.437-.719.382-.381.674-.718.944-.943"/></svg>`,
+  },
 ];
 
 /** The accounts that have an address. */
 export const followed = (list = SOCIAL) => list.filter((s) => s.url);
 
-/** Visits from the site's own links are counted apart (src/metrics.ts). */
-const fromSite = (url: string) => `${url}${url.includes("?") ? "&" : "?"}ref=site`;
+/** Visits from the site's own links are counted apart (src/metrics.ts); not on GitHub, which brings none back to count. */
+const fromSite = (url: string) => (url === GITHUB ? url : `${url}${url.includes("?") ? "&" : "?"}ref=site`);
 
 /** Each account as a link, its logo and its name; the logo alone in the bar, where its label names it. */
 const accountLinks = (list = SOCIAL, logoOnly = false) =>
   followed(list).map((s) => `<a href="${esc(fromSite(s.url))}" rel="noopener" aria-label="rundata.re sur ${esc(s.nom)}">${s.svg}${logoOnly ? "" : esc(s.nom)}</a>`);
+
+/** The links two by two, each pair kept on one line: four side by side or two and two, never one left alone. */
+const paired = (links: string[]) => links.map((l, k) => (k % 2 ? "" : `<span class="pair">${l}${links[k + 1] ?? ""}</span>`)).join("");
 
 /**
  * « Suivre rundata.re » and each account, with its logo and its name; nothing when none has an address. The accounts
@@ -137,7 +146,7 @@ const accountLinks = (list = SOCIAL, logoOnly = false) =>
  */
 export function follow(list = SOCIAL, cls = "social"): string {
   const links = accountLinks(list);
-  return links.length ? `<p class="${cls}">Suivre rundata.re : <span>${links.join("")}</span></p>` : "";
+  return links.length ? `<p class="${cls}">Suivre rundata.re : <span>${paired(links)}</span></p>` : "";
 }
 
 // Search engines cut (and Bing flags) a meta description over 160 characters.
@@ -706,6 +715,7 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .posts details>summary{cursor:pointer}.posts details>p{margin:.6rem 0 0;padding-left:.8rem;border-left:3px solid var(--line)}
 .warn ul{padding:0}
 .social,.social>span{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem 1rem}.social a{display:inline-flex;align-items:center;gap:.35rem}.social svg{width:1.1rem;height:1.1rem;flex:none}
+.social .pair{display:inline-flex;align-items:center;gap:inherit}
 .pages{list-style:none;padding:0;margin-top:1rem;display:flex;flex-wrap:wrap;gap:.4rem}.pages a{display:block;padding:.3rem .75rem;border-radius:999px;background:rgb(255 255 255/.06);border:1px solid rgb(255 255 255/.1);text-decoration:none;font-size:.86rem}
 footer.foot{background:var(--night);color:var(--on-night-muted);font-size:.86rem;line-height:1.55;padding-block:2.5rem 3rem;border-top:1px solid rgb(255 255 255/.06)}
 footer.foot .wrap{display:grid;gap:1.5rem}
@@ -875,7 +885,8 @@ function share(origin: string, head: Head): string {
   const text = `${head.title.replace(/ · 974$/, "")} : ${origin}${head.path}?ref=wa`;
   const link = (s: Social, label = s.nom) => `<a href="${esc(fromSite(s.url))}" rel="noopener">${esc(label)}</a>`;
   // The info of each morning is Facebook's; Instagram posts less often, so it is named without a rhythm (marketing).
-  const accounts = followed().filter((s) => s.nom !== "WhatsApp").map((s) => link(s) + (s.nom === "Facebook" ? " (une info utile chaque matin)" : ""));
+  // The code is not an account to follow for news: GitHub stays out of this sentence.
+  const accounts = followed().filter((s) => s.nom !== "WhatsApp" && s.nom !== "GitHub").map((s) => link(s) + (s.nom === "Facebook" ? " (une info utile chaque matin)" : ""));
   const channel = followed().find((s) => s.nom === "WhatsApp");
   // « Facebook (une info utile chaque matin) ou Instagram ».
   const on = accounts.length > 1 ? `${accounts.slice(0, -1).join(", ")} ou ${accounts.at(-1)}` : accounts[0];
@@ -923,7 +934,7 @@ function header(path: string, origin: string, u: Urgent): string {
     <nav class="sheet" aria-label="Catégories"><div class="wrap">
       <p class="sheet-h">Toute l'île en direct</p>
       <ul class="grid">${grid}</ul>
-      ${sheet.length ? `<p class="sheet-h">Suivre rundata.re</p>\n      <p class="social sheet-follow">${sheet.join("")}</p>` : ""}
+      ${sheet.length ? `<p class="sheet-h">Suivre rundata.re</p>\n      <p class="social sheet-follow">${paired(sheet)}</p>` : ""}
       <p class="sheet-h">Le connecteur pour votre IA</p>
       ${connector(origin, "mcp-url-menu")}
     </div></nav>
