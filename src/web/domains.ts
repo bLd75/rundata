@@ -35,7 +35,8 @@ import { FAST_KW } from "../tools/bornes.js";
 import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
-import { esc, fenetre, hikesMap, islandMap, type Marker, oceanMap, profile, traceMap, type ZoneLink } from "./map.js";
+import * as mf from "../providers/vigilance.js";
+import { esc, fenetre, hikesMap, islandMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
 import { reprise } from "./ouvrir-donnees.js";
 import { cloudSeaLink, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
@@ -2340,27 +2341,17 @@ export function sportLive(data: Cached<SportAnswer> | null): Live | undefined {
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** A system as the RSMC's last advisory names it: its stage and the advisory's time, nothing computed. */
 function activeCard(r: NonNullable<CyclonesAnswer["systemes_actifs"]>[number]): string {
-  const facts = [
-    ["Position", `${r.situation}, ${r.position.heure}`],
-    ["Vent moyen", r.vent_moyen_kmh ? `${r.vent_moyen_kmh} km/h${r.rafales_kmh ? `, rafales ${r.rafales_kmh} km/h` : ""}` : undefined],
-    ["Pression", r.pression_hpa ? `${r.pression_hpa} hPa` : undefined],
-    ["Déplacement", r.deplacement],
-    ["Au plus près", r.au_plus_pres_selon_la_prevision ? `${r.au_plus_pres_selon_la_prevision.distance_km} km, ${r.au_plus_pres_selon_la_prevision.heure} (${r.au_plus_pres_selon_la_prevision.stade}), selon la prévision du CMRS` : r.s_eloigne ? "maintenant : la prévision du CMRS l'éloigne de l'île" : undefined],
-  ].filter((f): f is [string, string] => !!f[1]);
-  const forecast = r.prevision_cmrs?.length
-    ? `<div class="table-wrap"><table class="drought"><thead><tr><th>Prévision du CMRS</th><th>Stade</th><th>Vent moyen</th><th>Distance de l'île</th></tr></thead><tbody>${r.prevision_cmrs.map((p) =>
-        `<tr><th scope="row">${esc(p.heure)}</th><td>${esc(p.stade)}</td><td>${p.vent_moyen_kmh} km/h</td><td>${p.distance_km} km ${esc(p.situation)}</td></tr>`).join("")}</tbody></table></div>`
-    : "";
-  return `<article class="card"><h3>${esc(capital(r.nom))} <span class="note">${esc(r.stade)}</span></h3>` +
-    `<div class="table-wrap"><table class="drought"><tbody>${facts.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}</tbody></table></div>${forecast}` +
-    `<p class="note">Vent le plus fort atteint : ${r.vent_max_atteint_kmh ?? "—"} km/h. Bulletins : ${esc(r.centre)}, <a href="${esc(r.rapport)}" rel="noopener">fiche GDACS</a>.</p></article>`;
+  return `<article class="card"><h3>${esc(capital(r.nom))}${r.stade ? ` <span class="note">${esc(r.stade)}</span>` : ""}</h3>` +
+    `<p>Dernier avis du CMRS : ${esc(r.dernier_avis)}.</p>` +
+    `<p class="note">Bulletins : ${esc(r.centre)}, <a href="${esc(r.rapport)}" rel="noopener">fiche GDACS</a>.</p></article>`;
 }
 
 function seasonTable(s: CyclonesAnswer["saison_en_cours"]): string {
   return s.systemes.length
-    ? `<div class="card table-wrap"><table class="drought"><thead><tr><th>Système</th><th>Dates</th><th>Au plus fort</th><th>Vent moyen max.</th></tr></thead><tbody>${s.systemes.map((x) =>
-        `<tr><th scope="row"><a href="${esc(x.rapport)}" rel="noopener">${esc(capital(x.nom))}</a></th><td>${esc(x.du)} – ${esc(x.au)}</td><td>${esc(x.stade_max ?? "—")}</td><td>${x.vent_max_kmh ? `${x.vent_max_kmh} km/h` : "—"}</td></tr>`).join("")}</tbody></table></div>`
+    ? `<div class="card table-wrap"><table class="drought"><thead><tr><th>Système</th><th>Dates</th></tr></thead><tbody>${s.systemes.map((x) =>
+        `<tr><th scope="row"><a href="${esc(x.rapport)}" rel="noopener">${esc(capital(x.nom))}</a></th><td>${esc(x.du)} – ${esc(x.au)}</td></tr>`).join("")}</tbody></table></div>`
     : `<p class="card">Aucun système pour le moment.</p>`;
 }
 
@@ -2371,16 +2362,12 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
 
   const status = !d
     ? loading("Le suivi des cyclones")
-    : `<div class="now"><span class="big">${active.length}</span><p>système${active.length > 1 ? "s" : ""} tropica${active.length > 1 ? "ux" : "l"} actif${active.length > 1 ? "s" : ""} dans le sud-ouest de l'océan Indien${active.length ? `, le plus proche ${esc(active[0].situation)}` : ""}.</p></div>`;
+    : `<div class="now"><span class="big">${active.length}</span><p>système${active.length > 1 ? "s" : ""} tropica${active.length > 1 ? "ux" : "l"} actif${active.length > 1 ? "s" : ""} dans le sud-ouest de l'océan Indien.</p></div>`;
+  // No map of ours: the official one is on Météo-France's site.
+  const official = `<p class="lead">Trajectoire et bulletins officiels : <a href="${mf.OFFICIEL_CYCLONE}" rel="noopener">consulter le site officiel de Météo-France</a>.</p>`;
 
-  const tracks = (d?.traces ?? []).map((t) => ({ name: capital(t.nom), past: t.observee, forecast: t.prevue, label: t.etiquette, active: t.actif }));
-  const map = d
-    ? `<figure class="card mapcard">${oceanMap({ tracks, home: { lon: 55.536, lat: -21.115 }, label: active.length ? "Carte du sud-ouest de l'océan Indien : trajectoire et prévision des systèmes tropicaux actifs autour de La Réunion" : "Carte du sud-ouest de l'océan Indien : la trajectoire du dernier système tropical" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">${active.length ? "Trajectoire observée (trait plein) et prévue par le CMRS de La Réunion (pointillés)." : tracks.length ? `Aucun système actif. Trajectoire du dernier système, ${esc(tracks[0].name)}.` : "Aucun système actif."} Cercles à 500 et 1 000 km de l'île.</figcaption></figure>`
-    : "";
-
-  const title = "Cyclone Réunion en ce moment : trajectoire, alerte · 974";
-  const short = "Cyclones autour de La Réunion (974) : systèmes tropicaux actifs, trajectoire et prévision du CMRS de Météo-France, distance de l'île, alerte cyclonique et saisons passées.";
+  const title = "Cyclone Réunion en ce moment : systèmes actifs, alerte · 974";
+  const short = "Cyclones autour de La Réunion (974) : systèmes actifs et leur stade selon le CMRS de Météo-France, alerte cyclonique, saisons passées, lien officiel.";
   const description = d ? describe(`${d.resume}`, short) : short;
 
   const band = `${crumbBar("Cyclones")}
@@ -2389,12 +2376,12 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
     <p class="pill"><span class="dot"></span>Bulletins du CMRS de La Réunion</p>
     <h1>Cyclones <span class="n974">974</span></h1>
     ${status}
+    ${official}
     ${d?.alerte_cyclonique ? `<p class="lead"><b>${esc(d.alerte_cyclonique)}</b></p>` : ""}
     ${d && (d.ecoles?.niveau ?? -1) <= 2 ? `<p class="lead"><a href="/kit-cyclone">Se préparer : le kit d'urgence du plan →</a></p>` : ""}
-    ${ask(`Néna in siklone pa loin La Rényon ? Gèt si ${url} é di amwin ousa li lé.`,
-      `Y a-t-il un cyclone près de La Réunion ? Lis ${url} et dis-moi où il est et où il va.`)}
+    ${ask(`Néna in siklone pa loin La Rényon ? Gèt si ${url} é di amwin sak Météo-France é la préfektir i di.`,
+      `Y a-t-il un cyclone près de La Réunion ? Lis ${url} et dis-moi ce qu'en disent Météo-France et la préfecture.`)}
   </div>
-  ${map}
 </div>`;
 
   const body = `<section aria-labelledby="h-actifs">
@@ -2419,8 +2406,7 @@ ${d ? `<section aria-labelledby="h-saison">
   ${seasonTable(d.saison_en_cours)}
 </section>` : ""}
 ${d?.saison_precedente ? `<section aria-labelledby="h-saison-prec">
-  <div class="sec-h"><p class="eyebrow">Saison passée</p><h2 id="h-saison-prec">Saison ${esc(d.saison_precedente.nom)}</h2>
-  <p>Les systèmes du bassin et le stade atteint au plus fort, d'après le vent moyen sur 10 minutes.</p></div>
+  <div class="sec-h"><p class="eyebrow">Saison passée</p><h2 id="h-saison-prec">Saison ${esc(d.saison_precedente.nom)}</h2></div>
   ${seasonTable(d.saison_precedente)}
 </section>` : ""}
 <section aria-labelledby="h-passes">
@@ -2442,7 +2428,7 @@ export function cyclonesLive(data: Cached<CyclonesAnswer> | null): Live | undefi
   const plan = d.vie_quotidienne ? ` · <a href="/alerte-cyclone">Ce qui ferme, ce qui continue →</a>` : "";
   if (active.length) {
     const r = active[0];
-    return { valeur: `${active.length} système${active.length > 1 ? "s" : ""} actif${active.length > 1 ? "s" : ""}`, detail: `${esc(capital(r.nom))}, ${esc(r.stade)}, ${esc(r.situation)}${plan}` };
+    return { valeur: `${active.length} système${active.length > 1 ? "s" : ""} actif${active.length > 1 ? "s" : ""}`, detail: `${esc(capital(r.nom))}${r.stade ? `, ${esc(r.stade)}` : ""}${plan}` };
   }
   const last = d.saison_en_cours.systemes[0] ?? d.saison_precedente?.systemes[0];
   return { valeur: "aucun système actif", detail: `saison ${esc(d.saison_en_cours.nom)}${last ? ` ; dernier : ${esc(capital(last.nom))} (${esc(last.du)} – ${esc(last.au)})` : ""}` };

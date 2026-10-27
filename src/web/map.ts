@@ -1,11 +1,9 @@
 /**
  * The island as an inline SVG: coastline and communes from src/places/island.json (scripts/build-island.py), with
- * markers placed by the same projection; and, for the cyclones, the ocean around it (src/web/ocean.json,
- * scripts/build-ocean.py). Colours come from the page's CSS, so the maps follow its light and dark themes.
+ * markers placed by the same projection. Colours come from the page's CSS, so the maps follow its light and dark themes.
  */
 import island from "../places/island.json" with { type: "json" };
 import relief from "./relief.json" with { type: "json" };
-import ocean from "./ocean.json" with { type: "json" };
 import { ACCUEILS } from "../providers/accueils-medias.js";
 
 const [LON0, LAT0, LON1, LAT1] = island.bbox;
@@ -478,95 +476,4 @@ export function profile(points: { km: number; ele: number }[], label: string): s
     ticksX.map((k) => `<text class="ax" x="${f(x(k))}" y="${PH - 8}" text-anchor="middle">${String(k).replace(".", ",")}</text>`).join("") +
     `<path class="fill" d="${area}"/><path class="line" d="${line}"/>` +
     `<text class="ax" x="${PW - pad.r}" y="${PH - 8}" text-anchor="end">km</text><text class="ax" x="${pad.l - 6}" y="12" text-anchor="end">m</text></svg>`;
-}
-
-// ---------------------------------------------------------------- the ocean around, for the cyclones
-
-/** Small islands drawn as dots: too small for the coastline at this scale. */
-const ISLETS = [
-  { name: "Maurice", lon: 57.55, lat: -20.25 },
-  { name: "Rodrigues", lon: 63.42, lat: -19.72 },
-  { name: "Mayotte", lon: 45.15, lat: -12.82 },
-  { name: "Comores", lon: 43.33, lat: -11.7 },
-  { name: "Seychelles", lon: 55.45, lat: -4.62 },
-];
-const OW = 1000;
-const KX = Math.cos((20 * Math.PI) / 180);
-
-export interface Track {
-  name: string;
-  /** [lon, lat] observed so far, the last one being the system now. */
-  past: [number, number][];
-  /** [lon, lat] forecast by the RSMC. */
-  forecast: [number, number][];
-  /** The label at its last position: its stage, or its dates for a system over. */
-  label: string;
-  active: boolean;
-}
-
-/**
- * The south-west Indian Ocean, framed on the tracks and La Réunion, with rings at 500 and 1 000 km from the island:
- * the distances the cyclone bulletins speak in.
- */
-export function oceanMap(opts: { tracks: Track[]; label: string; home: { lon: number; lat: number } }): string {
-  const pts = [[opts.home.lon, opts.home.lat], ...opts.tracks.flatMap((t) => [...t.past, ...t.forecast])];
-  let [lon0, lon1] = [Math.min(...pts.map((p) => p[0])) - 4, Math.max(...pts.map((p) => p[0])) + 4];
-  let [lat0, lat1] = [Math.min(...pts.map((p) => p[1])) - 4, Math.max(...pts.map((p) => p[1])) + 4];
-  // At least the island's neighbourhood, and the proportions of the frame.
-  const grow = (a: number, b: number, span: number) => (b - a < span ? [(a + b) / 2 - span / 2, (a + b) / 2 + span / 2] : [a, b]);
-  [lon0, lon1] = grow(lon0, lon1, 24);
-  [lat0, lat1] = grow(lat0, lat1, 16);
-  const ratio = 0.68;
-  const wDeg = (lon1 - lon0) * KX;
-  if ((lat1 - lat0) / wDeg < ratio) [lat0, lat1] = grow(lat0, lat1, wDeg * ratio);
-  else [lon0, lon1] = grow(lon0, lon1, (lat1 - lat0) / ratio / KX);
-  const H = Math.round(OW * ratio);
-  const xy = (lon: number, lat: number) => [Math.round(((lon - lon0) / (lon1 - lon0)) * OW), Math.round(((lat1 - lat) / (lat1 - lat0)) * H)];
-  const line = (p: number[][]) => p.map(([lon, lat], i) => `${i ? "L" : "M"}${xy(lon, lat).join(" ")}`).join("");
-
-  const land = ocean.rings.map((r) => `${line(r)}Z`).join("");
-  let grid = "";
-  for (let lon = Math.ceil(lon0 / 10) * 10; lon < lon1; lon += 10) {
-    const [x] = xy(lon, 0);
-    grid += `<path class="grat" d="M${x} 0V${H}"/><text class="gl" x="${x + 8}" y="${H - 12}">${lon}° E</text>`;
-  }
-  for (let lat = Math.ceil(lat0 / 10) * 10; lat < lat1; lat += 10) {
-    const [, y] = xy(0, lat);
-    grid += `<path class="grat" d="M0 ${y}H${OW}"/><text class="gl" x="12" y="${y - 8}" style="text-anchor:start">${-lat}° S</text>`;
-  }
-  const [hx, hy] = xy(opts.home.lon, opts.home.lat);
-  const kmPerPx = ((lat1 - lat0) * 111.2) / H;
-  const rings = [500, 1000]
-    .map((km) => `<circle class="ring" cx="${hx}" cy="${hy}" r="${Math.round(km / kmPerPx)}"/><text class="rl" x="${hx}" y="${hy - Math.round(km / kmPerPx) - 8}">${km === 1000 ? "1 000" : km} km</text>`)
-    .join("");
-  // Not along the edges, where their names would be cut.
-  const islets = ISLETS.map((i) => ({ ...i, at: xy(i.lon, i.lat) }))
-    .filter(({ at: [x, y] }) => x > 60 && x < OW - 60 && y > 20 && y < H - 40)
-    .map(({ name, at: [x, y] }) => `<g class="islet"><circle cx="${x}" cy="${y}" r="5"/><text x="${x}" y="${y - 12}">${esc(name)}</text></g>`)
-    .join("");
-  // The island's name on the side of the nearest system, the system's on the other: +1 when it is east of the island.
-  const nearest = opts.tracks.map((t) => t.past.at(-1)).filter((p): p is [number, number] => !!p)
-    .sort((a, b) => Math.hypot(a[0] - opts.home.lon, a[1] - opts.home.lat) - Math.hypot(b[0] - opts.home.lon, b[1] - opts.home.lat))[0];
-  const homeSide = nearest && nearest[0] > opts.home.lon ? 1 : -1;
-  const away = (x: number) => (x >= hx ? 1 : -1);
-  const tracks = opts.tracks
-    .map((t) => {
-      const now = t.past.at(-1);
-      if (!now) return "";
-      const [x, y] = xy(now[0], now[1]);
-      const fc = t.forecast.length ? [now, ...t.forecast] : [];
-      return `<g class="trk${t.active ? " on" : ""}"><title>${esc(t.name)}</title>` +
-        `<path class="past" d="${line(t.past)}"/>` +
-        (fc.length ? `<path class="fc" d="${line(fc)}"/>${t.forecast.map(([lon, lat]) => { const [fx, fy] = xy(lon, lat); return `<circle class="fp" cx="${fx}" cy="${fy}" r="6"/>`; }).join("")}` : "") +
-        `<circle class="eye" cx="${x}" cy="${y}" r="${t.active ? 16 : 10}"/>` +
-        // Its names on the side away from the island, whose own name is on the other side.
-        `<text class="tn" x="${x + 28 * away(x)}" y="${y - 4}" style="text-anchor:${away(x) > 0 ? "start" : "end"}">${esc(t.name)}</text>` +
-        `<text class="ts" x="${x + 28 * away(x)}" y="${y + 22}" style="text-anchor:${away(x) > 0 ? "start" : "end"}">${esc(t.label)}</text></g>`;
-    })
-    .join("");
-  return `<svg class="map ocean" viewBox="0 0 ${OW} ${H}" role="img" aria-label="${esc(opts.label)}">` +
-    `<rect class="sea" width="${OW}" height="${H}" rx="28"/>${grid}<path class="land" d="${land}"/><path class="shore" d="${land}"/>` +
-    rings + islets +
-    `<g class="home"><circle cx="${hx}" cy="${hy}" r="9"/><text x="${hx - 18 * homeSide}" y="${hy + 7}" style="text-anchor:${homeSide > 0 ? "end" : "start"}">La Réunion</text></g>` +
-    tracks + `</svg>`;
 }

@@ -11,7 +11,7 @@ import type { Alerte } from "./data.js";
 import { crumbBar, crumbs, webPage } from "./domains.js";
 import { citesHtml } from "./ecoles.js";
 import { esc } from "./map.js";
-import { layout } from "./pages.js";
+import { layout, officielHtml } from "./pages.js";
 
 export const TITLE = "Alerte cyclone orange, rouge : ce qui change · Réunion 974";
 const H1 = "Alerte cyclonique : ce qui ferme, ce qui continue";
@@ -181,6 +181,7 @@ export function alertePage(origin: string, data: Cached<mf.Vigilance> | null, no
   <h1>${esc(H1)}</h1>
   <p class="lead">${esc(LEAD)}</p>
   ${state}
+  <p class="lead">${officielHtml(mf.OFFICIEL_CYCLONE)}</p>
 </div></div>`;
   const steps = STEPS.map((st) => `<section id="${st.id}" aria-labelledby="h-${st.id}">
   <div class="sec-h"><h2 id="h-${st.id}">${esc(st.titre)}</h2>${st.devise ? `<p>« ${esc(st.devise)} »</p>` : ""}</div>
