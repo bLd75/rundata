@@ -123,6 +123,8 @@ import { searchStops, stopPageDepartures, TRIP_PATH, tripRun } from "../tools/tr
 import { searchPage, stopPage } from "./arret.js";
 import { STOP_PATH } from "./domains.js";
 import * as transit from "../providers/transit.js";
+import { carteRoute } from "./vigilance-carte.js";
+import { RENDU_PATH } from "../providers/vigilance-carte.js";
 
 const HTML = {
   "content-type": "text/html; charset=utf-8",
@@ -142,9 +144,10 @@ const GPX = { "content-type": "application/gpx+xml; charset=utf-8", "cache-contr
  * would spend the few pages a day a search engine reads on a new site. The assistants' fetchers still read them.
  * No robot follows a trip (web/trajet.ts): its page is not indexed, and it has an address per stop and per day, which
  * a stop's page links for each of its buses and which links back to each stop: a crawler went round them, 1 300 an hour.
+ * The page that draws Météo-France's bulletin for Cloudflare's browser (web/vigilance-carte.ts) is not for anyone else.
  */
 const ROBOTS = (origin: string) =>
-  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nAllow: /\n\nUser-agent: *\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
+  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nDisallow: ${RENDU_PATH}\nAllow: /\n\nUser-agent: *\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nDisallow: ${RENDU_PATH}\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
 
 /** IndexNow (Bing, Yandex, Seznam, Naver): the key that proves rundata.re's submissions are ours. Public by design. */
 export const INDEXNOW_KEY = "9cb4a2d427093776313488cb4d39b24a";
@@ -710,6 +713,11 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === "/security.txt") {
     return new Response(null, { status: 301, headers: { location: SECURITY_TXT, "cache-control": "public, max-age=3600" } });
+  }
+  // Météo-France's official map of the vigilance: its picture, its bulletin, the page of the browser (web/vigilance-carte.ts).
+  if (path.startsWith("/vigilance/")) {
+    const r = await carteRoute(path, url);
+    if (r) return r;
   }
   if (path === "/robots.txt") {
     return new Response(ROBOTS(origin), {

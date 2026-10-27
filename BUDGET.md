@@ -18,28 +18,28 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 355 | 500 |
-| pire passage planifié, appels KV et D1 | 56 | 1 000 |
-| pire passage planifié, CPU (ms) | 2 122 | 30 000 |
+| pire passage planifié, sous-requêtes | 361 | 500 |
+| pire passage planifié, appels KV et D1 | 61 | 1 000 |
+| pire passage planifié, CPU (ms) | 2 162 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
-| passage le plus chargé (cadences les plus courtes), sous-requêtes | 125 | 500 |
+| passage le plus chargé (cadences les plus courtes), sous-requêtes | 127 | 500 |
 | vue la plus chère, sous-requêtes | 82 | 200 |
 | question la plus chère, sous-requêtes | 65 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
 - Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
-- Passage le plus chargé selon les décalages, cadences habituelles : 00:30 UTC, 84 sous-requêtes (arome:veille, partagees:liste, vigilance, web:chiffres:evenements, agendas:planifies, sans-reponse:echecs, copies:echecs, connecteurs:lecture).
-- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:30 UTC, 125 sous-requêtes (arome:veille, partagees:liste, vigilance, web:crues, web:volcan, web:chiffres:evenements, agendas:planifies, sans-reponse:echecs, copies:echecs, connecteurs:lecture).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 323 sous-requêtes à 00:00 UTC.
+- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 86 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, connecteurs:lecture, propositions:purge).
+- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 127 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, web:crues, web:volcan, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, connecteurs:lecture, propositions:purge).
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 329 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 82. Question la plus chère : resume_du_jour, 65. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 355 | 11 | 32 | 13 | 1 123 | 42 | 2 122 |
-| tâche planifiée, par jour | 16 202 | 1 392 | 2 125 | 1 251 | 102 620 | 3 199 | 107 923 |
-| tâche planifiée, par jour, cadences les plus courtes | 27 094 | 2 688 | 3 949 | 1 731 | 107 660 | 3 199 | 153 403 |
-| tâche planifiée, par mois (30 jours) | 486 060 | 41 760 | 63 750 | 37 530 | 3 078 600 | 95 970 | 3 237 690 |
+| pire passage planifié | 361 | 12 | 36 | 13 | 1 123 | 42 | 2 162 |
+| tâche planifiée, par jour | 16 610 | 1 680 | 2 221 | 1 251 | 102 620 | 3 199 | 108 883 |
+| tâche planifiée, par jour, cadences les plus courtes | 27 502 | 2 976 | 4 045 | 1 731 | 107 660 | 3 199 | 154 363 |
+| tâche planifiée, par mois (30 jours) | 498 300 | 50 400 | 66 630 | 37 530 | 3 078 600 | 95 970 | 3 266 490 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -69,6 +69,8 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | web:chiffres | copie partagée (KV) | 60 min | 00:50 | 26 |  | 1 | 2 | 21 |  | 60 | estimé |
 | web:chiffres:evenements | copie partagée (KV) | 360 min (60 au plus court) | 00:30 | 57 |  | 1 |  |  |  | 200 | estimé |
 | ens:ile | copie partagée, avec ce que les autres ont laissé | 180 min | 01:40 | 4 |  | 1 |  |  |  | 40 | mesuré |
+| vigilance:carte | carte officielle de la vigilance : son état (KV), lu à chaque copie de la vigilance | 5 min | 00:00 | 1 | 1 |  |  |  |  |  | code |
+| vigilance:carte:bulletin | carte officielle de la vigilance : un nouveau bulletin gardé (le PDF et l'état, KV), puis son image par le navigateur de Cloudflare (l'image et l'état), 24 images par jour au plus | 60 min | 00:00 | 5 |  | 4 |  |  |  | 40 | code |
 | agendas:planifies | agendas lus par la tâche planifiée : leur copie commune (KV), lue à chaque passage, écrite après une lecture | 5 min | 00:00 | 1 | 1 |  |  |  |  |  | code |
 | agendas:planifies:ecriture | agendas lus par la tâche planifiée : l'écriture de leur copie commune | 60 min | 00:00 | 1 |  | 1 |  |  |  |  | code |
 | agenda:salazie | agenda lu par la tâche planifiée : Ville de Salazie | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
@@ -207,6 +209,8 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | web:chiffres | providers/agenda, providers/avis-eau, providers/metar, providers/meteofrance, providers/mf-auth, providers/pioupiou, providers/radar, providers/salles, providers/sentiers, providers/sport, providers/velos |
 | web:chiffres:evenements | providers/actualites, providers/agenda, providers/avis-eau, providers/salles, providers/sport-avis, providers/sport |
 | ens:ile | providers/ensemble |
+| vigilance:carte |  |
+| vigilance:carte:bulletin |  |
 | agenda:salazie | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | agenda:lrvb | providers/agenda, providers/avis-eau, providers/salles, providers/sport |
 | agenda:saint_louis_actus | providers/agenda, providers/avis-eau, providers/salles, providers/sport |

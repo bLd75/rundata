@@ -18,6 +18,7 @@ import * as carburants from "./providers/carburants.js";
 import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as candhis from "./providers/candhis.js";
+import * as vigilanceCarte from "./providers/vigilance-carte.js";
 import * as feux from "./providers/feux.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
@@ -69,7 +70,8 @@ class EdgeStore implements CacheStore {
 /** The part of a KV namespace binding used here. */
 interface KvNamespace {
   get(key: string, type: "json"): Promise<unknown>;
-  put(key: string, value: string, options?: { expirationTtl?: number; metadata?: unknown }): Promise<void>;
+  get(key: string, type: "arrayBuffer"): Promise<ArrayBuffer | null>;
+  put(key: string, value: string | ArrayBuffer, options?: { expirationTtl?: number; metadata?: unknown }): Promise<void>;
   list(options: { prefix: string; cursor?: string }): Promise<{ keys: { name: string; metadata?: unknown }[]; list_complete: boolean; cursor?: string }>;
 }
 
@@ -98,6 +100,8 @@ interface Env {
   CONNECTEURS_CLE?: string;
   /** Cloudflare Email Sending: the confirmation of the events the clubs propose (src/propositions.ts). */
   EMAIL?: propositions.EmailBinding;
+  /** Browser Rendering: the picture of Météo-France's official map of the vigilance (src/providers/vigilance-carte.ts). */
+  BROWSER?: vigilanceCarte.Browser;
   /** Rate Limiting: the calls to /mcp and the forms' sends, per address and per minute (src/limite.ts). */
   LIMITE_MCP?: limite.Limiteur;
   LIMITE_FORMULAIRES?: limite.Limiteur;
@@ -187,6 +191,12 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get("carburants:prix", "json")) as carburants.Prix | null;
   });
+  // Météo-France's official map of the vigilance: its bulletin and its picture kept by the scheduled event.
+  vigilanceCarte.configure(kv && {
+    json: (key) => kv.get(key, "json"),
+    bytes: (key) => kv.get(key, "arrayBuffer"),
+    put: (key, value, ttl) => kv.put(key, value, ttl ? { expirationTtl: ttl } : undefined),
+  }, env.BROWSER);
   // The text of the OVPF's releases given in images, read by a collector outside the Worker (scripts/ovpf-ocr.ts).
   ovpfOcr.configure(kv && (async (key: string) => {
     count();

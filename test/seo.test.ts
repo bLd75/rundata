@@ -26,8 +26,8 @@ describe("search engines", () => {
     const groups = robots.split("\n\n");
     // Nor the searches for a stop: a page per query typed, each stop has its own.
     // Nor a trip: an address per stop and per day, not indexed.
-    expect(groups[0]).toBe("User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: /bus/arret?q=\nDisallow: /bus/trajet/\nAllow: /");
-    expect(groups[1]).toBe("User-agent: *\nDisallow: /bus/arret?q=\nDisallow: /bus/trajet/\nAllow: /");
+    expect(groups[0]).toBe("User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: /bus/arret?q=\nDisallow: /bus/trajet/\nDisallow: /vigilance/bulletin-rendu\nAllow: /");
+    expect(groups[1]).toBe("User-agent: *\nDisallow: /bus/arret?q=\nDisallow: /bus/trajet/\nDisallow: /vigilance/bulletin-rendu\nAllow: /");
     expect(robots).toContain(`Sitemap: ${O}/sitemap.xml`);
   });
 
@@ -41,6 +41,9 @@ describe("search engines", () => {
       expect(blocked(group, "/bus/arret")).toBe(false);
       expect(blocked(group, "/bus/trajet/carjaune/767/5-33685532?jour=20261026&arret=12")).toBe(true);
       expect(blocked(group, "/bus/arret?q=gare")).toBe(true);
+      // The page Cloudflare's browser draws Météo-France's bulletin on (web/vigilance-carte.ts), not /vigilance.
+      expect(blocked(group, "/vigilance/bulletin-rendu?j=0123")).toBe(true);
+      expect(blocked(group, "/vigilance")).toBe(false);
     }
   });
 

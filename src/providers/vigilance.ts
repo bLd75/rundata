@@ -7,11 +7,13 @@
  * of its own (7 to 10, and 6 for the phase de sauvegarde), from Météo-France's « Descriptif des informations Vigilance
  * Outre-Mer et Alertes cycloniques » (v5, 10/04/2025, p. 7), read on 2026-10-24.
  */
+import { isScheduled, unmeasured } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { getBytes } from "../http.js";
 import type { SourceInfo } from "../types.js";
-import { unzip } from "../zip.js";
+import { unzipBytes } from "../zip.js";
 import { download, session } from "./mf-auth.js";
+import { type Carte, configured as carteConfigured, kept as carteKept, passage } from "./vigilance-carte.js";
 
 export { enabled } from "./mf-auth.js";
 
@@ -19,7 +21,8 @@ export const SOURCE: SourceInfo = {
   id: "mf_vigilance",
   nom: "Vigilance météo et alerte cyclonique de La Réunion (Météo-France)",
   organisme: "Météo-France, direction interrégionale de l'océan Indien",
-  licence: "Licence Ouverte Etalab 2.0",
+  // The official map, with the written agreement of Météo-France La Réunion (vigilance-carte.ts); marketing's words.
+  licence: "Licence Ouverte Etalab 2.0\u00a0; Météo-France La Réunion : bulletin de suivi vigilance affiché tel quel, avec son accord écrit du 27/10/2026",
   attribution: "Météo-France",
   url: "https://vigilance.meteofrance.fr/fr/la-reunion",
 };
@@ -41,6 +44,8 @@ const URL = "https://public-api.meteofrance.fr/public/DPVigilance/v1/vigilanceom
 const FRESH_SECONDS = 7 * 60;
 const MAP = "CDPV95_FMEE_.txt";
 const TEXTS = "CDPV96_FMEE_.txt";
+/** The bulletin in PDF, « Bulletin de suivi vigilance à La Réunion », whose page 1 is the official map (vigilance-carte.ts). */
+export const BULLETIN = "QGFR31_FMEE_.pdf";
 
 export const CYCLONE = 10;
 export const PHENOMENA: Record<number, string> = {
@@ -112,6 +117,8 @@ export interface Vigilance {
   zones: Record<string, Record<number, Period[]>>;
   /** The follow-up texts, by phenomenon title. */
   suivi: { titre: string; texte: string }[];
+  /** The official map, as the scheduled event last kept it (vigilance-carte.ts); missing until then, and in Node. */
+  carte?: Carte;
 }
 
 interface MapJson {
@@ -155,14 +162,22 @@ export function parse(map: MapJson, texts?: TextsJson): Vigilance {
 /** Where the last reading is kept (web/data.ts serves it while Météo-France is late). */
 export const KEY = "vigilance";
 
-/** Météo-France's vigilance as it is now: one download (the scheduled event's copy, web/partagees.ts). */
+/**
+ * Météo-France's vigilance as it is now: one download (the scheduled event's copy, web/partagees.ts), with the state of
+ * the official map kept in KV. In the scheduled event, the bulletin in PDF goes to vigilance-carte.ts, which keeps it
+ * when it changes and has its page 1 photographed.
+ */
 export async function read(): Promise<Vigilance> {
   const zip = await download(URL, session(SOURCE.id), getBytes, 20_000);
-  const files = await unzip(zip, (name) => name === MAP || name === TEXTS);
+  const scheduled = isScheduled() && carteConfigured();
+  const files = await unzipBytes(zip, (name) => name === MAP || name === TEXTS || (scheduled && name === BULLETIN));
   const map = files.get(MAP);
   if (!map) throw new Error(`vigilance : ${MAP} absent de l'archive`);
   const texts = files.get(TEXTS);
-  return parse(JSON.parse(map) as MapJson, texts ? (JSON.parse(texts) as TextsJson) : undefined);
+  const text = new TextDecoder();
+  const v = parse(JSON.parse(text.decode(map)) as MapJson, texts ? (JSON.parse(text.decode(texts)) as TextsJson) : undefined);
+  const carte = await unmeasured(() => (scheduled ? passage(files.get(BULLETIN)) : carteKept()));
+  return carte ? { ...v, carte } : v;
 }
 
 /** The copy of the scheduled event when fresh (from any data center, through KV), else read here. */

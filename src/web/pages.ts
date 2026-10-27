@@ -16,6 +16,7 @@ import { ageMinutes, ageText, localTime, versant } from "../geo.js";
 import { VERSION } from "../server.js";
 import { fr } from "../tools/format.js";
 import * as mf from "../providers/vigilance.js";
+import { carteHtml } from "./vigilance-carte.js";
 import { current, cyclone, cycloneHead, cycloneLevel, highest, islandGreen, NONE_ISSUED, NONE_ISSUED_SAID, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, StationAnswer, StationNow } from "./data.js";
 import { joursDuJour, vigilanceLue } from "./data.js";
@@ -688,6 +689,7 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .bars{list-style:none;padding:0;display:grid;gap:.7rem}
 .qdays{margin:.6rem 0}
 .qdays figcaption{font-size:.85rem;color:var(--muted)}
+.mf-carte{margin:1rem 0;max-width:40rem}.mf-carte img{display:block;width:100%;height:auto;background:#fff}.mf-carte figcaption{font-size:.92rem}.mf-carte p{margin:0}
 .qdays ol{list-style:none;padding:0;margin:.3rem 0 0;display:grid;grid-template-columns:repeat(30,minmax(0,1fr));gap:2px;align-items:end;height:5rem;border-bottom:1px solid var(--line)}
 .qdays li{height:100%;display:flex;align-items:flex-end}
 .qdays i{display:block;width:100%;background:var(--vg0);border-radius:2px 2px 0 0}
@@ -1673,6 +1675,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
   <p>La vigilance telle que Météo-France la publie, zone par zone et phénomène par phénomène : 5 zones terrestres et 8 zones côtières. Pour chacune, la couleur en cours, puis ce qui est prévu dans les 24 heures du bulletin.</p></div>
   ${zones || `<p class="card">Pas de bulletin à afficher pour le moment : voir <a href="${mf.SOURCE.url}">vigilance.meteofrance.fr</a>.</p>`}
   ${littoral}
+  ${carteHtml(v?.carte, now)}
   <p><a href="/crues">La vigilance crues, rivière par rivière →</a></p>
 </section>
 ${suivi}
