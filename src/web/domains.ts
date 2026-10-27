@@ -2627,8 +2627,9 @@ export function agendaEvents(rows: AgendaRow[]): object[] {
       ...(r.lien ? { url: r.lien } : {}),
       description: eventSummary(r),
       ...organizer(r),
-      ...(r.prix && PRICED.test(r.prix) ? { offers: offer(r.prix, r.lien) } : {}),
-      ...(r.image ? { image: { "@type": "ImageObject", url: r.image.url, author: { "@type": "Organization", name: r.image.auteur }, license: LICENCE_OUVERTE } } : {}),
+      ...offer(r.prix, r.lien),
+      // The credit OpenAgenda gives, as its creator and its credit line; no copyright notice nor licence page it does not give.
+      ...(r.image ? { image: { "@type": "ImageObject", url: r.image.url, author: { "@type": "Organization", name: r.image.auteur }, creator: { "@type": "Organization", name: r.image.auteur }, creditText: r.image.auteur, license: LICENCE_OUVERTE } } : {}),
     };
   });
 }
@@ -2646,13 +2647,15 @@ function organizer(r: AgendaRow): { organizer?: object | object[] } {
   return HALLS.has(r.publie_par) || r.propose ? { organizer: { "@type": "Organization", name: r.publie_par } } : {};
 }
 
-// A price is an amount or « gratuit »: a condition of entry (« Sur inscription ») is not one, and makes no Offer.
-const PRICED = /\d\s*(?:€|euros?\b)|gratuit/i;
-
-/** A price as its organiser wrote it: « gratuit » is 0 €, « 5 € » is 5 €; any other text, no amount. */
-function offer(prix: string, url?: string): object {
+/**
+ * An Offer only for one amount read in the source: « gratuit » is 0 €, « 5 € » is 5 €. A range, several prices or a
+ * condition of entry (« Sur inscription ») make none, as an Offer without its price is what search engines warn of.
+ * No availability nor sale date: no source gives them.
+ */
+function offer(prix: string | undefined, url?: string): { offers?: object } {
+  if (!prix) return {};
   const amount = /^gratuit/i.test(prix) ? 0 : /^\s*(\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?)\s*$/i.exec(prix)?.[1]?.replace(",", ".");
-  return { "@type": "Offer", ...(amount !== undefined ? { price: Number(amount), priceCurrency: "EUR" } : { description: prix }), ...(url ? { url } : {}) };
+  return amount === undefined ? {} : { offers: { "@type": "Offer", price: Number(amount), priceCurrency: "EUR", ...(url ? { url } : {}) } };
 }
 
 // The kinds a visitor can keep, in the order of the select; only those in the list are offered.

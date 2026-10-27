@@ -518,7 +518,8 @@ describe("the published proposals as an agenda (providers/agenda-propositions.ts
     const [paid, free, other] = agendaEvents([row(ligne()), row(ligne({ prix: "gratuit" })), row(ligne({ prix: "5 € adultes, gratuit enfants" }))]) as Record<string, unknown>[];
     expect(paid).toMatchObject({ organizer: { "@type": "Organization", name: "Association Lèv la tèt" }, offers: { "@type": "Offer", price: 5, priceCurrency: "EUR" } });
     expect(free).toMatchObject({ offers: { price: 0, priceCurrency: "EUR" } });
-    expect(other).toMatchObject({ offers: { description: "5 € adultes, gratuit enfants" } });
+    // Two prices are not one amount: no Offer, rather than one without its price.
+    expect(other).not.toHaveProperty("offers");
   });
 
   it("is read from the table once a quarter of an hour, counted as one read", async () => {
