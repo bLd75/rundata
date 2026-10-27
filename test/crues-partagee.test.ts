@@ -46,6 +46,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 /** The rivers as Vigicrues gave them `ageMin` minutes ago. */
@@ -126,21 +127,26 @@ describe("the rivers kept by the scheduled event", () => {
 // read since the evening before cut, and the copy of 20:58 served to every question for 15 hours.
 describe("the 29 gauges, read by the scheduled event in batches", () => {
   // Each request answered with the recorded readings of the gauges it asked for, `bump` metres higher; a batch with a
-  // gauge of `silent` in it does not answer.
+  // gauge of `silent` in it does not answer. `asks`: what each request was for, in order; `most`: the most at once.
   let batches: string[][];
+  let asks: string[];
   let most: number;
   let bump: number;
   let silent: string[];
   beforeEach(() => {
-    [batches, most, bump, silent] = [[], 0, 0, []];
+    [batches, asks, most, bump, silent] = [[], [], 0, 0, []];
     let now = 0;
     vi.stubGlobal("fetch", async (url: string, init?: { body?: URLSearchParams }) => {
-      if (new URL(url).pathname.endsWith("vigilance.php")) return new Response(vigilance);
-      const ids = Object.keys(JSON.parse(init?.body?.get("liste") ?? "{}"));
-      batches.push(ids);
       most = Math.max(most, ++now);
       await new Promise((resolve) => setTimeout(resolve, 5));
       now--;
+      if (new URL(url).pathname.endsWith("vigilance.php")) {
+        asks.push("vigilance");
+        return new Response(vigilance);
+      }
+      const ids = Object.keys(JSON.parse(init?.body?.get("liste") ?? "{}"));
+      batches.push(ids);
+      asks.push(String(init?.body?.get("mesure")));
       if (ids.some((id) => silent.includes(id))) throw new Error("The operation was aborted due to timeout");
       const all = JSON.parse(fixture(`vigicrues_${init?.body?.get("mesure")}.json`)) as Record<string, [number, number][]>;
       return Response.json(Object.fromEntries(ids.filter((id) => all[id]).map((id) => [id, all[id].map(([t, v]) => [t, v + bump])])));
@@ -160,12 +166,39 @@ describe("the 29 gauges, read by the scheduled event in batches", () => {
   const ids = STATIONS.map((s) => s.id).filter((id) => recorded.includes(id));
   const [first, other] = [ids.find((id) => STATIONS.findIndex((s) => s.id === id) < 8)!, ids.findLast((id) => STATIONS.findIndex((s) => s.id === id) >= 24)!];
 
-  it("asks for 8 gauges at most at a time, two requests at once at most", async () => {
+  it("asks for 8 gauges at most at a time, one request at a time, 25 s each", async () => {
+    const timeouts = vi.spyOn(AbortSignal, "timeout");
     const r = await inEvent(there(new MemoryStore(), NOW), NOW);
     expect(batches.map((b) => b.length)).toEqual([8, 8, 8, 5]);
     expect(new Set(batches.flat()).size).toBe(STATIONS.length);
-    expect(most).toBe(2);
+    expect(most).toBe(1);
+    expect(timeouts.mock.calls.map(([ms]) => ms)).toEqual([25_000, 25_000, 25_000, 25_000]);
     expect(Object.keys(r.value.value).length).toBeGreaterThan(20);
+  });
+
+  it("says in the Worker's logs how long each batch took, and which did not answer", async () => {
+    silent = [other];
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await inEvent(there(new MemoryStore(), NOW), NOW);
+    const line = log.mock.calls.map(([l]) => String(l)).find((l) => l.startsWith("source vigicrues, hauteur"));
+    expect(line).toMatch(/^source vigicrues, hauteur : 4 lots, un à la fois : \d+,\d s, \d+,\d s, \d+,\d s, sans réponse après \d+,\d s$/);
+  });
+
+  it("in the scheduled event, asks the site one thing at a time: the vigilance, the heights, then the flows", async () => {
+    const r = await counted(SCHEDULED_BUDGET, async () => {
+      scheduled();
+      return buildCrues(there(new MemoryStore(), NOW), NOW);
+    });
+    expect(asks).toEqual(["vigilance", ...Array(4).fill("hauteur"), ...Array(4).fill("debit")]);
+    expect(most).toBe(1);
+    expect(r.value.stations.length).toBeGreaterThan(20);
+  });
+
+  it("for a question, asks for the vigilance, the heights and the flows together, two batches of each at once at most", async () => {
+    await buildCrues(there(new MemoryStore(), NOW), NOW);
+    expect(asks.filter((a) => a !== "vigilance").length).toBe(8);
+    expect(most).toBe(5);
   });
 
   it("serves a question, in another data center, the copy the scheduled event kept in KV, with its time, without asking", async () => {
@@ -178,9 +211,12 @@ describe("the 29 gauges, read by the scheduled event in batches", () => {
     expect(r).toMatchObject({ fetchedAt: at, stale: false });
   });
 
-  it("asks Vigicrues for a question only when no copy is kept anywhere", async () => {
+  it("asks Vigicrues for a question only when no copy is kept anywhere, as before: two batches at once, 13 s each", async () => {
+    const timeouts = vi.spyOn(AbortSignal, "timeout");
     const r = await readings(there(new MemoryStore(), NOW), "hauteur", undefined, NOW);
     expect(batches.length).toBe(4);
+    expect(most).toBe(2);
+    expect(timeouts.mock.calls.map(([ms]) => ms)).toEqual([13_000, 13_000, 13_000, 10_000]);
     expect(r.fetchedAt).toEqual(NOW);
   });
 

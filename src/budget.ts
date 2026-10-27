@@ -53,6 +53,8 @@ interface Tally {
   keep?: (work: Promise<unknown>) => void;
   /** The reads of each source (http.ts), by its id: logged with the subrequests (worker.ts), to see how often each is asked. */
   reads: Map<string, number>;
+  /** Subrequests set aside for work running beside the rest (`reserve`): left out of what `left` says is left. */
+  reserved: number;
 }
 
 /** A part of the invocation whose subrequests are measured (a page's build), within the ones it is part of. */
@@ -87,7 +89,7 @@ export async function counted<T>(
   fn: () => Promise<T>,
   keep?: (work: Promise<unknown>) => void,
 ): Promise<{ value: T; used: number; reads: Map<string, number>; settled: () => Promise<{ used: number; refused: number; reads: Map<string, number> }> }> {
-  const tally: Tally = { used: 0, refused: 0, limit, shared: new Map<string, unknown>(), later: [], keep, reads: new Map() };
+  const tally: Tally = { used: 0, refused: 0, limit, shared: new Map<string, unknown>(), later: [], keep, reads: new Map(), reserved: 0 };
   const value = await current.run(tally, fn);
   const settled = async () => {
     // Work done later may hand over more work.
@@ -184,7 +186,22 @@ export function spent(): number {
 /** Subrequests the invocation may still make, besides the writes to the cache. */
 export function left(): number {
   const t = current.getStore();
-  return t ? t.limit - kept(t) - t.used : Infinity;
+  return t ? t.limit - kept(t) - t.used - t.reserved : Infinity;
+}
+
+/**
+ * Sets `n` subrequests aside for work that runs beside the rest of the invocation (a copy built alongside,
+ * partagees.ts): what the rest sizes itself on (`left`) leaves them out until `release` is called, once it is done.
+ */
+export function reserve(n: number): () => void {
+  const t = current.getStore();
+  if (!t) return () => {};
+  t.reserved += n;
+  let released = false;
+  return () => {
+    if (!released) t.reserved -= n;
+    released = true;
+  };
 }
 
 const SCHEDULED = "budget:planifie";
