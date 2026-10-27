@@ -17,8 +17,8 @@ describe("the pages' security headers", () => {
     expect(h["permissions-policy"]).toBe("camera=(), microphone=(), payment=(), usb=(), geolocation=(self)");
     for (const s of [`const a="é";`, "b()", "c()"]) expect(h["content-security-policy"]).toContain(`'sha256-${sha(s)}'`);
     expect(politique([])).toMatch(/frame-src https:\/\/challenges\.cloudflare\.com https:\/\/embed\.waze\.com; .*form-action 'self'; frame-ancestors 'none'; report-uri \/csp-rapport$/);
-    // Cloudflare's Web Analytics beacon is not the site's: blocked, like what extensions add.
-    expect(politique([])).not.toContain("cloudflareinsights");
+    // Cloudflare's Web Analytics beacon, part of the site's figures: allowed; it sends them to /cdn-cgi/rum, on this site.
+    expect(politique([])).toMatch(/^default-src 'self'; script-src 'self' https:\/\/challenges\.cloudflare\.com https:\/\/static\.cloudflareinsights\.com; .*connect-src 'self';/);
   });
 
   it("are on a page of the site, every inline script of it allowed by its hash, and on the error page", async () => {
