@@ -1,16 +1,16 @@
 /**
  * The tropical systems of the south-west Indian Ocean, from GDACS (Global Disaster Alert and Coordination System, the
  * European Commission and the United Nations), which republishes every 6 hours the advisories of the RSMC of
- * La Réunion (Météo-France), the centre in charge of the basin: position, wind, pressure, stage, and its forecast.
+ * La Réunion (Météo-France), the centre in charge of the basin.
  *
- * - The event list gives every system with its last position and its strongest wind; 100 events a page, newest
- *   first, all basins together: a second page reaches back to the previous season.
- * - The timeline of an episode (one per advisory) gives the track so far and the RSMC's forecast; its address is in
- *   the episode's details. Only the systems still active are read that far.
+ * - The event list gives every system with its dates and its last position (used only to keep the basin's); 100
+ *   events a page, newest first, all basins together: a second page reaches back to the previous season.
+ * - The timeline of an episode (one per advisory) gives each advisory's stage, in the RSMC's words; its address is in
+ *   the episode's details. Only the systems still active are read that far, for the stage of their last advisory.
  *
- * GDACS gives winds as 1-minute means: the RSMC's own figures are 10-minute means, smaller by a factor of 1.14
- * (FYTIA, 31 January 2026: 179 km/h at GDACS, 85 kt at the RSMC). They are divided back here, so that the stages
- * and the figures match Météo-France's bulletins.
+ * Only the names, the dates and the stages are kept: no track, no position, no wind and no forecast of ours. The
+ * official ones are on Météo-France's site (providers/vigilance.ts, OFFICIEL_CYCLONE). GDACS's winds are 1-minute
+ * means, not the RSMC's figures.
  */
 import type { Cache, Cached } from "../cache.js";
 import { getJson } from "../http.js";
@@ -18,7 +18,7 @@ import { why, type SourceInfo } from "../types.js";
 
 export const SOURCE: SourceInfo = {
   id: "gdacs_cyclones",
-  nom: "Systèmes tropicaux du sud-ouest de l'océan Indien : trajectoires et prévisions du CMRS de La Réunion (via GDACS)",
+  nom: "Systèmes tropicaux du sud-ouest de l'océan Indien : noms, dates et stades du CMRS de La Réunion (via GDACS)",
   organisme: "CMRS de La Réunion (Météo-France), republié par GDACS (Commission européenne, Nations unies)",
   licence: "Réutilisation libre en citant la source (conditions d'utilisation de GDACS)",
   attribution: "Global Disaster Alert and Coordination System, GDACS\u00a0; CMRS de La Réunion (Météo-France)",
@@ -32,8 +32,6 @@ const TIMELINE_FRESH_SECONDS = 24 * 3600;
 /** A system whose last advisory is older than this is over (one advisory every 6 hours while active). */
 export const ACTIVE_HOURS = 18;
 const MAX_DETAILED = 4;
-/** GDACS's 1-minute winds back to the RSMC's 10-minute ones. */
-const ONE_TO_TEN_MINUTES = 1.14;
 
 /** The basin of the RSMC of La Réunion: equator to 40° S (a little further for the systems that leave it), African coast to 90° E. */
 export function inBasin(lon: number, lat: number): boolean {
@@ -64,21 +62,6 @@ export function stage(english: string): string {
   return STAGES[english.trim()] ?? english.trim();
 }
 
-/** The stage the RSMC gives to a 10-minute wind (km/h), for the systems whose track is not read. */
-export function stageOfWind(kmh: number): string {
-  // The RSMC gives its winds in steps of 5 knots.
-  const kt = Math.round(kmh / 1.852 / 5) * 5;
-  if (kt < 28) return "perturbation tropicale";
-  if (kt < 34) return "dépression tropicale";
-  if (kt < 48) return "tempête tropicale modérée";
-  if (kt < 64) return "forte tempête tropicale";
-  if (kt < 90) return "cyclone tropical";
-  if (kt <= 115) return "cyclone tropical intense";
-  return "cyclone tropical très intense";
-}
-
-export const tenMinutes = (oneMinuteKmh: number) => Math.round(oneMinuteKmh / ONE_TO_TEN_MINUTES);
-
 /** « FYTIA-26 » → « Fytia » ; an unnamed one, « 12-20252026-26 » → « système n° 12 (non baptisé) ». */
 export function systemName(eventname: string): string {
   const unnamed = /^(\d+)-\d{8}-\d+$/.exec(eventname);
@@ -95,11 +78,9 @@ export interface Systeme {
   debut: string;
   /** The last advisory, ISO, UTC. */
   fin: string;
-  /** Last known position. */
+  /** Last known position, only to keep the basin's systems: never shown. */
   lon: number;
   lat: number;
-  /** Strongest 10-minute wind of its life, km/h. */
-  vent_max_kmh: number;
   /** Who issued the advisories: RSMC (La Réunion) or JTWC (for a system come from another basin). */
   centre: string;
   alerte_gdacs: string;
@@ -116,7 +97,6 @@ interface RawEvent {
     todate: string;
     alertlevel: string;
     source: string;
-    severitydata?: { severity?: number };
     url?: { report?: string };
   };
 }
@@ -136,7 +116,6 @@ export function parseList(raw: { features?: RawEvent[] }): Systeme[] {
         fin: new Date(utc(p.todate)).toISOString(),
         lon: f.geometry.coordinates[0],
         lat: f.geometry.coordinates[1],
-        vent_max_kmh: tenMinutes(p.severitydata?.severity ?? 0),
         centre: p.source === "RSMC" ? "CMRS de La Réunion" : p.source === "JTWC" ? "JTWC (centre américain, système venu d'un autre bassin)" : p.source,
         alerte_gdacs: p.alertlevel,
         rapport: p.url?.report ?? `https://www.gdacs.org/report.aspx?eventid=${p.eventid}&episodeid=${p.episodeid}&eventtype=TC`,
@@ -144,33 +123,16 @@ export function parseList(raw: { features?: RawEvent[] }): Systeme[] {
     });
 }
 
-/** One position of a track, observed or forecast. */
-export interface Point {
+/** One advisory of a system: its time and its stage, in the RSMC's words. */
+export interface Avis {
   /** ISO, UTC. */
   heure: string;
-  lon: number;
-  lat: number;
   stade: string;
-  /** 10-minute mean, km/h. */
-  vent_kmh: number;
-  rafales_kmh?: number;
-  pression_hpa?: number;
-}
-
-export interface Trajectoire {
-  observee: Point[];
-  /** The RSMC's forecast from the last advisory. */
-  prevue: Point[];
 }
 
 interface RawItem {
   actual: string;
   advisory_datetime?: string;
-  latitude: string;
-  longitude: string;
-  wind_speed: string;
-  wind_gusts?: string;
-  pressure?: string;
   storm_status?: string[] | string;
 }
 
@@ -182,29 +144,16 @@ export function advisoryTime(s: string): string | undefined {
   return m && MONTHS[m[2]] ? `${m[3]}-${MONTHS[m[2]]}-${m[1]}T${m[4]}:00.000Z` : undefined;
 }
 
-export function parseTimeline(raw: { channel?: { item?: RawItem[] } }): Trajectoire {
-  const observee: Point[] = [];
-  const prevue: Point[] = [];
+/** The last advisory issued (not a forecast), with its stage; undefined when the timeline has none. */
+export function parseTimeline(raw: { channel?: { item?: RawItem[] } }): Avis | undefined {
+  let last: Avis | undefined;
   for (const it of raw.channel?.item ?? []) {
     const heure = it.advisory_datetime ? advisoryTime(it.advisory_datetime) : undefined;
-    const lon = Number(it.longitude), lat = Number(it.latitude);
-    if (!heure || !Number.isFinite(lon) || !Number.isFinite(lat)) continue;
     const status = Array.isArray(it.storm_status) ? it.storm_status[0] : it.storm_status;
-    const gusts = Number(it.wind_gusts), hpa = Number(it.pressure);
-    const p: Point = {
-      heure,
-      lon,
-      lat,
-      stade: stage(status ?? ""),
-      vent_kmh: tenMinutes(Number(it.wind_speed) * 3.6),
-      rafales_kmh: gusts > 0 ? Math.round(gusts * 3.6) : undefined,
-      pression_hpa: hpa > 0 ? hpa : undefined,
-    };
-    (it.actual === "True" ? observee : prevue).push(p);
+    if (it.actual !== "True" || !heure || !status?.trim()) continue;
+    if (!last || heure > last.heure) last = { heure, stade: stage(status) };
   }
-  observee.sort((a, b) => a.heure.localeCompare(b.heure));
-  prevue.sort((a, b) => a.heure.localeCompare(b.heure));
-  return { observee, prevue: prevue.filter((p) => !observee.length || p.heure > observee[observee.length - 1].heure) };
+  return last;
 }
 
 /** July to June: the 2026-2027 season starts on 1 July 2026. */
@@ -240,28 +189,28 @@ export function isActive(s: Systeme, now: Date): boolean {
   return now.getTime() - new Date(s.fin).getTime() < ACTIVE_HOURS * 3600_000 && s.debut <= now.toISOString();
 }
 
-/** The track and the forecast of a system, as of its last advisory. */
-export async function trajectoire(cache: Cache, s: Systeme): Promise<Cached<Trajectoire>> {
-  return cache.get(`cyclones:trajectoire:${s.id}:${s.episode}`, TIMELINE_FRESH_SECONDS, async () => {
+/** A system's last advisory, with its stage. */
+export async function dernierAvis(cache: Cache, s: Systeme): Promise<Cached<Avis | undefined>> {
+  return cache.get(`cyclones:avis:${s.id}:${s.episode}`, TIMELINE_FRESH_SECONDS, async () => {
     const ep = await getJson<{ properties?: { impacts?: { resource?: { timeline?: string } }[] } }>(
       SOURCE.id,
       `${API}/events/getepisodedata?eventtype=TC&eventid=${s.id}&episodeid=${s.episode}`,
       20_000,
     );
     const timeline = ep.properties?.impacts?.find((i) => i.resource?.timeline)?.resource?.timeline;
-    if (!timeline?.startsWith(`${API}/export/gettimeline`)) throw new Error(`gdacs : pas de trajectoire pour ${s.nom}`);
+    if (!timeline?.startsWith(`${API}/export/gettimeline`)) throw new Error(`gdacs : pas d'avis pour ${s.nom}`);
     return parseTimeline(await getJson(SOURCE.id, timeline, 20_000));
   });
 }
 
-/** The active systems with their tracks (at most a few: each costs two requests). A track that fails is left out. */
-export async function actifs(cache: Cache, list: Systeme[], now: Date): Promise<{ systeme: Systeme; trajectoire?: Trajectoire }[]> {
+/** The active systems with their last advisory (at most a few: each costs two requests). One that fails has none. */
+export async function actifs(cache: Cache, list: Systeme[], now: Date): Promise<{ systeme: Systeme; avis?: Avis }[]> {
   const active = list.filter((s) => isActive(s, now)).slice(0, MAX_DETAILED);
   return Promise.all(active.map(async (systeme) => {
     try {
-      return { systeme, trajectoire: (await trajectoire(cache, systeme)).value };
+      return { systeme, avis: (await dernierAvis(cache, systeme)).value };
     } catch (err) {
-      console.error(`source ${SOURCE.id} : trajectoire de ${systeme.nom} indisponible:`, why(err));
+      console.error(`source ${SOURCE.id} : dernier avis de ${systeme.nom} indisponible:`, why(err));
       return { systeme };
     }
   }));

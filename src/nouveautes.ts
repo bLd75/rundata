@@ -28,7 +28,7 @@ export const OUTILS: Outil[] = [
   { nom: "actualites", ligne: "blocages, routes, faits divers, en direct", depuis: "2026-10-24T12:32:00+04:00" },
   { nom: "evenements", ligne: "concerts, spectacles, fêtes, marchés", depuis: "2026-10-24T11:13:00+04:00" },
   { nom: "historique_meteo", ligne: "météo mesurée passée, records", depuis: "2026-10-24T10:58:00+04:00" },
-  { nom: "cyclones", ligne: "cyclones actifs, prévision du CMRS", depuis: "2026-10-24T10:45:00+04:00" },
+  { nom: "cyclones", ligne: "cyclones actifs, stade du CMRS", depuis: "2026-10-24T10:45:00+04:00" },
   { nom: "sport", ligne: "matchs, résultats, programmes des communes, Grand Raid", depuis: "2026-10-24T10:43:00+04:00" },
   { nom: "defibrillateurs", ligne: "défibrillateur le plus proche", depuis: "2026-10-24T10:22:00+04:00" },
   { nom: "coupures_eau", ligne: "coupures d'eau, eau non potable", depuis: "2026-10-24T10:20:00+04:00" },

@@ -183,7 +183,7 @@ describe("Cache", () => {
     const c = clock();
     const cache = new Cache(undefined, c.now);
     const slow = (v: string) => () => new Promise<string>((resolve) => setTimeout(() => resolve(v), 60));
-    for (const key of ["vigilance", "cyclones:liste", "cyclones:trajectoire:1:2"]) {
+    for (const key of ["vigilance", "cyclones:liste", "cyclones:avis:1:2"]) {
       await cache.get(key, 60, async () => "vieux");
       c.advance(120);
       const { value, lectures } = await withLectures(() => cache.get(key, 60, slow("neuf")), 10);

@@ -94,7 +94,7 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.59";
+export const VERSION = "0.203.60";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -725,13 +725,12 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
     {
       title: "Cyclones dans le sud-ouest de l'océan Indien",
       description:
-        "Systèmes tropicaux actifs autour de La Réunion (974), d'après les bulletins du CMRS de La Réunion (Météo-France) republiés par GDACS : " +
-        "stade (dépression, tempête tropicale modérée ou forte, cyclone tropical, intense), vent moyen, pression, position, distance et direction " +
-        "depuis La Réunion ou un lieu, déplacement, prévision officielle et passage au plus près\u00a0; alerte cyclonique de la préfecture, et ce qu'elle veut dire pour les crèches, écoles, collèges, lycées et universités selon le dispositif ORSEC Cyclones (jamais une école en particulier). " +
-        "Hors saison : le dit, avec le dernier système et ceux de la saison. Citer la prévision du CMRS telle quelle, jamais de trajectoire inventée\u00a0; renvoyer aux consignes de la préfecture. " +
-        "Pour : « il y a un cyclone en ce moment ? », « elle va passer près de Saint-Philippe ? », « combien de pluie pendant Garance ? » (nom).",
+        "Systèmes tropicaux actifs autour de La Réunion (974), d'après les avis du CMRS de La Réunion (Météo-France) republiés par GDACS : " +
+        "nom et stade (dépression, tempête tropicale modérée ou forte, cyclone tropical, intense), avec l'heure du dernier avis\u00a0; alerte cyclonique de la préfecture, et ce qu'elle veut dire pour les crèches, écoles, collèges, lycées et universités selon le dispositif ORSEC Cyclones (jamais une école en particulier). " +
+        "Hors saison : le dit, avec le dernier système et ceux de la saison. Ni trajectoire, ni position, ni distance, ni prévision : jamais de trajectoire inventée, donner le lien du champ officiel (site officiel de Météo-France)\u00a0; renvoyer aux consignes de la préfecture. " +
+        "Pour : « il y a un cyclone en ce moment ? », « combien de pluie pendant Garance ? » (nom).",
+      // No `lieu` any more (no distance computed): a client that still sends one gets the same answer.
       inputSchema: {
-        lieu,
         nom: z
           .string()
           .optional()

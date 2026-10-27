@@ -55,7 +55,7 @@ RUBRIQUES = [
     ("communes", "Communes 974", "Votre commune en direct", ["/communes"]),
     ("defibrillateurs", "Défibrillateurs 974", "Le plus proche de vous|et ses horaires", ["/defibrillateurs"]),
     ("calendrier", "Calendrier 974", "Vacances scolaires|et jours fériés", ["/calendrier"]),
-    ("cyclones", "Cyclones 974", "Trajectoire et alerte|en direct", ["/cyclones"]),
+    ("cyclones", "Cyclones 974", "Systèmes actifs et alerte|en direct", ["/cyclones"]),
     ("crues", "Crues 974", "Rivières et vigilance crues", ["/crues"]),
     ("sport", "Sport 974", "Matchs, résultats,|Grand Raid", ["/sport"]),
     ("carburants", "Carburants 974", "Les prix maximum du mois", ["/carburants"]),

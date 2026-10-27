@@ -61,7 +61,6 @@ import { type NonOfficiel, volcanSeismes } from "../tools/volcan.js";
 import type { Acces } from "../tools/volcan-acces.js";
 import * as sportSource from "../providers/sport.js";
 import { grandRaidRow, mentionProgrammes, sportTool, type SportRow } from "../tools/sport.js";
-import * as gdacs from "../providers/cyclones.js";
 import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
 import { historiqueMeteo } from "../tools/historique.js";
 import { agenda, type EventRow, mentionIle as agendaNonRepris } from "../tools/agenda.js";
@@ -986,19 +985,18 @@ export interface CyclonesAnswer {
   alerte_cyclonique?: string;
   vie_quotidienne?: string;
   ecoles?: ReturnType<typeof ecolesBlock>;
-  systemes_actifs?: Omit<ReturnType<typeof activeRow>, "trajectoire">[];
+  systemes_actifs?: ReturnType<typeof activeRow>[];
   saison_en_cours: { nom: string; systemes: ReturnType<typeof seasonRow>[] };
   saison_precedente?: { nom: string; systemes: ReturnType<typeof seasonRow>[] };
   a_savoir: string;
   phases_alerte: string;
   saison: string;
+  /** « Consulter le site officiel de Météo-France : https://meteofrance.re/fr/cyclone ». */
+  officiel: string;
   consulter: Record<string, string>;
   sources: Credit[];
-  /** The tracks to draw: the active systems', or the last system's when none is active. */
-  traces: { nom: string; observee: [number, number][]; prevue: [number, number][]; etiquette: string; actif: boolean }[];
 }
 
-/** The tool's answer for the island, with the tracks it leaves out of its text. */
 /** The last 30 days at six stations, one per climate of the island, against their normal. */
 export interface HistoriqueAnswer {
   resume: string;
@@ -1041,23 +1039,9 @@ export async function buildHistorique(cache: Cache, now = new Date()): Promise<H
   return d;
 }
 
+/** The tool's answer for the island. */
 export async function buildCyclones(cache: Cache, now = new Date()): Promise<CyclonesAnswer> {
-  const a = needed<Omit<CyclonesAnswer, "traces">>(await cyclones(cache, undefined, now), "cyclones");
-  const list = (await gdacs.systemes(cache, now)).value.filter((s) => s.debut <= now.toISOString());
-  const active = await gdacs.actifs(cache, list, now);
-  const pair = (p: gdacs.Point): [number, number] => [p.lon, p.lat];
-  let traces: CyclonesAnswer["traces"] = active
-    .filter((x) => x.trajectoire?.observee.length)
-    .map(({ systeme, trajectoire: t }) => ({ nom: systeme.nom, observee: t!.observee.map(pair), prevue: t!.prevue.map(pair), etiquette: t!.observee.at(-1)!.stade, actif: true }));
-  const last = list[0];
-  if (!active.length && last) {
-    const t = await gdacs.trajectoire(cache, last).catch(() => undefined);
-    if (t?.value.observee.length) {
-      const d = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
-      traces = [{ nom: last.nom, observee: t.value.observee.map(pair), prevue: [], etiquette: `${d(last.debut)} – ${d(last.fin)}`, actif: false }];
-    }
-  }
-  return { ...a, traces };
+  return needed<CyclonesAnswer>(await cyclones(cache, undefined, now), "cyclones");
 }
 
 export interface AgendaAnswer {
