@@ -5,7 +5,7 @@ import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.j
 import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
 import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
-import { agenda, COUVERTURE, gather, MAIRIES_LUES, periode, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
+import { agenda, COUVERTURE, type EventRow, gather, MAIRIES_LUES, periode, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
 import { FICHE_REUNION_FR, mentionReunionFr, noteReunionFr, RESUME_REUNION_FR } from "../src/tools/non-repris.js";
 import { buildAgenda } from "../src/web/data.js";
 import { agendaHours, agendaPage } from "../src/web/domains.js";
@@ -33,7 +33,7 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("citedesarts")) return url.includes("debut_programmation") ? "citedesarts_2.html" : "citedesarts_1.html";
   if (url.includes("kabardock")) return "kabardock.html";
   if (url.includes("bisik")) return "bisik.html";
-  if (url.includes("theatrelucdonat")) return "luc-donat.html";
+  if (url.includes("theatrelucdonat")) return url.endsWith("/prog") ? "luc-donat-saison.html" : "luc-donat.html";
   if (url.includes("cdnoi")) return "cdnoi.html";
   if (url.includes("lespas")) return "lespas.html";
   if (url.includes("lesechoir")) return "sechoir.json";
@@ -739,6 +739,18 @@ describe("agenda", () => {
     expect(periode("n'importe quand", NOW)).toMatchObject({ du: "2026-10-24", au: "2026-11-07", incompris: true });
   });
 
+  it("tells each date of the Théâtre Luc Donat as its agreement asks: its facts, its genre, its link, « Source : » and the hour read", async () => {
+    const b = body(await agenda(cache(), "Le Tampon", undefined, undefined, NOW, 300));
+    const donat = b.evenements.filter((e: EventRow) => e.publie_par === "Théâtre Luc Donat");
+    expect(donat.length).toBeGreaterThan(0);
+    for (const e of donat) {
+      expect(e.source).toMatch(/^Théâtre Luc Donat \(site lu le \p{L}+ \d\d\/\d\d à \d\d:\d\d\)$/u);
+      expect(e.lien).toMatch(/^https:\/\/www\.theatrelucdonat\.re\/prog\//);
+      expect([e.description, e.billetterie, e.image]).toEqual([undefined, undefined, undefined]);
+    }
+    expect(donat.find((e: EventRow) => e.titre === "Le journal des voleurs")).toMatchObject({ categories: ["Danse"], genres: ["danse"], lieu: "Théâtre Luc Donat" });
+  });
+
   it("gives the island's next two weeks, the same event once, from every agenda", async () => {
     const c = cache();
     const b = body(await agenda(c, undefined, undefined, undefined, NOW));
@@ -758,8 +770,9 @@ describe("agenda", () => {
     // Last year's posts of Saint-Louis are past; nothing of theirs.
     expect(b.evenements.some((e: { publie_par: string }) => e.publie_par === "Ville de Saint-Louis")).toBe(false);
     expect(asked.every((ua) => ua === "rundata.re (contact@rundata.re)")).toBe(true);
-    // Twenty-six agendas (two pages for Bras-Panon), and the pages of the four shows on both TÉAT stages.
-    expect(asked).toHaveLength(30);
+    // Twenty-six agendas (two pages for Bras-Panon and for the Théâtre Luc Donat), and the pages of the four shows on both
+    // TÉAT stages.
+    expect(asked).toHaveLength(31);
   });
 
   it("says which commune's site each event of a mairie comes from and when it was read, keeping what each site's terms allow", async () => {

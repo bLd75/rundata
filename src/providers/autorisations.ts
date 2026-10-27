@@ -64,7 +64,9 @@ export const AUTORISATIONS: Record<string, Autorisation> = {
  * model, the Cité des Arts, the Kabardock, Léspas), Bisik's (its texts « ne sauraient être reproduits librement sans
  * l'autorisation de leur auteur »), ffgolf's terms (IV), FFVoile's legal notice, Sportsregions' terms (7.2). Le
  * Séchoir's site has no legal notice: it is read. Until one agrees, nothing is read of it, and what was kept of it is
- * no longer served: the answers say so instead (tools/non-repris.ts).
+ * no longer served: the answers say so instead (tools/non-repris.ts). Once one has agreed in writing (« accordee »), it is
+ * read again, as the request promised: each event's facts and the link to its page, said with « Source : » its name and
+ * the hour it was read (providers/agenda.ts, `credit`), no text nor picture.
  */
 export interface SourceNonReprise {
   /** As said: « Cité des Arts », « ffgolf ». */
@@ -93,6 +95,8 @@ export interface SourceNonReprise {
   /** The day the letter went, as given by who sent it: never guessed. */
   demandee_le?: string;
   refusee_le?: string;
+  /** The day of its written yes, as given by who received it. */
+  accordee_le?: string;
 }
 
 /** By source: `agenda:<id>` for a hall's programme or the clubs' calendar (providers/agenda.ts, LISIBLES), `sport:<id>`. */
@@ -101,7 +105,7 @@ export const NON_REPRISES: Record<string, SourceNonReprise> = {
   "agenda:cite_des_arts": { nom: "Cité des Arts", cite: "la Cité des Arts", du_site: "du site de la Cité des Arts", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Saint-Denis"], lues_le: "2026-10-26", conditions: "https://www.citedesarts.re/Mentions-legales", etat: "demandee", demandee_le: "2026-10-26" },
   "agenda:kabardock": { nom: "Kabardock", cite: "le Kabardock", du_site: "du site du Kabardock", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Le Port"], lues_le: "2026-10-26", conditions: "https://kabardock.com/mentions-legales/", etat: "demandee", demandee_le: "2026-10-26" },
   "agenda:bisik": { nom: "Bisik", cite: "Bisik", interdit: "d'en reproduire les textes sans l'accord de leurs auteurs", du_site: "du site de Bisik", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Saint-Benoît"], lues_le: "2026-10-26", conditions: "https://bisik.re/mentions-legales/", etat: "a_demander" },
-  "agenda:luc_donat": { nom: "Théâtre Luc Donat", cite: "le Théâtre Luc Donat", du_site: "du site du Théâtre Luc Donat", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Le Tampon"], lues_le: "2026-10-26", conditions: "https://www.theatrelucdonat.re/articles/mentions-legales,6.html", etat: "demandee", demandee_le: "2026-10-26" },
+  "agenda:luc_donat": { nom: "Théâtre Luc Donat", cite: "le Théâtre Luc Donat", du_site: "du site du Théâtre Luc Donat", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Le Tampon"], lues_le: "2026-10-26", conditions: "https://www.theatrelucdonat.re/articles/mentions-legales,6.html", etat: "accordee", demandee_le: "2026-10-26", accordee_le: "2026-10-27" },
   "agenda:cdnoi": { nom: "CDNOI", cite: "le CDNOI", du_site: "du site du CDNOI", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Saint-Denis"], lues_le: "2026-10-26", conditions: "https://www.cdnoi.re/articles/mentions-legales,7.htm", etat: "demandee", demandee_le: "2026-10-26" },
   "agenda:lespas": { nom: "Léspas", cite: "Léspas", du_site: "du site de Léspas", textes: "mentions légales", famille: "salle", publie: "son programme", communes: ["Saint-Paul"], lues_le: "2026-10-26", conditions: "https://lespas.re/mentions-legales/", etat: "a_demander" },
   "sport:ffgolf": { nom: "ffgolf", cite: "la ffgolf", du_site: "du site de la ffgolf", textes: "conditions d'utilisation", famille: "sport", publie: "les compétitions des golfs de La Réunion", sport: "golf", lues_le: "2026-10-26", conditions: "https://www.ffgolf.org/conditions-generales-d-utilisation", etat: "demandee", demandee_le: "2026-10-26" },
