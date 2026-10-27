@@ -81,7 +81,7 @@ describe("/ouvrir-ses-donnees, the guide to making one's information reusable", 
   });
 
   it("is linked from the footer, /a-propos, /valeurs, /sites-sans-reponse and the sitemap", async () => {
-    expect(await text("/")).toContain('<a href="/valeurs">nos valeurs</a> · <a href="/ouvrir-ses-donnees">ouvrir ses données</a> · ');
+    expect(await text("/")).toContain(`<a href="/valeurs">nos valeurs</a> · <a href="/application">sur votre écran d'accueil</a> · <a href="/ouvrir-ses-donnees">ouvrir ses données</a> · `);
     expect(await text("/a-propos")).toContain('<a href="/valeurs">nos valeurs</a>, <a href="/ouvrir-ses-donnees">rendre ses données accessibles</a>, ');
     expect((await text("/valeurs")).split("<footer")[0].match(/href="\/ouvrir-ses-donnees"/g)).toHaveLength(2);
     expect(await text("/sites-sans-reponse")).toContain('Et pour rendre ses informations faciles à reprendre\u00a0: <a href="/ouvrir-ses-donnees">notre guide</a>.</p>');

@@ -109,6 +109,7 @@ import { SECTEURS, secteurOf } from "../traces/secteurs.js";
 import { secteurPage } from "./randonnees.js";
 import { aProposPage, llmsTxt } from "./a-propos.js";
 import { PATH as VALEURS, valeursPage } from "./valeurs.js";
+import { applicationPage, PATH as APPLICATION } from "./application.js";
 import { ouvrirDonneesPage, PATH as GUIDE } from "./ouvrir-donnees.js";
 import { PATH as SANS_REPONSE, sansReponsePage } from "./sans-reponse.js";
 import { chiffres, type Copie, KEY as CHIFFRES_KEY, PATH as CHIFFRES } from "../chiffres.js";
@@ -306,7 +307,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
     // The busiest stops only (scripts/build-transit.py): the others' pages are not indexed.
     ...[...transit.stopPages().values()].filter((p) => p.indexe).map((p) => live(`${STOP_PATH}/${p.slug}`)),
     ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
-    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", VALEURS, GUIDE, "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
+    ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", VALEURS, APPLICATION, GUIDE, "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
     ...(formulaires.enLigne() ? [live(ASSOCIATIONS_PATH), fixed(formulaires.PROPOSER_PATH)] : []),
     ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], [SANS_REPONSE, undefined, "daily"], live(CHIFFRES), ["/carburants", fuelDay ? (fuelDay < today ? fuelDay : today) : undefined, "daily"],
     // The fires' page only once FIRMS's key is there: before, it says the detection is not active.
@@ -570,6 +571,10 @@ async function pages(request: Request, cache: Cache, background: Background, now
   // What rundata.re stands for: nothing read but the vigilance's banner, as /a-propos.
   if (path === VALEURS || path === `${VALEURS}/`) {
     return new Response(valeursPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+  }
+  // How to put the site on the home screen, browser by browser: the same.
+  if (path === APPLICATION || path === `${APPLICATION}/`) {
+    return new Response(applicationPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
   // The guide to publishing one's information openly: the same.
   if (path === GUIDE || path === `${GUIDE}/`) {

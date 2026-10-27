@@ -108,10 +108,124 @@ if(SHELL.includes(p))e.respondWith(caches.match(p,{cacheName:SHELL_CACHE}).then(
 }
 
 /**
+ * The browsers told apart, each with its own steps: Safari on an iPhone, on an iPad (which may say « Macintosh » but
+ * has a touch screen), Chrome and Firefox on either, the other browsers of an iPhone, an application's own browser
+ * (iPhone or Android), Firefox and the other browsers of Android without the prompt, Safari on a Mac.
+ */
+export const KINDS = ["ios", "ipad", "ios-chrome", "ios-firefox", "ios-autre", "app", "android-firefox", "android-autre", "mac-safari"] as const;
+export type Kind = (typeof KINDS)[number];
+
+/**
+ * `kindOf(userAgent, touchMac)`: the browser's kind; « telephone » for a phone whose browser offers Android's prompt
+ * (Chrome, Edge, Samsung Internet, Opera) or another phone; null for another computer, left to that prompt alone.
+ */
+export const KIND_OF = String.raw`const kindOf=(ua,touch)=>{const ipad=/iPad/.test(ua)||touch;
+if(/iPhone|iPod/.test(ua)||ipad)return /GSA\/|FBAN|FBAV|Instagram|LinkedInApp|Snapchat|Line\//.test(ua)?"app":/CriOS\//.test(ua)?"ios-chrome":/FxiOS\//.test(ua)?"ios-firefox":/EdgiOS\/|OPiOS|DuckDuckGo|Ddg\//.test(ua)?"ios-autre":ipad?"ipad":"ios";
+if(/Android/.test(ua))return /; wv\)|FBAN|FBAV|Instagram/.test(ua)?"app":/Firefox\//.test(ua)?"android-firefox":!/Chrome\//.test(ua)?"android-autre":"telephone";
+if(/Mobi/.test(ua))return "telephone";
+const v=/Version\/(\d+)[.\d]* Safari\//.exec(ua);
+return /Macintosh/.test(ua)&&v&&Number(v[1])>=17&&!/Chrome|Chromium|Edg|OPR/.test(ua)?"mac-safari":null};`;
+
+/** One browser's steps (marketing's words, the menus' names as checked on each browser), in the block and on /application. */
+export interface Section {
+  /** Its anchor on /application. */
+  id: string;
+  /** Its heading on /application. */
+  nom: string;
+  /** The kind whose block shows these steps; none for a browser with Android's prompt, whose block shows the button. */
+  kind?: Kind;
+  /** A browser with Android's prompt, on a phone or a computer: /application shows the « Installer » button. */
+  bouton?: "android" | "ordinateur";
+  /** Steps on /application only: a browser the block cannot be sure of (Safari on a Mac before Sonoma has no « Ajouter au Dock »). */
+  pageOnly?: boolean;
+  html?: string;
+  /** What /application adds under them. */
+  plus?: string;
+}
+
+/** The browsers in marketing's order (27/10); a menu is named only where the browser's own help names it, else the steps stay general. */
+export const SECTIONS: Section[] = [
+  {
+    id: "iphone-safari",
+    nom: "iPhone\u00a0: Safari",
+    kind: "ios",
+    html: `<ol><li>Touchez Partager <svg class="partage" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M8 10H6v11h12V10h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>. S'il n'est pas dans la barre, ouvrez d'abord le menu de la page (bouton «\u00a0⋯\u00a0»), puis touchez «\u00a0Partager\u00a0».</li><li>Faites défiler les options, puis touchez «\u00a0Sur l'écran d'accueil\u00a0».</li><li>Touchez «\u00a0Ajouter\u00a0».</li></ol>`,
+    plus: `<p>«\u00a0Sur l'écran d'accueil\u00a0» n'apparaît pas\u00a0? Tout en bas de la liste, touchez «\u00a0Modifier les actions\u00a0», puis «\u00a0Sur l'écran d'accueil\u00a0».</p>`,
+  },
+  {
+    id: "ipad-safari",
+    nom: "iPad\u00a0: Safari",
+    kind: "ipad",
+    html: `<ol><li>Touchez Partager <svg class="partage" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M8 10H6v11h12V10h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>.</li><li>Touchez «\u00a0En voir plus\u00a0» (ou le bouton Plus, selon la version).</li><li>Touchez «\u00a0Sur l'écran d'accueil\u00a0», puis «\u00a0Ajouter\u00a0».</li></ol>`,
+  },
+  {
+    id: "iphone-chrome",
+    nom: "iPhone et iPad\u00a0: Chrome",
+    kind: "ios-chrome",
+    html: `<ol><li>Touchez Partager <svg class="partage" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M8 10H6v11h12V10h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>, à droite de la barre d'adresse.</li><li>Touchez «\u00a0Sur l'écran d'accueil\u00a0».</li><li>Touchez «\u00a0Ajouter\u00a0».</li></ol>`,
+  },
+  {
+    id: "iphone-firefox",
+    nom: "iPhone et iPad\u00a0: Firefox",
+    kind: "ios-firefox",
+    html: `<ol><li>Ouvrez le menu de Firefox.</li><li>Touchez «\u00a0Enregistrer\u00a0», puis «\u00a0Ajouter à l'écran d'accueil\u00a0».</li><li>Confirmez.</li></ol>`,
+  },
+  {
+    id: "iphone-autre",
+    nom: "iPhone et iPad\u00a0: Edge ou un autre navigateur",
+    kind: "ios-autre",
+    html: `<p>Touchez Partager dans votre navigateur, puis cherchez «\u00a0Sur l'écran d'accueil\u00a0». Si l'option n'y est pas, ouvrez cette page dans Safari et suivez ses étapes.</p>`,
+  },
+  {
+    id: "application",
+    nom: "Dans Facebook, Instagram ou une autre application",
+    kind: "app",
+    html: `<p>Vous lisez cette page dans une application, comme Facebook ou Instagram. Ouvrez-la d'abord dans votre navigateur, depuis le menu de l'application, puis suivez les étapes de votre navigateur.</p>`,
+  },
+  {
+    id: "android",
+    nom: "Android\u00a0: Chrome, Edge ou Samsung Internet",
+    bouton: "android",
+    plus: `<p>Pas de bouton\u00a0? Dans Chrome, touchez ⋮, à droite de la barre d'adresse, puis «\u00a0Installer et créer un raccourci\u00a0», puis «\u00a0Installer\u00a0». Dans Samsung Internet, touchez l'icône + de la barre d'adresse.</p>`,
+  },
+  {
+    id: "android-firefox",
+    nom: "Android\u00a0: Firefox",
+    kind: "android-firefox",
+    html: `<ol><li>Touchez ⋮, puis «\u00a0Plus\u00a0».</li><li>Touchez «\u00a0Ajouter l'application à l'écran d'accueil\u00a0» (ou «\u00a0Ajouter à l'écran d'accueil\u00a0»).</li><li>Touchez «\u00a0Ajouter\u00a0».</li></ol>`,
+    plus: `<p>Selon la version de Firefox, l'option peut être ailleurs dans le menu.</p>`,
+  },
+  {
+    id: "android-autre",
+    nom: "Android\u00a0: un autre navigateur",
+    kind: "android-autre",
+    html: `<p>Ouvrez le menu de votre navigateur, puis choisissez l'option qui installe la page ou l'ajoute à l'écran d'accueil.</p>`,
+  },
+  {
+    id: "ordinateur",
+    nom: "Ordinateur\u00a0: Chrome ou Edge",
+    bouton: "ordinateur",
+    plus: `<p>Pas de bouton\u00a0? Dans Chrome, en haut à droite\u00a0: ⋮, puis «\u00a0Caster, enregistrer et partager\u00a0», puis «\u00a0Installer la page en tant qu'appli\u00a0». Dans Edge\u00a0: «\u00a0Paramètres et plus encore\u00a0», puis «\u00a0Autres outils\u00a0», «\u00a0Apps\u00a0» et «\u00a0Installez ce site en tant qu'application\u00a0».</p>`,
+  },
+  {
+    id: "mac-safari",
+    nom: "Mac\u00a0: Safari, macOS Sonoma 14 et après",
+    kind: "mac-safari",
+    pageOnly: true,
+    html: `<p>Cliquez sur Partager dans la barre d'outils, puis sur «\u00a0Ajouter au Dock\u00a0», puis sur «\u00a0Ajouter\u00a0».</p>`,
+  },
+];
+
+/** The kinds that have their steps in the block. */
+export const SHOWN = SECTIONS.flatMap((s) => (s.kind && s.html && !s.pageOnly ? [s.kind] : []));
+
+/**
  * The page's part: registers the worker, tells it the app's windows and a phone of the team (`?interne=1` marks it,
  * `?interne=0` unmarks it, with a line to say so), and offers to install the site.
  */
-export const PWA_SCRIPT = `const app=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+export const PWA_SCRIPT = `${KIND_OF}
+const SHOWN=${JSON.stringify(SHOWN)};
+const app=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
 const mark=new URLSearchParams(location.search).get("interne");let team=false;
 try{if(mark==="1")localStorage.setItem("rundata-interne","1");else if(mark==="0")localStorage.removeItem("rundata-interne");team=localStorage.getItem("rundata-interne")==="1"}catch{}
 if(mark==="1"||mark==="0"){const p=document.createElement("div");p.className="horsligne";p.setAttribute("role","status");
@@ -120,30 +234,37 @@ if("serviceWorker"in navigator){navigator.serviceWorker.register(${JSON.stringif
 if(app||team||mark==="0")navigator.serviceWorker.ready.then((r)=>{const w=navigator.serviceWorker.controller||r.active;if(app)w?.postMessage("app");if(team||mark==="0")w?.postMessage(team?"interne":"externe")}).catch(()=>{})}
 const inst=document.getElementById("inst");
 if(inst&&!app){let later=0;try{later=Number(localStorage.getItem("inst-plus-tard"))||0}catch{}
-if(Date.now()-later>30*864e5){let ask=null;const ua=navigator.userAgent;
+if(Date.now()-later>30*864e5){let ask=null;
 const show=(k)=>{inst.querySelectorAll("[data-inst]").forEach((e)=>{e.hidden=!e.dataset.inst.split(" ").includes(k)});inst.hidden=false};
-if(/iPhone|iPad|iPod/.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1))show(/CriOS|FxiOS|EdgiOS|OPiOS|GSA\\/|FBAN|FBAV|Instagram/.test(ua)?"safari":"ios");
-else addEventListener("beforeinstallprompt",(e)=>{e.preventDefault();ask=e;show("android")});
+const k=kindOf(navigator.userAgent,navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+if(SHOWN.includes(k))show(k);else if(k==="telephone")show("telephone");
+addEventListener("beforeinstallprompt",(e)=>{e.preventDefault();ask=e;if(!SHOWN.includes(k))show("bouton")});
 addEventListener("appinstalled",()=>{inst.hidden=true});
 document.getElementById("inst-go").addEventListener("click",async()=>{if(!ask)return;ask.prompt();await ask.userChoice.catch(()=>{});ask=null;inst.hidden=true});
 document.getElementById("inst-later").addEventListener("click",()=>{try{localStorage.setItem("inst-plus-tard",String(Date.now()))}catch{}inst.hidden=true})}}`;
 
-/** The install block, hidden until the page's script knows the phone (Android's prompt, or an iPhone). */
+/**
+ * The install block, hidden until the page's script knows the browser: its steps, Android's « Installer » button, or
+ * on another phone the link alone.
+ */
 export const INSTALL = `<div class="card inst" id="inst" hidden>
   <h3>rundata.re sur votre écran d'accueil</h3>
-  <p>Un geste pour la météo, la vigilance ou le volcan. Les pages déjà vues restent lisibles sans réseau, pratique en randonnée. <span data-inst="android">Pas de store, pas de compte.</span><span data-inst="ios safari">Pas d'App Store, pas de compte.</span></p>
-  <ol data-inst="ios"><li>Touchez Partager <svg class="partage" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M8 10H6v11h12V10h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> (sur les iPhone récents, il est dans le menu « ⋯ »).</li><li>Choisissez « Sur l'écran d'accueil » (faites défiler si besoin).</li><li>Touchez « Ajouter ».</li></ol>
-  <p data-inst="safari">Pour l'ajouter à l'écran d'accueil, ouvrez cette page dans Safari.</p>
-  <p class="instb"><button type="button" class="go" id="inst-go" data-inst="android">Installer</button><button type="button" class="later" id="inst-later">Plus tard</button></p>
+  <p>Un geste pour la météo, la vigilance ou le volcan. Les pages déjà vues restent lisibles sans réseau, pratique en randonnée. Pas de store, pas de compte.</p>
+  ${SECTIONS.filter((s) => s.kind && SHOWN.includes(s.kind)).map((s) => s.html!.replace(/^<(\w+)/, `<$1 data-inst="${s.kind}"`)).join("\n  ")}
+  <p><a href="/application">Autre téléphone ou autre navigateur\u00a0: les étapes pour chacun →</a></p>
+  <p class="instb"><button type="button" class="go" id="inst-go" data-inst="bouton">Installer</button><button type="button" class="later" id="inst-later">Plus tard</button></p>
 </div>`;
 
 export const PWA_CSS = `.inst{display:grid;gap:.6rem;max-width:44rem;margin-top:.8rem}.inst h3{font-size:1.05rem}.inst ol{padding-left:1.4rem;display:grid;gap:.2rem}
 .inst .partage{width:1.1em;height:1.1em;vertical-align:-.15em}
 .instb{display:flex;flex-wrap:wrap;gap:.4rem 1rem;align-items:center}.inst[hidden],.inst [hidden]{display:none}
-.inst .go,.again{font:700 1rem system-ui,sans-serif;background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:.6rem 1.2rem;cursor:pointer}
+.inst .go,.app-go,.again{font:700 1rem system-ui,sans-serif;background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:.6rem 1.2rem;cursor:pointer}
 .inst .later{font:inherit;background:none;border:0;color:var(--muted);text-decoration:underline;padding:.6rem .2rem;cursor:pointer}
 .horsligne{background:var(--hl);color:var(--ink);font-weight:700;padding:.65rem max(16px,env(safe-area-inset-left,0px));text-align:center}
-.gardees{display:grid;gap:.4rem;padding-left:1.2rem}`.replace(/\n/g, "");
+.gardees{display:grid;gap:.4rem;padding-left:1.2rem}
+.app-page{max-width:44rem;display:grid;gap:1rem}.app-navs{display:grid;gap:.8rem}.app-nav{display:grid;gap:.6rem}.app-nav summary{cursor:pointer}
+.app-nav summary h2{display:inline;font-size:1.1rem}.app-nav ol{padding-left:1.4rem;display:grid;gap:.2rem}.app-nav .partage{width:1.1em;height:1.1em;vertical-align:-.15em}
+.app-go[hidden],.app-page [hidden]{display:none}`.replace(/\n/g, "");
 
 /** The offline page's list: the pages kept on this phone, the newest first, read from Cache Storage. */
 export const OFFLINE_SCRIPT = `${WHEN}
