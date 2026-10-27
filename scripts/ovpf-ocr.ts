@@ -24,6 +24,7 @@ import "../src/bin/net.js";
 import { getBytes, getJson } from "../src/http.js";
 import { KEY, readPage, type Stocke, toRead, type FeedJson } from "../src/providers/ovpf-ocr.js";
 import { activityPosts, FEED } from "../src/providers/volcan.js";
+import { UpstreamError } from "../src/types.js";
 
 const run = promisify(execFile);
 const essai = process.argv.includes("--essai");
@@ -86,7 +87,13 @@ async function ocr(image: string): Promise<string> {
 }
 
 const e = etat();
-const feed = await getJson<FeedJson & Parameters<typeof activityPosts>[0]>("ovpf_bluesky", FEED);
+// The feed read on api.bsky.app: public.api.bsky.app, which the Worker reads, refuses this machine's address
+// (HTTP 403, since 28/10/2026). The Worker's host again, should the other one refuse it in turn.
+type Feed = FeedJson & Parameters<typeof activityPosts>[0];
+const feed = await getJson<Feed>("ovpf_bluesky", FEED.replace("//public.api.bsky.app/", "//api.bsky.app/")).catch((err) => {
+  if (err instanceof UpstreamError && err.status === 403) return getJson<Feed>("ovpf_bluesky", FEED);
+  throw err;
+});
 const todo = toRead(feed, activityPosts(feed)).filter((x) => !e.lus[x.id]).slice(0, PAR_PASSAGE);
 const outil = todo.length ? `${(await run(TESSERACT, ["--version"])).stdout.split("\n")[0].trim()}, fra` : "";
 let failed = false;
