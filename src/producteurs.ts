@@ -167,6 +167,8 @@ export const FICHES: Record<string, Fiche> = {
   actus_salazie_actus: { famille: "information_publique", agendas: true },
   salles_spectacle: { famille: "information_publique", agendas: true },
   propositions_associations: { famille: "licence_ouverte", horsCompte: true },
+  // The associations' own events, read with their consent on the platform they linked: not counted, as the proposals.
+  helloasso_associations: { famille: "information_publique", horsCompte: true },
 };
 
 /** A body an agenda is read from: its commune for a mairie's, else its own name (a salle). */

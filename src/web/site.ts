@@ -91,7 +91,7 @@ import { communeRss } from "./rss.js";
 import { FEUX_PATH, feuxPage } from "./feux.js";
 import * as feux from "../providers/feux.js";
 import * as prefecture from "../providers/prefecture.js";
-import { rafraichirPropositions } from "../tools/agenda.js";
+import { rafraichirConnecteurs, rafraichirPropositions } from "../tools/agenda.js";
 import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
 import { scheduledEvery } from "./partagees.js";
 import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
@@ -363,7 +363,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     if (connecteurs.enLigne()) {
       if (path === connecteurs.RELIER_PATH || path === `${connecteurs.RELIER_PATH}/`) return connecteurs.relier(request, now, await alerte(cache, background, now));
       if (path === connecteurs.CONFIRMER_PATH) return connecteurs.confirmerRelier(request, now, await alerte(cache, background, now));
-      if (path.startsWith(connecteurs.CONNEXION_PATH)) return connecteurs.connexion(request, now, await alerte(cache, background, now));
+      if (path.startsWith(connecteurs.CONNEXION_PATH)) return connecteurs.connexion(request, now, await alerte(cache, background, now), () => rafraichirConnecteurs(cache, now));
     }
   }
   if (path === "/") {

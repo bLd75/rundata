@@ -2561,13 +2561,21 @@ export function agendaHours(q: string): string {
   return until ? `jusqu'au ${until[1]}` : "";
 }
 
+/**
+ * The logos of the platforms an association links (connecteurs/), shown beside each event read there, by the
+ * platform's name: the official file, as each platform gives it.
+ */
+export const LOGOS: Record<string, string> = {};
+
 function agendaRow(r: AgendaRow): string {
   const lieu = r.lieu && r.lieu.length > 80 ? `${r.lieu.slice(0, 79)}…` : r.lieu;
-  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.source ? `Source\u00a0: ${r.source}` : r.publie_par && r.lu_le ? `${r.publie_par}, lu le ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
+  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.via ? `${r.publie_par} · via ${r.via.plateforme}, ${r.via.lu}` : r.source ? `Source\u00a0: ${r.source}` : r.publie_par && r.lu_le ? `${r.publie_par}, lu le ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
     .filter(Boolean).map((x) => esc(x!)).join(" · ");
   // Cancelled or postponed stays listed, said first: people look for it.
   const badge = r.statut ? `<span class="badge${r.statut === "complet" ? " m" : ""}">${esc(r.statut)}</span> ` : "";
   const book = r.billetterie && r.billetterie !== r.lien ? ` · <a href="${esc(r.billetterie)}" rel="noopener">billets</a>` : "";
+  // Its platform's logo, linking to the event's page there, as the platform's terms ask.
+  const logo = r.via && LOGOS[r.via.plateforme] && r.lien ? ` <a href="${esc(r.lien)}" rel="noopener" class="via"><img src="${LOGOS[r.via.plateforme]}" alt="${esc(r.via.plateforme)}" height="14"></a>` : "";
   // Said by the news before the organiser's page: who said it, to check.
   const news = r.statut_d_apres
     ? `<small class="said">${esc(r.statut!.toLowerCase())}${r.reporte_au ? ` au ${esc(r.reporte_au)}` : ""} d'après <a href="${esc(r.statut_d_apres.lien)}" rel="noopener"${fenetre(r.statut_d_apres.lien)}>${esc(r.statut_d_apres.media)}</a></small>`
@@ -2575,7 +2583,7 @@ function agendaRow(r: AgendaRow): string {
   const blank = r.lien && ACCUEILS.has(r.lien) ? ' target="_blank"' : "";
   // « jusqu'au vendredi 11/12 » goes under the title on a phone (.fin): beside it, it left the title a word a line.
   const hours = agendaHours(r.quand);
-  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${book}</small></span><span class="q-none${hours.startsWith("jusqu'au") ? " fin" : ""}">${esc(hours)}</span></li>`;
+  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${logo}${book}</small></span><span class="q-none${hours.startsWith("jusqu'au") ? " fin" : ""}">${esc(hours)}</span></li>`;
 }
 
 /** A row's end, local, from its hours: « samedi 24/10 de 09:00 à 16:00 », « du vendredi 23/10 au dimanche 01/11 ». */

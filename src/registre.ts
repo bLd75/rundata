@@ -304,14 +304,16 @@ const SCHEDULED: Entry[] = [
   // One association's platform per run, the one read the longest ago (each every 6 hours while there are fewer than
   // 72): the token (1), its list of events (up to CONNECTEUR_PAGES pages) and the details of the new or changed ones (up
   // to CONNECTEUR_DETAILS). Usually 2 or 3 subrequests: the details are read again only when the platform says the event
-  // changed. D1: the link and its events, the new secret, the events changed.
+  // changed. D1, connecteurs/lecture.ts: the link due and its mark (2 calls, even when none is due), the turned secret, its
+  // events kept, those gone deleted, those changed written in one statement, the reading's result: 7 calls; a first
+  // reading writes all its events (up to CONNECTEUR_PAGES pages of 50).
   {
     id: "connecteurs:lecture",
     trigger: "planifiée",
     what: "plateformes des associations (HelloAsso) : les événements publics d'une association reliée, relus toutes les 6 h, une association par passage",
     every: EVENT_MINUTES,
-    run: { subrequests: 1 + CONNECTEUR_PAGES + CONNECTEUR_DETAILS, d1Calls: 3, d1RowsRead: 1 + CONNECTEUR_PAGES * 50, d1RowsWritten: 1 + CONNECTEUR_DETAILS, cpuMs: 20 },
-    from: ["src/connecteurs/helloasso.ts"],
+    run: { subrequests: 1 + CONNECTEUR_PAGES + CONNECTEUR_DETAILS + 7, d1Calls: 7, d1RowsRead: 2 + CONNECTEUR_PAGES * 50, d1RowsWritten: 3 + CONNECTEUR_PAGES * 50, cpuMs: 20 },
+    from: ["src/connecteurs/helloasso.ts", "src/connecteurs/lecture.ts"],
     basis: "estimé",
   },
   // The day before at each Météo-France station (providers/meteofrance.ts keepVeille): the hourly package of the 974
@@ -334,6 +336,16 @@ const SCHEDULED: Entry[] = [
     every: 24 * 60,
     offset: 0,
     run: { subrequests: 1, d1Calls: 1, d1RowsWritten: 10, cpuMs: 5 },
+    from: [],
+    basis: "estimé",
+  },
+  {
+    id: "connecteurs:purge",
+    trigger: "planifiée",
+    what: "plateformes des associations : la purge quotidienne (D1), à 04:00 heure de La Réunion",
+    every: 24 * 60,
+    offset: 0,
+    run: { subrequests: 3, d1Calls: 3, d1RowsWritten: 5, cpuMs: 2 },
     from: [],
     basis: "estimé",
   },
