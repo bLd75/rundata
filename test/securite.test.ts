@@ -13,10 +13,12 @@ describe("the pages' security headers", () => {
     expect(scriptsEnLigne(html)).toEqual([`const a="é";`, "b()", "c()"]);
     const h = await enTetes(html);
     expect(h["x-frame-options"]).toBe("DENY");
-    expect(h["content-security-policy"]).toBe("frame-ancestors 'none'");
+    expect(h["content-security-policy-report-only"]).toBeUndefined();
     expect(h["permissions-policy"]).toBe("camera=(), microphone=(), payment=(), usb=(), geolocation=(self)");
-    for (const s of [`const a="é";`, "b()", "c()"]) expect(h["content-security-policy-report-only"]).toContain(`'sha256-${sha(s)}'`);
-    expect(politique([])).toMatch(/frame-src https:\/\/challenges\.cloudflare\.com https:\/\/embed\.waze\.com; .*form-action 'self'; report-uri \/csp-rapport$/);
+    for (const s of [`const a="é";`, "b()", "c()"]) expect(h["content-security-policy"]).toContain(`'sha256-${sha(s)}'`);
+    expect(politique([])).toMatch(/frame-src https:\/\/challenges\.cloudflare\.com https:\/\/embed\.waze\.com; .*form-action 'self'; frame-ancestors 'none'; report-uri \/csp-rapport$/);
+    // Cloudflare's Web Analytics beacon is not the site's: blocked, like what extensions add.
+    expect(politique([])).not.toContain("cloudflareinsights");
   });
 
   it("are on a page of the site, every inline script of it allowed by its hash, and on the error page", async () => {
@@ -24,7 +26,9 @@ describe("the pages' security headers", () => {
     expect(r.status).toBe(404);
     expect(r.headers.get("x-frame-options")).toBe("DENY");
     expect(r.headers.get("permissions-policy")).toBe(PERMISSIONS);
-    const policy = r.headers.get("content-security-policy-report-only") ?? "";
+    expect(r.headers.get("content-security-policy-report-only")).toBeNull();
+    const policy = r.headers.get("content-security-policy") ?? "";
+    expect(policy).toContain("frame-ancestors 'none'");
     const scripts = scriptsEnLigne(await r.text());
     expect(scripts.length).toBeGreaterThan(0);
     for (const s of scripts) expect(policy).toContain(`'sha256-${sha(s)}'`);
@@ -49,12 +53,18 @@ describe("the browsers' reports, POST /csp-rapport", () => {
     expect((await rapport(report(one), t + 60_000)).status).toBe(204);
     expect(warn).toHaveBeenCalledTimes(1);
     const line = String(warn.mock.calls[0][0]);
-    expect(line).toBe("csp (observation) : script-src-elem bloquerait tiers.example sur /associations/proposition/… (rundata.re, ligne 3)");
+    expect(line).toBe("csp : script-src-elem a bloqué tiers.example sur /associations/proposition/… (rundata.re, ligne 3)");
     expect(line).not.toContain("AbCdEf");
     await rapport(report({ ...one, "blocked-uri": "inline", "script-sample": "alert(1)" }), t + 120_000);
     await rapport(report(one), t + 3600_000);
     expect(warn).toHaveBeenCalledTimes(3);
-    expect(String(warn.mock.calls[1][0])).toContain("bloquerait inline sur /associations/proposition/… (rundata.re, ligne 3) « alert(1) »");
+    expect(String(warn.mock.calls[1][0])).toContain("a bloqué inline sur /associations/proposition/… (rundata.re, ligne 3) « alert(1) »");
+  });
+
+  it("say « bloquerait » for a page still under the report-only policy, kept by a browser or a cache", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await rapport(report({ "document-uri": "https://rundata.re/", "effective-directive": "font-src", "blocked-uri": "https://polices.example/a.woff2", disposition: "report" }));
+    expect(String(warn.mock.calls[0][0])).toBe("csp (observation) : font-src bloquerait polices.example sur /");
   });
 
   it("take nothing else: a GET, a body that is not a report, one too large", async () => {
