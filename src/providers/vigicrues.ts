@@ -5,6 +5,7 @@
  *
  * The site writes its times in La Réunion's local time as if it were UTC: 4 hours are taken off.
  */
+import { isScheduled } from "../budget.js";
 import type { Cache } from "../cache.js";
 import data from "../crues/stations.json" with { type: "json" };
 import { postForm } from "../http.js";
@@ -30,6 +31,10 @@ const VIGILANCE_SECONDS = 10 * 60;
 // time at most: a small site.
 const BATCH = 8;
 const LANES = 2;
+// In the scheduled event, nobody waiting: one batch at a time, 25 s each. With the heights and the flows read together,
+// two lanes each, the site had four requests at once, and batches of 8 it answers in 4 s from La Réunion were cut at
+// 13 s (27/10/2026, at 11:55 and 12:10).
+const SCHEDULED_TIMEOUT_MS = 25_000;
 
 export interface Station {
   id: string;
@@ -127,40 +132,49 @@ export function parseReadings(raw: Record<string, unknown>): Readings {
 }
 
 /** The readings of `ids`, in one request: the readings after the last time the site's page holds for each. */
-async function ask(measure: Measure, ids: string[], now: Date): Promise<Readings> {
+async function ask(measure: Measure, ids: string[], now: Date, timeout = 5_000 + 1_000 * ids.length): Promise<Readings> {
   // Each gauge with the time of the last reading the page holds, in the site's local-as-UTC clock: the readings after it come back.
   const since = now.getTime() - WINDOW_MS + LOCAL_AS_UTC;
   const liste = JSON.stringify(Object.fromEntries(ids.map((id) => [id, since])));
-  const timeout = 5_000 + 1_000 * ids.length;
   return parseReadings(await postForm<Record<string, unknown>>(SOURCE.id, `${BASE}valeurs.php`, { mesure: measure, liste }, timeout));
 }
 
+/** « 4,1 s », for the Worker's logs. */
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1).replace(".", ",")} s`;
+
 /**
  * The readings of some gauges, or of all. The site takes about half a second per gauge, so a question about one place
- * asks only for the gauges around it. All 29 are read by the scheduled event only (cache.ts `islandRead`), in batches,
- * and kept in KV for every data center: a question or a page is served that copy with its time.
+ * asks only for the gauges around it. All 29 are read by the scheduled event only (cache.ts `islandRead`), in batches
+ * one at a time, and kept in KV for every data center: a question or a page is served that copy with its time.
  */
 export async function readings(cache: Cache, measure: Measure, ids: string[] = STATIONS.map((s) => s.id), now = new Date()) {
   if (ids.length !== STATIONS.length) return cache.get(`crues:${measure}:${[...ids].sort().join(",")}`, LEVELS_SECONDS, () => ask(measure, ids, now));
   return cache.islandRead<Readings>(`crues:${measure}:all`, LEVELS_SECONDS, async (before) => {
     const batches = Array.from({ length: Math.ceil(ids.length / BATCH) }, (_, i) => ids.slice(i * BATCH, (i + 1) * BATCH));
+    const alone = isScheduled();
     const got: Readings[] = [];
     const missing: string[] = [];
+    // How long each batch took, in the Worker's logs: what the site takes from Cloudflare, measured.
+    const took: string[] = [];
     let failure: unknown;
     let next = 0;
     await Promise.all(
-      Array.from({ length: LANES }, async () => {
+      Array.from({ length: alone ? 1 : LANES }, async () => {
         while (next < batches.length) {
-          const batch = batches[next++];
+          const i = next++;
+          const start = Date.now();
           try {
-            got.push(await ask(measure, batch, now));
+            got.push(await ask(measure, batches[i], now, alone ? SCHEDULED_TIMEOUT_MS : undefined));
+            took[i] = seconds(Date.now() - start);
           } catch (err) {
             failure ??= err;
-            missing.push(...batch);
+            missing.push(...batches[i]);
+            took[i] = `sans réponse après ${seconds(Date.now() - start)}`;
           }
         }
       }),
     );
+    console.log(`source ${SOURCE.id}, ${measure} : ${batches.length} lots, ${alone ? "un à la fois" : `${LANES} à la fois`} : ${took.join(", ")}`);
     if (!got.length) throw failure;
     const out: Readings = Object.assign({}, ...got);
     if (missing.length) {

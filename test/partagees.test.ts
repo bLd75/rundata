@@ -593,3 +593,68 @@ describe("the scheduled refresh of the shared copies", () => {
     expect(run.value).toEqual({ written: [], left: [{ key: "web:essai-panne", why: "copie de secours" }] });
   });
 });
+
+describe("a copy built alongside the others", () => {
+  // A copy whose build waits on a slow site until `open`, before two quick ones. Their keys of their own in each test:
+  // what this isolate wrote is remembered (`wrote`).
+  let n = 0;
+  const setup = () => {
+    const k = (name: string) => `web:essai-${name}-${++n}`;
+    const [slow, quick1, quick2] = [k("lent"), k("vite"), k("vite")];
+    let open!: () => void;
+    const gate = new Promise<void>((resolve) => (open = resolve));
+    const built: string[] = [];
+    const quick = (key: string): Shared => ({ key, every: 30, build: async () => (built.push(key), count(2), {}) });
+    const list: Shared[] = [{ key: slow, every: 15, alongside: true, build: async () => (await gate, built.push(slow), count(2), {}) }, quick(quick1), quick(quick2)];
+    const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);
+    return { list, cache, built, open: () => open(), slow, quick1, quick2 };
+  };
+
+  it("does not hold back the copies after it: they are built and written while it waits, and it is handed over", async () => {
+    const { list, cache, built, open, slow, quick1, quick2 } = setup();
+    const kv = new FakeKv();
+    const held: Promise<void>[] = [];
+    const run = await counted(SCHEDULED_BUDGET, async () => {
+      const warmed = await warmShared(cache, kv, new Date(T0), list, listShared(kv), (work) => void held.push(work));
+      const before = { written: [...warmed.written], built: [...built] };
+      open();
+      await Promise.all(held);
+      return { before, after: warmed.written };
+    });
+    expect(held.length).toBe(1);
+    expect(run.value.before).toEqual({ written: [quick1, quick2], built: [quick1, quick2] });
+    expect(run.value.after).toEqual([quick1, quick2, slow]);
+    expect(kv.writes.get(kvKey(slow))).toBe(1);
+  });
+
+  it("is waited for at the end when nothing is given to hold it", async () => {
+    const { list, cache, open, slow, quick1, quick2 } = setup();
+    const kv = new FakeKv();
+    open();
+    const run = await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(T0), list));
+    expect([...run.value.written].sort()).toEqual([quick1, quick2, slow].sort());
+  });
+
+  it("keeps what it is expected to take out of what the copies after it may use, until it is done", async () => {
+    const { list, cache, open } = setup();
+    const kv = new FakeKv();
+    // Expected to take its cold cost and the lookup: 22.
+    list[0] = { ...list[0], cold: 20 };
+    const seen: number[] = [];
+    list[1] = { ...list[1], build: async () => (seen.push(left()), count(2), {}) };
+    const held: Promise<void>[] = [];
+    const run = await counted(SCHEDULED_BUDGET, async () => {
+      // After the listing of KV, one subrequest.
+      const listing = listShared(kv);
+      await listing;
+      const base = left();
+      await warmShared(cache, kv, new Date(T0), list, listing, (work) => void held.push(work));
+      open();
+      await Promise.all(held);
+      return { base, after: left() };
+    });
+    expect(seen[0]).toBe(run.value.base - 22);
+    // Once done, only what was spent is gone: each copy's build and its KV write.
+    expect(run.value.after).toBe(run.value.base - 9);
+  });
+});

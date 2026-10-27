@@ -266,11 +266,15 @@ export default {
       const aromeUsed = spent();
       // One listing of KV for both.
       const listing = kv ? listShared(kv) : undefined;
-      const first = kv ? await warmShared(c, kv, new Date(), SHARED, listing) : { written: [], left: [] };
-      const after = kv ? await warmShared(c, kv, new Date(), SHARED_AFTER, listing) : { written: [], left: [] };
-      const copies = { written: [...first.written, ...after.written], left: [...first.left, ...after.left] };
+      // The copies built alongside (the rivers', minutes long), waited for after everything else: never before it.
+      const held: Promise<void>[] = [];
+      const hold = (work: Promise<void>) => void held.push(work);
+      const first = kv ? await warmShared(c, kv, new Date(), SHARED, listing, hold) : { written: [], left: [] };
+      const after = kv ? await warmShared(c, kv, new Date(), SHARED_AFTER, listing, hold) : { written: [], left: [] };
       // Last, with what is left: the agendas read only here.
       const agendas = kv ? await refreshPlanned(c).catch((err) => (console.error("agendas planifiés impossibles", why(err)), null)) : null;
+      await Promise.all(held);
+      const copies = { written: [...first.written, ...after.written], left: [...first.left, ...after.left] };
       return { arome, aromeUsed, copies, agendas };
       // What a read hands over after it (a failed read written down) finishes within the event.
     }, (p) => ctx.waitUntil(p))
