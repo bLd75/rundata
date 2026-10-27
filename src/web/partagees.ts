@@ -73,10 +73,10 @@ export const SHARED: Shared[] = [
   { key: mf.KEY, build: () => mf.read(), every: 5, cold: 3, cpu: 70, offset: 0 },
   // The rivers, every 15 minutes, every 5 while a river is in yellow flood vigilance or above: the home page's tile
   // read a data center's own copy, which no view had brought up to date for two hours while Vigicrues Réunion answered
-  // (26 October 2026). Its cold cost: Vigicrues' vigilance, heights and flows, plus one. Its CPU: parsing them, 43 ms
+  // (26 October 2026). Its cold cost: Vigicrues' vigilance, and its heights and flows in 4 batches each, plus one. Its CPU: parsing them, 43 ms
   // the first time in Node and 4 ms after, rounded up. At minutes 10, 25, 40 and 55, with the news, the water cuts, the
   // air and the satellites' grids: the lightest of the three series of events a rate of 15 minutes can take.
-  { key: "web:crues", build: buildCrues, every: (last) => (floodRaised(last as CruesAnswer | undefined).length ? 5 : 15), cold: 4, cpu: 50, range: { usual: 15, shortest: 5 }, offset: 10 },
+  { key: "web:crues", build: buildCrues, every: (last) => (floodRaised(last as CruesAnswer | undefined).length ? 5 : 15), cold: 10, cpu: 50, range: { usual: 15, shortest: 5 }, offset: 10 },
   { key: "web:actualites", build: buildActualites, every: 30, cold: 10, cpu: 190, offset: 10 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160, offset: 5 },
   { key: "web:electricite", build: buildElectricite, every: 30, cold: 7, cpu: 80, offset: 20 },

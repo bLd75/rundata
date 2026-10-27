@@ -18,11 +18,11 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 335 | 500 |
-| pire passage planifié, appels KV et D1 | 47 | 1 000 |
+| pire passage planifié, sous-requêtes | 347 | 500 |
+| pire passage planifié, appels KV et D1 | 53 | 1 000 |
 | pire passage planifié, CPU (ms) | 2 072 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
-| passage le plus chargé (cadences les plus courtes), sous-requêtes | 113 | 500 |
+| passage le plus chargé (cadences les plus courtes), sous-requêtes | 125 | 500 |
 | vue la plus chère, sous-requêtes | 82 | 200 |
 | question la plus chère, sous-requêtes | 65 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
@@ -30,16 +30,16 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
 - Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
 - Passage le plus chargé selon les décalages, cadences habituelles : 00:30 UTC, 84 sous-requêtes (arome:veille, partagees:liste, vigilance, web:chiffres:evenements, agendas:planifies, sans-reponse:echecs, copies:echecs, connecteurs:lecture).
-- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:30 UTC, 113 sous-requêtes (arome:veille, partagees:liste, vigilance, web:crues, web:volcan, web:chiffres:evenements, agendas:planifies, sans-reponse:echecs, copies:echecs, connecteurs:lecture).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 311 sous-requêtes à 00:00 UTC.
+- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:30 UTC, 125 sous-requêtes (arome:veille, partagees:liste, vigilance, web:crues, web:volcan, web:chiffres:evenements, agendas:planifies, sans-reponse:echecs, copies:echecs, connecteurs:lecture).
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 323 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 82. Question la plus chère : resume_du_jour, 65. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 335 | 7 | 27 | 13 | 1 123 | 42 | 2 072 |
-| tâche planifiée, par jour | 14 807 | 1 056 | 1 788 | 1 251 | 102 620 | 3 199 | 107 403 |
-| tâche planifiée, par jour, cadences les plus courtes | 23 395 | 1 776 | 3 036 | 1 731 | 107 660 | 3 199 | 152 883 |
-| tâche planifiée, par mois (30 jours) | 444 210 | 31 680 | 53 640 | 37 530 | 3 078 600 | 95 970 | 3 222 090 |
+| pire passage planifié | 347 | 10 | 30 | 13 | 1 123 | 42 | 2 072 |
+| tâche planifiée, par jour | 15 959 | 1 344 | 2 076 | 1 251 | 102 620 | 3 199 | 107 403 |
+| tâche planifiée, par jour, cadences les plus courtes | 26 851 | 2 640 | 3 900 | 1 731 | 107 660 | 3 199 | 152 883 |
+| tâche planifiée, par mois (30 jours) | 478 770 | 40 320 | 62 280 | 37 530 | 3 078 600 | 95 970 | 3 222 090 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -53,7 +53,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | arome:grilles | AROME : les grilles d'un nouveau run, 40 au plus par passage, 3 de relief | 180 min | 00:00 | 43 |  | 2 |  |  |  | 60 | code |
 | partagees:liste | copies partagées : la liste des clés KV, une pour les copies et celles d'après | 5 min | 00:00 | 1 |  | 1 |  |  |  |  | code |
 | vigilance | copie partagée (KV) | 5 min | 00:00 | 4 |  | 1 |  |  |  | 70 | estimé |
-| web:crues | copie partagée (KV) | 15 min (5 au plus court) | 00:10 | 5 |  | 1 |  |  |  | 50 | estimé |
+| web:crues | copie partagée (KV) | 15 min (5 au plus court) | 00:10 | 17 | 3 | 4 |  |  |  | 50 | estimé |
 | web:actualites | copie partagée (KV) | 30 min | 00:10 | 11 |  | 1 |  |  |  | 190 | mesuré |
 | web:trafic | copie partagée (KV) | 30 min | 00:05 | 31 |  | 1 | 2 | 840 |  | 160 | mesuré |
 | web:electricite | copie partagée (KV) | 30 min | 00:20 | 8 |  | 1 |  |  |  | 80 | mesuré |
@@ -138,7 +138,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /sport | la page /sport | à chaque vue |  | 42 |  |  |  |  |  | 120 | mesuré |
 | /decheteries | la page /decheteries | à chaque vue |  | 12 |  |  |  |  |  | 30 | mesuré |
 | /cyclones | la page /cyclones | à chaque vue |  | 29 | 1 | 1 |  |  |  | 50 | mesuré |
-| /crues | la page /crues | à chaque vue |  | 30 | 1 |  |  |  |  | 120 | estimé |
+| /crues | la page /crues | à chaque vue |  | 36 | 4 | 3 |  |  |  | 120 | estimé |
 | /historique | la page /historique | à chaque vue |  | 15 |  |  |  |  |  | 70 | mesuré |
 | /evenements | la page /evenements | à chaque vue |  | 54 |  |  |  |  |  | 200 | mesuré |
 | /evenements/ce-week-end | comme /evenements, une partie de sa copie | à chaque vue |  | 36 |  |  |  |  |  | 230 | mesuré |
@@ -167,7 +167,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | vigilance_meteo | l'outil vigilance_meteo | à chaque vue |  | 12 | 1 | 1 |  |  |  | 50 | mesuré |
 | coupures_eau | l'outil coupures_eau | à chaque vue |  | 11 | 1 | 1 |  |  |  | 110 | mesuré |
 | electricite | l'outil electricite | à chaque vue |  | 9 |  |  |  |  |  | 60 | mesuré |
-| crues_rivieres | l'outil crues_rivieres | à chaque vue |  | 9 |  |  |  |  |  | 30 | mesuré |
+| crues_rivieres | l'outil crues_rivieres | à chaque vue |  | 15 | 3 | 3 |  |  |  | 30 | mesuré |
 | calendrier | l'outil calendrier | à chaque vue |  | 7 |  |  |  |  |  | 70 | mesuré |
 | velos_libre_service | l'outil velos_libre_service | à chaque vue |  | 6 |  |  |  |  |  | 30 | mesuré |
 | maree | l'outil maree | à chaque vue |  | 6 |  |  |  |  |  | 130 | mesuré |

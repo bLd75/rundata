@@ -8,7 +8,7 @@
 import type { Cache } from "../cache.js";
 import data from "../crues/stations.json" with { type: "json" };
 import { postForm } from "../http.js";
-import type { SourceInfo } from "../types.js";
+import { type SourceInfo, why } from "../types.js";
 
 export const SOURCE: SourceInfo = {
   id: "vigicrues",
@@ -25,6 +25,11 @@ const LOCAL_AS_UTC = 4 * 3600_000;
 const WINDOW_MS = 3 * 3600_000;
 const LEVELS_SECONDS = 5 * 60;
 const VIGILANCE_SECONDS = 10 * 60;
+// The gauges asked together. The site takes about half a second per gauge, and from Cloudflare more than the 34 s
+// given to all 29 at once (27/10/2026: every read of the heights cut since the evening before). Two batches at a
+// time at most: a small site.
+const BATCH = 8;
+const LANES = 2;
 
 export interface Station {
   id: string;
@@ -100,7 +105,7 @@ export function parseVigilance(raw: unknown[][]): Vigilance {
 }
 
 export async function vigilance(cache: Cache) {
-  return cache.get("crues:vigilance", VIGILANCE_SECONDS, async () =>
+  return cache.island("crues:vigilance", VIGILANCE_SECONDS, async () =>
     parseVigilance(await postForm<unknown[][]>(SOURCE.id, `${BASE}vigilance.php`, { id: "public" })),
   );
 }
@@ -121,17 +126,49 @@ export function parseReadings(raw: Record<string, unknown>): Readings {
   return out;
 }
 
+/** The readings of `ids`, in one request: the readings after the last time the site's page holds for each. */
+async function ask(measure: Measure, ids: string[], now: Date): Promise<Readings> {
+  // Each gauge with the time of the last reading the page holds, in the site's local-as-UTC clock: the readings after it come back.
+  const since = now.getTime() - WINDOW_MS + LOCAL_AS_UTC;
+  const liste = JSON.stringify(Object.fromEntries(ids.map((id) => [id, since])));
+  const timeout = 5_000 + 1_000 * ids.length;
+  return parseReadings(await postForm<Record<string, unknown>>(SOURCE.id, `${BASE}valeurs.php`, { mesure: measure, liste }, timeout));
+}
+
 /**
- * The readings of some gauges, or of all. The site takes about half a second per gauge (15 s for all 29), so a
- * question about one place asks only for the gauges around it.
+ * The readings of some gauges, or of all. The site takes about half a second per gauge, so a question about one place
+ * asks only for the gauges around it. All 29 are read by the scheduled event only (cache.ts `islandRead`), in batches,
+ * and kept in KV for every data center: a question or a page is served that copy with its time.
  */
 export async function readings(cache: Cache, measure: Measure, ids: string[] = STATIONS.map((s) => s.id), now = new Date()) {
-  const key = ids.length === STATIONS.length ? "all" : [...ids].sort().join(",");
-  return cache.get(`crues:${measure}:${key}`, LEVELS_SECONDS, async () => {
-    // Each gauge with the time of the last reading the page holds, in the site's local-as-UTC clock: the readings after it come back.
-    const since = now.getTime() - WINDOW_MS + LOCAL_AS_UTC;
-    const liste = JSON.stringify(Object.fromEntries(ids.map((id) => [id, since])));
-    const timeout = 5_000 + 1_000 * ids.length;
-    return parseReadings(await postForm<Record<string, unknown>>(SOURCE.id, `${BASE}valeurs.php`, { mesure: measure, liste }, timeout));
+  if (ids.length !== STATIONS.length) return cache.get(`crues:${measure}:${[...ids].sort().join(",")}`, LEVELS_SECONDS, () => ask(measure, ids, now));
+  return cache.islandRead<Readings>(`crues:${measure}:all`, LEVELS_SECONDS, async (before) => {
+    const batches = Array.from({ length: Math.ceil(ids.length / BATCH) }, (_, i) => ids.slice(i * BATCH, (i + 1) * BATCH));
+    const got: Readings[] = [];
+    const missing: string[] = [];
+    let failure: unknown;
+    let next = 0;
+    await Promise.all(
+      Array.from({ length: LANES }, async () => {
+        while (next < batches.length) {
+          const batch = batches[next++];
+          try {
+            got.push(await ask(measure, batch, now));
+          } catch (err) {
+            failure ??= err;
+            missing.push(...batch);
+          }
+        }
+      }),
+    );
+    if (!got.length) throw failure;
+    const out: Readings = Object.assign({}, ...got);
+    if (missing.length) {
+      console.error(`source ${SOURCE.id} sans réponse pour ${missing.length} stations (${measure}) : leurs mesures d'avant gardées`, why(failure));
+      // A batch that did not answer: its gauges keep their own readings of the copy before, said with their time
+      // (tools/crues.ts), never another gauge's.
+      for (const id of missing) if (before?.[id]) out[id] = before[id];
+    }
+    return out;
   });
 }
