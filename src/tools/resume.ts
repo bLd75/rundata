@@ -61,7 +61,7 @@ import { aheadRows, type CourantAnswer, followed, injoignable, shortOf } from ".
 import { mention } from "./non-repris.js";
 import { SITE_URL } from "./citer.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
-import { current, cyclone, highest, raised } from "./vigilance.js";
+import { coastText, cyclone, highest, zoneLevels, zoneShort, zoneText } from "./vigilance.js";
 import type { InfoRow } from "./actualites.js";
 import { ENDS as LITTORAL_ENDS, forSummary, littoral, NONE as LITTORAL_NONE } from "./littoral.js";
 
@@ -144,7 +144,6 @@ const ROADS = ["route", "mobilisation"];
 const NEWS_HOURS = 12;
 const NEWS_MAX = 4;
 const EVENTS_MAX = 10;
-const WAVES = 9;
 // A build whose cost was measured neither in this isolate nor with its copy is taken to cost this much (web/site.ts
 // does the same).
 const COST_UNKNOWN = 25;
@@ -197,22 +196,21 @@ function weather(d: PlaceData, fetchedAt: Date, now: Date) {
 }
 
 function vigilance(p: PlacePage, v: mf.Vigilance, now: Date) {
+  // The zone of Météo-France, as its own, the commune only said to be in it (Météo-France's mail of 27/10/2026).
   const zone = mf.ZONE_OF_COMMUNE[p.nom];
-  const own = zone ? v.zones[zone] ?? {} : {};
-  const up = Object.entries(mf.PHENOMENA)
-    .filter(([id]) => Number(id) !== mf.CYCLONE && Number(id) !== WAVES)
-    .map(([id, nom]) => ({ phenomene: nom, c: current(own[Number(id)] ?? [], now) }))
-    .filter((x) => x.c >= 2);
-  const waves = coastal(p) ? raised(v).find((x) => x.phenomene === mf.PHENOMENA[WAVES]) : undefined;
+  const name = zoneShort(zone);
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
+  const alert = highest(cyc) >= 2;
   return {
-    zone: (mf.ZONES[zone] ?? "").split(" :")[0] || undefined,
-    maintenant: up.length ? up.map((x) => `${mf.colour(x.c)} ${x.phenomene.toLowerCase()}`).join(", ") : "pas de vigilance particulière",
-    vagues_submersion: waves ? `${waves.couleur_max} sur le littoral` : undefined,
-    alerte_cyclonique: highest(cyc) >= 2 ? cyclone(v, now) : undefined,
+    zone: name || undefined,
+    maintenant: `Zone ${name} de Météo-France : ${zoneText(v, zone, now)}. ${p.nom} est dans cette zone.`,
+    au_dessus_du_vert: zoneLevels(v, zone, now).above.length > 0,
+    vagues_submersion: coastal(p) ? coastText(v) : undefined,
+    alerte_cyclonique: alert ? cyclone(v, now) : undefined,
     /** The schools closed by the cyclone alert in force, in marketing's words (tools/ecoles.ts). */
     ecoles: resumeLine(ecoles(v, now)),
     emise: localTime(new Date(v.emise)),
+    officiel: mf.officiel(alert ? mf.OFFICIEL_CYCLONE : mf.OFFICIEL_VIGILANCE),
   };
 }
 
@@ -298,7 +296,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     `${nom}, ${DAY_FR.format(now)}`,
     t ? `${t} mesurés à ${meteo!.mesure!.heure_mesure.split(" ")[1] ?? meteo!.mesure!.heure_mesure} (station ${meteo!.mesure!.station})` : "",
     f?.temperature_min && f.temperature_max ? `prévision du jour ${f.temperature_min} à ${f.temperature_max}${f.ciel_en_journee ? `, ${f.ciel_en_journee}` : ""}` : "",
-    v ? `vigilance : ${v.maintenant}${v.alerte_cyclonique ? `, ${v.alerte_cyclonique}` : ""}` : "",
+    v ? `${v.maintenant.replace(/\.$/, "")}${v.alerte_cyclonique ? `, ${v.alerte_cyclonique}` : ""}` : "",
     v?.ecoles ? v.ecoles.replace(/\.$/, "") : "",
     l.coupures ? (avis.length ? `${avis.length} avis de coupure d'eau${waterSilent ? ` (${waterSilent.court})` : ""}` : waterSilent ? `coupures d'eau : ${waterSilent.court}` : dist?.avis ? "pas de coupure d'eau annoncée" : "") : "",
     l.agenda ? `${events.length} événement${events.length > 1 ? "s" : ""} aujourd'hui` : "",

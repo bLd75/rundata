@@ -13,7 +13,7 @@ import { cyclone, raised } from "../tools/vigilance.js";
 import type { Alerte, SentiersAnswer } from "./data.js";
 import { closedMarkers, closedTrails, connectorCta, crumbBar, crumbs, fireId, fireMarkers, sourcesNote, webPage } from "./domains.js";
 import { esc, islandMap } from "./map.js";
-import { ask, credits, DESCRIPTION_MAX, hm, layout } from "./pages.js";
+import { ask, credits, DESCRIPTION_MAX, hm, layout, officielHtml } from "./pages.js";
 
 export const FEUX_PATH = "/feux";
 
@@ -69,7 +69,7 @@ function vigilance(v: Cached<mf.Vigilance> | null | undefined, now: Date): strin
   const r = raised(v.value);
   const c = cyclone(v.value, now);
   const up = r.length ? `<ul class="plain">${r.map((x) => `<li>${esc(`${x.couleur_max} ${x.phenomene.toLowerCase()} : ${x.zone.split(" :")[0]}`)}</li>`).join("")}</ul>` : `<p>Pas de vigilance particulière à La Réunion (tout est vert).</p>`;
-  return `${c.startsWith("Pas d'") ? "" : `<p><b>${esc(c)}</b></p>`}${up}<p class="note"><a href="/vigilance">La vigilance zone par zone →</a></p>`;
+  return `${c.startsWith("Pas d'") ? "" : `<p><b>${esc(c)}</b></p>`}${up}<p>${officielHtml(mf.OFFICIEL_VIGILANCE)}</p><p class="note"><a href="/vigilance">La vigilance zone par zone →</a></p>`;
 }
 
 export function feuxPage(origin: string, l: FeuxLive, now = new Date(), alerte?: Alerte): string {

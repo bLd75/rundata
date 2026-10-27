@@ -16,7 +16,7 @@ import { ageMinutes, ageText, localTime, versant } from "../geo.js";
 import { VERSION } from "../server.js";
 import { fr } from "../tools/format.js";
 import * as mf from "../providers/vigilance.js";
-import { current, cyclone, cycloneHead, cycloneLevel, highest, raised, spans } from "../tools/vigilance.js";
+import { current, cyclone, cycloneHead, cycloneLevel, highest, NONE_ISSUED, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, StationAnswer, StationNow } from "./data.js";
 import { joursDuJour, vigilanceLue } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
@@ -32,7 +32,7 @@ import rubriques from "./og-rubriques.json" with { type: "json" };
 import { byUse, FIRST, type Urgent, urgentKeys, WITH_PAGE } from "./categories.js";
 import { FLAG_INNER } from "./flag.js";
 import { logo } from "./logo.js";
-import { esc, islandMap, type Marker, type ZoneLink } from "./map.js";
+import { esc, islandMap, type Marker } from "./map.js";
 import { typo } from "./typo.js";
 import { mentionLinks } from "../mentions.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
@@ -786,15 +786,17 @@ function zonesSaid(zones: string[]): string {
 function vigilanceLigne(a: Alerte): string {
   const c = a.court;
   if ("cyclone" in c) return c.prevue ? "Alerte cyclonique prévue par le préfet" : `${cycloneHead(c.cyclone)} du préfet`;
-  return `Vigilance ${feminine(c.couleur)} ${c.phenomenes.slice(0, 2).map((p) => SHORT[p] ?? p.toLowerCase()).join(", ")} · ${zonesSaid(c.zones)}`;
+  return `Météo-France : vigilance ${feminine(c.couleur)} ${c.phenomenes.slice(0, 2).map((p) => SHORT[p] ?? p.toLowerCase()).join(", ")} · ${zonesSaid(c.zones)}`;
 }
 
 function banner(a: Alerte | undefined, path: string): string {
   if (!a) return "";
   const more = path === "/vigilance" ? "" : ` <a href="/vigilance">Voir la vigilance zone par zone →</a>`;
   const schools = a.ecoles && path !== "/ecoles-cyclone" ? ` <a href="/ecoles-cyclone">Écoles fermées →</a>` : "";
+  // After « Voir la vigilance zone par zone → », where Météo-France says it: the cyclone's page for the cyclone alert.
+  const official = ` ${officielHtml("cyclone" in a.court ? mf.OFFICIEL_CYCLONE : mf.OFFICIEL_VIGILANCE)}`;
   const short = path === "/vigilance" ? "" : ligne("/vigilance", "⚠", vigilanceLigne(a), a.lue) + (a.ecoles && path !== "/ecoles-cyclone" ? ligne("/ecoles-cyclone", "", "Écoles et crèches fermées") : "");
-  return `<div class="alerte vg ${a.neutre ? "vgpre" : `vg${a.couleur}`}"${short ? " data-court" : ""} role="status">${short}<div class="wrap"><span>⚠ ${esc(a.texte)}${a.lue ? ` · ${esc(a.lue)}` : ""}</span>${schools}${more}</div></div>`;
+  return `<div class="alerte vg ${a.neutre ? "vgpre" : `vg${a.couleur}`}"${short ? " data-court" : ""} role="status">${short}<div class="wrap"><span>⚠ ${esc(a.texte)}${a.lue ? ` · ${esc(a.lue)}` : ""}</span>${schools}${more}${official}</div></div>`;
 }
 
 /**
@@ -1223,14 +1225,19 @@ export function vigilanceLive(data: Cached<mf.Vigilance> | null, now: Date): Liv
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   if (highest(cyc) >= 2) {
     const c = Math.max(2, cycloneLevel(cyc, now));
-    return lue({ valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) }, data!, now);
+    return officielLive(lue({ valeur: `<span class="vg ${cycloneVg(c)}">Cyclone : ${esc(mf.cycloneName(c))}</span>`, detail: esc(cyclone(v, now)) }, data!, now), mf.OFFICIEL_CYCLONE);
   }
   const r = raised(v);
-  if (!r.length) return lue({ valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" }, data!, now);
-  return lue({
+  if (!r.length) return officielLive(lue({ valeur: vg(1), detail: "Pas d'alerte cyclonique ni de vigilance particulière" }, data!, now), mf.OFFICIEL_VIGILANCE);
+  return officielLive(lue({
     valeur: vg(r[0].max),
     detail: esc(r.slice(0, 2).map((x) => `${x.phenomene.toLowerCase()} (${x.zone.split(" :")[0]})`).join(", ") + (r.length > 2 ? "…" : "")),
-  }, data!, now);
+  }, data!, now), mf.OFFICIEL_VIGILANCE);
+}
+
+/** A vigilance tile's line, then the link to Météo-France's own site, never cut (Météo-France asked for it). */
+export function officielLive(l: Live, href: string): Live {
+  return { ...l, detail: `${l.detail}. ${officielHtml(href)}`, entier: true };
 }
 
 /** A vigilance tile's line, with when it was read once more than 15 min ago (`vigilanceLue`), said in full at its end. */
@@ -1564,26 +1571,17 @@ const LAND = ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-1
 const LAND_PHENOMENA = [12, 1];
 const COAST = 9;
 
-/** The worst colour in force now in a land zone, -1 when nothing is issued there. */
-export function zoneNow(v: mf.Vigilance, zone: string, now: Date): number {
-  return Math.max(-1, ...LAND_PHENOMENA.map((id) => current(v.zones[zone]?.[id] ?? [], now)));
-}
-
-// The colours of the vigilance (Météo-France) and the phases of the cyclone alert (préfecture de La Réunion).
-const SCALE = `<ul class="scale">
-  <li>${vg(1)}<p>Pas de vigilance particulière.</p></li>
-  <li>${vg(2)}<p>Soyez attentif : des phénomènes habituels dans la région mais occasionnellement dangereux sont prévus.</p></li>
-  <li>${vg(3)}<p>Soyez très vigilant : des phénomènes dangereux sont prévus. Suivez les conseils des autorités.</p></li>
-  <li>${vg(4)}<p>Vigilance absolue : des phénomènes dangereux d'intensité exceptionnelle sont prévus.</p></li>
-</ul>`;
+// The colours of the vigilance and the phases of the cyclone alert, by their names only: what each one means is
+// Météo-France's to say, on its own site (marketing, after Météo-France's mail of 27/10/2026).
+const SCALE = `<ul class="scale">${[1, 2, 3, 4].map((c) => `<li>${vg(c)}</li>`).join("")}</ul><p>${officielHtml(mf.OFFICIEL_VIGILANCE)}</p>`;
 
 const CYCLONE_SCALE = `<ul class="scale">
-  <li><span class="vg vgpre">pré-alerte</span><p>Pré-alerte cyclonique, « je m'informe » : un cyclone menace l'île dans les jours à venir.</p></li>
-  <li><span class="vg vg3">orange</span><p>Alerte orange, « je me prépare » : danger dans les 24 heures. Les écoles ferment, on fait ses réserves et on met à l'abri ce qui peut s'envoler.</p></li>
-  <li><span class="vg vg4">rouge</span><p>Alerte rouge, « je me confine » : danger imminent. Interdiction de circuler, sauf services autorisés.</p></li>
-  <li><span class="vg vg5">violette</span><p>Alerte violette : confinement strict, plus personne ne circule, secours compris.</p></li>
-  <li><span class="vg vg0">sauvegarde</span><p>Phase de sauvegarde : le cyclone s'éloigne mais le danger demeure (routes coupées, ravines en crue, fils électriques au sol). Restez prudent.</p></li>
-</ul>`;
+  <li><span class="vg vgpre">pré-alerte</span></li>
+  <li><span class="vg vg3">orange</span></li>
+  <li><span class="vg vg4">rouge</span></li>
+  <li><span class="vg vg5">violette</span></li>
+  <li><span class="vg vg0">sauvegarde</span></li>
+</ul><p>${officielHtml(mf.OFFICIEL_CYCLONE)}</p>`;
 
 export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null, now = new Date(), alerte?: Alerte): string {
   const v = data?.value;
@@ -1595,7 +1593,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
 
   let status: string;
   if (!v) {
-    status = `<p class="lead">La vigilance de Météo-France n'a pas pu être lue à l'instant. Consultez <a href="${mf.SOURCE.url}">vigilance.meteofrance.fr</a> ou rechargez la page.</p>`;
+    status = `<p class="lead">La vigilance de Météo-France n'a pas pu être lue à l'instant. Consultez <a href="${mf.SOURCE.url}">vigilance.meteofrance.fr</a> ou rechargez la page.</p><p class="lead">${officielHtml(mf.OFFICIEL_VIGILANCE)}</p>`;
   } else {
     const head = highest(cyc) >= 2
       ? `<p class="big">${cycNow >= 2 ? esc(cycloneHead(cycNow)) : "Alerte cyclonique prévue"}</p><p class="lead">${esc(cyclone(v, now))}</p>`
@@ -1603,18 +1601,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
     const rest = r.length
       ? `<p class="lead">Vigilances au-dessus du vert : ${r.map((x) => `${vg(x.max)} ${esc(x.phenomene.toLowerCase())} (${esc(x.zone.split(" :")[0])})`).join(", ")}.</p>`
       : `<p class="lead">${vg(1)} Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</p>`;
-    status = `<div class="status">${head}${rest}<p class="lead"><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a></p><p class="note" style="color:var(--on-night-muted)">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p></div>`;
-  }
-
-  const fills: Record<string, string> = {};
-  // Each commune leads to the card of its zone below, which says what is in force there and what is coming.
-  const links: Record<string, ZoneLink> = {};
-  if (v) {
-    for (const [commune, zone] of Object.entries(mf.ZONE_OF_COMMUNE)) {
-      const c = zoneNow(v, zone, now);
-      if (c >= 1) fills[commune] = `var(--vg${c})`;
-      links[commune] = { href: `#${zoneId(zone)}`, say: `${c >= 1 ? `vigilance ${feminine(mf.colour(c))}` : "rien d'émis"}, zone ${zoneShort(zone)}` };
-    }
+    status = `<div class="status">${head}${rest}<p class="lead"><b>${officielHtml(mf.OFFICIEL_VIGILANCE)}</b></p><p class="lead"><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a></p><p class="note" style="color:var(--on-night-muted)">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p></div>`;
   }
 
   const zones = v
@@ -1623,7 +1610,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
           const periods = v.zones[zone]?.[id] ?? [];
           const c = current(periods, now);
           const later = spans(periods);
-          return `<li><b>${esc(mf.PHENOMENA[id])}</b> : ${c >= 1 ? vg(c) : "rien d'émis"}` +
+          return `<li><b>${esc(mf.PHENOMENA[id])}</b> : ${c >= 1 ? vg(c) : NONE_ISSUED}` +
             (later.length ? `<p>${esc(later.join(", "))}</p>` : "") + `</li>`;
         }).join("");
         return `<li class="card tgt" id="${zoneId(zone)}"><h3>${esc(zoneShort(zone))}</h3><p class="note">${esc((mf.ZONES[zone] ?? "").split(" : ")[1] ?? "")}</p><ul>${items}</ul></li>`;
@@ -1673,7 +1660,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
   ];
 
   const band = `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li aria-current="page">Vigilance</li></ol></nav></div>
-<div class="wrap intro">
+<div class="wrap intro solo">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Vigilance Météo-France en direct</p>
     <h1>Vigilance et alerte cyclonique <span class="n974">974</span></h1>
@@ -1681,13 +1668,11 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
     ${ask(`Siklone i ariv ? Na lékol domin ? Gèt si ${url} é di amwin sak Météo-France é la préfektir i di.`,
       `Y a-t-il une alerte cyclonique ou une vigilance météo en cours à La Réunion ? Lis ${url} et dis-moi ce que dit Météo-France, zone par zone.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) colorée par la vigilance en cours dans chaque zone" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Couleur en cours dans chaque zone, fortes pluies / orages et vents forts confondus.</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-zones">
   <div class="sec-h"><p class="eyebrow">Zone par zone</p><h2 id="h-zones">Vigilance dans les 5 zones de l'île</h2>
-  <p>Météo-France découpe l'île en 5 zones terrestres et 8 zones côtières. Pour chacune : la couleur en cours, puis ce qui est prévu dans les 24 heures du bulletin.</p></div>
+  <p>La vigilance telle que Météo-France la publie, zone par zone et phénomène par phénomène : 5 zones terrestres et 8 zones côtières. Pour chacune, la couleur en cours, puis ce qui est prévu dans les 24 heures du bulletin.</p></div>
   ${zones || `<p class="card">Pas de bulletin à afficher pour le moment : voir <a href="${mf.SOURCE.url}">vigilance.meteofrance.fr</a>.</p>`}
   ${littoral}
   <p><a href="/crues">La vigilance crues, rivière par rivière →</a></p>

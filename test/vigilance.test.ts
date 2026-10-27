@@ -70,7 +70,9 @@ describe("vigilance Météo-France", () => {
     expect(r.resume).toContain("Pas d'alerte cyclonique");
     expect(r.resume).toContain("Aucune vigilance particulière");
     expect(r.emise).toBe("22/10 16:02 heure de La Réunion");
-    expect(await vigilanceWarnings(cacheWith(await sample()), NOW)).toEqual([]);
+    expect(r.officiel).toBe("Consulter le site officiel de Météo-France : https://vigilance.meteofrance.fr/fr/la-reunion");
+    expect(r.resume.endsWith(r.officiel)).toBe(true);
+    expect(await vigilanceWarnings(cacheWith(await sample()), NOW)).toEqual({ lignes: [] });
   });
 
   it("gives the zone of a place, its colours to come and the cyclone alert", async () => {
@@ -78,12 +80,25 @@ describe("vigilance Météo-France", () => {
     const est = body(await vigilanceMeteo(cache, "Saint-Benoît", NOW));
     expect(est.zone_vigilance).toMatch(/^Est/);
     expect(est.resume).toContain("ALERTE CYCLONIQUE orange, « je me prépare »");
-    expect(est.resume).toContain("fortes pluies / orages orange du 22/10 22:00 au 23/10 10:00, jaune à partir du 23/10 10:00");
+    // The zone of Météo-France, its colour first, the commune only said to be in it.
+    expect(est.resume).toContain("Vigilance Météo-France, zone Est (où se trouve Saint-Benoît) : orange fortes pluies / orages du 22/10 22:00 au 23/10 10:00, jaune fortes pluies / orages à partir du 23/10 10:00.");
+    expect(est.resume).not.toMatch(/à Saint-Benoît|pour Saint-Benoît/);
+    expect(est.resume.endsWith("Consulter le site officiel de Météo-France : https://vigilance.meteofrance.fr/fr/la-reunion")).toBe(true);
     const sud = body(await vigilanceMeteo(cache, "Cilaos", NOW));
     expect(sud.zone_vigilance).toMatch(/^Sud/);
-    expect(sud.resume).toContain("Pas de vigilance particulière pour la zone Sud");
+    expect(sud.resume).toContain("Vigilance Météo-France, zone Sud (où se trouve Cilaos) : vert.");
     const warnings = await vigilanceWarnings(cache, NOW);
-    expect(warnings[0]).toContain("ALERTE CYCLONIQUE orange");
-    expect(warnings[1]).toBe("Vigilance Météo-France en cours : orange fortes pluies / orages (Est). Détails avec vigilance_meteo.");
+    expect(warnings.lignes[0]).toContain("ALERTE CYCLONIQUE orange");
+    expect(warnings.lignes[1]).toBe("Vigilance Météo-France en cours : orange fortes pluies / orages (Est). Détails avec vigilance_meteo.");
+    // A cyclone alert among them: the link to Météo-France's cyclone page.
+    expect(warnings.officiel).toBe("Consulter le site officiel de Météo-France : https://meteofrance.re/fr/cyclone");
+  });
+
+  it("says when Météo-France issued nothing for a zone, never green in its place", async () => {
+    const v = structuredClone(await sample());
+    delete v.zones["VIGI974-14"];
+    const sud = body(await vigilanceMeteo(cacheWith(v), "Cilaos", NOW));
+    expect(sud.resume).toContain("zone Sud (où se trouve Cilaos) : pas de vigilance émise.");
+    expect(sud.niveaux.map((n: { maintenant: string }) => n.maintenant)).toEqual(["pas de vigilance émise", "pas de vigilance émise"]);
   });
 });
