@@ -3,6 +3,8 @@ import { localTime } from "../geo.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as feux from "../providers/feux.js";
 import * as mf from "../providers/vigilance.js";
+import * as carte from "../providers/vigilance-carte.js";
+import { SITE_URL } from "./citer.js";
 import { why } from "../types.js";
 import { vigilanceLine } from "./feux.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
@@ -156,6 +158,23 @@ export function coastText(v: mf.Vigilance): string | undefined {
   return `Vagues-submersion : ${[...byColour].map(([c, n]) => `${c} sur ${n} ${n > 1 ? "zones côtières" : "zone côtière"}`).join(", ")}`;
 }
 
+/**
+ * Météo-France's official map (providers/vigilance-carte.ts): the picture of page 1 of the newest bulletin when it was
+ * made, and the bulletin in PDF, with its time of issue. Nothing without a bulletin whose time of issue was read.
+ */
+function carteOfficielle(c: mf.Vigilance["carte"]) {
+  const b = c?.bulletin;
+  if (!b || c.illisible) return undefined;
+  return {
+    emise: `${day(b.emis)} heure de La Réunion`,
+    ...(c.image?.empreinte === b.empreinte && { image: `${SITE_URL}${carte.imagePath(b.empreinte)}` }),
+    pdf: `${SITE_URL}${carte.pdfPath(b.empreinte)}`,
+    source: "Météo-France",
+    // A condition of the agreement, beside the map wherever it is shown.
+    officiel: mf.officiel(mf.OFFICIEL_VIGILANCE),
+  };
+}
+
 function unavailable(reason: string) {
   return {
     ...text({ erreur: reason, consulter: mf.SOURCE.url, officiel: mf.officiel(mf.OFFICIEL_VIGILANCE), sources: credits([mf.SOURCE]) }),
@@ -185,6 +204,7 @@ export async function vigilanceMeteo(cache: Cache, lieu: string | undefined, now
     feux_detectes: fireLine,
     suivi_meteo_france: v.suivi.length ? v.suivi : undefined,
     avertissements: [OFFICIAL, ...(cached.stale ? ["Météo-France momentanément injoignable : dernière vigilance connue."] : [])],
+    carte_officielle: carteOfficielle(v.carte),
     consulter: mf.SOURCE.url,
     officiel: link,
     sources: credits(fireLine ? [mf.SOURCE, feux.SOURCE] : [mf.SOURCE]),

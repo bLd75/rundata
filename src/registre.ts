@@ -162,6 +162,29 @@ const SCHEDULED: Entry[] = [
   },
   ...SHARED.map((s) => sharedEntry(s, false)),
   ...SHARED_AFTER.map((s) => sharedEntry(s, true)),
+  // Météo-France's official map (providers/vigilance-carte.ts), in the vigilance's copy, outside its cost: its state read
+  // at each of its builds; a new bulletin kept (its time of issue read in the PDF, 40 ms in Node, the PDF and the state
+  // written); a picture by Cloudflare's browser (the call, the picture and the state written), 24 a day at most.
+  {
+    id: "vigilance:carte",
+    trigger: "planifiée",
+    what: "carte officielle de la vigilance : son état (KV), lu à chaque copie de la vigilance",
+    every: EVENT_MINUTES,
+    offset: 0,
+    run: { subrequests: 1, kvReads: 1, cpuMs: 0 },
+    from: ["src/providers/vigilance-carte.ts"],
+    basis: "code",
+  },
+  {
+    id: "vigilance:carte:bulletin",
+    trigger: "planifiée",
+    what: "carte officielle de la vigilance : un nouveau bulletin gardé (le PDF et l'état, KV), puis son image par le navigateur de Cloudflare (l'image et l'état), 24 images par jour au plus",
+    every: 60,
+    offset: 0,
+    run: { subrequests: 5, kvWrites: 4, cpuMs: 40 },
+    from: ["src/providers/vigilance-carte.ts"],
+    basis: "code",
+  },
   {
     id: "agendas:planifies",
     trigger: "planifiée",

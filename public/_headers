@@ -22,3 +22,7 @@
 /font/*
   Cache-Control: public, max-age=31536000, immutable
   X-Content-Type-Options: nosniff
+/pdfjs/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+  X-Robots-Tag: noindex

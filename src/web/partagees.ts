@@ -74,7 +74,8 @@ export const SHARED: Shared[] = [
   // Météo-France's vigilance, every 5 minutes, in every event: the banner and the vigilance tile of every page read it,
   // and a data center's own copy, kept while Météo-France was late, could be hours old where no one had asked
   // (26 October 2026). Its cold cost: the token and the zip, plus one. Its CPU: unzipping and parsing La Réunion's two
-  // files, 63 ms the first time in Node and 6 ms after, rounded up.
+  // files, 63 ms the first time in Node and 6 ms after, rounded up. The official map's turn (providers/vigilance-carte.ts)
+  // is outside its cost, declared apart (src/registre.ts).
   { key: mf.KEY, build: () => mf.read(), every: 5, cold: 3, cpu: 70, offset: 0 },
   // The rivers, every 15 minutes, every 5 while a river is in yellow flood vigilance or above: the home page's tile
   // read a data center's own copy, which no view had brought up to date for two hours while Vigicrues Réunion answered
