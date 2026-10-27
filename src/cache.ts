@@ -7,7 +7,7 @@
  * stays down for days) so that an outage does not turn every question into a new request against a server that is
  * already struggling.
  */
-import { costOf, later } from "./budget.js";
+import { costOf, isScheduled, later } from "./budget.js";
 import { cacheTally } from "./metrics.js";
 
 import { callDeadline, noteLecture, withSource } from "./lectures.js";
@@ -236,6 +236,21 @@ export class Cache {
   async island<T>(key: string, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>> {
     const hit = await this.wide.get(key, this.now() - freshSeconds * 1000);
     return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.wide.put(key, e)));
+  }
+
+  /**
+   * As `island`, for a source too slow to be read while someone waits (Vigicrues Réunion's 29 gauges, 15 s and more):
+   * only the scheduled event reads it. Every other invocation is served the copy it left in the stores, however old,
+   * with its time, and as the copy of a silent source when that read failed; the source is asked there only when the
+   * stores have none. `load` is given the copy it replaces, for what a read in parts did not bring back.
+   */
+  async islandRead<T>(key: string, freshSeconds: number, load: (before?: T) => Promise<T>): Promise<Cached<T>> {
+    const hit = await this.wide.get(key, this.now() - freshSeconds * 1000);
+    if (hit && !isScheduled()) {
+      cacheTally().hits++;
+      return this.noted(key, freshSeconds, hit.echec ? copyOf<T>(hit, hit.echec.source ?? hit.from) : { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.from && { from: hit.from }) });
+    }
+    return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, () => load(hit?.value as T | undefined), (e) => this.wide.put(key, e)));
   }
 
   /**
