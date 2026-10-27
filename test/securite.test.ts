@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { failed, handle } from "../src/app.js";
 import { Cache } from "../src/cache.js";
-import { CSP_RAPPORT, enTetes, politique, rapport, scriptsEnLigne, SECURITY_EXPIRES } from "../src/web/securite.js";
+import { CSP_RAPPORT, enTetes, PERMISSIONS, politique, rapport, scriptsEnLigne, SECURITY_EXPIRES } from "../src/web/securite.js";
 
 const sha = (s: string) => createHash("sha256").update(s, "utf8").digest("base64");
 
@@ -14,6 +14,7 @@ describe("the pages' security headers", () => {
     const h = await enTetes(html);
     expect(h["x-frame-options"]).toBe("DENY");
     expect(h["content-security-policy"]).toBe("frame-ancestors 'none'");
+    expect(h["permissions-policy"]).toBe("camera=(), microphone=(), payment=(), usb=(), geolocation=(self)");
     for (const s of [`const a="é";`, "b()", "c()"]) expect(h["content-security-policy-report-only"]).toContain(`'sha256-${sha(s)}'`);
     expect(politique([])).toMatch(/frame-src https:\/\/challenges\.cloudflare\.com https:\/\/embed\.waze\.com; .*form-action 'self'; report-uri \/csp-rapport$/);
   });
@@ -22,12 +23,15 @@ describe("the pages' security headers", () => {
     const r = await handle(new Request("https://rundata.re/nulle-part", { headers: { accept: "text/html" } }), new Cache());
     expect(r.status).toBe(404);
     expect(r.headers.get("x-frame-options")).toBe("DENY");
+    expect(r.headers.get("permissions-policy")).toBe(PERMISSIONS);
     const policy = r.headers.get("content-security-policy-report-only") ?? "";
     const scripts = scriptsEnLigne(await r.text());
     expect(scripts.length).toBeGreaterThan(0);
     for (const s of scripts) expect(policy).toContain(`'sha256-${sha(s)}'`);
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(failed("/x", new Error("x")).headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+    const failure = failed("/x", new Error("x")).headers;
+    expect(failure.get("content-security-policy")).toBe("frame-ancestors 'none'");
+    expect(failure.get("permissions-policy")).toBe(PERMISSIONS);
     error.mockRestore();
   });
 });

@@ -9,6 +9,10 @@
  *   allowed by its SHA-256 (computed from the page itself, so that a new script is never forgotten). Styles stay
  *   inline (the pages have `style` attributes); the frames are Turnstile's and Waze's. Once a day passes without a
  *   report, the same policy becomes the blocking one.
+ * - A Permissions-Policy, applied at once: no page and no frame may use the camera, the microphone, payment or USB
+ *   devices, which the site never asks for. The position stays allowed for the site's own pages (the button « Autour
+ *   de moi » of /defibrillateurs), and for no frame. The other features keep the browser's default: the clipboard of
+ *   the copy buttons, the fullscreen of Waze's map.
  */
 import { bodyText } from "../http.js";
 
@@ -28,8 +32,11 @@ export const SECURITY_TEXT = [
   "",
 ].join("\n");
 
+/** What no page and no frame may use, and the position, for the site's own pages only. */
+export const PERMISSIONS = "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)";
+
 /** Applied at once on every page. */
-export const CADRE: Record<string, string> = { "content-security-policy": "frame-ancestors 'none'", "x-frame-options": "DENY" };
+export const CADRE: Record<string, string> = { "content-security-policy": "frame-ancestors 'none'", "x-frame-options": "DENY", "permissions-policy": PERMISSIONS };
 
 const TURNSTILE = "https://challenges.cloudflare.com";
 const WAZE = "https://embed.waze.com";
