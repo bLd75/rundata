@@ -1551,6 +1551,8 @@ export function offlinePage(origin: string): string {
  * p. 9) and whose yellow the prefecture dropped (marketing).
  */
 export const cycloneVg = (c: number) => (c === 2 ? "vgpre" : `vg${c >= 1 && c <= 5 ? c : 0}`);
+/** The link to Météo-France's own site, in its words (providers/vigilance.ts). */
+export const officielHtml = (href: string) => `<a href="${href}" rel="noopener">${esc(mf.OFFICIEL)}</a>`;
 export const vg = (c: number) => `<span class="vg vg${c >= 1 && c <= 5 ? c : 0}">${esc(mf.colour(c))}</span>`;
 const zoneShort = (zone: string) => (mf.ZONES[zone] ?? zone).split(" :")[0];
 /** « vigilance verte »: the colours as Météo-France names them, agreed with the word. */
