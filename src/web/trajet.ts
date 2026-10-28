@@ -102,7 +102,7 @@ export function tripPage(origin: string, path: string, t: TripRun, chosen: numbe
   ${cut}
   ${stops}
   <p class="note">${liveNote(t)}</p>
-  <p class="note">Sources : ${credits(sources)}.</p>
+  <p class="sources">Sources : ${credits(sources)}.</p>
 </section>`;
 
   return layout(origin, { title, description, path, noindex: true, jsonld: [crumbs(origin, `Ligne ${t.ligne}`, path, { name: "Bus", path: "/bus" })], alerte }, band, body);

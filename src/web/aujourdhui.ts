@@ -163,7 +163,7 @@ ${cuts || events ? `<section aria-labelledby="h-eau-sorties"><div class="sec-h">
 </section>
 <section>${missing}
   <p class="note"><a href="/communes/${p.slug}">${esc(p.nom)} en direct : les bus, la mairie, toutes les rubriques →</a></p>
-  ${r.sources.length ? `<p class="note">Sources : ${credits(r.sources)}.</p>` : ""}
+  ${r.sources.length ? `<p class="sources">Sources : ${credits(r.sources)}.</p>` : ""}
 </section>
 ${connectorCta("resume_du_jour", `la journée ${deCommune(p.nom)}`)}`;
   return layout(origin, { title, description, path, jsonld: [trail, webPage(origin, path, title, description, at)], alerte }, band, body);
