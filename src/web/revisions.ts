@@ -14,7 +14,7 @@
  * is settled. A change that makes the new code unable to read an old copy raises `CACHE_FORMAT` instead (cache.ts).
  */
 export const RENDU_REVISION: Readonly<Record<string, number>> = {
-  actualites: 6,
+  actualites: 7,
   agenda: 17,
   air: 4,
   bornes: 1,
@@ -60,7 +60,8 @@ export const familyOf = (key: string) => key.slice("web:".length).split(":")[0];
  */
 export const SOURCE_REVISION: Readonly<Record<string, number>> = {
   // With the time the prefecture's list was last asked (prefectureLue), which it is every 15 minutes only.
-  "actualites:fil": 2,
+  // With the time the prefecture's list shown was read (prefectureReussie), kept while its site does not answer.
+  "actualites:fil": 3,
   // Read again with its written agreement of 28/10/2026, without the price and the sentence an older entry kept.
   "agenda:bras_panon": 1,
 };

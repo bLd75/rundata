@@ -27,6 +27,7 @@ import * as maregraphes from "../providers/maregraphes.js";
 import * as mf from "../providers/vigilance.js";
 import { qualiteAir } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
+import { injoignable } from "../tools/injoignable.js";
 import { electricite } from "../tools/electricite.js";
 import * as houle from "../providers/houle.js";
 import { BEACHES, PRODUCTS as SEA_PRODUCTS, seaTour, TOUR as SEA_TOUR, temperatureMer, waveLine, wavesNow } from "../tools/mer.js";
@@ -1110,6 +1111,8 @@ export interface ActualitesAnswer {
   total?: number;
   en_direct: InfoRow[];
   prefecture: InfoRow[];
+  /** The prefecture's site did not answer since `prefecture` was read: said with that time (tools/injoignable.ts). */
+  prefecture_injoignable?: { texte: string; site: string };
   /** Whether people are in the streets or roads blocked: a live blog, or news of it in the last hours. */
   chaud: boolean;
   indisponible: string[];
@@ -1123,6 +1126,14 @@ const NEWS_LISTED = 40;
 const HOT_HOURS = 6;
 
 /** The island's news of the last day, as the page lists it. */
+/** The prefecture's site silent since the list shown was read (`prefectureNonRelue`), in tools/injoignable.ts's words. */
+export function prefectureSilent(f: actuSource.Fil, now: Date): { texte: string; site: string } | undefined {
+  const at = actuSource.prefectureNonRelue(f);
+  if (!at) return undefined;
+  const site = actuSource.SOURCES.prefecture.url;
+  return { texte: injoignable("le site de la préfecture", localTime(new Date(at)), localTime(new Date(f.prefectureLue!)), now).texte, site };
+}
+
 export async function buildActualites(cache: Cache, now = new Date()): Promise<ActualitesAnswer> {
   const f = (await actuSource.fil(cache, now)).value;
   const since = new Date(now.getTime() - NEWS_HOURS * 3600_000).toISOString();
@@ -1134,6 +1145,7 @@ export async function buildActualites(cache: Cache, now = new Date()): Promise<A
     total: articles.length,
     en_direct: day.filter((i) => i.direct).slice(0, 12).map((i) => infoRow(i, now)),
     prefecture: f.prefecture.slice(0, 4).map((i) => infoRow(i, now)),
+    prefecture_injoignable: prefectureSilent(f, now),
     chaud: day.some((i) => i.publie >= recent && (i.direct || i.sujets.includes("mobilisation"))),
     indisponible: f.indisponible,
     couverture: ACTU_COUVERTURE,
