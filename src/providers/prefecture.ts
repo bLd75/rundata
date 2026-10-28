@@ -66,15 +66,27 @@ const COPY_KEY = "prefecture:communiques:copie";
  */
 async function communiques(cache: Cache): Promise<Cached<Communiques>> {
   if (copie.configured()) {
-    const c = await cache.get(COPY_KEY, 5 * 60, async () => {
+    const c = await cache.getCopy(COPY_KEY, 5 * 60, async () => {
       const v = await copie.copie();
       if (!v?.liste.length) throw new UpstreamError(SOURCE.id, "copie des communiqués absente du stockage");
       return v;
-    });
+    }, (v) => v.lu_le);
     const late = Date.now() - Date.parse(c.value.lu_le) > copie.SILENT_MS;
     return { ...c, fetchedAt: new Date(c.value.lu_le), ...(late && { stale: true, source: SOURCE.id }) };
   }
   return cache.island(KEY, 5 * 60, () => lireSite(getPage));
+}
+
+/**
+ * In the Worker, when the collector's copy was not renewed for `SILENT_MS` (our machine, or the site: we do not know
+ * which): when it read the site, « aujourd'hui à 15:30 », from the copy the data center holds. Undefined otherwise,
+ * and elsewhere.
+ */
+export async function derniereLecture(cache: Cache, now: Date): Promise<string | undefined> {
+  if (!copie.configured()) return undefined;
+  const c = await cache.peek<copie.Copie>(COPY_KEY).catch(() => undefined);
+  const at = c ? Date.parse(c.value.lu_le) : NaN;
+  return now.getTime() - at > copie.SILENT_MS ? when(localTime(new Date(at)), now) : undefined;
 }
 
 /** The latest releases, newest first (`communiques`). */
