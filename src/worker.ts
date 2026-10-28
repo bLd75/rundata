@@ -6,7 +6,7 @@
  * (on *.workers.dev its calls do nothing). The AROME grids, filled every few minutes by the scheduled event,
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
-import { failed, handle } from "./app.js";
+import { configurerEquipe, failed, handle } from "./app.js";
 import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, readsSaid, scheduled, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
@@ -100,6 +100,8 @@ interface Env {
   META_APP_SECRET?: string;
   /** Optional: the key that encrypts the secrets of the associations' platforms (src/connecteurs/chiffre.ts), 32 bytes in base64. */
   CONNECTEURS_CLE?: string;
+  /** Optional: the team's secret, sent by its scripts in the header `rundata-jeton` so that their calls are not counted (src/app.ts). */
+  EQUIPE_JETON?: string;
   /** Cloudflare Email Sending: the confirmation of the events the clubs propose (src/propositions.ts). */
   EMAIL?: propositions.EmailBinding;
   /** Browser Rendering: the picture of Météo-France's official map of the vigilance (src/providers/vigilance-carte.ts). */
@@ -229,6 +231,7 @@ function setup(env: Env): Cache {
     avisDb && (async <T>(sql: string, ...params: unknown[]) => (count(), (await avisDb.prepare(sql).bind(...params).all<T>()).results)),
   );
   formulaires.configure(env.TURNSTILE_SECRET);
+  configurerEquipe(env.EQUIPE_JETON);
   metaWebhookSecrets(env.META_VERIFY_TOKEN, env.META_APP_SECRET);
   // The associations' links to their platform, in the same database (scripts/connecteurs.sql): the platform's secret
   // encrypted with CONNECTEURS_CLE, the link e-mailed like a proposal's. Without the key, nothing is linked.
