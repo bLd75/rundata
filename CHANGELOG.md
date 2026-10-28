@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Mercredi 28 octobre 2026
 
+- Pages Météo, Randonnée, Circulation, Événements et Mer : une illustration du lieu, générée par IA, en fond derrière le titre.
 - Page /application : les étapes pour mettre rundata.re sur l'écran d'accueil avec Safari, Chrome, Firefox, Edge ou Samsung Internet.
 - Vigilance : la carte officielle de Météo-France, sans retouche, avec l'accord écrit de Météo-France La Réunion.
 - Baignade : les zones du GIP Centre Sécurité Requin, avec son accord et ses corrections, dont les ZONEX de Boucan-Canot à L'Étang-Salé.

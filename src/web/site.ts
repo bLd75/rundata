@@ -6,6 +6,7 @@
  * public/, served before the Worker.
  */
 import { alerteVolcan, volcanNow, withVolcan } from "./volcan-alerte.js";
+import { withSaveData } from "./fonds.js";
 import { left, measured } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { why } from "../types.js";
@@ -328,7 +329,7 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   const copie = await bord.lire(request);
   if (copie) return copie;
   const volcan = await volcanNow(cache, now);
-  const r = await typoPage(await withVolcan(volcan, () => pages(request, cache, background, now)));
+  const r = await typoPage(await withVolcan(volcan, () => withSaveData(request, () => pages(request, cache, background, now))));
   if (r?.status === 200 && request.method === "GET" && bord.gardeDe(new URL(request.url))) background(bord.garder(request, r.clone()));
   return r;
 }
