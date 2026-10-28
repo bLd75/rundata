@@ -339,7 +339,8 @@ function stepCode(codes: number[]): number | null {
 
 /**
  * The sky of three hours: « couvert (nuages élevés) » when AROME puts all its clouds above 4 000 m, so that it reads with
- * the night's « dégagé sous des nuages élevés » (tools/nuages.ts) that the same step gives over the Hauts.
+ * the night of the Hauts that the same step gives (tools/nuages.ts, nightSky): « voilé par des nuages élevés, sans nuages
+ * plus bas » from 80 % of cloud, « dégagé sous des nuages élevés » below.
  */
 export function stepSky(hours: ForecastHour[], code: number | null): string | undefined {
   const s = sky(code);
