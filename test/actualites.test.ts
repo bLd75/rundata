@@ -208,6 +208,23 @@ describe("actualités", () => {
     }
   });
 
+  it("says only when the collector's copy was read once it is not renewed, our machine being maybe the one down", async () => {
+    let t = NOW.getTime();
+    const c = new Cache(new MemoryStore(), () => t);
+    copie.configure(async () => ({ liste: parsePrefecture(fixture("prefecture.html")), lu_le: new Date(NOW.getTime() - 10 * 60_000).toISOString() }));
+    try {
+      await fil(c, NOW);
+      t += 50 * 60_000;
+      const now = new Date(t);
+      const said = "Dernière lecture du site de la préfecture : aujourd'hui à 11:55.";
+      expect(body(await actualites(c, undefined, undefined, undefined, now)).prefecture_injoignable).toBe(said);
+      expect((await buildActualites(c, now)).prefecture_injoignable).toEqual({ texte: said, site: "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse" });
+      expect(asked.filter((a) => a.includes("reunion.gouv.fr"))).toEqual([]);
+    } finally {
+      copie.configure(undefined);
+    }
+  });
+
   it("says the prefecture's list kept with the time it was read, in the tool and on the page", async () => {
     let t = NOW.getTime();
     const c = new Cache(new MemoryStore(), () => t);

@@ -1,15 +1,30 @@
 import type { Cache } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as src from "../providers/actualites.js";
+import * as copie from "../providers/prefecture-copie.js";
 import { ACCUEIL, NOTE_ACCUEIL } from "../providers/accueils-medias.js";
 import * as radars from "../routes/radars.js";
 import { localTime } from "../geo.js";
 import { why } from "../types.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
-import { injoignable, mediasNonLus } from "./injoignable.js";
+import { injoignable, mediasNonLus, when } from "./injoignable.js";
 import { mentionLa1ere } from "./non-repris.js";
 import * as littoral from "./littoral.js";
 import { rienTrouve } from "../vide.js";
+
+/**
+ * The prefecture's list kept, said with the time it was read; undefined while it is read anew (`prefectureNonRelue`).
+ * The collector's copy (prefecture-copie.ts) not renewed may be our machine's doing, not the site's: then only when it
+ * was read, never that the site did not answer.
+ */
+export function prefectureLueTexte(f: src.Fil, now: Date): string | undefined {
+  const at = src.prefectureNonRelue(f);
+  if (!at) return undefined;
+  const lu = localTime(new Date(at));
+  return copie.configured()
+    ? `Dernière lecture du site de la préfecture : ${when(lu, now)}.`
+    : injoignable("le site de la préfecture", lu, localTime(new Date(f.prefectureLue!)), now).texte;
+}
 
 const DEFAULT_HOURS = 24;
 const MAX_HOURS = 72;
@@ -148,8 +163,7 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
   // answer is neither gone nor empty).
   const silent = data.indisponible.length ? mediasNonLus(data.indisponible, localTime(readAt), now) : "";
   // The prefecture's site silent since its list was read: the list kept, said with its time.
-  const prefLue = src.prefectureNonRelue(data);
-  const prefSilent = prefLue ? injoignable("le site de la préfecture", localTime(new Date(prefLue)), localTime(new Date(data.prefectureLue!)), now).texte : undefined;
+  const prefSilent = prefectureLueTexte(data, now);
   const blind = !data.infos.length && !!silent;
   // Nothing naming the place, or nothing at all: not that nothing happens there (a media that did not answer is said apart).
   if (!blind && !(asked ? mine.length : pool.length)) rienTrouve("actualites");
