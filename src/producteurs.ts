@@ -149,6 +149,8 @@ export const FICHES: Record<string, Fiche> = {
   lsar: { famille: "information_publique", producteurs: ["Ligue du sport automobile de La Réunion"] },
   // A platform: the clubs it names, from its last copy, counted live.
   sportsregions: { famille: "information_publique", producteurs: [] },
+  // A platform whose API does not name the organisers.
+  weezevent: { famille: "information_publique", producteurs: [] },
   // News and events.
   medias_locaux: { famille: "information_publique", producteurs: ["Clicanoo", "Le Quotidien de La Réunion", "Imaz Press Réunion", "Freedom", "Parallèle Sud", "Témoignages"] },
   prefecture_communiques: { famille: "licence_ouverte", producteurs: [PREFECTURE] },

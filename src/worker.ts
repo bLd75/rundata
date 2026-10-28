@@ -22,6 +22,7 @@ import * as candhis from "./providers/candhis.js";
 import * as vigilanceCarte from "./providers/vigilance-carte.js";
 import * as cmrsCarte from "./providers/cmrs-carte.js";
 import * as feux from "./providers/feux.js";
+import { configureWeezevent } from "./providers/agenda.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
@@ -84,6 +85,10 @@ interface Env {
   METEOFRANCE_API_KEY?: string;
   /** Optional: NASA FIRMS's MAP_KEY, for the fires seen by satellite (src/providers/feux.ts). */
   FIRMS_MAP_KEY?: string;
+  /** Optional: rundata.re's Weezevent account, for its agenda API (src/providers/agenda.ts, WEEZEVENT). */
+  WEEZEVENT_USERNAME?: string;
+  WEEZEVENT_PASSWORD?: string;
+  WEEZEVENT_API_KEY?: string;
   /** Optional: the Cerema's key to the Candhis buoys, asked by the scheduled event (src/providers/candhis.ts). */
   CANDHIS_API_KEY?: string;
   STORE?: KvNamespace;
@@ -172,6 +177,7 @@ let cache: Cache | undefined;
 function setup(env: Env): Cache {
   meteofrance.configure({ applicationId: env.METEOFRANCE_APPLICATION_ID, apiKey: env.METEOFRANCE_API_KEY });
   feux.configure(env.FIRMS_MAP_KEY);
+  configureWeezevent({ username: env.WEEZEVENT_USERNAME, password: env.WEEZEVENT_PASSWORD, apiKey: env.WEEZEVENT_API_KEY });
   const d1 = env.TRANSIT;
   const kv = env.STORE;
   // Asked by the scheduled event below and kept in KV (src/providers/candhis.ts): without KV, the key is not used.
