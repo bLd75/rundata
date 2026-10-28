@@ -36,6 +36,7 @@ import { KEY, readPage, type Stocke, toRead, type FeedJson } from "../src/provid
 import { decide, MODELE, relire, type Usage } from "../src/providers/ovpf-relecture.js";
 import { activityPosts, FEED } from "../src/providers/volcan.js";
 import { UpstreamError } from "../src/types.js";
+import { putKv } from "./kv.js";
 
 const run = promisify(execFile);
 const essai = process.argv.includes("--essai");
@@ -74,22 +75,6 @@ function save(e: Etat) {
   mkdirSync(dir, { recursive: true });
   writeFileSync(`${STATE}.tmp`, JSON.stringify(e, null, 1));
   renameSync(`${STATE}.tmp`, STATE);
-}
-
-// The namespace of the binding STORE, as wrangler.jsonc gives it.
-function namespace(): string {
-  const m = /"binding":\s*"STORE",\s*"id":\s*"([0-9a-f]{32})"/.exec(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
-  if (!m) throw new Error("namespace KV STORE introuvable dans wrangler.jsonc");
-  return m[1];
-}
-
-async function store(key: string, value: Stocke) {
-  const account = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const token = process.env.CLOUDFLARE_API_TOKEN;
-  if (!account || !token) throw new Error("CLOUDFLARE_ACCOUNT_ID et CLOUDFLARE_API_TOKEN sont nécessaires");
-  const url = `https://api.cloudflare.com/client/v4/accounts/${account}/storage/kv/namespaces/${namespace()}/values/${encodeURIComponent(key)}?expiration_ttl=${TTL_SECONDS}`;
-  const res = await fetch(url, { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(value), signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`écriture KV de ${key} refusée : HTTP ${res.status}`);
 }
 
 async function ocr(bytes: Uint8Array): Promise<string> {
@@ -173,7 +158,7 @@ for (const { post, id, image } of todo) {
     continue;
   }
   try {
-    await store(KEY(id), value);
+    await putKv(KEY(id), value, TTL_SECONDS);
     e.lus[id] = value.lu_a;
     delete e.echecs[id];
     for (const m of avis) await say(process.env.OVPF_OCR_AVIS, m);

@@ -188,7 +188,7 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get("eau:ile", "json")) as eauIle.Ile | null;
   }));
-  // Read once a day from the prefecture by .github/workflows/carburants.yml (src/providers/carburants.ts): never by the
+  // Read every day from the prefecture by scripts/carburants.ts, on a machine of the project: never by the
   // Worker, even without the store.
   carburants.configure(async () => {
     if (!kv) return null;

@@ -1,12 +1,12 @@
 /**
  * The maximum prices of fuel at La Réunion, set each month by the prefect's order and published as a press release
  * of the prefecture (Licence Ouverte): the same in every station of the island, which may sell for less. The DOM are
- * not in the national feed of station prices. Read once a day by .github/workflows/carburants.yml
- * (scripts/carburants.ts) into the Worker's KV store, where the Worker reads them; elsewhere, from the prefecture.
+ * not in the national feed of station prices. Read every day by scripts/carburants.ts, from a machine of the project,
+ * into the Worker's KV store, where the Worker reads them; elsewhere, from the prefecture.
  */
 import type { Cache, Cached } from "../cache.js";
 import { getText, permis } from "../http.js";
-import type { SourceInfo } from "../types.js";
+import { type SourceInfo, UpstreamError } from "../types.js";
 
 export const SOURCE: SourceInfo = {
   id: "prefecture_carburants",
@@ -131,16 +131,27 @@ export const label = (produit: string) => (/^supercarburant$/i.test(produit) ? "
 /** « octobre 2026 ». */
 export const monthOf = (day: string) => `${MONTH_NAMES[Number(day.slice(5, 7)) - 1]} ${day.slice(0, 4)}`;
 
+/** How many times a page is asked when the connection fails (the site refuses some addresses now and then). */
+const TRIES = 3;
+
 /**
  * The newest release with a table of prices, from the first pages of the list. `pauseMs` is waited between two pages
- * of the prefecture's site, never a burst of them (scripts/carburants.ts: a minute); none for a local server. The
- * Worker never reads the site (`prix`).
+ * of the prefecture's site, never a burst of them (scripts/carburants.ts: a minute); none for a local server. With a
+ * pause, a page whose connection fails (no HTTP answer) is asked again after it, up to TRIES times; an HTTP error is
+ * never asked again. The Worker never reads the site (`prix`).
  */
 export async function gather(now = new Date(), pages = 4, pauseMs = 0): Promise<Prix | undefined> {
   let asked = 0;
   const read = async (url: string) => {
-    if (asked++ && pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
-    return getText(SOURCE.id, url, 20_000, HEADERS);
+    for (let n = 1; ; n++) {
+      if (asked++ && pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
+      try {
+        return await getText(SOURCE.id, url, 20_000, HEADERS);
+      } catch (err) {
+        if (!pauseMs || n >= TRIES || !(err instanceof UpstreamError) || err.status !== undefined) throw err;
+        console.error(`${err.message} (${url}), essai ${n} sur ${TRIES} : nouvel essai dans ${pauseMs / 1000} s`);
+      }
+    }
   };
   for (let i = 0; i < pages; i++) {
     const list = await read(i ? `${LIST}/(offset)/${i * 10}` : LIST);
@@ -154,7 +165,7 @@ export async function gather(now = new Date(), pages = 4, pauseMs = 0): Promise<
 
 let reader: (() => Promise<Prix | null>) | undefined;
 
-/** In the Worker: read the prices from the KV store, where the workflow writes them, and from nowhere else. */
+/** In the Worker: read the prices from the KV store, where scripts/carburants.ts writes them, and from nowhere else. */
 export function configure(read: (() => Promise<Prix | null>) | undefined) {
   reader = read;
 }
@@ -162,14 +173,14 @@ export function configure(read: (() => Promise<Prix | null>) | undefined) {
 // The order changes once a month; a few hours is plenty, and the stored copy is served while the store does not answer.
 const FRESH_SECONDS = 6 * 3600;
 // While the new order may be in the store and the copy does not have it (from the 28th, or the copy is an older
-// month's): asked again every quarter of an hour, as the workflow reads the prefecture more often then.
+// month's): asked again every quarter of an hour, as the collector reads the prefecture more often then.
 const EARLY_SECONDS = 15 * 60;
 
 export async function prix(cache: Cache, now = new Date()): Promise<Cached<Prix>> {
   const load = async () => {
     // The Worker reads the stored copy only, never the prefecture: its site bans our address on bursts, and an isolate
     // finding the store empty would read up to 22 of its pages in a row (26/10/2026). The prices are then unavailable until
-    // the workflow stores them. Only a local server, with no store, reads the prefecture itself.
+    // the collector stores them. Only a local server, with no store, reads the prefecture itself.
     const v = reader ? await reader() : await gather(now, 2);
     if (!v?.produits?.length) throw new Error(reader ? "prix des carburants absents du stockage" : "prix des carburants absents");
     return v;

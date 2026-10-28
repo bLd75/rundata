@@ -80,6 +80,60 @@ describe("the prefect's fuel prices", () => {
     }
   });
 
+  it("ask a page again a minute later when its connection fails, never on an HTTP error nor without a pause", async () => {
+    const list = `<a href="/Actualites/Communiques-de-presse/Prix-des-carburants-en-octobre">y</a>`;
+    const asked: [string, number][] = [];
+    let refusals = 0;
+    let status = 200;
+    vi.useFakeTimers();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", async (url: string) => {
+      asked.push([url, Date.now()]);
+      if (refusals > 0) {
+        refusals--;
+        throw new TypeError("fetch failed");
+      }
+      return new Response(url.endsWith("en-octobre") ? fixture("carburants_octobre.html") : list, { status });
+    });
+    try {
+      refusals = 2;
+      const got = carburants.gather(NOW, 1, 60_000);
+      await vi.advanceTimersByTimeAsync(200_000);
+      expect((await got)?.lien).toBe(LIEN);
+      const t0 = asked[0][1];
+      expect(asked.map(([u, t]) => [u.replace("https://www.reunion.gouv.fr/Actualites/Communiques-de-presse", ""), t - t0])).toEqual([
+        ["", 0],
+        ["", 60_000],
+        ["", 120_000],
+        ["/Prix-des-carburants-en-octobre", 180_000],
+      ]);
+      expect(error).toHaveBeenCalledTimes(2);
+      // Three refusals in a row: the run fails.
+      asked.length = 0;
+      refusals = 3;
+      const failed = expect(carburants.gather(NOW, 1, 60_000)).rejects.toThrow("prefecture_carburants: fetch failed");
+      await vi.advanceTimersByTimeAsync(200_000);
+      await failed;
+      expect(asked).toHaveLength(3);
+      // An HTTP error is an answer: not asked again.
+      asked.length = 0;
+      status = 503;
+      const refused = expect(carburants.gather(NOW, 1, 60_000)).rejects.toThrow("HTTP 503");
+      await vi.advanceTimersByTimeAsync(200_000);
+      await refused;
+      expect(asked).toHaveLength(1);
+      // Without a pause (a local server), a failure is not asked again either.
+      asked.length = 0;
+      status = 200;
+      refusals = 1;
+      await expect(carburants.gather(NOW, 1)).rejects.toThrow("fetch failed");
+      expect(asked).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+      error.mockRestore();
+    }
+  });
+
   it("are never read from the prefecture by the Worker: an empty store leaves them unavailable", async () => {
     const asked: string[] = [];
     vi.stubGlobal("fetch", async (url: string) => (asked.push(String(url)), new Response("", { status: 500 })));
