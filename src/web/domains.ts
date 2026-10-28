@@ -2841,6 +2841,7 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
   const pref = d?.prefecture.length
     ? `<section aria-labelledby="h-pref">
   <div class="sec-h"><p class="eyebrow">Officiel</p><h2 id="h-pref">Communiqués de la préfecture</h2><p>Mesures de sécurité, interdictions, routes, eau : les consignes officielles priment.</p></div>
+  ${d.prefecture_injoignable ? `<p class="note">${silentText(d.prefecture_injoignable)}</p>` : ""}
   <ul class="rows eau">${d.prefecture.map((r) => `<li><span><a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a></span><span class="q-none">${esc(newsTime(r))}</span></li>`).join("")}</ul>
 </section>`
     : "";
