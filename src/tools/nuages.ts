@@ -23,7 +23,10 @@ const CLEAR_PCT = 30;
 const EDGE_M = 100;
 // Clouds whose base is this high are no cloud sea: the view stays open under them. A top this high is that of deep or
 // layered clouds, not of the cloud sea: it is not said.
-const HIGH_M = 4000;
+export const HIGH_M = 4000;
+
+/** A step whose clouds are all high (AROME's base over HIGH_M): a veil the view goes on under, said with the sky's word. */
+export const eleves = (h: ForecastHour) => h.nuages_base_m != null && h.nuages_base_m > HIGH_M && (h.nuages_pct ?? 0) >= CLEAR_PCT;
 const HOUR = 3600_000;
 
 export const LABEL = "prévision du modèle AROME de Météo-France (carrés de 2,5 km)";

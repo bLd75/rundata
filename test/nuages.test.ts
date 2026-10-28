@@ -6,7 +6,7 @@ import * as arome from "../src/providers/arome.js";
 import { configure } from "../src/providers/mf-auth.js";
 import * as openmeteo from "../src/providers/openmeteo.js";
 import { BEYOND, CAVEAT, LABEL, cielDeNuit, etat, merDeNuages, morning, morningStarts, night, nightStarts, softened } from "../src/tools/nuages.js";
-import { previsionMeteo } from "../src/tools/prevision.js";
+import { previsionMeteo, stepSky } from "../src/tools/prevision.js";
 import type { Forecast, ForecastHour } from "../src/types.js";
 import { randonneesPage } from "../src/web/domains.js";
 import { placePage } from "../src/web/pages.js";
@@ -152,6 +152,27 @@ describe("the sky of the night", () => {
     const ifs = { ...hour(steps[3], 10, null, null) };
     delete ifs.nuages_base_m;
     expect(cielDeNuit(forecast([hour(steps[0], 10, null, null), hour(steps[1], 10, null, null), hour(steps[2], 10, null, null), ifs]), SAINT_PAUL, EVENING)).toBeNull();
+  });
+});
+
+describe("the sky of three hours under high clouds", () => {
+  const MIDNIGHT = "2026-10-24T20:00:00Z";
+  const high = { ...hour(MIDNIGHT, 90, 12000, 13000), code: 3 };
+
+  it("says the overcast is of high clouds, which the night of the Hauts says open under them", () => {
+    expect(stepSky([high], 3)).toBe("couvert (nuages élevés)");
+    expect(stepSky([{ ...high, nuages_pct: 60, code: 2 }], 2)).toBe("partiellement nuageux (nuages élevés)");
+    expect(cielDeNuit(forecast([hour("2026-10-24T14:00:00Z", 10, null, null), hour("2026-10-24T17:00:00Z", 10, null, null), high, { ...high, time: new Date("2026-10-24T23:00:00Z") }]), MAIDO, EVENING)!.ligne)
+      .toBe("De 18\u00a0h à minuit, dégagé\u00a0; de minuit à 6\u00a0h, dégagé sous des nuages élevés.");
+  });
+
+  it("keeps the plain word for low clouds, rain, a clear sky, or a step without AROME's cloud base", () => {
+    expect(stepSky([{ ...high, nuages_base_m: 1500, nuages_sommet_m: 2600 }], 3)).toBe("couvert");
+    expect(stepSky([{ ...high, pluie_mm: 1.2, code: 61 }], 61)).toBe("pluie faible");
+    expect(stepSky([{ ...high, nuages_pct: 10, code: 0 }], 0)).toBe("ciel dégagé");
+    const ifs = { ...high };
+    delete ifs.nuages_base_m;
+    expect(stepSky([ifs], 3)).toBe("couvert");
   });
 });
 

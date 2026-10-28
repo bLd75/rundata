@@ -337,6 +337,15 @@ function stepCode(codes: number[]): number | null {
   return notFog.length ? Math.max(...notFog) : Math.max(...codes);
 }
 
+/**
+ * The sky of three hours: « couvert (nuages élevés) » when AROME puts all its clouds above 4 000 m, so that it reads with
+ * the night's « dégagé sous des nuages élevés » (tools/nuages.ts) that the same step gives over the Hauts.
+ */
+export function stepSky(hours: ForecastHour[], code: number | null): string | undefined {
+  const s = sky(code);
+  return s && code != null && code >= 1 && code <= 3 && hours.every(nuages.eleves) ? `${s} (nuages élevés)` : s;
+}
+
 /** Three hours: temperature at the start, rain summed, the worst weather and gust. */
 function stepBlock(hours: ForecastHour[], mixed: boolean) {
   const first = hours[0];
@@ -349,7 +358,7 @@ function stepBlock(hours: ForecastHour[], mixed: boolean) {
     : `${first.vent_dir == null ? "" : `${compass(first.vent_dir)} `}${Math.round(first.vent_kmh)} km/h, rafales ${gust} km/h`;
   return {
     heures: `${dayLabel(localDate(first.time))} ${tranche(localHour(first.time) * 60, (localHour(end) || 24) * 60)}`,
-    ciel: sky(stepCode(codes)),
+    ciel: stepSky(hours, stepCode(codes)),
     temperature: deg(first.temperature),
     pluie: rain(Math.round(sum * 10) / 10),
     vent: wind,
