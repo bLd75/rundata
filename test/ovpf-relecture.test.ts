@@ -95,7 +95,7 @@ describe("the second reading of a release given in images", () => {
       sent = init;
       return answer(CONFORME);
     }) as typeof fetch);
-    expect(got).toEqual({ relecture: CONFORME, usage: { input_tokens: 7307, output_tokens: 182 } });
+    expect(got).toEqual({ relecture: CONFORME, usage: { input_tokens: 7307, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 182 } });
     expect(sent!.headers).toEqual({ "x-api-key": "clé-essai", "anthropic-version": "2026-10-21", "content-type": "application/json" });
     expect(sent!.body).not.toContain("clé-essai");
     const fails = (r: Response) => rel.relire("k", WEBP, LU, (async () => r) as unknown as typeof fetch);
@@ -104,5 +104,11 @@ describe("the second reading of a release given in images", () => {
     await expect(fails(answer(CONFORME, { stop_reason: "refusal" }))).rejects.toThrow("relecture arrêtée : refusal");
     await expect(fails(answer({ ...CONFORME, niveau: lecture("Alerte 9") }))).rejects.toThrow("relecture : réponse hors du schéma");
     await expect(fails(new Response(JSON.stringify({ stop_reason: "end_turn", content: [{ type: "text", text: "Conforme." }] })))).rejects.toThrow("hors du schéma");
+  });
+
+  it("keeps the cached tokens apart, for the cost line", async () => {
+    const usage = { input_tokens: 12, cache_creation_input_tokens: 7000, cache_read_input_tokens: 300, output_tokens: 182 };
+    const got = await rel.relire("k", WEBP, LU, (async () => answer(CONFORME, { usage })) as unknown as typeof fetch);
+    expect(got.usage).toEqual(usage);
   });
 });

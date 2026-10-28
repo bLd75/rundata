@@ -9,8 +9,9 @@
  * (src/providers/ovpf-relecture.ts): on its key facts (day, alert level, eruption, place) the text must say what the
  * image says, or it is not stored, but « non lu » with the difference. The model's words never replace Tesseract's.
  * Without the key, or when the check cannot be made, the text is stored as before. Each call adds a line to a file of
- * costs (OVPF_OCR_COUTS, by default $XDG_STATE_HOME/rundata-ia/couts.tsv): its time, the task, the model, its tokens
- * in and out. Optional, two programs run with a message as their last argument: OVPF_OCR_AVIS, for each release
+ * costs (OVPF_OCR_COUTS, by default $XDG_STATE_HOME/rundata-ia/couts.tsv), tab-separated: its time in La Réunion with
+ * the offset, the task, the model, its tokens (input outside the cache, written to the cache, read from it, output),
+ * and an empty cost, which the reader of the file computes from its own price table. Optional, two programs run with a message as their last argument: OVPF_OCR_AVIS, for each release
  * stored after the check and each one held back, and OVPF_OCR_PANNE, once, when the check cannot be made, and for
  * each one held back (« notify send », for example: the words are split at spaces).
  *
@@ -110,8 +111,11 @@ async function say(env: string | undefined, message: string) {
 }
 
 function cost(u: Usage) {
+  // La Réunion is UTC+4 all year round.
+  const quand = `${new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 19)}+04:00`;
+  const cols = [quand, "ovpf-relecture", MODELE, u.input_tokens, u.cache_creation_input_tokens, u.cache_read_input_tokens, u.output_tokens, ""];
   mkdirSync(dirname(COUTS), { recursive: true });
-  appendFileSync(COUTS, `${new Date().toISOString()}\tovpf-relecture\t${MODELE}\t${u.input_tokens}\t${u.output_tokens}\n`);
+  appendFileSync(COUTS, `${cols.join("\t")}\n`);
 }
 
 const e = etat();
