@@ -32,7 +32,7 @@ import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js
 import { SOURCES as SPORT_SOURCES } from "./sport.js";
 import { PROPOSITIONS } from "./agenda-propositions.js";
 import { CONNECTEURS } from "./agenda-connecteurs.js";
-import { autorisee, NON_REPRISES } from "./autorisations.js";
+import { AUTORISATIONS, autorisee, NON_REPRISES } from "./autorisations.js";
 import { sansLien } from "../liens.js";
 
 export { communesIn, lead, monthOf, statusOf, type Statut };
@@ -1111,7 +1111,8 @@ const petiteIle: Agenda = {
 /**
  * Bras-Panon's agenda, a page a month: for each event its link, its title, the days and hours (« 24 Octobre 2026
  * (09:00 - 10:00) », « 24 - 25 Octobre 2026 (09:00) »), « location_on » and the place, « account_balance_wallet » and
- * the price, then a sentence.
+ * the price, then a sentence. Only what its written agreement of 28/10/2026 covers is kept: the title, the days and
+ * hours, the place and the link; neither the price nor the sentence, read only for a cancellation it says.
  */
 export function parseBrasPanon(html: string, now: Date, nom = "Ville de Bras-Panon"): Evenement[] {
   // The list only: from the link of its first event to the footer.
@@ -1129,14 +1130,10 @@ export function parseBrasPanon(html: string, now: Date, nom = "Ville de Bras-Pan
     const h = /\((\d\d:\d\d)(?:\s*-\s*(\d\d:\d\d))?\)/.exec(quand);
     const seances = h && days.length === 1 && !days[0].fin ? [{ debut: `${days[0].debut}T${h[1]}`, ...(h[2] ? { fin: `${days[0].debut}T${h[2]}` } : {}) }] : days;
     const place: string[] = [];
-    let prix: string | undefined;
     let texte = "";
     let j = i + 3;
     if (t[j]?.t === "location_on") for (j++; j < t.length && t[j].t && t[j].t !== "account_balance_wallet"; j++) place.push(t[j].t!);
-    if (t[j]?.t === "account_balance_wallet") {
-      prix = t[j + 1]?.t;
-      texte = t[j + 2]?.t ?? "";
-    }
+    if (t[j]?.t === "account_balance_wallet") texte = t[j + 2]?.t ?? "";
     const lieu = place.filter((x) => !/^\d{5}\b/.test(x) && normalize(x) !== normalize("Bras-Panon")).join(", ");
     const lien = `https://www.braspanon.re${href}`;
     const statut = statusOf(clean(titre), texte);
@@ -1147,9 +1144,7 @@ export function parseBrasPanon(html: string, now: Date, nom = "Ville de Bras-Pan
       seances,
       lieu: lieu || undefined,
       commune: "Bras-Panon",
-      prix: prix ? clean(prix) : undefined,
       categories: [],
-      ...extrait(texte ? clean(texte) : ""),
       lien,
       publie_par: nom,
     });
@@ -1422,6 +1417,11 @@ SALLES_SOURCE.attribution = sallesLues.join(", ");
 // Those read with their written agreement, each with its day (marketing).
 SALLES_SOURCE.licence += AGENDAS.filter((a) => a.source === SALLES_SOURCE && NON_REPRISES[`agenda:${a.id}`]?.accordee_le)
   .map((a) => `\u00a0; ${a.nom} : repris avec son accord écrit du ${NON_REPRISES[`agenda:${a.id}`].accordee_le!.split("-").reverse().join("/")}`).join("");
+// The communes read with their written agreement, each with its day, as the halls' (marketing).
+for (const a of AGENDAS) {
+  const le = AUTORISATIONS[`agenda:${a.id}`]?.accordee_le;
+  if (le && a.source !== SOURCES.mairies) a.source.licence += `\u00a0; repris avec son accord écrit du ${le.split("-").reverse().join("/")}`;
+}
 // Its link, the TÉAT's programme, is Le Séchoir's site while the TÉAT is not read.
 if (!AGENDAS.some((a) => a.id === "teat")) SALLES_SOURCE.url = "https://www.lesechoir.com";
 
