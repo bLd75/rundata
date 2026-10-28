@@ -27,7 +27,6 @@ import * as maregraphes from "../providers/maregraphes.js";
 import * as mf from "../providers/vigilance.js";
 import { qualiteAir } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
-import { injoignable } from "../tools/injoignable.js";
 import { electricite } from "../tools/electricite.js";
 import * as houle from "../providers/houle.js";
 import { BEACHES, PRODUCTS as SEA_PRODUCTS, seaTour, TOUR as SEA_TOUR, temperatureMer, waveLine, wavesNow } from "../tools/mer.js";
@@ -69,7 +68,7 @@ import { historiqueMeteo } from "../tools/historique.js";
 import { agenda, type EventRow, mentionIle as agendaNonRepris } from "../tools/agenda.js";
 import { mentionSalles, RESUME_REUNION_FR } from "../tools/non-repris.js";
 import * as actuSource from "../providers/actualites.js";
-import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, quand as newsTime, type InfoRow } from "../tools/actualites.js";
+import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, prefectureLueTexte, quand as newsTime, type InfoRow } from "../tools/actualites.js";
 import { littoral, type Littoral } from "../tools/littoral.js";
 import { type Observation, why } from "../types.js";
 import * as traces from "../providers/traces.js";
@@ -1125,15 +1124,13 @@ const NEWS_HOURS = 24;
 const NEWS_LISTED = 40;
 const HOT_HOURS = 6;
 
-/** The island's news of the last day, as the page lists it. */
-/** The prefecture's site silent since the list shown was read (`prefectureNonRelue`), in tools/injoignable.ts's words. */
+/** The prefecture's list kept, said with the time it was read (tools/actualites.ts `prefectureLueTexte`), its site linked. */
 export function prefectureSilent(f: actuSource.Fil, now: Date): { texte: string; site: string } | undefined {
-  const at = actuSource.prefectureNonRelue(f);
-  if (!at) return undefined;
-  const site = actuSource.SOURCES.prefecture.url;
-  return { texte: injoignable("le site de la préfecture", localTime(new Date(at)), localTime(new Date(f.prefectureLue!)), now).texte, site };
+  const texte = prefectureLueTexte(f, now);
+  return texte ? { texte, site: actuSource.SOURCES.prefecture.url } : undefined;
 }
 
+/** The island's news of the last day, as the page lists it. */
 export async function buildActualites(cache: Cache, now = new Date()): Promise<ActualitesAnswer> {
   const f = (await actuSource.fil(cache, now)).value;
   const since = new Date(now.getTime() - NEWS_HOURS * 3600_000).toISOString();
