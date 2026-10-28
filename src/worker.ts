@@ -15,6 +15,7 @@ import { audience, device, language, origin, point, TEAM, teamVisit, visitor, ty
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
+import * as prefectureCopie from "./providers/prefecture-copie.js";
 import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as candhis from "./providers/candhis.js";
@@ -188,6 +189,13 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get("eau:ile", "json")) as eauIle.Ile | null;
   }));
+  // Read every 15 minutes from the prefecture by scripts/prefecture.ts, on a machine of the project: its site cuts the
+  // connection of the Workers (src/providers/prefecture-copie.ts).
+  prefectureCopie.configure(async () => {
+    if (!kv) return null;
+    count();
+    return (await kv.get(prefectureCopie.KV_KEY, "json")) as prefectureCopie.Copie | null;
+  });
   // Read every day from the prefecture by scripts/carburants.ts, on a machine of the project: never by the
   // Worker, even without the store.
   carburants.configure(async () => {

@@ -20,6 +20,7 @@ import { normalize } from "../places/resolve.js";
 import { type SourceInfo, UpstreamError } from "../types.js";
 import { ACCUEIL, ACCUEILS } from "./accueils-medias.js";
 import { strip } from "./avis-eau.js";
+import * as copie from "./prefecture-copie.js";
 
 export const SOURCES = {
   medias: {
@@ -560,9 +561,33 @@ const PREFECTURE_DUE_MS = PREFECTURE_EVERY_MS - 150_000;
  */
 export const PREFECTURE_KEPT_MS = 48 * 3600_000;
 
-/** When the list of the prefecture shown was read, when the site did not answer since (`prefectureReussie`); else undefined. */
+/**
+ * When the list of the prefecture shown was read, when the site did not answer since (`prefectureReussie`); else
+ * undefined. The copy of the collector (prefecture-copie.ts) is up to one of its runs old when it is read: older than
+ * `SILENT_MS` only, it was not renewed.
+ */
 export function prefectureNonRelue(f: Fil): string | undefined {
-  return f.prefecture.length && f.prefectureReussie && f.prefectureLue && f.prefectureReussie < f.prefectureLue ? f.prefectureReussie : undefined;
+  if (!f.prefecture.length || !f.prefectureReussie || !f.prefectureLue) return undefined;
+  const late = Date.parse(f.prefectureLue) - Date.parse(f.prefectureReussie);
+  return late > (copie.configured() ? copie.SILENT_MS : 0) ? f.prefectureReussie : undefined;
+}
+
+/** The prefecture's list and when it was read: the collector's copy in the Worker, the site elsewhere. */
+async function prefectureList(read: (url: string) => Promise<string>, now: Date): Promise<{ liste: Info[]; lu: string } | undefined> {
+  try {
+    if (copie.configured()) {
+      const c = await copie.copie();
+      if (!c?.liste.length) throw new UpstreamError(SOURCES.prefecture.id, "copie des communiqués absente du stockage");
+      return { liste: c.liste, lu: c.lu_le };
+    }
+    const list = parsePrefecture(await read(SOURCES.prefecture.url));
+    // A page without its list (an error page served as 200) is not an empty list.
+    if (!list.length) throw new UpstreamError(SOURCES.prefecture.id, "liste des communiqués vide");
+    return { liste: list, lu: now.toISOString() };
+  } catch (err) {
+    console.error("source prefecture_communiques indisponible:", err);
+    return undefined;
+  }
 }
 
 /** Every medium read now, and the prefecture when its list is due (`avant`: the copy this one replaces). */
@@ -570,25 +595,17 @@ export async function lire(now = new Date(), avant?: Fil): Promise<Fil> {
   const read = (url: string) => getText(SOURCES.medias.id, url, 12_000, HEADERS);
   const lue = avant?.prefectureLue ? Date.parse(avant.prefectureLue) : NaN;
   const kept = avant && now.getTime() - lue < PREFECTURE_DUE_MS ? avant : undefined;
-  const [feeds, fresh] = await Promise.all([
+  const [feeds, got] = await Promise.all([
     Promise.allSettled(FEEDS.map(async (f) => f.parse(await read(f.url), now))),
-    kept
-      ? undefined
-      : read(SOURCES.prefecture.url).then((h) => {
-        const list = parsePrefecture(h);
-        // A page without its list (an error page served as 200) is not an empty list.
-        if (!list.length) throw new UpstreamError(SOURCES.prefecture.id, "liste des communiqués vide");
-        return list;
-      }).catch((err) => {
-        console.error("source prefecture_communiques indisponible:", err);
-        return undefined;
-      }),
+    kept ? undefined : prefectureList(read, now),
   ]);
-  // The list read now; else the last one read, said with its time, two days at most. A copy from before
-  // `prefectureReussie` was asked for the last time when the prefecture was not said to be silent.
+  // The list read now, or the collector's copy; else the last one read, said with its time, two days at most. A copy
+  // from before `prefectureReussie` was asked for the last time when the prefecture was not said to be silent.
   const before = avant?.prefectureReussie ?? (avant && !avant.indisponible.includes("Préfecture") ? avant.prefectureLue : undefined);
-  const reussie = fresh ? now.toISOString() : before && now.getTime() - Date.parse(before) < PREFECTURE_KEPT_MS ? before : undefined;
-  const pref = fresh ?? (reussie ? avant!.prefecture : null);
+  const fresh = got && (!before || got.lu >= before) ? got : undefined;
+  const at = fresh?.lu ?? before;
+  const reussie = at && now.getTime() - Date.parse(at) < PREFECTURE_KEPT_MS ? at : undefined;
+  const pref = !reussie ? null : fresh ? fresh.liste : avant!.prefecture;
   const items = feeds.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   const lives = await Promise.allSettled(liveCandidates(items, now).map(async (u) => parseImazLive(await read(u), u, now)));
   const all = [...items, ...lives.flatMap((r) => (r.status === "fulfilled" ? r.value : []))];
