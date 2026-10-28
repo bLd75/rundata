@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Info } from "../src/providers/actualites.js";
 import * as pref from "../src/providers/prefecture.js";
+import * as copie from "../src/providers/prefecture-copie.js";
 import * as mf from "../src/providers/vigilance.js";
 import { counted, PAGE_BUDGET } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
@@ -115,6 +116,41 @@ describe("reading the prefecture, which can fail", () => {
     const v = { value: bulletin([[8, "2026-10-24T06:00:00"]]), fetchedAt: NOW, stale: false };
     expect(ecolesPage("https://rundata.re", v, NOW, undefined, null, said).replace(/&#39;/g, "'")).toMatch(/La rubrique cyclone du site de la préfecture n'a pas répondu à notre dernière lecture \(aujourd'hui à 14(:|\u00a0:|&nbsp;:)00\)/);
     logged.mockRestore();
+  });
+
+  it("reads, in the Worker, the collector's copy and never the site, its time the collector's read", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => (asked.push(String(url)), new Response("")));
+    const list = [release("Alerte orange cyclonique : « Je me prépare »", "2026-10-24")];
+    let stored: copie.Copie | null = { liste: list, lu_le: new Date(Date.now() - 10 * 60_000).toISOString() };
+    copie.configure(async () => stored);
+    try {
+      const fresh = await pref.releases(new Cache(new MemoryStore(), () => NOW.getTime()));
+      expect([fresh.value, fresh.fetchedAt.toISOString(), fresh.stale]).toEqual([list, stored.lu_le, false]);
+      // Not renewed for 40 minutes: the copy of a site that did not answer since.
+      stored = { liste: list, lu_le: new Date(Date.now() - 41 * 60_000).toISOString() };
+      expect(await pref.releases(new Cache(new MemoryStore(), () => NOW.getTime()))).toMatchObject({ stale: true, source: "prefecture_communiques", fetchedAt: new Date(stored.lu_le) });
+      // No copy in the store: no list, the decision kept elsewhere being served (`cyclone`).
+      stored = null;
+      await expect(pref.releases(new Cache(new MemoryStore(), () => NOW.getTime()))).rejects.toThrow(/copie des communiqués absente du stockage/);
+      // The cyclone's section unread by the collector: said with the time of its read.
+      stored = { liste: list, rubrique_non_lue: true, lu_le: "2026-10-24T09:00:00.000Z" };
+      const c = new Cache(new MemoryStore(), () => NOW.getTime());
+      await pref.releases(c);
+      expect(await pref.rubriqueNonLue(c, NOW)).toMatch(/notre dernière lecture \(aujourd'hui à 13:00\)/);
+      expect(asked).toEqual([]);
+    } finally {
+      copie.configure(undefined);
+    }
+  });
+
+  it("reads the site page by page for the collector (scripts/prefecture.ts)", async () => {
+    const menu = '<a href="/Actualites/Cyclone-Test">Cyclone Test</a>';
+    const pages: string[] = [];
+    const got = await pref.lireSite(async (url) => (pages.push(url), url.includes("Cyclone-Test") ? page([["Alerte rouge cyclonique", "24/10/2026"]]) : menu + page([["Alerte orange cyclonique", "23/10/2026"]])));
+    expect(pages).toEqual(["https://www.reunion.gouv.fr/Actualites/Communiques-de-presse", "https://www.reunion.gouv.fr/Actualites/Cyclone-Test"]);
+    expect(got.liste.map((r) => r.titre)).toEqual(["Alerte rouge cyclonique", "Alerte orange cyclonique"]);
+    await expect(pref.lireSite(async () => "<html>maintenance</html>")).rejects.toThrow(/liste des communiqués vide/);
   });
 
   it("takes an empty list for a failure, not for the end of the alert", async () => {

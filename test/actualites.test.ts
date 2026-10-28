@@ -8,6 +8,7 @@ import { actualitesPage } from "../src/web/domains.js";
 import { buildActualites } from "../src/web/data.js";
 import { withVide } from "../src/vide.js";
 import { SOURCE_REVISION } from "../src/web/revisions.js";
+import * as copie from "../src/providers/prefecture-copie.js";
 
 // Saturday 24/10/2026 at 12:05 in La Réunion, the morning of a day of mobilisation (gilets jaunes, « vie chère »): Imaz
 // Press runs a live blog, the prefecture has published its report of the night.
@@ -183,6 +184,28 @@ describe("actualités", () => {
     down = undefined;
     vi.stubGlobal("fetch", async (url: string) => new Response(url.includes("reunion.gouv.fr") ? "<html>maintenance</html>" : fixture(file(url) ?? "clicanoo.xml")));
     expect((await lire(later(1), first)).prefecture).toEqual(first.prefecture);
+  });
+
+  it("reads, in the Worker, the collector's copy of the prefecture's list, never its site", async () => {
+    const list = parsePrefecture(fixture("prefecture.html"));
+    let stored: copie.Copie | null = { liste: list, lu_le: new Date(NOW.getTime() - 10 * 60_000).toISOString() };
+    copie.configure(async () => stored);
+    try {
+      const first = await lire(NOW);
+      expect([first.prefecture, first.prefectureReussie, prefectureNonRelue(first)]).toEqual([list.slice(0, 6), stored.lu_le, undefined]);
+      // The collector silent: its copy not renewed, said with its time once it is 40 minutes older than the last ask.
+      const later = new Date(NOW.getTime() + 35 * 60_000);
+      const late = await lire(later, first);
+      expect([late.prefecture, prefectureNonRelue(late)]).toEqual([first.prefecture, stored.lu_le]);
+      // No copy in the store: the last list kept, as for a silent site.
+      const at = stored.lu_le;
+      stored = null;
+      const none = await lire(new Date(later.getTime() + 15 * 60_000), late);
+      expect([none.prefecture, none.indisponible, prefectureNonRelue(none)]).toEqual([first.prefecture, [], at]);
+      expect(asked.filter((a) => a.includes("reunion.gouv.fr"))).toEqual([]);
+    } finally {
+      copie.configure(undefined);
+    }
   });
 
   it("says the prefecture's list kept with the time it was read, in the tool and on the page", async () => {
