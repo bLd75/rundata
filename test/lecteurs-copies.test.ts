@@ -45,7 +45,8 @@ describe("a reader and a copy the scheduled event keeps (web/data.ts `snapshot`,
   });
 
   it("makes them wait, as before, once the scheduled event has fallen behind, and for a page's own copy", async () => {
-    expect(await served("web:crues", GOOGLEBOT, 26)).toEqual({ value: 2, built: 2 });
+    // Past its rate (15), its margin (2.5) and the two events of slack (10).
+    expect(await served("web:crues", GOOGLEBOT, 28)).toEqual({ value: 2, built: 2 });
     expect(await served("web:lieu:saint-paul", GOOGLEBOT, 12)).toEqual({ value: 2, built: 2 });
   });
 
