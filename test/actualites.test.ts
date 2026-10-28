@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { fil, firstSentence, lire, merge, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
+import { fil, firstSentence, lire, merge, prefectureNonRelue, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
 import { actualites, NOM_SEUL, quand } from "../src/tools/actualites.js";
 import { actualitesPage } from "../src/web/domains.js";
 import { buildActualites } from "../src/web/data.js";
@@ -157,14 +157,47 @@ describe("actualités", () => {
     // 15 minutes later, an event a few seconds earlier than the first's: asked again.
     down = /reunion\.gouv\.fr/;
     const fifteen = await lire(new Date(at(15).getTime() - 3_000), ten);
-    expect([prefecture(), fifteen.prefecture, fifteen.indisponible]).toEqual([2, [], ["Préfecture"]]);
-    // Silent: said so, and not asked again before its next turn.
+    // Silent: the list read at the first event kept with its time, not emptied (a silent site is neither gone nor empty).
+    expect([prefecture(), fifteen.prefecture, fifteen.indisponible, prefectureNonRelue(fifteen)]).toEqual([2, first.prefecture, [], at(0).toISOString()]);
+    // And not asked again before its next turn.
     const twenty = await lire(at(20), fifteen);
-    expect([prefecture(), twenty.indisponible]).toEqual([2, ["Préfecture"]]);
+    expect([prefecture(), twenty.prefecture, prefectureNonRelue(twenty)]).toEqual([2, first.prefecture, at(0).toISOString()]);
     // A copy that does not say when (written before): asked.
     down = undefined;
     await lire(at(25), { ...twenty, prefectureLue: undefined });
     expect(prefecture()).toBe(3);
+  });
+
+  it("keeps the prefecture's last list two days at most when its site does not answer", async () => {
+    const later = (h: number) => new Date(NOW.getTime() + h * 3600_000);
+    const first = await lire(NOW);
+    down = /reunion\.gouv\.fr/;
+    const day = await lire(later(47), first);
+    expect([day.prefecture, day.indisponible, prefectureNonRelue(day)]).toEqual([first.prefecture, [], NOW.toISOString()]);
+    const gone = await lire(later(48), day);
+    expect([gone.prefecture, gone.indisponible, gone.prefectureReussie]).toEqual([[], ["Préfecture"], undefined]);
+    // A copy written before prefectureReussie: the time it was asked, unless the prefecture was said silent then.
+    expect((await lire(later(1), { ...first, prefectureReussie: undefined })).prefectureReussie).toBe(NOW.toISOString());
+    expect((await lire(later(1), { ...gone, prefectureLue: NOW.toISOString() })).prefectureReussie).toBeUndefined();
+    // A page served as 200 without its list is not an empty list: the last one kept.
+    down = undefined;
+    vi.stubGlobal("fetch", async (url: string) => new Response(url.includes("reunion.gouv.fr") ? "<html>maintenance</html>" : fixture(file(url) ?? "clicanoo.xml")));
+    expect((await lire(later(1), first)).prefecture).toEqual(first.prefecture);
+  });
+
+  it("says the prefecture's list kept with the time it was read, in the tool and on the page", async () => {
+    let t = NOW.getTime();
+    const c = new Cache(new MemoryStore(), () => t);
+    await fil(c, NOW);
+    down = /reunion\.gouv\.fr/;
+    t += 20 * 60_000;
+    const now = new Date(t);
+    const b = body(await actualites(c, undefined, undefined, undefined, now));
+    const said = "Lu aujourd'hui à 12:05 : le site de la préfecture n'a pas répondu depuis. Ce qui suit peut avoir changé : voir son site.";
+    expect([b.prefecture_injoignable, b.prefecture.length, b.indisponible]).toEqual([said, 3, undefined]);
+    const html = actualitesPage("https://rundata.re", { value: await buildActualites(c, now), fetchedAt: now, stale: false }, now);
+    expect(html).toContain('voir <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse" rel="noopener">son site</a>.</p>');
+    expect(html).toContain("le site de la préfecture n");
   });
 
   it("says when nothing names a place, without saying nothing happens there", async () => {
@@ -279,7 +312,7 @@ describe("actualités", () => {
   // A change that keeps something else (a link, a field, a medium, a filter) changes it: add its fingerprint here and
   // raise SOURCE_REVISION["actualites:fil"] (and RENDU_REVISION.actualites), so that the entry read by the old code is
   // read again after the deploy. A fixture changed alone: add its fingerprint and raise the number all the same.
-  const FIL = ["b7e88ffb49a93884", "44c0eb346a5da96e"];
+  const FIL = ["b7e88ffb49a93884", "44c0eb346a5da96e", "95031bc5918208dd"];
 
   it("keeps, from the same pages, what its revision says: one fingerprint per revision of actualites:fil", async () => {
     const { value } = await fil(cache(), NOW);

@@ -6,7 +6,7 @@ import * as radars from "../routes/radars.js";
 import { localTime } from "../geo.js";
 import { why } from "../types.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
-import { mediasNonLus } from "./injoignable.js";
+import { injoignable, mediasNonLus } from "./injoignable.js";
 import { mentionLa1ere } from "./non-repris.js";
 import * as littoral from "./littoral.js";
 import { rienTrouve } from "../vide.js";
@@ -147,6 +147,9 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
   // Media that did not answer: said, and no « aucune information » when none of them answered (a site that does not
   // answer is neither gone nor empty).
   const silent = data.indisponible.length ? mediasNonLus(data.indisponible, localTime(readAt), now) : "";
+  // The prefecture's site silent since its list was read: the list kept, said with its time.
+  const prefLue = src.prefectureNonRelue(data);
+  const prefSilent = prefLue ? injoignable("le site de la préfecture", localTime(new Date(prefLue)), localTime(new Date(data.prefectureLue!)), now).texte : undefined;
   const blind = !data.infos.length && !!silent;
   // Nothing naming the place, or nothing at all: not that nothing happens there (a media that did not answer is said apart).
   if (!blind && !(asked ? mine.length : pool.length)) rienTrouve("actualites");
@@ -176,6 +179,7 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
     infos: mine.filter((i) => !asked || !i.direct).slice(0, ARTICLES_MAX).map((i) => infoRow(i, now, commune)),
     en_direct: live.length ? live.map((i) => ({ ...infoRow(i, now, commune), mentionne_le_lieu: asked ? names(i) : undefined })) : undefined,
     prefecture: prefecture.length ? prefecture.map((i) => infoRow(i, now)) : undefined,
+    prefecture_injoignable: prefSilent,
     sujet_non_compris: sujet?.trim() && !what ? `« ${sujet} » n'a pas été compris : toutes les informations sont données.` : undefined,
     sujets_possibles: src.SUJETS.map((s) => `${s.id} (${s.nom})`),
     indisponible: data.indisponible.length ? data.indisponible : undefined,
