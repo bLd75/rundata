@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { fil, firstSentence, lire, merge, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
-import { actualites, quand } from "../src/tools/actualites.js";
+import { actualites, NOM_SEUL, quand } from "../src/tools/actualites.js";
 import { actualitesPage } from "../src/web/domains.js";
 import { buildActualites } from "../src/web/data.js";
 import { withVide } from "../src/vide.js";
@@ -175,6 +175,34 @@ describe("actualités", () => {
     expect(b.resume).toMatch(/^Aucune information des médias lus ne mentionne Cilaos depuis hier à 12:05\./);
     expect(b.infos).toEqual([]);
     expect(b.a_savoir).toMatch(/ne prouve pas qu'il ne s'y passe rien/);
+  });
+
+  it("finds a place inside a commune first by its name, and a name the gazetteer lacks in the articles that say it", async () => {
+    const item = (titre: string, resume: string, at: string, n: number) =>
+      `<item><title>${titre}</title><link>https://freedom.fr/article-${n}/</link><pubDate>${new Date(at).toUTCString()}</pubDate>` +
+      `<description><![CDATA[${resume}]]></description></item>`;
+    const feed = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Free Dom</title>${[
+      item("Saint-Paul : le conseil municipal vote son budget", "Le conseil municipal de Saint-Paul s'est réuni ce samedi matin.", "2026-10-24T07:55:00Z", 1),
+      item("Incendie à Cambaie : fumées importantes dans le secteur", "Un incendie s'est déclaré ce samedi matin dans la zone de Cambaie.", "2026-10-24T07:40:00Z", 2),
+      item("Circulation ralentie au rond-point de la Jardinerie", "Les automobilistes sont invités à éviter le rond-point de la Jardinerie.", "2026-10-24T07:30:00Z", 3),
+    ].join("")}</channel></rss>`;
+    vi.stubGlobal("fetch", async (url: string) => (url.includes("freedom") ? new Response(feed) : new Response("", { status: 503 })));
+
+    // In the gazetteer (OpenStreetMap's business zone): the commune's news, what names the place itself first.
+    const cambaie = body(await actualites(cache(), "Cambaie", undefined, undefined, NOW));
+    expect([cambaie.lieu.trouve, cambaie.lieu.commune]).toEqual(["Cambaie", "Saint-Paul"]);
+    expect(cambaie.resume).toMatch(/^2 informations des dernières 24 h mentionnent Cambaie \(Saint-Paul\)\. aujourd'hui à 11:40 \(Freedom\) : « Incendie à Cambaie/);
+    expect(cambaie.infos.map((r: { titre: string }) => r.titre.split(" ")[0])).toEqual(["Incendie", "Saint-Paul"]);
+
+    // Not in the gazetteer, but in an article: that article, said as found by its name only.
+    const rondPoint = body(await actualites(cache(), "la Jardinerie", undefined, undefined, NOW));
+    expect(rondPoint.lieu).toEqual({ demande: "la Jardinerie", trouve: null, note: NOM_SEUL });
+    expect(rondPoint.resume).toMatch(/^1 information des dernières 24 h mentionne « la Jardinerie »\. aujourd'hui à 11:30 \(Freedom\) : « Circulation ralentie/);
+    expect(rondPoint.infos).toHaveLength(1);
+
+    // Neither: unknown, as before.
+    const none = await actualites(cache(), "Zorglubville", undefined, undefined, NOW);
+    expect([none.isError, body(none).erreur]).toEqual([true, "Lieu introuvable à La Réunion : « Zorglubville »."]);
   });
 
   it("gives the fixed speed cameras of the ministry's list with the roads, never the mobile checks", async () => {

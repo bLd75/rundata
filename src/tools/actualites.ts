@@ -26,6 +26,14 @@ export const A_SAVOIR =
   "qu'il ne s'y passe rien. Pour la route en direct, écouter la radio (Freedom, Réunion La 1ère)\u00a0; en cas de danger, appeler le 17 ou le 112, et suivre " +
   "les consignes de la préfecture.";
 
+export const NOM_SEUL = "Lieu absent du répertoire des lieux de rundata.re : cherché tel quel dans les titres et les lieux des articles.";
+
+/** The name asked, as the articles would say it (« Cambaie »), when long enough not to be found inside any word. */
+function nameAlone(lieu: string): string | undefined {
+  const n = normalize(lieu).replace(/^(le|la|les|l) /, "");
+  return n.replace(/ /g, "").length >= 4 ? n : undefined;
+}
+
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 const local = (iso: string) => new Date(Date.parse(iso) + 4 * 3600_000);
 
@@ -89,9 +97,15 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
     lieu = undefined;
     sujet ??= "route";
   }
+  // A name the gazetteer lacks (a business zone, a roundabout) may still be in the news: looked for as said in the
+  // articles before it is called unknown.
+  let said: string | undefined;
   if (lieu?.trim()) {
     res = resolvePlace(lieu);
-    if (!res) return notFound(lieu);
+    if (!res) {
+      said = nameAlone(lieu);
+      if (!said) return notFound(lieu);
+    }
   }
   let data: src.Fil;
   let readAt: Date;
@@ -110,27 +124,34 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
 
   const commune = res?.lieu.commune;
   // A place inside a commune (Ravine des Cabris) is looked for by its own name too.
-  const place = res && res.lieu.type !== "commune" ? normalize(res.lieu.nom).replace(/^(le|la|les|l) /, "") : undefined;
-  const names = (i: src.Info) => !!commune && (i.communes.includes(commune) || (!!place && normalize(`${i.titre} ${i.resume ?? ""}`).includes(place)));
-  const where = res ? (res.lieu.type === "commune" ? commune! : `${res.lieu.nom} (${commune})`) : undefined;
+  // What names it itself comes first.
+  const place = said ?? (res && res.lieu.type !== "commune" ? normalize(res.lieu.nom).replace(/^(le|la|les|l) /, "") : undefined);
+  const own = (i: src.Info) => !!place && ` ${normalize(`${i.lieux.join(" ")} ${i.titre} ${i.resume ?? ""} ${i.extraits?.map((e) => e.texte).join(" ") ?? ""}`)} `.includes(` ${place} `);
+  const names = (i: src.Info) => own(i) || (!!commune && i.communes.includes(commune));
+  const asked = !!res || !!said;
+  const where = said ? `« ${lieu!.trim()} »` : res ? (res.lieu.type === "commune" ? commune! : `${res.lieu.nom} (${commune})`) : undefined;
 
   const live = pool.filter((i) => i.direct).slice(0, LIVE_MAX);
   const articles = pool.filter((i) => !i.direct);
-  const mine = res ? pool.filter(names) : articles;
+  const mine = asked ? pool.filter(names).sort((x, y) => Number(own(y)) - Number(own(x))) : articles;
+  // Unknown to the gazetteer and named by no article read: unknown (when no media answered, that is said instead).
+  if (said && !mine.length && data.infos.length) return notFound(lieu!);
   const prefecture = data.prefecture.filter((i) => i.publie >= new Date(now.getTime() - PREFECTURE_DAYS * 86_400_000).toISOString() && (!what || what.test(i))).slice(0, 3);
 
   const kind = what ? ` (${what.nom})` : "";
   const latest = (i: src.Info) => `${quand(i, now)} (${i.media}${i.direct ? ", en direct" : ""}) : « ${i.titre} »`;
   // What a text says of the place asked for, when it says it past its first sentence.
-  const about = (i: src.Info) => i.extraits?.find((e) => e.communes.includes(commune!))?.texte ?? (i.resume && src.placesIn(i.resume).communes.includes(commune!) ? i.resume : undefined);
+  const about = (i: src.Info) => said
+    ? i.extraits?.find((e) => ` ${normalize(e.texte)} `.includes(` ${said} `))?.texte
+    : i.extraits?.find((e) => e.communes.includes(commune!))?.texte ?? (i.resume && src.placesIn(i.resume).communes.includes(commune!) ? i.resume : undefined);
   // Media that did not answer: said, and no « aucune information » when none of them answered (a site that does not
   // answer is neither gone nor empty).
   const silent = data.indisponible.length ? mediasNonLus(data.indisponible, localTime(readAt), now) : "";
   const blind = !data.infos.length && !!silent;
   // Nothing naming the place, or nothing at all: not that nothing happens there (a media that did not answer is said apart).
-  if (!blind && !(res ? mine.length : pool.length)) rienTrouve("actualites");
+  if (!blind && !(asked ? mine.length : pool.length)) rienTrouve("actualites");
   const resume = [
-    blind ? "" : res
+    blind ? "" : asked
       ? mine.length
         ? `${mine.length} information${mine.length > 1 ? "s" : ""}${kind} des dernières ${h} h mentionne${mine.length > 1 ? "nt" : ""} ${where}. ` +
           mine.slice(0, 4).map((i) => `${latest(i)}${about(i) ? ` : « ${about(i)} »` : ""}`).join("\u00a0; ") + "."
@@ -147,13 +168,13 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
   // The fixed speed cameras, public information, beside the news of the roads: the commune's, or the island's.
   const cameras = roadAsked || /\bradars?\b/.test(normalize(sujet ?? "")) ? radars.forTool(commune, commune && a(commune)) : undefined;
   return text({
-    lieu: res && lieu ? placeBlock(lieu, res) : undefined,
+    lieu: res && lieu ? placeBlock(lieu, res) : said ? { demande: lieu, trouve: null, note: NOM_SEUL } : undefined,
     resume,
     route_du_littoral: roadAsked ? littoral.forTool(littoral.littoral(data, now), now) : undefined,
     radars_fixes: cameras,
     periode: `les dernières ${h} heures`,
-    infos: mine.filter((i) => !res || !i.direct).slice(0, ARTICLES_MAX).map((i) => infoRow(i, now, commune)),
-    en_direct: live.length ? live.map((i) => ({ ...infoRow(i, now, commune), mentionne_le_lieu: res ? names(i) : undefined })) : undefined,
+    infos: mine.filter((i) => !asked || !i.direct).slice(0, ARTICLES_MAX).map((i) => infoRow(i, now, commune)),
+    en_direct: live.length ? live.map((i) => ({ ...infoRow(i, now, commune), mentionne_le_lieu: asked ? names(i) : undefined })) : undefined,
     prefecture: prefecture.length ? prefecture.map((i) => infoRow(i, now)) : undefined,
     sujet_non_compris: sujet?.trim() && !what ? `« ${sujet} » n'a pas été compris : toutes les informations sont données.` : undefined,
     sujets_possibles: src.SUJETS.map((s) => `${s.id} (${s.nom})`),
@@ -161,7 +182,7 @@ export async function actualites(cache: Cache, lieu?: string, sujet?: string, he
     couverture: COUVERTURE,
     a_savoir: A_SAVOIR,
     // Réunion La 1ère, not read (tools/non-repris.ts): said in an answer for the whole island.
-    non_repris: res ? undefined : mentionLa1ere("actualites"),
+    non_repris: asked ? undefined : mentionLa1ere("actualites"),
     sources: credits([src.SOURCES.medias, src.SOURCES.prefecture, ...(cameras ? [radars.SOURCE] : [])]),
   });
 }
