@@ -28,6 +28,8 @@ export interface Autorisation {
   demandee_le?: string;
   /** The day of its written no. */
   refusee_le?: string;
+  /** The day of its written yes, as given by who received it. */
+  accordee_le?: string;
 }
 
 /**
@@ -36,7 +38,7 @@ export interface Autorisation {
  * for the notices of power cuts a mairie relays (src/providers/coupures-courant.ts, MAIRIES). In the order said.
  */
 export const AUTORISATIONS: Record<string, Autorisation> = {
-  "agenda:bras_panon": { commune: "Bras-Panon", publie: "événements", etat: "a_demander" },
+  "agenda:bras_panon": { commune: "Bras-Panon", publie: "événements", etat: "accordee", demandee_le: "2026-10-26", accordee_le: "2026-10-28" },
   "agenda:cilaos": { commune: "Cilaos", publie: "actualités", etat: "a_demander" },
   "agenda:etang_sale": { commune: "L'Étang-Salé", publie: "événements", etat: "a_demander" },
   "agenda:la_possession": { commune: "La Possession", publie: "événements", etat: "demandee", demandee_le: "2026-10-26" },
