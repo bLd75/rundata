@@ -33,7 +33,7 @@ const prefectureDown = () =>
   });
 
 // The page's list of sources and its footer, which credit pitonlive.com as a last resort, left out of what is checked.
-const lastEruptionOut = (s: string) => s.replace(/<p class="note">Sources : [\s\S]*?<\/p>/, "").replace(/<footer[\s\S]*<\/footer>/, "");
+const lastEruptionOut = (s: string) => s.replace(/<p class="sources">Sources : [\s\S]*?<\/p>/, "").replace(/<footer[\s\S]*<\/footer>/, "");
 
 const page = async (cache: Cache) => (await site(new Request("https://rundata.re/volcan"), cache, () => {}, NOW))!.text();
 

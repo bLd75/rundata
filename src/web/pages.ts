@@ -331,6 +331,8 @@ section{display:grid;gap:1.4rem;min-width:0}
 .sec-h p:not(.eyebrow){color:var(--muted);font-size:1.05rem}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:1.3rem;display:grid;gap:.8rem;min-width:0;box-shadow:var(--shadow)}
 .note{font-size:.86rem;color:var(--muted)}
+.sources{margin:0 0 .3rem;font-size:.75rem;line-height:1.35;color:var(--muted)}
+.fin-sources{padding-block:.6rem 1.2rem}
 
 .steps{list-style:none;padding:0;display:grid;gap:1rem}
 @media (min-width:58rem){.steps{grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)}}
@@ -952,10 +954,31 @@ function ogImage(origin: string, path: string): { src: string; alt: string } {
 /** What the page's banners say is in force, or its own alert block: the offline page, kept for days, says nothing. */
 const urgent = (head: Head): Urgent => (head.shell ? {} : { vigilance: !!head.alerte, volcan: !!head.volcan || !!volcanBanner() });
 
+const SOURCES = '<p class="sources">';
+
+/**
+ * The page's « Sources : » paragraphs taken out of its body, to be said last, in small, just above the footer: the
+ * producers and their licences in full, as the licences ask, without taking a phone's screen before the links (the
+ * user, 28/10/2026). They hold no paragraph of their own.
+ */
+export function sourcesLast(body: string): [string, string[]] {
+  const sources: string[] = [];
+  let main = "";
+  let from = 0;
+  for (let at = body.indexOf(SOURCES); at >= 0; at = body.indexOf(SOURCES, from)) {
+    const end = body.indexOf("</p>", at) + "</p>".length;
+    main += body.slice(from, at);
+    sources.push(body.slice(at, end));
+    from = end;
+  }
+  return [main + body.slice(from), sources];
+}
+
 /** The JSON-LD's « description » values, at every depth, as the metas' (a raw text: typo() only turns spaces into no-break ones). */
 const frenchDescriptions = (key: string, value: unknown) => (key === "description" && typeof value === "string" ? typo(value) : value);
 
 export function layout(origin: string, head: Head, band: string, body: string): string {
+  const [main, sources] = sourcesLast(body);
   const url = `${origin}${head.path}`;
   // The descriptions in French typography like the page's text, with the no-break space itself, never « &nbsp; »: their
   // length is unchanged. Not the titles, nor the JSON-LD's other values (marketing, 25/10).
@@ -1000,12 +1023,12 @@ ${head.shell ? "" : `${banner(head.alerte, head.path)}
 ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
 <div class="band">${head.shell ? "" : fond(head.path, head.alerte, !!urgent(head).volcan)}${withHook(band, head.path, head.volcan)}</div>
 <main class="wrap">
-${mentionLinks(body)}
+${mentionLinks(main)}
 </main>
 ${head.shell ? "" : `${head.sansPartage ? "" : share(origin, head)}
 ${head.sansAvis ? "" : `${aide()}
 ${avisForm(head.path)}`}`}
-<footer class="foot"><div class="wrap">
+${sources.length ? `<div class="wrap fin-sources">${sources.join("\n")}</div>\n` : ""}<footer class="foot"><div class="wrap">
   <div>
     <a class="brand" href="/">${logo()}<span>rundata.re</span></a>
     ${SLOGAN}
@@ -1137,7 +1160,7 @@ function weatherLive(data: Cached<HomeData> | null, now: Date): string {
     islandMap({ markers, peaks: true, label: `Carte de La Réunion (974) avec les températures mesurées à ${hm(latest || data.fetchedAt.toISOString())}` }) +
     `<figcaption class="legend">8 °C<i></i>33 °C · températures mesurées sous abri</figcaption></figure>` +
     `<div class="card"><h3>Station par station</h3><ul class="stations">${sorted.map((s) => stationItem(s, now)).join("")}</ul>` +
-    `<p class="note">Sources : ${credits(d.sources)}.${d.indisponibles.length ? ` Momentanément indisponible : ${esc(d.indisponibles.join(", "))}.` : ""}</p></div></div>`;
+    `${d.indisponibles.length ? `<p class="note">Momentanément indisponible : ${esc(d.indisponibles.join(", "))}.</p>` : ""}</div></div><p class="sources">Sources : ${credits(d.sources)}.</p>`;
 }
 
 /**
@@ -1727,7 +1750,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
           ? `<b>${esc(thin(deg(b.valeur)))}</b><span>le ${esc(dayMonth(b.jour!))}, à ${esc(fr(b.distance_km!))} km</span>`
           : `<b>—</b><span>pas de mesure (nuages)</span>`) +
         `<a href="/meteo/${slugify(b.commune)}">Météo ${esc(b.commune)} →</a></li>`).join("")}</ul>` +
-      `<p class="note">Sources : ${credits(d.sources)}. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
+      `<p class="note">Mis à jour à ${hm(data!.fetchedAt)}.</p><p class="sources">Sources : ${credits(d.sources)}.</p>`
     : `<p class="card">Les mesures satellite se chargent : rechargez la page dans quelques secondes.</p>`;
 
   const waves = d?.plages.filter((b) => b.houle) ?? [];

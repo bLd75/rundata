@@ -97,7 +97,7 @@ export function feuxPage(origin: string, l: FeuxLive, now = new Date(), alerte?:
   const body = `<section aria-labelledby="h-feux">
   <h2 id="h-feux">Les feux des dernières 24 h</h2>
   <div class="card">${firesList(l.fires, now)}</div>
-  ${l.fires ? `<p class="note">Sources : ${credits(creditOf([feux.SOURCE]))}. Satellites lus : ${esc(l.fires.satellites.join(", "))}, à ${hm(l.fires.fetchedAt)}.</p>` : ""}
+  ${l.fires ? `<p class="note">Satellites lus : ${esc(l.fires.satellites.join(", "))}, à ${hm(l.fires.fetchedAt)}.</p><p class="sources">Sources : ${credits(creditOf([feux.SOURCE]))}.</p>` : ""}
 </section>
 <section aria-labelledby="h-sentiers">
   <h2 id="h-sentiers">Les sentiers fermés par l'ONF</h2>

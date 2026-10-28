@@ -72,7 +72,7 @@ export function stopPage(origin: string, p: transit.StopPage, d: Departures, now
   const body = `<section>
   <div class="card">${d.aucun ? `<p>${esc(d.aucun)}</p>` : ""}${rows}</div>
   ${note}
-  <p class="note">Sources : ${credits(d.sources.map(credit))}.</p>
+  <p class="sources">Sources : ${credits(d.sources.map(credit))}.</p>
 </section>
 ${d.alertes.length ? `<section aria-labelledby="h-trafic"><h2 id="h-trafic">Info trafic</h2><div class="card">${alertList(d.alertes)}<p class="note">Publié par les réseaux dans leur flux en direct, repris tel quel.</p></div></section>` : ""}`;
 
