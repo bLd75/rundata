@@ -4,3 +4,5 @@
  */
 export const ACCUEIL: Record<string, string> = { Freedom: "https://www.freedom.fr/" };
 export const ACCUEILS = new Set(Object.values(ACCUEIL));
+/** Said beside each such link in a tool's answer: the link is the home page, the article is found there by its title. */
+export const NOTE_ACCUEIL: Record<string, string> = { Freedom: "Ce lien mène à l'accueil de Freedom, comme le prévoient ses conditions de reprise\u00a0; l'article y est sous ce titre" };

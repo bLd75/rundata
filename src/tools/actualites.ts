@@ -1,6 +1,7 @@
 import type { Cache } from "../cache.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as src from "../providers/actualites.js";
+import { ACCUEIL, NOTE_ACCUEIL } from "../providers/accueils-medias.js";
 import * as radars from "../routes/radars.js";
 import { localTime } from "../geo.js";
 import { why } from "../types.js";
@@ -63,6 +64,7 @@ export function infoRow(i: src.Info, now: Date, commune?: string) {
     lieux: i.lieux.length ? i.lieux : undefined,
     sujets: i.sujets.length ? i.sujets : undefined,
     lien: i.lien,
+    lien_accueil: ACCUEIL[i.media] === i.lien ? NOTE_ACCUEIL[i.media] : undefined,
     aussi: i.aussi,
   };
 }

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { fil, parseRss } from "../src/providers/actualites.js";
+import { actualites } from "../src/tools/actualites.js";
 import { buildActualites } from "../src/web/data.js";
 import { actualitesPage } from "../src/web/domains.js";
 import { fenetre } from "../src/web/map.js";
@@ -38,6 +39,15 @@ describe("Freedom, linked to its home page", () => {
     expect(kept.length).toBeGreaterThan(5);
     expect(new Set(kept.filter((i) => i.media === "Freedom").map((i) => i.titre)).size).toBe(kept.filter((i) => i.media === "Freedom").length);
     expect(kept.filter((i) => i.media === "Freedom").every((i) => titles.has(i.titre))).toBe(true);
+  });
+
+  it("says beside each of its items in the tool's answer that the link is its home page, and nothing beside the others", async () => {
+    serve();
+    const rows: { media: string; lien: string; lien_accueil?: string }[] = JSON.parse((await actualites(cache(), undefined, undefined, undefined, NOW)).content[0].text).infos;
+    const freedom = rows.filter((r) => r.media === "Freedom");
+    expect(freedom.length).toBeGreaterThan(0);
+    expect(freedom.every((r) => r.lien === HOME && r.lien_accueil === "Ce lien mène à l'accueil de Freedom, comme le prévoient ses conditions de reprise\u00a0; l'article y est sous ce titre")).toBe(true);
+    expect(rows.filter((r) => r.media !== "Freedom").every((r) => r.lien_accueil === undefined)).toBe(true);
   });
 
   it("opens its home page in a new window, and the other links in the same", async () => {
