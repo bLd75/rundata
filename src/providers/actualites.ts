@@ -138,7 +138,6 @@ interface Name {
 const ALIASES: { nom: string; commune: string; before?: RegExp; notAfter?: RegExp }[] = [
   { nom: "Saint-Gilles", commune: "Saint-Paul" },
   { nom: "Hermitage", commune: "Saint-Paul" },
-  { nom: "Cambaie", commune: "Saint-Paul" },
   { nom: "Gillot", commune: "Sainte-Marie" },
   { nom: "Rivière Saint-Louis", commune: "Saint-Louis" },
   { nom: "La Rivière", commune: "Saint-Louis", before: /^la$/i, notAfter: /^(?:des|du|de|d|saint)$/i },

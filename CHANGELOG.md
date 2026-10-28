@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Mercredi 28 octobre 2026
 
+- Actualités : Cambaie (Saint-Paul) reconnu comme lieu ; un lieu absent de notre répertoire donne les articles qui le nomment.
 - Événements : l'agenda de Bras-Panon de retour, avec l'accord écrit de la mairie.
 - Pages Météo, Randonnée, Circulation, Événements et Mer : une illustration du lieu, générée par IA, en fond derrière le titre.
 - Page /application : les étapes pour mettre rundata.re sur l'écran d'accueil avec Safari, Chrome, Firefox, Edge ou Samsung Internet.
