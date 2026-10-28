@@ -529,26 +529,36 @@ function oncePerLink(list: Info[]): Info[] {
   return [...by.values()];
 }
 
+/**
+ * Shared through KV (web/partagees.ts), read by the scheduled event every 5 minutes: read at a question only, a data
+ * center's own copy was an hour and a half old where no one had asked since (28/10/2026 at 14:45, the fire at
+ * Cambaie, the copy of 13:15 served while the event had read the media at 14:41 in another data center).
+ */
+export const KEY = "actualites:fil";
+
 export async function fil(cache: Cache, now = new Date()): Promise<Cached<Fil>> {
-  return cache.get("actualites:fil", FRESH_SECONDS, async () => {
-    const read = (url: string) => getText(SOURCES.medias.id, url, 12_000, HEADERS);
-    const [feeds, pref] = await Promise.all([
-      Promise.allSettled(FEEDS.map(async (f) => f.parse(await read(f.url), now))),
-      read(SOURCES.prefecture.url).then((h) => parsePrefecture(h)).catch((err) => {
-        console.error("source prefecture_communiques indisponible:", err);
-        return null;
-      }),
-    ]);
-    const items = feeds.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
-    const lives = await Promise.allSettled(liveCandidates(items, now).map(async (u) => parseImazLive(await read(u), u, now)));
-    const all = [...items, ...lives.flatMap((r) => (r.status === "fulfilled" ? r.value : []))];
-    const down = [...new Set(FEEDS.filter((_, k) => feeds[k].status === "rejected").map((f) => f.media))];
-    if (!all.length && !pref) throw new Error("aucun média ne répond");
-    const since = new Date(now.getTime() - KEEP_HOURS * 3600_000).toISOString();
-    return {
-      infos: merge(oncePerLink(all).filter((i) => i.publie >= since && i.publie <= new Date(now.getTime() + 10 * 60_000).toISOString())),
-      prefecture: (pref ?? []).slice(0, 6),
-      indisponible: [...down, ...(pref ? [] : ["Préfecture"])].filter((m) => !all.some((i) => i.media === m)),
-    };
-  });
+  return cache.get(KEY, FRESH_SECONDS, () => lire(now));
+}
+
+/** Every medium and the prefecture, read now. */
+export async function lire(now = new Date()): Promise<Fil> {
+  const read = (url: string) => getText(SOURCES.medias.id, url, 12_000, HEADERS);
+  const [feeds, pref] = await Promise.all([
+    Promise.allSettled(FEEDS.map(async (f) => f.parse(await read(f.url), now))),
+    read(SOURCES.prefecture.url).then((h) => parsePrefecture(h)).catch((err) => {
+      console.error("source prefecture_communiques indisponible:", err);
+      return null;
+    }),
+  ]);
+  const items = feeds.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  const lives = await Promise.allSettled(liveCandidates(items, now).map(async (u) => parseImazLive(await read(u), u, now)));
+  const all = [...items, ...lives.flatMap((r) => (r.status === "fulfilled" ? r.value : []))];
+  const down = [...new Set(FEEDS.filter((_, k) => feeds[k].status === "rejected").map((f) => f.media))];
+  if (!all.length && !pref) throw new Error("aucun média ne répond");
+  const since = new Date(now.getTime() - KEEP_HOURS * 3600_000).toISOString();
+  return {
+    infos: merge(oncePerLink(all).filter((i) => i.publie >= since && i.publie <= new Date(now.getTime() + 10 * 60_000).toISOString())),
+    prefecture: (pref ?? []).slice(0, 6),
+    indisponible: [...down, ...(pref ? [] : ["Préfecture"])].filter((m) => !all.some((i) => i.media === m)),
+  };
 }

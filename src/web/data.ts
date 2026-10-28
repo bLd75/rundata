@@ -1363,7 +1363,7 @@ export function roadNews(news: actuSource.Fil | undefined, now: Date): NonNullab
  * When there is none (a new version, a data center that never read it) or it is old, it is read again afterwards.
  */
 export async function roadNewsRead(cache: Cache, background: Background, now = new Date()): Promise<Cached<actuSource.Fil> | undefined> {
-  const got = await cache.peek<actuSource.Fil>("actualites:fil", now.getTime() - ROAD_NEWS_STALE_SECONDS * 1000).catch(() => undefined);
+  const got = await cache.peek<actuSource.Fil>(actuSource.KEY, now.getTime() - ROAD_NEWS_STALE_SECONDS * 1000).catch(() => undefined);
   const old = !got || now.getTime() - got.fetchedAt.getTime() > ROAD_NEWS_STALE_SECONDS * 1000;
   if (old && now.getTime() - roadNewsAsked > ROAD_NEWS_RETRY_MS && left() >= ROAD_NEWS_MIN_LEFT) {
     roadNewsAsked = now.getTime();

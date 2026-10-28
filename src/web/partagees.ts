@@ -7,6 +7,7 @@
  */
 import { costOf, count, left, measured, reserve, spent, unmeasured } from "../budget.js";
 import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore, outdated, stampOf } from "../cache.js";
+import * as actu from "../providers/actualites.js";
 import * as ensemble from "../providers/ensemble.js";
 import * as ovpfPdf from "../providers/ovpf-pdf.js";
 import * as seismes from "../providers/seismes.js";
@@ -55,7 +56,7 @@ export interface Shared {
   alongside?: boolean;
 }
 
-// About 890 KV writes a day in all: 288 for the vigilance, every 5 minutes, 144 for the earthquakes, every 10 minutes, 96 for the rivers, every 15 minutes (288 while a river is in yellow flood vigilance or above), 24 for the ONF's map, 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
+// About 1 180 KV writes a day in all: 288 for the vigilance and 288 for the news, every 5 minutes, 144 for the earthquakes, every 10 minutes, 96 for the rivers, every 15 minutes (288 while a river is in yellow flood vigilance or above), 24 for the ONF's map, 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
 // of /chiffres (4 more for their events, 24 while an agenda does not answer), 12 for the power
 // cuts the mairies relay (48 while the site of one of them does not answer), 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
 // of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
@@ -82,6 +83,12 @@ export const SHARED: Shared[] = [
   // (26 October 2026). Its cold cost: Vigicrues' vigilance, and its heights and flows in 4 batches each, plus one. Its CPU: parsing them, 43 ms
   // the first time in Node and 4 ms after, rounded up. At minutes 10, 25, 40 and 55, with the news, the water cuts, the
   // air and the satellites' grids: the lightest of the three series of events a rate of 15 minutes can take.
+  // The news of the media and the prefecture, every 5 minutes, in every event: the tool actualites and /actualites read
+  // a data center's own copy, read at a question only, which was an hour and a half old where no one had asked since
+  // (28 October 2026, the fire at Cambaie). Its cold cost: the six media, the prefecture and Imaz Press's two live
+  // pages, as the event's logs count them (medias_locaux 9), plus one. Its CPU: parsing them, 132 ms the first time in
+  // Node and 25 to 37 ms after, rounded up. Before /actualites's copy, which embeds it.
+  { key: actu.KEY, build: (_cache, now) => actu.lire(now), every: 5, cold: 10, cpu: 140, offset: 0, before: ["web:actualites"] },
   { key: "web:crues", build: buildCrues, every: (last) => (floodRaised(last as CruesAnswer | undefined).length ? 5 : 15), cold: 10, cpu: 50, range: { usual: 15, shortest: 5 }, offset: 10, alongside: true },
   { key: "web:actualites", build: buildActualites, every: 30, cold: 10, cpu: 190, offset: 10 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160, offset: 5 },
