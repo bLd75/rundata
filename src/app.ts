@@ -33,10 +33,23 @@ export function withCors(r: Response): Response {
   return new Response(r.body, { status: r.status, statusText: r.statusText, headers });
 }
 
-// The team's scripts: the daily check (bin/check-sources.ts, « rundata-check/1 »), and the team's own reads, asked to send
-// « rundata-check/<name> » but often written « rundata-check », « rundata-verif » or « Mozilla/5.0 rundata-check ».
-// « rundata-interne » is a team visit, counted apart as such (metrics.ts), not one of these.
-const CHECKER = /(?:^|[\s(;])rundata-(?!interne)/i;
+// The team's scripts: the daily check (bin/check-sources.ts) and the team's own reads. They are known by the team's
+// secret in the header `rundata-jeton` (the Worker's secret EQUIPE_JETON), never by their User-Agent alone, which
+// anyone can write. Without the secret set, no one is.
+let jetonEquipe: string | undefined;
+export function configurerEquipe(jeton: string | undefined) {
+  jetonEquipe = jeton || undefined;
+}
+export const JETON_EQUIPE = "rundata-jeton";
+
+/** Whether the request carries the team's secret, compared in a time that does not tell how much of it matched. */
+export function equipe(headers: Headers): boolean {
+  const j = headers.get(JETON_EQUIPE);
+  if (!jetonEquipe || !j || j.length !== jetonEquipe.length) return false;
+  let diff = 0;
+  for (let i = 0; i < j.length; i++) diff |= j.charCodeAt(i) ^ jetonEquipe.charCodeAt(i);
+  return diff === 0;
+}
 
 /**
  * Short addresses for the links shared on a channel (Instagram's bio sends no referer): each sends the visitor to the
@@ -108,7 +121,7 @@ export async function handle(request: Request, cache: Cache, background: Backgro
   const shortcut = SHORTCUTS[url.pathname.replace(/(.)\/$/, "$1").toLowerCase()];
   if (shortcut) return new Response(null, { status: 302, headers: { location: `/?ref=${shortcut}` } });
   // The team's scripts are not visitors: not counted.
-  if (CHECKER.test(request.headers.get("user-agent") ?? "")) record = () => {};
+  if (equipe(request.headers)) record = () => {};
   // What a page's browser tells the statistics (web/signaux.ts): a point each, never a page view.
   if (url.pathname === SIGNAL_PATH) return signal(request, record);
   // A browser opening the connector's address gets the page that explains it (web/connecteur.ts); the clients, the endpoint.

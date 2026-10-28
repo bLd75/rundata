@@ -111,14 +111,20 @@ export async function ouvrir(scelle: string, now = new Date()): Promise<Attente 
 
 // ---------------------------------------------------------------- 2. « C'est bien nous »
 
+// A verification already written: a link of the same association to the same address, started since it was verified.
+// The sealed page can be sent again for 30 minutes; it makes one link, and one e-mail, once.
+const DEJA_ECRITE = "SELECT 1 FROM connexions WHERE plateforme = ? AND organisation = ? AND email = ? AND t >= ?";
 const INSERT = `INSERT INTO connexions (t, plateforme, organisation, nom, commune, code_postal, lien, secret, email, jeton, etat, source)
 SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'a_confirmer', ?
-WHERE (SELECT COUNT(*) FROM connexions WHERE source = ? AND t > ?) < ? AND (SELECT COUNT(*) FROM connexions WHERE t > ?) < ?`;
+WHERE (SELECT COUNT(*) FROM connexions WHERE source = ? AND t > ?) < ? AND (SELECT COUNT(*) FROM connexions WHERE t > ?) < ?
+AND NOT EXISTS (${DEJA_ECRITE})`;
 
 /**
  * Writes the link waiting for its confirmation, its secret encrypted for this row, and e-mails the link: `base`
  * followed by the link's secret. Refused in the same statement when its sender, or everyone together, started too
- * many today. A link whose e-mail could not be sent stays unconfirmed, and goes after 48 hours like any other.
+ * many today, or when this verification was already written (« C'est bien nous » sent twice, or the sealed page
+ * replayed): then nothing more is written nor sent, and the e-mail already sent is the answer. A link whose e-mail
+ * could not be sent stays unconfirmed, and goes after 48 hours like any other.
  */
 export async function enregistrer(a: Attente, adresse: string, base: string, now = new Date()): Promise<Issue> {
   if (!enabled()) return "indisponible";
@@ -129,8 +135,8 @@ export async function enregistrer(a: Attente, adresse: string, base: string, now
   const o = a.organisation;
   try {
     const secret = await chiffre.chiffrer(a.secret, chiffre.lien(a.plateforme, o.id, jeton));
-    const changed = await run!(INSERT, t, a.plateforme, o.id, o.nom, o.commune ?? null, o.code_postal ?? null, o.lien, secret, a.email, jeton, source, source, t - 86400, CONNEXIONS_PAR_JOUR, t - 86400, CONNEXIONS_EN_TOUT_JOUR);
-    if (changed === 0) return "limite";
+    const changed = await run!(INSERT, t, a.plateforme, o.id, o.nom, o.commune ?? null, o.code_postal ?? null, o.lien, secret, a.email, jeton, source, source, t - 86400, CONNEXIONS_PAR_JOUR, t - 86400, CONNEXIONS_EN_TOUT_JOUR, a.plateforme, o.id, a.email, a.t);
+    if (changed === 0) return (await all!(DEJA_ECRITE, a.plateforme, o.id, a.email, a.t)).length ? "ok" : "limite";
   } catch (err) {
     console.error("connecteurs : écriture impossible", err instanceof Error ? err.message : String(err));
     return "indisponible";

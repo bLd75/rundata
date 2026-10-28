@@ -172,6 +172,28 @@ describe("the link, once « C'est bien nous » is clicked", () => {
     expect(m.text).toContain("\nL'équipe rundata.re\nrundata.re · https://rundata.re/associations");
   });
 
+  it("writes one link and sends one e-mail per verification, however often its sealed page is sent again", async () => {
+    const r = await post(connecteurs.RELIER_PATH, CLES);
+    const scelle = /name="attente" value="([^"]+)"/.exec(await r.text())![1];
+    for (let i = 0; i < 3; i++) {
+      const again = await post(connecteurs.CONFIRMER_PATH, { attente: scelle, choix: "oui" });
+      expect(again.status).toBe(200);
+      expect(plain(await again.text())).toContain("Un e-mail est parti à club@example.org.");
+    }
+    expect(rows("SELECT etat FROM connexions")).toEqual([{ etat: "a_confirmer" }]);
+    expect(sent).toHaveLength(1);
+    // Still once after the link is confirmed; a new verification makes a new link.
+    const secret = /\/associations\/connexion\/([\w-]+)\n/.exec(sent[0].text)![1];
+    await post(`${connecteurs.CONNEXION_PATH}${secret}`, {});
+    await post(connecteurs.CONFIRMER_PATH, { attente: scelle, choix: "oui" });
+    expect(rows("SELECT etat FROM connexions")).toEqual([{ etat: "a_moderer" }]);
+    expect(sent).toHaveLength(1);
+    db.prepare("UPDATE connexions SET t = t - 60").run();
+    await relie();
+    expect(rows("SELECT etat FROM connexions ORDER BY id")).toEqual([{ etat: "a_moderer" }, { etat: "a_confirmer" }]);
+    expect(sent).toHaveLength(2);
+  });
+
   it("confirms only on the button: opening the link changes nothing", async () => {
     const secret = await relie();
     const page = await get(`${connecteurs.CONNEXION_PATH}${secret}`);

@@ -92,6 +92,7 @@ import { FEUX_PATH, feuxPage } from "./feux.js";
 import * as feux from "../providers/feux.js";
 import * as prefecture from "../providers/prefecture.js";
 import { rafraichirConnecteurs, rafraichirPropositions } from "../tools/agenda.js";
+import * as bord from "./bord.js";
 import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
 import { scheduledEvery } from "./partagees.js";
 import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
@@ -323,8 +324,13 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   // Nothing of the moment in it: answered before the volcano's state is read.
   const style = stylesheet(new URL(request.url).pathname);
   if (style) return style;
+  // The bus trips, kept a minute at the edge (web/bord.ts): the copy as it was served.
+  const copie = await bord.lire(request);
+  if (copie) return copie;
   const volcan = await volcanNow(cache, now);
-  return typoPage(await withVolcan(volcan, () => pages(request, cache, background, now)));
+  const r = await typoPage(await withVolcan(volcan, () => pages(request, cache, background, now)));
+  if (r?.status === 200 && request.method === "GET" && bord.gardeDe(new URL(request.url))) background(bord.garder(request, r.clone()));
+  return r;
 }
 
 const STYLE_FILE = /^\/style-\w+\.css$/;
@@ -679,7 +685,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     }
     return new Response(stopPage(origin, p, d, now, await alerte(cache, background, now)), { headers: HTML });
   }
-  // A bus's trip, from a departure: read from the timetables at each view, never kept (web/trajet.ts).
+  // A bus's trip, from a departure: read from the timetables, its page kept a minute at the edge (web/trajet.ts, web/bord.ts).
   const trajet = path.startsWith(`${TRIP_PATH}/`) ? /^\/bus\/trajet\/([a-z]+)\/(\d+)\/([^/]+)\/?$/.exec(path) : null;
   if (trajet || path.startsWith(`${TRIP_PATH}/`)) {
     const net = trajet && transit.NETWORKS[trajet[1]] ? trajet[1] : undefined;

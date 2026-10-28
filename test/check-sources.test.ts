@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { handle } from "../src/app.js";
+import { configurerEquipe, handle, JETON_EQUIPE } from "../src/app.js";
 import { Cache } from "../src/cache.js";
 import { AGENT, checkAnswer, checkPage, MAX_BYTES, PAGES, parseTime, TOOLS } from "../src/bin/check-sources.js";
 import type { Hit } from "../src/metrics.js";
 
 // Saturday 24 October 2026, 07:11 in Réunion.
 const NOW = new Date("2026-10-24T03:11:00Z");
+const SECRET = "secret-de-test-0123456789abcdef";
 const tool = (name: string) => TOOLS.find((c) => c.point.startsWith(name))!;
 const page = (path: string) => PAGES.find((c) => c.path === path)!;
 const answer = (p: unknown) => ({ content: [{ type: "text", text: JSON.stringify(p) }] });
@@ -89,38 +90,50 @@ describe("the daily check of the sources", () => {
     expect(checkPage(page("/volcan"), 200, "", `${fresh}<p>Accès à l'Enclos : à vérifier sur reunion.gouv.fr</p>`, NOW).map((x) => x.motif)).toEqual(["niveau ou accès à l'Enclos « à vérifier »"]);
   });
 
-  it("is not counted as a visit by the Worker", async () => {
+  it("is not counted as a visit by the Worker when it sends the team's secret", async () => {
     const hits: Hit[] = [];
-    const get = (ua: string) => handle(new Request("https://rundata.re/nouveautes", { headers: { accept: "text/html", "user-agent": ua } }), new Cache(), () => {}, (h) => hits.push(h));
-    await get(AGENT);
-    expect(hits).toEqual([]);
-    await get("Mozilla/5.0");
-    expect(hits).toHaveLength(1);
+    const get = (headers: Record<string, string>) => handle(new Request("https://rundata.re/nouveautes", { headers: { accept: "text/html", "user-agent": AGENT, ...headers } }), new Cache(), () => {}, (h) => hits.push(h));
+    configurerEquipe(SECRET);
+    try {
+      await get({ [JETON_EQUIPE]: SECRET });
+      expect(hits).toEqual([]);
+      await get({});
+      expect(hits).toHaveLength(1);
+    } finally {
+      configurerEquipe(undefined);
+    }
   });
 
-  it("leaves out the team's other reads too, however they write their User-Agent, but not a team visit nor a stranger", async () => {
+  it("leaves out only the calls with the team's secret: not a User-Agent that says « rundata- », nor a wrong secret, nor anyone while no secret is set", async () => {
     const hits: Hit[] = [];
-    const page = (ua: string) => handle(new Request("https://rundata.re/nouveautes", { headers: { accept: "text/html", "user-agent": ua } }), new Cache(), () => {}, (h) => hits.push(h));
-    const call = (ua: string) =>
+    const page = (ua: string, headers: Record<string, string> = {}) => handle(new Request("https://rundata.re/nouveautes", { headers: { accept: "text/html", "user-agent": ua, ...headers } }), new Cache(), () => {}, (h) => hits.push(h));
+    const call = (ua: string, headers: Record<string, string> = {}) =>
       handle(
         new Request("https://rundata.re/mcp", {
           method: "POST",
-          headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18", "user-agent": ua },
+          headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18", "user-agent": ua, ...headers },
           body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
         }),
         new Cache(),
         () => {},
         (h) => hits.push(h),
       );
-    // Read in the Worker's logs, 24-26/10/2026.
-    for (const ua of ["rundata-check", "rundata-check/ship", "rundata-verif", "Mozilla/5.0 rundata-check", "Mozilla/5.0 (compatible; rundata-audit)", "curl/8.5 rundata-audit", "rundata-banc"]) {
-      await page(ua);
-      await call(ua);
+    configurerEquipe(SECRET);
+    try {
+      for (const ua of ["rundata-check/ship", "curl/8.5 rundata-audit", "Mozilla/5.0"]) {
+        await page(ua, { [JETON_EQUIPE]: SECRET });
+        await call(ua, { [JETON_EQUIPE]: SECRET });
+      }
+      expect(hits).toEqual([]);
+      // Read in the Worker's logs, 24-26/10/2026: anyone may write these.
+      for (const ua of ["rundata-check", "rundata-check/ship", "Mozilla/5.0 rundata-check", "curl/8.5 rundata-audit"]) await call(ua);
+      await call("rundata-check/ship", { [JETON_EQUIPE]: SECRET.slice(0, -1) + "x" });
+      await call("rundata-check/ship", { [JETON_EQUIPE]: SECRET.slice(1) });
+      expect(hits.map((h) => h.kind)).toEqual(["rpc", "rpc", "rpc", "rpc", "rpc", "rpc"]);
+    } finally {
+      configurerEquipe(undefined);
     }
-    expect(hits).toEqual([]);
-    await page("Mozilla/5.0 rundata-interne");
-    await page("rundata.re (contact@rundata.re)");
-    await page("Mozilla/5.0 (X11; Linux x86_64) mon-rundata-perso");
-    expect(hits.map((h) => h.kind)).toEqual(["page", "page", "page"]);
+    await page("rundata-check/ship", { [JETON_EQUIPE]: SECRET });
+    expect(hits).toHaveLength(7);
   });
 });
