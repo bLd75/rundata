@@ -79,6 +79,8 @@ export interface Fil {
   prefecture: Info[];
   /** The media that did not answer. */
   indisponible: string[];
+  /** When the prefecture's list was last asked (ISO, UTC), answered or not: it is asked every 15 minutes only. */
+  prefectureLue?: string;
 }
 
 // ---------------------------------------------------------------- text
@@ -529,26 +531,50 @@ function oncePerLink(list: Info[]): Info[] {
   return [...by.values()];
 }
 
+/**
+ * Shared through KV (web/partagees.ts), read by the scheduled event every 5 minutes: read at a question only, a data
+ * center's own copy was an hour and a half old where no one had asked since (28/10/2026 at 14:45, the fire at
+ * Cambaie, the copy of 13:15 served while the event had read the media at 14:41 in another data center).
+ */
+export const KEY = "actualites:fil";
+
 export async function fil(cache: Cache, now = new Date()): Promise<Cached<Fil>> {
-  return cache.get("actualites:fil", FRESH_SECONDS, async () => {
-    const read = (url: string) => getText(SOURCES.medias.id, url, 12_000, HEADERS);
-    const [feeds, pref] = await Promise.all([
-      Promise.allSettled(FEEDS.map(async (f) => f.parse(await read(f.url), now))),
-      read(SOURCES.prefecture.url).then((h) => parsePrefecture(h)).catch((err) => {
+  const have = await cache.peek<Fil>(KEY).catch(() => undefined);
+  return cache.getFrom(KEY, have, FRESH_SECONDS, () => lire(now, have?.value));
+}
+
+/**
+ * The prefecture's site bans bursts, and refuses at times readers it does not know (28/10/2026): its list is asked one
+ * event in three, every 15 minutes, its copy in `avant` kept as it is in between. Half an event short of it, so that
+ * an event a few seconds earlier than the one 15 minutes before is not put off to the next.
+ */
+export const PREFECTURE_EVERY_MS = 15 * 60_000;
+const PREFECTURE_DUE_MS = PREFECTURE_EVERY_MS - 150_000;
+
+/** Every medium read now, and the prefecture when its list is due (`avant`: the copy this one replaces). */
+export async function lire(now = new Date(), avant?: Fil): Promise<Fil> {
+  const read = (url: string) => getText(SOURCES.medias.id, url, 12_000, HEADERS);
+  const lue = avant?.prefectureLue ? Date.parse(avant.prefectureLue) : NaN;
+  const kept = avant && now.getTime() - lue < PREFECTURE_DUE_MS ? avant : undefined;
+  const [feeds, pref] = await Promise.all([
+    Promise.allSettled(FEEDS.map(async (f) => f.parse(await read(f.url), now))),
+    kept
+      ? (kept.indisponible.includes("Préfecture") ? null : kept.prefecture)
+      : read(SOURCES.prefecture.url).then((h) => parsePrefecture(h)).catch((err) => {
         console.error("source prefecture_communiques indisponible:", err);
         return null;
       }),
-    ]);
-    const items = feeds.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
-    const lives = await Promise.allSettled(liveCandidates(items, now).map(async (u) => parseImazLive(await read(u), u, now)));
-    const all = [...items, ...lives.flatMap((r) => (r.status === "fulfilled" ? r.value : []))];
-    const down = [...new Set(FEEDS.filter((_, k) => feeds[k].status === "rejected").map((f) => f.media))];
-    if (!all.length && !pref) throw new Error("aucun média ne répond");
-    const since = new Date(now.getTime() - KEEP_HOURS * 3600_000).toISOString();
-    return {
-      infos: merge(oncePerLink(all).filter((i) => i.publie >= since && i.publie <= new Date(now.getTime() + 10 * 60_000).toISOString())),
-      prefecture: (pref ?? []).slice(0, 6),
-      indisponible: [...down, ...(pref ? [] : ["Préfecture"])].filter((m) => !all.some((i) => i.media === m)),
-    };
-  });
+  ]);
+  const items = feeds.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  const lives = await Promise.allSettled(liveCandidates(items, now).map(async (u) => parseImazLive(await read(u), u, now)));
+  const all = [...items, ...lives.flatMap((r) => (r.status === "fulfilled" ? r.value : []))];
+  const down = [...new Set(FEEDS.filter((_, k) => feeds[k].status === "rejected").map((f) => f.media))];
+  if (!all.length && !pref) throw new Error("aucun média ne répond");
+  const since = new Date(now.getTime() - KEEP_HOURS * 3600_000).toISOString();
+  return {
+    infos: merge(oncePerLink(all).filter((i) => i.publie >= since && i.publie <= new Date(now.getTime() + 10 * 60_000).toISOString())),
+    prefecture: (pref ?? []).slice(0, 6),
+    indisponible: [...down, ...(pref ? [] : ["Préfecture"])].filter((m) => !all.some((i) => i.media === m)),
+    prefectureLue: kept?.prefectureLue ?? now.toISOString(),
+  };
 }

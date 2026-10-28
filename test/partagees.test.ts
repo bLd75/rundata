@@ -144,8 +144,9 @@ describe("the shared copies after a deploy", () => {
     const edge = new CountedStore();
     // Every copy in KV and in the data center's cache, written by the previous version 15 seconds apart, none due by its
     // rate (the earthquakes' every 10 minutes) nor at its slot (all within their margin, a sixth of their rate, before it).
-    // Their families renamed, out of the revisions' table (web/revisions.ts): « web:chiffres:evenements » as « web:chiffres-version:evenements ».
-    const versioned = (key: string) => (key.indexOf(":", 4) > 0 ? key.replace(/^(web:[^:]+)/, "$1-version") : `${key}-version`);
+    // Their families renamed, out of the revisions' table (web/revisions.ts): « web:chiffres:evenements » as « web:chiffres-version:evenements »,
+    // a source's key (« actualites:fil ») as « actualites:fil-version ».
+    const versioned = (key: string) => (key.startsWith("web:") && key.indexOf(":", 4) > 0 ? key.replace(/^(web:[^:]+)/, "$1-version") : `${key}-version`);
     const list: Shared[] = SHARED.map((s) => ({ ...s, key: versioned(s.key), build: async () => (count(s.cold ?? 25), { at: now }) }));
     const writtenAt = new Map<string, number>();
     for (const [i, s] of list.entries()) {
@@ -161,9 +162,9 @@ describe("the shared copies after a deploy", () => {
     // The deploy: a new isolate, a new version.
     const cache = new Cache(new TieredStore(new MemoryStore(), edge), () => now, false, undefined, "2.0.0");
     const events: { written: string[]; used: number; rest: number; at: number }[] = [];
-    // The satellites' grids, the vigilance, the earthquakes and the ONF's map are a source's, not a page's: no version, kept.
+    // The news, the satellites' grids, the vigilance, the earthquakes and the ONF's map are a source's, not a page's: no version, kept.
     const pages = list.filter((s) => isCopy(s.key));
-    expect(pages.length).toBe(list.length - 4);
+    expect(pages.length).toBe(list.length - 5);
     const done = () => pages.every((s) => JSON.parse(kv.data.get(kvKey(s.key))!).version === "2.0.0");
     while (events.length < 12 && !done()) {
       const run = await counted(SCHEDULED_BUDGET, async () => ({ warmed: await warmShared(cache, kv, new Date(now), list), rest: left() }));
@@ -269,11 +270,11 @@ describe("the scheduled refresh of the shared copies", () => {
     // The volcano's copy goes every 5 minutes during an alert: its quickest rate bounds it.
     for (const s of SHARED) expect(kv.writes.get(kvKey(s.key)), s.key).toBeLessThanOrEqual(perDay(typeof s.every === "number" ? s.every : 5));
     const total = [...kv.writes.values()].reduce((a, b) => a + b, 0);
-    // The vigilance every 5 minutes, the earthquakes every 10, the rivers every 15, quiet here, the volcano's copy, quiet
-    // too, every 30 minutes like four others, the ONF's map and the counts of /chiffres every hour, and the satellites'
-    // grids every 3 hours (about 890 a day, partagees.ts).
-    expect(total).toBeLessThanOrEqual(888);
-    expect(total).toBeGreaterThanOrEqual(845);
+    // The vigilance and the news every 5 minutes, the earthquakes every 10, the rivers every 15, quiet here, the volcano's
+    // copy, quiet too, every 30 minutes like four others, the ONF's map and the counts of /chiffres every hour, and the
+    // satellites' grids every 3 hours (about 1 180 a day, partagees.ts).
+    expect(total).toBeLessThanOrEqual(1176);
+    expect(total).toBeGreaterThanOrEqual(1133);
   });
 
   it("refreshes a copy at each of its slots, though written a few seconds into the event before", async () => {
@@ -451,10 +452,11 @@ describe("the scheduled refresh of the shared copies", () => {
     expect(run.value.first.left).toEqual([]);
     expect(run.value.after.left).toEqual([]);
     expect(run.value.first.written.length + run.value.after.written.length).toBe(SHARED.length + SHARED_AFTER.length);
-    // What the planned agendas may take after them, at the most: far more than they need (the 5 pages of Sportsregions
-    // the dearest, 17 when all are due together, BUDGET.md), the counts of /chiffres and their events, 85 with their
-    // lookups, the earthquakes and the ONF's map, 10 with theirs, built too.
-    expect(run.value.rest).toBeGreaterThan(130);
+    // What the planned agendas may take after them, at the most: more than they need (the 5 pages of Sportsregions the
+    // dearest, 17 when all are due together, BUDGET.md), and than the counts of /chiffres and their events, 85 with their
+    // lookups, the earthquakes and the ONF's map, 10 with theirs, all three together (112), built too. 130 before the
+    // news was read every 5 minutes (actualites:fil, 13 with its lookup), 117 since.
+    expect(run.value.rest).toBeGreaterThan(112);
     expect(run.used).toBeLessThanOrEqual(SCHEDULED_BUDGET);
   });
 

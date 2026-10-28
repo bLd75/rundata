@@ -59,7 +59,8 @@ export const familyOf = (key: string) => key.slice("web:".length).split(":")[0];
  * copy, dated, is worth more than nothing.
  */
 export const SOURCE_REVISION: Readonly<Record<string, number>> = {
-  "actualites:fil": 1,
+  // With the time the prefecture's list was last asked (prefectureLue), which it is every 15 minutes only.
+  "actualites:fil": 2,
   // Read again with its written agreement of 28/10/2026, without the price and the sentence an older entry kept.
   "agenda:bras_panon": 1,
 };
