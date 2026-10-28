@@ -19,11 +19,16 @@ const localHour = (d: Date) => new Date(d.getTime() + REUNION_MS).getUTCHours();
 export const HAUTS_MIN_M = 800;
 // Under this cloud cover, the sky is open whatever the layer.
 const CLEAR_PCT = 30;
+// From this cloud cover, the sky is overcast, as AROME's weather code says it (providers/arome.ts, weatherCode).
+const OVERCAST_PCT = 80;
 // Above the top by less than this, a place is at the edge of the cloud sea.
 const EDGE_M = 100;
 // Clouds whose base is this high are no cloud sea: the view stays open under them. A top this high is that of deep or
 // layered clouds, not of the cloud sea: it is not said.
-const HIGH_M = 4000;
+export const HIGH_M = 4000;
+
+/** A step whose clouds are all high (AROME's base over HIGH_M): a veil the view goes on under, said with the sky's word. */
+export const eleves = (h: ForecastHour) => h.nuages_base_m != null && h.nuages_base_m > HIGH_M && (h.nuages_pct ?? 0) >= CLEAR_PCT;
 const HOUR = 3600_000;
 
 export const LABEL = "prévision du modèle AROME de Météo-France (carrés de 2,5 km)";
@@ -194,9 +199,12 @@ export function night(now: Date, jour?: string): Night | null {
 export const nightStarts = (now: Date, jour?: string): Date[] => night(now, jour)?.starts ?? [];
 
 /** The sky of one night step at a place: over the Hauts where it stands against the clouds, below by the cloud cover. */
-export function nightSky(h: ForecastHour, altitude: number): { etat: Etat | "pluie" | "nuageux" | "couvert"; texte: string } | null {
+export function nightSky(h: ForecastHour, altitude: number): { etat: Etat | "pluie" | "nuageux" | "couvert" | "voile"; texte: string } | null {
   if (h.nuages_base_m === undefined || h.nuages_pct == null) return null; // not a step of AROME
   if (h.pluie_mm != null && h.pluie_mm >= 0.3) return { etat: "pluie", texte: "pluie prévue" };
+  // High clouds over the whole sky: the view stays open under them, the stars do not. Never « degage », so that nothing
+  // reading the state says « dégagé » of it; the 3-hour steps say « couvert (nuages élevés) » (prevision.ts).
+  if (altitude >= HAUTS_MIN_M && eleves(h) && h.nuages_pct >= OVERCAST_PCT) return { etat: "voile", texte: "voilé par des nuages élevés, sans nuages plus bas" };
   const e = altitude >= HAUTS_MIN_M ? etat(h, altitude) : null;
   if (e) return e;
   if (h.nuages_pct < CLEAR_PCT) return { etat: "degage", texte: "dégagé" };
