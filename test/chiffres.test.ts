@@ -3,6 +3,7 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import { buildChiffres, buildEvenements, cadenceEnMots, chiffres, cle, clubs, type Copie, DOMAINES, EVENEMENTS_KEY, evenementsEvery, KEY, resume, SANS_MAX, sansAgendas } from "../src/chiffres.js";
 import { compte, FICHES, producteursDe } from "../src/producteurs.js";
 import { AGENDAS } from "../src/providers/agenda.js";
+import { CONNECTEURS } from "../src/providers/agenda-connecteurs.js";
 import { PROPOSITIONS } from "../src/providers/agenda-propositions.js";
 import { STATIONS as BORNES } from "../src/providers/irve.js";
 import { createServer, toutesLesSources } from "../src/server.js";
@@ -207,7 +208,10 @@ describe("the page /chiffres", () => {
   });
 
   it("gives every agenda read its article after « l'agenda », never « de Le » nor « de Les »", () => {
-    for (const a of AGENDAS.filter((x) => x !== PROPOSITIONS)) expect(sansAgendas([a.nom]), a.id).toMatch(/^sans l'agenda (de la (?!Mairie )|de l'|du |des |de (?!Le |La |Les |Clubs |Ville |Mairie ))\S/);
+    // The linked associations' agenda is never named: no site of theirs was asked.
+    expect(sansAgendas([CONNECTEURS.nom])).toBe("");
+    expect(sansAgendas([CONNECTEURS.nom, "Ville du Port"])).toBe("sans l'agenda de la Ville du Port, dont le site n'a pas répondu à notre dernière lecture");
+    for (const a of AGENDAS.filter((x) => x !== PROPOSITIONS && x !== CONNECTEURS)) expect(sansAgendas([a.nom]), a.id).toMatch(/^sans l'agenda (de la (?!Mairie )|de l'|du |des |de (?!Le |La |Les |Clubs |Ville |Mairie ))\S/);
     const de = (nom: string) => sansAgendas([nom]).replace(/^sans l'agenda /, "").replace(/, dont .*$/, "");
     expect(de("Le Port")).toBe("du Port");
     expect(de("Les Avirons")).toBe("des Avirons");

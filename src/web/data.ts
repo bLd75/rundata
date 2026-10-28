@@ -62,12 +62,13 @@ import { type NonOfficiel, volcanSeismes } from "../tools/volcan.js";
 import type { Acces } from "../tools/volcan-acces.js";
 import * as sportSource from "../providers/sport.js";
 import { grandRaidRow, mentionProgrammes, sportTool, type SportRow } from "../tools/sport.js";
-import { cyclones, type activeRow, type seasonRow } from "../tools/cyclones.js";
+import { cyclones, type activeRow, type carteOfficielle, type seasonRow } from "../tools/cyclones.js";
+import * as cmrs from "../providers/cmrs-carte.js";
 import { historiqueMeteo } from "../tools/historique.js";
 import { agenda, type EventRow, mentionIle as agendaNonRepris } from "../tools/agenda.js";
 import { mentionSalles, RESUME_REUNION_FR } from "../tools/non-repris.js";
 import * as actuSource from "../providers/actualites.js";
-import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, quand as newsTime, type InfoRow } from "../tools/actualites.js";
+import { A_SAVOIR as ACTU_A_SAVOIR, COUVERTURE as ACTU_COUVERTURE, infoRow, prefectureLueTexte, quand as newsTime, type InfoRow } from "../tools/actualites.js";
 import { littoral, type Littoral } from "../tools/littoral.js";
 import { type Observation, why } from "../types.js";
 import * as traces from "../providers/traces.js";
@@ -992,6 +993,9 @@ export interface CyclonesAnswer {
   vie_quotidienne?: string;
   ecoles?: ReturnType<typeof ecolesBlock>;
   systemes_actifs?: ReturnType<typeof activeRow>[];
+  carte_officielle?: ReturnType<typeof carteOfficielle>;
+  /** The page's own: what to show of the RSMC's map (providers/cmrs-carte.ts), while a system is active. */
+  carte?: cmrs.Carte;
   saison_en_cours: { nom: string; systemes: ReturnType<typeof seasonRow>[] };
   saison_precedente?: { nom: string; systemes: ReturnType<typeof seasonRow>[] };
   a_savoir: string;
@@ -1047,7 +1051,9 @@ export async function buildHistorique(cache: Cache, now = new Date()): Promise<H
 
 /** The tool's answer for the island. */
 export async function buildCyclones(cache: Cache, now = new Date()): Promise<CyclonesAnswer> {
-  return needed<CyclonesAnswer>(await cyclones(cache, undefined, now), "cyclones");
+  const a = needed<CyclonesAnswer>(await cyclones(cache, undefined, now), "cyclones");
+  const carte = a.systemes_actifs?.length ? await cmrs.kept() : undefined;
+  return carte ? { ...a, carte } : a;
 }
 
 export interface AgendaAnswer {
@@ -1104,6 +1110,8 @@ export interface ActualitesAnswer {
   total?: number;
   en_direct: InfoRow[];
   prefecture: InfoRow[];
+  /** The prefecture's site did not answer since `prefecture` was read: said with that time (tools/injoignable.ts). */
+  prefecture_injoignable?: { texte: string; site: string };
   /** Whether people are in the streets or roads blocked: a live blog, or news of it in the last hours. */
   chaud: boolean;
   indisponible: string[];
@@ -1115,6 +1123,12 @@ export interface ActualitesAnswer {
 const NEWS_HOURS = 24;
 const NEWS_LISTED = 40;
 const HOT_HOURS = 6;
+
+/** The prefecture's list kept, said with the time it was read (tools/actualites.ts `prefectureLueTexte`), its site linked. */
+export function prefectureSilent(f: actuSource.Fil, now: Date): { texte: string; site: string } | undefined {
+  const texte = prefectureLueTexte(f, now);
+  return texte ? { texte, site: actuSource.SOURCES.prefecture.url } : undefined;
+}
 
 /** The island's news of the last day, as the page lists it. */
 export async function buildActualites(cache: Cache, now = new Date()): Promise<ActualitesAnswer> {
@@ -1128,6 +1142,7 @@ export async function buildActualites(cache: Cache, now = new Date()): Promise<A
     total: articles.length,
     en_direct: day.filter((i) => i.direct).slice(0, 12).map((i) => infoRow(i, now)),
     prefecture: f.prefecture.slice(0, 4).map((i) => infoRow(i, now)),
+    prefecture_injoignable: prefectureSilent(f, now),
     chaud: day.some((i) => i.publie >= recent && (i.direct || i.sujets.includes("mobilisation"))),
     indisponible: f.indisponible,
     couverture: ACTU_COUVERTURE,
@@ -1357,7 +1372,7 @@ export function roadNews(news: actuSource.Fil | undefined, now: Date): NonNullab
  * When there is none (a new version, a data center that never read it) or it is old, it is read again afterwards.
  */
 export async function roadNewsRead(cache: Cache, background: Background, now = new Date()): Promise<Cached<actuSource.Fil> | undefined> {
-  const got = await cache.peek<actuSource.Fil>("actualites:fil", now.getTime() - ROAD_NEWS_STALE_SECONDS * 1000).catch(() => undefined);
+  const got = await cache.peek<actuSource.Fil>(actuSource.KEY, now.getTime() - ROAD_NEWS_STALE_SECONDS * 1000).catch(() => undefined);
   const old = !got || now.getTime() - got.fetchedAt.getTime() > ROAD_NEWS_STALE_SECONDS * 1000;
   if (old && now.getTime() - roadNewsAsked > ROAD_NEWS_RETRY_MS && left() >= ROAD_NEWS_MIN_LEFT) {
     roadNewsAsked = now.getTime();

@@ -36,6 +36,7 @@ import { fuelSay, keep } from "../tools/carburants.js";
 import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../traces/secteurs.js";
 import island from "../places/island.json" with { type: "json" };
 import * as mf from "../providers/vigilance.js";
+import { carteHtml } from "./cmrs-carte.js";
 import { esc, fenetre, hikesMap, islandMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
 import { reprise } from "./ouvrir-donnees.js";
 import { cloudSeaLink, type Summit, weatherForTrace } from "./liens.js";
@@ -87,7 +88,7 @@ const crumbBar = (label: string, parent?: { name: string; path: string }) =>
 const loading = (what: string) => `<p class="lead">${esc(what)} se charge : rechargez la page dans quelques secondes.</p>`;
 
 const sourcesNote = (list: { source: string; licence: string; attribution: string }[], data: Cached<unknown>) =>
-  `<p class="note">Sources : ${credits(list)}. Mis à jour à ${hm(data.fetchedAt)}.</p>`;
+  `<p class="note">Mis à jour à ${hm(data.fetchedAt)}.</p><p class="sources">Sources : ${credits(list)}.</p>`;
 
 /**
  * The agendas of the scheduled event not read lately (tools/agenda.ts, `non_lus`: « Ville de Saint-Leu : dernière
@@ -819,7 +820,7 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
   <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-gares">Prochains départs dans les gares routières</h2>
   <p>Toutes les lignes qui partent de chaque gare, tous réseaux confondus, au plus trois départs par ligne et par direction.</p></div>
   ${gares}
-  ${d ? `<p class="note">Sources : ${credits(d.sources)}.</p>` : ""}
+  ${d ? `<p class="sources">Sources : ${credits(d.sources)}.</p>` : ""}
 </section>
 ${d?.alertes?.length ? `<section aria-labelledby="h-trafic"><h2 id="h-trafic">Info trafic</h2><div class="card">${alertList(d.alertes)}<p class="note">Publié par les réseaux dans leur flux en direct, repris tel quel.</p></div></section>` : ""}
 ${connectorCta("transports", "les bus de l'île")}
@@ -1085,7 +1086,7 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
 </div>`;
 
   const sources = d && data
-    ? `<p class="note">Sources : ${esc(vigicrues.SOURCE.nom)}, ${esc(vigicrues.SOURCE.attribution)} (${esc(vigicrues.SOURCE.licence)}). Lu le ${esc(dayAt(data.fetchedAt))}. Le site officiel : <a href="${vigicrues.SOURCE.url}">vigicrues-reunion.re ↗</a>.</p>`
+    ? `<p class="note">Lu le ${esc(dayAt(data.fetchedAt))}. Le site officiel : <a href="${vigicrues.SOURCE.url}">vigicrues-reunion.re ↗</a>.</p><p class="sources">Sources : ${esc(vigicrues.SOURCE.nom)}, ${esc(vigicrues.SOURCE.attribution)} (${esc(vigicrues.SOURCE.licence)}).</p>`
     : "";
 
   const body = `<section aria-labelledby="h-vigilance-crues">
@@ -1297,7 +1298,7 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
 <section aria-labelledby="h-robinet">
   <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-robinet">L'eau du robinet</h2>
   <p>${d ? `${tapBad.length ? `Des analyses non conformes en 6 mois dans ${tapBad.length} commune${tapBad.length > 1 ? "s" : ""} sur ${d.communes.length}, sur un ou deux réseaux chacune.` : "Toutes les analyses des 6 derniers mois sont conformes."} ` : ""}${esc(EAU_TEXT.robinet)}</p></div>
-  ${d ? `<ul class="zones">${d.communes.map(tapCard).join("")}</ul><p class="note">${esc(tapNote("page"))}<br><a href="/coupures-eau">Les avis en cours →</a></p>${data ? `<p class="note">Sources : ${esc(d.sources.map((x) => x.attribution).join(" ; "))}. Analyses rassemblées le ${esc(dayFr(d.lu))} à ${esc(hm(new Date(d.lu)))}.</p>` : ""}` : ""}
+  ${d ? `<ul class="zones">${d.communes.map(tapCard).join("")}</ul><p class="note">${esc(tapNote("page"))}<br><a href="/coupures-eau">Les avis en cours →</a></p>${data ? `<p class="note">Analyses rassemblées le ${esc(dayFr(d.lu))} à ${esc(hm(new Date(d.lu)))}.</p><p class="sources">Sources : ${esc(d.sources.map((x) => x.attribution).join(" ; "))}.</p>` : ""}` : ""}
 </section>
 ${connectorCta("qualite_eau", "la qualité de l'eau")}`;
 
@@ -2398,6 +2399,7 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
   <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-actifs">Systèmes actifs</h2>
   <p>${d ? esc(d.resume) : ""}</p></div>
   ${d ? active.map(activeCard).join("") : `<p class="card">Le suivi se charge : rechargez la page dans quelques secondes.</p>`}
+  ${active.length ? carteHtml(d?.carte, now) : ""}
 </section>
 <section aria-labelledby="h-alerte">
   <div class="sec-h"><p class="eyebrow">Préfecture de La Réunion</p><h2 id="h-alerte">Les phases de l'alerte cyclonique</h2>
@@ -2559,13 +2561,21 @@ export function agendaHours(q: string): string {
   return until ? `jusqu'au ${until[1]}` : "";
 }
 
+/**
+ * The logos of the platforms an association links (connecteurs/), shown beside each event read there, by the
+ * platform's name: the official file, as each platform gives it.
+ */
+export const LOGOS: Record<string, string> = {};
+
 function agendaRow(r: AgendaRow): string {
   const lieu = r.lieu && r.lieu.length > 80 ? `${r.lieu.slice(0, 79)}…` : r.lieu;
-  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.source ? `Source\u00a0: ${r.source}` : r.publie_par && r.lu_le ? `${parQui(r.publie_par)}, lu le ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
+  const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.via ? `${r.publie_par} · via ${r.via.plateforme}, ${r.via.lu}` : r.source ? `Source\u00a0: ${r.source}` : r.publie_par && r.lu_le ? `${parQui(r.publie_par)}, lu le ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
     .filter(Boolean).map((x) => esc(x!)).join(" · ");
   // Cancelled or postponed stays listed, said first: people look for it.
   const badge = r.statut ? `<span class="badge${r.statut === "complet" ? " m" : ""}">${esc(r.statut)}</span> ` : "";
   const book = r.billetterie && (r.billetterie !== r.lien || r.billetterie_texte) ? ` · <a href="${esc(r.billetterie)}" rel="noopener">${esc(r.billetterie_texte ?? "billets")}</a>` : "";
+  // Its platform's logo, linking to the event's page there, as the platform's terms ask.
+  const logo = r.via && LOGOS[r.via.plateforme] && r.lien ? ` <a href="${esc(r.lien)}" rel="noopener" class="via"><img src="${LOGOS[r.via.plateforme]}" alt="${esc(r.via.plateforme)}" height="14"></a>` : "";
   // Said by the news before the organiser's page: who said it, to check.
   const news = r.statut_d_apres
     ? `<small class="said">${esc(r.statut!.toLowerCase())}${r.reporte_au ? ` au ${esc(r.reporte_au)}` : ""} d'après <a href="${esc(r.statut_d_apres.lien)}" rel="noopener"${fenetre(r.statut_d_apres.lien)}>${esc(r.statut_d_apres.media)}</a></small>`
@@ -2573,7 +2583,7 @@ function agendaRow(r: AgendaRow): string {
   const blank = r.lien && ACCUEILS.has(r.lien) ? ' target="_blank"' : "";
   // « jusqu'au vendredi 11/12 » goes under the title on a phone (.fin): beside it, it left the title a word a line.
   const hours = agendaHours(r.quand);
-  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${book}</small></span><span class="q-none${hours.startsWith("jusqu'au") ? " fin" : ""}">${esc(hours)}</span></li>`;
+  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${logo}${book}</small></span><span class="q-none${hours.startsWith("jusqu'au") ? " fin" : ""}">${esc(hours)}</span></li>`;
 }
 
 /** A row's end, local, from its hours: « samedi 24/10 de 09:00 à 16:00 », « du vendredi 23/10 au dimanche 01/11 ». */
@@ -2831,6 +2841,7 @@ export function actualitesPage(origin: string, data: Cached<ActualitesAnswer> | 
   const pref = d?.prefecture.length
     ? `<section aria-labelledby="h-pref">
   <div class="sec-h"><p class="eyebrow">Officiel</p><h2 id="h-pref">Communiqués de la préfecture</h2><p>Mesures de sécurité, interdictions, routes, eau : les consignes officielles priment.</p></div>
+  ${d.prefecture_injoignable ? `<p class="note">${silentText(d.prefecture_injoignable)}</p>` : ""}
   <ul class="rows eau">${d.prefecture.map((r) => `<li><span><a href="${esc(r.lien)}" rel="noopener">${esc(r.titre)}</a></span><span class="q-none">${esc(newsTime(r))}</span></li>`).join("")}</ul>
 </section>`
     : "";

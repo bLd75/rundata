@@ -58,7 +58,9 @@ describe("the /crues page", () => {
     expect(w).toContain(`${silent.station} · ${silent.commune} Pas de mesure dans notre lecture de 03:51.`);
     expect(w).toMatch(/Saint-Denis - Amont · Saint-Denis -?\d+,?\d* m, (stable|en hausse|en baisse) · [\d,]+ m³\/s · mesurée à \d\d:\d\d/);
     expect(w).toMatch(/Saint-Denis - Amont · Saint-Denis [^]*?Crues de référence [^]*?1,5 m · 43 m³\/s · Cyclone Dumile \(janvier 2013\)/);
-    expect(w).toContain("Sources : Vigicrues Réunion (vigilance crues, hauteurs et débits des rivières), © VIGICRUES, DEAL Réunion (Licence Ouverte Etalab). Lu le 24/10 à 03:51. Le site officiel : vigicrues-reunion.re ↗.");
+    // The hour of the reading by the rivers; the producer and its licence at the bottom of the page.
+    expect(w).toContain("Lu le 24/10 à 03:51. Le site officiel : vigicrues-reunion.re ↗.");
+    expect(w).toContain("Sources : Vigicrues Réunion (vigilance crues, hauteurs et débits des rivières), © VIGICRUES, DEAL Réunion (Licence Ouverte Etalab).");
     expect(deadAnchors(html)).toEqual([]);
     expect(doubleIds(html)).toEqual([]);
   });

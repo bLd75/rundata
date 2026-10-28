@@ -166,7 +166,7 @@ ${cyclone.lead ? cyclone.html : ""}
 ${tap}
 ${others}
 ${cyclone.lead ? "" : cyclone.html}
-<section>${d && w.coupures ? sourcesNote([...d.sources, { source: DISTRIBUTEURS, licence: "Licence Ouverte Etalab 2.0", attribution: "ARS La Réunion" }], w.coupures) : ""}</section>
+${d && w.coupures ? sourcesNote([...d.sources, { source: DISTRIBUTEURS, licence: "Licence Ouverte Etalab 2.0", attribution: "ARS La Réunion" }], w.coupures) : ""}
 ${connectorCta("coupures_eau", "les coupures d'eau")}`;
 
   return layout(origin, { title, description, path, jsonld: [trail, webPage(origin, path, title, description, w.coupures)], alerte }, band, body);

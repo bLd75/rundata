@@ -20,6 +20,7 @@ import { IN_FLIGHT } from "./http.js";
 import { AGENDAS } from "./providers/agenda.js";
 import { MAX_NEW_GRIDS } from "./providers/arome.js";
 import { KINDS as CANDHIS_KINDS, REFRESH_EVERY as CANDHIS_EVERY, REFRESH_OFFSET as CANDHIS_OFFSET } from "./providers/candhis.js";
+import { IMAGE_OFFSET as CMRS_IMAGE_OFFSET, LISTE_OFFSET as CMRS_LISTE_OFFSET, REFRESH_EVERY as CMRS_EVERY } from "./providers/cmrs-carte.js";
 import { REFRESH_EVERY as IRVE_EVERY, REFRESH_OFFSET as IRVE_OFFSET } from "./providers/irve.js";
 import { SHARED, SHARED_AFTER, type Shared } from "./web/partagees.js";
 import { COMMUNE_TILES, DOMAINS, HOME_TILES } from "./web/site.js";
@@ -185,6 +186,29 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/vigilance-carte.ts"],
     basis: "code",
   },
+  // The RSMC's forecast track map, while GDACS has an active system: GDACS's list through the cache (cold: the copy
+  // looked for, 2 pages, the copy written, 5), the state (KV), one request to Météo-France, and the state written; for
+  // the image, the image written too (KV). Outside an active system, the list of GDACS alone.
+  {
+    id: "cmrs:liste",
+    trigger: "planifiée",
+    what: "carte de prévision de trajectoire du CMRS : la liste de ses bulletins (Météo-France), pendant un système actif",
+    every: CMRS_EVERY,
+    offset: CMRS_LISTE_OFFSET,
+    run: { subrequests: 8, kvReads: 2, kvWrites: 2, cpuMs: 10 },
+    from: ["src/providers/cmrs-carte.ts"],
+    basis: "code",
+  },
+  {
+    id: "cmrs:image",
+    trigger: "planifiée",
+    what: "carte de prévision de trajectoire du CMRS : l'image (Météo-France), gardée dans KV sous son empreinte, pendant un système actif",
+    every: CMRS_EVERY,
+    offset: CMRS_IMAGE_OFFSET,
+    run: { subrequests: 9, kvReads: 2, kvWrites: 3, cpuMs: 10 },
+    from: ["src/providers/cmrs-carte.ts"],
+    basis: "code",
+  },
   {
     id: "agendas:planifies",
     trigger: "planifiée",
@@ -280,14 +304,16 @@ const SCHEDULED: Entry[] = [
   // One association's platform per run, the one read the longest ago (each every 6 hours while there are fewer than
   // 72): the token (1), its list of events (up to CONNECTEUR_PAGES pages) and the details of the new or changed ones (up
   // to CONNECTEUR_DETAILS). Usually 2 or 3 subrequests: the details are read again only when the platform says the event
-  // changed. D1: the link and its events, the new secret, the events changed.
+  // changed. D1, connecteurs/lecture.ts: the link due and its mark (2 calls, even when none is due), the turned secret, its
+  // events kept, those gone deleted, those changed written in one statement, the reading's result: 7 calls; a first
+  // reading writes all its events (up to CONNECTEUR_PAGES pages of 50).
   {
     id: "connecteurs:lecture",
     trigger: "planifiée",
     what: "plateformes des associations (HelloAsso) : les événements publics d'une association reliée, relus toutes les 6 h, une association par passage",
     every: EVENT_MINUTES,
-    run: { subrequests: 1 + CONNECTEUR_PAGES + CONNECTEUR_DETAILS, d1Calls: 3, d1RowsRead: 1 + CONNECTEUR_PAGES * 50, d1RowsWritten: 1 + CONNECTEUR_DETAILS, cpuMs: 20 },
-    from: ["src/connecteurs/helloasso.ts"],
+    run: { subrequests: 1 + CONNECTEUR_PAGES + CONNECTEUR_DETAILS + 7, d1Calls: 7, d1RowsRead: 2 + CONNECTEUR_PAGES * 50, d1RowsWritten: 3 + CONNECTEUR_PAGES * 50, cpuMs: 20 },
+    from: ["src/connecteurs/helloasso.ts", "src/connecteurs/lecture.ts"],
     basis: "estimé",
   },
   // The day before at each Météo-France station (providers/meteofrance.ts keepVeille): the hourly package of the 974
@@ -310,6 +336,16 @@ const SCHEDULED: Entry[] = [
     every: 24 * 60,
     offset: 0,
     run: { subrequests: 1, d1Calls: 1, d1RowsWritten: 10, cpuMs: 5 },
+    from: [],
+    basis: "estimé",
+  },
+  {
+    id: "connecteurs:purge",
+    trigger: "planifiée",
+    what: "plateformes des associations : la purge quotidienne (D1), à 04:00 heure de La Réunion",
+    every: 24 * 60,
+    offset: 0,
+    run: { subrequests: 3, d1Calls: 3, d1RowsWritten: 5, cpuMs: 2 },
     from: [],
     basis: "estimé",
   },
@@ -363,7 +399,8 @@ const DOMAIN_PAGES: Record<string, Page> = {
   "/defibrillateurs": { subrequests: 6, cpuMs: 40, from: ["src/tools/dae.ts"], what: "la page /defibrillateurs\u00a0; « Autour de moi » charge au clic la liste compacte (public/dae/), servie par Cloudflare avant le Worker : 0 Worker, 0 KV, 0 D1" },
   "/sport": { subrequests: 42, cpuMs: 120, from: ["src/tools/sport.ts"] },
   "/decheteries": { subrequests: 12, cpuMs: 30, from: ["src/tools/decheteries.ts"] },
-  "/cyclones": { subrequests: 27, cpuMs: 50, from: ["src/tools/cyclones.ts"] },
+  // Measured 27 out of an active system; 1 more while one is active: the RSMC's map's state (KV).
+  "/cyclones": { subrequests: 28, cpuMs: 50, from: ["src/tools/cyclones.ts"] },
   // The tool without a place (the vigilance, the levels and the flows of every gauge, three posts), and the news read
   // again after the response when it is old, as on /trafic, for the headlines on the fords.
   "/crues": { subrequests: 30, cpuMs: 120, from: ["src/tools/crues.ts", "src/tools/actualites.ts"], basis: "estimé" },
@@ -451,7 +488,8 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   qualite_eau: { subrequests: 15, cpuMs: 90, file: "eau" },
   temperature_mer: { subrequests: 14, cpuMs: 50, file: "mer" },
   transports: { subrequests: 13, cpuMs: 80, file: "transports", d1: BUS_D1 },
-  cyclones: { subrequests: 13, cpuMs: 70, file: "cyclones" },
+  // Measured 13; 1 more while a system is active, as /cyclones.
+  cyclones: { subrequests: 14, cpuMs: 70, file: "cyclones" },
   actualites: { subrequests: 10, cpuMs: 180, file: "actualites" },
   // 10 measured, and before noon the day before kept by the scheduled event (one read of KV).
   historique_meteo: { subrequests: 11, cpuMs: 60, file: "historique", d1: { d1Calls: 3, d1RowsRead: 300 }, basis: "estimé" },

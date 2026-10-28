@@ -8,6 +8,7 @@ import * as src from "../providers/agenda.js";
 import { nonAutorisee } from "../providers/autorisations.js";
 import { names, THEMES, W } from "../providers/agenda-mots.js";
 import { withNews } from "../providers/agenda-presse.js";
+import { evenements as relies, ID as CONNECTEURS_ID } from "../providers/agenda-connecteurs.js";
 import { evenements as proposes, ID as PROPOSITIONS_ID } from "../providers/agenda-propositions.js";
 import { SOURCE as SALLES_SOURCE, titleKey } from "../providers/salles.js";
 import { type SourceInfo, UpstreamError, why } from "../types.js";
@@ -388,6 +389,19 @@ export async function rafraichirPropositions(cache: Cache, now = new Date()): Pr
 }
 
 /**
+ * After a link to a platform was withdrawn or expired (connecteurs/): the copy of its events written again at once, so
+ * that they leave the answers now rather than within the quarter of an hour. The bundle's read, the table's, the write.
+ */
+export async function rafraichirConnecteurs(cache: Cache, now = new Date()): Promise<void> {
+  const bundle = await cache.bundle(src.BUNDLE, src.BUNDLE_SYNC_SECONDS);
+  bundle.set(`agenda:${CONNECTEURS_ID}`, await relies(now));
+  await bundle.save();
+}
+
+/** The agendas read from the database, not from a site: there may be nothing in them, which is no failure. */
+const DE_LA_BASE = new Set([PROPOSITIONS_ID, CONNECTEURS_ID]);
+
+/**
  * The same event published twice (by the CINOR and the tourist office, a mairie and the tourist office of the East, a hall and the town)
  * is told once: same first words of the title (« CÉDRIC "ANALYSE" & SES INVITÉS », « Cédric « Analyse » et ses
  * invités ») on the same day, in the same commune when both say it.
@@ -431,6 +445,9 @@ export function inPeriod(e: src.Evenement, p: Periode, now: Date): src.Seance[] 
   }).sort((x, y) => x.debut.localeCompare(y.debut));
 }
 
+/** Its last good reading, and that the platform did not answer since, when so (marketing's words). */
+const luVia = (v: NonNullable<src.Evenement["via"]>) => (v.sans_reponse ? `lu sur ${v.plateforme} le ${dayText(v.lu)}, pas de réponse depuis` : `lu le ${dayText(v.lu)}`);
+
 export function eventRow(e: src.Evenement, seances: src.Seance[]) {
   const [first, ...others] = seances;
   return {
@@ -461,12 +478,17 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     lien: httpUrl(e.lien),
     publie_par: e.publie_par,
     /** When rundata.re read the agenda this comes from; not for an event its organiser proposed, never read elsewhere. */
-    lu_le: e.lu_le && !e.propose ? dayText(e.lu_le) : undefined,
+    lu_le: e.lu_le && !e.propose && !e.via ? dayText(e.lu_le) : undefined,
     /**
      * « site de la commune du Tampon, lu le samedi 24/10 à 08:00 », when it comes from a commune's site; « Théâtre Luc
-     * Donat (site lu le mardi 27/10 à 10:30) », when its agreement asks to name it (marketing).
+     * Donat (site lu le mardi 27/10 à 10:30) », when its agreement asks to name it (marketing); « l'association X, via
+     * HelloAsso, lu le … », when read on the platform an association linked.
      */
-    source: !e.lu_le ? undefined : e.site_commune ? `${e.site_commune}, lu le ${dayText(e.lu_le)}` : e.credit ? `${e.credit} (site lu le ${dayText(e.lu_le)})` : undefined,
+    source: e.via
+      ? `l'association ${e.publie_par}, via ${e.via.plateforme}, ${luVia(e.via)}`
+      : !e.lu_le ? undefined : e.site_commune ? `${e.site_commune}, lu le ${dayText(e.lu_le)}` : e.credit ? `${e.credit} (site lu le ${dayText(e.lu_le)})` : undefined,
+    /** The platform an association linked, and its last reading: for the page's « via HelloAsso » and its logo. */
+    via: e.via ? { plateforme: e.via.plateforme, lu: luVia(e.via) } : undefined,
     /** Proposed by its organiser on rundata.re: said so, with the day, never « checked ». */
     propose: e.propose ? `Proposé par l'organisateur sur rundata.re le ${e.propose.le.split("-").reverse().join("/")}` : undefined,
     /** The contact its author chose to show, only then. */
@@ -608,7 +630,7 @@ function besides(commune: string): string {
   const its = halls.filter((h) => h.commune === commune).map((h) => ofHall(h.nom));
   return its.length ? `\u00a0; s'y ajoutent ${its.length > 1 ? "les programmes" : "le programme"} ${enumeration(its)}` : "";
 }
-const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && x.id !== PROPOSITIONS_ID && !x.partiel);
+const towns = src.AGENDAS.filter((x) => x.source !== SALLES_SOURCE && !DE_LA_BASE.has(x.id) && !x.partiel);
 const partial = src.AGENDAS.filter((x) => x.partiel);
 // Not those whose site is not read until they agree: said apart (mentionIle).
 const without = Object.keys(INSEE).filter((c) => !src.COVERED.includes(c) && !nonAutorisee("agenda", c));
@@ -671,7 +693,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
   const failed = got.filter((g) => !g.value && !g.agenda.planifie).map((g) => g.agenda.nom);
   const unread = nonLus(got, res?.lieu.commune);
   // The proposed events alone are not an agenda that answers: there may be none.
-  if (got.every((g) => !g.value || (g.agenda.id === PROPOSITIONS_ID && !g.value.value.length))) {
+  if (got.every((g) => !g.value || (DE_LA_BASE.has(g.agenda.id) && !g.value.value.length))) {
     return { ...text({ erreur: "Les agendas ne répondent pas pour le moment.", indisponible: failed }), isError: true };
   }
 
@@ -712,7 +734,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     unread.some((x) => x.propre) ? `sans lecture récente : ${unread.filter((x) => x.propre).map((x) => `${x.nom}, ${x.etat}`).join("\u00a0; ")} (voir non_lus)` : "",
   ].filter(Boolean).join("\u00a0; ") + ".";
 
-  const used = [...new Set(got.filter((g) => g.value && (g.agenda.id !== PROPOSITIONS_ID || g.value.value.length)).map((g) => g.agenda.source))] as SourceInfo[];
+  const used = [...new Set(got.filter((g) => g.value && (!DE_LA_BASE.has(g.agenda.id) || g.value.value.length)).map((g) => g.agenda.source))] as SourceInfo[];
   return text({
     lieu: res && lieu ? placeBlock(lieu, res) : undefined,
     resume,

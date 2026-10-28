@@ -55,6 +55,10 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-28T16:20:00+04:00", texte: "Actualités\u00a0: quand le site de la préfecture ne répond pas, ses derniers communiqués lus restent affichés, avec l'heure de leur lecture." },
+  { date: "2026-10-28T14:53:00+04:00", texte: "Actualités\u00a0: Cambaie (Saint-Paul) reconnu comme lieu\u00a0; un lieu absent de notre répertoire donne les articles qui le nomment." },
+  { date: "2026-10-28T10:01:00+04:00", texte: "Événements\u00a0: l'agenda de Bras-Panon de retour, avec l'accord écrit de la mairie." },
+  { date: "2026-10-28T05:30:00+04:00", texte: "Pages Météo, Randonnée, Circulation, Événements et Mer\u00a0: une illustration du lieu, générée par IA, en fond derrière le titre." },
   { date: "2026-10-28T01:39:00+04:00", texte: "Page /application\u00a0: les étapes pour mettre rundata.re sur l'écran d'accueil avec Safari, Chrome, Firefox, Edge ou Samsung Internet." },
   { date: "2026-10-28T01:31:00+04:00", texte: "Vigilance\u00a0: la carte officielle de Météo-France, sans retouche, avec l'accord écrit de Météo-France La Réunion." },
   { date: "2026-10-28T01:20:00+04:00", texte: "Baignade\u00a0: les zones du GIP Centre Sécurité Requin, avec son accord et ses corrections, dont les ZONEX de Boucan-Canot à L'Étang-Salé." },

@@ -6,6 +6,7 @@
  * public/, served before the Worker.
  */
 import { alerteVolcan, volcanNow, withVolcan } from "./volcan-alerte.js";
+import { withSaveData } from "./fonds.js";
 import { left, measured } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { why } from "../types.js";
@@ -91,9 +92,10 @@ import { communeRss } from "./rss.js";
 import { FEUX_PATH, feuxPage } from "./feux.js";
 import * as feux from "../providers/feux.js";
 import * as prefecture from "../providers/prefecture.js";
-import { rafraichirPropositions } from "../tools/agenda.js";
+import { rafraichirConnecteurs, rafraichirPropositions } from "../tools/agenda.js";
+import * as bord from "./bord.js";
 import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
-import { scheduledEvery } from "./partagees.js";
+import { margin, scheduledEvery } from "./partagees.js";
 import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
 import { readCopies, refresh, resume } from "../tools/resume.js";
 import { CSS, FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, STYLE_PATH, vigilancePage } from "./pages.js";
@@ -125,6 +127,7 @@ import { searchPage, stopPage } from "./arret.js";
 import { STOP_PATH } from "./domains.js";
 import * as transit from "../providers/transit.js";
 import { carteRoute } from "./vigilance-carte.js";
+import { carteRoute as cmrsRoute } from "./cmrs-carte.js";
 import { RENDU_PATH } from "../providers/vigilance-carte.js";
 
 const HTML = {
@@ -175,15 +178,16 @@ export const isReader = (request: Request) => READERS.test(request.headers.get("
 const waitFor = (request: Request) => (isReader(request) ? READER_WAIT_MS : undefined);
 
 // The scheduled event refreshes the shared copies at their rate (web/partagees.ts): a reader gets such a copy at once
-// while it is within that rate, and two events more (one a few minutes late, one left for the budget), its refresh
-// going on behind. Waiting for it held Googlebot or ChatGPT-User up to 25 s on /crues, kept every 15 min
-// (26/10/2026). Past that, the scheduled event has fallen behind: the reader waits for the refresh, as before. The
-// daily check of the sources waits always: it must see the data, not a copy.
+// while it is within that rate and its margin (a copy written just before its slot waits for the next), and two events
+// more (one a few minutes late, one left for the budget), its refresh going on behind. Waiting for it held Googlebot or
+// ChatGPT-User up to 25 s on /crues, kept every 15 min (26/10/2026). Past that, the scheduled event has fallen behind:
+// the reader waits for the refresh, as before. The daily check of the sources waits always: it must see the data, not a
+// copy.
 const SCHEDULED_SLACK_MS = 10 * 60_000;
 const CHECK = /rundata-check\//i;
 const readerWaits: ReaderWaits = (key, value, ageMs) => {
   const every = scheduledEvery(key, value);
-  return every == null || ageMs > every * 60_000 + SCHEDULED_SLACK_MS;
+  return every == null || ageMs > every * 60_000 + margin(every) + SCHEDULED_SLACK_MS;
 };
 /** Whether `request`'s reader waits for a page's old copy to be refreshed (web/data.ts `snapshot`). */
 export const readerOf = (request: Request): boolean | ReaderWaits =>
@@ -322,8 +326,13 @@ export async function site(request: Request, cache: Cache, background: Backgroun
   // Nothing of the moment in it: answered before the volcano's state is read.
   const style = stylesheet(new URL(request.url).pathname);
   if (style) return style;
+  // The bus trips, kept a minute at the edge (web/bord.ts): the copy as it was served.
+  const copie = await bord.lire(request);
+  if (copie) return copie;
   const volcan = await volcanNow(cache, now);
-  return typoPage(await withVolcan(volcan, () => pages(request, cache, background, now)));
+  const r = await typoPage(await withVolcan(volcan, () => withSaveData(request, () => pages(request, cache, background, now))));
+  if (r?.status === 200 && request.method === "GET" && bord.gardeDe(new URL(request.url))) background(bord.garder(request, r.clone()));
+  return r;
 }
 
 const STYLE_FILE = /^\/style-\w+\.css$/;
@@ -362,7 +371,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     if (connecteurs.enLigne()) {
       if (path === connecteurs.RELIER_PATH || path === `${connecteurs.RELIER_PATH}/`) return connecteurs.relier(request, now, await alerte(cache, background, now));
       if (path === connecteurs.CONFIRMER_PATH) return connecteurs.confirmerRelier(request, now, await alerte(cache, background, now));
-      if (path.startsWith(connecteurs.CONNEXION_PATH)) return connecteurs.connexion(request, now, await alerte(cache, background, now));
+      if (path.startsWith(connecteurs.CONNEXION_PATH)) return connecteurs.connexion(request, now, await alerte(cache, background, now), () => rafraichirConnecteurs(cache, now));
     }
   }
   if (path === "/") {
@@ -678,7 +687,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     }
     return new Response(stopPage(origin, p, d, now, await alerte(cache, background, now)), { headers: HTML });
   }
-  // A bus's trip, from a departure: read from the timetables at each view, never kept (web/trajet.ts).
+  // A bus's trip, from a departure: read from the timetables, its page kept a minute at the edge (web/trajet.ts, web/bord.ts).
   const trajet = path.startsWith(`${TRIP_PATH}/`) ? /^\/bus\/trajet\/([a-z]+)\/(\d+)\/([^/]+)\/?$/.exec(path) : null;
   if (trajet || path.startsWith(`${TRIP_PATH}/`)) {
     const net = trajet && transit.NETWORKS[trajet[1]] ? trajet[1] : undefined;
@@ -722,6 +731,11 @@ async function pages(request: Request, cache: Cache, background: Background, now
   // Météo-France's official map of the vigilance: its picture, its bulletin, the page of the browser (web/vigilance-carte.ts).
   if (path.startsWith("/vigilance/")) {
     const r = await carteRoute(path, url);
+    if (r) return r;
+  }
+  // The RSMC's forecast track map, by its fingerprint (web/cmrs-carte.ts).
+  if (path.startsWith("/cyclones/carte/")) {
+    const r = await cmrsRoute(path);
     if (r) return r;
   }
   if (path === "/robots.txt") {

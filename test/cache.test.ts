@@ -160,6 +160,21 @@ describe("Cache", () => {
     expect(await cache.get("k", 60, async () => "autre")).toMatchObject({ value: "neuf", stale: false });
   });
 
+  it("notes a collector's copy at the time it read its source, not at the store's read", async () => {
+    const c = clock();
+    const cache = new Cache(undefined, c.now);
+    const lu = new Date(c.now() - 3 * 3600_000).toISOString();
+    const { value, lectures } = await withLectures(() => cache.getCopy("copie", 300, async () => ({ lu, n: 1 }), (v) => v.lu));
+    // What is returned is the store's read; the answer's freshness, the data's.
+    expect(value.fetchedAt.getTime()).toBe(c.now());
+    expect(lectures).toMatchObject([{ key: "copie", fetchedAt: Date.parse(lu), stale: false }]);
+    // Served from the cache: still the data's time; never later than the store's read.
+    c.advance(60);
+    expect((await withLectures(() => cache.getCopy("copie", 300, async () => ({ lu, n: 2 }), (v) => v.lu))).lectures[0].fetchedAt).toBe(Date.parse(lu));
+    const later = new Date(c.now() + 3600_000).toISOString();
+    expect((await withLectures(() => new Cache(undefined, c.now).getCopy("k", 300, async () => ({ lu: later }), (v) => v.lu))).lectures[0].fetchedAt).toBe(c.now());
+  });
+
   it("says a slow source whose last read failed as not answering, not as slow", async () => {
     const c = clock();
     const cache = new Cache(undefined, c.now);

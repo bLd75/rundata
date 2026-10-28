@@ -142,14 +142,15 @@ describe("the shared copies after a deploy", () => {
     const kv = new FakeKv();
     let now = T0;
     const edge = new CountedStore();
-    // Every copy in KV and in the data center's cache, written by the previous version 20 seconds apart, none due by its
-    // rate (the earthquakes' every 10 minutes).
-    // Their families renamed, out of the revisions' table (web/revisions.ts): « web:chiffres:evenements » as « web:chiffres-version:evenements ».
-    const versioned = (key: string) => (key.indexOf(":", 4) > 0 ? key.replace(/^(web:[^:]+)/, "$1-version") : `${key}-version`);
+    // Every copy in KV and in the data center's cache, written by the previous version 15 seconds apart, none due by its
+    // rate (the earthquakes' every 10 minutes) nor at its slot (all within their margin, a sixth of their rate, before it).
+    // Their families renamed, out of the revisions' table (web/revisions.ts): « web:chiffres:evenements » as « web:chiffres-version:evenements »,
+    // a source's key (« actualites:fil ») as « actualites:fil-version ».
+    const versioned = (key: string) => (key.startsWith("web:") && key.indexOf(":", 4) > 0 ? key.replace(/^(web:[^:]+)/, "$1-version") : `${key}-version`);
     const list: Shared[] = SHARED.map((s) => ({ ...s, key: versioned(s.key), build: async () => (count(s.cold ?? 25), { at: now }) }));
     const writtenAt = new Map<string, number>();
     for (const [i, s] of list.entries()) {
-      const at = now - (i + 1) * 20_000;
+      const at = now - (i + 1) * 15_000;
       writtenAt.set(s.key, at);
       const entry = { value: {}, fetchedAt: at, cost: s.cold, version: "1.0.0" };
       await kv.put(kvKey(s.key), JSON.stringify(entry), { metadata: { fetchedAt: at, cost: s.cold, every: typeof s.every === "number" ? s.every : 30, version: "1.0.0" } });
@@ -161,9 +162,9 @@ describe("the shared copies after a deploy", () => {
     // The deploy: a new isolate, a new version.
     const cache = new Cache(new TieredStore(new MemoryStore(), edge), () => now, false, undefined, "2.0.0");
     const events: { written: string[]; used: number; rest: number; at: number }[] = [];
-    // The satellites' grids, the vigilance, the earthquakes and the ONF's map are a source's, not a page's: no version, kept.
+    // The news, the satellites' grids, the vigilance, the earthquakes and the ONF's map are a source's, not a page's: no version, kept.
     const pages = list.filter((s) => isCopy(s.key));
-    expect(pages.length).toBe(list.length - 4);
+    expect(pages.length).toBe(list.length - 5);
     const done = () => pages.every((s) => JSON.parse(kv.data.get(kvKey(s.key))!).version === "2.0.0");
     while (events.length < 12 && !done()) {
       const run = await counted(SCHEDULED_BUDGET, async () => ({ warmed: await warmShared(cache, kv, new Date(now), list), rest: left() }));
@@ -205,10 +206,10 @@ describe("the shared copies after a deploy that raises no revision", () => {
     const kv = new FakeKv();
     const now = T0;
     const edge = new CountedStore();
-    // The real list's keys, each written by the previous version 20 seconds apart, none due by its rate.
+    // The real list's keys, each written by the previous version 15 seconds apart, none due by its rate nor at its slot.
     const list: Shared[] = SHARED.map((s) => ({ ...s, build: async () => (count(s.cold ?? 25), {}) }));
     for (const [i, s] of list.entries()) {
-      const at = now - (i + 1) * 20_000;
+      const at = now - (i + 1) * 15_000;
       const version = stampOf(s.key, "1.0.0");
       const entry = { value: {}, fetchedAt: at, cost: s.cold, ...(version && { version }) };
       await kv.put(kvKey(s.key), JSON.stringify(entry), { metadata: { fetchedAt: at, cost: s.cold, every: typeof s.every === "number" ? s.every : 30, ...(version && { version }) } });
@@ -269,11 +270,11 @@ describe("the scheduled refresh of the shared copies", () => {
     // The volcano's copy goes every 5 minutes during an alert: its quickest rate bounds it.
     for (const s of SHARED) expect(kv.writes.get(kvKey(s.key)), s.key).toBeLessThanOrEqual(perDay(typeof s.every === "number" ? s.every : 5));
     const total = [...kv.writes.values()].reduce((a, b) => a + b, 0);
-    // The vigilance every 5 minutes, the earthquakes every 10, the rivers every 15, quiet here, the volcano's copy, quiet
-    // too, every 30 minutes like four others, the ONF's map and the counts of /chiffres every hour, and the satellites'
-    // grids every 3 hours (about 890 a day, partagees.ts).
-    expect(total).toBeLessThanOrEqual(888);
-    expect(total).toBeGreaterThanOrEqual(845);
+    // The vigilance and the news every 5 minutes, the earthquakes every 10, the rivers every 15, quiet here, the volcano's
+    // copy, quiet too, every 30 minutes like four others, the ONF's map and the counts of /chiffres every hour, and the
+    // satellites' grids every 3 hours (about 1 180 a day, partagees.ts).
+    expect(total).toBeLessThanOrEqual(1176);
+    expect(total).toBeGreaterThanOrEqual(1133);
   });
 
   it("refreshes a copy at each of its slots, though written a few seconds into the event before", async () => {
@@ -298,18 +299,52 @@ describe("the scheduled refresh of the shared copies", () => {
     const copy = (key: string, offset: number): Shared =>
       ({ key, offset, every: 30, build: async () => ((built[key] ??= []).push(new Date(now).getUTCMinutes()), (now += 2000), count(2), {}) });
     const list = [copy("web:essai-5", 5), copy("web:essai-10", 10), copy("web:essai-25", 25)];
-    // None in KV: all built in the first event, then each at its own minutes, every 30 minutes. Not at 00:05 nor 00:10,
-    // only 5 and 10 minutes after the first build, under half their rate; the one at 10 goes at 00:35 by its rate (never
-    // older than it), then at its own minutes.
+    // None in KV: all built in the first event, then each at its own minutes, every 30 minutes. The one at 5 not at 00:05,
+    // a few seconds short of 5 minutes (its margin, a sixth of its rate) after the first build: at its next slot, 00:35.
+    // The one at 10 at 00:10 already, 10 minutes after.
     for (let i = 0; i < 36; i++) {
       now = T0 + i * 5 * 60_000 + 1000;
       await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
     }
     expect(built["web:essai-5"]).toEqual([0, 35, 5, 35, 5, 35]);
-    expect(built["web:essai-10"]).toEqual([0, 35, 10, 40, 10, 40]);
+    expect(built["web:essai-10"]).toEqual([0, 10, 40, 10, 40, 10, 40]);
     expect(built["web:essai-25"]).toEqual([0, 25, 55, 25, 55, 25, 55]);
     expect(slotStart(T0 + 47 * 60_000, 30, 10)).toBe(T0 + 40 * 60_000);
     expect(slotStart(T0 + 7 * 60_000, 30, 10)).toBe(T0 - 20 * 60_000);
+  });
+
+  it("brings a copy written off its slots back on them at its next slot, or the one after within its margin", async () => {
+    // web:mer, every 3 hours at 01:15 UTC and every 3 hours after: rebuilt at 20:46 for its version on 26 October 2026,
+    // it then went by its rate, 5 minutes later at each refresh, out of its slots for two days.
+    // Keys of their own: the module remembers the copies it wrote.
+    const run = async (key: string, from: number, hours: number, tight?: number) => {
+      const kv = new FakeKv();
+      let now = 0;
+      const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => now, false);
+      const at: number[] = [];
+      const list: Shared[] = [{ key, build: async () => (at.push(now), (now += 2000), count(2), {}), every: 180, offset: 75 }];
+      for (let t = from; t < from + hours * 3600_000; t += 5 * 60_000) {
+        now = t + 1000;
+        await counted(t === tight ? 1 : SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+      }
+      const hhmm = at.map((x) => new Date(x).toISOString().slice(11, 16));
+      const ages = at.slice(1).map((x, i) => (x - at[i]) / 60_000);
+      return { hhmm, ages, writes: kv.writes.get(kvKey(key)) };
+    };
+    // Written at 20:45, 90 minutes after its slot: at 22:15 again, then on its slots, 8 a day, for three days.
+    const late = await run("web:essai-mer-tard", T0 + (20 * 60 + 45) * 60_000, 3 * 24);
+    expect(late.hhmm.slice(0, 4)).toEqual(["20:45", "22:15", "01:15", "04:15"]);
+    expect(late.hhmm.slice(1).every((h) => ["01:15", "04:15", "07:15", "10:15", "13:15", "16:15", "19:15", "22:15"].includes(h))).toBe(true);
+    expect(late.writes).toBe(1 + 3 * 8);
+    // Written at 01:00, 15 minutes before its slot, within its margin: not at 01:15, at 04:15, 3 h 15 later, never past
+    // its rate and margin; then on its slots.
+    const close = await run("web:essai-mer-proche", T0 + 60 * 60_000, 24);
+    expect(close.hhmm.slice(0, 4)).toEqual(["01:00", "04:15", "07:15", "10:15"]);
+    expect(Math.max(...close.ages)).toBeLessThanOrEqual(180 + 30);
+    expect(close.writes).toBe(8);
+    // Left for the budget at its slot: tried again in the next event, then on its slots again.
+    const left = await run("web:essai-mer-reportee", T0 + 60 * 60_000 + 15 * 60_000, 12, T0 + (4 * 60 + 15) * 60_000);
+    expect(left.hhmm).toEqual(["01:15", "04:20", "07:15", "10:15"]);
   });
 
   it("gives every copy of the real list an offset within its rate, a multiple of the events' 5 minutes", () => {
@@ -339,17 +374,23 @@ describe("the scheduled refresh of the shared copies", () => {
     await kv.put(kvKey(C), JSON.stringify({ value: {}, fetchedAt: T0 - 3 * 3600_000 }), { metadata: { fetchedAt: T0 - 3 * 3600_000, every: 120 } });
     await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
     expect(order).toEqual([C, E]);
-    // Sainte-Marie silent: read again 30 minutes later; once it answers, every 2 hours.
-    now += 30 * 60_000;
-    await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    // Sainte-Marie silent: read again at its next slot of 30 minutes (00:20); once it answers, at its slots of 2 hours
+    // (00:50, the copy read silent, then 02:20).
+    const until = async (end: number) => {
+      while (now < T0 + end * 60_000) {
+        now += 5 * 60_000;
+        await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+      }
+    };
+    await until(20);
     expect(kv.writes.get(kvKey(C))).toBe(3);
     silent = false;
-    now += 30 * 60_000;
-    await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    await until(50);
     expect(kv.writes.get(kvKey(C))).toBe(4);
-    now += 30 * 60_000;
-    await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(now), list));
+    await until(135);
     expect(kv.writes.get(kvKey(C))).toBe(4);
+    await until(140);
+    expect(kv.writes.get(kvKey(C))).toBe(5);
   });
 
   it("reads the events of /chiffres again an hour after a list in part, not at every event, and every 6 hours once whole", async () => {
@@ -411,10 +452,11 @@ describe("the scheduled refresh of the shared copies", () => {
     expect(run.value.first.left).toEqual([]);
     expect(run.value.after.left).toEqual([]);
     expect(run.value.first.written.length + run.value.after.written.length).toBe(SHARED.length + SHARED_AFTER.length);
-    // What the planned agendas may take after them, at the most: far more than they need (the 5 pages of Sportsregions
-    // the dearest, 17 when all are due together, BUDGET.md), the counts of /chiffres and their events, 85 with their
-    // lookups, the earthquakes and the ONF's map, 10 with theirs, built too.
-    expect(run.value.rest).toBeGreaterThan(130);
+    // What the planned agendas may take after them, at the most: more than they need (the 5 pages of Sportsregions the
+    // dearest, 17 when all are due together, BUDGET.md), and than the counts of /chiffres and their events, 85 with their
+    // lookups, the earthquakes and the ONF's map, 10 with theirs, all three together (112), built too. 130 before the
+    // news was read every 5 minutes (actualites:fil, 13 with its lookup), 117 since.
+    expect(run.value.rest).toBeGreaterThan(112);
     expect(run.used).toBeLessThanOrEqual(SCHEDULED_BUDGET);
   });
 
@@ -546,8 +588,8 @@ describe("the scheduled refresh of the shared copies", () => {
   it("reads a copy whole when its key has no metadata yet, or when KV does not list", async () => {
     const kv = new FakeKv();
     const cache = new Cache(new TieredStore(new MemoryStore(), new MemoryStore()), () => T0, false);
-    // Written by the code before the metadata, ten minutes ago: not due, known only by reading it.
-    const list: Shared[] = [{ key: "web:essai-ancienne", build: async () => (count(2), {}), every: 30 }];
+    // Written by the code before the metadata, ten minutes ago, in its slot: not due, known only by reading it.
+    const list: Shared[] = [{ key: "web:essai-ancienne", build: async () => (count(2), {}), every: 30, offset: 15 }];
     await kv.put(kvKey("web:essai-ancienne"), JSON.stringify({ value: {}, fetchedAt: T0 - 10 * 60_000 }));
     const run = await counted(SCHEDULED_BUDGET, () => warmShared(cache, kv, new Date(T0), list));
     expect(run.value).toEqual({ written: [], left: [] });

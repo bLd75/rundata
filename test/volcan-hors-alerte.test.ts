@@ -147,7 +147,7 @@ describe("the Enclos, as the official texts say it", () => {
     // The last eruption, the OVPF's dates.
     expect(page).toContain(`Dernière éruption : <b>du 13 février au 12 avril 2026</b>, selon l'<a href="https://bsky.app/profile/ovpf.bsky.social/post/3mjdrynd4ns2g" rel="noopener">OVPF</a>.`);
     expect(v.resume).toContain("Accès à l'Enclos : « réouverture partielle » selon le communiqué de la préfecture du 20/10.");
-    for (const t of [page, trafic(v), v.resume, volcanLive(copyOf(v))!.detail]) expect(t.replace(/<footer[\s\S]*<\/footer>|<p class="note">Sources : [\s\S]*?<\/p>/g, "")).not.toMatch(/pitonlive|« partiel »|partiellement ouvert/);
+    for (const t of [page, trafic(v), v.resume, volcanLive(copyOf(v))!.detail]) expect(t.replace(/<footer[\s\S]*<\/footer>|<p class="sources">Sources : [\s\S]*?<\/p>/g, "")).not.toMatch(/pitonlive|« partiel »|partiellement ouvert/);
   });
 
   it("says the plan's rule in vigilance when the release's title says nothing of the Enclos, never pitonlive's word", async () => {

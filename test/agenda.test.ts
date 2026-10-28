@@ -692,10 +692,12 @@ describe("agenda", () => {
     expect(extrait("Concert de maloya. Avec un autre concert.")).toEqual({ description: "Concert de maloya." });
   });
 
-  it("reads Bras-Panon's agenda, a page a month, with the hours and the price", () => {
+  it("reads Bras-Panon's agenda, a page a month, with the hours: only what its agreement of 28/10 covers", () => {
     const oct = parseBrasPanon(fixture("bras-panon_2026-10.html"), NOW);
     expect(oct).toHaveLength(10);
-    expect(oct[0]).toMatchObject({ titre: "Atelier Pop Up Safari", seances: [{ debut: "2026-10-24T09:00", fin: "2026-10-24T10:00" }], commune: "Bras-Panon", lieu: undefined, prix: "Gratuit", description: "Fais surgir les animaux de la savane !", lien: "https://www.braspanon.re/fr/ev/2512733/1991459/atelier-pop-up-safari/2026/10/24", publie_par: "Ville de Bras-Panon" });
+    expect(oct[0]).toEqual({ id: "https://www.braspanon.re/fr/ev/2512733/1991459/atelier-pop-up-safari/2026/10/24", titre: "Atelier Pop Up Safari", seances: [{ debut: "2026-10-24T09:00", fin: "2026-10-24T10:00" }], lieu: undefined, commune: "Bras-Panon", categories: [], lien: "https://www.braspanon.re/fr/ev/2512733/1991459/atelier-pop-up-safari/2026/10/24", publie_par: "Ville de Bras-Panon" });
+    // Title, days, hours, place and link: neither the price nor a sentence of its text.
+    expect(oct.every((e) => e.prix === undefined && e.description === undefined && e.themes === undefined && e.age === undefined)).toBe(true);
     // Over two days: the days, without the hour of the first.
     expect(oct.find((e) => e.titre === "1er Rally National Grand Est")!.seances).toEqual([{ debut: "2026-10-24", fin: "2026-10-25" }]);
     expect(parseBrasPanon(fixture("bras-panon_2026-11.html"), NOW).find((e) => e.titre === "Nout' Marché de Nuit à Bras-Panon")!.seances).toEqual([{ debut: "2026-11-10T17:00", fin: "2026-11-10T22:30" }]);

@@ -11,6 +11,7 @@ import { getText } from "../http.js";
 import { UpstreamError } from "../types.js";
 import { when } from "../tools/injoignable.js";
 import { type Info, parsePrefecture, SOURCES } from "./actualites.js";
+import * as copie from "./prefecture-copie.js";
 
 export const SOURCE = SOURCES.prefecture;
 
@@ -25,7 +26,7 @@ export function sectionOf(html: string): string | undefined {
   return SECTION.exec(html)?.[1];
 }
 
-interface Communiques {
+export interface Communiques {
   liste: Info[];
   /** The cyclone's section, linked by the menu, did not answer: its releases are missing from `liste`. */
   rubrique_non_lue?: true;
@@ -35,23 +36,57 @@ interface Communiques {
 const KEY = "prefecture:communiques:rubrique";
 
 /**
- * The latest releases, newest first: the press releases, and those of the cyclone's section when the menu has one
- * (one subrequest more, then). Throws on a page without its list (an error page served as 200); a section that fails
- * leaves the press releases alone, and is noted (`rubrique_non_lue`): never a silent fallback.
+ * The latest releases read from the site, newest first: the press releases, and those of the cyclone's section when the
+ * menu has one (one page more, then). `read` asks one page. Throws on a page without its list (an error page served as
+ * 200); a section that fails leaves the press releases alone, and is noted (`rubrique_non_lue`): never a silent fallback.
+ * The Worker never calls it (`communiques`): scripts/prefecture.ts does, on a machine of the project.
+ */
+export async function lireSite(read: (url: string) => Promise<string>): Promise<Communiques> {
+  const html = await read(SOURCE.url);
+  const list = parsePrefecture(html);
+  if (!list.length) throw new UpstreamError(SOURCE.id, "liste des communiqués vide");
+  const section = sectionOf(html);
+  const more = section
+    ? await read(`${ORIGIN}${section}`).then((h) => parsePrefecture(h)).catch((err) => (console.error(`préfecture : rubrique ${section} non lue`, err), null))
+    : [];
+  const seen = new Set<string>();
+  const liste = [...list, ...(more ?? [])].filter((r) => !seen.has(r.lien) && seen.add(r.lien)).sort((a, b) => b.publie.localeCompare(a.publie));
+  return more ? { liste } : { liste, rubrique_non_lue: true };
+}
+
+/** One page of the prefecture's site. */
+export const getPage = (url: string) => getText(SOURCE.id, url, 12_000, HEADERS);
+
+// The collector's copy (prefecture-copie.ts) in the data center's cache: asked of the store every 5 minutes at most.
+const COPY_KEY = "prefecture:communiques:copie";
+
+/**
+ * The latest releases, newest first. In the Worker, the collector's copy, its time the collector's read: not renewed
+ * for `SILENT_MS`, it is served as the copy of a site that did not answer since. Elsewhere, the site (`lireSite`).
  */
 async function communiques(cache: Cache): Promise<Cached<Communiques>> {
-  return cache.island(KEY, 5 * 60, async () => {
-    const html = await getText(SOURCE.id, SOURCE.url, 12_000, HEADERS);
-    const list = parsePrefecture(html);
-    if (!list.length) throw new UpstreamError(SOURCE.id, "liste des communiqués vide");
-    const section = sectionOf(html);
-    const more = section
-      ? await getText(SOURCE.id, `${ORIGIN}${section}`, 12_000, HEADERS).then((h) => parsePrefecture(h)).catch((err) => (console.error(`préfecture : rubrique ${section} non lue`, err), null))
-      : [];
-    const seen = new Set<string>();
-    const liste = [...list, ...(more ?? [])].filter((r) => !seen.has(r.lien) && seen.add(r.lien)).sort((a, b) => b.publie.localeCompare(a.publie));
-    return more ? { liste } : { liste, rubrique_non_lue: true };
-  });
+  if (copie.configured()) {
+    const c = await cache.getCopy(COPY_KEY, 5 * 60, async () => {
+      const v = await copie.copie();
+      if (!v?.liste.length) throw new UpstreamError(SOURCE.id, "copie des communiqués absente du stockage");
+      return v;
+    }, (v) => v.lu_le);
+    const late = Date.now() - Date.parse(c.value.lu_le) > copie.SILENT_MS;
+    return { ...c, fetchedAt: new Date(c.value.lu_le), ...(late && { stale: true, source: SOURCE.id }) };
+  }
+  return cache.island(KEY, 5 * 60, () => lireSite(getPage));
+}
+
+/**
+ * In the Worker, when the collector's copy was not renewed for `SILENT_MS` (our machine, or the site: we do not know
+ * which): when it read the site, « aujourd'hui à 15:30 », from the copy the data center holds. Undefined otherwise,
+ * and elsewhere.
+ */
+export async function derniereLecture(cache: Cache, now: Date): Promise<string | undefined> {
+  if (!copie.configured()) return undefined;
+  const c = await cache.peek<copie.Copie>(COPY_KEY).catch(() => undefined);
+  const at = c ? Date.parse(c.value.lu_le) : NaN;
+  return now.getTime() - at > copie.SILENT_MS ? when(localTime(new Date(at)), now) : undefined;
 }
 
 /** The latest releases, newest first (`communiques`). */
@@ -65,9 +100,10 @@ export async function releases(cache: Cache): Promise<Cached<Info[]>> {
  * the phase de sauvegarde were published there only (February 2025), so a decision may be missing. Undefined otherwise.
  */
 export async function rubriqueNonLue(cache: Cache, now: Date): Promise<string | undefined> {
-  const c = await cache.peek<Communiques>(KEY).catch(() => undefined);
+  const c = await cache.peek<Communiques & { lu_le?: string }>(copie.configured() ? COPY_KEY : KEY).catch(() => undefined);
   if (!c?.value.rubrique_non_lue) return undefined;
-  return `La rubrique cyclone du site de la préfecture n'a pas répondu à notre dernière lecture (${when(localTime(c.fetchedAt), now)}) : une décision publiée depuis peut manquer ici.`;
+  const at = c.value.lu_le ? new Date(c.value.lu_le) : c.fetchedAt;
+  return `La rubrique cyclone du site de la préfecture n'a pas répondu à notre dernière lecture (${when(localTime(at), now)}) : une décision publiée depuis peut manquer ici.`;
 }
 
 /** A decision of the cyclone alert, as a release's title says it. */

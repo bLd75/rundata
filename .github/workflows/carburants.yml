@@ -1,15 +1,12 @@
 # The month's maximum fuel prices, set by the prefect's order and published as a press release of the prefecture
-# (scripts/carburants.ts), written every day to the Worker's KV store, where src/providers/carburants.ts reads them.
-# The job fails when no release can be read, or when the month's prices are still missing after its second day: the
-# failure is the alert, and the last prices stay in the store meanwhile.
+# (scripts/carburants.ts), written to the Worker's KV store, where src/providers/carburants.ts reads them. Read every
+# day from a machine of the project (scripts/carburants.ts --kv): the prefecture's site refuses GitHub's runners now
+# and then (« fetch failed », 25/10 to 28/10/2026). This job is run by hand only, should that machine be off.
+# It fails when no release can be read, or when the month's prices are still missing after its second day, and the
+# last prices stay in the store meanwhile.
 name: Prix des carburants
 
 on:
-  schedule:
-    - cron: "41 3 * * *"
-    # Around the 1st, the new order is published on the month's last day (between 08:00 and 20:00 in Réunion, so
-    # far): read again at 13:41, 19:41 and 23:41, Réunion time, from the 28th to the 2nd.
-    - cron: "41 9,15,19 28-31,1,2 * *"
   workflow_dispatch:
 
 permissions:

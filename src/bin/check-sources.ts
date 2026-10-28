@@ -162,7 +162,7 @@ export const TOOLS: ToolCheck[] = [
     tool: "annuaire_services_publics",
     args: { quoi: "carburants" },
     check: (p, now) => {
-      // The order comes out by the last day of the month; from the 3rd, the month's must be read (carburants.yml).
+      // The order comes out by the last day of the month; from the 3rd, the month's must be read (scripts/carburants.ts).
       const l = local(now);
       if (l.day < 3) return [];
       const month = `${MONTHS[l.month - 1]} ${l.year}`;

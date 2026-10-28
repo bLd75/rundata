@@ -35,6 +35,13 @@ QUERY = """[out:json][timeout:120][bbox:-21.40,55.20,-20.86,55.84];
 );
 out center tags;"""
 
+# Places people and the news name that OSM has only as an area under another name (a business zone): (our name, kind,
+# OSM element), read by id with the query above.
+EXTRA = [
+    ("Cambaie", "lieu_dit", "way", 477835389),  # Z.A.C. de Cambaie, Saint-Paul
+]
+QUERY = QUERY.replace("\n);", "".join(f"\n  {t}(id:{i});" for _, _, t, i in EXTRA) + "\n);")
+
 # OSM tag → our kind, and how much a match on that kind is worth when several places share a name.
 KINDS = [
     ("place", {"city": "localite", "town": "localite", "village": "localite", "suburb": "quartier",
@@ -145,8 +152,14 @@ def main():
     osm = fetch(OVERPASS, cache, "osm-places.json", data=urllib.parse.urlencode({"data": QUERY}).encode())["elements"]
 
     places = []
+    extra = {(t, i): (nom, kind) for nom, kind, t, i in EXTRA}
     for e in osm:
         t = e["tags"]
+        if (e["type"], e["id"]) in extra:
+            nom, kind = extra[(e["type"], e["id"])]
+            c = e.get("center") or e
+            places.append({"nom": nom, "type": kind, "lon": c["lon"], "lat": c["lat"]})
+            continue
         kind = next((m[t[k]] for k, m in KINDS if t.get(k) in m), None)
         c = e.get("center") or e
         if kind and norm(t["name"]) not in GENERIC:

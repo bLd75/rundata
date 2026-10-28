@@ -6,7 +6,7 @@
  * (on *.workers.dev its calls do nothing). The AROME grids, filled every few minutes by the scheduled event,
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
-import { failed, handle } from "./app.js";
+import { configurerEquipe, failed, handle } from "./app.js";
 import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, readsSaid, scheduled, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
@@ -15,10 +15,12 @@ import { audience, device, language, origin, point, TEAM, teamVisit, visitor, ty
 import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
+import * as prefectureCopie from "./providers/prefecture-copie.js";
 import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as candhis from "./providers/candhis.js";
 import * as vigilanceCarte from "./providers/vigilance-carte.js";
+import * as cmrsCarte from "./providers/cmrs-carte.js";
 import * as feux from "./providers/feux.js";
 import { configureWeezevent } from "./providers/agenda.js";
 import * as transit from "./providers/transit.js";
@@ -27,11 +29,12 @@ import * as avis from "./avis.js";
 import * as limite from "./limite.js";
 import * as chiffre from "./connecteurs/chiffre.js";
 import * as connexions from "./connecteurs/connexions.js";
+import * as lecture from "./connecteurs/lecture.js";
 import * as propositions from "./propositions.js";
 import * as sansReponse from "./sans-reponse.js";
 import { whenFailed, whenRead } from "./http.js";
 import * as formulaires from "./web/propositions.js";
-import { refreshPlanned } from "./tools/agenda.js";
+import { rafraichirConnecteurs, refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { listShared, SHARED, SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
 import { why } from "./types.js";
@@ -103,6 +106,8 @@ interface Env {
   META_APP_SECRET?: string;
   /** Optional: the key that encrypts the secrets of the associations' platforms (src/connecteurs/chiffre.ts), 32 bytes in base64. */
   CONNECTEURS_CLE?: string;
+  /** Optional: the team's secret, sent by its scripts in the header `rundata-jeton` so that their calls are not counted (src/app.ts). */
+  EQUIPE_JETON?: string;
   /** Cloudflare Email Sending: the confirmation of the events the clubs propose (src/propositions.ts). */
   EMAIL?: propositions.EmailBinding;
   /** Browser Rendering: the picture of Météo-France's official map of the vigilance (src/providers/vigilance-carte.ts). */
@@ -190,7 +195,14 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get("eau:ile", "json")) as eauIle.Ile | null;
   }));
-  // Read once a day from the prefecture by .github/workflows/carburants.yml (src/providers/carburants.ts): never by the
+  // Read every 15 minutes from the prefecture by scripts/prefecture.ts, on a machine of the project: its site cuts the
+  // connection of the Workers (src/providers/prefecture-copie.ts).
+  prefectureCopie.configure(async () => {
+    if (!kv) return null;
+    count();
+    return (await kv.get(prefectureCopie.KV_KEY, "json")) as prefectureCopie.Copie | null;
+  });
+  // Read every day from the prefecture by scripts/carburants.ts, on a machine of the project: never by the
   // Worker, even without the store.
   carburants.configure(async () => {
     if (!kv) return null;
@@ -198,11 +210,14 @@ function setup(env: Env): Cache {
     return (await kv.get("carburants:prix", "json")) as carburants.Prix | null;
   });
   // Météo-France's official map of the vigilance: its bulletin and its picture kept by the scheduled event.
-  vigilanceCarte.configure(kv && {
+  const cartes: vigilanceCarte.Store | undefined = kv && {
     json: (key) => kv.get(key, "json"),
     bytes: (key) => kv.get(key, "arrayBuffer"),
     put: (key, value, ttl) => kv.put(key, value, ttl ? { expirationTtl: ttl } : undefined),
-  }, env.BROWSER);
+  };
+  vigilanceCarte.configure(cartes, env.BROWSER);
+  // The RSMC's forecast track map, read by the scheduled event while a system is active.
+  cmrsCarte.configure(cartes);
   // The text of the OVPF's releases given in images, read by a collector outside the Worker (scripts/ovpf-ocr.ts).
   ovpfOcr.configure(kv && (async (key: string) => {
     count();
@@ -230,6 +245,7 @@ function setup(env: Env): Cache {
     avisDb && (async <T>(sql: string, ...params: unknown[]) => (count(), (await avisDb.prepare(sql).bind(...params).all<T>()).results)),
   );
   formulaires.configure(env.TURNSTILE_SECRET);
+  configurerEquipe(env.EQUIPE_JETON);
   metaWebhookSecrets(env.META_VERIFY_TOKEN, env.META_APP_SECRET);
   // The associations' links to their platform, in the same database (scripts/connecteurs.sql): the platform's secret
   // encrypted with CONNECTEURS_CLE, the link e-mailed like a proposal's. Without the key, nothing is linked.
@@ -336,6 +352,13 @@ export default {
         .then(({ value, used, reads }) => console.log(`bouées Candhis : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("bouées Candhis : lecture impossible", why(err))));
     }
+    // Every 30 minutes while GDACS has an active system: the RSMC's list of bulletins at 15 and 45 past the hour, its
+    // track map at 20 and 50, one request each, kept in KV (src/providers/cmrs-carte.ts), once the reads above are done.
+    if (kv && cmrsCarte.due(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => cmrsCarte.passage(c, now)))
+        .then(({ value, used, reads }) => console.log(`carte du CMRS : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("carte du CMRS : lecture impossible", why(err))));
+    }
     // Once a day, at 06:00 in La Réunion: each public site that did not answer asked again (sans-reponse.ts), once the
     // reads above are done, so that its one GET is never part of a run of ours.
     if (sansReponse.heureDuPassage(now)) {
@@ -352,11 +375,19 @@ export default {
         .catch((err) => console.error("veille : cumul impossible", why(err))));
     }
     // Once a day, at 04:00 in La Réunion (the run between 00:00 and 00:05 UTC): what the clubs sent is forgotten on
-    // time even on the days nothing new is proposed (scripts/propositions.sql).
+    // time even on the days nothing new is proposed (scripts/propositions.sql), and their links to a platform the same
+    // (scripts/connecteurs.sql).
     if (now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
       ctx.waitUntil(propositions.purger(now)
         .then((n) => console.log(`propositions : purge quotidienne, ${n} lignes`))
         .catch((err) => console.error("propositions : purge impossible", why(err))));
+      ctx.waitUntil(connexions.purger(now)
+        .then((n) => console.log(`connecteurs : purge quotidienne, ${n} lignes`))
+        .catch((err) => console.error("connecteurs : purge impossible", why(err))));
     }
+    // At each run, once the reads above are done: the one association's platform due, if any (every 6 hours each).
+    ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => lecture.lireUne(now, () => rafraichirConnecteurs(c, now))))
+      .then(({ value, used }) => value && console.log(`connecteurs : ${JSON.stringify(value)}, sous-requêtes : ${used}`))
+      .catch((err) => console.error("connecteurs : lecture impossible", why(err))));
   },
 };

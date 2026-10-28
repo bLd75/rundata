@@ -2,12 +2,13 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { fil, firstSentence, merge, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
-import { actualites, quand } from "../src/tools/actualites.js";
+import { fil, firstSentence, lire, merge, prefectureNonRelue, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
+import { actualites, NOM_SEUL, quand } from "../src/tools/actualites.js";
 import { actualitesPage } from "../src/web/domains.js";
 import { buildActualites } from "../src/web/data.js";
 import { withVide } from "../src/vide.js";
 import { SOURCE_REVISION } from "../src/web/revisions.js";
+import * as copie from "../src/providers/prefecture-copie.js";
 
 // Saturday 24/10/2026 at 12:05 in La Réunion, the morning of a day of mobilisation (gilets jaunes, « vie chère »): Imaz
 // Press runs a live blog, the prefecture has published its report of the night.
@@ -144,6 +145,101 @@ describe("actualités", () => {
     expect(asked.filter((a) => a.endsWith(" https://www.lequotidien.re/"))).toHaveLength(1);
   });
 
+  it("asks the prefecture's list one event in three, its copy kept as it is in between, a failure too", async () => {
+    const prefecture = () => asked.filter((a) => a.includes("reunion.gouv.fr")).length;
+    const at = (min: number) => new Date(NOW.getTime() + min * 60_000 + 2_000);
+    const first = await lire(at(0));
+    expect([prefecture(), first.prefecture[0].titre, first.prefectureLue]).toEqual([1, "Violences urbaines : bilan de la nuit", at(0).toISOString()]);
+    // 5 and 10 minutes later: the media again, not the prefecture; its list and the time it was read, kept.
+    const five = await lire(at(5), first);
+    const ten = await lire(new Date(at(10).getTime() - 3_000), five);
+    expect([prefecture(), ten.prefecture, ten.prefectureLue]).toEqual([1, first.prefecture, first.prefectureLue]);
+    expect(asked.filter((a) => a.includes("clicanoo"))).toHaveLength(3);
+    // 15 minutes later, an event a few seconds earlier than the first's: asked again.
+    down = /reunion\.gouv\.fr/;
+    const fifteen = await lire(new Date(at(15).getTime() - 3_000), ten);
+    // Silent: the list read at the first event kept with its time, not emptied (a silent site is neither gone nor empty).
+    expect([prefecture(), fifteen.prefecture, fifteen.indisponible, prefectureNonRelue(fifteen)]).toEqual([2, first.prefecture, [], at(0).toISOString()]);
+    // And not asked again before its next turn.
+    const twenty = await lire(at(20), fifteen);
+    expect([prefecture(), twenty.prefecture, prefectureNonRelue(twenty)]).toEqual([2, first.prefecture, at(0).toISOString()]);
+    // A copy that does not say when (written before): asked.
+    down = undefined;
+    await lire(at(25), { ...twenty, prefectureLue: undefined });
+    expect(prefecture()).toBe(3);
+  });
+
+  it("keeps the prefecture's last list two days at most when its site does not answer", async () => {
+    const later = (h: number) => new Date(NOW.getTime() + h * 3600_000);
+    const first = await lire(NOW);
+    down = /reunion\.gouv\.fr/;
+    const day = await lire(later(47), first);
+    expect([day.prefecture, day.indisponible, prefectureNonRelue(day)]).toEqual([first.prefecture, [], NOW.toISOString()]);
+    const gone = await lire(later(48), day);
+    expect([gone.prefecture, gone.indisponible, gone.prefectureReussie]).toEqual([[], ["Préfecture"], undefined]);
+    // A copy written before prefectureReussie: the time it was asked, unless the prefecture was said silent then.
+    expect((await lire(later(1), { ...first, prefectureReussie: undefined })).prefectureReussie).toBe(NOW.toISOString());
+    expect((await lire(later(1), { ...gone, prefectureLue: NOW.toISOString() })).prefectureReussie).toBeUndefined();
+    // A page served as 200 without its list is not an empty list: the last one kept.
+    down = undefined;
+    vi.stubGlobal("fetch", async (url: string) => new Response(url.includes("reunion.gouv.fr") ? "<html>maintenance</html>" : fixture(file(url) ?? "clicanoo.xml")));
+    expect((await lire(later(1), first)).prefecture).toEqual(first.prefecture);
+  });
+
+  it("reads, in the Worker, the collector's copy of the prefecture's list, never its site", async () => {
+    const list = parsePrefecture(fixture("prefecture.html"));
+    let stored: copie.Copie | null = { liste: list, lu_le: new Date(NOW.getTime() - 10 * 60_000).toISOString() };
+    copie.configure(async () => stored);
+    try {
+      const first = await lire(NOW);
+      expect([first.prefecture, first.prefectureReussie, prefectureNonRelue(first)]).toEqual([list.slice(0, 6), stored.lu_le, undefined]);
+      // The collector silent: its copy not renewed, said with its time once it is 40 minutes older than the last ask.
+      const later = new Date(NOW.getTime() + 35 * 60_000);
+      const late = await lire(later, first);
+      expect([late.prefecture, prefectureNonRelue(late)]).toEqual([first.prefecture, stored.lu_le]);
+      // No copy in the store: the last list kept, as for a silent site.
+      const at = stored.lu_le;
+      stored = null;
+      const none = await lire(new Date(later.getTime() + 15 * 60_000), late);
+      expect([none.prefecture, none.indisponible, prefectureNonRelue(none)]).toEqual([first.prefecture, [], at]);
+      expect(asked.filter((a) => a.includes("reunion.gouv.fr"))).toEqual([]);
+    } finally {
+      copie.configure(undefined);
+    }
+  });
+
+  it("says only when the collector's copy was read once it is not renewed, our machine being maybe the one down", async () => {
+    let t = NOW.getTime();
+    const c = new Cache(new MemoryStore(), () => t);
+    copie.configure(async () => ({ liste: parsePrefecture(fixture("prefecture.html")), lu_le: new Date(NOW.getTime() - 10 * 60_000).toISOString() }));
+    try {
+      await fil(c, NOW);
+      t += 50 * 60_000;
+      const now = new Date(t);
+      const said = "Dernière lecture du site de la préfecture : aujourd'hui à 11:55.";
+      expect(body(await actualites(c, undefined, undefined, undefined, now)).prefecture_injoignable).toBe(said);
+      expect((await buildActualites(c, now)).prefecture_injoignable).toEqual({ texte: said, site: "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse" });
+      expect(asked.filter((a) => a.includes("reunion.gouv.fr"))).toEqual([]);
+    } finally {
+      copie.configure(undefined);
+    }
+  });
+
+  it("says the prefecture's list kept with the time it was read, in the tool and on the page", async () => {
+    let t = NOW.getTime();
+    const c = new Cache(new MemoryStore(), () => t);
+    await fil(c, NOW);
+    down = /reunion\.gouv\.fr/;
+    t += 20 * 60_000;
+    const now = new Date(t);
+    const b = body(await actualites(c, undefined, undefined, undefined, now));
+    const said = "Lu aujourd'hui à 12:05 : le site de la préfecture n'a pas répondu depuis. Ce qui suit peut avoir changé : voir son site.";
+    expect([b.prefecture_injoignable, b.prefecture.length, b.indisponible]).toEqual([said, 3, undefined]);
+    const html = actualitesPage("https://rundata.re", { value: await buildActualites(c, now), fetchedAt: now, stale: false }, now);
+    expect(html).toContain('voir <a href="https://www.reunion.gouv.fr/Actualites/Communiques-de-presse" rel="noopener">son site</a>.</p>');
+    expect(html).toContain("le site de la préfecture n");
+  });
+
   it("says when nothing names a place, without saying nothing happens there", async () => {
     const { value, vide } = await withVide("actualites", () => actualites(cache(), "Cilaos", undefined, undefined, NOW));
     const b = body(value);
@@ -152,6 +248,34 @@ describe("actualités", () => {
     expect(b.resume).toMatch(/^Aucune information des médias lus ne mentionne Cilaos depuis hier à 12:05\./);
     expect(b.infos).toEqual([]);
     expect(b.a_savoir).toMatch(/ne prouve pas qu'il ne s'y passe rien/);
+  });
+
+  it("finds a place inside a commune first by its name, and a name the gazetteer lacks in the articles that say it", async () => {
+    const item = (titre: string, resume: string, at: string, n: number) =>
+      `<item><title>${titre}</title><link>https://freedom.fr/article-${n}/</link><pubDate>${new Date(at).toUTCString()}</pubDate>` +
+      `<description><![CDATA[${resume}]]></description></item>`;
+    const feed = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Free Dom</title>${[
+      item("Saint-Paul : le conseil municipal vote son budget", "Le conseil municipal de Saint-Paul s'est réuni ce samedi matin.", "2026-10-24T07:55:00Z", 1),
+      item("Incendie à Cambaie : fumées importantes dans le secteur", "Un incendie s'est déclaré ce samedi matin dans la zone de Cambaie.", "2026-10-24T07:40:00Z", 2),
+      item("Circulation ralentie au rond-point de la Jardinerie", "Les automobilistes sont invités à éviter le rond-point de la Jardinerie.", "2026-10-24T07:30:00Z", 3),
+    ].join("")}</channel></rss>`;
+    vi.stubGlobal("fetch", async (url: string) => (url.includes("freedom") ? new Response(feed) : new Response("", { status: 503 })));
+
+    // In the gazetteer (OpenStreetMap's business zone): the commune's news, what names the place itself first.
+    const cambaie = body(await actualites(cache(), "Cambaie", undefined, undefined, NOW));
+    expect([cambaie.lieu.trouve, cambaie.lieu.commune]).toEqual(["Cambaie", "Saint-Paul"]);
+    expect(cambaie.resume).toMatch(/^2 informations des dernières 24 h mentionnent Cambaie \(Saint-Paul\)\. aujourd'hui à 11:40 \(Freedom\) : « Incendie à Cambaie/);
+    expect(cambaie.infos.map((r: { titre: string }) => r.titre.split(" ")[0])).toEqual(["Incendie", "Saint-Paul"]);
+
+    // Not in the gazetteer, but in an article: that article, said as found by its name only.
+    const rondPoint = body(await actualites(cache(), "la Jardinerie", undefined, undefined, NOW));
+    expect(rondPoint.lieu).toEqual({ demande: "la Jardinerie", trouve: null, note: NOM_SEUL });
+    expect(rondPoint.resume).toMatch(/^1 information des dernières 24 h mentionne « la Jardinerie »\. aujourd'hui à 11:30 \(Freedom\) : « Circulation ralentie/);
+    expect(rondPoint.infos).toHaveLength(1);
+
+    // Neither: unknown, as before.
+    const none = await actualites(cache(), "Zorglubville", undefined, undefined, NOW);
+    expect([none.isError, body(none).erreur]).toEqual([true, "Lieu introuvable à La Réunion : « Zorglubville »."]);
   });
 
   it("gives the fixed speed cameras of the ministry's list with the roads, never the mobile checks", async () => {
@@ -228,7 +352,7 @@ describe("actualités", () => {
   // A change that keeps something else (a link, a field, a medium, a filter) changes it: add its fingerprint here and
   // raise SOURCE_REVISION["actualites:fil"] (and RENDU_REVISION.actualites), so that the entry read by the old code is
   // read again after the deploy. A fixture changed alone: add its fingerprint and raise the number all the same.
-  const FIL = ["b7e88ffb49a93884"];
+  const FIL = ["b7e88ffb49a93884", "44c0eb346a5da96e", "95031bc5918208dd"];
 
   it("keeps, from the same pages, what its revision says: one fingerprint per revision of actualites:fil", async () => {
     const { value } = await fil(cache(), NOW);

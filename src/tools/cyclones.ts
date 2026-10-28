@@ -1,6 +1,8 @@
 import type { Cache } from "../cache.js";
 import { localTime } from "../geo.js";
 import * as gdacs from "../providers/cyclones.js";
+import * as cmrs from "../providers/cmrs-carte.js";
+import { SITE_URL } from "./citer.js";
 import * as mf from "../providers/vigilance.js";
 import { why } from "../types.js";
 import { credits, text } from "./format.js";
@@ -124,6 +126,18 @@ export function passe(c: Passe) {
   });
 }
 
+/** The RSMC's forecast track map as an answer gives it: its address on rundata.re and its caption (marketing, 27/10). */
+export function carteOfficielle(c: cmrs.Carte | undefined) {
+  if (!c?.image) return undefined;
+  return {
+    image: `${SITE_URL}${cmrs.imagePath(c.image.empreinte)}`,
+    legende: `Source : Météo-France. Carte de prévision de trajectoire du CMRS de La Réunion\u00a0; son heure d'émission est écrite sur la carte. Lue sur le site de Météo-France le ${at(c.image.lue)} (heure de La Réunion).`,
+    source: "Météo-France",
+    // A condition of the agreement, beside the map wherever it is shown.
+    officiel: mf.officiel(mf.OFFICIEL_CYCLONE),
+  };
+}
+
 /** `lieu` is still accepted, for the clients that send it, and has no effect: no distance is computed any more. */
 export async function cyclones(cache: Cache, _lieu: string | undefined, now = new Date(), nom?: string) {
   if (nom?.trim()) {
@@ -147,6 +161,8 @@ export async function cyclones(cache: Cache, _lieu: string | undefined, now = ne
   const [active, a] = await Promise.all([gdacs.actifs(cache, list, now), alert(cache, now)]);
   const alerte = a?.texte;
   const rows = active.map((x) => activeRow(x.systeme, x.avis));
+  // The RSMC's map, kept by the scheduled event while a system is active: only when it follows the newest bulletin.
+  const carte = rows.length ? carteOfficielle(await cmrs.kept()) : undefined;
   const season = gdacs.seasonOf(now);
   const previous = `${Number(season.nom.slice(0, 4)) - 1}-${season.nom.slice(0, 4)}`;
   const thisSeason = list.filter((s) => s.debut >= season.debut);
@@ -182,6 +198,7 @@ export async function cyclones(cache: Cache, _lieu: string | undefined, now = ne
     vie_quotidienne: a?.vie_quotidienne,
     ecoles: a?.ecoles,
     systemes_actifs: rows.length ? rows : undefined,
+    carte_officielle: carte,
     saison_en_cours: { nom: season.nom, systemes: thisSeason.map(seasonRow) },
     saison_precedente: rows.length ? undefined : { nom: previous, systemes: lastSeason.map(seasonRow) },
     cyclone_passe: nom?.trim()

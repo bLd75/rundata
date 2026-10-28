@@ -17,9 +17,10 @@ import type { Cache, Cached } from "../cache.js";
 import { getText, httpUrl } from "../http.js";
 import gazetteer from "../places/gazetteer.json" with { type: "json" };
 import { normalize } from "../places/resolve.js";
-import type { SourceInfo } from "../types.js";
+import { type SourceInfo, UpstreamError } from "../types.js";
 import { ACCUEIL, ACCUEILS } from "./accueils-medias.js";
 import { strip } from "./avis-eau.js";
+import * as copie from "./prefecture-copie.js";
 
 export const SOURCES = {
   medias: {
@@ -79,6 +80,13 @@ export interface Fil {
   prefecture: Info[];
   /** The media that did not answer. */
   indisponible: string[];
+  /** When the prefecture's list was last asked (ISO, UTC), answered or not: it is asked every 15 minutes only. */
+  prefectureLue?: string;
+  /**
+   * When the list in `prefecture` was read (ISO, UTC). Older than `prefectureLue` when the site did not answer since:
+   * the list is then the one read at that time, kept `PREFECTURE_KEPT_MS` at most.
+   */
+  prefectureReussie?: string;
 }
 
 // ---------------------------------------------------------------- text
@@ -136,7 +144,6 @@ interface Name {
 const ALIASES: { nom: string; commune: string; before?: RegExp; notAfter?: RegExp }[] = [
   { nom: "Saint-Gilles", commune: "Saint-Paul" },
   { nom: "Hermitage", commune: "Saint-Paul" },
-  { nom: "Cambaie", commune: "Saint-Paul" },
   { nom: "Gillot", commune: "Sainte-Marie" },
   { nom: "Rivière Saint-Louis", commune: "Saint-Louis" },
   { nom: "La Rivière", commune: "Saint-Louis", before: /^la$/i, notAfter: /^(?:des|du|de|d|saint)$/i },
@@ -529,26 +536,87 @@ function oncePerLink(list: Info[]): Info[] {
   return [...by.values()];
 }
 
+/**
+ * Shared through KV (web/partagees.ts), read by the scheduled event every 5 minutes: read at a question only, a data
+ * center's own copy was an hour and a half old where no one had asked since (28/10/2026 at 14:45, the fire at
+ * Cambaie, the copy of 13:15 served while the event had read the media at 14:41 in another data center).
+ */
+export const KEY = "actualites:fil";
+
 export async function fil(cache: Cache, now = new Date()): Promise<Cached<Fil>> {
-  return cache.get("actualites:fil", FRESH_SECONDS, async () => {
-    const read = (url: string) => getText(SOURCES.medias.id, url, 12_000, HEADERS);
-    const [feeds, pref] = await Promise.all([
-      Promise.allSettled(FEEDS.map(async (f) => f.parse(await read(f.url), now))),
-      read(SOURCES.prefecture.url).then((h) => parsePrefecture(h)).catch((err) => {
-        console.error("source prefecture_communiques indisponible:", err);
-        return null;
-      }),
-    ]);
-    const items = feeds.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
-    const lives = await Promise.allSettled(liveCandidates(items, now).map(async (u) => parseImazLive(await read(u), u, now)));
-    const all = [...items, ...lives.flatMap((r) => (r.status === "fulfilled" ? r.value : []))];
-    const down = [...new Set(FEEDS.filter((_, k) => feeds[k].status === "rejected").map((f) => f.media))];
-    if (!all.length && !pref) throw new Error("aucun média ne répond");
-    const since = new Date(now.getTime() - KEEP_HOURS * 3600_000).toISOString();
-    return {
-      infos: merge(oncePerLink(all).filter((i) => i.publie >= since && i.publie <= new Date(now.getTime() + 10 * 60_000).toISOString())),
-      prefecture: (pref ?? []).slice(0, 6),
-      indisponible: [...down, ...(pref ? [] : ["Préfecture"])].filter((m) => !all.some((i) => i.media === m)),
-    };
-  });
+  const have = await cache.peek<Fil>(KEY).catch(() => undefined);
+  return cache.getFrom(KEY, have, FRESH_SECONDS, () => lire(now, have?.value));
+}
+
+/**
+ * The prefecture's site bans bursts, and refuses at times readers it does not know (28/10/2026): its list is asked one
+ * event in three, every 15 minutes, its copy in `avant` kept as it is in between. Half an event short of it, so that
+ * an event a few seconds earlier than the one 15 minutes before is not put off to the next.
+ */
+export const PREFECTURE_EVERY_MS = 15 * 60_000;
+const PREFECTURE_DUE_MS = PREFECTURE_EVERY_MS - 150_000;
+/**
+ * A site that does not answer is neither gone nor empty: the last list read is kept, with its time, while the
+ * prefecture's site does not answer (28/10/2026: HTTP 520 to our reads for hours), for two days at most.
+ */
+export const PREFECTURE_KEPT_MS = 48 * 3600_000;
+
+/**
+ * When the list of the prefecture shown was read, when the site did not answer since (`prefectureReussie`); else
+ * undefined. The copy of the collector (prefecture-copie.ts) is up to one of its runs old when it is read: older than
+ * `SILENT_MS` only, it was not renewed.
+ */
+export function prefectureNonRelue(f: Fil): string | undefined {
+  if (!f.prefecture.length || !f.prefectureReussie || !f.prefectureLue) return undefined;
+  const late = Date.parse(f.prefectureLue) - Date.parse(f.prefectureReussie);
+  return late > (copie.configured() ? copie.SILENT_MS : 0) ? f.prefectureReussie : undefined;
+}
+
+/** The prefecture's list and when it was read: the collector's copy in the Worker, the site elsewhere. */
+async function prefectureList(read: (url: string) => Promise<string>, now: Date): Promise<{ liste: Info[]; lu: string } | undefined> {
+  try {
+    if (copie.configured()) {
+      const c = await copie.copie();
+      if (!c?.liste.length) throw new UpstreamError(SOURCES.prefecture.id, "copie des communiqués absente du stockage");
+      return { liste: c.liste, lu: c.lu_le };
+    }
+    const list = parsePrefecture(await read(SOURCES.prefecture.url));
+    // A page without its list (an error page served as 200) is not an empty list.
+    if (!list.length) throw new UpstreamError(SOURCES.prefecture.id, "liste des communiqués vide");
+    return { liste: list, lu: now.toISOString() };
+  } catch (err) {
+    console.error("source prefecture_communiques indisponible:", err);
+    return undefined;
+  }
+}
+
+/** Every medium read now, and the prefecture when its list is due (`avant`: the copy this one replaces). */
+export async function lire(now = new Date(), avant?: Fil): Promise<Fil> {
+  const read = (url: string) => getText(SOURCES.medias.id, url, 12_000, HEADERS);
+  const lue = avant?.prefectureLue ? Date.parse(avant.prefectureLue) : NaN;
+  const kept = avant && now.getTime() - lue < PREFECTURE_DUE_MS ? avant : undefined;
+  const [feeds, got] = await Promise.all([
+    Promise.allSettled(FEEDS.map(async (f) => f.parse(await read(f.url), now))),
+    kept ? undefined : prefectureList(read, now),
+  ]);
+  // The list read now, or the collector's copy; else the last one read, said with its time, two days at most. A copy
+  // from before `prefectureReussie` was asked for the last time when the prefecture was not said to be silent.
+  const before = avant?.prefectureReussie ?? (avant && !avant.indisponible.includes("Préfecture") ? avant.prefectureLue : undefined);
+  const fresh = got && (!before || got.lu >= before) ? got : undefined;
+  const at = fresh?.lu ?? before;
+  const reussie = at && now.getTime() - Date.parse(at) < PREFECTURE_KEPT_MS ? at : undefined;
+  const pref = !reussie ? null : fresh ? fresh.liste : avant!.prefecture;
+  const items = feeds.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  const lives = await Promise.allSettled(liveCandidates(items, now).map(async (u) => parseImazLive(await read(u), u, now)));
+  const all = [...items, ...lives.flatMap((r) => (r.status === "fulfilled" ? r.value : []))];
+  const down = [...new Set(FEEDS.filter((_, k) => feeds[k].status === "rejected").map((f) => f.media))];
+  if (!all.length && !pref && feeds.every((r) => r.status === "rejected")) throw new Error("aucun média ne répond");
+  const since = new Date(now.getTime() - KEEP_HOURS * 3600_000).toISOString();
+  return {
+    infos: merge(oncePerLink(all).filter((i) => i.publie >= since && i.publie <= new Date(now.getTime() + 10 * 60_000).toISOString())),
+    prefecture: (pref ?? []).slice(0, 6),
+    indisponible: [...down, ...(pref ? [] : ["Préfecture"])].filter((m) => !all.some((i) => i.media === m)),
+    prefectureLue: kept?.prefectureLue ?? now.toISOString(),
+    prefectureReussie: reussie,
+  };
 }

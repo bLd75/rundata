@@ -41,9 +41,9 @@ describe("the producers and licences of the sources (producteurs.ts)", () => {
     expect([...spellings.values()].filter((v) => v.size > 1).map((v) => [...v])).toEqual([]);
   });
 
-  it("count the sources, their producers and their open licences, the clubs' proposals left out", () => {
+  it("count the sources, their producers and their open licences, the clubs' proposals and linked platforms left out", () => {
     const c = compte(sources);
-    expect(c.sources).toBe(sources.length - 1);
+    expect(c.sources).toBe(sources.length - 2);
     expect(c.producteurs).toContain("Commune de Sainte-Marie");
     expect(c.producteurs).toContain("CIREST");
     expect(c.producteurs).not.toContain("Open-Meteo");

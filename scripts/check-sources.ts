@@ -10,12 +10,14 @@ import { AGENT, checkAnswer, checkPage, PAGES, TOOLS, type PageCheck, type Probl
 const origin = process.argv[2] ?? "https://rundata.re";
 const TIMEOUT_MS = 60_000;
 const RETRY_MS = 60_000;
+// The team's secret (the repository's secret RUNDATA_JETON): the check is then not counted as a visitor.
+const JETON: Record<string, string> = process.env.RUNDATA_JETON ? { "rundata-jeton": process.env.RUNDATA_JETON } : {};
 
 async function tool(c: ToolCheck): Promise<Probleme[]> {
   try {
     const r = await fetch(`${origin}/mcp`, {
       method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18", "user-agent": AGENT },
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18", "user-agent": AGENT, ...JETON },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: c.tool, arguments: c.args } }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
@@ -30,7 +32,7 @@ async function tool(c: ToolCheck): Promise<Probleme[]> {
 
 async function page(c: PageCheck): Promise<Probleme[]> {
   try {
-    const r = await fetch(`${origin}${c.path}`, { headers: { accept: "text/html", "user-agent": AGENT }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const r = await fetch(`${origin}${c.path}`, { headers: { accept: "text/html", "user-agent": AGENT, ...JETON }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     return checkPage(c, r.status, r.headers.get("cache-control") ?? "", await r.text(), new Date());
   } catch (err) {
     return [{ point: c.path, motif: `pas de réponse (${(err as Error).name})` }];

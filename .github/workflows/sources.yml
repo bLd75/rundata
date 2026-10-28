@@ -30,4 +30,6 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Les outils et les pages de rundata.re
+        env:
+          RUNDATA_JETON: ${{ secrets.RUNDATA_JETON }}
         run: npx tsx scripts/check-sources.ts https://rundata.re

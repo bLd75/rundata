@@ -161,6 +161,8 @@ export const FICHES: Record<string, Fiche> = {
   agenda_sainte_marie: { famille: "information_publique", agendas: true },
   agenda_salazie: { famille: "information_publique", agendas: true },
   agenda_saint_louis: { famille: "information_publique", agendas: true },
+  // Read with its written agreement of 28/10/2026 (providers/autorisations.ts).
+  agenda_bras_panon: { famille: "information_publique", agendas: true },
   actus_saint_louis_actus: { famille: "information_publique", agendas: true },
   actus_saint_leu: { famille: "information_publique", agendas: true },
   actus_plaine_des_palmistes_agenda: { famille: "information_publique", agendas: true },
@@ -169,6 +171,8 @@ export const FICHES: Record<string, Fiche> = {
   actus_salazie_actus: { famille: "information_publique", agendas: true },
   salles_spectacle: { famille: "information_publique", agendas: true },
   propositions_associations: { famille: "licence_ouverte", horsCompte: true },
+  // The associations' own events, read with their consent on the platform they linked: not counted, as the proposals.
+  helloasso_associations: { famille: "information_publique", horsCompte: true },
 };
 
 /** A body an agenda is read from: its commune for a mairie's, else its own name (a salle). */

@@ -10,7 +10,8 @@
  *    the link e-mailed; the link carries a secret drawn here, of which the table keeps only the hash.
  * 3. The link: confirmed (`confirmer`), the row waits for the moderation, once per association; a link of an
  *    association already linked replaces the old one at once, and the old address is told.
- * 4. Withdrawn through the same link (`retirer`): the row and its events are deleted (triggers), and an e-mail says so.
+ * 4. Withdrawn through the same link (`retirer`), or the second one the reminder sends (connecteurs/lecture.ts): the
+ *    row and its events are deleted (triggers), and an e-mail says so.
  *
  * Without the database, the e-mail or the encryption key, nothing is verified nor kept: « indisponible ».
  */
@@ -19,6 +20,7 @@ import { empreinteJeton, jetonNeuf, type All, type Envoi, type Issue } from "../
 import * as chiffre from "./chiffre.js";
 import { HELLOASSO } from "./helloasso.js";
 import { AccesRefuse, reunionnais, type Organisation, type Plateforme } from "./plateforme.js";
+import { enLigne } from "../web/connecteurs-drapeau.js";
 
 export const PLATEFORMES: Readonly<Record<string, Plateforme>> = { [HELLOASSO.id]: HELLOASSO };
 
@@ -41,6 +43,9 @@ export function configure(db: Run | undefined, select?: All, send?: Envoi) {
 
 /** Whether a link can be made: the table, the e-mail and the encryption key. */
 export const enabled = () => !!run && !!all && !!envoi && chiffre.enabled();
+
+/** The table's doors, for the scheduled reading (connecteurs/lecture.ts) and the agenda (providers/agenda-connecteurs.ts). */
+export const portes = () => (run && all ? { run, all } : undefined);
 
 // ---------------------------------------------------------------- 1. the keys verified
 
@@ -106,14 +111,20 @@ export async function ouvrir(scelle: string, now = new Date()): Promise<Attente 
 
 // ---------------------------------------------------------------- 2. « C'est bien nous »
 
+// A verification already written: a link of the same association to the same address, started since it was verified.
+// The sealed page can be sent again for 30 minutes; it makes one link, and one e-mail, once.
+const DEJA_ECRITE = "SELECT 1 FROM connexions WHERE plateforme = ? AND organisation = ? AND email = ? AND t >= ?";
 const INSERT = `INSERT INTO connexions (t, plateforme, organisation, nom, commune, code_postal, lien, secret, email, jeton, etat, source)
 SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'a_confirmer', ?
-WHERE (SELECT COUNT(*) FROM connexions WHERE source = ? AND t > ?) < ? AND (SELECT COUNT(*) FROM connexions WHERE t > ?) < ?`;
+WHERE (SELECT COUNT(*) FROM connexions WHERE source = ? AND t > ?) < ? AND (SELECT COUNT(*) FROM connexions WHERE t > ?) < ?
+AND NOT EXISTS (${DEJA_ECRITE})`;
 
 /**
  * Writes the link waiting for its confirmation, its secret encrypted for this row, and e-mails the link: `base`
  * followed by the link's secret. Refused in the same statement when its sender, or everyone together, started too
- * many today. A link whose e-mail could not be sent stays unconfirmed, and goes after 48 hours like any other.
+ * many today, or when this verification was already written (« C'est bien nous » sent twice, or the sealed page
+ * replayed): then nothing more is written nor sent, and the e-mail already sent is the answer. A link whose e-mail
+ * could not be sent stays unconfirmed, and goes after 48 hours like any other.
  */
 export async function enregistrer(a: Attente, adresse: string, base: string, now = new Date()): Promise<Issue> {
   if (!enabled()) return "indisponible";
@@ -124,8 +135,8 @@ export async function enregistrer(a: Attente, adresse: string, base: string, now
   const o = a.organisation;
   try {
     const secret = await chiffre.chiffrer(a.secret, chiffre.lien(a.plateforme, o.id, jeton));
-    const changed = await run!(INSERT, t, a.plateforme, o.id, o.nom, o.commune ?? null, o.code_postal ?? null, o.lien, secret, a.email, jeton, source, source, t - 86400, CONNEXIONS_PAR_JOUR, t - 86400, CONNEXIONS_EN_TOUT_JOUR);
-    if (changed === 0) return "limite";
+    const changed = await run!(INSERT, t, a.plateforme, o.id, o.nom, o.commune ?? null, o.code_postal ?? null, o.lien, secret, a.email, jeton, source, source, t - 86400, CONNEXIONS_PAR_JOUR, t - 86400, CONNEXIONS_EN_TOUT_JOUR, a.plateforme, o.id, a.email, a.t);
+    if (changed === 0) return (await all!(DEJA_ECRITE, a.plateforme, o.id, a.email, a.t)).length ? "ok" : "limite";
   } catch (err) {
     console.error("connecteurs : écriture impossible", err instanceof Error ? err.message : String(err));
     return "indisponible";
@@ -136,7 +147,8 @@ export async function enregistrer(a: Attente, adresse: string, base: string, now
 /** The end of the withdrawal link: the same page, opened on its button. */
 export const RETRAIT = "/retirer";
 
-async function envoyer(to: string, m: { subject: string; text: string }): Promise<boolean> {
+export async function envoyer(to: string, m: { subject: string; text: string }): Promise<boolean> {
+  if (!envoi) return false;
   try {
     return await envoi!({ to, ...m });
   } catch {
@@ -166,11 +178,14 @@ export interface Connexion {
 
 const COLONNES = "id, t, plateforme, organisation, nom, commune, lien, email, etat, confirme_le";
 
-/** The link a secret opens; undefined when there is none (withdrawn, expired, never confirmed). Changes nothing. */
+/**
+ * The link a secret opens; undefined when there is none (withdrawn, expired, never confirmed). Changes nothing. The
+ * second link, sent with the reminder, opens it too: it only withdraws, a link being confirmed by the first one.
+ */
 export async function trouver(secretLien: string): Promise<Connexion | undefined> {
   if (!all || !/^[\w-]{16,64}$/.test(secretLien)) return undefined;
   const jeton = await empreinteJeton(secretLien);
-  return (await all<Connexion>(`SELECT ${COLONNES} FROM connexions WHERE jeton = ?`, jeton))[0];
+  return (await all<Connexion>(`SELECT ${COLONNES} FROM connexions WHERE jeton = ? OR jeton_retrait = ?`, jeton, jeton))[0];
 }
 
 /**
@@ -196,6 +211,21 @@ export async function retirer(secretLien: string): Promise<{ nom: string } | und
   await run("DELETE FROM connexions WHERE id = ?", c.id);
   if (c.email) await envoyer(c.email, messageRetire(c.nom, PLATEFORMES[c.plateforme]?.nom ?? c.plateforme, "eux"));
   return { nom: c.nom };
+}
+
+/**
+ * Once a day (worker.ts): what the insertion trigger forgets (scripts/connecteurs.sql), for the days nobody links
+ * anything. The rows changed.
+ */
+export async function purger(now = new Date()): Promise<number> {
+  // Before the flag, no link to forget, and maybe no table yet.
+  if (!run || !enLigne()) return 0;
+  const t = Math.floor(now.getTime() / 1000);
+  let n = 0;
+  n += await run("UPDATE connexions SET source = NULL WHERE source IS NOT NULL AND t < ?", t - 86400);
+  n += await run("DELETE FROM connexions WHERE etat = 'a_confirmer' AND t < ?", t - 172800);
+  n += await run("DELETE FROM connexions WHERE etat IN ('refuse', 'expire') AND COALESCE(modere_le, lu_le, t) < ?", t - 2592000);
+  return n;
 }
 
 // ---------------------------------------------------------------- the e-mails (marketing's words)
@@ -242,6 +272,40 @@ export function messageRetire(nom: string, plateforme: string, par: "eux" | "pla
       "Le jeton d'accès et votre adresse sont effacés, et vos événements ne s'affichent plus sur rundata.re.",
       "",
       "Pour relier à nouveau votre association, plus tard\u00a0: https://rundata.re/associations",
+      ...SIGNATURE,
+    ].join("\n"),
+  };
+}
+
+/** 25 days without a successful reading: `depuis`, its day; `expire`, the day the link expires; `retrait`, the second link. */
+export function messageRappel(nom: string, plateforme: string, depuis: string, expire: string, retrait: string): { subject: string; text: string } {
+  return {
+    subject: `${nom}\u00a0: reliez à nouveau votre compte ${plateforme}`,
+    text: [
+      "Bonjour,",
+      "",
+      `Depuis le ${depuis}, nous n'arrivons plus à lire les événements de ${nom} sur ${plateforme}. Sans lecture d'ici le ${expire}, la connexion expirera et vos événements ne s'afficheront plus sur rundata.re.`,
+      "",
+      `Pour la garder, reliez à nouveau votre compte, avec vos clés ${plateforme} (2 minutes)\u00a0:`,
+      "https://rundata.re/associations",
+      "",
+      "Vous ne voulez plus être relié\u00a0? Vous n'avez rien à faire\u00a0: la connexion expirera d'elle-même. Ou retirez l'accès tout de suite\u00a0:",
+      retrait,
+      ...SIGNATURE,
+    ].join("\n"),
+  };
+}
+
+/** 30 days without a successful reading: `depuis`, the day of the last one. */
+export function messageExpiree(nom: string, plateforme: string, depuis: string): { subject: string; text: string } {
+  return {
+    subject: `La connexion de ${nom} à rundata.re a expiré`,
+    text: [
+      "Bonjour,",
+      "",
+      `Nous n'avons pas pu lire les événements de ${nom} sur ${plateforme} depuis le ${depuis}. La connexion a expiré\u00a0: vos événements ne s'affichent plus sur rundata.re, et le jeton d'accès et votre adresse sont effacés.`,
+      "",
+      "Pour relier à nouveau votre association\u00a0: https://rundata.re/associations",
       ...SIGNATURE,
     ].join("\n"),
   };

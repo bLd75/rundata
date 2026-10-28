@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle } from "../src/app.js";
+import { configurerEquipe, handle, JETON_EQUIPE } from "../src/app.js";
 import { Cache } from "../src/cache.js";
 import { point, type Hit } from "../src/metrics.js";
 import { connecteurPage } from "../src/web/connecteur.js";
@@ -78,7 +78,14 @@ describe("POST /signal, as recorded", () => {
     expect(other.response.status).toBe(204);
     expect(other.hits).toEqual([]);
     expect((await hitsOf(beacon("e=o&v=oui&p=%2F", { ...BROWSER, "sec-fetch-site": "same-origin", origin: "https://example.org" }))).hits).toEqual([]);
-    expect((await hitsOf(beacon("e=o&v=oui&p=%2F", { ...BROWSER, "user-agent": "rundata-check/dev5" }))).hits).toEqual([]);
+    // The team is known by its secret, not by its User-Agent (src/app.ts).
+    configurerEquipe("secret-de-test-equipe");
+    try {
+      expect((await hitsOf(beacon("e=o&v=oui&p=%2F", { ...BROWSER, [JETON_EQUIPE]: "secret-de-test-equipe" }))).hits).toEqual([]);
+      expect((await hitsOf(beacon("e=o&v=oui&p=%2F", { ...BROWSER, "user-agent": "rundata-check/dev5" }))).hits).toHaveLength(1);
+    } finally {
+      configurerEquipe(undefined);
+    }
     expect((await hitsOf(beacon(`e=o&v=oui&p=%2F${"a".repeat(400)}`))).hits).toEqual([]);
     const get = await hitsOf(beacon("", BROWSER, "GET"));
     expect(get.response.status).toBe(405);

@@ -14,14 +14,14 @@
  * is settled. A change that makes the new code unable to read an old copy raises `CACHE_FORMAT` instead (cache.ts).
  */
 export const RENDU_REVISION: Readonly<Record<string, number>> = {
-  actualites: 6,
-  agenda: 16,
+  actualites: 8,
+  agenda: 17,
   air: 4,
   bornes: 1,
   bus: 5,
   calendrier: 1,
   chiffres: 7,
-  commune: 4,
+  commune: 5,
   coupures: 3,
   courant: 4,
   crues: 1,
@@ -59,7 +59,11 @@ export const familyOf = (key: string) => key.slice("web:".length).split(":")[0];
  * copy, dated, is worth more than nothing.
  */
 export const SOURCE_REVISION: Readonly<Record<string, number>> = {
-  "actualites:fil": 1,
+  // With the time the prefecture's list was last asked (prefectureLue), which it is every 15 minutes only.
+  // With the time the prefecture's list shown was read (prefectureReussie), kept while its site does not answer.
+  "actualites:fil": 3,
+  // Read again with its written agreement of 28/10/2026, without the price and the sentence an older entry kept.
+  "agenda:bras_panon": 1,
 };
 
 /** The revision of the source whose entry is kept under `key`: its own, else its first part's. */

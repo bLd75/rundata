@@ -7,6 +7,7 @@
  */
 import { costOf, count, left, measured, reserve, spent, unmeasured } from "../budget.js";
 import { type Cache, CACHE_FORMAT, type CacheEntry, type CacheStore, outdated, stampOf } from "../cache.js";
+import * as actu from "../providers/actualites.js";
 import * as ensemble from "../providers/ensemble.js";
 import * as ovpfPdf from "../providers/ovpf-pdf.js";
 import * as seismes from "../providers/seismes.js";
@@ -55,7 +56,7 @@ export interface Shared {
   alongside?: boolean;
 }
 
-// About 890 KV writes a day in all: 288 for the vigilance, every 5 minutes, 144 for the earthquakes, every 10 minutes, 96 for the rivers, every 15 minutes (288 while a river is in yellow flood vigilance or above), 24 for the ONF's map, 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
+// About 1 180 KV writes a day in all: 288 for the vigilance and 288 for the news, every 5 minutes, 144 for the earthquakes, every 10 minutes, 96 for the rivers, every 15 minutes (288 while a river is in yellow flood vigilance or above), 24 for the ONF's map, 48 a day for each of the five every 30 minutes, 24 for the air and 24 for the counts
 // of /chiffres (4 more for their events, 24 while an agenda does not answer), 12 for the power
 // cuts the mairies relay (48 while the site of one of them does not answer), 8 for the sea, 8 for the satellites' grids (48 while ACSPO lacks a day it should have), 4 for the calendar; the volcano's, every 5 minutes during an alert, adds up to 240 more while it lasts (the banner
 // of every page reads it). The events stay out: their build takes most of an invocation (they will come in a bundle).
@@ -82,6 +83,13 @@ export const SHARED: Shared[] = [
   // (26 October 2026). Its cold cost: Vigicrues' vigilance, and its heights and flows in 4 batches each, plus one. Its CPU: parsing them, 43 ms
   // the first time in Node and 4 ms after, rounded up. At minutes 10, 25, 40 and 55, with the news, the water cuts, the
   // air and the satellites' grids: the lightest of the three series of events a rate of 15 minutes can take.
+  // The news of the media and the prefecture, every 5 minutes, in every event: the tool actualites and /actualites read
+  // a data center's own copy, read at a question only, which was an hour and a half old where no one had asked since
+  // (28 October 2026, the fire at Cambaie). Its cold cost: the six media, the prefecture and Imaz Press's two live
+  // pages, as the event's logs count them (medias_locaux 9), and the copy before it (the prefecture's list is read one
+  // event in three, providers/actualites.ts, and kept from that copy in between), plus one. Its CPU: parsing them, 132
+  // ms the first time in Node and 25 to 37 ms after, rounded up. Before /actualites's copy, which embeds it.
+  { key: actu.KEY, build: async (cache, now) => actu.lire(now, (await cache.peek<actu.Fil>(actu.KEY).catch(() => undefined))?.value), every: 5, cold: 11, cpu: 140, offset: 0, before: ["web:actualites"] },
   { key: "web:crues", build: buildCrues, every: (last) => (floodRaised(last as CruesAnswer | undefined).length ? 5 : 15), cold: 10, cpu: 50, range: { usual: 15, shortest: 5 }, offset: 10, alongside: true },
   { key: "web:actualites", build: buildActualites, every: 30, cold: 10, cpu: 190, offset: 10 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160, offset: 5 },
@@ -151,6 +159,13 @@ export const AFTER_DEPLOY_RESERVE = 12;
 const EVENT_MS = 5 * 60_000;
 // Past its time by this much, a copy is tried at its cold cost, and said to be late when it is left again.
 const LATE_MINUTES = 60;
+
+/**
+ * How much older than its rate a copy may get, in ms: a sixth of the rate (30 min for 3 hours). One written off its
+ * slots (after a deploy, or left for the budget) this close before its next slot waits for the slot after, rather than
+ * being built twice in a row; one written earlier is built again at its next slot.
+ */
+export const margin = (every: number) => every * 10_000;
 
 /** A copy in KV, with what its build took (`cost`), for the isolates that have not built it yet. */
 type KvEntry = CacheEntry & { cost?: number };
@@ -260,10 +275,10 @@ export class SharedFallback implements CacheStore {
     await this.edge.put(key, entry);
     if (KEYS.has(key) && entry.echec && entry.echec.at > entry.fetchedAt) await kvPutFailure(this.kv, key, entry.echec);
   }
-  /** Past its rate and one event: the scheduled event did not refresh it. */
+  /** Past its rate, its margin and one event: the scheduled event did not refresh it. */
   private late(key: string, e: CacheEntry): boolean {
     const every = scheduledEvery(key, e.value);
-    return every != null && this.now() - e.fetchedAt > every * 60_000 + EVENT_MS;
+    return every != null && this.now() - e.fetchedAt > every * 60_000 + margin(every) + EVENT_MS;
   }
 }
 
@@ -321,14 +336,19 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
   const due = ages
     .map(({ s, at, kept, every, old }) => {
       const age = at == null ? Infinity : now.getTime() - at;
-      // Due in the first event of its slot as well, once half its rate has gone by: written a few seconds into the event
-      // of its last slot, a copy is a few seconds short of its rate at the next one, and went an event late each time
-      // (the volcano's, every 5 minutes in an alert, went every 10). Half its rate keeps one built off its slots (after a
-      // deploy, or left for the budget) from going twice in a row; it is back on them at its next refresh.
+      // Due at its slot, not by its age: written a few seconds into the event of its last slot, a copy is a few seconds
+      // short of its rate at the next one, and went an event late each time (the volcano's, every 5 minutes in an
+      // alert, went every 10). Due there once written more than its margin before the slot, in the slot's first event or
+      // its margin, whichever is longer (an event left for the budget is tried again in the next). A copy written off its
+      // slots (after a deploy, or left for the budget) is thus back on them at its next slot, or at the one after when
+      // written within its margin before it. Half its rate, before, kept one written past the half of its slot off them
+      // for days: going by its rate, a few minutes later at each refresh (web:mer, 3 hours, built 16 times out of its
+      // slots from 26 to 28 October 2026).
       const slot = slotStart(now.getTime(), every, s.offset);
-      const onSlot = at != null && age >= every * 30_000 && at < slot && now.getTime() - slot < EVENT_MS;
-      // A copy of another revision is due anyway, for its version, with the agendas' reserve.
-      const byRate = onSlot && !old ? Math.max(0, age - every * 60_000) : age - every * 60_000;
+      const onSlot = at != null && at < slot - margin(every) && now.getTime() - slot < Math.max(EVENT_MS, margin(every));
+      // Off its slots, due by its age only past its rate and margin, should a slot have gone by without it. A copy of
+      // another revision is due anyway, for its version, with the agendas' reserve.
+      const byRate = onSlot && !old ? Math.max(0, age - every * 60_000) : age - every * 60_000 - (old ? 0 : margin(every));
       return { s, at, kept, over: old && byRate < 0 ? age : byRate, version: old && byRate < 0 };
     })
     .filter((x) => x.over >= 0)
