@@ -140,9 +140,11 @@ export function decide(lu: Lu & { lu_a: string; outil: string }, r: Relecture): 
     : { value: { ...lu, outil }, avis: avisLu(lu), ecart };
 }
 
-/** What one call cost, as the API counts it. */
+/** What one call cost, as the API counts it: input outside the cache, written to it, read from it, and output. */
 export interface Usage {
   input_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
   output_tokens: number;
 }
 
@@ -158,8 +160,13 @@ export async function relire(key: string, image: Uint8Array, lu: Lu, f: typeof f
     signal: AbortSignal.timeout(120_000),
   });
   if (!res.ok) throw new Error(`relecture refusée : HTTP ${res.status}`);
-  const m = (await res.json()) as { stop_reason?: string; content?: { type: string; text?: string }[]; usage?: Usage };
-  const usage = { input_tokens: m.usage?.input_tokens ?? 0, output_tokens: m.usage?.output_tokens ?? 0 };
+  const m = (await res.json()) as { stop_reason?: string; content?: { type: string; text?: string }[]; usage?: Partial<Usage> };
+  const usage = {
+    input_tokens: m.usage?.input_tokens ?? 0,
+    cache_creation_input_tokens: m.usage?.cache_creation_input_tokens ?? 0,
+    cache_read_input_tokens: m.usage?.cache_read_input_tokens ?? 0,
+    output_tokens: m.usage?.output_tokens ?? 0,
+  };
   if (m.stop_reason !== "end_turn") throw Object.assign(new Error(`relecture arrêtée : ${m.stop_reason}`), { usage });
   const text = m.content?.find((b) => b.type === "text")?.text;
   let json: unknown;
