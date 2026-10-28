@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import { type Info, SOURCES } from "../src/providers/actualites.js";
+import { withLectures } from "../src/lectures.js";
+import * as copie from "../src/providers/prefecture-copie.js";
+import type { PageCopie } from "../src/providers/prefecture-copie.js";
 import { type Phase, phase, releaseSentences, releaseText } from "../src/providers/volcan.js";
 
 // 26/10/2026: the release in force read 187 times in 24 h by the scheduled event, for 48 at most at its half hour. Each
@@ -123,5 +126,66 @@ describe("the page of a release, read at most every half hour whichever isolate 
     // The list every five minutes, as before; the page once.
     expect(reads.filter((u) => u === SOURCES.prefecture.url)).toHaveLength(6);
     expect(reads.filter((u) => u === VIGILANCE_LIEN)).toHaveLength(1);
+  });
+});
+
+describe("in the Worker, the pages of the releases from the collector's copies, never the site (providers/volcan.ts)", () => {
+  const release = (titre: string, day: string, lien: string): Info =>
+    ({ titre, lien, publie: new Date(`${day}T12:00:00+04:00`).toISOString(), media: "Préfecture de La Réunion", heure: false, communes: [], lieux: [], sujets: [] }) as Info;
+  const LISTE = [release("Retour en phase de vigilance", "2026-10-26", VIGILANCE_LIEN), release(ALERTE.titre, "2026-10-24", ALERTE_LIEN)];
+  let reads: string[];
+  let pages: Map<string, PageCopie>;
+
+  beforeEach(() => {
+    reads = [];
+    pages = new Map();
+    vi.stubGlobal("fetch", async (url: string) => {
+      reads.push(String(url));
+      return new Response(HTML);
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    copie.configure(
+      async () => ({ liste: LISTE, lu_le: new Date(T0 - 5 * MIN).toISOString() }),
+      async (lien) => pages.get(lien) ?? null,
+    );
+  });
+  afterEach(() => {
+    copie.configure(undefined);
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+  const cache = (t: number) => new Cache(new MemoryStore(), () => t, true, new MemoryStore());
+
+  it("reads the phase and the release's text from the copies", async () => {
+    pages.set(VIGILANCE_LIEN, { page: { titre: "Piton de la Fournaise : réouverture partielle de l'enclos", phrases: PHRASES }, lu: T0 - 3 * 3600_000 });
+    const c = cache(T0);
+    const p = (await phase(c, T0)).value!;
+    expect(p).toMatchObject({ niveau: "Vigilance", enclos: "partiel", lien: VIGILANCE_LIEN });
+    expect(await releaseText(c, p, T0)).toEqual(PHRASES);
+    expect(reads).toEqual([]);
+  });
+
+  it("a page not copied yet: no phase taken from an older release, no read of the site", async () => {
+    const c = cache(T0);
+    // Without the page of the release whose list does not name the volcano, the phase is not read (none kept here).
+    await expect(phase(c, T0)).rejects.toThrow("page du communiqué pas encore copiée");
+    expect(await releaseText(c, ALERTE, T0)).toBeUndefined();
+    expect(reads).toEqual([]);
+  });
+
+  it("a copy the collector did not renew for a day is served, said as old", async () => {
+    const lu = T0 - (24 * 60 + 41) * MIN;
+    pages.set(ALERTE_LIEN, { page: { phrases: ["Le texte copié hier."] }, lu });
+    const { value, lectures } = await withLectures(() => releaseText(cache(T0), ALERTE, T0));
+    expect(value).toEqual(["Le texte copié hier."]);
+    expect(lectures).toEqual([expect.objectContaining({ key: copie.pageKey(ALERTE_LIEN), fetchedAt: lu, stale: true, source: "prefecture_communiques" })]);
+    expect(reads).toEqual([]);
+  });
+
+  it("a copy of the day is not the answer's freshness: read at the collector's pace, a day", async () => {
+    pages.set(ALERTE_LIEN, { page: { phrases: ["Le texte copié ce matin."] }, lu: T0 - 8 * 3600_000 });
+    const { lectures } = await withLectures(() => releaseText(cache(T0), ALERTE, T0));
+    expect(lectures).toEqual([expect.objectContaining({ stale: false, freshSeconds: 86_400 })]);
   });
 });
