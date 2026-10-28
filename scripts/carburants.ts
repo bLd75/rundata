@@ -13,12 +13,15 @@ import { dirname } from "node:path";
 import "../src/bin/net.js";
 import { gather, monthOf } from "../src/providers/carburants.js";
 import { putKv } from "./kv.js";
+import { asked, waitTurn } from "./reunion-gouv.js";
 
 const out = process.argv[2];
 if (!out || out.startsWith("--")) throw new Error("usage : npx tsx scripts/carburants.ts <fichier.json> [--kv]");
 const now = new Date();
-// One page of the prefecture's site a minute at most: the list, then the release (two pages, most days).
-const p = await gather(now, 4, 60_000);
+// One page of the prefecture's site a minute at most: the list, then the release (two pages, most days). The first one
+// a minute after the last page another collector asked (scripts/reunion-gouv.ts), the end of the run noted for them.
+await waitTurn();
+const p = await gather(now, 4, 60_000).finally(asked);
 if (!p) throw new Error("aucun communiqué des prix des carburants lisible sur le site de la préfecture");
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, JSON.stringify(p));
