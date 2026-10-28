@@ -152,6 +152,13 @@ const EVENT_MS = 5 * 60_000;
 // Past its time by this much, a copy is tried at its cold cost, and said to be late when it is left again.
 const LATE_MINUTES = 60;
 
+/**
+ * How much older than its rate a copy may get, in ms: a sixth of the rate (30 min for 3 hours). One written off its
+ * slots (after a deploy, or left for the budget) this close before its next slot waits for the slot after, rather than
+ * being built twice in a row; one written earlier is built again at its next slot.
+ */
+export const margin = (every: number) => every * 10_000;
+
 /** A copy in KV, with what its build took (`cost`), for the isolates that have not built it yet. */
 type KvEntry = CacheEntry & { cost?: number };
 
@@ -260,10 +267,10 @@ export class SharedFallback implements CacheStore {
     await this.edge.put(key, entry);
     if (KEYS.has(key) && entry.echec && entry.echec.at > entry.fetchedAt) await kvPutFailure(this.kv, key, entry.echec);
   }
-  /** Past its rate and one event: the scheduled event did not refresh it. */
+  /** Past its rate, its margin and one event: the scheduled event did not refresh it. */
   private late(key: string, e: CacheEntry): boolean {
     const every = scheduledEvery(key, e.value);
-    return every != null && this.now() - e.fetchedAt > every * 60_000 + EVENT_MS;
+    return every != null && this.now() - e.fetchedAt > every * 60_000 + margin(every) + EVENT_MS;
   }
 }
 
@@ -321,14 +328,19 @@ export async function warmShared(cache: Cache, kv: Kv, now = new Date(), list = 
   const due = ages
     .map(({ s, at, kept, every, old }) => {
       const age = at == null ? Infinity : now.getTime() - at;
-      // Due in the first event of its slot as well, once half its rate has gone by: written a few seconds into the event
-      // of its last slot, a copy is a few seconds short of its rate at the next one, and went an event late each time
-      // (the volcano's, every 5 minutes in an alert, went every 10). Half its rate keeps one built off its slots (after a
-      // deploy, or left for the budget) from going twice in a row; it is back on them at its next refresh.
+      // Due at its slot, not by its age: written a few seconds into the event of its last slot, a copy is a few seconds
+      // short of its rate at the next one, and went an event late each time (the volcano's, every 5 minutes in an
+      // alert, went every 10). Due there once written more than its margin before the slot, in the slot's first event or
+      // its margin, whichever is longer (an event left for the budget is tried again in the next). A copy written off its
+      // slots (after a deploy, or left for the budget) is thus back on them at its next slot, or at the one after when
+      // written within its margin before it. Half its rate, before, kept one written past the half of its slot off them
+      // for days: going by its rate, a few minutes later at each refresh (web:mer, 3 hours, built 16 times out of its
+      // slots from 26 to 28 October 2026).
       const slot = slotStart(now.getTime(), every, s.offset);
-      const onSlot = at != null && age >= every * 30_000 && at < slot && now.getTime() - slot < EVENT_MS;
-      // A copy of another revision is due anyway, for its version, with the agendas' reserve.
-      const byRate = onSlot && !old ? Math.max(0, age - every * 60_000) : age - every * 60_000;
+      const onSlot = at != null && at < slot - margin(every) && now.getTime() - slot < Math.max(EVENT_MS, margin(every));
+      // Off its slots, due by its age only past its rate and margin, should a slot have gone by without it. A copy of
+      // another revision is due anyway, for its version, with the agendas' reserve.
+      const byRate = onSlot && !old ? Math.max(0, age - every * 60_000) : age - every * 60_000 - (old ? 0 : margin(every));
       return { s, at, kept, over: old && byRate < 0 ? age : byRate, version: old && byRate < 0 };
     })
     .filter((x) => x.over >= 0)

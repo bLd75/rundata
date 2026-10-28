@@ -95,7 +95,7 @@ import * as prefecture from "../providers/prefecture.js";
 import { rafraichirConnecteurs, rafraichirPropositions } from "../tools/agenda.js";
 import * as bord from "./bord.js";
 import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
-import { scheduledEvery } from "./partagees.js";
+import { margin, scheduledEvery } from "./partagees.js";
 import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
 import { readCopies, refresh, resume } from "../tools/resume.js";
 import { CSS, FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, STYLE_PATH, vigilancePage } from "./pages.js";
@@ -178,15 +178,16 @@ export const isReader = (request: Request) => READERS.test(request.headers.get("
 const waitFor = (request: Request) => (isReader(request) ? READER_WAIT_MS : undefined);
 
 // The scheduled event refreshes the shared copies at their rate (web/partagees.ts): a reader gets such a copy at once
-// while it is within that rate, and two events more (one a few minutes late, one left for the budget), its refresh
-// going on behind. Waiting for it held Googlebot or ChatGPT-User up to 25 s on /crues, kept every 15 min
-// (26/10/2026). Past that, the scheduled event has fallen behind: the reader waits for the refresh, as before. The
-// daily check of the sources waits always: it must see the data, not a copy.
+// while it is within that rate and its margin (a copy written just before its slot waits for the next), and two events
+// more (one a few minutes late, one left for the budget), its refresh going on behind. Waiting for it held Googlebot or
+// ChatGPT-User up to 25 s on /crues, kept every 15 min (26/10/2026). Past that, the scheduled event has fallen behind:
+// the reader waits for the refresh, as before. The daily check of the sources waits always: it must see the data, not a
+// copy.
 const SCHEDULED_SLACK_MS = 10 * 60_000;
 const CHECK = /rundata-check\//i;
 const readerWaits: ReaderWaits = (key, value, ageMs) => {
   const every = scheduledEvery(key, value);
-  return every == null || ageMs > every * 60_000 + SCHEDULED_SLACK_MS;
+  return every == null || ageMs > every * 60_000 + margin(every) + SCHEDULED_SLACK_MS;
 };
 /** Whether `request`'s reader waits for a page's old copy to be refreshed (web/data.ts `snapshot`). */
 export const readerOf = (request: Request): boolean | ReaderWaits =>
