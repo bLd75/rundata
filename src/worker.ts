@@ -191,11 +191,18 @@ function setup(env: Env): Cache {
   }));
   // Read every 15 minutes from the prefecture by scripts/prefecture.ts, on a machine of the project: its site cuts the
   // connection of the Workers (src/providers/prefecture-copie.ts).
-  prefectureCopie.configure(async () => {
-    if (!kv) return null;
-    count();
-    return (await kv.get(prefectureCopie.KV_KEY, "json")) as prefectureCopie.Copie | null;
-  });
+  prefectureCopie.configure(
+    async () => {
+      if (!kv) return null;
+      count();
+      return (await kv.get(prefectureCopie.KV_KEY, "json")) as prefectureCopie.Copie | null;
+    },
+    async (lien) => {
+      if (!kv) return null;
+      count();
+      return (await kv.get(prefectureCopie.pageKey(lien), "json")) as prefectureCopie.PageCopie | null;
+    },
+  );
   // Read every day from the prefecture by scripts/carburants.ts, on a machine of the project: never by the
   // Worker, even without the store.
   carburants.configure(async () => {

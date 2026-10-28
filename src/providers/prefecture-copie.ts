@@ -1,11 +1,12 @@
 /**
  * The prefecture's releases as a machine of the project reads them (scripts/prefecture.ts, every 15 minutes), stored in
  * the Worker's KV: the prefecture's site cuts the connection of Cloudflare's Workers (HTTP 520 to nearly every read from
- * 13:14 to 16:06 on 28/10/2026), while it answers that machine. In the Worker, the news (providers/actualites.ts) and the
- * subjects of the releases (providers/prefecture.ts) read this copy, never the site. Elsewhere (a local server, the
- * tests), nothing is configured and they read the site.
+ * 13:14 to 16:06 on 28/10/2026), while it answers that machine. In the Worker, the news (providers/actualites.ts), the
+ * subjects of the releases (providers/prefecture.ts) and the pages of the volcano's releases (providers/volcan.ts) read
+ * these copies, never the site. Elsewhere (a local server, the tests), nothing is configured and they read the site.
  */
 import type { Info } from "./actualites.js";
+import type { Page } from "./volcan.js";
 
 /** Written by scripts/prefecture.ts, read by worker.ts. */
 export const KV_KEY = "prefecture:communiques:collecte";
@@ -27,11 +28,30 @@ export interface Copie {
  */
 export const SILENT_MS = 40 * 60_000;
 
-let reader: (() => Promise<Copie | null>) | undefined;
+/**
+ * The page of a release the volcano's phase is read from (providers/volcan.ts `doubtful`, then the release in force),
+ * as the collector read it, under `pageKey` of its link: volcan.ts PageKept, its page always there.
+ */
+export interface PageCopie {
+  page: Page;
+  /** When the collector read the page (ms). */
+  lu: number;
+}
 
-/** In the Worker: read the copy from the KV store, where scripts/prefecture.ts writes it, and the site never. */
-export function configure(read: (() => Promise<Copie | null>) | undefined) {
+export const pageKey = (lien: string) => `prefecture:communique:collecte:${lien}`;
+/**
+ * A release's page is read again by the collector once its copy is this old, not at each of its runs: a page seldom
+ * changes once published (« Mis à jour le »), and the site bans bursts.
+ */
+export const PAGE_AGAIN_MS = 24 * 3600_000;
+
+let reader: (() => Promise<Copie | null>) | undefined;
+let pageReader: ((lien: string) => Promise<PageCopie | null>) | undefined;
+
+/** In the Worker: read the copies from the KV store, where scripts/prefecture.ts writes them, and the site never. */
+export function configure(read: (() => Promise<Copie | null>) | undefined, readPage?: (lien: string) => Promise<PageCopie | null>) {
   reader = read;
+  pageReader = read && readPage;
 }
 
 /** Whether the copy is what is read (the Worker), rather than the site. */
@@ -40,4 +60,9 @@ export const configured = () => reader !== undefined;
 /** The stored copy; null when the store has none or nothing is configured. */
 export async function copie(): Promise<Copie | null> {
   return reader ? reader() : null;
+}
+
+/** The stored copy of a release's page; null when the store has none or nothing is configured. */
+export async function page(lien: string): Promise<PageCopie | null> {
+  return pageReader ? pageReader(lien) : null;
 }

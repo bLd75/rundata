@@ -17,6 +17,7 @@ import { type SourceInfo, UpstreamError } from "../types.js";
 import { decodeText, textOf } from "./avis-eau.js";
 import { type Info, SOURCES as NEWS } from "./actualites.js";
 import * as prefecture from "./prefecture.js";
+import * as copie from "./prefecture-copie.js";
 
 export const PREFECTURE: SourceInfo = NEWS.prefecture;
 const PREFECTURE_HOST = "www.reunion.gouv.fr";
@@ -442,6 +443,7 @@ const pagesKnown = new WeakMap<Cache, Map<string, Known | Promise<Known>>>();
 
 /** A release's page, its title and its sentences: read again only once the last try is `freshSeconds` old. */
 async function releasePage(cache: Cache, lien: string, now: number, freshSeconds = RELEASE_SECONDS): Promise<Cached<Page>> {
+  if (copie.configured()) return copiedPage(cache, lien, now);
   const key = PAGE_KEY(lien);
   let mine = pagesKnown.get(cache);
   if (!mine) pagesKnown.set(cache, (mine = new Map()));
@@ -478,11 +480,36 @@ async function releasePage(cache: Cache, lien: string, now: number, freshSeconds
   return { value: k.page, fetchedAt: new Date(k.lu ?? k.essai), stale, ...(stale && { source: PREFECTURE.id }), from: PREFECTURE.id };
 }
 
-/** Reads a release's page: its title and its sentences. */
-async function readReleasePage(lien: string): Promise<Page> {
+// What this isolate knows of each page's copy, asked of the store again after the half hour (RELEASE_SECONDS), or
+// after KEPT_MEMORY_MS when it has none yet (a new release, copied at the collector's next run).
+const copiesKnown = new WeakMap<Cache, Map<string, { k: copie.PageCopie | null; at: number }>>();
+
+/**
+ * In the Worker, a release's page as the collector read it (prefecture-copie.ts), never the site, which cuts the
+ * Workers' connection. Renewed once a day (PAGE_AGAIN_MS): its read is not the answer's freshness, and is old only
+ * when the collector did not renew it.
+ */
+async function copiedPage(cache: Cache, lien: string, now: number): Promise<Cached<Page>> {
+  let mine = copiesKnown.get(cache);
+  if (!mine) copiesKnown.set(cache, (mine = new Map()));
+  let known = mine.get(lien);
+  if (!known || now - known.at >= (known.k ? RELEASE_SECONDS * 1000 : KEPT_MEMORY_MS)) {
+    known = { k: await copie.page(lien).catch(() => null), at: now };
+    mine.set(lien, known);
+  }
+  const k = known.k;
+  if (!k?.page) throw new UpstreamError(PREFECTURE.id, "page du communiqué pas encore copiée");
+  const stale = now - k.lu > copie.PAGE_AGAIN_MS + copie.SILENT_MS;
+  const from = { ...(stale && { source: PREFECTURE.id }), from: PREFECTURE.id };
+  noteLecture({ key: copie.pageKey(lien), fetchedAt: k.lu, stale, freshSeconds: copie.PAGE_AGAIN_MS / 1000, ...from });
+  return { value: k.page, fetchedAt: new Date(k.lu), stale, ...from };
+}
+
+/** Reads a release's page: its title and its sentences. `get`: how a page is asked (the collector's, at its pace). */
+export async function readReleasePage(lien: string, get = (url: string) => getText(PREFECTURE.id, url, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" })): Promise<Page> {
   // Only the prefecture's own pages: a link planted in its list is never read.
   if (!permis(PREFECTURE.id, lien, [PREFECTURE_HOST])) throw new UpstreamError(PREFECTURE.id, "communiqué hors du site de la préfecture");
-  const html = await getText(PREFECTURE.id, lien, 12_000, { "User-Agent": "rundata.re (contact@rundata.re)" });
+  const html = await get(lien);
   const phrases = releaseSentences(html);
   if (!phrases.length) throw new UpstreamError(PREFECTURE.id, "communiqué sans texte");
   const titre = pageTitle(html);
