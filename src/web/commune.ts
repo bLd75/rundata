@@ -368,7 +368,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-now">${esc(p.nom)} en ce moment</h2>
   <p>Chaque catégorie a sa page pour toute l'île ; ici, ce qui concerne ${esc(p.nom)}. Mise à jour en continu, chaque donnée avec son heure et sa source.</p></div>
   <ul class="tiles" aria-label="Catégories">${tiles.map(tile).join("")}</ul>
-  ${sources.length ? `<p class="sources">Sources : ${credits(sources)}. Bus : horaires théoriques publiés par les réseaux, sans les retards. Mairie : horaires publiés sur service-public.fr, sans les fermetures exceptionnelles.</p>` : ""}
+  ${sources.length ? `<p class="note">Bus : horaires théoriques publiés par les réseaux, sans les retards. Mairie : horaires publiés sur service-public.fr, sans les fermetures exceptionnelles.</p><p class="sources">Sources : ${credits(sources)}.</p>` : ""}
   ${coastal(p) ? `<p class="or">${BAIGNADE_LINE}</p>` : ""}
 </section>
 ${habiter.length ? `<section aria-labelledby="h-habiter">

@@ -1750,7 +1750,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
           ? `<b>${esc(thin(deg(b.valeur)))}</b><span>le ${esc(dayMonth(b.jour!))}, à ${esc(fr(b.distance_km!))} km</span>`
           : `<b>—</b><span>pas de mesure (nuages)</span>`) +
         `<a href="/meteo/${slugify(b.commune)}">Météo ${esc(b.commune)} →</a></li>`).join("")}</ul>` +
-      `<p class="sources">Sources : ${credits(d.sources)}. Mis à jour à ${hm(data!.fetchedAt)}.</p>`
+      `<p class="note">Mis à jour à ${hm(data!.fetchedAt)}.</p><p class="sources">Sources : ${credits(d.sources)}.</p>`
     : `<p class="card">Les mesures satellite se chargent : rechargez la page dans quelques secondes.</p>`;
 
   const waves = d?.plages.filter((b) => b.houle) ?? [];

@@ -88,7 +88,7 @@ const crumbBar = (label: string, parent?: { name: string; path: string }) =>
 const loading = (what: string) => `<p class="lead">${esc(what)} se charge : rechargez la page dans quelques secondes.</p>`;
 
 const sourcesNote = (list: { source: string; licence: string; attribution: string }[], data: Cached<unknown>) =>
-  `<p class="sources">Sources : ${credits(list)}. Mis à jour à ${hm(data.fetchedAt)}.</p>`;
+  `<p class="note">Mis à jour à ${hm(data.fetchedAt)}.</p><p class="sources">Sources : ${credits(list)}.</p>`;
 
 /**
  * The agendas of the scheduled event not read lately (tools/agenda.ts, `non_lus`: « Ville de Saint-Leu : dernière
@@ -1086,7 +1086,7 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
 </div>`;
 
   const sources = d && data
-    ? `<p class="sources">Sources : ${esc(vigicrues.SOURCE.nom)}, ${esc(vigicrues.SOURCE.attribution)} (${esc(vigicrues.SOURCE.licence)}). Lu le ${esc(dayAt(data.fetchedAt))}. Le site officiel : <a href="${vigicrues.SOURCE.url}">vigicrues-reunion.re ↗</a>.</p>`
+    ? `<p class="note">Lu le ${esc(dayAt(data.fetchedAt))}. Le site officiel : <a href="${vigicrues.SOURCE.url}">vigicrues-reunion.re ↗</a>.</p><p class="sources">Sources : ${esc(vigicrues.SOURCE.nom)}, ${esc(vigicrues.SOURCE.attribution)} (${esc(vigicrues.SOURCE.licence)}).</p>`
     : "";
 
   const body = `<section aria-labelledby="h-vigilance-crues">
@@ -1298,7 +1298,7 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
 <section aria-labelledby="h-robinet">
   <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-robinet">L'eau du robinet</h2>
   <p>${d ? `${tapBad.length ? `Des analyses non conformes en 6 mois dans ${tapBad.length} commune${tapBad.length > 1 ? "s" : ""} sur ${d.communes.length}, sur un ou deux réseaux chacune.` : "Toutes les analyses des 6 derniers mois sont conformes."} ` : ""}${esc(EAU_TEXT.robinet)}</p></div>
-  ${d ? `<ul class="zones">${d.communes.map(tapCard).join("")}</ul><p class="note">${esc(tapNote("page"))}<br><a href="/coupures-eau">Les avis en cours →</a></p>${data ? `<p class="sources">Sources : ${esc(d.sources.map((x) => x.attribution).join(" ; "))}. Analyses rassemblées le ${esc(dayFr(d.lu))} à ${esc(hm(new Date(d.lu)))}.</p>` : ""}` : ""}
+  ${d ? `<ul class="zones">${d.communes.map(tapCard).join("")}</ul><p class="note">${esc(tapNote("page"))}<br><a href="/coupures-eau">Les avis en cours →</a></p>${data ? `<p class="note">Analyses rassemblées le ${esc(dayFr(d.lu))} à ${esc(hm(new Date(d.lu)))}.</p><p class="sources">Sources : ${esc(d.sources.map((x) => x.attribution).join(" ; "))}.</p>` : ""}` : ""}
 </section>
 ${connectorCta("qualite_eau", "la qualité de l'eau")}`;
 
