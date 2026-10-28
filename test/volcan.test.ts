@@ -4,6 +4,7 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import { parse, where } from "../src/providers/seismes.js";
 import type { Info } from "../src/providers/actualites.js";
 import { activityPosts, phaseOf } from "../src/providers/volcan.js";
+import * as copie from "../src/providers/prefecture-copie.js";
 import { A_LIRE, quakeSummary, volcanSeismes } from "../src/tools/volcan.js";
 import { buildVolcan } from "../src/web/data.js";
 import { volcanPage } from "../src/web/domains.js";
@@ -193,6 +194,16 @@ describe("volcano", () => {
     expect(html).toContain(`<p class="note">${esc(said)} <a href="/sites-sans-reponse">Voir les sites sans réponse</a>.</p>`);
     // Under the state line, above what follows it.
     expect(html.indexOf("Niveau du dispositif ORSEC volcan")).toBeLessThan(html.indexOf("Le site de l&#39;OVPF-IPGP"));
+
+    // The collector's copy of the releases not renewed for 2 hours (our machine or the site, we do not know which): not
+    // said to be read, only when it read the site.
+    const copy = { "prefecture:communiques:copie": { liste: [], lu_le: new Date(NOW.getTime() - 2 * 3600_000).toISOString() } };
+    copie.configure(async () => null);
+    try {
+      expect(body(await volcanSeismes(cacheWith(undefined, { ...ipgp("injoignable"), ...copy }), NOW)).injoignable).toBe("Le site de l'OVPF-IPGP n'a pas répondu depuis le 21/10 (dernier essai le 22/10 à 06:02). Un communiqué ou un bulletin de l'observatoire publié depuis peut manquer ici\u00a0; ses publications sur Bluesky, elles, sont lues\u00a0; dernière lecture du site de la préfecture\u00a0: aujourd'hui à 01:20.");
+    } finally {
+      copie.configure(undefined);
+    }
 
     // What did not answer this time is not said to be read: the Bluesky feed silent, its last copy shown.
     vi.stubGlobal("fetch", async () => {

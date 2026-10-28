@@ -4,6 +4,7 @@ import * as seismes from "../providers/seismes.js";
 import * as onf from "../providers/sentiers.js";
 import * as historique from "./volcan-historique.js";
 import * as ocr from "../providers/ovpf-ocr.js";
+import * as prefecture from "../providers/prefecture.js";
 import * as volcan from "../providers/volcan.js";
 import { etatHote, jour as jourDe, jourHeure, type Public } from "../sans-reponse.js";
 import { why } from "../types.js";
@@ -76,17 +77,22 @@ async function settle<T>(source: string, p: Promise<Cached<T>>): Promise<Cached<
 /**
  * The OVPF-IPGP's site listed as silent (sans-reponse.ts, rechecked every morning), in marketing's words: since when,
  * the last recheck, what may be missing here. What is still read is said only of the sources whose last read answered.
+ * `lus.prefecture` as a time (« aujourd'hui à 15:30 »): the collector's copy of the releases was not renewed, said only
+ * when it read the site (prefecture.ts `derniereLecture`).
  */
-export function ipgpMuet(l: Public, lus: { bluesky: boolean; prefecture: boolean }, now: Date): string {
+export function ipgpMuet(l: Public, lus: { bluesky: boolean; prefecture: boolean | string }, now: Date): string {
   // /sites-sans-reponse's words for a site that answers, but not to our reads (statutEnMots).
   const depuis = l.statut === "bloque" ? `répond, mais pas à nos lectures, depuis le ${jourDe(l.premier_echec)}` : `n'a pas répondu depuis le ${jourDe(l.premier_echec)}`;
   // « aujourd'hui à 06:02 » the same day, as lu_le.
   const t = l.dernier_essai;
   const essai = t ? ` (dernier essai ${jourDe(t) === jourDe(now.getTime() / 1000) ? `aujourd'hui à ${jourHeure(t).split(" à ")[1]}` : `le ${jourHeure(t)}`})` : "";
-  const encore = lus.bluesky && lus.prefecture
+  const pref = lus.prefecture === true;
+  const encore = lus.bluesky && pref
     ? "ses publications sur Bluesky et les communiqués de la préfecture, eux, sont lus"
-    : lus.bluesky ? "ses publications sur Bluesky, elles, sont lues" : lus.prefecture ? "les communiqués de la préfecture, eux, sont lus" : "";
-  return `Le site de ${l.nom} ${depuis}${essai}. Un communiqué ou un bulletin de l'observatoire publié depuis peut manquer ici${encore ? `\u00a0; ${encore}` : ""}.`;
+    : lus.bluesky ? "ses publications sur Bluesky, elles, sont lues" : pref ? "les communiqués de la préfecture, eux, sont lus" : "";
+  const prefLue = typeof lus.prefecture === "string" ? `dernière lecture du site de la préfecture\u00a0: ${lus.prefecture}` : "";
+  const tail = [encore, prefLue].filter(Boolean).join("\u00a0; ");
+  return `Le site de ${l.nom} ${depuis}${essai}. Un communiqué ou un bulletin de l'observatoire publié depuis peut manquer ici${tail ? `\u00a0; ${tail}` : ""}.`;
 }
 
 // Worded by marketing, under the counts: the catalogue holds the located events only, far fewer in a seismic crisis.
@@ -299,7 +305,9 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
   ]);
   const [posts, quakes, phase] = [read?.value ?? null, seen?.value ?? null, given0?.value ?? null];
   // Said while it is listed, until the recheck finds it back; the table absent, nothing.
-  const ipgp = silent && silent.statut !== "revenu" ? ipgpMuet(silent, { bluesky: !!read && !read.stale, prefecture: !!given0 && !given0.stale }, now) : undefined;
+  // The collector's copy of the releases not renewed: when it read the site, not that they are read.
+  const prefLue = silent && silent.statut !== "revenu" ? await prefecture.derniereLecture(cache, now).catch(() => undefined) : undefined;
+  const ipgp = silent && silent.statut !== "revenu" ? ipgpMuet(silent, { bluesky: !!read && !read.stale, prefecture: prefLue ?? (!!given0 && !given0.stale) }, now) : undefined;
   // The ONF's map as another page last read it, never built here (a read).
   const carte = await cache.peek<onf.Carte>(onf.KEY).catch(() => undefined);
   if (!piton && !posts && !quakes && !phase) {

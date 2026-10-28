@@ -74,12 +74,12 @@ export function configure(read: (() => Promise<Ile | null>) | undefined) {
 }
 
 export async function ile(cache: Cache, now = new Date()): Promise<Cached<Ile>> {
-  return cache.get("eau:ile", FRESH_SECONDS, async () => {
+  return cache.getCopy("eau:ile", FRESH_SECONDS, async () => {
     if (reader) {
       const v = await reader();
       if (!v?.baignades) throw new Error("qualité de l'eau absente du stockage");
       return v;
     }
     return gather(cache, now);
-  });
+  }, (v) => v.lu);
 }

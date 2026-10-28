@@ -185,8 +185,8 @@ export async function prix(cache: Cache, now = new Date()): Promise<Cached<Prix>
     if (!v?.produits?.length) throw new Error(reader ? "prix des carburants absents du stockage" : "prix des carburants absents");
     return v;
   };
-  const got = await cache.get("carburants:prix", FRESH_SECONDS, load);
+  const got = await cache.getCopy("carburants:prix", FRESH_SECONDS, load, (v) => v.lu);
   const today = localDay(now);
   const behind = got.value.depuis.slice(0, 7) < today.slice(0, 7) || (Number(today.slice(8, 10)) >= 28 && got.value.depuis <= today);
-  return behind && now.getTime() - got.fetchedAt.getTime() > EARLY_SECONDS * 1000 ? cache.get("carburants:prix", EARLY_SECONDS, load) : got;
+  return behind && now.getTime() - got.fetchedAt.getTime() > EARLY_SECONDS * 1000 ? cache.getCopy("carburants:prix", EARLY_SECONDS, load, (v) => v.lu) : got;
 }

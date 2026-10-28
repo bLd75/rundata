@@ -225,6 +225,19 @@ export class Cache {
   }
 
   /**
+   * As `get`, for a copy a collector wrote in the Worker's KV with the time it read its source (`lu`: carburants:prix,
+   * irve:etat, eau:ile, the prefecture's releases): the answer's freshness (lectures.ts) is that time, the data's, not
+   * the time this store was read, which may be hours later when the collector stopped. What is returned is unchanged.
+   */
+  async getCopy<T>(key: string, freshSeconds: number, load: () => Promise<T>, lu: (value: T) => string | undefined): Promise<Cached<T>> {
+    const hit = await this.store.get(key, this.now() - freshSeconds * 1000);
+    const c = await this.serve(key, hit, freshSeconds, load, (e) => this.store.put(key, e));
+    const at = Date.parse(lu(c.value) ?? "");
+    this.noted(key, freshSeconds, Number.isNaN(at) ? c : { ...c, fetchedAt: new Date(Math.min(at, c.fetchedAt.getTime())) });
+    return c;
+  }
+
+  /**
    * As `get`, for a source read whole for the island under one key, with the durable store (the Worker's KV), which
    * every data center reads, behind memory and the data center's cache: what is read goes there, and a failed refresh
    * (`echec`) too. An isolate or a data center that has not read it yet (a scheduled event, a question) takes the copy

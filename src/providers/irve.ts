@@ -152,12 +152,12 @@ export function configure(read: (() => Promise<Live | null>) | undefined) {
 }
 
 export async function live(cache: Cache) {
-  return cache.get("irve:etat", LIVE_SECONDS, async () => {
+  return cache.getCopy("irve:etat", LIVE_SECONDS, async () => {
     if (reader) {
       const v = await reader();
       if (!v?.points) throw new Error("état des bornes absent du stockage");
       return v;
     }
     return parseLive(await getText(SOURCE.id, LIVE_URL, 60_000));
-  });
+  }, (v) => v.lu);
 }
