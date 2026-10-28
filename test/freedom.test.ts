@@ -46,7 +46,7 @@ describe("Freedom, linked to its home page", () => {
     const rows: { media: string; lien: string; lien_accueil?: string }[] = JSON.parse((await actualites(cache(), undefined, undefined, undefined, NOW)).content[0].text).infos;
     const freedom = rows.filter((r) => r.media === "Freedom");
     expect(freedom.length).toBeGreaterThan(0);
-    expect(freedom.every((r) => r.lien === HOME && r.lien_accueil === "Freedom n'autorise qu'un lien vers son accueil\u00a0; l'article y est sous ce titre")).toBe(true);
+    expect(freedom.every((r) => r.lien === HOME && r.lien_accueil === "Ce lien mène à l'accueil de Freedom, comme le prévoient ses conditions de reprise\u00a0; l'article y est sous ce titre")).toBe(true);
     expect(rows.filter((r) => r.media !== "Freedom").every((r) => r.lien_accueil === undefined)).toBe(true);
   });
 
