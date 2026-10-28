@@ -86,9 +86,10 @@ export const SHARED: Shared[] = [
   // The news of the media and the prefecture, every 5 minutes, in every event: the tool actualites and /actualites read
   // a data center's own copy, read at a question only, which was an hour and a half old where no one had asked since
   // (28 October 2026, the fire at Cambaie). Its cold cost: the six media, the prefecture and Imaz Press's two live
-  // pages, as the event's logs count them (medias_locaux 9), plus one. Its CPU: parsing them, 132 ms the first time in
-  // Node and 25 to 37 ms after, rounded up. Before /actualites's copy, which embeds it.
-  { key: actu.KEY, build: (_cache, now) => actu.lire(now), every: 5, cold: 10, cpu: 140, offset: 0, before: ["web:actualites"] },
+  // pages, as the event's logs count them (medias_locaux 9), and the copy before it (the prefecture's list is read one
+  // event in three, providers/actualites.ts, and kept from that copy in between), plus one. Its CPU: parsing them, 132
+  // ms the first time in Node and 25 to 37 ms after, rounded up. Before /actualites's copy, which embeds it.
+  { key: actu.KEY, build: async (cache, now) => actu.lire(now, (await cache.peek<actu.Fil>(actu.KEY).catch(() => undefined))?.value), every: 5, cold: 11, cpu: 140, offset: 0, before: ["web:actualites"] },
   { key: "web:crues", build: buildCrues, every: (last) => (floodRaised(last as CruesAnswer | undefined).length ? 5 : 15), cold: 10, cpu: 50, range: { usual: 15, shortest: 5 }, offset: 10, alongside: true },
   { key: "web:actualites", build: buildActualites, every: 30, cold: 10, cpu: 190, offset: 10 },
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160, offset: 5 },
