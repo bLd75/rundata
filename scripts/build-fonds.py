@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "public/fonds"
 MANIFEST = ROOT / "src/web/fonds.json"
 # The pictures of src/web/fonds.ts's FONDS, by the name of their PNG.
-NAMES = ["fond-meteo-cote-hauts", "randonneur-maido", "trafic-route-littoral", "evenements-kiosque", "mer-lagon-ermitage",
+NAMES = ["meteo-alizes-est-ouest", "randonneur-maido", "trafic-route-littoral", "evenements-kiosque", "mer-lagon-ermitage",
          "historique-abri-meteo", "enfants-aire-de-jeux-haut", "communes-ville-creole", "volcan-repos-bellecombe",
          "cyclone-saison-ciel", "crues-radier-ravine", "air-cote-ouest", "bornes-parking-palmiers", "defibrillateur-mairie",
          "calendrier-lever-est", "electricite-barrage-toits", "sport-stade-montagnes", "fond-secheresse-ravine",
