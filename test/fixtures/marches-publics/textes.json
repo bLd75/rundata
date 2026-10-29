@@ -1,0 +1,42 @@
+[
+ {
+  "idweb": "26-104904",
+  "donnees": "{\"EFORMS\": {\"ContractNotice\": {\"ext:UBLExtensions\": {\"ext:UBLExtension\": {\"ext:ExtensionContent\": {\"efext:EformsExtension\": {\"efac:Organizations\": {\"efac:Organization\": [{\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0001\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Saint-Joseph\", \"cbc:PostalZone\": \"97480\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0002\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Saint-Denis Cedex\", \"cbc:PostalZone\": \"97404\"}}}]}}}}}, \"cac:ContractingParty\": {\"cac:Party\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}}}, \"cac:ProcurementProject\": {\"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CityName\": \"Saint-Joseph\", \"cbc:PostalZone\": \"97480\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRY40\"}}}}, \"cac:ProcurementProjectLot\": {\"cac:ProcurementProject\": {\"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CityName\": \"Saint-Joseph\", \"cbc:PostalZone\": \"97480\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRY40\"}}}}}}}}"
+ },
+ {
+  "idweb": "26-105149",
+  "donnees": "{\"FNSimple\": {\"organisme\": {\"ville\": \"Saint-Joseph\", \"cp\": \"97480\"}, \"initial\": {\"natureMarche\": {\"lieuExecution\": \"Saint-Joseph (Ile de la Réunion)\"}}}}"
+ },
+ {
+  "idweb": "26-105156",
+  "donnees": "{\"FNSimple\": {\"organisme\": {\"ville\": \"Ste clotilde\", \"cp\": \"97490\"}, \"initial\": {\"natureMarche\": {\"lieuExecution\": \"Ile de la Réunion\"}}}}"
+ },
+ {
+  "idweb": "26-101683",
+  "donnees": "{\"FNSimple\": {\"organisme\": {\"ville\": \"LA TRINITE\", \"cp\": \"97220\"}, \"initial\": {\"natureMarche\": {\"lieuExecution\": \"Mairie et bâtiments annexes\"}}}}"
+ },
+ {
+  "idweb": "26-101552",
+  "donnees": "{\"FNSimple\": {\"organisme\": {\"ville\": \"MAMOUDZOU\", \"cp\": \"97600\"}, \"initial\": {\"natureMarche\": {\"lieuExecution\": \"Mayotte\"}}}}"
+ },
+ {
+  "idweb": "26-103764",
+  "donnees": "{\"EFORMS\": {\"ContractNotice\": {\"ext:UBLExtensions\": {\"ext:UBLExtension\": {\"ext:ExtensionContent\": {\"efext:EformsExtension\": {\"efac:Organizations\": {\"efac:Organization\": [{\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0001\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Seyssinet-Pariset\", \"cbc:PostalZone\": \"38170\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0002\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Saint-Paul\", \"cbc:PostalZone\": \"97864\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0003\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Saint-Denis de la Réunion\", \"cbc:PostalZone\": \"97488\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0004\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Paris\", \"cbc:PostalZone\": \"75911\"}}}]}}}}}, \"cac:ContractingParty\": {\"cac:Party\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0002\"}}}}, \"cac:ProcurementProject\": {\"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRY40\"}}}}, \"cac:ProcurementProjectLot\": {\"cac:ProcurementProject\": {\"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CityName\": \"Saint-Paul Cedex\", \"cbc:PostalZone\": \"97864\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRY40\"}}}}}}}}"
+ },
+ {
+  "idweb": "26-95112",
+  "donnees": "{\"EFORMS\": {\"ContractNotice\": {\"ext:UBLExtensions\": {\"ext:UBLExtension\": {\"ext:ExtensionContent\": {\"efext:EformsExtension\": {\"efac:Organizations\": {\"efac:Organization\": [{\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0001\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Seyssinet-Pariset\", \"cbc:PostalZone\": \"38170\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0002\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Saint-Paul\", \"cbc:PostalZone\": \"97864\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0003\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Saint-Denis de la Réunion\", \"cbc:PostalZone\": \"97488\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0004\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Paris\", \"cbc:PostalZone\": \"75911\"}}}]}}}}}, \"cac:ContractingParty\": {\"cac:Party\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0002\"}}}}, \"cac:ProcurementProject\": {\"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRY40\"}}}}, \"cac:ProcurementProjectLot\": {\"cac:ProcurementProject\": {\"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CityName\": \"Saint-Paul Cedex\", \"cbc:PostalZone\": \"97864\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRY40\"}}}}}}}}"
+ },
+ {
+  "idweb": "26-101303",
+  "donnees": "{\"FNSimple\": {\"organisme\": {\"ville\": \"Le Port Cedex\", \"cp\": \"97829\"}, \"initial\": {\"natureMarche\": {\"lieuExecution\": \"Territoire de la côte ouest de l'ile de la Réunion\"}}}}"
+ },
+ {
+  "idweb": "26-99414",
+  "donnees": "{\"EFORMS\": {\"ContractNotice\": {\"ext:UBLExtensions\": {\"ext:UBLExtension\": {\"ext:ExtensionContent\": {\"efext:EformsExtension\": {\"efac:Organizations\": {\"efac:Organization\": [{\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Saint-Denis\", \"cbc:PostalZone\": \"97476\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0002\"}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Saint-Denis\", \"cbc:PostalZone\": \"97400\"}}}]}}}}}, \"cac:ContractingParty\": {\"cac:Party\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}}}, \"cac:ProcurementProject\": {\"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CityName\": \"Europa\", \"cbc:PostalZone\": \"98400\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRZZZ\"}}}}, \"cac:ProcurementProjectLot\": {\"cac:ProcurementProject\": {\"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CityName\": \"Europa\", \"cbc:PostalZone\": \"98400\", \"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRZZZ\"}}}}}}}}"
+ },
+ {
+  "idweb": "26-104939",
+  "donnees": "{\"EFORMS\": {\"ContractNotice\": {\"ext:UBLExtensions\": {\"ext:UBLExtension\": {\"ext:ExtensionContent\": {\"efext:EformsExtension\": {\"efac:Organizations\": {\"efac:Organization\": [{\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0001\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"Saint-Denis\", \"cbc:PostalZone\": \"97801\"}}}, {\"efac:Company\": {\"cac:PartyIdentification\": {\"cbc:ID\": {\"@schemeName\": \"organization\", \"#text\": \"ORG-0002\"}}, \"cac:PostalAddress\": {\"cbc:CityName\": \"SAINT DENIS\", \"cbc:PostalZone\": \"97404\"}}}]}}}}}, \"cac:ContractingParty\": {\"cac:Party\": {\"cac:PartyIdentification\": {\"cbc:ID\": \"ORG-0001\"}}}, \"cac:ProcurementProject\": {\"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRY40\"}}}}, \"cac:ProcurementProjectLot\": {\"cac:ProcurementProject\": {\"cac:RealizedLocation\": {\"cac:Address\": {\"cbc:CountrySubentityCode\": {\"@listName\": \"nuts\", \"#text\": \"FRY40\"}}}}}}}}"
+ }
+]

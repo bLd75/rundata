@@ -141,6 +141,7 @@ export const FICHES: Record<string, Fiche> = {
   altervelo: { famille: "licence_ouverte", producteurs: ["CIVIS"] },
   // The offers' employers are many and change every day: the site's publisher is named.
   csp_offres: { famille: "licence_ouverte", producteurs: ["DGAFP"] },
+  boamp_api: { famille: "licence_ouverte", producteurs: ["DILA"] },
   // The operators of La Réunion's stations, from the copy of the national base bundled with the site (irve/stations.json).
   irve: { famille: "licence_ouverte", producteurs: operateurs() },
   onf_sentiers: { famille: "information_publique", producteurs: ["ONF"] },

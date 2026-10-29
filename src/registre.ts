@@ -23,6 +23,7 @@ import { KINDS as CANDHIS_KINDS, REFRESH_EVERY as CANDHIS_EVERY, REFRESH_OFFSET 
 import { IMAGE_OFFSET as CMRS_IMAGE_OFFSET, LISTE_OFFSET as CMRS_LISTE_OFFSET, REFRESH_EVERY as CMRS_EVERY } from "./providers/cmrs-carte.js";
 import { REFRESH_EVERY as AIR_EVERY, REFRESH_OFFSET as AIR_OFFSET } from "./providers/air-mesures.js";
 import { REFRESH_EVERY as CAPTEURS_EVERY, REFRESH_OFFSET as CAPTEURS_OFFSET } from "./providers/capteurs.js";
+import { REFRESH_EVERY as MARCHES_EVERY, REFRESH_OFFSET as MARCHES_OFFSET, TEXTES_OFFSET as MARCHES_TEXTES_OFFSET } from "./providers/marches-publics.js";
 import { EVENEMENT_MINUTES as EMPLOI_FICHE_EVERY, REFRESH_EVERY as EMPLOI_EVERY, REFRESH_OFFSET as EMPLOI_OFFSET } from "./providers/emploi.js";
 import { REFRESH_EVERY as IRVE_EVERY, REFRESH_OFFSET as IRVE_OFFSET } from "./providers/irve.js";
 import { SHARED, SHARED_AFTER, type Shared } from "./web/partagees.js";
@@ -345,6 +346,30 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/emploi.ts"],
     basis: "estimé",
   },
+  // The copy read from KV, the list of the open notices (one request, about 80 Ko), the copy written when it changed.
+  {
+    id: "marches-publics:liste",
+    trigger: "planifiée",
+    what: "marchés publics : la liste des avis de marché ouverts publiés au BOAMP pour La Réunion, écrite dans KV quand elle change",
+    every: MARCHES_EVERY,
+    offset: MARCHES_OFFSET,
+    run: { subrequests: 3, kvReads: 1, kvWrites: 1, cpuMs: 10 },
+    from: ["src/providers/marches-publics.ts"],
+    basis: "estimé",
+  },
+  // Five minutes later, only with new notices: the copy read from KV, their full texts (one request, 35 Ko each, 0 to 2
+  // most hours; 3,8 Mo for the 124 of 29/10/2026 at the first read), the copy written. CPU measured in Node on
+  // 29/10/2026: 3 ms a notice (234 to 438 ms for 100), so 550 ms at the first read, a few ms an hour after.
+  {
+    id: "marches-publics:textes",
+    trigger: "planifiée",
+    what: "marchés publics : le texte des nouveaux avis, pour savoir s'ils sont de l'île et leur commune, écrit dans KV",
+    every: MARCHES_EVERY,
+    offset: MARCHES_TEXTES_OFFSET,
+    run: { subrequests: 3, kvReads: 1, kvWrites: 1, cpuMs: 550, memoryMb: 25 },
+    from: ["src/providers/marches-publics.ts"],
+    basis: "estimé",
+  },
   // Only with the Cerema's key. The state read from KV, one getCampListeTR request per type of active buoy (at most
   // the three types; one when the island's buoys are all of one type), the state written. Every 30 days, and the first
   // time, the list of the active buoys besides: one request per type, three more subrequests in that run.
@@ -471,6 +496,9 @@ const DOMAIN_PAGES: Record<string, Page> = {
   // The page's copy, the store's copy of the offers (KV, written each hour by the scheduled event) and the header's
   // reads, as /eau: no read of the site on a view.
   "/emploi": { subrequests: 11, cpuMs: 80, from: ["src/tools/emploi.ts"], basis: "code" },
+  // The page's copy, the store's copy of the notices (KV, written each hour by the scheduled event) and the header's
+  // reads, as /emploi: no read of the BOAMP on a view.
+  "/marches-publics": { subrequests: 11, cpuMs: 60, from: ["src/providers/marches-publics.ts"], basis: "code" },
 };
 
 /** The other pages that read sources. */

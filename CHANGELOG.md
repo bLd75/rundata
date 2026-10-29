@@ -7,6 +7,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 ## Jeudi 29 octobre 2026
 
 - Antennes : la carte des antennes mobiles (Orange, SFR Réunion, Free, Zeop, 2G à 5G) et des émetteurs radio et TV de l'île, d'après l'ANFR.
+- Marchés publics : les avis de marché ouverts à La Réunion, lus chaque heure au BOAMP, avec la date limite et le lien vers l'avis.
 - Emploi public : les offres de l'État, des collectivités et des hôpitaux à La Réunion, publiées sur Choisir le service public.
 
 ## Mercredi 28 octobre 2026

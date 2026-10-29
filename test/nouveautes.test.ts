@@ -15,7 +15,7 @@ describe("the changes, said once", () => {
     for (const n of NOUVEAUTES) {
       expect(n.date).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+04:00$/);
       expect(n.texte.length, n.texte).toBeLessThanOrEqual(140);
-      expect(n.texte).not.toMatch(/quota|limite|sous-requête|cloudflare|staging|tailnet|NAS\b/i);
+      expect(n.texte).not.toMatch(/quota|(?<!date )limite|sous-requête|cloudflare|staging|tailnet|NAS\b/i);
     }
   });
 

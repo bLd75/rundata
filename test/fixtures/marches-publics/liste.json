@@ -1,0 +1,169 @@
+[
+ {
+  "idweb": "26-104904",
+  "objet": "Maintenance des systèmes de climatisation des bâtiments – année 2027 (Marché n° 26AO017)",
+  "nomacheteur": "Commune de SaintJoseph",
+  "dateparution": "2026-10-29",
+  "datelimitereponse": "2026-12-01T14:00:00+00:00",
+  "type_marche": [
+   "SERVICES"
+  ],
+  "code_departement": [
+   "974"
+  ],
+  "etat": "INITIAL",
+  "annonce_lie": null,
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-104904"
+ },
+ {
+  "idweb": "26-105149",
+  "objet": "Opération : Réhabilitation d'une friche urbaine en coeur de ville de Saint-Joseph Phase n°1 Démolition phase n°2 Reconstruction  (marché n° 26PA009)",
+  "nomacheteur": "COMMUNE DE SAINT-JOSEPH - Service de la Commande Publique",
+  "dateparution": "2026-10-29",
+  "datelimitereponse": "2026-11-30T16:00:00+00:00",
+  "type_marche": [
+   "TRAVAUX"
+  ],
+  "code_departement": [
+   "974"
+  ],
+  "etat": "INITIAL",
+  "annonce_lie": null,
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-105149"
+ },
+ {
+  "idweb": "26-105156",
+  "objet": "Acquisition de matériels informatiques pour le SMPRR",
+  "nomacheteur": "Syndicat Mixte Parc Routier de la Réunion",
+  "dateparution": "2026-10-29",
+  "datelimitereponse": "2026-11-19T12:00:00+00:00",
+  "type_marche": [
+   "FOURNITURES"
+  ],
+  "code_departement": [
+   "974"
+  ],
+  "etat": "INITIAL",
+  "annonce_lie": null,
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-105156"
+ },
+ {
+  "idweb": "26-101683",
+  "objet": "Marché relatif à la protection des personnes et des biens, à la sécurité incendie",
+  "nomacheteur": "Ville de la Trinité",
+  "dateparution": "2026-10-19",
+  "datelimitereponse": "2026-11-10T12:00:00+00:00",
+  "type_marche": [
+   "SERVICES"
+  ],
+  "code_departement": [
+   "75",
+   "971",
+   "972",
+   "973",
+   "974"
+  ],
+  "etat": "INITIAL",
+  "annonce_lie": null,
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-101683"
+ },
+ {
+  "idweb": "26-101552",
+  "objet": "Travaux de réhabilitation post chido du bâtiment B et des clôtures du Rectorat de Mayotte",
+  "nomacheteur": "RECTORAT DE MAYOTTE",
+  "dateparution": "2026-10-19",
+  "datelimitereponse": "2026-11-04T10:00:00+00:00",
+  "type_marche": [
+   "TRAVAUX"
+  ],
+  "code_departement": [
+   "976",
+   "974"
+  ],
+  "etat": "INITIAL",
+  "annonce_lie": null,
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-101552"
+ },
+ {
+  "idweb": "26-103764",
+  "objet": "Accord-cadre mono-attributaire pour la maintenance et la collecte des droits de stationnement automobile des horodateurs de la commune de Saint-Paul",
+  "nomacheteur": "Ville de Saint-Paul",
+  "dateparution": "2026-10-27",
+  "datelimitereponse": "2026-11-17T08:00:00+00:00",
+  "type_marche": [
+   "SERVICES"
+  ],
+  "code_departement": [
+   "974"
+  ],
+  "etat": "RECTIFICATIF",
+  "annonce_lie": [
+   "26-95112"
+  ],
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-103764"
+ },
+ {
+  "idweb": "26-95112",
+  "objet": "Accord-cadre mono-attributaire pour la maintenance et la collecte des droits de stationnement automobile des horodateurs de la commune de Saint-Paul",
+  "nomacheteur": "Ville de Saint-Paul",
+  "dateparution": "2026-10-04",
+  "datelimitereponse": "2026-11-10T08:00:00+00:00",
+  "type_marche": [
+   "SERVICES"
+  ],
+  "code_departement": [
+   "974"
+  ],
+  "etat": "INITIAL",
+  "annonce_lie": null,
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-95112"
+ },
+ {
+  "idweb": "26-101303",
+  "objet": "Entretien des espaces verts",
+  "nomacheteur": "SAEML Cyclea",
+  "dateparution": "2026-10-19",
+  "datelimitereponse": "2026-11-23T12:00:00+00:00",
+  "type_marche": [
+   "SERVICES"
+  ],
+  "code_departement": [
+   "974"
+  ],
+  "etat": "INITIAL",
+  "annonce_lie": null,
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-101303"
+ },
+ {
+  "idweb": "26-99414",
+  "objet": "Iles Eparses – Europa (984) - Création d’un mouillage sécurisé - Marché d’assistance à maîtrise d’ouvrage (AMOA) pour des travaux d’infrastructures maritimes",
+  "nomacheteur": "DID SDS",
+  "dateparution": "2026-10-15",
+  "datelimitereponse": "2026-11-16T12:00:00+00:00",
+  "type_marche": [
+   "SERVICES"
+  ],
+  "code_departement": [
+   "974"
+  ],
+  "etat": "INITIAL",
+  "annonce_lie": null,
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-99414"
+ },
+ {
+  "idweb": "26-104939",
+  "objet": "Accord cadre d’assistance à maîtrise d’ouvrage dans les domaines techniques, réglementaires et d’études liées à la réalisation de projets d’Infrastructures  de Déplacements\nLot 4 : Inventaires envi...",
+  "nomacheteur": "CONSEIL REGIONAL DE LA REUNION",
+  "dateparution": "2026-10-29",
+  "datelimitereponse": "2026-12-03T08:00:00+00:00",
+  "type_marche": [
+   "SERVICES"
+  ],
+  "code_departement": [
+   "974"
+  ],
+  "etat": "INITIAL",
+  "annonce_lie": null,
+  "url_avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-104939"
+ }
+]

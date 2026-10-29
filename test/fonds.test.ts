@@ -20,6 +20,7 @@ import {
 } from "../src/web/domains.js";
 import { decheteriesPage } from "../src/web/decheteries.js";
 import { emploiPage } from "../src/web/emploi.js";
+import { marchesPage } from "../src/web/marches-publics.js";
 import { ecolesPage } from "../src/web/ecoles.js";
 import { enfantsPage } from "../src/web/enfants.js";
 import { concertsPage, weekendPage } from "../src/web/evenements.js";
@@ -56,6 +57,7 @@ const PAGES: Record<string, (alerte?: Alerte) => string> = {
   "/evenements": (a) => agendaPage(O, null, NOW, a),
   "/mer": (a) => seaPage(O, null, NOW, a),
   "/emploi": (a) => emploiPage(O, null, NOW, a),
+  "/marches-publics": (a) => marchesPage(O, null, NOW, a),
   "/historique": (a) => historiquePage(O, null, NOW, a),
   "/volcan": (a) => volcanPage(O, null, NOW, a),
   "/cyclones": (a) => cyclonesPage(O, at(QUIET_CYCLONES), NOW, a),

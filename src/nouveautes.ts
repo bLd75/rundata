@@ -57,6 +57,7 @@ export const OUTILS: Outil[] = [
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
   { date: "2026-10-29T15:25:00+04:00", texte: "Antennes\u00a0: la carte des antennes mobiles (Orange, SFR Réunion, Free, Zeop, 2G à\u00a05G) et des émetteurs radio et TV de l'île, d'après l'ANFR." },
+  { date: "2026-10-29T15:11:00+04:00", texte: "Marchés publics\u00a0: les avis de marché ouverts à La Réunion, lus chaque heure au BOAMP, avec la date limite et le lien vers l'avis." },
   { date: "2026-10-29T13:05:00+04:00", texte: "Emploi public\u00a0: les offres de l'État, des collectivités et des hôpitaux à La Réunion, publiées sur Choisir le service public." },
   { date: "2026-10-28T16:20:00+04:00", texte: "Actualités\u00a0: quand le site de la préfecture ne répond pas, ses derniers communiqués lus restent affichés, avec l'heure de leur lecture." },
   { date: "2026-10-28T14:53:00+04:00", texte: "Actualités\u00a0: Cambaie (Saint-Paul) reconnu comme lieu\u00a0; un lieu absent de notre répertoire donne les articles qui le nomment." },

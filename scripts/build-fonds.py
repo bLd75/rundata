@@ -29,7 +29,7 @@ NAMES = ["meteo-alizes-est-ouest", "randonneur-maido", "trafic-route-littoral", 
          "associations-varangue", "coupures-eau-chateau", "eau-bassin-ravine", "velos-front-de-mer", "carburants-station-hauts",
          "collecte-rue-ouest", "fond-feux-hauts", "ia-varangue-haut", "ia-varangue", "car-jaune-haut-sans-embleme",
          "decheterie-ouest", "baignade-lagon-sud", "sentier-foret-hauts", "kit-cyclone-varangue",
-         "emploi-metiers-reunion"]
+         "emploi-metiers-reunion", "marches-chantier-public"]
 WIDTHS = [480, 1024]
 KEEP = 0.55  # the upper part kept
 BLUR = {480: 1.5, 1024: 0.5}  # pixels, by width
