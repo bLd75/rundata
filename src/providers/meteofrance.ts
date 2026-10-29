@@ -121,26 +121,51 @@ async function slot(b: Bundle, start: number, now: number, s: Session): Promise<
 /**
  * Each station's rain hour by hour. `end` is the end of the newest hour, as Météo-France dates its hourly values:
  * `rr[id][k]` is the rain from end − (k + 1) h to end − k h, null when the station did not report it.
+ * `mesures[id]`: the rest of each hour, same order (the value at the hour's end, the wind averaged over its last 10
+ * minutes, the strongest gust within it); absent from a copy saved before it was kept.
  */
 export interface HourlyRain {
   end: string;
   rr: Record<string, (number | null)[]>;
+  mesures?: Record<string, HourlyMeasures>;
 }
 
+/** One station's hours, newest first: °C, %, degrees the wind comes from, km/h, km/h, hPa; null when not reported. */
+export interface HourlyMeasures {
+  t: (number | null)[];
+  u: (number | null)[];
+  dd: (number | null)[];
+  ff: (number | null)[];
+  raf: (number | null)[];
+  pmer: (number | null)[];
+}
+
+// The columns kept besides the rain, and how each becomes the unit of HourlyMeasures.
+const HOURLY_MEASURES: [keyof HourlyMeasures, (v: number) => number][] = [
+  ["t", celsius], ["u", Math.round], ["dd", Math.round], ["ff", kmh], ["raf", kmh], ["pmer", (pa) => r1(pa / 100)],
+];
+
 /**
- * The stations' hourly rain (rr1) over the HOURS_KEPT hours up to the newest one in the package, at most `newest`.
+ * The stations' hourly rain (rr1) and measures over the HOURS_KEPT hours up to the newest one in the package, at most
+ * `newest`.
  */
 export function parseHourly(csv: string, newest: number): HourlyRain {
   let end = Math.floor(newest / HOUR_MS) * HOUR_MS;
   while (end > newest - 6 * HOUR_MS && !csv.includes(`;${iso(end)};`)) end -= HOUR_MS;
   const hours = new Map(Array.from({ length: HOURS_KEPT }, (_, k) => [iso(end - k * HOUR_MS), k]));
   const rr: HourlyRain["rr"] = {};
-  scanHours(csv, hours, ["rr1"], (station, k, [value]) => {
-    rr[station] ??= Array(HOURS_KEPT).fill(null);
+  const mesures: Record<string, HourlyMeasures> = {};
+  const none = () => Array<number | null>(HOURS_KEPT).fill(null);
+  scanHours(csv, hours, ["rr1", ...HOURLY_MEASURES.map(([c]) => c)], (station, k, [value, ...rest]) => {
+    rr[station] ??= none();
     // The two airports write -0.1 now and then: no rain counted.
     if (value) rr[station][k] = Math.max(0, Number(value));
+    const m = (mesures[station] ??= { t: none(), u: none(), dd: none(), ff: none(), raf: none(), pmer: none() });
+    HOURLY_MEASURES.forEach(([c, unit], i) => {
+      if (rest[i] && Number.isFinite(Number(rest[i]))) m[c][k] = unit(Number(rest[i]));
+    });
   });
-  return { end: iso(end), rr };
+  return { end: iso(end), rr, mesures };
 }
 
 /**
@@ -164,7 +189,9 @@ function scanHours(csv: string, hours: Map<string, number>, cols: string[], each
       for (let n = at.length; n <= last; n++) at.push(csv.indexOf(";", at[n - 1]) + 1);
       const station = csv.slice(at[id], at[id + 1] - 1);
       if (station.startsWith("974")) {
-        each(station, k, wanted.map((c) => (c >= 0 && at[c + 1] > 0 && at[c + 1] <= to + 1 ? csv.slice(at[c], at[c + 1] - 1) : "")));
+        // The line's last field has no ";" after it: it ends with the line.
+        const end = (c: number) => (at[c + 1] > 0 && at[c + 1] <= to + 1 ? at[c + 1] - 1 : c === head.length - 1 ? to : -1);
+        each(station, k, wanted.map((c) => (c >= 0 && end(c) >= 0 ? csv.slice(at[c], end(c)).trim() : "")));
       }
     }
     from = to + 1;
@@ -221,6 +248,36 @@ export interface RecentRain {
   hourly: HourlyRain;
   /** The station's slots after `hourly.end` that are there, newest first. */
   slots(id: string): { time: string; rr: number | null }[];
+}
+
+/** One hour of a station: `fin` ends it, the measures are null when not reported or not yet kept. */
+export interface StationHour {
+  fin: string;
+  rr: number | null;
+  t: number | null;
+  u: number | null;
+  dd: number | null;
+  ff: number | null;
+  raf: number | null;
+  pmer: number | null;
+}
+
+/** A station's kept hours, newest first; empty when the package has none of it. */
+export function stationHours(hourly: HourlyRain, id: string): StationHour[] {
+  const rr = hourly.rr[id];
+  if (!rr) return [];
+  const m = hourly.mesures?.[id];
+  const end = Date.parse(hourly.end);
+  return rr.map((r, k) => ({
+    fin: iso(end - k * HOUR_MS),
+    rr: r,
+    t: m?.t[k] ?? null,
+    u: m?.u[k] ?? null,
+    dd: m?.dd[k] ?? null,
+    ff: m?.ff[k] ?? null,
+    raf: m?.raf[k] ?? null,
+    pmer: m?.pmer[k] ?? null,
+  }));
 }
 
 /** Undefined when the hourly package cannot be read. Call after `observations`, whose bundle it reads again without I/O. */
