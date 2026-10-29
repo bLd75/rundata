@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { HomeData, StationNow } from "../src/web/data.js";
 import { esc, project } from "../src/web/map.js";
-import { ALT_PATH, communeOf, METEO_SCRIPT, rainPill, stationsMap, ventText, windPill } from "../src/web/meteo-carte.js";
+import { ALT_PATH, communeOf, landBreeze, METEO_SCRIPT, rainPill, stationsMap, ventText, windPill } from "../src/web/meteo-carte.js";
 import { CSS, meteoPage, stationId } from "../src/web/pages.js";
 
 const NOW = new Date("2026-10-22T05:30:00Z");
@@ -102,6 +102,57 @@ describe("the map of every station on /meteo", () => {
     const calm = stationsMap([BRAS_SEC, PLUVIO]);
     expect(calm).not.toContain(`id="wxl-v"`);
     expect(calm).not.toContain("data-vent");
+  });
+
+  it("leaves a wind without its direction out of where the air goes, and keeps a calm in", () => {
+    const sans = st({ nom: "Sans direction", lon: 55.4, lat: -21.0, vent: 14 });
+    const calme = st({ nom: "Calme", lon: 55.6, lat: -21.3, vent: 0 });
+    const html = stationsMap([GILLOT, sans, calme]);
+    const data = JSON.parse(html.match(/data-vent="([^"]+)"/)![1].replaceAll("&quot;", '"')) as number[][];
+    expect(data.map((d) => d.slice(0, 2))).toEqual([project(GILLOT.lon, GILLOT.lat), project(calme.lon, calme.lat)]);
+    expect(data[1].slice(2)).toEqual([0, 0]);
+    // Still a measure of the map and of its legend.
+    expect(html).toContain("3 anémomètres, vent moyen");
+    expect(html).toMatch(/<g class="sh l-v wv"><rect [^>]*\/><circle [^>]*\/><text [^>]*>14<\/text><\/g>/);
+    // No direction at all: the measures without the movement.
+    const seul = stationsMap([sans]);
+    expect(seul).toContain(`id="wxl-v"`);
+    expect(seul).not.toContain("data-vent");
+  });
+
+  describe("the land breeze, at night", () => {
+    // 23:00 in La Réunion; 09:18 the morning before, by day.
+    const NUIT = "2026-10-22T19:00:00Z";
+    const cote = (nom: string, lon: number, lat: number, direction: number, o: Partial<StationNow> = {}) => st({ nom, lon, lat, altitude_m: 10, vent: 8, direction, time: NUIT, ...o });
+    // Each coast's wind goes to its sea: the north's from 160°, the east's from 230°, the south's from 10°; the west's, from 40°, along its coast.
+    const nuit = [cote("Nord", 55.53, -20.89, 160), cote("Est", 55.71, -21.03, 230), cote("Sud", 55.42, -21.32, 10), cote("Ouest", 55.29, -20.94, 40)];
+    const breeze = " La nuit, l'air descend des pentes vers la mer (brise de terre). ";
+
+    it("is said when the coast's winds go to the sea on two sides of the island at least", () => {
+      expect(landBreeze(nuit)).toBe(true);
+      expect(stationsMap(nuit)).toContain(`(un vent d'est vient de l'est).${breeze}Entre les stations`);
+      expect(landBreeze(nuit.slice(1, 3))).toBe(true);
+    });
+
+    it("is not said by day, nor on one side alone: the trade wind blows to the western sea", () => {
+      expect(landBreeze(nuit.map((s) => ({ ...s, time: at })))).toBe(false);
+      expect(stationsMap(nuit.map((s) => ({ ...s, time: at })))).not.toContain("brise de terre");
+      // The trade wind at night, from 110°: on the east, north and south coasts it comes from the sea or along them.
+      const alize = nuit.map((s) => ({ ...s, direction: 110 }));
+      expect(landBreeze(alize)).toBe(false);
+      expect(landBreeze(nuit.slice(2))).toBe(false);
+    });
+
+    it("counts the coast's live winds only: not the heights, an old measure, a calm or a wind without its direction", () => {
+      const [n, e, s] = nuit;
+      expect(landBreeze([n, { ...e, altitude_m: 1500 }])).toBe(false);
+      expect(landBreeze([n, { ...e, stale: true }])).toBe(false);
+      expect(landBreeze([n, { ...e, vent: 0 }])).toBe(false);
+      expect(landBreeze([n, { ...e, direction: undefined }])).toBe(false);
+      // Most of a side's: one wind to the sea against two from it is not the side's.
+      expect(landBreeze([n, e, cote("Est 2", 55.7, -21.0, 70), cote("Est 3", 55.72, -21.06, 90)])).toBe(false);
+      expect(landBreeze([n, e, s, cote("Est 2", 55.7, -21.0, 70)])).toBe(true);
+    });
   });
 
   it("writes the values of the tour's stations only, the others as dots told by the bubble", () => {

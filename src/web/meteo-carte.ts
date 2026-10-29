@@ -6,6 +6,7 @@
  * and the particles, estimates, say so in their legends.
  */
 import { INSEE } from "../places/insee.js";
+import { sun } from "../providers/calendrier.js";
 import altitudes from "./altitudes.json" with { type: "json" };
 import { fr } from "../tools/format.js";
 import type { StationNow } from "./data.js";
@@ -76,6 +77,40 @@ export const ALTITUDES_CREDIT = { source: "IGN, RGE ALTI, pour les altitudes des
 /** And the radar's rain of the rain layer (web/pluie-radar.ts). */
 export const RADAR_CREDIT = { source: "Météo-France, lame d'eau radar, pour la pluie estimée", licence: "Licence Ouverte 2.0", attribution: "Météo-France" };
 
+/** The middle of the island: a coast's side and its sea are told from it. */
+const MIDDLE = { lon: 55.53, lat: -21.13 };
+/** A coast's anemometer: this high at most. */
+const COAST_M = 150;
+
+/**
+ * The land breeze: at night, the air cooled on the slopes flows down to the sea. Said when the coast's anemometers blow
+ * towards the sea on two sides of the island at least (most of a side's): by day the trade wind blows seaward too, but
+ * on the west coast only. A side is a quarter of the island seen from its middle (north, east, south, west); a coast's
+ * sea, straight away from the middle; seaward, a wind that goes within 60° of it. The night, the latest measure's,
+ * between sunset and sunrise.
+ */
+export function landBreeze(list: StationNow[]): boolean {
+  const live = list.filter((s) => !s.stale);
+  const latest = live.reduce((m, s) => (s.time > m ? s.time : m), "");
+  if (!latest) return false;
+  const t = Date.parse(latest);
+  const { lever, coucher } = sun(new Date(t + 4 * 3600_000).toISOString().slice(0, 10), MIDDLE.lon, MIDDLE.lat);
+  if (t >= lever.getTime() && t <= coucher.getTime()) return false;
+  // Seaward and all the coast's winds, by side.
+  const sides = [0, 1, 2, 3].map(() => [0, 0]);
+  const k = Math.cos((MIDDLE.lat * Math.PI) / 180);
+  for (const s of live) {
+    if (s.altitude_m > COAST_M || !s.vent || s.direction == null) continue;
+    const x = (s.lon - MIDDLE.lon) * k, y = s.lat - MIDDLE.lat, a = (s.direction * Math.PI) / 180;
+    // The wind goes the other way from where it comes: (-sin, -cos) east and north.
+    const sea = (-Math.sin(a) * x - Math.cos(a) * y) / Math.hypot(x, y) >= 0.5;
+    const side = sides[Math.round((((Math.atan2(x, y) * 180) / Math.PI + 360) % 360) / 90) % 4];
+    side[1]++;
+    if (sea) side[0]++;
+  }
+  return sides.filter(([n, all]) => n * 2 > all).length >= 2;
+}
+
 // The stations whose value the map writes: the tour of the island; the others are dots, told on hover or tap.
 const NAMED = new Set(["97418110", "97407520", "97415590", "97416463", "97417360", "97410238", "97419350", "97422440", "97424410", "97415566"]);
 
@@ -139,20 +174,22 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
   const voile = JSON.stringify(t.map((s) => [...project(s.lon, s.lat), s.altitude_m, s.temperature]));
   // A canvas rather than an image: the site's policy lets no picture be made in the page (img-src 'self').
   // The wind's data: each anemometer's place and where its wind goes, in km/h along the map's x and y (y down).
-  const vent = JSON.stringify(w.map((s) => {
-    const a = ((s.direction ?? 0) * Math.PI) / 180, v = s.direction != null ? s.vent ?? 0 : 0;
+  // A wind without its direction says nothing of where the air goes: left out (a calm is a measure, and stays).
+  const wd = w.filter((s) => s.direction != null || s.vent === 0);
+  const vent = JSON.stringify(wd.map((s) => {
+    const a = ((s.direction ?? 0) * Math.PI) / 180, v = s.vent!;
     return [...project(s.lon, s.lat), Math.round(-Math.sin(a) * v * 10) / 10, Math.round(Math.cos(a) * v * 10) / 10];
   }));
   const fo = (l: string, canvas: string) => `<foreignObject class="l-${l}" width="${W}" height="${H}" clip-path="url(#isl-clip)">${canvas}</foreignObject>`;
   const overlay = fo("t", `<canvas class="voile" data-voile="${esc(voile)}" data-alt="${esc(altPath)}" width="1" height="1"></canvas>`) +
     (nRain ? fo("p", `<div class="vt"><canvas class="voile" data-pluie="${PLUIE_RADAR}" data-alt="${esc(altPath)}" width="1" height="1"></canvas><canvas class="flux" width="1" height="1"></canvas></div>`) : "") +
-    (w.length ? fo("v", `<div class="vt"><canvas class="voile" data-vent="${esc(vent)}" data-alt="${esc(altPath)}" width="1" height="1"></canvas><canvas class="flux" width="1" height="1"></canvas></div>`) : "");
+    (wd.length ? fo("v", `<div class="vt"><canvas class="voile" data-vent="${esc(vent)}" data-alt="${esc(altPath)}" width="1" height="1"></canvas><canvas class="flux" width="1" height="1"></canvas></div>`) : "");
   const n = (k: number, one: string, many: string) => `${k} ${k > 1 ? many : one}`;
   // A tab and a legend per measure that at least one station has; the first shown without a choice.
   const layers = [
     t.length && { id: "t", tab: "Température", legend: `<span class="lgs">${thin(deg(STOPS_LO))}<i class="vgrad"></i>${thin(deg(STOPS_HI))}</span>${n(t.length, "station", "stations")}, température mesurée sous abri, la plus récente à ${hm(latest)}. Entre les stations, les couleurs sont <b>estimées selon l'altitude</b> : ce n'est pas une mesure.` },
     nRain && { id: "p", tab: hour ? "Pluie 1 h" : "Pluie 6 min", legend: `${n(nRain, "pluviomètre", "pluviomètres")}, ${hour ? "pluie de la dernière heure en mm" : "pluie des 6 dernières minutes seulement, en mm"}, la plus récente à ${hm(latest)}${hour ? "" : " : l'heure complète n'est pas encore disponible"}. Point blanc : pas de pluie mesurée. <span data-radar hidden></span>` },
-    w.length && { id: "v", tab: "Vent", legend: `<span class="lgs">0<i class="vgrad wgrad"></i>${thin("60 km/h")}</span>${n(w.length, "anémomètre", "anémomètres")}, vent moyen mesuré en km/h, le plus récent à ${hm(latest)}. La flèche montre où va le vent (un vent d'est vient de l'est). Entre les stations, le mouvement et les couleurs sont <b>estimés</b> à partir des stations voisines : ce n'est pas une mesure.` },
+    w.length && { id: "v", tab: "Vent", legend: `<span class="lgs">0<i class="vgrad wgrad"></i>${thin("60 km/h")}</span>${n(w.length, "anémomètre", "anémomètres")}, vent moyen mesuré en km/h, le plus récent à ${hm(latest)}. La flèche montre où va le vent (un vent d'est vient de l'est).${landBreeze(list) ? " La nuit, l'air descend des pentes vers la mer (brise de terre)." : ""} Entre les stations, le mouvement et les couleurs sont <b>estimés</b> à partir des stations voisines : ce n'est pas une mesure.` },
   ].filter((l): l is { id: string; tab: string; legend: string } => !!l);
   const tabs = `<div class="tabs aqtabs" role="radiogroup" aria-label="Mesure affichée sur la carte">` +
     layers.map((l, i) => `<input type="radio" name="wxl" id="wxl-${l.id}"${i ? "" : ' class="on" checked'}><label for="wxl-${l.id}">${l.tab}</label>`).join("") + `</div>`;
