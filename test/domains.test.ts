@@ -180,7 +180,7 @@ describe("commune page", () => {
     expect(tile(page, "Vélos")).toContain(`<p class="tv">6 vélos</p>`);
     expect(tile(page, "Vélos")).toContain("<li><span>ZAC Maxime Rivière</span><span><b>6</b> vélos · 4 places</span>");
     expect(tile(page, "Volcan")).toContain("Pas d'éruption");
-    expect(tile(page, "Soleil et calendrier")).toMatch(/<p class="tv">\d\dh\d\d – \d\dh\d\d<\/p>/);
+    expect(tile(page, "Soleil et calendrier")).toMatch(/<p class="tv">\d\d:\d\d–\d\d:\d\d<\/p>/);
     expect(desc(page).length).toBeLessThanOrEqual(DESCRIPTION_MAX);
     expect(jsonld(page)[0].itemListElement.map((x: { name: string }) => x.name)).toEqual(["rundata.re", "Communes", "Saint-Pierre"]);
     expect(page).not.toMatch(/waze/i);

@@ -8,6 +8,7 @@
  * event); else an indication by kind of place, always marked as rundata.re's (marketing/enfants-textes.md §3).
  */
 import { distanceKm } from "../geo.js";
+import { tranche } from "../tools/format.js";
 import { ageRange } from "../providers/agenda-mots.js";
 import type { SourceInfo } from "../types.js";
 import data from "./enfants.json" with { type: "json" };
@@ -173,13 +174,13 @@ export function nearest(lon: number, lat: number, list = LIEUX, max = 5) {
 }
 
 /**
- * The hours of the day of `now` OpenStreetMap gives, as the agenda writes them: « 9:00 – 18:00 », « 9:00 – 12:00 et
- * 13:30 – 17:00 », a range never broken across lines. Undefined when it gives none for that day.
+ * The hours of the day of `now` OpenStreetMap gives, as every page writes a span (kit.md): « 9 h–18 h », « 10 h–12 h et
+ * 13:30–17:00 ». Undefined when it gives none for that day.
  */
 export function hoursToday(l: Lieu, now: Date): string | undefined {
   const said = l.horaires_osm ? hoursOn({ horaires_osm: l.horaires_osm }, now) : undefined;
-  const time = (h: string, m?: string) => `${h}:${m ?? "00"}`;
-  return said?.replace(/de (\d+) h(?: (\d\d))? à (\d+) h(?: (\d\d))?/g, (_, h1, m1, h2, m2) => `${time(h1, m1)}${NBSP}–${NBSP}${time(h2, m2)}`);
+  const min = (h: string, m?: string) => Number(h) * 60 + Number(m ?? 0);
+  return said?.replace(/de (\d+) h(?: (\d\d))? à (\d+) h(?: (\d\d))?/g, (_, h1, m1, h2, m2) => tranche(min(h1, m1), min(h2, m2)));
 }
 export const HOURS_NOTE = typo("Les horaires viennent d'OpenStreetMap : vérifiez auprès du lieu avant de vous déplacer, surtout un jour férié.");
 

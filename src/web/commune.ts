@@ -286,11 +286,11 @@ function townHall(data: Cached<CommuneData> | null | undefined, now: Date): Live
 function sunTimes(p: PlacePage, calendrier: Cached<CalendrierAnswer> | null | undefined, now: Date): Live {
   const day = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
   const s = cal.sun(day, p.place.lon, p.place.lat, p.place.altitude_m ?? 0);
-  const t = (d: Date) => localTime(d).split(" ")[1].replace(":", "h");
+  const t = (d: Date) => localTime(d).split(" ")[1];
   // The island's calendar, without its sunrise and sunset (those of Saint-Denis).
   const c = calendrierLive(calendrier ?? null, now);
   const rest = c && !c.vide ? [c.valeur, ...c.detail.split(" · ").filter((x) => !x.startsWith("soleil"))].join(" · ") : "";
-  return { valeur: `${t(s.lever)} – ${t(s.coucher)}`, detail: `lever et coucher du soleil aujourd'hui${rest ? ` · ${rest}` : ""}` };
+  return { valeur: `${t(s.lever)}–${t(s.coucher)}`, detail: `lever et coucher du soleil aujourd'hui${rest ? ` · ${rest}` : ""}` };
 }
 
 export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = new Date(), alerte?: Alerte): string {
