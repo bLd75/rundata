@@ -58,7 +58,7 @@ describe("the antennas of the island (ANFR)", () => {
     const start = page.indexOf('<section aria-labelledby="h-habiter">');
     const habiter = page.slice(start, page.indexOf("</section>", start));
     expect(habiter).toContain(
-      '<h3>Antennes</h3><p class="tv">7</p><p class="td all">supports d\'antennes mobiles dans la commune, déclarés à l\'ANFR au 22/10/2026, aucun avec la 5G en service · Orange sur 2, SFR Réunion sur 4, Free sur 1, Zeop sur 1 · 6 supports d\'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+) · ANFR</p>',
+      '<h3>Antennes</h3><p class="tv">7</p><p class="td all">supports d\'antennes mobiles dans la commune, déclarés à l\'ANFR au 22 octobre 2026, aucun avec la 5G en service · Orange sur 2, SFR Réunion sur 4, Free sur 1, Zeop sur 1 · 6 supports d\'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+) · ANFR</p>',
     );
     expect(habiter).not.toMatch(/couvert|couverture|exposition/);
     expect(page).toContain(antennes.SOURCE_MOBILE.nom);

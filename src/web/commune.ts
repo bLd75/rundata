@@ -252,7 +252,7 @@ function antennas(p: PlacePage): Live | undefined {
   return {
     valeur: `${nombre(supports.length)}`,
     // One support may carry several operators: « Orange sur 2 », never a sum.
-    detail: `supports d'antennes mobiles dans la commune, déclarés à l'ANFR au ${antennes.date(antennes.MOBILE_DU)}, ${g5 ? `dont ${nombre(g5)} avec la 5G en service` : "aucun avec la 5G en service"}` +
+    detail: `supports d'antennes mobiles dans la commune, déclarés à l'ANFR au ${internet.dateLongue(antennes.MOBILE_DU)}, ${g5 ? `dont ${nombre(g5)} avec la 5G en service` : "aucun avec la 5G en service"}` +
       ` · ${ops.map(([o, n]) => `${o} sur ${nombre(n)}`).join(", ")}` +
       `${emetteurs.length ? ` · ${nombre(emetteurs.length)} ${emetteurs.length > 1 ? "supports" : "support"} d'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+)` : ""} · ANFR`,
     entier: true,
@@ -392,7 +392,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
 </section>
 ${habiter.length ? `<section aria-labelledby="h-habiter">
   <div class="sec-h"><h2 id="h-habiter">Habiter ${esc(aCommune(p.nom))}</h2>
-  <p>Des chiffres publiés une fois par an ou par trimestre, chacun avec sa date.</p></div>
+  <p>Des chiffres publiés une fois par an, par trimestre, par mois ou par semaine, chacun avec sa date.</p></div>
   <ul class="tiles" aria-label="Habiter ${esc(aCommune(p.nom))}">${habiter.map(tile).join("")}</ul>
 </section>
 ` : ""}<section aria-labelledby="h-ile">
