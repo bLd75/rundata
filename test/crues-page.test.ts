@@ -4,6 +4,7 @@ import { Cache, type Cached, MemoryStore } from "../src/cache.js";
 import { buildCrues, type CruesAnswer, fordNews } from "../src/web/data.js";
 import { cruesLive, cruesPage } from "../src/web/domains.js";
 import { homePage } from "../src/web/home.js";
+import { CSS } from "../src/web/pages.js";
 import { deadAnchors, doubleIds } from "./cartes.js";
 
 // Vigicrues Réunion on 23/10/2026 at 23:45 UTC (03:45 in La Réunion), as in crues.test.ts: no flood vigilance, the
@@ -48,6 +49,15 @@ describe("the /crues page", () => {
     expect(w).toContain("Larivyèr i mont Sin-Bénoi ? Gèt si https://rundata.re/crues é di amwin.");
     expect(w).toContain("La rivière monte-t-elle à Saint-Benoît ? Lis https://rundata.re/crues et dis-moi si l'eau monte.");
     expect(words(cruesPage(ORIGIN, null, NOW))).toContain("Pluies fortes ou crue : ne jamais traverser un radier submergé");
+  });
+
+  it("writes its notes on the band in the band's grey, not the white page's", async () => {
+    const { html } = await page();
+    const band = html.slice(html.indexOf('<div class="band">'), html.indexOf('<main class="wrap">'));
+    expect(band).toContain('<p class="note">Pluies fortes ou crue');
+    expect(CSS).toContain(".band .note{color:var(--on-night-muted)}");
+    // No narrower rule gives a note on the band the white page's grey back.
+    expect(CSS).not.toMatch(/\.band [^{}]*\.note[^{}]*\{[^}]*var\(--muted\)/);
   });
 
   it("folds the rivers when all are green, and gives each gauge its line, by river, with its reference floods", async () => {
