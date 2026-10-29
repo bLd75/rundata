@@ -10,6 +10,7 @@ import * as meteofranceStations from "./providers/meteofrance.js";
 import * as santeSources from "./sante/etablissements.js";
 import * as collecteTco from "./vie/collecte.js";
 import * as lieuxEnfants from "./vie/enfants.js";
+import * as antennesAnfr from "./vie/antennes.js";
 import * as internetArcep from "./vie/internet.js";
 import * as loyersAnil from "./vie/loyers.js";
 import * as marchesOsm from "./vie/marches.js";
@@ -189,7 +190,7 @@ const lieuAvecExemples = z
 export const toutesLesSources = (inactives = false) =>
   oncePerId([...weatherProviders().map((p) => p.source), ...(inactives ? [meteofranceStations.SOURCE] : []), ...(inactives || vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, airMesures.SOURCE, capteurs.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(inactives || transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, airesOnf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES).filter((x) => inactives || (autorisee(`sport:${x.id}`) && autorisee(`agenda:${x.id}`))), gdacs.SOURCE, ...agendaSources.SOURCES_LUES.filter((s) => inactives || connecteursEnLigne() || s !== CONNECTEURS_SOURCE), ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(inactives || climat.enabled() ? [climat.SOURCE] : []), ...(inactives || climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(inactives || arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(inactives || feux.enabled() ? [feux.SOURCE] : []),
     // The vie pratique's and the power cuts' (annuaire_services_publics, electricite).
-    carburantsPrix.SOURCE, radarMf.SOURCE, radarsFixes.SOURCE, courantMairies.SOURCE, tcoDecheteries.SOURCE, santeSources.FINESS, santeSources.ARS_GARDE, santeSources.SANTE_FR, collecteTco.SOURCE, ...Object.values(lieuxEnfants.SOURCES), marchesOsm.OSM, loyersAnil.SOURCE, internetArcep.SOURCE,
+    carburantsPrix.SOURCE, radarMf.SOURCE, radarsFixes.SOURCE, courantMairies.SOURCE, tcoDecheteries.SOURCE, santeSources.FINESS, santeSources.ARS_GARDE, santeSources.SANTE_FR, collecteTco.SOURCE, ...Object.values(lieuxEnfants.SOURCES), marchesOsm.OSM, loyersAnil.SOURCE, internetArcep.SOURCE, antennesAnfr.SOURCE_MOBILE, antennesAnfr.SOURCE_RADIO,
     // The public sector's job offers (emploi).
     emploiSource.SOURCE]);
 /** A source's name from its id, for one served from its last copy (fraicheur.ts). */
@@ -453,7 +454,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Ce que disent les registres officiels du bien ou du lieu de La Réunion (974) sur lequel on s'interroge, pas la position de " +
         "l'utilisateur : parcelle cadastrale (section, numéro, " +
         "surface), zone du plan local d'urbanisme (U, AU, A, N : constructible ou non), altitude du sol, prix médians des maisons, " +
-        "appartements et terrains vendus autour, et sur la voie demandée, depuis 5 ans (DVF), loyers d'annonce de la commune pour un logement type (carte des loyers de l'ANIL), part des logements et locaux de la commune éligibles à la fibre (Arcep), et risques : plan de prévention des risques (PPR inondation, " +
+        "appartements et terrains vendus autour, et sur la voie demandée, depuis 5 ans (DVF), loyers d'annonce de la commune pour un logement type (carte des loyers de l'ANIL), part des logements et locaux de la commune éligibles à la fibre (Arcep), antennes mobiles (opérateurs, 2G à 5G) et émetteurs de radio et de télévision à moins de 500 m (ANFR), et risques : plan de prévention des risques (PPR inondation, " +
         "mouvements de terrain, littoral) au point, arrêtés de catastrophe naturelle de la commune, glissements et éboulements recensés " +
         "à moins de 500 m, sismicité, radon. Pour : « cette parcelle est constructible ? », " +
         "« prix au m² des maisons à l'Hermitage ? », « quels risques à cette adresse ? ».",

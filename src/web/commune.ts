@@ -12,11 +12,12 @@ import * as mf from "../providers/vigilance.js";
 import * as sante from "../sante/etablissements.js";
 import * as enfants from "../vie/enfants.js";
 import * as dech from "../vie/decheteries.js";
+import * as antennes from "../vie/antennes.js";
 import * as internet from "../vie/internet.js";
 import * as loyers from "../vie/loyers.js";
 import { anchorOf } from "./decheteries.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
-import { de, fr } from "../tools/format.js";
+import { de, fr, nombre } from "../tools/format.js";
 import { tidesNear } from "../tools/maree.js";
 import { coastText, cyclone, cycloneLevel, highest, NONE_ISSUED, zoneLevels, zoneShort } from "../tools/vigilance.js";
 import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, DechetsAnswer, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
@@ -241,6 +242,23 @@ function connexion(p: PlacePage): Live | undefined {
   };
 }
 
+/** The commune's antenna supports (vie/antennes.ts): by operator, with 5G in service, and the radio and TV ones; never live. */
+function antennas(p: PlacePage): Live | undefined {
+  const { supports, emetteurs } = antennes.ofCommune(p.nom);
+  if (!supports.length) return undefined;
+  const g5 = supports.filter((s) => antennes.generations(s, "service").has("5")).length;
+  const ops = antennes.OPERATEURS.map((o) => [o, supports.filter((s) => s.ops[o]).length] as const).filter(([, n]) => n);
+  // Marketing's words (29/10): the ANFR's « supports », declared, never « couverture ».
+  return {
+    valeur: `${nombre(supports.length)}`,
+    // One support may carry several operators: « Orange sur 2 », never a sum.
+    detail: `supports d'antennes mobiles dans la commune, déclarés à l'ANFR au ${antennes.date(antennes.MOBILE_DU)}, ${g5 ? `dont ${nombre(g5)} avec la 5G en service` : "aucun avec la 5G en service"}` +
+      ` · ${ops.map(([o, n]) => `${o} sur ${nombre(n)}`).join(", ")}` +
+      `${emetteurs.length ? ` · ${nombre(emetteurs.length)} ${emetteurs.length > 1 ? "supports" : "support"} d'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+)` : ""} · ANFR`,
+    entier: true,
+  };
+}
+
 function townHall(data: Cached<CommuneData> | null | undefined, now: Date): Live | undefined {
   const o = data?.value.mairie;
   if (!o) return undefined;
@@ -299,6 +317,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const habiter: Tile[] = [
     ...(rents(p) ? [{ icon: "key", nom: "Loyers d'annonce", live: rents(p), foot: `<a href="${loyers.SOURCE.url}" rel="noopener">La carte des loyers de l'ANIL</a>` }] : []),
     ...(connexion(p) ? [{ icon: "wifi", nom: "Fibre", live: connexion(p), foot: `<a href="https://maconnexioninternet.arcep.fr/" rel="noopener">Votre adresse sur Ma connexion internet</a>` }] : []),
+    ...(antennas(p) ? [{ icon: "antenna", nom: "Antennes", live: antennas(p), foot: `<a href="/#assistant">Votre adresse : demandez à votre IA →</a>` }] : []),
   ];
   const island: Tile[] = [
     { icon: "volcano", nom: "Volcan", href: "/volcan", live: volcanLive(l.volcan ?? null, now) },
@@ -363,7 +382,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   <figure class="card mapcard">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
 </div>`;
 
-  const sources = [...(l.commune?.value.sources ?? []), ...(l.place?.value.meteo?.sources ?? []), ...(l.air?.value.sources ?? []), ...(rents(p) ? [{ source: loyers.SOURCE.nom, licence: loyers.SOURCE.licence, attribution: loyers.SOURCE.attribution }] : []), ...(connexion(p) ? [{ source: internet.SOURCE.nom, licence: internet.SOURCE.licence, attribution: internet.SOURCE.attribution }] : [])];
+  const sources = [...(l.commune?.value.sources ?? []), ...(l.place?.value.meteo?.sources ?? []), ...(l.air?.value.sources ?? []), ...(rents(p) ? [{ source: loyers.SOURCE.nom, licence: loyers.SOURCE.licence, attribution: loyers.SOURCE.attribution }] : []), ...(connexion(p) ? [{ source: internet.SOURCE.nom, licence: internet.SOURCE.licence, attribution: internet.SOURCE.attribution }] : []), ...(antennas(p) ? [antennes.SOURCE_MOBILE, ...(antennes.ofCommune(p.nom).emetteurs.length ? [antennes.SOURCE_RADIO] : [])].map((x) => ({ source: x.nom, licence: x.licence, attribution: x.attribution })) : [])];
   const body = `<section id="en-ce-moment" aria-labelledby="h-now">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-now">${esc(p.nom)} en ce moment</h2>
   <p>Chaque catégorie a sa page pour toute l'île ; ici, ce qui concerne ${esc(p.nom)}. Mise à jour en continu, chaque donnée avec son heure et sa source.</p></div>

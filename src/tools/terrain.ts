@@ -3,6 +3,7 @@ import { distanceKm } from "../geo.js";
 import { INSEE } from "../places/insee.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as terrain from "../providers/terrain.js";
+import * as antennes from "../vie/antennes.js";
 import * as internet from "../vie/internet.js";
 import * as loyers from "../vie/loyers.js";
 import { why } from "../types.js";
@@ -225,6 +226,58 @@ export function connexion(insee: string) {
   };
 }
 
+// The antennas' words: marketing's (29/10). The ANFR's states word for word; never « couverture » nor « exposition ».
+const ANTENNES = {
+  etat: { service: "en_service", operationnel: "techniquement_operationnel", projet: "projet_approuve" } as Record<antennes.Etat, string>,
+  supports: (n: number) => (n === 1 ? "1 support d'antennes mobiles" : `${nombre(n)} supports d'antennes mobiles`),
+  emetteurs: (e: antennes.Emetteur) =>
+    [e.fm && `${e.fm} station${e.fm > 1 ? "s" : ""} FM`, e.tnt && `${e.tnt} TNT`, e.dab && `${e.dab} DAB+`].filter(Boolean).join(", "),
+  note:
+    "Supports d'antennes déclarés à l'ANFR, avec l'état que chaque opérateur déclare pour chaque génération (en service, techniquement opérationnel, projet approuvé)\u00a0: " +
+    "ce n'est ni l'état du réseau en ce moment, ni la couverture. Free et SFR Réunion sont déclarés sous les noms Telco OI et SRR. Émetteurs de radio et de télévision de plus de 5 W seulement. " +
+    "L'exposition aux ondes n'est pas mesurée ici\u00a0: les mesures sont sur https://www.cartoradio.fr",
+};
+
+const gens = (g: string) => [...g].map((x) => `${x}G`).join(", ");
+
+/** The antennas within 500 m of the point (vie/antennes.ts): the mobile supports, then the radio and TV ones. */
+export function antennas(lon: number, lat: number) {
+  const mob = antennes.near(antennes.SUPPORTS, lon, lat);
+  const radio = antennes.near(antennes.EMETTEURS, lon, lat);
+  const m10 = (d: number) => Math.round(d / 10) * 10;
+  const where = (x: { d: number; h: number; nature?: string }) => ({
+    distance_m: m10(x.d),
+    ...(x.h ? { hauteur_m: x.h } : {}),
+    ...(x.nature ? { support: x.nature.toLowerCase() } : {}),
+  });
+  const ligne = mob.length
+    ? `${ANTENNES.supports(mob.length)} à moins de 500\u00a0m, le plus proche à ${m10(mob[0].d)}\u00a0m (ANFR)`
+    : "aucun support d'antennes mobiles déclaré à moins de 500\u00a0m (ANFR)";
+  return {
+    ligne,
+    bloc: {
+      rayon_m: 500,
+      antennes_mobiles: {
+        fichier_du: antennes.date(antennes.MOBILE_DU),
+        supports: mob.length,
+        plus_proches: mob.slice(0, 5).map((s) => ({
+          ...where(s),
+          operateurs: antennes.OPERATEURS.filter((o) => s.ops[o]).map((o) => ({
+            operateur: o,
+            ...Object.fromEntries(antennes.ETATS.filter((e) => s.ops[o]![e]).map((e) => [ANTENNES.etat[e], gens(s.ops[o]![e]!)])),
+          })),
+        })),
+      },
+      radio_et_television: {
+        fichier_du: antennes.date(antennes.RADIO_DU),
+        supports: radio.length,
+        plus_proches: radio.slice(0, 3).map((e) => ({ ...where(e), emetteurs: ANTENNES.emetteurs(e), ...(e.exploitants ? { exploitant: e.exploitants.join(", ") } : {}) })),
+      },
+      note: ANTENNES.note,
+    },
+  };
+}
+
 /** The street's line of the summary, named as the address base writes it (marketing's words, 25/10). */
 export function streetLine(v: ReturnType<typeof streetMarket>): string {
   const voie = `sur la voie (${v.voie})`;
@@ -341,6 +394,8 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
   if (r?.ligne) parts.push(r.ligne);
   const net = insee ? connexion(insee) : undefined;
   if (net) parts.push(net.ligne);
+  const ant = antennas(lon, lat);
+  parts.push(ant.ligne);
 
   const used = [
     terrain.SOURCES.ban,
@@ -353,6 +408,8 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
     ...(cat || mvt ? [terrain.SOURCES.georisques] : []),
     ...(r ? [loyers.SOURCE] : []),
     ...(net ? [internet.SOURCE] : []),
+    antennes.SOURCE_MOBILE,
+    ...(ant.bloc.radio_et_television.supports ? [antennes.SOURCE_RADIO] : []),
   ];
   return text({
     resume: `${parts.join("\u00a0; ")}.`,
@@ -380,6 +437,7 @@ export async function ficheLieu(cache: Cache, adresse: string, now = new Date())
       : DOWN,
     ...(r ? { loyers_d_annonce: r.bloc } : {}),
     ...(net ? { internet_dans_la_commune: net.bloc } : {}),
+    antennes_a_moins_de_500_m: ant.bloc,
     risques: risksBlock(lon, lat, insee, ppr, cat, mvt),
     avertissements: [
       "Le cadastre est un document fiscal : il ne prouve pas la propriété ni les limites exactes (bornage par un géomètre).",
