@@ -75,6 +75,13 @@ export function chip(t: number): string {
   return `#${c0.map((c, j) => Math.round(c + (c1[j] - c) * k).toString(16).padStart(2, "0")).join("")}`;
 }
 
+/**
+ * A list of more rows than this is folded by category (<details>), each opened with a tap, a link to one of its rows or
+ * a filter that keeps some (the page's script, `unfold`); a shorter one, or a category alone, stays open.
+ */
+export const FOLD_ROWS = 8;
+/** A category of such a list: its line (`head`, an <h3> with its count), folded over its rows; as it was when not `fold`. */
+export const folded = (fold: boolean, head: string, body: string) => (fold ? `<details><summary>${head}</summary>${body}</details>` : head + body);
 export const hm = (iso: string | Date) => localTime(new Date(iso)).split(" ")[1];
 
 /**
@@ -789,8 +796,8 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .zones.top{align-items:start}#enf [hidden]{display:none!important}
 @media (max-width:600px){#kf label{flex-basis:100%}}
 @media (min-width:900px){.zones.top>li:has(details[open]){grid-column:1/-1}.zones.top details[open]>.kinds{columns:3 16rem;column-gap:2rem}.kinds .kind{break-inside:avoid}}
-.card>details>summary{cursor:pointer;list-style:none}.card>details>summary::-webkit-details-marker{display:none}
-.card>details>summary h3{display:inline}.card>details>summary::after{content:" ▸";color:var(--muted)}.card>details[open]>summary::after{content:" ▾"}
+.card>details>summary{cursor:pointer;list-style:none;display:block;min-height:44px;padding:.5rem 0;margin:-.5rem 0;box-sizing:border-box}.card>details>summary::-webkit-details-marker{display:none}
+.card>details>summary h3{display:inline}.card>details>summary::after{content:"\\a0▸";color:var(--muted)}.card>details[open]>summary::after{content:"\\a0▾"}
 .rows.eau .score{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .autour{margin:1rem 0}.autour>.note{margin-top:.6rem}.autour .rows a{display:block;margin-top:.25rem;font-weight:700}.rows.dae li>span:last-child{max-width:9.5rem;text-align:right}.map.autour-on .mk,.mapcard:has(.autour-on) figcaption{display:none}.map .nr{fill:#2b8a3e;stroke:#fff;stroke-width:2px;vector-effect:non-scaling-stroke}.map .me{fill:#339af0;stroke:#fff;stroke-width:3px;vector-effect:non-scaling-stroke}
 .rows.eau .q-bonne{color:#2b8a3e;font-weight:700}.rows.eau .q-moyenne{color:#e8590c;font-weight:700}.rows.eau .q-mauvaise{color:var(--lave);font-weight:700}.rows.eau .q-none{color:var(--muted)}
@@ -929,7 +936,14 @@ export const COPIE_SCRIPT = `document.querySelectorAll("a[data-copie]").forEach(
 const s=a.parentElement.nextElementSibling,say=(k)=>{s.textContent=a.dataset[k];s.hidden=false};
 try{navigator.clipboard.writeText(a.dataset.copie||new URL(a.href).searchParams.get("q")).then(()=>say("ok"),()=>say("non"))}catch{say("non")}}));`;
 
+/**
+ * A folded category (`folded`) opened by a link to it or to one of its rows: the browsers that open it themselves
+ * (Chrome, Safari 26 at least) are not all, nor a link to the card that holds it, a commune's on a map.
+ */
+export const UNFOLD_SCRIPT = `(()=>{const unfold=()=>{const t=location.hash&&document.getElementById(location.hash.slice(1));const d=t&&(t.closest("details")||t.querySelector(":scope>details"));if(d)d.open=true};unfold();addEventListener("hashchange",unfold)})();`;
+
 const SCRIPT = `const menu=document.querySelector("details.menu");if(menu)document.addEventListener("click",(e)=>{if(menu.open&&!menu.contains(e.target))menu.open=false});
+${UNFOLD_SCRIPT}
 document.querySelectorAll("[data-copy]").forEach((b)=>b.addEventListener("click",async()=>{const t=document.getElementById(b.dataset.copy);
 const o=b.textContent;if(b.dataset.signal&&location.pathname==="/mcp")sig("c");try{await navigator.clipboard.writeText(t.textContent);b.textContent="Copié ✓";setTimeout(()=>b.textContent=o,2500)}catch{getSelection().selectAllChildren(t)}}));
 const f=document.getElementById("filtre");if(f){const n=(s)=>s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();

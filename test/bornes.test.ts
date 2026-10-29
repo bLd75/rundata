@@ -79,7 +79,7 @@ describe("bornes de recharge", () => {
     const page = bornesPage("https://rundata.re", { value: data, fetchedAt: NOW, stale: false }, NOW);
     expect(page).toContain('<span class="big">268</span>');
     expect(page).toContain("Recharge rapide");
-    expect(page).toMatch(/<h3>Sainte-Marie <span class="note">45 libres sur 103, 18 stations<\/span><\/h3>/);
+    expect(page).toMatch(/<details><summary><h3>Sainte-Marie\u00a0<span class="note">·\u00a045\u00a0libres sur\u00a0103, 18\u00a0stations<\/span><\/h3><\/summary>/);
     // Each commune's marker leads to its card.
     expect(mapLinks(page).find((l) => l.label.startsWith("Sainte-Marie :"))).toEqual({ kind: "mk", href: "#c-sainte-marie", label: "Sainte-Marie : 45 points de charge libres sur 103, voir le détail" });
     expect(deadAnchors(page)).toEqual([]);
