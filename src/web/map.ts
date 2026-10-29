@@ -226,6 +226,12 @@ export function islandMap(opts: {
   overlay?: string;
   /** Pills that would cover each other moved apart, each tied to its place (apart()). */
   apart?: boolean;
+  /**
+   * Markers in layers, one shown at a time by the page's CSS (`ly-<id>`, chosen by radio buttons, without a script):
+   * the island drawn once for all of them; `on`, the one shown by default. Each layer is moved apart on its own, with
+   * `apart`.
+   */
+  layers?: { id: string; markers: Marker[]; on?: boolean }[];
   label: string;
 }): string {
   const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
@@ -235,12 +241,15 @@ export function islandMap(opts: {
     .map((p) => `<path d="${p.d}" style="fill:${opts.fills![p.nom]}"/>`)
     .join("");
   // An image hides what it holds from screen readers: a map with links is a group, so that each link is reached.
-  const linked = !!opts.links || (opts.markers ?? []).some((m) => m.href);
+  const linked = !!opts.links || [...(opts.markers ?? []), ...(opts.layers ?? []).flatMap((l) => l.markers)].some((m) => m.href);
   const role = linked ? `role="group"` : `role="img"`;
   const zones = opts.links ? zoneLinks(opts.links) : "";
-  const radii = hitRadii(opts.markers ?? []);
-  const at = opts.apart ? apart(opts.markers ?? []) : undefined;
-  const markers = (at ? ties(opts.markers!, at) : "") + (opts.markers ?? []).map((m, i) => marker(m, radii[i], at?.[i])).join("");
+  const draw = (list: Marker[]) => {
+    const radii = hitRadii(list);
+    const at = opts.apart ? apart(list) : undefined;
+    return (at ? ties(list, at) : "") + list.map((m, i) => marker(m, radii[i], at?.[i])).join("");
+  };
+  const markers = draw(opts.markers ?? []) + (opts.layers ?? []).map((l) => `<g class="ly ly-${esc(l.id)}${l.on ? " on" : ""}">${draw(l.markers)}</g>`).join("");
   let extra = "";
   if (hl) extra += `<path class="hl" d="${hl.d}"/>`;
   if (opts.peaks) {

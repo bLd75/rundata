@@ -17,7 +17,8 @@ import { ACCUEILS, AGENDAS } from "../providers/agenda.js";
 import { SOURCE as SALLES_SOURCE } from "../providers/salles.js";
 import type { Cached } from "../cache.js";
 import * as historique from "../tools/volcan-historique.js";
-import { normalize } from "../places/resolve.js";
+import { normalize, resolvePlace } from "../places/resolve.js";
+import * as airMesures from "../providers/air-mesures.js";
 import * as traces from "../providers/traces.js";
 import { SUJETS } from "../providers/actualites.js";
 import * as littoral from "../tools/littoral.js";
@@ -427,6 +428,91 @@ const subIndex = (n: number) => (n >= 1 && n <= 6 ? aq(n) : esc(atmo.level(n)));
 // The map's commune names (« L'Étang-Salé ») by their spelling in the ATMO index (« L'Etang-Salé »).
 const MAP_NAME = new Map(island.paths.map((p: { nom: string }) => [normalize(p.nom), p.nom]));
 
+// The map's pollutants, one at a time, worded by marketing (29/10/2026), by their name in the measures (tools/air.ts, `measured`). PM10 first, shown
+// by default: measured at 10 of the 15 stations across the island on 29/10/2026, the nitrogen dioxide (12) mostly
+// by the roads.
+const MAP_POLLUTANTS = [
+  { id: "pm10", tab: "PM10", polluant: airMesures.POLLUTANTS.PM10 },
+  { id: "pm25", tab: "PM2,5", polluant: airMesures.POLLUTANTS["PM2.5"] },
+  { id: "o3", tab: "Ozone", polluant: airMesures.POLLUTANTS.O3 },
+  { id: "no2", tab: "NO₂", polluant: airMesures.POLLUTANTS.NO2 },
+];
+const STATION_BY_NAME = new Map(Object.values(airMesures.STATIONS).map((s) => [s.nom, s]));
+// The pills of the measures: neutral, never the index's colours, whose thresholds are for averages and a forecast.
+const MEASURE_PILL = "#44555a";
+
+/** The hour most of the values were measured: the legend's; a station measured at another says its own. */
+const usualHour = (list: Measured[]) => {
+  const n = new Map<string, number>();
+  for (const v of list) n.set(v.heure, (n.get(v.heure) ?? 0) + 1);
+  return [...n].sort((a, b) => b[1] - a[1])[0]?.[0];
+};
+
+/** The measures of each pollutant of the map at Atmo Réunion's stations, as markers, with the hour most were measured at. */
+function airLayers(d: AirAnswer | undefined) {
+  const valeurs = d?.mesures_aux_stations?.valeurs ?? [];
+  return MAP_POLLUTANTS.map((p) => {
+    const list = valeurs.filter((v) => v.polluant === p.polluant && STATION_BY_NAME.has(v.station));
+    const heure = usualHour(list);
+    const markers: Marker[] = list.map((v) => {
+      const st = STATION_BY_NAME.get(v.station)!;
+      const value = `${nombre(v.valeur)} ${v.unite}${v.heure !== heure ? `, ${v.heure}` : ""}`;
+      return { lon: st.lon, lat: st.lat, label: String(Math.round(v.valeur)), say: value, place: v.station, name: `${v.station} (${st.commune}) : ${value}`, color: MEASURE_PILL, quiet: true, href: `#${anchorId("st", v.station)}` };
+    });
+    return { ...p, heure, list, others: list.filter((v) => v.heure !== heure).length, markers };
+  }).filter((l) => l.markers.length);
+}
+type AirLayer = ReturnType<typeof airLayers>[number];
+
+/**
+ * The top of /air when stations measured, before the forecast (a measure comes before a model): the first pollutant
+ * of the map over the island, from its lowest to its highest station at the hour most measured, the highest named.
+ */
+function airMeasured(l: AirLayer, lu: string, now: Date): string {
+  const at = l.list.filter((v) => v.heure === l.heure).sort((a, b) => a.valeur - b.valeur);
+  const lo = at[0], hi = at[at.length - 1];
+  const where = (v: Measured) => `${v.station}${v.commune ? ` (${v.commune})` : ""}`;
+  const big = at.length > 1 && Math.round(lo.valeur) !== Math.round(hi.valeur)
+    ? `${l.tab} : ${Math.round(lo.valeur)} à ${Math.round(hi.valeur)} µg/m³`
+    : `${l.tab} : ${Math.round(hi.valeur)} µg/m³`;
+  // Worded by marketing (29/10/2026): the verb says it is a measure; the legend's name of the pollutant.
+  const name = `${l.polluant[0].toUpperCase()}${l.polluant.slice(1)} ${l.polluant.startsWith("particules") ? "mesurées" : "mesuré"} ${l.heure}`;
+  const lead = at.length > 1 ? `${name} à ${at.length} stations d'Atmo Réunion : le plus haut à ${where(hi)}.` : `${name} à la station ${where(hi)}.`;
+  // The day only when the reading is not today's, as the forecast's note under it.
+  const [le, a] = lu.split(" ");
+  const when = le === localTime(now).split(" ")[0] ? `à ${a}` : `le ${le} à ${a}`;
+  return `<div class="status"><p class="big">${esc(big)}</p><p class="lead">${esc(lead)}</p>` +
+    `<p class="note">Mesure brute, non validée, publiée par le LCSQA. Lue par rundata.re ${esc(when)}.</p></div>`;
+}
+
+/**
+ * The island's map of /air: the measures at Atmo Réunion's stations, at their place, one pollutant at a time (radio
+ * buttons and CSS, without a script), each value in a neutral pill; without a measure, the index forecast in each
+ * commune, as a dot at its centre. Never a commune filled.
+ */
+function airMap(d: AirAnswer | undefined, layers: AirLayer[]): string {
+  if (layers.length) {
+    const on = layers[0].id;
+    const tabs = `<div class="tabs aqtabs" role="radiogroup" aria-label="Polluant affiché sur la carte">` +
+      layers.map((l) => `<input type="radio" name="aqp" id="aqp-${l.id}"${l.id === on ? ' class="on" checked' : ""}><label for="aqp-${l.id}">${esc(l.tab)}</label>`).join("") + `</div>`;
+    const legend = layers.map((l) => `<span class="lg lg-${l.id}${l.id === on ? " on" : ""}">${esc(`${l.polluant[0].toUpperCase()}${l.polluant.slice(1)}, en µg/m³ : mesure brute, non validée, ${l.heure}`)}` +
+      `${l.others ? esc(`, ${l.others} station${l.others > 1 ? "s" : ""} à une autre heure (voir la liste)`) : ""}.</span>`).join("");
+    return `<figure class="card mapcard airmap">${tabs}` +
+      islandMap({ layers: layers.map((l) => ({ id: l.id, markers: l.markers, on: l.id === on })), peaks: true, apart: true, label: "Carte de La Réunion (974) : les mesures aux stations d'Atmo Réunion, un polluant à la fois" }) +
+      `<figcaption class="note">${legend}</figcaption></figure>`;
+  }
+  // No measure stored: the forecast, a dot at each commune's centre.
+  const markers: Marker[] = (d?.communes ?? []).flatMap((c) => {
+    const place = resolvePlace(c.commune)?.lieu;
+    const name = MAP_NAME.get(normalize(c.commune)) ?? c.commune;
+    return place && c.niveau >= 1 && c.niveau <= 6
+      ? [{ lon: place.lon, lat: place.lat, label: String(c.niveau), say: `indice ${c.niveau} sur 6, ${AQ_NAMES[c.niveau]}`, place: name, name: `${name} : indice ${c.niveau} sur 6, ${AQ_NAMES[c.niveau]}`, color: `var(--aq${c.niveau})`, round: true, quiet: true, href: `#${anchorId("c", name)}` }]
+      : [];
+  });
+  return `<figure class="card mapcard">${islandMap({ markers, peaks: true, label: "Carte de La Réunion (974) : l'indice ATMO prévu dans chaque commune" })}` +
+    `<figcaption class="note">Indice ATMO prévu pour aujourd'hui dans chaque commune, de 1 (bon) à 6 (extrêmement mauvais) : une prévision, pas une mesure.</figcaption></figure>`;
+}
+
 export function airPage(origin: string, data: Cached<AirAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const list = [...(d?.communes ?? [])].sort((a, b) => b.niveau - a.niveau || a.commune.localeCompare(b.commune, "fr"));
@@ -434,24 +520,20 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
   const best = list.length ? list[list.length - 1].niveau : undefined;
   const url = `${origin}/air`;
 
-  const fills: Record<string, string> = {};
-  // Each commune leads to its line in the list below, under its level.
-  const links: Record<string, ZoneLink> = {};
-  for (const c of list) {
-    const name = MAP_NAME.get(normalize(c.commune));
-    if (name && c.niveau >= 1 && c.niveau <= 6) {
-      fills[name] = `var(--aq${c.niveau})`;
-      links[name] = { href: `#${anchorId("c", name)}`, say: `indice ${c.niveau} sur 6, ${AQ_NAMES[c.niveau] ?? ""}`.replace(/, $/, "") };
-    }
-  }
-
+  // Measured at the stations: the measure first, the forecast under it, smaller and said a forecast.
+  const layers = airLayers(d);
+  const top = layers[0] && d?.mesures_aux_stations ? airMeasured(layers[0], d.mesures_aux_stations.lu_par_rundata, now) : "";
+  const levels = worst != null ? `${AQ_NAMES[worst] ?? ""}${best != null && best !== worst ? ` à ${AQ_NAMES[best] ?? ""}` : ""}` : "";
+  const forecastNote = d ? `${d.diffusion ? ` ${esc(d.diffusion)}` : ""} Lue par rundata.re ${readAt(data!.fetchedAt, now).a}.` : "";
   const status = !d
     ? loading("L'indice de la qualité de l'air")
-    : worst != null
-      ? `<div class="status"><p class="big">${esc(AQ_NAMES[worst] ?? "")}${best != null && best !== worst ? ` à ${esc(AQ_NAMES[best] ?? "")}` : ""}</p>` +
-        `<p class="lead">${esc(d.resume)}</p><p class="note" style="color:var(--on-night-muted)">Une prévision d'Atmo Réunion pour la journée, pas une mesure.` +
-        `${d.diffusion ? ` ${esc(d.diffusion)}` : ""} Lue par rundata.re ${readAt(data!.fetchedAt, now).a}.</p></div>`
-      : `<p class="lead">${esc(d.resume)}</p>`;
+    : top && worst != null
+      ? `${top}<div class="status forecast"><p class="lead"><b>${esc(`Prévision d'Atmo Réunion pour la journée : ${levels}.`)}</b> ${esc(d.resume)}</p>` +
+        `<p class="note">Une prévision, pas une mesure.${forecastNote}</p></div>`
+      : worst != null
+        ? `<div class="status"><p class="big">${esc(levels)}</p>` +
+          `<p class="lead">${esc(d.resume)}</p><p class="note" style="color:var(--on-night-muted)">Une prévision d'Atmo Réunion pour la journée, pas une mesure.${forecastNote}</p></div>`
+        : `${top}<p class="lead">${esc(d.resume)}</p>`;
 
   const byLevel = [6, 5, 4, 3, 2, 1]
     .map((n) => ({ n, l: list.filter((c) => c.niveau === n) }))
@@ -483,7 +565,7 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
     ? `<section aria-labelledby="h-mesures-air">
   <div class="sec-h"><p class="eyebrow">Mesures</p><h2 id="h-mesures-air">Mesuré aux stations d'Atmo Réunion</h2>
   <p>Les concentrations mesurées heure par heure aux stations, publiées par le LCSQA. Ce sont des mesures brutes, non validées, qu'Atmo Réunion peut corriger ensuite. Elles ne sont pas l'indice ATMO, qui est une prévision.</p></div>
-  <div class="levels">${[...byStation].map(([station, list]) => `<div class="card"><h3>${esc(station)}</h3><ul class="plain">` +
+  <div class="levels">${[...byStation].map(([station, list]) => `<div class="card tgt" id="${anchorId("st", list[0].station)}"><h3>${esc(station)}</h3><ul class="plain">` +
     list.map((v) => `<li><b>${esc(v.polluant)}</b> : ${esc(nombre(v.valeur))} ${esc(v.unite)} <span class="note">${esc(v.heure)}, station de type ${esc(v.type)}, mesure brute, non validée${v.retard ? `, ${esc(v.retard)}` : ""}</span></li>`).join("") +
     `</ul></div>`).join("")}</div>
   <p class="note">Lues par rundata.re le ${esc(luLe)} à ${esc(luA)}, dans les <a href="${esc(m.source)}" rel="noopener">fichiers du LCSQA sur data.gouv.fr</a> (Licence Ouverte Etalab 2.0).</p>
@@ -524,22 +606,21 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
   const band = `${crumbBar("Qualité de l'air")}
 <div class="wrap intro">
   <div class="pitch">
-    <p class="pill"><span class="dot"></span>Prévision du jour</p>
+    <p class="pill"><span class="dot"></span>${top ? "Mesuré aux stations" : "Prévision du jour"}</p>
     <h1>Qualité de l'air <span class="n974">974</span></h1>
     ${status}
     ${ask(`Lèr lé bon La Rényon zordi ? Gèt si ${url} é di amwin pou mon komine.`,
       `L'air est-il bon aujourd'hui à La Réunion ? Lis ${url} et dis-moi la qualité de l'air dans ma commune.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) colorée par l'indice de qualité de l'air de chaque commune" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Couleur de l'indice ATMO prévu pour aujourd'hui dans chaque commune (une prévision, pas une mesure).</figcaption></figure>
+  ${airMap(d, layers)}
 </div>`;
 
-  const body = `<section aria-labelledby="h-communes-air">
+  const body = `${measures}
+<section aria-labelledby="h-communes-air">
   <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-communes-air">L'indice dans les 24 communes</h2>
   <p>L'indice ATMO prévu va de 1 (bon) à 6 (extrêmement mauvais). C'est le plus mauvais des sous-indices de cinq polluants : particules PM2,5 et PM10, ozone, dioxyde d'azote, dioxyde de soufre. Entre parenthèses, le polluant en cause.</p></div>
   ${d ? `<div class="levels">${byLevel}</div>${subs}${warnings(d.avertissements)}` : `<p class="card">L'indice se charge : rechargez la page dans quelques secondes.</p>`}
 </section>
-${measures}
 ${amateurs}
 <section aria-labelledby="h-source-air">
   <div class="sec-h"><p class="eyebrow">Provenance</p><h2 id="h-source-air">D'où vient l'indice</h2></div>
