@@ -6,7 +6,7 @@
 import { localTime } from "../geo.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
-import { fr } from "../tools/format.js";
+import { fr, heure } from "../tools/format.js";
 import { dayName, type TripRun, type TripStop } from "../tools/transports.js";
 import { crumbBar, crumbs, saidNow, STOP_PATH } from "./domains.js";
 import { esc } from "./map.js";
@@ -16,10 +16,10 @@ import { credits, DESCRIPTION_MAX, layout, SITE } from "./pages.js";
 const TITLE_MAX = 60;
 const NBSP = " ";
 
-/** « 7h05 », the time of La Réunion. */
+/** « 07:05 », « 7\u00a0h », the time of La Réunion. */
 const clock = (ms: number) => {
   const [h, m] = localTime(new Date(ms)).split(" ")[1].split(":");
-  return `${Number(h)}h${m}`;
+  return heure(Number(h) * 60 + Number(m));
 };
 /** « 07:29 », as the other pages give a feed's time. */
 const feedTime = (s: number) => localTime(new Date(s * 1000)).split(" ")[1];
@@ -35,10 +35,10 @@ function dayOf(ms: number, now: Date): string {
   return dayName({ ymd: d, weekday: weekdayOf(ms) });
 }
 
-/** A stop's time as seen now: « demain 0h10 » after midnight, said only within a day and a half of it. */
+/** A stop's time as seen now: « demain 00:10 » after midnight, said only within a day and a half of it. */
 const timeOf = (ms: number, now: Date) => (Math.abs(ms - now.getTime()) < 36 * 3600_000 ? saidNow(clock(ms), ms, now) : clock(ms));
 
-/** What the feed says at a stop, HTML: « annoncé 7h12 (+5 min) », « à l'heure », « ne passe pas à cet arrêt ». */
+/** What the feed says at a stop, HTML: « annoncé 07:12 (+5 min) », « à l'heure », « ne passe pas à cet arrêt ». */
 function liveAt(s: TripStop, now: Date): string {
   if (s.saute) return ` <b class="rt">ne passe pas à cet arrêt</b>`;
   if (s.annonce === undefined) return "";

@@ -880,13 +880,16 @@ const LOCAL_MS = 4 * 3600_000;
 const DAY_MS = 86_400_000;
 
 /**
- * A copy's time (« 4h30 », or « demain 4h30 » when the copy was built before midnight) as said at the view: « demain »
- * only when it falls on the day after this one at La Réunion. The clock is taken on the day that puts it closest to
- * `near`, the moment of the departure or of the copy.
+ * A copy's time (« 04:30 », « 5\u00a0h », or « demain 04:30 » when the copy was built before midnight) as said at the
+ * view, in the brand's form: « demain » only when it falls on the day after this one at La Réunion. The clock is taken
+ * on the day that puts it closest to `near`, the moment of the departure or of the copy. A copy written before the
+ * brand's form (« 4h30 ») reads the same.
  */
-export function saidNow(heure: string, near: number, now: Date): string {
-  const clock = heure.replace(/^demain /, "");
-  const [h, m] = clock.split("h").map(Number);
+export function saidNow(said: string, near: number, now: Date): string {
+  const t = /^(?:demain )?(\d{1,2})(?::(\d\d)|[\u00a0 ]?h ?(\d\d)?)$/.exec(said);
+  if (!t) return said;
+  const [h, m] = [Number(t[1]), Number(t[2] ?? t[3] ?? 0)];
+  const clock = heure(h * 60 + m);
   const local = near + LOCAL_MS;
   let at = local - (((local % DAY_MS) + DAY_MS) % DAY_MS) + (h * 60 + m) * 60_000;
   if (at - local > DAY_MS / 2) at -= DAY_MS;
@@ -894,7 +897,7 @@ export function saidNow(heure: string, near: number, now: Date): string {
   return Math.floor(at / DAY_MS) > Math.floor((now.getTime() + LOCAL_MS) / DAY_MS) ? `demain ${clock}` : clock;
 }
 
-/** « à 4h30 », « demain à 4h30 ». */
+/** « à 04:30 », « demain à 04:30 ». */
 export const atDay = (heure: string) => (heure.startsWith("demain ") ? `demain à ${heure.slice("demain ".length)}` : `à ${heure}`);
 
 /** The departures of a copy still to come: their wait counted again from now, their time (the announced one first) said as of now. */
