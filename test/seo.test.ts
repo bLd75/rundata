@@ -53,7 +53,8 @@ describe("search engines", () => {
       expect(html).not.toMatch(/\?maj=\d/);
       const links = html.match(/<a href="https:\/\/(chatgpt\.com\/\?|claude\.ai\/new\?)[^>]*>/g)!;
       expect(links.length).toBeGreaterThanOrEqual(4);
-      for (const a of links) expect(a).toMatch(/ rel="nofollow noopener" data-maj="https:\/\/rundata\.re\/[^"]*">$/);
+      // ChatGPT's also copy the question on a phone (chatgpt-copie.test.ts).
+      for (const a of links) expect(a).toMatch(/ rel="nofollow noopener" data-maj="https:\/\/rundata\.re\/[^"]*"( data-copie="" data-ok="[^"]*" data-non="[^"]*")?>$/);
     }
     expect(placePage(O, pageOf("cilaos")!, null, NOW)).toContain(`data-maj="${O}/meteo/cilaos"`);
   });

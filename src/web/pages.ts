@@ -391,6 +391,7 @@ text-decoration:none;background:var(--sun);color:var(--sun-ink);box-shadow:var(-
 .askbox>[hidden]{display:none}
 .askq{font-size:.85rem;font-style:italic;color:var(--muted);max-width:34rem}
 .askn{font-size:.85rem;color:var(--muted);max-width:34rem}
+.copie{font-size:.9rem;font-weight:700;max-width:34rem}
 .band .askq,.band .askn{color:var(--on-night-muted)}
 .lang{display:inline-flex;gap:.2rem;padding:.2rem;border-radius:999px;border:1px solid var(--line)}
 .band .lang{border-color:rgb(255 255 255/.22)}
@@ -899,6 +900,14 @@ const n=Date.now();if(!a.length||n-Math.max(...a)<9e5)return;const k="recharge:"
 if(n-last<9e5)return;try{sessionStorage.setItem(k,String(n))}catch{}location.reload()};
 addEventListener("pageshow",(e)=>{if(e.persisted)again()});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")again()});`;
 
+/**
+ * On a phone (coarse pointer), a tap on a link of copies() also copies its text, and the line after its paragraph
+ * says whether it was. After the `?maj=` of the links (SCRIPT), so that the question copied has it.
+ */
+export const COPIE_SCRIPT = `document.querySelectorAll("a[data-copie]").forEach((a)=>a.addEventListener("click",()=>{if(!matchMedia("(pointer:coarse)").matches)return;
+const s=a.parentElement.nextElementSibling,say=(k)=>{s.textContent=a.dataset[k];s.hidden=false};
+try{navigator.clipboard.writeText(a.dataset.copie||new URL(a.href).searchParams.get("q")).then(()=>say("ok"),()=>say("non"))}catch{say("non")}}));`;
+
 const SCRIPT = `const menu=document.querySelector("details.menu");if(menu)document.addEventListener("click",(e)=>{if(menu.open&&!menu.contains(e.target))menu.open=false});
 document.querySelectorAll("[data-copy]").forEach((b)=>b.addEventListener("click",async()=>{const t=document.getElementById(b.dataset.copy);
 const o=b.textContent;if(b.dataset.signal&&location.pathname==="/mcp")sig("c");try{await navigator.clipboard.writeText(t.textContent);b.textContent="Copié ✓";setTimeout(()=>b.textContent=o,2500)}catch{getSelection().selectAllChildren(t)}}));
@@ -911,6 +920,7 @@ try{const l=localStorage.getItem("askl");if(l)askl(l)}catch{}
 document.querySelectorAll("[data-askl]").forEach((b)=>b.addEventListener("click",()=>{askl(b.dataset.askl);try{localStorage.setItem("askl",b.dataset.askl)}catch{}}));
 document.querySelectorAll("a[data-maj]").forEach((a)=>{const h=a.getAttribute("href"),u=a.dataset.maj;const set=()=>{const t=new Date(Date.now()+144e5);
 a.href=h.replace(encodeURIComponent(u),encodeURIComponent(u+"?maj="+t.getUTCHours()+"h"+String(t.getUTCMinutes()).padStart(2,"0")))};["click","auxclick","contextmenu"].forEach((e)=>a.addEventListener(e,set))});
+${COPIE_SCRIPT}
 const hhmm=(t)=>{const d=new Date(t+144e5);return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0")};
 const tick=()=>{const n=Date.now();document.querySelectorAll("[data-clock]").forEach((e)=>{e.textContent=hhmm(n)});
 document.querySelectorAll("[data-age]").forEach((e)=>{const m=Math.max(0,Math.round((n-Date.parse(e.dataset.age))/6e4));
@@ -1225,15 +1235,18 @@ const FLAG_FR = `<svg viewBox="0 0 3 2" aria-hidden="true"><path fill="#002654" 
  * than answer from a copy taken minutes or hours earlier. Added by the script, not in the HTML, so that search
  * engines do not follow the copies; without the script, the plain address.
  * The links' parameters are not documented by either service.
+ * On a phone, ChatGPT's app leaves the question out (Android) or does not open (iPhone: chatgpt.com has no universal
+ * link), and no documented scheme types it: the tap also copies the question, and a line says so (copies).
  */
 export function ask(kreol: string, francais: string): string {
   const a = (href: string, name: string, page?: string) =>
-    `<a href="${href}" target="_blank" rel="nofollow noopener"${page ? ` data-maj="${esc(page)}"` : ""}>${name} ${EXTERNAL}</a>`;
+    `<a href="${href}" target="_blank" rel="nofollow noopener"${page ? ` data-maj="${esc(page)}"` : ""}` +
+    `${name === "ChatGPT" ? copies("", "Question copiée : collez-la dans ChatGPT si elle n'y est pas.", "Si la question n'est pas dans ChatGPT, recopiez-la ci-dessous.") : ""}>${name} ${EXTERNAL}</a>`;
   const block = (l: string, title: string, question: string, hidden: boolean) => {
     const q = encodeURIComponent(question);
     const page = /https?:\/\/\S+/.exec(question)?.[0];
     return `<div data-l="${l}" lang="${l}"${hidden ? " hidden" : ""}><p class="askt">${title}</p>` +
-      `<p class="ask">${a(`https://chatgpt.com/?hints=search&amp;q=${q}`, "ChatGPT", page)}${a(`https://claude.ai/new?q=${q}`, "Claude", page)}</p>` +
+      `<p class="ask">${a(`https://chatgpt.com/?hints=search&amp;q=${q}`, "ChatGPT", page)}${a(`https://claude.ai/new?q=${q}`, "Claude", page)}</p>${COPIED}` +
       `<p class="askq">« ${esc(question)} »</p></div>`;
   };
   const b = (l: string, flag: string, name: string, on: boolean) =>
@@ -1243,6 +1256,16 @@ export function ask(kreol: string, francais: string): string {
     block(brand.slogan_lang, "Domann out IA", kreol, false) + block("fr", "Demandez à votre IA", francais, true) +
     `<p class="askn">Rien à installer : la question est déjà écrite. ChatGPT marche même sans compte ; Claude demande de se connecter (compte gratuit).</p></div>`;
 }
+
+/**
+ * A link that, tapped on a phone, also copies `text` (empty: its `q` parameter, as the script last wrote it) and says
+ * so in the line that follows its paragraph (COPIED): `ok` once copied, `non` when the browser refuses. On a computer,
+ * nothing more than the link.
+ */
+export const copies = (text: string, ok: string, non: string) =>
+  ` data-copie="${esc(text)}" data-ok="${esc(ok)}" data-non="${esc(non)}"`;
+// In French, as the words of the site around it, even under a question in Creole.
+export const COPIED = `<p class="copie" role="status" lang="fr" hidden></p>`;
 
 /** The connector's address with its copy button; `id` keeps several on one page apart. */
 export function connector(origin: string, id: string): string {
