@@ -1,9 +1,10 @@
 /**
  * /antennes: the island's antenna supports on a map, from the bundled files of the ANFR (vie/antennes.ts), with no
- * request. One layer at a time, chosen by radio buttons and CSS without a script: all the mobile supports, one
- * operator's, one generation's, or the FM, TNT or DAB+ supports. A dot per support, filled when an antenna is active (en
- * service, or techniquement opérationnel for the 5G), a ring when only planned. Then the communes' counts. Never coverage
- * nor exposure.
+ * request. Two rows of filters that combine, an operator and a type (a generation, or the FM, TNT or DAB+ supports), set
+ * by the page's address too (« #orange-5g »), and the dots coloured by operator or by generation; without the script,
+ * every mobile support coloured by operator. A dot per support, filled when an antenna is active (en service, or
+ * techniquement opérationnel for the 5G), a ring when only planned. Then the communes' counts. Never coverage nor
+ * exposure.
  */
 import type { Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
@@ -29,64 +30,147 @@ const T = {
     "sans ceux de l'aviation civile, de la Défense ni de l'Intérieur. L'exposition aux ondes n'est pas mesurée ici : les mesures sont sur ",
 };
 
-interface Layer {
-  id: string;
-  tab: string;
-  /** The supports with an active antenna, and those only planned. */
-  on: { lon: number; lat: number }[];
-  off: { lon: number; lat: number }[];
-  legend: string;
-}
-
 /**
  * The generations an operator has active on a support: « en service » for the 2G to 4G, « techniquement opérationnel »
  * for the 5G, the ANFR never writing « en service » for it (test/antennes.test.ts checks both on each new file).
  */
 const actif = (g: antennes.Generations) => (g.service ?? "") + (g.operationnel ?? "");
 
-function layers(): Layer[] {
-  const S = antennes.SUPPORTS;
-  const split = (has: (g: antennes.Generations) => { on: boolean; any: boolean }) => {
-    const on: antennes.Support[] = [], off: antennes.Support[] = [];
-    for (const s of S) {
-      const r = Object.values(s.ops).map((g) => has(g!));
-      if (r.some((x) => x.on)) on.push(s);
-      else if (r.some((x) => x.any)) off.push(s);
-    }
-    return { on, off };
-  };
-  const all = { id: "tous", tab: "Toutes", ...split((g) => ({ on: actif(g).length > 0, any: true })), legend: "" };
-  all.legend = `${nombre(S.length)} supports d'antennes mobiles, dont ${nombre(all.on.length)} avec au moins une antenne active`;
-  const ops = antennes.OPERATEURS.map((o) => {
-    const on = S.filter((s) => s.ops[o] && actif(s.ops[o]!)), off = S.filter((s) => s.ops[o] && !actif(s.ops[o]!));
-    return { id: o.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\W+/g, "-"), tab: o, on, off, legend: `${o} : ${nombre(on.length)} supports avec au moins une antenne active, ${nombre(off.length)} en projet seulement` };
-  });
-  const gens = ["2", "3", "4", "5"].map((g) => {
-    const { on, off } = split((x) => ({ on: actif(x).includes(g), any: Object.values(x).some((v) => v!.includes(g)) }));
-    const etat = g === "5" ? "techniquement opérationnelle" : "en service";
-    return { id: `g${g}`, tab: `${g}G`, on, off, legend: `${g}G : ${nombre(on.length)} supports avec la ${g}G ${etat}, ${nombre(off.length)} en projet, tous opérateurs` };
-  });
-  const radio = (k: "fm" | "tnt" | "dab", tab: string, name: string) => {
-    const on = antennes.EMETTEURS.filter((e) => e[k]);
-    return { id: k, tab, on, off: [], legend: `${tab} : ${nombre(on.length)} supports d'émetteurs ${name}, ${nombre(on.reduce((n, e) => n + e[k]!, 0))} stations` };
-  };
-  return [all, ...ops, ...gens, radio("tnt", "TNT", "de télévision"), radio("fm", "FM", "de radio FM"), radio("dab", "DAB+", "de radio numérique")];
+/** The operators in the page's address and filters, and their letter in a support's code. */
+const OPS: { id: string; o: antennes.Operateur; k: string }[] = antennes.OPERATEURS.map((o) => ({
+  id: o.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\W+/g, "-"), o, k: o[0].toLowerCase(),
+}));
+const GENS = ["2", "3", "4", "5"] as const;
+const RADIOS = [{ id: "tnt", tab: "TNT", name: "de télévision" }, { id: "fm", tab: "FM", name: "de radio FM" }, { id: "dab", tab: "DAB+", name: "de radio numérique" }] as const;
+
+/** A support's operators: each one's letter, its generations active, and those only planned. */
+type Code = [string, string, string][];
+
+/** « o2345 s234+5 »: Orange active in 2G to 5G, SFR Réunion active in 2G to 4G with the 5G planned. */
+export const code = (s: antennes.Support): string =>
+  OPS.filter(({ o }) => s.ops[o]).map(({ o, k }) => {
+    const g = s.ops[o]!, a = actif(g), p = [...(g.projet ?? "")].filter((x) => !a.includes(x)).join("");
+    return `${k}${[...a].sort().join("")}${p ? `+${p}` : ""}`;
+  }).join(" ");
+
+const parse = (c: string): Code => [...c.matchAll(/([a-z])(\d*)(?:\+(\d+))?/g)].map((m) => [m[1], m[2], m[3] ?? ""]);
+
+/**
+ * How a support shows for an operator (`o`, its letter, "" for all) and a generation (`g`, "" for all), its colour by
+ * operator (`m` "o") or by generation ("t"): hidden (null), else whether it is a ring (only planned) and its colour's
+ * key. By operator, the operators that have that generation: one, its colour; several, « plusieurs », even when one
+ * operator is chosen. By generation, the most recent active, else the most recent planned, of the operator chosen or
+ * of all. The page's script runs the same, from LOOK: the test runs both on every support.
+ */
+export function look(d: Code, o: string, g: string, m: string): [boolean, string] | null {
+  const r = d.filter(([x]) => !o || x === o);
+  const on = r.some(([, a]) => (g ? a.includes(g) : a.length > 0));
+  if (!on && !r.some(([, a, p]) => !g || (a + p).includes(g))) return null;
+  if (m === "o") {
+    const w = d.filter(([, a, p]) => !g || (a + p).includes(g));
+    return [!on, w.length > 1 ? "m" : w[0][0]];
+  }
+  const a = r.map((x) => x[1]).join(""), x = Math.max(...[...(a || r.map((y) => y[2]).join(""))].map(Number));
+  return [!on, x === 5 ? "5" : x === 4 ? "4" : "2"];
 }
 
-/** The dots of a layer, as one path: a dot is a move and an empty line with round caps, a few bytes each. */
-const dots = (list: { lon: number; lat: number }[]) => list.map((p) => { const [x, y] = project(p.lon, p.lat); return `M${x} ${y}h0`; }).join("");
+/** look(), for the page's script. */
+export const LOOK = `const look=(d,o,g,m)=>{const r=d.filter(([x])=>!o||x===o);const on=r.some(([,a])=>g?a.includes(g):a.length>0);if(!on&&!r.some(([,a,p])=>!g||(a+p).includes(g)))return null;
+if(m==="o"){const w=d.filter(([,a,p])=>!g||(a+p).includes(g));return[!on,w.length>1?"m":w[0][0]]}
+const a=r.map((x)=>x[1]).join(""),x=Math.max(...[...(a||r.map((y)=>y[2]).join(""))].map(Number));return[!on,x===5?"5":x===4?"4":"2"]};`;
 
-function map(ls: Layer[]): string {
-  const on = ls[0].id;
-  const tabs = `<div class="tabs aqtabs" role="radiogroup" aria-label="Antennes affichées sur la carte">` +
-    ls.map((l) => `<input type="radio" name="ant" id="ant-${l.id}"${l.id === on ? ' class="on" checked' : ""}><label for="ant-${l.id}">${esc(l.tab)}</label>`).join("") + `</div>`;
-  const overlay = ls.map((l) => `<g class="ly ly-${l.id}${l.id === on ? " on" : ""}">` +
-    (l.off.length ? `<path class="off" d="${dots(l.off)}"/><path class="off2" d="${dots(l.off)}"/>` : "") + `<path class="in" d="${dots(l.on)}"/></g>`).join("");
-  const legend = ls.map((l) => `<span class="lg lg-${l.id}${l.id === on ? " on" : ""}">${esc(l.legend)}.</span>`).join("");
-  return `<figure class="card mapcard antmap">${tabs}` +
-    islandMap({ overlay, peaks: true, label: "Carte de La Réunion (974) : les supports d'antennes déclarés à l'ANFR, un choix à la fois" }) +
-    `<figcaption class="note"><span class="key"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="5" class="in"/></svg> active : en service, ou techniquement opérationnelle pour la 5G</span> ` +
-    `<span class="key"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="4" class="ring"/></svg> en projet seulement (projet approuvé)</span>${legend}</figcaption></figure>`;
+/** The colours, marketing's (Okabe-Ito, never an operator's brand colour): by operator, then by generation. */
+export const COULEURS: Record<string, string> = { o: "#56b4e9", s: "#f0e442", f: "#b0508a", z: "#2563d8", m: "#0b1f36", 5: "#f0e442", 4: "#56b4e9", 2: "#b4c6d8", r: "#b0508a" };
+
+// The words of the filters and of the legends, marketing's.
+const MOTS = {
+  operateur: "Opérateur :",
+  type: "Type :",
+  couleur: "Couleur :",
+  tous: "Tous",
+  parOperateur: "par opérateur",
+  parType: "par type",
+  plusieurs: "Plusieurs opérateurs",
+  types: { 5: "5G", 4: "4G", 2: "3G ou 2G seulement", r: "Radio et TV (TNT, FM, DAB+)" } as Record<string, string>,
+  typeNote: "Couleur de la génération mobile la plus récente active sur le support.",
+  formes: "Point plein : au moins une antenne active (en service, ou techniquement opérationnelle pour la 5G). Anneau : en projet seulement (projet approuvé).",
+};
+
+/** The count under the map for each choice, keyed as the page's address: « orange-5g », « tnt », « tous ». */
+function counts(codes: Code[]): [string, string][] {
+  const S = antennes.SUPPORTS;
+  const count = (o: string, g: string) => {
+    const l = codes.map((d) => look(d, o, g, "o")).filter((x) => x !== null);
+    return { on: l.filter((x) => !x[0]).length, off: l.filter((x) => x[0]).length };
+  };
+  const out: [string, string][] = [];
+  for (const op of [undefined, ...OPS]) {
+    for (const g of ["", ...GENS]) {
+      const { on, off } = count(op?.k ?? "", g);
+      const etat = g === "5" ? "techniquement opérationnelle" : "en service";
+      const key = [op?.id, g && `${g}g`].filter(Boolean).join("-") || "tous";
+      out.push([key, !op && !g ? `${nombre(S.length)} supports d'antennes mobiles, dont ${nombre(on)} avec au moins une antenne active`
+        : !g ? `${op!.o} : ${nombre(on)} supports avec au moins une antenne active, ${nombre(off)} en projet seulement`
+        : !op ? `${g}G : ${nombre(on)} supports avec la ${g}G ${etat}, ${nombre(off)} en projet, tous opérateurs`
+        : `${op.o}, ${g}G : ${nombre(on)} supports avec la ${g}G ${etat}, ${nombre(off)} en projet`]);
+    }
+  }
+  for (const r of RADIOS) {
+    const on = antennes.EMETTEURS.filter((e) => e[r.id]);
+    out.push([r.id, `${r.tab} : ${nombre(on.length)} supports d'émetteurs ${r.name}, ${nombre(on.reduce((n, e) => n + e[r.id]!, 0))} stations`]);
+  }
+  return out;
+}
+
+/** The filters' script: the choice from the buttons or the address (« #orange-5g »), each support's look, the legends. */
+const FILTRES_SCRIPT = `(()=>{const f=document.querySelector(".antf");if(!f)return;const fig=f.closest("figure"),S=[...fig.querySelectorAll("circle.s")],E=[...fig.querySelectorAll("circle.e")];
+${LOOK}
+const D=S.map((s)=>[...s.dataset.g.matchAll(/([a-z])(\\d*)(?:\\+(\\d+))?/g)].map((m)=>[m[1],m[2],m[3]||""]));
+const ins=(n)=>[...f.querySelectorAll("[name="+n+"]")],val=(n)=>(ins(n).find((i)=>i.checked)||{}).value||"",set=(n,v)=>ins(n).forEach((i)=>{i.checked=i.value===v});
+let mode=val("ac");const RADIOS=${JSON.stringify(RADIOS.map((r) => r.id))};
+const draw=(keep)=>{const t=val("at"),radio=RADIOS.includes(t);if(radio){set("ao","");set("ac","t")}else set("ac",mode);ins("ao").concat(ins("ac")).forEach((i)=>{i.disabled=radio});
+f.querySelectorAll(".r-ao,.r-ac").forEach((r)=>r.classList.toggle("dis",radio));
+const op=f.querySelector("[name=ao]:checked"),o=op&&op.value?op.dataset.k:"",g=radio?"":t.slice(0,1),m=radio?"t":mode;
+S.forEach((s,i)=>{const l=radio?null:look(D[i],o,g,m);s.setAttribute("class",l?"s k"+l[1]+(l[0]?" r":""):"s h")});
+E.forEach((e)=>e.setAttribute("class",radio&&e.dataset.k.split(" ").includes(t)?"e kr":"e h"));
+const key=[val("ao"),t].filter(Boolean).join("-")||"tous";fig.querySelectorAll(".lg").forEach((x)=>{x.hidden=x.dataset.k!==key});
+fig.querySelector(".lgc-o").hidden=m!=="o";fig.querySelector(".lgc-t").hidden=m!=="t";fig.querySelector(".lgc-t").classList.toggle("radio",radio);fig.querySelector(".formes").hidden=radio;
+if(!keep)history.replaceState(null,"",key==="tous"?location.pathname+location.search:"#"+key)};
+const read=()=>{const h=decodeURIComponent(location.hash.slice(1)),op=ins("ao").find((i)=>i.value&&(h===i.value||h.startsWith(i.value+"-"))),t=op?h.slice(op.value.length+1):h;
+if(!op&&!ins("at").some((i)=>i.value&&i.value===t))return false;set("ao",op?op.value:"");set("at",ins("at").some((i)=>i.value===t)?t:"");return true};
+f.addEventListener("change",(e)=>{if(e.target.name==="ac")mode=e.target.value;draw()});addEventListener("hashchange",()=>{if(read())draw(true)});
+f.hidden=false;read();draw(true)})();`;
+
+/** A row of buttons, one choice: its name, then « Tous » and the rest. */
+const row = (name: string, label: string, list: { v: string; tab: string; k?: string }[], on: string) =>
+  `<div class="tabs aqtabs r-${name}" role="radiogroup" aria-label="${esc(label.replace(/ :$/, ""))}"><span class="tl" aria-hidden="true">${esc(label)}</span>` +
+  list.map((x) => `<input type="radio" name="${name}" id="${name}-${x.v || "tous"}" value="${x.v}"${x.k ? ` data-k="${x.k}"` : ""}${x.v === on ? " checked" : ""}><label for="${name}-${x.v || "tous"}">${esc(x.tab)}</label>`).join("") + `</div>`;
+
+const swatch = (k: string, label: string) => `<span class="sw sw-${k}"><i style="--c:${COULEURS[k]}"></i>${esc(label)}</span>`;
+
+function map(): string {
+  const codes = antennes.SUPPORTS.map(code);
+  const parsed = codes.map(parse);
+  const filtres = `<div class="antf" hidden>` +
+    row("ao", MOTS.operateur, [{ v: "", tab: MOTS.tous }, ...OPS.map((x) => ({ v: x.id, tab: x.o, k: x.k }))], "") +
+    row("at", MOTS.type, [{ v: "", tab: MOTS.tous }, ...GENS.map((g) => ({ v: `${g}g`, tab: `${g}G` })), ...RADIOS.map((r) => ({ v: r.id, tab: r.tab }))], "") +
+    row("ac", MOTS.couleur, [{ v: "o", tab: MOTS.parOperateur }, { v: "t", tab: MOTS.parType }], "o") + `</div>`;
+  // Without the script: every mobile support, coloured by operator, as the filters' first choice.
+  const supports = antennes.SUPPORTS.map((s, i) => {
+    const [x, y] = project(s.lon, s.lat), l = look(parsed[i], "", "", "o")!;
+    return `<circle class="s k${l[1]}${l[0] ? " r" : ""}" cx="${x}" cy="${y}" r="6" data-g="${codes[i]}"/>`;
+  }).join("");
+  const emetteurs = antennes.EMETTEURS.map((e) => {
+    const [x, y] = project(e.lon, e.lat);
+    return `<circle class="e h" cx="${x}" cy="${y}" r="9" data-k="${RADIOS.filter((r) => e[r.id]).map((r) => r.id).join(" ")}"/>`;
+  }).join("");
+  const formes = `<span class="formes"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="5" class="in"/></svg><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="4" class="ring"/></svg>${esc(MOTS.formes)}</span>`;
+  const legende = `<span class="lgc lgc-o">${OPS.map((x) => swatch(x.k, x.o)).join("")}${swatch("m", MOTS.plusieurs)}</span>` +
+    `<span class="lgc lgc-t" hidden>${["5", "4", "2", "r"].map((k) => swatch(k, MOTS.types[k])).join("")}<span class="tn">${esc(MOTS.typeNote)}</span></span>`;
+  const phrases = counts(parsed).map(([k, t]) => `<span class="lg" data-k="${k}"${k === "tous" ? "" : " hidden"}>${esc(t)}.</span>`).join("");
+  return `<figure class="card mapcard antmap">${filtres}` +
+    islandMap({ overlay: `<g class="ants">${supports}${emetteurs}</g>`, peaks: true, label: "Carte de La Réunion (974) : les supports d'antennes déclarés à l'ANFR, filtrés par opérateur et par type" }) +
+    `<figcaption class="note">${legende}${formes}${phrases}</figcaption></figure><script>${FILTRES_SCRIPT}</script>`;
 }
 
 function table(): string {
@@ -179,7 +263,7 @@ function build() {
   <h1>${esc(T.h1)}</h1>
   <p class="lead">${esc(lead)}</p>
 </div></div>`;
-  const carte = `<section aria-labelledby="h-carte"><h2 id="h-carte">Sur la carte</h2>${map(layers())}</section>`;
+  const carte = `<section aria-labelledby="h-carte"><h2 id="h-carte">Sur la carte</h2>${map()}</section>`;
   const reste = `<section aria-labelledby="h-communes"><h2 id="h-communes">Par commune</h2>${table()}
   <p><a href="/#assistant">Les antennes près de votre adresse : demandez à votre IA →</a></p></section>
 <section aria-labelledby="h-src"><h2 id="h-src">À savoir</h2>
