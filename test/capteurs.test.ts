@@ -6,7 +6,7 @@ import * as airMesures from "../src/providers/air-mesures.js";
 import * as capteurs from "../src/providers/capteurs.js";
 import { parse as parseAtmo } from "../src/providers/atmo.js";
 import { REGISTRY } from "../src/registre.js";
-import { CAPTEURS_AUCUN, CAPTEURS_AVERTISSEMENT, capteursEchec, measuredAt, qualiteAir } from "../src/tools/air.js";
+import { CAPTEURS_AUCUN, CAPTEURS_AVERTISSEMENT, capteursAncienne, capteursEchec, measuredAt, qualiteAir } from "../src/tools/air.js";
 import { airPage } from "../src/web/domains.js";
 import { esc } from "../src/web/map.js";
 import { SHARED } from "../src/web/partagees.js";
@@ -149,6 +149,30 @@ describe("the sensors of private people (Sensor.Community)", () => {
     const c = body(await qualiteAir(cache(), undefined, NOW)).capteurs_amateurs;
     expect(c).not.toHaveProperty("valeurs");
     expect(c.aucun).toBe(CAPTEURS_AUCUN);
+  });
+
+  it("never says none on a copy not written lately: its values as last read and when, or no recent reading", async () => {
+    // Last written at 06:10 in La Réunion, more than an hour and a half before 10:25: the network not read since.
+    capteurs.configure(async () => ({ lu: "2026-10-29T02:10:00Z", capteurs: [{ cle: "900001", commune: "Saint-Denis", pm10: 20, mesure_a: "2026-10-29T02:05:00Z" }] }));
+    const c = body(await qualiteAir(cache(), undefined, NOW)).capteurs_amateurs;
+    expect(c.lecture_ancienne).toBe("Dernière lecture des capteurs à 06:10.");
+    expect(c.valeurs).toEqual([{ commune: "Saint-Denis", pm10: 20, unite: "µg/m³", mesurees: "à 06:05" }]);
+    expect(c).not.toHaveProperty("aucun");
+    expect(capteursAncienne("2026-10-28T19:10:00Z", NOW, true)).toBe("Dernière lecture des capteurs hier à 23:10.");
+    // Its last reading found none: no recent reading, never « aucun ».
+    capteurs.configure(async () => ({ lu: "2026-10-29T02:10:00Z", capteurs: [] }));
+    const answer = body(await qualiteAir(cache(), undefined, NOW));
+    expect(answer.capteurs_amateurs.lecture_ancienne).toBe("Pas de lecture récente des capteurs (dernière lecture à 06:10).");
+    expect(answer.capteurs_amateurs).not.toHaveProperty("aucun");
+    expect(answer.capteurs_amateurs).not.toHaveProperty("valeurs");
+    const page = airPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
+    expect(page).toContain(`<p>${esc(answer.capteurs_amateurs.lecture_ancienne)}</p>`);
+    expect(page).not.toContain(esc(CAPTEURS_AUCUN));
+    // Written an hour and a quarter ago, as a read an hour after the last one: recent, said as usual.
+    capteurs.configure(async () => ({ lu: "2026-10-29T05:10:00Z", capteurs: [] }));
+    const recent = body(await qualiteAir(cache(), undefined, NOW)).capteurs_amateurs;
+    expect(recent.aucun).toBe(CAPTEURS_AUCUN);
+    expect(recent).not.toHaveProperty("lecture_ancienne");
   });
 
   it("has none where the store is not configured, nor while it has no copy", async () => {

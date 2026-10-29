@@ -122,6 +122,9 @@ export const CAPTEURS_EXPLICATION =
 export const CAPTEURS_AUCUN = "Aucun capteur partagé sur Sensor.Community n'a émis à La Réunion dans les 2 dernières heures.";
 /** Sensor.Community not read since `since` and nothing read before it: said, never as no sensor. */
 export const capteursEchec = (since: string, now: Date) => `Lecture des capteurs amateurs impossible depuis ${measuredAt(since, now).replace(/^à /, "")}.`;
+/** The copy not written lately: when it was, with the values it kept, or that there is no recent reading; never none. */
+export const capteursAncienne = (lu: string, now: Date, values: boolean) =>
+  values ? `Dernière lecture des capteurs ${measuredAt(lu, now)}.` : `Pas de lecture récente des capteurs (dernière lecture ${measuredAt(lu, now)}).`;
 
 /** When a sensor measured: « à 10:34 », « hier à 23:10 » (its window is 2 hours). */
 export function measuredAt(iso: string, now: Date): string {
@@ -160,9 +163,10 @@ async function amateurs(cache: Cache, now: Date) {
   return {
     avertissement: CAPTEURS_AVERTISSEMENT,
     explication: CAPTEURS_EXPLICATION,
+    ...(copy.stale && { lecture_ancienne: capteursAncienne(v.lu, now, list.length > 0) }),
     ...(list.length
       ? { valeurs: list.map((c) => ({ commune: c.commune, ...(c.pm2_5 !== undefined && { pm2_5: c.pm2_5 }), ...(c.pm10 !== undefined && { pm10: c.pm10 }), unite: "µg/m³", mesurees: measuredAt(c.mesure_a, now) })) }
-      : { aucun: CAPTEURS_AUCUN }),
+      : copy.stale ? {} : { aucun: CAPTEURS_AUCUN }),
     position: "arrondie à la commune",
     lu_par_rundata: localTime(copy.fetchedAt),
     carte: capteurs.CARTE,

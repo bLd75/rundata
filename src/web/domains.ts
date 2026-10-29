@@ -581,11 +581,11 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
     ? `<section aria-labelledby="h-capteurs-air">
   <div class="sec-h"><p class="eyebrow">Capteurs de particuliers</p><h2 id="h-capteurs-air">Capteurs amateurs</h2>
   <p><b>${esc(CAPTEURS_AVERTISSEMENT)}</b> ${esc(am.explication)}</p></div>
-  <div class="card">${"valeurs" in am
+  <div class="card">${"lecture_ancienne" in am && am.lecture_ancienne ? `<p>${esc(am.lecture_ancienne)}</p>` : ""}${"valeurs" in am && am.valeurs
     ? `<ul class="plain">${am.valeurs.map((v) => `<li>${esc(v.commune)}${pm("PM2,5", v.pm2_5)}${pm("PM10", v.pm10)} · mesurées ${esc(v.mesurees)} <span class="note">non étalonné</span></li>`).join("")}</ul>`
-    : "aucun" in am
+    : "aucun" in am && am.aucun
       ? `<p>${esc(am.aucun)} <a href="#brancher">Brancher un capteur</a></p>`
-      : `<p>${esc(am.echec)}</p>`}
+      : am.echec ? `<p>${esc(am.echec)}</p>` : ""}
   <p class="note">${amLe ? `Lu par rundata.re le ${esc(amLe)} à ${esc(amA)}, sur` : "Capteurs partagés sur"} <a href="${esc(am.carte)}" rel="noopener">Sensor.Community</a> (<a href="${esc(capteurs.DBCL)}" rel="noopener">DbCL 1.0</a>).</p></div>
   <details class="card" id="brancher"><summary>Brancher son capteur</summary>
   <p>Un capteur de particules branché dehors et partagé sur Sensor.Community apparaît dans le bloc ci-dessus, arrondi à sa commune.</p>
