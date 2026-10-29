@@ -24,7 +24,7 @@ import { SUJETS } from "../providers/actualites.js";
 import * as littoral from "../tools/littoral.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
-import { a, de, enumeration, fr, nombre } from "../tools/format.js";
+import { a, de, enumeration, fr, heure, nombre, tranche } from "../tools/format.js";
 import { CAPTEURS_AVERTISSEMENT, type Measured } from "../tools/air.js";
 import * as capteurs from "../providers/capteurs.js";
 import * as radars from "../routes/radars.js";
@@ -782,7 +782,7 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
       (f?.aujourd_hui ? `<p class="lead">Aujourd'hui est férié : <b>${esc(f.aujourd_hui)}</b>.</p>` : "") +
       (v?.en_cours ? `<p class="lead">Vacances scolaires en cours, reprise des cours le <b>${esc(v.en_cours.reprise_des_cours)}</b>.</p>` : "") +
       (next ? `<p class="lead">Prochain jour férié : <b>${esc(next.nom)}</b>, ${esc(next.date)} (dans ${next.dans_jours} jour${next.dans_jours > 1 ? "s" : ""}).</p>` : "") +
-      (d.soleil ? `<p class="lead">À ${esc(d.soleil.lieu)}, lever du soleil à <b>${esc(d.soleil.lever.replace(":", "h"))}</b>, coucher à <b>${esc(d.soleil.coucher.replace(":", "h"))}</b>.</p>` : "") +
+      (d.soleil ? `<p class="lead">À ${esc(d.soleil.lieu)}, lever du soleil à <b>${esc(d.soleil.lever)}</b>, coucher à <b>${esc(d.soleil.coucher)}</b>.</p>` : "") +
       `</div>`;
 
   const holidays = f
@@ -795,7 +795,7 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
       `</ul><p class="note">${esc(v.note)}</p></div>`
     : "";
   const sun = d?.soleil
-    ? `<div class="card">${icon("mountain")}<h3>Soleil à ${esc(d.soleil.lieu)}</h3><p>Lever ${esc(d.soleil.lever.replace(":", "h"))}, coucher ${esc(d.soleil.coucher.replace(":", "h"))} : ${esc(d.soleil.duree_du_jour)} de jour.</p><p class="note">${esc(d.soleil.note)}</p></div>`
+    ? `<div class="card">${icon("mountain")}<h3>Soleil à ${esc(d.soleil.lieu)}</h3><p>Lever ${esc(d.soleil.lever)}, coucher ${esc(d.soleil.coucher)} : ${esc(d.soleil.duree_du_jour)} de jour.</p><p class="note">${esc(d.soleil.note)}</p></div>`
     : "";
 
   // The school year people look up: from July, the one that starts in August.
@@ -864,7 +864,7 @@ export function calendrierLive(data: Cached<CalendrierAnswer> | null, now = new 
     detail: [
       v ? `reprise le ${esc(v.reprise_des_cours)}` : undefined,
       (f?.aujourd_hui || v) && next ? `${esc(next.nom)} dans ${next.dans_jours} j` : undefined,
-      d.soleil ? `soleil ${esc(d.soleil.lever.replace(":", "h"))} – ${esc(d.soleil.coucher.replace(":", "h"))}` : undefined,
+      d.soleil ? `soleil ${esc(d.soleil.lever)}–${esc(d.soleil.coucher)}` : undefined,
     ].filter(Boolean).join(" · "),
   };
 }
@@ -1905,7 +1905,7 @@ export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | 
   <div class="card warn">${icon("alert")}<ul class="plain">
     <li><b>Un sentier fermé est interdit.</b> Il l'est par arrêté préfectoral ou par l'ONF (éboulement, passage effondré, travaux) : s'y engager est dangereux et verbalisable, même avec une trace GPS. <a href="/sentiers">La liste du jour</a>.</li>
     <li><b>La météo d'abord.</b> Regarder la <a href="/vigilance">vigilance de Météo-France</a> et la <a href="/meteo">prévision</a> la veille et le matin. Par fortes pluies ou orages, ne pas partir : les ravines montent en quelques minutes et la préfecture ferme d'autres sentiers.</li>
-    <li><b>Partir tôt.</b> Les nuages montent dans les Hauts en fin de matinée et il pleut souvent l'après-midi ; la nuit tombe entre 17 h 45 et 19 h selon la saison (<a href="/calendrier">lever et coucher du soleil</a>).</li>
+    <li><b>Partir tôt.</b> Les nuages montent dans les Hauts en fin de matinée et il pleut souvent l'après-midi ; la nuit tombe entre 17:45 et 19:00 selon la saison (<a href="/calendrier">lever et coucher du soleil</a>).</li>
     <li><b>De l'eau, assez.</b> Au moins deux litres par personne, davantage en été et sur les longues montées. Ne pas boire l'eau des ravines sans la traiter.</li>
     <li><b>Hors gestion ONF</b> veut dire état non connu, pas ouvert : se renseigner auprès de la commune ou du Parc national.</li>
     <li>Dire à quelqu'un où l'on va et quand on rentre : le téléphone ne passe pas partout dans les cirques. Au volcan, voir aussi <a href="/volcan">l'état du Piton de la Fournaise</a>. Urgence : 112.</li>
@@ -2708,12 +2708,13 @@ const AGENDA_WEEKEND = 7;
 type AgendaRow = AgendaAnswer["ce_week_end"][number];
 const longDay = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 
-/** The hours of a row within its day: « 14:00 – 18:00 », « 19:30 », « jusqu'au dimanche 25/10 ». */
+/** The hours of a row within its day, as kit.md writes them: « 14 h–18 h », « 19:30 », « 20 h », « jusqu'au dimanche 25/10 ». */
 export function agendaHours(q: string): string {
+  const min = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
   const span = /de (\d\d:\d\d) à (\d\d:\d\d)$/.exec(q);
-  if (span) return `${span[1]} – ${span[2]}`;
+  if (span) return tranche(min(span[1]), min(span[2]));
   const at = /^\S+ \S+ à (\d\d:\d\d)$/.exec(q);
-  if (at) return at[1];
+  if (at) return heure(min(at[1]));
   const until = /^du .* au (\S+ \S+)(?: à \S+)?$/.exec(q);
   return until ? `jusqu'au ${until[1]}` : "";
 }

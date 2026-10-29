@@ -42,7 +42,7 @@ export function describe(img: radar.RadarImage, p: Place, now: Date) {
     resume: phrase,
     bloc: {
       nature: "mesure radar (estimation de la pluie, pas un pluviomètre)",
-      image: `${localTime(new Date(img.debut))} – ${localTime(new Date(img.fin)).split(" ")[1]} heure de La Réunion`,
+      image: `${localTime(new Date(img.debut))}–${localTime(new Date(img.fin)).split(" ")[1]} heure de La Réunion`,
       age_min: age,
       au_lieu_mm_h: at.mm_h,
       [`max_${RADIUS_KM}km_mm_h`]: at.max_mm_h,

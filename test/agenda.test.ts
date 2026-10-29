@@ -1207,7 +1207,11 @@ describe("agenda", () => {
   });
 
   it("shows the hours of a row within its day", () => {
-    expect(agendaHours("samedi 24/10 de 18:00 à 23:00")).toBe("18:00 – 23:00");
+    // kit.md: « 18 h–23 h », both with their minutes when one has some, « 20 h » on the hour.
+    expect(agendaHours("samedi 24/10 de 18:00 à 23:00")).toBe("18\u00a0h–23\u00a0h");
+    expect(agendaHours("samedi 24/10 de 18:30 à 23:00")).toBe("18:30–23:00");
+    expect(agendaHours("samedi 24/10 à 20:00")).toBe("20\u00a0h");
+    expect(agendaHours("samedi 24/10 à 19:30")).toBe("19:30");
     expect(agendaHours("du dimanche 25/10 à 08:30 au lundi 26/10 à 16:00")).toBe("jusqu'au lundi 26/10");
     expect(agendaHours("mercredi 28/10")).toBe("");
   });

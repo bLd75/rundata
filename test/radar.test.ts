@@ -53,6 +53,8 @@ describe("radar lame d'eau", () => {
   it("says dry, rain here, or rain nearby", async () => {
     const img = await parse(data());
     expect(say(img, place("Saint-Denis"), NOW)!.resume).toBe("Radar Météo-France, image de 09:40 : pas de pluie détectée.");
+    // The image's span as kit.md writes one: no space around the dash.
+    expect(say(img, place("Saint-Denis"), NOW)!.bloc.image).toBe("22/10 09:35–09:40 heure de La Réunion");
     const wet = say(withRain(img, "Saint-Benoît", 25), place("Saint-Benoît"), NOW)!;
     expect(wet.resume).toContain("pluie modérée (3 mm/h)");
     const near = say(withRain(img, "Saint-Benoît", 100, 1), { ...place("Saint-Benoît"), lon: place("Saint-Benoît").lon + 0.02 }, NOW)!;

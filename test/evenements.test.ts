@@ -79,7 +79,7 @@ describe("the weekend's events", () => {
     expect(html).toContain("Vendredi 30 octobre soir");
     expect(html).toContain("Dimanche 1er novembre (Toussaint, férié)");
     // The other date of a row, with its hours.
-    expect(html).toMatch(/Kabar du mardi<\/a>.*?<span class="q-none">19:00<\/span>/s);
+    expect(html).toMatch(/Kabar du mardi<\/a>.*?<span class="q-none">19\u00a0h<\/span>/s);
     expect(html).not.toContain("Marché forain");
     expect(html).not.toContain("Conférence");
     expect(html).toContain(`<a href="/evenements/ce-week-end" aria-current="page">Ce week-end</a>`);
@@ -144,7 +144,7 @@ describe("the concerts", () => {
   it("put the end of an event of several days under its title on a phone, its hours beside it otherwise", async () => {
     const html = agendaPage("https://rundata.re", data(ROWS), TUESDAY);
     expect(html).toContain(`<span class="q-none fin">jusqu&#39;au lundi 02/11</span>`);
-    expect(html).toContain(`<span class="q-none">20:00</span>`);
+    expect(html).toContain(`<span class="q-none">20\u00a0h</span>`);
     // The rule is in the stylesheet the page links to.
     expect(html).toContain(`<link rel="stylesheet" href="${STYLE_PATH}">`);
     const style = await site(new Request(`https://rundata.re${STYLE_PATH}`), new Cache(), () => {});
