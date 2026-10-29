@@ -224,6 +224,8 @@ export function islandMap(opts: {
   relief?: boolean;
   /** Drawn over the land, under the markers: lines. */
   overlay?: string;
+  /** Drawn over everything, the summits included: markers the page draws itself. */
+  top?: string;
   /** Pills that would cover each other moved apart, each tied to its place (apart()). */
   apart?: boolean;
   /**
@@ -241,7 +243,7 @@ export function islandMap(opts: {
     .map((p) => `<path d="${p.d}" style="fill:${opts.fills![p.nom]}"/>`)
     .join("");
   // An image hides what it holds from screen readers: a map with links is a group, so that each link is reached.
-  const linked = !!opts.links || [...(opts.markers ?? []), ...(opts.layers ?? []).flatMap((l) => l.markers)].some((m) => m.href);
+  const linked = !!opts.links || !!opts.top || [...(opts.markers ?? []), ...(opts.layers ?? []).flatMap((l) => l.markers)].some((m) => m.href);
   const role = linked ? `role="group"` : `role="img"`;
   const zones = opts.links ? zoneLinks(opts.links) : "";
   const draw = (list: Marker[]) => {
@@ -287,7 +289,7 @@ export function islandMap(opts: {
     `<defs><g id="isl">${paths}</g>${terrain ? `<clipPath id="isl-clip">${paths}</clipPath>` : ""}</defs>` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>` +
     `<use href="#isl" class="coast"/>${land}<use href="#isl" class="borders"/>` +
-    (opts.overlay ?? "") + zones + extra + markers + `</svg>`;
+    (opts.overlay ?? "") + zones + extra + markers + (opts.top ?? "") + `</svg>`;
 }
 
 // ---------------------------------------------------------------- every hike and trail of the island
