@@ -3,6 +3,7 @@
  * are full, as the staff last said, a block per commune with its anchor. Cut from the copy web:dechets, read
  * against the time: an update of more than 6 hours is said to be checked on the spot.
  */
+import { aller, SHEET as ALLER } from "./aller.js";
 import type { Cached } from "../cache.js";
 import { slugify } from "./places.js";
 import * as dech from "../vie/decheteries.js";
@@ -34,7 +35,7 @@ function siteCard(s: dech.SiteNow): string {
       (s.refuse.length ? `<p><b>Benne pleine :</b> ${esc(s.refuse.join(", "))}.</p>` : `<p><b>Toutes les bennes acceptent.</b></p>`) +
       (s.accepte.length ? `<p><b>Accepté :</b> ${esc(s.accepte.join(", "))}.</p>` : "")
     : `<p class="note">${esc(CHECK)}${s.mis_a_jour ? ` Dernière mise à jour : ${esc(s.mis_a_jour)}.` : ""}</p>`;
-  return `<div class="card">${icon("pin")}<h3><a href="${esc(s.lien)}" rel="noopener">${esc(s.nom)}</a></h3>${s.adresse ? `<p>${esc(s.adresse)}</p>` : ""}${state}</div>`;
+  return `<div class="card">${icon("pin")}<h3><a href="${esc(s.lien)}" rel="noopener">${esc(s.nom)}</a></h3>${s.adresse ? `<p>${esc(s.adresse)}</p>` : ""}<p>${aller({ nom: s.nom, lat: s.lat, lon: s.lon, adresse: s.adresse ? `${s.adresse}, ${s.commune}` : undefined })}</p>${state}</div>`;
 }
 
 export function decheteriesPage(origin: string, data: Cached<DechetsAnswer> | null, now = new Date(), alerte?: Alerte): string {
@@ -56,6 +57,6 @@ export function decheteriesPage(origin: string, data: Cached<DechetsAnswer> | nu
   ${data ? sourcesNote(data.value.sources, data) : ""}</section>`;
   const body = `${blocks}
 ${others}
-${connectorCta("annuaire_services_publics", "les déchèteries")}`;
+${connectorCta("annuaire_services_publics", "les déchèteries")}${ALLER}`;
   return layout(origin, { title: TITLE, description, path, jsonld: [crumbs(origin, "Déchèteries de l'Ouest", path), webPage(origin, path, TITLE, description, data)], alerte }, band, body);
 }

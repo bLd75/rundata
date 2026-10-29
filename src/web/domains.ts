@@ -53,7 +53,7 @@ import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
 import { tapNote } from "../tools/eau.js";
-import { MOTS as ALLER_MOTS, SHEET as ALLER } from "./aller.js";
+import { aller, MOTS as ALLER_MOTS, SHEET as ALLER } from "./aller.js";
 import { mentionSports, noteLa1ere, noteReunionFr } from "../tools/non-repris.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
@@ -1286,10 +1286,11 @@ export function cruesLive(data: Cached<CruesAnswer> | null, now: Date): Live | u
 
 // ---------------------------------------------------------------- bornes de recharge
 
-/** A station in a list: where it is, its power and plugs, how many points are free. */
+/** A station in a list: where it is, its power and plugs, « Y aller », how many points are free. */
 export function borneRow(s: BorneStation): string {
   const free = s.libres ? `<b>${s.libres}</b> libre${s.libres > 1 ? "s" : ""} sur ${s.total}` : `aucun libre sur ${s.total}`;
-  return `<li><span>${esc(s.station)}<small>${fr(s.puissance_max_kw)} kW · ${esc(s.prises.join(", "))}${s.horaires && s.horaires !== "24 h/24, 7 j/7" ? ` · ${esc(s.horaires)}` : ""}</small></span>` +
+  return `<li><span>${esc(s.station)}<small>${fr(s.puissance_max_kw)} kW · ${esc(s.prises.join(", "))}${s.horaires && s.horaires !== "24 h/24, 7 j/7" ? ` · ${esc(s.horaires)}` : ""}</small>` +
+    `${aller({ nom: s.station, lat: s.lat, lon: s.lon, adresse: s.adresse })}</span>` +
     `<span class="${s.libres ? "free" : "busy"}">${free}</span></li>`;
 }
 
@@ -1354,7 +1355,7 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
   ${byCommune}
   ${d && data ? sourcesNote(d.sources, data) : ""}
 </section>
-${connectorCta("bornes_recharge", "les bornes de recharge")}`;
+${connectorCta("bornes_recharge", "les bornes de recharge")}${d ? ALLER : ""}`;
 
   return layout(origin, { title, description, path: "/bornes", jsonld: [crumbs(origin, "Recharge", "/bornes"), webPage(origin, "/bornes", title, description, data)], alerte }, band, body);
 }
@@ -1382,7 +1383,7 @@ function siteLine(s: EauAnswer["baignades"][number]): string {
   const q = s.qualite_dernier_prelevement;
   return `<li class="tgt" id="${anchorId("b", s.site)}"><span>${esc(s.site)}<small>dernier prélèvement le ${esc(s.dernier_prelevement)}` +
     (last ? ` · ${esc(last.enterocoques_100ml)} entérocoques et ${esc(last.e_coli_100ml)} E. coli pour 100 mL` : "") +
-    (s.mauvais_sur_12_mois ? ` · ${s.mauvais_sur_12_mois} mauvais résultat${s.mauvais_sur_12_mois > 1 ? "s" : ""} sur 12 mois` : "") + `</small></span>` +
+    (s.mauvais_sur_12_mois ? ` · ${s.mauvais_sur_12_mois} mauvais résultat${s.mauvais_sur_12_mois > 1 ? "s" : ""} sur 12 mois` : "") + `</small>${aller({ nom: s.site, lat: s.lat, lon: s.lon })}</span>` +
     `<span class="q-${q ?? "none"}">${q ? esc(q) : "pas de résultat"}</span></li>`;
 }
 
@@ -1456,7 +1457,7 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
   <p>${d ? `${tapBad.length ? `Des analyses non conformes en 6 mois dans ${tapBad.length} commune${tapBad.length > 1 ? "s" : ""} sur ${d.communes.length}, sur un ou deux réseaux chacune.` : "Toutes les analyses des 6 derniers mois sont conformes."} ` : ""}${esc(EAU_TEXT.robinet)}</p></div>
   ${d ? `<ul class="zones">${d.communes.map(tapCard).join("")}</ul><p class="note">${esc(tapNote("page"))}<br><a href="/coupures-eau">Les avis en cours →</a></p>${data ? `<p class="note">Analyses rassemblées le ${esc(dayFr(d.lu))} à ${esc(hm(new Date(d.lu)))}.</p><p class="sources">Sources : ${esc(d.sources.map((x) => x.attribution).join(" ; "))}.</p>` : ""}` : ""}
 </section>
-${connectorCta("qualite_eau", "la qualité de l'eau")}`;
+${connectorCta("qualite_eau", "la qualité de l'eau")}${d?.baignades.length ? ALLER : ""}`;
 
   return layout(origin, { title, description, path: "/eau", jsonld: [crumbs(origin, "Qualité de l'eau", "/eau"), webPage(origin, "/eau", title, description, data)], alerte }, band, body);
 }

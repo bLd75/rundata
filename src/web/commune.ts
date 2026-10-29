@@ -4,6 +4,7 @@
  * the copy of /meteo/<commune>, the town hall and the buses the commune's own copy, the rest the last copy of each
  * category page (web/site.ts), so a page costs a few reads.
  */
+import { aller, SHEET as ALLER } from "./aller.js";
 import type { Cached } from "../cache.js";
 import { localTime } from "../geo.js";
 import { normalize } from "../places/resolve.js";
@@ -301,6 +302,9 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const velos = bikes(l.commune);
   const mairie = townHall(l.commune, now);
   const fiche = l.commune?.value.mairie?.fiche;
+  // « Y aller » under the town hall's address, where the directory gives its position.
+  const o = l.commune?.value.mairie;
+  const toHall = o && mairie ? aller({ nom: o.nom, lat: o.lat ?? NaN, lon: o.lon ?? NaN, adresse: o.adresse }) : "";
   const hikes = communeHikes(p, l.randonnees, now);
 
   const tiles: Tile[] = [
@@ -315,6 +319,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
       icon: "building",
       nom: "Mairie",
       live: mairie,
+      ...(toHall ? { more: `<p class="ya">${toHall}</p>` } : {}),
       question: `La mairie ${de(p.nom)} est ouverte ?`,
       foot: fiche ? `<a href="${esc(fiche)}" rel="noopener">Fiche service-public.fr</a>` : `<a href="/#assistant">Demandez à votre IA →</a>`,
     },
@@ -439,7 +444,7 @@ ${habiter.length ? `<section aria-labelledby="h-habiter">
   <ul class="chips">${COMMUNES.filter((x) => x.slug !== p.slug).map((x) => `<li><a href="${hub(x)}">${esc(x.nom)}</a></li>`).join("")}</ul>
 </section>`;
   const rss = { href: rssPath(p), title: rssTitle(p), link: rssLink(p), hint: RSS_HINT };
-  return layout(origin, { title, description, path: hub(p), jsonld, alerte, rss }, band, body);
+  return layout(origin, { title, description, path: hub(p), jsonld, alerte, rss }, band, toHall ? body + ALLER : body);
 }
 
 /** The 24 communes, by vigilance zone: the island's own way of splitting itself (Nord, Est, Sud, Ouest). */

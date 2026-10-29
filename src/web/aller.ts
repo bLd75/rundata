@@ -7,12 +7,14 @@
  * click: nothing is counted. The words are marketing's.
  */
 import { esc } from "./map.js";
+import { hash } from "./pwa.js";
 
 export const MOTS = {
   bouton: "Y aller",
   label: (nom: string) => `Y aller : ${nom}`,
   titre: "Y aller : ",
   ouvrir: "Ouvrir dans :",
+  ouvrirPied: "À pied, ouvrir dans :",
   choisir: "Choisir une appli du téléphone",
   copierAdresse: "Copier l'adresse",
   copierCoordonnees: "Copier les coordonnées",
@@ -52,7 +54,7 @@ export const SCRIPT = `(()=>{const d=document.getElementById("aller");if(!d||!d.
 const T=${JSON.stringify(MOTS)};
 const ua=navigator.userAgent,ios=/iP(hone|ad|od)/.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1),android=/Android/.test(ua);
 const e=(s)=>String(s).replace(/[&<>"']/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
-const h=d.querySelector("h2"),ul=d.querySelector("ul"),ok=d.querySelector(".ok");let copie="",dit="";
+const h=d.querySelector("h2"),o=d.querySelector("h2+.note"),ul=d.querySelector("ul"),ok=d.querySelector(".ok");let copie="",dit="";
 const apps=(la,lo,n,pied)=>{const p=la+","+lo,q=encodeURIComponent(n);
 const g=["Google Maps","https://www.google.com/maps/dir/?api=1&destination="+p+(pied?"&travelmode=walking":"")],w=pied?[]:[["Waze","https://waze.com/ul?ll="+p+"&navigate=yes"]];
 if(ios)return[["Plans","https://maps.apple.com/?daddr="+p+"&q="+q+(pied?"&dirflg=w":"")],g,...w];
@@ -60,15 +62,21 @@ if(android)return[[T.choisir,"geo:0,0?q="+p+"("+q+")"],g,...w];
 return[g,["OpenStreetMap","https://www.openstreetmap.org/?mlat="+la+"&mlon="+lo+"#map=18/"+la+"/"+lo]]};
 document.addEventListener("click",(ev)=>{const a=ev.target.closest&&ev.target.closest("a.aller");if(!a)return;
 const go=a.dataset.go||new URL(a.href).searchParams.get("destination"),l=a.getAttribute("aria-label")||"";if(!go||!l.startsWith(T.titre))return;ev.preventDefault();
-const [la,lo]=go.split(","),n=l.slice(T.titre.length),ad=a.dataset.a;
-h.textContent=T.titre+n;
-ul.innerHTML=apps(la,lo,n,a.dataset.m==="pied").map(([t,u])=>"<li><a href=\\""+e(u)+"\\" rel=\\"noopener\\""+(ios||android?"":" target=\\"_blank\\"")+">"+e(t)+"<span aria-hidden=\\"true\\">↗</span></a></li>").join("")+
+const [la,lo]=go.split(","),n=l.slice(T.titre.length),ad=a.dataset.a,pied=a.dataset.m==="pied";
+h.textContent=T.titre+n;o.textContent=pied?T.ouvrirPied:T.ouvrir;
+ul.innerHTML=apps(la,lo,n,pied).map(([t,u])=>"<li><a href=\\""+e(u)+"\\" rel=\\"noopener\\""+(ios||android?"":" target=\\"_blank\\"")+">"+e(t)+"<span aria-hidden=\\"true\\">↗</span></a></li>").join("")+
 "<li><button type=\\"button\\" class=\\"cp\\">"+e(ad?T.copierAdresse:T.copierCoordonnees)+"</button></li>";
 copie=ad||la+", "+lo;dit=ad?T.adresseCopiee:T.coordonneesCopiees;ok.textContent="";d.showModal()});
 d.addEventListener("click",(ev)=>{if(ev.target===d||ev.target.closest(".x")){d.close();return}
 if(ev.target.closest(".cp")){const c=navigator.clipboard;(c?c.writeText(copie):Promise.reject()).then(()=>{ok.textContent=dit},()=>{ok.textContent=copie});return}
 if(ev.target.closest("a"))setTimeout(()=>d.close(),400)})})();`;
 
+/**
+ * The script's address, kept a year by the browser like the stylesheet (web/site.ts): read once for every page that has
+ * buttons, the ~4 900 bus stops' among them, instead of written into each.
+ */
+export const SCRIPT_PATH = `/aller-${hash(SCRIPT)}.js`;
+
 /** Once in a page that has buttons: the sheet and its script. */
 export const SHEET = `<dialog id="aller" class="aller-f" aria-labelledby="aller-t"><div><h2 id="aller-t"></h2><p class="note">${esc(MOTS.ouvrir)}</p><ul></ul>` +
-  `<p class="ok note" aria-live="polite"></p><button type="button" class="x">${esc(MOTS.annuler)}</button></div></dialog><script>${SCRIPT}</script>`;
+  `<p class="ok note" aria-live="polite"></p><button type="button" class="x">${esc(MOTS.annuler)}</button></div></dialog><script src="${SCRIPT_PATH}" defer></script>`;

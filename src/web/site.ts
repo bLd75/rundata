@@ -100,6 +100,7 @@ import { flux, ICS_PATH, JSON_PATH } from "./flux-associations.js";
 import { margin, scheduledEvery } from "./partagees.js";
 import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
 import { readCopies, refresh, resume } from "../tools/resume.js";
+import { SCRIPT as ALLER_SCRIPT, SCRIPT_PATH as ALLER_PATH } from "./aller.js";
 import { CSS, FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, STYLE_PATH, vigilancePage } from "./pages.js";
 import { OFFLINE_PATH, serviceWorker, SW_PATH } from "./pwa.js";
 import { pageOf, PAGES } from "./places.js";
@@ -338,8 +339,9 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
 
 /** The site's pages, each with the volcano's banner while the volcano is in alert (web/volcan-alerte.ts), in French typography (web/typo.ts). */
 export async function site(request: Request, cache: Cache, background: Background, now = new Date()): Promise<Response | null> {
-  // Nothing of the moment in it: answered before the volcano's state is read.
-  const style = stylesheet(new URL(request.url).pathname);
+  // Nothing of the moment in them: answered before the volcano's state is read.
+  const file = new URL(request.url).pathname;
+  const style = stylesheet(file) ?? allerScript(file);
   if (style) return style;
   // The bus trips, kept a minute at the edge (web/bord.ts): the copy as it was served.
   const copie = await bord.lire(request);
@@ -360,6 +362,16 @@ function stylesheet(path: string): Response | null {
   if (!STYLE_FILE.test(path)) return null;
   return new Response(CSS, {
     headers: { "content-type": "text/css; charset=utf-8", "cache-control": path === STYLE_PATH ? "public, max-age=31536000, immutable" : "public, max-age=300", "x-content-type-options": "nosniff" },
+  });
+}
+
+const ALLER_FILE = /^\/aller-\w+\.js$/;
+
+/** The « Y aller » sheet's script (web/aller.ts), kept a year at its address, as the stylesheet. */
+function allerScript(path: string): Response | null {
+  if (!ALLER_FILE.test(path)) return null;
+  return new Response(ALLER_SCRIPT, {
+    headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": path === ALLER_PATH ? "public, max-age=31536000, immutable" : "public, max-age=300", "x-content-type-options": "nosniff" },
   });
 }
 
@@ -781,7 +793,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === SW_PATH) {
     // Checked again at each visit: a new version reaches the phones at once (web/pwa.ts).
-    return new Response((swText ??= serviceWorker([STYLE_PATH, FONT_PATH, RELIEF_PATH, "/favicon.svg", icons["192"]])), {
+    return new Response((swText ??= serviceWorker([STYLE_PATH, FONT_PATH, RELIEF_PATH, ALLER_PATH, "/favicon.svg", icons["192"]])), {
       headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache", "x-content-type-options": "nosniff" },
     });
   }

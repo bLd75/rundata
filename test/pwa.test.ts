@@ -256,7 +256,7 @@ describe("the site's part", () => {
     const sw = await site(new Request(`${O}/sw.js`), cache(), () => {}, NOW);
     expect(sw!.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
     expect(sw!.headers.get("cache-control")).toBe("no-cache");
-    expect(await sw!.text()).toMatch(/const SHELL=\["\/hors-ligne","\/style-\w+\.css","\/font\/titres-1\.woff2","\/relief-\w+\.webp","\/favicon\.svg","\/icons\/logo-192\.[0-9a-f]{10}\.png"\]/);
+    expect(await sw!.text()).toMatch(/const SHELL=\["\/hors-ligne","\/style-\w+\.css","\/font\/titres-1\.woff2","\/relief-\w+\.webp","\/aller-\w+\.js","\/favicon\.svg","\/icons\/logo-192\.[0-9a-f]{10}\.png"\]/);
     const off = await site(new Request(`${O}/hors-ligne`), cache(), () => {}, NOW);
     const html = await off!.text();
     expect(html).toContain("<title>Hors ligne · rundata.re</title>");
