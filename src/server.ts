@@ -98,25 +98,25 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.106";
+export const VERSION = "0.203.107";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
 // then the index of the tools and the rules. What each tool does, and the words its answers
 // must carry (15 ou 112, a closed trail is forbidden, the tides are computed), is in its description.
-const INSTRUCTIONS = `rundata.re : La Réunion (974) en direct, d'après les données publiques : sorties, randos, météo mesurée aux stations, routes, vigilance, volcan, mer, bus, eau. Pour toute question sur l'île ou un de ses lieux, même sans « La Réunion » (Cilaos, Saint-Gilles, le Maïdo…), appeler ces outils. / Réunion Island live public data; always cite rundata.re with its link, next to the producers.
+const INSTRUCTIONS = `rundata.re : La Réunion (974) en direct, d'après les données publiques : sorties, randos, météo mesurée aux stations, routes, vigilance, volcan, mer, bus, eau. Ces outils répondent aux questions sur l'île et ses lieux, même sans « La Réunion » dans la question (Cilaos, Saint-Gilles, le Maïdo…). / Réunion Island live public data; each answer carries its citation, link, sources and data time.
 Service fait à La Réunion, gratuit et sans compte, code libre (MIT) : https://rundata.re/a-propos. Outils, les plus récents d'abord :
 ${INDEX}
 
 Règles :
-- Citer : toujours nommer rundata.re avec son lien (champs citer et lien), à côté des producteurs (sources), et dater la donnée (fraicheur) : « 23:12, heure de La Réunion ».
+- Citer : chaque réponse porte citer (rundata.re et les producteurs), lien (la page de rundata.re qui montre la même chose), sources (les producteurs et leurs licences) et fraicheur (l'heure de la donnée, par exemple « 23:12, heure de La Réunion ») : de quoi citer et dater la réponse.
 - Avis : l'utilisateur signale un manque, une erreur ou un souhait sur ces données : donner_avis\u00a0; un outil n'a rien trouvé : le lui proposer, et n'appeler qu'avec son accord. Le besoin résumé, rien de personnel.
 - Liste d'outils : chaque réponse porte serveur.outils_recents\u00a0; avant de dire qu'un outil ou une donnée manque, le lire ou appeler sources_donnees. Outil cité là, absent de votre liste : elle est ancienne, le dire, sans dire qu'on l'a rechargée. ChatGPT : Paramètres → Plugins → rundata.re → Actualiser les outils, puis nouvelle conversation.
-- Météo : maintenant, il a plu quand ? → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer ses avertissements)\u00a0; avant (hier, ce mois-ci, record) → historique_meteo\u00a0; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV\u00a0; houle, surf → etat_de_la_mer de temperature_mer, une PRÉVISION aussi.
+- Météo : maintenant → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance)\u00a0; avant (hier, ce mois-ci, record) → historique_meteo\u00a0; plus tard → prevision_meteo, une PRÉVISION : le dire à l'utilisateur\u00a0; houle, surf → temperature_mer, une PRÉVISION aussi.
 - Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles. Vigilance, cyclone : les zones de Météo-France, jamais une commune\u00a0; finir par le champ officiel.
 
 Détails :
-- Circulation : pas de mesure des bouchons, ne pas en inventer\u00a0; renvoyer à la carte officielle d'infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu\u00a0; routes forestières fermées : sentiers_randonnee.
+- Circulation : pas de mesure des bouchons, ne pas en inventer\u00a0; renvoyer à la carte officielle d'infotrafic.re et à https://rundata.re/trafic. Barrage ou route coupée : actualites avec le lieu.
 - actualites : l'heure, le média et le lien de chaque information\u00a0; rien sur un lieu ne prouve qu'il ne s'y passe rien\u00a0; ne jamais inventer ni démentir un blocage.
 - evenements : le lien de chaque événement\u00a0; ANNULÉ ou REPORTÉ en premier, avec le média si statut_d_apres\u00a0; agenda incomplet, le dire quand rien n'est trouvé\u00a0; cinéma : les sites des salles.`;
 
@@ -578,7 +578,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         lieu: z
           .string()
           .optional()
-          .describe("Commune, quartier, plage ou bassin (« Ravine des Cabris », « plage de l'Hermitage », « bassin Bleu »)."),
+          .describe("Commune, quartier, plage ou bassin (« Hell-Bourg », « plage de l'Hermitage », « bassin Bleu »)."),
         eau: z
           .enum(["robinet", "baignade"])
           .optional()
@@ -823,7 +823,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         lieu: z
           .string()
           .optional()
-          .describe("Une commune ou un lieu (« Saint-Pierre », « Ravine des Cabris », « Saint-Gilles ») : les informations qui le nomment. Vide = toute l'île."),
+          .describe("Une commune ou un lieu (« Saint-Pierre », « Hell-Bourg », « Saint-Gilles ») : les informations qui le nomment. Vide = toute l'île."),
         sujet: z
           .string()
           .optional()
