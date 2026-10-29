@@ -204,8 +204,7 @@ function setup(env: Env): Cache {
       return (await kv.get(prefectureCopie.pageKey(lien), "json")) as prefectureCopie.PageCopie | null;
     },
   );
-  // Read every hour from the LCSQA's files by scripts/air-mesures.ts, on a machine of the project: one file a day for
-  // the whole of France, too big for the Worker (src/providers/air-mesures.ts).
+  // Read every hour from the LCSQA's files by the scheduled event below, and kept in KV (src/providers/air-mesures.ts).
   airMesures.configure(async () => {
     if (!kv) return null;
     count();
@@ -360,6 +359,20 @@ export default {
       }))
         .then(({ value, used, reads }) => console.log(`bouées Candhis : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("bouées Candhis : lecture impossible", why(err))));
+    }
+    // Every hour, at 45 past: the measures at Atmo Réunion's stations, La Réunion's lines of the LCSQA's national file
+    // (up to 12.5 Mo, read line by line), kept in KV when the latest hour changed, once the reads above are done.
+    if (kv && airMesures.refreshDue(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, async () => {
+        count();
+        const before = (await kv.get(airMesures.KV_KEY, "json")) as airMesures.Copie | null;
+        return airMesures.collect(before, async (copie) => {
+          count(1, true);
+          await kv.put(airMesures.KV_KEY, JSON.stringify(copie), { expirationTtl: airMesures.KV_TTL_SECONDS });
+        }, now);
+      }))
+        .then(({ value, used, reads }) => console.log(`mesures de l'air : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("mesures de l'air : lecture impossible", why(err))));
     }
     // Every 30 minutes while GDACS has an active system: the RSMC's list of bulletins at 15 and 45 past the hour, its
     // track map at 20 and 50, one request each, kept in KV (src/providers/cmrs-carte.ts), once the reads above are done.

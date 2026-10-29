@@ -193,6 +193,22 @@ export async function getBytes(
   return get(source, url, timeoutMs, (res) => res.arrayBuffer(), headers);
 }
 
+/**
+ * A text file read line by line as it comes, never whole: for a file of several Mo of which a few lines are kept (the
+ * LCSQA's file of the air's measures, src/providers/air-mesures.ts). Each line is given to `line`, without its end.
+ */
+export async function getLines(source: string, url: string, timeoutMs: number, line: (l: string) => void): Promise<void> {
+  return get(source, url, timeoutMs, async (res) => {
+    let rest = "";
+    for await (const chunk of res.body!.pipeThrough(new TextDecoderStream())) {
+      const lines = (rest + chunk).split("\n");
+      rest = lines.pop() ?? "";
+      for (const l of lines) line(l.replace(/\r$/, ""));
+    }
+    if (rest) line(rest.replace(/\r$/, ""));
+  });
+}
+
 /** A file's bytes with the time it was written, as its server says it (Last-Modified), when it says it. */
 export async function getFile(
   source: string,

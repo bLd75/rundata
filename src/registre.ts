@@ -21,6 +21,7 @@ import { AGENDAS } from "./providers/agenda.js";
 import { MAX_NEW_GRIDS } from "./providers/arome.js";
 import { KINDS as CANDHIS_KINDS, REFRESH_EVERY as CANDHIS_EVERY, REFRESH_OFFSET as CANDHIS_OFFSET } from "./providers/candhis.js";
 import { IMAGE_OFFSET as CMRS_IMAGE_OFFSET, LISTE_OFFSET as CMRS_LISTE_OFFSET, REFRESH_EVERY as CMRS_EVERY } from "./providers/cmrs-carte.js";
+import { REFRESH_EVERY as AIR_EVERY, REFRESH_OFFSET as AIR_OFFSET } from "./providers/air-mesures.js";
 import { REFRESH_EVERY as IRVE_EVERY, REFRESH_OFFSET as IRVE_OFFSET } from "./providers/irve.js";
 import { SHARED, SHARED_AFTER, type Shared } from "./web/partagees.js";
 import { COMMUNE_TILES, DOMAINS, HOME_TILES } from "./web/site.js";
@@ -292,6 +293,20 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/irve.ts"],
     basis: "estimé",
   },
+  // The copy read from KV, the file of the day (its address, then its storage: 2 subrequests), and the day before's too
+  // in the first hours of the day (2 more), the copy written when the latest hour changed: 4, 6 at most. Read line by
+  // line, never whole: no memory declared. CPU measured in a Worker on 29/10/2026: 50 ms for the file of the morning,
+  // 193 to 254 ms for a whole day's.
+  {
+    id: "air:mesures",
+    trigger: "planifiée",
+    what: "qualité de l'air : les mesures horaires des stations d'Atmo Réunion, leurs lignes du fichier national du LCSQA (jusqu'à 12,5 Mo, lu ligne à ligne), écrites dans KV quand la dernière heure change",
+    every: AIR_EVERY,
+    offset: AIR_OFFSET,
+    run: { subrequests: 6, kvReads: 1, kvWrites: 1, cpuMs: 260 },
+    from: ["src/providers/air-mesures.ts"],
+    basis: "mesuré",
+  },
   // Only with the Cerema's key. The state read from KV, one getCampListeTR request per type of active buoy (at most
   // the three types; one when the island's buoys are all of one type), the state written. Every 30 days, and the first
   // time, the list of the active buoys besides: one request per type, three more subrequests in that run.
@@ -553,7 +568,7 @@ const imports = new Map(SOURCE_FILES.map((f) => {
   return [f, deps.filter((d) => SOURCE_FILES.includes(d))];
 }));
 // What http.ts exports that reads a site; the rest (httpUrl, USER_AGENT, whenFailed, IN_FLIGHT…) reads nothing.
-const HTTP_READS = /import\s*\{[^}]*\b(?:getJson|getText|getBytes|postForm|postBytes|postJson)\b[^}]*\}\s*from\s*["'](?:\.{1,2}\/)+http\.js["']/;
+const HTTP_READS = /import\s*\{[^}]*\b(?:getJson|getText|getBytes|getLines|postForm|postBytes|postJson)\b[^}]*\}\s*from\s*["'](?:\.{1,2}\/)+http\.js["']/;
 /** The files that fetch: those that import a read of src/http.ts (src/providers/mf-auth.ts too, which fetches its token itself). */
 export const FETCHING = SOURCE_FILES.filter((f) => f !== "src/http.ts" && f !== "src/registre.ts" && (HTTP_READS.test(read(f)) || /\bawait fetch\(/.test(read(f))) && !f.startsWith("src/web/pwa"));
 /** Files that reach nearly every source: an entry starting there would hide what it reads. */
