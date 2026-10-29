@@ -11,6 +11,7 @@
  * - the prefecture: the list of its press releases.
  * Linfo.re and Zinfos974 refuse automated readers: they are not read. Réunion La 1ère neither: France Télévisions'
  * terms forbid reading its sites by a program, its titles included (src/providers/autorisations.ts, MEDIAS).
+ * The island's news only: France's and the world's, which some of these media carry too, are left out (`local`).
  * Everything is read in one go every few minutes and kept as one entry, so a question costs at most a dozen requests.
  */
 import type { Cache, Cached } from "../cache.js";
@@ -271,6 +272,46 @@ export function sujetsOf(text: string): string[] {
   return ids.includes("volcan") && ids.includes("meteo") && !WEATHER_WORD.test(t) ? ids.filter((id) => id !== "meteo") : ids;
 }
 
+// ---------------------------------------------------------------- the island's news only
+
+// A word alone, by Unicode letters: \b is ASCII only, and « péï » ends with a letter it does not know.
+const word = (re: string) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${re})(?![\\p{L}\\p{N}])`, "u");
+/** Words that say La Réunion, whatever else the text speaks of. « Réunion » with its capital: « la réunion » is a meeting. */
+const HERE = word(String.raw`R[ée]union|[Rr][ée]unionnai(?:s|se|ses)|974|[Pp][ée][iï]|[Kk]r[ée]y?[oò]l\w*|[Cc]r[ée]ole\w*`);
+/** Words that say La Réunion in the island's media unless the headline speaks of France or the world. */
+const HERE_WEAK = word(String.raw`Territoire de l['’]Ouest|TCO|CINOR|CIVIS|CIREST|CASUD|CCIR|CHOR|Cise|Département|Région|[Pp]réfet\w*|[Pp]réfecture|[Rr]ectorat|[Oo]utre-?mer|[Uu]ltramarin\w*|[Oo]céan [Ii]ndien|l['’][îi]le(?![- ](?:de[- ]France|Maurice|s[œo]e?ur))`);
+/** A headline of France's or the world's news (on normalised text). */
+const ELSEWHERE = new RegExp(`\\b(?:${[
+  "senat\\w*", "assemblee nationale", "gouvernement", "elysee", "matignon", "macron", "premier ministre", "conseil constitutionnel", "presidentielle",
+  "france(?! travail)", "francais\\w*", "(?:en|dans l) hexagone", "metropole", "(?<!route |parc )nationa\\w*", "paris", "europe\\w*", "monde", "mondia\\w*", "international\\w*", "onu", "oms", "omm", "otan",
+  "israel\\w*", "palestin\\w*", "gaza", "liban", "iran", "ukrain\\w*", "russie", "etats unis", "americain\\w*", "chine", "japon", "inde", "bresil\\w*", "argentine",
+  "espagne", "italie", "allemagne", "royaume uni", "angleterre", "belgique", "suisse", "andorre", "turquie", "syrie", "jordanie", "egypte", "algerie", "maroc",
+  "tunisie", "senegal", "afrique", "madagascar", "ile maurice", "mauricien\\w*", "mayotte", "comores", "seychelles", "sri lanka", "singapour", "australie", "canada", "mexique",
+].join("|")})\\b`);
+
+const here = (text: string) => HERE.test(text) || hits(text).size > 0;
+/** « Région : … », « Département : … »: how Imaz Press heads the news of the island's councils. */
+const COUNCIL = word(String.raw`(?:Région|Département|Territoire de l['’]Ouest|Cinor|CINOR|Civis|CIVIS|Cirest|CIREST|Casud|CASUD)\s*:`);
+
+/**
+ * News of La Réunion only (the user, 29/10/2026: « on se concentre sur ce qui est local seulement, pas les actus France
+ * ou monde »); in doubt, left out. A headline that names the island or one of its places is local. One of France's or
+ * the world's news (« après son adoption au Sénat… arrive à l'Assemblée nationale ») is not, even when its first
+ * sentence names a place of the island in passing (a press conference « tenue à Saint-Benoit »): only a first sentence
+ * that says La Réunion itself (« La Réunionnaise Alice Lemoigne… ») keeps it. Any other: local when the medium files it
+ * under a local section (`rubrique`), when its headline or first sentence says so, or when its text (`corps`) names a
+ * place of the island; a text that only says « La Réunion » further on is France's news that concerns it too (the
+ * presidents of the universities, among them La Réunion's).
+ */
+export function local(titre: string, chapeau = "", rubrique = false, corps = ""): boolean {
+  if (here(titre) || COUNCIL.test(titre.slice(0, 40))) return true;
+  if (ELSEWHERE.test(normalize(titre))) return HERE.test(chapeau);
+  return rubrique || HERE_WEAK.test(titre) || here(chapeau) || HERE_WEAK.test(chapeau) || hits(corps).size > 0;
+}
+
+/** A section of a medium's feed that is the island's (Freedom's « Collectivités », « Le Tampon », Parallèle Sud's « Communiqué Région Réunion »). */
+const rubriqueLocale = (c: string) => /^(?:Collectivités|Communiqué)\b/u.test(c) || here(c) || HERE_WEAK.test(c);
+
 const cut = (s: string) => (s.length > SUMMARY_MAX ? `${s.slice(0, SUMMARY_MAX - 1).replace(/\s+\S*$/, "")}…` : s);
 
 const FOLD = new Map<string, string>();
@@ -366,22 +407,34 @@ function newest(xml: string, t: string, n = ITEMS_MAX): string {
   return xml.slice(0, at);
 }
 
-/** An RSS feed: the title, the link, the date and the first sentence of the description. `skip`: categories left out (a radio's games). */
-export function parseRss(xml: string, media: string, skip?: RegExp): Info[] {
+/**
+ * An RSS feed: the title, the link, the date and the first sentence of the description; the island's news only
+ * (`local`, its categories telling a local section, or `rubriques` those of a medium whose sections are all the
+ * island's but some). `skip`: categories left out (a radio's games).
+ */
+export function parseRss(xml: string, media: string, skip?: RegExp, rubriques?: RegExp): Info[] {
   return [...newest(xml, "item").matchAll(/<item>([\s\S]*?)<\/item>/g)].map(([, it]) => {
     // The full text some feeds carry is not needed, and is the bulk of the feed.
     const head = it.replace(/<content:encoded>[\s\S]*?<\/content:encoded>/, "");
-    if (skip && [...head.matchAll(/<category>([\s\S]*?)<\/category>/g)].some(([, c]) => skip.test(plain(c)))) return null;
-    return info(media, plain(tag(head, "title")), plain(tag(head, "link")), new Date(plain(tag(head, "pubDate"))), plain(tag(head, "description").slice(0, BODY_MAX + 400)));
+    const categories = [...head.matchAll(/<category>([\s\S]*?)<\/category>/g)].map(([, c]) => plain(c));
+    if (skip && categories.some((c) => skip.test(c))) return null;
+    const titre = plain(tag(head, "title"));
+    const body = plain(tag(head, "description").slice(0, BODY_MAX + 400));
+    if (!local(titre, firstSentence(body), categories.some((c) => rubriqueLocale(c) || !!rubriques?.test(c)), body.slice(0, BODY_MAX))) return null;
+    return info(media, titre, plain(tag(head, "link")), new Date(plain(tag(head, "pubDate"))), body);
   }).filter((x): x is Info => x !== null);
 }
 
-/** A Google News sitemap: titles and dates, no text. `skip` leaves out sections (Imaz Press's France-monde). */
+/**
+ * A Google News sitemap: titles and dates, no text. `skip` leaves out sections (Imaz Press's France-monde); the others
+ * are the island's, but for a headline of France's or the world's news (`local`).
+ */
 export function parseNewsSitemap(xml: string, media: string, skip?: RegExp): Info[] {
   return [...newest(xml, "url", 2 * ITEMS_MAX).matchAll(/<url>([\s\S]*?)<\/url>/g)].map(([, u]) => {
     const lien = plain(tag(u, "loc"));
-    if (skip?.test(lien)) return null;
-    return info(media, plain(tag(u, "news:title")), lien, new Date(plain(tag(u, "news:publication_date"))));
+    const titre = plain(tag(u, "news:title"));
+    if (skip?.test(lien) || !local(titre, "", true)) return null;
+    return info(media, titre, lien, new Date(plain(tag(u, "news:publication_date"))));
   }).filter((x): x is Info => x !== null);
 }
 
@@ -411,6 +464,8 @@ export function parseQuotidien(html: string, now: Date, origin = "https://www.le
   }
   return [...by].map(([path, a]) => {
     const titre = a.titre.replace(/\.\.\.$/, "…");
+    // Its sections are the island's but the agency's: a headline of France's or the world's news is left out still.
+    if (!local(titre, "", true)) return null;
     // The day at noon, La Réunion's time, not after now, when the page gives no time that day.
     const noon = new Date(Math.min(Date.parse(`${a.day}T12:00:00+04:00`), now.getTime()));
     if (!a.ago || a.ago[1] === "jour") return info("Le Quotidien", titre, origin + path, noon, undefined, { heure: false });
@@ -510,8 +565,10 @@ const FEEDS: Feed[] = [
   { media: "Clicanoo", url: "https://www.clicanoo.re/rss", parse: (b) => parseRss(b, "Clicanoo") },
   { media: "Imaz Press", url: "https://imazpress.com/sitemap-news.xml", parse: (b) => parseNewsSitemap(b, "Imaz Press", /\/france-monde\//) },
   { media: "Freedom", url: "https://freedom.fr/feed/", parse: (b) => parseRss(b, "Freedom", /jeux|podcast|actus radio/i) },
-  { media: "Parallèle Sud", url: "https://parallelesud.com/feed/", parse: (b) => parseRss(b, "Parallèle Sud") },
-  { media: "Témoignages", url: "https://www.temoignages.re/spip.php?page=sitemap-news-fr.xml", parse: (b) => parseNewsSitemap(b, "Témoignages") },
+  // Its sections are the island's, but its readers' columns (« Kozé libre »), on France and the world as well.
+  { media: "Parallèle Sud", url: "https://parallelesud.com/feed/", parse: (b) => parseRss(b, "Parallèle Sud", undefined, /^(?!Kozé libre)/) },
+  // Its world news, and the day's paper in PDF, which is no article.
+  { media: "Témoignages", url: "https://www.temoignages.re/spip.php?page=sitemap-news-fr.xml", parse: (b) => parseNewsSitemap(b, "Témoignages", /\/(?:international|journal-temoignages-en-pdf)\//) },
   { media: "Le Quotidien", url: "https://www.lequotidien.re/", parse: (b, now) => parseQuotidien(b, now) },
 ];
 
