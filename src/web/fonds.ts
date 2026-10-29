@@ -17,7 +17,7 @@ import files from "./fonds.json" with { type: "json" };
  * part kept (the upper 55 %, scripts/build-fonds.py) that puts the subject's middle in the middle of the band at 1280 px.
  */
 export const FONDS: Record<string, { nom: keyof typeof files; y: number }> = {
-  "/meteo": { nom: "fond-meteo-cote-hauts", y: 30 },
+  "/meteo": { nom: "meteo-alizes-est-ouest", y: 45 },
   "/randonnees": { nom: "randonneur-maido", y: 67 },
   "/trafic": { nom: "trafic-route-littoral", y: 61 },
   "/evenements": { nom: "evenements-kiosque", y: 57 },
