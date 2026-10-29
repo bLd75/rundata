@@ -192,10 +192,13 @@ export const REFRESH_OFFSET = 35;
 export const TEXTES_OFFSET = 40;
 const inWindow = (now: Date, offset: number) => (((now.getUTCMinutes() - offset) % REFRESH_EVERY) + REFRESH_EVERY) % REFRESH_EVERY < 5;
 export const refreshDue = (now: Date) => inWindow(now, REFRESH_OFFSET) || inWindow(now, TEXTES_OFFSET);
-/** The next hour at 35 past, after `now`: when the scheduled event reads the notices next. */
-export function prochaineLecture(now: Date): Date {
+/**
+ * The next hour at 35 past, after `now`: when the scheduled event reads the notices next; at 40 past, with
+ * `TEXTES_OFFSET`, when it reads the texts of the new ones.
+ */
+export function prochaineLecture(now: Date, offset = REFRESH_OFFSET): Date {
   const t = new Date(now);
-  t.setUTCMinutes(REFRESH_OFFSET, 0, 0);
+  t.setUTCMinutes(offset, 0, 0);
   if (t.getTime() <= now.getTime()) t.setUTCHours(t.getUTCHours() + 1);
   return t;
 }
@@ -243,7 +246,15 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
     const attente = before?.attente ?? [];
     if (!before || !attente.length) return "aucun avis nouveau à lire";
     const where = `idweb in (${attente.map((a) => JSON.stringify(a.id)).join(", ")})`;
-    const textes = await getJson<{ idweb: string; donnees: string | null }[]>(SOURCE.id, url({ select: "idweb,donnees", where }), 60_000);
+    let textes: { idweb: string; donnees: string | null }[];
+    try {
+      textes = await getJson<{ idweb: string; donnees: string | null }[]>(SOURCE.id, url({ select: "idweb,donnees", where }), 60_000);
+      if (!Array.isArray(textes)) throw new Error("textes des avis illisibles");
+    } catch (err) {
+      // The page says the BOAMP did not answer, not that the notices waiting do not exist.
+      if (!before.echec) await write({ ...before, echec: now.toISOString() });
+      throw err;
+    }
     const avis = [...before.avis];
     const ecartes = new Set(before.ecartes);
     const rest: typeof attente = [];
@@ -268,6 +279,9 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
   try {
     lignes = await getJson<Ligne[]>(SOURCE.id, url({ select: CHAMPS, where: ouverts(now), order_by: "dateparution desc" }), 30_000);
     if (!Array.isArray(lignes)) throw new Error("liste des avis illisible");
+    // The island has notices open at every hour (122 on 29/10/2026): an empty list is a read that failed, never « no
+    // notice ».
+    if (!lignes.length) throw new Error("liste des avis vide");
   } catch (err) {
     if (before && !before.echec) await write({ ...before, echec: now.toISOString() });
     throw err;
@@ -303,8 +317,20 @@ export function configure(read: (() => Promise<Copie | null>) | undefined) {
   reader = read;
 }
 
-// The scheduled event writes once an hour at most: the copy is asked of the store once an hour.
-const FRESH_SECONDS = 60 * 60;
+/**
+ * How long a copy read from the store may be served: since the last time the scheduled event may have written it, two
+ * minutes after 35 and 40 past (a pass ends within a minute and a half). A copy read before is asked again, once: on
+ * 29/10/2026 the copy read at 16:38, its notices being sorted, would have stayed an hour after the texts written at
+ * 16:41.
+ */
+export function fraicheur(now: Date): number {
+  const ends = [REFRESH_OFFSET + 2, TEXTES_OFFSET + 2].flatMap((m) => [0, -1].map((h) => {
+    const t = new Date(now);
+    t.setUTCHours(t.getUTCHours() + h, m, 0, 0);
+    return t.getTime();
+  })).filter((t) => t <= now.getTime());
+  return Math.max(1, Math.floor((now.getTime() - Math.max(...ends)) / 1000));
+}
 
 /**
  * The stored notices still open, their time the list's last read; null where nothing is configured (a local server,
@@ -313,7 +339,7 @@ const FRESH_SECONDS = 60 * 60;
 export async function avis(cache: Cache, now = new Date()): Promise<Cached<Copie> | null> {
   if (!reader) return null;
   const read = reader;
-  const c = await cache.getCopy(KV_KEY, FRESH_SECONDS, async () => {
+  const c = await cache.getCopy(KV_KEY, fraicheur(now), async () => {
     const v = await read();
     if (!v) throw new Error("avis de marchés absents du stockage");
     return v;

@@ -5,7 +5,7 @@
  */
 import type { Cache, Cached } from "../cache.js";
 import { localTime } from "../geo.js";
-import { avis, type Avis, prochaineLecture, SOURCE } from "../providers/marches-publics.js";
+import { avis, type Avis, prochaineLecture, SOURCE, TEXTES_OFFSET } from "../providers/marches-publics.js";
 import { credits } from "../tools/format.js";
 import { injoignable } from "../tools/injoignable.js";
 import { crumbBar, crumbs, sourcesNote, warnings, webPage } from "./domains.js";
@@ -24,8 +24,18 @@ export interface MarchesAnswer {
   avis: Avis[];
   injoignable?: string;
   sources: { source: string; licence: string; attribution: string }[];
+  /**
+   * When the list was read (ISO), said as the last read: not the page's copy's time, a few minutes later (on 29/10/2026
+   * the page said 16:40 for the list read at 16:35).
+   */
+  lu?: string;
   /** No copy of the notices yet: when the scheduled event reads them next (ISO). */
   prochaine?: string;
+  /**
+   * The notices read in the list whose full text is not read yet, to tell the island's: how many, and when the next
+   * read of the texts is (ISO). Without a notice shown, the page says them, never « no notice ».
+   */
+  enLecture?: { nombre: number; a: string };
 }
 
 /**
@@ -44,7 +54,9 @@ export async function buildMarches(cache: Cache, now = new Date()): Promise<Marc
   return {
     nombre: c.value.avis.length,
     avis: c.value.avis,
+    lu: c.value.lu,
     ...(c.value.echec ? { injoignable: injoignable("le BOAMP", at, localTime(new Date(c.value.echec)), now).texte } : {}),
+    ...(c.value.attente?.length ? { enLecture: { nombre: c.value.attente.length, a: prochaineLecture(now, TEXTES_OFFSET).toISOString() } } : {}),
     sources: credits([SOURCE]),
   };
 }
@@ -82,13 +94,16 @@ export function marchesPage(origin: string, data: Cached<MarchesAnswer> | null, 
   const d = data?.value;
   const communes = [...new Set((d?.avis ?? []).flatMap((a) => { const c = a.commune ?? a.communeAcheteur; return c ? [c] : []; }))].sort((x, y) => x.localeCompare(y, "fr"));
 
-  const status = d && data && !d.prochaine
-    ? `<p>${plural(d.nombre, "avis de marché ouvert", "avis de marché ouverts")} aux réponses sur le BOAMP, dernière lecture ${readAt(data.fetchedAt, now).a}.</p>`
+  const triage = !!d && !d.avis.length && !!d.enLecture;
+  const status = d && data && !d.prochaine && !triage
+    ? `<p>${plural(d.nombre, "avis de marché ouvert", "avis de marché ouverts")} aux réponses sur le BOAMP, dernière lecture ${readAt(d.lu ? new Date(d.lu) : data.fetchedAt, now).a}.</p>`
     : "";
   const list = !d || !data
     ? `<p class="card">Les avis se chargent : rechargez la page dans quelques secondes.</p>`
     : d.prochaine
       ? `<p class="card">Les avis ne sont pas encore lus : prochaine lecture prévue à ${hm(d.prochaine)}.</p>`
+      : triage
+      ? `<p class="card">${plural(d.enLecture!.nombre, "avis lu", "avis lus")} au BOAMP à ${hm(d.lu ?? data.fetchedAt)} ${d.enLecture!.nombre > 1 ? "sont" : "est"} en cours de tri, pour garder ceux de l'île : la liste s'affiche à ${hm(d.enLecture!.a)}.</p>`
       : d.avis.length
       ? `${FILTER.replace("COMMUNES", communes.map((c) => `<option>${esc(c)}</option>`).join(""))}<ul class="rows eau" id="avis">${d.avis.map((a) => row(a, now)).join("")}</ul>`
       : `<p class="card">Aucun avis de marché ouvert pour La Réunion sur le BOAMP à ${hm(data.fetchedAt)}.</p>`;

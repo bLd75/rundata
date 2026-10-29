@@ -34,7 +34,7 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   enfants: 8,
   historique: 2,
   lieu: 5,
-  "marches-publics": 1,
+  "marches-publics": 2,
   mer: 2,
   meteo: 3,
   randonnees: 2,
