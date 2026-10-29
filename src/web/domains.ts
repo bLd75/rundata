@@ -44,6 +44,7 @@ import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { T as FERRY } from "../tools/ferries.js";
 import { BUILT as DAE_BUILT, DAES } from "../providers/dae.js";
 import DAE_LIST from "../dae/liste.json" with { type: "json" };
+import * as atmo from "../providers/atmo.js";
 import { anchorId, ask, credits, dayMonth, DESCRIPTION_MAX, empty, hm, icon, ISLAND, layout, type Live, lue, readAt, SITE, vg } from "./pages.js";
 import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
@@ -419,6 +420,8 @@ export function volcanLive(data: Cached<VolcanAnswer> | null, now = new Date()):
 
 const AQ_NAMES = ["", "bon", "moyen", "dégradé", "mauvais", "très mauvais", "extrêmement mauvais"];
 export const aq = (n: number) => `<span class="aq aq${n >= 1 && n <= 6 ? n : 0}">${esc(AQ_NAMES[n] ?? "inconnu")}</span>`;
+// A sub-index: its level, or, by the guide, « indisponible » (0) or « événement » (7) in words.
+const subIndex = (n: number) => (n >= 1 && n <= 6 ? aq(n) : esc(atmo.level(n)));
 // The map's commune names (« L'Étang-Salé ») by their spelling in the ATMO index (« L'Etang-Salé »).
 const MAP_NAME = new Map(island.paths.map((p: { nom: string }) => [normalize(p.nom), p.nom]));
 
@@ -444,41 +447,63 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
     ? loading("L'indice de la qualité de l'air")
     : worst != null
       ? `<div class="status"><p class="big">${esc(AQ_NAMES[worst] ?? "")}${best != null && best !== worst ? ` à ${esc(AQ_NAMES[best] ?? "")}` : ""}</p>` +
-        `<p class="lead">${esc(d.resume)}</p><p class="note" style="color:var(--on-night-muted)">${esc(d.nature)}.</p></div>`
+        `<p class="lead">${esc(d.resume)}</p><p class="note" style="color:var(--on-night-muted)">Une prévision d'Atmo Réunion pour la journée, pas une mesure.` +
+        `${d.diffusion ? ` ${esc(d.diffusion)}` : ""} Lue par rundata.re ${readAt(data!.fetchedAt, now).a}.</p></div>`
       : `<p class="lead">${esc(d.resume)}</p>`;
 
   const byLevel = [6, 5, 4, 3, 2, 1]
     .map((n) => ({ n, l: list.filter((c) => c.niveau === n) }))
     .filter((x) => x.l.length)
-    .map((x) => `<div class="card"><h3>${aq(x.n)} ${x.l.length} commune${x.l.length > 1 ? "s" : ""}</h3><ul class="plain cols">` +
+    .map((x) => `<div class="card"><h3>${aq(x.n)} prévu dans ${x.l.length} commune${x.l.length > 1 ? "s" : ""}</h3><ul class="plain cols">` +
       x.l.map((c) => `<li class="tgt" id="${anchorId("c", MAP_NAME.get(normalize(c.commune)) ?? c.commune)}">${esc(c.commune)}${c.polluants.length ? ` <span class="note">(${esc(c.polluants.join(", "))})</span>` : ""}</li>`).join("") + `</ul></div>`)
     .join("");
+
+  // Each pollutant's sub-index, commune by commune, folded: the list above already gives the one in cause.
+  const pollutants = Object.values(atmo.POLLUTANTS);
+  const subs = list.some((c) => c.sous_indices)
+    ? `<details class="card"><summary>Sous-indice de chaque polluant, commune par commune</summary><div class="table-wrap"><table class="drought niveaux">` +
+      `<thead><tr><th scope="col">Commune</th>${pollutants.map((p) => `<th scope="col">${esc(p)}</th>`).join("")}</tr></thead><tbody>` +
+      [...list].sort((a, b) => a.commune.localeCompare(b.commune, "fr")).map((c) => `<tr><th scope="row">${esc(c.commune)}</th>` +
+        pollutants.map((p) => `<td data-label="${esc(p)}">${c.sous_indices?.[p] != null ? subIndex(c.sous_indices[p]) : "—"}</td>`).join("") + `</tr>`).join("") +
+      `</tbody></table></div></details>`
+    : "";
 
   const scale = `<ul class="scale">${[1, 2, 3, 4, 5, 6].map((n) => `<li>${aq(n)}<p>Indice ${n} sur 6.</p></li>`).join("")}</ul>`;
 
   const title = "Qualité de l'air Réunion aujourd'hui, par commune · 974";
   const description = d && worst != null
-    ? describe(`Qualité de l'air à La Réunion (974) aujourd'hui, indice ATMO d'Atmo Réunion : ${d.resume.replace(/^Qualité de l'air aujourd'hui à La Réunion : /, "")}`,
+    ? describe(`Qualité de l'air à La Réunion (974) aujourd'hui, indice ATMO prévu par Atmo Réunion : ${d.resume.replace(/^Qualité de l'air prévue aujourd'hui à La Réunion : /, "")}`,
         "Qualité de l'air à La Réunion (974) aujourd'hui : l'indice ATMO d'Atmo Réunion dans chaque commune, avec le polluant en cause.")
     : "Qualité de l'air à La Réunion (974) aujourd'hui : l'indice ATMO d'Atmo Réunion dans chaque commune, avec le polluant en cause.";
 
   const band = `${crumbBar("Qualité de l'air")}
 <div class="wrap intro">
   <div class="pitch">
-    <p class="pill"><span class="dot"></span>Indice du jour</p>
+    <p class="pill"><span class="dot"></span>Prévision du jour</p>
     <h1>Qualité de l'air <span class="n974">974</span></h1>
     ${status}
     ${ask(`Lèr lé bon La Rényon zordi ? Gèt si ${url} é di amwin pou mon komine.`,
       `L'air est-il bon aujourd'hui à La Réunion ? Lis ${url} et dis-moi la qualité de l'air dans ma commune.`)}
   </div>
   <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) colorée par l'indice de qualité de l'air de chaque commune" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Couleur de l'indice ATMO du jour dans chaque commune.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">Couleur de l'indice ATMO prévu pour aujourd'hui dans chaque commune (une prévision, pas une mesure).</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-communes-air">
   <div class="sec-h"><p class="eyebrow">Commune par commune</p><h2 id="h-communes-air">L'indice dans les 24 communes</h2>
-  <p>L'indice ATMO va de 1 (bon) à 6 (extrêmement mauvais). Il est donné par le pire des polluants mesurés et prévus (ozone, dioxyde d'azote, dioxyde de soufre, particules).</p></div>
-  ${d ? `<div class="levels">${byLevel}</div>${warnings(d.avertissements)}${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">L'indice se charge : rechargez la page dans quelques secondes.</p>`}
+  <p>L'indice ATMO prévu va de 1 (bon) à 6 (extrêmement mauvais). C'est le plus mauvais des sous-indices de cinq polluants : particules PM2,5 et PM10, ozone, dioxyde d'azote, dioxyde de soufre. Entre parenthèses, le polluant en cause.</p></div>
+  ${d ? `<div class="levels">${byLevel}</div>${subs}${warnings(d.avertissements)}` : `<p class="card">L'indice se charge : rechargez la page dans quelques secondes.</p>`}
+</section>
+<section aria-labelledby="h-source-air">
+  <div class="sec-h"><p class="eyebrow">Provenance</p><h2 id="h-source-air">D'où vient l'indice</h2></div>
+  <div class="card"><dl class="facts">
+    <div><dt>Calculé par</dt><dd><a href="${esc(atmo.PROVENANCE.site)}" rel="noopener">Atmo Réunion</a>, observatoire agréé de la qualité de l'air</dd></div>
+    <div><dt>Diffusé par</dt><dd>Atmo France, couche ouverte ind_atmo_2021 (<a href="${esc(atmo.PROVENANCE.fiche)}" rel="noopener">sa fiche sur data.gouv.fr</a>)</dd></div>
+    <div><dt>Licence</dt><dd><a href="${esc(atmo.PROVENANCE.licence_lien)}" rel="noopener">${esc(atmo.PROVENANCE.licence)}</a></dd></div>
+  </dl>${d && data ? `<p class="note">${d.diffusion ? `${esc(d.diffusion)} ` : ""}Lue par rundata.re ${readAt(data.fetchedAt, now).a}.</p>` : ""}</div>
+  <div class="card"><h3>Comment l'indice est calculé</h3><ul class="plain">${atmo.METHODE.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>
+  <p class="note">D'après le <a href="${esc(atmo.GUIDE)}" rel="noopener">guide de calcul de l'indice ATMO</a> d'Atmo France (version du 14/12/2020), en application de l'arrêté du 10 juillet 2020.</p></div>
+  ${d ? `<p class="sources">Sources : ${credits(d.sources)}.</p>` : ""}
 </section>
 <section aria-labelledby="h-echelle-air">
   <div class="sec-h"><p class="eyebrow">Bon à savoir</p><h2 id="h-echelle-air">L'échelle de l'indice</h2></div>
@@ -498,7 +523,7 @@ export function airLive(data: Cached<AirAnswer> | null, now = new Date()): Live 
   const polluants = [...new Set(list.filter((c) => c.niveau === worst).flatMap((c) => c.polluants))];
   return {
     valeur: best === worst ? aq(worst) : `${aq(best)} à ${aq(worst)}`,
-    detail: `indice ATMO du jour dans les 24 communes${polluants.length ? ` (${esc(polluants.join(", "))})` : ""}`,
+    detail: `indice ATMO prévu pour aujourd'hui dans les 24 communes${polluants.length ? ` (${esc(polluants.join(", "))})` : ""}`,
   };
 }
 

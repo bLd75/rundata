@@ -123,7 +123,7 @@ function air(p: PlacePage, data: Cached<AirAnswer> | null | undefined, now: Date
   if (!data) return undefined;
   const c = airOf(p, data);
   if (!c) return empty(`${p.nom} n'est pas dans l'indice ATMO lu ${readAt(data.fetchedAt, now).a}.`);
-  return { valeur: aq(c.niveau), detail: `indice ATMO du jour${c.polluants.length ? ` (${esc(c.polluants.join(", "))})` : ""}, d'Atmo Réunion` };
+  return { valeur: aq(c.niveau), detail: `indice ATMO prévu pour aujourd'hui${c.polluants.length ? ` (${esc(c.polluants.join(", "))})` : ""}, d'Atmo Réunion` };
 }
 
 function sea(p: PlacePage, mer: Cached<SeaData> | null | undefined, place: Cached<PlaceData> | null, now: Date): Live | undefined {

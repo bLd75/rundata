@@ -16,7 +16,7 @@
 export const RENDU_REVISION: Readonly<Record<string, number>> = {
   actualites: 8,
   agenda: 17,
-  air: 4,
+  air: 5,
   bornes: 1,
   bus: 5,
   calendrier: 1,
@@ -64,6 +64,8 @@ export const SOURCE_REVISION: Readonly<Record<string, number>> = {
   "actualites:fil": 3,
   // Read again with its written agreement of 28/10/2026, without the price and the sentence an older entry kept.
   "agenda:bras_panon": 1,
+  // With the time Atmo Réunion diffused the index (date_dif, `diffuse_le`), which an older entry lacks.
+  atmo: 1,
 };
 
 /** The revision of the source whose entry is kept under `key`: its own, else its first part's. */

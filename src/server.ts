@@ -96,7 +96,7 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.95";
+export const VERSION = "0.203.96";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -398,8 +398,9 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
     {
       title: "Qualité de l'air à La Réunion",
       description:
-        "Qualité de l'air à La Réunion (974) par commune : indice ATMO du jour et du lendemain calculé par Atmo Réunion " +
-        "(1 bon à 6 extrêmement mauvais) et polluant en cause (particules, ozone, dioxyde d'azote, dioxyde de soufre). " +
+        "Qualité de l'air à La Réunion (974) par commune : indice ATMO du jour et du lendemain, une PRÉVISION calculée par " +
+        "Atmo Réunion et pas une mesure (1 bon à 6 extrêmement mauvais), avec le sous-indice de chaque polluant (particules, " +
+        "ozone, dioxyde d'azote, dioxyde de soufre), l'heure de diffusion et comment l'indice est calculé. " +
         "Pour : « l'air est pollué à Saint-Louis ? », « qualité de l'air aujourd'hui à Saint-Denis ? », « je peux faire du sport dehors ? ». " +
         "Sans lieu : toute l'île.",
       inputSchema: { lieu },
