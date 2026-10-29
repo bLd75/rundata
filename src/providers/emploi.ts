@@ -73,6 +73,8 @@ export interface Copie {
   offres: Offre[];
   /** When the feed first failed to answer since `lu`; absent while it answers. */
   echec?: string;
+  /** When offers left as taken down by the site (`depubliee`), within the last hour (ISO, UTC); absent when none. */
+  depubliees?: string[];
 }
 
 const ENTITIES: Record<string, string> = { amp: "&", quot: '"', apos: "'", nbsp: " ", rsquo: "’", hellip: "…", ndash: "–" };
@@ -186,6 +188,18 @@ export function parseFiche(html: string): Pick<Offre, "employeur" | "limite" | "
   };
 }
 
+/**
+ * The page the site answers for an offer it no longer shows: a redirect to /offre-depubliee/, « L'offre a été dépubliée,
+ * elle n'est donc plus accessible » (an unknown reference, 30/10/2026). Its canonical link or its sentence only: a link
+ * to /offre-depubliee/ elsewhere in an offer's page (a menu, a script) would drop an open offer at each read. The offer
+ * leaves the copy at once, whatever its closing date.
+ */
+export const depubliee = (html: string) =>
+  /<link\b[^>]*\brel="canonical"[^>]*\bhref="https:\/\/choisirleservicepublic\.gouv\.fr\/offre-depubliee\/"/.test(html) ||
+  /L(?:’|'|&#0?39;)offre a été dépubliée/.test(html);
+/** More offers taken down than this within an hour: said in the event's line, to be looked at (the site, or the rule). */
+export const DEPUBLIEES_HEURE = 3;
+
 /** The offer with what its page says; the feed's place and commune first, the page's when the feed had none. */
 export function withFiche(o: Offre, f: ReturnType<typeof parseFiche>): Offre {
   const lieu = o.lieu ?? f.lieu;
@@ -249,8 +263,9 @@ export function prochaineFiche(offres: Offre[], now: Date): Offre | undefined {
 
 /**
  * The scheduled event's read, every 5 minutes: the feed when `flux` (every hour at 25 past), and one offer's page
- * (`prochaineFiche`), never two at once; the offers past their closing date dropped. Writes the copy only when it
- * changed. When the feed does not answer, the copy stays, with when it first failed (written once), and the read fails.
+ * (`prochaineFiche`), never two at once; the offers past their closing date dropped, and those the site took down
+ * (`depubliee`). Writes the copy only when it changed. When the feed does not answer, the copy stays, with when it first
+ * failed (written once), and the read fails.
  */
 export async function collect(before: Copie | null, write: (copie: Copie) => Promise<void>, now = new Date(), flux = refreshDue(now)): Promise<string> {
   let feed: Offre[] = [];
@@ -266,6 +281,7 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
     return "aucune copie, flux lu à la prochaine heure";
   }
   const kept = new Map((before?.offres ?? []).map((o) => [o.ref, o]));
+  const depubliees = (before?.depubliees ?? []).filter((t) => Date.parse(t) > now.getTime() - 3_600_000);
   const nouvelles = feed.filter((o) => !kept.has(o.ref));
   // As many new offers as the feed holds: others may have been published and pushed out between two reads.
   if (before?.offres.length && nouvelles.length >= FEED_SIZE) console.log(`offres d'emploi : ${nouvelles.length} nouvelles références sur ${feed.length} dans le flux, des offres ont pu passer entre deux lectures`);
@@ -275,8 +291,15 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
   if (o) {
     const again = o.fiche === "lue";
     try {
-      kept.set(o.ref, withFiche(o, parseFiche(await getText(SOURCE.id, o.lien, 15_000))));
-      page = `page de l'offre ${o.ref} ${again ? "relue" : "lue"}`;
+      const html = await getText(SOURCE.id, o.lien, 15_000);
+      if (depubliee(html)) {
+        kept.delete(o.ref);
+        depubliees.push(now.toISOString());
+        page = `offre ${o.ref} dépubliée, retirée${depubliees.length > DEPUBLIEES_HEURE ? ` (${depubliees.length} dépubliées en une heure, à vérifier)` : ""}`;
+      } else {
+        kept.set(o.ref, withFiche(o, parseFiche(html)));
+        page = `page de l'offre ${o.ref} ${again ? "relue" : "lue"}`;
+      }
     } catch {
       // Read already: kept as read. Not yet: once more at the next event, then the 31 days' rule.
       if (!again) kept.set(o.ref, { ...o, fiche: o.fiche === "relire" ? "abandon" : "relire" });
@@ -288,7 +311,10 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
   const said = `${offres.length} offres, ${flux ? `${nouvelles.length} nouvelles` : "flux non lu"}, ${page}${closes ? `, ${closes} closes retirées` : ""}`;
   // The same offers: not written again, unless the feed answered again after failing.
   if (before && JSON.stringify(offres) === JSON.stringify(before.offres) && !(flux && before.echec)) return `${said} : inchangées, non réécrites`;
-  await write(flux ? { lu: now.toISOString(), offres } : { ...before!, offres });
+  const next: Copie = flux ? { lu: now.toISOString(), offres } : { ...before!, offres };
+  if (depubliees.length) next.depubliees = depubliees;
+  else delete next.depubliees;
+  await write(next);
   return `${said} : écrites`;
 }
 
@@ -299,9 +325,17 @@ export function configure(read: (() => Promise<Copie | null>) | undefined) {
   reader = read;
 }
 
-// The feed is read once an hour: the copy is asked of the store once an hour (an offer's page read in between shows
-// within the hour).
-const FRESH_SECONDS = 60 * 60;
+/**
+ * How long a copy read from the store may be served: since the last time the scheduled event may have written it, two
+ * minutes after each event (every 5 minutes, an offer's page read each time). A copy read before is asked again, once:
+ * kept an hour, the offers read in between showed an hour late (as /marches-publics on 29/10/2026, its 0 notices shown
+ * 7 minutes after its 105 were written).
+ */
+export function fraicheur(now: Date): number {
+  const step = EVENEMENT_MINUTES * 60_000;
+  const since = (((now.getTime() - 2 * 60_000) % step) + step) % step;
+  return Math.max(1, Math.floor(since / 1000));
+}
 
 /**
  * The stored offers still open, their time the feed's last answer; null where nothing is configured (a local server,
@@ -310,7 +344,7 @@ const FRESH_SECONDS = 60 * 60;
 export async function offres(cache: Cache, now = new Date()): Promise<Cached<Copie> | null> {
   if (!reader) return null;
   const read = reader;
-  const c = await cache.getCopy("emploi:offres", FRESH_SECONDS, async () => {
+  const c = await cache.getCopy("emploi:offres", fraicheur(now), async () => {
     const v = await read();
     if (!v) throw new Error("offres d'emploi absentes du stockage");
     return v;

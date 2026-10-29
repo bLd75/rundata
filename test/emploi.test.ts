@@ -13,6 +13,10 @@ const fixture = (f: string) => readFileSync(new URL(`./fixtures/emploi/${f}`, im
 const FEED = fixture("flux.xml");
 const CHU = fixture("offre-chu.html");
 const DGAC = fixture("offre-dgac.html");
+/** What the site answers for an offer it took down, after its redirect to /offre-depubliee/ (30/10/2026). */
+const DEPUBLIEE = fixture("offre-depubliee.html");
+/** An offer's page as the site serves it, whole: menus, forms and scripts (CHU, 29/10/2026). */
+const CHU_COMPLETE = fixture("offre-chu-complete.html");
 // 12:45 in La Réunion.
 const NOW = new Date("2026-10-29T08:45:00Z");
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
@@ -162,6 +166,45 @@ describe("the public sector's offers of Choisir le service public", () => {
     expect(c!.offres[0]).toMatchObject({ lieu: "27 rue Félix Guyon 97400 St-Denis", commune: "Saint-Denis" });
   });
 
+  it("drops at once an offer the site took down, open as it was, and says so", async () => {
+    expect([DEPUBLIEE, CHU, DGAC].map(emploiSource.depubliee)).toEqual([true, false, false]);
+    site(() => DEPUBLIEE);
+    const o: emploiSource.Offre = { ref: "DGAC-AVE-128697-CAT-A", intitule: "x", lien: emploiSource.lienDe("DGAC-AVE-128697-CAT-A"), publiee: "2026-10-29T06:00:00Z", employeur: "DGAC", limite: "2026-11-20", fiche: "lue" };
+    let c: emploiSource.Copie | undefined;
+    expect(await emploiSource.collect({ lu: NOW.toISOString(), offres: [o] }, async (x) => void (c = x), NOW, false)).toBe("0 offres, flux non lu, offre DGAC-AVE-128697-CAT-A dépubliée, retirée : écrites");
+    expect(c!.offres).toEqual([]);
+    expect(c!.depubliees).toEqual([NOW.toISOString()]);
+  });
+
+  it("takes an offer's page for a page taken down by its canonical link or its sentence only, never by a link elsewhere", () => {
+    expect(emploiSource.depubliee(CHU_COMPLETE)).toBe(false);
+    // The same whole page with a link to /offre-depubliee/ in its menu: still an open offer.
+    const menu = CHU_COMPLETE.replace("<main", '<nav><a href="https://choisirleservicepublic.gouv.fr/offre-depubliee/">Offre dépubliée</a></nav><main');
+    expect(menu).not.toBe(CHU_COMPLETE);
+    expect(emploiSource.depubliee(menu)).toBe(false);
+    const canonical = DEPUBLIEE.slice(0, DEPUBLIEE.indexOf("\n"));
+    expect(canonical).toContain('rel="canonical"');
+    expect(emploiSource.depubliee(canonical)).toBe(true);
+    expect(emploiSource.depubliee(DEPUBLIEE.slice(DEPUBLIEE.indexOf("\n")))).toBe(true);
+  });
+
+  it("says in the event's line more than 3 offers taken down within an hour, and forgets those older", async () => {
+    site(() => DEPUBLIEE);
+    const o = (ref: string): emploiSource.Offre => ({ ref, intitule: "x", lien: emploiSource.lienDe(ref), publiee: "2026-10-29T06:00:00Z", limite: "2026-11-20", fiche: "lue" });
+    const at = (min: number) => new Date(NOW.getTime() - min * 60_000).toISOString();
+    let c: emploiSource.Copie | undefined;
+    const write = async (x: emploiSource.Copie) => void (c = x);
+    // Two within the hour, one older: the third said without a warning.
+    expect(await emploiSource.collect({ lu: NOW.toISOString(), offres: [o("DGAC-1")], depubliees: [at(61), at(40), at(20)] }, write, NOW, false)).toBe("0 offres, flux non lu, offre DGAC-1 dépubliée, retirée : écrites");
+    expect(c!.depubliees).toEqual([at(40), at(20), NOW.toISOString()]);
+    const later = new Date(NOW.getTime() + 300_000);
+    expect(await emploiSource.collect({ ...c!, offres: [o("DGAC-2")] }, write, later, false)).toBe("0 offres, flux non lu, offre DGAC-2 dépubliée, retirée (4 dépubliées en une heure, à vérifier) : écrites");
+    // Kept by the feed's hourly write.
+    site((ref) => (ref.startsWith("2026-") ? CHU : DGAC));
+    await emploiSource.collect(c!, write, new Date(NOW.getTime() + 600_000), true);
+    expect(c!.depubliees).toHaveLength(4);
+  });
+
   it("logs a feed all new, and tries a silent offer's page once more, then keeps its 31 days", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const before: emploiSource.Copie = { lu: "2026-10-29T07:25:00Z", offres: [{ ref: "2026-1", intitule: "Ancienne", lien: emploiSource.lienDe("2026-1"), publiee: "2026-10-20T06:00:00Z", fiche: "lue" }] };
@@ -251,7 +294,8 @@ describe("the tool emploi and the page /emploi", () => {
     const c = await copie();
     emploiSource.configure(async () => c);
     const d = await buildEmploi(cache(), NOW);
-    const page = emploiPage("https://rundata.re", { value: d, fetchedAt: new Date(c.lu), stale: false }, NOW);
+    // The page's copy built 4 minutes after the feed's read: the feed's time is said.
+    const page = emploiPage("https://rundata.re", { value: d, fetchedAt: new Date(Date.parse(c.lu) + 4 * 60_000), stale: false }, NOW);
     expect(page).toContain("<h1>Offres d'emploi public à La Réunion</h1>");
     expect(page).toContain("20 offres ouvertes à la candidature sur Choisir le service public, dernière lecture à 12:45.");
     const first = page.indexOf('<ul class="rows eau" id="offres">');
@@ -304,6 +348,23 @@ describe("the tool emploi and the page /emploi", () => {
     const all = body(await emploi(cache(), undefined, undefined, NOW, 1));
     const first = all.offres[0].nombre_offres ?? 1;
     expect(all.autres).toBe(`${20 - first} autres offres, sur ${emploiSource.SOURCE.url}`);
+  });
+
+  it("asks the store again for a copy read before the last event's write, every 5 minutes", async () => {
+    // Two minutes after each event of 5 minutes: 12:47, 12:52…
+    expect(emploiSource.fraicheur(new Date("2026-10-29T08:48:00Z"))).toBe(60);
+    expect(emploiSource.fraicheur(new Date("2026-10-29T08:46:59Z"))).toBe(299);
+    expect(emploiSource.fraicheur(new Date("2026-10-29T08:47:00Z"))).toBe(1);
+    const c = await copie();
+    let stored = c;
+    emploiSource.configure(async () => stored);
+    let t = new Date("2026-10-29T08:45:30Z");
+    const store = new Cache(new MemoryStore(), () => t.getTime());
+    expect((await emploiSource.offres(store, t))!.value.offres).toHaveLength(c.offres.length);
+    // An offer's page read at 12:50 changed the copy: shown at 12:53, not an hour later.
+    stored = { ...c, offres: c.offres.slice(1) };
+    t = new Date("2026-10-29T08:53:00Z");
+    expect((await emploiSource.offres(store, t))!.value.offres).toHaveLength(c.offres.length - 1);
   });
 
   it("says when the offers are read next while the store has none, without a reading time", async () => {
