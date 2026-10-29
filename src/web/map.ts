@@ -195,10 +195,16 @@ function marker(m: Marker, hit = HIT, at?: [number, number]): string {
   if (!m.href) return `<g class="mk">${inner}</g>`;
   const said = m.tip ? `${m.tip.place} : ${m.tip.value}, ${m.tip.detail}, voir le détail` : `${m.place ?? m.name} : ${m.say ?? m.label}, voir le détail`;
   const tip = m.tip ? ` data-tp="${esc(m.tip.place)}" data-tv="${esc(m.tip.value)}" data-td="${esc(m.tip.detail)}"` : "";
+  // What the bubble on hover says, and the list of close points on a tap (carte-points.ts); a marker with a bubble has its own.
+  const lines = m.tip ? [] : [m.place ?? m.name, m.say ?? m.label];
   // The hit area under the marker, painted but invisible, so that a tap a little beside it still counts.
-  return `<a class="mk" href="${esc(m.href)}" aria-label="${esc(said)}"${tip}>` +
+  return `<a class="mk" href="${esc(m.href)}" aria-label="${esc(said)}"${tip}${pointData(lines)}>` +
     `<circle class="hit" cx="${x}" cy="${y}" r="${hit}" style="fill:transparent;stroke:none"/>${inner}</a>`;
 }
+
+/** A point's lines for carte-points.ts: its name, then its kind or value, then its address or time. */
+const pointData = (lines: (string | undefined)[]) =>
+  (["pn", "p2", "p3"] as const).map((k, i) => (lines[i] ? ` data-${k}="${esc(lines[i]!)}"` : "")).join("");
 
 /** Each linked commune as a link over its shape, invisible until hovered or focused. */
 function zoneLinks(links: Record<string, ZoneLink>): string {
@@ -433,8 +439,10 @@ export interface Spot {
   t: string;
   /** Its family, its colour (the legend's). */
   f: string;
-  /** What it is, said aloud and on hover. */
+  /** What it is, said aloud. */
   name: string;
+  /** What the bubble on hover and the list of close points say of it (carte-points.ts): its name, kind and address. */
+  tip?: { name: string; kind?: string; address?: string };
 }
 
 /** The width the map is drawn at on a phone of 390 px, in its card: what a finger's 44 px are worth in the map's units. */
@@ -465,7 +473,7 @@ export function communeMap(opts: { commune: string; spots: Spot[]; label: string
   const dots = opts.spots.map((s, k) => {
     const [x, y] = at[k];
     // Its title names the link, aloud and on hover.
-    return `<a class="sp" href="#lieu-${s.i}" data-i="${s.i}" data-t="${esc(s.t)}"><title>${esc(s.name)}</title>` +
+    return `<a class="sp" href="#lieu-${s.i}" data-i="${s.i}" data-t="${esc(s.t)}"${pointData(s.tip ? [s.tip.name, s.tip.kind, s.tip.address] : [s.name])}><title>${esc(s.name)}</title>` +
       `<circle class="hit" cx="${x}" cy="${y}" r="${r2(radii[k])}"/><path class="rg" d="M${x} ${y}h0"/><path class="pt f-${esc(s.f)}" d="M${x} ${y}h0"/></a>`;
   }).join("");
   return `<svg${opts.id ? ` id="${opts.id}"` : ""} class="map terrain zoom commune" viewBox="${box.join(" ")}" data-box="${box.join(" ")}" role="group" aria-label="${esc(opts.label)}">` +
