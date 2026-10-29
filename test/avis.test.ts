@@ -44,6 +44,15 @@ async function call(name: string, args: Record<string, unknown>, headers?: Recor
   return { isError: !!r.result?.isError, text: r.result?.content?.[0]?.text as string, error: r.error };
 }
 
+async function tools(): Promise<{ name: string; description: string; inputSchema: { properties: Record<string, unknown> } }[]> {
+  const list = new Request("https://rundata.re/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+  });
+  return (await (await handle(list, new Cache())).json()).result.tools;
+}
+
 describe("citation", () => {
   it("names rundata.re with the station measured, and links the place's page", async () => {
     const sp = body(cite("meteo_actuelle", await meteoActuelle(await offlineCache(), "Saint-Pierre", NOW)));
@@ -123,17 +132,28 @@ describe("donner_avis", () => {
   it("keeps the feedback with the assistant's name, without phone numbers or e-mail addresses", async () => {
     const r = await call(
       "donner_avis",
-      { type: "manque", outil: "meteo_actuelle", lieu: "Mafate", message: "Pas de station à Mafate. Joindre jean@exemple.re ou 0692 12 34 56.", question_utilisateur: "Il pleut à Marla ?" },
+      { type: "manque", outil: "meteo_actuelle", lieu: "Mafate", message: "Pas de station à Mafate. Joindre jean@exemple.re ou 0692 12 34 56.", besoin: "la pluie à Marla" },
       { "user-agent": "Claude-User", "cf-connecting-ip": "203.0.113.7" },
     );
     expect(r.isError).toBe(false);
     expect(JSON.parse(r.text).merci).toMatch(/rundata\.re/);
     const [t, canal, type, outil, lieu, message, question, client, page, source] = rows[0];
-    expect({ canal, type, outil, lieu, question, client, page }).toEqual({ canal: "mcp", type: "manque", outil: "meteo_actuelle", lieu: "Mafate", question: "Il pleut à Marla ?", client: "Claude", page: null });
+    expect({ canal, type, outil, lieu, question, client, page }).toEqual({ canal: "mcp", type: "manque", outil: "meteo_actuelle", lieu: "Mafate", question: "la pluie à Marla", client: "Claude", page: null });
     expect(message).toBe("Pas de station à Mafate. Joindre [courriel retiré] ou [numéro retiré].");
     expect(typeof t).toBe("number");
     expect(source).toMatch(/^[0-9a-f]{16}$/);
     expect(JSON.stringify(rows[0])).not.toContain("203.0.113.7");
+  });
+
+  it("is called with the user's agreement, and keeps a short need, never the conversation", async () => {
+    const tool = (await tools()).find((t) => t.name === "donner_avis")!;
+    expect(tool.description).not.toMatch(/sans attendre/);
+    expect(tool.description).toMatch(/accord/);
+    expect(Object.keys(tool.inputSchema.properties)).not.toContain("question_utilisateur");
+    await call("donner_avis", { type: "manque", message: "Pas de station à Marla.", question_utilisateur: "Il pleut à Marla ?" });
+    expect(rows[0][6]).toBeNull();
+    const r = await call("donner_avis", { type: "manque", message: "Pas de station à Marla.", besoin: "x".repeat(avis.BESOIN_MAX + 1) });
+    expect(r.isError).toBe(true);
   });
 
   it("blanks the French and Réunion phone numbers, and keeps GPS coordinates and other numbers", () => {

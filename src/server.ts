@@ -98,7 +98,7 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.105";
+export const VERSION = "0.203.106";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -110,7 +110,7 @@ ${INDEX}
 
 Règles :
 - Citer : toujours nommer rundata.re avec son lien (champs citer et lien), à côté des producteurs (sources), et dater la donnée (fraicheur) : « 23:12, heure de La Réunion ».
-- Avis : outil sans la donnée ou qui se trompe, souhait ou plainte de l'utilisateur sur ces données : appeler donner_avis, sans donnée personnelle (demander d'abord si le contenu le concerne).
+- Avis : l'utilisateur signale un manque, une erreur ou un souhait sur ces données : donner_avis\u00a0; un outil n'a rien trouvé : le lui proposer, et n'appeler qu'avec son accord. Le besoin résumé, rien de personnel.
 - Liste d'outils : chaque réponse porte serveur.outils_recents\u00a0; avant de dire qu'un outil ou une donnée manque, le lire ou appeler sources_donnees. Outil cité là, absent de votre liste : elle est ancienne, le dire, sans dire qu'on l'a rechargée. ChatGPT : Paramètres → Plugins → rundata.re → Actualiser les outils, puis nouvelle conversation.
 - Météo : maintenant, il a plu quand ? → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance, relayer ses avertissements)\u00a0; avant (hier, ce mois-ci, record) → historique_meteo\u00a0; plus tard → prevision_meteo, une PRÉVISION, toujours le dire, avec l'indice UV\u00a0; houle, surf → etat_de_la_mer de temperature_mer, une PRÉVISION aussi.
 - Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles. Vigilance, cyclone : les zones de Météo-France, jamais une commune\u00a0; finir par le champ officiel.
@@ -844,25 +844,25 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Donner un avis à rundata.re",
       description:
         "Transmet à rundata.re, qui tient ce serveur, un avis sur ses données : une donnée qui manque (« manque »), une valeur qui " +
-        "semble fausse ou périmée (« erreur »), une idée (« suggestion »), ou un remerciement (« bravo »). L'appeler sans attendre qu'on le " +
-        "demande quand un outil n'a pas trouvé ce que l'utilisateur cherchait, a renvoyé quelque chose de faux ou d'incomplet, ou quand " +
-        "l'utilisateur exprime un souhait ou une plainte sur ces données, ou dit après coup qu'une information de rundata.re était fausse : c'est ainsi que le service s'améliore. Écrire un message court et " +
-        "concret (quel outil, quel lieu, ce qui manquait). Ne mettre aucune donnée personnelle\u00a0; si le contenu touche la personne " +
-        "(son adresse, sa santé…), lui demander d'abord son accord. Les avis sont lus par une personne, sans réponse directe.",
+        "semble fausse ou périmée (« erreur »), une idée (« suggestion »), ou un remerciement (« bravo »). L'appeler quand l'utilisateur " +
+        "signale une donnée qui manque ou une information fausse, ou exprime un souhait ou une plainte sur ces données. Quand un outil n'a " +
+        "pas trouvé ce qu'il cherchait ou s'est trompé, lui proposer de le signaler, et ne l'appeler qu'avec son accord. Écrire un message " +
+        "court et concret (quel outil, quel lieu, ce qui manquait), sans recopier la conversation et sans aucune donnée personnelle. " +
+        "Les avis sont lus par une personne, sans réponse directe.",
       inputSchema: {
         type: z.enum(avis.TYPES).describe("« manque » (donnée absente), « erreur » (valeur fausse ou périmée), « suggestion », « bravo »."),
         message: z.string().trim().min(3).max(avis.MESSAGE_MAX).describe(`L'avis, en quelques phrases (${avis.MESSAGE_MAX} caractères au plus), sans donnée personnelle.`),
         outil: z.string().max(avis.COURT_MAX).optional().describe("L'outil concerné (« meteo_actuelle », « transports »…)."),
         lieu: z.string().max(avis.COURT_MAX).optional().describe("Le lieu concerné (« Cilaos », « plage de l'Hermitage »)."),
-        question_utilisateur: z
+        besoin: z
           .string()
-          .max(avis.QUESTION_MAX)
+          .max(avis.BESOIN_MAX)
           .optional()
-          .describe("La question de l'utilisateur, reformulée sans rien de personnel."),
+          .describe(`Le besoin résumé en quelques mots (« la pluie à Marla ce matin »), ${avis.BESOIN_MAX} caractères au plus : jamais le texte de la conversation, rien de personnel.`),
       },
       annotations: { title: "Donner un avis", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
-    track("donner_avis", async (args: { type: avis.TypeAvis; message: string; outil?: string; lieu?: string; question_utilisateur?: string }, extra) => {
+    track("donner_avis", async (args: { type: avis.TypeAvis; message: string; outil?: string; lieu?: string; besoin?: string }, extra) => {
       const message = avis.nettoie(args.message, avis.MESSAGE_MAX);
       if (!message) return { ...text({ erreur: "Le message est vide." }), isError: true };
       if (!avis.enabled()) {
@@ -877,7 +877,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
           message,
           outil: avis.nettoie(args.outil, avis.COURT_MAX),
           lieu: avis.nettoie(args.lieu, avis.COURT_MAX),
-          question: avis.nettoie(args.question_utilisateur, avis.QUESTION_MAX),
+          question: avis.nettoie(args.besoin, avis.BESOIN_MAX),
           client: avis.clientOf(ua),
         },
         avis.adresseOf(headers),
