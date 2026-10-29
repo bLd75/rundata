@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { failed, handle } from "../src/app.js";
 import { Cache } from "../src/cache.js";
+import { configurerDefiOpenai } from "../src/web/site.js";
 import { CSP_RAPPORT, enTetes, PERMISSIONS, politique, rapport, scriptsEnLigne, SECURITY_EXPIRES } from "../src/web/securite.js";
 
 const sha = (s: string) => createHash("sha256").update(s, "utf8").digest("base64");
@@ -100,5 +101,22 @@ describe("whom to tell of a security flaw, /.well-known/security.txt (RFC 9116)"
     expect(r.status).toBe(301);
     expect(r.headers.get("location")).toBe("/.well-known/security.txt");
     expect(r.headers.get("cache-control")).toBe("public, max-age=3600");
+  });
+});
+
+describe("the domain check of OpenAI's plugin portal, /.well-known/openai-apps-challenge", () => {
+  afterEach(() => configurerDefiOpenai(undefined));
+
+  it("serves the token alone, as plain text, once the Worker's secret is set", async () => {
+    configurerDefiOpenai(" jeton-du-portail\n");
+    const r = await handle(new Request("https://rundata.re/.well-known/openai-apps-challenge"), new Cache());
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(await r.text()).toBe("jeton-du-portail");
+  });
+
+  it("is not found without it", async () => {
+    const r = await handle(new Request("https://rundata.re/.well-known/openai-apps-challenge"), new Cache());
+    expect(r.status).toBe(404);
   });
 });
