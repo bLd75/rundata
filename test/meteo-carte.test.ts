@@ -173,7 +173,7 @@ describe("the page /meteo with every station", () => {
     expect(html).toContain(esc("IGN, RGE ALTI, pour les altitudes des couleurs estimées (Licence Ouverte 2.0)"));
     expect(html).toContain(esc("Météo-France, lame d'eau radar, pour la pluie estimée (Licence Ouverte 2.0)"));
     // The replay of the last 3 hours: hidden until its answer says there are 2 images at least, its slider named.
-    expect(html).toContain(`<span class="rj" data-retro="/meteo/retro-3h.json" hidden><button type="button">Revoir les 3 dernières heures</button><input type="range" min="0" max="0" step="1" value="0" aria-label="Heure de l'image" hidden></span>`);
+    expect(html).toContain(`<span class="rj" data-retro="/meteo/retro-3h.json" hidden><button type="button">Revoir les 3\u00a0dernières heures</button><input type="range" min="0" max="0" step="1" value="0" aria-label="Heure de l'image" hidden></span>`);
     expect(html).toContain(`<text class="rj-h" x="34" y="92" aria-hidden="true"></text>`);
     expect(html).toContain(`<span class="lg lg-p"><span class="lg-now">`);
     // Without rain gauges nor anemometers, nothing to replay.
@@ -191,17 +191,18 @@ describe("the page /meteo with every station", () => {
     expect(() => new Function(METEO_SCRIPT)).not.toThrow();
     // What the radar sees, said by the script once its grid has come: rain, none, or an image too old to show.
     expect(METEO_SCRIPT).toContain(`"En bleu : la pluie estimée par le radar de Météo-France "+at_(j.fin)+" ; plus c'est foncé, plus elle est forte."`);
-    expect(METEO_SCRIPT).toContain(`"Le radar de Météo-France ne voit pas de pluie "+at_(j.fin)+"."`);
+    expect(METEO_SCRIPT).toContain(`"Le radar de Météo-France ne voit pas de pluie "+(tail?"sur l'île ":"")+at_(j.fin)+"."`);
     expect(METEO_SCRIPT).toContain(`" et n'est pas affichée."`);
     // The hatches' sentence comes after a hatched square, styled by the page, which ties it to the hatches on the map.
-    expect(METEO_SCRIPT).toContain(`i.className="hsw";el.append(" ",i,bad)`);
+    expect(METEO_SCRIPT).toContain(`w.append(i,"\u00a0Hachures");el.append(" ",w,bad.slice(9))`);
     expect(CSS).toContain(".wxmap .hsw{");
-    for (const words of [`"Revenir à maintenant"`, `"Revoir depuis "`, `" Une image toutes les 5 minutes, "`, `"sur les 3 dernières heures."`, `"Pas d'image radar "+at_(e.a)+"."`,
-      `"Pas d'image radar de "+hm(e.de)+" à "+hm(e.a)+"."`, `"Vent moyen sur 10 minutes, mesuré "+at_(f.fin)+" par "`,
+    for (const words of [`"Revenir à maintenant"`, `"Revoir depuis "`, `" Une image toutes les 5\u00a0minutes, "`, `"sur les 3\u00a0dernières heures."`, `"sur l'île "`, `"Pas d'image radar "+at_(e.a)+"."`,
+      `"Pas d'image radar de "+hm(e.de)+" à "+hm(e.a)+"."`, `"Vent moyen sur 10\u00a0minutes, mesuré "+at_(f.fin)+" par "`,
       `" de Météo-France. Entre eux, le mouvement et les couleurs sont estimés. Les aéroports et les balises OpenWindMap ne sont pas dans ce rejeu."`, `"hier à "`]) {
       expect(METEO_SCRIPT).toContain(words);
     }
     expect(CSS).toContain(".wxmap.rejeu .lg-now,.wxmap.rejeu .sts,.wxmap.rejeu .mtip{display:none}");
+    expect(CSS).toContain(".wxmap .rj-h.plage{font-size:48px}.wxmap .hsn{white-space:nowrap}");
   });
 
   it("dates a measure of another day in the list, and says it old", () => {
