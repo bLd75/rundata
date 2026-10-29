@@ -217,11 +217,32 @@ describe("the page /marches-publics", () => {
     boamp.configure(async () => c);
     const now = new Date("2026-10-29T10:37:00Z");
     const d = await buildMarches(new Cache(new MemoryStore(), () => now.getTime()), now);
-    expect(d.enLecture).toEqual({ nombre: 10, a: "2026-10-29T10:40:00.000Z" });
+    expect(d.enLecture).toBe(10);
     const p = marchesPage(O, { value: d, fetchedAt: now, stale: false }, now);
-    expect(p).toContain("10 avis lus au BOAMP à 14:35 sont en cours de tri, pour garder ceux de l'île : la liste s'affiche à 14:40.");
+    expect(p).toContain("10 avis lus au BOAMP à 14:35 sont en cours de tri, pour ne garder que ceux de l'île.");
+    // Never a time to come on the page.
+    expect(p).not.toContain("14:40");
     expect(p).not.toContain("Aucun avis");
     expect(p).not.toContain("0 avis de marché");
+  });
+
+  it("serves after the texts' write the copy written then, not the one a view read during the sorting", async () => {
+    // 29/10/2026: a view at 16:40:14 read the copy of the list (0 shown, 122 waiting); the texts were written at
+    // 16:41:30; at 16:44 and 16:48 the page still said 0, its copy kept an hour.
+    api();
+    let c: boamp.Copie | null = null;
+    await boamp.collect(null, async (x) => void (c = x), LISTE_AT);
+    const sorting = c!;
+    await boamp.collect(c, async (x) => void (c = x), TEXTES_AT);
+    vi.unstubAllGlobals();
+    let stored = sorting;
+    boamp.configure(async () => stored);
+    let t = new Date("2026-10-29T12:40:14Z");
+    const cache = new Cache(new MemoryStore(), () => t.getTime());
+    expect((await boamp.avis(cache, t))!.value.avis).toHaveLength(0);
+    stored = c!;
+    t = new Date("2026-10-29T12:48:00Z");
+    expect((await boamp.avis(cache, t))!.value.avis).toHaveLength(7);
   });
 
   it("says the year of a closing day of another year, and what it says without a copy", async () => {

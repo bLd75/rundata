@@ -192,13 +192,10 @@ export const REFRESH_OFFSET = 35;
 export const TEXTES_OFFSET = 40;
 const inWindow = (now: Date, offset: number) => (((now.getUTCMinutes() - offset) % REFRESH_EVERY) + REFRESH_EVERY) % REFRESH_EVERY < 5;
 export const refreshDue = (now: Date) => inWindow(now, REFRESH_OFFSET) || inWindow(now, TEXTES_OFFSET);
-/**
- * The next hour at 35 past, after `now`: when the scheduled event reads the notices next; at 40 past, with
- * `TEXTES_OFFSET`, when it reads the texts of the new ones.
- */
-export function prochaineLecture(now: Date, offset = REFRESH_OFFSET): Date {
+/** The next hour at 35 past, after `now`: when the scheduled event reads the notices next. */
+export function prochaineLecture(now: Date): Date {
   const t = new Date(now);
-  t.setUTCMinutes(offset, 0, 0);
+  t.setUTCMinutes(REFRESH_OFFSET, 0, 0);
   if (t.getTime() <= now.getTime()) t.setUTCHours(t.getUTCHours() + 1);
   return t;
 }
