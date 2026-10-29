@@ -337,6 +337,21 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/capteurs.ts"],
     basis: "code",
   },
+  // The radar's last 3 hours (web/pluie-retro.ts), at every run: the history read from KV, the latest image (a token
+  // first when the isolate holds none), the history written when the image is new or a gap grows: 4 subrequests in a
+  // new isolate, 2 or 3 after (counted in test/pluie-retro.test.ts); 6 at most, when Météo-France refuses the token
+  // once (401) and the image is asked again with a new one. CPU measured in Node on the real image of 22/10/2026 (HDF5,
+  // grid, history): 106 ms at the first run, 32 ms after; rounded up for a Worker. The history weighs 9 to 51 Ko.
+  {
+    id: "radar:3h",
+    trigger: "planifiée",
+    what: "pluie radar des 3 dernières heures pour le rejeu de /meteo : la dernière image de Météo-France ajoutée dans KV quand elle est nouvelle, ou un trou daté",
+    every: EVENT_MINUTES,
+    offset: 0,
+    run: { subrequests: 6, kvReads: 1, kvWrites: 1, cpuMs: 120, memoryMb: 5 },
+    from: ["src/web/pluie-retro.ts"],
+    basis: "estimé",
+  },
   // The copy read from KV, one offer's page (about 217 Ko, searched for its labels by position, never built), the copy
   // written when it changed: never two pages at once on the site. CPU and memory estimated from the page's size, to be
   // measured in a Worker.
@@ -523,6 +538,9 @@ const OTHER_PAGES: Record<string, Page> = {
   "/communes/*": { subrequests: 78, cpuMs: 160, from: [...METEO, "src/tools/mer.ts"], what: "page d'une commune : sa météo, ses tuiles, et la plus vieille refaite après la réponse" },
   "/aujourdhui/*": { subrequests: 62, cpuMs: 130, from: ["src/tools/resume.ts"], what: "la journée d'une commune (resume_du_jour)" },
   "/meteo/*": { subrequests: 50, cpuMs: 130, from: [...METEO, "src/tools/mer.ts"], what: "la météo d'un lieu" },
+  // The replay of the last 3 hours (web/pluie-retro.ts), asked when /meteo's rain or wind layer is first shown: the radar's
+  // history read from KV, the hourly package from the data center's cache (its token and the package when it has none).
+  "/meteo/retro-3h.json": { subrequests: 3, cpuMs: 10, from: ["src/providers/meteofrance.ts"], what: "le rejeu des 3 dernières heures de la carte de /meteo : l'historique radar (KV) et le vent des heures rondes", basis: "code" },
   "/mer": { subrequests: 23, cpuMs: 120, from: ["src/tools/mer.ts", "src/tools/maree.ts"] },
   "/randonnees/*": { subrequests: 23, cpuMs: 130, from: ["src/tools/sentiers.ts"], what: "une randonnée et sa trace" },
   "/sentiers/*": { subrequests: 16, cpuMs: 30, from: ["src/tools/sentiers.ts"], what: "un sentier et sa trace" },
@@ -571,7 +589,7 @@ const pageEntry = (path: string, p: Page, kvReads: number): Entry => ({
 const SHARED_KEYS = new Set([...SHARED, ...SHARED_AFTER].map((s) => s.key));
 const sharedIn = (keys: string[]) => new Set(keys.filter((k) => SHARED_KEYS.has(k))).size;
 // The commune pages and /antennes: the copy of the mobile sites out of service besides.
-const KV_READS: Record<string, number> = { "/chiffres": 1, "/antennes": 1, "/": sharedIn(HOME_TILES), "/communes/*": sharedIn(COMMUNE_TILES) + 1, "/aujourdhui/*": sharedIn([...COMMUNE_TILES, ...HOME_TILES]) };
+const KV_READS: Record<string, number> = { "/chiffres": 1, "/antennes": 1, "/meteo/retro-3h.json": 1, "/": sharedIn(HOME_TILES), "/communes/*": sharedIn(COMMUNE_TILES) + 1, "/aujourdhui/*": sharedIn([...COMMUNE_TILES, ...HOME_TILES]) };
 
 const VISITS: Entry[] = [
   ...Object.entries(OTHER_PAGES).map(([path, p]) => pageEntry(path, p, KV_READS[path] ?? 0)),

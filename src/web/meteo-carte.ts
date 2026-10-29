@@ -159,7 +159,7 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
   // Each legend, and the replay's in its place while it plays.
   const legend = layers.map((l, i) => `<span class="lg lg-${l.id}${i ? "" : " on"}"><span class="lg-now">${l.legend}</span>${l.id === "t" ? "" : `<span class="rj-lg"></span>`}</span>`).join("");
   const replay = nRain || w.length
-    ? `<span class="rj" data-retro="${PLUIE_RETRO}" hidden><button type="button">Revoir les 3 dernières heures</button><input type="range" min="0" max="0" step="1" value="0" aria-label="Heure de l'image" hidden></span>`
+    ? `<span class="rj" data-retro="${PLUIE_RETRO}" hidden><button type="button">Revoir les 3\u00a0dernières heures</button><input type="range" min="0" max="0" step="1" value="0" aria-label="Heure de l'image" hidden></span>`
     : "";
   const bubble = `<a class="mtip" data-mtip hidden aria-hidden="true" tabindex="-1" href="#stations"><span class="mt-p"></span><b class="mt-v"></b><span class="mt-d"></span><span class="mt-go">Voir la station →</span></a>`;
   return `<figure class="card mapcard airmap wxmap">${tabs}` +
@@ -218,7 +218,7 @@ for(const p of ps){const[u,v]=at(p.x,p.y),x=p.x+u*.3,y=p.y+v*.3;if(++p.a>100||x<
 let A,x;const field=(sx)=>{const p=sx.map(([X,Y,u,v])=>[X*w/${W},Y*h/${H},u,v]),e=x.createImageData(w,h);land=[];for(let j=0;j<h;j++)for(let i=0;i<w;i++){const k=j*w+i;let sw=0,su=0,sv=0;
 for(const[px,py,u,v]of p){const q=1/((px-i)**2+(py-j)**2+.5);sw+=q;su+=q*u;sv+=q*v}U[k]=su/sw;V[k]=sv/sw;if(!A[k*4])continue;M[k]=1;land.push(k);
 const[R,G,B]=col(Math.hypot(U[k],V[k]));e.data[k*4]=R;e.data[k*4+1]=G;e.data[k*4+2]=B;e.data[k*4+3]=200}x.putImageData(e,0,0)};
-RJ.v={show:(f,el)=>{if(!A)return;field(f.st);o.again();const n=f.st.length;el.textContent="Vent moyen sur 10 minutes, mesuré "+at_(f.fin)+" par "+n+(n>1?" anémomètres":" anémomètre")+" de Météo-France. Entre eux, le mouvement et les couleurs sont estimés. Les aéroports et les balises OpenWindMap ne sont pas dans ce rejeu."},
+RJ.v={show:(f,el)=>{if(!A)return;field(f.st);o.again();const n=f.st.length;el.textContent="Vent moyen sur 10\u00a0minutes, mesuré "+at_(f.fin)+" par "+n+(n>1?" anémomètres":" anémomètre")+" de Météo-France. Entre eux, le mouvement et les couleurs sont estimés. Les aéroports et les balises OpenWindMap ne sont pas dans ce rejeu."},
 back:()=>{if(!A)return;field(st);o.again()}};
 im.onload=()=>{w=im.width;h=im.height;const c=ve;c.width=w;c.height=h;x=c.getContext("2d");x.drawImage(im,0,0);A=x.getImageData(0,0,w,h).data;U=new Float32Array(w*h);V=new Float32Array(w*h);M=new Uint8Array(w*h);
 field(st);go()};im.src=ve.dataset.alt}`;
@@ -246,14 +246,14 @@ if(c>"0"){x.fillStyle=K[+c-1];x.fillRect(X,Y,sx+.6,sy+.6)}if(d.mal_vu[k]==="1"){
 ds=[];if(!cells.length)return;const n=Math.min(900,Math.max(25,Math.round(acc[acc.length-1]*.03*r.width*r.height/88e3)));for(let i=0;i<n;i++){const p={};born(p);p.a=(Math.random()*p.m)|0;ds.push(p)}},
 still:()=>{g.clearRect(0,0,cw,ch);drops()},
 frame:()=>{g.clearRect(0,0,cw,ch);for(const p of ds){p.y+=p.v;p.x-=p.v*.25;if(++p.a>p.m)born(p)}drops()}};const go=anim(o);
-// The hatched square ties the sentence to the hatches on the map, however small they are.
-const show=(el,t,bad,down)=>{el.textContent=t;if(bad){const i=document.createElement("i");i.className="hsw";el.append(" ",i,bad)}if(down)el.append(down);el.hidden=false};
+// The hatched square ties the sentence to the hatches on the map, however small they are; it never leaves its word.
+const show=(el,t,bad,down)=>{el.textContent=t;if(bad){const i=document.createElement("i"),w=document.createElement("span");i.className="hsw";w.className="hsn";w.append(i,"\u00a0Hachures");el.append(" ",w,bad.slice(9))}if(down)el.append(down);el.hidden=false};
 const land=()=>Lp||(Lp=new Promise((ok,ko)=>{const im=new Image();im.onload=()=>{const c=document.createElement("canvas");c.width=im.width;c.height=im.height;const x=c.getContext("2d");x.drawImage(im,0,0);
 const a=x.getImageData(0,0,im.width,im.height).data;ok(L=a.filter((v,i)=>i%4===0))};im.onerror=ko;im.src=pr.dataset.alt}));
 // A grid made the one drawn: its rainy cells of the island alone (the map shows nothing of the sea, where the radars
 // also see), and whether the radars see badly somewhere on it.
 const use=(j)=>{d=j;cells=[];acc=[];let bad="";for(let k=0;k<d.w*d.h;k++){if(!L[k])continue;const c=+d.pluie[k];if(c>0){cells.push(k);acc.push((acc[acc.length-1]||0)+Wt[c])}if(d.mal_vu[k]==="1")bad=BAD}return bad};
-const say_=(j,bad,head,tail)=>show(head.el,(cells.length?"En bleu : la pluie estimée par le radar de Météo-France "+at_(j.fin)+" ; plus c'est foncé, plus elle est forte.":"Le radar de Météo-France ne voit pas de pluie "+at_(j.fin)+".")+tail,bad,j.pannes.length?" "+radars(j.pannes):"");
+const say_=(j,bad,head,tail)=>show(head.el,(cells.length?"En bleu : la pluie estimée par le radar de Météo-France "+at_(j.fin)+" ; plus c'est foncé, plus elle est forte.":"Le radar de Météo-France ne voit pas de pluie "+(tail?"sur l'île ":"")+at_(j.fin)+".")+tail,bad,j.pannes.length?" "+radars(j.pannes):"");
 const get=()=>{if(asked||!inp.checked)return;asked=true;Promise.all([fetch(pr.dataset.pluie).then((r)=>{if(!r.ok)throw new Error(String(r.status));return r.json()}),land()]).then(([j])=>{
 if(L.length!==j.w*j.h)throw new Error("grille");
 if(Date.now()-Date.parse(j.fin)>45*6e4){show(say,"Pas d'image radar récente : la dernière date "+when(j.fin)+" et n'est pas affichée.");return}live=j;
@@ -281,10 +281,10 @@ const list=(l)=>!J?[]:l==="p"?(J.radar?J.radar.entrees:[]):J.vent;
 const first=(l)=>{const e=list(l)[0];return e?(e.trou?e.de:e.fin):""};
 // The history is full when it starts within 10 minutes of 3 hours ago; just after the release it starts later.
 const full=(l)=>Date.parse(first(l))<=Date.now()-3*36e5+(l==="p"?6e5:36e5);
-const upd=()=>{if(on)return;const l=lay();rc.hidden=!l||list(l).filter((e)=>!e.trou).length<2;if(!rc.hidden)btn.textContent=full(l)?"Revoir les 3 dernières heures":"Revoir depuis "+hm(first(l))};
+const upd=()=>{if(on)return;const l=lay();rc.hidden=!l||list(l).filter((e)=>!e.trou).length<2;if(!rc.hidden)btn.textContent=full(l)?"Revoir les 3\u00a0dernières heures":"Revoir depuis "+hm(first(l))};
 const frame=()=>{const e=fr[k],one=e.trou&&Date.parse(e.a)-Date.parse(e.de)<=3e5;rng.value=String(k);
-hh.textContent=e.trou?(one?hm(e.a):hm(e.de)+"–"+hm(e.a)):hm(e.fin);rng.setAttribute("aria-valuetext",e.trou?(one?"Pas d'image radar à "+hm(e.a):"Pas d'image radar de "+hm(e.de)+" à "+hm(e.a)):hm(e.fin));
-RJ[on].show(e,lg[on],J.radar," Une image toutes les 5 minutes, "+(full("p")?"sur les 3 dernières heures.":"depuis "+hm(first("p"))+"."))};
+hh.textContent=e.trou?(one?hm(e.a):hm(e.de)+"–"+hm(e.a)):hm(e.fin);hh.classList.toggle("plage",!!e.trou&&!one);rng.setAttribute("aria-valuetext",e.trou?(one?"Pas d'image radar à "+hm(e.a):"Pas d'image radar de "+hm(e.de)+" à "+hm(e.a)):hm(e.fin));
+RJ[on].show(e,lg[on],J.radar," Une image toutes les 5\u00a0minutes, "+(full("p")?"sur les 3\u00a0dernières heures.":"depuis "+hm(first("p"))+"."))};
 const play=()=>{clearInterval(tm);if(!matchMedia("(prefers-reduced-motion: reduce)").matches)tm=setInterval(()=>{k=(k+1)%fr.length;frame()},on==="p"?500:2500)};
 const start=()=>{on=lay();if(!on)return;fr=list(on);k=0;fig.classList.add("rejeu");rng.max=String(fr.length-1);rng.hidden=false;btn.textContent="Revenir à maintenant";frame();play()};
 const stop=()=>{clearInterval(tm);const l=on;on="";fig.classList.remove("rejeu");rng.hidden=true;RJ[l].back();upd()};
