@@ -51,6 +51,21 @@ describe("the roads and the names of places on the pages' maps", () => {
     expect(NOMS.filter((n) => n[0].startsWith("Lotissement"))).toEqual([]);
   });
 
+  it("show a name once in a frame: the most important place of that name, then the nearest the commune's centre", () => {
+    const svg = communeMap({ commune: "Entre-Deux", spots: [], label: "x" });
+    // Two places of the IGN are called Le Serré, both in Entre-Deux's frame.
+    const serre = NOMS.filter((n) => n[0] === "Le Serré");
+    expect(serre.length).toBeGreaterThanOrEqual(2);
+    const shown = [...svg.matchAll(/data-x="([\d.]+)" data-y="([\d.]+)"[^>]*>Le Serré<\/text>/g)].map((m) => [+m[1], +m[2]]);
+    expect(shown).toHaveLength(1);
+    const [, , cx, cy] = at("Entre-Deux");
+    const top = Math.min(...serre.map((n) => n[1]));
+    const near = serre.filter((n) => n[1] === top).sort((a, b) => (a[2] - cx) ** 2 + (a[3] - cy) ** 2 - ((b[2] - cx) ** 2 + (b[3] - cy) ** 2))[0];
+    expect(shown[0]).toEqual([near[2], near[3]]);
+    const names = [...svg.matchAll(/>([^<]+)<\/text>/g)].map((m) => m[1]);
+    expect(names.length).toBe(new Set(names).size);
+  });
+
   it("close up, take the departmental roads too, only those of the frame, and the places' names", () => {
     const svg = communeMap({ commune: "Cilaos", spots: [], label: "x" });
     expect(svg).toContain('<path id="rd-d"');
