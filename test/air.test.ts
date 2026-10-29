@@ -5,6 +5,7 @@ import * as atmo from "../src/providers/atmo.js";
 import { parse } from "../src/providers/atmo.js";
 import { qualiteAir } from "../src/tools/air.js";
 import { airPage } from "../src/web/domains.js";
+import { sourceRevision } from "../src/web/revisions.js";
 import { esc } from "../src/web/map.js";
 
 // The ATMO index of the 24 communes for 22 and 23/10/2026: "moyen" everywhere, set by ozone.
@@ -57,6 +58,8 @@ describe("air quality: what the index is and where it comes from", () => {
     expect(x.diffuse_le).toBe(YESTERDAY);
     expect(parse({ features: [{ properties: { code_zone: "97411", lib_zone: "Saint-Denis", date_ech: "2026-10-29", code_qual: 2 } }] })[0]).not.toHaveProperty("diffuse_le");
     expect([atmo.level(0), atmo.level(2), atmo.level(7)]).toEqual(["indisponible", "moyen", "événement"]);
+    // An entry read before date_dif is not kept across the deploy (cache.ts, `outdated`).
+    expect(sourceRevision("atmo:974")).toBe(1);
   });
 
   it("says it is a forecast, diffused the day before, apart from when rundata.re read it", async () => {
