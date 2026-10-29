@@ -39,6 +39,7 @@ import * as formulaires from "./web/propositions.js";
 import { rafraichirConnecteurs, refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { listShared, SHARED, SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
+import { configurerDefiOpenai } from "./web/site.js";
 import { why } from "./types.js";
 import { configure as metaWebhookSecrets } from "./meta-webhook.js";
 
@@ -104,6 +105,8 @@ interface Env {
   META_APP_SECRET?: string;
   /** Optional: the key that encrypts the secrets of the associations' platforms (src/connecteurs/chiffre.ts), 32 bytes in base64. */
   CONNECTEURS_CLE?: string;
+  /** Optional: the token of OpenAI's plugin portal, served at /.well-known/openai-apps-challenge (web/site.ts). */
+  OPENAI_APPS_CHALLENGE?: string;
   /** Optional: the team's secret, sent by its scripts in the header `rundata-jeton` so that their calls are not counted (src/app.ts). */
   EQUIPE_JETON?: string;
   /** Cloudflare Email Sending: the confirmation of the events the clubs propose (src/propositions.ts). */
@@ -268,6 +271,7 @@ function setup(env: Env): Cache {
   );
   formulaires.configure(env.TURNSTILE_SECRET);
   configurerEquipe(env.EQUIPE_JETON);
+  configurerDefiOpenai(env.OPENAI_APPS_CHALLENGE);
   metaWebhookSecrets(env.META_VERIFY_TOKEN, env.META_APP_SECRET);
   // The associations' links to their platform, in the same database (scripts/connecteurs.sql): the platform's secret
   // encrypted with CONNECTEURS_CLE, the link e-mailed like a proposal's. Without the key, nothing is linked.

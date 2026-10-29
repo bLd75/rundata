@@ -158,6 +158,13 @@ const ROBOTS = (origin: string) =>
 export const INDEXNOW_KEY = "9cb4a2d427093776313488cb4d39b24a";
 // Proves to the official MCP registry that rundata.re publishes re.rundata/*: the public half of the key that signs its publications.
 const MCP_REGISTRY_AUTH = "v=MCPv1; k=ed25519; p=FTzDdb5aS1w9JIe6rHUyRBhGknTv/RhlS1oKdNz1+nE=";
+// Proves to OpenAI's plugin portal that the MCP server is ours: the token the portal shows when the server is connected,
+// served as it is (the Worker's secret OPENAI_APPS_CHALLENGE). Without it, the path is not found like any other.
+const OPENAI_CHALLENGE = "/.well-known/openai-apps-challenge";
+let defiOpenai: string | undefined;
+export function configurerDefiOpenai(jeton: string | undefined) {
+  defiOpenai = jeton?.trim() || undefined;
+}
 
 /**
  * The fetchers of AI assistants and search engines. A person gets a page without its live block rather than wait
@@ -721,6 +728,9 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   if (path === `/${INDEXNOW_KEY}.txt`) {
     return new Response(INDEXNOW_KEY, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });
+  }
+  if (path === OPENAI_CHALLENGE && defiOpenai) {
+    return new Response(defiOpenai, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
   }
   if (path === "/.well-known/mcp-registry-auth") {
     return new Response(MCP_REGISTRY_AUTH, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": STATIC } });
