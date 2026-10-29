@@ -23,7 +23,8 @@ import { resume } from "../src/tools/resume.js";
 import { MARCHES } from "../src/vie/marches.js";
 import { aujourdhuiPage } from "../src/web/aujourdhui.js";
 import { buildDae } from "../src/web/data.js";
-import { bikeRow } from "../src/web/domains.js";
+import { agendaPage, bikeRow, eventGo } from "../src/web/domains.js";
+import type { AgendaAnswer, EnfantsAnswer } from "../src/web/data.js";
 
 const O = "https://rundata.re";
 const NOW = new Date("2026-10-29T08:00:00Z");
@@ -283,6 +284,38 @@ describe("« Y aller » on the places whose position the pages' copies now keep"
     // On a commune's page the Vélos tile is a link over its whole surface: the buttons sit above it, else a tap opens /velos.
     expect(CSS).toContain(".tile h3 a::after{content:\"\";position:absolute;inset:0;border-radius:22px;z-index:1}");
     expect(CSS).toContain(".tile .aller{position:relative;z-index:2}");
+  });
+
+  it("is under an event whose source gives its position, the place's name in the sheet, and not under the others", () => {
+    // Friday 30/10/2026 at La Réunion.
+    const now = new Date("2026-10-30T04:00:00Z");
+    const ev = (titre: string, x: object = {}) => ({ titre, date: "2026-10-30T19:00", quand: "vendredi 30/10 à 19:00", genres: [], commune: "Saint-Denis", lien: "https://example.org", publie_par: "CINOR", ...x });
+    const placed = ev("Atelier d'échecs", { lieu: "Bibliothèque Alain Lorraine, 2 rue de l'Exemple", position: { lat: -20.8927, lon: 55.4513 } });
+    const answer = { resume: "", nombre: 2, evenements: [placed, ev("Concert")], ce_week_end: [], couverture: "", a_savoir: "", sources: [] } as unknown as AgendaAnswer;
+    const page = agendaPage(O, cached(answer), now);
+    expect(labels(page)).toEqual(["Bibliothèque Alain Lorraine"]);
+    expect(page).toContain(`<span class="ya"><a class="aller" href="https://www.google.com/maps/dir/?api=1&amp;destination=-20.8927,55.4513" rel="noopener" data-a="Bibliothèque Alain Lorraine, 2 rue de l&#39;Exemple, Saint-Denis"`);
+    expect(page.match(/<dialog id="aller"/g)).toHaveLength(1);
+    // No place: the title in the sheet, the coordinates to copy; the commune not written twice.
+    expect(eventGo({ titre: "Réparali", commune: "Saint-Denis", position: { lat: -20.89, lon: 55.45 } })).toContain('aria-label="Y aller\u00a0: Réparali"');
+    expect(eventGo({ titre: "Réparali", commune: "Saint-Denis", position: { lat: -20.89, lon: 55.45 } })).not.toContain("data-a");
+    expect(eventGo({ titre: "X", lieu: "Nordev, Saint-Denis", commune: "Saint-Denis", position: { lat: -20.89, lon: 55.49 } })).toContain('data-a="Nordev, Saint-Denis"');
+    // Without any: neither button nor sheet.
+    const none = agendaPage(O, cached({ ...answer, nombre: 1, evenements: [ev("Concert")] }), now);
+    expect(none).not.toContain('class="aller"');
+    expect(none).not.toContain('<dialog id="aller"');
+    // Under its line, like a station's.
+    expect(CSS).toContain(".rows li>span>.ya{display:block;margin-top:.3rem}");
+  });
+
+  it("is under a children's activity whose source gives its position, on the island's page and a commune's", () => {
+    const now = new Date("2026-10-30T04:00:00Z");
+    const row = { titre: "Escape game", date: "2026-10-31T14:00", quand: "samedi 31/10 à 14:00", genres: [], commune: "Saint-Denis", lieu: "Bibliothèque Alain Lorraine", lien: "https://example.org", publie_par: "CINOR", position: { lat: -20.8927, lon: 55.4513 } };
+    const d = { evenements: [row, { ...row, titre: "Conte", position: undefined }], ce_week_end: [] } as unknown as EnfantsAnswer;
+    for (const html of [enfantsPage(O, cached(d), now), enfantsCommunePage(O, pageOf("saint-denis")!, cached(d), now)]) {
+      expect(html).toContain(`Saint-Denis · Bibliothèque Alain Lorraine · CINOR</small><span class="ya"><a class="aller" href="https://www.google.com/maps/dir/?api=1&amp;destination=-20.8927,55.4513"`);
+      expect(html).not.toMatch(/Conte<\/a><small>[^<]*<\/small><span class="ya">/);
+    }
   });
 
   it("leads to the town hall and to the day's markets on /aujourdhui, the summary itself without a position", () => {

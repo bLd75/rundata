@@ -15,7 +15,7 @@
  */
 export const RENDU_REVISION: Readonly<Record<string, number>> = {
   actualites: 9,
-  agenda: 17,
+  agenda: 18,
   air: 9,
   bornes: 2,
   bus: 5,
@@ -31,7 +31,7 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   eau: 1,
   electricite: 7,
   emploi: 3,
-  enfants: 8,
+  enfants: 9,
   historique: 2,
   lieu: 6,
   "marches-publics": 2,
@@ -68,6 +68,13 @@ export const SOURCE_REVISION: Readonly<Record<string, number>> = {
   "actualites:fil": 4,
   // Read again with its written agreement of 28/10/2026, without the price and the sentence an older entry kept.
   "agenda:bras_panon": 1,
+  // The WordPress agendas, with their venue's position when the site gives one (« Y aller » of /evenements).
+  "agenda:lrvb": 1,
+  "agenda:saint_paul": 1,
+  "agenda:le_port": 1,
+  "agenda:trois_bassins": 1,
+  "agenda:sainte_marie": 1,
+  "agenda:sechoir": 1,
   // With the time Atmo Réunion diffused the index (date_dif, `diffuse_le`), which an older entry lacks.
   atmo: 1,
 };

@@ -108,6 +108,22 @@ describe("agenda", () => {
     expect(communeOf("St Paul")).toBe("Saint-Paul");
   });
 
+  it("keeps a venue's position when a WordPress agenda gives one, and only the pages' copies carry it", async () => {
+    const site = JSON.parse(fixture("tribe_saint-paul.json"));
+    const at = (v: object) => parseTribe({ events: [{ ...site.events[0], venue: { venue: "Complexe sportif de Plateau Caillou", city: "Saint-Paul", ...v } }] }, "Mairie de Saint-Paul", "Saint-Paul")[0];
+    expect([at({ geo_lat: -21.02965, geo_lng: 55.2697 }), at({ geo_lat: "-21.02965", geo_lng: "55.2697" })].map((e) => [e.lat, e.lon])).toEqual([[-21.02965, 55.2697], [-21.02965, 55.2697]]);
+    // Not given, empty, or not on the island: none.
+    for (const v of [{}, { geo_lat: "", geo_lng: "" }, { geo_lat: 0, geo_lng: 0 }, { geo_lat: 48.85, geo_lng: 2.35 }]) expect(at(v)).not.toHaveProperty("lat");
+    // The CINOR's OpenAgenda gives each place's, La Possession's RSS some (its site read here as once it agrees): never
+    // in the tool's answer, in the copy of /evenements.
+    expect(JSON.stringify(body(await agenda(cache(), undefined, undefined, undefined, NOW)))).not.toContain('"position"');
+    const copy = await buildAgenda(cache(), NOW);
+    const placed = (copy.evenements ?? []).filter((r) => r.position);
+    expect(placed.length).toBeGreaterThan(0);
+    expect(new Set(placed.map((r) => r.publie_par))).toEqual(new Set(["CINOR", "Ville de La Possession"]));
+    expect(placed.every((r) => r.position!.lat < -20.8 && r.position!.lon > 55.15)).toBe(true);
+  });
+
   it("reads the volley league's tournaments, their place « à venir » as the league says", async () => {
     const { value } = await LIGUE_VOLLEY.load(cache(), NOW);
     expect(value.map((e) => [e.titre, e.seances, e.lieu, e.commune, e.publie_par])).toEqual([

@@ -23,6 +23,7 @@
  */
 import type { Bundle, Cache, Cached } from "../cache.js";
 import { getBytes, getText, httpUrl } from "../http.js";
+import { inReunion } from "../geo.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
@@ -326,7 +327,9 @@ function organisers(o: TribeEvent["organizer"]): { organise_par?: string[] } {
 export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune: string | undefined, home?: string): Evenement[] {
   // A venue's school performances (« Scolaires ») are not open to the public.
   return body.events.filter((e) => !e.categories.some((c) => /^scolaires?$/i.test(c.name.trim()))).map((e) => {
-    const venue = Array.isArray(e.venue) ? {} : (e.venue as { venue?: string; address?: string; city?: string });
+    const venue = Array.isArray(e.venue) ? {} : (e.venue as { venue?: string; address?: string; city?: string; geo_lat?: number | string; geo_lng?: number | string });
+    // The venue's position, when the site gives one (a number or a text, nothing outside the island).
+    const lat = Number(venue.geo_lat ?? NaN), lon = Number(venue.geo_lng ?? NaN);
     const debut = tribeTime(e.start_date, e.all_day);
     const fin = tribeTime(e.end_date, e.all_day);
     // Without the page builder's shortcodes some sites leave in the text (« [et_pb_section …] »), the last one often
@@ -340,6 +343,7 @@ export function parseTribe(body: { events: TribeEvent[] }, nom: string, commune:
       seances: [{ debut, fin: fin !== debut ? fin : undefined }],
       lieu: [venue.venue, venue.address].map((x) => x && clean(x)).filter(Boolean).join(", ") || home,
       commune: communeOf(venue.city) ?? awayAt(e.title) ?? commune,
+      ...(inReunion(lon, lat) ? { lon, lat } : {}),
       prix: clean(e.cost ?? "") || undefined,
       ...organisers(e.organizer),
       categories: e.categories.map((c) => clean(c.name)),

@@ -2759,6 +2759,16 @@ export function agendaHours(q: string): string {
  */
 export const LOGOS: Record<string, string> = {};
 
+/**
+ * « Y aller » under an event whose source gives its position (the agendas of OpenAgenda, a venue's on a WordPress
+ * agenda): the place's name in the sheet, the place and its commune to copy. Nothing for the others: no geocoding.
+ */
+export function eventGo(r: Pick<AgendaRow, "titre" | "lieu" | "commune" | "position">): string {
+  if (!r.position) return "";
+  const adresse = r.lieu && r.commune && !normalize(r.lieu).includes(normalize(r.commune)) ? `${r.lieu}, ${r.commune}` : r.lieu;
+  return `<span class="ya">${aller({ nom: r.lieu?.split(", ")[0] || r.titre, lat: r.position.lat, lon: r.position.lon, adresse })}</span>`;
+}
+
 function agendaRow(r: AgendaRow): string {
   const lieu = r.lieu && r.lieu.length > 80 ? `${r.lieu.slice(0, 79)}…` : r.lieu;
   const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.via ? `${r.publie_par} · via ${r.via.plateforme}, ${r.via.lu}` : r.source ? `Source\u00a0: ${r.source}` : r.publie_par && r.lu_le ? `${r.publie_par}, lu le ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
@@ -2775,7 +2785,7 @@ function agendaRow(r: AgendaRow): string {
   const blank = r.lien && ACCUEILS.has(r.lien) ? ' target="_blank"' : "";
   // « jusqu'au vendredi 11/12 » goes under the title on a phone (.fin): beside it, it left the title a word a line.
   const hours = agendaHours(r.quand);
-  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${logo}${book}</small></span><span class="q-none${hours.startsWith("jusqu'au") ? " fin" : ""}">${esc(hours)}</span></li>`;
+  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${logo}${book}</small>${eventGo(r)}</span><span class="q-none${hours.startsWith("jusqu'au") ? " fin" : ""}">${esc(hours)}</span></li>`;
 }
 
 /** A row's end, local, from its hours: « samedi 24/10 de 09:00 à 16:00 », « du vendredi 23/10 au dimanche 01/11 ». */
@@ -2951,7 +2961,7 @@ ${connectorCta("evenements", "les événements de l'île")}`;
 
   const events = agendaEvents(d?.evenements ?? []);
   const jsonld = [crumbs(origin, "Événements", "/evenements"), webPage(origin, "/evenements", title, description, data), ...(events.length ? [{ "@context": "https://schema.org", "@graph": events }] : [])];
-  return layout(origin, { title, description, path: "/evenements", jsonld, alerte }, band, body);
+  return layout(origin, { title, description, path: "/evenements", jsonld, alerte }, band, body.includes('class="aller"') ? body + ALLER : body);
 }
 
 export function agendaLive(data: Cached<AgendaAnswer> | null): Live | undefined {
