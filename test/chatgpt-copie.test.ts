@@ -71,7 +71,7 @@ describe("the links that copy, in the pages", () => {
 
   it("include /plugins, which copies the connector's address, the line right after its paragraph", () => {
     const steps = connectSteps(O);
-    expect(steps).toContain(`<a href="https://chatgpt.com/plugins" data-copie="https://rundata.re/mcp" data-ok="Adresse du connecteur copiée : collez-la dans « URL du serveur »." data-non="Copiez l&#39;adresse avec le bouton de l&#39;étape 1.">chatgpt.com/plugins</a>`);
+    expect(steps).toContain(`<a href="https://chatgpt.com/plugins" data-copie="https://rundata.re/mcp" data-ok="Adresse du connecteur copiée : collez-la dans le champ URL du serveur." data-non="Copiez l&#39;adresse avec le bouton de l&#39;étape 1.">chatgpt.com/plugins</a>`);
     expect(steps).toMatch(/Ajouter un serveur MCP personnalisé<\/b>\.<\/p><p class="copie" role="status" lang="fr" hidden><\/p>/);
   });
 
