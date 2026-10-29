@@ -133,4 +133,54 @@ describe("measures at Atmo Réunion's stations", () => {
     for (const id of ["qualite_air", "web:air"]) expect(REGISTRY.find((e) => e.id === id)!.run.kvReads, id).toBe(1);
     expect(REGISTRY.find((e) => e.id === "qualite_air")!.run.subrequests).toBe(used);
   });
+
+  it("is read every hour by the scheduled event at 45 past, from 45 to 49 (UTC)", () => {
+    const at = (min: number) => airMesures.refreshDue(new Date(Date.UTC(2026, 9, 29, 6, min)));
+    expect([0, 30, 44, 45, 49, 50].map(at)).toEqual([false, false, false, true, true, false]);
+    const e = REGISTRY.find((x) => x.id === "air:mesures")!;
+    expect(e).toMatchObject({ trigger: "planifiée", every: 60, offset: 45, run: { subrequests: 6, kvReads: 1, kvWrites: 1 } });
+  });
+
+  it("reads the day's file line by line, in pieces, 2 subrequests a file, and writes only when the latest hour changed", async () => {
+    const csv = readFileSync(new URL("./fixtures/lcsqa_e2_974.csv", import.meta.url));
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      asked.push(url);
+      // In pieces of 97 bytes, a line cut across two of them.
+      const body = new ReadableStream({
+        start(c) {
+          for (let i = 0; i < csv.length; i += 97) c.enqueue(csv.subarray(i, i + 97));
+          c.close();
+        },
+      });
+      return new Response(body);
+    });
+    const written: airMesures.Copie[] = [];
+    const { value, used } = await counted(50, () => airMesures.collect(null, async (c) => void written.push(c), NOW));
+    expect(asked).toEqual(["https://files.data.gouv.fr/ineris/lcsqa/concentrations-de-polluants-atmospheriques-reglementes/temps-reel/2026/FR_E2_2026-10-29.csv"]);
+    expect(used).toBe(2);
+    expect(value).toBe("7 mesures de 4 stations, dernière heure finie à 08:00 le 2026-10-29, écrites");
+    expect(written).toEqual([{ lu: NOW.toISOString(), derniere_heure: "2026-10-29T08:00:00+04:00", mesures: kept }]);
+    // The same hour an hour later: nothing written.
+    const again = await airMesures.collect(written[0], async (c) => void written.push(c), new Date(NOW.getTime() + 3600_000));
+    expect(again).toMatch(/inchangée : non réécrites$/);
+    expect(written).toHaveLength(1);
+  });
+
+  it("reads the day before's file while the day's has none of Atmo Réunion's lines, and fails without a valid measure", async () => {
+    const csv = readFileSync(new URL("./fixtures/lcsqa_e2_974.csv", import.meta.url), "utf8");
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      asked.push(url.slice(url.lastIndexOf("/") + 1));
+      return url.endsWith("2026-10-29.csv") ? new Response("", { status: 404 }) : new Response(csv);
+    });
+    const written: airMesures.Copie[] = [];
+    await airMesures.collect(null, async (c) => void written.push(c), NOW);
+    expect(asked).toEqual(["FR_E2_2026-10-29.csv", "FR_E2_2026-10-28.csv"]);
+    expect(written[0].mesures).toEqual(kept);
+    // No file gives a measure: it fails, and nothing is written over the copy.
+    vi.stubGlobal("fetch", async () => new Response(csv.split("\n")[0]));
+    await expect(airMesures.collect(written[0], async (c) => void written.push(c), NOW)).rejects.toThrow("aucune mesure valide d'Atmo Réunion");
+    expect(written).toHaveLength(1);
+  });
 });

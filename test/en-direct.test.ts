@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 // what check-sources tells the team (marketing, 25/10).
 const INTERNAL = ["src/bin/check-sources.ts"];
 const SAID = /temps[ -]r[ée]els?/i;
-const NAMES = /reunion-temps-reel|rundata\/temps-reel|temps_reel|horaires-temps-reel/g;
+const NAMES = /reunion-temps-reel|rundata\/temps-reel|temps_reel|horaires-temps-reel|reglementes\/temps-reel/g;
 const COMMENT = /^\s*(?:\/\/|\/\*|\*)/;
 
 const sources = (dir: string): string[] =>

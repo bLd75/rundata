@@ -1,14 +1,18 @@
 /**
  * The concentrations measured hour by hour at Atmo Réunion's stations, as the LCSQA publishes them on data.gouv.fr in
- * its open files of the national base Geod'air (« flux E2 »): one file a day for the whole of France, up to 12.6 MB
- * (28/10/2026), too big for the Worker. A machine of the project reads it every hour (scripts/air-mesures.ts), keeps
- * Atmo Réunion's lines and writes them to the Worker's KV store, where the Worker reads them, never the file.
+ * its open files of the national base Geod'air (« flux E2 »): one file a day for the whole of France, rewritten every
+ * hour, up to 12.5 Mo (28/10/2026). The Worker's scheduled event reads it every hour as it comes, line by line, never
+ * whole (`collect`, worker.ts), keeps Atmo Réunion's lines and writes them to the KV store, where pages and tools read
+ * them (`mesures`), never the file. Measured in a Worker on 29/10/2026: 50 ms of CPU for the file of the morning
+ * (2.6 Mo), 193 to 254 ms for a whole day's (12.5 Mo).
  * By the LCSQA's note on these files, they are raw data, not validated, which Atmo Réunion may correct or invalidate
  * afterwards, and their hours are local time for the overseas regions. A measure is never the ATMO index
  * (providers/atmo.ts), a forecast: the two are said apart.
  */
+import { count } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
-import type { SourceInfo } from "../types.js";
+import { getLines } from "../http.js";
+import { UpstreamError, type SourceInfo } from "../types.js";
 
 export const SOURCE: SourceInfo = {
   id: "lcsqa_mesures",
@@ -19,7 +23,7 @@ export const SOURCE: SourceInfo = {
   url: "https://www.data.gouv.fr/datasets/5b98b648634f415309d52a50",
 };
 
-/** Written by scripts/air-mesures.ts, read by worker.ts. */
+/** Written by the scheduled event (`collect`), read by worker.ts. */
 export const KV_KEY = "air:mesures:collecte";
 /** Kept in the store this long after the collector's last write: the measures say their hour, however old. */
 export const KV_TTL_SECONDS = 7 * 86_400;
@@ -142,14 +146,61 @@ export function latest(all: Iterable<Mesure>): Mesure[] {
   return [...by.values()].sort((a, b) => a.station.localeCompare(b.station) || a.polluant.localeCompare(b.polluant));
 }
 
+// The files of each day, by the local date of La Réunion.
+const FILES = "https://files.data.gouv.fr/ineris/lcsqa/concentrations-de-polluants-atmospheriques-reglementes/temps-reel";
+/**
+ * Every hour, at 45 past (UTC): the files are rewritten at about half past. Of the events of the second half of the hour,
+ * the least loaded at the shortest cadences by the budget's registry (29/10/2026: 109 subrequests at most with this read,
+ * 149 in the busiest event of the day, at 00:00).
+ */
+export const REFRESH_EVERY = 60;
+export const REFRESH_OFFSET = 45;
+export const refreshDue = (now: Date) => (((now.getUTCMinutes() - REFRESH_OFFSET) % REFRESH_EVERY) + REFRESH_EVERY) % REFRESH_EVERY < 5;
+
+const localDay = (t: number) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
+
+/** Atmo Réunion's valid measures in the file of `day` (YYYY-MM-DD); undefined when there is no such file yet. */
+async function read(day: string): Promise<Mesure[] | undefined> {
+  // The address answers with a redirect to its storage, and each request of a redirect chain is a subrequest.
+  count();
+  const out: Mesure[] = [];
+  try {
+    await getLines(SOURCE.id, `${FILES}/${day.slice(0, 4)}/FR_E2_${day}.csv`, 60_000, (l) => {
+      const m = mesure(l);
+      if (m) out.push(m);
+    });
+  } catch (err) {
+    if (err instanceof UpstreamError && err.status === 404) return undefined;
+    throw err;
+  }
+  return out;
+}
+
+/**
+ * The scheduled event's read: the file of the day in La Réunion, and the day before's too while the day's has none of
+ * Atmo Réunion's lines yet (its first hours). Writes the copy only when the latest hour measured changed. Fails when no
+ * file gives a valid measure, and the copy in the store stays, its measures said with their hour.
+ */
+export async function collect(before: Copie | null, write: (copie: Copie) => Promise<void>, now = new Date()): Promise<string> {
+  const today = await read(localDay(now.getTime()));
+  const all = today?.length ? today : [...(today ?? []), ...((await read(localDay(now.getTime() - 86_400_000))) ?? [])];
+  const kept = latest(all);
+  if (!kept.length) throw new Error(`aucune mesure valide d'Atmo Réunion dans les fichiers du ${localDay(now.getTime())} ni de la veille`);
+  const derniere_heure = kept.map((m) => m.fin).sort().pop()!;
+  const said = `${kept.length} mesures de ${new Set(kept.map((m) => m.station)).size} stations, dernière heure finie à ${derniere_heure.slice(11, 16)} le ${derniere_heure.slice(0, 10)}`;
+  if (before?.derniere_heure === derniere_heure) return `${said}, inchangée : non réécrites`;
+  await write({ lu: now.toISOString(), derniere_heure, mesures: kept });
+  return `${said}, écrites`;
+}
+
 let reader: (() => Promise<Copie | null>) | undefined;
 
-/** In the Worker: read the measures from the KV store, where scripts/air-mesures.ts writes them, and the files never. */
+/** In the Worker: read the measures from the KV store, where the scheduled event writes them, and the files never. */
 export function configure(read: (() => Promise<Copie | null>) | undefined) {
   reader = read;
 }
 
-// The collector writes once an hour at most: the copy is asked of the store once an hour.
+// The scheduled event writes once an hour at most: the copy is asked of the store once an hour.
 const FRESH_SECONDS = 60 * 60;
 
 /**
