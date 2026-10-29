@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { count, counted, measured, PAGE_BUDGET } from "../src/budget.js";
 import { Cache, type CacheEntry, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
-import { readCopies, resume, resumeDuJour, UPDATING } from "../src/tools/resume.js";
+import { COURT, court, readCopies, resume, resumeDuJour, UPDATING } from "../src/tools/resume.js";
 import { buildAir, buildPlace } from "../src/web/data.js";
 import { pageOf } from "../src/web/places.js";
 import { aujourdhuiPage } from "../src/web/aujourdhui.js";
@@ -128,6 +128,29 @@ describe("the summary of a day", () => {
     // Each source once; the tap water is not a day's news (qualite_eau).
     expect(new Set(r.sources.map((s) => s.source)).size).toBe(r.sources.length);
     expect(JSON.stringify(r)).not.toMatch(/conforme/);
+  });
+
+  it("answers short by default (Claude's directory): without each skip's list nor each fuel's price, the rest the same", () => {
+    const r = resume(SAINT_PAUL, COPIES as never, NOW);
+    const c = court(r);
+    expect(c.detail).toBe(COURT);
+    expect(c.decheteries!.sites.map((x) => x.nom)).toEqual(r.decheteries!.sites.map((x) => x.nom));
+    expect(c.decheteries!.sites.some((x) => "accepte" in x)).toBe(false);
+    expect(c.decheteries!.sites.find((x) => x.nom === "Déchèterie de Plateau Caillou")).toMatchObject({ etat: "à jour", benne_pleine: ["encombrants"] });
+    expect(c.decheteries!.page).toBe(r.decheteries!.page);
+    expect(c.carburants).toEqual({ prix_maximum: r.carburants!.prix_maximum, depuis: r.carburants!.depuis, a_savoir: r.carburants!.a_savoir, lien: r.carburants!.lien });
+    const { decheteries: _d, carburants: _c, detail: _x, ...rest } = c;
+    const { decheteries: _rd, carburants: _rc, ...all } = r;
+    expect(rest).toEqual(all);
+  });
+
+  it("credits the agendas only when it says an event", () => {
+    const named = (r: ReturnType<typeof resume>) => r.sources.map((x) => x.source);
+    expect(named(resume(SAINT_PAUL, COPIES as never, NOW))).toContain("Agendas");
+    const none = { ...COPIES, agenda: { ...COPIES.agenda, value: { ...COPIES.agenda.value, evenements: [COPIES.agenda.value.evenements[3]] } } };
+    const r = resume(SAINT_PAUL, none as never, NOW);
+    expect(r.evenements_du_jour!.liste).toEqual([]);
+    expect(named(r)).not.toContain("Agendas");
   });
 
   it("leaves out what it has no copy of, and says so", () => {

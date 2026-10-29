@@ -98,7 +98,7 @@ import * as radarsFixes from "./routes/radars.js";
 import { sitesSansReponse } from "./tools/sans-reponse.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.109";
+export const VERSION = "0.203.110";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -354,11 +354,14 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "dispositif ORSEC (vigilance, alerte 1, alerte 2…), date de la dernière éruption, accès à l'Enclos Fouqué, " +
         "dernières publications de l'Observatoire volcanologique (OVPF-IPGP) et séismes localisés par l'OVPF ces 30 derniers jours, " +
         "sous le volcan (aussi par jour) et ailleurs sur l'île. Pour : « le volcan est en éruption ? », « on peut monter au volcan ? », " +
-        "« il y a eu un séisme ? ».",
-      inputSchema: {},
+        "« il y a eu un séisme ? ». Réponse courte par défaut (les 3 dernières alertes, les séismes des 7 derniers jours)\u00a0; " +
+        "detail pour l'historique des alertes depuis 2016 et les séismes jour par jour sur 30 jours.",
+      inputSchema: {
+        detail: z.boolean().optional().describe("true : la réponse complète (historique des alertes depuis 2016, séismes jour par jour sur 30 jours)."),
+      },
       annotations: { title: "Volcan et séismes à La Réunion", ...READ_ONLY },
     },
-    track("volcan_seismes", () => volcanSeismes(cache)),
+    track("volcan_seismes", (args: { detail?: boolean }) => volcanSeismes(cache, new Date(), args.detail === true)),
   );
 
   server.registerTool(
@@ -671,13 +674,15 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "vigilance de sa zone, mer, qualité de l'air, électricité, routes et blocages signalés par les médias, actualités de la commune, " +
         "coupures d'eau, événements du jour, jour férié ou vacances, soleil, mairie ouverte ou non, marché du jour, bennes des déchèteries (Ouest), " +
         "prix maximum des carburants du mois, où trouver la pharmacie de garde (3237.fr). Un lieu (plage, quartier, sommet) est rapporté à sa commune. " +
-        "Ce qui manque est listé dans non_inclus avec l'outil à appeler. Pour : « quoi de neuf à Saint-Paul aujourd'hui ? », « ma journée au Tampon ».",
+        "Ce qui manque est listé dans non_inclus avec l'outil à appeler. Pour : « quoi de neuf à Saint-Paul aujourd'hui ? », « ma journée au Tampon ». " +
+        "Réponse courte par défaut\u00a0; detail pour ce qu'accepte chaque déchèterie et le prix de chaque carburant.",
       inputSchema: {
         lieu: z.string().describe("Commune ou lieu de La Réunion (« Saint-Paul », « Boucan Canot », « Cilaos »), rapporté à sa commune."),
+        detail: z.boolean().optional().describe("true : la réponse complète (ce qu'accepte chaque déchèterie, le prix de chaque carburant)."),
       },
       annotations: { title: "Résumé du jour", ...READ_ONLY },
     },
-    track("resume_du_jour", (args: { lieu: string }) => resumeDuJour(cache, args.lieu, new Date(), background)),
+    track("resume_du_jour", (args: { lieu: string; detail?: boolean }) => resumeDuJour(cache, args.lieu, new Date(), background, args.detail === true)),
   );
 
   server.registerTool(

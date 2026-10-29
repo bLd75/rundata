@@ -371,7 +371,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     non_inclus: out.length ? out : undefined,
     sources: sourcesOf([
       l.meteo?.value.meteo?.sources, l.meteo?.value.prevision?.sources, l.vigilance ? credits([mf.SOURCE]) : undefined, l.air?.value.sources, l.mer?.value.sources,
-      l.electricite?.value.sources, l.actualites?.value.sources, l.trafic?.value.sources, l.coupures?.value.sources, sourcesServies(l.agenda?.value.sources), l.calendrier?.value.sources,
+      l.electricite?.value.sources, l.actualites?.value.sources, l.trafic?.value.sources, l.coupures?.value.sources, events.length ? sourcesServies(l.agenda?.value.sources) : undefined, l.calendrier?.value.sources,
       l.commune?.value.sources, l.dechets?.value.sources, power.length ? l.courant!.value.sources : undefined, markets.length ? credits([marches.OSM]) : undefined, credits([sante.ARS_GARDE]),
     ]),
   };
@@ -459,10 +459,26 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
   return { copies, leftOut, refreshed: background ? refresh(cache, due, background, COST_UNKNOWN) : [] };
 }
 
-export async function resumeDuJour(cache: Cache, lieu: string, now = new Date(), background?: Background) {
+/** The short answer, the tool's default (Claude's directory asks for frugal answers): what it leaves out, and where. */
+export const COURT = "Réponse courte : sans la liste de ce qu'accepte chaque déchèterie ni le prix de chaque carburant. Le détail : rappeler l'outil avec detail, ou la page de la commune (lien).";
+
+/** The summary without its long lists, every warning and every link kept. */
+export function court(r: Resume) {
+  const fuel = r.carburants && (({ prix_maximums: _, ...c }) => c)(r.carburants);
+  return {
+    ...r,
+    decheteries: r.decheteries && { ...r.decheteries, sites: r.decheteries.sites.map(({ accepte: _, ...s }) => s) },
+    carburants: fuel,
+    detail: COURT,
+  };
+}
+
+/** `detail` false (the tool's default): the short answer, court(); the page reads resume() whole. */
+export async function resumeDuJour(cache: Cache, lieu: string, now = new Date(), background?: Background, detail = true) {
   const found = placeOf(lieu);
   if (!found) return notFound(lieu);
   const { commune, place, res } = found;
   const { copies, leftOut } = await readCopies(cache, commune, place, now, background);
-  return text({ lieu: placeBlock(lieu, res), ...resume(commune, copies, now, leftOut) });
+  const r = resume(commune, copies, now, leftOut);
+  return text({ lieu: placeBlock(lieu, res), ...(detail ? r : court(r)) });
 }
