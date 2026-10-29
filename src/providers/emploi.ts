@@ -299,9 +299,17 @@ export function configure(read: (() => Promise<Copie | null>) | undefined) {
   reader = read;
 }
 
-// The feed is read once an hour: the copy is asked of the store once an hour (an offer's page read in between shows
-// within the hour).
-const FRESH_SECONDS = 60 * 60;
+/**
+ * How long a copy read from the store may be served: since the last time the scheduled event may have written it, two
+ * minutes after each event (every 5 minutes, an offer's page read each time). A copy read before is asked again, once:
+ * kept an hour, the offers read in between showed an hour late (as /marches-publics on 29/10/2026, its 0 notices shown
+ * 7 minutes after its 105 were written).
+ */
+export function fraicheur(now: Date): number {
+  const step = EVENEMENT_MINUTES * 60_000;
+  const since = (((now.getTime() - 2 * 60_000) % step) + step) % step;
+  return Math.max(1, Math.floor(since / 1000));
+}
 
 /**
  * The stored offers still open, their time the feed's last answer; null where nothing is configured (a local server,
@@ -310,7 +318,7 @@ const FRESH_SECONDS = 60 * 60;
 export async function offres(cache: Cache, now = new Date()): Promise<Cached<Copie> | null> {
   if (!reader) return null;
   const read = reader;
-  const c = await cache.getCopy("emploi:offres", FRESH_SECONDS, async () => {
+  const c = await cache.getCopy("emploi:offres", fraicheur(now), async () => {
     const v = await read();
     if (!v) throw new Error("offres d'emploi absentes du stockage");
     return v;

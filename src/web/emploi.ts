@@ -4,7 +4,7 @@
  * offers are not taken: a sentence with two links, and the user's line on the sites that do not allow it.
  */
 import type { Cache, Cached } from "../cache.js";
-import { prochaineLecture } from "../providers/emploi.js";
+import { offres, prochaineLecture } from "../providers/emploi.js";
 import { COUVERTURE, emploi, ENTREPRISES, NON_REPRIS, type OffreRow } from "../tools/emploi.js";
 import { connectorCta, crumbBar, crumbs, sourcesNote, warnings, webPage } from "./domains.js";
 import type { Alerte } from "./data.js";
@@ -21,6 +21,10 @@ export interface EmploiAnswer {
   injoignable?: string;
   couverture: string;
   sources: { source: string; licence: string; attribution: string }[];
+  /**
+   * When the feed was last read (ISO), said as the last read: not the page's copy's time, up to 5 minutes later.
+   */
+  lu?: string;
   /** No copy of the offers yet: when the scheduled event reads them next (ISO). */
   prochaine?: string;
 }
@@ -32,8 +36,10 @@ export interface EmploiAnswer {
 export async function buildEmploi(cache: Cache, now = new Date()): Promise<EmploiAnswer> {
   const r = await emploi(cache, undefined, undefined, now, Infinity);
   if ("isError" in r && r.isError) return { resume: "", nombre: 0, offres: [], couverture: COUVERTURE, sources: [], prochaine: prochaineLecture(now).toISOString() };
-  const { resume, nombre, offres, injoignable, couverture, sources } = JSON.parse(r.content[0].text) as EmploiAnswer;
-  return { resume, nombre, offres, ...(injoignable ? { injoignable } : {}), couverture, sources };
+  const { resume, nombre, offres: list, injoignable, couverture, sources } = JSON.parse(r.content[0].text) as EmploiAnswer;
+  // The copy the tool has just read, from memory: its time.
+  const lu = (await offres(cache, now).catch(() => null))?.value.lu;
+  return { resume, nombre, offres: list, ...(lu ? { lu } : {}), ...(injoignable ? { injoignable } : {}), couverture, sources };
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
@@ -80,7 +86,7 @@ export function emploiPage(origin: string, data: Cached<EmploiAnswer> | null, no
   const communes = [...new Set((d?.offres ?? []).flatMap((o) => ("commune" in o && o.commune ? [o.commune] : [])))].sort((x, y) => x.localeCompare(y, "fr"));
 
   const status = d && data && !d.prochaine
-    ? `<p>${plural(d.nombre, "offre ouverte", "offres ouvertes")} à la candidature sur Choisir le service public, dernière lecture ${readAt(data.fetchedAt, now).a}.</p>`
+    ? `<p>${plural(d.nombre, "offre ouverte", "offres ouvertes")} à la candidature sur Choisir le service public, dernière lecture ${readAt(d.lu ? new Date(d.lu) : data.fetchedAt, now).a}.</p>`
     : "";
   const list = !d || !data
     ? `<p class="card">Les offres se chargent : rechargez la page dans quelques secondes.</p>`
@@ -88,7 +94,7 @@ export function emploiPage(origin: string, data: Cached<EmploiAnswer> | null, no
       ? `<p class="card">Les offres ne sont pas encore lues : prochaine lecture prévue à ${hm(d.prochaine)}.</p>`
       : d.offres.length
       ? `${FILTER.replace("COMMUNES", communes.map((c) => `<option>${esc(c)}</option>`).join(""))}<ul class="rows eau" id="offres">${d.offres.map(row).join("")}</ul>`
-      : `<p class="card">Aucune offre publiée sur Choisir le service public pour La Réunion à ${hm(data.fetchedAt)}.</p>`;
+      : `<p class="card">Aucune offre publiée sur Choisir le service public pour La Réunion à ${hm(d.lu ?? data.fetchedAt)}.</p>`;
 
   const title = "Emploi public Réunion : offres de l'État, des communes et des hôpitaux · 974";
   const description = "Les offres d'emploi de la fonction publique à La Réunion (974) : État, collectivités, hôpitaux, avec la commune et le lien pour postuler.";

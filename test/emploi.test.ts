@@ -251,7 +251,8 @@ describe("the tool emploi and the page /emploi", () => {
     const c = await copie();
     emploiSource.configure(async () => c);
     const d = await buildEmploi(cache(), NOW);
-    const page = emploiPage("https://rundata.re", { value: d, fetchedAt: new Date(c.lu), stale: false }, NOW);
+    // The page's copy built 4 minutes after the feed's read: the feed's time is said.
+    const page = emploiPage("https://rundata.re", { value: d, fetchedAt: new Date(Date.parse(c.lu) + 4 * 60_000), stale: false }, NOW);
     expect(page).toContain("<h1>Offres d'emploi public à La Réunion</h1>");
     expect(page).toContain("20 offres ouvertes à la candidature sur Choisir le service public, dernière lecture à 12:45.");
     const first = page.indexOf('<ul class="rows eau" id="offres">');
@@ -304,6 +305,23 @@ describe("the tool emploi and the page /emploi", () => {
     const all = body(await emploi(cache(), undefined, undefined, NOW, 1));
     const first = all.offres[0].nombre_offres ?? 1;
     expect(all.autres).toBe(`${20 - first} autres offres, sur ${emploiSource.SOURCE.url}`);
+  });
+
+  it("asks the store again for a copy read before the last event's write, every 5 minutes", async () => {
+    // Two minutes after each event of 5 minutes: 12:47, 12:52…
+    expect(emploiSource.fraicheur(new Date("2026-10-29T08:48:00Z"))).toBe(60);
+    expect(emploiSource.fraicheur(new Date("2026-10-29T08:46:59Z"))).toBe(299);
+    expect(emploiSource.fraicheur(new Date("2026-10-29T08:47:00Z"))).toBe(1);
+    const c = await copie();
+    let stored = c;
+    emploiSource.configure(async () => stored);
+    let t = new Date("2026-10-29T08:45:30Z");
+    const store = new Cache(new MemoryStore(), () => t.getTime());
+    expect((await emploiSource.offres(store, t))!.value.offres).toHaveLength(c.offres.length);
+    // An offer's page read at 12:50 changed the copy: shown at 12:53, not an hour later.
+    stored = { ...c, offres: c.offres.slice(1) };
+    t = new Date("2026-10-29T08:53:00Z");
+    expect((await emploiSource.offres(store, t))!.value.offres).toHaveLength(c.offres.length - 1);
   });
 
   it("says when the offers are read next while the store has none, without a reading time", async () => {
