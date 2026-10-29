@@ -216,7 +216,7 @@ function setup(env: Env): Cache {
   capteurs.configure(async () => {
     if (!kv) return null;
     count();
-    return (await kv.get(capteurs.KV_KEY, "json")) as capteurs.Copie | null;
+    return (await kv.get(capteurs.KV_KEY, "json")) as capteurs.Stocke | null;
   });
   // Read every hour from Choisir le service public by the scheduled event below, and kept in KV (src/providers/emploi.ts).
   emploi.configure(async () => {
@@ -393,10 +393,10 @@ export default {
     if (kv && capteurs.refreshDue(now)) {
       ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, async () => {
         count();
-        const before = (await kv.get(capteurs.KV_KEY, "json")) as capteurs.Copie | null;
-        return capteurs.collect(before, async (copie) => {
+        const before = (await kv.get(capteurs.KV_KEY, "json")) as capteurs.Stocke | null;
+        return capteurs.collect(before, async (stocke) => {
           count(1, true);
-          await kv.put(capteurs.KV_KEY, JSON.stringify(copie), { expirationTtl: capteurs.KV_TTL_SECONDS });
+          await kv.put(capteurs.KV_KEY, JSON.stringify(stocke), { expirationTtl: capteurs.KV_TTL_SECONDS });
         }, now);
       }))
         .then(({ value, used, reads }) => console.log(`capteurs amateurs : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))

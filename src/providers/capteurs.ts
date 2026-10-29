@@ -62,6 +62,19 @@ export interface Copie {
   capteurs: Capteur[];
 }
 
+/**
+ * Stored instead of a copy when the network did not answer and nothing was read before: never an empty list, which
+ * would say no sensor measured (a silent site is neither dead nor empty). `echec`, when reading began to fail (ISO, UTC).
+ */
+export interface Echec {
+  echec: string;
+  source: "sensor.community";
+  /** When it was last written (ISO, UTC): again every 12 hours while the network fails, before the store drops it. */
+  ecrit: string;
+}
+
+export type Stocke = Copie | Echec;
+
 type Entry = {
   timestamp: string;
   location: { latitude: string; longitude: string; indoor?: number };
@@ -118,25 +131,42 @@ export function merge(before: Capteur[], read: Capteur[], now: Date): Capteur[] 
 // list is a reading too): 24 writes a day at most with no sensor.
 const REWRITE_MS = 3600_000;
 
+// The network's filter by area answered in 1.5 to 3.5 s on 29/10/2026, and past 30 s at times: waited for longer than
+// the pages' reads, as only the scheduled event reads it (waiting is not CPU time).
+const TIMEOUT_MS = 45_000;
+// The failure is kept for a day in KV (KV_TTL_SECONDS): written again before, with its first time.
+const ECHEC_REWRITE_MS = 12 * 3600_000;
+
 /**
  * The scheduled event's read: the network's last 5 minutes over the island, merged with the copy. Writes it when the
- * sensors kept changed, or when it was written an hour ago or more.
+ * sensors kept changed, or when it was written an hour ago or more. When the network does not answer: the copy kept
+ * as it is, with its time; without one, the failure and its time, written once.
  */
-export async function collect(before: Copie | null, write: (copie: Copie) => Promise<void>, now = new Date()): Promise<string> {
-  const read = parse(await getJson<Entry[]>(SOURCE.id, URL, 20_000));
-  const capteurs = merge(before?.capteurs ?? [], read, now);
+export async function collect(before: Stocke | null, write: (s: Stocke) => Promise<void>, now = new Date()): Promise<string> {
+  let entries: Entry[];
+  try {
+    entries = await getJson<Entry[]>(SOURCE.id, URL, TIMEOUT_MS);
+  } catch (err) {
+    const failed = before && "echec" in before ? before : null;
+    if (!before) await write({ echec: now.toISOString(), source: "sensor.community", ecrit: now.toISOString() });
+    else if (failed && now.getTime() - Date.parse(failed.ecrit) >= ECHEC_REWRITE_MS) await write({ ...failed, ecrit: now.toISOString() });
+    throw err;
+  }
+  const kept = before && "capteurs" in before ? before : null;
+  const read = parse(entries);
+  const capteurs = merge(kept?.capteurs ?? [], read, now);
   const said = `${read.length} lus, ${capteurs.length} des 2 dernières heures`;
-  const same = before && JSON.stringify(capteurs) === JSON.stringify(before.capteurs);
-  if (same && now.getTime() - Date.parse(before.lu) < REWRITE_MS) return `${said}, inchangés : non réécrits`;
+  const same = kept && JSON.stringify(capteurs) === JSON.stringify(kept.capteurs);
+  if (same && now.getTime() - Date.parse(kept.lu) < REWRITE_MS) return `${said}, inchangés : non réécrits`;
   await write({ lu: now.toISOString(), capteurs });
   return `${said}, écrits`;
 }
 
-let reader: (() => Promise<Copie | null>) | undefined;
-let memo: { at: number; copie: Copie } | undefined;
+let reader: (() => Promise<Stocke | null>) | undefined;
+let memo: { at: number; copie: Stocke } | undefined;
 
 /** In the Worker: read the sensors from the KV store, where the scheduled event writes them, and the network never. */
-export function configure(read: (() => Promise<Copie | null>) | undefined) {
+export function configure(read: (() => Promise<Stocke | null>) | undefined) {
   reader = read;
   memo = undefined;
 }
@@ -145,12 +175,13 @@ export function configure(read: (() => Promise<Copie | null>) | undefined) {
 const FRESH_MS = 15 * 60_000;
 
 /**
- * The stored sensors of the last 2 hours, their time the scheduled event's last write; null where nothing is
- * configured (a local server, the tests), as the Worker alone has them. Fails while the store has no copy.
+ * The stored sensors of the last 2 hours, their time the scheduled event's last write, or the failure to read them and
+ * since when; null where nothing is configured (a local server, the tests), as the Worker alone has them. Fails while
+ * the store has neither.
  * Read from KV directly and kept in memory, never through the data center's cache: 1 subrequest instead of 3 in the
  * build of /air's copy, which the scheduled event's budget counts (BUDGET.md).
  */
-export async function capteurs(now = new Date()): Promise<Cached<Copie> | null> {
+export async function capteurs(now = new Date()): Promise<Cached<Stocke> | null> {
   if (!reader) return null;
   if (!memo || now.getTime() - memo.at >= FRESH_MS) {
     const v = await reader();
@@ -158,5 +189,6 @@ export async function capteurs(now = new Date()): Promise<Cached<Copie> | null> 
     memo = { at: now.getTime(), copie: v };
   }
   const v = memo.copie;
+  if ("echec" in v) return { value: v, fetchedAt: new Date(v.echec), stale: false };
   return { value: { ...v, capteurs: v.capteurs.filter((x) => now.getTime() - Date.parse(x.mesure_a) <= WINDOW_MS) }, fetchedAt: new Date(v.lu), stale: false };
 }

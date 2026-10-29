@@ -6,7 +6,7 @@ import * as airMesures from "../src/providers/air-mesures.js";
 import * as capteurs from "../src/providers/capteurs.js";
 import { parse as parseAtmo } from "../src/providers/atmo.js";
 import { REGISTRY } from "../src/registre.js";
-import { CAPTEURS_AUCUN, CAPTEURS_AVERTISSEMENT, measuredAt, qualiteAir } from "../src/tools/air.js";
+import { CAPTEURS_AUCUN, CAPTEURS_AVERTISSEMENT, capteursEchec, measuredAt, qualiteAir } from "../src/tools/air.js";
 import { airPage } from "../src/web/domains.js";
 import { esc } from "../src/web/map.js";
 import { SHARED } from "../src/web/partagees.js";
@@ -55,7 +55,7 @@ describe("the sensors of private people (Sensor.Community)", () => {
   it("keeps each sensor's latest measure for 2 hours, and writes when they changed or an hour after", async () => {
     vi.stubGlobal("fetch", async () => Response.json(ANSWER));
     const written: capteurs.Copie[] = [];
-    const write = async (c: capteurs.Copie) => void written.push(c);
+    const write = async (c: capteurs.Stocke) => void written.push(c as capteurs.Copie);
     const { value, used } = await counted(10, () => capteurs.collect(null, write, NOW));
     expect(used).toBe(1);
     expect(value).toBe("2 lus, 2 des 2 dernières heures, écrits");
@@ -68,6 +68,48 @@ describe("the sensors of private people (Sensor.Community)", () => {
     vi.stubGlobal("fetch", async () => Response.json([]));
     await capteurs.collect(written[1], write, new Date(NOW.getTime() + 2 * 3600_000 + 60_000));
     expect(written.at(-1)!.capteurs).toEqual([]);
+  });
+
+  it("never writes an empty list when the network does not answer: the copy kept, or else the failure and its time", async () => {
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("The operation was aborted due to timeout");
+    });
+    const written: capteurs.Stocke[] = [];
+    const write = async (s: capteurs.Stocke) => void written.push(s);
+    // Nothing stored: the failure, written once, with its time.
+    await expect(capteurs.collect(null, write, NOW)).rejects.toThrow(/timeout/);
+    expect(written).toEqual([{ echec: NOW.toISOString(), source: "sensor.community", ecrit: NOW.toISOString() }]);
+    const echec = written[0] as capteurs.Echec;
+    // Failing again: not written again before 12 hours, then with its first time, before the store drops it.
+    await expect(capteurs.collect(echec, write, new Date(NOW.getTime() + 15 * 60_000))).rejects.toThrow();
+    expect(written).toHaveLength(1);
+    await expect(capteurs.collect(echec, write, new Date(NOW.getTime() + 12 * 3600_000))).rejects.toThrow();
+    expect(written.at(-1)).toEqual({ ...echec, ecrit: new Date(NOW.getTime() + 12 * 3600_000).toISOString() });
+    // A copy stored: kept as it is, with its time.
+    const copie = { lu: "2026-10-29T06:10:00Z", capteurs: capteurs.parse(ANSWER) };
+    await expect(capteurs.collect(copie, write, NOW)).rejects.toThrow();
+    expect(written).toHaveLength(2);
+    // The network back: the sensors written over the failure.
+    vi.stubGlobal("fetch", async () => Response.json(ANSWER));
+    expect(await capteurs.collect(echec, write, NOW)).toBe("2 lus, 2 des 2 dernières heures, écrits");
+    expect(written.at(-1)).toMatchObject({ lu: NOW.toISOString(), capteurs: [{ commune: "Le Port" }, { commune: "Saint-Denis" }] });
+  });
+
+  it("says the failure and since when, on /air and in qualite_air, without logging it at each view", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    capteurs.configure(async () => ({ echec: "2026-10-29T04:56:00Z", source: "sensor.community", ecrit: "2026-10-29T04:56:00Z" }));
+    const answer = body(await qualiteAir(cache(), undefined, NOW));
+    const c = answer.capteurs_amateurs;
+    expect(c.echec).toBe("Lecture des capteurs amateurs impossible depuis 08:56.");
+    expect(c).not.toHaveProperty("aucun");
+    expect(c).not.toHaveProperty("lu_par_rundata");
+    expect(capteursEchec("2026-10-28T19:10:00Z", NOW)).toBe("Lecture des capteurs amateurs impossible depuis hier à 23:10.");
+    expect(capteursEchec("2026-10-27T06:00:00Z", NOW)).toBe("Lecture des capteurs amateurs impossible depuis le 27/10 à 10:00.");
+    const page = airPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
+    expect(page).toContain(`<p>${esc(c.echec)}</p>`);
+    expect(page).not.toContain(esc(CAPTEURS_AUCUN));
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
   });
 
   it("is read at 10, 25, 40 and 55 past (UTC), and registered", () => {

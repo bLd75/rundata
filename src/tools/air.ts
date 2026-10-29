@@ -120,6 +120,8 @@ export const CAPTEURS_EXPLICATION =
   "Mesures de capteurs installés par des particuliers et partagés sur Sensor.Community, ni étalonnés ni contrôlés par Atmo Réunion : " +
   "leur valeur peut s'écarter de la réalité, et leur position est arrondie à la commune. La qualité de l'air officielle est l'indice d'Atmo Réunion, juste au-dessus.";
 export const CAPTEURS_AUCUN = "Aucun capteur partagé sur Sensor.Community n'a émis à La Réunion dans les 2 dernières heures.";
+/** Sensor.Community not read since `since` and nothing read before it: said, never as no sensor. */
+export const capteursEchec = (since: string, now: Date) => `Lecture des capteurs amateurs impossible depuis ${measuredAt(since, now).replace(/^à /, "")}.`;
 
 /** When a sensor measured: « à 10:34 », « hier à 23:10 » (its window is 2 hours). */
 export function measuredAt(iso: string, now: Date): string {
@@ -142,7 +144,19 @@ async function amateurs(cache: Cache, now: Date) {
     return undefined;
   }
   if (!copy) return undefined;
-  const list = copy.value.capteurs;
+  const v = copy.value;
+  if ("echec" in v) {
+    return {
+      avertissement: CAPTEURS_AVERTISSEMENT,
+      explication: CAPTEURS_EXPLICATION,
+      echec: capteursEchec(v.echec, now),
+      position: "arrondie à la commune",
+      carte: capteurs.CARTE,
+      brancher_un_capteur: capteurs.GUIDE,
+      licence: capteurs.SOURCE.licence,
+    };
+  }
+  const list = v.capteurs;
   return {
     avertissement: CAPTEURS_AVERTISSEMENT,
     explication: CAPTEURS_EXPLICATION,
