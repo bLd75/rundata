@@ -5,12 +5,12 @@
 import { alerteVolcan, homeCard, volcanBanner } from "./volcan-alerte.js";
 import type { Cached } from "../cache.js";
 import type * as mf from "../providers/vigilance.js";
-import { sujetsOf } from "../providers/actualites.js";
 import { PATH as A_PROPOS, QUI } from "./a-propos.js";
 import icons from "./icons.json" with { type: "json" };
 import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from "./categories.js";
 import type { ActualitesAnswer, AgendaAnswer, AirAnswer, Alerte, BusData, CalendrierAnswer, CruesAnswer, ElectriciteAnswer, HomeData, VelosAnswer, VolcanAnswer, BornesAnswer, CoupuresAnswer, EauAnswer, SecheresseAnswer, SentiersAnswer, SportAnswer, CyclonesAnswer, HistoriqueAnswer, TraficAnswer } from "./data.js";
 import { actualitesLive, airLive, atDay, bornesLive, cruesLive, floodRaised, imageLinks, busLive, coupuresLive, daeLive, eauLive, secheresseLive, randonneesLive, traficLive, sportLive, cyclonesLive, historiqueLive, agendaLive, calendrierLive, electriciteLive, velosLive, volcanLive, saidNow, stillToCome } from "./domains.js";
+import type { InfoRow } from "../tools/actualites.js";
 import { de } from "../tools/format.js";
 import { enImagesApres, enImagesLuesAilleurs, jusquALecture, NON_ANNONCEE } from "../tools/volcan.js";
 import { libelle } from "../tools/volcan-acces.js";
@@ -243,21 +243,27 @@ function tile(c: Category, l: Live | undefined, odd = false): string {
 // On a phone the tiles go two by two: an odd one out at the end of those with a page takes the whole row.
 const PAGED = CATEGORIES.filter((c) => c.path).length;
 
-const NOW_MAX = 4;
+const NOW_MAX = 5;
 const NOW_HOURS = 6;
 
-/** A headline of the roads: by its own words, not its first sentence's (« rentrer du travail… sans accident », a lead on health). */
-const onRoad = (titre: string) => sujetsOf(titre).includes("route");
+const newest = (x: { publie: string }, y: { publie: string }) => (x.publie < y.publie ? 1 : x.publie > y.publie ? -1 : 0);
 
-/** On a day of mobilisation, of a cyclone or an eruption: the newest headlines, above the tiles. */
+/**
+ * The island's newest news, above the tiles: the live blogs first, then the latest headlines (the user, 29/10/2026:
+ * « il faut qu'on garde tout ce qui est en direct sur la Réunion, pas juste routes et mobilisations »). One story told
+ * by several media is one headline already (providers/actualites.ts `merge`). In the colours of an alert on a day of
+ * mobilisation or of a live blog only (`chaud`).
+ */
 function happening(h: HomeLive | null, now: Date): string {
   const d = h?.actualites?.value;
-  if (!d?.chaud) return "";
+  if (!d) return "";
   const since = new Date(now.getTime() - NOW_HOURS * 3600_000).toISOString();
-  const rows = [...d.en_direct, ...d.infos.filter((r) => r.sujets?.includes("mobilisation") || onRoad(r.titre))]
-    .filter((r) => r.publie >= since).sort((x, y) => (x.publie < y.publie ? 1 : x.publie > y.publie ? -1 : 0)).slice(0, NOW_MAX);
+  // Known to the minute only (`il_y_a`): Le Quotidien's « il y a 4 heures », or its day alone, put at the time of the
+  // read, would come first with a time it never gave.
+  const recent = (rows: InfoRow[]) => rows.filter((r) => r.il_y_a && r.publie >= since).sort(newest);
+  const rows = [...recent(d.en_direct), ...recent(d.infos)].slice(0, NOW_MAX);
   if (!rows.length) return "";
-  return `<div class="card warn now-news"><h3>${icon("news")} En ce moment sur l'île</h3><ul class="plain">${rows.map((r) =>
+  return `<div class="card${d.chaud ? " warn" : ""} now-news"><h3>${icon("news")} En ce moment sur l'île</h3><ul class="plain">${rows.map((r) =>
     `<li><b>${hm(r.publie)}</b> <a href="${esc(r.lien)}" rel="noopener"${fenetre(r.lien)}>${esc(r.titre)}</a> <span class="note">${esc(r.media)}${r.communes?.length ? ` · ${esc(r.communes.join(", "))}` : ""}</span></li>`).join("")}</ul>` +
     `<p class="note"><a href="/actualites">Toute l'actualité, commune par commune →</a></p></div>`;
 }
