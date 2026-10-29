@@ -280,13 +280,25 @@ const EM = 0.56;
  * inside it (marketing). This is the placement for a phone and without a script: NOMS_SCRIPT does it again at the
  * map's real size, after each zoom. `hide`: none shown until then, for a map whose points the server does not know (`top`).
  */
-function namesLayer(opts: { frame: number[]; unit: number; busy: Box[]; close?: boolean; hide?: boolean; within?: [number, number][] }): string {
+function namesLayer(opts: {
+  frame: number[]; unit: number; busy: Box[]; close?: boolean; hide?: boolean; within?: [number, number][]; centre?: [number, number];
+}): string {
   const [fx, fy, fw, fh] = opts.frame;
   const u = opts.unit;
   const shown: Box[] = [];
-  const texts = (routes.noms as [string, number, number, number][])
+  const all = (routes.noms as [string, number, number, number][])
     .filter(([, rank, x, y]) => (opts.close || !rank) && x >= fx && x <= fx + fw && y >= fy && y <= fy + fh)
-    .filter(([, rank, x, y]) => rank < 2 || !opts.within || inRing(x, y, opts.within))
+    .filter(([, rank, x, y]) => rank < 2 || !opts.within || inRing(x, y, opts.within));
+  // A name once in a frame (marketing): the most important of the places so named, then the nearest the centre.
+  const [cx, cy] = opts.centre ?? [fx + fw / 2, fy + fh / 2];
+  const far = ([, , x, y]: [string, number, number, number]) => (x - cx) ** 2 + (y - cy) ** 2;
+  const best = new Map<string, [string, number, number, number]>();
+  for (const n of all) {
+    const o = best.get(n[0]);
+    if (!o || n[1] < o[1] || (n[1] === o[1] && far(n) < far(o))) best.set(n[0], n);
+  }
+  const texts = all
+    .filter((n) => best.get(n[0]) === n)
     .map(([nom, rank, x, y]) => {
       const fs = namePx(rank) * u;
       const half = (nom.length * EM * fs) / 2 + 2 * u;
@@ -314,6 +326,12 @@ const NUDGE: [number, number, number][] = [
   [0, 0, 0], [1, 0.3, 0], [-1, -0.3, 0], [0, 0, -1.1], [0, 0, 1.1], [1, 0, -1.1], [-1, 0, -1.1], [1, 0, 1.1], [-1, 0, 1.1],
   [1, 1.3, 0], [-1, -1.3, 0], [0, 0, -2], [0, 0, 2],
 ];
+
+/** Where a commune's name stands on the maps: its chef-lieu (routes.json, rank 0). */
+function chefLieu(commune: string): [number, number] | undefined {
+  const n = (routes.noms as [string, number, number, number][]).find(([nom, rank]) => !rank && nom === commune);
+  return n && [n[2], n[3]];
+}
 
 /** The points of a commune's outline (src/places/island.json: « M » then relative moves). */
 function ringOf(d: string): [number, number][] {
@@ -648,7 +666,7 @@ export function communeMap(opts: { commune: string; spots: Spot[]; label: string
     // The island dimmed, then the commune's relief again over it, clear.
     `<use href="#isl" class="dim"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#com-clip)"/>` +
     roadsLayer(box) + `<path class="hl" d="${shape.d}"/>` +
-    namesLayer({ frame: box, unit, busy: at.map(([x, y]) => [x - 10 * unit, y - 10 * unit, x + 10 * unit, y + 10 * unit]), close: true, within: ringOf(shape.d) }) +
+    namesLayer({ frame: box, unit, busy: at.map(([x, y]) => [x - 10 * unit, y - 10 * unit, x + 10 * unit, y + 10 * unit]), close: true, within: ringOf(shape.d), centre: chefLieu(opts.commune) }) +
     `<g class="spots">${dots}</g></svg>`;
 }
 
