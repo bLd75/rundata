@@ -5,6 +5,7 @@
 import { alerteVolcan, homeCard, volcanBanner } from "./volcan-alerte.js";
 import type { Cached } from "../cache.js";
 import type * as mf from "../providers/vigilance.js";
+import { sujetsOf } from "../providers/actualites.js";
 import { PATH as A_PROPOS, QUI } from "./a-propos.js";
 import icons from "./icons.json" with { type: "json" };
 import { byUse, CATEGORIES, type Category, FIRST, type Urgent, urgentKeys } from "./categories.js";
@@ -245,12 +246,15 @@ const PAGED = CATEGORIES.filter((c) => c.path).length;
 const NOW_MAX = 4;
 const NOW_HOURS = 6;
 
+/** A headline of the roads: by its own words, not its first sentence's (« rentrer du travail… sans accident », a lead on health). */
+const onRoad = (titre: string) => sujetsOf(titre).includes("route");
+
 /** On a day of mobilisation, of a cyclone or an eruption: the newest headlines, above the tiles. */
 function happening(h: HomeLive | null, now: Date): string {
   const d = h?.actualites?.value;
   if (!d?.chaud) return "";
   const since = new Date(now.getTime() - NOW_HOURS * 3600_000).toISOString();
-  const rows = [...d.en_direct, ...d.infos.filter((r) => r.sujets?.includes("mobilisation") || r.sujets?.includes("route"))]
+  const rows = [...d.en_direct, ...d.infos.filter((r) => r.sujets?.includes("mobilisation") || onRoad(r.titre))]
     .filter((r) => r.publie >= since).sort((x, y) => (x.publie < y.publie ? 1 : x.publie > y.publie ? -1 : 0)).slice(0, NOW_MAX);
   if (!rows.length) return "";
   return `<div class="card warn now-news"><h3>${icon("news")} En ce moment sur l'île</h3><ul class="plain">${rows.map((r) =>
