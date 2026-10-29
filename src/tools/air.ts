@@ -3,6 +3,7 @@ import { distanceKm, localTime } from "../geo.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as airMesures from "../providers/air-mesures.js";
 import * as atmo from "../providers/atmo.js";
+import * as capteurs from "../providers/capteurs.js";
 import { why } from "../types.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
 
@@ -109,6 +110,55 @@ async function stations(cache: Cache, now: Date, place?: { commune: string; lon:
   };
 }
 
+/** The index's source, then those of the measures at the stations and of the sensors, when they are said. */
+const sourcesOf = (mesures: unknown, amateur: unknown) =>
+  credits([atmo.SOURCE, ...(mesures ? [airMesures.SOURCE] : []), ...(amateur ? [capteurs.SOURCE] : [])]);
+
+// Worded by marketing (29/10/2026).
+export const CAPTEURS_AVERTISSEMENT = "Capteur amateur, non étalonné : à prendre avec précaution.";
+export const CAPTEURS_EXPLICATION =
+  "Mesures de capteurs installés par des particuliers et partagés sur Sensor.Community, ni étalonnés ni contrôlés par Atmo Réunion : " +
+  "leur valeur peut s'écarter de la réalité, et leur position est arrondie à la commune. La qualité de l'air officielle est l'indice d'Atmo Réunion, juste au-dessus.";
+export const CAPTEURS_AUCUN = "Aucun capteur partagé sur Sensor.Community n'a émis à La Réunion dans les 2 dernières heures.";
+
+/** When a sensor measured: « à 10:34 », « hier à 23:10 » (its window is 2 hours). */
+export function measuredAt(iso: string, now: Date): string {
+  const [date, time] = localTime(new Date(iso)).split(" ");
+  const day = today(new Date(iso));
+  return day === today(now) ? `à ${time}` : day === today(new Date(now.getTime() - 86_400_000)) ? `hier à ${time}` : `le ${date} à ${time}`;
+}
+
+/**
+ * The sensors of private people (Sensor.Community), apart from the index and under it: by commune, their raw particles
+ * and when they measured, never an identifier nor a place. Undefined where they are not stored (a local server, the
+ * tests) or not read.
+ */
+async function amateurs(cache: Cache, now: Date) {
+  let copy;
+  try {
+    copy = await capteurs.capteurs(now);
+  } catch (err) {
+    console.error(`source ${capteurs.SOURCE.id} indisponible:`, why(err));
+    return undefined;
+  }
+  if (!copy) return undefined;
+  const list = copy.value.capteurs;
+  return {
+    avertissement: CAPTEURS_AVERTISSEMENT,
+    explication: CAPTEURS_EXPLICATION,
+    ...(list.length
+      ? { valeurs: list.map((c) => ({ commune: c.commune, ...(c.pm2_5 !== undefined && { pm2_5: c.pm2_5 }), ...(c.pm10 !== undefined && { pm10: c.pm10 }), unite: "µg/m³", mesurees: measuredAt(c.mesure_a, now) })) }
+      : { aucun: CAPTEURS_AUCUN }),
+    position: "arrondie à la commune",
+    lu_par_rundata: localTime(copy.fetchedAt),
+    carte: capteurs.CARTE,
+    brancher_un_capteur: capteurs.GUIDE,
+    licence: capteurs.SOURCE.licence,
+  };
+}
+
+export type Amateurs = NonNullable<Awaited<ReturnType<typeof amateurs>>>;
+
 export async function qualiteAir(cache: Cache, lieu: string | undefined, now = new Date()) {
   let list: atmo.Index[];
   let readAt: Date;
@@ -137,6 +187,7 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
 
   if (!lieu?.trim()) {
     const mesures = await stations(cache, now);
+    const amateur = await amateurs(cache, now);
     const todays = list.filter((x) => x.jour === day);
     const worst = Math.max(0, ...todays.map((x) => x.niveau));
     const atWorst = todays.filter((x) => x.niveau === worst).map((x) => x.commune);
@@ -147,7 +198,9 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
         : "L'indice du jour n'est pas dans la dernière lecture de la couche d'Atmo France.",
       communes: todays.map((x) => ({ commune: x.commune, niveau: x.niveau, qualite: atmo.level(x.niveau), polluants: drivers(x), sous_indices: subIndices(x) })),
       ...common,
-      ...(mesures && { mesures_aux_stations: mesures, sources: credits([atmo.SOURCE, airMesures.SOURCE]) }),
+      ...(mesures && { mesures_aux_stations: mesures }),
+      ...(amateur && { capteurs_amateurs: amateur }),
+      sources: sourcesOf(mesures, amateur),
     });
   }
 
@@ -157,6 +210,7 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
   const now_ = mine.find((x) => x.jour === day);
   const next = mine.find((x) => x.jour > day);
   const mesures = await stations(cache, now, res.lieu);
+  const amateur = await amateurs(cache, now);
   const parts = [now_ && sentence(now_, `Qualité de l'air prévue aujourd'hui à ${res.lieu.commune}`), next && sentence(next, "demain")].filter(Boolean);
   return text({
     lieu: placeBlock(lieu, res),
@@ -168,6 +222,8 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
       sous_indices: subIndices(x),
     })),
     ...common,
-    ...(mesures && { mesures_aux_stations: mesures, sources: credits([atmo.SOURCE, airMesures.SOURCE]) }),
+    ...(mesures && { mesures_aux_stations: mesures }),
+    ...(amateur && { capteurs_amateurs: amateur }),
+    sources: sourcesOf(mesures, amateur),
   });
 }

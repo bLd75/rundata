@@ -26,7 +26,7 @@ const kept = (c: Chiffres, d: Dated, mots = "") => (d && d.compte_le !== c.compt
 const item = (valeur: number, mots: string, page: string, after = "") =>
   `<li class="card"><a class="fig" href="${esc(page)}">${n(valeur)}</a><span>${mots}${after}</span></li>`;
 
-/** « (Licence Ouverte, ODbL, CC BY, domaine public) », from the open families present. */
+/** « (Licence Ouverte, ODbL, DbCL, CC BY, domaine public) », from the open families present. */
 const parenthese = (familles: string[]) => familles.join(", ");
 
 export function chiffresPage(origin: string, c: Chiffres, alerte?: Alerte): string {

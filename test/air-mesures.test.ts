@@ -130,8 +130,8 @@ describe("measures at Atmo Réunion's stations", () => {
     airMesures.configure(async () => (count(), copie));
     const { used } = await counted(50, () => qualiteAir(new Cache(new EdgeLike(), () => NOW.getTime()), undefined, NOW));
     expect(used).toBeLessThanOrEqual(SHARED.find((s) => s.key === "web:air")!.cold!);
-    for (const id of ["qualite_air", "web:air"]) expect(REGISTRY.find((e) => e.id === id)!.run.kvReads, id).toBe(1);
-    expect(REGISTRY.find((e) => e.id === "qualite_air")!.run.subrequests).toBe(used);
+    // With the sensors' copy too: test/capteurs.test.ts.
+    expect(REGISTRY.find((e) => e.id === "qualite_air")!.run.subrequests).toBeGreaterThanOrEqual(used);
   });
 
   it("is read every hour by the scheduled event at 45 past, from 45 to 49 (UTC)", () => {

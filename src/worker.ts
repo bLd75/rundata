@@ -17,6 +17,7 @@ import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
 import * as prefectureCopie from "./providers/prefecture-copie.js";
 import * as airMesures from "./providers/air-mesures.js";
+import * as capteurs from "./providers/capteurs.js";
 import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as candhis from "./providers/candhis.js";
@@ -210,6 +211,12 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get(airMesures.KV_KEY, "json")) as airMesures.Copie | null;
   });
+  // Read every 15 minutes from Sensor.Community by the scheduled event below, and kept in KV (src/providers/capteurs.ts).
+  capteurs.configure(async () => {
+    if (!kv) return null;
+    count();
+    return (await kv.get(capteurs.KV_KEY, "json")) as capteurs.Copie | null;
+  });
   // Read every day from the prefecture by scripts/carburants.ts, on a machine of the project: never by the
   // Worker, even without the store.
   carburants.configure(async () => {
@@ -373,6 +380,20 @@ export default {
       }))
         .then(({ value, used, reads }) => console.log(`mesures de l'air : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("mesures de l'air : lecture impossible", why(err))));
+    }
+    // Every 15 minutes, at 10, 25, 40 and 55 past: the sensors of private people on Sensor.Community over the island,
+    // one request, kept in KV for 2 hours (src/providers/capteurs.ts), once the reads above are done.
+    if (kv && capteurs.refreshDue(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, async () => {
+        count();
+        const before = (await kv.get(capteurs.KV_KEY, "json")) as capteurs.Copie | null;
+        return capteurs.collect(before, async (copie) => {
+          count(1, true);
+          await kv.put(capteurs.KV_KEY, JSON.stringify(copie), { expirationTtl: capteurs.KV_TTL_SECONDS });
+        }, now);
+      }))
+        .then(({ value, used, reads }) => console.log(`capteurs amateurs : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("capteurs amateurs : lecture impossible", why(err))));
     }
     // Every 30 minutes while GDACS has an active system: the RSMC's list of bulletins at 15 and 45 past the hour, its
     // track map at 20 and 50, one request each, kept in KV (src/providers/cmrs-carte.ts), once the reads above are done.

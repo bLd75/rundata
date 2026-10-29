@@ -50,6 +50,7 @@ import * as calendar from "./providers/calendrier.js";
 import { calendrier } from "./tools/calendrier.js";
 import * as atmo from "./providers/atmo.js";
 import * as airMesures from "./providers/air-mesures.js";
+import * as capteurs from "./providers/capteurs.js";
 import { qualiteAir } from "./tools/air.js";
 import * as annuaire from "./providers/annuaire.js";
 import { annuaireTool } from "./tools/annuaire.js";
@@ -184,7 +185,7 @@ const lieuAvecExemples = z
  * for the registry of producers and licences (producteurs.ts).
  */
 export const toutesLesSources = (inactives = false) =>
-  oncePerId([...weatherProviders().map((p) => p.source), ...(inactives ? [meteofranceStations.SOURCE] : []), ...(inactives || vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, airMesures.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(inactives || transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, airesOnf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES).filter((x) => inactives || (autorisee(`sport:${x.id}`) && autorisee(`agenda:${x.id}`))), gdacs.SOURCE, ...agendaSources.SOURCES_LUES.filter((s) => inactives || connecteursEnLigne() || s !== CONNECTEURS_SOURCE), ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(inactives || climat.enabled() ? [climat.SOURCE] : []), ...(inactives || climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(inactives || arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(inactives || feux.enabled() ? [feux.SOURCE] : []),
+  oncePerId([...weatherProviders().map((p) => p.source), ...(inactives ? [meteofranceStations.SOURCE] : []), ...(inactives || vigilance.enabled() ? [vigilance.SOURCE] : []), acspo.SOURCE, modis.SOURCE, houle.SOURCE, seismes.SOURCE, volcanSources.OVPF, volcanSources.PITONLIVE, edf.SOURCE, calendar.SCHOOL, calendar.HOLIDAYS, atmo.SOURCE, airMesures.SOURCE, capteurs.SOURCE, annuaire.SOURCE, ...Object.values(terrain.SOURCES), ...(inactives || transit.enabled() ? [transit.SOURCE, gtfsrt.SOURCE] : []), velos.SOURCE, maregraphes.SOURCE, vigicrues.SOURCE, irve.SOURCE, eauPotable.SOURCE, baignades.SOURCE, requin.SOURCE, onf.SOURCE, airesOnf.SOURCE, vigieau.SOURCE, avisEau.SOURCE, dae.SOURCE, ...Object.values(sportSources.SOURCES).filter((x) => inactives || (autorisee(`sport:${x.id}`) && autorisee(`agenda:${x.id}`))), gdacs.SOURCE, ...agendaSources.SOURCES_LUES.filter((s) => inactives || connecteursEnLigne() || s !== CONNECTEURS_SOURCE), ...Object.values(actuSources.SOURCES), ...Object.values(traceSources.SOURCES), ...(inactives || climat.enabled() ? [climat.SOURCE] : []), ...(inactives || climat.hourlyEnabled() ? [climat.SOURCE_HORAIRE] : []), ...(inactives || arome.enabled() ? [arome.SOURCE] : []), openmeteo.SOURCE, uv.SOURCE, ensemble.SOURCE, ...(inactives || feux.enabled() ? [feux.SOURCE] : []),
     // The vie pratique's and the power cuts' (annuaire_services_publics, electricite).
     carburantsPrix.SOURCE, radarMf.SOURCE, radarsFixes.SOURCE, courantMairies.SOURCE, tcoDecheteries.SOURCE, santeSources.FINESS, santeSources.ARS_GARDE, santeSources.SANTE_FR, collecteTco.SOURCE, ...Object.values(lieuxEnfants.SOURCES), marchesOsm.OSM, loyersAnil.SOURCE, internetArcep.SOURCE]);
 /** A source's name from its id, for one served from its last copy (fraicheur.ts). */
@@ -402,6 +403,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Qualité de l'air à La Réunion (974) par commune : indice ATMO du jour et du lendemain, une PRÉVISION calculée par " +
         "Atmo Réunion et pas une mesure (1 bon à 6 extrêmement mauvais), avec le sous-indice de chaque polluant (particules, " +
         "ozone, dioxyde d'azote, dioxyde de soufre), l'heure de diffusion et comment l'indice est calculé. " +
+        "Capteurs amateurs (champ capteurs_amateurs) : donner d'abord l'indice d'Atmo Réunion, toujours dire que ces capteurs ne sont pas étalonnés, " +
+        "ne jamais les comparer à un seuil ni en tirer de conclusion sur la santé. " +
         "Pour : « l'air est pollué à Saint-Louis ? », « qualité de l'air aujourd'hui à Saint-Denis ? », « je peux faire du sport dehors ? ». " +
         "Sans lieu : toute l'île.",
       inputSchema: { lieu },

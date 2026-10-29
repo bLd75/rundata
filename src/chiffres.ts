@@ -90,7 +90,7 @@ export const DOMAINES: Domaine[] = [
   // Every agenda read (providers/agenda.ts), the scheduled ones every hour.
   { categorie: "agenda", sources: () => SOURCES_LUES.map((s) => s.id), cadence: { minutes: 60, de: "agenda_mairies" } },
   { categorie: "enfants", sources: ids("osm_enfants", "data_es", "basilic") },
-  { categorie: "air", sources: ids("atmo_indice", "lcsqa_mesures"), cadence: { minutes: 60, de: "atmo_indice" } },
+  { categorie: "air", sources: ids("atmo_indice", "lcsqa_mesures", "sensor_community"), cadence: { minutes: 60, de: "atmo_indice" } },
   // EDF's mix every 4 minutes (providers/edf.ts).
   { categorie: "electricite", sources: ids("edf_sei_reunion", "mairies_edf"), cadence: { minutes: 4, de: "edf_sei_reunion" } },
   { categorie: "calendrier", sources: ids("education_calendrier", "jours_feries"), cadence: { minutes: DAY, de: "education_calendrier" } },
