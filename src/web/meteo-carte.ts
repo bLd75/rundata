@@ -169,7 +169,7 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
 
 /** The veil, computed in the browser: the altitude explains most of it, the stations the rest (inverse distance). */
 const VOILE_SCRIPT = `const vo=document.querySelector("[data-voile]");if(vo){const st=JSON.parse(vo.dataset.voile),im=new Image();im.onload=()=>{
-const w=im.width,h=im.height,c=vo;c.width=w;c.height=h;const g=c.getContext("2d");g.drawImage(im,0,0);const a=g.getImageData(0,0,w,h).data;
+const w=im.width,h=im.height,c=vo;c.width=w;c.height=h;const g=c2d(c);g.drawImage(im,0,0);const a=g.getImageData(0,0,w,h).data;
 const n=st.length;let sz=0,st2=0,sz2=0,szt=0;st.forEach(([,,z,t])=>{sz+=z;st2+=t;sz2+=z*z;szt+=z*t});let b=(n*szt-sz*st2)/(n*sz2-sz*sz);if(!(b<-.003&&b>-.01))b=-.0065;const k=(st2-b*sz)/n;
 const p=st.map(([x,y,z,t])=>[x*w/${W},y*h/${H},t-(k+b*z)]);const S=${JSON.stringify(VEIL)};
 const col=(t)=>{let i=0;while(i<S.length-2&&t>S[i+1][0])i++;const[[t0,c0],[t1,c1]]=[S[i],S[i+1]],f=Math.min(1,Math.max(0,(t-t0)/(t1-t0)));return c0.map((v,j)=>v+(c1[j]-v)*f)};
@@ -205,7 +205,7 @@ const m=(A)=>(A[k]*(1-fx)+A[k+1]*fx)*(1-fy)+(A[k+w]*(1-fx)+A[k+w+1]*fx)*fy;retur
 const on_=(x,y)=>M[(Math.min(h-1,y*h/${H}|0))*w+Math.min(w-1,x*w/${W}|0)];
 const born=(p)=>{const c=land[(Math.random()*land.length)|0];p.x=(c%w+Math.random())*${W}/w;p.y=((c/w|0)+Math.random())*${H}/h;p.a=(Math.random()*80)|0};
 const o={fl,id:"wxl-v",ready:()=>land.length,
-size:(r)=>{cw=fl.width=Math.max(1,Math.round(r.width));ch=fl.height=Math.max(1,Math.round(r.height));g=fl.getContext("2d");
+size:(r)=>{cw=fl.width=Math.max(1,Math.round(r.width));ch=fl.height=Math.max(1,Math.round(r.height));g=c2d(fl);
 const n=Math.min(900,Math.round(r.width*r.height/150));ps=[];for(let i=0;i<n;i++){const p={};born(p);ps.push(p)}},
 still:()=>{g.clearRect(0,0,cw,ch);g.strokeStyle="rgba(255,255,255,.9)";g.lineWidth=1.5;g.lineCap="round";const e=22*w/cw;
 for(let j=e/2;j<h;j+=e)for(let i=e/2;i<w;i+=e){if(!M[(j|0)*w+(i|0)])continue;const[u,v]=at(i*${W}/w,j*${H}/h),q=Math.hypot(u,v);if(q<.5)continue;
@@ -220,7 +220,7 @@ for(const[px,py,u,v]of p){const q=1/((px-i)**2+(py-j)**2+.5);sw+=q;su+=q*u;sv+=q
 const[R,G,B]=col(Math.hypot(U[k],V[k]));e.data[k*4]=R;e.data[k*4+1]=G;e.data[k*4+2]=B;e.data[k*4+3]=200}x.putImageData(e,0,0)};
 RJ.v={show:(f,el)=>{if(!A)return;field(f.st);o.again();const n=f.st.length;el.textContent="Vent moyen sur 10\u00a0minutes, mesuré "+at_(f.fin)+" par "+n+(n>1?" anémomètres":" anémomètre")+" de Météo-France. Entre eux, le mouvement et les couleurs sont estimés. Les aéroports et les balises OpenWindMap ne sont pas dans ce rejeu."},
 back:()=>{if(!A)return;field(st);o.again()}};
-im.onload=()=>{w=im.width;h=im.height;const c=ve;c.width=w;c.height=h;x=c.getContext("2d");x.drawImage(im,0,0);A=x.getImageData(0,0,w,h).data;U=new Float32Array(w*h);V=new Float32Array(w*h);M=new Uint8Array(w*h);
+im.onload=()=>{w=im.width;h=im.height;const c=ve;c.width=w;c.height=h;x=c2d(c);x.drawImage(im,0,0);A=x.getImageData(0,0,w,h).data;U=new Float32Array(w*h);V=new Float32Array(w*h);M=new Uint8Array(w*h);
 field(st);go()};im.src=ve.dataset.alt}`;
 
 /**
@@ -239,8 +239,8 @@ const pick=()=>{const r=Math.random()*acc[acc.length-1];let a=0,b=acc.length-1;w
 const born=(p)=>{const k=pick(),c=+d.pluie[k];p.x=(k%d.w+Math.random())*cw/d.w;p.y=((k/d.w|0)+Math.random())*ch/d.h;p.v=.8+c*.25;p.l=3+c;p.a=0;p.m=5+(Math.random()*6|0)};
 const drops=(n)=>{g.strokeStyle="rgba(255,255,255,.92)";g.lineWidth=1.4;g.lineCap="round";g.beginPath();for(const p of ds){g.moveTo(p.x,p.y);g.lineTo(p.x-p.l*.25,p.y-p.l)}g.stroke()};
 const o={fl,id:"wxl-p",ready:()=>!!d,moving:()=>cells.length>0,
-size:(r)=>{cw=fl.width=pr.width=Math.max(1,Math.round(r.width));ch=fl.height=pr.height=Math.max(1,Math.round(r.height));g=fl.getContext("2d");
-const x=pr.getContext("2d"),sx=cw/d.w,sy=ch/d.h,t=document.createElement("canvas");t.width=t.height=6;const tg=t.getContext("2d");tg.lineWidth=1.6;for(const[c,o]of[["rgba(11,31,54,.55)",0],["rgba(255,255,255,.5)",3]]){tg.strokeStyle=c;tg.beginPath();for(const k of[-6,0,6]){tg.moveTo(k+o-1,7);tg.lineTo(k+o+7,-1)}tg.stroke()}
+size:(r)=>{cw=fl.width=pr.width=Math.max(1,Math.round(r.width));ch=fl.height=pr.height=Math.max(1,Math.round(r.height));g=c2d(fl);
+const x=c2d(pr),sx=cw/d.w,sy=ch/d.h,t=document.createElement("canvas");t.width=t.height=6;const tg=t.getContext("2d");tg.lineWidth=1.6;for(const[c,o]of[["rgba(11,31,54,.55)",0],["rgba(255,255,255,.5)",3]]){tg.strokeStyle=c;tg.beginPath();for(const k of[-6,0,6]){tg.moveTo(k+o-1,7);tg.lineTo(k+o+7,-1)}tg.stroke()}
 const hatch=x.createPattern(t,"repeat");for(let k=0;k<d.w*d.h;k++){const c=d.pluie[k],X=(k%d.w)*sx,Y=(k/d.w|0)*sy;
 if(c>"0"){x.fillStyle=K[+c-1];x.fillRect(X,Y,sx+.6,sy+.6)}if(d.mal_vu[k]==="1"){x.fillStyle=hatch;x.fillRect(X,Y,sx+.6,sy+.6)}}
 ds=[];if(!cells.length)return;const n=Math.min(900,Math.max(25,Math.round(acc[acc.length-1]*.03*r.width*r.height/88e3)));for(let i=0;i<n;i++){const p={};born(p);p.a=(Math.random()*p.m)|0;ds.push(p)}},
@@ -301,6 +301,9 @@ bs.forEach((b)=>b.addEventListener("click",()=>{const k=b.dataset.s;open();bs.fo
 // What the layers share: the time in La Réunion (UTC+4, no summer time), « hier » before midnight, and the replay's hooks.
 const p2=(n)=>String(n).padStart(2,"0"),loc=(t)=>new Date(Date.parse(t)+144e5),hm=(t)=>{const x=loc(t);return p2(x.getUTCHours())+":"+p2(x.getUTCMinutes())};
 const at_=(t)=>(loc(t).toISOString().slice(0,10)===loc(new Date().toISOString()).toISOString().slice(0,10)?"à ":"hier à ")+hm(t),RJ={};
+// The map's canvases drawn by the processor, not the graphics card: Safari puts a canvas drawn on the card in a layer
+// of its own, which a foreignObject then paints unscaled, off the map and over the text below (iPhone, 29/10).
+const c2d=(c)=>c.getContext("2d",{willReadFrequently:true});
 ${VOILE_SCRIPT}
 ${ANIM}
 ${VENT_SCRIPT}

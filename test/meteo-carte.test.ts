@@ -219,6 +219,25 @@ describe("the page /meteo with every station", () => {
   });
 });
 
+describe("the map's layers in Safari", () => {
+  // In a foreignObject, Safari paints what has a layer of its own (a positioned element, a canvas drawn on the
+  // graphics card) unscaled, below and right of the map, over the legend and the text (iPhone, 29/10).
+  it("stacks a layer's canvases without positioning them", () => {
+    const rules = [...CSS.replace(/\/\*[^]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, sel]) => /\.wxmap [^,]*(\.vt|canvas|\.voile|\.flux)/.test(sel));
+    expect(rules.map(([, sel]) => sel.trim())).toEqual(expect.arrayContaining([".wxmap .vt", ".wxmap .vt canvas", ".wxmap .voile"]));
+    for (const [, sel, body] of rules) expect(`${sel.trim()} ${body}`).not.toMatch(/position:|transform|will-change/);
+    expect(CSS).toContain(".wxmap .vt{display:grid;grid-template:100%/100%;");
+  });
+
+  it("draws the map's canvases by the processor, the canvases made off the page alone otherwise", () => {
+    expect(METEO_SCRIPT).toContain(`const c2d=(c)=>c.getContext("2d",{willReadFrequently:true});`);
+    expect(METEO_SCRIPT.match(/c2d\(/g)!.length).toBeGreaterThanOrEqual(5);
+    for (const line of METEO_SCRIPT.split("\n")) {
+      for (const [, canvas] of line.matchAll(/(\w+)\.getContext\("2d"\)/g)) expect(line).toContain(`${canvas}=document.createElement("canvas")`);
+    }
+  });
+});
+
 describe("the station bubble on /meteo's map", () => {
   it("is placed against the map's figure, which is its containing block (not the page's top)", () => {
     const html = stationsMap([st({ nom: "Le Port", temperature: 26.5 })]);
