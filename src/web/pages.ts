@@ -767,9 +767,11 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .rows.medias a{display:block;margin-top:.15rem;font-size:1rem}
 @media (max-width:37.49rem){.mapcard.nophone{display:none}}
 .rows.eau small{display:block;color:var(--muted);font-size:.82rem}
-.rows.eau small.refs{margin-top:.3rem;color:inherit}
 .rows.eau .du{max-width:6.5rem;text-align:right}
-.rows .refs~a{display:block;margin:0;padding:.5rem 0;font-weight:400;overflow-wrap:anywhere}
+.rows.eau li>.refs{grid-column:1/-1}
+.rows.eau .refs small{color:inherit}
+.rows .refs a{display:block;margin:0;padding:.5rem 0;font-weight:400}
+.rows .refs .nw{white-space:nowrap}
 .rows small.said{color:var(--lave);font-weight:700}
 .rows .age{font-weight:700;font-size:.85rem;text-align:right;max-width:8.5rem}.rows .age.i{font-weight:400;color:var(--muted)}
 .kind h4{margin:.9rem 0 .1rem;font:700 .95rem system-ui,sans-serif;color:var(--muted)}

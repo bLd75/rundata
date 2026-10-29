@@ -49,13 +49,15 @@ function quand(o: OffreRow): string {
 function row(o: OffreRow): string {
   const place = "commune" in o && o.commune ? o.commune : "commune non précisée";
   const small = [o.employeur, "metier" in o ? o.metier : "domaine" in o ? o.domaine : undefined, o.nature, place].filter(Boolean).map((x) => esc(x!)).join(" · ");
-  // Several offers: the title alone, then a link to each, its day said when the line has none.
-  const title = "references" in o
-    ? `<b>${esc(o.intitule)}</b><small>${small}</small><small class="refs">${o.nombre_offres} offres\u00a0:</small>` +
-      o.references.map((r) => `<a href="${esc(r.lien)}" rel="noopener">Réf. ${esc(r.reference)}${o.date_limite || o.publiee_le ? "" : `, publiée le ${r.publiee_le}`}</a>`).join("")
-    : `<a href="${esc(o.lien)}" rel="noopener">${esc(o.intitule)}</a><small>${small}</small>`;
-  return `<li data-c="${esc("commune" in o && o.commune ? o.commune : "")}"${"references" in o ? ` data-n="${o.nombre_offres}"` : ""}><span>${title}</span>` +
-    `<span class="q-none${"references" in o && !o.date_limite && !o.publiee_le ? " du" : ""}">${esc(quand(o))}</span></li>`;
+  // Several offers: the title alone, then, across the whole line, a link to each, its reference never cut, its day said
+  // when the line has none.
+  const refs = "references" in o
+    ? `<span class="refs"><small>${o.nombre_offres} offres\u00a0:</small>` +
+      o.references.map((r) => `<a href="${esc(r.lien)}" rel="noopener">Réf. <span class="nw">${esc(r.reference)}</span>${o.date_limite || o.publiee_le ? "" : `, publiée\u00a0le\u00a0${r.publiee_le}`}</a>`).join("") + "</span>"
+    : "";
+  const title = "references" in o ? `<b>${esc(o.intitule)}</b>` : `<a href="${esc(o.lien)}" rel="noopener">${esc(o.intitule)}</a>`;
+  return `<li data-c="${esc("commune" in o && o.commune ? o.commune : "")}"${"references" in o ? ` data-n="${o.nombre_offres}"` : ""}><span>${title}<small>${small}</small></span>` +
+    `<span class="q-none${"references" in o && !o.date_limite && !o.publiee_le ? " du" : ""}">${esc(quand(o))}</span>${refs}</li>`;
 }
 
 const FILTER = `<form id="of" class="card filter" hidden role="search" aria-label="Filtrer les offres">

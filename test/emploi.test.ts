@@ -272,8 +272,9 @@ describe("the tool emploi and the page /emploi", () => {
     const d = await buildEmploi(cache(), NOW);
     const page = emploiPage("https://rundata.re", { value: d, fetchedAt: new Date(c.lu), stale: false }, NOW);
     // In marketing's words: the title alone, « 4 offres : », a link per line with the whole reference.
+    // Across the whole line, under the date, each reference never cut.
     expect(page).toContain('<li data-c="Sainte-Marie" data-n="4"><span><b>Gestionnaire finances*SG/SIR/OI/FIN</b><small>');
-    expect(page).toContain('<small class="refs">4 offres\u00a0:</small><a href="https://choisirleservicepublic.gouv.fr/offre-emploi/DGAC-AVE-128051-CAT-B/" rel="noopener">Réf. DGAC-AVE-128051-CAT-B</a><a href=');
+    expect(page).toContain('<span class="q-none">jusqu&#39;au 20/11</span><span class="refs"><small>4 offres\u00a0:</small><a href="https://choisirleservicepublic.gouv.fr/offre-emploi/DGAC-AVE-128051-CAT-B/" rel="noopener">Réf. <span class="nw">DGAC-AVE-128051-CAT-B</span></a><a href=');
     expect(page.match(/<li /g)!.length).toBeLessThan(20);
     // The filter counts the offers, not the lines.
     expect(page).toContain("+e.dataset.n||1");
@@ -283,12 +284,12 @@ describe("the tool emploi and the page /emploi", () => {
     const [line] = lignes(offres);
     expect(line).not.toHaveProperty("publiee_le");
     const html = emploiPage("https://rundata.re", { value: { ...d, nombre: 3, offres: [line] }, fetchedAt: NOW, stale: false }, NOW);
-    expect(html).toContain('rel="noopener">Réf. O974261008000002, publiée le 08/10</a>');
+    expect(html).toContain('rel="noopener">Réf. <span class="nw">O974261008000002</span>, publiée\u00a0le\u00a008/10</a>');
     expect(html).toContain('<span class="q-none du">publiées du 02/10 au 20/10</span>');
     // The same day for all: said once, at the right, as for one offer.
     const same = lignes(offres.map((x) => ({ ...x, publiee: "2026-10-08T06:00:00Z" })))[0];
     const html2 = emploiPage("https://rundata.re", { value: { ...d, nombre: 3, offres: [same] }, fetchedAt: NOW, stale: false }, NOW);
-    expect(html2).toContain('rel="noopener">Réf. O974261008000002</a>');
+    expect(html2).toContain('rel="noopener">Réf. <span class="nw">O974261008000002</span></a>');
     expect(html2).toContain('<span class="q-none">publiée le 08/10</span>');
     // A closing date apart, or another place: two lines.
     expect(lignes([offres[0], { ...offres[1], limite: "2026-11-20" }])).toHaveLength(2);
