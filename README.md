@@ -123,7 +123,7 @@ La marée est faible à La Réunion (20 à 80 cm) : en mortes-eaux, la pleine ou
 
 https://github.com/rundata-re/rundata — licence MIT (fichier [`LICENSE`](LICENSE)).
 
-Ailleurs : la fiche de réutilisation sur [data.gouv.fr](https://www.data.gouv.fr/reuses/rundata-re-la-reunion-974-en-direct-pour-vous-et-votre-assistant-ia), la fiche du serveur sur [Glama](https://glama.ai/mcp/servers/rundata-re/rundata) et les comptes [Facebook](https://www.facebook.com/1432704299917309), [Instagram](https://www.instagram.com/rundata.re/) et [WhatsApp](https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q) (la chaîne).
+Ailleurs : la fiche de réutilisation sur [data.gouv.fr](https://www.data.gouv.fr/reuses/rundata-re-la-reunion-974-en-direct-pour-vous-et-votre-assistant-ia), la fiche du serveur sur [Glama](https://glama.ai/mcp/servers/rundata-re/rundata) et les comptes [Facebook](https://www.facebook.com/rundata.re), [Instagram](https://www.instagram.com/rundata.re/) et [WhatsApp](https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q) (la chaîne).
 
 Chaque pull request fusionnée est mise en ligne sur rundata.re dès que les tests passent (`.github/workflows/deploy.yml`). Quand un réseau de bus publie de nouveaux horaires, ils sont importés dans D1 avant la fusion (`scripts/build-transit.py --d1 rundata-transports`) : sans eux, le déploiement s'arrête avant de mettre en ligne.
 
