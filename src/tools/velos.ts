@@ -21,10 +21,12 @@ export function stock(s: velos.StationNow): string {
   return s.places != null && s.retour ? `${out} et ${plural(s.places, "place libre", "places libres")}` : out;
 }
 
-export function stationRow(s: velos.StationNow, m?: number) {
+/** A station as the tool gives it; with its position (`at`) for the pages' « Y aller », never in the tool's answer. */
+export function stationRow(s: velos.StationNow, m?: number, at = false) {
   return {
     nom: s.nom,
     commune: s.commune,
+    ...(at ? { lat: s.lat, lon: s.lon } : {}),
     ...(m != null ? { distance_m: Math.round(m / 10) * 10 } : {}),
     velos_electriques: s.velos,
     ...(s.trottinettes ? { trottinettes: s.trottinettes } : {}),
@@ -45,7 +47,7 @@ const COMMON = {
   couverture: `Stations à ${COMMUNES.join(", ")} seulement.`,
 };
 
-export async function velosLibreService(cache: Cache, lieu: string | undefined, now = new Date()) {
+export async function velosLibreService(cache: Cache, lieu: string | undefined, now = new Date(), at = false) {
   let list: velos.StationNow[];
   let fetchedAt: Date;
   try {
@@ -70,7 +72,7 @@ export async function velosLibreService(cache: Cache, lieu: string | undefined, 
     return text({
       resume: `Altervélo en ce moment : ${plural(total, "vélo disponible", "vélos disponibles")} dans ${plural(open.length, "station ouverte", "stations ouvertes")} (${byCommune.map((c) => `${c.commune} ${fr(c.velos_disponibles)}`).join(", ")}).`,
       communes: byCommune,
-      stations: [...list].sort((a, b) => b.velos - a.velos).map((s) => stationRow(s)),
+      stations: [...list].sort((a, b) => b.velos - a.velos).map((s) => stationRow(s, undefined, at)),
       ...common,
     });
   }
@@ -78,7 +80,7 @@ export async function velosLibreService(cache: Cache, lieu: string | undefined, 
   const direct = named(list, lieu);
   if (direct.length) {
     const s = direct[0];
-    return text({ resume: `Station Altervélo ${s.nom} (${s.commune}) : ${stock(s)}.`, stations: [stationRow(s)], ...common });
+    return text({ resume: `Station Altervélo ${s.nom} (${s.commune}) : ${stock(s)}.`, stations: [stationRow(s, undefined, at)], ...common });
   }
 
   const res = resolvePlace(lieu);
@@ -109,7 +111,7 @@ export async function velosLibreService(cache: Cache, lieu: string | undefined, 
   return text({
     lieu: placeBlock(lieu, res),
     resume,
-    stations: shown.map((x) => stationRow(x.s, wholeCommune ? undefined : x.m)),
+    stations: shown.map((x) => stationRow(x.s, wholeCommune ? undefined : x.m, at)),
     ...(near.length ? {} : { note: `Aucune station à moins de ${fr(NEAR_M / 1000)} km : voici les plus proches.` }),
     ...common,
   });

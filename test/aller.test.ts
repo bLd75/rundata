@@ -9,7 +9,7 @@ import { bathingPage } from "../src/web/baignade.js";
 import type { BorneStation, EauAnswer, SeaData } from "../src/web/data.js";
 import { decheteriesPage } from "../src/web/decheteries.js";
 import { borneRow, eauPage } from "../src/web/domains.js";
-import { seaPage } from "../src/web/pages.js";
+import { CSS, seaPage } from "../src/web/pages.js";
 import { site } from "../src/web/site.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import * as dech from "../src/vie/decheteries.js";
@@ -17,6 +17,13 @@ import type * as transit from "../src/providers/transit.js";
 import { couleur, enfantsCommunePage, enfantsPage } from "../src/web/enfants.js";
 import { daePage } from "../src/web/domains.js";
 import { pageOf } from "../src/web/places.js";
+import { DAES } from "../src/providers/dae.js";
+import { daeRow } from "../src/tools/dae.js";
+import { resume } from "../src/tools/resume.js";
+import { MARCHES } from "../src/vie/marches.js";
+import { aujourdhuiPage } from "../src/web/aujourdhui.js";
+import { buildDae } from "../src/web/data.js";
+import { bikeRow } from "../src/web/domains.js";
 
 const O = "https://rundata.re";
 const NOW = new Date("2026-10-29T08:00:00Z");
@@ -248,5 +255,52 @@ describe("« Y aller » beyond /enfants: stations, bathing, beaches, recycling c
     expect(two.match(/class="aller"/g)).toHaveLength(2);
     expect(two).toMatch(/^<p class="ya">Car Jaune\u00a0: <a class="aller"/);
     expect(SAME_STOP_M).toBe(50);
+  });
+});
+
+describe("« Y aller » on the places whose position the pages' copies now keep", () => {
+  const cached = <T>(value: T) => ({ value, fetchedAt: NOW, stale: false });
+  const labels = (html: string) => [...html.matchAll(/class="aller"[^>]*aria-label="Y aller\u00a0: ([^"]+)"/g)].map((m) => m[1]);
+
+  it("is on each defibrillator of the communes' lists, by the normal route, the tool's rows left without a position", async () => {
+    const d = await buildDae();
+    const page = daePage(O, cached(d), NOW);
+    const lists = page.slice(page.indexOf('<ul class="zones">'), page.indexOf("</ul></details></li></ul>") + 25);
+    const rows = d.communes.reduce((n, c) => n + c.liste.length, 0);
+    expect(labels(lists)).toHaveLength(rows);
+    // A device of the commune may be kilometres away: not on foot, as « Autour de moi »'s.
+    expect(lists).not.toContain('data-m="pied"');
+    const first = d.communes[0].liste[0];
+    expect(lists).toContain(`destination=${first.lat},${first.lon}" rel="noopener" data-a="${first.adresse.replace(/'/g, "&#39;")}"`);
+    expect(page.match(/<dialog id="aller"/g)).toHaveLength(1);
+    expect(Object.keys(daeRow(DAES[0]))).not.toContain("lat");
+  });
+
+  it("is under the name of an Altervélo station whose copy has its position, and nowhere without one", () => {
+    const station = { nom: "IUT", commune: "Saint-Pierre", velos_electriques: 3, maj: "20:35" };
+    expect(bikeRow(station)).not.toContain("aller");
+    expect(bikeRow({ ...station, lat: -21.34, lon: 55.49 })).toContain(`<span>IUT<span class="ya"><a class="aller" href="https://www.google.com/maps/dir/?api=1&amp;destination=-21.34,55.49" rel="noopener" aria-label="Y aller\u00a0: IUT">`);
+    // On a commune's page the Vélos tile is a link over its whole surface: the buttons sit above it, else a tap opens /velos.
+    expect(CSS).toContain(".tile h3 a::after{content:\"\";position:absolute;inset:0;border-radius:22px;z-index:1}");
+    expect(CSS).toContain(".tile .aller{position:relative;z-index:2}");
+  });
+
+  it("leads to the town hall and to the day's markets on /aujourdhui, the summary itself without a position", () => {
+    const p = pageOf("saint-paul")!;
+    // Saturday 24/10/2026: the Saint-Paul market is held.
+    const now = new Date("2026-10-24T07:10:00Z");
+    const mairie = { nom: "Mairie de Saint-Paul", insee: "97415", adresse: "Place de l'Exemple, 97460 Saint-Paul", lon: 55.27, lat: -21.01, horaires: [], fiche: "https://example.org" };
+    const r = resume(p, { commune: { value: { mairie, sources: [] }, fetchedAt: now, stale: false } } as never, now);
+    expect(r.mairie).toBeDefined();
+    expect(JSON.stringify(r)).not.toMatch(/"lat"/);
+    const html = aujourdhuiPage(O, p, r, null, undefined, mairie);
+    const market = MARCHES().find((m) => m.osm === r.marches_du_jour!.liste[0].carte)!;
+    expect(labels(html)).toEqual(["Mairie de Saint-Paul", ...r.marches_du_jour!.liste.map((x) => x.nom)]);
+    expect(html).toContain(`destination=${market.lat},${market.lon}`);
+    expect(html).toContain('data-a="Place de l&#39;Exemple, 97460 Saint-Paul"');
+    expect(html.match(/<dialog id="aller"/g)).toHaveLength(1);
+    // Without the commune's copy, no town hall: the markets, from the bundled list, keep theirs.
+    const bare = aujourdhuiPage(O, p, resume(p, {}, now), null);
+    expect(labels(bare)).toEqual(r.marches_du_jour!.liste.map((x) => x.nom));
   });
 });

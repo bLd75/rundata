@@ -12,7 +12,7 @@ import { tranche } from "../tools/format.js";
 import { ageRange } from "../providers/agenda-mots.js";
 import type { SourceInfo } from "../types.js";
 import data from "./enfants.json" with { type: "json" };
-import { hoursOn } from "./marches.js";
+import { spansOn } from "./marches.js";
 
 export type Kind = "aire_de_jeux" | "parc" | "piscine" | "mediatheque" | "animaux" | "loisirs" | "salle_jeux" | "sport" | "escalade" | "musee" | "ludotheque";
 
@@ -178,9 +178,7 @@ export function nearest(lon: number, lat: number, list = LIEUX, max = 5) {
  * 13:30–17:00 ». Undefined when it gives none for that day.
  */
 export function hoursToday(l: Lieu, now: Date): string | undefined {
-  const said = l.horaires_osm ? hoursOn({ horaires_osm: l.horaires_osm }, now) : undefined;
-  const min = (h: string, m?: string) => Number(h) * 60 + Number(m ?? 0);
-  return said?.replace(/de (\d+) h(?: (\d\d))? à (\d+) h(?: (\d\d))?/g, (_, h1, m1, h2, m2) => tranche(min(h1, m1), min(h2, m2)));
+  return l.horaires_osm ? spansOn({ horaires_osm: l.horaires_osm }, now)?.map(([de, a]) => tranche(de, a)).join(" et ") : undefined;
 }
 export const HOURS_NOTE = typo("Les horaires viennent d'OpenStreetMap : vérifiez auprès du lieu avant de vous déplacer, surtout un jour férié.");
 
