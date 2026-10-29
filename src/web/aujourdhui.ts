@@ -113,7 +113,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
           ? `<ul class="plain">${ev.liste.map((e) => `<li>${e.statut ? `<b>${esc(e.statut)}</b> · ` : ""}${e.lien && ACCUEILS.has(e.lien) ? `<a href="${esc(e.lien)}" rel="noopener" target="_blank">${esc(e.titre)}</a>` : li({ titre: e.titre, lien: e.lien }).slice(4, -5)} <span class="note">${esc([e.quand, e.lieu, e.prix, e.source && `Source\u00a0: ${e.source}`].filter(Boolean).join(" · "))}</span></li>`).join("")}</ul>${ev.autres ? `<p class="note">Et ${plural(ev.autres, "autre")}.</p>` : ""}`
           : `<p>Rien d'annoncé aujourd'hui ${esc(aCommune(p.nom))} dans les agendas lus.</p>`) +
         // Its site not read until it agrees: said under them, in marketing's words.
-        (notRead ? `<p class="note">${esc(notRead.ligne)}${reprise(notRead.ligne)}</p>` : ""),
+        (notRead ? `<p class="note np">${esc(notRead.ligne)}${reprise(notRead.ligne)}</p>` : ""),
         "/evenements")
     : "";
   const d = r.decheteries;
@@ -171,7 +171,7 @@ ${cuts || events ? `<section aria-labelledby="h-eau-sorties"><div class="sec-h">
   <div class="two">${cuts}${events}</div>
 </section>` : ""}
 <section aria-labelledby="h-pratique"><div class="sec-h"><h2 id="h-pratique">Vie pratique</h2></div>
-  <div class="card"><ul class="plain">${practical}</ul>${powerNotRead ? `<p class="note">${esc(powerNotRead)}${reprise(powerNotRead)}</p>` : ""}</div>
+  <div class="card"><ul class="plain">${practical}</ul>${powerNotRead ? `<p class="note np">${esc(powerNotRead)}${reprise(powerNotRead)}</p>` : ""}</div>
 </section>
 <section>${missing}
   <p class="note"><a href="/communes/${p.slug}">${esc(p.nom)} en direct : les bus, la mairie, toutes les rubriques →</a></p>

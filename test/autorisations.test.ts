@@ -223,7 +223,7 @@ describe("the communes whose site's terms ask for their authorisation, until the
     const page = PAGES.find((p) => p.slug === "le-tampon")!;
     const empty = { resume: "", nombre: 0, couverture: "", a_savoir: "", ce_week_end: [], evenements: [], sources: [] };
     const html = aujourdhuiPage("https://rundata.re", page, resume(page, { agenda: { value: empty, fetchedAt: NOW, stale: false } } as never, NOW), null);
-    expect(html).toContain("Rien d'annoncé aujourd'hui au Tampon dans les agendas lus.</p><p class=\"note\">Agenda du site de la commune non repris : ses mentions légales l&#39;interdisent sans son accord. <a href=\"/ouvrir-ses-donnees#licence\">Comment permettre la reprise</a></p>");
+    expect(html).toContain("Rien d'annoncé aujourd'hui au Tampon dans les agendas lus.</p><p class=\"note np\">Agenda du site de la commune non repris : ses mentions légales l&#39;interdisent sans son accord. <a href=\"/ouvrir-ses-donnees#licence\">Comment permettre la reprise</a></p>");
     const paul = PAGES.find((p) => p.slug === "saint-paul")!;
     expect(aujourdhuiPage("https://rundata.re", paul, resume(paul, { agenda: { value: empty, fetchedAt: NOW, stale: false } } as never, NOW), null)).not.toContain("non repris");
   });
