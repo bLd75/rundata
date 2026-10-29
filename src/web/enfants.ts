@@ -239,13 +239,15 @@ const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // The map and the list, kept together: a chip hides the kinds it leaves out on both; a dot opens its sheet under the
 // map and marks its row; a row's button marks its dot, brought into the frame. Pinch, drag and the buttons move the
-// map's viewBox, within the commune's frame. Without the script, each dot is a link to its row.
+// map's viewBox, within the commune's frame, and so does a tap on too many dots at once (`pzoom`, carte-points.ts).
+// Without the script, each dot is a link to its row.
 const MAP_SCRIPT = `(()=>{const svg=document.getElementById("ecm"),f=document.getElementById("ecf"),sheet=document.getElementById("ecs");if(!svg||!f)return;
 f.hidden=false;document.querySelectorAll("#ecl .tomap,#ecz").forEach((e)=>{e.hidden=false});
 const B=svg.dataset.box.split(" ").map(Number);let v=B.slice();const put=()=>{svg.setAttribute("viewBox",v.map((x)=>Math.round(x*100)/100).join(" "));svg.classList.toggle("zoomed",v[2]<B[2]-.01)};
 const clamp=()=>{v[2]=Math.min(B[2],Math.max(B[2]/12,v[2]));v[3]=v[2]*B[3]/B[2];v[0]=Math.min(B[0]+B[2]-v[2],Math.max(B[0],v[0]));v[1]=Math.min(B[1]+B[3]-v[3],Math.max(B[1],v[1]));put()};
 const zoom=(k,cx,cy)=>{if(cx===undefined){cx=v[0]+v[2]/2;cy=v[1]+v[3]/2}const w=v[2]/k;v=[cx-(cx-v[0])/k,cy-(cy-v[1])/k,w,w*B[3]/B[2]];clamp()};
 const pt=(x,y)=>{const m=svg.getScreenCTM().inverse(),p=new DOMPoint(x,y).matrixTransform(m);return[p.x,p.y]};
+svg.addEventListener("pzoom",(e)=>{const w=v[2],c=pt(e.detail.x,e.detail.y);zoom(2.5,c[0],c[1]);if(v[2]<w)e.preventDefault()});
 const ps=new Map();let moved=0,last=null;
 svg.addEventListener("pointerdown",(e)=>{ps.set(e.pointerId,[e.clientX,e.clientY]);moved=0;last=null});
 svg.addEventListener("pointermove",(e)=>{if(!ps.has(e.pointerId))return;const o=ps.get(e.pointerId);ps.set(e.pointerId,[e.clientX,e.clientY]);
@@ -289,7 +291,11 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
   const list = enfants.TYPES.flatMap((t) => enfants.inCommune(c).filter((l) => l.type === t.type));
   const title = MOTS.title(c);
   const description = MOTS.description(c, list.length);
-  const spots: Spot[] = list.map((l, i) => ({ lon: l.lon, lat: l.lat, i, t: l.type, f: familleOf(l.type).f, name: enfants.named(l) ? `${l.nom} (${enfants.typeOf(l.type).un})` : nomOf(l) }));
+  const spots: Spot[] = list.map((l, i) => ({
+    lon: l.lon, lat: l.lat, i, t: l.type, f: familleOf(l.type).f, name: enfants.named(l) ? `${l.nom} (${enfants.typeOf(l.type).un})` : nomOf(l),
+    // An unnamed place has its kind in its name already.
+    tip: { name: nomOf(l), kind: enfants.named(l) ? capital(enfants.typeOf(l.type).un) : undefined, address: l.adresse },
+  }));
   const kinds = enfants.TYPES.filter((t) => list.some((l) => l.type === t.type));
   const families = FAMILLES.filter((x) => list.some((l) => x.types.includes(l.type)));
 
