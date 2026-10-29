@@ -10,19 +10,24 @@ describe("the hourly package's measures", () => {
   it("keeps temperature, humidity, wind and pressure hour by hour, in the units shown", () => {
     const [h0, h1] = meteofrance.stationHours(HOURLY, "97416463");
     // 298.85 K, 74 %, 130°, 9.0 m/s, 11.6 m/s, 101860 Pa, rr1 -0.1.
-    expect(h0).toEqual({ fin: "2026-10-25T08:00:00Z", rr: 0, t: 25.7, u: 74, dd: 130, ff: 32, raf: 42, pmer: 1018.6 });
+    expect(h0).toEqual({ fin: "2026-10-25T08:00:00Z", rr: 0, t: 25.7, u: 74, dd: 130, ff: 32, raf: 42, pmer: 1018.6, ins: null });
     expect(h1).toMatchObject({ fin: "2026-10-25T07:00:00Z", t: 24.7, u: 80, ff: 32, raf: 44, pmer: 1019 });
   });
 
   it("leaves null what a station does not report", () => {
     const [h0] = meteofrance.stationHours(HOURLY, "97412356");
-    expect(h0).toEqual({ fin: "2026-10-25T08:00:00Z", rr: 2.6, t: 18.4, u: null, dd: null, ff: null, raf: null, pmer: null });
+    expect(h0).toEqual({ fin: "2026-10-25T08:00:00Z", rr: 2.6, t: 18.4, u: null, dd: null, ff: null, raf: null, pmer: null, ins: null });
+  });
+
+  it("keeps the minutes of sunshine of each hour, null at a station without a recorder", () => {
+    // insolh 20, 46 and 52 at Gillot.
+    expect(meteofrance.stationHours(HOURLY, "97418110").slice(0, 3).map((h) => h.ins)).toEqual([20, 46, 52]);
   });
 
   it("keeps HOURS_KEPT hours, and reads a copy saved before the measures were kept", () => {
     expect(meteofrance.stationHours(HOURLY, "97416463")).toHaveLength(HOURLY.rr["97416463"].length);
     const old = { end: HOURLY.end, rr: HOURLY.rr };
-    expect(meteofrance.stationHours(old, "97416463")[0]).toEqual({ fin: "2026-10-25T08:00:00Z", rr: 0, t: null, u: null, dd: null, ff: null, raf: null, pmer: null });
+    expect(meteofrance.stationHours(old, "97416463")[0]).toEqual({ fin: "2026-10-25T08:00:00Z", rr: 0, t: null, u: null, dd: null, ff: null, raf: null, pmer: null, ins: null });
     expect(meteofrance.stationHours(HOURLY, "00000000")).toEqual([]);
   });
 });

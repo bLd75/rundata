@@ -130,7 +130,11 @@ export interface HourlyRain {
   mesures?: Record<string, HourlyMeasures>;
 }
 
-/** One station's hours, newest first: °C, %, degrees the wind comes from, km/h, km/h, hPa; null when not reported. */
+/**
+ * One station's hours, newest first: °C, %, degrees the wind comes from, km/h, km/h, hPa, minutes of sunshine; null
+ * when not reported. `ins` is absent from a copy saved before it was kept, and null at the stations without a sunshine
+ * recorder.
+ */
 export interface HourlyMeasures {
   t: (number | null)[];
   u: (number | null)[];
@@ -138,11 +142,12 @@ export interface HourlyMeasures {
   ff: (number | null)[];
   raf: (number | null)[];
   pmer: (number | null)[];
+  ins?: (number | null)[];
 }
 
-// The columns kept besides the rain, and how each becomes the unit of HourlyMeasures.
-const HOURLY_MEASURES: [keyof HourlyMeasures, (v: number) => number][] = [
-  ["t", celsius], ["u", Math.round], ["dd", Math.round], ["ff", kmh], ["raf", kmh], ["pmer", (pa) => r1(pa / 100)],
+// The columns kept besides the rain, how each becomes the unit of HourlyMeasures, and its column when named otherwise.
+const HOURLY_MEASURES: [keyof HourlyMeasures, (v: number) => number, string?][] = [
+  ["t", celsius], ["u", Math.round], ["dd", Math.round], ["ff", kmh], ["raf", kmh], ["pmer", (pa) => r1(pa / 100)], ["ins", Math.round, "insolh"],
 ];
 
 /**
@@ -156,13 +161,13 @@ export function parseHourly(csv: string, newest: number): HourlyRain {
   const rr: HourlyRain["rr"] = {};
   const mesures: Record<string, HourlyMeasures> = {};
   const none = () => Array<number | null>(HOURS_KEPT).fill(null);
-  scanHours(csv, hours, ["rr1", ...HOURLY_MEASURES.map(([c]) => c)], (station, k, [value, ...rest]) => {
+  scanHours(csv, hours, ["rr1", ...HOURLY_MEASURES.map(([c, , col]) => col ?? c)], (station, k, [value, ...rest]) => {
     rr[station] ??= none();
     // The two airports write -0.1 now and then: no rain counted.
     if (value) rr[station][k] = Math.max(0, Number(value));
-    const m = (mesures[station] ??= { t: none(), u: none(), dd: none(), ff: none(), raf: none(), pmer: none() });
+    const m = (mesures[station] ??= { t: none(), u: none(), dd: none(), ff: none(), raf: none(), pmer: none(), ins: none() });
     HOURLY_MEASURES.forEach(([c, unit], i) => {
-      if (rest[i] && Number.isFinite(Number(rest[i]))) m[c][k] = unit(Number(rest[i]));
+      if (rest[i] && Number.isFinite(Number(rest[i]))) m[c]![k] = unit(Number(rest[i]));
     });
   });
   return { end: iso(end), rr, mesures };
@@ -260,6 +265,8 @@ export interface StationHour {
   ff: number | null;
   raf: number | null;
   pmer: number | null;
+  /** Minutes of sunshine in the hour. */
+  ins: number | null;
 }
 
 /** A station's kept hours, newest first; empty when the package has none of it. */
@@ -277,6 +284,7 @@ export function stationHours(hourly: HourlyRain, id: string): StationHour[] {
     ff: m?.ff[k] ?? null,
     raf: m?.raf[k] ?? null,
     pmer: m?.pmer[k] ?? null,
+    ins: m?.ins?.[k] ?? null,
   }));
 }
 

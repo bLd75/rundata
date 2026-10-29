@@ -45,6 +45,7 @@ import { FORMS_CSS } from "./formulaires-style.js";
 import { fond, FOND_CSS } from "./fonds.js";
 import { POINTS_CSS, POINTS_SCRIPT } from "./carte-points.js";
 import { ALTITUDES_CREDIT, communeOf, METEO_SCRIPT, RADAR_CREDIT, rainPill, stationsMap, windPill } from "./meteo-carte.js";
+import { stationOf, stationPath } from "./station.js";
 import { hash, INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 import { bathingBlock } from "./baignade.js";
@@ -820,6 +821,19 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .qdays li.nolu{background:repeating-linear-gradient(135deg,var(--line) 0 1px,transparent 1px 4px);opacity:.7}
 .qdays .axis{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted);margin:.2rem 0 0}
 .bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.2rem .6rem;font-size:.92rem}
+/* A station's page (web/station.ts): its last measure, its charts drawn on the server, its months and its records. */
+.sta-now h3{color:var(--on-night)}.sta-now .bars li{grid-template-columns:auto minmax(0,1fr);gap:.2rem 1rem}.sta-now .bars li b{text-align:right}
+.sta-grid{display:grid;gap:1rem;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr))}.sta-grid .card{padding:1rem}
+.sta-grid h3{font-size:1rem;margin-bottom:.4rem}.sta-grid h3 small{font-weight:400;color:var(--muted)}.sta-0{color:var(--muted);padding:1rem 0}
+.ch{width:100%;height:auto;display:block}.ch .gr{stroke:var(--line);stroke-width:1}.ch .ax{font-size:20px;fill:var(--muted)}
+.ch .ln-t{fill:none;stroke:#d06a28;stroke-width:3.5}.ch .ln-n{fill:none;stroke:#2a6a9a;stroke-width:3.5}.ch .bd{fill:#d6a828;opacity:.18}.ch .br{fill:#2456b8}
+.ch .ln-v{fill:none;stroke:#248c78;stroke-width:3.5}.ch .ln-r{fill:none;stroke:#248c78;stroke-width:2;stroke-dasharray:6 4}
+.ch .wa{fill:none;stroke:var(--ink);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.k{display:inline-block;width:1.2rem;height:0;border-top:2.5px solid #248c78;vertical-align:middle;margin:0 .3rem 0 .6rem}.k-v{margin-left:0}.k-r{border-top:1.5px dashed #248c78}
+.sta-m{width:100%;border-collapse:collapse;font-size:.86rem}.sta-m th,.sta-m td{text-align:left;padding:.35rem .45rem;border-bottom:1px solid var(--line);vertical-align:top}.sta-m th{font-size:.8rem}
+.sta-m td b{display:block;font-weight:600}.sta-m td small{display:block;color:var(--muted);font-size:.78rem}
+.sta-rec{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));list-style:none;padding:0}.sta-rec li{display:flex;flex-direction:column;gap:.2rem;padding:1rem}
+.sta-rec span{color:var(--muted);font-size:.85rem}.sta-rec b{font:700 1.6rem/1.1 Bricolage,system-ui,sans-serif}.sta-rec small{color:var(--muted)}
 .band .bars li{color:var(--on-night)}
 .bars i{grid-column:1/-1;display:block;height:.55rem;border-radius:1rem;background:var(--vg0)}
 .bars i.ren{background:var(--ren)}
@@ -872,6 +886,8 @@ interface Head {
   volcan?: boolean;
   /** /vigilance, /cyclones and /crues: their own data says all is green, the only time their picture is shown (fonds.ts). */
   vert?: boolean;
+  /** The page's own hook, in place of its category's: a station's page, which says since when it measures. */
+  hook?: string;
 }
 
 /**
@@ -1056,8 +1072,8 @@ ${head.sansInstallation ? "" : INSTALL}
 }
 
 /** The hook goes right under the page's title; not on /volcan during an alert, whose heading and lines say it (marketing). */
-const withHook = (band: string, path: string, volcan?: boolean) => {
-  const h = volcan && path === "/volcan" ? undefined : hook(path);
+const withHook = (band: string, path: string, volcan?: boolean, own?: string) => {
+  const h = volcan && path === "/volcan" ? undefined : own ?? hook(path);
   return h ? band.replace("</h1>", `</h1>\n    <p class="hook">${esc(h)}</p>`) : band;
 };
 
@@ -1178,7 +1194,7 @@ ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head
 ${header(head.path, origin, urgent(head))}
 ${head.shell ? "" : `${banner(head.alerte, head.path)}
 ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
-<div class="band">${head.shell || head.noindex ? "" : fond(head.path, head.alerte, !!urgent(head).volcan, head.vert)}${withHook(band, head.path, head.volcan)}</div>
+<div class="band">${head.shell || head.noindex ? "" : fond(head.path, head.alerte, !!urgent(head).volcan, head.vert)}${withHook(band, head.path, head.volcan, head.hook)}</div>
 <main class="wrap">
 ${mentionLinks(main)}
 </main>
@@ -1343,7 +1359,7 @@ function stationsList(all: StationNow[], now: Date): string {
     const old = s.stale || ageMinutes(new Date(s.time), now) > 90 ? " (ancienne)" : "";
     const day = localTime(new Date(s.time)).split(" ")[0] !== localTime(now).split(" ")[0] ? `${dayMonth(localTime(new Date(s.time)).split(" ")[0].split("/").reverse().join("-"))} ` : "";
     return `<li class="st tgt" id="${stationId(s.nom)}" data-c="${esc(c)}" data-z="${s.altitude_m}" data-t="${s.temperature ?? ""}" data-n="${esc(s.nom)}">` +
-      `<p class="th">${t}<span class="when">${day}${hm(s.time)}${old}</span></p><h4>${esc(s.nom)}</h4><p class="ou">${esc(c)} · ${metres(s.altitude_m)}</p>` +
+      `<p class="th">${t}<span class="when">${day}${hm(s.time)}${old}</span></p><h4>${s.source === "meteofrance" && s.id && stationOf(s.id) ? `<a href="${stationPath(s.id)}">${esc(s.nom)}</a>` : esc(s.nom)}</h4><p class="ou">${esc(c)} · ${metres(s.altitude_m)}</p>` +
       `${pills ? `<p class="pls">${pills}</p>` : ""}</li>`;
   }).join("");
   const communes = [...new Set(all.map((s) => communeOf(s, all)).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "fr"));

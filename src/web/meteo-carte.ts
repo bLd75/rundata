@@ -17,9 +17,12 @@ import { chip, deg, hm, metres, shortName, stationId, thin } from "./pages.js";
 
 const COMMUNE_OF_INSEE = new Map(Object.entries(INSEE).map(([nom, code]) => [code, nom]));
 
+/** The commune of a Météo-France station, from the INSEE code its id starts with. */
+export const inseeCommune = (id: string) => COMMUNE_OF_INSEE.get(id.slice(0, 5));
+
 /** The commune of a station: from its INSEE code for Météo-France, else the nearest Météo-France station's. */
 export function communeOf(s: StationNow, all: StationNow[]): string | undefined {
-  const own = (x: StationNow) => (x.source === "meteofrance" && x.id ? COMMUNE_OF_INSEE.get(x.id.slice(0, 5)) : undefined);
+  const own = (x: StationNow) => (x.source === "meteofrance" && x.id ? inseeCommune(x.id) : undefined);
   if (own(s)) return own(s);
   const near = all.filter((x) => own(x)).sort((a, b) => Math.hypot(a.lon - s.lon, a.lat - s.lat) - Math.hypot(b.lon - s.lon, b.lat - s.lat))[0];
   return near && own(near);

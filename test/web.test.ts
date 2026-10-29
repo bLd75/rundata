@@ -21,6 +21,8 @@ import { unzip } from "../src/zip.js";
 import { RANDONNEES, SENTIERS } from "../src/providers/traces.js";
 import { SECTEURS as SECTEURS_RANDO } from "../src/traces/secteurs.js";
 import { PASSES } from "../src/historique/cyclones-passes.js";
+import { STATIONS } from "../src/web/station.js";
+import { esc } from "../src/web/map.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url));
 const NOW = new Date("2026-10-22T06:00:00Z");
@@ -417,6 +419,17 @@ describe("commune pages", () => {
     }
   });
 
+  it("give every station of the list a page, the CIRAD's too, before the place pages of /meteo", async () => {
+    expect((await site(html("/meteo/station/00000000"), isolate(), () => {}, NOW))!.status).toBe(404);
+    const r = (await site(html("/meteo/station/97418110"), isolate(), () => {}, NOW))!;
+    expect(r.status).toBe(200);
+    expect(await r.text()).toContain("<h1>Gillot <span class=\"n974\">aéroport</span></h1>");
+    const cirad = STATIONS.find((s) => / - CIRAD$/.test(s.nom))!;
+    const c = (await site(html(`/meteo/station/${cirad.id}`), isolate(), () => {}, NOW))!;
+    expect(c.status).toBe(200);
+    expect(await c.text()).toContain(`<h1>${esc(cirad.nom.replace(/ - CIRAD$/, ""))} <span class="n974">CIRAD</span></h1>`);
+  });
+
   it("are listed by zone, and linked from the menu, the home page and the weather pages", async () => {
     const list = (await serve(isolate(), "/communes")).text;
     expect(list.match(/<li><a href="\/communes\/[a-z-]+"/g)).toHaveLength(24);
@@ -445,7 +458,8 @@ describe("what crawlers and previews fetch", () => {
     // The pages, the 24 communes, their water, their day and their places for children, a page per hike and per ONF trail with its GPS trace, and per past
     // cyclone, and the busiest bus stops.
     const stops = [...stopPages().values()].filter((p) => p.indexe);
-    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 57 + 24 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length + stops.length);
+    expect(map.match(/<loc>/g)).toHaveLength(PAGES.length + 57 + 24 + 24 + 24 + 24 + SECTEURS_RANDO.length + RANDONNEES.length + Object.keys(SENTIERS).length + PASSES.length + stops.length + STATIONS.length);
+    expect(map).toContain("<loc>https://rundata.re/meteo/station/97418110</loc>");
     expect(map).toContain(`<loc>https://rundata.re/bus/arret/${stops[0].slug}</loc>`);
     expect(map).toContain("<loc>https://rundata.re/enfants</loc>");
     expect(map).toContain("<loc>https://rundata.re/sites-sans-reponse</loc>");
