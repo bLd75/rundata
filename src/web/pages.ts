@@ -788,6 +788,8 @@ interface Head {
   referrer?: string;
   /** The page shows the volcano's alert itself (the home page's card, /volcan's heading): no volcano banner above it. */
   volcan?: boolean;
+  /** /vigilance, /cyclones and /crues: their own data says all is green, the only time their picture is shown (fonds.ts). */
+  vert?: boolean;
 }
 
 /**
@@ -1073,7 +1075,7 @@ ${head.jsonld.length ? `<script type="application/ld+json">${JSON.stringify(head
 ${header(head.path, origin, urgent(head))}
 ${head.shell ? "" : `${banner(head.alerte, head.path)}
 ${head.volcan ? "" : bannerHtml(volcanBanner(), head.path)}`}
-<div class="band">${head.shell ? "" : fond(head.path, head.alerte, !!urgent(head).volcan)}${withHook(band, head.path, head.volcan)}</div>
+<div class="band">${head.shell || head.noindex ? "" : fond(head.path, head.alerte, !!urgent(head).volcan, head.vert)}${withHook(band, head.path, head.volcan)}</div>
 <main class="wrap">
 ${mentionLinks(main)}
 </main>
@@ -1775,7 +1777,7 @@ ${suivi}
   </div>
   <p class="note">Cette page reprend telle quelle la vigilance publiée par Météo-France (API DPVigilance, Licence Ouverte), lue toutes les 5 minutes. En cas de doute, seuls font foi <a href="${mf.SOURCE.url}">vigilance.meteofrance.fr</a>, <a href="https://meteofrance.re/">meteofrance.re</a> et la préfecture.</p>
 </section>`;
-  return layout(origin, { title, description, path: "/vigilance", jsonld, alerte }, band, body);
+  return layout(origin, { title, description, path: "/vigilance", jsonld, alerte, vert: !!v && !alerte && islandGreen(v, now) }, band, body);
 }
 
 const CROWDED = new Set(["Plage de la Saline les Bains", "Plage de Saint-Paul"]);

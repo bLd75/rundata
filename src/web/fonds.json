@@ -19,6 +19,114 @@
     "480": "mer-lagon-ermitage-480.c085723f1f.webp",
     "1024": "mer-lagon-ermitage-1024.693a359849.webp"
   },
+  "historique-abri-meteo": {
+    "480": "historique-abri-meteo-480.7b7dab5d29.webp",
+    "1024": "historique-abri-meteo-1024.20fa87cef3.webp"
+  },
+  "enfants-aire-de-jeux-haut": {
+    "480": "enfants-aire-de-jeux-haut-480.f9ad5218d2.webp",
+    "1024": "enfants-aire-de-jeux-haut-1024.6eb7b1ae40.webp"
+  },
+  "communes-ville-creole": {
+    "480": "communes-ville-creole-480.b681eb87b0.webp",
+    "1024": "communes-ville-creole-1024.8390cfda55.webp"
+  },
+  "volcan-repos-bellecombe": {
+    "480": "volcan-repos-bellecombe-480.8b42528e0e.webp",
+    "1024": "volcan-repos-bellecombe-1024.60253b46a5.webp"
+  },
+  "cyclone-saison-ciel": {
+    "480": "cyclone-saison-ciel-480.f66b42013c.webp",
+    "1024": "cyclone-saison-ciel-1024.18c11cb861.webp"
+  },
+  "crues-radier-ravine": {
+    "480": "crues-radier-ravine-480.d0e862f2b0.webp",
+    "1024": "crues-radier-ravine-1024.e982923040.webp"
+  },
+  "air-cote-ouest": {
+    "480": "air-cote-ouest-480.9551f92e37.webp",
+    "1024": "air-cote-ouest-1024.4729f09b09.webp"
+  },
+  "bornes-parking-palmiers": {
+    "480": "bornes-parking-palmiers-480.ded536f2b4.webp",
+    "1024": "bornes-parking-palmiers-1024.017d516fbf.webp"
+  },
+  "defibrillateur-mairie": {
+    "480": "defibrillateur-mairie-480.f74a64f37e.webp",
+    "1024": "defibrillateur-mairie-1024.904e40ff1b.webp"
+  },
+  "calendrier-lever-est": {
+    "480": "calendrier-lever-est-480.c7cc798899.webp",
+    "1024": "calendrier-lever-est-1024.91bc666a07.webp"
+  },
+  "electricite-barrage-toits": {
+    "480": "electricite-barrage-toits-480.16ac0c2aca.webp",
+    "1024": "electricite-barrage-toits-1024.f1ef6d55f1.webp"
+  },
+  "sport-stade-montagnes": {
+    "480": "sport-stade-montagnes-480.4ba9b6aa09.webp",
+    "1024": "sport-stade-montagnes-1024.4db3506523.webp"
+  },
+  "fond-secheresse-ravine": {
+    "480": "fond-secheresse-ravine-480.b067028e6e.webp",
+    "1024": "fond-secheresse-ravine-1024.12d6f4a605.webp"
+  },
+  "associations-varangue": {
+    "480": "associations-varangue-480.c0ceea659f.webp",
+    "1024": "associations-varangue-1024.b0c90dcb95.webp"
+  },
+  "coupures-eau-chateau": {
+    "480": "coupures-eau-chateau-480.e1ed99335b.webp",
+    "1024": "coupures-eau-chateau-1024.db145dff48.webp"
+  },
+  "eau-bassin-ravine": {
+    "480": "eau-bassin-ravine-480.1628023fe8.webp",
+    "1024": "eau-bassin-ravine-1024.9dae96ce0c.webp"
+  },
+  "velos-front-de-mer": {
+    "480": "velos-front-de-mer-480.a4f5f01d54.webp",
+    "1024": "velos-front-de-mer-1024.7e8f7770f9.webp"
+  },
+  "carburants-station-hauts": {
+    "480": "carburants-station-hauts-480.07c8df5635.webp",
+    "1024": "carburants-station-hauts-1024.b213099313.webp"
+  },
+  "collecte-rue-ouest": {
+    "480": "collecte-rue-ouest-480.06590997b3.webp",
+    "1024": "collecte-rue-ouest-1024.93c45c6393.webp"
+  },
+  "fond-feux-hauts": {
+    "480": "fond-feux-hauts-480.131d2a0922.webp",
+    "1024": "fond-feux-hauts-1024.564cef87fb.webp"
+  },
+  "ia-varangue-haut": {
+    "480": "ia-varangue-haut-480.1ceee8e29d.webp",
+    "1024": "ia-varangue-haut-1024.812a1a9d97.webp"
+  },
+  "ia-varangue": {
+    "480": "ia-varangue-480.67c86e6e82.webp",
+    "1024": "ia-varangue-1024.8d3d6560dd.webp"
+  },
+  "car-jaune-haut-sans-embleme": {
+    "480": "car-jaune-haut-sans-embleme-480.c4c94616b3.webp",
+    "1024": "car-jaune-haut-sans-embleme-1024.d18cf462e0.webp"
+  },
+  "decheterie-ouest": {
+    "480": "decheterie-ouest-480.bd18b88fa2.webp",
+    "1024": "decheterie-ouest-1024.b04b935a88.webp"
+  },
+  "baignade-lagon-sud": {
+    "480": "baignade-lagon-sud-480.75532550f6.webp",
+    "1024": "baignade-lagon-sud-1024.2c857a91db.webp"
+  },
+  "sentier-foret-hauts": {
+    "480": "sentier-foret-hauts-480.cdf9d879e3.webp",
+    "1024": "sentier-foret-hauts-1024.606fe10929.webp"
+  },
+  "kit-cyclone-varangue": {
+    "480": "kit-cyclone-varangue-480.9aea25fa3c.webp",
+    "1024": "kit-cyclone-varangue-1024.4093772ac3.webp"
+  },
   "emploi-metiers-reunion": {
     "480": "emploi-metiers-reunion-480.b1a289a314.webp",
     "1024": "emploi-metiers-reunion-1024.9b13849103.webp"
