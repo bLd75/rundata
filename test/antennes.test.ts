@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { handle } from "../src/app.js";
+import { Cache } from "../src/cache.js";
 import { inReunion } from "../src/geo.js";
 import { antennas } from "../src/tools/terrain.js";
 import * as antennes from "../src/vie/antennes.js";
+import { antennesPage } from "../src/web/antennes.js";
 import { communePage } from "../src/web/commune.js";
 import { pageOf } from "../src/web/places.js";
+import { CSS } from "../src/web/pages.js";
 
 describe("the antennas of the island (ANFR)", () => {
   it("bundles every mobile support of the island with its operators, and the FM, TNT and DAB+ supports", () => {
@@ -64,9 +68,34 @@ describe("the antennas of the island (ANFR)", () => {
     const start = page.indexOf('<section aria-labelledby="h-habiter">');
     const habiter = page.slice(start, page.indexOf("</section>", start));
     expect(habiter).toContain(
-      '<h3>Antennes</h3><p class="tv">7</p><p class="td all">supports d\'antennes mobiles dans la commune, déclarés à l\'ANFR au 22 octobre 2026, dont 5 avec la 5G techniquement opérationnelle · Orange sur 2, SFR Réunion sur 4, Free sur 1, Zeop sur 1 · 6 supports d\'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+) · ANFR</p>',
+      '<h3><a href="/antennes">Antennes</a></h3><p class="tv">7</p><p class="td all">supports d\'antennes mobiles dans la commune, déclarés à l\'ANFR au 22 octobre 2026, dont 5 avec la 5G techniquement opérationnelle · Orange sur 2, SFR Réunion sur 4, Free sur 1, Zeop sur 1 · 6 supports d\'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+) · ANFR</p>',
     );
     expect(habiter).not.toMatch(/couvert|couverture|exposition/);
     expect(page).toContain(antennes.SOURCE_MOBILE.nom);
+  });
+
+  it("has its page, /antennes: the map one layer at a time, the counts read from the files, the 5G as the ANFR says it", async () => {
+    const html = antennesPage("https://rundata.re");
+    expect(html).toContain("<title>Antennes Réunion : 4G, 5G, TNT et radio sur la carte · 974</title>");
+    // Counted from the files, never written: the next file changes them.
+    expect(html).toContain("<p class=\"lead\">1\u202f151 supports d&#39;antennes mobiles déclarés à l&#39;ANFR au 22 octobre 2026, et 173 supports d&#39;émetteurs de radio et de télévision au 30 septembre 2026.</p>");
+    const tabs = [...html.matchAll(/<input type="radio" name="ant" id="ant-([a-z0-9-]+)"/g)].map((m) => m[1]);
+    expect(tabs).toEqual(["tous", "orange", "sfr-reunion", "free", "zeop", "g2", "g3", "g4", "g5", "tnt", "fm", "dab"]);
+    // Each tab shows its layer and its legend: a tab without its rule would show nothing.
+    for (const t of tabs) expect(CSS, t).toContain(`.antmap:has(#ant-${t}:checked) :is(.ly-${t},.lg-${t})`);
+    const legends = [...html.matchAll(/<span class="lg lg-[^"]+">([^<]+)<\/span>/g)].map((m) => m[1].replace(/&#39;/g, "'"));
+    expect(legends).toHaveLength(12);
+    expect(legends).toContain("Orange : 392 supports avec au moins une antenne active, 4 en projet seulement.");
+    expect(legends).toContain("5G : 683 supports avec la 5G techniquement opérationnelle, 99 en projet, tous opérateurs.");
+    expect(legends).toContain("TNT : 36 supports d'émetteurs de télévision, 38 stations.");
+    expect(html).not.toMatch(/5G en service/);
+    // The commune of the tile has the same counts, its operators without « sur ».
+    expect(html).toContain('<th scope="row">Cilaos</th><td data-label="Supports mobiles">7</td><td data-label="Dont 5G techniquement opérationnelle">5</td><td data-label="Supports par opérateur">Orange 2, SFR Réunion 4, Free 1, Zeop 1</td><td data-label="Supports radio et TV">6</td>');
+    expect(html).toContain('<a href="https://www.cartoradio.fr" rel="noopener">cartoradio.fr</a>');
+    // Served, and linked from the commune's tile.
+    const res = await handle(new Request("https://rundata.re/antennes"), new Cache());
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("<h1>Les antennes de La Réunion</h1>");
+    expect(communePage("https://rundata.re", pageOf("cilaos")!, { place: null })).toContain('<h3><a href="/antennes">Antennes</a></h3>');
   });
 });

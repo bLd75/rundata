@@ -230,7 +230,7 @@ p,ul,ol,table,figure{margin:0}
 
 /* A section's colour is never one of the alert scale (yellow, orange, red, purple) nor a red: those say a real state
    (kit.md). The sections of risks share one neutral colour. */
-.k-meteo{--k:#ff9f43}.k-vigilance,.k-crues,.k-volcan,.k-cyclones,.k-secheresse{--k:#4fd1c5}.k-actualites{--k:#a5d8ff}.k-mer{--k:#22b8cf}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-coupures{--k:#74c0fc}.k-dae{--k:#40c057}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-historique{--k:#e599f7}.k-agenda{--k:#da77f2}.k-enfants{--k:#f06595}.k-emploi{--k:#20c997}
+.k-meteo{--k:#ff9f43}.k-vigilance,.k-crues,.k-volcan,.k-cyclones,.k-secheresse{--k:#4fd1c5}.k-actualites{--k:#a5d8ff}.k-mer{--k:#22b8cf}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-coupures{--k:#74c0fc}.k-dae{--k:#40c057}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-historique{--k:#e599f7}.k-agenda{--k:#da77f2}.k-enfants{--k:#f06595}.k-emploi{--k:#20c997}.k-antennes{--k:#ced4da}
 .k-air{--k:#38d9a9}.k-electricite{--k:#fab005}.k-calendrier{--k:#b197fc}.k-communes{--k:#f783ac}.k-services{--k:#74c0fc}.k-trafic{--k:#91a7ff}.k-terrain{--k:#d8a65a}
 .kb{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:12px;flex:none;color:var(--k);
 background:linear-gradient(155deg,color-mix(in srgb,var(--k) 20%,transparent),color-mix(in srgb,var(--k) 9%,transparent));
@@ -634,6 +634,11 @@ border-radius:6px;padding:.2rem .5rem;background:var(--warn-bg);color:var(--lave
 .airmap .aqtabs{margin-bottom:.5rem}.band .aqtabs label{color:var(--on-night-muted);border-color:rgb(255 255 255/.25)}.band .aqtabs input:checked+label{background:var(--on-night);color:var(--night);border-color:var(--on-night)}
 /* /air's map: one pollutant's layer and legend at a time; without :has, the default one. */
 .airmap .ly,.airmap .lg{display:none}.airmap .ly.on,.airmap .lg.on{display:inline}.airmap:has(.aqtabs input:checked:not(.on)) .on:is(.ly,.lg){display:none}
+/* /antennes: one layer and legend at a time, as /air's map; a dot per support, filled when active, a ring when only planned. */
+.antmap .ly,.antmap .lg{display:none}.antmap .ly.on{display:inline}.antmap .lg.on{display:inline}.antmap:has(.aqtabs input:checked:not(.on)) .on:is(.ly,.lg){display:none}
+.antmap:has(#ant-tous:checked) :is(.ly-tous,.lg-tous),.antmap:has(#ant-orange:checked) :is(.ly-orange,.lg-orange),.antmap:has(#ant-sfr-reunion:checked) :is(.ly-sfr-reunion,.lg-sfr-reunion),.antmap:has(#ant-free:checked) :is(.ly-free,.lg-free),.antmap:has(#ant-zeop:checked) :is(.ly-zeop,.lg-zeop),.antmap:has(#ant-g2:checked) :is(.ly-g2,.lg-g2),.antmap:has(#ant-g3:checked) :is(.ly-g3,.lg-g3),.antmap:has(#ant-g4:checked) :is(.ly-g4,.lg-g4),.antmap:has(#ant-g5:checked) :is(.ly-g5,.lg-g5),.antmap:has(#ant-tnt:checked) :is(.ly-tnt,.lg-tnt),.antmap:has(#ant-fm:checked) :is(.ly-fm,.lg-fm),.antmap:has(#ant-dab:checked) :is(.ly-dab,.lg-dab){display:inline}
+.antmap .in,.antmap .off,.antmap .off2{fill:none;stroke-linecap:round}.antmap .in{stroke:var(--link);stroke-width:9}.antmap .off{stroke:var(--link);stroke-width:9}.antmap .off2{stroke:var(--surface);stroke-width:4.5}.antmap .ly{filter:drop-shadow(0 0 .6px #fff) drop-shadow(0 0 .6px #fff)}.antmap :is(.ly-tnt,.ly-fm,.ly-dab) .in{stroke-width:15}
+.antmap .key{display:flex;align-items:center;gap:.3rem}.antmap .key+.key{margin-bottom:.5rem}.antmap:has(#ant-tnt:checked,#ant-fm:checked,#ant-dab:checked) .key{display:none}.antmap .key svg{flex:none;width:1rem;height:1rem}.antmap .key circle.in{fill:var(--link);stroke:none}.antmap .key circle.ring{fill:none;stroke:var(--link);stroke-width:2.5}.antmap .aqtabs{margin-bottom:.5rem}
 .wxmap:has(#wxl-t:checked) .lg-t,.wxmap:has(#wxl-p:checked) .lg-p{display:inline}
 .wxmap .l-p{display:none}.wxmap:has(#wxl-p:checked) .l-p{display:inline}.wxmap:has(#wxl-p:checked) .l-t{display:none}
 .wxmap:has(#wxl-t:checked) a.mk:not(.has-t),.wxmap:has(#wxl-p:checked) a.mk:not(.has-p){display:none}

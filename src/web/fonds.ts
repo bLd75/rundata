@@ -80,6 +80,7 @@ export const SANS_FOND: Record<string, string> = {
   "/conditions": "a legal text",
   "/confidentialite": "a legal text",
   "/hors-ligne": "the page of a phone without network",
+  "/antennes": "the relief map of the whole island is the page itself; a photo above it would show one place only",
   "/communes/*": "the page of one place",
   "/aujourdhui/*": "the page of one place",
   "/meteo/*": "the page of one place",
