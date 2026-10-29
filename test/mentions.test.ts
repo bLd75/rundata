@@ -55,10 +55,11 @@ describe("the sites that ask for their name with each link", () => {
       expect(mentionLinks(html)).toBe(html);
   });
 
-  it("are named on /enfants right after the address, once, and in the children's tool", () => {
+  it("are named on /enfants right after the link, once, and in the children's tool", () => {
     const html = enfantsPage("https://rundata.re", null, NOW);
     const li = html.slice(html.lastIndexOf("<li", html.indexOf(SITE)), html.indexOf("</li>", html.indexOf(SITE)));
-    expect(li).toContain(`Rue Louis Chabrier · ${HTML_MOTS}`);
+    // The address is on the line's second line, with « Y aller »: the mention stays with the link.
+    expect(li).toContain(`</a><small>${HTML_MOTS}</small>`);
     expect(count(li, HTML_MOTS)).toBe(1);
     const b = body(enfantsAnswer("médiathèque", "L'Étang-Salé", NOW));
     const lieu = b.lieux.flatMap((l: { lieux?: unknown[] }) => l.lieux ?? [l]).find((l: { lien?: string }) => l.lien === SITE);

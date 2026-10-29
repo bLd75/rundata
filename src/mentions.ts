@@ -3,8 +3,8 @@
  * host, the words said with every link to it, on the pages and in the tools' answers. Worded by the user (26/10/2026).
  * - L'Étang-Salé (letangsale.fr/mes-acces-rapides/mes-liens-utiles/mentions-legales): links allowed, the source named.
  *
- * A page: « · site de la ville de L'Étang-Salé » at the end of the line's <small> (web/enfants.ts puts it right after
- * the address), or a <small> of its own right after the link when the line has none. A tool's answer: a field
+ * A page: « · site de la ville de L'Étang-Salé » at the end of the line's <small> (web/enfants.ts: the <small> right
+ * after the link, its address on the line below), or a <small> of its own right after the link when the line has none. A tool's answer: a field
  * « <champ>_mention » beside each field whose value is such a link (« site » → « site_mention »). Neither when the link's
  * words or its line already name the site (« Le site de la mairie de L'Étang-Salé »).
  */
