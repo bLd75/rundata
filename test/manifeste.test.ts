@@ -82,7 +82,7 @@ describe("sharing and following", () => {
     const html = placePage(O, pageOf("cilaos")!, null, NOW);
     const text = "Météo Cilaos en direct et prévisions : https://rundata.re/meteo/cilaos?ref=wa";
     expect(html).toContain(`<a class="sh wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Partager sur WhatsApp`);
-    expect(html).toContain(`<p>Suivez rundata.re sur <a href="https://www.facebook.com/rundata.re?ref=site" rel="noopener">Facebook</a> (une info utile chaque matin) ou <a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener">Instagram</a>, et les sorties du week-end le vendredi sur notre <a href="https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q?ref=site" rel="noopener">chaîne WhatsApp</a>.</p>`);
+    expect(html).toContain(`<p>Suivez rundata.re sur <a href="https://www.facebook.com/rundata.re?ref=site" rel="noopener">Facebook</a> (une info utile chaque matin), <a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener">Instagram</a> ou <a href="https://www.threads.com/@rundata.re?ref=site" rel="noopener">Threads</a>, et les sorties du week-end le vendredi sur notre <a href="https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q?ref=site" rel="noopener">chaîne WhatsApp</a>.</p>`);
     expect(html.indexOf('class="share wrap"')).toBeLessThan(html.indexOf('id="avis"'));
   });
 
@@ -97,7 +97,11 @@ describe("sharing and following", () => {
       expect(sentence()).toBe("Suivez rundata.re sur Facebook (une info utile chaque matin) ou Instagram.");
       only("Facebook", "WhatsApp");
       expect(sentence()).toBe("Suivez rundata.re sur Facebook (une info utile chaque matin), et les sorties du week-end le vendredi sur notre chaîne WhatsApp.");
-      // No rhythm is promised for Instagram.
+      only("Facebook", "Instagram", "Threads");
+      expect(sentence()).toBe("Suivez rundata.re sur Facebook (une info utile chaque matin), Instagram ou Threads.");
+      // No rhythm is promised for Instagram or Threads.
+      only("Threads");
+      expect(sentence()).toBe("Suivez rundata.re sur Threads.");
       only("Instagram", "WhatsApp");
       expect(sentence()).toBe("Suivez rundata.re sur Instagram, et les sorties du week-end le vendredi sur notre chaîne WhatsApp.");
       only("WhatsApp");
@@ -118,11 +122,12 @@ describe("rundata.re's accounts", () => {
     const foot = html.slice(html.indexOf('<footer class="foot">'));
     expect(foot).toContain(`<p class="social">Suivre rundata.re : <span><span class="pair"><a href="https://www.facebook.com/rundata.re?ref=site" rel="noopener" aria-label="rundata.re sur Facebook"><svg`);
     expect(foot).toContain(`<a href="https://www.instagram.com/rundata.re/?ref=site" rel="noopener" aria-label="rundata.re sur Instagram"><svg`);
+    expect(foot).toContain(`<a href="https://www.threads.com/@rundata.re?ref=site" rel="noopener" aria-label="rundata.re sur Threads"><svg`);
     expect(foot).toContain(`<a href="https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q?ref=site" rel="noopener" aria-label="rundata.re sur WhatsApp"><svg`);
     // The code last, with no ?ref=site: GitHub brings no visit back to count.
     expect(foot).toContain(`<a href="https://github.com/rundata-re/rundata" rel="noopener" aria-label="rundata.re sur GitHub"><svg`);
-    // Two by two, so that a narrow line never leaves one alone.
-    expect(foot).toMatch(/<\/svg>Facebook<\/a><a [^>]+><svg[^]*?<\/svg>Instagram<\/a><\/span><span class="pair"><a [^>]+><svg[^]*?<\/svg>WhatsApp<\/a><a [^>]+><svg[^]*?<\/svg>GitHub<\/a><\/span><\/span><\/p>/);
+    // Two by two, the last three together, so that a narrow line never leaves one alone.
+    expect(foot).toMatch(/<\/svg>Facebook<\/a><a [^>]+><svg[^]*?<\/svg>Instagram<\/a><\/span><span class="pair"><a [^>]+><svg[^]*?<\/svg>Threads<\/a><a [^>]+><svg[^]*?<\/svg>WhatsApp<\/a><a [^>]+><svg[^]*?<\/svg>GitHub<\/a><\/span><\/span><\/p>/);
   });
 
   it("show nothing for an account without an address", () => {
@@ -136,7 +141,7 @@ describe("rundata.re's accounts", () => {
     const page = homePage(O, null, NOW);
     const ld = JSON.parse(page.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)![1]);
     const org = ld.find((x: { "@type": string }) => x["@type"] === "Organization");
-    expect(org.sameAs.slice(0, 3)).toEqual(["https://www.facebook.com/rundata.re", "https://www.instagram.com/rundata.re/", "https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q"]);
+    expect(org.sameAs.slice(0, 4)).toEqual(["https://www.facebook.com/rundata.re", "https://www.instagram.com/rundata.re/", "https://www.threads.com/@rundata.re", "https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q"]);
     // The accounts, GitHub among them, then the data.gouv.fr reuse, Glama and LobeHub, each once.
     expect(org.sameAs).toHaveLength(SOCIAL.filter((s) => s.url).length + 3);
     expect(org.sameAs.slice(-2)).toEqual(["https://glama.ai/mcp/servers/rundata-re/rundata", "https://lobehub.com/mcp/rundata-re-rundata"]);
