@@ -17,7 +17,7 @@ const fake: transit.TransitDb = {
         ?.filter((r) => r.id === id).map((r) => ({ feed, ...r })) ?? [],
     ) as T[],
 };
-// Friday 23/10/2026, 7h30 in La Réunion.
+// Friday 23/10/2026, 07:30 in La Réunion.
 const NOW = new Date("2026-10-23T03:30:00Z");
 const ORIGIN = "https://rundata.re";
 const CJ = transit.NETWORKS.carjaune;
@@ -74,7 +74,7 @@ describe("a trip", () => {
     const id = CJ.first_pattern + local;
     // A service of Car Jaune running on Friday 23/10.
     const service = Array.from({ length: 500 }, (_, i) => i).find((s) => transit.serviceRuns("carjaune", s, 20261023, 4))!;
-    // A night trip: from 23h50 to 0h30, on Friday's service.
+    // A night trip: from 23:50 to 00:30, on Friday's service.
     const night: transit.TransitDb = {
       all: async <T>(sql: string) =>
         (/FROM pattern_stops/.test(sql)
@@ -84,19 +84,19 @@ describe("a trip", () => {
     transit.configure(night);
     const friday = (await tripRun("carjaune", local, "nuit", 20261023, NOW))!;
     expect(friday).toBeDefined();
-    // Saturday 0h10: Friday's run is on the road, its last stop after midnight.
+    // Saturday 00:10: Friday's run is on the road, its last stop after midnight.
     const after = new Date("2026-10-23T20:10:00Z");
     const t = (await tripRun("carjaune", local, "nuit", undefined, after))!;
     expect(t.jour).toBe(20261023);
     const html = tripPage(ORIGIN, "/bus/trajet/carjaune/0/nuit", t, undefined, after);
-    // Seen at 0h10, its stops are said without « demain »; its start is the day before's.
-    expect(html).toContain(">0h30<");
-    expect(html).not.toContain("demain 0h30");
+    // Seen at 00:10, its stops are said without « demain »; its start is the day before's.
+    expect(html).toContain(">00:30<");
+    expect(html).not.toContain("demain 00:30");
     expect(html).toContain("départ de");
-    expect(html).toContain("à 23h50, vendredi 23 octobre");
-    // Seen on Friday at 23h00, the stop after midnight is tomorrow's.
+    expect(html).toContain("à 23:50, vendredi 23 octobre");
+    // Seen on Friday at 23:00, the stop after midnight is tomorrow's.
     const before = new Date("2026-10-23T19:00:00Z");
-    expect(tripPage(ORIGIN, "/bus/trajet/carjaune/0/nuit?jour=20261023", friday, undefined, before)).toContain(">demain 0h30<");
+    expect(tripPage(ORIGIN, "/bus/trajet/carjaune/0/nuit?jour=20261023", friday, undefined, before)).toContain(">demain 00:30<");
   });
 });
 
@@ -128,7 +128,7 @@ describe("the page of a trip", () => {
     const t = (await tripRun("carjaune", local, d.trip, 20261023, NOW, new Cache(store)))!;
     expect(t.direct).toEqual({ etat: "suivi", flux: t0 - 30 });
     const html = tripPage(ORIGIN, "/x", t, d.stop, NOW);
-    expect(html).toMatch(/<b class="rt" title="Heure annoncée en direct par le réseau">annoncé \d+h\d\d \(\+5 min\)<\/b>/);
+    expect(html).toMatch(/<b class="rt" title="Heure annoncée en direct par le réseau">annoncé \d\d:\d\d \(\+5 min\)<\/b>/);
     expect(html).toContain("Prévu : horaires publiés par Car Jaune. Annoncé : heure donnée en direct par Car Jaune, flux de ");
 
     // A feed that does not speak of it; one that is too old.
@@ -177,7 +177,7 @@ describe("the page of a trip", () => {
     store.put("rt:carjaune", feed(35 * 60));
     const late = (await tripRun("carjaune", local, d.trip, 20261023, NOW, new Cache(store)))!;
     expect(late.direct).toEqual({ etat: "suivi", flux: t0 - 30 });
-    expect(tripPage(ORIGIN, "/x", late, d.stop, NOW)).toMatch(/annoncé \d+h\d\d \(\+35 min\)<\/b>/);
+    expect(tripPage(ORIGIN, "/x", late, d.stop, NOW)).toMatch(/annoncé \d\d:\d\d \(\+35 min\)<\/b>/);
   });
 
   it("says a trip the timetables no longer have, with the way to the bus stations", () => {

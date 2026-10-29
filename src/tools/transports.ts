@@ -131,7 +131,7 @@ export interface Departure {
 
 /** Seconds from now until the bus is expected: the real-time feed's time when there is one. */
 const expected = (d: Departure) => d.in + (d.retard ?? 0);
-/** The delay in whole minutes, as the difference of the two times shown (« 21h05 », « 21h07 »): never at odds with them. */
+/** The delay in whole minutes, as the difference of the two times shown (« 21:05 », « 21:07 »): never at odds with them. */
 const delayMinutes = (d: Departure) => Math.floor((d.at + (d.retard ?? 0)) / 60) - Math.floor(d.at / 60);
 
 type Moment = { secs: number; days: readonly (readonly [{ ymd: number; weekday: number }, number])[] };
@@ -238,8 +238,8 @@ const gtfsRoute = (n: transit.Network, route: number) => n.temps_reel!.lignes[ro
 
 /**
  * How far from its timetable a time of the feed is believed. A run half an hour early is not that run: the network has
- * given a second bus, close behind the first, the trip of the next run (Car Jaune, on 26/10/2026: the S3 of 11h32 at
- * Saint-Pierre announced at 10h37, its bus a few stops behind the one of 10h32). A false large delay makes one miss a
+ * given a second bus, close behind the first, the trip of the next run (Car Jaune, on 26/10/2026: the S3 of 11:32 at
+ * Saint-Pierre announced at 10:37, its bus a few stops behind the one of 10:32). A false large delay makes one miss a
  * bus that comes on time, the worst for the rider: beyond 30 minutes late, it is believed only while a bus sends its
  * position under that trip, and never beyond an hour.
  */
