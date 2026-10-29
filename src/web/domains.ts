@@ -575,7 +575,7 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
   // The sensors of private people, under the index and apart from it, worded by marketing (29/10/2026): raw values by
   // commune, the hour they measured, never a colour, a threshold, an identifier nor a place.
   const am = d?.capteurs_amateurs;
-  const [amLe, amA] = am?.lu_par_rundata.split(" ") ?? [];
+  const [amLe, amA] = am && "lu_par_rundata" in am ? am.lu_par_rundata.split(" ") : [];
   const pm = (name: string, v: number | undefined) => (v === undefined ? "" : ` · ${name} : ${esc(nombre(v))} µg/m³`);
   const amateurs = am
     ? `<section aria-labelledby="h-capteurs-air">
@@ -583,8 +583,10 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
   <p><b>${esc(CAPTEURS_AVERTISSEMENT)}</b> ${esc(am.explication)}</p></div>
   <div class="card">${"valeurs" in am
     ? `<ul class="plain">${am.valeurs.map((v) => `<li>${esc(v.commune)}${pm("PM2,5", v.pm2_5)}${pm("PM10", v.pm10)} · mesurées ${esc(v.mesurees)} <span class="note">non étalonné</span></li>`).join("")}</ul>`
-    : `<p>${esc(am.aucun)} <a href="#brancher">Brancher un capteur</a></p>`}
-  <p class="note">Lu par rundata.re le ${esc(amLe)} à ${esc(amA)}, sur <a href="${esc(am.carte)}" rel="noopener">Sensor.Community</a> (<a href="${esc(capteurs.DBCL)}" rel="noopener">DbCL 1.0</a>).</p></div>
+    : "aucun" in am
+      ? `<p>${esc(am.aucun)} <a href="#brancher">Brancher un capteur</a></p>`
+      : `<p>${esc(am.echec)}</p>`}
+  <p class="note">${amLe ? `Lu par rundata.re le ${esc(amLe)} à ${esc(amA)}, sur` : "Capteurs partagés sur"} <a href="${esc(am.carte)}" rel="noopener">Sensor.Community</a> (<a href="${esc(capteurs.DBCL)}" rel="noopener">DbCL 1.0</a>).</p></div>
   <details class="card" id="brancher"><summary>Brancher son capteur</summary>
   <p>Un capteur de particules branché dehors et partagé sur Sensor.Community apparaît dans le bloc ci-dessus, arrondi à sa commune.</p>
   <h3>airRohr (Sensor.Community)</h3>
