@@ -3,7 +3,7 @@ import { configurerEquipe, handle, JETON_EQUIPE } from "../src/app.js";
 import { Cache } from "../src/cache.js";
 import { point, type Hit } from "../src/metrics.js";
 import { connecteurPage } from "../src/web/connecteur.js";
-import { legalPage } from "../src/web/pages.js";
+import { CSS, legalPage } from "../src/web/pages.js";
 import { lire, SIGNAL_SCRIPT, VENU } from "../src/web/signaux.js";
 
 const O = "https://rundata.re";
@@ -137,6 +137,8 @@ describe("The pages' part", () => {
     expect(html).toContain('data-js hidden>\n<p class="q">Cette page vous a aidé ? <button type="button" data-aide="oui">Oui</button> <button type="button" data-aide="non">Non</button></p>');
     expect(html).toContain('<p data-apres="oui" role="status" hidden>Merci !</p>');
     expect(html).toContain('<p data-apres="non" role="status" hidden>Merci. Dites-nous ce qui vous a manqué : <a href="#avis">laisser un avis</a></p>');
+    // The paragraphs' display must not show the hidden answers with the question (seen on phones, 29/10/2026).
+    expect(CSS).toContain(".aide [hidden]{display:none}");
   });
 
   it("sends by beacon to this site, and keeps in the browser only the two days of the visits", () => {
