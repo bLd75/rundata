@@ -42,7 +42,7 @@ describe("the rents asked in the ads (carte des loyers)", () => {
     const start = page.indexOf('<section aria-labelledby="h-habiter">');
     const habiter = page.slice(start, page.indexOf("</section>", start));
     expect(habiter).toContain('<h2 id="h-habiter">Habiter à Saint-Paul</h2>');
-    expect(habiter).toContain("<p>Des chiffres publiés une fois par an ou par trimestre, chacun avec sa date.</p>");
+    expect(habiter).toContain("<p>Des chiffres publiés une fois par an, par trimestre, par mois ou par semaine, chacun avec sa date.</p>");
     expect(habiter).toContain("<h3>Loyers d&#39;annonce</h3><p class=\"tv\">18,86\u00a0€/m²</p><p class=\"td all\">appartement type de 52\u00a0m²");
     expect(habiter).toContain("appartement type de 52\u00a0m², non meublé, charges comprises, d'après les annonces du 3e trimestre 2025 · maison type 15,57\u00a0€/m² · Estimations ANIL, à partir des données du Groupe SeLoger et de leboncoin</p>");
     expect(habiter).toContain(`<a href="${loyers.SOURCE.url}" rel="noopener">La carte des loyers de l'ANIL</a>`);

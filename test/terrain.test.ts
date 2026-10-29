@@ -174,9 +174,13 @@ describe("fiche terrain", () => {
     expect(r.loyers_d_annonce).toMatchObject({ commune: "Saint-Paul", millesime: 2025, maison: { loyer_m2_charges_comprises: "15,57\u00a0€/m²" } });
     expect(r.sources.map((x: { attribution: string }) => x.attribution)).toContain("Estimations ANIL, à partir des données du Groupe SeLoger et de leboncoin");
     // Then the commune's fibre, from the bundled statistics of the Arcep.
-    expect(r.resume).toContain("\u00a0; 95,1\u00a0% des logements et locaux professionnels de Saint-Paul sont éligibles à la fibre au 30/06/2026, ce qui ne veut pas dire raccordés (Arcep).");
+    expect(r.resume).toContain("\u00a0; 95,1\u00a0% des logements et locaux professionnels de Saint-Paul sont éligibles à la fibre au 30/06/2026, ce qui ne veut pas dire raccordés (Arcep)\u00a0; ");
     expect(r.internet_dans_la_commune).toMatchObject({ commune: "Saint-Paul", eligibles_a_la_fibre: "95,1\u00a0%" });
     expect(r.sources.map((x: { source: string }) => x.source)).toContain("Ma connexion internet (statistiques d'éligibilité par commune)");
+    // Then the antennas around, from the bundled files of the ANFR.
+    expect(r.resume).toMatch(/\u00a0; 3 supports d'antennes mobiles à moins de 500\u00a0m, le plus proche à 310\u00a0m \(ANFR\)\.$/);
+    expect(r.antennes_a_moins_de_500_m.antennes_mobiles).toMatchObject({ fichier_du: "22/10/2026", supports: 3 });
+    expect(r.sources.map((x: { source: string }) => x.source)).toContain("Données sur les réseaux mobiles (antennes 2G, 3G, 4G, 5G)");
     // One file a year of the commune, from 2021; none of a sale, its parcel or its price alone in the answer.
     expect(urls.filter((u) => u.includes("geo-dvf"))).toEqual([2021, 2022, 2023, 2024, 2025, 2026].map((y) => `https://files.data.gouv.fr/geo-dvf/latest/csv/${y}/communes/974/97415.csv`));
     expect(JSON.stringify(r.marche_immobilier)).not.toMatch(/BO00|420 000|T7/);

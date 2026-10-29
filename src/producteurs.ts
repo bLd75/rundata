@@ -120,6 +120,9 @@ export const FICHES: Record<string, Fiche> = {
   anil_loyers: { famille: "licence_ouverte", producteurs: ["ANIL"] },
   // The operators declare, the Arcep counts the premises and publishes.
   arcep_connexion: { famille: "licence_ouverte", producteurs: ["Arcep"] },
+  // The operators declare their antennas, the ANFR publishes them.
+  anfr_observatoire_mobile: { famille: "licence_ouverte", producteurs: ["ANFR"] },
+  anfr_installations_5w: { famille: "licence_ouverte", producteurs: ["ANFR"] },
   prefecture_carburants: { famille: "licence_ouverte", producteurs: [PREFECTURE] },
   radars_fixes: { famille: "licence_ouverte", producteurs: ["Ministère de l'Intérieur"] },
   tco_decheteries: { famille: "licence_ouverte", producteurs: ["TCO"] },
