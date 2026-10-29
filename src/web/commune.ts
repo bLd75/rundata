@@ -444,7 +444,7 @@ ${habiter.length ? `<section aria-labelledby="h-habiter">
   <ul class="chips">${COMMUNES.filter((x) => x.slug !== p.slug).map((x) => `<li><a href="${hub(x)}">${esc(x.nom)}</a></li>`).join("")}</ul>
 </section>`;
   const rss = { href: rssPath(p), title: rssTitle(p), link: rssLink(p), hint: RSS_HINT };
-  return layout(origin, { title, description, path: hub(p), jsonld, alerte, rss }, band, toHall ? body + ALLER : body);
+  return layout(origin, { title, description, path: hub(p), jsonld, alerte, rss }, band, body.includes('class="aller"') ? body + ALLER : body);
 }
 
 /** The 24 communes, by vigilance zone: the island's own way of splitting itself (Nord, Est, Sud, Ouest). */

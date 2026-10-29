@@ -70,9 +70,20 @@ describe("Altervélo", () => {
     expect(mapLinks(html).map((l) => l.href)).toEqual(["#c-l-etang-sale", "#c-saint-louis", "#c-saint-pierre"]);
     expect(deadAnchors(html)).toEqual([]);
     expect(doubleIds(html)).toEqual([]);
-    expect(html).toContain("<li><span>ZAC Maxime Rivière</span><span><b>6</b> vélos · <b>1</b> trottinette · 4 places</span></li>");
+    expect(html).toContain("<li><span>ZAC Maxime Rivière</span><span><b>6</b>\u00a0vélos · <b>1</b>\u00a0trottinette · 4\u00a0places</span></li>");
     expect(html).toContain("<li><span>Stade de Terre Sainte</span><span>location impossible en ce moment</span></li>");
+    // A count stays with its word at the end of a line (marketing).
+    expect(html).toContain('Saint-Pierre <span class="note">7\u00a0vélos, 4\u00a0stations</span>');
     const desc = html.match(/name="description" content="([^"]*)"/)![1];
     expect(desc.length).toBeLessThanOrEqual(DESCRIPTION_MAX);
+  });
+
+  it("keeps each station's position for the page's « Y aller », never in the tool's answer", async () => {
+    expect(JSON.stringify(body(await velosLibreService(cache(), undefined, NOW)))).not.toContain('"lat"');
+    const value = body(await velosLibreService(cache(), undefined, NOW, true));
+    expect(value.stations.every((s: { lat?: number; lon?: number }) => Number.isFinite(s.lat) && Number.isFinite(s.lon))).toBe(true);
+    const html = velosPage("https://rundata.re", { value, fetchedAt: NOW, stale: false }, NOW);
+    expect(html.match(/class="aller"/g)).toHaveLength(value.stations.length);
+    expect(html.match(/<dialog id="aller"/g)).toHaveLength(1);
   });
 });

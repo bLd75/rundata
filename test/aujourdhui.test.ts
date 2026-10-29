@@ -52,7 +52,7 @@ describe("the page of a commune's day", () => {
     const dechets = copy({ sources: [], etats: [{ lien: "https://www.tco.re/annuaire-tco/centre-de-proprete-de-plateau-caillou", maj: "2026-10-24T14:30:00+04:00", accepte: { dechets_verts: true } }] });
     const html = aujourdhuiPage("https://rundata.re", p, resume(p, { ...full(p.nom), dechets } as never, NOW), null);
     expect(html).toContain('<h2 id="h-pratique">Vie pratique</h2>');
-    expect(html).toMatch(/Marché aujourd'hui : <a href="https:\/\/www\.openstreetmap\.org\/[^"]+" rel="noopener"><b>Marché forain de Saint-Paul<\/b><\/a> <span class="note">de 8 h à 12 h/);
+    expect(html).toMatch(/Marché aujourd'hui : <a href="https:\/\/www\.openstreetmap\.org\/[^"]+" rel="noopener"><b>Marché forain de Saint-Paul<\/b><\/a> <span class="note">de 8\u00a0h à 12\u00a0h/);
     expect(html).toContain("<b>déchets verts acceptés dans 1 sur 1</b>");
     expect(html).toContain('<a href="/decheteries#saint-paul">les bennes →</a>');
     expect(html).toContain('Pharmacie de garde (nuits, dimanches, jours fériés) : <a href="https://www.3237.fr/" rel="noopener"><b>3237.fr</b></a>, ou le 32 37 (payant)');

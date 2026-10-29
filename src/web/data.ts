@@ -437,6 +437,9 @@ export interface VeloStation {
   places_libres?: number;
   etat?: string;
   maj: string;
+  /** Kept by the pages' copies for « Y aller »; the tool's answer has none. */
+  lat?: number;
+  lon?: number;
 }
 
 export interface VelosAnswer {
@@ -448,7 +451,7 @@ export interface VelosAnswer {
   sources: Credit[];
 }
 
-export const buildVelos = async (cache: Cache) => needed<VelosAnswer>(await velosLibreService(cache, undefined), "velos");
+export const buildVelos = async (cache: Cache) => needed<VelosAnswer>(await velosLibreService(cache, undefined, new Date(), true), "velos");
 
 /** A gauge as the tool gives it (tools/crues.ts, levelRow). */
 export interface CruesStation {
@@ -1165,7 +1168,7 @@ export async function buildActualites(cache: Cache, now = new Date()): Promise<A
 
 export interface DaeAnswer {
   total: number;
-  communes: { commune: string; lon: number; lat: number; nombre: number; toute_heure: number; liste: ReturnType<typeof daeRow>[] }[];
+  communes: { commune: string; lon: number; lat: number; nombre: number; toute_heure: number; liste: (ReturnType<typeof daeRow> & { lat: number; lon: number })[] }[];
   urgence: string;
 }
 
@@ -1181,7 +1184,7 @@ export async function buildDae(): Promise<DaeAnswer> {
       lat: list.reduce((n, d) => n + d.lat, 0) / list.length,
       nombre: list.length,
       toute_heure: list.filter(anyHour).length,
-      liste: list.slice(0, DAE_LISTED).map((d) => daeRow(d)),
+      liste: list.slice(0, DAE_LISTED).map((d) => ({ ...daeRow(d), lat: d.lat, lon: d.lon })),
     })),
     urgence: DAE_URGENCE,
   };
@@ -1527,7 +1530,7 @@ export async function buildCommune(cache: Cache, p: PlacePage, now = new Date())
         ...(alertes.length ? { alertes } : {}),
       };
     })(),
-    BIKE_COMMUNES.includes(p.nom) ? velosLibreService(cache, p.nom, now).then((r) => answer<VelosAnswer>(r)?.stations) : Promise.resolve(undefined),
+    BIKE_COMMUNES.includes(p.nom) ? velosLibreService(cache, p.nom, now, true).then((r) => answer<VelosAnswer>(r)?.stations) : Promise.resolve(undefined),
   ]);
   if (mairie.status === "fulfilled" && mairie.value) {
     out.mairie = mairie.value;

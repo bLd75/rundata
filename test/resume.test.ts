@@ -111,8 +111,8 @@ describe("the summary of a day", () => {
     expect(r.resume).toMatch(/^Saint-Paul, samedi 24 octobre\u00a0; 27,4 °C mesurés à 13:54 \(station Saint-Paul\)\u00a0; prévision du jour 21 °C à 29 °C, ensoleillé\u00a0;/);
     expect(r.resume).toContain("2 événements aujourd'hui");
     // Saturday: the forain of Saint-Paul, from its OpenStreetMap days; the duty pharmacy never guessed.
-    expect(r.marches_du_jour!.liste).toEqual([expect.objectContaining({ nom: "Marché forain de Saint-Paul", horaires_aujourd_hui: "de 8 h à 12 h" })]);
-    expect(r.resume).toContain("marché aujourd'hui : Marché forain de Saint-Paul de 8 h à 12 h");
+    expect(r.marches_du_jour!.liste).toEqual([expect.objectContaining({ nom: "Marché forain de Saint-Paul", horaires_aujourd_hui: "de 8\u00a0h à 12\u00a0h" })]);
+    expect(r.resume).toContain("marché aujourd'hui : Marché forain de Saint-Paul de 8\u00a0h à 12\u00a0h");
     expect(r.resume).toMatch(/pharmacie de garde : 3237\.fr\.$/);
     expect(r.pharmacie_de_garde).toMatchObject({ site: "https://www.3237.fr/", a_savoir: expect.stringMatching(/ne sait pas quelle pharmacie est de garde/) });
     // The skips: only the sites filled in less than 6 h ago say what they take.

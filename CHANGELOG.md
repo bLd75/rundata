@@ -4,6 +4,10 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 <!-- Généré à partir de src/nouveautes.ts par `npm run changelog` : modifier la liste là-bas. -->
 
+## Vendredi 30 octobre 2026
+
+- Le bouton « Y aller » arrive sur les défibrillateurs, les stations de vélos et le marché du jour.
+
 ## Jeudi 29 octobre 2026
 
 - Le bouton « Y aller » arrive sur les plages, les sites de baignade, les bornes de recharge, les déchèteries, la mairie et les arrêts de bus.

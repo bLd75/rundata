@@ -1007,13 +1007,17 @@ export function busLive(data: Cached<BusData> | null, now = new Date()): Live | 
 /** « 4 vélos · 6 places », « fermée ». */
 export function bikeStock(s: VeloStation): string {
   if (s.etat === "fermée" || s.etat === "location impossible en ce moment") return esc(s.etat);
-  const parts = [`<b>${s.velos_electriques}</b> vélo${s.velos_electriques > 1 ? "s" : ""}`];
-  if (s.trottinettes) parts.push(`<b>${s.trottinettes}</b> trottinette${s.trottinettes > 1 ? "s" : ""}`);
-  if (s.places_libres != null && !s.etat) parts.push(`${s.places_libres} place${s.places_libres > 1 ? "s" : ""}`);
+  const parts = [`<b>${s.velos_electriques}</b>\u00a0vélo${s.velos_electriques > 1 ? "s" : ""}`];
+  if (s.trottinettes) parts.push(`<b>${s.trottinettes}</b>\u00a0trottinette${s.trottinettes > 1 ? "s" : ""}`);
+  if (s.places_libres != null && !s.etat) parts.push(`${s.places_libres}\u00a0place${s.places_libres > 1 ? "s" : ""}`);
   return parts.join(" · ");
 }
 
-export const bikeRow = (s: VeloStation) => `<li><span>${esc(s.nom)}</span><span>${bikeStock(s)}</span></li>`;
+/** A station, and « Y aller » below its name when its copy kept its position (no address: the sheet copies the coordinates). */
+export const bikeRow = (s: VeloStation) => {
+  const go = aller({ nom: s.nom, lat: s.lat ?? NaN, lon: s.lon ?? NaN });
+  return `<li><span>${esc(s.nom)}${go ? `<span class="ya">${go}</span>` : ""}</span><span>${bikeStock(s)}</span></li>`;
+};
 
 export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
@@ -1022,7 +1026,7 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
 
   const status = !d
     ? loading("L'état des stations")
-    : `<div class="now"><span class="big">${total}</span><p>vélo${total > 1 ? "s" : ""} à assistance électrique disponible${total > 1 ? "s" : ""} en ce moment dans les <b>${d.stations.length} stations</b> Altervélo de ${esc(BIKE_COMMUNES.join(", ").replace(/, ([^,]+)$/, " et $1"))}.</p></div>`;
+    : `<div class="now"><span class="big">${total}</span><p>vélo${total > 1 ? "s" : ""} à assistance électrique disponible${total > 1 ? "s" : ""} en ce moment dans les <b>${d.stations.length}\u00a0stations</b> Altervélo de ${esc(BIKE_COMMUNES.join(", ").replace(/, ([^,]+)$/, " et $1"))}.</p></div>`;
 
   const fills = Object.fromEntries(BIKE_COMMUNES.map((c) => [c, "var(--hl)"]));
   // Each commune served leads to its stations below.
@@ -1036,7 +1040,7 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
     ? `<ul class="zones">${BIKE_COMMUNES.map((c) => {
         const mine = d.stations.filter((s) => s.commune === c).sort((a, b) => b.velos_electriques + (b.trottinettes ?? 0) - (a.velos_electriques + (a.trottinettes ?? 0)) || a.nom.localeCompare(b.nom, "fr"));
         const n = d.communes?.find((x) => x.commune === c)?.velos_disponibles ?? 0;
-        return `<li class="card tgt" id="${anchorId("c", c)}"><h3>${esc(c)} <span class="note">${n} vélo${n > 1 ? "s" : ""}, ${mine.length} station${mine.length > 1 ? "s" : ""}</span></h3>` +
+        return `<li class="card tgt" id="${anchorId("c", c)}"><h3>${esc(c)} <span class="note">${n}\u00a0vélo${n > 1 ? "s" : ""}, ${mine.length}\u00a0station${mine.length > 1 ? "s" : ""}</span></h3>` +
           `<ul class="rows bikes">${mine.map(bikeRow).join("")}</ul></li>`;
       }).join("")}</ul>` +
       `<p class="note">${esc(d.donnees)}</p>`
@@ -1067,7 +1071,7 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
   ${byCommune}
   ${d && data ? sourcesNote(d.sources, data) : ""}
 </section>
-${connectorCta("velos_libre_service", "les vélos du Sud")}`;
+${connectorCta("velos_libre_service", "les vélos du Sud")}${d ? ALLER : ""}`;
 
   return layout(origin, { title, description, path: "/velos", jsonld: [crumbs(origin, "Vélos", "/velos"), webPage(origin, "/velos", title, description, data)], alerte }, band, body);
 }
@@ -2348,7 +2352,9 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
         `<li class="card tgt" id="${anchorId("c", c.commune)}">${folded(foldDae,
           `<h3>${esc(c.commune)}${foldDae ? "\u00a0" : " "}<span class="note">${foldDae ? "·\u00a0" : ""}${c.nombre}\u00a0défibrillateur${c.nombre > 1 ? "s" : ""}${c.toute_heure ? `, dont ${c.toute_heure}\u00a0accessible${c.toute_heure > 1 ? "s" : ""} à toute heure` : ""}</span></h3>`,
           `<ul class="rows eau dae">` +
-        c.liste.map((x) => `<li><span>${esc(x.lieu)}<small>${[x.adresse, x.emplacement, x.etage ? `étage ${x.etage}` : ""].filter(Boolean).map((v) => esc(v!)).join(" · ")}</small></span>` +
+        c.liste.map((x) => `<li><span>${esc(x.lieu)}<small>${[x.adresse, x.emplacement, x.etage ? `étage ${x.etage}` : ""].filter(Boolean).map((v) => esc(v!)).join(" · ")}</small>` +
+          // The normal route, not on foot as « Autour de moi »: a device of the commune may be kilometres away.
+          `${aller({ nom: x.lieu, lat: x.lat ?? NaN, lon: x.lon ?? NaN, adresse: x.adresse })}</span>` +
           `<span class="${x.acces.includes("toute heure") || x.acces.includes("24 h") ? "q-bonne" : "q-none"}">${esc(shortAccess(x.acces))}</span></li>`).join("") +
         (c.nombre > c.liste.length ? `<li><span class="note">et ${c.nombre - c.liste.length} autres : demandez le plus proche à votre IA.</span><span></span></li>` : "") +
         `</ul>`)}</li>`).join("")}</ul>`

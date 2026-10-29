@@ -694,7 +694,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
     // The weather's copy as the snapshot gave it: not read again (the read could be one subrequest too many).
     const { copies, leftOut } = await readCopies(cache, p, p, now, background, vigilance, { meteo: place });
     return page(path, (live) => (live
-      ? aujourdhuiPage(origin, p, resume(p, copies, now, leftOut), copies.meteo ?? place, alerteLue(copies.vigilance, now))
+      ? aujourdhuiPage(origin, p, resume(p, copies, now, leftOut), copies.meteo ?? place, alerteLue(copies.vigilance, now), copies.commune?.value.mairie)
       : aujourdhuiPage(origin, p, resume(p, {}, now, leftOut), null)), place, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now))]);
   }
   // A commune's alerts as RSS: the copies of the pages, never a build of its own (web/rss.ts).

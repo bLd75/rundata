@@ -21,12 +21,12 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   bus: 5,
   calendrier: 2,
   chiffres: 7,
-  commune: 5,
+  commune: 6,
   coupures: 3,
   courant: 4,
   crues: 1,
   cyclones: 3,
-  dae: 1,
+  dae: 2,
   dechets: 1,
   eau: 1,
   electricite: 7,
@@ -43,7 +43,7 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   sport: 12,
   station: 1,
   trafic: 2,
-  velos: 1,
+  velos: 2,
   volcan: 7,
 };
 

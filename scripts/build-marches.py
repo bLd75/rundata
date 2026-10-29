@@ -22,10 +22,16 @@ DAYS = {"Mo": "lundi", "Tu": "mardi", "We": "mercredi", "Th": "jeudi", "Fr": "ve
 ORDER = list(DAYS)
 
 
-def hour(h):
-    """« 06:00 » → « 6 h », « 12:30 » → « 12 h 30 »."""
-    hh, mm = h.split(":")
-    return f"{int(hh)} h" + (f" {mm}" if mm != "00" else "")
+def pair(a, b):
+    """Two times of a span as kit.md writes them (src/tools/format.ts, paire): « 6 h » and « 12 h », or both with their
+    minutes when one has some, « 06:00 » and « 18:30 »."""
+    if a.endswith(":00") and b.endswith(":00"):
+        return [f"{int(x.split(':')[0])}\u00a0h" for x in (a, b)]
+    return [x.zfill(5) for x in (a, b)]
+
+
+def span(a, b):
+    return "de {} à {}".format(*pair(a, b))
 
 
 def days(spec):
@@ -49,9 +55,9 @@ def hours(text):
         m = re.fullmatch(r"((?:Mo|Tu|We|Th|Fr|Sa|Su)(?:[-,](?:Mo|Tu|We|Th|Fr|Sa|Su))*)\s+(\d{1,2}:\d\d)-(\d{1,2}:\d\d)(?:\s*,\s*(\d{1,2}:\d\d)-(\d{1,2}:\d\d))?", part)
         if not m:
             return ""  # a form not read here: better nothing than a wrong day
-        span = f"de {hour(m.group(2))} à {hour(m.group(3))}" + (f" et de {hour(m.group(4))} à {hour(m.group(5))}" if m.group(4) else "")
+        said = span(m.group(2), m.group(3)) + (f" et {span(m.group(4), m.group(5))}" if m.group(4) else "")
         d = days(m.group(1))
-        out.append(f"{'le ' if ',' not in m.group(1) and '-' not in m.group(1) else ''}{d} {span}")
+        out.append(f"{'le ' if ',' not in m.group(1) and '-' not in m.group(1) else ''}{d} {said}")
     return "\u00a0; ".join(out)
 
 

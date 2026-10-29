@@ -777,7 +777,10 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .rows li{display:grid;grid-template-columns:3.4rem minmax(0,1fr) auto;gap:.6rem;align-items:baseline;padding:.45rem 0;border-top:1px solid var(--line)}
 .rows li:first-child{border-top:0}
 .rows.trajet li{grid-template-columns:auto minmax(0,1fr);scroll-margin-top:5rem}.rows.departs li{grid-template-columns:2.6rem minmax(0,1fr)}.rows.departs li>:last-child{grid-column:2}.rows.trajet .rt{display:block}.rows.trajet small{display:block;color:var(--muted);font-size:.82rem}.rows.trajet li.ici{background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:.4rem;padding-inline:.4rem}.rows.trajet li.ici small{color:inherit;font-weight:700}
-.rows.bikes li{grid-template-columns:minmax(0,1fr) auto}
+.rows.bikes li{grid-template-columns:minmax(8.5rem,1fr) auto}
+.rows.bikes .ya{display:block;margin-top:.3rem}
+/* Above the tile's link, stretched over the whole tile (.tile h3 a::after): a tap on the button opens its sheet. */
+.tile .aller{position:relative;z-index:2}
 .rows.bornes li{grid-template-columns:minmax(0,1fr) auto}
 .rows.bornes small{display:block;color:var(--muted);font-size:.82rem}
 .rows.bornes .busy{color:var(--muted)}
