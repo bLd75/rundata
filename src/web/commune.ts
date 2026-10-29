@@ -32,6 +32,9 @@ import { ask, connector, credits, cycloneVg, dayMonth, deg, empty, fit, hm, icon
 import { coastal, PAGES, type PlacePage } from "./places.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
 import { RSS_HINT, rssLink, rssPath, rssTitle } from "./rss.js";
+import { INSEE } from "../places/insee.js";
+import { ligneTuile } from "./antennes.js";
+import * as sitesHs from "../providers/sites-hs.js";
 
 /** What a commune's page is made of, each part null or missing when there is no copy yet. */
 export interface CommuneLive {
@@ -50,6 +53,8 @@ export interface CommuneLive {
   agenda?: Cached<AgendaAnswer> | null;
   /** The West's communes only (the TCO publishes its déchèteries). */
   dechets?: Cached<DechetsAnswer> | null;
+  /** The mobile sites out of service, the Arcep's file of the day (providers/sites-hs.ts). */
+  hs?: Cached<sitesHs.Copie> | null;
 }
 
 export const COMMUNES = PAGES.filter((p) => p.commune);
@@ -242,8 +247,11 @@ function connexion(p: PlacePage): Live | undefined {
   };
 }
 
-/** The commune's antenna supports (vie/antennes.ts): by operator, with 5G in service, and the radio and TV ones; never live. */
-function antennas(p: PlacePage): Live | undefined {
+/**
+ * The commune's antenna supports (vie/antennes.ts): by operator, with the 5G techniquement opérationnelle, and the radio
+ * and TV ones; then, only when the Arcep's file of the day has some there, its mobile sites out of service.
+ */
+function antennas(p: PlacePage, hs?: Cached<sitesHs.Copie> | null): Live | undefined {
   const { supports, emetteurs } = antennes.ofCommune(p.nom);
   if (!supports.length) return undefined;
   // The ANFR never writes « en service » for the 5G: its most advanced state there is « techniquement opérationnel ».
@@ -255,10 +263,14 @@ function antennas(p: PlacePage): Live | undefined {
     // One support may carry several operators: « Orange sur 2 », never a sum.
     detail: `supports d'antennes mobiles dans la commune, déclarés à l'ANFR au ${internet.dateLongue(antennes.MOBILE_DU)}, ${g5 ? `dont ${nombre(g5)} avec la 5G techniquement opérationnelle` : "aucun avec la 5G techniquement opérationnelle"}` +
       ` · ${ops.map(([o, n]) => `${o} sur ${nombre(n)}`).join(", ")}` +
-      `${emetteurs.length ? ` · ${nombre(emetteurs.length)} ${emetteurs.length > 1 ? "supports" : "support"} d'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+)` : ""} · ANFR`,
+      `${emetteurs.length ? ` · ${nombre(emetteurs.length)} ${emetteurs.length > 1 ? "supports" : "support"} d'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+)` : ""} · ANFR` +
+      `${horsService(hs, p) ? ` · ${esc(horsService(hs, p)!)}` : ""}`,
     entier: true,
   };
 }
+
+/** The commune's mobile sites out of service, by its INSEE code. */
+const horsService = (hs: Cached<sitesHs.Copie> | null | undefined, p: PlacePage) => ligneTuile(hs ?? null, INSEE[p.nom]);
 
 function townHall(data: Cached<CommuneData> | null | undefined, now: Date): Live | undefined {
   const o = data?.value.mairie;
@@ -318,7 +330,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const habiter: Tile[] = [
     ...(rents(p) ? [{ icon: "key", nom: "Loyers d'annonce", live: rents(p), foot: `<a href="${loyers.SOURCE.url}" rel="noopener">La carte des loyers de l'ANIL</a>` }] : []),
     ...(connexion(p) ? [{ icon: "wifi", nom: "Fibre", live: connexion(p), foot: `<a href="https://maconnexioninternet.arcep.fr/" rel="noopener">Votre adresse sur Ma connexion internet</a>` }] : []),
-    ...(antennas(p) ? [{ icon: "antenna", nom: "Antennes", href: "/antennes", live: antennas(p), foot: `<a href="/#assistant">Votre adresse : demandez à votre IA →</a>` }] : []),
+    ...(antennas(p) ? [{ icon: "antenna", nom: "Antennes", href: "/antennes", live: antennas(p, l.hs), foot: `<a href="/#assistant">Votre adresse : demandez à votre IA →</a>` }] : []),
   ];
   const island: Tile[] = [
     { icon: "volcano", nom: "Volcan", href: "/volcan", live: volcanLive(l.volcan ?? null, now) },
@@ -383,7 +395,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   <figure class="card mapcard">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
 </div>`;
 
-  const sources = [...(l.commune?.value.sources ?? []), ...(l.place?.value.meteo?.sources ?? []), ...(l.air?.value.sources ?? []), ...(rents(p) ? [{ source: loyers.SOURCE.nom, licence: loyers.SOURCE.licence, attribution: loyers.SOURCE.attribution }] : []), ...(connexion(p) ? [{ source: internet.SOURCE.nom, licence: internet.SOURCE.licence, attribution: internet.SOURCE.attribution }] : []), ...(antennas(p) ? [antennes.SOURCE_MOBILE, ...(antennes.ofCommune(p.nom).emetteurs.length ? [antennes.SOURCE_RADIO] : [])].map((x) => ({ source: x.nom, licence: x.licence, attribution: x.attribution })) : [])];
+  const sources = [...(l.commune?.value.sources ?? []), ...(l.place?.value.meteo?.sources ?? []), ...(l.air?.value.sources ?? []), ...(rents(p) ? [{ source: loyers.SOURCE.nom, licence: loyers.SOURCE.licence, attribution: loyers.SOURCE.attribution }] : []), ...(connexion(p) ? [{ source: internet.SOURCE.nom, licence: internet.SOURCE.licence, attribution: internet.SOURCE.attribution }] : []), ...(antennas(p) ? [antennes.SOURCE_MOBILE, ...(antennes.ofCommune(p.nom).emetteurs.length ? [antennes.SOURCE_RADIO] : []), ...(horsService(l.hs, p) ? [sitesHs.SOURCE] : [])].map((x) => ({ source: x.nom, licence: x.licence, attribution: x.attribution })) : [])];
   const body = `<section id="en-ce-moment" aria-labelledby="h-now">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-now">${esc(p.nom)} en ce moment</h2>
   <p>Chaque catégorie a sa page pour toute l'île ; ici, ce qui concerne ${esc(p.nom)}. Mise à jour en continu, chaque donnée avec son heure et sa source.</p></div>

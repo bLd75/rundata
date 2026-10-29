@@ -19,6 +19,7 @@ import * as prefectureCopie from "./providers/prefecture-copie.js";
 import * as airMesures from "./providers/air-mesures.js";
 import * as capteurs from "./providers/capteurs.js";
 import * as emploi from "./providers/emploi.js";
+import * as sitesHs from "./providers/sites-hs.js";
 import * as marchesPublics from "./providers/marches-publics.js";
 import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
@@ -229,6 +230,12 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get(emploi.KV_KEY, "json")) as emploi.Copie | null;
   });
+  // Read once a day from the Arcep's file by the scheduled event below, and kept in KV (src/providers/sites-hs.ts).
+  sitesHs.configure(async () => {
+    if (!kv) return null;
+    count();
+    return (await kv.get(sitesHs.KV_KEY, "json")) as sitesHs.Copie | null;
+  });
   // Read every hour from the BOAMP by the scheduled event below, and kept in KV (src/providers/marches-publics.ts).
   marchesPublics.configure(async () => {
     if (!kv) return null;
@@ -428,6 +435,21 @@ export default {
       }))
         .then(({ value, used, reads }) => console.log(`offres d'emploi : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("offres d'emploi : lecture impossible", why(err))));
+    }
+    // Every hour at half past, from 14:30 to 23:30 in La Réunion, until the file of the day is read: the mobile sites out of
+    // service at La Réunion, its lines of the Arcep's national file (0.5 to 2.2 Mo), kept in KV, once the reads above
+    // are done.
+    if (kv && sitesHs.refreshDue(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, async () => {
+        count();
+        const before = (await kv.get(sitesHs.KV_KEY, "json")) as sitesHs.Copie | null;
+        return sitesHs.collect(before, async (copie) => {
+          count(1, true);
+          await kv.put(sitesHs.KV_KEY, JSON.stringify(copie), { expirationTtl: sitesHs.KV_TTL_SECONDS });
+        }, now);
+      }))
+        .then(({ value, used, reads }) => console.log(`sites mobiles hors service : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("sites mobiles hors service : lecture impossible", why(err))));
     }
     // Every hour, at 35 past: the public procurement notices open at La Réunion (BOAMP), the full text of the new ones
     // only, kept in KV when they changed, once the reads above are done.
