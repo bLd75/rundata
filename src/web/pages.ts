@@ -225,10 +225,13 @@ p,ul,ol,table,figure{margin:0}
 .ic{width:1.4em;height:1.4em;flex:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-.k-meteo{--k:#ff9f43}.k-vigilance{--k:#ffc927}.k-actualites{--k:#ff8787}.k-mer{--k:#22b8cf}.k-crues{--k:#5c7cfa}.k-volcan{--k:#ff6b4a}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-secheresse{--k:#ff922b}.k-coupures{--k:#74c0fc}.k-dae{--k:#ff6b6b}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-cyclones{--k:#9775fa}.k-historique{--k:#e599f7}.k-agenda{--k:#da77f2}.k-enfants{--k:#f06595}
-.k-air{--k:#38d9a9}.k-electricite{--k:#fab005}.k-calendrier{--k:#b197fc}.k-communes{--k:#f783ac}.k-services{--k:#74c0fc}.k-terrain{--k:#d8a65a}
-.kb{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:14px;flex:none;color:var(--k);
-background:color-mix(in srgb,var(--k) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k) 30%,transparent)}
+/* A section's colour is never one of the alert scale (yellow, orange, red, purple) nor a red: those say a real state
+   (kit.md). The sections of risks share one neutral colour. */
+.k-meteo{--k:#ff9f43}.k-vigilance,.k-crues,.k-volcan,.k-cyclones,.k-secheresse{--k:#4fd1c5}.k-actualites{--k:#a5d8ff}.k-mer{--k:#22b8cf}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-coupures{--k:#74c0fc}.k-dae{--k:#40c057}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-historique{--k:#e599f7}.k-agenda{--k:#da77f2}.k-enfants{--k:#f06595}
+.k-air{--k:#38d9a9}.k-electricite{--k:#fab005}.k-calendrier{--k:#b197fc}.k-communes{--k:#f783ac}.k-services{--k:#74c0fc}.k-trafic{--k:#91a7ff}.k-terrain{--k:#d8a65a}
+.kb{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:12px;flex:none;color:var(--k);
+background:linear-gradient(155deg,color-mix(in srgb,var(--k) 20%,transparent),color-mix(in srgb,var(--k) 9%,transparent));
+box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k) 32%,transparent)}
 .kb .ic{width:1.35rem;height:1.35rem}
 header.top{position:sticky;top:0;z-index:20;background:rgb(7 22 38/.78);-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);
 border-bottom:1px solid rgb(255 255 255/.07);color:var(--on-night)}
@@ -264,11 +267,20 @@ border-bottom:1px solid rgb(255 255 255/.08);box-shadow:0 30px 60px -20px rgb(0 
 .follow-top a:focus-visible,.social a:focus-visible{outline:2px solid var(--sun);outline-offset:2px;border-radius:6px}
 .sheet .social{gap:.5rem 1.4rem}.sheet .social a{color:var(--on-night);font-weight:600;text-decoration:none}.sheet .social svg{width:24px;height:24px}
 @media (max-width:30rem){.sheet .social{gap:.5rem .9rem}.sheet .social a{font-size:.95rem}.sheet .social svg{width:22px;height:22px}}
-.grid{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(6.4rem,1fr));gap:.6rem}
-.grid a{display:grid;justify-items:center;gap:.45rem;padding:.85rem .4rem .75rem;border-radius:18px;text-decoration:none;color:var(--on-night);
-font-size:.88rem;font-weight:600;background:#0d2135;border:1px solid rgb(255 255 255/.07);transition:background .15s,transform .15s}
-.grid a:hover{background:rgb(255 255 255/.09);transform:translateY(-1px)}
-.grid a[aria-current]{background:color-mix(in srgb,var(--k) 18%,transparent);border-color:color-mix(in srgb,var(--k) 45%,transparent)}
+/* The menu's tiles: all the same size, room for a name on two lines, icon and name centred alike. The sheet is night
+   in both themes: the night's surface and shadow. */
+/* Three columns at least, on the narrowest phones too. */
+.grid{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(7rem,calc((100% - 1.2rem) / 3)),1fr));gap:.6rem}
+.grid a{display:grid;grid-template-rows:auto calc(2 * 1.2em);justify-items:center;align-content:start;gap:.55rem;height:100%;
+padding:.9rem .25rem .8rem;border-radius:16px;text-decoration:none;color:var(--on-night);font-size:.88rem;font-weight:600;line-height:1.2;
+text-align:center;background:#0f1d2c;border:1px solid rgb(255 255 255/.07);transition:border-color .15s,box-shadow .15s,transform .15s}
+.grid .gn{display:flex;align-items:center;max-width:100%;overflow-wrap:normal}
+.grid a:hover{border-color:color-mix(in srgb,var(--k) 50%,transparent);box-shadow:0 1px 2px rgb(0 0 0/.3),0 10px 30px -8px rgb(0 0 0/.5);transform:translateY(-2px)}
+.grid a:active{transform:translateY(0) scale(.98)}
+.grid a:focus-visible{outline:2px solid #ffcf1f;outline-offset:2px}
+.grid a[aria-current]{background:color-mix(in srgb,var(--k) 14%,#0f1d2c);border-color:color-mix(in srgb,var(--k) 45%,transparent)}
+@media (max-width:30rem){.grid a{font-size:.82rem;letter-spacing:-.005em}}
+@media (prefers-reduced-motion:reduce){.grid a,.grid a:hover,.grid a:active{transform:none;transition:none}}
 .sheet .connect{background:rgb(255 255 255/.06);border-color:rgb(255 255 255/.1);box-shadow:none}
 .sheet .connect code{color:var(--on-night)}
 .sheet .sheet-app{color:var(--on-night);font-weight:600}
@@ -546,7 +558,23 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .map .pin text{fill:var(--ink);font-weight:700;font-size:34px;paint-order:stroke;stroke:var(--land);stroke-width:9px}
 @media (max-width:40rem){.map .mn,.map .pk{display:none}}
 .map a:focus-visible{outline:none}.map .pk,.map .pin,.map .hl{pointer-events:none}
-.map a.mk:hover .sh,.map a.mk:focus-visible .sh{stroke:var(--sun);stroke-width:9}
+/* A marker hovered or tapped grows a little, with a deeper shadow; focused from the keyboard, the sun's ring. */
+.map a.mk{transform-box:fill-box;transform-origin:center;transition:transform .18s ease-out,filter .18s ease-out}
+.map a.mk:hover,.map a.mk.on{transform:scale(1.14)}
+.map.relief a.mk:hover,.map.relief a.mk.on{filter:drop-shadow(0 10px 14px rgb(0 0 0/.45))}
+.map a.mk:focus{outline:none}.map a.mk:focus-visible .sh{stroke:var(--sun);stroke-width:9}
+@media (prefers-reduced-motion:reduce){.map a.mk{transition:none}.map a.mk:hover,.map a.mk.on{transform:none}.map a.mk:hover .sh,.map a.mk.on .sh{stroke-width:9}}
+/* The bubble of a marker (home.ts, heroMap): night in both themes, like the band it sits on. */
+.mtip{position:absolute;z-index:3;left:0;top:0;display:grid;gap:.12rem;min-width:9.5rem;max-width:15rem;padding:.6rem .8rem .65rem;
+border-radius:12px;background:#0f1d2c;color:#f1f5f9;border:1px solid rgb(241 245 249/.12);box-shadow:0 1px 2px rgb(0 0 0/.3),0 10px 30px -8px rgb(0 0 0/.5);
+text-decoration:none;font-size:.85rem;line-height:1.3;text-align:left;opacity:0;transform:translateY(4px);transition:opacity .15s ease-out,transform .15s ease-out}
+.mtip[hidden]{display:none}.mtip.vu{opacity:1;transform:none}
+.mtip .mt-p{font-weight:600}.mtip .mt-v{font:700 1.45rem/1.15 Bricolage,system-ui,sans-serif}.mtip .mt-d{color:#b4c6d8;font-size:.8rem}
+.mtip .mt-go{margin-top:.3rem;color:#8fb4ff;font-weight:600;font-size:.8rem}
+.mtip::after{content:"";position:absolute;left:var(--ax,50%);bottom:-7px;width:12px;height:12px;background:#0f1d2c;
+border:solid rgb(241 245 249/.12);border-width:0 1px 1px 0;transform:translateX(-50%) rotate(45deg)}
+.mtip.bas::after{bottom:auto;top:-7px;border-width:1px 0 0 1px}
+@media (prefers-reduced-motion:reduce){.mtip{transition:none;transform:none}}
 .map .zn path{fill:transparent;stroke:none}.map .zn:hover path{fill:rgb(255 255 255/.14);stroke:var(--sun);stroke-width:4}
 .map .zn:focus-visible path{fill:rgb(255 255 255/.2);stroke:var(--sun);stroke-width:8}
 .tgt{scroll-margin-top:5.5rem}.tgt:target{animation:tgt 2.4s ease-out}
@@ -827,6 +855,22 @@ document.querySelectorAll("[data-age]").forEach((e)=>{const m=Math.max(0,Math.ro
 e.textContent="il y a "+(m<90?m+" min":m<2880?Math.round(m/60)+" h":Math.round(m/1440)+" jours")})};
 document.querySelectorAll("[data-js]").forEach((e)=>{e.hidden=false});document.querySelectorAll("[data-nojs]").forEach((e)=>{e.hidden=true});
 tick();setInterval(tick,3e4);
+const mt=document.querySelector("[data-mtip]");if(mt){const box=mt.parentElement;let on=null,touch=false,t=0;
+const put=(a)=>{clearTimeout(t);if(on)on.classList.remove("on");on=a;a.classList.add("on");
+mt.querySelector(".mt-p").textContent=a.dataset.tp;mt.querySelector(".mt-v").textContent=a.dataset.tv;mt.querySelector(".mt-d").textContent=a.dataset.td;mt.href=a.getAttribute("href");
+mt.hidden=false;const f=box.getBoundingClientRect(),r=a.querySelector(".sh").getBoundingClientRect(),w=mt.offsetWidth,h=mt.offsetHeight;
+const cx=r.left+r.width/2-f.left,x=Math.min(Math.max(cx-w/2,6),f.width-w-6),up=r.top-f.top-h-12>=0;
+mt.classList.toggle("bas",!up);mt.style.left=x+"px";mt.style.top=(up?r.top-f.top-h-12:r.bottom-f.top+12)+"px";
+mt.style.setProperty("--ax",Math.min(Math.max(cx-x,16),w-16)+"px");requestAnimationFrame(()=>mt.classList.add("vu"))};
+const off=()=>{clearTimeout(t);if(on)on.classList.remove("on");on=null;mt.classList.remove("vu");mt.hidden=true};
+const later=()=>{clearTimeout(t);t=setTimeout(off,160)};
+box.querySelectorAll("a.mk[data-tp]").forEach((a)=>{a.addEventListener("pointerdown",(e)=>{touch=e.pointerType!=="mouse"});
+a.addEventListener("pointerenter",(e)=>{if(e.pointerType==="mouse")put(a)});a.addEventListener("pointerleave",(e)=>{if(e.pointerType==="mouse")later()});
+a.addEventListener("focus",()=>{if(!touch)put(a)});a.addEventListener("blur",later);
+a.addEventListener("click",(e)=>{if(touch&&on!==a){e.preventDefault();put(a)}touch=false})});
+mt.addEventListener("pointerenter",()=>clearTimeout(t));mt.addEventListener("pointerleave",(e)=>{if(e.pointerType==="mouse")later()});
+document.addEventListener("click",(e)=>{if(on&&!e.target.closest("a.mk,[data-mtip]"))off()});
+document.addEventListener("keydown",(e)=>{if(e.key==="Escape"&&on)off()});addEventListener("resize",()=>{if(on)put(on)})}
 ${RELOAD_SCRIPT}
 ${PWA_SCRIPT}
 ${SIGNAL_SCRIPT}`;
@@ -923,7 +967,7 @@ function header(path: string, origin: string, u: Urgent): string {
   const menu = byUse(MENU, u);
   const quick = [...urgentKeys(u), ...FIRST, "communes"].map((k) => menu.find((m) => m.key === k)!)
     .map((m) => `<a class="k-${m.key}" href="${m.path}"${current(m.path)}>${icon(m.icon)}${esc(m.nom)}</a>`).join("");
-  const grid = menu.map((m) => `<li><a class="k-${m.key}" href="${m.path}"${current(m.path)}><span class="kb">${icon(m.icon)}</span>${esc(m.nom)}</a></li>`).join("");
+  const grid = menu.map((m) => `<li><a class="k-${m.key}" href="${m.path}"${current(m.path)}><span class="kb">${icon(m.icon)}</span><span class="gn">${esc(m.nom)}</span></a></li>`).join("");
   // The accounts in the bar on wide screens; on a phone, in the menu, so that the bar keeps to the brand and two buttons.
   const top = accountLinks(SOCIAL, true);
   const sheet = accountLinks();

@@ -162,8 +162,10 @@ describe("home page", () => {
     expect(cold.r.headers.get("cache-control")).toBe("public, max-age=60");
     expect(cold.text).toContain("<h1>La Réunion <span class=\"n974\">974</span> en direct</h1>");
     // The hero's island carries the temperatures measured now.
-    // Each temperature leads to its station's row on the weather page.
-    expect(cold.text).toMatch(/<figure class="hero-map"><svg class="map relief" viewBox="[^"]+" role="group"[^]*?<a class="mk" href="\/meteo#st-[a-z0-9-]+" aria-label="[^"]+ : \d+ °C, voir le détail"><circle class="hit"[^>]+\/><title>[^<]+<\/title><circle class="sh"/);
+    // Each temperature leads to its station's row on the weather page; its bubble, said the same way to a screen
+    // reader, gives the station, its altitude, the value to the tenth, and when and by whom it was measured.
+    expect(cold.text).toMatch(/<figure class="hero-map"><svg class="map relief" viewBox="[^"]+" role="group"[^]*?<a class="mk" href="\/meteo#st-[a-z0-9-]+" aria-label="[^"]+ · [\d\u202f]+\u202fm : \d+(,\d)?\u202f°C, mesurée à\u00a0\d\d:\d\d par [^"]+, voir le détail" data-tp="[^"]+ · [\d\u202f]+\u202fm" data-tv="\d+(,\d)?\u202f°C" data-td="mesurée à\u00a0\d\d:\d\d par [^"]+"><circle class="hit"[^>]+\/><title>[^<]+<\/title><circle class="sh"/);
+    expect(cold.text).toContain('<a class="mtip" data-mtip hidden aria-hidden="true" tabindex="-1" href="/meteo">');
     expect(cold.text).toMatch(/meteo_actuelle\(lieu: "[^"]+"\)<\/p>\s*<p class="bubble ai">\d+(,\d)?\u202f°C, mesurés à\u00a0\d\d:\d\d/);
     expect(cold.text).toContain("Piton Maïdo");
     expect(cold.text).toMatch(/mesuré à\u00a0\d\d:\d\d/);
@@ -294,7 +296,7 @@ describe("home page", () => {
     }
     expect(page).toContain('<li><a href="/electricite">Électricité</a></li>');
     // The menu: every category, with its icon, the current one marked.
-    expect(meteoPage("https://rundata.re", null, NOW)).toMatch(/<a class="k-meteo" href="\/meteo" aria-current="page"><span class="kb"><svg[^]*?<\/svg><\/span>Météo<\/a>/);
+    expect(meteoPage("https://rundata.re", null, NOW)).toMatch(/<a class="k-meteo" href="\/meteo" aria-current="page"><span class="kb"><svg[^]*?<\/svg><\/span><span class="gn">Météo<\/span><\/a>/);
     expect(placePage("https://rundata.re", pageOf("cilaos")!, null, NOW)).toMatch(/<a class="k-meteo" href="\/meteo" aria-current="page">/);
     expect(page).toMatch(/<a class="k-velos" href="\/velos"><span class="kb">/);
   });

@@ -42,6 +42,11 @@ export interface Marker {
   say?: string;
   /** The place as said aloud, when `name` already holds the value (« Saint-Pierre » for « Saint-Pierre : 3 libres »). */
   place?: string;
+  /**
+   * The bubble shown on hover, on a tap or on focus, with the page's script (bubbleOf()): the place, the value in
+   * full, then its time and source. Said the same way to a screen reader, as the link's name.
+   */
+  tip?: { place: string; value: string; detail: string };
 }
 
 /** A commune of the map that leads somewhere: the card of its zone, its page. `say` is what the map shows of it. */
@@ -179,8 +184,10 @@ function marker(m: Marker, hit = HIT, at?: [number, number]): string {
     `<text x="${x}" y="${y + 11}" class="mv">${esc(m.label)}</text>` +
     (m.quiet ? "" : `<text x="${x}" y="${y + 66}" class="mn">${esc(m.name)}</text>`);
   if (!m.href) return `<g class="mk">${inner}</g>`;
+  const said = m.tip ? `${m.tip.place} : ${m.tip.value}, ${m.tip.detail}, voir le détail` : `${m.place ?? m.name} : ${m.say ?? m.label}, voir le détail`;
+  const tip = m.tip ? ` data-tp="${esc(m.tip.place)}" data-tv="${esc(m.tip.value)}" data-td="${esc(m.tip.detail)}"` : "";
   // The hit area under the marker, painted but invisible, so that a tap a little beside it still counts.
-  return `<a class="mk" href="${esc(m.href)}" aria-label="${esc(`${m.place ?? m.name} : ${m.say ?? m.label}, voir le détail`)}">` +
+  return `<a class="mk" href="${esc(m.href)}" aria-label="${esc(said)}"${tip}>` +
     `<circle class="hit" cx="${x}" cy="${y}" r="${hit}" style="fill:transparent;stroke:none"/>${inner}</a>`;
 }
 
