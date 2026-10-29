@@ -10,7 +10,7 @@ import { sun } from "../providers/calendrier.js";
 import altitudes from "./altitudes.json" with { type: "json" };
 import { fr } from "../tools/format.js";
 import type { StationNow } from "./data.js";
-import { esc, H, islandMap, project, W } from "./map.js";
+import { apart, esc, H, islandMap, project, W } from "./map.js";
 import { PATH as PLUIE_RADAR } from "./pluie-radar.js";
 import { chip, deg, hm, metres, shortName, stationId, STOPS, thin } from "./pages.js";
 import { hash } from "./pwa.js";
@@ -30,7 +30,7 @@ export function communeOf(s: StationNow, all: StationNow[]): string | undefined 
 }
 
 const by = (s: StationNow) =>
-  s.source === "meteofrance" ? " par Météo-France" : s.source === "metar" ? " par l'aéroport (METAR)" : s.source === "pioupiou" ? ` par OpenWindMap (${s.nom.replace(/^Balise /, "balise de ")})` : "";
+  s.source === "meteofrance" ? " par Météo-France" : s.source === "metar" ? " par l'aéroport (METAR)" : s.source === "pioupiou" ? ` par OpenWindMap (${s.nom.replace(/^Balise /, "balise de ")})` : s.source === "ffvl" ? ` par la FFVL (${s.nom.replace(/^B/, "b")})` : "";
 
 // Where the wind comes from, in words: abbreviations read badly (« vent O » as « vent 0 »).
 const FROM = ["du nord", "du nord-est", "d'est", "du sud-est", "du sud", "du sud-ouest", "d'ouest", "du nord-ouest"];
@@ -129,8 +129,12 @@ function dot(l: string, x: number, y: number, fill: string, label: string | unde
   return shape + (label ? `<text class="mv l-${l}" x="${x}" y="${y + 11}">${esc(label)}</text>` : "");
 }
 
-/** A wind measure on the map: an arrow where it goes and the speed in km/h, in a dark pill over the particles. */
-function windMark(x: number, y: number, s: StationNow): string {
+/** A wind pill's width, as windMark() draws it. */
+const WIND_W = 96;
+
+/** A wind measure on the map: an arrow where it goes and the speed in km/h, in a dark pill over the particles; at `at` when moved off its place. */
+function windMark(x0: number, y0: number, s: StationNow, at?: [number, number]): string {
+  const [x, y] = at ?? [x0, y0];
   const arrow = s.direction != null && s.vent
     ? `<path d="M0 10V-10M-7-3l7-7 7 7" transform="translate(${x - 22} ${y}) rotate(${(s.direction + 180) % 360})"/>`
     : `<circle cx="${x - 22}" cy="${y}" r="5"/>`;
@@ -142,7 +146,7 @@ function windMark(x: number, y: number, s: StationNow): string {
  * giving the bubble its value (`data-tvt`, `data-tvp`, `data-tvv`); a station without a measure of the layer shown is
  * hidden (`has-…`). Its name for a screen reader says every measure.
  */
-function station(s: StationNow, named: boolean, rain: number | undefined, hour: boolean): string {
+function station(s: StationNow, named: boolean, rain: number | undefined, hour: boolean, windAt?: [number, number]): string {
   const [x, y] = project(s.lon, s.lat);
   const span = hour ? "1\u202fh" : "6\u202fmin";
   const v = {
@@ -156,7 +160,7 @@ function station(s: StationNow, named: boolean, rain: number | undefined, hour: 
   const shapes =
     (s.temperature != null ? dot("t", x, y, chip(s.temperature), named ? `${Math.round(s.temperature)}°` : undefined) : "") +
     (rain != null ? (rain > 0 ? dot("p", x, y, rainColor(rain), named || rain >= 1 ? fr(Math.round(rain * 10) / 10) : undefined) : dot("p", x, y, RAIN_DRY, undefined, true)) : "") +
-    (s.vent != null ? windMark(x, y, s) : "");
+    (s.vent != null ? windMark(x, y, s, windAt) : "");
   const data = Object.entries(v).map(([k, x]) => (x ? ` data-tv${k}="${esc(x)}"` : "")).join("");
   return `<a class="mk${has}" href="#${stationId(s.nom)}" aria-label="${esc(said)}" data-tp="${esc(place)}" data-td="mesurée à\u00a0${hm(s.time)}${esc(by(s))}"${data}>` +
     `<circle class="hit" cx="${x}" cy="${y}" r="${named ? HIT : HIT / 2}" style="fill:transparent;stroke:none"/>${shapes}</a>`;
@@ -171,11 +175,22 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
   const latest = list.reduce((m, s) => (s.time > m ? s.time : m), "");
   const named = (s: StationNow) => NAMED.has(s.id ?? "");
   const w = list.filter((s) => s.vent != null);
+  // No wind pill covers another (two beacons a few hundred metres apart): those that would are moved apart, each tied
+  // to its place by a line and a dot, under every pill, as the home page's (map.ts, apart()); side by side rather than
+  // one above the other, which would take the room of « Saint-Paul » on a phone.
+  const placed = apart(w.map((s) => ({ lon: s.lon, lat: s.lat, label: "", name: s.nom })), w.map(() => WIND_W), 3);
+  const windAt = new Map(w.map((s, i) => [s, placed[i]]));
+  const ties = w.map((s, i) => {
+    const [x0, y0] = project(s.lon, s.lat), [x, y] = placed[i];
+    // A white line on a night edge, to the pill (under it), and a white dot on its place (marketing).
+    const line = (c: string) => `<line class="${c}" x1="${x0}" y1="${y0}" x2="${x}" y2="${y}"/>`;
+    return Math.hypot(x - x0, y - y0) > 1 ? `${line("o")}${line("i")}<circle cx="${x0}" cy="${y0}" r="9"/>` : "";
+  }).join("");
   // The named ones last, over the dots.
   const drawn = list.filter((s) => s.temperature != null || mm(s) != null || s.vent != null);
   // The replay's dots, its date, time and what they are (measured or estimated), on the sea at the bottom left, the
   // widest off the coast; shown only while it plays (REJEU_JS).
-  const top = `<g class="sts">${[...drawn].sort((a, b) => Number(named(a)) - Number(named(b))).map((s) => station(s, named(s), mm(s), hour)).join("")}</g>` +
+  const top = `<g class="sts">${ties ? `<g class="l-v wt" aria-hidden="true">${ties}</g>` : ""}${[...drawn].sort((a, b) => Number(named(a)) - Number(named(b))).map((s) => station(s, named(s), mm(s), hour, windAt.get(s))).join("")}</g>` +
     `<g class="rj-st"></g><g class="rj-t" aria-hidden="true"><text class="rj-d" x="24" y="782"></text><text class="rj-h" x="24" y="846"></text><text class="rj-s" x="24" y="886"></text></g>`;
   // The veil's data: each station's place on the map, altitude and temperature; the script does the rest.
   const voile = JSON.stringify(t.map((s) => [...project(s.lon, s.lat), s.altitude_m, s.temperature]));

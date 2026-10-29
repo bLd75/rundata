@@ -63,7 +63,7 @@ const DAY = 24 * 60;
 
 export const DOMAINES: Domaine[] = [
   // Météo-France's packets are asked again every 2 minutes (providers/meteofrance.ts, RECHECK_SECONDS).
-  { categorie: "meteo", sources: ids("meteofrance", "metar", "pioupiou", "mf_radar", "openmeteo", "arome", "openmeteo_ens", "cams_uv"), cadence: { minutes: 2, de: "meteofrance" } },
+  { categorie: "meteo", sources: ids("meteofrance", "metar", "pioupiou", "ffvl", "mf_radar", "openmeteo", "arome", "openmeteo_ens", "cams_uv"), cadence: { minutes: 2, de: "meteofrance" } },
   // The floods with the vigilance: no category of their own; their levels every 5 minutes, as the vigilance.
   { categorie: "vigilance", sources: ids("mf_vigilance", "vigicrues"), cadence: { minutes: 5, de: "mf_vigilance" } },
   { categorie: "cyclones", sources: ids("gdacs_cyclones"), cadence: { minutes: 30, de: "gdacs_cyclones" } },

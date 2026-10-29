@@ -33,6 +33,7 @@ async function weatherCache(at: number, now = at) {
   await store.put("metar", { value: JSON.parse(fixture("metar.json")), fetchedAt: at });
   await store.put("pioupiou:all", { value: beacons, fetchedAt: at });
   await store.put("pioupiou:live", { value: beacons.map((b) => ({ ...b, measurements: { ...b.measurements, date } })), fetchedAt: at });
+  await store.put("ffvl:releves", { value: [{ idbalise: 164, date, vitesseVentMoy: 8, vitesseVentMax: 15, directVentMoy: 112 }], fetchedAt: at });
   return new Cache(store, () => now);
 }
 
@@ -217,10 +218,11 @@ describe("fraicheur", () => {
     // Each source named from its error (cache.ts) and its card (sources_donnees); every part a copy: no « reste ».
     expect(f.copies_de_secours).toEqual([
       { source: "Observations aéroport (METAR)", lue_le: "18/10 20:20" },
+      { source: "Balises météo de la FFVL", lue_le: "18/10 20:20" },
       { source: "Balises de vent Pioupiou (OpenWindMap)", lue_le: "18/10 20:20" },
     ]);
     expect(f.avertissement).toBe(
-      "Ces sources n'ont pas répondu à notre dernière lecture : « Observations aéroport (METAR) », lue le 18/10 à 20:20\u00a0; « Balises de vent Pioupiou (OpenWindMap) », lue le 18/10 à 20:20. Ce qui vient d'elles date de ces lectures.",
+      "Ces sources n'ont pas répondu à notre dernière lecture : « Observations aéroport (METAR) », lue le 18/10 à 20:20\u00a0; « Balises météo de la FFVL », lue le 18/10 à 20:20\u00a0; « Balises de vent Pioupiou (OpenWindMap) », lue le 18/10 à 20:20. Ce qui vient d'elles date de ces lectures.",
     );
   });
 

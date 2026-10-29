@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import type { HomeData, StationNow } from "../src/web/data.js";
-import { esc, project } from "../src/web/map.js";
+import { apart, esc, NOMS_SCRIPT, project } from "../src/web/map.js";
 import { ALT_PATH, communeOf, landBreeze, METEO_SCRIPT, rainPill, rejeuScript, rejeuScriptPath, stationsMap, ventText, windPill } from "../src/web/meteo-carte.js";
 import { CSS, meteoPage, stationId } from "../src/web/pages.js";
 import { site } from "../src/web/site.js";
@@ -104,6 +104,45 @@ describe("the map of every station on /meteo", () => {
     const calm = stationsMap([BRAS_SEC, PLUVIO]);
     expect(calm).not.toContain(`id="wxl-v"`);
     expect(calm).not.toContain("data-vent");
+  });
+
+  it("moves apart wind pills that would cover each other, each tied to its place, and leaves the others on theirs", () => {
+    // Two anemometers 600 m apart, as Pointe des Trois-Bassins and the FFVL's beacon of the Trou d'Eau.
+    const pointe = st({ nom: "Pointe des Trois-Bassins", lon: 55.2386, lat: -21.0978, vent: 5, direction: 120 });
+    const trou = st({ nom: "Balise du Trou d'Eau", source: "ffvl", id: "1012", lon: 55.2441, lat: -21.1013, vent: 1, direction: 78 });
+    const html = stationsMap([GILLOT, pointe, trou]);
+    const rects = [...html.matchAll(/<g class="sh l-v wv"><rect x="([\d.-]+)" y="([\d.-]+)"/g)].map((m) => [+m[1] + 46, +m[2] + 24]);
+    expect(rects).toHaveLength(3);
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+      expect(Math.abs(rects[i][0] - rects[j][0]) >= 96 || Math.abs(rects[i][1] - rects[j][1]) >= 48).toBe(true);
+    }
+    // Set aside, not one above the other: the room above and below stays for « Saint-Paul » on a phone.
+    const [g0, g1] = project(GILLOT.lon, GILLOT.lat).map(Math.round);
+    const moved = rects.filter(([x, y]) => x !== g0 || y !== g1);
+    expect(moved).toHaveLength(2);
+    expect(Math.abs(moved[0][0] - moved[1][0])).toBeGreaterThanOrEqual(96);
+    // Gillot, alone, on its place; the two others each tied to theirs, under every pill, in the wind's layer only.
+    expect(rects).toContainEqual(project(GILLOT.lon, GILLOT.lat).map(Math.round));
+    const ties = html.match(/<g class="l-v wt" aria-hidden="true">(.*?)<\/g>/)![1];
+    // A white line on a night edge, and a white dot on the place (marketing).
+    expect(ties.match(/<line class="o" /g)).toHaveLength(2);
+    expect(ties.match(/<line class="i" /g)).toHaveLength(2);
+    for (const s of [pointe, trou]) expect(ties).toContain(`<circle cx="${project(s.lon, s.lat)[0]}" cy="${project(s.lon, s.lat)[1]}" r="9"/>`);
+    expect(html.indexOf(`class="l-v wt"`)).toBeLessThan(html.indexOf(`class="sh l-v wv"`));
+    expect(stationsMap(ALL)).not.toContain(`class="l-v wt"`);
+    expect(CSS).toContain(".wxmap .wt .o{stroke:#0b1f36;");
+    expect(CSS).toContain(".wxmap .wt .i{stroke:#fff;");
+    // No name of a place on a line or a dot.
+    expect(NOMS_SCRIPT).toContain(",.wt line,.wt circle\")");
+  });
+
+  it("sets two pills on one place one above the other, unless asked to set them aside (the wind's)", () => {
+    const two = [{ lon: 55.5, lat: -21.1, label: "", name: "a" }, { lon: 55.5, lat: -21.1, label: "", name: "b" }];
+    const [a, b] = apart(two, [96, 96]);
+    expect(a[0]).toBe(b[0]);
+    const [c, d] = apart(two, [96, 96], 3);
+    expect(c[1]).toBe(d[1]);
+    expect(Math.abs(c[0] - d[0])).toBeGreaterThanOrEqual(96);
   });
 
   it("leaves a wind without its direction out of where the air goes, and keeps a calm in", () => {

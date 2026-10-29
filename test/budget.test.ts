@@ -63,6 +63,7 @@ function upstream(url: string): Response {
   if (url.includes("aviationweather")) return new Response(fixture("metar.json"));
   if (url.endsWith("/live/all")) return new Response(fixture("pioupiou_all.json"));
   if (url.includes("pioupiou")) return Response.json({ data: JSON.parse(String(fixture("pioupiou_all.json"))).data[0] });
+  if (url.includes("data.gouv.fr/api/1/datasets/r/047b2ab9")) return new Response(fixture("ffvl_releves.json"));
   if (url.includes("/thredds/dodsC/gridLEODYNRTL3SWW00/")) return new Response(fixture("acspo.ascii"));
   if (url.includes("erdMH1sstd1day")) return new Response(fixture("modis.csv"));
   if (url.includes("marine-api.open-meteo")) return new Response(fixture("openmeteo_houle.json"));
@@ -96,9 +97,10 @@ afterEach(() => {
 
 describe("subrequests of a cold question in the Worker", () => {
   it.each([
-    // The stations and the radar image, each read and written in the data center's cache.
-    ["meteo_actuelle, Cilaos", (c: Cache) => meteoActuelle(c, "Cilaos", NOW), 30],
-    ["meteo_actuelle, tour of the island", (c: Cache) => meteoActuelle(c, undefined, NOW), 25],
+    // The stations and the radar image, each read and written in the data center's cache. The FFVL's beacons are 1 here,
+    // 2 in the Worker, whose fetch follows the file's redirect.
+    ["meteo_actuelle, Cilaos", (c: Cache) => meteoActuelle(c, "Cilaos", NOW), 31],
+    ["meteo_actuelle, tour of the island", (c: Cache) => meteoActuelle(c, undefined, NOW), 26],
     ["temperature_mer, Saint-Leu", (c: Cache) => temperatureMer(c, "Saint-Leu", NOW), 10],
     ["prevision_meteo, Cilaos demain", (c: Cache) => previsionMeteo(c, "Cilaos", "demain", NOW), PAGE_BUDGET],
     ["prevision_meteo, tour of the island", (c: Cache) => previsionMeteo(c, undefined, undefined, NOW), PAGE_BUDGET],
