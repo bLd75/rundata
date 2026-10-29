@@ -22,20 +22,29 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "public/fonds"
 MANIFEST = ROOT / "src/web/fonds.json"
 # The pictures of src/web/fonds.ts's FONDS, by the name of their PNG.
-NAMES = ["fond-meteo-cote-hauts", "randonneur-maido", "trafic-route-littoral", "evenements-kiosque", "mer-lagon-ermitage", "emploi-metiers-reunion"]
+NAMES = ["fond-meteo-cote-hauts", "randonneur-maido", "trafic-route-littoral", "evenements-kiosque", "mer-lagon-ermitage",
+         "historique-abri-meteo", "enfants-aire-de-jeux-haut", "communes-ville-creole", "volcan-repos-bellecombe",
+         "cyclone-saison-ciel", "crues-radier-ravine", "air-cote-ouest", "bornes-parking-palmiers", "defibrillateur-mairie",
+         "calendrier-lever-est", "electricite-barrage-toits", "sport-stade-montagnes", "fond-secheresse-ravine",
+         "associations-varangue", "coupures-eau-chateau", "eau-bassin-ravine", "velos-front-de-mer", "carburants-station-hauts",
+         "collecte-rue-ouest", "fond-feux-hauts", "ia-varangue-haut", "ia-varangue", "car-jaune-haut-sans-embleme",
+         "decheterie-ouest", "baignade-lagon-sud", "sentier-foret-hauts", "kit-cyclone-varangue",
+         "emploi-metiers-reunion"]
 WIDTHS = [480, 1024]
 KEEP = 0.55  # the upper part kept
 BLUR = {480: 1.5, 1024: 0.5}  # pixels, by width
+# The phone's copy, softened further, half a pixel at a time, while it weighs more than this (a busy picture).
+PHONE_MAX = 12 * 1024
 QUALITY = 50
-# A step lower where the phone's file would pass 12 000 bytes, the most a slow 4G lets show before the text.
+# A step lower where the phone's file would pass PHONE_MAX, the most a slow 4G lets show before the text: tried before softening.
 QUALITY_OF = {("emploi-metiers-reunion", 480): 44}
 
 
-def webp(src: Path, width: int, quality: int) -> bytes:
+def webp(src: Path, width: int, blur: float, quality: int) -> bytes:
     with tempfile.TemporaryDirectory() as tmp:
         cut, out = Path(tmp) / "f.png", Path(tmp) / "f.webp"
         subprocess.run(["convert", str(src), "-alpha", "off", "-gravity", "North", "-crop", f"100%x{round(KEEP * 100)}%+0+0",
-                        "+repage", "-resize", f"{width}x", "-blur", f"0x{BLUR[width]}", str(cut)], check=True)
+                        "+repage", "-resize", f"{width}x", "-blur", f"0x{blur}", str(cut)], check=True)
         subprocess.run(["vips", "webpsave", str(cut), str(out), "--Q", str(quality), "--effort", "6", "--strip"], check=True)
         return out.read_bytes()
 
@@ -47,11 +56,16 @@ def main() -> None:
     OUT.mkdir(exist_ok=True)
     manifest = {}
     for name in NAMES:
-        for old in OUT.glob(f"{name}-*.webp"):
+        # Its own files only: ia-varangue-* would also match ia-varangue-haut's.
+        for old in OUT.glob(f"{name}-[0-9]*.webp"):
             old.unlink()
         files = {}
         for width in WIDTHS:
-            data = webp(folder / f"{name}.png", width, QUALITY_OF.get((name, width), QUALITY))
+            blur, quality = BLUR[width], QUALITY_OF.get((name, width), QUALITY)
+            data = webp(folder / f"{name}.png", width, blur, quality)
+            while width == 480 and len(data) > PHONE_MAX:
+                blur += 0.5
+                data = webp(folder / f"{name}.png", width, blur, quality)
             file = f"{name}-{width}.{hashlib.sha256(data).hexdigest()[:10]}.webp"
             (OUT / file).write_bytes(data)
             files[str(width)] = file

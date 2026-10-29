@@ -3,6 +3,7 @@
  * rule and the zones of the GIP Centre Sécurité Requin, from the package (src/eau/requin.ts), with no request.
  */
 import { ARRETE, CSR, CSR_URL, noneLine, ruleText, saysBsan, SOURCE, STORIES, T, ZONES, zoneLine, zonesNear, inForce } from "../eau/requin.js";
+import type { Alerte } from "./data.js";
 import { esc } from "./map.js";
 import { layout, SITE } from "./pages.js";
 
@@ -41,7 +42,7 @@ export function bathingBlock(now: Date, near?: { nom: string; lon: number; lat: 
 
 const fr = (iso: string) => iso.split("-").reverse().join("/");
 
-export function bathingPage(origin: string, now = new Date()): string {
+export function bathingPage(origin: string, now = new Date(), alerte?: Alerte): string {
   // Along the coast, from the west to the south, as the zones lie.
   const communes = ["Saint-Paul", "Les Trois-Bassins", "Saint-Leu", "L'Étang-Salé", "Saint-Pierre", "Petite-Île", "Saint-Joseph", "Saint-Philippe"];
   const title = "Baignade et requins à La Réunion : où se baigner · 974";
@@ -80,5 +81,5 @@ export function bathingPage(origin: string, now = new Date()): string {
       ],
     },
   ];
-  return layout(origin, { title, description, path: PATH, jsonld }, band, body);
+  return layout(origin, { title, description, path: PATH, jsonld, alerte }, band, body);
 }

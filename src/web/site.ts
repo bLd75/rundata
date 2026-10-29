@@ -565,8 +565,10 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/nouveautes" || path === "/nouveautes/") {
     return new Response(nouveautesPage(origin), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
+  // With the vigilance's banner, and so as short-lived as the others: a calm lagoon must not stay above an alert.
   if (path === BAIGNADE || path === `${BAIGNADE}/`) {
-    return new Response(bathingPage(origin, now), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+    const a = await alerte(cache, background, now);
+    return new Response(bathingPage(origin, now, a), { headers: HTML });
   }
   if (path === "/mentions-legales" || path === "/mentions-legales/") {
     return new Response(null, { status: 301, headers: { location: "/conditions#mentions-legales", "cache-control": STATIC } });

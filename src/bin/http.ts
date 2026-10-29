@@ -51,13 +51,13 @@ async function send(res: ServerResponse, r: Response) {
 }
 
 // The static files Cloudflare serves beside the Worker (wrangler.jsonc, "assets"): the press page's visuals, the
-// pictures of the link previews, the home-screen icons and the symbol of the brand, the island's relief, the headings'
-// font; each with its cache as in public/_headers.
+// pictures of the link previews and of the pages' bands, the home-screen icons and the symbol of the brand, the
+// island's relief, the headings' font; each with its cache as in public/_headers.
 const PUBLIC = new URL("../../public/", import.meta.url);
 const TYPES: Record<string, string> = { jpg: "image/jpeg", webp: "image/webp", png: "image/png", svg: "image/svg+xml", woff2: "font/woff2" };
 const KEPT = "public, max-age=31536000, immutable";
 const ASSETS: [RegExp, string][] = [
-  [/^\/((?:presse|og|icons|logo)\/[\w-]+\.[0-9a-f]+\.(jpg|webp|png|svg))$/, KEPT],
+  [/^\/((?:presse|og|icons|logo|fonds)\/[\w-]+\.[0-9a-f]+\.(jpg|webp|png|svg))$/, KEPT],
   [/^\/(relief-[0-9a-f]{8}\.(webp))$/, KEPT],
   [/^\/(font\/titres-\d+\.(woff2))$/, KEPT],
   // Linked with ?v= (its fingerprint), kept a week.

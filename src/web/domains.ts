@@ -1258,7 +1258,7 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
 ${fordsSection(fords, now)}
 ${connectorCta("crues_rivieres", "les rivières de l'île")}`;
 
-  return layout(origin, { title, description, path: "/crues", jsonld: [crumbs(origin, "Crues", "/crues"), webPage(origin, "/crues", title, description, data)], alerte }, band, body);
+  return layout(origin, { title, description, path: "/crues", jsonld: [crumbs(origin, "Crues", "/crues"), webPage(origin, "/crues", title, description, data)], alerte, vert: !!v && !v.active }, band, body);
 }
 
 /** The rivers under a flood vigilance yellow or above, the worst first. */
@@ -2584,7 +2584,7 @@ ${d?.saison_precedente ? `<section aria-labelledby="h-saison-prec">
 ${d ? `<section aria-labelledby="h-src"><div class="sec-h"><h2 id="h-src">D'où viennent ces données</h2><p>${esc(d.a_savoir)}</p></div>${data ? sourcesNote(d.sources, data) : ""}</section>` : ""}
 ${connectorCta("cyclones", "les cyclones")}`;
 
-  return layout(origin, { title, description, path: "/cyclones", jsonld: [crumbs(origin, "Cyclones", "/cyclones"), webPage(origin, "/cyclones", title, description, data)], alerte }, band, body);
+  return layout(origin, { title, description, path: "/cyclones", jsonld: [crumbs(origin, "Cyclones", "/cyclones"), webPage(origin, "/cyclones", title, description, data)], alerte, vert: !!d && !alerte && !active.length }, band, body);
 }
 
 export function cyclonesLive(data: Cached<CyclonesAnswer> | null): Live | undefined {
