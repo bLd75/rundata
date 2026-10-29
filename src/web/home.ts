@@ -219,9 +219,17 @@ function livePill(at: string | undefined, now: Date): string {
 function heroMap(h: HomeLive | null): string {
   const l = withTemp(h?.meteo ?? null);
   const at = h?.meteo?.value.stations.reduce((m, s) => (s.time > m ? s.time : m), "");
-  // Each temperature leads to its station's row on the weather page.
-  const markers: Marker[] = l.map((s) => ({ lon: s.lon, lat: s.lat, label: `${Math.round(s.temperature!)}°`, say: `${Math.round(s.temperature!)} °C`, name: shortName(s.nom), color: chip(s.temperature!), round: true, href: `/meteo#${stationId(s.nom)}` }));
-  return `<figure class="hero-map">${islandMap({ markers, relief: true, label: `Carte de La Réunion (974)${at ? ` avec les températures mesurées à ${hm(at)}` : ""}` })}` +
+  // Each temperature leads to its station's row on the weather page; its bubble says the station, its altitude, the
+  // value to the tenth as measured, and when and by whom.
+  const by = (s: { source: string }) => (s.source === "meteofrance" ? " par Météo-France" : s.source === "metar" ? " par la station de l'aéroport" : "");
+  const markers: Marker[] = l.map((s) => ({
+    lon: s.lon, lat: s.lat, label: `${Math.round(s.temperature!)}°`, say: `${Math.round(s.temperature!)} °C`, name: shortName(s.nom),
+    color: chip(s.temperature!), round: true, href: `/meteo#${stationId(s.nom)}`,
+    tip: { place: `${shortName(s.nom)} · ${metres(s.altitude_m)}`, value: thin(deg(s.temperature!)), detail: `mesurée à\u00a0${hm(s.time)}${by(s)}` },
+  }));
+  // The bubble of the marker hovered, tapped or focused, filled and placed by the page's script; hidden without it.
+  const bubble = `<a class="mtip" data-mtip hidden aria-hidden="true" tabindex="-1" href="/meteo"><span class="mt-p"></span><b class="mt-v"></b><span class="mt-d"></span><span class="mt-go">Voir le détail →</span></a>`;
+  return `<figure class="hero-map">${islandMap({ markers, relief: true, label: `Carte de La Réunion (974)${at ? ` avec les températures mesurées à ${hm(at)}` : ""}` })}${bubble}` +
     `<figcaption>${at ? `<span class="dot"></span>Températures mesurées à ${hm(at)} · <a href="/meteo">toutes les stations →</a>` : "Les stations publient toutes les 6 minutes."}</figcaption></figure>`;
 }
 
