@@ -25,7 +25,7 @@ import * as irve from "../providers/irve.js";
 import * as velos from "../providers/velos.js";
 import * as maregraphes from "../providers/maregraphes.js";
 import * as mf from "../providers/vigilance.js";
-import { qualiteAir, type Measured } from "../tools/air.js";
+import { qualiteAir, type Amateurs, type Measured } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
 import { electricite } from "../tools/electricite.js";
 import * as houle from "../providers/houle.js";
@@ -414,6 +414,8 @@ export interface AirAnswer {
   diffusion?: string;
   /** The measures at the stations, raw, apart from the forecast; in the Worker only (providers/air-mesures.ts). */
   mesures_aux_stations?: { valeurs: Measured[]; lu_par_rundata: string; source: string };
+  /** The sensors of private people, apart from the index; in the Worker only (providers/capteurs.ts). */
+  capteurs_amateurs?: Amateurs;
   avertissements: string[];
   sources: Credit[];
 }

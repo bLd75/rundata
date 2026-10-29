@@ -183,7 +183,7 @@ describe("the page /chiffres", () => {
     for (const h of ["L'essentiel", "Par domaine", "Sur le terrain", "En ce moment", "Les licences", "Ce qui manque", "Depuis le début"]) expect(html).toContain(`>${h}</h2>`);
     expect(html).toContain("communes, une page du jour pour chacune");
     expect(html).toContain('href="/sentiers">351</a>');
-    expect(html).toMatch(/sources sont publiées sous une licence ouverte \(Licence Ouverte, ODbL, CC BY, domaine public\)\. Pour les autres, des informations publiques, rundata\.re ne reprend que les faits, avec le lien de la source\./);
+    expect(html).toMatch(/sources sont publiées sous une licence ouverte \(Licence Ouverte, ODbL, DbCL, CC BY, domaine public\)\. Pour les autres, des informations publiques, rundata\.re ne reprend que les faits, avec le lien de la source\./);
     expect(html).toContain('3 sites publics ne répondent pas en ce moment\u00a0: <a href="/sites-sans-reponse">voir les sites sans réponse</a>.');
     expect(html).toContain("Compté le 26/10 à\u00a008:00, à partir des sources que lit rundata.re. Une source manque\u00a0? Dites-le avec le formulaire en bas de page.");
   });

@@ -24,7 +24,8 @@ import * as littoral from "../tools/littoral.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
 import { a, de, enumeration, fr, nombre } from "../tools/format.js";
-import type { Measured } from "../tools/air.js";
+import { CAPTEURS_AVERTISSEMENT, type Measured } from "../tools/air.js";
+import * as capteurs from "../providers/capteurs.js";
 import * as radars from "../routes/radars.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
@@ -489,6 +490,29 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
 </section>`
     : "";
 
+  // The sensors of private people, under the index and apart from it, worded by marketing (29/10/2026): raw values by
+  // commune, the hour they measured, never a colour, a threshold, an identifier nor a place.
+  const am = d?.capteurs_amateurs;
+  const [amLe, amA] = am?.lu_par_rundata.split(" ") ?? [];
+  const pm = (name: string, v: number | undefined) => (v === undefined ? "" : ` · ${name} : ${esc(nombre(v))} µg/m³`);
+  const amateurs = am
+    ? `<section aria-labelledby="h-capteurs-air">
+  <div class="sec-h"><p class="eyebrow">Capteurs de particuliers</p><h2 id="h-capteurs-air">Capteurs amateurs</h2>
+  <p><b>${esc(CAPTEURS_AVERTISSEMENT)}</b> ${esc(am.explication)}</p></div>
+  <div class="card">${"valeurs" in am
+    ? `<ul class="plain">${am.valeurs.map((v) => `<li>${esc(v.commune)}${pm("PM2,5", v.pm2_5)}${pm("PM10", v.pm10)} · mesurées ${esc(v.mesurees)} <span class="note">non étalonné</span></li>`).join("")}</ul>`
+    : `<p>${esc(am.aucun)} <a href="#brancher">Brancher un capteur</a></p>`}
+  <p class="note">Lu par rundata.re le ${esc(amLe)} à ${esc(amA)}, sur <a href="${esc(am.carte)}" rel="noopener">Sensor.Community</a> (<a href="${esc(capteurs.DBCL)}" rel="noopener">DbCL 1.0</a>).</p></div>
+  <details class="card" id="brancher"><summary>Brancher son capteur</summary>
+  <p>Un capteur de particules branché dehors et partagé sur Sensor.Community apparaît dans le bloc ci-dessus, arrondi à sa commune.</p>
+  <h3>airRohr (Sensor.Community)</h3>
+  <ul class="plain"><li>Une carte NodeMCU ESP8266</li><li>Un capteur de particules SDS011</li><li>Un capteur BME280 (température, humidité, pression)</li><li>Un abri en tube PVC</li></ul>
+  <p><a href="${esc(capteurs.GUIDE)}" rel="noopener">Le guide officiel de l'airRohr</a></p>
+  <p>Au moment d'inscrire le capteur, arrondissez vous-même sa position : rundata.re n'affiche que la commune, mais Sensor.Community peut publier la position que vous saisissez.</p>
+  <p class="note">Lu le 29/10/2026 à 10:53.</p></details>
+</section>`
+    : "";
+
   const scale = `<ul class="scale">${[1, 2, 3, 4, 5, 6].map((n) => `<li>${aq(n)}<p>Indice ${n} sur 6.</p></li>`).join("")}</ul>`;
 
   const title = "Qualité de l'air Réunion aujourd'hui, par commune · 974";
@@ -516,6 +540,7 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
   ${d ? `<div class="levels">${byLevel}</div>${subs}${warnings(d.avertissements)}` : `<p class="card">L'indice se charge : rechargez la page dans quelques secondes.</p>`}
 </section>
 ${measures}
+${amateurs}
 <section aria-labelledby="h-source-air">
   <div class="sec-h"><p class="eyebrow">Provenance</p><h2 id="h-source-air">D'où vient l'indice</h2></div>
   <div class="card"><dl class="facts">

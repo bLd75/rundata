@@ -22,6 +22,7 @@ import { MAX_NEW_GRIDS } from "./providers/arome.js";
 import { KINDS as CANDHIS_KINDS, REFRESH_EVERY as CANDHIS_EVERY, REFRESH_OFFSET as CANDHIS_OFFSET } from "./providers/candhis.js";
 import { IMAGE_OFFSET as CMRS_IMAGE_OFFSET, LISTE_OFFSET as CMRS_LISTE_OFFSET, REFRESH_EVERY as CMRS_EVERY } from "./providers/cmrs-carte.js";
 import { REFRESH_EVERY as AIR_EVERY, REFRESH_OFFSET as AIR_OFFSET } from "./providers/air-mesures.js";
+import { REFRESH_EVERY as CAPTEURS_EVERY, REFRESH_OFFSET as CAPTEURS_OFFSET } from "./providers/capteurs.js";
 import { REFRESH_EVERY as IRVE_EVERY, REFRESH_OFFSET as IRVE_OFFSET } from "./providers/irve.js";
 import { SHARED, SHARED_AFTER, type Shared } from "./web/partagees.js";
 import { COMMUNE_TILES, DOMAINS, HOME_TILES } from "./web/site.js";
@@ -112,9 +113,9 @@ const SHARED_D1: Record<string, Pick<Run, "d1Calls" | "d1RowsRead">> = {
   "web:chiffres": SANS_REPONSE_D1,
 };
 
-// Copies collected outside the Worker and read from KV by a build (src/worker.ts `configure`): the measures at Atmo
-// Réunion's stations.
-const SHARED_KV: Record<string, number> = { "web:air": 1 };
+// Copies the scheduled event collects and a build reads from KV (src/worker.ts `configure`): the measures at Atmo
+// Réunion's stations and the sensors of private people.
+const SHARED_KV: Record<string, number> = { "web:air": 2 };
 
 // Never built alone over MEASURED: their CPU is that of the page that shows them; the vigilance's and the rivers', measured in Node; the earthquakes' and the ONF's map's, estimated from /volcan's and /sentiers's.
 const SHARED_ESTIMATED = new Set(["vigilance", "seismes", "onf:sentiers", "web:crues", "mer:satellites", "web:calendrier", "web:chiffres", "web:chiffres:evenements"]);
@@ -306,6 +307,18 @@ const SCHEDULED: Entry[] = [
     run: { subrequests: 6, kvReads: 1, kvWrites: 1, cpuMs: 260 },
     from: ["src/providers/air-mesures.ts"],
     basis: "mesuré",
+  },
+  // The copy read from KV, one request to Sensor.Community for the whole island, the copy written when its sensors
+  // changed or an hour after: 3. Its answer is a list of a few sensors at most (none on 29/10/2026).
+  {
+    id: "capteurs:air",
+    trigger: "planifiée",
+    what: "capteurs amateurs de particules (Sensor.Community) : les 5 dernières minutes sur l'île, une requête, gardées 2 heures dans KV",
+    every: CAPTEURS_EVERY,
+    offset: CAPTEURS_OFFSET,
+    run: { subrequests: 3, kvReads: 1, kvWrites: 1, cpuMs: 10 },
+    from: ["src/providers/capteurs.ts"],
+    basis: "code",
   },
   // Only with the Cerema's key. The state read from KV, one getCampListeTR request per type of active buoy (at most
   // the three types; one when the island's buoys are all of one type), the state written. Every 30 days, and the first
@@ -523,8 +536,8 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   annuaire_services_publics: { subrequests: 3, cpuMs: 20, file: "annuaire" },
   restrictions_eau: { subrequests: 3, cpuMs: 60, file: "secheresse" },
   bornes_recharge: { subrequests: 3, cpuMs: 50, file: "bornes" },
-  // The index (3), and the copy of the measures at the stations (3), test/air-mesures.test.ts.
-  qualite_air: { subrequests: 6, cpuMs: 50, file: "air", kvReads: 1 },
+  // The index (3), the copy of the measures at the stations (3), the copy of the sensors (1), test/capteurs.test.ts.
+  qualite_air: { subrequests: 7, cpuMs: 50, file: "air", kvReads: 2 },
   defibrillateurs: { subrequests: 0, cpuMs: 70, file: "dae" },
   donner_avis: { subrequests: 1, cpuMs: 60, d1: { d1Calls: 1, d1RowsRead: 5, d1RowsWritten: 3 } },
   // The copy of /chiffres for its block `chiffres` (the data center's cache, else KV).

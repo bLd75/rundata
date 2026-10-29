@@ -19,12 +19,13 @@ import { AGENDAS, type Agenda } from "./providers/agenda.js";
 import { STATIONS as BORNES } from "./providers/irve.js";
 import type { SourceInfo } from "./types.js";
 
-export type Famille = "licence_ouverte" | "odbl" | "cc_by" | "domaine_public" | "information_publique";
+export type Famille = "licence_ouverte" | "odbl" | "dbcl" | "cc_by" | "domaine_public" | "information_publique";
 
-/** The families as the page writes them; the first four make « licence ouverte ». */
+/** The families as the page writes them; the open ones make « licence ouverte ». */
 export const FAMILLES: Record<Famille, { nom: string; ouverte: boolean }> = {
   licence_ouverte: { nom: "Licence Ouverte", ouverte: true },
   odbl: { nom: "ODbL", ouverte: true },
+  dbcl: { nom: "DbCL", ouverte: true },
   cc_by: { nom: "CC BY", ouverte: true },
   domaine_public: { nom: "domaine public", ouverte: true },
   information_publique: { nom: "information publique", ouverte: false },
@@ -87,6 +88,7 @@ export const FICHES: Record<string, Fiche> = {
   // Air, power, water, health.
   atmo_indice: { famille: "odbl", producteurs: ["Atmo Réunion"] },
   lcsqa_mesures: { famille: "licence_ouverte", producteurs: ["Atmo Réunion"] },
+  sensor_community: { famille: "dbcl", producteurs: ["Sensor.Community"] },
   edf_sei_reunion: { famille: "licence_ouverte", producteurs: ["EDF"] },
   // The mairies relay EDF's notices: EDF only (they count by their agendas and news).
   mairies_edf: { famille: "information_publique", producteurs: ["EDF"] },
