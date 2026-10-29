@@ -347,6 +347,8 @@ section{display:grid;gap:1.4rem;min-width:0}
 .sec-h p:not(.eyebrow){color:var(--muted);font-size:1.05rem}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:1.3rem;display:grid;gap:.8rem;min-width:0;box-shadow:var(--shadow)}
 .note{font-size:.86rem;color:var(--muted)}
+/* On the band's night, its own grey: --muted is the grey of a white page. */
+.band .note{color:var(--on-night-muted)}
 .sources{margin:0 0 .3rem;font-size:.75rem;line-height:1.35;color:var(--muted)}
 .fin-sources{padding-block:.6rem 1.2rem}
 
@@ -691,7 +693,6 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .vgpre{background:var(--surface);color:var(--ink);border:1px solid var(--border)}
 .status{display:grid;gap:.6rem;justify-items:start}
 .status .big{font-size:clamp(2rem,6vw,3.2rem);line-height:1}
-.band .status .note{color:var(--on-night-muted)}
 /* /air: the forecast under the measure, apart and smaller. */
 .status.forecast{margin-top:.2rem;padding-top:.7rem;border-top:1px solid rgb(255 255 255/.2)}.status.forecast .lead{font-size:1rem}
 .zones{list-style:none;padding:0;display:grid;gap:1rem}
@@ -763,7 +764,6 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .band .bars li{color:var(--on-night)}
 .bars i{grid-column:1/-1;display:block;height:.55rem;border-radius:1rem;background:var(--vg0)}
 .bars i.ren{background:var(--ren)}
-.band .mapcard .note{color:var(--on-night-muted)}
 .posts{list-style:none;padding:0;display:grid;gap:1rem}
 @media (min-width:58rem){.posts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .posts p{overflow-wrap:anywhere}
