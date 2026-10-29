@@ -1,5 +1,6 @@
 import { isScheduled, later, left, perInvocation } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
+import { inReunion } from "../geo.js";
 import { httpUrl, patiently, places, whenPlaced } from "../http.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
@@ -447,7 +448,7 @@ export function inPeriod(e: src.Evenement, p: Periode, now: Date): src.Seance[] 
 /** Its last good reading, and that the platform did not answer since, when so (marketing's words). */
 const luVia = (v: NonNullable<src.Evenement["via"]>) => (v.sans_reponse ? `lu sur ${v.plateforme} le ${dayText(v.lu)}, pas de réponse depuis` : `lu le ${dayText(v.lu)}`);
 
-export function eventRow(e: src.Evenement, seances: src.Seance[]) {
+export function eventRow(e: src.Evenement, seances: src.Seance[], place = false) {
   const [first, ...others] = seances;
   return {
     titre: e.titre,
@@ -494,6 +495,8 @@ export function eventRow(e: src.Evenement, seances: src.Seance[]) {
     organise_par: e.organise_par,
     /** OpenAgenda's picture under the Licence Ouverte, for the search engines (JSON-LD of the pages). */
     image: e.image,
+    /** Where it is, when its source gives it: for the pages' « Y aller » only (`place`), never in the tool's answer. */
+    position: place && e.lat != null && e.lon != null && inReunion(e.lon, e.lat) ? { lat: e.lat, lon: e.lon } : undefined,
   };
 }
 export type EventRow = ReturnType<typeof eventRow>;
@@ -671,7 +674,7 @@ const A_SAVOIR = "Heures de La Réunion. Les dates et les prix sont ceux publié
 
 /** `listed`: how many events at most (the page lists them all). */
 /** `adherent`: the user says they are a club's member: its sessions for the members are told too, said so. */
-export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?: string, now = new Date(), listed = LISTED, adherent = false) {
+export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?: string, now = new Date(), listed = LISTED, adherent = false, place = false) {
   let res: ReturnType<typeof resolvePlace> = null;
   if (lieu?.trim()) {
     res = resolvePlace(lieu);
@@ -738,7 +741,7 @@ export async function agenda(cache: Cache, lieu?: string, quand?: string, quoi?:
     periode: { du: dayText(p.du), au: dayText(p.au), soir: p.soir || undefined },
     nombre: n,
     quand_non_compris: p.incompris ? `« ${quand} » n'a pas été compris : les deux semaines qui viennent sont données. Dire « aujourd_hui », « ce_soir », « demain », « ce_week_end », « cette_semaine », un jour (« samedi ») ou une date (« 2026-10-31 »).` : undefined,
-    evenements: n ? mine.slice(0, listed).map((x) => eventRow(x.e, x.seances)) : undefined,
+    evenements: n ? mine.slice(0, listed).map((x) => eventRow(x.e, x.seances, place)) : undefined,
     autres: n > listed ? `${n - listed} autres événements : préciser le lieu, le jour ou le genre (quoi).` : undefined,
     ailleurs_sur_l_ile: commune && !n && all.length ? all.slice(0, ELSEWHERE_MAX).map((x) => eventRow(x.e, x.seances)) : undefined,
     cinemas: what?.nom?.includes("cinéma") || /cin[ée]|film/i.test(quoi ?? "") ? { seances: "Les séances des cinémas sont sur leurs sites :", salles: CINEMAS } : undefined,

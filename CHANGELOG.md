@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Vendredi 30 octobre 2026
 
+- Le bouton « Y aller » arrive sur les événements dont l'agenda donne la position du lieu.
 - Le bouton « Y aller » arrive sur les défibrillateurs, les stations de vélos et le marché du jour.
 
 ## Jeudi 29 octobre 2026

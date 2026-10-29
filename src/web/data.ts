@@ -1094,8 +1094,8 @@ const PAGE_EVENTS = 300;
 
 /** The next two weeks for the whole island, and this weekend's apart: the same agendas, read once. */
 export async function buildAgenda(cache: Cache, now = new Date()): Promise<AgendaAnswer> {
-  const a = needed<Omit<AgendaAnswer, "ce_week_end">>(await agenda(cache, undefined, undefined, undefined, now, PAGE_EVENTS), "agenda");
-  const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", undefined, now));
+  const a = needed<Omit<AgendaAnswer, "ce_week_end">>(await agenda(cache, undefined, undefined, undefined, now, PAGE_EVENTS, false, true), "agenda");
+  const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", undefined, now, undefined, false, true));
   // reunion.fr's agenda, not read, is the page's own note under its sources (noteReunionFr): not in its description.
   const resume = a.resume.replace(`\u00a0; ${RESUME_REUNION_FR}`, "");
   return { ...a, resume, non_repris: [...agendaNonRepris(), ...mentionSalles()].join(" ") || undefined, ce_week_end: weekend?.evenements ?? [] };
@@ -1113,8 +1113,8 @@ export interface EnfantsAnswer {
  * cannot be read leaves the page with its places.
  */
 export async function buildEnfants(cache: Cache, now = new Date()): Promise<EnfantsAnswer> {
-  const all = answer<{ evenements?: EventRow[]; indisponible?: string[] }>(await agenda(cache, undefined, undefined, "enfants", now, PAGE_EVENTS));
-  const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", "enfants", now));
+  const all = answer<{ evenements?: EventRow[]; indisponible?: string[] }>(await agenda(cache, undefined, undefined, "enfants", now, PAGE_EVENTS, false, true));
+  const weekend = answer<{ evenements?: EventRow[] }>(await agenda(cache, undefined, "ce_week_end", "enfants", now, undefined, false, true));
   return { evenements: all?.evenements ?? [], ce_week_end: weekend?.evenements ?? [], ...(all?.indisponible?.length ? { indisponible: all.indisponible } : {}) };
 }
 

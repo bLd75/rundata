@@ -11,7 +11,7 @@ import { aller, SHEET as ALLER } from "./aller.js";
 import { PAGES, type PlacePage } from "./places.js";
 import { aCommune, deCommune } from "./aujourdhui.js";
 import type { Alerte, EnfantsAnswer } from "./data.js";
-import { agendaHours, connectorCta, crumbBar, crumbs, loading, webPage } from "./domains.js";
+import { agendaHours, connectorCta, crumbBar, crumbs, eventGo, loading, webPage } from "./domains.js";
 import { communeMap, esc, islandMap, type Spot } from "./map.js";
 import { anchorId, ask, FOLD_ROWS, folded, icon, layout, type Live } from "./pages.js";
 
@@ -51,7 +51,7 @@ function eventLi(r: Row): string {
   const small = [r.quand.replace(/ (de|à) \d\d:\d\d.*$/, "") + (hours ? ` · ${hours}` : ""), r.commune, r.lieu && r.lieu.length < 80 ? r.lieu : undefined, r.source ? `Source\u00a0: ${r.source}` : r.publie_par]
     .filter(Boolean).map((x) => esc(x!)).join(" · ");
   const status = r.statut && r.statut !== "complet" ? `<span class="badge">${esc(r.statut)}</span> ` : "";
-  return `<li data-b="${a.bands.join(" ")}" data-t="agenda"><span>${status}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${ACCUEILS.has(r.lien) ? ' target="_blank"' : ""}>${esc(r.titre)}</a>` : esc(r.titre)}<small>${small}</small></span>${badge(a)}</li>`;
+  return `<li data-b="${a.bands.join(" ")}" data-t="agenda"><span>${status}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${ACCUEILS.has(r.lien) ? ' target="_blank"' : ""}>${esc(r.titre)}</a>` : esc(r.titre)}<small>${small}</small>${eventGo(r)}</span>${badge(a)}</li>`;
 }
 
 /**
