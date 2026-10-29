@@ -21,6 +21,8 @@ import {
   chip,
   coldest,
   connector,
+  COPIED,
+  copies,
   DATAGOUV_REUSE,
   deg,
   follow,
@@ -325,7 +327,7 @@ export function connectSteps(origin: string): string {
         <input type="radio" name="app" id="app-meta"><label for="app-meta">Meta AI</label>
         <input type="radio" name="app" id="app-lechat"><label for="app-lechat">Le Chat</label>
         <input type="radio" name="app" id="app-local"><label for="app-local">Autres</label>
-        <div class="tab t-chatgpt"><p><b>Sur un ordinateur</b>, sur chatgpt.com (le menu n'est pas dans l'appli) : ouvrez <b>Plugins</b> dans le menu de gauche (ou <a href="https://chatgpt.com/plugins">chatgpt.com/plugins</a>), cliquez sur <b>Ajouter</b> en haut à droite, puis <b>Ajouter un serveur MCP personnalisé</b>.</p>
+        <div class="tab t-chatgpt"><p><b>Sur un ordinateur</b>, sur chatgpt.com (le menu n'est pas dans l'appli) : ouvrez <b>Plugins</b> dans le menu de gauche (ou <a href="https://chatgpt.com/plugins"${copies(`${origin}/mcp`, "Adresse du connecteur copiée : collez-la dans le champ URL du serveur.", "Copiez l'adresse avec le bouton de l'étape 1.")}>chatgpt.com/plugins</a>), cliquez sur <b>Ajouter</b> en haut à droite, puis <b>Ajouter un serveur MCP personnalisé</b>.</p>${COPIED}
         <p>Nom : <b>rundata.re</b>. Connexion : <b>URL du serveur</b>, collez l'adresse. Authentification : remplacez <b>OAuth</b>, proposé par défaut, par <b>aucune authentification</b>. Cochez <b>Je comprends et souhaite continuer</b>, créez le plugin, puis installez-le. Un message rouge sur OAuth peut rester affiché : il n'empêche pas de continuer.</p>
         <p>Ensuite, dans une conversation (appli comprise), nommez rundata.re dans la question, par exemple <b>« Avec rundata.re : il fait combien à Cilaos en ce moment ? »</b>, ou tapez <b>@</b> et choisissez rundata.re. Sinon, ChatGPT peut répondre avec sa propre météo, sans station ni heure de mesure. Testé avec l'offre ChatGPT Go. Si le menu Plugins n'apparaît pas sur votre compte, utilisez les boutons « Domann out IA » plus haut.</p>
         <p><b>Des outils manquent ?</b> ChatGPT garde la liste d'outils du jour où vous avez ajouté le connecteur. Sur chatgpt.com (pas dans l'appli), ouvrez <b>Paramètres → Intégrations → Plugins</b>, cliquez sur rundata.re, puis, en bas, dans <b>Gérer l'application</b>, sur <b>Actualiser les outils</b>, et commencez une nouvelle conversation. Pas de bouton ? Sur la même page, <b>Supprimer l'application</b> (ou <b>Désinstaller</b> en haut), puis ajoutez-la de nouveau. Dans un espace Business ou Enterprise, c'est l'administrateur qui actualise dans les réglages de l'espace, puis coche les nouveaux outils.</p></div>
