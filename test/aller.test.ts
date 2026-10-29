@@ -27,7 +27,7 @@ interface Sheet {
 
 /** The script on a page of stubs, a click on a button made by aller() (its attributes read back from the HTML). */
 function click(button: string, ua: string): Sheet {
-  const attrs = Object.fromEntries([...button.matchAll(/ ([a-z-]+)="([^"]*)"/g)].map((m) => [m[1], m[2].replace(/&amp;/g, "&").replace(/&#39;/g, "'")]));
+  const attrs = Object.fromEntries([...button.matchAll(/ ([a-z-]+)="([^"]*)"/g)].map((m) => [m[1], m[2].replace(/&(amp|#39);/g, (_, x) => (x === "amp" ? "&" : "'"))]));
   const a = {
     href: attrs.href,
     dataset: Object.fromEntries(Object.entries(attrs).filter(([k]) => k.startsWith("data-")).map(([k, v]) => [k.slice(5), v])),
