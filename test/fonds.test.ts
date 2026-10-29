@@ -2,6 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Alerte } from "../src/web/data.js";
 import { agendaPage, randonneesPage, traficPage } from "../src/web/domains.js";
+import { emploiPage } from "../src/web/emploi.js";
 import { FONDS, MENTION, withSaveData } from "../src/web/fonds.js";
 import files from "../src/web/fonds.json" with { type: "json" };
 import { homePage } from "../src/web/home.js";
@@ -16,6 +17,7 @@ const PAGES: Record<string, (alerte?: Alerte) => string> = {
   "/trafic": (a) => traficPage(O, null, NOW, a),
   "/evenements": (a) => agendaPage(O, null, NOW, a),
   "/mer": (a) => seaPage(O, null, NOW, a),
+  "/emploi": (a) => emploiPage(O, null, NOW, a),
 };
 const vigilance = (couleur: number, nom: string): Alerte => ({ couleur, texte: `Vigilance Météo-France : ${nom} fortes pluies (Est).`, court: { couleur: nom, phenomenes: ["Fortes pluies"], zones: ["Est"] } });
 const picture = (html: string) => html.match(/<img class="fond"[^>]*>/)?.[0];

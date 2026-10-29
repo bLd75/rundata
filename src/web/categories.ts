@@ -15,6 +15,11 @@ export interface Category {
   about: string;
   /** A question to ask an assistant, for a category without a page. */
   exemple?: string;
+  /**
+   * A page whose tile shows no figure: its copy is not among those the home page reads at each view (HOME_TILES), so
+   * that it costs no read more.
+   */
+  sansValeur?: true;
 }
 
 export const CATEGORIES: Category[] = [
@@ -201,6 +206,15 @@ export const CATEGORIES: Category[] = [
     icon: "calendar",
     tools: ["calendrier"],
     about: "Vacances scolaires de l'académie, jours fériés (dont le 20 décembre), lever et coucher du soleil.",
+  },
+  {
+    key: "emploi",
+    nom: "Emploi public",
+    path: "/emploi",
+    icon: "briefcase",
+    tools: ["emploi"],
+    about: "Les offres d'emploi de la fonction publique à La Réunion (974) : État, collectivités, hôpitaux, avec la commune et le lien pour postuler.",
+    sansValeur: true,
   },
   {
     key: "services",

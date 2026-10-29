@@ -235,7 +235,9 @@ function heroMap(h: HomeLive | null): string {
 
 function tile(c: Category, l: Live | undefined, odd = false): string {
   const name = c.path ? `<h3><a href="${c.path}">${esc(c.nom)}</a></h3>` : `<h3>${esc(c.nom)}</h3>`;
-  const now = l?.vide
+  const now = c.sansValeur
+    ? ""
+    : l?.vide
     ? `<p class="td all">${l.detail}</p>`
     : l
     ? `<p class="tv">${l.valeur}</p><p class="td${l.entier ? " all" : ""}">${l.detail}</p>`

@@ -22,19 +22,21 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "public/fonds"
 MANIFEST = ROOT / "src/web/fonds.json"
 # The pictures of src/web/fonds.ts's FONDS, by the name of their PNG.
-NAMES = ["fond-meteo-cote-hauts", "randonneur-maido", "trafic-route-littoral", "evenements-kiosque", "mer-lagon-ermitage"]
+NAMES = ["fond-meteo-cote-hauts", "randonneur-maido", "trafic-route-littoral", "evenements-kiosque", "mer-lagon-ermitage", "emploi-metiers-reunion"]
 WIDTHS = [480, 1024]
 KEEP = 0.55  # the upper part kept
 BLUR = {480: 1.5, 1024: 0.5}  # pixels, by width
 QUALITY = 50
+# A step lower where the phone's file would pass 12 000 bytes, the most a slow 4G lets show before the text.
+QUALITY_OF = {("emploi-metiers-reunion", 480): 44}
 
 
-def webp(src: Path, width: int) -> bytes:
+def webp(src: Path, width: int, quality: int) -> bytes:
     with tempfile.TemporaryDirectory() as tmp:
         cut, out = Path(tmp) / "f.png", Path(tmp) / "f.webp"
         subprocess.run(["convert", str(src), "-alpha", "off", "-gravity", "North", "-crop", f"100%x{round(KEEP * 100)}%+0+0",
                         "+repage", "-resize", f"{width}x", "-blur", f"0x{BLUR[width]}", str(cut)], check=True)
-        subprocess.run(["vips", "webpsave", str(cut), str(out), "--Q", str(QUALITY), "--effort", "6", "--strip"], check=True)
+        subprocess.run(["vips", "webpsave", str(cut), str(out), "--Q", str(quality), "--effort", "6", "--strip"], check=True)
         return out.read_bytes()
 
 
@@ -49,7 +51,7 @@ def main() -> None:
             old.unlink()
         files = {}
         for width in WIDTHS:
-            data = webp(folder / f"{name}.png", width)
+            data = webp(folder / f"{name}.png", width, QUALITY_OF.get((name, width), QUALITY))
             file = f"{name}-{width}.{hashlib.sha256(data).hexdigest()[:10]}.webp"
             (OUT / file).write_bytes(data)
             files[str(width)] = file

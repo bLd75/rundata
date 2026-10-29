@@ -4,6 +4,10 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 <!-- Généré à partir de src/nouveautes.ts par `npm run changelog` : modifier la liste là-bas. -->
 
+## Jeudi 29 octobre 2026
+
+- Emploi public : les offres de l'État, des collectivités et des hôpitaux à La Réunion, publiées sur Choisir le service public.
+
 ## Mercredi 28 octobre 2026
 
 - Actualités : quand le site de la préfecture ne répond pas, ses derniers communiqués lus restent affichés, avec l'heure de leur lecture.

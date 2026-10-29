@@ -23,7 +23,7 @@ describe("HTTP endpoint", () => {
       "calendrier",
       "qualite_air",
       "annuaire_services_publics",
-      "fiche_terrain", "velos_libre_service", "maree", "crues_rivieres", "bornes_recharge", "qualite_eau", "sentiers_randonnee", "restrictions_eau", "coupures_eau", "resume_du_jour", "defibrillateurs", "sport", "cyclones", "historique_meteo", "evenements", "actualites", "donner_avis", "sites_sans_reponse", "sources_donnees"]);
+      "fiche_terrain", "velos_libre_service", "emploi", "maree", "crues_rivieres", "bornes_recharge", "qualite_eau", "sentiers_randonnee", "restrictions_eau", "coupures_eau", "resume_du_jour", "defibrillateurs", "sport", "cyclones", "historique_meteo", "evenements", "actualites", "donner_avis", "sites_sans_reponse", "sources_donnees"]);
   });
 
   it("answers on /mcp/ as on /mcp, in place and counted the same, and shows browsers the same page", async () => {
