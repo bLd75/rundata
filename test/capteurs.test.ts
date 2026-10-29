@@ -8,6 +8,7 @@ import { parse as parseAtmo } from "../src/providers/atmo.js";
 import { REGISTRY } from "../src/registre.js";
 import { CAPTEURS_AUCUN, CAPTEURS_AVERTISSEMENT, measuredAt, qualiteAir } from "../src/tools/air.js";
 import { airPage } from "../src/web/domains.js";
+import { esc } from "../src/web/map.js";
 import { SHARED } from "../src/web/partagees.js";
 
 // Invented sensors: their identifiers are made up, their points are the centres of two communes of the gazetteer, and
@@ -128,7 +129,7 @@ describe("the sensors of private people (Sensor.Community)", () => {
     // Empty: one sentence and the link to the guide.
     capteurs.configure(async () => ({ lu: "2026-10-29T06:10:00Z", capteurs: [] }));
     const none = body(await qualiteAir(cache(), undefined, NOW));
-    expect(airPage("https://rundata.re", { value: none, fetchedAt: NOW, stale: false }, NOW)).toContain(`<p>${CAPTEURS_AUCUN.replace("'", "&#39;")} <a href="#brancher">Brancher un capteur</a></p>`);
+    expect(airPage("https://rundata.re", { value: none, fetchedAt: NOW, stale: false }, NOW)).toContain(`<p>${esc(CAPTEURS_AUCUN)} <a href="#brancher">Brancher un capteur</a></p>`);
   });
 
   it("costs, from cold, what the budget's registry says: the index and the two copies read from KV", async () => {
