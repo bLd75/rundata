@@ -275,20 +275,23 @@ const EM = 0.56;
  * The names of places over a map, under its points: the communes, then, close up (`close`), the places of the frame
  * by importance. `frame` is the part of the map shown, `unit` its units per pixel on a phone (PHONE_PX), `busy` what a
  * name must not touch: points, pills and labels. A name is shown only if it touches nothing there nor a name already
- * shown, on its place or around it (NUDGE: a name stands for an area), so the lesser ones go first; on the island's
- * map, a phone names only the six (SIX). `within`: the commune of the map, the places of importance 2 and 3 named only
- * inside it (marketing). This is the placement for a phone and without a script: NOMS_SCRIPT does it again at the
+ * shown, on its place or around it (NUDGE: a name stands for an area; a commune or a big quarter a little further, FAR),
+ * so the lesser ones go first; a commune's name only on it, its middle and most of it (mostlyOn()), or at sea off its
+ * coast, never on another, and on the island's map up to 3 times its size from its town (AROUND, coastNear()). On the island's map, a phone names only the six (SIX). `within`: the commune of the map
+ * (`commune`), the places of importance 2 named only inside it, those of importance 3 only if far from all else
+ * (isolated()), and the commune's own name always, first, at the free place inside it or off its coast nearest its
+ * centre if none around is free (marketing). This is the placement for a phone and without a script: NOMS_SCRIPT does it again at the
  * map's real size, after each zoom. `hide`: none shown until then, for a map whose points the server does not know (`top`).
  */
 function namesLayer(opts: {
-  frame: number[]; unit: number; busy: Box[]; close?: boolean; hide?: boolean; within?: [number, number][]; centre?: [number, number];
+  frame: number[]; unit: number; busy: Box[]; close?: boolean; hide?: boolean; within?: [number, number][]; centre?: [number, number]; commune?: string;
 }): string {
   const [fx, fy, fw, fh] = opts.frame;
   const u = opts.unit;
   const shown: Box[] = [];
   const all = (routes.noms as [string, number, number, number][])
     .filter(([, rank, x, y]) => (opts.close || !rank) && x >= fx && x <= fx + fw && y >= fy && y <= fy + fh)
-    .filter(([, rank, x, y]) => rank < 2 || !opts.within || inRing(x, y, opts.within));
+    .filter(([, rank, x, y]) => rank < 2 || !opts.within || (inRing(x, y, opts.within) && (rank === 2 || isolated(x, y))));
   // A name once in a frame (marketing): the most important of the places so named, then the nearest the centre.
   const [cx, cy] = opts.centre ?? [fx + fw / 2, fy + fh / 2];
   const far = ([, , x, y]: [string, number, number, number]) => (x - cx) ** 2 + (y - cy) ** 2;
@@ -297,22 +300,63 @@ function namesLayer(opts: {
     const o = best.get(n[0]);
     if (!o || n[1] < o[1] || (n[1] === o[1] && far(n) < far(o))) best.set(n[0], n);
   }
-  const texts = all
-    .filter((n) => best.get(n[0]) === n)
-    .map(([nom, rank, x, y]) => {
-      const fs = namePx(rank) * u;
-      const half = (nom.length * EM * fs) / 2 + 2 * u;
-      const wide = !opts.close && !SIX.has(nom);
-      const fits = ([dx, dy]: [number, number]): Box | undefined => {
-        const b: Box = [x + dx - half, y + dy - fs * 0.6 - 2 * u, x + dx + half, y + dy + fs * 0.6 + 2 * u];
-        const inside = b[0] >= fx && b[1] >= fy && b[2] <= fx + fw && b[3] <= fy + fh;
-        return inside && ![...opts.busy, ...shown].some((o) => touch(o, b)) ? b : undefined;
-      };
-      const d = opts.hide || wide ? undefined : NUDGE.map(([a, b, c]) => [a * half + b * fs, c * fs] as [number, number]).find((d) => fits(d));
-      if (d) shown.push(fits(d)!);
-      return `<text x="${r2(x + (d?.[0] ?? 0))}" y="${r2(y + (d?.[1] ?? 0))}" data-x="${x}" data-y="${y}" font-size="${r2(fs)}" data-r="${rank}"${wide ? ' data-w=""' : ""}${d ? "" : ' class="nx"'}>${esc(nom)}</text>`;
-    });
-  return texts.length ? `<g class="nm" aria-hidden="true" stroke-width="${r2(3 * u)}">${texts.join("")}</g>` : "";
+  const own = (nom: string, rank: number) => !!opts.within && !rank && nom === opts.commune;
+  const list = all.filter((n) => best.get(n[0]) === n).sort((a, b) => +own(b[0], b[1]) - +own(a[0], a[1]));
+  const at = new Map<(typeof list)[number], [number, number] | undefined>();
+  const place = (n: (typeof list)[number], look = false) => {
+    const [nom, rank, x, y] = n;
+    const fs = namePx(rank) * u;
+    const half = (nom.length * EM * fs) / 2 + 2 * u;
+    const boxAt = ([dx, dy]: [number, number]): Box => [x + dx - half, y + dy - fs * 0.6 - 2 * u, x + dx + half, y + dy + fs * 0.6 + 2 * u];
+    // A commune's name, never on another commune (marketing): its middle inside its own, the commune of the map's whole
+    // inside it, or at sea off its coast.
+    const ring = rank ? undefined : LAND[COMMUNES.get(nom) ?? -1]?.ring;
+    // On the island's map, a commune's name stands for its town (marketing): up to 3 times its size from it, and at sea
+    // only where the nearest coast is the commune's.
+    const isle = !opts.close && !!ring;
+    const fits = (d: [number, number]) => {
+      const b = boxAt(d);
+      if (b[0] < fx || b[1] < fy || b[2] > fx + fw || b[3] > fy + fh || [...opts.busy, ...shown].some((o) => touch(o, b))) return false;
+      if (!ring) return true;
+      const sea = () => towardsOwn([x + d[0], y + d[1]], [x, y], ring, fs / 2) && (!isle || coastNear(x + d[0], y + d[1], fs / 2).has(COMMUNES.get(nom)!));
+      if (own(nom, rank)) return [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]].every(([px, py]) => inRing(px, py, ring)) || (offCoast(b) && sea());
+      // Another commune's name, on the whole of it (marketing): its middle and half of it or more on its commune, or at
+      // sea off its coast. Measured on 9 points across by 3 up and down.
+      return mostlyOn([x + d[0] - half + 2 * u, y + d[1] - fs * 0.6, x + d[0] + half - 2 * u, y + d[1] + fs * 0.6], ring, sea);
+    };
+    let d: [number, number] | undefined;
+    if (isle) d = AROUND.map(([i, j]) => [(i * fs) / 2, (j * fs) / 2] as [number, number]).find((d) => fits(d));
+    else if (!look) d = (rank < 2 ? [...NUDGE, ...FAR] : NUDGE).map(([a, b, c]) => [a * half + b * fs, c * fs] as [number, number]).find((d) => fits(d));
+    else {
+      const grid: [number, number][] = [];
+      for (let gx = fx + half; gx <= fx + fw - half; gx += fs / 2) for (let gy = fy + fs; gy <= fy + fh - fs; gy += fs / 2) grid.push([gx - x, gy - y]);
+      grid.sort((a, b) => a[0] ** 2 + a[1] ** 2 - (b[0] ** 2 + b[1] ** 2));
+      d = grid.find((d) => fits(d));
+    }
+    if (d) shown.push(boxAt(d));
+    at.set(n, d);
+    return d;
+  };
+  // The commune's own name, if nothing around its place is free: once the big names are placed, the free place inside
+  // it or off its coast nearest that place.
+  let late: (typeof list)[number] | undefined;
+  for (const n of list) {
+    if (late && n[1] > 1) {
+      place(late, true);
+      late = undefined;
+    }
+    if (opts.hide || (!opts.close && !SIX.has(n[0]))) continue;
+    if (!place(n) && own(n[0], n[1])) late = n;
+  }
+  if (late) place(late, true);
+  const texts = list.map((n) => {
+    const [nom, rank, x, y] = n;
+    const d = at.get(n);
+    const fs = namePx(rank) * u;
+    const wide = !opts.close && !SIX.has(nom);
+    return `<text x="${r2(x + (d?.[0] ?? 0))}" y="${r2(y + (d?.[1] ?? 0))}" data-x="${x}" data-y="${y}" font-size="${r2(fs)}" data-r="${rank}"${wide ? ' data-w=""' : ""}${!rank && COMMUNES.has(nom) ? ` data-k="${COMMUNES.get(nom)}"` : ""}${own(nom, rank) ? ' data-c=""' : ""}${d ? "" : ' class="nx"'}>${esc(nom)}</text>`;
+  });
+  return texts.length ? `<g class="nm" aria-hidden="true"${opts.close ? "" : ' data-i=""'} stroke-width="${r2(3 * u)}">${texts.join("")}</g>` : "";
 }
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -326,6 +370,119 @@ const NUDGE: [number, number, number][] = [
   [0, 0, 0], [1, 0.3, 0], [-1, -0.3, 0], [0, 0, -1.1], [0, 0, 1.1], [1, 0, -1.1], [-1, 0, -1.1], [1, 0, 1.1], [-1, 0, 1.1],
   [1, 1.3, 0], [-1, -1.3, 0], [0, 0, -2], [0, 0, 2],
 ];
+
+/**
+ * Where a commune or a big quarter (importance 0 or 1) may also stand: on the right, on the left, above, below, then
+ * aslant, a quarter of its size further each time, up to 3 times its size from its place (the user: a quarter is an
+ * area of several km). Further, it is not shown at that width. The same in NOMS_SCRIPT.
+ */
+const FAR = Array.from({ length: 12 }, (_, k) => (k + 1) / 4).flatMap((g) => {
+  const c = 1.1 + g;
+  return [[1, g, 0], [-1, -g, 0], [0, 0, -c], [0, 0, c], [1, g, -c], [-1, -g, -c], [1, g, c], [-1, -g, c]] as [number, number, number][];
+});
+
+/**
+ * Where a commune's name may stand on the island's map (marketing), its middle half its size apart each time: the
+ * nearest its town first, up to 3 times its size from it. Further, it is not shown at that width. The same in NOMS_SCRIPT.
+ */
+const AROUND = Array.from({ length: 13 * 13 }, (_, k) => [(k % 13) - 6, Math.floor(k / 13) - 6] as [number, number])
+  .filter(([i, j]) => i * i + j * j <= 36)
+  .sort((a, b) => a[0] ** 2 + a[1] ** 2 - (b[0] ** 2 + b[1] ** 2));
+
+/** Kilometres per unit of the map, across and up and down alike. */
+const KM = ((LON1 - LON0) * 111.32 * Math.cos((((LAT0 + LAT1) / 2) * Math.PI) / 180)) / W;
+
+/**
+ * Whether a place of importance 3 is far from all else, a landmark in an empty area (the user, the îlets of Mafate,
+ * Grand Bassin): 3 km or more from any main or departmental road, or 1.5 km or more from any name of importance 0 to
+ * 2 and 1 km or more from any road. Measured once per place.
+ */
+function isolated(x: number, y: number): boolean {
+  const key = `${x} ${y}`;
+  let v = ISOLATED.get(key);
+  if (v === undefined) {
+    const road = roadKm(x, y, 3 / KM);
+    const name = Math.min(...(routes.noms as [string, number, number, number][]).filter((n) => n[1] <= 2).map((n) => Math.hypot(n[2] - x, n[3] - y))) * KM;
+    v = road >= 3 || (name >= 1.5 && road >= 1);
+    ISOLATED.set(key, v);
+  }
+  return v;
+}
+const ISOLATED = new Map<string, boolean>();
+
+/** The distance in km from a point to the nearest road of routes.json, looked for up to `reach` units away. */
+function roadKm(x: number, y: number, reach: number): number {
+  let best = Infinity;
+  for (const r of CLOSE) {
+    if (r.b[0] > x + reach || r.b[2] < x - reach || r.b[1] > y + reach || r.b[3] < y - reach) continue;
+    const n = r.d.match(/-?(?:\d+\.?\d*|\.\d+)/g)!.map(Number);
+    let [ax, ay] = n;
+    for (let i = 2; i + 1 < n.length; i += 2) {
+      const [bx, by] = [ax + n[i], ay + n[i + 1]];
+      const [dx, dy] = [bx - ax, by - ay];
+      const t = dx || dy ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy))) : 0;
+      best = Math.min(best, Math.hypot(ax + t * dx - x, ay + t * dy - y));
+      [ax, ay] = [bx, by];
+    }
+  }
+  return best * KM;
+}
+
+/** The outlines of the communes, with their bounds: land is inside one of them. */
+const LAND = island.paths.map((p) => ringOf(p.d)).map((ring) => {
+  const [xs, ys] = [ring.map((q) => q[0]), ring.map((q) => q[1])];
+  return { ring, b: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] as Box };
+});
+/** Each commune's outline in LAND (and in the maps' `#isl`), by its name. */
+const COMMUNES = new Map(island.paths.map((p, k) => [p.nom, k]));
+const onLand = (x: number, y: number) => LAND.some((l) => x >= l.b[0] && x <= l.b[2] && y >= l.b[1] && y <= l.b[3] && inRing(x, y, l.ring));
+
+/** Whether a box is all at sea: its corners and middle. */
+const offCoast = (b: Box) =>
+  ![[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]], [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]].some(([px, py]) => onLand(px, py));
+
+/** Whether the first land on the way from `from` to `to` (a commune's place), in steps of `step`, is the commune's own. */
+function towardsOwn(from: [number, number], to: [number, number], ring: [number, number][], step: number): boolean {
+  const n = Math.ceil(Math.hypot(to[0] - from[0], to[1] - from[1]) / step);
+  for (let k = 1; k <= n; k++) {
+    const [px, py] = [from[0] + ((to[0] - from[0]) * k) / n, from[1] + ((to[1] - from[1]) * k) / n];
+    if (onLand(px, py)) return inRing(px, py, ring);
+  }
+  return false;
+}
+
+/**
+ * Whether a name's box is on its commune (marketing): of 9 points across by 3 up and down, its middle and 14 or more on
+ * the commune, or at sea when `sea()` says it is off the commune's coast.
+ */
+function mostlyOn(b: Box, ring: [number, number][], sea: () => boolean): boolean {
+  let atSea: boolean | undefined;
+  let ok = 0, mid = false;
+  for (let a = 0; a <= 8; a++)
+    for (let j = 0; j <= 2; j++) {
+      const [px, py] = [b[0] + ((b[2] - b[0]) * a) / 8, b[1] + (b[3] - b[1]) * (0.2 + 0.3 * j)];
+      const v = inRing(px, py, ring) || (!onLand(px, py) && (atSea ??= sea()));
+      if (v) ok++;
+      if (a === 4 && j === 1) mid = v;
+    }
+  return mid && ok >= 14;
+}
+
+/**
+ * The communes of the coast nearest a point at sea (marketing: a name at sea off its own coast, by the eye, not only on
+ * the way to its town): those met first on circles around it, `step` wider each time, up to 12 steps.
+ */
+function coastNear(x: number, y: number, step: number): Set<number> {
+  for (let r = 1; r <= 12; r++) {
+    const near = new Set<number>();
+    for (let a = 0; a < 16; a++) {
+      const [px, py] = [x + r * step * Math.cos((a * Math.PI) / 8), y + r * step * Math.sin((a * Math.PI) / 8)];
+      LAND.forEach((l, k) => px >= l.b[0] && px <= l.b[2] && py >= l.b[1] && py <= l.b[3] && inRing(px, py, l.ring) && near.add(k));
+    }
+    if (near.size) return near;
+  }
+  return new Set();
+}
 
 /** Where a commune's name stands on the maps: its chef-lieu (routes.json, rank 0). */
 function chefLieu(commune: string): [number, number] | undefined {
@@ -358,14 +515,17 @@ function markerBox(m: Marker, at?: [number, number]): Box {
 
 /**
  * The page's script for the names of places (namesLayer()), on every map that has them: each name at its size on
- * screen, then shown only if it touches no point, label or name already shown, on its place or around it (NUDGE), as
- * the server does for a phone. First the summits' names (`peaks`): below the summit, else above, on the right, on the
+ * screen, then shown only if it touches no point, label or name already shown, on its place or around it (NUDGE, and
+ * FAR for a commune or a big quarter), a commune's name on it, its middle and 14 of 27 points of it, or at sea off its coast (`home`, the outlines
+ * of `#isl` by `data-k`), the commune's own name (`data-c`) after the big ones if nothing around its place is free
+ * (`look`), and on the island's map (`data-i`) a commune's name up to 3 times its size from its town, at sea only
+ * where the nearest coast is the commune's (`town`, AROUND), as the server does for a phone. First the summits' names (`peaks`): below the summit, else above, on the right, on the
  * left, then aslant on either side, the first that touches no point (else the one that covers the least); the name
  * moves, never the station. What is hidden takes no room (the wind's pills under the temperatures, the summits'
  * names on a phone). Again when the map changes size, when the commune's map zooms (its viewBox) and when a tab
  * changes the points shown.
  */
-export const NOMS_SCRIPT = `(()=>{const P=${JSON.stringify(NUDGE).replace(/</g, "\\u003c")},hit=(a,b)=>a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3];
+export const NOMS_SCRIPT = `(()=>{const P=${JSON.stringify(NUDGE).replace(/</g, "\\u003c")},A=${JSON.stringify(AROUND)},F=[...Array(12)].flatMap((_,k)=>{const g=(k+1)/4,c=1.1+g;return[[1,g,0],[-1,-g,0],[0,0,-c],[0,0,c],[1,g,-c],[-1,-g,-c],[1,g,c],[-1,-g,c]]}),hit=(a,b)=>a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3];
 const run=(svg)=>{const g=svg.querySelector(".nm"),vb=svg.viewBox.baseVal,cw=svg.clientWidth;if(!g||!vb||!vb.width||!cw)return;
 const u=vb.width/cw,wide=cw>=640,p=2*u,busy=[],kept=[],box=(b,r)=>[b.x-r-p,b.y-r-p,b.x+b.width+r+p,b.y+b.height+r+p],
 free=(b)=>b[0]>=vb.x&&b[1]>=vb.y&&b[2]<=vb.x+vb.width&&b[3]<=vb.y+vb.height&&![...busy,...kept].some((o)=>hit(o,b));const shown=(e)=>{for(;e&&e!==svg;e=e.parentNode)if(getComputedStyle(e).display==="none")return false;return true};
@@ -376,9 +536,24 @@ const s=4*u,cy=T.y+T.height/2-(B[1]+B[3])/2,hb=(B[3]-B[1])/2,R=T.x+T.width+s-B[0
 ds=[[0,0],[0,T.y-s-B[3]],[R,cy],[L,cy],[R,cy-hb],[L,cy-hb],[R,cy+hb],[L,cy+hb]],over=(d)=>{const a=at2(d);return busy.reduce((n,o)=>n+Math.max(0,Math.min(a[2],o[2])-Math.max(a[0],o[0]))*Math.max(0,Math.min(a[3],o[3])-Math.max(a[1],o[1])),0)},
 go=ds.find((d)=>free(at2(d)))||ds.reduce((m,d)=>(over(d)<over(m)?d:m));
 at(go);marks.push(at2(go))});busy.push(...marks);
-g.setAttribute("stroke-width",3*u);for(const t of g.children){const fs=(t.dataset.r==="0"?(wide?13:12):11)*u;t.setAttribute("font-size",fs);t.classList.remove("nx");
-if(t.hasAttribute("data-w")&&!wide){t.classList.add("nx");continue}t.setAttribute("x",t.dataset.x);t.setAttribute("y",t.dataset.y);const h=t.getBBox().width/2+p;let ok=false;
-for(const [ka,kb,kc] of P){t.setAttribute("x",+t.dataset.x+ka*h+kb*fs);t.setAttribute("y",+t.dataset.y+kc*fs);const b=box(t.getBBox(),0);if(free(b)){kept.push(b);ok=true;break}}if(!ok)t.classList.add("nx")}};
+g.setAttribute("stroke-width",3*u);const isl=[...svg.querySelectorAll("#isl path")],pt=isl.length&&svg.createSVGPoint&&svg.createSVGPoint(),bx=isl.map((q)=>q.getBBox()),
+isle=g.hasAttribute("data-i"),near=(x,y,st)=>{for(let r=1;r<=12;r++){const s=new Set();for(let a=0;a<16;a++){const l=land(x+r*st*Math.cos(a*Math.PI/8),y+r*st*Math.sin(a*Math.PI/8));if(l>=0)s.add(l)}if(s.size)return s}return new Set()},
+on=(k,x,y)=>{const r=bx[k];if(r.width&&(x<r.x||y<r.y||x>r.x+r.width||y>r.y+r.height))return false;pt.x=x;pt.y=y;return isl[k].isPointInFill(pt)},land=(x,y)=>isl.findIndex((q,k)=>on(k,x,y)),
+home=(b,t)=>{if(t.dataset.k===undefined||!pt)return true;const k=+t.dataset.k,c=[[b[0],b[1]],[b[2],b[1]],[b[0],b[3]],[b[2],b[3]]],mx=(b[0]+b[2])/2,my=(b[1]+b[3])/2;
+const tx=+t.dataset.x,ty=+t.dataset.y,st=+t.getAttribute("font-size")/2,n=Math.ceil(Math.hypot(tx-mx,ty-my)/st),
+sea=()=>{for(let i=1;i<=n;i++){const l=land(mx+(tx-mx)*i/n,my+(ty-my)*i/n);if(l>=0)return l===k&&(!isle||near(mx,my,st).has(k))}return false};
+if(t.hasAttribute("data-c"))return c.every(([x,y])=>on(k,x,y))||!c.concat([[mx,my]]).some(([x,y])=>land(x,y)>=0)&&sea();
+let s,ok=0,mid=false;const x0=b[0]+p,x1=b[2]-p,y0=b[1]+p,y1=b[3]-p;for(let a=0;a<=8;a++)for(let j=0;j<=2;j++){const x=x0+(x1-x0)*a/8,y=y0+(y1-y0)*(.2+.3*j),v=on(k,x,y)||land(x,y)<0&&(s===undefined?s=sea():s);if(v)ok++;if(a===4&&j===1)mid=v}
+return mid&&ok>=14},
+town=(t,fs)=>{const b0=box(t.getBBox(),0),tx=+t.dataset.x,ty=+t.dataset.y,cx=(b0[0]+b0[2])/2,cy=(b0[1]+b0[3])/2;
+for(const [i,j] of A){const dx=tx+i*fs/2-cx,dy=ty+j*fs/2-cy,b=[b0[0]+dx,b0[1]+dy,b0[2]+dx,b0[3]+dy];if(free(b)&&home(b,t)){t.setAttribute("x",tx+dx);t.setAttribute("y",ty+dy);kept.push(b);return true}}return false},
+look=(t)=>{t.classList.remove("nx");t.setAttribute("x",t.dataset.x);t.setAttribute("y",t.dataset.y);const b0=box(t.getBBox(),0),st=+t.getAttribute("font-size")/2,ds=[];
+for(let dx=vb.x-b0[0];b0[2]+dx<=vb.x+vb.width;dx+=st)for(let dy=vb.y-b0[1];b0[3]+dy<=vb.y+vb.height;dy+=st)ds.push([dx,dy]);ds.sort((a,b)=>a[0]*a[0]+a[1]*a[1]-b[0]*b[0]-b[1]*b[1]);
+for(const [dx,dy] of ds){const b=[b0[0]+dx,b0[1]+dy,b0[2]+dx,b0[3]+dy];if(free(b)&&home(b,t)){t.setAttribute("x",+t.dataset.x+dx);t.setAttribute("y",+t.dataset.y+dy);kept.push(b);return}}t.classList.add("nx")};
+let late=null;for(const t of g.children){if(late&&+t.dataset.r>1){look(late);late=null}const fs=(t.dataset.r==="0"?(wide?13:12):11)*u;t.setAttribute("font-size",fs);t.classList.remove("nx");
+if(t.hasAttribute("data-w")&&!wide){t.classList.add("nx");continue}t.setAttribute("x",t.dataset.x);t.setAttribute("y",t.dataset.y);const h=t.getBBox().width/2+p;let ok=isle&&t.dataset.k!==undefined&&pt?town(t,fs):false;
+if(!(isle&&t.dataset.k!==undefined&&pt))for(const [ka,kb,kc] of +t.dataset.r<2?[...P,...F]:P){t.setAttribute("x",+t.dataset.x+ka*h+kb*fs);t.setAttribute("y",+t.dataset.y+kc*fs);const b=box(t.getBBox(),0);if(free(b)&&home(b,t)){kept.push(b);ok=true;break}}
+if(!ok){t.classList.add("nx");if(t.hasAttribute("data-c"))late=t}}if(late)look(late)};
 const maps=[...document.querySelectorAll("svg.map")].filter((s)=>s.querySelector(".nm"));const wait=new Map(),later=(s)=>{clearTimeout(wait.get(s));wait.set(s,setTimeout(()=>run(s),120))};
 maps.forEach((s)=>{run(s);if(window.ResizeObserver)new ResizeObserver(()=>later(s)).observe(s);new MutationObserver(()=>later(s)).observe(s,{attributes:true,attributeFilter:["viewBox"]})});
 document.addEventListener("change",()=>maps.forEach(later))})();`;
@@ -666,7 +841,7 @@ export function communeMap(opts: { commune: string; spots: Spot[]; label: string
     // The island dimmed, then the commune's relief again over it, clear.
     `<use href="#isl" class="dim"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#com-clip)"/>` +
     roadsLayer(box) + `<path class="hl" d="${shape.d}"/>` +
-    namesLayer({ frame: box, unit, busy: at.map(([x, y]) => [x - 10 * unit, y - 10 * unit, x + 10 * unit, y + 10 * unit]), close: true, within: ringOf(shape.d), centre: chefLieu(opts.commune) }) +
+    namesLayer({ frame: box, unit, busy: at.map(([x, y]) => [x - 10 * unit, y - 10 * unit, x + 10 * unit, y + 10 * unit]), close: true, within: ringOf(shape.d), centre: chefLieu(opts.commune), commune: opts.commune }) +
     `<g class="spots">${dots}</g></svg>`;
 }
 
