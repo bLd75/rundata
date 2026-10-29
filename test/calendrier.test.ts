@@ -4,7 +4,7 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import { breaks, moon, moonLight, nextPhases, parisDate, schoolBreaks, sun } from "../src/providers/calendrier.js";
 import { calendrier, longDate } from "../src/tools/calendrier.js";
 import { buildCalendrier } from "../src/web/data.js";
-import { calendrierPage } from "../src/web/domains.js";
+import { calendrierLive, calendrierPage } from "../src/web/domains.js";
 
 const fixture = (f: string) => JSON.parse(readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8"));
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
@@ -140,5 +140,11 @@ describe("calendar", () => {
     expect(html).toContain(`content="Vacances scolaires 2026-2027 à La Réunion (974), calendrier austral\u00a0: vacances en cours du 10 octobre au 25 octobre. Jours fériés dont le 20 décembre.">`);
     expect(html).toMatch(/Vacances après 1ère période <span class="badge m">en cours<\/span><\/th><td>samedi 10 octobre 2026<\/td><td>lundi 26 octobre 2026<\/td>/);
     expect(html).toContain("Vacances d&#39;Été austral");
+    // The sun as kit.md writes a time, « 06:12 », never « 6h12 »: in the lead, on its card and on the home page's tile.
+    const s = data.value.soleil!;
+    expect([s.lever, s.coucher]).toEqual(["05:40", "18:24"]);
+    expect(html).toContain(`lever du soleil à <b>${s.lever}</b>, coucher à <b>${s.coucher}</b>.</p>`);
+    expect(html).toContain(`<p>Lever ${s.lever}, coucher ${s.coucher} : `);
+    expect(calendrierLive({ ...data, stale: false }, now)!.detail).toContain(`soleil ${s.lever}–${s.coucher}`);
   });
 });

@@ -1905,7 +1905,7 @@ export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | 
   <div class="card warn">${icon("alert")}<ul class="plain">
     <li><b>Un sentier fermé est interdit.</b> Il l'est par arrêté préfectoral ou par l'ONF (éboulement, passage effondré, travaux) : s'y engager est dangereux et verbalisable, même avec une trace GPS. <a href="/sentiers">La liste du jour</a>.</li>
     <li><b>La météo d'abord.</b> Regarder la <a href="/vigilance">vigilance de Météo-France</a> et la <a href="/meteo">prévision</a> la veille et le matin. Par fortes pluies ou orages, ne pas partir : les ravines montent en quelques minutes et la préfecture ferme d'autres sentiers.</li>
-    <li><b>Partir tôt.</b> Les nuages montent dans les Hauts en fin de matinée et il pleut souvent l'après-midi ; la nuit tombe entre 17 h 45 et 19 h selon la saison (<a href="/calendrier">lever et coucher du soleil</a>).</li>
+    <li><b>Partir tôt.</b> Les nuages montent dans les Hauts en fin de matinée et il pleut souvent l'après-midi ; la nuit tombe entre 17:45 et 19:00 selon la saison (<a href="/calendrier">lever et coucher du soleil</a>).</li>
     <li><b>De l'eau, assez.</b> Au moins deux litres par personne, davantage en été et sur les longues montées. Ne pas boire l'eau des ravines sans la traiter.</li>
     <li><b>Hors gestion ONF</b> veut dire état non connu, pas ouvert : se renseigner auprès de la commune ou du Parc national.</li>
     <li>Dire à quelqu'un où l'on va et quand on rentre : le téléphone ne passe pas partout dans les cirques. Au volcan, voir aussi <a href="/volcan">l'état du Piton de la Fournaise</a>. Urgence : 112.</li>
