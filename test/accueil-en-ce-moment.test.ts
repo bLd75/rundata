@@ -64,6 +64,20 @@ describe("home page, « En ce moment sur l'île »", () => {
     expect(titres[2].startsWith("Rallye Grand Est")).toBe(true);
   });
 
+  it("gives a busy live blog three lines at most, the last one leading to the live blog, and the rest to the headlines", () => {
+    const now = new Date("2026-10-29T09:00:00Z");
+    const live = parseImazLive(readFileSync(new URL("./fixtures/actualites/imaz_live.html", import.meta.url), "utf8"), "https://imazpress.com/live", now);
+    expect(live.filter((i) => i.publie >= "2026-10-29T03:00:00Z").length).toBeGreaterThan(3);
+    const { titres } = block(INFOS, { directs: live, now, chaud: true });
+    expect(titres.length).toBe(5);
+    expect(titres[0].startsWith("À 11 heures, une vingtaine de personnes")).toBe(true);
+    expect(titres[1]).toBe("Rentrez vos poubelles !");
+    expect(titres[2]).toBe("Toutes les entrées du direct");
+    expect(titres.slice(3).map((t) => t.slice(0, 20))).toEqual(["Rallye Grand Est à S", "Saint-Denis : un mot"]);
+    const html = homePage("https://rundata.re", { meteo: null, actualites: { value: answer(INFOS, live, now, true), fetchedAt: now, stale: false } }, now);
+    expect(html).toMatch(/<a href="https:\/\/imazpress\.com\/live"[^>]*>Toutes les entrées du direct<\/a>/);
+  });
+
   it("is not shown without a headline of the last six hours", () => {
     expect(block(INFOS, { now: new Date("2026-10-29T12:00:00Z") }).cls).toBeUndefined();
   });

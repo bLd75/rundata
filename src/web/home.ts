@@ -245,14 +245,16 @@ const PAGED = CATEGORIES.filter((c) => c.path).length;
 
 const NOW_MAX = 5;
 const NOW_HOURS = 6;
+/** Lines of the live blogs at most, so that a busy one leaves room for the headlines. */
+const NOW_LIVE = 3;
 
 const newest = (x: { publie: string }, y: { publie: string }) => (x.publie < y.publie ? 1 : x.publie > y.publie ? -1 : 0);
 
 /**
- * The island's newest news, above the tiles: the live blogs first, then the latest headlines (the user, 29/10/2026:
- * « il faut qu'on garde tout ce qui est en direct sur la Réunion, pas juste routes et mobilisations »). One story told
- * by several media is one headline already (providers/actualites.ts `merge`). In the colours of an alert on a day of
- * mobilisation or of a live blog only (`chaud`).
+ * The island's newest news, above the tiles: the live blogs first, three lines at most, then the latest headlines (the
+ * user, 29/10/2026: « il faut qu'on garde tout ce qui est en direct sur la Réunion, pas juste routes et mobilisations »).
+ * One story told by several media is one headline already (providers/actualites.ts `merge`). In the colours of an
+ * alert on a day of mobilisation or of a live blog only (`chaud`).
  */
 function happening(h: HomeLive | null, now: Date): string {
   const d = h?.actualites?.value;
@@ -261,10 +263,18 @@ function happening(h: HomeLive | null, now: Date): string {
   // Known to the minute only (`il_y_a`): Le Quotidien's « il y a 4 heures », or its day alone, put at the time of the
   // read, would come first with a time it never gave.
   const recent = (rows: InfoRow[]) => rows.filter((r) => r.il_y_a && r.publie >= since).sort(newest);
-  const rows = [...recent(d.en_direct), ...recent(d.infos)].slice(0, NOW_MAX);
-  if (!rows.length) return "";
-  return `<div class="card${d.chaud ? " warn" : ""} now-news"><h3>${icon("news")} En ce moment sur l'île</h3><ul class="plain">${rows.map((r) =>
-    `<li><b>${hm(r.publie)}</b> <a href="${esc(r.lien)}" rel="noopener"${fenetre(r.lien)}>${esc(r.titre)}</a> <span class="note">${esc(r.media)}${r.communes?.length ? ` · ${esc(r.communes.join(", "))}` : ""}</span></li>`).join("")}</ul>` +
+  const live = recent(d.en_direct);
+  // More entries than lines: the last line of the live blogs leads to the live blog of the first entry left out.
+  const more = live.length > NOW_LIVE ? live[NOW_LIVE - 1] : undefined;
+  const shown = more ? live.slice(0, NOW_LIVE - 1) : live;
+  const news = recent(d.infos).slice(0, NOW_MAX - (more ? NOW_LIVE : shown.length));
+  if (!shown.length && !news.length) return "";
+  const link = (r: InfoRow, text: string) => `<a href="${esc(r.lien)}" rel="noopener"${fenetre(r.lien)}>${text}</a>`;
+  const line = (r: InfoRow) =>
+    `<li><b>${hm(r.publie)}</b> ${link(r, esc(r.titre))} <span class="note">${esc(r.media)}${r.communes?.length ? ` · ${esc(r.communes.join(", "))}` : ""}</span></li>`;
+  // Not how many are left: the copy keeps twelve entries of the day only (data.ts `buildActualites`).
+  const follow = more ? `<li><b>${hm(more.publie)}</b> ${link(more, "Toutes les entrées du direct")} <span class="note">${esc(more.media)}</span></li>` : "";
+  return `<div class="card${d.chaud ? " warn" : ""} now-news"><h3>${icon("news")} En ce moment sur l'île</h3><ul class="plain">${shown.map(line).join("")}${follow}${news.map(line).join("")}</ul>` +
     `<p class="note"><a href="/actualites">Toute l'actualité, commune par commune →</a></p></div>`;
 }
 
