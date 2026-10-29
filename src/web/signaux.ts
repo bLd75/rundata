@@ -56,8 +56,11 @@ ${VENU}
 try{let r="";try{r=new URL(document.referrer).host}catch{}if(r!==location.host){let m=null;try{m=JSON.parse(localStorage.getItem("${MARK}"))}catch{}
 const[c,n]=venu(m,new Date(Date.now()+144e5).toISOString().slice(0,10));localStorage.setItem("${MARK}",JSON.stringify(n));sig("r",c)}}catch{}`;
 
+// `.aide p` sets a display, which beats the browser's own rule for [hidden]: the question and both answers then showed
+// at once. Hidden stays hidden (0,2,0 beats 0,1,1).
 export const AIDE_CSS = `.aide{padding-bottom:1rem}
 .aide p{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;font-weight:600;margin:0}
+.aide [hidden]{display:none}
 .aide button{font:700 .95rem system-ui,sans-serif;background:var(--surface-2);color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:.45rem 1.1rem;cursor:pointer}`.replace(/\n/g, "");
 
 /** The question, just above the feedback form (whose #avis the « non » leads to); shown only with a script. */
