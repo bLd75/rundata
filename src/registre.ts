@@ -22,6 +22,7 @@ import { MAX_NEW_GRIDS } from "./providers/arome.js";
 import { KINDS as CANDHIS_KINDS, REFRESH_EVERY as CANDHIS_EVERY, REFRESH_OFFSET as CANDHIS_OFFSET } from "./providers/candhis.js";
 import { IMAGE_OFFSET as CMRS_IMAGE_OFFSET, LISTE_OFFSET as CMRS_LISTE_OFFSET, REFRESH_EVERY as CMRS_EVERY } from "./providers/cmrs-carte.js";
 import { REFRESH_EVERY as AIR_EVERY, REFRESH_OFFSET as AIR_OFFSET } from "./providers/air-mesures.js";
+import { FIRST_HOUR as HS_FIRST, REFRESH_OFFSET as HS_OFFSET } from "./providers/sites-hs.js";
 import { REFRESH_EVERY as CAPTEURS_EVERY, REFRESH_OFFSET as CAPTEURS_OFFSET } from "./providers/capteurs.js";
 import { REFRESH_EVERY as MARCHES_EVERY, REFRESH_OFFSET as MARCHES_OFFSET, TEXTES_OFFSET as MARCHES_TEXTES_OFFSET } from "./providers/marches-publics.js";
 import { EVENEMENT_MINUTES as EMPLOI_FICHE_EVERY, REFRESH_EVERY as EMPLOI_EVERY, REFRESH_OFFSET as EMPLOI_OFFSET } from "./providers/emploi.js";
@@ -310,6 +311,20 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/air-mesures.ts"],
     basis: "mesuré",
   },
+  // The copy read from KV, the Arcep's file of the day (0.5 to 2.2 Mo, read whole and parsed), the copy written: 3.
+  // Once a day: from 10:30 UTC, every hour at half past until 19:30 while the file is not out (a 404: 1 subrequest and the
+  // copy's read each time), then the copy's read only. CPU measured in Node, parse and filter: 21.5 ms at most on the
+  // file of 22/10/2026 (2.17 Mo), 6.3 on that of 29/10 (0.87 Mo); rounded up for a Worker. Memory estimated.
+  {
+    id: "antennes:hors-service",
+    trigger: "planifiée",
+    what: "sites mobiles hors service : les lignes de La Réunion du fichier quotidien de l'Arcep (0,5 à 2,2 Mo), écrites dans KV une fois par jour",
+    every: 24 * 60,
+    offset: HS_FIRST * 60 + HS_OFFSET,
+    run: { subrequests: 3, kvReads: 1, kvWrites: 1, cpuMs: 40, memoryMb: 15 },
+    from: ["src/providers/sites-hs.ts"],
+    basis: "estimé",
+  },
   // The copy read from KV, one request to Sensor.Community for the whole island, the copy written when its sensors
   // changed or an hour after: 3. Its answer is a list of a few sensors at most (none on 29/10/2026).
   {
@@ -535,6 +550,9 @@ const OTHER_PAGES: Record<string, Page> = {
   // written, kept 5 minutes; no header, no source.
   "/associations/evenements.*": { subrequests: 3, cpuMs: 20, from: ["src/web/flux-associations.ts"], d1: { d1Calls: 1, d1RowsRead: 100 }, what: "les flux ouverts des événements proposés (JSON, ICS) : la copie du centre de données, sinon les propositions publiées (D1), 5 minutes", basis: "estimé" },
   "/sites-sans-reponse": { subrequests: 9, cpuMs: 40, from: ["src/sans-reponse.ts"], d1: SANS_REPONSE_D1, what: "les sites publics sans réponse (D1), avec la vigilance et la version de l'en-tête", basis: "code" },
+  // The header's reads as any page, and the copy of the mobile sites out of service (KV, behind the data center's cache);
+  // the map and the table bundled, built at the isolate's first view.
+  "/antennes": { subrequests: 8, cpuMs: 80, from: ["src/providers/sites-hs.ts"], what: "la page des antennes : la carte et le tableau (dans le paquet), et la copie des sites mobiles hors service", basis: "code" },
   // The copy of its counts (the data center's cache, else KV): never a source.
   "/chiffres": { subrequests: 9, cpuMs: 40, from: [], what: "rundata.re en chiffres : la copie de ses comptes, avec la vigilance et la version de l'en-tête", basis: "code" },
   "*": { subrequests: 7, cpuMs: 70, from: [], what: "toute autre adresse : la vigilance et la version, lues pour l'en-tête" },
@@ -552,7 +570,8 @@ const pageEntry = (path: string, p: Page, kvReads: number): Entry => ({
 // A page reads a shared copy from KV when its data center's cache has none: at most once per shared copy it shows.
 const SHARED_KEYS = new Set([...SHARED, ...SHARED_AFTER].map((s) => s.key));
 const sharedIn = (keys: string[]) => new Set(keys.filter((k) => SHARED_KEYS.has(k))).size;
-const KV_READS: Record<string, number> = { "/chiffres": 1, "/": sharedIn(HOME_TILES), "/communes/*": sharedIn(COMMUNE_TILES), "/aujourdhui/*": sharedIn([...COMMUNE_TILES, ...HOME_TILES]) };
+// The commune pages and /antennes: the copy of the mobile sites out of service besides.
+const KV_READS: Record<string, number> = { "/chiffres": 1, "/antennes": 1, "/": sharedIn(HOME_TILES), "/communes/*": sharedIn(COMMUNE_TILES) + 1, "/aujourdhui/*": sharedIn([...COMMUNE_TILES, ...HOME_TILES]) };
 
 const VISITS: Entry[] = [
   ...Object.entries(OTHER_PAGES).map(([path, p]) => pageEntry(path, p, KV_READS[path] ?? 0)),

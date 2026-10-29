@@ -114,6 +114,7 @@ import { secteurPage } from "./randonnees.js";
 import { aProposPage, llmsTxt } from "./a-propos.js";
 import { PATH as VALEURS, valeursPage } from "./valeurs.js";
 import { antennesPage, PATH as ANTENNES } from "./antennes.js";
+import * as sitesHs from "../providers/sites-hs.js";
 import { applicationPage, PATH as APPLICATION } from "./application.js";
 import { ouvrirDonneesPage, PATH as GUIDE } from "./ouvrir-donnees.js";
 import { PATH as SANS_REPONSE, sansReponsePage } from "./sans-reponse.js";
@@ -591,9 +592,11 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/a-propos" || path === "/a-propos/") {
     return new Response(aProposPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
-  // The antennas, bundled (vie/antennes.ts): nothing read but the vigilance's banner, as /a-propos.
+  // The antennas, bundled (vie/antennes.ts), and the copy of the mobile sites out of service (one read, kept an hour in
+  // the data center's cache), with the vigilance's banner.
   if (path === ANTENNES || path === `${ANTENNES}/`) {
-    return new Response(antennesPage(origin, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
+    const [hs, a] = await Promise.all([sitesHs.sites(cache), alerte(cache, background, now)]);
+    return new Response(antennesPage(origin, hs, now, a), { headers: { ...HTML, "cache-control": "public, max-age=900" } });
   }
   // What rundata.re stands for: nothing read but the vigilance's banner, as /a-propos.
   if (path === VALEURS || path === `${VALEURS}/`) {
@@ -676,9 +679,9 @@ async function pages(request: Request, cache: Cache, background: Background, now
     ]);
     // The West's communes have their déchèteries' tile too (the TCO publishes them).
     const tiles = TCO_COMMUNES.includes(p.nom) ? [...COMMUNE_TILES, "web:dechets"] : COMMUNE_TILES;
-    const [air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets] = await tileCopies(cache, tiles, background, place, now);
+    const [[air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets], hs] = await Promise.all([tileCopies(cache, tiles, background, place, now), sitesHs.sites(cache)]);
     return page(path, (live) => (live
-      ? communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets }, now, alerteLue(vigilance, now))
+      ? communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets, hs }, now, alerteLue(vigilance, now))
       : communePage(origin, p, { place: null, commune: null, vigilance: null, air: null, mer: null, volcan: null, electricite: null, calendrier: null, coupures: null, secheresse: null, eau: null, randonnees: null, agenda: null, dechets: null }, now)),
     place, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now)), rebuild(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now))]);
   }

@@ -94,6 +94,8 @@ export const DOMAINES: Domaine[] = [
   // EDF's mix every 4 minutes (providers/edf.ts).
   { categorie: "electricite", sources: ids("edf_sei_reunion", "mairies_edf"), cadence: { minutes: 4, de: "edf_sei_reunion" } },
   { categorie: "calendrier", sources: ids("education_calendrier", "jours_feries"), cadence: { minutes: DAY, de: "education_calendrier" } },
+  // The antennas bundled; the mobile sites out of service once a day (providers/sites-hs.ts).
+  { categorie: "antennes", sources: ids("anfr_observatoire_mobile", "anfr_installations_5w", "arcep_sites_indisponibles"), cadence: { minutes: DAY, de: "arcep_sites_indisponibles" } },
   // The scheduled event reads the offers every hour (providers/emploi.ts).
   { categorie: "emploi", sources: ids("csp_offres"), cadence: { minutes: 60, de: "csp_offres" } },
   // The scheduled event reads the notices every hour (providers/marches-publics.ts).

@@ -5,7 +5,9 @@
  * service, or techniquement opérationnel for the 5G), a ring when only planned. Then the communes' counts. Never coverage
  * nor exposure.
  */
+import type { Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
+import * as sitesHs from "../providers/sites-hs.js";
 import { nombre } from "../tools/format.js";
 import * as antennes from "../vie/antennes.js";
 import { dateLongue } from "../vie/internet.js";
@@ -97,8 +99,78 @@ function table(): string {
   return `<div class="card table-wrap"><table class="drought niveaux"><thead><tr><th scope="col">Commune</th><th scope="col">Supports mobiles</th><th scope="col">Dont 5G techniquement opérationnelle</th><th scope="col">Supports par opérateur</th><th scope="col">Supports radio et TV</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-/** The page's band and body: the same until the next build, as the files are bundled. Built at the first view only. */
-let built: { band: string; body: string } | undefined;
+// The words of the mobile sites out of service, marketing's.
+/** The island's four mobile networks, as said here, by the names the file may give them. */
+const RESEAUX: [string, string[]][] = [["Free", ["Free"]], ["SFR Réunion", ["SFR", "SRR"]], ["Zeop", ["Zeop", "ZEOP"]], ["Orange", ["Orange"]]];
+const de = (n: string) => (/^[AEIOUaeiou]/.test(n) ? `d'${n}` : `de ${n}`);
+const et = (list: string[], mot: string) => (list.length > 1 ? `${list.slice(0, -1).join(", ")} ${mot} ${list[list.length - 1]}` : list[0]);
+
+/**
+ * What the file leaves out, from the file read, never written: the networks with no site in it at La Réunion, so that
+ * « aucun site » never reads as « aucune panne ». None when the four are there; with no site at all, who declares is
+ * not known from the file: said in general.
+ */
+export function absents(sites: sitesHs.Site[]): string | undefined {
+  const present = RESEAUX.filter(([, noms]) => sites.some((s) => noms.includes(s.operateur))).map(([n]) => n);
+  if (!present.length) return "Seuls les sites que les opérateurs déclarent à l'Arcep figurent dans ce fichier : une panne non déclarée n'apparaît pas ici.";
+  const absent = RESEAUX.map(([n]) => n).filter((n) => !present.includes(n));
+  if (!absent.length) return undefined;
+  return `Ce fichier de l'Arcep ne liste à La Réunion que des sites déclarés par ${et(present, "et")} : aucun site ${et(absent.map(de), "ni")} à La Réunion n'y figure. Une panne de ${absent.length > 1 ? "leurs réseaux" : "son réseau"} peut donc ne pas apparaître ici.`;
+}
+
+const jm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+const gens = (g: string) => [...g].map((x) => `${x}G`).join(" et ");
+
+/** What is cut on a site: in full when the file says so, else the generations it names, else « en partie ». */
+export function coupe(s: sitesHs.Site): string {
+  if (s.voix && s.data) return "voix, SMS et internet mobile coupés";
+  if (s.voix) return "voix et SMS coupés";
+  if (s.data) return "internet mobile coupé";
+  const parts = [s.voix_g && `voix et SMS coupés en ${gens(s.voix_g)} seulement`, s.data_g && `internet mobile coupé en ${gens(s.data_g)} seulement`].filter(Boolean);
+  return parts.length ? parts.join(", ") : "service coupé en partie";
+}
+
+/** « Saint-Philippe : Free, voix, SMS et internet mobile coupés (panne), depuis le 28/10, fin prévue par Free le 04/11. » */
+export const ligneSite = (s: sitesHs.Site) =>
+  `${s.commune} : ${s.operateur}, ${coupe(s)}${s.raison ? ` (${s.raison})` : ""}${s.debut ? `, depuis le ${jm(s.debut)}` : ""}${s.fin ? `, fin prévue par ${s.operateur} le ${jm(s.fin)}` : ", fin non précisée"}.`;
+
+const sitesMot = (n: number) => (n > 1 ? `${nombre(n)} sites mobiles` : `${nombre(n)} site mobile`);
+
+/** The section of the sites out of service: the file's day, its sites by commune, and what the file leaves out. */
+export function horsService(c: Cached<sitesHs.Copie> | null, now: Date): string {
+  let head: string;
+  let list = "";
+  let note: string | undefined;
+  if (!c) head = "Le fichier de l'Arcep n'a pas encore été lu.";
+  else {
+    const { fichier_du, sites } = c.value;
+    // Before the day's file is read (each morning), or when its read failed: the file before, said as the last one.
+    const du = `Fichier de l'Arcep du ${dateLongue(fichier_du)}${fichier_du === now.toISOString().slice(0, 10) ? "" : ", le dernier lu"}`;
+    head = sites.length ? `${du} : ${sitesMot(sites.length)} hors service à La Réunion.` : `${du} : aucun site mobile déclaré hors service à La Réunion.`;
+    if (sites.length) list = `<ul class="hs">${sites.map((s) => `<li>${esc(ligneSite(s))}</li>`).join("")}</ul>`;
+    note = absents(sites);
+  }
+  return `<section aria-labelledby="h-hs"><h2 id="h-hs">Sites mobiles hors service</h2>
+  <div class="card"><p>${esc(head)}</p>${list}${note ? `<p class="note">${esc(note)}</p>` : ""}</div></section>`;
+}
+
+/**
+ * The line of a commune's tile, only when the file has sites there: « 1 site Free hors service (panne), d'après le
+ * fichier de l'Arcep du 29 octobre 2026 ».
+ */
+export function ligneTuile(c: Cached<sitesHs.Copie> | null, insee: string): string | undefined {
+  const sites = c?.value.sites.filter((s) => s.insee === insee) ?? [];
+  if (!sites.length) return undefined;
+  const ops = [...new Set(sites.map((s) => s.operateur))].join(" et ");
+  const by = (r: string) => sites.filter((s) => s.raison === r).length;
+  const raisons = sites.length === 1
+    ? sites[0].raison ?? ""
+    : [["panne", "pannes"], ["maintenance", "maintenances"]].flatMap(([r, rs]) => (by(r) ? [`${nombre(by(r))} ${by(r) > 1 ? rs : r}`] : [])).join(", ");
+  return `${nombre(sites.length)} ${sites.length > 1 ? "sites" : "site"} ${ops} hors service${raisons ? ` (${raisons})` : ""}, d'après le fichier de l'Arcep du ${dateLongue(c!.value.fichier_du)}`;
+}
+
+/** The page's band and its parts that do not change until the next build, as the files are bundled. Built at the first view only. */
+let built: { band: string; carte: string; reste: string } | undefined;
 
 function build() {
   const lead = `${nombre(antennes.SUPPORTS.length)} supports d'antennes mobiles déclarés à l'ANFR au ${dateLongue(antennes.MOBILE_DU)}, et ${nombre(antennes.EMETTEURS.length)} supports d'émetteurs de radio et de télévision au ${dateLongue(antennes.RADIO_DU)}.`;
@@ -107,17 +179,21 @@ function build() {
   <h1>${esc(T.h1)}</h1>
   <p class="lead">${esc(lead)}</p>
 </div></div>`;
-  const body = `<section aria-labelledby="h-carte"><h2 id="h-carte">Sur la carte</h2>${map(layers())}</section>
-<section aria-labelledby="h-communes"><h2 id="h-communes">Par commune</h2>${table()}
+  const carte = `<section aria-labelledby="h-carte"><h2 id="h-carte">Sur la carte</h2>${map(layers())}</section>`;
+  const reste = `<section aria-labelledby="h-communes"><h2 id="h-communes">Par commune</h2>${table()}
   <p><a href="/#assistant">Les antennes près de votre adresse : demandez à votre IA →</a></p></section>
 <section aria-labelledby="h-src"><h2 id="h-src">À savoir</h2>
-  <p class="note">${esc(T.note)}<a href="https://www.cartoradio.fr" rel="noopener">cartoradio.fr</a>.</p>
-  <p class="sources">Sources : ${credits([antennes.SOURCE_MOBILE, antennes.SOURCE_RADIO].map((x) => ({ source: x.attribution, licence: x.licence, attribution: x.attribution })))}.</p>
-</section>`;
-  return { band, body };
+  <p class="note">${esc(T.note)}<a href="https://www.cartoradio.fr" rel="noopener">cartoradio.fr</a>.</p>`;
+  return { band, carte, reste };
 }
 
-export function antennesPage(origin: string, alerte?: Alerte): string {
+const SOURCES = [antennes.SOURCE_MOBILE, antennes.SOURCE_RADIO, sitesHs.SOURCE].map((x) => ({ source: x.attribution, licence: x.licence, attribution: x.attribution }));
+
+/** `hs`: the copy of the sites out of service (providers/sites-hs.ts), its one read; null before the first. */
+export function antennesPage(origin: string, hs: Cached<sitesHs.Copie> | null, now = new Date(), alerte?: Alerte): string {
   built ??= build();
-  return layout(origin, { title: T.title, description: T.description, path: PATH, jsonld: [crumbs(origin, "Antennes", PATH), webPage(origin, PATH, T.title, T.description, null)], alerte }, built.band, built.body);
+  const body = `${built.carte}\n${horsService(hs, now)}\n${built.reste}
+  <p class="sources">Sources : ${credits(SOURCES)}.</p>
+</section>`;
+  return layout(origin, { title: T.title, description: T.description, path: PATH, jsonld: [crumbs(origin, "Antennes", PATH), webPage(origin, PATH, T.title, T.description, hs)], alerte }, built.band, body);
 }
