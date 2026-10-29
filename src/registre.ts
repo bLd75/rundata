@@ -111,6 +111,10 @@ const SHARED_D1: Record<string, Pick<Run, "d1Calls" | "d1RowsRead">> = {
   "web:chiffres": SANS_REPONSE_D1,
 };
 
+// Copies collected outside the Worker and read from KV by a build (src/worker.ts `configure`): the measures at Atmo
+// Réunion's stations.
+const SHARED_KV: Record<string, number> = { "web:air": 1 };
+
 // Never built alone over MEASURED: their CPU is that of the page that shows them; the vigilance's and the rivers', measured in Node; the earthquakes' and the ONF's map's, estimated from /volcan's and /sentiers's.
 const SHARED_ESTIMATED = new Set(["vigilance", "seismes", "onf:sentiers", "web:crues", "mer:satellites", "web:calendrier", "web:chiffres", "web:chiffres:evenements"]);
 
@@ -121,7 +125,7 @@ const sharedEntry = (s: Shared, after: boolean): Entry => ({
   every: typeof s.every === "number" ? s.every : s.range?.usual,
   ...(typeof s.every !== "number" && s.range && { shortest: s.range.shortest }),
   offset: s.offset ?? 0,
-  run: { subrequests: (s.cold ?? 0) + COPY_WRITE, kvWrites: COPY_WRITE, ...SHARED_D1[s.key], cpuMs: s.cpu ?? 0 },
+  run: { subrequests: (s.cold ?? 0) + COPY_WRITE, ...(SHARED_KV[s.key] && { kvReads: SHARED_KV[s.key] }), kvWrites: COPY_WRITE, ...SHARED_D1[s.key], cpuMs: s.cpu ?? 0 },
   from: SHARED_FROM[s.key] ?? [],
   basis: SHARED_ESTIMATED.has(s.key) ? "estimé" : "mesuré",
 });
@@ -474,7 +478,7 @@ const VISITS: Entry[] = [
 // --- The questions -------------------------------------------------------------------------------------------------
 
 /** Every tool (server.ts), as measured: the most subrequests of a call, its CPU, its file. */
-const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string; d1?: Pick<Run, "d1Calls" | "d1RowsRead" | "d1RowsWritten">; basis?: Basis; from?: string[] }> = {
+const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string; kvReads?: number; d1?: Pick<Run, "d1Calls" | "d1RowsRead" | "d1RowsWritten">; basis?: Basis; from?: string[] }> = {
   resume_du_jour: { subrequests: 59, cpuMs: 130, file: "resume" },
   meteo_actuelle: { subrequests: 36, cpuMs: 120, file: "meteo" },
   evenements: { subrequests: 33, cpuMs: 190, file: "agenda" },
@@ -504,7 +508,8 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   annuaire_services_publics: { subrequests: 3, cpuMs: 20, file: "annuaire" },
   restrictions_eau: { subrequests: 3, cpuMs: 60, file: "secheresse" },
   bornes_recharge: { subrequests: 3, cpuMs: 50, file: "bornes" },
-  qualite_air: { subrequests: 3, cpuMs: 50, file: "air" },
+  // The index (3), and the copy of the measures at the stations (3), test/air-mesures.test.ts.
+  qualite_air: { subrequests: 6, cpuMs: 50, file: "air", kvReads: 1 },
   defibrillateurs: { subrequests: 0, cpuMs: 70, file: "dae" },
   donner_avis: { subrequests: 1, cpuMs: 60, d1: { d1Calls: 1, d1RowsRead: 5, d1RowsWritten: 3 } },
   // The copy of /chiffres for its block `chiffres` (the data center's cache, else KV).
@@ -517,7 +522,7 @@ const QUESTIONS: Entry[] = Object.entries(TOOLS).map(([tool, t]) => ({
   id: tool,
   trigger: "question",
   what: `l'outil ${tool}`,
-  run: { subrequests: t.subrequests, ...t.d1, cpuMs: t.cpuMs },
+  run: { subrequests: t.subrequests, ...(t.kvReads && { kvReads: t.kvReads }), ...t.d1, cpuMs: t.cpuMs },
   from: t.from ?? (t.file ? [`src/tools/${t.file}.ts`] : []),
   basis: t.basis ?? "mesuré",
 }));

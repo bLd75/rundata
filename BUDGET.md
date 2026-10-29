@@ -18,8 +18,8 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 400 | 500 |
-| pire passage planifié, appels KV et D1 | 78 | 1 000 |
+| pire passage planifié, sous-requêtes | 403 | 500 |
+| pire passage planifié, appels KV et D1 | 79 | 1 000 |
 | pire passage planifié, CPU (ms) | 2 324 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 30 | 128 |
 | passage le plus chargé (cadences les plus courtes), sous-requêtes | 149 | 500 |
@@ -31,15 +31,15 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 - Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
 - Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 108 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, connecteurs:lecture, propositions:purge, connecteurs:purge).
 - Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 149 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, web:crues, web:volcan, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, connecteurs:lecture, propositions:purge, connecteurs:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 351 sous-requêtes à 00:00 UTC.
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 354 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 82. Question la plus chère : resume_du_jour, 65. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 400 | 16 | 42 | 20 | 1 124 | 239 | 2 324 |
-| tâche planifiée, par jour | 22 901 | 1 872 | 2 749 | 2 406 | 102 908 | 58 500 | 150 165 |
-| tâche planifiée, par jour, cadences les plus courtes | 33 793 | 3 168 | 4 573 | 2 886 | 107 948 | 58 500 | 195 645 |
-| tâche planifiée, par mois (30 jours) | 687 030 | 56 160 | 82 470 | 72 180 | 3 087 240 | 1 755 000 | 4 504 950 |
+| pire passage planifié | 403 | 17 | 42 | 20 | 1 124 | 239 | 2 324 |
+| tâche planifiée, par jour | 22 973 | 1 896 | 2 749 | 2 406 | 102 908 | 58 500 | 150 165 |
+| tâche planifiée, par jour, cadences les plus courtes | 33 865 | 3 192 | 4 573 | 2 886 | 107 948 | 58 500 | 195 645 |
+| tâche planifiée, par mois (30 jours) | 689 190 | 56 880 | 82 470 | 72 180 | 3 087 240 | 1 755 000 | 4 504 950 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -59,7 +59,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | web:trafic | copie partagée (KV) | 30 min | 00:05 | 31 |  | 1 | 2 | 840 |  | 160 | mesuré |
 | web:electricite | copie partagée (KV) | 30 min | 00:20 | 8 |  | 1 |  |  |  | 80 | mesuré |
 | web:coupures | copie partagée (KV) | 30 min | 00:25 | 10 | 1 | 2 |  |  |  | 60 | mesuré |
-| web:air | copie partagée (KV) | 60 min | 00:40 | 5 |  | 1 |  |  |  | 40 | mesuré |
+| web:air | copie partagée (KV) | 60 min | 00:40 | 8 | 1 | 1 |  |  |  | 40 | mesuré |
 | mer:satellites | copie partagée (KV) | 180 min (30 au plus court) | 00:55 | 11 |  | 1 |  |  |  | 110 | estimé |
 | web:mer | copie partagée (KV) | 180 min | 01:15 | 14 |  | 1 |  |  |  | 110 | mesuré |
 | web:calendrier | copie partagée (KV) | 360 min | 02:10 | 9 |  | 1 |  |  |  | 40 | estimé |
@@ -182,7 +182,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | annuaire_services_publics | l'outil annuaire_services_publics | à chaque vue |  | 3 |  |  |  |  |  | 20 | mesuré |
 | restrictions_eau | l'outil restrictions_eau | à chaque vue |  | 3 |  |  |  |  |  | 60 | mesuré |
 | bornes_recharge | l'outil bornes_recharge | à chaque vue |  | 3 |  |  |  |  |  | 50 | mesuré |
-| qualite_air | l'outil qualite_air | à chaque vue |  | 3 |  |  |  |  |  | 50 | mesuré |
+| qualite_air | l'outil qualite_air | à chaque vue |  | 6 | 1 |  |  |  |  | 50 | mesuré |
 | defibrillateurs | l'outil defibrillateurs | à chaque vue |  | 0 |  |  |  |  |  | 70 | mesuré |
 | donner_avis | l'outil donner_avis | à chaque vue |  | 1 |  |  | 1 | 5 | 3 | 60 | mesuré |
 | sources_donnees | l'outil sources_donnees | à chaque vue |  | 2 |  |  |  |  |  | 40 | code |

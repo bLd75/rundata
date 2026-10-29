@@ -95,7 +95,8 @@ export const SHARED: Shared[] = [
   { key: "web:trafic", build: buildTrafic, every: 30, cold: 30, cpu: 160, offset: 5 },
   { key: "web:electricite", build: buildElectricite, every: 30, cold: 7, cpu: 80, offset: 20 },
   { key: "web:coupures", build: buildCoupures, every: 30, cold: 7, cpu: 60, offset: 25 },
-  { key: "web:air", build: buildAir, every: 60, cold: 4, cpu: 40, offset: 40 },
+  // The index (3), and the copy of the measures at the stations (3: the data center's cache, KV, written back).
+  { key: "web:air", build: buildAir, every: 60, cold: 7, cpu: 40, offset: 40 },
   // Built only here: the copy of /mer, the pages and temperature_mer read it, never the satellites.
   { key: SATELLITES, build: buildSatellites, every: (last) => satellitesEvery(last), cold: 10, cpu: 110, range: { usual: 3 * 60, shortest: 30 }, offset: 55 },
   { key: "web:mer", build: buildSea, every: 3 * 60, cold: 13, cpu: 110, offset: 75 },

@@ -1,10 +1,13 @@
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
-import { Cache, MemoryStore } from "../src/cache.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { count, counted } from "../src/budget.js";
+import { Cache, MemoryStore, type CacheEntry } from "../src/cache.js";
 import * as airMesures from "../src/providers/air-mesures.js";
 import { parse } from "../src/providers/atmo.js";
 import { qualiteAir } from "../src/tools/air.js";
 import { airPage } from "../src/web/domains.js";
+import { REGISTRY } from "../src/registre.js";
+import { SHARED } from "../src/web/partagees.js";
 
 // Lines of the LCSQA's file of 29/10/2026 (FR_E2_2026-10-29.csv, read at 10:08): one of Metz, then Atmo Réunion's,
 // valid or not, among them a nitrogen monoxide (outside the index) and empty values (-1).
@@ -22,7 +25,22 @@ function cache() {
   return new Cache(store, () => NOW.getTime());
 }
 
-afterEach(() => airMesures.configure(undefined));
+afterEach(() => {
+  airMesures.configure(undefined);
+  vi.unstubAllGlobals();
+});
+
+/** The data center's cache, counted as the Worker counts it (worker.ts EdgeStore): a read, a write. */
+class EdgeLike extends MemoryStore {
+  async get(key: string, since?: number) {
+    count(1, "read");
+    return super.get(key, since);
+  }
+  async put(key: string, entry: CacheEntry) {
+    count(1, true);
+    return super.put(key, entry);
+  }
+}
 
 describe("measures at Atmo Réunion's stations", () => {
   it("keeps Atmo Réunion's valid measures of the index's pollutants, hours in local time", () => {
@@ -64,7 +82,7 @@ describe("measures at Atmo Réunion's stations", () => {
     const r = body(await qualiteAir(cache(), undefined, NOW));
     const m = r.mesures_aux_stations;
     expect(m.nature).toBe("MESURES brutes, non validées, aux stations d'Atmo Réunion, publiées par le LCSQA : ce n'est pas l'indice ATMO, qui est une prévision.");
-    expect(m.valeurs[0]).toEqual({ polluant: "dioxyde d'azote", valeur: 6.8, unite: "µg/m³", heure: "de 07:00 à 08:00", station: "Lycée Lislet Geoffroy", type: "fond", commune: "Saint-Denis", statut: "mesure brute, non validée" });
+    expect(m.valeurs[0]).toEqual({ polluant: "dioxyde d'azote", valeur: 6.8, unite: "µg/m³", heure: "de 7 h à 8 h", station: "Lycée Lislet Geoffroy", type: "fond", commune: "Saint-Denis", statut: "mesure brute, non validée" });
     expect(m.valeurs.every((v: { statut: string }) => v.statut === "mesure brute, non validée")).toBe(true);
     // Ended at 07:00, 3 h before: not late. At 01:00 and 06:00: late.
     expect(m.valeurs.filter((v: { retard?: string }) => v.retard).map((v: { station: string; retard: string }) => `${v.station} ${v.retard}`)).toEqual(["Luther King mesurée il y a 9 h", "Grand Fond mesurée il y a 4 h"]);
@@ -95,7 +113,7 @@ describe("measures at Atmo Réunion's stations", () => {
     const at = page.indexOf('id="h-mesures-air"');
     const section = page.slice(at, page.indexOf("</section>", at));
     expect(section).toContain("<h3>Lycée Lislet Geoffroy · Saint-Denis</h3>");
-    expect(section).toContain("<li><b>ozone</b> : 30,5 µg/m³ <span class=\"note\">de 07:00 à 08:00, station de type fond, mesure brute, non validée</span></li>");
+    expect(section).toContain("<li><b>ozone</b> : 30,5 µg/m³ <span class=\"note\">de 7 h à 8 h, station de type fond, mesure brute, non validée</span></li>");
     expect(section).toContain("mesurée il y a 9 h");
     expect(section.match(/<li>/g)).toHaveLength(7);
     expect(section.match(/mesure brute, non validée/g)).toHaveLength(7);
@@ -104,5 +122,15 @@ describe("measures at Atmo Réunion's stations", () => {
     airMesures.configure(undefined);
     const none = body(await qualiteAir(cache(), undefined, NOW));
     expect(airPage("https://rundata.re", { value: none, fetchedAt: NOW, stale: false }, NOW)).not.toContain('id="h-mesures-air"');
+  });
+
+  it("costs, from cold, what the budget's registry says: the index, and the measures' copy read from KV", async () => {
+    vi.stubGlobal("fetch", async () => new Response(readFileSync(new URL("./fixtures/atmo_974.json", import.meta.url))));
+    // As worker.ts: one KV read, counted.
+    airMesures.configure(async () => (count(), copie));
+    const { used } = await counted(50, () => qualiteAir(new Cache(new EdgeLike(), () => NOW.getTime()), undefined, NOW));
+    expect(used).toBeLessThanOrEqual(SHARED.find((s) => s.key === "web:air")!.cold!);
+    for (const id of ["qualite_air", "web:air"]) expect(REGISTRY.find((e) => e.id === id)!.run.kvReads, id).toBe(1);
+    expect(REGISTRY.find((e) => e.id === "qualite_air")!.run.subrequests).toBe(used);
   });
 });

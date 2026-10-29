@@ -37,9 +37,16 @@ export function diffusion(list: atmo.Index[], day: string): string | undefined {
 // A measure is said late once its hour ended this long ago.
 const LATE_MS = 3 * 3600_000;
 
-/** The hour measured: « de 07:00 à 08:00 », with its day when it is not today's, « le 28/10, de 23:00 à 00:00 ». */
+// The kit's way: « 7 h » for a round hour, « 7 h 30 » else; an hour ending at midnight ends at « 24 h ».
+const hour = (iso: string, end = false) => {
+  const [h, min] = [Number(iso.slice(11, 13)), iso.slice(14, 16)];
+  const at = end && h === 0 && min === "00" ? 24 : h;
+  return min === "00" ? `${at} h` : `${at} h ${min}`;
+};
+
+/** The hour measured: « de 7 h à 8 h », with its day when it is not today's, « le 28/10, de 23 h à 24 h ». */
 export function hourMeasured(m: airMesures.Mesure, now: Date): string {
-  const hours = `de ${m.debut.slice(11, 16)} à ${m.fin.slice(11, 16)}`;
+  const hours = `de ${hour(m.debut)} à ${hour(m.fin, true)}`;
   return m.debut.slice(0, 10) === today(now) ? hours : `le ${m.debut.slice(8, 10)}/${m.debut.slice(5, 7)}, ${hours}`;
 }
 
