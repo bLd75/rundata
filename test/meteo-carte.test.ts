@@ -96,7 +96,7 @@ describe("the map of every station on /meteo", () => {
     expect(html).toContain("3 anémomètres, vent moyen mesuré en km/h, le plus récent à 09:18. La flèche montre où va le vent (un vent d'est vient de l'est). Entre les stations, le mouvement et les couleurs sont <b>estimés</b> à partir des stations voisines : ce n'est pas une mesure.");
     // The rain layer asks the radar's grid when first shown, with a place in its legend for what the radar sees.
     expect(html).toContain(`<canvas class="voile" data-pluie="/meteo/pluie-radar.json" data-alt="${ALT_PATH}" `);
-    expect(html).toContain(`Cercle vide : pas de pluie mesurée. <span data-radar hidden></span>`);
+    expect(html).toContain(`Point blanc : pas de pluie mesurée. <span data-radar hidden></span>`);
     // No anemometer: no tab, no canvas, no script data.
     expect(stationsMap([BALISE])).toContain("1 anémomètre, vent moyen");
     const calm = stationsMap([BRAS_SEC, PLUVIO]);
@@ -141,7 +141,7 @@ describe("the map of every station on /meteo", () => {
   it("says the rain of the last 6 minutes, tab and legend, while no station has the hour yet", () => {
     const hour = stationsMap(ALL);
     expect(hour).toContain(`<label for="wxl-p">Pluie 1 h</label>`);
-    expect(hour).toContain("4 pluviomètres, pluie de la dernière heure en mm, la plus récente à 09:18. Cercle vide : pas de pluie mesurée.");
+    expect(hour).toContain("4 pluviomètres, pluie de la dernière heure en mm, la plus récente à 09:18. Point blanc : pas de pluie mesurée.");
     const six = stationsMap(ALL.map((s) => ({ ...s, pluie_6min: s.pluie_1h, pluie_1h: undefined })));
     expect(six).toContain(`<label for="wxl-p">Pluie 6 min</label>`);
     expect(six).toContain("4 pluviomètres, pluie des 6 dernières minutes seulement, en mm, la plus récente à 09:18 : l'heure complète n'est pas encore disponible.");
@@ -187,6 +187,9 @@ describe("the page /meteo with every station", () => {
     expect(METEO_SCRIPT).toContain(`"En bleu : la pluie estimée par le radar de Météo-France à "`);
     expect(METEO_SCRIPT).toContain(`"Le radar de Météo-France ne voit pas de pluie à "`);
     expect(METEO_SCRIPT).toContain(`" et n'est pas affichée."`);
+    // The hatches' sentence comes after a hatched square, styled by the page, which ties it to the hatches on the map.
+    expect(METEO_SCRIPT).toContain(`i.className="hsw";say.append(" ",i,bad)`);
+    expect(CSS).toContain(".wxmap .hsw{");
   });
 
   it("dates a measure of another day in the list, and says it old", () => {

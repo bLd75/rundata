@@ -148,7 +148,7 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
   // A tab and a legend per measure that at least one station has; the first shown without a choice.
   const layers = [
     t.length && { id: "t", tab: "Température", legend: `<span class="lgs">${thin(deg(STOPS_LO))}<i class="vgrad"></i>${thin(deg(STOPS_HI))}</span>${n(t.length, "station", "stations")}, température mesurée sous abri, la plus récente à ${hm(latest)}. Entre les stations, les couleurs sont <b>estimées selon l'altitude</b> : ce n'est pas une mesure.` },
-    nRain && { id: "p", tab: hour ? "Pluie 1 h" : "Pluie 6 min", legend: `${n(nRain, "pluviomètre", "pluviomètres")}, ${hour ? "pluie de la dernière heure en mm" : "pluie des 6 dernières minutes seulement, en mm"}, la plus récente à ${hm(latest)}${hour ? "" : " : l'heure complète n'est pas encore disponible"}. Cercle vide : pas de pluie mesurée. <span data-radar hidden></span>` },
+    nRain && { id: "p", tab: hour ? "Pluie 1 h" : "Pluie 6 min", legend: `${n(nRain, "pluviomètre", "pluviomètres")}, ${hour ? "pluie de la dernière heure en mm" : "pluie des 6 dernières minutes seulement, en mm"}, la plus récente à ${hm(latest)}${hour ? "" : " : l'heure complète n'est pas encore disponible"}. Point blanc : pas de pluie mesurée. <span data-radar hidden></span>` },
     w.length && { id: "v", tab: "Vent", legend: `<span class="lgs">0<i class="vgrad wgrad"></i>${thin("60 km/h")}</span>${n(w.length, "anémomètre", "anémomètres")}, vent moyen mesuré en km/h, le plus récent à ${hm(latest)}. La flèche montre où va le vent (un vent d'est vient de l'est). Entre les stations, le mouvement et les couleurs sont <b>estimés</b> à partir des stations voisines : ce n'est pas une mesure.` },
   ].filter((l): l is { id: string; tab: string; legend: string } => !!l);
   const tabs = `<div class="tabs aqtabs" role="radiogroup" aria-label="Mesure affichée sur la carte">` +
@@ -212,7 +212,8 @@ const[R,G,B]=col(Math.hypot(U[k],V[k]));o.data[k*4]=R;o.data[k*4+1]=G;o.data[k*4
 
 /**
  * The rain the radar sees, in the browser, asked for when the layer is first shown (web/pluie-radar.ts): its cells
- * washed in blue by class, hatched where the radars see badly (both drawn once, at the screen's size), and drops falling
+ * washed in blue by class, hatched where the radars see badly (night and white stripes, which show on any relief; both
+ * drawn once, at the screen's size), and drops falling
  * in the wet cells, more and faster where it rains harder (the second canvas, cleared each frame). The legend says the
  * image's time, that the radar sees no rain, or that its image is too old to say anything about now.
  */
@@ -226,13 +227,14 @@ const born=(p)=>{const k=pick(),c=+d.pluie[k];p.x=(k%d.w+Math.random())*cw/d.w;p
 const drops=(n)=>{g.strokeStyle="rgba(255,255,255,.92)";g.lineWidth=1.4;g.lineCap="round";g.beginPath();for(const p of ds){g.moveTo(p.x,p.y);g.lineTo(p.x-p.l*.25,p.y-p.l)}g.stroke()};
 const go=anim({fl,id:"wxl-p",ready:()=>!!d,moving:()=>cells.length>0,
 size:(r)=>{cw=fl.width=pr.width=Math.max(1,Math.round(r.width));ch=fl.height=pr.height=Math.max(1,Math.round(r.height));g=fl.getContext("2d");
-const x=pr.getContext("2d"),sx=cw/d.w,sy=ch/d.h,t=document.createElement("canvas");t.width=t.height=6;const tg=t.getContext("2d");tg.strokeStyle="rgba(40,40,50,.7)";tg.lineWidth=1.2;tg.beginPath();tg.moveTo(0,6);tg.lineTo(6,0);tg.stroke();
+const x=pr.getContext("2d"),sx=cw/d.w,sy=ch/d.h,t=document.createElement("canvas");t.width=t.height=6;const tg=t.getContext("2d");tg.lineWidth=1.6;for(const[c,o]of[["rgba(11,31,54,.55)",0],["rgba(255,255,255,.5)",3]]){tg.strokeStyle=c;tg.beginPath();for(const k of[-6,0,6]){tg.moveTo(k+o-1,7);tg.lineTo(k+o+7,-1)}tg.stroke()}
 const hatch=x.createPattern(t,"repeat");for(let k=0;k<d.w*d.h;k++){const c=d.pluie[k],X=(k%d.w)*sx,Y=(k/d.w|0)*sy;
 if(c>"0"){x.fillStyle=K[+c-1];x.fillRect(X,Y,sx+.6,sy+.6)}if(d.mal_vu[k]==="1"){x.fillStyle=hatch;x.fillRect(X,Y,sx+.6,sy+.6)}}
 ds=[];if(!cells.length)return;const n=Math.min(900,Math.max(25,Math.round(acc[acc.length-1]*.03*r.width*r.height/88e3)));for(let i=0;i<n;i++){const p={};born(p);p.a=(Math.random()*p.m)|0;ds.push(p)}},
 still:()=>{g.clearRect(0,0,cw,ch);drops()},
 frame:()=>{g.clearRect(0,0,cw,ch);for(const p of ds){p.y+=p.v;p.x-=p.v*.25;if(++p.a>p.m)born(p)}drops()}});
-const show=(t)=>{say.textContent=t;say.hidden=false};
+// The hatched square ties the sentence to the hatches on the map, however small they are.
+const show=(t,bad,down)=>{say.textContent=t;if(bad){const i=document.createElement("i");i.className="hsw";say.append(" ",i,bad)}if(down)say.append(down);say.hidden=false};
 const land=()=>new Promise((ok,ko)=>{const im=new Image();im.onload=()=>{const c=document.createElement("canvas");c.width=im.width;c.height=im.height;const x=c.getContext("2d");x.drawImage(im,0,0);
 const a=x.getImageData(0,0,im.width,im.height).data;ok(a.filter((v,i)=>i%4===0))};im.onerror=ko;im.src=pr.dataset.alt});
 const get=()=>{if(asked||!inp.checked)return;asked=true;Promise.all([fetch(pr.dataset.pluie).then((r)=>{if(!r.ok)throw new Error(String(r.status));return r.json()}),land()]).then(([j,L])=>{
@@ -241,7 +243,7 @@ if(Date.now()-Date.parse(j.fin)>45*6e4){show("Pas d'image radar récente : la de
 // The island alone: the map shows nothing of the sea, where the radars also see.
 let bad="";for(let k=0;k<d.w*d.h;k++){if(!L[k])continue;const c=+d.pluie[k];if(c>0){cells.push(k);acc.push((acc[acc.length-1]||0)+Wt[c])}if(d.mal_vu[k]==="1")bad=" Hachures : zones que le radar voit mal, où la pluie peut être manquée."}
 const down=d.pannes.length?" "+radars(d.pannes):"";
-show((cells.length?"En bleu : la pluie estimée par le radar de Météo-France à "+hm(d.fin)+" ; plus c'est foncé, plus elle est forte.":"Le radar de Météo-France ne voit pas de pluie à "+hm(d.fin)+".")+bad+down);go()}).catch(()=>{})};
+show((cells.length?"En bleu : la pluie estimée par le radar de Météo-France à "+hm(d.fin)+" ; plus c'est foncé, plus elle est forte.":"Le radar de Météo-France ne voit pas de pluie à "+hm(d.fin)+"."),bad,down);go()}).catch(()=>{})};
 inp.addEventListener("change",get);get()}`;
 
 /** /meteo's own script: the stations' list (filter, sort, unfold), then the veil, the wind and the radar's rain. */
