@@ -4,7 +4,7 @@ import { BUILD_BUDGET, counted } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import * as meteofrance from "../src/providers/meteofrance.js";
 import type { RainGrid } from "../src/web/pluie-radar.js";
-import { configure, type Entree, type Historique, hourlyWind, KEEP_MS, passage, PATH, retro, rle, suivant, unrle } from "../src/web/pluie-retro.js";
+import { auQuart, configure, type Entree, type Historique, hourlyWind, passage, PATH, quarters, retro, RETRO_MS, rle, suivant, unrle } from "../src/web/pluie-retro.js";
 import { site } from "../src/web/site.js";
 
 // The real lame d'eau of 22/10/2026 05:35–05:40 UTC, as in pluie-radar.test.ts.
@@ -30,7 +30,7 @@ describe("the runs of characters of a kept grid", () => {
   });
 });
 
-describe("the radar's last 3 hours, run after run", () => {
+describe("the radar's last 6 hours, run after run", () => {
   it("adds a new image, and writes nothing for the same one read again", () => {
     const one = suivant(null, shot("2026-10-29T13:00:00Z"), at("2026-10-29T13:05:20Z"));
     expect(kinds(one)).toEqual(["13:00"]);
@@ -63,16 +63,36 @@ describe("the radar's last 3 hours, run after run", () => {
     expect(suivant(null, new Error("HTTP 503"), at("2026-10-29T13:50:20Z"))).toBeUndefined();
   });
 
-  it("forgets what is over 3 hours old, and starts again on a grid of another size", () => {
+  it("forgets what is over 6 hours old, and starts again on a grid of another size", () => {
     let h: Historique | undefined;
-    for (let k = 0; k <= 40; k++) {
+    for (let k = 0; k <= 80; k++) {
       const fin = new Date(Date.parse("2026-10-29T10:00:00Z") + k * 5 * 60_000).toISOString().replace(".000", "");
       h = suivant(h ?? null, shot(fin), new Date(Date.parse(fin) + 5 * 60_000)) ?? h;
     }
-    // Written at 13:25: the images ending after 10:25, 35 of them.
-    expect(h!.entrees).toHaveLength(35);
-    expect(kinds(h)![0]).toBe("10:30");
-    expect(kinds(suivant(h!, { ...shot("2026-10-29T13:25:00Z"), w: 100 }, at("2026-10-29T13:30:20Z")))).toEqual(["13:25"]);
+    // Written at 16:45: the images ending after 10:45, 71 of them.
+    expect(h!.entrees).toHaveLength(71);
+    expect(kinds(h)![0]).toBe("10:50");
+    expect(kinds(suivant(h!, { ...shot("2026-10-29T16:45:00Z"), w: 100 }, at("2026-10-29T16:50:20Z")))).toEqual(["16:45"]);
+  });
+});
+
+describe("the radar's 24 hours, an image a quarter of an hour", () => {
+  const image = (fin: string): Entree => ({ fin, pannes: [], pluie: "", mal_vu: "" });
+  const gap = (de: string, a: string): Entree => ({ trou: true, de: `2026-10-29T${de}:00Z`, a: `2026-10-29T${a}:00Z` });
+  const t = (hm: string) => `2026-10-29T${hm}:00Z`;
+
+  it("take the image of each quarter, or the next within 5 minutes with its own time, else the gap it falls in", () => {
+    const six = [image(t("13:00")), image(t("13:05")), image(t("13:10")), image(t("13:20")), gap("13:20", "13:50"), image(t("13:55")), image(t("14:00"))];
+    expect(kinds({ w: 1, h: 1, entrees: quarters(six) })).toEqual(["13:00", "13:20", "trou 13:20-13:50", "14:00"]);
+  });
+
+  it("keep what came before the 6 hours, join the two with a gap where they do not meet, and forget past 24 hours", () => {
+    const before: Historique = { w: 125, h: 112, entrees: [image("2026-10-28T12:00:00Z"), image(t("02:00")), image(t("02:15"))] };
+    const six: Historique = { w: 125, h: 112, entrees: [image(t("08:00")), image(t("08:15")), image(t("08:20"))] };
+    const day = auQuart(before, six, at("2026-10-29T13:20:20Z"));
+    expect(kinds(day)).toEqual(["02:00", "02:15", "trou 02:15-07:45", "08:00", "08:15"]);
+    // Another grid: the 6 hours alone.
+    expect(kinds(auQuart({ ...before, w: 100 }, six, at("2026-10-29T13:20:20Z")))).toEqual(["08:00", "08:15"]);
   });
 });
 
@@ -103,6 +123,27 @@ describe("a run of the scheduled event", () => {
     const warm = await run();
     expect([warm.used, asked]).toEqual([2, ["jeton", "radar", "radar"]]);
     expect(warm.value).toBe("image finie à 2026-10-22T05:40:00Z, rien à écrire, jetons Météo-France pris : 0");
+  });
+
+  it("reads and writes the 24 hours only when a new quarter of an hour ends the 6 hours", async () => {
+    meteofrance.configure({ applicationId: "test" });
+    vi.stubGlobal("fetch", async (url: string) => (String(url).includes("/token") ? Response.json({ access_token: "t", expires_in: 3600 }) : new Response(h5)));
+    // The fixture's image ends at 05:40: no quarter. Kept before it, the one of 05:30.
+    let kept: Historique | null = suivant(null, { ...shot("2026-10-22T05:30:00Z"), w: 125, h: 112 }, at("2026-10-22T05:35:20Z"))!;
+    let day: Historique | null = null;
+    let dayOps = 0;
+    const store = { get: async () => kept, put: async (h: Historique) => void (kept = h) };
+    const long = { get: async () => (dayOps++, day), put: async (h: Historique) => void (dayOps++, (day = h)) };
+    const now = at("2026-10-22T05:42:00Z");
+    const r = await counted(BUILD_BUDGET, () => passage(store, new Cache(new MemoryStore(), () => now.getTime()), now, long));
+    // 05:40 is not a quarter: the quarters still end at 05:30, nothing read nor written for the 24 hours.
+    expect(kinds(kept!)).toEqual(["05:30", "trou 05:30-05:35", "05:40"]);
+    expect([dayOps, day, r.value]).toEqual([0, null, expect.not.stringContaining("24 h")]);
+    // Kept before it, 05:20 only: the quarter of 05:30 is now a gap, and the 24 hours are read and written once.
+    kept = suivant(null, shot("2026-10-22T05:20:00Z"), at("2026-10-22T05:25:20Z"))!;
+    const again = await counted(BUILD_BUDGET, () => passage(store, new Cache(new MemoryStore(), () => now.getTime()), now, long));
+    expect(kinds(day!)).toEqual(["trou 05:20-05:35"]);
+    expect([dayOps, again.value]).toEqual([2, expect.stringContaining("24 h : 1 entrées écrites")]);
   });
 
   it("writes a gap when the radar answers an error, without throwing", async () => {
@@ -144,7 +185,7 @@ describe("the replay's answer", () => {
     expect(r.headers.get("cache-control")).toBe("public, max-age=300");
     const body = await r.json();
     expect(kinds(body.radar)).toEqual(["trou 09:00-13:00", "13:05"]);
-    expect(Date.parse(body.radar.entrees[0].a)).toBeGreaterThan(now.getTime() - KEEP_MS);
+    expect(Date.parse(body.radar.entrees[0].a)).toBeGreaterThan(now.getTime() - RETRO_MS);
   });
 
   it("is served by the site at its path", async () => {

@@ -136,6 +136,7 @@ import { carteRoute as cmrsRoute } from "./cmrs-carte.js";
 import { RENDU_PATH } from "../providers/vigilance-carte.js";
 import { PATH as PLUIE_RADAR, rainGrid } from "./pluie-radar.js";
 import { PATH as PLUIE_RETRO, retro } from "./pluie-retro.js";
+import { DUREES, PATHS as REJEU, rejeu } from "./rejeu.js";
 
 const HTML = {
   "content-type": "text/html; charset=utf-8",
@@ -647,6 +648,9 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === PLUIE_RADAR) return rainGrid(cache);
   // Its last 3 hours and the wind of the last round hours, asked by the same script on a click: data, not a page.
   if (path === PLUIE_RETRO) return retro(cache, now);
+  // The replay bar's files, one a length, asked by the same script when its visitor plays (rejeu.ts).
+  const duree = DUREES.find((d) => REJEU[d] === path);
+  if (duree) return rejeu(duree, cache, background, now);
   if (path.startsWith("/meteo/")) {
     const slug = path.slice("/meteo/".length).replace(/\/$/, "");
     const p = pageOf(slug);

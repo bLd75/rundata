@@ -350,3 +350,8 @@ export async function observations(cache: Cache, now = new Date()): Promise<Cach
     stale: newestSlot.stale,
   };
 }
+
+/** The hourly package as this data center keeps it, without asking Météo-France: undefined when it has none. */
+export async function keptHourly(cache: Cache): Promise<HourlyRain | undefined> {
+  return (await cache.bundle(BUNDLE, SYNC_SECONDS)).peek(HOURLY)?.value as HourlyRain | undefined;
+}

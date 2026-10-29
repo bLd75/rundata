@@ -18,28 +18,28 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 432 | 500 |
-| pire passage planifié, appels KV et D1 | 94 | 1 000 |
-| pire passage planifié, CPU (ms) | 3 334 | 30 000 |
+| pire passage planifié, sous-requêtes | 437 | 500 |
+| pire passage planifié, appels KV et D1 | 98 | 1 000 |
+| pire passage planifié, CPU (ms) | 3 354 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 80 | 128 |
-| passage le plus chargé (cadences les plus courtes), sous-requêtes | 158 | 500 |
+| passage le plus chargé (cadences les plus courtes), sous-requêtes | 160 | 500 |
 | vue la plus chère, sous-requêtes | 82 | 200 |
 | question la plus chère, sous-requêtes | 65 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
-- Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic, antennes:hors-service, 15 Mo au pic, radar:3h, 5 Mo au pic, emploi:offres, 5 Mo au pic, marches-publics:textes, 25 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
-- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 117 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:3h, emploi:offres, connecteurs:lecture, propositions:purge, connecteurs:purge).
-- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 158 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, web:crues, web:volcan, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:3h, emploi:offres, connecteurs:lecture, propositions:purge, connecteurs:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 364 sous-requêtes à 00:00 UTC.
+- Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic, antennes:hors-service, 15 Mo au pic, radar:6h, 5 Mo au pic, emploi:offres, 5 Mo au pic, marches-publics:textes, 25 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
+- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 119 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, emploi:offres, connecteurs:lecture, propositions:purge, connecteurs:purge).
+- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 160 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, web:crues, web:volcan, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, emploi:offres, connecteurs:lecture, propositions:purge, connecteurs:purge).
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 366 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 82. Question la plus chère : resume_du_jour, 65. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 432 | 25 | 49 | 20 | 1 124 | 239 | 3 334 |
-| tâche planifiée, par jour | 26 192 | 2 665 | 3 494 | 2 406 | 102 908 | 58 500 | 209 845 |
-| tâche planifiée, par jour, cadences les plus courtes | 37 084 | 3 961 | 5 318 | 2 886 | 107 948 | 58 500 | 255 325 |
-| tâche planifiée, par mois (30 jours) | 785 760 | 79 950 | 104 820 | 72 180 | 3 087 240 | 1 755 000 | 6 295 350 |
+| pire passage planifié | 437 | 27 | 51 | 20 | 1 124 | 239 | 3 354 |
+| tâche planifiée, par jour | 26 840 | 2 977 | 3 806 | 2 406 | 102 908 | 58 500 | 210 325 |
+| tâche planifiée, par jour, cadences les plus courtes | 37 732 | 4 273 | 5 630 | 2 886 | 107 948 | 58 500 | 255 805 |
+| tâche planifiée, par mois (30 jours) | 805 200 | 89 310 | 114 180 | 72 180 | 3 087 240 | 1 755 000 | 6 309 750 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -91,7 +91,8 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | air:mesures | qualité de l'air : les mesures horaires des stations d'Atmo Réunion, leurs lignes du fichier national du LCSQA (jusqu'à 12,5 Mo, lu ligne à ligne), écrites dans KV quand la dernière heure change | 60 min | 00:45 | 6 | 1 | 1 |  |  |  | 260 | mesuré |
 | antennes:hors-service | sites mobiles hors service : les lignes de La Réunion du fichier quotidien de l'Arcep (0,5 à 2,2 Mo), écrites dans KV une fois par jour | 1440 min | 10:30 | 3 | 1 | 1 |  |  |  | 40 | estimé |
 | capteurs:air | capteurs amateurs de particules (Sensor.Community) : les 5 dernières minutes sur l'île, une requête, gardées 2 heures dans KV | 15 min | 00:10 | 3 | 1 | 1 |  |  |  | 10 | code |
-| radar:3h | pluie radar des 3 dernières heures pour le rejeu de /meteo : la dernière image de Météo-France ajoutée dans KV quand elle est nouvelle, ou un trou daté | 5 min | 00:00 | 6 | 1 | 1 |  |  |  | 120 | estimé |
+| radar:6h | pluie radar des 6 dernières heures pour le rejeu de /meteo : la dernière image de Météo-France ajoutée dans KV quand elle est nouvelle, ou un trou daté, et chaque quart d'heure une image gardée 24 heures | 5 min | 00:00 | 8 | 2 | 2 |  |  |  | 120 | estimé |
+| stations:7j | les heures des stations Météo-France sur 7 jours pour la barre de lecture de /meteo : le paquet horaire déjà gardé par le centre de données, ajouté dans KV quand il est plus récent | 60 min | 00:20 | 3 | 1 | 1 |  |  |  | 20 | code |
 | emploi:offres | emploi public : la page d'une offre de Choisir le service public à chaque événement, la plus récente pas encore lue, sinon chaque offre ouverte à son tour, écrites dans KV quand elles changent | 5 min | 00:00 | 3 | 1 | 1 |  |  |  | 15 | estimé |
 | emploi:flux | emploi public : le flux des 20 dernières offres de Choisir le service public pour La Réunion | 60 min | 00:25 | 1 |  |  |  |  |  | 5 | estimé |
 | marches-publics:liste | marchés publics : la liste des avis de marché ouverts publiés au BOAMP pour La Réunion, écrite dans KV quand elle change | 60 min | 00:35 | 3 | 1 | 1 |  |  |  | 10 | estimé |
@@ -120,6 +121,9 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /aujourdhui/* | la journée d'une commune (resume_du_jour) | à chaque vue |  | 68 | 12 | 3 |  |  |  | 130 | mesuré |
 | /meteo/* | la météo d'un lieu | à chaque vue |  | 54 | 2 | 2 |  |  |  | 130 | mesuré |
 | /meteo/retro-3h.json | le rejeu des 3 dernières heures de la carte de /meteo : l'historique radar (KV) et le vent des heures rondes | à chaque vue |  | 3 | 1 |  |  |  |  | 10 | code |
+| /meteo/rejeu-6h.json | la barre de lecture de /meteo sur 6 heures : le radar toutes les 5 min (KV) et les heures rondes des stations | à chaque vue |  | 6 | 2 |  | 1 | 140 |  | 20 | code |
+| /meteo/rejeu-24h.json | la barre de lecture de /meteo sur 24 heures : le radar au quart d'heure (KV) et les heures rondes des stations | à chaque vue |  | 6 | 2 |  | 1 | 140 |  | 20 | code |
+| /meteo/rejeu-7j.json | la barre de lecture de /meteo sur 7 jours : les heures rondes des stations (KV) | à chaque vue |  | 5 | 1 |  | 1 | 140 |  | 30 | code |
 | /mer | la page /mer | à chaque vue |  | 23 |  |  |  |  |  | 120 | mesuré |
 | /randonnees/* | une randonnée et sa trace | à chaque vue |  | 25 | 1 | 1 |  |  |  | 130 | mesuré |
 | /sentiers/* | un sentier et sa trace | à chaque vue |  | 18 | 1 | 1 |  |  |  | 30 | mesuré |
@@ -244,7 +248,8 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | air:mesures | providers/air-mesures |
 | antennes:hors-service | providers/sites-hs |
 | capteurs:air | providers/capteurs |
-| radar:3h | providers/meteofrance, providers/mf-auth, providers/radar |
+| radar:6h | providers/meteofrance, providers/mf-auth, providers/radar |
+| stations:7j | providers/meteofrance, providers/mf-auth, providers/radar |
 | emploi:offres | providers/emploi |
 | emploi:flux | providers/emploi |
 | marches-publics:liste | providers/marches-publics |
@@ -257,6 +262,9 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | /aujourdhui/* | connecteurs/helloasso, providers/acspo, providers/actualites, providers/agenda, providers/air-mesures, providers/annuaire, providers/arome, providers/atmo, providers/avis-eau, providers/baignades, providers/calendrier, providers/capteurs, providers/carburants, providers/cmrs-carte, providers/coupures-courant, providers/cyclones, providers/eaupotable, providers/edf, providers/emploi, providers/ensemble, providers/feux, providers/gtfsrt, providers/houle, providers/irve, providers/marches-publics, providers/maregraphes, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/prefecture, providers/radar, providers/salles, providers/seismes, providers/sentiers, providers/sites-hs, providers/sport-avis, providers/sport, providers/tco, providers/terrain, providers/traces, providers/uv, providers/velos, providers/vigicrues, providers/vigieau, providers/vigilance, providers/volcan |
 | /meteo/* | providers/acspo, providers/arome, providers/ensemble, providers/feux, providers/houle, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /meteo/retro-3h.json | providers/meteofrance, providers/mf-auth |
+| /meteo/rejeu-6h.json | providers/meteofrance, providers/mf-auth, providers/radar |
+| /meteo/rejeu-24h.json | providers/meteofrance, providers/mf-auth, providers/radar |
+| /meteo/rejeu-7j.json | providers/meteofrance, providers/mf-auth, providers/radar |
 | /mer | providers/acspo, providers/arome, providers/ensemble, providers/houle, providers/maregraphes, providers/mf-auth, providers/modis, providers/openmeteo, providers/uv |
 | /randonnees/* | providers/feux, providers/sentiers, providers/traces |
 | /sentiers/* | providers/feux, providers/sentiers, providers/traces |

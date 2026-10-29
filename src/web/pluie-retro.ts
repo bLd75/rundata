@@ -2,7 +2,8 @@
  * The last 3 hours of /meteo's map, replayed on a click: the radar's images, one every 5 minutes, and the wind at the
  * last 3 round hours. Météo-France serves only its latest radar image, so the scheduled event keeps them: each
  * run reads the image (the one the tools read) and, when it is new, adds its grid to one KV key, its runs of
- * characters compressed. A run that cannot read the radar, or reads an image older than STALE_MS, writes down a gap,
+ * characters compressed. The key holds 6 hours, and a second one an image a quarter of an hour over 24 hours, for the
+ * replay bar's files (rejeu.ts). A run that cannot read the radar, or reads an image older than STALE_MS, writes down a gap,
  * said on the map as such (« Pas d'image radar de 14:05 à 14:20. »), never as a dry sky. The wind needs nothing
  * stored: the hourly package already kept (providers/meteofrance.ts) holds the 10-minute mean wind at each round hour.
  */
@@ -16,10 +17,19 @@ import { project } from "./map.js";
 import { grid, type RainGrid } from "./pluie-radar.js";
 
 export const PATH = "/meteo/retro-3h.json";
-export const KV_KEY = "radar:3h";
+export const KV_KEY = "radar:6h";
+/** The key of before, 3 hours: read while the new one is empty, just after the release, and gone by its TTL. */
+export const OLD_KV_KEY = "radar:3h";
 /** Gone from KV an hour after the last write: a scheduled event that stopped leaves no old images behind. */
-export const KV_TTL_SECONDS = 4 * 3600;
-export const KEEP_MS = 3 * 3600_000;
+export const KV_TTL_SECONDS = 7 * 3600;
+export const KEEP_MS = 6 * 3600_000;
+/** What PATH answers, the button's 3 hours. */
+export const RETRO_MS = 3 * 3600_000;
+/** The images a quarter of an hour over 24 hours, in their own key. */
+export const LONG_KV_KEY = "radar:24h";
+export const LONG_KV_TTL_SECONDS = 25 * 3600;
+export const LONG_MS = 24 * 3600_000;
+const QUARTER_MS = 15 * 60_000;
 /** An image older than this when read is not the sky of now: a gap, as /meteo's live layer says. */
 export const STALE_MS = 45 * 60_000;
 const STEP_MS = 5 * 60_000;
@@ -48,8 +58,9 @@ export interface Historique {
   entrees: Entree[];
 }
 
-const isTrou = (e: Entree): e is Trou => "trou" in e;
-const endOf = (e: Entree) => Date.parse(isTrou(e) ? e.a : e.fin);
+export const isTrou = (e: Entree): e is Trou => "trou" in e;
+export const endOf = (e: Entree) => Date.parse(isTrou(e) ? e.a : e.fin);
+const iso = (ms: number) => new Date(ms).toISOString().replace(".000Z", "Z");
 
 /** « ......0000011 » → « .6,05,12, »: each run as its character and its length in base 36, then a comma. */
 export function rle(s: string): string {
@@ -108,7 +119,7 @@ export function suivant(before: Historique | null, lu: RainGrid | Error, now: Da
  * One run of the scheduled event: one read of KV, the radar's image (one subrequest when the data center's copy is
  * over 4 minutes old, one more for a token when the isolate has none), one write of KV when the history changed.
  */
-export async function passage(store: { get(): Promise<Historique | null>; put(h: Historique): Promise<void> }, cache: Cache, now = new Date()): Promise<string> {
+export async function passage(store: Store, cache: Cache, now = new Date(), long?: Store): Promise<string> {
   const tokens = tokensIssued();
   count();
   const before = await store.get();
@@ -118,8 +129,65 @@ export async function passage(store: { get(): Promise<Historique | null>; put(h:
     count(1, true);
     await store.put(next);
   }
+  // The 24 hours: read and written only when the quarters of the 6 hours end otherwise, about once a quarter of an hour.
+  let longSaid = "";
+  if (next && long) {
+    const last = (h: Historique | null) => JSON.stringify(quarters(h?.entrees ?? []).at(-1) ?? null);
+    if (last(before) !== last(next)) {
+      count();
+      const day = auQuart(await long.get(), next, now);
+      count(1, true);
+      await long.put(day);
+      longSaid = `, 24 h : ${day.entrees.length} entrées écrites`;
+    }
+  }
   const said = lu instanceof Error ? `illisible (${why(lu)})` : `image finie à ${lu.fin}`;
-  return `${said}, ${next ? `${next.entrees.length} entrées écrites` : "rien à écrire"}, jetons Météo-France pris : ${tokensIssued() - tokens}`;
+  return `${said}, ${next ? `${next.entrees.length} entrées écrites` : "rien à écrire"}${longSaid}, jetons Météo-France pris : ${tokensIssued() - tokens}`;
+}
+
+export interface Store {
+  get(): Promise<Historique | null>;
+  put(h: Historique): Promise<void>;
+}
+
+/**
+ * The quarters of the hour within `entrees`: at each, the image of the quarter, or the next one within 5 minutes (its
+ * own time kept, never moved to the quarter); else the gap of the 6 hours it falls in, as it is.
+ */
+export function quarters(entrees: Entree[]): Entree[] {
+  if (!entrees.length) return [];
+  const out: Entree[] = [];
+  const first = Math.ceil(endOf(entrees[0]) / QUARTER_MS) * QUARTER_MS;
+  const lastEnd = endOf(entrees[entrees.length - 1]);
+  for (let q = first; q <= lastEnd; q += QUARTER_MS) {
+    const e = entrees.find((x) => (isTrou(x) ? Date.parse(x.de) < q && q <= Date.parse(x.a) : Date.parse(x.fin) >= q && Date.parse(x.fin) <= q + 5 * 60_000));
+    if (e && e !== out[out.length - 1]) out.push(e);
+  }
+  return out;
+}
+
+/**
+ * The 24 hours after a write of the 6 hours (`six`): what `before` held before the 6 hours start, then their quarters;
+ * a gap where the two do not meet. Over LONG_MS old, gone.
+ */
+export function auQuart(before: Historique | null, six: Historique, now: Date): Historique {
+  const recent = quarters(six.entrees);
+  const r0 = recent[0];
+  // Where the 6 hours' quarters start: the gap's start, or the image's quarter.
+  const cut = !r0 ? now.getTime() : isTrou(r0) ? Date.parse(r0.de) : Date.parse(r0.fin);
+  const same = before && before.w === six.w && before.h === six.h;
+  const image = !!r0 && !isTrou(r0);
+  const old = same ? before.entrees.filter((e) => (image ? endOf(e) < cut : endOf(e) <= cut) && endOf(e) > now.getTime() - LONG_MS) : [];
+  const last = old[old.length - 1];
+  const meet = image ? cut - QUARTER_MS : cut;
+  const join: Entree[] = last && endOf(last) < meet ? [{ trou: true, de: iso(endOf(last)), a: iso(meet) }] : [];
+  const merged = [...old, ...join, ...recent].reduce<Entree[]>((acc, e) => {
+    const prev = acc[acc.length - 1];
+    if (prev && isTrou(prev) && isTrou(e)) prev.a = e.a;
+    else acc.push({ ...e });
+    return acc;
+  }, []);
+  return { w: six.w, h: six.h, entrees: merged };
 }
 
 let reader: (() => Promise<Historique | null>) | undefined;
@@ -161,7 +229,7 @@ export async function retro(cache: Cache, now = new Date()): Promise<Response> {
     reader ? reader().catch((err) => (console.error("rétrospective : historique radar illisible", err instanceof Error ? err.message : String(err)), null)) : null,
     meteofrance.enabled() ? meteofrance.recentRain(cache, now).then((r) => r?.hourly) : undefined,
   ]);
-  const radar = kept && { ...kept, entrees: kept.entrees.filter((e) => endOf(e) > now.getTime() - KEEP_MS) };
+  const radar = kept && { ...kept, entrees: kept.entrees.filter((e) => endOf(e) > now.getTime() - RETRO_MS) };
   const body: Retro = { radar: radar?.entrees.length ? radar : null, vent: hourly ? hourlyWind(hourly) : [] };
   return new Response(JSON.stringify(body), { headers: { ...headers, "cache-control": "public, max-age=300" } });
 }
