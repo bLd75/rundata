@@ -293,7 +293,14 @@ function enclosOf(o: Officiel) {
   return o.niveau === "Vigilance" && p ? { vigilance: true as const } : undefined;
 }
 
-export async function volcanSeismes(cache: Cache, now = new Date()) {
+/** The short answer, the tool's default (Claude's directory asks for frugal answers): what it leaves out, and where. */
+export const COURT = "Réponse courte : les 3 dernières alertes, les séismes des 7 derniers jours et les 3 derniers. L'historique des alertes depuis 2016 et les séismes jour par jour sur 30 jours : rappeler l'outil avec detail, ou https://rundata.re/volcan.";
+const COURT_ALERTES = 3;
+const COURT_JOURS = 7;
+const COURT_SEISMES = 3;
+
+/** `detail` false (the tool's default): the short answer, COURT; the page /volcan reads the whole. */
+export async function volcanSeismes(cache: Cache, now = new Date(), detail = true) {
   const [piton, read, seen, given0, silent] = await Promise.all([
     // With its time: pitonlive's line says when we read it (marketing).
     volcan.state(cache).catch((err: unknown) => (console.error(`source ${volcan.PITONLIVE.id} indisponible:`, why(err)), null)),
@@ -410,7 +417,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
     );
   }
   // How the last alerts went: only those whose start and end a release writes (volcan-historique.ts).
-  parts.push(historique.resumeText());
+  parts.push(historique.resumeText(detail ? undefined : COURT_ALERTES));
 
   // pitonlive.com credited only when a line of it is said, last (marketing).
   const pitonSaid = !!piton2;
@@ -437,7 +444,7 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
       ...(given && { communique_prefecture: { niveau: given.niveau, titre: given.titre, lien: given.lien, jour: given.jour } }),
       source: "préfecture de La Réunion (communiqués) et OVPF-IPGP (publications)",
     },
-    alertes_precedentes: historique.precedentes(),
+    ...(detail && { alertes_precedentes: historique.precedentes() }),
     // The release's PDF stays out of the answer until what it is read for is shown (ovpf-pdf.ts, SHOW).
     publications_ovpf: posts
       ? posts.slice(0, 3).map(({ pdf: _, mots, ...p }) => ({
@@ -450,8 +457,15 @@ export async function volcanSeismes(cache: Cache, now = new Date()) {
       : "indisponible",
     // Its catalogue not answering: from which read they come, in the copy of /volcan too (its page says nothing of the
     // answer's `fraicheur`).
-    seismes: q ? { ...q, ...(seen?.stale && { copie: sourceMuette(seismes.SOURCE.nom, seen.fetchedAt, seen.tardive) }) } : "indisponible",
+    seismes: q
+      ? {
+          ...q,
+          ...(!detail && { par_jour_sous_le_volcan: q.par_jour_sous_le_volcan.slice(-COURT_JOURS), derniers: q.derniers.slice(0, COURT_SEISMES) }),
+          ...(seen?.stale && { copie: sourceMuette(seismes.SOURCE.nom, seen.fetchedAt, seen.tardive) }),
+        }
+      : "indisponible",
     ...(ipgp && { injoignable: ipgp }),
+    ...(!detail && { detail: COURT }),
     avertissements: [OFFICIAL],
     // The IPGP's site is offline (25/10/2026): the OVPF's own accounts instead.
     consulter: ["https://www.reunion.gouv.fr", volcan.OVPF.url, volcan.OVPF_FACEBOOK],

@@ -232,10 +232,10 @@ export function precedentes() {
   };
 }
 
-/** One sentence for the summary: the days and what they were, newest first. */
-export const resumeText = () =>
-  `Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis 2016\u00a0; avant novembre 2021, les niveaux du plan précédent) : ${EPISODES.map((e) =>
-    `${e.debut.map((m) => `${date(m.jour)} ${quoi(m)}`).join(", ")} → ${date(e.fin.jour)} ${e.fin.quoi}${e.puis ? ` (${PUIS.toLowerCase()} ${e.puis.quoi} : ${SANS_FIN[0].toLowerCase()}${SANS_FIN.slice(1, -1)})` : ""}`).join("\u00a0; ")}.`;
+/** One sentence for the summary: the days and what they were, newest first; the newest `n` only in the short answer. */
+export const resumeText = (n = EPISODES.length) =>
+  `Alertes précédentes dont le début et la fin sont écrits dans un communiqué de la préfecture (liste partielle, depuis 2016\u00a0; avant novembre 2021, les niveaux du plan précédent) : ${EPISODES.slice(0, n).map((e) =>
+    `${e.debut.map((m) => `${date(m.jour)} ${quoi(m)}`).join(", ")} → ${date(e.fin.jour)} ${e.fin.quoi}${e.puis ? ` (${PUIS.toLowerCase()} ${e.puis.quoi} : ${SANS_FIN[0].toLowerCase()}${SANS_FIN.slice(1, -1)})` : ""}`).join("\u00a0; ")}${EPISODES.length > n ? `\u00a0; ${EPISODES.length - n} autres, plus anciennes, avec detail` : ""}.`;
 
 /**
  * The last eruption, as the OVPF dates it in its posts, in place of pitonlive.com's date: kept by hand,

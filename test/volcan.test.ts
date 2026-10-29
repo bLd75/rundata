@@ -5,7 +5,7 @@ import { parse, where } from "../src/providers/seismes.js";
 import type { Info } from "../src/providers/actualites.js";
 import { activityPosts, phaseOf } from "../src/providers/volcan.js";
 import * as copie from "../src/providers/prefecture-copie.js";
-import { A_LIRE, quakeSummary, volcanSeismes } from "../src/tools/volcan.js";
+import { A_LIRE, COURT, quakeSummary, volcanSeismes } from "../src/tools/volcan.js";
 import { buildVolcan } from "../src/web/data.js";
 import { volcanPage } from "../src/web/domains.js";
 import { esc } from "../src/web/map.js";
@@ -181,6 +181,24 @@ describe("volcano", () => {
     expect(r.resume).toContain("11 sous le volcan (magnitude max 1)");
     // pitonlive.com said nowhere, so not credited.
     expect(r.sources.map((s: { source: string }) => s.source)).toHaveLength(3);
+  });
+
+  it("answers short by default (Claude's directory), every warning, the access and the state kept, the rest with detail", async () => {
+    const full = await volcanSeismes(cacheWith(), NOW);
+    const short = await volcanSeismes(cacheWith(), NOW, false);
+    const [f, r] = [body(full), body(short)];
+    expect(short.content[0].text.length).toBeLessThan(full.content[0].text.length / 2);
+    expect(r.alertes_precedentes).toBeUndefined();
+    expect(f.alertes_precedentes.episodes.length).toBeGreaterThan(3);
+    expect(r.detail).toBe(COURT);
+    expect(f.detail).toBeUndefined();
+    // The 3 newest alerts in the summary, the count of the others said.
+    expect(r.resume).toMatch(/\d+ autres, plus anciennes, avec detail\./);
+    expect(f.resume).not.toContain("avec detail");
+    expect(r.seismes.par_jour_sous_le_volcan).toEqual(f.seismes.par_jour_sous_le_volcan.slice(-7));
+    expect(r.seismes.derniers).toEqual(f.seismes.derniers.slice(0, 3));
+    for (const k of ["puis_je_monter", "etat", "publications_ovpf", "avertissements", "consulter", "sources"]) expect(r[k]).toEqual(f[k]);
+    expect(r.seismes.sous_le_volcan).toEqual(f.seismes.sous_le_volcan);
   });
 
   it("says the IPGP's site silent as /sites-sans-reponse lists it, right after the state, and only the sources read", async () => {
