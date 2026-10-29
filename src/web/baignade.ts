@@ -4,6 +4,7 @@
  */
 import { ARRETE, CSR, CSR_URL, noneLine, ruleText, saysBsan, SOURCE, STORIES, T, ZONES, zoneLine, zonesNear, inForce } from "../eau/requin.js";
 import type { Alerte } from "./data.js";
+import { aller, SHEET as ALLER } from "./aller.js";
 import { esc } from "./map.js";
 import { layout, SITE } from "./pages.js";
 
@@ -26,8 +27,11 @@ const SOURCE_HTML = esc(T.source).replace(esc(CSR), `<a href="${CSR_URL}">${esc(
 
 const bsan = (zones: typeof ZONES, now: Date) => (saysBsan(zones, now) ? `<p>${esc(T.bsan)}</p>` : "");
 
+/** A zone's line, with « Y aller » (aller.ts; the page adds the sheet). */
+const zoneLi = (z: (typeof ZONES)[number], now: Date) => `<li>${say(zoneLine(z, now))} ${aller({ nom: z.nom, lat: z.lat, lon: z.lon })}</li>`;
+
 function zonesHtml(zones: typeof ZONES, now: Date): string {
-  return `<p>${say(T.intro)}</p><ul>${zones.map((z) => `<li>${say(zoneLine(z, now))}</li>`).join("")}</ul>${bsan(zones, now)}<p>${say(T.ouverture)}</p><p>${STORIES_HTML}</p>`;
+  return `<p>${say(T.intro)}</p><ul>${zones.map((z) => zoneLi(z, now)).join("")}</ul>${bsan(zones, now)}<p>${say(T.ouverture)}</p><p>${STORIES_HTML}</p>`;
 }
 
 /** The block of a page: near a place (its zones, or none), or for the whole island (every zone). */
@@ -56,7 +60,7 @@ export function bathingPage(origin: string, now = new Date(), alerte?: Alerte): 
   const body = `<section aria-labelledby="h-regle"><h2 id="h-regle">La règle</h2><div class="card"><p>${say(ruleText(now))}</p></div></section>
 <section aria-labelledby="h-zones"><h2 id="h-zones">Les zones</h2><div class="card">
   <p>${esc(T.intro)}</p>
-  ${communes.map((c) => `<h3>${esc(c)}</h3><ul>${ZONES.filter((z) => z.commune === c).map((z) => `<li>${say(zoneLine(z, now))}</li>`).join("")}</ul>`).join("\n  ")}
+  ${communes.map((c) => `<h3>${esc(c)}</h3><ul>${ZONES.filter((z) => z.commune === c).map((z) => zoneLi(z, now)).join("")}</ul>`).join("\n  ")}
   ${bsan(ZONES, now)}
   <p>${esc(T.autres)}</p>
   <p>${esc(T.ouverture)}</p>
@@ -81,5 +85,5 @@ export function bathingPage(origin: string, now = new Date(), alerte?: Alerte): 
       ],
     },
   ];
-  return layout(origin, { title, description, path: PATH, jsonld, alerte }, band, body);
+  return layout(origin, { title, description, path: PATH, jsonld, alerte }, band, body + ALLER);
 }

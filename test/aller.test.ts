@@ -1,7 +1,19 @@
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import * as enfants from "../src/vie/enfants.js";
-import { aller, MOTS, SCRIPT, SHEET } from "../src/web/aller.js";
+import { ZONES } from "../src/eau/requin.js";
+import { COMMON } from "../src/tools/eau.js";
+import { aller, MOTS, SCRIPT, SCRIPT_PATH, SHEET } from "../src/web/aller.js";
+import { SAME_STOP_M, toStop } from "../src/web/arret.js";
+import { bathingPage } from "../src/web/baignade.js";
+import type { BorneStation, EauAnswer, SeaData } from "../src/web/data.js";
+import { decheteriesPage } from "../src/web/decheteries.js";
+import { borneRow, eauPage } from "../src/web/domains.js";
+import { seaPage } from "../src/web/pages.js";
+import { site } from "../src/web/site.js";
+import { Cache, MemoryStore } from "../src/cache.js";
+import * as dech from "../src/vie/decheteries.js";
+import type * as transit from "../src/providers/transit.js";
 import { couleur, enfantsCommunePage, enfantsPage } from "../src/web/enfants.js";
 import { daePage } from "../src/web/domains.js";
 import { pageOf } from "../src/web/places.js";
@@ -17,6 +29,7 @@ const NBSP = " ";
 
 interface Sheet {
   title: string;
+  sub: string;
   html: string;
   open: boolean;
   ok: string;
@@ -34,8 +47,9 @@ function click(button: string, ua: string): Sheet {
     getAttribute: (k: string) => attrs[k] ?? null,
     closest: (s: string) => (s === "a.aller" ? a : null),
   };
-  const out: Sheet = { title: "", html: "", open: false, ok: "", prevented: false, copied: [], copy: async () => undefined };
+  const out: Sheet = { title: "", sub: "", html: "", open: false, ok: "", prevented: false, copied: [], copy: async () => undefined };
   const h2 = { set textContent(t: string) { out.title = t; } };
+  const sub = { set textContent(t: string) { out.sub = t; } };
   const ul = { set innerHTML(h: string) { out.html = h; } };
   const ok = { set textContent(t: string) { out.ok = t; } };
   let inSheet: (ev: unknown) => void = () => undefined;
@@ -44,7 +58,7 @@ function click(button: string, ua: string): Sheet {
   const dialog = {
     showModal: () => (out.open = true),
     close: () => (out.open = false),
-    querySelector: (s: string) => ({ h2, ul, ".ok": ok })[s],
+    querySelector: (s: string) => ({ h2, "h2+.note": sub, ul, ".ok": ok })[s],
     addEventListener: (_: string, f: (ev: unknown) => void) => (inSheet = f),
   };
   runInNewContext(SCRIPT, {
@@ -112,6 +126,11 @@ describe("« Y aller »: a place opened in the phone's navigation app", () => {
       ["Google Maps", "https://www.google.com/maps/dir/?api=1&destination=-21.0123,55.2701"],
     ]);
     expect(links(click(foot, UA.android)).map(([t]) => t)).toEqual(["Choisir une appli du téléphone", "Google Maps"]);
+    // The sheet says so, and says it no more for the next button, by car.
+    const s = click(foot, UA.iphone);
+    expect(s.sub).toBe(`À pied, ouvrir dans${NBSP}:`);
+    expect(click(aller(place), UA.iphone).sub).toBe(`Ouvrir dans${NBSP}:`);
+    expect(SHEET).toContain(`<h2 id="aller-t"></h2><p class="note">Ouvrir dans${NBSP}:</p>`);
     // « Autour de moi » on an iPhone: its link is Plans', its position in data-go.
     const plans = `<a class="aller" href="https://maps.apple.com/?daddr=-21.1,55.5&amp;dirflg=w" rel="noopener" data-go="-21.1,55.5" data-m="pied" aria-label="Y aller${NBSP}: DAE">Y aller</a>`;
     expect(links(click(plans, UA.iphone))[0][1]).toBe("https://maps.apple.com/?daddr=-21.1,55.5&q=DAE&dirflg=w");
@@ -161,5 +180,73 @@ describe("« Y aller »: a place opened in the phone's navigation app", () => {
     const pierre = enfantsCommunePage(O, pageOf("saint-pierre")!, null, NOW);
     expect(pierre).toContain('<i class="ksw f-nature"></i>Parcs et jardins</span>');
     expect(pierre).not.toContain("Parcs et animaux");
+  });
+});
+
+describe("« Y aller » beyond /enfants: stations, bathing, beaches, recycling centres, stops", () => {
+  const cached = <T>(value: T) => ({ value, fetchedAt: NOW, stale: false });
+  const sheets = (html: string) => html.match(/<dialog id="aller"/g)?.length ?? 0;
+  const labels = (html: string) => [...html.matchAll(/class="aller"[^>]*aria-label="Y aller\u00a0: ([^"]+)"/g)].map((m) => m[1]);
+
+  it("reads its script once, kept a year at its address like the stylesheet, never written into each page", async () => {
+    expect(SHEET).toContain(`<script src="${SCRIPT_PATH}" defer></script>`);
+    expect(SHEET).not.toContain(SCRIPT.slice(0, 40));
+    const r = await site(new Request(`${O}${SCRIPT_PATH}`), new Cache(new MemoryStore(), () => NOW.getTime()), () => {}, NOW);
+    expect(r!.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
+    expect(r!.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(await r!.text()).toBe(SCRIPT);
+    // An earlier version's address, from a page kept offline: today's script, for a few minutes.
+    const old = await site(new Request(`${O}/aller-ancien.js`), new Cache(new MemoryStore(), () => NOW.getTime()), () => {}, NOW);
+    expect(old!.headers.get("cache-control")).toBe("public, max-age=300");
+  });
+
+  it("is on each charging station, its address to copy", () => {
+    const s = { station: "Exemple, Rue de l'Exemple, Saint-Paul", commune: "Saint-Paul", puissance_max_kw: 22, prises: ["Type 2"], lon: 55.27, lat: -21.01, adresse: "Rue de l'Exemple, Saint-Paul", libres: 1, total: 2 } as unknown as BorneStation;
+    expect(borneRow(s)).toContain(`<a class="aller" href="https://www.google.com/maps/dir/?api=1&amp;destination=-21.01,55.27" rel="noopener" data-a="Rue de l&#39;Exemple, Saint-Paul" aria-label="Y aller${NBSP}: Exemple, Rue de l&#39;Exemple, Saint-Paul">`);
+  });
+
+  it("is on each bathing site of /eau and each zone of /baignade, the sheet once", () => {
+    const site = (s: string, lon: number, lat: number) => ({ site: s, commune: "Saint-Paul", lon, lat, qualite_dernier_prelevement: "bonne", dernier_prelevement: "20/10/2026", derniers_prelevements: [], mauvais_sur_12_mois: 0 });
+    const eau = eauPage(O, cached({ baignades: [site("Plage de l'Hermitage", 55.22, -21.08), site("Bassin Manapany", 55.6, -21.37)], communes: [], lu: NOW.toISOString(), a_savoir: COMMON, sources: [] } as unknown as EauAnswer), NOW);
+    expect(labels(eau)).toEqual(["Plage de l&#39;Hermitage", "Bassin Manapany"]);
+    expect(sheets(eau)).toBe(1);
+    const zones = bathingPage(O, NOW);
+    expect(labels(zones)).toHaveLength(ZONES.length);
+    expect(sheets(zones)).toBe(1);
+  });
+
+  it("leads to a beach of /mer, never to the centre of a town listed for its coast", () => {
+    const beach = (nom: string, lon: number, lat: number) => ({ nom, commune: "Saint-Paul", lon, lat, valeur: 25, jour: "2026-10-28", distance_km: 3 });
+    const page = seaPage(O, cached({ plages: [beach("Saint-Denis", 55.45, -20.88), beach("Plage de Boucan-Canot", 55.22, -21.03), beach("Plage de la Saline les Bains", 55.24, -21.1), beach("Plage de l'Ermitage-les-Bains", 55.23, -21.07)], sources: [] } as unknown as SeaData), NOW);
+    const seas = page.slice(page.indexOf('<ul class="seas">'), page.indexOf("</ul>", page.indexOf('<ul class="seas">')));
+    // A name at the head of a tile starts with a capital.
+    expect(labels(seas)).toEqual(["Boucan-Canot", "La Saline les Bains", "L&#39;Ermitage-les-Bains"]);
+    expect(seas).toContain("<span>L&#39;Ermitage-les-Bains</span>");
+    // The zones of the bathing block below have theirs; one sheet for the page.
+    expect(labels(page)).toHaveLength(3 + ZONES.length);
+    expect(sheets(page)).toBe(1);
+  });
+
+  it("is on each recycling centre, its address and commune to copy", () => {
+    const page = decheteriesPage(O, { value: { etats: [], sources: [] }, fetchedAt: NOW, stale: false } as never, NOW);
+    expect(labels(page)).toHaveLength(dech.SITES.length);
+    const s = dech.SITES.find((x) => x.adresse)!;
+    expect(page).toContain(`data-a="${`${s.adresse}, ${s.commune}`.replace(/'/g, "&#39;")}"`);
+    expect(sheets(page)).toBe(1);
+  });
+
+  it("goes on foot to a stop: one button for stops together, one per network's stop apart", () => {
+    const g = (reseau: string, lat: number, lon: number) => ({ reseau, nom: "Mairie", commune: "Saint-Paul", ids: [1], lat, lon, words: new Set<string>() });
+    const p = (groups: transit.StopGroup[]) => ({ slug: "saint-paul/mairie", nom: "Mairie", commune: "Saint-Paul", groups, indexe: true }) as transit.StopPage;
+    // 30 m apart: one place.
+    const one = toStop(p([g("carjaune", -21.0096, 55.2700), g("karouest", -21.0099, 55.2700)]));
+    expect(one.match(/class="aller"/g)).toHaveLength(1);
+    expect(one).toContain('data-m="pied"');
+    expect(one).toContain("&amp;travelmode=walking");
+    // 200 m apart: each named by its network.
+    const two = toStop(p([g("carjaune", -21.0096, 55.2700), g("karouest", -21.0114, 55.2700)]));
+    expect(two.match(/class="aller"/g)).toHaveLength(2);
+    expect(two).toMatch(/^<p class="ya">Car Jaune\u00a0: <a class="aller"/);
+    expect(SAME_STOP_M).toBe(50);
   });
 });

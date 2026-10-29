@@ -8,6 +8,8 @@
  * The weather is one category among others, but the one people search for: « météo réunion 974 », « météo cilaos
  * 974 ». « 974 » sorts La Réunion from meetings, so titles and headings carry it.
  */
+import { aller, SHEET as ALLER } from "./aller.js";
+import { resolvePlace } from "../places/resolve.js";
 import { enLigne } from "./associations-drapeau.js";
 import { enLigne as connecteursEnLigne } from "./connecteurs-drapeau.js";
 import { softened } from "../tools/nuages.js";
@@ -744,6 +746,9 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .suivi{display:grid;gap:1rem}
 .suivi p{max-width:65ch}
 .seas a{color:#fff;font-size:.85rem}
+.seas li{align-content:start}
+.seas .aller{justify-self:start;margin-top:.3rem}
+.seas .aller,.band .aller{color:var(--ink)}
 .big.span{font-size:clamp(2.6rem,7vw,4.2rem)}
 .aq{display:inline-block;font-weight:700;font-size:.9rem;border-radius:8px;padding:.1rem .6rem;background:var(--aq0);color:#fff}
 .aq1{background:var(--aq1);color:#06302d}.aq2{background:var(--aq2);color:#06302d}.aq3{background:var(--aq3);color:#2a2600}
@@ -1213,7 +1218,8 @@ function rainText(s: StationNow): string | undefined {
 
 export const shortName = (n: string) =>
   n.replace(/ \(aéroport\)$/, "").replace(/^Saint-Denis Gillot$/, "Gillot").replace(/^Gros Piton Sainte-Rose$/, "Sainte-Rose");
-export const seaName = (n: string) => n.replace(/^Plage (de |de l'|du )?/, "");
+// « Plage de la Saline les Bains » → « La Saline les Bains »: a name in a tile or a sentence starts with a capital.
+export const seaName = (n: string) => n.replace(/^Plage (de |du )?/, "").replace(/^\p{Ll}/u, (c) => c.toUpperCase());
 export const dayMonth = (ymd: string) => ymd.split("-").reverse().slice(0, 2).join("/");
 
 /** The row of a station on /meteo, where its marker on the maps leads. */
@@ -1722,7 +1728,7 @@ ${cloudSea}
   ${connector(origin, "mcp-url")}
 </section>
 ${sea}
-${coastal(p) ? bathingBlock(now, { nom: p.nom, lon: p.place.lon, lat: p.place.lat, commune: p.commune ? p.nom : undefined }) : ""}
+${coastal(p) ? bathingBlock(now, { nom: p.nom, lon: p.place.lon, lat: p.place.lat, commune: p.commune ? p.nom : undefined }) + ALLER : ""}
 ${forecast}
 ${hikesAround(p, hikes)}
 <section aria-labelledby="h-ailleurs">
@@ -1925,7 +1931,8 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
         (b.valeur != null
           ? `<b>${esc(thin(deg(b.valeur)))}</b><span>le ${esc(dayMonth(b.jour!))}, à ${esc(fr(b.distance_km!))} km</span>`
           : `<b>—</b><span>pas de mesure (nuages)</span>`) +
-        `<a href="/meteo/${slugify(b.commune)}">Météo ${esc(b.commune)} →</a></li>`).join("")}</ul>` +
+        // « Y aller » to a beach, not to the centre of a town listed for its coast (Saint-Denis, Le Port…).
+        `<a href="/meteo/${slugify(b.commune)}">Météo ${esc(b.commune)} →</a>${resolvePlace(b.nom)?.lieu.type === "commune" ? "" : aller({ nom: seaName(b.nom), lat: b.lat, lon: b.lon })}</li>`).join("")}</ul>` +
       `<p class="note">Mis à jour à ${hm(data!.fetchedAt)}.</p><p class="sources">Sources : ${credits(d.sources)}.</p>`
     : `<p class="card">Les mesures satellite se chargent : rechargez la page dans quelques secondes.</p>`;
 
@@ -2019,7 +2026,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
 </section>
 ${swell}
 ${tide}
-${bathingBlock(now)}
+${bathingBlock(now)}${ALLER}
 <section aria-labelledby="h-lire-mer">
   <div class="sec-h"><p class="eyebrow">Bon à savoir</p><h2 id="h-lire-mer">Ce que mesure le satellite</h2></div>
   <div class="three">
