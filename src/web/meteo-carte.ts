@@ -1,8 +1,9 @@
 /**
  * The map at the top of /meteo: every station that measured, one measure at a time (temperature, rain of the last
  * hour, wind), and under the temperatures a veil estimated between the stations with the altitude, drawn by the
- * page's script from a small grid of the island's altitudes (scripts/build-altitudes.py). The points are the measures;
- * the veil, an estimate, says so in its legend.
+ * page's script from a small grid of the island's altitudes (scripts/build-altitudes.py). Under the wind, particles
+ * carried by a wind estimated between the anemometers, on a veil of its speed. The points are the measures; the veils
+ * and the particles, estimates, say so in their legends.
  */
 import { INSEE } from "../places/insee.js";
 import altitudes from "./altitudes.json" with { type: "json" };
@@ -58,6 +59,8 @@ function rainColor(mm: number): string {
 
 // The veil's colours by temperature, lighter than the dots' (chip()), from the same 8 to 33 °C.
 const VEIL: [number, number[]][] = [[8, [42, 106, 154]], [17, [36, 140, 120]], [24, [214, 168, 40]], [28, [222, 112, 40]], [33, [200, 48, 28]]];
+// The wind's colours by speed, in km/h, after the usual wind maps: blue when calm, red in a storm.
+const WIND: [number, number[]][] = [[0, [70, 104, 176]], [10, [46, 150, 172]], [20, [74, 170, 98]], [30, [222, 184, 62]], [45, [222, 112, 46]], [60, [178, 44, 72]]];
 const STOPS_LO = VEIL[0][0];
 const STOPS_HI = VEIL[VEIL.length - 1][0];
 const HIT = 66;
@@ -79,10 +82,18 @@ function dot(l: string, x: number, y: number, fill: string, label: string | unde
   return shape + (label ? `<text class="mv l-${l}" x="${x}" y="${y + 11}">${esc(label)}</text>` : "");
 }
 
+/** A wind measure on the map: an arrow where it goes and the speed in km/h, in a dark pill over the particles. */
+function windMark(x: number, y: number, s: StationNow): string {
+  const arrow = s.direction != null && s.vent
+    ? `<path d="M0 10V-10M-7-3l7-7 7 7" transform="translate(${x - 22} ${y}) rotate(${(s.direction + 180) % 360})"/>`
+    : `<circle cx="${x - 22}" cy="${y}" r="5"/>`;
+  return `<g class="sh l-v wv"><rect x="${x - 46}" y="${y - 24}" width="96" height="48" rx="24"/>${arrow}<text x="${x + 18}" y="${y + 11}">${s.vent}</text></g>`;
+}
+
 /**
- * One link per station for both layers, each drawing its own dot (`l-t`, `l-p`, shown by the page's CSS) and giving
- * the bubble its value (`data-tvt`, `data-tvp`); a station without a measure of the layer shown is hidden (`has-…`).
- * Its name for a screen reader says every measure, the wind included.
+ * One link per station for every layer, each drawing its own dot (`l-t`, `l-p`, `l-v`, shown by the page's CSS) and
+ * giving the bubble its value (`data-tvt`, `data-tvp`, `data-tvv`); a station without a measure of the layer shown is
+ * hidden (`has-…`). Its name for a screen reader says every measure.
  */
 function station(s: StationNow, named: boolean, rain: number | undefined, hour: boolean): string {
   const [x, y] = project(s.lon, s.lat);
@@ -90,13 +101,15 @@ function station(s: StationNow, named: boolean, rain: number | undefined, hour: 
   const v = {
     t: s.temperature != null ? thin(deg(s.temperature)) : undefined,
     p: rain == null ? undefined : rain > 0 ? thin(`${fr(rain)} mm en ${span}`) : thin(`pas de pluie mesurée en ${span}`),
+    v: ventText(s),
   };
   const has = Object.entries(v).filter(([, x]) => x).map(([k]) => ` has-${k}`).join("");
   const place = `${shortName(s.nom)} · ${metres(s.altitude_m)}`;
-  const said = `${place} : ${[v.t, v.p, ventText(s)].filter(Boolean).join(", ")}, mesures de ${hm(s.time)}${by(s)}, voir le détail`;
+  const said = `${place} : ${[v.t, v.p, v.v].filter(Boolean).join(", ")}, mesures de ${hm(s.time)}${by(s)}, voir le détail`;
   const shapes =
     (s.temperature != null ? dot("t", x, y, chip(s.temperature), named ? `${Math.round(s.temperature)}°` : undefined) : "") +
-    (rain != null ? (rain > 0 ? dot("p", x, y, rainColor(rain), named || rain >= 1 ? fr(Math.round(rain * 10) / 10) : undefined) : dot("p", x, y, "#7d93a8", undefined, true)) : "");
+    (rain != null ? (rain > 0 ? dot("p", x, y, rainColor(rain), named || rain >= 1 ? fr(Math.round(rain * 10) / 10) : undefined) : dot("p", x, y, "#7d93a8", undefined, true)) : "") +
+    (s.vent != null ? windMark(x, y, s) : "");
   const data = Object.entries(v).map(([k, x]) => (x ? ` data-tv${k}="${esc(x)}"` : "")).join("");
   return `<a class="mk${has}" href="#${stationId(s.nom)}" aria-label="${esc(said)}" data-tp="${esc(place)}" data-td="mesurée à\u00a0${hm(s.time)}${esc(by(s))}"${data}>` +
     `<circle class="hit" cx="${x}" cy="${y}" r="${named ? HIT : HIT / 2}" style="fill:transparent;stroke:none"/>${shapes}</a>`;
@@ -110,19 +123,27 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
   const nRain = list.filter((s) => mm(s) != null).length;
   const latest = list.reduce((m, s) => (s.time > m ? s.time : m), "");
   const named = (s: StationNow) => NAMED.has(s.id ?? "");
+  const w = list.filter((s) => s.vent != null);
   // The named ones last, over the dots.
-  // A station with neither measure (a wind beacon) is in the list under the map, not on it.
-  const drawn = list.filter((s) => s.temperature != null || mm(s) != null);
+  const drawn = list.filter((s) => s.temperature != null || mm(s) != null || s.vent != null);
   const top = `<g class="sts">${[...drawn].sort((a, b) => Number(named(a)) - Number(named(b))).map((s) => station(s, named(s), mm(s), hour)).join("")}</g>`;
   // The veil's data: each station's place on the map, altitude and temperature; the script does the rest.
   const voile = JSON.stringify(t.map((s) => [...project(s.lon, s.lat), s.altitude_m, s.temperature]));
   // A canvas rather than an image: the site's policy lets no picture be made in the page (img-src 'self').
-  const overlay = `<foreignObject class="l-t" width="${W}" height="${H}" clip-path="url(#isl-clip)"><canvas class="voile" data-voile="${esc(voile)}" data-alt="${esc(altPath)}" width="1" height="1"></canvas></foreignObject>`;
+  // The wind's data: each anemometer's place and where its wind goes, in km/h along the map's x and y (y down).
+  const vent = JSON.stringify(w.map((s) => {
+    const a = ((s.direction ?? 0) * Math.PI) / 180, v = s.direction != null ? s.vent ?? 0 : 0;
+    return [...project(s.lon, s.lat), Math.round(-Math.sin(a) * v * 10) / 10, Math.round(Math.cos(a) * v * 10) / 10];
+  }));
+  const fo = (l: string, canvas: string) => `<foreignObject class="l-${l}" width="${W}" height="${H}" clip-path="url(#isl-clip)">${canvas}</foreignObject>`;
+  const overlay = fo("t", `<canvas class="voile" data-voile="${esc(voile)}" data-alt="${esc(altPath)}" width="1" height="1"></canvas>`) +
+    (w.length ? fo("v", `<div class="vt"><canvas class="voile" data-vent="${esc(vent)}" data-alt="${esc(altPath)}" width="1" height="1"></canvas><canvas class="flux" width="1" height="1"></canvas></div>`) : "");
   const n = (k: number, one: string, many: string) => `${k} ${k > 1 ? many : one}`;
   // A tab and a legend per measure that at least one station has; the first shown without a choice.
   const layers = [
     t.length && { id: "t", tab: "Température", legend: `<span class="lgs">${thin(deg(STOPS_LO))}<i class="vgrad"></i>${thin(deg(STOPS_HI))}</span>${n(t.length, "station", "stations")}, température mesurée sous abri, la plus récente à ${hm(latest)}. Entre les stations, les couleurs sont <b>estimées selon l'altitude</b> : ce n'est pas une mesure.` },
     nRain && { id: "p", tab: hour ? "Pluie 1 h" : "Pluie 6 min", legend: `${n(nRain, "pluviomètre", "pluviomètres")}, ${hour ? "pluie de la dernière heure en mm" : "pluie des 6 dernières minutes seulement, en mm"}, la plus récente à ${hm(latest)}${hour ? "" : " : l'heure complète n'est pas encore disponible"}. Cercle vide : pas de pluie mesurée.` },
+    w.length && { id: "v", tab: "Vent", legend: `<span class="lgs">0<i class="vgrad wgrad"></i>${thin("60 km/h")}</span>${n(w.length, "anémomètre", "anémomètres")}, vent moyen mesuré en km/h, le plus récent à ${hm(latest)}. La flèche montre où va le vent (un vent d'est vient de l'est). Entre les stations, le mouvement et les couleurs sont <b>estimés</b> à partir des stations voisines : ce n'est pas une mesure.` },
   ].filter((l): l is { id: string; tab: string; legend: string } => !!l);
   const tabs = `<div class="tabs aqtabs" role="radiogroup" aria-label="Mesure affichée sur la carte">` +
     layers.map((l, i) => `<input type="radio" name="wxl" id="wxl-${l.id}"${i ? "" : ' class="on" checked'}><label for="wxl-${l.id}">${l.tab}</label>`).join("") + `</div>`;
@@ -142,10 +163,43 @@ const col=(t)=>{let i=0;while(i<S.length-2&&t>S[i+1][0])i++;const[[t0,c0],[t1,c1
 const o=g.createImageData(w,h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4,v=a[i];if(!v)continue;let sw=0,sr=0;for(const[px,py,r]of p){const d=(px-x)**2+(py-y)**2+.5,q=1/d;sw+=q;sr+=q*r}
 const[R,G,B]=col(k+b*(v-1)*${altitudes.pas_m}+sr/sw);o.data[i]=R;o.data[i+1]=G;o.data[i+2]=B;o.data[i+3]=215}g.putImageData(o,0,0)};im.src=vo.dataset.alt}`;
 
-/** /meteo's own script: the stations' list (filter, sort, unfold), then the veil. */
+/**
+ * The wind, in the browser: the anemometers' winds spread on the altitudes' grid by inverse distance, coloured by speed
+ * (the veil, drawn once), and particles carried by it, leaving a trail (the second canvas, one pixel a CSS pixel:
+ * at the screen's full resolution the fading of the trails cost a slow phone three times as much). About 30 frames a second, a number of particles bound to the map's size, and nothing while the layer is
+ * hidden, the map off screen or the tab in the background; a still picture of arrows for those who ask for less motion.
+ */
+const VENT_SCRIPT = `const ve=document.querySelector("[data-vent]");if(ve){const st=JSON.parse(ve.dataset.vent),fl=ve.nextElementSibling,box=ve.closest("figure"),inp=document.getElementById("wxl-v"),im=new Image();
+let w=0,h=0,U,V,M,land=[],ps=[],run=false,seen=false,raf=0,last=0,cw=0,ch=0,g;const S=${JSON.stringify(WIND)};
+const col=(t)=>{let i=0;while(i<S.length-2&&t>S[i+1][0])i++;const[[t0,c0],[t1,c1]]=[S[i],S[i+1]],f=Math.min(1,Math.max(0,(t-t0)/(t1-t0)));return c0.map((v,j)=>v+(c1[j]-v)*f)};
+const at=(x,y)=>{const gx=Math.min(w-1.001,Math.max(0,x*w/${W}-.5)),gy=Math.min(h-1.001,Math.max(0,y*h/${H}-.5)),i=gx|0,j=gy|0,fx=gx-i,fy=gy-j,k=j*w+i;
+const m=(A)=>(A[k]*(1-fx)+A[k+1]*fx)*(1-fy)+(A[k+w]*(1-fx)+A[k+w+1]*fx)*fy;return[m(U),m(V)]};
+const on_=(x,y)=>M[(Math.min(h-1,y*h/${H}|0))*w+Math.min(w-1,x*w/${W}|0)];
+const born=(p)=>{const c=land[(Math.random()*land.length)|0];p.x=(c%w+Math.random())*${W}/w;p.y=((c/w|0)+Math.random())*${H}/h;p.a=(Math.random()*80)|0};
+const size=()=>{const r=fl.getBoundingClientRect();cw=fl.width=Math.max(1,Math.round(r.width));ch=fl.height=Math.max(1,Math.round(r.height));g=fl.getContext("2d");
+const n=Math.min(900,Math.round(r.width*r.height/150));ps=[];for(let i=0;i<n;i++){const p={};born(p);ps.push(p)}};
+const still=()=>{g.clearRect(0,0,cw,ch);g.strokeStyle="rgba(255,255,255,.9)";g.lineWidth=1.5;g.lineCap="round";const s=cw/${W},e=22*w/cw;
+for(let j=e/2;j<h;j+=e)for(let i=e/2;i<w;i+=e){if(!M[(j|0)*w+(i|0)])continue;const[u,v]=at(i*${W}/w,j*${H}/h),q=Math.hypot(u,v);if(q<.5)continue;
+const X=i*cw/w,Y=j*ch/h,dx=u/q*8,dy=v/q*8,a=Math.atan2(dy,dx);g.beginPath();g.moveTo(X-dx,Y-dy);g.lineTo(X+dx,Y+dy);
+g.lineTo(X+dx-5*Math.cos(a-.5),Y+dy-5*Math.sin(a-.5));g.moveTo(X+dx,Y+dy);g.lineTo(X+dx-5*Math.cos(a+.5),Y+dy-5*Math.sin(a+.5));g.stroke()}};
+const frame=(t)=>{raf=requestAnimationFrame(frame);if(t-last<32)return;last=t;const s=cw/${W};
+g.globalCompositeOperation="destination-in";g.fillStyle="rgba(0,0,0,.94)";g.fillRect(0,0,cw,ch);g.globalCompositeOperation="source-over";
+g.strokeStyle="rgba(255,255,255,.9)";g.lineWidth=Math.max(1.2,cw/330);g.beginPath();
+for(const p of ps){const[u,v]=at(p.x,p.y),x=p.x+u*.3,y=p.y+v*.3;if(++p.a>100||x<0||y<0||x>=${W}||y>=${H}||!on_(x,y)){born(p);continue}g.moveTo(p.x*s,p.y*s);g.lineTo(x*s,y*s);p.x=x;p.y=y}g.stroke()};
+const go=()=>{const on=inp&&inp.checked&&seen&&!document.hidden&&land.length;if(on&&!run){run=true;size();if(matchMedia("(prefers-reduced-motion: reduce)").matches){still();return}raf=requestAnimationFrame(frame)}
+else if(!on&&run){run=false;cancelAnimationFrame(raf)}};
+im.onload=()=>{w=im.width;h=im.height;const c=ve;c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(im,0,0);const a=x.getImageData(0,0,w,h).data;U=new Float32Array(w*h);V=new Float32Array(w*h);M=new Uint8Array(w*h);
+const p=st.map(([X,Y,u,v])=>[X*w/${W},Y*h/${H},u,v]),o=x.createImageData(w,h);for(let j=0;j<h;j++)for(let i=0;i<w;i++){const k=j*w+i;let sw=0,su=0,sv=0;
+for(const[px,py,u,v]of p){const q=1/((px-i)**2+(py-j)**2+.5);sw+=q;su+=q*u;sv+=q*v}U[k]=su/sw;V[k]=sv/sw;if(!a[k*4])continue;M[k]=1;land.push(k);
+const[R,G,B]=col(Math.hypot(U[k],V[k]));o.data[k*4]=R;o.data[k*4+1]=G;o.data[k*4+2]=B;o.data[k*4+3]=200}x.putImageData(o,0,0);go()};im.src=ve.dataset.alt;
+new IntersectionObserver((e)=>{seen=e[0].isIntersecting;go()}).observe(box);document.addEventListener("visibilitychange",go);
+document.querySelectorAll("[name=wxl]").forEach((i)=>i.addEventListener("change",go));addEventListener("resize",()=>{if(run&&Math.round(fl.getBoundingClientRect().width)!==cw){run=false;cancelAnimationFrame(raf);go()}})}`;
+
+/** /meteo's own script: the stations' list (filter, sort, unfold), then the veil, then the wind. */
 export const METEO_SCRIPT = `const stl=document.getElementById("stl");if(stl){const sel=document.getElementById("stc"),bs=document.querySelectorAll("[data-s]");
 const m=document.getElementById("stm"),open=()=>{stl.classList.remove("plie");if(m)m.parentElement.hidden=true};if(m)m.addEventListener("click",open);
 const f=()=>{const c=sel.value;open();stl.querySelectorAll("li").forEach((li)=>{li.hidden=!!c&&li.dataset.c!==c})};sel.addEventListener("change",f);
 bs.forEach((b)=>b.addEventListener("click",()=>{const k=b.dataset.s;open();bs.forEach((x)=>x.setAttribute("aria-pressed",x===b));
 [...stl.children].sort((a,z)=>k==="n"?a.dataset.n.localeCompare(z.dataset.n,"fr"):k==="t"?(z.dataset.t===""?-99:+z.dataset.t)-(a.dataset.t===""?-99:+a.dataset.t):a.dataset.z-z.dataset.z).forEach((li)=>stl.append(li))}))}
-${VOILE_SCRIPT}`;
+${VOILE_SCRIPT}
+${VENT_SCRIPT}`;

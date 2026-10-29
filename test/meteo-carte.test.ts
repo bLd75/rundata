@@ -57,23 +57,48 @@ describe("the wind and the commune of a station", () => {
 });
 
 describe("the map of every station on /meteo", () => {
-  it("draws one link per station for both measures, each to its row, hidden where the measure shown is missing", () => {
+  it("draws one link per station for every measure, each to its row, hidden where the measure shown is missing", () => {
     const html = stationsMap(ALL);
     const l = links(html);
-    // The wind beacon measures neither: in the list, not on the map.
-    expect(l.map((x) => x.href).sort()).toEqual([GILLOT, PLAINE, BRAS_SEC, PLUVIO].map((s) => `#${stationId(s.nom)}`).sort());
-    expect(html).toContain("les 4 stations météo et leur dernière mesure, à 09:18");
+    expect(l.map((x) => x.href).sort()).toEqual(ALL.map((s) => `#${stationId(s.nom)}`).sort());
+    expect(html).toContain("les 5 stations météo et leur dernière mesure, à 09:18");
     const of = (href: string) => l.find((x) => x.href === href)!.cls;
-    expect(of("#st-plaine-des-cafres")).toBe(" has-t has-p");
+    expect(of("#st-plaine-des-cafres")).toBe(" has-t has-p has-v");
     expect(of("#st-belouve")).toBe(" has-p");
+    // The wind beacon measures the wind alone: on the map under the wind only.
+    expect(of(`#${stationId(BALISE.nom)}`)).toBe(" has-v");
     // The bubble's value for each measure, and the time and source said with the right agreement.
     expect(html).toContain(`data-tvt="${esc("17,2 °C")}"`);
     expect(html).toContain(`data-tvp="${esc("2,4 mm en 1 h")}"`);
     expect(html).toContain(`data-tvp="${esc("pas de pluie mesurée en 1 h")}"`);
     expect(html).toContain(`data-td="${esc("mesurée à 09:18 par Météo-France")}"`);
-    // The wind, which the map does not show (yet), is said to a screen reader with the rest.
     expect(html).toContain(esc("Plaine des Cafres · 1 560 m : 17,2 °C, 2,4 mm en 1 h, vent d'est 12 km/h, mesures de 09:18 par Météo-France, voir le détail"));
-    expect(html).not.toContain(`id="wxl-v"`);
+    expect(ventText(PLAINE)).toBe("vent d'est 12\u202fkm/h");
+    expect(html).toContain(`data-tvv="${esc(ventText(PLAINE)!)}"`);
+  });
+
+  it("animates the wind between the anemometers in the browser, with the measures on top, and says the movement is no measure", () => {
+    const html = stationsMap(ALL);
+    expect(html).toContain(`<label for="wxl-v">Vent</label>`);
+    // Where each wind goes, in km/h along the map's x and y (y down): from 70°, Gillot's goes west and a little south.
+    const [x, y] = project(GILLOT.lon, GILLOT.lat);
+    const data = JSON.parse(html.match(/data-vent="([^"]+)"/)![1].replaceAll("&quot;", '"')) as number[][];
+    expect(data).toHaveLength(3);
+    const g = data.find((d) => d[0] === x && d[1] === y)!;
+    expect(g[2]).toBeCloseTo(-18 * Math.sin((70 * Math.PI) / 180), 1);
+    expect(g[3]).toBeCloseTo(18 * Math.cos((70 * Math.PI) / 180), 1);
+    expect(g[2]).toBeLessThan(0);
+    // Two canvases, the speed's veil and the particles, never a picture made in the page.
+    expect(html).toContain(`<canvas class="flux" `);
+    expect(html).not.toContain("data:");
+    // The measure in a pill: an arrow where the wind goes (from 200°, towards 20°) and the speed.
+    expect(html).toMatch(/<g class="sh l-v wv">[^]*?rotate\(20\)"\/><text [^>]*>22<\/text><\/g>/);
+    expect(html).toContain("3 anémomètres, vent moyen mesuré en km/h, le plus récent à 09:18. La flèche montre où va le vent (un vent d'est vient de l'est). Entre les stations, le mouvement et les couleurs sont <b>estimés</b> à partir des stations voisines : ce n'est pas une mesure.");
+    // No anemometer: no tab, no canvas, no script data.
+    expect(stationsMap([BALISE])).toContain("1 anémomètre, vent moyen");
+    const calm = stationsMap([BRAS_SEC, PLUVIO]);
+    expect(calm).not.toContain(`id="wxl-v"`);
+    expect(calm).not.toContain("data-vent");
   });
 
   it("writes the values of the tour's stations only, the others as dots told by the bubble", () => {
