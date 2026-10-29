@@ -133,6 +133,7 @@ import * as transit from "../providers/transit.js";
 import { carteRoute } from "./vigilance-carte.js";
 import { carteRoute as cmrsRoute } from "./cmrs-carte.js";
 import { RENDU_PATH } from "../providers/vigilance-carte.js";
+import { PATH as PLUIE_RADAR, rainGrid } from "./pluie-radar.js";
 
 const HTML = {
   "content-type": "text/html; charset=utf-8",
@@ -629,6 +630,8 @@ async function pages(request: Request, cache: Cache, background: Background, now
   if (path === "/confidentialite" || path === "/conditions") {
     return new Response(legalPage(origin, path.slice(1) as "confidentialite" | "conditions"), { headers: { ...HTML, "cache-control": "public, max-age=3600" } });
   }
+  // The radar's rain for /meteo's map, asked by its script: data, not a page.
+  if (path === PLUIE_RADAR) return rainGrid(cache);
   if (path.startsWith("/meteo/")) {
     const slug = path.slice("/meteo/".length).replace(/\/$/, "");
     const p = pageOf(slug);

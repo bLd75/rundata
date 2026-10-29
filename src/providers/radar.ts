@@ -28,8 +28,9 @@ const FRESH_SECONDS = 4 * 60;
 const ROWS = 2000;
 const COLS = 2300;
 const PIXEL_M = 500;
-const NODATA = 65535;
-const UNDETECT = 65534;
+/** A pixel the radars do not see, and one they see without rain. */
+export const NODATA = 65535;
+export const UNDETECT = 65534;
 
 // Ellipsoidal Mercator of the composite (/where/projdef): +proj=merc +lat_ts=-20.387 +x_0=-5323837.27 +y_0=2681326.18.
 const A = 6378137;
@@ -70,7 +71,8 @@ const b64 = (a: Uint16Array) => {
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(s);
 };
-const unb64 = (s: string) => {
+/** A grid of the image (`pluie`, `qualite`) back to its integers, row by row over WINDOW. */
+export const unb64 = (s: string) => {
   const bin = atob(s);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);

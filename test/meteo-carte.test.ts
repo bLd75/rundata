@@ -94,6 +94,9 @@ describe("the map of every station on /meteo", () => {
     // The measure in a pill: an arrow where the wind goes (from 200°, towards 20°) and the speed.
     expect(html).toMatch(/<g class="sh l-v wv">[^]*?rotate\(20\)"\/><text [^>]*>22<\/text><\/g>/);
     expect(html).toContain("3 anémomètres, vent moyen mesuré en km/h, le plus récent à 09:18. La flèche montre où va le vent (un vent d'est vient de l'est). Entre les stations, le mouvement et les couleurs sont <b>estimés</b> à partir des stations voisines : ce n'est pas une mesure.");
+    // The rain layer asks the radar's grid when first shown, with a place in its legend for what the radar sees.
+    expect(html).toContain(`<canvas class="voile" data-pluie="/meteo/pluie-radar.json" data-alt="${ALT_PATH}" `);
+    expect(html).toContain(`Cercle vide : pas de pluie mesurée. <span data-radar hidden></span>`);
     // No anemometer: no tab, no canvas, no script data.
     expect(stationsMap([BALISE])).toContain("1 anémomètre, vent moyen");
     const calm = stationsMap([BRAS_SEC, PLUVIO]);
@@ -168,6 +171,7 @@ describe("the page /meteo with every station", () => {
     expect(html).toContain(esc("Les 5 stations, de la côte aux sommets"));
     expect(html).toContain("Pour chaque commune, les cirques, le volcan et les plages : la mesure de la station qui représente le mieux le lieu (proche, à une altitude voisine, du même versant) et la prévision sur 7 jours, aujourd'hui compris");
     expect(html).toContain(esc("IGN, RGE ALTI, pour les altitudes des couleurs estimées (Licence Ouverte 2.0)"));
+    expect(html).toContain(esc("Météo-France, lame d'eau radar, pour la pluie estimée (Licence Ouverte 2.0)"));
   });
 
   it("folds the list after 12 stations, with a button for the rest; filters and sorts it, with its script on /meteo alone", () => {
@@ -179,6 +183,10 @@ describe("the page /meteo with every station", () => {
     expect(html.split(METEO_SCRIPT)).toHaveLength(2);
     expect(page(ALL)).not.toContain(`Voir les 5 stations`);
     expect(() => new Function(METEO_SCRIPT)).not.toThrow();
+    // What the radar sees, said by the script once its grid has come: rain, none, or an image too old to show.
+    expect(METEO_SCRIPT).toContain(`"En bleu : la pluie estimée par le radar de Météo-France à "`);
+    expect(METEO_SCRIPT).toContain(`"Le radar de Météo-France ne voit pas de pluie à "`);
+    expect(METEO_SCRIPT).toContain(`" et n'est pas affichée."`);
   });
 
   it("dates a measure of another day in the list, and says it old", () => {

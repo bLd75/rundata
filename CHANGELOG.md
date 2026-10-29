@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Jeudi 29 octobre 2026
 
+- Météo : sur la carte, la température, la pluie et le vent mesurés aux stations ; entre elles, des couleurs et un mouvement estimés.
 - Antennes : les sites mobiles de Free hors service à La Réunion (panne ou maintenance), d'après le fichier quotidien de l'Arcep.
 - Antennes : la carte des antennes mobiles (Orange, SFR Réunion, Free, Zeop, 2G à 5G) et des émetteurs radio et TV de l'île, d'après l'ANFR.
 - Marchés publics : les avis de marché ouverts à La Réunion, lus chaque heure au BOAMP, avec la date limite et le lien vers l'avis.
