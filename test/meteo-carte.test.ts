@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { HomeData, StationNow } from "../src/web/data.js";
 import { esc, project } from "../src/web/map.js";
 import { ALT_PATH, communeOf, METEO_SCRIPT, rainPill, stationsMap, ventText, windPill } from "../src/web/meteo-carte.js";
-import { meteoPage, stationId } from "../src/web/pages.js";
+import { CSS, meteoPage, stationId } from "../src/web/pages.js";
 
 const NOW = new Date("2026-10-22T05:30:00Z");
 const at = "2026-10-22T05:18:00Z";
@@ -192,5 +192,14 @@ describe("the page /meteo with every station", () => {
     expect(html).not.toContain("wxmap");
     expect(html).toContain(esc("La mer au large"));
     expect(html).not.toContain(METEO_SCRIPT);
+  });
+});
+
+describe("the station bubble on /meteo's map", () => {
+  it("is placed against the map's figure, which is its containing block (not the page's top)", () => {
+    const html = stationsMap([st({ nom: "Le Port", temperature: 26.5 })]);
+    // The script computes the bubble's left and top from its parent's box: the figure.
+    expect(html).toMatch(/^<figure class="card mapcard airmap wxmap">[\s\S]*<a class="mtip" data-mtip[\s\S]*<\/figure>$/);
+    expect(CSS).toContain(".wxmap{position:relative}");
   });
 });
