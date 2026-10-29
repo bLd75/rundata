@@ -4,7 +4,7 @@ import { Cache } from "../src/cache.js";
 import { inReunion } from "../src/geo.js";
 import { antennas } from "../src/tools/terrain.js";
 import * as antennes from "../src/vie/antennes.js";
-import { antennesPage } from "../src/web/antennes.js";
+import { COULEURS, LOOK, antennesPage, code, look } from "../src/web/antennes.js";
 import { communePage } from "../src/web/commune.js";
 import { pageOf } from "../src/web/places.js";
 import { CSS } from "../src/web/pages.js";
@@ -74,20 +74,33 @@ describe("the antennas of the island (ANFR)", () => {
     expect(page).toContain(antennes.SOURCE_MOBILE.nom);
   });
 
-  it("has its page, /antennes: the map one layer at a time, the counts read from the files, the 5G as the ANFR says it", async () => {
+  it("has its page, /antennes: the map filtered by operator and type, the counts read from the files, the 5G as the ANFR says it", async () => {
     const html = antennesPage("https://rundata.re");
     expect(html).toContain("<title>Antennes Réunion : 4G, 5G, TNT et radio sur la carte · 974</title>");
     // Counted from the files, never written: the next file changes them.
     expect(html).toContain("<p class=\"lead\">1\u202f151 supports d&#39;antennes mobiles déclarés à l&#39;ANFR au 22 octobre 2026, et 173 supports d&#39;émetteurs de radio et de télévision au 30 septembre 2026.</p>");
-    const tabs = [...html.matchAll(/<input type="radio" name="ant" id="ant-([a-z0-9-]+)"/g)].map((m) => m[1]);
-    expect(tabs).toEqual(["tous", "orange", "sfr-reunion", "free", "zeop", "g2", "g3", "g4", "g5", "tnt", "fm", "dab"]);
-    // Each tab shows its layer and its legend: a tab without its rule would show nothing.
-    for (const t of tabs) expect(CSS, t).toContain(`.antmap:has(#ant-${t}:checked) :is(.ly-${t},.lg-${t})`);
-    const legends = [...html.matchAll(/<span class="lg lg-[^"]+">([^<]+)<\/span>/g)].map((m) => m[1].replace(/&#39;/g, "'"));
-    expect(legends).toHaveLength(12);
-    expect(legends).toContain("Orange : 392 supports avec au moins une antenne active, 4 en projet seulement.");
-    expect(legends).toContain("5G : 683 supports avec la 5G techniquement opérationnelle, 99 en projet, tous opérateurs.");
-    expect(legends).toContain("TNT : 36 supports d'émetteurs de télévision, 38 stations.");
+    // Two rows that combine, and the colours; their values are the page's address (« #orange-5g »).
+    const row = (n: string) => [...html.matchAll(new RegExp(`<input type="radio" name="${n}" id="${n}-[a-z0-9-]+" value="([a-z0-9-]*)"`, "g"))].map((m) => m[1]);
+    expect(row("ao")).toEqual(["", "orange", "sfr-reunion", "free", "zeop"]);
+    expect(row("at")).toEqual(["", "2g", "3g", "4g", "5g", "tnt", "fm", "dab"]);
+    expect(row("ac")).toEqual(["o", "t"]);
+    // Without the script, the filters stay hidden and every mobile support is drawn, coloured by operator.
+    expect(html).toContain('<div class="antf" hidden>');
+    expect([...html.matchAll(/<circle class="s k[a-z0-9]( r)?" cx/g)]).toHaveLength(1151);
+    expect([...html.matchAll(/<circle class="e h" cx/g)]).toHaveLength(173);
+    // A count for each choice: the 25 of an operator and a generation, the 3 of the radio and the TV.
+    const legends = [...html.matchAll(/<span class="lg" data-k="([a-z0-9-]+)"( hidden)?>([^<]+)<\/span>/g)].map((m) => [m[1], m[3].replace(/&#39;/g, "'")]);
+    expect(legends).toHaveLength(28);
+    const by = Object.fromEntries(legends);
+    expect(by["tous"]).toBe("1\u202f151 supports d'antennes mobiles, dont 1\u202f134 avec au moins une antenne active.");
+    expect(by["orange"]).toBe("Orange : 392 supports avec au moins une antenne active, 4 en projet seulement.");
+    expect(by["5g"]).toBe("5G : 683 supports avec la 5G techniquement opérationnelle, 99 en projet, tous opérateurs.");
+    expect(by["orange-5g"]).toBe("Orange, 5G : 332 supports avec la 5G techniquement opérationnelle, 19 en projet.");
+    expect(by["tnt"]).toBe("TNT : 36 supports d'émetteurs de télévision, 38 stations.");
+    // The filters' script, once, and it parses.
+    const script = [...html.matchAll(/<script>(\(\(\)=>\{const f=document\.querySelector\("\.antf"\)[^]*?)<\/script>/g)].map((m) => m[1]);
+    expect(script).toHaveLength(1);
+    expect(() => new Function(script[0])).not.toThrow();
     expect(html).not.toMatch(/5G en service/);
     // The commune of the tile has the same counts, its operators without « sur ».
     expect(html).toContain('<th scope="row">Cilaos</th><td data-label="Supports mobiles">7</td><td data-label="Dont 5G techniquement opérationnelle">5</td><td data-label="Supports par opérateur">Orange 2, SFR Réunion 4, Free 1, Zeop 1</td><td data-label="Supports radio et TV">6</td>');
@@ -97,5 +110,28 @@ describe("the antennas of the island (ANFR)", () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("<h1>Les antennes de La Réunion</h1>");
     expect(communePage("https://rundata.re", pageOf("cilaos")!, { place: null })).toContain('<h3><a href="/antennes">Antennes</a></h3>');
+  });
+
+  it("shows each support the same in the browser as counted on the server, for every choice", () => {
+    const js = new Function(`${LOOK} return look;`)() as typeof look;
+    const parse = (c: string) => [...c.matchAll(/([a-z])(\d*)(?:\+(\d+))?/g)].map((m) => [m[1], m[2], m[3] ?? ""] as [string, string, string]);
+    const codes = antennes.SUPPORTS.map((s) => parse(code(s)));
+    for (const o of ["", "o", "s", "f", "z"]) for (const g of ["", "2", "3", "4", "5"]) for (const m of ["o", "t"]) {
+      for (const d of codes) expect(js(d, o, g, m), `${o} ${g} ${m}`).toEqual(look(d, o, g, m));
+    }
+    // A support shared by two operators: « plusieurs », even with one of them chosen; by type, the chosen one's newest.
+    expect(look(parse("o2345 s234"), "o", "", "o")).toEqual([false, "m"]);
+    expect(look(parse("o2345 s234"), "s", "", "t")).toEqual([false, "4"]);
+    // On the 5G, only the operator with a 5G counts: its colour; planned only, a ring.
+    expect(look(parse("o234+5 s234"), "", "5", "o")).toEqual([true, "o"]);
+    expect(look(parse("o234 s234"), "", "5", "o")).toBeNull();
+  });
+
+  it("colours the dots with marketing's palette, never an operator's own colour", () => {
+    expect(COULEURS).toEqual({ o: "#56b4e9", s: "#f0e442", f: "#cc79a7", z: "#2563d8", m: "#0b1f36", 5: "#f0e442", 4: "#56b4e9", 2: "#b4c6d8", r: "#cc79a7" });
+    for (const [k, c] of Object.entries(COULEURS)) expect(CSS, k).toContain(`.antmap .k${k}{--c:${c}}`);
+    // Each dot has its white edge; a ring, its night one.
+    expect(CSS).toContain(".antmap .ants circle{fill:var(--c);stroke:#fff;stroke-width:8;paint-order:stroke}");
+    expect(CSS).toContain("filter:drop-shadow(0 0 1.5px #0b1f36)");
   });
 });
