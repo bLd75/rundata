@@ -6,6 +6,8 @@ import * as airMesures from "../src/providers/air-mesures.js";
 import { parse } from "../src/providers/atmo.js";
 import { qualiteAir } from "../src/tools/air.js";
 import { airPage } from "../src/web/domains.js";
+import { esc } from "../src/web/map.js";
+import { deadAnchors, doubleIds, mapLinks } from "./cartes.js";
 import { REGISTRY } from "../src/registre.js";
 import { SHARED } from "../src/web/partagees.js";
 
@@ -122,6 +124,53 @@ describe("measures at Atmo Réunion's stations", () => {
     airMesures.configure(undefined);
     const none = body(await qualiteAir(cache(), undefined, NOW));
     expect(airPage("https://rundata.re", { value: none, fetchedAt: NOW, stale: false }, NOW)).not.toContain('id="h-mesures-air"');
+  });
+
+  it("puts them on /air's map at their stations, one pollutant at a time, PM10 first, in neutral pills", async () => {
+    airMesures.configure(async () => copie);
+    const answer = body(await qualiteAir(cache(), undefined, NOW));
+    const page = airPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
+    const map = page.slice(page.indexOf('<figure class="card mapcard airmap">'), page.indexOf("</figure>", page.indexOf("airmap")));
+    // A tab for each pollutant measured, PM10 checked; none for the PM2,5, which no station of the copy measured.
+    expect([...map.matchAll(/<input type="radio" name="aqp" id="aqp-(\w+)"/g)].map((m) => m[1])).toEqual(["pm10", "o3", "no2"]);
+    expect(map).toContain('<input type="radio" name="aqp" id="aqp-pm10" class="on" checked>');
+    // Each value in its layer, at its station, leading to the station's card; never the index's colours.
+    const pm10 = map.slice(map.indexOf('<g class="ly ly-pm10 on">'), map.indexOf('<g class="ly ly-o3">'));
+    expect([...pm10.matchAll(/<a class="mk" href="([^"]+)" aria-label="([^"]+)"/g)].map((m) => [m[1], m[2]])).toEqual([
+      ["#st-lycee-lislet-geoffroy", "Lycée Lislet Geoffroy : 11,6 µg/m³, voir le détail"],
+      ["#st-luther-king", "Luther King : 22,1 µg/m³, de 0 h à 1 h, voir le détail"],
+    ]);
+    expect(map).not.toMatch(/var\(--aq\d\)/);
+    expect(map).toContain('<span class="lg lg-pm10 on">Particules PM10, en µg/m³ : mesure brute, non validée, de 7 h à 8 h, 1 station à une autre heure (voir la liste).</span>');
+    expect(deadAnchors(page)).toEqual([]);
+    expect(doubleIds(page)).toEqual([]);
+    // Without measures, the forecast in each commune, as a dot, said a forecast.
+    airMesures.configure(undefined);
+    const none = airPage("https://rundata.re", { value: body(await qualiteAir(cache(), undefined, NOW)), fetchedAt: NOW, stale: false }, NOW);
+    expect(none).not.toContain("airmap");
+    expect(mapLinks(none).every((l) => l.kind === "mk" && / : indice \d sur 6, /.test(l.label))).toBe(true);
+    expect(none).toMatch(/Indice ATMO prévu pour aujourd'hui dans chaque commune, de 1 \(bon\) à 6 \(extrêmement mauvais\)\s:\sune prévision, pas une mesure\./);
+  });
+
+  it("puts the measure at the top of /air, before the forecast, and the stations before the 24 communes", async () => {
+    airMesures.configure(async () => copie);
+    // The fixture's index is of another day: one commune of today's, for the forecast under the measure.
+    const answer = { ...body(await qualiteAir(cache(), undefined, NOW)), communes: [{ commune: "Saint-Denis", niveau: 2, qualite: "moyen", polluants: [] }] };
+    const page = airPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
+    const band = page.slice(page.indexOf('<p class="pill">'), page.indexOf('<figure class="card mapcard airmap">'));
+    expect(band).toContain('<span class="dot"></span>Mesuré aux stations</p>');
+    const top = `<p class="big">PM10 : 12 µg/m³</p><p class="lead">${esc("Particules PM10 mesurées de 7 h à 8 h à la station Lycée Lislet Geoffroy (Saint-Denis).")}</p>` +
+      `<p class="note">Mesure brute, non validée, publiée par le LCSQA.`;
+    expect(band).toContain(top);
+    const forecast = `<div class="status forecast"><p class="lead"><b>${esc("Prévision d'Atmo Réunion pour la journée : moyen.")}</b>`;
+    expect(band.indexOf(top)).toBeLessThan(band.indexOf(forecast));
+    expect(band).toContain("Une prévision, pas une mesure.");
+    expect(page.indexOf('id="h-mesures-air"')).toBeLessThan(page.indexOf('id="h-communes-air"'));
+    // Without measures, the forecast alone, as before.
+    airMesures.configure(undefined);
+    const none = airPage("https://rundata.re", { value: body(await qualiteAir(cache(), undefined, NOW)), fetchedAt: NOW, stale: false }, NOW);
+    expect(none).toContain('<span class="dot"></span>Prévision du jour</p>');
+    expect(none).not.toContain("Mesuré aux stations");
   });
 
   it("costs, from cold, what the budget's registry says: the index, and the measures' copy read from KV", async () => {

@@ -626,6 +626,10 @@ border-radius:6px;padding:.2rem .5rem;background:var(--warn-bg);color:var(--lave
 .now p{color:var(--on-night-muted);max-width:22rem;font-size:.95rem}
 .now p b{color:var(--on-night)}
 .band .mapcard{background:rgb(255 255 255/.06);border-color:rgb(255 255 255/.12);box-shadow:none}
+.airmap .aqtabs{margin-bottom:.5rem}.band .aqtabs label{color:var(--on-night-muted);border-color:rgb(255 255 255/.25)}.band .aqtabs input:checked+label{background:var(--on-night);color:var(--night);border-color:var(--on-night)}
+/* /air's map: one pollutant's layer and legend at a time; without :has, the default one. */
+.airmap .ly,.airmap .lg{display:none}.airmap .ly.on,.airmap .lg.on{display:inline}.airmap:has(.aqtabs input:checked:not(.on)) .on:is(.ly,.lg){display:none}
+.airmap:has(#aqp-pm10:checked) .ly-pm10,.airmap:has(#aqp-pm10:checked) .lg-pm10,.airmap:has(#aqp-pm25:checked) .ly-pm25,.airmap:has(#aqp-pm25:checked) .lg-pm25,.airmap:has(#aqp-o3:checked) .ly-o3,.airmap:has(#aqp-o3:checked) .lg-o3,.airmap:has(#aqp-no2:checked) .ly-no2,.airmap:has(#aqp-no2:checked) .lg-no2{display:inline}
 .two{display:grid;gap:1rem}
 @media (min-width:58rem){.two{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
 .stcard .t{display:inline-block;padding:.4rem .9rem;font-size:1.3rem}
@@ -664,6 +668,8 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .status{display:grid;gap:.6rem;justify-items:start}
 .status .big{font-size:clamp(2rem,6vw,3.2rem);line-height:1}
 .band .status .note{color:var(--on-night-muted)}
+/* /air: the forecast under the measure, apart and smaller. */
+.status.forecast{margin-top:.2rem;padding-top:.7rem;border-top:1px solid rgb(255 255 255/.2)}.status.forecast .lead{font-size:1rem}
 .zones{list-style:none;padding:0;display:grid;gap:1rem}
 @media (min-width:40rem){.zones{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (min-width:66rem){.zones{grid-template-columns:repeat(3,minmax(0,1fr))}}

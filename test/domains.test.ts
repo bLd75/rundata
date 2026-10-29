@@ -46,7 +46,7 @@ describe("domain pages", () => {
     expect(pages.volcan).toContain("L&#39;OVPF et la préfecture n&#39;ont pas annoncé d&#39;éruption dans les textes que nous avons lus.");
     expect(pages.volcan).toContain(`Enclos : <b>« réouverture partielle »</b> selon le <a href="https://www.reunion.gouv.fr/x">communiqué de la préfecture du 07/05</a>.`);
     expect(pages.air).toMatch(/<p class="big">moyen<\/p>/);
-    expect(pages.air).toContain("var(--aq2)"); // the map, coloured by commune
+    expect(pages.air).toContain("var(--aq2)"); // the map without a measure: the forecast, a dot in each commune
     // Each coloured commune leads to its line in the list.
     expect(mapLinks(pages.air).length).toBeGreaterThan(20);
     expect(mapLinks(pages.air)[0].label).toMatch(/^[^:]+ : indice \d sur 6, \p{L}[^,]*, voir le détail$/u);
