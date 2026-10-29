@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { fil, firstSentence, lire, merge, prefectureNonRelue, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
+import { fil, firstSentence, lire, local, merge, prefectureNonRelue, sujetsOf, parseImazLive, parseNewsSitemap, parsePrefecture, parseQuotidien, parseRss, placesIn, type Info } from "../src/providers/actualites.js";
 import { actualites, NOM_SEUL, quand } from "../src/tools/actualites.js";
 import { actualitesPage } from "../src/web/domains.js";
 import { buildActualites } from "../src/web/data.js";
@@ -79,6 +79,43 @@ describe("actualités", () => {
     expect(pref[0]).toMatchObject({ titre: "Violences urbaines : bilan de la nuit", heure: false, lien: "https://www.reunion.gouv.fr/Actualites/Communiques-de-presse/Violences-urbaines-bilan-de-la-nuit" });
     expect(quand(pref[0], NOW)).toBe("aujourd'hui");
     expect(firstSentence("Dès 6 heures, une convergence des mouvements appelle à la mobilisation. Puis la suite.")).toBe("Dès 6 heures, une convergence des mouvements appelle à la mobilisation.");
+  });
+
+  it("keeps the island's news only: not France's or the world's, even when they name a place of the island in passing", async () => {
+    // Freedom and Clicanoo on 29/10/2026 at 10:14 in La Réunion: their feeds mix the island's news with France's and the world's.
+    const has = (list: Info[], t: string) => list.some((i) => i.titre.startsWith(t));
+    const freedom = parseRss(fixture("freedom-2026-10-29.xml"), "Freedom", /jeux|podcast|actus radio/i);
+    // Shown on the home page under « Saint-Benoît » for a press conference « tenue à Saint-Benoit » in its first sentence: France's news.
+    expect(has(freedom, "Loi « Casseurs-payeurs »")).toBe(false);
+    // The races of Auteuil.
+    expect(has(freedom, "Quinté+")).toBe(false);
+    for (const t of ["Le Tampon : budget", "Sainte-Marie : « Sortez le rose", "AVC à La Réunion", "Église de Champ-Borne", "Blindés Centaure", "Devis, factures"]) expect(has(freedom, t), t).toBe(true);
+    // Filed under the CCIR and « Collectivités »: its day of the island's businesses, at Saint-Pierre.
+    expect(freedom.find((i) => i.titre.startsWith("Rentrer du travail"))!.communes).toEqual(["Saint-Pierre"]);
+
+    const clicanoo = parseRss(fixture("clicanoo-2026-10-29.xml"), "Clicanoo");
+    // The world's, and France's: the presidents of the universities, La Réunion's among them further on.
+    for (const t of ["Netanyahou", "Ballon d’or", "Universités en crise"]) expect(has(clicanoo, t), t).toBe(false);
+    // A place of the island in the text, words of the island in the headline (« Kréol », « péï »), a place in the headline.
+    for (const t of ["Planch'Alizés", "Big Morel", "La victoire de Lula", "Grande Anse"]) expect(has(clicanoo, t), t).toBe(true);
+
+    // Headlines alone (sitemaps, Le Quotidien's home page), the medium's section being the island's.
+    expect(local("Loi « casseurs-payeurs » : le Sénat vote la saisie des aides sociales et durcit les sanctions", "", true)).toBe(false);
+    expect(local("A Madagascar, un hommage inattendu à Johnny émeut sa fille Laura Smet", "", true)).toBe(false);
+    expect(local("Région : la journée international de la langue et de la culture", "", true)).toBe(true);
+    expect(local("Deux étudiantes réunionnaises décrochent une bourse nationale", "", true)).toBe(true);
+    expect(local("Charte la kominoté biling kréol rényoné-fransé : Le Territoire de l’Ouest devient une collectivit…", "", true)).toBe(true);
+    expect(local("Salon de l'emploi et de la formation dès demain : 2 500 opportunités pour passer à l'action", "", true)).toBe(true);
+    // France's headline, but the first sentence says La Réunion itself.
+    expect(local("Longboard : Alice Lemoigne décroche un troisième titre mondial", "La Réunionnaise Alice Lemoigne a une nouvelle fois fait parler son talent sur la scène internationale.")).toBe(true);
+    // « la réunion » is a meeting; with neither a place nor a section, left out.
+    expect(local("Une réunion publique sur le budget", "Les habitants sont invités à la réunion de ce soir.")).toBe(false);
+
+    // All the media of 24/10: Témoignages without its world section nor the day's paper in PDF, Clicanoo without Trappes.
+    const { infos } = (await fil(cache(), NOW)).value;
+    const all = infos.map((i) => i.titre);
+    for (const t of ["Témoignages n°", "Trump-Poutine-XI", "L'Assemblée nationale rejette", "Fusillade de Trappes", "Jordanie :"]) expect(all.some((x) => x.startsWith(t)), t).toBe(false);
+    for (const m of ["Témoignages", "Clicanoo", "Parallèle Sud", "Le Quotidien"]) expect(infos.some((i) => i.media === m || i.aussi?.some((a) => a.media === m)), m).toBe(true);
   });
 
   it("reads Le Quotidien's home page: the titles, the day of each, the time only when given to the minute", () => {
@@ -257,7 +294,7 @@ describe("actualités", () => {
     const feed = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Free Dom</title>${[
       item("Saint-Paul : le conseil municipal vote son budget", "Le conseil municipal de Saint-Paul s'est réuni ce samedi matin.", "2026-10-24T07:55:00Z", 1),
       item("Incendie à Cambaie : fumées importantes dans le secteur", "Un incendie s'est déclaré ce samedi matin dans la zone de Cambaie.", "2026-10-24T07:40:00Z", 2),
-      item("Circulation ralentie au rond-point de la Jardinerie", "Les automobilistes sont invités à éviter le rond-point de la Jardinerie.", "2026-10-24T07:30:00Z", 3),
+      item("Circulation ralentie au rond-point de la Jardinerie", "À La Possession, les automobilistes sont invités à éviter le rond-point de la Jardinerie.", "2026-10-24T07:30:00Z", 3),
     ].join("")}</channel></rss>`;
     vi.stubGlobal("fetch", async (url: string) => (url.includes("freedom") ? new Response(feed) : new Response("", { status: 503 })));
 
@@ -352,7 +389,7 @@ describe("actualités", () => {
   // A change that keeps something else (a link, a field, a medium, a filter) changes it: add its fingerprint here and
   // raise SOURCE_REVISION["actualites:fil"] (and RENDU_REVISION.actualites), so that the entry read by the old code is
   // read again after the deploy. A fixture changed alone: add its fingerprint and raise the number all the same.
-  const FIL = ["b7e88ffb49a93884", "44c0eb346a5da96e", "95031bc5918208dd"];
+  const FIL = ["b7e88ffb49a93884", "44c0eb346a5da96e", "95031bc5918208dd", "d177bf8851fdca3e"];
 
   it("keeps, from the same pages, what its revision says: one fingerprint per revision of actualites:fil", async () => {
     const { value } = await fil(cache(), NOW);
