@@ -854,7 +854,7 @@ describe("a copy the code can no longer read", () => {
 
 describe("the maps lead to what they show", () => {
   const anchors = (page: string, prefix: string) =>
-    [...(page.match(/<svg class="map[^]*?<\/svg>/g) ?? []).join("").matchAll(/<a class="(?:mk|zn)" href="([^"]+)" aria-label="([^"]+)"/g)]
+    [...(page.match(/<svg class="map[^]*?<\/svg>/g) ?? []).join("").matchAll(/<a class="(?:mk|zn)(?: [^"]*)?" href="([^"]+)" aria-label="([^"]+)"/g)]
       .filter(([, href]) => href.startsWith(prefix))
       .map(([, href, label]) => ({ href, label }));
   const ids = (page: string) => new Set([...page.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
@@ -863,14 +863,14 @@ describe("the maps lead to what they show", () => {
     const cache = isolate();
     const meteo = (await serve(cache, "/meteo")).text;
     const here = anchors(meteo, "#");
-    // One marker per station, each to its row.
+    // One marker per station, each to its row: every station that measured, not the tour alone.
     expect(here).toHaveLength(meteo.match(/<li class="st tgt"/g)!.length);
-    expect(here.length).toBeGreaterThan(5);
+    expect(here.length).toBeGreaterThan(40);
     const rows = ids(meteo);
     expect(here.filter((a) => !rows.has(a.href.slice(1)))).toEqual([]);
-    expect(here.every((a) => /^[^:]+ : (\d+ °C|vent \d+ km\/h|pas de mesure), voir le détail$/.test(a.label))).toBe(true);
+    expect(here.filter((a) => !/^[^:]+\s·\s[\d\s]+m\s:\s.+, mesures de \d\d:\d\d par .+, voir le détail$/.test(a.label))).toEqual([]);
     // The rows can be reached under the sticky header, and say so for a moment when reached.
-    expect(meteo).toMatch(/<li class="st tgt" id="st-[a-z0-9-]+">/);
+    expect(meteo).toMatch(/<li class="st tgt" id="st-[a-z0-9-]+" /);
 
     const home = (await serve(cache, "/")).text;
     const there = anchors(home, "/meteo#");

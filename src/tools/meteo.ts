@@ -136,7 +136,9 @@ export async function islandTour(cache: Cache, now = new Date()) {
         : !(o.station.source === "metar" && mf.some((m) => sameSpot(o, m.o))),
     )
     .sort((a, b) => rank(a.o) - rank(b.o));
-  return { tour, down, sources: list.map((p) => p.source) };
+  // Every station that measured, an airport's METAR left out where Météo-France measures at the same spot.
+  const all = obs.filter(({ o }) => !(o.station.source === "metar" && mf.some((m) => sameSpot(o, m.o))));
+  return { tour, all, down, sources: list.map((p) => p.source) };
 }
 
 // A METAR's sky now, its trend (TEMPO, BECMG) left out: broken or overcast clouds, drizzle, rain or showers nearby.

@@ -90,6 +90,8 @@ export type Background = (work: Promise<unknown>) => void;
 
 export interface StationNow {
   nom: string;
+  /** The source's own id: for Météo-France, the commune's INSEE code and 3 digits. */
+  id?: string;
   source: string;
   lon: number;
   lat: number;
@@ -123,6 +125,8 @@ export interface Credit {
 
 export interface HomeData {
   stations: StationNow[];
+  /** Every station that measured, for the map of /meteo; missing on a copy made before it. */
+  toutes?: StationNow[];
   mer: SeaNow[];
   sources: Credit[];
   indisponibles: string[];
@@ -200,6 +204,7 @@ function stationNow(o: Observation, stale: boolean): StationNow {
   const s = o.station;
   return {
     nom: s.nom,
+    id: s.id,
     source: s.source,
     lon: s.lon,
     lat: s.lat,
@@ -244,6 +249,7 @@ export async function buildHome(cache: Cache, now = new Date()): Promise<HomeDat
   const out: HomeData = { stations: [], mer: [], sources: [], indisponibles: [] };
   if (air.status === "fulfilled") {
     out.stations = air.value.tour.map(({ o, stale }) => stationNow(o, stale));
+    out.toutes = air.value.all.map(({ o, stale }) => stationNow(o, stale));
     out.sources.push(...air.value.sources.map(credit));
     out.indisponibles.push(...air.value.down);
   } else console.error("page : tour de l'île indisponible", why(air.reason));

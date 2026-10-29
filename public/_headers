@@ -19,6 +19,9 @@
 /fonds/*
   Cache-Control: public, max-age=31536000, immutable
   X-Content-Type-Options: nosniff
+/altitudes-*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
 /relief-*
   Cache-Control: public, max-age=31536000, immutable
   X-Content-Type-Options: nosniff

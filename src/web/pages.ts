@@ -41,6 +41,7 @@ import { AVIS_CSS, avisForm } from "./avis.js";
 import { aide, AIDE_CSS, SIGNAL_SCRIPT } from "./signaux.js";
 import { FORMS_CSS } from "./formulaires-style.js";
 import { fond, FOND_CSS } from "./fonds.js";
+import { ALTITUDES_CREDIT, communeOf, METEO_SCRIPT, rainPill, stationsMap, windPill } from "./meteo-carte.js";
 import { hash, INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 import { bathingBlock } from "./baignade.js";
@@ -630,6 +631,27 @@ border-radius:6px;padding:.2rem .5rem;background:var(--warn-bg);color:var(--lave
 .airmap .aqtabs{margin-bottom:.5rem}.band .aqtabs label{color:var(--on-night-muted);border-color:rgb(255 255 255/.25)}.band .aqtabs input:checked+label{background:var(--on-night);color:var(--night);border-color:var(--on-night)}
 /* /air's map: one pollutant's layer and legend at a time; without :has, the default one. */
 .airmap .ly,.airmap .lg{display:none}.airmap .ly.on,.airmap .lg.on{display:inline}.airmap:has(.aqtabs input:checked:not(.on)) .on:is(.ly,.lg){display:none}
+.wxmap:has(#wxl-t:checked) .lg-t,.wxmap:has(#wxl-p:checked) .lg-p{display:inline}
+.wxmap .l-p{display:none}.wxmap:has(#wxl-p:checked) .l-p{display:inline}.wxmap:has(#wxl-p:checked) .l-t{display:none}
+.wxmap:has(#wxl-t:checked) a.mk:not(.has-t),.wxmap:has(#wxl-p:checked) a.mk:not(.has-p){display:none}
+.wxmap .lgs{display:inline-flex;align-items:center;gap:.35rem;margin-right:.5rem;white-space:nowrap}
+.wxmap .voile{display:block;width:100%;height:100%}.wxmap .aqtabs{gap:.25rem}.wxmap .aqtabs label{padding:.3rem .65rem}
+html:has([data-js]:not([hidden])) #stl.plie>li:nth-child(n+13){display:none}.stmore{font:inherit;font-weight:600;padding:.45rem 1rem;border:1px solid var(--line);border-radius:99px;background:none;color:var(--link);cursor:pointer}
+#stl{display:grid;grid-template-columns:repeat(auto-fill,minmax(10.5rem,1fr));gap:.6rem}
+#stl .st{display:flex;flex-direction:column;gap:.15rem;padding:.75rem .85rem .7rem;border:1px solid var(--line);border-radius:1rem;background:var(--surface)}
+#stl .th{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-bottom:.4rem}
+#stl .t{width:auto;padding:.3rem .55rem;border-radius:.6rem;font:700 1.2rem/1.1 Bricolage,system-ui,sans-serif}
+#stl h4{font-size:1rem;line-height:1.25}#stl p{font-size:.84rem;line-height:1.35}#stl .when{font-size:.78rem;color:var(--muted)}
+#stl .pls{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:auto;padding-top:.45rem}
+#stl .pl{display:inline-flex;padding:.12rem .5rem;border:1px solid var(--line);border-radius:99px;background:var(--surface-2);color:var(--ink);font-size:.8rem;white-space:nowrap}
+#stl .pl>span{display:inline-flex;align-items:center;gap:.22rem}#stl .pl svg{width:.85rem;height:.85rem}
+#stl .ar{fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}#stl .dr{fill:#2456b8}
+#stl .pl.wet{background:#2456b8;border-color:#2456b8;color:#fff}#stl .pl.wet .dr{fill:#fff}
+.sttri{display:grid;gap:.3rem}.sttri .tabs{gap:.3rem}
+.stmore{margin-top:.8rem}
+.wxmap .vgrad{display:inline-block;width:4.5rem;height:.6rem;border-radius:.3rem;background:linear-gradient(90deg,#2a6a9a,#248c78,#d6a828,#de7028,#c8301c);vertical-align:middle}
+.sttools{display:flex;flex-wrap:wrap;gap:.6rem 1rem;align-items:center;margin-bottom:.8rem}.sttools[hidden]{display:none}.sttools select{font:inherit;padding:.3rem .5rem;border-radius:.5rem}
+.sttools button{font:inherit;padding:.25rem .6rem;border:1px solid var(--line);border-radius:99px;background:none;color:inherit;cursor:pointer}.sttools button[aria-pressed=true]{background:var(--ink);color:var(--surface)}
 .airmap:has(#aqp-pm10:checked) .ly-pm10,.airmap:has(#aqp-pm10:checked) .lg-pm10,.airmap:has(#aqp-pm25:checked) .ly-pm25,.airmap:has(#aqp-pm25:checked) .lg-pm25,.airmap:has(#aqp-o3:checked) .ly-o3,.airmap:has(#aqp-o3:checked) .lg-o3,.airmap:has(#aqp-no2:checked) .ly-no2,.airmap:has(#aqp-no2:checked) .lg-no2{display:inline}
 .two{display:grid;gap:1rem}
 @media (min-width:58rem){.two{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
@@ -866,8 +888,8 @@ document.querySelectorAll("[data-js]").forEach((e)=>{e.hidden=false});document.q
 tick();setInterval(tick,3e4);
 const mt=document.querySelector("[data-mtip]");if(mt){const box=mt.parentElement;let on=null,touch=false,t=0;
 const put=(a)=>{clearTimeout(t);if(on)on.classList.remove("on");on=a;a.classList.add("on");
-mt.querySelector(".mt-p").textContent=a.dataset.tp;mt.querySelector(".mt-v").textContent=a.dataset.tv;mt.querySelector(".mt-d").textContent=a.dataset.td;mt.href=a.getAttribute("href");
-mt.hidden=false;const f=box.getBoundingClientRect(),r=a.querySelector(".sh").getBoundingClientRect(),w=mt.offsetWidth,h=mt.offsetHeight;
+const L=box.querySelector("[name=wxl]:checked"),k=L?L.id.slice(4):"";mt.querySelector(".mt-p").textContent=a.dataset.tp;mt.querySelector(".mt-v").textContent=a.dataset["tv"+k]||a.dataset.tv;mt.querySelector(".mt-d").textContent=a.dataset["td"+k]||a.dataset.td;mt.href=a.getAttribute("href");
+mt.hidden=false;const f=box.getBoundingClientRect(),r=([...a.querySelectorAll(".sh")].find((e)=>e.getBoundingClientRect().width)||a).getBoundingClientRect(),w=mt.offsetWidth,h=mt.offsetHeight;
 const cx=r.left+r.width/2-f.left,x=Math.min(Math.max(cx-w/2,6),f.width-w-6),up=r.top-f.top-h-12>=0;
 mt.classList.toggle("bas",!up);mt.style.left=x+"px";mt.style.top=(up?r.top-f.top-h-12:r.bottom-f.top+12)+"px";
 mt.style.setProperty("--ax",Math.min(Math.max(cx-x,16),w-16)+"px");requestAnimationFrame(()=>mt.classList.add("vu"))};
@@ -877,7 +899,7 @@ box.querySelectorAll("a.mk[data-tp]").forEach((a)=>{a.addEventListener("pointerd
 a.addEventListener("pointerenter",(e)=>{if(e.pointerType==="mouse")put(a)});a.addEventListener("pointerleave",(e)=>{if(e.pointerType==="mouse")later()});
 a.addEventListener("focus",()=>{if(!touch)put(a)});a.addEventListener("blur",later);
 a.addEventListener("click",(e)=>{if(touch&&on!==a){e.preventDefault();put(a)}touch=false})});
-mt.addEventListener("pointerenter",()=>clearTimeout(t));mt.addEventListener("pointerleave",(e)=>{if(e.pointerType==="mouse")later()});
+box.querySelectorAll("[name=wxl]").forEach((i)=>i.addEventListener("change",off));mt.addEventListener("pointerenter",()=>clearTimeout(t));mt.addEventListener("pointerleave",(e)=>{if(e.pointerType==="mouse")later()});
 document.addEventListener("click",(e)=>{if(on&&!e.target.closest("a.mk,[data-mtip]"))off()});
 document.addEventListener("keydown",(e)=>{if(e.key==="Escape"&&on)off()});addEventListener("resize",()=>{if(on)put(on)})}
 ${RELOAD_SCRIPT}
@@ -1217,6 +1239,25 @@ function weatherLive(data: Cached<HomeData> | null, now: Date): string {
     `${d.indisponibles.length ? `<p class="note">Momentanément indisponible : ${esc(d.indisponibles.join(", "))}.</p>` : ""}</div></div><p class="sources">Sources : ${credits(d.sources)}.</p>`;
 }
 
+/** Every station, filtered by commune and sorted by the page's script; without it, by altitude. */
+function stationsList(all: StationNow[], now: Date): string {
+  const rows = [...all].sort((a, b) => a.altitude_m - b.altitude_m).map((s) => {
+    const c = communeOf(s, all) ?? "";
+    const t = s.temperature != null ? `<span class="t" style="background:${chip(s.temperature)}">${thin(deg(s.temperature))}</span>` : `<span class="t na">—</span>`;
+    const pills = windPill(s) + rainPill(s);
+    const old = s.stale || ageMinutes(new Date(s.time), now) > 90 ? " (ancienne)" : "";
+    const day = localTime(new Date(s.time)).split(" ")[0] !== localTime(now).split(" ")[0] ? `${dayMonth(localTime(new Date(s.time)).split(" ")[0].split("/").reverse().join("-"))} ` : "";
+    return `<li class="st tgt" id="${stationId(s.nom)}" data-c="${esc(c)}" data-z="${s.altitude_m}" data-t="${s.temperature ?? ""}" data-n="${esc(s.nom)}">` +
+      `<p class="th">${t}<span class="when">${day}${hm(s.time)}${old}</span></p><h4>${esc(s.nom)}</h4><p class="ou">${esc(c)} · ${metres(s.altitude_m)}</p>` +
+      `${pills ? `<p class="pls">${pills}</p>` : ""}</li>`;
+  }).join("");
+  const communes = [...new Set(all.map((s) => communeOf(s, all)).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "fr"));
+  const tools = `<div class="sttools" data-js hidden><label>Commune <select id="stc"><option value="">Toutes</option>${communes.map((c) => `<option>${esc(c)}</option>`).join("")}</select></label>` +
+    `<div class="sttri"><span id="sttri">Trier par</span><span class="tabs" role="group" aria-labelledby="sttri"><button type="button" data-s="z" aria-pressed="true">Altitude</button><button type="button" data-s="t" aria-pressed="false">Température</button><button type="button" data-s="n" aria-pressed="false">Nom</button></span></div></div>`;
+  const more = all.length > 12 ? `<p data-js hidden><button type="button" class="stmore" id="stm">Voir les ${all.length} stations</button></p>` : "";
+  return `${tools}<ul class="stations${more ? " plie" : ""}" id="stl">${rows}</ul>${more}`;
+}
+
 /**
  * Every place page as a chip, with a filter box (the script at the end of the page). With `hubs`, the communes lead
  * to their page of every category rather than their weather.
@@ -1331,6 +1372,7 @@ export function lue(l: Live, data: Cached<unknown>, now: Date): Live {
 /** The island's weather: every station, from the coast to the summits, the sea, and a page per commune or place. */
 export function meteoPage(origin: string, data: Cached<HomeData> | null, now = new Date(), alerte?: Alerte): string {
   const l = withTemp(data);
+  const all = data?.value.toutes ?? [];
   // The page's figure, not a tile's line for a copy with no temperature (`vide`).
   const live = l.length ? meteoLive(data) : undefined;
   const url = `${origin}/meteo`;
@@ -1394,10 +1436,21 @@ export function meteoPage(origin: string, data: Cached<HomeData> | null, now = n
     ${ask(`I fé koman lo tan La Rényon astèr ? Gèt bann mézir an dirèk si ${url} é di amwin lèr la mézir.`,
       `Quel temps fait-il en ce moment à La Réunion ? Lis les mesures en direct sur ${url} et donne-moi l'heure des mesures.`)}
   </div>
-  ${sea}
+  ${all.length ? stationsMap(all) : sea}
 </div>`;
 
-  const body = `<section id="en-ce-moment" aria-labelledby="h-live">
+  const body = all.length ? `<section id="stations" aria-labelledby="h-stations">
+  <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-stations">Les ${all.length} stations, de la côte aux sommets</h2>
+  <p>La dernière mesure de chaque station, avec son heure. Les stations de Météo-France publient toutes les 6 minutes.</p></div>
+  ${stationsList(all, now)}
+  <p class="sources">Sources : ${credits([...data!.value.sources, ALTITUDES_CREDIT])}.</p>
+</section><script>${METEO_SCRIPT}</script>
+${sea ? `<section id="mer" aria-labelledby="h-mer"><div class="sec-h"><p class="eyebrow">La mer</p><h2 id="h-mer">La mer au large</h2></div>${sea}</section>` : ""}
+<section id="communes" aria-labelledby="h-communes">
+  <div class="sec-h"><p class="eyebrow">Prévisions</p><h2 id="h-communes">Prévision par commune et par lieu</h2>
+  <p>Pour chaque commune, les cirques, le volcan et les plages : la mesure de la station qui représente le mieux le lieu (proche, à une altitude voisine, du même versant) et la prévision sur 7 jours, aujourd'hui compris (une <b>prévision</b> de modèle, pas une mesure).</p></div>
+  ${placeLinks()}
+</section>` : `<section id="en-ce-moment" aria-labelledby="h-live">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-live">De la côte aux sommets</h2>
   <p>Les températures, la pluie et le vent mesurés par les stations de l'île, de Saint-Denis au Maïdo, de Cilaos à Saint-Pierre. Toutes les 6 minutes, datés et sourcés.</p></div>
   ${weatherLive(data, now)}
