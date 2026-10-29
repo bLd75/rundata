@@ -73,6 +73,8 @@ export interface Copie {
   offres: Offre[];
   /** When the feed first failed to answer since `lu`; absent while it answers. */
   echec?: string;
+  /** When offers left as taken down by the site (`depubliee`), within the last hour (ISO, UTC); absent when none. */
+  depubliees?: string[];
 }
 
 const ENTITIES: Record<string, string> = { amp: "&", quot: '"', apos: "'", nbsp: " ", rsquo: "’", hellip: "…", ndash: "–" };
@@ -188,10 +190,15 @@ export function parseFiche(html: string): Pick<Offre, "employeur" | "limite" | "
 
 /**
  * The page the site answers for an offer it no longer shows: a redirect to /offre-depubliee/, « L'offre a été dépubliée,
- * elle n'est donc plus accessible » (an unknown reference, 30/10/2026). The offer leaves the copy at once, whatever its
- * closing date.
+ * elle n'est donc plus accessible » (an unknown reference, 30/10/2026). Its canonical link or its sentence only: a link
+ * to /offre-depubliee/ elsewhere in an offer's page (a menu, a script) would drop an open offer at each read. The offer
+ * leaves the copy at once, whatever its closing date.
  */
-export const depubliee = (html: string) => html.includes('href="https://choisirleservicepublic.gouv.fr/offre-depubliee/"') || /L(?:’|'|&#039;)offre a été dépubliée/.test(html);
+export const depubliee = (html: string) =>
+  /<link\b[^>]*\brel="canonical"[^>]*\bhref="https:\/\/choisirleservicepublic\.gouv\.fr\/offre-depubliee\/"/.test(html) ||
+  /L(?:’|'|&#0?39;)offre a été dépubliée/.test(html);
+/** More offers taken down than this within an hour: said in the event's line, to be looked at (the site, or the rule). */
+export const DEPUBLIEES_HEURE = 3;
 
 /** The offer with what its page says; the feed's place and commune first, the page's when the feed had none. */
 export function withFiche(o: Offre, f: ReturnType<typeof parseFiche>): Offre {
@@ -274,6 +281,7 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
     return "aucune copie, flux lu à la prochaine heure";
   }
   const kept = new Map((before?.offres ?? []).map((o) => [o.ref, o]));
+  const depubliees = (before?.depubliees ?? []).filter((t) => Date.parse(t) > now.getTime() - 3_600_000);
   const nouvelles = feed.filter((o) => !kept.has(o.ref));
   // As many new offers as the feed holds: others may have been published and pushed out between two reads.
   if (before?.offres.length && nouvelles.length >= FEED_SIZE) console.log(`offres d'emploi : ${nouvelles.length} nouvelles références sur ${feed.length} dans le flux, des offres ont pu passer entre deux lectures`);
@@ -286,7 +294,8 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
       const html = await getText(SOURCE.id, o.lien, 15_000);
       if (depubliee(html)) {
         kept.delete(o.ref);
-        page = `offre ${o.ref} dépubliée, retirée`;
+        depubliees.push(now.toISOString());
+        page = `offre ${o.ref} dépubliée, retirée${depubliees.length > DEPUBLIEES_HEURE ? ` (${depubliees.length} dépubliées en une heure, à vérifier)` : ""}`;
       } else {
         kept.set(o.ref, withFiche(o, parseFiche(html)));
         page = `page de l'offre ${o.ref} ${again ? "relue" : "lue"}`;
@@ -302,7 +311,10 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
   const said = `${offres.length} offres, ${flux ? `${nouvelles.length} nouvelles` : "flux non lu"}, ${page}${closes ? `, ${closes} closes retirées` : ""}`;
   // The same offers: not written again, unless the feed answered again after failing.
   if (before && JSON.stringify(offres) === JSON.stringify(before.offres) && !(flux && before.echec)) return `${said} : inchangées, non réécrites`;
-  await write(flux ? { lu: now.toISOString(), offres } : { ...before!, offres });
+  const next: Copie = flux ? { lu: now.toISOString(), offres } : { ...before!, offres };
+  if (depubliees.length) next.depubliees = depubliees;
+  else delete next.depubliees;
+  await write(next);
   return `${said} : écrites`;
 }
 
