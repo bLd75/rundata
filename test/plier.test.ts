@@ -47,7 +47,7 @@ describe("long lists folded by category, each opened with a tap", () => {
     const kinds = new Set(enfants.inCommune("Saint-Denis").map((l) => l.type)).size;
     expect(count(big, /<div class="card kind" data-k><details><summary><h3>/g)).toBe(kinds);
     const play = enfants.inCommune("Saint-Denis").filter((l) => l.type === "aire_de_jeux").length;
-    expect(big).toContain(`<summary><h3>Aires de jeux <span class="note">·\u00a0${play}</span></h3></summary>`);
+    expect(big).toContain(`<summary><h3>Aires de jeux\u00a0<span class="note">·\u00a0${play}</span></h3></summary>`);
     // Every row still has its anchor, for the map's « Voir dans la liste ».
     expect(count(big, /<li id="lieu-\d+"/g)).toBe(enfants.inCommune("Saint-Denis").length);
     // A filter opens the kinds that keep a place.
@@ -66,6 +66,6 @@ describe("long lists folded by category, each opened with a tap", () => {
     const page = daePage(O, { value: d, fetchedAt: NOW, stale: false }, NOW);
     expect(count(page, /<li class="card tgt" id="c-[a-z-]+"><details><summary><h3>/g)).toBe(d.communes.length);
     const sp = d.communes.find((c) => c.commune === "Saint-Pierre")!;
-    expect(page).toContain(`<summary><h3>Saint-Pierre <span class="note">·\u00a0${sp.nombre} défibrillateurs, dont ${sp.toute_heure} accessible${sp.toute_heure > 1 ? "s" : ""} à toute heure</span></h3></summary><ul class="rows eau dae">`);
+    expect(page).toContain(`<summary><h3>Saint-Pierre\u00a0<span class="note">·\u00a0${sp.nombre}\u00a0défibrillateurs, dont ${sp.toute_heure}\u00a0accessible${sp.toute_heure > 1 ? "s" : ""} à toute heure</span></h3></summary><ul class="rows eau dae">`);
   });
 });

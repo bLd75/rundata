@@ -1324,7 +1324,7 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
         const mine = d.stations.filter((s) => s.commune === c.commune).sort((a, b) => b.libres - a.libres || b.puissance_max_kw - a.puissance_max_kw);
         const free = mine.reduce((n, s) => n + s.libres, 0);
         return `<li class="card tgt" id="${anchorId("c", c.commune)}">${folded(foldBornes,
-          `<h3>${esc(c.commune)} <span class="note">${foldBornes ? "·\u00a0" : ""}${free} libre${free > 1 ? "s" : ""} sur ${c.points}, ${c.stations} station${c.stations > 1 ? "s" : ""}</span></h3>`,
+          `<h3>${esc(c.commune)}${foldBornes ? "\u00a0" : " "}<span class="note">${foldBornes ? "·\u00a0" : ""}${free}\u00a0libre${free > 1 ? "s" : ""} sur\u00a0${c.points}, ${c.stations}\u00a0station${c.stations > 1 ? "s" : ""}</span></h3>`,
           `<ul class="rows bornes">${mine.map(borneRow).join("")}</ul>`)}</li>`;
       }).join("")}</ul>` +
       `<p class="note">${esc(d.donnees)}${d.avertissement ? ` ${esc(d.avertissement)}` : ""}</p>`
@@ -2346,7 +2346,7 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
   const list = d
     ? `<ul class="zones">${d.communes.map((c) =>
         `<li class="card tgt" id="${anchorId("c", c.commune)}">${folded(foldDae,
-          `<h3>${esc(c.commune)} <span class="note">${foldDae ? "·\u00a0" : ""}${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}${c.toute_heure ? `, dont ${c.toute_heure} accessible${c.toute_heure > 1 ? "s" : ""} à toute heure` : ""}</span></h3>`,
+          `<h3>${esc(c.commune)}${foldDae ? "\u00a0" : " "}<span class="note">${foldDae ? "·\u00a0" : ""}${c.nombre}\u00a0défibrillateur${c.nombre > 1 ? "s" : ""}${c.toute_heure ? `, dont ${c.toute_heure}\u00a0accessible${c.toute_heure > 1 ? "s" : ""} à toute heure` : ""}</span></h3>`,
           `<ul class="rows eau dae">` +
         c.liste.map((x) => `<li><span>${esc(x.lieu)}<small>${[x.adresse, x.emplacement, x.etage ? `étage ${x.etage}` : ""].filter(Boolean).map((v) => esc(v!)).join(" · ")}</small></span>` +
           `<span class="${x.acces.includes("toute heure") || x.acces.includes("24 h") ? "q-bonne" : "q-none"}">${esc(shortAccess(x.acces))}</span></li>`).join("") +
