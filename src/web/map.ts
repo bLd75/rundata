@@ -4,6 +4,7 @@
  */
 import island from "../places/island.json" with { type: "json" };
 import relief from "./relief.json" with { type: "json" };
+import routes from "./routes.json" with { type: "json" };
 import { ACCUEILS } from "../providers/accueils-medias.js";
 
 const [LON0, LAT0, LON1, LAT1] = island.bbox;
@@ -14,11 +15,17 @@ export const RELIEF_PATH = `/relief-${relief.v}.webp`;
 
 /**
  * The credit of the island's map, for a page that names its own sources (the footer then names none): the communes'
- * contours (scripts/build-island.py), and the IGN's relief when it is drawn (scripts/build-relief.py).
+ * contours (scripts/build-island.py), and what the IGN gives when it is drawn: the relief (scripts/build-relief.py),
+ * the roads and the names of places (scripts/build-routes.py).
  */
 export function mapCredit(html: string): string | undefined {
   if (!html.includes('<use href="#isl"')) return undefined;
-  return `<p class="sources">Carte : contours des communes de geo.api.gouv.fr${html.includes(RELIEF_PATH) ? ", relief de l'IGN (RGE ALTI)" : ""} (Licence Ouverte Etalab 2.0).</p>`;
+  const ign = [
+    html.includes(RELIEF_PATH) && ["relief", "RGE ALTI"],
+    html.includes('<g class="rd"') && [html.includes('<g class="nm"') ? "routes et noms de lieux" : "routes", "BD TOPO"],
+  ].filter((x): x is string[] => !!x);
+  const what = ign.length === 2 ? `${ign[0][0]}, ${ign[1][0]}` : ign[0]?.[0];
+  return `<p class="sources">Carte : contours des communes de geo.api.gouv.fr${what ? `, ${what} de l'IGN (${ign.map((x) => x[1]).join(", ")}), sous Licence Ouverte Etalab 2.0` : " (Licence Ouverte Etalab 2.0)"}.</p>`;
 }
 
 export function project(lon: number, lat: number): [number, number] {
@@ -219,6 +226,145 @@ function zoneLinks(links: Record<string, ZoneLink>): string {
   return out ? `<g class="zones">${out}</g>` : "";
 }
 
+// ---------------------------------------------------------------- roads and names of places, to tell where a point is
+
+/** The bounds of a road of routes.json: « M » then relative moves, numbers only. */
+function lineBounds(d: string): Box {
+  const n = d.match(/-?(?:\d+\.?\d*|\.\d+)/g)!.map(Number);
+  let [x, y] = n;
+  let b: Box = [x, y, x, y];
+  for (let i = 2; i + 1 < n.length; i += 2) {
+    x += n[i];
+    y += n[i + 1];
+    b = [Math.min(b[0], x), Math.min(b[1], y), Math.max(b[2], x), Math.max(b[3], y)];
+  }
+  return b;
+}
+
+/** x0, y0, x1, y1, in the map's units. */
+type Box = [number, number, number, number];
+const touch = (a: Box, b: Box) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+
+/** The roads of the maps close up (scripts/build-routes.py), with their bounds: a map takes those in its frame. */
+const CLOSE = [routes.axes, routes.departementales].flatMap((list, k) => list.map((d) => ({ main: !k, d, b: lineBounds(d) })));
+
+/**
+ * The roads, under a map's data, the same width on screen at any zoom: on the island's map, the main ones alone (one
+ * path); in a frame `[x, y, w, h]`, the main departmental roads as well, those that cross it.
+ */
+function roadsLayer(frame?: number[]): string {
+  const cut: Box | undefined = frame && [frame[0], frame[1], frame[0] + frame[2], frame[1] + frame[3]];
+  const of = (main: boolean) => (cut ? CLOSE.filter((r) => r.main === main && touch(r.b, cut)).map((r) => r.d).join("") : main ? routes.ile : "");
+  const [a, d] = [of(true), of(false)];
+  // Each drawn twice, its dark edge then its line; the departmental roads under the main ones.
+  const def = (id: string, path: string) => (path ? `<path id="${id}" vector-effect="non-scaling-stroke" d="${path}"/>` : "");
+  const use = (id: string, path: string, cls: string) => (path ? `<use href="#${id}" class="rh${cls}"/><use href="#${id}" class="rt${cls}"/>` : "");
+  return `<g class="rd" aria-hidden="true"><defs>${def("rd-d", d)}${def("rd-a", a)}</defs>${use("rd-d", d, " dp")}${use("rd-a", a, "")}</g>`;
+}
+
+/** The island's map on a phone names these six (marketing): the prefecture, the sub-prefectures and the cirques. */
+const SIX = new Set(["Saint-Denis", "Saint-Paul", "Saint-Pierre", "Saint-Benoît", "Cilaos", "Salazie"]);
+
+/** A name's size on screen, in px (marketing): a commune's, any other place's. NOMS_SCRIPT gives a commune 13 px on a map 640 px wide or more. */
+const namePx = (rank: number) => (rank ? 11 : 12);
+
+/** About how wide a name is, in ems of the system font: enough for the server's own placement (NOMS_SCRIPT measures). */
+const EM = 0.56;
+
+/**
+ * The names of places over a map, under its points: the communes, then, close up (`close`), the places of the frame
+ * by importance. `frame` is the part of the map shown, `unit` its units per pixel on a phone (PHONE_PX), `busy` what a
+ * name must not touch: points, pills and labels. A name is shown only if it touches nothing there nor a name already
+ * shown, on its place or around it (NUDGE: a name stands for an area), so the lesser ones go first; on the island's
+ * map, a phone names only the six (SIX). `within`: the commune of the map, the places of importance 2 and 3 named only
+ * inside it (marketing). This is the placement for a phone and without a script: NOMS_SCRIPT does it again at the
+ * map's real size, after each zoom. `hide`: none shown until then, for a map whose points the server does not know (`top`).
+ */
+function namesLayer(opts: { frame: number[]; unit: number; busy: Box[]; close?: boolean; hide?: boolean; within?: [number, number][] }): string {
+  const [fx, fy, fw, fh] = opts.frame;
+  const u = opts.unit;
+  const shown: Box[] = [];
+  const texts = (routes.noms as [string, number, number, number][])
+    .filter(([, rank, x, y]) => (opts.close || !rank) && x >= fx && x <= fx + fw && y >= fy && y <= fy + fh)
+    .filter(([, rank, x, y]) => rank < 2 || !opts.within || inRing(x, y, opts.within))
+    .map(([nom, rank, x, y]) => {
+      const fs = namePx(rank) * u;
+      const half = (nom.length * EM * fs) / 2 + 2 * u;
+      const wide = !opts.close && !SIX.has(nom);
+      const fits = ([dx, dy]: [number, number]): Box | undefined => {
+        const b: Box = [x + dx - half, y + dy - fs * 0.6 - 2 * u, x + dx + half, y + dy + fs * 0.6 + 2 * u];
+        const inside = b[0] >= fx && b[1] >= fy && b[2] <= fx + fw && b[3] <= fy + fh;
+        return inside && ![...opts.busy, ...shown].some((o) => touch(o, b)) ? b : undefined;
+      };
+      const d = opts.hide || wide ? undefined : NUDGE.map(([a, b, c]) => [a * half + b * fs, c * fs] as [number, number]).find((d) => fits(d));
+      if (d) shown.push(fits(d)!);
+      return `<text x="${r2(x + (d?.[0] ?? 0))}" y="${r2(y + (d?.[1] ?? 0))}" data-x="${x}" data-y="${y}" font-size="${r2(fs)}" data-r="${rank}"${wide ? ' data-w=""' : ""}${d ? "" : ' class="nx"'}>${esc(nom)}</text>`;
+    });
+  return texts.length ? `<g class="nm" aria-hidden="true" stroke-width="${r2(3 * u)}">${texts.join("")}</g>` : "";
+}
+
+const r2 = (v: number) => Math.round(v * 100) / 100;
+
+/**
+ * Where a name may stand (marketing): on its place, then beside it on the right, on the left, above, below, then
+ * aslant, then the same a little further, clear of a station on its place. Each `[a, b, c]`: across, `a` half its
+ * width and `b` its size; up and down, `c` its size. The same in NOMS_SCRIPT.
+ */
+const NUDGE: [number, number, number][] = [
+  [0, 0, 0], [1, 0.3, 0], [-1, -0.3, 0], [0, 0, -1.1], [0, 0, 1.1], [1, 0, -1.1], [-1, 0, -1.1], [1, 0, 1.1], [-1, 0, 1.1],
+  [1, 1.3, 0], [-1, -1.3, 0], [0, 0, -2], [0, 0, 2],
+];
+
+/** The points of a commune's outline (src/places/island.json: « M » then relative moves). */
+function ringOf(d: string): [number, number][] {
+  let x = 0, y = 0;
+  return [...d.matchAll(/([Ml])(-?[\d.]+)[, ]?(-?[\d.]+)/g)].map(([, c, a, b]) => ([x, y] = c === "M" ? [+a, +b] : [x + +a, y + +b]) as [number, number]);
+}
+
+/** Whether a point is inside a ring (even-odd). */
+function inRing(x: number, y: number, ring: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** What a marker covers, its pill or its disc, at `at` (where apart() put it) or on its place. */
+function markerBox(m: Marker, at?: [number, number]): Box {
+  const [x, y] = at ?? project(m.lon, m.lat);
+  const [hw, hh] = m.round ? [36, 36] : [pillW(m) / 2 + 2, PILL_H / 2 + 2];
+  return [x - hw, y - hh, x + hw, y + hh];
+}
+
+/**
+ * The page's script for the names of places (namesLayer()), on every map that has them: each name at its size on
+ * screen, then shown only if it touches no point, label or name already shown, on its place or around it (NUDGE), as
+ * the server does for a phone. First the summits' names (`peaks`): below the summit, else above, on the right, on the
+ * left, then aslant on either side, the first that touches no point (else the one that covers the least); the name
+ * moves, never the station. What is hidden takes no room (the wind's pills under the temperatures, the summits'
+ * names on a phone). Again when the map changes size, when the commune's map zooms (its viewBox) and when a tab
+ * changes the points shown.
+ */
+export const NOMS_SCRIPT = `(()=>{const P=${JSON.stringify(NUDGE).replace(/</g, "\\u003c")},hit=(a,b)=>a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3];
+const run=(svg)=>{const g=svg.querySelector(".nm"),vb=svg.viewBox.baseVal,cw=svg.clientWidth;if(!g||!vb||!vb.width||!cw)return;
+const u=vb.width/cw,wide=cw>=640,p=2*u,busy=[],kept=[],box=(b,r)=>[b.x-r-p,b.y-r-p,b.x+b.width+r+p,b.y+b.height+r+p],
+free=(b)=>b[0]>=vb.x&&b[1]>=vb.y&&b[2]<=vb.x+vb.width&&b[3]<=vb.y+vb.height&&![...busy,...kept].some((o)=>hit(o,b));const shown=(e)=>{for(;e&&e!==svg;e=e.parentNode)if(getComputedStyle(e).display==="none")return false;return true};
+svg.querySelectorAll(".mk .sh,.mk .mn,.sp:not(.off) .rg,.pin,.ties circle,.trk-start").forEach((e)=>{let b;if(!shown(e))return;try{b=e.getBBox()}catch{return}const r=e.matches(".rg")?9*u:0;if(b.width||b.height||r&&e.getClientRects().length)busy.push(box(b,r))});
+const marks=[];svg.querySelectorAll(".pk").forEach((k)=>{const ts=[...k.querySelectorAll("text")],at=(d)=>ts.forEach((t)=>{if(t.dataset.x===undefined){t.dataset.x=t.getAttribute("x");t.dataset.y=t.getAttribute("y")}t.setAttribute("x",+t.dataset.x+d[0]);t.setAttribute("y",+t.dataset.y+d[1])});
+let T;if(!shown(k))return;try{at([0,0]);T=k.querySelector("path").getBBox()}catch{return}if(!T.width)return;marks.push(box(T,0));let B=null;for(const t of ts){if(!shown(t))continue;const q=t.getBBox();if(q.width)B=B?[Math.min(B[0],q.x),Math.min(B[1],q.y),Math.max(B[2],q.x+q.width),Math.max(B[3],q.y+q.height)]:[q.x,q.y,q.x+q.width,q.y+q.height]}if(!B)return;
+const s=4*u,cy=T.y+T.height/2-(B[1]+B[3])/2,hb=(B[3]-B[1])/2,R=T.x+T.width+s-B[0],L=T.x-s-B[2],at2=(d)=>[B[0]+d[0]-p,B[1]+d[1]-p,B[2]+d[0]+p,B[3]+d[1]+p],
+ds=[[0,0],[0,T.y-s-B[3]],[R,cy],[L,cy],[R,cy-hb],[L,cy-hb],[R,cy+hb],[L,cy+hb]],over=(d)=>{const a=at2(d);return busy.reduce((n,o)=>n+Math.max(0,Math.min(a[2],o[2])-Math.max(a[0],o[0]))*Math.max(0,Math.min(a[3],o[3])-Math.max(a[1],o[1])),0)},
+go=ds.find((d)=>free(at2(d)))||ds.reduce((m,d)=>(over(d)<over(m)?d:m));
+at(go);marks.push(at2(go))});busy.push(...marks);
+g.setAttribute("stroke-width",3*u);for(const t of g.children){const fs=(t.dataset.r==="0"?(wide?13:12):11)*u;t.setAttribute("font-size",fs);t.classList.remove("nx");
+if(t.hasAttribute("data-w")&&!wide){t.classList.add("nx");continue}t.setAttribute("x",t.dataset.x);t.setAttribute("y",t.dataset.y);const h=t.getBBox().width/2+p;let ok=false;
+for(const [ka,kb,kc] of P){t.setAttribute("x",+t.dataset.x+ka*h+kb*fs);t.setAttribute("y",+t.dataset.y+kc*fs);const b=box(t.getBBox(),0);if(free(b)){kept.push(b);ok=true;break}}if(!ok)t.classList.add("nx")}};
+const maps=[...document.querySelectorAll("svg.map")].filter((s)=>s.querySelector(".nm"));const wait=new Map(),later=(s)=>{clearTimeout(wait.get(s));wait.set(s,setTimeout(()=>run(s),120))};
+maps.forEach((s)=>{run(s);if(window.ResizeObserver)new ResizeObserver(()=>later(s)).observe(s);new MutationObserver(()=>later(s)).observe(s,{attributes:true,attributeFilter:["viewBox"]})});
+document.addEventListener("change",()=>maps.forEach(later))})();`;
+
 /**
  * `highlight`: the commune whose page this is. `pin`: the place asked about, drawn as a dot with its name.
  * `peaks`: the two summits, for orientation on the island-wide map. `fills`: a colour per commune (the vigilance map).
@@ -237,7 +383,9 @@ export function islandMap(opts: {
   links?: Record<string, ZoneLink>;
   /** The hero's island: the real relief (IGN altitudes, shaded), a lagoon glow along the coast, the two volcanoes marked. */
   relief?: boolean;
-  /** Drawn over the land, under the markers: lines. */
+  /** Drawn over the land, under the roads: the colours of a measure (the weather's canvases). */
+  under?: string;
+  /** Drawn over the land and the roads, under the markers: lines, points of a layer. */
   overlay?: string;
   /** Drawn over everything, the summits included: markers the page draws itself. */
   top?: string;
@@ -261,9 +409,15 @@ export function islandMap(opts: {
   const linked = !!opts.links || !!opts.top || [...(opts.markers ?? []), ...(opts.layers ?? []).flatMap((l) => l.markers)].some((m) => m.href);
   const role = linked ? `role="group"` : `role="img"`;
   const zones = opts.links ? zoneLinks(opts.links) : "";
+  // What the names of places must not touch (namesLayer()).
+  const busy: Box[] = [];
   const draw = (list: Marker[]) => {
     const radii = hitRadii(list);
     const at = opts.apart ? apart(list) : undefined;
+    list.forEach((m, i) => {
+      busy.push(markerBox(m, at?.[i]));
+      if (at && !m.round && !onPlace(m, at[i])) busy.push(markerBox({ ...m, round: true }));
+    });
     return (at ? ties(list, at) : "") + list.map((m, i) => marker(m, radii[i], at?.[i])).join("");
   };
   const markers = draw(opts.markers ?? []) + (opts.layers ?? []).map((l) => `<g class="ly ly-${esc(l.id)}${l.on ? " on" : ""}">${draw(l.markers)}</g>`).join("");
@@ -272,12 +426,17 @@ export function islandMap(opts: {
   if (opts.peaks) {
     for (const p of PEAKS) {
       const [x, y] = project(p.lon, p.lat);
+      // The summit and its two lines (23 units high): names keep off them (NOMS_SCRIPT moves the lines off a point).
+      const half = (p.name.length * EM * 23) / 2;
+      busy.push([x - 16, y - 16, x + 16, y + 12], [x - half, y + 26, x + half, y + 78]);
       extra += `<g class="pk"><path d="M${x - 14} ${y + 10}L${x} ${y - 14}L${x + 14} ${y + 10}Z"/>` +
         `<text x="${x}" y="${y + 40}">${esc(p.name)}</text><text x="${x}" y="${y + 66}">${p.alt}</text></g>`;
     }
   }
   if (opts.pin) {
     const [x, y] = project(opts.pin.lon, opts.pin.lat);
+    const half = (opts.pin.name.length * EM * 34) / 2;
+    busy.push([x - 36, y - 36, x + 36, y + 36], [x - half, y - 84, x + half, y - 40]);
     extra += `<g class="pin"><circle cx="${x}" cy="${y}" r="16"/><circle cx="${x}" cy="${y}" r="34" class="halo"/>` +
       `<text x="${x}" y="${y - 50}">${esc(opts.pin.name)}</text></g>`;
   }
@@ -300,11 +459,13 @@ export function islandMap(opts: {
   const land = terrain
     ? `<use href="#isl" class="land"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>`
     : `<use href="#isl" class="land"/>${fills}`;
+  // The names over the relief only: on the maps in colours (fills), the colours are the data.
+  const names = terrain ? namesLayer({ frame: [0, 0, W, H], unit: W / PHONE_PX, busy, hide: !!opts.top }) : "";
   return `<svg class="map${terrain ? " terrain" : ""}" viewBox="0 0 ${W} ${H}" ${role} aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g>${terrain ? `<clipPath id="isl-clip">${paths}</clipPath>` : ""}</defs>` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>` +
     `<use href="#isl" class="coast"/>${land}<use href="#isl" class="borders"/>` +
-    (opts.overlay ?? "") + zones + extra + markers + (opts.top ?? "") + `</svg>`;
+    (opts.under ?? "") + roadsLayer() + (opts.overlay ?? "") + zones + extra + names + markers + (opts.top ?? "") + `</svg>`;
 }
 
 // ---------------------------------------------------------------- every hike and trail of the island
@@ -407,12 +568,15 @@ export function traceMap(opts: { lines: TraceLine[]; label: string; minKm?: numb
   const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
   const d = (l: TraceLine) => l.points.map(([lon, lat], i) => `${i ? "L" : "M"}${exact(lon, lat).join(" ")}`).join("");
   const [sx, sy] = exact(...opts.lines[0].points[0]);
-  const box = [x0, y0, w, h].map((v) => Math.round(v * 100) / 100).join(" ");
+  const frame = [x0, y0, w, h].map((v) => Math.round(v * 100) / 100);
+  const box = frame.join(" ");
+  const names = namesLayer({ frame, unit: w / PHONE_PX, busy: [[sx - r * 2, sy - r * 2, sx + r * 2, sy + r * 2]], close: true });
   return `<svg class="map terrain zoom" viewBox="${box}" role="img" aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g><clipPath id="isl-clip">${paths}</clipPath></defs>` +
     `<rect class="sea" x="${x0 - w}" y="${y0 - h}" width="${w * 3}" height="${h * 3}"/>` +
     `<use href="#isl" class="coast"/><use href="#isl" class="land"/>` +
     `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
+    roadsLayer(frame) + names +
     opts.lines.map((l) => `<path class="trk-halo" d="${d(l)}"/><path class="trk ${esc(l.etat)}" d="${d(l)}"/>`).join("") +
     `<circle class="trk-start" cx="${sx}" cy="${sy}" r="${Math.round(r * 100) / 100}"/></svg>`;
 }
@@ -483,7 +647,9 @@ export function communeMap(opts: { commune: string; spots: Spot[]; label: string
     `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
     // The island dimmed, then the commune's relief again over it, clear.
     `<use href="#isl" class="dim"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#com-clip)"/>` +
-    `<path class="hl" d="${shape.d}"/><g class="spots">${dots}</g></svg>`;
+    roadsLayer(box) + `<path class="hl" d="${shape.d}"/>` +
+    namesLayer({ frame: box, unit, busy: at.map(([x, y]) => [x - 10 * unit, y - 10 * unit, x + 10 * unit, y + 10 * unit]), close: true, within: ringOf(shape.d) }) +
+    `<g class="spots">${dots}</g></svg>`;
 }
 
 /** The altitude along the trail: an area, the axes in km and m. */

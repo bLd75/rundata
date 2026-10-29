@@ -35,7 +35,7 @@ import rubriques from "./og-rubriques.json" with { type: "json" };
 import { byUse, FIRST, type Urgent, urgentKeys, WITH_PAGE } from "./categories.js";
 import { FLAG_INNER } from "./flag.js";
 import { logo } from "./logo.js";
-import { esc, islandMap, mapCredit, type Marker } from "./map.js";
+import { esc, islandMap, mapCredit, type Marker, NOMS_SCRIPT } from "./map.js";
 import { typo } from "./typo.js";
 import { mentionLinks } from "../mentions.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
@@ -512,6 +512,11 @@ text-decoration:none;color:#fff;background:rgb(255 255 255/.09);border:1px solid
 .map.terrain .mn,.map.terrain .pk text,.map.terrain .pin text{fill:#fff;stroke:rgb(10 30 40/.75)}
 .map.terrain .pk path{fill:#fff}
 .map.zoom .coast{stroke-width:3px;vector-effect:non-scaling-stroke}
+.map .rd{pointer-events:none}.map .rd use{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.map .rd .rh{stroke:rgb(11 31 54/.45);stroke-width:3.5px}.map .rd .rt{stroke:#f6f2ea;stroke-width:2px;opacity:.9}
+.map .rd .dp.rh{stroke-width:2.25px}.map .rd .dp.rt{stroke-width:1.25px}.wxmap .map .rd .rt{opacity:.7}
+.map .nm{pointer-events:none}.map .nm text{fill:#f1f5f9;stroke:rgb(11 31 54/.75);paint-order:stroke;stroke-linejoin:round;font-weight:500;dominant-baseline:central;text-rendering:geometricPrecision}
+.map .nm [data-r="0"]{font-weight:600}.map .nm .nx{display:none}
 .map .trk{fill:none;stroke:#ff922b;stroke-width:4px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .map .trk.ouvert{stroke:#ffd43b}.map .trk.ferme{stroke:#ff6b6b;stroke-dasharray:6 5}.map .trk.inconnu{stroke:#ced4da}
 .map .trk-halo{fill:none;stroke:rgb(10 30 40/.7);stroke-width:8px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
@@ -938,6 +943,7 @@ document.querySelectorAll("a[data-maj]").forEach((a)=>{const h=a.getAttribute("h
 a.href=h.replace(encodeURIComponent(u),encodeURIComponent(u+"?maj="+t.getUTCHours()+"h"+String(t.getUTCMinutes()).padStart(2,"0")))};["click","auxclick","contextmenu"].forEach((e)=>a.addEventListener(e,set))});
 ${COPIE_SCRIPT}
 ${POINTS_SCRIPT}
+${NOMS_SCRIPT}
 const hhmm=(t)=>{const d=new Date(t+144e5);return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0")};
 const tick=()=>{const n=Date.now();document.querySelectorAll("[data-clock]").forEach((e)=>{e.textContent=hhmm(n)});
 document.querySelectorAll("[data-age]").forEach((e)=>{const m=Math.max(0,Math.round((n-Date.parse(e.dataset.age))/6e4));
@@ -1178,7 +1184,7 @@ ${sources.length ? `<div class="wrap fin-sources">${sources.join("\n")}</div>\n`
   </div>
   <div>
     ${sources.length ? `<p><a href="/chiffres">Toutes les sources →</a></p>` : `<h3>Sources</h3>
-    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS et ensemble ENS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Cyclones : CMRS de La Réunion (Météo-France), via GDACS. Historique : données climatologiques quotidiennes de Météo-France depuis 1900. Volcan : préfecture de La Réunion, OVPF-IPGP (CC BY 4.0), et en dernier recours <a href="https://pitonlive.com">pitonlive.com</a> (site non officiel). Électricité : EDF SEI. Air : Atmo Réunion (ODbL). Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Randonnée : ONF La Réunion ; itinéraires et traces © contributeurs OpenStreetMap (ODbL). Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Relief : IGN, RGE ALTI. Police des titres : Bricolage Grotesque (SIL OFL).</p>`}
+    <p>Mesures : stations Météo-France de La Réunion (Licence Ouverte Etalab 2.0), aéroports Roland-Garros et Pierrefonds (METAR), balises de vent <a href="https://openwindmap.org">OpenWindMap</a>, température de la mer par satellite NOAA CoastWatch et NASA MODIS (domaine public). Prévisions : AROME outre-mer de Météo-France (Licence Ouverte), modèle IFS et ensemble ENS de l'ECMWF, <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0). Vigilance et radar : Météo-France. Cyclones : CMRS de La Réunion (Météo-France), via GDACS. Historique : données climatologiques quotidiennes de Météo-France depuis 1900. Volcan : préfecture de La Réunion, OVPF-IPGP (CC BY 4.0), et en dernier recours <a href="https://pitonlive.com">pitonlive.com</a> (site non officiel). Électricité : EDF SEI. Air : Atmo Réunion (ODbL). Services publics : service-public.fr. Bus : horaires publiés par les réseaux sur transport.data.gouv.fr. Vélos : Altervélo (CIVIS, Ecovélo). Terrain et risques : IGN, DGFiP, Géoportail de l'urbanisme, DEAL Réunion, Géorisques (BRGM), DVF du Cerema. Toutes sous Licence Ouverte sauf mention. Randonnée : ONF La Réunion ; itinéraires et traces © contributeurs OpenStreetMap (ODbL). Lieux : © contributeurs OpenStreetMap (ODbL), IGN, geo.api.gouv.fr. Relief, routes et noms des cartes : IGN, RGE ALTI et BD TOPO. Police des titres : Bricolage Grotesque (SIL OFL).</p>`}
     <p>Ces données sont fournies telles quelles, sans garantie. Pour un cyclone ou de fortes pluies, seules comptent la vigilance de <a href="https://meteofrance.re/">Météo-France La Réunion</a> et les consignes de la préfecture.</p>
     <p><a href="/publier">Votre organisation publie un agenda ou des données ? Le guide pour les publier en flux ouvert →</a></p>
   </div>

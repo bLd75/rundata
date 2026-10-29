@@ -112,6 +112,7 @@ export const FICHES: Record<string, Fiche> = {
   // The DEAL's risk plans, passed on by the same Géoportail.
   gpu_ppr: { famille: "licence_ouverte", producteurs: ["DEAL Réunion"] },
   ign_altimetrie: { famille: "licence_ouverte", producteurs: ["IGN"] },
+  ign_bdtopo: { famille: "licence_ouverte", producteurs: ["IGN"] },
   georisques: { famille: "licence_ouverte", producteurs: [MTE, "BRGM"] },
   dvf_cerema: { famille: "licence_ouverte", producteurs: ["DGFiP", "Cerema"] },
   // The same sales, by street: the DGFiP's, placed on the map by Etalab.
