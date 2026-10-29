@@ -523,6 +523,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       description:
         "Offres d'emploi de la fonction publique à La Réunion (974), d'après Choisir le service public : État, communes, Département, Région, hôpitaux, université. " +
         "Pour chaque offre ouverte : l'intitulé, l'employeur, la commune, la nature de l'emploi, la date de publication, la date limite de candidature et le lien pour postuler sur le site, la plus récente d'abord. " +
+        "Un poste publié sous plusieurs références : une ligne, nombre_offres et references (référence, date, lien). " +
         "Donner le lien de chaque offre\u00a0; la page de l'offre fait foi (elle peut être pourvue avant sa date limite). Les offres des entreprises n'y sont pas : renvoyer à France Travail, sans en inventer. " +
         "Pour : « offres d'emploi à la mairie de Saint-Paul ? », « le CHU recrute des infirmiers ? », « emploi public au Tampon ? ».",
       inputSchema: {

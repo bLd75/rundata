@@ -4,7 +4,7 @@ import { counted } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import * as emploiSource from "../src/providers/emploi.js";
 import { REGISTRY } from "../src/registre.js";
-import { emploi, NON_REPRIS } from "../src/tools/emploi.js";
+import { emploi, lignes, NON_REPRIS } from "../src/tools/emploi.js";
 import { buildEmploi, emploiPage } from "../src/web/emploi.js";
 
 // The feed of La Réunion read on 29/10/2026 at 12:20, two offers' pages and the first search page read at 12:26-12:28,
@@ -195,7 +195,7 @@ describe("the tool emploi and the page /emploi", () => {
     return c;
   }
 
-  it("gives the island's offers newest first, each with its link, and says what is not taken", async () => {
+  it("gives the island's offers newest first, each with its link, one line for a post published under several references, and says what is not taken", async () => {
     const c = await copie();
     emploiSource.configure(async () => c);
     const r = body(await emploi(cache(), undefined, undefined, NOW));
@@ -208,8 +208,16 @@ describe("the tool emploi and the page /emploi", () => {
       nature: "Emploi ouvert aux titulaires et aux contractuels",
       publiee_le: "29/10",
       date_limite: "20/11",
-      lien: "https://choisirleservicepublic.gouv.fr/offre-emploi/DGAC-AVE-128697-CAT-A/",
+      nombre_offres: 2,
+      references: [
+        { reference: "DGAC-AVE-128697-CAT-A", publiee_le: "29/10", lien: "https://choisirleservicepublic.gouv.fr/offre-emploi/DGAC-AVE-128697-CAT-A/" },
+        { reference: "DGAC-AVE-128697-CAT-B", publiee_le: "29/10", lien: "https://choisirleservicepublic.gouv.fr/offre-emploi/DGAC-AVE-128697-CAT-B/" },
+      ],
     });
+    // Every offer once: in a line of its own or among a line's references.
+    const refs = r.offres.flatMap((o: { lien?: string; references?: { lien: string }[] }) => o.references?.map((x) => x.lien) ?? [o.lien]);
+    expect(refs).toHaveLength(20);
+    expect(r.offres.length).toBeLessThan(20);
     expect(r.non_repris).toBe(NON_REPRIS);
     expect(r.entreprises).toContain("https://www.francetravail.fr/accueil/");
     expect(JSON.stringify(r)).not.toMatch(/refuse|hellowork\.com|apec\.fr/i);
@@ -224,7 +232,12 @@ describe("the tool emploi and the page /emploi", () => {
     expect(marie.resume).toContain("12 offres ouvertes à la candidature à Sainte-Marie");
     expect(marie.resume).toContain("2 autres offres de La Réunion ne précisent pas leur commune.");
     const words = body(await emploi(cache(), undefined, "gestionnaire finances", NOW));
-    expect(words.offres.map((o: { intitule: string }) => o.intitule)).toEqual(Array(4).fill("Gestionnaire finances*SG/SIR/OI/FIN"));
+    // Four offers, one line: the site's references, one per category and per post.
+    expect(words.nombre).toBe(4);
+    expect(words.offres).toHaveLength(1);
+    expect(words.offres[0]).toMatchObject({ intitule: "Gestionnaire finances*SG/SIR/OI/FIN", nombre_offres: 4 });
+    expect(words.offres[0].references.map((x: { reference: string }) => x.reference)).toEqual(["DGAC-AVE-128051-CAT-B", "DGAC-AVE-128051-CAT-C", "DGAC-AVE-128096-CAT-B", "DGAC-AVE-128096-CAT-C"]);
+    expect(words.offres[0]).not.toHaveProperty("lien");
     expect(body(await emploi(cache(), "Nulle-Part-Ici", undefined, NOW)).erreur).toBeDefined();
   });
 
@@ -251,6 +264,45 @@ describe("the tool emploi and the page /emploi", () => {
     // Empty: marketing's sentence, with the hour.
     const none = emploiPage("https://rundata.re", { value: { ...d, nombre: 0, offres: [] }, fetchedAt: NOW, stale: false }, NOW);
     expect(none).toContain("Aucune offre publiée sur Choisir le service public pour La Réunion à 12:45.");
+  });
+
+  it("shows a post published under several references as one line, a link to each, the days of each when the line has no closing date", async () => {
+    const c = await copie();
+    emploiSource.configure(async () => c);
+    const d = await buildEmploi(cache(), NOW);
+    const page = emploiPage("https://rundata.re", { value: d, fetchedAt: new Date(c.lu), stale: false }, NOW);
+    // In marketing's words: the title alone, « 4 offres : », a link per line with the whole reference.
+    expect(page).toContain('<li data-c="Sainte-Marie" data-n="4"><span><b>Gestionnaire finances*SG/SIR/OI/FIN</b><small>');
+    expect(page).toContain('<small class="refs">4 offres\u00a0:</small><a href="https://choisirleservicepublic.gouv.fr/offre-emploi/DGAC-AVE-128051-CAT-B/" rel="noopener">Réf. DGAC-AVE-128051-CAT-B</a><a href=');
+    expect(page.match(/<li /g)!.length).toBeLessThan(20);
+    // The filter counts the offers, not the lines.
+    expect(page).toContain("+e.dataset.n||1");
+    // Without a closing date, three offers published on three days: each says its own, the line the first and the last.
+    const o = (ref: string, publiee: string): emploiSource.Offre => ({ ref, intitule: "AGENT D'ENTRETIEN", lien: emploiSource.lienDe(ref), publiee, employeur: "Département", domaine: "Intervention technique et logistique" });
+    const offres = [o("O974261020000001", "2026-10-20T06:00:00Z"), o("O974261008000002", "2026-10-08T06:00:00Z"), o("O974261002000003", "2026-10-02T06:00:00Z")];
+    const [line] = lignes(offres);
+    expect(line).not.toHaveProperty("publiee_le");
+    const html = emploiPage("https://rundata.re", { value: { ...d, nombre: 3, offres: [line] }, fetchedAt: NOW, stale: false }, NOW);
+    expect(html).toContain('rel="noopener">Réf. O974261008000002, publiée le 08/10</a>');
+    expect(html).toContain('<span class="q-none du">publiées du 02/10 au 20/10</span>');
+    // The same day for all: said once, at the right, as for one offer.
+    const same = lignes(offres.map((x) => ({ ...x, publiee: "2026-10-08T06:00:00Z" })))[0];
+    const html2 = emploiPage("https://rundata.re", { value: { ...d, nombre: 3, offres: [same] }, fetchedAt: NOW, stale: false }, NOW);
+    expect(html2).toContain('rel="noopener">Réf. O974261008000002</a>');
+    expect(html2).toContain('<span class="q-none">publiée le 08/10</span>');
+    // A closing date apart, or another place: two lines.
+    expect(lignes([offres[0], { ...offres[1], limite: "2026-11-20" }])).toHaveLength(2);
+    expect(lignes([offres[0], { ...offres[1], commune: "Saint-Paul" }])).toHaveLength(2);
+  });
+
+  it("lists the tool's lines up to its maximum, and counts the offers left", async () => {
+    const c = await copie();
+    emploiSource.configure(async () => c);
+    const r = body(await emploi(cache(), undefined, "gestionnaire finances", NOW, 1));
+    expect(r.autres).toBeUndefined();
+    const all = body(await emploi(cache(), undefined, undefined, NOW, 1));
+    const first = all.offres[0].nombre_offres ?? 1;
+    expect(all.autres).toBe(`${20 - first} autres offres, sur ${emploiSource.SOURCE.url}`);
   });
 
   it("says when the offers are read next while the store has none, without a reading time", async () => {

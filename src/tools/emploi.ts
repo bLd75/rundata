@@ -38,7 +38,36 @@ export function offreRow(o: Offre) {
     lien: o.lien,
   };
 }
-export type OffreRow = ReturnType<typeof offreRow>;
+type Une = ReturnType<typeof offreRow>;
+/** An offer of a line that holds several: its reference as the site writes it, its day and its page. */
+export interface Reference {
+  reference: string;
+  publiee_le: string;
+  lien: string;
+}
+/**
+ * A line of the tool and of the page: one offer, or the offers that would read the same, each with its reference (the
+ * site publishes one post under several, a reference per category at the DGAC). The day each was published does not
+ * part them, as the page does not show it beside a closing date: said for each one; the closing date does.
+ */
+export type OffreRow = Une | (Omit<Une, "lien" | "publiee_le"> & { publiee_le?: string; nombre_offres: number; references: Reference[] });
+
+/** The offers in lines, in the order of the first of each. */
+export function lignes(offres: Offre[]): OffreRow[] {
+  const groups = new Map<string, Offre[]>();
+  for (const o of offres) {
+    const { lien: _, publiee_le: __, ...shown } = offreRow(o);
+    const key = JSON.stringify(shown);
+    groups.set(key, [...(groups.get(key) ?? []), o]);
+  }
+  return [...groups.values()].map((g) => {
+    const row = offreRow(g[0]);
+    if (g.length === 1) return row;
+    const { lien: _, publiee_le, ...shown } = row;
+    const references = g.map((o) => ({ reference: o.ref, publiee_le: dayMonth(o.publiee), lien: o.lien }));
+    return { ...shown, ...(references.every((r) => r.publiee_le === publiee_le) ? { publiee_le } : {}), nombre_offres: g.length, references };
+  });
+}
 
 /** Whether every word asked is in the offer: its title, employer, field, job, nature or place. */
 const matches = (o: Offre, words: string[]) => {
@@ -78,12 +107,14 @@ export async function emploi(cache: Cache, lieu: string | undefined, motCle: str
       `${all[0] ? `, la plus récente publiée le ${dayMonth(all[0].publiee)} : ${all[0].intitule}` : ""}.` +
       (sansCommune ? ` ${plural(sansCommune, "autre offre de La Réunion ne précise pas sa commune", "autres offres de La Réunion ne précisent pas leur commune")}${what}.` : "");
 
+  const rows = lignes(all).slice(0, max);
+  const shown = rows.reduce((n, r) => n + ("nombre_offres" in r ? r.nombre_offres : 1), 0);
   return text({
     ...(place && lieu ? { lieu: placeBlock(lieu, place) } : {}),
     resume,
     nombre: all.length,
-    offres: all.slice(0, max).map(offreRow),
-    ...(all.length > max ? { autres: `${plural(all.length - max, "autre offre", "autres offres")}, sur ${emploiSource.SOURCE.url}` } : {}),
+    offres: rows,
+    ...(all.length > shown ? { autres: `${plural(all.length - shown, "autre offre", "autres offres")}, sur ${emploiSource.SOURCE.url}` } : {}),
     ...(c.echec ? { injoignable: injoignable("le site de Choisir le service public", at, localTime(new Date(c.echec)), now).texte } : {}),
     couverture: c.offres.some((o) => !o.limite && !emploiSource.enAttente(o)) ? `${COUVERTURE} ${SANS_LIMITE}` : COUVERTURE,
     entreprises: `Les offres des entreprises ne sont pas reprises ici : vous les trouvez sur ${ENTREPRISES.map((e) => `${e.nom} (${e.lien})`).join(" et sur ")}, le portail emploi et formation de La Réunion.`,
