@@ -7,6 +7,7 @@ import type { Cached } from "../cache.js";
 import { mentionOf } from "../mentions.js";
 import { ACCUEILS } from "../providers/agenda.js";
 import * as enfants from "../vie/enfants.js";
+import { aller, SHEET as ALLER } from "./aller.js";
 import { PAGES, type PlacePage } from "./places.js";
 import { aCommune, deCommune } from "./aujourdhui.js";
 import type { Alerte, EnfantsAnswer } from "./data.js";
@@ -53,14 +54,23 @@ function eventLi(r: Row): string {
   return `<li data-b="${a.bands.join(" ")}" data-t="agenda"><span>${status}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${ACCUEILS.has(r.lien) ? ' target="_blank"' : ""}>${esc(r.titre)}</a>` : esc(r.titre)}<small>${small}</small></span>${badge(a)}</li>`;
 }
 
+/**
+ * A place's second line: its address, its age and today's hours on the left, « Y aller » on the right, so that the name
+ * has the width of the first line (data-run, 29/10: under the name alone, the button nearly doubled the list's height).
+ */
+const second = (l: enfants.Lieu, nom: string, a: enfants.Age, today: string | undefined) =>
+  `<span class="l2"><span>${l.adresse ? `<small class="adr">${esc(l.adresse)}</small> ` : ""}${badge(a)}${today ? ` <small>${esc(`aujourd'hui ${today}`)}</small>` : ""}</span>` +
+  `${aller({ nom, lat: l.lat, lon: l.lon, adresse: l.adresse })}</span>`;
+
 function placeLi(l: enfants.Lieu, now: Date): string {
   const a = enfants.ageOf(l);
   const today = enfants.hoursToday(l, now);
   const link = l.site ?? l.lien;
   // A site that asks for its name with each link (mentions.ts): right after the address.
-  const small = [l.detail, l.adresse, mentionOf(link), today ? `aujourd'hui ${today}` : undefined].filter(Boolean).map((x) => esc(x!)).join(" · ");
+  const small = [l.detail, mentionOf(link)].filter(Boolean).map((x) => esc(x!)).join(" · ");
   const name = esc(enfants.nameOf(l));
-  return `<li data-b="${a.bands.join(" ")}" data-t="${l.type}"><span>${link ? `<a href="${esc(link)}" rel="noopener">${name}</a>` : name}${small ? `<small>${small}</small>` : ""}</span>${badge(a)}</li>`;
+  return `<li data-b="${a.bands.join(" ")}" data-t="${l.type}"><span>${link ? `<a href="${esc(link)}" rel="noopener">${name}</a>` : name}${small ? `<small>${small}</small>` : ""}</span>` +
+    `${second(l, enfants.nameOf(l), a, today)}</li>`;
 }
 
 // The note of an indicated age on hover: once in the page (#enf's data-note), not on each of its hundreds of rows. The
@@ -142,7 +152,7 @@ ${filter}
   <p class="note">${esc(enfants.INDICATIF_NOTE)}</p>
   <p class="note">${esc(CREDITS)}</p>
 </section>
-</div><script>${FILTER_SCRIPT}</script>
+</div><script>${FILTER_SCRIPT}</script>${ALLER}
 ${connectorCta("annuaire_services_publics", "les lieux pour les enfants")}`;
 
   return layout(origin, { title: TITLE, description: DESCRIPTION, path, jsonld: [crumbs(origin, "Enfants", path), webPage(origin, path, TITLE, DESCRIPTION, data)], alerte }, band, body);
@@ -202,14 +212,28 @@ const FILTRES: Record<enfants.Kind, string> = {
   escalade: "Escalade",
 };
 
-/** The families of kinds, a colour each on the map (the legend's): what the eye sorts first. */
-const FAMILLES: { f: string; nom: string; types: enfants.Kind[] }[] = [
-  { f: "jeux", nom: "Jeux et loisirs", types: ["aire_de_jeux", "salle_jeux", "ludotheque", "loisirs"] },
-  { f: "nature", nom: "Parcs et animaux", types: ["parc", "animaux"] },
-  { f: "eau", nom: "Piscines", types: ["piscine"] },
-  { f: "culture", nom: "Livres et musées", types: ["mediatheque", "musee"] },
-  { f: "sport", nom: "Sport", types: ["sport", "escalade"] },
+/**
+ * The families of kinds, a colour each on the map: what the eye sorts first. A colour has no name of its own: the legend
+ * names it with the filters of the kinds it has in the commune (`couleur`), so that a point is never read under two names.
+ */
+const FAMILLES: { f: string; types: enfants.Kind[] }[] = [
+  { f: "jeux", types: ["aire_de_jeux", "salle_jeux", "ludotheque", "loisirs"] },
+  { f: "nature", types: ["parc", "animaux"] },
+  { f: "eau", types: ["piscine"] },
+  { f: "culture", types: ["mediatheque", "musee"] },
+  { f: "sport", types: ["sport", "escalade"] },
 ];
+/**
+ * A colour's name in the legend (marketing, 29/10): the filter of its one kind in the list, word for word; else its
+ * kinds' filters in the buttons' order, the next ones in lower case, « et » before the last, or commas alone when a
+ * filter has its own « et » (« Parcs et jardins, zoos et aquariums »).
+ */
+export function couleur(types: enfants.Kind[], list: enfants.Lieu[]): string {
+  const noms = enfants.TYPES.map((t) => t.type).filter((k) => types.includes(k) && list.some((l) => l.type === k))
+    .map((k, i) => (i ? FILTRES[k].charAt(0).toLowerCase() + FILTRES[k].slice(1) : FILTRES[k]));
+  if (noms.length < 2 || noms.some((n) => n.includes(" et "))) return noms.join(", ");
+  return `${noms.slice(0, -1).join(", ")} et ${noms[noms.length - 1]}`;
+}
 const familleOf = (k: enfants.Kind) => FAMILLES.find((x) => x.types.includes(k))!;
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -232,7 +256,7 @@ svg.addEventListener("wheel",(e)=>{if(!e.ctrlKey&&!svg.classList.contains("zoome
 document.getElementById("ecz").addEventListener("click",(e)=>{const z=e.target.closest("button")?.dataset.z;if(z==="+")zoom(1.6);else if(z==="-")zoom(1/1.6);else if(z==="0"){v=B.slice();put()}});
 const pick=(i,show)=>{svg.querySelectorAll(".sp.on").forEach((a)=>a.classList.remove("on"));document.querySelectorAll("#ecl li.on").forEach((l)=>l.classList.remove("on"));
 const a=svg.querySelector('.sp[data-i="'+i+'"]'),li=document.getElementById("lieu-"+i);if(!a||!li)return;a.classList.add("on");a.parentNode.appendChild(a);li.classList.add("on");
-sheet.querySelector(".nm").innerHTML=li.querySelector(".nm").innerHTML;const tp=sheet.querySelector(".tp"),k=[li.dataset.n,li.dataset.q].filter(Boolean).join(" · ");tp.textContent=k;tp.hidden=!k;sheet.querySelector(".go").href="#lieu-"+i;sheet.hidden=false;
+sheet.querySelector(".nm").innerHTML=li.querySelector(".nm").innerHTML;const tp=sheet.querySelector(".tp"),ad=li.querySelector(".adr"),k=[li.dataset.n,li.dataset.q,ad&&ad.textContent].filter(Boolean).join(" · ");tp.textContent=k;tp.hidden=!k;sheet.querySelector(".go").href="#lieu-"+i;const ya=li.querySelector(".aller");sheet.querySelector(".ya").replaceChildren(...(ya?[ya.cloneNode(true)]:[]));sheet.hidden=false;
 if(show){const c=a.querySelector(".hit"),x=+c.getAttribute("cx"),y=+c.getAttribute("cy");if(x<v[0]||x>v[0]+v[2]||y<v[1]||y>v[1]+v[3]){v[0]=x-v[2]/2;v[1]=y-v[3]/2;clamp()}svg.scrollIntoView({block:"center",behavior:"smooth"})}};
 svg.addEventListener("click",(e)=>{const a=e.target.closest(".sp");if(!a)return;e.preventDefault();if(moved>8)return;pick(a.dataset.i,false)});
 document.getElementById("ecl").addEventListener("click",(e)=>{const b=e.target.closest(".tomap");if(b)pick(b.closest("li").dataset.i,true)});
@@ -249,11 +273,12 @@ function communeLi(l: enfants.Lieu, i: number, now: Date): string {
   const link = l.site ?? l.lien;
   // An unnamed place has its kind and its district in its name already: its sheet says nothing more.
   const named = enfants.named(l);
-  const small = [named ? l.quartier : undefined, l.detail, l.adresse, mentionOf(link), today ? `aujourd'hui ${today}` : undefined].filter(Boolean).map((x) => esc(x!)).join(" · ");
+  const small = [named ? l.quartier : undefined, l.detail, mentionOf(link)].filter(Boolean).map((x) => esc(x!)).join(" · ");
   const name = esc(nomOf(l));
   return `<li id="lieu-${i}" class="tgt" data-i="${i}" data-t="${l.type}"${named ? ` data-n="${esc(capital(enfants.typeOf(l.type).un))}"` : ""}${named && l.quartier ? ` data-q="${esc(l.quartier)}"` : ""}>` +
     `<span><span class="nm">${link ? `<a href="${esc(link)}" rel="noopener">${name}</a>` : name}</span>${small ? `<small>${small}</small>` : ""}</span>` +
-    `<span class="end">${badge(a)}<button type="button" class="tomap f-${familleOf(l.type).f}" hidden aria-label="${esc(MOTS.surCarte(nomOf(l)))}">${icon("pin")}</button></span></li>`;
+    `<span class="end"><button type="button" class="tomap f-${familleOf(l.type).f}" hidden aria-label="${esc(MOTS.surCarte(nomOf(l)))}">${icon("pin")}</button></span>` +
+    `${second(l, nomOf(l), a, today)}</li>`;
 }
 
 /** The children's places of a commune on its map, the list beside it, and the agenda's activities in the commune. */
@@ -273,8 +298,8 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
     kinds.map((t) => `<label class="chip"><input type="radio" name="t" value="${t.type}"> <i class="ksw f-${familleOf(t.type).f}"></i>${esc(FILTRES[t.type])} <span class="n">${list.filter((l) => l.type === t.type).length}</span></label>`).join("") +
     `</form>`;
   const zoom = `<div id="ecz" class="kzoom" hidden><button type="button" data-z="+" aria-label="${esc(MOTS.zoomIn)}">+</button><button type="button" data-z="-" aria-label="${esc(MOTS.zoomOut)}">−</button><button type="button" data-z="0" aria-label="${esc(MOTS.recadrerAria)}">${esc(MOTS.recadrer)}</button></div>`;
-  const legend = `<p class="klegend note">${families.map((x) => `<span><i class="ksw f-${x.f}"></i>${esc(x.nom)}</span>`).join("")}</p>`;
-  const sheet = `<div id="ecs" class="card ksheet" hidden aria-live="polite"><button type="button" class="x" aria-label="${esc(MOTS.fermer)}">×</button><p class="nm"></p><p class="note tp"></p><p><a class="go" href="#">${esc(MOTS.dansListe)}</a></p></div>`;
+  const legend = `<p class="klegend note">${families.map((x) => `<span><i class="ksw f-${x.f}"></i>${esc(couleur(x.types, list))}</span>`).join("")}</p>`;
+  const sheet = `<div id="ecs" class="card ksheet" hidden aria-live="polite"><button type="button" class="x" aria-label="${esc(MOTS.fermer)}">×</button><p class="nm"></p><p class="note tp"></p><p class="ya"></p><p><a class="go" href="#">${esc(MOTS.dansListe)}</a></p></div>`;
 
   const places = `<div id="ecl">${kinds.map((t) => {
     const of = list.map((l, i) => [l, i] as const).filter(([l]) => l.type === t.type);
@@ -319,7 +344,7 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
 <p class="note">${esc(enfants.HOURS_NOTE)}</p>
 <p class="note">${esc(enfants.INDICATIF_NOTE)}</p>
 <p class="note">${esc(CREDITS)}</p>
-</div><script>${MAP_SCRIPT}</script>`;
+</div><script>${MAP_SCRIPT}</script>${ALLER}`;
 
   return layout(origin, { title, description, path, jsonld: [crumbs(origin, c, path, { name: "Enfants", path: "/enfants" }), webPage(origin, path, title, description, data)], alerte }, band, body);
 }

@@ -275,7 +275,8 @@ describe("a commune's children's page", () => {
     expect(html).toContain('aria-label="Choisir un type de lieu"');
     expect(html).toMatch(/value="mediatheque"> <i class="ksw f-culture"><\/i>Médiathèques <span class="n">/);
     expect(html).toContain(`aria-label="Voir sur la carte${NBSP}: `);
-    expect(html).toContain("<span><i class=\"ksw f-culture\"></i>Livres et musées</span>");
+    // A colour is named with the filters of its kinds in the commune (marketing, 29/10).
+    expect(html).toContain("<span><i class=\"ksw f-culture\"></i>Médiathèques et musées</span>");
     const none = flat(enfantsCommunePage(O, pageOf("les-avirons")!, data, NOW));
     expect(none).toContain(`Les agendas que nous lisons n'annoncent pas d'activité pour les enfants aux Avirons dans les deux semaines qui viennent. Ils ne disent pas tout : voyez aussi <a href="/enfants">les activités dans toute l'île</a>.`);
     expect(html).toContain('<p><a href="/enfants">Les 24 communes →</a></p>');

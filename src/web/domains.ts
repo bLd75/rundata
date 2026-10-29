@@ -53,6 +53,7 @@ import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
 import { tapNote } from "../tools/eau.js";
+import { MOTS as ALLER_MOTS, SHEET as ALLER } from "./aller.js";
 import { mentionSports, noteLa1ere, noteReunionFr } from "../tools/non-repris.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
@@ -2297,12 +2298,13 @@ const shortAccess = (a: string) => ACCES[a.includes("extérieur") ? 0 : a.includ
  * (public/dae/, scripts/build-dae.py) loaded on the click. The position never leaves the phone: the only request is
  * the list's, the same for everyone; the island's map is drawn on the page; the walking route link carries the device
  * alone, never a starting point, and the maps app takes the position itself. Plans on an iPhone (always there, opened
- * by its own address), Google Maps elsewhere (its address for every device opens the app on Android).
+ * by its own address), Google Maps elsewhere (its address for every device opens the app on Android). The link is the
+ * site's « Y aller » button on foot (aller.ts): its sheet offers the other apps, Waze left out.
  */
 export const AUTOUR_SCRIPT = `{const box=document.getElementById("autour"),btn=document.getElementById("autour-btn"),msg=document.getElementById("autour-msg"),res=document.getElementById("autour-res"),ul=document.getElementById("autour-list");
 if(box&&btn&&msg&&res&&ul){box.hidden=false;
 const LIST=${JSON.stringify(DAE_LIST.path)},ACCES=${JSON.stringify(ACCES)},BOX=${JSON.stringify(island.bbox)},W=${island.w},H=${island.h},N=10;
-const T={nogeo:"Votre navigateur ne donne pas la position. Cherchez votre commune plus bas.",refus:"Position non autorisée. Cherchez votre commune plus bas.",perdue:"Position introuvable. Réessayez, ou cherchez votre commune plus bas.",liste:"La liste n'a pas pu se charger. Réessayez, ou cherchez votre commune plus bas.",route:"Itinéraire à pied ↗"};
+const T={nogeo:"Votre navigateur ne donne pas la position. Cherchez votre commune plus bas.",refus:"Position non autorisée. Cherchez votre commune plus bas.",perdue:"Position introuvable. Réessayez, ou cherchez votre commune plus bas.",liste:"La liste n'a pas pu se charger. Réessayez, ou cherchez votre commune plus bas.",route:${JSON.stringify(ALLER_MOTS.bouton)},label:${JSON.stringify(ALLER_MOTS.titre)}};
 const e=(s)=>String(s).replace(/[&<>"']/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 const say=(t)=>{msg.textContent=t;msg.hidden=!t};
 const ios=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
@@ -2312,7 +2314,7 @@ const far=(k)=>k<1?Math.max(10,Math.round(k*100)*10)+" m":(Math.round(k*10)/10).
 const xy=(la,lo)=>[(lo-BOX[0])/(BOX[2]-BOX[0])*W,(BOX[3]-la)/(BOX[3]-BOX[1])*H];
 let list=null;
 const show=(la,lo)=>{const near=list.d.map((d)=>({d,k:km(la,lo,d[0],d[1])})).sort((a,b)=>a.k-b.k).slice(0,N);
-ul.innerHTML=near.map(({d,k},i)=>"<li><span><b>"+(i+1)+".</b> "+e(d[2])+"<small>"+[far(k),[d[4],list.communes[d[5]]].filter(Boolean).join(", "),d[6],d[8]?"étage "+d[8]:"",d[7]].filter(Boolean).map(e).join(" · ")+"</small><a href=\\""+e(route(d[0],d[1]))+"\\" rel=\\"noopener\\">"+e(T.route)+"</a></span><span class=\\""+(d[3]<2?"q-bonne":"q-none")+"\\">"+e(ACCES[d[3]])+"</span></li>").join("");
+ul.innerHTML=near.map(({d,k},i)=>"<li><span><b>"+(i+1)+".</b> "+e(d[2])+"<small>"+[far(k),[d[4],list.communes[d[5]]].filter(Boolean).join(", "),d[6],d[8]?"étage "+d[8]:"",d[7]].filter(Boolean).map(e).join(" · ")+"</small><a class=\\"aller\\" href=\\""+e(route(d[0],d[1]))+"\\" rel=\\"noopener\\" data-go=\\""+d[0]+","+d[1]+"\\""+(d[4]?" data-a=\\""+e([d[4],list.communes[d[5]]].filter(Boolean).join(", "))+"\\"":"")+" data-m=\\"pied\\" aria-label=\\""+e(T.label+d[2])+"\\">"+e(T.route)+"</a></span><span class=\\""+(d[3]<2?"q-bonne":"q-none")+"\\">"+e(ACCES[d[3]])+"</span></li>").join("");
 res.hidden=false;const svg=document.querySelector(".mapcard svg");if(!svg)return;
 const old=svg.querySelector("#autour-g");if(old)old.remove();
 const pts=near.map(({d})=>xy(d[0],d[1])),me=xy(la,lo),all=[...pts,me],xs=all.map((p)=>p[0]),ys=all.map((p)=>p[1]);
@@ -2370,7 +2372,7 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
   <p class="note">Source : Géo'DAE, base nationale des défibrillateurs (ministère chargé de la santé), Licence Ouverte 2.0.</p>
 </section>
 ${connectorCta("defibrillateurs", "les défibrillateurs")}
-<script>${AUTOUR_SCRIPT}</script>`;
+<script>${AUTOUR_SCRIPT}</script>${ALLER}`;
 
   return layout(origin, { title, description, path: "/defibrillateurs", jsonld: [crumbs(origin, "Défibrillateurs", "/defibrillateurs"), webPage(origin, "/defibrillateurs", title, description, data)], alerte }, band, body);
 }

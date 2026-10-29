@@ -96,7 +96,8 @@ describe("« Autour de moi » on /defibrillateurs", () => {
     const r = await run();
     expect(r.html.match(/<li>/g)).toHaveLength(10);
     expect(r.html).toMatch(/<small>\d+(,\d)? k?m · /);
-    expect(r.html).toContain(">Itinéraire à pied ↗</a>");
+    // The site's « Y aller » on foot (aller.ts): its sheet offers the other apps.
+    expect(r.html).toMatch(/<a class="aller" href="[^"]+" rel="noopener" data-go="-?\d+\.\d+,\d+\.\d+"( data-a="[^"]+")? data-m="pied" aria-label="Y aller\u00a0: [^"]+">Y aller<\/a>/);
     expect(r.html).toMatch(/>(dehors, 24 h\/24|24 h\/24|horaires du lieu|accès réservé · demander à l&#39;accueil)</);
     expect(r.html).not.toContain("vol d'oiseau");
     expect(r.viewBox).toMatch(/^[-\d.]+ [-\d.]+ [\d.]+ [\d.]+$/);
