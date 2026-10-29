@@ -19,7 +19,7 @@ import { credited } from "./format.js";
 import { fraicheur } from "./fraicheur.js";
 
 export const SITE_URL = "https://rundata.re";
-export const AVIS_HINT = "Une donnée manque ou semble fausse, ou l'utilisateur a un souhait ? Le dire à rundata.re avec l'outil donner_avis.";
+export const AVIS_HINT = "Une donnée manque ou semble fausse ? Proposer à l'utilisateur de le signaler à rundata.re, puis, avec son accord, appeler l'outil donner_avis.";
 
 // The category page showing what each tool answers; the others link to the commune's page, or to the home page.
 const PAGES: Record<string, string> = {

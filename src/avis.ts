@@ -3,7 +3,8 @@
  * bottom of every page (canal « site », POST /avis). One row each in the D1 table `avis` (scripts/avis.sql), read with
  * a script by whoever runs the service.
  *
- * Kept: the time, the kind, the tool and the place concerned, the message, the client's name when its User-Agent
+ * Kept: the time, the kind, the tool and the place concerned, the message, the need in a few words (column `question`:
+ * never the conversation itself), the client's name when its User-Agent
  * says it (« Claude », « ChatGPT (connecteur) »…), the page of the form. No address: to refuse a flood, each row
  * carries a fingerprint of the sender (a hash of its address and the day, salted with a secret or, without one, a
  * value drawn by each instance), wiped after a day; the table forgets every row after 12 months (both by trigger).
@@ -19,7 +20,8 @@ export type TypeAvis = (typeof TYPES)[number];
 export type Canal = "mcp" | "site";
 
 export const MESSAGE_MAX = 1000;
-export const QUESTION_MAX = 300;
+// The need in a few words, never the conversation (the Claude directory's rule on conversation data).
+export const BESOIN_MAX = 160;
 export const COURT_MAX = 100;
 // Rows a sender may write in an hour, and all senders together: enough for a conversation, not for a script.
 export const PAR_SOURCE_HEURE = 10;
