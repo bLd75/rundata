@@ -20,6 +20,11 @@ describe("the antennas of the island (ANFR)", () => {
       // A place and a height: never an address.
       expect(Object.keys(x).filter((k) => /adr|adresse|lieu/.test(k))).toEqual([]);
     }
+    // The ANFR never writes « en service » for the 5G, here nor in the rest of France (124 112 lines of 5G in the file of
+    // 22/10/2026, none « En service »): its most advanced state there is « techniquement opérationnel », and the 2G to 4G
+    // never have it. The tile and the note say so; a file that changes this must change them.
+    expect(antennes.SUPPORTS.some((s) => antennes.generations(s, "service").has("5"))).toBe(false);
+    expect(antennes.SUPPORTS.some((s) => [...antennes.generations(s, "operationnel")].some((g) => g !== "5"))).toBe(false);
     // Only TDF is named: never the Arcom, which assigns the frequencies, nor a private site.
     expect(new Set(antennes.EMETTEURS.flatMap((e) => e.exploitants ?? []))).toEqual(new Set(["TDF"]));
   });
@@ -38,6 +43,7 @@ describe("the antennas of the island (ANFR)", () => {
     expect(r.bloc.antennes_mobiles.plus_proches).toHaveLength(5);
     expect(r.bloc.radio_et_television).toEqual({ fichier_du: "30/09/2026", supports: 0, plus_proches: [] });
     expect(r.bloc.note).toContain("ce n'est ni l'état du réseau en ce moment, ni la couverture");
+    expect(r.bloc.note).toContain("Pour la 5G, l'ANFR n'emploie pas «\u00a0en service\u00a0»\u00a0: son état le plus avancé est «\u00a0techniquement opérationnel\u00a0».");
     expect(r.bloc.note).toContain("Free et SFR Réunion sont déclarés sous les noms Telco OI et SRR.");
     expect(r.bloc.note).toContain("https://www.cartoradio.fr");
     // In the middle of the Plaine des Cafres' forest: none declared.
@@ -58,7 +64,7 @@ describe("the antennas of the island (ANFR)", () => {
     const start = page.indexOf('<section aria-labelledby="h-habiter">');
     const habiter = page.slice(start, page.indexOf("</section>", start));
     expect(habiter).toContain(
-      '<h3>Antennes</h3><p class="tv">7</p><p class="td all">supports d\'antennes mobiles dans la commune, déclarés à l\'ANFR au 22 octobre 2026, aucun avec la 5G en service · Orange sur 2, SFR Réunion sur 4, Free sur 1, Zeop sur 1 · 6 supports d\'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+) · ANFR</p>',
+      '<h3>Antennes</h3><p class="tv">7</p><p class="td all">supports d\'antennes mobiles dans la commune, déclarés à l\'ANFR au 22 octobre 2026, dont 5 avec la 5G techniquement opérationnelle · Orange sur 2, SFR Réunion sur 4, Free sur 1, Zeop sur 1 · 6 supports d\'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+) · ANFR</p>',
     );
     expect(habiter).not.toMatch(/couvert|couverture|exposition/);
     expect(page).toContain(antennes.SOURCE_MOBILE.nom);

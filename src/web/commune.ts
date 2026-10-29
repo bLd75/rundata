@@ -246,13 +246,14 @@ function connexion(p: PlacePage): Live | undefined {
 function antennas(p: PlacePage): Live | undefined {
   const { supports, emetteurs } = antennes.ofCommune(p.nom);
   if (!supports.length) return undefined;
-  const g5 = supports.filter((s) => antennes.generations(s, "service").has("5")).length;
+  // The ANFR never writes « en service » for the 5G: its most advanced state there is « techniquement opérationnel ».
+  const g5 = supports.filter((s) => antennes.generations(s, "operationnel").has("5")).length;
   const ops = antennes.OPERATEURS.map((o) => [o, supports.filter((s) => s.ops[o]).length] as const).filter(([, n]) => n);
   // Marketing's words (29/10): the ANFR's « supports », declared, never « couverture ».
   return {
     valeur: `${nombre(supports.length)}`,
     // One support may carry several operators: « Orange sur 2 », never a sum.
-    detail: `supports d'antennes mobiles dans la commune, déclarés à l'ANFR au ${internet.dateLongue(antennes.MOBILE_DU)}, ${g5 ? `dont ${nombre(g5)} avec la 5G en service` : "aucun avec la 5G en service"}` +
+    detail: `supports d'antennes mobiles dans la commune, déclarés à l'ANFR au ${internet.dateLongue(antennes.MOBILE_DU)}, ${g5 ? `dont ${nombre(g5)} avec la 5G techniquement opérationnelle` : "aucun avec la 5G techniquement opérationnelle"}` +
       ` · ${ops.map(([o, n]) => `${o} sur ${nombre(n)}`).join(", ")}` +
       `${emetteurs.length ? ` · ${nombre(emetteurs.length)} ${emetteurs.length > 1 ? "supports" : "support"} d'émetteurs de radio ou de télévision de plus de 5\u00a0W (FM, TNT, DAB+)` : ""} · ANFR`,
     entier: true,

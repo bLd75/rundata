@@ -234,7 +234,7 @@ const ANTENNES = {
     [e.fm && `${e.fm} station${e.fm > 1 ? "s" : ""} FM`, e.tnt && `${e.tnt} TNT`, e.dab && `${e.dab} DAB+`].filter(Boolean).join(", "),
   note:
     "Supports d'antennes déclarés à l'ANFR, avec l'état que chaque opérateur déclare pour chaque génération (en service, techniquement opérationnel, projet approuvé)\u00a0: " +
-    "ce n'est ni l'état du réseau en ce moment, ni la couverture. Free et SFR Réunion sont déclarés sous les noms Telco OI et SRR. Émetteurs de radio et de télévision de plus de 5 W seulement. " +
+    "ce n'est ni l'état du réseau en ce moment, ni la couverture. Pour la 5G, l'ANFR n'emploie pas «\u00a0en service\u00a0»\u00a0: son état le plus avancé est «\u00a0techniquement opérationnel\u00a0». Free et SFR Réunion sont déclarés sous les noms Telco OI et SRR. Émetteurs de radio et de télévision de plus de 5 W seulement. " +
     "L'exposition aux ondes n'est pas mesurée ici\u00a0: les mesures sont sur https://www.cartoradio.fr",
 };
 
