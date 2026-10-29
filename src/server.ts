@@ -100,7 +100,7 @@ import * as emploiSource from "./providers/emploi.js";
 import { emploi } from "./tools/emploi.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.117";
+export const VERSION = "0.203.118";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -450,14 +450,20 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
     {
       title: "Cadastre, urbanisme, prix immobiliers et risques à une adresse de La Réunion",
       description:
-        "Ce que disent les registres officiels d'une adresse ou d'un lieu de La Réunion (974) : parcelle cadastrale (section, numéro, " +
+        "Ce que disent les registres officiels du bien ou du lieu de La Réunion (974) sur lequel on s'interroge, pas la position de " +
+        "l'utilisateur : parcelle cadastrale (section, numéro, " +
         "surface), zone du plan local d'urbanisme (U, AU, A, N : constructible ou non), altitude du sol, prix médians des maisons, " +
         "appartements et terrains vendus autour, et sur la voie demandée, depuis 5 ans (DVF), loyers d'annonce de la commune pour un logement type (carte des loyers de l'ANIL), part des logements et locaux de la commune éligibles à la fibre (Arcep), et risques : plan de prévention des risques (PPR inondation, " +
         "mouvements de terrain, littoral) au point, arrêtés de catastrophe naturelle de la commune, glissements et éboulements recensés " +
         "à moins de 500 m, sismicité, radon. Pour : « cette parcelle est constructible ? », " +
         "« prix au m² des maisons à l'Hermitage ? », « quels risques à cette adresse ? ».",
       inputSchema: {
-        adresse: z.string().describe("Adresse (« 7 rue de la Buse, Saint-Paul »), lieu-dit (« Bois de Nèfles ») ou coordonnées « -21.0, 55.27 »."),
+        adresse: z
+          .string()
+          .describe(
+            "Le bien ou le lieu sur lequel on s'interroge, pas la position de l'utilisateur : adresse du bien (« 7 rue de la Buse, Saint-Paul ») " +
+              "ou lieu-dit (« Bois de Nèfles »).",
+          ),
       },
       annotations: { title: "Fiche terrain à La Réunion", ...READ_ONLY },
     },
@@ -722,7 +728,12 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "emplacement exact, accessible à toute heure ou aux heures d'ouverture. Plus de 1 200 appareils dans les 24 communes. " +
         "Pour : « où est le défibrillateur le plus proche de la plage de l'Hermitage ? », « défibrillateur à Cilaos ? ». " +
         "Dire d'abord d'appeler le 15 ou le 112 et de commencer le massage cardiaque.",
-      inputSchema: { lieu },
+      inputSchema: {
+        lieu: z
+          .string()
+          .optional()
+          .describe("Le lieu sur lequel on s'interroge, pas la position de l'utilisateur : commune, plage, quartier, cirque, sommet. Vide = toute l'île."),
+      },
       annotations: { title: "Défibrillateurs", ...READ_ONLY },
     },
     track("defibrillateurs", async (args: { lieu?: string }) => defibrillateurs(args.lieu)),
