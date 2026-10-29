@@ -639,9 +639,11 @@ border-radius:6px;padding:.2rem .5rem;background:var(--warn-bg);color:var(--lave
 .antmap:has(#ant-tous:checked) :is(.ly-tous,.lg-tous),.antmap:has(#ant-orange:checked) :is(.ly-orange,.lg-orange),.antmap:has(#ant-sfr-reunion:checked) :is(.ly-sfr-reunion,.lg-sfr-reunion),.antmap:has(#ant-free:checked) :is(.ly-free,.lg-free),.antmap:has(#ant-zeop:checked) :is(.ly-zeop,.lg-zeop),.antmap:has(#ant-g2:checked) :is(.ly-g2,.lg-g2),.antmap:has(#ant-g3:checked) :is(.ly-g3,.lg-g3),.antmap:has(#ant-g4:checked) :is(.ly-g4,.lg-g4),.antmap:has(#ant-g5:checked) :is(.ly-g5,.lg-g5),.antmap:has(#ant-tnt:checked) :is(.ly-tnt,.lg-tnt),.antmap:has(#ant-fm:checked) :is(.ly-fm,.lg-fm),.antmap:has(#ant-dab:checked) :is(.ly-dab,.lg-dab){display:inline}
 .antmap .in,.antmap .off,.antmap .off2{fill:none;stroke-linecap:round}.antmap .in{stroke:var(--link);stroke-width:9}.antmap .off{stroke:var(--link);stroke-width:9}.antmap .off2{stroke:var(--surface);stroke-width:4.5}.antmap .ly{filter:drop-shadow(0 0 .6px #fff) drop-shadow(0 0 .6px #fff)}.antmap :is(.ly-tnt,.ly-fm,.ly-dab) .in{stroke-width:15}
 .antmap .key{display:flex;align-items:center;gap:.3rem}.antmap .key+.key{margin-bottom:.5rem}.antmap:has(#ant-tnt:checked,#ant-fm:checked,#ant-dab:checked) .key{display:none}.antmap .key svg{flex:none;width:1rem;height:1rem}.antmap .key circle.in{fill:var(--link);stroke:none}.antmap .key circle.ring{fill:none;stroke:var(--link);stroke-width:2.5}.antmap .aqtabs{margin-bottom:.5rem}
-.wxmap:has(#wxl-t:checked) .lg-t,.wxmap:has(#wxl-p:checked) .lg-p{display:inline}
-.wxmap .l-p{display:none}.wxmap:has(#wxl-p:checked) .l-p{display:inline}.wxmap:has(#wxl-p:checked) .l-t{display:none}
-.wxmap:has(#wxl-t:checked) a.mk:not(.has-t),.wxmap:has(#wxl-p:checked) a.mk:not(.has-p){display:none}
+.wxmap:has(#wxl-t:checked) .lg-t,.wxmap:has(#wxl-p:checked) .lg-p,.wxmap:has(#wxl-v:checked) .lg-v{display:inline}
+.wxmap .l-p,.wxmap .l-v{display:none}.wxmap:has(#wxl-p:checked) .l-p,.wxmap:has(#wxl-v:checked) .l-v{display:inline}.wxmap:has(#wxl-p:checked) .l-t,.wxmap:has(#wxl-v:checked) .l-t{display:none}
+.wxmap:has(#wxl-t:checked) a.mk:not(.has-t),.wxmap:has(#wxl-p:checked) a.mk:not(.has-p),.wxmap:has(#wxl-v:checked) a.mk:not(.has-v){display:none}
+.wxmap .vt{position:relative;width:100%;height:100%}.wxmap .vt canvas{position:absolute;inset:0;width:100%;height:100%}
+.wxmap .wv rect{fill:#14202c;stroke:#fff;stroke-width:3}.wxmap .wv path{fill:none;stroke:#fff;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.wxmap .wv circle{fill:#fff}.wxmap .wv text{fill:#fff;font-weight:700;font-size:30px;text-anchor:middle}
 .wxmap .lgs{display:inline-flex;align-items:center;gap:.35rem;margin-right:.5rem;white-space:nowrap}
 .wxmap .voile{display:block;width:100%;height:100%}.wxmap .aqtabs{gap:.25rem}.wxmap .aqtabs label{padding:.3rem .65rem}
 html:has([data-js]:not([hidden])) #stl.plie>li:nth-child(n+13){display:none}.stmore{font:inherit;font-weight:600;padding:.45rem 1rem;border:1px solid var(--line);border-radius:99px;background:none;color:var(--link);cursor:pointer}
@@ -658,6 +660,7 @@ html:has([data-js]:not([hidden])) #stl.plie>li:nth-child(n+13){display:none}.stm
 .sttri{display:grid;gap:.3rem}.sttri .tabs{gap:.3rem}
 .stmore{margin-top:.8rem}
 .wxmap .vgrad{display:inline-block;width:4.5rem;height:.6rem;border-radius:.3rem;background:linear-gradient(90deg,#2a6a9a,#248c78,#d6a828,#de7028,#c8301c);vertical-align:middle}
+.wxmap .wgrad{background:linear-gradient(90deg,#4668b0,#2e96ac 17%,#4aaa62 33%,#deb83e 50%,#de702e 75%,#b22c48)}
 .sttools{display:flex;flex-wrap:wrap;gap:.6rem 1rem;align-items:center;margin-bottom:.8rem}.sttools[hidden]{display:none}.sttools select{font:inherit;padding:.3rem .5rem;border-radius:.5rem}
 .sttools button{font:inherit;padding:.25rem .6rem;border:1px solid var(--line);border-radius:99px;background:none;color:inherit;cursor:pointer}.sttools button[aria-pressed=true]{background:var(--ink);color:var(--surface)}
 .airmap:has(#aqp-pm10:checked) .ly-pm10,.airmap:has(#aqp-pm10:checked) .lg-pm10,.airmap:has(#aqp-pm25:checked) .ly-pm25,.airmap:has(#aqp-pm25:checked) .lg-pm25,.airmap:has(#aqp-o3:checked) .ly-o3,.airmap:has(#aqp-o3:checked) .lg-o3,.airmap:has(#aqp-no2:checked) .ly-no2,.airmap:has(#aqp-no2:checked) .lg-no2{display:inline}
