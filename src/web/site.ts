@@ -101,6 +101,7 @@ import { margin, scheduledEvery } from "./partagees.js";
 import { ALIASES as ASSOCIATIONS_ALIASES, associationsPage, PATH as ASSOCIATIONS_PATH, preuve } from "./associations.js";
 import { readCopies, refresh, resume } from "../tools/resume.js";
 import { SCRIPT as ALLER_SCRIPT, SCRIPT_PATH as ALLER_PATH } from "./aller.js";
+import { rejeuScript, rejeuScriptPath } from "./meteo-carte.js";
 import { CSS, FONT_PATH, legalPage, meteoPage, notFoundPage, offlinePage, placePage, seaPage, STYLE_PATH, vigilancePage } from "./pages.js";
 import { OFFLINE_PATH, serviceWorker, SW_PATH } from "./pwa.js";
 import { pageOf, PAGES } from "./places.js";
@@ -135,7 +136,6 @@ import { carteRoute } from "./vigilance-carte.js";
 import { carteRoute as cmrsRoute } from "./cmrs-carte.js";
 import { RENDU_PATH } from "../providers/vigilance-carte.js";
 import { PATH as PLUIE_RADAR, rainGrid } from "./pluie-radar.js";
-import { PATH as PLUIE_RETRO, retro } from "./pluie-retro.js";
 import { buildStation, STATION_PATH, STATIONS, stationOf, stationPage, stationPath } from "./station.js";
 import { DUREES, PATHS as REJEU, rejeu } from "./rejeu.js";
 
@@ -343,7 +343,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
 export async function site(request: Request, cache: Cache, background: Background, now = new Date()): Promise<Response | null> {
   // Nothing of the moment in them: answered before the volcano's state is read.
   const file = new URL(request.url).pathname;
-  const style = stylesheet(file) ?? allerScript(file);
+  const style = stylesheet(file) ?? allerScript(file) ?? rejeuFile(file);
   if (style) return style;
   // The bus trips, kept a minute at the edge (web/bord.ts): the copy as it was served.
   const copie = await bord.lire(request);
@@ -374,6 +374,16 @@ function allerScript(path: string): Response | null {
   if (!ALLER_FILE.test(path)) return null;
   return new Response(ALLER_SCRIPT, {
     headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": path === ALLER_PATH ? "public, max-age=31536000, immutable" : "public, max-age=300", "x-content-type-options": "nosniff" },
+  });
+}
+
+const REJEU_FILE = /^\/meteo\/rejeu-\w+\.js$/;
+
+/** The script of /meteo's replay bar (web/meteo-carte.ts), asked on its first touch, kept a year at its address. */
+function rejeuFile(path: string): Response | null {
+  if (!REJEU_FILE.test(path)) return null;
+  return new Response(rejeuScript(), {
+    headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": path === rejeuScriptPath() ? "public, max-age=31536000, immutable" : "public, max-age=300", "x-content-type-options": "nosniff" },
   });
 }
 
@@ -647,8 +657,6 @@ async function pages(request: Request, cache: Cache, background: Background, now
   }
   // The radar's rain for /meteo's map, asked by its script: data, not a page.
   if (path === PLUIE_RADAR) return rainGrid(cache);
-  // Its last 3 hours and the wind of the last round hours, asked by the same script on a click: data, not a page.
-  if (path === PLUIE_RETRO) return retro(cache, now);
   // The replay bar's files, one a length, asked by the same script when its visitor plays (rejeu.ts).
   const duree = DUREES.find((d) => REJEU[d] === path);
   if (duree) return rejeu(duree, cache, background, now);

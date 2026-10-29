@@ -120,7 +120,6 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /communes/* | page d'une commune : sa météo, ses tuiles, et la plus vieille refaite après la réponse | à chaque vue |  | 82 | 9 | 2 |  |  |  | 160 | mesuré |
 | /aujourdhui/* | la journée d'une commune (resume_du_jour) | à chaque vue |  | 68 | 12 | 3 |  |  |  | 130 | mesuré |
 | /meteo/* | la météo d'un lieu | à chaque vue |  | 54 | 2 | 2 |  |  |  | 130 | mesuré |
-| /meteo/retro-3h.json | le rejeu des 3 dernières heures de la carte de /meteo : l'historique radar (KV) et le vent des heures rondes | à chaque vue |  | 3 | 1 |  |  |  |  | 10 | code |
 | /meteo/rejeu-6h.json | la barre de lecture de /meteo sur 6 heures : le radar toutes les 5 min (KV) et les heures rondes des stations | à chaque vue |  | 6 | 2 |  | 1 | 140 |  | 20 | code |
 | /meteo/rejeu-24h.json | la barre de lecture de /meteo sur 24 heures : le radar au quart d'heure (KV) et les heures rondes des stations | à chaque vue |  | 6 | 2 |  | 1 | 140 |  | 20 | code |
 | /meteo/rejeu-7j.json | la barre de lecture de /meteo sur 7 jours : les heures rondes des stations (KV) | à chaque vue |  | 5 | 1 |  | 1 | 140 |  | 30 | code |
@@ -248,7 +247,7 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | air:mesures | providers/air-mesures |
 | antennes:hors-service | providers/sites-hs |
 | capteurs:air | providers/capteurs |
-| radar:6h | providers/meteofrance, providers/mf-auth, providers/radar |
+| radar:6h | providers/mf-auth, providers/radar |
 | stations:7j | providers/meteofrance, providers/mf-auth, providers/radar |
 | emploi:offres | providers/emploi |
 | emploi:flux | providers/emploi |
@@ -261,7 +260,6 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | /communes/* | providers/acspo, providers/arome, providers/ensemble, providers/feux, providers/houle, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
 | /aujourdhui/* | connecteurs/helloasso, providers/acspo, providers/actualites, providers/agenda, providers/air-mesures, providers/annuaire, providers/arome, providers/atmo, providers/avis-eau, providers/baignades, providers/calendrier, providers/capteurs, providers/carburants, providers/cmrs-carte, providers/coupures-courant, providers/cyclones, providers/eaupotable, providers/edf, providers/emploi, providers/ensemble, providers/feux, providers/gtfsrt, providers/houle, providers/irve, providers/marches-publics, providers/maregraphes, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/prefecture, providers/radar, providers/salles, providers/seismes, providers/sentiers, providers/sites-hs, providers/sport-avis, providers/sport, providers/tco, providers/terrain, providers/traces, providers/uv, providers/velos, providers/vigicrues, providers/vigieau, providers/vigilance, providers/volcan |
 | /meteo/* | providers/acspo, providers/arome, providers/ensemble, providers/feux, providers/houle, providers/metar, providers/meteofrance, providers/mf-auth, providers/modis, providers/openmeteo, providers/pioupiou, providers/radar, providers/uv, providers/vigilance |
-| /meteo/retro-3h.json | providers/meteofrance, providers/mf-auth |
 | /meteo/rejeu-6h.json | providers/meteofrance, providers/mf-auth, providers/radar |
 | /meteo/rejeu-24h.json | providers/meteofrance, providers/mf-auth, providers/radar |
 | /meteo/rejeu-7j.json | providers/meteofrance, providers/mf-auth, providers/radar |
