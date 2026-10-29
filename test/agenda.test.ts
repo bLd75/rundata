@@ -9,6 +9,7 @@ import { agenda, COUVERTURE, type EventRow, gather, MAIRIES_LUES, periode, refre
 import { FICHE_REUNION_FR, mentionReunionFr, noteReunionFr, RESUME_REUNION_FR } from "../src/tools/non-repris.js";
 import { buildAgenda } from "../src/web/data.js";
 import { agendaHours, agendaPage } from "../src/web/domains.js";
+import { CSS } from "../src/web/pages.js";
 import { mesure } from "../src/web/mesure.js";
 import { quand } from "../src/tools/sport.js";
 import { withVide } from "../src/vide.js";
@@ -903,7 +904,11 @@ describe("agenda", () => {
     expect(copy.resume).not.toContain("reunion.fr");
     expect(copy.non_repris).toBeUndefined();
     const html = agendaPage("https://rundata.re", { value: copy, fetchedAt: NOW, stale: false }, NOW);
-    expect(html).toContain(`<p class="note">${noteReunionFr()}\u00a0·\u00a0<a href="/ouvrir-ses-donnees#licence">Comment permettre la reprise</a></p>`);
+    expect(html).toContain(`<p class="note np">${noteReunionFr()}\u00a0·\u00a0<a href="/ouvrir-ses-donnees#licence">Comment permettre la reprise</a></p>`);
+    // An answer that gives the address in its text: the note breaks it, never widening its section at 390 px.
+    const said = agendaPage("https://rundata.re", { value: { ...copy, non_repris: mentionReunionFr() }, fetchedAt: NOW, stale: false }, NOW);
+    expect(said).toMatch(/<p class="np">Les mentions légales de reunion\.fr[^<]*https:\/\/www\.reunion\.fr\/organisez\/actualites-de-l-ile\/agenda\//);
+    expect(CSS).toContain(".np{overflow-wrap:anywhere}");
     expect(html.match(/<meta name="description" content="([^"]*)">/)![1]).not.toContain("reunion.fr");
     // A copy built before: its events and its credit left out.
     expect(repris({ publie_par: "reunion.fr" })).toBe(false);

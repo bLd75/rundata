@@ -584,6 +584,8 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .figs li{display:flex;gap:.8rem;align-items:baseline}.figs .fig{white-space:nowrap;font:800 2rem/1 Bricolage,system-ui,sans-serif;letter-spacing:-.03em;color:var(--accent)}
 .figs small{display:block;color:var(--muted);font-size:.82rem;margin-top:.2rem}
 .release{max-width:46rem;gap:.9rem}.release ul{padding-left:1.2rem;display:grid;gap:.5rem}.release h3{margin-top:.6rem}.release a{overflow-wrap:anywhere}
+/* A note on what is not taken from a site may give its address: it breaks where it must, never widening its section. */
+.np{overflow-wrap:anywhere}
 .vis-grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,20rem),1fr))}.vis-grid.phones{grid-template-columns:repeat(auto-fill,minmax(10rem,1fr))}
 .vis{margin:0;align-content:start}.vis img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line)}.vis img.logo{width:40%;margin:auto;border:0}.vis img.lockup{padding:1.2rem}.vis img.nuit{background:#0b1f36}.vis img.sable{background:#f6f2ea}
 .vis figcaption{display:grid;gap:.35rem;font-size:.92rem}.shot img{display:block;width:100%;height:auto;border-radius:14px}.vis .dl{font-weight:800}
