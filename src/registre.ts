@@ -337,20 +337,33 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/capteurs.ts"],
     basis: "code",
   },
-  // The radar's last 3 hours (web/pluie-retro.ts), at every run: the history read from KV, the latest image (a token
+  // The radar's last 6 hours (web/pluie-retro.ts), at every run: the history read from KV, the latest image (a token
   // first when the isolate holds none), the history written when the image is new or a gap grows: 4 subrequests in a
-  // new isolate, 2 or 3 after (counted in test/pluie-retro.test.ts); 6 at most, when Météo-France refuses the token
-  // once (401) and the image is asked again with a new one. CPU measured in Node on the real image of 22/10/2026 (HDF5,
-  // grid, history): 106 ms at the first run, 32 ms after; rounded up for a Worker. The history weighs 9 to 51 Ko.
+  // new isolate, 2 or 3 after (counted in test/pluie-retro.test.ts); about once a quarter of an hour, the 24 hours read
+  // and written besides (2 more); 8 at most, when Météo-France refuses the token once (401) and the image is asked
+  // again with a new one. CPU measured in Node on the real image of 22/10/2026 (HDF5, grid, history): 106 ms at the
+  // first run, 32 ms after; rounded up for a Worker. The 3 hours weighed 9 to 51 Ko, the 6 hours twice that.
   {
-    id: "radar:3h",
+    id: "radar:6h",
     trigger: "planifiée",
-    what: "pluie radar des 3 dernières heures pour le rejeu de /meteo : la dernière image de Météo-France ajoutée dans KV quand elle est nouvelle, ou un trou daté",
+    what: "pluie radar des 6 dernières heures pour le rejeu de /meteo : la dernière image de Météo-France ajoutée dans KV quand elle est nouvelle, ou un trou daté, et chaque quart d'heure une image gardée 24 heures",
     every: EVENT_MINUTES,
     offset: 0,
-    run: { subrequests: 6, kvReads: 1, kvWrites: 1, cpuMs: 120, memoryMb: 5 },
+    run: { subrequests: 8, kvReads: 2, kvWrites: 2, cpuMs: 120, memoryMb: 5 },
     from: ["src/web/pluie-retro.ts"],
     basis: "estimé",
+  },
+  // The stations' week (web/rejeu.ts), once an hour: the hourly package from the data center's cache, never asked of
+  // Météo-France; the week read from KV and written when the package is newer.
+  {
+    id: "stations:7j",
+    trigger: "planifiée",
+    what: "les heures des stations Météo-France sur 7 jours pour la barre de lecture de /meteo : le paquet horaire déjà gardé par le centre de données, ajouté dans KV quand il est plus récent",
+    every: 60,
+    offset: 20,
+    run: { subrequests: 3, kvReads: 1, kvWrites: 1, cpuMs: 20 },
+    from: ["src/web/rejeu.ts"],
+    basis: "code",
   },
   // The copy read from KV, one offer's page (about 217 Ko, searched for its labels by position, never built), the copy
   // written when it changed: never two pages at once on the site. CPU and memory estimated from the page's size, to be
@@ -541,6 +554,13 @@ const OTHER_PAGES: Record<string, Page> = {
   // The replay of the last 3 hours (web/pluie-retro.ts), asked when /meteo's rain or wind layer is first shown: the radar's
   // history read from KV, the hourly package from the data center's cache (its token and the package when it has none).
   "/meteo/retro-3h.json": { subrequests: 3, cpuMs: 10, from: ["src/providers/meteofrance.ts"], what: "le rejeu des 3 dernières heures de la carte de /meteo : l'historique radar (KV) et le vent des heures rondes", basis: "code" },
+  // The replay bar's files (web/rejeu.ts), asked when the visitor plays, kept by the data center 5 min, 15 min and up
+  // to the next hour: the radar's history (KV, not for the week), the stations' week (KV, written back when newer), the
+  // hourly package from the cache (its token and the package when it has none), the archive in D1 for the hours the
+  // week lacks, at most once in 6 hours (about 140 rows).
+  "/meteo/rejeu-6h.json": { subrequests: 6, cpuMs: 20, from: ["src/web/rejeu.ts", "src/providers/meteofrance.ts"], what: "la barre de lecture de /meteo sur 6 heures : le radar toutes les 5 min (KV) et les heures rondes des stations", basis: "code", d1: { d1Calls: 1, d1RowsRead: 140 } },
+  "/meteo/rejeu-24h.json": { subrequests: 6, cpuMs: 20, from: ["src/web/rejeu.ts", "src/providers/meteofrance.ts"], what: "la barre de lecture de /meteo sur 24 heures : le radar au quart d'heure (KV) et les heures rondes des stations", basis: "code", d1: { d1Calls: 1, d1RowsRead: 140 } },
+  "/meteo/rejeu-7j.json": { subrequests: 5, cpuMs: 30, from: ["src/web/rejeu.ts", "src/providers/meteofrance.ts"], what: "la barre de lecture de /meteo sur 7 jours : les heures rondes des stations (KV)", basis: "code", d1: { d1Calls: 1, d1RowsRead: 140 } },
   "/mer": { subrequests: 23, cpuMs: 120, from: ["src/tools/mer.ts", "src/tools/maree.ts"] },
   "/randonnees/*": { subrequests: 23, cpuMs: 130, from: ["src/tools/sentiers.ts"], what: "une randonnée et sa trace" },
   "/sentiers/*": { subrequests: 16, cpuMs: 30, from: ["src/tools/sentiers.ts"], what: "un sentier et sa trace" },
@@ -589,7 +609,7 @@ const pageEntry = (path: string, p: Page, kvReads: number): Entry => ({
 const SHARED_KEYS = new Set([...SHARED, ...SHARED_AFTER].map((s) => s.key));
 const sharedIn = (keys: string[]) => new Set(keys.filter((k) => SHARED_KEYS.has(k))).size;
 // The commune pages and /antennes: the copy of the mobile sites out of service besides.
-const KV_READS: Record<string, number> = { "/chiffres": 1, "/antennes": 1, "/meteo/retro-3h.json": 1, "/": sharedIn(HOME_TILES), "/communes/*": sharedIn(COMMUNE_TILES) + 1, "/aujourdhui/*": sharedIn([...COMMUNE_TILES, ...HOME_TILES]) };
+const KV_READS: Record<string, number> = { "/chiffres": 1, "/antennes": 1, "/meteo/retro-3h.json": 1, "/meteo/rejeu-6h.json": 2, "/meteo/rejeu-24h.json": 2, "/meteo/rejeu-7j.json": 1, "/": sharedIn(HOME_TILES), "/communes/*": sharedIn(COMMUNE_TILES) + 1, "/aujourdhui/*": sharedIn([...COMMUNE_TILES, ...HOME_TILES]) };
 
 const VISITS: Entry[] = [
   ...Object.entries(OTHER_PAGES).map(([path, p]) => pageEntry(path, p, KV_READS[path] ?? 0)),
