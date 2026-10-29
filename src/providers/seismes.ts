@@ -11,7 +11,7 @@ import type { SourceInfo } from "../types.js";
 
 export const SOURCE: SourceInfo = {
   id: "ipgp_ovpf_seismes",
-  nom: "Séismes localisés par l'Observatoire volcanologique du Piton de la Fournaise",
+  nom: "Séismes localisés par l'Observatoire volcanologique du Piton de la Fournaise (OVPF-IPGP)",
   organisme: "OVPF-IPGP (Institut de physique du globe de Paris)",
   licence: "CC BY 4.0",
   attribution: "OVPF-IPGP",

@@ -21,7 +21,7 @@ import { de, fr, nombre } from "../tools/format.js";
 import { tidesNear } from "../tools/maree.js";
 import { coastText, cyclone, cycloneLevel, highest, NONE_ISSUED, zoneLevels, zoneShort } from "../tools/vigilance.js";
 import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, DechetsAnswer, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
-import { joursDuJour } from "./data.js";
+import { credit, joursDuJour } from "./data.js";
 import { aCommune, LINK } from "./aujourdhui.js";
 import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
@@ -395,7 +395,24 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   <figure class="card mapcard">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
 </div>`;
 
-  const sources = [...(l.commune?.value.sources ?? []), ...(l.place?.value.meteo?.sources ?? []), ...(l.air?.value.sources ?? []), ...(rents(p) ? [{ source: loyers.SOURCE.nom, licence: loyers.SOURCE.licence, attribution: loyers.SOURCE.attribution }] : []), ...(connexion(p) ? [{ source: internet.SOURCE.nom, licence: internet.SOURCE.licence, attribution: internet.SOURCE.attribution }] : []), ...(antennas(p) ? [antennes.SOURCE_MOBILE, ...(antennes.ofCommune(p.nom).emetteurs.length ? [antennes.SOURCE_RADIO] : []), ...(horsService(l.hs, p) ? [sitesHs.SOURCE] : [])].map((x) => ({ source: x.nom, licence: x.licence, attribution: x.attribution })) : [])];
+  // Every tile's producers, as their licences ask: a page with its own sources has none in its footer (layout).
+  const sources = [
+    ...(l.commune?.value.sources ?? []),
+    ...(l.place?.value.meteo?.sources ?? []),
+    ...(l.vigilance ? [credit(mf.SOURCE)] : []),
+    ...(l.air?.value.sources ?? []),
+    ...(coastal(p) ? [...(l.mer?.value.sources ?? []), ...(l.place?.value.mer?.sources ?? [])] : []),
+    ...(l.coupures?.value.sources ?? []),
+    ...(l.secheresse?.value.sources ?? []),
+    ...(l.eau?.value.sources ?? []),
+    ...(hikes?.live ? (l.randonnees?.value.sources ?? []) : []),
+    ...(children(p) ? enfants.sourcesOf(enfants.inCommune(p.nom)).map(credit) : []),
+    ...(rents(p) ? [credit(loyers.SOURCE)] : []),
+    ...(connexion(p) ? [credit(internet.SOURCE)] : []),
+    ...(antennas(p) ? [antennes.SOURCE_MOBILE, ...(antennes.ofCommune(p.nom).emetteurs.length ? [antennes.SOURCE_RADIO] : []), ...(horsService(l.hs, p) ? [sitesHs.SOURCE] : [])].map(credit) : []),
+    ...(l.volcan?.value.sources ?? []),
+    ...(l.electricite?.value.sources ?? []),
+  ];
   const body = `<section id="en-ce-moment" aria-labelledby="h-now">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-now">${esc(p.nom)} en ce moment</h2>
   <p>Chaque catégorie a sa page pour toute l'île ; ici, ce qui concerne ${esc(p.nom)}. Mise à jour en continu, chaque donnée avec son heure et sa source.</p></div>

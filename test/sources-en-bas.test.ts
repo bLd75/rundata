@@ -1,6 +1,10 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Cached } from "../src/cache.js";
+import * as houle from "../src/providers/houle.js";
+import * as seismes from "../src/providers/seismes.js";
+import * as vigieau from "../src/providers/vigieau.js";
+import { credits } from "../src/tools/format.js";
 import { communePage } from "../src/web/commune.js";
 import { CSS, layout, sourcesLast } from "../src/web/pages.js";
 import { pageOf } from "../src/web/places.js";
@@ -68,5 +72,42 @@ describe("the sources of a page", () => {
     for (const f of readdirSync(dir).filter((n) => n.endsWith(".ts"))) {
       expect(readFileSync(new URL(f, dir), "utf8"), f).not.toContain('<p class="note">Sources');
     }
+  });
+
+  it("leave the footer without the site's sources, and a link to them all; a page without its own keeps the site's", () => {
+    const own = layout(O, head, "", `<p>La journée.</p>${SRC}`);
+    const foot = own.slice(own.indexOf("<footer"));
+    expect(foot).not.toContain("<h3>Sources</h3>");
+    expect(foot).toContain('<a href="/chiffres">Toutes les sources →</a>');
+    expect(foot).toContain("Ces données sont fournies telles quelles, sans garantie.");
+    const bare = layout(O, { ...head, path: "/a-propos" }, "", "<p>Qui fait rundata.re.</p>");
+    const none = bare.slice(bare.indexOf("<footer"));
+    expect(none).toContain("<h3>Sources</h3>");
+    expect(none).toContain("Air : Atmo Réunion (ODbL).");
+    expect(none).toContain("Volcan : préfecture de La Réunion, OVPF-IPGP (CC BY 4.0)");
+    expect(none).not.toContain("Toutes les sources");
+  });
+
+  it("of a commune name every tile's producer, the footer no longer naming them", () => {
+    const fixture = (n: string) => JSON.parse(readFileSync(new URL(`./fixtures/pages/${n}.json`, import.meta.url), "utf8"));
+    const now = new Date("2026-10-23T14:40:00Z");
+    const cached = (value: unknown) => ({ value, fetchedAt: now, stale: false }) as Cached<never>;
+    const mer = { plages: [{ nom: "Boucan Canot", commune: "Saint-Paul", lon: 55.22, lat: -21.03, houle: { hauteur_m: 1.4 } }], sources: credits([houle.SOURCE]) };
+    const html = communePage(O, pageOf("saint-paul")!, {
+      place: null,
+      mer: cached(mer),
+      secheresse: cached({ communes: [], sources: credits([vigieau.SOURCE]) }),
+      volcan: cached({ ...fixture("volcan_seismes"), sources: credits([seismes.SOURCE]) }),
+      electricite: cached(fixture("electricite")),
+    }, now);
+    const block = html.slice(html.indexOf('<div class="wrap fin-sources">'), html.indexOf("<footer"));
+    expect(block).toContain("Prévision des vagues du modèle WAM du Centre européen (ECMWF), via Open-Meteo (CC BY 4.0");
+    expect(block).toContain("Séismes localisés par l&#39;Observatoire volcanologique du Piton de la Fournaise (OVPF-IPGP) (CC BY 4.0)");
+    expect(block).toContain("cartographiés dans OpenStreetMap (ODbL 1.0)");
+    expect(block).toContain("(EDF SEI) (Licence Ouverte Etalab 2.0)");
+    expect(block).toContain("Restrictions d&#39;eau en cas de sécheresse (VigiEau, arrêtés préfectoraux) (Licence Ouverte Etalab 2.0)");
+    // The island's map beside the commune's name: its contours and its relief.
+    expect(block).toContain(`<p class="sources">Carte : contours des communes de geo.api.gouv.fr, relief de l'IGN (RGE ALTI) (Licence Ouverte Etalab 2.0).</p>`);
+    expect(html.slice(html.indexOf("<footer"))).not.toContain("<h3>Sources</h3>");
   });
 });

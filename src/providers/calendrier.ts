@@ -17,7 +17,7 @@ export const SCHOOL: SourceInfo = {
 
 export const HOLIDAYS: SourceInfo = {
   id: "jours_feries",
-  nom: "Jours fériés à La Réunion",
+  nom: "Jours fériés à La Réunion (Etalab, calendrier.api.gouv.fr)",
   organisme: "Etalab (calendrier.api.gouv.fr)",
   licence: "Licence Ouverte Etalab 2.0",
   attribution: "Etalab",

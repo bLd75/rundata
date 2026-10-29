@@ -24,7 +24,7 @@ const PREFECTURE_HOST = "www.reunion.gouv.fr";
 
 export const OVPF: SourceInfo = {
   id: "ovpf_bluesky",
-  nom: "Communiqués et bulletins de l'Observatoire volcanologique du Piton de la Fournaise",
+  nom: "Communiqués et bulletins de l'Observatoire volcanologique du Piton de la Fournaise (OVPF-IPGP)",
   organisme: "OVPF-IPGP",
   licence: "Publications publiques de l'OVPF, citées avec leur lien",
   attribution: "OVPF-IPGP",
