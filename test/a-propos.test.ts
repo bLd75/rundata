@@ -37,6 +37,8 @@ describe("who makes rundata.re, the connector's page, the legal notice, the 404 
     expect(page).toContain("<title>Ajouter rundata.re à votre assistant IA · connecteur MCP gratuit</title>");
     const band = page.slice(page.indexOf('class="crumbs'), page.indexOf("<section"));
     expect(band).toContain("Brancher mon IA");
+    // R1: a pill names a source or a nature only; « Gratuit, sans compte » is neither.
+    expect(band).not.toContain('class="pill"');
     const lead = band.match(/<p class="lead">([^<]*)<\/p>/)![1];
     expect(lead).toBe("Ajoutez cette adresse à ChatGPT, Claude ou Le Chat\u00a0: votre IA lira les données de La Réunion en direct.");
     expect(lead.split(/[\s\u00a0]+/).filter((w) => /\p{L}/u.test(w)).length).toBeLessThanOrEqual(20);

@@ -27,7 +27,6 @@ export function wantsPage(request: Request): boolean {
 export function connecteurPage(origin: string, alerte?: Alerte): string {
   const band = `${crumbBar(CRUMB)}
 <div class="wrap intro solo"><div class="pitch">
-  <p class="pill"><span class="dot"></span>Gratuit, sans compte</p>
   <h1>Brancher rundata.re à votre IA</h1>
   <p class="lead">Ajoutez cette adresse à ChatGPT, Claude ou Le Chat : votre IA lira les données de La Réunion en direct.</p>
   ${connector(origin, "mcp-adresse")}
