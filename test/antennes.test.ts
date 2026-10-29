@@ -128,7 +128,7 @@ describe("the antennas of the island (ANFR)", () => {
   });
 
   it("colours the dots with marketing's palette, never an operator's own colour", () => {
-    expect(COULEURS).toEqual({ o: "#56b4e9", s: "#f0e442", f: "#cc79a7", z: "#2563d8", m: "#0b1f36", 5: "#f0e442", 4: "#56b4e9", 2: "#b4c6d8", r: "#cc79a7" });
+    expect(COULEURS).toEqual({ o: "#56b4e9", s: "#f0e442", f: "#b0508a", z: "#2563d8", m: "#0b1f36", 5: "#f0e442", 4: "#56b4e9", 2: "#b4c6d8", r: "#b0508a" });
     for (const [k, c] of Object.entries(COULEURS)) expect(CSS, k).toContain(`.antmap .k${k}{--c:${c}}`);
     // Each dot has its white edge; a ring, its night one.
     expect(CSS).toContain(".antmap .ants circle{fill:var(--c);stroke:#fff;stroke-width:8;paint-order:stroke}");
