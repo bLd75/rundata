@@ -193,8 +193,8 @@ const readerWaits: ReaderWaits = (key, value, ageMs) => {
 export const readerOf = (request: Request): boolean | ReaderWaits =>
   isReader(request) && (CHECK.test(request.headers.get("user-agent") ?? "") || readerWaits);
 
-/** A page without its live block is not kept: the next load should have it. */
-const htmlFor = (data: unknown) => (data ? HTML : { ...HTML, "cache-control": "no-store" });
+/** A page without its live block is not kept, nor one from a copy of another revision (web/data.ts `snapshot`): the next load should have it. */
+export const htmlFor = (data: unknown) => (data && !(data as { outdated?: boolean }).outdated ? HTML : { ...HTML, "cache-control": "no-store" });
 
 /**
  * A page from its copies, `render(true)`. A copy the code can no longer read (CACHE_FORMAT not raised, cache.ts) makes

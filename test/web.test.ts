@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { failed, handle } from "../src/app.js";
 import { stopPages } from "../src/providers/transit.js";
 import { PAGE_BUDGET, count, counted, later, left } from "../src/budget.js";
-import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
+import { Cache, MemoryStore, stampOf, TieredStore, type CacheEntry } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
 import * as mf from "../src/providers/vigilance.js";
 import * as feux from "../src/providers/feux.js";
@@ -15,7 +15,7 @@ import { VERSION } from "../src/server.js";
 import { COVERAGE as SEA_COVERAGE } from "../src/tools/mer.js";
 import { CSS, DESCRIPTION_MAX, FONT_PATH, meteoPage, placePage, seaPage, STYLE_PATH, vigilanceLive, vigilancePage } from "../src/web/pages.js";
 import { PAGES, pageOf } from "../src/web/places.js";
-import { isReader, site } from "../src/web/site.js";
+import { htmlFor, isReader, site } from "../src/web/site.js";
 import { unzip } from "../src/zip.js";
 import { RANDONNEES, SENTIERS } from "../src/providers/traces.js";
 import { SECTEURS as SECTEURS_RANDO } from "../src/traces/secteurs.js";
@@ -589,13 +589,55 @@ describe("page data", () => {
     await store.put("web:agenda", { value: "ancienne", fetchedAt: NOW.getTime() - 60_000, version: "rendu-0" });
     const c = new Cache(store, () => NOW.getTime(), false, undefined, "2.0.0");
     expect((await snapshot(c, "web:agenda", async () => "nouvelle", () => {}, NOW))?.value).toBe("nouvelle");
-    // A build too long for the wait: the page goes without its live block, as one never built, and the next view has it.
-    await store.put("web:lieu:essai", { value: "ancienne", fetchedAt: NOW.getTime() - 60_000, version: "rendu-0" });
-    const later: Promise<unknown>[] = [];
+  });
+
+  // 29/10/2026: « L'actualité se charge : rechargez la page » on /actualites at the first view after the deploy of #471,
+  // which raised its revision, its copy of 3 minutes before still there.
+  describe("built again after a deploy, too long for the wait", () => {
     const slow = () => new Promise<string>((r) => setTimeout(() => r("nouvelle"), 30));
-    expect(await snapshot(c, "web:lieu:essai", slow, (p) => later.push(p), NOW, 5)).toBeNull();
-    await Promise.all(later);
-    expect((await snapshot(c, "web:lieu:essai", slow, () => {}, NOW, 5))?.value).toBe("nouvelle");
+    /** A view of a page whose copy, if any, is `ageMs` old and stamped `version`, then the view after its build. */
+    async function views(ageMs?: number, version?: string) {
+      const store = new MemoryStore();
+      if (ageMs != null) await store.put("web:lieu:essai", { value: "ancienne", fetchedAt: NOW.getTime() - ageMs, ...(version && { version }) });
+      const c = new Cache(store, () => NOW.getTime(), false, undefined, "2.0.0");
+      const later: Promise<unknown>[] = [];
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      const first = await snapshot(c, "web:lieu:essai", slow, (p) => later.push(p), NOW, 5);
+      const said = log.mock.calls.map((x) => String(x[0])).filter((x) => x.startsWith("copie ancienne"));
+      log.mockRestore();
+      await Promise.all(later);
+      return { first, said, next: (await snapshot(c, "web:lieu:essai", slow, () => {}, NOW, 5))?.value };
+    }
+
+    it("serves the copy of another revision as it is, said in the log and not kept, its build going on behind", async () => {
+      const { first, said, next } = await views(3 * 60_000, "rendu-0");
+      expect(first).toMatchObject({ value: "ancienne", outdated: true });
+      // Its time, as the page says it (« Mis à jour à … »): the copy's, not the view's.
+      expect(first!.fetchedAt.getTime()).toBe(NOW.getTime() - 3 * 60_000);
+      expect(htmlFor(first)["cache-control"]).toBe("no-store");
+      expect(said).toEqual([`copie ancienne servie pendant la construction : web:lieu:essai, révision rendu-0→${stampOf("web:lieu:essai", "2.0.0")}, âge 3 min`]);
+      expect(next).toBe("nouvelle");
+      // A copy written before the stamps were kept: the same, said « sans ».
+      expect((await views(20 * 60_000)).said).toEqual([`copie ancienne servie pendant la construction : web:lieu:essai, révision sans→${stampOf("web:lieu:essai", "2.0.0")}, âge 20 min`]);
+      // A page from its own fresh copy is kept, as before.
+      expect(htmlFor({ value: 1, fetchedAt: NOW, stale: false })["cache-control"]).toBe("public, max-age=60");
+    });
+
+    it("does not serve a copy more than 24 hours old: what its page says in the present would be wrong", async () => {
+      for (const version of ["rendu-0", stampOf("web:lieu:essai", "2.0.0")]) {
+        const { first, said, next } = await views(25 * 3600_000, version);
+        expect(first, version).toBeNull();
+        expect(said).toEqual([]);
+        expect(next).toBe("nouvelle");
+      }
+    });
+
+    it("says the page is loading when there is no copy at all, as before", async () => {
+      const { first, said, next } = await views();
+      expect(first).toBeNull();
+      expect(said).toEqual([]);
+      expect(next).toBe("nouvelle");
+    });
   });
 
   it("is waited for by the fetchers of AI assistants and search engines, not by people", () => {

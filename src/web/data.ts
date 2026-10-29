@@ -12,7 +12,7 @@ import type { Jour } from "../tools/volcan.js";
 import * as arome from "../providers/arome.js";
 import { left, measured } from "../budget.js";
 import { daysApart, distanceKm, localTime } from "../geo.js";
-import type { Cache, Cached } from "../cache.js";
+import { type Cache, type Cached, stampOf } from "../cache.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
@@ -1678,6 +1678,11 @@ async function within<T>(work: Promise<T>, ms: number): Promise<T | null> {
  * The last copy of a page's data and when it was built, refreshed in the background when older than
  * FRESH_SECONDS. Null when there is none yet and it takes more than a few seconds to build.
  *
+ * A copy of another revision (a deploy changed what its page shows) is built again at once; while that build is past
+ * the wait, the copy is served as it is if it is less than KEEP_SECONDS old, `outdated` (not kept: web/site.ts), rather
+ * than a page that says it is loading (29/10/2026, /actualites right after the deploy of #471). An older one is not:
+ * what its page says in the present (« depuis 24 h », « suit la journée en direct ») would be wrong.
+ *
  * `reader`: the fetcher of an AI assistant, which reads the page once and answers from it. It waits up to `waitMs`
  * for an old copy to be refreshed instead of getting it as it is; when it is a function, only if that says so
  * (`ReaderWaits`).
@@ -1725,6 +1730,11 @@ export async function snapshot<T>(
   }
   if (!got) {
     background(any.catch(() => undefined));
+    const age = seen && now.getTime() - seen.fetchedAt.getTime();
+    if (seen?.outdated && age! < KEEP_SECONDS * 1000) {
+      console.log(`copie ancienne servie pendant la construction : ${key}, révision ${seen.stamp ?? "sans"}→${stampOf(key, cache.version)}, âge ${Math.round(age! / 60_000)} min`);
+      return seen;
+    }
     return null;
   }
   const freshFor = incomplete?.(got.value) ? INCOMPLETE_RETRY_SECONDS : FRESH_SECONDS;

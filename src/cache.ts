@@ -64,8 +64,8 @@ export const stampOf = (key: string, version: string | undefined) => {
 /**
  * Whether `entry`, kept under `key`, is a page's copy or a source's entry stamped otherwise than the code of `version`
  * stamps it (#269, #272): due at once, whatever its age, so that a page shows what its code says from the first view
- * after the deploy that changed it. It stays the copy served if its build fails. A copy written before the stamps were
- * kept has none: built again once.
+ * after the deploy that changed it. It stays the copy served if its build fails, and a page's while its build is too slow
+ * for the view (web/data.ts `snapshot`). A copy written before the stamps were kept has none: built again once.
  */
 export const outdated = (key: string, entry: { version?: string } | undefined, version: string | undefined) =>
   entry != null && stampOf(key, version) != null && entry.version !== stampOf(key, version);
@@ -152,6 +152,8 @@ export interface Cached<T> {
   cost?: number;
   /** A page's copy built by another version of the code (`outdated`, `peek` only). */
   outdated?: boolean;
+  /** With `outdated`: what it is stamped with, none for a copy written before the stamps were kept. */
+  stamp?: string;
 }
 
 const FAILURE_BACKOFF_SECONDS = 60;
@@ -293,7 +295,7 @@ export class Cache {
    */
   async peek<T>(key: string, freshAfter?: number): Promise<Cached<T> | undefined> {
     const hit = await this.store.get(key, freshAfter);
-    return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.cost != null && { cost: hit.cost }), ...(outdated(key, hit, this.version) && { outdated: true }) };
+    return hit && { value: hit.value as T, fetchedAt: new Date(hit.fetchedAt), stale: false, ...(hit.cost != null && { cost: hit.cost }), ...(outdated(key, hit, this.version) && { outdated: true, ...(hit.version && { stamp: hit.version }) }) };
   }
 
   /** The value kept under `key` in the durable store (the Worker's KV), however old: what must outlive a deploy. */
