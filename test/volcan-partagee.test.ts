@@ -114,7 +114,7 @@ describe("/volcan when the IPGP's catalogue does not answer", () => {
   it("says from which read the earthquakes come, in the answer and on the page, with the words of the answer's warning", async () => {
     vi.stubGlobal("fetch", async () => new Response("", { status: 503 }));
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const said = "La source « Séismes localisés par l'Observatoire volcanologique du Piton de la Fournaise » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 26/10 à 17:59.";
+    const said = "La source « Séismes localisés par l'Observatoire volcanologique du Piton de la Fournaise (OVPF-IPGP) » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 26/10 à 17:59.";
     const r = body(await volcanSeismes(cache(), NOW));
     expect(r.seismes.copie).toBe(said);
     const html = volcanPage("https://rundata.re", { value: r, fetchedAt: NOW, stale: false }, NOW);

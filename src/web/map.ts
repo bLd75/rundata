@@ -12,6 +12,15 @@ export const H = island.h;
 /** The island in relief (scripts/build-relief.py), a file of public/; its address changes with its content. */
 export const RELIEF_PATH = `/relief-${relief.v}.webp`;
 
+/**
+ * The credit of the island's map, for a page that names its own sources (the footer then names none): the communes'
+ * contours (scripts/build-island.py), and the IGN's relief when it is drawn (scripts/build-relief.py).
+ */
+export function mapCredit(html: string): string | undefined {
+  if (!html.includes('<use href="#isl"')) return undefined;
+  return `<p class="sources">Carte : contours des communes de geo.api.gouv.fr${html.includes(RELIEF_PATH) ? ", relief de l'IGN (RGE ALTI)" : ""} (Licence Ouverte Etalab 2.0).</p>`;
+}
+
 export function project(lon: number, lat: number): [number, number] {
   return [Math.round(((lon - LON0) / (LON1 - LON0)) * W), Math.round(((LAT1 - lat) / (LAT1 - LAT0)) * H)];
 }
