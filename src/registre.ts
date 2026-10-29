@@ -23,6 +23,7 @@ import { KINDS as CANDHIS_KINDS, REFRESH_EVERY as CANDHIS_EVERY, REFRESH_OFFSET 
 import { IMAGE_OFFSET as CMRS_IMAGE_OFFSET, LISTE_OFFSET as CMRS_LISTE_OFFSET, REFRESH_EVERY as CMRS_EVERY } from "./providers/cmrs-carte.js";
 import { REFRESH_EVERY as AIR_EVERY, REFRESH_OFFSET as AIR_OFFSET } from "./providers/air-mesures.js";
 import { REFRESH_EVERY as CAPTEURS_EVERY, REFRESH_OFFSET as CAPTEURS_OFFSET } from "./providers/capteurs.js";
+import { FICHES_MAX as EMPLOI_FICHES, REFRESH_EVERY as EMPLOI_EVERY, REFRESH_OFFSET as EMPLOI_OFFSET } from "./providers/emploi.js";
 import { REFRESH_EVERY as IRVE_EVERY, REFRESH_OFFSET as IRVE_OFFSET } from "./providers/irve.js";
 import { SHARED, SHARED_AFTER, type Shared } from "./web/partagees.js";
 import { COMMUNE_TILES, DOMAINS, HOME_TILES } from "./web/site.js";
@@ -320,6 +321,19 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/capteurs.ts"],
     basis: "code",
   },
+  // The copy read from KV, the feed (1), the page of each new offer (about 217 Ko each, FICHES_MAX at most: the feed's
+  // 20 when all are new; 0 to 2 in most runs), the copy written when it changed. Each page searched for its labels by
+  // position, never built. CPU and memory estimated from the pages' size, to be measured in a Worker.
+  {
+    id: "emploi:offres",
+    trigger: "planifiée",
+    what: "emploi public : le flux des offres de Choisir le service public pour La Réunion, et la page de chaque nouvelle offre pour son employeur et sa date limite, écrits dans KV quand ils changent",
+    every: EMPLOI_EVERY,
+    offset: EMPLOI_OFFSET,
+    run: { subrequests: 1 + EMPLOI_FICHES, kvReads: 1, kvWrites: 1, cpuMs: 60, memoryMb: 10 },
+    from: ["src/providers/emploi.ts"],
+    basis: "estimé",
+  },
   // Only with the Cerema's key. The state read from KV, one getCampListeTR request per type of active buoy (at most
   // the three types; one when the island's buoys are all of one type), the state written. Every 30 days, and the first
   // time, the list of the active buoys besides: one request per type, three more subrequests in that run.
@@ -443,6 +457,9 @@ const DOMAIN_PAGES: Record<string, Page> = {
   "/evenements/concerts": { subrequests: 36, cpuMs: 230, from: ["src/tools/agenda.ts"], what: "comme /evenements, une partie de sa copie" },
   "/actualites": { subrequests: 20, cpuMs: 160, from: ["src/tools/actualites.ts"] },
   "/enfants": { subrequests: 37, cpuMs: 350, from: ["src/tools/agenda.ts"] },
+  // The page's copy, the store's copy of the offers (KV, written each hour by the scheduled event) and the header's
+  // reads, as /eau: no read of the site on a view.
+  "/emploi": { subrequests: 11, cpuMs: 80, from: ["src/tools/emploi.ts"], basis: "code" },
 };
 
 /** The other pages that read sources. */
@@ -538,6 +555,8 @@ const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string;
   bornes_recharge: { subrequests: 3, cpuMs: 50, file: "bornes" },
   // The index (3), the copy of the measures at the stations (3), the copy of the sensors (1), test/capteurs.test.ts.
   qualite_air: { subrequests: 7, cpuMs: 50, file: "air", kvReads: 2 },
+  // The copy of the offers, written each hour by the scheduled event (KV): no read of the site.
+  emploi: { subrequests: 3, cpuMs: 40, file: "emploi", kvReads: 1, basis: "code" },
   defibrillateurs: { subrequests: 0, cpuMs: 70, file: "dae" },
   donner_avis: { subrequests: 1, cpuMs: 60, d1: { d1Calls: 1, d1RowsRead: 5, d1RowsWritten: 3 } },
   // The copy of /chiffres for its block `chiffres` (the data center's cache, else KV).

@@ -18,6 +18,7 @@ import * as carburants from "./providers/carburants.js";
 import * as prefectureCopie from "./providers/prefecture-copie.js";
 import * as airMesures from "./providers/air-mesures.js";
 import * as capteurs from "./providers/capteurs.js";
+import * as emploi from "./providers/emploi.js";
 import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as candhis from "./providers/candhis.js";
@@ -217,6 +218,12 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get(capteurs.KV_KEY, "json")) as capteurs.Copie | null;
   });
+  // Read every hour from Choisir le service public by the scheduled event below, and kept in KV (src/providers/emploi.ts).
+  emploi.configure(async () => {
+    if (!kv) return null;
+    count();
+    return (await kv.get(emploi.KV_KEY, "json")) as emploi.Copie | null;
+  });
   // Read every day from the prefecture by scripts/carburants.ts, on a machine of the project: never by the
   // Worker, even without the store.
   carburants.configure(async () => {
@@ -394,6 +401,20 @@ export default {
       }))
         .then(({ value, used, reads }) => console.log(`capteurs amateurs : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("capteurs amateurs : lecture impossible", why(err))));
+    }
+    // Every hour, at 25 past: the feed of the public sector's offers at La Réunion, and the page of each new offer
+    // (20 at most) for its employer and closing date, kept in KV when they changed, once the reads above are done.
+    if (kv && emploi.refreshDue(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, async () => {
+        count();
+        const before = (await kv.get(emploi.KV_KEY, "json")) as emploi.Copie | null;
+        return emploi.collect(before, async (copie) => {
+          count(1, true);
+          await kv.put(emploi.KV_KEY, JSON.stringify(copie), { expirationTtl: emploi.KV_TTL_SECONDS });
+        }, now);
+      }))
+        .then(({ value, used, reads }) => console.log(`offres d'emploi : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("offres d'emploi : lecture impossible", why(err))));
     }
     // Every 30 minutes while GDACS has an active system: the RSMC's list of bulletins at 15 and 45 past the hour, its
     // track map at 20 and 50, one request each, kept in KV (src/providers/cmrs-carte.ts), once the reads above are done.

@@ -136,6 +136,8 @@ export const FICHES: Record<string, Fiche> = {
   gtfs_rt_reunion: { famille: "licence_ouverte", producteurs: ["Région Réunion", "CIVIS", "CASUD"] },
   // The CIVIS decides, Ecovélo runs it.
   altervelo: { famille: "licence_ouverte", producteurs: ["CIVIS"] },
+  // The offers' employers are many and change every day: the site's publisher is named.
+  csp_offres: { famille: "licence_ouverte", producteurs: ["DGAFP"] },
   // The operators of La Réunion's stations, from the copy of the national base bundled with the site (irve/stations.json).
   irve: { famille: "licence_ouverte", producteurs: operateurs() },
   onf_sentiers: { famille: "information_publique", producteurs: ["ONF"] },

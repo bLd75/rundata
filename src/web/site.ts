@@ -62,6 +62,7 @@ import {
   type VolcanAnswer,
 } from "./data.js";
 import { COMMUNES, communePage, communesPage } from "./commune.js";
+import { buildEmploi, emploiPage } from "./emploi.js";
 import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cruesPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
 import { concertsPage, weekendPage } from "./evenements.js";
 import { communePath as enfantsPath, enfantsCommunePage, enfantsPage } from "./enfants.js";
@@ -255,6 +256,7 @@ export const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: D
   "/evenements/concerts": { key: "web:agenda", build: buildAgenda, page: concertsPage },
   "/actualites": { key: "web:actualites", build: buildActualites, page: actualitesPage },
   "/enfants": { key: "web:enfants", build: buildEnfants, page: enfantsPage },
+  "/emploi": { key: "web:emploi", build: buildEmploi, page: emploiPage },
 };
 
 /** How to build each category page's copy, by its cache key: what the home page and the commune pages show as tiles. */

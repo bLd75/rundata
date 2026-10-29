@@ -144,19 +144,20 @@ describe("the serveur block", () => {
   afterEach(() => expect(fetched).toEqual([]));
 
   it("names the newest tools in every answer, for a client whose list is old", async () => {
-    const s = serveur(VERSION, 27, NOW);
+    const s = serveur(VERSION, 28, NOW);
     expect(Object.keys(s.outils_recents!)).toEqual(expect.arrayContaining(["sport", "historique_meteo", "actualites"]));
     // A tool not online yet at that time is not among them; once it is, the newest come first.
     expect(Object.keys(s.outils_recents!)).not.toContain("donner_avis");
     expect(Object.keys(outilsRecents(new Date("2026-10-24T13:00:00Z"))!).slice(0, 3)).toEqual(["resume_du_jour", "donner_avis", "actualites"]);
     expect(JSON.stringify(s).length).toBeLessThan(600);
     const r = body(await rpcResult("tools/call", { name: "defibrillateurs", arguments: { lieu: "Cilaos" } }));
-    expect(r.serveur).toMatchObject({ version: VERSION, nombre_outils: 27 });
+    expect(r.serveur).toMatchObject({ version: VERSION, nombre_outils: 28 });
     expect(r.serveur.si_outil_absent).toMatch(/ancienne/);
   });
 
   it("drops tools older than a week", () => {
-    expect(outilsRecents(new Date("2026-11-05T00:00:00Z"))).toBeUndefined();
+    // A week after the newest tool.
+    expect(outilsRecents(new Date(Date.parse(OUTILS[0].depuis) + 7 * 86400_000))).toBeUndefined();
   });
 
   it("sources_donnees lists every tool and the latest changes, dated", async () => {

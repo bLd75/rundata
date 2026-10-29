@@ -35,6 +35,8 @@ const NO_COPY = ["vigilance", "trafic", "sentiers", "secheresse", "coupures", "s
 const BUNDLED = ["dae", "enfants"];
 // From the weather's copy.
 const SEA = ["mer"];
+// A tile without a value: it would read the copy on every view (categories.ts, sansValeur).
+const NO_VALUE = ["emploi"];
 
 describe("a tile with nothing to show", () => {
   it("says « Se met à jour » on the home page only while its copy is missing", () => {
@@ -67,7 +69,7 @@ describe("a tile with nothing to show", () => {
   });
 
   it("covers every category with a page: a new one needs a value, or its copy listed here", () => {
-    const listed = [...Object.keys(EMPTY), ...SEA, ...NO_COPY, ...BUNDLED];
+    const listed = [...Object.keys(EMPTY), ...SEA, ...NO_COPY, ...BUNDLED, ...NO_VALUE];
     for (const c of CATEGORIES.filter((x) => x.path)) expect(listed, c.key).toContain(c.key);
     // Without a page, a question to ask.
     for (const c of CATEGORIES.filter((x) => !x.path)) expect(c.exemple, c.key).toBeTruthy();
