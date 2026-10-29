@@ -11,6 +11,7 @@ import { fr } from "../tools/format.js";
 import type { StationNow } from "./data.js";
 import { esc, H, islandMap, project, W } from "./map.js";
 import { PATH as PLUIE_RADAR } from "./pluie-radar.js";
+import { PATH as PLUIE_RETRO } from "./pluie-retro.js";
 import { chip, deg, hm, metres, shortName, stationId, thin } from "./pages.js";
 
 const COMMUNE_OF_INSEE = new Map(Object.entries(INSEE).map(([nom, code]) => [code, nom]));
@@ -131,7 +132,9 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
   const w = list.filter((s) => s.vent != null);
   // The named ones last, over the dots.
   const drawn = list.filter((s) => s.temperature != null || mm(s) != null || s.vent != null);
-  const top = `<g class="sts">${[...drawn].sort((a, b) => Number(named(a)) - Number(named(b))).map((s) => station(s, named(s), mm(s), hour)).join("")}</g>`;
+  // The replay's time, on the sea at the top left; shown only while it plays (pluie-retro.ts).
+  const top = `<g class="sts">${[...drawn].sort((a, b) => Number(named(a)) - Number(named(b))).map((s) => station(s, named(s), mm(s), hour)).join("")}</g>` +
+    (nRain || w.length ? `<text class="rj-h" x="34" y="92" aria-hidden="true"></text>` : "");
   // The veil's data: each station's place on the map, altitude and temperature; the script does the rest.
   const voile = JSON.stringify(t.map((s) => [...project(s.lon, s.lat), s.altitude_m, s.temperature]));
   // A canvas rather than an image: the site's policy lets no picture be made in the page (img-src 'self').
@@ -153,11 +156,15 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
   ].filter((l): l is { id: string; tab: string; legend: string } => !!l);
   const tabs = `<div class="tabs aqtabs" role="radiogroup" aria-label="Mesure affichée sur la carte">` +
     layers.map((l, i) => `<input type="radio" name="wxl" id="wxl-${l.id}"${i ? "" : ' class="on" checked'}><label for="wxl-${l.id}">${l.tab}</label>`).join("") + `</div>`;
-  const legend = layers.map((l, i) => `<span class="lg lg-${l.id}${i ? "" : " on"}">${l.legend}</span>`).join("");
+  // Each legend, and the replay's in its place while it plays.
+  const legend = layers.map((l, i) => `<span class="lg lg-${l.id}${i ? "" : " on"}"><span class="lg-now">${l.legend}</span>${l.id === "t" ? "" : `<span class="rj-lg"></span>`}</span>`).join("");
+  const replay = nRain || w.length
+    ? `<span class="rj" data-retro="${PLUIE_RETRO}" hidden><button type="button">Revoir les 3 dernières heures</button><input type="range" min="0" max="0" step="1" value="0" aria-label="Heure de l'image" hidden></span>`
+    : "";
   const bubble = `<a class="mtip" data-mtip hidden aria-hidden="true" tabindex="-1" href="#stations"><span class="mt-p"></span><b class="mt-v"></b><span class="mt-d"></span><span class="mt-go">Voir la station →</span></a>`;
   return `<figure class="card mapcard airmap wxmap">${tabs}` +
     islandMap({ overlay, top, peaks: true, label: `Carte de La Réunion (974) : les ${drawn.length} stations météo et leur dernière mesure, à ${hm(latest)}` }) +
-    bubble + `<figcaption class="note">${legend}</figcaption></figure>`;
+    bubble + `<figcaption class="note">${legend}${replay}</figcaption></figure>`;
 }
 
 /** The veil, computed in the browser: the altitude explains most of it, the stations the rest (inverse distance). */
@@ -173,14 +180,16 @@ const[R,G,B]=col(k+b*(v-1)*${altitudes.pas_m}+sr/sw);o.data[i]=R;o.data[i+1]=G;o
  * What the wind and the rain share in the browser: a canvas animated about 30 frames a second, only while its layer
  * is shown, the map on screen and the tab in front; drawn again when the map's width changes (a phone's address bar
  * that hides changes its height alone); one still picture for those who ask for less motion, or when nothing moves
- * (`o.moving()`). `o.ready()` says when its data has come; the function returned, called then, starts it.
+ * (`o.moving()`). `o.ready()` says when its data has come; the function returned, called then, starts it; `o.again()`
+ * draws it all again, for the replay's images.
  */
 const ANIM = `const anim=(o)=>{const inp=document.getElementById(o.id);let run=false,seen=false,raf=0,last=0,cw=0;
 const loop=(t)=>{raf=requestAnimationFrame(loop);if(t-last<32)return;last=t;o.frame()};
 const go=()=>{const on=inp&&inp.checked&&seen&&!document.hidden&&o.ready();if(on&&!run){run=true;const r=o.fl.getBoundingClientRect();cw=Math.round(r.width);o.size(r);
 if(o.moving&&!o.moving()||matchMedia("(prefers-reduced-motion: reduce)").matches){o.still();return}raf=requestAnimationFrame(loop)}else if(!on&&run){run=false;cancelAnimationFrame(raf)}};
 new IntersectionObserver((e)=>{seen=e[0].isIntersecting;go()}).observe(o.fl.closest("figure"));document.addEventListener("visibilitychange",go);
-document.querySelectorAll("[name=wxl]").forEach((i)=>i.addEventListener("change",go));addEventListener("resize",()=>{if(run&&Math.round(o.fl.getBoundingClientRect().width)!==cw){run=false;cancelAnimationFrame(raf);go()}});return go};`;
+document.querySelectorAll("[name=wxl]").forEach((i)=>i.addEventListener("change",go));addEventListener("resize",()=>{if(run&&Math.round(o.fl.getBoundingClientRect().width)!==cw){run=false;cancelAnimationFrame(raf);go()}});
+o.again=()=>{if(run){run=false;cancelAnimationFrame(raf)}go()};return go};`;
 
 /**
  * The wind, in the browser: the anemometers' winds spread on the altitudes' grid by inverse distance, coloured by speed
@@ -195,7 +204,7 @@ const at=(x,y)=>{const gx=Math.min(w-1.001,Math.max(0,x*w/${W}-.5)),gy=Math.min(
 const m=(A)=>(A[k]*(1-fx)+A[k+1]*fx)*(1-fy)+(A[k+w]*(1-fx)+A[k+w+1]*fx)*fy;return[m(U),m(V)]};
 const on_=(x,y)=>M[(Math.min(h-1,y*h/${H}|0))*w+Math.min(w-1,x*w/${W}|0)];
 const born=(p)=>{const c=land[(Math.random()*land.length)|0];p.x=(c%w+Math.random())*${W}/w;p.y=((c/w|0)+Math.random())*${H}/h;p.a=(Math.random()*80)|0};
-const go=anim({fl,id:"wxl-v",ready:()=>land.length,
+const o={fl,id:"wxl-v",ready:()=>land.length,
 size:(r)=>{cw=fl.width=Math.max(1,Math.round(r.width));ch=fl.height=Math.max(1,Math.round(r.height));g=fl.getContext("2d");
 const n=Math.min(900,Math.round(r.width*r.height/150));ps=[];for(let i=0;i<n;i++){const p={};born(p);ps.push(p)}},
 still:()=>{g.clearRect(0,0,cw,ch);g.strokeStyle="rgba(255,255,255,.9)";g.lineWidth=1.5;g.lineCap="round";const e=22*w/cw;
@@ -204,11 +213,15 @@ const X=i*cw/w,Y=j*ch/h,dx=u/q*8,dy=v/q*8,a=Math.atan2(dy,dx);g.beginPath();g.mo
 g.lineTo(X+dx-5*Math.cos(a-.5),Y+dy-5*Math.sin(a-.5));g.moveTo(X+dx,Y+dy);g.lineTo(X+dx-5*Math.cos(a+.5),Y+dy-5*Math.sin(a+.5));g.stroke()}},
 frame:()=>{const s=cw/${W};g.globalCompositeOperation="destination-in";g.fillStyle="rgba(0,0,0,.94)";g.fillRect(0,0,cw,ch);g.globalCompositeOperation="source-over";
 g.strokeStyle="rgba(255,255,255,.9)";g.lineWidth=Math.max(1.2,cw/330);g.beginPath();
-for(const p of ps){const[u,v]=at(p.x,p.y),x=p.x+u*.3,y=p.y+v*.3;if(++p.a>100||x<0||y<0||x>=${W}||y>=${H}||!on_(x,y)){born(p);continue}g.moveTo(p.x*s,p.y*s);g.lineTo(x*s,y*s);p.x=x;p.y=y}g.stroke()}});
-im.onload=()=>{w=im.width;h=im.height;const c=ve;c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(im,0,0);const a=x.getImageData(0,0,w,h).data;U=new Float32Array(w*h);V=new Float32Array(w*h);M=new Uint8Array(w*h);
-const p=st.map(([X,Y,u,v])=>[X*w/${W},Y*h/${H},u,v]),o=x.createImageData(w,h);for(let j=0;j<h;j++)for(let i=0;i<w;i++){const k=j*w+i;let sw=0,su=0,sv=0;
-for(const[px,py,u,v]of p){const q=1/((px-i)**2+(py-j)**2+.5);sw+=q;su+=q*u;sv+=q*v}U[k]=su/sw;V[k]=sv/sw;if(!a[k*4])continue;M[k]=1;land.push(k);
-const[R,G,B]=col(Math.hypot(U[k],V[k]));o.data[k*4]=R;o.data[k*4+1]=G;o.data[k*4+2]=B;o.data[k*4+3]=200}x.putImageData(o,0,0);go()};im.src=ve.dataset.alt}`;
+for(const p of ps){const[u,v]=at(p.x,p.y),x=p.x+u*.3,y=p.y+v*.3;if(++p.a>100||x<0||y<0||x>=${W}||y>=${H}||!on_(x,y)){born(p);continue}g.moveTo(p.x*s,p.y*s);g.lineTo(x*s,y*s);p.x=x;p.y=y}g.stroke()}};const go=anim(o);
+// The field of a set of anemometers: the live ones, or those of a round hour of the replay.
+let A,x;const field=(sx)=>{const p=sx.map(([X,Y,u,v])=>[X*w/${W},Y*h/${H},u,v]),e=x.createImageData(w,h);land=[];for(let j=0;j<h;j++)for(let i=0;i<w;i++){const k=j*w+i;let sw=0,su=0,sv=0;
+for(const[px,py,u,v]of p){const q=1/((px-i)**2+(py-j)**2+.5);sw+=q;su+=q*u;sv+=q*v}U[k]=su/sw;V[k]=sv/sw;if(!A[k*4])continue;M[k]=1;land.push(k);
+const[R,G,B]=col(Math.hypot(U[k],V[k]));e.data[k*4]=R;e.data[k*4+1]=G;e.data[k*4+2]=B;e.data[k*4+3]=200}x.putImageData(e,0,0)};
+RJ.v={show:(f,el)=>{if(!A)return;field(f.st);o.again();const n=f.st.length;el.textContent="Vent moyen sur 10 minutes, mesuré "+at_(f.fin)+" par "+n+(n>1?" anémomètres":" anémomètre")+" de Météo-France. Entre eux, le mouvement et les couleurs sont estimés. Les aéroports et les balises OpenWindMap ne sont pas dans ce rejeu."},
+back:()=>{if(!A)return;field(st);o.again()}};
+im.onload=()=>{w=im.width;h=im.height;const c=ve;c.width=w;c.height=h;x=c.getContext("2d");x.drawImage(im,0,0);A=x.getImageData(0,0,w,h).data;U=new Float32Array(w*h);V=new Float32Array(w*h);M=new Uint8Array(w*h);
+field(st);go()};im.src=ve.dataset.alt}`;
 
 /**
  * The rain the radar sees, in the browser, asked for when the layer is first shown (web/pluie-radar.ts): its cells
@@ -218,41 +231,78 @@ const[R,G,B]=col(Math.hypot(U[k],V[k]));o.data[k*4]=R;o.data[k*4+1]=G;o.data[k*4
  * image's time, that the radar sees no rain, or that its image is too old to say anything about now.
  */
 const PLUIE_SCRIPT = `const pr=document.querySelector("[data-pluie]");if(pr){const fl=pr.nextElementSibling,say=document.querySelector("[data-radar]"),inp=document.getElementById("wxl-p");
-let d=null,cells=[],acc=[],ds=[],cw=0,ch=0,g,asked=false;const K=${JSON.stringify(RAIN_WASH)},Wt=[0,1,2,3,5,8,12,18,26];
-const p2=(n)=>String(n).padStart(2,"0"),loc=(t)=>new Date(Date.parse(t)+144e5),hm=(t)=>{const x=loc(t);return p2(x.getUTCHours())+":"+p2(x.getUTCMinutes())};
+let d=null,live=null,L=null,Lp=null,cells=[],acc=[],ds=[],cw=0,ch=0,g,asked=false;const K=${JSON.stringify(RAIN_WASH)},Wt=[0,1,2,3,5,8,12,18,26];
+const BAD=" Hachures : zones que le radar voit mal, où la pluie peut être manquée.";
 const when=(t)=>{const x=loc(t),n=loc(new Date().toISOString());return x.toISOString().slice(0,10)===n.toISOString().slice(0,10)?"de "+hm(t):"du "+p2(x.getUTCDate())+"/"+p2(x.getUTCMonth()+1)+" à "+hm(t)};
 const radars=(l)=>{const of=(n)=>(n==="Colorado"?"du ":"de ")+n;return(l.length>1?"Radars ":"Radar ")+l.slice(0,-1).map(of).join(", ")+(l.length>1?" et ":"")+of(l[l.length-1])+" en défaut, selon Météo-France : de la pluie peut manquer sur la carte."};
 const pick=()=>{const r=Math.random()*acc[acc.length-1];let a=0,b=acc.length-1;while(a<b){const m=(a+b)>>1;if(acc[m]<r)a=m+1;else b=m}return cells[a]};
 const born=(p)=>{const k=pick(),c=+d.pluie[k];p.x=(k%d.w+Math.random())*cw/d.w;p.y=((k/d.w|0)+Math.random())*ch/d.h;p.v=.8+c*.25;p.l=3+c;p.a=0;p.m=5+(Math.random()*6|0)};
 const drops=(n)=>{g.strokeStyle="rgba(255,255,255,.92)";g.lineWidth=1.4;g.lineCap="round";g.beginPath();for(const p of ds){g.moveTo(p.x,p.y);g.lineTo(p.x-p.l*.25,p.y-p.l)}g.stroke()};
-const go=anim({fl,id:"wxl-p",ready:()=>!!d,moving:()=>cells.length>0,
+const o={fl,id:"wxl-p",ready:()=>!!d,moving:()=>cells.length>0,
 size:(r)=>{cw=fl.width=pr.width=Math.max(1,Math.round(r.width));ch=fl.height=pr.height=Math.max(1,Math.round(r.height));g=fl.getContext("2d");
 const x=pr.getContext("2d"),sx=cw/d.w,sy=ch/d.h,t=document.createElement("canvas");t.width=t.height=6;const tg=t.getContext("2d");tg.lineWidth=1.6;for(const[c,o]of[["rgba(11,31,54,.55)",0],["rgba(255,255,255,.5)",3]]){tg.strokeStyle=c;tg.beginPath();for(const k of[-6,0,6]){tg.moveTo(k+o-1,7);tg.lineTo(k+o+7,-1)}tg.stroke()}
 const hatch=x.createPattern(t,"repeat");for(let k=0;k<d.w*d.h;k++){const c=d.pluie[k],X=(k%d.w)*sx,Y=(k/d.w|0)*sy;
 if(c>"0"){x.fillStyle=K[+c-1];x.fillRect(X,Y,sx+.6,sy+.6)}if(d.mal_vu[k]==="1"){x.fillStyle=hatch;x.fillRect(X,Y,sx+.6,sy+.6)}}
 ds=[];if(!cells.length)return;const n=Math.min(900,Math.max(25,Math.round(acc[acc.length-1]*.03*r.width*r.height/88e3)));for(let i=0;i<n;i++){const p={};born(p);p.a=(Math.random()*p.m)|0;ds.push(p)}},
 still:()=>{g.clearRect(0,0,cw,ch);drops()},
-frame:()=>{g.clearRect(0,0,cw,ch);for(const p of ds){p.y+=p.v;p.x-=p.v*.25;if(++p.a>p.m)born(p)}drops()}});
+frame:()=>{g.clearRect(0,0,cw,ch);for(const p of ds){p.y+=p.v;p.x-=p.v*.25;if(++p.a>p.m)born(p)}drops()}};const go=anim(o);
 // The hatched square ties the sentence to the hatches on the map, however small they are.
-const show=(t,bad,down)=>{say.textContent=t;if(bad){const i=document.createElement("i");i.className="hsw";say.append(" ",i,bad)}if(down)say.append(down);say.hidden=false};
-const land=()=>new Promise((ok,ko)=>{const im=new Image();im.onload=()=>{const c=document.createElement("canvas");c.width=im.width;c.height=im.height;const x=c.getContext("2d");x.drawImage(im,0,0);
-const a=x.getImageData(0,0,im.width,im.height).data;ok(a.filter((v,i)=>i%4===0))};im.onerror=ko;im.src=pr.dataset.alt});
-const get=()=>{if(asked||!inp.checked)return;asked=true;Promise.all([fetch(pr.dataset.pluie).then((r)=>{if(!r.ok)throw new Error(String(r.status));return r.json()}),land()]).then(([j,L])=>{
+const show=(el,t,bad,down)=>{el.textContent=t;if(bad){const i=document.createElement("i");i.className="hsw";el.append(" ",i,bad)}if(down)el.append(down);el.hidden=false};
+const land=()=>Lp||(Lp=new Promise((ok,ko)=>{const im=new Image();im.onload=()=>{const c=document.createElement("canvas");c.width=im.width;c.height=im.height;const x=c.getContext("2d");x.drawImage(im,0,0);
+const a=x.getImageData(0,0,im.width,im.height).data;ok(L=a.filter((v,i)=>i%4===0))};im.onerror=ko;im.src=pr.dataset.alt}));
+// A grid made the one drawn: its rainy cells of the island alone (the map shows nothing of the sea, where the radars
+// also see), and whether the radars see badly somewhere on it.
+const use=(j)=>{d=j;cells=[];acc=[];let bad="";for(let k=0;k<d.w*d.h;k++){if(!L[k])continue;const c=+d.pluie[k];if(c>0){cells.push(k);acc.push((acc[acc.length-1]||0)+Wt[c])}if(d.mal_vu[k]==="1")bad=BAD}return bad};
+const say_=(j,bad,head,tail)=>show(head.el,(cells.length?"En bleu : la pluie estimée par le radar de Météo-France "+at_(j.fin)+" ; plus c'est foncé, plus elle est forte.":"Le radar de Météo-France ne voit pas de pluie "+at_(j.fin)+".")+tail,bad,j.pannes.length?" "+radars(j.pannes):"");
+const get=()=>{if(asked||!inp.checked)return;asked=true;Promise.all([fetch(pr.dataset.pluie).then((r)=>{if(!r.ok)throw new Error(String(r.status));return r.json()}),land()]).then(([j])=>{
 if(L.length!==j.w*j.h)throw new Error("grille");
-if(Date.now()-Date.parse(j.fin)>45*6e4){show("Pas d'image radar récente : la dernière date "+when(j.fin)+" et n'est pas affichée.");return}d=j;
-// The island alone: the map shows nothing of the sea, where the radars also see.
-let bad="";for(let k=0;k<d.w*d.h;k++){if(!L[k])continue;const c=+d.pluie[k];if(c>0){cells.push(k);acc.push((acc[acc.length-1]||0)+Wt[c])}if(d.mal_vu[k]==="1")bad=" Hachures : zones que le radar voit mal, où la pluie peut être manquée."}
-const down=d.pannes.length?" "+radars(d.pannes):"";
-show((cells.length?"En bleu : la pluie estimée par le radar de Météo-France à "+hm(d.fin)+" ; plus c'est foncé, plus elle est forte.":"Le radar de Météo-France ne voit pas de pluie à "+hm(d.fin)+"."),bad,down);go()}).catch(()=>{})};
+if(Date.now()-Date.parse(j.fin)>45*6e4){show(say,"Pas d'image radar récente : la dernière date "+when(j.fin)+" et n'est pas affichée.");return}live=j;
+say_(j,use(j),{el:say},"");go()}).catch(()=>{})};
+// The replay's images (pluie-retro.ts): each its own rain and hatches; a gap, nothing but its sentence.
+const none=(w,h)=>({fin:"",pannes:[],w,h,pluie:"0".repeat(w*h),mal_vu:"0".repeat(w*h)});
+const un=(s)=>s.split(",").map((r)=>r?r[0].repeat(parseInt(r.slice(1),36)):"").join("");
+RJ.p={prep:land,show:(e,el,gr,tail)=>{if(!L||L.length!==gr.w*gr.h)return;if(e.trou){use(none(gr.w,gr.h));o.again();const one=Date.parse(e.a)-Date.parse(e.de)<=3e5;
+show(el,one?"Pas d'image radar "+at_(e.a)+".":"Pas d'image radar de "+hm(e.de)+" à "+hm(e.a)+".");return}
+const j={fin:e.fin,pannes:e.pannes,w:gr.w,h:gr.h,pluie:un(e.pluie),mal_vu:un(e.mal_vu)};const bad=use(j);o.again();say_(j,bad,{el},tail)},
+back:()=>{if(live)use(live);else if(d)use(none(d.w,d.h));o.again()}};
 inp.addEventListener("change",get);get()}`;
 
-/** /meteo's own script: the stations' list (filter, sort, unfold), then the veil, the wind and the radar's rain. */
+/**
+ * The replay of the last 3 hours (pluie-retro.ts), under the rain and wind layers: asked when one of them is first
+ * shown, to offer it only with 2 images or round hours at least; then each image in turn, every half second for the
+ * radar's, every 2.5 s for the wind's, its time written on the map and read by the slider, the stations' dots hidden
+ * (they say now). Back to now on the button or on another layer. No playing for those who ask for less motion: the
+ * slider alone.
+ */
+const REJEU_SCRIPT = `const rc=document.querySelector("[data-retro]");if(rc){const fig=rc.closest("figure"),btn=rc.querySelector("button"),rng=rc.querySelector("input"),hh=fig.querySelector(".rj-h");
+const lg={p:fig.querySelector(".lg-p .rj-lg"),v:fig.querySelector(".lg-v .rj-lg")};let J=null,asked=false,on="",fr=[],k=0,tm=0;
+const lay=()=>["p","v"].find((l)=>{const i=document.getElementById("wxl-"+l);return i&&i.checked&&RJ[l]})||"";
+const list=(l)=>!J?[]:l==="p"?(J.radar?J.radar.entrees:[]):J.vent;
+const first=(l)=>{const e=list(l)[0];return e?(e.trou?e.de:e.fin):""};
+// The history is full when it starts within 10 minutes of 3 hours ago; just after the release it starts later.
+const full=(l)=>Date.parse(first(l))<=Date.now()-3*36e5+(l==="p"?6e5:36e5);
+const upd=()=>{if(on)return;const l=lay();rc.hidden=!l||list(l).filter((e)=>!e.trou).length<2;if(!rc.hidden)btn.textContent=full(l)?"Revoir les 3 dernières heures":"Revoir depuis "+hm(first(l))};
+const frame=()=>{const e=fr[k],one=e.trou&&Date.parse(e.a)-Date.parse(e.de)<=3e5;rng.value=String(k);
+hh.textContent=e.trou?(one?hm(e.a):hm(e.de)+"–"+hm(e.a)):hm(e.fin);rng.setAttribute("aria-valuetext",e.trou?(one?"Pas d'image radar à "+hm(e.a):"Pas d'image radar de "+hm(e.de)+" à "+hm(e.a)):hm(e.fin));
+RJ[on].show(e,lg[on],J.radar," Une image toutes les 5 minutes, "+(full("p")?"sur les 3 dernières heures.":"depuis "+hm(first("p"))+"."))};
+const play=()=>{clearInterval(tm);if(!matchMedia("(prefers-reduced-motion: reduce)").matches)tm=setInterval(()=>{k=(k+1)%fr.length;frame()},on==="p"?500:2500)};
+const start=()=>{on=lay();if(!on)return;fr=list(on);k=0;fig.classList.add("rejeu");rng.max=String(fr.length-1);rng.hidden=false;btn.textContent="Revenir à maintenant";frame();play()};
+const stop=()=>{clearInterval(tm);const l=on;on="";fig.classList.remove("rejeu");rng.hidden=true;RJ[l].back();upd()};
+const get=()=>{if(asked||!lay())return;asked=true;Promise.all([fetch(rc.dataset.retro).then((r)=>{if(!r.ok)throw new Error(String(r.status));return r.json()}),RJ.p?RJ.p.prep():0]).then(([j])=>{J=j;upd()}).catch(()=>{})};
+btn.addEventListener("click",()=>on?stop():start());rng.addEventListener("input",()=>{clearInterval(tm);k=+rng.value;frame()});
+document.querySelectorAll("[name=wxl]").forEach((i)=>i.addEventListener("change",()=>{if(on)stop();get();upd()}));get()}`;
+
+/** /meteo's own script: the stations' list (filter, sort, unfold), then the veil, the wind and the radar's rain, and their replay. */
 export const METEO_SCRIPT = `const stl=document.getElementById("stl");if(stl){const sel=document.getElementById("stc"),bs=document.querySelectorAll("[data-s]");
 const m=document.getElementById("stm"),open=()=>{stl.classList.remove("plie");if(m)m.parentElement.hidden=true};if(m)m.addEventListener("click",open);
 const f=()=>{const c=sel.value;open();stl.querySelectorAll("li").forEach((li)=>{li.hidden=!!c&&li.dataset.c!==c})};sel.addEventListener("change",f);
 bs.forEach((b)=>b.addEventListener("click",()=>{const k=b.dataset.s;open();bs.forEach((x)=>x.setAttribute("aria-pressed",x===b));
 [...stl.children].sort((a,z)=>k==="n"?a.dataset.n.localeCompare(z.dataset.n,"fr"):k==="t"?(z.dataset.t===""?-99:+z.dataset.t)-(a.dataset.t===""?-99:+a.dataset.t):a.dataset.z-z.dataset.z).forEach((li)=>stl.append(li))}))}
+// What the layers share: the time in La Réunion (UTC+4, no summer time), « hier » before midnight, and the replay's hooks.
+const p2=(n)=>String(n).padStart(2,"0"),loc=(t)=>new Date(Date.parse(t)+144e5),hm=(t)=>{const x=loc(t);return p2(x.getUTCHours())+":"+p2(x.getUTCMinutes())};
+const at_=(t)=>(loc(t).toISOString().slice(0,10)===loc(new Date().toISOString()).toISOString().slice(0,10)?"à ":"hier à ")+hm(t),RJ={};
 ${VOILE_SCRIPT}
 ${ANIM}
 ${VENT_SCRIPT}
-${PLUIE_SCRIPT}`;
+${PLUIE_SCRIPT}
+${REJEU_SCRIPT}`;

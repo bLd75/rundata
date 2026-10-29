@@ -666,6 +666,12 @@ html:has([data-js]:not([hidden])) #stl.plie>li:nth-child(n+13){display:none}.stm
 .wxmap .wgrad{background:linear-gradient(90deg,#4668b0,#2e96ac 17%,#4aaa62 33%,#deb83e 50%,#de702e 75%,#b22c48)}
 /* The hatches' square, before their sentence: the map's two tones over a pale ground, like the relief's. */
 .wxmap .hsw{display:inline-block;width:.9rem;height:.9rem;margin:0 .1rem;vertical-align:-.1rem;border-radius:.15rem;background:repeating-linear-gradient(135deg,rgba(11,31,54,.55) 0 1.6px,transparent 1.6px 2.1px,rgba(255,255,255,.5) 2.1px 3.7px,transparent 3.7px 4.24px),#c9d8c2}
+/* The replay of the last 3 hours: its button and slider under the legend, its time on the map, the stations' dots hidden. */
+.wxmap .rj{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-top:.6rem}.wxmap .rj[hidden],.wxmap .rj [hidden]{display:none}
+.wxmap .rj button{min-height:44px;padding:.35rem .95rem;border-radius:999px;border:1px solid rgb(255 255 255/.35);background:rgb(255 255 255/.08);color:inherit;font:inherit;font-weight:700;cursor:pointer}
+.wxmap .rj input{flex:1 1 10rem;min-height:44px;accent-color:#fff}
+.wxmap .rj-lg,.wxmap .rj-h{display:none}.wxmap.rejeu .rj-lg{display:inline}.wxmap.rejeu .rj-h{display:inline}.wxmap.rejeu .lg-now,.wxmap.rejeu .sts,.wxmap.rejeu .mtip{display:none}
+.wxmap .rj-h{text-anchor:start;font-size:64px;font-weight:700;fill:var(--ink);stroke:var(--bg);stroke-width:10px;paint-order:stroke}
 .sttools{display:flex;flex-wrap:wrap;gap:.6rem 1rem;align-items:center;margin-bottom:.8rem}.sttools[hidden]{display:none}.sttools select{font:inherit;padding:.3rem .5rem;border-radius:.5rem}
 .sttools button{font:inherit;padding:.25rem .6rem;border:1px solid var(--line);border-radius:99px;background:none;color:inherit;cursor:pointer}.sttools button[aria-pressed=true]{background:var(--ink);color:var(--surface)}
 .airmap:has(#aqp-pm10:checked) .ly-pm10,.airmap:has(#aqp-pm10:checked) .lg-pm10,.airmap:has(#aqp-pm25:checked) .ly-pm25,.airmap:has(#aqp-pm25:checked) .lg-pm25,.airmap:has(#aqp-o3:checked) .ly-o3,.airmap:has(#aqp-o3:checked) .lg-o3,.airmap:has(#aqp-no2:checked) .ly-no2,.airmap:has(#aqp-no2:checked) .lg-no2{display:inline}
