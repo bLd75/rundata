@@ -127,8 +127,8 @@ const FILTRES_SCRIPT = `(()=>{const f=document.querySelector(".antf");if(!f)retu
 ${LOOK}
 const D=S.map((s)=>[...s.dataset.g.matchAll(/([a-z])(\\d*)(?:\\+(\\d+))?/g)].map((m)=>[m[1],m[2],m[3]||""]));
 const ins=(n)=>[...f.querySelectorAll("[name="+n+"]")],val=(n)=>(ins(n).find((i)=>i.checked)||{}).value||"",set=(n,v)=>ins(n).forEach((i)=>{i.checked=i.value===v});
-let mode=val("ac");
-const draw=(keep)=>{const t=val("at"),radio=t.length>2;if(radio){set("ao","");set("ac","t")}else set("ac",mode);ins("ao").concat(ins("ac")).forEach((i)=>{i.disabled=radio});
+let mode=val("ac");const RADIOS=${JSON.stringify(RADIOS.map((r) => r.id))};
+const draw=(keep)=>{const t=val("at"),radio=RADIOS.includes(t);if(radio){set("ao","");set("ac","t")}else set("ac",mode);ins("ao").concat(ins("ac")).forEach((i)=>{i.disabled=radio});
 f.querySelectorAll(".r-ao,.r-ac").forEach((r)=>r.classList.toggle("dis",radio));
 const op=f.querySelector("[name=ao]:checked"),o=op&&op.value?op.dataset.k:"",g=radio?"":t.slice(0,1),m=radio?"t":mode;
 S.forEach((s,i)=>{const l=radio?null:look(D[i],o,g,m);s.setAttribute("class",l?"s k"+l[1]+(l[0]?" r":""):"s h")});

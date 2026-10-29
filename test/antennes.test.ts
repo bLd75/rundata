@@ -101,6 +101,12 @@ describe("the antennas of the island (ANFR)", () => {
     const script = [...html.matchAll(/<script>(\(\(\)=>\{const f=document\.querySelector\("\.antf"\)[^]*?)<\/script>/g)].map((m) => m[1]);
     expect(script).toHaveLength(1);
     expect(() => new Function(script[0])).not.toThrow();
+    // The radio and the TV by their list, never by the length of their name (« fm » has two letters).
+    expect(script[0]).toContain('const RADIOS=["tnt","fm","dab"];');
+    expect(script[0]).toContain("radio=RADIOS.includes(t);");
+    expect(script[0]).not.toMatch(/t\.length/);
+    expect(by["fm"]).toMatch(/^FM : \d+ supports d'émetteurs de radio FM, \d+ stations\.$/);
+    expect(by["dab"]).toMatch(/^DAB\+ : \d+ supports d'émetteurs de radio numérique, \d+ stations\.$/);
     expect(html).not.toMatch(/5G en service/);
     // The commune of the tile has the same counts, its operators without « sur ».
     expect(html).toContain('<th scope="row">Cilaos</th><td data-label="Supports mobiles">7</td><td data-label="Dont 5G techniquement opérationnelle">5</td><td data-label="Supports par opérateur">Orange 2, SFR Réunion 4, Free 1, Zeop 1</td><td data-label="Supports radio et TV">6</td>');
