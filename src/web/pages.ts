@@ -226,8 +226,8 @@ p,ul,ol,table,figure{margin:0}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* A section's colour is never one of the alert scale (yellow, orange, red, purple) nor a red: those say a real state
-   (kit.md). The four sections of risks share one neutral colour. */
-.k-meteo{--k:#ff9f43}.k-vigilance,.k-crues,.k-volcan,.k-cyclones{--k:#4fd1c5}.k-actualites{--k:#a5d8ff}.k-mer{--k:#22b8cf}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-secheresse{--k:#ff922b}.k-coupures{--k:#74c0fc}.k-dae{--k:#40c057}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-historique{--k:#e599f7}.k-agenda{--k:#da77f2}.k-enfants{--k:#f06595}
+   (kit.md). The sections of risks share one neutral colour. */
+.k-meteo{--k:#ff9f43}.k-vigilance,.k-crues,.k-volcan,.k-cyclones,.k-secheresse{--k:#4fd1c5}.k-actualites{--k:#a5d8ff}.k-mer{--k:#22b8cf}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-coupures{--k:#74c0fc}.k-dae{--k:#40c057}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-historique{--k:#e599f7}.k-agenda{--k:#da77f2}.k-enfants{--k:#f06595}
 .k-air{--k:#38d9a9}.k-electricite{--k:#fab005}.k-calendrier{--k:#b197fc}.k-communes{--k:#f783ac}.k-services{--k:#74c0fc}.k-trafic{--k:#91a7ff}.k-terrain{--k:#d8a65a}
 .kb{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:12px;flex:none;color:var(--k);
 background:linear-gradient(155deg,color-mix(in srgb,var(--k) 20%,transparent),color-mix(in srgb,var(--k) 9%,transparent));
