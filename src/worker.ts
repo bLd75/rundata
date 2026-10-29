@@ -221,7 +221,8 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get(capteurs.KV_KEY, "json")) as capteurs.Stocke | null;
   });
-  // Read every hour from Choisir le service public by the scheduled event below, and kept in KV (src/providers/emploi.ts).
+  // Read by the scheduled event below (one offer's page every 5 minutes, the feed every hour), and kept in KV
+  // (src/providers/emploi.ts).
   emploi.configure(async () => {
     if (!kv) return null;
     count();
@@ -406,9 +407,10 @@ export default {
         .then(({ value, used, reads }) => console.log(`capteurs amateurs : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("capteurs amateurs : lecture impossible", why(err))));
     }
-    // Every hour, at 25 past: the feed of the public sector's offers at La Réunion, and the page of each new offer
-    // (20 at most) for its employer and closing date, kept in KV when they changed, once the reads above are done.
-    if (kv && emploi.refreshDue(now)) {
+    // Every event: one page of an offer of the public sector at La Réunion, the newest not read yet or else each in
+    // turn, for its employer and closing date, and every hour at 25 past the feed besides; kept in KV when they
+    // changed, once the reads above are done.
+    if (kv) {
       ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, async () => {
         count();
         const before = (await kv.get(emploi.KV_KEY, "json")) as emploi.Copie | null;

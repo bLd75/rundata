@@ -23,7 +23,7 @@ import { KINDS as CANDHIS_KINDS, REFRESH_EVERY as CANDHIS_EVERY, REFRESH_OFFSET 
 import { IMAGE_OFFSET as CMRS_IMAGE_OFFSET, LISTE_OFFSET as CMRS_LISTE_OFFSET, REFRESH_EVERY as CMRS_EVERY } from "./providers/cmrs-carte.js";
 import { REFRESH_EVERY as AIR_EVERY, REFRESH_OFFSET as AIR_OFFSET } from "./providers/air-mesures.js";
 import { REFRESH_EVERY as CAPTEURS_EVERY, REFRESH_OFFSET as CAPTEURS_OFFSET } from "./providers/capteurs.js";
-import { FICHES_MAX as EMPLOI_FICHES, REFRESH_EVERY as EMPLOI_EVERY, REFRESH_OFFSET as EMPLOI_OFFSET } from "./providers/emploi.js";
+import { EVENEMENT_MINUTES as EMPLOI_FICHE_EVERY, REFRESH_EVERY as EMPLOI_EVERY, REFRESH_OFFSET as EMPLOI_OFFSET } from "./providers/emploi.js";
 import { REFRESH_EVERY as IRVE_EVERY, REFRESH_OFFSET as IRVE_OFFSET } from "./providers/irve.js";
 import { SHARED, SHARED_AFTER, type Shared } from "./web/partagees.js";
 import { COMMUNE_TILES, DOMAINS, HOME_TILES } from "./web/site.js";
@@ -321,16 +321,27 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/capteurs.ts"],
     basis: "code",
   },
-  // The copy read from KV, the feed (1), the page of each new offer (about 217 Ko each, FICHES_MAX at most: the feed's
-  // 20 when all are new; 0 to 2 in most runs), the copy written when it changed. Each page searched for its labels by
-  // position, never built. CPU and memory estimated from the pages' size, to be measured in a Worker.
+  // The copy read from KV, one offer's page (about 217 Ko, searched for its labels by position, never built), the copy
+  // written when it changed: never two pages at once on the site. CPU and memory estimated from the page's size, to be
+  // measured in a Worker.
   {
     id: "emploi:offres",
     trigger: "planifiée",
-    what: "emploi public : le flux des offres de Choisir le service public pour La Réunion, et la page de chaque nouvelle offre pour son employeur et sa date limite, écrits dans KV quand ils changent",
+    what: "emploi public : la page d'une offre de Choisir le service public à chaque événement, la plus récente pas encore lue, sinon chaque offre ouverte à son tour, écrites dans KV quand elles changent",
+    every: EMPLOI_FICHE_EVERY,
+    offset: 0,
+    run: { subrequests: 3, kvReads: 1, kvWrites: 1, cpuMs: 15, memoryMb: 5 },
+    from: ["src/providers/emploi.ts"],
+    basis: "estimé",
+  },
+  // In the same event as the page above, at 25 past: the feed, one request.
+  {
+    id: "emploi:flux",
+    trigger: "planifiée",
+    what: "emploi public : le flux des 20 dernières offres de Choisir le service public pour La Réunion",
     every: EMPLOI_EVERY,
     offset: EMPLOI_OFFSET,
-    run: { subrequests: 1 + EMPLOI_FICHES, kvReads: 1, kvWrites: 1, cpuMs: 60, memoryMb: 10 },
+    run: { subrequests: 1, cpuMs: 5 },
     from: ["src/providers/emploi.ts"],
     basis: "estimé",
   },

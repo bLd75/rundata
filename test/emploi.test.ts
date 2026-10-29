@@ -36,6 +36,15 @@ function site(fiche: (ref: string) => string | undefined = (ref) => (ref.startsW
   return asked;
 }
 
+/** The feed read at `at`, then one event every 5 minutes until no page is left to read: the copy written last. */
+async function rempli(at = NOW, before: emploiSource.Copie | null = null) {
+  let c = before;
+  const write = async (x: emploiSource.Copie) => void (c = x);
+  await emploiSource.collect(c, write, at, true);
+  for (let k = 1; c!.offres.some((o) => emploiSource.enAttente(o)); k++) await emploiSource.collect(c, write, new Date(at.getTime() + k * 300_000), false);
+  return c!;
+}
+
 describe("the public sector's offers of Choisir le service public", () => {
   it("reads the feed's offers: reference, title, field, job, nature, place, a commune only when named exactly", () => {
     const f = emploiSource.parseFeed(FEED);
@@ -56,6 +65,17 @@ describe("the public sector's offers of Choisir le service public", () => {
     expect(f.filter((o) => o.commune === "Sainte-Marie")).toHaveLength(12);
     expect(f.filter((o) => !o.lieu).map((o) => o.ref)).toEqual(["2026-2416372", "2026-2454752"]);
     expect(["97460-ST PAUL", "97434-ST GILLES LES BAINS", "CHU SITES SUD", "", undefined].map(emploiSource.communeDe)).toEqual(["Saint-Paul", "Saint-Paul", undefined, undefined, undefined]);
+  });
+
+  it("finds an address's commune from La Poste's postcode, the name after it the same, never from a CEDEX", () => {
+    // Places read on the offers' pages on 29/10/2026.
+    expect(["24 avenue Georges Brassens 97400 Saint-Denis", "27 rue Félix Guyon 97400 St-Denis", "Rue LA BOURDONNAIS 97400 ILE DE LA REUNION", "Rue X, 97430 Le Tampon, La Réunion"].map(emploiSource.communeDe)).toEqual(["Saint-Denis", "Saint-Denis", "Saint-Denis", "Le Tampon"]);
+    // 97411: Saint-Paul's postcode, Saint-Denis's INSEE code.
+    expect(emploiSource.communeDe("Rue X 97411")).toBe("Saint-Paul");
+    // A name that is not the postcode's commune, a CEDEX, a code out of La Poste's: none.
+    expect(["Rue X 97400 Saint-Paul", "Rue X 97400 Paris", "BP 123 97408 SAINT DENIS", "Rue X 97400 SAINT DENIS CEDEX", "Réunion (974), France"].map(emploiSource.communeDe)).toEqual([undefined, undefined, undefined, undefined, undefined]);
+    // « SAINT CLOTILDE »: Sainte-Clotilde, in Saint-Denis.
+    expect(emploiSource.communeDe("SAINT CLOTILDE")).toBe("Saint-Denis");
   });
 
   it("reads an offer's page for its employer, closing date, place and nature", () => {
@@ -92,49 +112,66 @@ describe("the public sector's offers of Choisir le service public", () => {
     expect(emploiSource.ouverte({ ...o, limite: "2026-11-10" }, new Date("2026-11-10T20:00:00Z"))).toBe(false);
   });
 
-  it("reads the feed every hour at 25 past, each new offer's page once, and writes only what changed", async () => {
+  it("reads one offer's page an event, the newest not read yet, then each in turn, and writes only what changed", async () => {
     const asked = site();
     const writes: emploiSource.Copie[] = [];
     const write = async (c: emploiSource.Copie) => void writes.push(c);
-    const { value, used } = await counted(100, () => emploiSource.collect(null, write, NOW));
-    expect(value).toBe("20 offres, 20 nouvelles, 20 pages d'offre lues : écrites");
-    // The feed and 20 pages: what the budget's registry says at most.
-    expect(used).toBe(21);
-    expect(REGISTRY.find((e) => e.id === "emploi:offres")!.run.subrequests).toBe(used);
-    const c = writes[0];
-    expect(c.offres.find((o) => o.ref === "2026-2454752")).toMatchObject({ employeur: "Centre Hospitalier Universitaire de la Réunion", limite: "2026-11-10", lieu: "CHU SITES SUD", fiche: "lue" });
-    expect(c.offres.find((o) => o.ref === "2026-2454752")).not.toHaveProperty("commune");
-    expect(c.offres.every((o) => o.fiche === "lue")).toBe(true);
+    const { value, used } = await counted(100, () => emploiSource.collect(null, write, NOW, true));
+    expect(value).toBe("20 offres, 20 nouvelles, page de l'offre 2026-2416372 lue : écrites");
+    // The feed and one page: never two pages at once on the site; the registry's, besides the copy read and written.
+    expect(used).toBe(2);
+    const run = (id: string) => REGISTRY.find((e) => e.id === id)!.run.subrequests;
+    expect(run("emploi:flux") + run("emploi:offres") - 2).toBe(used);
     // Newest first.
-    expect(c.offres[0].ref).toBe("2026-2416372");
+    expect(writes[0].offres[0]).toMatchObject({ ref: "2026-2416372", fiche: "lue" });
+    expect(writes[0].offres.filter((o) => o.fiche === "lue")).toHaveLength(1);
 
-    // The next hour, the same feed: one read, nothing written.
+    // The next events, without the feed: one page each, the newest not read yet, until all are.
+    for (let k = 1; k < 20; k++) {
+      asked.length = 0;
+      await emploiSource.collect(writes.at(-1)!, write, new Date(NOW.getTime() + k * 300_000), false);
+      expect(asked).toHaveLength(1);
+    }
+    const c = writes.at(-1)!;
+    expect(writes).toHaveLength(20);
+    expect(c.lu).toBe(NOW.toISOString());
+    expect(c.offres.every((o) => o.fiche === "lue")).toBe(true);
+    expect(c.offres.find((o) => o.ref === "2026-2454752")).toMatchObject({ employeur: "Centre Hospitalier Universitaire de la Réunion", limite: "2026-11-10", lieu: "CHU SITES SUD" });
+    expect(c.offres.find((o) => o.ref === "2026-2454752")).not.toHaveProperty("commune");
+
+    // Then each open offer in turn, by the event's slot, nothing written while the page says the same.
+    const turn = (k: number) => emploiSource.prochaineFiche(c.offres, new Date(NOW.getTime() + k * 300_000))!.ref;
+    expect(new Set(Array.from({ length: 20 }, (_, k) => turn(20 + k))).size).toBe(20);
     asked.length = 0;
     const later = new Date(NOW.getTime() + 3600_000);
-    expect(await emploiSource.collect(c, write, later)).toBe("20 offres, 0 nouvelles, 0 pages d'offre lues : inchangées, non réécrites");
-    expect(asked).toEqual(["flux"]);
-    expect(writes).toHaveLength(1);
+    expect(await emploiSource.collect(c, write, later, true)).toBe(`20 offres, 0 nouvelles, page de l'offre ${emploiSource.prochaineFiche(c.offres, later)!.ref} relue : inchangées, non réécrites`);
+    expect(asked).toEqual(["flux", emploiSource.prochaineFiche(c.offres, later)!.ref]);
+    expect(writes).toHaveLength(20);
+    // A store still empty between two feeds: nothing read.
+    expect(await emploiSource.collect(null, write, later, false)).toBe("aucune copie, flux lu à la prochaine heure");
 
     const at = (min: number) => emploiSource.refreshDue(new Date(Date.UTC(2026, 9, 29, 8, min)));
     expect([0, 24, 25, 29, 30].map(at)).toEqual([false, false, true, true, false]);
+  });
+
+  it("fills in a commune when an offer read again has a place it did not know", async () => {
+    site();
+    const o: emploiSource.Offre = { ref: "DGAC-AVE-128697-CAT-A", intitule: "x", lien: emploiSource.lienDe("DGAC-AVE-128697-CAT-A"), publiee: "2026-10-29T06:00:00Z", lieu: "27 rue Félix Guyon 97400 St-Denis", limite: "2026-11-20", fiche: "lue" };
+    let c: emploiSource.Copie | undefined;
+    await emploiSource.collect({ lu: NOW.toISOString(), offres: [o] }, async (x) => void (c = x), NOW, false);
+    expect(c!.offres[0]).toMatchObject({ lieu: "27 rue Félix Guyon 97400 St-Denis", commune: "Saint-Denis" });
   });
 
   it("logs a feed all new, and tries a silent offer's page once more, then keeps its 31 days", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const before: emploiSource.Copie = { lu: "2026-10-29T07:25:00Z", offres: [{ ref: "2026-1", intitule: "Ancienne", lien: emploiSource.lienDe("2026-1"), publiee: "2026-10-20T06:00:00Z", fiche: "lue" }] };
     site((ref) => (ref === "2026-2454752" ? undefined : ref.startsWith("2026-") ? CHU : DGAC));
-    const writes: emploiSource.Copie[] = [];
-    const write = async (c: emploiSource.Copie) => void writes.push(c);
-    expect(await emploiSource.collect(before, write, NOW)).toBe("21 offres, 20 nouvelles, 19 pages d'offre lues, 1 sans réponse : écrites");
+    const c = await rempli(NOW, before);
     expect(log).toHaveBeenCalledWith("offres d'emploi : 20 nouvelles références sur 20 dans le flux, des offres ont pu passer entre deux lectures");
-    const silent = () => writes.at(-1)!.offres.find((o) => o.ref === "2026-2454752")!;
-    expect(silent().fiche).toBe("relire");
-    await emploiSource.collect(writes.at(-1)!, write, NOW);
-    expect(silent().fiche).toBe("abandon");
-    // Not read again after that.
-    const asked = site();
-    await emploiSource.collect(writes.at(-1)!, write, NOW);
-    expect(asked).toEqual(["flux"]);
+    expect(c.offres).toHaveLength(21);
+    // Silent twice, at two events in a row: given up, and not read again until its turn among the read ones.
+    expect(c.offres.find((o) => o.ref === "2026-2454752")!.fiche).toBe("abandon");
+    expect(c.offres.filter((o) => o.fiche === "lue")).toHaveLength(20);
     log.mockRestore();
   });
 
@@ -143,9 +180,9 @@ describe("the public sector's offers of Choisir le service public", () => {
     const before: emploiSource.Copie = { lu: "2026-10-29T07:25:00Z", offres: [] };
     const writes: emploiSource.Copie[] = [];
     const write = async (c: emploiSource.Copie) => void writes.push(c);
-    await expect(emploiSource.collect(before, write, NOW)).rejects.toThrow("HTTP 503");
+    await expect(emploiSource.collect(before, write, NOW, true)).rejects.toThrow("HTTP 503");
     expect(writes).toEqual([{ ...before, echec: NOW.toISOString() }]);
-    await expect(emploiSource.collect(writes[0], write, NOW)).rejects.toThrow("HTTP 503");
+    await expect(emploiSource.collect(writes[0], write, NOW, true)).rejects.toThrow("HTTP 503");
     expect(writes).toHaveLength(1);
   });
 });
@@ -153,10 +190,9 @@ describe("the public sector's offers of Choisir le service public", () => {
 describe("the tool emploi and the page /emploi", () => {
   async function copie(): Promise<emploiSource.Copie> {
     site();
-    let c: emploiSource.Copie | undefined;
-    await emploiSource.collect(null, async (x) => void (c = x), NOW);
+    const c = await rempli();
     vi.unstubAllGlobals();
-    return c!;
+    return c;
   }
 
   it("gives the island's offers newest first, each with its link, and says what is not taken", async () => {

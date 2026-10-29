@@ -5,10 +5,10 @@
  * 12 to 19 come out a day (2026). The Worker's scheduled event reads it every hour (`collect`, worker.ts) and keeps
  * every offer in the KV store until its closing date, where pages and tools read them (`offres`), never the feed.
  *
- * The feed has no employer and no closing date: the page of each new offer is read once, for both. An offer leaves the
- * list at its closing date (« Date limite de candidature »), or, without one, 31 days after it was published: the
- * median planned publication of the 4 200 offers of La Réunion of 2026 in the site's weekly file on data.gouv.fr
- * (offres-datagouv-20261004.csv, read on 29/10/2026: p25 30, p75 32, p90 36 days).
+ * The feed has no employer and no closing date: the page of each new offer is read for both, then again in turn, one
+ * page in 5 minutes at most. An offer leaves the list at its closing date (« Date limite de candidature »), or, without
+ * one, 31 days after it was published: the median planned publication of the 4 200 offers of La Réunion of 2026 in the
+ * site's weekly file on data.gouv.fr (offres-datagouv-20261004.csv, read on 29/10/2026: p25 30, p75 32, p90 36 days).
  */
 import type { Cache, Cached } from "../cache.js";
 import { getText } from "../http.js";
@@ -60,8 +60,8 @@ export interface Offre {
   /** When it was published (ISO, UTC); a day only for the offers read from the site's search pages (scripts/emploi-amorce.ts). */
   publiee: string;
   /**
-   * The offer's page: « lue » once read, « relire » after one failed read (read once more, at the next event),
-   * « abandon » after two: the offer keeps the 31 days' rule. Absent: not read yet.
+   * The offer's page: « lue » once read (then read again in turn, `prochaineFiche`), « relire » after one failed read
+   * (read once more, at the next event), « abandon » after two: the offer keeps the 31 days' rule. Absent: not read yet.
    */
   fiche?: "lue" | "relire" | "abandon";
 }
@@ -101,15 +101,37 @@ export function refDe(lien: string): string | undefined {
 }
 
 /**
+ * La Poste's postcodes of La Réunion (geo.api.gouv.fr, read on 29/10/2026): 37, each of one commune only. No CEDEX
+ * among them, and never an INSEE code: 97411 is Saint-Paul's postcode, and Saint-Denis's INSEE code.
+ */
+const CODES_POSTAUX: Record<string, string> = { "97400": "Saint-Denis", "97410": "Saint-Pierre", "97411": "Saint-Paul", "97412": "Bras-Panon", "97413": "Cilaos", "97414": "Entre-Deux", "97416": "Saint-Leu", "97417": "Saint-Denis", "97418": "Le Tampon", "97419": "La Possession", "97420": "Le Port", "97421": "Saint-Louis", "97422": "Saint-Paul", "97423": "Saint-Paul", "97424": "Saint-Leu", "97425": "Les Avirons", "97426": "Les Trois-Bassins", "97427": "L'Étang-Salé", "97429": "Petite-Île", "97430": "Le Tampon", "97431": "La Plaine-des-Palmistes", "97432": "Saint-Pierre", "97433": "Salazie", "97434": "Saint-Paul", "97435": "Saint-Paul", "97436": "Saint-Leu", "97437": "Saint-Benoît", "97438": "Sainte-Marie", "97439": "Sainte-Rose", "97440": "Saint-André", "97441": "Sainte-Suzanne", "97442": "Saint-Philippe", "97450": "Saint-Louis", "97460": "Saint-Paul", "97470": "Saint-Benoît", "97480": "Saint-Joseph", "97490": "Saint-Denis" };
+
+/** A commune named exactly; « SAINT CLOTILDE » read as « Sainte Clotilde » when only that is exact. */
+function exacte(name: string): string | undefined {
+  for (const n of [name, name.replace(/^SAINT\b/i, "Sainte")]) {
+    const r = resolvePlace(n);
+    if (r?.correspondance === "exacte" && r.lieu.commune) return r.lieu.commune;
+  }
+  return undefined;
+}
+
+/**
  * The commune of a place as the site writes it, only when it names one exactly: « 97408-ST DENIS CEDEX 9 » →
- * Saint-Denis, « 97438-STE MARIE » → Sainte-Marie. Never from the postcode: 97408 is a CEDEX of Saint-Denis, and the
- * INSEE code of La Possession. « CHU SITES SUD » names none.
+ * Saint-Denis, « 97438-STE MARIE » → Sainte-Marie. In an address, from its postcode when La Poste gives it to one
+ * commune, and the name after it, if any, the same: « 24 avenue Georges Brassens 97400 Saint-Denis », « Rue LA
+ * BOURDONNAIS 97400 ILE DE LA REUNION » → Saint-Denis. Never from a CEDEX nor a code out of La Poste's: 97408 is a CEDEX
+ * of Saint-Denis, and the INSEE code of La Possession. « CHU SITES SUD » names none.
  */
 export function communeDe(lieu: string | undefined): string | undefined {
   const name = lieu?.replace(/^\d{5}\s*-\s*/, "").replace(/\bCEDEX\b.*$/i, "").trim();
   if (!name) return undefined;
-  const r = resolvePlace(name);
-  return r?.correspondance === "exacte" && r.lieu.commune ? r.lieu.commune : undefined;
+  const named = exacte(name);
+  if (named || /\bCEDEX\b/i.test(lieu!)) return named;
+  const m = /\b(974\d\d)\b([^\d]*)$/.exec(lieu!);
+  const commune = m ? CODES_POSTAUX[m[1]] : undefined;
+  if (!commune) return undefined;
+  const after = m![2].replace(/\b(?:(?:[iî]le de )?la r[ée]union|france)\b/gi, "").replace(/[\s,.()-]+/g, " ").trim();
+  return !after || exacte(after) === commune ? commune : undefined;
 }
 
 /** The offers of the feed, as it lists them. */
@@ -199,7 +221,7 @@ export function parseFiche(html: string): Pick<Offre, "employeur" | "limite" | "
 /** The offer with what its page says; the feed's place and commune first, the page's when the feed had none. */
 export function withFiche(o: Offre, f: ReturnType<typeof parseFiche>): Offre {
   const lieu = o.lieu ?? f.lieu;
-  const commune = o.commune ?? communeDe(f.lieu);
+  const commune = o.commune ?? communeDe(lieu);
   return {
     ...o,
     ...(f.employeur ? { employeur: f.employeur } : {}),
@@ -241,46 +263,64 @@ export function prochaineLecture(now: Date): Date {
   return t;
 }
 
-/** The offers' pages one event reads at most: the feed's length. */
-export const FICHES_MAX = FEED_SIZE;
+/** The scheduled event's period (wrangler.jsonc): one offer's page each, so one page in 5 minutes at most on the site. */
+export const EVENEMENT_MINUTES = 5;
 
 /**
- * The scheduled event's read: the feed, the page of each offer not read yet (FICHES_MAX at most), the offers past their
- * closing date dropped. Writes the copy only when it changed. When the feed does not answer, the copy stays, with when
- * it first failed (written once), and the read fails.
+ * The offer whose page this event reads: the newest not read yet (or read once more after a failure), else the open
+ * offers already read in turn, by the event's slot, without writing where the turn is (one in 5 minutes: each again
+ * within 46 hours for 555 offers, 3 days for 864).
  */
-export async function collect(before: Copie | null, write: (copie: Copie) => Promise<void>, now = new Date()): Promise<string> {
-  let feed: Offre[];
-  try {
-    feed = parseFeed(await getText(SOURCE.id, FEED, 20_000));
-    if (!feed.length) throw new Error("flux sans offre lisible");
-  } catch (err) {
-    if (before && !before.echec) await write({ ...before, echec: now.toISOString() });
-    throw err;
+export function prochaineFiche(offres: Offre[], now: Date): Offre | undefined {
+  const open = offres.filter((o) => ouverte(o, now));
+  const nouvelle = open.filter(enAttente).sort(order)[0];
+  if (nouvelle) return nouvelle;
+  const lues = open.filter((o) => o.fiche === "lue").sort((a, b) => a.ref.localeCompare(b.ref));
+  return lues.length ? lues[Math.floor(now.getTime() / (EVENEMENT_MINUTES * 60_000)) % lues.length] : undefined;
+}
+
+/**
+ * The scheduled event's read, every 5 minutes: the feed when `flux` (every hour at 25 past), and one offer's page
+ * (`prochaineFiche`), never two at once; the offers past their closing date dropped. Writes the copy only when it
+ * changed. When the feed does not answer, the copy stays, with when it first failed (written once), and the read fails.
+ */
+export async function collect(before: Copie | null, write: (copie: Copie) => Promise<void>, now = new Date(), flux = refreshDue(now)): Promise<string> {
+  let feed: Offre[] = [];
+  if (flux) {
+    try {
+      feed = parseFeed(await getText(SOURCE.id, FEED, 20_000));
+      if (!feed.length) throw new Error("flux sans offre lisible");
+    } catch (err) {
+      if (before && !before.echec) await write({ ...before, echec: now.toISOString() });
+      throw err;
+    }
+  } else if (!before) {
+    return "aucune copie, flux lu à la prochaine heure";
   }
   const kept = new Map((before?.offres ?? []).map((o) => [o.ref, o]));
   const nouvelles = feed.filter((o) => !kept.has(o.ref));
   // As many new offers as the feed holds: others may have been published and pushed out between two reads.
   if (before?.offres.length && nouvelles.length >= FEED_SIZE) console.log(`offres d'emploi : ${nouvelles.length} nouvelles références sur ${feed.length} dans le flux, des offres ont pu passer entre deux lectures`);
   for (const o of nouvelles) kept.set(o.ref, o);
-  // The pages to read: the new offers', and those that failed once.
-  const due = [...kept.values()].filter((o) => enAttente(o) && ouverte(o, now)).sort(order).slice(0, FICHES_MAX);
-  let lues = 0;
-  let echecs = 0;
-  await Promise.all(due.map(async (o) => {
+  const o = prochaineFiche([...kept.values()], now);
+  let page = "aucune page d'offre à lire";
+  if (o) {
+    const again = o.fiche === "lue";
     try {
       kept.set(o.ref, withFiche(o, parseFiche(await getText(SOURCE.id, o.lien, 15_000))));
-      lues++;
+      page = `page de l'offre ${o.ref} ${again ? "relue" : "lue"}`;
     } catch {
-      kept.set(o.ref, { ...o, fiche: o.fiche === "relire" ? "abandon" : "relire" });
-      echecs++;
+      // Read already: kept as read. Not yet: once more at the next event, then the 31 days' rule.
+      if (!again) kept.set(o.ref, { ...o, fiche: o.fiche === "relire" ? "abandon" : "relire" });
+      page = `page de l'offre ${o.ref} sans réponse`;
     }
-  }));
-  const offres = [...kept.values()].filter((o) => ouverte(o, now)).sort(order);
+  }
+  const offres = [...kept.values()].filter((x) => ouverte(x, now)).sort(order);
   const closes = kept.size - offres.length;
-  const said = `${offres.length} offres, ${nouvelles.length} nouvelles, ${lues} pages d'offre lues${echecs ? `, ${echecs} sans réponse` : ""}${closes ? `, ${closes} closes retirées` : ""}`;
-  if (before && !before.echec && !nouvelles.length && !due.length && !closes) return `${said} : inchangées, non réécrites`;
-  await write({ lu: now.toISOString(), offres });
+  const said = `${offres.length} offres, ${flux ? `${nouvelles.length} nouvelles` : "flux non lu"}, ${page}${closes ? `, ${closes} closes retirées` : ""}`;
+  // The same offers: not written again, unless the feed answered again after failing.
+  if (before && JSON.stringify(offres) === JSON.stringify(before.offres) && !(flux && before.echec)) return `${said} : inchangées, non réécrites`;
+  await write(flux ? { lu: now.toISOString(), offres } : { ...before!, offres });
   return `${said} : écrites`;
 }
 
@@ -291,7 +331,8 @@ export function configure(read: (() => Promise<Copie | null>) | undefined) {
   reader = read;
 }
 
-// The scheduled event writes once an hour at most: the copy is asked of the store once an hour.
+// The feed is read once an hour: the copy is asked of the store once an hour (an offer's page read in between shows
+// within the hour).
 const FRESH_SECONDS = 60 * 60;
 
 /**
