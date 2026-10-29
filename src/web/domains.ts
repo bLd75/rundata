@@ -48,7 +48,7 @@ import { T as FERRY } from "../tools/ferries.js";
 import { BUILT as DAE_BUILT, DAES } from "../providers/dae.js";
 import DAE_LIST from "../dae/liste.json" with { type: "json" };
 import * as atmo from "../providers/atmo.js";
-import { anchorId, ask, credits, dayMonth, DESCRIPTION_MAX, empty, hm, icon, ISLAND, layout, type Live, lue, readAt, SITE, vg } from "./pages.js";
+import { anchorId, ask, credits, dayMonth, DESCRIPTION_MAX, empty, FOLD_ROWS, folded, hm, icon, ISLAND, layout, type Live, lue, readAt, SITE, vg } from "./pages.js";
 import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
@@ -1318,12 +1318,14 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
   });
 
   const fast = d ? d.stations.filter((s) => s.puissance_max_kw >= FAST_KW).sort((a, b) => b.libres - a.libres || b.puissance_max_kw - a.puissance_max_kw) : [];
+  const foldBornes = !!d && d.stations.length > FOLD_ROWS && d.communes.length > 1;
   const byCommune = d
     ? `<ul class="zones">${d.communes.map((c) => {
         const mine = d.stations.filter((s) => s.commune === c.commune).sort((a, b) => b.libres - a.libres || b.puissance_max_kw - a.puissance_max_kw);
         const free = mine.reduce((n, s) => n + s.libres, 0);
-        return `<li class="card tgt" id="${anchorId("c", c.commune)}"><h3>${esc(c.commune)} <span class="note">${free} libre${free > 1 ? "s" : ""} sur ${c.points}, ${c.stations} station${c.stations > 1 ? "s" : ""}</span></h3>` +
-          `<ul class="rows bornes">${mine.map(borneRow).join("")}</ul></li>`;
+        return `<li class="card tgt" id="${anchorId("c", c.commune)}">${folded(foldBornes,
+          `<h3>${esc(c.commune)} <span class="note">${foldBornes ? "·\u00a0" : ""}${free} libre${free > 1 ? "s" : ""} sur ${c.points}, ${c.stations} station${c.stations > 1 ? "s" : ""}</span></h3>`,
+          `<ul class="rows bornes">${mine.map(borneRow).join("")}</ul>`)}</li>`;
       }).join("")}</ul>` +
       `<p class="note">${esc(d.donnees)}${d.avertissement ? ` ${esc(d.avertissement)}` : ""}</p>`
     : `<p class="card">L'état des bornes se charge : rechargez la page dans quelques secondes.</p>`;
@@ -2340,13 +2342,16 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
     ? loading("La liste des défibrillateurs")
     : `<div class="now"><span class="big">${d.total}</span><p>défibrillateurs déclarés en service dans les 24 communes de l'île.</p></div>`;
 
+  const foldDae = !!d && d.communes.reduce((n, c) => n + c.liste.length, 0) > FOLD_ROWS && d.communes.length > 1;
   const list = d
     ? `<ul class="zones">${d.communes.map((c) =>
-        `<li class="card tgt" id="${anchorId("c", c.commune)}"><h3>${esc(c.commune)} <span class="note">${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}${c.toute_heure ? `, dont ${c.toute_heure} accessible${c.toute_heure > 1 ? "s" : ""} à toute heure` : ""}</span></h3><ul class="rows eau dae">` +
+        `<li class="card tgt" id="${anchorId("c", c.commune)}">${folded(foldDae,
+          `<h3>${esc(c.commune)} <span class="note">${foldDae ? "·\u00a0" : ""}${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}${c.toute_heure ? `, dont ${c.toute_heure} accessible${c.toute_heure > 1 ? "s" : ""} à toute heure` : ""}</span></h3>`,
+          `<ul class="rows eau dae">` +
         c.liste.map((x) => `<li><span>${esc(x.lieu)}<small>${[x.adresse, x.emplacement, x.etage ? `étage ${x.etage}` : ""].filter(Boolean).map((v) => esc(v!)).join(" · ")}</small></span>` +
           `<span class="${x.acces.includes("toute heure") || x.acces.includes("24 h") ? "q-bonne" : "q-none"}">${esc(shortAccess(x.acces))}</span></li>`).join("") +
         (c.nombre > c.liste.length ? `<li><span class="note">et ${c.nombre - c.liste.length} autres : demandez le plus proche à votre IA.</span><span></span></li>` : "") +
-        `</ul></li>`).join("")}</ul>`
+        `</ul>`)}</li>`).join("")}</ul>`
     : "";
 
   const title = "Défibrillateurs Réunion : où trouver un DAE · 974";

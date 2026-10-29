@@ -13,7 +13,7 @@ import { aCommune, deCommune } from "./aujourdhui.js";
 import type { Alerte, EnfantsAnswer } from "./data.js";
 import { agendaHours, connectorCta, crumbBar, crumbs, loading, webPage } from "./domains.js";
 import { communeMap, esc, islandMap, type Spot } from "./map.js";
-import { anchorId, ask, icon, layout, type Live } from "./pages.js";
+import { anchorId, ask, FOLD_ROWS, folded, icon, layout, type Live } from "./pages.js";
 
 type Row = EnfantsAnswer["evenements"][number];
 const { typo } = enfants;
@@ -264,7 +264,7 @@ svg.addEventListener("click",(e)=>{const a=e.target.closest(".sp");if(!a)return;
 document.getElementById("ecl").addEventListener("click",(e)=>{const b=e.target.closest(".tomap");if(b)pick(b.closest("li").dataset.i,true)});
 sheet.querySelector(".x").addEventListener("click",()=>{sheet.hidden=true;svg.querySelectorAll(".sp.on").forEach((a)=>a.classList.remove("on"));document.querySelectorAll("#ecl li.on").forEach((l)=>l.classList.remove("on"))});
 const run=()=>{const t=f.t.value;svg.querySelectorAll(".sp").forEach((a)=>a.classList.toggle("off",!!t&&a.dataset.t!==t));document.querySelectorAll("#ecl li[data-i]").forEach((l)=>{l.hidden=!!t&&l.dataset.t!==t});
-document.querySelectorAll("#ecl [data-k]").forEach((g)=>{g.hidden=!g.querySelector("li[data-i]:not([hidden])")})};f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefault())})();`;
+document.querySelectorAll("#ecl [data-k]").forEach((g)=>{g.hidden=!g.querySelector("li[data-i]:not([hidden])")});if(t)document.querySelectorAll("#ecl details").forEach((d)=>{d.open=!!d.querySelector("li[data-i]:not([hidden])")})};f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefault())})();`;
 
 /** A place's name on its commune's page: an unnamed one by its kind and its district, else its commune. */
 const nomOf = (l: enfants.Lieu) => enfants.nameOf(l, l.quartier || l.commune);
@@ -307,9 +307,13 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
   const legend = `<p class="klegend note">${families.map((x) => `<span><i class="ksw f-${x.f}"></i>${esc(couleur(x.types, list))}</span>`).join("")}</p>`;
   const sheet = `<div id="ecs" class="card ksheet" hidden aria-live="polite"><button type="button" class="x" aria-label="${esc(MOTS.fermer)}">×</button><p class="nm"></p><p class="note tp"></p><p class="ya"></p><p><a class="go" href="#">${esc(MOTS.dansListe)}</a></p></div>`;
 
+  // Each kind folded, its count in its line (marketing's words), but in a short list or a commune of one kind.
+  const fold = list.length > FOLD_ROWS && kinds.length > 1;
   const places = `<div id="ecl">${kinds.map((t) => {
     const of = list.map((l, i) => [l, i] as const).filter(([l]) => l.type === t.type);
-    return `<div class="card kind" data-k><h3>${esc(t.nom)} <span class="note">${of.length}</span></h3><ul class="rows eau">${of.map(([l, i]) => communeLi(l, i, now)).join("")}</ul></div>`;
+    const head = `<h3>${esc(t.nom)} <span class="note">${fold ? "·\u00a0" : ""}${of.length}</span></h3>`;
+    const rows = `<ul class="rows eau">${of.map(([l, i]) => communeLi(l, i, now)).join("")}</ul>`;
+    return `<div class="card kind" data-k>${folded(fold, head, rows)}</div>`;
   }).join("")}</div>`;
 
   const d = data?.value;
