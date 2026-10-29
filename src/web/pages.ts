@@ -41,7 +41,7 @@ import { AVIS_CSS, avisForm } from "./avis.js";
 import { aide, AIDE_CSS, SIGNAL_SCRIPT } from "./signaux.js";
 import { FORMS_CSS } from "./formulaires-style.js";
 import { fond, FOND_CSS } from "./fonds.js";
-import { ALTITUDES_CREDIT, communeOf, METEO_SCRIPT, rainPill, stationsMap, windPill } from "./meteo-carte.js";
+import { ALTITUDES_CREDIT, communeOf, METEO_SCRIPT, RADAR_CREDIT, rainPill, stationsMap, windPill } from "./meteo-carte.js";
 import { hash, INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 import { bathingBlock } from "./baignade.js";
@@ -1455,7 +1455,7 @@ export function meteoPage(origin: string, data: Cached<HomeData> | null, now = n
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-stations">Les ${all.length} stations, de la côte aux sommets</h2>
   <p>La dernière mesure de chaque station, avec son heure. Les stations de Météo-France publient toutes les 6 minutes.</p></div>
   ${stationsList(all, now)}
-  <p class="sources">Sources : ${credits([...data!.value.sources, ALTITUDES_CREDIT])}.</p>
+  <p class="sources">Sources : ${credits([...data!.value.sources, ALTITUDES_CREDIT, RADAR_CREDIT])}.</p>
 </section><script>${METEO_SCRIPT}</script>
 ${sea ? `<section id="mer" aria-labelledby="h-mer"><div class="sec-h"><p class="eyebrow">La mer</p><h2 id="h-mer">La mer au large</h2></div>${sea}</section>` : ""}
 <section id="communes" aria-labelledby="h-communes">
