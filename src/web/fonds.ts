@@ -22,6 +22,7 @@ export const FONDS: Record<string, { nom: keyof typeof files; y: number }> = {
   "/trafic": { nom: "trafic-route-littoral", y: 61 },
   "/evenements": { nom: "evenements-kiosque", y: 57 },
   "/emploi": { nom: "emploi-metiers-reunion", y: 45 },
+  "/marches-publics": { nom: "marches-chantier-public", y: 45 },
   "/mer": { nom: "mer-lagon-ermitage", y: 60 },
   "/vigilance": { nom: "cyclone-saison-ciel", y: 31 },
   "/crues": { nom: "crues-radier-ravine", y: 100 },

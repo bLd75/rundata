@@ -226,6 +226,15 @@ export const CATEGORIES: Category[] = [
     sansValeur: true,
   },
   {
+    key: "marches",
+    nom: "Marchés publics",
+    path: "/marches-publics",
+    icon: "doc",
+    tools: [],
+    about: "Les avis de marché publiés au BOAMP pour La Réunion (974) : travaux, services et fournitures, avec l'acheteur, la commune et la date limite de réponse.",
+    sansValeur: true,
+  },
+  {
     key: "services",
     nom: "Services publics",
     icon: "building",

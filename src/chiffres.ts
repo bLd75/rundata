@@ -96,6 +96,8 @@ export const DOMAINES: Domaine[] = [
   { categorie: "calendrier", sources: ids("education_calendrier", "jours_feries"), cadence: { minutes: DAY, de: "education_calendrier" } },
   // The scheduled event reads the offers every hour (providers/emploi.ts).
   { categorie: "emploi", sources: ids("csp_offres"), cadence: { minutes: 60, de: "csp_offres" } },
+  // The scheduled event reads the notices every hour (providers/marches-publics.ts).
+  { categorie: "marches", sources: ids("boamp_api"), cadence: { minutes: 60, de: "boamp_api" } },
   // The TCO's dumps every 30 minutes (providers/tco.ts).
   { categorie: "services", sources: ids("annuaire_administration", "prefecture_carburants", "tco_decheteries", "tco_collecte", "finess", "ars_garde", "sante_fr_urgences", "osm_marches"), cadence: { minutes: 30, de: "tco_decheteries" } },
   // The fixed speed cameras: the ministry's yearly list, bundled.
