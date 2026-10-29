@@ -24,6 +24,7 @@ import * as littoral from "../tools/littoral.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
 import { a, de, enumeration, fr, nombre } from "../tools/format.js";
+import type { Measured } from "../tools/air.js";
 import * as radars from "../routes/radars.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
@@ -468,6 +469,26 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
       `</tbody></table></div></details>`
     : "";
 
+  // The measures at the stations, said apart from the forecast and never in a sentence with it: each value with its
+  // hour, its station, the station's type and commune, and that it is raw and not validated.
+  const m = d?.mesures_aux_stations;
+  const byStation = new Map<string, Measured[]>();
+  for (const v of m?.valeurs ?? []) {
+    const k = `${v.station}${v.commune ? ` · ${v.commune}` : ""}`;
+    byStation.set(k, [...(byStation.get(k) ?? []), v]);
+  }
+  const [luLe, luA] = m?.lu_par_rundata.split(" ") ?? [];
+  const measures = m && byStation.size
+    ? `<section aria-labelledby="h-mesures-air">
+  <div class="sec-h"><p class="eyebrow">Mesures</p><h2 id="h-mesures-air">Mesuré aux stations d'Atmo Réunion</h2>
+  <p>Les concentrations mesurées heure par heure aux stations, publiées par le LCSQA. Ce sont des mesures brutes, non validées, qu'Atmo Réunion peut corriger ensuite. Elles ne sont pas l'indice ATMO, qui est une prévision.</p></div>
+  <div class="levels">${[...byStation].map(([station, list]) => `<div class="card"><h3>${esc(station)}</h3><ul class="plain">` +
+    list.map((v) => `<li><b>${esc(v.polluant)}</b> : ${esc(nombre(v.valeur))} ${esc(v.unite)} <span class="note">${esc(v.heure)}, station de type ${esc(v.type)}, mesure brute, non validée${v.retard ? `, ${esc(v.retard)}` : ""}</span></li>`).join("") +
+    `</ul></div>`).join("")}</div>
+  <p class="note">Lues par rundata.re le ${esc(luLe)} à ${esc(luA)}, dans les <a href="${esc(m.source)}" rel="noopener">fichiers du LCSQA sur data.gouv.fr</a> (Licence Ouverte Etalab 2.0).</p>
+</section>`
+    : "";
+
   const scale = `<ul class="scale">${[1, 2, 3, 4, 5, 6].map((n) => `<li>${aq(n)}<p>Indice ${n} sur 6.</p></li>`).join("")}</ul>`;
 
   const title = "Qualité de l'air Réunion aujourd'hui, par commune · 974";
@@ -494,6 +515,7 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
   <p>L'indice ATMO prévu va de 1 (bon) à 6 (extrêmement mauvais). C'est le plus mauvais des sous-indices de cinq polluants : particules PM2,5 et PM10, ozone, dioxyde d'azote, dioxyde de soufre. Entre parenthèses, le polluant en cause.</p></div>
   ${d ? `<div class="levels">${byLevel}</div>${subs}${warnings(d.avertissements)}` : `<p class="card">L'indice se charge : rechargez la page dans quelques secondes.</p>`}
 </section>
+${measures}
 <section aria-labelledby="h-source-air">
   <div class="sec-h"><p class="eyebrow">Provenance</p><h2 id="h-source-air">D'où vient l'indice</h2></div>
   <div class="card"><dl class="facts">

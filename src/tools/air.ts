@@ -1,6 +1,7 @@
 import type { Cache } from "../cache.js";
-import { localTime } from "../geo.js";
+import { distanceKm, localTime } from "../geo.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
+import * as airMesures from "../providers/air-mesures.js";
 import * as atmo from "../providers/atmo.js";
 import { why } from "../types.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
@@ -33,6 +34,74 @@ export function diffusion(list: atmo.Index[], day: string): string | undefined {
   return `Prévision diffusée par Atmo Réunion ${before ? "la veille, " : ""}le ${date} à ${time}`;
 }
 
+// A measure is said late once its hour ended this long ago.
+const LATE_MS = 3 * 3600_000;
+
+/** The hour measured: « de 07:00 à 08:00 », with its day when it is not today's, « le 28/10, de 23:00 à 00:00 ». */
+export function hourMeasured(m: airMesures.Mesure, now: Date): string {
+  const hours = `de ${m.debut.slice(11, 16)} à ${m.fin.slice(11, 16)}`;
+  return m.debut.slice(0, 10) === today(now) ? hours : `le ${m.debut.slice(8, 10)}/${m.debut.slice(5, 7)}, ${hours}`;
+}
+
+/**
+ * A measure as said, apart from the forecast: its value and unit, the hour measured, its station, the station's type
+ * and commune, that it is raw and not validated, and how late it is once its hour ended more than 3 h ago.
+ */
+export function measured(m: airMesures.Mesure, now: Date) {
+  const st = airMesures.STATIONS[m.station];
+  const late = now.getTime() - Date.parse(m.fin);
+  return {
+    polluant: airMesures.POLLUTANTS[m.polluant],
+    valeur: m.valeur,
+    unite: airMesures.unit(m.unite),
+    heure: hourMeasured(m, now),
+    station: st?.nom ?? m.nom_fichier,
+    type: m.type,
+    ...(st && { commune: st.commune }),
+    statut: "mesure brute, non validée",
+    ...(late > LATE_MS && { retard: `mesurée il y a ${Math.floor(late / 3600_000)} h` }),
+  };
+}
+
+export type Measured = ReturnType<typeof measured>;
+
+/**
+ * The measures at the stations: for a place, those of its commune's stations, else of the nearest station with its
+ * distance; for the island, all. Undefined where the measures are not stored (a local server, the tests) or not read.
+ */
+async function stations(cache: Cache, now: Date, place?: { commune: string; lon: number; lat: number }) {
+  let copy;
+  try {
+    copy = await airMesures.mesures(cache);
+  } catch (err) {
+    console.error(`source ${airMesures.SOURCE.id} indisponible:`, why(err));
+    return undefined;
+  }
+  if (!copy) return undefined;
+  let list = copy.value.mesures;
+  let distance: number | undefined;
+  if (place) {
+    const here = list.filter((m) => airMesures.STATIONS[m.station] && normalize(airMesures.STATIONS[m.station].commune) === normalize(place.commune));
+    if (here.length) list = here;
+    else {
+      const near = Object.entries(airMesures.STATIONS)
+        .filter(([code]) => list.some((m) => m.station === code))
+        .map(([code, s]) => ({ code, km: distanceKm(place.lon, place.lat, s.lon, s.lat) }))
+        .sort((a, b) => a.km - b.km)[0];
+      if (!near) return undefined;
+      list = list.filter((m) => m.station === near.code);
+      distance = Math.round(near.km);
+    }
+  }
+  return {
+    nature: "MESURES brutes, non validées, aux stations d'Atmo Réunion, publiées par le LCSQA : ce n'est pas l'indice ATMO, qui est une prévision.",
+    ...(distance != null && { station_la_plus_proche_km: distance }),
+    valeurs: list.map((m) => measured(m, now)),
+    lu_par_rundata: localTime(copy.fetchedAt),
+    source: airMesures.SOURCE.url,
+  };
+}
+
 export async function qualiteAir(cache: Cache, lieu: string | undefined, now = new Date()) {
   let list: atmo.Index[];
   let readAt: Date;
@@ -60,6 +129,7 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
   };
 
   if (!lieu?.trim()) {
+    const mesures = await stations(cache, now);
     const todays = list.filter((x) => x.jour === day);
     const worst = Math.max(0, ...todays.map((x) => x.niveau));
     const atWorst = todays.filter((x) => x.niveau === worst).map((x) => x.commune);
@@ -70,6 +140,7 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
         : "L'indice du jour n'est pas dans la dernière lecture de la couche d'Atmo France.",
       communes: todays.map((x) => ({ commune: x.commune, niveau: x.niveau, qualite: atmo.level(x.niveau), polluants: drivers(x), sous_indices: subIndices(x) })),
       ...common,
+      ...(mesures && { mesures_aux_stations: mesures, sources: credits([atmo.SOURCE, airMesures.SOURCE]) }),
     });
   }
 
@@ -78,6 +149,7 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
   const mine = list.filter((x) => x.jour >= day && normalize(x.commune) === normalize(res.lieu.commune)).sort((a, b) => a.jour.localeCompare(b.jour));
   const now_ = mine.find((x) => x.jour === day);
   const next = mine.find((x) => x.jour > day);
+  const mesures = await stations(cache, now, res.lieu);
   const parts = [now_ && sentence(now_, `Qualité de l'air prévue aujourd'hui à ${res.lieu.commune}`), next && sentence(next, "demain")].filter(Boolean);
   return text({
     lieu: placeBlock(lieu, res),
@@ -89,5 +161,6 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
       sous_indices: subIndices(x),
     })),
     ...common,
+    ...(mesures && { mesures_aux_stations: mesures, sources: credits([atmo.SOURCE, airMesures.SOURCE]) }),
   });
 }
