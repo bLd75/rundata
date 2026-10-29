@@ -35,8 +35,9 @@ const NO_COPY = ["vigilance", "trafic", "sentiers", "secheresse", "coupures", "s
 const BUNDLED = ["dae", "enfants"];
 // From the weather's copy.
 const SEA = ["mer"];
-// A tile without a value: it would read the copy on every view (categories.ts, sansValeur).
-const NO_VALUE = ["emploi"];
+// A tile without a value (categories.ts, sansValeur): the jobs' would read their copy on every view; the antennas' figures
+// are on their page and the commune pages.
+const NO_VALUE = ["emploi", "antennes"];
 
 describe("a tile with nothing to show", () => {
   it("says « Se met à jour » on the home page only while its copy is missing", () => {

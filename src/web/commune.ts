@@ -318,7 +318,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const habiter: Tile[] = [
     ...(rents(p) ? [{ icon: "key", nom: "Loyers d'annonce", live: rents(p), foot: `<a href="${loyers.SOURCE.url}" rel="noopener">La carte des loyers de l'ANIL</a>` }] : []),
     ...(connexion(p) ? [{ icon: "wifi", nom: "Fibre", live: connexion(p), foot: `<a href="https://maconnexioninternet.arcep.fr/" rel="noopener">Votre adresse sur Ma connexion internet</a>` }] : []),
-    ...(antennas(p) ? [{ icon: "antenna", nom: "Antennes", live: antennas(p), foot: `<a href="/#assistant">Votre adresse : demandez à votre IA →</a>` }] : []),
+    ...(antennas(p) ? [{ icon: "antenna", nom: "Antennes", href: "/antennes", live: antennas(p), foot: `<a href="/#assistant">Votre adresse : demandez à votre IA →</a>` }] : []),
   ];
   const island: Tile[] = [
     { icon: "volcano", nom: "Volcan", href: "/volcan", live: volcanLive(l.volcan ?? null, now) },

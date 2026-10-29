@@ -208,6 +208,15 @@ export const CATEGORIES: Category[] = [
     about: "Vacances scolaires de l'académie, jours fériés (dont le 20 décembre), lever et coucher du soleil.",
   },
   {
+    key: "antennes",
+    nom: "Antennes",
+    path: "/antennes",
+    icon: "antenna",
+    tools: ["fiche_terrain"],
+    about: "Les supports d'antennes mobiles (Orange, SFR Réunion, Free, Zeop, de la 2G à la 5G) et les émetteurs de radio et de télévision déclarés à l'ANFR, sur la carte et par commune.",
+    sansValeur: true,
+  },
+  {
     key: "emploi",
     nom: "Emploi public",
     path: "/emploi",
