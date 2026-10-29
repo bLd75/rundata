@@ -16,6 +16,7 @@ import * as irve from "./providers/irve.js";
 import * as eauIle from "./eau/ile.js";
 import * as carburants from "./providers/carburants.js";
 import * as prefectureCopie from "./providers/prefecture-copie.js";
+import * as airMesures from "./providers/air-mesures.js";
 import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as candhis from "./providers/candhis.js";
@@ -203,6 +204,13 @@ function setup(env: Env): Cache {
       return (await kv.get(prefectureCopie.pageKey(lien), "json")) as prefectureCopie.PageCopie | null;
     },
   );
+  // Read every hour from the LCSQA's files by scripts/air-mesures.ts, on a machine of the project: one file a day for
+  // the whole of France, too big for the Worker (src/providers/air-mesures.ts).
+  airMesures.configure(async () => {
+    if (!kv) return null;
+    count();
+    return (await kv.get(airMesures.KV_KEY, "json")) as airMesures.Copie | null;
+  });
   // Read every day from the prefecture by scripts/carburants.ts, on a machine of the project: never by the
   // Worker, even without the store.
   carburants.configure(async () => {

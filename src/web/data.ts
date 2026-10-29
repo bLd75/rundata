@@ -25,7 +25,7 @@ import * as irve from "../providers/irve.js";
 import * as velos from "../providers/velos.js";
 import * as maregraphes from "../providers/maregraphes.js";
 import * as mf from "../providers/vigilance.js";
-import { qualiteAir } from "../tools/air.js";
+import { qualiteAir, type Measured } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
 import { electricite } from "../tools/electricite.js";
 import * as houle from "../providers/houle.js";
@@ -412,6 +412,8 @@ export interface AirAnswer {
   nature: string;
   /** When Atmo Réunion diffused the day's forecast, in a sentence (tools/air.ts `diffusion`). */
   diffusion?: string;
+  /** The measures at the stations, raw, apart from the forecast; in the Worker only (providers/air-mesures.ts). */
+  mesures_aux_stations?: { valeurs: Measured[]; lu_par_rundata: string; source: string };
   avertissements: string[];
   sources: Credit[];
 }
