@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import island from "../src/places/island.json" with { type: "json" };
-import { communeMap, islandMap, mapCredit, NOMS_SCRIPT, project, traceMap } from "../src/web/map.js";
+import { AROUND, communeMap, islandMap, mapCredit, NOMS_SCRIPT, project, traceMap } from "../src/web/map.js";
 import { homePage } from "../src/web/home.js";
 import routes from "../src/web/routes.json" with { type: "json" };
 
@@ -30,6 +30,15 @@ const onItsOwn = (n: { x: number; y: number; fs: number; nom: string }) => {
     }
   return mid && ok >= 14;
 };
+/** Whether a commune's name faces its town (marketing): from its middle towards the town, the first land met is its commune. */
+const facing = (n: { x: number; y: number; fs: number; nom: string }, [tx, ty]: [number, number]) => {
+  const steps = Math.ceil(Math.hypot(tx - n.x, ty - n.y) / (n.fs / 4));
+  for (let i = 0; i <= steps; i++) {
+    const on = RINGS.filter((q) => inside(n.x + ((tx - n.x) * i) / steps, n.y + ((ty - n.y) * i) / steps, q.r)).map((q) => q.nom);
+    if (on.length) return on.includes(n.nom);
+  }
+  return false;
+};
 const at = (nom: string) => NOMS.find((n) => n[0] === nom)!;
 // The names a map shows without its script, and where.
 const shown = (svg: string) =>
@@ -58,21 +67,32 @@ describe("the roads and the names of places on the pages' maps", () => {
     expect(Math.abs(mx - x)).toBeLessThan(1);
   });
 
-  it("on the island's map, name a commune's town: up to 3 times its size from it, at sea only off its own coast, else not at all", () => {
+  it("on the island's map, name a commune's town: up to 6 times its size from it, beyond 3 facing it, at sea only off its own coast, else not at all", () => {
     const lonLat = (x: number, y: number) => [island.bbox[0] + (x / island.w) * (island.bbox[2] - island.bbox[0]), island.bbox[3] - (y / island.h) * (island.bbox[3] - island.bbox[1])];
     const [, , x, y] = at("Saint-Benoît");
-    // Stations all around Saint-Benoît, 3.5 km apart, over 10 km.
-    const markers = Array.from({ length: 49 }, (_, k) => lonLat(x - 150 + (k % 7) * 50, y - 150 + Math.floor(k / 7) * 50)).map(([lon, lat]) => ({ lon, lat, label: "24°", name: "Station", round: true }));
-    const svg = islandMap({ markers, label: "x" });
+    // Stations around Saint-Benoît, 3.5 km apart, over 10 km: no room for its name; over 3.5 km: room beyond 3 times its size.
+    const field = (n: number) => Array.from({ length: n * n }, (_, k) => lonLat(x - 25 * (n - 1) + (k % n) * 50, y - 25 * (n - 1) + Math.floor(k / n) * 50)).map(([lon, lat]) => ({ lon, lat, label: "24°", name: "Station", round: true }));
+    const svg = islandMap({ markers: field(7), label: "x" });
     expect(svg).toContain('<g class="nm" aria-hidden="true" data-i=""');
     expect(shown(svg).map((n) => n.nom)).not.toContain("Saint-Benoît");
-    for (const n of shown(svg).filter((n) => island.paths.some((p) => p.nom === n.nom))) {
+    const near = islandMap({ markers: field(3), label: "x" });
+    const sb = shown(near).find((n) => n.nom === "Saint-Benoît")!;
+    expect(Math.hypot(sb.x - x, sb.y - y)).toBeGreaterThan(3 * sb.fs);
+    for (const n of [...shown(svg), ...shown(near)].filter((n) => island.paths.some((p) => p.nom === n.nom))) {
       const [, , tx, ty] = at(n.nom);
-      expect(Math.hypot(n.x - tx, n.y - ty), n.nom).toBeLessThanOrEqual(3 * n.fs + 0.01);
+      const d = Math.hypot(n.x - tx, n.y - ty);
+      expect(d, n.nom).toBeLessThanOrEqual(6 * n.fs + 0.01);
+      if (d > 3 * n.fs + 0.01) expect(facing(n, [tx, ty]), n.nom).toBe(true);
       expect(onItsOwn(n), n.nom).toBe(true);
     }
     // The page's script has the same rule, and the commune's maps keep theirs.
     expect(NOMS_SCRIPT).toContain("town(t,fs)");
+    expect(NOMS_SCRIPT).toContain(",NEAR=36,");
+    // The places around the town, computed by the page as by the server, in the same order.
+    const a = NOMS_SCRIPT.match(/,A=(\[\.\.\.Array\(625\)\][^\n]*?\)\)),NEAR=/)![1];
+    expect(new Function(`return ${a}`)()).toEqual(AROUND);
+    expect(AROUND).toHaveLength(441);
+    expect(NOMS_SCRIPT).toContain("if(free(b)&&home(b,t)&&(i*i+j*j<=NEAR||face(b,t))){");
     expect(communeMap({ commune: "Le Tampon", spots: [], label: "x" })).not.toContain('data-i=""');
   });
 
