@@ -408,8 +408,10 @@ export const buildVolcan = async (cache: Cache, now = new Date()) => needed<Volc
 
 export interface AirAnswer {
   resume: string;
-  communes?: { commune: string; niveau: number; qualite: string; polluants: string[] }[];
+  communes?: { commune: string; niveau: number; qualite: string; polluants: string[]; sous_indices?: Record<string, number> }[];
   nature: string;
+  /** When Atmo Réunion diffused the day's forecast, in a sentence (tools/air.ts `diffusion`). */
+  diffusion?: string;
   avertissements: string[];
   sources: Credit[];
 }
