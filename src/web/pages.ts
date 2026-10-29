@@ -93,6 +93,7 @@ export const DATAGOUV_REUSE = "https://www.data.gouv.fr/reuses/rundata-re-la-reu
 // Where else rundata.re lives, linked from every footer and named in the home page's structured data.
 export const GITHUB = "https://github.com/rundata-re/rundata";
 export const GLAMA = "https://glama.ai/mcp/servers/rundata-re/rundata";
+export const LOBEHUB = "https://lobehub.com/mcp/rundata-re-rundata";
 
 /** An account of rundata.re: its name, its address, its logo drawn in the text colour. */
 export interface Social {
@@ -108,7 +109,7 @@ export interface Social {
 export const SOCIAL: Social[] = [
   {
     nom: "Facebook",
-    url: "https://www.facebook.com/1432704299917309",
+    url: "https://www.facebook.com/rundata.re",
     svg: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M13.5 22v-8h2.7l.4-3.2h-3.1V8.8c0-.9.3-1.6 1.6-1.6h1.7V4.4c-.3 0-1.3-.1-2.5-.1-2.5 0-4.1 1.5-4.1 4.2v2.3H7.4V14h2.8v8z"/></svg>`,
   },
   {

@@ -313,7 +313,7 @@ describe("home page", () => {
     expect(page).toContain("<title>La Réunion 974 en direct : météo, routes, rando, sorties</title>");
     expect(page).toContain('property="og:title" content="La Réunion 974 en direct : météo, routes, rando, sorties"');
     expect(page).toMatch(/name="description" content="[^"]*974/);
-    for (const link of ["https://www.facebook.com/1432704299917309", "https://www.instagram.com/rundata.re/", "https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q", "https://glama.ai/mcp/servers/rundata-re/rundata", "https://github.com/rundata-re/rundata", "https://www.data.gouv.fr/reuses/"]) expect(page).toContain(`href="${link}`);
+    for (const link of ["https://www.facebook.com/rundata.re", "https://www.instagram.com/rundata.re/", "https://www.whatsapp.com/channel/0029VbEDFav5Ui2agqGyG63Q", "https://glama.ai/mcp/servers/rundata-re/rundata", "https://github.com/rundata-re/rundata", "https://www.data.gouv.fr/reuses/"]) expect(page).toContain(`href="${link}`);
   });
 
   it("keep every description within what search engines show", () => {
