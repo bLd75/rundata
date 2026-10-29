@@ -38,11 +38,26 @@ export async function buildEmploi(cache: Cache, now = new Date()): Promise<Emplo
 
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
+/** The right column: the closing date, else the day published, or the days of the offers of a line when they differ. */
+function quand(o: OffreRow): string {
+  if (o.date_limite) return `jusqu'au ${o.date_limite}`;
+  if (o.publiee_le) return `publiée le ${o.publiee_le}`;
+  const r = "references" in o ? o.references : [];
+  return `publiées du ${r[r.length - 1].publiee_le} au ${r[0].publiee_le}`;
+}
+
 function row(o: OffreRow): string {
   const place = "commune" in o && o.commune ? o.commune : "commune non précisée";
   const small = [o.employeur, "metier" in o ? o.metier : "domaine" in o ? o.domaine : undefined, o.nature, place].filter(Boolean).map((x) => esc(x!)).join(" · ");
-  return `<li data-c="${esc("commune" in o && o.commune ? o.commune : "")}"><span><a href="${esc(o.lien)}" rel="noopener">${esc(o.intitule)}</a><small>${small}</small></span>` +
-    `<span class="q-none">${esc(o.date_limite ? `jusqu'au ${o.date_limite}` : `publiée le ${o.publiee_le}`)}</span></li>`;
+  // Several offers: the title alone, then, across the whole line, a link to each, its reference never cut, its day said
+  // when the line has none.
+  const refs = "references" in o
+    ? `<span class="refs"><small>${o.nombre_offres} offres\u00a0:</small>` +
+      o.references.map((r) => `<a href="${esc(r.lien)}" rel="noopener">Réf. <span class="nw">${esc(r.reference)}</span>${o.date_limite || o.publiee_le ? "" : `, publiée\u00a0le\u00a0${r.publiee_le}`}</a>`).join("") + "</span>"
+    : "";
+  const title = "references" in o ? `<b>${esc(o.intitule)}</b>` : `<a href="${esc(o.lien)}" rel="noopener">${esc(o.intitule)}</a>`;
+  return `<li data-c="${esc("commune" in o && o.commune ? o.commune : "")}"${"references" in o ? ` data-n="${o.nombre_offres}"` : ""}><span>${title}<small>${small}</small></span>` +
+    `<span class="q-none${"references" in o && !o.date_limite && !o.publiee_le ? " du" : ""}">${esc(quand(o))}</span>${refs}</li>`;
 }
 
 const FILTER = `<form id="of" class="card filter" hidden role="search" aria-label="Filtrer les offres">
@@ -55,8 +70,9 @@ const items=[...document.querySelectorAll("#offres li")];
 const norm=(s)=>s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
 for(const e of items)e.dataset.q=norm(e.textContent);
 const run=()=>{const q=norm(f.q.value).split(" ").filter(Boolean),c=f.c.value;let n=0;
-for(const e of items){const ok=q.every((t)=>e.dataset.q.includes(t))&&(!c||e.dataset.c===c);e.hidden=!ok;if(ok)n++}
-document.getElementById("of-n").textContent=q.length||c?n+" offre"+(n>1?"s":"")+" sur "+items.length+".":"";};
+const all=items.reduce((t,e)=>t+(+e.dataset.n||1),0);
+for(const e of items){const ok=q.every((t)=>e.dataset.q.includes(t))&&(!c||e.dataset.c===c);e.hidden=!ok;if(ok)n+=+e.dataset.n||1}
+document.getElementById("of-n").textContent=q.length||c?n+" offre"+(n>1?"s":"")+" sur "+all+".":"";};
 f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefault());})();`;
 
 export function emploiPage(origin: string, data: Cached<EmploiAnswer> | null, now = new Date(), alerte?: Alerte): string {

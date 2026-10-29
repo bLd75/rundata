@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Jeudi 29 octobre 2026
 
+- Emploi : un même poste publié sous plusieurs références n'apparaît plus qu'une fois, avec un lien vers chaque offre.
 - Enfants : un bouton « Y aller » ouvre chaque lieu dans votre appli de navigation (Plans, Google Maps, Waze…).
 - Météo : sur la carte, la température, la pluie et le vent mesurés aux stations ; entre elles, des couleurs et un mouvement estimés.
 - Antennes : les sites mobiles de Free hors service à La Réunion (panne ou maintenance), d'après le fichier quotidien de l'Arcep.

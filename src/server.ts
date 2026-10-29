@@ -103,7 +103,7 @@ import * as marchesPublics from "./providers/marches-publics.js";
 import { emploi } from "./tools/emploi.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "0.203.141";
+export const VERSION = "0.203.142";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -523,6 +523,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       description:
         "Offres d'emploi de la fonction publique à La Réunion (974), d'après Choisir le service public : État, communes, Département, Région, hôpitaux, université. " +
         "Pour chaque offre ouverte : l'intitulé, l'employeur, la commune, la nature de l'emploi, la date de publication, la date limite de candidature et le lien pour postuler sur le site, la plus récente d'abord. " +
+        "Un poste publié sous plusieurs références : une ligne, nombre_offres et references (référence, date, lien). " +
         "Donner le lien de chaque offre\u00a0; la page de l'offre fait foi (elle peut être pourvue avant sa date limite). Les offres des entreprises n'y sont pas : renvoyer à France Travail, sans en inventer. " +
         "Pour : « offres d'emploi à la mairie de Saint-Paul ? », « le CHU recrute des infirmiers ? », « emploi public au Tampon ? ».",
       inputSchema: {
