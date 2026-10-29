@@ -1546,12 +1546,16 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
   const fires = firesSection(d?.feux, now);
   const burning = !!d?.feux?.detections.length;
 
+  // Each commune folded when the list is long (FOLD_ROWS): a cross on the map still leads to its trail (UNFOLD_SCRIPT).
+  const foldTrails = !!d && d.fermes_par_commune.length > 1 && d.fermes_par_commune.reduce((n, c) => n + c.sentiers_fermes.length, 0) > FOLD_ROWS;
   const byCommune = d
     ? `<ul class="zones">${d.fermes_par_commune.map((c) =>
-        `<li class="card"><h3>${esc(c.commune)} <span class="note">${c.sentiers_fermes.length} fermé${c.sentiers_fermes.length > 1 ? "s" : ""}</span></h3><ul class="rows eau">` +
+        `<li class="card">${folded(foldTrails,
+          `<h3>${esc(c.commune)}${foldTrails ? "\u00a0" : " "}<span class="note">${foldTrails ? "·\u00a0" : ""}${c.sentiers_fermes.length}\u00a0fermé${c.sentiers_fermes.length > 1 ? "s" : ""}</span></h3>`,
+          `<ul class="rows eau">` +
         c.sentiers_fermes.map((t) => `<li${rowId(t.sentier)}><span>${t.page ? `<a href="${esc(t.page.replace(/^https:\/\/rundata\.re/, ""))}">${esc(t.sentier)}</a>` : esc(t.sentier)}<small>${[t.cause, t.precision].filter(Boolean).map((x) => esc(x!)).join(" · ") || "fermé"}</small>` +
           (t.randonnees?.length ? `<small class="cuts">Coupe : ${t.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}</small>` : "") + `</span>` +
-          `<span class="q-mauvaise">fermé</span></li>`).join("") + `</ul></li>`).join("")}</ul>`
+          `<span class="q-mauvaise">fermé</span></li>`).join("") + `</ul>`)}</li>`).join("")}</ul>`
     : `<p class="card">L'état des sentiers se charge : rechargez la page dans quelques secondes.</p>`;
 
   const roads = d?.routes_forestieres_fermees.length
@@ -2414,13 +2418,19 @@ function sportRow(r: SportAnswer["resultats"] extends (infer T)[] | undefined ? 
   return `<li><span>${name}<small>${small}${withScore && r.detail ? ` · ${esc(r.detail)}` : ""}</small></span>${right}</li>`;
 }
 
-function bySport(rows: NonNullable<SportAnswer["a_venir"]>, withScore: boolean): string {
+/** The link to a championship's page, inside it when it is folded (words from marketing). */
+const FEDERATION = "Le classement sur le site de la fédération ↗";
+
+/** The rows by sport, each sport folded when `fold` and the list is long (FOLD_ROWS): the results, not what is to come. */
+function bySport(rows: NonNullable<SportAnswer["a_venir"]>, withScore: boolean, fold = false): string {
   const groups = SPORT_ORDER.map((sp) => ({ sp, list: rows.filter((r) => r.sport === sp) })).filter((g) => g.list.length);
+  const folds = fold && groups.length > 1 && rows.length > FOLD_ROWS;
   return `<ul class="zones">${groups.map((g) =>
-    `<li class="card"><h3>${esc(sportName(g.sp))} <span class="note">${g.list.length} ${withScore ? "résultat" : "rendez-vous"}${withScore && g.list.length > 1 ? "s" : ""}</span></h3>` +
-    `<ul class="rows eau">${g.list.slice(0, SPORT_LISTED).map((r) => sportRow(r, withScore)).join("")}` +
-    (g.list.length > SPORT_LISTED ? `<li><span class="note">et ${g.list.length - SPORT_LISTED} autres : demandez-les à votre IA.</span><span></span></li>` : "") +
-    `</ul></li>`).join("")}</ul>`;
+    `<li class="card">${folded(folds,
+      `<h3>${esc(sportName(g.sp))}${folds ? "\u00a0" : " "}<span class="note">${folds ? "·\u00a0" : ""}${g.list.length}\u00a0${withScore ? "résultat" : "rendez-vous"}${withScore && g.list.length > 1 ? "s" : ""}</span></h3>`,
+      `<ul class="rows eau">${g.list.slice(0, SPORT_LISTED).map((r) => sportRow(r, withScore)).join("")}` +
+      (g.list.length > SPORT_LISTED ? `<li><span class="note">et ${g.list.length - SPORT_LISTED} autres : demandez-les à votre IA.</span><span></span></li>` : "") +
+      `</ul>`)}</li>`).join("")}</ul>`;
 }
 
 export function sportPage(origin: string, data: Cached<SportAnswer> | null, now = new Date(), alerte?: Alerte): string {
@@ -2445,10 +2455,19 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
         `<li><b>${esc(r.quand)}</b> : ${esc(r.epreuve)} <span class="note" style="color:var(--on-night-muted)">(${esc(r.competition ? `${r.sport}, ${r.competition}` : r.sport)})</span></li>`).join("")}</ul></figure>`
     : "";
 
+  // Each championship folded when they are long (FOLD_ROWS). Its name then leaves the line, which opens it: the
+  // federation's page is the first line inside.
+  const foldTables = !!d && d.classements.length > 1 && d.classements.reduce((n, c) => n + c.lignes.length, 0) > FOLD_ROWS;
   const standings = d?.classements.length
-    ? `<ul class="zones">${d.classements.map((c) =>
-        `<li class="card"><h3><a href="${esc(c.lien)}" rel="noopener">${esc(c.competition)}</a></h3>${c.muet ? `<p class="note">${silentText(c.muet)}</p>` : ""}${c.lignes.length ? `<ul class="rows eau">${c.lignes.map((l) =>
-          `<li><span>${l.place}. ${esc(l.equipe)}<small>${l.joues} match${l.joues > 1 ? "s" : ""} joué${l.joues > 1 ? "s" : ""}</small></span><span class="score">${l.points} pts</span></li>`).join("")}</ul>` : ""}</li>`).join("")}</ul>`
+    ? `<ul class="zones">${d.classements.map((c) => {
+        const site = `<a href="${esc(c.lien)}" rel="noopener">${foldTables ? FEDERATION : esc(c.competition)}</a>`;
+        const head = foldTables
+          ? `<h3>${esc(c.competition)}${c.lignes.length ? `\u00a0<span class="note">·\u00a0${c.lignes.length}\u00a0équipe${c.lignes.length > 1 ? "s" : ""}</span>` : ""}</h3>`
+          : `<h3>${site}</h3>`;
+        return `<li class="card">${folded(foldTables, head, (foldTables ? `<p class="note">${site}</p>` : "") +
+          `${c.muet ? `<p class="note">${silentText(c.muet)}</p>` : ""}${c.lignes.length ? `<ul class="rows eau">${c.lignes.map((l) =>
+          `<li><span>${l.place}. ${esc(l.equipe)}<small>${l.joues} match${l.joues > 1 ? "s" : ""} joué${l.joues > 1 ? "s" : ""}</small></span><span class="score">${l.points} pts</span></li>`).join("")}</ul>` : ""}`)}</li>`;
+      }).join("")}</ul>`
     : "";
 
   const raid = d?.grand_raid
@@ -2494,7 +2513,7 @@ ${d?.programmes_communes?.length || d?.non_repris ? `<section aria-labelledby="h
 </section>` : ""}
 ${d?.resultats?.length ? `<section aria-labelledby="h-res">
   <div class="sec-h"><p class="eyebrow">Sept derniers jours</p><h2 id="h-res">Derniers résultats</h2></div>
-  ${bySport(d.resultats, true)}
+  ${bySport(d.resultats, true, true)}
 </section>` : ""}
 ${standings ? `<section aria-labelledby="h-class">
   <div class="sec-h"><p class="eyebrow">Championnats régionaux</p><h2 id="h-class">Classements</h2></div>
@@ -2856,6 +2875,7 @@ const GENRES: [string, string][] = [["concert", "Concerts"], ["théâtre", "Thé
 const GENRE_SCRIPT = `(()=>{const f=document.getElementById("ef");if(!f)return;f.hidden=false;
 const run=()=>{const g=f.g.value;let n=0;document.querySelectorAll("#jours li[data-g]").forEach((li)=>{const ok=!g||li.dataset.g.split(" ").includes(g);li.hidden=!ok;if(ok)n++});
 document.querySelectorAll("#jours>ul>li.card").forEach((c)=>{c.hidden=!c.querySelector("li[data-g]:not([hidden])")});
+if(g)document.querySelectorAll("#jours details").forEach((d)=>{if(d.querySelector("li[data-g]:not([hidden])"))d.open=true});
 document.getElementById("ef-n").textContent=g?n+" événement"+(n>1?"s":""):"";};
 f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefault());})();`;
 
@@ -2880,6 +2900,9 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
       `<p class="note"><a href="/evenements/ce-week-end" style="color:var(--on-night)">${d.ce_week_end.length > AGENDA_WEEKEND ? `Et ${d.ce_week_end.length - AGENDA_WEEKEND} autres : tout` : "Tout"} le week-end →</a></p></figure>`
     : "";
 
+  // The days after tomorrow folded when the list is long (FOLD_ROWS); today and tomorrow open, and folding with a tap.
+  const tomorrow = new Date(Date.parse(today) + 86_400_000).toISOString().slice(0, 10);
+  const foldDays = days.size > 2 && (d?.evenements?.length ?? 0) > FOLD_ROWS;
   const present = new Set((d?.evenements ?? []).flatMap((r) => r.genres));
   const filter = present.size > 1
     ? `<form id="ef" class="card filter" hidden role="search" aria-label="Filtrer les événements par genre"><label>Genre <select name="g"><option value="">tous</option>${GENRES.filter(([g]) => present.has(g)).map(([g, nom]) => `<option value="${esc(g)}">${esc(nom)}</option>`).join("")}</select></label><p class="note" id="ef-n" aria-live="polite"></p></form>`
@@ -2888,8 +2911,9 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
     ? `<p class="card">L'agenda se charge : rechargez la page dans quelques secondes.</p>`
     : days.size
       ? `${filter}<div id="jours"><ul class="zones">${[...days].sort(([x], [y]) => x.localeCompare(y)).map(([day, rows]) =>
-          `<li class="card"><h3>${esc(longDay(day).replace(/^\p{L}/u, (c) => c.toUpperCase()))} <span class="note">${rows.length} événement${rows.length > 1 ? "s" : ""}</span></h3>` +
-          `<ul class="rows eau">${rows.map(agendaRow).join("")}</ul></li>`).join("")}</ul></div>${d.autres ? `<p class="note">${esc(d.autres)} Demandez-les à votre IA.</p>` : ""}<script>${GENRE_SCRIPT}</script>`
+          `<li class="card">${folded(foldDays,
+            `<h3>${esc(longDay(day).replace(/^\p{L}/u, (c) => c.toUpperCase()).replace(/(\d) /, "$1\u00a0"))}${foldDays ? "\u00a0" : " "}<span class="note">${foldDays ? "·\u00a0" : ""}${rows.length}\u00a0événement${rows.length > 1 ? "s" : ""}</span></h3>`,
+            `<ul class="rows eau">${rows.map(agendaRow).join("")}</ul>`, day <= tomorrow)}</li>`).join("")}</ul></div>${d.autres ? `<p class="note">${esc(d.autres)} Demandez-les à votre IA.</p>` : ""}<script>${GENRE_SCRIPT}</script>`
       : `<p class="card">Aucun événement trouvé dans les agendas lus pour les deux semaines qui viennent.</p>`;
 
   const title = "Que faire à La Réunion ? Concerts, fêtes, sorties · 974";

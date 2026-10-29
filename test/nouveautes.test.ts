@@ -34,7 +34,8 @@ describe("the changes, said once", () => {
   it("make the page /nouveautes", () => {
     const page = nouveautesPage("https://rundata.re");
     expect(page).toContain("<h1>Les nouveautés de rundata.re</h1>");
-    expect(page).toContain(`<time datetime="${parJour()[0].jour}">${parJour()[0].titre}</time>`);
+    // The day's number with its month (marketing).
+    expect(page).toContain(`<time datetime="${parJour()[0].jour}">${parJour()[0].titre.replace(/(\d) /, "$1\u00a0")}</time>`);
     for (const n of NOUVEAUTES.slice(0, 3)) expect(page).toContain(n.texte.replace(/'/g, "&#39;").replace(/"/g, "&quot;"));
     expect(page).toContain('<link rel="canonical" href="https://rundata.re/nouveautes">');
     expect(page).toContain('<a href="/nouveautes">nouveautés</a>');
