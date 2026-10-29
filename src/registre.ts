@@ -503,7 +503,8 @@ const METEO = ["src/tools/meteo.ts", "src/tools/prevision.ts", "src/tools/vigila
 
 /** Every page of DOMAINS (web/site.ts), by its path. */
 const DOMAIN_PAGES: Record<string, Page> = {
-  "/meteo": { subrequests: 41, cpuMs: 80, from: METEO },
+  // Measured 41, and 2 from the code for the FFVL's beacons (providers/ffvl.ts: their file and its redirect).
+  "/meteo": { subrequests: 43, cpuMs: 80, from: METEO },
   // Measured 39, before it read the list of the silent sites (a read of the data center's cache, 2 of D1, a write); 6
   // more for the pages of two releases whose list does not name the volcano (providers/volcan.ts, `doubtful`): each a
   // read of KV, the page and a write of KV, once a week.
@@ -547,10 +548,14 @@ const DOMAIN_PAGES: Record<string, Page> = {
 /** The other pages that read sources. */
 const OTHER_PAGES: Record<string, Page> = {
   // 75 measured, and one more read for the tile of the rivers (/crues).
-  "/": { subrequests: 76, cpuMs: 110, from: METEO, what: "accueil : sa météo, ses tuiles, et la plus vieille refaite après la réponse", d1: BUS_D1 },
-  "/communes/*": { subrequests: 78, cpuMs: 160, from: [...METEO, "src/tools/mer.ts"], what: "page d'une commune : sa météo, ses tuiles, et la plus vieille refaite après la réponse" },
-  "/aujourdhui/*": { subrequests: 62, cpuMs: 130, from: ["src/tools/resume.ts"], what: "la journée d'une commune (resume_du_jour)" },
-  "/meteo/*": { subrequests: 50, cpuMs: 130, from: [...METEO, "src/tools/mer.ts"], what: "la météo d'un lieu" },
+  // Measured 76, and 2 from the code for the FFVL's beacons (providers/ffvl.ts: their file and its redirect).
+  "/": { subrequests: 78, cpuMs: 110, from: METEO, what: "accueil : sa météo, ses tuiles, et la plus vieille refaite après la réponse", d1: BUS_D1 },
+  // Measured 78, and 2 from the code for the FFVL's beacons (providers/ffvl.ts: their file and its redirect).
+  "/communes/*": { subrequests: 80, cpuMs: 160, from: [...METEO, "src/tools/mer.ts"], what: "page d'une commune : sa météo, ses tuiles, et la plus vieille refaite après la réponse" },
+  // Measured 62, and 2 from the code for the FFVL's beacons (providers/ffvl.ts: their file and its redirect).
+  "/aujourdhui/*": { subrequests: 64, cpuMs: 130, from: ["src/tools/resume.ts"], what: "la journée d'une commune (resume_du_jour)" },
+  // Measured 50, and 2 from the code for the FFVL's beacons (providers/ffvl.ts: their file and its redirect).
+  "/meteo/*": { subrequests: 52, cpuMs: 130, from: [...METEO, "src/tools/mer.ts"], what: "la météo d'un lieu" },
   // The replay bar's files (web/rejeu.ts), asked when the visitor plays, kept by the data center 5 min, 15 min and up
   // to the next hour: the radar's history (KV, not for the week), the stations' week (KV, written back when newer), the
   // hourly package from the cache (its token and the package when it has none), the archive in D1 for the hours the
@@ -617,8 +622,10 @@ const VISITS: Entry[] = [
 
 /** Every tool (server.ts), as measured: the most subrequests of a call, its CPU, its file. */
 const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string; kvReads?: number; d1?: Pick<Run, "d1Calls" | "d1RowsRead" | "d1RowsWritten">; basis?: Basis; from?: string[] }> = {
-  resume_du_jour: { subrequests: 59, cpuMs: 130, file: "resume" },
-  meteo_actuelle: { subrequests: 36, cpuMs: 120, file: "meteo" },
+  // Measured 59, and 2 from the code for the FFVL's beacons (providers/ffvl.ts: their file and its redirect).
+  resume_du_jour: { subrequests: 61, cpuMs: 130, file: "resume" },
+  // Measured 36, and 2 from the code for the FFVL's beacons (providers/ffvl.ts: their file and its redirect).
+  meteo_actuelle: { subrequests: 38, cpuMs: 120, file: "meteo" },
   evenements: { subrequests: 33, cpuMs: 190, file: "agenda" },
   sport: { subrequests: 33, cpuMs: 160, file: "sport" },
   // Measured 26, before it read the list of the silent sites, as /volcan; 6 more for two releases' pages, as /volcan.

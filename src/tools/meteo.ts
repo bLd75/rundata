@@ -4,6 +4,7 @@ import { resolvePlace, type Resolution } from "../places/resolve.js";
 import * as meteofrance from "../providers/meteofrance.js";
 import { STATIONS_EN_SERVICE } from "../providers/meteofrance-stations.js";
 import * as metar from "../providers/metar.js";
+import * as ffvl from "../providers/ffvl.js";
 import * as pioupiou from "../providers/pioupiou.js";
 import * as radar from "../providers/radar.js";
 import { radarAt } from "./radar.js";
@@ -23,6 +24,7 @@ const ALL_PROVIDERS: Provider[] = [
   { source: meteofrance.SOURCE, observations: meteofrance.observations, enabled: meteofrance.enabled },
   { source: metar.SOURCE, observations: (c) => metar.observations(c) },
   { source: pioupiou.SOURCE, observations: pioupiou.observations },
+  { source: ffvl.SOURCE, observations: ffvl.observations },
 ];
 
 export function providers(): Provider[] {
@@ -33,9 +35,10 @@ export function coverage(): string {
   return meteofrance.enabled()
     ? `Les quelque ${STATIONS_EN_SERVICE} stations Météo-France de l'île, de la côte aux sommets et dans les cirques (mesures toutes les ` +
         "6 min, publiées 5 à 10 min après : température, pluie, et pour une partie d'entre elles humidité et vent), " +
-        "les observations des 2 aéroports (METAR, état du ciel) et 1 balise de vent (Cambaie, Saint-Paul)."
+        "les observations des 2 aéroports (METAR, état du ciel), et des balises de vent : Cambaie à Saint-Paul (OpenWindMap)\u00a0; " +
+        "Kélonia à Saint-Leu, le Trou d'Eau et le Maïdo à Saint-Paul, Matouta à Saint-Joseph (FFVL, quand elles émettent)."
     : "Version 0.1 : seules les sources ouvertes sans clé sont branchées, soit les 2 stations des aéroports " +
-        "(Saint-Denis Gillot et Saint-Pierre Pierrefonds, toutes les 30 min) et 1 balise de vent (Cambaie, Saint-Paul). " +
+        "(Saint-Denis Gillot et Saint-Pierre Pierrefonds, toutes les 30 min), et des balises de vent : Cambaie (Saint-Paul, OpenWindMap) et celles de la FFVL qui émettent. " +
         "Pas encore de pluviomètre lu en direct, ni de station dans les Hauts ou les cirques.";
 }
 

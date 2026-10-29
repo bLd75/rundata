@@ -1,0 +1,59 @@
+[
+ {
+  "idbalise": 164,
+  "date": "2026-10-29T20:58:17+01:00",
+  "vitesseVentMoy": 8,
+  "vitesseVentMax": 15,
+  "vitesseVentMin": 1,
+  "directVentMoy": 112,
+  "directVentInst": 112,
+  "temperature": 25,
+  "u_bat": 12
+ },
+ {
+  "idbalise": 1012,
+  "date": "2026-10-29T21:00:10+01:00",
+  "vitesseVentMoy": 1,
+  "vitesseVentMax": 4,
+  "vitesseVentMin": 0,
+  "directVentMoy": 78,
+  "directVentInst": 78,
+  "temperature": 23.7
+ },
+ {
+  "idbalise": 10,
+  "date": "2026-10-29T21:09:19+01:00",
+  "vitesseVentMoy": 8,
+  "vitesseVentMax": 10,
+  "vitesseVentMin": 5,
+  "directVentMoy": 66,
+  "directVentInst": 66,
+  "temperature": 2,
+  "LUM": 0,
+  "u_sol": 0,
+  "u_bat": 12700
+ },
+ {
+  "idbalise": 151,
+  "date": "2026-10-29T21:07:10+01:00",
+  "vitesseVentMoy": 10,
+  "vitesseVentMax": 12,
+  "vitesseVentMin": 8,
+  "directVentMoy": 314,
+  "directVentInst": 314,
+  "temperature": 6,
+  "LUM": 0,
+  "u_sol": 0,
+  "u_bat": 12500
+ },
+ {
+  "idbalise": 170,
+  "date": "2026-10-29T17:36:00+01:00",
+  "vitesseVentMoy": 0,
+  "vitesseVentMax": 0,
+  "vitesseVentMin": 0,
+  "directVentMoy": null,
+  "directVentInst": null,
+  "temperature": 12
+ }
+]

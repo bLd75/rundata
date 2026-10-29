@@ -117,12 +117,14 @@ const onPlace = (m: Marker, at: [number, number]) => {
  * Where to draw each marker so that no pill covers another (`apart`): those that would are pushed apart, each the
  * least, along the shorter way out, and kept inside the map; round markers stay where they are. No pill covers a place's
  * dot either, another's or its own once it has left it: half under a pill, a dot reads as a smudge (Saint-Denis's).
- * The same markers, the same places.
+ * The same markers, the same places. `widths`: the pills' own, for pills drawn elsewhere (the wind's, meteo-carte.ts).
+ * `aside`: how much further a pill may go sideways than up or down (the wind's: two places on one point side by side,
+ * which leaves the room above and below to a commune's name).
  */
-function apart(markers: Marker[]): [number, number][] {
+export function apart(markers: Marker[], widths = markers.map(pillW), aside = 1): [number, number][] {
   const places = markers.map((m) => project(m.lon, m.lat));
   const p = places.map(([x, y]): [number, number] => [x, y]);
-  const w = markers.map(pillW);
+  const w = widths;
   const pill = markers.map((m) => !m.round);
   for (let round = 0; round < 200; round++) {
     let moved = false;
@@ -136,7 +138,7 @@ function apart(markers: Marker[]): [number, number][] {
         if (ox <= 0 || oy <= 0) continue;
         moved = true;
         // Half each; two at the same height or column apart in their order.
-        if (ox < oy) {
+        if (ox < oy * aside) {
           const s = dx < 0 ? -1 : 1;
           p[i][0] -= (s * ox) / 2;
           p[j][0] += (s * ox) / 2;
@@ -529,7 +531,7 @@ export const NOMS_SCRIPT = `(()=>{const P=${JSON.stringify(NUDGE).replace(/</g, 
 const run=(svg)=>{const g=svg.querySelector(".nm"),vb=svg.viewBox.baseVal,cw=svg.clientWidth;if(!g||!vb||!vb.width||!cw)return;
 const u=vb.width/cw,wide=cw>=640,p=2*u,busy=[],kept=[],box=(b,r)=>[b.x-r-p,b.y-r-p,b.x+b.width+r+p,b.y+b.height+r+p],
 free=(b)=>b[0]>=vb.x&&b[1]>=vb.y&&b[2]<=vb.x+vb.width&&b[3]<=vb.y+vb.height&&![...busy,...kept].some((o)=>hit(o,b));const shown=(e)=>{for(;e&&e!==svg;e=e.parentNode)if(getComputedStyle(e).display==="none")return false;return true};
-svg.querySelectorAll(".mk .sh,.mk .mn,.sp:not(.off) .rg,.pin,.ties circle,.trk-start,.rj-st circle").forEach((e)=>{let b;if(!shown(e))return;try{b=e.getBBox()}catch{return}const r=e.matches(".rg")?9*u:0;if(b.width||b.height||r&&e.getClientRects().length)busy.push(box(b,r))});
+svg.querySelectorAll(".mk .sh,.mk .mn,.sp:not(.off) .rg,.pin,.ties circle,.trk-start,.rj-st circle,.wt line,.wt circle").forEach((e)=>{let b;if(!shown(e))return;try{b=e.getBBox()}catch{return}const r=e.matches(".rg")?9*u:0;if(b.width||b.height||r&&e.getClientRects().length)busy.push(box(b,r))});
 const marks=[];svg.querySelectorAll(".pk").forEach((k)=>{const ts=[...k.querySelectorAll("text")],at=(d)=>ts.forEach((t)=>{if(t.dataset.x===undefined){t.dataset.x=t.getAttribute("x");t.dataset.y=t.getAttribute("y")}t.setAttribute("x",+t.dataset.x+d[0]);t.setAttribute("y",+t.dataset.y+d[1])});
 let T;if(!shown(k))return;try{at([0,0]);T=k.querySelector("path").getBBox()}catch{return}if(!T.width)return;marks.push(box(T,0));let B=null;for(const t of ts){if(!shown(t))continue;const q=t.getBBox();if(q.width)B=B?[Math.min(B[0],q.x),Math.min(B[1],q.y),Math.max(B[2],q.x+q.width),Math.max(B[3],q.y+q.height)]:[q.x,q.y,q.x+q.width,q.y+q.height]}if(!B)return;
 const s=4*u,cy=T.y+T.height/2-(B[1]+B[3])/2,hb=(B[3]-B[1])/2,R=T.x+T.width+s-B[0],L=T.x-s-B[2],at2=(d)=>[B[0]+d[0]-p,B[1]+d[1]-p,B[2]+d[0]+p,B[3]+d[1]+p],

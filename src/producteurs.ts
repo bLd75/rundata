@@ -73,6 +73,7 @@ export const FICHES: Record<string, Fiche> = {
   arome: { famille: "licence_ouverte", producteurs: [MF] },
   gdacs_cyclones: { famille: "information_publique", producteurs: [MF] },
   pioupiou: { famille: "information_publique", producteurs: ["OpenWindMap"] },
+  ffvl: { famille: "licence_ouverte", producteurs: ["Fédération française de vol libre"] },
   openmeteo: { famille: "cc_by", producteurs: [ECMWF] },
   openmeteo_ens: { famille: "cc_by", producteurs: [ECMWF] },
   openmeteo_houle: { famille: "cc_by", producteurs: [ECMWF] },
