@@ -81,8 +81,12 @@ export function chip(t: number): string {
  * a filter that keeps some (the page's script, `unfold`); a shorter one, or a category alone, stays open.
  */
 export const FOLD_ROWS = 8;
-/** A category of such a list: its line (`head`, an <h3> with its count), folded over its rows; as it was when not `fold`. */
-export const folded = (fold: boolean, head: string, body: string) => (fold ? `<details><summary>${head}</summary>${body}</details>` : head + body);
+/**
+ * A category of such a list: its line (`head`, an <h3> with its count), folded over its rows, or `open` and folding
+ * with a tap; as it was when not `fold`.
+ */
+export const folded = (fold: boolean, head: string, body: string, open = false) =>
+  (fold ? `<details${open ? " open" : ""}><summary>${head}</summary>${body}</details>` : head + body);
 export const hm = (iso: string | Date) => localTime(new Date(iso)).split(" ")[1];
 
 /**
@@ -804,7 +808,7 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 @media (max-width:600px){#kf label{flex-basis:100%}}
 @media (min-width:900px){.zones.top>li:has(details[open]){grid-column:1/-1}.zones.top details[open]>.kinds{columns:3 16rem;column-gap:2rem}.kinds .kind{break-inside:avoid}}
 .card>details>summary{cursor:pointer;list-style:none;display:block;min-height:44px;padding:.5rem 0;margin:-.5rem 0;box-sizing:border-box}.card>details>summary::-webkit-details-marker{display:none}
-.card>details>summary h3{display:inline}.card>details>summary::after{content:"\\a0▸";color:var(--muted)}.card>details[open]>summary::after{content:"\\a0▾"}
+.card>details>summary h3{display:inline}.card>details>summary h2{display:inline;font-size:1.12rem;letter-spacing:-.005em}.card>details>summary::after{content:"\\a0▸";color:var(--muted)}.card>details[open]>summary::after{content:"\\a0▾"}
 .rows.eau .score{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .autour{margin:1rem 0}.autour>.note{margin-top:.6rem}.autour .rows a{display:block;margin-top:.25rem;font-weight:700}.rows.dae li>span:last-child{max-width:9.5rem;text-align:right}.map.autour-on .mk,.mapcard:has(.autour-on) figcaption{display:none}.map .nr{fill:#2b8a3e;stroke:#fff;stroke-width:2px;vector-effect:non-scaling-stroke}.map .me{fill:#339af0;stroke:#fff;stroke-width:3px;vector-effect:non-scaling-stroke}
 .rows.eau .q-bonne{color:#2b8a3e;font-weight:700}.rows.eau .q-moyenne{color:#e8590c;font-weight:700}.rows.eau .q-mauvaise{color:var(--lave);font-weight:700}.rows.eau .q-none{color:var(--muted)}
