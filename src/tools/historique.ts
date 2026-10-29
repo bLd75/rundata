@@ -314,6 +314,45 @@ async function recordsOf(s: Series, months: number[], now: Date) {
   };
 }
 
+/** The page of a station (web/station.ts): its last 30 days, its year month by month, its records. */
+export interface StationHistory {
+  /** The first year of its measurements. */
+  depuis: number;
+  /** The last day the archive has, YYYY-MM-DD. */
+  jusqu_au: string;
+  trente: { du: string; au: string; resume: ReturnType<typeof summary>; jours: ReturnType<typeof dailyRows> };
+  annee: { annee: number; resume: ReturnType<typeof summary>; mois: ReturnType<typeof groupedRows> };
+  records?: Awaited<ReturnType<typeof recordsOf>>;
+}
+
+/**
+ * A station's history, from the days of this year and the year before (one query) and its records (one, and one more
+ * for the years after them); undefined when the archive is not there or does not have the station, or has nothing of
+ * its last two years.
+ */
+export async function stationHistory(cache: Cache, id: string, now: Date): Promise<StationHistory | undefined> {
+  if (!climat.enabled()) return undefined;
+  const poste = (await climat.postes(cache)).value.find((p) => p.poste === id);
+  if (!poste) return undefined;
+  const yesterday = iso(now.getTime() + 4 * 3600_000 - DAY_MS);
+  const year = +yesterday.slice(0, 4);
+  const ys = (await climat.years([id], year - 1, year)).get(id);
+  const last = ys && lastDay(new Map([[id, ys]]), yesterday);
+  if (!ys || !last) return undefined;
+  const s: Series = { poste, ys };
+  const has = (f: Field) => (poste.params.includes(f) ? s : undefined);
+  const [rain, temp, sun] = [has("RR"), has("TX"), has("INST")];
+  const trente = { du: iso(Date.parse(last) - 29 * DAY_MS), au: last };
+  const annee = { du: `${last.slice(0, 4)}-01-01`, au: last };
+  return {
+    depuis: poste.debut,
+    jusqu_au: last,
+    trente: { ...trente, resume: summary(trente, rain, temp, sun), jours: dailyRows(trente, rain, temp, sun) },
+    annee: { annee: +last.slice(0, 4), resume: summary(annee, rain, temp, sun), mois: groupedRows(annee, "mois", rain, temp, sun) },
+    records: await recordsOf(s, [], now),
+  };
+}
+
 /**
  * When a day's measurements reach rundata.re: Météo-France publishes them the next morning (its files seen at 09:56 for
  * the days, 10:52 for the hours, 24 and 25 October 2026), and .github/workflows/climat.yml loads them at 11:45.

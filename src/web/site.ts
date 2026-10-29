@@ -136,6 +136,7 @@ import { carteRoute as cmrsRoute } from "./cmrs-carte.js";
 import { RENDU_PATH } from "../providers/vigilance-carte.js";
 import { PATH as PLUIE_RADAR, rainGrid } from "./pluie-radar.js";
 import { PATH as PLUIE_RETRO, retro } from "./pluie-retro.js";
+import { buildStation, STATION_PATH, STATIONS, stationOf, stationPage, stationPath } from "./station.js";
 import { DUREES, PATHS as REJEU, rejeu } from "./rejeu.js";
 
 const HTML = {
@@ -327,7 +328,7 @@ function sitemap(origin: string, now: Date, fuelDay?: string): string {
   const urls: Url[] = [...["/", ...Object.keys(DOMAINS).filter((u) => u !== "/defibrillateurs"), "/vigilance", "/ecoles-cyclone", "/alerte-cyclone", "/mer", "/collecte", ...COLLECTE_COMMUNES.map((c) => `/collecte/${communeSlug(c)}`)].map(live), ["/defibrillateurs", dae.BUILT, "monthly"], fixed("/communes"), fixed("/kit-cyclone"), fixed("/publier"), ...COMMUNES.map((p) => live(`/communes/${p.slug}`)), ...COMMUNES.map((p) => live(`/coupures-eau/${p.slug}`)), ...COMMUNES.map((p) => live(`/aujourdhui/${p.slug}`)), ...COMMUNES.map((p) => live(enfantsPath(p))),
     // The busiest stops only (scripts/build-transit.py): the others' pages are not indexed.
     ...[...transit.stopPages().values()].filter((p) => p.indexe).map((p) => live(`${STOP_PATH}/${p.slug}`)),
-    ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
+    ...PAGES.map((p) => live(`/meteo/${p.slug}`)), ...STATIONS.map((x) => live(stationPath(x.id))), ...SECTEURS.map((x) => live(`/randonnees/${x.slug}`)), ...traces.RANDONNEES.map((r) => trace(`/randonnees/${r.slug}`)),
     ...Object.values(traces.SENTIERS).map((t) => trace(`/sentiers/${t.slug}`)), ...["/presse", "/a-propos", VALEURS, APPLICATION, GUIDE, "/mcp", "/confidentialite", "/conditions", BAIGNADE, ...PASSES.map((c) => `/cyclones/${c.slug}`)].map(fixed),
     ...(formulaires.enLigne() ? [live(ASSOCIATIONS_PATH), fixed(formulaires.PROPOSER_PATH)] : []),
     ["/nouveautes", localDay(NOUVEAUTES[0].date), "daily"], [ANTENNES, undefined, "weekly"], [SANS_REPONSE, undefined, "daily"], live(CHIFFRES), ["/carburants", fuelDay ? (fuelDay < today ? fuelDay : today) : undefined, "daily"],
@@ -651,6 +652,16 @@ async function pages(request: Request, cache: Cache, background: Background, now
   // The replay bar's files, one a length, asked by the same script when its visitor plays (rejeu.ts).
   const duree = DUREES.find((d) => REJEU[d] === path);
   if (duree) return rejeu(duree, cache, background, now);
+  // A station's page (web/station.ts): its copy built like a commune's, kept by station.
+  if (path.startsWith(`${STATION_PATH}/`)) {
+    const id = path.slice(STATION_PATH.length + 1).replace(/\/$/, "");
+    if (!stationOf(id)) return new Response(notFoundPage(origin, path), { status: 404, headers: HTML });
+    const [data, a] = await Promise.all([
+      snapshot(cache, `web:station:${id}`, () => buildStation(cache, id, now), background, now, waitFor(request), readerOf(request)),
+      alerte(cache, background, now),
+    ]);
+    return page(path, (live) => stationPage(origin, live ? data : null, id, now, a), data, background, [rebuild(cache, `web:station:${id}`, () => buildStation(cache, id, now))]);
+  }
   if (path.startsWith("/meteo/")) {
     const slug = path.slice("/meteo/".length).replace(/\/$/, "");
     const p = pageOf(slug);
