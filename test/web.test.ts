@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { failed, handle } from "../src/app.js";
 import { stopPages } from "../src/providers/transit.js";
@@ -513,6 +514,20 @@ describe("what crawlers and previews fetch", () => {
     expect(woff2.length).toBeLessThan(80_000);
     expect(headers).toContain("/font/*\n  Cache-Control: public, max-age=31536000, immutable\n");
     expect(await site(new Request(`https://rundata.re${FONT_PATH}`), new Cache(), () => {})).toBeNull();
+  });
+
+  it("keeps the demonstration video for the ChatGPT plugin review at an unlisted address, not indexed", async () => {
+    const [name, ...others] = readdirSync(new URL("../public/demo/", import.meta.url));
+    expect(others).toEqual([]);
+    const mp4 = asset(`/demo/${name}`);
+    // Named after its content, as public/presse/: a new video gets a new address.
+    expect(name).toBe(`rundata-re-chatgpt.${createHash("sha256").update(mp4).digest("hex").slice(0, 10)}.mp4`);
+    expect(new TextDecoder().decode(mp4.slice(4, 8))).toBe("ftyp");
+    expect(mp4.length).toBeLessThan(5_000_000);
+    expect(headers).toContain("/demo/*\n  Cache-Control: public, max-age=31536000, immutable\n  X-Content-Type-Options: nosniff\n  X-Robots-Tag: noindex\n");
+    expect(await site(new Request(`https://rundata.re/demo/${name}`), new Cache(), () => {})).toBeNull();
+    const map = await (await handle(new Request("https://rundata.re/sitemap.xml"), isolate())).text();
+    expect(map).not.toContain("/demo/");
   });
 
   it("serves the stylesheet apart, kept a year at its address, and no page copies it any more", async () => {
