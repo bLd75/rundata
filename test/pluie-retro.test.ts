@@ -4,7 +4,7 @@ import { BUILD_BUDGET, counted } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
 import * as meteofrance from "../src/providers/meteofrance.js";
 import type { RainGrid } from "../src/web/pluie-radar.js";
-import { auQuart, configure, type Entree, type Historique, hourlyWind, passage, PATH, quarters, retro, RETRO_MS, rle, suivant, unrle } from "../src/web/pluie-retro.js";
+import { auQuart, type Entree, type Historique, passage, quarters, rle, suivant, unrle } from "../src/web/pluie-retro.js";
 import { site } from "../src/web/site.js";
 
 // The real lame d'eau of 22/10/2026 05:35–05:40 UTC, as in pluie-radar.test.ts.
@@ -158,41 +158,10 @@ describe("a run of the scheduled event", () => {
   });
 });
 
-describe("the replay's answer", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    configure(undefined);
-    meteofrance.configure({});
-  });
-
-  it("gives the wind at the last 3 round hours, oldest first, in data-vent's form", () => {
-    const v = hourlyWind(meteofrance.parseHourly(csv, Date.parse("2026-10-25T08:57:00Z")));
-    expect(v.map((x) => x.fin)).toEqual(["2026-10-25T06:00:00.000Z", "2026-10-25T07:00:00.000Z", "2026-10-25T08:00:00.000Z"]);
-    // 97416463 at 08:00Z: 32 km/h from 130°, so going north-west: x and y both negative (y grows southward).
-    expect(v[2].st).toContainEqual([expect.any(Number), expect.any(Number), -24.5, -20.6]);
-  });
-
-  it("says no radar history when KV holds none (just after the release), and leaves out what is over 3 hours old", async () => {
+describe("the 3 hours' replay of before", () => {
+  it("is no longer served: the replay bar's files took its place (rejeu.ts)", async () => {
     const now = at("2026-10-29T13:12:00Z");
-    const cache = new Cache(new MemoryStore(), () => now.getTime());
-    configure(async () => null);
-    expect(await (await retro(cache, now)).json()).toEqual({ radar: null, vent: [] });
-    // As KV may hold it when the last runs wrote nothing: an image read more than 3 hours ago still in it.
-    const image = (fin: string) => ({ fin, pannes: [], pluie: rle(shot(fin).pluie), mal_vu: rle(shot(fin).mal_vu) });
-    const h: Historique = { w: 125, h: 112, entrees: [image("2026-10-29T09:00:00Z"), { trou: true, de: "2026-10-29T09:00:00Z", a: "2026-10-29T13:00:00Z" }, image("2026-10-29T13:05:00Z")] };
-    configure(async () => h);
-    const r = await retro(cache, now);
-    expect(r.headers.get("cache-control")).toBe("public, max-age=300");
-    const body = await r.json();
-    expect(kinds(body.radar)).toEqual(["trou 09:00-13:00", "13:05"]);
-    expect(Date.parse(body.radar.entrees[0].a)).toBeGreaterThan(now.getTime() - RETRO_MS);
-  });
-
-  it("is served by the site at its path", async () => {
-    configure(async () => null);
-    const now = at("2026-10-29T13:12:00Z");
-    const res = await site(new Request(`https://rundata.re${PATH}`), new Cache(new MemoryStore(), () => now.getTime()), () => {}, now);
-    expect(res?.headers.get("content-type")).toBe("application/json; charset=utf-8");
-    expect(await res?.json()).toEqual({ radar: null, vent: [] });
+    const res = await site(new Request("https://rundata.re/meteo/retro-3h.json"), new Cache(new MemoryStore(), () => now.getTime()), () => {}, now);
+    expect(res?.status).toBe(404);
   });
 });

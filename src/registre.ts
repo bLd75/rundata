@@ -551,9 +551,6 @@ const OTHER_PAGES: Record<string, Page> = {
   "/communes/*": { subrequests: 78, cpuMs: 160, from: [...METEO, "src/tools/mer.ts"], what: "page d'une commune : sa météo, ses tuiles, et la plus vieille refaite après la réponse" },
   "/aujourdhui/*": { subrequests: 62, cpuMs: 130, from: ["src/tools/resume.ts"], what: "la journée d'une commune (resume_du_jour)" },
   "/meteo/*": { subrequests: 50, cpuMs: 130, from: [...METEO, "src/tools/mer.ts"], what: "la météo d'un lieu" },
-  // The replay of the last 3 hours (web/pluie-retro.ts), asked when /meteo's rain or wind layer is first shown: the radar's
-  // history read from KV, the hourly package from the data center's cache (its token and the package when it has none).
-  "/meteo/retro-3h.json": { subrequests: 3, cpuMs: 10, from: ["src/providers/meteofrance.ts"], what: "le rejeu des 3 dernières heures de la carte de /meteo : l'historique radar (KV) et le vent des heures rondes", basis: "code" },
   // The replay bar's files (web/rejeu.ts), asked when the visitor plays, kept by the data center 5 min, 15 min and up
   // to the next hour: the radar's history (KV, not for the week), the stations' week (KV, written back when newer), the
   // hourly package from the cache (its token and the package when it has none), the archive in D1 for the hours the
@@ -609,7 +606,7 @@ const pageEntry = (path: string, p: Page, kvReads: number): Entry => ({
 const SHARED_KEYS = new Set([...SHARED, ...SHARED_AFTER].map((s) => s.key));
 const sharedIn = (keys: string[]) => new Set(keys.filter((k) => SHARED_KEYS.has(k))).size;
 // The commune pages and /antennes: the copy of the mobile sites out of service besides.
-const KV_READS: Record<string, number> = { "/chiffres": 1, "/antennes": 1, "/meteo/retro-3h.json": 1, "/meteo/rejeu-6h.json": 2, "/meteo/rejeu-24h.json": 2, "/meteo/rejeu-7j.json": 1, "/": sharedIn(HOME_TILES), "/communes/*": sharedIn(COMMUNE_TILES) + 1, "/aujourdhui/*": sharedIn([...COMMUNE_TILES, ...HOME_TILES]) };
+const KV_READS: Record<string, number> = { "/chiffres": 1, "/antennes": 1, "/meteo/rejeu-6h.json": 2, "/meteo/rejeu-24h.json": 2, "/meteo/rejeu-7j.json": 1, "/": sharedIn(HOME_TILES), "/communes/*": sharedIn(COMMUNE_TILES) + 1, "/aujourdhui/*": sharedIn([...COMMUNE_TILES, ...HOME_TILES]) };
 
 const VISITS: Entry[] = [
   ...Object.entries(OTHER_PAGES).map(([path, p]) => pageEntry(path, p, KV_READS[path] ?? 0)),

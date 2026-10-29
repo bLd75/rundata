@@ -60,7 +60,7 @@ export const SLOGAN = `<p class="slogan" lang="${brand.slogan_lang}">${esc(brand
 const OG_ALT = "Symbole rundata.re et relief de l'île : La Réunion 974 en direct, Lo péï an dirèk";
 
 // Temperatures shown as white on a colour: every stop keeps a contrast of at least 5:1.
-const STOPS: [number, number[]][] = [
+export const STOPS: [number, number[]][] = [
   [8, [0x2a, 0x6a, 0x9a]],
   [17, [0x24, 0x78, 0x6c]],
   [24, [0x8a, 0x64, 0x10]],
@@ -586,7 +586,7 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .profile{width:100%;height:auto;display:block}.profile .fill{fill:color-mix(in srgb,var(--accent) 22%,transparent)}.profile .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round}
 .profile .grid{stroke:var(--border);stroke-width:1}.profile .ax{fill:var(--muted);font:12px system-ui,sans-serif}
 .facts{display:flex;flex-wrap:wrap;gap:.6rem 1.6rem;margin:.6rem 0 1.2rem}.facts dt{font-size:.82rem;color:var(--on-night-muted)}.facts dd{margin:0;font:800 1.45rem/1.15 system-ui,sans-serif;color:var(--on-night)}
-.map.terrain .mk{filter:drop-shadow(0 4px 6px rgb(0 0 0/.3))}.map.terrain .mk circle,.map.terrain .mk rect{stroke:#fff;stroke-width:4}
+.map.terrain .mk{filter:drop-shadow(0 4px 6px rgb(0 0 0/.3))}.map.terrain .mk circle,.map.terrain .mk rect,.map.terrain .rj-st circle{stroke:#fff;stroke-width:4}
 .map text{font-family:system-ui,sans-serif;text-anchor:middle}
 .map .mv{fill:#fff;font-weight:700;font-size:30px}
 .map .mn,.map .pk text{fill:var(--ink);font-size:23px;paint-order:stroke;stroke:var(--land);stroke-width:7px;stroke-linejoin:round}
@@ -701,10 +701,13 @@ html:has([data-js]:not([hidden])) #stl.plie>li:nth-child(n+13){display:none}.stm
 .wxmap .hsw{display:inline-block;width:.9rem;height:.9rem;margin:0 .1rem;vertical-align:-.1rem;border-radius:.15rem;background:repeating-linear-gradient(135deg,rgba(11,31,54,.55) 0 1.6px,transparent 1.6px 2.1px,rgba(255,255,255,.5) 2.1px 3.7px,transparent 3.7px 4.24px),#c9d8c2}
 /* The replay of the last 3 hours: its button and slider under the legend, its time on the map, the stations' dots hidden. */
 .wxmap .rj{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-top:.6rem}.wxmap .rj[hidden],.wxmap .rj [hidden]{display:none}
-.wxmap .rj button{min-height:44px;padding:.35rem .95rem;border-radius:999px;border:1px solid rgb(255 255 255/.35);background:rgb(255 255 255/.08);color:inherit;font:inherit;font-weight:700;cursor:pointer}
-.wxmap .rj input{flex:1 1 10rem;min-height:44px;accent-color:#fff}
-.wxmap .rj-lg,.wxmap .rj-h{display:none}.wxmap.rejeu .rj-lg{display:inline}.wxmap.rejeu .rj-h{display:inline}.wxmap.rejeu .lg-now,.wxmap.rejeu .sts,.wxmap.rejeu .mtip{display:none}
-.wxmap .rj-h{text-anchor:start;font-size:64px;font-weight:700;fill:var(--ink);stroke:var(--bg);stroke-width:10px;paint-order:stroke}.wxmap .rj-h.plage{font-size:48px}.wxmap .hsn{white-space:nowrap}
+.wxmap .rj fieldset{border:0;margin:0;padding:0;gap:.25rem;align-items:center}.wxmap .rj legend{float:left;padding:0;margin-right:.2rem;font-weight:700}.wxmap .rj label{padding:.3rem .65rem}
+.band .rj label{color:var(--on-night-muted);border-color:rgb(255 255 255/.25)}.band .rj input:checked+label{background:var(--on-night);color:var(--night);border-color:var(--on-night)}
+.wxmap .rj button{min-height:44px;padding:.35rem .95rem;border-radius:999px;border:1px solid rgb(255 255 255/.35);background:rgb(255 255 255/.08);color:inherit;font:inherit;font-weight:700;cursor:pointer}.wxmap .rj button:disabled{cursor:wait;opacity:.7}
+.wxmap .rj input[type=range]{flex:1 1 12rem;min-height:44px;accent-color:#fff}.wxmap .rj-q,.wxmap .rj-ko{flex-basis:100%}
+@media (prefers-reduced-motion:reduce){.wxmap .rj-b{display:none}}
+.wxmap .rj-lg,.wxmap .rj-t,.wxmap .rj-st{display:none}.wxmap.rejeu .rj-t{display:inline}.wxmap.rejeu:not(.rj-fin) :is(.rj-lg,.rj-st){display:inline}.wxmap.rejeu:not(.rj-fin) :is(.lg-now,.sts,.mtip){display:none}
+.wxmap .rj-t text{text-anchor:start;font-weight:700;fill:var(--ink);stroke:var(--bg);stroke-width:10px;paint-order:stroke}.wxmap .rj-h{font-size:64px}.wxmap .rj-d,.wxmap .rj-s{font-size:40px}.wxmap .hsn{white-space:nowrap}
 .sttools{display:flex;flex-wrap:wrap;gap:.6rem 1rem;align-items:center;margin-bottom:.8rem}.sttools[hidden]{display:none}.sttools select{font:inherit;padding:.3rem .5rem;border-radius:.5rem}
 .sttools button{font:inherit;padding:.25rem .6rem;border:1px solid var(--line);border-radius:99px;background:none;color:inherit;cursor:pointer}.sttools button[aria-pressed=true]{background:var(--ink);color:var(--surface)}
 .airmap:has(#aqp-pm10:checked) .ly-pm10,.airmap:has(#aqp-pm10:checked) .lg-pm10,.airmap:has(#aqp-pm25:checked) .ly-pm25,.airmap:has(#aqp-pm25:checked) .lg-pm25,.airmap:has(#aqp-o3:checked) .ly-o3,.airmap:has(#aqp-o3:checked) .lg-o3,.airmap:has(#aqp-no2:checked) .ly-no2,.airmap:has(#aqp-no2:checked) .lg-no2{display:inline}

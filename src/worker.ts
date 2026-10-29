@@ -190,14 +190,10 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get(candhis.KEY, "json")) as candhis.Etat | null;
   }));
-  // The radar's last 6 hours, kept by the scheduled event below (web/pluie-retro.ts), for /meteo's replay; the 3 hours
-  // of the key before while the new one is empty, just after the release.
-  const sixHours = async () =>
-    ((await kv!.get(pluieRetro.KV_KEY, "json")) ?? (await kv!.get(pluieRetro.OLD_KV_KEY, "json"))) as pluieRetro.Historique | null;
-  pluieRetro.configure(kv && sixHours);
-  // The replay bar's files (web/rejeu.ts): the same 6 hours, the 24 hours a quarter of an hour apart, the stations' week.
+  // The replay bar's files (web/rejeu.ts): the radar's last 6 hours and its 24 hours a quarter of an hour apart, kept by
+  // the scheduled event below (web/pluie-retro.ts), and the stations' week.
   rejeu.configure(kv && {
-    six: sixHours,
+    six: async () => (await kv.get(pluieRetro.KV_KEY, "json")) as pluieRetro.Historique | null,
     day: async () => (await kv.get(pluieRetro.LONG_KV_KEY, "json")) as pluieRetro.Historique | null,
     semaine: {
       get: async () => (await kv.get(rejeu.SEMAINE_KV_KEY, "json")) as rejeu.Semaine | null,
@@ -415,7 +411,7 @@ export default {
     // About once a quarter of an hour, one more read and write: the 24 hours, an image a quarter of an hour.
     if (kv && radar.enabled()) {
       ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => pluieRetro.passage({
-        get: async () => ((await kv.get(pluieRetro.KV_KEY, "json")) ?? (await kv.get(pluieRetro.OLD_KV_KEY, "json"))) as pluieRetro.Historique | null,
+        get: async () => (await kv.get(pluieRetro.KV_KEY, "json")) as pluieRetro.Historique | null,
         put: (h) => kv.put(pluieRetro.KV_KEY, JSON.stringify(h), { expirationTtl: pluieRetro.KV_TTL_SECONDS }),
       }, c, now, {
         get: async () => (await kv.get(pluieRetro.LONG_KV_KEY, "json")) as pluieRetro.Historique | null,

@@ -1,30 +1,21 @@
 /**
- * The last 3 hours of /meteo's map, replayed on a click: the radar's images, one every 5 minutes, and the wind at the
- * last 3 round hours. Météo-France serves only its latest radar image, so the scheduled event keeps them: each
- * run reads the image (the one the tools read) and, when it is new, adds its grid to one KV key, its runs of
- * characters compressed. The key holds 6 hours, and a second one an image a quarter of an hour over 24 hours, for the
- * replay bar's files (rejeu.ts). A run that cannot read the radar, or reads an image older than STALE_MS, writes down a gap,
- * said on the map as such (« Pas d'image radar de 14:05 à 14:20. »), never as a dry sky. The wind needs nothing
- * stored: the hourly package already kept (providers/meteofrance.ts) holds the 10-minute mean wind at each round hour.
+ * The radar's history, for the replay bar of /meteo's map (rejeu.ts). Météo-France serves only its latest radar image,
+ * so the scheduled event keeps them: each run reads the image (the one the tools read) and, when it is new, adds its
+ * grid to one KV key, its runs of characters compressed. The key holds 6 hours, one image every 5 minutes, and a second
+ * one an image a quarter of an hour over 24 hours. A run that cannot read the radar, or reads an image older than
+ * STALE_MS, writes down a gap, said on the map as such (« Pas d'image radar de 14:05 à 14:20. »), never as a dry sky.
  */
 import { count } from "../budget.js";
 import type { Cache } from "../cache.js";
 import { why } from "../types.js";
 import { tokensIssued } from "../providers/mf-auth.js";
-import * as meteofrance from "../providers/meteofrance.js";
 import * as radar from "../providers/radar.js";
-import { project } from "./map.js";
 import { grid, type RainGrid } from "./pluie-radar.js";
 
-export const PATH = "/meteo/retro-3h.json";
 export const KV_KEY = "radar:6h";
-/** The key of before, 3 hours: read while the new one is empty, just after the release, and gone by its TTL. */
-export const OLD_KV_KEY = "radar:3h";
 /** Gone from KV an hour after the last write: a scheduled event that stopped leaves no old images behind. */
 export const KV_TTL_SECONDS = 7 * 3600;
 export const KEEP_MS = 6 * 3600_000;
-/** What PATH answers, the button's 3 hours. */
-export const RETRO_MS = 3 * 3600_000;
 /** The images a quarter of an hour over 24 hours, in their own key. */
 export const LONG_KV_KEY = "radar:24h";
 export const LONG_KV_TTL_SECONDS = 25 * 3600;
@@ -33,8 +24,6 @@ const QUARTER_MS = 15 * 60_000;
 /** An image older than this when read is not the sky of now: a gap, as /meteo's live layer says. */
 export const STALE_MS = 45 * 60_000;
 const STEP_MS = 5 * 60_000;
-/** The round hours of wind replayed. */
-export const WIND_HOURS = 3;
 
 export interface Image {
   /** End of the radar's 5 minutes, ISO UTC. */
@@ -188,48 +177,4 @@ export function auQuart(before: Historique | null, six: Historique, now: Date): 
     return acc;
   }, []);
   return { w: six.w, h: six.h, entrees: merged };
-}
-
-let reader: (() => Promise<Historique | null>) | undefined;
-
-/** How the page's answer reads the history: from KV, set by worker.ts; without it, there is none to replay. */
-export function configure(read?: () => Promise<Historique | null>) {
-  reader = read;
-}
-
-export interface VentHeure {
-  /** The round hour, ISO UTC: the 10-minute mean wind measured up to it. */
-  fin: string;
-  /** Each anemometer's place on the map and where its wind goes, in km/h along x and y (y down), as data-vent. */
-  st: [number, number, number, number][];
-}
-
-export interface Retro {
-  radar: Historique | null;
-  vent: VentHeure[];
-}
-
-/** The wind at the last WIND_HOURS round hours of the hourly package, at the Météo-France stations that measured it. */
-export function hourlyWind(hourly: meteofrance.HourlyRain): VentHeure[] {
-  const out: VentHeure[] = Array.from({ length: WIND_HOURS }, (_, k) => ({ fin: new Date(Date.parse(hourly.end) - k * 3600_000).toISOString(), st: [] }));
-  for (const s of meteofrance.stations()) {
-    meteofrance.stationHours(hourly, s.id).slice(0, WIND_HOURS).forEach((x, k) => {
-      if (x.ff == null || x.dd == null) return;
-      const a = (x.dd * Math.PI) / 180;
-      out[k].st.push([...project(s.lon, s.lat), Math.round(-Math.sin(a) * x.ff * 10) / 10, Math.round(Math.cos(a) * x.ff * 10) / 10]);
-    });
-  }
-  return out.filter((x) => x.st.length).reverse();
-}
-
-/** The answer of PATH: the radar's last 3 hours from KV (one read), the wind from the hourly package in the cache. */
-export async function retro(cache: Cache, now = new Date()): Promise<Response> {
-  const headers = { "content-type": "application/json; charset=utf-8", "x-content-type-options": "nosniff" };
-  const [kept, hourly] = await Promise.all([
-    reader ? reader().catch((err) => (console.error("rétrospective : historique radar illisible", err instanceof Error ? err.message : String(err)), null)) : null,
-    meteofrance.enabled() ? meteofrance.recentRain(cache, now).then((r) => r?.hourly) : undefined,
-  ]);
-  const radar = kept && { ...kept, entrees: kept.entrees.filter((e) => endOf(e) > now.getTime() - RETRO_MS) };
-  const body: Retro = { radar: radar?.entrees.length ? radar : null, vent: hourly ? hourlyWind(hourly) : [] };
-  return new Response(JSON.stringify(body), { headers: { ...headers, "cache-control": "public, max-age=300" } });
 }
