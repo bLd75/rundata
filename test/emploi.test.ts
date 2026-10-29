@@ -13,6 +13,8 @@ const fixture = (f: string) => readFileSync(new URL(`./fixtures/emploi/${f}`, im
 const FEED = fixture("flux.xml");
 const CHU = fixture("offre-chu.html");
 const DGAC = fixture("offre-dgac.html");
+/** What the site answers for an offer it took down, after its redirect to /offre-depubliee/ (30/10/2026). */
+const DEPUBLIEE = fixture("offre-depubliee.html");
 // 12:45 in La Réunion.
 const NOW = new Date("2026-10-29T08:45:00Z");
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
@@ -160,6 +162,15 @@ describe("the public sector's offers of Choisir le service public", () => {
     let c: emploiSource.Copie | undefined;
     await emploiSource.collect({ lu: NOW.toISOString(), offres: [o] }, async (x) => void (c = x), NOW, false);
     expect(c!.offres[0]).toMatchObject({ lieu: "27 rue Félix Guyon 97400 St-Denis", commune: "Saint-Denis" });
+  });
+
+  it("drops at once an offer the site took down, open as it was, and says so", async () => {
+    expect([DEPUBLIEE, CHU, DGAC].map(emploiSource.depubliee)).toEqual([true, false, false]);
+    site(() => DEPUBLIEE);
+    const o: emploiSource.Offre = { ref: "DGAC-AVE-128697-CAT-A", intitule: "x", lien: emploiSource.lienDe("DGAC-AVE-128697-CAT-A"), publiee: "2026-10-29T06:00:00Z", employeur: "DGAC", limite: "2026-11-20", fiche: "lue" };
+    let c: emploiSource.Copie | undefined;
+    expect(await emploiSource.collect({ lu: NOW.toISOString(), offres: [o] }, async (x) => void (c = x), NOW, false)).toBe("0 offres, flux non lu, offre DGAC-AVE-128697-CAT-A dépubliée, retirée : écrites");
+    expect(c!.offres).toEqual([]);
   });
 
   it("logs a feed all new, and tries a silent offer's page once more, then keeps its 31 days", async () => {

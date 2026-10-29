@@ -186,6 +186,13 @@ export function parseFiche(html: string): Pick<Offre, "employeur" | "limite" | "
   };
 }
 
+/**
+ * The page the site answers for an offer it no longer shows: a redirect to /offre-depubliee/, « L'offre a été dépubliée,
+ * elle n'est donc plus accessible » (an unknown reference, 30/10/2026). The offer leaves the copy at once, whatever its
+ * closing date.
+ */
+export const depubliee = (html: string) => html.includes('href="https://choisirleservicepublic.gouv.fr/offre-depubliee/"') || /L(?:’|'|&#039;)offre a été dépubliée/.test(html);
+
 /** The offer with what its page says; the feed's place and commune first, the page's when the feed had none. */
 export function withFiche(o: Offre, f: ReturnType<typeof parseFiche>): Offre {
   const lieu = o.lieu ?? f.lieu;
@@ -249,8 +256,9 @@ export function prochaineFiche(offres: Offre[], now: Date): Offre | undefined {
 
 /**
  * The scheduled event's read, every 5 minutes: the feed when `flux` (every hour at 25 past), and one offer's page
- * (`prochaineFiche`), never two at once; the offers past their closing date dropped. Writes the copy only when it
- * changed. When the feed does not answer, the copy stays, with when it first failed (written once), and the read fails.
+ * (`prochaineFiche`), never two at once; the offers past their closing date dropped, and those the site took down
+ * (`depubliee`). Writes the copy only when it changed. When the feed does not answer, the copy stays, with when it first
+ * failed (written once), and the read fails.
  */
 export async function collect(before: Copie | null, write: (copie: Copie) => Promise<void>, now = new Date(), flux = refreshDue(now)): Promise<string> {
   let feed: Offre[] = [];
@@ -275,8 +283,14 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
   if (o) {
     const again = o.fiche === "lue";
     try {
-      kept.set(o.ref, withFiche(o, parseFiche(await getText(SOURCE.id, o.lien, 15_000))));
-      page = `page de l'offre ${o.ref} ${again ? "relue" : "lue"}`;
+      const html = await getText(SOURCE.id, o.lien, 15_000);
+      if (depubliee(html)) {
+        kept.delete(o.ref);
+        page = `offre ${o.ref} dépubliée, retirée`;
+      } else {
+        kept.set(o.ref, withFiche(o, parseFiche(html)));
+        page = `page de l'offre ${o.ref} ${again ? "relue" : "lue"}`;
+      }
     } catch {
       // Read already: kept as read. Not yet: once more at the next event, then the 31 days' rule.
       if (!again) kept.set(o.ref, { ...o, fiche: o.fiche === "relire" ? "abandon" : "relire" });
