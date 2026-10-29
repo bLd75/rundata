@@ -24,6 +24,7 @@ import * as marchesPublics from "./providers/marches-publics.js";
 import * as ovpfOcr from "./providers/ovpf-ocr.js";
 import * as meteofrance from "./providers/meteofrance.js";
 import * as candhis from "./providers/candhis.js";
+import * as radar from "./providers/radar.js";
 import * as vigilanceCarte from "./providers/vigilance-carte.js";
 import * as cmrsCarte from "./providers/cmrs-carte.js";
 import * as feux from "./providers/feux.js";
@@ -42,6 +43,7 @@ import { rafraichirConnecteurs, refreshPlanned } from "./tools/agenda.js";
 import { prefetchForecasts } from "./tools/prevision.js";
 import { listShared, SHARED, SHARED_AFTER, SharedFallback, warmShared } from "./web/partagees.js";
 import { configurerDefiOpenai } from "./web/site.js";
+import * as pluieRetro from "./web/pluie-retro.js";
 import { why } from "./types.js";
 import { configure as metaWebhookSecrets } from "./meta-webhook.js";
 
@@ -187,6 +189,8 @@ function setup(env: Env): Cache {
     count();
     return (await kv.get(candhis.KEY, "json")) as candhis.Etat | null;
   }));
+  // The radar's last 3 hours, kept by the scheduled event below (web/pluie-retro.ts), for /meteo's replay.
+  pluieRetro.configure(kv && (async () => (await kv.get(pluieRetro.KV_KEY, "json")) as pluieRetro.Historique | null));
   // Filtered from the national file by the scheduled event below (src/providers/irve.ts).
   irve.configure(kv && (async () => {
     count();
@@ -392,6 +396,16 @@ export default {
       }))
         .then(({ value, used, reads }) => console.log(`bouées Candhis : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("bouées Candhis : lecture impossible", why(err))));
+    }
+    // Every run: the radar's latest image added to its last 3 hours in KV when it is new, or a gap when it cannot be
+    // read or is too old (web/pluie-retro.ts), once the reads above are done. One read of KV; one write when it changed.
+    if (kv && radar.enabled()) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => pluieRetro.passage({
+        get: async () => (await kv.get(pluieRetro.KV_KEY, "json")) as pluieRetro.Historique | null,
+        put: (h) => kv.put(pluieRetro.KV_KEY, JSON.stringify(h), { expirationTtl: pluieRetro.KV_TTL_SECONDS }),
+      }, c, now)))
+        .then(({ value, used, reads }) => console.log(`historique radar : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("historique radar : passage impossible", why(err))));
     }
     // Every hour, at 45 past: the measures at Atmo Réunion's stations, La Réunion's lines of the LCSQA's national file
     // (up to 12.5 Mo, read line by line), kept in KV when the latest hour changed, once the reads above are done.

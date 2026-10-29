@@ -36,10 +36,14 @@ export function enabled(): boolean {
 
 // Reused until 5 minutes before it expires.
 let oauth: { value: string; until: number } | undefined;
+let issued = 0;
+/** Tokens this isolate asked the portal for so far: each one voids the others' (said by the scheduled event's log). */
+export const tokensIssued = () => issued;
 
 async function newToken(source: string): Promise<string> {
   let res: Response;
   count();
+  issued++;
   try {
     res = await fetch(TOKEN_URL, {
       method: "POST",
