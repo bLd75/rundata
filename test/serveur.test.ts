@@ -81,7 +81,7 @@ describe("the server's instructions", () => {
     // Who makes the service, then the index, early.
     expect(text.indexOf("https://rundata.re/a-propos")).toBeLessThan(text.indexOf("\n- "));
     expect(text.indexOf("- donner_avis :")).toBeLessThan(700);
-    for (const must of ["rundata.re avec son lien", "donner_avis", "serveur.outils_recents", "sources_donnees", "PRÉVISION", "15 ou 112", "Actualiser les outils"]) expect(text).toContain(must);
+    for (const must of ["citer (rundata.re et les producteurs)", "fraicheur (l'heure de la donnée", "donner_avis", "serveur.outils_recents", "sources_donnees", "PRÉVISION", "15 ou 112", "Actualiser les outils"]) expect(text).toContain(must);
     // The words the tools' own answers must carry are in their descriptions, not here.
     const tools: { name: string; description: string }[] = (await rpcResult("tools/list")).tools;
     const d = (n: string) => tools.find((t) => t.name === n)!.description;
