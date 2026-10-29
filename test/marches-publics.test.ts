@@ -143,10 +143,34 @@ describe("the public procurement notices of the BOAMP", () => {
     expect(asked).toHaveLength(1);
   });
 
+  it("asks the store again for a copy read before the scheduled event's last write", () => {
+    // 16:38 and 16:41 at La Réunion: the copy may have been written at 16:36 (list), 16:41 (texts).
+    expect(boamp.fraicheur(new Date("2026-10-29T12:38:00Z"))).toBe(60);
+    expect(boamp.fraicheur(new Date("2026-10-29T12:43:30Z"))).toBe(90);
+    expect(boamp.fraicheur(new Date("2026-10-29T13:30:00Z"))).toBe(48 * 60);
+    expect(boamp.fraicheur(new Date("2026-10-29T12:42:00Z"))).toBe(1);
+  });
+
   it("keeps a notice until its closing day included, at La Réunion", () => {
     const a = { limite: "2026-11-17" } as boamp.Avis;
     expect(boamp.ouvert(a, new Date("2026-11-17T19:59:00Z"))).toBe(true);
     expect(boamp.ouvert(a, new Date("2026-11-17T20:00:00Z"))).toBe(false);
+  });
+
+  it("takes an empty list, or texts that cannot be read, for a read that failed, never for « no notice »", async () => {
+    const before: boamp.Copie = { lu: "2026-10-29T09:35:00Z", avis: [], ecartes: [], attente: [] };
+    const writes: boamp.Copie[] = [];
+    const write = async (c: boamp.Copie) => void writes.push(c);
+    vi.stubGlobal("fetch", async () => new Response("[]"));
+    await expect(boamp.collect(before, write, LISTE_AT)).rejects.toThrow("liste des avis vide");
+    expect(writes).toEqual([{ ...before, echec: LISTE_AT.toISOString() }]);
+    // The first list of 29/10/2026 at 16:35, cut to ten: its texts not read at 40 past.
+    api();
+    const first: boamp.Copie[] = [];
+    await boamp.collect(null, async (c) => void first.push(c), LISTE_AT);
+    vi.stubGlobal("fetch", async () => new Response("", { status: 503 }));
+    await expect(boamp.collect(first[0], write, TEXTES_AT)).rejects.toThrow("HTTP 503");
+    expect(writes[1]).toEqual({ ...first[0], echec: TEXTES_AT.toISOString() });
   });
 
   it("keeps the copy when the list cannot be read, with when it first failed, written once", async () => {
@@ -172,7 +196,7 @@ describe("the page /marches-publics", () => {
     expect(d.nombre).toBe(7);
     const p = marchesPage(O, { value: d, fetchedAt: TEXTES_AT, stale: false }, now);
     expect(p).toContain("<title>Marchés publics Réunion : avis de marché et appels d&#39;offres en cours · 974</title>");
-    expect(p).toContain("7 avis de marché ouverts aux réponses sur le BOAMP, dernière lecture");
+    expect(p).toContain("7 avis de marché ouverts aux réponses sur le BOAMP, dernière lecture à 14:35.");
     expect(p).toContain("Commune de SaintJoseph · services · à Saint-Joseph");
     expect(p).toContain("Syndicat Mixte Parc Routier de la Réunion · fournitures · acheteur à Saint-Denis");
     expect(p).toContain("jusqu&#39;au 01/12</span>");
@@ -181,6 +205,44 @@ describe("the page /marches-publics", () => {
     expect(p).toContain('<option>Le Port</option><option>Saint-Denis</option><option>Saint-Joseph</option><option>Saint-Paul</option>');
     expect(p).toContain("https://www.boamp.fr/pages/avis/?q=idweb:26-103764");
     expect(p).not.toContain("idweb:26-95112");
+  });
+
+  it("says the notices read are being sorted until their texts are read, never « no notice »", async () => {
+    // The first read of 29/10/2026 at 16:35 found 122 notices, all waiting for their texts at 40 past: the page said
+    // « 0 avis » and « Aucun avis ». Here the same, with the ten of the fixture.
+    api();
+    let c: boamp.Copie | null = null;
+    await boamp.collect(null, async (x) => void (c = x), LISTE_AT);
+    vi.unstubAllGlobals();
+    boamp.configure(async () => c);
+    const now = new Date("2026-10-29T10:37:00Z");
+    const d = await buildMarches(new Cache(new MemoryStore(), () => now.getTime()), now);
+    expect(d.enLecture).toBe(10);
+    const p = marchesPage(O, { value: d, fetchedAt: now, stale: false }, now);
+    expect(p).toContain("10 avis lus au BOAMP à 14:35 sont en cours de tri, pour ne garder que ceux de l'île.");
+    // Never a time to come on the page.
+    expect(p).not.toContain("14:40");
+    expect(p).not.toContain("Aucun avis");
+    expect(p).not.toContain("0 avis de marché");
+  });
+
+  it("serves after the texts' write the copy written then, not the one a view read during the sorting", async () => {
+    // 29/10/2026: a view at 16:40:14 read the copy of the list (0 shown, 122 waiting); the texts were written at
+    // 16:41:30; at 16:44 and 16:48 the page still said 0, its copy kept an hour.
+    api();
+    let c: boamp.Copie | null = null;
+    await boamp.collect(null, async (x) => void (c = x), LISTE_AT);
+    const sorting = c!;
+    await boamp.collect(c, async (x) => void (c = x), TEXTES_AT);
+    vi.unstubAllGlobals();
+    let stored = sorting;
+    boamp.configure(async () => stored);
+    let t = new Date("2026-10-29T12:40:14Z");
+    const cache = new Cache(new MemoryStore(), () => t.getTime());
+    expect((await boamp.avis(cache, t))!.value.avis).toHaveLength(0);
+    stored = c!;
+    t = new Date("2026-10-29T12:48:00Z");
+    expect((await boamp.avis(cache, t))!.value.avis).toHaveLength(7);
   });
 
   it("says the year of a closing day of another year, and what it says without a copy", async () => {
