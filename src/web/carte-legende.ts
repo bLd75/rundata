@@ -14,19 +14,21 @@ export interface Cle {
   couleur: string;
   /** What the mark holds: a count, a value, a symbol (« ✓ », « × »). */
   texte?: string;
+  /** The figure's colour, when white would not read on `couleur` (as on the map, marker()'s `ink`). */
+  encre?: string;
   /** Drawn 1.4 times bigger, edged thick in white, as on the map (marker()'s `big`). */
   grand?: boolean;
   /** What it means. */
   dit: string;
 }
 
-const svg = (box: string, shape: string, texte?: string, grand = false) =>
-  `<svg viewBox="${box}"${grand ? ' class="gr"' : ""} aria-hidden="true">${shape}${texte ? grand ? `<text y="15" style="font-size:42px">${esc(texte)}</text>` : `<text y="11">${esc(texte)}</text>` : ""}</svg>`;
+const svg = (box: string, shape: string, texte?: string, grand = false, encre?: string) =>
+  `<svg viewBox="${box}"${grand ? ' class="gr"' : ""} aria-hidden="true">${shape}${texte ? grand ? `<text y="15" style="font-size:42px">${esc(texte)}</text>` : `<text y="11"${encre ? ` style="fill:${encre}"` : ""}>${esc(texte)}</text>` : ""}</svg>`;
 
 function mark(c: Cle): string {
   switch (c.forme) {
     case "pastille":
-      return svg("-60 -30 120 60", `<rect x="-56" y="-24" width="112" height="48" rx="24" fill="${c.couleur}"/>`, c.texte);
+      return svg("-68 -30 136 60", `<rect x="-64" y="-24" width="128" height="48" rx="24" fill="${c.couleur}"/>`, c.texte, false, c.encre);
     case "anneau":
       return svg("-37 -37 74 74", `<circle r="22" fill="none" stroke="${c.couleur}" stroke-width="6"/>`);
     case "triangle":

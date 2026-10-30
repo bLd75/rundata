@@ -1095,9 +1095,8 @@ export function velosLive(data: Cached<VelosAnswer> | null, now = new Date()): L
 // Vigicrues Réunion's colours, the worst first; « indisponible » last.
 const FLOOD_ORDER = ["rouge", "orange", "jaune", "vert", "indisponible"];
 const FLOOD_COLOR: Record<string, string> = { rouge: "#f03e3e", orange: "#ff922b", jaune: "#ffd43b", vert: "#69db7c" };
-// The map's markers: what the gauge measured, in the site's colours, never the vigilance's (orange would read as one);
-// the shape says it as much as the colour. The map is drawn light in both themes: its day colours.
-// A rise in the night's colour, bigger and edged in white, with its arrow: its shape makes it the mark to see first, as
+// The map's markers: what the gauge measured, never the vigilance's colours (orange would read as one); the shape says
+// it as much as the colour. A rise in the night's colour, bigger and edged in white, with its arrow: its shape makes it the mark to see first, as
 // red would read as Vigicrues' own red vigilance. Stable or falling: a value with no judgement, muted in the dark theme
 // (--gauge-calme) so that the rise stands out. No recent measure: a grey ring, the map showing through.
 const GAUGE_COLOR = { hausse: "#14202b", calme: "var(--gauge-calme)", muette: "#868e96" };
@@ -1447,8 +1446,8 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
   // The worse last, drawn over the good ones next to them.
   const markers = [...(d?.baignades ?? [])].sort((a, b) => rank(a.qualite_dernier_prelevement) - rank(b.qualite_dernier_prelevement)).map((s) => {
     const q = s.qualite_dernier_prelevement ?? "";
-    // Only the sites to watch carry their name: 26 names along the coast would cover each other.
-    return { lon: s.lon, lat: s.lat, label: WATER_MARK[q] ?? "?", name: q === "bonne" ? `${s.site} : bonne` : s.site, round: true, color: WATER_COLOR[q] ?? "#868e96", quiet: q === "bonne",
+    // Every name in the bubble only: written on the map, the sites to watch were cut by its frame.
+    return { lon: s.lon, lat: s.lat, label: WATER_MARK[q] ?? "?", name: q ? `${s.site} : ${q}` : s.site, round: true, color: WATER_COLOR[q] ?? "#868e96", quiet: true,
       place: s.site, say: q ? `qualité ${q} au dernier prélèvement` : "pas de résultat", href: `#${anchorId("b", s.site)}` };
   });
 
@@ -1523,7 +1522,7 @@ const meters = (n: number) => `${nombre(n)}\u00a0m`;
  * what it is, neither the orange of the cyclone alert nor the red of « fermé ».
  */
 export const fireMarkers = (f: feux.Feux | undefined, now: Date): Marker[] =>
-  (f?.detections ?? []).map((d, i) => ({ lon: d.lon, lat: d.lat, label: "", name: `${fire.listLine(d, now)} (${feux.LABEL})`, round: true, triangle: true, color: FIRE_COLOR,
+  (f?.detections ?? []).map((d, i) => ({ lon: d.lon, lat: d.lat, label: "", name: `${fire.listLine(d, now)} (${feux.LABEL})`, round: true, triangle: true, color: FIRE_COLOR, quiet: true,
     place: "Feu vu par satellite", say: fire.listLine(d, now), href: `#${fireId(i)}` }));
 
 const FIRE_COLOR = "#7c2d12";
@@ -1625,7 +1624,7 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
       `Le sentier de Roche Plate est-il ouvert ? Lis ${url} et dis-moi si je peux descendre dans Mafate.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les sentiers de randonnée fermés" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">${legende([CLE_FERME, ...(burning ? [CLE_FEU] : [])], esc(`${onfMap(d)}${burning ? " ; points chauds : satellites de la NASA (FIRMS)" : ""}.`))}</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([CLE_FERME, ...(burning ? [CLE_FEU] : [])], esc(`${onfMap(d)}.${burning ? ` Points chauds : satellites de la NASA (FIRMS)${d?.feux?.lu ? `, lus à ${hm(d.feux.lu)}` : ""}.` : ""}`))}</figcaption></figure>
 </div>`;
 
   const body = `${burning ? fires : ""}<section aria-labelledby="h-fermes">
@@ -2721,7 +2720,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
 
   const markers = rows.flatMap((r) => {
     const x = pct(r.pluie?.rapport_a_la_normale);
-    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: x < 50 ? "#ff922b" : x > 150 ? "#4dabf7" : "#69db7c",
+    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: x < 50 ? "#ff922b" : x > 150 ? "#4dabf7" : "#69db7c", ...(x >= 50 && x <= 150 && { ink: COUNT_COLOR }),
       say: `${x} % de la pluie normale en 30 jours`, href: `#${anchorId("s", r.station)}` }];
   });
 
@@ -2756,9 +2755,9 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : la pluie des 30 derniers jours à six stations, en pourcentage de la normale" })}
   <figcaption class="note" style="color:var(--on-night-muted)">${legende([
     { forme: "pastille", couleur: "#ff922b", texte: "40 %", dit: "moins de 50 %" },
-    { forme: "pastille", couleur: "#69db7c", texte: "100 %", dit: "proche" },
+    { forme: "pastille", couleur: "#69db7c", texte: "100 %", encre: COUNT_COLOR, dit: "proche" },
     { forme: "pastille", couleur: "#4dabf7", texte: "160 %", dit: "plus de 150 %" },
-  ], "Pluie des 30 derniers jours mesurée par Météo-France, en % de la normale 1991-2020.")}</figcaption></figure>
+  ], esc(`Pluie des 30 derniers jours mesurée par Météo-France${d ? ` jusqu'au ${d.periode.au.slice(0, 5)}` : ""}, en % de la normale 1991-2020.`))}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-trente">

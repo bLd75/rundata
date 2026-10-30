@@ -52,6 +52,8 @@ export interface Marker {
   round?: boolean;
   /** A ring rather than a disc (round only): nothing measured lately. */
   hollow?: boolean;
+  /** The figure's colour, when white would not read on `color` (a light green pill). */
+  ink?: string;
   /** A disc 1.4 times the others' size, with a thick white edge (round only): the one to see first, its shape saying it,
    * not a colour that would read as an alert (a river rising on /crues). */
   big?: boolean;
@@ -210,7 +212,7 @@ function marker(m: Marker, hit = HIT, at?: [number, number]): string {
       : `<circle class="sh" cx="${x}" cy="${y}" r="34" fill="${fill}"/>`
     : `<rect class="sh" x="${x - w / 2}" y="${y - 24}" width="${w}" height="48" rx="24" fill="${fill}"/>`;
   const inner = `<title>${esc(m.name)}</title>${shape}` +
-    (m.big ? `<text x="${x}" y="${y + 15}" class="mv" style="font-size:42px">${esc(m.label)}</text>` : `<text x="${x}" y="${y + 11}" class="mv">${esc(m.label)}</text>`) +
+    (m.big ? `<text x="${x}" y="${y + 15}" class="mv" style="font-size:42px">${esc(m.label)}</text>` : `<text x="${x}" y="${y + 11}" class="mv"${m.ink ? ` style="fill:${m.ink}"` : ""}>${esc(m.label)}</text>`) +
     (m.quiet ? "" : `<text x="${x}" y="${y + 66}" class="mn">${esc(m.name)}</text>`);
   if (!m.href) return `<g class="mk">${inner}</g>`;
   const said = m.tip ? `${m.tip.place} : ${m.tip.value}, ${m.tip.detail}, voir le détail` : `${m.place ?? m.name} : ${m.say ?? m.label}, voir le détail`;
