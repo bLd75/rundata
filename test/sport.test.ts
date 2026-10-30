@@ -284,6 +284,13 @@ describe("sport", () => {
     expect(early.a_venir).toBeUndefined();
     expect(early.prochain).toMatchObject({ epreuve: "FINALES RÉGIONALES BEACH-VOLLEY 2026", quand: "du samedi 19/09 au dimanche 20/09" });
     expect(early.resume).toContain("Prochain rendez-vous de beach-volley : FINALES RÉGIONALES BEACH-VOLLEY 2026, du samedi 19/09 au dimanche 20/09");
+    // After the last one: the league's calendar is read from today on and has no results, so the period starts today,
+    // where the volley's goes back 30 days for its results.
+    const late = new Date("2026-10-30T23:00:00Z");
+    const after = body(await sportTool(ligue(late), "beach_volley", undefined, undefined, late));
+    expect(after.periode?.du).toBe("samedi 31/10");
+    expect(after.a_venir).toBeUndefined();
+    expect(body(await sportTool(ligue(late), "volley", undefined, undefined, late)).periode?.du).toBe("jeudi 01/10");
   });
 
   it("gives the volley league's tournaments from the agendas' copy, their place as the league says", async () => {
