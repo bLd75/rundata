@@ -87,18 +87,27 @@ const AGENTS: [RegExp, string][] = [
   [/DuckAssistBot|DuckDuckBot/i, "DuckDuckGo"],
 ];
 
+/**
+ * Meta's network (AS32934). After each Facebook post, Meta reads the link with facebookexternalhit and, in the same
+ * seconds, with a headless Chrome whose User-Agent is any browser's: from the United States, from facebook.com, with a
+ * fbclid, running the page's script (its style sheet, its /signal). On 28/10/2026, 17 such « humains » on ref:fb-enfants.
+ * Its User-Agent cannot tell it from a person's: its network can.
+ */
+export const META_ASN = 32934;
+
 /** The visitor and the audience of the team's own visits, which the figures leave out (teamVisit). */
 export const TEAM = "interne";
 
 /**
  * The kind of visitor, from its User-Agent: « interne » for the team's scripts (« rundata-interne » in their
- * User-Agent), a named fetcher, « navigateur », or the first word of an unknown one.
+ * User-Agent), a named fetcher, « navigateur », or the first word of an unknown one. A browser from Meta's network
+ * (`asn`, request.cf.asn) is Meta's, checking a link (META_ASN).
  */
-export function visitor(userAgent: string): string {
+export function visitor(userAgent: string, asn?: number): string {
   if (/rundata-interne/i.test(userAgent)) return TEAM;
   for (const [re, name] of AGENTS) if (re.test(userAgent)) return name;
   if (/bot|crawler|spider/i.test(userAgent)) return "autre robot";
-  if (userAgent.startsWith("Mozilla/")) return "navigateur";
+  if (userAgent.startsWith("Mozilla/")) return asn === META_ASN ? "Meta" : "navigateur";
   return userAgent.split(/[\s/;(]/)[0].slice(0, 40) || "inconnu";
 }
 
@@ -140,9 +149,9 @@ const ASSISTANTS = new Set(["ChatGPT", "ChatGPT (connecteur)", "Claude", "Perple
  * or a script), or « robot probable »: a browser's User-Agent without what every current browser sends with a page
  * (a preferred language and the sec-fetch-mode header), the mark of a script dressed as Chrome.
  */
-export function audience(headers: Headers): string {
+export function audience(headers: Headers, asn?: number): string {
   const ua = headers.get("user-agent") ?? "";
-  const who = visitor(ua);
+  const who = visitor(ua, asn);
   if (who === TEAM) return TEAM;
   if (ASSISTANTS.has(who)) return "assistant";
   if (who !== "navigateur") return "robot";
@@ -165,9 +174,9 @@ export function teamVisit(headers: Headers, url: URL): boolean {
  * Chromium browsers send (?1 on a phone), then the User-Agent (iPad, Android without « Mobile »: a tablet). Empty for
  * robots and assistants. An iPad or an Android tablet asking for the desktop site says it is a computer, and is counted so.
  */
-export function device(headers: Headers): string {
+export function device(headers: Headers, asn?: number): string {
   const ua = headers.get("user-agent") ?? "";
-  if (visitor(ua) !== "navigateur") return "";
+  if (visitor(ua, asn) !== "navigateur") return "";
   if (headers.get("sec-ch-ua-mobile") === "?1") return "mobile";
   if (/iPad|Tablet|Kindle|Silk\/|PlayBook|Android(?!.*Mobile)/i.test(ua)) return "tablette";
   if (/Mobi|iPhone|iPod|Android/i.test(ua)) return "mobile";
