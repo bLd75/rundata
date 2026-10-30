@@ -132,6 +132,12 @@ export const FICHES: Record<string, Fiche> = {
   tco_collecte: { famille: "licence_ouverte", producteurs: ["TCO"] },
   osm_enfants: { famille: "odbl", producteurs: [OSM] },
   osm_marches: { famille: "odbl", producteurs: [OSM] },
+  // The markets of the town halls whose site allows taking them, or says nothing against it (vie/marches-mairies.json).
+  marches_saint_paul: { famille: "information_publique", producteurs: [commune("Saint-Paul")] },
+  marches_saint_leu: { famille: "information_publique", producteurs: [commune("Saint-Leu")] },
+  marches_sainte_marie: { famille: "information_publique", producteurs: [commune("Sainte-Marie")] },
+  marches_saint_louis_2020: { famille: "information_publique", producteurs: [commune("Saint-Louis")] },
+  marches_saint_louis_2021: { famille: "information_publique", producteurs: [commune("Saint-Louis")] },
   data_es: { famille: "licence_ouverte", producteurs: ["Ministère des Sports"] },
   basilic: { famille: "licence_ouverte", producteurs: ["Ministère de la Culture"] },
   // Calendar, transport, trails.

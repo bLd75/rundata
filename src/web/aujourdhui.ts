@@ -34,6 +34,36 @@ export const LINK = (p: PlacePage) => `Aujourd'hui ${aCommune(p.nom)} : le résu
 export const HOOK = (p: PlacePage) => `Ce qui compte aujourd'hui ${aCommune(p.nom)}, sur une page : la mesure, les routes, l'actu, les coupures, les sorties et la vie pratique.`;
 
 /** « Aujourd'hui à Saint-Paul (974) : 24,5 °C mesurés à 15:10, 12 sorties, 1 coupure d'eau. Routes, actu… », each figure only when there is one. */
+
+type Markets = NonNullable<Resume["marches_du_jour"]>;
+type Aller = ReturnType<typeof porte>["aller"];
+
+/**
+ * The commune's markets on /aujourdhui: those held today, those open all week apart (never « the market of the day »),
+ * then those whose days no source gives, by name, with the town hall's page; never « no market ».
+ * A town hall's market says its page and, when old, its date.
+ */
+function marketItems(mk: Markets | undefined, commune: string, aller: Aller): string[] {
+  if (!mk) return [];
+  // Its position from the bundled list, by its OpenStreetMap object: the summary does not give it. None for a market
+  // only a town hall gives: no button then.
+  const go = (x: { nom: string; adresse?: string; carte?: string }) => {
+    const m = x.carte ? MARCHES().find((y) => y.osm === x.carte) : undefined;
+    const button = m?.lat != null && m.lon != null ? aller({ nom: x.nom, lat: m.lat, lon: m.lon, adresse: x.adresse ? `${x.adresse}, ${commune}` : undefined }) : "";
+    return button ? ` ${button}` : "";
+  };
+  const by = (x: { d_apres?: string }) => (x.d_apres ? `, d'après le ${x.d_apres}` : "");
+  const name = (x: { nom: string; lien: string }) => `<a href="${esc(x.lien)}" rel="noopener"${fenetre(x.lien)}><b>${esc(x.nom)}</b></a>`;
+  // « Jours et horaires des marchés : site de la mairie de Saint-Pierre → », its words outside the link but the site's.
+  const [label, site] = mk.mairie ? mk.mairie.texte.split(" : ") : [];
+  return [
+    ...mk.liste.map((x) => `<li>Marché aujourd'hui : ${name(x)} <span class="note">${esc(x.horaires_aujourd_hui)}${x.adresse ? `, ${esc(x.adresse)}` : ""}${esc(by(x))}</span>${go(x)}</li>`),
+    ...(mk.permanents ?? []).map((x) => `<li>Marché permanent : ${name(x)} <span class="note">${esc(x.horaires ?? "")}${x.horaires_aujourd_hui === "fermé aujourd'hui" ? ", fermé aujourd'hui" : ""}${x.adresse ? `, ${esc(x.adresse)}` : ""}${esc(by(x))}</span>${go(x)}</li>`),
+    mk.jours_non_trouves ? `<li>${mk.liste.length || mk.permanents ? "Autres marchés" : "Marchés"} : ${mk.jours_non_trouves.map(name).join(", ")}, <span class="note">jours non trouvés</span></li>` : "",
+    mk.mairie ? `<li>${esc(label)} : <a href="${esc(mk.mairie.site)}" rel="noopener"${fenetre(mk.mairie.site)}>${esc(site)} →</a></li>` : "",
+  ];
+}
+
 export function descriptionOf(p: PlacePage, r: Resume): string {
   const m = r.meteo?.mesure;
   const t = m?.mesures.temperature;
@@ -125,13 +155,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
   const practical = [
     ...(r.coupures_electricite?.injoignable ? [silentItem(r.coupures_electricite.injoignable)] : []),
     ...(r.coupures_electricite?.avis ?? []).map(courantItem),
-    ...(r.marches_du_jour?.liste ?? []).map((x) => {
-      // Its position from the bundled list, by its OpenStreetMap object: the summary does not give it.
-      const m = MARCHES().find((y) => y.osm === x.carte);
-      const button = m ? g.aller({ nom: x.nom, lat: m.lat, lon: m.lon, adresse: x.adresse ? `${x.adresse}, ${p.nom}` : undefined }) : "";
-      const go = button ? ` ${button}` : "";
-      return `<li>Marché aujourd'hui : <a href="${esc(x.carte)}" rel="noopener"><b>${esc(x.nom)}</b></a> <span class="note">${esc(x.horaires_aujourd_hui)}${x.adresse ? `, ${esc(x.adresse)}` : ""}</span>${go}</li>`;
-    }),
+    ...marketItems(r.marches_du_jour, p.nom, g.aller),
     d
       ? `<li>Déchèteries : <b>${dFresh.length ? `déchets verts acceptés dans ${dGreen} sur ${dFresh.length}` : "état des bennes à vérifier sur place"}</b> <span class="note">d'après les agents du TCO</span> · <a href="${esc(d.page.replace(/^https:\/\/rundata\.re/, ""))}">les bennes →</a></li>`
       : "",

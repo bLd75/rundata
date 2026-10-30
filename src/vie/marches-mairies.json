@@ -1,0 +1,129 @@
+{
+  "lu": "2026-10-31",
+  "sources": {
+    "saint_paul": {
+      "nom": "Les marchés forains",
+      "organisme": "Ville de Saint-Paul",
+      "url": "https://www.mairie-saintpaul.re/marches-forains/",
+      "licence": "Non précisée : cité avec son nom et son lien",
+      "lu": "2026-10-31"
+    },
+    "saint_leu": {
+      "nom": "Les marchés et brocantes de Saint-Leu",
+      "organisme": "Mairie de Saint-Leu",
+      "url": "https://www.saintleu.re/les-marches-et-brocantes-de-saint-leu",
+      "licence": "Reprise permise à fin d'information, sans usage commercial (mentions légales de saintleu.re)",
+      "lu": "2026-10-31"
+    },
+    "sainte_marie": {
+      "nom": "Arrêté du marché forain du centre-ville",
+      "organisme": "Ville de Sainte-Marie",
+      "url": "https://www.ville-saintemarie.re/arrete-marche-forain-centre-ville/",
+      "date": "2021-09-03",
+      "licence": "Non précisée : cité avec son nom et son lien",
+      "lu": "2026-10-31"
+    },
+    "saint_louis_2020": {
+      "nom": "Marché forain : 2 rendez-vous chaque semaine",
+      "organisme": "Ville de Saint-Louis",
+      "url": "https://saintlouis.re/actualites/101-marche-forain/1830-marche-forain-2-rendez-vous-chaque-semaine",
+      "date": "2020-05-14",
+      "licence": "Reprise permise à fin d'information, sans modification ni usage commercial (mentions légales de saintlouis.re)",
+      "lu": "2026-10-31"
+    },
+    "saint_louis_2021": {
+      "nom": "Le marché forain reconduit devant la mairie de La Rivière",
+      "organisme": "Ville de Saint-Louis",
+      "url": "https://saintlouis.re/actualites/101-marche-forain/2157-le-marche-forain-reconduit-devant-la-mairie-de-la-riviere",
+      "date": "2021-06-01",
+      "licence": "Reprise permise à fin d'information, sans modification ni usage commercial (mentions légales de saintlouis.re)",
+      "lu": "2026-10-31"
+    }
+  },
+  "marches": [
+    {
+      "nom": "Marché forain de Saint-Paul",
+      "commune": "Saint-Paul",
+      "horaires": "le vendredi de 7 h à 16 h ; le samedi de 7 h à 12 h",
+      "horaires_osm": "Fr 07:00-16:00;Sa 07:00-12:00",
+      "lieu": null,
+      "source": "saint_paul",
+      "osm": "https://www.openstreetmap.org/way/90418084"
+    },
+    {
+      "nom": "Marché forain de Plateau Caillou",
+      "commune": "Saint-Paul",
+      "horaires": "le mercredi de 12:30 à 18:00",
+      "horaires_osm": "We 12:30-18:00",
+      "lieu": null,
+      "source": "saint_paul"
+    },
+    {
+      "nom": "Marchés forains de l'Éperon, La Saline et Saint-Gilles-les-Bains",
+      "commune": "Saint-Paul",
+      "horaires": "le mercredi de 7 h à 12 h",
+      "horaires_osm": "We 07:00-12:00",
+      "lieu": null,
+      "source": "saint_paul"
+    },
+    {
+      "nom": "Marché du Mail de Rodrigues",
+      "commune": "Saint-Paul",
+      "horaires": "le dimanche de 07:00 à 13:30",
+      "horaires_osm": "Su 07:00-13:30",
+      "lieu": null,
+      "source": "saint_paul"
+    },
+    {
+      "nom": "Marché forain de Saint-Leu",
+      "commune": "Saint-Leu",
+      "horaires": "le samedi de 6 h à 13 h",
+      "horaires_osm": "Sa 06:00-13:00",
+      "lieu": "Front de mer, rue de la Compagnie des Indes",
+      "source": "saint_leu"
+    },
+    {
+      "nom": "Marché artisanal de Saint-Leu",
+      "commune": "Saint-Leu",
+      "horaires": "du mardi au samedi de 9 h à 18 h ; le dimanche de 9 h à 13 h",
+      "horaires_osm": "Tu-Sa 09:00-18:00;Su 09:00-13:00",
+      "lieu": "112 rue du Général Lambert",
+      "source": "saint_leu",
+      "osm": "https://www.openstreetmap.org/node/5403992921"
+    },
+    {
+      "nom": "Marché forain du centre-ville de Sainte-Marie",
+      "commune": "Sainte-Marie",
+      "horaires": "le samedi de 6 h à 12 h",
+      "horaires_osm": "Sa 06:00-12:00",
+      "lieu": "Place du marché",
+      "source": "sainte_marie",
+      "osm": "https://www.openstreetmap.org/node/12855674692"
+    },
+    {
+      "nom": "Marché forain de la ZAC Avenir",
+      "commune": "Saint-Louis",
+      "horaires": "le mercredi de 6 h à 13 h",
+      "horaires_osm": "We 06:00-13:00",
+      "lieu": "Place Raymond Barre, ZAC Avenir",
+      "source": "saint_louis_2020"
+    },
+    {
+      "nom": "Marché forain de La Rivière",
+      "commune": "Saint-Louis",
+      "horaires": "le vendredi de 6 h à 13 h",
+      "horaires_osm": "Fr 06:00-13:00",
+      "lieu": "Devant la mairie de La Rivière",
+      "source": "saint_louis_2021"
+    }
+  ],
+  "liens": {
+    "Saint-Pierre": "https://www.saintpierre.re/decouvrez-saint-pierre/le-cadre-de-vie/les-marches-de-saint-pierre/le-marche-forain",
+    "Le Tampon": "https://letampon.fr/",
+    "Saint-Denis": "https://www.saintdenis.re/",
+    "Cilaos": "https://ville-cilaos.fr/",
+    "Saint-Joseph": "https://saintjoseph.re/Marche-forain-du-Sud-Sauvage",
+    "Le Port": "https://www.ville-port.re/marche-forain-de-la-place-des-cheminots/",
+    "Saint-André": "https://www.saint-andre.re/"
+  }
+}

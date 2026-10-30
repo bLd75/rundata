@@ -212,7 +212,7 @@ describe("the communes whose site's terms ask for their authorisation, until the
     const page = PAGES.find((p) => p.slug === "le-tampon")!;
     const r = resume(page, { agenda: { value: old, fetchedAt: NOW, stale: false } } as never, NOW);
     expect(r.evenements_du_jour!.liste.map((e) => e.titre)).toEqual(["Spectacle"]);
-    expect(JSON.stringify(r)).not.toMatch(/letampon\.fr|du Tampon, de Saint-Louis/);
+    expect(JSON.stringify(r)).not.toMatch(/letampon\.fr\/agenda|du Tampon, de Saint-Louis/);
     expect(communeEvents(page, { value: old as unknown as AgendaAnswer, fetchedAt: NOW, stale: false })).toMatchObject({ valeur: "1 événement" });
     // Named after the mairies read: not Saint-Louis nor Le Port, credited apart with their terms' clause.
     expect([SOURCES.mairies.nom, SOURCES.mairies.attribution]).toEqual(["Agendas des mairies de Saint-Paul et des Trois-Bassins", "Villes de Saint-Paul et Les Trois-Bassins"]);

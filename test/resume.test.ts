@@ -110,9 +110,10 @@ describe("the summary of a day", () => {
     expect(r.soleil.lever).toMatch(/^0[5-6]:\d\d$/);
     expect(r.resume).toMatch(/^Saint-Paul, samedi 24 octobre\u00a0; 27,4 °C mesurés à 13:54 \(station Saint-Paul\)\u00a0; prévision du jour 21 °C à 29 °C, ensoleillé\u00a0;/);
     expect(r.resume).toContain("2 événements aujourd'hui");
-    // Saturday: the forain of Saint-Paul, from its OpenStreetMap days; the duty pharmacy never guessed.
-    expect(r.marches_du_jour!.liste).toEqual([expect.objectContaining({ nom: "Marché forain de Saint-Paul", horaires_aujourd_hui: "de 8\u00a0h à 12\u00a0h" })]);
-    expect(r.resume).toContain("marché aujourd'hui : Marché forain de Saint-Paul de 8\u00a0h à 12\u00a0h");
+    // Saturday: the forain of Saint-Paul, its hours from the town hall's page, which prevail over OpenStreetMap's; the
+    // duty pharmacy never guessed.
+    expect(r.marches_du_jour!.liste).toEqual([expect.objectContaining({ nom: "Marché forain de Saint-Paul", horaires_aujourd_hui: "de 7\u00a0h à 12\u00a0h", lien: "https://www.mairie-saintpaul.re/marches-forains/", source: "Ville de Saint-Paul : « Les marchés forains »" })]);
+    expect(r.resume).toContain("marché aujourd'hui : Marché forain de Saint-Paul de 7\u00a0h à 12\u00a0h");
     expect(r.resume).toMatch(/pharmacie de garde : 3237\.fr\.$/);
     expect(r.pharmacie_de_garde).toMatchObject({ site: "https://www.3237.fr/", a_savoir: expect.stringMatching(/ne sait pas quelle pharmacie est de garde/) });
     // The skips: only the sites filled in less than 6 h ago say what they take.
@@ -171,7 +172,8 @@ describe("the summary of a day", () => {
     const sunday = new Date("2026-10-25T04:00:00Z");
     const r = resume(SAINT_PAUL, { trafic: old, dechets: COPIES.dechets } as never, sunday);
     expect(r.carburants).toBeUndefined();
-    expect(r.marches_du_jour).toBeUndefined();
+    // Sunday: not the forain of Saint-Paul, held on Friday and Saturday; the Mail de Rodrigues, held on Sunday.
+    expect(r.marches_du_jour!.liste.map((m) => m.nom)).toEqual(["Marché du Mail de Rodrigues"]);
     // A day later, every site's state is of another day.
     expect(r.decheteries!.sites.every((x) => x.accepte === undefined && x.benne_pleine === undefined)).toBe(true);
     expect(r.resume).not.toMatch(/déchets verts acceptés/);
@@ -345,7 +347,7 @@ describe("reading the copies", () => {
     expect(current.non_inclus ?? []).not.toContainEqual(expect.objectContaining({ partie: "événements du jour" }));
     const r = await summary("rendu-0");
     expect(JSON.stringify(r)).not.toContain("Fête des goyaviers");
-    expect(JSON.stringify(r)).not.toContain("letampon.fr");
+    expect(JSON.stringify(r)).not.toContain("letampon.fr/agenda");
     expect(r.non_inclus).toContainEqual(expect.objectContaining({ partie: "événements du jour", raison: UPDATING, outil: "evenements" }));
     const page = aujourdhuiPage("https://rundata.re", LE_TAMPON, r, null);
     expect(page).toContain("Se met à jour : rechargez la page dans quelques minutes.");

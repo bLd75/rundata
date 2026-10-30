@@ -60,7 +60,7 @@ import { muetPour } from "./coupures.js";
 import { aheadRows, type CourantAnswer, followed, injoignable, shortOf } from "./courant.js";
 import { mention } from "./non-repris.js";
 import { SITE_URL } from "./citer.js";
-import { a, credits, notFound, placeBlock, text } from "./format.js";
+import { a, credits, de, notFound, placeBlock, text } from "./format.js";
 import { coastText, cyclone, forZone, highest, zoneLevels, zoneShort, zoneText } from "./vigilance.js";
 import type { InfoRow } from "./actualites.js";
 import { ENDS as LITTORAL_ENDS, forSummary, littoral, NONE as LITTORAL_NONE } from "./littoral.js";
@@ -148,7 +148,7 @@ const EVENTS_MAX = 10;
 // does the same).
 const COST_UNKNOWN = 25;
 
-const MARKETS_NOT_ALL = "D'après OpenStreetMap : tous les marchés n'y sont pas, et les jours peuvent avoir changé.";
+const MARKETS_NOT_ALL = "D'après OpenStreetMap et les sites des mairies qui permettent de les reprendre : tous les marchés n'y sont pas, et les jours peuvent avoir changé.";
 const NO_DUTY = "rundata.re ne sait pas quelle pharmacie est de garde : seuls 3237.fr et le 32 37 le disent.";
 const FUEL_NOTE = "Prix maximum fixés chaque mois par le préfet, les mêmes dans toute l'île : une station peut vendre moins cher.";
 
@@ -275,7 +275,15 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
   // Without the sea's page, the weather page's own reading of the sea, when it has one: then the sea is not left out.
   const mer = coastal(commune) ? sea(commune, l.mer?.value, l.meteo?.value) : undefined;
   const out = mer ? leftOut.filter((x) => x.partie !== SEA) : leftOut;
+  // Held today, then those open all week, then those whose days no source gives, with the town hall's page.
   const markets = marches.heldOn(nom, now);
+  const allWeek = marches.apart(nom, now);
+  const noDays = marches.sansJours(nom);
+  const townHall = marches.lienMairie(nom);
+  // A town hall's market says where it comes from, and the date of its page when it gives one.
+  const by = (m: marches.Lieu) =>
+    m.source === marches.OSM ? undefined : `site de la mairie ${de(m.commune)}${m.source.date ? ` (page du ${marches.dayMonthYear(m.source.date)})` : ""}`;
+  const marketSources = [...new Set([...markets, ...allWeek, ...noDays].map((m) => m.source))];
   // The prices of another month are not this month's; an order read before its 1st is not in force yet.
   const fuel = l.trafic?.value.carburants;
   const inForce = fuel && phases(fuel, now).vigueur;
@@ -350,8 +358,14 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
       ? { ouverte: open, horaires_aujourd_hui: hoursOn(mairie, now) ?? (open === null ? undefined : "fermée aujourd'hui"), adresse: mairie.adresse, telephone: mairie.telephone }
       : undefined,
     coupures_electricite: power.length || powerSilent ? { avis: power.length ? power : undefined, injoignable: powerSilent && { texte: powerSilent.texte, site: powerSilent.site } } : powerNotRead ? { non_repris: powerNotRead } : undefined,
-    marches_du_jour: markets.length
-      ? { liste: markets.map((m) => ({ nom: m.nom, horaires_aujourd_hui: m.horaires_aujourd_hui, adresse: m.adresse ?? undefined, carte: m.osm })), avertissement: MARKETS_NOT_ALL }
+    marches_du_jour: markets.length || allWeek.length || noDays.length || townHall
+      ? {
+          liste: markets.map((m) => ({ nom: m.nom, horaires_aujourd_hui: m.horaires_aujourd_hui, adresse: m.adresse ?? undefined, lien: m.lien, carte: m.osm, source: m.source.nom, d_apres: by(m) })),
+          permanents: allWeek.length ? allWeek.map((m) => ({ nom: m.nom, horaires: m.horaires, horaires_aujourd_hui: m.horaires_aujourd_hui, adresse: m.adresse ?? undefined, lien: m.lien, carte: m.osm, source: m.source.nom, d_apres: by(m) })) : undefined,
+          jours_non_trouves: noDays.length ? noDays.map((m) => ({ nom: m.nom, adresse: m.adresse ?? undefined, lien: m.lien, carte: m.osm })) : undefined,
+          mairie: townHall ? { texte: `Jours et horaires des marchés : site de la mairie ${de(nom)}`, site: townHall } : undefined,
+          avertissement: MARKETS_NOT_ALL,
+        }
       : undefined,
     decheteries: sites
       ? {
@@ -373,7 +387,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     sources: sourcesOf([
       l.meteo?.value.meteo?.sources, l.meteo?.value.prevision?.sources, l.vigilance ? credits([mf.SOURCE]) : undefined, l.air?.value.sources, l.mer?.value.sources,
       l.electricite?.value.sources, l.actualites?.value.sources, l.trafic?.value.sources, l.coupures?.value.sources, events.length ? sourcesServies(l.agenda?.value.sources) : undefined, l.calendrier?.value.sources,
-      l.commune?.value.sources, l.dechets?.value.sources, power.length ? l.courant!.value.sources : undefined, markets.length ? credits([marches.OSM]) : undefined, credits([sante.ARS_GARDE]),
+      l.commune?.value.sources, l.dechets?.value.sources, power.length ? l.courant!.value.sources : undefined, marketSources.length ? credits(marketSources) : undefined, credits([sante.ARS_GARDE]),
     ]),
   };
 }
