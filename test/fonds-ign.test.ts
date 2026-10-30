@@ -32,6 +32,12 @@ describe("the IGN's backgrounds on the zoomed maps", () => {
     expect(FONDS_SCRIPT).toContain('if(!cur)return;');
   });
 
+  it("write their settings into the script as a literal with nothing that could end it", () => {
+    const t = FONDS_SCRIPT.slice(FONDS_SCRIPT.indexOf("const T=") + 8, FONDS_SCRIPT.indexOf(",A="));
+    expect(t).not.toMatch(/[<>&\/\u2028\u2029]/);
+    expect(JSON.parse(t)).toEqual(Object.fromEntries(FONDS.filter((f) => f.layer).map((f) => [f.id, { credit: f.credit, attente: f.attente, layer: f.layer, format: f.format, max: f.max }])));
+  });
+
   it("lay the tiles over the relief, under our roads, and on a commune again over the dimmed island", () => {
     expect(trace).toMatch(/clip-path="url\(#isl-clip\)"\/><g id="fd-t" class="fd"><\/g><g class="rd"/);
     expect(commune).toContain('<g id="fd-ecm" class="fd"></g><use href="#isl" class="dim"/>');

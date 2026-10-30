@@ -819,9 +819,14 @@ function fondChoice(key: string): string {
     `</div><script>${FONDS_SCRIPT}</script>`;
 }
 
+// The characters that could end a <script> or a line of JavaScript inside a string written into one, each as \uXXXX.
+const UNSAFE: Record<string, string> = { "<": "\\u003c", ">": "\\u003e", "&": "\\u0026", "/": "\\u002f", "\u2028": "\\u2028", "\u2029": "\\u2029" };
+/** A value written as a JavaScript literal inside an inline <script>. */
+const inScript = (v: unknown) => JSON.stringify(v).replace(/[<>&\/\u2028\u2029]/g, (c) => UNSAFE[c]);
+
 // New tiles only once a pinch or a drag has stopped (250 ms): the Géoplateforme takes at most 40 requests a second
 // from one address. The tiles of the new level are laid over the old ones, which go once they have all come.
-export const FONDS_SCRIPT = `(()=>{const T=${JSON.stringify(Object.fromEntries(FONDS.filter((f) => f.layer).map((f) => [f.id, { credit: f.credit, attente: f.attente, layer: f.layer, format: f.format, max: f.max }])))},A=${LON0},B=${LAT0},C=${LON1},D=${LAT1},W=${W},H=${H},NS="http://www.w3.org/2000/svg";
+export const FONDS_SCRIPT = `(()=>{const T=${inScript(Object.fromEntries(FONDS.filter((f) => f.layer).map((f) => [f.id, { credit: f.credit, attente: f.attente, layer: f.layer, format: f.format, max: f.max }])))},A=${LON0},B=${LAT0},C=${LON1},D=${LAT1},W=${W},H=${H},NS="http://www.w3.org/2000/svg";
 const X=(o)=>(o-A)/(C-A)*W,Y=(a)=>(D-a)/(D-B)*H,lon=(x)=>A+x/W*(C-A),lat=(y)=>D-y/H*(D-B),n=(z)=>2**z,
 tlon=(t,z)=>t/n(z)*360-180,tlat=(t,z)=>Math.atan(Math.sinh(Math.PI*(1-2*t/n(z))))*180/Math.PI,
 tx=(o,z)=>Math.floor((o+180)/360*n(z)),ty=(a,z)=>{const r=a*Math.PI/180;return Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n(z))},r3=(v)=>String(Math.round(v*1000)/1000);
