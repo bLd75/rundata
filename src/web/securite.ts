@@ -17,6 +17,7 @@
  *   the copy buttons, the fullscreen of Waze's map.
  */
 import { bodyText } from "../http.js";
+import { IGN_TUILES } from "./map.js";
 
 export const CSP_RAPPORT = "/csp-rapport";
 
@@ -51,7 +52,8 @@ export function politique(hashes: readonly string[]): string {
     "default-src 'self'",
     `script-src 'self' ${TURNSTILE} ${WEB_ANALYTICS}${hashes.map((h) => ` 'sha256-${h}'`).join("")}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self'",
+    // The IGN's tiles, on a zoomed map whose visitor picks the Plan or the aerial photo (web/map.ts, FONDS).
+    `img-src 'self' ${IGN_TUILES}`,
     "font-src 'self'",
     "connect-src 'self'",
     `frame-src ${TURNSTILE} ${WAZE}`,

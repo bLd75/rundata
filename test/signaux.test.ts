@@ -169,6 +169,6 @@ describe("The pages' part", () => {
     expect(html).toContain("trois mois au plus.</p>\n  <p id=\"mesure-cloudflare\">La mesure de Cloudflare. Chaque page charge aussi un petit script de Cloudflare Web Analytics");
     expect(html).toContain("Comme pour toute page, Cloudflare reçoit votre adresse IP\u00a0; selon sa documentation, il ne s'en sert pas, ni d'aucune autre donnée, pour suivre les visiteurs dans le temps ou d'un site à l'autre.");
     expect(html).toContain("Cloudflare garde chaque mesure 7 jours, puis un échantillon d'environ un dixième, que nous pouvons consulter pendant six mois.");
-    expect(html).toContain("Mise à jour\u00a0: 28 octobre 2026.");
+    expect(html).toContain("Mise à jour\u00a0: 30 octobre 2026.");
   });
 });
