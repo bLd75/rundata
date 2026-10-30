@@ -45,6 +45,9 @@ describe("the page of a commune's day", () => {
     expect(html).not.toMatch(/conforme/);
     expect(html).toContain(`<a href="https://www.infotrafic.re/" rel="noopener">la carte officielle sur infotrafic.re ↗</a>`);
     expect(html).not.toMatch(/waze/i);
+    // The hero's island situating the commune, as on its page, left out on a phone.
+    expect(html).toMatch(/<figure class="card mapcard nophone"><svg [^>]*aria-label="Carte de La Réunion \(974\) situant [^"]*Entre-Deux"/);
+    expect(html).toContain('<path class="hl"');
   });
 
   it("gives the practical side of the day: the market, the skips of the TCO, the fuel, the duty pharmacy", () => {
