@@ -35,13 +35,16 @@ export const PROVENANCE = {
   site: "https://www.atmo-reunion.net",
 };
 
+/** The step the island's answer keeps (marketing, 30/10/2026): what changes what can be said by a busy road. */
+export const FOND = "Il décrit l'air « de fond », loin des sources de pollution comme les axes de trafic routier.";
+
 /** How the index is made, in the words of the guide (GUIDE), nothing it does not say. */
 export const METHODE = [
   "C'est une prévision : l'indice décrit la qualité de l'air prévue sur une journée de 24 h, comptée à partir de 0 h TU (4 h à La Réunion).",
   "Les observatoires agréés comme Atmo Réunion le calculent de préférence avec leurs modèles, qui intègrent la météo, l'inventaire des émissions de polluants, des plateformes de prévision de la qualité de l'air et les mesures des stations de fond\u00a0; à défaut, avec la mesure de fond.",
   "Chaque polluant reçoit un sous-indice selon sa concentration : moyenne de la journée pour les particules PM2,5 et PM10, maximum horaire de la journée pour l'ozone, le dioxyde d'azote et le dioxyde de soufre.",
   "L'indice est le plus mauvais des cinq sous-indices. Calculé avec un modèle, celui d'une commune est l'indice du point du modèle le plus dégradé dans la commune.",
-  "Il décrit l'air « de fond », loin des sources de pollution comme les axes de trafic routier.",
+  FOND,
   "Il est diffusé chaque jour au plus tard à 12 h, heure locale, ou à 14 h en cas de difficulté.",
 ];
 
