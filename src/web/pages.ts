@@ -427,6 +427,15 @@ background:none;color:var(--muted);cursor:pointer}
 @media (min-width:46rem){.tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}}
 @media (min-width:66rem){.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .tile.wide{grid-column:span 2}
+/* A commune's tiles, packed (commune.ts spans): each tile's span at 2, 3 and 4 columns, a list on a whole row. */
+.tiles.fit{grid-auto-flow:row dense}
+.tiles.fit>.tile{grid-column:span var(--s2,1)}
+@media (min-width:46rem){.tiles.fit>.tile{grid-column:span var(--s3,1)}}
+@media (min-width:66rem){.tiles.fit>.tile{grid-column:span var(--s4,1)}}
+.tile .rows.cols{grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));column-gap:1.5rem}
+.tile .rows.cols li:first-child{border-top:1px solid var(--line)}
+.rows.velos li{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.rows.velos small{display:block;font-size:.88rem;margin-top:.1rem}
 @media (max-width:46rem){.tile.odd{grid-column:span 2}}
 .tile{position:relative;display:flex;flex-direction:column;gap:.3rem;padding:.95rem;border-radius:22px;min-width:0;overflow:hidden;
 background:linear-gradient(155deg,color-mix(in srgb,var(--k) 13%,var(--surface)) 0%,var(--surface) 58%);
