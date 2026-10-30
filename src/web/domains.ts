@@ -1097,7 +1097,8 @@ const FLOOD_ORDER = ["rouge", "orange", "jaune", "vert", "indisponible"];
 const FLOOD_COLOR: Record<string, string> = { rouge: "#f03e3e", orange: "#ff922b", jaune: "#ffd43b", vert: "#69db7c" };
 // The map's markers: what the gauge measured, in the site's colours, never the vigilance's (orange would read as one);
 // the shape says it as much as the colour. The map is drawn light in both themes: its day colours.
-const GAUGE_COLOR = { hausse: "#14202b", calme: "#8aaab2", muette: "#5a6672" };
+// A rise in the charter's red, with its arrow: the mark to see first, in both themes. No recent measure: a grey ring, the map showing through.
+const GAUGE_COLOR = { hausse: "#e3262d", calme: "#8aaab2", muette: "#868e96" };
 const floodBadge = (c: string) => `<span class="lvl" style="--c:${FLOOD_COLOR[c] ?? "#868e96"}">${esc(c)}</span>`;
 const metres = (v: number) => `${fr(Math.round(v * 100) / 100)} m`;
 const flow = (v: number) => `${fr(Math.round(v * 100) / 100)} m³/s`;
@@ -1110,12 +1111,12 @@ const riverCore = (r: string) => normalize(r).replace(/^(grande |petite )?(rivie
 
 /** A marker of the map as the legend shows it: filled, with its sign, or a ring. */
 /** « , la plus récente à 02:45 » (« le 30/10 à 02:45 » another day), from the stations' times (« 31/10 02:45 »). */
-function latestGauge(d: CruesAnswer | undefined, now: Date): string {
+function latestGauge(d: CruesAnswer | undefined): string {
   const key = (t: string) => t.replace(/^(\d\d)\/(\d\d)/, "$2$1");
   const last = (d?.stations ?? []).filter(upToDate).map((s) => s.heure_mesure).filter((t): t is string => !!t).sort((a, b) => key(a).localeCompare(key(b))).pop();
   if (!last) return "";
   const [day, time] = last.split(" ");
-  return day === localTime(now).split(" ")[0] ? `, la plus récente à ${time}` : `, la plus récente le ${day} à ${time}`;
+  return ` : mesure la plus récente le ${day} à ${time}`;
 }
 
 
@@ -1257,7 +1258,7 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
     { forme: "rond", couleur: GAUGE_COLOR.hausse, texte: "↑", dit: "en hausse" },
     { forme: "rond", couleur: GAUGE_COLOR.calme, dit: "stable ou en baisse" },
     { forme: "anneau", couleur: GAUGE_COLOR.muette, dit: "sans mesure récente" },
-  ], esc(`Mesure des stations de la DEAL${latestGauge(d, now)}.`))}</figcaption></figure>
+  ], esc(`© VIGICRUES, stations de la DEAL${latestGauge(d)}.`))}</figcaption></figure>
 </div>`;
 
   const sources = d && data
@@ -2435,7 +2436,7 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
       `Où est le défibrillateur le plus proche de la plage de l'Hermitage ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : le nombre de défibrillateurs par commune" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "rond", couleur: COUNT_COLOR, texte: "52", dit: "défibrillateurs de la commune" }], esc(`Donnée fixe : Géo'DAE, lue le ${dayMonth(DAE_BUILT)}.`))}</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "rond", couleur: COUNT_COLOR, texte: "52", dit: "défibrillateurs de la commune" }], esc(`Liste nationale Géo'DAE, lue le ${dayMonth(DAE_BUILT)}.`))}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-dae">

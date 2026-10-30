@@ -201,7 +201,7 @@ function marker(m: Marker, hit = HIT, at?: [number, number]): string {
     ? `<path class="sh" d="M${x} ${y - 38}L${x + 37} ${y + 28}H${x - 37}Z" fill="${fill}"/>`
     : m.round
     ? m.hollow
-      ? `<circle class="sh" cx="${x}" cy="${y}" r="30" style="fill:#fff;stroke:${fill};stroke-width:8"/>`
+      ? `<circle class="sh" cx="${x}" cy="${y}" r="22" style="fill:none;stroke:${fill};stroke-width:6"/>`
       : `<circle class="sh" cx="${x}" cy="${y}" r="34" fill="${fill}"/>`
     : `<rect class="sh" x="${x - w / 2}" y="${y - 24}" width="${w}" height="48" rx="24" fill="${fill}"/>`;
   const inner = `<title>${esc(m.name)}</title>${shape}` +

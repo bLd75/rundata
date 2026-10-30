@@ -138,7 +138,7 @@ export function enfantsPage(origin: string, data: Cached<EnfantsAnswer> | null, 
     ${ask(ASK_KREOL, ASK_FRANCAIS)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : le nombre de lieux pour les enfants par commune" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "rond", couleur: COUNT_COLOR, texte: "12", dit: "lieux pour les enfants dans la commune" }], esc(`Donnée fixe : OpenStreetMap, Data ES et Basilic, lue le ${dayMonth(enfants.BUILT)}.`))}</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "rond", couleur: COUNT_COLOR, texte: "12", dit: "lieux pour les enfants dans la commune" }], esc(`Lieux d'OpenStreetMap, Data ES et Basilic, liste lue le ${dayMonth(enfants.BUILT)}.`))}</figcaption></figure>
 </div>`;
 
   const body = `<div id="enf" data-note="${esc(enfants.INDICATIF_NOTE)}">

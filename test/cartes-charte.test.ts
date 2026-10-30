@@ -37,11 +37,11 @@ describe("the charter of the maps", () => {
     expect(dae.match(/<circle class="sh"[^>]*fill="([^"]+)"/g)?.every((c) => c.endsWith('fill="#14202b"'))).toBe(true);
     expect(dae).not.toContain("#2b8a3e");
     expect(dae).toContain('<circle r="34" fill="#14202b"/><text y="11">52</text></svg>défibrillateurs de la commune</span>');
-    expect(dae).toContain('<span class="mls">Donnée fixe : Géo&#39;DAE, lue le 24/10.</span>');
+    expect(dae).toContain('<span class="mls">Liste nationale Géo&#39;DAE, lue le 24/10.</span>');
     const enfants = figure(enfantsPage(ORIGIN, null, NOW));
     expect(enfants.match(/<circle class="sh"[^>]*fill="([^"]+)"/g)?.every((c) => c.endsWith('fill="#14202b"'))).toBe(true);
     expect(enfants).not.toContain("#e8590c");
-    expect(enfants).toContain('<span class="mls">Donnée fixe : OpenStreetMap, Data ES et Basilic, lue le 25/10.</span>');
+    expect(enfants).toContain('<span class="mls">Lieux d&#39;OpenStreetMap, Data ES et Basilic, liste lue le 25/10.</span>');
   });
 
   it("draws each mark of the legend as on the map, never a coloured word, then what was measured and when", () => {
