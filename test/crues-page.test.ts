@@ -95,6 +95,10 @@ describe("the /crues page", () => {
     expect(html).toMatch(/<circle class="sh" cx="[\d.]+" cy="[\d.]+" r="48" fill="#14202b" style="stroke:#fff;stroke-width:9"\/><text x="[\d.]+" y="[\d.]+" class="mv" style="font-size:42px">↑<\/text>(?:(?!<circle class="sh").)*<\/svg>/s);
     expect(html.match(/<figure class="card mapcard">(?:(?!<\/figure>).)*<\/figure>/s)?.[0]).not.toContain("#e3262d");
     expect(html).toContain('<svg viewBox="-53 -53 106 106" class="gr" aria-hidden="true"><circle r="48" fill="#14202b" stroke="#fff" stroke-width="9"/><text y="15" style="font-size:42px">↑</text></svg>en hausse</span>');
+    // Stable or falling, muted in the dark theme only, on the map as in the legend.
+    expect(html).toContain('<circle r="34" fill="var(--gauge-calme)"/></svg>stable ou en baisse</span>');
+    expect(CSS).toMatch(/@media \(prefers-color-scheme:dark\)\{:root\{[^}]*--gauge-calme:#56707a;/);
+    expect(CSS).toContain("--coast:#8aaab2;--gauge-calme:#8aaab2;");
     expect(html).toContain('<circle r="22" fill="none" stroke="#868e96" stroke-width="6"/></svg>sans mesure récente</span>');
     expect(words(html)).toContain("© VIGICRUES, stations de la DEAL : mesure la plus récente le 24/10 à 03:45.");
     expect(words(html)).toContain("Votre IA, branchée sur les rivières de l'île");

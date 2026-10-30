@@ -1098,8 +1098,9 @@ const FLOOD_COLOR: Record<string, string> = { rouge: "#f03e3e", orange: "#ff922b
 // The map's markers: what the gauge measured, in the site's colours, never the vigilance's (orange would read as one);
 // the shape says it as much as the colour. The map is drawn light in both themes: its day colours.
 // A rise in the night's colour, bigger and edged in white, with its arrow: its shape makes it the mark to see first, as
-// red would read as Vigicrues' own red vigilance. No recent measure: a grey ring, the map showing through.
-const GAUGE_COLOR = { hausse: "#14202b", calme: "#8aaab2", muette: "#868e96" };
+// red would read as Vigicrues' own red vigilance. Stable or falling: a value with no judgement, muted in the dark theme
+// (--gauge-calme) so that the rise stands out. No recent measure: a grey ring, the map showing through.
+const GAUGE_COLOR = { hausse: "#14202b", calme: "var(--gauge-calme)", muette: "#868e96" };
 const GAUGE_RANK = { muette: 0, calme: 1, hausse: 2 };
 const floodBadge = (c: string) => `<span class="lvl" style="--c:${FLOOD_COLOR[c] ?? "#868e96"}">${esc(c)}</span>`;
 const metres = (v: number) => `${fr(Math.round(v * 100) / 100)} m`;
