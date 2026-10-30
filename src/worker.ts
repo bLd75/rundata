@@ -32,6 +32,7 @@ import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
 import * as avis from "./avis.js";
 import * as limite from "./limite.js";
+import { refusRobot } from "./robots.js";
 import * as chiffre from "./connecteurs/chiffre.js";
 import * as connexions from "./connecteurs/connexions.js";
 import * as lecture from "./connecteurs/lecture.js";
@@ -332,6 +333,9 @@ function setup(env: Env): Cache {
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
     const arrived = Date.now();
+    // A named robot on an address robots.txt forbids it, before anything is read or built (robots.ts).
+    const robot = refusRobot(request);
+    if (robot) return robot;
     // A connection past its threshold is answered before anything is read or built.
     const trop = await limite.refuse(request, { mcp: env.LIMITE_MCP, formulaire: env.LIMITE_FORMULAIRES });
     if (trop) return trop;
