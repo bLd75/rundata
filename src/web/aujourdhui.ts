@@ -59,7 +59,7 @@ function marketItems(mk: Markets | undefined, commune: string, aller: Aller): st
     ...mk.liste.map((x) => `<li>Marché aujourd'hui : ${name(x)} <span class="note">${esc(x.horaires_aujourd_hui)}${x.adresse ? `, ${esc(x.adresse)}` : ""}${esc(by(x))}</span>${go(x)}</li>`),
     ...(mk.permanents ?? []).map((x) => `<li>Marché permanent : ${name(x)} <span class="note">${esc(x.horaires ?? "")}${x.horaires_aujourd_hui === "fermé aujourd'hui" ? ", fermé aujourd'hui" : ""}${x.adresse ? `, ${esc(x.adresse)}` : ""}${esc(by(x))}</span>${go(x)}</li>`),
     mk.jours_non_trouves
-      ? `<li>Autres marchés : ${mk.jours_non_trouves.map(name).join(", ")} <span class="note">jours non trouvés</span>${townHall ? ` · ${townHall}` : ""}</li>`
+      ? `<li>${mk.liste.length || mk.permanents ? "Autres marchés" : "Marchés"} : ${mk.jours_non_trouves.map(name).join(", ")} <span class="note">jours non trouvés</span>${townHall ? ` · ${townHall}` : ""}</li>`
       : townHall ? `<li>Marchés : ${townHall}</li>` : "",
   ];
 }

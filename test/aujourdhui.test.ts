@@ -84,8 +84,11 @@ describe("the page of a commune's day", () => {
     // Days no source gives: said so, by name, with the town hall's home page (its terms forbid a deeper link).
     const lt = pageOf("le-tampon")!;
     const t = aujourdhuiPage("https://rundata.re", lt, resume(lt, full(lt.nom) as never, NOW), null);
-    expect(t).toMatch(/<li>Autres marchés : <a [^>]*><b>Marché Couvert du Tampon<\/b><\/a>, .* <span class="note">jours non trouvés<\/span> · <a href="https:\/\/letampon\.fr\/" rel="noopener"[^>]*>Jours et horaires : site de la mairie du Tampon →<\/a><\/li>/);
+    expect(t).toMatch(/<li>Marchés : <a [^>]*><b>Marché Couvert du Tampon<\/b><\/a>, .* <span class="note">jours non trouvés<\/span> · <a href="https:\/\/letampon\.fr\/" rel="noopener"[^>]*>Jours et horaires : site de la mairie du Tampon →<\/a><\/li>/);
     expect(t).not.toMatch(/pas de marché|aucun marché/i);
+    // Under the markets of the day: « Autres marchés ».
+    const sp2 = aujourdhuiPage("https://rundata.re", pageOf("saint-paul")!, resume(pageOf("saint-paul")!, full("Saint-Paul") as never, NOW), null);
+    expect(sp2).toMatch(/<li>Autres marchés : <a [^>]*><b>Marché Artisanal<\/b><\/a>/);
     // A town hall's page of 2020: its date said.
     const sl = pageOf("saint-louis")!;
     const l = aujourdhuiPage("https://rundata.re", sl, resume(sl, full(sl.nom) as never, wed), null);
