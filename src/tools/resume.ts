@@ -61,7 +61,7 @@ import { aheadRows, type CourantAnswer, followed, injoignable, shortOf } from ".
 import { mention } from "./non-repris.js";
 import { SITE_URL } from "./citer.js";
 import { a, credits, notFound, placeBlock, text } from "./format.js";
-import { coastText, cyclone, highest, zoneLevels, zoneShort, zoneText } from "./vigilance.js";
+import { coastText, cyclone, highest, NONE_ISSUED, zoneLevels, zoneShort } from "./vigilance.js";
 import type { InfoRow } from "./actualites.js";
 import { ENDS as LITTORAL_ENDS, forSummary, littoral, NONE as LITTORAL_NONE } from "./littoral.js";
 
@@ -195,16 +195,22 @@ function weather(d: PlaceData, fetchedAt: Date, now: Date) {
   };
 }
 
+/** The colour said of « la vigilance »: « verte », « jaune » (marketing). */
+const feminine = (c: string) => ({ vert: "verte", violet: "violette", gris: "grise" })[c] ?? c;
+
 function vigilance(p: PlacePage, v: mf.Vigilance, now: Date) {
   // The zone of Météo-France, as its own, the commune only said to be in it: never a colour given to a commune.
   const zone = mf.ZONE_OF_COMMUNE[p.nom];
   const name = zoneShort(zone);
+  const { above, issued } = zoneLevels(v, zone, now);
+  const said = above.length ? above.map((x) => `${feminine(mf.colour(x.couleur))} ${x.phenomene.toLowerCase()}`).join(", ") : issued ? feminine(mf.colour(1)) : NONE_ISSUED;
   const cyc = v.zones[mf.ISLAND]?.[mf.CYCLONE] ?? [];
   const alert = highest(cyc) >= 2;
   return {
     zone: name || undefined,
-    maintenant: `Zone ${name} de Météo-France : ${zoneText(v, zone, now)}. ${p.nom} est dans cette zone.`,
-    au_dessus_du_vert: zoneLevels(v, zone, now).above.length > 0,
+    // « Vigilance météo : verte pour l'Ouest (Météo-France), la zone de Saint-Paul. »: the zone named, never the commune coloured.
+    maintenant: `Vigilance météo : ${said} pour ${/^[AEIOUÉ]/.test(name) ? "l'" : "le "}${name} (Météo-France), la zone de ${p.nom}.`,
+    au_dessus_du_vert: above.length > 0,
     vagues_submersion: coastal(p) ? coastText(v) : undefined,
     alerte_cyclonique: alert ? cyclone(v, now) : undefined,
     /** The schools closed by the cyclone alert in force, in marketing's words (tools/ecoles.ts). */

@@ -371,3 +371,25 @@ describe("reading the copies", () => {
     expect(body(r).erreur).toMatch(/introuvable/);
   });
 });
+
+describe("the vigilance of the day, in words people read", () => {
+  const issued = (zones: Record<string, Record<number, { couleur: number; debut: string }[]>>) => copy({ emise: "2026-10-24T06:00:00Z", zones, suivi: [] });
+  const at = (couleur: number) => [{ couleur, debut: "2026-10-24T00:00:00Z" }];
+  const said = (slug: string, zones: Parameters<typeof issued>[0]) => resume(pageOf(slug)!, { vigilance: issued(zones) } as never, NOW);
+
+  it("says the vigilance, its colour for the zone of Météo-France, and the commune only as in that zone", () => {
+    expect(said("saint-paul", { "VIGI974-15": { 12: at(1), 1: at(1) } }).vigilance?.maintenant).toBe("Vigilance météo : verte pour l'Ouest (Météo-France), la zone de Saint-Paul.");
+    expect(said("cilaos", { "VIGI974-14": { 12: at(1), 1: at(1) } }).vigilance?.maintenant).toBe("Vigilance météo : verte pour le Sud (Météo-France), la zone de Cilaos.");
+    const r = said("saint-benoit", { "VIGI974-12": { 12: at(2), 1: at(1) } });
+    expect(r.vigilance?.maintenant).toBe("Vigilance météo : jaune fortes pluies / orages pour l'Est (Météo-France), la zone de Saint-Benoît.");
+    expect(r.vigilance?.au_dessus_du_vert).toBe(true);
+    // The lead of the page and of resume_du_jour takes the same words.
+    expect(r.resume).toContain("Vigilance météo : jaune fortes pluies / orages pour l'Est (Météo-France), la zone de Saint-Benoît ;");
+  });
+
+  it("says nothing issued in the same words, never a green Météo-France did not issue", () => {
+    const r = said("saint-joseph", {});
+    expect(r.vigilance?.maintenant).toBe("Vigilance météo : pas de vigilance émise pour le Sud-Est (Météo-France), la zone de Saint-Joseph.");
+    expect(r.vigilance?.au_dessus_du_vert).toBe(false);
+  });
+});
