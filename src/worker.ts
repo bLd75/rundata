@@ -149,8 +149,11 @@ function recorder(env: Env, request: Request) {
   const headers = request.headers;
   // The team's visits are written « interne », whatever their User-Agent says (metrics.ts, teamVisit).
   const team = teamVisit(headers, new URL(request.url));
-  const who = team ? TEAM : visitor(headers.get("user-agent") ?? "");
-  const country = String((request as { cf?: { country?: unknown } }).cf?.country ?? "");
+  const cf = (request as { cf?: { country?: unknown; asn?: unknown } }).cf;
+  // The network: a browser from Meta's is Meta checking a link (metrics.ts, META_ASN).
+  const asn = typeof cf?.asn === "number" ? cf.asn : undefined;
+  const who = team ? TEAM : visitor(headers.get("user-agent") ?? "", asn);
+  const country = String(cf?.country ?? "");
   // The campaign's channel, a page of the site (« interne ») or the referring site (metrics.ts, origin).
   const from = origin(headers.get("referer"), new URL(request.url));
   return (hit: Hit) => {
@@ -159,7 +162,7 @@ function recorder(env: Env, request: Request) {
     try {
       // A signal comes from a page's browser: read as a page view is (web/signaux.ts).
       const page = hit.kind === "page" || hit.kind === "signal";
-      usage.writeDataPoint(point(hit, { who, country, from, audience: page ? (team ? TEAM : audience(headers)) : "", language: page ? language(headers.get("accept-language")) : "", mode: page && headers.get("rundata-mode") === "app" ? "app" : "", device: page ? device(headers) : "" }));
+      usage.writeDataPoint(point(hit, { who, country, from, audience: page ? (team ? TEAM : audience(headers, asn)) : "", language: page ? language(headers.get("accept-language")) : "", mode: page && headers.get("rundata-mode") === "app" ? "app" : "", device: page ? device(headers, asn) : "" }));
     } catch (err) {
       console.error("analytics : écriture impossible", why(err));
     }

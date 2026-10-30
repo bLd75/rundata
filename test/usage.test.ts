@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { counted } from "../src/budget.js";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { audience, category, device, feedReader, FROM_SITE, language, origin, point, teamVisit, visitor, type Hit } from "../src/metrics.js";
+import { audience, category, device, feedReader, FROM_SITE, language, META_ASN, origin, point, teamVisit, visitor, type Hit } from "../src/metrics.js";
 import { answer, asked, understood } from "../src/usage.js";
 import { rienTrouve, withVide } from "../src/vide.js";
 
@@ -164,6 +164,25 @@ describe("Page views and the data point", () => {
     expect(category("/")).toBe("accueil");
     expect(category("/meteo/cilaos")).toBe("meteo/*");
     expect(category("/vigilance/")).toBe("vigilance");
+  });
+
+  it("counts Meta checking a shared link as a robot: a browser from Meta's network, not a person", () => {
+    // As on 28/10/2026, in the same seconds as facebookexternalhit: Chrome's User-Agent, English, from facebook.com.
+    const desktop = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.8976.12 Safari/537.36";
+    const android = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36";
+    const browser = { "accept-language": "en-US,en;q=0.9", "sec-fetch-mode": "navigate", "sec-ch-ua-mobile": "?1", referer: "https://www.facebook.com/" };
+    for (const ua of [desktop, android]) {
+      const h = new Headers({ "user-agent": ua, ...browser });
+      expect([visitor(ua, META_ASN), audience(h, META_ASN), device(h, META_ASN)]).toEqual(["Meta", "robot", ""]);
+      // The same browser from another network (Cloudflare's, or none known): a person.
+      expect([visitor(ua, 13335), audience(h, 13335)]).toEqual(["navigateur", "humain"]);
+      expect([visitor(ua), audience(h), device(h)]).toEqual(["navigateur", "humain", "mobile"]);
+    }
+    // Its crawler is Meta's whatever the network, and a declared robot keeps its name.
+    expect(visitor("facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)")).toBe("Meta");
+    expect(visitor("Mozilla/5.0 (compatible; Googlebot/2.1)", META_ASN)).toBe("Google");
+    // The team stays the team.
+    expect(audience(new Headers({ "user-agent": `${android} rundata-interne`, ...browser }), META_ASN)).toBe("interne");
   });
 
   it("writes the team's visits « interne »: its scripts, its marked phones and the address that marks them", () => {
