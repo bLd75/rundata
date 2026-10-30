@@ -25,7 +25,9 @@ export function mapCredit(html: string): string | undefined {
     html.includes('<g class="rd"') && [html.includes('<g class="nm"') ? "routes et noms de lieux" : "routes", "BD TOPO"],
   ].filter((x): x is string[] => !!x);
   const what = ign.length === 2 ? `${ign[0][0]}, ${ign[1][0]}` : ign[0]?.[0];
-  return `<p class="sources">Carte : contours des communes de geo.api.gouv.fr${what ? `, ${what} de l'IGN (${ign.map((x) => x[1]).join(", ")}), sous Licence Ouverte Etalab 2.0` : " (Licence Ouverte Etalab 2.0)"}.</p>`;
+  // The background the visitor picks on a zoomed map, named by FONDS_SCRIPT once chosen.
+  const fond = html.includes('class="tabs fonds"') ? '<span class="fd-c"></span>' : "";
+  return `<p class="sources">Carte : contours des communes de geo.api.gouv.fr${what ? `, ${what} de l'IGN (${ign.map((x) => x[1]).join(", ")})${fond}, sous Licence Ouverte Etalab 2.0` : " (Licence Ouverte Etalab 2.0)"}.</p>`;
 }
 
 export function project(lon: number, lat: number): [number, number] {
@@ -781,15 +783,72 @@ export function traceMap(opts: { lines: TraceLine[]; label: string; minKm?: numb
   const frame = [x0, y0, w, h].map((v) => Math.round(v * 100) / 100);
   const box = frame.join(" ");
   const names = namesLayer({ frame, unit: w / PHONE_PX, busy: [[sx - r * 2, sy - r * 2, sx + r * 2, sy + r * 2]], close: true });
-  return `<svg class="map terrain zoom" viewBox="${box}" role="img" aria-label="${esc(opts.label)}">` +
+  return `<svg class="map terrain zoom" viewBox="${box}" data-fd="t" role="img" aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g><clipPath id="isl-clip">${paths}</clipPath></defs>` +
     `<rect class="sea" x="${x0 - w}" y="${y0 - h}" width="${w * 3}" height="${h * 3}"/>` +
     `<use href="#isl" class="coast"/><use href="#isl" class="land"/>` +
     `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
-    roadsLayer(frame) + names +
+    `<g id="fd-t" class="fd"></g>` + roadsLayer(frame) + names +
     opts.lines.map((l) => `<path class="trk-halo" d="${d(l)}"/><path class="trk ${esc(l.etat)}" d="${d(l)}"/>`).join("") +
-    `<circle class="trk-start" cx="${sx}" cy="${sy}" r="${Math.round(r * 100) / 100}"/></svg>`;
+    `<circle class="trk-start" cx="${sx}" cy="${sy}" r="${Math.round(r * 100) / 100}"/></svg>` + fondChoice("t");
 }
+
+// ---------------------------------------------------------------- the IGN's backgrounds, on the zoomed maps
+
+/** Where the IGN serves its tiles (Géoplateforme, WMTS, Licence Ouverte): the only other site the pages' images come from. */
+export const IGN_TUILES = "https://data.geopf.fr";
+
+/**
+ * The backgrounds of a zoomed map, the relief by default. The IGN's are its tiles in Web Mercator, each laid by its own
+ * corners on the map's plain longitude and latitude (less than a metre off within a tile), at the zoom level of the
+ * screen's pixels, and fetched only once the visitor has picked one. The Plan has its own roads and names: ours are
+ * hidden over it. Its credit joins the line « Carte : » (mapCredit()).
+ */
+export const FONDS = [
+  { id: "relief", nom: "Relief" },
+  { id: "plan", nom: "Plan IGN", credit: "Plan IGN", attente: "Chargement du plan…", layer: "GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2", format: "png", max: 18 },
+  { id: "photo", nom: "Photo aérienne", credit: "Photo aérienne IGN", attente: "Chargement de la photo aérienne…", layer: "ORTHOIMAGERY.ORTHOPHOTOS", format: "jpeg", max: 19 },
+];
+
+/** The choice under a zoomed map: shown by its script only, which then draws the tiles in the map's `fd-<key>`. */
+function fondChoice(key: string): string {
+  // The loading message, laid by the script over the map's bottom left corner: it takes no room under the buttons and
+  // moves nothing when it shows.
+  return `<p class="fd-w" id="fd-w-${key}" role="status"></p><div class="tabs fonds" role="radiogroup" aria-label="Fond de la carte" data-fd="${key}" hidden>` +
+    FONDS.map((f, i) => `<input type="radio" name="fd-${key}" id="fd-${key}-${f.id}" value="${f.id}"${i ? "" : " checked"}><label for="fd-${key}-${f.id}">${f.nom}</label>`).join("") +
+    `</div><script>${FONDS_SCRIPT}</script>`;
+}
+
+// The characters that could end a <script> or a line of JavaScript inside a string written into one, each as \uXXXX.
+const UNSAFE: Record<string, string> = { "<": "\\u003c", ">": "\\u003e", "&": "\\u0026", "/": "\\u002f", "\u2028": "\\u2028", "\u2029": "\\u2029" };
+/** A value written as a JavaScript literal inside an inline <script>. */
+const inScript = (v: unknown) => JSON.stringify(v).replace(/[<>&\/\u2028\u2029]/g, (c) => UNSAFE[c]);
+
+// New tiles only once a pinch or a drag has stopped (250 ms): the Géoplateforme takes at most 40 requests a second
+// from one address. The tiles of the new level are laid over the old ones, which go once they have all come.
+export const FONDS_SCRIPT = `(()=>{const T=${inScript(Object.fromEntries(FONDS.filter((f) => f.layer).map((f) => [f.id, { credit: f.credit, attente: f.attente, layer: f.layer, format: f.format, max: f.max }])))},A=${LON0},B=${LAT0},C=${LON1},D=${LAT1},W=${W},H=${H},NS="http://www.w3.org/2000/svg";
+const X=(o)=>(o-A)/(C-A)*W,Y=(a)=>(D-a)/(D-B)*H,lon=(x)=>A+x/W*(C-A),lat=(y)=>D-y/H*(D-B),n=(z)=>2**z,
+tlon=(t,z)=>t/n(z)*360-180,tlat=(t,z)=>Math.atan(Math.sinh(Math.PI*(1-2*t/n(z))))*180/Math.PI,
+tx=(o,z)=>Math.floor((o+180)/360*n(z)),ty=(a,z)=>{const r=a*Math.PI/180;return Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n(z))},r3=(v)=>String(Math.round(v*1000)/1000);
+document.querySelectorAll(".fonds[data-fd]:not([data-on])").forEach((f)=>{const k=f.dataset.fd,svg=document.querySelector('svg[data-fd="'+k+'"]'),g=document.getElementById("fd-"+k),msg=document.getElementById("fd-w-"+k);if(!svg||!g)return;f.dataset.on="1";
+let cur=null,timer=0,slow=0,pend=0,epoch=0;const have=new Map(),quiet=()=>{clearTimeout(slow);slow=0;if(msg)msg.textContent=""},
+place=()=>{const p=msg&&msg.offsetParent;if(!p)return;const a=p.getBoundingClientRect(),b=svg.getBoundingClientRect();msg.style.left=b.left-a.left-p.clientLeft+8+"px";msg.style.top=b.bottom-a.top-p.clientTop-msg.offsetHeight-8+"px"};
+const draw=()=>{if(!cur)return;const v=svg.viewBox.baseVal,px=svg.getBoundingClientRect().width||340,dpp=v.width/W*(C-A)/px,
+z=Math.max(9,Math.min(cur.max,Math.round(Math.log2(360*Math.min(devicePixelRatio||1,2)/(256*dpp))))),
+x0=tx(lon(v.x),z),x1=tx(lon(v.x+v.width),z),y0=ty(lat(v.y),z),y1=ty(lat(v.y+v.height),z);if((x1-x0+1)*(y1-y0+1)>96)return;
+const want=new Set();let wait=1;const done=()=>{if(--wait>0)return;have.forEach((im,key)=>{if(!want.has(key)){im.remove();have.delete(key)}})};
+for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){const key=cur.layer+"/"+z+"/"+x+"/"+y;want.add(key);if(have.has(key))continue;
+const im=document.createElementNS(NS,"image"),l=X(tlon(x,z)),t=Y(tlat(y,z)),w=X(tlon(x+1,z))-l,h=Y(tlat(y+1,z))-t;
+im.setAttribute("x",r3(l));im.setAttribute("y",r3(t));im.setAttribute("width",r3(w*1.004));im.setAttribute("height",r3(h*1.004));im.setAttribute("preserveAspectRatio","none");
+wait++;pend++;const ep=epoch,fin=()=>{if(ep===epoch&&--pend===0)quiet()};
+if(!slow&&!(msg&&msg.textContent)){const say=cur.attente;slow=setTimeout(()=>{if(msg){msg.textContent=say;place()}},1000)}
+im.addEventListener("load",()=>{fin();done()},{once:true});im.addEventListener("error",()=>{im.remove();have.delete(key);fin();done()},{once:true});
+im.setAttribute("href","${IGN_TUILES}/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER="+cur.layer+"&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX="+z+"&TILEROW="+y+"&TILECOL="+x+"&FORMAT=image/"+cur.format);
+g.appendChild(im);have.set(key,im)}done()};
+const later=()=>{clearTimeout(timer);timer=setTimeout(()=>{place();draw()},250)};
+f.addEventListener("change",(e)=>{const id=e.target.value;cur=T[id]||null;epoch++;pend=0;quiet();have.forEach((im)=>im.remove());have.clear();svg.classList.remove("fd-plan","fd-photo");if(cur)svg.classList.add("fd-"+id);
+document.querySelectorAll(".fd-c").forEach((s)=>{s.textContent=cur?", "+cur.credit:""});draw()});
+new MutationObserver(later).observe(svg,{attributes:true,attributeFilter:["viewBox"]});addEventListener("resize",later);f.hidden=false})})();`;
 
 // ---------------------------------------------------------------- a commune, close up
 
@@ -850,16 +909,19 @@ export function communeMap(opts: { commune: string; spots: Spot[]; label: string
     return `<a class="sp" href="#lieu-${s.i}" data-i="${s.i}" data-t="${esc(s.t)}"${pointData(s.tip ? [s.tip.name, s.tip.kind, s.tip.address] : [s.name])}><title>${esc(s.name)}</title>` +
       `<circle class="hit" cx="${x}" cy="${y}" r="${r2(radii[k])}"/><path class="rg" d="M${x} ${y}h0"/><path class="pt f-${esc(s.f)}" d="M${x} ${y}h0"/></a>`;
   }).join("");
-  return `<svg${opts.id ? ` id="${opts.id}"` : ""} class="map terrain zoom commune" viewBox="${box.join(" ")}" data-box="${box.join(" ")}" role="group" aria-label="${esc(opts.label)}">` +
+  const fd = esc(opts.id ?? "c");
+  return `<svg${opts.id ? ` id="${opts.id}"` : ""} class="map terrain zoom commune" viewBox="${box.join(" ")}" data-box="${box.join(" ")}" data-fd="${fd}" role="group" aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g><clipPath id="isl-clip">${paths}</clipPath><clipPath id="com-clip"><path d="${shape.d}"/></clipPath></defs>` +
     `<rect class="sea" x="${r2(box[0] - w)}" y="${r2(box[1] - h)}" width="${r2(w * 3)}" height="${r2(h * 3)}"/>` +
     `<use href="#isl" class="coast"/><use href="#isl" class="land"/>` +
     `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
-    // The island dimmed, then the commune's relief again over it, clear.
+    // The island dimmed, then the commune's relief again over it, clear; the IGN's tiles likewise, once chosen.
+    `<g id="fd-${fd}" class="fd"></g>` +
     `<use href="#isl" class="dim"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#com-clip)"/>` +
+    `<use href="#fd-${fd}" clip-path="url(#com-clip)"/>` +
     roadsLayer(box) + `<path class="hl" d="${shape.d}"/>` +
     namesLayer({ frame: box, unit, busy: at.map(([x, y]) => [x - 10 * unit, y - 10 * unit, x + 10 * unit, y + 10 * unit]), close: true, within: ringOf(shape.d), centre: chefLieu(opts.commune), commune: opts.commune }) +
-    `<g class="spots">${dots}</g></svg>`;
+    `<g class="spots">${dots}</g></svg>` + fondChoice(fd);
 }
 
 /** The altitude along the trail: an area, the axes in km and m. */
