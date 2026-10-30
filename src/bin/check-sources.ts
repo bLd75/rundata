@@ -1,8 +1,8 @@
 /**
  * The daily check of the sources, through rundata.re itself (scripts/check-sources.ts, run by
  * .github/workflows/sources.yml): a few tools called on /mcp and a few pages, each failing when what it shows is
- * older than its source should allow, says a source did not answer, gives the volcano's ORSEC level as unknown, or
- * when an answer has grown past its size.
+ * older than its source should allow, serves a source's last copy past its threshold, gives the volcano's ORSEC level
+ * as unknown, or when an answer has grown past its size.
  * Nothing here asks a source directly: what is checked is what a visitor gets.
  */
 import { decodeText, textOf } from "../providers/avis-eau.js";
@@ -206,7 +206,26 @@ export const MAX_BYTES: Record<string, number> = {
 
 const ko = (bytes: number) => `${(bytes / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}\u00a0Ko`;
 
-/** What every answer is checked for: an error, a last copy served for a source that did not answer, its size. */
+/**
+ * How long a last copy may be served before the check fails, in hours: a source that misses one read is not a
+ * problem, one that stays silent is. The measurement is stale sooner; the agenda changes by the day.
+ */
+export const SECOURS_MAX_HOURS: Record<string, number> = { "meteo_actuelle (Saint-Denis)": 3, evenements: 24 };
+const SECOURS_DEFAULT_HOURS = 6;
+
+/** The copies older than the point's threshold, each with its source; a copy whose read time cannot be read is one. */
+function oldCopies(point: string, copies: { source?: string; lue_le?: unknown }[], now: Date): Probleme[] {
+  const max = SECOURS_MAX_HOURS[point] ?? SECOURS_DEFAULT_HOURS;
+  return copies.flatMap((copy) => {
+    const of = copy.source ? `de « ${copy.source} »` : "d'une partie de la réponse";
+    const t = parseTime(copy.lue_le, now);
+    if (!t) return [{ point, motif: `copie de secours ${of} : date de lecture absente ou illisible` }];
+    const age = ageHours(t, now);
+    return age > max ? [{ point, motif: `copie de secours ${of}, lue le ${String(copy.lue_le)}, il y a ${hours(age)} (seuil ${hours(max)})` }] : [];
+  });
+}
+
+/** What every answer is checked for: an error, a last copy served past its threshold, its size. */
 export function checkAnswer(c: ToolCheck, result: { isError?: boolean; content?: { type: string; text?: string }[] } | undefined, now: Date): Probleme[] {
   const text = result?.content?.[0]?.text ?? "";
   if (!result || result.isError) return [{ point: c.point, motif: `erreur de l'outil : ${text.slice(0, 160) || "réponse vide"}` }];
@@ -217,7 +236,8 @@ export function checkAnswer(c: ToolCheck, result: { isError?: boolean; content?:
     return [{ point: c.point, motif: "réponse illisible" }];
   }
   const out: Probleme[] = [];
-  if (p.fraicheur?.copies_de_secours?.length) out.push({ point: c.point, motif: `copie de secours : ${p.fraicheur.avertissement}` });
+  const copies: { source?: string; lue_le?: unknown }[] = p.fraicheur?.copies_de_secours ?? [];
+  if (copies.length) out.push(...oldCopies(c.point, copies, now));
   else if (p.fraicheur?.avertissement) out.push({ point: c.point, motif: String(p.fraicheur.avertissement) });
   const bytes = new TextEncoder().encode(text).length;
   const max = MAX_BYTES[c.point];

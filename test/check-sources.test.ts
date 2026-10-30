@@ -30,13 +30,45 @@ describe("the daily check of the sources", () => {
     expect(motifs("vigilance", { emise: "23/10 10:25 heure de La Réunion", fraicheur: {} })).toEqual(["bulletin d'il y a 20,8 h (seuil 18 h)"]);
     const avertissement = "La source « Vigilance météo » n'a pas répondu à notre dernière lecture : ce qui vient d'elle date de notre lecture du 23/10 à 18:00.";
     expect(motifs("vigilance", { emise: "24/10 06:25", fraicheur: { copies_de_secours: [{ source: "Vigilance météo", lue_le: "23/10 18:00" }], avertissement } }))
-      .toEqual([`copie de secours : ${avertissement}`]);
+      .toEqual(["copie de secours de « Vigilance météo », lue le 23/10 18:00, il y a 13,2 h (seuil 6 h)"]);
+    // A copy under its threshold is not a problem, and its avertissement is not one either.
+    expect(motifs("vigilance", { emise: "24/10 06:25", fraicheur: { copies_de_secours: [{ source: "Vigilance météo", lue_le: "24/10 05:00" }], avertissement } })).toEqual([]);
     expect(motifs("meteo_actuelle", { stations: [{ heure_mesure: "24/10 02:30" }, { heure_mesure: "24/10 06:30" }], fraicheur: {} })).toEqual([]);
     expect(motifs("meteo_actuelle", { stations: [], fraicheur: {} })).toEqual(["mesure absente ou illisible"]);
     // The production's time is heure_mesure (electricite): fresh, three hours old and more, missing.
     expect(motifs("electricite", { production: { heure_mesure: "24/10 06:50 heure de La Réunion", age_min: 21 }, fraicheur: {} })).toEqual([]);
     expect(motifs("electricite", { production: { heure_mesure: "24/10 03:20 heure de La Réunion", age_min: 231 }, fraicheur: {} })).toEqual(["production d'il y a 3,9 h (seuil 3 h)"]);
     expect(motifs("electricite", { production: { heure: "24/10 06:50 heure de La Réunion" }, fraicheur: {} })).toEqual(["production absente ou illisible"]);
+  });
+
+  it("fails on a last copy only past its point's threshold, naming its source (the copies of 27 and 28/10)", () => {
+    const secours = (name: string, copies: unknown[], now: Date) =>
+      motifs(name, { fraicheur: { copies_de_secours: copies, avertissement: "…" } }, now).filter((m) => m.startsWith("copie de secours"));
+    // 28/10 07:11, the time of the daily run.
+    const at = new Date("2026-10-28T03:11:00Z");
+    // The OVPF's earthquakes, silent since 26/10 19:00: over the 6 h of the volcano at 12 h already, and still at 36 h.
+    expect(secours("volcan", [{ source: "Séismes sous le volcan", lue_le: "26/10 19:00" }], new Date("2026-10-27T03:11:00Z")))
+      .toEqual(["copie de secours de « Séismes sous le volcan », lue le 26/10 19:00, il y a 12,2 h (seuil 6 h)"]);
+    expect(secours("volcan", [{ source: "Séismes sous le volcan", lue_le: "26/10 19:00" }], at))
+      .toEqual(["copie de secours de « Séismes sous le volcan », lue le 26/10 19:00, il y a 36,2 h (seuil 6 h)"]);
+    // The prefecture's press releases at 3 h 30: under the 6 h.
+    expect(secours("volcan", [{ source: "Communiqués de presse de la préfecture de La Réunion", lue_le: "28/10 03:41" }], at)).toEqual([]);
+    // The airport's METAR at 5 h 40: over the 3 h of the measurement, not the 6 h of the others.
+    expect(secours("meteo_actuelle", [{ source: "Observations aéroport (METAR)", lue_le: "28/10 01:31" }], at))
+      .toEqual(["copie de secours de « Observations aéroport (METAR) », lue le 28/10 01:31, il y a 5,7 h (seuil 3 h)"]);
+    expect(secours("cyclones", [{ source: "Observations aéroport (METAR)", lue_le: "28/10 01:31" }], at)).toEqual([]);
+    // The agenda: Saint-Louis at 24 h 17 only, not at 1 h 18, nor the halls at 9 h.
+    expect(secours("evenements", [
+      { source: "Agenda de Saint-Louis", lue_le: "27/10 06:54" },
+      { source: "Agenda de Saint-Louis", lue_le: "28/10 05:53" },
+      { source: "Salles de spectacle et de concert de La Réunion", lue_le: "27/10 22:11" },
+    ], at)).toEqual(["copie de secours de « Agenda de Saint-Louis », lue le 27/10 06:54, il y a 24,3 h (seuil 24 h)"]);
+    // Without a source, a part of the answer; without a time that reads, over the threshold.
+    expect(secours("cyclones", [{ lue_le: "27/10 22:00" }], at)).toEqual(["copie de secours d'une partie de la réponse, lue le 27/10 22:00, il y a 9,2 h (seuil 6 h)"]);
+    expect(secours("cyclones", [{ source: "CMRS", lue_le: "hier" }, { source: "CMRS" }], at)).toEqual([
+      "copie de secours de « CMRS » : date de lecture absente ou illisible",
+      "copie de secours de « CMRS » : date de lecture absente ou illisible",
+    ]);
   });
 
   it("fails on the volcano's level unknown, and on an OVPF image left unread for a day", () => {
