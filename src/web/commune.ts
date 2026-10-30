@@ -20,7 +20,7 @@ import { anchorOf } from "./decheteries.js";
 import { hoursOn, openNow } from "../tools/annuaire.js";
 import { de, fr, nombre } from "../tools/format.js";
 import { tidesNear } from "../tools/maree.js";
-import { coastText, cyclone, cycloneLevel, highest, NONE_ISSUED, zoneLevels, zoneShort } from "../tools/vigilance.js";
+import { coastText, cyclone, cycloneLevel, feminine, forZone, highest, NONE_ISSUED, zoneLevels, zoneShort } from "../tools/vigilance.js";
 import type { AgendaAnswer, AirAnswer, Alerte, CalendrierAnswer, CommuneData, DechetsAnswer, CoupuresAnswer, EauAnswer, ElectriciteAnswer, PlaceData, RandonneesAnswer, SeaData, SecheresseAnswer, VolcanAnswer } from "./data.js";
 import { credit, joursDuJour } from "./data.js";
 import { aCommune, LINK } from "./aujourdhui.js";
@@ -116,11 +116,13 @@ function vigilance(p: PlacePage, data: Cached<mf.Vigilance> | null | undefined, 
   const zone = mf.ZONE_OF_COMMUNE[p.nom];
   const name = zoneShort(zone);
   const { above, issued } = zoneLevels(v, zone, now);
-  const said = above.length ? above.map((x) => `${vg(x.couleur)} ${esc(x.phenomene.toLowerCase())}`).join(", ") : issued ? vg(1) : esc(NONE_ISSUED);
+  const colour = (c: number) => vg(c, feminine(mf.colour(c)));
+  const said = above.length ? above.map((x) => `${colour(x.couleur)} ${esc(x.phenomene.toLowerCase())}`).join(", ") : issued ? colour(1) : esc(NONE_ISSUED);
   const coast = coastal(p) ? coastText(v) : undefined;
   return officielLive(lue({
-    valeur: `Zone ${esc(name)} de Météo-France : ${said}`,
-    detail: esc(`${p.nom} est dans la zone ${name}`) + (coast ? ` · ${esc(coast)}` : ""),
+    // As /aujourdhui says it (tools/resume.ts): « Vigilance météo : verte » / « pour l'Ouest (Météo-France), la zone de Saint-Paul ».
+    valeur: `Vigilance météo : ${said}`,
+    detail: esc(`${forZone(name)} (Météo-France), la zone de ${p.nom}`) + (coast ? ` · ${esc(coast)}` : ""),
   }, data!, now), mf.OFFICIEL_VIGILANCE);
 }
 

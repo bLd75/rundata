@@ -136,11 +136,18 @@ export function islandGreen(v: mf.Vigilance, now: Date): boolean {
 /** « Pas de vigilance émise », to begin a sentence. */
 export const NONE_ISSUED_SAID = NONE_ISSUED.charAt(0).toUpperCase() + NONE_ISSUED.slice(1);
 
-/** « jaune fortes pluies / orages, orange vents forts », « vert », or « pas de vigilance émise » (marketing). */
+const FEMININE: Record<string, string> = { vert: "verte", violet: "violette", gris: "grise" };
+/** « vigilance verte »: the colours as Météo-France names them, agreed with the word. */
+export const feminine = (colour: string) => FEMININE[colour] ?? colour;
+
+/** « jaune fortes pluies / orages, orange vents forts », « verte », or « pas de vigilance émise » (marketing). */
 export function zoneText(v: mf.Vigilance, zone: string | undefined, now: Date): string {
   const { above, issued } = zoneLevels(v, zone, now);
-  return above.length ? above.map((x) => `${mf.colour(x.couleur)} ${x.phenomene.toLowerCase()}`).join(", ") : issued ? mf.colour(1) : NONE_ISSUED;
+  return above.length ? above.map((x) => `${feminine(mf.colour(x.couleur))} ${x.phenomene.toLowerCase()}`).join(", ") : issued ? feminine(mf.colour(1)) : NONE_ISSUED;
 }
+
+/** « pour le Sud », « pour l'Est »: the land zone of Météo-France a vigilance is for. */
+export const forZone = (name: string) => `pour ${/^[AEIOUÉ]/.test(name) ? "l'" : "le "}${name}`;
 
 /** « Sud », « Sud-Est »: a land zone by its short name. */
 export const zoneShort = (zone: string | undefined) => (zone ? mf.ZONES[zone] ?? zone : "").split(" :")[0];
