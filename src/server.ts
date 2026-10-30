@@ -104,7 +104,7 @@ import * as marchesPublics from "./providers/marches-publics.js";
 import { emploi } from "./tools/emploi.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "1.0.16";
+export const VERSION = "1.0.17";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -134,7 +134,7 @@ async function withVigilance<R extends { content: { type: "text"; text: string }
   const [r, warnings] = await Promise.all([answer, vigilanceWarnings(cache)]);
   if (!warnings.lignes.length || r.isError) return r;
   const payload = JSON.parse(r.content[0].text) as Record<string, unknown>;
-  return { ...r, content: [{ type: "text", text: JSON.stringify({ vigilance: warnings.lignes, officiel: warnings.officiel, ...payload }, null, 1) }] };
+  return { ...r, content: [{ type: "text", text: JSON.stringify({ vigilance: warnings.lignes, officiel: warnings.officiel, ...payload }) }] };
 }
 
 /** An answer's texts with their no-break spaces: none of JSON's own spaces is before « : » or after a figure. */
