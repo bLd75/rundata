@@ -3,8 +3,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import * as climat from "../src/providers/climat.js";
 import * as meteofrance from "../src/providers/meteofrance.js";
+import { REGISTRY } from "../src/registre.js";
 import { type Historique, rle } from "../src/web/pluie-retro.js";
-import { configure, fill, freshSeconds, heures, HEURES, holes, merge, passage, PATHS, type Semaine, type Sources } from "../src/web/rejeu.js";
+import { configure, fill, freshSeconds, heures, HEURES, holes, merge, PATHS, type Semaine, type Sources } from "../src/web/rejeu.js";
 import { site } from "../src/web/site.js";
 
 const csv = readFileSync(new URL("./fixtures/meteofrance_horaire.csv", import.meta.url), "utf8");
@@ -138,11 +139,11 @@ describe("the replay bar's files", () => {
     expect(await get(PATHS["6h"])).toEqual({ radar: null, heures: null });
   });
 
-  it("are not asked of Météo-France by the scheduled event: without the package in the data center, nothing is read", async () => {
-    const { s, kept } = sources(null);
-    configure(s);
-    const now = at("2026-10-25T09:20:00Z");
-    expect(await passage(new Cache(new MemoryStore(), () => now.getTime()), now)).toBe("pas de paquet horaire dans ce centre de données");
-    expect(kept.writes).toBe(0);
+  it("are written by the files only: the scheduled event neither reads nor writes the week", async () => {
+    const worker = readFileSync(new URL("../src/worker.ts", import.meta.url), "utf8");
+    expect(worker).not.toContain("rejeu.passage");
+    expect(worker).not.toContain("semaine des stations");
+    expect(Object.keys(await import("../src/web/rejeu.js"))).not.toContain("passage");
+    expect(REGISTRY.filter((e) => e.from.includes("src/web/rejeu.ts") && e.trigger === "planifiée")).toEqual([]);
   });
 });

@@ -380,18 +380,6 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/mf-auth.ts"],
     basis: "estimé",
   },
-  // The stations' week (web/rejeu.ts), once an hour: the hourly package from the data center's cache, never asked of
-  // Météo-France; the week read from KV and written when the package is newer.
-  {
-    id: "stations:7j",
-    trigger: "planifiée",
-    what: "les heures des stations Météo-France sur 7 jours pour la barre de lecture de /meteo : le paquet horaire déjà gardé par le centre de données, ajouté dans KV quand il est plus récent",
-    every: 60,
-    offset: 20,
-    run: { subrequests: 3, kvReads: 1, kvWrites: 1, cpuMs: 20 },
-    from: ["src/web/rejeu.ts"],
-    basis: "code",
-  },
   // The copy read from KV, one offer's page (about 217 Ko, searched for its labels by position, never built), the copy
   // written when it changed: never two pages at once on the site. CPU and memory estimated from the page's size, to be
   // measured in a Worker.

@@ -18,9 +18,9 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 439 | 500 |
-| pire passage planifié, appels KV et D1 | 100 | 1 000 |
-| pire passage planifié, CPU (ms) | 3 354 | 30 000 |
+| pire passage planifié, sous-requêtes | 436 | 500 |
+| pire passage planifié, appels KV et D1 | 98 | 1 000 |
+| pire passage planifié, CPU (ms) | 3 334 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 80 | 128 |
 | passage le plus chargé (cadences les plus courtes), sous-requêtes | 162 | 500 |
 | vue la plus chère, sous-requêtes | 84 | 200 |
@@ -36,10 +36,10 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 439 | 28 | 52 | 20 | 1 124 | 239 | 3 354 |
-| tâche planifiée, par jour | 28 088 | 4 417 | 3 854 | 2 406 | 102 908 | 58 500 | 210 325 |
-| tâche planifiée, par jour, cadences les plus courtes | 38 980 | 5 713 | 5 678 | 2 886 | 107 948 | 58 500 | 255 805 |
-| tâche planifiée, par mois (30 jours) | 842 640 | 132 510 | 115 620 | 72 180 | 3 087 240 | 1 755 000 | 6 309 750 |
+| pire passage planifié | 436 | 27 | 51 | 20 | 1 124 | 239 | 3 334 |
+| tâche planifiée, par jour | 28 016 | 4 393 | 3 830 | 2 406 | 102 908 | 58 500 | 209 845 |
+| tâche planifiée, par jour, cadences les plus courtes | 38 908 | 5 689 | 5 654 | 2 886 | 107 948 | 58 500 | 255 325 |
+| tâche planifiée, par mois (30 jours) | 840 480 | 131 790 | 114 900 | 72 180 | 3 087 240 | 1 755 000 | 6 295 350 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -94,7 +94,6 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | radar:6h | pluie radar des 6 dernières heures pour le rejeu de /meteo : la dernière image de Météo-France ajoutée dans KV quand elle est nouvelle, ou un trou daté, et chaque quart d'heure une image gardée 24 heures | 5 min | 00:00 | 7 | 2 | 2 |  |  |  | 120 | estimé |
 | meteofrance:jeton | jeton Météo-France commun à tous les isolats : lu dans KV au premier besoin d'un isolat, à son échéance ou après un refus (401), au plus une fois par invocation qui lit Météo-France | 1 min | 00:00 | 1 | 1 |  |  |  |  |  | estimé |
 | meteofrance:jeton:nouveau | jeton Météo-France commun à tous les isolats : un nouveau jeton demandé au portail et écrit dans KV, environ une fois par heure | 30 min | 00:00 | 2 |  | 1 |  |  |  |  | estimé |
-| stations:7j | les heures des stations Météo-France sur 7 jours pour la barre de lecture de /meteo : le paquet horaire déjà gardé par le centre de données, ajouté dans KV quand il est plus récent | 60 min | 00:20 | 3 | 1 | 1 |  |  |  | 20 | code |
 | emploi:offres | emploi public : la page d'une offre de Choisir le service public à chaque événement, la plus récente pas encore lue, sinon chaque offre ouverte à son tour, écrites dans KV quand elles changent | 5 min | 00:00 | 3 | 1 | 1 |  |  |  | 15 | estimé |
 | emploi:flux | emploi public : le flux des 20 dernières offres de Choisir le service public pour La Réunion | 60 min | 00:25 | 1 |  |  |  |  |  | 5 | estimé |
 | marches-publics:liste | marchés publics : la liste des avis de marché ouverts publiés au BOAMP pour La Réunion, écrite dans KV quand elle change | 60 min | 00:35 | 3 | 1 | 1 |  |  |  | 10 | estimé |
@@ -252,7 +251,6 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | radar:6h | providers/mf-auth, providers/radar |
 | meteofrance:jeton | providers/mf-auth |
 | meteofrance:jeton:nouveau | providers/mf-auth |
-| stations:7j | providers/meteofrance, providers/mf-auth, providers/radar |
 | emploi:offres | providers/emploi |
 | emploi:flux | providers/emploi |
 | marches-publics:liste | providers/marches-publics |
