@@ -23,6 +23,27 @@ describe("the IGN's backgrounds on the zoomed maps", () => {
     expect(FONDS_SCRIPT).toContain("if(ep===epoch&&--pend===0)quiet()");
   });
 
+  it("take the old tiles away only once every tile of the latest view has come, not those of a view asked before", () => {
+    // One `want`, the latest view's: a tile of the view before, coming last, takes nothing of the new one away.
+    expect(FONDS_SCRIPT).toContain('sweep=()=>{for(const key of want){const im=have.get(key);if(im&&!im.dataset.ok)return}have.forEach((im,key)=>{if(!want.has(key)){im.remove();have.delete(key)}})}');
+    expect(FONDS_SCRIPT).toContain('im.addEventListener("load",()=>{im.dataset.ok="1";fin();sweep()},{once:true})');
+    expect(FONDS_SCRIPT.match(/want=new Set\(\)/g)).toHaveLength(2);
+    expect(FONDS_SCRIPT).not.toContain("const want=");
+  });
+
+  it("ask at most 96 tiles for a view, a level lower when the screen's level would take more, never none", () => {
+    expect(FONDS_SCRIPT).toContain("for(;;z--){x0=tx(lon(v.x),z);x1=tx(lon(v.x+v.width),z);y0=ty(lat(v.y),z);y1=ty(lat(v.y+v.height),z);if(z<=9||(x1-x0+1)*(y1-y0+1)<=96)break}");
+    expect(FONDS_SCRIPT).not.toContain(">96)return");
+  });
+
+  it("ask a refused tile again twice, keeping the old ones meanwhile, then leave the relief under its place", () => {
+    expect(FONDS_SCRIPT).toContain("if(im?!im.dataset.ok:again.has(key))return");
+    expect(FONDS_SCRIPT).toContain("if(t<3){again.add(key);setTimeout(()=>{again.delete(key);if(want.has(key))draw();else sweep()},1500*t)}sweep()");
+    // Each its own times only, and again from the start once the map has moved.
+    expect(FONDS_SCRIPT).toContain("if(have.has(key)||again.has(key)||tries.get(key)>2)continue;");
+    expect(FONDS_SCRIPT).toContain("timer=setTimeout(()=>{tries.clear();place();draw()},250)");
+  });
+
   it("load nothing from the IGN until the visitor picks one: no tile in the page, only its address in the script", () => {
     for (const html of [commune, trace]) {
       expect(html.replace(`<script>${FONDS_SCRIPT}</script>`, "")).not.toContain(IGN_TUILES);
