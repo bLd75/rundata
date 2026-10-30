@@ -134,7 +134,7 @@ import { STOP_PATH } from "./domains.js";
 import * as transit from "../providers/transit.js";
 import { carteRoute } from "./vigilance-carte.js";
 import { carteRoute as cmrsRoute } from "./cmrs-carte.js";
-import { RENDU_PATH } from "../providers/vigilance-carte.js";
+import { INTERDITS } from "../robots.js";
 import { PATH as PLUIE_RADAR, rainGrid } from "./pluie-radar.js";
 import { buildStation, STATION_PATH, STATIONS, stationOf, stationPage, stationPath } from "./station.js";
 import { DUREES, PATHS as REJEU, rejeu } from "./rejeu.js";
@@ -158,9 +158,11 @@ const GPX = { "content-type": "application/gpx+xml; charset=utf-8", "cache-contr
  * No robot follows a trip (web/trajet.ts): its page is not indexed, and it has an address per stop and per day, which
  * a stop's page links for each of its buses and which links back to each stop: a crawler went round them, 1 300 an hour.
  * The page that draws Météo-France's bulletin for Cloudflare's browser (web/vigilance-carte.ts) is not for anyone else.
+ * What every robot is forbidden is INTERDITS (robots.ts), which the Worker also refuses to the robots that ignore it.
  */
+const DISALLOW = INTERDITS.map((p) => `Disallow: ${p}\n`).join("");
 const ROBOTS = (origin: string) =>
-  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nDisallow: ${RENDU_PATH}\nAllow: /\n\nUser-agent: *\nDisallow: ${STOP_PATH}?q=\nDisallow: ${TRIP_PATH}/\nDisallow: ${RENDU_PATH}\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
+  `User-agent: Googlebot\nUser-agent: GoogleOther\nUser-agent: Bingbot\nDisallow: /*?maj=\n${DISALLOW}Allow: /\n\nUser-agent: *\n${DISALLOW}Allow: /\n\nSitemap: ${origin}/sitemap.xml\n`;
 
 /** IndexNow (Bing, Yandex, Seznam, Naver): the key that proves rundata.re's submissions are ours. Public by design. */
 export const INDEXNOW_KEY = "9cb4a2d427093776313488cb4d39b24a";
