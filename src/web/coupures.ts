@@ -149,7 +149,7 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
     ${ask(`Dolo la koupé ${p.nom} ? Kansa i rovien ? Gèt si ${url} é di amwin.`,
       `Y a-t-il une coupure d'eau ${where} ? Lis ${url} et dis-moi quand l'eau revient.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
+  <figure class="card mapcard nophone">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
 </div>`;
 
   // Up the page in the cyclone season, at its foot the rest of the year.

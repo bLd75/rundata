@@ -14,7 +14,8 @@ import { aCommune, deCommune } from "./aujourdhui.js";
 import type { Alerte, EnfantsAnswer } from "./data.js";
 import { agendaHours, connectorCta, crumbBar, crumbs, eventGo, loading, webPage } from "./domains.js";
 import { communeMap, esc, islandMap, type Spot } from "./map.js";
-import { anchorId, ask, FOLD_ROWS, folded, icon, layout, type Live } from "./pages.js";
+import { COUNT_COLOR, legende } from "./carte-legende.js";
+import { anchorId, ask, dayMonth, FOLD_ROWS, folded, icon, layout, type Live } from "./pages.js";
 
 type Row = EnfantsAnswer["evenements"][number];
 const { typo } = enfants;
@@ -99,7 +100,7 @@ export function enfantsPage(origin: string, data: Cached<EnfantsAnswer> | null, 
   const markers = communes.map((c) => {
     const list = enfants.inCommune(c);
     return { lon: list.reduce((n, l) => n + l.lon, 0) / list.length, lat: list.reduce((n, l) => n + l.lat, 0) / list.length, label: String(list.length), name: `${c} : ${count(list.length, "lieu", "lieux")}`,
-      round: true, color: "#e8590c", quiet: true, place: c, say: count(list.length, "lieu", "lieux"), href: pathOf(c) ?? `#${anchorId("c", c)}` };
+      round: true, color: COUNT_COLOR, quiet: true, place: c, say: count(list.length, "lieu", "lieux"), href: pathOf(c) ?? `#${anchorId("c", c)}` };
   });
 
   const weekend = new Set((d?.ce_week_end ?? []).map((r) => `${r.titre}|${r.date}`));
@@ -137,7 +138,7 @@ export function enfantsPage(origin: string, data: Cached<EnfantsAnswer> | null, 
     ${ask(ASK_KREOL, ASK_FRANCAIS)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : le nombre de lieux pour les enfants par commune" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Nombre de lieux par commune.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "rond", couleur: COUNT_COLOR, texte: "12", dit: "lieux pour les enfants dans la commune" }], esc(`Donnée fixe : OpenStreetMap, Data ES et Basilic, lue le ${dayMonth(enfants.BUILT)}.`))}</figcaption></figure>
 </div>`;
 
   const body = `<div id="enf" data-note="${esc(enfants.INDICATIF_NOTE)}">

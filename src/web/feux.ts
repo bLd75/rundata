@@ -11,7 +11,8 @@ import { listLine, QUIET, URGENCE, when } from "../tools/feux.js";
 import { credits as creditOf } from "../tools/format.js";
 import { cyclone, islandGreen, NONE_ISSUED_SAID, raised } from "../tools/vigilance.js";
 import type { Alerte, SentiersAnswer } from "./data.js";
-import { closedMarkers, closedTrails, connectorCta, crumbBar, crumbs, fireId, fireMarkers, sourcesNote, webPage } from "./domains.js";
+import { CLE_FERME, CLE_FEU, closedMarkers, closedTrails, connectorCta, crumbBar, crumbs, fireId, fireMarkers, onfMap, sourcesNote, webPage } from "./domains.js";
+import { legende } from "./carte-legende.js";
 import { esc, islandMap } from "./map.js";
 import { ask, credits, DESCRIPTION_MAX, hm, layout, officielHtml } from "./pages.js";
 
@@ -72,6 +73,15 @@ function vigilance(v: Cached<mf.Vigilance> | null | undefined, now: Date): strin
   return `${c.startsWith("Pas d'") ? "" : `<p><b>${esc(c)}</b></p>`}${up}<p>${officielHtml(mf.OFFICIEL_VIGILANCE)}</p><p class="note"><a href="/vigilance">La vigilance zone par zone →</a></p>`;
 }
 
+/** The map's line of sources: the satellites read and when, a quiet day said as such, then the ONF's map. */
+function firesLine(l: FeuxLive): string {
+  const trails = l.sentiers ? ` Sentiers : ${onfMap(l.sentiers.value).replace(/^C/, "c")}.` : "";
+  if (!feux.enabled() || !l.fires) return trails.trim();
+  return (l.fires.detections.length
+    ? `Points chauds : satellites de la NASA (FIRMS), lus à ${hm(l.fires.fetchedAt)}.`
+    : `Aucun point chaud détecté par satellite (NASA FIRMS, lu à ${hm(l.fires.fetchedAt)}).`) + trails;
+}
+
 export function feuxPage(origin: string, l: FeuxLive, now = new Date(), alerte?: Alerte): string {
   const on = feux.enabled();
   const description = on ? feuxDescription(l.fires, now) : BLIND_META;
@@ -91,7 +101,7 @@ export function feuxPage(origin: string, l: FeuxLive, now = new Date(), alerte?:
       "Y a-t-il un feu de forêt à La Réunion en ce moment ? Lis https://rundata.re/feux et dis-moi où le satellite en a vu, à quelle heure, et quels sentiers sont fermés.")}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les feux détectés par satellite et les sentiers fermés" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Chaque point orange est un feu détecté par satellite (faux positifs possibles), chaque croix un sentier fermé.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([...(l.fires?.detections.length ? [CLE_FEU] : []), CLE_FERME], esc(firesLine(l)))}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-feux">

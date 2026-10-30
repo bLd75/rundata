@@ -56,6 +56,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-31T02:55:00+04:00", texte: "Cartes\u00a0: sous chaque carte de points, la légende dessine chaque marque et dit la source et l'heure de ce qu'elle montre." },
   { date: "2026-10-31T02:39:00+04:00", texte: "Sport\u00a0: le beach-volley a sa rubrique, avec les épreuves sur sable de la Ligue réunionnaise de volley-ball et leurs annulations." },
   { date: "2026-10-31T02:27:00+04:00", texte: "Marchés\u00a0: le marché forain du jour en premier, les marchés ouverts toute la semaine à part, et le lien de la mairie si les jours manquent." },
   { date: "2026-10-31T02:12:00+04:00", texte: "Communes\u00a0: la carte de la page des communes nomme les 24\u00a0communes, et chaque nom mène à la page de sa commune." },

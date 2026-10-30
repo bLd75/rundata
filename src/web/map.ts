@@ -52,6 +52,8 @@ export interface Marker {
   round?: boolean;
   /** A ring rather than a disc (round only): nothing measured lately. */
   hollow?: boolean;
+  /** A triangle, point up, the size of a disc: a hot spot seen by satellite (/feux), its shape saying what it is. */
+  triangle?: boolean;
   /** Its name in the tooltip only: for a crowded map where only a few markers need saying. */
   quiet?: boolean;
   /** Where a tap on it leads: the row of the page that details it, or the place's page. */
@@ -195,7 +197,9 @@ function marker(m: Marker, hit = HIT, at?: [number, number]): string {
   const [x, y] = at ?? project(m.lon, m.lat);
   const fill = m.color ?? "var(--ink)";
   const w = pillW(m);
-  const shape = m.round
+  const shape = m.triangle
+    ? `<path class="sh" d="M${x} ${y - 38}L${x + 37} ${y + 28}H${x - 37}Z" fill="${fill}"/>`
+    : m.round
     ? m.hollow
       ? `<circle class="sh" cx="${x}" cy="${y}" r="30" style="fill:#fff;stroke:${fill};stroke-width:8"/>`
       : `<circle class="sh" cx="${x}" cy="${y}" r="34" fill="${fill}"/>`

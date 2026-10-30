@@ -42,6 +42,7 @@ import * as mf from "../providers/vigilance.js";
 import { carteHtml } from "./cmrs-carte.js";
 import { hikesZoom } from "./carte-zoom.js";
 import { esc, fenetre, hikesMap, islandMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
+import { type Cle, COUNT_COLOR, legende } from "./carte-legende.js";
 import { reprise } from "./ouvrir-donnees.js";
 import { cloudSeaLink, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
@@ -332,7 +333,7 @@ export function volcanPage(origin: string, data: Cached<VolcanAnswer> | null, no
     ${status}
     ${a ? "" : question}
   </div>
-  <figure class="card mapcard${a ? " nophone" : ""}">${islandMap({ pin: FOURNAISE, label: "Carte de La Réunion (974) avec le Piton de la Fournaise" })}</figure>
+  <figure class="card mapcard nophone">${islandMap({ pin: FOURNAISE, label: "Carte de La Réunion (974) avec le Piton de la Fournaise" })}</figure>
 </div>`;
 
   // « Puis-je monter au volcan ? », first: the official texts place by place, and the levels of the plan (marketing).
@@ -829,7 +830,7 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
 </section>`).join("\n");
 
   const band = `${crumbBar("Calendrier")}
-<div class="wrap intro">
+<div class="wrap intro solo">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Aujourd'hui à La Réunion</p>
     <h1>Vacances scolaires et jours fériés à La Réunion</h1>
@@ -837,7 +838,6 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
     ${ask(`Kansa lé lo prochin vakans lékol é lo prochin zour férié La Rényon ? Gèt si ${url} é di amwin.`,
       `Quand sont les prochaines vacances scolaires et le prochain jour férié à La Réunion ? Lis ${url} et dis-le-moi.`)}
   </div>
-  ${sun ? `<figure class="card mapcard">${islandMap({ peaks: true, label: "Carte de La Réunion (974)" })}</figure>` : ""}
 </div>`;
 
   const body = `${years}
@@ -1109,9 +1109,15 @@ const dayAt = (d: Date) => localTime(d).replace(" ", " à ");
 const riverCore = (r: string) => normalize(r).replace(/^(grande |petite )?(riviere|ravine|bras|etang) (de la |des |du |de |d )?/, "");
 
 /** A marker of the map as the legend shows it: filled, with its sign, or a ring. */
-const gaugeKey = (kind: keyof typeof GAUGE_COLOR, sign = "") =>
-  `<span aria-hidden="true" style="display:inline-block;width:1.1em;height:1.1em;box-sizing:border-box;border-radius:50%;vertical-align:-.2em;text-align:center;line-height:1em;font-size:.85em;font-weight:700;color:#fff;` +
-  `${kind === "muette" ? `border:2px solid ${GAUGE_COLOR[kind]};background:#fff` : `border:2px solid #fff;background:${GAUGE_COLOR[kind]}`}">${sign}</span>`;
+/** « , la plus récente à 02:45 » (« le 30/10 à 02:45 » another day), from the stations' times (« 31/10 02:45 »). */
+function latestGauge(d: CruesAnswer | undefined, now: Date): string {
+  const key = (t: string) => t.replace(/^(\d\d)\/(\d\d)/, "$2$1");
+  const last = (d?.stations ?? []).filter(upToDate).map((s) => s.heure_mesure).filter((t): t is string => !!t).sort((a, b) => key(a).localeCompare(key(b))).pop();
+  if (!last) return "";
+  const [day, time] = last.split(" ");
+  return day === localTime(now).split(" ")[0] ? `, la plus récente à ${time}` : `, la plus récente le ${day} à ${time}`;
+}
+
 
 /** The vigilance in the page's status, from Vigicrues Réunion; `readAt`: our read, when it could not be read. */
 function floodVigilance(v: CruesAnswer["vigilance_crues"], read: string): string {
@@ -1247,7 +1253,11 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
       `La rivière monte-t-elle à Saint-Benoît ? Lis ${url} et dis-moi si l'eau monte.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les stations de mesure des rivières de la DEAL" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Stations de la DEAL : ${gaugeKey("hausse", "↑")} en hausse · ${gaugeKey("calme")} stable ou en baisse · ${gaugeKey("muette")} sans mesure récente.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([
+    { forme: "rond", couleur: GAUGE_COLOR.hausse, texte: "↑", dit: "en hausse" },
+    { forme: "rond", couleur: GAUGE_COLOR.calme, dit: "stable ou en baisse" },
+    { forme: "anneau", couleur: GAUGE_COLOR.muette, dit: "sans mesure récente" },
+  ], esc(`Mesure des stations de la DEAL${latestGauge(d, now)}.`))}</figcaption></figure>
 </div>`;
 
   const sources = d && data
@@ -1353,7 +1363,10 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
       `Où recharger rapidement ma voiture électrique à Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les points de charge libres, commune par commune" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Points de charge libres en ce moment, par commune.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([
+    { forme: "rond", couleur: "#2b8a3e", texte: "3", dit: "points de charge libres dans la commune" },
+    { forme: "rond", couleur: "#868e96", texte: "0", dit: "aucun libre" },
+  ], data ? esc(`En ce moment, d'après les opérateurs de recharge (transport.data.gouv.fr), lu à ${hm(data.fetchedAt)}.`) : undefined)}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-rapide">
@@ -1386,7 +1399,7 @@ export function bornesLive(data: Cached<BornesAnswer> | null, now = new Date()):
 
 // ---------------------------------------------------------------- qualité de l'eau
 
-const WATER_COLOR: Record<string, string> = { bonne: "#2b8a3e", moyenne: "#e8590c", mauvaise: "#c92a2a" };
+const WATER_COLOR: Record<string, string> = { bonne: "#2b8a3e", moyenne: "#e8590c", mauvaise: "#e3262d" };
 const WATER_MARK: Record<string, string> = { bonne: "✓", moyenne: "~", mauvaise: "!" };
 const dayFr = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
@@ -1415,7 +1428,9 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
   const url = `${origin}/eau`;
   const good = d?.baignades.filter((s) => s.qualite_dernier_prelevement === "bonne").length ?? 0;
   const notGood = d?.baignades.filter((s) => s.qualite_dernier_prelevement && s.qualite_dernier_prelevement !== "bonne") ?? [];
-  const lastSample = d?.baignades.map((s) => s.dernier_prelevement.split("/").reverse().join("-")).sort().pop();
+  const samples = (d?.baignades ?? []).map((s) => s.dernier_prelevement.split("/").reverse().join("-")).sort();
+  const firstSample = samples[0];
+  const lastSample = samples.at(-1);
   const tapBad = d?.communes.filter((c) => c.non_conformes_6_mois) ?? [];
 
   const status = !d
@@ -1455,7 +1470,8 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
       `L'eau est-elle bonne pour se baigner à La Réunion ? Lis ${url} et dis-moi pour la plage de l'Hermitage et l'eau du robinet à Saint-Pierre.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : la qualité de l'eau au dernier prélèvement de chaque plage et bassin contrôlé" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Qualité au dernier prélèvement : ✓ bonne, ~ moyenne, ! mauvaise.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende(["bonne", "moyenne", "mauvaise"].map((q): Cle => ({ forme: "rond", couleur: WATER_COLOR[q], texte: WATER_MARK[q], dit: q })),
+    firstSample && lastSample ? esc(`Qualité au dernier prélèvement de l'ARS, ${firstSample === lastSample ? `le ${dayFr(lastSample)}` : `du ${dayFr(firstSample).slice(0, 5)} au ${dayFr(lastSample)}`}.`) : undefined)}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-baignade">
@@ -1497,10 +1513,21 @@ const kmFr = (n: number) => String(n).replace(".", ",");
 // With its unit: « 2\u202f450\u00a0m ».
 const meters = (n: number) => `${nombre(n)}\u00a0m`;
 
-/** The fires seen by satellite, on the island's map: orange, apart from the closed trails. */
+/**
+ * The hot spots seen by satellite, on the island's map: a brown-red triangle (charter of the maps), its shape saying
+ * what it is, neither the orange of the cyclone alert nor the red of « fermé ».
+ */
 export const fireMarkers = (f: feux.Feux | undefined, now: Date): Marker[] =>
-  (f?.detections ?? []).map((d, i) => ({ lon: d.lon, lat: d.lat, label: "!", name: `${fire.listLine(d, now)} (${feux.LABEL})`, round: true, color: "#e8590c",
+  (f?.detections ?? []).map((d, i) => ({ lon: d.lon, lat: d.lat, label: "", name: `${fire.listLine(d, now)} (${feux.LABEL})`, round: true, triangle: true, color: FIRE_COLOR,
     place: "Feu vu par satellite", say: fire.listLine(d, now), href: `#${fireId(i)}` }));
+
+const FIRE_COLOR = "#7c2d12";
+const CLOSED_COLOR = "#e3262d";
+/** The two marks of the maps of fires and trails, in their legend (marketing's words). */
+export const CLE_FEU: Cle = { forme: "triangle", couleur: FIRE_COLOR, dit: "Point chaud détecté par satellite, pas forcément un feu." };
+export const CLE_FERME: Cle = { forme: "rond", couleur: CLOSED_COLOR, texte: "×", dit: "Sentier fermé" };
+/** « Carte de l'ONF du 20/10 », from the copy's « 20/10/2026 (ONF) ». */
+export const onfMap = (d?: SentiersAnswer) => `Carte de l'ONF${d?.carte_mise_a_jour ? ` du ${d.carte_mise_a_jour.slice(0, 5)}` : ""}`;
 
 /** A fire's line in the list of the page, where its marker leads: the list and the markers follow the same order. */
 export const fireId = (i: number) => `f-${i + 1}`;
@@ -1508,7 +1535,7 @@ export const fireId = (i: number) => `f-${i + 1}`;
 /** The closed trails on the map, each to its line among the closed trails (`page`: of /sentiers, from another page). */
 export const closedMarkers = (s: SentiersAnswer | undefined, page = ""): Marker[] => {
   const listed = new Set((s?.fermes_par_commune ?? []).flatMap((c) => c.sentiers_fermes.map((t) => t.sentier)));
-  return (s?.points ?? []).map((p) => ({ lon: p.lon, lat: p.lat, label: "×", name: `${p.nom} : fermé`, round: true, color: "#c92a2a", quiet: true,
+  return (s?.points ?? []).map((p) => ({ lon: p.lon, lat: p.lat, label: "×", name: `${p.nom} : fermé`, round: true, color: CLOSED_COLOR, quiet: true,
     ...(listed.has(p.nom) ? { place: p.nom, say: "sentier fermé", href: `${page}#${anchorId("t", p.nom)}` } : {}) }));
 };
 
@@ -1593,7 +1620,7 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
       `Le sentier de Roche Plate est-il ouvert ? Lis ${url} et dis-moi si je peux descendre dans Mafate.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les sentiers de randonnée fermés" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Chaque croix est un sentier fermé${burning ? ", chaque point orange un feu détecté par satellite (faux positifs possibles)" : ""}.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([CLE_FERME, ...(burning ? [CLE_FEU] : [])], esc(`${onfMap(d)}${burning ? " ; points chauds : satellites de la NASA (FIRMS)" : ""}.`))}</figcaption></figure>
 </div>`;
 
   const body = `${burning ? fires : ""}<section aria-labelledby="h-fermes">
@@ -1740,7 +1767,8 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
     name: r.vma_kmh != null ? `${r.commune}, ${r.vma_kmh}\u00a0km/h` : r.commune, quiet: true }));
   const radarsCard = `<div class="card" id="radars">${icon("car")}<h3>Radars fixes</h3>
   <p>${radarsLead}</p>
-  ${islandMap({ markers: radarMarkers, label: radarsLead, apart: true })}
+  <figure class="mapcard">${islandMap({ markers: radarMarkers, label: radarsLead, apart: true })}
+  <figcaption class="note">${legende([{ forme: "pastille", couleur: "var(--ink)", texte: "90", dit: "Radar fixe : vitesse limitée en km/h" }])}</figcaption></figure>
   <ul class="rows eau">${cameras.map((c) => `<li><span>${esc(c.commune)}<small>${esc(radars.vitesses(c.radars).join(", "))}</small></span><span class="score">${c.radars.length}</span></li>`).join("")}</ul>
   <details><summary>Où ils sont</summary><ul class="plain">${cameras.flatMap((c) => c.radars.map((r) => `<li>${esc(c.commune)}${r.vma_kmh != null ? `, ${r.vma_kmh}\u00a0km/h` : ""} : <a href="${esc(radars.carte(r))}" rel="noopener">la carte ↗</a></li>`)).join("")}</ul></details>
   <p class="note">${esc(radars.RESERVE())}</p></div>`;
@@ -2368,7 +2396,7 @@ navigator.geolocation.getCurrentPosition((p)=>(list?Promise.resolve(list):fetch(
 export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/defibrillateurs`;
-  const markers = (d?.communes ?? []).map((c) => ({ lon: c.lon, lat: c.lat, label: String(c.nombre), name: `${c.commune} : ${c.nombre} défibrillateurs`, round: true, color: "#2b8a3e", quiet: true,
+  const markers = (d?.communes ?? []).map((c) => ({ lon: c.lon, lat: c.lat, label: String(c.nombre), name: `${c.commune} : ${c.nombre} défibrillateurs`, round: true, color: COUNT_COLOR, quiet: true,
     place: c.commune, say: `${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}`, href: `#${anchorId("c", c.commune)}` }));
 
   const status = !d
@@ -2406,7 +2434,7 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
       `Où est le défibrillateur le plus proche de la plage de l'Hermitage ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : le nombre de défibrillateurs par commune" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Nombre de défibrillateurs par commune.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "rond", couleur: COUNT_COLOR, texte: "52", dit: "défibrillateurs de la commune" }], esc(`Donnée fixe : Géo'DAE, lue le ${dayMonth(DAE_BUILT)}.`))}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-dae">
@@ -2720,7 +2748,11 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
       `Il a plu combien ces derniers jours à Saint-Benoît, et c'est normal ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : la pluie des 30 derniers jours à six stations, en pourcentage de la normale" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Pluie des 30 derniers jours, en % de la normale 1991-2020 : <span style="color:#ff922b">moins de 50 %</span>, <span style="color:#69db7c">proche</span>, <span style="color:#4dabf7">plus de 150 %</span>.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([
+    { forme: "pastille", couleur: "#ff922b", texte: "40 %", dit: "moins de 50 %" },
+    { forme: "pastille", couleur: "#69db7c", texte: "100 %", dit: "proche" },
+    { forme: "pastille", couleur: "#4dabf7", texte: "160 %", dit: "plus de 150 %" },
+  ], "Pluie des 30 derniers jours mesurée par Météo-France, en % de la normale 1991-2020.")}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-trente">

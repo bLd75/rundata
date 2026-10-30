@@ -7,7 +7,7 @@ import { CSS } from "../src/web/pages.js";
 import { pageOf } from "../src/web/places.js";
 
 const ORIGIN = "https://rundata.re";
-const map = (html: string) => html.match(/<figure class="card mapcard">(.*?)<\/figure>/s)![1];
+const map = (html: string) => html.match(/<figure class="card mapcard(?: nophone)?">(.*?)<\/figure>/s)![1];
 
 /** A commune's outline (island.json: « M » then relative moves), and whether a point is inside it. */
 const ring = (nom: string) => {
