@@ -104,7 +104,7 @@ import * as marchesPublics from "./providers/marches-publics.js";
 import { emploi } from "./tools/emploi.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "1.0.35";
+export const VERSION = "1.0.36";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -752,8 +752,8 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
         "Sport à La Réunion (974) : matchs à venir et derniers résultats officiels des championnats régionaux de handball (D1) et de volley " +
         "(R1 et R2, hommes et femmes, toutes les poules), avec les clubs en toutes lettres (VBSP = Volley-Ball de Saint-Pierre) et la commune où l'on joue, " +
         "les matchs annulés ou reportés (avis de la Ligue de volley, actualité locale), classements, " +
-        "rallyes et sport automobile (calendrier de la Ligue), Grand Raid (courses, partants, abandons, podiums), les programmes sportifs publiés par les communes " +
-        "(le lien du document de la mairie, sans son contenu). " +
+        "beach-volley et sport auto (calendriers des ligues), Grand Raid (courses, partants, abandons, podiums), les programmes sportifs publiés par les communes " +
+        "(leur lien seulement). " +
         // Said while neither federation is read (providers/autorisations.ts), so that the answer's mention is read (marketing).
         (!autorisee("sport:ffvoile") && !autorisee("sport:ffgolf") ? "Les régates et le golf ne sont pas repris : la réponse dit pourquoi. " : "") +
         "Pour : « match de hand ce week-end à Saint-Pierre ? », « prochain rallye ? », « qui a gagné le Grand Raid ? ».",

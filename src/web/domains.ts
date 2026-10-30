@@ -2424,7 +2424,7 @@ ${connectorCta("defibrillateurs", "les défibrillateurs")}
 // ---------------------------------------------------------------- sport
 
 const SPORT_LISTED = 8;
-const SPORT_ORDER = ["handball", "volley-ball", "voile", "golf", "sport auto", "triathlon"];
+const SPORT_ORDER = ["handball", "volley-ball", "beach-volley", "voile", "golf", "sport auto", "triathlon"];
 // The sports in the sentence of the count, as the page always named them.
 const SPORT_SAID: Record<string, string> = { "volley-ball": "volley", "sport auto": "sport automobile" };
 const sportName = (s: string) => (s === "sport auto" ? "Sport automobile" : s.charAt(0).toUpperCase() + s.slice(1));

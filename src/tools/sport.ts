@@ -14,15 +14,16 @@ import { mentionLa1ere, mentionSports } from "./non-repris.js";
 import { injoignable } from "./injoignable.js";
 import { rienTrouve } from "../vide.js";
 
-export type Sport = "grand_raid" | "handball" | "volley" | "basket" | "voile" | "golf" | "sport_auto" | "football";
+export type Sport = "grand_raid" | "handball" | "volley" | "beach_volley" | "basket" | "voile" | "golf" | "sport_auto" | "football";
 export type Quand = "aujourd_hui" | "demain" | "samedi" | "dimanche" | "ce_week_end" | "a_venir" | "resultats";
 
-export const SPORTS: Sport[] = ["grand_raid", "handball", "volley", "basket", "voile", "golf", "sport_auto", "football"];
+export const SPORTS: Sport[] = ["grand_raid", "handball", "volley", "beach_volley", "basket", "voile", "golf", "sport_auto", "football"];
 export const QUANDS: Quand[] = ["aujourd_hui", "demain", "samedi", "dimanche", "ce_week_end", "a_venir", "resultats"];
 const NAMES: Record<Sport, string> = {
   grand_raid: "Grand Raid",
   handball: "handball",
   volley: "volley-ball",
+  beach_volley: "beach-volley",
   basket: "basket-ball",
   voile: "voile",
   golf: "golf",
@@ -147,20 +148,26 @@ function matchRow(c: src.Championnat, m: src.Match, calledOff: avis.Avis[]): Row
   };
 }
 
-const eventRow = (e: src.Epreuve): Row => ({
-  sport: e.sport,
-  quand: span(e),
-  date: e.debut,
-  fin: e.fin,
-  epreuve: e.nom,
-  detail: e.detail,
-  lieu: e.lieu,
-  commune: e.commune,
-  etat: e.etat,
-  lien: e.lien,
-  communes: [e.commune],
-  clubs: [],
-});
+/** An event; one on the sand called off by a notice of the league says so, as a match does (avis.avisBeach). */
+function eventRow(e: src.Epreuve, calledOff: avis.Avis[] = []): Row {
+  const off = e.sport === "beach-volley" && !e.etat ? avis.avisBeach(calledOff, e) : undefined;
+  return {
+    sport: e.sport,
+    quand: span(e),
+    date: e.debut,
+    fin: e.fin,
+    epreuve: e.nom,
+    detail: e.detail,
+    lieu: e.lieu,
+    commune: e.commune,
+    etat: off ? (off.statut === "annulé" ? "annulée" : "reportée") : e.etat,
+    selon: off?.source,
+    lien_avis: off?.lien,
+    lien: e.lien,
+    communes: [e.commune],
+    clubs: [],
+  };
+}
 
 /** The sports of the tool a club's event on Sportsregions may be of (its JSON-LD `sport`). */
 const SPORT_DU_CLUB: [RegExp, Sport][] = [[/^golf/i, "golf"], [/^volley/i, "volley"], [/^hand/i, "handball"], [/^voile/i, "voile"], [/^(?:sport )?auto/i, "sport_auto"]];
@@ -258,7 +265,9 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date, 
   // A federation's site not read until it agrees (src/providers/autorisations.ts): nor is its sport here.
   const want = (s: Sport) => (!sport || sport === s) && autorisee(`sport:${FEDERATION[s] ?? s}`);
   const clubsWanted = clubsDe(sport);
-  const agendasWanted = want("volley") || clubsWanted;
+  // The volley league's calendar: its events on the sand are the beach volley's (« beach »), the others the volley's.
+  const league = want("volley") || want("beach_volley");
+  const agendasWanted = league || clubsWanted;
   const [grandRaid, handball, volley, voile, golfs, auto, notices, presse, agendas] = await Promise.all([
     want("grand_raid") ? attempt(src.SOURCES.livetrail, () => src.grandRaid(cache, now)) : undefined,
     want("handball") ? attempt(src.SOURCES.ffhb, () => src.championnats(cache, "handball")) : undefined,
@@ -266,7 +275,7 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date, 
     want("voile") ? attempt(src.SOURCES.ffvoile, () => src.regates(cache, now)) : undefined,
     want("golf") ? attempt(src.SOURCES.ffgolf, () => src.golf(cache, now)) : undefined,
     want("sport_auto") ? attempt(src.SOURCES.lsar, () => src.sportAuto(cache)) : undefined,
-    want("volley") ? attempt(avis.SOURCE, () => avis.avisLigue(cache, now)) : undefined,
+    league ? attempt(avis.SOURCE, () => avis.avisLigue(cache, now)) : undefined,
     want("volley") || want("handball") ? cache.peek<Fil>("actualites:fil").catch(() => undefined) : undefined,
     // The communes' programmes, of every sport, only when none is asked; the volley league's tournaments; the clubs'
     // events.
@@ -274,7 +283,7 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date, 
       ? sportDesAgendas(cache, !sport).catch((err) => (console.error("programmes sportifs : copie des agendas illisible", why(err)), undefined))
       : undefined,
   ]);
-  const ligue = want("volley") ? agendas?.tournois : undefined;
+  const ligue = league ? agendas?.tournois : undefined;
   const ofSport = agendas?.clubs?.value.filter((e) => (!sport || sportDuClub(e.organisateur?.sport) === sport) && (adherent || !e.reserve_adherents));
   return {
     grandRaid,
@@ -283,14 +292,14 @@ export async function gather(cache: Cache, sport: Sport | undefined, now: Date, 
       voile,
       golfs,
       auto,
-      ligue ? { source: src.SOURCES.lrvb_tournois, value: { ...ligue, value: ligue.value.flatMap(tournoi) } } : undefined,
+      ligue ? { source: src.SOURCES.lrvb_tournois, value: { ...ligue, value: ligue.value.filter((e) => want(surSable(e) ? "beach_volley" : "volley")).flatMap(tournoi) } } : undefined,
     ].filter((x): x is Got<src.Epreuve[]> => !!x),
     clubs: ofSport?.length ? { source: src.SOURCES.sportsregions, value: { ...agendas!.clubs!, value: ofSport } } : undefined,
     avis: notices,
     presse,
     programmes: agendas?.programmes,
     nonLus: [
-      want("volley") ? nonLu(LIGUE_VOLLEY, agendas?.nonServies.tournois) : undefined,
+      league ? nonLu(LIGUE_VOLLEY, agendas?.nonServies.tournois) : undefined,
       clubsWanted && autorisee(`agenda:${SPORTSREGIONS.id}`) ? nonLu(SPORTSREGIONS, agendas?.nonServies.clubs) : undefined,
     ].filter((x): x is string => !!x),
   };
@@ -310,10 +319,16 @@ export function derniereLecture(r: NonNullable<ReturnType<typeof nonServie>>): s
   return r.essai ? `dernière lecture sans succès (${quand(r.essai)})` : "première lecture dans quelques minutes";
 }
 
+/**
+ * On the sand: the league files it under « beach » (lrvb.re's calendar). Not its « OUTDOOR » events alone: the Green
+ * 3X3 is played on grass, and the King does not say where.
+ */
+export const surSable = (e: Pick<Evenement, "categories">) => e.categories.some((c) => /^beach$/i.test(c.trim()));
+
 /** A tournament of the volley league, as `evenements` read it: its place as the league gives it, or « à venir ». */
 function tournoi(e: Evenement): src.Epreuve[] {
   return e.seances.slice(0, 1).map((s) => ({
-    sport: "volley-ball" as const,
+    sport: surSable(e) ? ("beach-volley" as const) : ("volley-ball" as const),
     nom: e.titre,
     debut: s.debut.slice(0, 10),
     fin: (s.fin ?? s.debut).slice(0, 10),
@@ -384,6 +399,9 @@ const PROGRAMMES =
   "Programme sportif de la commune : le document publié par la mairie avec les compétitions de ses clubs. rundata.re ne lit pas ce document, il en donne seulement le lien : " +
   "les matchs, les heures et les lieux sont dans le document.";
 
+const BEACH_CALENDAR =
+  "Le calendrier du beach-volley est celui de la Ligue réunionnaise de volley-ball (ses épreuves « beach »). Elle ne publie pas de tableau de résultats\u00a0: les résultats sont dans ses articles.";
+
 const COMMON = {
   non_couvert:
     "Football (Régionale 1 et coupes), basket, rugby, tennis et courses à pied : pas de source ouverte lisible en direct. Les heures sont celles de La Réunion.",
@@ -431,7 +449,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
   const calledOff = [...(data.avis?.value?.value ?? []), ...press.avis];
   const rows: Row[] = [
     ...data.championnats.flatMap((g) => (g.value?.value ?? []).flatMap((c) => c.matchs.filter((m) => m.date).map((m) => matchRow(c, m, calledOff)))),
-    ...data.epreuves.flatMap((g) => (g.value?.value ?? []).map(eventRow)),
+    ...data.epreuves.flatMap((g) => (g.value?.value ?? []).map((e) => eventRow(e, calledOff))),
     ...(data.clubs?.value?.value ?? []).flatMap(clubRow),
   ].flatMap((r) => {
     const k = w ? keep(w, r) : r;
@@ -443,6 +461,11 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     .filter((i) => inWindow(i) && !i.score && (i.fin ?? i.date).slice(0, 10) >= today)
     .sort((x, y) => x.date.localeCompare(y.date));
   const upcoming = aheadAll.slice(0, UPCOMING_MAX);
+  // Beach volley has a few events a year: with none in the period, its next one, and the league's calendar.
+  const beach = sport === "beach_volley";
+  const nextBeach = beach && !aheadAll.length && q !== "resultats"
+    ? rows.filter((i) => i.date.slice(0, 10) > au && i.etat !== "annulée").sort((x, y) => x.date.localeCompare(y.date))[0]
+    : undefined;
   const results = q === "a_venir" ? [] : rows
     .filter((i) => inWindow(i) && (i.score || (i.etat === "résultats publiés" && (i.fin ?? i.date) < today)))
     .sort((x, y) => y.date.localeCompare(x.date))
@@ -491,7 +514,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
   const gr = data.grandRaid?.value?.value;
   const showRaid = gr && (sport === "grand_raid" || (!sport && !w && grandRaidNow(gr, now)));
   // No match, event, result or programme: a club playing away, or a sport given by the news alone, is an answer.
-  if (!aheadAll.length && !results.length && !programmes.length && !showRaid && sport !== "grand_raid" && !(sport && NEWS_ONLY[sport])) rienTrouve("sport");
+  if (!aheadAll.length && !results.length && !programmes.length && !showRaid && !nextBeach && sport !== "grand_raid" && !(sport && NEWS_ONLY[sport])) rienTrouve("sport");
 
   const what = sport ? NAMES[sport] : "sport";
   const place = w ? w.label : " à La Réunion";
@@ -530,6 +553,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
           q === "resultats" ? "" : upcomingText,
           results.length ? `${results.length} résultat${results.length > 1 ? "s" : ""} depuis le ${quand(du)}` : q === "resultats" ? `Aucun résultat de ${what}${place} depuis le ${quand(du)}` : "",
           programmes.length ? `${programmes.length} programme${programmes.length > 1 ? "s" : ""} sportif${programmes.length > 1 ? "s" : ""} de commune (${programmes.map((p) => p.commune).join(", ")}), en lien seulement` : "",
+          nextBeach ? `Prochain rendez-vous de beach-volley : ${nextBeach.epreuve}, ${nextBeach.quand}` : "",
           ...silent.map((x) => `Championnat de ${x.competition.replace(", ", " ")} : ${x.court} (voir injoignable)`),
         ].filter(Boolean).join(". ") + ".";
 
@@ -556,6 +580,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
     a_venir_en_tout: aheadAll.length > upcoming.length ? aheadAll.length : undefined,
     // And their sports, those beyond the first too: the ones the page names.
     sports_a_venir: aheadAll.length > upcoming.length ? [...new Set(aheadAll.map((i) => i.sport))] : undefined,
+    prochain: nextBeach ? strip(nextBeach) : undefined,
     resultats: results.length ? results.map(strip) : undefined,
     avis: cited.length ? cited : undefined,
     a_verifier: check.length ? check : undefined,
@@ -579,6 +604,7 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
       ? "Matchs retenus : ceux qui se jouent dans le lieu demandé (commune du club qui reçoit) et ceux de ses clubs à l'extérieur (champ « deplacement »). Les clubs sont reconnus par leur sigle (VBSP = Volley-Ball de Saint-Pierre, TGV = Tampon Gecko Volley)."
       : undefined,
     annulations: matches ? CALLED_OFF : undefined,
+    calendrier: beach ? { texte: BEACH_CALENDAR, lien: src.SOURCES.lrvb_tournois.url } : undefined,
     ...COMMON,
     sources: credits(used),
   });

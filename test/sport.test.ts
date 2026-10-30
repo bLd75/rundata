@@ -5,7 +5,7 @@ import { Cache, MemoryStore, type CacheEntry } from "../src/cache.js";
 import { parseRss, type Info } from "../src/providers/actualites.js";
 import { parseSportsregions } from "../src/providers/agenda.js";
 import { frenchDays, parisDay, parseGolf, parseLsar, parseVolley } from "../src/providers/sport.js";
-import { avisIn, avisPresse, daysIn, parseLrvb } from "../src/providers/sport-avis.js";
+import { avisBeach, avisIn, avisOf, avisPresse, daysIn, parseLrvb } from "../src/providers/sport-avis.js";
 import { clubOf, clubsNamed, zoneOf } from "../src/sport/clubs.js";
 import { quand, sportTool, window } from "../src/tools/sport.js";
 import { sportPage } from "../src/web/domains.js";
@@ -124,7 +124,14 @@ describe("sport", () => {
     expect(daysIn("les compétitions ce samedi", "2026-10-24", false)).toEqual([]);
     const meta = { source: "LRVB", lien: "https://lrvb.re/", ref: "2026-10-23", relative: false, sport: "volley" as const };
     expect(avisIn("✅ Sont maintenues :les rencontres indoor du vendredi 23 et du dimanche 25 octobre", meta)).toEqual([]);
-    expect(avisIn("Les tournois de beach-volley du samedi 24 octobre sont annulés.", meta)).toEqual([]);
+    // On the sand: of the beach volley's events, never of a hall's matches that day.
+    const sand = avisIn("Les tournois de beach-volley du samedi 24 octobre sont annulés.", meta);
+    expect(sand).toEqual([expect.objectContaining({ statut: "annulé", jours: ["2026-10-24"], beach: true })]);
+    expect(avisOf(sand, "volley", { date: "2026-10-24T20:00", domicile: "VBSP", exterieur: "TGV" })).toBeUndefined();
+    expect(avisBeach(sand, { debut: "2026-10-24", fin: "2026-10-24" })).toBe(sand[0]);
+    expect(avisBeach(sand, { debut: "2026-10-25", fin: "2026-10-25" })).toBeUndefined();
+    // A youth event on the sand too: the beach championships are of the U13 to U18.
+    expect(avisIn("Le championnat beach U13 U15 et U18 du samedi 24 octobre est reporté.", meta)).toEqual([expect.objectContaining({ statut: "reporté", beach: true })]);
     expect(avisIn("Le match R1M TGV / RCO du samedi 31 octobre est reporté au dimanche 1er novembre.", meta)[0]).toMatchObject({
       statut: "reporté", jours: ["2026-10-31"], reporte_au: "2026-11-01", tous: false, equipes: ["TGV", "RCO"], poules: ["R1M"],
     });
@@ -246,6 +253,39 @@ describe("sport", () => {
     expect(body(await sportTool(cache(), undefined, undefined, undefined, NOW)).programmes_communes).toBeUndefined();
   });
 
+  it("gives the beach volley apart: the league's events filed under « beach », never its grass or its outdoor ones", async () => {
+    const store = new MemoryStore();
+    const at = NOW.getTime() - 3600_000;
+    const ev = (titre: string, debut: string, categories: string[], fin?: string) => ({ id: `lrvb:${titre}`, titre, seances: [{ debut, ...(fin && { fin }) }], lieu: "lieu à venir (voir la page de la Ligue)", categories, lien: `https://lrvb.re/calendrier2/${titre.toLowerCase().replace(/\W+/g, "-")}/`, publie_par: "Ligue réunionnaise de volley-ball" });
+    // lrvb.re's calendar on 31/10/2026: the sand under « beach »; the Green 3X3 on grass and the King, « OUTDOOR » alone.
+    const events = [
+      ev("FINALES RÉGIONALES BEACH-VOLLEY 2026", "2026-09-19", ["beach", "OUTDOOR"], "2026-09-20"),
+      ev("Championnat de La Réunion Beach U13 U15 et U18", "2026-10-24T08:00", ["beach", "Jeunes"]),
+      ev("King Saison 6 Solo étape 2", "2026-11-01", ["OUTDOOR"]),
+      ev("Green 3X3 Etape 4", "2026-10-31", ["OUTDOOR"]),
+    ];
+    await store.put("agendas:planifies", { value: { "agenda:lrvb": { value: events, fetchedAt: at } }, fetchedAt: at });
+    const ligue = (now = NOW) => new Cache(store, () => now.getTime());
+    const names = (b: { a_venir?: { epreuve: string }[] }) => (b.a_venir ?? []).map((r) => r.epreuve);
+    const beach = body(await sportTool(ligue(), "beach_volley", undefined, "a_venir", NOW));
+    expect(beach.a_venir).toEqual([expect.objectContaining({ sport: "beach-volley", epreuve: "Championnat de La Réunion Beach U13 U15 et U18", quand: "samedi 24/10" })]);
+    expect(beach.calendrier).toEqual({ texte: expect.stringMatching(/^Le calendrier du beach-volley est celui de la Ligue réunionnaise de volley-ball/), lien: "https://lrvb.re/" });
+    const volley = body(await sportTool(ligue(), "volley", undefined, "a_venir", NOW));
+    expect(names(volley)).toEqual(expect.arrayContaining(["King Saison 6 Solo étape 2", "Green 3X3 Etape 4"]));
+    expect(names(volley)).not.toContain("Championnat de La Réunion Beach U13 U15 et U18");
+    // Every sport: both, the sand in its own group of /sport.
+    const all = body(await sportTool(ligue(), undefined, undefined, "a_venir", NOW));
+    expect(all.a_venir).toEqual(expect.arrayContaining([expect.objectContaining({ sport: "beach-volley", epreuve: "Championnat de La Réunion Beach U13 U15 et U18" })]));
+    const page = sportPage("https://rundata.re", { value: { ...all, classements: [] } as SportAnswer, fetchedAt: NOW, stale: false }, NOW);
+    expect(page).toMatch(/<h3>Beach-volley <span class="note">1\u00a0rendez-vous<\/span><\/h3>/);
+    // None in the fortnight: the next one, said so, beyond it.
+    const sept = new Date("2026-09-01T04:00:00Z");
+    const early = body(await sportTool(ligue(sept), "beach_volley", undefined, undefined, sept));
+    expect(early.a_venir).toBeUndefined();
+    expect(early.prochain).toMatchObject({ epreuve: "FINALES RÉGIONALES BEACH-VOLLEY 2026", quand: "du samedi 19/09 au dimanche 20/09" });
+    expect(early.resume).toContain("Prochain rendez-vous de beach-volley : FINALES RÉGIONALES BEACH-VOLLEY 2026, du samedi 19/09 au dimanche 20/09");
+  });
+
   it("gives the volley league's tournaments from the agendas' copy, their place as the league says", async () => {
     const store = new MemoryStore();
     const at = NOW.getTime() - 3600_000;
@@ -258,7 +298,7 @@ describe("sport", () => {
       sport: "volley-ball", quand: "dimanche 01/11", epreuve: "King Saison 6 Solo étape 2", detail: "Ligue réunionnaise de volley-ball",
       lieu: "lieu à venir (voir la page de la Ligue)", lien: "https://lrvb.re/calendrier2/king-saison-6-solo-etape-2/",
     });
-    expect(b.sources.map((s: { source: string }) => s.source)).toContain("Volley-ball : tournois ouverts de la Ligue réunionnaise (King, Green 3X3)");
+    expect(b.sources.map((s: { source: string }) => s.source)).toContain("Volley-ball et beach-volley : tournois ouverts de la Ligue réunionnaise (King, Green 3X3, beach)");
     // Not for another sport, nor for a commune (its place is not known yet).
     expect(body(await sportTool(ligue(), "handball", undefined, "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
     expect(body(await sportTool(ligue(), "volley", "Saint-Pierre", "a_venir", NOW)).a_venir?.map((r: { epreuve: string }) => r.epreuve) ?? []).not.toContain("King Saison 6 Solo étape 2");
