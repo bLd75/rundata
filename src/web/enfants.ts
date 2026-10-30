@@ -8,6 +8,7 @@ import { mentionOf } from "../mentions.js";
 import { ACCUEILS } from "../providers/agenda.js";
 import * as enfants from "../vie/enfants.js";
 import { porte, type Porte } from "./aller.js";
+import { DOUBLE_SCRIPT, WHEEL_SCRIPT } from "./carte-zoom.js";
 import { PAGES, type PlacePage } from "./places.js";
 import { aCommune, deCommune } from "./aujourdhui.js";
 import type { Alerte, EnfantsAnswer } from "./data.js";
@@ -239,7 +240,7 @@ const familleOf = (k: enfants.Kind) => FAMILLES.find((x) => x.types.includes(k))
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // The map and the list, kept together: a chip hides the kinds it leaves out on both; a dot opens its sheet under the
-// map and marks its row; a row's button marks its dot, brought into the frame. Pinch, drag and the buttons move the
+// map and marks its row; a row's button marks its dot, brought into the frame. Pinch, drag, the wheel, a double click (web/carte-zoom.ts) and the buttons move the
 // map's viewBox, within the commune's frame, and so does a tap on too many dots at once (`pzoom`, carte-points.ts).
 // Without the script, each dot is a link to its row.
 const MAP_SCRIPT = `(()=>{const svg=document.getElementById("ecm"),f=document.getElementById("ecf"),sheet=document.getElementById("ecs");if(!svg||!f)return;
@@ -255,7 +256,7 @@ svg.addEventListener("pointermove",(e)=>{if(!ps.has(e.pointerId))return;const o=
 if(ps.size===2){const[a,b]=[...ps.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]),c=pt((a[0]+b[0])/2,(a[1]+b[1])/2);if(last)zoom(d/last,c[0],c[1]);last=d;moved=9;e.preventDefault();return}
 if(!svg.classList.contains("zoomed"))return;const p0=pt(o[0],o[1]),p1=pt(e.clientX,e.clientY);moved+=Math.hypot(e.clientX-o[0],e.clientY-o[1]);v[0]-=p1[0]-p0[0];v[1]-=p1[1]-p0[1];clamp();e.preventDefault()});
 const up=(e)=>{ps.delete(e.pointerId);if(ps.size<2)last=null};["pointerup","pointercancel","pointerleave"].forEach((t)=>svg.addEventListener(t,up));
-svg.addEventListener("wheel",(e)=>{if(!e.ctrlKey&&!svg.classList.contains("zoomed"))return;e.preventDefault();const c=pt(e.clientX,e.clientY);zoom(e.deltaY<0?1.25:.8,c[0],c[1])},{passive:false});
+${WHEEL_SCRIPT}${DOUBLE_SCRIPT}svg.addEventListener("click",held,true);
 document.getElementById("ecz").addEventListener("click",(e)=>{const z=e.target.closest("button")?.dataset.z;if(z==="+")zoom(1.6);else if(z==="-")zoom(1/1.6);else if(z==="0"){v=B.slice();put()}});
 const pick=(i,show)=>{svg.querySelectorAll(".sp.on").forEach((a)=>a.classList.remove("on"));document.querySelectorAll("#ecl li.on").forEach((l)=>l.classList.remove("on"));
 const a=svg.querySelector('.sp[data-i="'+i+'"]'),li=document.getElementById("lieu-"+i);if(!a||!li)return;a.classList.add("on");a.parentNode.appendChild(a);li.classList.add("on");

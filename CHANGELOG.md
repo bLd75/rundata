@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 31 octobre 2026
 
+- Cartes des randonnées et des enfants : la molette zoome vers la souris, sans Ctrl, et le double-clic rapproche d'un cran.
 - Randonnée : la carte se zoome, avec deux doigts, la molette ou les boutons + et −, pour voir de près les sentiers ouverts et fermés.
 
 ## Vendredi 30 octobre 2026

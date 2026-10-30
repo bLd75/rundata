@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SECTEURS } from "../src/traces/secteurs.js";
-import { hikesZoom, MAX_ZOOM, MOTS, REACH_PX } from "../src/web/carte-zoom.js";
+import { DOUBLE_SCRIPT, DOUBLE_STEP, DOUBLE_WAIT_MS, hikesZoom, MAX_ZOOM, MOTS, REACH_PX, WHEEL_SCRIPT, WHEEL_STEP } from "../src/web/carte-zoom.js";
 import type { RandonneesAnswer } from "../src/web/data.js";
 import { randonneesPage } from "../src/web/domains.js";
 import { CSS } from "../src/web/pages.js";
@@ -41,8 +41,30 @@ describe("the zoom of the hikes' map", () => {
     expect(MAX_ZOOM).toBe(8);
     expect(html).toContain(`Math.max(B[2]/${MAX_ZOOM},v[2])`);
     for (const t of ['"pointerdown"', '"pointermove"', '"wheel"', "ps.size===2", 'k==="+"', 'k==="-"', 'k==="0"']) expect(html).toContain(t);
-    // The wheel scrolls the page until the map is zoomed, or with Ctrl.
-    expect(html).toContain('if(!e.ctrlKey&&!svg.classList.contains("zoomed"))return;');
+    expect(html).toContain(WHEEL_SCRIPT);
+    expect(html).toContain(DOUBLE_SCRIPT);
+  });
+
+  it("zooms in with the wheel forwards, always and without Ctrl, and lets the page scroll backwards once the map is whole", () => {
+    expect(WHEEL_SCRIPT).toContain('if(!e.deltaY||e.deltaY>0&&!svg.classList.contains("zoomed"))return;e.preventDefault();');
+    expect(WHEEL_SCRIPT).not.toContain("ctrlKey");
+    expect(WHEEL_SCRIPT).toContain("{passive:false}");
+    // A mouse's notch (100 px, or 3 lines) a whole step, a touchpad's few px a small one, centred on the pointer.
+    expect(WHEEL_STEP).toBe(1.25);
+    expect(WHEEL_SCRIPT).toContain("e.deltaMode===1?33:e.deltaMode===2?100:1");
+    expect(WHEEL_SCRIPT).toContain(`zoom(${WHEEL_STEP}**Math.max(-1,Math.min(1,-d)),c[0],c[1])`);
+    expect(WHEEL_SCRIPT).toContain("c=pt(e.clientX,e.clientY)");
+  });
+
+  it("zooms in a step with a double click, centred on it, and opens nothing on its first click", () => {
+    expect(DOUBLE_STEP).toBe(1.6);
+    expect(DOUBLE_WAIT_MS).toBe(300);
+    expect(DOUBLE_SCRIPT).toContain(`svg.addEventListener("dblclick",(e)=>{e.preventDefault();const c=pt(e.clientX,e.clientY);zoom(${DOUBLE_STEP},c[0],c[1])});`);
+    // A mouse's click waits for a second one; a finger's tap, a pen's and the keyboard's open at once.
+    expect(DOUBLE_SCRIPT).toContain('if(!e.isTrusted||!e.detail||e.pointerType==="touch"||e.pointerType==="pen")return false;');
+    expect(DOUBLE_SCRIPT).toContain(`if(e.detail===1){`);
+    expect(DOUBLE_SCRIPT).toContain(`,${DOUBLE_WAIT_MS})}return true}`);
+    expect(hikesZoom()).toContain("if(moved>8){e.stopImmediatePropagation();e.preventDefault();return}if(held(e)||e.target.dataset?.k)return;");
   });
 
   it("opens nothing at the end of a drag, and takes the nearest line within half a finger of a tap", () => {
