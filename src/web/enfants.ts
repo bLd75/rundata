@@ -347,7 +347,7 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
   const body = `<div id="enfc">
 <section aria-label="${esc(MOTS.carte(c))}" class="ecarte">
   ${chips}
-  <figure class="card mapcard">${communeMap({ commune: c, spots, label: MOTS.carte(c), id: "ecm" })}${zoom}${legend}</figure>
+  <figure class="card mapcard">${communeMap({ commune: c, spots, label: MOTS.carte(c), id: "ecm", controls: zoom })}${legend}</figure>
   ${sheet}
 </section>
 <section aria-labelledby="h-lieux">

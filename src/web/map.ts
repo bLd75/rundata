@@ -909,8 +909,9 @@ const PHONE_PX = 340;
  * communes dimmed, its outline marked, and a dot per spot. The dots keep their size on screen when the page's script
  * zooms (a stroke that does not scale); each is a link to its row, its hit area as wide as a finger on a phone and no
  * wider than half the way to the next one. The frame is the commune's and its spots', 1:1 to 4:3, in `data-box`.
+ * `controls` (the zoom's buttons) go between the map and the choice of its base, the order of every zoomed map.
  */
-export function communeMap(opts: { commune: string; spots: Spot[]; label: string; id?: string }): string {
+export function communeMap(opts: { commune: string; spots: Spot[]; label: string; id?: string; controls?: string }): string {
   const shape = island.paths.find((p) => p.nom === opts.commune);
   if (!shape) return "";
   // A tenth of the map's unit is 7 m: enough for a dot.
@@ -944,7 +945,7 @@ export function communeMap(opts: { commune: string; spots: Spot[]; label: string
     `<use href="#fd-${fd}" clip-path="url(#com-clip)"/>` +
     roadsLayer(box) + `<path class="hl" d="${shape.d}"/>` +
     namesLayer({ frame: box, unit, busy: at.map(([x, y]) => [x - 10 * unit, y - 10 * unit, x + 10 * unit, y + 10 * unit]), close: true, within: ringOf(shape.d), centre: chefLieu(opts.commune), commune: opts.commune }) +
-    `<g class="spots">${dots}</g></svg>` + fondChoice(fd);
+    `<g class="spots">${dots}</g></svg>` + (opts.controls ?? "") + fondChoice(fd);
 }
 
 /** The altitude along the trail: an area, the axes in km and m. */

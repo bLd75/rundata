@@ -256,6 +256,9 @@ describe("a commune's children's page", () => {
     expect(html).not.toContain('value="escalade"');
     // Hidden until the script shows them: without it, the dots are links to the rows, the list is whole.
     expect(html).toContain('<div id="ecz" class="kzoom" hidden>');
+    // Under the map, the zoom, then the choice of the base, as on every zoomed map.
+    expect(html.indexOf('<div id="ecz"')).toBeGreaterThan(html.indexOf("</svg>", html.indexOf('id="ecm"')));
+    expect(html.indexOf('<div id="ecz"')).toBeLessThan(html.indexOf('class="tabs fonds"'));
     // The wheel and the double click of the hikes' map, the first click of a double click held there too.
     expect(html).toContain(`${WHEEL_SCRIPT}${DOUBLE_SCRIPT}svg.addEventListener("click",held,true);`);
     expect(html).toContain('<div id="ecs" class="card ksheet" hidden aria-live="polite">');
