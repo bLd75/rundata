@@ -5,7 +5,7 @@
  */
 import * as transit from "../providers/transit.js";
 import { distanceKm, localTime } from "../geo.js";
-import { aller, SHEET as ALLER } from "./aller.js";
+import { porte, type Porte } from "./aller.js";
 import type { stopPageDepartures } from "../tools/transports.js";
 import { alertList, crumbBar, crumbs, departureLi, STOP_PATH, stopSearch, waitText } from "./domains.js";
 import { esc } from "./map.js";
@@ -54,18 +54,24 @@ export const SAME_STOP_M = 50;
  * « Y aller » on foot to the stop: one button when its stops stand together, else one for each network's, named by it
  * (a stop of the Car Jaune on the main road, the town's own bus round the corner).
  */
-export function toStop(p: transit.StopPage): string {
+export function toStop(p: transit.StopPage, ya: Porte = porte()): string {
   const [first] = p.groups;
   if (!first) return "";
   const together = p.groups.every((g) => distanceKm(first.lon, first.lat, g.lon, g.lat) * 1000 <= SAME_STOP_M);
-  if (together) return `<p class="ya">${aller({ nom: titled(p), lat: first.lat, lon: first.lon }, true)}</p>`;
+  // Nothing at all, not even the network's name, for a button the cyclone alert took away.
+  if (together) {
+    const go = ya.aller({ nom: titled(p), lat: first.lat, lon: first.lon }, "lieu", true);
+    return go ? `<p class="ya">${go}</p>` : "";
+  }
   return p.groups.map((g) => {
     const net = transit.NETWORKS[g.reseau]?.nom ?? g.reseau;
-    return `<p class="ya">${esc(net)}\u00a0: ${aller({ nom: `${titled(p)} (${net})`, lat: g.lat, lon: g.lon }, true)}</p>`;
+    const go = ya.aller({ nom: `${titled(p)} (${net})`, lat: g.lat, lon: g.lon }, "lieu", true);
+    return go ? `<p class="ya">${esc(net)}\u00a0: ${go}</p>` : "";
   }).join("");
 }
 
 export function stopPage(origin: string, p: transit.StopPage, d: Departures, now = new Date(), alerte?: Alerte): string {
+  const ya = porte(alerte);
   const path = `${STOP_PATH}/${p.slug}`;
   const title = `${titled(p)} : prochains bus · 974`;
   const description = described(p, d.lignes);
@@ -76,7 +82,7 @@ export function stopPage(origin: string, p: transit.StopPage, d: Departures, now
   <div class="pitch">
     <h1>Arrêt ${esc(p.nom)}</h1>
     <p class="lead">${esc(p.commune)} · ${names}</p>
-    ${toStop(p)}
+    ${toStop(p, ya)}
     <p>Les prochains bus qui passent à cet arrêt, toutes lignes et tous réseaux confondus. Chaque départ mène à son parcours, arrêt par arrêt.</p>
   </div>
 </div>`;
@@ -96,7 +102,7 @@ export function stopPage(origin: string, p: transit.StopPage, d: Departures, now
 </section>
 ${d.alertes.length ? `<section aria-labelledby="h-trafic"><h2 id="h-trafic">Info trafic</h2><div class="card">${alertList(d.alertes)}<p class="note">Publié par les réseaux dans leur flux en direct, repris tel quel.</p></div></section>` : ""}`;
 
-  return layout(origin, { title, description, path, ...(p.indexe ? {} : { noindex: true }), jsonld: [crumbs(origin, p.nom, path, { name: "Bus", path: "/bus" })], alerte }, band, body + ALLER);
+  return layout(origin, { title, description, path, ...(p.indexe ? {} : { noindex: true }), jsonld: [crumbs(origin, p.nom, path, { name: "Bus", path: "/bus" })], alerte }, band, ya.ligne + body + ya.feuille);
 }
 
 /** A search with several stops, or none: the list to choose from, or what to type. Never indexed. */

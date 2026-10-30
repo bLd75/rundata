@@ -6,6 +6,8 @@
  * computer. The place alone goes into the links, never the visitor's position, and rundata.re learns nothing of the
  * click: nothing is counted. The words are marketing's.
  */
+import { ORSEC } from "../tools/ecoles.js";
+import type { Alerte } from "./data.js";
 import { esc } from "./map.js";
 import { hash } from "./pwa.js";
 
@@ -22,6 +24,86 @@ export const MOTS = {
   coordonneesCopiees: "Coordonnées copiées",
   annuler: "Annuler",
 };
+
+/**
+ * What a button leads to, for the cyclone alert in force: the town hall (its shelters) or a defibrillator, kept always; a
+ * hike's start, a bathing site or a beach; any other place.
+ */
+export type Genre = "mairie" | "defibrillateur" | "randonnee" | "baignade" | "lieu";
+
+/** The cyclone alert in force as the banner reads it (data.ts alerteOf): its code, 0 without one or when only announced. */
+const cycloneOf = (a: Alerte | undefined) => (a && "cyclone" in a.court && !a.court.prevue ? a.court.cyclone : 0);
+
+/**
+ * Whether « Y aller » shows under the cyclone alert in force. Red and purple (4, 5: every outing forbidden): only the
+ * town hall and a defibrillator. Orange (3): no hike, the ONF closes the trails, whatever its map says yet. The phase de
+ * sauvegarde (6): neither hikes nor bathing, the trails still closed and the sea still dangerous. The pré-alerte (2)
+ * changes nothing.
+ */
+export function permis(a: Alerte | undefined, genre: Genre = "lieu"): boolean {
+  const c = cycloneOf(a);
+  if (genre === "mairie" || genre === "defibrillateur") return true;
+  if (c === 4 || c === 5) return false;
+  if (genre === "randonnee") return c < 3;
+  if (genre === "baignade") return c !== 6;
+  return true;
+}
+
+/** The levels that take buttons away, as the site names them (alerte-cyclone.ts), and their step on /alerte-cyclone. */
+const PHASES: Record<number, { nom: string; id: string }> = {
+  3: { nom: "Alerte orange cyclonique", id: "orange" },
+  4: { nom: "Alerte rouge cyclonique", id: "rouge" },
+  5: { nom: "Alerte violette cyclonique", id: "violette" },
+  6: { nom: "Phase de sauvegarde", id: "sauvegarde" },
+};
+const VERS: Record<string, string> = { mairie: "la mairie", defibrillateur: "les défibrillateurs" };
+
+/**
+ * Said once on a page whose buttons the alert took away, in their place (marketing's words): nothing left, or only the
+ * places it keeps that the page has (`gardes`: the town hall, the defibrillators).
+ */
+export function retire(a: Alerte | undefined, gardes: Genre[] = []): string {
+  const phase = PHASES[cycloneOf(a)];
+  if (!phase) return "";
+  const vers = gardes.map((g) => VERS[g]).filter(Boolean);
+  const dit = vers.length ? `itinéraire proposé seulement vers ${vers.join(" et ")}, tant qu'elle dure` : "pas d'itinéraire proposé tant qu'elle dure";
+  return `<p class="note">${esc(phase.nom)} en cours\u00a0: ${dit}. <a href="/alerte-cyclone#${phase.id}">Les consignes</a> · <a href="${ORSEC.lien}" rel="noopener">la\u00a0préfecture\u00a0↗</a></p>`;
+}
+
+/**
+ * The buttons of one page under the cyclone alert in force (`permis`): those it keeps, and what the page then adds once,
+ * the sheet unless every button was taken away, the line when one was. A page that keeps other buttons than the town
+ * hall's or a defibrillator's has no line: none does today (hikes and bathing are never on a page with other places).
+ * Without an alert, every button shows.
+ */
+export function porte(a?: Alerte) {
+  let shown = false;
+  let taken = false;
+  const gardes = new Set<Genre>();
+  let autres = false;
+  return {
+    aller(l: Lieu, genre: Genre = "lieu", pied = false): string {
+      const b = aller(l, pied);
+      if (b && !permis(a, genre)) {
+        taken = true;
+        return "";
+      }
+      if (b) {
+        shown = true;
+        if (genre in VERS) gardes.add(genre);
+        else autres = true;
+      }
+      return b;
+    },
+    get feuille() {
+      return taken && !shown ? "" : SHEET;
+    },
+    get ligne() {
+      return taken && !autres ? retire(a, [...gardes]) : "";
+    },
+  };
+}
+export type Porte = ReturnType<typeof porte>;
 
 export interface Lieu {
   nom: string;

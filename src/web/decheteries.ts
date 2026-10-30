@@ -3,7 +3,7 @@
  * are full, as the staff last said, a block per commune with its anchor. Cut from the copy web:dechets, read
  * against the time: an update of more than 6 hours is said to be checked on the spot.
  */
-import { aller, SHEET as ALLER } from "./aller.js";
+import { porte, type Porte } from "./aller.js";
 import type { Cached } from "../cache.js";
 import { slugify } from "./places.js";
 import * as dech from "../vie/decheteries.js";
@@ -29,16 +29,18 @@ export function descriptionOf(sites: dech.SiteNow[]): string {
   return text.length <= DESCRIPTION_MAX ? text : `Déchèteries de l'Ouest (974) : où déposer déchets verts, encombrants, gravats. ${COMMUNES}.`;
 }
 
-function siteCard(s: dech.SiteNow): string {
+function siteCard(s: dech.SiteNow, g: Porte): string {
   const state = s.a_jour
     ? `<p class="note">Mis à jour à ${esc(s.mis_a_jour!.split(" ")[1])} par les agents.</p>` +
       (s.refuse.length ? `<p><b>Benne pleine :</b> ${esc(s.refuse.join(", "))}.</p>` : `<p><b>Toutes les bennes acceptent.</b></p>`) +
       (s.accepte.length ? `<p><b>Accepté :</b> ${esc(s.accepte.join(", "))}.</p>` : "")
     : `<p class="note">${esc(CHECK)}${s.mis_a_jour ? ` Dernière mise à jour : ${esc(s.mis_a_jour)}.` : ""}</p>`;
-  return `<div class="card">${icon("pin")}<h3><a href="${esc(s.lien)}" rel="noopener">${esc(s.nom)}</a></h3>${s.adresse ? `<p>${esc(s.adresse)}</p>` : ""}<p>${aller({ nom: s.nom, lat: s.lat, lon: s.lon, adresse: s.adresse ? `${s.adresse}, ${s.commune}` : undefined })}</p>${state}</div>`;
+  const go = g.aller({ nom: s.nom, lat: s.lat, lon: s.lon, adresse: s.adresse ? `${s.adresse}, ${s.commune}` : undefined });
+  return `<div class="card">${icon("pin")}<h3><a href="${esc(s.lien)}" rel="noopener">${esc(s.nom)}</a></h3>${s.adresse ? `<p>${esc(s.adresse)}</p>` : ""}${go ? `<p>${go}</p>` : ""}${state}</div>`;
 }
 
 export function decheteriesPage(origin: string, data: Cached<DechetsAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const g = porte(alerte);
   const path = "/decheteries";
   const sites = dech.sitesNow(data?.value.etats, now);
   const description = descriptionOf(data ? sites : []);
@@ -51,12 +53,12 @@ export function decheteriesPage(origin: string, data: Cached<DechetsAnswer> | nu
 </div></div>`;
   const blocks = dech.TCO_COMMUNES.map((c) => `<section id="${anchorOf(c)}" aria-labelledby="h-${anchorOf(c)}">
   <div class="sec-h"><h2 id="h-${anchorOf(c)}">${esc(c)}</h2></div>
-  <div class="two">${sites.filter((s) => s.commune === c).map(siteCard).join("")}</div>
+  <div class="two">${sites.filter((s) => s.commune === c).map((s) => siteCard(s, g)).join("")}</div>
 </section>`).join("\n");
   const others = `<section><p><a href="/collecte">Les jours de collecte de votre rue →</a></p><p class="note">Seul le TCO (Ouest) publie ces données. Pour les autres communes, voir ${dech.OTHERS.map((o) => `<a href="${o.site}" rel="noopener">${esc(o.nom)}</a>`).join(", ").replace(/, ([^,]*)$/, " ou $1")}.</p>
   ${data ? sourcesNote(data.value.sources, data) : ""}</section>`;
   const body = `${blocks}
 ${others}
-${connectorCta("annuaire_services_publics", "les déchèteries")}${ALLER}`;
-  return layout(origin, { title: TITLE, description, path, jsonld: [crumbs(origin, "Déchèteries de l'Ouest", path), webPage(origin, path, TITLE, description, data)], alerte }, band, body);
+${connectorCta("annuaire_services_publics", "les déchèteries")}${g.feuille}`;
+  return layout(origin, { title: TITLE, description, path, jsonld: [crumbs(origin, "Déchèteries de l'Ouest", path), webPage(origin, path, TITLE, description, data)], alerte }, band, g.ligne + body);
 }
