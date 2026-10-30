@@ -35,7 +35,7 @@ const HOURLY_IN_MS = 15 * 60_000;
 const HOURLY_RECHECK_SECONDS = 5 * 60;
 export const HOURS_KEPT = 24;
 
-export { configure, enabled, type Credentials } from "./mf-auth.js";
+export { configure, enabled, share, KV_KEY as TOKEN_KV_KEY, type Credentials, type Token } from "./mf-auth.js";
 
 const STATIONS = new Map<string, Omit<Station, "variables">>(
   STATIONS_974.map(([id, nom, lat, lon, altitude_m]) => [id, { source: "meteofrance", id, nom, lon, lat, altitude_m }]),

@@ -106,7 +106,8 @@ export function suivant(before: Historique | null, lu: RainGrid | Error, now: Da
 
 /**
  * One run of the scheduled event: one read of KV, the radar's image (one subrequest when the data center's copy is
- * over 4 minutes old, one more for a token when the isolate has none), one write of KV when the history changed.
+ * over 4 minutes old; in the Worker, one more for KV's token when the isolate holds none, and two more for a new token
+ * written there when KV holds none either: providers/mf-auth.ts), one write of KV when the history changed.
  */
 export async function passage(store: Store, cache: Cache, now = new Date(), long?: Store): Promise<string> {
   const tokens = tokensIssued();

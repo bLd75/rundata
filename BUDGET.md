@@ -18,28 +18,28 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 
 | contrôle | valeur | limite |
 |---|---:|---:|
-| pire passage planifié, sous-requêtes | 437 | 500 |
-| pire passage planifié, appels KV et D1 | 98 | 1 000 |
+| pire passage planifié, sous-requêtes | 439 | 500 |
+| pire passage planifié, appels KV et D1 | 100 | 1 000 |
 | pire passage planifié, CPU (ms) | 3 354 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 80 | 128 |
-| passage le plus chargé (cadences les plus courtes), sous-requêtes | 160 | 500 |
+| passage le plus chargé (cadences les plus courtes), sous-requêtes | 162 | 500 |
 | vue la plus chère, sous-requêtes | 84 | 200 |
 | question la plus chère, sous-requêtes | 67 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
 - Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic, antennes:hors-service, 15 Mo au pic, radar:6h, 5 Mo au pic, emploi:offres, 5 Mo au pic, marches-publics:textes, 25 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
-- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 119 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, emploi:offres, connecteurs:lecture, propositions:purge, connecteurs:purge).
-- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 160 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, web:crues, web:volcan, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, emploi:offres, connecteurs:lecture, propositions:purge, connecteurs:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 366 sous-requêtes à 00:00 UTC.
+- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 121 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, meteofrance:jeton, meteofrance:jeton:nouveau, emploi:offres, connecteurs:lecture, propositions:purge, connecteurs:purge).
+- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 162 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, web:crues, web:volcan, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, meteofrance:jeton, meteofrance:jeton:nouveau, emploi:offres, connecteurs:lecture, propositions:purge, connecteurs:purge).
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 368 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 84. Question la plus chère : resume_du_jour, 67. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| pire passage planifié | 437 | 27 | 51 | 20 | 1 124 | 239 | 3 354 |
-| tâche planifiée, par jour | 26 840 | 2 977 | 3 806 | 2 406 | 102 908 | 58 500 | 210 325 |
-| tâche planifiée, par jour, cadences les plus courtes | 37 732 | 4 273 | 5 630 | 2 886 | 107 948 | 58 500 | 255 805 |
-| tâche planifiée, par mois (30 jours) | 805 200 | 89 310 | 114 180 | 72 180 | 3 087 240 | 1 755 000 | 6 309 750 |
+| pire passage planifié | 439 | 28 | 52 | 20 | 1 124 | 239 | 3 354 |
+| tâche planifiée, par jour | 28 088 | 4 417 | 3 854 | 2 406 | 102 908 | 58 500 | 210 325 |
+| tâche planifiée, par jour, cadences les plus courtes | 38 980 | 5 713 | 5 678 | 2 886 | 107 948 | 58 500 | 255 805 |
+| tâche planifiée, par mois (30 jours) | 842 640 | 132 510 | 115 620 | 72 180 | 3 087 240 | 1 755 000 | 6 309 750 |
 | tâches GitHub, par jour | 0 |  | 5 | 2 |  | 28 700 |  |
 | tâches GitHub, par mois (30 jours) | 0 |  | 150 | 60 |  | 861 000 |  |
 
@@ -91,7 +91,9 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | air:mesures | qualité de l'air : les mesures horaires des stations d'Atmo Réunion, leurs lignes du fichier national du LCSQA (jusqu'à 12,5 Mo, lu ligne à ligne), écrites dans KV quand la dernière heure change | 60 min | 00:45 | 6 | 1 | 1 |  |  |  | 260 | mesuré |
 | antennes:hors-service | sites mobiles hors service : les lignes de La Réunion du fichier quotidien de l'Arcep (0,5 à 2,2 Mo), écrites dans KV une fois par jour | 1440 min | 10:30 | 3 | 1 | 1 |  |  |  | 40 | estimé |
 | capteurs:air | capteurs amateurs de particules (Sensor.Community) : les 5 dernières minutes sur l'île, une requête, gardées 2 heures dans KV | 15 min | 00:10 | 3 | 1 | 1 |  |  |  | 10 | code |
-| radar:6h | pluie radar des 6 dernières heures pour le rejeu de /meteo : la dernière image de Météo-France ajoutée dans KV quand elle est nouvelle, ou un trou daté, et chaque quart d'heure une image gardée 24 heures | 5 min | 00:00 | 8 | 2 | 2 |  |  |  | 120 | estimé |
+| radar:6h | pluie radar des 6 dernières heures pour le rejeu de /meteo : la dernière image de Météo-France ajoutée dans KV quand elle est nouvelle, ou un trou daté, et chaque quart d'heure une image gardée 24 heures | 5 min | 00:00 | 7 | 2 | 2 |  |  |  | 120 | estimé |
+| meteofrance:jeton | jeton Météo-France commun à tous les isolats : lu dans KV au premier besoin d'un isolat, à son échéance ou après un refus (401), au plus une fois par invocation qui lit Météo-France | 1 min | 00:00 | 1 | 1 |  |  |  |  |  | estimé |
+| meteofrance:jeton:nouveau | jeton Météo-France commun à tous les isolats : un nouveau jeton demandé au portail et écrit dans KV, environ une fois par heure | 30 min | 00:00 | 2 |  | 1 |  |  |  |  | estimé |
 | stations:7j | les heures des stations Météo-France sur 7 jours pour la barre de lecture de /meteo : le paquet horaire déjà gardé par le centre de données, ajouté dans KV quand il est plus récent | 60 min | 00:20 | 3 | 1 | 1 |  |  |  | 20 | code |
 | emploi:offres | emploi public : la page d'une offre de Choisir le service public à chaque événement, la plus récente pas encore lue, sinon chaque offre ouverte à son tour, écrites dans KV quand elles changent | 5 min | 00:00 | 3 | 1 | 1 |  |  |  | 15 | estimé |
 | emploi:flux | emploi public : le flux des 20 dernières offres de Choisir le service public pour La Réunion | 60 min | 00:25 | 1 |  |  |  |  |  | 5 | estimé |
@@ -248,6 +250,8 @@ Les fichiers qui lisent un site (par src/http.ts), atteints par les imports de c
 | antennes:hors-service | providers/sites-hs |
 | capteurs:air | providers/capteurs |
 | radar:6h | providers/mf-auth, providers/radar |
+| meteofrance:jeton | providers/mf-auth |
+| meteofrance:jeton:nouveau | providers/mf-auth |
 | stations:7j | providers/meteofrance, providers/mf-auth, providers/radar |
 | emploi:offres | providers/emploi |
 | emploi:flux | providers/emploi |
