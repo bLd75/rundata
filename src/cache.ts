@@ -74,7 +74,8 @@ export const outdated = (key: string, entry: { version?: string } | undefined, v
 export interface CacheStore {
   /** `freshAfter`: an entry fetched since then will do, so slower stores need not be asked (nor paid for). */
   get(key: string, freshAfter?: number): Promise<CacheEntry | undefined>;
-  put(key: string, entry: CacheEntry): Promise<void>;
+  /** `keepSeconds`: how long a store that drops its entries (the Worker's KV) keeps this one, rather than its default. */
+  put(key: string, entry: CacheEntry, keepSeconds?: number): Promise<void>;
 }
 
 export class MemoryStore implements CacheStore {
@@ -112,8 +113,8 @@ export class TieredStore implements CacheStore {
     if (newest) for (let i = 0; i < from; i++) await this.stores[i].put(key, newest);
     return newest;
   }
-  async put(key: string, entry: CacheEntry) {
-    await Promise.all(this.stores.map((s) => s.put(key, entry)));
+  async put(key: string, entry: CacheEntry, keepSeconds?: number) {
+    await Promise.all(this.stores.map((s) => s.put(key, entry, keepSeconds)));
   }
 }
 
@@ -123,8 +124,8 @@ class Prefixed implements CacheStore {
   get(key: string, freshAfter?: number) {
     return this.store.get(`${this.prefix}${key}`, freshAfter);
   }
-  put(key: string, entry: CacheEntry) {
-    return this.store.put(`${this.prefix}${key}`, entry);
+  put(key: string, entry: CacheEntry, keepSeconds?: number) {
+    return this.store.put(`${this.prefix}${key}`, entry, keepSeconds);
   }
 }
 
@@ -247,10 +248,11 @@ export class Cache {
    * them until its breaker closes, not only by the data center that found it silent (26/10/2026, in 50 minutes: NASA
    * FIRMS's fires read 8 times for 30 minutes of freshness, CAMS's UV 8 times for an hour, the prefecture's list 3
    * times in one minute).
+   * `keepSeconds`: how long KV keeps it, when longer than its default (kv.ts): what does not change, kept for its freshness.
    */
-  async island<T>(key: string, freshSeconds: number, load: () => Promise<T>): Promise<Cached<T>> {
+  async island<T>(key: string, freshSeconds: number, load: () => Promise<T>, keepSeconds?: number): Promise<Cached<T>> {
     const hit = await this.wide.get(key, this.now() - freshSeconds * 1000);
-    return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.wide.put(key, e)));
+    return this.noted(key, freshSeconds, await this.serve(key, hit, freshSeconds, load, (e) => this.wide.put(key, e, keepSeconds)));
   }
 
   /**

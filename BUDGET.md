@@ -125,7 +125,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | /meteo/rejeu-7j.json | la barre de lecture de /meteo sur 7 jours : les heures rondes des stations (KV) | à chaque vue |  | 5 | 1 |  | 1 | 140 |  | 30 | code |
 | /mer | la page /mer | à chaque vue |  | 23 |  |  |  |  |  | 120 | mesuré |
 | /randonnees/* | une randonnée et sa trace | à chaque vue |  | 25 | 1 | 1 |  |  |  | 130 | mesuré |
-| /sentiers/* | un sentier et sa trace | à chaque vue |  | 18 | 1 | 1 |  |  |  | 30 | mesuré |
+| /sentiers/* | un sentier et sa trace | à chaque vue |  | 20 | 2 | 2 |  |  |  | 30 | mesuré |
 | /bus/arret/* | la page d'un arrêt de bus : ses prochains départs | à chaque vue |  | 16 |  |  | 3 | 150 |  | 60 | code |
 | /bus/trajet/* | le trajet d'un bus, arrêt par arrêt | à chaque vue |  | 11 |  |  | 2 | 6 |  | 30 | code |
 | /coupures-eau/* | les coupures d'une commune | à chaque vue |  | 29 | 1 | 1 |  |  |  | 70 | mesuré |

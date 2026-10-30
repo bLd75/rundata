@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../src/app.js";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { decode, gpx, measure, portionsOf, RANDONNEES, routePieces, SENTIERS } from "../src/providers/traces.js";
+import { KV_KEEP_SECONDS, type KvBinding, KvStore } from "../src/kv.js";
+import { ALTI_SECONDS, decode, gpx, measure, portionsOf, RANDONNEES, routePieces, SENTIERS, sentier, traceOnf } from "../src/providers/traces.js";
 import { routesNamed, secteur, sentiersRandonnee } from "../src/tools/sentiers.js";
 import { SECTEURS as SECTEURS_RANDO } from "../src/traces/secteurs.js";
 
@@ -269,5 +270,75 @@ describe("traces GPS", () => {
     expect(page).toContain("<title>Aurère - Îlet à Malheur (Mafate)\u00a0: trace GPX, état ONF · 974</title>");
     expect(page).toContain(`<li><a href="/randonnees/mafate">Mafate</a></li><li aria-current="page">Aurère - Îlet à Malheur</li>`);
     expect(page).toMatch(/<p class="lead part-of">Sentier de l'ONF à Mafate, sur le <a href="\/randonnees\/gr-r2">GR R2<\/a> et le <a href="\/randonnees\/gr-r3">GR R3<\/a>\./);
+  });
+});
+
+describe("a trail's altitudes from the IGN", () => {
+  let ign: number;
+  // The ONF's trace with its first point moved by about 10 m, as when the ONF redraws a trail.
+  let moved: boolean;
+  beforeEach(() => {
+    ign = 0;
+    moved = false;
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (url.includes("geopf.fr")) {
+        ign++;
+        return new Response(fixture("traces/ign_le-bloc-piton-des-neiges.json"));
+      }
+      if (url.includes("/5/query")) {
+        const t = JSON.parse(fixture("traces/onf_le-bloc-piton-des-neiges.json"));
+        if (moved) t.features[0].geometry.paths[0][0][0] += 0.0001;
+        return new Response(JSON.stringify(t));
+      }
+      return new Response("", { status: 404 });
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  // The Worker's KV, with the time each entry was asked to live.
+  const kv = () => {
+    const entries = new Map<string, { value: string; ttl?: number }>();
+    const binding: KvBinding = {
+      get: async (k) => (entries.has(k) ? JSON.parse(entries.get(k)!.value) : null),
+      put: async (k, value, o) => void entries.set(k, { value, ttl: o?.expirationTtl }),
+    };
+    return { entries, binding };
+  };
+  // A data center: its own memory, KV shared with the others.
+  const center = (k: KvBinding) => new Cache(new MemoryStore(), () => NOW.getTime(), false, new KvStore(k));
+  const T = sentier("le-bloc-piton-des-neiges")!;
+  const ign_keys = (k: ReturnType<typeof kv>) => [...k.entries.keys()].filter((x) => x.startsWith("lecture:ign:"));
+
+  it("are kept a year in KV under the trace's fingerprint, and another data center reads them there", async () => {
+    const k = kv();
+    const first = (await traceOnf(center(k.binding), T)).value;
+    expect(ign).toBe(1);
+    expect(first.troncons[0].points[0].ele).toBe(1371.5);
+    const [key] = ign_keys(k);
+    expect(key).toMatch(/^lecture:ign:le-bloc-piton-des-neiges:[0-9a-f]{16}$/);
+    expect(k.entries.get(key)!.ttl).toBe(ALTI_SECONDS);
+    expect(ALTI_SECONDS).toBe(365 * 86400);
+    const second = (await traceOnf(center(k.binding), T)).value;
+    expect(ign).toBe(1);
+    expect(second.troncons[0].points.map((p) => p.ele)).toEqual(first.troncons[0].points.map((p) => p.ele));
+  });
+
+  it("are read again once when the ONF changes the trace, under another key", async () => {
+    const k = kv();
+    await traceOnf(center(k.binding), T);
+    moved = true;
+    await traceOnf(center(k.binding), T);
+    await traceOnf(center(k.binding), T);
+    expect(ign).toBe(2);
+    expect(ign_keys(k)).toHaveLength(2);
+  });
+
+  it("leave KV's three days to the other entries", async () => {
+    const k = kv();
+    await center(k.binding).island("feux:ile", 1800, async () => [1]);
+    await new KvStore(k.binding).put("arome:x", { value: 1, fetchedAt: NOW.getTime() });
+    expect(k.entries.get("lecture:feux:ile")!.ttl).toBe(KV_KEEP_SECONDS);
+    expect(k.entries.get("arome:x")!.ttl).toBe(KV_KEEP_SECONDS);
+    expect(KV_KEEP_SECONDS).toBe(3 * 24 * 3600);
   });
 });

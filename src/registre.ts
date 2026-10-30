@@ -716,7 +716,7 @@ export function reached(from: string[]): string[] {
 
 /**
  * The sources read for the whole island (cache.ts `island`: NASA FIRMS's fires, CAMS's UV, the OVPF's posts, Piton
- * Live, the water notices, the prefecture's list, Vigicrues Réunion's vigilance, heights and flows) that each entry reads, from the imports of its files (not their
+ * Live, the water notices, the prefecture's list, Vigicrues Réunion's vigilance, heights and flows, a trail's altitudes from the IGN) that each entry reads, from the imports of its files (not their
  * helpers'). From cold, each is asked of KV as well and written there, beyond what the entry measured: a read and a
  * write more, two subrequests.
  */
@@ -725,7 +725,7 @@ export const ISLAND_READS: Record<string, number> = {
   resume_du_jour: 3, "/aujourdhui/*": 3,
   "/": 2, "/communes/*": 2, "/meteo": 2, "/meteo/*": 2,
   cyclones: 1, "/cyclones": 1, "/ecoles-cyclone": 1,
-  "/feux": 1, sentiers_randonnee: 1, "/sentiers": 1, "/sentiers/*": 1, "/randonnees": 1, "/randonnees/*": 1, vigilance_meteo: 1,
+  "/feux": 1, sentiers_randonnee: 1, "/sentiers": 1, "/sentiers/*": 2, "/randonnees": 1, "/randonnees/*": 1, vigilance_meteo: 1,
   prevision_meteo: 1,
   "web:crues": 3, crues_rivieres: 3, "/crues": 3,
   "web:coupures": 1, coupures_eau: 1, "/coupures-eau": 1, "/coupures-eau/*": 1, qualite_eau: 1, "/eau": 1,
