@@ -25,7 +25,7 @@ describe("the IGN's backgrounds on the zoomed maps", () => {
 
   it("take the old tiles away only once every tile of the latest view has come, not those of a view asked before", () => {
     // One `want`, the latest view's: a tile of the view before, coming last, takes nothing of the new one away.
-    expect(FONDS_SCRIPT).toContain('sweep=()=>{for(const key of want){const im=have.get(key);if(im&&!im.dataset.ok)return}have.forEach((im,key)=>{if(!want.has(key)){im.remove();have.delete(key)}})}');
+    expect(FONDS_SCRIPT).toContain('sweep=()=>{for(const key of want){const im=have.get(key);if(im?!im.dataset.ok:again.has(key))return}have.forEach((im,key)=>{if(!want.has(key)){im.remove();have.delete(key)}})}');
     expect(FONDS_SCRIPT).toContain('im.addEventListener("load",()=>{im.dataset.ok="1";fin();sweep()},{once:true})');
     expect(FONDS_SCRIPT.match(/want=new Set\(\)/g)).toHaveLength(2);
     expect(FONDS_SCRIPT).not.toContain("const want=");
