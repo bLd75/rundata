@@ -30,9 +30,10 @@ export const SOURCES = {
 const SERVICE = "https://services1.arcgis.com/Y4HgaQpzkE7kenlE/arcgis/rest/services/Sentiers_La_Reunion_public/FeatureServer/5/query";
 const ALTI = "https://data.geopf.fr/altimetrie/1.0/calcul/alti/rest/elevation.json";
 const ALTI_MAX = 5000;
-// The state of a trail changes with the prefect's orders: an hour, as for the map. The ground does not change.
+// The state of a trail changes with the prefect's orders: an hour, as for the map. The ground does not change: a
+// trace's altitudes are kept a year in KV, under its points' fingerprint (`altitudes`).
 const FRESH_SECONDS = 3600;
-const ALTI_SECONDS = 30 * 86400;
+export const ALTI_SECONDS = 365 * 86400;
 // Climb and descent count from one turning point to the next once past this, as in the build script.
 const STEP_M = 10;
 
@@ -188,19 +189,32 @@ export function parseTrace(nom: string, features: Feature[]): TraceOnf {
   };
 }
 
-/** The altitude of each point from the IGN; the trail's points beyond what one request takes are left without. */
+/** A short hash of the points asked of the IGN: another trace from the ONF, another key. */
+export async function fingerprint(lon: string, lat: string): Promise<string> {
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${lon};${lat}`)));
+  return Array.from(h.slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * The altitude of each point from the IGN; the trail's points beyond what one request takes are left without. Read for
+ * the whole island (cache.ts `island`), under the trace's fingerprint: every data center takes them from KV rather than
+ * asking the IGN again (486 reads in 24 h on 30/10/2026, with a copy per data center), and a trace the ONF changes is
+ * read again once. An old trace's entry expires with its year.
+ */
 async function altitudes(cache: Cache, key: string, points: Point[]): Promise<(number | null)[]> {
   const asked = points.slice(0, ALTI_MAX);
-  const { value } = await cache.get(`ign:${key}:${asked.length}`, ALTI_SECONDS, async () => {
+  const lon = asked.map((p) => p.lon.toFixed(6)).join("|");
+  const lat = asked.map((p) => p.lat.toFixed(6)).join("|");
+  const { value } = await cache.island(`ign:${key}:${await fingerprint(lon, lat)}`, ALTI_SECONDS, async () => {
     const r = await postJson<{ elevations: number[] }>(SOURCES.ign.id, ALTI, {
-      lon: asked.map((p) => p.lon.toFixed(6)).join("|"),
-      lat: asked.map((p) => p.lat.toFixed(6)).join("|"),
+      lon,
+      lat,
       resource: "ign_rge_alti_wld",
       zonly: "true",
     }, 20_000);
     // -99999 where the model has no ground (the sea).
     return r.elevations.map((z) => (z > -1000 ? Math.round(z * 10) / 10 : null));
-  });
+  }, ALTI_SECONDS);
   return value;
 }
 
