@@ -13,7 +13,7 @@ import { MARCHES } from "../vie/marches.js";
 import { porte, SHEET as ALLER } from "./aller.js";
 import type { Alerte } from "./data.js";
 import { connectorCta, courantItem, silentItem, silentText, webPage } from "./domains.js";
-import { esc, fenetre } from "./map.js";
+import { esc, fenetre, islandMap } from "./map.js";
 import { reprise } from "./ouvrir-donnees.js";
 import { a, de } from "../tools/format.js";
 import { ask, credits, icon, layout, officielHtml, SITE, thin } from "./pages.js";
@@ -154,14 +154,20 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
     "@type": "BreadcrumbList",
     itemListElement: [[SITE, "/"], ["Communes", "/communes"], [p.nom, `/communes/${p.slug}`], ["Aujourd'hui", path]].map(([n, u], i) => ({ "@type": "ListItem", position: i + 1, name: n, item: `${origin}${u}` })),
   };
+  // The island situating the commune, as on its page (commune.ts). Not on a phone (nophone), where it would come under
+  // the text, out of sight: drawing it there delayed the text's first paint by about 340 ms on slow 4G at 390 px, and by
+  // 250 ms still with content-visibility (median of 9, 31/10/2026); hidden, nothing moved.
   const band = `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li><a href="/communes">Communes</a></li><li><a href="/communes/${p.slug}">${esc(p.nom)}</a></li><li aria-current="page">Aujourd'hui</li></ol></nav></div>
-<div class="wrap intro"><div class="pitch">
-  <p class="pill"><span class="dot"></span>${esc(r.resume.split("\u00a0; ")[0])}</p>
-  <h1>${esc(H1(p))}</h1>
-  <p class="hook">${esc(HOOK(p))}</p>
-  ${r.resume.includes("\u00a0; ") ? `<p class="lead">${esc(r.resume.split("\u00a0; ").slice(1).join("\u00a0; ").replace(/^\p{L}/u, (x) => x.toUpperCase()))}</p>` : ""}
-  ${ask(`Kosa i spas ${p.nom} jordi ? Gèt si ${url} é di amwin.`, `Que se passe-t-il ${aCommune(p.nom)} aujourd'hui ? Lis ${url} et résume-moi la journée.`)}
-</div></div>`;
+<div class="wrap intro">
+  <div class="pitch">
+    <p class="pill"><span class="dot"></span>${esc(r.resume.split("\u00a0; ")[0])}</p>
+    <h1>${esc(H1(p))}</h1>
+    <p class="hook">${esc(HOOK(p))}</p>
+    ${r.resume.includes("\u00a0; ") ? `<p class="lead">${esc(r.resume.split("\u00a0; ").slice(1).join("\u00a0; ").replace(/^\p{L}/u, (x) => x.toUpperCase()))}</p>` : ""}
+    ${ask(`Kosa i spas ${p.nom} jordi ? Gèt si ${url} é di amwin.`, `Que se passe-t-il ${aCommune(p.nom)} aujourd'hui ? Lis ${url} et résume-moi la journée.`)}
+  </div>
+  <figure class="card mapcard nophone">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
+</div>`;
   const body = `<section aria-labelledby="h-temps"><div class="sec-h"><h2 id="h-temps">Le temps</h2></div>
   <div class="two">${weather}${vigil}</div>
   <div class="card"><ul class="plain">${small}</ul></div>
