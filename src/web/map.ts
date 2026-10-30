@@ -52,6 +52,9 @@ export interface Marker {
   round?: boolean;
   /** A ring rather than a disc (round only): nothing measured lately. */
   hollow?: boolean;
+  /** A disc 1.4 times the others' size, with a thick white edge (round only): the one to see first, its shape saying it,
+   * not a colour that would read as an alert (a river rising on /crues). */
+  big?: boolean;
   /** A triangle, point up, the size of a disc: a hot spot seen by satellite (/feux), its shape saying what it is. */
   triangle?: boolean;
   /** Its name in the tooltip only: for a crowded map where only a few markers need saying. */
@@ -202,10 +205,12 @@ function marker(m: Marker, hit = HIT, at?: [number, number]): string {
     : m.round
     ? m.hollow
       ? `<circle class="sh" cx="${x}" cy="${y}" r="22" style="fill:none;stroke:${fill};stroke-width:6"/>`
+      : m.big
+      ? `<circle class="sh" cx="${x}" cy="${y}" r="48" fill="${fill}" style="stroke:#fff;stroke-width:9"/>`
       : `<circle class="sh" cx="${x}" cy="${y}" r="34" fill="${fill}"/>`
     : `<rect class="sh" x="${x - w / 2}" y="${y - 24}" width="${w}" height="48" rx="24" fill="${fill}"/>`;
   const inner = `<title>${esc(m.name)}</title>${shape}` +
-    `<text x="${x}" y="${y + 11}" class="mv">${esc(m.label)}</text>` +
+    (m.big ? `<text x="${x}" y="${y + 15}" class="mv" style="font-size:42px">${esc(m.label)}</text>` : `<text x="${x}" y="${y + 11}" class="mv">${esc(m.label)}</text>`) +
     (m.quiet ? "" : `<text x="${x}" y="${y + 66}" class="mn">${esc(m.name)}</text>`);
   if (!m.href) return `<g class="mk">${inner}</g>`;
   const said = m.tip ? `${m.tip.place} : ${m.tip.value}, ${m.tip.detail}, voir le détail` : `${m.place ?? m.name} : ${m.say ?? m.label}, voir le détail`;

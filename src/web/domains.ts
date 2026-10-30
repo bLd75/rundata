@@ -1097,8 +1097,10 @@ const FLOOD_ORDER = ["rouge", "orange", "jaune", "vert", "indisponible"];
 const FLOOD_COLOR: Record<string, string> = { rouge: "#f03e3e", orange: "#ff922b", jaune: "#ffd43b", vert: "#69db7c" };
 // The map's markers: what the gauge measured, in the site's colours, never the vigilance's (orange would read as one);
 // the shape says it as much as the colour. The map is drawn light in both themes: its day colours.
-// A rise in the charter's red, with its arrow: the mark to see first, in both themes. No recent measure: a grey ring, the map showing through.
-const GAUGE_COLOR = { hausse: "#e3262d", calme: "#8aaab2", muette: "#868e96" };
+// A rise in the night's colour, bigger and edged in white, with its arrow: its shape makes it the mark to see first, as
+// red would read as Vigicrues' own red vigilance. No recent measure: a grey ring, the map showing through.
+const GAUGE_COLOR = { hausse: "#14202b", calme: "#8aaab2", muette: "#868e96" };
+const GAUGE_RANK = { muette: 0, calme: 1, hausse: 2 };
 const floodBadge = (c: string) => `<span class="lvl" style="--c:${FLOOD_COLOR[c] ?? "#868e96"}">${esc(c)}</span>`;
 const metres = (v: number) => `${fr(Math.round(v * 100) / 100)} m`;
 const flow = (v: number) => `${fr(Math.round(v * 100) / 100)} m³/s`;
@@ -1228,13 +1230,14 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
     : "";
 
   const place = new Map(vigicrues.STATIONS.map((s) => [s.nom, s]));
-  const markers: Marker[] = (d?.stations ?? []).flatMap((s) => {
+  // The rising ones drawn last, over their neighbours.
+  const markers: Marker[] = (d?.stations ?? []).map((s) => ({ s, kind: !upToDate(s) ? "muette" as const : s.tendance_30_min === "en hausse" ? "hausse" as const : "calme" as const }))
+    .sort((a, b) => GAUGE_RANK[a.kind] - GAUGE_RANK[b.kind]).flatMap(({ s, kind }) => {
     const at = place.get(s.station);
     if (!at) return [];
-    const kind = !upToDate(s) ? "muette" : s.tendance_30_min === "en hausse" ? "hausse" : "calme";
     const line = gaugeValue(s) ?? `pas de mesure dans notre lecture ${read}`;
     const where = `${s.station} · ${s.commune}`;
-    return [{ lon: at.lon, lat: at.lat, label: kind === "hausse" ? "↑" : "", name: `${where} : ${line}`, round: true, hollow: kind === "muette", color: GAUGE_COLOR[kind], quiet: true,
+    return [{ lon: at.lon, lat: at.lat, label: kind === "hausse" ? "↑" : "", name: `${where} : ${line}`, round: true, hollow: kind === "muette", big: kind === "hausse", color: GAUGE_COLOR[kind], quiet: true,
       place: where, say: line, href: `#${anchorId("s", s.station)}` }];
   });
 
@@ -1255,7 +1258,7 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les stations de mesure des rivières de la DEAL" })}
   <figcaption class="note" style="color:var(--on-night-muted)">${legende([
-    { forme: "rond", couleur: GAUGE_COLOR.hausse, texte: "↑", dit: "en hausse" },
+    { forme: "rond", couleur: GAUGE_COLOR.hausse, texte: "↑", dit: "en hausse", grand: true },
     { forme: "rond", couleur: GAUGE_COLOR.calme, dit: "stable ou en baisse" },
     { forme: "anneau", couleur: GAUGE_COLOR.muette, dit: "sans mesure récente" },
   ], esc(`© VIGICRUES, stations de la DEAL${latestGauge(d)}.`))}</figcaption></figure>

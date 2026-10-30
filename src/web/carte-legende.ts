@@ -14,12 +14,14 @@ export interface Cle {
   couleur: string;
   /** What the mark holds: a count, a value, a symbol (« ✓ », « × »). */
   texte?: string;
+  /** Drawn 1.4 times bigger, edged thick in white, as on the map (marker()'s `big`). */
+  grand?: boolean;
   /** What it means. */
   dit: string;
 }
 
-const svg = (box: string, shape: string, texte?: string) =>
-  `<svg viewBox="${box}" aria-hidden="true">${shape}${texte ? `<text y="11">${esc(texte)}</text>` : ""}</svg>`;
+const svg = (box: string, shape: string, texte?: string, grand = false) =>
+  `<svg viewBox="${box}"${grand ? ' class="gr"' : ""} aria-hidden="true">${shape}${texte ? grand ? `<text y="15" style="font-size:42px">${esc(texte)}</text>` : `<text y="11">${esc(texte)}</text>` : ""}</svg>`;
 
 function mark(c: Cle): string {
   switch (c.forme) {
@@ -30,7 +32,9 @@ function mark(c: Cle): string {
     case "triangle":
       return svg("-40 -42 80 80", `<path d="M0 -36L35 28H-35Z" fill="${c.couleur}"/>`);
     default:
-      return svg("-37 -37 74 74", `<circle r="34" fill="${c.couleur}"/>`, c.texte);
+      return c.grand
+        ? svg("-53 -53 106 106", `<circle r="48" fill="${c.couleur}" stroke="#fff" stroke-width="9"/>`, c.texte, true)
+        : svg("-37 -37 74 74", `<circle r="34" fill="${c.couleur}"/>`, c.texte);
   }
 }
 
@@ -41,5 +45,5 @@ export const legende = (cles: Cle[], ligne?: string): string =>
 
 /** Its style, in the page's sheet. At 1.6 rem, a disc's figures are 11 px high, a pill's 13 px. */
 export const LEGENDE_CSS = `.mlg{display:flex;flex-wrap:wrap;gap:.3rem .9rem;margin-bottom:.35rem}.mlg>span{display:inline-flex;align-items:center;gap:.4rem}` +
-  `.mlg svg{height:1.6rem;width:auto;flex:none;overflow:visible}.mlg circle:not([stroke]),.mlg rect,.mlg path{stroke:#fff;stroke-width:5}` +
+  `.mlg svg{height:1.6rem;width:auto;flex:none;overflow:visible}.mlg svg.gr{height:2.3rem}.mlg circle:not([stroke]),.mlg rect,.mlg path{stroke:#fff;stroke-width:5}` +
   `.mlg text{fill:#fff;font:700 30px system-ui,sans-serif;text-anchor:middle}.mls{display:block}`;
