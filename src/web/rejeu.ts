@@ -190,23 +190,6 @@ async function semaine(cache: Cache, now: Date, background: (p: Promise<unknown>
   return s;
 }
 
-/**
- * One run of the scheduled event, once an hour: the week merged with the hourly package the data center holds, if it
- * holds a newer one; nothing asked of Météo-France. One read of the cache, then one read and one write of KV at most.
- */
-export async function passage(cache: Cache, now = new Date()): Promise<string> {
-  if (!sources) return "pas de KV";
-  const hourly = await meteofrance.keptHourly(cache);
-  if (!hourly) return "pas de paquet horaire dans ce centre de données";
-  count();
-  const before = await sources.semaine.get();
-  if (before && Date.parse(before.fin) >= Date.parse(hourly.end)) return `rien à écrire (semaine jusqu'à ${before.fin})`;
-  const s = merge(before, hourly, now)!;
-  count(1, true);
-  await sources.semaine.put(s);
-  return `semaine écrite jusqu'à ${s.fin}`;
-}
-
 /** How long each file is kept: until something newer can be in it. */
 export function freshSeconds(d: Duree, now: Date): number {
   if (d === "6h") return 300;

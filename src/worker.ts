@@ -200,7 +200,7 @@ function setup(env: Env): Cache {
     return (await kv.get(candhis.KEY, "json")) as candhis.Etat | null;
   }));
   // The replay bar's files (web/rejeu.ts): the radar's last 6 hours and its 24 hours a quarter of an hour apart, kept by
-  // the scheduled event below (web/pluie-retro.ts), and the stations' week.
+  // the scheduled event below (web/pluie-retro.ts), and the stations' week, written only by the files that read it.
   rejeu.configure(kv && {
     six: async () => (await kv.get(pluieRetro.KV_KEY, "json")) as pluieRetro.Historique | null,
     day: async () => (await kv.get(pluieRetro.LONG_KV_KEY, "json")) as pluieRetro.Historique | null,
@@ -434,13 +434,6 @@ export default {
       })))
         .then(({ value, used, reads }) => console.log(`historique radar : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("historique radar : passage impossible", why(err))));
-    }
-    // Once an hour, at 20 past: the stations' week (web/rejeu.ts) merged with the hourly package this data center
-    // holds, when it is newer; nothing asked of Météo-France. One read of the cache; one read and one write of KV at most.
-    if (kv && meteofrance.enabled() && now.getUTCMinutes() >= 20 && now.getUTCMinutes() < 25) {
-      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => rejeu.passage(c, now)))
-        .then(({ value, used, reads }) => console.log(`semaine des stations : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
-        .catch((err) => console.error("semaine des stations : passage impossible", why(err))));
     }
     // Every hour, at 45 past: the measures at Atmo Réunion's stations, La Réunion's lines of the LCSQA's national file
     // (up to 12.5 Mo, read line by line), kept in KV when the latest hour changed, once the reads above are done.
