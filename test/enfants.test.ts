@@ -77,10 +77,12 @@ describe("the places to go with children", () => {
     expect(enfants.agesSaid({ min: 1 })).toBe(`dès 1${NBSP}an`);
   });
 
-  it("say a place's hours as kit.md writes a span: « 9 h–18 h », both with their minutes when one has some", () => {
+  it("say a place's hours as kit.md writes a span: « 9 h–18 h », all with their minutes when one time of the place has some", () => {
     const at = (h: string) => enfants.hoursToday({ horaires_osm: h } as enfants.Lieu, NOW);
     // NOW is a Saturday in La Réunion.
-    expect(at("Tu-Fr 10:00-17:00; Sa 10:00-12:00,13:30-17:00")).toBe(`10${NBSP}h–12${NBSP}h et 13:30–17:00`);
+    expect(at("Tu-Fr 10:00-17:00; Sa 10:00-12:00,13:30-17:00")).toBe("10:00–12:00 et 13:30–17:00");
+    // One place, one way (kit.md, 30/10/2026): minutes on Sunday only, Saturday's hours with theirs too.
+    expect(at("Sa 13:00-17:00; Su 09:30-17:00")).toBe("13:00–17:00");
     expect(at("Mo-Su 09:00-18:00")).toBe(`9${NBSP}h–18${NBSP}h`);
     expect(at("Mo-Su 09:30-17:00")).toBe("09:30–17:00");
     expect(at("Mo-Fr 09:00-18:00")).toBeUndefined();

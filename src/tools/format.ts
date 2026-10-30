@@ -12,15 +12,24 @@ export function heure(minutes: number): string {
   return m ? `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}` : `${h}\u00a0h`;
 }
 
-/** Two times said together (a span, « entre … et … »): « 18\u00a0h » and « 21\u00a0h », or both « 12:00 », « 12:54 » when one has minutes. */
-export function paire(de: number, a: number): [string, string] {
-  if (!(de % 60) && !(a % 60)) return [heure(de), heure(a)];
+/**
+ * Two times said together (a span, « entre … et … »): « 18\u00a0h » and « 21\u00a0h », or both « 12:00 », « 12:54 » when
+ * one has minutes, or when `minutes` says another time of the same place has some (minutees()).
+ */
+export function paire(de: number, a: number, minutes = de % 60 !== 0 || a % 60 !== 0): [string, string] {
+  if (!minutes) return [heure(de), heure(a)];
   const hm = (x: number) => `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
   return [hm(de), hm(a)];
 }
 
 /** A span: « 18\u00a0h–21\u00a0h », « 08:30–12:00 ». */
-export const tranche = (de: number, a: number) => paire(de, a).join("–");
+export const tranche = (de: number, a: number, minutes?: boolean) => paire(de, a, minutes).join("–");
+
+/**
+ * Whether the hours of one place are all written with their minutes (kit.md): as soon as one of its times has some,
+ * « 06:00 à 18:30 ; le dimanche de 06:00 à 12:00 », never « de 6\u00a0h à 12\u00a0h » beside it.
+ */
+export const minutees = (spans: [number, number][]) => spans.some(([de, a]) => de % 60 !== 0 || a % 60 !== 0);
 
 /** One reading as a short string a model can quote: "24 °C", "ESE (112°)", "65 % (calculée)". */
 /** A number written the French way: 24,6. */
