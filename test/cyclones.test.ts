@@ -7,6 +7,7 @@ import { cyclones } from "../src/tools/cyclones.js";
 import { alertePage } from "../src/web/alerte-cyclone.js";
 import type { CyclonesAnswer } from "../src/web/data.js";
 import { cyclonesPage } from "../src/web/domains.js";
+import { CYCLONE_SCALE, vigilancePage } from "../src/web/pages.js";
 import { ecolesPage } from "../src/web/ecoles.js";
 
 // GDACS on 24/10/2026: no system in the basin since the end of the 2025-2026 season (Indusa, April). The timeline is
@@ -143,6 +144,15 @@ describe("cyclones", () => {
     const quiet = cyclonesPage("https://rundata.re", { value: out, fetchedAt: OCTOBER, stale: false }, OCTOBER);
     expect(quiet).toContain("<thead><tr><th>Système</th><th>Dates</th></tr></thead>");
     expect(quiet).not.toMatch(/Au plus fort|Vent moyen max|vent moyen sur 10 minutes/);
+    // The phases of the prefect's alert and the radio are said here, and no more on /vigilance.
+    expect(quiet).toContain(`<h3>Alerte cyclonique</h3>${CYCLONE_SCALE}`);
+    expect(quiet).toContain("Écoutez la radio en cas de cyclone");
+    const vigilance = vigilancePage("https://rundata.re", null, OCTOBER);
+    expect(vigilance).not.toContain("Écoutez la radio");
+    // /vigilance is the weather's: its name no longer says the cyclone alert, which is /cyclones's.
+    expect(vigilance).toContain("<title>Vigilance météo Réunion 974 en direct</title>");
+    expect(vigilance).toContain('<h1>Vigilance météo <span class="n974">974</span></h1>');
+    expect(vigilance).toContain('"position":2,"name":"Vigilance météo"');
     // The fixed description, while the copy is not there yet.
     expect(cyclonesPage("https://rundata.re", null, OCTOBER)).toContain('<meta name="description" content="Cyclones autour de La Réunion (974)\u00a0: systèmes actifs et leur stade selon le CMRS de Météo-France, alerte cyclonique, saisons passées, lien officiel.">');
   });

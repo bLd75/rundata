@@ -28,6 +28,7 @@ const pdfLink = (b: NonNullable<carte.Carte["bulletin"]>) =>
  * The map on /vigilance: the newest bulletin's picture with its caption; else the line that says why there is none
  * (règle 3 ter), and the newest bulletin's PDF. When the newest bulletin's time of issue could not be read, no PDF: the
  * one kept before it has been replaced (marketing, 27/10). Nothing before the first bulletin is kept.
+ * The picture itself is shown here on a phone only (`mf-bas`): on a wide screen, it is in the hero (carteHero()).
  */
 export function carteHtml(c: carte.Carte | undefined, now: Date): string {
   if (!c) return "";
@@ -38,8 +39,24 @@ export function carteHtml(c: carte.Carte | undefined, now: Date): string {
   if (c.image?.empreinte !== b.empreinte) {
     return `<div class="card mf-carte"><p>La carte du dernier bulletin de Météo-France, émis ${leA(b.emis)} (heure de La Réunion), n'a pas pu être affichée ici. ${officielHtml(mf.OFFICIEL_VIGILANCE)}</p>${pdfLink(b)}</div>`;
   }
+  return figure(b, "card mf-carte mf-bas");
+}
+
+/**
+ * The same picture in the hero of /vigilance, on a wide screen only (`mf-haut`, out of sight on a phone, where the text
+ * comes first): whole, scaled down and never cut, with its caption, the link to Météo-France's site and the PDF, as the
+ * agreement of 27/10/2026 asks. Nothing when there is no picture of the newest bulletin: the line saying why stays
+ * where it is, in the page.
+ */
+export function carteHero(c: carte.Carte | undefined): string {
+  const b = c?.bulletin;
+  return c && !c.illisible && b && c.image?.empreinte === b.empreinte ? figure(b, "card mapcard mf-carte mf-haut") : "";
+}
+
+/** The picture, lazy: one of the two is out of sight (display:none), and a browser does not fetch it then. */
+function figure(b: NonNullable<carte.Carte["bulletin"]>, cls: string): string {
   const alt = `Première page du bulletin de suivi de la vigilance à La Réunion, publié par Météo-France ${leA(b.emis)} (heure de La Réunion) : carte de l'île colorée par zone, frise des 24 heures par phénomène, puis synthèse. Le niveau de chaque zone est écrit en texte sur cette page.`;
-  return `<figure class="card mf-carte"><a href="${mf.OFFICIEL_VIGILANCE}" rel="noopener"><img src="${carte.imagePath(b.empreinte)}" width="595" height="842" loading="lazy" decoding="async" alt="${esc(alt)}"></a>
+  return `<figure class="${cls}"><a href="${mf.OFFICIEL_VIGILANCE}" rel="noopener"><img src="${carte.imagePath(b.empreinte)}" width="595" height="842" loading="lazy" decoding="async" alt="${esc(alt)}"></a>
 <figcaption>Source : Météo-France. Bulletin de suivi vigilance à La Réunion, émis ${leA(b.emis)} (heure de La Réunion). ${officielHtml(mf.OFFICIEL_VIGILANCE)}</figcaption>${pdfLink(b)}</figure>`;
 }
 
