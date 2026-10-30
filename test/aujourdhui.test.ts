@@ -75,7 +75,7 @@ describe("the page of a commune's day", () => {
     expect(html).not.toMatch(/Marché aujourd'hui : <a [^>]*><b>Marché couvert/);
     expect(html.indexOf("Marché Forain de Saint-Pierre")).toBeLessThan(html.indexOf("Marché couvert de Saint-Pierre"));
     // Nothing taken from its site: its page, for the days and hours.
-    expect(html).toContain(`<li>Marchés : <a href="https://www.saintpierre.re/decouvrez-saint-pierre/le-cadre-de-vie/les-marches-de-saint-pierre/le-marche-forain" rel="noopener">Jours et horaires : site de la mairie de Saint-Pierre →</a></li>`);
+    expect(html).toContain(`<li>Jours et horaires des marchés : <a href="https://www.saintpierre.re/decouvrez-saint-pierre/le-cadre-de-vie/les-marches-de-saint-pierre/le-marche-forain" rel="noopener">site de la mairie de Saint-Pierre →</a></li>`);
     // On Wednesday, no forain: the covered market alone, never « the market of the day ».
     const wed = new Date("2026-10-28T04:00:00Z");
     const w = aujourdhuiPage("https://rundata.re", sp, resume(sp, full(sp.nom) as never, wed), null);
@@ -84,7 +84,8 @@ describe("the page of a commune's day", () => {
     // Days no source gives: said so, by name, with the town hall's home page (its terms forbid a deeper link).
     const lt = pageOf("le-tampon")!;
     const t = aujourdhuiPage("https://rundata.re", lt, resume(lt, full(lt.nom) as never, NOW), null);
-    expect(t).toMatch(/<li>Marchés : <a [^>]*><b>Marché Couvert du Tampon<\/b><\/a>, .* <span class="note">jours non trouvés<\/span> · <a href="https:\/\/letampon\.fr\/" rel="noopener"[^>]*>Jours et horaires : site de la mairie du Tampon →<\/a><\/li>/);
+    expect(t).toMatch(/<li>Marchés : <a [^>]*><b>Marché Couvert du Tampon<\/b><\/a>, .*, <span class="note">jours non trouvés<\/span><\/li>/);
+    expect(t).toMatch(/<li>Jours et horaires des marchés : <a href="https:\/\/letampon\.fr\/" rel="noopener"[^>]*>site de la mairie du Tampon →<\/a><\/li>/);
     expect(t).not.toMatch(/pas de marché|aucun marché/i);
     // Under the markets of the day: « Autres marchés ».
     const sp2 = aujourdhuiPage("https://rundata.re", pageOf("saint-paul")!, resume(pageOf("saint-paul")!, full("Saint-Paul") as never, NOW), null);

@@ -74,7 +74,10 @@ export function nearest(lon: number, lat: number, max = 5) {
   return MARCHES().flatMap((m) => (m.lon != null && m.lat != null ? [{ ...m, km: distanceKm(lon, lat, m.lon, m.lat) }] : [])).sort((a, b) => a.km - b.km).slice(0, max);
 }
 
-/** The page of the town hall that gives its markets' days, where nothing is taken from it (Le Tampon: its home page, which its terms allow). */
+/**
+ * The page of the town hall that gives its markets' days, where nothing is taken from it: its markets' page when it is
+ * the current one, else its home page (Le Tampon's terms allow no other).
+ */
 export const lienMairie = (commune: string): string | undefined => (mairies.liens as Record<string, string>)[commune];
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];

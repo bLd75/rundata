@@ -54,13 +54,13 @@ function marketItems(mk: Markets | undefined, commune: string, aller: Aller): st
   };
   const by = (x: { d_apres?: string }) => (x.d_apres ? `, d'après le ${x.d_apres}` : "");
   const name = (x: { nom: string; lien: string }) => `<a href="${esc(x.lien)}" rel="noopener"${fenetre(x.lien)}><b>${esc(x.nom)}</b></a>`;
-  const townHall = mk.mairie ? `<a href="${esc(mk.mairie.site)}" rel="noopener"${fenetre(mk.mairie.site)}>${esc(mk.mairie.texte)} →</a>` : "";
+  // « Jours et horaires des marchés : site de la mairie de Saint-Pierre → », its words outside the link but the site's.
+  const [label, site] = mk.mairie ? mk.mairie.texte.split(" : ") : [];
   return [
     ...mk.liste.map((x) => `<li>Marché aujourd'hui : ${name(x)} <span class="note">${esc(x.horaires_aujourd_hui)}${x.adresse ? `, ${esc(x.adresse)}` : ""}${esc(by(x))}</span>${go(x)}</li>`),
     ...(mk.permanents ?? []).map((x) => `<li>Marché permanent : ${name(x)} <span class="note">${esc(x.horaires ?? "")}${x.horaires_aujourd_hui === "fermé aujourd'hui" ? ", fermé aujourd'hui" : ""}${x.adresse ? `, ${esc(x.adresse)}` : ""}${esc(by(x))}</span>${go(x)}</li>`),
-    mk.jours_non_trouves
-      ? `<li>${mk.liste.length || mk.permanents ? "Autres marchés" : "Marchés"} : ${mk.jours_non_trouves.map(name).join(", ")} <span class="note">jours non trouvés</span>${townHall ? ` · ${townHall}` : ""}</li>`
-      : townHall ? `<li>Marchés : ${townHall}</li>` : "",
+    mk.jours_non_trouves ? `<li>${mk.liste.length || mk.permanents ? "Autres marchés" : "Marchés"} : ${mk.jours_non_trouves.map(name).join(", ")}, <span class="note">jours non trouvés</span></li>` : "",
+    mk.mairie ? `<li>${esc(label)} : <a href="${esc(mk.mairie.site)}" rel="noopener"${fenetre(mk.mairie.site)}>${esc(site)} →</a></li>` : "",
   ];
 }
 

@@ -363,7 +363,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
           liste: markets.map((m) => ({ nom: m.nom, horaires_aujourd_hui: m.horaires_aujourd_hui, adresse: m.adresse ?? undefined, lien: m.lien, carte: m.osm, source: m.source.nom, d_apres: by(m) })),
           permanents: allWeek.length ? allWeek.map((m) => ({ nom: m.nom, horaires: m.horaires, horaires_aujourd_hui: m.horaires_aujourd_hui, adresse: m.adresse ?? undefined, lien: m.lien, carte: m.osm, source: m.source.nom, d_apres: by(m) })) : undefined,
           jours_non_trouves: noDays.length ? noDays.map((m) => ({ nom: m.nom, adresse: m.adresse ?? undefined, lien: m.lien, carte: m.osm })) : undefined,
-          mairie: townHall ? { texte: `Jours et horaires : site de la mairie ${de(nom)}`, site: townHall } : undefined,
+          mairie: townHall ? { texte: `Jours et horaires des marchés : site de la mairie ${de(nom)}`, site: townHall } : undefined,
           avertissement: MARKETS_NOT_ALL,
         }
       : undefined,

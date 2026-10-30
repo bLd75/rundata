@@ -53,7 +53,7 @@ export function marchesAnswer(lieu: string | undefined) {
       ? `Marchés ${a(commune)} : ${here.map(said).join("\u00a0; ")}.`
       : `Aucun marché trouvé ${a(commune)} dans OpenStreetMap ni sur les sites de mairie lus. Les plus proches : ${near.map((m) => `${said(m)}, ${a(m.commune)}, à ${fr(Math.round((m.km ?? 0) * 10) / 10)} km`).join("\u00a0; ")}.`,
     marches: near.map(row),
-    mairie: townHall ? { texte: `Jours et horaires : site de la mairie ${de(commune)}`, site: townHall } : undefined,
+    mairie: townHall ? { texte: `Jours et horaires des marchés : site de la mairie ${de(commune)}`, site: townHall } : undefined,
     avertissements: [NOT_ALL],
     sources: sourcesOf(near),
   });
