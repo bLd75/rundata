@@ -281,11 +281,12 @@ describe("a trail's altitudes from the IGN", () => {
     ign = 0;
     moved = false;
     vi.stubGlobal("fetch", async (url: string) => {
-      if (url.includes("geopf.fr")) {
+      const u = new URL(url);
+      if (u.hostname === "data.geopf.fr") {
         ign++;
         return new Response(fixture("traces/ign_le-bloc-piton-des-neiges.json"));
       }
-      if (url.includes("/5/query")) {
+      if (u.pathname.endsWith("/FeatureServer/5/query")) {
         const t = JSON.parse(fixture("traces/onf_le-bloc-piton-des-neiges.json"));
         if (moved) t.features[0].geometry.paths[0][0][0] += 0.0001;
         return new Response(JSON.stringify(t));
