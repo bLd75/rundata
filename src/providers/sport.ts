@@ -58,7 +58,7 @@ export const SOURCES = {
   },
   lrvb_tournois: {
     id: "lrvb_tournois",
-    nom: "Volley-ball : tournois ouverts de la Ligue réunionnaise (King, Green 3X3)",
+    nom: "Volley-ball et beach-volley : tournois ouverts de la Ligue réunionnaise (King, Green 3X3, beach)",
     organisme: "Ligue réunionnaise de volley-ball (LRVB)",
     licence: "Information publique (calendrier officiel de la Ligue, cité avec son lien)",
     attribution: "LRVB",
@@ -384,7 +384,7 @@ export async function championnats(cache: Cache, which: "handball" | "volley"): 
 // ---------------------------------------------------------------- events (sailing, golf, motor sport)
 
 export interface Epreuve {
-  sport: "voile" | "golf" | "sport auto" | "volley-ball";
+  sport: "voile" | "golf" | "sport auto" | "volley-ball" | "beach-volley";
   nom: string;
   /** YYYY-MM-DD, local. */
   debut: string;

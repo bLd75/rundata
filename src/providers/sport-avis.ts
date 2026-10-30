@@ -34,6 +34,8 @@ export interface Avis {
   poules: string[];
   /** The sport, for the news (a league's notice is about its own sport). */
   sport?: ClubSport;
+  /** On the sand (« beach », « sable », « outdoor »): of the beach volley's events, never of a hall's matches. */
+  beach?: true;
   /** « Ces rencontres seront reportées à une date ultérieure ». */
   a_rejouer?: boolean;
   /** The new day, when the notice gives it. */
@@ -163,8 +165,8 @@ export function avisIn(
     const jours = daysIn(to ? s.slice(0, to.index) : s, meta.ref, meta.relative);
     if (!jours.length) continue;
     const reporte_au = to ? daysIn(s.slice(to.index), meta.ref, meta.relative)[0] : undefined;
-    if (BEACH.test(f) && !INDOOR.test(f)) continue;
-    if (YOUTH.test(f) && !/senior/.test(f)) continue;
+    const beach = BEACH.test(f) && !INDOOR.test(f);
+    if (YOUTH.test(f) && !/senior/.test(f) && !beach) continue;
     const sport = meta.sport ?? SPORTS.find(([, re]) => re.test(f))?.[0];
     const equipes = sport ? [...new Set(clubsIn(s, sport))] : [];
     const poules = [...new Set([...s.matchAll(POOL)].map((m) => m[1]))];
@@ -175,6 +177,7 @@ export function avisIn(
       equipes,
       poules,
       sport,
+      ...(beach && { beach: true as const }),
       a_rejouer: statut === "annulé" && later ? true : undefined,
       reporte_au,
       source: meta.source,
@@ -272,7 +275,7 @@ export function avisOf(list: Avis[], sport: ClubSport, m: { date: string; domici
   const day = m.date.slice(0, 10);
   const teams = [m.domicile, m.exterieur].map((t) => clubOf(sport, t)).map((c) => c && (c.sigle ?? c.nom));
   return list.find((a) => {
-    if ((a.sport ?? sport) !== sport || !a.jours.includes(day)) return false;
+    if (a.beach || (a.sport ?? sport) !== sport || !a.jours.includes(day)) return false;
     if (a.tous) return true;
     if (a.poules.length && (!m.poule || !a.poules.includes(m.poule))) return false;
     // One club named: its matches; several: the matches between two of them.
@@ -280,4 +283,9 @@ export function avisOf(list: Avis[], sport: ClubSport, m: { date: string; domici
     if (a.equipes.length) return teams.every((t) => !!t && a.equipes.includes(t));
     return a.poules.length > 0;
   });
+}
+
+/** The notice of the league that calls off a beach volley event of that day, when one does. */
+export function avisBeach(list: Avis[], e: { debut: string; fin: string }): Avis | undefined {
+  return list.find((a) => a.beach && (a.sport ?? "volley") === "volley" && a.jours.some((d) => e.debut <= d && d <= e.fin));
 }
