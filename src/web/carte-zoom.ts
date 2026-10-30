@@ -1,6 +1,6 @@
 /**
- * The zoom of the hikes' map (/randonnees and each sector's page): pinch, the wheel (with Ctrl, or once zoomed), the
- * buttons + and −, and « Recentrer » for the whole island; once zoomed, a finger or the mouse moves the map. It moves
+ * The zoom of the hikes' map (/randonnees and each sector's page): pinch, the wheel (WHEEL_SCRIPT), the
+ * double click (DOUBLE_SCRIPT), the buttons + and −, and « Recentrer » for the whole island; once zoomed, a finger or the mouse moves the map. It moves
  * the map's viewBox, within the island's frame: the lines keep their width on screen (vector-effect) and the names are
  * placed again at their size (NOMS_SCRIPT, on the viewBox's change). A tap beside a line takes the nearest one within
  * a finger's reach; a tap that ended a drag or a pinch opens nothing. Without the script, the map stays whole and the
@@ -18,6 +18,33 @@ export const MOTS = {
 /** The closest the map comes: 8 times the island's width, about 9 km across, where the relief still reads. */
 export const MAX_ZOOM = 8;
 
+/** The wheel's step: a notch of a mouse (deltaY 100 px) zooms by this much; a touchpad's small deltas by as little. */
+export const WHEEL_STEP = 1.25;
+
+/**
+ * The wheel on a map, for a script with `svg`, `pt` (screen to map) and `zoom` (factor, centre) in scope: forwards it
+ * always zooms in, centred on the pointer; backwards it zooms out, and once the map is whole it lets the page scroll.
+ * Shared by the hikes' map and the communes' maps of /enfants (web/enfants.ts).
+ */
+export const WHEEL_SCRIPT = `svg.addEventListener("wheel",(e)=>{if(!e.deltaY||e.deltaY>0&&!svg.classList.contains("zoomed"))return;e.preventDefault();` +
+  `const d=e.deltaY*(e.deltaMode===1?33:e.deltaMode===2?100:1)/100,c=pt(e.clientX,e.clientY);zoom(${WHEEL_STEP}**Math.max(-1,Math.min(1,-d)),c[0],c[1])},{passive:false});`;
+
+/** A double click's step, the button + 's. */
+export const DOUBLE_STEP = 1.6;
+/** How long a mouse's click waits for a second one before it opens what is under it, in ms. */
+export const DOUBLE_WAIT_MS = 300;
+
+/**
+ * The double click on a map, for the same script: it zooms in by DOUBLE_STEP, centred on the point clicked. A mouse's
+ * click is held (`held`, for the script's click listener in the capture phase) and given again DOUBLE_WAIT_MS later
+ * unless a second click came, so that the first click of a double click opens nothing. A finger's tap, a pen's and a
+ * click from the keyboard (detail 0) are never held: on a phone, the pinch zooms.
+ */
+export const DOUBLE_SCRIPT = `let hold=0;const held=(e)=>{if(!e.isTrusted||!e.detail||e.pointerType==="touch"||e.pointerType==="pen")return false;` +
+  `e.stopImmediatePropagation();e.preventDefault();clearTimeout(hold);if(e.detail===1){const t=e.target,x=e.clientX,y=e.clientY;` +
+  `hold=setTimeout(()=>t.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true,clientX:x,clientY:y})),${DOUBLE_WAIT_MS})}return true};` +
+  `svg.addEventListener("dblclick",(e)=>{e.preventDefault();const c=pt(e.clientX,e.clientY);zoom(${DOUBLE_STEP},c[0],c[1])});`;
+
 /** Half a finger, in px: a tap this far from a line still takes it. */
 export const REACH_PX = 22;
 
@@ -32,10 +59,10 @@ svg.addEventListener("pointermove",(e)=>{if(!ps.has(e.pointerId))return;const o=
 if(ps.size===2){const[a,b]=[...ps.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]),c=pt((a[0]+b[0])/2,(a[1]+b[1])/2);if(last)zoom(d/last,c[0],c[1]);last=d;moved=9;e.preventDefault();return}
 if(!svg.classList.contains("zoomed"))return;const p0=pt(o[0],o[1]),p1=pt(e.clientX,e.clientY);moved+=Math.hypot(e.clientX-o[0],e.clientY-o[1]);v[0]-=p1[0]-p0[0];v[1]-=p1[1]-p0[1];clamp();e.preventDefault()});
 const up=(e)=>{ps.delete(e.pointerId);if(ps.size<2)last=null};["pointerup","pointercancel","pointerleave"].forEach((t)=>svg.addEventListener(t,up));
-svg.addEventListener("wheel",(e)=>{if(!e.ctrlKey&&!svg.classList.contains("zoomed"))return;e.preventDefault();const c=pt(e.clientX,e.clientY);zoom(e.deltaY<0?1.25:.8,c[0],c[1])},{passive:false});
+${WHEEL_SCRIPT}${DOUBLE_SCRIPT}
 z.addEventListener("click",(e)=>{const k=e.target.closest("button")?.dataset.z;if(k==="+")zoom(1.6);else if(k==="-")zoom(1/1.6);else if(k==="0"){v=B.slice();put()}});
 const near=(x,y)=>{for(let r=4;r<=${REACH_PX};r+=3)for(let a=0;a<16;a++){const l=document.elementsFromPoint(x+r*Math.cos(a*Math.PI/8),y+r*Math.sin(a*Math.PI/8)).find((n)=>n.dataset&&n.dataset.k&&svg.contains(n));if(l)return l}return null};
-svg.addEventListener("click",(e)=>{if(moved>8){e.stopImmediatePropagation();e.preventDefault();return}if(e.target.dataset?.k||!e.isTrusted)return;const l=near(e.clientX,e.clientY);if(l){e.stopImmediatePropagation();l.dispatchEvent(new MouseEvent("click",{bubbles:true,clientX:e.clientX,clientY:e.clientY}))}},true)})();`;
+svg.addEventListener("click",(e)=>{if(moved>8){e.stopImmediatePropagation();e.preventDefault();return}if(held(e)||e.target.dataset?.k)return;const l=near(e.clientX,e.clientY);if(l){e.stopImmediatePropagation();l.dispatchEvent(new MouseEvent("click",{bubbles:true,clientX:e.clientX,clientY:e.clientY}))}},true)})();`;
 
 /** The buttons under the hikes' map, then its script, run before the page is drawn so that nothing moves. */
 export function hikesZoom(): string {

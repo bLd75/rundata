@@ -3,6 +3,7 @@ import { ageIn, ageRange, extrait, themesIn } from "../src/providers/agenda-mots
 import { INSEE } from "../src/places/insee.js";
 import { CHILDREN, enfantsAnswer, kindAsked } from "../src/tools/enfants.js";
 import * as enfants from "../src/vie/enfants.js";
+import { DOUBLE_SCRIPT, WHEEL_SCRIPT } from "../src/web/carte-zoom.js";
 import { communePage } from "../src/web/commune.js";
 import { ASK_FRANCAIS, ASK_KREOL, enfantsCommunePage, enfantsPage, LEAD, TITLE } from "../src/web/enfants.js";
 import { esc } from "../src/web/map.js";
@@ -255,6 +256,8 @@ describe("a commune's children's page", () => {
     expect(html).not.toContain('value="escalade"');
     // Hidden until the script shows them: without it, the dots are links to the rows, the list is whole.
     expect(html).toContain('<div id="ecz" class="kzoom" hidden>');
+    // The wheel and the double click of the hikes' map, the first click of a double click held there too.
+    expect(html).toContain(`${WHEEL_SCRIPT}${DOUBLE_SCRIPT}svg.addEventListener("click",held,true);`);
     expect(html).toContain('<div id="ecs" class="card ksheet" hidden aria-live="polite">');
     expect(html).toMatch(/<button type="button" class="tomap f-[a-z]+" hidden aria-label="/);
   });
