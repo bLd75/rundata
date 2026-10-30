@@ -56,6 +56,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-31T02:27:00+04:00", texte: "Marchés\u00a0: le marché forain du jour en premier, les marchés ouverts toute la semaine à part, et le lien de la mairie si les jours manquent." },
   { date: "2026-10-31T02:12:00+04:00", texte: "Communes\u00a0: la carte de la page des communes nomme les 24\u00a0communes, et chaque nom mène à la page de sa commune." },
   { date: "2026-10-31T01:38:00+04:00", texte: "Cartes des randonnées et des enfants\u00a0: la molette zoome vers la souris, sans Ctrl, et le double-clic rapproche d'un cran." },
   { date: "2026-10-31T01:02:00+04:00", texte: "Randonnée\u00a0: la carte se zoome, avec deux doigts, la molette ou les boutons +\u00a0et\u00a0−, pour voir de près les sentiers ouverts et fermés." },

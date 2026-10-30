@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 31 octobre 2026
 
+- Marchés : le marché forain du jour en premier, les marchés ouverts toute la semaine à part, et le lien de la mairie si les jours manquent.
 - Communes : la carte de la page des communes nomme les 24 communes, et chaque nom mène à la page de sa commune.
 - Cartes des randonnées et des enfants : la molette zoome vers la souris, sans Ctrl, et le double-clic rapproche d'un cran.
 - Randonnée : la carte se zoome, avec deux doigts, la molette ou les boutons + et −, pour voir de près les sentiers ouverts et fermés.
