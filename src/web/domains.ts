@@ -1763,12 +1763,13 @@ export function traficPage(origin: string, data: Cached<TraficAnswer> | null, no
   const cameras = radars.byCommune();
   const radarsLead = `${radars.RADARS.length} radars fixes à La Réunion, d'après la liste publiée par le ministère de l'Intérieur (fichier du ${radars.fichierDu()}).`;
   // Each camera at its place, its speed limit inside, its commune in the tooltip: the map says no more than the list.
+  // A limit is neither good nor bad: the night's colour, which the dark theme's ink would turn into white on white.
   const radarMarkers: Marker[] = radars.radars().map((r) => ({ lon: r.lon, lat: r.lat, label: r.vma_kmh != null ? String(r.vma_kmh) : "",
-    name: r.vma_kmh != null ? `${r.commune}, ${r.vma_kmh}\u00a0km/h` : r.commune, quiet: true }));
+    name: r.vma_kmh != null ? `${r.commune}, ${r.vma_kmh}\u00a0km/h` : r.commune, color: COUNT_COLOR, quiet: true }));
   const radarsCard = `<div class="card" id="radars">${icon("car")}<h3>Radars fixes</h3>
   <p>${radarsLead}</p>
   <figure class="mapcard">${islandMap({ markers: radarMarkers, label: radarsLead, apart: true })}
-  <figcaption class="note">${legende([{ forme: "pastille", couleur: "var(--ink)", texte: "90", dit: "Radar fixe : vitesse limitée en km/h" }])}</figcaption></figure>
+  <figcaption class="note">${legende([{ forme: "pastille", couleur: COUNT_COLOR, texte: "90", dit: "Radar fixe : vitesse limitée en km/h" }])}</figcaption></figure>
   <ul class="rows eau">${cameras.map((c) => `<li><span>${esc(c.commune)}<small>${esc(radars.vitesses(c.radars).join(", "))}</small></span><span class="score">${c.radars.length}</span></li>`).join("")}</ul>
   <details><summary>Où ils sont</summary><ul class="plain">${cameras.flatMap((c) => c.radars.map((r) => `<li>${esc(c.commune)}${r.vma_kmh != null ? `, ${r.vma_kmh}\u00a0km/h` : ""} : <a href="${esc(radars.carte(r))}" rel="noopener">la carte ↗</a></li>`)).join("")}</ul></details>
   <p class="note">${esc(radars.RESERVE())}</p></div>`;

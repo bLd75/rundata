@@ -53,6 +53,8 @@ describe("the charter of the maps", () => {
       communes: [], lu: NOW.toISOString(), a_savoir: COMMON, sources: [],
     } as unknown as EauAnswer), NOW));
     expect(eau).toContain('<circle r="34" fill="#e3262d"/><text y="11">!</text></svg>mauvaise</span>');
+    // The white edge that parts a mark from the map must not paint over the ring of a station with no recent measure.
+    expect(CSS).toContain(".mlg circle:not([stroke]),.mlg rect,.mlg path{stroke:#fff;stroke-width:5}");
     expect(eau).toContain('<span class="mls">Qualité au dernier prélèvement de l&#39;ARS, du 14/10 au 20/10/2026.</span>');
 
     const station = (s: string, lon: number, lat: number, rapport: string) => ({
@@ -75,7 +77,10 @@ describe("the charter of the maps", () => {
   it("puts the speed cameras' map in a card of its own, with its legend; the Waze map as wide as the island it draws", () => {
     const trafic = traficPage(ORIGIN, null, NOW);
     expect(trafic).toMatch(/<figure class="mapcard"><svg class="map terrain"[^>]*aria-label="\d+ radars fixes à La Réunion/);
-    expect(trafic).toContain('fill="var(--ink)"/><text y="11">90</text></svg>Radar fixe : vitesse limitée en km/h</span>');
+    expect(trafic).toContain('fill="#14202b"/><text y="11">90</text></svg>Radar fixe : vitesse limitée en km/h</span>');
+    // In the night's colour on the map too: the dark theme's ink made white figures on light pills.
+    const radars = trafic.match(/<figure class="mapcard">(?:(?!<\/figure>).)*<\/figure>/s)?.[0] ?? "";
+    expect(radars.match(/<rect class="sh"[^>]*fill="([^"]+)"/g)?.every((c) => c.endsWith('fill="#14202b"'))).toBe(true);
     // Wider than the island, the frame made the names script measure 1 076 px for an island drawn on 607: 24 names at 9 px.
     expect(CSS).toContain(".wz-box>.map{width:min(100%,calc(clamp(22rem,65vh,34rem)*1000/896));margin:0 auto}");
   });
