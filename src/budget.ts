@@ -150,6 +150,13 @@ export const readsSaid = (reads: Map<string, number>) =>
   reads.size ? `, lectures : ${[...reads].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([s, n]) => `${s} ${n}`).join(", ")}` : "";
 
 /**
+ * « réponse : 412 ms (/evenements) »: the time from a request's arrival to its response handed back, without the work
+ * done after it (a copy refreshed, an agenda stored), which the invocation's own duration counts. The Worker's clock
+ * moves only on I/O: the computing after the last read is not in it.
+ */
+export const reponseSaid = (ms: number, path: string) => `réponse : ${Math.max(0, Math.round(ms))} ms (${path})`;
+
+/**
  * Runs `fn` as the job `key` (a page's build) and remembers how many subrequests it took, so that it is started again
  * only when they are left (`costOf`). Past `limit`, its subrequests are refused, whatever the invocation has left.
  * Outside a counted invocation it just runs.

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, SERVICE_OPS_LIMIT, SUBREQUEST_LIMIT, costOf, count, counted, later, left, measured, reserve, spent } from "../src/budget.js";
+import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, SERVICE_OPS_LIMIT, SUBREQUEST_LIMIT, costOf, count, counted, later, left, measured, reponseSaid, reserve, spent } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
 import { KvStore, type KvBinding } from "../src/kv.js";
 import * as arome from "../src/providers/arome.js";
@@ -414,5 +414,15 @@ describe("subrequests set aside for work running beside the rest", () => {
   it("change nothing outside a counted invocation", () => {
     reserve(17)();
     expect(left()).toBe(Infinity);
+  });
+});
+
+describe("the response's time in the Worker's log", () => {
+  it("says the wait of the visitor apart from the invocation, in a line Grafana reads with one regexp", () => {
+    expect(reponseSaid(412.4, "/evenements")).toBe("réponse : 412 ms (/evenements)");
+    expect(reponseSaid(-1, "/")).toBe("réponse : 0 ms (/)");
+    // The LogQL of the panels: regexp `réponse : (?P<reponse_ms>\d+) ms \((?P<chemin>[^)]*)\)`.
+    const m = /réponse : (?<reponse_ms>\d+) ms \((?<chemin>[^)]*)\)/.exec(reponseSaid(2034, "/evenements/ce-week-end"));
+    expect(m?.groups).toEqual({ reponse_ms: "2034", chemin: "/evenements/ce-week-end" });
   });
 });
