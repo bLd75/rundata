@@ -55,7 +55,7 @@ describe("the page of a commune's day", () => {
     const dechets = copy({ sources: [], etats: [{ lien: "https://www.tco.re/annuaire-tco/centre-de-proprete-de-plateau-caillou", maj: "2026-10-24T14:30:00+04:00", accepte: { dechets_verts: true } }] });
     const html = aujourdhuiPage("https://rundata.re", p, resume(p, { ...full(p.nom), dechets } as never, NOW), null);
     expect(html).toContain('<h2 id="h-pratique">Vie pratique</h2>');
-    expect(html).toMatch(/Marché aujourd'hui : <a href="https:\/\/www\.openstreetmap\.org\/[^"]+" rel="noopener"><b>Marché forain de Saint-Paul<\/b><\/a> <span class="note">de 8\u00a0h à 12\u00a0h/);
+    expect(html).toContain(`Marché aujourd'hui : <a href="https://www.mairie-saintpaul.re/marches-forains/" rel="noopener"><b>Marché forain de Saint-Paul</b></a> <span class="note">de 7\u00a0h à 12\u00a0h, Quai Gilbert, d&#39;après le site de la mairie de Saint-Paul</span>`);
     expect(html).toContain("<b>déchets verts acceptés dans 1 sur 1</b>");
     expect(html).toContain('<a href="/decheteries#saint-paul">les bennes →</a>');
     expect(html).toContain('Pharmacie de garde (nuits, dimanches, jours fériés) : <a href="https://www.3237.fr/" rel="noopener"><b>3237.fr</b></a>, ou le 32 37 (payant)');
@@ -63,6 +63,33 @@ describe("the page of a commune's day", () => {
     expect(html).not.toContain("Carburants :");
     const tampon = pageOf("le-tampon")!;
     expect(aujourdhuiPage("https://rundata.re", tampon, resume(tampon, full(tampon.nom) as never, NOW), null)).not.toContain("Déchèteries :");
+  });
+
+  it("gives the forain on its day before the covered market, kept apart, and never says there is no market", () => {
+    // Saturday 24/10 at 15:10: the forain of Saint-Pierre, its day and its morning from its OpenStreetMap name; the
+    // covered market, open all week, apart.
+    const sp = pageOf("saint-pierre")!;
+    const html = aujourdhuiPage("https://rundata.re", sp, resume(sp, full(sp.nom) as never, NOW), null);
+    expect(html).toContain(`Marché aujourd'hui : <a href="https://www.openstreetmap.org/node/4608283177" rel="noopener"><b>Marché Forain de Saint-Pierre (Samedi Matin)</b></a> <span class="note">le matin</span>`);
+    expect(html).toContain(`Marché permanent : <a href="https://www.openstreetmap.org/way/67648500" rel="noopener"><b>Marché couvert de Saint-Pierre</b></a> <span class="note">du lundi au samedi de 7\u00a0h à 17\u00a0h, Rue Victor le Vigoureux</span>`);
+    expect(html).not.toMatch(/Marché aujourd'hui : <a [^>]*><b>Marché couvert/);
+    expect(html.indexOf("Marché Forain de Saint-Pierre")).toBeLessThan(html.indexOf("Marché couvert de Saint-Pierre"));
+    // Nothing taken from its site: its page, for the days and hours.
+    expect(html).toContain(`<li>Marchés : <a href="https://www.saintpierre.re/decouvrez-saint-pierre/le-cadre-de-vie/les-marches-de-saint-pierre/le-marche-forain" rel="noopener">Jours et horaires : site de la mairie de Saint-Pierre →</a></li>`);
+    // On Wednesday, no forain: the covered market alone, never « the market of the day ».
+    const wed = new Date("2026-10-28T04:00:00Z");
+    const w = aujourdhuiPage("https://rundata.re", sp, resume(sp, full(sp.nom) as never, wed), null);
+    expect(w).not.toContain("Marché aujourd'hui");
+    expect(w).toContain("Marché permanent : ");
+    // Days no source gives: said so, by name, with the town hall's home page (its terms forbid a deeper link).
+    const lt = pageOf("le-tampon")!;
+    const t = aujourdhuiPage("https://rundata.re", lt, resume(lt, full(lt.nom) as never, NOW), null);
+    expect(t).toMatch(/<li>Autres marchés : <a [^>]*><b>Marché Couvert du Tampon<\/b><\/a>, .* <span class="note">jours non trouvés<\/span> · <a href="https:\/\/letampon\.fr\/" rel="noopener"[^>]*>Jours et horaires : site de la mairie du Tampon →<\/a><\/li>/);
+    expect(t).not.toMatch(/pas de marché|aucun marché/i);
+    // A town hall's page of 2020: its date said.
+    const sl = pageOf("saint-louis")!;
+    const l = aujourdhuiPage("https://rundata.re", sl, resume(sl, full(sl.nom) as never, wed), null);
+    expect(l).toContain(`<b>Marché forain de la ZAC Avenir</b></a> <span class="note">de 6\u00a0h à 13\u00a0h, Place Raymond Barre, ZAC Avenir, d&#39;après le site de la mairie de Saint-Louis (page du 14/05/2020)</span>`);
   });
 
   it("says under the practical side that a mairie's notices of power cuts are not read until it agrees, in the words of /electricite", () => {
