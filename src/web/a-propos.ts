@@ -54,7 +54,8 @@ Citer : nommer rundata.re (${origin}) avec le producteur de la donnée et sa lic
 - [Accueil](${origin}/) : l'île en ce moment
 - [Connecteur MCP](${origin}/mcp) : l'adresse à ajouter à ChatGPT, Claude ou Le Chat
 - [Communes](${origin}/communes) : une page par commune
-- [Vigilance](${origin}/vigilance) : vigilance et alerte cyclonique de Météo-France
+- [Vigilance](${origin}/vigilance) : vigilance météo de Météo-France et état de l'alerte cyclonique
+- [Cyclones](${origin}/cyclones) : cyclones du bassin et phases de l'alerte
 - [Qui fait rundata.re ?](${origin}/a-propos) : le projet, ses engagements, le contact
 - [Conditions et mentions légales](${origin}/conditions)
 `;
