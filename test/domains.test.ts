@@ -182,7 +182,7 @@ describe("commune page", () => {
     expect(tile(page, "Bus")).toContain("dans 10 min"); // built a minute ago
     expect(tile(page, "Bus")).not.toContain("S1");
     expect(tile(page, "Vélos")).toContain(`<p class="tv">6 vélos</p>`);
-    expect(tile(page, "Vélos")).toContain("<li><span>ZAC Maxime Rivière</span><span><b>6</b>\u00a0vélos · 4\u00a0places</span>");
+    expect(tile(page, "Vélos")).toContain("<li><span>ZAC Maxime Rivière<small><b>6</b>\u00a0vélos · 4\u00a0places</small></span>");
     expect(tile(page, "Volcan")).toContain("Pas d'éruption");
     expect(tile(page, "Soleil et calendrier")).toMatch(/<p class="tv">\d\d:\d\d–\d\d:\d\d<\/p>/);
     expect(desc(page).length).toBeLessThanOrEqual(DESCRIPTION_MAX);

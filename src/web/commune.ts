@@ -6,7 +6,7 @@
  */
 import { porte, type Porte, SHEET as ALLER } from "./aller.js";
 import type { Cached } from "../cache.js";
-import { localTime } from "../geo.js";
+import { daysApart, localTime } from "../geo.js";
 import { normalize } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import * as mf from "../providers/vigilance.js";
@@ -26,7 +26,7 @@ import { credit, joursDuJour } from "./data.js";
 import { aCommune, LINK } from "./aujourdhui.js";
 import { waterLive } from "./coupures.js";
 import { communeEvents, communeHikes } from "./liens.js";
-import { alertList, aq, bikeRow, calendrierLive, departureLi, electriciteLive, stillToCome, volcanLive, waitText } from "./domains.js";
+import { alertList, aq, bikeStock, calendrierLive, departureLi, electriciteLive, stillToCome, volcanLive, waitText } from "./domains.js";
 import { communePath as enfantsPath, enfantsLive } from "./enfants.js";
 import { esc, islandMap } from "./map.js";
 import { ask, connector, credits, cycloneVg, dayMonth, deg, empty, fit, hm, icon, ISLAND, layout, type Live, lue, metres, officielLive, readAt, seaName, SITE, SLOGAN, thin, vg } from "./pages.js";
@@ -73,9 +73,52 @@ interface Tile {
   question?: string;
   foot?: string;
   wide?: boolean;
+  /** A tile with a list (the buses, the bikes): a whole row of the grid, its rows side by side where there is room. */
+  full?: boolean;
 }
 
-function tile(t: Tile): string {
+/** The columns of the grid of tiles: 2 on a phone, 3 from 46rem, 4 from 66rem (pages.ts `.tiles`). */
+export const COLUMNS = [2, 3, 4] as const;
+
+/**
+ * Each tile's span at each of COLUMNS, the grid packed densely (`.tiles.fit`, `grid-auto-flow: dense`): a tile with a
+ * list takes a whole row, a wide one two columns, the others one, each in the first place it fits. A gap that no later
+ * tile fills is given to the tile on its left in its row: the grid has no hole, and no tile beside a list stretched to
+ * its height with nothing in it.
+ */
+export function spans(tiles: Pick<Tile, "wide" | "full">[]): number[][] {
+  const out = tiles.map(() => [] as number[]);
+  for (const c of COLUMNS) {
+    const span = tiles.map((t) => (t.full ? c : t.wide ? 2 : 1));
+    const rows: (number | undefined)[][] = [];
+    span.forEach((s, i) => {
+      for (let r = 0; ; r++) {
+        const row = (rows[r] ??= Array<number | undefined>(c).fill(undefined));
+        const at = row.findIndex((_, x) => x + s <= c && row.slice(x, x + s).every((v) => v === undefined));
+        if (at >= 0) {
+          row.fill(i, at, at + s);
+          break;
+        }
+      }
+    });
+    for (const row of rows)
+      for (let x = 1; x < c; x++)
+        if (row[x] === undefined && row[x - 1] !== undefined) {
+          span[row[x - 1]!]++;
+          row[x] = row[x - 1];
+        }
+    span.forEach((s, i) => out[i].push(s));
+  }
+  return out;
+}
+
+/** The tile's spans at each width (`spans`), those of more than one column only. */
+const spanStyle = (s: number[]) => {
+  const v = s.map((n, k) => (n > 1 ? `--s${COLUMNS[k]}:${n}` : "")).filter(Boolean);
+  return v.length ? ` style="${v.join(";")}"` : "";
+};
+
+function tile(t: Tile, span: number[] = []): string {
   const head = t.href ? `<h3><a href="${t.href}">${esc(t.nom)}</a></h3>` : `<h3>${esc(t.nom)}</h3>`;
   const body = t.live?.vide
     ? `<p class="td all">${t.live.detail}</p>`
@@ -86,7 +129,7 @@ function tile(t: Tile): string {
       // No copy at all: the read is under way (a copy with nothing to show says so, `vide`).
       : `<p class="td all">Se met à jour : rechargez la page dans quelques secondes.</p>`;
   const foot = t.foot ?? (t.href ? `<span class="go" aria-hidden="true">Voir →</span>` : "");
-  return `<li class="tile${t.wide ? " wide" : ""}">${icon(t.icon)}${head}${body}${t.more ?? ""}${foot ? `<p class="tf"><span></span>${foot}</p>` : ""}</li>`;
+  return `<li class="tile${t.wide ? " wide" : ""}"${spanStyle(span)}>${icon(t.icon)}${head}${body}${t.more ?? ""}${foot ? `<p class="tf"><span></span>${foot}</p>` : ""}</li>`;
 }
 
 function weather(p: PlacePage, data: Cached<PlaceData> | null, now: Date): Live | undefined {
@@ -174,19 +217,42 @@ function buses(p: PlacePage, data: Cached<CommuneData> | null | undefined, now: 
   const first = left.find(({ x }) => !x.temps_reel) ?? left[0];
   return {
     live: { valeur: esc(first.heure), detail: `prochain départ ${where} : ligne ${esc(first.x.ligne)} vers ${esc(first.x.direction)} (${esc(first.x.reseau)})` },
-    more: `<ul class="rows departs">${left.map(({ x, min, heure }) => departureLi(x, waitText(min, heure))).join("")}</ul>` +
+    more: `<ul class="rows departs cols">${left.map(({ x, min, heure }) => departureLi(x, waitText(min, heure))).join("")}</ul>` +
       (b.alertes?.length ? `<div class="note">Info trafic : ${alertList(b.alertes)}</div>` : ""),
   };
 }
 
-/** The commune's Altervélo stations: how many bikes in all, and those with the most. */
-function bikes(data: Cached<CommuneData> | null | undefined, g: Porte): { live?: Live; more?: string } | undefined {
+/**
+ * Past this, the bikes counted in the commune's copy are not said as those of the moment. The copy is built again only
+ * when the page is viewed: the first view after a quiet night finds the evening's, and the next one, seconds later, the
+ * new copy (web/data.ts `snapshot`).
+ */
+export const BIKES_STALE_MS = 30 * 60_000;
+/** The stations listed in the tile, those with bikes first; the others on /velos. */
+const BIKES_SHOWN = 4;
+
+/** « à 15:35 » the same day, « hier à 15:35 » the day before, « le 29/10 à 15:35 » before. */
+const readOn = (at: Date, now: Date) => (daysApart(at, now) === 1 ? `hier à ${hm(at)}` : readAt(at, now).a);
+
+/** A station on one line: its name and its bikes, « Y aller » beside them when its copy kept its position. */
+function bikeLine(s: NonNullable<CommuneData["velos"]>[number], g: Porte): string {
+  const go = g.aller({ nom: s.nom, lat: s.lat ?? NaN, lon: s.lon ?? NaN });
+  return `<li><span>${esc(s.nom)}<small>${bikeStock(s)}</small></span>${go ? `<span class="ya">${go}</span>` : ""}</li>`;
+}
+
+/** The commune's Altervélo stations: how many bikes in all, and those with the most; only their number once the count is old. */
+function bikes(data: Cached<CommuneData> | null | undefined, g: Porte, now: Date): { live?: Live; more?: string } | undefined {
   const list = data?.value.velos;
   if (!list?.length) return undefined;
+  const stations = `${list.length} station${list.length > 1 ? "s" : ""}`;
+  const at = readOn(data!.fetchedAt, now);
+  if (now.getTime() - data!.fetchedAt.getTime() > BIKES_STALE_MS)
+    // The instruction first, and never cut: a description may be, not what to do (marketing, 31/10).
+    return { live: { valeur: stations, detail: `Rechargez la page dans quelques secondes\u00a0: vélos libres comptés ${at}.`, entier: true } };
   const total = list.filter((s) => !s.etat || s.etat === "dépôt impossible en ce moment").reduce((n, s) => n + s.velos_electriques + (s.trottinettes ?? 0), 0);
   return {
-    live: { valeur: `${total} vélo${total > 1 ? "s" : ""}`, detail: `électriques en libre-service dans ${list.length} station${list.length > 1 ? "s" : ""} Altervélo, relevé à ${hm(data!.fetchedAt)}` },
-    more: `<ul class="rows bikes">${list.slice(0, 5).map((s) => bikeRow(s, g)).join("")}</ul>`,
+    live: { valeur: `${total} vélo${total > 1 ? "s" : ""}`, detail: `électriques en libre-service dans ${stations} Altervélo, relevé ${at}` },
+    more: `<ul class="rows velos cols">${list.slice(0, BIKES_SHOWN).map((s) => bikeLine(s, g)).join("")}</ul>`,
   };
 }
 
@@ -302,7 +368,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const url = `${origin}${hub(p)}`;
   const w = weather(p, l.place, now);
   const bus = buses(p, l.commune, now);
-  const velos = bikes(l.commune, g);
+  const velos = bikes(l.commune, g, now);
   const mairie = townHall(l.commune, now);
   const fiche = l.commune?.value.mairie?.fiche;
   // « Y aller » under the town hall's address, where the directory gives its position.
@@ -316,8 +382,8 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     { icon: "air", nom: "Air", href: "/air", live: air(p, l.air, now) },
     ...(coastal(p) ? [{ icon: "wave", nom: "Mer", href: "/mer", live: sea(p, l.mer, l.place, now) }] : []),
     { icon: "drop", nom: "Eau", href: `/coupures-eau/${p.slug}`, live: waterLive(p, { coupures: l.coupures ?? null, secheresse: l.secheresse, eau: l.eau }) },
-    { icon: "bus", nom: "Bus", href: "/bus", ...bus, wide: true },
-    ...(velos ? [{ icon: "bike", nom: "Vélos", href: "/velos", ...velos, wide: true }] : []),
+    { icon: "bus", nom: "Bus", href: "/bus", ...bus, full: !!bus.more },
+    ...(velos ? [{ icon: "bike", nom: "Vélos", href: "/velos", ...velos, full: !!velos.more }] : []),
     {
       icon: "building",
       nom: "Mairie",
@@ -344,6 +410,8 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     { icon: "volcano", nom: "Volcan", href: "/volcan", live: volcanLive(l.volcan ?? null, now) },
     { icon: "bolt", nom: "Électricité", href: "/electricite", live: electriciteLive(l.electricite ?? null, now) },
   ];
+
+  const grid = spans(tiles);
 
   const s = l.place?.value.meteo?.stations.find((x) => x.mesures.temperature);
   const headline = s
@@ -424,18 +492,18 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const body = `<section id="en-ce-moment" aria-labelledby="h-now">
   <div class="sec-h"><p class="eyebrow">En direct</p><h2 id="h-now">${esc(p.nom)} en ce moment</h2>
   <p>Chaque catégorie a sa page pour toute l'île ; ici, ce qui concerne ${esc(p.nom)}. Mise à jour en continu, chaque donnée avec son heure et sa source.</p></div>
-  <ul class="tiles" aria-label="Catégories">${tiles.map(tile).join("")}</ul>
+  <ul class="tiles fit" aria-label="Catégories">${tiles.map((t, i) => tile(t, grid[i])).join("")}</ul>
   ${sources.length ? `<p class="note">Bus : horaires théoriques publiés par les réseaux, sans les retards. Mairie : horaires publiés sur service-public.fr, sans les fermetures exceptionnelles.</p><p class="sources">Sources : ${credits(sources)}.</p>` : ""}
   ${coastal(p) ? `<p class="or">${BAIGNADE_LINE}</p>` : ""}
 </section>
 ${habiter.length ? `<section aria-labelledby="h-habiter">
   <div class="sec-h"><h2 id="h-habiter">Habiter ${esc(aCommune(p.nom))}</h2>
   <p>Des chiffres publiés une fois par an, par trimestre, par mois ou par semaine, chacun avec sa date.</p></div>
-  <ul class="tiles" aria-label="Habiter ${esc(aCommune(p.nom))}">${habiter.map(tile).join("")}</ul>
+  <ul class="tiles" aria-label="Habiter ${esc(aCommune(p.nom))}">${habiter.map((t) => tile(t)).join("")}</ul>
 </section>
 ` : ""}<section aria-labelledby="h-ile">
   <h2 id="h-ile">Et pour toute l'île</h2>
-  <ul class="tiles" aria-label="Toute l'île">${island.map(tile).join("")}</ul>
+  <ul class="tiles" aria-label="Toute l'île">${island.map((t) => tile(t)).join("")}</ul>
 </section>
 <section class="card cta" aria-labelledby="h-ia">
   <h2 id="h-ia">Votre IA, branchée sur ${esc(p.nom)}</h2>
