@@ -39,7 +39,7 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   meteo: 4,
   randonnees: 3,
   secheresse: 1,
-  sentiers: 1,
+  sentiers: 2,
   sport: 13,
   station: 1,
   trafic: 2,
