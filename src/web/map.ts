@@ -812,9 +812,11 @@ export const FONDS = [
 
 /** The choice under a zoomed map: shown by its script only, which then draws the tiles in the map's `fd-<key>`. */
 function fondChoice(key: string): string {
-  return `<div class="tabs fonds" role="radiogroup" aria-label="Fond de la carte" data-fd="${key}" hidden>` +
+  // The loading message, laid by the script over the map's bottom left corner: it takes no room under the buttons and
+  // moves nothing when it shows.
+  return `<p class="fd-w" id="fd-w-${key}" role="status"></p><div class="tabs fonds" role="radiogroup" aria-label="Fond de la carte" data-fd="${key}" hidden>` +
     FONDS.map((f, i) => `<input type="radio" name="fd-${key}" id="fd-${key}-${f.id}" value="${f.id}"${i ? "" : " checked"}><label for="fd-${key}-${f.id}">${f.nom}</label>`).join("") +
-    `</div><p class="fd-w" id="fd-w-${key}" role="status"></p><script>${FONDS_SCRIPT}</script>`;
+    `</div><script>${FONDS_SCRIPT}</script>`;
 }
 
 // New tiles only once a pinch or a drag has stopped (250 ms): the Géoplateforme takes at most 40 requests a second
@@ -824,7 +826,8 @@ const X=(o)=>(o-A)/(C-A)*W,Y=(a)=>(D-a)/(D-B)*H,lon=(x)=>A+x/W*(C-A),lat=(y)=>D-
 tlon=(t,z)=>t/n(z)*360-180,tlat=(t,z)=>Math.atan(Math.sinh(Math.PI*(1-2*t/n(z))))*180/Math.PI,
 tx=(o,z)=>Math.floor((o+180)/360*n(z)),ty=(a,z)=>{const r=a*Math.PI/180;return Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n(z))},r3=(v)=>String(Math.round(v*1000)/1000);
 document.querySelectorAll(".fonds[data-fd]:not([data-on])").forEach((f)=>{const k=f.dataset.fd,svg=document.querySelector('svg[data-fd="'+k+'"]'),g=document.getElementById("fd-"+k),msg=document.getElementById("fd-w-"+k);if(!svg||!g)return;f.dataset.on="1";
-let cur=null,timer=0,slow=0,pend=0,epoch=0;const have=new Map(),quiet=()=>{clearTimeout(slow);slow=0;if(msg)msg.textContent=""};
+let cur=null,timer=0,slow=0,pend=0,epoch=0;const have=new Map(),quiet=()=>{clearTimeout(slow);slow=0;if(msg)msg.textContent=""},
+place=()=>{const p=msg&&msg.offsetParent;if(!p)return;const a=p.getBoundingClientRect(),b=svg.getBoundingClientRect();msg.style.left=b.left-a.left-p.clientLeft+8+"px";msg.style.top=b.bottom-a.top-p.clientTop-msg.offsetHeight-8+"px"};
 const draw=()=>{if(!cur)return;const v=svg.viewBox.baseVal,px=svg.getBoundingClientRect().width||340,dpp=v.width/W*(C-A)/px,
 z=Math.max(9,Math.min(cur.max,Math.round(Math.log2(360*Math.min(devicePixelRatio||1,2)/(256*dpp))))),
 x0=tx(lon(v.x),z),x1=tx(lon(v.x+v.width),z),y0=ty(lat(v.y),z),y1=ty(lat(v.y+v.height),z);if((x1-x0+1)*(y1-y0+1)>96)return;
@@ -833,11 +836,11 @@ for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){const key=cur.layer+"/"+z+"/"+x+"
 const im=document.createElementNS(NS,"image"),l=X(tlon(x,z)),t=Y(tlat(y,z)),w=X(tlon(x+1,z))-l,h=Y(tlat(y+1,z))-t;
 im.setAttribute("x",r3(l));im.setAttribute("y",r3(t));im.setAttribute("width",r3(w*1.004));im.setAttribute("height",r3(h*1.004));im.setAttribute("preserveAspectRatio","none");
 wait++;pend++;const ep=epoch,fin=()=>{if(ep===epoch&&--pend===0)quiet()};
-if(!slow&&!(msg&&msg.textContent)){const say=cur.attente;slow=setTimeout(()=>{if(msg)msg.textContent=say},1000)}
+if(!slow&&!(msg&&msg.textContent)){const say=cur.attente;slow=setTimeout(()=>{if(msg){msg.textContent=say;place()}},1000)}
 im.addEventListener("load",()=>{fin();done()},{once:true});im.addEventListener("error",()=>{im.remove();have.delete(key);fin();done()},{once:true});
 im.setAttribute("href","${IGN_TUILES}/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER="+cur.layer+"&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX="+z+"&TILEROW="+y+"&TILECOL="+x+"&FORMAT=image/"+cur.format);
 g.appendChild(im);have.set(key,im)}done()};
-const later=()=>{clearTimeout(timer);timer=setTimeout(draw,250)};
+const later=()=>{clearTimeout(timer);timer=setTimeout(()=>{place();draw()},250)};
 f.addEventListener("change",(e)=>{const id=e.target.value;cur=T[id]||null;epoch++;pend=0;quiet();have.forEach((im)=>im.remove());have.clear();svg.classList.remove("fd-plan","fd-photo");if(cur)svg.classList.add("fd-"+id);
 document.querySelectorAll(".fd-c").forEach((s)=>{s.textContent=cur?", "+cur.credit:""});draw()});
 new MutationObserver(later).observe(svg,{attributes:true,attributeFilter:["viewBox"]});addEventListener("resize",later);f.hidden=false})})();`;

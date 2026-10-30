@@ -17,9 +17,9 @@ describe("the IGN's backgrounds on the zoomed maps", () => {
   });
 
   it("say they are loading after a second, the relief kept under the tiles meanwhile", () => {
-    for (const [html, k] of [[commune, "ecm"], [trace, "t"]]) expect(html).toContain(`<p class="fd-w" id="fd-w-${k}" role="status"></p><script>`);
+    for (const [html, k] of [[commune, "ecm"], [trace, "t"]]) expect(html).toContain(`</svg><p class="fd-w" id="fd-w-${k}" role="status"></p><div class="tabs fonds"`);
     expect(FONDS.filter((f) => f.layer).map((f) => f.attente)).toEqual(["Chargement du plan…", "Chargement de la photo aérienne…"]);
-    expect(FONDS_SCRIPT).toContain("slow=setTimeout(()=>{if(msg)msg.textContent=say},1000)");
+    expect(FONDS_SCRIPT).toContain("slow=setTimeout(()=>{if(msg){msg.textContent=say;place()}},1000)");
     expect(FONDS_SCRIPT).toContain("if(ep===epoch&&--pend===0)quiet()");
   });
 
