@@ -426,7 +426,7 @@ export interface AirAnswer {
   sources: Credit[];
 }
 
-export const buildAir = async (cache: Cache, now = new Date()) => needed<AirAnswer>(await qualiteAir(cache, undefined, now), "air");
+export const buildAir = async (cache: Cache, now = new Date()) => needed<AirAnswer>(await qualiteAir(cache, undefined, now, true), "air");
 
 export interface VeloStation {
   nom: string;

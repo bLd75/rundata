@@ -20,6 +20,22 @@ function sentence(x: atmo.Index, when: string): string {
   return `${when} : ${atmo.level(x.niveau)} (${x.niveau}/6)${d.length ? `, surtout ${d.join(" et ")}` : ""}`;
 }
 
+/**
+ * The island's communes a level each, the worst first: its level, quality and the pollutants that set it, then its
+ * communes. Their sub-indices are said for a place only.
+ */
+function byLevel(list: atmo.Index[]) {
+  const out = new Map<string, { niveau: number; qualite: string; polluants: string[]; communes: string[] }>();
+  for (const x of list) {
+    const polluants = drivers(x);
+    const key = `${x.niveau} ${polluants.join(",")}`;
+    const at = out.get(key) ?? { niveau: x.niveau, qualite: atmo.level(x.niveau), polluants, communes: [] };
+    at.communes.push(x.commune);
+    out.set(key, at);
+  }
+  return [...out.values()].sort((a, b) => b.niveau - a.niveau);
+}
+
 /** Each pollutant's sub-index, by its name in words. */
 export const subIndices = (x: atmo.Index) => Object.fromEntries(Object.entries(x.sous_indices).map(([k, v]) => [atmo.POLLUTANTS[k], v]));
 
@@ -72,6 +88,21 @@ export function measured(m: airMesures.Mesure, now: Date) {
 }
 
 export type Measured = ReturnType<typeof measured>;
+
+/**
+ * The measures of the answer, a station each: its hour, type, commune, unit, « mesure brute, non validée » and lateness
+ * said once, then each pollutant's value. The same values as `measured()`, a third of the size (41 values, 17 stations).
+ */
+export function byStation(list: Measured[]) {
+  const out = new Map<string, Omit<Measured, "polluant" | "valeur"> & { valeurs: Record<string, number> }>();
+  for (const { polluant, valeur, ...rest } of list) {
+    const key = JSON.stringify(rest);
+    const at = out.get(key) ?? { ...rest, valeurs: {} };
+    at.valeurs[polluant] = valeur;
+    out.set(key, at);
+  }
+  return [...out.values()];
+}
 
 /**
  * The measures at the stations: for a place, those of its commune's stations, else of the nearest station with its
@@ -177,7 +208,12 @@ async function amateurs(cache: Cache, now: Date) {
 
 export type Amateurs = NonNullable<Awaited<ReturnType<typeof amateurs>>>;
 
-export async function qualiteAir(cache: Cache, lieu: string | undefined, now = new Date()) {
+/**
+ * The answer of the tool. `page`: the island's answer as /air reads it (web/data.ts), a commune and a value each;
+ * the tool says the measures a station each (byStation()) and, for the island, the communes a level each, their
+ * sub-indices with a place.
+ */
+export async function qualiteAir(cache: Cache, lieu: string | undefined, now = new Date(), page = false) {
   let list: atmo.Index[];
   let readAt: Date;
   try {
@@ -214,9 +250,11 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
         ? `Qualité de l'air prévue aujourd'hui à La Réunion : au pire ${atmo.level(worst)} (${worst}/6)` +
           (atWorst.length < todays.length ? `, à ${atWorst.join(", ")}` : " dans toutes les communes") + "."
         : "L'indice du jour n'est pas dans la dernière lecture de la couche d'Atmo France.",
-      communes: todays.map((x) => ({ commune: x.commune, niveau: x.niveau, qualite: atmo.level(x.niveau), polluants: drivers(x), sous_indices: subIndices(x) })),
+      ...(page
+        ? { communes: todays.map((x) => ({ commune: x.commune, niveau: x.niveau, qualite: atmo.level(x.niveau), polluants: drivers(x), sous_indices: subIndices(x) })) }
+        : { communes_par_niveau: byLevel(todays) }),
       ...common,
-      ...(mesures && { mesures_aux_stations: mesures }),
+      ...(mesures && { mesures_aux_stations: page ? mesures : { ...mesures, valeurs: byStation(mesures.valeurs) } }),
       ...(amateur && { capteurs_amateurs: amateur }),
       sources: sourcesOf(mesures, amateur),
     });
@@ -240,7 +278,7 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
       sous_indices: subIndices(x),
     })),
     ...common,
-    ...(mesures && { mesures_aux_stations: mesures }),
+    ...(mesures && { mesures_aux_stations: { ...mesures, valeurs: byStation(mesures.valeurs) } }),
     ...(amateur && { capteurs_amateurs: amateur }),
     sources: sourcesOf(mesures, amateur),
   });
