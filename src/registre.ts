@@ -337,20 +337,47 @@ const SCHEDULED: Entry[] = [
     from: ["src/providers/capteurs.ts"],
     basis: "code",
   },
-  // The radar's last 6 hours (web/pluie-retro.ts), at every run: the history read from KV, the latest image (a token
-  // first when the isolate holds none), the history written when the image is new or a gap grows: 4 subrequests in a
-  // new isolate, 2 or 3 after (counted in test/pluie-retro.test.ts); about once a quarter of an hour, the 24 hours read
-  // and written besides (2 more); 8 at most, when Météo-France refuses the token once (401) and the image is asked
-  // again with a new one. CPU measured in Node on the real image of 22/10/2026 (HDF5, grid, history): 106 ms at the
-  // first run, 32 ms after; rounded up for a Worker. The 3 hours weighed 9 to 51 Ko, the 6 hours twice that.
+  // The radar's last 6 hours (web/pluie-retro.ts), at every run: the history read from KV, the latest image, the
+  // history written when the image is new or a gap grows: 2 or 3 subrequests (counted in test/pluie-retro.test.ts,
+  // without KV's token); about once a quarter of an hour, the 24 hours read and written besides (2 more); 7 at most,
+  // when Météo-France refuses the token (401) and the image is asked again with KV's token, then with a new one. The
+  // token itself, read from KV or taken anew, is in meteofrance:jeton below. CPU measured in Node on the real image of
+  // 22/10/2026 (HDF5, grid, history): 106 ms at the first run, 32 ms after; rounded up for a Worker. The 3 hours
+  // weighed 9 to 51 Ko, the 6 hours twice that.
   {
     id: "radar:6h",
     trigger: "planifiée",
     what: "pluie radar des 6 dernières heures pour le rejeu de /meteo : la dernière image de Météo-France ajoutée dans KV quand elle est nouvelle, ou un trou daté, et chaque quart d'heure une image gardée 24 heures",
     every: EVENT_MINUTES,
     offset: 0,
-    run: { subrequests: 8, kvReads: 2, kvWrites: 2, cpuMs: 120, memoryMb: 5 },
+    run: { subrequests: 7, kvReads: 2, kvWrites: 2, cpuMs: 120, memoryMb: 5 },
     from: ["src/web/pluie-retro.ts"],
+    basis: "estimé",
+  },
+  // The Météo-France token shared by every isolate (providers/mf-auth.ts), for the scheduled event, the visits and the
+  // questions alike. Read from KV by an isolate at its first need, once it expires and after a 401: at most once per
+  // invocation that reads Météo-France, 1 126 from 29/10/2026 18:00 to 30/10 18:00 in the Worker's logs (803 visits or
+  // questions, 323 runs of the scheduled event), counted here as one a minute; far fewer in fact, since an isolate
+  // keeps it in memory. Written with each new token: one an hour when the isolates share it (it is renewed 5 minutes
+  // before its hour is out), counted here as two, for two isolates renewing it at the same time.
+  {
+    id: "meteofrance:jeton",
+    trigger: "planifiée",
+    what: "jeton Météo-France commun à tous les isolats : lu dans KV au premier besoin d'un isolat, à son échéance ou après un refus (401), au plus une fois par invocation qui lit Météo-France",
+    every: 1,
+    offset: 0,
+    run: { subrequests: 1, kvReads: 1, cpuMs: 0 },
+    from: ["src/providers/mf-auth.ts"],
+    basis: "estimé",
+  },
+  {
+    id: "meteofrance:jeton:nouveau",
+    trigger: "planifiée",
+    what: "jeton Météo-France commun à tous les isolats : un nouveau jeton demandé au portail et écrit dans KV, environ une fois par heure",
+    every: 30,
+    offset: 0,
+    run: { subrequests: 2, kvWrites: 1, cpuMs: 0 },
+    from: ["src/providers/mf-auth.ts"],
     basis: "estimé",
   },
   // The stations' week (web/rejeu.ts), once an hour: the hourly package from the data center's cache, never asked of

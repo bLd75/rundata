@@ -189,6 +189,11 @@ function setup(env: Env): Cache {
   feux.configure(env.FIRMS_MAP_KEY);
   const d1 = env.TRANSIT;
   const kv = env.STORE;
+  // One Météo-France token for every isolate, so that one taking its own does not void the others' (providers/mf-auth.ts).
+  meteofrance.share(kv && {
+    get: async () => (await kv.get(meteofrance.TOKEN_KV_KEY, "json")) as meteofrance.Token | null,
+    put: (t, ttl) => kv.put(meteofrance.TOKEN_KV_KEY, JSON.stringify(t), { expirationTtl: ttl }),
+  });
   // Asked by the scheduled event below and kept in KV (src/providers/candhis.ts): without KV, the key is not used.
   candhis.configure(kv && env.CANDHIS_API_KEY, kv && (async () => {
     count();
