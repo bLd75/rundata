@@ -4,7 +4,7 @@
  * With a mouse, a bubble names the point under it: its name, then its kind or its value, then its address or its time,
  * from its `data-pn`, `data-p2` and `data-p3` (written by map.ts; a marker with a bubble of its own has its name in `data-tp`), in place of the browser's slow tooltip. The maps
  * that have a bubble of their own (/meteo, the home page's: `[data-mtip]`) keep it. Under its lines, its direct links:
- * « Voir le détail » (the point's own link), and for a point whose row is on the page, the row's « Y aller » (as the
+ * « Voir la fiche → » (the point's own link), and for a point whose row is on the page, the row's « Y aller » (as the
  * row shows it, under a cyclone alert too; not from a commune's card of several places) and the place's site (the row's
  * `data-site`). Once the pointer has rested on the point (ARM_MS), it stays open while the pointer goes from the point
  * to it (LINGER_MS), over a band that joins them (other points under that band are passed over), and a click on it,
@@ -49,7 +49,7 @@ export const ARM_MS = 300;
 
 /** The bubble's links: data-run's words. */
 export const MOTS = {
-  detail: "Voir le détail",
+  detail: "Voir la fiche →",
   site: "Site du lieu",
 };
 
