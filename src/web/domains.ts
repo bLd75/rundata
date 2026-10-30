@@ -31,7 +31,7 @@ import * as radars from "../routes/radars.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import { LATE_MIN, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CruesAnswer, type CruesStation, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type Enclos, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
+import { LATE_MIN, ROAD_NEAR_M, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CruesAnswer, type CruesStation, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type Enclos, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
 import { daysApart, localTime } from "../geo.js";
 import { agendasNonLus, mediasNonLus } from "../tools/injoignable.js";
 import { FAST_KW } from "../tools/bornes.js";
@@ -2024,7 +2024,15 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
   const partOf = d?.randonnees.length
     ? `<p class="part-of">Fait partie de : ${d.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}</p>`
     : "";
-  const download = `<p class="hero-cta"><a class="btn sun" href="${esc(gpx)}" download>${icon("pin")}Télécharger le GPX</a></p>`;
+  // « Y aller » to a hike's start, beside the download, only when its copy kept the start (data.ts buildRoute). A forest
+  // road closed by the start is said as the ONF's fact, dated, in grey: the trail itself is not closed (marketing's words).
+  const go = d?.depart ? aller({ nom: `départ du ${nom}`, lat: d.depart.lat, lon: d.depart.lon }) : "";
+  const download = `<p class="hero-cta"><a class="btn sun" href="${esc(gpx)}" download>${icon("pin")}Télécharger le GPX</a>${go}</p>`;
+  const shut = d?.routes_fermees;
+  const road = shut
+    ? `<p class="note">${shut.routes.length > 1 ? "Routes forestières interdites" : "Route forestière interdite"} à la circulation à ${ROAD_NEAR_M}\u00a0m ou moins du départ\u00a0: ` +
+      `${shut.routes.map((x) => esc(x.route) + (x.cause ? ` (${esc(x.cause)})` : "")).join("\u00a0; ")}, selon l'ONF, lu le ${esc(shut.lu)}.</p>`
+    : "";
 
   const map = d?.lignes.length
     ? `<figure class="card mapcard">${traceMap({ lines: d.lignes, label: `Carte : la trace de ${nom}` })}
@@ -2088,7 +2096,7 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
     ${alarm || state}
     ${kind === "sentier" && sector ? "" : partOf}
     ${facts}
-    ${download}
+    ${download}${road}
     ${unknown}
   </div>
   ${map}
@@ -2111,7 +2119,7 @@ ${stateBlock}
 </section>
 ${connectorCta("sentiers_randonnee", "les sentiers de randonnée")}`;
 
-  return layout(origin, { title, description, path, jsonld, alerte }, band, body);
+  return layout(origin, { title, description, path, jsonld, alerte }, band, go ? body + ALLER : body);
 }
 
 // ---------------------------------------------------------------- sécheresse

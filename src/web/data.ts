@@ -61,7 +61,7 @@ import { type CourantAnswer, type courantBlock, courantCopy } from "../tools/cou
 import { type NonOfficiel, volcanSeismes } from "../tools/volcan.js";
 import type { Acces } from "../tools/volcan-acces.js";
 import * as sportSource from "../providers/sport.js";
-import { grandRaidRow, mentionProgrammes, sportTool, type SportRow } from "../tools/sport.js";
+import { grandRaidRow, mentionProgrammes, quand as sportDay, sportTool, type SportRow } from "../tools/sport.js";
 import { cyclones, type activeRow, type carteOfficielle, type seasonRow } from "../tools/cyclones.js";
 import * as cmrs from "../providers/cmrs-carte.js";
 import { historiqueMeteo } from "../tools/historique.js";
@@ -772,7 +772,33 @@ export interface TraceAnswer {
   /** A hike's ONF trails closed now, and those whose state is not known. */
   fermes: { sentier: string; cause?: string; precision?: string; page?: string }[];
   inconnus: { sentier: string; page?: string }[];
+  /** A hike's start, for « Y aller »: only when the ONF's map was read and nothing on the way is closed. */
+  depart?: { lat: number; lon: number };
+  /** The forest roads closed to traffic near a hike's start (ROAD_NEAR_M), and when the ONF's map was read. */
+  routes_fermees?: { routes: { route: string; cause?: string }[]; lu: string };
   sources: Credit[];
+}
+
+/**
+ * A forest road closed to traffic this close to a hike's start (metres) takes « Y aller » away: it may be the way there.
+ * Above the ONF map's generalisation (0.001°, about 100 m): on 30/10/2026, 14 of the 41 starts lay this close to a forest
+ * road, none to a closed one.
+ */
+export const ROAD_NEAR_M = 300;
+
+/** Metres from a point to a line of [lon, lat], on the plane: right over the few hundred metres it is asked for. */
+export function toLineM(lon: number, lat: number, line: [number, number][]): number {
+  const kx = 111_320 * Math.cos((lat * Math.PI) / 180), ky = 110_574;
+  const at = ([x, y]: [number, number]) => [(x - lon) * kx, (y - lat) * ky];
+  let best = Infinity;
+  for (let i = 0; i < line.length; i++) {
+    const [ax, ay] = at(line[i]);
+    const [bx, by] = at(line[Math.min(i + 1, line.length - 1)]);
+    const dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy;
+    const t = l ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l)) : 0;
+    best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+  }
+  return best;
 }
 
 /** An ONF trail: its line and state read from the ONF, its altitudes from the IGN. */
@@ -808,13 +834,18 @@ export async function buildTrail(cache: Cache, t: { nom: string } & traces.Senti
 
 /** A hike of OpenStreetMap, from the bundle; the state of the ONF trails it follows, live. */
 export async function buildRoute(cache: Cache, r: traces.Randonnee): Promise<TraceAnswer> {
-  const carte = await onf.carte(cache).then((c) => c.value).catch(() => null);
+  const read = await onf.carte(cache).catch(() => null);
+  const carte = read?.value ?? null;
   const row = carte ? routeRow(r, carte) : null;
   const pieces = traces.routePieces(r);
   const slugOf = (nom: string) => traces.SENTIERS[nom]?.slug;
   const troncons = (row?.troncons_onf ?? r.sentiers_onf.map((sentier) => ({ sentier, etat: "inconnu" as const, cause: undefined, precision: undefined })))
     .map((x) => ({ sentier: x.sentier, etat: x.etat as string, cause: x.cause, precision: x.precision, page: slugOf(x.sentier) && `/sentiers/${slugOf(x.sentier)}` }));
   const fermes = troncons.filter((x) => x.etat === "fermé");
+  // « Y aller » to the start (the white dot of the map): never without the ONF's map, past a closed trail or by a
+  // closed forest road.
+  const start = pieces[0]?.[0];
+  const roads = start && carte ? carte.routes.filter((x) => /interdit/i.test(x.circulation) && toLineM(start.lon, start.lat, x.points) <= ROAD_NEAR_M) : [];
   return {
     nom: r.nom,
     slug: r.slug,
@@ -837,6 +868,10 @@ export async function buildRoute(cache: Cache, r: traces.Randonnee): Promise<Tra
     randonnees: [],
     fermes: fermes.map(({ sentier, cause, precision, page }) => ({ sentier, cause, precision, page })),
     inconnus: troncons.filter((x) => x.etat !== "fermé" && x.etat !== "ouvert").map(({ sentier, page }) => ({ sentier: sentier!, page })),
+    depart: start && row && !fermes.length && !roads.length ? { lat: start.lat, lon: start.lon } : undefined,
+    routes_fermees: read && roads.length && !fermes.length
+      ? { routes: roads.map((x) => ({ route: x.nom, cause: x.cause })), lu: sportDay(new Date(read.fetchedAt.getTime() + 4 * 3600_000).toISOString().slice(0, 16)) }
+      : undefined,
     sources: credits([traces.SOURCES.osm, onf.SOURCE, traces.SOURCES.ign]),
   };
 }
