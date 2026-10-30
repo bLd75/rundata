@@ -30,5 +30,5 @@ export function marquerTiers<R extends object>(r: R): R {
   let at = 0;
   while (at < entries.length && D_ABORD.has(entries[at][0])) at++;
   entries.splice(at, 0, ["textes_de_tiers", TEXTES_DE_TIERS]);
-  return { ...r, content: [{ ...content![0], text: JSON.stringify(Object.fromEntries(entries), null, 1) }, ...content!.slice(1)] };
+  return { ...r, content: [{ ...content![0], text: JSON.stringify(Object.fromEntries(entries)) }, ...content!.slice(1)] };
 }

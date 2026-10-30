@@ -210,10 +210,13 @@ describe("fraicheur", () => {
     const at = FIX.getTime() - 3 * 3600_000;
     const cache = await weatherCache(at, FIX.getTime());
     const { value, lectures } = await withLectures(() => meteoActuelle(cache, "Saint-Pierre", FIX));
-    const answer = body(cite("meteo_actuelle", value, { lectures, now: FIX, nom: nomDeSource }));
+    const cited = cite("meteo_actuelle", value, { lectures, now: FIX, nom: nomDeSource });
+    const answer = body(cited);
     const f = answer.fraicheur;
     // A last copy in the answer: its freshness comes first, before the data, the citation still at the end.
     expect(Object.keys(answer)[0]).toBe("fraicheur");
+    // Written without indentation, each field once.
+    expect(cited.content[0].text).toBe(JSON.stringify(answer));
     expect(Object.keys(answer).slice(-2)).toEqual(["citer", "lien"]);
     // Each source named from its error (cache.ts) and its card (sources_donnees); every part a copy: no « reste ».
     expect(f.copies_de_secours).toEqual([
@@ -236,6 +239,8 @@ describe("fraicheur", () => {
     for (const t of tools.filter((t) => t.name !== "donner_avis")) {
       const r = await rpcResult("tools/call", { name: t.name, arguments: args[t.name] ?? { lieu: "Saint-Paul" } });
       const p = JSON.parse(r.content[0].text);
+      // Written without indentation (a model reads the whole text), each field once.
+      expect(r.content[0].text, t.name).toBe(JSON.stringify(p));
       const keys = Object.keys(p).filter((k) => k !== "signaler");
       expect(keys.slice(-4), t.name).toEqual(["citer", "lien", "fraicheur", "serveur"]);
       expect(p.fraicheur.lue_a, t.name).toMatch(/^\d\d\/\d\d \d\d:\d\d$/);

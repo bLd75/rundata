@@ -33,7 +33,7 @@ describe("the sites that ask for their name with each link", () => {
     expect(body(text({ site: "https://www.letangsale.fr/", libelle: "Le site de la mairie de L'Étang-Salé" }))).not.toHaveProperty("site_mention");
     // An answer without such a link is written as before.
     const plain = { a: 1, b: ["x"], c: { lien: "https://example.re/" } };
-    expect(withMentions(plain)).toBe(JSON.stringify(plain, null, 1));
+    expect(withMentions(plain)).toBe(JSON.stringify(plain));
   });
 
   it("put it in the line's <small> on a page, or in a <small> of its own after the link", () => {

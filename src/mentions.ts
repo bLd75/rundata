@@ -44,8 +44,8 @@ export function mentionOf(url: string | undefined, label = ""): string | undefin
 
 /** A tool's answer as JSON, each link that asks for it with its « <champ>_mention » beside it. */
 export function withMentions(payload: unknown): string {
-  const json = JSON.stringify(payload, null, 1);
-  return json && ANY.test(json) ? JSON.stringify(mark(payload), null, 1) : json;
+  const json = JSON.stringify(payload);
+  return json && ANY.test(json) ? JSON.stringify(mark(payload)) : json;
 }
 
 function mark(v: unknown): unknown {

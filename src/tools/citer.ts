@@ -164,10 +164,12 @@ export function cite<R extends object>(tool: string, r: R, around: Around = {}):
   // A last copy in the answer: its freshness first, the rest at the end as always.
   const { fraicheur: f, ...after } = extra;
   const warned = !!(f as { avertissement?: string }).avertissement;
-  const field = ([k, v]: [string, unknown]) => ` ${JSON.stringify(k)}: ${JSON.stringify(v)}`;
-  const fields = Object.entries(warned ? after : extra).map(field).join(",\n");
-  const body = /\n}$/.test(t) && (!warned || /^{\n\s*"/.test(t)) ? t.slice(0, -2) : undefined;
-  const opened = warned && body ? `{\n${field(["fraicheur", f])},\n${body.slice(2)}` : body;
-  const text = opened != null ? `${opened},\n${fields}\n}` : JSON.stringify(warned ? { fraicheur: f, ...p, ...after } : { ...p, ...extra }, null, 1);
+  const field = ([k, v]: [string, unknown]) => `${JSON.stringify(k)}:${JSON.stringify(v)}`;
+  const fields = Object.entries(warned ? after : extra).map(field).join(",");
+  // The answer's own fields as written, between its braces, when it has any: not written again.
+  const body = /^{".*}$/s.test(t) ? t.slice(1, -1) : undefined;
+  const text = body != null
+    ? `{${warned ? `${field(["fraicheur", f])},` : ""}${body},${fields}}`
+    : JSON.stringify(warned ? { fraicheur: f, ...p, ...after } : { ...p, ...extra });
   return { ...r, content: [{ ...content![0], text }, ...content!.slice(1)] };
 }
