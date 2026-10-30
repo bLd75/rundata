@@ -84,8 +84,18 @@ describe("measures at Atmo Réunion's stations", () => {
     const r = body(await qualiteAir(cache(), undefined, NOW));
     const m = r.mesures_aux_stations;
     expect(m.nature).toBe("MESURES brutes, non validées, aux stations d'Atmo Réunion, publiées par le LCSQA : ce n'est pas l'indice ATMO, qui est une prévision.");
-    expect(m.valeurs[0]).toEqual({ polluant: "dioxyde d'azote", valeur: 6.8, unite: "µg/m³", heure: "de 7 h à 8 h", station: "Lycée Lislet Geoffroy", type: "fond", commune: "Saint-Denis", statut: "mesure brute, non validée" });
+    // The tool says them a station each, its hour, unit and « mesure brute, non validée » once.
+    expect(m.valeurs[0]).toEqual({
+      unite: "µg/m³", heure: "de 7 h à 8 h", station: "Lycée Lislet Geoffroy", type: "fond", commune: "Saint-Denis", statut: "mesure brute, non validée",
+      valeurs: { "dioxyde d'azote": 6.8, ozone: 30.5, "particules PM10": 11.6 },
+    });
     expect(m.valeurs.every((v: { statut: string }) => v.statut === "mesure brute, non validée")).toBe(true);
+    // Every value of /air's form is in the tool's, with its station, hour, unit, status and lateness: none lost.
+    const flat = (list: { valeurs: Record<string, number> }[]) => list.flatMap(({ valeurs, ...at }) => Object.entries(valeurs).map(([polluant, valeur]) => ({ polluant, valeur, ...at })));
+    const each = body(await qualiteAir(cache(), undefined, NOW, true)).mesures_aux_stations.valeurs;
+    expect(each).toHaveLength(7);
+    expect(flat(m.valeurs)).toHaveLength(each.length);
+    expect(flat(m.valeurs)).toEqual(expect.arrayContaining(each));
     // Ended at 07:00, 3 h before: not late. At 01:00 and 06:00: late.
     expect(m.valeurs.filter((v: { retard?: string }) => v.retard).map((v: { station: string; retard: string }) => `${v.station} ${v.retard}`)).toEqual(["Luther King mesurée il y a 9 h", "Grand Fond mesurée il y a 4 h"]);
     expect(m.lu_par_rundata).toBe("29/10 09:40");
@@ -110,7 +120,7 @@ describe("measures at Atmo Réunion's stations", () => {
 
   it("shows them on /air in their own section, every value raw, not validated, with its station and hour", async () => {
     airMesures.configure(async () => copie);
-    const answer = body(await qualiteAir(cache(), undefined, NOW));
+    const answer = body(await qualiteAir(cache(), undefined, NOW, true));
     const page = airPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
     const at = page.indexOf('id="h-mesures-air"');
     const section = page.slice(at, page.indexOf("</section>", at));
@@ -122,13 +132,13 @@ describe("measures at Atmo Réunion's stations", () => {
     expect(section).toContain(`<a href="${airMesures.SOURCE.url}" rel="noopener">`);
     // Without measures, no section.
     airMesures.configure(undefined);
-    const none = body(await qualiteAir(cache(), undefined, NOW));
+    const none = body(await qualiteAir(cache(), undefined, NOW, true));
     expect(airPage("https://rundata.re", { value: none, fetchedAt: NOW, stale: false }, NOW)).not.toContain('id="h-mesures-air"');
   });
 
   it("puts them on /air's map at their stations, one pollutant at a time, PM10 first, in neutral pills", async () => {
     airMesures.configure(async () => copie);
-    const answer = body(await qualiteAir(cache(), undefined, NOW));
+    const answer = body(await qualiteAir(cache(), undefined, NOW, true));
     const page = airPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
     const map = page.slice(page.indexOf('<figure class="card mapcard airmap">'), page.indexOf("</figure>", page.indexOf("airmap")));
     // A tab for each pollutant measured, PM10 checked; none for the PM2,5, which no station of the copy measured.
@@ -146,7 +156,7 @@ describe("measures at Atmo Réunion's stations", () => {
     expect(doubleIds(page)).toEqual([]);
     // Without measures, the forecast in each commune, as a dot, said a forecast.
     airMesures.configure(undefined);
-    const none = airPage("https://rundata.re", { value: body(await qualiteAir(cache(), undefined, NOW)), fetchedAt: NOW, stale: false }, NOW);
+    const none = airPage("https://rundata.re", { value: body(await qualiteAir(cache(), undefined, NOW, true)), fetchedAt: NOW, stale: false }, NOW);
     expect(none).not.toContain("airmap");
     expect(mapLinks(none).every((l) => l.kind === "mk" && / : indice \d sur 6, /.test(l.label))).toBe(true);
     expect(none).toMatch(/Indice ATMO prévu pour aujourd'hui dans chaque commune, de 1 \(bon\) à 6 \(extrêmement mauvais\)\s:\sune prévision, pas une mesure\./);
@@ -155,7 +165,7 @@ describe("measures at Atmo Réunion's stations", () => {
   it("puts the measure at the top of /air, before the forecast, and the stations before the 24 communes", async () => {
     airMesures.configure(async () => copie);
     // The fixture's index is of another day: one commune of today's, for the forecast under the measure.
-    const answer = { ...body(await qualiteAir(cache(), undefined, NOW)), communes: [{ commune: "Saint-Denis", niveau: 2, qualite: "moyen", polluants: [] }] };
+    const answer = { ...body(await qualiteAir(cache(), undefined, NOW, true)), communes: [{ commune: "Saint-Denis", niveau: 2, qualite: "moyen", polluants: [] }] };
     const page = airPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
     const band = page.slice(page.indexOf('<p class="pill">'), page.indexOf('<figure class="card mapcard airmap">'));
     expect(band).toContain('<span class="dot"></span>Mesuré aux stations</p>');
@@ -168,7 +178,7 @@ describe("measures at Atmo Réunion's stations", () => {
     expect(page.indexOf('id="h-mesures-air"')).toBeLessThan(page.indexOf('id="h-communes-air"'));
     // Without measures, the forecast alone, as before.
     airMesures.configure(undefined);
-    const none = airPage("https://rundata.re", { value: body(await qualiteAir(cache(), undefined, NOW)), fetchedAt: NOW, stale: false }, NOW);
+    const none = airPage("https://rundata.re", { value: body(await qualiteAir(cache(), undefined, NOW, true)), fetchedAt: NOW, stale: false }, NOW);
     expect(none).toContain('<span class="dot"></span>Prévision du jour</p>');
     expect(none).not.toContain("Mesuré aux stations");
   });

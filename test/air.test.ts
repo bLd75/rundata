@@ -44,7 +44,14 @@ describe("air quality", () => {
   it("sums up the island", async () => {
     const r = body(await qualiteAir(cache(), undefined, NOW));
     expect(r.resume).toBe("Qualité de l'air prévue aujourd'hui à La Réunion : au pire moyen (2/6) dans toutes les communes.");
-    expect(r.communes).toHaveLength(24);
+    // A level each, its communes listed: one group for the 24 at « moyen » set by ozone.
+    expect(r).not.toHaveProperty("communes");
+    expect(r.communes_par_niveau).toHaveLength(1);
+    expect(r.communes_par_niveau[0]).toMatchObject({ niveau: 2, qualite: "moyen", polluants: ["ozone"] });
+    expect(r.communes_par_niveau[0].communes).toHaveLength(24);
+    expect(r.nature).toBe("PRÉVISION du jour par commune, calculée par Atmo Réunion : pas une mesure.");
+    // /air keeps a commune each.
+    expect(body(await qualiteAir(cache(), undefined, NOW, true)).communes).toHaveLength(24);
   });
 });
 
@@ -86,13 +93,14 @@ describe("air quality: what the index is and where it comes from", () => {
     expect(r.comment_c_est_fait.etapes[0]).toMatch(/^C'est une prévision : /);
   });
 
-  it("gives each commune's sub-index of every pollutant, not only the worst", async () => {
-    const r = body(await qualiteAir(cache(), undefined, NOW));
-    expect(r.communes[0].sous_indices).toEqual({ "particules PM10": 1, "particules fines PM2,5": 1, ozone: 2, "dioxyde d'azote": 1, "dioxyde de soufre": 1 });
+  it("gives each commune's sub-index of every pollutant, not only the worst: for a place, and on /air", async () => {
+    const subs = { "particules PM10": 1, "particules fines PM2,5": 1, ozone: 2, "dioxyde d'azote": 1, "dioxyde de soufre": 1 };
+    expect(body(await qualiteAir(cache(), undefined, NOW, true)).communes[0].sous_indices).toEqual(subs);
+    expect(body(await qualiteAir(cache(), "Les Avirons", NOW)).indices[0].sous_indices).toEqual(subs);
   });
 
   it("shows on /air the forecast by its value, its diffusion, our reading, the source and the method", async () => {
-    const answer = body(await qualiteAir(cache(diffused(YESTERDAY)), undefined, NOW));
+    const answer = body(await qualiteAir(cache(diffused(YESTERDAY)), undefined, NOW, true));
     const page = airPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
     const status = page.slice(page.indexOf('<div class="status">'), page.indexOf("</div>", page.indexOf('<div class="status">')));
     expect(status).toContain("Une prévision d'Atmo Réunion pour la journée, pas une mesure. Prévision diffusée par Atmo Réunion la veille, le 22/10 à 10:45. Lue par rundata.re à 09:00.");
