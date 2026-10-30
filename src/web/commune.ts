@@ -29,6 +29,7 @@ import { communeEvents, communeHikes } from "./liens.js";
 import { alertList, aq, bikeStock, calendrierLive, departureLi, electriciteLive, stillToCome, volcanLive, waitText } from "./domains.js";
 import { communePath as enfantsPath, enfantsLive } from "./enfants.js";
 import { esc, islandMap } from "./map.js";
+import { communeNames, SURVOL_SCRIPT } from "./carte-communes.js";
 import { ask, connector, credits, cycloneVg, dayMonth, deg, empty, fit, hm, icon, ISLAND, layout, type Live, lue, metres, officielLive, readAt, seaName, SITE, SLOGAN, thin, vg } from "./pages.js";
 import { coastal, PAGES, type PlacePage } from "./places.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
@@ -541,7 +542,7 @@ export function communesPage(origin: string, alerte?: Alerte): string {
     ${SLOGAN}
     <p class="lead">Une page par commune, avec tout ce qui la concerne en ce moment : la météo de sa station, la vigilance de sa zone, la qualité de son air, la mer sur la côte, les prochains bus, sa mairie ouverte ou non, le lever et le coucher du soleil.</p>
   </div>
-  <figure class="card mapcard">${islandMap({ links: Object.fromEntries(COMMUNES.map((c) => [c.nom, { href: hub(c) }])), label: "Carte des 24 communes de La Réunion (974)" })}</figure>
+  <figure class="card mapcard">${islandMap({ links: Object.fromEntries(COMMUNES.map((c) => [c.nom, { href: hub(c) }])), names: communeNames((nom) => hub(COMMUNES.find((c) => c.nom === nom)!)), label: "Carte des 24 communes de La Réunion (974)" })}</figure><script>${SURVOL_SCRIPT}</script>
 </div>`;
   const body = `<section aria-labelledby="h-communes"><h2 id="h-communes">Choisissez votre commune</h2>
   <ul class="zones">${zones.map((z) => {

@@ -218,13 +218,13 @@ const pointData = (lines: (string | undefined)[]) =>
   (["pn", "p2", "p3"] as const).map((k, i) => (lines[i] ? ` data-${k}="${esc(lines[i]!)}"` : "")).join("");
 
 /** Each linked commune as a link over its shape, invisible until hovered or focused. */
-function zoneLinks(links: Record<string, ZoneLink>): string {
+function zoneLinks(links: Record<string, ZoneLink>, named = false): string {
   const out = island.paths
     .filter((p) => links[p.nom])
     .map((p) => {
       const l = links[p.nom];
       const said = l.say ? `${p.nom} : ${l.say}, voir le détail` : `${p.nom}, voir sa page`;
-      return `<a class="zn" href="${esc(l.href)}" aria-label="${esc(said)}"><title>${esc(p.nom)}</title><path d="${p.d}"/></a>`;
+      return `<a class="zn" href="${esc(l.href)}"${named ? ' tabindex="-1" aria-hidden="true"' : ` aria-label="${esc(said)}"`}><title>${esc(p.nom)}</title><path d="${p.d}"/></a>`;
     })
     .join("");
   return out ? `<g class="zones">${out}</g>` : "";
@@ -609,6 +609,11 @@ export function islandMap(opts: {
    * `apart`.
    */
   layers?: { id: string; markers: Marker[]; on?: boolean }[];
+  /**
+   * The communes' names the page places itself (carte-communes.ts), in place of those placed here, each a link: the
+   * communes' own links are then for the mouse only, so that a keyboard or a screen reader meets each commune once.
+   */
+  names?: string;
   label: string;
 }): string {
   const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
@@ -620,7 +625,7 @@ export function islandMap(opts: {
   // An image hides what it holds from screen readers: a map with links is a group, so that each link is reached.
   const linked = !!opts.links || !!opts.top || [...(opts.markers ?? []), ...(opts.layers ?? []).flatMap((l) => l.markers)].some((m) => m.href);
   const role = linked ? `role="group"` : `role="img"`;
-  const zones = opts.links ? zoneLinks(opts.links) : "";
+  const zones = opts.links ? zoneLinks(opts.links, !!opts.names) : "";
   // What the names of places must not touch (namesLayer()).
   const busy: Box[] = [];
   const draw = (list: Marker[]) => {
@@ -672,7 +677,7 @@ export function islandMap(opts: {
     ? `<use href="#isl" class="land"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>`
     : `<use href="#isl" class="land"/>${fills}`;
   // The names over the relief only: on the maps in colours (fills), the colours are the data.
-  const names = terrain ? namesLayer({ frame: [0, 0, W, H], unit: W / PHONE_PX, busy, hide: !!opts.top }) : "";
+  const names = opts.names ?? (terrain ? namesLayer({ frame: [0, 0, W, H], unit: W / PHONE_PX, busy, hide: !!opts.top }) : "");
   return `<svg class="map${terrain ? " terrain" : ""}" viewBox="0 0 ${W} ${H}" ${role} aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g>${terrain ? `<clipPath id="isl-clip">${paths}</clipPath>` : ""}</defs>` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>` +

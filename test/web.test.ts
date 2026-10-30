@@ -884,7 +884,7 @@ describe("a copy the code can no longer read", () => {
 
 describe("the maps lead to what they show", () => {
   const anchors = (page: string, prefix: string) =>
-    [...(page.match(/<svg class="map[^]*?<\/svg>/g) ?? []).join("").matchAll(/<a class="(?:mk|zn)(?: [^"]*)?" href="([^"]+)" aria-label="([^"]+)"/g)]
+    [...(page.match(/<svg class="map[^]*?<\/svg>/g) ?? []).join("").matchAll(/<a class="(?:mk|zn|sp)(?: [^"]*)?" href="([^"]+)" aria-label="([^"]+)"/g)]
       .filter(([, href]) => href.startsWith(prefix))
       .map(([, href, label]) => ({ href, label }));
   const ids = (page: string) => new Set([...page.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
@@ -931,6 +931,7 @@ describe("the maps lead to what they show", () => {
     expect(vigilanceLive({ value: bare, fetchedAt: NOW, stale: false }, NOW)).toMatchObject({ valeur: "Pas de vigilance émise" });
 
     const communes = communesPage("https://rundata.re");
+    // Each commune once: its name (carte-communes.ts), its shape left to the mouse.
     const links = anchors(communes, "/communes/");
     expect(links).toHaveLength(24);
     const slugs = new Set(PAGES.filter((p) => p.commune).map((p) => `/communes/${p.slug}`));
