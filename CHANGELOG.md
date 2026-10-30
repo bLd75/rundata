@@ -4,6 +4,10 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 <!-- Généré à partir de src/nouveautes.ts par `npm run changelog` : modifier la liste là-bas. -->
 
+## Samedi 31 octobre 2026
+
+- Randonnée : la carte se zoome, avec deux doigts, la molette ou les boutons + et −, pour voir de près les sentiers ouverts et fermés.
+
 ## Vendredi 30 octobre 2026
 
 - Le bouton « Y aller » mène au départ des randonnées, sauf si un tronçon ou une route forestière proche du départ est fermé.
