@@ -43,6 +43,7 @@ import { carteHtml } from "./cmrs-carte.js";
 import { basinMap, TRACES, TRACES_SCRIPT, TRACES_SOURCE, ZONE_SOURCE } from "./cyclones-bassin.js";
 import { esc, fenetre, hikesMap, islandMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
 import { type Cle, COUNT_COLOR, legende } from "./carte-legende.js";
+import { eventsMap } from "./evenements-carte.js";
 import { reprise } from "./ouvrir-donnees.js";
 import { cloudSeaLink, type Summit, weatherForTrace } from "./liens.js";
 import { LINE as BAIGNADE_LINE } from "./baignade.js";
@@ -3034,6 +3035,10 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
         `<li><b>${esc(r.quand)}</b> : ${r.statut && r.statut !== "complet" ? `<b>${esc(r.statut)}</b> ` : ""}${esc(r.titre)}${r.commune || r.source ? ` <span class="note" style="color:var(--on-night-muted)">${esc([r.commune && `(${r.commune})`, r.source && `Source\u00a0: ${r.source}`].filter(Boolean).join(" · "))}</span>` : ""}</li>`).join("")}</ul>` +
       `<p class="note"><a href="/evenements/ce-week-end" style="color:var(--on-night)">${d.ce_week_end.length > AGENDA_WEEKEND ? `Et ${d.ce_week_end.length - AGENDA_WEEKEND} autres : tout` : "Tout"} le week-end →</a></p></figure>`
     : "";
+  // The map of tonight, tomorrow and the weekend (evenements-carte.ts): it filters, so it is in the content, under the band.
+  const carte = d && data
+    ? eventsMap(d.evenements ?? [], d.ce_week_end, GENRES, now, esc(`Annonces des salles, des mairies et des offices de tourisme, d'après les agendas lus ${readAt(data.fetchedAt, now).a}.`))
+    : "";
 
   // The days after tomorrow folded when the list is long (FOLD_ROWS); today and tomorrow open, and folding with a tap.
   const tomorrow = new Date(Date.parse(today) + 86_400_000).toISOString().slice(0, 10);
@@ -3067,7 +3072,8 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
   ${weekend}
 </div>`;
 
-  const body = `<section aria-labelledby="h-jours">
+  const body = `${carte ? `<section aria-labelledby="h-carte"><h2 id="h-carte">Sur la carte</h2>${carte}</section>
+` : ""}<section aria-labelledby="h-jours">
   <div class="sec-h"><p class="eyebrow">Deux semaines</p><h2 id="h-jours">Jour par jour</h2>
   <p>Chaque événement renvoie à la page de celui qui le publie. Heures de La Réunion ; un événement de plusieurs jours est rangé au jour où il commence, ou à aujourd'hui s'il a déjà commencé. Un événement annulé ou reporté reste affiché, avec son statut.</p></div>
   ${agendaTabs("/evenements")}

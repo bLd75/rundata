@@ -8,9 +8,9 @@ import { esc } from "./map.js";
 /** A count, which is neither good nor bad: the night's colour, on every map that counts (/enfants, /defibrillateurs). */
 export const COUNT_COLOR = "#14202b";
 
-/** A mark as the map draws it (map.ts, marker()): a disc, a pill, a hollow ring (nothing lately), the hot spot's triangle. */
+/** A mark as the map draws it (map.ts, marker()): a disc, a pill, a hollow ring (nothing lately), the hot spot's triangle, a venue's small point. */
 export interface Cle {
-  forme: "rond" | "pastille" | "anneau" | "triangle";
+  forme: "rond" | "pastille" | "anneau" | "triangle" | "point";
   couleur: string;
   /** What the mark holds: a count, a value, a symbol (« ✓ », « × »). */
   texte?: string;
@@ -31,6 +31,8 @@ function mark(c: Cle): string {
       return svg("-68 -30 136 60", `<rect x="-64" y="-24" width="128" height="48" rx="24" fill="${c.couleur}"/>`, c.texte, false, c.encre);
     case "anneau":
       return svg("-37 -37 74 74", `<circle r="22" fill="none" stroke="${c.couleur}" stroke-width="6"/>`);
+    case "point":
+      return svg("-37 -37 74 74", `<circle r="17" fill="${c.couleur}" style="paint-order:stroke"/>`);
     case "triangle":
       return svg("-40 -42 80 80", `<path d="M0 -36L35 28H-35Z" fill="${c.couleur}"/>`);
     default:

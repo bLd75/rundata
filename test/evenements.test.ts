@@ -5,6 +5,7 @@ import { agendaPage } from "../src/web/domains.js";
 import { concertsPage, holidays, inWeekend, occurrences, weekend, weekendPage, weekendText } from "../src/web/evenements.js";
 import { STYLE_PATH } from "../src/web/pages.js";
 import { site } from "../src/web/site.js";
+import { beside, couche } from "../src/web/evenements-carte.js";
 
 type Row = NonNullable<AgendaAnswer["evenements"]>[number];
 const row = (titre: string, date: string, quand: string, more: Partial<Row> = {}): Row =>
@@ -124,10 +125,11 @@ describe("the concerts", () => {
     expect(html).toContain("Kabardock, lu le mardi 27/10 à 08:00");
     expect(html).toContain(`<a href="https://www.petite-ile.re/" rel="noopener" target="_blank">Semaine créole</a>`);
     expect(html).not.toContain(`Kabar")}" rel="noopener" target`);
-    // In the weekend's tile too.
-    const tampon = row("Fête des lettres", "2026-10-30T18:00", "vendredi 30/10 à 18:00", { commune: "Le Tampon", publie_par: "Ville du Tampon", source: "site de la commune du Tampon, lu le mardi 27/10 à 08:00" });
+    // In the weekend's tile too, and on the map's point when the source places it.
+    const tampon = row("Fête des lettres", "2026-10-30T18:00", "vendredi 30/10 à 18:00", { commune: "Le Tampon", lieu: "Théâtre Luc Donat", position: { lat: -21.27, lon: 55.52 }, publie_par: "Ville du Tampon", source: "site de la commune du Tampon, lu le mardi 27/10 à 08:00" });
     const tile = agendaPage("https://rundata.re", { value: { ...data([tampon]).value, ce_week_end: [tampon] }, fetchedAt: TUESDAY }, TUESDAY);
     expect(tile).toContain("Fête des lettres <span class=\"note\" style=\"color:var(--on-night-muted)\">(Le Tampon) · Source\u00a0: site de la commune du Tampon, lu le mardi 27/10 à 08:00</span>");
+    expect(tile).toContain(`data-pn="Théâtre Luc Donat" data-p2="Fête des lettres" data-p3="Source\u00a0: site de la commune du Tampon, lu le mardi 27/10 à 08:00"`);
   });
 
   it("say, in one card, the agendas that did not answer and those not read lately", () => {
@@ -155,5 +157,90 @@ describe("the concerts", () => {
     const html = agendaPage("https://rundata.re", data(ROWS), TUESDAY);
     expect(html).toContain(`<a href="/evenements/concerts">Concerts</a>`);
     expect(html).toContain(`<a href="/evenements" aria-current="page">`);
+  });
+});
+
+describe("the map of /evenements", () => {
+  const layerOf = (html: string, id: string) => html.match(new RegExp(`<g class="ly ly-${id}">[\\s\\S]*?</g>`, "g"))?.join("") ?? "";
+  const page = (rows: Row[], weekend: Row[] = []) => agendaPage("https://rundata.re", { value: { ...data(rows).value, ce_week_end: weekend }, fetchedAt: TUESDAY }, TUESDAY);
+
+  it("counts tonight's, tomorrow's and the weekend's events in a round per commune, at its centre", () => {
+    const html = page(ROWS, ROWS.filter((r) => inWeekend(r, weekend(TUESDAY), TUESDAY).length));
+    // A map that filters: in the content, under the band, as the charter of the maps wants.
+    expect(html).toContain(`<section aria-labelledby="h-carte"><h2 id="h-carte">Sur la carte</h2><figure class="card mapcard evmap">`);
+    expect(html.indexOf('id="h-carte"')).toBeGreaterThan(html.indexOf('class="wrap intro"'));
+    // Tonight: the kabar of Tuesday at 19:00, not the Wednesday talk nor the fête of several days.
+    expect(layerOf(html, "soir-0")).toContain(`aria-label="Saint-Paul : 1 événement, voir le détail"`);
+    expect(layerOf(html, "soir-0")).not.toContain("Salazie");
+    // Tomorrow: the talk at 18:00.
+    expect(layerOf(html, "demain-0")).toContain(`aria-label="Saint-Paul : 1 événement, voir le détail"`);
+    // The weekend: the agenda's own, Friday evening to the Toussaint.
+    expect(layerOf(html, "we-0")).toContain(`aria-label="Saint-Paul : 2 événements, voir le détail"`);
+    expect(layerOf(html, "we-0")).toContain(`aria-label="Salazie : 1 événement, voir le détail"`);
+    expect(layerOf(html, "we-0")).toContain(`aria-label="Le Port : 1 événement, voir le détail"`);
+    // A count in the night's colour; the legend draws each mark, then the nature, source and time.
+    expect(layerOf(html, "we-0")).toContain('fill="#14202b"');
+    expect(html).toContain('<circle r="34" fill="#14202b"/><text y="11">3</text></svg>événements de la commune</span>');
+    expect(html).toContain('<circle r="17" fill="#56b4e9" style="paint-order:stroke"/></svg>lieu de l&#39;événement, d&#39;après l&#39;annonce</span>');
+    expect(html).toContain('<span class="mls">Annonces des salles, des mairies et des offices de tourisme, d&#39;après les agendas lus à 10:00.</span>');
+    // Read another day: the day too.
+    const yesterday = agendaPage("https://rundata.re", { value: { ...data(ROWS).value, ce_week_end: [] }, fetchedAt: new Date(TUESDAY.getTime() - 86400_000) }, TUESDAY);
+    expect(yesterday).toContain("d&#39;après les agendas lus le 26/10 à 10:00.</span>");
+    // The weekend's list stays in the band.
+    expect(html).toContain(`<a href="/evenements/ce-week-end" style="color:var(--on-night)">Tout le week-end →</a>`);
+  });
+
+  it("draws a point only where the source gives the venue's position, never for a commune alone", () => {
+    const placed = row("Kabar", "2026-10-27T19:00", "mardi 27/10 à 19:00", { lieu: "Léspas, Saint-Paul", position: { lat: -21.01, lon: 55.27 }, genres: ["concert"] });
+    const html = page([placed, row("Bal la poussière", "2026-10-27T20:00", "mardi 27/10 à 20:00", { commune: "Salazie" })]);
+    const tonight = layerOf(html, "soir-0");
+    expect(tonight.match(/class="mk evp"/g)).toHaveLength(1);
+    expect(tonight).toContain(`<a class="mk evp" href="https://example.re/Kabar" rel="noopener" aria-label="Léspas : Kabar, voir le détail" data-pn="Léspas" data-p2="Kabar">`);
+    expect(tonight).toContain(`aria-label="Salazie : 1 événement, voir le détail"`);
+    // Several events at one venue: one point, which leads to the list.
+    const two = layerOf(page([placed, { ...placed, titre: "Kabar 2", lien: "https://example.re/k2" }]), "soir-0");
+    expect(two.match(/class="mk evp"/g)).toHaveLength(1);
+    expect(two).toContain(`<a class="mk evp" href="#jours" aria-label="Léspas : 2 événements, voir le détail"`);
+  });
+
+  it("filters by genre, and says when a time has nothing of that genre", () => {
+    const html = page(ROWS, ROWS.filter((r) => inWeekend(r, weekend(TUESDAY), TUESDAY).length));
+    // The genres of the three, in the list's order, « Tous » first: not the market of Friday morning, in none of them.
+    expect(html).toContain(`<div class="tabs evg" role="radiogroup" aria-label="Genre"><input type="radio" name="evg" id="evg-0" checked><label for="evg-0">Tous</label><input type="radio" name="evg" id="evg-1"><label for="evg-1">Concerts</label><input type="radio" name="evg" id="evg-2"><label for="evg-2">Fêtes et festivals</label></div>`);
+    expect(layerOf(html, "we-1")).toContain(`aria-label="Saint-Paul : 1 événement, voir le détail"`);
+    expect(layerOf(html, "we-1")).toContain(`aria-label="Le Port : 1 événement, voir le détail"`);
+    expect(html).toContain(`<p class="note ev0 ly ly-demain-1">Rien de trouvé demain en « concerts » dans les agendas lus.</p>`);
+    // Each pair shown by its two buttons.
+    expect(html).toContain(`.evmap:has(#evt-demain:checked):has(#evg-1:checked) .ly-demain-1{display:block}`);
+    expect(html).toContain(`.evmap:has(#evt-we:checked):has(#evg-1:checked) .ly-we-1{display:inline}`);
+  });
+
+  it("draws a point under a round beside it, never on its figure, and the rounds over the points", () => {
+    // On its place when free; beside the round, on the side of its place, when under it.
+    expect(beside([100, 100], [[300, 300]])).toEqual([100, 100]);
+    expect(beside([310, 300], [[300, 300]])).toEqual([358, 300]);
+    const [x, y] = beside([300, 300], [[300, 300], [357, 300]]);
+    expect(Math.hypot(x - 300, y - 300)).toBeGreaterThanOrEqual(57);
+    expect(Math.hypot(x - 357, y - 300)).toBeGreaterThanOrEqual(57);
+    const placed = row("Kabar", "2026-10-27T19:00", "mardi 27/10 à 19:00", { lieu: "Léspas, Saint-Paul", position: { lat: -21.01, lon: 55.27 } });
+    const html = page([placed]);
+    expect(html.indexOf('class="mk evp"')).toBeLessThan(html.indexOf('aria-label="Saint-Paul : 1 événement, voir le détail"'));
+  });
+
+  it("gives its layer as data, apart from its drawing: rounds of communes, points of placed venues", () => {
+    const placed = row("Kabar", "2026-10-27T19:00", "mardi 27/10 à 19:00", { lieu: "Léspas, Saint-Paul", position: { lat: -21.01, lon: 55.27 }, source: "Léspas (site lu le mardi 27/10 à 08:00)" });
+    const c = couche([placed, { ...placed, titre: "Kabar 2", lien: "https://example.re/k2" }, row("Bal la poussière", "2026-10-27T20:00", "mardi 27/10 à 20:00", { commune: "Salazie" })]);
+    expect(c.ronds).toEqual([{ commune: "Saint-Paul", lon: expect.any(Number), lat: expect.any(Number), nombre: 2 }, { commune: "Salazie", lon: expect.any(Number), lat: expect.any(Number), nombre: 1 }]);
+    // Two events at one venue: counted, without the one's link or source.
+    expect(c.points).toEqual([{ lieu: "Léspas", lon: 55.27, lat: -21.01, nombre: 2, titre: "Kabar" }]);
+    expect(couche([placed]).points).toEqual([{ lieu: "Léspas", lon: 55.27, lat: -21.01, nombre: 1, titre: "Kabar", lien: "https://example.re/Kabar", source: "Léspas (site lu le mardi 27/10 à 08:00)" }]);
+  });
+
+  it("opens on the first time that has events, and is left out when none has", () => {
+    const later = row("Théâtre", "2026-11-07T20:00", "samedi 07/11 à 20:00");
+    const html = page([row("Conférence", "2026-10-28T18:00", "mercredi 28/10 à 18:00"), later]);
+    expect(html).toContain(`<input type="radio" name="evt" id="evt-demain" checked>`);
+    expect(html).toContain(`<p class="note ev0 ly ly-soir-0">Rien de trouvé ce soir dans les agendas lus.</p>`);
+    expect(page([later])).not.toContain("evmap");
   });
 });
