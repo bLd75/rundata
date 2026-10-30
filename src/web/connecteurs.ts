@@ -68,6 +68,10 @@ const FAUX: Record<string, string> = {
   email: "Indiquez une adresse e-mail valide\u00a0: vous y recevrez le lien de confirmation.",
 };
 
+// The open data, only when the association ticks it (HelloAsso agreed in writing, 29/10/2026): never ticked beforehand.
+const OUVERT = "Mettre aussi nos événements dans les données ouvertes de rundata.re (facultatif)";
+const OUVERT_AIDE = "Ils seront alors dans nos agendas ouverts (fichiers ICS et JSON), sous Licence Ouverte 2.0\u00a0: chacun pourra les reprendre, y compris pour un usage commercial, en citant votre association. Sans cette case, ils s'affichent sur rundata.re et dans les assistants IA, mais pas dans ces fichiers. Si vous retirez l'accès, ils en sortent aussi\u00a0; une copie déjà faite par quelqu'un d'autre reste sous la licence.";
+
 type Formulaire = { f?: URLSearchParams; erreur?: Erreur; faux?: string[] };
 
 function formulaire(e: Formulaire): string {
@@ -86,7 +90,7 @@ function formulaire(e: Formulaire): string {
     <h3 id="h-ou">Où trouver vos clés\u00a0?</h3>
     <ol>
       <li>Connectez-vous à HelloAsso avec un compte administrateur de l'association.</li>
-      <li>Ouvrez «\u00a0Mon compte\u00a0», puis «\u00a0Intégration et API\u00a0».</li>
+      <li>Ouvrez «\u00a0Mon compte\u00a0», puis l'onglet «\u00a0Intégrations et API\u00a0».</li>
       <li>Copiez l'identifiant client et le secret client, et collez-les ci-dessous.</li>
     </ol>
     <p>Seul un administrateur de l'association sur HelloAsso peut voir ces clés\u00a0: c'est ce qui prouve que c'est bien vous.</p>
@@ -97,6 +101,8 @@ function formulaire(e: Formulaire): string {
   <div class="card lu">
     <p>Nous lisons seulement vos événements publics\u00a0: le titre, les dates, le lieu, le prix, le lien et le début de la description. Nous ne lisons jamais vos commandes, paiements, dons, participants ni adhérents, même si vos clés le permettent. Vos clés ne sont pas gardées\u00a0: elles servent une seule fois, à obtenir un jeton d'accès, que nous gardons chiffré et effaçons dès que vous retirez l'accès.</p>
   </div>
+  <div class="f"><label class="case"><input type="checkbox" name="ouvert" value="oui"${f.get("ouvert") === "oui" ? " checked" : ""}> ${OUVERT}</label>
+    <p class="aide">${OUVERT_AIDE}</p></div>
   <p class="note">Un événement laissé «\u00a0privé\u00a0» sur HelloAsso n'est pas repris. <a href="${DEPOT}">Le code de rundata.re est libre</a>\u00a0: chacun peut vérifier ce qu'il lit.</p>
   ${hp}
   ${widget("relier")}
@@ -131,6 +137,7 @@ function cestBienNous(a: connexions.Attente, scelle: string, dejaReliee: boolean
     ${o.commune ? `<li>${esc(o.commune)}</li>` : ""}
     <li><a href="${esc(o.lien)}" rel="noopener">Votre page HelloAsso</a></li>
   </ul>
+  <p>Dans nos données ouvertes\u00a0: ${a.ouvert ? "oui" : "non"}</p>
   <p>En confirmant, vous recevrez un e-mail à ${esc(a.email)}. Rien ne s'affiche avant que vous ayez confirmé avec le lien qu'il contient.</p>
   ${dejaReliee ? `<p class="msg vu" role="status">Cette association est déjà reliée à rundata.re. Si vous confirmez, la nouvelle connexion remplacera l'ancienne, et l'adresse e-mail donnée la première fois en sera prévenue.</p>` : ""}
   <form class="fo" method="post" action="${CONFIRMER_PATH}">
@@ -166,7 +173,8 @@ export async function relier(request: Request, now = new Date(), alerte?: Alerte
   const plateforme = f.get("plateforme") === "helloasso" ? "helloasso" : "";
   const v = await connexions.verifier(plateforme, cles, email!, now);
   if (v.issue !== "ok") return form({ f, erreur: v.issue }, v.issue === "indisponible" ? 503 : 422);
-  return html(cestBienNous(v.attente, await connexions.sceller(v.attente), v.dejaReliee));
+  const attente = { ...v.attente, ouvert: f.get("ouvert") === "oui" };
+  return html(cestBienNous(attente, await connexions.sceller(attente), v.dejaReliee));
 }
 
 /** POST /associations/relier/confirmer: « C'est bien nous » writes the link and e-mails it; « Ce n'est pas nous », nothing. */
@@ -222,13 +230,13 @@ export async function connexion(request: Request, now = new Date(), alerte?: Ale
     if (!c) return page("Retirer l'accès de rundata.re", EFFACEE, 404);
     if (!post) {
       const depuis = c.confirme_le ? ` depuis le ${jourDe(c.confirme_le)}` : "";
-      return page("Retirer l'accès de rundata.re", `<section class="card fo"><p>L'association ${esc(c.nom)} est reliée à rundata.re${depuis}. Si vous retirez l'accès, le jeton d'accès et votre adresse sont effacés tout de suite, et vos événements ne s'affichent plus sur rundata.re.</p>
+      return page("Retirer l'accès de rundata.re", `<section class="card fo"><p>L'association ${esc(c.nom)} est reliée à rundata.re${depuis}. Si vous retirez l'accès, le jeton d'accès et votre adresse sont effacés tout de suite, et vos événements ne s'affichent plus sur rundata.re${c.ouvert ? " ni dans nos données ouvertes" : ""}.</p>
   <form class="fo" method="post" action="${esc(action)}"><button type="submit">Retirer l'accès</button></form></section>`);
     }
     const fait = await connexions.retirer(secret);
     if (!fait) return page("Retirer l'accès de rundata.re", EFFACEE, 404);
     await apres?.().catch(() => {});
-    return page("Retirer l'accès de rundata.re", `<section class="card fo"><p>C'est fait. Le jeton d'accès et votre adresse sont effacés, et les événements de ${esc(fait.nom)} ne s'affichent plus sur rundata.re. Un e-mail vous le confirme. Pour relier à nouveau votre association\u00a0: <a href="/associations">la page Clubs et associations</a>.</p></section>`);
+    return page("Retirer l'accès de rundata.re", `<section class="card fo"><p>C'est fait. Le jeton d'accès et votre adresse sont effacés, et les événements de ${esc(fait.nom)} ne s'affichent plus sur rundata.re${fait.ouvert ? " ni dans nos données ouvertes" : ""}. Un e-mail vous le confirme. Pour relier à nouveau votre association\u00a0: <a href="/associations">la page Clubs et associations</a>.</p></section>`);
   }
 
   if (!c || c.etat !== "a_confirmer") {

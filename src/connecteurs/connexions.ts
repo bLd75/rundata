@@ -58,6 +58,8 @@ export interface Attente {
   email: string;
   /** When the keys were verified, Unix seconds. */
   t: number;
+  /** The association chose to have its events in the open data too (agenda ICS and JSON, Licence Ouverte 2.0). */
+  ouvert?: boolean;
 }
 
 export type Verdict =
@@ -114,8 +116,8 @@ export async function ouvrir(scelle: string, now = new Date()): Promise<Attente 
 // A verification already written: a link of the same association to the same address, started since it was verified.
 // The sealed page can be sent again for 30 minutes; it makes one link, and one e-mail, once.
 const DEJA_ECRITE = "SELECT 1 FROM connexions WHERE plateforme = ? AND organisation = ? AND email = ? AND t >= ?";
-const INSERT = `INSERT INTO connexions (t, plateforme, organisation, nom, commune, code_postal, lien, secret, email, jeton, etat, source)
-SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'a_confirmer', ?
+const INSERT = `INSERT INTO connexions (t, plateforme, organisation, nom, commune, code_postal, lien, secret, email, jeton, etat, source, ouvert)
+SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'a_confirmer', ?, ?
 WHERE (SELECT COUNT(*) FROM connexions WHERE source = ? AND t > ?) < ? AND (SELECT COUNT(*) FROM connexions WHERE t > ?) < ?
 AND NOT EXISTS (${DEJA_ECRITE})`;
 
@@ -135,7 +137,7 @@ export async function enregistrer(a: Attente, adresse: string, base: string, now
   const o = a.organisation;
   try {
     const secret = await chiffre.chiffrer(a.secret, chiffre.lien(a.plateforme, o.id, jeton));
-    const changed = await run!(INSERT, t, a.plateforme, o.id, o.nom, o.commune ?? null, o.code_postal ?? null, o.lien, secret, a.email, jeton, source, source, t - 86400, CONNEXIONS_PAR_JOUR, t - 86400, CONNEXIONS_EN_TOUT_JOUR, a.plateforme, o.id, a.email, a.t);
+    const changed = await run!(INSERT, t, a.plateforme, o.id, o.nom, o.commune ?? null, o.code_postal ?? null, o.lien, secret, a.email, jeton, source, a.ouvert ? 1 : 0, source, t - 86400, CONNEXIONS_PAR_JOUR, t - 86400, CONNEXIONS_EN_TOUT_JOUR, a.plateforme, o.id, a.email, a.t);
     if (changed === 0) return (await all!(DEJA_ECRITE, a.plateforme, o.id, a.email, a.t)).length ? "ok" : "limite";
   } catch (err) {
     console.error("connecteurs : écriture impossible", err instanceof Error ? err.message : String(err));
@@ -174,9 +176,11 @@ export interface Connexion {
   email: string | null;
   etat: EtatConnexion;
   confirme_le: number | null;
+  /** 1 when its events are in the open data too. */
+  ouvert: number;
 }
 
-const COLONNES = "id, t, plateforme, organisation, nom, commune, lien, email, etat, confirme_le";
+const COLONNES = "id, t, plateforme, organisation, nom, commune, lien, email, etat, confirme_le, ouvert";
 
 /**
  * The link a secret opens; undefined when there is none (withdrawn, expired, never confirmed). Changes nothing. The
@@ -205,12 +209,12 @@ export async function confirmer(secretLien: string, now = new Date()): Promise<C
 }
 
 /** Withdraws the link: the row and its events go at once, and an e-mail says so. The link's name, or undefined. */
-export async function retirer(secretLien: string): Promise<{ nom: string } | undefined> {
+export async function retirer(secretLien: string): Promise<{ nom: string; ouvert: boolean } | undefined> {
   const c = await trouver(secretLien);
   if (!c || !run) return undefined;
   await run("DELETE FROM connexions WHERE id = ?", c.id);
   if (c.email) await envoyer(c.email, messageRetire(c.nom, PLATEFORMES[c.plateforme]?.nom ?? c.plateforme, "eux"));
-  return { nom: c.nom };
+  return { nom: c.nom, ouvert: c.ouvert === 1 };
 }
 
 /**

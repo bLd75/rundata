@@ -1,6 +1,6 @@
 /**
  * HelloAsso (API v5, dev.helloasso.com, read on 26/10/2026), the first platform an association can link on
- * /associations: it pastes the API keys of its HelloAsso account (Mon compte > Intégration et API), we ask HelloAsso
+ * /associations: it pastes the API keys of its HelloAsso account (Mon compte > Intégrations et API), we ask HelloAsso
  * which association they administer, and keep only the refresh token they give, encrypted (chiffre.ts). The keys
  * themselves are never kept: HelloAsso forbids asking for a new token with them at each call.
  *

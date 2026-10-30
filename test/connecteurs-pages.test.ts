@@ -66,8 +66,8 @@ const post = (path: string, fields: Record<string, string>) =>
 const CLES = { plateforme: "helloasso", client_id: "id-client", client_secret: "le-secret-client", email: "club@example.org", "cf-turnstile-response": "humain" };
 
 /** The keys verified, « C'est bien nous » clicked: the e-mailed link's secret. */
-async function relie(email = "club@example.org"): Promise<string> {
-  const r = await post(connecteurs.RELIER_PATH, { ...CLES, email });
+async function relie(email = "club@example.org", extra: Record<string, string> = {}): Promise<string> {
+  const r = await post(connecteurs.RELIER_PATH, { ...CLES, email, ...extra });
   const scelle = /name="attente" value="([^"]+)"/.exec(await r.text())![1];
   expect((await post(connecteurs.CONFIRMER_PATH, { attente: scelle, choix: "oui" })).status).toBe(200);
   return /\/associations\/connexion\/([\w-]+)\n/.exec(sent.at(-1)!.text)![1];
@@ -94,7 +94,15 @@ describe("« Relier votre plateforme »", () => {
     expect(form).toContain("<h1>Relier votre plateforme à rundata.re</h1>");
     expect(form).toContain("Nous ne lisons jamais vos commandes, paiements, dons, participants ni adhérents, même si vos clés le permettent.");
     expect(form).toContain("<button type=\"submit\">Vérifier mes clés</button>");
+    expect(form).toContain("Ouvrez « Mon compte », puis l'onglet « Intégrations et API ».");
+    // The open data, never ticked beforehand.
+    expect(form).toContain(`<label class="case"><input type="checkbox" name="ouvert" value="oui"> Mettre aussi nos événements dans les données ouvertes de rundata.re (facultatif)</label>`);
+    expect(form).toContain("Si vous retirez l'accès, ils en sortent aussi ; une copie déjà faite par quelqu'un d'autre reste sous la licence.");
     const conf = plain(await (await get("/confidentialite")).text());
+    expect(conf).toContain("Ces événements entrent dans nos données ouvertes (agenda ICS et JSON, Licence Ouverte 2.0) seulement si l'association l'a choisi en reliant son compte ; HelloAsso l'a accepté par écrit le 29 octobre 2026.");
+    expect(conf).toContain("HelloAsso nous a conseillé de passer par les clés API de chaque association : c'est aujourd'hui la seule façon de lire les événements d'une association qui le souhaite.");
+    expect(conf).toContain("en supprimant ses clés API dans l'onglet « Intégrations et API » de son espace HelloAsso.");
+    expect(conf).not.toContain("tant que HelloAsso ne nous l'a pas autorisé par écrit");
     expect(conf).toContain("Les associations reliées à une plateforme (HelloAsso)");
     expect(conf).toContain("et <a href=\"#plateformes-donnees\">« Les associations reliées à une plateforme »</a>).");
     expect(conf).toContain("La vérification anti-robot des trois formulaires des clubs et associations y garde aussi une donnée");
@@ -245,6 +253,26 @@ describe("the link, once « C'est bien nous » is clicked", () => {
     const again = await get(`${connecteurs.CONNEXION_PATH}${secret}/retirer`);
     expect(again.status).toBe(404);
     expect(plain(await again.text())).toContain("Cette connexion n'existe plus");
+  });
+
+  it("keeps the association's open-data choice: said on « C'est bien nous », written with the link, and on withdrawal", async () => {
+    // Not ticked: « non », written 0, and the withdrawal says nothing of the open data.
+    const html = plain(await (await post(connecteurs.RELIER_PATH, CLES)).text());
+    expect(html).toContain("<p>Dans nos données ouvertes : non</p>");
+    const non = await relie("non@example.org");
+    expect(rows("SELECT email, ouvert FROM connexions")).toEqual([{ email: "non@example.org", ouvert: 0 }]);
+    await post(`${connecteurs.CONNEXION_PATH}${non}`, {});
+    expect(plain(await (await get(`${connecteurs.CONNEXION_PATH}${non}/retirer`)).text())).toContain("vos événements ne s'affichent plus sur rundata.re.</p>");
+    expect(plain(await (await post(`${connecteurs.CONNEXION_PATH}${non}/retirer`, {})).text())).toContain("ne s'affichent plus sur rundata.re. Un e-mail");
+    // Ticked: « oui », kept ticked when a field is to correct, written 1, and the withdrawal says the open data too.
+    const wrong = plain(await (await post(connecteurs.RELIER_PATH, { ...CLES, email: "pas une adresse", ouvert: "oui" })).text());
+    expect(wrong).toContain(`<input type="checkbox" name="ouvert" value="oui" checked>`);
+    expect(plain(await (await post(connecteurs.RELIER_PATH, { ...CLES, ouvert: "oui" })).text())).toContain("<p>Dans nos données ouvertes : oui</p>");
+    const oui = await relie("oui@example.org", { ouvert: "oui" });
+    expect(rows("SELECT email, ouvert FROM connexions")).toEqual([{ email: "oui@example.org", ouvert: 1 }]);
+    await post(`${connecteurs.CONNEXION_PATH}${oui}`, {});
+    expect(plain(await (await get(`${connecteurs.CONNEXION_PATH}${oui}/retirer`)).text())).toContain("vos événements ne s'affichent plus sur rundata.re ni dans nos données ouvertes.</p>");
+    expect(plain(await (await post(`${connecteurs.CONNEXION_PATH}${oui}/retirer`, {})).text())).toContain("ne s'affichent plus sur rundata.re ni dans nos données ouvertes. Un e-mail");
   });
 
   it("refuses everything without the encryption key: nothing kept in clear instead", async () => {
