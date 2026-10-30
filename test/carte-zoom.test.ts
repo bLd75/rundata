@@ -61,7 +61,9 @@ describe("the zoom of the hikes' map", () => {
     expect(DOUBLE_WAIT_MS).toBe(300);
     expect(DOUBLE_SCRIPT).toContain(`svg.addEventListener("dblclick",(e)=>{e.preventDefault();const c=pt(e.clientX,e.clientY);zoom(${DOUBLE_STEP},c[0],c[1])});`);
     // A mouse's click waits for a second one; a finger's tap, a pen's and the keyboard's open at once.
-    expect(DOUBLE_SCRIPT).toContain('if(!e.isTrusted||!e.detail||e.pointerType==="touch"||e.pointerType==="pen")return false;');
+    // Told by the pointerdown: Safari's click after a finger's tap says « mouse ».
+    expect(DOUBLE_SCRIPT).toContain('svg.addEventListener("pointerdown",(e)=>{ptr=e.pointerType},true);');
+    expect(DOUBLE_SCRIPT).toContain('if(!e.isTrusted||!e.detail||ptr!=="mouse")return false;');
     expect(DOUBLE_SCRIPT).toContain(`if(e.detail===1){`);
     expect(DOUBLE_SCRIPT).toContain(`,${DOUBLE_WAIT_MS})}return true}`);
     expect(hikesZoom()).toContain("if(moved>8){e.stopImmediatePropagation();e.preventDefault();return}if(held(e)||e.target.dataset?.k)return;");

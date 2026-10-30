@@ -38,9 +38,11 @@ export const DOUBLE_WAIT_MS = 300;
  * The double click on a map, for the same script: it zooms in by DOUBLE_STEP, centred on the point clicked. A mouse's
  * click is held (`held`, for the script's click listener in the capture phase) and given again DOUBLE_WAIT_MS later
  * unless a second click came, so that the first click of a double click opens nothing. A finger's tap, a pen's and a
- * click from the keyboard (detail 0) are never held: on a phone, the pinch zooms.
+ * click from the keyboard (detail 0) are never held: on a phone, the pinch zooms. The pointer is the one of the last
+ * pointerdown, not the click's own: Safari gives a finger's click the pointerType « mouse ».
  */
-export const DOUBLE_SCRIPT = `let hold=0;const held=(e)=>{if(!e.isTrusted||!e.detail||e.pointerType==="touch"||e.pointerType==="pen")return false;` +
+export const DOUBLE_SCRIPT = `let hold=0,ptr="";svg.addEventListener("pointerdown",(e)=>{ptr=e.pointerType},true);` +
+  `const held=(e)=>{if(!e.isTrusted||!e.detail||ptr!=="mouse")return false;` +
   `e.stopImmediatePropagation();e.preventDefault();clearTimeout(hold);if(e.detail===1){const t=e.target,x=e.clientX,y=e.clientY;` +
   `hold=setTimeout(()=>t.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true,clientX:x,clientY:y})),${DOUBLE_WAIT_MS})}return true};` +
   `svg.addEventListener("dblclick",(e)=>{e.preventDefault();const c=pt(e.clientX,e.clientY);zoom(${DOUBLE_STEP},c[0],c[1])});`;
