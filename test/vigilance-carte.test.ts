@@ -4,7 +4,7 @@ import { pdfLines } from "../src/pdf.js";
 import * as carte from "../src/providers/vigilance-carte.js";
 import * as mf from "../src/providers/vigilance.js";
 import { carteHero, carteHtml, carteRoute, renduPage } from "../src/web/vigilance-carte.js";
-import { CSS, vigilancePage } from "../src/web/pages.js";
+import { CSS, CYCLONE_SCALE, vigilancePage } from "../src/web/pages.js";
 import { site } from "../src/web/site.js";
 import { Cache } from "../src/cache.js";
 import { unzip, unzipBytes } from "../src/zip.js";
@@ -211,24 +211,31 @@ describe("the map on /vigilance", () => {
     expect(carteHero(undefined)).toBe("");
   });
 
-  it("puts the hero's text in order: the state, the vigilance in its badges, the bulletin's time, the official link, the two pages", () => {
+  it("puts the hero's text in order: the vigilance in its badge, the line to /cyclones, the bulletin's time, the official link", () => {
     const v = (zones: mf.Vigilance["zones"], c?: carte.Carte): mf.Vigilance => ({ emise: "2026-10-22T12:02:00Z", zones, suivi: [], carte: c });
     const green = Object.fromEntries(["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"].map((z) => [z, { 12: [{ couleur: 1, debut: "2026-10-22T00:00:00Z" }], 1: [{ couleur: 1, debut: "2026-10-22T00:00:00Z" }] }]));
     const calm = vigilancePage("https://rundata.re", { value: v(green, { bulletin: b, image: b }), fetchedAt: now, stale: false }, now);
     const band = calm.slice(calm.indexOf('<div class="wrap intro'), calm.indexOf('id="h-zones"'));
     expect(band).toContain('<div class="wrap intro vhero">');
-    const order = ["<p class=\"big vh\">Pas d'alerte cyclonique</p>", '<p class="vstate"><span class="vg vg1">Vigilance verte</span> <span>Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</span></p>',
-      '<p class="note when">Bulletin de Météo-France émis le 22/10 16:02', `<p class="off"><b><a href="${mf.OFFICIEL_VIGILANCE}" rel="noopener">Consulter le site officiel de Météo-France</a></b></p>`,
-      '<ul class="chips"><li><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a></li><li><a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a></li></ul>', 'mf-haut'];
+    const order = ['<p class="big vh vab vg1">Vigilance verte</p>', '<p class="vstate">Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</p>',
+      `<p class="cyc">Pas d'alerte cyclonique · <a href="/cyclones">Cyclones dans le bassin, alerte du préfet →</a></p>`,
+      '<p class="note when">Bulletin de Météo-France émis le 22/10 16:02', `<p class="off"><b><a href="${mf.OFFICIEL_VIGILANCE}" rel="noopener">Consulter le site officiel de Météo-France</a></b></p>`, 'mf-haut'];
     const at = order.map((x) => band.indexOf(x));
     expect(at.every((i) => i >= 0), JSON.stringify(at)).toBe(true);
     expect([...at].sort((x, y) => x - y)).toEqual(at);
     expect(calm).toContain('class="card mf-carte mf-bas"');
+    // Without an alert, the cyclones are one line to /cyclones: neither the scale of the alert nor the schools.
+    expect(band).not.toContain("/ecoles-cyclone");
+    expect(calm).not.toContain(CYCLONE_SCALE);
     // A cyclone alert in force: first, in its colour; then the vigilance above green, each in its badge.
     const storm = vigilancePage("https://rundata.re", { value: v({ ...green, VIGI974: { 10: [{ couleur: 4, debut: "2026-10-22T00:00:00Z" }] }, "VIGI974-12": { 12: [{ couleur: 3, debut: "2026-10-22T00:00:00Z" }], 1: [{ couleur: 1, debut: "2026-10-22T00:00:00Z" }] } }), fetchedAt: now, stale: false }, now);
     expect(storm).toContain('<p class="big vh vab vg4">Alerte cyclonique rouge</p>');
     expect(storm).toContain('<p class="vstate">Vigilances au-dessus du vert : <span class="vi"><span class="vg vg3">Vigilance orange</span> fortes pluies / orages (Est)</span></p>');
     expect(storm.indexOf("Alerte cyclonique rouge")).toBeLessThan(storm.indexOf("Vigilance orange"));
+    expect(storm).toContain('<p class="cyc"><a href="/cyclones">Cyclones dans le bassin, alerte du préfet →</a></p>');
+    expect(storm).toContain('<ul class="chips"><li><a href="/ecoles-cyclone">');
+    expect(storm).not.toContain("Pas d'alerte cyclonique");
+    expect(storm).not.toContain(CYCLONE_SCALE);
     // No map read: the text alone, as before.
     expect(storm).toContain('<div class="wrap intro solo">');
     expect(storm).not.toContain("mf-haut");

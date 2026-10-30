@@ -927,7 +927,7 @@ describe("the maps lead to what they show", () => {
     for (const z of ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"]) delete bare.zones[z];
     const none = vigilancePage("https://rundata.re", { value: bare, fetchedAt: NOW, stale: false }, NOW);
     expect(none).not.toContain("Aucune vigilance particulière");
-    expect(none).toContain('<p class="vstate">Pas de vigilance émise.</p>');
+    expect(none).toContain('<p class="big vh">Pas de vigilance émise</p>');
     expect(vigilanceLive({ value: bare, fetchedAt: NOW, stale: false }, NOW)).toMatchObject({ valeur: "Pas de vigilance émise" });
 
     const communes = communesPage("https://rundata.re");

@@ -4,7 +4,7 @@ import * as mf from "../src/providers/vigilance.js";
 import { quotidienLine } from "../src/tools/ecoles.js";
 import { cyclone } from "../src/tools/vigilance.js";
 import { alerteOf } from "../src/web/data.js";
-import { vigilancePage } from "../src/web/pages.js";
+import { CYCLONE_SCALE, vigilancePage } from "../src/web/pages.js";
 import { pageOf } from "../src/web/places.js";
 import { rssItems } from "../src/web/rss.js";
 import { alertePage, FAQ, PDF, STEPS, TITLE } from "../src/web/alerte-cyclone.js";
@@ -100,14 +100,15 @@ describe("the pré-alerte has no colour", () => {
   const COLOUR = /pr[ée]-alerte[^.]{0,40}jaune|jaune[^.]{0,40}pr[ée]-alerte/i;
   const pre = bulletin([[7, "2026-10-24T06:00:00"]]);
 
-  it("in the tools, the RSS feeds and on /vigilance, /alerte-cyclone", () => {
+  it("in the tools, the RSS feeds, on /vigilance, in the scale of /cyclones and on /alerte-cyclone", () => {
     expect(cyclone(pre, NOW)).toBe("ALERTE CYCLONIQUE pré-alerte, « je m'informe » : menace potentielle dans les jours à venir.");
     const [item] = rssItems(pageOf("cilaos")!, { vigilance: { value: pre, fetchedAt: NOW, stale: false } }, NOW);
     expect(item.title).toBe("Pré-alerte cyclonique à La Réunion");
     expect(`${item.title} ${item.description}`).not.toMatch(/jaune/i);
     const vigilance = vigilancePage("https://rundata.re", { value: pre, fetchedAt: NOW, stale: false }, NOW);
-    expect(vigilance).toContain(`<span class="vg vgpre">pré-alerte</span></li>`);
-    for (const html of [vigilance, page(pre)]) expect(html).not.toMatch(COLOUR);
+    expect(vigilance).toContain(`<p class="big vh vab vgpre">Pré-alerte cyclonique</p>`);
+    expect(CYCLONE_SCALE).toContain(`<span class="vg vgpre">pré-alerte</span></li>`);
+    for (const html of [vigilance, CYCLONE_SCALE, page(pre)]) expect(html).not.toMatch(COLOUR);
   });
 
   it("nor a yellow ground: the badge and the banner are neutral, as its box in the plan's table (p. 9)", () => {
