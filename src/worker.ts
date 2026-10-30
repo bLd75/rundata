@@ -162,7 +162,7 @@ function recorder(env: Env, request: Request) {
     try {
       // A signal comes from a page's browser: read as a page view is (web/signaux.ts).
       const page = hit.kind === "page" || hit.kind === "signal";
-      usage.writeDataPoint(point(hit, { who, country, from, audience: page ? (team ? TEAM : audience(headers, asn)) : "", language: page ? language(headers.get("accept-language")) : "", mode: page && headers.get("rundata-mode") === "app" ? "app" : "", device: page ? device(headers, asn) : "" }));
+      usage.writeDataPoint(point(hit, { who, country, from, audience: page ? (team ? TEAM : audience(headers, asn, country)) : "", language: page ? language(headers.get("accept-language")) : "", mode: page && headers.get("rundata-mode") === "app" ? "app" : "", device: page ? device(headers, asn) : "" }));
     } catch (err) {
       console.error("analytics : écriture impossible", why(err));
     }
