@@ -18,7 +18,7 @@ import { ageMinutes, ageText, localTime, versant } from "../geo.js";
 import { VERSION } from "../server.js";
 import { fr } from "../tools/format.js";
 import * as mf from "../providers/vigilance.js";
-import { carteHtml } from "./vigilance-carte.js";
+import { carteHero, carteHtml } from "./vigilance-carte.js";
 import { current, cyclone, cycloneHead, cycloneLevel, feminine, highest, islandGreen, NONE_ISSUED, NONE_ISSUED_SAID, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, StationAnswer, StationNow } from "./data.js";
 import { joursDuJour, vigilanceLue } from "./data.js";
@@ -768,6 +768,16 @@ overflow-x:auto;scroll-snap-type:x mandatory}
 .vgpre{background:var(--surface);color:var(--ink);border:1px solid var(--border)}
 .status{display:grid;gap:.6rem;justify-items:start}
 .status .big{font-size:clamp(2rem,6vw,3.2rem);line-height:1}
+/* /vigilance: one state under the h1, smaller than it; the vigilance in Météo-France's badges; the bulletin's time under it; the two pages as buttons. */
+.vig{gap:.75rem}.vig .vh{font-size:clamp(1.75rem,4.8vw,2.5rem);line-height:1.05}.vig .vab{padding:.25rem .7rem;border-radius:12px}
+.vig .vstate{display:flex;flex-wrap:wrap;align-items:center;gap:.45rem .6rem;color:var(--on-night);font-size:1.05rem;max-width:36rem}
+.vig .vstate .vg{font-size:.95rem;padding:.25rem .75rem;border-radius:999px}.vig .vi{display:inline-flex;align-items:center;gap:.4rem}
+.vig .when{font-size:.86rem;color:var(--on-night-muted);margin-top:-.3rem}.vig .off{font-size:1.02rem}
+.vig .chips{margin:.1rem 0 0}.vig .chips a{background:rgb(255 255 255/.08);border-color:rgb(255 255 255/.22);color:#fff;font-size:.9rem;padding:.38rem .85rem}
+/* Météo-France's map: in the hero on a wide screen, in the page on a phone; one only, never both. Scaled down whole, never cut. */
+.mf-haut{display:none}
+@media (min-width:58rem){.intro .mf-haut{display:block;margin:0;justify-self:end;max-width:100%;padding:.75rem}.intro .mf-haut img{display:block;width:auto;max-width:100%;height:auto;max-height:min(40rem,78vh);background:#fff}
+.intro .mf-haut figcaption,.intro .mf-haut .note{font-size:.82rem;color:var(--on-night-muted);max-width:28rem;margin-top:.5rem}.mf-bas{display:none}}
 /* /air: the forecast under the measure, apart and smaller. */
 .status.forecast{margin-top:.2rem;padding-top:.7rem;border-top:1px solid rgb(255 255 255/.2)}.status.forecast .lead{font-size:1rem}
 .zones{list-style:none;padding:0;display:grid;gap:1rem}
@@ -1868,15 +1878,19 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
   if (!v) {
     status = `<p class="lead">La vigilance de Météo-France n'a pas pu être lue à l'instant. Consultez <a href="${mf.SOURCE.url}">vigilance.meteofrance.fr</a> ou rechargez la page.</p><p class="lead">${officielHtml(mf.OFFICIEL_VIGILANCE)}</p>`;
   } else {
+    // One strong state, the cyclone alert first when there is one; then the vigilance, its colours in Météo-France's
+    // badges; the bulletin's time under it; the link to Météo-France's site (its agreement); the two pages as buttons.
     const head = highest(cyc) >= 2
-      ? `<p class="big">${cycNow >= 2 ? esc(cycloneHead(cycNow)) : "Alerte cyclonique prévue"}</p><p class="lead">${esc(cyclone(v, now))}</p>`
-      : `<p class="big">Pas d'alerte cyclonique</p>`;
+      ? `<p class="big vh${cycNow >= 2 ? ` vab ${cycloneVg(cycNow)}` : ""}">${cycNow >= 2 ? esc(cycloneHead(cycNow)) : "Alerte cyclonique prévue"}</p><p class="lead">${esc(cyclone(v, now))}</p>`
+      : `<p class="big vh">Pas d'alerte cyclonique</p>`;
+    const badge = (c: number) => vg(c, `Vigilance ${feminine(mf.colour(c))}`);
     const rest = r.length
-      ? `<p class="lead">Vigilances au-dessus du vert : ${r.map((x) => `${vg(x.max)} ${esc(x.phenomene.toLowerCase())} (${esc(x.zone.split(" :")[0])})`).join(", ")}.</p>`
+      ? `<p class="vstate">Vigilances au-dessus du vert : ${r.map((x) => `<span class="vi">${badge(x.max)} ${esc(x.phenomene.toLowerCase())} (${esc(x.zone.split(" :")[0])})</span>`).join("")}</p>`
       : islandGreen(v, now)
-        ? `<p class="lead">${vg(1)} Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</p>`
-        : `<p class="lead">${esc(NONE_ISSUED_SAID)}.</p>`;
-    status = `<div class="status">${head}${rest}<p class="lead"><b>${officielHtml(mf.OFFICIEL_VIGILANCE)}</b></p><p class="lead"><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a> · <a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a></p><p class="note" style="color:var(--on-night-muted)">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p></div>`;
+        ? `<p class="vstate">${badge(1)} <span>Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</span></p>`
+        : `<p class="vstate">${esc(NONE_ISSUED_SAID)}.</p>`;
+    status = `<div class="status vig">${head}${rest}<p class="note when">Bulletin de Météo-France émis le ${esc(emise!)} (heure de La Réunion), lu à ${hm(data!.fetchedAt)}${data!.stale ? " : Météo-France ne répond pas, c'est le dernier bulletin connu" : ""}.</p>` +
+      `<p class="off"><b>${officielHtml(mf.OFFICIEL_VIGILANCE)}</b></p><ul class="chips"><li><a href="/ecoles-cyclone">Cyclone : les écoles sont-elles fermées ? →</a></li><li><a href="/alerte-cyclone">Alerte cyclonique : ce qui ferme, ce qui continue →</a></li></ul></div>`;
   }
 
   const zones = v
@@ -1934,8 +1948,10 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
     },
   ];
 
+  // Météo-France's map beside the text on a wide screen; on a phone, in the page below (vigilance-carte.ts).
+  const hero = carteHero(v?.carte);
   const band = `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li aria-current="page">Vigilance</li></ol></nav></div>
-<div class="wrap intro solo">
+<div class="wrap intro${hero ? " vhero" : " solo"}">
   <div class="pitch">
     <p class="pill"><span class="dot"></span>Vigilance Météo-France en direct</p>
     <h1>Vigilance et alerte cyclonique <span class="n974">974</span></h1>
@@ -1943,6 +1959,7 @@ export function vigilancePage(origin: string, data: Cached<mf.Vigilance> | null,
     ${ask(`Siklone i ariv ? Na lékol domin ? Gèt si ${url} é di amwin sak Météo-France é la préfektir i di.`,
       `Y a-t-il une alerte cyclonique ou une vigilance météo en cours à La Réunion ? Lis ${url} et dis-moi ce que dit Météo-France, zone par zone.`)}
   </div>
+  ${hero}
 </div>`;
 
   const body = `<section aria-labelledby="h-zones">
