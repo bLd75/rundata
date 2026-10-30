@@ -830,28 +830,35 @@ const UNSAFE: Record<string, string> = { "<": "\\u003c", ">": "\\u003e", "&": "\
 const inScript = (v: unknown) => JSON.stringify(v).replace(/[<>&\/\u2028\u2029]/g, (c) => UNSAFE[c]);
 
 // New tiles only once a pinch or a drag has stopped (250 ms): the Géoplateforme takes at most 40 requests a second
-// from one address. The tiles of the new level are laid over the old ones, which go once they have all come.
+// from one address, and a view asks for 96 tiles at most, a level lower if the screen's would take more (a wide map on
+// a dense screen). The tiles of the new view are laid over the old ones, which go once every tile the view wants has
+// come (`sweep`, after each tile): those of the latest view only, so that a view's last tile, coming after the
+// next view was asked, takes nothing of the next one away. A tile refused (the Géoplateforme's limit, a lost
+// connection) is asked again 1.5 s, then 3 s later, the old tiles kept meanwhile; after a third refusal, the relief shows
+// under its place until the map moves.
 export const FONDS_SCRIPT = `(()=>{const T=${inScript(Object.fromEntries(FONDS.filter((f) => f.layer).map((f) => [f.id, { credit: f.credit, attente: f.attente, layer: f.layer, format: f.format, max: f.max }])))},A=${LON0},B=${LAT0},C=${LON1},D=${LAT1},W=${W},H=${H},NS="http://www.w3.org/2000/svg";
 const X=(o)=>(o-A)/(C-A)*W,Y=(a)=>(D-a)/(D-B)*H,lon=(x)=>A+x/W*(C-A),lat=(y)=>D-y/H*(D-B),n=(z)=>2**z,
 tlon=(t,z)=>t/n(z)*360-180,tlat=(t,z)=>Math.atan(Math.sinh(Math.PI*(1-2*t/n(z))))*180/Math.PI,
 tx=(o,z)=>Math.floor((o+180)/360*n(z)),ty=(a,z)=>{const r=a*Math.PI/180;return Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n(z))},r3=(v)=>String(Math.round(v*1000)/1000);
 document.querySelectorAll(".fonds[data-fd]:not([data-on])").forEach((f)=>{const k=f.dataset.fd,svg=document.querySelector('svg[data-fd="'+k+'"]'),g=document.getElementById("fd-"+k),msg=document.getElementById("fd-w-"+k);if(!svg||!g)return;f.dataset.on="1";
-let cur=null,timer=0,slow=0,pend=0,epoch=0;const have=new Map(),quiet=()=>{clearTimeout(slow);slow=0;if(msg)msg.textContent=""},
+let cur=null,timer=0,slow=0,pend=0,epoch=0,want=new Set();const have=new Map(),tries=new Map(),again=new Set(),quiet=()=>{clearTimeout(slow);slow=0;if(msg)msg.textContent=""},
+sweep=()=>{for(const key of want){const im=have.get(key);if(im?!im.dataset.ok:again.has(key))return}have.forEach((im,key)=>{if(!want.has(key)){im.remove();have.delete(key)}})},
 place=()=>{const p=msg&&msg.offsetParent;if(!p)return;const a=p.getBoundingClientRect(),b=svg.getBoundingClientRect();msg.style.left=b.left-a.left-p.clientLeft+8+"px";msg.style.top=b.bottom-a.top-p.clientTop-msg.offsetHeight-8+"px"};
-const draw=()=>{if(!cur)return;const v=svg.viewBox.baseVal,px=svg.getBoundingClientRect().width||340,dpp=v.width/W*(C-A)/px,
-z=Math.max(9,Math.min(cur.max,Math.round(Math.log2(360*Math.min(devicePixelRatio||1,2)/(256*dpp))))),
-x0=tx(lon(v.x),z),x1=tx(lon(v.x+v.width),z),y0=ty(lat(v.y),z),y1=ty(lat(v.y+v.height),z);if((x1-x0+1)*(y1-y0+1)>96)return;
-const want=new Set();let wait=1;const done=()=>{if(--wait>0)return;have.forEach((im,key)=>{if(!want.has(key)){im.remove();have.delete(key)}})};
-for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){const key=cur.layer+"/"+z+"/"+x+"/"+y;want.add(key);if(have.has(key))continue;
+const draw=()=>{if(!cur)return;const v=svg.viewBox.baseVal,px=svg.getBoundingClientRect().width||340,dpp=v.width/W*(C-A)/px;
+let z=Math.max(9,Math.min(cur.max,Math.round(Math.log2(360*Math.min(devicePixelRatio||1,2)/(256*dpp))))),x0,x1,y0,y1;
+for(;;z--){x0=tx(lon(v.x),z);x1=tx(lon(v.x+v.width),z);y0=ty(lat(v.y),z);y1=ty(lat(v.y+v.height),z);if(z<=9||(x1-x0+1)*(y1-y0+1)<=96)break}
+want=new Set();
+for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){const key=cur.layer+"/"+z+"/"+x+"/"+y;want.add(key);if(have.has(key)||again.has(key)||tries.get(key)>2)continue;
 const im=document.createElementNS(NS,"image"),l=X(tlon(x,z)),t=Y(tlat(y,z)),w=X(tlon(x+1,z))-l,h=Y(tlat(y+1,z))-t;
 im.setAttribute("x",r3(l));im.setAttribute("y",r3(t));im.setAttribute("width",r3(w*1.004));im.setAttribute("height",r3(h*1.004));im.setAttribute("preserveAspectRatio","none");
-wait++;pend++;const ep=epoch,fin=()=>{if(ep===epoch&&--pend===0)quiet()};
+pend++;const ep=epoch,fin=()=>{if(ep===epoch&&--pend===0)quiet()};
 if(!slow&&!(msg&&msg.textContent)){const say=cur.attente;slow=setTimeout(()=>{if(msg){msg.textContent=say;place()}},1000)}
-im.addEventListener("load",()=>{fin();done()},{once:true});im.addEventListener("error",()=>{im.remove();have.delete(key);fin();done()},{once:true});
+im.addEventListener("load",()=>{im.dataset.ok="1";fin();sweep()},{once:true});im.addEventListener("error",()=>{im.remove();have.delete(key);fin();const t=(tries.get(key)||0)+1;tries.set(key,t);
+if(t<3){again.add(key);setTimeout(()=>{again.delete(key);if(want.has(key))draw();else sweep()},1500*t)}sweep()},{once:true});
 im.setAttribute("href","${IGN_TUILES}/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER="+cur.layer+"&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX="+z+"&TILEROW="+y+"&TILECOL="+x+"&FORMAT=image/"+cur.format);
-g.appendChild(im);have.set(key,im)}done()};
-const later=()=>{clearTimeout(timer);timer=setTimeout(()=>{place();draw()},250)};
-f.addEventListener("change",(e)=>{const id=e.target.value;cur=T[id]||null;epoch++;pend=0;quiet();have.forEach((im)=>im.remove());have.clear();svg.classList.remove("fd-plan","fd-photo");if(cur)svg.classList.add("fd-"+id);
+g.appendChild(im);have.set(key,im)}sweep()};
+const later=()=>{clearTimeout(timer);timer=setTimeout(()=>{tries.clear();place();draw()},250)};
+f.addEventListener("change",(e)=>{const id=e.target.value;cur=T[id]||null;epoch++;pend=0;quiet();have.forEach((im)=>im.remove());have.clear();again.clear();svg.classList.remove("fd-plan","fd-photo");if(cur)svg.classList.add("fd-"+id);
 document.querySelectorAll(".fd-c").forEach((s)=>{s.textContent=cur?", "+cur.credit:""});draw()});
 new MutationObserver(later).observe(svg,{attributes:true,attributeFilter:["viewBox"]});addEventListener("resize",later);f.hidden=false})})();`;
 
