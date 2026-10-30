@@ -8,7 +8,7 @@ import * as traces from "../providers/traces.js";
 import type { Secteur } from "../traces/secteurs.js";
 import type { Alerte, PlaceData, RandonneesAnswer } from "./data.js";
 import { joursDuJour } from "./data.js";
-import { closedLi, connectorCta, describe, hikeCard, loading, plural, sectorLinks, sectorTrail, sourcesNote, trailLi, webPage } from "./domains.js";
+import { closedLi, connectorCta, describe, hikeCard, loading, plural, randopitonsNote, sectorLinks, sectorTrail, sourcesNote, trailLi, webPage } from "./domains.js";
 import { esc, hikesMap } from "./map.js";
 import { ask, icon, layout, thin } from "./pages.js";
 import { pageOf } from "./places.js";
@@ -87,6 +87,7 @@ export function secteurPage(origin: string, s: Secteur, data: Cached<RandonneesA
 
   const others = `<section aria-labelledby="h-autres"><div class="sec-h"><h2 id="h-autres">Les autres secteurs</h2></div>${sectorLinks(s.slug)}
   <p class="note"><a href="/randonnees">Toutes les randonnées sur la carte de l'île</a>, avec le filtre par distance et dénivelé · <a href="/sentiers">tous les sentiers fermés</a>.</p>
+  ${randopitonsNote()}
   ${d && data ? sourcesNote(d.sources, data) : ""}</section>`;
 
   const long = `Randonnée ${s.nom} : traces GPS et sentiers ouverts · 974`;
