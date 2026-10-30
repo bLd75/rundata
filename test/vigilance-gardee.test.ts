@@ -85,8 +85,8 @@ describe("the vigilance while Météo-France is late", () => {
     const { a, tile, banner, commune } = await late(30);
     expect(a?.lue).toBe("lue à 03:40");
     expect(tile).toContain(`<p class="td all">fortes pluies / orages (Est) · lue à 03:40. <a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a></p>`);
-    expect(commune).toContain(`<p class="td all">Saint-Benoît est dans la zone Est · lue à 03:40. <a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a></p>`);
-    expect(commune).toContain(`<p class="tv">Zone Est de Météo-France : <span class="vg vg2">jaune</span> fortes pluies / orages</p>`);
+    expect(commune).toContain(`<p class="td all">pour l&#39;Est (Météo-France), la zone de Saint-Benoît · lue à 03:40. <a href="https://vigilance.meteofrance.fr/fr/la-reunion" rel="noopener">Consulter le site officiel de Météo-France</a></p>`);
+    expect(commune).toContain(`<p class="tv">Vigilance météo : <span class="vg vg2">jaune</span> fortes pluies / orages</p>`);
     for (const s of said(" · lue à 03:40")) expect(banner).toContain(s);
   });
 

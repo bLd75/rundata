@@ -19,7 +19,7 @@ import { VERSION } from "../server.js";
 import { fr } from "../tools/format.js";
 import * as mf from "../providers/vigilance.js";
 import { carteHtml } from "./vigilance-carte.js";
-import { current, cyclone, cycloneHead, cycloneLevel, highest, islandGreen, NONE_ISSUED, NONE_ISSUED_SAID, raised, spans } from "../tools/vigilance.js";
+import { current, cyclone, cycloneHead, cycloneLevel, feminine, highest, islandGreen, NONE_ISSUED, NONE_ISSUED_SAID, raised, spans } from "../tools/vigilance.js";
 import type { Alerte, Credit, HomeData, PlaceData, RandonneesAnswer, SeaData, StationAnswer, StationNow } from "./data.js";
 import { joursDuJour, vigilanceLue } from "./data.js";
 import brand from "./brand.json" with { type: "json" };
@@ -1823,11 +1823,9 @@ export function offlinePage(origin: string): string {
 export const cycloneVg = (c: number) => (c === 2 ? "vgpre" : `vg${c >= 1 && c <= 5 ? c : 0}`);
 /** The link to Météo-France's own site, in its words (providers/vigilance.ts). */
 export const officielHtml = (href: string) => `<a href="${href}" rel="noopener">${esc(mf.OFFICIEL)}</a>`;
-export const vg = (c: number) => `<span class="vg vg${c >= 1 && c <= 5 ? c : 0}">${esc(mf.colour(c))}</span>`;
+/** A colour of Météo-France, in its colour; `word` to say it otherwise (« verte »). */
+export const vg = (c: number, word = mf.colour(c)) => `<span class="vg vg${c >= 1 && c <= 5 ? c : 0}">${esc(word)}</span>`;
 const zoneShort = (zone: string) => (mf.ZONES[zone] ?? zone).split(" :")[0];
-/** « vigilance verte »: the colours as Météo-France names them, agreed with the word. */
-const FEMININE: Record<string, string> = { vert: "verte", violet: "violette", gris: "grise" };
-const feminine = (colour: string) => FEMININE[colour] ?? colour;
 /** The card of a land zone on /vigilance: « z-sud-est ». */
 const zoneId = (zone: string) => `z-${slugify(zoneShort(zone))}`;
 const LAND = ["VIGI974-11", "VIGI974-12", "VIGI974-13", "VIGI974-14", "VIGI974-15"];
