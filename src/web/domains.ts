@@ -25,7 +25,7 @@ import * as littoral from "../tools/littoral.js";
 import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
 import { a, de, enumeration, fr, heure, nombre, tranche } from "../tools/format.js";
-import { CAPTEURS_AVERTISSEMENT, type Measured } from "../tools/air.js";
+import { CAPTEURS_AVERTISSEMENT, CAPTEURS_EXPLICATION, type Measured } from "../tools/air.js";
 import * as capteurs from "../providers/capteurs.js";
 import * as radars from "../routes/radars.js";
 import * as fire from "../tools/feux.js";
@@ -581,7 +581,7 @@ export function airPage(origin: string, data: Cached<AirAnswer> | null, now = ne
   const amateurs = am
     ? `<section aria-labelledby="h-capteurs-air">
   <div class="sec-h"><p class="eyebrow">Capteurs de particuliers</p><h2 id="h-capteurs-air">Capteurs amateurs</h2>
-  <p><b>${esc(CAPTEURS_AVERTISSEMENT)}</b> ${esc(am.explication)}</p></div>
+  <p><b>${esc(CAPTEURS_AVERTISSEMENT)}</b> ${esc(CAPTEURS_EXPLICATION)}</p></div>
   <div class="card">${"lecture_ancienne" in am && am.lecture_ancienne ? `<p>${esc(am.lecture_ancienne)}</p>` : ""}${"valeurs" in am && am.valeurs
     ? `<ul class="plain">${am.valeurs.map((v) => `<li>${esc(v.commune)}${pm("PM2,5", v.pm2_5)}${pm("PM10", v.pm10)} · mesurées ${esc(v.mesurees)} <span class="note">non étalonné</span></li>`).join("")}</ul>`
     : "aucun" in am && am.aucun

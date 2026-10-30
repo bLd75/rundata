@@ -90,7 +90,15 @@ describe("air quality: what the index is and where it comes from", () => {
       site: "https://www.atmo-reunion.net",
     });
     expect(r.comment_c_est_fait.lien).toBe(atmo.GUIDE);
-    expect(r.comment_c_est_fait.etapes[0]).toMatch(/^C'est une prévision : /);
+    expect(r.comment_c_est_fait.d_apres).toBe("Guide de calcul de l'indice ATMO d'Atmo France (version du 14/12/2020)");
+    // The island's answer keeps the step of the « air de fond » (marketing); its nature says it is a forecast.
+    expect(r.comment_c_est_fait.etapes).toEqual([atmo.FOND]);
+    expect(r.nature).toMatch(/^PRÉVISION du jour par commune/);
+    // A place's answer and /air give every step.
+    for (const all of [body(await qualiteAir(cache(), "Les Avirons", NOW)), body(await qualiteAir(cache(), undefined, NOW, true))]) {
+      expect(all.comment_c_est_fait).toEqual({ ...r.comment_c_est_fait, etapes: atmo.METHODE });
+      expect(all.comment_c_est_fait.etapes[0]).toMatch(/^C'est une prévision : /);
+    }
   });
 
   it("gives each commune's sub-index of every pollutant, not only the worst: for a place, and on /air", async () => {

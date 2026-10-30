@@ -169,7 +169,7 @@ export function measuredAt(iso: string, now: Date): string {
  * and when they measured, never an identifier nor a place. Undefined where they are not stored (a local server, the
  * tests) or not read.
  */
-async function amateurs(cache: Cache, now: Date) {
+async function amateurs(cache: Cache, now: Date, page = false) {
   let copy;
   try {
     copy = await capteurs.capteurs(now);
@@ -191,13 +191,15 @@ async function amateurs(cache: Cache, now: Date) {
     };
   }
   const list = v.capteurs;
+  const none = !list.length && !copy.stale;
   return {
-    avertissement: CAPTEURS_AVERTISSEMENT,
-    explication: CAPTEURS_EXPLICATION,
+    // No value, nothing to take with care: the tool leaves the warning out until a sensor measures (marketing,
+    // 30/10/2026). /air keeps it above its block.
+    ...((page || !none) && { avertissement: CAPTEURS_AVERTISSEMENT, explication: CAPTEURS_EXPLICATION }),
     ...(copy.stale && { lecture_ancienne: capteursAncienne(v.lu, now, list.length > 0) }),
     ...(list.length
       ? { valeurs: list.map((c) => ({ commune: c.commune, ...(c.pm2_5 !== undefined && { pm2_5: c.pm2_5 }), ...(c.pm10 !== undefined && { pm10: c.pm10 }), unite: "µg/m³", mesurees: measuredAt(c.mesure_a, now) })) }
-      : copy.stale ? {} : { aucun: CAPTEURS_AUCUN }),
+      : none ? { aucun: CAPTEURS_AUCUN } : {}),
     position: "arrondie à la commune",
     lu_par_rundata: localTime(copy.fetchedAt),
     carte: capteurs.CARTE,
@@ -207,6 +209,13 @@ async function amateurs(cache: Cache, now: Date) {
 }
 
 export type Amateurs = NonNullable<Awaited<ReturnType<typeof amateurs>>>;
+
+/** How the index is made: every step, or for the island's answer only the one of the « air de fond » (marketing). */
+const methode = (all: boolean) => ({
+  etapes: all ? atmo.METHODE : [atmo.FOND],
+  d_apres: "Guide de calcul de l'indice ATMO d'Atmo France (version du 14/12/2020)",
+  lien: atmo.GUIDE,
+});
 
 /**
  * The answer of the tool. `page`: the island's answer as /air reads it (web/data.ts), a commune and a value each;
@@ -229,7 +238,7 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
     ...(diffusee && { diffusion: `${diffusee}.` }),
     lu_par_rundata: localTime(readAt),
     echelle: "1 bon, 2 moyen, 3 dégradé, 4 mauvais, 5 très mauvais, 6 extrêmement mauvais\u00a0; pour un sous-indice, 0 indisponible, 7 événement",
-    comment_c_est_fait: { etapes: atmo.METHODE, d_apres: "Guide de calcul de l'indice ATMO d'Atmo France (version du 14/12/2020)", lien: atmo.GUIDE },
+    comment_c_est_fait: methode(true),
     provenance: atmo.PROVENANCE,
     avertissements: [
       "Indice calculé à l'échelle de la commune : près d'une route chargée, d'une usine ou d'un feu, l'air peut être plus mauvais.",
@@ -241,7 +250,7 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
 
   if (!lieu?.trim()) {
     const mesures = await stations(cache, now);
-    const amateur = await amateurs(cache, now);
+    const amateur = await amateurs(cache, now, page);
     const todays = list.filter((x) => x.jour === day);
     const worst = Math.max(0, ...todays.map((x) => x.niveau));
     const atWorst = todays.filter((x) => x.niveau === worst).map((x) => x.commune);
@@ -254,6 +263,8 @@ export async function qualiteAir(cache: Cache, lieu: string | undefined, now = n
         ? { communes: todays.map((x) => ({ commune: x.commune, niveau: x.niveau, qualite: atmo.level(x.niveau), polluants: drivers(x), sous_indices: subIndices(x) })) }
         : { communes_par_niveau: byLevel(todays) }),
       ...common,
+      // A place's answer and /air give every step.
+      ...(!page && { comment_c_est_fait: methode(false) }),
       ...(mesures && { mesures_aux_stations: page ? mesures : { ...mesures, valeurs: byStation(mesures.valeurs) } }),
       ...(amateur && { capteurs_amateurs: amateur }),
       sources: sourcesOf(mesures, amateur),

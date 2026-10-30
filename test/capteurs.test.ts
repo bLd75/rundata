@@ -6,7 +6,7 @@ import * as airMesures from "../src/providers/air-mesures.js";
 import * as capteurs from "../src/providers/capteurs.js";
 import { parse as parseAtmo } from "../src/providers/atmo.js";
 import { REGISTRY } from "../src/registre.js";
-import { CAPTEURS_AUCUN, CAPTEURS_AVERTISSEMENT, capteursAncienne, capteursEchec, measuredAt, qualiteAir } from "../src/tools/air.js";
+import { CAPTEURS_AUCUN, CAPTEURS_AVERTISSEMENT, CAPTEURS_EXPLICATION, capteursAncienne, capteursEchec, measuredAt, qualiteAir } from "../src/tools/air.js";
 import { airPage } from "../src/web/domains.js";
 import { esc } from "../src/web/map.js";
 import { SHARED } from "../src/web/partagees.js";
@@ -149,6 +149,15 @@ describe("the sensors of private people (Sensor.Community)", () => {
     const c = body(await qualiteAir(cache(), undefined, NOW)).capteurs_amateurs;
     expect(c).not.toHaveProperty("valeurs");
     expect(c.aucun).toBe(CAPTEURS_AUCUN);
+    // No value to take with care: the tool leaves the warning out (marketing), the map, the guide and the licence stay.
+    expect(c).not.toHaveProperty("avertissement");
+    expect(c).not.toHaveProperty("explication");
+    expect(c).toMatchObject({ carte: capteurs.CARTE, brancher_un_capteur: capteurs.GUIDE, licence: capteurs.SOURCE.licence });
+    expect(body(await qualiteAir(cache(), "Saint-Denis", NOW)).capteurs_amateurs).not.toHaveProperty("avertissement");
+    // /air keeps it above its block.
+    const page = body(await qualiteAir(cache(), undefined, NOW, true));
+    expect(page.capteurs_amateurs).toMatchObject({ avertissement: CAPTEURS_AVERTISSEMENT, explication: CAPTEURS_EXPLICATION, aucun: CAPTEURS_AUCUN });
+    expect(airPage("https://rundata.re", { value: page, fetchedAt: NOW, stale: false }, NOW)).toContain(`<b>${esc(CAPTEURS_AVERTISSEMENT)}</b> ${esc(CAPTEURS_EXPLICATION)}`);
   });
 
   it("never says none on a copy not written lately: its values as last read and when, or no recent reading", async () => {
@@ -183,7 +192,8 @@ describe("the sensors of private people (Sensor.Community)", () => {
 
   it("shows them on /air under the index, raw, without a colour, and the guide folded", async () => {
     capteurs.configure(async () => ({ lu: "2026-10-29T06:10:00Z", capteurs: capteurs.parse(ANSWER) }));
-    const answer = body(await qualiteAir(cache(), undefined, NOW));
+    // As buildAir reads it.
+    const answer = body(await qualiteAir(cache(), undefined, NOW, true));
     const page = airPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
     const start = page.indexOf('id="h-capteurs-air"');
     expect(start).toBeGreaterThan(page.indexOf('id="h-communes-air"'));
@@ -194,7 +204,7 @@ describe("the sensors of private people (Sensor.Community)", () => {
     expect(section).not.toMatch(/class="[^"]*\b(?:aq|lvl|level)-/);
     // Empty: one sentence and the link to the guide.
     capteurs.configure(async () => ({ lu: "2026-10-29T06:10:00Z", capteurs: [] }));
-    const none = body(await qualiteAir(cache(), undefined, NOW));
+    const none = body(await qualiteAir(cache(), undefined, NOW, true));
     expect(airPage("https://rundata.re", { value: none, fetchedAt: NOW, stale: false }, NOW)).toContain(`<p>${esc(CAPTEURS_AUCUN)} <a href="#brancher">Brancher un capteur</a></p>`);
   });
 
