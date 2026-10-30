@@ -7,7 +7,7 @@
  * live in KV instead: the event runs in some data center, the questions in all the others.
  */
 import { configurerEquipe, failed, handle } from "./app.js";
-import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, readsSaid, scheduled, spent } from "./budget.js";
+import { BUILD_BUDGET, PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, later, readsSaid, reponseSaid, scheduled, spent } from "./budget.js";
 import { Cache, CACHE_FORMAT, MemoryStore, TieredStore, type CacheEntry, type CacheStore } from "./cache.js";
 import { KvStore } from "./kv.js";
 import { toutesLesSources, VERSION } from "./server.js";
@@ -331,6 +331,7 @@ function setup(env: Env): Cache {
 
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
+    const arrived = Date.now();
     // A connection past its threshold is answered before anything is read or built.
     const trop = await limite.refuse(request, { mcp: env.LIMITE_MCP, formulaire: env.LIMITE_FORMULAIRES });
     if (trop) return trop;
@@ -345,6 +346,8 @@ export default {
       const refused = total.refused ? `, ${total.refused} refusées (budget de ${PAGE_BUDGET})` : "";
       if (total.used) console.log(`sous-requêtes : ${total.used} (${path})${after}${refused}${readsSaid(total.reads)}`);
     }));
+    // The wait of the visitor, apart from the invocation's duration (which counts the work after the response).
+    console.log(reponseSaid(Date.now() - arrived, path));
     return value;
   },
 
