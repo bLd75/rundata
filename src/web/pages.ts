@@ -8,7 +8,7 @@
  * The weather is one category among others, but the one people search for: « météo réunion 974 », « météo cilaos
  * 974 ». « 974 » sorts La Réunion from meetings, so titles and headings carry it.
  */
-import { aller, SHEET as ALLER } from "./aller.js";
+import { porte } from "./aller.js";
 import { resolvePlace } from "../places/resolve.js";
 import { enLigne } from "./associations-drapeau.js";
 import { enLigne as connecteursEnLigne } from "./connecteurs-drapeau.js";
@@ -1637,6 +1637,7 @@ function stationCard(s: StationAnswer): string {
 }
 
 export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> | null, now = new Date(), alerte?: Alerte, hikes?: Cached<RandonneesAnswer> | null): string {
+  const g = porte(alerte);
   const place = p.place;
   const d = data?.value;
   const stations = (d?.meteo?.stations ?? []).filter(
@@ -1776,14 +1777,14 @@ ${cloudSea}
   ${connector(origin, "mcp-url")}
 </section>
 ${sea}
-${coastal(p) ? bathingBlock(now, { nom: p.nom, lon: p.place.lon, lat: p.place.lat, commune: p.commune ? p.nom : undefined }) + ALLER : ""}
+${coastal(p) ? bathingBlock(now, { nom: p.nom, lon: p.place.lon, lat: p.place.lat, commune: p.commune ? p.nom : undefined }, g) + g.feuille : ""}
 ${forecast}
 ${hikesAround(p, hikes)}
 <section aria-labelledby="h-ailleurs">
   <h2 id="h-ailleurs">Météo ailleurs à La Réunion</h2>
   ${placeLinks(p.slug)}
 </section>`;
-  return layout(origin, { title, description, path: `/meteo/${p.slug}`, jsonld, alerte }, band, body);
+  return layout(origin, { title, description, path: `/meteo/${p.slug}`, jsonld, alerte }, band, g.ligne + body);
 }
 
 export function notFoundPage(origin: string, path: string): string {
@@ -1959,6 +1960,7 @@ ${suivi}
 const CROWDED = new Set(["Plage de la Saline les Bains", "Plage de Saint-Paul"]);
 
 export function seaPage(origin: string, data: Cached<SeaData> | null, now = new Date(), alerte?: Alerte): string {
+  const g = porte(alerte);
   const d = data?.value;
   const seen = d?.plages.filter((b) => b.valeur != null) ?? [];
   const day = seen.map((b) => b.jour!).sort().pop();
@@ -1980,7 +1982,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
           ? `<b>${esc(thin(deg(b.valeur)))}</b><span>le ${esc(dayMonth(b.jour!))}, à ${esc(fr(b.distance_km!))} km</span>`
           : `<b>—</b><span>pas de mesure (nuages)</span>`) +
         // « Y aller » to a beach, not to the centre of a town listed for its coast (Saint-Denis, Le Port…).
-        `<a href="/meteo/${slugify(b.commune)}">Météo ${esc(b.commune)} →</a>${resolvePlace(b.nom)?.lieu.type === "commune" ? "" : aller({ nom: seaName(b.nom), lat: b.lat, lon: b.lon })}</li>`).join("")}</ul>` +
+        `<a href="/meteo/${slugify(b.commune)}">Météo ${esc(b.commune)} →</a>${resolvePlace(b.nom)?.lieu.type === "commune" ? "" : g.aller({ nom: seaName(b.nom), lat: b.lat, lon: b.lon }, "baignade")}</li>`).join("")}</ul>` +
       `<p class="note">Mis à jour à ${hm(data!.fetchedAt)}.</p><p class="sources">Sources : ${credits(d.sources)}.</p>`
     : `<p class="card">Les mesures satellite se chargent : rechargez la page dans quelques secondes.</p>`;
 
@@ -2074,7 +2076,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
 </section>
 ${swell}
 ${tide}
-${bathingBlock(now)}${ALLER}
+${bathingBlock(now, undefined, g)}${g.feuille}
 <section aria-labelledby="h-lire-mer">
   <div class="sec-h"><p class="eyebrow">Bon à savoir</p><h2 id="h-lire-mer">Ce que mesure le satellite</h2></div>
   <div class="three">
@@ -2088,7 +2090,7 @@ ${bathingBlock(now)}${ALLER}
   <p>Avec le connecteur, votre assistant va chercher lui-même la mesure la plus proche de la plage, avec sa date, et la houle prévue, étiquetée comme une prévision (outil <code>temperature_mer</code>). Gratuit, sans compte. <a href="/#assistant">Comment le brancher</a>.</p>
   ${connector(origin, "mcp-url")}
 </section>`;
-  return layout(origin, { title, description, path: "/mer", jsonld, alerte }, band, body);
+  return layout(origin, { title, description, path: "/mer", jsonld, alerte }, band, g.ligne + body);
 }
 
 const PROSE = `max-width:44rem;display:grid;gap:1rem`;

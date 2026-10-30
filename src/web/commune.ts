@@ -4,7 +4,7 @@
  * the copy of /meteo/<commune>, the town hall and the buses the commune's own copy, the rest the last copy of each
  * category page (web/site.ts), so a page costs a few reads.
  */
-import { aller, SHEET as ALLER } from "./aller.js";
+import { porte, type Porte, SHEET as ALLER } from "./aller.js";
 import type { Cached } from "../cache.js";
 import { localTime } from "../geo.js";
 import { normalize } from "../places/resolve.js";
@@ -178,13 +178,13 @@ function buses(p: PlacePage, data: Cached<CommuneData> | null | undefined, now: 
 }
 
 /** The commune's Altervélo stations: how many bikes in all, and those with the most. */
-function bikes(data: Cached<CommuneData> | null | undefined): { live?: Live; more?: string } | undefined {
+function bikes(data: Cached<CommuneData> | null | undefined, g: Porte): { live?: Live; more?: string } | undefined {
   const list = data?.value.velos;
   if (!list?.length) return undefined;
   const total = list.filter((s) => !s.etat || s.etat === "dépôt impossible en ce moment").reduce((n, s) => n + s.velos_electriques + (s.trottinettes ?? 0), 0);
   return {
     live: { valeur: `${total} vélo${total > 1 ? "s" : ""}`, detail: `électriques en libre-service dans ${list.length} station${list.length > 1 ? "s" : ""} Altervélo, relevé à ${hm(data!.fetchedAt)}` },
-    more: `<ul class="rows bikes">${list.slice(0, 5).map(bikeRow).join("")}</ul>`,
+    more: `<ul class="rows bikes">${list.slice(0, 5).map((s) => bikeRow(s, g)).join("")}</ul>`,
   };
 }
 
@@ -295,16 +295,17 @@ function sunTimes(p: PlacePage, calendrier: Cached<CalendrierAnswer> | null | un
 }
 
 export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = new Date(), alerte?: Alerte): string {
+  const g = porte(alerte);
   const place = p.place;
   const url = `${origin}${hub(p)}`;
   const w = weather(p, l.place, now);
   const bus = buses(p, l.commune, now);
-  const velos = bikes(l.commune);
+  const velos = bikes(l.commune, g);
   const mairie = townHall(l.commune, now);
   const fiche = l.commune?.value.mairie?.fiche;
   // « Y aller » under the town hall's address, where the directory gives its position.
   const o = l.commune?.value.mairie;
-  const toHall = o && mairie ? aller({ nom: o.nom, lat: o.lat ?? NaN, lon: o.lon ?? NaN, adresse: o.adresse }) : "";
+  const toHall = o && mairie ? g.aller({ nom: o.nom, lat: o.lat ?? NaN, lon: o.lon ?? NaN, adresse: o.adresse }, "mairie") : "";
   const hikes = communeHikes(p, l.randonnees, now);
 
   const tiles: Tile[] = [
@@ -444,7 +445,7 @@ ${habiter.length ? `<section aria-labelledby="h-habiter">
   <ul class="chips">${COMMUNES.filter((x) => x.slug !== p.slug).map((x) => `<li><a href="${hub(x)}">${esc(x.nom)}</a></li>`).join("")}</ul>
 </section>`;
   const rss = { href: rssPath(p), title: rssTitle(p), link: rssLink(p), hint: RSS_HINT };
-  return layout(origin, { title, description, path: hub(p), jsonld, alerte, rss }, band, body.includes('class="aller"') ? body + ALLER : body);
+  return layout(origin, { title, description, path: hub(p), jsonld, alerte, rss }, band, g.ligne + (body.includes('class="aller"') ? body + ALLER : body));
 }
 
 /** The 24 communes, by vigilance zone: the island's own way of splitting itself (Nord, Est, Sud, Ouest). */

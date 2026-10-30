@@ -4,6 +4,7 @@
  */
 import type { Cached } from "../cache.js";
 import type { AgendaAnswer, Alerte } from "./data.js";
+import { porte } from "./aller.js";
 import { agendaEvents, agendaNotes, agendaRow, agendaTabs, connectorCta, describe, GENRE_SCRIPT, GENRES, loading, longDay, sourcesNote, warnings, webPage } from "./domains.js";
 import { occurrences } from "../tools/agenda.js";
 import { forecastLinks } from "./liens.js";
@@ -129,6 +130,7 @@ const CONCERT = "concert";
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n > 1 ? many : one}`;
 
 export function weekendPage(origin: string, data: Cached<AgendaAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const g = porte(alerte);
   const d = data?.value;
   const path = "/evenements/ce-week-end";
   const url = `${origin}${path}`;
@@ -145,7 +147,7 @@ export function weekendPage(origin: string, data: Cached<AgendaAnswer> | null, n
     if (!here.length) continue;
     listed.push(r);
     dated.push({ ...r, date: here[0].date, quand: here[0].quand });
-    for (const o of here) sorted.push({ day: o.day, long: o.long, time: o.quand, html: agendaRow({ ...r, quand: o.quand }), commune: r.commune });
+    for (const o of here) sorted.push({ day: o.day, long: o.long, time: o.quand, html: agendaRow({ ...r, quand: o.quand }, g), commune: r.commune });
   }
   // The shows of a day by their hour, the fêtes of several days after them.
   sorted.sort((x, y) => Number(x.long) - Number(y.long) || (/\d\d:\d\d/.exec(x.time)?.[0] ?? "").localeCompare(/\d\d:\d\d/.exec(y.time)?.[0] ?? ""));
@@ -204,10 +206,11 @@ export function weekendPage(origin: string, data: Cached<AgendaAnswer> | null, n
 </section>
 ${connectorCta("evenements", "les événements de l'île")}`;
 
-  return layout(origin, { title, description, path, jsonld: [jsonld, webPage(origin, path, title, description, data), ...graph(dated, origin)], alerte }, band, body);
+  return layout(origin, { title, description, path, jsonld: [jsonld, webPage(origin, path, title, description, data), ...graph(dated, origin)], alerte }, band, g.ligne + body);
 }
 
 export function concertsPage(origin: string, data: Cached<AgendaAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const g = porte(alerte);
   const d = data?.value;
   const path = "/evenements/concerts";
   const url = `${origin}${path}`;
@@ -218,7 +221,7 @@ export function concertsPage(origin: string, data: Cached<AgendaAnswer> | null, 
   const days = new Map<string, string[]>();
   for (const r of rows) {
     const day = r.date.slice(0, 10) < today ? today : r.date.slice(0, 10);
-    days.set(day, [...(days.get(day) ?? []), agendaRow(r)]);
+    days.set(day, [...(days.get(day) ?? []), agendaRow(r, g)]);
   }
   // Tonight: what starts from 17:00 today, or has no hour.
   const tonight = rows.filter((r) => r.date.slice(0, 10) === today && (r.date.length === 10 || r.date.slice(11) >= "17:00"));
@@ -272,5 +275,5 @@ export function concertsPage(origin: string, data: Cached<AgendaAnswer> | null, 
 </section>
 ${connectorCta("evenements", "les concerts et les sorties de l'île")}`;
 
-  return layout(origin, { title, description, path, jsonld: [jsonld, webPage(origin, path, title, description, data), ...graph(rows, origin)], alerte }, band, body);
+  return layout(origin, { title, description, path, jsonld: [jsonld, webPage(origin, path, title, description, data), ...graph(rows, origin)], alerte }, band, g.ligne + body);
 }

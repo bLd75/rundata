@@ -53,7 +53,7 @@ import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
 import { tapNote } from "../tools/eau.js";
-import { aller, MOTS as ALLER_MOTS, SHEET as ALLER } from "./aller.js";
+import { aller, MOTS as ALLER_MOTS, permis, porte, type Porte, retire, SHEET as ALLER } from "./aller.js";
 import { mentionSports, noteLa1ere, noteReunionFr } from "../tools/non-repris.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
@@ -1014,12 +1014,13 @@ export function bikeStock(s: VeloStation): string {
 }
 
 /** A station, and « Y aller » below its name when its copy kept its position (no address: the sheet copies the coordinates). */
-export const bikeRow = (s: VeloStation) => {
-  const go = aller({ nom: s.nom, lat: s.lat ?? NaN, lon: s.lon ?? NaN });
+export const bikeRow = (s: VeloStation, g: Porte = porte()) => {
+  const go = g.aller({ nom: s.nom, lat: s.lat ?? NaN, lon: s.lon ?? NaN });
   return `<li><span>${esc(s.nom)}${go ? `<span class="ya">${go}</span>` : ""}</span><span>${bikeStock(s)}</span></li>`;
 };
 
 export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const g = porte(alerte);
   const d = data?.value;
   const url = `${origin}/velos`;
   const total = d?.communes?.reduce((n, c) => n + c.velos_disponibles, 0) ?? 0;
@@ -1041,7 +1042,7 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
         const mine = d.stations.filter((s) => s.commune === c).sort((a, b) => b.velos_electriques + (b.trottinettes ?? 0) - (a.velos_electriques + (a.trottinettes ?? 0)) || a.nom.localeCompare(b.nom, "fr"));
         const n = d.communes?.find((x) => x.commune === c)?.velos_disponibles ?? 0;
         return `<li class="card tgt" id="${anchorId("c", c)}"><h3>${esc(c)} <span class="note">${n}\u00a0vélo${n > 1 ? "s" : ""}, ${mine.length}\u00a0station${mine.length > 1 ? "s" : ""}</span></h3>` +
-          `<ul class="rows bikes">${mine.map(bikeRow).join("")}</ul></li>`;
+          `<ul class="rows bikes">${mine.map((s) => bikeRow(s, g)).join("")}</ul></li>`;
       }).join("")}</ul>` +
       `<p class="note">${esc(d.donnees)}</p>`
     : `<p class="card">L'état des stations se charge : rechargez la page dans quelques secondes.</p>`;
@@ -1071,9 +1072,9 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
   ${byCommune}
   ${d && data ? sourcesNote(d.sources, data) : ""}
 </section>
-${connectorCta("velos_libre_service", "les vélos du Sud")}${d ? ALLER : ""}`;
+${connectorCta("velos_libre_service", "les vélos du Sud")}${d ? g.feuille : ""}`;
 
-  return layout(origin, { title, description, path: "/velos", jsonld: [crumbs(origin, "Vélos", "/velos"), webPage(origin, "/velos", title, description, data)], alerte }, band, body);
+  return layout(origin, { title, description, path: "/velos", jsonld: [crumbs(origin, "Vélos", "/velos"), webPage(origin, "/velos", title, description, data)], alerte }, band, g.ligne + body);
 }
 
 export function velosLive(data: Cached<VelosAnswer> | null, now = new Date()): Live | undefined {
@@ -1294,14 +1295,15 @@ export function cruesLive(data: Cached<CruesAnswer> | null, now: Date): Live | u
 // ---------------------------------------------------------------- bornes de recharge
 
 /** A station in a list: where it is, its power and plugs, « Y aller », how many points are free. */
-export function borneRow(s: BorneStation): string {
+export function borneRow(s: BorneStation, g: Porte = porte()): string {
   const free = s.libres ? `<b>${s.libres}</b> libre${s.libres > 1 ? "s" : ""} sur ${s.total}` : `aucun libre sur ${s.total}`;
   return `<li><span>${esc(s.station)}<small>${fr(s.puissance_max_kw)} kW · ${esc(s.prises.join(", "))}${s.horaires && s.horaires !== "24 h/24, 7 j/7" ? ` · ${esc(s.horaires)}` : ""}</small>` +
-    `${aller({ nom: s.station, lat: s.lat, lon: s.lon, adresse: s.adresse })}</span>` +
+    `${g.aller({ nom: s.station, lat: s.lat, lon: s.lon, adresse: s.adresse })}</span>` +
     `<span class="${s.libres ? "free" : "busy"}">${free}</span></li>`;
 }
 
 export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const g = porte(alerte);
   const d = data?.value;
   const url = `${origin}/bornes`;
   const libres = d?.stations.reduce((n, s) => n + s.libres, 0) ?? 0;
@@ -1329,7 +1331,7 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
         const free = mine.reduce((n, s) => n + s.libres, 0);
         return `<li class="card tgt" id="${anchorId("c", c.commune)}">${folded(foldBornes,
           `<h3>${esc(c.commune)}${foldBornes ? "\u00a0" : " "}<span class="note">${foldBornes ? "·\u00a0" : ""}${free}\u00a0libre${free > 1 ? "s" : ""} sur\u00a0${c.points}, ${c.stations}\u00a0station${c.stations > 1 ? "s" : ""}</span></h3>`,
-          `<ul class="rows bornes">${mine.map(borneRow).join("")}</ul>`)}</li>`;
+          `<ul class="rows bornes">${mine.map((s) => borneRow(s, g)).join("")}</ul>`)}</li>`;
       }).join("")}</ul>` +
       `<p class="note">${esc(d.donnees)}${d.avertissement ? ` ${esc(d.avertissement)}` : ""}</p>`
     : `<p class="card">L'état des bornes se charge : rechargez la page dans quelques secondes.</p>`;
@@ -1356,7 +1358,7 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
   const body = `<section aria-labelledby="h-rapide">
   <div class="sec-h"><p class="eyebrow">${fr(FAST_KW)} kW et plus</p><h2 id="h-rapide">Recharge rapide</h2>
   <p>Les stations où l'on recharge en une demi-heure à une heure, avec une prise Combo CCS ou CHAdeMO.</p></div>
-  ${d ? `<div class="card"><ul class="rows bornes">${fast.map((s) => borneRow({ ...s, station: `${s.station}${s.station.endsWith(s.commune) ? "" : ` (${s.commune})`}` })).join("")}</ul></div>` : ""}
+  ${d ? `<div class="card"><ul class="rows bornes">${fast.map((s) => borneRow({ ...s, station: `${s.station}${s.station.endsWith(s.commune) ? "" : ` (${s.commune})`}` }, g)).join("")}</ul></div>` : ""}
 </section>
 <section aria-labelledby="h-stations">
   <div class="sec-h"><p class="eyebrow">Station par station</p><h2 id="h-stations">Commune par commune</h2>
@@ -1364,9 +1366,9 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
   ${byCommune}
   ${d && data ? sourcesNote(d.sources, data) : ""}
 </section>
-${connectorCta("bornes_recharge", "les bornes de recharge")}${d ? ALLER : ""}`;
+${connectorCta("bornes_recharge", "les bornes de recharge")}${d ? g.feuille : ""}`;
 
-  return layout(origin, { title, description, path: "/bornes", jsonld: [crumbs(origin, "Recharge", "/bornes"), webPage(origin, "/bornes", title, description, data)], alerte }, band, body);
+  return layout(origin, { title, description, path: "/bornes", jsonld: [crumbs(origin, "Recharge", "/bornes"), webPage(origin, "/bornes", title, description, data)], alerte }, band, g.ligne + body);
 }
 
 export function bornesLive(data: Cached<BornesAnswer> | null, now = new Date()): Live | undefined {
@@ -1387,12 +1389,12 @@ const WATER_COLOR: Record<string, string> = { bonne: "#2b8a3e", moyenne: "#e8590
 const WATER_MARK: Record<string, string> = { bonne: "✓", moyenne: "~", mauvaise: "!" };
 const dayFr = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
-function siteLine(s: EauAnswer["baignades"][number]): string {
+function siteLine(s: EauAnswer["baignades"][number], g: Porte): string {
   const last = s.derniers_prelevements[0];
   const q = s.qualite_dernier_prelevement;
   return `<li class="tgt" id="${anchorId("b", s.site)}"><span>${esc(s.site)}<small>dernier prélèvement le ${esc(s.dernier_prelevement)}` +
     (last ? ` · ${esc(last.enterocoques_100ml)} entérocoques et ${esc(last.e_coli_100ml)} E. coli pour 100 mL` : "") +
-    (s.mauvais_sur_12_mois ? ` · ${s.mauvais_sur_12_mois} mauvais résultat${s.mauvais_sur_12_mois > 1 ? "s" : ""} sur 12 mois` : "") + `</small>${aller({ nom: s.site, lat: s.lat, lon: s.lon })}</span>` +
+    (s.mauvais_sur_12_mois ? ` · ${s.mauvais_sur_12_mois} mauvais résultat${s.mauvais_sur_12_mois > 1 ? "s" : ""} sur 12 mois` : "") + `</small>${g.aller({ nom: s.site, lat: s.lat, lon: s.lon }, "baignade")}</span>` +
     `<span class="q-${q ?? "none"}">${q ? esc(q) : "pas de résultat"}</span></li>`;
 }
 
@@ -1407,6 +1409,7 @@ function tapCard(c: EauAnswer["communes"][number]): string {
 }
 
 export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const g = porte(alerte);
   const d = data?.value;
   const url = `${origin}/eau`;
   const good = d?.baignades.filter((s) => s.qualite_dernier_prelevement === "bonne").length ?? 0;
@@ -1431,7 +1434,7 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
   const sites = d
     ? `<ul class="zones">${[...new Set(d.baignades.map((s) => s.commune))].sort((a, b) => a.localeCompare(b, "fr")).map((c) => {
         const mine = d.baignades.filter((s) => s.commune === c);
-        return `<li class="card"><h3>${esc(c)}</h3><ul class="rows eau">${mine.map(siteLine).join("")}</ul></li>`;
+        return `<li class="card"><h3>${esc(c)}</h3><ul class="rows eau">${mine.map((s) => siteLine(s, g)).join("")}</ul></li>`;
       }).join("")}</ul>`
     : `<p class="card">La qualité de l'eau se charge : rechargez la page dans quelques secondes.</p>`;
 
@@ -1466,9 +1469,9 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
   <p>${d ? `${tapBad.length ? `Des analyses non conformes en 6 mois dans ${tapBad.length} commune${tapBad.length > 1 ? "s" : ""} sur ${d.communes.length}, sur un ou deux réseaux chacune.` : "Toutes les analyses des 6 derniers mois sont conformes."} ` : ""}${esc(EAU_TEXT.robinet)}</p></div>
   ${d ? `<ul class="zones">${d.communes.map(tapCard).join("")}</ul><p class="note">${esc(tapNote("page"))}<br><a href="/coupures-eau">Les avis en cours →</a></p>${data ? `<p class="note">Analyses rassemblées le ${esc(dayFr(d.lu))} à ${esc(hm(new Date(d.lu)))}.</p><p class="sources">Sources : ${esc(d.sources.map((x) => x.attribution).join(" ; "))}.</p>` : ""}` : ""}
 </section>
-${connectorCta("qualite_eau", "la qualité de l'eau")}${d?.baignades.length ? ALLER : ""}`;
+${connectorCta("qualite_eau", "la qualité de l'eau")}${d?.baignades.length ? g.feuille : ""}`;
 
-  return layout(origin, { title, description, path: "/eau", jsonld: [crumbs(origin, "Qualité de l'eau", "/eau"), webPage(origin, "/eau", title, description, data)], alerte }, band, body);
+  return layout(origin, { title, description, path: "/eau", jsonld: [crumbs(origin, "Qualité de l'eau", "/eau"), webPage(origin, "/eau", title, description, data)], alerte }, band, g.ligne + body);
 }
 
 const EAU_TEXT = {
@@ -2026,7 +2029,9 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
     : "";
   // « Y aller » to a hike's start, beside the download, only when its copy kept the start (data.ts buildRoute). A forest
   // road closed by the start is said as the ONF's fact, dated, in grey: the trail itself is not closed (marketing's words).
-  const go = d?.depart ? aller({ nom: `départ du ${nom}`, lat: d.depart.lat, lon: d.depart.lon }) : "";
+  // A cyclone alert that closes the trails (aller.ts permis) says so in the button's place, before the road.
+  const alerted = kind === "randonnee" && !permis(alerte, "randonnee");
+  const go = d?.depart && !alerted ? aller({ nom: `départ du ${nom}`, lat: d.depart.lat, lon: d.depart.lon }) : "";
   const download = `<p class="hero-cta"><a class="btn sun" href="${esc(gpx)}" download>${icon("pin")}Télécharger le GPX</a>${go}</p>`;
   const shut = d?.routes_fermees;
   const road = shut
@@ -2096,7 +2101,7 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
     ${alarm || state}
     ${kind === "sentier" && sector ? "" : partOf}
     ${facts}
-    ${download}${road}
+    ${download}${alerted ? retire(alerte) : ""}${road}
     ${unknown}
   </div>
   ${map}
@@ -2771,13 +2776,14 @@ export const LOGOS: Record<string, string> = {};
  * « Y aller » under an event whose source gives its position (the agendas of OpenAgenda, a venue's on a WordPress
  * agenda): the place's name in the sheet, the place and its commune to copy. Nothing for the others: no geocoding.
  */
-export function eventGo(r: Pick<AgendaRow, "titre" | "lieu" | "commune" | "position">): string {
+export function eventGo(r: Pick<AgendaRow, "titre" | "lieu" | "commune" | "position">, g: Porte = porte()): string {
   if (!r.position) return "";
   const adresse = r.lieu && r.commune && !normalize(r.lieu).includes(normalize(r.commune)) ? `${r.lieu}, ${r.commune}` : r.lieu;
-  return `<span class="ya">${aller({ nom: r.lieu?.split(", ")[0] || r.titre, lat: r.position.lat, lon: r.position.lon, adresse })}</span>`;
+  const go = g.aller({ nom: r.lieu?.split(", ")[0] || r.titre, lat: r.position.lat, lon: r.position.lon, adresse });
+  return go ? `<span class="ya">${go}</span>` : "";
 }
 
-function agendaRow(r: AgendaRow): string {
+function agendaRow(r: AgendaRow, g: Porte = porte()): string {
   const lieu = r.lieu && r.lieu.length > 80 ? `${r.lieu.slice(0, 79)}…` : r.lieu;
   const small = [r.commune, lieu, r.prix && r.prix.length < 80 ? r.prix : undefined, r.autres_dates ? `aussi ${r.autres_dates.join(", ")}` : undefined, r.propose ? `${r.publie_par} · ${r.propose}` : r.via ? `${r.publie_par} · via ${r.via.plateforme}, ${r.via.lu}` : r.source ? `Source\u00a0: ${r.source}` : r.publie_par && r.lu_le ? `${r.publie_par}, lu le ${r.lu_le}` : r.publie_par, r.contact ? `contact\u00a0: ${r.contact}` : undefined]
     .filter(Boolean).map((x) => esc(x!)).join(" · ");
@@ -2793,7 +2799,7 @@ function agendaRow(r: AgendaRow): string {
   const blank = r.lien && ACCUEILS.has(r.lien) ? ' target="_blank"' : "";
   // « jusqu'au vendredi 11/12 » goes under the title on a phone (.fin): beside it, it left the title a word a line.
   const hours = agendaHours(r.quand);
-  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${logo}${book}</small>${eventGo(r)}</span><span class="q-none${hours.startsWith("jusqu'au") ? " fin" : ""}">${esc(hours)}</span></li>`;
+  return `<li data-g="${esc(r.genres.join(" "))}"><span>${badge}${r.lien ? `<a href="${esc(r.lien)}" rel="noopener"${blank}>${esc(r.titre)}</a>` : esc(r.titre)}${news}<small>${small}${logo}${book}</small>${eventGo(r, g)}</span><span class="q-none${hours.startsWith("jusqu'au") ? " fin" : ""}">${esc(hours)}</span></li>`;
 }
 
 /** A row's end, local, from its hours: « samedi 24/10 de 09:00 à 16:00 », « du vendredi 23/10 au dimanche 01/11 ». */
@@ -2898,6 +2904,7 @@ document.getElementById("ef-n").textContent=g?n+" événement"+(n>1?"s":""):"";}
 f.addEventListener("input",run);f.addEventListener("submit",(e)=>e.preventDefault());})();`;
 
 export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, now = new Date(), alerte?: Alerte): string {
+  const g = porte(alerte);
   const d = data?.value;
   const url = `${origin}/evenements`;
   const today = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
@@ -2931,7 +2938,7 @@ export function agendaPage(origin: string, data: Cached<AgendaAnswer> | null, no
       ? `${filter}<div id="jours"><ul class="zones">${[...days].sort(([x], [y]) => x.localeCompare(y)).map(([day, rows]) =>
           `<li class="card">${folded(foldDays,
             `<h3>${esc(longDay(day).replace(/^\p{L}/u, (c) => c.toUpperCase()).replace(/(\d) /, "$1\u00a0"))}${foldDays ? "\u00a0" : " "}<span class="note">${foldDays ? "·\u00a0" : ""}${rows.length}\u00a0événement${rows.length > 1 ? "s" : ""}</span></h3>`,
-            `<ul class="rows eau">${rows.map(agendaRow).join("")}</ul>`, day <= tomorrow)}</li>`).join("")}</ul></div>${d.autres ? `<p class="note">${esc(d.autres)} Demandez-les à votre IA.</p>` : ""}<script>${GENRE_SCRIPT}</script>`
+            `<ul class="rows eau">${rows.map((r) => agendaRow(r, g)).join("")}</ul>`, day <= tomorrow)}</li>`).join("")}</ul></div>${d.autres ? `<p class="note">${esc(d.autres)} Demandez-les à votre IA.</p>` : ""}<script>${GENRE_SCRIPT}</script>`
       : `<p class="card">Aucun événement trouvé dans les agendas lus pour les deux semaines qui viennent.</p>`;
 
   const title = "Que faire à La Réunion ? Concerts, fêtes, sorties · 974";
@@ -2969,7 +2976,7 @@ ${connectorCta("evenements", "les événements de l'île")}`;
 
   const events = agendaEvents(d?.evenements ?? []);
   const jsonld = [crumbs(origin, "Événements", "/evenements"), webPage(origin, "/evenements", title, description, data), ...(events.length ? [{ "@context": "https://schema.org", "@graph": events }] : [])];
-  return layout(origin, { title, description, path: "/evenements", jsonld, alerte }, band, body.includes('class="aller"') ? body + ALLER : body);
+  return layout(origin, { title, description, path: "/evenements", jsonld, alerte }, band, g.ligne + (body.includes('class="aller"') ? body + ALLER : body));
 }
 
 export function agendaLive(data: Cached<AgendaAnswer> | null): Live | undefined {

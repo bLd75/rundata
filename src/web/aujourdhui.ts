@@ -10,7 +10,7 @@ import type * as annuaire from "../providers/annuaire.js";
 import { mentionCourte } from "../tools/agenda.js";
 import { type Resume, UPDATING } from "../tools/resume.js";
 import { MARCHES } from "../vie/marches.js";
-import { aller, SHEET as ALLER } from "./aller.js";
+import { porte, SHEET as ALLER } from "./aller.js";
 import type { Alerte } from "./data.js";
 import { connectorCta, courantItem, silentItem, silentText, webPage } from "./domains.js";
 import { esc, fenetre } from "./map.js";
@@ -59,6 +59,7 @@ const li = (x: { titre: string; lien?: string; quand?: string; media?: string })
  * answer, does not give.
  */
 export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cached<unknown> | null, alerte?: Alerte, mairie?: annuaire.Office | null): string {
+  const g = porte(alerte);
   const path = `/aujourdhui/${p.slug}`;
   const url = `${origin}${path}`;
   const m = r.meteo;
@@ -82,7 +83,7 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
     r.calendrier?.jour_ferie ? `<li>Jour férié : <b>${esc(r.calendrier.jour_ferie)}</b></li>` : "",
     r.calendrier?.vacances_scolaires ? `<li>${esc(r.calendrier.vacances_scolaires)} en cours · <a href="/calendrier">le calendrier →</a></li>` : "",
     `<li>Soleil : lever ${esc(r.soleil.lever)}, coucher ${esc(r.soleil.coucher)}</li>`,
-    r.mairie ? `<li>Mairie : <b>${r.mairie.ouverte === null ? "horaires non publiés" : r.mairie.ouverte ? "ouverte" : "fermée"}</b>${r.mairie.horaires_aujourd_hui ? ` <span class="note">${esc(r.mairie.horaires_aujourd_hui)}</span>` : ""}${r.mairie.telephone ? ` · ${esc(r.mairie.telephone.replace(/ /g, "\u00a0"))}` : ""}${mairie ? ` ${aller({ nom: mairie.nom, lat: mairie.lat ?? NaN, lon: mairie.lon ?? NaN, adresse: mairie.adresse })}` : ""}</li>` : "",
+    r.mairie ? `<li>Mairie : <b>${r.mairie.ouverte === null ? "horaires non publiés" : r.mairie.ouverte ? "ouverte" : "fermée"}</b>${r.mairie.horaires_aujourd_hui ? ` <span class="note">${esc(r.mairie.horaires_aujourd_hui)}</span>` : ""}${r.mairie.telephone ? ` · ${esc(r.mairie.telephone.replace(/ /g, "\u00a0"))}` : ""}${mairie ? ` ${g.aller({ nom: mairie.nom, lat: mairie.lat ?? NaN, lon: mairie.lon ?? NaN, adresse: mairie.adresse }, "mairie")}` : ""}</li>` : "",
   ].filter(Boolean).join("");
 
   const c = r.circulation;
@@ -127,7 +128,8 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
     ...(r.marches_du_jour?.liste ?? []).map((x) => {
       // Its position from the bundled list, by its OpenStreetMap object: the summary does not give it.
       const m = MARCHES().find((y) => y.osm === x.carte);
-      const go = m ? ` ${aller({ nom: x.nom, lat: m.lat, lon: m.lon, adresse: x.adresse ? `${x.adresse}, ${p.nom}` : undefined })}` : "";
+      const button = m ? g.aller({ nom: x.nom, lat: m.lat, lon: m.lon, adresse: x.adresse ? `${x.adresse}, ${p.nom}` : undefined }) : "";
+      const go = button ? ` ${button}` : "";
       return `<li>Marché aujourd'hui : <a href="${esc(x.carte)}" rel="noopener"><b>${esc(x.nom)}</b></a> <span class="note">${esc(x.horaires_aujourd_hui)}${x.adresse ? `, ${esc(x.adresse)}` : ""}</span>${go}</li>`;
     }),
     d
@@ -178,5 +180,5 @@ ${cuts || events ? `<section aria-labelledby="h-eau-sorties"><div class="sec-h">
   ${r.sources.length ? `<p class="sources">Sources : ${credits(r.sources)}.</p>` : ""}
 </section>
 ${connectorCta("resume_du_jour", `la journée ${deCommune(p.nom)}`)}`;
-  return layout(origin, { title, description, path, jsonld: [trail, webPage(origin, path, title, description, at)], alerte }, band, body.includes('class="aller"') ? body + ALLER : body);
+  return layout(origin, { title, description, path, jsonld: [trail, webPage(origin, path, title, description, at)], alerte }, band, g.ligne + (body.includes('class="aller"') ? body + ALLER : body));
 }

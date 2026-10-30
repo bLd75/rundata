@@ -4,7 +4,7 @@
  */
 import { ARRETE, CSR, CSR_URL, noneLine, ruleText, saysBsan, SOURCE, STORIES, T, ZONES, zoneLine, zonesNear, inForce } from "../eau/requin.js";
 import type { Alerte } from "./data.js";
-import { aller, SHEET as ALLER } from "./aller.js";
+import { porte, type Porte } from "./aller.js";
 import { esc } from "./map.js";
 import { layout, SITE } from "./pages.js";
 
@@ -28,18 +28,21 @@ const SOURCE_HTML = esc(T.source).replace(esc(CSR), `<a href="${CSR_URL}">${esc(
 const bsan = (zones: typeof ZONES, now: Date) => (saysBsan(zones, now) ? `<p>${esc(T.bsan)}</p>` : "");
 
 /** A zone's line, with « Y aller » (aller.ts; the page adds the sheet). */
-const zoneLi = (z: (typeof ZONES)[number], now: Date) => `<li>${say(zoneLine(z, now))} ${aller({ nom: z.nom, lat: z.lat, lon: z.lon })}</li>`;
+const zoneLi = (z: (typeof ZONES)[number], now: Date, g: Porte) => {
+  const go = g.aller({ nom: z.nom, lat: z.lat, lon: z.lon }, "baignade");
+  return `<li>${say(zoneLine(z, now))}${go ? ` ${go}` : ""}</li>`;
+};
 
-function zonesHtml(zones: typeof ZONES, now: Date): string {
-  return `<p>${say(T.intro)}</p><ul>${zones.map((z) => zoneLi(z, now)).join("")}</ul>${bsan(zones, now)}<p>${say(T.ouverture)}</p><p>${STORIES_HTML}</p>`;
+function zonesHtml(zones: typeof ZONES, now: Date, g: Porte): string {
+  return `<p>${say(T.intro)}</p><ul>${zones.map((z) => zoneLi(z, now, g)).join("")}</ul>${bsan(zones, now)}<p>${say(T.ouverture)}</p><p>${STORIES_HTML}</p>`;
 }
 
 /** The block of a page: near a place (its zones, or none), or for the whole island (every zone). */
-export function bathingBlock(now: Date, near?: { nom: string; lon: number; lat: number; commune?: string }): string {
+export function bathingBlock(now: Date, near?: { nom: string; lon: number; lat: number; commune?: string }, g: Porte = porte()): string {
   const zones = near ? zonesNear(near.lon, near.lat, near.commune) : ZONES;
   return `<section aria-labelledby="h-requin"><h2 id="h-requin">${esc(T.h2)}</h2><div class="card">` +
     `<p>${say(ruleText(now))}</p>` +
-    (zones.length ? zonesHtml(zones, now) : `<p>${say(noneLine(near!.nom, now))}</p>`) +
+    (zones.length ? zonesHtml(zones, now, g) : `<p>${say(noneLine(near!.nom, now))}</p>`) +
     `<p>${say(T.drapeaux)}</p>` +
     `<p class="note">${SOURCE_HTML}. ${LINK}</p></div></section>`;
 }
@@ -47,6 +50,7 @@ export function bathingBlock(now: Date, near?: { nom: string; lon: number; lat: 
 const fr = (iso: string) => iso.split("-").reverse().join("/");
 
 export function bathingPage(origin: string, now = new Date(), alerte?: Alerte): string {
+  const g = porte(alerte);
   // Along the coast, from the west to the south, as the zones lie.
   const communes = ["Saint-Paul", "Les Trois-Bassins", "Saint-Leu", "L'Étang-Salé", "Saint-Pierre", "Petite-Île", "Saint-Joseph", "Saint-Philippe"];
   const title = "Baignade et requins à La Réunion : où se baigner · 974";
@@ -60,7 +64,7 @@ export function bathingPage(origin: string, now = new Date(), alerte?: Alerte): 
   const body = `<section aria-labelledby="h-regle"><h2 id="h-regle">La règle</h2><div class="card"><p>${say(ruleText(now))}</p></div></section>
 <section aria-labelledby="h-zones"><h2 id="h-zones">Les zones</h2><div class="card">
   <p>${esc(T.intro)}</p>
-  ${communes.map((c) => `<h3>${esc(c)}</h3><ul>${ZONES.filter((z) => z.commune === c).map((z) => zoneLi(z, now)).join("")}</ul>`).join("\n  ")}
+  ${communes.map((c) => `<h3>${esc(c)}</h3><ul>${ZONES.filter((z) => z.commune === c).map((z) => zoneLi(z, now, g)).join("")}</ul>`).join("\n  ")}
   ${bsan(ZONES, now)}
   <p>${esc(T.autres)}</p>
   <p>${esc(T.ouverture)}</p>
@@ -85,5 +89,5 @@ export function bathingPage(origin: string, now = new Date(), alerte?: Alerte): 
       ],
     },
   ];
-  return layout(origin, { title, description, path: PATH, jsonld, alerte }, band, body + ALLER);
+  return layout(origin, { title, description, path: PATH, jsonld, alerte }, band, g.ligne + body + g.feuille);
 }
