@@ -12,7 +12,7 @@ import { tranche } from "../tools/format.js";
 import { ageRange } from "../providers/agenda-mots.js";
 import type { SourceInfo } from "../types.js";
 import data from "./enfants.json" with { type: "json" };
-import { spansOn } from "./marches.js";
+import { spansOn, withMinutes } from "./marches.js";
 
 export type Kind = "aire_de_jeux" | "parc" | "piscine" | "mediatheque" | "animaux" | "loisirs" | "salle_jeux" | "sport" | "escalade" | "musee" | "ludotheque";
 
@@ -174,11 +174,13 @@ export function nearest(lon: number, lat: number, list = LIEUX, max = 5) {
 }
 
 /**
- * The hours of the day of `now` OpenStreetMap gives, as every page writes a span (kit.md): « 9 h–18 h », « 10 h–12 h et
- * 13:30–17:00 ». Undefined when it gives none for that day.
+ * The hours of the day of `now` OpenStreetMap gives, as every page writes a span (kit.md): « 9 h–18 h », « 10:00–12:00 et
+ * 13:30–17:00 », with their minutes when one time of the place has some, any day. Undefined when it gives none for that day.
  */
 export function hoursToday(l: Lieu, now: Date): string | undefined {
-  return l.horaires_osm ? spansOn({ horaires_osm: l.horaires_osm }, now)?.map(([de, a]) => tranche(de, a)).join(" et ") : undefined;
+  if (!l.horaires_osm) return undefined;
+  const all = withMinutes({ horaires_osm: l.horaires_osm });
+  return spansOn({ horaires_osm: l.horaires_osm }, now)?.map(([de, a]) => tranche(de, a, all)).join(" et ");
 }
 export const HOURS_NOTE = typo("Les horaires viennent d'OpenStreetMap : vérifiez auprès du lieu avant de vous déplacer, surtout un jour férié.");
 

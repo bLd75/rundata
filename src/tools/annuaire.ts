@@ -6,7 +6,7 @@ import * as annuaire from "../providers/annuaire.js";
 import { why } from "../types.js";
 import { pageOf, slugify } from "../web/places.js";
 import { carburantsAnswer, FUEL } from "./carburants.js";
-import { credits, de, fr, notFound, text, tranche } from "./format.js";
+import { credits, de, fr, minutees, notFound, text, tranche } from "./format.js";
 import { COLLECTION, collecteAnswer } from "./collecte.js";
 import { decheteriesAnswer, WASTE } from "./decheteries.js";
 import { CHILDREN, enfantsAnswer } from "./enfants.js";
@@ -20,17 +20,21 @@ const DEFIBRILLATOR = /d[ée]fibrillateur|\bdae\b/i;
 
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 
-/** A published span, « 08:00 » to « 16:00 »: « 8\u00a0h–16\u00a0h », « 08:30–12:00 » (format.ts). */
-const span = (d: string, f: string) => {
-  const m = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-  return tranche(m(d), m(f));
-};
+/** « 08:00 » (or « 08h00 » in a copy stored before 27/10/2026) → minutes after midnight. */
+const m = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 
-/** « lundi au jeudi 8\u00a0h–16\u00a0h ; vendredi 8\u00a0h–15\u00a0h ». */
+/** Whether an office's hours are all written with their minutes: when one of its times, any day, has some (format.ts). */
+const withMinutes = (o: annuaire.Office) => minutees(o.horaires.flatMap((h) => h.plages.map(([d, f]) => [m(d), m(f)] as [number, number])));
+
+/** A published span, « 08:00 » to « 16:00 »: « 8\u00a0h–16\u00a0h », « 08:30–12:00 », « 08:00–12:00 » beside « 13:30–16:30 ». */
+const span = (d: string, f: string, all: boolean) => tranche(m(d), m(f), all);
+
+/** « lundi au jeudi 8\u00a0h–16\u00a0h ; vendredi 8\u00a0h–15\u00a0h », « lundi au vendredi 08:00–12:00 et 13:30–16:30 ». */
 export function hoursText(o: annuaire.Office): string | undefined {
   if (!o.horaires.length) return undefined;
+  const all = withMinutes(o);
   return o.horaires
-    .map((h) => `${h.de === h.a ? h.de : `${h.de} au ${h.a}`} ${h.plages.map(([d, f]) => span(d, f)).join(" et ")}${h.note ? ` (${h.note})` : ""}`)
+    .map((h) => `${h.de === h.a ? h.de : `${h.de} au ${h.a}`} ${h.plages.map(([d, f]) => span(d, f, all)).join(" et ")}${h.note ? ` (${h.note})` : ""}`)
     .join("\u00a0; ");
 }
 
@@ -49,14 +53,15 @@ export function openNow(o: annuaire.Office, now: Date): boolean | null {
   });
 }
 
-/** The hours of `now`'s day (local time), as « 7h45-12h et 13h30-16h » ; undefined when it is closed all day. */
+/** The hours of `now`'s day (local time), as « 07:45–12:00 et 13:30–16:00 » (withMinutes()) ; undefined when it is closed all day. */
 export function hoursOn(o: annuaire.Office, now: Date): string | undefined {
   const day = new Date(now.getTime() + 4 * 3600_000).getUTCDay();
   const h = o.horaires.find((x) => {
     const [d0, d1] = [DAYS.indexOf(x.de), DAYS.indexOf(x.a)];
     return d0 >= 0 && d1 >= 0 && (d0 <= d1 ? day >= d0 && day <= d1 : day >= d0 || day <= d1);
   });
-  return h?.plages.length ? h.plages.map(([d, f]) => span(d, f)).join(" et ") : undefined;
+  const all = withMinutes(o);
+  return h?.plages.length ? h.plages.map(([d, f]) => span(d, f, all)).join(" et ") : undefined;
 }
 
 /**

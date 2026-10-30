@@ -22,16 +22,16 @@ DAYS = {"Mo": "lundi", "Tu": "mardi", "We": "mercredi", "Th": "jeudi", "Fr": "ve
 ORDER = list(DAYS)
 
 
-def pair(a, b):
+def pair(a, b, minutes):
     """Two times of a span as kit.md writes them (src/tools/format.ts, paire): « 6 h » and « 12 h », or both with their
-    minutes when one has some, « 06:00 » and « 18:30 »."""
-    if a.endswith(":00") and b.endswith(":00"):
+    minutes when one time of the market has some, any day, « 06:00 » and « 12:00 » (minutees)."""
+    if not minutes:
         return [f"{int(x.split(':')[0])}\u00a0h" for x in (a, b)]
     return [x.zfill(5) for x in (a, b)]
 
 
-def span(a, b):
-    return "de {} à {}".format(*pair(a, b))
+def span(a, b, minutes):
+    return "de {} à {}".format(*pair(a, b, minutes))
 
 
 def days(spec):
@@ -51,11 +51,12 @@ def hours(text):
     if not text or text == "24/7":
         return ""
     out = []
+    minutes = any(not t.endswith(":00") for t in re.findall(r"\d{1,2}:\d\d", text))
     for part in [p.strip() for p in text.split(";") if p.strip()]:
         m = re.fullmatch(r"((?:Mo|Tu|We|Th|Fr|Sa|Su)(?:[-,](?:Mo|Tu|We|Th|Fr|Sa|Su))*)\s+(\d{1,2}:\d\d)-(\d{1,2}:\d\d)(?:\s*,\s*(\d{1,2}:\d\d)-(\d{1,2}:\d\d))?", part)
         if not m:
             return ""  # a form not read here: better nothing than a wrong day
-        said = span(m.group(2), m.group(3)) + (f" et {span(m.group(4), m.group(5))}" if m.group(4) else "")
+        said = span(m.group(2), m.group(3), minutes) + (f" et {span(m.group(4), m.group(5), minutes)}" if m.group(4) else "")
         d = days(m.group(1))
         out.append(f"{'le ' if ',' not in m.group(1) and '-' not in m.group(1) else ''}{d} {said}")
     return "\u00a0; ".join(out)

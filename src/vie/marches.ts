@@ -4,7 +4,7 @@
  */
 import { distanceKm } from "../geo.js";
 import { communeAt } from "../places/resolve.js";
-import { paire } from "../tools/format.js";
+import { minutees, paire } from "../tools/format.js";
 import type { SourceInfo } from "../types.js";
 import data from "./marches.json" with { type: "json" };
 
@@ -53,20 +53,35 @@ const minutes = (t: string) => {
 export function spansOn(m: Pick<Marche, "horaires_osm">, now: Date): [number, number][] | undefined {
   const today = new Date(now.getTime() + 4 * 3600_000).getUTCDay();
   for (const rule of (m.horaires_osm ?? "").split(";")) {
-    const r = /^\s*([A-Za-z,-]+)\s+([\d:,\s-]+)$/.exec(rule);
+    const r = RULE.exec(rule);
     if (!r) continue;
     const held = r[1].split(",").some((d) => {
       const [from, to = from] = d.split("-").map((x) => DAYS.indexOf(x));
       return from >= 0 && to >= 0 && (from <= to ? from <= today && today <= to : today >= from || today <= to);
     });
-    if (held) return r[2].split(",").map((span) => span.trim().split("-").map(minutes) as [number, number]);
+    if (held) return spansOf(r[2]);
   }
   return undefined;
 }
 
-/** The hours of a market on the day of `now` (spansOn()): « de 8 h à 18 h », or undefined when it is not held that day. */
-export const hoursOn = (m: Pick<Marche, "horaires_osm">, now: Date) =>
-  spansOn(m, now)?.map(([de, a]) => `de ${paire(de, a).join(" à ")}`).join(" et ");
+const RULE = /^\s*([A-Za-z,-]+)\s+([\d:,\s-]+)$/;
+const spansOf = (times: string) => times.split(",").map((span) => span.trim().split("-").map(minutes) as [number, number]);
+
+/** Whether a place's hours are written with their minutes, on every day: when one of its times, any day, has some (minutees()). */
+export const withMinutes = (m: Pick<Marche, "horaires_osm">) =>
+  minutees((m.horaires_osm ?? "").split(";").flatMap((rule) => {
+    const r = RULE.exec(rule);
+    return r ? spansOf(r[2]) : [];
+  }));
+
+/**
+ * The hours of a market on the day of `now` (spansOn()): « de 8 h à 18 h », « de 06:00 à 12:00 » when another of its
+ * times has minutes (withMinutes()), or undefined when it is not held that day.
+ */
+export const hoursOn = (m: Pick<Marche, "horaires_osm">, now: Date) => {
+  const all = withMinutes(m);
+  return spansOn(m, now)?.map(([de, a]) => `de ${paire(de, a, all).join(" à ")}`).join(" et ");
+};
 
 /** The commune's markets held on the day of `now`, with their hours that day. */
 export const heldOn = (commune: string, now: Date) =>
