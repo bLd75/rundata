@@ -350,7 +350,7 @@ function townHall(data: Cached<CommuneData> | null | undefined, now: Date): Live
   const open = openNow(o, now);
   const today = hoursOn(o, now);
   return {
-    valeur: open === null ? "Horaires non publiés" : open ? "Ouverte" : "Fermée",
+    valeur: open === null ? "Horaires absents de l'annuaire" : open ? "Ouverte" : "Fermée",
     detail: `${open === null ? "" : today ? `aujourd'hui ${esc(today)} · ` : "fermée aujourd'hui · "}${esc(o.adresse)}${o.telephone ? ` · ${esc(o.telephone)}` : ""}`,
   };
 }
@@ -426,7 +426,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
   const facts = [
     s && `${thin(s.mesures.temperature!)} à ${s.heure_mesure.split(" ")[1]}`,
     airOf(p, l.air) && `air ${airOf(p, l.air)!.qualite}`,
-    mairie && mairie.valeur !== "Horaires non publiés" && `mairie ${mairie.valeur.toLowerCase()}`,
+    mairie && mairie.valeur !== "Horaires absents de l'annuaire" && `mairie ${mairie.valeur.toLowerCase()}`,
   ].filter(Boolean);
   const description = fit(
     `${p.nom} (La Réunion, 974) en direct${facts.length ? ` : ${facts.join(", ")}` : ""}.`,

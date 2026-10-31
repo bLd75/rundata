@@ -400,7 +400,7 @@ const PROGRAMMES =
   "les matchs, les heures et les lieux sont dans le document.";
 
 const BEACH_CALENDAR =
-  "Le calendrier du beach-volley est celui de la Ligue réunionnaise de volley-ball (ses épreuves « beach »). Elle ne publie pas de tableau de résultats\u00a0: les résultats sont dans ses articles.";
+  "Le calendrier du beach-volley est celui de la Ligue réunionnaise de volley-ball (ses épreuves « beach »). Ses résultats sont dans ses articles, pas dans un tableau que rundata.re lit.";
 
 const COMMON = {
   non_couvert:

@@ -107,3 +107,12 @@ describe("the page of a commune's day", () => {
     expect(aujourdhuiPage("https://rundata.re", paul, resume(paul, full(paul.nom) as never, NOW), null)).not.toContain("avis de coupure d&#39;électricité");
   });
 });
+
+describe("the town hall in the page of a commune's day", () => {
+  it("says its hours are absent from the directory when its entry gives none", () => {
+    const p = pageOf("saint-paul")!;
+    const hall = { nom: "Mairie - Ville A", insee: "97415", adresse: "Rue A", lon: null, lat: null, horaires: [], fiche: "https://lannuaire.service-public.fr/x" };
+    const html = aujourdhuiPage("https://rundata.re", p, resume(p, { ...full(p.nom), commune: copy({ sources: [], mairie: hall }) } as never, NOW), null);
+    expect(html).toContain("<li>Mairie : <b>horaires absents de l'annuaire</b>");
+  });
+});

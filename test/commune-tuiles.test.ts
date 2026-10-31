@@ -105,3 +105,14 @@ describe("the Vélos tile", () => {
     expect(tile(communePage(ORIGIN, p, commune(ago(BIKES_STALE_MS - 60_000)), NOW), "Vélos")).toContain('<p class="tv">9 vélos</p>');
   });
 });
+
+describe("the town hall's tile", () => {
+  // An invented town hall whose entry of the directory gives no hours.
+  const hall = { nom: "Mairie - Ville A", insee: "97416", adresse: "Rue A", lon: null, lat: null, horaires: [], fiche: "https://lannuaire.service-public.fr/x" };
+
+  it("says the hours are absent from the directory, and leaves them out of the description", () => {
+    const page = communePage(ORIGIN, p, commune(ago(60_000), { mairie: hall }), NOW);
+    expect(page).toContain(`<p class="tv">Horaires absents de l'annuaire</p>`);
+    expect(page.match(/<meta name="description" content="([^"]*)"/)![1]).not.toMatch(/mairie/i);
+  });
+});
