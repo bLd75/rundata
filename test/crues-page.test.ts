@@ -89,8 +89,18 @@ describe("the /crues page", () => {
     const silent = data.value.stations.find((s) => s.hauteur_m == null)!;
     expect(html).toContain(`aria-label="${silent.station} · ${silent.commune} : pas de mesure dans notre lecture de 03:51, voir le détail"`);
     expect(html).toMatch(/aria-label="Cabris - RN3 · Saint-Pierre : 0,06\u00a0m, en hausse · 0\u00a0m³\/s · mesurée à 03:45, voir le détail"/);
-    expect(html.match(/style="fill:#fff;stroke:#5a6672;stroke-width:8"/g)).toHaveLength(data.value.stations.filter((s) => s.hauteur_m == null || s.avertissement).length);
-    expect(words(html)).toContain("Stations de la DEAL : ↑ en hausse · stable ou en baisse · sans mesure récente.");
+    expect(html.match(/style="fill:none;stroke:#868e96;stroke-width:6"/g)).toHaveLength(data.value.stations.filter((s) => s.hauteur_m == null || s.avertissement).length);
+    // The legend drawn as on the map (charter of the maps), then the latest measure.
+    // A rise is the bigger night disc with a thick white edge, drawn last; never red, which would read as a vigilance.
+    expect(html).toMatch(/<circle class="sh" cx="[\d.]+" cy="[\d.]+" r="48" fill="#14202b" style="stroke:#fff;stroke-width:9"\/><text x="[\d.]+" y="[\d.]+" class="mv" style="font-size:42px">↑<\/text>(?:(?!<circle class="sh").)*<\/svg>/s);
+    expect(html.match(/<figure class="card mapcard">(?:(?!<\/figure>).)*<\/figure>/s)?.[0]).not.toContain("#e3262d");
+    expect(html).toContain('<svg viewBox="-53 -53 106 106" class="gr" aria-hidden="true"><circle r="48" fill="#14202b" stroke="#fff" stroke-width="9"/><text y="15" style="font-size:42px">↑</text></svg>en hausse</span>');
+    // Stable or falling, muted in the dark theme only, on the map as in the legend.
+    expect(html).toContain('<circle r="34" fill="var(--gauge-calme)"/></svg>stable ou en baisse</span>');
+    expect(CSS).toMatch(/@media \(prefers-color-scheme:dark\)\{:root\{[^}]*--gauge-calme:#56707a;/);
+    expect(CSS).toContain("--coast:#8aaab2;--gauge-calme:#8aaab2;");
+    expect(html).toContain('<circle r="22" fill="none" stroke="#868e96" stroke-width="6"/></svg>sans mesure récente</span>');
+    expect(words(html)).toContain("© VIGICRUES, stations de la DEAL : mesure la plus récente le 24/10 à 03:45.");
     expect(words(html)).toContain("Votre IA, branchée sur les rivières de l'île");
   });
 

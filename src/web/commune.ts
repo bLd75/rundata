@@ -469,7 +469,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
     ${ask(`Kosa i spas ${p.nom} astèr ? Gèt si ${url} é di amwin.`,
       `Que se passe-t-il en ce moment à ${p.nom} ? Lis ${url} et résume-moi la météo, la vigilance, l'air, les prochains bus et si la mairie est ouverte, avec l'heure des données.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
+  <figure class="card mapcard nophone">${islandMap({ highlight: p.nom, label: `Carte de La Réunion (974) situant ${p.nom}` })}</figure>
 </div>`;
 
   // Every tile's producers, as their licences ask: a page with its own sources has none in its footer (layout).

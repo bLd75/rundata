@@ -132,21 +132,26 @@ describe("fires on the site", () => {
       { lat: -21.07, lon: 55.39, t: "2026-10-23T19:00:00Z", satellite: "NOAA-20", confiance: "faible", frp_mw: 2, lieu: "Le Maïdo", commune: "Saint-Paul" },
     ],
   };
-  const sentiers = (f?: feux.Feux) => ({
+  const sentiers = (f?: feux.Feux & { lu?: string }) => ({
     value: { resume: "", fermes_par_commune: [], routes_forestieres_fermees: [], a_savoir: [], sources: [], points: [], suivis: 351, randonnees: [], ...(f ? { feux: f } : {}) } as SentiersAnswer,
     fetchedAt: NOW,
     stale: false,
   });
 
   it("have their section on /sentiers, first when there are some, with the emergency numbers and the map's points", () => {
-    const html = sentiersPage("https://rundata.re", sentiers(seen), NOW);
+    const html = sentiersPage("https://rundata.re", sentiers({ ...seen, lu: "2026-10-24T04:00:00Z" }), NOW);
     expect(html).toContain('<h2 id="h-feux">Feux de végétation vus par satellite</h2>');
     expect(html).toContain("<p><b>Vous voyez un feu ? Appelez le 18 ou le 112.</b></p>");
     expect(html).toContain("Feu détecté près de Le Maïdo, à 06:30 · confiance forte");
     expect(html).toContain("Feu détecté près de Le Maïdo, hier à 23:00 · confiance faible");
     expect(html.indexOf('id="h-feux"')).toBeLessThan(html.indexOf('id="h-fermes"'));
-    expect(html).toContain("chaque point orange un feu détecté par satellite (faux positifs possibles)");
-    expect(html).toContain("#e8590c");
+    // The hot spot's triangle in brown-red (charter of the maps), drawn in the legend as on the map, then the sources.
+    expect(html).toMatch(/<path class="sh" d="M[\d.]+ [\d.]+L[\d.]+ [\d.]+H[\d.]+Z" fill="#7c2d12"\/>/);
+    expect(html).toContain('<path d="M0 -36L35 28H-35Z" fill="#7c2d12"/></svg>Point chaud détecté par satellite, pas forcément un feu.</span>');
+    expect(html).toContain('<span class="mls">Carte de l&#39;ONF. Points chauds : satellites de la NASA (FIRMS), lus à 08:00.</span>');
+    // Their place in the bubble only: written on the map, it was cut by the frame and laid over the crosses.
+    expect(html).not.toMatch(/class="mn">Feu détecté/);
+    expect(html).not.toContain("#e8590c");
   });
 
   it("lead from the map to their line, and each closed trail to its line on /sentiers", () => {
@@ -232,7 +237,8 @@ describe("the fires' page", () => {
     expect(html).toContain('<h2 id="h-vigilance">La vigilance Météo-France</h2>');
     expect(html).toContain("Votre IA, branchée sur les feux");
     expect(html).toContain("Na difé dann bwa\u00a0? Maïdo i brul\u00a0? Gèt si https://rundata.re/feux é di amwin ousa lé, é si néna santyé fèrmé.");
-    expect(html).toContain("#e8590c");
+    expect(html).toContain('fill="#7c2d12"/></svg>Point chaud détecté par satellite, pas forcément un feu.</span>');
+    expect(html).toMatch(/<span class="mls">Points chauds\s: satellites de la NASA \(FIRMS\), lus à\s08:00\.<\/span>/);
     expect(await (await page("/sitemap.xml"))!.text()).toContain("<loc>https://rundata.re/feux</loc>");
     // The satellites not answering: said, not kept.
     vi.spyOn(console, "error").mockImplementation(() => {});

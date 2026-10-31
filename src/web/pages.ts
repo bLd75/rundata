@@ -35,7 +35,8 @@ import rubriques from "./og-rubriques.json" with { type: "json" };
 import { byUse, FIRST, type Urgent, urgentKeys, WITH_PAGE } from "./categories.js";
 import { FLAG_INNER } from "./flag.js";
 import { logo } from "./logo.js";
-import { esc, islandMap, mapCredit, type Marker, NOMS_SCRIPT } from "./map.js";
+import { esc, H as MAP_H, islandMap, mapCredit, type Marker, NOMS_SCRIPT, W as MAP_W } from "./map.js";
+import { LEGENDE_CSS, legende } from "./carte-legende.js";
 import { typo } from "./typo.js";
 import { mentionLinks } from "../mentions.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
@@ -233,11 +234,11 @@ export const CSS = `
 @font-face{font-family:"Bricolage";src:url(${FONT_PATH}) format("woff2");font-weight:600 800;font-display:swap}
 :root{--bg:#f6f2ea;--surface:#fff;--surface-2:#fbf8f2;--ink:#14202b;--muted:#5a6672;--line:#e6dece;--link:#1d4ea6;
 --accent:#1d4ea6;--accent-ink:#fff;--sun:#ffcf1f;--sun-ink:#1a1500;--lave:#c0321f;--night:#0b1f36;--night-2:#15406b;
---on-night:#f1f5f9;--on-night-muted:#b4c6d8;--sea:#d5e5eb;--land:#f0e8d6;--coast:#8aaab2;--border:#d8cbad;--hl:#ffe08a;
+--on-night:#f1f5f9;--on-night-muted:#b4c6d8;--sea:#d5e5eb;--land:#f0e8d6;--coast:#8aaab2;--gauge-calme:#8aaab2;--border:#d8cbad;--hl:#ffe08a;
 --warn-bg:#fdeee8;--vg0:#7d8a94;--vg1:#2b8a46;--vg2:#ffd400;--vg3:#f08a00;--vg4:#c8231a;--vg5:#6b2fa8;--aq0:#7d8a94;--aq1:#50f0e6;--aq2:#50ccaa;--aq3:#f0e641;--aq4:#ff5050;--aq5:#960032;--aq6:#872181;--ren:#2b8a46;--shadow:0 1px 2px rgb(20 32 43/.05),0 10px 30px -8px rgb(20 32 43/.12);color-scheme:light}
 @media (prefers-color-scheme:dark){:root{--bg:#08121d;--surface:#0f1d2c;--surface-2:#0c1926;--ink:#e7eef5;--muted:#9fb1c3;
 --line:#1f3247;--link:#8fb4ff;--accent:#7fa8ff;--accent-ink:#081428;--sun:#ffd84d;--lave:#ff8a6b;--night:#050f1a;
---night-2:#0f2c4b;--sea:#0d2236;--land:#1a2a36;--coast:#3b6170;--border:#2d4152;--hl:#4a3f17;--warn-bg:#2a1712;
+--night-2:#0f2c4b;--sea:#0d2236;--land:#1a2a36;--coast:#3b6170;--gauge-calme:#56707a;--border:#2d4152;--hl:#4a3f17;--warn-bg:#2a1712;
 --shadow:0 1px 2px rgb(0 0 0/.3),0 10px 30px -8px rgb(0 0 0/.5);color-scheme:dark}}
 *{box-sizing:border-box}
 html{scroll-padding-top:5rem;-webkit-text-size-adjust:100%}
@@ -585,7 +586,7 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .band .soft{color:var(--on-night-muted)}.band .soft a{color:var(--on-night)}
 .part-of{color:var(--on-night-muted)}.part-of a{color:var(--on-night);font-weight:700}
 .rows small.cuts{color:var(--lave)}
-.wz-box{position:relative}.wz-box>.map{max-height:clamp(22rem,65vh,34rem)}.wz-cover{position:absolute;inset:0;display:grid;place-items:center;padding:1rem}.wz-cover .btn{text-align:center}
+.wz-box{position:relative}.wz-box>.map{width:min(100%,calc(clamp(22rem,65vh,34rem)*${MAP_W}/${MAP_H}));margin:0 auto}.wz-cover{position:absolute;inset:0;display:grid;place-items:center;padding:1rem}.wz-cover .btn{text-align:center}
 .wz-box.on iframe{display:block;width:100%;height:clamp(22rem,65vh,34rem);border:0;border-radius:18px;background:var(--surface)}
 .wz-views{display:flex;flex-wrap:wrap;gap:.4rem;margin:.7rem 0}
 .wz-views a{padding:.3rem .75rem;border-radius:999px;border:1px solid var(--line);color:var(--link);text-decoration:none;font-size:.85rem;background:var(--surface)}
@@ -606,7 +607,7 @@ details.sect{margin-bottom:.8rem}details.sect>summary{cursor:pointer}details.sec
 .profile{width:100%;height:auto;display:block}.profile .fill{fill:color-mix(in srgb,var(--accent) 22%,transparent)}.profile .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round}
 .profile .grid{stroke:var(--border);stroke-width:1}.profile .ax{fill:var(--muted);font:12px system-ui,sans-serif}
 .facts{display:flex;flex-wrap:wrap;gap:.6rem 1.6rem;margin:.6rem 0 1.2rem}.facts dt{font-size:.82rem;color:var(--on-night-muted)}.facts dd{margin:0;font:800 1.45rem/1.15 system-ui,sans-serif;color:var(--on-night)}
-.map.terrain .mk{filter:drop-shadow(0 4px 6px rgb(0 0 0/.3))}.map.terrain .mk circle,.map.terrain .mk rect,.map.terrain .rj-st circle{stroke:#fff;stroke-width:4}
+.map.terrain .mk{filter:drop-shadow(0 4px 6px rgb(0 0 0/.3))}.map.terrain .mk circle,.map.terrain .mk rect,.map.terrain .mk path.sh,.map.terrain .rj-st circle{stroke:#fff;stroke-width:4;stroke-linejoin:round}
 .map text{font-family:system-ui,sans-serif;text-anchor:middle}
 .map .mv{fill:#fff;font-weight:700;font-size:30px}
 .map .mn,.map .pk text{fill:var(--ink);font-size:23px;paint-order:stroke;stroke:var(--land);stroke-width:7px;stroke-linejoin:round}
@@ -890,7 +891,7 @@ footer.foot .brand{color:var(--on-night);margin-bottom:.8rem}
 footer.foot p+p{margin-top:.6rem}
 footer.foot h3{color:var(--on-night);font-size:1rem;margin-bottom:.4rem}
 footer.foot .slogan{font-size:1rem;padding-left:calc(1.55rem + .6rem)}
-`.replace(/\n/g, "") + AVIS_CSS + AIDE_CSS + FORMS_CSS + PWA_CSS + FOND_CSS + POINTS_CSS;
+`.replace(/\n/g, "") + AVIS_CSS + AIDE_CSS + FORMS_CSS + PWA_CSS + FOND_CSS + POINTS_CSS + LEGENDE_CSS;
 /**
  * The stylesheet, a file of its own (web/site.ts) rather than copied into every page: its address changes with its
  * content, so that browsers keep it a year and fetch it again only once it changes.
@@ -2103,7 +2104,8 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
     ${ask(`Dolo la mèr lé sho ? Gèt si ${url} é di amwin pou chak plaj.`,
       `Quelle est la température de l'eau à La Réunion ? Lis ${url} et donne-moi la température plage par plage, avec la date de la mesure.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) avec la température de la mer au large de chaque plage" })}</figure>
+  <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) avec la température de la mer au large de chaque plage" })}
+  ${day ? `<figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "rond", couleur: chip(26), texte: "26°", dit: "température de l'eau au large de la plage" }], esc(`Mesure par satellite (NOAA CoastWatch et NASA), moyenne du ${dayMonth(day)}.`))}</figcaption>` : ""}</figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-plages">
