@@ -95,7 +95,9 @@ export function pointsSvg(points: Point[], href: string, rounds: [number, number
     const [x, y] = beside(project(p.lon, p.lat), rounds);
     const what = p.nombre > 1 ? count(p.nombre) : p.titre;
     const to = p.nombre === 1 && p.lien ? p.lien : href;
-    return `<a class="mk evp" href="${esc(to)}"${to.startsWith("http") ? ` rel="noopener"${fenetre(to)}` : ""} aria-label="${esc(`${p.lieu} : ${what}, voir le détail`)}" data-pn="${esc(p.lieu)}" data-p2="${esc(what)}"${p.source ? ` data-p3="${esc(`Source\u00a0: ${p.source}`)}"` : ""}>` +
+    // An event's own link leads to its announcement, on the publisher's site; several events, to the list.
+    const out = to.startsWith("http");
+    return `<a class="mk evp" href="${esc(to)}"${out ? ` rel="noopener"${fenetre(to)}` : ""} aria-label="${esc(`${p.lieu} : ${what}, ${out ? "voir l'annonce" : "voir le détail"}`)}"${out ? ` data-pv="annonce"` : ""} data-pn="${esc(p.lieu)}" data-p2="${esc(what)}"${p.source ? ` data-p3="${esc(`Source\u00a0: ${p.source}`)}"` : ""}>` +
       `<circle class="hit" cx="${x}" cy="${y}" r="30" style="fill:transparent;stroke:none"/><title>${esc(`${p.lieu} : ${what}`)}</title><circle class="sh" cx="${x}" cy="${y}" r="${POINT_R}"/></a>`;
   }).join("");
 }

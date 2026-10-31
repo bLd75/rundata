@@ -75,7 +75,9 @@ describe("the points of the maps, with a mouse and with a finger", () => {
   });
 
   it("gives the bubble the place's direct links, and keeps it open the time to reach them", () => {
-    expect(MOTS).toEqual({ detail: "Voir la fiche →", site: "Site du lieu" });
+    expect(MOTS).toEqual({ detail: "Voir la fiche →", annonce: "Voir l'annonce →", site: "Site du lieu" });
+    // A marker names its link's word: an event's point leads to its announcement.
+    expect(POINTS_SCRIPT).toContain(`v.href=h;v.textContent=T[a.dataset.pv]||T.detail;`);
     // « Y aller » as the row shows it, under a cyclone alert too; the site from the row.
     expect(POINTS_SCRIPT).toContain(`ya=r?r.querySelectorAll("a.aller"):[];if(ya.length===1)out.push(ya[0].cloneNode(true))`);
     expect(POINTS_SCRIPT).toContain(`const site=r&&r.dataset.site;`);

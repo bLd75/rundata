@@ -48,8 +48,10 @@ export const LINGER_MS = 400;
 export const ARM_MS = 300;
 
 /** The bubble's links: data-run's words. */
+// A marker names another word for its link in `data-pv` (an event's point leads to its announcement).
 export const MOTS = {
   detail: "Voir la fiche →",
+  annonce: "Voir l'annonce →",
   site: "Site du lieu",
 };
 
@@ -65,7 +67,7 @@ const hide=()=>{clearTimeout(shut);clearTimeout(arm);shut=0;tip.hidden=true;tip.
 const later=()=>{if(on&&!shut)shut=setTimeout(hide,${LINGER_MS})},stay=()=>{clearTimeout(shut);shut=0};
 const place=(a)=>{const c=mid(a);if(!c){hide();return}const w=tip.offsetWidth,h=tip.offsetHeight,x=Math.min(Math.max(c[0]-w/2,6),innerWidth-w-6),up=c[1]-h-20>=0;
 tip.classList.toggle("bas",!up);tip.style.left=x+scrollX+"px";tip.style.top=(up?c[1]-h-20:c[1]+20)+scrollY+"px";tip.style.setProperty("--ax",Math.min(Math.max(c[0]-x,14),w-14)+"px")};
-const links=(a)=>{const h=a.getAttribute("href");if(!h)return[];const r=row(a),v=mk("a","pv");v.href=h;v.textContent=T.detail;
+const links=(a)=>{const h=a.getAttribute("href");if(!h)return[];const r=row(a),v=mk("a","pv");v.href=h;v.textContent=T[a.dataset.pv]||T.detail;
 if(r)v.addEventListener("click",(e)=>{e.preventDefault();hide();fire(a)});const out=[v],ya=r?r.querySelectorAll("a.aller"):[];if(ya.length===1)out.push(ya[0].cloneNode(true));
 const site=r&&r.dataset.site;if(site){const l=mk("a");l.href=site;l.rel="noopener";l.textContent=T.site+" ↗";out.push(l)}return out};
 const show=(a)=>{stay();if(on===a)return;const l=lines(a);if(!l.length||!mid(a)){hide();return}on=a;tip.classList.remove("vu","prise");clearTimeout(arm);arm=setTimeout(()=>tip.classList.add("prise"),${ARM_MS});

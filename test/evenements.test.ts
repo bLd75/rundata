@@ -195,7 +195,7 @@ describe("the map of /evenements", () => {
     const html = page([placed, row("Bal la poussière", "2026-10-27T20:00", "mardi 27/10 à 20:00", { commune: "Salazie" })]);
     const tonight = layerOf(html, "soir-0");
     expect(tonight.match(/class="mk evp"/g)).toHaveLength(1);
-    expect(tonight).toContain(`<a class="mk evp" href="https://example.re/Kabar" rel="noopener" aria-label="Léspas : Kabar, voir le détail" data-pn="Léspas" data-p2="Kabar">`);
+    expect(tonight).toContain(`<a class="mk evp" href="https://example.re/Kabar" rel="noopener" aria-label="Léspas : Kabar, voir l&#39;annonce" data-pv="annonce" data-pn="Léspas" data-p2="Kabar">`);
     expect(tonight).toContain(`aria-label="Salazie : 1 événement, voir le détail"`);
     // Several events at one venue: one point, which leads to the list.
     const two = layerOf(page([placed, { ...placed, titre: "Kabar 2", lien: "https://example.re/k2" }]), "soir-0");
