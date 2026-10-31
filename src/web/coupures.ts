@@ -47,7 +47,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n > 1 ? man
 export function waterLive(p: PlacePage, w: WaterCopies): Live | undefined {
   if (!w.coupures) return undefined;
   const x = waterOf(p.nom, w);
-  const valeur = x.dry ? "Eau à ne pas boire" : x.avis.length ? plural(x.avis.length, "avis de coupure", "avis de coupure") : x.muet ? "Site sans réponse" : x.distributeur?.avis ? "Pas de coupure annoncée" : "Coupures non publiées";
+  const valeur = x.dry ? "Eau à ne pas boire" : x.avis.length ? plural(x.avis.length, "avis de coupure", "avis de coupure") : x.muet ? "Site sans réponse" : x.distributeur?.avis ? "Pas de coupure annoncée" : "Avis non lus";
   const detail = [
     x.muet ? esc(x.muet.court) : "",
     x.distributeur ? `distributeur ${esc(x.distributeur.nom)}` : "",
@@ -83,7 +83,7 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
       : dist?.avis
         // Worded with marketing: who publishes the notices read, without the commune when that name already says it.
         ? `<p class="lead">Aucun avis de coupure publié par ${esc(publisher!)}${publisher!.includes(p.nom) ? "" : ` ${esc(where)}`} à ${esc(at)}.</p>`
-        : `<p class="lead">${esc(dist?.nom ?? "Le distributeur")} ne publie pas ses avis de coupure dans un flux que rundata.re peut lire : voir ses avis aux abonnés ou la mairie.${lienA}</p>`;
+        : `<p class="lead">Les avis de coupure ${dist ? `de ${esc(dist.nom)}` : "du distributeur"} ne sont pas lus par rundata.re : voir ses avis aux abonnés ou la mairie.${lienA}</p>`;
 
   const list = !d
     ? `<p class="card">Les avis se chargent : rechargez la page dans quelques secondes.</p>`
@@ -105,7 +105,7 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
             : dist.site === CREOLE.url
             ? `<p>Nous lisons, au moins toutes les 30 minutes, les avis de <a href="${esc(dist.site)}" rel="noopener">la page « flash infos » de La Créole</a> : ils s'affichent en haut de cette page.</p>`
             : `<p>Ses avis sont relus au moins toutes les 30 minutes : <a href="${esc(dist.site!)}" rel="noopener">le site de ${esc(dist.nom)}</a>.</p>`
-          : `<p>Il ne publie pas ses avis de coupure dans un flux lisible : ils sont sur ses avis aux abonnés et auprès de la mairie.${lienA}</p>`)
+          : `<p>Ses avis de coupure ne sont pas lus par rundata.re : ils sont sur ses avis aux abonnés et auprès de la mairie.${lienA}</p>`)
       : `<p>Le distributeur de la commune n'est pas connu ici : voir la mairie.${lienA}</p>`) +
     `<p class="note">Son numéro d'urgence (fuite, coupure non annoncée) est sur la facture d'eau. <a href="/communes/${p.slug}">${esc(p.nom)} en direct : la mairie, ses horaires et son téléphone →</a></p></div>`;
 

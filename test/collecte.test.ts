@@ -64,9 +64,9 @@ describe("the bins' calendars of the West", () => {
 
   it("says a street without a calendar as such, inferring nothing", () => {
     const nc = col.STREETS.find((s) => s.calendrier === -1)!;
-    expect(col.streetLine(nc, day("2026-10-24"))).toBe(`${col.streetName(nc)}, ${nc.commune} : le TCO ne publie pas de calendrier de collecte pour cette voie, et nous ne savons pas si elle est collectée au porte-à-porte. Renseignez-vous auprès du TCO →`);
+    expect(col.streetLine(nc, day("2026-10-24"))).toBe(`${col.streetName(nc)}, ${nc.commune} : les calendriers 2026 du TCO ne donnent pas de jour de collecte pour cette voie, et nous ne savons pas si elle est collectée au porte-à-porte. Renseignez-vous auprès du TCO →`);
     const page = collectePage("https://rundata.re", NOW, nc.commune);
-    expect(page).toContain('<h3>Voies sans calendrier du TCO</h3><p>Le TCO ne publie pas de calendrier de collecte pour ces voies, et nous ne savons pas si elles sont collectées au porte-à-porte. <a href="https://www.tco.re/contact" rel="noopener">Renseignez-vous auprès du TCO →</a></p>');
+    expect(page).toContain('<h3>Voies sans calendrier du TCO</h3><p>Les calendriers 2026 du TCO ne donnent pas de jour de collecte pour ces voies, et nous ne savons pas si elles sont collectées au porte-à-porte. <a href="https://www.tco.re/contact" rel="noopener">Renseignez-vous auprès du TCO →</a></p>');
     // After the streets that have a calendar.
     expect(page.indexOf("Voies sans calendrier du TCO")).toBeGreaterThan(page.lastIndexOf("du TCO (PDF)</a></p></div>"));
   });
