@@ -8,29 +8,42 @@ import { why } from "../types.js";
 import { type CourantAnswer, courantBlock, courantCopy, nonReprisCourt } from "./courant.js";
 import { credits, fr, notFound, paire, placeBlock, text } from "./format.js";
 
+/**
+ * EDF's columns that produce, its name for each and whether it is renewable, as EDF titles them: the columns `charbon`
+ * and `diesel` kept their keys, but EDF titles them « Biomasse (MW) » and « Bioliquide (MW) », renewable (its yearly
+ * balance for 2024, 92.5 % renewable). Not the batteries (`stockage`): they give back what the others produced.
+ */
 const SOURCES: [keyof edf.Mix, string, boolean][] = [
   ["photovoltaique", "solaire photovoltaïque", true],
   ["eolien", "éolien", true],
   ["hydraulique", "hydraulique", true],
-  ["bioenergies", "bioénergies (bagasse, biomasse, biogaz)", true],
-  ["charbon", "charbon", false],
-  ["diesel", "moteurs diesel et fioul", false],
+  ["bioenergies", "bioénergies", true],
+  ["charbon", "biomasse", true],
+  ["diesel", "bioliquide", true],
   ["turbines_combustion", "turbines à combustion", false],
-  ["stockage", "stockage (batteries)", false],
 ];
 
 const WEEKDAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 
-/** The share of each source and the renewable part, from one line of production. */
+/**
+ * What the shares are of: the columns that produce, the batteries left out, in charge or not, and a column's small
+ * negative values (its own use, the turbines at -0.25 MW) taken as 0. The MW said stay EDF's own `total`.
+ */
+export function produced(m: edf.Mix): number {
+  return SOURCES.reduce((s, [k]) => s + Math.max(0, m[k] as number), 0);
+}
+
+/** The share of each source and the renewable part, from one line of production, both of what produces (`produced`). */
 export function breakdown(m: edf.Mix) {
+  const total = produced(m);
   const parts = SOURCES.filter(([k]) => (m[k] as number) > 0.05).map(([k, nom, enr]) => ({
     filiere: nom,
     mw: Math.round((m[k] as number) * 10) / 10,
-    part_pct: Math.round(((m[k] as number) / m.total) * 1000) / 10,
+    part_pct: Math.round(((m[k] as number) / total) * 1000) / 10,
     renouvelable: enr,
   }));
   const renewable = SOURCES.filter(([, , enr]) => enr).reduce((s, [k]) => s + Math.max(0, m[k] as number), 0);
-  return { parts: parts.sort((a, b) => b.mw - a.mw), renouvelable_pct: Math.round((renewable / m.total) * 1000) / 10 };
+  return { parts: parts.sort((a, b) => b.mw - a.mw), renouvelable_pct: Math.round((renewable / total) * 1000) / 10 };
 }
 
 /** Hours that are not "optimal", run together per day: « jeudi 23/10 de 18h à 21h : heures de pointe (recharge conseillée 50 %) ». */
@@ -141,7 +154,7 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
     coupures_annoncees: coupures,
     avertissements: [
       "La Réunion n'est pas reliée au réseau européen : toute l'électricité est produite sur l'île, d'où les périodes de tension.",
-      "Les bioénergies incluent la bagasse des sucreries (en campagne sucrière, de juillet à décembre)\u00a0; la part renouvelable est celle publiée par filière.",
+      "Les bioénergies incluent la bagasse des sucreries (en campagne sucrière, de juillet à décembre)\u00a0; la part renouvelable est celle publiée par filière, hors stockage.",
     ],
     sources: courant ? [...credits([edf.SOURCE]), ...courant.value.sources] : credits([edf.SOURCE]),
   });

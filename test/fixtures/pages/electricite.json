@@ -1,39 +1,33 @@
 {
- "resume": "Production d'électricité à 18:35 (il y a 6 min) : 406 MW, dont 42,6 % renouvelable. Principales filières : moteurs diesel et fioul 35,2 %, bioénergies (bagasse, biomasse, biogaz) 22,5 %, charbon 21 %, hydraulique 19 %. Météo de l'électricité EDF en ce moment : heures de pointe. Moments à éviter pour les gros usages (recharge de véhicule, chauffe-eau, clim) : vendredi 23/10 de 18h à 22h (heures de pointe) ; lundi 26/10 de 18h à 22h (heures de pointe) ; mardi 27/10 de 18h à 22h (heures de pointe) ; mercredi 28/10 de 18h à 22h (heures de pointe).",
+ "resume": "Production d'électricité à 18:35 (il y a 6 min) : 406 MW, dont 100 % renouvelable. Principales filières : bioliquide 35,6 %, bioénergies 22,8 %, biomasse 21,2 %, hydraulique 19,2 %. Météo de l'électricité EDF en ce moment : heures de pointe. Moments à éviter pour les gros usages (recharge de véhicule, chauffe-eau, clim) : vendredi 23/10 de 18h à 22h (heures de pointe) ; lundi 26/10 de 18h à 22h (heures de pointe) ; mardi 27/10 de 18h à 22h (heures de pointe) ; mercredi 28/10 de 18h à 22h (heures de pointe).",
  "production": {
   "heure_mesure": "23/10 18:35 heure de La Réunion",
   "age_min": 6,
   "total_mw": 405.6,
   "parts": [
    {
-    "filiere": "moteurs diesel et fioul",
+    "filiere": "bioliquide",
     "mw": 142.9,
-    "part_pct": 35.2,
-    "renouvelable": false
-   },
-   {
-    "filiere": "bioénergies (bagasse, biomasse, biogaz)",
-    "mw": 91.4,
-    "part_pct": 22.5,
+    "part_pct": 35.6,
     "renouvelable": true
    },
    {
-    "filiere": "charbon",
+    "filiere": "bioénergies",
+    "mw": 91.4,
+    "part_pct": 22.8,
+    "renouvelable": true
+   },
+   {
+    "filiere": "biomasse",
     "mw": 85.1,
-    "part_pct": 21,
-    "renouvelable": false
+    "part_pct": 21.2,
+    "renouvelable": true
    },
    {
     "filiere": "hydraulique",
     "mw": 77,
-    "part_pct": 19,
+    "part_pct": 19.2,
     "renouvelable": true
-   },
-   {
-    "filiere": "stockage (batteries)",
-    "mw": 4.9,
-    "part_pct": 1.2,
-    "renouvelable": false
    },
    {
     "filiere": "solaire photovoltaïque",
@@ -48,7 +42,7 @@
     "renouvelable": true
    }
   ],
-  "renouvelable_pct": 42.6,
+  "renouvelable_pct": 100,
   "statut": "estimé (télémesures, consolidé chaque mois)"
  },
  "meteo_electricite": {
@@ -85,7 +79,7 @@
  },
  "avertissements": [
   "La Réunion n'est pas reliée au réseau européen : toute l'électricité est produite sur l'île, d'où les périodes de tension.",
-  "Les bioénergies incluent la bagasse des sucreries (en campagne sucrière, de juillet à décembre) ; la part renouvelable est celle publiée par filière."
+  "Les bioénergies incluent la bagasse des sucreries (en campagne sucrière, de juillet à décembre) ; la part renouvelable est celle publiée par filière, hors stockage."
  ],
  "sources": [
   {

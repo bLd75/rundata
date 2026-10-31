@@ -56,8 +56,8 @@ describe("domain pages", () => {
     // Out of an alert too, high on the page: the OVPF's Facebook page, a link only.
     expect(pages.volcan.replace(/&#39;/g, "'").replaceAll("\u00a0", " ")).toContain(`<p class="lead">L'OVPF publie aussi sur Facebook, que nous ne lisons pas : <a href="https://www.facebook.com/ObsVolcanoPitonFournaise">suivre sa page officielle ↗</a></p>`);
     expect(pages.volcan).not.toContain("facebook.com/plugins");
-    expect(pages.electricite).toContain(`<span class="big">43 %</span>`);
-    expect(pages.electricite).toContain("bioénergies (bagasse, biomasse, biogaz)");
+    expect(pages.electricite).toContain(`<span class="big">100 %</span>`);
+    expect(pages.electricite).toContain("bioliquide");
     expect(pages.calendrier).toContain("Prochain jour férié : <b>Toussaint</b>");
     expect(pages.calendrier).toContain("date de reprise pas encore publiée");
     expect(pages.calendrier).not.toContain("reprise le pas encore");
@@ -124,7 +124,7 @@ describe("home page tiles", () => {
     expect(tile("Volcan")).toContain("OVPF et préfecture, textes lus à ");
     expect(tile("Volcan")).toContain("Enclos : « réouverture partielle » (préfecture, 07/05)");
     expect(tile("Air")).toContain(`<span class="aq aq2">moyen</span>`);
-    expect(tile("Électricité")).toContain(`<p class="tv">43\u202f% renouvelable</p>`);
+    expect(tile("Électricité")).toContain(`<p class="tv">100\u202f% renouvelable</p>`);
     expect(tile("Calendrier")).toContain(`<p class="tv">Vacances scolaires</p>`);
     expect(tile("Calendrier")).toContain("Toussaint dans 9 j");
     // The Région's official map; Waze only on /trafic, beside its own map.
