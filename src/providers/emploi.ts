@@ -264,8 +264,10 @@ export function prochaineFiche(offres: Offre[], now: Date): Offre | undefined {
 /**
  * The scheduled event's read, every 5 minutes: the feed when `flux` (every hour at 25 past), and one offer's page
  * (`prochaineFiche`), never two at once; the offers past their closing date dropped, and those the site took down
- * (`depubliee`). Writes the copy only when it changed. When the feed does not answer, the copy stays, with when it first
- * failed (written once), and the read fails.
+ * (`depubliee`). Writes the copy when it changed, and after each read of the feed, so that its time is the last read,
+ * not the last change (31/10/2026: « dernière lecture le 30/10 à 16:25 » for a feed read every hour): 24 writes a day
+ * more at most. When the feed does not answer, the copy stays, with when it first failed (written once), and the read
+ * fails.
  */
 export async function collect(before: Copie | null, write: (copie: Copie) => Promise<void>, now = new Date(), flux = refreshDue(now)): Promise<string> {
   let feed: Offre[] = [];
@@ -309,8 +311,8 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
   const offres = [...kept.values()].filter((x) => ouverte(x, now)).sort(order);
   const closes = kept.size - offres.length;
   const said = `${offres.length} offres, ${flux ? `${nouvelles.length} nouvelles` : "flux non lu"}, ${page}${closes ? `, ${closes} closes retirées` : ""}`;
-  // The same offers: not written again, unless the feed answered again after failing.
-  if (before && JSON.stringify(offres) === JSON.stringify(before.offres) && !(flux && before.echec)) return `${said} : inchangées, non réécrites`;
+  // The same offers and no read of the feed: not written again.
+  if (before && !flux && JSON.stringify(offres) === JSON.stringify(before.offres)) return `${said} : inchangées, non réécrites`;
   const next: Copie = flux ? { lu: now.toISOString(), offres } : { ...before!, offres };
   if (depubliees.length) next.depubliees = depubliees;
   else delete next.depubliees;

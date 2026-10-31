@@ -395,3 +395,16 @@ describe("the vigilance of the day, in words people read", () => {
     expect(r.vigilance?.au_dessus_du_vert).toBe(false);
   });
 });
+
+describe("the summary's calendar", () => {
+  it("says tomorrow's holiday on its eve, and nothing rather than an empty block", () => {
+    // Saturday 31/10/2026: no holiday today, All Saints' Day tomorrow, no school holidays.
+    const cal = (prochains: { date: string; nom: string; dans_jours: number }[]) =>
+      copy({ resume: "", sources: SOURCE("Éducation nationale"), jours_feries: { aujourd_hui: null, prochains, note: "" }, vacances_scolaires: { en_cours: null, a_venir: [], note: "" } });
+    const eve = resume(SAINT_PAUL, { ...COPIES, calendrier: cal([{ date: "dimanche 1er novembre 2026", nom: "Toussaint", dans_jours: 1 }, { date: "mercredi 11 novembre 2026", nom: "Armistice 1918", dans_jours: 11 }]) } as never, NOW);
+    expect(eve.calendrier).toEqual({ jour_ferie_demain: "Toussaint" });
+    const plain = resume(SAINT_PAUL, { ...COPIES, calendrier: cal([{ date: "mercredi 11 novembre 2026", nom: "Armistice 1918", dans_jours: 11 }]) } as never, NOW);
+    expect(plain.calendrier).toBeUndefined();
+    expect(resume(SAINT_PAUL, COPIES as never, NOW).calendrier).toEqual({ vacances_scolaires: "Vacances de la Toussaint" });
+  });
+});

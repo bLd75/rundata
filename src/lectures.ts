@@ -40,6 +40,13 @@ export async function withLectures<T>(fn: () => Promise<T>, waitMs?: number): Pr
 /** When the tool call being answered stops waiting for a source that has a copy; nothing outside one that set it. */
 export const callDeadline = () => until.getStore();
 
+/**
+ * Runs `fn` apart from the tool call being answered: a copy brought up to date after the answer (tools/resume.ts). What
+ * it reads never dates the answer, and it waits for its sources as long as it needs, not the answer's time. On
+ * 31/10/2026 the summary of Le Tampon said « il y a 21 h » while its parts were minutes old.
+ */
+export const apart = <T>(fn: () => T): T => until.run(undefined as unknown as number, () => current.run([], fn));
+
 /** Called by the cache for each entry it serves; nothing outside a tool call. */
 export function noteLecture(l: Lecture) {
   current.getStore()?.push(l);

@@ -77,10 +77,14 @@ async function cuts(cache: Cache) {
   return cache.get("web:courant", 3600, () => courantCopy()).catch((err) => (console.error(`source ${cc.SOURCE.id} indisponible:`, why(err)), undefined));
 }
 
+/** « 30/10 à 22:00 », when EDF last updated the signal's dataset. */
+const annonce = (iso: string) => localTime(new Date(iso)).replace(" ", " à ");
+
 export async function electricite(cache: Cache, now = new Date(), lieu?: string) {
   const res = lieu?.trim() ? resolvePlace(lieu) : null;
   if (lieu?.trim() && !res) return notFound(lieu);
-  const [m, hours, courant] = await Promise.all([settle(edf.mix(cache)), settle(edf.signal(cache, now)), cuts(cache)]);
+  const [m, sig, courant] = await Promise.all([settle(edf.mix(cache)), settle(edf.signal(cache, now)), cuts(cache)]);
+  const hours = sig?.heures;
   const coupures = courantBlock(courant, res?.lieu.commune, now);
   if (!m && !hours && !courant) {
     return { ...text({ erreur: "EDF ne répond pas pour le moment.", consulter: edf.SOURCE.url }), isError: true };
@@ -102,7 +106,9 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
     const nowHour = hours.find((h) => Date.parse(h.dateheure) <= now.getTime() && now.getTime() < Date.parse(h.dateheure) + 3600_000);
     const next = constraints(hours.filter((h) => Date.parse(h.dateheure) + 3600_000 > now.getTime()));
     const cyclone = hours.some((h) => h.cyclone_en_cours);
-    if (nowHour) parts.push(`Météo de l'électricité EDF en ce moment : ${nowHour.signal_horaire_texte.toLowerCase()}.`);
+    // EDF's terms: « EDF » and the dataset's last update with its data (31/10/2026).
+    // An announcement of EDF for this hour, not a measurement (31/10/2026).
+    if (nowHour) parts.push(`Météo de l'électricité EDF pour cette heure : ${nowHour.signal_horaire_texte.toLowerCase()}${sig?.mis_a_jour ? ` (annoncée par EDF le ${annonce(sig.mis_a_jour)})` : ""}.`);
     parts.push(
       next.length
         ? `Moments à éviter pour les gros usages (recharge de véhicule, chauffe-eau, clim) : ${next.slice(0, 4).map((c) => `${c.quand} (${c.signal})`).join("\u00a0; ")}.`
@@ -113,6 +119,7 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
       maintenant: nowHour ? { signal: nowHour.signal_horaire_texte, couleur: nowHour.signal_horaire_couleur, recharge_conseillee_pct: nowHour.signal_horaire_taux_recharge_conseille } : undefined,
       periodes_de_tension: next,
       jusqu_au: hours.length ? localTime(new Date(hours[hours.length - 1].dateheure)).split(" ")[0] : undefined,
+      mis_a_jour: sig?.mis_a_jour ? localTime(new Date(sig.mis_a_jour)) : undefined,
       cyclone_en_cours: cyclone,
       explication:
         "Signal horaire d'EDF : « optimal » = réseau à l'aise\u00a0; « heures de pointe » (souvent 18\u00a0h–21\u00a0h)\u00a0; « contraint » et « très contraint » = " +

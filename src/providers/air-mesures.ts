@@ -178,8 +178,9 @@ async function read(day: string): Promise<Mesure[] | undefined> {
 
 /**
  * The scheduled event's read: the file of the day in La Réunion, and the day before's too while the day's has none of
- * Atmo Réunion's lines yet (its first hours). Writes the copy only when the latest hour measured changed. Fails when no
+ * Atmo Réunion's lines yet (its first hours). Fails when no
  * file gives a valid measure, and the copy in the store stays, its measures said with their hour.
+ * Written at each read, the same hour or not, so that its time is the last read (24 writes a day).
  */
 export async function collect(before: Copie | null, write: (copie: Copie) => Promise<void>, now = new Date()): Promise<string> {
   const today = await read(localDay(now.getTime()));
@@ -188,9 +189,8 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
   if (!kept.length) throw new Error(`aucune mesure valide d'Atmo Réunion dans les fichiers du ${localDay(now.getTime())} ni de la veille`);
   const derniere_heure = kept.map((m) => m.fin).sort().pop()!;
   const said = `${kept.length} mesures de ${new Set(kept.map((m) => m.station)).size} stations, dernière heure finie à ${derniere_heure.slice(11, 16)} le ${derniere_heure.slice(0, 10)}`;
-  if (before?.derniere_heure === derniere_heure) return `${said}, inchangée : non réécrites`;
   await write({ lu: now.toISOString(), derniere_heure, mesures: kept });
-  return `${said}, écrites`;
+  return `${said}${before?.derniere_heure === derniere_heure ? ", inchangée" : ""}, écrites`;
 }
 
 let reader: (() => Promise<Copie | null>) | undefined;

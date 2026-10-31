@@ -5,7 +5,7 @@
  *   très contraint), with the share of charging EDF advises for electric vehicles.
  */
 import type { Cache, Cached } from "../cache.js";
-import { getJson } from "../http.js";
+import { getFile, getJson } from "../http.js";
 import type { SourceInfo } from "../types.js";
 
 export const SOURCE: SourceInfo = {
@@ -54,20 +54,30 @@ export async function mix(cache: Cache): Promise<Cached<Mix>> {
   });
 }
 
-/** The hours from the start of today (local time) onwards. */
-export async function signal(cache: Cache, now = new Date()): Promise<Cached<Hour[]>> {
-  return cache.get("edf:signal", SIGNAL_FRESH_SECONDS, async () => {
+/**
+ * The hourly signal, and when EDF last updated its dataset (ISO): EDF's terms ask for that date with the data, as
+ * opendata-reunion.edf.fr's portal shows it (« dataUpdatedAt », the lines' Last-Modified).
+ */
+export interface Signal {
+  heures: Hour[];
+  mis_a_jour?: string;
+}
+
+/** The hours from the start of today (local time) onwards, with the dataset's update, from the same request. */
+export async function signal(cache: Cache, now = new Date()): Promise<Cached<Signal>> {
+  const c = await cache.get<Signal | Hour[]>("edf:signal", SIGNAL_FRESH_SECONDS, async () => {
     const today = new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
-    const r = await getJson<{ results: (Hour & Record<string, unknown>)[] }>(
-      SOURCE.id,
-      `${SIGNAL}&dateheure_gte=${encodeURIComponent(`${today}T00:00:00+04:00`)}`,
-    );
-    return r.results.map((h) => ({
+    const { bytes, modifie } = await getFile(SOURCE.id, `${SIGNAL}&dateheure_gte=${encodeURIComponent(`${today}T00:00:00+04:00`)}`);
+    const r = JSON.parse(new TextDecoder().decode(bytes)) as { results: (Hour & Record<string, unknown>)[] };
+    const at = modifie ? Date.parse(modifie) : NaN;
+    return { heures: r.results.map((h) => ({
       dateheure: h.dateheure,
       signal_horaire_texte: h.signal_horaire_texte,
       signal_horaire_couleur: h.signal_horaire_couleur,
       signal_horaire_taux_recharge_conseille: h.signal_horaire_taux_recharge_conseille,
       cyclone_en_cours: h.cyclone_en_cours,
-    }));
+    })), ...(!Number.isNaN(at) && { mis_a_jour: new Date(at).toISOString() }) };
   });
+  // A copy kept from before the date was read (31/10/2026): the hours alone.
+  return Array.isArray(c.value) ? { ...c, value: { heures: c.value } } : (c as Cached<Signal>);
 }
