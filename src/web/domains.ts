@@ -2698,8 +2698,8 @@ function basinFigure(d: CyclonesAnswer | undefined, active: number): string {
         : "") +
       " Cette carte ne montre aucun système de la saison. "
     : "Cette carte ne montre aucun système, ni sa position ni sa trajectoire. ";
-  return `<figure class="card bassin${active ? "" : " mapcard"}">${basinMap(traces)}<figcaption>${now}<p class="note">En pointillé, la zone suivie par le CMRS de La Réunion (Météo-France), de l'équateur à 40°\u00a0S et des côtes de l'Afrique à 90°\u00a0E (<a href="${ZONE_SOURCE}" rel="noopener">CMRS, présentation à l'OMM, 2017</a>). ` +
-    `${sources}Côtes\u00a0: Natural Earth (domaine public).</p></figcaption></figure>${traces ? `<script>${TRACES_SCRIPT}</script>` : ""}`;
+  return `<figure class="card bassin${active ? "" : " mapcard"}">${basinMap(traces)}<figcaption>${now}<details class="note"><summary>Sources</summary><p>En pointillé, la zone suivie par le CMRS de La Réunion (Météo-France), de l'équateur à 40°\u00a0S et des côtes de l'Afrique à 90°\u00a0E (<a href="${ZONE_SOURCE}" rel="noopener">CMRS, présentation à l'OMM, 2017</a>). ` +
+    `${sources}Côtes\u00a0: Natural Earth (domaine public).</p></details></figcaption></figure>${traces ? `<script>${TRACES_SCRIPT}</script>` : ""}`;
 }
 
 export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null, now = new Date(), alerte?: Alerte): string {
@@ -2732,12 +2732,13 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
   ${active.length ? "" : basinFigure(d, 0)}
 </div>`;
 
-  const body = `<section aria-labelledby="h-actifs">
+  // In calm weather the section would only repeat the hero's « 0 système tropical actif »: it shows while a system is active.
+  const body = `${d && !active.length ? "" : `<section aria-labelledby="h-actifs">
   <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-actifs">Systèmes actifs</h2>
   <p>${d ? esc(d.resume) : ""}</p></div>
   ${d ? active.map(activeCard).join("") : `<p class="card">Le suivi se charge : rechargez la page dans quelques secondes.</p>`}
   ${active.length ? carteHtml(d?.carte, now) + basinFigure(d, active.length) : ""}
-</section>
+</section>`}
 <section aria-labelledby="h-alerte">
   <div class="sec-h"><p class="eyebrow">Préfecture de La Réunion</p><h2 id="h-alerte">Les phases de l'alerte cyclonique</h2>
   <p>${d ? esc(d.phases_alerte) : ""}</p></div>
