@@ -322,7 +322,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     f?.temperature_min && f.temperature_max ? `prévision du jour ${f.temperature_min} à ${f.temperature_max}${f.ciel_en_journee ? `, ${f.ciel_en_journee}` : ""}` : "",
     v ? `${v.maintenant.replace(/\.$/, "")}${v.alerte_cyclonique ? `, ${v.alerte_cyclonique}` : ""}` : "",
     v?.ecoles ? v.ecoles.replace(/\.$/, "") : "",
-    l.coupures ? (avis.length ? `${avis.length} avis de coupure d'eau${waterSilent ? ` (${waterSilent.court})` : ""}` : waterSilent ? `coupures d'eau : ${waterSilent.court}` : dist?.avis ? "pas de coupure d'eau annoncée" : "") : "",
+    l.coupures ? (avis.length ? `${avis.length} avis de coupure d'eau${avis.some((n) => n.ne_pas_boire) ? " : eau à ne pas boire dans les secteurs de l'avis" : ""}${waterSilent ? ` (${waterSilent.court})` : ""}` : waterSilent ? `coupures d'eau : ${waterSilent.court}` : dist?.avis ? "pas de coupure d'eau annoncée" : "") : "",
     l.agenda ? `${events.length} événement${events.length > 1 ? "s" : ""} aujourd'hui` : "",
     roads.length ? `${roads.length} info${roads.length > 1 ? "s" : ""} sur les routes ou des blocages` : "",
     power.length ? shortOf(power[0], now) : "",
