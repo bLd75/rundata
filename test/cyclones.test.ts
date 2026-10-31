@@ -5,6 +5,7 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import { advisoryTime, parseList, parseTimeline, seasonOf, systemName } from "../src/providers/cyclones.js";
 import { cyclones } from "../src/tools/cyclones.js";
 import { alertePage } from "../src/web/alerte-cyclone.js";
+import { basinMap } from "../src/web/cyclones-bassin.js";
 import type { CyclonesAnswer } from "../src/web/data.js";
 import { cyclonesPage } from "../src/web/domains.js";
 import { CYCLONE_SCALE, vigilancePage } from "../src/web/pages.js";
@@ -128,11 +129,12 @@ describe("cyclones", () => {
     expect(body(r).officiel).toBe(OFFICIEL);
   });
 
-  it("shows on /cyclones no map and no figure of ours, and leads to Météo-France's site for the track", async () => {
+  it("shows on /cyclones no system on a map of ours and no figure of ours, and leads to Météo-France's site for the track", async () => {
     const value = body(await cyclones(cache(FYTIA), undefined, FYTIA)) as CyclonesAnswer;
     const page = cyclonesPage("https://rundata.re", { value, fetchedAt: FYTIA, stale: false }, FYTIA).replace(/&#39;/g, "'");
     expect(page).toContain('<p class="lead">Trajectoire et bulletins officiels : <a href="https://meteofrance.re/fr/cyclone" rel="noopener">consulter le site officiel de Météo-France</a>.</p>');
-    expect(page).not.toContain("<svg class=\"map ocean\"");
+    // The map of the basin, the same without a system.
+    expect(page.match(/<svg class="map ocean".*?<\/svg>/s)![0]).toBe(basinMap().replace(/&#39;/g, "'"));
     // The top of the page and the active systems; the past cyclones below keep the gusts their stations measured.
     const live = page.slice(0, page.indexOf('id="h-alerte"'));
     expect(live).not.toMatch(/Au plus près|Déplacement|Vent moyen|Cercles à 500|km au |rafales|hPa|Pression/);

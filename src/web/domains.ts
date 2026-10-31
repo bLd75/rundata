@@ -40,6 +40,7 @@ import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../trace
 import island from "../places/island.json" with { type: "json" };
 import * as mf from "../providers/vigilance.js";
 import { carteHtml } from "./cmrs-carte.js";
+import { basinMap, TRACES, TRACES_SCRIPT, TRACES_SOURCE, ZONE_SOURCE } from "./cyclones-bassin.js";
 import { hikesZoom } from "./carte-zoom.js";
 import { esc, fenetre, hikesMap, islandMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
 import { type Cle, COUNT_COLOR, legende } from "./carte-legende.js";
@@ -50,7 +51,7 @@ import { T as FERRY } from "../tools/ferries.js";
 import { BUILT as DAE_BUILT, DAES } from "../providers/dae.js";
 import DAE_LIST from "../dae/liste.json" with { type: "json" };
 import * as atmo from "../providers/atmo.js";
-import { anchorId, ask, credits, CYCLONE_SCALE, dayMonth, DESCRIPTION_MAX, empty, FOLD_ROWS, folded, hm, icon, ISLAND, layout, type Live, lue, readAt, SITE, vg } from "./pages.js";
+import { anchorId, ask, credits, CYCLONE_SCALE, dayMonth, DESCRIPTION_MAX, empty, FOLD_ROWS, folded, hm, icon, ISLAND, layout, type Live, lue, officielHtml, readAt, SITE, vg } from "./pages.js";
 import { pageOf, slugify } from "./places.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import { cycloneWater } from "./eau-cyclone.js";
@@ -2630,6 +2631,28 @@ function seasonTable(s: CyclonesAnswer["saison_en_cours"]): string {
     : `<p class="card">Aucun système pour le moment.</p>`;
 }
 
+/**
+ * The basin's map, without any system of the season (cyclones-bassin.ts), and the line that says where the systems
+ * are: none, with the past cyclones' tracks; or the RSMC's map above it, or Météo-France's site when that map is not
+ * shown here, and then no track at all.
+ */
+function basinFigure(d: CyclonesAnswer | undefined, active: number): string {
+  const s = active > 1;
+  const traces = !!d && !active;
+  const past = TRACES.map((t, i) => `<li><a href="/cyclones/${t.slug}"><span class="nb">${i + 1}</span> ${esc(t.nom_annee)}</a></li>`).join("");
+  const now = !d ? ""
+    : !active ? `<p><b>Aucun système dans le bassin en ce moment.</b> En traits numérotés, les cyclones passés dont les stations de Météo-France ont mesuré le passage\u00a0:</p><ol class="trcs">${past}</ol>`
+    : d.carte?.image ? `<p><b>${s ? "Des systèmes sont suivis" : "Un système est suivi"} par le CMRS\u00a0: <a href="#carte-cmrs">sa carte officielle est au-dessus</a>.</b></p>`
+    : `<p><b>${s ? "Des systèmes sont suivis" : "Un système est suivi"} par le CMRS\u00a0:</b> ${officielHtml(mf.OFFICIEL_CYCLONE)}</p>`;
+  const provisoire = TRACES.filter((t) => t.provisoire).map((t) => t.nom);
+  const sources = traces
+    ? `Traces\u00a0: positions données par le CMRS de La Réunion, d'après <a href="${TRACES_SOURCE.lien}" rel="noopener">NOAA IBTrACS</a>, consulté le ${TRACES_SOURCE.consulte.split("-").reverse().join("/")}` +
+      (provisoire.length ? `\u00a0; ${provisoire.length > 1 ? `celles de ${provisoire.join(", ")} sont encore provisoires` : `celle de ${provisoire[0]} est encore provisoire`}` : "") + ". Cette carte ne montre aucun système de la saison. "
+    : "Cette carte ne montre aucun système, ni sa position ni sa trajectoire. ";
+  return `<figure class="card bassin">${basinMap(traces)}<figcaption>${now}<p class="note">En pointillé, la zone suivie par le CMRS de La Réunion (Météo-France), de l'équateur à 40°\u00a0S et des côtes de l'Afrique à 90°\u00a0E (<a href="${ZONE_SOURCE}" rel="noopener">CMRS, présentation à l'OMM, 2017</a>). ` +
+    `${sources}Côtes\u00a0: Natural Earth (domaine public).</p></figcaption></figure>${traces ? `<script>${TRACES_SCRIPT}</script>` : ""}`;
+}
+
 export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/cyclones`;
@@ -2638,7 +2661,7 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
   const status = !d
     ? loading("Le suivi des cyclones")
     : `<div class="now"><span class="big">${active.length}</span><p>système${active.length > 1 ? "s" : ""} tropica${active.length > 1 ? "ux" : "l"} actif${active.length > 1 ? "s" : ""} dans le sud-ouest de l'océan Indien.</p></div>`;
-  // No map of ours: the official one is on Météo-France's site.
+  // No track of ours: the official map is on Météo-France's site, and above the basin's map while a system is active.
   const official = `<p class="lead">Trajectoire et bulletins officiels : <a href="${mf.OFFICIEL_CYCLONE}" rel="noopener">consulter le site officiel de Météo-France</a>.</p>`;
 
   const title = "Cyclone Réunion en ce moment : systèmes actifs, alerte · 974";
@@ -2664,6 +2687,7 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
   <p>${d ? esc(d.resume) : ""}</p></div>
   ${d ? active.map(activeCard).join("") : `<p class="card">Le suivi se charge : rechargez la page dans quelques secondes.</p>`}
   ${active.length ? carteHtml(d?.carte, now) : ""}
+  ${basinFigure(d, active.length)}
 </section>
 <section aria-labelledby="h-alerte">
   <div class="sec-h"><p class="eyebrow">Préfecture de La Réunion</p><h2 id="h-alerte">Les phases de l'alerte cyclonique</h2>

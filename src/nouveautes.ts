@@ -56,6 +56,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-31T04:26:00+04:00", texte: "Cyclones\u00a0: une carte du bassin, avec la zone que suit le CMRS de La Réunion et la trace des cyclones passés." },
   { date: "2026-10-31T04:02:00+04:00", texte: "Enfants\u00a0: sur la carte d'une commune, la bulle d'un lieu mène à sa fiche, à «\u00a0Y aller\u00a0» et au site du lieu." },
   { date: "2026-10-31T02:55:00+04:00", texte: "Cartes\u00a0: sous chaque carte de points, la légende dessine chaque marque et dit la source et l'heure de ce qu'elle montre." },
   { date: "2026-10-31T02:39:00+04:00", texte: "Sport\u00a0: le beach-volley a sa rubrique, avec les épreuves sur sable de la Ligue réunionnaise de volley-ball et leurs annulations." },
