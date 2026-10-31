@@ -28,7 +28,7 @@ import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import type { SourceInfo } from "../types.js";
 import { communesIn, strip } from "./avis-eau.js";
-import { annonceEvenement, extrait, lead, monthOf, statusOf, type Statut } from "./agenda-mots.js";
+import { annonceEvenement, avisDeService, extrait, lead, monthOf, statusOf, type Statut } from "./agenda-mots.js";
 import { SALLES, SOURCE as SALLES_SOURCE, TIMEOUT_MS, tokens } from "./salles.js";
 import { SOURCES as SPORT_SOURCES } from "./sport.js";
 import { PROPOSITIONS } from "./agenda-propositions.js";
@@ -1369,6 +1369,213 @@ export const SPORTSREGIONS: Agenda = {
     }),
 };
 
+// ---------------------------------------------------------------- The médiathèques of the East (CIREST)
+
+/**
+ * The CIREST, which runs the médiathèques of the East, publishes their programme as an article a month (« Médiathèque de
+ * Bras-Panon : planning de septembre 2026 »). Its legal notice (read on 31/10/2026): « Les textes […] peuvent être
+ * réutilisés pour tout usage en citant la source (www.cirest.fr) sans en modifier le sens ». Only Bras-Panon's and La
+ * Plaine-des-Palmistes's: Saint-Benoît's site forbids its reproduction, and its programme is not taken from the CIREST
+ * instead; Saint-André's comes with no programme of its own.
+ */
+export const CIREST_SOURCE: SourceInfo = {
+  id: "agenda_cirest",
+  nom: "Programmes des médiathèques de Bras-Panon et de La Plaine-des-Palmistes (CIREST)",
+  organisme: "CIREST",
+  licence: "Textes réutilisables pour tout usage en citant la source (www.cirest.fr), sans en modifier le sens (mentions légales de cirest.fr)",
+  attribution: "CIREST (www.cirest.fr)",
+  url: "https://www.cirest.fr/",
+};
+const CIREST_POSTS = "https://www.cirest.fr/wp-json/wp/v2/posts?search=m%C3%A9diath%C3%A8que&per_page=10&_fields=id,date,link,title,content";
+
+/** The médiathèques read, the words of a title that name each, and how its events name the place. */
+const MEDIATHEQUES: { commune: string; titre: RegExp; lieu: string }[] = [
+  { commune: "Bras-Panon", titre: /bras[\s-]panon/i, lieu: "Médiathèque de Bras-Panon" },
+  { commune: "La Plaine-des-Palmistes", titre: /plaine[\s-]des[\s-]palmistes|p(?:aulette|\.)\s*p[ée]gou/i, lieu: "Médiathèque Paulette Pégou" },
+];
+// A programme of several médiathèques, or of one whose site forbids its reproduction: none of its events.
+const AUTRES_MEDIATHEQUES = /saint[\s-]beno[iî]t|saint[\s-]andr[ée]|de l['’]est\b|minienpoull|roussin|lacaussade/i;
+
+// A line that starts with its day (« 🎨 Mercredi 9 septembre, de 14h à 16h », « 👉 Du 20 au 26 mai »), its hours after it.
+const LIGNE_DATEE = new RegExp(`^(?:${WEEKDAY}${DAY}|du\\s+${DAY}(?:\\s+${MONTH})?\\s+au\\s+${DAY})\\s+${MONTH}${YEAR}(?:\\s*,?\\s*(?:de\\s+|à\\s+)?\\d{1,2}\\s?h\\s?(?:\\d\\d)?(?:\\s*(?:à|a|-|–)\\s*\\d{1,2}\\s?h\\s?(?:\\d\\d)?)?)?`, "iu");
+// What a sentence of the programme says without a title of its own is shown under « Au programme de la médiathèque
+// Paulette Pégou », the sentence below it.
+export const cirestTitre = (lieu: string) => `Au programme de la ${lieu.charAt(0).toLowerCase()}${lieu.slice(1)}`;
+const TITRE_MAX = 90;
+
+/** A title made of the start of a line: its first sentence, cut at a comma when longer than TITRE_MAX. */
+function titreDe(texte: string): string {
+  let t = lead(texte).replace(/[.…]$/u, "");
+  if (t.length > TITRE_MAX) t = t.slice(0, t.indexOf(", ") > 0 ? t.indexOf(", ") : TITRE_MAX).trim();
+  return t.length > TITRE_MAX ? `${t.slice(0, TITRE_MAX - 1).replace(/\s+\S*$/, "")}…` : t;
+}
+
+interface CirestPost { id: number; date: string; link: string; title: { rendered: string }; content: { rendered: string } }
+
+/**
+ * A programme's events, the days today or later only:
+ * - a line that starts with its day and hours gives one, titled with what follows them on the line, or with the next
+ *   line when nothing does (« Mercredi 9 septembre, de 14h à 16h » « Peinture sur galets – dès 6 ans »);
+ * - in the prose of the article, each sentence that gives a day gives one, under cirestTitre(), the sentence as its
+ *   text, and the médiathèque as its place only when the sentence names it (« la Fête du Patrimoine, organisée du 20 au
+ *   22 septembre » is in the programme, not said to be at the médiathèque).
+ * A day without its year is the next after the article's publication (datesIn); a service's notice (« fermeture ») is
+ * never an event; an article that is not a programme or that names another médiathèque, nothing.
+ */
+export function parseCirest(posts: CirestPost[], now: Date): Evenement[] {
+  const today = localDay(now);
+  const avenir = (seances: Seance[]) => seances.filter((x) => (x.fin ?? x.debut).slice(0, 10) >= today);
+  return posts.flatMap((p) => {
+    const titre = clean(p.title.rendered);
+    const m = MEDIATHEQUES.filter((x) => x.titre.test(titre));
+    if (m.length !== 1 || !/m[ée]diath[èe]que/i.test(titre) || AUTRES_MEDIATHEQUES.test(titre) || avisDeService(titre)) return [];
+    const { commune, lieu } = m[0];
+    const published = new Date(`${p.date}+04:00`);
+    const lignes = p.content.rendered.split(/<\/(?:p|li|h\d|div)>|<br\s*\/?>/i).map(clean).filter(Boolean);
+    const out: Evenement[] = [];
+    const add = (seances: Seance[], titreEv: string, texte: string, ici = true) => {
+      const futures = avenir(seances);
+      if (!futures.length || avisDeService(texte)) return;
+      const statut = statusOf(titreEv, texte);
+      const { description, ...reste } = extrait(texte);
+      out.push({
+        ...(statut ? { statut } : {}),
+        id: `cirest:${p.id}:${out.length}`,
+        titre: titreEv,
+        seances: futures,
+        ...(ici ? { lieu } : {}),
+        commune,
+        categories: [],
+        ...(description && description.replace(/[.…]$/u, "") !== titreEv ? { description } : {}),
+        ...reste,
+        lien: p.link,
+        publie_par: "CIREST",
+      });
+    };
+    for (let i = 0; i < lignes.length; i++) {
+      const ligne = lignes[i];
+      const d = LIGNE_DATEE.exec(ligne);
+      if (d) {
+        let suite = ligne.slice(d[0].length).replace(/^[\s,:–—-]+/u, "");
+        if (!suite && i + 1 < lignes.length && !LIGNE_DATEE.test(lignes[i + 1])) suite = lignes[++i];
+        if (suite) add(datesIn(d[0], published), titreDe(suite), suite);
+        continue;
+      }
+      for (const phrase of ligne.split(/(?<=[.!?…])\s+(?=\p{Lu})/u)) add(datesIn(phrase, published), cirestTitre(lieu), phrase, /m[ée]diath[èe]que/i.test(phrase));
+    }
+    return out;
+  });
+}
+
+/** Read by the scheduled event every six hours: a programme is published once a month. */
+export const CIREST: Agenda = {
+  id: "cirest",
+  nom: "Médiathèques de Bras-Panon et de La Plaine-des-Palmistes",
+  source: CIREST_SOURCE,
+  couvre: MEDIATHEQUES.map((x) => x.commune),
+  planifie: true,
+  relecture: 6 * 3600,
+  credit: "CIREST, www.cirest.fr",
+  load: (cache, now) => cache.get("agenda:cirest", 6 * 3600, async () => parseCirest(JSON.parse(await getText(CIREST_SOURCE.id, CIREST_POSTS, TIMEOUT_MS, HEADERS)), now)),
+};
+
+// ---------------------------------------------------------------- The Département's agenda (departement974.fr)
+
+/**
+ * The mention its legal notice makes compulsory (read on 31/10/2026): its public information « peut être reproduite
+ * librement » without any change, with this mention and a link to the page it comes from.
+ */
+export const DEPARTEMENT_MENTION = "©\u00a0www.departement974.fr - Département de La Réunion";
+export const DEPARTEMENT_SOURCE: SourceInfo = {
+  id: "agenda_departement",
+  nom: "Agenda du Département de La Réunion",
+  organisme: "Département de La Réunion",
+  licence: `Information publique, reproduction libre sans modification avec la mention «\u00a0${DEPARTEMENT_MENTION}\u00a0» et un lien vers la page (mentions légales de departement974.fr)`,
+  attribution: DEPARTEMENT_MENTION,
+  url: "https://www.departement974.fr/agenda",
+};
+const DEPARTEMENT = "https://www.departement974.fr";
+/** The pages of its events read at most, beside its list: each gives the place, the hours and the price. */
+export const DEPARTEMENT_PAGES = 6;
+
+/** Its list: each event's link, its days as it writes them (« 23 mai 2026 - 22 mai 2027 ») and its title. */
+export function departementListe(html: string): { lien: string; quand: string; titre: string }[] {
+  return html.split(/(?=<article\b)/).filter((a) => a.startsWith("<article")).flatMap((a) => {
+    const about = /\babout="(\/agenda\/[^"]+)"/.exec(a)?.[1];
+    const quand = /<span class="[^"]*\bdate\b[^"]*">([\s\S]*?)<\/span>/.exec(a)?.[1];
+    const titre = /<h3[^>]*>([\s\S]*?)<\/h3>/.exec(a)?.[1];
+    return about && quand && titre ? [{ lien: `${DEPARTEMENT}${about}`, quand: clean(quand), titre: clean(titre) }] : [];
+  });
+}
+
+/** An event's page: its place, its hours (« 08H30 - 16H30 ») and its price, as the page's boxes give them. */
+export function departementFiche(html: string): { lieu?: string; heures?: string; prix?: string } {
+  const box = (icon: string) => new RegExp(`icon-${icon}"[^>]*>\\s*</i>([\\s\\S]*?)</li>`).exec(html)?.[1];
+  const lieu = clean(box("location") ?? "") || undefined;
+  const heures = clean(box("clock") ?? "") || undefined;
+  const prix = clean(box("coins") ?? "") || undefined;
+  return { lieu, heures, prix };
+}
+
+/**
+ * The Département's events, the days today or later: their title as it writes it, the days, and from their page the
+ * place, the hours (on each day of one that lasts a day) and the price; never their text, which may not be changed. The
+ * commune is the place's, else the one of its address (« Adresse : 28 Rue de Paris - 97400 Saint-Denis »).
+ */
+export function parseDepartement(liste: ReturnType<typeof departementListe>, fiches: Map<string, string>, now: Date): Evenement[] {
+  const today = localDay(now);
+  return liste.flatMap((it) => {
+    const seances = datesIn(it.quand, now).filter((x) => (x.fin ?? x.debut).slice(0, 10) >= today);
+    if (!seances.length) return [];
+    const page = fiches.get(it.lien);
+    const { lieu, heures, prix } = page ? departementFiche(page) : {};
+    const adresse = page && /Adresse\s*:\s*([^<\n]{5,120})/.exec(page)?.[1];
+    const h = heures && /(\d{1,2})H(\d\d)?\s*-\s*(\d{1,2})H(\d\d)?/i.exec(heures);
+    const hm = (hh: string, mm?: string) => `${hh.padStart(2, "0")}:${mm ?? "00"}`;
+    const jours = h && seances.every((x) => !x.fin) ? seances.map((x) => ({ debut: `${x.debut}T${hm(h[1], h[2])}`, fin: `${x.debut}T${hm(h[3], h[4])}` })) : seances;
+    const statut = statusOf(it.titre);
+    return [{
+      ...(statut ? { statut } : {}),
+      id: it.lien,
+      titre: it.titre,
+      seances: jours,
+      ...(lieu ? { lieu } : {}),
+      commune: communeOf(lieu) ?? (adresse ? communesIn(adresse)[0] : undefined),
+      ...(prix ? { prix } : {}),
+      categories: [],
+      lien: it.lien,
+      publie_par: "Département de La Réunion",
+    }];
+  });
+}
+
+/** Read by the scheduled event twice a day: its list, then the pages of its first DEPARTEMENT_PAGES events to come. */
+export const DEPARTEMENT_AGENDA: Agenda = {
+  id: "departement",
+  nom: "Département de La Réunion",
+  source: DEPARTEMENT_SOURCE,
+  requetes: 1 + DEPARTEMENT_PAGES,
+  planifie: true,
+  relecture: 12 * 3600,
+  credit: DEPARTEMENT_MENTION,
+  faits: true,
+  load: (cache, now) => cache.get("agenda:departement", 12 * 3600, async () => {
+    const liste = departementListe(await getText(DEPARTEMENT_SOURCE.id, DEPARTEMENT_SOURCE.url, TIMEOUT_MS, HEADERS));
+    const today = localDay(now);
+    const lus = liste.filter((it) => datesIn(it.quand, now).some((x) => (x.fin ?? x.debut).slice(0, 10) >= today)).slice(0, DEPARTEMENT_PAGES);
+    // One after the other: a page that does not answer leaves its event without its place, not the others.
+    const fiches = new Map<string, string>();
+    for (const it of lus) {
+      try {
+        fiches.set(it.lien, await getText(DEPARTEMENT_SOURCE.id, it.lien, TIMEOUT_MS, HEADERS));
+      } catch (err) {
+        console.warn(`agenda departement : page ${it.lien} illisible, l'événement sans son lieu`, err instanceof Error ? err.message : err);
+      }
+    }
+    return parseDepartement(lus, fiches, now);
+  }),
+};
+
 // The terms of each commune's site, read on 25/10/2026: those that ask for an authorisation to reproduce it (`faits`),
 // those that allow a link to their home page only (`accueil`).
 /** Every agenda that can be read, before the communes' authorisations (AGENDAS). */
@@ -1390,6 +1597,8 @@ export const LISIBLES: Agenda[] = [
   { ...brasPanon, site_commune: "site de la commune de Bras-Panon", faits: true },
   { ...saintBenoit, site_commune: "site de la commune de Saint-Benoît", faits: true, programmes: true },
   otiEst,
+  CIREST,
+  DEPARTEMENT_AGENDA,
   openAgenda("cinor", "CINOR", 50316469, NORD),
   openAgenda("oti_nord", "Office de tourisme du Nord", 32570974, NORD),
   LIGUE_VOLLEY,

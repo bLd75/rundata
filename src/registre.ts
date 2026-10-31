@@ -900,6 +900,10 @@ export function budget(entries = REGISTRY): string {
     `| contrôle | valeur | limite |\n|---|---:|---:|\n` +
     checks(entries).map((c) => `| ${c.what} | ${n(c.value)} | ${n(c.limit)} |`).join("\n") + `\n\n` +
     `- Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).\n` +
+    // Past 85 % of its limit, the margin left is said, with the rule that keeps it (decided on 31/10/2026).
+    (worst.subrequests > 0.85 * SCHEDULED_BUDGET
+      ? `- Marge : le pire passage planifié est à ${n(worst.subrequests)} sous-requêtes sur ${n(SCHEDULED_BUDGET)}. Une PR qui ajoute des sous-requêtes à la tâche planifiée en retire ou en étale d'abord autant (une cadence plus longue, un autre décalage), pour qu'il ne monte plus.\n`
+      : "") +
     `- Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (${scheduled(entries).filter((e) => e.run.memoryMb).map((e) => `${e.id}, ${n(e.run.memoryMb)} Mo au pic`).join(", ")}), face aux ${n(ISOLATE_MEMORY_MB)} Mo d'un isolat\u00a0; les autres ne la déclarent pas.\n` +
     `- Passage le plus chargé selon les décalages, cadences habituelles : ${hhmm(usual.minute)} UTC, ${n(usual.run.subrequests)} sous-requêtes (${usual.ids.join(", ")}).\n` +
     `- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : ${hhmm(short.minute)} UTC, ${n(short.run.subrequests)} sous-requêtes (${short.ids.join(", ")}).\n` +

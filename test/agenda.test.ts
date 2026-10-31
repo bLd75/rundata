@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PAGE_BUDGET, SCHEDULED_BUDGET, count, counted, left, scheduled } from "../src/budget.js";
 import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.js";
-import { ACTUS_MAIRIES, AGENDAS, COVERED, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
+import { ACTUS_MAIRIES, AGENDAS, CIREST, COVERED, DEPARTEMENT_AGENDA, DEPARTEMENT_PAGES, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, departementListe, parseCirest, parseDepartement, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
 import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
 import { agenda, COUVERTURE, type EventRow, gather, MAIRIES_LUES, periode, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
@@ -63,6 +63,11 @@ function file(url: string, form?: string): string | undefined {
   if (url.includes("braspanon")) return url.endsWith("/2026/11") ? "bras-panon_2026-11.html" : url.endsWith("/2026/10") ? "bras-panon_2026-10.html" : undefined;
   if (url.includes("saint-benoit")) return "saint-benoit.html";
   if (url.includes("reunionest")) return "oti-est.html";
+  // The CIREST's articles naming a médiathèque, and the Département's agenda with the pages of its two events, read on
+  // 31/10/2026 at 15:40 and 15:47.
+  if (url.includes("cirest.fr")) return "cirest_mediatheques.json";
+  if (url.includes("departement974.fr/agenda/")) return `departement_${url.split("/agenda/")[1]}.html`;
+  if (url.endsWith("departement974.fr/agenda")) return "departement_agenda.html";
   if (url.includes("50316469")) return "openagenda_cinor.json";
   if (url.includes("32570974")) return "openagenda_otnord.json";
   // The clubs' calendar on Sunday 25/10/2026: four pages.
@@ -167,7 +172,7 @@ describe("agenda", () => {
       expect(before.indisponible).toBeUndefined();
       expect(before.non_lus).toContain("Ligue réunionnaise de volley-ball : première lecture dans quelques minutes");
       expect(titles(before)).not.toContain(KING);
-      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["salazie", "lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(await refreshPlanned(at(), NOW)).toEqual({ lus: ["salazie", "cirest", "departement", "lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
       expect(urls.filter(isLeague)).toHaveLength(1);
       // Another isolate serves it, with the time it was read.
       const after = body(await agenda(at(), undefined, undefined, "King", NOW));
@@ -240,7 +245,7 @@ describe("agenda", () => {
       // its list of articles: a reading, which replaces their copy.
       t += 49 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", ...MAIRIES, "sportsregions"], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", "cirest", "departement", ...MAIRIES, "sportsregions"], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
       expect(await entry(store)).toEqual(second);
     });
 
@@ -337,7 +342,7 @@ describe("agenda", () => {
         count(left() - 5); // what the scheduled event did before: 5 left, KEEP_LEFT 4 of them
         return refreshPlanned(new Cache(store, () => NOW.getTime()), NOW);
       });
-      expect(value).toEqual({ lus: [], gardes: [], reportes: ["salazie", "lrvb", ...MAIRIES, "sportsregions"], trop_vieilles: [] });
+      expect(value).toEqual({ lus: [], gardes: [], reportes: ["salazie", "cirest", "departement", "lrvb", ...MAIRIES, "sportsregions"], trop_vieilles: [] });
       expect(urls).toEqual([]);
       expect(store.puts).toBe(0);
     });
@@ -508,22 +513,22 @@ describe("agenda", () => {
           return super.put(key, e);
         }
       }
-      // 22 left: the bundle's read, Salazie's agenda, the league's page, the mairies' nine readings, the four pages, the
-      // write, and KEEP_LEFT (4) still left.
+      // 26 left: the bundle's read, Salazie's agenda, the CIREST's articles, the Département's list and its two events'
+      // pages, the league's page, the mairies' nine readings, the four pages, the write, and KEEP_LEFT (4) still left.
       const both = await counted(PAGE_BUDGET, async () => {
-        count(left() - 22);
+        count(left() - 26);
         const out = await refreshPlanned(new Cache(new Kv(), () => NOW.getTime()), NOW);
         return { out, left: left() };
       });
-      expect(both.value.out).toEqual({ lus: ["salazie", "lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
+      expect(both.value.out).toEqual({ lus: ["salazie", "cirest", "departement", "lrvb", ...MAIRIES, "sportsregions"], gardes: [], reportes: [], trop_vieilles: [] });
       expect(both.value.left).toBe(5);
       // One fewer: the league and the mairies only, the clubs' calendar at a later run (its copy served meanwhile).
       urls = [];
       const one = await counted(PAGE_BUDGET, async () => {
-        count(left() - 21);
+        count(left() - 25);
         return refreshPlanned(new Cache(new Kv(), () => NOW.getTime()), NOW);
       });
-      expect(one.value).toEqual({ lus: ["salazie", "lrvb", ...MAIRIES], gardes: [], reportes: ["sportsregions"], trop_vieilles: [] });
+      expect(one.value).toEqual({ lus: ["salazie", "cirest", "departement", "lrvb", ...MAIRIES], gardes: [], reportes: ["sportsregions"], trop_vieilles: [] });
       expect(urls.filter((u) => u.includes("sportsregions"))).toEqual([]);
       vi.mocked(console.log).mockRestore();
     });
@@ -718,6 +723,60 @@ describe("agenda", () => {
     // Over two days: the days, without the hour of the first.
     expect(oct.find((e) => e.titre === "1er Rally National Grand Est")!.seances).toEqual([{ debut: "2026-10-24", fin: "2026-10-25" }]);
     expect(parseBrasPanon(fixture("bras-panon_2026-11.html"), NOW).find((e) => e.titre === "Nout' Marché de Nuit à Bras-Panon")!.seances).toEqual([{ debut: "2026-11-10T17:00", fin: "2026-11-10T22:30" }]);
+  });
+
+  it("reads the CIREST's programmes of Bras-Panon's and La Plaine-des-Palmistes's médiathèques, and no other", () => {
+    // Articles made up in the shapes the CIREST writes them: a line per workshop, its day and hours first, or prose.
+    const post = (id: number, titre: string, content: string, date = "2026-10-20T09:00:00") => ({ id, date, link: `https://www.cirest.fr/article-${id}/`, title: { rendered: titre }, content: { rendered: content } });
+    const posts = [
+      post(1, "Médiathèque de Bras-Panon : planning de novembre 2026", [
+        "<p>En novembre, la médiathèque propose des ateliers gratuits.</p>",
+        "<p>🎨 <strong>Mercredi 4 novembre, de 14h à 16h</strong>Collage de feuilles – dès 5 ans</p>",
+        "<p>📚 <strong>Samedi 14 novembre, de 9h30 à 11h</strong></p><p>Heure du conte – de 3 à 6 ans</p>",
+        "<p>✍️ <strong>Mercredi 21 octobre, de 14h à 15h</strong>Atelier passé – dès 8 ans</p>",
+        "<p>Le vendredi 20 novembre, de 18h à 19h30, la médiathèque accueille une lecture à voix haute. Le marché de Noël se tient du 12 au 13 décembre sur la place.</p>",
+      ].join("")),
+      post(2, "Médiathèques de Saint-Benoît : planning de novembre 2026", "<p>🎨 <strong>Mercredi 4 novembre, de 14h à 16h</strong>Peinture – dès 6 ans</p>"),
+      post(3, "Les médiathèques de l’Est invitent les familles", "<p>Le samedi 7 novembre, de 10h à 12h, jeux à Bras-Panon et à La Plaine-des-Palmistes.</p>"),
+      post(4, "Médiathèque de la Plaine des Palmistes : fermeture le 11 novembre 2026", "<p>La médiathèque sera fermée le mercredi 11 novembre.</p>"),
+      post(5, "Programme de novembre 2026 de la Médiathèque Paulette Pégou", "<p>👉 Mardi 10 novembre<br>Une lecture contée pour les tout-petits et leurs parents.</p>"),
+      post(6, "Grande collecte de jouets", "<p>Le samedi 7 novembre, à la médiathèque de Bras-Panon.</p>"),
+    ];
+    const read = parseCirest(posts, NOW);
+    expect(read.map((e) => e.titre)).toEqual(["Collage de feuilles – dès 5 ans", "Heure du conte – de 3 à 6 ans", "Au programme de la médiathèque de Bras-Panon", "Au programme de la médiathèque de Bras-Panon", "Une lecture contée pour les tout-petits et leurs parents"]);
+    // A line: its day and hours, what follows them as its title, the age it gives (a child's outing); the article's link.
+    expect(read[0]).toEqual({ id: "cirest:1:0", titre: "Collage de feuilles – dès 5 ans", seances: [{ debut: "2026-11-04T14:00", fin: "2026-11-04T16:00" }], lieu: "Médiathèque de Bras-Panon", commune: "Bras-Panon", categories: [], themes: ["enfants"], age: "dès 5 ans", lien: "https://www.cirest.fr/article-1/", publie_par: "CIREST" });
+    // Nothing after the day and hours: the next line is the title.
+    expect(read[1]).toMatchObject({ seances: [{ debut: "2026-11-14T09:30", fin: "2026-11-14T11:00" }], age: "de 3 à 6 ans" });
+    // A sentence of the prose, under the médiathèque's programme: at the médiathèque only when it says so.
+    expect(read[2]).toMatchObject({ seances: [{ debut: "2026-11-20T18:00", fin: "2026-11-20T19:30" }], lieu: "Médiathèque de Bras-Panon", description: "Le vendredi 20 novembre, de 18h à 19h30, la médiathèque accueille une lecture à voix haute." });
+    expect(read[3]).toMatchObject({ seances: [{ debut: "2026-12-12", fin: "2026-12-13" }], commune: "Bras-Panon" });
+    expect(read[3].lieu).toBeUndefined();
+    expect(read[4]).toMatchObject({ seances: [{ debut: "2026-11-10" }], lieu: "Médiathèque Paulette Pégou", commune: "La Plaine-des-Palmistes" });
+    // Saint-Benoît's, the East's, a closure, an article that is not a médiathèque's programme, a past day: nothing.
+    expect(read.some((e) => /cirest\.fr\/article-[2346]\//.test(e.lien) || e.seances.some((x) => x.debut < "2026-10-24"))).toBe(false);
+    expect(CIREST).toMatchObject({ planifie: true, relecture: 6 * 3600, couvre: ["Bras-Panon", "La Plaine-des-Palmistes"], credit: "CIREST, www.cirest.fr" });
+    expect(AGENDAS).toContain(CIREST);
+  });
+
+  it("reads the Département's agenda: its list, then each event's page for its place, hours and price, never its text", () => {
+    const item = (slug: string, quand: string, titre: string) => `<article data-history-node-id="1" role="article" about="/agenda/${slug}"><li><a href="/agenda/${slug}"><span class="accent date">${quand}</span></a><a href="/agenda/${slug}"><h3 class="h3">${titre}</h3></a></li></article>`;
+    const liste = departementListe(`<main>${item("expo", "23 mai 2026\n - 22 mai 2027", "Exposition : « L’art d’ici »")}${item("conference", "12 novembre 2026", "Conférence du jeudi")}${item("passee", "3 octobre 2026", "Journée passée")}</main>`);
+    expect(liste.map((x) => x.lien)).toEqual(["https://www.departement974.fr/agenda/expo", "https://www.departement974.fr/agenda/conference", "https://www.departement974.fr/agenda/passee"]);
+    const box = (icon: string, inner: string) => `<li class="h3"><i class="icon icon-${icon}" aria-label="x"></i>${inner}</li>`;
+    const fiches = new Map([
+      ["https://www.departement974.fr/agenda/expo", `${box("location", "<span><div>Musée de la ville </div></span>")}${box("clock", "<span>09H00</span><span>&nbsp;- 16H30</span>")}<p>Adresse : 1 rue de la Source - 97400 Saint-Denis</p><p>Un long texte.</p>`],
+      ["https://www.departement974.fr/agenda/conference", `${box("location", "<span><div>Saint-Pierre</div></span>")}${box("clock", "<span>18H00</span><span>&nbsp;- 19H30</span>")}${box("coins", "<span>gratuit</span>")}`],
+    ]);
+    const read = parseDepartement(liste, fiches, NOW);
+    // Days of a span without the hours of each; the commune from the address when the place names none.
+    expect(read[0]).toEqual({ id: "https://www.departement974.fr/agenda/expo", titre: "Exposition : « L’art d’ici »", seances: [{ debut: "2026-05-23", fin: "2027-05-22" }], lieu: "Musée de la ville", commune: "Saint-Denis", categories: [], lien: "https://www.departement974.fr/agenda/expo", publie_par: "Département de La Réunion" });
+    expect(read[1]).toMatchObject({ seances: [{ debut: "2026-11-12T18:00", fin: "2026-11-12T19:30" }], lieu: "Saint-Pierre", commune: "Saint-Pierre", prix: "gratuit" });
+    expect(read).toHaveLength(2);
+    expect(read.every((e) => e.description === undefined)).toBe(true);
+    // Its mention, compulsory, with each event, which links to its own page; its text never shown.
+    expect(DEPARTEMENT_AGENDA).toMatchObject({ planifie: true, faits: true, credit: "©\u00a0www.departement974.fr - Département de La Réunion", requetes: 1 + DEPARTEMENT_PAGES });
+    expect(AGENDAS).toContain(DEPARTEMENT_AGENDA);
   });
 
   it("reads Saint-Benoît's events, the days without their year, and leaves out those without a date", () => {
