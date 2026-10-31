@@ -2794,9 +2794,9 @@ const pct = (x?: string) => (x ? Number.parseInt(x, 10) : undefined);
 const RAIN_LOW = 80;
 const RAIN_HIGH = 125;
 const RAIN_CLASSES = [
-  { couleur: "#ff922b", texte: "40 %", dit: `moins de ${RAIN_LOW}\u00a0%\u00a0: nettement moins que la normale` },
-  { couleur: "#69db7c", texte: "100 %", dit: `de ${RAIN_LOW} à ${RAIN_HIGH}\u00a0%\u00a0: proche de la normale` },
-  { couleur: "#4dabf7", texte: "160 %", dit: `plus de ${RAIN_HIGH}\u00a0%\u00a0: nettement plus que la normale` },
+  { couleur: "#ff922b", texte: "40\u00a0%", dit: `moins de ${RAIN_LOW}\u00a0%\u00a0: nettement moins que la normale` },
+  { couleur: "#69db7c", texte: "100\u00a0%", dit: `de ${RAIN_LOW} à ${RAIN_HIGH}\u00a0%\u00a0: proche de la normale` },
+  { couleur: "#4dabf7", texte: "160\u00a0%", dit: `plus de ${RAIN_HIGH}\u00a0%\u00a0: nettement plus que la normale` },
 ];
 const rainClass = (x: number) => RAIN_CLASSES[x < RAIN_LOW ? 0 : x > RAIN_HIGH ? 2 : 1];
 /** A bar of the rain against the normal: 100 % is the normal; its colour is the class of the station's ratio. */
@@ -2820,8 +2820,8 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
     const x = pct(r.pluie?.rapport_a_la_normale);
     // The station's name in the bubble only (quiet), as on the other maps of measures: written under a point by the
     // coast, « Pointe des Trois-Bassins » ran past the map's left edge at 1280.
-    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: rainClass(x).couleur, ink: COUNT_COLOR, quiet: true,
-      say: `${x} % de la pluie normale en 30 jours`, href: `#${anchorId("s", r.station)}` }];
+    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x}\u00a0%`, name: r.station, color: rainClass(x).couleur, ink: COUNT_COLOR, quiet: true,
+      say: `${x}\u00a0% de la pluie normale en 30\u00a0jours`, href: `#${anchorId("s", r.station)}` }];
   });
 
   const status = !d
