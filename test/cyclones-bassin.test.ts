@@ -6,6 +6,7 @@ import { carteHtml } from "../src/web/cmrs-carte.js";
 import traces from "../src/historique/cyclones-traces.json" with { type: "json" };
 import { basinMap, label, TRACES, TRACES_SCRIPT, xy, ZONE_SOURCE } from "../src/web/cyclones-bassin.js";
 import { cyclonesPage } from "../src/web/domains.js";
+import { CSS } from "../src/web/pages.js";
 import ocean from "../src/web/ocean.json" with { type: "json" };
 
 const O = "https://rundata.re";
@@ -84,6 +85,8 @@ describe("the map of the basin on /cyclones", () => {
       expect(f).toMatch(/(?:<\/p>|<\/ol>)<details class="note"><summary>Sources<\/summary><p>En pointillé, la zone suivie par le CMRS .*Côtes\u00a0: Natural Earth \(domaine public\)\.<\/p><\/details><\/figcaption>$/s);
       expect(f.slice(f.indexOf("<figcaption>"), f.indexOf("<details"))).not.toMatch(/En pointillé|Natural Earth|Licence Ouverte/);
     }
+    // A marker says it opens, as on the folds of the cards: ▸ folded, ▾ open, in the summary's grey.
+    expect(CSS).toContain('.bassin figcaption summary::after{content:"\\a0▸"}.bassin figcaption details[open]>summary::after{content:"\\a0▾"}');
   });
 
   it("sends to Météo-France's site when the RSMC's map is not shown", () => {
