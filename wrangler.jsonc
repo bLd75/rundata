@@ -26,7 +26,7 @@
     { "binding": "CLIMAT_H", "database_name": "rundata-climat-h", "database_id": "51deb91a-028e-452c-b61b-09db74fc1730" },
     // The feedback of the tool donner_avis and of the site's form (src/avis.ts): the table `avis` of scripts/avis.sql,
     // next to the timetables, which never touch it. And what the clubs send (src/propositions.ts): the tables `liens`
-    // and `propositions` of scripts/propositions.sql.
+    // and `propositions` of scripts/propositions.sql, and the clubs' own space (src/clubs/espace.ts): scripts/clubs.sql.
     { "binding": "AVIS", "database_name": "rundata-transports", "database_id": "5e304e2c-24c6-4dff-a6e7-ab674bb84016" }
   ],
   // Cloudflare Email Sending (Workers Paid, domain rundata.re onboarded): the confirmation link of the events the clubs

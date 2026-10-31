@@ -38,7 +38,7 @@ export const TURNSTILE_SITEKEY = "0x4AAAAAAFlHv_IRLDHVZqlo";
 const SITEVERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
 /** The form a widget is on, given to Cloudflare as its action (`data-action`) and checked back with the token. */
-export type FormAction = "lien" | "proposer" | "relier";
+export type FormAction = "lien" | "proposer" | "relier" | "club";
 /** What the token must have been made for: this site's host, and the form it is posted with. */
 export interface Attendu {
   hostname: string;
