@@ -27,6 +27,13 @@ describe("the rate limit, per address", () => {
     for (const r of [req("/mcp", "GET"), req("/mcp/", "GET"), req("/avis", "GET"), req("/associations"), req("/csp-rapport"), req("/volcan", "GET")]) expect(sorteDe(r)).toBeUndefined();
   });
 
+  it("counts the request of a club's link on any method, the club's other pages in GET not", () => {
+    for (const m of ["GET", "HEAD", "POST"]) expect(sorteDe(req("/associations/club/demande", m)), m).toBe("formulaire");
+    for (const p of ["/associations/club", "/associations/club/acces/Zq8sJ3kLw0vN5xYb2mR7tA", "/associations/club/Zq8sJ3kLw0vN5xYb2mR7tA"]) {
+      for (const m of ["GET", "HEAD"]) expect(sorteDe(req(p, m)), `${m} ${p}`).toBeUndefined();
+    }
+  });
+
   it("answers 429 with Retry-After past the threshold: JSON-RPC with CORS on /mcp, a sentence on a form", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const mcp = compteur(2);

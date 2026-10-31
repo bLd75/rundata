@@ -110,6 +110,7 @@ import { pageOf, PAGES } from "./places.js";
 import { pressePage, pressFigures, toolCount } from "./presse.js";
 import { avisPost } from "./avis.js";
 import * as connecteurs from "./connecteurs.js";
+import * as espaceClub from "./club.js";
 import * as formulaires from "./propositions.js";
 import * as dae from "../providers/dae.js";
 import * as traces from "../providers/traces.js";
@@ -431,6 +432,13 @@ async function pages(request: Request, cache: Cache, background: Background, now
       if (path === connecteurs.RELIER_PATH || path === `${connecteurs.RELIER_PATH}/`) return connecteurs.relier(request, now, await alerte(cache, background, now));
       if (path === connecteurs.CONFIRMER_PATH) return connecteurs.confirmerRelier(request, now, await alerte(cache, background, now));
       if (path.startsWith(connecteurs.CONNEXION_PATH)) return connecteurs.connexion(request, now, await alerte(cache, background, now), () => rafraichirConnecteurs(cache, now));
+    }
+    // The clubs' own space (web/club.ts), once its directory is read and « Mon agenda » publishes.
+    if (espaceClub.enLigne()) {
+      if (path === espaceClub.CLUB_PATH || path === `${espaceClub.CLUB_PATH}/`) return espaceClub.trouver(request, await alerte(cache, background, now));
+      if (path === espaceClub.DEMANDE_PATH) return espaceClub.demande(request, cache, now, await alerte(cache, background, now));
+      if (path.startsWith(espaceClub.ACCES_PATH)) return espaceClub.acces(request, now, await alerte(cache, background, now));
+      if (path.startsWith(espaceClub.ESPACE_PATH)) return espaceClub.monAgenda(request, now, await alerte(cache, background, now));
     }
   }
   if (path === "/") {

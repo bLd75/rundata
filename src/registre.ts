@@ -481,6 +481,29 @@ const SCHEDULED: Entry[] = [
     from: [],
     basis: "estimé",
   },
+  // The clubs' own space (clubs/espace.ts): the daily run asks D1 when MonClub's map was read last, and reads it again
+  // when that is 6 and a half days old, so once a week: the home page (about 2.2 Mo, the map an escaped GeoJSON in it),
+  // its 37 clubs of the island written in one statement, those gone marked in another.
+  {
+    id: "clubs:annuaire",
+    trigger: "planifiée",
+    what: "espace club : les clubs de handball de l'île, relus une fois par semaine sur la carte de MonClub (environ 2,2 Mo), à 04:00 heure de La Réunion",
+    every: 7 * 24 * 60,
+    offset: 0,
+    run: { subrequests: 4, d1Calls: 3, d1RowsRead: 40, d1RowsWritten: 40, cpuMs: 60, memoryMb: 10 },
+    from: ["src/clubs/monclub.ts"],
+    basis: "code",
+  },
+  {
+    id: "clubs:purge",
+    trigger: "planifiée",
+    what: "espace club : la purge quotidienne (D1), à 04:00 heure de La Réunion",
+    every: 24 * 60,
+    offset: 0,
+    run: { subrequests: 3, d1Calls: 3, d1RowsWritten: 5, cpuMs: 2 },
+    from: [],
+    basis: "estimé",
+  },
   {
     id: "connecteurs:purge",
     trigger: "planifiée",
@@ -511,7 +534,7 @@ interface Page {
   cpuMs: number;
   from: string[];
   what?: string;
-  d1?: Pick<Run, "d1Calls" | "d1RowsRead">;
+  d1?: Pick<Run, "d1Calls" | "d1RowsRead" | "d1RowsWritten">;
   /** "mesuré" unless said: a page too new to have been measured is counted from its code. */
   basis?: Basis;
 }
@@ -607,6 +630,15 @@ const OTHER_PAGES: Record<string, Page> = {
   // associations that chose the open data (D1, one row each, the second read only once the connectors are on) and the
   // copy written, kept 5 minutes; no header, no source.
   "/associations/evenements.*": { subrequests: 4, cpuMs: 20, from: ["src/web/flux-associations.ts"], d1: { d1Calls: 2, d1RowsRead: 200 }, what: "les flux ouverts des événements proposés et de ceux des associations reliées qui l'ont choisi (JSON, ICS) : la copie du centre de données, sinon D1, 5 minutes", basis: "estimé" },
+  // The clubs' own space (web/club.ts), before its flag: the header's reads as any page, and the clubs proposed (D1).
+  "/associations/club": { subrequests: 8, cpuMs: 30, from: [], d1: { d1Calls: 1, d1RowsRead: 40 }, what: "espace club, écran 1 : les clubs dont une source publique donne l'adresse officielle (D1)", basis: "code" },
+  // The club (D1) and its address read on its MonClub page, only its mask kept 10 minutes (the data center's cache);
+  // to send, Turnstile, the caps counted and the trace written, the address read again, the link written, the e-mail.
+  "/associations/club/demande": { subrequests: 15, cpuMs: 40, from: ["src/web/club.ts"], d1: { d1Calls: 3, d1RowsRead: 4, d1RowsWritten: 4 }, what: "espace club, écran 2 : l'adresse officielle lue sur la fiche MonClub du club et masquée, le masque gardé 10 minutes dans le cache ; à l'envoi, les plafonds comptés (D1), l'adresse relue, puis le lien envoyé par e-mail", basis: "code" },
+  // The e-mailed link found by its hash; its button uses it, draws the personal link and dates the verification.
+  "/associations/club/acces/*": { subrequests: 13, cpuMs: 20, from: [], d1: { d1Calls: 6, d1RowsRead: 2, d1RowsWritten: 4 }, what: "espace club, écran 3 : le lien reçu par e-mail, et « Ouvrir mon espace » (D1)", basis: "code" },
+  // The personal link found by its hash, its use dated once a day.
+  "/associations/club/*": { subrequests: 10, cpuMs: 20, from: [], d1: { d1Calls: 3, d1RowsRead: 1, d1RowsWritten: 2 }, what: "espace club, « Mon agenda » derrière le lien personnel (D1)", basis: "code" },
   "/sites-sans-reponse": { subrequests: 9, cpuMs: 40, from: ["src/sans-reponse.ts"], d1: SANS_REPONSE_D1, what: "les sites publics sans réponse (D1), avec la vigilance et la version de l'en-tête", basis: "code" },
   // The header's reads as any page, and the copy of the mobile sites out of service (KV, behind the data center's cache);
   // the map and the table bundled, built at the isolate's first view.
