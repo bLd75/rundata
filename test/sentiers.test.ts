@@ -1,15 +1,14 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { avisDuJour, duJour, parseRoads, parseTrails } from "../src/providers/sentiers.js";
+import { motifs, nuance, parseRoads, parseTrails } from "../src/providers/sentiers.js";
 import { sentiersRandonnee, trailsNamed } from "../src/tools/sentiers.js";
-import type { SentiersAnswer } from "../src/web/data.js";
+import { buildSentiers, type SentiersAnswer } from "../src/web/data.js";
 import { closedTrails, randonneesLive, sentiersPage } from "../src/web/domains.js";
 
 // The ONF's map of the trails on 24/10/2026, last edited on 20/10: 56 trails closed out of 351 (389 pieces).
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/onf/${f}`, import.meta.url), "utf8");
 const NOW = new Date("2026-10-24T04:00:00Z");
-const MONDAY = new Date("2026-10-26T04:00:00Z");
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
 
@@ -34,31 +33,35 @@ describe("sentiers de randonnée", () => {
   });
 
   it("lists the closed trails of the island by commune", async () => {
-    // A Saturday: the three trails whose notice opens them on weekends are open (duJour).
     const b = body(await sentiersRandonnee(cache(), undefined, NOW));
-    expect(b.resume).toBe("53 sentiers fermés sur 351 suivis par l'ONF à La Réunion, et 4 routes forestières interdites à la circulation.");
+    expect(b.resume).toBe("56 sentiers fermés sur 351 suivis par l'ONF à La Réunion, et 4 routes forestières interdites à la circulation.");
     expect(b.carte_mise_a_jour).toBe("20/10/2026 (ONF)");
     expect(b.fermes_par_commune[0]).toMatchObject({ commune: "Sainte-Rose" });
-    expect(b.fermes_par_commune.reduce((n: number, c: { sentiers_fermes: unknown[] }) => n + c.sentiers_fermes.length, 0)).toBe(53);
-    expect(body(await sentiersRandonnee(cache(), undefined, MONDAY)).resume).toMatch(/^56 sentiers fermés sur 351 /);
+    expect(b.fermes_par_commune.reduce((n: number, c: { sentiers_fermes: unknown[] }) => n + c.sentiers_fermes.length, 0)).toBe(56);
   });
 
-  it("opens on a Saturday or a Sunday a trail whose notice opens it on weekends, in the notice's words, and only then", async () => {
-    const shut = { statut: "fermé" as const, cause: "Fermé du lundi au vendredi, ouvert le week-end", info: "02/01/27" };
-    // Saturday and Sunday, Réunion time: Friday 23:30 is still a weekday, Monday 00:30 is one again.
-    expect(duJour(shut, new Date("2026-10-30T19:59:00Z")).statut).toBe("fermé");
-    expect(duJour(shut, new Date("2026-10-30T20:01:00Z")).statut).toBe("ouvert");
-    expect(duJour(shut, new Date("2026-11-01T19:59:00Z")).statut).toBe("ouvert");
-    expect(duJour(shut, new Date("2026-11-01T20:01:00Z")).statut).toBe("fermé");
-    expect(avisDuJour(duJour(shut, NOW))).toBe("Fermé du lundi au vendredi, ouvert le week-end");
-    // A closure without such words, or only ended, is not deduced open.
-    expect(duJour({ statut: "fermé", info: "Fermé jusqu'au 30/10/26 inclus" }, NOW).statut).toBe("fermé");
-    expect(avisDuJour({ statut: "ouvert", cause: "Accès au sentier des Laves" })).toBeUndefined();
-    for (const nom of ["Sentier de Montplaisir", "le Sentier de la Onzième Ligne"]) {
-      expect(body(await sentiersRandonnee(cache(), `${nom} est ouvert ?`, NOW)).resume).toContain(
-        " : ouvert aujourd'hui d'après l'avis de l'ONF (« Fermé jusqu'au 30/10/26 inclus - Sentier ouvert les samedis et dimanches durant cette période »).");
-      expect(body(await sentiersRandonnee(cache(), `${nom} est ouvert ?`, MONDAY)).resume).toContain(" : FERMÉ (Travaux d'exploitation forestière).");
+  it("keeps a trail closed on weekdays as the map classes it, its notice beside it, the same words on Sunday 23:59 and Monday 00:01", async () => {
+    const said = (avis: string) => `Fermé sur la carte de l'ONF\u00a0; ouvert le samedi et le dimanche d'après l'avis de l'ONF\u00a0: « ${avis} »`;
+    expect(nuance({ cause: "Fermé du lundi au vendredi, ouvert le week-end", info: "02/01/27" })).toBe(said("Fermé du lundi au vendredi, ouvert le week-end"));
+    expect(motifs({ cause: "Fermé du lundi au vendredi, ouvert le week-end", info: "02/01/27" })).toEqual([said("Fermé du lundi au vendredi, ouvert le week-end"), "02/01/27"]);
+    // A closure without such words, or only ended, is said as the map says it: nothing deduced.
+    expect(nuance({ cause: "Travaux", info: "Fermé jusqu'au 30/10/26 inclus" })).toBeUndefined();
+    expect(motifs({ cause: "Travaux", precision: "Réouverture 2026" })).toEqual(["Travaux", "Réouverture 2026"]);
+    const montplaisir = said("Fermé jusqu'au 30/10/26 inclus - Sentier ouvert les samedis et dimanches durant cette période");
+    const sunday = new Date("2026-11-01T19:59:00Z");
+    const monday = new Date("2026-11-01T20:01:00Z");
+    for (const at of [NOW, sunday, monday]) {
+      const at_ = () => new Cache(new MemoryStore(), () => at.getTime());
+      expect(body(await sentiersRandonnee(at_(), undefined, at)).resume).toMatch(/^56 sentiers fermés sur 351 /);
+      expect(body(await sentiersRandonnee(at_(), "Sentier de Montplaisir est ouvert ?", at)).resume).toContain(`Sentier de Montplaisir : ${montplaisir} · Travaux d'exploitation forestière.`);
+      const ici = body(await sentiersRandonnee(at_(), undefined, at)).fermes_par_commune.flatMap((c: { sentiers_fermes: { sentier: string }[] }) => c.sentiers_fermes);
+      expect(ici.find((t: { sentier: string }) => t.sentier === "Sentier de la Onzième Ligne")).toMatchObject({ etat: "fermé", nuance: montplaisir });
     }
+    // /sentiers drawn from a copy built on Sunday 23:59, shown on Monday 00:01: the same words, true both days.
+    const copy = { value: await buildSentiers(new Cache(new MemoryStore(), () => sunday.getTime()), sunday), fetchedAt: sunday, stale: false };
+    const html = sentiersPage("https://rundata.re", copy, monday);
+    expect(html).toContain(`Sentier de Montplaisir</a><small>${montplaisir.replace(/'/g, "&#39;")} · Travaux d&#39;exploitation forestière</small>`);
+    expect(html).not.toMatch(/ouvert aujourd/);
   });
 
   it("answers for a trail by its name", async () => {

@@ -10,6 +10,7 @@ import { enImages, enImagesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, JOURS_S
 import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { PATH as SANS_REPONSE } from "./sans-reponse.js";
 import { SOMMET } from "../providers/seismes.js";
+import * as onf from "../providers/sentiers.js";
 import * as vigicrues from "../providers/vigicrues.js";
 import { ANNONCERONT, alerteVolcan, BLUESKY_SEUL, ENCLOS, followOvpf, levelSaid, mediaSection, releaseCard, tileLive, type VolcanAlerte, volcanBanner, volcanH1, volcanLead, volcanMeta, volcanTitle } from "./volcan-alerte.js";
 import { CINEMAS } from "../tools/agenda.js";
@@ -1619,7 +1620,7 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
         `<li class="card">${folded(foldTrails,
           `<h3>${esc(c.commune)}${foldTrails ? "\u00a0" : " "}<span class="note">${foldTrails ? "·\u00a0" : ""}${c.sentiers_fermes.length}\u00a0fermé${c.sentiers_fermes.length > 1 ? "s" : ""}</span></h3>`,
           `<ul class="rows eau">` +
-        c.sentiers_fermes.map((t) => `<li${rowId(t.sentier)}><span>${t.page ? `<a href="${esc(t.page.replace(/^https:\/\/rundata\.re/, ""))}">${esc(t.sentier)}</a>` : esc(t.sentier)}<small>${[t.cause, t.precision].filter(Boolean).map((x) => esc(x!)).join(" · ") || "fermé"}</small>` +
+        c.sentiers_fermes.map((t) => `<li${rowId(t.sentier)}><span>${t.page ? `<a href="${esc(t.page.replace(/^https:\/\/rundata\.re/, ""))}">${esc(t.sentier)}</a>` : esc(t.sentier)}<small>${onf.motifs(t).map(esc).join(" · ") || "fermé"}</small>` +
           (t.randonnees?.length ? `<small class="cuts">Coupe : ${t.randonnees.map((r) => `<a href="/randonnees/${esc(r.slug)}">${esc(r.nom)}</a>`).join(", ")}</small>` : "") + `</span>` +
           `<span class="q-mauvaise">fermé</span></li>`).join("") + `</ul>`)}</li>`).join("")}</ul>`
     : `<p class="card">L'état des sentiers se charge : rechargez la page dans quelques secondes.</p>`;
@@ -1863,7 +1864,7 @@ const hikeCrumbBar = (label: string) =>
   `<div class="wrap"><nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">${SITE}</a></li><li><a href="/randonnees">Randonnée</a></li><li aria-current="page">${esc(label)}</li></ol></nav></div>`;
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n > 1 ? many : one}`;
-const why_ = (x: { cause?: string; precision?: string }) => [x.cause, x.precision].filter(Boolean).map((v) => esc(v!)).join(" · ");
+const why_ = (x: { cause?: string; precision?: string }) => onf.motifs(x).map(esc).join(" · ");
 
 /** A closed ONF trail, linked to its page, with why and until when. */
 const closedLi = (x: { sentier: string; slug?: string; page?: string; cause?: string; precision?: string }) => {
@@ -1955,7 +1956,7 @@ export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | 
 
   const closures = cut.length
     ? `<div class="card warn alarm">${icon("alert")}<h3>${plural(cut.length, "itinéraire coupé", "itinéraires coupés")} par une fermeture</h3>
-  <ul class="plain">${cut.map((h) => `<li><a href="/randonnees/${esc(h.slug)}">${esc(h.nom)}</a> : ${h.fermes.map((f) => (f.slug ? `<a href="/sentiers/${esc(f.slug)}">${esc(f.sentier)}</a>` : esc(f.sentier)) + (f.cause ? ` (${esc(f.cause)})` : "")).join(", ")}</li>`).join("")}</ul>
+  <ul class="plain">${cut.map((h) => `<li><a href="/randonnees/${esc(h.slug)}">${esc(h.nom)}</a> : ${h.fermes.map((f) => (f.slug ? `<a href="/sentiers/${esc(f.slug)}">${esc(f.sentier)}</a>` : esc(f.sentier)) + ((onf.nuance(f) ?? f.cause) ? ` (${esc((onf.nuance(f) ?? f.cause)!)})` : "")).join(", ")}</li>`).join("")}</ul>
   <p class="note">Un sentier fermé est interdit, même avec la trace : prendre une variante ouverte ou choisir une autre randonnée. <a href="/sentiers">Tous les sentiers fermés</a>.</p></div>`
     : "";
 
@@ -2139,7 +2140,7 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
     ? `<ul class="rows eau">${d.troncons.map((t) => {
         const cls = t.etat === "fermé" ? "q-mauvaise" : t.etat === "ouvert" ? "q-bonne" : "q-none";
         const name = t.sentier ? (t.page ? `<a href="${esc(t.page)}">${esc(t.sentier)}</a>` : esc(t.sentier)) : esc(nom);
-        return `<li><span>${name}<small>${[t.cause, t.precision].filter(Boolean).map((x) => esc(x!)).join(" · ")}</small></span><span class="${cls}">${esc(t.etat)}</span></li>`;
+        return `<li><span>${name}<small>${(t.etat === "fermé" ? onf.motifs(t) : [t.cause, t.precision].filter((x): x is string => !!x)).map(esc).join(" · ")}</small></span><span class="${cls}">${esc(t.etat)}</span></li>`;
       }).join("")}</ul>`
     : "";
   const stateBlock = rows

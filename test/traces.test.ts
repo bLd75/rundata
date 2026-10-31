@@ -160,14 +160,19 @@ describe("traces GPS", () => {
     expect((await handle(new Request("https://rundata.re/sentiers/nulle-part.gpx"), cache())).status).toBe(404);
   });
 
-  it("says a trail open on a Saturday when its notice opens it on weekends, citing it, and closed on a Monday", async () => {
+  it("says a trail closed on weekdays as the map classes it, its notice beside it, in its copy and its GPX the same on Sunday 23:59 and Monday 00:01", async () => {
     weekend = true;
     const t = sentier("le-bloc-piton-des-neiges")!;
-    const saturday = await buildTrail(cache(), t, NOW);
-    expect(saturday).toMatchObject({ etat: "Ouvert aujourd'hui d'après l'avis de l'ONF : « Fermé du lundi au vendredi, ouvert le week-end »", ferme: false });
-    expect(await trailGpx(cache(), "https://rundata.re", t, NOW)).toContain(" : ouvert aujourd'hui d'après l'avis de l'ONF (« Fermé du lundi au vendredi, ouvert le week-end »).");
-    const monday = new Date("2026-10-26T04:00:00Z");
-    expect(await buildTrail(cache(), t, monday)).toMatchObject({ etat: "Fermé : Fermé du lundi au vendredi, ouvert le week-end (02/01/27)", ferme: true });
+    const etat = "Fermé sur la carte de l'ONF\u00a0; ouvert le samedi et le dimanche d'après l'avis de l'ONF\u00a0: « Fermé du lundi au vendredi, ouvert le week-end » · 02/01/27";
+    const [sunday, monday] = [new Date("2026-11-01T19:59:00Z"), new Date("2026-11-01T20:01:00Z")];
+    const copies = await Promise.all([sunday, monday].map((at) => buildTrail(new Cache(new MemoryStore(), () => at.getTime()), t)));
+    for (const c of copies) expect(c).toMatchObject({ etat, ferme: true });
+    const gpx = await Promise.all([sunday, monday].map((at) => trailGpx(new Cache(new MemoryStore(), () => at.getTime()), "https://rundata.re", t, at)));
+    for (const g of gpx) expect(g).toContain(` : ${etat}.`);
+    // Only the GPX's own dates differ: when it was made.
+    const undated = (g: string) => g.replace(/le \d\d\/\d\d\/\d{4} à \d\d:\d\d|<time>[^<]*<\/time>/g, "");
+    expect(undated(gpx[0])).toBe(undated(gpx[1]));
+    expect(gpx[0]).toContain(`<desc>${etat}.</desc>`);
   });
 
   it("warns first, everywhere, when a hike crosses a closed trail", async () => {

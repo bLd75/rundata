@@ -594,14 +594,14 @@ async function pages(request: Request, cache: Cache, background: Background, now
       }
     }
     const [data, a] = await Promise.all([
-      snapshot(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t, now) : buildRoute(cache, r!)), background, now, waitFor(request), readerOf(request)),
+      snapshot(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)), background, now, waitFor(request), readerOf(request)),
       alerte(cache, background, now),
     ]);
     // A summit's trail links to the morning's cloud sea there, only while the page it leads to tells it: its last copy,
     // as it is, never built for this page.
     const summit = summitOf((data?.value.lignes ?? []).flatMap((l) => l.points));
     const told = summit && cloudSeaTold(summit, await cache.peek<PlaceData & RandonneesAnswer>(summit.copy, now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined));
-    return page(path, (live) => tracePage(origin, t ? "sentier" : "randonnee", slug, t?.nom ?? r!.nom, live ? data : null, now, a, told ? summit : undefined), data, background, [rebuild(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t, now) : buildRoute(cache, r!)))]);
+    return page(path, (live) => tracePage(origin, t ? "sentier" : "randonnee", slug, t?.nom ?? r!.nom, live ? data : null, now, a, told ? summit : undefined), data, background, [rebuild(cache, `web:${dir}:${slug}`, () => (t ? buildTrail(cache, t) : buildRoute(cache, r!)))]);
   }
   if (path === "/presse" || path === "/presse/") {
     // Its live counts are read from copies already here: a few minutes in browsers is enough.

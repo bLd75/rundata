@@ -20,7 +20,7 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   bornes: 2,
   bus: 6,
   calendrier: 2,
-  chiffres: 8,
+  chiffres: 7,
   commune: 7,
   coupures: 3,
   courant: 4,
@@ -44,7 +44,7 @@ export const RENDU_REVISION: Readonly<Record<string, number>> = {
   station: 1,
   trafic: 2,
   velos: 2,
-  volcan: 8,
+  volcan: 7,
 };
 
 /** `web:lieu:le-port` → `lieu`. */

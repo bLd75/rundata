@@ -80,26 +80,23 @@ const line = (f: Feature): Point[] => (f.geometry?.paths ?? []).flat();
 // week-end », « Sentier ouvert les samedis et dimanches durant cette période ».
 const WEEKEND = /ouverte?s? (?:le week-end|les week-ends|les samedis et dimanches|le samedi et le dimanche)/i;
 
+type Avis = { cause?: string; info?: string; precision?: string };
+
 /**
- * A trail's state today. The map flags a trail closed on weekdays only as closed all week: its notice saying it is
- * open on weekends, it is open on a Saturday or a Sunday (Réunion time). Only the notice's own words: a closure whose
- * date is past is not deduced open, it stays as the map says. Applied when the map is read, never kept: the map's
- * copy holds what the ONF says.
+ * A trail closed on the ONF's map whose notice opens it on weekends: the map's state with the notice beside it, the
+ * same words every day. The trail stays as the map classes it (counted, listed, drawn closed): a copy of a page, a
+ * GPX kept, an answer read later outlive midnight, and a state of the day would then be wrong.
  */
-export function duJour<T extends { statut: Statut; cause?: string; info?: string }>(s: T, now: Date): T {
-  if (s.statut !== "fermé" || !WEEKEND.test(`${s.cause ?? ""} ${s.info ?? ""}`)) return s;
-  const day = new Date(now.getTime() + 4 * 3600_000).getUTCDay();
-  return day === 0 || day === 6 ? { ...s, statut: "ouvert" } : s;
+export function nuance(x: Avis): string | undefined {
+  const avis = [x.cause, x.info ?? x.precision].find((v) => v && WEEKEND.test(v));
+  return avis && `Fermé sur la carte de l'ONF\u00a0; ouvert le samedi et le dimanche d'après l'avis de l'ONF\u00a0: « ${avis} »`;
 }
 
-/** The notice that opens a trail today, in its words, to cite with « ouvert » (duJour): « Fermé du lundi au vendredi, ouvert le week-end ». */
-export function avisDuJour(s: { statut: Statut; cause?: string; info?: string }): string | undefined {
-  return s.statut === "ouvert" ? [s.cause, s.info].find((x) => x && WEEKEND.test(x)) : undefined;
-}
-
-/** The map with each trail's state today (duJour). */
-export function carteDuJour<C extends Cached<Carte> | undefined>(c: C, now: Date): C {
-  return c && { ...c, value: { ...c.value, sentiers: c.value.sentiers.map((s) => duJour(s, now)) } };
+/** Why a trail is closed and until when, as its notice says: nuance() first when there is one, then the rest of the notice. */
+export function motifs(x: Avis): string[] {
+  const n = nuance(x);
+  const rest = [x.cause, x.info ?? x.precision].filter((v): v is string => !!v);
+  return n ? [n, ...rest.filter((v) => !WEEKEND.test(v))] : rest;
 }
 
 export function parseTrails(features: Feature[]): Sentier[] {
@@ -167,7 +164,6 @@ export async function lire(): Promise<Carte> {
   };
 }
 
-/** The map, each trail in its state of `now` (duJour). */
-export async function carte(cache: Cache, now = new Date()): Promise<Cached<Carte>> {
-  return carteDuJour(await cache.get(KEY, FRESH_SECONDS, lire), now);
+export async function carte(cache: Cache): Promise<Cached<Carte>> {
+  return cache.get(KEY, FRESH_SECONDS, lire);
 }

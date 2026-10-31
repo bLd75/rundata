@@ -13,7 +13,7 @@ import { getJson, postJson } from "../http.js";
 import type { SourceInfo } from "../types.js";
 import { ALTIMETRIE } from "./ign.js";
 import data from "../traces/traces.json" with { type: "json" };
-import { duJour, SOURCE as ONF_SOURCE, type Statut } from "./sentiers.js";
+import { SOURCE as ONF_SOURCE, type Statut } from "./sentiers.js";
 
 export const SOURCES = {
   osm: {
@@ -218,12 +218,9 @@ async function altitudes(cache: Cache, key: string, points: Point[]): Promise<(n
   return value;
 }
 
-/**
- * An ONF trail at full resolution, with its state and its altitudes: two requests, the second kept a month. Each piece
- * in its state of `now` (duJour).
- */
-export async function traceOnf(cache: Cache, t: { nom: string } & SentierStats, now = new Date()): Promise<Cached<TraceOnf>> {
-  const read = await cache.get(`onf:trace:${t.slug}`, FRESH_SECONDS, async () => {
+/** An ONF trail at full resolution, with its state and its altitudes: two requests, the second kept a month. */
+export async function traceOnf(cache: Cache, t: { nom: string } & SentierStats): Promise<Cached<TraceOnf>> {
+  return cache.get(`onf:trace:${t.slug}`, FRESH_SECONDS, async () => {
     const where = `WS_NomIti IN (${t.onf.map((n) => `'${n.replace(/'/g, "''")}'`).join(",")})`;
     const url = `${SERVICE}?${new URLSearchParams({
       where,
@@ -245,7 +242,6 @@ export async function traceOnf(cache: Cache, t: { nom: string } & SentierStats, 
     }
     return trace;
   });
-  return { ...read, value: { ...read.value, troncons: read.value.troncons.map((x) => duJour(x, now)) } };
 }
 
 // Attributes are in double quotes: an apostrophe (« l'ONF ») stays as it is.
