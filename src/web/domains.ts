@@ -1669,8 +1669,7 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
 
   const hikes = `<section aria-labelledby="h-traces">
   <div class="card cta"><h2 id="h-traces">Choisir une randonnée</h2>
-  <p>Les ${d?.randonnees.length ?? ""} itinéraires complets (GR R1, R2, R3, sommets, boucles) et les sentiers de l'ONF, avec leur trace GPS, leur distance, leur dénivelé et l'état du jour, sur une carte de l'île et filtrables : <a href="/randonnees">la page randonnée</a>.</p>
-  ${randopitonsNote()}</div>
+  <p>Les ${d?.randonnees.length ?? ""} itinéraires complets (GR R1, R2, R3, sommets, boucles) et les sentiers de l'ONF, avec leur trace GPS, leur distance, leur dénivelé et l'état du jour, sur une carte de l'île et filtrables : <a href="/randonnees">la page randonnée</a>.</p></div>
 </section>`;
 
   const title = "Sentiers fermés Réunion aujourd'hui : liste ONF · 974";
@@ -2082,15 +2081,6 @@ export function randonneesLive(data: Cached<SentiersAnswer> | null): Live | unde
   return { valeur: `${n} sentier${n > 1 ? "s" : ""} fermé${n > 1 ? "s" : ""}`, detail: `sur ${d.suivis} suivis par l'ONF ; traces GPS, distance et dénivelé de ${d.randonnees.length} randonnées et de chaque sentier` };
 }
 
-/**
- * Randopitons, the island's best-known hiking site, linked from /sentiers and each /randonnees/<slug>: its home page
- * only, never one of its sheets (not without its agreement), and never named a source, the trails' state being the
- * ONF's. Nothing reads it: its robots.txt shuts Claude out.
- */
-export const RANDOPITONS = "https://randopitons.re/";
-export const randopitonsNote = () =>
-  `<p class="note">Fiches détaillées, photos et avis de randonneurs : <a href="${RANDOPITONS}" target="_blank" rel="noopener">Randopitons<span aria-hidden="true">\u00a0↗</span></a></p>`;
-
 /** The sectors of the hikes as links, the page's own marked: on /randonnees, /sentiers and each sector's page. */
 export function sectorLinks(current?: string): string {
   return `<nav class="parts" aria-label="Randonnée par secteur">${SECTEURS_RANDO.map((s) =>
@@ -2238,8 +2228,7 @@ ${stateBlock}
   <p>La trace GPX s'ouvre dans les applications de randonnée et les montres GPS. ${kind === "sentier" ? "C'est le sentier tel que l'ONF le trace sur sa carte, à pleine résolution." : "C'est l'itinéraire complet tel que les contributeurs d'OpenStreetMap l'ont relevé ; il peut emprunter des sentiers fermés : voir leur état ci-dessus."} Altitudes, dénivelés et profil : modèle de terrain de l'IGN (RGE ALTI).</p>
   ${others}
   ${weatherForTrace((d?.lignes ?? []).flatMap((l) => l.points))}
-  ${cloudSeaLink(summit)}
-  ${kind === "randonnee" ? randopitonsNote() : ""}</div>
+  ${cloudSeaLink(summit)}</div>
   ${warnings([
     "Un sentier fermé l'est par arrêté préfectoral ou décision de l'ONF : s'y engager est interdit et dangereux, même avec une trace.",
     "Vérifier la vigilance météo avant de partir : par fortes pluies, les ravines montent vite et la préfecture ferme d'autres sentiers.",
