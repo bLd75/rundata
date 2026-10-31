@@ -195,9 +195,9 @@ export async function departures(groups: transit.StopGroup[], now: Date, horizon
  * At each of these stations, its departures in the next 3 hours, or in the next 20 when there are fewer than 3 (at
  * night), as `departures` gives them, read for all the stations at once: one read of the passes, one of the
  * patterns, and one more for the stations that look further. The bus stations of /bus and /trafic: 2 or 3
- * subrequests instead of 2 or 4 each.
+ * subrequests instead of 2 or 4 each. With each list, how far it looked (`horizon`, seconds).
  */
-export async function stationDepartures(stations: transit.StopGroup[][], now: Date): Promise<Departure[][]> {
+export async function stationDepartures(stations: transit.StopGroup[][], now: Date): Promise<{ departs: Departure[]; horizon: number }[]> {
   const c = moment(now);
   const stops = stations.map(byStop);
   const all = await transit.passes([...new Set(stops.flatMap((m) => [...m.keys()]))]);
@@ -208,10 +208,10 @@ export async function stationDepartures(stations: transit.StopGroup[][], now: Da
   };
   const near = stops.map((m) => passing(all, m, 3 * 3600, c));
   await read(near.flat());
-  const lists = stops.map((m, i) => listed(near[i], pats, m, 3 * 3600, c));
-  const far = new Map(lists.flatMap((l, i) => (l.length < 3 ? [[i, passing(all, stops[i], 20 * 3600, c)] as const] : [])));
+  const lists = stops.map((m, i) => ({ departs: listed(near[i], pats, m, 3 * 3600, c), horizon: 3 * 3600 }));
+  const far = new Map(lists.flatMap((l, i) => (l.departs.length < 3 ? [[i, passing(all, stops[i], 20 * 3600, c)] as const] : [])));
   await read([...far.values()].flat());
-  for (const [i, pass] of far) lists[i] = listed(pass, pats, stops[i], 20 * 3600, c);
+  for (const [i, pass] of far) lists[i] = { departs: listed(pass, pats, stops[i], 20 * 3600, c), horizon: 20 * 3600 };
   return lists;
 }
 
@@ -356,6 +356,13 @@ export function spread(list: Departure[], max = 12): Departure[] {
     return n <= 3;
   }).slice(0, max);
 }
+
+/**
+ * Minutes from now until which `kept` (from `spread`) holds every departure of `all`, a list `horizon` seconds long: the
+ * horizon, or the first departure left out. A page past it no longer knows what leaves next (web/domains.ts `busOutran`).
+ */
+export const completeMinutes = (all: Departure[], kept: Departure[], horizon: number) =>
+  Math.floor(Math.min(horizon, ...all.filter((d) => !kept.includes(d)).map((d) => d.in)) / 60);
 
 const lineName = (r: number) => {
   const [net, short, long] = transit.ROUTES[r];

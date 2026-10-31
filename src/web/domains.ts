@@ -31,7 +31,7 @@ import * as radars from "../routes/radars.js";
 import * as fire from "../tools/feux.js";
 import * as feux from "../providers/feux.js";
 import { COMMUNES as BIKE_COMMUNES } from "../tools/velos.js";
-import { LATE_MIN, ROAD_NEAR_M, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type CalendrierAnswer, type CoupuresAnswer, type CruesAnswer, type CruesStation, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type Enclos, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
+import { LATE_MIN, ROAD_NEAR_M, type ActualitesAnswer, type AgendaAnswer, type AirAnswer, type Alerte, type BorneStation, type BornesAnswer, type BusData, type GareNow, type CalendrierAnswer, type CoupuresAnswer, type CruesAnswer, type CruesStation, type CyclonesAnswer, type DaeAnswer, type EauAnswer, type ElectriciteAnswer, type Enclos, type HikeCard, type HistoriqueAnswer, type HourlyAnswer, type RandonneesAnswer, type SecheresseAnswer, type SentiersAnswer, type SportAnswer, type TraceAnswer, type TraficAnswer, type TrailItem, type VeloStation, type VelosAnswer, type VolcanAnswer } from "./data.js";
 import { daysApart, localTime } from "../geo.js";
 import { agendasNonLus, mediasNonLus } from "../tools/injoignable.js";
 import { FAST_KW } from "../tools/bornes.js";
@@ -911,6 +911,15 @@ export function stillToCome(list: Row[], fetchedAt: Date, now: Date): { x: Row; 
     .filter(({ min }) => min >= 0);
 }
 
+/**
+ * Whether a copy of /bus, `ageMs` old, has outrun what it knows of a station (`complet_min`): a list emptied by time is
+ * then not « no bus ». A copy of 19:45 seen at 01:37 (31/10/2026) said « Pas de départ prévu » at four stations, their
+ * 3 hours long gone, while two that had looked 20 hours ahead gave the morning's. Such a copy is refreshed before it
+ * is shown (web/site.ts); one served all the same says it is loading, as does a commune's bus tile (web/commune.ts).
+ * A copy without the field (built before it) is taken as knowing.
+ */
+export const busOutran = (g: Pick<GareNow, "complet_min">, ageMs: number) => g.complet_min != null && ageMs >= g.complet_min * 60_000;
+
 /** What the real-time feed says of a departure, HTML: « +5 min », « à l'heure », « 1 min d'avance », « ne passe pas à cet arrêt ». */
 export function liveText(x: Row): string {
   if (x.temps_reel) return ` <b class="rt">${esc(x.temps_reel)}</b>`;
@@ -933,13 +942,15 @@ export const stopSearch = (q = "") =>
 export const alertList = (list: { reseau: string; lignes?: string[]; titre: string; detail?: string }[]) =>
   `<ul class="plain">${list.map((a) => `<li><b>${esc(a.reseau)}${a.lignes ? `, ligne ${esc(a.lignes.join(", "))}` : ""}</b> : ${esc(a.titre)}${a.detail && a.detail !== a.titre ? `<p class="note">${esc(a.detail)}</p>` : ""}</li>`).join("")}</ul>`;
 
+export const HORAIRES_CHARGENT = "Les horaires se chargent\u00a0: rechargez la page dans quelques secondes.";
+
 export function busPage(origin: string, data: Cached<BusData> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/bus`;
   const lines = d?.reseaux.reduce((n, r) => n + r.lignes, 0) ?? 0;
 
   const status = !d
-    ? loading("Les horaires")
+    ? `<p class="lead">${HORAIRES_CHARGENT}</p>`
     : `<div class="now"><span class="big">${d.reseaux.length}</span><p>réseaux de bus et le téléphérique de Saint-Denis : <b>${esc(fr(lines))} lignes</b>, de Car Jaune qui fait le tour de l'île aux bus de chaque commune.</p></div>`;
 
   const networks = d
@@ -953,7 +964,9 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
         `<p class="note">${g.arrets.map((a) => `${esc(a.reseau)} : ${a.page ? `<a href="${STOP_PATH}/${esc(a.page)}">${esc(a.nom)}</a>` : esc(a.nom)}`).join(" · ")}</p>` +
         (left.length
           ? `<ul class="rows departs">${left.map(({ x, min, heure }) => departureLi(x, waitText(min, heure))).join("")}</ul>`
-          : `<p>Pas de départ prévu dans les prochaines heures.</p>`) +
+          : busOutran(g, now.getTime() - data!.fetchedAt.getTime())
+            ? `<p>${HORAIRES_CHARGENT}</p>`
+            : `<p>Pas de départ prévu dans les prochaines heures.</p>`) +
         `</li>`;
       }).join("")}</ul>` +
       `<p class="note">${d!.temps_reel?.length ? `${esc(d!.temps_reel.map((t) => t.reseau).join(", "))} : heures annoncées en direct par le réseau quand le bus y figure (flux de ${esc(d!.temps_reel[0].heure)}). ` : ""}` +
@@ -993,6 +1006,8 @@ export function busLive(data: Cached<BusData> | null, now = new Date()): Live | 
   const d = data?.value;
   if (!d) return undefined;
   const g = d.gares.find((x) => stillToCome(x.departs, data!.fetchedAt, now).length);
+  // A copy past what it knows of a station says nothing rather than « no bus ».
+  if (!g && d.gares.some((x) => busOutran(x, now.getTime() - data!.fetchedAt.getTime()))) return undefined;
   // The words of the commune pages' bus tile in the same case.
   if (!g) return { valeur: "Pas de départ", detail: "aux gares dans les prochaines heures, d'après les horaires publiés" };
   const { x, heure } = stillToCome(g.departs, data!.fetchedAt, now)[0];

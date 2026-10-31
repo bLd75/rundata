@@ -140,16 +140,21 @@ describe("several bus stations at once", () => {
     // The morning, and the night, when stations with fewer than 3 departures in 3 hours look 20 hours ahead.
     for (const [at, further] of [[NOW, false], [new Date("2026-10-23T20:30:00Z"), true]] as const) {
       const alone: Awaited<ReturnType<typeof departures>>[] = [];
+      const horizons: number[] = [];
       let looked = false;
       for (const groups of stations) {
         const soon = await departures(groups, at);
         looked ||= soon.length < 3;
         alone.push(soon.length < 3 ? await departures(groups, at, 20 * 3600) : soon);
+        horizons.push(soon.length < 3 ? 20 * 3600 : 3 * 3600);
       }
       if (further) expect(looked).toBe(true);
       let reads = 0;
       transit.configure({ all: <T>(sql: string, ...params: unknown[]) => (reads++, fake.all<T>(sql, ...params)) });
-      expect(await stationDepartures(stations, at)).toEqual(alone);
+      const both = await stationDepartures(stations, at);
+      expect(both.map((l) => l.departs)).toEqual(alone);
+      // How far each looked: 20 hours where 3 gave fewer than 3 departures.
+      expect(both.map((l) => l.horizon)).toEqual(horizons);
       expect(reads).toBeLessThanOrEqual(looked ? 3 : 2);
       transit.configure(fake);
       // Not a comparison of empty lists: the fixture has the timetables of three of them.
