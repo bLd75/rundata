@@ -6,6 +6,8 @@ import { counted, PAGE_BUDGET } from "../src/budget.js";
 import * as ensemble from "../src/providers/ensemble.js";
 import * as openmeteo from "../src/providers/openmeteo.js";
 import { parsePeriod, previsionMeteo } from "../src/tools/prevision.js";
+import { resume } from "../src/tools/resume.js";
+import { aujourdhuiPage } from "../src/web/aujourdhui.js";
 import { placePage } from "../src/web/pages.js";
 import { SHARED_AFTER } from "../src/web/partagees.js";
 import { pageOf } from "../src/web/places.js";
@@ -134,9 +136,9 @@ describe("today, from the hours still to come", () => {
   it("leaves out the rain already fallen, in the day and in the summary", async () => {
     const at = new Date("2026-10-22T06:00:00Z"); // 10:00 in La Réunion
     const r = body(await previsionMeteo(await wetCache(at), "Cilaos", undefined, at));
-    expect(r.jours[0]).toMatchObject({ jour: "jeudi 22/10", pluie: "1,6 mm de pluie", ciel_en_journee: "ciel dégagé" });
+    expect(r.jours[0]).toMatchObject({ jour: "jeudi 22/10", pluie: "1,6 mm de pluie de 10\u00a0h à minuit", ciel_en_journee: "ciel dégagé" });
     expect(r.resume).toContain("aujourd'hui : ciel dégagé, ");
-    expect(r.resume).toContain(", 1,6 mm de pluie");
+    expect(r.resume).toContain(", 1,6 mm de pluie de 10\u00a0h à minuit");
     expect(r.resume).not.toMatch(/11,2 mm|averses/);
     // The day's lowest and highest temperatures, the night's included.
     const dry = body(await previsionMeteo(await offlineCache(), "Cilaos", undefined, NOW)).jours[0];
@@ -149,16 +151,67 @@ describe("today, from the hours still to come", () => {
   it("counts the hour under way for the part left of it", async () => {
     const at = new Date("2026-10-22T06:30:00Z"); // 10:30: half of 10h–11h's 1,2 mm is still to come
     const r = body(await previsionMeteo(await wetCache(at), "Cilaos", "aujourd'hui", at));
-    expect(r.jours[0].pluie).toBe("1 mm de pluie");
+    expect(r.jours[0].pluie).toBe("1 mm de pluie de 10:30 à minuit");
     const late = new Date("2026-10-22T12:00:00Z"); // 16:00: nothing left
-    expect(body(await previsionMeteo(await wetCache(late), "Cilaos", "aujourd'hui", late)).jours[0].pluie).toBe("pas de pluie prévue");
+    expect(body(await previsionMeteo(await wetCache(late), "Cilaos", "aujourd'hui", late)).jours[0].pluie).toBe("pas de pluie prévue de 16\u00a0h à minuit");
   });
 
   it("does the same on the tour of the island", async () => {
     const at = new Date("2026-10-22T06:00:00Z");
     const r = body(await previsionMeteo(await wetCache(at), undefined, undefined, at));
-    expect(r.lieux[0].jours[0].pluie).toBe("1,6 mm de pluie");
+    expect(r.lieux[0].jours[0].pluie).toBe("1,6 mm de pluie de 10\u00a0h à minuit");
     expect(r.resume).toContain("Cilaos : aujourd'hui ciel dégagé, ");
+  });
+
+  // Rain in the morning only: 9,6 mm from 7 h to 11 h, nothing after.
+  async function morningCache(at: Date) {
+    const j = fixture("openmeteo_cilaos.json");
+    for (let i = 1; i <= 24; i++) {
+      j.hourly.precipitation[i] = 0;
+      if (j.hourly.weather_code[i - 1] >= 51) j.hourly.weather_code[i - 1] = 3;
+    }
+    for (const i of [8, 9, 10, 11]) [j.hourly.precipitation[i], j.hourly.weather_code[i - 1]] = [2.4, 61];
+    [j.daily.precipitation_sum[0], j.daily.weather_code[0]] = [9.6, 61];
+    const store = new MemoryStore();
+    await store.put(openmeteo.cacheKey(resolvePlace("Cilaos")!.lieu), { value: j, fetchedAt: at.getTime() });
+    await store.put("openmeteo:meta", { value: fixture("openmeteo_meta.json"), fetchedAt: at.getTime() });
+    return new Cache(store, () => at.getTime());
+  }
+  const copyOf = (value: unknown, at: Date) => ({ value, fetchedAt: at, stale: false });
+
+  it("says from when today's rain is counted, in the tool, on the weather page and on the day's page", async () => {
+    const at = new Date("2026-10-22T11:00:00Z"); // 15:00 in La Réunion
+    const r = body(await previsionMeteo(await morningCache(at), "Cilaos", undefined, at));
+    expect(r.jours[0].pluie).toBe("pas de pluie prévue de 15\u00a0h à minuit");
+    expect(r.resume).toContain("aujourd'hui : ciel dégagé, 11 à 21,6 °C, pas de pluie prévue de 15\u00a0h à minuit, ");
+    expect(r.resume).not.toMatch(/9,6 mm|pluie faible/);
+    // The other days are whole days: no hour.
+    expect(r.jours.slice(1).map((j: { pluie?: string }) => j.pluie).join(" ")).not.toMatch(/minuit/);
+    const tour = body(await previsionMeteo(await morningCache(at), undefined, undefined, at));
+    expect(tour.lieux[0].jours[0].pluie).toBe("pas de pluie prévue de 15\u00a0h à minuit");
+
+    const p = pageOf("cilaos")!;
+    expect(placePage("https://rundata.re", p, copyOf({ prevision: r }, at), at)).toContain("<p>Pluie : pas de pluie prévue de 15\u00a0h à minuit</p>");
+    const day = resume(p, { meteo: copyOf({ prevision: r }, at) } as never, at);
+    expect(day.meteo?.prevision?.aujourd_hui?.pluie).toBe("pas de pluie prévue de 15\u00a0h à minuit");
+    expect(aujourdhuiPage("https://rundata.re", p, day, null)).toContain("ciel dégagé, pas de pluie prévue de 15\u00a0h à minuit.</p>");
+  });
+
+  it("keeps the hour of the answer in a copy read later in the day", async () => {
+    // A copy made at 08:00, still shown at 15:00 while the next one is being built (web/data.ts, snapshot): its rain is
+    // that of 08:00 to midnight, and says so.
+    const built = new Date("2026-10-22T04:00:00Z");
+    const later = new Date("2026-10-22T11:00:00Z");
+    const r = body(await previsionMeteo(await morningCache(built), "Cilaos", undefined, built));
+    expect(r.jours[0].pluie).toBe("7,2 mm de pluie de 8\u00a0h à minuit");
+    const html = placePage("https://rundata.re", pageOf("cilaos")!, copyOf({ prevision: r }, built), later);
+    expect(html).toContain("<p>Pluie : 7,2\u202fmm de pluie de 8\u00a0h à minuit</p>");
+  });
+
+  it("says no hour at midnight, when the whole day is still to come", async () => {
+    const at = new Date("2026-10-21T20:00:00Z"); // 00:00 on 22/10
+    const r = body(await previsionMeteo(await morningCache(at), "Cilaos", undefined, at));
+    expect(r.jours[0]).toMatchObject({ jour: "jeudi 22/10", pluie: "9,6 mm de pluie" });
   });
 });
 

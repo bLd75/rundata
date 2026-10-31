@@ -94,7 +94,8 @@ export function aujourdhuiPage(origin: string, p: PlacePage, r: Resume, at: Cach
   const url = `${origin}${path}`;
   const m = r.meteo;
   const f = m?.prevision?.aujourd_hui;
-  const dayForecast = (j?: typeof f) => (j ? `${esc(j.jour)} : ${j.temperature_min && j.temperature_max ? `${esc(thin(j.temperature_min))} à ${esc(thin(j.temperature_max))}` : ""}${j.ciel_en_journee ? `, ${esc(j.ciel_en_journee)}` : ""}${j.pluie ? `, pluie ${esc(thin(j.pluie))}` : ""}` : "");
+  // The rain says itself (« 1,6 mm de pluie de 15\u00a0h à minuit », « pas de pluie prévue »): no « pluie » before it.
+  const dayForecast = (j?: typeof f) => (j ? `${esc(j.jour)} : ${j.temperature_min && j.temperature_max ? `${esc(thin(j.temperature_min))} à ${esc(thin(j.temperature_max))}` : ""}${j.ciel_en_journee ? `, ${esc(j.ciel_en_journee)}` : ""}${j.pluie ? `, ${esc(thin(j.pluie))}` : ""}` : "");
 
   const weather = m
     ? card("thermo", `Météo ${p.nom}`,
