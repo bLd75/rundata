@@ -41,7 +41,7 @@ import island from "../places/island.json" with { type: "json" };
 import * as mf from "../providers/vigilance.js";
 import { carteHtml } from "./cmrs-carte.js";
 import { GRAPHES_SCRIPT, graphes } from "./historique-graphes.js";
-import { basinMap, TRACES, TRACES_SCRIPT, TRACES_SOURCE, ZONE_SOURCE } from "./cyclones-bassin.js";
+import { basinMap, TRACES, TRACES_SCRIPT, TRACES_SOURCES, ZONE_SOURCE } from "./cyclones-bassin.js";
 import { esc, fenetre, hikesMap, islandMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
 import { type Cle, COUNT_COLOR, legende } from "./carte-legende.js";
 import { eventsMap } from "./evenements-carte.js";
@@ -2670,10 +2670,15 @@ function basinFigure(d: CyclonesAnswer | undefined, active: number): string {
     : !active ? `<p><b>Aucun système dans le bassin en ce moment.</b> En traits numérotés, les cyclones passés dont les stations de Météo-France ont mesuré le passage\u00a0:</p><ol class="trcs">${past}</ol>`
     : d.carte?.image ? `<p><b>${s ? "Des systèmes sont suivis" : "Un système est suivi"} par le CMRS\u00a0: <a href="#carte-cmrs">sa carte officielle est au-dessus</a>.</b></p>`
     : `<p><b>${s ? "Des systèmes sont suivis" : "Un système est suivi"} par le CMRS\u00a0:</b> ${officielHtml(mf.OFFICIEL_CYCLONE)}</p>`;
-  const provisoire = TRACES.filter((t) => t.provisoire).map((t) => t.nom);
+  const { "meteo-france": mfTraces, ibtracs, consulte } = TRACES_SOURCES;
+  const older = TRACES.filter((t) => t.source === "ibtracs").map((t) => t.nom_annee);
   const sources = traces
-    ? `Traces\u00a0: positions données par le CMRS de La Réunion, d'après <a href="${TRACES_SOURCE.lien}" rel="noopener">NOAA IBTrACS</a>, consulté le ${TRACES_SOURCE.consulte.split("-").reverse().join("/")}` +
-      (provisoire.length ? `\u00a0; ${provisoire.length > 1 ? `celles de ${provisoire.join(", ")} sont encore provisoires` : `celle de ${provisoire[0]} est encore provisoire`}` : "") + ". Cette carte ne montre aucun système de la saison. "
+    ? `Traces : <a href="${mfTraces.lien}" rel="noopener">${mfTraces.nom}</a>, ${mfTraces.licence}, consultées le ${consulte.split("-").reverse().join("/")}.` +
+      (older.length
+        ? ` ${older.join(" et ")} ${older.length > 1 ? "sont plus anciennes" : "est plus ancienne"} que ces données, qui commencent en ${mfTraces.depuis} : ` +
+          `${older.length > 1 ? "leurs traces viennent" : "sa trace vient"} des positions du CMRS reprises par <a href="${ibtracs.lien}" rel="noopener">${ibtracs.nom}</a>.`
+        : "") +
+      " Cette carte ne montre aucun système de la saison. "
     : "Cette carte ne montre aucun système, ni sa position ni sa trajectoire. ";
   return `<figure class="card bassin">${basinMap(traces)}<figcaption>${now}<p class="note">En pointillé, la zone suivie par le CMRS de La Réunion (Météo-France), de l'équateur à 40°\u00a0S et des côtes de l'Afrique à 90°\u00a0E (<a href="${ZONE_SOURCE}" rel="noopener">CMRS, présentation à l'OMM, 2017</a>). ` +
     `${sources}Côtes\u00a0: Natural Earth (domaine public).</p></figcaption></figure>${traces ? `<script>${TRACES_SCRIPT}</script>` : ""}`;
