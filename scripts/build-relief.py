@@ -48,8 +48,9 @@ SUN = (315, 38)  # azimuth from north, height above the horizon, in degrees: the
 # The photo's colours: SAT, how much more saturated the greens get (the browns and reds of the dry west and the lava
 # EARTH of it, so that they stay earth), GAMMA, above 1 darker and below lighter, and CONTRAST, each colour moved away
 # from mid-grey by that factor. Measured on the relief by altitude the user found « vives » (31/10/2026, setting
-# « E3 »): its greens at a saturation of 0.44 and a value of 0.52 (HSV, means over the island), its ochres 0.36 and 0.58.
-SAT, EARTH, GAMMA, CONTRAST = 2.4, 1.0, 0.62, 1.0
+# « E3 »): its greens at a saturation of 0.44 and a value of 0.52 (HSV, means over the island), its ochres 0.36 and 0.58;
+# here 0.46 and 0.44, and 3.7 % of the island in bright yellow (hue 40 to 75°, saturation above 0.35) against its 6.5 %.
+SAT, EARTH, GAMMA, CONTRAST = 2.8, 1.0, 0.55, 1.0
 # WARM, how far the reds and pinks of the photo (the dry savanna of the west, the bare soil) turn towards ochre (hue
 # OCHRE, in degrees), 0 not at all to 1 fully: as warm as the Hauts of the relief by altitude.
 WARM, OCHRE = 0.9, 40
@@ -58,6 +59,15 @@ WARM, OCHRE = 0.9, 40
 # to HIGH_SHADE of its strength. Elsewhere the slopes shade at SHADE of their strength, and nowhere does a slope's
 # shadow take more than SHADOW_FLOOR off. No whitening: the photo's own light is raised, never mixed with white.
 SHADE, HIGH_FROM, HIGH_TO, HIGH_GAMMA, HIGH_SHADE, SHADOW_FLOOR = 0.6, 400, 1600, 0.38, 0.4, 0.2
+# Marketing's three limits (31/10/2026): the saturation is pushed on the greens only (hues GREENS, in degrees), the
+# yellows of the Plaines and of the west keep the photo's own, as E2's (BASE_SAT, its browns BASE_EARTH); nothing
+# greyer than GREY_S is pushed (the lava of the Grand Brûlé turned violet); and nothing that grey is lighter than GREY_V,
+# so that the white rings of the dots and the communes' outlines still read on the towns.
+GREENS, BASE_SAT, BASE_EARTH, GREY_S, GREY_V = (75, 145), 1.25, 0.3, 0.15, 0.8
+# E2's light, for what is not green: its gamma on the coast and in the Hauts. Between the two settings, a pixel goes
+# smoothly by its hue (over RAMP degrees at each end of GREENS) and its saturation (from GREY_S to twice), so that no
+# edge shows where a field turns from green to yellow.
+BASE_GAMMA, BASE_HIGH_GAMMA, RAMP = 1.15, 0.5, 15
 # The shallows and the river mouths, inside the elevation's coast: the photo's blue, graded with these, never brighter.
 WATER_SAT, WATER_GAMMA = 1.075, 1.15
 
@@ -145,15 +155,22 @@ def grade(photo, land, z, a):
             l = light(c)
             out[i] = tuple(255 * (min(255.0, max(0.0, l + (v - l) * WATER_SAT)) / 255) ** WATER_GAMMA for v in c)
             continue
-        # The greens saturated in full, the browns and reds of the dry west and the lava by EARTH.
-        l, k = light(c), 1 + (a.sat - 1) * min(1.0, max(a.earth, a.earth + (c[1] - c[0]) / 20))
+        h, s0, _ = colorsys.rgb_to_hsv(*(x / 255 for x in c))
+        # How green: 1 well inside GREENS and saturated enough, 0 for the yellows, the reds, the greys.
+        w = highs(h * 360, GREENS[0] - RAMP, GREENS[0] + RAMP) * (1 - highs(h * 360, GREENS[1] - RAMP, GREENS[1] + RAMP))
+        w *= highs(s0, GREY_S, 2 * GREY_S)
+        # The greens saturated in full, the browns and reds of the dry west and the lava by EARTH; the yellows and the
+        # rest as by default; the greys not at all.
+        sat, earth = BASE_SAT + (a.sat - BASE_SAT) * w, BASE_EARTH + (a.earth - BASE_EARTH) * w
+        l, k = light(c), 1 + (sat - 1) * min(1.0, max(earth, earth + (c[1] - c[0]) / 20)) if s0 >= GREY_S else 1
         c = [min(255.0, max(0.0, 128 + (l + (v - l) * k - 128) * a.contrast)) for v in c]
-        if a.warm and c[0] > c[1]:
+        if a.warm and s0 >= GREY_S and c[0] > c[1]:
             h, s, v = colorsys.rgb_to_hsv(*(x / 255 for x in c))
             d = ((h * 360 - OCHRE + 180) % 360) - 180  # from the ochre, -180 to 180 degrees
             if abs(d) < 90:
                 c = [x * 255 for x in colorsys.hsv_to_rgb(((OCHRE + d * (1 - a.warm)) % 360) / 360, s, v)]
-        g = a.gamma + (a.high_gamma - a.gamma) * highs(z[i], HIGH_FROM, HIGH_TO)
+        t = highs(z[i], HIGH_FROM, HIGH_TO)
+        g = (1 - w) * (BASE_GAMMA + (BASE_HIGH_GAMMA - BASE_GAMMA) * t) + w * (a.gamma + (a.high_gamma - a.gamma) * t)
         out[i] = tuple(255 * (v / 255) ** g for v in c)
     return out
 
@@ -207,9 +224,12 @@ def main():
             k = min(1.45, max(0.28, shade / lz))  # 1 on flat ground, darker away from the sun, brighter facing it
             k *= 1 - min(0.25, math.hypot(p, q) * 0.06)  # steep walls a little darker all round
             k = max(1 - a.floor, 1 + a.shade * (1 - (1 - a.high_shade) * highs(z[i], HIGH_FROM, HIGH_TO)) * (k - 1))
-            r, g, b = photo[i]
+            r, g, b = (v * k for v in photo[i])
+            hi, lo = max(r, g, b), min(r, g, b)
+            if hi > 255 * GREY_V and hi - lo < GREY_S * hi:
+                r, g, b = (v * 255 * GREY_V / hi for v in (r, g, b))
             o = i * 4
-            out[o:o + 4] = bytes((min(255, int(r * k)), min(255, int(g * k)), min(255, int(b * k)), 255))
+            out[o:o + 4] = bytes((min(255, int(r)), min(255, int(g)), min(255, int(b)), 255))
     with tempfile.TemporaryDirectory() as tmp:
         src, dst = Path(tmp) / "relief.png", Path(tmp) / "relief.webp"
         png(src, bytes(out), W, H)
