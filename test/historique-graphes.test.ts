@@ -121,6 +121,9 @@ describe("the classes of the rain of /historique", () => {
     expect(map.sort()).toEqual(["12 orange", "125 vert", "126 bleu", "53 orange", "79 orange", "80 vert"]);
     const bars = [...html.matchAll(/aria-label="(\d+) % de la normale"><i style="width:[\d.]+%;background:(#[0-9a-f]{6})"/g)].map((m) => `${m[1]} ${colour[m[2]]}`);
     expect(bars.sort()).toEqual(map);
+    // The stations' names in the bubble only: none written on the map, where one by the coast ran past its edge.
+    expect(html).not.toContain('class="mn"');
+    for (let i = 0; i < 6; i++) expect(html).toContain(`data-pn="Station ${i}"`);
     expect(html.match(/<span class="mlg">.*?<\/span><span class="mls">/s)![0].match(/<rect /g)).toHaveLength(3);
     expect(html).toContain("<span class=\"mls\">Pluie mesurée par Météo-France du 01/10 au 30/10, en % de la normale 1991-2020.</span>");
     // In the table, no figure parted from its unit on a phone.

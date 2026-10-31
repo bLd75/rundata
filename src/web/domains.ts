@@ -2818,7 +2818,9 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
 
   const markers = rows.flatMap((r) => {
     const x = pct(r.pluie?.rapport_a_la_normale);
-    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: rainClass(x).couleur, ink: COUNT_COLOR,
+    // The station's name in the bubble only (quiet), as on the other maps of measures: written under a point by the
+    // coast, « Pointe des Trois-Bassins » ran past the map's left edge at 1280.
+    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: rainClass(x).couleur, ink: COUNT_COLOR, quiet: true,
       say: `${x} % de la pluie normale en 30 jours`, href: `#${anchorId("s", r.station)}` }];
   });
 
