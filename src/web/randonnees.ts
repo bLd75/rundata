@@ -8,8 +8,7 @@ import * as traces from "../providers/traces.js";
 import type { Secteur } from "../traces/secteurs.js";
 import type { Alerte, PlaceData, RandonneesAnswer } from "./data.js";
 import { joursDuJour } from "./data.js";
-import { hikesZoom } from "./carte-zoom.js";
-import { closedLi, connectorCta, describe, hikeCard, loading, plural, randopitonsNote, sectorLinks, sectorTrail, sourcesNote, trailLi, webPage } from "./domains.js";
+import { closedLi, connectorCta, describe, hikeCard, loading, plural, randopitonsNote, sectorLinks, sectorTrail, sourcesNote, traceSource, trailLi, webPage } from "./domains.js";
 import { esc, hikesMap } from "./map.js";
 import { ask, icon, layout, thin } from "./pages.js";
 import { pageOf } from "./places.js";
@@ -55,8 +54,8 @@ export function secteurPage(origin: string, s: Secteur, data: Cached<RandonneesA
       `Aujourd'hui, <b>${plural(closed.length, "sentier fermé", "sentiers fermés")}</b>${cut.length ? `, sur ${plural(cut.length, "itinéraire")}` : ""}.</p></div>`;
 
   const map = d && keys.size
-    ? `<figure class="card mapcard">${hikesMap(d.lignes.filter((l) => keys.has(l.k)), `Carte de La Réunion (974) : les sentiers et les itinéraires de randonnée ${s.dans}, ouverts ou fermés`)}${hikesZoom()}
-  <figcaption class="note legend"><span><i class="sw rte"></i>itinéraire avec trace</span><span><i class="sw ouvert"></i>sentier ouvert</span><span><i class="sw ferme"></i>fermé</span><span><i class="sw inconnu"></i>hors gestion ONF</span></figcaption></figure>`
+    ? `<figure class="card mapcard">${hikesMap(d.lignes.filter((l) => keys.has(l.k)), `Carte de La Réunion (974) : les sentiers et les itinéraires de randonnée ${s.dans}, ouverts ou fermés`)}
+  <figcaption class="note legend"><span><i class="sw rte"></i>itinéraire avec trace</span><span><i class="sw ouvert"></i>sentier ouvert</span><span><i class="sw ferme"></i>fermé</span><span><i class="sw inconnu"></i>hors gestion ONF</span>${traceSource(d.carte_mise_a_jour, true)}</figcaption></figure>`
     : "";
 
   const shut = !d

@@ -95,7 +95,9 @@ describe("the points of the maps, with a mouse and with a finger", () => {
   it("leads a point to its row, its category opened, and lets the page mark it first", () => {
     expect(POINTS_SCRIPT).toContain(`const voir=(t)=>{const d=t.closest("details")||t.querySelector(":scope>details");if(d)d.open=true;if(location.hash!=="#"+t.id){location.hash=t.id;return}`);
     expect(POINTS_SCRIPT).toContain(`document.addEventListener("click",(e)=>{if(e.defaultPrevented||e.button`);
-    // The children's map marks the dot and its row, and lets the click go on to the row.
-    expect(commune).toContain(`if(moved>8){e.preventDefault();return}sheet.hidden=true;mark(a.dataset.i)});`);
+    // The children's map marks the dot and its row, and lets the click go on to the row; the click that ends a drag is
+    // stopped before, by the zoom's script (carte-zoom.ts).
+    expect(commune).toContain(`if(!a)return;sheet.hidden=true;mark(a.dataset.i)});`);
+    expect(commune).toContain(`svg.addEventListener("click",(e)=>{if(moved>8){e.stopImmediatePropagation();e.preventDefault();return}held(e)},true);`);
   });
 });

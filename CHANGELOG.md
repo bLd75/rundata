@@ -7,6 +7,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 ## Samedi 31 octobre 2026
 
 - Cyclones : une carte du bassin, avec la zone que suit le CMRS de La Réunion et la trace des cyclones passés.
+- Randonnée : chaque trace se zoome, de près sur la photo aérienne, et la carte des randonnées propose aussi le plan IGN et la photo.
 - Enfants : sur la carte d'une commune, la bulle d'un lieu mène à sa fiche, à « Y aller » et au site du lieu.
 - Cartes : sous chaque carte de points, la légende dessine chaque marque et dit la source et l'heure de ce qu'elle montre.
 - Sport : le beach-volley a sa rubrique, avec les épreuves sur sable de la Ligue réunionnaise de volley-ball et leurs annulations.

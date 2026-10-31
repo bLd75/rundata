@@ -41,7 +41,6 @@ import island from "../places/island.json" with { type: "json" };
 import * as mf from "../providers/vigilance.js";
 import { carteHtml } from "./cmrs-carte.js";
 import { basinMap, TRACES, TRACES_SCRIPT, TRACES_SOURCE, ZONE_SOURCE } from "./cyclones-bassin.js";
-import { hikesZoom } from "./carte-zoom.js";
 import { esc, fenetre, hikesMap, islandMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
 import { type Cle, COUNT_COLOR, legende } from "./carte-legende.js";
 import { reprise } from "./ouvrir-donnees.js";
@@ -1549,6 +1548,16 @@ export const CLE_FERME: Cle = { forme: "rond", couleur: CLOSED_COLOR, texte: "×
 /** « Carte de l'ONF du 20/10 », from the copy's « 20/10/2026 (ONF) ». */
 export const onfMap = (d?: SentiersAnswer) => `Carte de l'ONF${d?.carte_mise_a_jour ? ` du ${d.carte_mise_a_jour.slice(0, 5)}` : ""}`;
 
+/**
+ * The source under a map of trails (charte § 3 F), on its own line after the legend: the ONF's map and its date, from
+ * the ISO time the hikes' and the traces' answers keep (data.ts), then OpenStreetMap when the map draws its hikes.
+ */
+export function traceSource(miseAJour: string | undefined, osm: boolean): string {
+  const t = Date.parse(miseAJour ?? "");
+  const day = Number.isFinite(t) ? new Date(t + 4 * 3600_000).toISOString().slice(5, 10).split("-").reverse().join("/") : "";
+  return `<span class="mls">Carte de l'ONF${day ? ` du ${day}` : ""}${osm ? "\u00a0; itinéraires d'OpenStreetMap" : ""}.</span>`;
+}
+
 /** A fire's line in the list of the page, where its marker leads: the list and the markers follow the same order. */
 export const fireId = (i: number) => `f-${i + 1}`;
 
@@ -1921,8 +1930,8 @@ export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | 
       `Aujourd'hui, <b>${plural(d.fermes, "sentier fermé", "sentiers fermés")}</b>${cut.length ? `, sur ${plural(cut.length, "itinéraire")}` : ""}.</p></div>`;
 
   const map = d
-    ? `<figure class="card mapcard">${hikesMap(d.lignes, "Carte de La Réunion (974) : les itinéraires de randonnée et les sentiers de l'ONF, ouverts ou fermés")}${hikesZoom()}
-  <figcaption class="note legend"><span><i class="sw rte"></i>itinéraire avec trace</span><span><i class="sw ouvert"></i>sentier ouvert</span><span><i class="sw ferme"></i>fermé</span><span><i class="sw inconnu"></i>hors gestion ONF</span></figcaption></figure>`
+    ? `<figure class="card mapcard">${hikesMap(d.lignes, "Carte de La Réunion (974) : les itinéraires de randonnée et les sentiers de l'ONF, ouverts ou fermés")}
+  <figcaption class="note legend"><span><i class="sw rte"></i>itinéraire avec trace</span><span><i class="sw ouvert"></i>sentier ouvert</span><span><i class="sw ferme"></i>fermé</span><span><i class="sw inconnu"></i>hors gestion ONF</span>${traceSource(d.carte_mise_a_jour, true)}</figcaption></figure>`
     : "";
 
   const band = `${crumbBar("Randonnée")}
@@ -2062,6 +2071,17 @@ export { closedLi, hikeCard, plural, trailLi };
 
 // ---------------------------------------------------------------- a trail's or a hike's page, with its GPS trace
 
+/**
+ * The legend under a trace, drawn as on the hikes' map and in its words: the states the trace shows, a hike in its own
+ * colour, then its start.
+ */
+function traceLegend(kind: "sentier" | "randonnee", etats: string[]): string {
+  const marks: [string, string][] = kind === "sentier"
+    ? ([["ouvert", "sentier ouvert"], ["ferme", "fermé"], ["inconnu", "hors gestion ONF"]] as [string, string][]).filter(([e]) => etats.includes(e))
+    : [["rte", "itinéraire avec trace"], ...(etats.includes("ferme") ? [["ferme", "fermé"] as [string, string]] : [])];
+  return [...marks, ["st", "départ"]].map(([c, t]) => `<span><i class="sw ${c}"></i>${t}</span>`).join("");
+}
+
 /** `summit`: the summit the trace reaches, when the page its link leads to tells the morning's cloud sea (site.ts). */
 export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: string, nom: string, data: Cached<TraceAnswer> | null, now = new Date(), alerte?: Alerte, summit?: Summit): string {
   const d = data?.value;
@@ -2101,7 +2121,7 @@ export function tracePage(origin: string, kind: "sentier" | "randonnee", slug: s
 
   const map = d?.lignes.length
     ? `<figure class="card mapcard">${traceMap({ lines: d.lignes, label: `Carte : la trace de ${nom}` })}
-  <figcaption class="note" style="color:var(--on-night-muted)">${kind === "sentier" ? "En jaune ouvert, en rouge pointillé fermé, en gris hors gestion ONF. " : d.fermes.length ? "En rouge pointillé, les tronçons fermés. " : ""}Le rond blanc marque le départ de la trace.</figcaption></figure>`
+  <figcaption class="note legend" style="color:var(--on-night-muted)">${traceLegend(kind, d.lignes.map((l) => l.etat))}${traceSource(d.carte_mise_a_jour, kind === "randonnee")}</figcaption></figure>`
     : "";
 
   const profileBlock = d?.profil.length

@@ -776,6 +776,8 @@ export interface TraceAnswer {
   depart?: { lat: number; lon: number };
   /** The forest roads closed to traffic near a hike's start (ROAD_NEAR_M), and when the ONF's map was read. */
   routes_fermees?: { routes: { route: string; cause?: string }[]; lu: string };
+  /** When the ONF last edited its map (ISO), for the line under the trace's map; missing when it was not read. */
+  carte_mise_a_jour?: string;
   sources: Credit[];
 }
 
@@ -803,7 +805,8 @@ export function toLineM(lon: number, lat: number, line: [number, number][]): num
 
 /** An ONF trail: its line and state read from the ONF, its altitudes from the IGN. */
 export async function buildTrail(cache: Cache, t: { nom: string } & traces.SentierStats): Promise<TraceAnswer> {
-  const tr = (await traces.traceOnf(cache, t)).value;
+  // The whole map only for its date: the island's pages share it (onf.KEY), its trail is read on its own.
+  const [tr, carte] = await Promise.all([traces.traceOnf(cache, t).then((x) => x.value), onf.carte(cache).then((x) => x.value).catch(() => null)]);
   const pieces = tr.troncons.map((x) => x.points);
   const m = traces.measure(pieces);
   const shut = tr.troncons.filter((x) => x.statut === "fermé");
@@ -828,6 +831,7 @@ export async function buildTrail(cache: Cache, t: { nom: string } & traces.Senti
     randonnees: hikesThrough(t.nom),
     fermes: [],
     inconnus: [],
+    carte_mise_a_jour: carte?.mise_a_jour,
     sources: credits([onf.SOURCE, traces.SOURCES.ign]),
   };
 }
@@ -872,6 +876,7 @@ export async function buildRoute(cache: Cache, r: traces.Randonnee): Promise<Tra
     routes_fermees: read && roads.length && !fermes.length
       ? { routes: roads.map((x) => ({ route: x.nom, cause: x.cause })), lu: sportDay(new Date(read.fetchedAt.getTime() + 4 * 3600_000).toISOString().slice(0, 16)) }
       : undefined,
+    carte_mise_a_jour: carte?.mise_a_jour,
     sources: credits([traces.SOURCES.osm, onf.SOURCE, traces.SOURCES.ign]),
   };
 }

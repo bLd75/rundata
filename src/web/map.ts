@@ -6,6 +6,7 @@ import island from "../places/island.json" with { type: "json" };
 import relief from "./relief.json" with { type: "json" };
 import routes from "./routes.json" with { type: "json" };
 import { ACCUEILS } from "../providers/accueils-medias.js";
+import { HIKES_REACH, MAX_ZOOM, zoomControls } from "./carte-zoom.js";
 
 const [LON0, LAT0, LON1, LAT1] = island.bbox;
 export const W = island.w;
@@ -544,21 +545,22 @@ function markerBox(m: Marker, at?: [number, number]): Box {
 
 /**
  * The page's script for the names of places (namesLayer()), on every map that has them: each name at its size on
- * screen, then shown only if it touches no point, label or name already shown, on its place or around it (NUDGE, and
+ * screen, then shown only if it touches no point, trail (`.trk-halo`), label or name already shown, on its place or around it (NUDGE, and
  * FAR for a commune or a big quarter), a commune's name on it, its middle and 14 of 27 points of it, or at sea off its coast (`home`, the outlines
  * of `#isl` by `data-k`), the commune's own name (`data-c`) after the big ones if nothing around its place is free
  * (`look`), and on the island's map (`data-i`) a commune's name up to 6 times its size from its town, beyond 3 facing it (`face`), at sea only
  * where the nearest coast is the commune's (`town`, AROUND), as the server does for a phone. First the summits' names (`peaks`): below the summit, else above, on the right, on the
  * left, then aslant on either side, the first that touches no point (else the one that covers the least); the name
  * moves, never the station. What is hidden takes no room (the wind's pills under the temperatures, the summits'
- * names on a phone). Again when the map changes size, when the commune's map zooms (its viewBox) and when a tab
+ * names on a phone). Again when the map changes size, when a map zooms (its viewBox) and when a tab
  * changes the points shown.
  */
 export const NOMS_SCRIPT = `(()=>{const P=${JSON.stringify(NUDGE).replace(/</g, "\\u003c")},A=[...Array(625)].map((_,k)=>[k%25-12,Math.floor(k/25)-12]).filter(([i,j])=>i*i+j*j<=144).sort((a,b)=>a[0]*a[0]+a[1]*a[1]-(b[0]*b[0]+b[1]*b[1])),NEAR=${NEAR},F=[...Array(12)].flatMap((_,k)=>{const g=(k+1)/4,c=1.1+g;return[[1,g,0],[-1,-g,0],[0,0,-c],[0,0,c],[1,g,-c],[-1,-g,-c],[1,g,c],[-1,-g,c]]}),hit=(a,b)=>a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3];
 const run=(svg)=>{const g=svg.querySelector(".nm"),vb=svg.viewBox.baseVal,cw=svg.clientWidth;if(!g||!vb||!vb.width||!cw)return;
 const u=vb.width/cw,wide=cw>=640,p=2*u,busy=[],kept=[],box=(b,r)=>[b.x-r-p,b.y-r-p,b.x+b.width+r+p,b.y+b.height+r+p],
 free=(b)=>b[0]>=vb.x&&b[1]>=vb.y&&b[2]<=vb.x+vb.width&&b[3]<=vb.y+vb.height&&![...busy,...kept].some((o)=>hit(o,b));const shown=(e)=>{for(;e&&e!==svg;e=e.parentNode)if(getComputedStyle(e).display==="none")return false;return true};
-svg.querySelectorAll(".mk .sh,.mk .mn,.sp:not(.off) .rg,.pin,.ties circle,.trk-start,.rj-st circle,.wt line,.wt circle").forEach((e)=>{let b;if(!shown(e))return;try{b=e.getBBox()}catch{return}const r=e.matches(".rg")?9*u:0;if(b.width||b.height||r&&e.getClientRects().length)busy.push(box(b,r))});
+svg.querySelectorAll(".mk .sh,.mk .mn,.sp:not(.off) .rg,.pin,.ties circle,.trk-start,.rj-st circle,.wt line,.wt circle").forEach((e)=>{let b;if(!shown(e))return;try{b=e.getBBox()}catch{return}const r=e.matches(".rg,.trk-start")?9*u:0;if(b.width||b.height||r&&e.getClientRects().length)busy.push(box(b,r))});
+svg.querySelectorAll(".trk-halo").forEach((l)=>{const L=l.getTotalLength(),st=Math.max(6*u,L/800);for(let s=0;s<=L;s+=st){const q=l.getPointAtLength(s);busy.push([q.x-4*u-p,q.y-4*u-p,q.x+4*u+p,q.y+4*u+p])}});
 const marks=[];svg.querySelectorAll(".pk").forEach((k)=>{const ts=[...k.querySelectorAll("text")],at=(d)=>ts.forEach((t)=>{if(t.dataset.x===undefined){t.dataset.x=t.getAttribute("x");t.dataset.y=t.getAttribute("y")}t.setAttribute("x",+t.dataset.x+d[0]);t.setAttribute("y",+t.dataset.y+d[1])});
 let T;if(!shown(k))return;try{at([0,0]);T=k.querySelector("path").getBBox()}catch{return}if(!T.width)return;marks.push(box(T,0));let B=null;for(const t of ts){if(!shown(t))continue;const q=t.getBBox();if(q.width)B=B?[Math.min(B[0],q.x),Math.min(B[1],q.y),Math.max(B[2],q.x+q.width),Math.max(B[3],q.y+q.height)]:[q.x,q.y,q.x+q.width,q.y+q.height]}if(!B)return;
 const s=4*u,cy=T.y+T.height/2-(B[1]+B[3])/2,hb=(B[3]-B[1])/2,R=T.x+T.width+s-B[0],L=T.x-s-B[2],at2=(d)=>[B[0]+d[0]-p,B[1]+d[1]-p,B[2]+d[0]+p,B[3]+d[1]+p],
@@ -625,6 +627,8 @@ export function islandMap(opts: {
    * communes' own links are then for the mouse only, so that a keyboard or a screen reader meets each commune once.
    */
   names?: string;
+  /** The key of the IGN's backgrounds drawn over the relief once picked (fondChoice()): their layer `fd-<key>`. */
+  fond?: string;
   label: string;
 }): string {
   const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
@@ -685,7 +689,8 @@ export function islandMap(opts: {
   }
   const terrain = !fills;
   const land = terrain
-    ? `<use href="#isl" class="land"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>`
+    ? `<use href="#isl" class="land"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
+      (opts.fond ? `<g id="fd-${esc(opts.fond)}" class="fd"></g>` : "")
     : `<use href="#isl" class="land"/>${fills}`;
   // The names over the relief only: on the maps in colours (fills), the colours are the data.
   const names = opts.names ?? (terrain ? namesLayer({ frame: [0, 0, W, H], unit: W / PHONE_PX, busy, hide: !!opts.top }) : "");
@@ -749,7 +754,8 @@ export interface HikeLine {
 /**
  * The island in relief with every hike and ONF trail: the trails open or unknown first, the hikes over them, the
  * closed trails on top so that no closure is hidden. `data-k` ties each line to its entry in the list below the map,
- * for the filter and for a click on it.
+ * for the filter and for a click on it. Under it, the zoom (carte-zoom.ts, up to MAX_ZOOM: the lines are thinned to the
+ * island's scale, pathOf()) and the backgrounds.
  */
 export function hikesMap(lines: HikeLine[], label: string): string {
   const cls = (l: HikeLine) => (l.genre === "randonnee" ? "rte" : `trk ${l.etat === "fermé" ? "ferme" : l.etat || "inconnu"}`);
@@ -759,8 +765,9 @@ export function hikesMap(lines: HikeLine[], label: string): string {
   const under = lines.filter((l) => l.genre === "sentier" && l.etat !== "fermé");
   const routes = lines.filter((l) => l.genre === "randonnee");
   const closed = lines.filter((l) => l.genre === "sentier" && l.etat === "fermé");
-  const svg = islandMap({ label, overlay: `<g class="lines">${[...under, ...routes, ...closed].map(draw).join("")}</g>` });
-  return svg.replace('<svg class="map terrain"', '<svg id="hmap" class="map terrain hikes"');
+  const svg = islandMap({ label, overlay: `<g class="lines">${[...under, ...routes, ...closed].map(draw).join("")}</g>`, fond: "h" });
+  return svg.replace('<svg class="map terrain"', `<svg id="hmap" class="map terrain hikes" data-fd="h" data-zoom="${MAX_ZOOM}"`) +
+    zoomControls("h", "ile") + fondChoice("h") + `<script>${HIKES_REACH}</script>`;
 }
 
 // ---------------------------------------------------------------- a trail, close up
@@ -774,39 +781,61 @@ export interface TraceLine {
   etat: string;
 }
 
+/** How much closer than the relief a trail's map comes once an IGN background is picked: its tiles go to 1 m or less. */
+export const FOND_ZOOM = 8;
+
 /**
  * The island cropped around a trail: the relief and the coast as on the island's map, the trail drawn over it coloured
- * by its state, its start marked. The crop keeps the map's proportions and at least `minKm` across.
+ * by its state, its start marked. The crop keeps the map's proportions, and is never closer than the relief reads
+ * (MAX_ZOOM): a short trail gets room around it rather than a blurred relief. Under it, the zoom (carte-zoom.ts), up to
+ * that same limit, or FOND_ZOOM times closer on the IGN's backgrounds, and the backgrounds. The names of places keep
+ * off the trail.
  */
-export function traceMap(opts: { lines: TraceLine[]; label: string; minKm?: number }): string {
+export function traceMap(opts: { lines: TraceLine[]; label: string }): string {
   const pts = opts.lines.flatMap((l) => l.points.map(([lon, lat]) => exact(lon, lat)));
   if (!pts.length) return "";
   const xs = pts.map((p) => p[0]);
   const ys = pts.map((p) => p[1]);
-  const unitKm = ((LON1 - LON0) * 111.32 * Math.cos((((LAT0 + LAT1) / 2) * Math.PI) / 180)) / W;
-  const min = (opts.minKm ?? 3) / unitKm;
-  let w = Math.max(Math.max(...xs) - Math.min(...xs), min) * 1.25;
-  let h = Math.max(Math.max(...ys) - Math.min(...ys), min) * 1.25;
+  const least = W / MAX_ZOOM;
+  let w = Math.max((Math.max(...xs) - Math.min(...xs)) * 1.25, least);
+  let h = Math.max((Math.max(...ys) - Math.min(...ys)) * 1.25, (least * 3) / 4);
   // The figure is 4:3, like the island's.
   if (w / h < 4 / 3) w = (h * 4) / 3;
   else h = (w * 3) / 4;
   const x0 = (Math.min(...xs) + Math.max(...xs)) / 2 - w / 2;
   const y0 = (Math.min(...ys) + Math.max(...ys)) / 2 - h / 2;
-  const r = w / 90;
   const paths = island.paths.map((p) => `<path d="${p.d}"/>`).join("");
   const d = (l: TraceLine) => l.points.map(([lon, lat], i) => `${i ? "L" : "M"}${exact(lon, lat).join(" ")}`).join("");
   const [sx, sy] = exact(...opts.lines[0].points[0]);
   const frame = [x0, y0, w, h].map((v) => Math.round(v * 100) / 100);
   const box = frame.join(" ");
-  const names = namesLayer({ frame, unit: w / PHONE_PX, busy: [[sx - r * 2, sy - r * 2, sx + r * 2, sy + r * 2]], close: true });
-  return `<svg class="map terrain zoom" viewBox="${box}" data-fd="t" role="img" aria-label="${esc(opts.label)}">` +
+  const unit = w / PHONE_PX;
+  // The trail, as boxes of its halo's width every few px along each line, and its start: what the names must not touch.
+  const busy: Box[] = [[sx - 9 * unit, sy - 9 * unit, sx + 9 * unit, sy + 9 * unit]];
+  const step = 4 * unit;
+  for (const l of opts.lines) {
+    let last: number[] | undefined;
+    for (const p of l.points.map(([lon, lat]) => exact(lon, lat))) {
+      const n = last ? Math.floor(Math.hypot(p[0] - last[0], p[1] - last[1]) / step) : 0;
+      if (last && !n) continue;
+      for (let i = 1; i <= Math.max(n, 1); i++) {
+        const [x, y] = last ? [last[0] + ((p[0] - last[0]) * i) / Math.max(n, 1), last[1] + ((p[1] - last[1]) * i) / Math.max(n, 1)] : p;
+        busy.push([x - step, y - step, x + step, y + step]);
+      }
+      last = p;
+    }
+  }
+  const names = namesLayer({ frame, unit, busy, close: true });
+  const most = Math.round((w / least) * 100) / 100;
+  return `<svg class="map terrain zoom" viewBox="${box}" data-fd="t" data-zoom="${most}" data-zoom-fd="${most * FOND_ZOOM}" role="img" aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g><clipPath id="isl-clip">${paths}</clipPath></defs>` +
     `<rect class="sea" x="${x0 - w}" y="${y0 - h}" width="${w * 3}" height="${h * 3}"/>` +
     `<use href="#isl" class="coast"/><use href="#isl" class="land"/>` +
     `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
     `<g id="fd-t" class="fd"></g>` + roadsLayer(frame) + names +
     opts.lines.map((l) => `<path class="trk-halo" d="${d(l)}"/><path class="trk ${esc(l.etat)}" d="${d(l)}"/>`).join("") +
-    `<circle class="trk-start" cx="${sx}" cy="${sy}" r="${Math.round(r * 100) / 100}"/></svg>` + fondChoice("t");
+    // A dot of its size on screen at any zoom (a stroke that does not scale), white ringed with night.
+    `<path class="trk-start" d="M${sx} ${sy}h0"/><path class="trk-start in" d="M${sx} ${sy}h0"/></svg>` + zoomControls("t", "trace") + fondChoice("t");
 }
 
 // ---------------------------------------------------------------- the IGN's backgrounds, on the zoomed maps
@@ -908,10 +937,10 @@ const PHONE_PX = 340;
  * A commune close up (the children's page of a commune): the relief and the coast as on the island's map, the other
  * communes dimmed, its outline marked, and a dot per spot. The dots keep their size on screen when the page's script
  * zooms (a stroke that does not scale); each is a link to its row, its hit area as wide as a finger on a phone and no
- * wider than half the way to the next one. The frame is the commune's and its spots', 1:1 to 4:3, in `data-box`.
- * `controls` (the zoom's buttons) go between the map and the choice of its base, the order of every zoomed map.
+ * wider than half the way to the next one. The frame is the commune's and its spots', 1:1 to 4:3, in `data-box`. Under
+ * it, the zoom (carte-zoom.ts, up to 12 times closer), then the backgrounds, the order of every zoomed map.
  */
-export function communeMap(opts: { commune: string; spots: Spot[]; label: string; id?: string; controls?: string }): string {
+export function communeMap(opts: { commune: string; spots: Spot[]; label: string; id?: string }): string {
   const shape = island.paths.find((p) => p.nom === opts.commune);
   if (!shape) return "";
   // A tenth of the map's unit is 7 m: enough for a dot.
@@ -934,7 +963,7 @@ export function communeMap(opts: { commune: string; spots: Spot[]; label: string
       `<circle class="hit" cx="${x}" cy="${y}" r="${r2(radii[k])}"/><path class="rg" d="M${x} ${y}h0"/><path class="pt f-${esc(s.f)}" d="M${x} ${y}h0"/></a>`;
   }).join("");
   const fd = esc(opts.id ?? "c");
-  return `<svg${opts.id ? ` id="${opts.id}"` : ""} class="map terrain zoom commune" viewBox="${box.join(" ")}" data-box="${box.join(" ")}" data-fd="${fd}" role="group" aria-label="${esc(opts.label)}">` +
+  return `<svg${opts.id ? ` id="${opts.id}"` : ""} class="map terrain zoom commune" viewBox="${box.join(" ")}" data-box="${box.join(" ")}" data-fd="${fd}" data-zoom="12" role="group" aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g><clipPath id="isl-clip">${paths}</clipPath><clipPath id="com-clip"><path d="${shape.d}"/></clipPath></defs>` +
     `<rect class="sea" x="${r2(box[0] - w)}" y="${r2(box[1] - h)}" width="${r2(w * 3)}" height="${r2(h * 3)}"/>` +
     `<use href="#isl" class="coast"/><use href="#isl" class="land"/>` +
@@ -945,7 +974,7 @@ export function communeMap(opts: { commune: string; spots: Spot[]; label: string
     `<use href="#fd-${fd}" clip-path="url(#com-clip)"/>` +
     roadsLayer(box) + `<path class="hl" d="${shape.d}"/>` +
     namesLayer({ frame: box, unit, busy: at.map(([x, y]) => [x - 10 * unit, y - 10 * unit, x + 10 * unit, y + 10 * unit]), close: true, within: ringOf(shape.d), centre: chefLieu(opts.commune), commune: opts.commune }) +
-    `<g class="spots">${dots}</g></svg>` + (opts.controls ?? "") + fondChoice(fd);
+    `<g class="spots">${dots}</g></svg>` + zoomControls(fd, "commune") + fondChoice(fd);
 }
 
 /** The altitude along the trail: an area, the axes in km and m. */
