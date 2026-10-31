@@ -316,7 +316,7 @@ export async function volcanSeismes(cache: Cache, now = new Date(), detail = tru
   const prefLue = silent && silent.statut !== "revenu" ? await prefecture.derniereLecture(cache, now).catch(() => undefined) : undefined;
   const ipgp = silent && silent.statut !== "revenu" ? ipgpMuet(silent, { bluesky: !!read && !read.stale, prefecture: prefLue ?? (!!given0 && !given0.stale) }, now) : undefined;
   // The ONF's map as another page last read it, never built here (a read).
-  const carte = await cache.peek<onf.Carte>(onf.KEY).catch(() => undefined);
+  const carte = onf.carteDuJour(await cache.peek<onf.Carte>(onf.KEY).catch(() => undefined), now);
   if (!piton && !posts && !quakes && !phase) {
     return {
       ...text({ erreur: "Les sources sur le volcan ne répondent pas pour le moment.", consulter: [volcan.OVPF.url, volcan.OVPF_FACEBOOK] }),

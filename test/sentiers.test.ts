@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { parseRoads, parseTrails } from "../src/providers/sentiers.js";
+import { avisDuJour, duJour, parseRoads, parseTrails } from "../src/providers/sentiers.js";
 import { sentiersRandonnee, trailsNamed } from "../src/tools/sentiers.js";
 import type { SentiersAnswer } from "../src/web/data.js";
 import { closedTrails, randonneesLive, sentiersPage } from "../src/web/domains.js";
@@ -9,6 +9,7 @@ import { closedTrails, randonneesLive, sentiersPage } from "../src/web/domains.j
 // The ONF's map of the trails on 24/10/2026, last edited on 20/10: 56 trails closed out of 351 (389 pieces).
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/onf/${f}`, import.meta.url), "utf8");
 const NOW = new Date("2026-10-24T04:00:00Z");
+const MONDAY = new Date("2026-10-26T04:00:00Z");
 const body = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 const cache = () => new Cache(new MemoryStore(), () => NOW.getTime());
 
@@ -33,11 +34,31 @@ describe("sentiers de randonnée", () => {
   });
 
   it("lists the closed trails of the island by commune", async () => {
+    // A Saturday: the three trails whose notice opens them on weekends are open (duJour).
     const b = body(await sentiersRandonnee(cache(), undefined, NOW));
-    expect(b.resume).toBe("56 sentiers fermés sur 351 suivis par l'ONF à La Réunion, et 4 routes forestières interdites à la circulation.");
+    expect(b.resume).toBe("53 sentiers fermés sur 351 suivis par l'ONF à La Réunion, et 4 routes forestières interdites à la circulation.");
     expect(b.carte_mise_a_jour).toBe("20/10/2026 (ONF)");
     expect(b.fermes_par_commune[0]).toMatchObject({ commune: "Sainte-Rose" });
-    expect(b.fermes_par_commune.reduce((n: number, c: { sentiers_fermes: unknown[] }) => n + c.sentiers_fermes.length, 0)).toBe(56);
+    expect(b.fermes_par_commune.reduce((n: number, c: { sentiers_fermes: unknown[] }) => n + c.sentiers_fermes.length, 0)).toBe(53);
+    expect(body(await sentiersRandonnee(cache(), undefined, MONDAY)).resume).toMatch(/^56 sentiers fermés sur 351 /);
+  });
+
+  it("opens on a Saturday or a Sunday a trail whose notice opens it on weekends, in the notice's words, and only then", async () => {
+    const shut = { statut: "fermé" as const, cause: "Fermé du lundi au vendredi, ouvert le week-end", info: "02/01/27" };
+    // Saturday and Sunday, Réunion time: Friday 23:30 is still a weekday, Monday 00:30 is one again.
+    expect(duJour(shut, new Date("2026-10-30T19:59:00Z")).statut).toBe("fermé");
+    expect(duJour(shut, new Date("2026-10-30T20:01:00Z")).statut).toBe("ouvert");
+    expect(duJour(shut, new Date("2026-11-01T19:59:00Z")).statut).toBe("ouvert");
+    expect(duJour(shut, new Date("2026-11-01T20:01:00Z")).statut).toBe("fermé");
+    expect(avisDuJour(duJour(shut, NOW))).toBe("Fermé du lundi au vendredi, ouvert le week-end");
+    // A closure without such words, or only ended, is not deduced open.
+    expect(duJour({ statut: "fermé", info: "Fermé jusqu'au 30/10/26 inclus" }, NOW).statut).toBe("fermé");
+    expect(avisDuJour({ statut: "ouvert", cause: "Accès au sentier des Laves" })).toBeUndefined();
+    for (const nom of ["Sentier de Montplaisir", "le Sentier de la Onzième Ligne"]) {
+      expect(body(await sentiersRandonnee(cache(), `${nom} est ouvert ?`, NOW)).resume).toContain(
+        " : ouvert aujourd'hui d'après l'avis de l'ONF (« Fermé jusqu'au 30/10/26 inclus - Sentier ouvert les samedis et dimanches durant cette période »).");
+      expect(body(await sentiersRandonnee(cache(), `${nom} est ouvert ?`, MONDAY)).resume).toContain(" : FERMÉ (Travaux d'exploitation forestière).");
+    }
   });
 
   it("answers for a trail by its name", async () => {
@@ -51,10 +72,14 @@ describe("sentiers de randonnée", () => {
     const b = body(await sentiersRandonnee(cache(), "sentiers fermés à Mafate", NOW));
     // A hike of the cirque crosses a closed trail: said first.
     expect(b.resume).toBe("ATTENTION : PR25 emprunte 1 sentier fermé : La Nouvelle - Maison Laclos par PR (Éboulement). Un sentier fermé est interdit : ne pas s'y engager, prendre une variante ouverte ou renoncer. " +
-      "Dans le cirque de Mafate : 5 sentiers fermés, 84 ouverts, 9 hors gestion ONF (état non connu). 50 aires d'accueil de l'ONF dans le cirque de Mafate (voir aires_accueil).");
+      "Dans le cirque de Mafate : 4 sentiers fermés, 59 ouverts, 3 hors gestion ONF (état non connu). 50 aires d'accueil de l'ONF dans le cirque de Mafate (voir aires_accueil).");
     expect(b.avertissement.sentiers_fermes).toEqual([expect.objectContaining({ sentier: "La Nouvelle - Maison Laclos par PR", cause: "Éboulement", randonnees: ["PR25"] })]);
     expect(b.sentiers_nommes).toBeUndefined();
-    expect(b.autour.sentiers_fermes.map((t: { sentier: string }) => t.sentier)).toContain("Piste DFCI de la Glacière");
+    // The cirque's sector, as on its page (/randonnees/mafate): Cap Noir is in it, the Maïdo's rim is not.
+    const fermes = b.autour.sentiers_fermes.map((t: { sentier: string }) => t.sentier);
+    expect(fermes).toContain("Sentier de Cap Noir");
+    expect(fermes).not.toContain("Piste DFCI de la Glacière");
+    expect(fermes).toHaveLength(4);
   });
 
   it("answers for the forest roads of the island, or one by its code or its name, never a place not found", async () => {

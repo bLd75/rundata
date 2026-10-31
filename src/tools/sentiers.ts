@@ -16,11 +16,12 @@ const NAMED_MAX = 8;
 const ROUTES_MAX = 10;
 /** Where the traces and the trails' pages are served. */
 export const SITE_URL = "https://rundata.re";
-// The cirques have no single point: a question about one takes the trails within its walls, roughly.
-const CIRQUES: Record<string, { nom: string; lon: number; lat: number; km: number }> = {
-  mafate: { nom: "le cirque de Mafate", lon: 55.43, lat: -21.055, km: 6 },
-  cilaos: { nom: "le cirque de Cilaos", lon: 55.475, lat: -21.13, km: 6 },
-  salazie: { nom: "le cirque de Salazie", lon: 55.515, lat: -21.05, km: 7 },
+// The cirques have no single point: a question about one takes the trails of its sector, as its page does
+// (/randonnees/mafate); the point and the distance, for the ONF's reception areas around it.
+const CIRQUES: Record<string, { nom: string; secteur: string; lon: number; lat: number; km: number }> = {
+  mafate: { nom: "le cirque de Mafate", secteur: "Mafate", lon: 55.43, lat: -21.055, km: 6 },
+  cilaos: { nom: "le cirque de Cilaos", secteur: "Cilaos", lon: 55.475, lat: -21.13, km: 6 },
+  salazie: { nom: "le cirque de Salazie", secteur: "Salazie", lon: 55.515, lat: -21.05, km: 7 },
 };
 const STOP = new Set(["sentier", "sentiers", "chemin", "route", "routes", "forestiere", "de", "des", "du", "la", "le", "les", "l", "d", "a", "au", "aux", "par", "et", "ferme", "fermes", "ouvert", "ouverts", "randonnee", "randonnees", "rando", "randos", "est", "il", "ce", "trace", "traces", "gps", "gpx", "itineraire", "parcours"]);
 
@@ -109,6 +110,12 @@ export function trailTrace(nom: string) {
     page: `${SITE_URL}/sentiers/${t.slug}`,
   };
 }
+
+/** « ouvert », citing the ONF's notice when it is that notice which opens the trail today (onf.duJour). */
+const ouvert = (s: onf.Sentier) => {
+  const avis = onf.avisDuJour(s);
+  return avis ? `ouvert aujourd'hui d'après l'avis de l'ONF (« ${avis} »)` : "ouvert";
+};
 
 export function trailRow(s: onf.Sentier, from?: { lon: number; lat: number }) {
   return {
@@ -323,7 +330,7 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
   // The fires seen by satellite, beside the trails: nothing without FIRMS's key (providers/feux.ts).
   const seen = feux.feuxNow(cache, now);
   try {
-    carte = (await onf.carte(cache)).value;
+    carte = (await onf.carte(cache, now)).value;
   } catch (err) {
     console.error(`source ${onf.SOURCE.id} indisponible:`, why(err));
     return { ...text({ erreur: "La carte des sentiers de l'ONF ne répond pas pour le moment.", consulter: onf.SOURCE.url }), isError: true };
@@ -388,8 +395,8 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
     zone = {
       nom: cirque.nom,
       dans: `Dans ${cirque.nom}`,
-      sentiers: carte.sentiers.filter((s) => near(s, cirque.lon, cirque.lat) <= cirque.km),
-      routes: carte.routes.filter((r) => near(r, cirque.lon, cirque.lat) <= cirque.km),
+      sentiers: carte.sentiers.filter((s) => trailSecteur(s.nom, s.points.length ? mid(s) : undefined) === cirque.secteur),
+      routes: carte.routes.filter((r) => r.points.length > 0 && secteur(...mid(r)).secteur === cirque.secteur),
     };
   } else if (res && res.lieu.type === "commune") {
     const inCommune = (s: { points: [number, number][] }) => s.points.length > 0 && communeAt(...mid(s)) === res.lieu.commune;
@@ -420,7 +427,7 @@ export async function sentiersRandonnee(cache: Cache, lieu: string | undefined, 
   if (named.length) {
     const shut = named.filter((s) => s.statut === "fermé");
     parts.push(named.length === 1
-      ? `${named[0].nom} : ${named[0].statut === "fermé" ? `FERMÉ${named[0].cause ? ` (${named[0].cause})` : ""}` : named[0].statut === "ouvert" ? "ouvert" : "état non connu (hors gestion ONF)"}.`
+      ? `${named[0].nom} : ${named[0].statut === "fermé" ? `FERMÉ${named[0].cause ? ` (${named[0].cause})` : ""}` : named[0].statut === "ouvert" ? ouvert(named[0]) : "état non connu (hors gestion ONF)"}.`
       : `${named.length} sentiers portent ce nom : ${shut.length ? `${shut.length} fermé${shut.length > 1 ? "s" : ""} (${shut.map((s) => s.nom).join(", ")})` : "aucun fermé"}.`);
   }
   let zoneOut: Record<string, unknown> | undefined;

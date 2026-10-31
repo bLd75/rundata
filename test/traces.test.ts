@@ -5,6 +5,7 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import { KV_KEEP_SECONDS, type KvBinding, KvStore } from "../src/kv.js";
 import { ALTI_SECONDS, decode, gpx, measure, portionsOf, RANDONNEES, routePieces, SENTIERS, sentier, traceOnf } from "../src/providers/traces.js";
 import { routesNamed, secteur, sentiersRandonnee } from "../src/tools/sentiers.js";
+import { buildTrail, trailGpx } from "../src/web/data.js";
 import { SECTEURS as SECTEURS_RANDO } from "../src/traces/secteurs.js";
 
 // The ONF's map on 24/10/2026 (test/fixtures/onf), one trail of it at full resolution (one point in twenty kept) with
@@ -20,6 +21,8 @@ describe("traces GPS", () => {
   let down: RegExp | undefined;
   // The ONF trails to show closed, whatever the map of the day says.
   let shut: RegExp | undefined;
+  // The trail's own trace closed on weekdays, open on weekends by its notice.
+  let weekend: boolean;
   const map = () => {
     const m = JSON.parse(fixture("onf/sentiers.json"));
     for (const f of m.features) {
@@ -31,6 +34,7 @@ describe("traces GPS", () => {
     asked = [];
     down = undefined;
     shut = undefined;
+    weekend = false;
     vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
       asked.push(url);
       if (down?.test(url)) return new Response("", { status: 503 });
@@ -38,7 +42,11 @@ describe("traces GPS", () => {
         expect(JSON.parse(String(init?.body)).resource).toBe("ign_rge_alti_wld");
         return new Response(fixture("traces/ign_le-bloc-piton-des-neiges.json"));
       }
-      if (url.includes("/5/query") && url.includes("WS_NomIti+IN")) return new Response(fixture("traces/onf_le-bloc-piton-des-neiges.json"));
+      if (url.includes("/5/query") && url.includes("WS_NomIti+IN")) {
+        const t = JSON.parse(fixture("traces/onf_le-bloc-piton-des-neiges.json"));
+        for (const f of t.features) if (weekend) Object.assign(f.attributes, { WS_Statut: "Sentier fermé", WS_InfCaus: "Fermé du lundi au vendredi, ouvert le week-end", WS_InfDate: "02/01/27" });
+        return new Response(JSON.stringify(t));
+      }
       if (url.includes("/5/query")) return new Response(map());
       if (url.includes("/4/query")) return new Response(fixture("onf/routes.json"));
       if (url.includes("arcgis")) return new Response(fixture("onf/couche.json"));
@@ -150,6 +158,16 @@ describe("traces GPS", () => {
     expect(trail).toContain("Ouvert d'après l'ONF");
     expect(trail).toContain(`<a href="/randonnees/sentier-du-piton-des-neiges">Sentier du Piton des Neiges</a>`);
     expect((await handle(new Request("https://rundata.re/sentiers/nulle-part.gpx"), cache())).status).toBe(404);
+  });
+
+  it("says a trail open on a Saturday when its notice opens it on weekends, citing it, and closed on a Monday", async () => {
+    weekend = true;
+    const t = sentier("le-bloc-piton-des-neiges")!;
+    const saturday = await buildTrail(cache(), t, NOW);
+    expect(saturday).toMatchObject({ etat: "Ouvert aujourd'hui d'après l'avis de l'ONF : « Fermé du lundi au vendredi, ouvert le week-end »", ferme: false });
+    expect(await trailGpx(cache(), "https://rundata.re", t, NOW)).toContain(" : ouvert aujourd'hui d'après l'avis de l'ONF (« Fermé du lundi au vendredi, ouvert le week-end »).");
+    const monday = new Date("2026-10-26T04:00:00Z");
+    expect(await buildTrail(cache(), t, monday)).toMatchObject({ etat: "Fermé : Fermé du lundi au vendredi, ouvert le week-end (02/01/27)", ferme: true });
   });
 
   it("warns first, everywhere, when a hike crosses a closed trail", async () => {
