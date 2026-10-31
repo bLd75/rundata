@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 31 octobre 2026
 
+- Événements : une carte de ce soir, de demain ou du week-end, commune par commune, avec un filtre par genre.
 - Cyclones : une carte du bassin, avec la zone que suit le CMRS de La Réunion et la trace des cyclones passés.
 - Randonnée : chaque trace se zoome, de près sur la photo aérienne, et la carte des randonnées propose aussi le plan IGN et la photo.
 - Enfants : sur la carte d'une commune, la bulle d'un lieu mène à sa fiche, à « Y aller » et au site du lieu.
