@@ -104,7 +104,7 @@ import * as marchesPublics from "./providers/marches-publics.js";
 import { emploi } from "./tools/emploi.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "1.0.48";
+export const VERSION = "1.0.49";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -378,7 +378,7 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
       title: "Électricité à La Réunion en ce moment",
       description:
         "Électricité à La Réunion (974) en direct, d'après EDF : production totale, part de chaque filière (solaire, " +
-        "bagasse et biomasse, hydraulique, éolien, charbon, diesel) et part renouvelable, mises à jour toutes les 5 min\u00a0; " +
+        "bioénergies, biomasse, bioliquide, hydraulique, éolien) et part renouvelable, mises à jour toutes les 5 min\u00a0; " +
         "« météo de l'électricité » d'EDF pour les jours qui viennent (heures de pointe, réseau contraint, recharge conseillée " +
         "d'un véhicule électrique). Pour : « d'où vient l'électricité ? », " +
         "« quand recharger ma voiture électrique ? ». " +
