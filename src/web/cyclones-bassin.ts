@@ -5,10 +5,11 @@
  * links to its site (kit.md, « Vigilance et cyclone : affichage de Météo-France », after Météo-France's mail of
  * 27/10/2026). While a system is watched, the line under the map sends to that official map, shown whole above it
  * (cmrs-carte.ts), and the map shows nothing else. The rest of the time, it draws the tracks of the past cyclones
- * that have a page /cyclones/<slug>, as the RSMC gave them (cyclones-traces.json, from NOAA's IBTrACS; the user's
+ * that have a page /cyclones/<slug>, as the RSMC gave them (cyclones-traces.json: Météo-France's best track, the older
+ * ones from NOAA's IBTrACS; the user's
  * yes of 31/10/2026): the line only, with its name and year, no wind nor pressure nor stage.
  */
-import ibtracs from "../historique/cyclones-traces.json" with { type: "json" };
+import best from "../historique/cyclones-traces.json" with { type: "json" };
 import { PASSES } from "../historique/cyclones-passes.js";
 import ocean from "./ocean.json" with { type: "json" };
 import { esc } from "./map.js";
@@ -69,10 +70,11 @@ const TRACE_MARKS: Record<string, [number, number, "droite" | "gauche" | "dessus
 };
 /** The past cyclones drawn: their page, name, year and track. */
 export const TRACES = PASSES.map((p) => {
-  const t = (ibtracs.traces as Record<string, { points: number[][]; provisoire?: boolean }>)[p.slug];
-  return { slug: p.slug, nom: p.nom, annee: p.slug.slice(-4), points: t.points, provisoire: !!t.provisoire, nom_annee: `${p.nom} (${p.slug.slice(-4)})` };
+  const t = (best.traces as Record<string, { source: string; points: number[][] }>)[p.slug];
+  return { slug: p.slug, nom: p.nom, annee: p.slug.slice(-4), points: t.points, source: t.source, nom_annee: `${p.nom} (${p.slug.slice(-4)})` };
 });
-export const TRACES_SOURCE = { nom: ibtracs.source, consulte: ibtracs.consulte, lien: "https://www.ncei.noaa.gov/products/international-best-track-archive" };
+/** Météo-France's best track from the season 1986-1987 (Licence Ouverte 2.0), IBTrACS for a cyclone before it. */
+export const TRACES_SOURCES = { ...best.sources, consulte: best.consulte };
 
 /** The text the map stands for, said to screen readers. */
 export function label(traces: boolean): string {

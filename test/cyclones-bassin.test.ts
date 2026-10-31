@@ -39,8 +39,10 @@ describe("the map of the basin on /cyclones", () => {
     expect(f.match(/<g class="tns">(.*?)<\/g>/s)![1].match(/>[^<]+</g)).toEqual(PASSES.map((p) => `>${p.nom} (${p.slug.slice(-4)})<`));
     expect(basinMap(true)).toMatch(/<g class="tns">.*<\/g><\/svg>$/s);
     expect(cyclonesPage(O, at(QUIET), NOW)).toContain(`</figure><script>${TRACES_SCRIPT}</script>`);
-    expect(f).toContain(`<a href="https://www.ncei.noaa.gov/products/international-best-track-archive" rel="noopener">NOAA IBTrACS</a>, consulté le ${traces.consulte.split("-").reverse().join("/")}`);
-    expect(f).toContain("celle de Garance est encore provisoire");
+    // Météo-France's best track, and IBTrACS for the one before it, each named and linked.
+    expect(f).toContain(`Traces\u00a0: <a href="https://www.data.gouv.fr/datasets/historique-des-cyclones-tropicaux-du-sud-ouest-de-locean-indien" rel="noopener">Météo-France (CMRS de La Réunion)</a>, Licence Ouverte 2.0, consultées le ${traces.consulte.split("-").reverse().join("/")}. ` +
+      `Hyacinthe (1980) est plus ancienne que ces données, qui commencent en 1986\u00a0: sa trace vient des positions du CMRS reprises par <a href="https://www.ncei.noaa.gov/products/international-best-track-archive" rel="noopener">NOAA IBTrACS</a>. Cette carte ne montre aucun système de la saison. `);
+    expect(f).not.toContain("provisoire");
   });
 
   it("sends to the RSMC's own map, above it, while a system is watched", () => {
@@ -81,10 +83,11 @@ describe("the map of the basin on /cyclones", () => {
 
   it("draws each past cyclone's track as the RSMC gave it, the line only", () => {
     expect(Object.keys(traces.traces).sort()).toEqual(PASSES.map((p) => p.slug).sort());
-    expect(traces.source).toBe("NOAA IBTrACS v04r01, positions du CMRS de La Réunion");
     expect(traces.consulte).toMatch(/^\d{4}-\d\d-\d\d$/);
-    for (const t of Object.values(traces.traces)) {
-      expect(Object.keys(t).filter((k) => !["ibtracs", "du", "au", "provisoire", "points"].includes(k))).toEqual([]);
+    // Météo-France's own from its first season, 1986-1987; IBTrACS only before it.
+    for (const [slug, t] of Object.entries(traces.traces)) {
+      expect(t.source, slug).toBe(Number(slug.slice(-4)) >= 1987 ? "meteo-france" : "ibtracs");
+      expect(Object.keys(t).filter((k) => !["source", t.source === "ibtracs" ? "ibtracs" : "idswi", "du", "au", "points"].includes(k))).toEqual([]);
       expect(t.points.length).toBeGreaterThan(10);
       for (const [lon, lat] of t.points) expect(lon > 20 && lon < 100 && lat < 0 && lat > -50).toBe(true);
     }

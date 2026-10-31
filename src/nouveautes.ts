@@ -56,6 +56,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-31T05:50:00+04:00", texte: "Cyclones\u00a0: les traces des cyclones passés viennent de l'historique de Météo-France (CMRS de La Réunion), en licence ouverte." },
   { date: "2026-10-31T05:04:00+04:00", texte: "Historique météo\u00a0: la pluie, les températures et le soleil des 30 derniers jours en graphiques, et chaque année depuis 1953 à Gillot." },
   { date: "2026-10-31T04:53:00+04:00", texte: "Événements\u00a0: une carte de ce soir, de demain ou du week-end, commune par commune, avec un filtre par genre." },
   { date: "2026-10-31T04:26:00+04:00", texte: "Cyclones\u00a0: une carte du bassin, avec la zone que suit le CMRS de La Réunion et la trace des cyclones passés." },

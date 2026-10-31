@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 31 octobre 2026
 
+- Cyclones : les traces des cyclones passés viennent de l'historique de Météo-France (CMRS de La Réunion), en licence ouverte.
 - Historique météo : la pluie, les températures et le soleil des 30 derniers jours en graphiques, et chaque année depuis 1953 à Gillot.
 - Événements : une carte de ce soir, de demain ou du week-end, commune par commune, avec un filtre par genre.
 - Cyclones : une carte du bassin, avec la zone que suit le CMRS de La Réunion et la trace des cyclones passés.
