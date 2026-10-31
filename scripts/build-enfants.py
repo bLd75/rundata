@@ -180,7 +180,7 @@ def es_places(records):
         commune = r.get("new_name") if r.get("new_name") in COMMUNES else commune_at(xy["lon"], xy["lat"])[0]
         place = {"nom": titled(r["inst_nom"] if kind == "piscine" else r["equip_nom"] or r["inst_nom"]), "type": kind, "commune": commune,
                  "lon": round(xy["lon"], 5), "lat": round(xy["lat"], 5), "source": "data_es",
-                 "lien": f"https://equipements.sports.gouv.fr/pages/equipement/?equip_numero={r['equip_numero']}"}
+                 "lien": f"https://equipements.sports.gouv.fr/pages/fiche/?refine.equip_numero={r['equip_numero']}"}
         if tidy(r.get("inst_adresse")):
             place["adresse"] = tidy(r["inst_adresse"])
         if kind == "sport":
