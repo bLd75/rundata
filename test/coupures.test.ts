@@ -171,12 +171,14 @@ describe("coupures d'eau", () => {
     // The commune's page: the notice's card, never « no notice ».
     const salazie = coupuresCommunePage("https://rundata.re", pageOf("salazie")!, { coupures }, later);
     expect(salazie).toContain("<h3>Ne pas boire l'eau · Salazie");
-    expect(salazie).toContain("<b>eau à ne pas boire</b>");
+    expect(salazie).toContain(`<div class="now"><span class="big">1</span><p>avis de coupure ou de travaux en cours, récents ou à venir à Salazie ; <b>eau à ne pas boire</b> dans les secteurs de l'avis.</p></div>`);
     expect(salazie).not.toContain("Aucun avis");
     expect(salazie).not.toContain("ni avis « ne pas boire l'eau »");
     expect(waterLive(pageOf("salazie")!, { coupures })).toMatchObject({ valeur: "Eau à ne pas boire" });
     // The island's page, and the commune's day (tool and page).
-    expect(coupuresPage("https://rundata.re", coupures, later)).toContain("<h3>Ne pas boire l'eau · Salazie");
+    const isle = coupuresPage("https://rundata.re", coupures, later);
+    expect(isle).toContain("<h3>Ne pas boire l'eau · Salazie");
+    expect(isle).toMatch(/<span class="big">\d+<\/span><p>avis de coupure ou de travaux en cours, récents ou à venir ; <b>eau à ne pas boire<\/b> : La Plaine-des-Palmistes, Salazie\./);
     const day = resume(pageOf("salazie")!, { coupures } as never, later);
     expect(day.resume).toContain("eau à ne pas boire dans les secteurs de l'avis");
     expect(day.coupures_eau!.avis).toEqual([expect.objectContaining({ ne_pas_boire: true })]);

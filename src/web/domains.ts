@@ -2350,7 +2350,7 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
 
   const status = !d
     ? loading("Les avis des distributeurs")
-    : `<div class="now"><span class="big">${d.avis.length}</span><p>avis de coupure ou de travaux récents ou à venir` +
+    : `<div class="now"><span class="big">${d.avis.length}</span><p>avis de coupure ou de travaux en cours, récents ou à venir` +
       `${dry.length ? ` ; <b>eau à ne pas boire</b> : ${esc(dry.join(", "))}` : ""}.</p></div>`;
 
   const list = d
