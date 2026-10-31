@@ -118,12 +118,15 @@ export async function parse(data: ArrayBuffer): Promise<RadarImage> {
   };
 }
 
+/** The latest image, read from Météo-France without the cache (one subrequest): the history catching up one it missed. */
+export async function read(): Promise<RadarImage> {
+  const get = (source: string, url: string, timeoutMs: number, headers?: Record<string, string>) =>
+    getBytes(source, url, timeoutMs, { ...headers, Accept: "application/x-hdf" });
+  return parse(await download(URL, session(SOURCE.id), get, 20_000));
+}
+
 export async function image(cache: Cache): Promise<Cached<RadarImage>> {
-  return cache.get("radar:2", FRESH_SECONDS, async () => {
-    const get = (source: string, url: string, timeoutMs: number, headers?: Record<string, string>) =>
-      getBytes(source, url, timeoutMs, { ...headers, Accept: "application/x-hdf" });
-    return parse(await download(URL, session(SOURCE.id), get, 20_000));
-  });
+  return cache.get("radar:2", FRESH_SECONDS, read);
 }
 
 export interface RainAt {

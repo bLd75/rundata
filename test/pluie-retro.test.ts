@@ -10,6 +10,14 @@ import { site } from "../src/web/site.js";
 // The real lame d'eau of 22/10/2026 05:35–05:40 UTC, as in pluie-radar.test.ts.
 const h5 = readFileSync(new URL("./fixtures/radar_lame_eau.h5", import.meta.url));
 const csv = readFileSync(new URL("./fixtures/meteofrance_horaire.csv", import.meta.url), "utf8");
+/** The same image, its times moved 5 minutes on: 05:40–05:45, the next one. */
+const later = (() => {
+  const b = Buffer.from(h5);
+  const move = (from: string, to: string) => { for (let i = b.indexOf(from); i >= 0; i = b.indexOf(from, i + 1)) b.write(to, i, "latin1"); };
+  move("054000", "054500");
+  move("053500", "054000");
+  return b;
+})();
 
 /** A grid of the map's size ending at `fin`, dry but for one shower of class `c`. */
 function shot(fin: string, c = 3): RainGrid {
@@ -146,15 +154,88 @@ describe("a run of the scheduled event", () => {
     expect([dayOps, again.value]).toEqual([2, expect.stringContaining("24 h : 1 entrées écrites")]);
   });
 
-  it("writes a gap when the radar answers an error, without throwing", async () => {
+  it("writes a gap when the radar answers an error, without throwing, after reading it twice more", async () => {
     meteofrance.configure({ applicationId: "test" });
     vi.stubGlobal("fetch", async (url: string) => (String(url).includes("/token") ? Response.json({ access_token: "t", expires_in: 3600 }) : new Response("", { status: 503 })));
     let kept: Historique | null = suivant(null, shot("2026-10-29T13:00:00Z"), at("2026-10-29T13:05:20Z"))!;
     const store = { get: async () => kept, put: async (h: Historique) => void (kept = h) };
     const now = at("2026-10-29T13:10:20Z");
-    const r = await counted(BUILD_BUDGET, () => passage(store, new Cache(new MemoryStore(), () => now.getTime()), now));
-    expect(r.value).toMatch(/^illisible \(.*503.*\), 2 entrées écrites/);
+    const waits: number[] = [];
+    const r = await counted(BUILD_BUDGET, () => passage(store, new Cache(new MemoryStore(), () => now.getTime()), now, undefined, async (ms) => void waits.push(ms)));
+    expect(r.value).toMatch(/^illisible \(.*503.*\), rattrapage : 2 lectures de plus, image due toujours absente, 2 entrées écrites/);
+    expect(waits).toEqual([60_000, 60_000]);
     expect(kinds(kept!)).toEqual(["13:00", "trou 13:00-13:10"]);
+  });
+
+  // 30/10/2026: 9 images missed in 24 hours, each lost once the next was out. Météo-France serves its latest only.
+  describe("without the image due", () => {
+    /** One run at `now` over a history ending at 05:35, the radar answering `answers` in turn (then the last again). */
+    async function run(now: string, answers: (Buffer | number)[]) {
+      meteofrance.configure({ applicationId: "test" });
+      const asked: string[] = [];
+      let i = 0;
+      vi.stubGlobal("fetch", async (url: string) => {
+        if (String(url).includes("/token")) return Response.json({ access_token: "t", expires_in: 3600 });
+        const a = answers[Math.min(i++, answers.length - 1)];
+        asked.push(typeof a === "number" ? String(a) : a === later ? "05:45" : "05:40");
+        return typeof a === "number" ? new Response("", { status: a }) : new Response(a);
+      });
+      let kept: Historique | null = suivant(null, { ...shot("2026-10-22T05:35:00Z"), w: 125, h: 112 }, at("2026-10-22T05:40:20Z"))!;
+      const store = { get: async () => kept, put: async (h: Historique) => void (kept = h) };
+      const waits: number[] = [];
+      const clock = Date.parse(now);
+      const r = await counted(BUILD_BUDGET, () => passage(store, new Cache(new MemoryStore(), () => clock), new Date(clock), undefined, async (ms) => void waits.push(ms)));
+      return { said: r.value, used: r.used, asked, waits, kinds: kinds(kept!) };
+    }
+
+    it("reads the radar again a minute later and keeps the image that was late", async () => {
+      // At 05:50:20 the image due is 05:40–05:45; the radar still gives 05:35–05:40, then the one due.
+      const r = await run("2026-10-22T05:50:20Z", [h5, later]);
+      expect(r.asked).toEqual(["05:40", "05:45"]);
+      expect(r.waits).toEqual([60_000]);
+      expect(r.kinds).toEqual(["05:35", "05:40", "05:45"]);
+      expect(r.said).toBe("image finie à 2026-10-22T05:45:00Z, rattrapage : 1 lecture de plus, image due lue, 3 entrées écrites, jetons Météo-France pris : 1");
+      // KV read, token, image, the image again, KV write.
+      expect(r.used).toBe(5);
+    });
+
+    it("catches up the image after an error, without a gap left", async () => {
+      const r = await run("2026-10-22T05:45:20Z", [500, h5]);
+      expect(r.asked).toEqual(["500", "05:40"]);
+      expect(r.kinds).toEqual(["05:35", "05:40"]);
+      expect(r.said).toMatch(/^image finie à 2026-10-22T05:40:00Z, rattrapage : 1 lecture de plus, image due lue, 2 entrées écrites/);
+    });
+
+    it("stops after two more reads, and then says the gap as before", async () => {
+      const r = await run("2026-10-22T05:50:20Z", [h5]);
+      expect(r.asked).toEqual(["05:40", "05:40", "05:40"]);
+      expect(r.waits).toEqual([60_000, 60_000]);
+      expect(r.kinds).toEqual(["05:35", "05:40"]);
+      expect(r.said).toMatch(/^image finie à 2026-10-22T05:40:00Z, rattrapage : 2 lectures de plus, image due toujours absente, /);
+    });
+
+    it("says a copy the cache kept as such, never as the image read", async () => {
+      meteofrance.configure({ applicationId: "test" });
+      let fail = false;
+      vi.stubGlobal("fetch", async (url: string) => (String(url).includes("/token") ? Response.json({ access_token: "t", expires_in: 3600 }) : fail ? new Response("", { status: 500 }) : new Response(h5)));
+      let clock = Date.parse("2026-10-22T05:41:00Z");
+      const cache = new Cache(new MemoryStore(), () => clock);
+      let kept: Historique | null = null;
+      const store = { get: async () => kept, put: async (h: Historique) => void (kept = h) };
+      await counted(BUILD_BUDGET, () => passage(store, cache, new Date(clock), undefined, async () => {}));
+      // 15 minutes on, the radar fails: the cache gives its copy of 05:40, and the two reads more fail too.
+      [clock, fail] = [Date.parse("2026-10-22T05:56:20Z"), true];
+      const r = await counted(BUILD_BUDGET, () => passage(store, cache, new Date(clock), undefined, async () => {}));
+      expect(r.value).toMatch(/^copie gardée, image finie à 2026-10-22T05:40:00Z, rattrapage : 2 lectures de plus, image due toujours absente, /);
+      // A copy within STALE_MS is no gap yet: the next image read writes it, from 05:40 to its start.
+      expect(kinds(kept!)).toEqual(["05:40"]);
+    });
+
+    it("reads the radar once only when the image due is there", async () => {
+      const r = await run("2026-10-22T05:45:20Z", [h5, later]);
+      expect([r.asked, r.waits, r.kinds]).toEqual([["05:40"], [], ["05:35", "05:40"]]);
+      expect(r.said).not.toContain("rattrapage");
+    });
   });
 });
 
