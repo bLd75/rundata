@@ -67,7 +67,7 @@ describe("the IGN's backgrounds on the zoomed maps", () => {
   });
 
   it("name the chosen one on the line « Carte : », never on a map without the choice", () => {
-    expect(mapCredit(commune)).toContain("de l'IGN (RGE ALTI, BD TOPO)<span class=\"fd-c\"></span>, sous Licence Ouverte Etalab 2.0.");
+    expect(mapCredit(commune)).toContain("de l'IGN (RGE ALTI, BD ORTHO, BD TOPO)<span class=\"fd-c\"></span>, sous Licence Ouverte Etalab 2.0.");
     expect(mapCredit(islandMap({ label: "L'île" }))).not.toContain("fd-c");
     expect(FONDS.filter((f) => f.credit).map((f) => f.credit)).toEqual(["Plan IGN", "Photo aérienne IGN"]);
   });
