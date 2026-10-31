@@ -2280,7 +2280,8 @@ export function secheressePage(origin: string, data: Cached<SecheresseAnswer> | 
       `Ai-je le droit d'arroser mon jardin à Saint-Joseph ? Lis ${url} et dis-moi ce qui est interdit.`)}
   </div>
   <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) colorée par le niveau de restriction de l'eau du robinet de chaque commune" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Eau du robinet : <span style="color:#ffd43b">vigilance</span>, <span style="color:#ff922b">alerte</span>, <span style="color:#f03e3e">alerte renforcée</span>, <span style="color:#d0a4e0">crise</span>.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende(["vigilance", "alerte", "alerte renforcée", "crise"].map((n): Cle => ({ forme: "aplat", couleur: DROUGHT_COLOR[n], dit: n })),
+    esc(`Eau du robinet, d'après l'arrêté préfectoral en vigueur${d?.arrete_du ? ` depuis le\u00a0${d.arrete_du}` : ""}.`))}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-communes-eau">
