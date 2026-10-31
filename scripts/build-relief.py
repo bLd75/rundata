@@ -72,7 +72,7 @@ BASE_GAMMA, BASE_HIGH_GAMMA, RAMP = 1.15, 0.5, 15
 # Against an acid green (marketing, 31/10/2026): the yellow-greens of the photo (hues TURN, in degrees) turned by up to
 # TURN_BY towards the forests' green; the weight of the push blurred over MASK_BLUR pixels, so that a field is pushed as
 # a whole and not one pixel in two; and no colour lit above LIT more saturated than MAX_S.
-TURN, TURN_BY, MASK_BLUR, LIT, MAX_S = (60, 150), 15, 2, 0.5, 0.6
+TURN, TURN_BY, MASK_BLUR, LIT, MAX_S = (60, 150), 15, 2, 0.5, 0.55
 # The greys (the towns, saturation under GREY_S) kept at GREY_KEEP of their tint: a neutral grey, not a green one.
 GREY_KEEP = 0.4
 # The shallows and the river mouths, inside the elevation's coast: the photo's blue, graded with these, never brighter.

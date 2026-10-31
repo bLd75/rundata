@@ -1,7 +1,8 @@
 /**
  * The IGN's ground altitudes (RGE ALTI, the Géoplateforme's altimetry service): read for a point by fiche_terrain
  * (terrain.ts) and for every point of a trail (traces.ts). One source, said the same way everywhere. And the BD TOPO's
- * main roads and inhabited places, drawn on the pages' maps (web/routes.json, written by scripts/build-routes.py).
+ * main roads and inhabited places, drawn on the pages' maps (web/routes.json, written by scripts/build-routes.py), and
+ * the BD ORTHO's aerial photo, the colours of the maps' relief (public/relief-*.webp, by scripts/build-relief.py).
  */
 import type { SourceInfo } from "../types.js";
 
@@ -21,4 +22,13 @@ export const BDTOPO: SourceInfo = {
   licence: "Licence Ouverte Etalab 2.0",
   attribution: "IGN, BD TOPO",
   url: "https://geoservices.ign.fr/bdtopo",
+};
+
+export const BDORTHO: SourceInfo = {
+  id: "ign_bdortho",
+  nom: "Photo aérienne du relief des cartes (BD ORTHO)",
+  organisme: "IGN",
+  licence: "Licence Ouverte Etalab 2.0",
+  attribution: "IGN, BD ORTHO",
+  url: "https://cartes.gouv.fr/rechercher-une-donnee/dataset/IGNF_BD-ORTHO",
 };
