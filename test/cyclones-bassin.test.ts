@@ -54,7 +54,7 @@ describe("the map of the basin on /cyclones", () => {
   });
 
   it("is the hero's map without a system, as on the other pages, and stays under the RSMC's map with one", () => {
-    const hero = (html: string) => html.slice(html.indexOf('<div class="wrap intro">'), html.indexOf('<section aria-labelledby="h-actifs">'));
+    const hero = (html: string) => html.slice(html.indexOf('<div class="wrap intro">'), html.indexOf("<section", html.indexOf('<div class="wrap intro">')));
     for (const html of [cyclonesPage(O, at(QUIET), NOW), cyclonesPage(O, null, NOW)]) {
       expect(hero(html)).toMatch(/<\/div>\s*<figure class="card bassin mapcard">.*<\/figure>/s);
       expect(html.match(/class="card bassin/g)).toHaveLength(1);
@@ -64,6 +64,25 @@ describe("the map of the basin on /cyclones", () => {
     for (const html of [cyclonesPage(O, at(active(IMAGE)), NOW), cyclonesPage(O, at(active()), NOW)]) {
       expect(hero(html)).not.toContain("bassin");
       expect(html).toContain('<figure class="card bassin">');
+    }
+  });
+
+  it("shows the section of the active systems only while one is, or before the data is read", () => {
+    // In calm weather it would only repeat the hero's « 0 système tropical actif ».
+    const quiet = cyclonesPage(O, at(QUIET), NOW);
+    expect(quiet).not.toContain("h-actifs");
+    expect(quiet).toMatch(/<span class="big">0<\/span><p>système tropical actif dans le sud-ouest de l'océan Indien.<\/p>/);
+    for (const html of [cyclonesPage(O, at(active(IMAGE)), NOW), cyclonesPage(O, at(active()), NOW)]) {
+      expect(html).toContain('<h2 id="h-actifs">Systèmes actifs</h2>\n  <p>Un système actif.</p>');
+    }
+    expect(cyclonesPage(O, null, NOW)).toContain('<h2 id="h-actifs">Systèmes actifs</h2>');
+  });
+
+  it("folds the map's sources under « Sources », the zone, the tracks and the coasts", () => {
+    for (const d of [QUIET, active(IMAGE), active()]) {
+      const f = figure(cyclonesPage(O, at(d), NOW))!;
+      expect(f).toMatch(/(?:<\/p>|<\/ol>)<details class="note"><summary>Sources<\/summary><p>En pointillé, la zone suivie par le CMRS .*Côtes\u00a0: Natural Earth \(domaine public\)\.<\/p><\/details><\/figcaption>$/s);
+      expect(f.slice(f.indexOf("<figcaption>"), f.indexOf("<details"))).not.toMatch(/En pointillé|Natural Earth|Licence Ouverte/);
     }
   });
 

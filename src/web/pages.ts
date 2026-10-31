@@ -856,7 +856,7 @@ table.drought thead th{border-top:0;color:var(--muted);font-weight:600}
 .qdays{margin:.6rem 0}
 .qdays figcaption{font-size:.85rem;color:var(--muted)}
 .mf-carte{margin:1rem 0;max-width:40rem}
-.bassin{margin:1rem 0;max-width:40rem;padding:.6rem}.bassin figcaption{font-size:.95rem}.bassin figcaption p{margin:.6rem .3rem 0}
+.bassin{margin:1rem 0;max-width:40rem;padding:.6rem}.bassin figcaption{font-size:.95rem}.bassin figcaption p{margin:.6rem .3rem 0}.bassin figcaption details{margin:.4rem .3rem 0}.bassin figcaption summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px}.bassin figcaption details p{margin:0 0 .3rem}
 .map.ocean .shore{fill:none;stroke:var(--coast);stroke-width:2.5;stroke-linejoin:round}.map.ocean .grat{stroke:var(--coast);stroke-width:1.2;opacity:.4}
 .map.ocean text{font-size:30px;fill:var(--muted);text-anchor:start;paint-order:stroke;stroke:var(--sea);stroke-width:6px;dominant-baseline:central}
 .map.ocean .zone{fill:none;stroke:var(--accent);stroke-width:4;stroke-dasharray:4 12;stroke-linecap:round}.map.ocean .zl{fill:var(--accent);font-weight:600;font-size:33px}
