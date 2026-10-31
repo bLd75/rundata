@@ -1,13 +1,13 @@
 import { left } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
-import { compass, localTime } from "../geo.js";
+import { compass, localTime, sinceMidnight } from "../geo.js";
 import { normalize, resolvePlace, type Place } from "../places/resolve.js";
 import * as arome from "../providers/arome.js";
 import * as ensemble from "../providers/ensemble.js";
 import * as openmeteo from "../providers/openmeteo.js";
 import * as uv from "../providers/uv.js";
 import { type Forecast, type ForecastDay, type ForecastHour, why } from "../types.js";
-import { credits, fr, nombre, notFound, paire, placeBlock, text, tranche } from "./format.js";
+import { credits, fr, heure, nombre, notFound, paire, placeBlock, text, tranche } from "./format.js";
 import * as nuages from "./nuages.js";
 
 const TOUR = ["Saint-Denis", "Saint-Pierre", "Saint-Gilles-les-Bains", "Saint-Benoît", "Cilaos", "Plaine des Cafres"];
@@ -65,6 +65,16 @@ function rain(mm: number | null): string | undefined {
   if (mm === 0) return "pas de pluie prévue";
   if (mm < 1) return `quelques gouttes possibles (${fr(mm)} mm)`;
   return `${fr(Math.round(mm * 10) / 10)} mm de pluie`;
+}
+
+/**
+ * A day's rain; today's counts the hours still to come only (ahead()), so it says from when: « 1,6 mm de pluie de 15\u00a0h
+ * à minuit ». The time is that of the answer, which a copy of the page keeps with it.
+ */
+function dayRain(d: ForecastDay, now: Date): string | undefined {
+  const r = rain(d.pluie_mm);
+  const from = Math.floor(sinceMidnight(now) / 60);
+  return r && from && d.date === localDate(now) ? `${r} de ${heure(from)} à minuit` : r;
 }
 
 // --- When: free text → days and hours ---------------------------------------------------------------------------
@@ -312,7 +322,7 @@ function dayBlock(f: Forecast, d: ForecastDay, now: Date, uvOf?: UvOf, confOf?: 
     ciel_en_journee: daySky(f, d.date, now),
     temperature_min: deg(d.tmin),
     temperature_max: deg(d.tmax),
-    pluie: rain(d.pluie_mm),
+    pluie: dayRain(d, now),
     rafales_max: d.rafales_max_kmh == null ? undefined : `${Math.round(d.rafales_max_kmh)} km/h`,
     indice_uv_max: u == null ? undefined : uvText(u),
     confiance: c?.niveau,
@@ -322,7 +332,7 @@ function dayBlock(f: Forecast, d: ForecastDay, now: Date, uvOf?: UvOf, confOf?: 
 }
 
 function daySentence(f: Forecast, d: ForecastDay, now: Date, uvOf?: UvOf, confOf?: ConfOf): string {
-  const parts = [daySky(f, d.date, now), d.tmin != null && d.tmax != null ? `${fr(d.tmin)} à ${fr(d.tmax)} °C` : undefined, rain(d.pluie_mm)];
+  const parts = [daySky(f, d.date, now), d.tmin != null && d.tmax != null ? `${fr(d.tmin)} à ${fr(d.tmax)} °C` : undefined, dayRain(d, now)];
   if (d.rafales_max_kmh != null) parts.push(`rafales jusqu'à ${Math.round(d.rafales_max_kmh)} km/h`);
   const u = uvOf?.(d.date);
   if (u != null) parts.push(`UV ${uvText(u)}`);
