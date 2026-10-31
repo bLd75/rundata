@@ -183,6 +183,25 @@ describe("the map of every station on /meteo", () => {
     expect(discR("−10°")).toBe(49);
   });
 
+  it("leaves the rain's small dots free, the disc moved off them, unless it would then cover more", () => {
+    // A disc of 4 characters with a small dot at 900 m and a dry gauge at 1 km: both left free, and so are their places.
+    const a = st({ nom: "Pluviomètre A", id: "1", lon: 55.5, lat: -21.1, pluie_1h: 12.3 });
+    const b = st({ nom: "Pluviomètre B", id: "2", lon: 55.508, lat: -21.1, pluie_1h: 0.3 });
+    const c = st({ nom: "Pluviomètre C", id: "3", lon: 55.5, lat: -21.109, pluie_1h: 0 });
+    const html = stationsMap([a, b, c]);
+    const m = html.match(/<circle class="sh l-p" cx="([\d.-]+)" cy="([\d.-]+)" r="49"/)!;
+    for (const s of [b, c]) {
+      const [x, y] = project(s.lon, s.lat);
+      expect(html).toContain(`<circle class="sh l-p" cx="${x}" cy="${y}" r="`);
+      // The dot (19 with its edge), the disc's white edge and some air: never touching.
+      expect(Math.abs(+m[1] - x) >= 49 + 25 || Math.abs(+m[2] - y) >= 49 + 25).toBe(true);
+    }
+    // Without a dot to avoid, apart() is as it was: the other maps do not change.
+    const one = [{ lon: 55.5, lat: -21.1, label: "", name: "a", round: true }];
+    expect(apart(one)).toEqual([project(55.5, -21.1)]);
+    expect(apart(one, [98], 1, [98], [[...project(55.508, -21.1), 19]])).not.toEqual([project(55.5, -21.1)]);
+  });
+
   it("keeps a summit's name inside the frame when no place around it is free (« Piton de la Fournaise » at 1280)", () => {
     expect(NOMS_SCRIPT).toContain("inn=(b)=>b[0]>=vb.x+e&&");
     expect(NOMS_SCRIPT).toContain("free=(b)=>inn(b)&&");

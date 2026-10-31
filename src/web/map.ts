@@ -140,9 +140,15 @@ const onPlace = (m: Marker, at: [number, number]) => {
  * The same markers, the same places. `widths`: the pills' own, for pills drawn elsewhere (the wind's, meteo-carte.ts).
  * `aside`: how much further a pill may go sideways than up or down (the wind's: two places on one point side by side,
  * which leaves the room above and below to a commune's name). `heights`: the marks' own, for discs drawn elsewhere at
- * their own size (the rain's, meteo-carte.ts).
+ * their own size (the rain's, meteo-carte.ts). `avoid`: the dots of other places that stay where they are, each with
+ * its radius, its white edge included (the rain's small dots): a mark leaves them free as it leaves a place, with as much
+ * air, unless it then covers more of them, a place, or its own once it has left it; where none is free, it covers the
+ * fewest (marketing's review n° 457).
  */
-export function apart(markers: Marker[], widths = markers.map((m) => markSize(m)[0]), aside = 1, heights = markers.map((m) => markSize(m)[1])): [number, number][] {
+export function apart(
+  markers: Marker[], widths = markers.map((m) => markSize(m)[0]), aside = 1, heights = markers.map((m) => markSize(m)[1]),
+  avoid: [number, number, number][] = [],
+): [number, number][] {
   const places = markers.map((m) => project(m.lon, m.lat));
   const p = places.map(([x, y]): [number, number] => [x, y]);
   const w = widths;
@@ -172,15 +178,34 @@ export function apart(markers: Marker[], widths = markers.map((m) => markSize(m)
     // A place stays where it is: the pill alone goes, all the way out, the shorter way that stays inside the map (a
     // place by the coast, at the top, sends it below or beside, never above).
     for (let i = 0; i < p.length; i++) {
-      for (let j = 0; j < p.length; j++) {
+      // Around a place's dot, DOT; around a dot to avoid, its radius, the mark's white edge (2) and the same air (4).
+      const reach = (j: number) => (j < p.length ? DOT : avoid[j - p.length][2] + 6);
+      const under = ([x, y]: [number, number], j: number) => {
+        const [qx, qy] = j < p.length ? places[j] : avoid[j - p.length];
+        return Math.abs(qx - x) < w[i] / 2 + reach(j) && Math.abs(qy - y) < h[i] / 2 + reach(j);
+      };
+      // What a mark at `at` covers: a place, another's or its own once it has left it, counts more than all the dots.
+      const covers = (at: [number, number]) =>
+        1000 * places.filter((_, j) => (j !== i || !onPlace(markers[i], at)) && under(at, j)).length +
+        avoid.filter((_, k) => under(at, p.length + k)).length;
+      for (let j = 0; j < p.length + avoid.length; j++) {
         if (i === j && onPlace(markers[i], p[i])) continue;
-        const [qx, qy] = places[j];
-        const [hw, hh] = [w[i] / 2 + DOT, h[i] / 2 + DOT];
-        if (Math.abs(qx - p[i][0]) >= hw || Math.abs(qy - p[i][1]) >= hh) continue;
+        if (!under(p[i], j)) continue;
+        const [qx, qy] = j < p.length ? places[j] : avoid[j - p.length];
+        const [hw, hh] = [w[i] / 2 + reach(j), h[i] / 2 + reach(j)];
         const ways: [number, number][] = [[qx - hw, p[i][1]], [qx + hw, p[i][1]], [p[i][0], qy - hh], [p[i][0], qy + hh]];
         const inside = ways.filter(([x, y]) => x >= w[i] / 2 + GAP && x <= W - w[i] / 2 - GAP && y >= h[i] / 2 + GAP && y <= H - h[i] / 2 - GAP);
         const far = ([x, y]: [number, number]) => Math.abs(x - p[i][0]) + Math.abs(y - p[i][1]);
-        const to = (inside.length ? inside : ways).reduce((a, b) => (far(b) < far(a) ? b : a));
+        const pool = inside.length ? inside : ways;
+        if (j < p.length) {
+          const to = pool.reduce((a, b) => (far(b) < far(a) ? b : a));
+          p[i] = [to[0], to[1]];
+          moved = true;
+          continue;
+        }
+        // A dot to avoid: the way that covers the fewest, the nearest of them, taken only if it covers fewer than here.
+        const to = pool.reduce((a, b) => (covers(b) < covers(a) || (covers(b) === covers(a) && far(b) < far(a)) ? b : a));
+        if (covers(to) >= covers(p[i])) continue;
         p[i] = [to[0], to[1]];
         moved = true;
       }

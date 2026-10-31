@@ -212,7 +212,10 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
   const r = list.filter((s) => (mm(s) ?? 0) > 0 && rainSaid(mm(s)!, named(s)));
   // Each at its own size: a disc of 4 characters is wider.
   const across = r.map((s) => 2 * discR(rainFigure(mm(s)!)));
-  const rainPlaced = apart(r.map((s) => ({ lon: s.lon, lat: s.lat, label: "", name: s.nom, round: true })), across, 1, across);
+  // The small dots stay on their place, left free (a dot half under a disc reads as a smudge, and is hard to touch).
+  // Their radius with the white edge: 17 and 2 (dot()).
+  const dots = list.filter((s) => mm(s) != null && !r.includes(s)).map((s): [number, number, number] => [...project(s.lon, s.lat), 19]);
+  const rainPlaced = apart(r.map((s) => ({ lon: s.lon, lat: s.lat, label: "", name: s.nom, round: true })), across, 1, across, dots);
   const rainAt = new Map(r.map((s, i) => [s, rainPlaced[i]]));
   const rainTies = ties(r, rainPlaced);
   // The named ones last, over the dots.
