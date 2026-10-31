@@ -92,29 +92,34 @@ const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "\u2212" : ""}${fr(Math.a
 
 /**
  * « Il fait plus chaud qu'avant ? »: each year's gap to the 1991-2020 normal at Gillot (scripts/build-plus-chaud.py),
- * a bar up for warmer, down for cooler, so that the colour does not say it alone.
+ * a bar up for warmer, down for cooler, so that the colour does not say it alone. Drawn twice, 600 wide for a phone and
+ * 1600 for the whole column of a wide screen, so that its text keeps about the size of the other charts' (CSS shows one).
  */
 export function warmer(): string {
   const ys = chaud.annees as [number, number][];
-  const W = 600, H = 260, L = 52, R = 10, TOP = 14, B = 40;
-  const hi = Math.ceil(Math.max(...ys.map(([, g]) => g)) * 2) / 2, lo = Math.floor(Math.min(...ys.map(([, g]) => g)) * 2) / 2;
-  const n = ys.length, w = (W - L - R) / n;
-  const r1 = (v: number) => Math.round(v * 10) / 10;
-  const y = (v: number) => r1(TOP + ((hi - v) * (H - TOP - B)) / (hi - lo));
-  const x = (i: number) => r1(L + i * w);
+  const n = ys.length;
   const mean = (xs: [number, number][]) => xs.reduce((s, [, g]) => s + g, 0) / xs.length;
   const first = ys.slice(0, 10), last = ys.slice(-10);
   const hot = ys.reduce((b, v) => (v[1] > b[1] ? v : b));
   const said = `Écart de la température moyenne de chaque année à la normale 1991-2020 (${fr(chaud.normale_c)}\u00a0°C), mesuré par Météo-France à ${chaud.station}, de ${ys[0][0]} à ${ys[n - 1][0]}\u00a0: ` +
     `${signed(mean(first))} en moyenne de ${first[0][0]} à ${first[9][0]}, ${signed(mean(last))} de ${last[0][0]} à ${last[9][0]}\u00a0; année la plus chaude ${hot[0]} (${signed(hot[1])}).`;
-  let s = `<svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(said)}" data-k="ecart" data-d="${ys.map(([a]) => a).join(",")}" data-s="${ys.map(([, g]) => g).join(",")}">`;
-  for (let v = lo; v <= hi + 1e-9; v += 0.5) s += `<line class="gr${v === 0 ? " z" : ""}" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${L - 8}" y="${y(v) + 7}" text-anchor="end">${v > 0 ? "+" : v < 0 ? "\u2212" : ""}${fr(Math.abs(v))}</text>`;
-  s += ys.map(([, g], i) => `<rect class="${g >= 0 ? "up" : "dn"}" x="${r1(x(i) + w * 0.12)}" y="${Math.min(y(g), y(0))}" width="${r1(w * 0.76)}" height="${r1(Math.abs(y(g) - y(0)))}"/>`).join("");
-  s += ys.map(([a], i) => (a % 10 ? "" : `<text class="ax" x="${r1(x(i) + w / 2)}" y="${H - 8}" text-anchor="middle">${a}</text>`)).join("");
+  const hi = Math.ceil(Math.max(...ys.map(([, g]) => g)) * 2) / 2, lo = Math.floor(Math.min(...ys.map(([, g]) => g)) * 2) / 2;
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  // L and R are those GRAPHES_SCRIPT reads the bar under the finger with (52, and 62 for both).
+  const chart = (W: number, H: number, size: string) => {
+    const L = 52, R = 10, TOP = 14, B = 40, w = (W - L - R) / n;
+    const y = (v: number) => r1(TOP + ((hi - v) * (H - TOP - B)) / (hi - lo));
+    const x = (i: number) => r1(L + i * w);
+    let s = `<svg class="ch ${size}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(said)}" data-k="ecart" data-d="${ys.map(([a]) => a).join(",")}" data-s="${ys.map(([, g]) => g).join(",")}">`;
+    for (let v = lo; v <= hi + 1e-9; v += 0.5) s += `<line class="gr${v === 0 ? " z" : ""}" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${L - 8}" y="${y(v) + 7}" text-anchor="end">${v > 0 ? "+" : v < 0 ? "\u2212" : ""}${fr(Math.abs(v))}</text>`;
+    s += ys.map(([, g], i) => `<rect class="${g >= 0 ? "up" : "dn"}" x="${r1(x(i) + w * 0.12)}" y="${Math.min(y(g), y(0))}" width="${r1(w * 0.76)}" height="${r1(Math.abs(y(g) - y(0)))}"/>`).join("");
+    s += ys.map(([a], i) => (a % 10 ? "" : `<text class="ax" x="${r1(x(i) + w / 2)}" y="${H - 8}" text-anchor="middle">${a}</text>`)).join("");
+    return `${s}</svg>`;
+  };
   return `<section aria-labelledby="h-g-chaud"><div class="sec-h"><p class="eyebrow">Mesures Météo-France, année par année</p><h2 id="h-g-chaud">Il fait plus chaud qu'avant\u00a0?</h2>
   <p>À ${esc(chaud.station)}, la température moyenne de chaque année depuis ${ys[0][0]}, comparée à la normale 1991-2020 de la station (${fr(chaud.normale_c)}\u00a0°C). De ${first[0][0]} à ${first[9][0]}\u00a0: ${signed(mean(first))} en moyenne. De ${last[0][0]} à ${last[9][0]}\u00a0: ${signed(mean(last))}. Année la plus chaude\u00a0: ${hot[0]}, ${signed(hot[1])}.</p></div>
   <p class="note hg-k"><i class="k k-up"></i>année plus chaude que la normale, barre vers le haut <i class="k k-dn"></i>plus fraîche, vers le bas. En degrés Celsius.</p>
-  <figure class="card hg-an">${s}</svg><p class="ch-v" aria-hidden="true"></p>
+  <figure class="card hg-an">${chart(600, 260, "an-n")}${chart(1600, 380, "an-l")}<p class="ch-v" aria-hidden="true"></p>
   <figcaption class="note">Moyenne des maximales et des minimales de chaque jour, sous abri. Une année compte quand ses douze mois ont au moins 20 jours mesurés. Mesures brutes de la station, sans correction d'un changement d'abri ou d'emplacement. Calcul rundata.re le ${chaud.consulte.split("-").reverse().join("/")}.</figcaption></figure></section>`;
 }
 
