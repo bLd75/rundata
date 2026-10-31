@@ -1,9 +1,13 @@
 /**
  * The open feed of the events the clubs and associations proposed (espace-associations.md, « Licence et données
  * ouvertes »): all of them, as published, in ICS for calendars and in JSON for anyone who reuses them, the licence
- * written in both. Never the author's address; the public contact only when its author asked for one.
+ * written in both. Never the author's address; the public contact only when its author asked for one. With them, the
+ * events of the associations linked to HelloAsso that chose the open data while linking (providers/agenda-connecteurs.ts,
+ * `ouverts`), each with its association, its HelloAsso page and the day of our reading, as the licence asks.
  */
 import { count } from "../budget.js";
+import type { Evenement } from "../providers/agenda.js";
+import { ouverts } from "../providers/agenda-connecteurs.js";
 import { evenement } from "../providers/agenda-propositions.js";
 import * as propositions from "../propositions.js";
 
@@ -25,16 +29,18 @@ const iso = (local: string) => `${local}:00+04:00`;
 /** The same as an ICS UTC time: « 20261107T140000Z ». */
 const utc = (local: string) => new Date(Date.parse(iso(local))).toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
 const jour = (day: string) => day.split("-").reverse().join("/");
+/** How an event read on a platform is cited: its association, the platform, the day of our last reading. */
+const mentionVia = (e: Evenement) => `Publié par ${e.publie_par} sur ${e.via!.plateforme}, repris sur rundata.re avec son accord, lu le ${jour(e.via!.lu.slice(0, 10))}`;
 
-/** The events, as reusers get them. */
-export function jsonFeed(lignes: propositions.Ligne[], now: Date): object {
+/** The events, as reusers get them: the proposals, then the events read on a platform (`connectes`). */
+export function jsonFeed(lignes: propositions.Ligne[], now: Date, connectes: Evenement[] = []): object {
   return {
     titre: "Événements proposés par les clubs et associations de La Réunion sur rundata.re",
     licence: LICENCE,
     attribution: ATTRIBUTION,
     source: PAGE,
     mis_a_jour: now.toISOString(),
-    evenements: lignes.map((l) => {
+    evenements: [...lignes.map((l) => {
       const e = evenement(l);
       return {
         id: e.id,
@@ -52,7 +58,21 @@ export function jsonFeed(lignes: propositions.Ligne[], now: Date): object {
         ...(e.propose!.contact ? { contact: e.propose!.contact } : {}),
         mention: `Proposé par l'organisateur sur rundata.re le ${jour(e.propose!.le)}`,
       };
-    }),
+    }), ...connectes.map((e) => ({
+      id: e.id,
+      titre: e.titre,
+      seances: e.seances.map((s) => ({ debut: iso(s.debut), ...(s.fin ? { fin: iso(s.fin) } : {}) })),
+      ...(e.lieu ? { lieu: e.lieu } : {}),
+      ...(e.commune ? { commune: e.commune } : {}),
+      ...(e.prix ? { prix: e.prix } : {}),
+      ...(e.description ? { description: e.description } : {}),
+      // Its page on the platform, as HelloAsso asks.
+      lien: e.lien!,
+      organisateur: e.publie_par,
+      plateforme: e.via!.plateforme,
+      lu_le: iso(e.via!.lu),
+      mention: mentionVia(e),
+    }))],
   };
 }
 
@@ -79,7 +99,7 @@ function fold(line: string): string {
 }
 
 /** The events as a calendar: one VEVENT per occurrence, so that each date of a repeated event can be called off alone later. */
-export function icsFeed(lignes: propositions.Ligne[], now: Date): string {
+export function icsFeed(lignes: propositions.Ligne[], now: Date, connectes: Evenement[] = []): string {
   const stamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
   const lines = [
     "BEGIN:VCALENDAR",
@@ -119,6 +139,25 @@ export function icsFeed(lignes: propositions.Ligne[], now: Date): string {
       );
     }
   }
+  for (const e of connectes) {
+    const about = [e.description ?? "", e.prix ? `Prix\u00a0: ${e.prix}.` : "", `${mentionVia(e)}.`, `${LICENCE.nom}.`].filter(Boolean).join("\n");
+    const ou = [e.lieu, e.commune].filter(Boolean).join(", ");
+    for (const s of e.seances) {
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:${e.id}-${s.debut.slice(0, 10)}@rundata.re`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART:${utc(s.debut)}`,
+        ...(s.fin ? [`DTEND:${utc(s.fin)}`] : []),
+        `SUMMARY:${text(e.titre)}`,
+        ...(ou ? [`LOCATION:${text(ou)}`] : []),
+        `DESCRIPTION:${text(about)}`,
+        `URL:${e.lien}`,
+        "STATUS:CONFIRMED",
+        "END:VEVENT",
+      );
+    }
+  }
   lines.push("END:VCALENDAR");
   return lines.map(fold).join("\r\n") + "\r\n";
 }
@@ -140,11 +179,11 @@ export async function flux(request: Request, path: string, now = new Date()): Pr
   const cache = await edge();
   const kept = await cache?.match(key).then((r) => (count(1, "read"), r)).catch(() => undefined);
   if (kept) return kept;
-  const lignes = await propositions.visibles(now);
+  const [lignes, connectes] = await Promise.all([propositions.visibles(now), ouverts(now)]);
   const headers = { "cache-control": `public, max-age=${MAX_AGE}, s-maxage=${EDGE_SECONDS}`, "access-control-allow-origin": "*", "x-content-type-options": "nosniff" };
   const r = path === ICS_PATH
-    ? new Response(icsFeed(lignes, now), { headers: { ...headers, "content-type": "text/calendar; charset=utf-8" } })
-    : new Response(JSON.stringify(jsonFeed(lignes, now), null, 1), { headers: { ...headers, "content-type": "application/json; charset=utf-8" } });
+    ? new Response(icsFeed(lignes, now, connectes), { headers: { ...headers, "content-type": "text/calendar; charset=utf-8" } })
+    : new Response(JSON.stringify(jsonFeed(lignes, now, connectes), null, 1), { headers: { ...headers, "content-type": "application/json; charset=utf-8" } });
   if (cache) {
     try {
       count(1, true);

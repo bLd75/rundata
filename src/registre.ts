@@ -603,9 +603,10 @@ const OTHER_PAGES: Record<string, Page> = {
   "/associations/relier": { subrequests: 14, cpuMs: 40, from: ["src/web/connecteurs.ts"], d1: { d1Calls: 2, d1RowsRead: 2 }, what: "relier sa plateforme : les clés vérifiées par HelloAsso, puis la connexion écrite (D1) et l'e-mail", basis: "code" },
   // The link found by its hash, then confirmed or withdrawn: a replaced or withdrawn link takes its events with it.
   "/associations/connexion/*": { subrequests: 14, cpuMs: 30, from: ["src/web/connecteurs.ts"], d1: { d1Calls: 4, d1RowsRead: 4 }, what: "le lien reçu par e-mail : confirmer ou retirer la connexion (D1), et l'e-mail qui le dit", basis: "code" },
-  // The open feeds: the data center's copy (Cache API), else the published proposals (D1, one row each) and the copy
-  // written, kept 5 minutes; no header, no source.
-  "/associations/evenements.*": { subrequests: 3, cpuMs: 20, from: ["src/web/flux-associations.ts"], d1: { d1Calls: 1, d1RowsRead: 100 }, what: "les flux ouverts des événements proposés (JSON, ICS) : la copie du centre de données, sinon les propositions publiées (D1), 5 minutes", basis: "estimé" },
+  // The open feeds: the data center's copy (Cache API), else the published proposals and the events of the linked
+  // associations that chose the open data (D1, one row each, the second read only once the connectors are on) and the
+  // copy written, kept 5 minutes; no header, no source.
+  "/associations/evenements.*": { subrequests: 4, cpuMs: 20, from: ["src/web/flux-associations.ts"], d1: { d1Calls: 2, d1RowsRead: 200 }, what: "les flux ouverts des événements proposés et de ceux des associations reliées qui l'ont choisi (JSON, ICS) : la copie du centre de données, sinon D1, 5 minutes", basis: "estimé" },
   "/sites-sans-reponse": { subrequests: 9, cpuMs: 40, from: ["src/sans-reponse.ts"], d1: SANS_REPONSE_D1, what: "les sites publics sans réponse (D1), avec la vigilance et la version de l'en-tête", basis: "code" },
   // The header's reads as any page, and the copy of the mobile sites out of service (KV, behind the data center's cache);
   // the map and the table bundled, built at the isolate's first view.
