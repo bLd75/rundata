@@ -36,7 +36,7 @@ export function carteHtml(c: cmrs.Carte | undefined, now: Date): string {
   const lue = aOuLe(i.lue, now);
   const alt = `Carte de prévision de trajectoire publiée par le CMRS de La Réunion (Météo-France), lue sur son site ${lue} (heure de La Réunion). Son heure d'émission est écrite sur l'image et n'est pas reprise ici. Le nom des systèmes suivis et l'heure du dernier avis sont écrits en texte sur cette page.`;
   const muet = c.sans_reponse ? `<p class="note">Météo-France n'a pas répondu depuis ${heure(i.lue, now)} : c'est la dernière carte que nous avons lue.</p>` : "";
-  return `<figure class="card mf-carte"><a href="${mf.OFFICIEL_CYCLONE}" rel="noopener"><img src="${cmrs.imagePath(i.empreinte)}" width="${i.largeur}" height="${i.hauteur}" loading="lazy" decoding="async" alt="${esc(alt)}"></a>
+  return `<figure class="card mf-carte" id="carte-cmrs"><a href="${mf.OFFICIEL_CYCLONE}" rel="noopener"><img src="${cmrs.imagePath(i.empreinte)}" width="${i.largeur}" height="${i.hauteur}" loading="lazy" decoding="async" alt="${esc(alt)}"></a>
 <figcaption>Source : Météo-France. Carte de prévision de trajectoire du CMRS de La Réunion ; son heure d'émission est écrite sur la carte. Lue sur le site de Météo-France ${lue} (heure de La Réunion). ${officiel()}</figcaption>${muet}</figure>`;
 }
 
