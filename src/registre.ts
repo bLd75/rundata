@@ -637,8 +637,9 @@ const VISITS: Entry[] = [
 
 /** Every tool (server.ts), as measured: the most subrequests of a call, its CPU, its file. */
 const TOOLS: Record<string, { subrequests: number; cpuMs: number; file?: string; kvReads?: number; d1?: Pick<Run, "d1Calls" | "d1RowsRead" | "d1RowsWritten">; basis?: Basis; from?: string[] }> = {
-  // Measured 59, and 2 from the code for the FFVL's beacons (providers/ffvl.ts: their file and its redirect).
-  resume_du_jour: { subrequests: 61, cpuMs: 130, file: "resume" },
+  // Measured 59 when it only read the weather's copy; since it builds it as /aujourdhui/* does (tools/resume.ts), that
+  // page's: measured 62, and 2 from the code for the FFVL's beacons (providers/ffvl.ts: their file and its redirect).
+  resume_du_jour: { subrequests: 64, cpuMs: 130, file: "resume", basis: "estimé" },
   // Measured 36, and 2 from the code for the FFVL's beacons (providers/ffvl.ts: their file and its redirect).
   meteo_actuelle: { subrequests: 38, cpuMs: 120, file: "meteo" },
   evenements: { subrequests: 33, cpuMs: 190, file: "agenda" },
