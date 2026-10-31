@@ -78,7 +78,7 @@ export function communeNames(href: (nom: string) => string): string {
     const first = p.y - ((lines.length - 1) * NAME_UNITS * 1.05) / 2;
     const text = lines.map((l, i) => `<tspan x="${p.x}" y="${Math.round(first + i * NAME_UNITS * 1.05)}">${esc(l)}</tspan>`).join("");
     // The box, invisible, takes the finger and the mouse between the letters; carte-points.ts reads its middle.
-    return `<a class="sp" href="${esc(href(nom))}" aria-label="${esc(nom)}, voir sa page" data-pn="${esc(nom)}">` +
+    return `<a class="sp" href="${esc(href(nom))}" aria-label="${esc(nom)}, voir sa page" data-pn="${esc(nom)}" data-pv="commune">` +
       `<rect class="hit" x="${Math.round(b[0])}" y="${Math.round(b[1])}" width="${Math.round(b[2] - b[0])}" height="${Math.round(b[3] - b[1])}"/><text>${text}</text></a>`;
   });
   return `<g class="cn" font-size="${NAME_UNITS}"><g class="tie" aria-hidden="true">${ties.join("")}</g>${names.join("")}</g>`;

@@ -31,6 +31,13 @@
  * A point whose link is a row of the page, and whose page did not handle its click, leads to that row: its category
  * opened if folded (<details>, around it or in it: a commune's card), the row brought into view and marked as a link to
  * it marks it (`.tgt:target`).
+ *
+ * A commune of a map in colours (map.ts zoneLinks(): /secheresse, /coupures-eau, /velos, /communes) has the same
+ * bubble (marketing's charter of the maps, 31/10/2026): its name, what the map shows of it, and « Voir la commune → ».
+ * The mouse over it opens it, and outlines the commune (`.on`); a click follows its link. It opens below the commune,
+ * its arrow up, when there is no room above it inside the map (Saint-Denis, Sainte-Marie, Sainte-Suzanne), and moves
+ * in from the map's sides, its arrow still on the commune (Saint-Philippe, Saint-Paul). A finger's tap opens it, never
+ * the page: its link does. On /communes, whose names are the links, a tap opens the page, as its legend says.
  */
 
 /** Around a finger's tap, in CSS pixels: the half of the 44 px a finger covers. */
@@ -51,11 +58,12 @@ export const ARM_MS = 300;
 // A marker names another word for its link in `data-pv` (an event's point leads to its announcement).
 export const MOTS = {
   detail: "Voir la fiche →",
+  commune: "Voir la commune →",
   annonce: "Voir l'annonce →",
   site: "Site du lieu",
 };
 
-export const POINTS_SCRIPT = `(()=>{const maps=[...document.querySelectorAll("svg.map")].filter((s)=>s.querySelector("a.mk,a.sp"));if(!maps.length&&!document.querySelector("template.carte"))return;
+export const POINTS_SCRIPT = `(()=>{const maps=[...document.querySelectorAll("svg.map")].filter((s)=>s.querySelector("a.mk,a.sp,a.zn[data-pn]"));if(!maps.length&&!document.querySelector("template.carte"))return;
 const R=${TAP_PX},LIST=${LIST_MAX},M=${MOUSE_PX},T=${JSON.stringify(MOTS)},mk=(c,t)=>{const e=document.createElement(c);if(t)e.className=t;return e};
 const lines=(a)=>[a.dataset.pn||a.dataset.tp,a.dataset.p2,a.dataset.p3].filter(Boolean);
 const mid=(a)=>{const h=a.querySelector(".hit");const r=(h||a).getBoundingClientRect();return r.width?[r.left+r.width/2,r.top+r.height/2]:null};
@@ -63,14 +71,15 @@ const row=(a)=>{const h=a.getAttribute("href")||"";return h.length>1&&h[0]==="#"
 const voir=(t)=>{const d=t.closest("details")||t.querySelector(":scope>details");if(d)d.open=true;if(location.hash!=="#"+t.id){location.hash=t.id;return}t.scrollIntoView({block:"start"});t.style.animation="none";t.offsetWidth;t.style.animation=""};
 const tip=mk("div","ptip");tip.hidden=true;tip.setAttribute("aria-hidden","true");document.body.append(tip);
 let on=null,shut=0,arm=0,pass=null;
-const hide=()=>{clearTimeout(shut);clearTimeout(arm);shut=0;tip.hidden=true;tip.classList.remove("vu","lien","prise");tip.setAttribute("aria-hidden","true");tip.removeAttribute("role");tip.removeAttribute("aria-label");tip.replaceChildren();on=null};
+const hide=()=>{clearTimeout(shut);clearTimeout(arm);shut=0;if(on&&on.matches(".zn"))on.classList.remove("on");tip.hidden=true;tip.classList.remove("vu","lien","prise");tip.setAttribute("aria-hidden","true");tip.removeAttribute("role");tip.removeAttribute("aria-label");tip.replaceChildren();on=null};
 const later=()=>{if(on&&!shut)shut=setTimeout(hide,${LINGER_MS})},stay=()=>{clearTimeout(shut);shut=0};
-const place=(a)=>{const c=mid(a);if(!c){hide();return}const w=tip.offsetWidth,h=tip.offsetHeight,x=Math.min(Math.max(c[0]-w/2,6),innerWidth-w-6),up=c[1]-h-20>=0;
+const place=(a)=>{const c=mid(a);if(!c){hide();return}const f=a.matches(".zn")?a.ownerSVGElement.getBoundingClientRect():{left:0,right:innerWidth,top:0},l=Math.max(f.left,0)+6,r=Math.min(f.right,innerWidth)-6;
+const w=tip.offsetWidth,h=tip.offsetHeight,x=Math.min(Math.max(c[0]-w/2,l),r-w),up=c[1]-h-20>=Math.max(0,f.top);
 tip.classList.toggle("bas",!up);tip.style.left=x+scrollX+"px";tip.style.top=(up?c[1]-h-20:c[1]+20)+scrollY+"px";tip.style.setProperty("--ax",Math.min(Math.max(c[0]-x,14),w-14)+"px")};
 const links=(a)=>{const h=a.getAttribute("href");if(!h)return[];const r=row(a),v=mk("a","pv");v.href=h;v.textContent=T[a.dataset.pv]||T.detail;
 if(r)v.addEventListener("click",(e)=>{e.preventDefault();hide();fire(a)});const out=[v],ya=r?r.querySelectorAll("a.aller"):[];if(ya.length===1)out.push(ya[0].cloneNode(true));
 const site=r&&r.dataset.site;if(site){const l=mk("a");l.href=site;l.rel="noopener";l.textContent=T.site+" ↗";out.push(l)}return out};
-const show=(a)=>{stay();if(on===a)return;const l=lines(a);if(!l.length||!mid(a)){hide();return}on=a;tip.classList.remove("vu","prise");clearTimeout(arm);arm=setTimeout(()=>tip.classList.add("prise"),${ARM_MS});
+const show=(a)=>{stay();if(on===a)return;const l=lines(a);if(!l.length||!mid(a)){hide();return}if(on&&on.matches(".zn"))on.classList.remove("on");on=a;if(a.matches(".zn"))a.classList.add("on");tip.classList.remove("vu","prise");clearTimeout(arm);arm=setTimeout(()=>tip.classList.add("prise"),${ARM_MS});
 const parts=l.map((x,i)=>{const e=mk(i?"span":"b");e.textContent=x;return e}),ln=links(a);
 if(ln.length){const p=mk("p","pl");p.append(...ln);parts.push(p);tip.classList.add("lien");tip.removeAttribute("aria-hidden");tip.setAttribute("role","group");tip.setAttribute("aria-label",l[0])}
 else{tip.classList.remove("lien");tip.setAttribute("aria-hidden","true");tip.removeAttribute("role");tip.removeAttribute("aria-label")}
@@ -91,15 +100,15 @@ const w=box.offsetWidth,h=box.offsetHeight;box.style.left=Math.min(Math.max(x-w/
 document.addEventListener("pointerdown",(e)=>{if(!box.hidden&&!box.contains(e.target))close();if(on&&!tip.contains(e.target)&&!on.contains(e.target))hide()});
 document.addEventListener("keydown",(e)=>{if(e.key==="Escape"){close();hide()}else if(e.key==="Tab"&&!e.shiftKey&&on&&document.activeElement===on&&tip.classList.contains("lien")){e.preventDefault();tip.querySelector("a").focus()}});
 addEventListener("resize",()=>{close();hide()});
-document.addEventListener("click",(e)=>{if(e.defaultPrevented||e.button||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;const a=e.target.closest&&e.target.closest("svg.map a.mk,svg.map a.sp"),r=a&&row(a);if(!r)return;e.preventDefault();hide();voir(r)});
-const wire=(s)=>{const pts=()=>[...s.querySelectorAll("a.mk,a.sp")];const own=!!(s.closest("figure")||s.parentElement).querySelector("[data-mtip]");
+document.addEventListener("click",(e)=>{if(e.defaultPrevented||e.button||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;const a=e.target.closest&&e.target.closest("svg.map a.mk,svg.map a.sp,svg.map a.zn"),r=a&&row(a);if(!r)return;e.preventDefault();hide();voir(r)});
+const wire=(s)=>{const pts=()=>[...s.querySelectorAll("a.mk,a.sp")],zs=[...s.querySelectorAll("a.zn[data-pn]")],named=!!s.querySelector("a.sp");const own=!!(s.closest("figure")||s.parentElement).querySelector("[data-mtip]");
 const nearest=(x,y)=>{const b=s.getBoundingClientRect();let best=null,k=M;s.querySelectorAll("a.sp").forEach((a)=>{const c=mid(a);if(!c||c[0]<b.left||c[0]>b.right||c[1]<b.top||c[1]>b.bottom)return;const d=Math.hypot(c[0]-x,c[1]-y);if(d<=k){k=d;best=a}});return best};
-if(!own){pts().forEach((a)=>{a.querySelectorAll("title").forEach((t)=>{if(!a.getAttribute("aria-label"))a.setAttribute("aria-label",t.textContent);t.remove()});
+if(!own){[...pts(),...zs].forEach((a)=>{a.querySelectorAll("title").forEach((t)=>{if(!a.getAttribute("aria-label"))a.setAttribute("aria-label",t.textContent);t.remove()});
 a.addEventListener("focus",()=>{if(pass!==a&&a.matches(":focus-visible"))show(a)});a.addEventListener("blur",(e)=>{if(pass===a)pass=null;if(!tip.contains(e.relatedTarget))later()});
-if(a.matches(".mk")){a.addEventListener("pointerenter",(e)=>{if(e.pointerType==="mouse")show(a)});a.addEventListener("pointerleave",(e)=>{if(e.pointerType==="mouse")later()})}});
+if(a.matches(".mk,.zn")){a.addEventListener("pointerenter",(e)=>{if(e.pointerType==="mouse")show(a)});a.addEventListener("pointerleave",(e)=>{if(e.pointerType==="mouse")later()})}});
 let vise=null;const aim=(a)=>{if(vise&&vise!==a)vise.classList.remove("vise");vise=a;if(a)a.classList.add("vise")};
 s.addEventListener("pointermove",(e)=>{if(e.pointerType!=="mouse"||!s.querySelector("a.sp"))return;const a=nearest(e.clientX,e.clientY);s.classList.add("souris");aim(a);if(e.buttons){hide();return}
-if(a)show(a);else if(on&&on.matches(".sp"))later()});
+const z=!a&&e.target.closest&&e.target.closest("a.zn[data-pn]");if(a)show(a);else if(z)show(z);else if(on&&on.matches(".sp"))later()});
 s.addEventListener("pointerleave",(e)=>{if(e.pointerType!=="mouse")return;s.classList.remove("souris");aim(null);if(on&&on.matches(".sp"))later()});
 s.addEventListener("pointerdown",(e)=>{if(e.pointerType!=="mouse"){s.classList.remove("souris");aim(null)}},true);
 new MutationObserver(()=>{if(!on||!s.contains(on))return;const c=mid(on),b=s.getBoundingClientRect();if(!c||c[0]<b.left||c[0]>b.right||c[1]<b.top||c[1]>b.bottom)hide();else place(on)}).observe(s,{attributes:true,attributeFilter:["viewBox"]})}
@@ -108,9 +117,10 @@ s.addEventListener("pointerup",(e)=>{if(down)up=[e.clientX,e.clientY]},true);
 s.addEventListener("click",(e)=>{if(go)return;if(!down)return;
 const d=down,u=up||d;down=up=null;if(Math.hypot(u[0]-d[0],u[1]-d[1])>10)return;
 const b=s.getBoundingClientRect(),near=pts().map((a)=>[a,mid(a)]).filter(([,c])=>c&&c[0]>=b.left&&c[0]<=b.right&&c[1]>=b.top&&c[1]<=b.bottom).map(([a,c])=>[a,Math.hypot(c[0]-u[0],c[1]-u[1])]).filter(([,k])=>k<=R).sort((p,q)=>p[1]-q[1]).map(([a])=>a);
+const z=!near.length&&!named&&e.target.closest("a.zn[data-pn]");if(z){e.preventDefault();e.stopPropagation();show(z);return}
 if(!near.length||(near.length===1&&near[0]===e.target.closest("a.mk,a.sp")&&!near[0].matches("[data-tp]")))return;e.preventDefault();e.stopPropagation();
 if(near.length===1)fire(near[0]);else if(near.length<=LIST||s.dispatchEvent(new CustomEvent("pzoom",{cancelable:true,detail:{x:u[0],y:u[1]}})))choose(near,u[0],u[1])},true)};maps.forEach(wire);
-document.addEventListener("carte",(e)=>{const s=e.target;if(s.matches&&s.matches("svg.map")&&s.querySelector("a.mk,a.sp"))wire(s)})})();`;
+document.addEventListener("carte",(e)=>{const s=e.target;if(s.matches&&s.matches("svg.map")&&s.querySelector("a.mk,a.sp,a.zn[data-pn]"))wire(s)})})();`;
 
 /** The bubble as /meteo's (.mtip), night in both themes; the list of close points the same, its rows wide enough for a finger. */
 export const POINTS_CSS = `

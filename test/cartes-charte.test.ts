@@ -6,6 +6,8 @@ import { coupuresCommunePage } from "../src/web/coupures.js";
 import { buildDae, type EauAnswer, type HistoriqueAnswer, type SeaData } from "../src/web/data.js";
 import { calendrierPage, daePage, eauPage, historiquePage, traficPage, volcanPage } from "../src/web/domains.js";
 import { enfantsPage } from "../src/web/enfants.js";
+import { POINTS_SCRIPT } from "../src/web/carte-points.js";
+import { islandMap } from "../src/web/map.js";
 import { CSS, seaPage } from "../src/web/pages.js";
 import { pageOf } from "../src/web/places.js";
 
@@ -93,5 +95,40 @@ describe("the charter of the maps", () => {
     expect(radars.match(/<rect class="sh"[^>]*fill="([^"]+)"/g)?.every((c) => c.endsWith('fill="#14202b"'))).toBe(true);
     // Wider than the island, the frame made the names script measure 1 076 px for an island drawn on 607: 24 names at 9 px.
     expect(CSS).toContain(".wz-box>.map{width:min(100%,calc(clamp(22rem,65vh,34rem)*1000/896));margin:0 auto}");
+  });
+});
+
+describe("the maps of communes in colours (type C)", () => {
+  const map = islandMap({
+    fills: { "Saint-Paul": "#ff922b", Cilaos: "#ffd43b" },
+    links: { "Saint-Paul": { href: "#c-saint-paul", say: "eau du robinet\u00a0: alerte" }, Cilaos: { say: "pas de station" } },
+    label: "Carte",
+  });
+
+  it("names the six landmarks, as every map of the whole island", () => {
+    // Placed for a phone, without a script: the six alone (the others are hidden, `nx`, until the script finds room).
+    const names = [...map.matchAll(/<text (?![^>]*class="nx")[^>]*data-k="[^"]+"[^>]*>([^<]+)<\/text>/g)].map((m) => m[1]).sort();
+    expect(names).toEqual(["Cilaos", "Saint-Benoît", "Saint-Denis", "Saint-Paul", "Saint-Pierre", "Salazie"]);
+  });
+
+  it("gives each commune its bubble: its name, what the map shows, « Voir la commune → » where it leads", () => {
+    expect(map).toContain('<a class="zn" href="#c-saint-paul" aria-label="Saint-Paul : eau du robinet\u00a0: alerte, voir le détail" data-pn="Saint-Paul" data-p2="eau du robinet\u00a0: alerte" data-pv="commune">');
+    // Without a link, the bubble alone, left out of the keyboard's way: the legend says it.
+    expect(map).toContain('<a class="zn" tabindex="-1" aria-hidden="true" data-pn="Cilaos" data-p2="pas de station">');
+  });
+
+  it("opens the bubble on a tap, never the page, except on /communes, whose names are the links", () => {
+    expect(POINTS_SCRIPT).toContain(`const z=!near.length&&!named&&e.target.closest("a.zn[data-pn]");if(z){e.preventDefault();e.stopPropagation();show(z);return}`);
+    expect(POINTS_SCRIPT).toContain(`zs=[...s.querySelectorAll("a.zn[data-pn]")],named=!!s.querySelector("a.sp");`);
+    // The mouse: the bubble over the commune, outlined in the sun's yellow while it is open; a click follows its link.
+    expect(POINTS_SCRIPT).toContain(`if(a.matches(".mk,.zn")){a.addEventListener("pointerenter"`);
+    expect(POINTS_SCRIPT).toContain(`if(a.matches(".zn"))a.classList.add("on");`);
+    expect(POINTS_SCRIPT).toContain(`e.target.closest("svg.map a.mk,svg.map a.sp,svg.map a.zn"),r=a&&row(a);`);
+    expect(CSS).toContain(".map .zn.on path{fill:rgb(255 255 255/.14);stroke:var(--sun);stroke-width:4}");
+    // Inside the map (marketing's review): below the commune, its arrow up, when there is no room above it (Saint-Denis),
+    // moved in from its sides (Saint-Philippe); the arrow stays on the commune.
+    expect(POINTS_SCRIPT).toContain(`const f=a.matches(".zn")?a.ownerSVGElement.getBoundingClientRect():{left:0,right:innerWidth,top:0},l=Math.max(f.left,0)+6,r=Math.min(f.right,innerWidth)-6;`);
+    expect(POINTS_SCRIPT).toContain(`x=Math.min(Math.max(c[0]-w/2,l),r-w),up=c[1]-h-20>=Math.max(0,f.top);`);
+    expect(POINTS_SCRIPT).toContain(`tip.style.setProperty("--ax",Math.min(Math.max(c[0]-x,14),w-14)+"px")`);
   });
 });

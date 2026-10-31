@@ -24,7 +24,7 @@ describe("the names on the map of /communes", () => {
   const html = map(communesPage(ORIGIN));
 
   it("name the 24 communes, each a link to its page", () => {
-    const names = [...html.matchAll(/<a class="sp" href="([^"]+)" aria-label="([^"]+), voir sa page" data-pn="([^"]+)">/g)].map((m) => m.map((x) => x.replace("&#39;", "'")));
+    const names = [...html.matchAll(/<a class="sp" href="([^"]+)" aria-label="([^"]+), voir sa page" data-pn="([^"]+)" data-pv="commune">/g)].map((m) => m.map((x) => x.replace("&#39;", "'")));
     expect(names).toHaveLength(24);
     expect(names.map((m) => m[3]).sort()).toEqual(COMMUNES.map((c) => c.nom).sort());
     for (const [, href, , nom] of names) expect(href).toBe(`/communes/${COMMUNES.find((c) => c.nom === nom)!.slug}`);
@@ -61,23 +61,25 @@ describe("the names on the map of /communes", () => {
 
   it("light a commune's name while it is hovered, and the commune while its name is", () => {
     expect(communesPage(ORIGIN)).toContain(`</figure><script>${SURVOL_SCRIPT}</script>`);
+    // Its legend's line (marketing's charter of the maps): a tap on a name or a commune opens its page.
+    expect(communesPage(ORIGIN)).toContain(`<figcaption class="note" style="color:var(--on-night-muted)">Touchez une commune pour ouvrir sa page.</figcaption></figure>`);
     expect(CSS).toContain(".map .cn a.on text");
     expect(CSS).toContain(".map .zn.on path");
     // The names in the order of the communes' links, so that the script pairs them by rank.
     const zones = [...html.matchAll(/<a class="zn"[^>]*><title>([^<]+)<\/title>/g)].map((m) => m[1]);
-    const names = [...html.matchAll(/data-pn="([^"]+)"/g)].map((m) => m[1]);
+    const names = [...html.matchAll(/<a class="sp"[^>]* data-pn="([^"]+)"/g)].map((m) => m[1]);
     expect(names).toEqual(zones);
   });
 
   it("leave the communes' own links to the mouse, so that the keyboard meets each commune once", () => {
-    expect(html.match(/<a class="zn" href="[^"]+" tabindex="-1" aria-hidden="true">/g)).toHaveLength(24);
+    expect(html.match(/<a class="zn" href="[^"]+" tabindex="-1" aria-hidden="true" data-pn="[^"]+" data-pv="commune">/g)).toHaveLength(24);
     // The placed names of the other maps are not drawn.
     expect(html).not.toContain('class="nm"');
   });
 
   it("change no other map", () => {
     const other = islandMap({ links: { Cilaos: { href: "/communes/cilaos" } }, label: "Carte" });
-    expect(other).toContain('<a class="zn" href="/communes/cilaos" aria-label="Cilaos, voir sa page">');
+    expect(other).toContain('<a class="zn" href="/communes/cilaos" aria-label="Cilaos, voir sa page" data-pn="Cilaos" data-pv="commune">');
     expect(other).toContain('class="nm"');
     expect(other).not.toContain('class="cn"');
     expect(map(communePage(ORIGIN, pageOf("cilaos")!, { place: null }))).not.toContain('class="cn"');

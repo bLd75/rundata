@@ -9,7 +9,7 @@ import { esc } from "./map.js";
 export const COUNT_COLOR = "#14202b";
 
 /** A mark as the map draws it (map.ts, marker()): a disc, a pill, a hollow ring (nothing lately), the hot spot's triangle, a venue's small point, or a
- * commune's colour on a map of zones (`aplat`, /secheresse). */
+ * commune's colour on a map of zones (`aplat`: /secheresse, /coupures-eau, /velos). */
 export interface Cle {
   forme: "rond" | "pastille" | "anneau" | "triangle" | "point" | "aplat";
   couleur: string;
@@ -35,7 +35,8 @@ function mark(c: Cle): string {
     case "point":
       return svg("-37 -37 74 74", `<circle r="17" fill="${c.couleur}" style="paint-order:stroke"/>`);
     case "aplat":
-      return svg("-37 -37 74 74", `<rect x="-30" y="-30" width="60" height="60" rx="8" fill="${c.couleur}"/>`);
+      // In a style, so that a colour of the theme (var(--zone-on), var(--land)) reads as on the map.
+      return svg("-37 -37 74 74", `<rect x="-30" y="-30" width="60" height="60" rx="8" style="fill:${c.couleur}"/>`);
     case "triangle":
       return svg("-40 -42 80 80", `<path d="M0 -36L35 28H-35Z" fill="${c.couleur}"/>`);
     default:

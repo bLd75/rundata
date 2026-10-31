@@ -406,13 +406,19 @@ describe("coupures d'eau", () => {
     const sp = island.paths.find((p: { nom: string }) => p.nom === "Saint-Pierre")!;
     const page = coupuresPage("https://rundata.re", { value, fetchedAt: NOW }, NOW);
     expect(page).toContain(`<path d="${sp.d}" style="fill:#f03e3e"/>`);
-    // Each followed commune leads to its own page of notices.
+    // Each commune leads to its own page of notices: a followed one's notices, the others' where to ask (marketing's charter).
     const links = mapLinks(page);
-    expect(links).toHaveLength(value.communes_suivies.length);
+    expect(links).toHaveLength(24);
     expect(links.filter((l) => !pageOf(l.href.replace("/coupures-eau/", "")))).toEqual([]);
     expect(links.find((l) => l.href === "/coupures-eau/saint-pierre")?.label).toBe("Saint-Pierre : eau à ne pas boire, voir le détail");
-    // The legend never says « aucun avis » where nothing is read, and tells what the others are.
-    expect(page).toContain(`<span style="color:#a5d8ff">pas d'avis lu en ce moment</span>. Les autres communes : avis non lus, voir la mairie ou le distributeur.`);
+    // The legend never says « aucun avis » where nothing is read, and tells what the others are: each colour drawn, never a
+    // coloured word (marketing's charter of the maps), then when the notices were read.
+    expect(page).toContain(`<rect x="-30" y="-30" width="60" height="60" rx="8" style="fill:#a5d8ff"/></svg>pas d&#39;avis lu en ce moment</span>`);
+    expect(page).toContain(`<rect x="-30" y="-30" width="60" height="60" rx="8" style="fill:var(--land)"/></svg>avis non lus\u00a0: voir la mairie ou le distributeur</span>`);
+    expect(page).toContain(`<span class="mls">Avis des distributeurs, lus à 08:00.</span>`);
+    expect(page).not.toContain('<span style="color:');
+    // A commune not followed: said as the legend says, with its page.
+    expect(page).toContain(`<a class="zn" href="/coupures-eau/saint-joseph" aria-label="Saint-Joseph : avis non lus\u00a0: voir la mairie ou le distributeur, voir le détail" data-pn="Saint-Joseph" data-p2="avis non lus\u00a0: voir la mairie ou le distributeur" data-pv="commune">`);
   });
 
   it("keeps Saint-Leu's posts about the water network, as a short extract with its link, an image as a link only", () => {
