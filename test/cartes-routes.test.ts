@@ -246,6 +246,16 @@ describe("the roads and the names of places on the pages' maps", () => {
     expect(homePage("https://rundata.re", null, new Date("2026-10-29T18:00:00Z"))).toContain(NOMS_SCRIPT);
   });
 
+  it("have the charter's sizes on screen at any width: a commune 14 px (12 px on a phone), a place 11 px, a summit 12 px under a mark 13 px wide", () => {
+    // 1000 units drawn for a phone 340 px wide: 12 px is 35.29 units, as the server places them.
+    const svg = islandMap({ label: "x" });
+    expect(svg).toMatch(/font-size="35\.29" data-r="0"[^>]*>Saint-Denis</);
+    expect(NOMS_SCRIPT).toContain('const fs=(t.dataset.r==="0"?(cw>=400?14:12):11)*u;');
+    expect(NOMS_SCRIPT).toContain("z=13*u/T.width");
+    expect(NOMS_SCRIPT).toContain('pf=12*u;');
+    expect(NOMS_SCRIPT).toContain('t.style.fontSize=pf+"px"');
+  });
+
   it("come from a file of a known size: the 24 communes first, then the places, capitalised", () => {
     expect(NOMS.slice(0, 24).map((n) => n[0]).sort()).toEqual(island.paths.map((p) => p.nom).sort());
     expect(NOMS.slice(24).every((n) => n[1] >= 1 && n[1] <= 3 && n[0][0] === n[0][0].toUpperCase())).toBe(true);

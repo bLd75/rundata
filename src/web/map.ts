@@ -281,7 +281,8 @@ function roadsLayer(frame?: number[]): string {
 /** The island's map on a phone names these six (marketing): the prefecture, the sub-prefectures and the cirques. */
 const SIX = new Set(["Saint-Denis", "Saint-Paul", "Saint-Pierre", "Saint-Benoît", "Cilaos", "Salazie"]);
 
-/** A name's size on screen, in px (marketing): a commune's, any other place's. NOMS_SCRIPT gives a commune 13 px on a map 640 px wide or more. */
+/** A name's size on screen, in px, on a phone (marketing's charter, § 2.4): a commune's, any other place's. NOMS_SCRIPT gives a commune 14 px on a map
+ * 400 px wide or more; at 14 px on a phone, the points of /enfants left one of the six names out of four. */
 const namePx = (rank: number) => (rank ? 11 : 12);
 
 /** About how wide a name is, in ems of the system font: enough for the server's own placement (NOMS_SCRIPT measures). */
@@ -549,7 +550,7 @@ function markerBox(m: Marker, at?: [number, number]): Box {
  * FAR for a commune or a big quarter), a commune's name on it, its middle and 14 of 27 points of it, or at sea off its coast (`home`, the outlines
  * of `#isl` by `data-k`), the commune's own name (`data-c`) after the big ones if nothing around its place is free
  * (`look`), and on the island's map (`data-i`) a commune's name up to 6 times its size from its town, beyond 3 facing it (`face`), at sea only
- * where the nearest coast is the commune's (`town`, AROUND), as the server does for a phone. First the summits' names (`peaks`): below the summit, else above, on the right, on the
+ * where the nearest coast is the commune's (`town`, AROUND), as the server does for a phone. First the summits (`peaks`), whatever the map's width a mark 13 px wide and its name and height in 12 px (marketing's charter, § 2.4), the name below the summit, else above, on the right, on the
  * left, then aslant on either side, the first that touches no point (else the one that covers the least); the name
  * moves, never the station. What is hidden takes no room (the wind's pills under the temperatures, the summits'
  * names on a phone). Again when the map changes size, when a map zooms (its viewBox) and when a tab
@@ -561,8 +562,10 @@ const u=vb.width/cw,wide=cw>=640,p=2*u,busy=[],kept=[],box=(b,r)=>[b.x-r-p,b.y-r
 free=(b)=>b[0]>=vb.x&&b[1]>=vb.y&&b[2]<=vb.x+vb.width&&b[3]<=vb.y+vb.height&&![...busy,...kept].some((o)=>hit(o,b));const shown=(e)=>{for(;e&&e!==svg;e=e.parentNode)if(getComputedStyle(e).display==="none")return false;return true};
 svg.querySelectorAll(".mk .sh,.mk .mn,.sp:not(.off) .rg,.pin,.ties circle,.trk-start,.rj-st circle,.wt line,.wt circle").forEach((e)=>{let b;if(!shown(e))return;try{b=e.getBBox()}catch{return}const r=e.matches(".rg,.trk-start")?9*u:0;if(b.width||b.height||r&&e.getClientRects().length)busy.push(box(b,r))});
 svg.querySelectorAll(".trk-halo").forEach((l)=>{const L=l.getTotalLength(),st=Math.max(6*u,L/800);for(let s=0;s<=L;s+=st){const q=l.getPointAtLength(s);busy.push([q.x-4*u-p,q.y-4*u-p,q.x+4*u+p,q.y+4*u+p])}});
-const marks=[];svg.querySelectorAll(".pk").forEach((k)=>{const ts=[...k.querySelectorAll("text")],at=(d)=>ts.forEach((t)=>{if(t.dataset.x===undefined){t.dataset.x=t.getAttribute("x");t.dataset.y=t.getAttribute("y")}t.setAttribute("x",+t.dataset.x+d[0]);t.setAttribute("y",+t.dataset.y+d[1])});
-let T;if(!shown(k))return;try{at([0,0]);T=k.querySelector("path").getBBox()}catch{return}if(!T.width)return;marks.push(box(T,0));let B=null;for(const t of ts){if(!shown(t))continue;const q=t.getBBox();if(q.width)B=B?[Math.min(B[0],q.x),Math.min(B[1],q.y),Math.max(B[2],q.x+q.width),Math.max(B[3],q.y+q.height)]:[q.x,q.y,q.x+q.width,q.y+q.height]}if(!B)return;
+const marks=[];svg.querySelectorAll(".pk").forEach((k)=>{const ts=[...k.querySelectorAll("text")],at=(d)=>ts.forEach((t)=>{t.setAttribute("x",+t.dataset.x+d[0]);t.setAttribute("y",+t.dataset.y+d[1])});
+let T;const a=k.querySelector("path");if(!shown(k)||!a)return;try{a.removeAttribute("transform");T=a.getBBox()}catch{return}if(!T.width)return;
+const z=13*u/T.width,ox=T.x+T.width/2,oy=T.y+T.height/2,pf=12*u;a.setAttribute("transform","translate("+ox+" "+oy+") scale("+z+") translate("+-ox+" "+-oy+")");T={x:ox-T.width*z/2,y:oy-T.height*z/2,width:T.width*z,height:T.height*z};
+ts.forEach((t,i)=>{t.style.fontSize=pf+"px";t.style.strokeWidth=3*u+"px";t.dataset.x=ox;t.dataset.y=T.y+T.height+4*u+pf*(.8+1.15*i)});at([0,0]);marks.push(box(T,0));let B=null;for(const t of ts){if(!shown(t))continue;const q=t.getBBox();if(q.width)B=B?[Math.min(B[0],q.x),Math.min(B[1],q.y),Math.max(B[2],q.x+q.width),Math.max(B[3],q.y+q.height)]:[q.x,q.y,q.x+q.width,q.y+q.height]}if(!B)return;
 const s=4*u,cy=T.y+T.height/2-(B[1]+B[3])/2,hb=(B[3]-B[1])/2,R=T.x+T.width+s-B[0],L=T.x-s-B[2],at2=(d)=>[B[0]+d[0]-p,B[1]+d[1]-p,B[2]+d[0]+p,B[3]+d[1]+p],
 ds=[[0,0],[0,T.y-s-B[3]],[R,cy],[L,cy],[R,cy-hb],[L,cy-hb],[R,cy+hb],[L,cy+hb]],over=(d)=>{const a=at2(d);return busy.reduce((n,o)=>n+Math.max(0,Math.min(a[2],o[2])-Math.max(a[0],o[0]))*Math.max(0,Math.min(a[3],o[3])-Math.max(a[1],o[1])),0)},
 go=ds.find((d)=>free(at2(d)))||ds.reduce((m,d)=>(over(d)<over(m)?d:m));
@@ -582,7 +585,7 @@ for(const [i,j] of A){const dx=tx+i*fs/2-cx,dy=ty+j*fs/2-cy,b=[b0[0]+dx,b0[1]+dy
 look=(t)=>{t.classList.remove("nx");t.setAttribute("x",t.dataset.x);t.setAttribute("y",t.dataset.y);const b0=box(t.getBBox(),0),st=+t.getAttribute("font-size")/2,ds=[];
 for(let dx=vb.x-b0[0];b0[2]+dx<=vb.x+vb.width;dx+=st)for(let dy=vb.y-b0[1];b0[3]+dy<=vb.y+vb.height;dy+=st)ds.push([dx,dy]);ds.sort((a,b)=>a[0]*a[0]+a[1]*a[1]-b[0]*b[0]-b[1]*b[1]);
 for(const [dx,dy] of ds){const b=[b0[0]+dx,b0[1]+dy,b0[2]+dx,b0[3]+dy];if(free(b)&&home(b,t)){t.setAttribute("x",+t.dataset.x+dx);t.setAttribute("y",+t.dataset.y+dy);kept.push(b);return}}t.classList.add("nx")};
-let late=null;for(const t of g.children){if(late&&+t.dataset.r>1){look(late);late=null}const fs=(t.dataset.r==="0"?(wide?13:12):11)*u;t.setAttribute("font-size",fs);t.classList.remove("nx");
+let late=null;for(const t of g.children){if(late&&+t.dataset.r>1){look(late);late=null}const fs=(t.dataset.r==="0"?(cw>=400?14:12):11)*u;t.setAttribute("font-size",fs);t.classList.remove("nx");
 if(t.hasAttribute("data-w")&&!wide){t.classList.add("nx");continue}t.setAttribute("x",t.dataset.x);t.setAttribute("y",t.dataset.y);const h=t.getBBox().width/2+p;let ok=isle&&t.dataset.k!==undefined&&pt?town(t,fs):false;
 if(!(isle&&t.dataset.k!==undefined&&pt))for(const [ka,kb,kc] of +t.dataset.r<2?[...P,...F]:P){t.setAttribute("x",+t.dataset.x+ka*h+kb*fs);t.setAttribute("y",+t.dataset.y+kc*fs);const b=box(t.getBBox(),0);if(free(b)&&home(b,t)){kept.push(b);ok=true;break}}
 if(!ok){t.classList.add("nx");if(t.hasAttribute("data-c"))late=t}}if(late)look(late)};
