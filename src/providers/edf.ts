@@ -20,7 +20,14 @@ export const SOURCE: SourceInfo = {
 const API = "https://opendata-reunion.edf.fr/data-fair/api/v1/datasets";
 const MIX = `${API}/njq-knwu0diqrdup6tya8qxi/lines?size=1&sort=-date`;
 const SIGNAL = `${API}/7tgfic35sejxtbi0ose84dbx/lines?size=200&sort=dateheure`;
+/**
+ * EDF keeps the last 24 hours, a line every 5 minutes (287 to 289 lines): one request reads them all, the latest line
+ * with them.
+ */
+const DAY = `${API}/njq-knwu0diqrdup6tya8qxi/lines?size=300&sort=-date&select=date,photovoltaique,eolien,hydraulique,bioenergies,charbon,diesel,turbines_combustion,stockage,total,statut`;
 const MIX_FRESH_SECONDS = 4 * 60;
+/** The day gives the page its latest line too: read again as often as that line. */
+const DAY_FRESH_SECONDS = MIX_FRESH_SECONDS;
 const SIGNAL_FRESH_SECONDS = 60 * 60;
 
 export interface Mix {
@@ -80,4 +87,28 @@ export async function signal(cache: Cache, now = new Date()): Promise<Cached<Sig
   });
   // A copy kept from before the date was read (31/10/2026): the hours alone.
   return Array.isArray(c.value) ? { ...c, value: { heures: c.value } } : (c as Cached<Signal>);
+}
+
+/** The last 24 hours of production, oldest first, and when EDF last updated the dataset (ISO, the lines' Last-Modified). */
+export interface Journee {
+  lignes: Mix[];
+  mis_a_jour?: string;
+}
+
+/** The latest line of the day, as mix() would read it: the page's copy reads the dataset once for both. */
+export function latest(c: Cached<Journee>): Cached<Mix> {
+  return { ...c, value: c.value.lignes[c.value.lignes.length - 1] };
+}
+
+export async function journee(cache: Cache): Promise<Cached<Journee>> {
+  return cache.get("edf:journee", DAY_FRESH_SECONDS, async () => {
+    const { bytes, modifie } = await getFile(SOURCE.id, DAY);
+    const r = JSON.parse(new TextDecoder().decode(bytes)) as { results: (Mix & Record<string, unknown>)[] };
+    if (!r.results.length) throw new Error("edf : aucune ligne de production sur 24 h");
+    const at = modifie ? Date.parse(modifie) : NaN;
+    // Newest first, so that the latest line is there even if EDF kept more than the request reads; kept oldest first.
+    const lignes = [...r.results].reverse().map(({ date, photovoltaique, eolien, hydraulique, bioenergies, charbon, diesel, turbines_combustion, stockage, total, statut }) =>
+      ({ date, photovoltaique, eolien, hydraulique, bioenergies, charbon, diesel, turbines_combustion, stockage, total, statut }));
+    return { lignes, ...(!Number.isNaN(at) && { mis_a_jour: new Date(at).toISOString() }) };
+  });
 }

@@ -287,6 +287,8 @@ const namePx = (rank: number) => (rank ? 11 : 12);
 
 /** About how wide a name is, in ems of the system font: enough for the server's own placement (NOMS_SCRIPT measures). */
 const EM = 0.56;
+/** The room a name keeps from the map's frame, in px on screen: never on its edge. The same in NOMS_SCRIPT. */
+const EDGE = 6;
 
 /**
  * The names of places over a map, under its points: the communes, then, close up (`close`), the places of the frame
@@ -302,6 +304,7 @@ const EM = 0.56;
  */
 function namesLayer(opts: {
   frame: number[]; unit: number; busy: Box[]; close?: boolean; hide?: boolean; within?: [number, number][]; centre?: [number, number]; commune?: string;
+  first?: string[];
 }): string {
   const [fx, fy, fw, fh] = opts.frame;
   const u = opts.unit;
@@ -317,8 +320,12 @@ function namesLayer(opts: {
     const o = best.get(n[0]);
     if (!o || n[1] < o[1] || (n[1] === o[1] && far(n) < far(o))) best.set(n[0], n);
   }
-  const own = (nom: string, rank: number) => !!opts.within && !rank && nom === opts.commune;
-  const list = all.filter((n) => best.get(n[0]) === n).sort((a, b) => +own(b[0], b[1]) - +own(a[0], a[1]));
+  // The commune's own name on its map, and the first of `first` on the island's: shown in any case (`data-c`), further
+  // if need be.
+  const own = (nom: string, rank: number) => !rank && ((!!opts.within && nom === opts.commune) || nom === opts.first?.[0]);
+  // The names a map puts first (`first`), in its order, before the others: the script places them in the same order.
+  const before = (nom: string) => { const i = opts.first?.indexOf(nom) ?? -1; return i < 0 ? Infinity : i; };
+  const list = all.filter((n) => best.get(n[0]) === n).sort((a, b) => +own(b[0], b[1]) - +own(a[0], a[1]) || before(a[0]) - before(b[0]));
   const at = new Map<(typeof list)[number], [number, number] | undefined>();
   const place = (n: (typeof list)[number], look = false) => {
     const [nom, rank, x, y] = n;
@@ -333,7 +340,8 @@ function namesLayer(opts: {
     const isle = !opts.close && !!ring;
     const fits = (d: [number, number], far = false) => {
       const b = boxAt(d);
-      if (b[0] < fx || b[1] < fy || b[2] > fx + fw || b[3] > fy + fh || [...opts.busy, ...shown].some((o) => touch(o, b))) return false;
+      const e = EDGE * u;
+      if (b[0] < fx + e || b[1] < fy + e || b[2] > fx + fw - e || b[3] > fy + fh - e || [...opts.busy, ...shown].some((o) => touch(o, b))) return false;
       if (!ring) return true;
       if (far && !facesOwn([x + d[0], y + d[1]], [x, y], ring, fs / 2)) return false;
       const sea = () => towardsOwn([x + d[0], y + d[1]], [x, y], ring, fs / 2) && (!isle || coastNear(x + d[0], y + d[1], fs / 2).has(COMMUNES.get(nom)!));
@@ -343,7 +351,8 @@ function namesLayer(opts: {
       return mostlyOn([x + d[0] - half + 2 * u, y + d[1] - fs * 0.6, x + d[0] + half - 2 * u, y + d[1] + fs * 0.6], ring, sea);
     };
     let d: [number, number] | undefined;
-    if (isle) {
+    // Further if need be (`look`), on the island's map too, as NOMS_SCRIPT does.
+    if (isle && !look) {
       const k = AROUND.find(([i, j]) => fits([(i * fs) / 2, (j * fs) / 2], i * i + j * j > NEAR));
       d = k && [(k[0] * fs) / 2, (k[1] * fs) / 2];
     }
@@ -554,12 +563,27 @@ function markerBox(m: Marker, at?: [number, number]): Box {
  * left, then aslant on either side, the first that touches no point (else the one that covers the least); the name
  * moves, never the station. What is hidden takes no room (the wind's pills under the temperatures, the summits'
  * names on a phone). Again when the map changes size, when a map zooms (its viewBox) and when a tab
- * changes the points shown.
+ * changes the points shown. A map put in the page later (laterMap()) is placed when it comes.
  */
+/**
+ * A map far under the hero, put in the page only when it nears the screen: in a `<template>` until then, so that the
+ * first paint neither builds nor draws it (the island's shapes cost about 400 ms on a slow phone, 31/10/2026). Once
+ * in, it says so (the event `carte`), and the scripts of the points and of the names take it as one of theirs.
+ * Without a script, it is not shown: what it shows must be in the page besides (a list).
+ */
+export function laterMap(svg: string): string {
+  return `<template class="carte">${svg}</template><script>${LATER_SCRIPT}</script>`;
+}
+
+// Once the page is read: the scripts of the points and of the names, at its end, listen before the map comes.
+const LATER_SCRIPT = `(()=>{const t=document.currentScript&&document.currentScript.previousElementSibling;if(!t||t.tagName!=="TEMPLATE")return;
+const go=()=>{if(document.readyState==="loading"){addEventListener("DOMContentLoaded",go,{once:true});return}if(!t.isConnected)return;const s=t.content.firstElementChild;t.replaceWith(t.content);if(s)s.dispatchEvent(new Event("carte",{bubbles:true}))};
+if(!window.IntersectionObserver)return go();const o=new IntersectionObserver((e)=>{if(e.some((x)=>x.isIntersecting)){o.disconnect();go()}},{rootMargin:"100% 0px"});o.observe(t.parentElement)})();`;
+
 export const NOMS_SCRIPT = `(()=>{const P=${JSON.stringify(NUDGE).replace(/</g, "\\u003c")},A=[...Array(625)].map((_,k)=>[k%25-12,Math.floor(k/25)-12]).filter(([i,j])=>i*i+j*j<=144).sort((a,b)=>a[0]*a[0]+a[1]*a[1]-(b[0]*b[0]+b[1]*b[1])),NEAR=${NEAR},F=[...Array(12)].flatMap((_,k)=>{const g=(k+1)/4,c=1.1+g;return[[1,g,0],[-1,-g,0],[0,0,-c],[0,0,c],[1,g,-c],[-1,-g,-c],[1,g,c],[-1,-g,c]]}),hit=(a,b)=>a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3];
 const run=(svg)=>{const g=svg.querySelector(".nm"),vb=svg.viewBox.baseVal,cw=svg.clientWidth;if(!g||!vb||!vb.width||!cw)return;
 const u=vb.width/cw,wide=cw>=640,p=2*u,busy=[],kept=[],box=(b,r)=>[b.x-r-p,b.y-r-p,b.x+b.width+r+p,b.y+b.height+r+p],
-free=(b)=>b[0]>=vb.x&&b[1]>=vb.y&&b[2]<=vb.x+vb.width&&b[3]<=vb.y+vb.height&&![...busy,...kept].some((o)=>hit(o,b));const shown=(e)=>{for(;e&&e!==svg;e=e.parentNode)if(getComputedStyle(e).display==="none")return false;return true};
+e=${EDGE}*u,free=(b)=>b[0]>=vb.x+e&&b[1]>=vb.y+e&&b[2]<=vb.x+vb.width-e&&b[3]<=vb.y+vb.height-e&&![...busy,...kept].some((o)=>hit(o,b));const shown=(e)=>{for(;e&&e!==svg;e=e.parentNode)if(getComputedStyle(e).display==="none")return false;return true};
 svg.querySelectorAll(".mk .sh,.mk .mn,.sp:not(.off) .rg,.pin,.ties circle,.trk-start,.rj-st circle,.wt line,.wt circle").forEach((e)=>{let b;if(!shown(e))return;try{b=e.getBBox()}catch{return}const r=e.matches(".rg,.trk-start")?9*u:0;if(b.width||b.height||r&&e.getClientRects().length)busy.push(box(b,r))});
 svg.querySelectorAll(".trk-halo").forEach((l)=>{const L=l.getTotalLength(),st=Math.max(6*u,L/800);for(let s=0;s<=L;s+=st){const q=l.getPointAtLength(s);busy.push([q.x-4*u-p,q.y-4*u-p,q.x+4*u+p,q.y+4*u+p])}});
 const marks=[];svg.querySelectorAll(".pk").forEach((k)=>{const ts=[...k.querySelectorAll("text")],at=(d)=>ts.forEach((t)=>{t.setAttribute("x",+t.dataset.x+d[0]);t.setAttribute("y",+t.dataset.y+d[1])});
@@ -590,7 +614,8 @@ if(t.hasAttribute("data-w")&&!wide){t.classList.add("nx");continue}t.setAttribut
 if(!(isle&&t.dataset.k!==undefined&&pt))for(const [ka,kb,kc] of +t.dataset.r<2?[...P,...F]:P){t.setAttribute("x",+t.dataset.x+ka*h+kb*fs);t.setAttribute("y",+t.dataset.y+kc*fs);const b=box(t.getBBox(),0);if(free(b)&&home(b,t)){kept.push(b);ok=true;break}}
 if(!ok){t.classList.add("nx");if(t.hasAttribute("data-c"))late=t}}if(late)look(late)};
 const maps=[...document.querySelectorAll("svg.map")].filter((s)=>s.querySelector(".nm"));const wait=new Map(),later=(s)=>{clearTimeout(wait.get(s));wait.set(s,setTimeout(()=>run(s),120))};
-maps.forEach((s)=>{run(s);if(window.ResizeObserver)new ResizeObserver(()=>later(s)).observe(s);new MutationObserver(()=>later(s)).observe(s,{attributes:true,attributeFilter:["viewBox"]})});
+const wire=(s)=>{run(s);if(window.ResizeObserver)new ResizeObserver(()=>later(s)).observe(s);new MutationObserver(()=>later(s)).observe(s,{attributes:true,attributeFilter:["viewBox"]})};maps.forEach(wire);
+document.addEventListener("carte",(e)=>{const s=e.target;if(s.matches&&s.matches("svg.map")&&s.querySelector(".nm")){maps.push(s);wire(s)}});
 document.addEventListener("change",()=>maps.forEach(later))})();`;
 
 /**
@@ -630,6 +655,11 @@ export function islandMap(opts: {
    * communes' own links are then for the mouse only, so that a keyboard or a screen reader meets each commune once.
    */
   names?: string;
+  /**
+   * The communes' names placed before the others, in this order: those of the places the map makes the most of. The
+   * first is shown in any case: if nothing around its town is free, at the nearest free place on it or off its coast.
+   */
+  first?: string[];
   /** The key of the IGN's backgrounds drawn over the relief once picked (fondChoice()): their layer `fd-<key>`. */
   fond?: string;
   label: string;
@@ -696,7 +726,7 @@ export function islandMap(opts: {
       (opts.fond ? `<g id="fd-${esc(opts.fond)}" class="fd"></g>` : "")
     : `<use href="#isl" class="land"/>${fills}`;
   // The names over the relief only: on the maps in colours (fills), the colours are the data.
-  const names = opts.names ?? (terrain ? namesLayer({ frame: [0, 0, W, H], unit: W / PHONE_PX, busy, hide: !!opts.top }) : "");
+  const names = opts.names ?? (terrain ? namesLayer({ frame: [0, 0, W, H], unit: W / PHONE_PX, busy, hide: !!opts.top, first: opts.first }) : "");
   return `<svg class="map${terrain ? " terrain" : ""}" viewBox="0 0 ${W} ${H}" ${role} aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g>${terrain ? `<clipPath id="isl-clip">${paths}</clipPath>` : ""}</defs>` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>` +
