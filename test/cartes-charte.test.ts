@@ -125,5 +125,7 @@ describe("the maps of communes in colours (type C)", () => {
     expect(POINTS_SCRIPT).toContain(`if(a.matches(".zn"))a.classList.add("on");`);
     expect(POINTS_SCRIPT).toContain(`e.target.closest("svg.map a.mk,svg.map a.sp,svg.map a.zn"),r=a&&row(a);`);
     expect(CSS).toContain(".map .zn.on path{fill:rgb(255 255 255/.14);stroke:var(--sun);stroke-width:4}");
+    // Below the commune, its arrow up, when there is no room above it inside the map (Saint-Denis, marketing's review).
+    expect(POINTS_SCRIPT).toContain(`up=c[1]-h-20>=(a.matches(".zn")?Math.max(0,a.ownerSVGElement.getBoundingClientRect().top):0);`);
   });
 });

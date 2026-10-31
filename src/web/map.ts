@@ -78,7 +78,7 @@ export interface Marker {
 /**
  * A commune of the map and its bubble (carte-points.ts, marketing's charter of the maps): its name, then `say`, what the
  * map shows of it. `href`, where it leads (the card of its zone, its page): without it, the bubble alone (a commune
- * whose notices are not read, one without a station).
+ * without a station of /velos).
  */
 export interface ZoneLink {
   href?: string;

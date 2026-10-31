@@ -35,7 +35,7 @@ function mark(c: Cle): string {
     case "point":
       return svg("-37 -37 74 74", `<circle r="17" fill="${c.couleur}" style="paint-order:stroke"/>`);
     case "aplat":
-      // In a style, so that a colour of the theme (var(--hl), var(--land)) reads as on the map.
+      // In a style, so that a colour of the theme (var(--zone-on), var(--land)) reads as on the map.
       return svg("-37 -37 74 74", `<rect x="-30" y="-30" width="60" height="60" rx="8" style="fill:${c.couleur}"/>`);
     case "triangle":
       return svg("-40 -42 80 80", `<path d="M0 -36L35 28H-35Z" fill="${c.couleur}"/>`);

@@ -1085,7 +1085,9 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
     ? loading("L'état des stations")
     : `<div class="now"><span class="big">${total}</span><p>vélo${total > 1 ? "s" : ""} à assistance électrique disponible${total > 1 ? "s" : ""} en ce moment dans les <b>${d.stations.length}\u00a0stations</b> Altervélo de ${esc(BIKE_COMMUNES.join(", ").replace(/, ([^,]+)$/, " et $1"))}.</p></div>`;
 
-  const fills = Object.fromEntries(BIKE_COMMUNES.map((c) => [c, "var(--hl)"]));
+  // The communes served in a yellow that stands out from the others' land in both themes (--zone-on: the highlight's
+  // brown, in the dark theme, hardly did, marketing's review).
+  const fills = Object.fromEntries(BIKE_COMMUNES.map((c) => [c, "var(--zone-on)"]));
   // Each commune served leads to its stations below; the others have their bubble only.
   const links: Record<string, ZoneLink> = d
     ? Object.fromEntries(island.paths.map((p: { nom: string }): [string, ZoneLink] => {
@@ -1120,7 +1122,7 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
       `Reste-t-il des vélos Altervélo à la station IUT de Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) : les communes où circulent les vélos Altervélo" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "aplat", couleur: "var(--hl)", dit: "commune desservie par Altervélo" }],
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "aplat", couleur: "var(--zone-on)", dit: "commune desservie par Altervélo" }],
     d && data ? esc(`Vélos disponibles d'après les stations, relevé ${readAt(data.fetchedAt, now).de}.`) : undefined)}</figcaption></figure>
 </div>`;
 
@@ -2388,8 +2390,11 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
     const p = pageOf(slugify(nm));
     if (p) links[nm] = { href: `/coupures-eau/${p.slug}`, say: dry.includes(c) ? "eau à ne pas boire" : d!.avis.some((n) => n.communes.includes(c)) ? "avis en cours" : "pas d'avis lu en ce moment" };
   }
-  // The communes whose notices are not read: their bubble only, as the legend says.
-  if (d) for (const p of island.paths as { nom: string }[]) links[p.nom] ??= { say: "avis non lus, voir la mairie ou le distributeur" };
+  // The communes whose notices are not read: said as the legend says, and their page, which tells where to ask.
+  if (d) for (const p of island.paths as { nom: string }[]) {
+    const page = pageOf(slugify(p.nom));
+    links[p.nom] ??= { href: page ? `/coupures-eau/${page.slug}` : undefined, say: "avis non lus\u00a0: voir la mairie ou le distributeur" };
+  }
 
   const status = !d
     ? loading("Les avis des distributeurs")
