@@ -613,8 +613,8 @@ describe("the open feed (web/flux-associations.ts)", () => {
 
 describe("the secret link's page (web/propositions.ts)", () => {
   const page = (secret: string, query = "") => handle(new Request(`https://rundata.re/associations/proposition/${secret}${query}`, { headers: { accept: "text/html" } }), new Cache());
-  const act = (secret: string, fields: Record<string, string>, cache = new Cache(), origin = "https://rundata.re") =>
-    handle(new Request(`https://rundata.re/associations/proposition/${secret}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin }, body: new URLSearchParams(fields).toString() }), cache);
+  const act = (secret: string, fields: Record<string, string>, cache = new Cache(), origin = "https://rundata.re", more: Record<string, string> = {}) =>
+    handle(new Request(`https://rundata.re/associations/proposition/${secret}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin, ...more }, body: new URLSearchParams(fields).toString() }), cache);
 
   it("changes nothing when opened (a mail scanner opens links), keeps the secret out of the canonical address and other sites", async () => {
     formulaires.ouvrir(true);
@@ -649,6 +649,20 @@ describe("the secret link's page (web/propositions.ts)", () => {
     expect(html).toContain("Retirer la proposition");
     expect(html).toContain("Corriger l'événement");
     expect(html).not.toContain('name="email"');
+  });
+
+  it("takes the page's own buttons, sent with « Origin: null » under its no-referrer, only when the browser says same-origin", async () => {
+    // 31/10/2026: « Formulaire d'un autre site refusé. » on « Confirmer l'événement », Safari on an iPhone.
+    formulaires.ouvrir(true);
+    const secret = await propose();
+    expect((await act(secret, { action: "confirmer" }, new Cache(), "null", { "sec-fetch-site": "cross-site" })).status).toBe(403);
+    expect((await act(secret, { action: "confirmer" }, new Cache(), "null", { "sec-fetch-site": "same-site" })).status).toBe(403);
+    expect((await act(secret, { action: "confirmer" }, new Cache(), "null")).status).toBe(403);
+    expect((await act(secret, { action: "confirmer" }, new Cache(), "https://ailleurs.example", { "sec-fetch-site": "same-origin" })).status).toBe(403);
+    expect(etat()).toEqual(["a_confirmer"]);
+    const r = await act(secret, { action: "confirmer" }, new Cache(), "null", { "sec-fetch-site": "same-origin" });
+    expect(r.status).toBe(303);
+    expect(etat()).toEqual(["a_moderer"]);
   });
 
   it("calls off only when its box is ticked, and writes the agendas' copy at once", async () => {

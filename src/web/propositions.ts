@@ -120,7 +120,10 @@ export async function received(request: Request, what: string): Promise<URLSearc
   if (request.method !== "POST") return plain(405, `${what} est sur https://rundata.re/associations\u00a0; cette adresse ne reçoit que ses envois.`, { allow: "POST" });
   const url = new URL(request.url);
   const from = request.headers.get("origin");
-  if (from && from !== url.origin) return plain(403, "Formulaire d'un autre site refusé.");
+  // A page sent with « no-referrer » (the secret link's, SECRET_HEADERS) posts with « Origin: null », even to its own
+  // site (Fetch): then only the browser's word that the form was this site's lets it through.
+  const ours = from === "null" && request.headers.get("sec-fetch-site") === "same-origin";
+  if (from && from !== url.origin && !ours) return plain(403, "Formulaire d'un autre site refusé.");
   const raw = await bodyText(request, BODY_MAX);
   if (raw === undefined) return plain(413, "Envoi trop long.");
   return new URLSearchParams(raw);
