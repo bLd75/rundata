@@ -2749,7 +2749,8 @@ function basinFigure(d: CyclonesAnswer | undefined, active: number): string {
     : `<p><b>${s ? "Des systèmes sont suivis" : "Un système est suivi"} par le CMRS\u00a0:</b> ${officielHtml(mf.OFFICIEL_CYCLONE)}</p>`;
   // What the line and its dots are, and what they never are; a gap or a late start said by the advisories' numbers.
   const path = parcours.length
-    ? `<p>En trait plein, le chemin déjà parcouru\u00a0: les positions ${s ? "de chaque système" : "du système"} aux avis du CMRS, la dernière avec son nom, son stade et l'heure de l'avis (heure de La Réunion). ` +
+    ? `<p>En trait plein, le chemin déjà parcouru\u00a0: les positions ${s ? "de chaque système" : "du système"} aux avis du CMRS, la dernière plus grande, avec son nom. ` +
+      parcours.map((p) => `<b>${esc(p.nom)}</b>\u00a0: ${esc(p.stade)} au dernier avis, le ${avisLe(p.heure)} (heure de La Réunion). `).join("") +
       `Rien de l'avenir\u00a0: la trajectoire prévue est sur la carte officielle de Météo-France.` +
       parcours.map((p) => (p.premier > 1 ? ` Le chemin ${esc(p.nom)} commence à l'avis n°\u00a0${p.premier}, le premier lu par rundata.re.` : "") +
         (p.manquent ? ` ${p.manquent} avis ${p.manquent > 1 ? "manquent" : "manque"} entre le n°\u00a0${p.premier} et le n°\u00a0${p.dernier}.` : "")).join("") + "</p>"

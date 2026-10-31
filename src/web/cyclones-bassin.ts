@@ -96,8 +96,36 @@ export function label(traces: boolean, parcours: Parcours[] = []): string {
       : "Cette carte ne montre aucun système.");
 }
 
-/** Where a system's name goes by its last position: on its right, or on its left near the map's right edge. */
-const NAME_ROOM = 380;
+/** A box on the map, in its units: left, top, right, bottom. */
+type Box = [number, number, number, number];
+type Anchor = "start" | "middle" | "end";
+/** A text's box, its width guessed from its letters (the map's sans-serif, about 0.6 of its size each, 0.65 in bold). */
+function textBox(x: number, y: number, s: string, size: number, anchor: Anchor = "start", bold = false): Box {
+  const w = s.length * size * (bold ? 0.65 : 0.6), h = size * 1.2;
+  const x0 = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
+  return [x0, y - h / 2, x0 + w, y + h / 2];
+}
+const crossed = (a: Box, b: Box) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+const NAME_SIZE = 34;
+/**
+ * Where a system's name goes by its last position (x, y): the first of right, left, above, below, the four corners,
+ * then a little farther, inside the map and clear of `taken`; else the one over the least of it.
+ */
+function nameSpot(x: number, y: number, nom: string, taken: Box[]): [number, number, Anchor] {
+  const spots: [number, number, Anchor][] = [
+    [x + 26, y, "start"], [x - 26, y, "end"], [x, y - 42, "middle"], [x, y + 42, "middle"],
+    [x + 18, y - 34, "start"], [x - 18, y - 34, "end"], [x + 18, y + 34, "start"], [x - 18, y + 34, "end"],
+    [x, y - 76, "middle"], [x, y + 76, "middle"], [x - 18, y - 64, "end"], [x + 18, y - 64, "start"], [x - 18, y + 64, "end"], [x + 18, y + 64, "start"],
+  ];
+  const cost = ([sx, sy, a]: [number, number, Anchor]) => {
+    const [x0, y0, x1, y1] = textBox(sx, sy, nom, NAME_SIZE, a, true);
+    const out = x0 < 8 || y0 < 8 || x1 > W - 8 || y1 > H - 8 ? 1e9 : 0;
+    // A margin round the name: touching a name is as bad as covering it.
+    const b: Box = [x0 - 6, y0 - 6, x1 + 6, y1 + 6];
+    return out + taken.reduce((n, t) => n + crossed(b, t), 0);
+  };
+  return spots.reduce((best, s) => (cost(s) < cost(best) ? s : best));
+}
 
 /**
  * The map; `traces`: the past cyclones' tracks, only while no system is watched; `parcours`: the path travelled by
@@ -130,6 +158,26 @@ export function basinMap(traces = false, parcours: Parcours[] = []): string {
   // Its name under it: Madagascar on its left, Maurice and Rodrigues on its right.
   const [hx, hy] = xy(REUNION.lon, REUNION.lat);
   const home = `<g class="home"><circle cx="${hx}" cy="${hy}" r="12"/><text x="${hx}" y="${hy + 42}">La Réunion</text></g>`;
+  // What a system's name keeps clear of: the names of the lands, islands, graduations and zone, and their dots.
+  const taken: Box[] = parcours.length ? [
+    // A turned name, Madagascar's, as small boxes along its line.
+    ...LANDS.flatMap((l): Box[] => {
+      const [x, y] = xy(l.lon, l.lat), half = (l.nom.length * 32 * 0.6) / 2;
+      if (!l.turn) return [textBox(x, y, l.nom, 32, "middle")];
+      const a = (l.turn * Math.PI) / 180;
+      return Array.from({ length: 9 }, (_, k): Box => {
+        const d = -half + (2 * half * k) / 8, cx = x + d * Math.cos(a), cy = y + d * Math.sin(a);
+        return [cx - 20, cy - 20, cx + 20, cy + 20];
+      });
+    }),
+    ...ISLETS.flatMap((i): Box[] => {
+      const [x, y] = xy(i.lon, i.lat);
+      return [[x - 10, y - 10, x + 10, y + 10], textBox(x + i.dx, y + i.dy, i.nom, 33, i.end ? "end" : "start")];
+    }),
+    [hx - 16, hy - 16, hx + 16, hy + 16], textBox(hx, hy + 42, "La Réunion", 34, "middle"),
+    textBox(zx - 18, zy - 24, "Zone suivie par le CMRS", 33, "end"),
+    [W - 160, 0, W, H], [0, H - 44, W, H],
+  ] : [];
   // Each track a link to its page, kept from the keyboard: the same links follow the map, in its caption, numbered.
   const tracks = traces ? `<g class="trc">${TRACES.map((t, i) => {
     const [x, y] = TRACE_MARKS[t.slug];
@@ -143,16 +191,21 @@ export function basinMap(traces = false, parcours: Parcours[] = []): string {
       : side === "gauche" ? `<text x="${x - 30}" y="${y}" style="text-anchor:end">${esc(t.nom_annee)}</text>`
       : `<text x="${x + 30}" y="${y}">${esc(t.nom_annee)}</text>`;
   }).join("")}</g>` : "";
-  // The path travelled: a line through the positions, a dot at each, the last larger, named over everything else.
+  // The path travelled: a line through the positions, a dot at each, the last larger and named, clear of the map's
+  // names and of its own line, over everything else. Its stage and time are under the map (domains.ts): too long here.
   const cur = traces ? "" : parcours.map((p) => {
     const at = p.points.map(([lon, lat]) => xy(lon, lat));
     const [x, y] = at[at.length - 1];
-    const left = x > W - NAME_ROOM;
-    const tx = left ? x - 24 : x + 24, ty = Math.max(y, 56);
-    const anchor = left ? ' style="text-anchor:end"' : "";
+    const own = at.flatMap(([ax, ay], i) => {
+      const [bx, by] = at[i + 1] ?? [ax, ay], n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 8));
+      return Array.from({ length: n }, (_, k): Box => {
+        const cx = ax + ((bx - ax) * k) / n, cy = ay + ((by - ay) * k) / n;
+        return [cx - 8, cy - 8, cx + 8, cy + 8];
+      });
+    });
+    const [tx, ty, anchor] = nameSpot(x, y, p.nom, [...taken, ...own, [x - 15, y - 15, x + 15, y + 15]]);
     return `<g class="cur">${at.length > 1 ? `<path d="${line(p.points)}"/>` : ""}${at.slice(0, -1).map(([px, py]) => `<circle cx="${px}" cy="${py}" r="6"/>`).join("")}` +
-      `<circle class="last" cx="${x}" cy="${y}" r="13"/><text class="cn" x="${tx}" y="${ty - 20}"${anchor}>${esc(p.nom)}</text>` +
-      `<text x="${tx}" y="${ty + 20}"${anchor}>${esc(`${p.stade}, ${avisLe(p.heure)}`)}</text></g>`;
+      `<circle class="last" cx="${x}" cy="${y}" r="13"/><text class="cn" x="${tx}" y="${ty}"${anchor === "start" ? "" : ` style="text-anchor:${anchor}"`}>${esc(p.nom)}</text></g>`;
   }).join("");
   return `<svg class="map ocean" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label(traces, parcours))}">` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>${grid}<path class="land" d="${land}"/><path class="shore" d="${land}"/>` +

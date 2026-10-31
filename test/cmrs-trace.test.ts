@@ -4,7 +4,7 @@ import { Cache, MemoryStore } from "../src/cache.js";
 import * as trace from "../src/providers/cmrs-trace.js";
 import type { Store } from "../src/providers/vigilance-carte.js";
 import { cyclones } from "../src/tools/cyclones.js";
-import { basinMap, label } from "../src/web/cyclones-bassin.js";
+import { basinMap, label, W } from "../src/web/cyclones-bassin.js";
 import { buildCyclones } from "../src/web/data.js";
 import { cyclonesPage } from "../src/web/domains.js";
 
@@ -213,8 +213,8 @@ describe("once Météo-France agrees", () => {
     expect(page).toContain('<g class="cur"><path d="M');
     expect(page).toContain('<text class="cn"');
     expect(page).toContain(">Opale</text>");
-    expect(page).toContain(">tempête tropicale modérée, 03/02 à 10:00</text>");
-    expect(page).toContain("En trait plein, le chemin déjà parcouru : les positions du système aux avis du CMRS");
+    expect(page).toContain("En trait plein, le chemin déjà parcouru : les positions du système aux avis du CMRS, la dernière plus grande, avec son nom. <b>Opale</b> : tempête tropicale modérée au dernier avis, le 03/02 à 10:00 (heure de La Réunion).");
+    expect(page).not.toContain(">tempête tropicale modérée, 03/02");
     expect(page).toContain("Rien de l'avenir : la trajectoire prévue est sur la carte officielle de Météo-France.");
     expect(page).toContain("Le chemin Opale commence à l'avis n° 6, le premier lu par rundata.re.");
     expect(page).toContain("Positions : Météo-France, CMRS de La Réunion (bulletins WTIO31 FMEE), avec son accord écrit, dernier avis le 03/02 à 10:00.");
@@ -230,6 +230,30 @@ describe("once Météo-France agrees", () => {
     expect(label(false, p)).toContain("En trait plein, le chemin déjà parcouru, d'après les avis du CMRS : Opale, tempête tropicale modérée, avis du 03/02 à 10:00 (heure de La Réunion). Aucune trajectoire prévue.");
     expect(basinMap(true, p)).not.toContain('class="cur"');
     expect(basinMap(false, [])).not.toContain('class="cur"');
+  });
+
+  it("puts the name inside the map and clear of the islands' names", () => {
+    const named = (points: [number, number][]) => {
+      const svg = basinMap(false, [{ nom: "Opale", stade: "forte tempête tropicale", heure: "2026-02-03T06:00:00.000Z", points, premier: 1, dernier: points.length, manquent: 0 }]);
+      const m = /<text class="cn" x="([\d.-]+)" y="([\d.-]+)"(?: style="text-anchor:(\w+)")?>Opale<\/text>/.exec(svg)!;
+      const [x, y, anchor = "start"] = [+m[1], +m[2], m[3]];
+      const w = 5 * 34 * 0.65, x0 = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
+      return { svg, box: [x0, y - 20, x0 + w, y + 20] };
+    };
+    // By the map's east edge, the name goes inside it.
+    const east = named([[86, -10], [88.5, -11]]);
+    expect(east.box[2]).toBeLessThanOrEqual(W - 8);
+    // Just north of Maurice: not over « Maurice » nor « La Réunion ».
+    const near = named([[60.9, -14.2], [59.7, -15], [56.8, -17.8]]);
+    const mada = /<text class="ln" x="([\d.-]+)" y="([\d.-]+)" transform="rotate[^>]*>Madagascar<\/text>/.exec(near.svg)!;
+    expect(near.box[0] >= +mada[1] + 30 || near.box[1] >= +mada[2] + 96 || near.box[3] <= +mada[2] - 96, "Madagascar").toBe(true);
+    for (const nom of ["Maurice", "La Réunion"]) {
+      const t = new RegExp(`<text x="([\\d.-]+)" y="([\\d.-]+)"[^>]*>${nom}</text>`).exec(near.svg)!;
+      const [tx, ty] = [+t[1], +t[2]];
+      const tw = nom.length * 34 * 0.6, tx0 = nom === "La Réunion" ? tx - tw / 2 : tx;
+      const apart = near.box[2] <= tx0 || near.box[0] >= tx0 + tw || near.box[3] <= ty - 20 || near.box[1] >= ty + 20;
+      expect(apart, nom).toBe(true);
+    }
   });
 
   it("never gives the positions to the tool's answer", async () => {
