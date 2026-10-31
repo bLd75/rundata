@@ -119,6 +119,27 @@ describe("calendar", () => {
     expect(l.resume).toMatch(/Lune : Lune décroissante, éclairée à \d+ %, coucher à 10:1\d \(calcul astronomique\)\./);
   });
 
+  it("shows the Moon on the page, under the sun, computed at the hour of the view", async () => {
+    const now = new Date("2026-10-26T14:10:00Z"); // 18:10, the day of a full moon
+    const data = { value: await buildCalendrier(cacheAt(now), now), fetchedAt: now };
+    const html = calendrierPage("https://rundata.re", data, now);
+    const card = html.match(/<div class="pile">([\s\S]*?)<\/div><\/div><\/div>/)![1];
+    expect(card.indexOf("<h3>Soleil à Saint-Denis</h3>")).toBeLessThan(card.indexOf("<h3>Lune à Saint-Denis</h3>"));
+    expect(card).toContain("<h3>Lune à Saint-Denis</h3><p>Pleine lune à 08:13, éclairée à 100\u00a0%.</p><p>Coucher à 05:24, lever à 18:48.</p>");
+    expect(card).toContain(`<ul class="plain"><li><b>Dernier quartier</b> : lundi 2 novembre 2026 à 00:30</li>`);
+    expect(card).toContain(`<p class="note">Calculé, pas mesuré : position de la Lune`);
+    // A day without rising: the setting first, then said.
+    const later = new Date("2026-10-31T08:00:00Z");
+    const l = calendrierPage("https://rundata.re", { value: await buildCalendrier(cacheAt(later), later), fetchedAt: later }, later);
+    expect(l).toMatch(/<p>Lune décroissante, éclairée à \d+\u00a0%\.<\/p><p>Coucher à 10:1\d, pas de lever de Lune ce jour\.<\/p>/);
+    // A copy of the morning read in the evening: the Moon of the evening, not of the copy.
+    const evening = new Date("2026-10-31T15:00:00Z");
+    const fromCopy = calendrierPage("https://rundata.re", { value: await buildCalendrier(cacheAt(later), later), fetchedAt: later }, evening);
+    const lit = (h: string) => Number(h.match(/éclairée à (\d+)\u00a0%/)![1]);
+    expect(lit(fromCopy)).toBe(Math.round(moonLight(evening).fraction * 100));
+    expect(lit(fromCopy)).toBeLessThan(lit(l));
+  });
+
   it("says holidays under way, the next public holiday and the sun", async () => {
     const now = new Date("2026-10-22T23:30:00Z");
     const r = body(await calendrier(cacheAt(now), "Maïdo", now));

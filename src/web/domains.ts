@@ -23,7 +23,7 @@ import * as airMesures from "../providers/air-mesures.js";
 import * as traces from "../providers/traces.js";
 import { SUJETS } from "../providers/actualites.js";
 import * as littoral from "../tools/littoral.js";
-import { longDate, UNPUBLISHED } from "../tools/calendrier.js";
+import { longDate, moonOf, UNPUBLISHED } from "../tools/calendrier.js";
 import type { CourantRow } from "../tools/courant.js";
 import { a, de, enumeration, fr, heure, nombre, tranche } from "../tools/format.js";
 import { CAPTEURS_AVERTISSEMENT, CAPTEURS_EXPLICATION, type Measured } from "../tools/air.js";
@@ -822,6 +822,24 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
     ? `<div class="card">${icon("mountain")}<h3>Soleil à ${esc(d.soleil.lieu)}</h3><p>Lever ${esc(d.soleil.lever)}, coucher ${esc(d.soleil.coucher)} : ${esc(d.soleil.duree_du_jour)} de jour.</p><p class="note">${esc(d.soleil.note)}</p></div>`
     : "";
 
+  // The Moon where the sun is said, computed at each view (a pure calculation, no source): its phase and how much is lit
+  // stay those of the hour of the view, whatever the age of the copy.
+  const moonAt = resolvePlace(d?.soleil?.lieu ?? "Saint-Denis")?.lieu;
+  const lune = moonAt && moonOf(new Date(now.getTime() + 4 * 3600_000).toISOString().slice(0, 10), now, moonAt.lon, moonAt.lat, moonAt.altitude_m ?? 0).champs;
+  const upper = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+  // Rising and setting in the order they come in the day; a day without one says so after the other.
+  const moonTimes = lune
+    ? [{ t: lune.lever, texte: `lever à ${lune.lever}` }, { t: lune.coucher, texte: `coucher à ${lune.coucher}` }]
+        .sort((x, y) => (/^\d/.test(y.t) ? (/^\d/.test(x.t) ? x.t.localeCompare(y.t) : 1) : -1))
+        .map((x) => (/^\d/.test(x.t) ? x.texte : x.t))
+    : [];
+  const moon = lune
+    ? `<div class="card">${icon("moon")}<h3>Lune à ${esc(moonAt!.nom)}</h3><p>${esc(upper(lune.phase))}, éclairée à ${lune.eclairee_pct}\u00a0%.</p>` +
+      `<p>${esc(upper(moonTimes.join(", ")))}.</p>` +
+      (lune.prochaines_phases.length ? `<ul class="plain">${lune.prochaines_phases.map((x) => `<li><b>${esc(upper(x.phase))}</b> : ${esc(x.date)} à ${esc(x.heure)}</li>`).join("")}</ul>` : "") +
+      `<p class="note">${esc(lune.note)}</p></div>`
+    : "";
+
   // The school year people look up: from July, the one that starts in August.
   const [y, m] = new Date(now.getTime() + 4 * 3600_000).toISOString().split("-").map(Number);
   const year = m >= 7 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
@@ -866,7 +884,7 @@ export function calendrierPage(origin: string, data: Cached<CalendrierAnswer> | 
 <section aria-labelledby="h-cal">
   <div class="sec-h"><p class="eyebrow">L'année à La Réunion</p><h2 id="h-cal">Vacances, jours fériés, soleil</h2>
   <p>L'académie de La Réunion suit un calendrier austral : les grandes vacances tombent en décembre et janvier, pendant l'été de l'hémisphère sud.</p></div>
-  ${d ? `<div class="three">${school}${holidays}${sun}</div>${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
+  ${d ? `<div class="three">${school}${holidays}<div class="pile">${sun}${moon}</div></div>${data ? sourcesNote(d.sources, data) : ""}` : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
 </section>
 ${connectorCta("calendrier", "le calendrier de l'île")}`;
 
