@@ -66,12 +66,12 @@ describe("the charter of the maps", () => {
     const historique = figure(historiquePage(ORIGIN, cached({
       resume: "", periode: { du: "24/09/2026", au: "23/10/2026", jours: 30 }, stations: [station("Saint-Denis-Gillot", 55.52, -20.89, "33 %"), station("Bellecombe", 55.68, -21.21, "100 %"), station("Saint-Benoît", 55.71, -21.03, "160 %")], a_savoir: [], sources: [],
     } as HistoriqueAnswer), NOW));
-    expect(historique).toContain('<rect x="-64" y="-24" width="128" height="48" rx="24" fill="#ff922b"/><text y="11" style="fill:#14202b">40 %</text></svg>moins de 50 %</span>');
+    expect(historique).toContain('<rect x="-64" y="-24" width="128" height="48" rx="24" fill="#ff922b"/><text y="11" style="fill:#14202b">40 %</text></svg>moins de 80\u00a0%\u00a0: nettement moins que la normale</span>');
     expect(historique).not.toMatch(/<span style="color:/);
-    expect(historique).toContain('<span class="mls">Pluie des 30 derniers jours mesurée par Météo-France jusqu&#39;au 23/10, en % de la normale 1991-2020.</span>');
+    expect(historique).toContain('<span class="mls">Pluie mesurée par Météo-France du 24/09 au 23/10, en % de la normale 1991-2020.</span>');
     // The figure in the night's colour on every pill, where white reads badly (contrast 1.75 to 2.48:1, night 6.67 to 9.46:1), on the map as in the legend.
-    expect(historique).toContain('fill="#69db7c"/><text y="11" style="fill:#14202b">100 %</text></svg>proche</span>');
-    expect(historique).toContain('fill="#4dabf7"/><text y="11" style="fill:#14202b">160 %</text></svg>plus de 150 %</span>');
+    expect(historique).toContain('fill="#69db7c"/><text y="11" style="fill:#14202b">100 %</text></svg>de 80 à 125\u00a0%\u00a0: proche de la normale</span>');
+    expect(historique).toContain('fill="#4dabf7"/><text y="11" style="fill:#14202b">160 %</text></svg>plus de 125\u00a0%\u00a0: nettement plus que la normale</span>');
     expect(historique).toMatch(/fill="#69db7c"\/><text x="[\d.]+" y="[\d.]+" class="mv" style="fill:#14202b">100 %<\/text>/);
     expect(historique).toMatch(/fill="#ff922b"\/><text x="[\d.]+" y="[\d.]+" class="mv" style="fill:#14202b">33 %<\/text>/);
     expect(historique).toMatch(/fill="#4dabf7"\/><text x="[\d.]+" y="[\d.]+" class="mv" style="fill:#14202b">160 %<\/text>/);

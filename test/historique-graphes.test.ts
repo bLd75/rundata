@@ -84,7 +84,7 @@ describe("the days of /historique", () => {
     const html = historiquePage("https://rundata.re", at(d), morning);
     expect(html).toContain("Mesures jusqu'au 23/10</p>");
     expect(html).toContain("du 24/09/2026 au 23/10/2026 (moins de 80 %");
-    expect(html).toMatch(/mesurée par Météo-France jusqu(&#39;|&#x27;|')au 23\/10, en %/);
+    expect(html).toContain('<span class="mls">Pluie mesurée par Météo-France du 24/09 au 23/10, en % de la normale 1991-2020.</span>');
     for (const s of svgs(html, "h-g-pluie")) expect(s).toMatch(/data-d="24\/09,[^"]*,23\/10"/);
     for (const s of [...svgs(html, "h-g-pluie"), ...svgs(html, "h-g-temp"), ...svgs(html, "h-g-soleil")]) expect(s).not.toContain("24/10");
     // The tool keeps the thirty days up to yesterday, and says the last one is not loaded.
@@ -105,6 +105,28 @@ describe("the days of /historique", () => {
     expect(out.match(/<rect class="br g"/g)).toHaveLength(1);
     expect(out.match(/<circle class="mk"/g)).toHaveLength(1);
     expect(out).toContain('data-s="2,2,2,2,,2,2,2,2,2;');
+  });
+});
+
+describe("the classes of the rain of /historique", () => {
+  it("shares one set of classes between the header's count, the map and the table, all three in the legend", () => {
+    const row = (station: string, lon: number, rapport: string) => ({ zone: "Nord", station, altitude_m: 10, lon, lat: -21, pluie: { total_mm: 20, jours_de_pluie: 3, normale_mm: 60, rapport_a_la_normale: rapport } });
+    // On 31/10/2026 at 06:33, 53 % and 56 % were green « proche » while the header counted them « nettement moins ».
+    const rates = ["53 %", "79 %", "80 %", "125 %", "126 %", "12 %"];
+    const d = { resume: "", periode: { du: "01/10/2026", au: "30/10/2026", jours: 30 }, stations: rates.map((r, i) => row(`Station ${i}`, 55.3 + i * 0.1, r)), a_savoir: [], sources: [] } as unknown as HistoriqueAnswer;
+    const html = historiquePage("https://rundata.re", at(d), NOW);
+    expect(html).toContain('<span class="big">3<small>/6</small></span><p>stations de référence ont reçu nettement moins de pluie que la normale du 01/10/2026 au 30/10/2026 (moins de 80 % de leur moyenne 1991-2020).</p>');
+    const colour = { "#ff922b": "orange", "#69db7c": "vert", "#4dabf7": "bleu" } as Record<string, string>;
+    const map = [...html.matchAll(/fill="(#[0-9a-f]{6})"\/><text x="[\d.]+" y="[\d.]+" class="mv"[^>]*>(\d+) %<\/text>/g)].map((m) => `${m[2]} ${colour[m[1]]}`);
+    expect(map.sort()).toEqual(["12 orange", "125 vert", "126 bleu", "53 orange", "79 orange", "80 vert"]);
+    const bars = [...html.matchAll(/aria-label="(\d+) % de la normale"><i style="width:[\d.]+%;background:(#[0-9a-f]{6})"/g)].map((m) => `${m[1]} ${colour[m[2]]}`);
+    expect(bars.sort()).toEqual(map);
+    expect(html.match(/<span class="mlg">.*?<\/span><span class="mls">/s)![0].match(/<rect /g)).toHaveLength(3);
+    expect(html).toContain("<span class=\"mls\">Pluie mesurée par Météo-France du 01/10 au 30/10, en % de la normale 1991-2020.</span>");
+    // In the table, no figure parted from its unit on a phone.
+    expect(html).toContain("<b>20\u00a0mm</b><small class=\"note\">normale 60\u00a0mm</small>");
+    expect(html).toContain("Nord, 10\u00a0m</small>");
+    expect(html).not.toMatch(/\d (mm|°C|m|h\/j)</);
   });
 });
 

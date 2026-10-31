@@ -2771,42 +2771,53 @@ export function cyclonesLive(data: Cached<CyclonesAnswer> | null): Live | undefi
 // ---------------------------------------------------------------- historique météo
 
 const pct = (x?: string) => (x ? Number.parseInt(x, 10) : undefined);
-/** A bar of the rain against the normal: 100 % is the normal. */
-function rainBar(total: number, normal?: number): string {
-  if (normal == null || normal <= 0) return `<b>${fr(total)} mm</b>`;
-  const ratio = total / normal;
-  const w = Math.min(ratio, 2) * 50;
-  const c = ratio < 0.5 ? "#ff922b" : ratio > 1.5 ? "#4dabf7" : "#69db7c";
-  return `<b>${fr(total)} mm</b><small class="note">normale ${normal} mm</small><span class="ratio" role="img" aria-label="${Math.round(ratio * 100)} % de la normale"><i style="width:${w}%;background:${c}"></i><s></s></span>`;
+/**
+ * The classes of the rain against its normal, one set for the header's count, the map and the table's bars: under
+ * 80 % is « nettement moins », as the header counts, and over 125 % (80 %'s inverse) « nettement plus ».
+ */
+const RAIN_LOW = 80;
+const RAIN_HIGH = 125;
+const RAIN_CLASSES = [
+  { couleur: "#ff922b", texte: "40 %", dit: `moins de ${RAIN_LOW}\u00a0%\u00a0: nettement moins que la normale` },
+  { couleur: "#69db7c", texte: "100 %", dit: `de ${RAIN_LOW} à ${RAIN_HIGH}\u00a0%\u00a0: proche de la normale` },
+  { couleur: "#4dabf7", texte: "160 %", dit: `plus de ${RAIN_HIGH}\u00a0%\u00a0: nettement plus que la normale` },
+];
+const rainClass = (x: number) => RAIN_CLASSES[x < RAIN_LOW ? 0 : x > RAIN_HIGH ? 2 : 1];
+/** A bar of the rain against the normal: 100 % is the normal; its colour is the class of the station's ratio. */
+function rainBar(total: number, normal?: number, ratio?: number): string {
+  if (normal == null || normal <= 0) return `<b>${fr(total)}\u00a0mm</b>`;
+  const x = ratio ?? Math.round((100 * total) / normal);
+  const w = Math.min(x / 100, 2) * 50;
+  return `<b>${fr(total)}\u00a0mm</b><small class="note">normale ${normal}\u00a0mm</small><span class="ratio" role="img" aria-label="${x} % de la normale"><i style="width:${w}%;background:${rainClass(x).couleur}"></i><s></s></span>`;
 }
-const vsNormal = (v?: number, n?: number, unit = " °C") =>
+const vsNormal = (v?: number, n?: number, unit = "\u00a0°C") =>
   v == null ? "—" : `<b>${fr(v)}${unit}</b>${n != null ? `<small class="note">normale ${fr(n)}${unit}</small>` : ""}`;
 
 export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/historique`;
   const rows = d?.stations ?? [];
-  const below = rows.filter((r) => (pct(r.pluie?.rapport_a_la_normale) ?? 100) < 80).length;
+  const below = rows.filter((r) => (pct(r.pluie?.rapport_a_la_normale) ?? 100) < RAIN_LOW).length;
   const withNormal = rows.filter((r) => r.pluie?.rapport_a_la_normale).length;
 
   const markers = rows.flatMap((r) => {
     const x = pct(r.pluie?.rapport_a_la_normale);
-    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: x < 50 ? "#ff922b" : x > 150 ? "#4dabf7" : "#69db7c", ink: COUNT_COLOR,
+    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: rainClass(x).couleur, ink: COUNT_COLOR,
       say: `${x} % de la pluie normale en 30 jours`, href: `#${anchorId("s", r.station)}` }];
   });
 
   const status = !d
     ? loading("L'historique des mesures")
-    : `<div class="now"><span class="big">${below}<small>/${withNormal}</small></span><p>stations de référence ont reçu nettement moins de pluie que la normale du ${esc(d.periode.du)} au ${esc(d.periode.au)} (moins de 80 % de leur moyenne 1991-2020).</p></div>`;
+    : `<div class="now"><span class="big">${below}<small>/${withNormal}</small></span><p>stations de référence ont reçu nettement moins de pluie que la normale du ${esc(d.periode.du)} au ${esc(d.periode.au)} (moins de ${RAIN_LOW} % de leur moyenne 1991-2020).</p></div>`;
 
   const table = rows.length
     ? `<div class="card table-wrap"><table class="drought histo"><thead><tr><th>Station</th><th>Pluie, 30 jours</th><th>Maximales</th><th>Minimales</th><th>Soleil</th></tr></thead><tbody>${rows.map((r) => {
         const e = r.ensoleillement;
-        return `<tr><th scope="row" class="tgt" id="${anchorId("s", r.station)}">${esc(r.station)}<small class="note">${esc(r.zone)}, ${nombre(r.altitude_m)} m</small></th>` +
-          `<td>${r.pluie ? rainBar(r.pluie.total_mm, r.pluie.normale_mm) : "—"}</td>` +
+        return `<tr><th scope="row" class="tgt" id="${anchorId("s", r.station)}">${esc(r.station)}<small class="note">${esc(r.zone)}, ${nombre(r.altitude_m)}\u00a0m</small></th>` +
+          `<td>${r.pluie ? rainBar(r.pluie.total_mm, r.pluie.normale_mm, pct(r.pluie.rapport_a_la_normale)) : "—"}</td>` +
           `<td>${vsNormal(r.temperatures?.maximales_moyenne, r.temperatures?.maximales_normale)}</td>` +
           `<td>${vsNormal(r.temperatures?.minimales_moyenne, r.temperatures?.minimales_normale)}</td>` +
-          `<td>${e?.jours_mesures ? `${vsNormal(e.heures_par_jour, e.normale_heures_par_jour, " h/j")}<small class="note">${e.jours_gris} jour${e.jours_gris > 1 ? "s" : ""} gris</small>` : "—"}</td></tr>`;
+          `<td>${e?.jours_mesures ? `${vsNormal(e.heures_par_jour, e.normale_heures_par_jour, "\u00a0h/j")}<small class="note">${e.jours_gris} jour${e.jours_gris > 1 ? "s" : ""} gris</small>` : "—"}</td></tr>`;
       }).join("")}</tbody></table></div>`
     : "";
 
@@ -2825,11 +2836,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
       `Il a plu combien ces derniers jours à Saint-Benoît, et c'est normal ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : la pluie des 30 derniers jours à six stations, en pourcentage de la normale" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">${legende([
-    { forme: "pastille", couleur: "#ff922b", texte: "40 %", encre: COUNT_COLOR, dit: "moins de 50 %" },
-    { forme: "pastille", couleur: "#69db7c", texte: "100 %", encre: COUNT_COLOR, dit: "proche" },
-    { forme: "pastille", couleur: "#4dabf7", texte: "160 %", encre: COUNT_COLOR, dit: "plus de 150 %" },
-  ], esc(`Pluie des 30 derniers jours mesurée par Météo-France${d ? ` jusqu'au ${d.periode.au.slice(0, 5)}` : ""}, en % de la normale 1991-2020.`))}</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende(RAIN_CLASSES.map((c) => ({ forme: "pastille", encre: COUNT_COLOR, ...c })), esc(`Pluie mesurée par Météo-France${d ? ` du ${d.periode.du.slice(0, 5)} au ${d.periode.au.slice(0, 5)}` : " ces 30 derniers jours"}, en % de la normale 1991-2020.`))}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-trente">
