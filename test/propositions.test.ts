@@ -334,6 +334,13 @@ describe("the forms on the site (web/propositions.ts)", () => {
     expect((await handle(new Request("https://rundata.re/associations/lien"), new Cache())).status).toBe(405);
   });
 
+  it("keeps the date and time fields inside their column on a phone, each as tall as the others", () => {
+    // 31/10/2026, Safari on an iPhone: the date past the card's edge, the two hours over each other.
+    expect(FORMS_CSS).toContain(".fo .f{display:grid;gap:.3rem;align-content:start;min-width:0}");
+    expect(FORMS_CSS).toContain("width:100%;min-width:0;max-width:100%}");
+    expect(FORMS_CSS).toContain(".fo input[type=date],.fo input[type=time]{-webkit-appearance:none;appearance:none;min-height:2.9rem;text-align:left}");
+  });
+
   it("shows the link form's outcome by CSS alone", () => {
     const html = plain(formulaires.lienForm("/associations"));
     for (const id of ["lien-merci", "lien-limite", "lien-erreur"]) expect(html).toContain(`id="${id}"`);
