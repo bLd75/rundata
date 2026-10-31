@@ -1075,6 +1075,10 @@ export interface HistoriqueAnswer {
     pluie?: { total_mm: number; jours_de_pluie: number; normale_mm?: number; rapport_a_la_normale?: string; jour_le_plus_pluvieux?: { date: string; mm: number } };
     temperatures?: { maximales_moyenne?: number; maximales_normale?: number; minimales_moyenne?: number; minimales_normale?: number; jour_le_plus_chaud?: { date: string; tx: number } };
     ensoleillement?: { heures_par_jour?: number; normale_heures_par_jour?: number; jours_gris: number; jours_ensoleilles: number; jours_mesures: number };
+    /** Each day of the period, oldest first, for the charts: a field without a measure that day is left out. */
+    jours?: { date: string; pluie_mm?: number; tmin?: number; tmax?: number; soleil_h?: number; soleil_pct?: number }[];
+    /** The normal of each day, 1991-2020 (tools/historique.ts, dailyNormals). */
+    normale_jour?: { pluie_mm?: number[]; tmax?: number[]; tmin?: number[]; soleil_h?: number[] };
   }[];
   a_savoir: string[];
   sources: Credit[];
@@ -1093,7 +1097,7 @@ export interface HourlyAnswer {
 const HOURLY_PLACE = "Saint-Denis";
 
 export async function buildHistorique(cache: Cache, now = new Date()): Promise<HistoriqueAnswer> {
-  const d = needed<HistoriqueAnswer>(await historiqueMeteo(cache, undefined, {}, now), "historique");
+  const d = needed<HistoriqueAnswer>(await historiqueMeteo(cache, undefined, { series: true }, now), "historique");
   const day = (t: number) => new Date(t + 4 * 3600_000).toISOString().slice(0, 10);
   try {
     const h = answer<HourlyAnswer>(await historiqueMeteo(cache, HOURLY_PLACE, { du: day(now.getTime() - 86_400_000), au: day(now.getTime()), detail: "heure" }, now));

@@ -40,6 +40,7 @@ import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../trace
 import island from "../places/island.json" with { type: "json" };
 import * as mf from "../providers/vigilance.js";
 import { carteHtml } from "./cmrs-carte.js";
+import { GRAPHES_SCRIPT, graphes } from "./historique-graphes.js";
 import { basinMap, TRACES, TRACES_SCRIPT, TRACES_SOURCE, ZONE_SOURCE } from "./cyclones-bassin.js";
 import { esc, fenetre, hikesMap, islandMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
 import { type Cle, COUNT_COLOR, legende } from "./carte-legende.js";
@@ -2803,6 +2804,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
       }).join("")}</tbody></table></div>`
     : "";
 
+  const charts = d ? graphes(d) : "";
   const title = "Historique météo Réunion : relevés depuis 1900 · 974";
   const short = "Le temps qu'il a fait à La Réunion (974) : pluie, températures et soleil mesurés par Météo-France jour par jour depuis 1900, comparés à la normale.";
   const description = d ? describe(`${d.resume}`, short) : short;
@@ -2829,6 +2831,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
   <p>${d ? esc(d.resume) : ""}</p></div>
   ${table}
 </section>
+${charts ? `${charts}<script>${GRAPHES_SCRIPT}</script>` : ""}
 ${d?.heures ? hourlySection(d.heures) : ""}
 <section aria-labelledby="h-archive">
   <div class="sec-h"><p class="eyebrow">Toute l'archive</p><h2 id="h-archive">N'importe quel jour depuis 1900</h2>
