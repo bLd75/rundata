@@ -212,6 +212,11 @@ describe("the map of every station on /meteo", () => {
     expect(NOMS_SCRIPT).toContain('if(e.matches(".mk .sh"))hard.push(e.tagName==="circle"?[b.x+b.width/2,b.y+b.height/2,b.width/2]:box(b,0))');
     expect(NOMS_SCRIPT).toContain("ok=ds.filter((d)=>inn(at2(d))&&!hard.some((o)=>cut(raw(d),o))),go=ds.find((d)=>free(at2(d)))||(ok.length?");
     expect(NOMS_SCRIPT).toContain('if(!go){ts.forEach((t)=>t.style.display="none");return}');
+    // The summits' names only: the names of communes and places (the maps of the roads, of electricity…) are placed
+    // after them, by code that reads none of it.
+    const end = NOMS_SCRIPT.indexOf("busy.push(...marks)");
+    expect(end).toBeGreaterThan(0);
+    for (const w of ["hard", "cut(", "raw(", "ok=ds"]) expect(NOMS_SCRIPT.lastIndexOf(w)).toBeLessThan(end);
     // Shown again when the map changes, if a place is free then.
     expect(NOMS_SCRIPT).toContain('ts.forEach((t,i)=>{t.style.display="";');
   });
