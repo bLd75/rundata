@@ -102,6 +102,8 @@ const SERVICE = W(`suspension|suspendu|fermetures?${END}|ferm[ée]e?s?${END}|tra
  * and calls traders or applicants, not the public: never the event's announcement, even with the event's day.
  */
 export const annonceEvenement = (text: string) => !SERVICE.test(text) && (EVENT.test(text) || themesIn(text).length > 0);
+/** A service's notice (« fermeture le 9 mai », « horaires »): never an event, whatever else it says. */
+export const avisDeService = (text: string) => SERVICE.test(text);
 
 /** At most this of a reused agenda's text: the cap of a « sentence » that has no full stop. */
 export const LEAD_MAX = 200;
