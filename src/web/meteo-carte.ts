@@ -122,9 +122,16 @@ export function landBreeze(list: StationNow[]): boolean {
 // The stations whose value the map writes: the tour of the island; the others are dots, told on hover or tap.
 const NAMED = new Set(["97418110", "97407520", "97415590", "97416463", "97417360", "97410238", "97419350", "97422440", "97424410", "97415566"]);
 
+/**
+ * A disc's radius for its figure (dot()), the figure always 30 units high: 34 up to 3 characters; beyond, wide enough
+ * for 3 px of disc around the figure at 390 px inside its white edge (« 12,3 » is 74 units wide, « 104,5 » 95, measured
+ * in WebKit; marketing's review n° 457). Without a figure, a small dot.
+ */
+export const discR = (label?: string) => (!label ? 17 : label.length <= 3 ? 34 : label.length === 4 ? 49 : 59);
+
 /** A dot of one layer (`l`): a disc with its value, or a small one without, told by the bubble. */
 function dot(l: string, x: number, y: number, fill: string, label: string | undefined, hollow = false): string {
-  const r = label ? 34 : 17;
+  const r = discR(label);
   const shape = hollow
     ? `<circle class="sh l-${l}" cx="${x}" cy="${y}" r="${r - 3}" style="fill:#fff;stroke:${fill};stroke-width:5"/>`
     : `<circle class="sh l-${l}" cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`;
@@ -162,7 +169,7 @@ function station(s: StationNow, named: boolean, rain: number | undefined, hour: 
   const said = `${place} : ${[v.t, v.p, v.v].filter(Boolean).join(", ")}, mesures de ${hm(s.time)}${by(s)}, voir le détail`;
   const shapes =
     (s.temperature != null ? dot("t", x, y, chip(s.temperature), named ? `${Math.round(s.temperature)}°` : undefined) : "") +
-    (rain != null ? (rain > 0 ? dot("p", rx, ry, rainColor(rain), rainSaid(rain, named) ? fr(Math.round(rain * 10) / 10) : undefined) : dot("p", x, y, RAIN_DRY, undefined, true)) : "") +
+    (rain != null ? (rain > 0 ? dot("p", rx, ry, rainColor(rain), rainSaid(rain, named) ? rainFigure(rain) : undefined) : dot("p", x, y, RAIN_DRY, undefined, true)) : "") +
     (s.vent != null ? windMark(x, y, s, windAt) : "");
   const data = Object.entries(v).map(([k, x]) => (x ? ` data-tv${k}="${esc(x)}"` : "")).join("");
   return `<a class="mk${has}" href="#${stationId(s.nom)}" aria-label="${esc(said)}" data-tp="${esc(place)}" data-td="mesurée à\u00a0${hm(s.time)}${esc(by(s))}"${data}>` +
@@ -171,6 +178,9 @@ function station(s: StationNow, named: boolean, rain: number | undefined, hour: 
 
 /** A rain disc with its figure (dot()): at a named station, or from 1 mm; the others are small dots, told by the bubble. */
 const rainSaid = (rain: number, named: boolean) => named || rain >= 1;
+
+/** A rain disc's figure: mm to a tenth. */
+const rainFigure = (rain: number) => fr(Math.round(rain * 10) / 10);
 
 /** For each mark moved off its place (apart()): a white line on a night edge, to the mark (under it), and a white dot on its place (marketing). */
 function ties(list: StationNow[], placed: [number, number][]): string {
@@ -200,7 +210,12 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
   // 31/10 at 10:23, marketing's review): moved apart and tied to their place the same way (#607's rounds). The small
   // dots stay on their place.
   const r = list.filter((s) => (mm(s) ?? 0) > 0 && rainSaid(mm(s)!, named(s)));
-  const rainPlaced = apart(r.map((s) => ({ lon: s.lon, lat: s.lat, label: "", name: s.nom, round: true })));
+  // Each at its own size: a disc of 4 characters is wider.
+  const across = r.map((s) => 2 * discR(rainFigure(mm(s)!)));
+  // The small dots stay on their place, left free (a dot half under a disc reads as a smudge, and is hard to touch).
+  // Their radius with the white edge: 17 and 2 (dot()).
+  const dots = list.filter((s) => mm(s) != null && !r.includes(s)).map((s): [number, number, number] => [...project(s.lon, s.lat), 19]);
+  const rainPlaced = apart(r.map((s) => ({ lon: s.lon, lat: s.lat, label: "", name: s.nom, round: true })), across, 1, across, dots);
   const rainAt = new Map(r.map((s, i) => [s, rainPlaced[i]]));
   const rainTies = ties(r, rainPlaced);
   // The named ones last, over the dots.

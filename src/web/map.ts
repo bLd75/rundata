@@ -139,13 +139,20 @@ const onPlace = (m: Marker, at: [number, number]) => {
  * dot either, another's or its own once it has left it: half under a pill, a dot reads as a smudge (Saint-Denis's).
  * The same markers, the same places. `widths`: the pills' own, for pills drawn elsewhere (the wind's, meteo-carte.ts).
  * `aside`: how much further a pill may go sideways than up or down (the wind's: two places on one point side by side,
- * which leaves the room above and below to a commune's name).
+ * which leaves the room above and below to a commune's name). `heights`: the marks' own, for discs drawn elsewhere at
+ * their own size (the rain's, meteo-carte.ts). `avoid`: the dots of other places that stay where they are, each with
+ * its radius, its white edge included (the rain's small dots): a mark leaves them free as it leaves a place, with as much
+ * air, unless it then covers more of them, a place, or its own once it has left it; where none is free, it covers the
+ * fewest (marketing's review n° 457).
  */
-export function apart(markers: Marker[], widths = markers.map((m) => markSize(m)[0]), aside = 1): [number, number][] {
+export function apart(
+  markers: Marker[], widths = markers.map((m) => markSize(m)[0]), aside = 1, heights = markers.map((m) => markSize(m)[1]),
+  avoid: [number, number, number][] = [],
+): [number, number][] {
   const places = markers.map((m) => project(m.lon, m.lat));
   const p = places.map(([x, y]): [number, number] => [x, y]);
   const w = widths;
-  const h = markers.map((m) => markSize(m)[1]);
+  const h = heights;
   for (let round = 0; round < 200; round++) {
     let moved = false;
     for (let i = 0; i < p.length; i++) {
@@ -171,15 +178,34 @@ export function apart(markers: Marker[], widths = markers.map((m) => markSize(m)
     // A place stays where it is: the pill alone goes, all the way out, the shorter way that stays inside the map (a
     // place by the coast, at the top, sends it below or beside, never above).
     for (let i = 0; i < p.length; i++) {
-      for (let j = 0; j < p.length; j++) {
+      // Around a place's dot, DOT; around a dot to avoid, its radius, the mark's white edge (2) and the same air (4).
+      const reach = (j: number) => (j < p.length ? DOT : avoid[j - p.length][2] + 6);
+      const under = ([x, y]: [number, number], j: number) => {
+        const [qx, qy] = j < p.length ? places[j] : avoid[j - p.length];
+        return Math.abs(qx - x) < w[i] / 2 + reach(j) && Math.abs(qy - y) < h[i] / 2 + reach(j);
+      };
+      // What a mark at `at` covers: a place, another's or its own once it has left it, counts more than all the dots.
+      const covers = (at: [number, number]) =>
+        1000 * places.filter((_, j) => (j !== i || !onPlace(markers[i], at)) && under(at, j)).length +
+        avoid.filter((_, k) => under(at, p.length + k)).length;
+      for (let j = 0; j < p.length + avoid.length; j++) {
         if (i === j && onPlace(markers[i], p[i])) continue;
-        const [qx, qy] = places[j];
-        const [hw, hh] = [w[i] / 2 + DOT, h[i] / 2 + DOT];
-        if (Math.abs(qx - p[i][0]) >= hw || Math.abs(qy - p[i][1]) >= hh) continue;
+        if (!under(p[i], j)) continue;
+        const [qx, qy] = j < p.length ? places[j] : avoid[j - p.length];
+        const [hw, hh] = [w[i] / 2 + reach(j), h[i] / 2 + reach(j)];
         const ways: [number, number][] = [[qx - hw, p[i][1]], [qx + hw, p[i][1]], [p[i][0], qy - hh], [p[i][0], qy + hh]];
         const inside = ways.filter(([x, y]) => x >= w[i] / 2 + GAP && x <= W - w[i] / 2 - GAP && y >= h[i] / 2 + GAP && y <= H - h[i] / 2 - GAP);
         const far = ([x, y]: [number, number]) => Math.abs(x - p[i][0]) + Math.abs(y - p[i][1]);
-        const to = (inside.length ? inside : ways).reduce((a, b) => (far(b) < far(a) ? b : a));
+        const pool = inside.length ? inside : ways;
+        if (j < p.length) {
+          const to = pool.reduce((a, b) => (far(b) < far(a) ? b : a));
+          p[i] = [to[0], to[1]];
+          moved = true;
+          continue;
+        }
+        // A dot to avoid: the way that covers the fewest, the nearest of them, taken only if it covers fewer than here.
+        const to = pool.reduce((a, b) => (covers(b) < covers(a) || (covers(b) === covers(a) && far(b) < far(a)) ? b : a));
+        if (covers(to) >= covers(p[i])) continue;
         p[i] = [to[0], to[1]];
         moved = true;
       }
@@ -573,7 +599,7 @@ function markerBox(m: Marker, at?: [number, number]): Box {
  * of `#isl` by `data-k`), the commune's own name (`data-c`) after the big ones if nothing around its place is free
  * (`look`), and on the island's map (`data-i`) a commune's name up to 6 times its size from its town, beyond 3 facing it (`face`), at sea only
  * where the nearest coast is the commune's (`town`, AROUND), as the server does for a phone. First the summits (`peaks`), whatever the map's width a mark 13 px wide and its name and height in 12 px (marketing's charter, § 2.4), the name below the summit, else above, on the right, on the
- * left, then aslant on either side, the first that touches no point (else the one inside the frame that covers the least, never cut by its edge: « Piton de la Fournaise » at 1280, marketing's review of 31/10); the name
+ * left, then aslant on either side, the first that touches no point; else, inside the frame (never cut by its edge: « Piton de la Fournaise » at 1280, marketing's review of 31/10), the one that covers the least of the lines and dots and no marker's shape; else the name is not shown, the summit's mark is, as a name that would cover a marker (« 3 070 m » under « 13,1 », review n° 457); the name
  * moves, never the station. What is hidden takes no room (the wind's pills under the temperatures, the summits'
  * names on a phone). Again when the map changes size, when a map zooms (its viewBox) and when a tab
  * changes the points shown. A map put in the page later (laterMap()) is placed when it comes.
@@ -597,16 +623,16 @@ export const NOMS_SCRIPT = `(()=>{const P=${JSON.stringify(NUDGE).replace(/</g, 
 const run=(svg)=>{const g=svg.querySelector(".nm"),vb=svg.viewBox.baseVal,cw=svg.clientWidth;if(!g||!vb||!vb.width||!cw)return;
 const u=vb.width/cw,wide=cw>=640,p=2*u,busy=[],kept=[],box=(b,r)=>[b.x-r-p,b.y-r-p,b.x+b.width+r+p,b.y+b.height+r+p],
 e=${EDGE}*u,inn=(b)=>b[0]>=vb.x+e&&b[1]>=vb.y+e&&b[2]<=vb.x+vb.width-e&&b[3]<=vb.y+vb.height-e,free=(b)=>inn(b)&&![...busy,...kept].some((o)=>hit(o,b));const shown=(e)=>{for(;e&&e!==svg;e=e.parentNode)if(getComputedStyle(e).display==="none")return false;return true};
-svg.querySelectorAll(".mk .sh,.mk .mn,.sp:not(.off) .rg,.pin,.ties circle,.trk-start,.rj-st circle,.wt line,.wt circle").forEach((e)=>{let b;if(!shown(e))return;try{b=e.getBBox()}catch{return}const r=e.matches(".rg,.trk-start")?9*u:0;if(b.width||b.height||r&&e.getClientRects().length)busy.push(box(b,r))});
+const hard=[];svg.querySelectorAll(".mk .sh,.mk .mn,.sp:not(.off) .rg,.pin,.ties circle,.trk-start,.rj-st circle,.wt line,.wt circle").forEach((e)=>{let b;if(!shown(e))return;try{b=e.getBBox()}catch{return}const r=e.matches(".rg,.trk-start")?9*u:0;if(b.width||b.height||r&&e.getClientRects().length){busy.push(box(b,r));if(e.matches(".mk .sh"))hard.push(e.tagName==="circle"?[b.x+b.width/2,b.y+b.height/2,b.width/2]:box(b,0))}});
 svg.querySelectorAll(".trk-halo").forEach((l)=>{const L=l.getTotalLength(),st=Math.max(6*u,L/800);for(let s=0;s<=L;s+=st){const q=l.getPointAtLength(s);busy.push([q.x-4*u-p,q.y-4*u-p,q.x+4*u+p,q.y+4*u+p])}});
 const marks=[];svg.querySelectorAll(".pk").forEach((k)=>{const ts=[...k.querySelectorAll("text")],at=(d)=>ts.forEach((t)=>{t.setAttribute("x",+t.dataset.x+d[0]);t.setAttribute("y",+t.dataset.y+d[1])});
 let T;const a=k.querySelector("path");if(!shown(k)||!a)return;try{a.removeAttribute("transform");T=a.getBBox()}catch{return}if(!T.width)return;
 const z=13*u/T.width,ox=T.x+T.width/2,oy=T.y+T.height/2,pf=12*u;a.setAttribute("transform","translate("+ox+" "+oy+") scale("+z+") translate("+-ox+" "+-oy+")");T={x:ox-T.width*z/2,y:oy-T.height*z/2,width:T.width*z,height:T.height*z};
-ts.forEach((t,i)=>{t.style.fontSize=pf+"px";t.style.strokeWidth=3*u+"px";t.dataset.x=ox;t.dataset.y=T.y+T.height+4*u+pf*(.8+1.15*i)});at([0,0]);marks.push(box(T,0));let B=null;for(const t of ts){if(!shown(t))continue;const q=t.getBBox();if(q.width)B=B?[Math.min(B[0],q.x),Math.min(B[1],q.y),Math.max(B[2],q.x+q.width),Math.max(B[3],q.y+q.height)]:[q.x,q.y,q.x+q.width,q.y+q.height]}if(!B)return;
+ts.forEach((t,i)=>{t.style.display="";t.style.fontSize=pf+"px";t.style.strokeWidth=3*u+"px";t.dataset.x=ox;t.dataset.y=T.y+T.height+4*u+pf*(.8+1.15*i)});at([0,0]);marks.push(box(T,0));let B=null;for(const t of ts){if(!shown(t))continue;const q=t.getBBox();if(q.width)B=B?[Math.min(B[0],q.x),Math.min(B[1],q.y),Math.max(B[2],q.x+q.width),Math.max(B[3],q.y+q.height)]:[q.x,q.y,q.x+q.width,q.y+q.height]}if(!B)return;
 const s=4*u,cy=T.y+T.height/2-(B[1]+B[3])/2,hb=(B[3]-B[1])/2,R=T.x+T.width+s-B[0],L=T.x-s-B[2],at2=(d)=>[B[0]+d[0]-p,B[1]+d[1]-p,B[2]+d[0]+p,B[3]+d[1]+p],
-ds=[[0,0],[0,T.y-s-B[3]],[R,cy],[L,cy],[R,cy-hb],[L,cy-hb],[R,cy+hb],[L,cy+hb]],over=(d)=>{const a=at2(d);return busy.reduce((n,o)=>n+Math.max(0,Math.min(a[2],o[2])-Math.max(a[0],o[0]))*Math.max(0,Math.min(a[3],o[3])-Math.max(a[1],o[1])),0)},
-fit=ds.filter((d)=>inn(at2(d))),go=ds.find((d)=>free(at2(d)))||(fit.length?fit:ds).reduce((m,d)=>(over(d)<over(m)?d:m));
-at(go);marks.push(at2(go))});busy.push(...marks);
+ds=[[0,0],[0,T.y-s-B[3]],[R,cy],[L,cy],[R,cy-hb],[L,cy-hb],[R,cy+hb],[L,cy+hb]],area=(a,l)=>l.reduce((n,o)=>n+Math.max(0,Math.min(a[2],o[2])-Math.max(a[0],o[0]))*Math.max(0,Math.min(a[3],o[3])-Math.max(a[1],o[1])),0),
+cut=(a,o)=>o.length===3?Math.hypot(Math.max(a[0]-o[0],0,o[0]-a[2]),Math.max(a[1]-o[1],0,o[1]-a[3]))<o[2]:hit(a,o),raw=(d)=>[B[0]+d[0]+u,B[1]+d[1]+u,B[2]+d[0]-u,B[3]+d[1]-u],ok=ds.filter((d)=>inn(at2(d))&&!hard.some((o)=>cut(raw(d),o))),go=ds.find((d)=>free(at2(d)))||(ok.length?ok.reduce((m,d)=>(area(at2(d),busy)<area(at2(m),busy)?d:m)):null);
+if(!go){ts.forEach((t)=>t.style.display="none");return}at(go);marks.push(at2(go))});busy.push(...marks);
 g.setAttribute("stroke-width",3*u);const isl=[...svg.querySelectorAll("#isl path")],pt=isl.length&&svg.createSVGPoint&&svg.createSVGPoint(),bx=isl.map((q)=>q.getBBox()),
 isle=g.hasAttribute("data-i"),near=(x,y,st)=>{for(let r=1;r<=12;r++){const s=new Set();for(let a=0;a<16;a++){const l=land(x+r*st*Math.cos(a*Math.PI/8),y+r*st*Math.sin(a*Math.PI/8));if(l>=0)s.add(l)}if(s.size)return s}return new Set()},
 on=(k,x,y)=>{const r=bx[k];if(r.width&&(x<r.x||y<r.y||x>r.x+r.width||y>r.y+r.height))return false;pt.x=x;pt.y=y;return isl[k].isPointInFill(pt)},land=(x,y)=>isl.findIndex((q,k)=>on(k,x,y)),
