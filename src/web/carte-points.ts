@@ -35,7 +35,8 @@
  * A commune of a map in colours (map.ts zoneLinks(): /secheresse, /coupures-eau, /velos, /communes) has the same
  * bubble (marketing's charter of the maps, 31/10/2026): its name, what the map shows of it, and « Voir la commune → ».
  * The mouse over it opens it, and outlines the commune (`.on`); a click follows its link. It opens below the commune,
- * its arrow up, when there is no room above it inside the map (Saint-Denis, Sainte-Marie, Sainte-Suzanne). A finger's tap opens it, never
+ * its arrow up, when there is no room above it inside the map (Saint-Denis, Sainte-Marie, Sainte-Suzanne), and moves
+ * in from the map's sides, its arrow still on the commune (Saint-Philippe, Saint-Paul). A finger's tap opens it, never
  * the page: its link does. On /communes, whose names are the links, a tap opens the page, as its legend says.
  */
 
@@ -72,7 +73,8 @@ const tip=mk("div","ptip");tip.hidden=true;tip.setAttribute("aria-hidden","true"
 let on=null,shut=0,arm=0,pass=null;
 const hide=()=>{clearTimeout(shut);clearTimeout(arm);shut=0;if(on&&on.matches(".zn"))on.classList.remove("on");tip.hidden=true;tip.classList.remove("vu","lien","prise");tip.setAttribute("aria-hidden","true");tip.removeAttribute("role");tip.removeAttribute("aria-label");tip.replaceChildren();on=null};
 const later=()=>{if(on&&!shut)shut=setTimeout(hide,${LINGER_MS})},stay=()=>{clearTimeout(shut);shut=0};
-const place=(a)=>{const c=mid(a);if(!c){hide();return}const w=tip.offsetWidth,h=tip.offsetHeight,x=Math.min(Math.max(c[0]-w/2,6),innerWidth-w-6),up=c[1]-h-20>=(a.matches(".zn")?Math.max(0,a.ownerSVGElement.getBoundingClientRect().top):0);
+const place=(a)=>{const c=mid(a);if(!c){hide();return}const f=a.matches(".zn")?a.ownerSVGElement.getBoundingClientRect():{left:0,right:innerWidth,top:0},l=Math.max(f.left,0)+6,r=Math.min(f.right,innerWidth)-6;
+const w=tip.offsetWidth,h=tip.offsetHeight,x=Math.min(Math.max(c[0]-w/2,l),r-w),up=c[1]-h-20>=Math.max(0,f.top);
 tip.classList.toggle("bas",!up);tip.style.left=x+scrollX+"px";tip.style.top=(up?c[1]-h-20:c[1]+20)+scrollY+"px";tip.style.setProperty("--ax",Math.min(Math.max(c[0]-x,14),w-14)+"px")};
 const links=(a)=>{const h=a.getAttribute("href");if(!h)return[];const r=row(a),v=mk("a","pv");v.href=h;v.textContent=T[a.dataset.pv]||T.detail;
 if(r)v.addEventListener("click",(e)=>{e.preventDefault();hide();fire(a)});const out=[v],ya=r?r.querySelectorAll("a.aller"):[];if(ya.length===1)out.push(ya[0].cloneNode(true));
