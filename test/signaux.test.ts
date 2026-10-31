@@ -156,7 +156,7 @@ describe("The pages' part", () => {
     const html = legalPage(O, "confidentialite");
     expect(html).toContain("Le site ne pose aucun cookie et ne contient aucun traceur publicitaire. Dans votre navigateur, sans cookie, le site garde la date de votre première et de votre dernière visite, pour savoir s'il sert d'un jour à l'autre\u00a0; il n'en envoie qu'une catégorie (voir <a href=\"#retours\">«\u00a0Les retours\u00a0»</a>).");
     expect(html).not.toContain("Seule la vérification anti-robot");
-    expect(html).toContain("La page envoie aussi, sans identifiant, le temps qu'elle a mis à s'afficher sur votre appareil ; sur la page du connecteur, le fait que son adresse a été copiée ; et votre réponse au bouton « Cette page vous a aidé ? » (la page, et oui ou non). Ces statistiques sont gardées par Cloudflare");
+    expect(html).toContain("La page envoie aussi, sans identifiant, le temps qu'elle a mis à s'afficher sur votre appareil ; sur la page du connecteur, le fait que son adresse a été copiée ; et votre réponse au bouton « Cette page vous a aidé ? » (la page, et oui ou non).</p>\n  <p>Ces statistiques sont gardées par Cloudflare");
     expect(html).toContain('<p id="retours">Les retours. Pour savoir si le site sert d\'un jour à l\'autre, votre navigateur garde deux dates :');
     // What venu() does: past 13 months, wiped at the next visit, before anything is sent (« première »).
     expect(html).toContain("Passé 13 mois après votre première visite, il est effacé dès votre visite suivante, avant tout envoi\u00a0; il n'est jamais prolongé. Sans nouvelle visite, il reste sur votre appareil, sans être lu ni envoyé.");

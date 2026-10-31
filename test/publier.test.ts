@@ -5,6 +5,7 @@ import { weekendPage } from "../src/web/evenements.js";
 import { DESCRIPTION_MAX } from "../src/web/pages.js";
 import { ETATS, MAILTO, META, publierPage, render, TITLE } from "../src/web/publier.js";
 import { GUIDE } from "../src/web/publier-texte.js";
+import { AUTORISATIONS } from "../src/providers/autorisations.js";
 
 const html = () => publierPage("https://rundata.re");
 
@@ -63,5 +64,21 @@ describe("the guide for those who publish (/publier)", () => {
     expect(page).toContain('href="/publier/modele-agenda.csv"');
     expect(await (await handle(new Request("https://rundata.re/sitemap.xml"), cache)).text()).toContain("<loc>https://rundata.re/publier</loc>");
     expect(weekendPage("https://rundata.re", null)).toContain('<a href="/publier">');
+  });
+
+  it("says it reads the agenda of no commune whose site forbids it until it says yes", () => {
+    // Le Tampon, Saint-André, L'Étang-Salé and La Possession were named as read on 31/10/2026; their agreement is asked.
+    const sentence = GUIDE.match(/rundata\.re lit ainsi [^.]+\./)![0];
+    const list = GUIDE.slice(GUIDE.indexOf("## Ils publient déjà"), GUIDE.indexOf("## Les mots du guide"));
+    const waiting = Object.entries(AUTORISATIONS).filter(([k, a]) => k.startsWith("agenda:") && !["accordee", "permise"].includes(a.etat)).map(([, a]) => a.commune!);
+    expect(waiting).toEqual(expect.arrayContaining(["Le Tampon", "Saint-André", "L'Étang-Salé", "La Possession"]));
+    for (const c of waiting) {
+      // « du Tampon », « de L'Étang-Salé »: the name without its article. A commune's own site, not its intercommunality's.
+      const name = c.replace(/^(Le |La |L')/, "");
+      expect(sentence, c).not.toContain(name);
+      expect(list, c).not.toMatch(new RegExp(`\\*\\*(Ville|Mairie|Commune)[^*]*${name}\\*\\*`));
+    }
+    expect(sentence).toContain("Saint-Louis");
+    expect(list).toContain("**Ville de Saint-Louis**");
   });
 });

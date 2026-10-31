@@ -43,6 +43,8 @@ describe("/application, rundata.re on the home screen", () => {
     expect(page).toContain("Déjà fait\u00a0? L'icône rundata.re ouvre le site comme une application. Pour la retirer, faites un appui long sur l'icône, puis supprimez-la comme une autre application.");
     expect(page).toContain("const kindOf=(ua,touch)=>");
     expect(page).toContain("d.open=true;d.parentNode.prepend(d)");
+    // A computer's Chrome on a touch screen only, as a phone asking for the computer's site says it is: no section opened.
+    expect(page).toContain(`k===null&&/Chrome|Edg/.test(ua)&&!matchMedia("(pointer: coarse)").matches?BY_PROMPT.ordinateur:undefined`);
     // The install block below would repeat the steps, its link pointing to this page: only the sharing stays.
     expect(page).not.toContain('id="inst"');
     expect(page).toContain('<aside class="share wrap" aria-label="Partager et suivre">');
