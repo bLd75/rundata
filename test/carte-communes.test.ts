@@ -33,10 +33,12 @@ describe("the names on the map of /communes", () => {
     expect(html).toContain("<tspan");
   });
 
-  it("place no name over another, nor across the edge of the map", () => {
+  it("place no name over another, nor on the edge of the map", () => {
+    // 6 px from the frame on a phone's map, 343 px wide: never on its edge.
+    const edge = Math.ceil((6 * W) / 343);
     const boxes = Object.keys(PLACES).map((nom) => [nom, nameBox(nom)] as const);
     for (const [nom, b] of boxes) {
-      expect(b[0] >= 8 && b[1] >= 8 && b[2] <= W - 8 && b[3] <= H - 8, nom).toBe(true);
+      expect(b[0] >= edge && b[1] >= edge && b[2] <= W - edge && b[3] <= H - edge, nom).toBe(true);
       for (const [other, o] of boxes) if (other !== nom) expect(b[0] < o[2] && o[0] < b[2] && b[1] < o[3] && o[1] < b[3], `${nom} / ${other}`).toBe(false);
     }
   });
