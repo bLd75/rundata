@@ -107,7 +107,7 @@ describe("the sources of a page", () => {
     expect(block).toContain("(EDF SEI) (Licence Ouverte Etalab 2.0)");
     expect(block).toContain("Restrictions d&#39;eau en cas de sécheresse (VigiEau, arrêtés préfectoraux) (Licence Ouverte Etalab 2.0)");
     // The island's map beside the commune's name: its contours, its relief, its roads and the names of the communes.
-    expect(block).toContain(`<p class="sources">Carte : contours des communes de geo.api.gouv.fr, relief, routes et noms de lieux de l'IGN (RGE ALTI, BD TOPO), sous Licence Ouverte Etalab 2.0.</p>`);
+    expect(block).toContain(`<p class="sources">Carte : contours des communes de geo.api.gouv.fr, relief, photographies aériennes, routes et noms de lieux de l'IGN (RGE ALTI, couche Photographies aériennes de la Géoplateforme, BD TOPO), sous Licence Ouverte Etalab 2.0.</p>`);
     expect(html.slice(html.indexOf("<footer"))).not.toContain("<h3>Sources</h3>");
   });
 });
