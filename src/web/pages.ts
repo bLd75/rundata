@@ -2124,7 +2124,7 @@ export function seaPage(origin: string, data: Cached<SeaData> | null, now = new 
     ${ask(`Dolo la mèr lé sho ? Gèt si ${url} é di amwin pou chak plaj.`,
       `Quelle est la température de l'eau à La Réunion ? Lis ${url} et donne-moi la température plage par plage, avec la date de la mesure.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) avec la température de la mer au large de chaque plage" })}
+  <figure class="card mapcard">${islandMap({ markers, apart: true, label: "Carte de La Réunion (974) avec la température de la mer au large de chaque plage" })}
   ${day ? `<figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "rond", couleur: chip(26), texte: "26°", dit: "température de l'eau au large de la plage" }], esc(`Mesure par satellite (NOAA CoastWatch et NASA), moyenne du ${dayMonth(day)}.`))}</figcaption>` : ""}</figure>
 </div>`;
 

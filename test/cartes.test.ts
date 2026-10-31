@@ -76,4 +76,18 @@ describe("the maps of the pages read from a bundle or a database", () => {
     expect(a[2] + b[2]).toBeLessThanOrEqual(Math.hypot(a[0] - b[0], a[1] - b[1]));
     expect(c[2]).toBe(66);
   });
+
+  it("draw two close beaches' discs apart, never one over the other (Boucan-Canot and L'Hermitage, both 26°, the review of 31/10)", () => {
+    const value = cached({
+      plages: [
+        { nom: "Plage de Boucan Canot", commune: "Saint-Paul", lon: 55.224, lat: -21.028, valeur: 25.6, jour: "2026-10-29", distance_km: 3 },
+        { nom: "Plage de l'Hermitage", commune: "Saint-Paul", lon: 55.222, lat: -21.077, valeur: 25.7, jour: "2026-10-29", distance_km: 3 },
+      ],
+      sources: [],
+    } as SeaData);
+    const discs = [...seaPage("https://rundata.re", value, NOW).matchAll(/<circle class="sh" cx="([\d.]+)" cy="([\d.]+)" r="(\d+)"/g)].map((m) => m.slice(1).map(Number));
+    expect(discs).toHaveLength(2);
+    const [a, b] = discs;
+    expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeGreaterThanOrEqual(a[2] + b[2]);
+  });
 });

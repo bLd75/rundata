@@ -60,7 +60,7 @@ export function couche(rows: Row[]): Couche {
 
 /** The rounds as islandMap's markers, each leading to `href`. */
 export const rondsMarkers = (ronds: Rond[], href: string): Marker[] =>
-  ronds.map((r) => ({ lon: r.lon, lat: r.lat, label: String(r.nombre), round: true, quiet: true, color: COUNT_COLOR, place: r.commune, say: count(r.nombre), name: `${r.commune} : ${count(r.nombre)}`, href }));
+  ronds.map((r) => ({ lon: r.lon, lat: r.lat, label: String(r.nombre), round: true, quiet: true, color: COUNT_COLOR, place: r.commune, say: count(r.nombre), name: `${r.commune}\u00a0: ${count(r.nombre)}`, href }));
 
 // A round's radius (map.ts, marker()) and a point's, with room for their white edges: a point never on a round's figure.
 const ROUND_R = 34;

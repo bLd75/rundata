@@ -58,7 +58,7 @@ describe("the charter of the maps", () => {
     expect(eau).toContain('<span class="mls">Qualité au dernier prélèvement de l&#39;ARS, du 14/10 au 20/10/2026.</span>');
     // Every site's name in the bubble, none written on the map, where the frame cut them.
     expect(eau).not.toContain('class="mn"');
-    expect(eau).toContain("<title>Bassin Manapany : mauvaise</title>");
+    expect(eau).toContain("<title>Bassin Manapany\u00a0: mauvaise</title>");
 
     const station = (s: string, lon: number, lat: number, rapport: string) => ({
       zone: "Nord", station: s, altitude_m: 10, lon, lat, pluie: { total_mm: 20, jours_de_pluie: 3, normale_mm: 60, rapport_a_la_normale: rapport },

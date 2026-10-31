@@ -98,7 +98,7 @@ export function enfantsPage(origin: string, data: Cached<EnfantsAnswer> | null, 
 
   const markers = communes.map((c) => {
     const list = enfants.inCommune(c);
-    return { lon: list.reduce((n, l) => n + l.lon, 0) / list.length, lat: list.reduce((n, l) => n + l.lat, 0) / list.length, label: String(list.length), name: `${c} : ${count(list.length, "lieu", "lieux")}`,
+    return { lon: list.reduce((n, l) => n + l.lon, 0) / list.length, lat: list.reduce((n, l) => n + l.lat, 0) / list.length, label: String(list.length), name: `${c}\u00a0: ${count(list.length, "lieu", "lieux")}`,
       round: true, color: COUNT_COLOR, quiet: true, place: c, say: count(list.length, "lieu", "lieux"), href: pathOf(c) ?? `#${anchorId("c", c)}` };
   });
 
@@ -136,7 +136,7 @@ export function enfantsPage(origin: string, data: Cached<EnfantsAnswer> | null, 
     <p class="lead">${esc(LEAD)}</p>
     ${ask(ASK_KREOL, ASK_FRANCAIS)}
   </div>
-  <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : le nombre de lieux pour les enfants par commune" })}
+  <figure class="card mapcard">${islandMap({ markers, apart: true, label: "Carte de La Réunion (974) : le nombre de lieux pour les enfants par commune" })}
   <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "rond", couleur: COUNT_COLOR, texte: "12", dit: "lieux pour les enfants dans la commune" }], esc(`Lieux d'OpenStreetMap, Data ES et Basilic, liste lue le ${dayMonth(enfants.BUILT)}.`))}</figcaption></figure>
 </div>`;
 
