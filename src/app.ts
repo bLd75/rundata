@@ -17,6 +17,7 @@ import { wantsPage } from "./web/connecteur.js";
 import { OFFLINE_PATH } from "./web/pwa.js";
 import { CADRE, CSP_RAPPORT, rapport } from "./web/securite.js";
 import { signal, SIGNAL_PATH } from "./web/signaux.js";
+import { cheminMasque } from "./chemin-secret.js";
 
 // Browser-based clients (MCP Inspector, web chat apps) call the endpoint cross-origin.
 const CORS = {
@@ -184,7 +185,7 @@ export async function handle(request: Request, cache: Cache, background: Backgro
     // The offline page fetched by the service worker for its shell (web/pwa.ts), in every new browser: not a view.
     const shell = url.pathname === OFFLINE_PATH && (request.headers.get("sec-fetch-dest") ?? "document") !== "document";
     if (type.startsWith("text/html") && !shell) {
-      record({ kind: "page", name: url.pathname, detail: url.searchParams.has("maj") ? "bouton" : undefined, ok: page.ok, status: page.status, ...measure() });
+      record({ kind: "page", name: cheminMasque(url.pathname), detail: url.searchParams.has("maj") ? "bouton" : undefined, ok: page.ok, status: page.status, ...measure() });
     } else if (type.startsWith("application/rss+xml")) {
       // A reader polls all day: counted apart from the page views, with how many it reads for.
       const r = feedReader(request.headers.get("user-agent") ?? "");
