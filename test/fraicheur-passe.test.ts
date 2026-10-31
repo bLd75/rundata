@@ -24,6 +24,20 @@ describe("the time an answer says it read its data", () => {
     expect(fraicheur({}, [halls], now, { nom: () => "Programmes des salles" }).lue_a).toBe("30/10 23:57");
   });
 
+  it("dates an answer of many dated parts by the newest of them, never older than one of its parts", () => {
+    // resume_du_jour at Bras-Panon, 31/10/2026 07:10: the weather read again at 07:06 for the call, the calendar's copy of
+    // 06:25. It said « lue à 06:25, il y a 45 min » over a measurement of 07:00.
+    const now = new Date(t("2026-10-31T07:10:00"));
+    const meteo = { key: "web:lieu:bras-panon", fetchedAt: t("2026-10-31T07:06:00"), stale: false, freshSeconds: 300 };
+    const calendrier = { key: "web:calendrier", fetchedAt: t("2026-10-31T06:25:00"), stale: false, freshSeconds: 300 };
+    const f = fraicheur({}, [calendrier, meteo], now, { donnee: false });
+    expect(f.lue_a).toBe("31/10 07:06");
+    expect(f.age).toBe("il y a 4 min");
+    expect(f.donnee_du).toBeUndefined();
+    // An answer about one datum keeps the oldest of what it serves up to date.
+    expect(fraicheur({}, [calendrier, meteo], now).lue_a).toBe("31/10 06:25");
+  });
+
   it("never includes what a copy brought up to date after the answer reads", async () => {
     const cache = new Cache(new MemoryStore(), () => t("2026-10-31T02:04:00"));
     const pending: Promise<unknown>[] = [];
