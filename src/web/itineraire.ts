@@ -55,11 +55,14 @@ const lasting = (s: number) => {
 };
 const walkMin = (s: number) => Math.max(1, Math.round(s / 60));
 
-/** « Église Petite-Île », « Mairie, Saint-Leu »: the commune said when the name does not say it. */
+/**
+ * « Église Petite-Île », « Mairie, Saint-Leu »: the commune said when the name does not say it, the name written as in
+ * our sentences (prose()). The lines' directions stay as their network writes them.
+ */
 function stopName(id: number): string {
   const s = transit.stop(id);
   const town = transit.expand(s.commune).replace(/^(?:le|la|les|l) /, "");
-  return transit.expand(s.nom).includes(town) ? s.nom : `${s.nom}, ${s.commune}`;
+  return prose(transit.expand(s.nom).includes(town) ? s.nom : `${s.nom}, ${s.commune}`);
 }
 
 const legLi = (l: Leg) =>
