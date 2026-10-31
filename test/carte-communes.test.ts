@@ -7,7 +7,7 @@ import { CSS } from "../src/web/pages.js";
 import { pageOf } from "../src/web/places.js";
 
 const ORIGIN = "https://rundata.re";
-const map = (html: string) => html.match(/<figure class="card mapcard(?: nophone)?">(.*?)<\/figure>/s)![1];
+const map = (html: string) => html.match(/<figure class="card mapcard(?: nophone| noms)?">(.*?)<\/figure>/s)![1];
 
 /** A commune's outline (island.json: « M » then relative moves), and whether a point is inside it. */
 const ring = (nom: string) => {
@@ -51,8 +51,10 @@ describe("the names on the map of /communes", () => {
     expect(html.match(/<g class="tie"[^>]*>(.*?)<\/g>/s)![1].match(/<path/g)).toHaveLength(Object.values(PLACES).filter((p) => p.tie).length);
   });
 
-  it("are big enough to read on a phone: 10 px on its map 314 px wide", () => {
-    expect((NAME_UNITS * 314) / W).toBeGreaterThanOrEqual(10);
+  it("are big enough to read on a phone: 12 px on its map 343 px wide, its card's margin narrowed", () => {
+    expect((NAME_UNITS * 343) / W).toBeGreaterThanOrEqual(12);
+    expect(communesPage(ORIGIN)).toContain('<figure class="card mapcard noms">');
+    expect(CSS).toContain("@media (max-width:37.49rem){.mapcard.noms{padding:.4rem}}");
   });
 
   it("light a commune's name while it is hovered, and the commune while its name is", () => {

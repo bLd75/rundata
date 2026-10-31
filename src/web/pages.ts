@@ -544,6 +544,7 @@ text-decoration:none;color:#fff;background:rgb(255 255 255/.09);border:1px solid
 .map .nm [data-r="0"]{font-weight:600}.map .nm .nx{display:none}
 .map .cn text{fill:#f1f5f9;stroke:rgb(11 31 54/.8);stroke-width:8px;paint-order:stroke;stroke-linejoin:round;font-weight:600;text-anchor:middle;dominant-baseline:central;text-rendering:geometricPrecision}
 .map .cn .hit{fill:transparent;stroke:none}.map .cn a:hover text,.map .cn a.on text,.map .cn a:focus-visible text{fill:var(--sun)}.map .zn.on path{fill:rgb(255 255 255/.14);stroke:var(--sun);stroke-width:4}
+@media (max-width:37.49rem){.mapcard.noms{padding:.4rem}}
 .map .cn .tie{pointer-events:none}.map .cn .tie path{fill:none;stroke:#f1f5f9;stroke-width:3px;stroke-linecap:round}.map .cn .tie circle{fill:#f1f5f9;stroke:rgb(11 31 54/.8);stroke-width:3px}
 .map .trk{fill:none;stroke:#ff922b;stroke-width:4px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .map .trk.ouvert{stroke:#ffd43b}.map .trk.ferme{stroke:#ff6b6b;stroke-dasharray:6 5}.map .trk.inconnu{stroke:#ced4da}
