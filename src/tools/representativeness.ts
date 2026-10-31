@@ -57,3 +57,11 @@ export function fit(place: Place, station: Station): Fit {
     score: d + (3 * absAlt) / 100 + (sameSide ? 0 : 8),
   };
 }
+
+const RANG: Record<Pertinence, number> = { bonne: 0, moyenne: 1, faible: 2 };
+
+/**
+ * The better station first: the better relevance, then, at equal relevance, the lower score. By score alone, a
+ * « moyenne » station at 10,8 km and 43 m came before a « bonne » one at 6,9 km and 181 m for Sainte-Rose.
+ */
+export const mieux = (a: Fit, b: Fit) => RANG[a.pertinence] - RANG[b.pertinence] || a.score - b.score;
