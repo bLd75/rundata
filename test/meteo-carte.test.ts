@@ -136,6 +136,36 @@ describe("the map of every station on /meteo", () => {
     expect(NOMS_SCRIPT).toContain(",.wt line,.wt circle\")");
   });
 
+  it("moves apart rain discs with their figure that would cover each other, each tied to its place, the small dots left on theirs", () => {
+    // Two rain gauges 600 m apart under a downpour, and a third with a little rain: a small dot without its figure.
+    const a = st({ nom: "Pluviomètre A", id: "1", lon: 55.55, lat: -21.05, pluie_1h: 7.5 });
+    const b = st({ nom: "Pluviomètre B", id: "2", lon: 55.555, lat: -21.052, pluie_1h: 6.9 });
+    const c = st({ nom: "Pluviomètre C", id: "3", lon: 55.4, lat: -21.2, pluie_1h: 0.3 });
+    const html = stationsMap([a, b, c]);
+    const discs = [...html.matchAll(/<circle class="sh l-p" cx="([\d.-]+)" cy="([\d.-]+)" r="34"/g)].map((m) => [+m[1], +m[2]]);
+    expect(discs).toHaveLength(2);
+    // Their edges 16 units apart at least, as the home page's rounds (#607).
+    expect(Math.hypot(discs[0][0] - discs[1][0], discs[0][1] - discs[1][1])).toBeGreaterThanOrEqual(68 + 16);
+    // The figure moves with its disc.
+    for (const [x, y] of discs) expect(html).toMatch(new RegExp(`<text class="mv l-p" x="${x}" y="${y + 11}">`));
+    // The small dot on its place.
+    const [cx, cy] = project(c.lon, c.lat);
+    expect(html).toContain(`<circle class="sh l-p" cx="${cx}" cy="${cy}" r="17"`);
+    // Each moved disc tied to its place, in the rain's layer only, under every disc.
+    const ties = html.match(/<g class="l-p wt" aria-hidden="true">(.*?)<\/g>/)![1];
+    expect(ties.match(/<line class="o" /g)).toHaveLength(2);
+    for (const s of [a, b]) expect(ties).toContain(`<circle cx="${project(s.lon, s.lat)[0]}" cy="${project(s.lon, s.lat)[1]}" r="9"/>`);
+    expect(html.indexOf(`class="l-p wt"`)).toBeLessThan(html.indexOf(`class="sh l-p"`));
+    // Far from each other, no line.
+    expect(stationsMap(ALL)).not.toContain(`class="l-p wt"`);
+  });
+
+  it("keeps a summit's name inside the frame when no place around it is free (« Piton de la Fournaise » at 1280)", () => {
+    expect(NOMS_SCRIPT).toContain("inn=(b)=>b[0]>=vb.x+e&&");
+    expect(NOMS_SCRIPT).toContain("free=(b)=>inn(b)&&");
+    expect(NOMS_SCRIPT).toContain("go=ds.find((d)=>free(at2(d)))||(fit.length?fit:ds).reduce(");
+  });
+
   it("sets two pills on one place one above the other, unless asked to set them aside (the wind's)", () => {
     const two = [{ lon: 55.5, lat: -21.1, label: "", name: "a" }, { lon: 55.5, lat: -21.1, label: "", name: "b" }];
     const [a, b] = apart(two, [96, 96]);
