@@ -727,8 +727,10 @@ html:has([data-js]:not([hidden])) #stl.plie>li:nth-child(n+13){display:none}.stm
 .stmore{margin-top:.8rem}
 .wxmap .vgrad{display:inline-block;width:4.5rem;height:.6rem;border-radius:.3rem;background:linear-gradient(90deg,#2a6a9a,#248c78,#d6a828,#de7028,#c8301c);vertical-align:middle}
 .wxmap .wgrad{background:linear-gradient(90deg,#4668b0,#2e96ac 17%,#4aaa62 33%,#deb83e 50%,#de702e 75%,#b22c48)}
-/* The hatches' square, before their sentence: the map's two tones over a pale ground, like the relief's. */
-.wxmap .hsw{display:inline-block;width:.9rem;height:.9rem;margin:0 .1rem;vertical-align:-.1rem;border-radius:.15rem;background:repeating-linear-gradient(135deg,rgba(11,31,54,.55) 0 1.6px,transparent 1.6px 2.1px,rgba(255,255,255,.5) 2.1px 3.7px,transparent 3.7px 4.24px),#c9d8c2}
+/* The square before the sentence of the zones the radars see badly: their light veil over a pale ground, like the
+   relief's, with its fine hatches in the map's two tones (.hsw), or its dotted outline (.hsv). */
+.wxmap .hsw{display:inline-block;box-sizing:border-box;width:.9rem;height:.9rem;margin:0 .1rem;vertical-align:-.1rem;border-radius:.15rem;background:repeating-linear-gradient(135deg,rgba(11,31,54,.4) 0 1px,transparent 1px 4.24px,rgba(255,255,255,.55) 4.24px 5.24px,transparent 5.24px 8.49px),#dfe7da}
+.wxmap .hsw.hsv{background:#dfe7da;border:1.3px dashed rgba(11,31,54,.6)}
 /* The replay of the last 3 hours: its button and slider under the legend, its time on the map, the stations' dots hidden. */
 .wxmap .rj{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-top:.6rem}.wxmap .rj[hidden],.wxmap .rj [hidden]{display:none}
 .wxmap .rj fieldset{border:0;margin:0;padding:0;gap:.25rem;align-items:center}.wxmap .rj legend{float:left;padding:0;margin-right:.2rem;font-weight:700}.wxmap .rj label{padding:.3rem .65rem}
