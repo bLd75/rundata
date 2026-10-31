@@ -41,8 +41,9 @@ import { SECTEURS as SECTEURS_RANDO, secteurNamed, type Secteur } from "../trace
 import island from "../places/island.json" with { type: "json" };
 import * as mf from "../providers/vigilance.js";
 import { carteHtml } from "./cmrs-carte.js";
+import { ACCORD as ACCORD_TRACE } from "../providers/cmrs-trace.js";
 import { GRAPHES_SCRIPT, graphes } from "./historique-graphes.js";
-import { basinMap, TRACES, TRACES_SCRIPT, TRACES_SOURCES, ZONE_SOURCE } from "./cyclones-bassin.js";
+import { avisLe, basinMap, TRACES, TRACES_SCRIPT, TRACES_SOURCES, ZONE_SOURCE } from "./cyclones-bassin.js";
 import { esc, fenetre, hikesMap, islandMap, laterMap, type Marker, profile, traceMap, type ZoneLink } from "./map.js";
 import { type Cle, COUNT_COLOR, legende } from "./carte-legende.js";
 import { eventsMap } from "./evenements-carte.js";
@@ -2731,17 +2732,26 @@ function seasonTable(s: CyclonesAnswer["saison_en_cours"]): string {
 /**
  * The basin's map, without any system of the season (cyclones-bassin.ts), and the line that says where the systems
  * are: none, with the past cyclones' tracks; or the RSMC's map above it, or Météo-France's site when that map is not
- * shown here, and then no track at all. Without a system, it is the hero's map, as on the other pages; with one, it
- * stays under the RSMC's map, which comes first.
+ * shown here, and then no past track: only, once Météo-France agrees, the path each system has already travelled
+ * (providers/cmrs-trace.ts), never its forecast. Without a system, it is the hero's map, as on the other pages; with
+ * one, it stays under the RSMC's map, which comes first.
  */
 function basinFigure(d: CyclonesAnswer | undefined, active: number): string {
   const s = active > 1;
   const traces = !!d && !active;
+  const parcours = active ? d?.parcours ?? [] : [];
   const past = TRACES.map((t, i) => `<li><a href="/cyclones/${t.slug}"><span class="nb">${i + 1}</span> ${esc(t.nom_annee)}</a></li>`).join("");
   const now = !d ? ""
     : !active ? `<p><b>Aucun système dans le bassin en ce moment.</b> En traits numérotés, les cyclones passés dont les stations de Météo-France ont mesuré le passage\u00a0:</p><ol class="trcs">${past}</ol>`
     : d.carte?.image ? `<p><b>${s ? "Des systèmes sont suivis" : "Un système est suivi"} par le CMRS\u00a0: <a href="#carte-cmrs">sa carte officielle est au-dessus</a>.</b></p>`
     : `<p><b>${s ? "Des systèmes sont suivis" : "Un système est suivi"} par le CMRS\u00a0:</b> ${officielHtml(mf.OFFICIEL_CYCLONE)}</p>`;
+  // What the line and its dots are, and what they never are; a gap or a late start said by the advisories' numbers.
+  const path = parcours.length
+    ? `<p>En trait plein, le chemin déjà parcouru\u00a0: les positions ${s ? "de chaque système" : "du système"} aux avis du CMRS, la dernière avec son nom, son stade et l'heure de l'avis (heure de La Réunion). ` +
+      `Rien de l'avenir\u00a0: la trajectoire prévue est sur la carte officielle de Météo-France.` +
+      parcours.map((p) => (p.premier > 1 ? ` Le chemin ${esc(p.nom)} commence à l'avis n°\u00a0${p.premier}, le premier lu par rundata.re.` : "") +
+        (p.manquent ? ` ${p.manquent} avis ${p.manquent > 1 ? "manquent" : "manque"} entre le n°\u00a0${p.premier} et le n°\u00a0${p.dernier}.` : "")).join("") + "</p>"
+    : "";
   const { "meteo-france": mfTraces, ibtracs, consulte } = TRACES_SOURCES;
   const older = TRACES.filter((t) => t.source === "ibtracs").map((t) => t.nom_annee);
   const sources = traces
@@ -2751,8 +2761,10 @@ function basinFigure(d: CyclonesAnswer | undefined, active: number): string {
           `${older.length > 1 ? "leurs traces viennent" : "sa trace vient"} des positions du CMRS reprises par <a href="${ibtracs.lien}" rel="noopener">${ibtracs.nom}</a>.`
         : "") +
       " Cette carte ne montre aucun système de la saison. "
+    : parcours.length
+    ? `Positions\u00a0: Météo-France, CMRS de La Réunion (bulletins WTIO31 FMEE), avec son accord écrit${ACCORD_TRACE ? ` du ${ACCORD_TRACE.split("-").reverse().join("/")}` : ""}, dernier avis le ${avisLe(parcours[0].heure)}. Cette carte ne montre aucune prévision. `
     : "Cette carte ne montre aucun système, ni sa position ni sa trajectoire. ";
-  return `<figure class="card bassin${active ? "" : " mapcard"}">${basinMap(traces)}<figcaption>${now}<details class="note"><summary>Sources</summary><p>En pointillé, la zone suivie par le CMRS de La Réunion (Météo-France), de l'équateur à 40°\u00a0S et des côtes de l'Afrique à 90°\u00a0E (<a href="${ZONE_SOURCE}" rel="noopener">CMRS, présentation à l'OMM, 2017</a>). ` +
+  return `<figure class="card bassin${active ? "" : " mapcard"}">${basinMap(traces, parcours)}<figcaption>${now}${path}<details class="note"><summary>Sources</summary><p>En pointillé, la zone suivie par le CMRS de La Réunion (Météo-France), de l'équateur à 40°\u00a0S et des côtes de l'Afrique à 90°\u00a0E (<a href="${ZONE_SOURCE}" rel="noopener">CMRS, présentation à l'OMM, 2017</a>). ` +
     `${sources}Côtes\u00a0: Natural Earth (domaine public).</p></details></figcaption></figure>${traces ? `<script>${TRACES_SCRIPT}</script>` : ""}`;
 }
 

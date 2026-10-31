@@ -1,15 +1,17 @@
 /**
  * The map of the south-west Indian Ocean on /cyclones, all year: the lands (ocean.json, scripts/build-ocean.py), the
- * zone the RSMC of La Réunion watches, dotted, and La Réunion. It never shows a system of the season, neither its
- * position nor its track, observed or forecast: for the people's safety, the site shows Météo-France's own map and
- * links to its site (kit.md, « Vigilance et cyclone : affichage de Météo-France », after Météo-France's mail of
- * 27/10/2026). While a system is watched, the line under the map sends to that official map, shown whole above it
- * (cmrs-carte.ts), and the map shows nothing else. The rest of the time, it draws the tracks of the past cyclones
+ * zone the RSMC of La Réunion watches, dotted, and La Réunion. It never shows a system's forecast, neither its track
+ * nor a cone nor a distance: for the people's safety, the site shows Météo-France's own map and links to its site
+ * (kit.md, « Vigilance et cyclone : affichage de Météo-France », after Météo-France's mail of 27/10/2026). While a
+ * system is watched, the line under the map sends to that official map, shown whole above it (cmrs-carte.ts), and
+ * the map shows only the path the system has already travelled, its positions at the RSMC's advisories, once
+ * Météo-France agrees (providers/cmrs-trace.ts, the user's decision of 31/10/2026); before that, nothing else. The rest of the time, it draws the tracks of the past cyclones
  * that have a page /cyclones/<slug>, as the RSMC gave them (cyclones-traces.json: Météo-France's best track, the older
  * ones from NOAA's IBTrACS; the user's
  * yes of 31/10/2026): the line only, with its name and year, no wind nor pressure nor stage.
  */
 import best from "../historique/cyclones-traces.json" with { type: "json" };
+import type { Parcours } from "../providers/cmrs-trace.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 import ocean from "./ocean.json" with { type: "json" };
 import { esc } from "./map.js";
@@ -76,15 +78,33 @@ export const TRACES = PASSES.map((p) => {
 /** Météo-France's best track from the season 1986-1987 (Licence Ouverte 2.0), IBTrACS for a cyclone before it. */
 export const TRACES_SOURCES = { ...best.sources, consulte: best.consulte };
 
-/** The text the map stands for, said to screen readers. */
-export function label(traces: boolean): string {
-  return "Carte du sud-ouest de l'océan Indien : l'Afrique de l'Est, Madagascar, les Comores, les Seychelles et les Mascareignes, " +
-    "avec La Réunion. En pointillé, la zone suivie par le CMRS de La Réunion, de l'équateur à 40° S et des côtes de l'Afrique à 90° E. " +
-    (traces ? `En traits numérotés, la trace des cyclones passés\u00a0: ${TRACES.map((t, i) => `${i + 1}, ${t.nom_annee}`).join("\u00a0; ")}. Aucun système de la saison n'y est dessiné.` : "Cette carte ne montre aucun système.");
+/** An advisory's time in La Réunion (UTC+4, no summer time): « 23/10 à 16:00 ». */
+export function avisLe(iso: string): string {
+  const t = new Date(Date.parse(iso) + 4 * 3_600_000).toISOString();
+  return `${t.slice(8, 10)}/${t.slice(5, 7)} à ${t.slice(11, 16)}`;
 }
 
-/** The map; `traces`: the past cyclones' tracks, only while no system is watched. */
-export function basinMap(traces = false): string {
+/** A system's last advisory, as written by its last position: « Agueda, dépression résiduelle, avis du 23/10 à 16:00 ». */
+export const dernierAvis = (p: Parcours) => `${p.nom}, ${p.stade}, avis du ${avisLe(p.heure)}`;
+
+/** The text the map stands for, said to screen readers. */
+export function label(traces: boolean, parcours: Parcours[] = []): string {
+  return "Carte du sud-ouest de l'océan Indien : l'Afrique de l'Est, Madagascar, les Comores, les Seychelles et les Mascareignes, " +
+    "avec La Réunion. En pointillé, la zone suivie par le CMRS de La Réunion, de l'équateur à 40° S et des côtes de l'Afrique à 90° E. " +
+    (traces ? `En traits numérotés, la trace des cyclones passés\u00a0: ${TRACES.map((t, i) => `${i + 1}, ${t.nom_annee}`).join("\u00a0; ")}. Aucun système de la saison n'y est dessiné.`
+      : parcours.length ? `En trait plein, le chemin déjà parcouru, d'après les avis du CMRS\u00a0: ${parcours.map(dernierAvis).join("\u00a0; ")} (heure de La Réunion). Aucune trajectoire prévue.`
+      : "Cette carte ne montre aucun système.");
+}
+
+/** Where a system's name goes by its last position: on its right, or on its left near the map's right edge. */
+const NAME_ROOM = 380;
+
+/**
+ * The map; `traces`: the past cyclones' tracks, only while no system is watched; `parcours`: the path travelled by
+ * each watched system, its positions at the RSMC's advisories, the last named with its stage and time (never a
+ * forecast).
+ */
+export function basinMap(traces = false, parcours: Parcours[] = []): string {
   const land = ocean.rings.map((r) => `${line(r)}Z`).join("");
   let grid = "";
   for (let lon = 30; lon <= 90; lon += 10) {
@@ -123,9 +143,20 @@ export function basinMap(traces = false): string {
       : side === "gauche" ? `<text x="${x - 30}" y="${y}" style="text-anchor:end">${esc(t.nom_annee)}</text>`
       : `<text x="${x + 30}" y="${y}">${esc(t.nom_annee)}</text>`;
   }).join("")}</g>` : "";
-  return `<svg class="map ocean" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label(traces))}">` +
+  // The path travelled: a line through the positions, a dot at each, the last larger, named over everything else.
+  const cur = traces ? "" : parcours.map((p) => {
+    const at = p.points.map(([lon, lat]) => xy(lon, lat));
+    const [x, y] = at[at.length - 1];
+    const left = x > W - NAME_ROOM;
+    const tx = left ? x - 24 : x + 24, ty = Math.max(y, 56);
+    const anchor = left ? ' style="text-anchor:end"' : "";
+    return `<g class="cur">${at.length > 1 ? `<path d="${line(p.points)}"/>` : ""}${at.slice(0, -1).map(([px, py]) => `<circle cx="${px}" cy="${py}" r="6"/>`).join("")}` +
+      `<circle class="last" cx="${x}" cy="${y}" r="13"/><text class="cn" x="${tx}" y="${ty - 20}"${anchor}>${esc(p.nom)}</text>` +
+      `<text x="${tx}" y="${ty + 20}"${anchor}>${esc(`${p.stade}, ${avisLe(p.heure)}`)}</text></g>`;
+  }).join("");
+  return `<svg class="map ocean" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label(traces, parcours))}">` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>${grid}<path class="land" d="${land}"/><path class="shore" d="${land}"/>` +
-    tracks + zone + zoneName + names + islets + home + lit + `</svg>`;
+    tracks + zone + zoneName + names + islets + home + lit + cur + `</svg>`;
 }
 
 /**
