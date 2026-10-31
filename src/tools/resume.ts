@@ -66,6 +66,7 @@ import { a, credits, de, notFound, placeBlock, text } from "./format.js";
 import { coastText, cyclone, forZone, highest, zoneLevels, zoneShort, zoneText } from "./vigilance.js";
 import type { InfoRow } from "./actualites.js";
 import { ENDS as LITTORAL_ENDS, forSummary, littoral, NONE as LITTORAL_NONE } from "./littoral.js";
+import { enTete } from "./representativeness.js";
 
 // How old an announcement of the route du Littoral may be to be told in a summary.
 const LITTORAL_SUMMARY_HOURS = 12;
@@ -200,9 +201,8 @@ function usable(c: Copy, copy: Cached<unknown> | null | undefined, now: Date): c
 }
 
 function weather(d: PlaceData, fetchedAt: Date, now: Date) {
-  const stations = d.meteo?.stations.filter((s) => s.mesures.temperature) ?? [];
   // A station far below or on the other side says little of the place: one that stands for it, when there is one.
-  const s = stations.find((x) => x.pertinence !== "faible") ?? stations[0];
+  const s = enTete(d.meteo?.stations);
   // From today's, a copy of before midnight starting with yesterday (web/data.ts).
   const jours = joursDuJour(d.prevision?.jours, fetchedAt, now);
   // In the evening, tomorrow too: what is left of today is short.

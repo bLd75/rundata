@@ -185,7 +185,9 @@ export async function meteoActuelle(cache: Cache, lieu: string | undefined, now 
   };
   const elsewhere = (x: (typeof ranked)[number]) => !chosen.includes(x) && !chosen.some((y) => sameSpot(x.o, y.o));
   take(ranked[0]);
-  take(ranked.find((x) => elsewhere(x) && x.o.readings.some((rd) => ASKED.has(rd.variable) && !covered.has(rd.variable))) ?? ranked.find(elsewhere));
+  // At the same spot too when it brings the temperature a wind beacon lacks: Le Port's station is 0,5 km from Cambaie's.
+  const warms = (x: (typeof ranked)[number]) => !covered.has("temperature") && x.o.readings.some((rd) => rd.variable === "temperature");
+  take(ranked.find((x) => (elsewhere(x) || (!chosen.includes(x) && warms(x))) && x.o.readings.some((rd) => ASKED.has(rd.variable) && !covered.has(rd.variable))) ?? ranked.find(elsewhere));
   take(ranked.find((x) => !chosen.includes(x) && x.o.readings.some((rd) => !covered.has(rd.variable))));
 
   const shown = chosen.slice(0, 2);

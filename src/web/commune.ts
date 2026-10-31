@@ -37,6 +37,7 @@ import { RSS_HINT, rssLink, rssPath, rssTitle } from "./rss.js";
 import { INSEE } from "../places/insee.js";
 import { ligneTuile } from "./antennes.js";
 import * as sitesHs from "../providers/sites-hs.js";
+import { enTete } from "../tools/representativeness.js";
 
 /** What a commune's page is made of, each part null or missing when there is no copy yet. */
 export interface CommuneLive {
@@ -135,7 +136,7 @@ function tile(t: Tile, span: number[] = []): string {
 
 function weather(p: PlacePage, data: Cached<PlaceData> | null, now: Date): Live | undefined {
   if (!data) return undefined;
-  const s = data.value.meteo?.stations.find((x) => x.mesures.temperature);
+  const s = enTete(data.value.meteo?.stations);
   if (!s) return empty(`Aucune température près de ${p.nom} dans la lecture ${readAt(data.fetchedAt, now).de}.`);
   // In the evening, tomorrow's forecast rather than what is left of today; from today's, whenever the copy was made.
   const evening = new Date(now.getTime() + 4 * 3600_000).getUTCHours() >= 17;
@@ -418,7 +419,7 @@ export function communePage(origin: string, p: PlacePage, l: CommuneLive, now = 
 
   const grid = spans(tiles);
 
-  const s = l.place?.value.meteo?.stations.find((x) => x.mesures.temperature);
+  const s = enTete(l.place?.value.meteo?.stations);
   const headline = s
     ? `<div class="now"><span class="big">${esc(thin(s.mesures.temperature!))}</span>` +
       `<p>mesurés à <b>${esc(s.heure_mesure.split(" ")[1] ?? s.heure_mesure)}</b> par la station <b>${esc(s.station)}</b>${mairie ? `. Mairie <b>${mairie.valeur.toLowerCase()}</b>` : ""}${bus.live && !bus.live.vide && bus.live.valeur !== "Pas de départ" ? `, prochain bus à <b>${bus.live.valeur}</b>` : ""}.</p></div>`

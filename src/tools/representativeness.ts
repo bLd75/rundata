@@ -65,3 +65,13 @@ const RANG: Record<Pertinence, number> = { bonne: 0, moyenne: 1, faible: 2 };
  * « moyenne » station at 10,8 km and 43 m came before a « bonne » one at 6,9 km and 181 m for Sainte-Rose.
  */
 export const mieux = (a: Fit, b: Fit) => RANG[a.pertinence] - RANG[b.pertinence] || a.score - b.score;
+
+/**
+ * The station a page or a summary names first for a place, from the stations of `meteo_actuelle` (in the order of
+ * mieux): of those with a temperature, the first « bonne », else the first « moyenne », else the first. One rule, so that
+ * /meteo, /aujourdhui, the commune's page and `resume_du_jour` name the same station.
+ */
+export function enTete<S extends { mesures: Record<string, string>; pertinence?: string }>(stations: S[] = []): S | undefined {
+  const warm = stations.filter((s) => s.mesures.temperature);
+  return warm.find((s) => s.pertinence === "bonne") ?? warm.find((s) => s.pertinence !== "faible") ?? warm[0];
+}
