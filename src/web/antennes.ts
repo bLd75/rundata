@@ -56,18 +56,21 @@ export const code = (s: antennes.Support): string =>
 const parse = (c: string): Code => [...c.matchAll(/([a-z])(\d*)(?:\+(\d+))?/g)].map((m) => [m[1], m[2], m[3] ?? ""]);
 
 /**
- * How a support shows for an operator (`o`, its letter, "" for all) and a generation (`g`, "" for all), its colour by
- * operator (`m` "o") or by generation ("t"): hidden (null), else whether it is a ring (only planned) and its colour's
- * key. By operator, the operators that have that generation: one, its colour; several, « plusieurs », even when one
- * operator is chosen. By generation, the most recent active, else the most recent planned, of the operator chosen or
- * of all. The page's script runs the same, from LOOK: the test runs both on every support.
+ * How a support shows for the operators chosen (`o`, their letters, none for all) and the generations chosen (`g`,
+ * none for all), its colour by operator (`m` "o") or by generation ("t"): hidden (null), else whether it is a ring
+ * (only planned) and its colour's key. Shown when one of the operators chosen has one of the generations chosen,
+ * active or planned. By operator, the operators that have one of those generations: one, its colour; several,
+ * « plusieurs », even when one operator is chosen. By generation, the most recent active, else the most recent
+ * planned, of the operators chosen or of all. The page's script runs the same, from LOOK: the test runs both on every
+ * support.
  */
-export function look(d: Code, o: string, g: string, m: string): [boolean, string] | null {
-  const r = d.filter(([x]) => !o || x === o);
-  const on = r.some(([, a]) => (g ? a.includes(g) : a.length > 0));
-  if (!on && !r.some(([, a, p]) => !g || (a + p).includes(g))) return null;
+export function look(d: Code, o: string[], g: string[], m: string): [boolean, string] | null {
+  const has = (x: string) => (g.length ? g.some((y) => x.includes(y)) : x.length > 0);
+  const r = d.filter(([x]) => !o.length || o.includes(x));
+  const on = r.some(([, a]) => has(a));
+  if (!on && !r.some(([, a, p]) => has(a + p))) return null;
   if (m === "o") {
-    const w = d.filter(([, a, p]) => !g || (a + p).includes(g));
+    const w = d.filter(([, a, p]) => has(a + p));
     return [!on, w.length > 1 ? "m" : w[0][0]];
   }
   const a = r.map((x) => x[1]).join(""), x = Math.max(...[...(a || r.map((y) => y[2]).join(""))].map(Number));
@@ -75,8 +78,8 @@ export function look(d: Code, o: string, g: string, m: string): [boolean, string
 }
 
 /** look(), for the page's script. */
-export const LOOK = `const look=(d,o,g,m)=>{const r=d.filter(([x])=>!o||x===o);const on=r.some(([,a])=>g?a.includes(g):a.length>0);if(!on&&!r.some(([,a,p])=>!g||(a+p).includes(g)))return null;
-if(m==="o"){const w=d.filter(([,a,p])=>!g||(a+p).includes(g));return[!on,w.length>1?"m":w[0][0]]}
+export const LOOK = `const look=(d,o,g,m)=>{const has=(x)=>g.length?g.some((y)=>x.includes(y)):x.length>0;const r=d.filter(([x])=>!o.length||o.includes(x));const on=r.some(([,a])=>has(a));
+if(!on&&!r.some(([,a,p])=>has(a+p)))return null;if(m==="o"){const w=d.filter(([,a,p])=>has(a+p));return[!on,w.length>1?"m":w[0][0]]}
 const a=r.map((x)=>x[1]).join(""),x=Math.max(...[...(a||r.map((y)=>y[2]).join(""))].map(Number));return[!on,x===5?"5":x===4?"4":"2"]};`;
 
 /** The colours, marketing's (Okabe-Ito, never an operator's brand colour): by operator, then by generation. */
@@ -96,55 +99,64 @@ const MOTS = {
   formes: "Point plein : au moins une antenne active (en service, ou techniquement opérationnelle pour la 5G). Anneau : en projet seulement (projet approuvé).",
 };
 
-/** The count under the map for each choice, keyed as the page's address: « orange-5g », « tnt », « tous ». */
-function counts(codes: Code[]): [string, string][] {
-  const S = antennes.SUPPORTS;
-  const count = (o: string, g: string) => {
-    const l = codes.map((d) => look(d, o, g, "o")).filter((x) => x !== null);
-    return { on: l.filter((x) => !x[0]).length, off: l.filter((x) => x[0]).length };
-  };
-  const out: [string, string][] = [];
-  for (const op of [undefined, ...OPS]) {
-    for (const g of ["", ...GENS]) {
-      const { on, off } = count(op?.k ?? "", g);
-      const etat = g === "5" ? "techniquement opérationnelle" : "en service";
-      const key = [op?.id, g && `${g}g`].filter(Boolean).join("-") || "tous";
-      out.push([key, !op && !g ? `${nombre(S.length)} supports d'antennes mobiles, dont ${nombre(on)} avec au moins une antenne active`
-        : !g ? `${op!.o} : ${nombre(on)} supports avec au moins une antenne active, ${nombre(off)} en projet seulement`
-        : !op ? `${g}G : ${nombre(on)} supports avec la ${g}G ${etat}, ${nombre(off)} en projet, tous opérateurs`
-        : `${op.o}, ${g}G : ${nombre(on)} supports avec la ${g}G ${etat}, ${nombre(off)} en projet`]);
-    }
-  }
-  for (const r of RADIOS) {
-    const on = antennes.EMETTEURS.filter((e) => e[r.id]);
-    out.push([r.id, `${r.tab} : ${nombre(on.length)} supports d'émetteurs ${r.name}, ${nombre(on.reduce((n, e) => n + e[r.id]!, 0))} stations`]);
-  }
-  return out;
+/** « 4G ou 5G »: the generations chosen, in the count's words. */
+const ou = (g: string[]) => g.map((x) => `${x}G`).join(", ").replace(/, ([^,]+)$/, " ou $1");
+
+/**
+ * The count under the map, for what it shows: `on` mobile supports with one of the generations chosen active (in
+ * service, or technically operational for the 5G, as the legend says; the 5G alone, « techniquement opérationnelle »,
+ * the ANFR's word), `off` only planned, `e` supports of the radio and TV chosen (`r`), named after them (marketing).
+ * The page's script runs the same, from PHRASE: the test runs both.
+ */
+export function phrase(on: number, off: number, e: number, g: string[], r: string[] = []): string {
+  const n = on + off;
+  const tv = r.includes("tnt"), radio = r.some((x) => x !== "tnt");
+  const parts = [
+    n ? `${nombre(n)} ${n > 1 ? "supports" : "support"} d'antennes mobiles ${n > 1 ? "affichés" : "affiché"}, dont ${nombre(on)} avec au moins une antenne${g.length ? ` ${ou(g)}` : ""} ${g.join("") === "5" ? "techniquement opérationnelle" : "active"}` +
+      (off ? ` et ${nombre(off)} en projet seulement` : "") : "",
+    e ? `${nombre(e)} ${e > 1 ? "supports" : "support"} d'émetteurs de ${radio && tv ? "radio et de télévision" : tv ? "télévision" : "radio"} ${e > 1 ? "affichés" : "affiché"}` : "",
+  ].filter(Boolean);
+  return parts.length ? `${parts.join("\u00a0; ")}.` : "Aucun support pour ce choix.";
 }
 
-/** The filters' script: the choice from the buttons or the address (« #orange-5g »), each support's look, the legends. */
+/** phrase(), for the page's script; nombre() as the server writes it (a narrow space between thousands). */
+export const PHRASE = `const nombre=(n)=>String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g,"\\u202f"),ou=(g)=>g.map((x)=>x+"G").join(", ").replace(/, ([^,]+)$/," ou $1");
+const phrase=(on,off,e,g,r=[])=>{const n=on+off,tv=r.includes("tnt"),radio=r.some((x)=>x!=="tnt");const parts=[n?nombre(n)+" "+(n>1?"supports":"support")+" d'antennes mobiles "+(n>1?"affichés":"affiché")+", dont "+nombre(on)+" avec au moins une antenne"+(g.length?" "+ou(g):"")+" "+(g.join("")==="5"?"techniquement opérationnelle":"active")+
+(off?" et "+nombre(off)+" en projet seulement":""):"",e?nombre(e)+" "+(e>1?"supports":"support")+" d'émetteurs de "+(radio&&tv?"radio et de télévision":tv?"télévision":"radio")+" "+(e>1?"affichés":"affiché"):""].filter(Boolean);return parts.length?parts.join("\\u00a0; ")+".":"Aucun support pour ce choix."};`;
+
+/**
+ * The filters' script: the choices from the boxes or the address (« #orange+free-4g+5g », and « #orange-5g » as
+ * before), each support's look, the legends and the count. Several operators and several types at once; « Tous » is
+ * checked when nothing else is, and unchecks the rest. The radio and the TV have no operator here: chosen alone, the
+ * row of the operators is off; with a generation, the operators filter the mobile supports only. With them, the
+ * colours are by type, the radio's own then never one of an operator's.
+ */
 const FILTRES_SCRIPT = `(()=>{const f=document.querySelector(".antf");if(!f)return;const fig=f.closest("figure"),S=[...fig.querySelectorAll("circle.s")],E=[...fig.querySelectorAll("circle.e")];
 ${LOOK}
+${PHRASE}
 const D=S.map((s)=>[...s.dataset.g.matchAll(/([a-z])(\\d*)(?:\\+(\\d+))?/g)].map((m)=>[m[1],m[2],m[3]||""]));
-const ins=(n)=>[...f.querySelectorAll("[name="+n+"]")],val=(n)=>(ins(n).find((i)=>i.checked)||{}).value||"",set=(n,v)=>ins(n).forEach((i)=>{i.checked=i.value===v});
-let mode=val("ac");const RADIOS=${JSON.stringify(RADIOS.map((r) => r.id))};
-const draw=(keep)=>{const t=val("at"),radio=RADIOS.includes(t);if(radio){set("ao","");set("ac","t")}else set("ac",mode);ins("ao").concat(ins("ac")).forEach((i)=>{i.disabled=radio});
-f.querySelectorAll(".r-ao,.r-ac").forEach((r)=>r.classList.toggle("dis",radio));
-const op=f.querySelector("[name=ao]:checked"),o=op&&op.value?op.dataset.k:"",g=radio?"":t.slice(0,1),m=radio?"t":mode;
-S.forEach((s,i)=>{const l=radio?null:look(D[i],o,g,m);s.setAttribute("class",l?"s k"+l[1]+(l[0]?" r":""):"s h")});
-E.forEach((e)=>e.setAttribute("class",radio&&e.dataset.k.split(" ").includes(t)?"e kr":"e h"));
-const key=[val("ao"),t].filter(Boolean).join("-")||"tous";fig.querySelectorAll(".lg").forEach((x)=>{x.hidden=x.dataset.k!==key});
-fig.querySelector(".lgc-o").hidden=m!=="o";fig.querySelector(".lgc-t").hidden=m!=="t";fig.querySelector(".lgc-t").classList.toggle("radio",radio);fig.querySelector(".formes").hidden=radio;
-if(!keep)history.replaceState(null,"",key==="tous"?location.pathname+location.search:"#"+key)};
-const read=()=>{const h=decodeURIComponent(location.hash.slice(1)),op=ins("ao").find((i)=>i.value&&(h===i.value||h.startsWith(i.value+"-"))),t=op?h.slice(op.value.length+1):h;
-if(!op&&!ins("at").some((i)=>i.value&&i.value===t))return false;set("ao",op?op.value:"");set("at",ins("at").some((i)=>i.value===t)?t:"");return true};
-f.addEventListener("change",(e)=>{if(e.target.name==="ac")mode=e.target.value;draw()});addEventListener("hashchange",()=>{if(read())draw(true)});
-f.hidden=false;read();draw(true)})();`;
+const ins=(n)=>[...f.querySelectorAll("[name="+n+"]")],vals=(n)=>ins(n).filter((i)=>i.checked&&i.value),set=(n,v)=>ins(n).forEach((i)=>{i.checked=i.value?v.includes(i.value):!v.length}),
+one=(n)=>(ins(n).find((i)=>i.checked)||{}).value||"",pick=(n,v)=>ins(n).forEach((i)=>{i.checked=i.value===v});
+let mode=one("ac");const RADIOS=${JSON.stringify(RADIOS.map((r) => r.id))};
+const draw=(keep)=>{const T=vals("at").map((i)=>i.value),R=T.filter((t)=>RADIOS.includes(t)),G=T.filter((t)=>!RADIOS.includes(t)).map((t)=>t.slice(0,1)),radio=R.length>0,mobile=!radio||G.length>0;
+if(!mobile)set("ao",[]);pick("ac",radio?"t":mode);ins("ao").forEach((i)=>{i.disabled=!mobile});ins("ac").forEach((i)=>{i.disabled=radio});
+f.querySelector(".r-ao").classList.toggle("dis",!mobile);f.querySelector(".r-ac").classList.toggle("dis",radio);
+const O=vals("ao").map((i)=>i.dataset.k),m=radio?"t":mode;let on=0,off=0,e=0;
+S.forEach((s,i)=>{const l=mobile?look(D[i],O,G,m):null;if(l){if(l[0])off++;else on++}s.setAttribute("class",l?"s k"+l[1]+(l[0]?" r":""):"s h")});
+E.forEach((x)=>{const k=x.dataset.k.split(" ").some((t)=>R.includes(t));if(k)e++;x.setAttribute("class",k?"e kr":"e h")});
+fig.querySelector(".lg").textContent=phrase(on,off,e,G,R);
+fig.querySelector(".lgc-o").hidden=m!=="o";const lt=fig.querySelector(".lgc-t");lt.hidden=m!=="t";lt.classList.toggle("radio",!mobile);fig.querySelector(".formes").hidden=!mobile;
+const key=[vals("ao").map((i)=>i.value).join("+"),T.join("+")].filter(Boolean).join("-");if(!keep)history.replaceState(null,"",key?"#"+key:location.pathname+location.search)};
+const read=()=>{const h=decodeURIComponent(location.hash.slice(1));if(!h)return false;const V=[...ins("ao"),...ins("at")].filter((i)=>i.value).sort((a,b)=>b.value.length-a.value.length),got=[];
+for(let p=0;p<h.length;){const i=V.find((x)=>h.startsWith(x.value,p)&&(p+x.value.length===h.length||"+-".includes(h[p+x.value.length])));if(!i)return false;got.push(i);p+=i.value.length+1}
+["ao","at"].forEach((n)=>set(n,got.filter((i)=>i.name===n).map((i)=>i.value)));return true};
+f.addEventListener("change",(ev)=>{const i=ev.target;if(i.name==="ac")mode=i.value;else{const l=ins(i.name),all=l.find((x)=>!x.value);if(i===all)set(i.name,[]);else all.checked=!l.some((x)=>x.value&&x.checked)}draw()});
+addEventListener("hashchange",()=>{if(read())draw(true)});f.hidden=false;read();draw(true)})();`;
 
-/** A row of buttons, one choice: its name, then « Tous » and the rest. */
-const row = (name: string, label: string, list: { v: string; tab: string; k?: string }[], on: string) =>
-  `<div class="tabs aqtabs r-${name}" role="radiogroup" aria-label="${esc(label.replace(/ :$/, ""))}"><span class="tl" aria-hidden="true">${esc(label)}</span>` +
-  list.map((x) => `<input type="radio" name="${name}" id="${name}-${x.v || "tous"}" value="${x.v}"${x.k ? ` data-k="${x.k}"` : ""}${x.v === on ? " checked" : ""}><label for="${name}-${x.v || "tous"}">${esc(x.tab)}</label>`).join("") + `</div>`;
+/** A row of buttons: its name, then « Tous » and the rest; several at once (boxes) or one (`one`). */
+const row = (name: string, label: string, list: { v: string; tab: string; k?: string }[], on: string, one = false) =>
+  `<div class="tabs aqtabs r-${name}" role="${one ? "radiogroup" : "group"}" aria-label="${esc(label.replace(/ :$/, ""))}"><span class="tl" aria-hidden="true">${esc(label)}</span>` +
+  list.map((x) => `<input type="${one ? "radio" : "checkbox"}" name="${name}" id="${name}-${x.v || "tous"}" value="${x.v}"${x.k ? ` data-k="${x.k}"` : ""}${x.v === on ? " checked" : ""}><label for="${name}-${x.v || "tous"}">${esc(x.tab)}</label>`).join("") + `</div>`;
 
 const swatch = (k: string, label: string) => `<span class="sw sw-${k}"><i style="--c:${COULEURS[k]}"></i>${esc(label)}</span>`;
 
@@ -154,10 +166,10 @@ function map(): string {
   const filtres = `<div class="antf" hidden>` +
     row("ao", MOTS.operateur, [{ v: "", tab: MOTS.tous }, ...OPS.map((x) => ({ v: x.id, tab: x.o, k: x.k }))], "") +
     row("at", MOTS.type, [{ v: "", tab: MOTS.tous }, ...GENS.map((g) => ({ v: `${g}g`, tab: `${g}G` })), ...RADIOS.map((r) => ({ v: r.id, tab: r.tab }))], "") +
-    row("ac", MOTS.couleur, [{ v: "o", tab: MOTS.parOperateur }, { v: "t", tab: MOTS.parType }], "o") + `</div>`;
+    row("ac", MOTS.couleur, [{ v: "o", tab: MOTS.parOperateur }, { v: "t", tab: MOTS.parType }], "o", true) + `</div>`;
   // Without the script: every mobile support, coloured by operator, as the filters' first choice.
   const supports = antennes.SUPPORTS.map((s, i) => {
-    const [x, y] = project(s.lon, s.lat), l = look(parsed[i], "", "", "o")!;
+    const [x, y] = project(s.lon, s.lat), l = look(parsed[i], [], [], "o")!;
     return `<circle class="s k${l[1]}${l[0] ? " r" : ""}" cx="${x}" cy="${y}" r="6" data-g="${codes[i]}"/>`;
   }).join("");
   const emetteurs = antennes.EMETTEURS.map((e) => {
@@ -167,10 +179,12 @@ function map(): string {
   const formes = `<span class="formes"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="5" class="in"/></svg><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="4" class="ring"/></svg>${esc(MOTS.formes)}</span>`;
   const legende = `<span class="lgc lgc-o">${OPS.map((x) => swatch(x.k, x.o)).join("")}${swatch("m", MOTS.plusieurs)}</span>` +
     `<span class="lgc lgc-t" hidden>${["5", "4", "2", "r"].map((k) => swatch(k, MOTS.types[k])).join("")}<span class="tn">${esc(MOTS.typeNote)}</span></span>`;
-  const phrases = counts(parsed).map(([k, t]) => `<span class="lg" data-k="${k}"${k === "tous" ? "" : " hidden"}>${esc(t)}.</span>`).join("");
+  // Without the script, every mobile support: the script counts again what each choice shows.
+  const all = parsed.map((d) => look(d, [], [], "o")!);
+  const compte = `<span class="lg">${esc(phrase(all.filter((l) => !l[0]).length, all.filter((l) => l[0]).length, 0, []))}</span>`;
   return `<figure class="card mapcard antmap">${filtres}` +
     islandMap({ overlay: `<g class="ants">${supports}${emetteurs}</g>`, peaks: true, label: "Carte de La Réunion (974) : les supports d'antennes déclarés à l'ANFR, filtrés par opérateur et par type" }) +
-    `<figcaption class="note">${legende}${formes}${phrases}</figcaption></figure><script>${FILTRES_SCRIPT}</script>`;
+    `<figcaption class="note">${legende}${formes}${compte}</figcaption></figure><script>${FILTRES_SCRIPT}</script>`;
 }
 
 function table(): string {
