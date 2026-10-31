@@ -219,7 +219,7 @@ describe("the map on /vigilance", () => {
     expect(band).toContain('<div class="wrap intro vhero">');
     const order = ['<p class="big vh vab vg1">Vigilance verte</p>', '<p class="vstate">Aucune vigilance particulière à La Réunion dans les 24 heures du bulletin.</p>',
       `<p class="cyc">Pas d'alerte cyclonique · <a href="/cyclones">Cyclones dans le bassin, alerte du préfet →</a></p>`,
-      '<p class="note when">Bulletin de Météo-France émis le 22/10 16:02', `<p class="off"><b><a href="${mf.OFFICIEL_VIGILANCE}" rel="noopener">Consulter le site officiel de Météo-France</a></b></p>`, 'mf-haut'];
+      '<p class="note when">Bulletin de Météo-France émis le 22/10 à 16:02', `<p class="off"><b><a href="${mf.OFFICIEL_VIGILANCE}" rel="noopener">Consulter le site officiel de Météo-France</a></b></p>`, 'mf-haut'];
     const at = order.map((x) => band.indexOf(x));
     expect(at.every((i) => i >= 0), JSON.stringify(at)).toBe(true);
     expect([...at].sort((x, y) => x - y)).toEqual(at);
