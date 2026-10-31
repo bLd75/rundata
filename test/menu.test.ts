@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { ouvrir } from "../src/web/associations-drapeau.js";
+import { associationsPage } from "../src/web/associations.js";
 import { WITH_PAGE } from "../src/web/categories.js";
 import * as enfants from "../src/vie/enfants.js";
 import type { Alerte } from "../src/web/data.js";
@@ -40,9 +42,27 @@ describe("the order of the pages", () => {
   });
 
   it("keeps every page in the menu, quiet or not", () => {
-    const all = [...WITH_PAGE.map((c) => c.key), "communes"].sort();
+    const all = [...WITH_PAGE.map((c) => c.key), "associations", "communes"].sort();
     for (const page of [meteoPage(O, null, NOW), withVolcan(VOLCAN, () => meteoPage(O, null, NOW, VIGILANCE))]) {
       expect([...menu(page)].sort()).toEqual(all);
+    }
+  });
+
+  it("has a tile for the clubs' space right after the sport's, with its own icon and colour, while the space is out", () => {
+    const page = meteoPage(O, null, NOW);
+    const keys = menu(page);
+    expect(keys[keys.indexOf("sport") + 1]).toBe("associations");
+    expect(keys.indexOf("associations")).toBeLessThan(keys.indexOf("calendrier"));
+    expect(page).toContain(`<li><a class="k-associations" href="/associations?ref=menu"><span class="kb"><svg class="ic"`);
+    expect(page).toContain(`<span class="gn">Associations</span>`);
+    expect(CSS).toContain(".k-associations{--k:#f472d0}");
+    // Its page marked as the one shown, whatever the ?ref= of the link.
+    expect(associationsPage(O, { clubs: 0, evenements: 0, prochains: [] })).toContain(`<a class="k-associations" href="/associations?ref=menu" aria-current="page">`);
+    ouvrir(false);
+    try {
+      expect(menu(meteoPage(O, null, NOW))).not.toContain("associations");
+    } finally {
+      ouvrir(true);
     }
   });
 

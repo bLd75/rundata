@@ -1,8 +1,13 @@
 /** The look of the clubs' and associations' space and forms (web/associations.ts, web/propositions.ts), in the stylesheet of every page (pages.ts). */
 export const FORMS_CSS = `.fo{max-width:44rem}
 .fo label,.fo legend{font-weight:600;font-size:.92rem}
-.fo .f{display:grid;gap:.3rem}
-.fo input:not([type=checkbox]):not([type=radio]),.fo textarea,.fo select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:.6rem .75rem;width:100%}
+.band .fo.card{color:var(--ink)}
+.fo .f{display:grid;gap:.3rem;align-content:start;min-width:0}
+.fo input:not([type=checkbox]):not([type=radio]),.fo textarea,.fo select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:.6rem .75rem;width:100%;min-width:0;max-width:100%}
+.fo input[type=date],.fo input[type=time]{-webkit-appearance:none;appearance:none;min-height:2.9rem;text-align:left}
+.fo input::-webkit-date-and-time-value{text-align:left}
+.fo input.vide:not(:focus)::-webkit-datetime-edit{opacity:0}
+.fo input.vide:not(:focus)::-webkit-date-and-time-value{color:transparent;opacity:0}
 .fo textarea{min-height:4.5rem;resize:vertical}
 .fo .row{display:flex;flex-wrap:wrap;gap:.8rem}
 .fo .row>.f{flex:1 1 12rem}
@@ -20,6 +25,10 @@ export const FORMS_CSS = `.fo{max-width:44rem}
 .fo .msg{display:none;font-weight:700;border-radius:10px;padding:.6rem .8rem;background:var(--warn-bg);color:var(--lave)}
 .fo .msg.ok{background:var(--surface-2);color:var(--ink);border-left:4px solid var(--ren)}
 .fo .msg:target,.fo .msg.vu{display:block}
+.clubs-trouves{list-style:none;padding:0;margin:.4rem 0 0;display:grid;gap:.5rem}
+.clubs-trouves a{display:block;min-height:44px;box-sizing:border-box;padding:.65rem .9rem;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--ink);font-weight:600;text-decoration:none}
+.clubs-trouves a span{display:block;font-weight:400;font-size:.88rem;color:var(--muted)}
+.fo .adresse{font-size:1.05rem;overflow-wrap:anywhere}
 .outils{list-style:none;padding:0;margin:0;display:grid;gap:1rem;grid-template-columns:repeat(auto-fill,minmax(16rem,1fr))}
 .outil h3{margin:0 0 .3rem}
 .outil ol{padding-left:1.2rem;margin:.3rem 0}

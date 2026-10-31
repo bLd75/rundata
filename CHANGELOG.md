@@ -7,6 +7,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 ## Samedi 31 octobre 2026
 
 - Météo : sur la carte Pluie, le rejeu passe d'une image radar à l'autre en fondu, et les gouttes tombent sans à-coups.
+- Bus : préparez un trajet d'un arrêt, d'une commune ou d'un lieu à un autre, direct ou avec une correspondance.
 - Cartes : le relief de l'île prend les couleurs du sol, d'après la photo aérienne de l'IGN, à l'accueil et sur les cartes en relief.
 - Antennes : la carte se zoome, sur le relief, le Plan IGN ou la photo aérienne.
 - Calendrier : une carte Lune, avec la phase, le lever et le coucher à Saint-Denis et les prochaines phases.

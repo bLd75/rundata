@@ -46,14 +46,14 @@ const form = (slug: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-/** One active link, its refresh token encrypted for its row, moderated `jours` days before NOW. */
-async function relie(jours = 1): Promise<number> {
+/** One active link, its refresh token encrypted for its row, moderated `jours` days before NOW; `ouvert`: in the open data too. */
+async function relie(jours = 1, ouvert = 0): Promise<number> {
   const jeton = await empreinteJeton("le-secret-du-lien-envoye");
   const secret = await chiffre.chiffrer(FIRST, chiffre.lien("helloasso", ORG, jeton));
   const t = Math.floor(NOW.getTime() / 1000) - jours * 86400;
-  return Number(db.prepare(`INSERT INTO connexions (t, plateforme, organisation, nom, commune, code_postal, lien, secret, email, jeton, etat, confirme_le, modere_le)
-    VALUES (?, 'helloasso', ?, 'Club de pétanque du Tampon', 'Le Tampon', '97430', 'https://www.helloasso.com/associations/club-de-petanque', ?, 'club@example.org', ?, 'actif', ?, ?)`)
-    .run(t, ORG, secret, jeton, t, t).lastInsertRowid);
+  return Number(db.prepare(`INSERT INTO connexions (t, plateforme, organisation, nom, commune, code_postal, lien, secret, email, jeton, etat, confirme_le, modere_le, ouvert)
+    VALUES (?, 'helloasso', ?, 'Club de pétanque du Tampon', 'Le Tampon', '97430', 'https://www.helloasso.com/associations/club-de-petanque', ?, 'club@example.org', ?, 'actif', ?, ?, ?)`)
+    .run(t, ORG, secret, jeton, t, t, ouvert).lastInsertRowid);
 }
 const secretGarde = async () => {
   const [r] = rows<{ secret: string; jeton: string }>("SELECT secret, jeton FROM connexions");
@@ -176,7 +176,7 @@ describe("the scheduled reading of a linked association", () => {
     // Once only.
     await lireUne(new Date(NOW.getTime() + 6 * H));
     expect(sent).toHaveLength(1);
-    expect(await connexions.retirer(second)).toEqual({ nom: "Club de pétanque du Tampon" });
+    expect(await connexions.retirer(second)).toEqual({ nom: "Club de pétanque du Tampon", ouvert: false });
     expect(rows("SELECT * FROM connexions")).toEqual([]);
   });
 
@@ -246,7 +246,7 @@ describe("the open data", () => {
     formulaires.ouvrir(formulaires.ASSOCIATIONS_EN_LIGNE);
   });
 
-  it("never gives the events read on a platform in the agenda ICS and JSON: the platform has not allowed it", async () => {
+  beforeEach(() => {
     db.exec(readFileSync(new URL("../scripts/propositions.sql", import.meta.url), "utf8"));
     db.exec(readFileSync(new URL("../scripts/propositions-b.sql", import.meta.url), "utf8"));
     propositions.configure(
@@ -255,6 +255,15 @@ describe("the open data", () => {
       async <T>(sql: string, ...params: unknown[]) => db.prepare(sql).all(...(params as (string | number | null)[])) as T[],
     );
     formulaires.ouvrir(true);
+  });
+  const feed = async (path: string) => {
+    const r = await handle(new Request(`https://rundata.re${path}`), new Cache());
+    expect(r.status, path).toBe(200);
+    return r.text();
+  };
+  type Json = { evenements: Record<string, unknown>[] };
+
+  it("never gives the events of an association that did not choose it in the agenda ICS and JSON", async () => {
     await relie();
     await lireUne(NOW);
     expect(rows("SELECT COUNT(*) AS n FROM evenements_connectes")).toEqual([{ n: 2 }]);
@@ -265,5 +274,54 @@ describe("the open data", () => {
       expect(body, path).not.toContain("Tournoi");
       expect(body, path).not.toContain("HelloAsso");
     }
+  });
+
+  it("gives those of an association that chose it, each with its association, its HelloAsso page and the day of our reading", async () => {
+    await relie(1, 1);
+    await lireUne(NOW);
+    // Another association, linked without the open data, with an event read the same day: never in the feed.
+    const t = Math.floor(NOW.getTime() / 1000);
+    const autre = Number(db.prepare(`INSERT INTO connexions (t, plateforme, organisation, nom, lien, jeton, etat, reussi_le, lu_le, ouvert)
+      VALUES (?, 'helloasso', 'autre-club', 'Autre club', 'https://www.helloasso.com/associations/autre-club', 'j2', 'actif', ?, ?, 0)`).run(t, t, t).lastInsertRowid);
+    db.prepare("INSERT INTO evenements_connectes (connexion, id, maj, titre, debut, lien) VALUES (?, 'secret', 'm', 'Loto fermé', '2026-11-20T18:00', 'https://www.helloasso.com/associations/autre-club/evenements/loto')").run(autre);
+    const json = JSON.parse(await feed(JSON_PATH)) as Json;
+    expect(json.evenements).toEqual([
+      {
+        id: expect.stringMatching(/^helloasso-\d+-noel$/),
+        titre: "Tournoi noel",
+        seances: [{ debut: "2026-11-14T18:00:00+04:00", fin: "2026-11-14T23:00:00+04:00" }],
+        lieu: "Boulodrome",
+        commune: "Le Tampon",
+        prix: "5 €",
+        description: "Ouvert à tous.",
+        lien: `${PAGE}noel`,
+        organisateur: "Club de pétanque du Tampon",
+        plateforme: "HelloAsso",
+        lu_le: "2026-10-29T10:00:00+04:00",
+        mention: "Publié par Club de pétanque du Tampon sur HelloAsso, repris sur rundata.re avec son accord, lu le 29/10/2026",
+      },
+      expect.objectContaining({ titre: "Tournoi de Pâques", commune: "Saint-Pierre", lien: `${PAGE}paques` }),
+    ]);
+    const ics = await feed(ICS_PATH);
+    expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(2);
+    expect(ics).toContain("SUMMARY:Tournoi noel\r\n");
+    expect(ics).toContain(`URL:${PAGE}noel\r\n`);
+    expect(ics).toContain("LOCATION:Boulodrome\\, Le Tampon\r\n");
+    expect(ics.replace(/\r\n /g, "")).toContain("Publié par Club de pétanque du Tampon sur HelloAsso\\, repris sur rundata.re avec son accord\\, lu le 29/10/2026.");
+    for (const body of [JSON.stringify(json), ics]) {
+      expect(body).not.toContain("Loto fermé");
+      expect(body).not.toContain("Autre club");
+    }
+  });
+
+  it("takes them out once the association withdraws, and gives none before the flag", async () => {
+    await relie(1, 1);
+    await lireUne(NOW);
+    expect(await feed(JSON_PATH)).toContain("Tournoi noel");
+    connecteurs.ouvrir(false);
+    for (const path of [JSON_PATH, ICS_PATH]) expect(await feed(path), path).not.toContain("Tournoi");
+    connecteurs.ouvrir(true);
+    expect(await connexions.retirer("le-secret-du-lien-envoye")).toEqual({ nom: "Club de pétanque du Tampon", ouvert: true });
+    for (const path of [JSON_PATH, ICS_PATH]) expect(await feed(path), path).not.toContain("Tournoi");
   });
 });

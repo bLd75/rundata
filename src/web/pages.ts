@@ -224,6 +224,7 @@ const ICON: Record<string, string> = {
   trophy: `<path d="M8 4h8v5a4 4 0 0 1-8 0Z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 21h8M10 17h4"/>`,
   news: `<path d="M4 5h13v14H6a2 2 0 0 1-2-2Z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M7 9h7M7 12h7M7 15h4"/>`,
   kids: `<circle cx="12" cy="5" r="2.5"/><path d="M12 8v7M7 11h10M9 21l3-6 3 6"/>`,
+  people: `<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.4a6 6 0 0 1 3 5.6"/>`,
   key: `<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M14 9l2 2"/>`,
   wifi: `<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><path d="M12 19.5h.01"/>`,
   antenna: `<circle cx="12" cy="9" r="1.5"/><path d="M8.5 5.5a5 5 0 0 0 0 7M15.5 5.5a5 5 0 0 1 0 7M5.5 2.5a9 9 0 0 0 0 13M18.5 2.5a9 9 0 0 1 0 13M12 10.5 8 21M12 10.5l4 10.5M9.5 17h5"/>`,
@@ -263,7 +264,7 @@ p,ul,ol,table,figure{margin:0}
 /* A section's colour is never one of the alert scale (yellow, orange, red, purple) nor a red: those say a real state
    (kit.md). The sections of risks share one neutral colour. */
 .k-meteo{--k:#ff9f43}.k-vigilance,.k-crues,.k-volcan,.k-cyclones,.k-secheresse{--k:#4fd1c5}.k-actualites{--k:#a5d8ff}.k-mer{--k:#22b8cf}.k-bus{--k:#4dabf7}.k-velos{--k:#51cf66}.k-bornes{--k:#94d82d}.k-eau{--k:#3bc9db}.k-coupures{--k:#74c0fc}.k-dae{--k:#40c057}.k-sentiers{--k:#69db7c}.k-sport{--k:#ffa94d}.k-historique{--k:#e599f7}.k-agenda{--k:#da77f2}.k-enfants{--k:#f06595}.k-emploi{--k:#20c997}.k-antennes{--k:#ced4da}.k-marches{--k:#748ffc}
-.k-air{--k:#38d9a9}.k-electricite{--k:#fab005}.k-calendrier{--k:#b197fc}.k-communes{--k:#f783ac}.k-services{--k:#74c0fc}.k-trafic{--k:#91a7ff}.k-terrain{--k:#d8a65a}
+.k-air{--k:#38d9a9}.k-electricite{--k:#fab005}.k-calendrier{--k:#b197fc}.k-associations{--k:#f472d0}.k-communes{--k:#f783ac}.k-services{--k:#74c0fc}.k-trafic{--k:#91a7ff}.k-terrain{--k:#d8a65a}
 .kb{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:12px;flex:none;color:var(--k);
 background:linear-gradient(155deg,color-mix(in srgb,var(--k) 20%,transparent),color-mix(in srgb,var(--k) 9%,transparent));
 box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k) 32%,transparent)}
@@ -494,6 +495,7 @@ background:rgb(255 255 255/.12);border:1px solid rgb(255 255 255/.2);-webkit-bac
 .btn .ic{width:1.15rem;height:1.15rem}
 .btn:hover{transform:translateY(-2px)}
 .btn.sun,.band .btn.sun{background:var(--sun);color:var(--sun-ink);box-shadow:0 12px 30px -10px rgb(255 207 31/.7)}
+.clubs{border-left:4px solid var(--sun)}.clubs h2{font-size:clamp(1.15rem,3.2vw,1.4rem);line-height:1.2}.clubs p{margin:0}.clubs-go{display:flex;flex-wrap:wrap;align-items:center;gap:.7rem 1.2rem}.clubs-top a{color:var(--sun);font-weight:700}
 .btn.glass,.band .btn.glass{color:#fff;background:rgb(255 255 255/.12);border:1px solid rgb(255 255 255/.25);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .facts-live{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;gap:.5rem;width:100%;max-width:34rem}
 .facts-live li{display:flex}
@@ -1136,8 +1138,13 @@ const withHook = (band: string, path: string, volcan?: boolean, own?: string) =>
   return h ? band.replace("</h1>", `</h1>\n    <p class="hook">${esc(h)}</p>`) : band;
 };
 
-// The menu: every category with a page, then the communes; the first few also sit in the bar on wide screens.
-const MENU = [...WITH_PAGE.map((c) => ({ key: c.key, nom: c.nom, path: c.path, icon: c.icon })), { key: "communes", nom: "Communes", path: "/communes", icon: "pin" }];
+// The menu: every category with a page, the clubs' space after the sport (once it is out), then the communes; the first
+// few also sit in the bar on wide screens.
+const MENU = [
+  ...WITH_PAGE.flatMap((c) => [{ key: c.key, nom: c.nom, path: c.path, icon: c.icon },
+    ...(c.key === "sport" ? [{ key: "associations", nom: "Associations", path: "/associations?ref=menu", icon: "people" }] : [])]),
+  { key: "communes", nom: "Communes", path: "/communes", icon: "pin" },
+];
 
 /**
  * The bar on every page: the brand, the main categories on wide screens, the assistant button and the menu of
@@ -1147,8 +1154,9 @@ const MENU = [...WITH_PAGE.map((c) => ({ key: c.key, nom: c.nom, path: c.path, i
  * bar never scrolls.
  */
 function header(path: string, origin: string, u: Urgent): string {
-  const current = (p: string) => (inCategory(path, p) ? ' aria-current="page"' : "");
-  const menu = byUse(MENU, u);
+  // Without the ?ref= a link may carry: the clubs' space is still the page shown.
+  const current = (p: string) => (inCategory(path, p.split("?")[0]) ? ' aria-current="page"' : "");
+  const menu = byUse(MENU.filter((m) => m.key !== "associations" || enLigne()), u);
   const quick = [...urgentKeys(u), ...FIRST, "communes"].map((k) => menu.find((m) => m.key === k)!)
     .map((m) => `<a class="k-${m.key}" href="${m.path}"${current(m.path)}>${icon(m.icon)}${esc(m.nom)}</a>`).join("");
   const grid = menu.map((m) => `<li><a class="k-${m.key}" href="${m.path}"${current(m.path)}><span class="kb">${icon(m.icon)}</span><span class="gn">${esc(m.nom)}</span></a></li>`).join("");
@@ -2185,7 +2193,8 @@ ${enLigne() ? `<h2 id="associations-donnees">Ce que les clubs et associations en
   <p><b>Formulaire «\u00a0Nous donner votre lien\u00a0».</b> Le lien, le nom de l'organisation, sa commune et le contact facultatif (jamais publié) sont effacés 12 mois après l'envoi.</p>
   <p id="abus"><b>Contre les abus</b>, pour les ${connecteursEnLigne() ? "trois" : "deux"} formulaires, une empreinte de la connexion est gardée un jour, puis effacée. L'adresse IP elle-même n'est pas gardée. La vérification anti-robot (Cloudflare Turnstile) voit l'adresse au moment de l'envoi, sans que nous la gardions. Dès qu'elle s'affiche sur la page d'un de ces formulaires, cette vérification garde aussi dans votre navigateur une donnée de Cloudflare, nommée «\u00a0cf.turnstile.u\u00a0». C'est du stockage local du navigateur, pas un cookie. Elle appartient à la vérification anti-robot, dont Cloudflare ne publie pas le rôle exact. Le site ne la lit pas. Elle n'a pas de date d'effacement\u00a0: elle s'efface depuis les réglages du navigateur (données du site rundata.re).</p>
   ` : ""}${connecteursEnLigne() ? `<h2 id="plateformes-donnees">Les associations reliées à une plateforme (HelloAsso)</h2>
-  <p>Une association qui relie son compte HelloAsso colle ses deux clés HelloAsso et une adresse e-mail. Ses clés servent une seule fois, au moment de l'envoi, à obtenir un jeton d'accès\u00a0: elles ne sont jamais gardées. Nous gardons ce jeton chiffré, le nom de l'association, sa commune et l'adresse e-mail, qui n'est jamais publiée. Avec ce jeton, rundata.re lit seulement les événements publics de l'association\u00a0: le titre, les dates, le lieu, le prix, le lien et le début de la description. Il ne lit jamais ses commandes, paiements, dons, participants ni adhérents, même si le jeton le permet. Le jeton et l'adresse sont effacés dès que l'association retire l'accès (lien reçu par e-mail, ou demande à contact@rundata.re), quand HelloAsso refuse le jeton, quand la connexion expire après 30 jours sans lecture réussie, et après 48 heures si la connexion n'a jamais été confirmée. Au retrait, ses événements sont effacés aussi. Ces événements ne figurent pas dans nos données ouvertes (agenda ICS et JSON) tant que HelloAsso ne nous l'a pas autorisé par écrit.</p>
+  <p>Une association qui relie son compte HelloAsso colle ses deux clés HelloAsso et une adresse e-mail. Ses clés servent une seule fois, au moment de l'envoi, à obtenir un jeton d'accès\u00a0: elles ne sont jamais gardées. Nous gardons ce jeton chiffré, le nom de l'association, sa commune et l'adresse e-mail, qui n'est jamais publiée. Avec ce jeton, rundata.re lit seulement les événements publics de l'association\u00a0: le titre, les dates, le lieu, le prix, le lien et le début de la description. Il ne lit jamais ses commandes, paiements, dons, participants ni adhérents, même si le jeton le permet. Le jeton et l'adresse sont effacés dès que l'association retire l'accès (lien reçu par e-mail, ou demande à contact@rundata.re), quand HelloAsso refuse le jeton, quand la connexion expire après 30 jours sans lecture réussie, et après 48 heures si la connexion n'a jamais été confirmée. Au retrait, ses événements sont effacés aussi. Ces événements entrent dans nos données ouvertes (agenda ICS et JSON, Licence Ouverte 2.0) seulement si l'association l'a choisi en reliant son compte\u00a0; HelloAsso l'a accepté par écrit le 29\u00a0octobre 2026.</p>
+  <p>HelloAsso nous a conseillé de passer par les clés API de chaque association\u00a0: c'est aujourd'hui la seule façon de lire les événements d'une association qui le souhaite. Ces clés donnent accès à tout le compte de l'association\u00a0; rundata.re n'en lit que les événements publics (titre, dates, lieu, prix, lien), jamais les commandes, les paiements ni les participants. L'association peut couper l'accès à tout moment en supprimant ses clés API dans l'onglet «\u00a0Intégrations et API\u00a0» de son espace HelloAsso.</p>
   ` : ""}  <h2>Quand votre assistant pose une question</h2>
   <p>Votre assistant (ChatGPT, Claude, Le Chat…) n'envoie au connecteur que les paramètres de l'outil, par exemple « Saint-Paul » ou une adresse, jamais votre conversation. Pour répondre, rundata.re transmet ce paramètre aux services publics qui détiennent la donnée : par exemple, une adresse est envoyée au géocodeur de l'IGN, puis le point trouvé au cadastre, au Géoportail de l'urbanisme, à Géorisques et à l'API DVF du Cerema. Ce que fait votre assistant de la conversation relève de sa propre politique de confidentialité.</p>
   <h2>Vos droits</h2>

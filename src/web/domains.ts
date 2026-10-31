@@ -61,6 +61,7 @@ import { cycloneWater } from "./eau-cyclone.js";
 import { tapNote } from "../tools/eau.js";
 import { aller, MOTS as ALLER_MOTS, permis, porte, type Porte, retire, SHEET as ALLER } from "./aller.js";
 import { mentionSports, noteLa1ere, noteReunionFr } from "../tools/non-repris.js";
+import { journeyForm } from "./itineraire.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
 // What a search engine shows of a title.
@@ -1029,7 +1030,10 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
   ${d ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Les réseaux</h3>${networks}</figure>` : ""}
 </div>`;
 
-  const body = `<section aria-labelledby="h-gares">
+  const body = `<section aria-labelledby="h-trajet"><div class="sec-h"><h2 id="h-trajet">Préparer un trajet</h2>
+  <p>D'un arrêt, d'une commune ou d'un lieu à un autre, tous réseaux confondus, d'après les horaires prévus.</p></div>
+  ${journeyForm()}</section>
+<section aria-labelledby="h-gares">
   <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-gares">Prochains départs dans les gares routières</h2>
   <p>Toutes les lignes qui partent de chaque gare, tous réseaux confondus, au plus trois départs par ligne et par direction.</p></div>
   ${gares}
@@ -1669,8 +1673,7 @@ export function sentiersPage(origin: string, data: Cached<SentiersAnswer> | null
 
   const hikes = `<section aria-labelledby="h-traces">
   <div class="card cta"><h2 id="h-traces">Choisir une randonnée</h2>
-  <p>Les ${d?.randonnees.length ?? ""} itinéraires complets (GR R1, R2, R3, sommets, boucles) et les sentiers de l'ONF, avec leur trace GPS, leur distance, leur dénivelé et l'état du jour, sur une carte de l'île et filtrables : <a href="/randonnees">la page randonnée</a>.</p>
-  ${randopitonsNote()}</div>
+  <p>Les ${d?.randonnees.length ?? ""} itinéraires complets (GR R1, R2, R3, sommets, boucles) et les sentiers de l'ONF, avec leur trace GPS, leur distance, leur dénivelé et l'état du jour, sur une carte de l'île et filtrables : <a href="/randonnees">la page randonnée</a>.</p></div>
 </section>`;
 
   const title = "Sentiers fermés Réunion aujourd'hui : liste ONF · 974";
@@ -2082,15 +2085,6 @@ export function randonneesLive(data: Cached<SentiersAnswer> | null): Live | unde
   return { valeur: `${n} sentier${n > 1 ? "s" : ""} fermé${n > 1 ? "s" : ""}`, detail: `sur ${d.suivis} suivis par l'ONF ; traces GPS, distance et dénivelé de ${d.randonnees.length} randonnées et de chaque sentier` };
 }
 
-/**
- * Randopitons, the island's best-known hiking site, linked from /sentiers and each /randonnees/<slug>: its home page
- * only, never one of its sheets (not without its agreement), and never named a source, the trails' state being the
- * ONF's. Nothing reads it: its robots.txt shuts Claude out.
- */
-export const RANDOPITONS = "https://randopitons.re/";
-export const randopitonsNote = () =>
-  `<p class="note">Fiches détaillées, photos et avis de randonneurs : <a href="${RANDOPITONS}" target="_blank" rel="noopener">Randopitons<span aria-hidden="true">\u00a0↗</span></a></p>`;
-
 /** The sectors of the hikes as links, the page's own marked: on /randonnees, /sentiers and each sector's page. */
 export function sectorLinks(current?: string): string {
   return `<nav class="parts" aria-label="Randonnée par secteur">${SECTEURS_RANDO.map((s) =>
@@ -2238,8 +2232,7 @@ ${stateBlock}
   <p>La trace GPX s'ouvre dans les applications de randonnée et les montres GPS. ${kind === "sentier" ? "C'est le sentier tel que l'ONF le trace sur sa carte, à pleine résolution." : "C'est l'itinéraire complet tel que les contributeurs d'OpenStreetMap l'ont relevé ; il peut emprunter des sentiers fermés : voir leur état ci-dessus."} Altitudes, dénivelés et profil : modèle de terrain de l'IGN (RGE ALTI).</p>
   ${others}
   ${weatherForTrace((d?.lignes ?? []).flatMap((l) => l.points))}
-  ${cloudSeaLink(summit)}
-  ${kind === "randonnee" ? randopitonsNote() : ""}</div>
+  ${cloudSeaLink(summit)}</div>
   ${warnings([
     "Un sentier fermé l'est par arrêté préfectoral ou décision de l'ONF : s'y engager est interdit et dangereux, même avec une trace.",
     "Vérifier la vigilance météo avant de partir : par fortes pluies, les ravines montent vite et la préfecture ferme d'autres sentiers.",
@@ -2663,13 +2656,15 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
     <p class="pill"><span class="dot"></span>Calendriers et résultats officiels</p>
     <h1>Sport <span class="n974">974</span></h1>
     ${status}
+    ${enLigne() ? `<p class="clubs-top"><a href="/associations/proposer?ref=sport-entete">Votre club organise un événement\u00a0? Proposez-le →</a></p>` : ""}
     ${ask(`Kosa néna konm match sé wikenn la ? Gèt si ${url} é di amwin.`,
       `Quels matchs et quelles compétitions ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
   </div>
   ${next}
 </div>`;
 
-  const body = `<section aria-labelledby="h-venir">
+  const body = `${clubsBox()}
+<section aria-labelledby="h-venir">
   <div class="sec-h"><p class="eyebrow">Quinze prochains jours</p><h2 id="h-venir">À venir</h2>
   <p>Les matchs des championnats régionaux de handball (D1) et de volley (R1) et le calendrier de la Ligue du sport automobile. Heures de La Réunion.</p></div>
   ${d ? (d.a_venir?.length ? bySport(d.a_venir, false) : `<p class="card">Aucun rendez-vous trouvé dans les quinze prochains jours.</p>`) : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
@@ -3019,6 +3014,16 @@ function agendaEnd(r: AgendaRow): string | undefined {
 }
 
 const STATUS: Record<string, string> = { "ANNULÉ": "EventCancelled", "REPORTÉ": "EventPostponed" };
+
+/** At the top of /sport, once the clubs' space is out: the form first, then what /associations explains next. */
+const clubsBox = () =>
+  enLigne()
+    ? `<aside class="card clubs" aria-labelledby="h-clubs">
+  <h2 id="h-clubs">Votre club ou votre association organise un match, un tournoi, une course\u00a0?</h2>
+  <p>Proposez-le en 2\u00a0minutes, sans compte\u00a0: après relecture, il s'affiche avec le nom de votre club.</p>
+  <p class="clubs-go"><a class="btn sun" href="/associations/proposer?ref=sport">Proposer un événement</a> <a href="/associations?ref=sport">Votre club a déjà un agenda en ligne\u00a0?</a></p>
+</aside>`
+    : "";
 
 /** Under the lists of events and of matches, once the clubs' space is out (web/associations.ts). */
 const clubsLink = () =>

@@ -243,7 +243,7 @@ const SCHEDULED: Entry[] = [
     trigger: "planifiée",
     what: `agenda lu par la tâche planifiée : ${a.nom}`,
     every: (a.relecture ?? PLANNED_EVERY_SECONDS) / 60,
-    offset: 0,
+    offset: (a.decalage ?? 0) / 60,
     run: { subrequests: a.requetes ?? 1, cpuMs: PLANNED_AGENDA_CPU_MS },
     from: ["src/providers/agenda.ts"],
     basis: "mesuré",
@@ -481,6 +481,29 @@ const SCHEDULED: Entry[] = [
     from: [],
     basis: "estimé",
   },
+  // The clubs' own space (clubs/espace.ts): the daily run asks D1 when MonClub's map was read last, and reads it again
+  // when that is 6 and a half days old, so once a week: the home page (about 2.2 Mo, the map an escaped GeoJSON in it),
+  // its 37 clubs of the island written in one statement, those gone marked in another.
+  {
+    id: "clubs:annuaire",
+    trigger: "planifiée",
+    what: "espace club : les clubs de handball de l'île, relus une fois par semaine sur la carte de MonClub (environ 2,2 Mo), à 04:00 heure de La Réunion",
+    every: 7 * 24 * 60,
+    offset: 0,
+    run: { subrequests: 4, d1Calls: 3, d1RowsRead: 40, d1RowsWritten: 40, cpuMs: 60, memoryMb: 10 },
+    from: ["src/clubs/monclub.ts"],
+    basis: "code",
+  },
+  {
+    id: "clubs:purge",
+    trigger: "planifiée",
+    what: "espace club : la purge quotidienne (D1), à 04:00 heure de La Réunion",
+    every: 24 * 60,
+    offset: 0,
+    run: { subrequests: 3, d1Calls: 3, d1RowsWritten: 5, cpuMs: 2 },
+    from: [],
+    basis: "estimé",
+  },
   {
     id: "connecteurs:purge",
     trigger: "planifiée",
@@ -511,7 +534,7 @@ interface Page {
   cpuMs: number;
   from: string[];
   what?: string;
-  d1?: Pick<Run, "d1Calls" | "d1RowsRead">;
+  d1?: Pick<Run, "d1Calls" | "d1RowsRead" | "d1RowsWritten">;
   /** "mesuré" unless said: a page too new to have been measured is counted from its code. */
   basis?: Basis;
 }
@@ -603,9 +626,19 @@ const OTHER_PAGES: Record<string, Page> = {
   "/associations/relier": { subrequests: 14, cpuMs: 40, from: ["src/web/connecteurs.ts"], d1: { d1Calls: 2, d1RowsRead: 2 }, what: "relier sa plateforme : les clés vérifiées par HelloAsso, puis la connexion écrite (D1) et l'e-mail", basis: "code" },
   // The link found by its hash, then confirmed or withdrawn: a replaced or withdrawn link takes its events with it.
   "/associations/connexion/*": { subrequests: 14, cpuMs: 30, from: ["src/web/connecteurs.ts"], d1: { d1Calls: 4, d1RowsRead: 4 }, what: "le lien reçu par e-mail : confirmer ou retirer la connexion (D1), et l'e-mail qui le dit", basis: "code" },
-  // The open feeds: the data center's copy (Cache API), else the published proposals (D1, one row each) and the copy
-  // written, kept 5 minutes; no header, no source.
-  "/associations/evenements.*": { subrequests: 3, cpuMs: 20, from: ["src/web/flux-associations.ts"], d1: { d1Calls: 1, d1RowsRead: 100 }, what: "les flux ouverts des événements proposés (JSON, ICS) : la copie du centre de données, sinon les propositions publiées (D1), 5 minutes", basis: "estimé" },
+  // The open feeds: the data center's copy (Cache API), else the published proposals and the events of the linked
+  // associations that chose the open data (D1, one row each, the second read only once the connectors are on) and the
+  // copy written, kept 5 minutes; no header, no source.
+  "/associations/evenements.*": { subrequests: 4, cpuMs: 20, from: ["src/web/flux-associations.ts"], d1: { d1Calls: 2, d1RowsRead: 200 }, what: "les flux ouverts des événements proposés et de ceux des associations reliées qui l'ont choisi (JSON, ICS) : la copie du centre de données, sinon D1, 5 minutes", basis: "estimé" },
+  // The clubs' own space (web/club.ts), before its flag: the header's reads as any page, and the clubs proposed (D1).
+  "/associations/club": { subrequests: 8, cpuMs: 30, from: [], d1: { d1Calls: 1, d1RowsRead: 40 }, what: "espace club, écran 1 : les clubs dont une source publique donne l'adresse officielle (D1)", basis: "code" },
+  // The club (D1) and its address read on its MonClub page, only its mask kept 10 minutes (the data center's cache);
+  // to send, Turnstile, the caps counted and the trace written, the address read again, the link written, the e-mail.
+  "/associations/club/demande": { subrequests: 15, cpuMs: 40, from: ["src/web/club.ts"], d1: { d1Calls: 3, d1RowsRead: 4, d1RowsWritten: 4 }, what: "espace club, écran 2 : l'adresse officielle lue sur la fiche MonClub du club et masquée, le masque gardé 10 minutes dans le cache ; à l'envoi, les plafonds comptés (D1), l'adresse relue, puis le lien envoyé par e-mail", basis: "code" },
+  // The e-mailed link found by its hash; its button uses it, draws the personal link and dates the verification.
+  "/associations/club/acces/*": { subrequests: 13, cpuMs: 20, from: [], d1: { d1Calls: 6, d1RowsRead: 2, d1RowsWritten: 4 }, what: "espace club, écran 3 : le lien reçu par e-mail, et « Ouvrir mon espace » (D1)", basis: "code" },
+  // The personal link found by its hash, its use dated once a day.
+  "/associations/club/*": { subrequests: 10, cpuMs: 20, from: [], d1: { d1Calls: 3, d1RowsRead: 1, d1RowsWritten: 2 }, what: "espace club, « Mon agenda » derrière le lien personnel (D1)", basis: "code" },
   "/sites-sans-reponse": { subrequests: 9, cpuMs: 40, from: ["src/sans-reponse.ts"], d1: SANS_REPONSE_D1, what: "les sites publics sans réponse (D1), avec la vigilance et la version de l'en-tête", basis: "code" },
   // The header's reads as any page, and the copy of the mobile sites out of service (KV, behind the data center's cache);
   // the map and the table bundled, built at the isolate's first view.
@@ -867,6 +900,10 @@ export function budget(entries = REGISTRY): string {
     `| contrôle | valeur | limite |\n|---|---:|---:|\n` +
     checks(entries).map((c) => `| ${c.what} | ${n(c.value)} | ${n(c.limit)} |`).join("\n") + `\n\n` +
     `- Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).\n` +
+    // Past 85 % of its limit, the margin left is said, with the rule that keeps it (decided on 31/10/2026).
+    (worst.subrequests > 0.85 * SCHEDULED_BUDGET
+      ? `- Marge : le pire passage planifié est à ${n(worst.subrequests)} sous-requêtes sur ${n(SCHEDULED_BUDGET)}. Une PR qui ajoute des sous-requêtes à la tâche planifiée en retire ou en étale d'abord autant (une cadence plus longue, un autre décalage), pour qu'il ne monte plus.\n`
+      : "") +
     `- Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (${scheduled(entries).filter((e) => e.run.memoryMb).map((e) => `${e.id}, ${n(e.run.memoryMb)} Mo au pic`).join(", ")}), face aux ${n(ISOLATE_MEMORY_MB)} Mo d'un isolat\u00a0; les autres ne la déclarent pas.\n` +
     `- Passage le plus chargé selon les décalages, cadences habituelles : ${hhmm(usual.minute)} UTC, ${n(usual.run.subrequests)} sous-requêtes (${usual.ids.join(", ")}).\n` +
     `- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : ${hhmm(short.minute)} UTC, ${n(short.run.subrequests)} sous-requêtes (${short.ids.join(", ")}).\n` +

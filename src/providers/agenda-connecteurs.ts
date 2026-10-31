@@ -4,7 +4,8 @@
  * others, read from the table rather than from a site. Each event says its association and its platform, « via
  * HelloAsso », with the hour of the last successful reading, and that the platform did not answer since, when so.
  *
- * Never in the open data (agenda ICS and JSON, web/flux-associations.ts): the platform has not allowed it in writing.
+ * In the open data (agenda ICS and JSON, web/flux-associations.ts) only the events of the associations that chose it
+ * while linking (`ouvert`), as HelloAsso agreed in writing on 29/10/2026.
  */
 import type { Cached } from "../cache.js";
 import * as connexions from "../connecteurs/connexions.js";
@@ -21,7 +22,7 @@ export const SOURCE = {
   id: "helloasso_associations",
   nom: "HelloAsso, associations reliées à rundata.re",
   organisme: "Associations de La Réunion, via HelloAsso",
-  licence: "Pas sous licence ouverte\u00a0: événements publics de chaque association qui a relié son compte, repris avec son accord. Ils ne font pas partie de nos données ouvertes.",
+  licence: "Événements publics de chaque association qui a relié son compte, repris avec son accord. Sous Licence Ouverte 2.0, et dans nos données ouvertes, seulement pour les associations qui l'ont choisi.",
   attribution: "l'association organisatrice, via HelloAsso",
   url: "https://rundata.re/associations",
 } satisfies SourceInfo;
@@ -48,9 +49,11 @@ interface Ligne {
   lien: string;
 }
 
-const VISIBLES = `SELECT e.connexion, c.plateforme, c.nom, c.reussi_le, c.lu_le, e.id, e.titre, e.debut, e.fin, e.lieu, e.commune, e.prix, e.description, e.lien
+const visibles = (et = "") => `SELECT e.connexion, c.plateforme, c.nom, c.reussi_le, c.lu_le, e.id, e.titre, e.debut, e.fin, e.lieu, e.commune, e.prix, e.description, e.lien
 FROM evenements_connectes e JOIN connexions c ON c.id = e.connexion
-WHERE c.etat = 'actif' AND COALESCE(e.fin, e.debut) >= ? ORDER BY e.debut, e.connexion, e.id`;
+WHERE c.etat = 'actif'${et} AND COALESCE(e.fin, e.debut) >= ? ORDER BY e.debut, e.connexion, e.id`;
+const VISIBLES = visibles();
+const OUVERTS = visibles(" AND c.ouvert = 1");
 
 const PLATEFORMES: Record<string, string> = { [HELLOASSO.id]: HELLOASSO.nom };
 /** Local time at La Réunion, « 2026-10-24T08:00 » (agenda.ts, `toLocal`). */
@@ -85,13 +88,16 @@ export function evenement(l: Ligne): Evenement {
   };
 }
 
-/** The events to come of the active links; none without the database. */
-export async function evenements(now: Date): Promise<Evenement[]> {
+/** The events to come of the active links (`ouverts`: only those whose association chose the open data); none without the database. */
+export async function evenements(now: Date, ouverts = false): Promise<Evenement[]> {
   const d = connexions.portes();
   if (!d) return [];
   const today = local(now.getTime() / 1000).slice(0, 10);
-  return (await d.all<Ligne>(VISIBLES, today)).filter((l) => l.reussi_le).map(evenement);
+  return (await d.all<Ligne>(ouverts ? OUVERTS : VISIBLES, today)).filter((l) => l.reussi_le).map(evenement);
 }
+
+/** The events for the open data: those of the associations that chose it, none before the flag (web/connecteurs-drapeau.ts). */
+export const ouverts = (now: Date): Promise<Evenement[]> => (enLigne() ? evenements(now, true) : Promise.resolve([]));
 
 export const CONNECTEURS: Agenda = {
   id: ID,

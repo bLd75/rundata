@@ -11,6 +11,8 @@ import { Cache } from "../cache.js";
 import * as climat from "../providers/climat.js";
 import * as meteofrance from "../providers/meteofrance.js";
 import { localClimat } from "./climat-local.js";
+import * as transit from "../providers/transit.js";
+import { localTransit } from "./transit-local.js";
 import { VERSION } from "../server.js";
 
 const cache = new Cache(); // shared by all requests: that is the point
@@ -24,6 +26,9 @@ meteofrance.configure({
 if (process.env.CLIMAT_SQLITE) {
   climat.configure(localClimat(process.env.CLIMAT_SQLITE), process.env.CLIMAT_H_SQLITE ? localClimat(process.env.CLIMAT_H_SQLITE) : undefined);
 }
+
+// The bus timetables from the rows of a build (scripts/build-transit.py writes dist/transit-rows.json).
+if (process.env.TRANSIT_ROWS) transit.configure(localTransit(process.env.TRANSIT_ROWS));
 
 // An MCP request is a few kilobytes of JSON.
 const MAX_BODY = 1024 * 1024;

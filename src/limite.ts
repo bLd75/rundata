@@ -23,11 +23,17 @@ export type Sorte = keyof typeof PAR_MINUTE;
 export const RETRY_AFTER_S = 60;
 
 const FORMULAIRES = /^\/(?:avis|associations\/.+)$/;
+// Read at a source each time it is opened (clubs/espace.ts `apercu`): counted as a form, on any method.
+const LECTURES = new Set(["/associations/club/demande"]);
 
-/** What a request counts against, if anything: a POST to /mcp (or /mcp/), or a form sent. */
+/**
+ * What a request counts against, if anything: a POST to /mcp (or /mcp/), a form sent, or a page that reads a source
+ * for whoever opens it.
+ */
 export function sorteDe(request: Request): Sorte | undefined {
-  if (request.method !== "POST") return undefined;
   const path = new URL(request.url).pathname;
+  if (LECTURES.has(path)) return "formulaire";
+  if (request.method !== "POST") return undefined;
   if (path === "/mcp" || path === "/mcp/") return "mcp";
   return FORMULAIRES.test(path) ? "formulaire" : undefined;
 }

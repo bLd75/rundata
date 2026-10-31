@@ -34,6 +34,7 @@ import * as avis from "./avis.js";
 import * as limite from "./limite.js";
 import { refusRobot } from "./robots.js";
 import * as chiffre from "./connecteurs/chiffre.js";
+import * as espaceClubs from "./clubs/espace.js";
 import * as connexions from "./connecteurs/connexions.js";
 import * as lecture from "./connecteurs/lecture.js";
 import * as propositions from "./propositions.js";
@@ -48,6 +49,7 @@ import * as pluieRetro from "./web/pluie-retro.js";
 import * as rejeu from "./web/rejeu.js";
 import { why } from "./types.js";
 import { configure as metaWebhookSecrets } from "./meta-webhook.js";
+import { cheminMasque } from "./chemin-secret.js";
 
 // How long the edge keeps an entry. Much longer than any freshness window: an old copy is what gets served,
 // marked as such, while a source is down.
@@ -318,6 +320,13 @@ function setup(env: Env): Cache {
     avisDb && (async <T>(sql: string, ...params: unknown[]) => (count(), (await avisDb.prepare(sql).bind(...params).all<T>()).results)),
     env.EMAIL && propositions.envoiCloudflare(env.EMAIL),
   );
+  // The clubs' own space, in the same database (scripts/clubs.sql): its link e-mailed like a proposal's, to the club's
+  // official address only.
+  espaceClubs.configure(
+    avisRun,
+    avisDb && (async <T>(sql: string, ...params: unknown[]) => (count(), (await avisDb.prepare(sql).bind(...params).all<T>()).results)),
+    env.EMAIL && propositions.envoiCloudflare(env.EMAIL),
+  );
   // The public sites that do not answer, in the same database (scripts/sans-reponse.sql): a failed read is written
   // after the response, and only when it changes the host's state (sans-reponse.ts counts its own calls).
   sansReponse.configure(
@@ -350,7 +359,8 @@ export default {
     const c = setup(env);
     // A page served from its last copy refreshes it after the response (web/data.ts); an agenda too slow for the
     // answer is still stored (tools/agenda.ts).
-    const path = new URL(request.url).pathname;
+    // The path as the log lines write it, without the secret of a club's link (chemin-secret.ts).
+    const path = cheminMasque(new URL(request.url).pathname);
     const { value, used, settled } = await counted(PAGE_BUDGET, () => handle(request, c, later, recorder(env, request)).catch((err) => failed(path, err)), (p) => ctx.waitUntil(p));
     // Once the work after the response is done too: it counts against the same budget.
     ctx.waitUntil(settled().then((total) => {
@@ -531,7 +541,7 @@ export default {
     }
     // Once a day, at 04:00 in La Réunion (the run between 00:00 and 00:05 UTC): what the clubs sent is forgotten on
     // time even on the days nothing new is proposed (scripts/propositions.sql), and their links to a platform the same
-    // (scripts/connecteurs.sql).
+    // (scripts/connecteurs.sql), and the clubs' own space (scripts/clubs.sql).
     if (now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
       ctx.waitUntil(propositions.purger(now)
         .then((n) => console.log(`propositions : purge quotidienne, ${n} lignes`))
@@ -539,6 +549,13 @@ export default {
       ctx.waitUntil(connexions.purger(now)
         .then((n) => console.log(`connecteurs : purge quotidienne, ${n} lignes`))
         .catch((err) => console.error("connecteurs : purge impossible", why(err))));
+      ctx.waitUntil(espaceClubs.purger(now)
+        .then((n) => console.log(`espace club : purge quotidienne, ${n} lignes`))
+        .catch((err) => console.error("espace club : purge impossible", why(err))));
+      // The clubs of MonClub, once a week: read when the last reading is 6 and a half days old.
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => espaceClubs.relireAnnuaire(now)))
+        .then(({ value, used }) => value && console.log(`espace club : annuaire relu, ${value.lus} clubs, ${value.retires} retirés, sous-requêtes : ${used}`))
+        .catch((err) => console.error("espace club : annuaire impossible", why(err))));
     }
     // At each run, once the reads above are done: the one association's platform due, if any (every 6 hours each).
     ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => lecture.lireUne(now, () => rafraichirConnecteurs(c, now))))
