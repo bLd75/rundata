@@ -27,6 +27,7 @@ import * as candhis from "./providers/candhis.js";
 import * as radar from "./providers/radar.js";
 import * as vigilanceCarte from "./providers/vigilance-carte.js";
 import * as cmrsCarte from "./providers/cmrs-carte.js";
+import * as cmrsTrace from "./providers/cmrs-trace.js";
 import * as feux from "./providers/feux.js";
 import * as transit from "./providers/transit.js";
 import * as climat from "./providers/climat.js";
@@ -282,6 +283,8 @@ function setup(env: Env): Cache {
   vigilanceCarte.configure(cartes, env.BROWSER);
   // The RSMC's forecast track map, read by the scheduled event while a system is active.
   cmrsCarte.configure(cartes);
+  // The path travelled by a system, from the RSMC's bulletins, once Météo-France agrees (providers/cmrs-trace.ts).
+  cmrsTrace.configure(cartes);
   // The text of the OVPF's releases given in images, read by a collector outside the Worker (scripts/ovpf-ocr.ts).
   ovpfOcr.configure(kv && (async (key: string) => {
     count();
@@ -523,6 +526,13 @@ export default {
       ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => cmrsCarte.passage(c, now)))
         .then(({ value, used, reads }) => console.log(`carte du CMRS : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
         .catch((err) => console.error("carte du CMRS : lecture impossible", why(err))));
+    }
+    // Every 5 minutes, from 25 minutes to 2 h 30 after each synoptic hour, while GDACS has an active system and once
+    // Météo-France agrees: the RSMC's last bulletin, its position kept in KV (src/providers/cmrs-trace.ts).
+    if (kv && cmrsTrace.enLigne() && cmrsTrace.due(now)) {
+      ctx.waitUntil(reads.then(() => counted(BUILD_BUDGET, () => cmrsTrace.passage(c, now)))
+        .then(({ value, used, reads }) => console.log(`trace du CMRS : ${value}, sous-requêtes : ${used}${readsSaid(reads)}`))
+        .catch((err) => console.error("trace du CMRS : lecture impossible", why(err))));
     }
     // Once a day, at 06:00 in La Réunion: each public site that did not answer asked again (sans-reponse.ts), once the
     // reads above are done, so that its one GET is never part of a run of ours.

@@ -65,6 +65,7 @@ import * as sportSource from "../providers/sport.js";
 import { grandRaidRow, mentionProgrammes, quand as sportDay, sportTool, type SportRow } from "../tools/sport.js";
 import { cyclones, type activeRow, type carteOfficielle, type seasonRow } from "../tools/cyclones.js";
 import * as cmrs from "../providers/cmrs-carte.js";
+import * as cmrsTrace from "../providers/cmrs-trace.js";
 import { historiqueMeteo } from "../tools/historique.js";
 import { agenda, type EventRow, mentionIle as agendaNonRepris } from "../tools/agenda.js";
 import { mentionSalles, RESUME_REUNION_FR } from "../tools/non-repris.js";
@@ -1057,6 +1058,8 @@ export interface CyclonesAnswer {
   carte_officielle?: ReturnType<typeof carteOfficielle>;
   /** The page's own: what to show of the RSMC's map (providers/cmrs-carte.ts), while a system is active. */
   carte?: cmrs.Carte;
+  /** The page's own: the path travelled by each active system, from the RSMC's bulletins, once Météo-France agrees (providers/cmrs-trace.ts). */
+  parcours?: cmrsTrace.Parcours[];
   saison_en_cours: { nom: string; systemes: ReturnType<typeof seasonRow>[] };
   saison_precedente?: { nom: string; systemes: ReturnType<typeof seasonRow>[] };
   a_savoir: string;
@@ -1117,8 +1120,9 @@ export async function buildHistorique(cache: Cache, now = new Date()): Promise<H
 /** The tool's answer for the island. */
 export async function buildCyclones(cache: Cache, now = new Date()): Promise<CyclonesAnswer> {
   const a = needed<CyclonesAnswer>(await cyclones(cache, undefined, now), "cyclones");
-  const carte = a.systemes_actifs?.length ? await cmrs.kept() : undefined;
-  return carte ? { ...a, carte } : a;
+  const active = !!a.systemes_actifs?.length;
+  const [carte, parcours] = active ? await Promise.all([cmrs.kept(), cmrsTrace.kept(now)]) : [undefined, []];
+  return { ...a, ...(carte && { carte }), ...(parcours.length && { parcours }) };
 }
 
 export interface AgendaAnswer {
