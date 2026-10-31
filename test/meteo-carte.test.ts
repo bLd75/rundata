@@ -202,10 +202,18 @@ describe("the map of every station on /meteo", () => {
     expect(apart(one, [98], 1, [98], [[...project(55.508, -21.1), 19]])).not.toEqual([project(55.5, -21.1)]);
   });
 
-  it("keeps a summit's name inside the frame when no place around it is free (« Piton de la Fournaise » at 1280)", () => {
+  it("keeps a summit's name inside the frame and off the markers, else does not show it (« Piton de la Fournaise », « 3 070 m » at 1280)", () => {
     expect(NOMS_SCRIPT).toContain("inn=(b)=>b[0]>=vb.x+e&&");
     expect(NOMS_SCRIPT).toContain("free=(b)=>inn(b)&&");
-    expect(NOMS_SCRIPT).toContain("go=ds.find((d)=>free(at2(d)))||(fit.length?fit:ds).reduce(");
+    // Else a place inside the frame that covers no marker's shape (a disc, a pill), the fewest lines and dots; else no name.
+    // A disc as a disc, not its square, and the name's own box less 1 px (a line of text is taller than its letters): a
+    // name may stand by its side.
+    expect(NOMS_SCRIPT).toContain("raw=(d)=>[B[0]+d[0]+u,B[1]+d[1]+u,B[2]+d[0]-u,B[3]+d[1]-u]");
+    expect(NOMS_SCRIPT).toContain('if(e.matches(".mk .sh"))hard.push(e.tagName==="circle"?[b.x+b.width/2,b.y+b.height/2,b.width/2]:box(b,0))');
+    expect(NOMS_SCRIPT).toContain("ok=ds.filter((d)=>inn(at2(d))&&!hard.some((o)=>cut(raw(d),o))),go=ds.find((d)=>free(at2(d)))||(ok.length?");
+    expect(NOMS_SCRIPT).toContain('if(!go){ts.forEach((t)=>t.style.display="none");return}');
+    // Shown again when the map changes, if a place is free then.
+    expect(NOMS_SCRIPT).toContain('ts.forEach((t,i)=>{t.style.display="";');
   });
 
   it("sets two pills on one place one above the other, unless asked to set them aside (the wind's)", () => {
