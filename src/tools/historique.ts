@@ -33,7 +33,7 @@ const DEFAULT_DAYS = 30;
 /** A station speaks for a period when it measured at least this share of its days. */
 const COVERAGE = 0.6;
 /** Below this share of the possible sunshine, a day is grey. */
-const GREY_SIGMA = 30;
+export const GREY_SIGMA = 30;
 const SUNNY_SIGMA = 70;
 const CANDIDATES = 8;
 const LONG_CANDIDATES = 2;
@@ -246,6 +246,28 @@ function dailyRows(p: Period, rain?: Series, temp?: Series, sun?: Series) {
       rafale_max_kmh: fxi != null ? Math.round(fxi * 3.6) : undefined,
     };
   });
+}
+
+/**
+ * The normal of each day of the period, from the station's monthly normals: the day's share of the month's rain, the
+ * month's mean maximum, minimum and sunshine. For the charts of /historique; a field without its normal is left out.
+ */
+function dailyNormals(p: Period, rain?: Series, temp?: Series, sun?: Series) {
+  const ds = [...days(p)];
+  const month = (d: string) => +d.slice(5, 7) - 1;
+  const each = (n: climat.Normales | undefined, f: "rr" | "tx" | "tn" | "inst", v: (x: number, d: string) => number) => {
+    const xs = ds.map((d) => n?.[f]?.[month(d)]);
+    return xs.every((x) => x != null) ? xs.map((x, i) => round1(v(x!, ds[i]))) : undefined;
+  };
+  const nr = rain && climat.normalesOf(rain.poste.poste);
+  const nt = temp && climat.normalesOf(temp.poste.poste);
+  const ns = sun && climat.normalesOf(sun.poste.poste);
+  return {
+    pluie_mm: each(nr, "rr", (x, d) => x / daysIn(+d.slice(0, 4), month(d) + 1)),
+    tmax: each(nt, "tx", (x) => x),
+    tmin: each(nt, "tn", (x) => x),
+    soleil_h: each(ns, "inst", (x) => x / 60),
+  };
 }
 
 /** One row per month (or per year), each against its normal. */
@@ -621,7 +643,7 @@ async function provisoire(cache: Cache, place: Place, jour: string) {
 export async function historiqueMeteo(
   cache: Cache,
   lieu: string | undefined,
-  opts: { jours?: number; du?: string; au?: string; detail?: "jour" | "heure" } = {},
+  opts: { jours?: number; du?: string; au?: string; detail?: "jour" | "heure"; series?: boolean } = {},
   now = new Date(),
 ) {
   if (!climat.enabled()) {
@@ -653,7 +675,10 @@ export async function historiqueMeteo(
     const rows = tour.map((t) => {
       const s = { poste: t.poste, ys: read.get(t.poste.poste) ?? new Map() };
       const has = (f: Field) => share(s, f, p) >= COVERAGE;
-      return { zone: t.zone, station: t.poste.nom, altitude_m: t.poste.alt, lon: t.poste.lon, lat: t.poste.lat, ...summary(p, has("RR") ? s : undefined, has("TX") ? s : undefined, has("INST") ? s : undefined) };
+      const [rain, temp, sun] = [has("RR") ? s : undefined, has("TX") ? s : undefined, has("INST") ? s : undefined];
+      // Day by day, for the charts of /historique only: the tool's answer stays the summaries.
+      const series = opts.series ? { jours: dailyRows(p, rain, temp, sun).map(({ rafale_max_kmh: _, ...j }) => j), normale_jour: dailyNormals(p, rain, temp, sun) } : {};
+      return { zone: t.zone, station: t.poste.nom, altitude_m: t.poste.alt, lon: t.poste.lon, lat: t.poste.lat, ...summary(p, rain, temp, sun), ...series };
     });
     const resume = rows.map((r) => {
       const pl = (r as { pluie?: { total_mm: number; normale_mm?: number } }).pluie;
