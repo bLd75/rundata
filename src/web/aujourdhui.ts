@@ -68,8 +68,11 @@ export function descriptionOf(p: PlacePage, r: Resume): string {
   const m = r.meteo?.mesure;
   const t = m?.mesures.temperature;
   const events = r.evenements_du_jour ? r.evenements_du_jour.liste.length + (r.evenements_du_jour.autres ?? 0) : 0;
-  const cuts = r.coupures_eau?.avis.length ?? 0;
+  // A notice saying not to drink the water is not a cut.
+  const cuts = r.coupures_eau?.avis.filter((n) => !n.ne_pas_boire).length ?? 0;
+  const dry = r.coupures_eau?.avis.some((n) => n.ne_pas_boire);
   const figures = [
+    dry ? "eau à ne pas boire" : "",
     t ? `${thin(t)} mesurés à ${m!.heure_mesure.split(" ")[1] ?? m!.heure_mesure}` : "",
     events ? plural(events, "sortie") : "",
     cuts ? plural(cuts, "coupure d'eau", "coupures d'eau") : "",

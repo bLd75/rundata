@@ -2332,6 +2332,24 @@ function noticeCard(n: CoupuresAnswer["avis"][number]): string {
     `<p class="note">${nobreak(n.texte)}${n.lien ? ` <a href="${esc(n.lien)}" rel="noopener">${n.extrait_coupe && !n.secteurs_complets ? "Les secteurs concernés dans l'avis complet" : "L'avis complet"} →</a>` : ""}</p></li>`;
 }
 
+/**
+ * The head of a page of notices (/coupures-eau, /coupures-eau/<commune>): the notices of cuts or works counted apart
+ * from those saying not to drink the water, so that a notice about the water's quality is never read as a cut. `where`:
+ * « à Salazie » on a commune's page; `dry`: the communes not to drink the water of, on the island's.
+ */
+export function noticesHead(avis: { ne_pas_boire?: boolean }[], where = "", dry: string[] = []): string {
+  const bad = avis.filter((n) => n.ne_pas_boire).length;
+  const cuts = avis.length - bad;
+  const sectors = `dans les secteurs ${bad > 1 ? "des avis" : "de l'avis"}${dry.length ? ` (${esc(dry.join(", "))})` : ""}`;
+  const at = where ? ` ${esc(where)}` : "";
+  const text = !bad
+    ? `avis de coupure ou de travaux en cours, récents ou à venir${at}.`
+    : !cuts
+      ? `avis en cours${at} : <b>eau à ne pas boire</b> ${sectors}.`
+      : `avis de coupure ou de travaux, et ${bad} avis d'<b>eau à ne pas boire</b> ${sectors}.`;
+  return `<div class="now"><span class="big">${cuts || bad}</span><p>${text}</p></div>`;
+}
+
 export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/coupures-eau`;
@@ -2350,8 +2368,7 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
 
   const status = !d
     ? loading("Les avis des distributeurs")
-    : `<div class="now"><span class="big">${d.avis.length}</span><p>avis de coupure ou de travaux en cours, récents ou à venir` +
-      `${dry.length ? ` ; <b>eau à ne pas boire</b> : ${esc(dry.join(", "))}` : ""}.</p></div>`;
+    : noticesHead(d.avis, "", dry);
 
   const list = d
     ? d.avis.length
@@ -2399,9 +2416,11 @@ export function coupuresLive(data: Cached<CoupuresAnswer> | null): Live | undefi
   const d = data?.value;
   if (!d) return undefined;
   const dry = d.ne_pas_boire ?? [];
+  // The notices of cuts or works only: one saying not to drink the water is not a cut.
+  const cuts = d.avis.filter((n) => !n.ne_pas_boire).length;
   return {
     valeur: dry.length ? `ne pas boire : ${esc(dry.join(", "))}` : `${d.avis.length} avis`,
-    detail: dry.length ? `${d.avis.length} avis de coupure ou de travaux récents ou à venir` : "de coupure ou de travaux récents ou à venir",
+    detail: dry.length ? (cuts ? `${cuts} avis de coupure ou de travaux récents ou à venir` : `${d.avis.length} avis en cours`) : "de coupure ou de travaux récents ou à venir",
   };
 }
 

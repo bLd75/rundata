@@ -11,7 +11,7 @@ import { muetPour } from "../tools/coupures.js";
 import { a } from "../tools/format.js";
 import type { Alerte, CoupuresAnswer, EauAnswer, SecheresseAnswer } from "./data.js";
 import { cycloneWater } from "./eau-cyclone.js";
-import { connectorCta, describe, droughtBadge, loading, nobreak, noticeCard, silentText, sourcesNote, tapCard, webPage } from "./domains.js";
+import { connectorCta, describe, droughtBadge, loading, nobreak, noticeCard, noticesHead, silentText, sourcesNote, tapCard, webPage } from "./domains.js";
 import { esc, islandMap } from "./map.js";
 import { ask, hm, icon, layout, type Live, SITE } from "./pages.js";
 import { PAGES, type PlacePage } from "./places.js";
@@ -79,7 +79,7 @@ export function coupuresCommunePage(origin: string, p: PlacePage, w: WaterCopies
     : x.muet && !x.avis.length
       ? `<p class="lead">${esc(x.muet.texte)}</p>`
       : x.avis.length
-      ? `<div class="now"><span class="big">${x.avis.length}</span><p>avis de coupure ou de travaux en cours, récents ou à venir ${esc(where)}${x.dry ? ` ; <b>eau à ne pas boire</b> dans les secteurs de l'avis` : ""}.</p></div>`
+      ? noticesHead(x.avis, where)
       : dist?.avis
         // Worded with marketing: who publishes the notices read, without the commune when that name already says it.
         ? `<p class="lead">Aucun avis de coupure publié par ${esc(publisher!)}${publisher!.includes(p.nom) ? "" : ` ${esc(where)}`} à ${esc(at)}.</p>`
