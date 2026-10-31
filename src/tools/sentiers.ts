@@ -188,9 +188,9 @@ export function warning(rows: RouteRow[], trails: onf.Sentier[] = []) {
     ...hit.map((r) => {
       const shut = r.troncons_onf!.filter((t) => t.etat === "fermé");
       return `${r.randonnee} emprunte ${shut.length} sentier${shut.length > 1 ? "s" : ""} fermé${shut.length > 1 ? "s" : ""} : ` +
-        shut.map((t) => `${t.sentier}${(onf.nuance(t) ?? t.cause) ? ` (${onf.nuance(t) ?? t.cause})` : ""}`).join(", ");
+        shut.map((t) => `${t.sentier}${onf.raison(t) ? ` (${onf.raison(t)})` : ""}`).join(", ");
     }),
-    ...alone.map((w) => `${w.sentier} est fermé${(w.nuance ?? w.cause) ? ` (${w.nuance ?? w.cause})` : ""}`),
+    ...alone.map((w) => { const why = onf.raison({ cause: w.cause, info: w.reouverture }); return `${w.sentier} est fermé${why ? ` (${why})` : ""}`; }),
   ].join("\u00a0; ") + ". Un sentier fermé est interdit : ne pas s'y engager, prendre une variante ouverte ou renoncer.";
   // Said first in the summary when a hike is cut; a trail asked by its name already opens it with its state.
   return { message, sentiers_fermes: [...by.values()], routes: hit.length > 0 };

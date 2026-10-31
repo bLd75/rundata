@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
-import { motifs, nuance, parseRoads, parseTrails } from "../src/providers/sentiers.js";
-import { sentiersRandonnee, trailsNamed } from "../src/tools/sentiers.js";
+import { motifs, nuance, parseRoads, parseTrails, raison } from "../src/providers/sentiers.js";
+import { sentiersRandonnee, trailsNamed, warning } from "../src/tools/sentiers.js";
 import { buildSentiers, type SentiersAnswer } from "../src/web/data.js";
-import { closedTrails, randonneesLive, sentiersPage } from "../src/web/domains.js";
+import { closedTrails, randonneesLive, randonneesPage, sentiersPage } from "../src/web/domains.js";
 
 // The ONF's map of the trails on 24/10/2026, last edited on 20/10: 56 trails closed out of 351 (389 pieces).
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/onf/${f}`, import.meta.url), "utf8");
@@ -62,6 +62,22 @@ describe("sentiers de randonnée", () => {
     const html = sentiersPage("https://rundata.re", copy, monday);
     expect(html).toContain(`Sentier de Montplaisir</a><small>${montplaisir.replace(/'/g, "&#39;")} · Travaux d&#39;exploitation forestière</small>`);
     expect(html).not.toMatch(/ouvert aujourd/);
+  });
+
+  it("keeps the notice's date between brackets after a trail open on weekends, and the cause alone for the others", () => {
+    const weekend = { cause: "Fermé du lundi au vendredi, ouvert le week-end", info: "02/01/27" };
+    const said = `Fermé sur la carte de l'ONF ; ouvert le samedi et le dimanche d'après l'avis de l'ONF : « ${weekend.cause} » · 02/01/27`;
+    expect(raison(weekend)).toBe(said);
+    expect(raison({ cause: "Éboulement", info: "Réouverture 2026" })).toBe("Éboulement");
+    // The summary's warning: a trail cut on a hike, and a closed trail asked alone.
+    const rows = [{ randonnee: "PR1", troncons_onf: [{ sentier: "Sentier A", etat: "fermé", cause: weekend.cause, precision: weekend.info }] }];
+    const trails = [{ nom: "Sentier B", statut: "fermé", ...weekend, longueur_km: 1, points: [] }];
+    const m = warning(rows as never, trails as never)!.message;
+    expect(m).toContain(`PR1 emprunte 1 sentier fermé : Sentier A (${said})`);
+    expect(m).toContain(`Sentier B est fermé (${said})`);
+    // The hikes cut on /randonnees.
+    const hike = { k: "h1", nom: "PR1", slug: "pr1", km: 5, dplus: 300, dmoins: 300, boucle: true, secteur: "Mafate", inconnus: [], onf: 1, fermes: [{ sentier: "Sentier A", cause: weekend.cause, precision: weekend.info }] };
+    expect(randonneesPage("https://rundata.re", { value: { randonnees: [hike], secteurs: [], lignes: [], fermes: 1, suivis: 1, sources: [], hauts: [] } as never, fetchedAt: NOW, stale: false }, NOW)).toContain(`Sentier A (${said.replace(/'/g, "&#39;")})`);
   });
 
   it("answers for a trail by its name", async () => {
