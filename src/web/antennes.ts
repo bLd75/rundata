@@ -3,8 +3,8 @@
  * request. Two rows of filters that combine, an operator and a type (a generation, or the FM, TNT or DAB+ supports), set
  * by the page's address too (« #orange-5g »), and the dots coloured by operator or by generation; without the script,
  * every mobile support coloured by operator. A dot per support, filled when an antenna is active (en service, or
- * techniquement opérationnel for the 5G), a ring when only planned. Then the communes' counts. Never coverage nor
- * exposure.
+ * techniquement opérationnel for the 5G), a ring when only planned. The map zooms as the hikes' does, with the IGN's
+ * backgrounds, closer with one of them (a town's streets). Then the communes' counts. Never coverage nor exposure.
  */
 import type { Cached } from "../cache.js";
 import { INSEE } from "../places/insee.js";
@@ -14,7 +14,8 @@ import * as antennes from "../vie/antennes.js";
 import { dateLongue } from "../vie/internet.js";
 import type { Alerte } from "./data.js";
 import { crumbBar, crumbs, webPage } from "./domains.js";
-import { esc, islandMap, project } from "./map.js";
+import { MAX_ZOOM } from "./carte-zoom.js";
+import { esc, FOND_ZOOM, islandMap, project, zoomIsland } from "./map.js";
 import { credits, layout } from "./pages.js";
 
 export const PATH = "/antennes";
@@ -153,6 +154,15 @@ for(let p=0;p<h.length;){const i=V.find((x)=>h.startsWith(x.value,p)&&(p+x.value
 f.addEventListener("change",(ev)=>{const i=ev.target;if(i.name==="ac")mode=i.value;else{const l=ins(i.name),all=l.find((x)=>!x.value);if(i===all)set(i.name,[]);else all.checked=!l.some((x)=>x.value&&x.checked)}draw()});
 addEventListener("hashchange",()=>{if(read())draw(true)});f.hidden=false;read();draw(true)})();`;
 
+/**
+ * The dots keep about their size on screen as the map zooms (carte-zoom.ts moves its viewBox): a little bigger, up to
+ * half again, so that a close look tells them apart, never the size of a block. Their white ring follows (`--az`, CSS).
+ */
+const TAILLE_SCRIPT = `(()=>{const svg=document.getElementById("amap");if(!svg)return;const C=[...svg.querySelectorAll(".ants circle")],R=C.map((c)=>+c.getAttribute("r")),
+vw=()=>+svg.getAttribute("viewBox").split(" ")[2],w0=vw();let f=1,q=0;
+const fit=()=>{q=0;const k=w0/vw(),n=Math.min(1.5,k**.15)/k;if(Math.abs(n-f)<1e-4)return;f=n;svg.style.setProperty("--az",f);C.forEach((c,i)=>c.setAttribute("r",Math.round(R[i]*f*100)/100))};
+new MutationObserver(()=>{if(!q)q=requestAnimationFrame(fit)}).observe(svg,{attributes:true,attributeFilter:["viewBox"]})})();`;
+
 /** A row of buttons: its name, then « Tous » and the rest; several at once (boxes) or one (`one`). */
 const row = (name: string, label: string, list: { v: string; tab: string; k?: string }[], on: string, one = false) =>
   `<div class="tabs aqtabs r-${name}" role="${one ? "radiogroup" : "group"}" aria-label="${esc(label.replace(/ :$/, ""))}"><span class="tl" aria-hidden="true">${esc(label)}</span>` +
@@ -183,8 +193,8 @@ function map(): string {
   const all = parsed.map((d) => look(d, [], [], "o")!);
   const compte = `<span class="lg">${esc(phrase(all.filter((l) => !l[0]).length, all.filter((l) => l[0]).length, 0, []))}</span>`;
   return `<figure class="card mapcard antmap">${filtres}` +
-    islandMap({ overlay: `<g class="ants">${supports}${emetteurs}</g>`, peaks: true, label: "Carte de La Réunion (974) : les supports d'antennes déclarés à l'ANFR, filtrés par opérateur et par type" }) +
-    `<figcaption class="note">${legende}${formes}${compte}</figcaption></figure><script>${FILTRES_SCRIPT}</script>`;
+    zoomIsland(islandMap({ overlay: `<g class="ants">${supports}${emetteurs}</g>`, peaks: true, fond: "a", label: "Carte de La Réunion (974) : les supports d'antennes déclarés à l'ANFR, filtrés par opérateur et par type" }), "a", { id: "amap", mostFd: MAX_ZOOM * FOND_ZOOM / 2 }) +
+    `<script>${TAILLE_SCRIPT}</script><figcaption class="note">${legende}${formes}${compte}</figcaption></figure><script>${FILTRES_SCRIPT}</script>`;
 }
 
 function table(): string {
