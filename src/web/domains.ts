@@ -6,7 +6,7 @@
  */
 import { enLigne } from "./associations-drapeau.js";
 import { OVPF, OVPF_FACEBOOK, PREFECTURE } from "../providers/volcan.js";
-import { enImages, enImagesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, JOURS_SUIVANTS, type Jour, jusquALecture, LOCALISES, LU_DANS_L_IMAGE, NIVEAU_ILLISIBLE, NON_ANNONCEE, NON_LU, ORSEC_BAN, ovpfNiveau, pitonLines, VIGILANCE_ENCLOS } from "../tools/volcan.js";
+import { BULLETIN_QUOTIDIEN, enImages, enImagesApres, IMAGE_APRES, IMAGE_LUE_APRES, givenAt, JOURS_SUIVANTS, type Jour, jusquALecture, LOCALISES, LOCALISES_LIEN, LU_DANS_L_IMAGE, NIVEAU_ILLISIBLE, NON_ANNONCEE, NON_LU, ORSEC_BAN, ovpfNiveau, pitonLines, VIGILANCE_ENCLOS } from "../tools/volcan.js";
 import { type Ligne, NIVEAUX, TITRE, VERSION } from "../tools/volcan-acces.js";
 import { PATH as SANS_REPONSE } from "./sans-reponse.js";
 import { SOMMET } from "../providers/seismes.js";
@@ -399,7 +399,7 @@ function quakeDays(days: Jour[] | undefined, imageAfter: string | undefined): st
   const end = `${dd(today.jour)}${"en_cours" in today ? " (en cours)" : "non_lu" in today ? ` (${NON_LU})` : ""}`;
   return `<figure class="qdays"><figcaption>Sous le volcan, par jour (heure de La Réunion)</figcaption>` +
     `<ol>${bars}</ol><p class="axis"><span>${dd(days[0].jour)}</span><span>${end}</span></p></figure>` +
-    `<p>${facts}</p><p class="note">${esc(LOCALISES)}</p>` +
+    `<p>${facts}</p><p class="note">${esc(LOCALISES_LIEN[0])} <a href="${BULLETIN_QUOTIDIEN}">bulletin quotidien</a> ${esc(LOCALISES_LIEN[1])}</p>` +
     (imageAfter ? `<p class="note">${esc(imageAfter)}</p>` : "");
 }
 

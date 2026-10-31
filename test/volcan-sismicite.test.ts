@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import type { Info } from "../src/providers/actualites.js";
 import { parse, type Seisme } from "../src/providers/seismes.js";
 import { activityPosts, phaseOf } from "../src/providers/volcan.js";
-import { LOCALISES, perDay, volcanSeismes } from "../src/tools/volcan.js";
+import { BULLETIN_QUOTIDIEN, LOCALISES, perDay, volcanSeismes } from "../src/tools/volcan.js";
 import { volcanLive, volcanPage } from "../src/web/domains.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
@@ -25,6 +25,8 @@ function cacheWith(posts = activityPosts(JSON.parse(fixture("ovpf_bluesky.json")
   return new Cache(store, () => t);
 }
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe("the located earthquakes per day under the volcano", () => {
   it("counts by day of La Réunion, the 30 days up to today, today « en cours », the empty days at 0", () => {
     // 22/10 at 21:30 UTC is 23/10 at 01:30 in La Réunion: today's.
@@ -41,9 +43,27 @@ describe("the located earthquakes per day under the volcano", () => {
     expect(r.seismes.par_jour_sous_le_volcan).toHaveLength(30);
     expect(r.seismes.par_jour_sous_le_volcan.at(-1)).toMatchObject({ jour: "2026-10-23", en_cours: true });
     expect(r.resume).toMatch(/Séismes localisés par l'OVPF sous le volcan, par jour \(heure de La Réunion\) : 17\/10 \d+, .*, 23\/10 \d+ \(jour en cours\)\./);
-    expect(r.resume).toContain(LOCALISES);
     expect(r.seismes.note).toContain(LOCALISES);
     expect(JSON.stringify(r)).not.toMatch(/précéder|imminente?|approche|se calme/);
+  });
+
+  it("links the OVPF's daily bulletin for the events too small to be located, without reading it", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (u: string | URL | Request) => {
+      asked.push(String(u instanceof Request ? u.url : u));
+      throw new Error("no network in tests");
+    });
+    const r = body(await volcanSeismes(cacheWith(), NOW));
+    const said = "Les séismes trop faibles pour être localisés ne sont pas comptés ici\u00a0: l'OVPF les compte dans son bulletin quotidien";
+    expect(BULLETIN_QUOTIDIEN).toBe("https://www.ipgp.fr/volcanoweb/reunion/Bulletin_quotidien/bulletin.html");
+    // In the summary, the note once, the bulletin named in it with its address (data-run).
+    expect(r.resume).toContain(`L'OVPF ne localise qu'une partie des séismes qu'il enregistre\u00a0: son bulletin quotidien (${BULLETIN_QUOTIDIEN}) donne le nombre enregistré, nos chiffres comptent ceux qu'il a localisés, d'après son catalogue.`);
+    expect(r.resume).not.toContain(LOCALISES);
+    expect(r.resume).not.toContain("ne sont pas comptés ici");
+    expect(r.seismes.bulletin_quotidien).toEqual({ texte: `${said}.`, lien: BULLETIN_QUOTIDIEN });
+    // A link only: the bulletin is never read, and none of its figures is taken.
+    expect(asked.filter((u) => u.includes("Bulletin_quotidien"))).toEqual([]);
+    expect(r.sources.map((x: { source: string }) => x.source).join(" ")).not.toMatch(/quotidien/i);
   });
 
   it("draws the bars from 0, one event never filling the chart, and says what is counted", async () => {
@@ -53,7 +73,9 @@ describe("the located earthquakes per day under the volcano", () => {
     expect(html.match(/<figure class="qdays">[\s\S]*?<\/ol>/)![0].match(/<li/g)).toHaveLength(30);
     expect(html).toContain(`<li class="now" aria-label="23/10 (en cours) : `);
     expect(html).toContain(`<p class="axis"><span>24/09</span><span>23/10 (en cours)</span></p>`);
-    expect(html).toContain(`<p class="note">L&#39;OVPF ne localise qu&#39;une partie des séismes qu&#39;il enregistre\u00a0: ses bulletins donnent le nombre enregistré, nos chiffres comptent ceux qu&#39;il a localisés, d&#39;après son catalogue.</p>`);
+    expect(html).toContain(`<p class="note">L&#39;OVPF ne localise qu&#39;une partie des séismes qu&#39;il enregistre\u00a0: son <a href="${BULLETIN_QUOTIDIEN}">bulletin quotidien</a> donne le nombre enregistré, nos chiffres comptent ceux qu&#39;il a localisés, d&#39;après son catalogue.</p>`);
+    // Said once on the page: the bulletin in the note, not a sentence more (data-run).
+    expect(html).not.toContain("ne sont pas comptés ici");
     expect(html).toContain("Séismes localisés par l'OVPF sous le volcan : <b>");
     expect(html).not.toMatch(/(?<!localisés )séismes sous le volcan/i);
     // pitonlive's word on the deformation is not said: on 25/10/2026 it said the opposite of the OVPF's release.
