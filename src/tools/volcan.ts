@@ -95,23 +95,21 @@ export function ipgpMuet(l: Public, lus: { bluesky: boolean; prefecture: boolean
   return `Le site de ${l.nom} ${depuis}${essai}. Un communiqué ou un bulletin de l'observatoire publié depuis peut manquer ici${tail ? `\u00a0; ${tail}` : ""}.`;
 }
 
-// Worded by marketing, under the counts: the catalogue holds the located events only, far fewer in a seismic crisis.
-// What the counts are, never compared with a figure read in an image (marketing, 26/10/2026).
-export const LOCALISES = "L'OVPF ne localise qu'une partie des séismes qu'il enregistre\u00a0: ses bulletins donnent le nombre enregistré, nos chiffres comptent ceux qu'il a localisés, d'après son catalogue.";
 // Its daily bulletin counts those too small to be located: linked, never its figures, which the IPGP's legal notice
 // leaves to its consent for a service open to all (www.ipgp.fr/mentions-legales, read on 31/10/2026). The field
 // `bulletin_quotidien` of the answer says so, its link beside it.
 const TROP_FAIBLES = "Les séismes trop faibles pour être localisés ne sont pas comptés ici\u00a0: l'OVPF les compte dans son bulletin quotidien.";
 export const BULLETIN_QUOTIDIEN = "https://www.ipgp.fr/volcanoweb/reunion/Bulletin_quotidien/bulletin.html";
 /**
- * LOCALISES around « bulletin quotidien » (data-run): the note says it once, the bulletin linked on /volcan, its address
- * after it in the answer's summary.
+ * Worded by marketing, under the counts: the catalogue holds the located events only, far fewer in a seismic crisis.
+ * What the counts are, never compared with a figure read in an image (marketing, 26/10/2026). Split around « bulletin
+ * quotidien » (data-run): the note says it once, the bulletin linked on /volcan, its address after it in the answer.
  */
 export const LOCALISES_LIEN = [
   "L'OVPF ne localise qu'une partie des séismes qu'il enregistre\u00a0: son",
   "donne le nombre enregistré, nos chiffres comptent ceux qu'il a localisés, d'après son catalogue.",
 ] as const;
-const localisesLien = `${LOCALISES_LIEN[0]} bulletin quotidien (${BULLETIN_QUOTIDIEN}) ${LOCALISES_LIEN[1]}`;
+export const LOCALISES = `${LOCALISES_LIEN[0]} bulletin quotidien (${BULLETIN_QUOTIDIEN}) ${LOCALISES_LIEN[1]}`;
 const BAR_DAYS = 30;
 // The catalogue silent: the counts end at its last read, the days after it are not read (marketing).
 /** « jusqu'à notre lecture du 26/10 à 19:00 », of `lus_jusqu_au` « 26/10 à 19:00 ». */
@@ -428,7 +426,7 @@ export async function volcanSeismes(cache: Cache, now = new Date(), detail = tru
         ? `Séismes localisés par l'OVPF ${jusquALecture(q.lus_jusqu_au)} : ${q.sous_le_volcan["7_jours"]} sous le volcan en 7 jours et ${q.sous_le_volcan["30_jours"]} en 30 jours${max}\u00a0; ${q.ailleurs_sur_l_ile["30_jours"]} ailleurs sur l'île en 30 jours. ${JOURS_NON_COMPTES}`
         : `Séismes localisés par l'OVPF en 30 jours : ${q.sous_le_volcan["30_jours"]} sous le volcan${max}, dont ${q.sous_le_volcan["7_jours"]} ces 7 derniers jours\u00a0; ${q.ailleurs_sur_l_ile["30_jours"]} ailleurs sur l'île.`,
       `Séismes localisés par l'OVPF sous le volcan, par jour (heure de La Réunion) : ${q.par_jour_sous_le_volcan.slice(-7).map((j) => `${day(`${j.jour}T12:00:00+04:00`)} ${jourDit(j)}`).join(", ")}.`,
-      localisesLien,
+      LOCALISES,
     );
   }
   // How the last alerts went: only those whose start and end a release writes (volcan-historique.ts).
