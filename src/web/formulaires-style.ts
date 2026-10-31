@@ -5,6 +5,8 @@ export const FORMS_CSS = `.fo{max-width:44rem}
 .fo input:not([type=checkbox]):not([type=radio]),.fo textarea,.fo select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:.6rem .75rem;width:100%;min-width:0;max-width:100%}
 .fo input[type=date],.fo input[type=time]{-webkit-appearance:none;appearance:none;min-height:2.9rem;text-align:left}
 .fo input::-webkit-date-and-time-value{text-align:left}
+.fo input.vide:not(:focus)::-webkit-datetime-edit{opacity:0}
+.fo input.vide:not(:focus)::-webkit-date-and-time-value{color:transparent;opacity:0}
 .fo textarea{min-height:4.5rem;resize:vertical}
 .fo .row{display:flex;flex-wrap:wrap;gap:.8rem}
 .fo .row>.f{flex:1 1 12rem}

@@ -341,6 +341,15 @@ describe("the forms on the site (web/propositions.ts)", () => {
     expect(FORMS_CSS).toContain(".fo input[type=date],.fo input[type=time]{-webkit-appearance:none;appearance:none;min-height:2.9rem;text-align:left}");
   });
 
+  it("hides the date or time WebKit shows in an empty field, until it is filled or touched", async () => {
+    // An empty « Heure de début » showed the current time, pale, as if filled (Safari on an iPhone, 31/10/2026).
+    expect(FORMS_CSS).toContain(".fo input.vide:not(:focus)::-webkit-datetime-edit{opacity:0}");
+    expect(FORMS_CSS).toContain(".fo input.vide:not(:focus)::-webkit-date-and-time-value{color:transparent;opacity:0}");
+    formulaires.ouvrir(true);
+    const html = await (await handle(new Request("https://rundata.re/associations/proposer", { headers: { accept: "text/html" } }), new Cache())).text();
+    expect(html).toContain(`e.classList.toggle("vide",!e.value);for(const e of document.querySelectorAll(".fo input[type=date],.fo input[type=time]"))`);
+  });
+
   it("shows the link form's outcome by CSS alone", () => {
     const html = plain(formulaires.lienForm("/associations"));
     for (const id of ["lien-merci", "lien-limite", "lien-erreur"]) expect(html).toContain(`id="${id}"`);

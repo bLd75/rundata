@@ -238,6 +238,9 @@ function proposerForm(e: Etat, now: Date, correction?: { action: string; f: URLS
 
 // « Jusqu'au » only for a repeated event, once the script runs; without it, the field stays.
 const REPETE_SCRIPT = `<script>{const r=document.getElementById("p-repete"),j=document.getElementById("p-jusqu");if(r&&j){const f=j.closest(".f"),s=()=>{f.hidden=!r.value};r.addEventListener("change",s);s()}}</script>`;
+// An empty date or time field shows today's date or the current time, pale (WebKit, Safari on an iPhone), as if filled:
+// marked « vide » while it is, its text hidden by FORMS_CSS until it is touched.
+const VIDE_SCRIPT = `<script>{const s=e=>e.classList.toggle("vide",!e.value);for(const e of document.querySelectorAll(".fo input[type=date],.fo input[type=time]")){s(e);for(const t of["input","change","blur"])e.addEventListener(t,()=>s(e))}}</script>`;
 
 /** The page of the form, or of what happens once it is sent. */
 export function proposerPage(origin: string, e: Etat = { kind: "vide" }, now = new Date(), alerte?: Alerte): string {
@@ -257,7 +260,7 @@ export function proposerPage(origin: string, e: Etat = { kind: "vide" }, now = n
   <p>Nous vous avons envoyé un lien pour confirmer l'événement. Sans confirmation sous 48 heures, la proposition est effacée.</p>
   <p class="note">Rien reçu\u00a0? Regardez dans les indésirables, ou écrivez à contact@rundata.re.</p>
   <p><a href="${PROPOSER_PATH}">Proposer un autre événement</a> · <a href="/associations">Retour à l'espace clubs et associations</a></p></section>`
-      : `${proposerForm(e, now)}${REPETE_SCRIPT}${TURNSTILE_SCRIPT}`;
+      : `${proposerForm(e, now)}${REPETE_SCRIPT}${VIDE_SCRIPT}${TURNSTILE_SCRIPT}`;
   return layout(origin, { title: TITLE, description: META, path: PROPOSER_PATH, jsonld: [crumbs(origin, "Proposer un événement", PROPOSER_PATH, PARENT), webPage(origin, PROPOSER_PATH, TITLE, META, null)], alerte, sansAvis: true }, band, body);
 }
 
@@ -395,7 +398,7 @@ function gererBody(l: propositions.Ligne, action: string, g: Extract<Gerer, { ki
   ${actionForm(action, "retirer_contact", `<button type="submit">Retirer le contact</button>`)}</section>`);
   }
   const fix = proposerForm(g.faux ? { kind: "faux", f: g.faux.f, erreurs: g.faux.erreurs } : { kind: "vide" }, now, { action, f: champs(l), affiche: shown });
-  return `${head}\n${parts.join("\n")}\n${fix}${REPETE_SCRIPT}`;
+  return `${head}\n${parts.join("\n")}\n${fix}${REPETE_SCRIPT}${VIDE_SCRIPT}`;
 }
 
 /** The page of the secret link; `action`: its own address, where its forms post. */
