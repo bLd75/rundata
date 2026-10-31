@@ -9,6 +9,7 @@ import { alerteVolcan, volcanNow, withVolcan } from "./volcan-alerte.js";
 import { withSaveData } from "./fonds.js";
 import { left, measured } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
+import { sinceMidnight } from "../geo.js";
 import { why } from "../types.js";
 import {
   alerte,
@@ -300,6 +301,12 @@ const RSS_TILES = ["web:coupures", "web:randonnees", "web:volcan"];
 export const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electricite", "web:calendrier", "web:coupures", "web:secheresse", "web:eau", "web:randonnees", "web:agenda"];
 
 /**
+ * How young a tile's copy is to be shown without being brought up to date: FRESH_SECONDS, and made since the last
+ * midnight in La Réunion, however young, since its words of the day would be yesterday's (web/data.ts, `snapshot`).
+ */
+export const tileFreshMs = (now: Date) => Math.min(FRESH_SECONDS, sinceMidnight(now)) * 1000;
+
+/**
  * The last copy of each of these pages, without building them: building them all would not fit in one invocation.
  * Once the page's own data is fresh, those of another revision and the oldest of the others (or one never built) are
  * brought up to date afterwards, as far as the invocation's subrequests go (tools/resume.ts, `refresh`). `own`
@@ -308,13 +315,14 @@ export const COMMUNE_TILES = ["web:air", "web:mer", "web:volcan", "web:electrici
 async function tileCopies(cache: Cache, keys: string[], background: Background, own: Cached<unknown> | null | undefined, now: Date): Promise<(Cached<any> | null)[]> {
   // One read each, as long as the invocation has subrequests left: a tile past them waits for the next view.
   const budget = left();
-  const copies = await Promise.all(keys.map((k, i) => (i < budget ? cache.peek<any>(k, now.getTime() - FRESH_SECONDS * 1000) : Promise.resolve(undefined))));
+  const fresh = tileFreshMs(now);
+  const copies = await Promise.all(keys.map((k, i) => (i < budget ? cache.peek<any>(k, now.getTime() - fresh) : Promise.resolve(undefined))));
   // A copy of another revision is shown until its turn, which comes first (cache.ts, `outdated`).
   const age = (c: Cached<unknown> | null | undefined) => (c && !c.outdated ? now.getTime() - c.fetchedAt.getTime() : Infinity);
   // Only what the tiles' builds took last time (here, or where their copies were built) and is left: otherwise their
   // pages or a later visit bring them up to date.
   if (own === undefined || (own && age(own) < FRESH_SECONDS * 1000)) {
-    const due = keys.flatMap((key, i) => (age(copies[i]) >= FRESH_SECONDS * 1000 ? [{ key, build: () => BUILDS[key](cache, now), age: age(copies[i]), outdated: copies[i]?.outdated, cost: copies[i]?.cost }] : []));
+    const due = keys.flatMap((key, i) => (age(copies[i]) >= fresh ? [{ key, build: () => BUILDS[key](cache, now), age: age(copies[i]), outdated: copies[i]?.outdated, cost: copies[i]?.cost }] : []));
     refresh(cache, due, background, TILE_COST_UNKNOWN);
   }
   return copies.map((c) => c ?? null);

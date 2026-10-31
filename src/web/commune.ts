@@ -176,7 +176,9 @@ function air(p: PlacePage, data: Cached<AirAnswer> | null | undefined, now: Date
   if (!data) return undefined;
   const c = airOf(p, data);
   if (!c) return empty(`${p.nom} n'est pas dans l'indice ATMO lu ${readAt(data.fetchedAt, now).a}.`);
-  return { valeur: aq(c.niveau), detail: `indice ATMO prévu pour aujourd'hui${c.polluants.length ? ` (${esc(c.polluants.join(", "))})` : ""}, d'Atmo Réunion` };
+  // A copy made before midnight, until its rebuild: the day it was made for, which is no longer today.
+  const day = daysApart(data.fetchedAt, now) > 0 ? `le ${localTime(data.fetchedAt).split(" ")[0]}` : "aujourd'hui";
+  return { valeur: aq(c.niveau), detail: `indice ATMO prévu pour ${day}${c.polluants.length ? ` (${esc(c.polluants.join(", "))})` : ""}, d'Atmo Réunion` };
 }
 
 function sea(p: PlacePage, mer: Cached<SeaData> | null | undefined, place: Cached<PlaceData> | null, now: Date): Live | undefined {
