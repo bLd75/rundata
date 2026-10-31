@@ -73,7 +73,7 @@ describe("the public procurement notices of the BOAMP", () => {
     expect(r("26-101552", ["976", "974"])).toEqual({ reunion: false });
   });
 
-  it("reads the list at 35 past, the new notices' texts at 40 past, one request each, and writes only what changed", async () => {
+  it("reads the list at 35 past, the new notices' texts at 40 past, one request each, and writes each read of the list", async () => {
     const asked = api();
     const writes: boamp.Copie[] = [];
     const write = async (c: boamp.Copie) => void writes.push(c);
@@ -109,13 +109,15 @@ describe("the public procurement notices of the BOAMP", () => {
     expect(boamp.affiches(c.avis).map((a) => a.id)).not.toContain("26-95112");
     expect(boamp.affiches(c.avis)).toHaveLength(7);
 
-    // The next hour, the same list: one read, nothing written, nothing to read at 40 past.
+    // The next hour, the same list: one read, written again with its time (« dernière lecture » on the page), nothing
+    // to read at 40 past.
     asked.length = 0;
     const later = new Date(LISTE_AT.getTime() + 3600_000);
-    expect(await boamp.collect(c, write, later)).toBe("8 avis, 0 nouveaux, 2 hors de l'île : inchangés, non réécrits");
-    expect(await boamp.collect(c, write, new Date(TEXTES_AT.getTime() + 3600_000))).toBe("aucun avis nouveau à lire");
+    expect(await boamp.collect(c, write, later)).toBe("8 avis, 0 nouveaux, 2 hors de l'île, inchangés : écrits");
+    expect(writes.at(-1)).toEqual({ ...c, lu: later.toISOString() });
+    expect(await boamp.collect(writes.at(-1)!, write, new Date(TEXTES_AT.getTime() + 3600_000))).toBe("aucun avis nouveau à lire");
     expect(asked).toHaveLength(1);
-    expect(writes).toHaveLength(2);
+    expect(writes).toHaveLength(3);
 
     expect([34, 35, 39, 40, 44, 45].map((m) => boamp.refreshDue(new Date(Date.UTC(2026, 9, 29, 10, m))))).toEqual([false, true, true, true, true, false]);
   });

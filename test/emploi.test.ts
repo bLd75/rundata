@@ -116,7 +116,7 @@ describe("the public sector's offers of Choisir le service public", () => {
     expect(emploiSource.ouverte({ ...o, limite: "2026-11-10" }, new Date("2026-11-10T20:00:00Z"))).toBe(false);
   });
 
-  it("reads one offer's page an event, the newest not read yet, then each in turn, and writes only what changed", async () => {
+  it("reads one offer's page an event, the newest not read yet, then each in turn, and writes what changed and each read of the feed", async () => {
     const asked = site();
     const writes: emploiSource.Copie[] = [];
     const write = async (c: emploiSource.Copie) => void writes.push(c);
@@ -148,9 +148,16 @@ describe("the public sector's offers of Choisir le service public", () => {
     expect(new Set(Array.from({ length: 20 }, (_, k) => turn(20 + k))).size).toBe(20);
     asked.length = 0;
     const later = new Date(NOW.getTime() + 3600_000);
-    expect(await emploiSource.collect(c, write, later, true)).toBe(`20 offres, 0 nouvelles, page de l'offre ${emploiSource.prochaineFiche(c.offres, later)!.ref} relue : inchangées, non réécrites`);
+    // The feed read again, the same offers: written again, with the time of this read (31/10/2026: « dernière lecture
+    // le 30/10 à 16:25 » for a feed read every hour).
+    expect(await emploiSource.collect(c, write, later, true)).toBe(`20 offres, 0 nouvelles, page de l'offre ${emploiSource.prochaineFiche(c.offres, later)!.ref} relue : écrites`);
     expect(asked).toEqual(["flux", emploiSource.prochaineFiche(c.offres, later)!.ref]);
-    expect(writes).toHaveLength(20);
+    expect(writes).toHaveLength(21);
+    expect(writes.at(-1)).toEqual({ lu: later.toISOString(), offres: c.offres });
+    // The same offers without a read of the feed: not written.
+    const after = new Date(later.getTime() + 300_000);
+    expect(await emploiSource.collect(writes.at(-1)!, write, after, false)).toMatch(/: inchangées, non réécrites$/);
+    expect(writes).toHaveLength(21);
     // A store still empty between two feeds: nothing read.
     expect(await emploiSource.collect(null, write, later, false)).toBe("aucune copie, flux lu à la prochaine heure");
 

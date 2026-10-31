@@ -688,7 +688,7 @@ export function electricitePage(origin: string, data: Cached<ElectriciteAnswer> 
     ? loading("La production d'électricité")
     : p
       ? `<div class="now"><span class="big">${fr(Math.round(p.renouvelable_pct))} %</span><p>de l'électricité de l'île vient en ce moment de sources <b>renouvelables</b>, sur <b>${esc(fr(Math.round(p.total_mw)))} MW</b> produits (${esc(p.heure_mesure.replace(" heure de La Réunion", ""))}).</p></div>` +
-        (m?.maintenant ? `<p class="lead">Signal d'EDF en ce moment : <b>${esc(m.maintenant.signal.toLowerCase())}</b>.</p>` : "")
+        (m?.maintenant ? `<p class="lead">Signal d'EDF pour cette heure : <b>${esc(m.maintenant.signal.toLowerCase())}</b>${m.mis_a_jour ? ` (annoncé par EDF le ${esc(m.mis_a_jour.replace(" ", " à "))})` : ""}.</p>` : "")
       : `<p class="lead">${esc(d.resume)}</p>`;
 
   const bars = p
@@ -751,9 +751,13 @@ export function electriciteLive(data: Cached<ElectriciteAnswer> | null, now = ne
   const p = data.value.production;
   if (!p) return empty(`Production d'EDF absente de la lecture ${readAt(data.fetchedAt, now).de}.`);
   const signal = data!.value.meteo_electricite?.maintenant?.signal;
+  // EDF's terms: its name and the dataset's update beside the signal, an announcement for this hour.
+  const jeu = data!.value.meteo_electricite?.mis_a_jour;
   return {
     valeur: `${fr(Math.round(p.renouvelable_pct))}\u202f% renouvelable`,
-    detail: `${esc(fr(Math.round(p.total_mw)))} MW produits à ${esc(p.heure_mesure.split(" ")[1] ?? p.heure_mesure)}${signal ? ` · réseau ${esc(signal.toLowerCase())}` : ""}`,
+    detail: `${esc(fr(Math.round(p.total_mw)))} MW produits à ${esc(p.heure_mesure.split(" ")[1] ?? p.heure_mesure)}${signal ? ` · signal EDF ${esc(signal.toLowerCase())}${jeu ? ` (annoncé le ${esc(jeu.replace(" ", " à "))})` : ""}` : ""}`,
+    // Never cut before the date EDF's terms ask for (three lines at 390 px are not enough for it).
+    ...(signal && jeu && { entier: true }),
   };
 }
 

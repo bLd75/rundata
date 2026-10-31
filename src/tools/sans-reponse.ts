@@ -34,7 +34,7 @@ function site(l: Public) {
 
 /** sites_sans_reponse: the public sites that do not answer, all of them or those `quoi` names. */
 export async function sitesSansReponse(cache: Cache, quoi?: string, now = new Date()) {
-  const { lignes } = await etat(cache);
+  const { lignes, passage } = await etat(cache);
   const all = publiques(lignes);
   const asked = quoi?.trim() ? all.filter((l) => matches(l, quoi.trim())) : all;
   const silent = asked.filter((l) => l.statut !== "revenu");
@@ -43,5 +43,6 @@ export async function sitesSansReponse(cache: Cache, quoi?: string, now = new Da
   const resume = silent.length
     ? `${silent.length} site${silent.length > 1 ? "s" : ""} public${silent.length > 1 ? "s" : ""} sans réponse ce ${today}${quoi?.trim() ? ` pour « ${quoi.trim()} »` : ""}, revérifié${silent.length > 1 ? "s" : ""} chaque jour\u00a0; le plus ancien depuis le ${jour(oldest.premier_echec)} (le site de ${oldest.nom}).`
     : `Aucun site public sans réponse ce ${today}${quoi?.trim() ? ` pour « ${quoi.trim()} »` : ""}, d'après la revérification quotidienne.`;
-  return text({ resume, sites: asked.map(site), page: `${SITE_URL}${PATH}` });
+  // The day's check, the date of what is said (tools/fraicheur.ts): not the time of this call.
+  return text({ resume, ...(passage && { derniere_verification: jourHeure(passage) }), sites: asked.map(site), page: `${SITE_URL}${PATH}` });
 }

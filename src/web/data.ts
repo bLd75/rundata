@@ -1245,6 +1245,8 @@ export interface ElectriciteAnswer {
     maintenant?: { signal: string; recharge_conseillee_pct?: number };
     periodes_de_tension: { quand: string; signal: string; recharge_conseillee_pct?: number }[];
     jusqu_au?: string;
+    /** When EDF last updated the signal's dataset, « 30/10 22:00 ». */
+    mis_a_jour?: string;
     explication: string;
   };
   avertissements: string[];

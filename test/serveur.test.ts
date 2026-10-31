@@ -92,6 +92,9 @@ describe("the server's instructions", () => {
     expect(d("cyclones")).toContain("jamais de trajectoire inventée");
     expect(d("qualite_eau")).toContain("sans requin");
     expect(d("crues_rivieres")).toContain("radier submergé");
+    // Not « pas couvert » before sources_donnees, even with no tool called yet (a public tenders question, 31/10/2026).
+    expect(text).toContain("avant de dire qu'un sujet n'est pas couvert, même à la première question, appeler sources_donnees.");
+    expect(d("sources_donnees").replace(/[\u00a0\u202f]/g, " ").startsWith("À appeler avant de dire qu'un sujet n'est pas couvert, même à la première question : la liste à jour de ce que rundata.re couvre.")).toBe(true);
   });
 
   it("keep the list of the tools from growing: it is sent to the model at the start of each conversation", async () => {
@@ -99,7 +102,8 @@ describe("the server's instructions", () => {
     // 54 846 characters on 26/10/2026, about 16 000 tokens' worth; here (no keys, so 27 tools) 48 514 after #404, and
     // 39 074 once the English and the extra examples were left out: lowered as the descriptions are made shorter.
     // 40 262 with main's words back in meteo_actuelle and prevision_meteo, 37 778 once the SDK's "$schema" and "execution" are out of the list.
-    expect(JSON.stringify(tools).length).toBeLessThanOrEqual(40_000);
+    // 40 039 on 31/10/2026 with sources_donnees' first sentence (call it before saying a subject is not covered).
+    expect(JSON.stringify(tools).length).toBeLessThanOrEqual(40_100);
     for (const t of tools) expect(t.description.length, t.name).toBeLessThanOrEqual(2_000);
   });
 
@@ -292,7 +296,7 @@ describe("fraicheur", () => {
     // A block with its age in minutes only (the production of electricite): that age, never the read's.
     const elec = { production: { heure_mesure: "25/10 07:10 heure de La Réunion", age_min: 225 } };
     const read = [{ key: "edf:mix", fetchedAt: Date.parse("2026-10-25T10:53:00+04:00"), stale: false, freshSeconds: 240 }];
-    expect(fraicheur(elec, read, new Date("2026-10-25T10:55:00+04:00"))).toMatchObject({ donnee_du: "25/10 07:10 heure de La Réunion", lue_a: "25/10 10:53", age: "il y a 4 h" });
+    expect(fraicheur(elec, read, new Date("2026-10-25T10:55:00+04:00"))).toMatchObject({ donnee_du: "25/10 07:10", lue_a: "25/10 10:53", age: "il y a 4 h" });
     expect(fraicheur({ production: { heure_mesure: "25/10 10:55", age_min: 0 } }, read, new Date("2026-10-25T10:55:00+04:00")).age).toBe("à l'instant");
     // No single date for an answer made of many dated parts.
     expect(fraicheur({ vigilance: { emise: "24/10 15:25" } }, lectures, now, { donnee: false }).donnee_du).toBeUndefined();

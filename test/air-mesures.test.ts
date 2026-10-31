@@ -200,7 +200,7 @@ describe("measures at Atmo Réunion's stations", () => {
     expect(e).toMatchObject({ trigger: "planifiée", every: 60, offset: 45, run: { subrequests: 6, kvReads: 1, kvWrites: 1 } });
   });
 
-  it("reads the day's file line by line, in pieces, 2 subrequests a file, and writes only when the latest hour changed", async () => {
+  it("reads the day's file line by line, in pieces, 2 subrequests a file, and writes at each read", async () => {
     const csv = readFileSync(new URL("./fixtures/lcsqa_e2_974.csv", import.meta.url));
     const asked: string[] = [];
     vi.stubGlobal("fetch", async (url: string) => {
@@ -220,10 +220,11 @@ describe("measures at Atmo Réunion's stations", () => {
     expect(used).toBe(2);
     expect(value).toBe("7 mesures de 4 stations, dernière heure finie à 08:00 le 2026-10-29, écrites");
     expect(written).toEqual([{ lu: NOW.toISOString(), derniere_heure: "2026-10-29T08:00:00+04:00", mesures: kept }]);
-    // The same hour an hour later: nothing written.
+    // The same hour an hour later: written again, with the time of this read.
     const again = await airMesures.collect(written[0], async (c) => void written.push(c), new Date(NOW.getTime() + 3600_000));
-    expect(again).toMatch(/inchangée : non réécrites$/);
-    expect(written).toHaveLength(1);
+    expect(again).toMatch(/, inchangée, écrites$/);
+    expect(written).toHaveLength(2);
+    expect(written[1]).toEqual({ ...written[0], lu: new Date(NOW.getTime() + 3600_000).toISOString() });
   });
 
   it("reads the day before's file while the day's has none of Atmo Réunion's lines, and fails without a valid measure", async () => {

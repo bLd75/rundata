@@ -11,7 +11,7 @@ import { costOf, left, measured } from "../budget.js";
 import type { Cache, Cached } from "../cache.js";
 import { distributeur } from "../eau/distributeurs.js";
 import { localTime } from "../geo.js";
-import { noteLecture } from "../lectures.js";
+import { apart, noteLecture } from "../lectures.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import { phases } from "../providers/carburants.js";
@@ -168,6 +168,19 @@ const NO_JAMS = "rundata.re ne mesure pas les bouchons : voir la carte officiell
  * the code no longer allows (an event of an agenda since left unread), so it is not served, and is built again.
  */
 export const UPDATING = "se met à jour, réessayer dans quelques minutes";
+
+/**
+ * Today's holiday and school holidays, and tomorrow's holiday: on the eve of All Saints' Day (31/10/2026) the block was
+ * empty while calendrier said it. Undefined when there is nothing to say. The copy is today's (`sameDay`).
+ */
+function calendrierDuJour(c: CalendrierAnswer) {
+  const out = {
+    jour_ferie: c.jours_feries?.aujourd_hui ?? undefined,
+    jour_ferie_demain: c.jours_feries?.prochains?.find((p) => p.dans_jours === 1)?.nom,
+    vacances_scolaires: c.vacances_scolaires?.en_cours?.nom,
+  };
+  return Object.values(out).some((v) => v != null) ? out : undefined;
+}
 
 /** Whether a copy is recent enough for the summary of today. */
 function usable(c: Copy, copy: Cached<unknown> | null | undefined, now: Date): copy is Cached<unknown> {
@@ -326,7 +339,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     mer,
     air: airHere ? { indice_atmo: airHere.niveau, qualite: airHere.qualite, polluants: airHere.polluants.length ? airHere.polluants : undefined } : undefined,
     electricite: prod
-      ? { heure: prod.heure_mesure, renouvelable_pct: prod.renouvelable_pct, total_mw: prod.total_mw, signal: l.electricite!.value.meteo_electricite?.maintenant?.signal }
+      ? { heure: prod.heure_mesure, renouvelable_pct: prod.renouvelable_pct, total_mw: prod.total_mw, signal: l.electricite!.value.meteo_electricite?.maintenant?.signal, signal_mis_a_jour: l.electricite!.value.meteo_electricite?.mis_a_jour }
       : undefined,
     circulation: {
       mesure_des_bouchons: NO_JAMS,
@@ -352,7 +365,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
           non_repris: mentionCommune(nom),
         }
       : undefined,
-    calendrier: c ? { jour_ferie: c.jours_feries?.aujourd_hui ?? undefined, vacances_scolaires: c.vacances_scolaires?.en_cours?.nom } : undefined,
+    calendrier: c ? calendrierDuJour(c) : undefined,
     soleil: { lever: hhmm(sun.lever), coucher: hhmm(sun.coucher) },
     mairie: mairie
       ? { ouverte: open, horaires_aujourd_hui: hoursOn(mairie, now) ?? (open === null ? undefined : "fermée aujourd'hui"), adresse: mairie.adresse, telephone: mairie.telephone }
@@ -430,7 +443,7 @@ export function refresh(cache: Cache, stale: Stale[], background: Background, un
     if (cost > room) continue;
     room -= cost;
     started.push(s.key);
-    background(cache.get(s.key, FRESH_SECONDS, () => measured(s.key, s.build)).catch((err) => console.error(`page ${s.key} : rafraîchissement impossible`, why(err))));
+    background(apart(() => cache.get(s.key, FRESH_SECONDS, () => measured(s.key, s.build))).catch((err) => console.error(`page ${s.key} : rafraîchissement impossible`, why(err))));
   }
   return started;
 }

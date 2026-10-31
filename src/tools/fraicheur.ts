@@ -8,8 +8,9 @@ import type { Lecture } from "../lectures.js";
 
 // Entries fresh for this long or more are reference data (stations, lists of places), not what the answer measures.
 const REFERENCE_SECONDS = 6 * 3600;
-// The answer's own date of its data: a measurement, a model run, a bulletin, a notice.
-const DATED = ["heure_mesure", "run_du_modele", "emise", "mis_a_jour", "publie_le", "derniere_analyse"];
+// The answer's own date of its data: a measurement, a model run, a bulletin, a notice, a list rebuilt from its file, a
+// daily check. Without one, the age is the read's: « à l'instant » for a list of defibrillators a week old (31/10/2026).
+const DATED = ["heure_mesure", "run_du_modele", "emise", "mis_a_jour", "publie_le", "derniere_analyse", "derniere_verification"];
 // Lists of notices and publications beside the data (the mairies' power cuts, the OVPF's posts, the media's
 // headlines): dated, but not what the answer measures. Read last, when no other block carries a date.
 const NOTICES = new Set(["sources", "serveur", "avis", "coupures_annoncees", "publications_ovpf", "alertes_precedentes", "infos", "en_direct", "prefecture", "actualites", "evenements_du_jour", "actualite"]);
@@ -81,6 +82,17 @@ export function instantOf(du: string, now: Date): number | undefined {
   const year = m[3] ? +m[3] : new Date(now.getTime() + 4 * 3600_000).getUTCFullYear();
   const t = at(year);
   return !m[3] && t > now.getTime() + 2 * 86_400_000 ? at(year - 1) : t;
+}
+
+/**
+ * The date the answer gives, written one way for every tool: « 30/10 17:07 », or « 30/10/2026 » for a day without a
+ * time. The tools wrote « 30/10 17:07 heure de La Réunion », « 30/10/2026 à 16:39 », « 26/08/2026 » (31/10/2026); the
+ * time zone is said once, in `fuseau`. Left as written when it is not a date.
+ */
+function written(du: string, at: number | undefined): string {
+  if (at == null) return du;
+  const day = new Date(at + 4 * 3600_000).toISOString();
+  return /\d\d[:h]\d\d/.test(du) ? localTime(new Date(at)) : `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
 }
 
 /**
@@ -185,13 +197,17 @@ export const sourceMuette = (source: string, at: Date, tardive?: boolean) =>
 export function fraicheur(p: Payload, lectures: Lecture[], now: Date, opts: { donnee?: boolean; nom?: (id: string) => string | undefined } = {}) {
   const live = lectures.filter((l) => l.freshSeconds < REFERENCE_SECONDS);
   const pool = live.length ? live : lectures;
-  // The oldest read: the answer is at least this fresh. Without any, the data is rundata.re's own copy, read now.
-  let read = pool.length ? Math.min(...pool.map((l) => l.fetchedAt)) : now.getTime();
+  // The oldest read of what is served up to date: the answer is at least this fresh. A last copy keeps its own time in
+  // the warning, not here (31/10/2026: the events read at 01:17 said « il y a 2 h », the time of a silent source's
+  // copy). Every part a copy: the oldest of them. Without any read, the data is rundata.re's own copy, read now.
+  const served = pool.filter((l) => !l.stale);
+  const basis = served.length ? served : pool;
+  let read = basis.length ? Math.min(...basis.map((l) => l.fetchedAt)) : now.getTime();
   const data = opts.donnee === false ? undefined : dataDate(p);
   const at = data ? instantOf(data.du, now) : undefined;
   // Read before it was measured: the oldest read is another entry's (a reference, the radar). The entry that carries
   // the date was read after it: the newest read, or the date itself, never later than now.
-  if (at != null && at > read) read = Math.min(Math.max(...pool.map((l) => l.fetchedAt), at), now.getTime());
+  if (at != null && at > read) read = Math.min(Math.max(...basis.map((l) => l.fetchedAt), at), now.getTime());
   const when = new Date(read);
   // Only those the answer is about: a list of stations kept from yesterday says nothing of the measurement.
   const secours = copies(pool, opts.nom ?? (() => undefined));
@@ -199,7 +215,7 @@ export function fraicheur(p: Payload, lectures: Lecture[], now: Date, opts: { do
   const others = pool.filter((l) => !l.stale);
   const rest = others.length > 0 && others.every((l) => now.getTime() - l.fetchedAt <= l.freshSeconds * 1000 + 60_000);
   return {
-    donnee_du: data?.du,
+    donnee_du: data && written(data.du, at),
     lue_a: localTime(when),
     fuseau: FUSEAU,
     age: data?.age ?? (data && at != null ? ageFrom(data, at, now) : ageMinutes(when, now) < 1 ? "à l'instant" : ageText(ageMinutes(when, now))),

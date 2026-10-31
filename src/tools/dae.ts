@@ -1,6 +1,6 @@
 import { distanceKm } from "../geo.js";
 import { resolvePlace } from "../places/resolve.js";
-import { DAES, type Dae, SOURCE } from "../providers/dae.js";
+import { BUILT, DAES, type Dae, SOURCE } from "../providers/dae.js";
 import { credits, notFound, placeBlock, text } from "./format.js";
 
 const NEAR_KM = 2;
@@ -46,7 +46,8 @@ export function byCommune() {
 }
 
 export function defibrillateurs(lieu: string | undefined) {
-  const common = { urgence: URGENCE, sources: credits([SOURCE]) };
+  // The day the list was rebuilt from the national file, the date of what is said (tools/fraicheur.ts).
+  const common = { urgence: URGENCE, mis_a_jour: BUILT.split("-").reverse().join("/"), sources: credits([SOURCE]) };
   if (!lieu?.trim()) {
     const communes = byCommune();
     return text({

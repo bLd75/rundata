@@ -228,8 +228,8 @@ function fromLigne(l: Ligne, had?: Avis): (Avis & { departements: string[] }) | 
  * The scheduled event's read, one request each time. At 35 past, the list of the open notices (about 80 Ko): those
  * known are kept up to date, the closed ones leave, the new ones wait for their full text. At 40 past, the full text of
  * the waiting ones (one request for all), to tell the island's and their communes. A notice cancelled leaves the copy,
- * with the corrections of it: not shown, not read. Writes the copy only when it
- * changed. When the list cannot be read, the copy stays, with when it first failed (written once), and the read fails.
+ * with the corrections of it: not shown, not read. Writes the copy at each read of the list, and after the full texts
+ * only when they changed. When the list cannot be read, the copy stays, with when it first failed (written once), and the read fails.
  */
 export async function collect(before: Copie | null, write: (copie: Copie) => Promise<void>, now = new Date()): Promise<string> {
   const said = (c: Copie, what: string) => `${c.avis.length} avis, ${what}, ${c.ecartes.length} hors de l'île`;
@@ -301,10 +301,11 @@ export async function collect(before: Copie | null, write: (copie: Copie) => Pro
   const nouveaux = attente.filter((a) => !all.has(a.id)).length;
   const open = new Set(lignes.map((l) => l.idweb));
   const copie: Copie = { lu: now.toISOString(), avis: avis.sort(order), ecartes: [...ecartes].filter((id) => open.has(id)).sort(), ...(attente.length ? { attente } : {}) };
-  // The time of the read is written only with a change: the page says the last read that changed something.
-  if (before && !before.echec && JSON.stringify({ ...copie, lu: before.lu }) === JSON.stringify(before)) return `${said(copie, `${nouveaux} nouveaux`)} : inchangés, non réécrits`;
+  // Written at each read of the list, changed or not: its time is the last read, as the page and the tool say it (24
+  // writes a day).
+  const same = before && !before.echec && JSON.stringify({ ...copie, lu: before.lu }) === JSON.stringify(before);
   await write(copie);
-  return `${said(copie, `${nouveaux} nouveaux`)} : écrits`;
+  return `${said(copie, `${nouveaux} nouveaux`)}${same ? ", inchangés" : ""} : écrits`;
 }
 
 let reader: (() => Promise<Copie | null>) | undefined;

@@ -104,7 +104,7 @@ import * as marchesPublics from "./providers/marches-publics.js";
 import { emploi } from "./tools/emploi.js";
 import { insecables } from "./typographie.js";
 
-export const VERSION = "1.0.46";
+export const VERSION = "1.0.47";
 
 // Some clients keep only the start of these instructions (Claude Code cut them near 4 000 characters): they stay under
 // 4 000 (a test checks). ChatGPT weighs the first 512 characters most: what rundata.re is and when to use it come first,
@@ -117,7 +117,7 @@ ${INDEX}
 Règles :
 - Citer : chaque réponse porte citer (rundata.re et les producteurs), lien (la page de rundata.re qui montre la même chose), sources (les producteurs et leurs licences) et fraicheur (l'heure de la donnée, par exemple « 23:12, heure de La Réunion ») : de quoi citer et dater la réponse.
 - Avis : l'utilisateur signale un manque, une erreur ou un souhait sur ces données : donner_avis\u00a0; un outil n'a rien trouvé : le lui proposer, et n'appeler qu'avec son accord. Le besoin résumé, rien de personnel.
-- Liste d'outils : chaque réponse porte serveur.outils_recents\u00a0; avant de dire qu'un outil ou une donnée manque, le lire ou appeler sources_donnees. Outil cité là, absent de votre liste : elle est ancienne, le dire, sans dire qu'on l'a rechargée. ChatGPT : Paramètres → Plugins → rundata.re → Actualiser les outils, puis nouvelle conversation.
+- Liste d'outils : chaque réponse porte serveur.outils_recents\u00a0; avant de dire qu'un sujet n'est pas couvert, même à la première question, appeler sources_donnees. Outil cité là, absent de votre liste : elle est ancienne, le dire, sans dire qu'on l'a rechargée. ChatGPT : Paramètres → Plugins → rundata.re → Actualiser les outils, puis nouvelle conversation.
 - Météo : maintenant → meteo_actuelle, temperature_mer (MESURES : dire l'heure, la station, sa distance)\u00a0; avant (hier, ce mois-ci, record) → historique_meteo\u00a0; plus tard → prevision_meteo, une PRÉVISION : le dire à l'utilisateur\u00a0; houle, surf → temperature_mer, une PRÉVISION aussi.
 - Un champ vigilance ou avertissement se dit en premier, et les consignes de sécurité (15 ou 112, 18 pour un feu, radier, sentier fermé, eau à ne pas boire) telles quelles. Vigilance, cyclone : les zones de Météo-France, jamais une commune\u00a0; finir par le champ officiel.
 
@@ -961,10 +961,10 @@ export function createServer(cache: Cache, record: Recorder = () => {}, backgrou
     {
       title: "Sources des données",
       description:
+        "À appeler avant de dire qu'un sujet n'est pas couvert, même à la première question : la liste à jour de ce que rundata.re couvre. " +
         "Sources de données utilisées par ce serveur (organisme, licence, attribution à citer), ce qui est couvert ou pas encore, " +
         "la liste à jour de tous les outils, les dernières nouveautés, et rundata.re en chiffres (sources, producteurs, licences, stations, défibrillateurs, sentiers). " +
-        "Pour : « d'où viennent tes données ? », « combien de sources lit rundata.re ? », « c'est open data ? ». " +
-        "À appeler avant de conclure qu'un outil ou une donnée n'existe pas.",
+        "Pour : « d'où viennent tes données ? », « combien de sources lit rundata.re ? », « c'est open data ? ».",
       inputSchema: {},
       annotations: { title: "Sources des données", ...READ_ONLY },
     },
