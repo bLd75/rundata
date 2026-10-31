@@ -4,6 +4,11 @@
  * grid to one KV key, its runs of characters compressed. The key holds 6 hours, one image every 5 minutes, and a second
  * one an image a quarter of an hour over 24 hours. A run that cannot read the radar, or reads an image older than
  * STALE_MS, writes down a gap, said on the map as such (« Pas d'image radar de 14:05 à 14:20. »), never as a dry sky.
+ *
+ * An image is lost once the next one is out, 5 minutes later: a run that did not get the one due (the radar answered
+ * an error, the cache served an old copy, or the image was late at Météo-France) reads the radar again, RETRIES_MS
+ * apart, until it gets it. In 38 hours from 29/10/2026 18:00, 10 runs of 461 missed it: 1 error, 7 copies kept,
+ * 2 images late.
  */
 import { count } from "../budget.js";
 import type { Cache } from "../cache.js";
@@ -24,6 +29,12 @@ const QUARTER_MS = 15 * 60_000;
 /** An image older than this when read is not the sky of now: a gap, as /meteo's live layer says. */
 export const STALE_MS = 45 * 60_000;
 const STEP_MS = 5 * 60_000;
+/**
+ * The waits before reading the radar again, while the image due is missing: two more reads at most, within the 3
+ * minutes after the run, before the next run 5 minutes after it.
+ */
+export const RETRIES_MS = [60_000, 60_000];
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export interface Image {
   /** End of the radar's 5 minutes, ISO UTC. */
@@ -107,14 +118,42 @@ export function suivant(before: Historique | null, lu: RainGrid | Error, now: Da
 /**
  * One run of the scheduled event: one read of KV, the radar's image (one subrequest when the data center's copy is
  * over 4 minutes old; in the Worker, one more for KV's token when the isolate holds none, and two more for a new token
- * written there when KV holds none either: providers/mf-auth.ts), one write of KV when the history changed.
+ * written there when KV holds none either: providers/mf-auth.ts), one write of KV when the history changed. Without
+ * the image due (the one that ended 5 minutes before the run's 5 minutes), up to two more reads of the radar, one
+ * subrequest each, RETRIES_MS apart (`wait`).
  */
-export async function passage(store: Store, cache: Cache, now = new Date(), long?: Store): Promise<string> {
+export async function passage(store: Store, cache: Cache, now = new Date(), long?: Store, wait = sleep): Promise<string> {
   const tokens = tokensIssued();
   count();
   const before = await store.get();
-  const lu = await radar.image(cache).then((img) => grid(img.value), (err: unknown) => (err instanceof Error ? err : new Error(String(err))));
-  const next = suivant(before, lu, now);
+  const failed = (err: unknown) => (err instanceof Error ? err : new Error(String(err)));
+  let kept = false;
+  let lu: RainGrid | Error = await radar.image(cache).then((img) => ((kept = img.stale), grid(img.value)), failed);
+  // The image due ends at the start of the 5 minutes before the run's: at 13:10:20, the one of 13:00–13:05.
+  const due = Math.floor(now.getTime() / STEP_MS) * STEP_MS - STEP_MS;
+  const behind = (x: RainGrid | Error) => x instanceof Error || Date.parse(x.fin) < due;
+  // The quarter that ends the 6 hours before this run, taken before `suivant` lengthens a gap of theirs in place.
+  const lastQuarter = (h: Historique | null | undefined) => JSON.stringify(quarters(h?.entrees ?? []).at(-1) ?? null);
+  const quarterBefore = lastQuarter(before);
+  // Each image read goes into the history in turn: an image caught up shortens the gap the first read wrote.
+  let next: Historique | undefined;
+  const add = (x: RainGrid | Error, t: Date) => void (next = suivant(next ?? before, x, t) ?? next);
+  add(lu, now);
+  let waited = 0;
+  let again = 0;
+  for (const ms of RETRIES_MS) {
+    if (!behind(lu)) break;
+    await wait(ms);
+    waited += ms;
+    again++;
+    const read: RainGrid | Error = await radar.read().then(grid, failed);
+    // A newer image wins; an error only replaces an error, the latest one said.
+    if (!(read instanceof Error) && (lu instanceof Error || Date.parse(read.fin) > Date.parse(lu.fin))) {
+      [lu, kept] = [read, false];
+      add(read, new Date(now.getTime() + waited));
+    } else if (lu instanceof Error) lu = read;
+  }
+  const at = new Date(now.getTime() + waited);
   if (next) {
     count(1, true);
     await store.put(next);
@@ -122,17 +161,17 @@ export async function passage(store: Store, cache: Cache, now = new Date(), long
   // The 24 hours: read and written only when the quarters of the 6 hours end otherwise, about once a quarter of an hour.
   let longSaid = "";
   if (next && long) {
-    const last = (h: Historique | null) => JSON.stringify(quarters(h?.entrees ?? []).at(-1) ?? null);
-    if (last(before) !== last(next)) {
+    if (quarterBefore !== lastQuarter(next)) {
       count();
-      const day = auQuart(await long.get(), next, now);
+      const day = auQuart(await long.get(), next, at);
       count(1, true);
       await long.put(day);
       longSaid = `, 24 h : ${day.entrees.length} entrées écrites`;
     }
   }
-  const said = lu instanceof Error ? `illisible (${why(lu)})` : `image finie à ${lu.fin}`;
-  return `${said}, ${next ? `${next.entrees.length} entrées écrites` : "rien à écrire"}${longSaid}, jetons Météo-France pris : ${tokensIssued() - tokens}`;
+  const said = lu instanceof Error ? `illisible (${why(lu)})` : `${kept ? "copie gardée, " : ""}image finie à ${lu.fin}`;
+  const caught = again ? `, rattrapage : ${again} lecture${again > 1 ? "s" : ""} de plus, image due ${behind(lu) ? "toujours absente" : "lue"}` : "";
+  return `${said}${caught}, ${next ? `${next.entrees.length} entrées écrites` : "rien à écrire"}${longSaid}, jetons Météo-France pris : ${tokensIssued() - tokens}`;
 }
 
 export interface Store {
