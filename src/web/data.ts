@@ -822,7 +822,7 @@ export async function buildTrail(cache: Cache, t: { nom: string } & traces.Senti
     alt_min: t.alt_min ?? m.alt_min,
     alt_max: t.alt_max ?? m.alt_max,
     etat: shut.length
-      ? `Fermé${shut[0].cause ? ` : ${shut[0].cause}` : ""}${shut[0].info ? ` (${shut[0].info})` : ""}${open ? ", en partie" : ""}`
+      ? `${onf.nuance(shut[0]) ? onf.motifs(shut[0]).join(" · ") : `Fermé${shut[0].cause ? ` : ${shut[0].cause}` : ""}${shut[0].info ? ` (${shut[0].info})` : ""}`}${open ? ", en partie" : ""}`
       : open ? "Ouvert d'après l'ONF" : "Hors gestion ONF : état non connu",
     ferme: shut.length > 0,
     troncons: states,
@@ -893,7 +893,7 @@ export async function trailGpx(cache: Cache, origin: string, t: { nom: string } 
   const tr = (await traces.traceOnf(cache, t)).value;
   const shut = tr.troncons.filter((x) => x.statut === "fermé");
   const etat = shut.length
-    ? `FERMÉ${shut[0].cause ? ` (${shut[0].cause})` : ""}${shut[0].info ? `, ${shut[0].info}` : ""}`
+    ? onf.nuance(shut[0]) ? onf.motifs(shut[0]).join(" · ") : `FERMÉ${shut[0].cause ? ` (${shut[0].cause})` : ""}${shut[0].info ? `, ${shut[0].info}` : ""}`
     : tr.troncons.some((x) => x.statut === "ouvert") ? "ouvert" : "hors gestion ONF, état non connu";
   return traces.gpx({
     nom: t.nom,
@@ -914,7 +914,10 @@ function closedPoint(nom: string, cause: string | undefined, info: string | unde
     lat: at.lat,
     ele: at.ele,
     nom: `FERMÉ : ${nom}${cause ? ` – ${cause}` : ""}`,
-    description: `Sentier fermé d'après la carte de l'ONF${cause ? ` : ${cause}` : ""}${info ? ` (${info})` : ""}. S'y engager est interdit.`,
+    // Open on weekends by its notice: said so, without « interdit », which a Saturday would make wrong.
+    description: onf.nuance({ cause, info })
+      ? `${onf.motifs({ cause, info }).join(" · ")}.`
+      : `Sentier fermé d'après la carte de l'ONF${cause ? ` : ${cause}` : ""}${info ? ` (${info})` : ""}. S'y engager est interdit.`,
   };
 }
 

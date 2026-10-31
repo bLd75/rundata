@@ -76,6 +76,29 @@ function statut(v: unknown): Statut {
 
 const line = (f: Feature): Point[] => (f.geometry?.paths ?? []).flat();
 
+// A closed trail's notice that opens it on weekends, in the ONF's words: « Fermé du lundi au vendredi, ouvert le
+// week-end », « Sentier ouvert les samedis et dimanches durant cette période ».
+const WEEKEND = /ouverte?s? (?:le week-end|les week-ends|les samedis et dimanches|le samedi et le dimanche)/i;
+
+type Avis = { cause?: string; info?: string; precision?: string };
+
+/**
+ * A trail closed on the ONF's map whose notice opens it on weekends: the map's state with the notice beside it, the
+ * same words every day. The trail stays as the map classes it (counted, listed, drawn closed): a copy of a page, a
+ * GPX kept, an answer read later outlive midnight, and a state of the day would then be wrong.
+ */
+export function nuance(x: Avis): string | undefined {
+  const avis = [x.cause, x.info ?? x.precision].find((v) => v && WEEKEND.test(v));
+  return avis && `Fermé sur la carte de l'ONF\u00a0; ouvert le samedi et le dimanche d'après l'avis de l'ONF\u00a0: « ${avis} »`;
+}
+
+/** Why a trail is closed and until when, as its notice says: nuance() first when there is one, then the rest of the notice. */
+export function motifs(x: Avis): string[] {
+  const n = nuance(x);
+  const rest = [x.cause, x.info ?? x.precision].filter((v): v is string => !!v);
+  return n ? [n, ...rest.filter((v) => !WEEKEND.test(v))] : rest;
+}
+
 export function parseTrails(features: Feature[]): Sentier[] {
   return features
     .filter((f) => clean(f.attributes.WS_NomIti))
