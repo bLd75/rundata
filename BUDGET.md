@@ -22,7 +22,7 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 | pire passage planifié, appels KV et D1 | 104 | 1 000 |
 | pire passage planifié, CPU (ms) | 3 536 | 30 000 |
 | pire passage planifié, mémoire déclarée (Mo) | 90 | 128 |
-| passage le plus chargé (cadences les plus courtes), sous-requêtes | 179 | 500 |
+| passage le plus chargé (cadences les plus courtes), sous-requêtes | 172 | 500 |
 | vue la plus chère, sous-requêtes | 84 | 200 |
 | question la plus chère, sous-requêtes | 70 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
@@ -30,9 +30,9 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
 - Marge : le pire passage planifié est à 453 sous-requêtes sur 500. Une PR qui ajoute des sous-requêtes à la tâche planifiée en retire ou en étale d'abord autant (une cadence plus longue, un autre décalage), pour qu'il ne monte plus.
 - Mémoire : déclarée par les lectures d'un fichier de plusieurs Mo (irve:etat, 30 Mo au pic, antennes:hors-service, 15 Mo au pic, radar:6h, 5 Mo au pic, emploi:offres, 5 Mo au pic, marches-publics:textes, 25 Mo au pic, clubs:annuaire, 10 Mo au pic), face aux 128 Mo d'un isolat ; les autres ne la déclarent pas.
-- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 138 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:cirest, agenda:departement, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, meteofrance:jeton, meteofrance:jeton:nouveau, emploi:offres, connecteurs:lecture, propositions:purge, clubs:annuaire, clubs:purge, connecteurs:purge).
-- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 179 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, web:crues, web:volcan, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:cirest, agenda:departement, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, meteofrance:jeton, meteofrance:jeton:nouveau, emploi:offres, connecteurs:lecture, propositions:purge, clubs:annuaire, clubs:purge, connecteurs:purge).
-- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 385 sous-requêtes à 00:00 UTC.
+- Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 131 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:cirest, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, meteofrance:jeton, meteofrance:jeton:nouveau, emploi:offres, connecteurs:lecture, propositions:purge, clubs:annuaire, clubs:purge, connecteurs:purge).
+- Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 172 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, web:crues, web:volcan, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:cirest, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, meteofrance:jeton, meteofrance:jeton:nouveau, emploi:offres, connecteurs:lecture, propositions:purge, clubs:annuaire, clubs:purge, connecteurs:purge).
+- Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 378 sous-requêtes à 00:00 UTC.
 - Vue la plus chère : /communes/*, 84. Question la plus chère : resume_du_jour, 70. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
@@ -79,7 +79,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 | agendas:planifies:ecriture | agendas lus par la tâche planifiée : l'écriture de leur copie commune | 60 min | 00:00 | 1 |  | 1 |  |  |  |  | code |
 | agenda:salazie | agenda lu par la tâche planifiée : Ville de Salazie | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
 | agenda:cirest | agenda lu par la tâche planifiée : Médiathèques de Bras-Panon et de La Plaine-des-Palmistes | 360 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
-| agenda:departement | agenda lu par la tâche planifiée : Département de La Réunion | 720 min | 00:00 | 7 |  |  |  |  |  | 30 | mesuré |
+| agenda:departement | agenda lu par la tâche planifiée : Département de La Réunion | 720 min | 06:00 | 7 |  |  |  |  |  | 30 | mesuré |
 | agenda:lrvb | agenda lu par la tâche planifiée : Ligue réunionnaise de volley-ball | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
 | agenda:saint_louis_actus | agenda lu par la tâche planifiée : Ville de Saint-Louis | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |
 | agenda:saint_leu | agenda lu par la tâche planifiée : Ville de Saint-Leu | 60 min | 00:00 | 1 |  |  |  |  |  | 30 | mesuré |

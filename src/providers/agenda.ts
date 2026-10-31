@@ -251,6 +251,12 @@ export interface Agenda {
   /** For an agenda read by the scheduled event: the seconds between two readings, when not an hour. */
   relecture?: number;
   /**
+   * For an agenda read by the scheduled event, with a `relecture`: read again only in the hour that starts this many
+   * seconds after each multiple of its `relecture` (UTC), once, so that it does not fall with the others at 00:00 UTC.
+   * Its first reading, with no copy yet, is not held back.
+   */
+  decalage?: number;
+  /**
    * Published by clubs or associations (a league, the clubs' sites, the proposed events), not by a town hall nor a
    * hall: what the counter of /associations counts (web/associations.ts).
    */
@@ -1549,7 +1555,10 @@ export function parseDepartement(liste: ReturnType<typeof departementListe>, fic
   });
 }
 
-/** Read by the scheduled event twice a day: its list, then the pages of its first DEPARTEMENT_PAGES events to come. */
+/**
+ * Read by the scheduled event twice a day, between 06:00 and 07:00 and between 18:00 and 19:00 UTC, out of the busiest
+ * passage: its list, then the pages of its first DEPARTEMENT_PAGES events to come.
+ */
 export const DEPARTEMENT_AGENDA: Agenda = {
   id: "departement",
   nom: "Département de La Réunion",
@@ -1557,6 +1566,7 @@ export const DEPARTEMENT_AGENDA: Agenda = {
   requetes: 1 + DEPARTEMENT_PAGES,
   planifie: true,
   relecture: 12 * 3600,
+  decalage: 6 * 3600,
   credit: DEPARTEMENT_MENTION,
   faits: true,
   load: (cache, now) => cache.get("agenda:departement", 12 * 3600, async () => {

@@ -190,6 +190,20 @@ const KEEP_LEFT = 4;
 // How often the scheduled event reads its agendas again, unless an agenda says otherwise (`relecture`).
 const PLANNED_FRESH_SECONDS = 3600;
 
+// The hour in which an agenda with a `decalage` is read again.
+const PLANNED_WINDOW_SECONDS = 3600;
+
+/**
+ * Whether a planned agenda whose copy (or last failure) is `ageMs` old is read again now: once it is as old as its
+ * `relecture`; with a `decalage`, only within its hour, and only if the copy is older than that hour's start.
+ */
+export function plannedDue(agenda: src.Agenda, ageMs: number, now: Date): boolean {
+  const every = agenda.relecture ?? PLANNED_FRESH_SECONDS;
+  if (agenda.decalage == null) return ageMs >= every * 1000;
+  const into = (((now.getTime() - agenda.decalage * 1000) % (every * 1000)) + every * 1000) % (every * 1000);
+  return into < PLANNED_WINDOW_SECONDS * 1000 && ageMs > into;
+}
+
 // When a planned agenda last failed (or found nothing where its copy had events), kept in the bundle beside its copy:
 // it is not tried again before its next reading is due, rather than at each scheduled event, for a subrequest and up
 // to TIMEOUT_MS each time (Saint-Joseph's site does not answer Cloudflare's addresses). In the bundle, not in memory:
@@ -323,7 +337,7 @@ async function read(cache: Cache, now: Date, deadlineMs: number, graceMs: number
 
 /**
  * The scheduled event's last part: the agendas read only there (`planifie`) whose copy is an hour old (or as old as
- * their `relecture`), each only if what is left pays for its reading and the bundle's write; the bundle (in KV,
+ * their `relecture`, within the hour their `decalage` says: `plannedDue`), each only if what is left pays for its reading and the bundle's write; the bundle (in KV,
  * src.PLANIFIES) written once, and only if one was read or failed. A reading that fails, or that finds nothing where the
  * copy had events, keeps the copy and its time, and is not tried again before the agenda's next reading is due, in
  * whatever isolate the next scheduled events run.
@@ -341,10 +355,9 @@ export async function refreshPlanned(cache: Cache, now = new Date()): Promise<{ 
   const direct: src.AgendaStore = { get: async (_k, _s, load) => ({ value: await load(), fetchedAt: now, stale: false }) };
   for (const agenda of planned) {
     const old = bundle.peek(`agenda:${agenda.id}`);
-    const every = (agenda.relecture ?? PLANNED_FRESH_SECONDS) * 1000;
-    if (old && old.ageMs < every) continue;
+    if (old && !plannedDue(agenda, old.ageMs, now)) continue;
     const failed = bundle.peek(echec(agenda));
-    if (failed && failed.ageMs < every) continue;
+    if (failed && !plannedDue(agenda, failed.ageMs, now)) continue;
     if (left() - KEEP_LEFT - 1 < (agenda.requetes ?? 1)) {
       out.reportes.push(agenda.id);
       continue;
