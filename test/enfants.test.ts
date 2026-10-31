@@ -3,7 +3,7 @@ import { ageIn, ageRange, extrait, themesIn } from "../src/providers/agenda-mots
 import { INSEE } from "../src/places/insee.js";
 import { CHILDREN, enfantsAnswer, kindAsked } from "../src/tools/enfants.js";
 import * as enfants from "../src/vie/enfants.js";
-import { DOUBLE_SCRIPT, WHEEL_SCRIPT } from "../src/web/carte-zoom.js";
+import { zoomControls } from "../src/web/carte-zoom.js";
 import { communePage } from "../src/web/commune.js";
 import { ASK_FRANCAIS, ASK_KREOL, enfantsCommunePage, enfantsPage, LEAD, TITLE } from "../src/web/enfants.js";
 import { esc } from "../src/web/map.js";
@@ -255,12 +255,10 @@ describe("a commune's children's page", () => {
     expect(html).toMatch(/<input type="radio" name="t" value="piscine"> <i class="ksw f-eau"><\/i>Piscines <span class="n">9<\/span><\/label>/);
     expect(html).not.toContain('value="escalade"');
     // Hidden until the script shows them: without it, the dots are links to the rows, the list is whole.
-    expect(html).toContain('<div id="ecz" class="kzoom" hidden>');
-    // Under the map, the zoom, then the choice of the base, as on every zoomed map.
-    expect(html.indexOf('<div id="ecz"')).toBeGreaterThan(html.indexOf("</svg>", html.indexOf('id="ecm"')));
-    expect(html.indexOf('<div id="ecz"')).toBeLessThan(html.indexOf('class="tabs fonds"'));
-    // The wheel and the double click of the hikes' map, the first click of a double click held there too.
-    expect(html).toContain(`${WHEEL_SCRIPT}${DOUBLE_SCRIPT}svg.addEventListener("click",held,true);`);
+    // The zoom of every map that zooms (carte-zoom.ts), 12 times closer at most, its buttons before the backgrounds.
+    expect(html).toContain(`data-fd="ecm" data-zoom="12"`);
+    expect(html).toContain(`</svg>${zoomControls("ecm", "commune")}<p class="fd-w" id="fd-w-ecm"`);
+    expect(html).toContain('svg.dispatchEvent(new CustomEvent("zshow",{detail:{x:+c.getAttribute("cx"),y:+c.getAttribute("cy")}}))');
     expect(html).toContain('<div id="ecs" class="card ksheet" hidden aria-live="polite">');
     expect(html).toMatch(/<button type="button" class="tomap f-[a-z]+" hidden aria-label="/);
   });
