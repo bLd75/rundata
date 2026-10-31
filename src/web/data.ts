@@ -34,7 +34,7 @@ import { gaugeRow, gauges } from "../tools/maree.js";
 import { islandTour, meteoActuelle } from "../tools/meteo.js";
 import { previsionMeteo } from "../tools/prevision.js";
 import { named } from "../tools/annuaire.js";
-import { alertsFor, applyRealtime, departures, findStops, nearStops, type PageRow, pageRow, realtimeFeeds, spread, stationDepartures } from "../tools/transports.js";
+import { alertsFor, applyRealtime, completeMinutes, departures, findStops, nearStops, type PageRow, pageRow, realtimeFeeds, spread, stationDepartures } from "../tools/transports.js";
 import * as prefecture from "../providers/prefecture.js";
 import type { Cyclone } from "../providers/prefecture.js";
 import { ecoles, type ecolesBlock } from "../tools/ecoles.js";
@@ -1297,6 +1297,12 @@ export interface GareNow {
   /** The stop's name in each network that serves it, and its page (/bus/arret/<page>). */
   arrets: { nom: string; reseau: string; page?: string }[];
   departs: PageRow[];
+  /**
+   * Minutes after the copy's time until which `departs` holds every departure kept by the page's rule: how far its
+   * list looked, or the first departure it left out (a fourth of a line, a ninth of the station). Past that, the copy
+   * no longer knows what leaves next, and an empty list is not « no bus » (web/domains.ts `busOutran`).
+   */
+  complet_min?: number;
 }
 
 export interface BusData {
@@ -1336,11 +1342,16 @@ export async function buildBus(now = new Date(), cache?: Cache): Promise<BusData
   if (transit.enabled()) {
     const stations = GARES.map((q) => findStops(q).groups).filter((groups) => groups.length);
     const lists = await stationDepartures(stations, now);
-    stations.forEach((groups, i) => gares.push({
-      commune: groups[0].commune,
-      arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau, ...(transit.pageOfStop(g.ids[0]) ? { page: transit.pageOfStop(g.ids[0])!.slug } : {}) })),
-      departs: spread(applyRealtime(lists[i], feeds, now), 8).map(pageRow),
-    }));
+    stations.forEach((groups, i) => {
+      const all = applyRealtime(lists[i].departs, feeds, now);
+      const kept = spread(all, 8);
+      gares.push({
+        commune: groups[0].commune,
+        arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau, ...(transit.pageOfStop(g.ids[0]) ? { page: transit.pageOfStop(g.ids[0])!.slug } : {}) })),
+        departs: kept.map(pageRow),
+        complet_min: completeMinutes(all, kept, lists[i].horizon),
+      });
+    });
   }
   // Only the networks whose departures shown come from their feed.
   const used = new Set(gares.flatMap((g) => g.departs.filter((d) => d.retard_min !== undefined || d.temps_reel).map((d) => d.reseau)));
@@ -1522,6 +1533,8 @@ export interface CommuneData {
     gare: boolean;
     arrets: { nom: string; reseau: string }[];
     departs: PageRow[];
+    /** As a station's of /bus (`GareNow`). */
+    complet_min?: number;
     alertes?: { reseau: string; lignes?: string[]; titre: string; detail?: string }[];
   };
   /** The commune's Altervélo stations, those with bikes first (Saint-Pierre, Saint-Louis, L'Étang-Salé). */
@@ -1554,14 +1567,17 @@ export async function buildCommune(cache: Cache, p: PlacePage, now = new Date())
       const { gare, groups } = communeStops(p);
       if (!groups.length) return undefined;
       let list = await departures(groups, now);
-      if (list.length < 3) list = await departures(groups, now, 20 * 3600);
+      let horizon = 3 * 3600;
+      if (list.length < 3) [list, horizon] = [await departures(groups, now, 20 * 3600), 20 * 3600];
       const feeds = await realtimeFeeds(groups.map((g) => g.reseau), cache, now);
-      const shown = spread(applyRealtime(list, feeds, now), 6);
+      const all = applyRealtime(list, feeds, now);
+      const shown = spread(all, 6);
       const alertes = alertsFor(groups, shown, feeds, now);
       return {
         gare,
         arrets: groups.map((g) => ({ nom: g.nom, reseau: transit.NETWORKS[g.reseau]?.nom ?? g.reseau })),
         departs: shown.map(pageRow),
+        complet_min: completeMinutes(all, shown, horizon),
         ...(alertes.length ? { alertes } : {}),
       };
     })(),

@@ -13,6 +13,7 @@ import { why } from "../types.js";
 import {
   alerte,
   alerteLue,
+  type BusData,
   type ReaderWaits,
   BANNER_WAIT_MS,
   buildAir,
@@ -64,7 +65,7 @@ import {
 import { COMMUNES, communePage, communesPage } from "./commune.js";
 import { buildEmploi, emploiPage } from "./emploi.js";
 import { buildMarches, marchesPage } from "./marches-publics.js";
-import { actualitesPage, agendaPage, airPage, bornesPage, busPage, calendrierPage, coupuresPage, cruesPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
+import { actualitesPage, agendaPage, airPage, bornesPage, busOutran, busPage, calendrierPage, coupuresPage, cruesPage, cyclonesPage, daePage, eauPage, electricitePage, historiquePage, randonneesPage, secheressePage, sentiersPage, sportPage, tracePage, traficPage, velosPage, volcanPage } from "./domains.js";
 import { concertsPage, weekendPage } from "./evenements.js";
 import { communePath as enfantsPath, enfantsCommunePage, enfantsPage } from "./enfants.js";
 import { coupuresCommunePage } from "./coupures.js";
@@ -211,6 +212,10 @@ const readerWaits: ReaderWaits = (key, value, ageMs) => {
 export const readerOf = (request: Request): boolean | ReaderWaits =>
   isReader(request) && (CHECK.test(request.headers.get("user-agent") ?? "") || readerWaits);
 
+/** Waits as `waits` says, or as the reader would. */
+const alsoWaits = (waits: ReaderWaits, reader: boolean | ReaderWaits): ReaderWaits => (key, value, ageMs) =>
+  waits(key, value, ageMs) || (typeof reader === "function" ? reader(key, value, ageMs) : reader);
+
 /** A page without its live block is not kept, nor one from a copy of another revision (web/data.ts `snapshot`): the next load should have it. */
 export const htmlFor = (data: unknown) => (data && !(data as { outdated?: boolean }).outdated ? HTML : { ...HTML, "cache-control": "no-store" });
 
@@ -245,14 +250,19 @@ const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)
 let icoBytes: Uint8Array<ArrayBuffer> | undefined;
 let swText: string | undefined;
 
-/** The domain pages: built from a tool's answer, kept like the other pages (web/data.ts). */
-export const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) => Promise<any>; page: (origin: string, data: Cached<any> | null, now: Date, alerte?: Alerte) => string }> = {
+/**
+ * The domain pages: built from a tool's answer, kept like the other pages (web/data.ts). `waits`: whether every visitor,
+ * not only an assistant's reader, waits for the refresh of an old copy (`snapshot`), for a page that would say something
+ * wrong from it.
+ */
+export const DOMAINS: Record<string, { key: string; build: (cache: Cache, now: Date) => Promise<any>; page: (origin: string, data: Cached<any> | null, now: Date, alerte?: Alerte) => string; waits?: ReaderWaits }> = {
   "/meteo": { key: "web:meteo", build: buildHome, page: meteoPage },
   "/volcan": { key: "web:volcan", build: buildVolcan, page: volcanPage },
   "/air": { key: "web:air", build: buildAir, page: airPage },
   "/electricite": { key: "web:electricite", build: buildElectricite, page: electricitePage },
   "/calendrier": { key: "web:calendrier", build: buildCalendrier, page: calendrierPage },
-  "/bus": { key: "web:bus", build: (cache, now) => buildBus(now, cache), page: busPage },
+  // A copy past what it knows of a station would say « Pas de départ prévu » there (web/domains.ts `busOutran`).
+  "/bus": { key: "web:bus", build: (cache, now) => buildBus(now, cache), page: busPage, waits: (_key, value, ageMs) => (value as BusData).gares.some((g) => busOutran(g, ageMs)) },
   "/trafic": { key: "web:trafic", build: buildTrafic, page: traficPage },
   "/velos": { key: "web:velos", build: buildVelos, page: velosPage },
   "/bornes": { key: "web:bornes", build: buildBornes, page: bornesPage },
@@ -548,7 +558,7 @@ async function pages(request: Request, cache: Cache, background: Background, now
   const domain = DOMAINS[path.replace(/(.)\/$/, "$1")];
   if (domain) {
     const [data, a] = await Promise.all([
-      snapshot(cache, domain.key, () => domain.build(cache, now), background, now, waitFor(request), readerOf(request)),
+      snapshot(cache, domain.key, () => domain.build(cache, now), background, now, waitFor(request), domain.waits ? alsoWaits(domain.waits, readerOf(request)) : readerOf(request)),
       alerte(cache, background, now),
     ]);
     const t = Date.now();
