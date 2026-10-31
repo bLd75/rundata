@@ -150,6 +150,14 @@ const EVENTS_MAX = 10;
 // does the same).
 const COST_UNKNOWN = 25;
 
+/** « 1 avis de coupure d'eau », the notices saying not to drink the water apart: one of them is not a cut. */
+function waterCount(avis: { ne_pas_boire?: boolean }[]): string {
+  const bad = avis.filter((n) => n.ne_pas_boire).length;
+  const cuts = avis.length - bad;
+  const dry = `${bad} avis d'eau à ne pas boire dans les secteurs ${bad > 1 ? "des avis" : "de l'avis"}`;
+  return !bad ? `${cuts} avis de coupure d'eau` : !cuts ? dry : `${cuts} avis de coupure d'eau, et ${dry}`;
+}
+
 const MARKETS_NOT_ALL = "D'après OpenStreetMap et les sites des mairies qui permettent de les reprendre : tous les marchés n'y sont pas, et les jours peuvent avoir changé.";
 const NO_DUTY = "rundata.re ne sait pas quelle pharmacie est de garde : seuls 3237.fr et le 32 37 le disent.";
 const FUEL_NOTE = "Prix maximum fixés chaque mois par le préfet, les mêmes dans toute l'île : une station peut vendre moins cher.";
@@ -322,7 +330,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
     f?.temperature_min && f.temperature_max ? `prévision du jour ${f.temperature_min} à ${f.temperature_max}${f.ciel_en_journee ? `, ${f.ciel_en_journee}` : ""}` : "",
     v ? `${v.maintenant.replace(/\.$/, "")}${v.alerte_cyclonique ? `, ${v.alerte_cyclonique}` : ""}` : "",
     v?.ecoles ? v.ecoles.replace(/\.$/, "") : "",
-    l.coupures ? (avis.length ? `${avis.length} avis de coupure d'eau${avis.some((n) => n.ne_pas_boire) ? " : eau à ne pas boire dans les secteurs de l'avis" : ""}${waterSilent ? ` (${waterSilent.court})` : ""}` : waterSilent ? `coupures d'eau : ${waterSilent.court}` : dist?.avis ? "pas de coupure d'eau annoncée" : "") : "",
+    l.coupures ? (avis.length ? `${waterCount(avis)}${waterSilent ? ` (${waterSilent.court})` : ""}` : waterSilent ? `coupures d'eau : ${waterSilent.court}` : dist?.avis ? "pas de coupure d'eau annoncée" : "") : "",
     l.agenda ? `${events.length} événement${events.length > 1 ? "s" : ""} aujourd'hui` : "",
     roads.length ? `${roads.length} info${roads.length > 1 ? "s" : ""} sur les routes ou des blocages` : "",
     power.length ? shortOf(power[0], now) : "",

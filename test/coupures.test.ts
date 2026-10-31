@@ -5,12 +5,12 @@ import { communesIn, cut, extract, operatorOf, parseCirest, parseCreole, parseNo
 import { coupuresEau, noticeRow } from "../src/tools/coupures.js";
 import { coupuresCommunePage, waterLive } from "../src/web/coupures.js";
 import { buildCoupures } from "../src/web/data.js";
-import { coupuresPage } from "../src/web/domains.js";
+import { coupuresLive, coupuresPage, noticesHead } from "../src/web/domains.js";
 import island from "../src/places/island.json" with { type: "json" };
 import { pageOf } from "../src/web/places.js";
 import { resume } from "../src/tools/resume.js";
 import { site } from "../src/web/site.js";
-import { aujourdhuiPage } from "../src/web/aujourdhui.js";
+import { aujourdhuiPage, descriptionOf } from "../src/web/aujourdhui.js";
 import { mapLinks } from "./cartes.js";
 
 // The distributors' notices on 24/10/2026 in the morning: a cut announced in Saint-Denis for Monday night, the water
@@ -171,20 +171,49 @@ describe("coupures d'eau", () => {
     // The commune's page: the notice's card, never « no notice ».
     const salazie = coupuresCommunePage("https://rundata.re", pageOf("salazie")!, { coupures }, later);
     expect(salazie).toContain("<h3>Ne pas boire l'eau · Salazie");
-    expect(salazie).toContain(`<div class="now"><span class="big">1</span><p>avis de coupure ou de travaux en cours, récents ou à venir à Salazie ; <b>eau à ne pas boire</b> dans les secteurs de l'avis.</p></div>`);
+    expect(salazie).toContain(`<div class="now"><span class="big">1</span><p>avis en cours à Salazie : <b>eau à ne pas boire</b> dans les secteurs de l'avis.</p></div>`);
     expect(salazie).not.toContain("Aucun avis");
     expect(salazie).not.toContain("ni avis « ne pas boire l'eau »");
     expect(waterLive(pageOf("salazie")!, { coupures })).toMatchObject({ valeur: "Eau à ne pas boire" });
     // The island's page, and the commune's day (tool and page).
     const isle = coupuresPage("https://rundata.re", coupures, later);
     expect(isle).toContain("<h3>Ne pas boire l'eau · Salazie");
-    expect(isle).toMatch(/<span class="big">\d+<\/span><p>avis de coupure ou de travaux en cours, récents ou à venir ; <b>eau à ne pas boire<\/b> : La Plaine-des-Palmistes, Salazie\./);
+    expect(isle).toContain(`<span class="big">2</span><p>avis en cours : <b>eau à ne pas boire</b> dans les secteurs des avis (La Plaine-des-Palmistes, Salazie).</p>`);
     const day = resume(pageOf("salazie")!, { coupures } as never, later);
-    expect(day.resume).toContain("eau à ne pas boire dans les secteurs de l'avis");
+    expect(day.resume).toContain("\u00a0; 1 avis d'eau à ne pas boire dans les secteurs de l'avis\u00a0;");
+    expect(day.resume).not.toContain("coupure d'eau");
     expect(day.coupures_eau!.avis).toEqual([expect.objectContaining({ ne_pas_boire: true })]);
     expect(aujourdhuiPage("https://rundata.re", pageOf("salazie")!, day, null)).toContain("<b>Eau à ne pas boire</b>");
     // The tool's count of recent notices is unchanged: the old notice is told, not called recent.
     expect(body(await coupuresEau(cache(later), undefined, later)).resume).toMatch(/^Eau à ne pas boire en ce moment : La Plaine-des-Palmistes, Salazie\. /);
+  });
+
+  it("counts the notices saying not to drink the water apart from the cuts, so that none is read as a cut", async () => {
+    const row = (ne_pas_boire?: boolean) => ({ ne_pas_boire });
+    const head = (big: number, text: string) => `<div class="now"><span class="big">${big}</span><p>${text}</p></div>`;
+    // A commune's page: only « ne pas boire », both kinds, only cuts (the sentence of before).
+    expect(noticesHead([row(true)], "à Salazie")).toBe(head(1, "avis en cours à Salazie : <b>eau à ne pas boire</b> dans les secteurs de l'avis."));
+    expect(noticesHead([row(true), row(true)], "à Salazie")).toBe(head(2, "avis en cours à Salazie : <b>eau à ne pas boire</b> dans les secteurs des avis."));
+    expect(noticesHead([row(), row(true)], "à Salazie")).toBe(head(1, "avis de coupure ou de travaux, et 1 avis d'<b>eau à ne pas boire</b> dans les secteurs de l'avis."));
+    expect(noticesHead([row(), row()], "à Salazie")).toBe(head(2, "avis de coupure ou de travaux en cours, récents ou à venir à Salazie."));
+    // The island's page names the communes.
+    const both = ["La Plaine-des-Palmistes", "Salazie"];
+    expect(noticesHead([row(true), row(true)], "", both)).toBe(head(2, "avis en cours : <b>eau à ne pas boire</b> dans les secteurs des avis (La Plaine-des-Palmistes, Salazie)."));
+    expect(noticesHead([row(), row(), row(), row(true), row(true)], "", both)).toBe(head(3, "avis de coupure ou de travaux, et 2 avis d'<b>eau à ne pas boire</b> dans les secteurs des avis (La Plaine-des-Palmistes, Salazie)."));
+    expect(noticesHead([row()])).toBe(head(1, "avis de coupure ou de travaux en cours, récents ou à venir."));
+
+    // On 24/10, Salazie had two notices of cuts besides the notice of Grand-Îlet; Saint-Denis, a cut only.
+    const coupures = { value: await buildCoupures(cache(), NOW), fetchedAt: NOW };
+    const page = (slug: string) => coupuresCommunePage("https://rundata.re", pageOf(slug)!, { coupures }, NOW);
+    expect(page("salazie")).toContain(head(2, "avis de coupure ou de travaux, et 1 avis d'<b>eau à ne pas boire</b> dans les secteurs de l'avis."));
+    expect(page("saint-denis")).toContain(head(1, "avis de coupure ou de travaux en cours, récents ou à venir à Saint-Denis."));
+    const day = (slug: string) => resume(pageOf(slug)!, { coupures } as never, NOW).resume;
+    expect(day("salazie")).toContain("\u00a0; 2 avis de coupure d'eau, et 1 avis d'eau à ne pas boire dans les secteurs de l'avis\u00a0;");
+    expect(day("saint-denis")).toContain("\u00a0; 1 avis de coupure d'eau\u00a0;");
+    // The page of the day: « eau à ne pas boire » first in its description, and a cut counted only as a cut.
+    expect(descriptionOf(pageOf("salazie")!, resume(pageOf("salazie")!, { coupures } as never, NOW)).replace(/[\u00a0\u202f]/g, " ")).toMatch(/^Aujourd'hui à Salazie \(974\) : eau à ne pas boire, 2 coupures d'eau\. /);
+    // The home page's tile: the cuts only, beside the communes not to drink the water of.
+    expect(coupuresLive(coupures)!.detail).toBe(`${coupures.value.avis.filter((n) => !n.ne_pas_boire).length} avis de coupure ou de travaux récents ou à venir`);
   });
 
   it("gives a cut to come with its hours", async () => {
