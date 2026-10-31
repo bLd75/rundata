@@ -133,6 +133,8 @@ import { typo, typoPage } from "./typo.js";
 import { tripGonePage, tripPage } from "./trajet.js";
 import { searchStops, stopPageDepartures, TRIP_PATH, tripRun } from "../tools/transports.js";
 import { searchPage, stopPage } from "./arret.js";
+import { answer, askedOf, ITINERAIRE_PATH, itinerairePage } from "./itineraire.js";
+import { endOf } from "../tools/itineraire.js";
 import { STOP_PATH } from "./domains.js";
 import * as transit from "../providers/transit.js";
 import { carteRoute } from "./vigilance-carte.js";
@@ -753,6 +755,18 @@ async function pages(request: Request, cache: Cache, background: Background, now
       ? communePage(origin, p, { place, commune, vigilance, air, mer, volcan, electricite, calendrier, coupures, secheresse, eau, randonnees, agenda, dechets, hs }, now, alerteLue(vigilance, now))
       : communePage(origin, p, { place: null, commune: null, vigilance: null, air: null, mer: null, volcan: null, electricite: null, calendrier: null, coupures: null, secheresse: null, eau: null, randonnees: null, agenda: null, dechets: null }, now)),
     place, background, [rebuild(cache, `web:lieu:${p.slug}`, () => buildPlace(cache, p, now)), rebuild(cache, `web:commune:${p.slug}`, () => buildCommune(cache, p, now))]);
+  }
+  // The search for a journey: the form alone, or the journeys read from the timetables at each search (web/itineraire.ts).
+  if (path === ITINERAIRE_PATH || path === `${ITINERAIRE_PATH}/`) {
+    const asked = askedOf(url.searchParams);
+    if (!asked) return new Response(itinerairePage(origin, undefined, await alerte(cache, background, now)), { headers: { ...HTML, "cache-control": "public, max-age=300" } });
+    if (!transit.enabled()) return new Response(itinerairePage(origin, { asked, quand: "", indisponible: true, de: endOf(asked.de), a: endOf(asked.a) }, await alerte(cache, background, now)), { status: 503, headers: { ...HTML, "cache-control": "no-store", "retry-after": "60" } });
+    const started = Date.now();
+    const r = await answer(asked, now);
+    if (r.search) console.log(`trajet en bus : ${r.search.lectures.requetes} lectures D1, ${r.search.lectures.lignes} lignes, ${r.search.trajets.length} trajets, ${Date.now() - started} ms${r.search.trop_large ? ", trop large" : ""}`);
+    // A search for now changes with the minute; one for a given day and time, only with the timetables.
+    const age = asked.jour && asked.heure ? 300 : 60;
+    return new Response(itinerairePage(origin, r, await alerte(cache, background, now)), { status: r.indisponible ? 503 : 200, headers: { ...HTML, "cache-control": r.indisponible ? "no-store" : `public, max-age=${age}` } });
   }
   // A stop's page, and the search for one: read from the timetables at each view, never kept (web/arret.ts).
   if (path === STOP_PATH || path === `${STOP_PATH}/`) {
