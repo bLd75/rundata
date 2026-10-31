@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 31 octobre 2026
 
+- Antennes : plusieurs opérateurs et plusieurs types à la fois sur la carte, avec le nombre de supports affichés.
 - Électricité : la production des dernières 24 h en graphique, et la carte de ce qui peut produire, commune par commune.
 - Cyclones : les traces des cyclones passés viennent de l'historique de Météo-France (CMRS de La Réunion), en licence ouverte.
 - Historique météo : la pluie, les températures et le soleil des 30 derniers jours en graphiques, et chaque année depuis 1953 à Gillot.

@@ -4,10 +4,12 @@ import { Cache } from "../src/cache.js";
 import { inReunion } from "../src/geo.js";
 import { antennas } from "../src/tools/terrain.js";
 import * as antennes from "../src/vie/antennes.js";
-import { COULEURS, LOOK, antennesPage, code, look } from "../src/web/antennes.js";
+import { COULEURS, LOOK, PHRASE, antennesPage, code, look, phrase } from "../src/web/antennes.js";
 import { communePage } from "../src/web/commune.js";
 import { pageOf } from "../src/web/places.js";
 import { CSS } from "../src/web/pages.js";
+
+const parse = (c: string) => [...c.matchAll(/([a-z])(\d*)(?:\+(\d+))?/g)].map((m) => [m[1], m[2], m[3] ?? ""] as [string, string, string]);
 
 describe("the antennas of the island (ANFR)", () => {
   it("bundles every mobile support of the island with its operators, and the FM, TNT and DAB+ supports", () => {
@@ -79,34 +81,51 @@ describe("the antennas of the island (ANFR)", () => {
     expect(html).toContain("<title>Antennes Réunion : 4G, 5G, TNT et radio sur la carte · 974</title>");
     // Counted from the files, never written: the next file changes them.
     expect(html).toContain("<p class=\"lead\">1\u202f151 supports d&#39;antennes mobiles déclarés à l&#39;ANFR au 22 octobre 2026, et 173 supports d&#39;émetteurs de radio et de télévision au 30 septembre 2026.</p>");
-    // Two rows that combine, and the colours; their values are the page's address (« #orange-5g »).
-    const row = (n: string) => [...html.matchAll(new RegExp(`<input type="radio" name="${n}" id="${n}-[a-z0-9-]+" value="([a-z0-9-]*)"`, "g"))].map((m) => m[1]);
-    expect(row("ao")).toEqual(["", "orange", "sfr-reunion", "free", "zeop"]);
-    expect(row("at")).toEqual(["", "2g", "3g", "4g", "5g", "tnt", "fm", "dab"]);
-    expect(row("ac")).toEqual(["o", "t"]);
+    // Two rows of boxes that combine, several at once, and the colours, one; their values are the page's address
+    // (« #orange+free-4g+5g »).
+    const row = (n: string, type: string) => [...html.matchAll(new RegExp(`<input type="${type}" name="${n}" id="${n}-[a-z0-9-]+" value="([a-z0-9-]*)"`, "g"))].map((m) => m[1]);
+    expect(row("ao", "checkbox")).toEqual(["", "orange", "sfr-reunion", "free", "zeop"]);
+    expect(row("at", "checkbox")).toEqual(["", "2g", "3g", "4g", "5g", "tnt", "fm", "dab"]);
+    expect(row("ac", "radio")).toEqual(["o", "t"]);
+    expect(html).toContain('<div class="tabs aqtabs r-ao" role="group" aria-label="Opérateur">');
+    expect(html).toContain('<div class="tabs aqtabs r-ac" role="radiogroup" aria-label="Couleur">');
     // Without the script, the filters stay hidden and every mobile support is drawn, coloured by operator.
     expect(html).toContain('<div class="antf" hidden>');
     expect([...html.matchAll(/<circle class="s k[a-z0-9]( r)?" cx/g)]).toHaveLength(1151);
     expect([...html.matchAll(/<circle class="e h" cx/g)]).toHaveLength(173);
-    // A count for each choice: the 25 of an operator and a generation, the 3 of the radio and the TV.
-    const legends = [...html.matchAll(/<span class="lg" data-k="([a-z0-9-]+)"( hidden)?>([^<]+)<\/span>/g)].map((m) => [m[1], m[3].replace(/&#39;/g, "'")]);
-    expect(legends).toHaveLength(28);
-    const by = Object.fromEntries(legends);
-    expect(by["tous"]).toBe("1\u202f151 supports d'antennes mobiles, dont 1\u202f134 avec au moins une antenne active.");
-    expect(by["orange"]).toBe("Orange : 392 supports avec au moins une antenne active, 4 en projet seulement.");
-    expect(by["5g"]).toBe("5G : 683 supports avec la 5G techniquement opérationnelle, 99 en projet, tous opérateurs.");
-    expect(by["orange-5g"]).toBe("Orange, 5G : 332 supports avec la 5G techniquement opérationnelle, 19 en projet.");
-    expect(by["tnt"]).toBe("TNT : 36 supports d'émetteurs de télévision, 38 stations.");
+    // One count, for what the map shows: without the script, every mobile support.
+    const legends = [...html.matchAll(/<span class="lg">([^<]+)<\/span>/g)].map((m) => m[1].replace(/&#39;/g, "'"));
+    expect(legends).toEqual(["1\u202f151 supports d'antennes mobiles affichés, dont 1\u202f134 avec au moins une antenne active et 17 en projet seulement."]);
+    // The script's count for some choices, from the same looks: one operator, one or two generations, several of each.
+    const codes = antennes.SUPPORTS.map((s) => parse(code(s)));
+    const count = (o: string[], g: string[]) => {
+      const l = codes.map((d) => look(d, o, g, "o")).filter((x) => x !== null);
+      return phrase(l.filter((x) => !x[0]).length, l.filter((x) => x[0]).length, 0, g);
+    };
+    expect(count(["o"], [])).toBe("396 supports d'antennes mobiles affichés, dont 392 avec au moins une antenne active et 4 en projet seulement.");
+    // The 5G alone, as the ANFR says it; with another generation, « active », as the legend says.
+    expect(count([], ["5"])).toBe("782 supports d'antennes mobiles affichés, dont 683 avec au moins une antenne 5G techniquement opérationnelle et 99 en projet seulement.");
+    expect(count(["o"], ["5"])).toBe("351 supports d'antennes mobiles affichés, dont 332 avec au moins une antenne 5G techniquement opérationnelle et 19 en projet seulement.");
+    expect(count(["o", "f"], ["4", "5"])).toMatch(/^\d+ supports d'antennes mobiles affichés, dont \d+ avec au moins une antenne 4G ou 5G active( et \d+ en projet seulement)?\.$/);
+    // Two operators show at least what each shows alone.
+    const n = (o: string[], g: string[]) => codes.filter((d) => look(d, o, g, "o") !== null).length;
+    expect(n(["o", "f"], ["5"])).toBeGreaterThanOrEqual(Math.max(n(["o"], ["5"]), n(["f"], ["5"])));
+    expect(n(["o", "f"], ["5"])).toBeLessThanOrEqual(n(["o"], ["5"]) + n(["f"], ["5"]));
+    // The radio and the TV named after the choice; a no-break space before « ; », a narrow one between thousands.
+    expect(phrase(0, 0, 36, [], ["tnt"])).toBe("36 supports d'émetteurs de télévision affichés.");
+    expect(phrase(0, 0, 150, [], ["fm", "dab"])).toBe("150 supports d'émetteurs de radio affichés.");
+    expect(phrase(0, 0, 171, [], ["tnt", "fm"])).toBe("171 supports d'émetteurs de radio et de télévision affichés.");
+    expect(phrase(1, 0, 1, ["4"], ["fm"])).toBe("1 support d'antennes mobiles affiché, dont 1 avec au moins une antenne 4G active\u00a0; 1 support d'émetteurs de radio affiché.");
+    expect(phrase(1200, 3, 0, ["4", "5"])).toBe("1\u202f203 supports d'antennes mobiles affichés, dont 1\u202f200 avec au moins une antenne 4G ou 5G active et 3 en projet seulement.");
+    expect(phrase(0, 0, 0, ["5"])).toBe("Aucun support pour ce choix.");
     // The filters' script, once, and it parses.
     const script = [...html.matchAll(/<script>(\(\(\)=>\{const f=document\.querySelector\("\.antf"\)[^]*?)<\/script>/g)].map((m) => m[1]);
     expect(script).toHaveLength(1);
     expect(() => new Function(script[0])).not.toThrow();
     // The radio and the TV by their list, never by the length of their name (« fm » has two letters).
     expect(script[0]).toContain('const RADIOS=["tnt","fm","dab"];');
-    expect(script[0]).toContain("radio=RADIOS.includes(t);");
+    expect(script[0]).toContain("R=T.filter((t)=>RADIOS.includes(t))");
     expect(script[0]).not.toMatch(/t\.length/);
-    expect(by["fm"]).toMatch(/^FM : \d+ supports d'émetteurs de radio FM, \d+ stations\.$/);
-    expect(by["dab"]).toMatch(/^DAB\+ : \d+ supports d'émetteurs de radio numérique, \d+ stations\.$/);
     expect(html).not.toMatch(/5G en service/);
     // The commune of the tile has the same counts, its operators without « sur ».
     expect(html).toContain('<th scope="row">Cilaos</th><td data-label="Supports mobiles">7</td><td data-label="Dont 5G techniquement opérationnelle">5</td><td data-label="Supports par opérateur">Orange 2, SFR Réunion 4, Free 1, Zeop 1</td><td data-label="Supports radio et TV">6</td>');
@@ -120,17 +139,31 @@ describe("the antennas of the island (ANFR)", () => {
 
   it("shows each support the same in the browser as counted on the server, for every choice", () => {
     const js = new Function(`${LOOK} return look;`)() as typeof look;
-    const parse = (c: string) => [...c.matchAll(/([a-z])(\d*)(?:\+(\d+))?/g)].map((m) => [m[1], m[2], m[3] ?? ""] as [string, string, string]);
     const codes = antennes.SUPPORTS.map((s) => parse(code(s)));
-    for (const o of ["", "o", "s", "f", "z"]) for (const g of ["", "2", "3", "4", "5"]) for (const m of ["o", "t"]) {
-      for (const d of codes) expect(js(d, o, g, m), `${o} ${g} ${m}`).toEqual(look(d, o, g, m));
+    // Every set of operators and of generations, none being all.
+    const sets = (l: string[]) => l.reduce<string[][]>((acc, x) => acc.concat(acc.map((a) => [...a, x])), [[]]);
+    for (const o of sets(["o", "s", "f", "z"])) for (const g of sets(["2", "3", "4", "5"])) for (const m of ["o", "t"]) {
+      expect(codes.map((d) => js(d, o, g, m)), `${o} ${g} ${m}`).toEqual(codes.map((d) => look(d, o, g, m)));
+    }
+    const say = new Function(`${PHRASE} return phrase;`)() as typeof phrase;
+    for (const [on, off, e, g, r] of [[1151, 17, 0, [], []], [0, 0, 0, [], []], [1, 0, 0, ["5"], []], [683, 99, 36, ["4", "5"], ["tnt"]], [0, 2, 1, ["2", "3", "5"], ["fm"]],
+      [1134, 0, 171, ["5"], ["tnt", "dab"]], [0, 0, 9, [], ["dab"]]] as [number, number, number, string[], string[]][]) {
+      expect(say(on, off, e, g, r)).toBe(phrase(on, off, e, g, r));
     }
     // A support shared by two operators: « plusieurs », even with one of them chosen; by type, the chosen one's newest.
-    expect(look(parse("o2345 s234"), "o", "", "o")).toEqual([false, "m"]);
-    expect(look(parse("o2345 s234"), "s", "", "t")).toEqual([false, "4"]);
+    expect(look(parse("o2345 s234"), ["o"], [], "o")).toEqual([false, "m"]);
+    expect(look(parse("o2345 s234"), ["s"], [], "t")).toEqual([false, "4"]);
     // On the 5G, only the operator with a 5G counts: its colour; planned only, a ring.
-    expect(look(parse("o234+5 s234"), "", "5", "o")).toEqual([true, "o"]);
-    expect(look(parse("o234 s234"), "", "5", "o")).toBeNull();
+    expect(look(parse("o234+5 s234"), [], ["5"], "o")).toEqual([true, "o"]);
+    expect(look(parse("o234 s234"), [], ["5"], "o")).toBeNull();
+    // Several generations: shown with any of them, full when one is active.
+    expect(look(parse("o234+5 s234"), [], ["4", "5"], "o")).toEqual([false, "m"]);
+    // By type, a ring keeps the colour of its newest active generation, as with one generation chosen.
+    expect(look(parse("o2+5"), [], ["4", "5"], "t")).toEqual([true, "2"]);
+    expect(look(parse("o2+5"), [], ["5"], "t")).toEqual([true, "2"]);
+    // Several operators: shown when one of them has the generation.
+    expect(look(parse("o234 f2345"), ["o", "s"], ["5"], "o")).toBeNull();
+    expect(look(parse("o234 f2345"), ["o", "f"], ["5"], "o")).toEqual([false, "f"]);
   });
 
   it("colours the dots with marketing's palette, never an operator's own colour", () => {
