@@ -191,7 +191,8 @@ export const sourceMuette = (source: string, at: Date, tardive?: boolean) =>
   avertissement([{ source, lue_le: localTime(at), ...(tardive && { tardive: true as const }) }], false);
 
 /**
- * `donnee`: false leaves `donnee_du` out (an answer made of many dated parts, each saying its own). `nom`: a source's
+ * `donnee`: false leaves `donnee_du` out (an answer made of many dated parts, each saying its own), and dates the read
+ * by the newest of them. `nom`: a source's
  * name from its id, for the one served from its last copy.
  */
 export function fraicheur(p: Payload, lectures: Lecture[], now: Date, opts: { donnee?: boolean; nom?: (id: string) => string | undefined } = {}) {
@@ -202,7 +203,10 @@ export function fraicheur(p: Payload, lectures: Lecture[], now: Date, opts: { do
   // copy). Every part a copy: the oldest of them. Without any read, the data is rundata.re's own copy, read now.
   const served = pool.filter((l) => !l.stale);
   const basis = served.length ? served : pool;
-  let read = basis.length ? Math.min(...basis.map((l) => l.fetchedAt)) : now.getTime();
+  // An answer of many dated parts (`donnee` false, resume_du_jour), each saying its own time: the newest of its reads,
+  // never older than one of them (31/10/2026: « lue à 06:25 » over a weather measured at 07:00, read again for it).
+  const reads = basis.map((l) => l.fetchedAt);
+  let read = reads.length ? (opts.donnee === false ? Math.max(...reads) : Math.min(...reads)) : now.getTime();
   const data = opts.donnee === false ? undefined : dataDate(p);
   const at = data ? instantOf(data.du, now) : undefined;
   // Read before it was measured: the oldest read is another entry's (a reference, the radar). The entry that carries

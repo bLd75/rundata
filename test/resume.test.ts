@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { count, counted, measured, PAGE_BUDGET } from "../src/budget.js";
 import { Cache, type CacheEntry, MemoryStore, stampOf, TieredStore } from "../src/cache.js";
 import { configure } from "../src/providers/mf-auth.js";
+import { withLectures } from "../src/lectures.js";
+import { fraicheur } from "../src/tools/fraicheur.js";
 import { COURT, court, readCopies, resume, resumeDuJour, UPDATING } from "../src/tools/resume.js";
 import { buildAir, buildPlace } from "../src/web/data.js";
 import { pageOf } from "../src/web/places.js";
@@ -382,6 +384,17 @@ describe("reading the copies", () => {
     expect(run.value.copies.electricite).toBeTruthy();
     expect(run.value.refreshed).toEqual([KEYS.electricite]);
     expect((await run.settled()).used).toBeLessThanOrEqual(PAGE_BUDGET);
+  });
+
+  it("says it read its data when its newest part was read: the weather read again, not the calendar's copy", async () => {
+    // 31/10/2026, Bras-Panon: « lue à 06:25, il y a 45 min » over a weather measured at 07:00, read again for the call.
+    const edge = await edgeWith();
+    await edge.put(KEYS.meteo, { value: COPIES.meteo.value, fetchedAt: ago(25).getTime() });
+    await edge.put(KEYS.calendrier, { value: COPIES.calendrier.value, fetchedAt: ago(45).getTime() });
+    const { lectures } = await withLectures(() => resumeDuJour(isolate(edge), "Saint-Paul", NOW, () => undefined));
+    const f = fraicheur({}, lectures, NOW, { donnee: false });
+    expect(f.lue_a).toBe("24/10 14:00");
+    expect(f.age).toBe("à l'instant");
   });
 
   it("gives the weather as its page has it, waiting a moment for a copy older than FRESH_SECONDS", async () => {
