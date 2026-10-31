@@ -106,13 +106,17 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
 
   if (!lieu?.trim()) {
     const dry = lues().map((c) => doNotDrink(all, c) && c).filter(Boolean) as string[];
+    // A notice that still says not to drink the water is told however old it is, as on a commune's answer: the pages
+    // cut from this one (the commune's water, its day) would otherwise say no notice where the water is not to be drunk.
+    const stillDry = new Set(all.filter((n) => n.communes.some((c) => doNotDrink(all, c) === n)));
+    const told = all.filter((n) => stillDry.has(n) || live.includes(n));
     return text({
       resume: (dry.length ? `Eau à ne pas boire en ce moment : ${dry.join(", ")}. ` : "") +
         (live.length ? `${live.length} avis des distributeurs d'eau récents ou à venir.` : silent.length ? "" : "Aucun avis de coupure récent ou à venir.") +
         silent.map((f) => ` ${f.texte}`).join(""),
       injoignable: silent.length ? silent : undefined,
       ne_pas_boire: dry.length ? dry : undefined,
-      avis: live.map((n) => noticeRow(n, now, n.communes.some((c) => doNotDrink(all, c) === n))),
+      avis: told.map((n) => noticeRow(n, now, stillDry.has(n))),
       ...common,
     });
   }

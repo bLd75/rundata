@@ -10,6 +10,7 @@ import island from "../src/places/island.json" with { type: "json" };
 import { pageOf } from "../src/web/places.js";
 import { resume } from "../src/tools/resume.js";
 import { site } from "../src/web/site.js";
+import { aujourdhuiPage } from "../src/web/aujourdhui.js";
 import { mapLinks } from "./cartes.js";
 
 // The distributors' notices on 24/10/2026 in the morning: a cut announced in Saint-Denis for Monday night, the water
@@ -157,6 +158,33 @@ describe("coupures d'eau", () => {
     expect(b.ne_pas_boire).toEqual(["La Plaine-des-Palmistes", "Salazie"]);
     expect(b.avis.filter((n: { ne_pas_boire?: boolean }) => n.ne_pas_boire)).toHaveLength(2);
     expect(b.avis.every((n: { texte: string }) => !/\p{Extended_Pictographic}/u.test(n.texte))).toBe(true);
+  });
+
+  it("still tells a notice saying not to drink the water once it is no longer recent, as long as none says the water is back", async () => {
+    // Six days after the notices of the 23rd: past the recent days, and no later notice of the CIREST lifts them.
+    const later = new Date("2026-10-30T04:00:00Z");
+    const coupures = { value: await buildCoupures(cache(later), later), fetchedAt: later };
+    expect(coupures.value.ne_pas_boire).toEqual(["La Plaine-des-Palmistes", "Salazie"]);
+    const dry = coupures.value.avis.filter((n) => n.ne_pas_boire);
+    expect(dry.map((n) => n.communes)).toEqual([["La Plaine-des-Palmistes"], ["Salazie"]]);
+    expect(dry[1].lien).toBe("https://www.cirest.fr/salazie-grand-ilet-degradation-de-la-qualite-de-leau-23-10-2026/");
+    // The commune's page: the notice's card, never « no notice ».
+    const salazie = coupuresCommunePage("https://rundata.re", pageOf("salazie")!, { coupures }, later);
+    expect(salazie).toContain("<h3>Ne pas boire l'eau · Salazie");
+    expect(salazie).toContain(`<div class="now"><span class="big">1</span><p>avis de coupure ou de travaux en cours, récents ou à venir à Salazie ; <b>eau à ne pas boire</b> dans les secteurs de l'avis.</p></div>`);
+    expect(salazie).not.toContain("Aucun avis");
+    expect(salazie).not.toContain("ni avis « ne pas boire l'eau »");
+    expect(waterLive(pageOf("salazie")!, { coupures })).toMatchObject({ valeur: "Eau à ne pas boire" });
+    // The island's page, and the commune's day (tool and page).
+    const isle = coupuresPage("https://rundata.re", coupures, later);
+    expect(isle).toContain("<h3>Ne pas boire l'eau · Salazie");
+    expect(isle).toMatch(/<span class="big">\d+<\/span><p>avis de coupure ou de travaux en cours, récents ou à venir ; <b>eau à ne pas boire<\/b> : La Plaine-des-Palmistes, Salazie\./);
+    const day = resume(pageOf("salazie")!, { coupures } as never, later);
+    expect(day.resume).toContain("eau à ne pas boire dans les secteurs de l'avis");
+    expect(day.coupures_eau!.avis).toEqual([expect.objectContaining({ ne_pas_boire: true })]);
+    expect(aujourdhuiPage("https://rundata.re", pageOf("salazie")!, day, null)).toContain("<b>Eau à ne pas boire</b>");
+    // The tool's count of recent notices is unchanged: the old notice is told, not called recent.
+    expect(body(await coupuresEau(cache(later), undefined, later)).resume).toMatch(/^Eau à ne pas boire en ce moment : La Plaine-des-Palmistes, Salazie\. /);
   });
 
   it("gives a cut to come with its hours", async () => {
