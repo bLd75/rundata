@@ -2676,7 +2676,8 @@ function seasonTable(s: CyclonesAnswer["saison_en_cours"]): string {
 /**
  * The basin's map, without any system of the season (cyclones-bassin.ts), and the line that says where the systems
  * are: none, with the past cyclones' tracks; or the RSMC's map above it, or Météo-France's site when that map is not
- * shown here, and then no track at all.
+ * shown here, and then no track at all. Without a system, it is the hero's map, as on the other pages; with one, it
+ * stays under the RSMC's map, which comes first.
  */
 function basinFigure(d: CyclonesAnswer | undefined, active: number): string {
   const s = active > 1;
@@ -2696,7 +2697,7 @@ function basinFigure(d: CyclonesAnswer | undefined, active: number): string {
         : "") +
       " Cette carte ne montre aucun système de la saison. "
     : "Cette carte ne montre aucun système, ni sa position ni sa trajectoire. ";
-  return `<figure class="card bassin">${basinMap(traces)}<figcaption>${now}<p class="note">En pointillé, la zone suivie par le CMRS de La Réunion (Météo-France), de l'équateur à 40°\u00a0S et des côtes de l'Afrique à 90°\u00a0E (<a href="${ZONE_SOURCE}" rel="noopener">CMRS, présentation à l'OMM, 2017</a>). ` +
+  return `<figure class="card bassin${active ? "" : " mapcard"}">${basinMap(traces)}<figcaption>${now}<p class="note">En pointillé, la zone suivie par le CMRS de La Réunion (Météo-France), de l'équateur à 40°\u00a0S et des côtes de l'Afrique à 90°\u00a0E (<a href="${ZONE_SOURCE}" rel="noopener">CMRS, présentation à l'OMM, 2017</a>). ` +
     `${sources}Côtes\u00a0: Natural Earth (domaine public).</p></figcaption></figure>${traces ? `<script>${TRACES_SCRIPT}</script>` : ""}`;
 }
 
@@ -2727,14 +2728,14 @@ export function cyclonesPage(origin: string, data: Cached<CyclonesAnswer> | null
     ${ask(`Néna in siklone pa loin La Rényon ? Gèt si ${url} é di amwin sak Météo-France é la préfektir i di.`,
       `Y a-t-il un cyclone près de La Réunion ? Lis ${url} et dis-moi ce qu'en disent Météo-France et la préfecture.`)}
   </div>
+  ${active.length ? "" : basinFigure(d, 0)}
 </div>`;
 
   const body = `<section aria-labelledby="h-actifs">
   <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-actifs">Systèmes actifs</h2>
   <p>${d ? esc(d.resume) : ""}</p></div>
   ${d ? active.map(activeCard).join("") : `<p class="card">Le suivi se charge : rechargez la page dans quelques secondes.</p>`}
-  ${active.length ? carteHtml(d?.carte, now) : ""}
-  ${basinFigure(d, active.length)}
+  ${active.length ? carteHtml(d?.carte, now) + basinFigure(d, active.length) : ""}
 </section>
 <section aria-labelledby="h-alerte">
   <div class="sec-h"><p class="eyebrow">Préfecture de La Réunion</p><h2 id="h-alerte">Les phases de l'alerte cyclonique</h2>

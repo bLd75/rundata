@@ -21,7 +21,7 @@ const IMAGE = { image: { empreinte: "0123456789abcdef", largeur: 800, hauteur: 6
 const active = (carte?: typeof IMAGE) => ({ ...QUIET, resume: "Un système actif.", systemes_actifs: [SYS], carte }) as unknown as CyclonesAnswer;
 // Every character a regular expression gives a meaning, backslash included.
 const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const figure = (html: string) => html.match(/<figure class="card bassin">(.*?)<\/figure>/s)?.[1];
+const figure = (html: string) => html.match(/<figure class="card bassin(?: mapcard)?">(.*?)<\/figure>/s)?.[1];
 
 describe("the map of the basin on /cyclones", () => {
   it("says when no system is in the basin, with the tracks and pages of the past cyclones", () => {
@@ -51,6 +51,20 @@ describe("the map of the basin on /cyclones", () => {
     expect(carteHtml(IMAGE, NOW)).toContain('<figure class="card mf-carte" id="carte-cmrs">');
     expect(html.indexOf('id="carte-cmrs"')).toBeLessThan(html.indexOf('class="card bassin"'));
     expect(figure(html)).not.toContain("Aucun système");
+  });
+
+  it("is the hero's map without a system, as on the other pages, and stays under the RSMC's map with one", () => {
+    const hero = (html: string) => html.slice(html.indexOf('<div class="wrap intro">'), html.indexOf('<section aria-labelledby="h-actifs">'));
+    for (const html of [cyclonesPage(O, at(QUIET), NOW), cyclonesPage(O, null, NOW)]) {
+      expect(hero(html)).toMatch(/<\/div>\s*<figure class="card bassin mapcard">.*<\/figure>/s);
+      expect(html.match(/class="card bassin/g)).toHaveLength(1);
+    }
+    // The script of the tracks follows them into the hero.
+    expect(hero(cyclonesPage(O, at(QUIET), NOW))).toContain(`</figure><script>${TRACES_SCRIPT}</script>`);
+    for (const html of [cyclonesPage(O, at(active(IMAGE)), NOW), cyclonesPage(O, at(active()), NOW)]) {
+      expect(hero(html)).not.toContain("bassin");
+      expect(html).toContain('<figure class="card bassin">');
+    }
   });
 
   it("sends to Météo-France's site when the RSMC's map is not shown", () => {
