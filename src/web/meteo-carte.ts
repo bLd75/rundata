@@ -322,7 +322,7 @@ RJ.v={live:st,now,grid:field,show:set,mix:(F,G,f)=>{for(let k=0;k<w*h;k++){U[k]=
  * (RJ.p): an image of the history, or two faded one into the other, the drops those of the nearer.
  */
 const PLUIE_SCRIPT = `const pr=document.querySelector("[data-pluie]");if(pr){const fl=pr.nextElementSibling,say=document.querySelector("[data-radar]"),inp=document.getElementById("wxl-p");
-let d=null,live=null,L=null,Lp=null,cells=[],acc=[],ds=[],cw=0,ch=0,g,asked=false,mx=null;const K=${JSON.stringify(RAIN_WASH)},SC=${JSON.stringify([fr(CLASSES[0]), `plus de ${CLASSES[CLASSES.length - 1]}\u202fmm/h`])},Wt=[0,1,2,3,4,5,6,7,8];
+let d=null,live=null,L=null,Lp=null,cells=[],acc=[],ds=[],cw=0,ch=0,g,asked=false,mx=null;const K=${JSON.stringify(RAIN_WASH)},SC=${JSON.stringify([`${fr(CLASSES[0])}\u202fmm/h`, `plus de ${CLASSES[CLASSES.length - 1]}\u202fmm/h`])},Wt=[0,1,2,3,4,5,6,7,8];
 const BAD=" Hachures : zones que le radar voit mal, où la pluie peut être manquée.";
 const when=(t)=>{const x=loc(t),n=loc(new Date().toISOString());return x.toISOString().slice(0,10)===n.toISOString().slice(0,10)?"de "+hm(t):"du "+p2(x.getUTCDate())+"/"+p2(x.getUTCMonth()+1)+" à "+hm(t)};
 const radars=(l)=>{const of=(n)=>(n==="Colorado"?"du ":"de ")+n;return(l.length>1?"Radars ":"Radar ")+l.slice(0,-1).map(of).join(", ")+(l.length>1?" et ":"")+of(l[l.length-1])+" en défaut, selon Météo-France : de la pluie peut manquer sur la carte."};
@@ -342,8 +342,9 @@ ds=[];if(!cells.length)return;const n=Math.min(900,Math.max(25,Math.round(acc[ac
 still:()=>{g.clearRect(0,0,cw,ch);drops()},
 frame:()=>{g.clearRect(0,0,cw,ch);for(const p of ds){p.y+=p.v;p.x-=p.v*.25;if(++p.a>p.m)born(p)}drops()}};const go=anim(o);
 // The hatched square ties the sentence to the hatches on the map, however small they are; it never leaves its word.
-// The radar's scale before its sentence, as the temperature's: its first and last classes, its blues (K) drawn plain.
-const scale=()=>{const s=document.createElement("span"),i=document.createElement("i");s.className="lgs";i.className="vgrad";i.style.background="linear-gradient(90deg,"+K.map((c)=>c.replace("rgba","rgb").replace(/,[.\\d]+\\)$/,")")).join(",")+")";s.append(SC[0],i,SC[1]);return s};
+// The radar's scale on its own line above its sentence (.lgr), never read as part of it: its first and last classes,
+// its blues (K) drawn plain.
+const scale=()=>{const s=document.createElement("span"),i=document.createElement("i");s.className="lgs lgr";i.className="vgrad";i.style.background="linear-gradient(90deg,"+K.map((c)=>c.replace("rgba","rgb").replace(/,[.\\d]+\\)$/,")")).join(",")+")";s.append(SC[0],i,SC[1]);return s};
 const show=(el,t,bad,down)=>{el.textContent=t;if(t.startsWith("En bleu"))el.prepend(scale());if(bad){const i=document.createElement("i"),w=document.createElement("span");i.className="hsw";w.className="hsn";w.append(i," Hachures");el.append(" ",w,bad.slice(9))}if(down)el.append(down);el.hidden=false};
 const land=()=>Lp||(Lp=new Promise((ok,ko)=>{const im=new Image();im.onload=()=>{const c=document.createElement("canvas");c.width=im.width;c.height=im.height;const x=c.getContext("2d");x.drawImage(im,0,0);
 const a=x.getImageData(0,0,im.width,im.height).data;ok(L=a.filter((v,i)=>i%4===0))};im.onerror=ko;im.src=pr.dataset.alt}));

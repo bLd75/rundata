@@ -302,7 +302,10 @@ describe("the page /meteo with every station", () => {
     const rgb = K.map((c) => c.match(/\d+/g)!.slice(0, 3).map(Number));
     for (const [r, g, b] of rgb) expect(b).toBeGreaterThan(Math.max(r, g) + 50);
     for (let i = 1; i < rgb.length; i++) expect(rgb[i][0] + rgb[i][1] + rgb[i][2]).toBeLessThan(rgb[i - 1][0] + rgb[i - 1][1] + rgb[i - 1][2]);
-    expect(METEO_SCRIPT).toContain(`SC=["0,1","plus de 32\u202fmm/h"]`);
+    expect(METEO_SCRIPT).toContain(`SC=["0,1\u202fmm/h","plus de 32\u202fmm/h"]`);
+    // On its own line, above the sentence.
+    expect(METEO_SCRIPT).toContain(`s.className="lgs lgr"`);
+    expect(CSS).toContain(".wxmap .lgr{display:flex;");
     expect(METEO_SCRIPT).toContain(`if(t.startsWith("En bleu"))el.prepend(scale())`);
     // Drops lighter in a downpour: never the white stripes of 26 drops a cell for 1 in the lightest rain.
     expect(METEO_SCRIPT).toContain(`Wt=[0,1,2,3,4,5,6,7,8]`);
