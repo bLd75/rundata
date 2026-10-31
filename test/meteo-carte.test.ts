@@ -295,6 +295,20 @@ describe("the page /meteo with every station", () => {
     // The hatches' sentence comes after a hatched square, styled by the page, which ties it to the hatches on the map.
     expect(METEO_SCRIPT).toContain(`w.append(i,"\u00a0Hachures");el.append(" ",w,bad.slice(9))`);
     expect(CSS).toContain(".wxmap .hsw{");
+    // The radar's rain in blues only, deeper class after class: the two strongest were violet and magenta, which the
+    // legend did not have (31/10/2026). Its scale before the sentence, from its first class to its last.
+    const K: string[] = JSON.parse(METEO_SCRIPT.match(/const K=(\[[^\]]*\])/)![1]);
+    expect(K).toHaveLength(8);
+    const rgb = K.map((c) => c.match(/\d+/g)!.slice(0, 3).map(Number));
+    for (const [r, g, b] of rgb) expect(b).toBeGreaterThan(Math.max(r, g) + 50);
+    for (let i = 1; i < rgb.length; i++) expect(rgb[i][0] + rgb[i][1] + rgb[i][2]).toBeLessThan(rgb[i - 1][0] + rgb[i - 1][1] + rgb[i - 1][2]);
+    expect(METEO_SCRIPT).toContain(`SC=["0,1\u202fmm/h","plus de 32\u202fmm/h"]`);
+    // On its own line, above the sentence.
+    expect(METEO_SCRIPT).toContain(`s.className="lgs lgr"`);
+    expect(CSS).toContain(".wxmap .lgr{display:flex;");
+    expect(METEO_SCRIPT).toContain(`if(t.startsWith("En bleu"))el.prepend(scale())`);
+    // Drops lighter in a downpour: never the white stripes of 26 drops a cell for 1 in the lightest rain.
+    expect(METEO_SCRIPT).toContain(`Wt=[0,1,2,3,4,5,6,7,8]`);
     for (const words of [`"sur l'île "`, `"Pas d'image radar à "+hm(e.a)+"."`, `"Pas d'image radar de "+hm(e.de)+" à "+hm(e.a)+"."`, `"hier à "`, `b.textContent="Chargement…"`, `b.textContent="▶ Lire"`]) {
       expect(METEO_SCRIPT).toContain(words);
     }
@@ -362,7 +376,7 @@ describe("the replay bar's own script", () => {
     const js = rejeuScript();
     expect(() => new Function(js)).not.toThrow();
     for (const words of [`"❚❚ Pause"`, `"↻ Relire"`, `"▶ Lire"`, `"Mettre en pause"`, `"Relire"`, `"Chargement…"`, `"Lire les 24 dernières heures"`, `"Lire les 7 derniers jours"`,
-      `w="mesuré"`, `w="estimé"`, `w="dernière mesure"`, `", estimé entre les mesures de "+hmm(r.a.t)+" et de "+hmm(r.z.t)`, `"Pluie de "+hmm(r.h.t-36e5)+" à "+hmm(r.h.t)`,
+      `w="mesuré"`, `w="estimé"`, `w="estimé par radar"`, `", pluie estimée par le radar"`, `", pluie estimée par le radar entre ses images de "+hmm(r.a.t)+" et de "+hmm(r.z.t)`, `w="dernière mesure"`, `", estimé entre les mesures de "+hmm(r.a.t)+" et de "+hmm(r.z.t)`, `"Pluie de "+hmm(r.h.t-36e5)+" à "+hmm(r.h.t)`,
       `"Historique gardé depuis le "+dm(S)+" à "+hmm(S)+"."`, `". Pas d'image radar de "`, `PLAY=12000`,
       `"Température sous abri de "+x+" de Météo-France, une mesure par heure.`, `" de Météo-France, une mesure par heure. Entre eux, le mouvement et les couleurs sont estimés : ce n'est pas une mesure. Les aéroports et les balises de vent ne sont pas dans ce rejeu."`,
       `"Pluie de chaque heure, en mm, mesurée par "+x+" de Météo-France. Point blanc : pas de pluie mesurée."`, `.lg-now .lgs`]) {

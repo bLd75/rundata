@@ -708,7 +708,7 @@ border-radius:6px;padding:.2rem .5rem;background:var(--warn-bg);color:var(--lave
 .wxmap .wv rect{fill:#14202c;stroke:#fff;stroke-width:3}.wxmap .wv path{fill:none;stroke:#fff;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.wxmap .wv circle{fill:#fff}.wxmap .wv text{fill:#fff;font-weight:700;font-size:30px;text-anchor:middle}.wxmap .wt line{vector-effect:non-scaling-stroke;stroke-linecap:round}.wxmap .wt .o{stroke:#0b1f36;stroke-width:3.5px}.wxmap .wt .i{stroke:#fff;stroke-width:1.5px}.wxmap .wt circle{fill:#fff;stroke:#0b1f36;stroke-width:2px;vector-effect:non-scaling-stroke}
 /* The station bubble (.mtip) is placed by the script against its parent, the figure: the figure must be its containing block. */
 .wxmap{position:relative}
-.wxmap .lgs{display:inline-flex;align-items:center;gap:.35rem;margin-right:.5rem;white-space:nowrap}
+.wxmap .lgs{display:inline-flex;align-items:center;gap:.35rem;margin-right:.5rem;white-space:nowrap}.wxmap .lgr{display:flex;width:max-content;margin:.15rem 0 .2rem}
 .wxmap .voile{display:block;width:100%;height:100%}.wxmap .aqtabs{gap:.25rem}.wxmap .aqtabs label{padding:.3rem .65rem}
 html:has([data-js]:not([hidden])) #stl.plie>li:nth-child(n+13){display:none}.stmore{font:inherit;font-weight:600;padding:.45rem 1rem;border:1px solid var(--line);border-radius:99px;background:none;color:var(--link);cursor:pointer}
 #stl{display:grid;grid-template-columns:repeat(auto-fill,minmax(10.5rem,1fr));gap:.6rem}

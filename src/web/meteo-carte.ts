@@ -11,7 +11,7 @@ import altitudes from "./altitudes.json" with { type: "json" };
 import { fr } from "../tools/format.js";
 import type { StationNow } from "./data.js";
 import { apart, esc, H, islandMap, project, W } from "./map.js";
-import { PATH as PLUIE_RADAR } from "./pluie-radar.js";
+import { CLASSES, PATH as PLUIE_RADAR } from "./pluie-radar.js";
 import { chip, deg, hm, metres, shortName, stationId, STOPS, thin } from "./pages.js";
 import { hash } from "./pwa.js";
 import { DUREES, PATHS as REJEU_PATHS } from "./rejeu.js";
@@ -68,8 +68,10 @@ function rainColor(mm: number): string {
 
 // The veil's colours by temperature, lighter than the dots' (chip()), from the same 8 to 33 °C.
 const VEIL: [number, number[]][] = [[8, [42, 106, 154]], [17, [36, 140, 120]], [24, [214, 168, 40]], [28, [222, 112, 40]], [33, [200, 48, 28]]];
-// The radar's rain, class 1 to 8 (web/pluie-radar.ts): a wash deeper as it rains harder.
-const RAIN_WASH = ["rgba(120,170,230,.35)", "rgba(100,155,225,.45)", "rgba(80,135,215,.5)", "rgba(60,115,205,.55)", "rgba(45,95,190,.6)", "rgba(35,75,175,.65)", "rgba(80,40,160,.65)", "rgba(150,30,140,.7)"];
+// The radar's rain, class 1 to 8 (web/pluie-radar.ts): a wash of blue, deeper as it rains harder, and nothing else, as
+// the legend says (« plus c'est foncé, plus elle est forte »). The two strongest were violet and magenta until 31/10/2026:
+// a colour the legend did not have, over the heaviest rain of the morning (marketing).
+const RAIN_WASH = ["rgba(120,170,230,.35)", "rgba(100,155,225,.45)", "rgba(80,135,215,.5)", "rgba(60,115,205,.55)", "rgba(45,95,190,.6)", "rgba(35,75,175,.65)", "rgba(27,60,155,.7)", "rgba(20,46,135,.75)"];
 // The wind's colours by speed, in km/h, after the usual wind maps: blue when calm, red in a storm.
 const WIND: [number, number[]][] = [[0, [70, 104, 176]], [10, [46, 150, 172]], [20, [74, 170, 98]], [30, [222, 184, 62]], [45, [222, 112, 46]], [60, [178, 44, 72]]];
 const STOPS_LO = VEIL[0][0];
@@ -314,18 +316,19 @@ RJ.v={live:st,now,grid:field,show:set,mix:(F,G,f)=>{for(let k=0;k<w*h;k++){U[k]=
  * The rain the radar sees, in the browser, asked for when the layer is first shown (web/pluie-radar.ts): its cells
  * washed in blue by class, hatched where the radars see badly (night and white stripes, which show on any relief; both
  * drawn once, at the screen's size), and drops falling
- * in the wet cells, more and faster where it rains harder (the second canvas, cleared each frame). The legend says the
+ * in the wet cells, more and faster where it rains harder (the second canvas, cleared each frame), never so many that
+ * they hide the blue: in a downpour, 26 drops a cell for 1 in the lightest made white stripes over it (31/10/2026). The legend says the
  * image's time, that the radar sees no rain, or that its image is too old to say anything about now. For the replay
  * (RJ.p): an image of the history, or two faded one into the other, the drops those of the nearer.
  */
 const PLUIE_SCRIPT = `const pr=document.querySelector("[data-pluie]");if(pr){const fl=pr.nextElementSibling,say=document.querySelector("[data-radar]"),inp=document.getElementById("wxl-p");
-let d=null,live=null,L=null,Lp=null,cells=[],acc=[],ds=[],cw=0,ch=0,g,asked=false,mx=null;const K=${JSON.stringify(RAIN_WASH)},Wt=[0,1,2,3,5,8,12,18,26];
+let d=null,live=null,L=null,Lp=null,cells=[],acc=[],ds=[],cw=0,ch=0,g,asked=false,mx=null;const K=${JSON.stringify(RAIN_WASH)},SC=${JSON.stringify([`${fr(CLASSES[0])}\u202fmm/h`, `plus de ${CLASSES[CLASSES.length - 1]}\u202fmm/h`])},Wt=[0,1,2,3,4,5,6,7,8];
 const BAD=" Hachures : zones que le radar voit mal, où la pluie peut être manquée.";
 const when=(t)=>{const x=loc(t),n=loc(new Date().toISOString());return x.toISOString().slice(0,10)===n.toISOString().slice(0,10)?"de "+hm(t):"du "+p2(x.getUTCDate())+"/"+p2(x.getUTCMonth()+1)+" à "+hm(t)};
 const radars=(l)=>{const of=(n)=>(n==="Colorado"?"du ":"de ")+n;return(l.length>1?"Radars ":"Radar ")+l.slice(0,-1).map(of).join(", ")+(l.length>1?" et ":"")+of(l[l.length-1])+" en défaut, selon Météo-France : de la pluie peut manquer sur la carte."};
 const pick=()=>{const r=Math.random()*acc[acc.length-1];let a=0,b=acc.length-1;while(a<b){const m=(a+b)>>1;if(acc[m]<r)a=m+1;else b=m}return cells[a]};
 const born=(p)=>{const k=pick(),c=+d.pluie[k];p.x=(k%d.w+Math.random())*cw/d.w;p.y=((k/d.w|0)+Math.random())*ch/d.h;p.v=.8+c*.25;p.l=3+c;p.a=0;p.m=5+(Math.random()*6|0)};
-const drops=(n)=>{g.strokeStyle="rgba(255,255,255,.92)";g.lineWidth=1.4;g.lineCap="round";g.beginPath();for(const p of ds){g.moveTo(p.x,p.y);g.lineTo(p.x-p.l*.25,p.y-p.l)}g.stroke()};
+const drops=(n)=>{g.strokeStyle="rgba(255,255,255,.7)";g.lineWidth=1.2;g.lineCap="round";g.beginPath();for(const p of ds){g.moveTo(p.x,p.y);g.lineTo(p.x-p.l*.25,p.y-p.l)}g.stroke()};
 // A grid's cells washed in blue by class, and hatched where the radars see badly, on a canvas at the map's size.
 const wash=(x,j)=>{const sx=cw/j.w,sy=ch/j.h,t=document.createElement("canvas");t.width=t.height=6;const tg=t.getContext("2d");tg.lineWidth=1.6;for(const[c,o]of[["rgba(11,31,54,.55)",0],["rgba(255,255,255,.5)",3]]){tg.strokeStyle=c;tg.beginPath();for(const k of[-6,0,6]){tg.moveTo(k+o-1,7);tg.lineTo(k+o+7,-1)}tg.stroke()}
 const hatch=x.createPattern(t,"repeat");for(let k=0;k<j.w*j.h;k++){const c=j.pluie[k],X=(k%j.w)*sx,Y=(k/j.w|0)*sy;
@@ -339,7 +342,10 @@ ds=[];if(!cells.length)return;const n=Math.min(900,Math.max(25,Math.round(acc[ac
 still:()=>{g.clearRect(0,0,cw,ch);drops()},
 frame:()=>{g.clearRect(0,0,cw,ch);for(const p of ds){p.y+=p.v;p.x-=p.v*.25;if(++p.a>p.m)born(p)}drops()}};const go=anim(o);
 // The hatched square ties the sentence to the hatches on the map, however small they are; it never leaves its word.
-const show=(el,t,bad,down)=>{el.textContent=t;if(bad){const i=document.createElement("i"),w=document.createElement("span");i.className="hsw";w.className="hsn";w.append(i," Hachures");el.append(" ",w,bad.slice(9))}if(down)el.append(down);el.hidden=false};
+// The radar's scale on its own line above its sentence (.lgr), never read as part of it: its first and last classes,
+// its blues (K) drawn plain.
+const scale=()=>{const s=document.createElement("span"),i=document.createElement("i");s.className="lgs lgr";i.className="vgrad";i.style.background="linear-gradient(90deg,"+K.map((c)=>c.replace("rgba","rgb").replace(/,[.\\d]+\\)$/,")")).join(",")+")";s.append(SC[0],i,SC[1]);return s};
+const show=(el,t,bad,down)=>{el.textContent=t;if(t.startsWith("En bleu"))el.prepend(scale());if(bad){const i=document.createElement("i"),w=document.createElement("span");i.className="hsw";w.className="hsn";w.append(i," Hachures");el.append(" ",w,bad.slice(9))}if(down)el.append(down);el.hidden=false};
 const land=()=>Lp||(Lp=new Promise((ok,ko)=>{const im=new Image();im.onload=()=>{const c=document.createElement("canvas");c.width=im.width;c.height=im.height;const x=c.getContext("2d");x.drawImage(im,0,0);
 const a=x.getImageData(0,0,im.width,im.height).data;ok(L=a.filter((v,i)=>i%4===0))};im.onerror=ko;im.src=pr.dataset.alt}));
 // A grid made the one drawn: its rainy cells of the island alone (the map shows nothing of the sea, where the radars
@@ -384,7 +390,8 @@ const PLAY_MS = 12_000;
  * (rejeu.ts), then the moment shown, from the first measure kept to the latest, on the layer shown. Each layer's
  * measures are its moments: the radar's images (5 minutes apart, or 15 over 24 hours), the stations' round hours, and
  * the live measures at the end. A moment on one (within SNAP) shows it, « mesuré »; between two, the temperatures' and
- * the wind's grids are mixed cell by cell and the radar's images faded, « estimé », never past the latest measure; a
+ * the wind's grids are mixed cell by cell and the radar's images faded, « estimé », never past the latest measure (the
+ * radar's rain, on an image or between two, « estimé par radar »: an estimate, as its legend says, never « mesuré »); a
  * gap is said; the stations' rain, an hour's total, is shown for its hour and never mixed. The end of the bar is the
  * live map. A play takes PLAY_MS; those who ask for less motion get the slider alone. The time is written on the
  * map; to a screen reader, the slider says it, and it is said once the play stops or the slider is let go.
@@ -433,6 +440,7 @@ if(end){once("fin",()=>{for(const x of["t","v","p"])if(RJ[x])RJ[x].back()})}else
 if(r&&r.m)t=r.m.t;else if(end)t=E;let w="",said=dm(t)+" à "+hmm(t);
 if(end){w="dernière mesure";said+=", dernière mesure"}else if(r&&r.gap){said+=". Pas d'image radar de "+hmm(r.gap[0])+" à "+hmm(r.gap[1])+"."}
 else if(r&&r.h){w="Pluie de "+hmm(r.h.t-36e5)+" à "+hmm(r.h.t);said+=", pluie de "+hmm(r.h.t-36e5)+" à "+hmm(r.h.t)}
+else if(r&&l==="p"){w="estimé par radar";said+=r.m?", pluie estimée par le radar":", pluie estimée par le radar entre ses images de "+hmm(r.a.t)+" et de "+hmm(r.z.t)}
 else if(r&&r.m){w="mesuré";said+=", mesuré"}else if(r){w="estimé";said+=", estimé entre les mesures de "+hmm(r.a.t)+" et de "+hmm(r.z.t)}
 hd.textContent=d==="7j"?DAYS[lx(t).getUTCDay()]+" "+dm(t):d==="24h"||dm(S)!==dm(E)?dm(t):"";hh.textContent=hmm(t);hs.textContent=w;
 rng.value=String((T-S)/ST[d]);rng.setAttribute("aria-valuetext",said);return said};
