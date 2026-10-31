@@ -148,8 +148,9 @@ function windMark(x0: number, y0: number, s: StationNow, at?: [number, number]):
  * giving the bubble its value (`data-tvt`, `data-tvp`, `data-tvv`); a station without a measure of the layer shown is
  * hidden (`has-…`). Its name for a screen reader says every measure.
  */
-function station(s: StationNow, named: boolean, rain: number | undefined, hour: boolean, windAt?: [number, number]): string {
+function station(s: StationNow, named: boolean, rain: number | undefined, hour: boolean, windAt?: [number, number], rainAt?: [number, number]): string {
   const [x, y] = project(s.lon, s.lat);
+  const [rx, ry] = rainAt ?? [x, y];
   const span = hour ? "1\u202fh" : "6\u202fmin";
   const v = {
     t: s.temperature != null ? thin(deg(s.temperature)) : undefined,
@@ -161,11 +162,23 @@ function station(s: StationNow, named: boolean, rain: number | undefined, hour: 
   const said = `${place} : ${[v.t, v.p, v.v].filter(Boolean).join(", ")}, mesures de ${hm(s.time)}${by(s)}, voir le détail`;
   const shapes =
     (s.temperature != null ? dot("t", x, y, chip(s.temperature), named ? `${Math.round(s.temperature)}°` : undefined) : "") +
-    (rain != null ? (rain > 0 ? dot("p", x, y, rainColor(rain), named || rain >= 1 ? fr(Math.round(rain * 10) / 10) : undefined) : dot("p", x, y, RAIN_DRY, undefined, true)) : "") +
+    (rain != null ? (rain > 0 ? dot("p", rx, ry, rainColor(rain), rainSaid(rain, named) ? fr(Math.round(rain * 10) / 10) : undefined) : dot("p", x, y, RAIN_DRY, undefined, true)) : "") +
     (s.vent != null ? windMark(x, y, s, windAt) : "");
   const data = Object.entries(v).map(([k, x]) => (x ? ` data-tv${k}="${esc(x)}"` : "")).join("");
   return `<a class="mk${has}" href="#${stationId(s.nom)}" aria-label="${esc(said)}" data-tp="${esc(place)}" data-td="mesurée à\u00a0${hm(s.time)}${esc(by(s))}"${data}>` +
     `<circle class="hit" cx="${x}" cy="${y}" r="${named ? HIT : HIT / 2}" style="fill:transparent;stroke:none"/>${shapes}</a>`;
+}
+
+/** A rain disc with its figure (dot()): at a named station, or from 1 mm; the others are small dots, told by the bubble. */
+const rainSaid = (rain: number, named: boolean) => named || rain >= 1;
+
+/** For each mark moved off its place (apart()): a white line on a night edge, to the mark (under it), and a white dot on its place (marketing). */
+function ties(list: StationNow[], placed: [number, number][]): string {
+  return list.map((s, i) => {
+    const [x0, y0] = project(s.lon, s.lat), [x, y] = placed[i];
+    const line = (c: string) => `<line class="${c}" x1="${x0}" y1="${y0}" x2="${x}" y2="${y}"/>`;
+    return Math.hypot(x - x0, y - y0) > 1 ? `${line("o")}${line("i")}<circle cx="${x0}" cy="${y0}" r="9"/>` : "";
+  }).join("");
 }
 
 export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
@@ -182,17 +195,20 @@ export function stationsMap(list: StationNow[], altPath = ALT_PATH): string {
   // one above the other, which would take the room of « Saint-Paul » on a phone.
   const placed = apart(w.map((s) => ({ lon: s.lon, lat: s.lat, label: "", name: s.nom })), w.map(() => WIND_W), 3);
   const windAt = new Map(w.map((s, i) => [s, placed[i]]));
-  const ties = w.map((s, i) => {
-    const [x0, y0] = project(s.lon, s.lat), [x, y] = placed[i];
-    // A white line on a night edge, to the pill (under it), and a white dot on its place (marketing).
-    const line = (c: string) => `<line class="${c}" x1="${x0}" y1="${y0}" x2="${x}" y2="${y}"/>`;
-    return Math.hypot(x - x0, y - y0) > 1 ? `${line("o")}${line("i")}<circle cx="${x0}" cy="${y0}" r="9"/>` : "";
-  }).join("");
+  const windTies = ties(w, placed);
+  // No rain disc with its figure covers another (four over each other in the middle of the island under the rain of
+  // 31/10 at 10:23, marketing's review): moved apart and tied to their place the same way (#607's rounds). The small
+  // dots stay on their place.
+  const r = list.filter((s) => (mm(s) ?? 0) > 0 && rainSaid(mm(s)!, named(s)));
+  const rainPlaced = apart(r.map((s) => ({ lon: s.lon, lat: s.lat, label: "", name: s.nom, round: true })));
+  const rainAt = new Map(r.map((s, i) => [s, rainPlaced[i]]));
+  const rainTies = ties(r, rainPlaced);
   // The named ones last, over the dots.
   const drawn = list.filter((s) => s.temperature != null || mm(s) != null || s.vent != null);
   // The replay's dots, its date, time and what they are (measured or estimated), on the sea at the bottom left, the
   // widest off the coast; shown only while it plays (REJEU_JS).
-  const top = `<g class="sts">${ties ? `<g class="l-v wt" aria-hidden="true">${ties}</g>` : ""}${[...drawn].sort((a, b) => Number(named(a)) - Number(named(b))).map((s) => station(s, named(s), mm(s), hour, windAt.get(s))).join("")}</g>` +
+  const top = `<g class="sts">${windTies ? `<g class="l-v wt" aria-hidden="true">${windTies}</g>` : ""}${rainTies ? `<g class="l-p wt" aria-hidden="true">${rainTies}</g>` : ""}` +
+    `${[...drawn].sort((a, b) => Number(named(a)) - Number(named(b))).map((s) => station(s, named(s), mm(s), hour, windAt.get(s), rainAt.get(s))).join("")}</g>` +
     `<g class="rj-st"></g><g class="rj-t" aria-hidden="true"><text class="rj-d" x="24" y="782"></text><text class="rj-h" x="24" y="846"></text><text class="rj-s" x="24" y="886"></text></g>`;
   // The veil's data: each station's place on the map, altitude and temperature; the script does the rest.
   const voile = JSON.stringify(t.map((s) => [...project(s.lon, s.lat), s.altitude_m, s.temperature]));

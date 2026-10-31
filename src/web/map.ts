@@ -573,7 +573,7 @@ function markerBox(m: Marker, at?: [number, number]): Box {
  * of `#isl` by `data-k`), the commune's own name (`data-c`) after the big ones if nothing around its place is free
  * (`look`), and on the island's map (`data-i`) a commune's name up to 6 times its size from its town, beyond 3 facing it (`face`), at sea only
  * where the nearest coast is the commune's (`town`, AROUND), as the server does for a phone. First the summits (`peaks`), whatever the map's width a mark 13 px wide and its name and height in 12 px (marketing's charter, § 2.4), the name below the summit, else above, on the right, on the
- * left, then aslant on either side, the first that touches no point (else the one that covers the least); the name
+ * left, then aslant on either side, the first that touches no point (else the one inside the frame that covers the least, never cut by its edge: « Piton de la Fournaise » at 1280, marketing's review of 31/10); the name
  * moves, never the station. What is hidden takes no room (the wind's pills under the temperatures, the summits'
  * names on a phone). Again when the map changes size, when a map zooms (its viewBox) and when a tab
  * changes the points shown. A map put in the page later (laterMap()) is placed when it comes.
@@ -596,7 +596,7 @@ if(!window.IntersectionObserver)return go();const o=new IntersectionObserver((e)
 export const NOMS_SCRIPT = `(()=>{const P=${JSON.stringify(NUDGE).replace(/</g, "\\u003c")},A=[...Array(625)].map((_,k)=>[k%25-12,Math.floor(k/25)-12]).filter(([i,j])=>i*i+j*j<=144).sort((a,b)=>a[0]*a[0]+a[1]*a[1]-(b[0]*b[0]+b[1]*b[1])),NEAR=${NEAR},F=[...Array(12)].flatMap((_,k)=>{const g=(k+1)/4,c=1.1+g;return[[1,g,0],[-1,-g,0],[0,0,-c],[0,0,c],[1,g,-c],[-1,-g,-c],[1,g,c],[-1,-g,c]]}),hit=(a,b)=>a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3];
 const run=(svg)=>{const g=svg.querySelector(".nm"),vb=svg.viewBox.baseVal,cw=svg.clientWidth;if(!g||!vb||!vb.width||!cw)return;
 const u=vb.width/cw,wide=cw>=640,p=2*u,busy=[],kept=[],box=(b,r)=>[b.x-r-p,b.y-r-p,b.x+b.width+r+p,b.y+b.height+r+p],
-e=${EDGE}*u,free=(b)=>b[0]>=vb.x+e&&b[1]>=vb.y+e&&b[2]<=vb.x+vb.width-e&&b[3]<=vb.y+vb.height-e&&![...busy,...kept].some((o)=>hit(o,b));const shown=(e)=>{for(;e&&e!==svg;e=e.parentNode)if(getComputedStyle(e).display==="none")return false;return true};
+e=${EDGE}*u,inn=(b)=>b[0]>=vb.x+e&&b[1]>=vb.y+e&&b[2]<=vb.x+vb.width-e&&b[3]<=vb.y+vb.height-e,free=(b)=>inn(b)&&![...busy,...kept].some((o)=>hit(o,b));const shown=(e)=>{for(;e&&e!==svg;e=e.parentNode)if(getComputedStyle(e).display==="none")return false;return true};
 svg.querySelectorAll(".mk .sh,.mk .mn,.sp:not(.off) .rg,.pin,.ties circle,.trk-start,.rj-st circle,.wt line,.wt circle").forEach((e)=>{let b;if(!shown(e))return;try{b=e.getBBox()}catch{return}const r=e.matches(".rg,.trk-start")?9*u:0;if(b.width||b.height||r&&e.getClientRects().length)busy.push(box(b,r))});
 svg.querySelectorAll(".trk-halo").forEach((l)=>{const L=l.getTotalLength(),st=Math.max(6*u,L/800);for(let s=0;s<=L;s+=st){const q=l.getPointAtLength(s);busy.push([q.x-4*u-p,q.y-4*u-p,q.x+4*u+p,q.y+4*u+p])}});
 const marks=[];svg.querySelectorAll(".pk").forEach((k)=>{const ts=[...k.querySelectorAll("text")],at=(d)=>ts.forEach((t)=>{t.setAttribute("x",+t.dataset.x+d[0]);t.setAttribute("y",+t.dataset.y+d[1])});
@@ -605,7 +605,7 @@ const z=13*u/T.width,ox=T.x+T.width/2,oy=T.y+T.height/2,pf=12*u;a.setAttribute("
 ts.forEach((t,i)=>{t.style.fontSize=pf+"px";t.style.strokeWidth=3*u+"px";t.dataset.x=ox;t.dataset.y=T.y+T.height+4*u+pf*(.8+1.15*i)});at([0,0]);marks.push(box(T,0));let B=null;for(const t of ts){if(!shown(t))continue;const q=t.getBBox();if(q.width)B=B?[Math.min(B[0],q.x),Math.min(B[1],q.y),Math.max(B[2],q.x+q.width),Math.max(B[3],q.y+q.height)]:[q.x,q.y,q.x+q.width,q.y+q.height]}if(!B)return;
 const s=4*u,cy=T.y+T.height/2-(B[1]+B[3])/2,hb=(B[3]-B[1])/2,R=T.x+T.width+s-B[0],L=T.x-s-B[2],at2=(d)=>[B[0]+d[0]-p,B[1]+d[1]-p,B[2]+d[0]+p,B[3]+d[1]+p],
 ds=[[0,0],[0,T.y-s-B[3]],[R,cy],[L,cy],[R,cy-hb],[L,cy-hb],[R,cy+hb],[L,cy+hb]],over=(d)=>{const a=at2(d);return busy.reduce((n,o)=>n+Math.max(0,Math.min(a[2],o[2])-Math.max(a[0],o[0]))*Math.max(0,Math.min(a[3],o[3])-Math.max(a[1],o[1])),0)},
-go=ds.find((d)=>free(at2(d)))||ds.reduce((m,d)=>(over(d)<over(m)?d:m));
+fit=ds.filter((d)=>inn(at2(d))),go=ds.find((d)=>free(at2(d)))||(fit.length?fit:ds).reduce((m,d)=>(over(d)<over(m)?d:m));
 at(go);marks.push(at2(go))});busy.push(...marks);
 g.setAttribute("stroke-width",3*u);const isl=[...svg.querySelectorAll("#isl path")],pt=isl.length&&svg.createSVGPoint&&svg.createSVGPoint(),bx=isl.map((q)=>q.getBBox()),
 isle=g.hasAttribute("data-i"),near=(x,y,st)=>{for(let r=1;r<=12;r++){const s=new Set();for(let a=0;a<16;a++){const l=land(x+r*st*Math.cos(a*Math.PI/8),y+r*st*Math.sin(a*Math.PI/8));if(l>=0)s.add(l)}if(s.size)return s}return new Set()},
