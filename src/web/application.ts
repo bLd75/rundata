@@ -15,14 +15,15 @@ const NAME = "rundata.re sur votre écran d'accueil";
 
 /**
  * The page's script: opens the visitor's browser and moves it first; a browser with Android's prompt gets its section
- * by its system, and the prompt behind that section's button. Opened from the icon, it says so instead of how to remove it.
+ * by its system, and the prompt behind that section's button. A computer's Chrome or Edge on a touch screen only (a
+ * phone asking for the computer's version of the site says it is one) opens none. Opened from the icon, it says so instead of how to remove it.
  * In a block of its own: the install block's script (pwa.ts) declares the same names at the top of the page.
  */
 const SCRIPT = `{${KIND_OF}
 const BY_KIND=${JSON.stringify(Object.fromEntries(SECTIONS.flatMap((s) => (s.kind ? [[s.kind, s.id]] : []))))};
 const BY_PROMPT=${JSON.stringify(Object.fromEntries(SECTIONS.flatMap((s) => (s.bouton ? [[s.bouton, s.id]] : []))))};
 const ua=navigator.userAgent,k=kindOf(ua,navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-const id=BY_KIND[k]||(/Android/.test(ua)?BY_PROMPT.android:k===null&&/Chrome|Edg/.test(ua)?BY_PROMPT.ordinateur:undefined);
+const id=BY_KIND[k]||(/Android/.test(ua)?BY_PROMPT.android:k===null&&/Chrome|Edg/.test(ua)&&!matchMedia("(pointer: coarse)").matches?BY_PROMPT.ordinateur:undefined);
 const d=id&&document.getElementById(id);if(d){d.open=true;d.parentNode.prepend(d)}
 if(matchMedia("(display-mode: standalone)").matches||navigator.standalone===true){document.getElementById("deja").hidden=false;document.getElementById("fait").hidden=true}
 let ask=null;addEventListener("beforeinstallprompt",(e)=>{e.preventDefault();ask=e;document.querySelectorAll(".app-go").forEach((b)=>{b.hidden=false})});

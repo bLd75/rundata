@@ -312,6 +312,11 @@ export function communeOf(adresse: string): string | undefined {
 }
 
 export async function ficheLieu(cache: Cache, adresse: string, now = new Date()) {
+  // Nothing to look for: the address base answers an empty query with its first result, a parcel of Sainte-Marie, which
+  // an assistant gave as the answer (31/10/2026).
+  if (!/[\p{L}\p{N}]{2}/u.test(adresse ?? "")) {
+    return { ...text({ erreur: "Aucune adresse donnée.", conseil: "Donner une adresse (numéro, rue, commune), un lieu-dit ou des coordonnées." }), isError: true };
+  }
   // A street address goes to the national address base; a place name to the gazetteer first.
   let where: { label: string; lon: number; lat: number; precision: string; insee?: string } | null = null;
   // The street asked, found in the address base with its land registry code: its own sales besides the area's.

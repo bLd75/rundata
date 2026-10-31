@@ -215,6 +215,16 @@ describe("fiche terrain", () => {
     ]) expect(sameStreet(asked, found), `${asked} → ${found}`).toBe(false);
   });
 
+  it("asks for an address when given none, without asking the address base", async () => {
+    // An empty one got a parcel of Sainte-Marie, the base's first answer to nothing (31/10/2026).
+    for (const adresse of ["", "  ", ",", " - "]) {
+      const r = await ficheLieu(new Cache(new MemoryStore(), () => NOW.getTime()), adresse, NOW);
+      expect(r.isError, JSON.stringify(adresse)).toBe(true);
+      expect(body(r)).toMatchObject({ erreur: "Aucune adresse donnée.", conseil: "Donner une adresse (numéro, rue, commune), un lieu-dit ou des coordonnées." });
+    }
+    expect(urls).toEqual([]);
+  });
+
   it("says when the address base finds another street, gives nothing of it, and names the streets close by", async () => {
     // Real answers of 25/10/2026: the base's best match is another street of the quarter named.
     files = { "type=street": "voies-gaspard.json", geocodage: "geocode-gaspard.json" };

@@ -31,7 +31,7 @@ describe("who makes rundata.re, the connector's page, the legal notice, the 404 
     expect(r.headers.get("vary")).toBe("accept");
     const page = await r.text();
     expect(page).toContain("<h1>Brancher rundata.re à votre IA</h1>");
-    expect(page).toContain('<code id="mcp-url">https://rundata.re/mcp</code>');
+    expect(page).toContain('<code id="mcp-url">https://rundata.re/<wbr>mcp</code>');
     // The first screen at 390 px: the breadcrumb under the connector's one name, the heading, one sentence, then the
     // address and « Copier », before the step by step. The title is the one search engines know.
     expect(page).toContain("<title>Ajouter rundata.re à votre assistant IA · connecteur MCP gratuit</title>");
@@ -42,7 +42,7 @@ describe("who makes rundata.re, the connector's page, the legal notice, the 404 
     const lead = band.match(/<p class="lead">([^<]*)<\/p>/)![1];
     expect(lead).toBe("Ajoutez cette adresse à ChatGPT, Claude ou Le Chat\u00a0: votre IA lira les données de La Réunion en direct.");
     expect(lead.split(/[\s\u00a0]+/).filter((w) => /\p{L}/u.test(w)).length).toBeLessThanOrEqual(20);
-    expect(band.indexOf('<code id="mcp-adresse">https://rundata.re/mcp</code><button type="button" data-copy="mcp-adresse"')).toBeGreaterThan(band.indexOf("<h1>"));
+    expect(band.indexOf('<code id="mcp-adresse">https://rundata.re/<wbr>mcp</code><button type="button" data-copy="mcp-adresse"')).toBeGreaterThan(band.indexOf("<h1>"));
     expect(page.match(/"name":"Brancher mon IA"/)).not.toBeNull();
     for (const a of ["<h3>Claude</h3>", "<h3>ChatGPT</h3>", "<h3>Le Chat</h3>", 'datetime="2026-10-25"', 'href="/confidentialite"', 'href="/conditions"']) expect(page).toContain(a);
     expect(page.match(/<meta name="description" content="([^"]*)"/)![1].length).toBeLessThanOrEqual(DESCRIPTION_MAX);
@@ -97,6 +97,25 @@ describe("who makes rundata.re, the connector's page, the legal notice, the 404 
     expect(page).toContain("l'article 1-1, II de la loi n° 2004-575 du 21 juin 2004");
     expect(page).toContain("Ses éléments d'identification ont été communiqués à l'hébergeur.");
     expect(page).toContain("enregistré auprès de l'AFNIC (.re)");
+  });
+
+  it("cuts « Ce que le site compte » and « Joindre rundata.re » in short paragraphs, and puts the breadcrumb on the legal pages", async () => {
+    const page = async (path: string) => (await handle(get(path, BROWSER), new Cache())).text();
+    const section = (html: string, from: string, to: string) => html.slice(html.indexOf(from), html.indexOf(to, html.indexOf(from)));
+    const paragraphs = (html: string) => html.split("<p").slice(1).map((p) => p.split("</p>")[0]);
+    // One paragraph of about 2 000 characters before (31/10/2026); its first sentence alone is about 1 000.
+    const compte = paragraphs(section(await page("/confidentialite"), "<h2>Ce que le site compte</h2>", '<p id="mesure-cloudflare"'));
+    expect(compte.length).toBe(6);
+    expect(Math.max(...compte.map((p) => p.length))).toBeLessThan(1_000);
+    const joindre = paragraphs(section(await page("/a-propos"), '<h2 id="contact">', "</section>"));
+    expect(joindre.length).toBe(4);
+    expect(Math.max(...joindre.map((p) => p.length))).toBeLessThan(500);
+    for (const [path, name] of [["/confidentialite", "Confidentialité"], ["/conditions", "Conditions d&#39;utilisation et mentions légales"]]) {
+      const html = await page(path);
+      expect(html).toContain(`<nav class="crumbs" aria-label="Fil d'Ariane"><ol><li><a href="/">rundata.re</a></li><li aria-current="page">${name}</li></ol></nav>`);
+      expect(html).toContain(`"@type":"BreadcrumbList"`);
+      expect(html).toContain(`"item":"https://rundata.re${path}"`);
+    }
   });
 
   it("sends /about to /a-propos", async () => {

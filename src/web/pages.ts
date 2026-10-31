@@ -50,6 +50,7 @@ import { stationOf, stationPath } from "./station.js";
 import { hash, INSTALL, OFFLINE_PATH, OFFLINE_SCRIPT, PWA_CSS, PWA_SCRIPT } from "./pwa.js";
 import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 import { bathingBlock } from "./baignade.js";
+import { crumbBar, crumbs } from "./domains.js";
 import { PASSES } from "../historique/cyclones-passes.js";
 
 export const SITE = "rundata.re";
@@ -345,7 +346,7 @@ padding:.3rem .8rem;border-radius:999px;background:rgb(255 255 255/.1);border:1p
 
 .connect{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);
 border-radius:18px;padding:.4rem .4rem .4rem 1rem;max-width:100%;box-shadow:var(--shadow)}
-.connect code{font:600 1.05rem/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink);overflow-wrap:anywhere;flex:1 1 12rem;min-width:0}
+.connect code{font:600 1.05rem/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink);overflow-wrap:break-word;flex:1 1 12rem;min-width:0}
 .connect button{font:700 1rem system-ui,sans-serif;background:var(--sun);color:var(--sun-ink);border:0;border-radius:14px;
 padding:.65rem 1.2rem;cursor:pointer;transition:transform .15s}
 .connect button:hover{transform:translateY(-1px)}
@@ -386,6 +387,8 @@ section{display:grid;gap:1.4rem;min-width:0}
 .num{display:grid;place-items:center;width:2.4rem;height:2.4rem;border-radius:12px;background:var(--night);color:var(--sun);
 font:800 1.2rem Bricolage,system-ui,sans-serif}
 .step .connect{box-shadow:none;background:var(--surface-2)}
+/* The address on one line in a step of three columns (270 px); after its « / » otherwise. */
+.step .connect code{font-size:.92rem}
 .tabs{display:flex;flex-wrap:wrap;gap:.35rem}
 .tabs input{position:absolute;opacity:0;pointer-events:none}
 .tabs label{font-size:.9rem;font-weight:600;padding:.3rem .8rem;border-radius:999px;border:1px solid var(--line);cursor:pointer;color:var(--muted)}
@@ -1362,7 +1365,8 @@ export const COPIED = `<p class="copie" role="status" lang="fr" hidden></p>`;
 
 /** The connector's address with its copy button; `id` keeps several on one page apart. */
 export function connector(origin: string, id: string): string {
-  return `<div class="connect"><code id="${id}">${esc(`${origin}/mcp`)}</code><button type="button" data-copy="${id}" data-signal aria-label="Copier l'adresse du connecteur">Copier</button></div>`;
+  // Cut after its last « / » when it does not fit, never inside « mcp » (31/10/2026: « https://rundata.re/m | cp »).
+  return `<div class="connect"><code id="${id}">${esc(origin)}/<wbr>mcp</code><button type="button" data-copy="${id}" data-signal aria-label="Copier l'adresse du connecteur">Copier</button></div>`;
 }
 
 export const withTemp = (data: Cached<HomeData> | null) => data?.value.stations.filter((x) => x.temperature != null && !x.stale) ?? [];
@@ -2143,7 +2147,12 @@ export function legalPage(origin: string, kind: "confidentialite" | "conditions"
   <h2>En bref</h2>
   <p>${enLigne() ? `Pour consulter le site ou l'utiliser depuis un assistant IA, rundata.re ne demande ni compte, ni nom, ni adresse électronique. Seuls les ${connecteursEnLigne() ? "trois" : "deux"} formulaires des clubs et associations demandent une adresse électronique (voir <a href="#associations-donnees">«\u00a0Ce que les clubs et associations envoient\u00a0»</a>${connecteursEnLigne() ? ` et <a href="#plateformes-donnees">«\u00a0Les associations reliées à une plateforme\u00a0»</a>` : ""}).` : "rundata.re ne demande ni compte, ni nom, ni adresse électronique."} Le site ne pose aucun cookie et ne contient aucun traceur publicitaire. Dans votre navigateur, sans cookie, le site garde la date de votre première et de votre dernière visite, pour savoir s'il sert d'un jour à l'autre\u00a0; il n'en envoie qu'une catégorie (voir <a href="#retours">«\u00a0Les retours\u00a0»</a>).${enLigne() ? ` La vérification anti-robot des ${connecteursEnLigne() ? "trois" : "deux"} formulaires des clubs et associations y garde aussi une donnée (voir <a href="#abus">«\u00a0Contre les abus\u00a0»</a>).` : ""} Une mesure de Cloudflare, sans cookie, compte aussi les pages vues et leur vitesse d'affichage (voir <a href="#mesure-cloudflare">«\u00a0La mesure de Cloudflare\u00a0»</a>). Rien n'est vendu ni partagé à des fins commerciales.</p>
   <h2>Ce que le site compte</h2>
-  <p>Pour savoir quelles pages et quels outils servent, et les améliorer, chaque page vue et chaque message reçu par le connecteur ajoutent une ligne anonyme aux statistiques : la page et sa rubrique, ou l'outil appelé avec le nom des paramètres donnés (pas leur valeur) ; le lieu demandé quand c'en est un, tel que le site l'a compris (une commune, une plage…), ou le texte demandé, coupé à 60 caractères, quand il ne l'a pas compris, pour apprendre à le comprendre ; le nom et la version de l'application de l'assistant (par exemple « claude-ai ») ; si la réponse a réussi, son temps et sa taille ; le pays déduit par Cloudflare, la langue du navigateur, si la page est ouverte depuis l'application installée sur l'écran d'accueil, le site d'où vient le visiteur et son type (une personne, un assistant, ou le nom du robot d'un assistant ou d'un moteur de recherche). Chaque lecture d'un flux RSS de commune ajoute aussi une ligne, à part : le flux, le nom de l'application qui le lit (Feedly, Inoreader…) et le nombre d'abonnés qu'elle annonce, sans rien sur les abonnés eux-mêmes. Ni adresse IP, ni identifiant, ni cookie. Des coordonnées ne sont jamais gardées, seulement leur commune. Depuis le 24 octobre 2026, un texte non compris qui ressemble à une adresse (un numéro suivi d'une rue, d'un chemin, d'une impasse, d'un lotissement…) n'est plus gardé tel qu'écrit, ni dans les statistiques ni dans le journal : seulement le mot « adresse ». Un nom de rue sans numéro peut encore être gardé, coupé à 60 caractères, comme tout lieu non compris. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée, pas plus que les autres paramètres (un arrêt de bus, un sujet…). La page envoie aussi, sans identifiant, le temps qu'elle a mis à s'afficher sur votre appareil\u00a0; sur la page du connecteur, le fait que son adresse a été copiée\u00a0; et votre réponse au bouton «\u00a0Cette page vous a aidé\u00a0?\u00a0» (la page, et oui ou non). Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
+  <p>Pour savoir quelles pages et quels outils servent, et les améliorer, chaque page vue et chaque message reçu par le connecteur ajoutent une ligne anonyme aux statistiques : la page et sa rubrique, ou l'outil appelé avec le nom des paramètres donnés (pas leur valeur) ; le lieu demandé quand c'en est un, tel que le site l'a compris (une commune, une plage…), ou le texte demandé, coupé à 60 caractères, quand il ne l'a pas compris, pour apprendre à le comprendre ; le nom et la version de l'application de l'assistant (par exemple « claude-ai ») ; si la réponse a réussi, son temps et sa taille ; le pays déduit par Cloudflare, la langue du navigateur, si la page est ouverte depuis l'application installée sur l'écran d'accueil, le site d'où vient le visiteur et son type (une personne, un assistant, ou le nom du robot d'un assistant ou d'un moteur de recherche).</p>
+  <p>Chaque lecture d'un flux RSS de commune ajoute aussi une ligne, à part : le flux, le nom de l'application qui le lit (Feedly, Inoreader…) et le nombre d'abonnés qu'elle annonce, sans rien sur les abonnés eux-mêmes.</p>
+  <p>Ni adresse IP, ni identifiant, ni cookie. Des coordonnées ne sont jamais gardées, seulement leur commune.</p>
+  <p>Depuis le 24 octobre 2026, un texte non compris qui ressemble à une adresse (un numéro suivi d'une rue, d'un chemin, d'une impasse, d'un lotissement…) n'est plus gardé tel qu'écrit, ni dans les statistiques ni dans le journal : seulement le mot « adresse ». Un nom de rue sans numéro peut encore être gardé, coupé à 60 caractères, comme tout lieu non compris. Une adresse postale donnée à l'outil <code>fiche_terrain</code> n'est jamais enregistrée, pas plus que les autres paramètres (un arrêt de bus, un sujet…).</p>
+  <p>La page envoie aussi, sans identifiant, le temps qu'elle a mis à s'afficher sur votre appareil\u00a0; sur la page du connecteur, le fait que son adresse a été copiée\u00a0; et votre réponse au bouton «\u00a0Cette page vous a aidé\u00a0?\u00a0» (la page, et oui ou non).</p>
+  <p>Ces statistiques sont gardées par Cloudflare (Workers Analytics Engine) trois mois au plus.</p>
   <p id="mesure-cloudflare">La mesure de Cloudflare. Chaque page charge aussi un petit script de Cloudflare Web Analytics, l'outil de mesure de notre hébergeur. À chaque page vue, il envoie à Cloudflare l'adresse de la page, le site d'où vous venez et des mesures de vitesse\u00a0: le temps qu'a mis la page à s'afficher, sa stabilité et sa réactivité sur votre appareil. Cloudflare y associe le pays, le navigateur, le système et le type d'appareil (ordinateur, téléphone, tablette). Ce script ne pose aucun cookie et ne garde rien dans votre navigateur. Comme pour toute page, Cloudflare reçoit votre adresse IP\u00a0; selon sa documentation, il ne s'en sert pas, ni d'aucune autre donnée, pour suivre les visiteurs dans le temps ou d'un site à l'autre. Cloudflare garde chaque mesure 7 jours, puis un échantillon d'environ un dixième, que nous pouvons consulter pendant six mois. Ces mesures nous servent à voir quelles pages sont lues et lesquelles s'affichent lentement, pour améliorer le site.</p>
   <p>Installation et lecture hors ligne : elles n'utilisent aucun cookie. Pour afficher les pages sans réseau, le site garde sur votre téléphone une copie des pages que vous ouvrez (le cache du navigateur, géré par un « service worker »). Votre choix «\u00a0Plus tard\u00a0» est gardé de la même façon, comme la langue choisie, kréol ou français, pour la question toute prête à poser à votre IA. Ces données restent sur le téléphone et ne sont envoyées à personne. Elles s'effacent depuis les réglages du navigateur (données du site rundata.re).</p>
   <p>Les visites de l'équipe. Pour que les statistiques ne comptent pas ceux qui font le site, leurs appareils portent un repère, gardé dans le navigateur de la même façon (sans cookie). Leurs pages vues sont notées « interne » et laissées hors des chiffres. Rien ne change pour les autres visiteurs.</p>
@@ -2185,6 +2194,7 @@ ${enLigne() ? `<p id="evenements-proposes"><b>Événements proposés par les clu
       ? "Ce que rundata.re garde, et ce qu'il ne garde pas : aucun compte, aucun cookie, des statistiques anonymes."
       : "Conditions d'utilisation de rundata.re, service gratuit de données publiques de La Réunion, et mentions légales.",
     path: `/${kind}`,
-    jsonld: [],
-  }, `<div class="wrap intro"><div class="pitch"><h1>${title}</h1></div></div>`, body);
+    jsonld: [crumbs(origin, title, `/${kind}`)],
+  }, `${crumbBar(title)}
+<div class="wrap intro"><div class="pitch"><h1>${title}</h1></div></div>`, body);
 }
