@@ -2,7 +2,8 @@
  * The IGN's ground altitudes (RGE ALTI, the Géoplateforme's altimetry service): read for a point by fiche_terrain
  * (terrain.ts) and for every point of a trail (traces.ts). One source, said the same way everywhere. And the BD TOPO's
  * main roads and inhabited places, drawn on the pages' maps (web/routes.json, written by scripts/build-routes.py), and
- * the BD ORTHO's aerial photo, the colours of the maps' relief (public/relief-*.webp, by scripts/build-relief.py).
+ * the Géoplateforme's layer of aerial photos, the colours of the maps' relief (public/relief-*.webp, by
+ * scripts/build-relief.py).
  */
 import type { SourceInfo } from "../types.js";
 
@@ -24,11 +25,11 @@ export const BDTOPO: SourceInfo = {
   url: "https://geoservices.ign.fr/bdtopo",
 };
 
-export const BDORTHO: SourceInfo = {
-  id: "ign_bdortho",
-  nom: "Photo aérienne du relief des cartes (BD ORTHO)",
+export const PHOTOS: SourceInfo = {
+  id: "ign_photos_aeriennes",
+  nom: "Photographies aériennes du relief des cartes (couche Photographies aériennes de la Géoplateforme)",
   organisme: "IGN",
   licence: "Licence Ouverte Etalab 2.0",
-  attribution: "IGN, BD ORTHO",
-  url: "https://cartes.gouv.fr/rechercher-une-donnee/dataset/IGNF_BD-ORTHO",
+  attribution: "IGN, Photographies aériennes (Géoplateforme)",
+  url: "https://cartes.gouv.fr/aide/fr/guides-utilisateur/utiliser-les-services-de-la-geoplateforme/diffusion/wms-raster/",
 };

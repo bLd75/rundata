@@ -56,7 +56,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
-  { date: "2026-10-31T12:59:00+04:00", texte: "Cartes\u00a0: le relief de l'île prend les couleurs du sol, d'après la photo aérienne de l'IGN, sur toutes les cartes et à l'accueil." },
+  { date: "2026-10-31T12:59:00+04:00", texte: "Cartes\u00a0: le relief de l'île prend les couleurs du sol, d'après la photo aérienne de l'IGN, à l'accueil et sur les cartes en relief." },
   { date: "2026-10-31T11:02:00+04:00", texte: "Antennes\u00a0: la carte se zoome, sur le relief, le Plan IGN ou la photo aérienne." },
   { date: "2026-10-31T09:45:00+04:00", texte: "Calendrier\u00a0: une carte Lune, avec la phase, le lever et le coucher à Saint-Denis et les prochaines phases." },
   { date: "2026-10-31T07:46:00+04:00", texte: "Antennes\u00a0: plusieurs opérateurs et plusieurs types à la fois sur la carte, avec le nombre de supports affichés." },

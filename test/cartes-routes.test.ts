@@ -289,7 +289,7 @@ describe("the roads and the names of places on the pages' maps", () => {
   });
 
   it("name the IGN's BD TOPO in the map's credit, and run their script on every page", () => {
-    expect(mapCredit(islandMap({ label: "x" }))).toBe(`<p class="sources">Carte : contours des communes de geo.api.gouv.fr, relief, routes et noms de lieux de l'IGN (RGE ALTI, BD ORTHO, BD TOPO), sous Licence Ouverte Etalab 2.0.</p>`);
+    expect(mapCredit(islandMap({ label: "x" }))).toBe(`<p class="sources">Carte : contours des communes de geo.api.gouv.fr, relief, photographies aériennes, routes et noms de lieux de l'IGN (RGE ALTI, couche Photographies aériennes de la Géoplateforme, BD TOPO), sous Licence Ouverte Etalab 2.0.</p>`);
     expect(mapCredit(islandMap({ fills: { "Saint-Paul": "#f00" }, label: "x" }))).toBe(`<p class="sources">Carte : contours des communes de geo.api.gouv.fr, routes et noms de lieux de l'IGN (BD TOPO), sous Licence Ouverte Etalab 2.0.</p>`);
     expect(homePage("https://rundata.re", null, new Date("2026-10-29T18:00:00Z"))).toContain(NOMS_SCRIPT);
   });

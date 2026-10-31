@@ -22,7 +22,7 @@ export const RELIEF_PATH = `/relief-${relief.v}.webp`;
 export function mapCredit(html: string): string | undefined {
   if (!html.includes('<use href="#isl"')) return undefined;
   const ign = [
-    html.includes(RELIEF_PATH) && ["relief", "RGE ALTI, BD ORTHO"],
+    html.includes(RELIEF_PATH) && ["relief, photographies aériennes", "RGE ALTI, couche Photographies aériennes de la Géoplateforme"],
     html.includes('<g class="rd"') && [html.includes('<g class="nm"') ? "routes et noms de lieux" : "routes", "BD TOPO"],
   ].filter((x): x is string[] => !!x);
   const what = ign.length === 2 ? `${ign[0][0]}, ${ign[1][0]}` : ign[0]?.[0];

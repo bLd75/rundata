@@ -8,8 +8,8 @@ exaggerated so that the cirques and the volcano read at a few hundred pixels acr
 Same bounds and proportions as src/places/island.json, so the image falls exactly under the map's coastline and
 markers: the IGN serves the elevation for that box in plain longitude and latitude, which is the map's projection.
 
-Sources: IGN, RGE ALTI, from the Géoplateforme WMS as raw 32-bit floats, and BD ORTHO, the aerial photo, from the
-same WMS on the same box and grid (Licence Ouverte 2.0). One request a minute to the Géoplateforme.
+Sources: IGN, RGE ALTI, from the Géoplateforme WMS as raw 32-bit floats, and the aerial photos of its layer
+ORTHOIMAGERY.ORTHOPHOTOS (« Photographies aériennes »), from the same WMS on the same box and grid (Licence Ouverte 2.0). One request a minute to the Géoplateforme.
 Resized and written as WebP by ImageMagick (`convert`).
 
 Usage: python3 -I scripts/build-relief.py [--cache DIR] [--out DIR] [--sat S] [--earth E] [--gamma G] …
@@ -277,7 +277,7 @@ def main():
         old.unlink()
     (ROOT / f"public/relief-{v}.webp").write_bytes(data)
     target = ROOT / "src/web/relief.json"
-    target.write_text(json.dumps({"attribution": "Relief : IGN, RGE ALTI et BD ORTHO (Licence Ouverte 2.0)", "v": v}) + "\n")
+    target.write_text(json.dumps({"attribution": "Relief : IGN, RGE ALTI et couche Photographies aériennes de la Géoplateforme (Licence Ouverte 2.0)", "v": v}) + "\n")
     print(f"public/relief-{v}.webp: {len(data) // 1024} Ko")
 
 
