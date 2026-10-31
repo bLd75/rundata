@@ -10,6 +10,7 @@ import { historiqueMeteo } from "../src/tools/historique.js";
 import type { HistoriqueAnswer } from "../src/web/data.js";
 import { historiquePage } from "../src/web/domains.js";
 import { GRAPHES_SCRIPT, graphes, warmer } from "../src/web/historique-graphes.js";
+import { CSS } from "../src/web/pages.js";
 
 // Real rows of the archive (scripts/build-climat.py): the six stations of the tour, 2025 and 2026 up to 23 October.
 const NOW = new Date("2026-10-24T08:00:00Z");
@@ -144,8 +145,21 @@ describe("« Il fait plus chaud qu'avant ? »", () => {
     expect(ref).toHaveLength(30);
     expect(Math.abs(ref.reduce((s, [, g]) => s + g, 0) / ref.length)).toBeLessThan(0.01);
     const svg = warmer();
-    expect(svg.match(/<rect class="up"/g)).toHaveLength(ys.filter(([, g]) => g >= 0).length);
-    expect(svg.match(/<rect class="dn"/g)).toHaveLength(ys.filter(([, g]) => g < 0).length);
+    // Twice, 600 wide for a phone and 1600 for a wide screen's column, each with every year.
+    const charts = svg.match(/<svg class="ch an-[nl]" viewBox="0 0 \d+ \d+"[^>]*>.*?<\/svg>/gs)!;
+    expect(charts.map((c) => c.match(/class="ch (an-[nl])" viewBox="([^"]+)"/)!.slice(1))).toEqual([["an-n", "0 0 600 260"], ["an-l", "0 0 1600 380"]]);
+    for (const c of charts) {
+      expect(c.match(/<rect class="up"/g)).toHaveLength(ys.filter(([, g]) => g >= 0).length);
+      expect(c.match(/<rect class="dn"/g)).toHaveLength(ys.filter(([, g]) => g < 0).length);
+      // The bars start at 52 and end 10 before the right edge, as GRAPHES_SCRIPT reads them under the finger.
+      const W = Number(c.match(/viewBox="0 0 (\d+)/)![1]), xs = [...c.matchAll(/<rect class="(?:up|dn)" x="([\d.]+)" y="[\d.]+" width="([\d.]+)"/g)].map((m) => [+m[1], +m[2]]);
+      const w = (W - 62) / ys.length;
+      expect(xs[0][0]).toBeCloseTo(52 + w * 0.12, 0);
+      expect(xs.at(-1)![0] + xs.at(-1)![1]).toBeCloseTo(W - 10 - w * 0.12, 0);
+    }
+    expect(svg.match(/<p class="ch-v"/g)).toHaveLength(1);
+    // One shown at a time: the wide one from 58rem, where the card loses its 38rem cap.
+    expect(CSS).toContain(".hg-an{padding:.8rem;max-width:38rem}.hg-an .an-l{display:none}@media (min-width:58rem){.hg-an{max-width:none}.hg-an .an-n{display:none}.hg-an .an-l{display:block}}");
     expect(svg).toMatch(/aria-label="Écart de la température moyenne de chaque année à la normale 1991-2020 \(24,45 °C\), mesuré par Météo-France à Saint-Denis Gillot \(aéroport\), de 1953 à \d{4}/);
     expect(svg).toContain("Mesures brutes de la station, sans correction d'un changement d'abri ou d'emplacement.");
     expect(gzipSync(svg).length).toBeLessThan(3000);
