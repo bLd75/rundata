@@ -243,7 +243,7 @@ const SCHEDULED: Entry[] = [
     trigger: "planifiée",
     what: `agenda lu par la tâche planifiée : ${a.nom}`,
     every: (a.relecture ?? PLANNED_EVERY_SECONDS) / 60,
-    offset: 0,
+    offset: (a.decalage ?? 0) / 60,
     run: { subrequests: a.requetes ?? 1, cpuMs: PLANNED_AGENDA_CPU_MS },
     from: ["src/providers/agenda.ts"],
     basis: "mesuré",

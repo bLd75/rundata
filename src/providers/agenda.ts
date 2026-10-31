@@ -251,6 +251,12 @@ export interface Agenda {
   /** For an agenda read by the scheduled event: the seconds between two readings, when not an hour. */
   relecture?: number;
   /**
+   * For an agenda read by the scheduled event, with a `relecture`: read again only in the hour that starts this many
+   * seconds after each multiple of its `relecture` (UTC), once, so that it does not fall with the others at 00:00 UTC.
+   * Its first reading, with no copy yet, is not held back.
+   */
+  decalage?: number;
+  /**
    * Published by clubs or associations (a league, the clubs' sites, the proposed events), not by a town hall nor a
    * hall: what the counter of /associations counts (web/associations.ts).
    */
@@ -1497,6 +1503,10 @@ export const DEPARTEMENT_SOURCE: SourceInfo = {
 const DEPARTEMENT = "https://www.departement974.fr";
 /** The pages of its events read at most, beside its list: each gives the place, the hours and the price. */
 export const DEPARTEMENT_PAGES = 6;
+// Its pages take 4 s from the island (read on 31/10/2026), more from a data center far off: the agendas' 6 s cut its
+// first reading online (31/10/2026). A planned agenda is read with its own delays, not `patiently` (tools/agenda.ts,
+// refreshPlanned): this one, one page after the other, 105 s at most if the site hangs after its list.
+export const DEPARTEMENT_TIMEOUT_MS = 15_000;
 
 /** Its list: each event's link, its days as it writes them (« 23 mai 2026 - 22 mai 2027 ») and its title. */
 export function departementListe(html: string): { lien: string; quand: string; titre: string }[] {
@@ -1549,7 +1559,10 @@ export function parseDepartement(liste: ReturnType<typeof departementListe>, fic
   });
 }
 
-/** Read by the scheduled event twice a day: its list, then the pages of its first DEPARTEMENT_PAGES events to come. */
+/**
+ * Read by the scheduled event twice a day, between 06:00 and 07:00 and between 18:00 and 19:00 UTC, out of the busiest
+ * passage: its list, then the pages of its first DEPARTEMENT_PAGES events to come.
+ */
 export const DEPARTEMENT_AGENDA: Agenda = {
   id: "departement",
   nom: "Département de La Réunion",
@@ -1557,17 +1570,18 @@ export const DEPARTEMENT_AGENDA: Agenda = {
   requetes: 1 + DEPARTEMENT_PAGES,
   planifie: true,
   relecture: 12 * 3600,
+  decalage: 6 * 3600,
   credit: DEPARTEMENT_MENTION,
   faits: true,
   load: (cache, now) => cache.get("agenda:departement", 12 * 3600, async () => {
-    const liste = departementListe(await getText(DEPARTEMENT_SOURCE.id, DEPARTEMENT_SOURCE.url, TIMEOUT_MS, HEADERS));
+    const liste = departementListe(await getText(DEPARTEMENT_SOURCE.id, DEPARTEMENT_SOURCE.url, DEPARTEMENT_TIMEOUT_MS, HEADERS));
     const today = localDay(now);
     const lus = liste.filter((it) => datesIn(it.quand, now).some((x) => (x.fin ?? x.debut).slice(0, 10) >= today)).slice(0, DEPARTEMENT_PAGES);
     // One after the other: a page that does not answer leaves its event without its place, not the others.
     const fiches = new Map<string, string>();
     for (const it of lus) {
       try {
-        fiches.set(it.lien, await getText(DEPARTEMENT_SOURCE.id, it.lien, TIMEOUT_MS, HEADERS));
+        fiches.set(it.lien, await getText(DEPARTEMENT_SOURCE.id, it.lien, DEPARTEMENT_TIMEOUT_MS, HEADERS));
       } catch (err) {
         console.warn(`agenda departement : page ${it.lien} illisible, l'événement sans son lieu`, err instanceof Error ? err.message : err);
       }

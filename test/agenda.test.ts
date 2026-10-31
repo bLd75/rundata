@@ -5,7 +5,7 @@ import { Cache, MemoryStore, TieredStore, type CacheEntry } from "../src/cache.j
 import { ACTUS_MAIRIES, AGENDAS, CIREST, COVERED, DEPARTEMENT_AGENDA, DEPARTEMENT_PAGES, LIGUE_VOLLEY, OTI_EST, SOURCES_LUES, SPORTSREGIONS, communeOf, departementListe, parseCirest, parseDepartement, programmeSportif, programmesSportifs, datesIn, lead, parseBrasPanon, parseIntraMuros, parseOpenAgenda, parseOtiEst, parsePetiteIle, parseRss, parseSaintBenoit, parseSalazie, parseSalazieNews, parseSpipNews, parseSportsregions, parseTribe, parseWpNews, salazieItems, toLocal } from "../src/providers/agenda.js";
 import { annonceEvenement, extrait } from "../src/providers/agenda-mots.js";
 import { parseBisik } from "../src/providers/salles.js";
-import { agenda, COUVERTURE, type EventRow, gather, MAIRIES_LUES, periode, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
+import { agenda, COUVERTURE, type EventRow, gather, MAIRIES_LUES, periode, plannedDue, refreshPlanned, repris, sourcesServies } from "../src/tools/agenda.js";
 import { FICHE_REUNION_FR, mentionReunionFr, noteReunionFr, RESUME_REUNION_FR } from "../src/tools/non-repris.js";
 import { buildAgenda } from "../src/web/data.js";
 import { agendaHours, agendaPage } from "../src/web/domains.js";
@@ -221,7 +221,8 @@ describe("agenda", () => {
       expect((first?.value as unknown[]).length).toBe(3);
       t += 2 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", ...MAIRIES], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
+      // 06:00 UTC: the Département's hour, its agenda read again too.
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", "departement", ...MAIRIES], gardes: ["lrvb"], reportes: [], trop_vieilles: [] });
       expect(await entry(store)).toEqual(first);
       // Not tried again at each scheduled event: only once its next reading is due, an hour after the failure.
       const tries = urls.filter(isLeague).length;
@@ -242,10 +243,11 @@ describe("agenda", () => {
       expect(second?.fetchedAt).toBe(t);
       // Still failing two days on: the copy, no longer served, is said too old in the scheduled event's log (the clubs'
       // calendar, read every six hours, is read again). Saint-Leu's news, its one event past by then, find nothing in
-      // its list of articles: a reading, which replaces their copy.
+      // its list of articles: a reading, which replaces their copy. At 09:00 UTC, out of its hour, the Département's agenda
+      // is not read, its copy said too old as well (no scheduled event ran in its four hours since).
       t += 49 * 3600_000;
       league = () => new Response("", { status: 503 });
-      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", "cirest", "departement", ...MAIRIES, "sportsregions"], gardes: ["lrvb"], reportes: [], trop_vieilles: ["lrvb"] });
+      expect(await refreshPlanned(at(), new Date(t))).toEqual({ lus: ["salazie", "cirest", ...MAIRIES, "sportsregions"], gardes: ["lrvb"], reportes: [], trop_vieilles: ["departement", "lrvb"] });
       expect(await entry(store)).toEqual(second);
     });
 
@@ -370,6 +372,36 @@ describe("agenda", () => {
       t += 10 * 60_000;
       expect((await refreshPlanned(at(edgeB), new Date(t))).lus).toContain("lrvb");
       expect(urls.filter(isLeague)).toHaveLength(2);
+    });
+
+    it("reads the Département's agenda again only between 06:00 and 07:00 and between 18:00 and 19:00 UTC, once, even with a copy too old", async () => {
+      let t = NOW.getTime();
+      const store = new MemoryStore();
+      const at = () => new Cache(store, () => t);
+      const isDepartement = (u: string) => new URL(u).hostname === "www.departement974.fr";
+      // At 04:00 UTC, out of its hour: with no copy yet, its first reading is not held back.
+      expect((await refreshPlanned(at(), NOW)).lus).toContain("departement");
+      const read = urls.filter(isDepartement).length;
+      expect(read).toBeGreaterThan(1);
+      // At 17:00 UTC its copy is 13 hours old, past its twelve: out of its hour, not read again.
+      t = NOW.getTime() + 13 * 3600_000;
+      expect((await refreshPlanned(at(), new Date(t))).lus).not.toContain("departement");
+      expect(urls.filter(isDepartement)).toHaveLength(read);
+      // At 18:05 UTC, read again; at 18:40, within the same hour, not twice.
+      t = NOW.getTime() + 14 * 3600_000 + 5 * 60_000;
+      expect((await refreshPlanned(at(), new Date(t))).lus).toContain("departement");
+      t += 35 * 60_000;
+      expect((await refreshPlanned(at(), new Date(t))).lus).not.toContain("departement");
+      expect(urls.filter(isDepartement)).toHaveLength(2 * read);
+      // Its hours, whatever the day: a copy 30 hours old is not read at 07:00 nor at 05:59, a copy an hour old is at 06:30.
+      const day = Date.parse("2026-11-03T00:00:00Z");
+      expect(plannedDue(DEPARTEMENT_AGENDA, 30 * 3600_000, new Date(day + 7 * 3600_000))).toBe(false);
+      expect(plannedDue(DEPARTEMENT_AGENDA, 30 * 3600_000, new Date(day + 6 * 3600_000 - 60_000))).toBe(false);
+      expect(plannedDue(DEPARTEMENT_AGENDA, 3600_000, new Date(day + 6.5 * 3600_000))).toBe(true);
+      expect(plannedDue(DEPARTEMENT_AGENDA, 3600_000, new Date(day + 18.5 * 3600_000))).toBe(true);
+      // The others still once their copy is as old as their reading.
+      expect(plannedDue(LIGUE_VOLLEY, 3600_000, new Date(day + 7 * 3600_000))).toBe(true);
+      expect(plannedDue(LIGUE_VOLLEY, 3599_000, new Date(day + 7 * 3600_000))).toBe(false);
     });
   });
 
