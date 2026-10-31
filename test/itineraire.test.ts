@@ -120,7 +120,23 @@ describe("the page", () => {
     // The bus to take first: the one leaving last.
     expect(page.indexOf("14:22 → 17:39")).toBeLessThan(page.indexOf("12:15 → 15:16"));
     expect(page).toContain("1 correspondance");
+    // The stops' names in the steps as in our sentences; the line's direction as the network writes it.
+    expect(page).toContain("descendre à Gare de Saint-Pierre</li>");
+    expect(page).toContain("Changement : environ 1 min à pied jusqu'à Gare de Saint-Pierre.");
+    expect(page).toContain("descendre à Aéroport Roland-Garros, Sainte-Marie</li>");
+    expect(page).toContain("vers St-Pierre par le Grand Brûlé");
+    // « vers Aéroport Roland Garros par les Plages »: a direction, the network's words.
+    expect(page).toContain("vers Aéroport Roland Garros par les Plages");
+    expect(page).not.toMatch(/(?:à|jusqu'à) Gare de St-Pierre|à Aéroport Roland Garros,|St-Pierre : <a/);
     expect(page).toContain('<meta name="robots" content="noindex">');
+  });
+
+  it("writes « des » and « d' » in a stop's name the way we write them, in the steps too", async () => {
+    const r = await answer({ de: "Pôle d'échange Marché couvert, Saint-Pierre", a: "Chemin des Bambous", jour: "2026-11-01", heure: "14:00", arrivee: true }, NOW);
+    const page = itinerairePage("https://rundata.re", r).replaceAll("&#39;", "'");
+    expect(page).toContain("descendre à Chemin des Bambous");
+    expect(page).toContain("Pôle d'Echange Marché Couvert");
+    expect(page).not.toMatch(/Chemin Des|Pôle D'/);
   });
 
   it("says there is no more bus that day after the last one", async () => {
