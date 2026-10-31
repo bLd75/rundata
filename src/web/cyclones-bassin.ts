@@ -84,8 +84,8 @@ export function avisLe(iso: string): string {
   return `${t.slice(8, 10)}/${t.slice(5, 7)} à ${t.slice(11, 16)}`;
 }
 
-/** A system's last advisory, as written by its last position: « Agueda, dépression résiduelle, avis du 23/10 à 16:00 ». */
-export const dernierAvis = (p: Parcours) => `${p.nom}, ${p.stade}, avis du ${avisLe(p.heure)}`;
+/** A system's last advisory, by its last position's time (« 2.A », before the advisory is out): « Agueda, dépression résiduelle, position du 23/10 à 16:00 ». */
+export const dernierAvis = (p: Parcours) => `${p.nom}, ${p.stade}, position du ${avisLe(p.heure)}`;
 
 /** The text the map stands for, said to screen readers. */
 export function label(traces: boolean, parcours: Parcours[] = []): string {
@@ -204,7 +204,7 @@ export function basinMap(traces = false, parcours: Parcours[] = []): string {
       });
     });
     const [tx, ty, anchor] = nameSpot(x, y, p.nom, [...taken, ...own, [x - 15, y - 15, x + 15, y + 15]]);
-    return `<g class="cur">${at.length > 1 ? `<path d="${line(p.points)}"/>` : ""}${at.slice(0, -1).map(([px, py]) => `<circle cx="${px}" cy="${py}" r="6"/>`).join("")}` +
+    return `<g class="cur">${at.length > 1 ? `<path d="${line(p.points)}"/>` : ""}${at.slice(0, -1).map(([px, py]) => `<circle cx="${px}" cy="${py}" r="9"/>`).join("")}` +
       `<circle class="last" cx="${x}" cy="${y}" r="13"/><text class="cn" x="${tx}" y="${ty}"${anchor === "start" ? "" : ` style="text-anchor:${anchor}"`}>${esc(p.nom)}</text></g>`;
   }).join("");
   return `<svg class="map ocean" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label(traces, parcours))}">` +

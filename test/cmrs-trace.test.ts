@@ -213,11 +213,11 @@ describe("once Météo-France agrees", () => {
     expect(page).toContain('<g class="cur"><path d="M');
     expect(page).toContain('<text class="cn"');
     expect(page).toContain(">Opale</text>");
-    expect(page).toContain("En trait plein, le chemin déjà parcouru : les positions du système aux avis du CMRS, la dernière plus grande, avec son nom. <b>Opale</b> : tempête tropicale modérée au dernier avis, le 03/02 à 10:00 (heure de La Réunion).");
+    expect(page).toContain("En trait plein, le chemin déjà parcouru : les positions du système aux avis du CMRS, la dernière plus grande, avec son nom. <b>Opale</b> : tempête tropicale modérée, position du 03/02 à 10:00 (heure de La Réunion) au dernier avis du CMRS.");
     expect(page).not.toContain(">tempête tropicale modérée, 03/02");
-    expect(page).toContain("Rien de l'avenir : la trajectoire prévue est sur la carte officielle de Météo-France.");
-    expect(page).toContain("Le chemin Opale commence à l'avis n° 6, le premier lu par rundata.re.");
-    expect(page).toContain("Positions : Météo-France, CMRS de La Réunion (bulletins WTIO31 FMEE), avec son accord écrit, dernier avis le 03/02 à 10:00.");
+    expect(page).toContain("Aucune prévision ici : la trajectoire prévue est sur la carte officielle de Météo-France.");
+    expect(page).toContain(" Opale : le chemin commence à l'avis n° 6, le premier lu par rundata.re.</p>");
+    expect(page).toContain("Positions : Météo-France, CMRS de La Réunion (bulletins WTIO31 FMEE), avec son accord écrit, dernière position le 03/02 à 10:00 (heure de La Réunion).");
     expect(page).not.toContain("Cette carte ne montre aucun système, ni sa position ni sa trajectoire.");
     // Nothing of the bulletin's forecasts, winds or pressure, nor a distance to the island.
     expect(page).not.toMatch(/18\.0|19\.5|990 hPa|45 KT|km de La Réunion/);
@@ -225,9 +225,19 @@ describe("once Météo-France agrees", () => {
     expect(page).not.toContain('class="trc"');
   });
 
+  it("says where a path starts late and where advisories are missing, by the system's name", async () => {
+    let e = trace.ajoute({ traces: [] }, trace.parse(B6)!, AT);
+    e = trace.ajoute(e, trace.parse(B9)!, AT);
+    kv.data.set("cmrs:trace", JSON.stringify(e));
+    stubFetch();
+    const a = await buildCyclones(cache(AT), AT);
+    const page = cyclonesPage("https://rundata.re", { value: a, fetchedAt: AT, stale: false }, AT);
+    expect(page).toContain(" Opale : le chemin commence à l'avis n° 6, le premier lu par rundata.re ; il manque 2 avis entre le n° 6 et le n° 9, le trait y relie les deux positions voisines.</p>");
+  });
+
   it("says the path in the map's text for screen readers, and nothing of it without a system", () => {
     const p = trace.parcours(trace.ajoute({ traces: [] }, trace.parse(B7)!, AT), AT);
-    expect(label(false, p)).toContain("En trait plein, le chemin déjà parcouru, d'après les avis du CMRS : Opale, tempête tropicale modérée, avis du 03/02 à 10:00 (heure de La Réunion). Aucune trajectoire prévue.");
+    expect(label(false, p)).toContain("En trait plein, le chemin déjà parcouru, d'après les avis du CMRS : Opale, tempête tropicale modérée, position du 03/02 à 10:00 (heure de La Réunion). Aucune trajectoire prévue.");
     expect(basinMap(true, p)).not.toContain('class="cur"');
     expect(basinMap(false, [])).not.toContain('class="cur"');
   });

@@ -2750,10 +2750,14 @@ function basinFigure(d: CyclonesAnswer | undefined, active: number): string {
   // What the line and its dots are, and what they never are; a gap or a late start said by the advisories' numbers.
   const path = parcours.length
     ? `<p>En trait plein, le chemin déjà parcouru\u00a0: les positions ${s ? "de chaque système" : "du système"} aux avis du CMRS, la dernière plus grande, avec son nom. ` +
-      parcours.map((p) => `<b>${esc(p.nom)}</b>\u00a0: ${esc(p.stade)} au dernier avis, le ${avisLe(p.heure)} (heure de La Réunion). `).join("") +
-      `Rien de l'avenir\u00a0: la trajectoire prévue est sur la carte officielle de Météo-France.` +
-      parcours.map((p) => (p.premier > 1 ? ` Le chemin ${esc(p.nom)} commence à l'avis n°\u00a0${p.premier}, le premier lu par rundata.re.` : "") +
-        (p.manquent ? ` ${p.manquent} avis ${p.manquent > 1 ? "manquent" : "manque"} entre le n°\u00a0${p.premier} et le n°\u00a0${p.dernier}.` : "")).join("") + "</p>"
+      parcours.map((p) => `<b>${esc(p.nom)}</b>\u00a0: ${esc(p.stade)}, position du ${avisLe(p.heure)} (heure de La Réunion) au dernier avis du CMRS. `).join("") +
+      `Aucune prévision ici\u00a0: la trajectoire prévue est sur la carte officielle de Météo-France.` +
+      // Each system's name first: no « de » or « d' » to choose before it; « il manque » the same for one or more.
+      parcours.map((p) => {
+        const start = p.premier > 1 ? `le chemin commence à l'avis n°\u00a0${p.premier}, le premier lu par rundata.re` : "";
+        const gap = p.manquent ? `il manque ${p.manquent} avis entre le n°\u00a0${p.premier} et le n°\u00a0${p.dernier}, le trait y relie les deux positions voisines` : "";
+        return start || gap ? ` ${esc(p.nom)}\u00a0: ${[start, gap].filter(Boolean).join("\u00a0; ")}.` : "";
+      }).join("") + "</p>"
     : "";
   const { "meteo-france": mfTraces, ibtracs, consulte } = TRACES_SOURCES;
   const older = TRACES.filter((t) => t.source === "ibtracs").map((t) => t.nom_annee);
@@ -2765,7 +2769,7 @@ function basinFigure(d: CyclonesAnswer | undefined, active: number): string {
         : "") +
       " Cette carte ne montre aucun système de la saison. "
     : parcours.length
-    ? `Positions\u00a0: Météo-France, CMRS de La Réunion (bulletins WTIO31 FMEE), avec son accord écrit${ACCORD_TRACE ? ` du ${ACCORD_TRACE.split("-").reverse().join("/")}` : ""}, dernier avis le ${avisLe(parcours[0].heure)}. Cette carte ne montre aucune prévision. `
+    ? `Positions\u00a0: Météo-France, CMRS de La Réunion (bulletins WTIO31 FMEE), avec son accord écrit${ACCORD_TRACE ? ` du ${ACCORD_TRACE.split("-").reverse().join("/")}` : ""}, dernière position le ${avisLe(parcours[0].heure)} (heure de La Réunion). Cette carte ne montre aucune prévision. `
     : "Cette carte ne montre aucun système, ni sa position ni sa trajectoire. ";
   return `<figure class="card bassin${active ? "" : " mapcard"}">${basinMap(traces, parcours)}<figcaption>${now}${path}<details class="note"><summary>Sources</summary><p>En pointillé, la zone suivie par le CMRS de La Réunion (Météo-France), de l'équateur à 40°\u00a0S et des côtes de l'Afrique à 90°\u00a0E (<a href="${ZONE_SOURCE}" rel="noopener">CMRS, présentation à l'OMM, 2017</a>). ` +
     `${sources}Côtes\u00a0: Natural Earth (domaine public).</p></details></figcaption></figure>${traces ? `<script>${TRACES_SCRIPT}</script>` : ""}`;
