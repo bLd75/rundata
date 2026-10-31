@@ -402,6 +402,8 @@ export interface VolcanAnswer {
     lus_jusqu_au?: string;
     derniers: { heure: string; magnitude: number; profondeur_km: number; lieu: string }[];
     note: string;
+    /** The OVPF's daily bulletin, which counts the events too small to be located: its link only. */
+    bulletin_quotidien?: { texte: string; lien: string };
     /** Served from the last copy, the catalogue not answering: the sentence that says from which read. */
     copie?: string;
   };
