@@ -368,6 +368,41 @@ describe("reading the copies", () => {
     expect((await run.settled()).used).toBeLessThanOrEqual(PAGE_BUDGET);
   });
 
+  it("brings a copy kept but older than FRESH_SECONDS up to date after the answer, as the tiles", async () => {
+    // 31/10/2026: the electricity of 05:45 still in the summary at 06:12, its page at 06:05.
+    const edge = await edgeWith();
+    await edge.put(KEYS.electricite, { value: COPIES.electricite.value, fetchedAt: ago(27).getTime() });
+    const pending: Promise<unknown>[] = [];
+    const run = await counted(PAGE_BUDGET, async () => {
+      const r = await readCopies(isolate(edge), SAINT_PAUL, SAINT_PAUL, NOW, (p) => pending.push(p));
+      await Promise.allSettled(pending);
+      return r;
+    });
+    // Served as kept, its time said, and brought up to date for the next answer.
+    expect(run.value.copies.electricite).toBeTruthy();
+    expect(run.value.refreshed).toEqual([KEYS.electricite]);
+    expect((await run.settled()).used).toBeLessThanOrEqual(PAGE_BUDGET);
+  });
+
+  it("gives the weather as its page has it, waiting a moment for a copy older than FRESH_SECONDS", async () => {
+    // 31/10/2026, Le Tampon: the tool said 21,1 °C measured at 05:48, the page 19,9 °C at 06:06, at the same minute.
+    const answer = async (min: number) => {
+      const edge = await edgeWith();
+      await edge.put(KEYS.meteo, { value: COPIES.meteo.value, fetchedAt: ago(min).getTime() });
+      const pending: Promise<unknown>[] = [];
+      const run = await counted(PAGE_BUDGET, async () => {
+        const r = await resumeDuJour(isolate(edge), "Saint-Paul", NOW, (p) => pending.push(p));
+        await Promise.allSettled(pending);
+        return r;
+      });
+      expect((await run.settled()).used).toBeLessThanOrEqual(PAGE_BUDGET);
+      return body(run.value).meteo.mesure.heure_mesure;
+    };
+    // Within FRESH_SECONDS, the copy as it is; 25 min old, the stations read again (their file in the fixtures).
+    expect(await answer(2)).toBe("24/10 13:54");
+    expect(await answer(25)).toBe("22/10 09:18");
+  });
+
   it("says when the place is not found", async () => {
     const r = await resumeDuJour(new Cache(), "Xyzzyville du Nord", NOW);
     expect(body(r).erreur).toMatch(/introuvable/);

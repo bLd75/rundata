@@ -24,7 +24,7 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 | pire passage planifié, mémoire déclarée (Mo) | 80 | 128 |
 | passage le plus chargé (cadences les plus courtes), sous-requêtes | 162 | 500 |
 | vue la plus chère, sous-requêtes | 84 | 200 |
-| question la plus chère, sous-requêtes | 67 | 200 |
+| question la plus chère, sous-requêtes | 70 | 200 |
 | construction de copie la plus chère, sous-requêtes | 56 | 100 |
 
 - Pire passage planifié : toutes les entrées planifiées dues ensemble, à froid (après un déploiement).
@@ -32,7 +32,7 @@ Les chiffres « mesuré » sont le plus haut relevé du 23/10/2026 23:07 au 25
 - Passage le plus chargé selon les décalages, cadences habituelles : 00:00 UTC, 121 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, meteofrance:jeton, meteofrance:jeton:nouveau, emploi:offres, connecteurs:lecture, propositions:purge, connecteurs:purge).
 - Le même, cadences les plus courtes (volcan en alerte, satellites en retard, carburants en fin de mois) : 00:00 UTC, 162 sous-requêtes (arome:veille, arome:grilles, partagees:liste, vigilance, actualites:fil, web:crues, web:volcan, vigilance:carte, vigilance:carte:bulletin, agendas:planifies, agendas:planifies:ecriture, agenda:salazie, agenda:lrvb, agenda:saint_louis_actus, agenda:saint_leu, agenda:plaine_des_palmistes_agenda, agenda:plaine_des_palmistes_actus, agenda:sainte_marie_actus, agenda:salazie_actus, sans-reponse:echecs, copies:echecs, radar:6h, meteofrance:jeton, meteofrance:jeton:nouveau, emploi:offres, connecteurs:lecture, propositions:purge, connecteurs:purge).
 - Sans les décalages des copies partagées (toutes dues à 00:00 UTC), cadences les plus courtes : 368 sous-requêtes à 00:00 UTC.
-- Vue la plus chère : /communes/*, 84. Question la plus chère : resume_du_jour, 67. Construction la plus chère : web:chiffres:evenements, 56.
+- Vue la plus chère : /communes/*, 84. Question la plus chère : resume_du_jour, 70. Construction la plus chère : web:chiffres:evenements, 56.
 
 | | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -174,7 +174,7 @@ Les visites et les questions sont comptées par vue : leur total dépend du tra
 
 | entrée | ce que c'est | cadence | décalage (UTC) | sous-requêtes | lectures KV | écritures KV | appels D1 | lignes D1 lues | lignes D1 écrites | CPU (ms) | d'où |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| resume_du_jour | l'outil resume_du_jour | à chaque vue |  | 67 | 3 | 3 |  |  |  | 130 | mesuré |
+| resume_du_jour | l'outil resume_du_jour | à chaque vue |  | 70 | 3 | 3 |  |  |  | 130 | estimé |
 | meteo_actuelle | l'outil meteo_actuelle | à chaque vue |  | 38 |  |  |  |  |  | 120 | mesuré |
 | evenements | l'outil evenements | à chaque vue |  | 33 |  |  |  |  |  | 190 | mesuré |
 | sport | l'outil sport | à chaque vue |  | 33 |  |  |  |  |  | 160 | mesuré |

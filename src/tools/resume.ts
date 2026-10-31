@@ -48,7 +48,9 @@ import {
   joursDuJour,
   type PlaceData,
   type SeaData,
+  snapshot,
   type TraficAnswer,
+  withoutForecast,
 } from "../web/data.js";
 import { anchorOf } from "../web/decheteries.js";
 import { coastal, PAGES, type PlacePage } from "../web/places.js";
@@ -448,9 +450,16 @@ export function refresh(cache: Cache, stale: Stale[], background: Background, un
   return started;
 }
 
+/** The vigilance, or null when Météo-France does not answer or it is not plugged in. */
+function vigilanceOf(cache: Cache): Promise<Cached<mf.Vigilance> | null> {
+  return mf.enabled() ? mf.vigilance(cache).catch((err) => (console.error(`source ${mf.SOURCE.id} indisponible:`, why(err)), null)) : Promise.resolve(null);
+}
+
 /**
  * Reads the copies of the commune's summary, keeps those recent enough, names the others, and brings them up to date
- * after the answer when `background` is given (`refresh`). `vigilance`: the
+ * after the answer when `background` is given (`refresh`), as the tiles are: one kept but older than FRESH_SECONDS
+ * too, else it would stay as it is until it is too old to keep (31/10/2026: the electricity of 05:45 at 06:12 in the
+ * summary, 06:05 on its page; two water notices where the tool said one). `vigilance`: the
  * vigilance as the caller has it already (a page waits for it only a moment), else it is read here. `held`: the
  * copies the caller has already (a page builds its weather), neither read again nor refreshed here.
  */
@@ -461,7 +470,7 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
   let reads = 0;
   const [peeked, vig] = await Promise.all([
     Promise.all(parts.map(([name, c]) => (name in held ? Promise.resolve(held[name] ?? undefined) : reads++ < budget ? cache.peek<any>(c.key, now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined) : Promise.resolve(undefined)))),
-    vigilance ?? (mf.enabled() ? mf.vigilance(cache).catch((err) => (console.error(`source ${mf.SOURCE.id} indisponible:`, why(err)), null)) : Promise.resolve(null)),
+    vigilance ?? vigilanceOf(cache),
   ]);
   const copies: ResumeCopies = { vigilance: vig };
   const leftOut: LeftOut[] = [];
@@ -478,6 +487,8 @@ export async function readCopies(cache: Cache, commune: PlacePage, place: PlaceP
       (copies as Record<string, unknown>)[name] = copy;
       // The answer says how fresh it is from what it was served (tools/fraicheur.ts): these copies.
       noteLecture({ key: c.key, fetchedAt: copy.fetchedAt.getTime(), stale: false, freshSeconds: FRESH_SECONDS });
+      const age = now.getTime() - copy.fetchedAt.getTime();
+      if (!(name in held) && age >= FRESH_SECONDS * 1000) due.push({ key: c.key, build: () => c.build(cache, now), age, cost: copy.cost });
       return;
     }
     leftOut.push({ partie: c.nom, raison: copy ? `copie de ${localTime(copy.fetchedAt)}, trop ancienne` : "pas de copie récente", outil: c.outil, page: `${SITE_URL}${c.page}` });
@@ -506,7 +517,12 @@ export async function resumeDuJour(cache: Cache, lieu: string, now = new Date(),
   const found = placeOf(lieu);
   if (!found) return notFound(lieu);
   const { commune, place, res } = found;
-  const { copies, leftOut } = await readCopies(cache, commune, place, now, background);
+  // The weather as /aujourdhui has it (web/site.ts): built when it has no copy, and one older than FRESH_SECONDS
+  // refreshed, waited for a moment as by an assistant reading the page. Read as kept, it was 20 to 30 min older than
+  // the page's (31/10/2026, Le Tampon: 21,1 °C measured at 05:48 in the tool, 19,9 °C at 06:06 on the page).
+  const vigilance = vigilanceOf(cache);
+  const meteo = await snapshot(cache, `web:lieu:${place.slug}`, () => buildPlace(cache, place, now), background ?? (() => undefined), now, undefined, true, withoutForecast);
+  const { copies, leftOut } = await readCopies(cache, commune, place, now, background, vigilance, { meteo });
   const r = resume(commune, copies, now, leftOut);
   return text({ lieu: placeBlock(lieu, res), ...(detail ? r : court(r)) });
 }
