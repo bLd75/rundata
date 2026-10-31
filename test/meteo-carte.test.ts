@@ -375,11 +375,13 @@ describe("the page /meteo with every station", () => {
     expect(METEO_SCRIPT).toContain(`"Le radar de Météo-France ne voit pas de pluie "+(tail?"sur l'île ":"")+at_(j.fin)+"."`);
     // In the replay, a past image: its date and the past tense, never "hier".
     expect(METEO_SCRIPT).toContain(`"Le "+dm_(j.fin)+" à "+hm(j.fin)+", le radar de Météo-France ne voyait pas de pluie."`);
-    expect(METEO_SCRIPT).toContain(`say_(n,bad,{el},"",1)`);
+    expect(METEO_SCRIPT).toContain(`say_(n,dist(n).bad,{el},"",1)`);
     expect(METEO_SCRIPT).toContain(`" et n'est pas affichée."`);
     // The hatches' sentence comes after a hatched square, styled by the page, which ties it to the hatches on the map.
-    expect(METEO_SCRIPT).toContain(`w.append(i,"\u00a0Hachures");el.append(" ",w,bad.slice(9))`);
+    expect(METEO_SCRIPT).toContain(`w.append(i,"\u00a0"+BW);el.append(" ",w,bad.slice(BW.length+1))`);
+    expect(METEO_SCRIPT).toContain(`BW=MV==="B"?"Zone voilée":"Hachures",BAD=" "+BW+"\u00a0: zones que le radar voit mal, où la pluie peut être manquée."`);
     expect(CSS).toContain(".wxmap .hsw{");
+    expect(CSS).toContain(".wxmap .hsw.hsv{");
     // The radar's rain in blues only, deeper class after class: the two strongest were violet and magenta, which the
     // legend did not have (31/10/2026). Its scale before the sentence, from its first class to its last.
     const K: string[] = JSON.parse(METEO_SCRIPT.match(/const K=(\[[^\]]*\])/)![1]);
@@ -471,5 +473,55 @@ describe("the replay bar's own script", () => {
     expect(js).not.toContain("OpenWindMap");
     // The data it is given (the stations named on the map, the colours) cannot close a script.
     expect(js).not.toContain("</");
+  });
+});
+
+describe("the rain's animation and its replay", () => {
+  // The frames a loop draws at the rAF times given, and how far each moves (k, in frames of 1/30 s).
+  const frames = (body: string, times: number[]) => {
+    const run = new Function("times", `let last=0,nx=0;const out=[];for(const t of times){(()=>{${body}out.push(k)})()}return out;`);
+    return run(times) as number[];
+  };
+  const loop = METEO_SCRIPT.match(/const loop=\(t\)=>\{raf=requestAnimationFrame\(loop\);(.*?)o\.frame\(k\)\};/)![1];
+  const tick = rejeuScript().match(/const tick=\(t\)=>\{raf=requestAnimationFrame\(tick\);const was=last;(.*?)const dt=/)![1];
+
+  it("draws 30 frames a second on a 60 Hz screen never quite even, a 120 Hz one and a capture stepped at 1/30 s", () => {
+    expect(tick).toBe(loop);
+    // 60 Hz, each frame up to 0.6 ms early or late: every other one, never two skipped (a frame at 32 ms at least made 15).
+    const jitter = Array.from({ length: 600 }, (_, i) => 1000 + (i * 1000) / 60 + (i % 2 ? -0.6 : 0.6) * ((i * 7) % 3 === 0 ? 1 : -1));
+    const k60 = frames(loop, jitter);
+    expect(k60.length).toBeGreaterThanOrEqual(299);
+    expect(k60.length).toBeLessThanOrEqual(301);
+    for (const k of k60.slice(1)) expect(k).toBeCloseTo(1, 1);
+    expect(frames(loop, Array.from({ length: 1200 }, (_, i) => 1000 + (i * 1000) / 120)).length).toBe(300);
+    // Stepped at exactly 1/30 s, as the Reel's capture does: every step a frame, each moving one frame.
+    const stepped = frames(loop, Array.from({ length: 300 }, (_, i) => 1000 + (i * 1000) / 30));
+    expect(stepped).toHaveLength(300);
+    for (const k of stepped.slice(1)) expect(k).toBeCloseTo(1, 6);
+    // A late frame moves things as far as the time gone by, never more than 100 ms' worth.
+    expect(frames(loop, [1000, 1100])[1]).toBeCloseTo(3, 6);
+    expect(frames(loop, [1000, 2000])[1]).toBeCloseTo(3, 6);
+  });
+
+  it("keeps the drops falling when the replay's image changes, born in each of the two faded by its share", () => {
+    // Drops born in the image drawn, or in one of the two, as much as it shows.
+    expect(METEO_SCRIPT).toContain(`s=Z&&Z.n&&(!A.n||Math.random()<f)?Z:A`);
+    expect(METEO_SCRIPT).toContain(`P=[dist(A),dist(Z),f]`);
+    // An image that changes draws the layer again and moves no drop; only rain after none starts the animation, and a
+    // still picture is drawn again with its image for those who ask for less motion.
+    expect(METEO_SCRIPT).toContain(`const turn=(was,nw)=>{if(cw)paint();if(!was&&moving()||nw&&calm())o.again()}`);
+    expect(METEO_SCRIPT.match(/mix:\(a,z,f,el,gr\)=>\{[^\n]*/)![0]).not.toContain("o.again");
+    // A drop at its end is born again, or leaves when the rain wants fewer; those lacking come a tenth at a time.
+    expect(METEO_SCRIPT).toContain(`if((p.a+=k)>p.m&&(ds.length>n||!born(p)))ds.splice(i,1)`);
+    expect(METEO_SCRIPT).toContain(`Math.ceil(n/10)`);
+    // The two images faded added, each by its share: no dip half way.
+    expect(METEO_SCRIPT).toContain(`x.globalCompositeOperation="lighter";x.globalAlpha=1-mx[2]`);
+  });
+
+  it("spreads the radar's cells smoothly, never in steps, and veils where the radars see badly", () => {
+    expect(METEO_SCRIPT).toContain(`smooth(x);x.drawImage(t,0,0,cw,ch)`);
+    expect(METEO_SCRIPT).toContain(`c.fillStyle="rgba(255,255,255,.3)"`);
+    // Every 12 px, twice the hatches' former spacing.
+    expect(METEO_SCRIPT).toContain(`t.width=t.height=12`);
   });
 });
