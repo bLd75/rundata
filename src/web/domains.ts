@@ -1356,7 +1356,7 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
     const lon = mine.reduce((n, s) => n + s.lon, 0) / mine.length;
     const lat = mine.reduce((n, s) => n + s.lat, 0) / mine.length;
     const free = mine.reduce((n, s) => n + s.libres, 0);
-    return { lon, lat, label: String(free), name: `${c.commune} : ${free} libre${free > 1 ? "s" : ""} sur ${c.points}`, round: true, color: free ? "#2b8a3e" : "#868e96",
+    return { lon, lat, label: String(free), name: `${c.commune} : ${free} libre${free > 1 ? "s" : ""} sur ${c.points}`, round: true, color: free ? "#2b8a3e" : "#868e96", quiet: true,
       place: c.commune, say: `${free} point${free > 1 ? "s" : ""} de charge libre${free > 1 ? "s" : ""} sur ${c.points}`, href: `#${anchorId("c", c.commune)}` };
   });
 
