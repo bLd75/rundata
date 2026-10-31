@@ -2735,7 +2735,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
 
   const markers = rows.flatMap((r) => {
     const x = pct(r.pluie?.rapport_a_la_normale);
-    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: x < 50 ? "#ff922b" : x > 150 ? "#4dabf7" : "#69db7c", ...(x >= 50 && x <= 150 && { ink: COUNT_COLOR }),
+    return x == null ? [] : [{ lon: r.lon, lat: r.lat, label: `${x} %`, name: r.station, color: x < 50 ? "#ff922b" : x > 150 ? "#4dabf7" : "#69db7c", ink: COUNT_COLOR,
       say: `${x} % de la pluie normale en 30 jours`, href: `#${anchorId("s", r.station)}` }];
   });
 
@@ -2769,9 +2769,9 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
   </div>
   <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : la pluie des 30 derniers jours à six stations, en pourcentage de la normale" })}
   <figcaption class="note" style="color:var(--on-night-muted)">${legende([
-    { forme: "pastille", couleur: "#ff922b", texte: "40 %", dit: "moins de 50 %" },
+    { forme: "pastille", couleur: "#ff922b", texte: "40 %", encre: COUNT_COLOR, dit: "moins de 50 %" },
     { forme: "pastille", couleur: "#69db7c", texte: "100 %", encre: COUNT_COLOR, dit: "proche" },
-    { forme: "pastille", couleur: "#4dabf7", texte: "160 %", dit: "plus de 150 %" },
+    { forme: "pastille", couleur: "#4dabf7", texte: "160 %", encre: COUNT_COLOR, dit: "plus de 150 %" },
   ], esc(`Pluie des 30 derniers jours mesurée par Météo-France${d ? ` jusqu'au ${d.periode.au.slice(0, 5)}` : ""}, en % de la normale 1991-2020.`))}</figcaption></figure>
 </div>`;
 
