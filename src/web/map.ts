@@ -13,16 +13,26 @@ export const W = island.w;
 export const H = island.h;
 /** The island in relief (scripts/build-relief.py), a file of public/; its address changes with its content. */
 export const RELIEF_PATH = `/relief-${relief.v}.webp`;
+/**
+ * The relief 4 times finer (scripts/build-relief.py --fin): the island cut in RELIEF_FIN_N × RELIEF_FIN_N tiles, files
+ * of public/ named `${RELIEF_FIN}<column>-<row>.webp`. A zoomed map holds their layer (`rf-<key>`, finLayer()), which
+ * FONDS_SCRIPT fills with the tiles in view once the map shows the relief RELIEF_FIN_ZOOM times closer than the whole
+ * island, the relief picked: before that, the island's picture is as sharp as the screen.
+ */
+export const RELIEF_FIN = `/relief-fin-${relief.fin}-`;
+export const RELIEF_FIN_N = 4;
+export const RELIEF_FIN_ZOOM = 2.5;
+const finLayer = (key: string) => `<g id="rf-${key}" class="rf" clip-path="url(#isl-clip)"></g>`;
 
 /**
  * The credit of the island's map, for a page that names its own sources (the footer then names none): the communes'
  * contours (scripts/build-island.py), and what the IGN gives when it is drawn: the relief (scripts/build-relief.py),
- * the roads and the names of places (scripts/build-routes.py).
+ * the BD ORTHO too on a map that zooms (its finer relief), the roads and the names of places (scripts/build-routes.py).
  */
 export function mapCredit(html: string): string | undefined {
   if (!html.includes('<use href="#isl"')) return undefined;
   const ign = [
-    html.includes(RELIEF_PATH) && ["relief, photographies aériennes", "RGE ALTI, couche Photographies aériennes de la Géoplateforme"],
+    html.includes(RELIEF_PATH) && ["relief, photographies aériennes", `RGE ALTI, couche Photographies aériennes de la Géoplateforme${html.includes('class="rf"') ? ", BD ORTHO" : ""}`],
     html.includes('<g class="rd"') && [html.includes('<g class="nm"') ? "routes et noms de lieux" : "routes", "BD TOPO"],
   ].filter((x): x is string[] => !!x);
   const what = ign.length === 2 ? `${ign[0][0]}, ${ign[1][0]}` : ign[0]?.[0];
@@ -763,7 +773,7 @@ export function islandMap(opts: {
   const terrain = !fills;
   const land = terrain
     ? `<use href="#isl" class="land"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
-      (opts.fond ? `<g id="fd-${esc(opts.fond)}" class="fd"></g>` : "")
+      (opts.fond ? finLayer(esc(opts.fond)) + `<g id="fd-${esc(opts.fond)}" class="fd"></g>` : "")
     : `<use href="#isl" class="land"/>${fills}`;
   // The six names on every map of the whole island, the maps in colours (fills) too (marketing's charter, § 2.4).
   const names = opts.names ?? namesLayer({ frame: [0, 0, W, H], unit: W / PHONE_PX, busy, hide: !!opts.top, first: opts.first });
@@ -913,7 +923,7 @@ export function traceMap(opts: { lines: TraceLine[]; label: string }): string {
     `<rect class="sea" x="${x0 - w}" y="${y0 - h}" width="${w * 3}" height="${h * 3}"/>` +
     `<use href="#isl" class="coast"/><use href="#isl" class="land"/>` +
     `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
-    `<g id="fd-t" class="fd"></g>` + roadsLayer(frame) + names +
+    finLayer("t") + `<g id="fd-t" class="fd"></g>` + roadsLayer(frame) + names +
     opts.lines.map((l) => `<path class="trk-halo" d="${d(l)}"/><path class="trk ${esc(l.etat)}" d="${d(l)}"/>`).join("") +
     // A dot of its size on screen at any zoom (a stroke that does not scale), white ringed with night.
     `<path class="trk-start" d="M${sx} ${sy}h0"/><path class="trk-start in" d="M${sx} ${sy}h0"/></svg>` + zoomControls("t", "trace") + fondChoice("t");
@@ -957,7 +967,7 @@ const inScript = (v: unknown) => JSON.stringify(v).replace(/[<>&\/\u2028\u2029]/
 // next view was asked, takes nothing of the next one away. A tile refused (the Géoplateforme's limit, a lost
 // connection) is asked again 1.5 s, then 3 s later, the old tiles kept meanwhile; after a third refusal, the relief shows
 // under its place until the map moves.
-export const FONDS_SCRIPT = `(()=>{const T=${inScript(Object.fromEntries(FONDS.filter((f) => f.layer).map((f) => [f.id, { credit: f.credit, attente: f.attente, layer: f.layer, format: f.format, max: f.max }])))},A=${LON0},B=${LAT0},C=${LON1},D=${LAT1},W=${W},H=${H},NS="http://www.w3.org/2000/svg";
+export const FONDS_SCRIPT = `(()=>{const T=${inScript(Object.fromEntries(FONDS.filter((f) => f.layer).map((f) => [f.id, { credit: f.credit, attente: f.attente, layer: f.layer, format: f.format, max: f.max }])))},A=${LON0},B=${LAT0},C=${LON1},D=${LAT1},W=${W},H=${H},NS="http://www.w3.org/2000/svg",RF=${inScript(RELIEF_FIN)},RN=${RELIEF_FIN_N},RZ=${RELIEF_FIN_ZOOM};
 const X=(o)=>(o-A)/(C-A)*W,Y=(a)=>(D-a)/(D-B)*H,lon=(x)=>A+x/W*(C-A),lat=(y)=>D-y/H*(D-B),n=(z)=>2**z,
 tlon=(t,z)=>t/n(z)*360-180,tlat=(t,z)=>Math.atan(Math.sinh(Math.PI*(1-2*t/n(z))))*180/Math.PI,
 tx=(o,z)=>Math.floor((o+180)/360*n(z)),ty=(a,z)=>{const r=a*Math.PI/180;return Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n(z))},r3=(v)=>String(Math.round(v*1000)/1000);
@@ -965,6 +975,9 @@ document.querySelectorAll(".fonds[data-fd]:not([data-on])").forEach((f)=>{const 
 let cur=null,timer=0,slow=0,pend=0,epoch=0,want=new Set();const have=new Map(),tries=new Map(),again=new Set(),quiet=()=>{clearTimeout(slow);slow=0;if(msg)msg.textContent=""},
 sweep=()=>{for(const key of want){const im=have.get(key);if(im?!im.dataset.ok:again.has(key))return}have.forEach((im,key)=>{if(!want.has(key)){im.remove();have.delete(key)}})},
 place=()=>{const p=msg&&msg.offsetParent;if(!p)return;const a=p.getBoundingClientRect(),b=svg.getBoundingClientRect();msg.style.left=b.left-a.left-p.clientLeft+8+"px";msg.style.top=b.bottom-a.top-p.clientTop-msg.offsetHeight-8+"px"};
+const rg=document.getElementById("rf-"+k),fin=()=>{const v=svg.viewBox.baseVal,s=W/RN,t=H/RN;if(cur||!rg||W/v.width<RZ)return;
+for(let c=Math.max(0,Math.floor(v.x/s));c<=Math.min(RN-1,Math.floor((v.x+v.width)/s));c++)for(let r=Math.max(0,Math.floor(v.y/t));r<=Math.min(RN-1,Math.floor((v.y+v.height)/t));r++){const id=c+"-"+r;if(rg.querySelector('[data-t="'+id+'"]'))continue;
+const im=document.createElementNS(NS,"image");im.dataset.t=id;im.setAttribute("x",c*s);im.setAttribute("y",r*t);im.setAttribute("width",s);im.setAttribute("height",t);im.setAttribute("preserveAspectRatio","none");im.setAttribute("href",RF+id+".webp");rg.appendChild(im)}};
 const draw=()=>{if(!cur)return;const v=svg.viewBox.baseVal,px=svg.getBoundingClientRect().width||340,dpp=v.width/W*(C-A)/px;
 let z=Math.max(9,Math.min(cur.max,Math.round(Math.log2(360*Math.min(devicePixelRatio||1,2)/(256*dpp))))),x0,x1,y0,y1;
 for(;;z--){x0=tx(lon(v.x),z);x1=tx(lon(v.x+v.width),z);y0=ty(lat(v.y),z);y1=ty(lat(v.y+v.height),z);if(z<=9||(x1-x0+1)*(y1-y0+1)<=96)break}
@@ -978,10 +991,10 @@ im.addEventListener("load",()=>{im.dataset.ok="1";fin();sweep()},{once:true});im
 if(t<3){again.add(key);setTimeout(()=>{again.delete(key);if(want.has(key))draw();else sweep()},1500*t)}sweep()},{once:true});
 im.setAttribute("href","${IGN_TUILES}/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER="+cur.layer+"&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX="+z+"&TILEROW="+y+"&TILECOL="+x+"&FORMAT=image/"+cur.format);
 g.appendChild(im);have.set(key,im)}sweep()};
-const later=()=>{clearTimeout(timer);timer=setTimeout(()=>{tries.clear();place();draw()},250)};
+const later=()=>{clearTimeout(timer);timer=setTimeout(()=>{tries.clear();place();draw();fin()},250)};
 f.addEventListener("change",(e)=>{const id=e.target.value;cur=T[id]||null;epoch++;pend=0;quiet();have.forEach((im)=>im.remove());have.clear();again.clear();svg.classList.remove("fd-plan","fd-photo");if(cur)svg.classList.add("fd-"+id);
-document.querySelectorAll(".fd-c").forEach((s)=>{s.textContent=cur?", "+cur.credit:""});draw()});
-new MutationObserver(later).observe(svg,{attributes:true,attributeFilter:["viewBox"]});addEventListener("resize",later);f.hidden=false})})();`;
+document.querySelectorAll(".fd-c").forEach((s)=>{s.textContent=cur?", "+cur.credit:""});draw();fin()});
+new MutationObserver(later).observe(svg,{attributes:true,attributeFilter:["viewBox"]});addEventListener("resize",later);f.hidden=false;fin()})})();`;
 
 // ---------------------------------------------------------------- a commune, close up
 
@@ -1049,9 +1062,10 @@ export function communeMap(opts: { commune: string; spots: Spot[]; label: string
     `<rect class="sea" x="${r2(box[0] - w)}" y="${r2(box[1] - h)}" width="${r2(w * 3)}" height="${r2(h * 3)}"/>` +
     `<use href="#isl" class="coast"/><use href="#isl" class="land"/>` +
     `<image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
-    // The island dimmed, then the commune's relief again over it, clear; the IGN's tiles likewise, once chosen.
-    `<g id="fd-${fd}" class="fd"></g>` +
+    // The island dimmed, then the commune's relief again over it, clear; the finer relief and the IGN's tiles likewise.
+    finLayer(fd) + `<g id="fd-${fd}" class="fd"></g>` +
     `<use href="#isl" class="dim"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#com-clip)"/>` +
+    `<use href="#rf-${fd}" clip-path="url(#com-clip)"/>` +
     `<use href="#fd-${fd}" clip-path="url(#com-clip)"/>` +
     roadsLayer(box) + `<path class="hl" d="${shape.d}"/>` +
     namesLayer({ frame: box, unit, busy: at.map(([x, y]) => [x - 10 * unit, y - 10 * unit, x + 10 * unit, y + 10 * unit]), close: true, within: ringOf(shape.d), centre: chefLieu(opts.commune), commune: opts.commune }) +

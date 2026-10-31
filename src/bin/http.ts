@@ -63,7 +63,7 @@ const TYPES: Record<string, string> = { jpg: "image/jpeg", webp: "image/webp", p
 const KEPT = "public, max-age=31536000, immutable";
 const ASSETS: [RegExp, string][] = [
   [/^\/((?:presse|og|icons|logo|fonds)\/[\w-]+\.[0-9a-f]+\.(jpg|webp|png|svg))$/, KEPT],
-  [/^\/(relief-[0-9a-f]{8}\.(webp))$/, KEPT],
+  [/^\/(relief-(?:fin-)?[0-9a-f]{8}(?:-\d-\d)?\.(webp))$/, KEPT],
   [/^\/(font\/titres-\d+\.(woff2))$/, KEPT],
   // Linked with ?v= (its fingerprint), kept a week.
   [/^\/(og\.(png))$/, "public, max-age=604800"],
