@@ -71,6 +71,28 @@ describe("the days of /historique", () => {
     expect(historiquePage("https://rundata.re", at(bare), NOW)).not.toContain(GRAPHES_SCRIPT);
   });
 
+  it("ends the page on the last day loaded, before the load of about noon, and the tool on the days asked", async () => {
+    // 06:00 in La Réunion: yesterday (24/10) is not loaded yet, the archive ends on 23/10.
+    const morning = new Date("2026-10-25T02:00:00Z");
+    plug();
+    const d = json(await historiqueMeteo(new Cache(), undefined, { series: true }, morning)) as HistoriqueAnswer;
+    expect(d.periode).toEqual({ du: "24/09/2026", au: "23/10/2026", jours: 30 });
+    expect(d.stations[0].jours!.map((j) => j.date).slice(-1)).toEqual(["23/10/2026"]);
+    expect(d.resume).toContain("La Réunion du 24/09/2026 au 23/10/2026 — ");
+    expect(d.resume).toContain("Les mesures du 24/10/2026 ne sont pas encore disponibles");
+    expect(d.resume).toMatch(/Dernier jour disponible\s:\s23\/10\/2026\./);
+    const html = historiquePage("https://rundata.re", at(d), morning);
+    expect(html).toContain("Mesures jusqu'au 23/10</p>");
+    expect(html).toContain("du 24/09/2026 au 23/10/2026 (moins de 80 %");
+    expect(html).toMatch(/mesurée par Météo-France jusqu(&#39;|&#x27;|')au 23\/10, en %/);
+    for (const s of svgs(html, "h-g-pluie")) expect(s).toMatch(/data-d="24\/09,[^"]*,23\/10"/);
+    for (const s of [...svgs(html, "h-g-pluie"), ...svgs(html, "h-g-temp"), ...svgs(html, "h-g-soleil")]) expect(s).not.toContain("24/10");
+    // The tool keeps the thirty days up to yesterday, and says the last one is not loaded.
+    plug();
+    const t = json(await historiqueMeteo(new Cache(), undefined, {}, morning)) as HistoriqueAnswer;
+    expect(t.periode).toEqual({ du: "25/09/2026", au: "24/10/2026", jours: 30 });
+  });
+
   it("leaves a hole for a day not measured, never a zero, and dots the grey days", () => {
     const days = Array.from({ length: 10 }, (_, i) => ({ date: `${String(i + 1).padStart(2, "0")}/10/2026`, pluie_mm: i === 4 ? undefined : 2, tmin: 20, tmax: i === 4 ? undefined : 28, soleil_h: i === 4 ? undefined : 6, soleil_pct: i === 2 ? 10 : 60 }));
     const row = { zone: "nord", station: "Une station", altitude_m: 10, lon: 55.5, lat: -21, jours: days, normale_jour: { pluie_mm: days.map(() => 1), tmax: days.map(() => 27), tmin: days.map(() => 19), soleil_h: days.map(() => 7) } };

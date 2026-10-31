@@ -671,22 +671,35 @@ export async function historiqueMeteo(
 
   if (!lieu?.trim()) {
     const tour = TOUR.map(([id, zone]) => ({ zone, poste: all.find((x) => x.poste === id) })).filter((t) => t.poste && covers(t.poste)) as { zone: string; poste: Poste }[];
-    const read = await climat.years(tour.map((t) => t.poste.poste), y0, y1);
+    const ids = tour.map((t) => t.poste.poste);
+    let read = await climat.years(ids, y0, y1);
+    const last = lastDay(read, iso(now.getTime() + 4 * 3600_000 - DAY_MS));
+    // The page's days end on the last day loaded: before the load of about noon, yesterday is not there yet, and its
+    // header, map and charts would all end on a day without a measure. The tool's answer keeps the days asked.
+    let q: Period = p;
+    if (opts.series && !opts.du && !opts.au && last && last < p.au) {
+      q = { du: iso(Date.parse(last) - (n - 1) * DAY_MS), au: last };
+      if (+q.du.slice(0, 4) < y0) read = await climat.years(ids, +q.du.slice(0, 4), y1);
+    }
     const rows = tour.map((t) => {
       const s = { poste: t.poste, ys: read.get(t.poste.poste) ?? new Map() };
-      const has = (f: Field) => share(s, f, p) >= COVERAGE;
+      const has = (f: Field) => share(s, f, q) >= COVERAGE;
       const [rain, temp, sun] = [has("RR") ? s : undefined, has("TX") ? s : undefined, has("INST") ? s : undefined];
       // Day by day, for the charts of /historique only: the tool's answer stays the summaries.
-      const series = opts.series ? { jours: dailyRows(p, rain, temp, sun).map(({ rafale_max_kmh: _, ...j }) => j), normale_jour: dailyNormals(p, rain, temp, sun) } : {};
-      return { zone: t.zone, station: t.poste.nom, altitude_m: t.poste.alt, lon: t.poste.lon, lat: t.poste.lat, ...summary(p, rain, temp, sun), ...series };
+      const series = opts.series ? { jours: dailyRows(q, rain, temp, sun).map(({ rafale_max_kmh: _, ...j }) => j), normale_jour: dailyNormals(q, rain, temp, sun) } : {};
+      return { zone: t.zone, station: t.poste.nom, altitude_m: t.poste.alt, lon: t.poste.lon, lat: t.poste.lat, ...summary(q, rain, temp, sun), ...series };
     });
     const resume = rows.map((r) => {
       const pl = (r as { pluie?: { total_mm: number; normale_mm?: number } }).pluie;
       const t = (r as { temperatures?: { maximales_moyenne?: number } }).temperatures;
       return `${r.station} : ${pl ? `${fr(pl.total_mm)} mm${pl.normale_mm != null ? ` (normale ${pl.normale_mm})` : ""}` : "pluie non mesurée"}${t?.maximales_moyenne != null ? `, max ${fr(t.maximales_moyenne)} °C` : ""}`;
     }).join("\u00a0; ");
-    const last = lastDay(read, iso(now.getTime() + 4 * 3600_000 - DAY_MS));
-    return text({ resume: `La Réunion du ${frDate(p.du)} au ${frDate(p.au)} — ${resume}.${notYet(p, now, last)}`, stations: rows, ...common });
+    return text({
+      resume: `La Réunion du ${frDate(q.du)} au ${frDate(q.au)} — ${resume}.${notYet(p, now, last)}`,
+      stations: rows,
+      ...common,
+      periode: { du: frDate(q.du), au: frDate(q.au), jours: n },
+    });
   }
 
   const res = resolvePlace(lieu);

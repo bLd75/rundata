@@ -2817,7 +2817,7 @@ export function historiquePage(origin: string, data: Cached<HistoriqueAnswer> | 
   const band = `${crumbBar("Historique météo")}
 <div class="wrap intro">
   <div class="pitch">
-    <p class="pill"><span class="dot"></span>Mesures jusqu'à hier</p>
+    <p class="pill"><span class="dot"></span>Mesures jusqu'${d ? `au ${esc(d.periode.au.slice(0, 5))}` : "à hier"}</p>
     <h1>Historique météo <span class="n974">974</span></h1>
     ${status}
     ${ask(`La pli i tonb Sin-Bénoi ? Lé normal ? Gèt si ${url} é di amwin konbien la tonbé sé dernié zour.`,
