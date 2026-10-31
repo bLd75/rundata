@@ -64,6 +64,13 @@ describe("the places to go with children", () => {
     expect(enfants.LIEUX.some((l) => (l.type === "mediatheque" && /universitaire/i.test(l.nom)) || (l.type === "piscine" && /coll[èe]ge|inspe/i.test(l.nom)))).toBe(false);
   });
 
+  // /pages/equipement/ is a 404, /pages/fiches/ the search page whatever the number: the sheet is the form the site links to.
+  it("link a place of Data ES to its sheet, in the form Data ES links to itself", () => {
+    const dataEs = enfants.LIEUX.filter((l) => l.source === "data_es");
+    expect(dataEs.length).toBeGreaterThan(300);
+    for (const l of dataEs) expect(l.lien, enfants.nameOf(l)).toMatch(/^https:\/\/equipements\.sports\.gouv\.fr\/pages\/fiche\/\?refine\.equip_numero=E\d{3}I974\d{6}$/);
+  });
+
   it("give the map's ages as a fact, else an indication by kind, marked as ours", () => {
     const given = enfants.LIEUX.find((l) => l.age?.min === 3 && l.age.max === 14)!;
     expect(enfants.ageOf(given)).toEqual({ texte: `3–14${NBSP}ans`, fait: true, bands: ["3-6", "6-12", "12-17"] });

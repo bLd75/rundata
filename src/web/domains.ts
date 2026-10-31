@@ -1971,7 +1971,7 @@ export function randonneesPage(origin: string, data: Cached<RandonneesAnswer> | 
 
   const closures = cut.length
     ? `<div class="card warn alarm">${icon("alert")}<h3>${plural(cut.length, "itinéraire coupé", "itinéraires coupés")} par une fermeture</h3>
-  <ul class="plain">${cut.map((h) => `<li><a href="/randonnees/${esc(h.slug)}">${esc(h.nom)}</a> : ${h.fermes.map((f) => (f.slug ? `<a href="/sentiers/${esc(f.slug)}">${esc(f.sentier)}</a>` : esc(f.sentier)) + ((onf.nuance(f) ?? f.cause) ? ` (${esc((onf.nuance(f) ?? f.cause)!)})` : "")).join(", ")}</li>`).join("")}</ul>
+  <ul class="plain">${cut.map((h) => `<li><a href="/randonnees/${esc(h.slug)}">${esc(h.nom)}</a> : ${h.fermes.map((f) => (f.slug ? `<a href="/sentiers/${esc(f.slug)}">${esc(f.sentier)}</a>` : esc(f.sentier)) + (onf.raison(f) ? ` (${esc(onf.raison(f)!)})` : "")).join(", ")}</li>`).join("")}</ul>
   <p class="note">Un sentier fermé est interdit, même avec la trace : prendre une variante ouverte ou choisir une autre randonnée. <a href="/sentiers">Tous les sentiers fermés</a>.</p></div>`
     : "";
 

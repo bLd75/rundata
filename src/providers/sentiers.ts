@@ -99,6 +99,9 @@ export function motifs(x: Avis): string[] {
   return n ? [n, ...rest.filter((v) => !WEEKEND.test(v))] : rest;
 }
 
+/** Between brackets after a trail name: the cause alone, or the whole notice when it says open at the weekend, with its date. */
+export const raison = (x: Avis) => (nuance(x) ? motifs(x).join(" · ") : x.cause);
+
 export function parseTrails(features: Feature[]): Sentier[] {
   return features
     .filter((f) => clean(f.attributes.WS_NomIti))
