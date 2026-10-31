@@ -135,7 +135,7 @@ export async function coupuresEau(cache: Cache, lieu: string | undefined, now = 
       ? `${mine.length} avis récent${mine.length > 1 ? "s" : ""} ou à venir ${a(commune)} : ${mine.slice(0, 3).map((n) => n.titre).join("\u00a0; ")}.`
       : mute ? ""
       : covered ? `Aucun avis de coupure récent ou à venir ${a(commune)}.`
-      : unread ? `Pas d'avis en ligne lisible pour ${commune} : ${unread.nom}, qui y distribue l'eau, ne publie pas ses avis de coupure dans un flux que rundata.re peut lire. Voir ${unread.nom} ou la mairie.`
+      : unread ? `Pas d'avis en ligne lisible pour ${commune} : rundata.re ne lit pas les avis de coupure de ${unread.nom}, qui y distribue l'eau. Voir ${unread.nom} ou la mairie.`
       : `Pas d'avis en ligne lisible pour ${commune} : voir la mairie ou le distributeur d'eau.`,
     mute ? mute.texte : "",
   ].filter(Boolean).join(" ");

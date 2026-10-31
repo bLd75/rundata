@@ -356,7 +356,7 @@ export function resume(commune: PlacePage, l: ResumeCopies, now: Date, leftOut: 
       ? {
           avis: avis.map((n) => ({ titre: n.titre, coupure: n.coupure, secteurs: n.secteurs, secteurs_complets: n.secteurs_complets, ne_pas_boire: n.ne_pas_boire, lien: n.lien })),
           distributeur: dist?.nom,
-          note: avis.length || dist?.avis ? undefined : `Le distributeur ${a(nom)} ne publie pas ses avis dans un flux lisible : voir la mairie.`,
+          note: avis.length || dist?.avis ? undefined : `Les avis du distributeur ${a(nom)} ne sont pas lus par rundata.re : voir la mairie.`,
           injoignable: waterSilent && { texte: waterSilent.texte, site: waterSilent.site },
         }
       : undefined,

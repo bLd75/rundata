@@ -219,7 +219,7 @@ describe("coupures d'eau", () => {
 
   it("says when a commune's distributor publishes nothing read here, and names it as the page does", async () => {
     const b = body(await coupuresEau(cache(), "Le Tampon", NOW));
-    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Le Tampon : Sudéau, qui y distribue l'eau, ne publie pas ses avis de coupure dans un flux que rundata.re peut lire. Voir Sudéau ou la mairie.");
+    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Le Tampon : rundata.re ne lit pas les avis de coupure de Sudéau, qui y distribue l'eau. Voir Sudéau ou la mairie.");
     expect(b.distributeur).toEqual({ nom: "Sudéau", d_apres: "ARS La Réunion, contrôle sanitaire des eaux distribuées (Hub'Eau), Licence Ouverte 2.0" });
     expect(b.contact).toBe("Le numéro d'urgence du distributeur (fuite, coupure non annoncée) est sur la facture d'eau\u00a0; la mairie : https://rundata.re/communes/le-tampon");
     // The distributor named is the ARS's: its sanitary control is credited beside the notices.
@@ -266,17 +266,19 @@ describe("coupures d'eau", () => {
     expect(sp).toContain("La Créole, publié le 23/10/2026</span>");
     expect(sp).toContain("<b>vendredi 23/10 à 22:00 → samedi 24/10 à 06:00</b>");
     expect(sp).toContain(`les avis de <a href="https://lacreole.re/flash-infos" rel="noopener">la page « flash infos » de La Créole</a> : ils s'affichent en haut de cette page.`);
-    expect(sp).not.toContain("Il ne publie pas ses avis de coupure");
+    expect(sp).not.toContain("Ses avis de coupure ne sont pas lus");
     // Sudéau publishes nothing read: the page says so rather than « no cut ».
     const lt = page("le-tampon");
-    expect(lt).toContain("Sudéau ne publie pas ses avis de coupure dans un flux");
+    expect(lt).toContain("Les avis de coupure de Sudéau ne sont pas lus par rundata.re");
+    // Never said of a distributor that it does not publish (a notice may be on paper, at the mairie): only that rundata.re does not read it.
+    expect(lt).not.toMatch(/ne publie pas/);
     expect(lt).not.toContain("Aucune coupure d&#39;eau annoncée");
     expect(page("le-port")).toContain("<h1>Coupures d'eau au Port</h1>");
     expect(waterLive(pageOf("salazie")!, { coupures })).toMatchObject({ valeur: "Eau à ne pas boire" });
     expect(waterLive(pageOf("saint-paul")!, { coupures: night })).toMatchObject({ valeur: "1 avis de coupure" });
     // The notice of the 23rd is in Saint-Paul: not on Les Trois-Bassins' page.
     expect(waterLive(pageOf("les-trois-bassins")!, { coupures: night })).toMatchObject({ valeur: "Pas de coupure annoncée" });
-    expect(waterLive(pageOf("le-tampon")!, { coupures })).toMatchObject({ valeur: "Coupures non publiées" });
+    expect(waterLive(pageOf("le-tampon")!, { coupures })).toMatchObject({ valeur: "Avis non lus" });
   });
 
   it("says a feed that does not answer: its notices kept with the hour they were read, else its read failed, never « no cut »", async () => {
@@ -393,7 +395,7 @@ describe("coupures d'eau", () => {
     const es = page("l-etang-sale");
     expect(es).toContain("Le distributeur de la commune n'est pas connu ici : voir la mairie. <a href=\"https://www.letangsale.fr/\" rel=\"noopener\">Le site de la mairie de L&#39;<span style=\"white-space:nowrap\">Étang-Salé</span> →</a>");
     expect(es).not.toContain("Coupure d’eau");
-    expect(waterLive(pageOf("cilaos")!, { coupures })).toMatchObject({ valeur: "Coupures non publiées" });
+    expect(waterLive(pageOf("cilaos")!, { coupures })).toMatchObject({ valeur: "Avis non lus" });
     // No notice of Saint-Leu at the time: said of the commune that publishes them, not of its distributor.
     const later = new Date("2026-10-24T04:00:00Z");
     const now = { value: await buildCoupures(cache(), later), fetchedAt: later };
@@ -408,7 +410,7 @@ describe("coupures d'eau", () => {
 
   it("gives, for a commune whose mairie is only linked to, where its notices are", async () => {
     const b = body(await coupuresEau(cache(), "Cilaos", NOW));
-    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Cilaos : RECIL, qui y distribue l'eau, ne publie pas ses avis de coupure dans un flux que rundata.re peut lire. Voir RECIL ou la mairie.");
+    expect(b.resume).toBe("Pas d'avis en ligne lisible pour Cilaos : rundata.re ne lit pas les avis de coupure de RECIL, qui y distribue l'eau. Voir RECIL ou la mairie.");
     expect(b.mairie).toEqual({ libelle: "Les avis de coupure d'eau sur le site de la ville de Cilaos", lien: "https://ville-cilaos.fr/?s=coupure+d%27eau" });
     expect(body(await coupuresEau(cache(), "Saint-Leu", NOW)).mairie).toBeUndefined();
   });
