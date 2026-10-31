@@ -240,8 +240,9 @@ export function couleur(types: enfants.Kind[], list: enfants.Lieu[]): string {
 const familleOf = (k: enfants.Kind) => FAMILLES.find((x) => x.types.includes(k))!;
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// The map and the list, kept together: a chip hides the kinds it leaves out on both; a dot opens its sheet under the
-// map and marks its row; a row's button marks its dot, brought into the frame. Pinch, drag, the wheel, a double click (web/carte-zoom.ts) and the buttons move the
+// The map and the list, kept together: a chip hides the kinds it leaves out on both; a dot marks its row, which
+// carte-points.ts then opens and brings into view; a row's button marks its dot, brought into the frame, and opens its
+// sheet under the map. Pinch, drag, the wheel, a double click (web/carte-zoom.ts) and the buttons move the
 // map's viewBox, within the commune's frame, and so does a tap on too many dots at once (`pzoom`, carte-points.ts).
 // Without the script, each dot is a link to its row.
 const MAP_SCRIPT = `(()=>{const svg=document.getElementById("ecm"),f=document.getElementById("ecf"),sheet=document.getElementById("ecs");if(!svg||!f)return;
@@ -259,11 +260,12 @@ if(!svg.classList.contains("zoomed"))return;const p0=pt(o[0],o[1]),p1=pt(e.clien
 const up=(e)=>{ps.delete(e.pointerId);if(ps.size<2)last=null};["pointerup","pointercancel","pointerleave"].forEach((t)=>svg.addEventListener(t,up));
 ${WHEEL_SCRIPT}${DOUBLE_SCRIPT}svg.addEventListener("click",held,true);
 document.getElementById("ecz").addEventListener("click",(e)=>{const z=e.target.closest("button")?.dataset.z;if(z==="+")zoom(1.6);else if(z==="-")zoom(1/1.6);else if(z==="0"){v=B.slice();put()}});
-const pick=(i,show)=>{svg.querySelectorAll(".sp.on").forEach((a)=>a.classList.remove("on"));document.querySelectorAll("#ecl li.on").forEach((l)=>l.classList.remove("on"));
-const a=svg.querySelector('.sp[data-i="'+i+'"]'),li=document.getElementById("lieu-"+i);if(!a||!li)return;a.classList.add("on");a.parentNode.appendChild(a);li.classList.add("on");
+const mark=(i)=>{svg.querySelectorAll(".sp.on").forEach((a)=>a.classList.remove("on"));document.querySelectorAll("#ecl li.on").forEach((l)=>l.classList.remove("on"));
+const a=svg.querySelector('.sp[data-i="'+i+'"]'),li=document.getElementById("lieu-"+i);if(!a||!li)return null;a.classList.add("on");a.parentNode.appendChild(a);li.classList.add("on");return[a,li]};
+const pick=(i,show)=>{const m=mark(i);if(!m)return;const[a,li]=m;
 sheet.querySelector(".nm").innerHTML=li.querySelector(".nm").innerHTML;const tp=sheet.querySelector(".tp"),ad=li.querySelector(".adr"),k=[li.dataset.n,li.dataset.q,ad&&ad.textContent].filter(Boolean).join(" · ");tp.textContent=k;tp.hidden=!k;sheet.querySelector(".go").href="#lieu-"+i;const ya=li.querySelector(".aller");sheet.querySelector(".ya").replaceChildren(...(ya?[ya.cloneNode(true)]:[]));sheet.hidden=false;
 if(show){const c=a.querySelector(".hit"),x=+c.getAttribute("cx"),y=+c.getAttribute("cy");if(x<v[0]||x>v[0]+v[2]||y<v[1]||y>v[1]+v[3]){v[0]=x-v[2]/2;v[1]=y-v[3]/2;clamp()}svg.scrollIntoView({block:"center",behavior:"smooth"})}};
-svg.addEventListener("click",(e)=>{const a=e.target.closest(".sp");if(!a)return;e.preventDefault();if(moved>8)return;pick(a.dataset.i,false)});
+svg.addEventListener("click",(e)=>{const a=e.target.closest(".sp");if(!a)return;if(moved>8){e.preventDefault();return}sheet.hidden=true;mark(a.dataset.i)});
 document.getElementById("ecl").addEventListener("click",(e)=>{const b=e.target.closest(".tomap");if(b)pick(b.closest("li").dataset.i,true)});
 sheet.querySelector(".x").addEventListener("click",()=>{sheet.hidden=true;svg.querySelectorAll(".sp.on").forEach((a)=>a.classList.remove("on"));document.querySelectorAll("#ecl li.on").forEach((l)=>l.classList.remove("on"))});
 const run=()=>{const t=f.t.value;svg.querySelectorAll(".sp").forEach((a)=>a.classList.toggle("off",!!t&&a.dataset.t!==t));document.querySelectorAll("#ecl li[data-i]").forEach((l)=>{l.hidden=!!t&&l.dataset.t!==t});
@@ -280,7 +282,8 @@ function communeLi(l: enfants.Lieu, i: number, now: Date, g: Porte): string {
   const named = enfants.named(l);
   const small = [named ? l.quartier : undefined, l.detail, mentionOf(link)].filter(Boolean).map((x) => esc(x!)).join(" · ");
   const name = esc(nomOf(l));
-  return `<li id="lieu-${i}" class="tgt" data-i="${i}" data-t="${l.type}"${named ? ` data-n="${esc(capital(enfants.typeOf(l.type).un))}"` : ""}${named && l.quartier ? ` data-q="${esc(l.quartier)}"` : ""}>` +
+  // Its site, for the bubble of its dot (carte-points.ts).
+  return `<li id="lieu-${i}" class="tgt" data-i="${i}" data-t="${l.type}"${l.site ? ` data-site="${esc(l.site)}"` : ""}${named ? ` data-n="${esc(capital(enfants.typeOf(l.type).un))}"` : ""}${named && l.quartier ? ` data-q="${esc(l.quartier)}"` : ""}>` +
     `<span><span class="nm">${link ? `<a href="${esc(link)}" rel="noopener">${name}</a>` : name}</span>${small ? `<small>${small}</small>` : ""}</span>` +
     `<span class="end"><button type="button" class="tomap f-${familleOf(l.type).f}" hidden aria-label="${esc(MOTS.surCarte(nomOf(l)))}">${icon("pin")}</button></span>` +
     `${second(l, nomOf(l), a, today, g)}</li>`;
@@ -344,7 +347,7 @@ export function enfantsCommunePage(origin: string, p: PlacePage, data: Cached<En
   const body = `<div id="enfc">
 <section aria-label="${esc(MOTS.carte(c))}" class="ecarte">
   ${chips}
-  <figure class="card mapcard">${communeMap({ commune: c, spots, label: MOTS.carte(c), id: "ecm" })}${zoom}${legend}</figure>
+  <figure class="card mapcard">${communeMap({ commune: c, spots, label: MOTS.carte(c), id: "ecm", controls: zoom })}${legend}</figure>
   ${sheet}
 </section>
 <section aria-labelledby="h-lieux">
