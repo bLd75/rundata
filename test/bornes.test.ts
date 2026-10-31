@@ -87,6 +87,7 @@ describe("bornes de recharge", () => {
     expect(mapLinks(page).find((l) => l.label.startsWith("Sainte-Marie :"))).toEqual({ kind: "mk", href: "#c-sainte-marie", label: "Sainte-Marie : 45 points de charge libres sur 103, voir le détail" });
     // The count in the point, the commune's name in its bubble: no label under the points, which covered one another at 1280.
     expect(page).not.toContain('class="mn"');
+    expect(page).toContain("Sainte-Marie : 45 libres sur 103");
     expect(deadAnchors(page)).toEqual([]);
     expect(doubleIds(page)).toEqual([]);
     const description = page.match(/<meta name="description" content="([^"]+)"/)?.[1] ?? "";
