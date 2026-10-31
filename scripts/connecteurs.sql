@@ -12,7 +12,9 @@
 -- working. etat: a_confirmer (the e-mailed link not clicked yet), a_moderer, actif, refuse, expire (no successful read
 -- for 30 days). echecs, erreur: the failed reads in a row and the last one, in a few words (the step and the HTTP
 -- status), never what the platform answered. source: a salted hash of the sender's address and the day, only to refuse
--- a flood, wiped after a day. A withdrawal deletes the row, and its events with it.
+-- a flood, wiped after a day. ouvert: 1 when the association chose, while linking, to have its events in the open
+-- data too (agenda ICS and JSON, Licence Ouverte 2.0), as HelloAsso agreed in writing; 0 otherwise. A withdrawal
+-- deletes the row, and its events with it. A table made before ouvert: scripts/connecteurs-b.sql.
 CREATE TABLE IF NOT EXISTS connexions (
   id INTEGER PRIMARY KEY,
   t INTEGER NOT NULL,
@@ -34,7 +36,8 @@ CREATE TABLE IF NOT EXISTS connexions (
   echecs INTEGER NOT NULL DEFAULT 0,
   erreur TEXT,
   rappel_le INTEGER,
-  source TEXT
+  source TEXT,
+  ouvert INTEGER NOT NULL DEFAULT 0 CHECK (ouvert IN (0, 1))
 );
 -- One confirmed link per association and platform: a new one waits beside it, unconfirmed, and replaces it once confirmed.
 CREATE UNIQUE INDEX IF NOT EXISTS connexions_une ON connexions (plateforme, organisation) WHERE etat IN ('a_moderer', 'actif');

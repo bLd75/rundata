@@ -49,6 +49,7 @@ import * as pluieRetro from "./web/pluie-retro.js";
 import * as rejeu from "./web/rejeu.js";
 import { why } from "./types.js";
 import { configure as metaWebhookSecrets } from "./meta-webhook.js";
+import { cheminMasque } from "./chemin-secret.js";
 
 // How long the edge keeps an entry. Much longer than any freshness window: an old copy is what gets served,
 // marked as such, while a source is down.
@@ -353,7 +354,8 @@ export default {
     const c = setup(env);
     // A page served from its last copy refreshes it after the response (web/data.ts); an agenda too slow for the
     // answer is still stored (tools/agenda.ts).
-    const path = new URL(request.url).pathname;
+    // The path as the log lines write it, without the secret of a club's link (chemin-secret.ts).
+    const path = cheminMasque(new URL(request.url).pathname);
     const { value, used, settled } = await counted(PAGE_BUDGET, () => handle(request, c, later, recorder(env, request)).catch((err) => failed(path, err)), (p) => ctx.waitUntil(p));
     // Once the work after the response is done too: it counts against the same budget.
     ctx.waitUntil(settled().then((total) => {
