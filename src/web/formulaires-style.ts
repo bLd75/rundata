@@ -1,6 +1,7 @@
 /** The look of the clubs' and associations' space and forms (web/associations.ts, web/propositions.ts), in the stylesheet of every page (pages.ts). */
 export const FORMS_CSS = `.fo{max-width:44rem}
 .fo label,.fo legend{font-weight:600;font-size:.92rem}
+.band .fo.card{color:var(--ink)}
 .fo .f{display:grid;gap:.3rem;align-content:start;min-width:0}
 .fo input:not([type=checkbox]):not([type=radio]),.fo textarea,.fo select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:.6rem .75rem;width:100%;min-width:0;max-width:100%}
 .fo input[type=date],.fo input[type=time]{-webkit-appearance:none;appearance:none;min-height:2.9rem;text-align:left}

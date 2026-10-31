@@ -61,6 +61,7 @@ import { cycloneWater } from "./eau-cyclone.js";
 import { tapNote } from "../tools/eau.js";
 import { aller, MOTS as ALLER_MOTS, permis, porte, type Porte, retire, SHEET as ALLER } from "./aller.js";
 import { mentionSports, noteLa1ere, noteReunionFr } from "../tools/non-repris.js";
+import { journeyForm } from "./itineraire.js";
 
 const FOURNAISE = { lon: 55.7083, lat: -21.2444, name: "Piton de la Fournaise" };
 // What a search engine shows of a title.
@@ -1029,7 +1030,10 @@ export function busPage(origin: string, data: Cached<BusData> | null, now = new 
   ${d ? `<figure class="card mapcard"><h3 style="color:var(--on-night)">Les réseaux</h3>${networks}</figure>` : ""}
 </div>`;
 
-  const body = `<section aria-labelledby="h-gares">
+  const body = `<section aria-labelledby="h-trajet"><div class="sec-h"><h2 id="h-trajet">Préparer un trajet</h2>
+  <p>D'un arrêt, d'une commune ou d'un lieu à un autre, tous réseaux confondus, d'après les horaires prévus.</p></div>
+  ${journeyForm()}</section>
+<section aria-labelledby="h-gares">
   <div class="sec-h"><p class="eyebrow">En ce moment</p><h2 id="h-gares">Prochains départs dans les gares routières</h2>
   <p>Toutes les lignes qui partent de chaque gare, tous réseaux confondus, au plus trois départs par ligne et par direction.</p></div>
   ${gares}
