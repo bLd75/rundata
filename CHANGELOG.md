@@ -6,6 +6,7 @@ Ce que rundata.re sait faire de plus, jour après jour, sur le site (https://run
 
 ## Samedi 31 octobre 2026
 
+- Antennes : la carte se zoome, sur le relief, le Plan IGN ou la photo aérienne.
 - Calendrier : une carte Lune, avec la phase, le lever et le coucher à Saint-Denis et les prochaines phases.
 - Antennes : plusieurs opérateurs et plusieurs types à la fois sur la carte, avec le nombre de supports affichés.
 - Électricité : la production des dernières 24 h en graphique, et la carte de ce qui peut produire, commune par commune.

@@ -7,6 +7,8 @@ import * as antennes from "../src/vie/antennes.js";
 import { COULEURS, LOOK, PHRASE, antennesPage, code, look, phrase } from "../src/web/antennes.js";
 import { communePage } from "../src/web/commune.js";
 import { pageOf } from "../src/web/places.js";
+import { zoomControls } from "../src/web/carte-zoom.js";
+import { IGN_TUILES } from "../src/web/map.js";
 import { CSS } from "../src/web/pages.js";
 
 const parse = (c: string) => [...c.matchAll(/([a-z])(\d*)(?:\+(\d+))?/g)].map((m) => [m[1], m[2], m[3] ?? ""] as [string, string, string]);
@@ -170,7 +172,21 @@ describe("the antennas of the island (ANFR)", () => {
     expect(COULEURS).toEqual({ o: "#56b4e9", s: "#f0e442", f: "#b0508a", z: "#2563d8", m: "#0b1f36", 5: "#f0e442", 4: "#56b4e9", 2: "#b4c6d8", r: "#b0508a" });
     for (const [k, c] of Object.entries(COULEURS)) expect(CSS, k).toContain(`.antmap .k${k}{--c:${c}}`);
     // Each dot has its white edge; a ring, its night one.
-    expect(CSS).toContain(".antmap .ants circle{fill:var(--c);stroke:#fff;stroke-width:8;paint-order:stroke}");
+    expect(CSS).toContain(".antmap .ants circle{fill:var(--c);stroke:#fff;stroke-width:calc(8px*var(--az,1));paint-order:stroke}");
     expect(CSS).toContain("filter:drop-shadow(0 0 1.5px #0b1f36)");
+  });
+
+  it("zooms as the hikes' map does, with the IGN's backgrounds and closer on them, the dots keeping about their size", () => {
+    const html = antennesPage("https://rundata.re");
+    expect(html).toContain('<svg id="amap" class="map terrain" data-fd="a" data-zoom="8" data-zoom-fd="32" viewBox="0 0 1000 896"');
+    // The buttons, then the backgrounds (relief first, nothing asked of the IGN until another is picked), under the map.
+    expect(html).toContain(`</svg>${zoomControls("a", "ile")}<p class="fd-w" id="fd-w-a" role="status"></p><div class="tabs fonds" role="radiogroup" aria-label="Fond de la carte" data-fd="a" hidden>`);
+    expect(html).toContain('<g id="fd-a" class="fd"></g>');
+    expect(html).not.toContain(`<image href="${IGN_TUILES}`);
+    // A dot grows by k^0.15 when the map comes k times closer, at most half again: its radius in the map's units is
+    // divided by the rest, and its white ring with it.
+    expect(html).toContain("n=Math.min(1.5,k**.15)/k");
+    expect(html).toContain('svg.style.setProperty("--az",f)');
+    expect(CSS).toContain(".antmap .ants .r{fill:none;stroke:var(--c);stroke-width:calc(4px*var(--az,1));");
   });
 });

@@ -804,8 +804,16 @@ export function hikesMap(lines: HikeLine[], label: string): string {
   const routes = lines.filter((l) => l.genre === "randonnee");
   const closed = lines.filter((l) => l.genre === "sentier" && l.etat === "fermé");
   const svg = islandMap({ label, overlay: `<g class="lines">${[...under, ...routes, ...closed].map(draw).join("")}</g>`, fond: "h" });
-  return svg.replace('<svg class="map terrain"', `<svg id="hmap" class="map terrain hikes" data-fd="h" data-zoom="${MAX_ZOOM}"`) +
-    zoomControls("h", "ile") + fondChoice("h") + `<script>${HIKES_REACH}</script>`;
+  return zoomIsland(svg, "h", { id: "hmap", cls: "hikes" }) + `<script>${HIKES_REACH}</script>`;
+}
+
+/**
+ * A map of the whole island (islandMap() with `fond: key`) that zooms, as every such map does: up to MAX_ZOOM, or
+ * `mostFd` times once an IGN background is picked (carte-zoom.ts), with the buttons and the backgrounds under it.
+ */
+export function zoomIsland(svg: string, key: string, opts: { id?: string; cls?: string; mostFd?: number } = {}): string {
+  return svg.replace('<svg class="map terrain"', `<svg${opts.id ? ` id="${opts.id}"` : ""} class="map terrain${opts.cls ? ` ${opts.cls}` : ""}" data-fd="${key}" data-zoom="${MAX_ZOOM}"${opts.mostFd ? ` data-zoom-fd="${opts.mostFd}"` : ""}`) +
+    zoomControls(key, "ile") + fondChoice(key);
 }
 
 // ---------------------------------------------------------------- a trail, close up
