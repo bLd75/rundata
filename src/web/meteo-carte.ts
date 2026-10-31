@@ -128,7 +128,10 @@ function dot(l: string, x: number, y: number, fill: string, label: string | unde
   const shape = hollow
     ? `<circle class="sh l-${l}" cx="${x}" cy="${y}" r="${r - 3}" style="fill:#fff;stroke:${fill};stroke-width:5"/>`
     : `<circle class="sh l-${l}" cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`;
-  return shape + (label ? `<text class="mv l-${l}" x="${x}" y="${y + 11}">${esc(label)}</text>` : "");
+  // The figure inside its disc, 68 across with a white edge: 30 units up to 3 characters, smaller beyond, where « 12,3 »
+  // went over the edge (marketing's review n° 457).
+  const fs = !label || label.length <= 3 ? 30 : label.length === 4 ? 24 : 20;
+  return shape + (label ? `<text class="mv l-${l}" x="${x}" y="${y + Math.round(fs * 0.37)}"${fs < 30 ? ` style="font-size:${fs}px"` : ""}>${esc(label)}</text>` : "");
 }
 
 /** A wind pill's width, as windMark() draws it. */

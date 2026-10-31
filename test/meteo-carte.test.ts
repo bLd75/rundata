@@ -160,6 +160,17 @@ describe("the map of every station on /meteo", () => {
     expect(stationsMap(ALL)).not.toContain(`class="l-p wt"`);
   });
 
+  it("writes a figure of 4 characters or more smaller, inside its disc (« 12,3 »)", () => {
+    const a = st({ nom: "Pluviomètre A", id: "1", lon: 55.45, lat: -21.05, pluie_1h: 12.3 });
+    const b = st({ nom: "Pluviomètre B", id: "2", lon: 55.65, lat: -21.25, pluie_1h: 6.9 });
+    const c = st({ nom: "Pluviomètre C", id: "3", lon: 55.35, lat: -21.2, pluie_1h: 104.5 });
+    const html = stationsMap([a, b, c]);
+    const [ax, ay] = project(a.lon, a.lat), [bx, by] = project(b.lon, b.lat), [cx, cy] = project(c.lon, c.lat);
+    expect(html).toContain(`<text class="mv l-p" x="${ax}" y="${ay + 9}" style="font-size:24px">12,3</text>`);
+    expect(html).toContain(`<text class="mv l-p" x="${bx}" y="${by + 11}">6,9</text>`);
+    expect(html).toContain(`<text class="mv l-p" x="${cx}" y="${cy + 7}" style="font-size:20px">104,5</text>`);
+  });
+
   it("keeps a summit's name inside the frame when no place around it is free (« Piton de la Fournaise » at 1280)", () => {
     expect(NOMS_SCRIPT).toContain("inn=(b)=>b[0]>=vb.x+e&&");
     expect(NOMS_SCRIPT).toContain("free=(b)=>inn(b)&&");
