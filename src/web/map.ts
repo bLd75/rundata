@@ -139,13 +139,14 @@ const onPlace = (m: Marker, at: [number, number]) => {
  * dot either, another's or its own once it has left it: half under a pill, a dot reads as a smudge (Saint-Denis's).
  * The same markers, the same places. `widths`: the pills' own, for pills drawn elsewhere (the wind's, meteo-carte.ts).
  * `aside`: how much further a pill may go sideways than up or down (the wind's: two places on one point side by side,
- * which leaves the room above and below to a commune's name).
+ * which leaves the room above and below to a commune's name). `heights`: the marks' own, for discs drawn elsewhere at
+ * their own size (the rain's, meteo-carte.ts).
  */
-export function apart(markers: Marker[], widths = markers.map((m) => markSize(m)[0]), aside = 1): [number, number][] {
+export function apart(markers: Marker[], widths = markers.map((m) => markSize(m)[0]), aside = 1, heights = markers.map((m) => markSize(m)[1])): [number, number][] {
   const places = markers.map((m) => project(m.lon, m.lat));
   const p = places.map(([x, y]): [number, number] => [x, y]);
   const w = widths;
-  const h = markers.map((m) => markSize(m)[1]);
+  const h = heights;
   for (let round = 0; round < 200; round++) {
     let moved = false;
     for (let i = 0; i < p.length; i++) {

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Cache, MemoryStore } from "../src/cache.js";
 import type { HomeData, StationNow } from "../src/web/data.js";
 import { apart, esc, NOMS_SCRIPT, project } from "../src/web/map.js";
-import { ALT_PATH, communeOf, landBreeze, METEO_SCRIPT, rainPill, rejeuScript, rejeuScriptPath, stationsMap, ventText, windPill } from "../src/web/meteo-carte.js";
+import { ALT_PATH, communeOf, discR, landBreeze, METEO_SCRIPT, rainPill, rejeuScript, rejeuScriptPath, stationsMap, ventText, windPill } from "../src/web/meteo-carte.js";
 import { CSS, meteoPage, stationId } from "../src/web/pages.js";
 import { site } from "../src/web/site.js";
 
@@ -160,15 +160,27 @@ describe("the map of every station on /meteo", () => {
     expect(stationsMap(ALL)).not.toContain(`class="l-p wt"`);
   });
 
-  it("writes a figure of 4 characters or more smaller, inside its disc (« 12,3 »)", () => {
+  it("draws a figure of 4 characters or more at the same size, in a wider disc (« 12,3 »), set apart at its size", () => {
     const a = st({ nom: "Pluviomètre A", id: "1", lon: 55.45, lat: -21.05, pluie_1h: 12.3 });
-    const b = st({ nom: "Pluviomètre B", id: "2", lon: 55.65, lat: -21.25, pluie_1h: 6.9 });
+    const b = st({ nom: "Pluviomètre B", id: "2", lon: 55.455, lat: -21.052, pluie_1h: 6.9 });
     const c = st({ nom: "Pluviomètre C", id: "3", lon: 55.35, lat: -21.2, pluie_1h: 104.5 });
     const html = stationsMap([a, b, c]);
-    const [ax, ay] = project(a.lon, a.lat), [bx, by] = project(b.lon, b.lat), [cx, cy] = project(c.lon, c.lat);
-    expect(html).toContain(`<text class="mv l-p" x="${ax}" y="${ay + 9}" style="font-size:24px">12,3</text>`);
-    expect(html).toContain(`<text class="mv l-p" x="${bx}" y="${by + 11}">6,9</text>`);
-    expect(html).toContain(`<text class="mv l-p" x="${cx}" y="${cy + 7}" style="font-size:20px">104,5</text>`);
+    const disc = (v: string) => {
+      const m = html.match(new RegExp(`<circle class="sh l-p" cx="([\\d.-]+)" cy="([\\d.-]+)" r="(\\d+)" fill="[^"]+"/><text class="mv l-p" x="([\\d.-]+)" y="([\\d.-]+)">${v}</text>`))!;
+      expect(+m[4]).toBe(+m[1]);
+      expect(+m[5]).toBe(+m[2] + 11);
+      return { x: +m[1], y: +m[2], r: +m[3] };
+    };
+    const [da, db, dc] = [disc("12,3"), disc("6,9"), disc("104,5")];
+    expect([da.r, db.r, dc.r]).toEqual([49, 34, 59]);
+    // The figure never smaller: no size of its own.
+    expect(html).not.toMatch(/class="mv l-p"[^>]*style=/);
+    // Two neighbours 500 m apart, set apart by their own sizes, their edges 16 units apart at least.
+    expect(Math.max(Math.abs(da.x - db.x) - da.r - db.r, Math.abs(da.y - db.y) - da.r - db.r)).toBeGreaterThanOrEqual(16);
+    expect(discR()).toBe(17);
+    expect(discR("6,2")).toBe(34);
+    expect(discR("12,3")).toBe(49);
+    expect(discR("−10°")).toBe(49);
   });
 
   it("keeps a summit's name inside the frame when no place around it is free (« Piton de la Fournaise » at 1280)", () => {
