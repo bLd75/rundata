@@ -2664,13 +2664,15 @@ export function sportPage(origin: string, data: Cached<SportAnswer> | null, now 
     <p class="pill"><span class="dot"></span>Calendriers et résultats officiels</p>
     <h1>Sport <span class="n974">974</span></h1>
     ${status}
+    ${enLigne() ? `<p class="clubs-top"><a href="/associations/proposer?ref=sport-entete">Votre club organise un événement\u00a0? Proposez-le →</a></p>` : ""}
     ${ask(`Kosa néna konm match sé wikenn la ? Gèt si ${url} é di amwin.`,
       `Quels matchs et quelles compétitions ce week-end à La Réunion ? Lis ${url} et dis-le-moi.`)}
   </div>
   ${next}
 </div>`;
 
-  const body = `<section aria-labelledby="h-venir">
+  const body = `${clubsBox()}
+<section aria-labelledby="h-venir">
   <div class="sec-h"><p class="eyebrow">Quinze prochains jours</p><h2 id="h-venir">À venir</h2>
   <p>Les matchs des championnats régionaux de handball (D1) et de volley (R1) et le calendrier de la Ligue du sport automobile. Heures de La Réunion.</p></div>
   ${d ? (d.a_venir?.length ? bySport(d.a_venir, false) : `<p class="card">Aucun rendez-vous trouvé dans les quinze prochains jours.</p>`) : `<p class="card">Le calendrier se charge : rechargez la page dans quelques secondes.</p>`}
@@ -3031,6 +3033,16 @@ function agendaEnd(r: AgendaRow): string | undefined {
 }
 
 const STATUS: Record<string, string> = { "ANNULÉ": "EventCancelled", "REPORTÉ": "EventPostponed" };
+
+/** At the top of /sport, once the clubs' space is out: the form first, then what /associations explains next. */
+const clubsBox = () =>
+  enLigne()
+    ? `<aside class="card clubs" aria-labelledby="h-clubs">
+  <h2 id="h-clubs">Votre club ou votre association organise un match, un tournoi, une course\u00a0?</h2>
+  <p>Proposez-le en 2\u00a0minutes, sans compte\u00a0: après relecture, il s'affiche avec le nom de votre club.</p>
+  <p class="clubs-go"><a class="btn sun" href="/associations/proposer?ref=sport">Proposer un événement</a> <a href="/associations?ref=sport">Votre club a déjà un agenda en ligne\u00a0?</a></p>
+</aside>`
+    : "";
 
 /** Under the lists of events and of matches, once the clubs' space is out (web/associations.ts). */
 const clubsLink = () =>

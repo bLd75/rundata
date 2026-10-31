@@ -334,6 +334,22 @@ describe("the forms on the site (web/propositions.ts)", () => {
     expect((await handle(new Request("https://rundata.re/associations/lien"), new Cache())).status).toBe(405);
   });
 
+  it("keeps the date and time fields inside their column on a phone, each as tall as the others", () => {
+    // 31/10/2026, Safari on an iPhone: the date past the card's edge, the two hours over each other.
+    expect(FORMS_CSS).toContain(".fo .f{display:grid;gap:.3rem;align-content:start;min-width:0}");
+    expect(FORMS_CSS).toContain("width:100%;min-width:0;max-width:100%}");
+    expect(FORMS_CSS).toContain(".fo input[type=date],.fo input[type=time]{-webkit-appearance:none;appearance:none;min-height:2.9rem;text-align:left}");
+  });
+
+  it("hides the date or time WebKit shows in an empty field, until it is filled or touched", async () => {
+    // An empty « Heure de début » showed the current time, pale, as if filled (Safari on an iPhone, 31/10/2026).
+    expect(FORMS_CSS).toContain(".fo input.vide:not(:focus)::-webkit-datetime-edit{opacity:0}");
+    expect(FORMS_CSS).toContain(".fo input.vide:not(:focus)::-webkit-date-and-time-value{color:transparent;opacity:0}");
+    formulaires.ouvrir(true);
+    const html = await (await handle(new Request("https://rundata.re/associations/proposer", { headers: { accept: "text/html" } }), new Cache())).text();
+    expect(html).toContain(`e.classList.toggle("vide",!e.value);for(const e of document.querySelectorAll(".fo input[type=date],.fo input[type=time]"))`);
+  });
+
   it("shows the link form's outcome by CSS alone", () => {
     const html = plain(formulaires.lienForm("/associations"));
     for (const id of ["lien-merci", "lien-limite", "lien-erreur"]) expect(html).toContain(`id="${id}"`);
@@ -613,8 +629,8 @@ describe("the open feed (web/flux-associations.ts)", () => {
 
 describe("the secret link's page (web/propositions.ts)", () => {
   const page = (secret: string, query = "") => handle(new Request(`https://rundata.re/associations/proposition/${secret}${query}`, { headers: { accept: "text/html" } }), new Cache());
-  const act = (secret: string, fields: Record<string, string>, cache = new Cache(), origin = "https://rundata.re") =>
-    handle(new Request(`https://rundata.re/associations/proposition/${secret}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin }, body: new URLSearchParams(fields).toString() }), cache);
+  const act = (secret: string, fields: Record<string, string>, cache = new Cache(), origin = "https://rundata.re", more: Record<string, string> = {}) =>
+    handle(new Request(`https://rundata.re/associations/proposition/${secret}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin, ...more }, body: new URLSearchParams(fields).toString() }), cache);
 
   it("changes nothing when opened (a mail scanner opens links), keeps the secret out of the canonical address and other sites", async () => {
     formulaires.ouvrir(true);
@@ -649,6 +665,20 @@ describe("the secret link's page (web/propositions.ts)", () => {
     expect(html).toContain("Retirer la proposition");
     expect(html).toContain("Corriger l'événement");
     expect(html).not.toContain('name="email"');
+  });
+
+  it("takes the page's own buttons, sent with « Origin: null » under its no-referrer, only when the browser says same-origin", async () => {
+    // 31/10/2026: « Formulaire d'un autre site refusé. » on « Confirmer l'événement », Safari on an iPhone.
+    formulaires.ouvrir(true);
+    const secret = await propose();
+    expect((await act(secret, { action: "confirmer" }, new Cache(), "null", { "sec-fetch-site": "cross-site" })).status).toBe(403);
+    expect((await act(secret, { action: "confirmer" }, new Cache(), "null", { "sec-fetch-site": "same-site" })).status).toBe(403);
+    expect((await act(secret, { action: "confirmer" }, new Cache(), "null")).status).toBe(403);
+    expect((await act(secret, { action: "confirmer" }, new Cache(), "https://ailleurs.example", { "sec-fetch-site": "same-origin" })).status).toBe(403);
+    expect(etat()).toEqual(["a_confirmer"]);
+    const r = await act(secret, { action: "confirmer" }, new Cache(), "null", { "sec-fetch-site": "same-origin" });
+    expect(r.status).toBe(303);
+    expect(etat()).toEqual(["a_moderer"]);
   });
 
   it("calls off only when its box is ticked, and writes the agendas' copy at once", async () => {

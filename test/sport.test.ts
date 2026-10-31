@@ -8,6 +8,7 @@ import { frenchDays, parisDay, parseGolf, parseLsar, parseVolley } from "../src/
 import { avisBeach, avisIn, avisOf, avisPresse, daysIn, parseLrvb } from "../src/providers/sport-avis.js";
 import { clubOf, clubsNamed, zoneOf } from "../src/sport/clubs.js";
 import { quand, sportTool, window } from "../src/tools/sport.js";
+import { ouvrir } from "../src/web/associations-drapeau.js";
 import { sportPage } from "../src/web/domains.js";
 import type { SportAnswer } from "../src/web/data.js";
 import { withVide } from "../src/vide.js";
@@ -466,5 +467,34 @@ describe("the count of /sport", () => {
     expect(beyond).toContain("quinze prochains jours\u00a0: handball, volley, golf et triathlon\u00a0; les 3 premiers ci-dessous.");
     const few = sportPage("https://rundata.re", { value: { ...answer, a_venir_en_tout: undefined }, fetchedAt: NOW, stale: false }, NOW);
     expect(few).toContain(`<span class="big">3</span><p>rendez-vous officiels dans les quinze prochains jours : handball, volley et triathlon.</p>`);
+  });
+});
+
+describe("the clubs' box of /sport", () => {
+  const match = { sport: "volley-ball", epreuve: "Match A", quand: "samedi 31/10 à 18:00", competition: "Championnat" };
+  const answer = { resume: "", non_couvert: "", sources: [], classements: [], a_venir: [match] } as unknown as SportAnswer;
+  afterEach(() => ouvrir(true));
+
+  it("comes under the introduction, before the first section, with the form as its button, and keeps the line at the bottom", () => {
+    const page = sportPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
+    const box = page.indexOf(`<aside class="card clubs" aria-labelledby="h-clubs">`);
+    expect(box).toBeGreaterThan(page.indexOf("<h1>"));
+    expect(box).toBeLessThan(page.indexOf(`<section aria-labelledby="h-venir">`));
+    expect(page).toContain(`<h2 id="h-clubs">Votre club ou votre association organise un match, un tournoi, une course\u00a0?</h2>`);
+    expect(page).toContain(`<p>Proposez-le en 2\u00a0minutes, sans compte\u00a0: après relecture, il s'affiche avec le nom de votre club.</p>`);
+    expect(page).toContain(`<a class="btn sun" href="/associations/proposer?ref=sport">Proposer un événement</a> <a href="/associations?ref=sport">Votre club a déjà un agenda en ligne\u00a0?</a>`);
+    // In the introduction too, before the next matches, seen on a phone without scrolling.
+    const top = page.indexOf(`<p class="clubs-top"><a href="/associations/proposer?ref=sport-entete">Votre club organise un événement\u00a0? Proposez-le →</a></p>`);
+    expect(top).toBeGreaterThan(page.indexOf("<h1>"));
+    expect(top).toBeLessThan(page.indexOf("Les prochains rendez-vous"));
+    expect(page).toContain(`<a href="/associations?ref=site">Votre club ou votre association n'y est pas\u00a0? Faites connaître vos événements</a>`);
+  });
+
+  it("is not there while the clubs' space is closed", () => {
+    ouvrir(false);
+    const page = sportPage("https://rundata.re", { value: answer, fetchedAt: NOW, stale: false }, NOW);
+    expect(page).not.toContain("h-clubs");
+    expect(page).not.toContain("clubs-top");
+    expect(page).not.toContain("/associations");
   });
 });
