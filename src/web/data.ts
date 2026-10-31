@@ -11,7 +11,7 @@ import type { MerDeNuages } from "../tools/nuages.js";
 import type { Jour } from "../tools/volcan.js";
 import * as arome from "../providers/arome.js";
 import { left, measured } from "../budget.js";
-import { daysApart, distanceKm, localTime } from "../geo.js";
+import { daysApart, distanceKm, localTime, sinceMidnight } from "../geo.js";
 import { type Cache, type Cached, stampOf } from "../cache.js";
 import { INSEE } from "../places/insee.js";
 import { normalize, resolvePlace } from "../places/resolve.js";
@@ -1808,6 +1808,10 @@ async function within<T>(work: Promise<T>, ms: number): Promise<T | null> {
  * (`ReaderWaits`).
  *
  * `incomplete`: whether a copy lacks part of what it should show; such a copy is due after INCOMPLETE_RETRY_SECONDS.
+ *
+ * A copy made before the last midnight in La Réunion is due whatever its age, and every view waits up to `waitMs` for
+ * it to be built again, as a reader does: what it says of the day (« aujourd'hui », the forecast's first day, a count
+ * of days) would be yesterday's. A copy made at 23:58 is 3 minutes old at 00:01, within FRESH_SECONDS.
  */
 /** Whether a reader waits for the refresh of the copy of `key`, `ageMs` old, rather than get it as it is. */
 export type ReaderWaits = (key: string, value: unknown, ageMs: number) => boolean;
@@ -1839,7 +1843,7 @@ export async function snapshot<T>(
   };
   // One read of the stores: a copy fresh in memory, else the newest there is (the data center's cache, KV behind it
   // for the shared copies); its refresh below starts from it rather than reading them again.
-  const seen = await cache.peek<T>(key, now.getTime() - FRESH_SECONDS * 1000).catch(() => undefined);
+  const seen = await cache.peek<T>(key, now.getTime() - Math.min(FRESH_SECONDS, sinceMidnight(now)) * 1000).catch(() => undefined);
   const any = written(cache.getFrom(key, seen, KEEP_SECONDS, run));
   let got: Cached<T> | null;
   try {
@@ -1857,12 +1861,13 @@ export async function snapshot<T>(
     }
     return null;
   }
-  const freshFor = incomplete?.(got.value) ? INCOMPLETE_RETRY_SECONDS : FRESH_SECONDS;
+  const yesterday = daysApart(got.fetchedAt, now) > 0;
+  const freshFor = Math.min(incomplete?.(got.value) ? INCOMPLETE_RETRY_SECONDS : FRESH_SECONDS, sinceMidnight(now));
   const age = now.getTime() - got.fetchedAt.getTime();
   if (age > freshFor * 1000) {
     const fresh = written(cache.getFrom(key, got, freshFor, run));
     const logged = fresh.catch((err) => console.error(`page ${key} : rafraîchissement impossible`, why(err)));
-    if (typeof reader === "function" ? reader(key, got.value, age) : reader) {
+    if (yesterday || (typeof reader === "function" ? reader(key, got.value, age) : reader)) {
       const newer = await within(logged, waitMs);
       if (newer) return newer;
     }

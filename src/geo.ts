@@ -65,6 +65,11 @@ export function daysApart(a: Date, b: Date): number {
   return Math.round((day(b) - day(a)) / 86_400_000);
 }
 
+/** Seconds since the last midnight in La Réunion: a copy older than that was made the day before. */
+export function sinceMidnight(now: Date): number {
+  return Math.floor(((now.getTime() + 4 * 3600_000) % 86_400_000) / 1000);
+}
+
 export function ageMinutes(d: Date, now: Date): number {
   return Math.max(0, Math.round((now.getTime() - d.getTime()) / 60_000));
 }
