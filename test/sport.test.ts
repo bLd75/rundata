@@ -269,7 +269,7 @@ describe("sport", () => {
     const names = (b: { a_venir?: { epreuve: string }[] }) => (b.a_venir ?? []).map((r) => r.epreuve);
     const beach = body(await sportTool(ligue(), "beach_volley", undefined, "a_venir", NOW));
     expect(beach.a_venir).toEqual([expect.objectContaining({ sport: "beach-volley", epreuve: "Championnat de La Réunion Beach U13 U15 et U18", quand: "samedi 24/10" })]);
-    expect(beach.calendrier).toEqual({ texte: expect.stringMatching(/^Le calendrier du beach-volley est celui de la Ligue réunionnaise de volley-ball/), lien: "https://lrvb.re/" });
+    expect(beach.calendrier).toEqual({ texte: "Le calendrier du beach-volley est celui de la Ligue réunionnaise de volley-ball (ses épreuves « beach »). Ses résultats sont dans ses articles, pas dans un tableau que rundata.re lit.", lien: "https://lrvb.re/" });
     const volley = body(await sportTool(ligue(), "volley", undefined, "a_venir", NOW));
     expect(names(volley)).toEqual(expect.arrayContaining(["King Saison 6 Solo étape 2", "Green 3X3 Etape 4"]));
     expect(names(volley)).not.toContain("Championnat de La Réunion Beach U13 U15 et U18");

@@ -45,6 +45,7 @@ describe("the déchèteries of the West", () => {
     expect(r.resume).toMatch(/^Déchets verts acceptés en ce moment : /);
     expect(r.decheteries[0].etat).toBe("à jour");
     expect(r.avertissements.join(" ")).toMatch(/plus de 6 h est à vérifier sur place/);
+    expect(r.avertissements).toContain("Horaires par déchèterie sur sa page du TCO, qui les dit ouvertes 7 jours sur 7.");
     // The next morning, before the staff's first update: nothing said to be the state now.
     const next = body(await annuaireTool(new Cache(), "encombrants", "Le Port", NEXT_MORNING));
     expect(next.resume).toMatch(/À vérifier sur place \(mise à jour il y a plus de 6 h\)/);

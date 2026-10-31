@@ -69,7 +69,7 @@ export async function decheteriesAnswer(cache: Cache, quoi: string, lieu: string
     })),
     avertissements: [
       "État des bennes rempli par les agents sur place, environ toutes les 2 heures : une mise à jour de plus de 6 h est à vérifier sur place.",
-      "Horaires non publiés : le TCO dit ses déchèteries ouvertes 7 jours sur 7\u00a0; voir la page de chaque déchèterie.",
+      "Horaires par déchèterie sur sa page du TCO, qui les dit ouvertes 7 jours sur 7.",
       ...(live?.stale ? ["Copie de secours : le TCO n'a pas répondu."] : []),
       ONLY_TCO,
     ],
