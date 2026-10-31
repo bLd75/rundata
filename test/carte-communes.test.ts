@@ -7,7 +7,7 @@ import { CSS } from "../src/web/pages.js";
 import { pageOf } from "../src/web/places.js";
 
 const ORIGIN = "https://rundata.re";
-const map = (html: string) => html.match(/<figure class="card mapcard(?: nophone)?">(.*?)<\/figure>/s)![1];
+const map = (html: string) => html.match(/<figure class="card mapcard(?: nophone| noms)?">(.*?)<\/figure>/s)![1];
 
 /** A commune's outline (island.json: « M » then relative moves), and whether a point is inside it. */
 const ring = (nom: string) => {
@@ -33,10 +33,12 @@ describe("the names on the map of /communes", () => {
     expect(html).toContain("<tspan");
   });
 
-  it("place no name over another, nor across the edge of the map", () => {
+  it("place no name over another, nor on the edge of the map", () => {
+    // 6 px from the frame on a phone's map, 343 px wide: never on its edge.
+    const edge = Math.ceil((6 * W) / 343);
     const boxes = Object.keys(PLACES).map((nom) => [nom, nameBox(nom)] as const);
     for (const [nom, b] of boxes) {
-      expect(b[0] >= 8 && b[1] >= 8 && b[2] <= W - 8 && b[3] <= H - 8, nom).toBe(true);
+      expect(b[0] >= edge && b[1] >= edge && b[2] <= W - edge && b[3] <= H - edge, nom).toBe(true);
       for (const [other, o] of boxes) if (other !== nom) expect(b[0] < o[2] && o[0] < b[2] && b[1] < o[3] && o[1] < b[3], `${nom} / ${other}`).toBe(false);
     }
   });
@@ -51,8 +53,10 @@ describe("the names on the map of /communes", () => {
     expect(html.match(/<g class="tie"[^>]*>(.*?)<\/g>/s)![1].match(/<path/g)).toHaveLength(Object.values(PLACES).filter((p) => p.tie).length);
   });
 
-  it("are big enough to read on a phone: 10 px on its map 314 px wide", () => {
-    expect((NAME_UNITS * 314) / W).toBeGreaterThanOrEqual(10);
+  it("are big enough to read on a phone: 12 px on its map 343 px wide, its card's margin narrowed", () => {
+    expect((NAME_UNITS * 343) / W).toBeGreaterThanOrEqual(12);
+    expect(communesPage(ORIGIN)).toContain('<figure class="card mapcard noms">');
+    expect(CSS).toContain("@media (max-width:37.49rem){.mapcard.noms{padding:.4rem}}");
   });
 
   it("light a commune's name while it is hovered, and the commune while its name is", () => {

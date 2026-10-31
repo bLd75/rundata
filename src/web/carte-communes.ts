@@ -14,23 +14,23 @@ import island from "../places/island.json" with { type: "json" };
 import routes from "./routes.json" with { type: "json" };
 import { esc } from "./map.js";
 
-/** The names' size in the map's units: 10 px on a phone's map (314 px wide), 14.6 px on a computer's (450 px). */
-export const NAME_UNITS = 33;
+/** The names' size in the map's units: 12 px on a phone's map (343 px wide, its card's margin narrowed: `.mapcard.noms`), 15.8 px on a computer's (450 px). */
+export const NAME_UNITS = 35;
 /** About how wide a letter of a name is, in the map's units (600 weight): what the boxes below are measured with. */
 const LETTER = 0.58 * NAME_UNITS;
 
 /** Each commune's name: its middle, and its lines when not its name on one. `tie`: at sea, a line to its town. */
 export const PLACES: Record<string, { x: number; y: number; lignes?: string[]; tie?: boolean }> = {
   "Saint-Denis": { x: 380, y: 150 },
-  "Sainte-Marie": { x: 520, y: 43, tie: true },
-  "Sainte-Suzanne": { x: 800, y: 62, tie: true },
+  "Sainte-Marie": { x: 520, y: 50, tie: true },
+  "Sainte-Suzanne": { x: 815, y: 62, tie: true },
   "Saint-André": { x: 690, y: 185 },
-  "Bras-Panon": { x: 650, y: 300 },
+  "Bras-Panon": { x: 660, y: 300 },
   "Saint-Benoît": { x: 710, y: 413 },
   "Sainte-Rose": { x: 860, y: 560 },
   "Saint-Philippe": { x: 840, y: 740, lignes: ["Saint-", "Philippe"] },
   "Saint-Joseph": { x: 683, y: 760, lignes: ["Saint-", "Joseph"] },
-  "Petite-Île": { x: 520, y: 868, tie: true },
+  "Petite-Île": { x: 520, y: 858, tie: true },
   "Saint-Pierre": { x: 440, y: 765 },
   "Le Tampon": { x: 565, y: 640 },
   "La Plaine-des-Palmistes": { x: 680, y: 489, lignes: ["Plaine-des-", "Palmistes"] },
@@ -39,12 +39,12 @@ export const PLACES: Record<string, { x: number; y: number; lignes?: string[]; t
   "Entre-Deux": { x: 463, y: 540, lignes: ["Entre-", "Deux"] },
   "Saint-Louis": { x: 334, y: 618, lignes: ["Saint-", "Louis"] },
   "L'Étang-Salé": { x: 190, y: 745, tie: true },
-  "Les Avirons": { x: 118, y: 690, tie: true },
+  "Les Avirons": { x: 134, y: 690, tie: true },
   "Saint-Leu": { x: 205, y: 520 },
   "Les Trois-Bassins": { x: 206, y: 425, lignes: ["Trois-Bassins"] },
   "Saint-Paul": { x: 190, y: 300 },
-  "La Possession": { x: 150, y: 55, tie: true },
-  "Le Port": { x: 80, y: 128, tie: true },
+  "La Possession": { x: 158, y: 55, tie: true },
+  "Le Port": { x: 90, y: 128, tie: true },
 };
 
 /** The communes in the order of the map's shapes, as map.ts draws their links (zoneLinks): SURVOL_SCRIPT pairs them by rank. */
