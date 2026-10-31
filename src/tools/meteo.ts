@@ -10,7 +10,7 @@ import * as radar from "../providers/radar.js";
 import { radarAt } from "./radar.js";
 import { recentRainBlock } from "./pluie-recente.js";
 import { type Observation, type SourceInfo, why } from "../types.js";
-import { fit } from "./representativeness.js";
+import { fit, mieux } from "./representativeness.js";
 import { credits, fr, notFound, placeBlock, show, text, when } from "./format.js";
 
 interface Provider {
@@ -170,7 +170,7 @@ export async function meteoActuelle(cache: Cache, lieu: string | undefined, now 
 
   const ranked = obs
     .map(({ o, stale }) => ({ o, stale, f: fit(r.lieu, o.station) }))
-    .sort((a, b) => a.f.score - b.f.score);
+    .sort((a, b) => mieux(a.f, b.f));
 
   // Best station first. Second, the best one that brings what people ask about and the first lacks (a temperature
   // next to a wind-only beacon), else simply the next best: on a summit, another summit station, not an airport
@@ -185,7 +185,9 @@ export async function meteoActuelle(cache: Cache, lieu: string | undefined, now 
   };
   const elsewhere = (x: (typeof ranked)[number]) => !chosen.includes(x) && !chosen.some((y) => sameSpot(x.o, y.o));
   take(ranked[0]);
-  take(ranked.find((x) => elsewhere(x) && x.o.readings.some((rd) => ASKED.has(rd.variable) && !covered.has(rd.variable))) ?? ranked.find(elsewhere));
+  // At the same spot too when it brings the temperature a wind beacon lacks: Le Port's station is 0,5 km from Cambaie's.
+  const warms = (x: (typeof ranked)[number]) => !covered.has("temperature") && x.o.readings.some((rd) => rd.variable === "temperature");
+  take(ranked.find((x) => (elsewhere(x) || (!chosen.includes(x) && warms(x))) && x.o.readings.some((rd) => ASKED.has(rd.variable) && !covered.has(rd.variable))) ?? ranked.find(elsewhere));
   take(ranked.find((x) => !chosen.includes(x) && x.o.readings.some((rd) => !covered.has(rd.variable))));
 
   const shown = chosen.slice(0, 2);

@@ -7,6 +7,12 @@ import * as meteofrance from "../src/providers/meteofrance.js";
 import { inReunionBeacons } from "../src/providers/pioupiou.js";
 import { SATELLITES, satellitesEvery, temperatureMer } from "../src/tools/mer.js";
 import { meteoActuelle } from "../src/tools/meteo.js";
+import { resume } from "../src/tools/resume.js";
+import { aujourdhuiPage } from "../src/web/aujourdhui.js";
+import { communePage } from "../src/web/commune.js";
+import { esc } from "../src/web/map.js";
+import { placePage } from "../src/web/pages.js";
+import { PAGES } from "../src/web/places.js";
 
 const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
 const NOW = new Date("2026-10-18T19:20:00Z");
@@ -173,7 +179,8 @@ describe("meteo_actuelle with the Météo-France stations", () => {
   const iso = (ms: number) => new Date(ms).toISOString().replace(".000Z", "Z");
 
   /** The recorded 05:18 slot, copied back over the hour before, with a little rain at Cilaos. */
-  async function mfCache() {
+  // With the wind beacons too (Cambaie by Saint-Paul, Kélonia at Saint-Leu…): wind only, no temperature.
+  async function mfCache(beacons = false) {
     const store = new MemoryStore();
     const at = MF_NOW.getTime();
     const rows = meteofrance.parseCsv(fixture("meteofrance_6min.csv"));
@@ -188,8 +195,13 @@ describe("meteo_actuelle with the Météo-France stations", () => {
     }
     await store.put("meteofrance:6min", { value: slots, fetchedAt: at });
     await store.put("metar", { value: JSON.parse(fixture("metar.json")), fetchedAt: at });
-    await store.put("pioupiou:all", { value: [], fetchedAt: at });
-    await store.put("pioupiou:live", { value: [], fetchedAt: at });
+    const piou = beacons ? inReunionBeacons(JSON.parse(fixture("pioupiou_all.json")).data) : [];
+    await store.put("pioupiou:all", { value: piou, fetchedAt: at });
+    await store.put("pioupiou:live", { value: piou.map((b) => ({ ...b, measurements: { ...b.measurements, date: iso(at - 4 * 60_000) } })), fetchedAt: at });
+    if (beacons) {
+      const releves = (JSON.parse(fixture("ffvl_releves.json")) as { date: string }[]).map((r) => ({ ...r, date: iso(at - 4 * 60_000) }));
+      await store.put("ffvl:releves", { value: releves, fetchedAt: at });
+    }
     return new Cache(store, () => at);
   }
 
@@ -217,6 +229,31 @@ describe("meteo_actuelle with the Météo-France stations", () => {
     expect(first.altitude_m).toBeGreaterThan(1500);
     expect(second.altitude_m).toBeGreaterThan(1500);
     expect(r.resume).not.toMatch(/Gillot/);
+  });
+
+  it("answers for Sainte-Rose from a « bonne » station first, before a lower score that is only « moyenne »", async () => {
+    const r = body(await meteoActuelle(await mfCache(), "Sainte-Rose", MF_NOW));
+    expect(r.stations.slice(0, 2)).toMatchObject([{ station: "Gros Piton Sainte-Rose", pertinence: "bonne" }, { station: "Saint-Benoît", pertinence: "moyenne" }]);
+  });
+
+  it("names the same station first on /meteo, /aujourdhui, the commune's page and in the summary, for the 24 communes", async () => {
+    const named = (html: string) => /par la station <b>([^<]+)<\/b>/.exec(html)?.[1];
+    for (const p of PAGES.filter((x) => x.commune)) {
+      const meteo = body(await meteoActuelle(await mfCache(true), p.lieu, MF_NOW, false));
+      const copy = { value: { meteo }, fetchedAt: MF_NOW, stale: false };
+      const r = resume(p, { meteo: copy } as never, MF_NOW);
+      const head = r.meteo?.mesure?.station;
+      expect(head, p.nom).toBeDefined();
+      expect(named(placePage("https://rundata.re", p, copy, MF_NOW)), `/meteo/${p.slug}`).toBe(esc(head!));
+      expect(aujourdhuiPage("https://rundata.re", p, r, copy), `/aujourdhui/${p.slug}`).toContain(`par la station ${esc(head!)} (`);
+      expect(named(communePage("https://rundata.re", p, { place: copy } as never, MF_NOW)), `/communes/${p.slug}`).toBe(esc(head!));
+      // The tool's summary says it too, in its first two stations.
+      expect(meteo.stations.slice(0, 2).map((s: { station: string }) => s.station), p.nom).toContain(head);
+      // Never a station first when a better one has a temperature.
+      const warm = meteo.stations.filter((s: { mesures: { temperature?: string } }) => s.mesures.temperature);
+      const rank = (s: { pertinence: string }) => ["bonne", "moyenne", "faible"].indexOf(s.pertinence);
+      expect(rank(warm.find((s: { station: string }) => s.station === head)), p.nom).toBe(Math.min(...warm.map(rank)));
+    }
   });
 
   it("tours the island with a fixed selection, without the airport twice", async () => {

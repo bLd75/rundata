@@ -53,6 +53,7 @@ import { coastal, PAGES, type PlacePage, slugify } from "./places.js";
 import { bathingBlock } from "./baignade.js";
 import { crumbBar, crumbs } from "./domains.js";
 import { PASSES } from "../historique/cyclones-passes.js";
+import { enTete } from "../tools/representativeness.js";
 
 export const SITE = "rundata.re";
 // The headings' typeface (scripts/build-font.py), a file of public/. Bump the number when the font changes: browsers
@@ -1687,10 +1688,9 @@ export function placePage(origin: string, p: PlacePage, data: Cached<PlaceData> 
   const g = porte(alerte);
   const place = p.place;
   const d = data?.value;
-  const stations = (d?.meteo?.stations ?? []).filter(
-    (s, i, all) => !all.slice(0, i).some((o) => o.distance_km != null && s.distance_km != null && Math.abs(o.distance_km - s.distance_km) < 1),
-  ).slice(0, 2);
-  const first = stations.find((s) => s.mesures.temperature);
+  // The answer's first two are never at the same spot (meteo.ts, sameSpot).
+  const stations = (d?.meteo?.stations ?? []).slice(0, 2);
+  const first = enTete(d?.meteo?.stations);
   const kind = p.precision ?? KIND[place.type] ?? place.type;
   const where = place.nom !== p.nom ? ` Les mesures et la prévision sont données pour ${esc(place.nom)}.` : "";
   const alt = place.altitude_m != null ? `, à ${place.altitude_m.toLocaleString("fr-FR")} m d'altitude` : "";
