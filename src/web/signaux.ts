@@ -18,6 +18,7 @@
  */
 import { bodyText } from "../http.js";
 import type { Recorder } from "../metrics.js";
+import { cheminMasque } from "../chemin-secret.js";
 
 export const SIGNAL_PATH = "/signal";
 
@@ -93,7 +94,8 @@ export function lire(body: string): Signal | undefined {
   const path = f.get("p") ?? "";
   const v = f.get("v") ?? "";
   if (!event || !PATH.test(path)) return undefined;
-  const s = read(f, event, path, v);
+  // A page with a club's secret in its path is written without it (chemin-secret.ts).
+  const s = read(f, event, cheminMasque(path), v);
   return s && f.get("i") === "1" ? { ...s, team: true } : s;
 }
 
